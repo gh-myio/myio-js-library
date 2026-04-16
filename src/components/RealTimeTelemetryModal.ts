@@ -7,23 +7,26 @@
  * @module RealTimeTelemetryModal
  */
 
-import { attach as attachDateRangePicker, type DateRangeControl } from './premium-modals/internal/DateRangePickerJQ';
+import {
+  attach as attachDateRangePicker,
+  type DateRangeControl,
+} from './premium-modals/internal/DateRangePickerJQ';
 
 export interface RealTimeTelemetryParams {
-  token: string;                    // JWT token for ThingsBoard authentication
-  deviceId: string;                 // ThingsBoard device UUID
-  tbBaseUrl?: string;               // ThingsBoard base URL (default: '' = relative to current origin)
-  deviceLabel?: string;             // Device name/label (default: "Dispositivo")
-  deviceName?: string;              // Device identifier for check_device endpoint (default: deviceLabel)
-  customerName?: string;            // Customer display name shown as badge in the modal header
-  centralId?: string;               // Gateway central ID for check_device polling
-  customerId?: string;              // TB customer UUID — used to read/save polling interval attribute
-  userEmail?: string;               // Logged-in user email — shows gear button if @myio.com.br
-  telemetryKeys?: string[];         // Keys to monitor (default: ['voltage_a', 'voltage_b', 'voltage_c', 'total_current', 'consumption'])
-  refreshInterval?: number;         // Fallback refresh interval when centralId not provided (default: 30000)
-  historyPoints?: number;           // Max chart points kept in memory (default: 500)
-  onClose?: () => void;             // Callback when modal closes
-  locale?: 'pt-BR' | 'en-US';       // Locale for formatting (default: 'pt-BR')
+  token: string; // JWT token for ThingsBoard authentication
+  deviceId: string; // ThingsBoard device UUID
+  tbBaseUrl?: string; // ThingsBoard base URL (default: '' = relative to current origin)
+  deviceLabel?: string; // Device name/label (default: "Dispositivo")
+  deviceName?: string; // Device identifier for check_device endpoint (default: deviceLabel)
+  customerName?: string; // Customer display name shown as badge in the modal header
+  centralId?: string; // Gateway central ID for check_device polling
+  customerId?: string; // TB customer UUID — used to read/save polling interval attribute
+  userEmail?: string; // Logged-in user email — shows gear button if @myio.com.br
+  telemetryKeys?: string[]; // Keys to monitor (default: ['voltage_a', 'voltage_b', 'voltage_c', 'total_current', 'consumption'])
+  refreshInterval?: number; // Fallback refresh interval when centralId not provided (default: 30000)
+  historyPoints?: number; // Max chart points kept in memory (default: 500)
+  onClose?: () => void; // Callback when modal closes
+  locale?: 'pt-BR' | 'en-US'; // Locale for formatting (default: 'pt-BR')
 }
 
 interface TelemetryValue {
@@ -44,30 +47,30 @@ export interface RealTimeTelemetryInstance {
 /** Per-key chart line color. */
 const KEY_COLORS: Record<string, string> = {
   // Power (total + phases)
-  consumption:   '#667eea',
-  power:         '#667eea',
-  a:             '#5a6fcf',
-  b:             '#7b5ea7',
-  c:             '#4a8f6f',
+  consumption: '#667eea',
+  power: '#667eea',
+  a: '#5a6fcf',
+  b: '#7b5ea7',
+  c: '#4a8f6f',
   // Current (total + phases)
   total_current: '#f6921e',
-  current:       '#f6921e',
-  current_a:     '#e8531a',
-  current_b:     '#c0890e',
-  current_c:     '#d4691e',
+  current: '#f6921e',
+  current_a: '#e8531a',
+  current_b: '#c0890e',
+  current_c: '#d4691e',
   // Voltage phases
-  voltage_a:     '#e74c3c',
-  voltage_b:     '#27ae60',
-  voltage_c:     '#8e44ad',
+  voltage_a: '#e74c3c',
+  voltage_b: '#27ae60',
+  voltage_c: '#8e44ad',
   // Power factor (total + phases)
-  powerFactor:   '#16a085',
-  fp_a:          '#0e9e8a',
-  fp_b:          '#128070',
-  fp_c:          '#169e60',
+  powerFactor: '#16a085',
+  fp_a: '#0e9e8a',
+  fp_b: '#128070',
+  fp_c: '#169e60',
   // Other
-  temperature:   '#9b59b6',
-  energy:        '#1abc9c',
-  activePower:   '#e67e22',
+  temperature: '#9b59b6',
+  energy: '#1abc9c',
+  activePower: '#e67e22',
   reactivePower: '#8e44ad',
   apparentPower: '#2980b9',
 };
@@ -97,38 +100,52 @@ const TELEMETRY_CONFIG: Record<string, { label: string; unit: string; icon: stri
   apparentPower: { label: 'Potência Aparente', unit: 'kVA', icon: '📈', decimals: 2 },
 
   // Power factor phases + total (dimensionless 0–1, pseudo-unit 'fp')
-  fp_a: { label: 'Fat. Potência Fase A', unit: 'fp', icon: '📐', decimals: 3 },
-  fp_b: { label: 'Fat. Potência Fase B', unit: 'fp', icon: '📐', decimals: 3 },
-  fp_c: { label: 'Fat. Potência Fase C', unit: 'fp', icon: '📐', decimals: 3 },
+  fp_a: { label: 'Fat. Pot. A', unit: 'fp', icon: '📐', decimals: 3 },
+  fp_b: { label: 'Fat. Pot. B', unit: 'fp', icon: '📐', decimals: 3 },
+  fp_c: { label: 'Fat. Pot. C', unit: 'fp', icon: '📐', decimals: 3 },
   powerFactor: { label: 'Fator de Potência', unit: 'fp', icon: '📐', decimals: 3 },
 
   // Temperature
-  temperature: { label: 'Temperatura', unit: '°C', icon: '🌡️', decimals: 1 }
+  temperature: { label: 'Temperatura', unit: '°C', icon: '🌡️', decimals: 1 },
 };
 
 /** Short label for each key when shown as a phase row inside a grouped card. */
 const PHASE_SHORT_LABEL: Record<string, string> = {
-  consumption: 'Total', power: 'Total',
-  a: 'Fase A', b: 'Fase B', c: 'Fase C',
-  total_current: 'Total', current: 'Total',
-  current_a: 'Fase A', current_b: 'Fase B', current_c: 'Fase C',
-  voltage_a: 'Fase A', voltage_b: 'Fase B', voltage_c: 'Fase C',
-  fp_a: 'Fase A', fp_b: 'Fase B', fp_c: 'Fase C', powerFactor: 'Total',
-  temperature: 'Temp', energy: 'Total',
-  activePower: 'Total', reactivePower: 'Total', apparentPower: 'Total',
+  consumption: 'Total',
+  power: 'Total',
+  a: 'Fase A',
+  b: 'Fase B',
+  c: 'Fase C',
+  total_current: 'Total',
+  current: 'Total',
+  current_a: 'Fase A',
+  current_b: 'Fase B',
+  current_c: 'Fase C',
+  voltage_a: 'Fase A',
+  voltage_b: 'Fase B',
+  voltage_c: 'Fase C',
+  fp_a: 'Fase A',
+  fp_b: 'Fase B',
+  fp_c: 'Fase C',
+  powerFactor: 'Total',
+  temperature: 'Temp',
+  energy: 'Total',
+  activePower: 'Total',
+  reactivePower: 'Total',
+  apparentPower: 'Total',
 };
 
 /** Group header meta by unit. */
 const UNIT_GROUP_META: Record<string, { label: string; icon: string }> = {
-  'W':    { label: 'Potência',          icon: '⚙️' },
-  'A':    { label: 'Corrente',          icon: '🔌' },
-  'V':    { label: 'Tensão',            icon: '⚡' },
-  'fp':   { label: 'Fator de Potência', icon: '📐' },
-  '°C':   { label: 'Temperatura',       icon: '🌡️' },
-  'kWh':  { label: 'Energia',           icon: '📊' },
-  'kW':   { label: 'Potência Ativa',    icon: '⚙️' },
-  'kVAr': { label: 'Pot. Reativa',      icon: '🔄' },
-  'kVA':  { label: 'Pot. Aparente',     icon: '📈' },
+  W: { label: 'Potência', icon: '⚙️' },
+  A: { label: 'Corrente', icon: '🔌' },
+  V: { label: 'Tensão', icon: '⚡' },
+  fp: { label: 'Fator de Potência', icon: '📐' },
+  '°C': { label: 'Temperatura', icon: '🌡️' },
+  kWh: { label: 'Energia', icon: '📊' },
+  kW: { label: 'Potência Ativa', icon: '⚙️' },
+  kVAr: { label: 'Pot. Reativa', icon: '🔄' },
+  kVA: { label: 'Pot. Aparente', icon: '📈' },
 };
 
 const STRINGS = {
@@ -136,7 +153,7 @@ const STRINGS = {
     title: 'Telemetrias Instantâneas',
     close: 'Fechar',
     pause: 'Pausar',
-    resume: 'Retomar',
+    resume: 'Reiniciar',
     export: 'Exportar CSV',
     autoUpdate: 'Atualização automática',
     lastUpdate: 'Última atualização',
@@ -145,7 +162,7 @@ const STRINGS = {
     error: 'Erro ao carregar telemetrias',
     trend_up: 'Aumentando',
     trend_down: 'Diminuindo',
-    trend_stable: 'Estável'
+    trend_stable: 'Estável',
   },
   'en-US': {
     title: 'Real-Time Telemetry',
@@ -160,14 +177,16 @@ const STRINGS = {
     error: 'Error loading telemetry',
     trend_up: 'Increasing',
     trend_down: 'Decreasing',
-    trend_stable: 'Stable'
-  }
+    trend_stable: 'Stable',
+  },
 };
 
 /**
  * Open Real-Time Telemetry Modal
  */
-export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams): Promise<RealTimeTelemetryInstance> {
+export async function openRealTimeTelemetryModal(
+  params: RealTimeTelemetryParams
+): Promise<RealTimeTelemetryInstance> {
   const {
     token,
     deviceId,
@@ -179,29 +198,39 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
     customerId,
     userEmail,
     telemetryKeys = [
-      'voltage_a', 'voltage_b', 'voltage_c',
-      'current_a', 'current_b', 'current_c', 'total_current',
-      'a', 'b', 'c', 'consumption',
-      'fp_a', 'fp_b', 'fp_c',
+      'voltage_a',
+      'voltage_b',
+      'voltage_c',
+      'current_a',
+      'current_b',
+      'current_c',
+      'total_current',
+      'a',
+      'b',
+      'c',
+      'consumption',
+      'fp_a',
+      'fp_b',
+      'fp_c',
     ],
     refreshInterval = 30_000,
     historyPoints = 500,
     onClose,
-    locale = 'pt-BR'
+    locale = 'pt-BR',
   } = params;
 
   const strings = STRINGS[locale] || STRINGS['pt-BR'];
   const deviceCheckName = deviceName ?? ''; // identifier for check_device endpoint (must be set explicitly — do not fall back to label)
-  const isMyioUser = !!(userEmail?.toLowerCase().includes('@myio.com.br'));
+  const isMyioUser = !!userEmail?.toLowerCase().includes('@myio.com.br');
   let checkDeviceIntervalMs = 30_000; // default 30 s; overridden by customer attribute
-  let checkDeviceWaitMs     = 15_000; // default 15 s wait after check_device; overridden by customer attribute
+  let checkDeviceWaitMs = 15_000; // default 15 s wait after check_device; overridden by customer attribute
 
   const SESSION_LIMIT_MS = 5 * 60 * 1000; // 5-minute auto-pause session
 
   let refreshIntervalId: number | null = null;
   let countdownTimerId: number | null = null; // 1-second interval for the footer countdown
-  let nextTickAt = 0;                          // epoch ms when the next check_device tick fires
-  let isFirstTick = true;                      // first tick uses 3 s countdown + 8 s wait instead of 30 s + 15 s
+  let nextTickAt = 0; // epoch ms when the next check_device tick fires
+  let isFirstTick = true; // first tick uses 3 s countdown + 8 s wait instead of 30 s + 15 s
   let isPaused = false;
   let sessionCountdownTimerId: number | null = null;
   let sessionExpiresAt = 0;
@@ -218,7 +247,10 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
   const DEVICE_OK_DELTA_MS = 60_000; // telemetry must be ≤60 s fresh for Device OK
 
   // check_device call history for the status tooltip
-  interface CheckDeviceRecord { ts: number; status: 'ok' | 'offline'; }
+  interface CheckDeviceRecord {
+    ts: number;
+    status: 'ok' | 'offline';
+  }
   const checkDeviceHistory: CheckDeviceRecord[] = [];
   const MAX_CHECK_DEVICE_HISTORY = 60;
   let statusTooltipEl: HTMLDivElement | null = null;
@@ -229,7 +261,9 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
   let realtimeHistorySnapshot: Map<string, Array<{ x: number; y: number }>> | null = null;
   let realtimeLastKnownSnapshot: Map<string, number> | null = null;
   let chart: any = null;
-  let selectedChartKeys: string[] = [telemetryKeys.includes('consumption') ? 'consumption' : telemetryKeys[0] ?? 'consumption'];
+  let selectedChartKeys: string[] = [
+    telemetryKeys.includes('consumption') ? 'consumption' : (telemetryKeys[0] ?? 'consumption'),
+  ];
   let selectedAgg: 'NONE' | 'MIN' | 'MAX' | 'AVG' | 'SUM' | 'COUNT' = 'NONE';
   let selectedLimit: number = 500;
   let selectedIntervalMs: number = 0; // 0 = Padrão (don't send interval param)
@@ -284,7 +318,7 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
       }
 
       .myio-realtime-telemetry-header {
-        padding: 4px 12px;
+        padding: 8px 12px;
         border-bottom: none;
         display: flex;
         justify-content: space-between;
@@ -292,18 +326,18 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
         background: #3e1a7d;
         color: white;
         border-radius: 12px 12px 0 0;
-        min-height: 20px;
+        min-height: 32px;
       }
 
       .myio-realtime-telemetry-title {
-        font-size: 18px;
+        font-size: 16px;
         font-weight: 600;
-        margin: 6px;
+        margin: 0;
         display: flex;
         align-items: center;
         gap: 8px;
         color: white;
-        line-height: 2;
+        line-height: 1.4;
       }
 
       .myio-rtt-device-label {
@@ -1096,9 +1130,12 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
 
     <div class="myio-realtime-telemetry-container">
       <div class="myio-realtime-telemetry-header">
-        <h2 class="myio-realtime-telemetry-title">
-          ⚡ ${strings.title}${deviceLabel ? `<span class="myio-rtt-device-label">${deviceLabel}${deviceCheckName && deviceCheckName !== deviceLabel ? `<span class="myio-rtt-device-name">(${deviceCheckName})</span>` : ''}</span>` : ''}${customerName ? `<span class="myio-rtt-customer-badge">${customerName}</span>` : ''}${(() => { const v = (window as any).MyIOLibrary?.version; return v ? `<span class="myio-rtt-version-badge">v${v}</span>` : ''; })()}
-        </h2>
+        <div class="myio-realtime-telemetry-title">
+          ⚡ ${strings.title}${deviceLabel ? `<span class="myio-rtt-device-label">${deviceLabel}${deviceCheckName && deviceCheckName !== deviceLabel ? `<span class="myio-rtt-device-name">(${deviceCheckName})</span>` : ''}</span>` : ''}${customerName ? `<span class="myio-rtt-customer-badge">${customerName}</span>` : ''}${(() => {
+            const v = (window as any).MyIOLibrary?.version;
+            return v ? `<span class="myio-rtt-version-badge">v${v}</span>` : '';
+          })()}
+        </div>
         <div class="myio-rtt-header-actions">
           <button class="myio-rtt-header-btn" id="rtt-gear-btn" title="Configurações de polling" style="display:none;">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;">
@@ -1146,16 +1183,18 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
                   <button type="button" class="myio-rtt-multiselect-trigger" id="rtt-multiselect-trigger"
                     title="Selecione as telemetrias para o gráfico (máx. 2 grandezas diferentes)">
                     <span class="myio-rtt-multiselect-summary" id="rtt-multiselect-summary">
-                      ${selectedChartKeys.map(k => (TELEMETRY_CONFIG[k] || { label: k }).label).join(', ')}
+                      ${selectedChartKeys.map((k) => (TELEMETRY_CONFIG[k] || { label: k }).label).join(', ')}
                     </span>
                     <span class="myio-rtt-multiselect-caret">▾</span>
                   </button>
                   <div class="myio-rtt-multiselect-dropdown" id="rtt-multiselect-dropdown">
-                    ${telemetryKeys.map(k => {
-                      const cfg = TELEMETRY_CONFIG[k] || { label: k, icon: '📊' };
-                      const isSelected = selectedChartKeys.includes(k);
-                      return `<label class="myio-rtt-multiselect-option"><input type="checkbox" value="${k}"${isSelected ? ' checked' : ''}>${cfg.icon ? cfg.icon + ' ' : ''}${cfg.label}</label>`;
-                    }).join('')}
+                    ${telemetryKeys
+                      .map((k) => {
+                        const cfg = TELEMETRY_CONFIG[k] || { label: k, icon: '📊' };
+                        const isSelected = selectedChartKeys.includes(k);
+                        return `<label class="myio-rtt-multiselect-option"><input type="checkbox" value="${k}"${isSelected ? ' checked' : ''}>${cfg.icon ? cfg.icon + ' ' : ''}${cfg.label}</label>`;
+                      })
+                      .join('')}
                   </div>
                 </div>
               </div>
@@ -1230,7 +1269,7 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
         </div>
 
         <div class="myio-telemetry-actions">
-          <span id="rtt-session-countdown" style="display:none;font-size:12px;font-weight:600;color:#667eea;background:rgba(102,126,234,0.1);padding:2px 10px;border-radius:10px;white-space:nowrap;"></span>
+          <span id="rtt-session-countdown" style="display:none;align-items:center;font-size:12px;font-weight:600;color:#667eea;background:rgba(102,126,234,0.1);padding:0 10px;height:32px;line-height:32px;border-radius:10px;white-space:nowrap;"></span>
           <button class="myio-telemetry-btn myio-telemetry-btn-secondary" id="pause-btn">
             <span id="pause-btn-icon">⏸️</span>
             <span id="pause-btn-text">${strings.pause}</span>
@@ -1279,7 +1318,7 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
   const lastUpdateText = overlay.querySelector('#last-update-text') as HTMLSpanElement;
   const countdownText = overlay.querySelector('#rtt-countdown-text') as HTMLSpanElement;
   const centralBadge = overlay.querySelector('#rtt-central-badge') as HTMLSpanElement | null;
-  const deviceBadge  = overlay.querySelector('#rtt-device-badge')  as HTMLSpanElement | null;
+  const deviceBadge = overlay.querySelector('#rtt-device-badge') as HTMLSpanElement | null;
   const chartTitleEl = overlay.querySelector('#chart-title') as HTMLElement | null;
 
   /** Update the chart title and status icon based on currentMode + device/central status. */
@@ -1290,7 +1329,7 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
       return;
     }
     // Realtime mode: compute status icon
-    const deviceOk = lastTelemetryUpdateMs > 0 && (Date.now() - lastTelemetryUpdateMs) <= DEVICE_OK_DELTA_MS;
+    const deviceOk = lastTelemetryUpdateMs > 0 && Date.now() - lastTelemetryUpdateMs <= DEVICE_OK_DELTA_MS;
     let iconHtml = '';
     if (centralStatus === 'unknown') {
       iconHtml = ''; // no icon while status is still loading
@@ -1310,25 +1349,30 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
     if (!centralBadge || !deviceBadge) return;
     if (centralStatus === 'unknown') {
       centralBadge.style.display = 'none';
-      deviceBadge.style.display  = 'none';
+      deviceBadge.style.display = 'none';
       return;
     }
     if (centralStatus === 'ok') {
-      centralBadge.textContent   = 'CENTRAL OK';
-      centralBadge.style.cssText = 'display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;letter-spacing:0.3px;color:#fff;background:#27ae60;';
-      const deviceOk = lastTelemetryUpdateMs > 0 && (Date.now() - lastTelemetryUpdateMs) <= DEVICE_OK_DELTA_MS;
+      centralBadge.textContent = 'CENTRAL OK';
+      centralBadge.style.cssText =
+        'display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;letter-spacing:0.3px;color:#fff;background:#27ae60;';
+      const deviceOk = lastTelemetryUpdateMs > 0 && Date.now() - lastTelemetryUpdateMs <= DEVICE_OK_DELTA_MS;
       if (deviceOk) {
-        deviceBadge.textContent   = 'Device OK';
-        deviceBadge.style.cssText = 'display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;letter-spacing:0.3px;color:#fff;background:#27ae60;';
+        deviceBadge.textContent = 'Device OK';
+        deviceBadge.style.cssText =
+          'display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;letter-spacing:0.3px;color:#fff;background:#27ae60;';
       } else {
-        deviceBadge.textContent   = 'Device OFFLINE';
-        deviceBadge.style.cssText = 'display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;letter-spacing:0.3px;color:#fff;background:#e74c3c;';
+        deviceBadge.textContent = 'Device OFFLINE';
+        deviceBadge.style.cssText =
+          'display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;letter-spacing:0.3px;color:#fff;background:#e74c3c;';
       }
     } else {
-      centralBadge.textContent   = 'CENTRAL OFFLINE';
-      centralBadge.style.cssText = 'display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;letter-spacing:0.3px;color:#fff;background:#e74c3c;';
-      deviceBadge.textContent    = 'Device OFFLINE';
-      deviceBadge.style.cssText  = 'display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;letter-spacing:0.3px;color:#fff;background:#e74c3c;';
+      centralBadge.textContent = 'CENTRAL OFFLINE';
+      centralBadge.style.cssText =
+        'display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;letter-spacing:0.3px;color:#fff;background:#e74c3c;';
+      deviceBadge.textContent = 'Device OFFLINE';
+      deviceBadge.style.cssText =
+        'display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;letter-spacing:0.3px;color:#fff;background:#e74c3c;';
     }
     updateChartTitle();
   }
@@ -1339,7 +1383,10 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
   /** Start/reset the 1-second countdown ticker in the footer. */
   function startCountdown(targetMs: number, label = 'próxima em'): void {
     nextTickAt = Date.now() + targetMs;
-    if (countdownTimerId !== null) { clearInterval(countdownTimerId); countdownTimerId = null; }
+    if (countdownTimerId !== null) {
+      clearInterval(countdownTimerId);
+      countdownTimerId = null;
+    }
     countdownTimerId = window.setInterval(() => {
       const remaining = Math.max(0, Math.ceil((nextTickAt - Date.now()) / 1000));
       if (countdownText) {
@@ -1350,7 +1397,10 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
 
   /** Stop the countdown ticker and clear the display. */
   function clearCountdown(): void {
-    if (countdownTimerId !== null) { clearInterval(countdownTimerId); countdownTimerId = null; }
+    if (countdownTimerId !== null) {
+      clearInterval(countdownTimerId);
+      countdownTimerId = null;
+    }
     if (countdownText) countdownText.textContent = '';
   }
 
@@ -1365,7 +1415,7 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
           const mins = Math.floor(remaining / 60);
           const secs = remaining % 60;
           sessionCountdownEl.textContent = `⏱ ${mins}:${secs.toString().padStart(2, '0')}`;
-          sessionCountdownEl.style.display = 'inline-block';
+          sessionCountdownEl.style.display = 'inline-flex';
         }
       }
       if (remaining <= 0) {
@@ -1373,7 +1423,7 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
         if (!isPaused) {
           togglePause();
           clearCountdown();
-          showRTTToast('Sessão de 5 min encerrada. Clique em Retomar para continuar.', 'warn');
+          showRTTToast('Sessão de 5 min encerrada. Clique em Reiniciar para um novo ciclo.', 'warn');
         }
       }
     }, 1000);
@@ -1381,7 +1431,10 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
 
   /** Stop the session countdown and hide the element. */
   function stopSession(): void {
-    if (sessionCountdownTimerId !== null) { clearInterval(sessionCountdownTimerId); sessionCountdownTimerId = null; }
+    if (sessionCountdownTimerId !== null) {
+      clearInterval(sessionCountdownTimerId);
+      sessionCountdownTimerId = null;
+    }
     if (sessionCountdownEl) sessionCountdownEl.style.display = 'none';
   }
 
@@ -1418,19 +1471,19 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
 
   /** Returns distinct grandezas (units) for a set of keys. Voltage phases count as one. */
   function distinctGrandezas(keys: string[]): string[] {
-    const units = new Set(keys.map(k => (TELEMETRY_CONFIG[k] || { unit: '' }).unit));
+    const units = new Set(keys.map((k) => (TELEMETRY_CONFIG[k] || { unit: '' }).unit));
     return [...units];
   }
 
   /** Sync the custom multiselect UI to reflect the current selectedChartKeys. */
   function syncSelectUI(): void {
     // Update checkboxes
-    chartKeyMultiDiv?.querySelectorAll<HTMLInputElement>('input[type="checkbox"]').forEach(cb => {
+    chartKeyMultiDiv?.querySelectorAll<HTMLInputElement>('input[type="checkbox"]').forEach((cb) => {
       cb.checked = selectedChartKeys.includes(cb.value);
     });
     // Update summary text
     if (multiselectSummary) {
-      const labels = selectedChartKeys.map(k => (TELEMETRY_CONFIG[k] || { label: k }).label);
+      const labels = selectedChartKeys.map((k) => (TELEMETRY_CONFIG[k] || { label: k }).label);
       multiselectSummary.textContent = labels.length > 0 ? labels.join(', ') : 'Nenhuma';
     }
   }
@@ -1468,7 +1521,7 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
     }
 
     // 3rd grandeza: try to dequeue power
-    const powerIdx = selectedChartKeys.findIndex(k => POWER_KEYS.has(k));
+    const powerIdx = selectedChartKeys.findIndex((k) => POWER_KEYS.has(k));
     if (powerIdx !== -1) {
       selectedChartKeys.splice(powerIdx, 1);
       selectedChartKeys.push(key);
@@ -1569,13 +1622,18 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
   /** Build history list rows HTML. */
   function buildTooltipHistoryRows(key: string, color: string): string {
     const history = telemetryHistory.get(key) || [];
-    const recent  = [...history].reverse().slice(0, 30);
-    if (recent.length === 0) return '<div class="rtt-tt-row"><span class="rtt-tt-row-ts">Sem dados ainda</span></div>';
-    return recent.map(p => `
+    const recent = [...history].reverse().slice(0, 30);
+    if (recent.length === 0)
+      return '<div class="rtt-tt-row"><span class="rtt-tt-row-ts">Sem dados ainda</span></div>';
+    return recent
+      .map(
+        (p) => `
       <div class="rtt-tt-row">
-        <span class="rtt-tt-row-ts">${new Date(p.x).toLocaleTimeString(locale, { hour:'2-digit', minute:'2-digit', second:'2-digit' })}</span>
+        <span class="rtt-tt-row-ts">${new Date(p.x).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
         <span class="rtt-tt-row-val" style="color:${color};">${getFormattedValue(key, p.y)}</span>
-      </div>`).join('');
+      </div>`
+      )
+      .join('');
   }
 
   /** Open (or replace) card detail tooltip for a given key. */
@@ -1583,13 +1641,19 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
     closeCardTooltip();
     injectCardTooltipStyles();
 
-    const cfg   = TELEMETRY_CONFIG[key] || { label: key, unit: '', icon: '📊', decimals: 2 };
+    const cfg = TELEMETRY_CONFIG[key] || { label: key, unit: '', icon: '📊', decimals: 2 };
     const color = KEY_COLORS[key] || '#667eea';
     const history = telemetryHistory.get(key) || [];
     const latestPoint = history[history.length - 1];
-    const latestVal   = latestPoint ? getFormattedValue(key, latestPoint.y) : '--';
-    const latestTime  = latestPoint
-      ? new Date(latestPoint.x).toLocaleString(locale, { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit' })
+    const latestVal = latestPoint ? getFormattedValue(key, latestPoint.y) : '--';
+    const latestTime = latestPoint
+      ? new Date(latestPoint.x).toLocaleString(locale, {
+          day: '2-digit',
+          month: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        })
       : '--';
 
     const tooltip = document.createElement('div');
@@ -1620,12 +1684,12 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
     // Position near anchor
     const rect = anchorEl.getBoundingClientRect();
     const left = Math.min(rect.right + 8, window.innerWidth - 320);
-    const top  = Math.max(8, Math.min(rect.top, window.innerHeight - 380));
+    const top = Math.max(8, Math.min(rect.top, window.innerHeight - 380));
     tooltip.style.left = `${left}px`;
-    tooltip.style.top  = `${top}px`;
+    tooltip.style.top = `${top}px`;
 
     document.body.appendChild(tooltip);
-    cardTooltipEl  = tooltip;
+    cardTooltipEl = tooltip;
     cardTooltipKey = key;
 
     // Drag support
@@ -1655,18 +1719,19 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
   /** Refresh tooltip current value + history if open. */
   function refreshCardTooltip(): void {
     if (!cardTooltipEl || !cardTooltipKey) return;
-    const key     = cardTooltipKey;
-    const color   = KEY_COLORS[key] || '#667eea';
+    const key = cardTooltipKey;
+    const color = KEY_COLORS[key] || '#667eea';
     const history = telemetryHistory.get(key) || [];
-    const latest  = history[history.length - 1];
+    const latest = history[history.length - 1];
     if (!latest) return;
 
-    const valEl  = cardTooltipEl.querySelector('#rtt-tt-val');
-    const tsEl   = cardTooltipEl.querySelector('#rtt-tt-ts');
+    const valEl = cardTooltipEl.querySelector('#rtt-tt-val');
+    const tsEl = cardTooltipEl.querySelector('#rtt-tt-ts');
     const listEl = cardTooltipEl.querySelector('#rtt-tt-list');
-    if (valEl)  valEl.textContent = getFormattedValue(key, latest.y);
-    if (tsEl)   tsEl.textContent  = `Recebido: ${new Date(latest.x).toLocaleString(locale, { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit' })}`;
-    if (listEl) listEl.innerHTML  = buildTooltipHistoryRows(key, color);
+    if (valEl) valEl.textContent = getFormattedValue(key, latest.y);
+    if (tsEl)
+      tsEl.textContent = `Recebido: ${new Date(latest.x).toLocaleString(locale, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+    if (listEl) listEl.innerHTML = buildTooltipHistoryRows(key, color);
   }
 
   /** Destroy card tooltip. */
@@ -1688,33 +1753,45 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
     }
     injectCardTooltipStyles();
 
-    const ok    = checkDeviceHistory.filter(r => r.status === 'ok').length;
-    const fail  = checkDeviceHistory.filter(r => r.status === 'offline').length;
+    const ok = checkDeviceHistory.filter((r) => r.status === 'ok').length;
+    const fail = checkDeviceHistory.filter((r) => r.status === 'offline').length;
     const total = checkDeviceHistory.length;
 
-    const firstTs   = checkDeviceHistory[0]?.ts;
+    const firstTs = checkDeviceHistory[0]?.ts;
     const uptimeLabel = firstTs
       ? (() => {
           const secs = Math.floor((Date.now() - firstTs) / 1000);
-          if (secs < 60)  return `${secs}s`;
-          if (secs < 3600) return `${Math.floor(secs/60)}min ${secs%60}s`;
-          return `${Math.floor(secs/3600)}h ${Math.floor((secs%3600)/60)}min`;
+          if (secs < 60) return `${secs}s`;
+          if (secs < 3600) return `${Math.floor(secs / 60)}min ${secs % 60}s`;
+          return `${Math.floor(secs / 3600)}h ${Math.floor((secs % 3600) / 60)}min`;
         })()
       : '--';
 
     const isOk = centralStatus === 'ok';
     const headerColor = isOk ? '#27ae60' : '#e74c3c';
-    const headerLabel = centralStatus === 'unknown' ? 'Central — aguardando...' : isOk ? 'Central OK' : 'Central OFFLINE';
+    const headerLabel =
+      centralStatus === 'unknown' ? 'Central — aguardando...' : isOk ? 'Central OK' : 'Central OFFLINE';
 
-    const recentRows = [...checkDeviceHistory].reverse().slice(0, 10).map(r => {
-      const dt = new Date(r.ts).toLocaleString(locale, { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit' });
-      const icon = r.status === 'ok' ? '✅' : '❌';
-      return `<div class="rtt-tt-history-row">${icon} ${dt}</div>`;
-    }).join('');
+    const recentRows = [...checkDeviceHistory]
+      .reverse()
+      .slice(0, 10)
+      .map((r) => {
+        const dt = new Date(r.ts).toLocaleString(locale, {
+          day: '2-digit',
+          month: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        });
+        const icon = r.status === 'ok' ? '✅' : '❌';
+        return `<div class="rtt-tt-history-row">${icon} ${dt}</div>`;
+      })
+      .join('');
 
-    const failBlock = fail > 0
-      ? `<div style="margin-top:8px;padding:6px 8px;background:#fff5f5;border-radius:6px;font-size:11px;color:#e74c3c;">⚠️ ${fail} falha${fail>1?'s':''} registrada${fail>1?'s':''}</div>`
-      : '';
+    const failBlock =
+      fail > 0
+        ? `<div style="margin-top:8px;padding:6px 8px;background:#fff5f5;border-radius:6px;font-size:11px;color:#e74c3c;">⚠️ ${fail} falha${fail > 1 ? 's' : ''} registrada${fail > 1 ? 's' : ''}</div>`
+        : '';
 
     const tooltip = document.createElement('div');
     tooltip.id = 'rtt-status-tooltip';
@@ -1749,7 +1826,7 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
 
     const rect = anchorEl.getBoundingClientRect();
     tooltip.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - 340))}px`;
-    tooltip.style.top  = `${Math.max(8, rect.top - 8 - 280)}px`;
+    tooltip.style.top = `${Math.max(8, rect.top - 8 - 280)}px`;
 
     document.body.appendChild(tooltip);
     statusTooltipEl = tooltip;
@@ -1757,7 +1834,7 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
 
     let stPinned = false;
     let stMaximized = false;
-    const pinBtn    = tooltip.querySelector('#rtt-st-pin') as HTMLButtonElement;
+    const pinBtn = tooltip.querySelector('#rtt-st-pin') as HTMLButtonElement;
     const expandBtn = tooltip.querySelector('#rtt-st-expand') as HTMLButtonElement;
 
     pinBtn.addEventListener('click', () => {
@@ -1785,12 +1862,19 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
     }
     injectCardTooltipStyles();
 
-    const deviceOk = lastTelemetryUpdateMs > 0 && (Date.now() - lastTelemetryUpdateMs) <= DEVICE_OK_DELTA_MS;
+    const deviceOk = lastTelemetryUpdateMs > 0 && Date.now() - lastTelemetryUpdateMs <= DEVICE_OK_DELTA_MS;
     const headerColor = deviceOk ? '#27ae60' : '#e74c3c';
     const headerLabel = deviceOk ? 'Device OK' : 'Device OFFLINE';
-    const lastUpdateStr = lastTelemetryUpdateMs > 0
-      ? new Date(lastTelemetryUpdateMs).toLocaleString(locale, { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit' })
-      : '--';
+    const lastUpdateStr =
+      lastTelemetryUpdateMs > 0
+        ? new Date(lastTelemetryUpdateMs).toLocaleString(locale, {
+            day: '2-digit',
+            month: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+          })
+        : '--';
 
     function row(icon: string, label: string, value: string): string {
       return `<div style="display:flex;flex-direction:column;gap:1px;padding:5px 0;border-bottom:1px solid #f3f4f6;">
@@ -1815,10 +1899,10 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
         <button class="rtt-tt-header-btn" id="rtt-dt-close" title="Fechar" style="font-size:16px;line-height:1;">×</button>
       </div>
       <div style="padding:10px 14px 14px;">
-        ${row('🏷️', 'Device Label',            deviceLabel)}
-        ${row('🔧', 'Device Name / Slave ID',   deviceCheckName || deviceLabel)}
-        ${row('🔑', 'Central ID',               centralId ?? '')}
-        ${deviceId ? row('🆔', 'TB Device ID',  deviceId) : ''}
+        ${row('🏷️', 'Device Label', deviceLabel)}
+        ${row('🔧', 'Device Name / Slave ID', deviceCheckName || deviceLabel)}
+        ${row('🔑', 'Central ID', centralId ?? '')}
+        ${deviceId ? row('🆔', 'TB Device ID', deviceId) : ''}
         <div style="margin-top:10px;font-size:11px;color:#64748b;padding-top:8px;border-top:1px solid #f1f5f9;">
           🕐 Última telemetria: <b style="color:#1e293b;">${lastUpdateStr}</b>
         </div>
@@ -1826,7 +1910,7 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
 
     const rect = anchorEl.getBoundingClientRect();
     tooltip.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - 340))}px`;
-    tooltip.style.top  = `${Math.max(8, rect.top - 8 - 250)}px`;
+    tooltip.style.top = `${Math.max(8, rect.top - 8 - 250)}px`;
 
     document.body.appendChild(tooltip);
     deviceTooltipEl = tooltip;
@@ -1834,7 +1918,7 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
 
     let dtPinned = false;
     let dtMaximized = false;
-    const pinBtn    = tooltip.querySelector('#rtt-dt-pin')    as HTMLButtonElement;
+    const pinBtn = tooltip.querySelector('#rtt-dt-pin') as HTMLButtonElement;
     const expandBtn = tooltip.querySelector('#rtt-dt-expand') as HTMLButtonElement;
 
     pinBtn.addEventListener('click', () => {
@@ -1855,16 +1939,19 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
 
   /** Make element draggable by a handle, ignoring button clicks. */
   function makeDraggable(el: HTMLElement, handle: HTMLElement): void {
-    let startX = 0, startY = 0, startLeft = 0, startTop = 0;
+    let startX = 0,
+      startY = 0,
+      startLeft = 0,
+      startTop = 0;
     handle.addEventListener('mousedown', (e: MouseEvent) => {
       if ((e.target as HTMLElement).closest('button')) return;
-      startX    = e.clientX;
-      startY    = e.clientY;
+      startX = e.clientX;
+      startY = e.clientY;
       startLeft = parseFloat(el.style.left) || 0;
-      startTop  = parseFloat(el.style.top)  || 0;
+      startTop = parseFloat(el.style.top) || 0;
       const onMove = (ev: MouseEvent) => {
         el.style.left = `${startLeft + ev.clientX - startX}px`;
-        el.style.top  = `${startTop  + ev.clientY - startY}px`;
+        el.style.top = `${startTop + ev.clientY - startY}px`;
       };
       const onUp = () => {
         document.removeEventListener('mousemove', onMove);
@@ -1890,8 +1977,10 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
     }
 
     closeCardTooltip();
-    statusTooltipEl?.remove(); statusTooltipEl = null;
-    deviceTooltipEl?.remove(); deviceTooltipEl = null;
+    statusTooltipEl?.remove();
+    statusTooltipEl = null;
+    deviceTooltipEl?.remove();
+    deviceTooltipEl = null;
     overlay.remove();
 
     if (onClose) {
@@ -1922,13 +2011,13 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
     p.set('keys', (opts.keys ?? telemetryKeys).join(','));
     p.set('agg', opts.agg ?? 'NONE');
     p.set('useStrictDataTypes', 'true');
-    if (opts.limit !== undefined)       p.set('limit',        String(opts.limit));
-    if (opts.startTs !== undefined)     p.set('startTs',      String(opts.startTs));
-    if (opts.endTs !== undefined)       p.set('endTs',        String(opts.endTs));
-    if (opts.orderBy)                   p.set('orderBy',      opts.orderBy);
-    if (opts.intervalType)              p.set('intervalType', opts.intervalType);
-    if (opts.interval !== undefined)    p.set('interval',     String(opts.interval));
-    if (opts.timeZone)                  p.set('timeZone',     opts.timeZone);
+    if (opts.limit !== undefined) p.set('limit', String(opts.limit));
+    if (opts.startTs !== undefined) p.set('startTs', String(opts.startTs));
+    if (opts.endTs !== undefined) p.set('endTs', String(opts.endTs));
+    if (opts.orderBy) p.set('orderBy', opts.orderBy);
+    if (opts.intervalType) p.set('intervalType', opts.intervalType);
+    if (opts.interval !== undefined) p.set('interval', String(opts.interval));
+    if (opts.timeZone) p.set('timeZone', opts.timeZone);
     return `${base}?${p.toString()}`;
   }
 
@@ -1945,10 +2034,14 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
    */
   async function fetchPeriodTelemetry(startISO: string, endISO: string): Promise<Record<string, any>> {
     const startTs = new Date(startISO).getTime();
-    const endTs   = new Date(endISO).getTime(); // includeTime: true — user already specifies exact end time
+    const endTs = new Date(endISO).getTime(); // includeTime: true — user already specifies exact end time
     const url = buildTsUrl({
       keys: selectedChartKeys,
-      startTs, endTs, limit: selectedLimit, agg: selectedAgg, orderBy: 'ASC',
+      startTs,
+      endTs,
+      limit: selectedLimit,
+      agg: selectedAgg,
+      orderBy: 'ASC',
       ...(selectedIntervalMs > 0 ? { intervalType: 'MILLISECONDS', interval: selectedIntervalMs } : {}),
     });
     const response = await fetch(url, { headers: { 'X-Authorization': `Bearer ${token}` } });
@@ -1967,10 +2060,10 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
       const res = await fetch(url, { headers: { 'X-Authorization': `Bearer ${token}` } });
       if (!res.ok) return;
       const attrs: Array<{ key: string; value: any }> = await res.json();
-      const rawInterval = attrs.find(a => a.key === 'interval_time_real_time_telemetry_in_ms')?.value;
-      const rawWait     = attrs.find(a => a.key === 'wait_time_check_device_in_ms')?.value;
+      const rawInterval = attrs.find((a) => a.key === 'interval_time_real_time_telemetry_in_ms')?.value;
+      const rawWait = attrs.find((a) => a.key === 'wait_time_check_device_in_ms')?.value;
       if (rawInterval && Number(rawInterval) >= 5000) checkDeviceIntervalMs = Number(rawInterval);
-      if (rawWait     && Number(rawWait)     >= 0)    checkDeviceWaitMs     = Number(rawWait);
+      if (rawWait && Number(rawWait) >= 0) checkDeviceWaitMs = Number(rawWait);
     } catch {}
   }
 
@@ -1990,7 +2083,9 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
         }),
       });
       return res.ok;
-    } catch { return false; }
+    } catch {
+      return false;
+    }
   }
 
   /**
@@ -2007,8 +2102,8 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
     isFirstTick = false;
 
     const useCheckDevice = !!centralId && !sessionStorage.getItem('rtt_check_device_disabled');
-    const pollMs  = quick ? 3_000 : (centralId ? checkDeviceIntervalMs : refreshInterval);
-    const waitMs  = useCheckDevice ? (quick ? 8_000 : checkDeviceWaitMs) : 0;
+    const pollMs = quick ? 3_000 : centralId ? checkDeviceIntervalMs : refreshInterval;
+    const waitMs = useCheckDevice ? (quick ? 8_000 : checkDeviceWaitMs) : 0;
     const totalMs = pollMs + waitMs;
 
     startCountdown(totalMs); // single countdown for the full cycle
@@ -2019,10 +2114,9 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
       if (!isPaused && currentMode !== 'period') {
         if (useCheckDevice) {
           try {
-            await fetch(
-              `https://${centralId}.y.myio.com.br/api/check_device/${deviceCheckName}`,
-              { signal: AbortSignal.timeout(10_000) }
-            );
+            await fetch(`https://${centralId}.y.myio.com.br/api/check_device/${deviceCheckName}`, {
+              signal: AbortSignal.timeout(10_000),
+            });
             centralStatus = 'ok';
             checkDeviceHistory.push({ ts: Date.now(), status: 'ok' });
           } catch (e) {
@@ -2032,7 +2126,7 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
           }
           if (checkDeviceHistory.length > MAX_CHECK_DEVICE_HISTORY) checkDeviceHistory.shift();
           updateStatusBadges();
-          await new Promise<void>(r => setTimeout(r, waitMs)); // countdown reaches 0 during this wait
+          await new Promise<void>((r) => setTimeout(r, waitMs)); // countdown reaches 0 during this wait
         }
         clearCountdown();
         await refreshData();
@@ -2048,7 +2142,8 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
     document.getElementById('rtt-poll-modal-backdrop')?.remove();
     const _SS_DISABLE_KEY = 'rtt_check_device_disabled';
     const isDisabled = () => sessionStorage.getItem(_SS_DISABLE_KEY) === '1';
-    const setDisabled = (v: boolean) => v ? sessionStorage.setItem(_SS_DISABLE_KEY, '1') : sessionStorage.removeItem(_SS_DISABLE_KEY);
+    const setDisabled = (v: boolean) =>
+      v ? sessionStorage.setItem(_SS_DISABLE_KEY, '1') : sessionStorage.removeItem(_SS_DISABLE_KEY);
 
     const backdrop = document.createElement('div');
     backdrop.id = 'rtt-poll-modal-backdrop';
@@ -2060,9 +2155,9 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
     backdrop.innerHTML = `
       <div class="myio-realtime-telemetry-container" style="width:min(420px,94vw);max-height:90vh;overflow-y:auto;position:relative;">
         <div class="myio-realtime-telemetry-header" style="cursor:default;">
-          <h2 class="myio-realtime-telemetry-title" style="font-size:15px;">
+          <div class="myio-realtime-telemetry-title" style="font-size:15px;">
             ⚙️ Configurações de Polling
-          </h2>
+          </div>
           <div class="myio-rtt-header-actions">
             <button id="rtt-poll-close-x" class="myio-rtt-header-btn" title="Fechar" style="font-size:20px;line-height:1;">×</button>
           </div>
@@ -2140,7 +2235,9 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
     `;
     document.body.appendChild(backdrop);
     const close = () => backdrop.remove();
-    backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(); });
+    backdrop.addEventListener('click', (e) => {
+      if (e.target === backdrop) close();
+    });
     backdrop.querySelector('#rtt-poll-close-x')?.addEventListener('click', close);
     backdrop.querySelector('#rtt-poll-cancel')?.addEventListener('click', close);
     backdrop.querySelector('#rtt-poll-disable-chk')?.addEventListener('change', (e) => {
@@ -2155,15 +2252,18 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
     });
     backdrop.querySelector('#rtt-poll-save')?.addEventListener('click', async () => {
       const intervalInput = backdrop.querySelector('#rtt-poll-interval-input') as HTMLInputElement;
-      const waitInput     = backdrop.querySelector('#rtt-poll-wait-input') as HTMLInputElement;
-      const intervalSecs  = Math.max(5, parseInt(intervalInput?.value || '30', 10));
-      const waitSecs      = Math.max(0, parseInt(waitInput?.value || '15', 10));
+      const waitInput = backdrop.querySelector('#rtt-poll-wait-input') as HTMLInputElement;
+      const intervalSecs = Math.max(5, parseInt(intervalInput?.value || '30', 10));
+      const waitSecs = Math.max(0, parseInt(waitInput?.value || '15', 10));
       checkDeviceIntervalMs = intervalSecs * 1000;
-      checkDeviceWaitMs     = waitSecs * 1000;
+      checkDeviceWaitMs = waitSecs * 1000;
       const saved = await saveCheckDeviceInterval(checkDeviceIntervalMs, checkDeviceWaitMs);
       close();
       // restart tick with new intervals
-      if (refreshIntervalId !== null) { clearTimeout(refreshIntervalId); refreshIntervalId = null; }
+      if (refreshIntervalId !== null) {
+        clearTimeout(refreshIntervalId);
+        refreshIntervalId = null;
+      }
       isFirstTick = false; // don't do quick tick after manual config change
       scheduleCheckDeviceTick();
       console.log(`[RTT] Polling atualizado: ${intervalSecs}s + ${waitSecs}s wait — salvo: ${saved}`);
@@ -2308,8 +2408,13 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
       let numValue = Number(latest.value) || 0;
 
       // RFC-0086: Convert mA to A for all current values (API returns milliamps)
-      if (key === 'total_current' || key === 'current' ||
-          key === 'current_a' || key === 'current_b' || key === 'current_c') {
+      if (
+        key === 'total_current' ||
+        key === 'current' ||
+        key === 'current_a' ||
+        key === 'current_b' ||
+        key === 'current_c'
+      ) {
         numValue = numValue / 1000;
       }
 
@@ -2331,7 +2436,7 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
         unit: config.unit,
         icon: config.icon,
         label: config.label,
-        trend: 'stable' // Will be calculated based on history
+        trend: 'stable', // Will be calculated based on history
       });
     }
 
@@ -2360,15 +2465,15 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
    */
   /** Canonical key order within a grandeza group for stable phase ordering (Total → A → B → C). */
   const GROUP_KEY_ORDER: Record<string, string[]> = {
-    'W':    ['consumption', 'power', 'activePower', 'a', 'b', 'c'],
-    'A':    ['total_current', 'current', 'current_a', 'current_b', 'current_c'],
-    'V':    ['voltage_a', 'voltage_b', 'voltage_c'],
-    'fp':   ['powerFactor', 'fp_a', 'fp_b', 'fp_c'],
-    'kW':   ['activePower'],
-    'kVAr': ['reactivePower'],
-    'kVA':  ['apparentPower'],
-    'kWh':  ['energy'],
-    '°C':   ['temperature'],
+    W: ['consumption', 'power', 'activePower', 'a', 'b', 'c'],
+    A: ['total_current', 'current', 'current_a', 'current_b', 'current_c'],
+    V: ['voltage_a', 'voltage_b', 'voltage_c'],
+    fp: ['powerFactor', 'fp_a', 'fp_b', 'fp_c'],
+    kW: ['activePower'],
+    kVAr: ['reactivePower'],
+    kVA: ['apparentPower'],
+    kWh: ['energy'],
+    '°C': ['temperature'],
   };
 
   function updateTelemetryCards(values: TelemetryValue[]) {
@@ -2394,76 +2499,87 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
     }
 
     // 'fp' is internal — don't show as unit abbreviation in card header
-    const headerUnitLabel = (unit: string) => (unit === '_' || unit === 'fp') ? '' : unit;
+    const headerUnitLabel = (unit: string) => (unit === '_' || unit === 'fp' ? '' : unit);
 
-    telemetryCards.innerHTML = Array.from(groups.entries()).map(([unit, tels]) => {
-      const meta = UNIT_GROUP_META[unit] || { label: unit || 'Outros', icon: '📊' };
-      const firstKey = tels[0].key;
-      const isMultiRow = tels.length > 1;
+    telemetryCards.innerHTML = Array.from(groups.entries())
+      .map(([unit, tels]) => {
+        const meta = UNIT_GROUP_META[unit] || { label: unit || 'Outros', icon: '📊' };
+        const firstKey = tels[0].key;
+        const isMultiRow = tels.length > 1;
 
-      if (isMultiRow) {
-        const rows = tels.map(tel => {
-          const trend = calculateTrend(tel.key, tel.value);
-          const trendIcon = trend === 'up' ? '↗' : trend === 'down' ? '↘' : '→';
-          const shortLabel = PHASE_SHORT_LABEL[tel.key] ?? tel.label;
-          return `
+        if (isMultiRow) {
+          const rows = tels
+            .map((tel) => {
+              const trend = calculateTrend(tel.key, tel.value);
+              const trendIcon = trend === 'up' ? '↗' : trend === 'down' ? '↘' : '→';
+              const shortLabel = PHASE_SHORT_LABEL[tel.key] ?? tel.label;
+              return `
             <div class="myio-telemetry-card-row">
               <span class="myio-telemetry-card-row-label">${shortLabel}</span>
               <span class="myio-telemetry-card-row-value">${tel.formatted}</span>
               <span class="myio-telemetry-card-row-trend ${trend}">${trendIcon}</span>
               <button class="myio-rtt-card-info-btn myio-rtt-card-row-info" data-key="${tel.key}" title="Detalhes">ⓘ</button>
             </div>`;
-        }).join('');
+            })
+            .join('');
 
-        // Computed average row for voltage phases
-        let computedRow = '';
-        if (unit === 'V') {
-          const phaseKeys = ['voltage_a', 'voltage_b', 'voltage_c'];
-          const vals = phaseKeys.map(k => lastKnownValues.get(k)).filter((v): v is number => v !== undefined);
-          if (vals.length === 3) {
-            const avg = vals.reduce((s, v) => s + v, 0) / 3;
-            const cfg = TELEMETRY_CONFIG['voltage_a'];
-            computedRow = `
+          // Computed average row for voltage phases
+          let computedRow = '';
+          if (unit === 'V') {
+            const phaseKeys = ['voltage_a', 'voltage_b', 'voltage_c'];
+            const vals = phaseKeys
+              .map((k) => lastKnownValues.get(k))
+              .filter((v): v is number => v !== undefined);
+            if (vals.length === 3) {
+              const avg = vals.reduce((s, v) => s + v, 0) / 3;
+              const cfg = TELEMETRY_CONFIG['voltage_a'];
+              computedRow = `
               <div class="myio-telemetry-card-row myio-telemetry-card-row--computed">
                 <span class="myio-telemetry-card-row-label">Média</span>
                 <span class="myio-telemetry-card-row-value">${avg.toFixed(cfg?.decimals ?? 1)} V</span>
                 <span class="myio-telemetry-card-row-trend stable">→</span>
               </div>`;
-          }
-        } else if (unit === 'fp') {
-          const fp_a = lastKnownValues.get('fp_a');
-          const fp_b = lastKnownValues.get('fp_b');
-          const fp_c = lastKnownValues.get('fp_c');
-          // Use active power per phase (a/b/c) as weights if available
-          // True system FP = (Pa+Pb+Pc) / (Pa/FPa + Pb/FPb + Pc/FPc)
-          const pa = lastKnownValues.get('a');
-          const pb = lastKnownValues.get('b');
-          const pc = lastKnownValues.get('c');
-          if (fp_a !== undefined && fp_b !== undefined && fp_c !== undefined) {
-            let fpResult: number;
-            let label: string;
-            if (pa !== undefined && pb !== undefined && pc !== undefined &&
-                fp_a > 0 && fp_b > 0 && fp_c > 0) {
-              // Weighted: FP_sistema = ΣP / Σ(P/FP) = ΣP / ΣS_aparente
-              const totalP = pa + pb + pc;
-              const totalS = pa / fp_a + pb / fp_b + pc / fp_c;
-              fpResult = totalS > 0 ? totalP / totalS : (fp_a + fp_b + fp_c) / 3;
-              label = 'Sistema';
-            } else {
-              // Fallback: simple average
-              fpResult = (fp_a + fp_b + fp_c) / 3;
-              label = 'Médio';
             }
-            computedRow = `
+          } else if (unit === 'fp') {
+            const fp_a = lastKnownValues.get('fp_a');
+            const fp_b = lastKnownValues.get('fp_b');
+            const fp_c = lastKnownValues.get('fp_c');
+            // Use active power per phase (a/b/c) as weights if available
+            // True system FP = (Pa+Pb+Pc) / (Pa/FPa + Pb/FPb + Pc/FPc)
+            const pa = lastKnownValues.get('a');
+            const pb = lastKnownValues.get('b');
+            const pc = lastKnownValues.get('c');
+            if (fp_a !== undefined && fp_b !== undefined && fp_c !== undefined) {
+              let fpResult: number;
+              let label: string;
+              if (
+                pa !== undefined &&
+                pb !== undefined &&
+                pc !== undefined &&
+                fp_a > 0 &&
+                fp_b > 0 &&
+                fp_c > 0
+              ) {
+                // Weighted: FP_sistema = ΣP / Σ(P/FP) = ΣP / ΣS_aparente
+                const totalP = pa + pb + pc;
+                const totalS = pa / fp_a + pb / fp_b + pc / fp_c;
+                fpResult = totalS > 0 ? totalP / totalS : (fp_a + fp_b + fp_c) / 3;
+                label = 'Sistema';
+              } else {
+                // Fallback: simple average
+                fpResult = (fp_a + fp_b + fp_c) / 3;
+                label = 'Médio';
+              }
+              computedRow = `
               <div class="myio-telemetry-card-row myio-telemetry-card-row--computed">
                 <span class="myio-telemetry-card-row-label">${label}</span>
                 <span class="myio-telemetry-card-row-value">${fpResult.toFixed(3)}</span>
                 <span class="myio-telemetry-card-row-trend stable">→</span>
               </div>`;
+            }
           }
-        }
 
-        return `
+          return `
           <div class="myio-telemetry-card">
             <div class="myio-telemetry-card-header">
               <span class="myio-telemetry-card-icon">${meta.icon}</span>
@@ -2473,15 +2589,15 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
             </div>
             <div class="myio-telemetry-card-rows">${rows}${computedRow}</div>
           </div>`;
-      }
+        }
 
-      // Single-item group — use the classic big-value layout
-      const tel = tels[0];
-      const trend = calculateTrend(tel.key, tel.value);
-      const trendIcon = trend === 'up' ? '↗' : trend === 'down' ? '↘' : '→';
-      const trendLabel = strings[`trend_${trend}` as keyof typeof strings] || '';
+        // Single-item group — use the classic big-value layout
+        const tel = tels[0];
+        const trend = calculateTrend(tel.key, tel.value);
+        const trendIcon = trend === 'up' ? '↗' : trend === 'down' ? '↘' : '→';
+        const trendLabel = strings[`trend_${trend}` as keyof typeof strings] || '';
 
-      return `
+        return `
         <div class="myio-telemetry-card">
           <div class="myio-telemetry-card-header">
             <span class="myio-telemetry-card-icon">${tel.icon}</span>
@@ -2493,7 +2609,8 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
             ${trendIcon} ${trendLabel}
           </div>
         </div>`;
-    }).join('');
+      })
+      .join('');
   }
 
   /**
@@ -2523,7 +2640,7 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
 
     // For telemetries that didn't get updated, repeat last known value
     for (const key of telemetryKeys) {
-      const receivedKeys = values.map(v => v.key);
+      const receivedKeys = values.map((v) => v.key);
 
       if (!receivedKeys.includes(key) && lastKnownValues.has(key)) {
         if (!telemetryHistory.has(key)) {
@@ -2600,21 +2717,24 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
 
     // Detect distinct units to decide if dual Y-axis is needed
     // Priority order for left axis: W > A > V > others
-    const UNIT_PRIORITY: Record<string, number> = { 'W': 0, 'kW': 0, 'A': 1, 'V': 2 };
-    const distinctUnits = [...new Set(selectedChartKeys.map(k => (TELEMETRY_CONFIG[k] || { unit: '' }).unit))]
-      .sort((a, b) => (UNIT_PRIORITY[a] ?? 99) - (UNIT_PRIORITY[b] ?? 99));
+    const UNIT_PRIORITY: Record<string, number> = { W: 0, kW: 0, A: 1, V: 2 };
+    const distinctUnits = [
+      ...new Set(selectedChartKeys.map((k) => (TELEMETRY_CONFIG[k] || { unit: '' }).unit)),
+    ].sort((a, b) => (UNIT_PRIORITY[a] ?? 99) - (UNIT_PRIORITY[b] ?? 99));
     const dualAxis = distinctUnits.length === 2;
-    const leftUnit  = distinctUnits[0] ?? '';
+    const leftUnit = distinctUnits[0] ?? '';
     const rightUnit = dualAxis ? distinctUnits[1] : '';
 
     // Derive axis colors from the first key in each unit group
-    const leftAxisKey  = selectedChartKeys.find(k => (TELEMETRY_CONFIG[k]?.unit ?? '') === leftUnit);
-    const rightAxisKey = dualAxis ? selectedChartKeys.find(k => (TELEMETRY_CONFIG[k]?.unit ?? '') === rightUnit) : null;
-    const leftAxisColor  = leftAxisKey  ? (KEY_COLORS[leftAxisKey]  || '#555') : '#555';
-    const rightAxisColor = rightAxisKey ? (KEY_COLORS[rightAxisKey] || '#555') : '#555';
+    const leftAxisKey = selectedChartKeys.find((k) => (TELEMETRY_CONFIG[k]?.unit ?? '') === leftUnit);
+    const rightAxisKey = dualAxis
+      ? selectedChartKeys.find((k) => (TELEMETRY_CONFIG[k]?.unit ?? '') === rightUnit)
+      : null;
+    const leftAxisColor = leftAxisKey ? KEY_COLORS[leftAxisKey] || '#555' : '#555';
+    const rightAxisColor = rightAxisKey ? KEY_COLORS[rightAxisKey] || '#555' : '#555';
 
     function makeTickCallback(unit: string) {
-      return function(value: any) {
+      return function (value: any) {
         if (unit === 'W') {
           if (value >= 1000) return `${(value / 1000).toFixed(1)} kW`;
           return `${value} W`;
@@ -2623,15 +2743,15 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
       };
     }
 
-    const datasets = selectedChartKeys.map(key => {
+    const datasets = selectedChartKeys.map((key) => {
       const color = KEY_COLORS[key] || '#667eea';
-      const cfg   = TELEMETRY_CONFIG[key] || { label: key, unit: '' };
+      const cfg = TELEMETRY_CONFIG[key] || { label: key, unit: '' };
       const yAxisID = dualAxis ? (cfg.unit === rightUnit ? 'y1' : 'y') : 'y';
       return {
         label: cfg.label,
-        data:  (telemetryHistory.get(key) || []) as Array<{ x: number; y: number }>,
+        data: (telemetryHistory.get(key) || []) as Array<{ x: number; y: number }>,
         borderColor: color,
-        backgroundColor: hexRgba(color, multi ? 0.05 : 0.10),
+        backgroundColor: hexRgba(color, multi ? 0.05 : 0.1),
         borderWidth: 2,
         fill: !multi,
         tension: 0.4,
@@ -2643,15 +2763,19 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
 
     const isDark = currentTheme === 'dark';
     const xLabelColor = isDark ? '#94a3b8' : '#6b7280';
-    const xGridColor  = isDark ? 'rgba(148,163,184,0.12)' : 'rgba(0,0,0,0.06)';
+    const xGridColor = isDark ? 'rgba(148,163,184,0.12)' : 'rgba(0,0,0,0.06)';
 
     const isDailyBucket = selectedIntervalMs === 86400000;
     const xTickCallback = isDailyBucket
-      ? function(value: any) {
+      ? function (value: any) {
           return new Date(value).toLocaleDateString(locale, { day: '2-digit', month: '2-digit' });
         }
-      : function(value: any) {
-          return new Date(value).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      : function (value: any) {
+          return new Date(value).toLocaleTimeString(locale, {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+          });
         };
 
     const scales: Record<string, any> = {
@@ -2666,22 +2790,24 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
         title: { display: true, text: isDailyBucket ? 'Data' : 'Hora', color: xLabelColor },
         grid: { color: xGridColor },
         // For daily buckets: force ticks at exact data-point positions (TB anchors at bucket midpoint)
-        ...(isDailyBucket ? {
-          afterBuildTicks: (scale: any) => {
-            const xVals = [...new Set(
-              datasets.flatMap((d: any) => (d.data as Array<{x:number}>).map((p) => p.x))
-            )].sort((a: number, b: number) => a - b);
-            scale.ticks = xVals.map((v: number) => ({ value: v }));
-          }
-        } : {})
+        ...(isDailyBucket
+          ? {
+              afterBuildTicks: (scale: any) => {
+                const xVals = [
+                  ...new Set(datasets.flatMap((d: any) => (d.data as Array<{ x: number }>).map((p) => p.x))),
+                ].sort((a: number, b: number) => a - b);
+                scale.ticks = xVals.map((v: number) => ({ value: v }));
+              },
+            }
+          : {}),
       },
       y: {
         position: 'left',
         beginAtZero: true,
         ticks: { callback: makeTickCallback(leftUnit), color: leftAxisColor },
         title: { display: true, text: leftUnit, color: leftAxisColor, font: { weight: 'bold' as const } },
-        grid: { color: hexRgba(leftAxisColor, 0.08) }
-      }
+        grid: { color: hexRgba(leftAxisColor, 0.08) },
+      },
     };
 
     if (dualAxis) {
@@ -2690,7 +2816,7 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
         beginAtZero: true,
         grid: { drawOnChartArea: false },
         ticks: { callback: makeTickCallback(rightUnit), color: rightAxisColor },
-        title: { display: true, text: rightUnit, color: rightAxisColor, font: { weight: 'bold' as const } }
+        title: { display: true, text: rightUnit, color: rightAxisColor, font: { weight: 'bold' as const } },
       };
     }
 
@@ -2705,27 +2831,33 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
           legend: { display: multi },
           tooltip: {
             callbacks: {
-              title: function(context: any) {
+              title: function (context: any) {
                 const timestamp = context[0].parsed.x;
                 if (isDailyBucket) {
                   return new Date(timestamp).toLocaleDateString(locale, {
-                    day: '2-digit', month: '2-digit', year: 'numeric'
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
                   });
                 }
                 return new Date(timestamp).toLocaleString(locale, {
-                  day: '2-digit', month: '2-digit', year: 'numeric',
-                  hour: '2-digit', minute: '2-digit', second: '2-digit'
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  second: '2-digit',
                 });
               },
-              label: function(context: any) {
+              label: function (context: any) {
                 const key = selectedChartKeys[context.datasetIndex] ?? primaryKey;
                 return `${context.dataset.label}: ${getFormattedValue(key, context.parsed.y)}`;
-              }
-            }
-          }
+              },
+            },
+          },
         },
         scales,
-      }
+      },
     });
   }
 
@@ -2733,7 +2865,10 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
    * Rebuild chart after selectedChartKeys changes (destroy + reinit + repopulate).
    */
   function rebuildChart() {
-    if (chart) { chart.destroy(); chart = null; }
+    if (chart) {
+      chart.destroy();
+      chart = null;
+    }
     initializeChart();
   }
 
@@ -2768,7 +2903,6 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
         // Initialize chart after first successful fetch (always show chart)
         initializeChart();
       }
-
     } catch (error) {
       console.error('[RealTimeTelemetry] Error fetching data:', error);
       errorState.style.display = 'block';
@@ -2789,8 +2923,11 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
         refreshIntervalId = null;
       }
       stopSession();
+      clearCountdown();
       pauseBtnIcon.textContent = '▶️';
       pauseBtnText.textContent = strings.resume;
+      pauseBtn.classList.remove('myio-telemetry-btn-secondary');
+      pauseBtn.classList.add('myio-telemetry-btn-primary');
       statusIndicator.classList.add('paused');
       statusText.textContent = `${strings.autoUpdate}: OFF`;
     } else {
@@ -2798,6 +2935,8 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
       startSession();
       pauseBtnIcon.textContent = '⏸️';
       pauseBtnText.textContent = strings.pause;
+      pauseBtn.classList.remove('myio-telemetry-btn-primary');
+      pauseBtn.classList.add('myio-telemetry-btn-secondary');
       statusIndicator.classList.remove('paused');
       statusText.textContent = `${strings.autoUpdate}: ON`;
     }
@@ -2808,7 +2947,7 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
    */
   function exportToCSV() {
     const rows: string[] = [];
-    rows.push('Timestamp,' + telemetryKeys.map(k => TELEMETRY_CONFIG[k]?.label || k).join(','));
+    rows.push('Timestamp,' + telemetryKeys.map((k) => TELEMETRY_CONFIG[k]?.label || k).join(','));
 
     // Find max history length
     let maxLength = 0;
@@ -2876,20 +3015,22 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
     }
     if (chart) {
       // Use two rAFs so CSS layout fully settles before reading dimensions
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        if (isExpanded) {
-          // Disable Chart.js responsive mode and set explicit px to stop the resize loop
-          chart.options.responsive = false;
-          const w = chartContainer.clientWidth  - 40; // 20px padding each side
-          const h = chartContainer.clientHeight - 60; // title + padding
-          chart.resize(Math.max(w, 200), Math.max(h, 120));
-        } else {
-          // Restore responsive mode for normal (windowed) view
-          chart.options.responsive = true;
-          chartCanvas.style.height = '';
-          chart.resize();
-        }
-      }));
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          if (isExpanded) {
+            // Disable Chart.js responsive mode and set explicit px to stop the resize loop
+            chart.options.responsive = false;
+            const w = chartContainer.clientWidth - 40; // 20px padding each side
+            const h = chartContainer.clientHeight - 60; // title + padding
+            chart.resize(Math.max(w, 200), Math.max(h, 120));
+          } else {
+            // Restore responsive mode for normal (windowed) view
+            chart.options.responsive = true;
+            chartCanvas.style.height = '';
+            chart.resize();
+          }
+        })
+      );
     }
   }
 
@@ -2907,7 +3048,10 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
 
     if (mode === 'period') {
       // Stop polling tick and countdown
-      if (refreshIntervalId !== null) { clearTimeout(refreshIntervalId); refreshIntervalId = null; }
+      if (refreshIntervalId !== null) {
+        clearTimeout(refreshIntervalId);
+        refreshIntervalId = null;
+      }
       clearCountdown();
       periodRow.classList.add('visible');
 
@@ -2925,7 +3069,7 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
             onApply: ({ startISO, endISO }) => {
               periodStartISO = startISO;
               periodEndISO = endISO;
-            }
+            },
           });
         } catch (e) {
           console.warn('[RealTimeTelemetry] DateRangePicker init failed:', e);
@@ -2936,7 +3080,9 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
       periodRow.classList.remove('visible');
 
       if (realtimeHistorySnapshot) {
-        telemetryHistory = new Map(Array.from(realtimeHistorySnapshot.entries()).map(([k, v]) => [k, [...v]]));
+        telemetryHistory = new Map(
+          Array.from(realtimeHistorySnapshot.entries()).map(([k, v]) => [k, [...v]])
+        );
         lastKnownValues = realtimeLastKnownSnapshot ? new Map(realtimeLastKnownSnapshot) : new Map();
         realtimeHistorySnapshot = null;
         realtimeLastKnownSnapshot = null;
@@ -2959,7 +3105,9 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
   });
 
   // Period load button
-  periodLoadBtn?.addEventListener('click', () => { loadPeriodData(); });
+  periodLoadBtn?.addEventListener('click', () => {
+    loadPeriodData();
+  });
 
   // Event listeners
   closeBtn.addEventListener('click', closeModal);
@@ -2969,8 +3117,12 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
   exportBtn.addEventListener('click', exportToCSV);
 
   // Status badges — each opens its own premium tooltip
-  centralBadge?.addEventListener('click', () => { if (centralBadge) openStatusTooltip(centralBadge); });
-  deviceBadge?.addEventListener('click',  () => { if (deviceBadge)  openDeviceInfoTooltip(deviceBadge); });
+  centralBadge?.addEventListener('click', () => {
+    if (centralBadge) openStatusTooltip(centralBadge);
+  });
+  deviceBadge?.addEventListener('click', () => {
+    if (deviceBadge) openDeviceInfoTooltip(deviceBadge);
+  });
 
   // Card (i) button — open premium tooltip with telemetry history
   telemetryCards.addEventListener('click', (e) => {
@@ -3060,10 +3212,9 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
   if (useCheckDeviceOnOpen) {
     startCountdown(checkDeviceWaitMs);
     try {
-      await fetch(
-        `https://${centralId}.y.myio.com.br/api/check_device/${deviceCheckName}`,
-        { signal: AbortSignal.timeout(10_000) }
-      );
+      await fetch(`https://${centralId}.y.myio.com.br/api/check_device/${deviceCheckName}`, {
+        signal: AbortSignal.timeout(10_000),
+      });
       centralStatus = 'ok';
       checkDeviceHistory.push({ ts: Date.now(), status: 'ok' });
     } catch (e) {
@@ -3073,7 +3224,7 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
     }
     if (checkDeviceHistory.length > MAX_CHECK_DEVICE_HISTORY) checkDeviceHistory.shift();
     updateStatusBadges();
-    await new Promise<void>(r => setTimeout(r, checkDeviceWaitMs));
+    await new Promise<void>((r) => setTimeout(r, checkDeviceWaitMs));
     clearCountdown();
   }
 
@@ -3085,6 +3236,6 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
   startSession();
 
   return {
-    destroy: closeModal
+    destroy: closeModal,
   };
 }
