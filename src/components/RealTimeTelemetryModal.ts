@@ -196,11 +196,15 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
   let checkDeviceIntervalMs = 30_000; // default 30 s; overridden by customer attribute
   let checkDeviceWaitMs     = 15_000; // default 15 s wait after check_device; overridden by customer attribute
 
+  const SESSION_LIMIT_MS = 5 * 60 * 1000; // 5-minute auto-pause session
+
   let refreshIntervalId: number | null = null;
   let countdownTimerId: number | null = null; // 1-second interval for the footer countdown
   let nextTickAt = 0;                          // epoch ms when the next check_device tick fires
   let isFirstTick = true;                      // first tick uses 3 s countdown + 8 s wait instead of 30 s + 15 s
   let isPaused = false;
+  let sessionCountdownTimerId: number | null = null;
+  let sessionExpiresAt = 0;
 
   // Card detail tooltip state
   let cardTooltipEl: HTMLDivElement | null = null;
@@ -1160,7 +1164,7 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
               <div class="myio-rtt-mode-tabs" id="rtt-mode-tabs">
                 <button class="myio-rtt-tab active" data-mode="realtime">Realtime</button>
-                <button class="myio-rtt-tab" data-mode="period">Período</button>
+                <button class="myio-rtt-tab" data-mode="period">Pro Período</button>
               </div>
               <div class="myio-rtt-period-input" id="rtt-period-row">
                 <div class="myio-rtt-period-controls">
@@ -1226,6 +1230,7 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
         </div>
 
         <div class="myio-telemetry-actions">
+          <span id="rtt-session-countdown" style="display:none;font-size:12px;font-weight:600;color:#667eea;background:rgba(102,126,234,0.1);padding:2px 10px;border-radius:10px;white-space:nowrap;"></span>
           <button class="myio-telemetry-btn myio-telemetry-btn-secondary" id="pause-btn">
             <span id="pause-btn-icon">⏸️</span>
             <span id="pause-btn-text">${strings.pause}</span>
@@ -1253,6 +1258,7 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
   const pauseBtn = overlay.querySelector('#pause-btn') as HTMLButtonElement;
   const pauseBtnIcon = overlay.querySelector('#pause-btn-icon') as HTMLSpanElement;
   const pauseBtnText = overlay.querySelector('#pause-btn-text') as HTMLSpanElement;
+  const sessionCountdownEl = overlay.querySelector('#rtt-session-countdown') as HTMLSpanElement | null;
   const exportBtn = overlay.querySelector('#export-btn') as HTMLButtonElement;
   const loadingState = overlay.querySelector('#loading-state') as HTMLDivElement;
   const telemetryContent = overlay.querySelector('#telemetry-content') as HTMLDivElement;
@@ -1274,6 +1280,30 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
   const countdownText = overlay.querySelector('#rtt-countdown-text') as HTMLSpanElement;
   const centralBadge = overlay.querySelector('#rtt-central-badge') as HTMLSpanElement | null;
   const deviceBadge  = overlay.querySelector('#rtt-device-badge')  as HTMLSpanElement | null;
+  const chartTitleEl = overlay.querySelector('#chart-title') as HTMLElement | null;
+
+  /** Update the chart title and status icon based on currentMode + device/central status. */
+  function updateChartTitle(): void {
+    if (!chartTitleEl) return;
+    if (currentMode === 'period') {
+      chartTitleEl.innerHTML = 'Histórico de Telemetria';
+      return;
+    }
+    // Realtime mode: compute status icon
+    const deviceOk = lastTelemetryUpdateMs > 0 && (Date.now() - lastTelemetryUpdateMs) <= DEVICE_OK_DELTA_MS;
+    let iconHtml = '';
+    if (centralStatus === 'unknown') {
+      iconHtml = ''; // no icon while status is still loading
+    } else if (centralStatus === 'ok' && deviceOk) {
+      iconHtml = `<span title="Central online e dispositivo online" style="margin-left:8px;cursor:default;font-size:16px;vertical-align:middle;">✅</span>`;
+    } else if (centralStatus === 'ok' && !deviceOk) {
+      iconHtml = `<span title="Central online e dispositivo offline / conexão fraca" style="margin-left:8px;cursor:default;font-size:16px;vertical-align:middle;">⚠️</span>`;
+    } else {
+      // central offline
+      iconHtml = `<span title="Central offline" style="margin-left:8px;cursor:default;font-size:16px;vertical-align:middle;">🔴</span>`;
+    }
+    chartTitleEl.innerHTML = `Telemetria em Tempo Real${iconHtml}`;
+  }
 
   /** Update CENTRAL / Device status badges in the footer. */
   function updateStatusBadges(): void {
@@ -1300,7 +1330,11 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
       deviceBadge.textContent    = 'Device OFFLINE';
       deviceBadge.style.cssText  = 'display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;letter-spacing:0.3px;color:#fff;background:#e74c3c;';
     }
+    updateChartTitle();
   }
+
+  // Set initial chart title (realtime mode, status unknown → no icon yet)
+  updateChartTitle();
 
   /** Start/reset the 1-second countdown ticker in the footer. */
   function startCountdown(targetMs: number, label = 'próxima em'): void {
@@ -1318,6 +1352,37 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
   function clearCountdown(): void {
     if (countdownTimerId !== null) { clearInterval(countdownTimerId); countdownTimerId = null; }
     if (countdownText) countdownText.textContent = '';
+  }
+
+  /** Start a new 5-minute session. Auto-pauses when time runs out. */
+  function startSession(): void {
+    stopSession();
+    sessionExpiresAt = Date.now() + SESSION_LIMIT_MS;
+    sessionCountdownTimerId = window.setInterval(() => {
+      const remaining = Math.max(0, Math.ceil((sessionExpiresAt - Date.now()) / 1000));
+      if (sessionCountdownEl) {
+        if (remaining > 0) {
+          const mins = Math.floor(remaining / 60);
+          const secs = remaining % 60;
+          sessionCountdownEl.textContent = `⏱ ${mins}:${secs.toString().padStart(2, '0')}`;
+          sessionCountdownEl.style.display = 'inline-block';
+        }
+      }
+      if (remaining <= 0) {
+        stopSession();
+        if (!isPaused) {
+          togglePause();
+          clearCountdown();
+          showRTTToast('Sessão de 5 min encerrada. Clique em Retomar para continuar.', 'warn');
+        }
+      }
+    }, 1000);
+  }
+
+  /** Stop the session countdown and hide the element. */
+  function stopSession(): void {
+    if (sessionCountdownTimerId !== null) { clearInterval(sessionCountdownTimerId); sessionCountdownTimerId = null; }
+    if (sessionCountdownEl) sessionCountdownEl.style.display = 'none';
   }
 
   /**
@@ -1817,6 +1882,7 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
       refreshIntervalId = null;
     }
     clearCountdown();
+    stopSession();
 
     if (chart) {
       chart.destroy();
@@ -2127,6 +2193,7 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
           const points = series.map((pt) => {
             let y = pt.value ?? 0;
             if (key === 'total_current' || key === 'current') y = y / 1000;
+            if (key === 'fp_a' || key === 'fp_b' || key === 'fp_c' || key === 'powerFactor') y = y / 255;
             return { x: pt.ts, y };
           });
           telemetryHistory.set(key, points);
@@ -2179,6 +2246,7 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
         const points = series.map((pt: { ts: number; value: number }) => {
           let y = pt.value ?? 0;
           if (key === 'total_current' || key === 'current') y = y / 1000;
+          if (key === 'fp_a' || key === 'fp_b' || key === 'fp_c' || key === 'powerFactor') y = y / 255;
           return { x: pt.ts, y };
         });
 
@@ -2243,6 +2311,11 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
       if (key === 'total_current' || key === 'current' ||
           key === 'current_a' || key === 'current_b' || key === 'current_c') {
         numValue = numValue / 1000;
+      }
+
+      // FP values from firmware are 0–255; normalize to 0–1 for display
+      if (key === 'fp_a' || key === 'fp_b' || key === 'fp_c' || key === 'powerFactor') {
+        numValue = numValue / 255;
       }
 
       const formattedNum = numValue.toFixed(config.decimals);
@@ -2715,12 +2788,14 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
         clearTimeout(refreshIntervalId);
         refreshIntervalId = null;
       }
+      stopSession();
       pauseBtnIcon.textContent = '▶️';
       pauseBtnText.textContent = strings.resume;
       statusIndicator.classList.add('paused');
       statusText.textContent = `${strings.autoUpdate}: OFF`;
     } else {
       scheduleCheckDeviceTick();
+      startSession();
       pauseBtnIcon.textContent = '⏸️';
       pauseBtnText.textContent = strings.pause;
       statusIndicator.classList.remove('paused');
@@ -2824,6 +2899,7 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
   async function switchMode(mode: 'realtime' | 'period') {
     if (mode === currentMode) return;
     currentMode = mode;
+    updateChartTitle();
 
     modeTabs.forEach((btn) => {
       btn.classList.toggle('active', btn.dataset['mode'] === mode);
@@ -2872,6 +2948,7 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
         isFirstTick = true; // reset quick-tick on mode switch back to realtime
         await refreshData();
         scheduleCheckDeviceTick();
+        startSession();
       }
     }
   }
@@ -3005,6 +3082,7 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
   // Start regular polling tick (check_device → wait → refresh, repeating)
   isFirstTick = false; // opening already did the initial check_device + wait
   scheduleCheckDeviceTick();
+  startSession();
 
   return {
     destroy: closeModal

@@ -1386,7 +1386,7 @@ export class EnergyModalView {
 
           await openDemandModal({
             token: jwtToken,
-            deviceId: this.config.params.deviceId,
+            deviceId: this.config.params.deviceId!,
             startDate: startDate,
             endDate: endDate,
             label: this.config.params.deviceLabel || 'Dispositivo',
@@ -1418,9 +1418,9 @@ export class EnergyModalView {
           // RFC-0084: Open Real-Time Telemetry Modal for instantaneous values
           await openRealTimeTelemetryModal({
             token: jwtToken,
-            deviceId: this.config.params.deviceId,
+            deviceId: this.config.params.deviceId!,
             tbBaseUrl: this.config.params.tbBaseUrl || '',
-            deviceLabel: this.config.params.deviceLabel || 'Dispositivo',
+            deviceLabel: this.config.context.device.label || this.config.params.deviceLabel || 'Dispositivo',
             deviceName: this.config.context.device.name,
             customerName: this.config.params.customerName,
             centralId: this.config.context.resolved.centralId,
@@ -1501,7 +1501,7 @@ export class EnergyModalView {
           : this.config.params.endDate,
         maxRangeDays: 90,
         includeTime: true,
-        timePrecision: 'hour',
+        timePrecision: 'minute',
         parentEl: this.modal.element,
         onApply: ({ startISO, endISO }) => {
           this.hideError();

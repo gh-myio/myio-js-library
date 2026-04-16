@@ -357,14 +357,14 @@ function createDateRangePicker($: any, input: HTMLInputElement, opts: AttachOpti
     // Time-based presets (última hora, últimas 6h, etc.)
     const now = moment();
     ranges = {
-      'Última hora': [moment().subtract(1, 'hours'), now.clone()],
-      'Últimas 6 horas': [moment().subtract(6, 'hours'), now.clone()],
-      'Últimas 12 horas': [moment().subtract(12, 'hours'), now.clone()],
-      'Últimas 24 horas': [moment().subtract(24, 'hours'), now.clone()],
-      'Hoje': [moment().startOf('day'), now.clone()],
-      'Ontem': [moment().subtract(1, 'day').startOf('day'), moment().subtract(1, 'day').endOf('day')],
+      'Última hora':    [moment().subtract(1, 'hours'), now.clone()],
+      'Últimas 12 horas':[moment().subtract(12, 'hours'), now.clone()],
+      'Últimas 24 horas':[moment().subtract(24, 'hours'), now.clone()],
+      'Hoje':           [moment().startOf('day'), now.clone()],
+      'Ontem':          [moment().subtract(1, 'day').startOf('day'), moment().subtract(1, 'day').endOf('day')],
       'Últimos 7 dias': [moment().subtract(6,'days').startOf('day'), now.clone()],
-      'Este mês': [moment().startOf('month'), now.clone()]
+      'Este mês':       [moment().startOf('month'), now.clone()],
+      'Mês Anterior':   [moment().subtract(1,'month').startOf('month'), moment().subtract(1,'month').endOf('month')],
     };
   } else {
     // Date-only presets

@@ -148,7 +148,7 @@ export class EnergyModal {
    */
   private normalizeParams(params: OpenDashboardPopupEnergyOptions): OpenDashboardPopupEnergyOptions {
     // Validate JWT token format
-    if (!validateJwtToken(params.tbJwtToken)) {
+    if (!validateJwtToken(params.tbJwtToken || '')) {
       throw new Error('Invalid JWT token format');
     }
 
@@ -183,10 +183,10 @@ export class EnergyModal {
         attributes: {},
       },
       resolved: {
-        ingestionId: null,
-        centralId: null,
-        slaveId: null,
-        customerId: null,
+        ingestionId: undefined,
+        centralId: undefined,
+        slaveId: undefined,
+        customerId: undefined,
       },
     };
   }
@@ -208,7 +208,7 @@ export class EnergyModal {
 
       const context: EnergyModalContext = {
         device: {
-          id: this.params.deviceId,
+          id: this.params.deviceId!,
           name: entityInfo.name,
           label: this.params.label || entityInfo.label || entityInfo.name || 'Unknown Device',
           attributes: attributes,
@@ -356,12 +356,12 @@ export class EnergyModal {
     const mainTitle = domainTitles[readingType] ?? '⚡ Gráfico de Energia';
 
     const label      = this.context?.device.label || '';
-    const identifier = (this.context?.device as any)?.attributes?.identifier || '';
+    const deviceName = this.context?.device.name || (this.context?.device as any)?.attributes?.identifier || '';
     const customer   = this.params.customerName || '';
     const version    = (window as any).MyIOLibrary?.version;
 
     const deviceBadge = label
-      ? `<span class="myio-modal-header-device-label">${label}${identifier && identifier !== label ? `<span class="myio-modal-header-device-name">(${identifier})</span>` : ''}</span>`
+      ? `<span class="myio-modal-header-device-label">${label}${deviceName && deviceName !== label ? `<span class="myio-modal-header-device-name">(${deviceName})</span>` : ''}</span>`
       : '';
     const customerBadge = customer
       ? `<span class="myio-modal-header-customer-badge">${customer}</span>`
@@ -539,10 +539,15 @@ export class EnergyModal {
         title: 'Dispositivo não encontrado',
         detail: 'Este dispositivo ainda não possui dados de telemetria cadastrados. Verifique a integração ou contate o suporte.',
       };
+    if (msg.includes('token_expired') || msg.includes('token has expired') || msg.includes('authentication token') || msg.includes('token expirou'))
+      return {
+        title: 'Sessão expirada',
+        detail: 'Seu token de acesso expirou. Recarregue a página para continuar.',
+      };
     if (msg.includes('insufficient permissions') || msg.includes('401') || msg.includes('403') || msg.includes('unauthorized') || msg.includes('forbidden'))
       return {
         title: 'Sem permissão de acesso',
-        detail: 'Sua sessão pode ter expirado ou você não tem permissão para visualizar estes dados. Tente reabrir o modal.',
+        detail: 'Você não tem permissão para visualizar estes dados. Tente reabrir o modal ou contate o suporte.',
       };
     if (msg.includes('failed to fetch') || msg.includes('networkerror') || msg.includes('network error') || msg.includes('err_network'))
       return {

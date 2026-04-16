@@ -2869,10 +2869,24 @@ function renderList(visible) {
           if (loadingToast) loadingToast.hide();
           hideBusy();
 
-          if (MyIOToast) {
-            MyIOToast.error(err?.message || 'Failed to open dashboard');
+          const _rawMsg = (err?.message || '').toLowerCase();
+          let _friendlyMsg;
+          if (/token.*expired|authentication token|token_expired/i.test(_rawMsg)) {
+            _friendlyMsg = 'Sessão expirada. Recarregue a página para continuar.';
+          } else if (/device not found|404/.test(_rawMsg)) {
+            _friendlyMsg = 'Dispositivo não encontrado. Verifique a integração ou contate o suporte.';
+          } else if (/insufficient permissions|401|403|unauthorized|forbidden/.test(_rawMsg)) {
+            _friendlyMsg = 'Sem permissão para acessar este dispositivo. Tente recarregar a página.';
+          } else if (/failed to fetch device|failed to fetch device information/.test(_rawMsg)) {
+            _friendlyMsg = 'Não foi possível carregar os dados do dispositivo. Tente novamente.';
           } else {
-            alert(err?.message || 'Failed to open dashboard');
+            _friendlyMsg = 'Não foi possível abrir o painel. Tente novamente.';
+          }
+
+          if (MyIOToast) {
+            MyIOToast.error(_friendlyMsg);
+          } else {
+            alert(_friendlyMsg);
           }
         }
       },
