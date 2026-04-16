@@ -1,31 +1,30 @@
 const slave = msg.slave;
 const lastReading = msg.payload;
-
 const deviceMap = {
   0: 'a',
   1: 'b',
   2: 'c',
 };
 
-// Remove multiplier patterns from device name (e.g., " x100", " x1.5V")
+function getMultiplier(deviceName) {
+  const match = deviceName.match(/x(\d+)/i);
+  return match ? parseInt(match[1], 10) : 1;
+}
+
 function getNameWithoutMultipliers(deviceName) {
   return deviceName.replace(/ x\d+\.?\d*[AV]?/gi, '').trim();
 }
 
-function getMultiplier(deviceName) {
-  const match = deviceName.match(/ x(\d+\.?\d*)/i);
-  return match ? parseFloat(match[1]) : 1;
-}
+const name = slave.name;
+const cleanName = getNameWithoutMultipliers(name);
 
-const name = getNameWithoutMultipliers(slave.name);
-const multiplier = getMultiplier(slave.name);
 msg.payload = {
-  [name]: [
+  [cleanName]: [
     {
-      consumption: lastReading.value * multiplier,
-      a: lastReading.phases ? lastReading.phases.a * multiplier : null,
-      b: lastReading.phases ? lastReading.phases.b * multiplier : null,
-      c: lastReading.phases ? lastReading.phases.c * multiplier : null,
+      consumption: lastReading.value * getMultiplier(name),
+      a: lastReading.phases ? lastReading.phases.a * getMultiplier(name) : null,
+      b: lastReading.phases ? lastReading.phases.b * getMultiplier(name) : null,
+      c: lastReading.phases ? lastReading.phases.c * getMultiplier(name) : null,
     },
   ],
 };

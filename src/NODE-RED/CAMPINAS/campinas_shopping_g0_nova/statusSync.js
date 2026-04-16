@@ -2,7 +2,10 @@ const slaveStatusMap = {};
 const devices = flow.get('devices');
 
 function getNameWithoutMultipliers(deviceName) {
-  return deviceName.replace(/ x\d+\.?\d*[AV]?/gi, '').trim();
+  return deviceName
+    .replace(/ x\d+\.?\d*[AV]?/gi, '')
+    .replace(/ -\d+$/g, '')
+    .trim();
 }
 
 for (const slave of msg.payload) {

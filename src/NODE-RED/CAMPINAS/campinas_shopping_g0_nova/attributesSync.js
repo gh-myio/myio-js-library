@@ -3,7 +3,10 @@ const centralId = env.get('CENTRAL_UUID');
 const newDeviceList = {};
 
 function getNameWithoutMultipliers(deviceName) {
-  return deviceName.replace(/ x\d+\.?\d*[AV]?/gi, '').trim();
+  return deviceName
+    .replace(/ x\d+\.?\d*[AV]?/gi, '')
+    .replace(/ -\d+$/g, '')
+    .trim();
 }
 
 function handleDeviceType(name) {
@@ -17,13 +20,7 @@ function handleDeviceType(name) {
   if (upper.includes('VENT')) return 'VENTILADOR';
   if (upper.includes('ESRL')) return 'ESCADA_ROLANTE';
   if (upper.includes('ELEV')) return 'ELEVADOR';
-  if (
-    (upper.includes('MOTR') && !upper.includes('CHILLER')) ||
-    upper.includes('MOTOR') ||
-    upper.includes('RECALQUE')
-  )
-    return 'MOTOR';
-
+  if (upper.includes('MOTR') || upper.includes('MOTOR') || upper.includes('RECALQUE')) return 'MOTOR';
   if (upper.includes('RELOGIO') || upper.includes('RELOG') || upper.includes('REL ')) return 'RELOGIO';
   if (
     upper.includes('ENTRADA') ||
@@ -32,25 +29,10 @@ function handleDeviceType(name) {
     upper.includes('SUBEST')
   )
     return 'ENTRADA';
-
-  if (upper.includes('3F')) {
-    if (upper.includes('CHILLER')) {
-      return 'CHILLER';
-    } else if (upper.includes('FANCOIL')) {
-      return 'FANCOIL';
-    } else if (upper.includes('TRAFO')) {
-      return 'ENTRADA';
-    } else if (upper.includes('ENTRADA')) {
-      return 'ENTRADA';
-    } else if (upper.includes('CAG')) {
-      return 'BOMBA_CAG';
-    } else {
-      return '3F_MEDIDOR';
-    }
-  }
+  if (upper.includes('3F')) return '3F_MEDIDOR';
 
   // WATER
-  if (upper.includes('HIDR') || upper.includes('BANHEIRO')) return 'HIDROMETRO';
+  if (upper.includes('HIDR')) return 'HIDROMETRO';
 
   // Corrige para casar com o typeMap: CAIXA_DAGUA
   if (
@@ -83,7 +65,7 @@ Object.keys(devices).forEach((key) => {
     newDeviceList[cleanName] = {
       deviceType: handleDeviceType(key),
       centralId: centralId,
-      slaveId: device.slaveId,
+      slaveId: devices[key].slaveId,
     };
   }
 });
