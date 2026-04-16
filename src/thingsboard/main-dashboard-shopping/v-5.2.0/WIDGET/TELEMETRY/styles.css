@@ -27,7 +27,7 @@
   height: 100%;
   display: flex;
   flex-direction: column;
-  overflow: hidden; /* ✅ Container não rola (só a lista rola) */
+  overflow: hidden;
 }
 
 .shops-root .shops-header {
@@ -248,13 +248,13 @@
 }
 
 .shops-root .shops-list {
-  flex: 1 1 0; /* ✅ Mudado de 'auto' para '0' - força ocupar espaço disponível */
-  min-height: 0; /* ✅ Permite shrink em flexbox */
-  height: 100%; /* ✅ REVERTIDO: Força altura para ativar overflow */
-  overflow-y: auto; /* ✅ Scroll vertical */
-  overflow-x: hidden; /* ✅ Sem scroll horizontal */
-  padding: 16px 10px 48px 10px; /* ✅ Aumentado padding-bottom para 48px para garantir visibilidade total */
-  scroll-padding-bottom: 48px; /* ✅ Garante que scroll considere padding-bottom */
+  flex: 1 1 0;
+  min-height: 0;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 16px 10px 48px 10px;
+  scroll-padding-bottom: 48px;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 12px;
@@ -262,6 +262,14 @@
   overscroll-behavior: contain;
   align-content: start;
   justify-items: center;
+}
+
+/* Spacer após o último card — garante visibilidade total sem ser cortado pelo scroll */
+.shops-root .shops-list::after {
+  content: '';
+  display: block;
+  height: 24px;
+  grid-column: 1 / -1;
 }
 
 .shops-root .card-wrapper,

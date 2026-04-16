@@ -411,7 +411,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     presetEnd: presetEnd,
     maxRangeDays: 90,
     includeTime: true,
-    timePrecision: 'hour',
+    timePrecision: 'minute',
     onApply: function (result) {
       LogHelper.log('[DateRangePicker] Applied:', result);
 
