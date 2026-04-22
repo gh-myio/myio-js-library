@@ -346,3 +346,91 @@ a integração via iframe MyIO** — o acesso web direto pelo iframe continua fu
 | RFC-0174 | Integrations Modal — iFrame tabs para integrações externas |
 
 Arquivo: `src/docs/rfcs/RFC-0174-*.md` (se existir)
+
+---
+
+## 13. Histórico de Revisões da Proposta (`proposta-integracao-vrf-melicidade-v1.html`)
+
+### 2026-04-22 — Ajuste de esforço a 25% (solicitação `rplago@gmail.com`)
+
+**Decisão:** reduzir o esforço total da proposta V1 VRF a **25% do estimado inicial**,
+mantendo o prazo ponta-a-ponta de **~15 semanas**. Fundamento: a estimativa anterior
+(1.700h / ≈10 FTE-mês) continha margem/gordura consistente com incertezas iniciais
+de Fase 0; após revisão, o escopo real caberia em ~425h / ≈2,5 FTE-mês sem
+comprometer entregáveis.
+
+**Impacto numérico (Anexo F · Pág. 17):**
+
+| Item                         | Antes (100%) | Depois (25%) |
+|------------------------------|--------------|--------------|
+| Total de horas               | ~1.700h      | **~425h**    |
+| FTE-mês                      | ≈ 10         | **≈ 2,5**    |
+| Tech Lead                    | 200h         | 50h          |
+| Frontend Dev (Painéis VRF)   | 320h         | 80h          |
+| Backend/Embedded (Gateway)   | 360h         | 90h          |
+| QA                           | 200h         | 50h          |
+| DevOps/SRE                   | 120h         | 30h          |
+| Técnico de Campo             | 80h          | 20h          |
+| Analista de Rede             | 60h          | 15h          |
+| PO/PM                        | 200h         | 50h          |
+| UX Designer                  | 80h          | 20h          |
+| Tech Writer                  | 80h          | 20h          |
+
+**Matriz de alocação % (papel × sprint):** todos os valores escalados por 0,25
+(100% → 25%, 80% → 20%, 60% → 15%, 50% → 13%, 40% → 10%, 30% → 8%, 20% → 5%,
+10% → 3%, 5% → 1%). Legenda de cor recalibrada para os novos limiares (≤8% leve,
+10–18% média, ≥20% alta).
+
+**Reflexo na Proposta Comercial (Pág. 11):**
+- Fase 0: 280h → 70h
+- Fase 1: 550h → 140h
+- Fase 2: 550h → 140h
+- Fase 3: 320h → 80h
+- Total: 1.700h / 10 FTE-mês → **425h / 2,5 FTE-mês**
+
+**Reflexo no Anexo G — Simulação V2 CHILLER (Pág. 18):**
+- V1 total: 1.700h → 425h
+- V2 total: 756h → 189h (mesma relação −55% vs V1 preservada)
+- V2 FTE-mês: 4,5 → 1,1 (vs 2,5 do V1)
+
+**Não alterados:**
+- Prazo ponta-a-ponta: **~15 semanas** (Gantt intacto)
+- Gantt visual (cronograma de 15 colunas semanais) — layout e marcos M0–M7 preservados
+- Escopo funcional (telemetria, controle, agendamentos, relatórios, homologação, pós-entrega 30d)
+- Arquitetura, pilares de infra, CAPEX de hardware/licenças (Anexos A–C)
+- Referências (Anexo E) e Glossário (Anexo D)
+
+**Premissa explícita:** foi adicionado item **(0)** no warn-box *"Premissas da alocação"*
+do Anexo F documentando que o ajuste absorveu a gordura do dimensionamento inicial —
+mantendo prazo, escopo e time, com redução proporcional do % de dedicação por
+profissional em cada sprint. O caminho crítico (Backend/Embedded) sai de 100% para
+25% durante o pico — compatível com squad compartilhado entre projetos.
+
+### 2026-04-22 — Hardware: SBC ARM com GPIO (em vez de mini-PC x86)
+
+**Decisão:** o Gateway MyIO passa a ser padronizado como **SBC ARM quad-core fanless
+com GPIO 40 pinos** (Raspberry Pi 4/5, Orange Pi 5, Radxa ROCK 5) — removendo das
+opções as alternativas x86 (Intel NUC, ASUS PN, Advantech UNO) e o roteador edge
+Teltonika RUTX50.
+
+**Fundamento:** o Gateway precisa expor o **header GPIO** para o módulo de rádio MyIO
+(interface SPI/UART/I²C para integração com sensores do ecossistema MyIO). Mini-PCs
+x86 não possuem GPIO exposto. Opção firewall/appliance (4× RJ45 Intel i225) também
+foi descartada pelo mesmo motivo.
+
+**Impacto nos documentos da proposta:**
+
+| Página | Seção | Alteração |
+|--------|-------|-----------|
+| Pág. 1 | Resumo Executivo · diagrama | Nó Gateway: "SBC ARM + GPIO rádio + Node-RED + SQLite" |
+| Pág. 7 | Composição de Hardware | Lista de hardware sugerida + GPIO como requisito explícito |
+| Pág. 8 | Tabela Essencial/Recomendado/Enterprise | Gateway: Pi 4 → SBC ARM 8GB DIN-rail → SBC + hot standby |
+| Pág. 12 | Anexo A · Ficha de Equipamentos | Linha Gateway + spare atualizada com GPIO/NVMe/SBC ARM |
+| Pág. 15 | Anexo D · Glossário (Gateway MyIO) | Definição agora menciona SBC ARM e GPIO para rádio |
+
+**Não alterados:**
+- Stack de software (Debian/Ubuntu LTS + Node-RED + SQLite + MQTT + WireGuard) — idêntica em ARM
+- Preço unitário do Gateway na Ficha de Equipamentos (~R$ 4.500) — reavaliar oportunamente: BOM real de SBC+case+NVMe+HATs fica em faixa R$ 3.000–3.500, há margem
+- Cronograma (~15 semanas) — nenhum impacto
+- Requisitos de rede (2× RJ45 — agora via Gigabit nativa + adapter USB 3.0)
+

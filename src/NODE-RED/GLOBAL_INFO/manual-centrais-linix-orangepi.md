@@ -68,6 +68,18 @@ ssh -i id_rsa root@<ipv6-da-central>
 | ------- | ---- |
 | —       | —    |
 
+#### Holding: DIMENSION
+
+| Central           | IPv6                                     | Gateway ID |
+| ----------------- | ---------------------------------------- | ---------- |
+| Central Dimension | `203:984:24ef:b578:69a6:7136:b9f2:b5c2`  | —          |
+
+#### Holding: RAIZ EDUCAÇÃO
+
+| Central              | IPv6                                     | Gateway ID |
+| -------------------- | ---------------------------------------- | ---------- |
+| Central Raiz Educação | `201:3bed:541b:8c61:3e69:9:d453:1bef`   | —          |
+
 **Exemplos de conexão:**
 
 ```bash
@@ -109,6 +121,12 @@ ssh -i id_rsa root@202:1d97:2112:f9b9:cfcb:e237:5dc:a3f7
 
 # Praia da Costa L1 (Soul Malls)
 ssh -i id_rsa root@200:8e12:1a64:71bc:ff06:5c56:9f09:f4aa
+
+# Central Dimension (Dimension)
+ssh -i id_rsa root@203:984:24ef:b578:69a6:7136:b9f2:b5c2
+
+# Central Raiz Educação (Raiz Educação)
+ssh -i id_rsa root@201:3bed:541b:8c61:3e69:9:d453:1bef
 ```
 
 ---
@@ -178,6 +196,14 @@ systemctl restart nodered
 ```bash
 psql -U hubot
 ```
+
+> **Troubleshooting** — se retornar
+> `could not connect to server: No such file or directory / Is the server running locally and accepting connections on Unix domain socket "/tmp/.s.PGSQL.5432"?`,
+> o cliente está procurando o socket em `/tmp`, mas no Debian/Ubuntu o Postgres usa `/var/run/postgresql`. Force o host correto:
+>
+> ```bash
+> psql -U hubot -h /var/run/postgresql
+> ```
 
 ### 5.2 Comandos úteis dentro do psql
 
@@ -336,9 +362,149 @@ WHERE
 
 ---
 
-## 8. Procedimentos Comuns
+## 8. RFIR — Controle Remoto Infravermelho (Modelo de Dados)
 
-### 8.1 Atualizar script JS de um shopping
+> **Status: Em análise (draft).** Esta seção consolida o entendimento atual do
+> modelo RFIR. A conclusão preliminar é que o desenho acumulou débito técnico
+> relevante — excesso de indireção, duplicação entre `slaves` e `rfir_*`,
+> acoplamento com endereçamento físico do firmware. Objetivo desta seção:
+> servir de base para a rediscussão arquitetural.
+
+### 8.1 Conceito fundamental
+
+Dispositivos `slaves` com `type = 'infrared'` são blasters IR físicos. O ponto
+crítico é **onde o sinal IR mora**:
+
+- **O comando IR (o "código" capturado do controle)** fica armazenado **dentro
+  do hardware do blaster**, em uma página de memória identificada por um par
+  `(page_low, page_high)`.
+- O **banco de dados guarda só a referência** ao endereço de memória — não o
+  sinal IR em si.
+- Consequência prática: para reproduzir um comando é sempre necessário
+  comunicar com o hardware; o banco sozinho não consegue "tocar" o IR.
+- Consequência operacional: **migrar/clonar configurações de IR entre centrais**
+  exige recapturar cada comando no hardware destino — o dump do Postgres
+  **não é auto-suficiente**.
+
+### 8.2 Tabelas envolvidas
+
+| Tabela                        | Papel (entendimento atual)                                     |
+| ----------------------------- | -------------------------------------------------------------- |
+| `slaves` (`type='infrared'`)  | Blaster IR físico (hardware Modbus)                            |
+| `rfir_devices`                | ⚠️ Camada adicional sobre o slave IR — a confirmar via `\d`     |
+| `rfir_remotes`                | Controle remoto lógico (agrupamento de botões)                 |
+| `rfir_buttons`                | Botões do remote — cada botão aponta para um comando           |
+| `rfir_commands`               | Mapa comando → `(page_low, page_high)` no hardware             |
+| `ambients_rfir_devices_rel`   | Junction: ambiente × `rfir_device`                             |
+| `ambients_rfir_slaves_rel`    | Junction: ambiente × `slave` — ⚠️ parece redundante com a anterior |
+
+### 8.3 Cadeia de referências (suspeita — a validar)
+
+```
+ambient ──┬─► ambients_rfir_devices_rel ──► rfir_device ──┐
+          │                                                │
+          └─► ambients_rfir_slaves_rel  ──► slave (IR) ◄──┘
+                                                 ▲
+              rfir_remote ──► rfir_button ──► rfir_command ──► (page_low, page_high) no firmware do slave
+```
+
+Para responder "qual botão aciona qual sinal no hardware X" a query precisa
+percorrer **pelo menos 4 tabelas** (`rfir_buttons` → `rfir_commands` →
+`rfir_devices`/`slaves` → `ambients_*`).
+
+### 8.4 Pontos de fricção / débito técnico
+
+1. **Duplicação `slaves` ↔ `rfir_devices`** — aparentemente representam o mesmo
+   hardware por ângulos diferentes. Qual é a fonte-da-verdade?
+2. **Duas junctions com `ambients`** (`ambients_rfir_devices_rel` e
+   `ambients_rfir_slaves_rel`) — se `rfir_device` está 1:1 com `slave`, uma delas
+   é redundante. Se não está 1:1, a semântica precisa ser documentada.
+3. **`page_low`/`page_high` vaza no modelo relacional** — é um detalhe de
+   implementação do firmware (endereço de página da flash interna). Modelar isso
+   no Postgres acopla o schema ao hardware específico.
+4. **Indireção excessiva** — 4 hops (`button → command → device → ambient`) pra
+   responder perguntas operacionais simples.
+5. **Dump do banco não é portável** — um `pg_dump` de uma central não recria o
+   ambiente RFIR em outra sem recaptura dos comandos físicos.
+6. **Sem integridade referencial óbvia entre `rfir_command.page_*` e o
+   hardware** — nada no banco impede que `page_low/page_high` apontem para uma
+   página vazia/sobrescrita do firmware.
+
+### 8.5 Investigação pendente — schemas a capturar
+
+Rodar em uma central ativa (sugestão: Raiz Educação — 35 blasters IR) e colar a
+saída em `CENTRAL-RAIZ-EDUCACAO.md` §2.5 e/ou referenciar aqui:
+
+```sql
+\d rfir_devices
+\d rfir_remotes
+\d rfir_buttons
+\d rfir_commands
+\d ambients_rfir_devices_rel
+\d ambients_rfir_slaves_rel
+```
+
+Contagens por tabela (panorama de volume):
+
+```sql
+SELECT 'rfir_devices'              AS tabela, count(*) FROM rfir_devices
+UNION ALL SELECT 'rfir_remotes',              count(*) FROM rfir_remotes
+UNION ALL SELECT 'rfir_buttons',              count(*) FROM rfir_buttons
+UNION ALL SELECT 'rfir_commands',             count(*) FROM rfir_commands
+UNION ALL SELECT 'ambients_rfir_devices_rel', count(*) FROM ambients_rfir_devices_rel
+UNION ALL SELECT 'ambients_rfir_slaves_rel',  count(*) FROM ambients_rfir_slaves_rel;
+```
+
+Amostra de um botão até o endereço físico (uma vez que as FKs estejam mapeadas):
+
+```sql
+-- Esqueleto — ajustar os joins aos nomes reais das FKs
+SELECT
+  b.id              AS button_id,
+  b.name            AS button_name,
+  r.name            AS remote_name,
+  c.page_low,
+  c.page_high,
+  s.id              AS slave_id,
+  s.name            AS slave_name
+FROM rfir_buttons b
+JOIN rfir_commands c ON c.id = b.command_id        -- confirmar FK
+JOIN rfir_remotes  r ON r.id = b.remote_id         -- confirmar FK
+JOIN rfir_devices  d ON d.id = r.device_id         -- confirmar FK
+JOIN slaves        s ON s.id = d.slave_id          -- confirmar FK
+ORDER BY r.name, b.name;
+```
+
+### 8.6 Perguntas abertas para a rediscussão
+
+- Qual a **cardinalidade real** `rfir_device` ↔ `slave`? (1:1 via `code`? N:1?)
+- `rfir_remote` representa um **controle físico do cliente** (ex.: remote da TV)
+  ou apenas um agrupamento lógico de botões?
+- `rfir_command` é **compartilhado** entre botões/remotes ou único por
+  `(remote, button)`? Se compartilhado, qual a chave natural?
+- Por que **duas junctions com `ambients`**? Qual delas é consultada pela app e
+  qual está morta?
+- `page_low`/`page_high` são **alocados pelo firmware** (auto-incremento) ou
+  **escolhidos pelo app** no momento da captura?
+- Existe tabela/colunas para **marcar comandos "órfãos"** (apontando para
+  página já sobrescrita no firmware)?
+- Estratégia de **migração** entre centrais: existe ferramenta/flow que relê o
+  firmware e reconstrói `rfir_commands`?
+
+### 8.7 Próximos passos sugeridos
+
+1. Capturar os `\d` das 6 tabelas RFIR e anexar aqui em §8.2.
+2. Desenhar o ERD real (não suposto) após §8.5.
+3. Identificar qual das duas junctions `ambients_*_rel` está em uso — candidate
+   para deprecation.
+4. Avaliar se `rfir_devices` pode ser fundido a `slaves` (view ou migração).
+5. Documentar o procedimento oficial de recaptura IR pós-troca de hardware.
+
+---
+
+## 9. Procedimentos Comuns
+
+### 9.1 Atualizar script JS de um shopping
 
 ```bash
 # 1. Conectar via SSH
@@ -354,13 +520,13 @@ nano <nome-do-arquivo>.js
 systemctl restart nodered
 ```
 
-### 8.2 Verificar se dados estão chegando ao ThingsBoard
+### 9.2 Verificar se dados estão chegando ao ThingsBoard
 
 <!-- Descrever como confirmar que a telemetria está sendo enviada:
      ex. via log, via painel TB, via debug node no Node-RED
 -->
 
-### 8.3 Reinicialização completa da central
+### 9.3 Reinicialização completa da central
 
 ```bash
 reboot
@@ -368,7 +534,7 @@ reboot
 
 ---
 
-## 9. Troubleshooting
+## 10. Troubleshooting
 
 | Problema               | Causa provável                             | Solução          |
 | ---------------------- | ------------------------------------------ | ---------------- |
@@ -378,7 +544,7 @@ reboot
 
 ---
 
-## 10. Observações e Boas Práticas
+## 11. Observações e Boas Práticas
 
 <!-- Adicionar dicas, avisos, particularidades de instalação -->
 
