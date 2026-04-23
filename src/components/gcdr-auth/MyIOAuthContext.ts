@@ -203,7 +203,7 @@ export class MyIOAuthContext {
         ? `&customerId=${encodeURIComponent(config.customerId)}`
         : '';
       const res = await fetch(
-        `${config.gcdrApiBaseUrl}/api/v1/users?search=${q}${cid}&limit=10`,
+        `${config.gcdrApiBaseUrl}/users?search=${q}${cid}&limit=10`,
         { headers: gcdrHeaders },
       );
       if (res.ok) {

@@ -1,7 +1,7 @@
 import type { GCDRAssignment } from '../premium-modals/user-management/types';
 
 export interface AuthConfig {
-  /** GCDR API base URL (e.g. 'https://gcdr-api.a.myio-bas.com') */
+  /** GCDR API base URL including `/api/v1` suffix (e.g. 'https://gcdr-api.a.myio-bas.com/api/v1') */
   gcdrApiBaseUrl: string;
   /** GCDR API key */
   gcdrApiKey: string;

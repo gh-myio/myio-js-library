@@ -28,7 +28,7 @@ export class EnergyModalView {
   private currentEnergyData: EnergyData | null = null;
   private dateRangePicker: DateRangeControl | null = null;
   private isLoading = false;
-  private currentTheme: 'dark' | 'light' = 'dark';
+  private currentTheme: 'dark' | 'light' = 'light';
   private currentBarMode: 'stacked' | 'grouped' = 'stacked';
   // RFC-0097: Granularity selector state (only 1h and 1d supported)
   private currentGranularity: '1h' | '1d' = '1d';
@@ -66,7 +66,7 @@ export class EnergyModalView {
     } else if (configTheme === 'dark' || configTheme === 'light') {
       this.currentTheme = configTheme;
     } else {
-      this.currentTheme = 'dark';
+      this.currentTheme = 'light';
     }
   }
 
@@ -93,7 +93,7 @@ export class EnergyModalView {
   /**
    * RFC-0097: Sets granularity and re-renders chart
    */
-  private setGranularity(granularity: '1h' | '1d'): void {
+  private async setGranularity(granularity: '1h' | '1d'): Promise<void> {
     if (this.currentGranularity === granularity) return;
 
     this.currentGranularity = granularity;
@@ -111,6 +111,18 @@ export class EnergyModalView {
 
     // Save preference to localStorage
     localStorage.setItem('myio-modal-granularity', granularity);
+
+    // Rebuild DateRangePicker so the time picker appears only for '1h'.
+    // Await so the picker is ready before the chart re-renders (avoids falling
+    // back to config.params dates during the rebuild window).
+    const dateRangeInput = document.getElementById('date-range') as HTMLInputElement | null;
+    if (dateRangeInput) {
+      try {
+        await this.rebuildDateRangePicker(dateRangeInput);
+      } catch (err) {
+        console.warn('[EnergyModalView] Failed to rebuild DateRangePicker after granularity change:', err);
+      }
+    }
 
     // Re-render chart with new granularity
     this.reRenderChart();
@@ -496,14 +508,12 @@ export class EnergyModalView {
               </svg>
             </button>
             ` : ''}
-            ${this.config.params.mode === 'comparison' ? `
             <!-- RFC-0097: Granularity Selector (only 1h and 1d supported) -->
             <div class="myio-granularity-selector" style="display: flex; align-items: center; gap: 4px; margin-left: 8px; padding: 4px 8px; background: rgba(0,0,0,0.05); border-radius: 8px;">
               <span class="myio-label-secondary" style="font-size: 11px; margin-right: 4px; white-space: nowrap;">Granularidade:</span>
               <button class="myio-btn myio-btn-granularity ${this.currentGranularity === '1h' ? 'active' : ''}" data-granularity="1h" title="Hora">1h</button>
               <button class="myio-btn myio-btn-granularity ${this.currentGranularity === '1d' ? 'active' : ''}" data-granularity="1d" title="Dia">1d</button>
             </div>
-            ` : ''}
             <button id="close-btn" class="myio-btn myio-btn-secondary">
               Fechar
             </button>
@@ -870,7 +880,7 @@ export class EnergyModalView {
       }
 
       const tzIdentifier = this.config.params.timezone || 'America/Sao_Paulo';
-      const granularity = this.config.params.granularity || '1d';
+      const granularity = this.currentGranularity;
       const ingestionId = this.config.context.resolved.ingestionId;
 
       console.log(`[EnergyModalView] Initializing v2 chart with: deviceId=${ingestionId}, startDate=${startISO}, endDate=${endISO}, granularity=${granularity}, theme=${this.currentTheme}, timezone=${tzIdentifier}`);
@@ -953,19 +963,18 @@ export class EnergyModalView {
       }
 
       // Get current dates
+      // Send full ISO with -03:00 offset so the SDK interprets the period
+      // in São Paulo local time (avoids X-axis shifting to UTC).
       let startDateStr: string, endDateStr: string;
 
       if (this.dateRangePicker) {
         const dates = this.dateRangePicker.getDates();
-        // ⚠️ IMPORTANT: Comparison requires YYYY-MM-DD format (no time)
-        startDateStr = dates.startISO.split('T')[0];
-        endDateStr = dates.endISO.split('T')[0];
+        startDateStr = dates.startISO;
+        endDateStr = dates.endISO;
       } else {
         // Fallback to params
-        const startDate = new Date(this.config.params.startDate);
-        const endDate = new Date(this.config.params.endDate);
-        startDateStr = startDate.toISOString().split('T')[0];
-        endDateStr = endDate.toISOString().split('T')[0];
+        startDateStr = this.normalizeToSaoPauloISO(this.config.params.startDate, false);
+        endDateStr = this.normalizeToSaoPauloISO(this.config.params.endDate, true);
       }
 
       const tzIdentifier = this.config.params.timezone || 'America/Sao_Paulo';
@@ -976,8 +985,8 @@ export class EnergyModalView {
         clientSecret: this.config.params.clientSecret || 'admin_dashboard_secret_2025',
         dataSources: this.config.params.dataSources!,  // Already validated in constructor
         readingType: this.config.params.readingType || 'energy',
-        startDate: startDateStr,  // ← NO TIME (YYYY-MM-DD)
-        endDate: endDateStr,      // ← NO TIME (YYYY-MM-DD)
+        startDate: startDateStr,  // Full ISO with -03:00 offset
+        endDate: endDateStr,      // Full ISO with -03:00 offset
         granularity: this.currentGranularity,  // RFC-0097: Use current granularity from selector
         theme: this.currentTheme,  // ← Use current theme (dynamic)
         bar_mode: this.currentBarMode,  // ← Use current bar mode (stacked | grouped)
@@ -1042,17 +1051,17 @@ export class EnergyModalView {
       }
 
       // Get current dates
+      // Send full ISO with -03:00 offset so the SDK interprets the period
+      // in São Paulo local time (avoids X-axis shifting to UTC).
       let startDateStr: string, endDateStr: string;
 
       if (this.dateRangePicker) {
         const dates = this.dateRangePicker.getDates();
-        startDateStr = dates.startISO.split('T')[0];
-        endDateStr = dates.endISO.split('T')[0];
+        startDateStr = dates.startISO;
+        endDateStr = dates.endISO;
       } else {
-        const startDate = new Date(this.config.params.startDate);
-        const endDate = new Date(this.config.params.endDate);
-        startDateStr = startDate.toISOString().split('T')[0];
-        endDateStr = endDate.toISOString().split('T')[0];
+        startDateStr = this.normalizeToSaoPauloISO(this.config.params.startDate, false);
+        endDateStr = this.normalizeToSaoPauloISO(this.config.params.endDate, true);
       }
 
       const tzIdentifier = this.config.params.timezone || 'America/Sao_Paulo';
@@ -1491,16 +1500,45 @@ export class EnergyModalView {
     }
 
     // Initialize DateRangePicker with widget dates as defaults
+    await this.rebuildDateRangePicker(dateRangeInput);
+
+  }
+
+  /**
+   * (Re)builds the DateRangePicker. Time picker only shown when granularity = '1h'.
+   * Preserves the currently selected range when rebuilding after a granularity change.
+   */
+  private async rebuildDateRangePicker(input: HTMLInputElement): Promise<void> {
+    let presetStart: string | undefined;
+    let presetEnd: string | undefined;
+
+    if (this.dateRangePicker) {
+      try {
+        const current = this.dateRangePicker.getDates();
+        presetStart = current.startISO;
+        presetEnd = current.endISO;
+      } catch { /* ignore, fall back to config */ }
+      this.dateRangePicker.destroy();
+      this.dateRangePicker = null;
+    }
+
+    if (!presetStart) {
+      presetStart = this.config.params.startDate instanceof Date
+        ? this.config.params.startDate.toISOString().split('T')[0]
+        : this.config.params.startDate;
+    }
+    if (!presetEnd) {
+      presetEnd = this.config.params.endDate instanceof Date
+        ? this.config.params.endDate.toISOString().split('T')[0]
+        : this.config.params.endDate;
+    }
+
     try {
-      this.dateRangePicker = await attachDateRangePicker(dateRangeInput, {
-        presetStart: this.config.params.startDate instanceof Date
-          ? this.config.params.startDate.toISOString().split('T')[0]
-          : this.config.params.startDate,
-        presetEnd: this.config.params.endDate instanceof Date
-          ? this.config.params.endDate.toISOString().split('T')[0]
-          : this.config.params.endDate,
+      this.dateRangePicker = await attachDateRangePicker(input, {
+        presetStart,
+        presetEnd,
         maxRangeDays: 90,
-        includeTime: true,
+        includeTime: this.currentGranularity === '1h',
         timePrecision: 'minute',
         parentEl: this.modal.element,
         onApply: ({ startISO, endISO }) => {
@@ -1511,7 +1549,6 @@ export class EnergyModalView {
     } catch (error) {
       console.warn('DateRangePicker initialization failed, using fallback:', error);
     }
-
   }
 
   /**
