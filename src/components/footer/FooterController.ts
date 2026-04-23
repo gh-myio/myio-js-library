@@ -9,6 +9,7 @@ import {
   SelectionStore,
   UnitType,
   DateRange,
+  DEFAULT_CONFIG_TEMPLATE,
 } from './types';
 import { FooterView } from './FooterView';
 import { showMixedUnitsAlert, showLimitAlert, hideAlert, setAlertColors } from './AlertDialogs';
@@ -35,8 +36,29 @@ class InternalSelectionStore implements SelectionStore {
   private listeners: Map<string, Array<(...args: unknown[]) => void>> = new Map();
   private maxSelections: number;
 
-  constructor(maxSelections: number = 6) {
+  constructor(maxSelections: number = DEFAULT_CONFIG_TEMPLATE.maxSelections ?? 20) {
     this.maxSelections = maxSelections;
+  }
+
+  /**
+   * Updates the maximum selection limit at runtime.
+   * If the current selection exceeds the new limit, trims the oldest
+   * entries (insertion order) and emits `selection:change`.
+   */
+  setMaxSelections(n: number): void {
+    const v = Math.floor(Number(n));
+    if (!Number.isFinite(v) || v < 1) return;
+    this.maxSelections = v;
+    if (this.entities.size > v) {
+      const kept = Array.from(this.entities.entries()).slice(0, v);
+      this.entities = new Map(kept);
+      this.emit('selection:change', this.getSelectedEntities());
+      this.emit('selection:limit-reached', v);
+    }
+  }
+
+  getMaxSelections(): number {
+    return this.maxSelections;
   }
 
   on(event: string, handler: (...args: unknown[]) => void): void {
@@ -117,7 +139,12 @@ export class FooterController {
 
   constructor(private params: FooterComponentParams, view: FooterView) {
     this.view = view;
-    this.maxSelections = params.maxSelections ?? 6;
+    // Resolution order: explicit param > configTemplate > DEFAULT_CONFIG_TEMPLATE > 20
+    this.maxSelections =
+      params.maxSelections
+      ?? params.configTemplate?.maxSelections
+      ?? DEFAULT_CONFIG_TEMPLATE.maxSelections
+      ?? 20;
     this.log = createLogger(params.debug ?? false);
 
     // Set alert colors
@@ -538,6 +565,40 @@ export class FooterController {
    */
   hideAlert(): void {
     hideAlert();
+  }
+
+  /**
+   * Updates the maximum selection limit at runtime. If the footer is using
+   * an InternalSelectionStore, the store's limit is updated too; external
+   * stores are left untouched (they own their own limit).
+   *
+   * If the current selection exceeds the new limit, the underlying store
+   * will emit `selection:limit-reached` (and may truncate), and the view
+   * re-renders via the existing selection:change handler.
+   */
+  setMaxSelections(n: number): void {
+    const v = Math.floor(Number(n));
+    if (!Number.isFinite(v) || v < 1) {
+      this.log.warn('setMaxSelections: invalid value, ignoring:', n);
+      return;
+    }
+    this.maxSelections = v;
+    if (this.store instanceof InternalSelectionStore) {
+      this.store.setMaxSelections(v);
+    } else {
+      this.log.log(
+        'setMaxSelections: external store detected — controller limit updated to',
+        v,
+        'but external store limit is not managed here. Call its own setter if supported.'
+      );
+    }
+  }
+
+  /**
+   * Returns the maximum selection limit currently enforced by the controller.
+   */
+  getMaxSelections(): number {
+    return this.maxSelections;
   }
 
   /**

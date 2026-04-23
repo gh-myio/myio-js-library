@@ -21,7 +21,7 @@ import { FooterController } from './FooterController';
  * const footer = createFooterComponent({
  *   container: document.getElementById('footer-container'),
  *   theme: 'dark',
- *   maxSelections: 6,
+ *   maxSelections: 20,
  *   onCompareClick: (entities, unitType) => {
  *     console.log('Compare clicked:', entities.length, unitType);
  *   },
@@ -61,6 +61,8 @@ export function createFooterComponent(params: FooterComponentParams): FooterComp
     clearSelection: () => controller.clearSelection(),
     getSelectedEntities: () => controller.getSelectedEntities(),
     getSelectionCount: () => controller.getSelectionCount(),
+    setMaxSelections: (n) => controller.setMaxSelections(n),
+    getMaxSelections: () => controller.getMaxSelections(),
 
     // State methods
     getCurrentUnitType: () => controller.getCurrentUnitType(),

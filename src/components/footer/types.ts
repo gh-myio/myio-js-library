@@ -206,7 +206,7 @@ export const DEFAULT_CONFIG_TEMPLATE: FooterConfigTemplate = {
   emptyMessage: 'Selecione dispositivos para comparar',
   compareButtonLabel: 'Comparar',
   clearButtonLabel: 'Limpar',
-  maxSelections: 6,
+  maxSelections: 20,
   darkMode: DEFAULT_DARK_THEME,
   lightMode: DEFAULT_LIGHT_THEME,
 };
@@ -284,6 +284,10 @@ export interface SelectionStore {
   clear: () => void;
   getSelectedEntities: () => SelectedEntity[];
   getSelectionCount: () => number;
+  /** Optional runtime setter — present on InternalSelectionStore and on
+   *  MyIOSelectionStore (when exposed). Callers should feature-detect. */
+  setMaxSelections?: (n: number) => void;
+  getMaxSelections?: () => number;
 }
 
 /**
@@ -314,7 +318,8 @@ export interface FooterComponentParams {
   /** Selection store instance (default: window.MyIOSelectionStore) */
   selectionStore?: SelectionStore;
 
-  /** Maximum number of selections allowed (default: 6) */
+  /** Maximum number of selections allowed.
+   *  Resolution order: this param > configTemplate.maxSelections > DEFAULT_CONFIG_TEMPLATE.maxSelections (20). */
   maxSelections?: number;
 
   /** Message shown when dock is empty */
@@ -402,6 +407,22 @@ export interface FooterComponentInstance {
    * Get the count of selected entities
    */
   getSelectionCount: () => number;
+
+  /**
+   * Update the maximum number of selections at runtime.
+   * If the current selection exceeds the new limit, it will be truncated
+   * (insertion order) and `selection:limit-reached` will be emitted.
+   *
+   * Note: when the footer is wired to an external store that does not
+   * implement `setMaxSelections`, the controller's internal limit is
+   * updated but the external store's own limit is left untouched.
+   */
+  setMaxSelections: (n: number) => void;
+
+  /**
+   * Get the maximum number of selections currently enforced.
+   */
+  getMaxSelections: () => number;
 
   // ============== State Methods ==============
 
