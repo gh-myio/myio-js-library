@@ -3315,6 +3315,23 @@ function _getExportPeriod() {
   return null;
 }
 
+function _getExportCustomerName() {
+  // Prefer the dashboard title (shows current shopping name); fall back to
+  // the first datasource name, which is typically the customer entity.
+  const fromDashboard =
+    self.ctx?.dashboard?.title ||
+    self.ctx?.dashboard?.dashboard?.title ||
+    self.ctx?.dashboard?.config?.title ||
+    self.ctx?.dashboard?.configuration?.title ||
+    null;
+  if (fromDashboard && String(fromDashboard).trim()) return String(fromDashboard).trim();
+  try {
+    const ds = self.ctx?.datasources?.[0];
+    if (ds?.name) return String(ds.name).trim();
+  } catch { /* ignore */ }
+  return null;
+}
+
 function _openPresetupModal() {
   const lib = window.MyIOLibrary;
   if (!lib?.createPresetupGateway) {
@@ -3548,7 +3565,8 @@ function bindHeader() {
       _buildExportDevices(STATE.lastVisible),
       _getExportLabel(),
       _getExportUnit(),
-      _getExportPeriod()
+      _getExportPeriod(),
+      _getExportCustomerName()
     );
   });
 
@@ -3562,7 +3580,8 @@ function bindHeader() {
       _buildExportDevices(STATE.lastVisible),
       _getExportLabel(),
       _getExportUnit(),
-      _getExportPeriod()
+      _getExportPeriod(),
+      _getExportCustomerName()
     );
   });
 
@@ -3576,7 +3595,8 @@ function bindHeader() {
       _buildExportDevices(STATE.lastVisible),
       _getExportLabel(),
       _getExportUnit(),
-      _getExportPeriod()
+      _getExportPeriod(),
+      _getExportCustomerName()
     );
   });
 

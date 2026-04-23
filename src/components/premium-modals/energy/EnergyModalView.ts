@@ -82,11 +82,13 @@ export class EnergyModalView {
    * RFC-0097: Initializes granularity from config or localStorage
    */
   private initializeGranularity(): void {
+    // Priority: localStorage (user's last choice) > default '1d'.
+    // We intentionally ignore config.params.granularity here so the modal
+    // always opens on '1d' unless the user explicitly selected otherwise.
+    // Callers like FOOTER auto-compute '1h' for ≤1-day ranges, which we
+    // don't want to silently apply as the modal's initial selector state.
     const savedGranularity = localStorage.getItem('myio-modal-granularity') as '1h' | '1d' | null;
-    const configGranularity = this.config.params.granularity as '1h' | '1d' | null;
-    // Priority: localStorage > config params > default '1d'
-    // Only accept '1h' or '1d', fallback to '1d' for any other value
-    const candidate = savedGranularity || configGranularity || '1d';
+    const candidate = savedGranularity || '1d';
     this.currentGranularity = (candidate === '1h' || candidate === '1d') ? candidate : '1d';
   }
 
