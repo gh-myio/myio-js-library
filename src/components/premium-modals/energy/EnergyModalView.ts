@@ -963,18 +963,24 @@ export class EnergyModalView {
       }
 
       // Get current dates
-      // Send full ISO with -03:00 offset so the SDK interprets the period
-      // in São Paulo local time (avoids X-axis shifting to UTC).
-      let startDateStr: string, endDateStr: string;
+      // SDK renderTelemetryStackedChart requires YYYY-MM-DD (no time) —
+      // passing full ISO causes "Invalid Date" in the chart.
+      // The `timezone` param below tells the SDK how to interpret the dates
+      // and render the X-axis in that timezone.
+      let startDateStr: string, endDateStr: string, startISOFull: string, endISOFull: string;
 
       if (this.dateRangePicker) {
         const dates = this.dateRangePicker.getDates();
-        startDateStr = dates.startISO;
-        endDateStr = dates.endISO;
+        startISOFull = dates.startISO;
+        endISOFull = dates.endISO;
+        startDateStr = dates.startISO.split('T')[0];
+        endDateStr = dates.endISO.split('T')[0];
       } else {
         // Fallback to params
-        startDateStr = this.normalizeToSaoPauloISO(this.config.params.startDate, false);
-        endDateStr = this.normalizeToSaoPauloISO(this.config.params.endDate, true);
+        startISOFull = this.normalizeToSaoPauloISO(this.config.params.startDate, false);
+        endISOFull = this.normalizeToSaoPauloISO(this.config.params.endDate, true);
+        startDateStr = startISOFull.split('T')[0];
+        endDateStr = endISOFull.split('T')[0];
       }
 
       const tzIdentifier = this.config.params.timezone || 'America/Sao_Paulo';
@@ -985,12 +991,17 @@ export class EnergyModalView {
         clientSecret: this.config.params.clientSecret || 'admin_dashboard_secret_2025',
         dataSources: this.config.params.dataSources!,  // Already validated in constructor
         readingType: this.config.params.readingType || 'energy',
-        startDate: startDateStr,  // Full ISO with -03:00 offset
-        endDate: endDateStr,      // Full ISO with -03:00 offset
+        startDate: startDateStr,  // YYYY-MM-DD (SDK requirement)
+        endDate: endDateStr,      // YYYY-MM-DD (SDK requirement)
+        // Also send full ISO with -03:00 offset so newer SDK versions that
+        // support it can honor the exact boundary; older versions ignore these.
+        startTime: startISOFull,
+        endTime: endISOFull,
         granularity: this.currentGranularity,  // RFC-0097: Use current granularity from selector
         theme: this.currentTheme,  // ← Use current theme (dynamic)
         bar_mode: this.currentBarMode,  // ← Use current bar mode (stacked | grouped)
         timezone: tzIdentifier,
+        tz: tzIdentifier,  // Alias in case SDK reads 'tz'
         iframeBaseUrl: this.config.params.chartsBaseUrl || 'https://graphs.apps.myio-bas.com',
         apiBaseUrl: (this.config.params.dataApiHost || '').replace(/\/api\/v1\/?$/, ''),
         deep: this.config.params.deep || false
@@ -1051,17 +1062,21 @@ export class EnergyModalView {
       }
 
       // Get current dates
-      // Send full ISO with -03:00 offset so the SDK interprets the period
-      // in São Paulo local time (avoids X-axis shifting to UTC).
-      let startDateStr: string, endDateStr: string;
+      // SDK renderTelemetryLineChart requires YYYY-MM-DD (no time) —
+      // passing full ISO causes "Invalid Date" in the chart.
+      let startDateStr: string, endDateStr: string, startISOFull: string, endISOFull: string;
 
       if (this.dateRangePicker) {
         const dates = this.dateRangePicker.getDates();
-        startDateStr = dates.startISO;
-        endDateStr = dates.endISO;
+        startISOFull = dates.startISO;
+        endISOFull = dates.endISO;
+        startDateStr = dates.startISO.split('T')[0];
+        endDateStr = dates.endISO.split('T')[0];
       } else {
-        startDateStr = this.normalizeToSaoPauloISO(this.config.params.startDate, false);
-        endDateStr = this.normalizeToSaoPauloISO(this.config.params.endDate, true);
+        startISOFull = this.normalizeToSaoPauloISO(this.config.params.startDate, false);
+        endISOFull = this.normalizeToSaoPauloISO(this.config.params.endDate, true);
+        startDateStr = startISOFull.split('T')[0];
+        endDateStr = endISOFull.split('T')[0];
       }
 
       const tzIdentifier = this.config.params.timezone || 'America/Sao_Paulo';
@@ -1074,9 +1089,12 @@ export class EnergyModalView {
         readingType: 'temperature',
         startDate: startDateStr,
         endDate: endDateStr,
+        startTime: startISOFull,
+        endTime: endISOFull,
         granularity: this.currentGranularity,  // RFC-0097: Use current granularity from selector
         theme: this.currentTheme,
         timezone: tzIdentifier,
+        tz: tzIdentifier,
         iframeBaseUrl: this.config.params.chartsBaseUrl || 'https://graphs.apps.myio-bas.com',
         apiBaseUrl: (this.config.params.dataApiHost || '').replace(/\/api\/v1\/?$/, ''),
         deep: this.config.params.deep || false,

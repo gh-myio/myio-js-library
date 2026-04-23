@@ -1227,7 +1227,7 @@ const footerController = {
         dataApiHost: window.MyIOUtils?.getDataApiHost?.(), // EnergyDataFetcher strips /api/v1 from endpoint internally
         chartsBaseUrl: CHARTS_BASE_URL, // ← URL base para iframes do SDK
         timezone: 'America/Sao_Paulo', // ← fix: timestamps renderizados em BRT, não UTC
-        theme: 'dark', // ← Tema inicial (toggle disponível na modal)
+        theme: 'light', // ← Tema inicial (toggle disponível na modal)
         deep: false,
         onOpen: (context) => {
           LogHelper.log('[FOOTER] Comparison modal opened:', context);
@@ -1372,7 +1372,7 @@ const footerController = {
         devices: devices,
         startDate: startDateISO,
         endDate: endDateISO,
-        theme: 'dark',
+        theme: 'light',
         locale: 'pt-BR',
         granularity: 'hour',
         // Global fallback range (used only if devices don't have individual ranges)
