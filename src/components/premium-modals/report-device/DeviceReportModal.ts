@@ -225,21 +225,34 @@ export class DeviceReportModal {
    * Preserves the currently selected range when rebuilding after a granularity change.
    */
   private async rebuildDateRangePicker(input: HTMLInputElement): Promise<void> {
-    let presetStart: string | undefined;
-    let presetEnd: string | undefined;
+    // Keep only the date portion (YYYY-MM-DD). Times are always reset to
+    // 00:00:00 / 23:59:59 on rebuild so toggling granularity deterministically
+    // brings back the full-day default.
+    const toYmd = (v: unknown): string | undefined => {
+      if (!v) return undefined;
+      if (v instanceof Date) return v.toISOString().split('T')[0];
+      if (typeof v === 'string') return v.split('T')[0];
+      return undefined;
+    };
+
+    let startYmd: string | undefined;
+    let endYmd: string | undefined;
 
     if (this.dateRangePicker) {
       try {
         const current = this.dateRangePicker.getDates();
-        presetStart = current.startISO;
-        presetEnd = current.endISO;
+        startYmd = toYmd(current.startISO);
+        endYmd = toYmd(current.endISO);
       } catch { /* fall back to defaults */ }
       this.dateRangePicker.destroy();
       this.dateRangePicker = null;
     }
 
-    if (!presetStart) presetStart = this.getDefaultStartDate();
-    if (!presetEnd) presetEnd = this.getDefaultEndDate();
+    if (!startYmd) startYmd = toYmd(this.getDefaultStartDate());
+    if (!endYmd) endYmd = toYmd(this.getDefaultEndDate());
+
+    const presetStart = startYmd ? `${startYmd}T00:00:00-03:00` : undefined;
+    const presetEnd = endYmd ? `${endYmd}T23:59:59-03:00` : undefined;
 
     try {
       this.dateRangePicker = await attachDateRangePicker(input, {
