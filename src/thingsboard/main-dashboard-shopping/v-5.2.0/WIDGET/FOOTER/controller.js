@@ -1,4 +1,4 @@
-/* global self, window, document, localStorage, MyIOLibrary*/
+/* global self, window, document, localStorage, MyIOLibrary, ResizeObserver */
 
 /**
  * NOTA: Este script depende das seguintes bibliotecas:
@@ -250,6 +250,48 @@ function injectCSS() {
   flex-shrink: 0;
 }
 
+.myio-dock-scroll {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.myio-dock-scroll[hidden] {
+  display: none;
+}
+
+.myio-dock-scroll-btn {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(158, 140, 190, 0.18) 0%, rgba(158, 140, 190, 0.10) 100%);
+  border: 1px solid rgba(184, 165, 214, 0.4);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.myio-dock-scroll-btn svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2;
+}
+
+.myio-dock-scroll-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(158, 140, 190, 0.32) 0%, rgba(158, 140, 190, 0.20) 100%);
+  border-color: rgba(184, 165, 214, 0.6);
+  transform: translateY(-1px);
+}
+
+.myio-dock-scroll-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
 .myio-meta {
   display: flex;
   flex-direction: column;
@@ -386,8 +428,9 @@ function injectCSS() {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.85);
-  backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   animation: fadeIn 0.2s ease-out;
 }
 
@@ -401,10 +444,10 @@ function injectCSS() {
   max-width: 480px;
   width: 90%;
   padding: 32px;
-  background: linear-gradient(135deg, var(--color-surface-elevated) 0%, var(--color-surface) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 20px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -420,10 +463,10 @@ function injectCSS() {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, rgba(255, 193, 7, 0.2) 0%, rgba(255, 152, 0, 0.2) 100%);
-  border: 2px solid rgba(255, 193, 7, 0.5);
+  background: linear-gradient(135deg, #3E1A7D 0%, #2D1359 100%);
+  border: 2px solid #3E1A7D;
   border-radius: 50%;
-  color: #ffc107;
+  color: #ffffff;
   font-size: 32px;
 }
 
@@ -431,7 +474,7 @@ function injectCSS() {
   margin: 0 0 12px;
   font-size: 24px;
   font-weight: 700;
-  color: var(--color-text-primary);
+  color: #000000;
   text-align: center;
   letter-spacing: -0.02em;
 }
@@ -440,7 +483,7 @@ function injectCSS() {
   margin: 0 0 28px;
   font-size: 16px;
   font-weight: 500;
-  color: var(--color-text-secondary);
+  color: #000000;
   text-align: center;
   line-height: 1.6;
 }
@@ -452,18 +495,18 @@ function injectCSS() {
   font-size: 15px;
   font-weight: 700;
   text-transform: uppercase;
-  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+  background: linear-gradient(135deg, #3E1A7D 0%, #2D1359 100%);
   border: none;
   border-radius: 12px;
-  color: var(--color-text-primary);
+  color: #ffffff;
   cursor: pointer;
-  box-shadow: 0 4px 16px rgba(158, 140, 190, 0.4);
+  box-shadow: 0 4px 16px rgba(62, 26, 125, 0.4);
   transition: var(--transition);
 }
 
 .myio-alert-button:hover {
-  background: linear-gradient(135deg, var(--color-primary-hover) 0%, var(--color-primary) 100%);
-  box-shadow: 0 6px 24px rgba(158, 140, 190, 0.5);
+  background: linear-gradient(135deg, #4E2A9D 0%, #3E1A7D 100%);
+  box-shadow: 0 6px 24px rgba(62, 26, 125, 0.5);
   transform: translateY(-2px);
 }
     `;
@@ -560,7 +603,7 @@ const footerController = {
     try {
       const fixed = !!(this.ctx && this.ctx.settings && this.ctx.settings.fixedFooter);
       if (fixed) footerSection.classList.add('is-fixed');
-    } catch (_) {
+    } catch {
       /* noop */
     }
 
@@ -595,6 +638,9 @@ const footerController = {
     this.$totals = this.$footerEl.querySelector('#myioTotals');
     this.$clearBtn = this.$footerEl.querySelector('#myioClear');
     this.$compareBtn = this.$footerEl.querySelector('#myioCompare');
+    this.$dockScroll = this.$footerEl.querySelector('#myioDockScroll');
+    this.$dockScrollLeft = this.$footerEl.querySelector('#myioDockScrollLeft');
+    this.$dockScrollRight = this.$footerEl.querySelector('#myioDockScrollRight');
 
     LogHelper.log('[MyIO Footer] Found elements from ThingsBoard template:', {
       $footerEl: this.$footerEl,
@@ -602,6 +648,7 @@ const footerController = {
       $totals: this.$totals,
       $clearBtn: this.$clearBtn,
       $compareBtn: this.$compareBtn,
+      $dockScroll: !!this.$dockScroll,
     });
   },
 
@@ -822,7 +869,47 @@ const footerController = {
 
     this.$compareBtn.disabled = count < 2;
     this.$clearBtn.disabled = count === 0;
+
+    // Update scroll arrows visibility/state after chips are rendered.
+    this.updateDockScrollControls();
+
     LogHelper.log('[MyIO Footer] renderDock() completed');
+  },
+
+  /**
+   * Shows/hides the ◀ ▶ dock scroll arrows based on whether the dock
+   * overflows horizontally, and disables each arrow when scrolled to
+   * the corresponding edge.
+   */
+  updateDockScrollControls() {
+    if (!this.$dock || !this.$dockScroll) return;
+
+    const hasOverflow = this.$dock.scrollWidth - this.$dock.clientWidth > 1;
+    if (!hasOverflow) {
+      this.$dockScroll.hidden = true;
+      return;
+    }
+
+    this.$dockScroll.hidden = false;
+    const { scrollLeft, scrollWidth, clientWidth } = this.$dock;
+    // Tolerate sub-pixel rounding on both ends.
+    const atStart = scrollLeft <= 1;
+    const atEnd = scrollLeft + clientWidth >= scrollWidth - 1;
+    if (this.$dockScrollLeft) this.$dockScrollLeft.disabled = atStart;
+    if (this.$dockScrollRight) this.$dockScrollRight.disabled = atEnd;
+  },
+
+  /**
+   * Scrolls the dock horizontally by approximately one chip width.
+   * Called by the ◀ / ▶ arrow buttons next to the Clear button.
+   */
+  scrollDockBy(direction) {
+    if (!this.$dock) return;
+    const firstChip = this.$dock.querySelector('.myio-chip');
+    const gap = 16; // matches .myio-dock { gap: 16px }
+    const step = firstChip ? firstChip.offsetWidth + gap : 180;
+    const delta = direction === 'left' ? -step * 2 : step * 2;
+    this.$dock.scrollBy({ left: delta, behavior: 'smooth' });
   },
 
   /**
@@ -905,12 +992,15 @@ const footerController = {
     const overlay = document.createElement('div');
     overlay.className = 'myio-alert-overlay';
 
+    const store = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
+    const maxAllowed = store?.MAX_SELECTION ?? 20;
+
     overlay.innerHTML = `
         <div class="myio-alert-box">
           <div class="myio-alert-icon">⚠</div>
           <h2 class="myio-alert-title">Limite Atingido</h2>
           <p class="myio-alert-message">
-            Você pode selecionar no máximo <strong>6 dispositivos</strong> para comparação.
+            Você pode selecionar no máximo <strong>${maxAllowed} dispositivos</strong> para comparação.
             Remova um dispositivo antes de adicionar outro.
           </p>
           <button class="myio-alert-button">FECHAR</button>
@@ -1054,6 +1144,9 @@ const footerController = {
     this.boundChipClick = this.onChipClick.bind(this);
     this.boundLimitReached = this.onLimitReached.bind(this);
     this.boundDashboardStateChange = this.onDashboardStateChange.bind(this);
+    this.boundDockScrollUpdate = this.updateDockScrollControls.bind(this);
+    this.boundDockScrollLeftClick = () => this.scrollDockBy('left');
+    this.boundDockScrollRightClick = () => this.scrollDockBy('right');
 
     // 2. Ouve a store externa
     LogHelper.log('[MyIO Footer] About to register selection:change listener...');
@@ -1092,6 +1185,24 @@ const footerController = {
     // 4. Delegação de evento para cliques nos chips
     if (this.$dock) {
       this.$dock.addEventListener('click', this.boundChipClick);
+      // Update scroll arrow disabled-state as the user drags the scrollbar.
+      this.$dock.addEventListener('scroll', this.boundDockScrollUpdate, { passive: true });
+
+      // Watch for size changes (window resize + container layout changes).
+      if (typeof ResizeObserver === 'function') {
+        this.dockResizeObserver = new ResizeObserver(() => this.updateDockScrollControls());
+        this.dockResizeObserver.observe(this.$dock);
+      } else {
+        window.addEventListener('resize', this.boundDockScrollUpdate);
+      }
+    }
+
+    // 4b. Scroll arrows (◀ ▶) next to Clear button
+    if (this.$dockScrollLeft) {
+      this.$dockScrollLeft.addEventListener('click', this.boundDockScrollLeftClick);
+    }
+    if (this.$dockScrollRight) {
+      this.$dockScrollRight.addEventListener('click', this.boundDockScrollRightClick);
     }
 
     // 5. Eventos de Drag and Drop no footer
@@ -1411,11 +1522,53 @@ const footerController = {
   onDrop(e) {
     e.preventDefault();
     const MyIOSelectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
-    if (MyIOSelectionStore) {
-      const id = e.dataTransfer?.getData('text/myio-id') || e.dataTransfer?.getData('text/plain');
-      if (id) {
-        MyIOSelectionStore.add(id);
+    if (!MyIOSelectionStore) return;
+
+    // 1. Group payload (TELEMETRY_INFO card drop) — bulk-add all devices
+    //    of the group. The store's `selection:limit-reached` event fires if
+    //    we try to exceed the max; we stop adding once that happens to
+    //    avoid repeated alerts.
+    const groupPayloadRaw = e.dataTransfer?.getData('application/x-myio-group');
+    if (groupPayloadRaw) {
+      let payload;
+      try {
+        payload = JSON.parse(groupPayloadRaw);
+      } catch (err) {
+        LogHelper.warn('[MyIO Footer] Invalid group payload on drop:', err);
+        return;
       }
+      const deviceIds = Array.isArray(payload?.deviceIds) ? payload.deviceIds : [];
+      if (!deviceIds.length) return;
+
+      let limitReachedDuringBulk = false;
+      const onLimit = () => {
+        limitReachedDuringBulk = true;
+      };
+      MyIOSelectionStore.on?.('selection:limit-reached', onLimit);
+
+      let added = 0;
+      for (const id of deviceIds) {
+        if (limitReachedDuringBulk) break;
+        if (!id) continue;
+        const before = MyIOSelectionStore.getSelectionCount?.() ?? 0;
+        MyIOSelectionStore.add(id);
+        const after = MyIOSelectionStore.getSelectionCount?.() ?? 0;
+        if (after > before) added++;
+      }
+
+      MyIOSelectionStore.off?.('selection:limit-reached', onLimit);
+
+      LogHelper.log(
+        `[MyIO Footer] Group drop '${payload.group}' — requested ${deviceIds.length}, added ${added}` +
+        (limitReachedDuringBulk ? ' (limit reached)' : '')
+      );
+      return;
+    }
+
+    // 2. Single entity payload (legacy drag from device cards)
+    const id = e.dataTransfer?.getData('text/myio-id') || e.dataTransfer?.getData('text/plain');
+    if (id) {
+      MyIOSelectionStore.add(id);
     }
   },
 
@@ -1449,6 +1602,21 @@ const footerController = {
     }
     if (this.$dock) {
       this.$dock.removeEventListener('click', this.boundChipClick);
+      if (this.boundDockScrollUpdate) {
+        this.$dock.removeEventListener('scroll', this.boundDockScrollUpdate);
+      }
+    }
+    if (this.$dockScrollLeft && this.boundDockScrollLeftClick) {
+      this.$dockScrollLeft.removeEventListener('click', this.boundDockScrollLeftClick);
+    }
+    if (this.$dockScrollRight && this.boundDockScrollRightClick) {
+      this.$dockScrollRight.removeEventListener('click', this.boundDockScrollRightClick);
+    }
+    if (this.dockResizeObserver) {
+      try { this.dockResizeObserver.disconnect(); } catch { /* noop */ }
+      this.dockResizeObserver = null;
+    } else if (this.boundDockScrollUpdate) {
+      window.removeEventListener('resize', this.boundDockScrollUpdate);
     }
     if (this.$footerEl) {
       this.$footerEl.removeEventListener('dragover', this.boundDragOver);
@@ -1472,6 +1640,9 @@ const footerController = {
     this.$totals = null;
     this.$clearBtn = null;
     this.$compareBtn = null;
+    this.$dockScroll = null;
+    this.$dockScrollLeft = null;
+    this.$dockScrollRight = null;
   },
 };
 

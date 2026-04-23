@@ -94,7 +94,7 @@ class MyIOSelectionStoreClass {
     }
 
     // Constants
-    this.MAX_SELECTION = 6; // Limite máximo de dispositivos selecionados
+    this.MAX_SELECTION = 20; // Limite máximo de dispositivos selecionados
 
     this.state = { selectedDevice: null };
     this.selectedIds = new Set();
@@ -198,6 +198,48 @@ class MyIOSelectionStoreClass {
     this.selectedIds.clear();
     this._emitSelectionChange('clear');
     this._trackEvent('footer_dock.clear_all', { count: 0 });
+  }
+
+  /**
+   * Updates the maximum number of concurrent selections at runtime.
+   * Typically called once from MAIN_VIEW onInit with the value from widget
+   * settings so operators can configure it per-customer without code changes.
+   *
+   * If the current selection already exceeds the new limit, keeps the first N
+   * in insertion order, drops the rest, and emits `selection:change` plus
+   * `selection:limit-reached` so any UI reflects the truncation.
+   *
+   * @param {number} n - new maximum (integer ≥ 1)
+   */
+  setMaxSelection(n) {
+    const v = Math.floor(Number(n));
+    if (!Number.isFinite(v) || v < 1) {
+      this._log('warn', `[MyIOSelectionStoreClass] Invalid maxSelection, ignoring:`, n);
+      return;
+    }
+    if (v === this.MAX_SELECTION) return;
+    const prev = this.MAX_SELECTION;
+    this.MAX_SELECTION = v;
+    this._log('log', `[MyIOSelectionStoreClass] MAX_SELECTION ${prev} → ${v}`);
+
+    if (this.selectedIds.size > v) {
+      const kept = Array.from(this.selectedIds).slice(0, v);
+      this.selectedIds = new Set(kept);
+      this._emitSelectionChange('truncate');
+      this._emit('selection:limit-reached', {
+        maxAllowed: v,
+        currentCount: this.selectedIds.size,
+        truncated: true,
+      });
+    }
+  }
+
+  /**
+   * Returns the currently active selection limit.
+   * @returns {number}
+   */
+  getMaxSelection() {
+    return this.MAX_SELECTION;
   }
 
   syncFromCheckbox(id, checked) {

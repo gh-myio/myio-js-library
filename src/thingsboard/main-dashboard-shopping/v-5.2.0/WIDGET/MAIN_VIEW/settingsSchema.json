@@ -110,6 +110,14 @@
         "default": 60,
         "description": "RFC-0188: If a device is marked offline by ThingsBoard but its last telemetry timestamp (from Data Apps API) is more recent than this threshold (in minutes), it is rescued to online. Default: 60 min. Applies to all domains (energy, water, temperature)."
       },
+      "maxSelection": {
+        "title": "Limite máximo de seleção (footer)",
+        "type": "number",
+        "default": 20,
+        "minimum": 1,
+        "maximum": 100,
+        "description": "Número máximo de dispositivos que o usuário pode selecionar simultaneamente no footer para comparação. Ao atingir o limite, o alerta premium 'Limite Atingido' é exibido. Valor aplicado em runtime via MyIOSelectionStore.setMaxSelection(); a mudança leva efeito após recarregar o dashboard."
+      },
       "enableTemperatureApiDataFetch": {
         "title": "Enable Temperature API Fetch (offline detection)",
         "type": "boolean",
@@ -218,6 +226,7 @@
     "domainsEnabled.water",
     "domainsEnabled.temperature",
     "shortDelayMinsToBypassOfflineStatus",
+    "maxSelection",
     "enableTemperatureApiDataFetch",
     "enableDeviceDataExport",
     "excludeDevicesAtCountSubtotalCAG",
