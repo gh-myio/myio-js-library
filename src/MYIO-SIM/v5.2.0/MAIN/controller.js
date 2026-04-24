@@ -3625,6 +3625,15 @@ Object.assign(window.MyIOUtils, {
     }
     window.MyIOUtils.DATA_API_HOST = DATA_API_HOST; // update for child widgets
 
+    // Charts SDK base URL — consumed by FOOTER (comparison modal iframe) and
+    // any child widget that renders @myio/energy-chart-sdk. Fallback to
+    // production; the single source of truth lives here on MAIN so FOOTER
+    // does not hold its own fallback.
+    const chartsBaseUrl =
+      self.ctx.settings?.chartsBaseUrl || 'https://graphs.apps.myio-bas.com';
+    window.MyIOUtils.chartsBaseUrl = chartsBaseUrl;
+    LogHelper.log('[MAIN] chartsBaseUrl:', chartsBaseUrl);
+
     // CRITICAL: customerTB_ID MUST be set - abort if missing
     const customerTB_ID = self.ctx.settings?.customerTB_ID;
     if (!customerTB_ID) {

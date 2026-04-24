@@ -14,6 +14,12 @@
         "default": "https://api.data.apps.myio-bas.com",
         "description": "RFC-0086: Base URL for the MyIO Data API. Used by all widgets for API calls."
       },
+      "chartsBaseUrl": {
+        "type": "string",
+        "title": "Charts SDK Base URL",
+        "default": "https://graphs.apps.myio-bas.com",
+        "description": "Base URL usada pelo EnergyChartSDK para iframes e para carregar o UMD (.../sdk/energy-chart-sdk.umd.js). Produção: https://graphs.apps.myio-bas.com | Staging: https://graphs.staging.apps.myio-bas.com. Se vazio, o FOOTER exibirá toast de erro ao tentar abrir o modal de comparação."
+      },
       "delayTimeConnectionInMins": {
         "type": "number",
         "title": "Delay Time Connection (minutes)",
@@ -74,6 +80,7 @@
   "form": [
     "customerTB_ID",
     "dataApiHost",
+    "chartsBaseUrl",
     "delayTimeConnectionInMins",
     "enableCache",
     "cacheTtlMinutes",

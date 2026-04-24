@@ -334,7 +334,7 @@ export interface FooterComponentParams {
   /** Function to get date range for comparison modals */
   getDateRange?: () => DateRange;
 
-  /** Base URL for charts SDK (default: https://graphs.staging.apps.myio-bas.com) */
+  /** Base URL for charts SDK (default: https://graphs.apps.myio-bas.com) */
   chartsBaseUrl?: string;
 
   /** Data API host for ingestion API */
@@ -482,12 +482,7 @@ export interface FooterComponentInstance {
 /**
  * Event types emitted by FooterView
  */
-export type FooterEventType =
-  | 'compare-click'
-  | 'clear-click'
-  | 'chip-remove'
-  | 'drag-over'
-  | 'drop';
+export type FooterEventType = 'compare-click' | 'clear-click' | 'chip-remove' | 'drag-over' | 'drop';
 
 /**
  * Event handler for FooterView events

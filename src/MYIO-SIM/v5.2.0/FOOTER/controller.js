@@ -9,17 +9,14 @@
  *    https://unpkg.com/myio-js-library@latest/dist/myio-js-library.umd.min.js
  *
  * 2. Energy Chart SDK (obrigatório para comparação):
- *    Use a mesma base URL definida em CHARTS_BASE_URL abaixo + /sdk/energy-chart-sdk.umd.js
+ *    Base URL é configurada em MAIN widget settings (chartsBaseUrl) e
+ *    exposta via window.MyIOUtils.chartsBaseUrl. Este widget NÃO deve
+ *    hardcodar a URL — lê dinamicamente para respeitar staging vs produção
+ *    do cliente.
  *
  * Para os ícones, idealmente, você carregaria uma biblioteca como Font Awesome ou Material Icons.
  * Por simplicidade no exemplo, os ícones '•' e '×' são mantidos, mas estilizaremos para parecerem melhores.
  */
-
-// ============================================================================
-// CONFIGURAÇÃO DE AMBIENTE - Altere aqui para trocar entre staging e produção
-// ============================================================================
-const CHARTS_BASE_URL = 'https://graphs.staging.apps.myio-bas.com'; // staging para testes
-// const CHARTS_BASE_URL = 'https://graphs.apps.myio-bas.com'; // produção
 
 // RFC-0086: Get DATA_API_HOST from MAIN via MyIOUtils
 function getDataApiHost() {
@@ -1230,6 +1227,24 @@ const footerController = {
         return;
       }
 
+      // Charts SDK base URL comes from MAIN widget settings (chartsBaseUrl)
+      // and is exposed via window.MyIOUtils. FOOTER does NOT hold its own
+      // fallback — when unset, surface a toast error so the operator knows
+      // the misconfiguration instead of silently falling back to production.
+      const chartsBaseUrl = window.MyIOUtils?.chartsBaseUrl;
+      if (!chartsBaseUrl) {
+        const msg =
+          '[FOOTER] chartsBaseUrl não configurado. Defina em MAIN widget settings → "Charts SDK Base URL".';
+        LogHelper.error(msg);
+        const MyIOToast = window.MyIOLibrary?.MyIOToast;
+        if (MyIOToast?.error) {
+          MyIOToast.error(msg, 8000);
+        } else {
+          window.alert(msg);
+        }
+        return;
+      }
+
       const dataApiHost = getDataApiHost();
       const myTbTokenDashBoardFooter = localStorage.getItem('jwt_token');
 
@@ -1245,7 +1260,7 @@ const footerController = {
         clientId: clientId,
         clientSecret: clientSecret,
         dataApiHost: dataApiHost,
-        chartsBaseUrl: CHARTS_BASE_URL, // ← URL base para iframes do SDK (staging)
+        chartsBaseUrl, // ← URL base para iframes do SDK (MAIN settings → window.MyIOUtils.chartsBaseUrl)
         theme: 'dark', // ← Tema inicial (toggle disponível na modal)
         deep: false,
         onOpen: (context) => {

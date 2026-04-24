@@ -229,6 +229,15 @@ self.onInit = async function () {
   const ALARMS_API_KEY    = settings.alarmsApiKey    || '';
   const GCDR_API_BASE     = settings.gcdrApiBaseUrl   || 'https://gcdr-api.a.myio-bas.com';
 
+  // Charts SDK base URL — consumed by the FOOTER comparison modal. Single
+  // source of truth lives here on MAIN; FOOTER does not hold its own
+  // fallback so misconfiguration surfaces as a toast instead of silently
+  // landing on the wrong environment.
+  const CHARTS_BASE_URL = settings.chartsBaseUrl || 'https://graphs.apps.myio-bas.com';
+  window.MyIOUtils = window.MyIOUtils || {};
+  window.MyIOUtils.chartsBaseUrl = CHARTS_BASE_URL;
+  LogHelper.log('[MAIN_UNIQUE] chartsBaseUrl:', CHARTS_BASE_URL);
+
   // RFC-0178: Configure AlarmService with the correct base URL and API key from settings
   if (MyIOLibrary?.AlarmService?.configure) {
     MyIOLibrary.AlarmService.configure(ALARMS_API_BASE, undefined, ALARMS_API_KEY);
@@ -2073,6 +2082,18 @@ body.filter-modal-open { overflow: hidden !important; }
   let footerInstance = null;
 
   if (footerContainer && MyIOLibrary.createFooterComponent) {
+    // chartsBaseUrl was captured at the top of onInit and exposed on
+    // window.MyIOUtils — read from there so future setting changes flow
+    // through without editing this call site. If unset, surface a toast
+    // so the operator sees the misconfiguration explicitly.
+    const footerChartsBaseUrl = window.MyIOUtils?.chartsBaseUrl;
+    if (!footerChartsBaseUrl) {
+      const msg =
+        '[MAIN_UNIQUE] chartsBaseUrl não configurado. Defina em widget settings → "Charts SDK Base URL".';
+      LogHelper.error(msg);
+      if (MyIOLibrary?.MyIOToast?.error) MyIOLibrary.MyIOToast.error(msg, 8000);
+    }
+
     footerInstance = MyIOLibrary.createFooterComponent({
       container: footerContainer,
       ctx: self.ctx,
@@ -2085,7 +2106,7 @@ body.filter-modal-open { overflow: hidden !important; }
       }),
       // Issue 5 fix: Add required params for comparison modal
       dataApiHost: DATA_API_HOST,
-      chartsBaseUrl: 'https://graphs.staging.apps.myio-bas.com',
+      chartsBaseUrl: footerChartsBaseUrl,
       getIngestionToken: async () => {
         const myIOAuth = window.MyIOUtils?.myIOAuth;
         if (myIOAuth && typeof myIOAuth.getToken === 'function') {

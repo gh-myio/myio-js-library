@@ -92,6 +92,12 @@
         "default": "https://api.data.apps.myio-bas.com/api/v1",
         "description": "Base URL for apps myio"
       },
+      "chartsBaseUrl": {
+        "title": "Charts SDK Base URL",
+        "type": "string",
+        "default": "https://graphs.apps.myio-bas.com",
+        "description": "Base URL usado pelo EnergyChartSDK para iframes e carregar o UMD (.../sdk/energy-chart-sdk.umd.js). Produção: https://graphs.apps.myio-bas.com | Staging: https://graphs.staging.apps.myio-bas.com. Se deixado vazio, o FOOTER não conseguirá abrir o modal de comparação e exibirá toast de erro."
+      },
       "freshdeskApiKey": {
         "title": "FreshDesk API Key",
         "type": "string",
@@ -234,6 +240,7 @@
     "alarmsApiBaseUrl",
     "gcdrApiBaseUrl",
     "dataApiHost",
+    "chartsBaseUrl",
     "freshdeskApiKey",
     "freshdeskDomain",
     "enableReportButton",

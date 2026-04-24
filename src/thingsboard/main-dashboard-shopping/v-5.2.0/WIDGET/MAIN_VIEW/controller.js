@@ -1272,6 +1272,15 @@ Object.assign(window.MyIOUtils, {
       SHORT_DELAY_IN_MINS_TO_BYPASS_OFFLINE_STATUS
     );
 
+    // Charts SDK base URL — consumed by FOOTER (comparison modal iframe) and
+    // any other widget that renders @myio/energy-chart-sdk iframes. Fallback
+    // to production. Exposed via window.MyIOUtils so children read a single
+    // source of truth instead of hardcoding per widget.
+    widgetSettings.chartsBaseUrl =
+      self.ctx.settings?.chartsBaseUrl || 'https://graphs.apps.myio-bas.com';
+    window.MyIOUtils.chartsBaseUrl = widgetSettings.chartsBaseUrl;
+    LogHelper.log('[Orchestrator] chartsBaseUrl:', widgetSettings.chartsBaseUrl);
+
     // Max footer selection limit — applied to the shared MyIOSelectionStore
     // so the "Limite Atingido" alert fires at the configured threshold.
     widgetSettings.maxSelection = self.ctx.settings?.maxSelection ?? 20;
