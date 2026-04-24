@@ -935,6 +935,11 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   align-items: center;
   gap: 4px;
   flex-wrap: wrap;
+  /* Always dock to the right, even when the header has no checkbox/device-badge
+   * siblings (consolidado / porDispositivo modes). With justify-content:
+   * space-between on the parent and a single child, the child would otherwise
+   * collapse to flex-start. margin-left: auto makes it flex-end regardless. */
+  margin-left: auto;
 }
 
 .alarm-severity-badge {
@@ -1214,11 +1219,20 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
 .alarm-card-type-list {
   display: flex !important;
   flex-wrap: nowrap;
+  /* Default: center chips when they all fit (common case of 1–3 chips).
+   * When content overflows, JS toggles .is-overflowing so we switch to
+   * flex-start — otherwise browsers anchor at center and the left edge
+   * becomes unreachable via scroll. */
+  justify-content: center;
   gap: 3px;
   overflow-x: auto;
   scrollbar-width: none;
   flex: 1;
   min-width: 0;
+}
+
+.alarm-card-type-list.is-overflowing {
+  justify-content: flex-start;
 }
 
 .alarm-card-type-list::-webkit-scrollbar {
@@ -4307,12 +4321,18 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
 .atbl-cell--num { text-align: center; font-weight: 700; }
 .atbl-cell--date { font-size: 10px; white-space: nowrap; color: var(--alarms-text-muted); }
 
+/* First (primary) column in consolidado (Por Tipo) and porDispositivo modes.
+ * Matches .atbl-cell--device-primary so the typography is consistent across
+ * all three groupModes — only the semantic label differs. */
 .atbl-cell--title {
-  max-width: 160px;
+  min-width: 160px;
+  max-width: 220px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--alarms-text-primary);
 }
 
 .atbl-cell--device {

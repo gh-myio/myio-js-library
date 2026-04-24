@@ -462,6 +462,11 @@ function resolveDeviceTbId(alarm: Alarm): string | null {
 // Main export
 // =====================================================================
 
+// Feature flag — Anotações tab temporarily hidden.
+// Flip to false to restore. The tab button, panel body and event wiring
+// are all gated on this flag so removing it is one edit.
+const HIDE_ANNOTATIONS_TAB = true;
+
 export function openAlarmDetailsModal(
   alarm: Alarm,
   themeMode: 'light' | 'dark' = 'light',
@@ -580,10 +585,10 @@ export function openAlarmDetailsModal(
           <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 20 9 12 14 16 19 6"/><polyline points="19 6 19 10"/><polyline points="19 6 15 6"/></svg>
           Gráfico
         </button>
-        <button class="adm-tab" data-panel="anotacoes">
+        ${HIDE_ANNOTATIONS_TAB ? '' : `<button class="adm-tab" data-panel="anotacoes">
           <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v4a1 1 0 001 1h4"/><path d="M17 21H7a2 2 0 01-2-2V5a2 2 0 012-2h7l5 5v11a2 2 0 01-2 2z"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg>
           Anotações${annotCount > 0 ? ` <span class="adm-tab-badge">${annotCount}</span>` : ''}
-        </button>
+        </button>`}
       </nav>
 
       <!-- ── Body ── -->
@@ -621,7 +626,7 @@ export function openAlarmDetailsModal(
             ${row('Shopping', alarm.customerName)}
             ${row('Dispositivo(s)', alarm.source)}
             ${alarm.triggerValue != null ? row('Valor do disparo', String(alarm.triggerValue)) : ''}
-            ${row('ID', alarm.id)}
+            ${groupMode === 'separado' ? row('ID', alarm.id) : ''}
           </div>
 
           <div class="adm-section">
@@ -646,6 +651,23 @@ export function openAlarmDetailsModal(
               ${devicesListHtml}
             </div>
           </div>
+
+          ${
+            groupMode !== 'separado' && alarm._groupAlarmIds && alarm._groupAlarmIds.length > 0
+              ? `
+          <div class="adm-section">
+            <div class="adm-section-title">IDs de Alarme (${alarm._groupAlarmIds.length})</div>
+            <div class="adm-alarm-ids-list" style="display:flex;flex-wrap:wrap;gap:6px;">
+              ${alarm._groupAlarmIds
+                .map(
+                  (rawId) =>
+                    `<span class="adm-alarm-id-chip" title="Clique para copiar" data-copy-id="${escHtml(rawId)}" style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border:1px solid rgba(124,58,237,0.25);background:rgba(124,58,237,0.08);border-radius:6px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:#4c1d95;cursor:pointer;user-select:all;">${escHtml(rawId)}</span>`
+                )
+                .join('')}
+            </div>
+          </div>`
+              : ''
+          }
 
           <!-- Occurrence × Device matrix — disabled -->
           <!-- <div class="adm-section" style="display:none">
@@ -760,9 +782,9 @@ export function openAlarmDetailsModal(
         </div>
 
         <!-- ANOTAÇÕES -->
-        <div class="adm-panel" data-panel="anotacoes">
+        ${HIDE_ANNOTATIONS_TAB ? '' : `<div class="adm-panel" data-panel="anotacoes">
           ${buildAnnotationsPanelHtml(alarm.id)}
-        </div>
+        </div>`}
 
       </div><!-- /adm-body -->
     </div><!-- /adm-drawer -->
@@ -781,6 +803,20 @@ export function openAlarmDetailsModal(
       overlay.querySelectorAll('.adm-panel').forEach((p) => p.classList.remove('is-active'));
       btn.classList.add('is-active');
       overlay.querySelector(`.adm-panel[data-panel="${panel}"]`)?.classList.add('is-active');
+    });
+  });
+
+  // Click-to-copy for IDs de Alarme chips (visible only for consolidado / porDispositivo)
+  overlay.querySelectorAll<HTMLElement>('.adm-alarm-id-chip[data-copy-id]').forEach((chip) => {
+    chip.addEventListener('click', async () => {
+      const id = chip.getAttribute('data-copy-id') || '';
+      if (!id) return;
+      try {
+        await navigator.clipboard?.writeText(id);
+        const prev = chip.textContent;
+        chip.textContent = '✓ copiado';
+        setTimeout(() => { chip.textContent = prev; }, 900);
+      } catch { /* clipboard blocked — ignore */ }
     });
   });
 
