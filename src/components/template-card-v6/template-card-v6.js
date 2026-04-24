@@ -1944,6 +1944,8 @@ export function renderCardComponentV6({
   return jQueryLikeObject;
 }
 
+
+
 // Backward-compatible alias
 export function renderCardComponent(options) {
   return renderCardComponentV6(options);
