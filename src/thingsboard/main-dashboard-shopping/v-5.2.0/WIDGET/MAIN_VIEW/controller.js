@@ -3426,8 +3426,9 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
           identifier && identifier !== baseLabel ? `${baseLabel} (${identifier})` : baseLabel;
         return {
           id: i.id,
-          label: displayLabel,
-          value: i.value, // Mantém o valor original para exibição no card
+          name: baseLabel,     // clean name for footer chips (no identifier suffix)
+          label: displayLabel, // display label with identifier suffix for tooltips
+          value: i.value,
           deviceStatus: i.deviceStatus,
         };
       }),

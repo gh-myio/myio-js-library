@@ -3183,7 +3183,11 @@ function setupGroupDragCards() {
         try {
           store.registerEntity({
             id: d.id,
-            name: d.name || d.label || d.id,
+            // d.name = clean baseLabel (set by MAIN_VIEW buildCategorySummary).
+            // Using labelOrName gives it the highest priority in SelectionStore,
+            // ensuring the chip shows the clean name instead of the
+            // displayLabel which contains the identifier suffix e.g. "(ESC-01)".
+            labelOrName: d.name || d.label || d.id,
             label: d.label || d.name || d.id,
             domain: getWidgetDomain() === 'water' ? 'water' : 'energy',
           });
