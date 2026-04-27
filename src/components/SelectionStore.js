@@ -143,6 +143,15 @@ class MyIOSelectionStoreClass {
     }
   }
 
+  // Update the selection limit at runtime (called by MAIN_VIEW with widget settings)
+  setMaxSelection(n) {
+    const parsed = parseInt(n, 10);
+    if (!isNaN(parsed) && parsed > 0) {
+      this.MAX_SELECTION = parsed;
+      this._log('log', `[MyIOSelectionStoreClass] MAX_SELECTION updated to ${this.MAX_SELECTION}`);
+    }
+  }
+
   // Core Selection Methods
   add(id) {
     this._log('log', '[MyIOSelectionStoreClass] Entrou na LIB', id);

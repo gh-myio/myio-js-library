@@ -1494,7 +1494,7 @@ export function renderCardComponentV5({
           console.log('selectedEntities', selectedEntities);
           const isTryingToAdd = e.target.checked;
 
-          if (isTryingToAdd && currentCount >= 6) {
+          if (isTryingToAdd && currentCount >= (MyIOSelectionStore.MAX_SELECTION ?? 6)) {
             e.preventDefault();
             e.target.checked = false;
             showCardLimitAlert();
