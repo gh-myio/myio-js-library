@@ -1331,9 +1331,9 @@ export function renderCardComponentV5({
     document.head.appendChild(layoutStyle);
   }
 
-  if (!document.getElementById('myio-card-v5-alert-styles')) {
+  if (!document.getElementById('myio-card-alert-styles')) {
     const alertStyle = document.createElement('style');
-    alertStyle.id = 'myio-card-v5-alert-styles';
+    alertStyle.id = 'myio-card-alert-styles';
     alertStyle.textContent = `
       .myio-alert-overlay {
         position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 100000;
@@ -1457,7 +1457,7 @@ export function renderCardComponentV5({
 
   function showCardLimitAlert() {
     if (_cardAlertOverlay) hideCardAlert();
-    const maxAllowed = MyIOSelectionStore?.MAX_SELECTION ?? 6;
+    const maxAllowed = MyIOSelectionStore?.MAX_SELECTION ?? 20;
     const overlay = document.createElement('div');
     overlay.className = 'myio-alert-overlay';
     overlay.innerHTML = `
@@ -1473,9 +1473,14 @@ export function renderCardComponentV5({
     document.body.appendChild(overlay);
     _cardAlertOverlay = overlay;
     const closeBtn = overlay.querySelector('.myio-alert-button');
-    const close = () => hideCardAlert();
+    const close = () => {
+      document.removeEventListener('keydown', handleEscape);
+      hideCardAlert();
+    };
+    const handleEscape = (e) => { if (e.key === 'Escape') close(); };
     closeBtn.addEventListener('click', close);
     overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    document.addEventListener('keydown', handleEscape);
   }
 
   // Handle selection events
@@ -1494,7 +1499,7 @@ export function renderCardComponentV5({
           console.log('selectedEntities', selectedEntities);
           const isTryingToAdd = e.target.checked;
 
-          if (isTryingToAdd && currentCount >= (MyIOSelectionStore.MAX_SELECTION ?? 6)) {
+          if (isTryingToAdd && currentCount >= (MyIOSelectionStore.MAX_SELECTION ?? 20)) {
             e.preventDefault();
             e.target.checked = false;
             showCardLimitAlert();
