@@ -781,15 +781,13 @@ const footerController = {
           name.className = 'myio-chip-name';
           name.textContent = ent.name;
 
-          const value = document.createElement('span');
-          value.className = 'myio-chip-value';
-          // Formata o valor com unidade
-          const formattedValue = ent.lastValue
-            ? `${this._formatValue(ent.lastValue)} ${ent.unit || ''}`.trim()
-            : 'Sem dados';
-          value.textContent = formattedValue;
-
-          content.append(name, value);
+          content.append(name);
+          if (ent.lastValue) {
+            const value = document.createElement('span');
+            value.className = 'myio-chip-value';
+            value.textContent = `${this._formatValue(ent.lastValue)} ${ent.unit || ''}`.trim();
+            content.append(value);
+          }
 
           // Botão de remover
           const removeBtn = document.createElement('button');
@@ -1018,6 +1016,44 @@ const footerController = {
     });
 
     LogHelper.log('[MyIO Footer] Limit alert displayed');
+  },
+
+  /**
+   * Mostra alerta quando um grupo arrastado excede o maxSelection
+   */
+  showGroupLimitAlert(maxAllowed) {
+    LogHelper.log('[MyIO Footer] Showing group limit alert');
+
+    if (this.$alertOverlay) {
+      this.hideAlert();
+    }
+
+    const overlay = document.createElement('div');
+    overlay.className = 'myio-alert-overlay';
+
+    overlay.innerHTML = `
+        <div class="myio-alert-box">
+          <div class="myio-alert-icon">⚠</div>
+          <h2 class="myio-alert-title">Grupo muito grande</h2>
+          <p class="myio-alert-message">
+            Esse grupo de dispositivos excede o limite de <strong>${maxAllowed} itens</strong>.
+            Selecione os dispositivos individualmente ou escolha um grupo menor.
+          </p>
+          <button class="myio-alert-button">FECHAR</button>
+        </div>
+      `;
+
+    document.body.appendChild(overlay);
+    this.$alertOverlay = overlay;
+
+    const closeBtn = overlay.querySelector('.myio-alert-button');
+    const closeAlert = () => this.hideAlert();
+    closeBtn.addEventListener('click', closeAlert);
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) closeAlert();
+    });
+
+    LogHelper.log('[MyIO Footer] Group limit alert displayed');
   },
 
   /**
@@ -1552,6 +1588,13 @@ const footerController = {
       }
       const deviceIds = Array.isArray(payload?.deviceIds) ? payload.deviceIds : [];
       if (!deviceIds.length) return;
+
+      const currentCount = MyIOSelectionStore.getSelectionCount?.() ?? 0;
+      const maxAllowed = MyIOSelectionStore.MAX_SELECTION ?? 20;
+      if (currentCount + deviceIds.length > maxAllowed) {
+        this.showGroupLimitAlert(maxAllowed);
+        return;
+      }
 
       let limitReachedDuringBulk = false;
       const onLimit = () => {

@@ -813,6 +813,31 @@
         </div>
       </div>
 
+      <!-- Footer: Group Drag Test (Issues 4 & 5) -->
+      <div class="controls-panel" id="footerGroupDragControls">
+        <h3>&#x1F4E5; Footer: Grupo Drag</h3>
+        <div class="ctrl-group">
+          <label class="ctrl-label">Grupo simulado</label>
+          <select class="ctrl-select" id="footerGroupSelect">
+            <option value="escadasRolantes">Escadas Rolantes (3 devices)</option>
+            <option value="elevadores">Elevadores (4 devices)</option>
+            <option value="climatizacao">Climatização (25 devices — excede limite)</option>
+          </select>
+        </div>
+        <div class="controls-grid">
+          <button class="ctrl-btn primary" style="grid-column:1/-1" onclick="simulateGroupDrop()">&#x1F4E5; Simular Drop no Footer</button>
+        </div>
+        <div class="controls-grid">
+          <button class="ctrl-btn danger" onclick="clearFooterSelection()">&#x1F5D1; Limpar Footer</button>
+        </div>
+        <div style="margin-top:8px; padding:6px; background:rgba(158,140,190,0.1); border:1px solid rgba(158,140,190,0.3); border-radius:6px; font-size:10px; color:#c4b5fd; line-height:1.5">
+          <strong>Testando Issues 4 &amp; 5:</strong><br>
+          &#x2705; Chips sem "Sem dados" (lastValue ausente)<br>
+          &#x2705; Grupo acima do limite: alerta + sem populate<br>
+          <em>Exige "Create All" primeiro</em>
+        </div>
+      </div>
+
       </div><!-- /.sidebar-controls -->
 
       <!-- Event Log -->
@@ -3032,6 +3057,97 @@
         updateStatus('ready');
       }
     });
+
+    // =========================================================================
+    // Footer Group Drag Test (Issues 4 & 5)
+    // =========================================================================
+
+    const FOOTER_TEST_GROUPS = {
+      escadasRolantes: {
+        group: 'escadasRolantes',
+        domain: 'energy',
+        devices: [
+          { id: 'esc-test-001', name: 'Escada Rolante 01', domain: 'energy' },
+          { id: 'esc-test-002', name: 'Escada Rolante 02', domain: 'energy' },
+          { id: 'esc-test-003', name: 'Escada Rolante 03', domain: 'energy' },
+        ],
+      },
+      elevadores: {
+        group: 'elevadores',
+        domain: 'energy',
+        devices: [
+          { id: 'elv-test-001', name: 'Elevador 01 L1', domain: 'energy' },
+          { id: 'elv-test-002', name: 'Elevador 01 L2', domain: 'energy' },
+          { id: 'elv-test-003', name: 'Elevador 02 L1', domain: 'energy' },
+          { id: 'elv-test-004', name: 'Elevador 02 L2', domain: 'energy' },
+        ],
+      },
+      climatizacao: {
+        group: 'climatizacao',
+        domain: 'energy',
+        devices: Array.from({ length: 25 }, (_, i) => ({
+          id: `clim-test-${String(i + 1).padStart(3, '0')}`,
+          name: `Fancoil ${String(i + 1).padStart(2, '0')}`,
+          domain: 'energy',
+        })),
+      },
+    };
+
+    function simulateGroupDrop() {
+      const store = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
+      if (!store) {
+        logEvent('FOOTER', 'MyIOSelectionStore not found — run Create All first', 'error');
+        return;
+      }
+
+      const groupKey = document.getElementById('footerGroupSelect')?.value || 'escadasRolantes';
+      const group = FOOTER_TEST_GROUPS[groupKey];
+      if (!group) return;
+
+      const deviceIds = group.devices.map(d => d.id);
+      const currentCount = store.getSelectionCount?.() ?? 0;
+      const maxAllowed = store.MAX_SELECTION ?? 20;
+
+      logEvent('FOOTER', `Simulating drop: group="${group.group}" devices=${deviceIds.length} current=${currentCount} max=${maxAllowed}`, 'info');
+
+      // Register entities without lastValue (simulates TELEMETRY_INFO group drag)
+      if (typeof store.registerEntity === 'function') {
+        group.devices.forEach(d => {
+          try {
+            store.registerEntity({ id: d.id, name: d.name, domain: d.domain });
+          } catch { /* ignore */ }
+        });
+      }
+
+      // Simulate the FOOTER onDrop group logic (pre-check then add)
+      if (currentCount + deviceIds.length > maxAllowed) {
+        logEvent('FOOTER', `Group exceeds limit (${currentCount}+${deviceIds.length} > ${maxAllowed}) — should show alert, nothing added`, 'warn');
+        // Simulate the alert via the footer component if available
+        const footerEl = document.querySelector('.myio-footer-section') || document.getElementById('footerContainer');
+        if (footerEl) {
+          // Drop event that the FOOTER controller would handle
+          const dropEvent = new DragEvent('drop', { bubbles: true, cancelable: true });
+          const dt = new DataTransfer();
+          dt.setData('application/x-myio-group', JSON.stringify({ type: 'myio-group', group: group.group, domain: group.domain, deviceIds }));
+          Object.defineProperty(dropEvent, 'dataTransfer', { value: dt });
+          footerEl.dispatchEvent(dropEvent);
+        }
+        return;
+      }
+
+      for (const id of deviceIds) {
+        store.add(id);
+      }
+      logEvent('FOOTER', `Added ${deviceIds.length} devices from group "${group.group}" (no lastValue — chips should show name only)`, 'info');
+    }
+
+    function clearFooterSelection() {
+      const store = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
+      if (store) {
+        store.clear();
+        logEvent('FOOTER', 'Selection cleared', 'info');
+      }
+    }
 
     window.addEventListener('error', (e) => logEvent('ERROR', e.message, 'error'));
 
