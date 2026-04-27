@@ -76,6 +76,16 @@ function datestamp(): string {
   return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`;
 }
 
+/** Builds `[customer-]label-YYYYMMDD-HHmm` for export filenames. */
+function buildFilenameBase(label: string, customerName?: string | null): string {
+  const parts: string[] = [];
+  const cSlug = customerName ? slugify(customerName) : '';
+  if (cSlug) parts.push(cSlug);
+  parts.push(slugify(label));
+  parts.push(datestamp());
+  return parts.join('-');
+}
+
 function triggerDownload(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -104,10 +114,12 @@ export function exportGridCsv(
   label: string,
   unit: string,
   period?: ExportPeriod | null,
+  customerName?: string | null,
 ): void {
   const periodLabel = fmtPeriod(period);
   const metaRows = [
     `"${label}"`,
+    customerName ? `"Cliente";"${customerName}"` : null,
     periodLabel ? `"Período";"${periodLabel}"` : null,
     `"Gerado em";"${new Date().toLocaleString('pt-BR')}"`,
     '',
@@ -123,7 +135,7 @@ export function exportGridCsv(
   const csv = '\uFEFF' + [...metaRows, header, ...rows].join('\r\n'); // BOM for Excel
   triggerDownload(
     new Blob([csv], { type: 'text/csv;charset=utf-8;' }),
-    `${slugify(label)}-${datestamp()}.csv`,
+    `${buildFilenameBase(label, customerName)}.csv`,
   );
 }
 
@@ -134,6 +146,7 @@ export function exportGridXls(
   label: string,
   unit: string,
   period?: ExportPeriod | null,
+  customerName?: string | null,
 ): void {
   const periodLabel = fmtPeriod(period);
   const cols = makeCols(unit);
@@ -174,6 +187,7 @@ export function exportGridXls(
   <Worksheet ss:Name="${escXml(label.slice(0, 31))}">
     <Table>
       ${metaRow('Relatório', label)}
+      ${customerName ? metaRow('Cliente', customerName) : ''}
       ${periodLabel ? metaRow('Período', periodLabel) : ''}
       ${metaRow('Gerado em', new Date().toLocaleString('pt-BR'))}
       <Row/>
@@ -185,7 +199,7 @@ export function exportGridXls(
 
   triggerDownload(
     new Blob([xml], { type: 'application/vnd.ms-excel;charset=utf-8;' }),
-    `${slugify(label)}-${datestamp()}.xls`,
+    `${buildFilenameBase(label, customerName)}.xls`,
   );
 }
 
@@ -196,7 +210,10 @@ export function exportGridPdf(
   label: string,
   unit: string,
   period?: ExportPeriod | null,
+  customerName?: string | null,
 ): void {
+  // Computed once so every page header shows the same timestamp.
+  const generatedAt = new Date().toLocaleString('pt-BR');
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   const PW = doc.internal.pageSize.getWidth();   // 297
   const PH = doc.internal.pageSize.getHeight();  // 210
@@ -230,13 +247,15 @@ export function exportGridPdf(
     doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
-    doc.text(label, MARGIN, HDR_H / 2 + 1.5);
+    const titleText = customerName ? `${customerName} — ${label}` : label;
+    doc.text(titleText, MARGIN, HDR_H / 2 + 1.5);
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
     const periodLabel = fmtPeriod(period);
     const periodPart = periodLabel ? `Período: ${periodLabel}  •  ` : '';
-    const info = `${periodPart}${devices.length} dispositivo(s)  •  Unidade: ${unit}  •  Pág. ${pageNo}`;
+    const info =
+      `${periodPart}Gerado em: ${generatedAt}  •  ${devices.length} dispositivo(s)  •  Unidade: ${unit}  •  Pág. ${pageNo}`;
     doc.text(info, PW - MARGIN, HDR_H / 2 + 1.5, { align: 'right' });
   }
 
@@ -290,7 +309,7 @@ export function exportGridPdf(
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7);
     doc.text(
-      `Gerado em ${new Date().toLocaleString('pt-BR')}  —  MyIO`,
+      `Gerado em ${generatedAt}  —  MyIO`,
       MARGIN,
       PH - FTR_H + 6,
     );
@@ -323,5 +342,5 @@ export function exportGridPdf(
 
   drawFooter();
 
-  doc.save(`${slugify(label)}-${datestamp()}.pdf`);
+  doc.save(`${buildFilenameBase(label, customerName)}.pdf`);
 }

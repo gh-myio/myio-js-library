@@ -1,0 +1,2928 @@
+<!DOCTYPE html>
+
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>MYIO — Proposta de Integração Nativa VRF · Melicidade v1.0</title>
+<style>
+    :root {
+      --myio-purple: #663ab5;
+      --myio-purple-dark: #4d2a91;
+      --myio-purple-soft: #efe8fb;
+      --myio-green: #04c081;
+      --myio-green-dark: #039b69;
+      --myio-amber: #f5a623;
+      --myio-red: #e03131;
+      --myio-blue: #1864c4;
+      --text: #2a2340;
+      --muted: #6f6787;
+      --border: #e5ddf5;
+      --bg: #f7f4fc;
+      --white: #ffffff;
+      --shadow: 0 10px 30px rgba(102, 58, 181, 0.12);
+      --radius-xl: 22px;
+      --radius-lg: 16px;
+      --radius-md: 12px;
+      --page-width: 1123px;
+      --page-height: 794px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, 'Segoe UI', Arial, sans-serif;
+      background: #ece8f6;
+      color: var(--text);
+      padding: 24px;
+      overflow-x: hidden;
+    }
+
+    .document { display: grid; gap: 24px; justify-content: center; }
+
+    .page {
+      width: var(--page-width);
+      max-width: 100%;
+      min-height: var(--page-height);
+      background: radial-gradient(circle at top right, rgba(4,192,129,0.10), transparent 18%), var(--bg);
+      border-radius: 28px;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(49, 33, 90, 0.16);
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      page-break-after: always;
+    }
+    .page:last-child { page-break-after: auto; }
+
+    .hero {
+      background: linear-gradient(135deg, var(--myio-purple-dark), var(--myio-purple) 62%, #7d52cf);
+      color: var(--white);
+      padding: 32px 36px 28px;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::after {
+      content: "";
+      position: absolute;
+      right: -70px; top: -45px;
+      width: 240px; height: 240px;
+      background: rgba(4, 192, 129, 0.92);
+      border-radius: 50%;
+    }
+
+    .hero-sm {
+      background: linear-gradient(135deg, var(--myio-purple-dark), var(--myio-purple) 62%, #7d52cf);
+      color: var(--white);
+      padding: 18px 36px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .hero-sm::after {
+      content: "";
+      position: absolute;
+      right: -50px; top: -30px;
+      width: 130px; height: 130px;
+      background: rgba(4, 192, 129, 0.70);
+      border-radius: 50%;
+    }
+    .hero-sm .hs-brand { font-size: 20px; font-weight: 800; letter-spacing: -0.02em; position: relative; z-index: 1; }
+    .hero-sm .hs-title { font-size: 13px; opacity: 0.88; position: relative; z-index: 1; margin-top: 3px; }
+    .hero-sm .hs-right { display: flex; align-items: center; gap: 12px; position: relative; z-index: 1; }
+    .hero-sm .hs-sec   { font-size: 11px; opacity: 0.75; }
+    .hero-sm .hs-pill  {
+      border: 1px solid rgba(255,255,255,0.55);
+      border-radius: 999px;
+      padding: 7px 16px;
+      font-weight: 700;
+      font-size: 13px;
+      backdrop-filter: blur(6px);
+    }
+
+    .brand-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; position: relative; z-index: 1; }
+    .brand h1  { margin: 0; font-size: 32px; line-height: 1; letter-spacing: -0.03em; }
+    .brand p   { margin: 8px 0 0; opacity: 0.92; font-size: 14px; }
+    .version-pill {
+      border: 1px solid rgba(255,255,255,0.55);
+      border-radius: 999px;
+      padding: 10px 20px;
+      font-weight: 700;
+      font-size: 14px;
+      backdrop-filter: blur(6px);
+    }
+    .meta { margin-top: 18px; display: flex; justify-content: flex-end; gap: 10px; font-size: 13px; position: relative; z-index: 1; }
+    .meta span:last-child { color: #d8ffd2; font-weight: 600; }
+
+    .content { padding: 22px 32px 18px; display: flex; flex-direction: column; gap: 18px; flex: 1; }
+
+    .headline h2 { margin: 0 0 6px; font-size: 26px; line-height: 1.1; letter-spacing: -0.04em; color: #33275f; }
+    .headline p  { margin: 0; color: var(--muted); font-size: 13.5px; line-height: 1.55; }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+    .col-stack { display: flex; flex-direction: column; gap: 14px; flex: 1; min-width: 0; }
+
+    .card {
+      background: rgba(255,255,255,0.93);
+      border: 1px solid var(--border);
+      border-left: 5px solid var(--myio-purple);
+      border-radius: var(--radius-lg);
+      padding: 16px 18px;
+      box-shadow: var(--shadow);
+      min-width: 0;
+      overflow: hidden;
+    }
+    .card.green  { border-left-color: var(--myio-green); }
+    .card.amber  { border-left-color: var(--myio-amber); }
+    .card.blue   { border-left-color: var(--myio-blue); }
+    .card.red    { border-left-color: var(--myio-red); }
+    .card.neutral{ border-left-color: #aaa; }
+
+    .card h3 { margin: 0 0 10px; font-size: 15px; letter-spacing: -0.02em; color: #392d69; display: flex; align-items: center; gap: 8px; }
+    .card p, .card li, .card div.text { font-size: 13px; line-height: 1.55; color: #4e4765; }
+    .card ul { margin: 6px 0 0; padding-left: 18px; }
+    .card li { margin-bottom: 4px; }
+
+    .panel-list { display: grid; gap: 6px; }
+    .panel-item { display: flex; gap: 8px; align-items: flex-start; }
+    .dot { width: 8px; height: 8px; border-radius: 3px; margin-top: 5px; background: linear-gradient(180deg, var(--myio-purple), #b577ff); flex: 0 0 auto; }
+    .dot.green { background: linear-gradient(180deg, var(--myio-green), #00e09b); }
+    .dot.amber { background: linear-gradient(180deg, var(--myio-amber), #ffc94d); }
+    .dot.red   { background: linear-gradient(180deg, var(--myio-red), #ff6b6b); }
+
+    /* ─── Diagrama Solução (Resumo Executivo, pg 1) ─── */
+    .sol-flow {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: stretch;
+      gap: 0;
+      margin: 14px 0 10px;
+    }
+    .sol-node {
+      flex: 1 1 130px;
+      min-width: 120px;
+      background: linear-gradient(180deg, #fff, #faf7ff);
+      border: 2px solid #e0d4f5;
+      border-radius: 12px;
+      padding: 10px 10px 8px;
+      text-align: center;
+      box-shadow: 0 4px 12px rgba(102, 58, 181, 0.08);
+    }
+    .sol-node.accent { border-color: var(--myio-green); background: linear-gradient(180deg, #fff, #f0faf4); }
+    .sol-node.cloud  { border-color: var(--myio-purple); background: linear-gradient(180deg, #fff, #f6f1ff); }
+    .sol-node.end    { border-color: var(--myio-blue);   background: linear-gradient(180deg, #fff, #eff6ff); }
+    .sol-icon  { font-size: 22px; display: block; line-height: 1; margin-bottom: 4px; }
+    .sol-title { font-weight: 800; font-size: 12px; color: var(--myio-purple-dark); }
+    .sol-sub   { font-size: 10.5px; color: var(--muted); line-height: 1.35; margin-top: 3px; }
+
+    .sol-arrow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 4px;
+      min-width: 64px;
+      flex: 0 0 auto;
+      position: relative;
+    }
+    .sol-arrow::before {
+      content: "";
+      position: absolute;
+      left: 4px; right: 4px; top: 50%;
+      height: 2px;
+      background: linear-gradient(90deg, #d9cbef, var(--myio-purple) 50%, var(--myio-green));
+      z-index: 0;
+    }
+    .sol-arrow::after {
+      content: "▶";
+      position: absolute;
+      right: 0; top: 50%;
+      transform: translate(0, -50%);
+      font-size: 11px;
+      color: var(--myio-green);
+      z-index: 2;
+    }
+    .sol-proto {
+      background: var(--white);
+      position: relative;
+      z-index: 1;
+      padding: 2px 7px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      font-family: 'Consolas', 'Fira Code', monospace;
+      font-size: 9.5px;
+      font-weight: 700;
+      color: var(--myio-purple-dark);
+      white-space: nowrap;
+    }
+
+    .sol-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 10px;
+      margin-bottom: 2px;
+    }
+    .sol-chip {
+      font-size: 11px;
+      background: #f0ffe9;
+      color: #1b6b3a;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-weight: 700;
+      border: 1px solid #c5f0c1;
+    }
+    .sol-chip.purple { background: #f3eeff; color: var(--myio-purple-dark); border-color: #d9cbef; }
+
+    @media screen and (max-width: 900px) {
+      .sol-arrow { min-width: 100%; height: 28px; padding: 0; }
+      .sol-arrow::before { height: 100%; width: 2px; left: 50%; right: auto; top: 0; background: linear-gradient(180deg, #d9cbef, var(--myio-purple), var(--myio-green)); }
+      .sol-arrow::after { content: "▼"; right: auto; left: 50%; top: auto; bottom: -2px; transform: translate(-50%, 0); }
+    }
+
+    .gloss-item { display: flex; gap: 12px; align-items: flex-start; padding: 7px 0; border-bottom: 1px solid #f0ebf8; border-radius: 6px; transition: background 0.25s ease, box-shadow 0.25s ease; }
+    .gloss-item:last-child { border-bottom: none; }
+    .gloss-term { font-family: 'Consolas', 'Fira Code', monospace; font-size: 11px; font-weight: 800; color: #5b44a0; min-width: 120px; flex: 0 0 auto; padding-top: 1px; }
+    .gloss-def  { font-size: 12.5px; color: #4e4765; line-height: 1.45; }
+    .gloss-item.glow-flash {
+      animation: gloss-glow 8s ease-out;
+    }
+    @keyframes gloss-glow {
+      0%   { background: #fff5b1; box-shadow: 0 0 0 6px rgba(245, 166, 35, 0.35), 0 0 24px rgba(245, 166, 35, 0.55); }
+      20%  { background: #fff5b1; box-shadow: 0 0 0 6px rgba(245, 166, 35, 0.35), 0 0 24px rgba(245, 166, 35, 0.55); }
+      100% { background: transparent; box-shadow: none; }
+    }
+
+    .gloss-link {
+      color: inherit;
+      text-decoration: underline dotted;
+      text-underline-offset: 2px;
+      text-decoration-color: rgba(102, 58, 181, 0.55);
+      cursor: pointer;
+      font-weight: inherit;
+    }
+    .gloss-link:hover { color: var(--myio-purple); text-decoration-color: var(--myio-purple); }
+
+    .flow-panel { background: rgba(255,255,255,0.94); border: 1px solid var(--border); border-radius: 18px; overflow: hidden; box-shadow: var(--shadow); }
+    .flow-head  { background: linear-gradient(135deg, #2a2a4a, #3a2d6e); color: #fff; padding: 12px 18px; font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+    .flow-body  { padding: 14px 16px; display: grid; gap: 8px; }
+    .flow-step  { display: flex; align-items: flex-start; gap: 12px; padding: 10px 12px; border-radius: 10px; background: #faf8ff; border: 1px solid #ede6fa; }
+    .flow-step .fs-num { background: var(--myio-purple); color: #fff; border-radius: 50%; width: 22px; height: 22px; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; }
+    .flow-step .fs-num.green { background: var(--myio-green-dark); }
+    .flow-step .fs-num.amber { background: #b07000; }
+    .flow-step .fs-body { font-size: 12.5px; color: #3d3464; line-height: 1.5; }
+    .flow-step .fs-body strong { color: #392d69; }
+
+    .map-wrap { border-radius: 12px; overflow: hidden; border: 1px solid #e5ddf5; box-shadow: var(--shadow); }
+    table.map-table { width: 100%; border-collapse: collapse; font-size: 11.5px; table-layout: fixed; }
+    table.map-table thead tr { background: linear-gradient(135deg, #2a2a4a, #3a2d6e); color: #fff; }
+    table.map-table th { padding: 9px 12px; text-align: left; font-size: 10px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
+    table.map-table td { padding: 8px 12px; border-bottom: 1px solid #f0ebf8; color: #3d3464; vertical-align: top; }
+    table.map-table tbody tr:last-child td { border-bottom: none; }
+    table.map-table tbody tr:hover { background: #faf8ff; }
+    table.map-table .mono { font-family: 'Consolas', 'Fira Code', monospace; font-size: 10px; color: #5b44a0; }
+    .tag-purple { display: inline-block; background: #f3eeff; color: #5b44a0; border-radius: 6px; padding: 2px 8px; font-weight: 700; font-size: 10.5px; }
+    .tag-green  { display: inline-block; background: #edfff7; color: #0a7a4a; border-radius: 6px; padding: 2px 8px; font-weight: 700; font-size: 10.5px; }
+    .tag-amber  { display: inline-block; background: #fff8e6; color: #92600a; border-radius: 6px; padding: 2px 8px; font-weight: 700; font-size: 10.5px; }
+    .tag-red    { display: inline-block; background: #fff0f0; color: #c00; border-radius: 6px; padding: 2px 8px; font-weight: 700; font-size: 10.5px; }
+    .tag-blue   { display: inline-block; background: #e8f0ff; color: #1864c4; border-radius: 6px; padding: 2px 8px; font-weight: 700; font-size: 10.5px; }
+
+    code { font-family: 'Consolas', 'Fira Code', monospace; font-size: 10.5px; background: #f3eeff; color: #5b44a0; padding: 2px 6px; border-radius: 5px; }
+
+    .phase-card {
+      background: #faf8ff;
+      border: 1px solid #ede6fa;
+      border-radius: 12px;
+      padding: 12px 14px;
+    }
+    .phase-card .ph-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .phase-card .ph-num  { background: var(--myio-purple); color: #fff; border-radius: 8px; padding: 4px 10px; font-size: 11px; font-weight: 800; flex: 0 0 auto; }
+    .phase-card .ph-num.green { background: var(--myio-green-dark); }
+    .phase-card .ph-num.amber { background: #b07000; }
+    .phase-card .ph-num.blue  { background: var(--myio-blue); }
+    .phase-card .ph-title { font-size: 13px; font-weight: 700; color: #392d69; }
+    .phase-card .ph-time  { margin-left: auto; font-size: 11px; color: var(--muted); font-weight: 600; background: #ede6fa; padding: 2px 10px; border-radius: 999px; }
+    .phase-card ul { margin: 0; padding-left: 16px; }
+    .phase-card li { font-size: 12px; color: #4e4765; margin-bottom: 3px; line-height: 1.45; }
+
+    .price-block {
+      background: linear-gradient(135deg, #2a2a4a, #3a2d6e);
+      border-radius: 16px;
+      padding: 20px 24px;
+      color: #fff;
+    }
+    .price-block .pb-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.7; margin-bottom: 4px; }
+    .price-block .pb-value { font-size: 32px; font-weight: 800; letter-spacing: -0.03em; color: #d8ffd2; }
+    .price-block .pb-sub   { font-size: 12px; opacity: 0.75; margin-top: 4px; }
+
+    .price-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-radius: 8px; background: #faf8ff; border: 1px solid #ede6fa; margin-bottom: 6px; }
+    .price-row:last-child { margin-bottom: 0; }
+    .price-row .pr-name  { font-size: 12.5px; color: #392d69; font-weight: 600; }
+    .price-row .pr-hours { font-size: 11px; color: var(--muted); margin-top: 1px; }
+    .price-row .pr-val   { font-size: 13px; font-weight: 800; color: #392d69; }
+
+    .deliverable-row { display: flex; align-items: flex-start; gap: 10px; padding: 8px 10px; border-radius: 9px; background: #faf8ff; border: 1px solid #ede6fa; margin-bottom: 5px; }
+    .deliverable-row .dr-icon { font-size: 16px; flex: 0 0 auto; }
+    .deliverable-row .dr-text { font-size: 12.5px; color: #3d3464; line-height: 1.45; }
+    .deliverable-row .dr-text strong { color: #392d69; }
+
+    .highlight-box {
+      background: linear-gradient(135deg, #edfff7, #f7fff9);
+      border: 1.5px solid #8de8c5;
+      border-radius: 12px;
+      padding: 14px 16px;
+    }
+    .highlight-box .hb-title { font-size: 13px; font-weight: 700; color: #0a7a4a; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+    .highlight-box p { font-size: 12.5px; color: #1a4a35; line-height: 1.5; margin: 0; }
+
+    .warn-box {
+      background: #fff8e6;
+      border: 1.5px solid #f5c97a;
+      border-radius: 12px;
+      padding: 12px 16px;
+    }
+    .warn-box .wb-title { font-size: 12.5px; font-weight: 700; color: #92600a; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+    .warn-box p { font-size: 12px; color: #6b4a0a; line-height: 1.5; margin: 0; }
+
+    .arch-box {
+      background: #1e1b2e;
+      border-radius: 12px;
+      padding: 16px 18px;
+      font-family: 'Consolas', 'Fira Code', monospace;
+      font-size: 11.5px;
+      color: #c8c0e0;
+      line-height: 1.8;
+      white-space: pre;
+      overflow-x: auto;
+    }
+    .arch-box .ac-green  { color: #89d99b; }
+    .arch-box .ac-purple { color: #b577ff; }
+    .arch-box .ac-amber  { color: #f0c070; }
+    .arch-box .ac-blue   { color: #80c8ff; }
+    .arch-box .ac-muted  { color: #5a6072; }
+
+    .footer {
+      margin-top: auto;
+      background: linear-gradient(180deg, var(--myio-purple), var(--myio-purple-dark));
+      color: rgba(255,255,255,0.95);
+      padding: 12px 28px;
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: center;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .footer strong { color: #fff; }
+
+    /* ═══════════════════════════════════════
+       Sidebar de navegação (left fixed)
+    ═══════════════════════════════════════ */
+    body { padding-left: 264px; }
+
+    .side-nav {
+      position: fixed;
+      left: 0; top: 0; bottom: 0;
+      width: 240px;
+      background: linear-gradient(180deg, #ffffff, #f7f4fc);
+      border-right: 1px solid var(--border);
+      box-shadow: 2px 0 14px rgba(102, 58, 181, 0.08);
+      overflow-y: auto;
+      z-index: 100;
+      padding: 14px 0 24px;
+      font-size: 12.5px;
+    }
+    .side-nav::-webkit-scrollbar { width: 7px; }
+    .side-nav::-webkit-scrollbar-thumb { background: #d9d0ef; border-radius: 4px; }
+    .side-nav::-webkit-scrollbar-thumb:hover { background: #b9a8e0; }
+    .side-nav::-webkit-scrollbar-track { background: transparent; }
+
+    .side-nav .sn-brand {
+      padding: 10px 18px 14px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 6px;
+    }
+    .side-nav .sn-brand-name {
+      font-size: 20px; font-weight: 800; letter-spacing: -0.02em;
+      background: linear-gradient(135deg, var(--myio-purple), var(--myio-green));
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .side-nav .sn-brand-sub {
+      font-size: 10.5px; color: var(--muted); margin-top: 3px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.06em;
+    }
+
+    .side-nav ol { list-style: none; margin: 0; padding: 0; }
+    .side-nav li { margin: 0; }
+
+    .side-nav a.sn-link {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 7px 14px 7px 18px;
+      color: var(--text);
+      text-decoration: none;
+      font-weight: 600;
+      border-left: 3px solid transparent;
+      transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+      line-height: 1.3;
+    }
+    .side-nav a.sn-link:hover {
+      background: var(--myio-purple-soft);
+      color: var(--myio-purple-dark);
+    }
+    .side-nav a.sn-link.active {
+      background: var(--myio-purple-soft);
+      border-left-color: var(--myio-purple);
+      color: var(--myio-purple-dark);
+    }
+    .side-nav .sn-num {
+      font-family: 'Consolas', 'Fira Code', monospace;
+      font-size: 10.5px;
+      color: var(--muted);
+      min-width: 24px; flex: 0 0 auto;
+      padding-top: 1px;
+      font-weight: 800;
+    }
+    .side-nav a.sn-link.active .sn-num { color: var(--myio-purple); }
+    .side-nav .sn-title { flex: 1; font-size: 12px; }
+
+    .side-nav .sn-divider {
+      font-size: 10px;
+      color: var(--muted);
+      padding: 14px 18px 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      font-weight: 800;
+    }
+
+    @media screen and (max-width: 900px) {
+      body { padding: 0; background: #fff; }
+      .document { gap: 0; }
+      .page { width: 100%; min-height: auto; border-radius: 0; box-shadow: none; }
+      .hero { padding: 24px 20px 20px; }
+      .hero::after { width: 140px; height: 140px; right: -40px; top: -30px; }
+      .brand h1 { font-size: 26px; }
+      .hero-sm { padding: 14px 20px; flex-wrap: wrap; gap: 8px; }
+      .content { padding: 16px 16px 14px; gap: 14px; }
+      .grid-2, .grid-3 { grid-template-columns: 1fr; }
+      .footer { flex-direction: column; align-items: flex-start; gap: 4px; padding: 12px 18px; font-size: 12px; }
+      .side-nav { display: none; }
+    }
+    @media print {
+      body { background: #fff; padding: 0; }
+      .document { gap: 0; }
+      .page { width: 100%; min-height: auto; border-radius: 0; box-shadow: none; margin: 0; }
+      .side-nav { display: none; }
+    }
+  </style>
+</head>
+<body>
+<aside aria-label="Navegação do documento" class="side-nav">
+<div class="sn-brand">
+<div class="sn-brand-name">MYIO</div>
+<div class="sn-brand-sub">Melicidade · VRF v1.0</div>
+</div>
+<ol>
+<li><a class="sn-link" data-page="page-1" href="#page-1"><span class="sn-num">01</span><span class="sn-title">Capa &amp; Sumário</span></a></li>
+<li><a class="sn-link" data-page="page-2" href="#page-2"><span class="sn-num">02</span><span class="sn-title">Motivação</span></a></li>
+<li><a class="sn-link" data-page="page-3" href="#page-3"><span class="sn-num">03</span><span class="sn-title">Proposta — Modbus</span></a></li>
+<li><a class="sn-link" data-page="page-4" href="#page-4"><span class="sn-num">04</span><span class="sn-title">Visão da Solução</span></a></li>
+<li><a class="sn-link" data-page="page-5" href="#page-5"><span class="sn-num">05</span><span class="sn-title">Painéis VRF Daikin</span></a></li>
+<li><a class="sn-link" data-page="page-6" href="#page-6"><span class="sn-num">06</span><span class="sn-title">Software Embarcado</span></a></li>
+<li><a class="sn-link" data-page="page-7" href="#page-7"><span class="sn-num">07</span><span class="sn-title">Gateway MyIO</span></a></li>
+<li><a class="sn-link" data-page="page-8" href="#page-8"><span class="sn-num">08</span><span class="sn-title">Infraestrutura</span></a></li>
+<li><a class="sn-link" data-page="page-9" href="#page-9"><span class="sn-num">09</span><span class="sn-title">Escopo Técnico V1</span></a></li>
+<li><a class="sn-link" data-page="page-10" href="#page-10"><span class="sn-num">10</span><span class="sn-title">Fases &amp; Cronograma</span></a></li>
+<li><a class="sn-link" data-page="page-11" href="#page-11"><span class="sn-num">11</span><span class="sn-title">Proposta Comercial</span></a></li>
+<li class="sn-divider">Anexos</li>
+<li><a class="sn-link" data-page="page-12" href="#page-12"><span class="sn-num">A</span><span class="sn-title">Equipamentos &amp; Custo</span></a></li>
+<li><a class="sn-link" data-page="page-13" href="#page-13"><span class="sn-num">B</span><span class="sn-title">Serviços de Instalação</span></a></li>
+<li><a class="sn-link" data-page="page-14" href="#page-14"><span class="sn-num">C</span><span class="sn-title">Justificativas CAPEX/OPEX</span></a></li>
+<li><a class="sn-link" data-page="page-15" href="#page-15"><span class="sn-num">D</span><span class="sn-title">Glossário Técnico</span></a></li>
+<li><a class="sn-link" data-page="page-16" href="#page-16"><span class="sn-num">E</span><span class="sn-title">Referências</span></a></li>
+<li><a class="sn-link" data-page="page-17" href="#page-17"><span class="sn-num">F</span><span class="sn-title">Alocações &amp; Gantt</span></a></li>
+<li><a class="sn-link" data-page="page-18" href="#page-18"><span class="sn-num">G</span><span class="sn-title">Simulação V2 CHILLER</span></a></li>
+</ol>
+</aside>
+<div class="document">
+<!-- ══════════════════════════════════════════
+       PÁG. 1 — Capa + Sumário
+  ══════════════════════════════════════════ -->
+<section class="page" id="page-1">
+<header class="hero">
+<div class="brand-row">
+<div class="brand">
+<h1>MYIO</h1>
+<p>Plataforma de Automação Predial e Telemetria</p>
+</div>
+<div class="version-pill">PROPOSTA   v1.0</div>
+</div>
+<div class="meta">
+<span>Abril 2026</span>
+<span>Melicidade — Integração Nativa VRF</span>
+</div>
+</header>
+<main class="content">
+<div class="headline">
+<h2>Integração Nativa do Sistema <a class="gloss-link" data-gloss-target="gloss-vrf" href="#gloss-vrf" title="Ver no glossario">VRF</a></h2>
+<p>Entendimento da demanda, escopo técnico e proposta comercial para a substituição da integração atual via <a class="gloss-link" data-gloss-target="gloss-iframe" href="#gloss-iframe" title="Ver no glossario">iframe</a>/túnel por uma integração nativa do sistema de ar condicionado VRF Daikin, com resiliência offline, relatórios e agendamentos gerenciados diretamente pelo MyIO.</p>
+</div>
+<div class="col-stack"><article class="card green">
+<h3>💡 Resumo Executivo</h3>
+<p>Esta proposta apresenta a <strong>substituição da integração atual via iframe/túnel</strong> por uma <strong>integração nativa Modbus</strong> do sistema VRF Daikin, controlado pelo Hitachi <a class="gloss-link" data-gloss-target="gloss-dcpf04" href="#gloss-dcpf04" title="Ver no glossario">DCPF04</a> na Melicidade.</p>
+
+<div class="sol-flow">
+  <div class="sol-node">
+    <span class="sol-icon">🏢</span>
+    <div class="sol-title">Melicidade <a class="gloss-link" data-gloss-target="gloss-vrf" href="#gloss-vrf" title="Ver no glossario">VRF</a></div>
+    <div class="sol-sub">UIs Daikin + <a class="gloss-link" data-gloss-target="gloss-dcpa01" href="#gloss-dcpa01" title="Ver no glossario">DCPA01</a><br><a class="gloss-link" data-gloss-target="gloss-dcpf04" href="#gloss-dcpf04" title="Ver no glossario">DCPF04</a> Reiri</div>
+  </div>
+  <div class="sol-arrow"><span class="sol-proto"><a class="gloss-link" data-gloss-target="gloss-modbus" href="#gloss-modbus" title="Ver no glossario">Modbus TCP</a> · 502</span></div>
+  <div class="sol-node accent">
+    <span class="sol-icon">🖥️</span>
+    <div class="sol-title"><a class="gloss-link" data-gloss-target="gloss-gateway" href="#gloss-gateway" title="Ver no glossario">Gateway MyIO</a></div>
+    <div class="sol-sub">SBC ARM + GPIO<br>rádio + <a class="gloss-link" data-gloss-target="gloss-node-red" href="#gloss-node-red" title="Ver no glossario">Node-RED</a> + <a class="gloss-link" data-gloss-target="gloss-buffer" href="#gloss-buffer" title="Ver no glossario">SQLite</a></div>
+  </div>
+  <div class="sol-arrow"><span class="sol-proto"><a class="gloss-link" data-gloss-target="gloss-mqtt" href="#gloss-mqtt" title="Ver no glossario">MQTTS</a> · TLS 8883</span></div>
+  <div class="sol-node cloud">
+    <span class="sol-icon">☁️</span>
+    <div class="sol-title"><a class="gloss-link" data-gloss-target="gloss-thingsboard" href="#gloss-thingsboard" title="Ver no glossario">ThingsBoard</a></div>
+    <div class="sol-sub"><a class="gloss-link" data-gloss-target="gloss-rule-engine" href="#gloss-rule-engine" title="Ver no glossario">Rule Engine</a><br>+ Relatórios MyIO</div>
+  </div>
+  <div class="sol-arrow"><span class="sol-proto">HTTPS · 443</span></div>
+  <div class="sol-node end">
+    <span class="sol-icon">👤</span>
+    <div class="sol-title">Dashboard MyIO</div>
+    <div class="sol-sub">Operação 24/7<br>Nativo (sem <a class="gloss-link" data-gloss-target="gloss-iframe" href="#gloss-iframe" title="Ver no glossario">iframe</a>)</div>
+  </div>
+</div>
+<div class="sol-chips">
+  <span class="sol-chip">🔋 Offline-first</span>
+  <span class="sol-chip purple">📊 Telemetria tempo real</span>
+  <span class="sol-chip">🎮 Controle remoto</span>
+  <span class="sol-chip purple">📅 Agendamentos</span>
+  <span class="sol-chip">🔔 Alarmes + auditoria</span>
+  <span class="sol-chip purple">📈 Relatórios</span>
+</div>
+
+<p style="margin-top:10px;">O escopo V1 entrega <strong>telemetria em tempo real, controle remoto, agendamentos offline-first com logs de auditoria e sincronismo ativo com a Cloud, e relatórios nativos MyIO</strong>, entregue em <strong>~15 semanas</strong> ponta-a-ponta (kickoff → Go-Live homologado).</p>
+<p style="margin-top:8px;"><strong>Valor principal:</strong> dados no MyIO, histórico próprio, operação resiliente a quedas de internet/energia, <strong>rastreabilidade total de execuções e comandos</strong>, e controle completo da experiência do cliente.</p>
+</article><div class="highlight-box">
+<div class="hb-title">📖 Como ler este documento</div>
+<p><strong>Páginas 2–3:</strong> motivação e proposta. <strong>Páginas 4–6:</strong> visão de alto nível e planos de desenvolvimento (painéis VRF e software embarcado). <strong>Páginas 7–9:</strong> detalhamento técnico (Gateway hardware, infra, escopo V1). <strong>Páginas 10–11:</strong> cronograma e proposta comercial. <strong>Anexos A–G (Pág. 12–18):</strong> equipamentos, instalação, justificativas, glossário, referências, alocações/Gantt e simulação V2 CHILLER.</p>
+</div></div>
+</main>
+<footer class="footer">
+<strong>MYIO</strong>
+<span>Proposta de Integração Nativa VRF · Melicidade</span>
+<span style="opacity:0.75;">v1.0 · Pág. 1</span>
+</footer>
+</section>
+<!-- ══════════════════════════════════════════
+       PÁG. 2 — Motivação
+  ══════════════════════════════════════════ -->
+<section class="page" id="page-2">
+<header class="hero-sm">
+<div>
+<div class="hs-brand">MYIO · Melicidade</div>
+<div class="hs-title">Motivação — Por que integrar nativamente agora</div>
+</div>
+<div class="hs-right">
+<span class="hs-sec">Seção 1</span>
+<span class="hs-pill">Motivação</span>
+</div>
+</header>
+<main class="content">
+<div class="headline">
+<h2>O contexto que justifica a integração nativa</h2>
+<p>Entendimento do cliente, da arquitetura atual e das dores enfrentadas no modelo de <a class="gloss-link" data-gloss-target="gloss-iframe" href="#gloss-iframe" title="Ver no glossario">iframe</a>/túnel. Estes são os drivers que motivam a substituição por uma integração nativa via Modbus — apresentada na seção seguinte.</p>
+</div>
+<div class="grid-2">
+<div class="col-stack">
+<article class="card blue">
+<h3>🏢 Cliente</h3>
+<div class="panel-list">
+<div class="panel-item"><div class="dot blue"></div><div class="text" style="font-size:13px;color:#4e4765;"><strong>Melicidade</strong> — empreendimento comercial/corporativo</div></div>
+<div class="panel-item"><div class="dot blue"></div><div class="text" style="font-size:13px;color:#4e4765;">Sistema de climatização <a class="gloss-link" data-gloss-target="gloss-vrf" href="#gloss-vrf" title="Ver no glossario">VRF</a> Daikin com múltiplas zonas</div></div>
+<div class="panel-item"><div class="dot blue"></div><div class="text" style="font-size:13px;color:#4e4765;">Controlador central: Hitachi Reiri <a class="gloss-link" data-gloss-target="gloss-dcpf04" href="#gloss-dcpf04" title="Ver no glossario">DCPF04</a></div></div>
+<div class="panel-item"><div class="dot blue"></div><div class="text" style="font-size:13px;color:#4e4765;">Acesso atual via aba "VRF" no painel MyIO (iframe)</div></div>
+</div>
+</article>
+<article class="card red">
+<h3>🔴 Hoje — Arquitetura de Túnel (iframe)</h3>
+<div class="arch-box" style="font-size:10.5px;line-height:1.7;">
+<span class="ac-blue">[Dashboard MyIO]</span>
+  └─ aba "VRF" <span class="ac-muted">← iframe</span>
+        │
+        │ <span class="ac-amber">HTTPS (proxy reverso)</span>
+        ▼
+<span class="ac-amber">[Central MyIO]</span>
+        │ <span class="ac-muted">túnel / VPN</span>
+        ▼
+<span class="ac-muted">[Servidor Hitachi Reiri]</span>
+        │ <span class="ac-muted">UI web</span>
+        ▼
+<span class="ac-muted">[Página de login Hitachi]</span></div>
+<ul style="margin-top:10px;">
+<li>Sem dados no <a class="gloss-link" data-gloss-target="gloss-thingsboard" href="#gloss-thingsboard" title="Ver no glossario">ThingsBoard</a></li>
+<li>Sem histórico MyIO</li>
+<li>Relatórios = capturas da tela Hitachi</li>
+<li>Offline = tela branca</li>
+</ul>
+</article>
+</div>
+<div class="col-stack">
+<article class="card amber">
+<h3>⚠️ Problema Central (dores atuais)</h3>
+<div class="panel-list">
+<div class="panel-item"><div class="dot amber"></div><div class="text" style="font-size:13px;color:#4e4765;">Queda de internet = tela em branco — operação bloqueada</div></div>
+<div class="panel-item"><div class="dot amber"></div><div class="text" style="font-size:13px;color:#4e4765;">Dados ficam no sistema externo — MyIO não tem histórico</div></div>
+<div class="panel-item"><div class="dot amber"></div><div class="text" style="font-size:13px;color:#4e4765;">Relatórios dependem da UI Hitachi, fora do controle MyIO</div></div>
+<div class="panel-item"><div class="dot amber"></div><div class="text" style="font-size:13px;color:#4e4765;">Agendamentos não funcionam sem conexão ativa</div></div>
+<div class="panel-item"><div class="dot amber"></div><div class="text" style="font-size:13px;color:#4e4765;">Login separado para cada sistema externo</div></div>
+</div>
+</article>
+<article class="card green">
+<h3>✅ O que o Cliente Pediu</h3>
+<div class="panel-list">
+<div class="panel-item"><div class="dot green"></div><div class="text" style="font-size:13px;color:#4e4765;">Integração nativa — dados no MyIO, sem depender do iframe</div></div>
+<div class="panel-item"><div class="dot green"></div><div class="text" style="font-size:13px;color:#4e4765;">Relatórios e agendamentos funcionando mesmo offline</div></div>
+<div class="panel-item"><div class="dot green"></div><div class="text" style="font-size:13px;color:#4e4765;">Sync automático quando a conexão voltar</div></div>
+<div class="panel-item"><div class="dot green"></div><div class="text" style="font-size:13px;color:#4e4765;">Dados atualizados para relatórios do lado MyIO</div></div>
+</div>
+</article>
+<div class="warn-box">
+<div class="wb-title">🎯 Resumo da motivação</div>
+<p>O modelo atual de iframe/túnel atende parcialmente, mas <strong>não oferece resiliência, histórico próprio nem agendamentos confiáveis</strong>. A integração nativa Modbus (apresentada na próxima seção) elimina esses gaps e devolve ao MyIO o controle completo da experiência do cliente.</p>
+</div>
+</div>
+</div>
+</main>
+<footer class="footer">
+<strong>MYIO</strong>
+<span>Motivação — Por que integrar nativamente</span>
+<span style="opacity:0.75;">v1.0 · Pág. 2</span>
+</footer>
+</section>
+<!-- ══════════════════════════════════════════
+       PÁG. 3 — Proposta (Integração Nativa)
+  ══════════════════════════════════════════ -->
+<section class="page" id="page-3">
+<header class="hero-sm">
+<div>
+<div class="hs-brand">MYIO · Melicidade</div>
+<div class="hs-title">Proposta — Integração Nativa via Modbus</div>
+</div>
+<div class="hs-right">
+<span class="hs-sec">Seção 2</span>
+<span class="hs-pill">Proposta</span>
+</div>
+</header>
+<main class="content">
+<div class="headline">
+<h2>A solução nativa — sem <a class="gloss-link" data-gloss-target="gloss-iframe" href="#gloss-iframe" title="Ver no glossario">iframe</a>, com resiliência offline</h2>
+<p>Visão geral da arquitetura proposta: um <strong><a class="gloss-link" data-gloss-target="gloss-gateway" href="#gloss-gateway" title="Ver no glossario">Gateway MyIO</a> on-premise</strong> que fala <a class="gloss-link" data-gloss-target="gloss-modbus" href="#gloss-modbus" title="Ver no glossario">Modbus TCP</a> diretamente com o <a class="gloss-link" data-gloss-target="gloss-dcpf04" href="#gloss-dcpf04" title="Ver no glossario">DCPF04</a> e sincroniza dados com o <a class="gloss-link" data-gloss-target="gloss-thingsboard" href="#gloss-thingsboard" title="Ver no glossario">ThingsBoard</a> na nuvem. O detalhamento técnico, escopo V1 e custos estão nas seções seguintes.</p>
+</div>
+<div class="grid-2">
+<div class="col-stack">
+<article class="card green">
+<h3>✅ Proposta — Integração Nativa (Modbus)</h3>
+<div class="arch-box" style="font-size:10.5px;line-height:1.7;">
+<span class="ac-blue">[ThingsBoard MyIO Cloud]</span>
+  Dashboard | Relatórios | Agendamentos
+        │ <span class="ac-green"><a class="gloss-link" data-gloss-target="gloss-mqtt" href="#gloss-mqtt" title="Ver no glossario">MQTT</a> / HTTP + backlog sync</span>
+        ▼
+<span class="ac-green">[Gateway MyIO — on-premise]</span>
+  Buffer Local | Scheduler | Sync
+        │ <span class="ac-purple">Modbus TCP (porta 502)</span>
+        ▼
+<span class="ac-purple">[DCPF04 — Reiri for Office Touch]</span>
+        │ <span class="ac-muted"><a class="gloss-link" data-gloss-target="gloss-rs485" href="#gloss-rs485" title="Ver no glossario">RS485</a> / <a class="gloss-link" data-gloss-target="gloss-dcpa01" href="#gloss-dcpa01" title="Ver no glossario">DCPA01</a></span>
+        ▼
+<span class="ac-muted">[UIs Daikin <a class="gloss-link" data-gloss-target="gloss-vrf" href="#gloss-vrf" title="Ver no glossario">VRF</a> — por zona]</span></div>
+<ul style="margin-top:10px;">
+<li>Dados no ThingsBoard em tempo real</li>
+<li>Histórico completo MyIO</li>
+<li>Relatórios nativos MyIO</li>
+<li>Agendamentos offline-first</li>
+</ul>
+</article>
+<div class="map-wrap">
+<table class="map-table">
+<thead>
+<tr>
+<th>Capacidade</th>
+<th>Hoje (iframe)</th>
+<th>Proposta</th>
+</tr>
+</thead>
+<tbody>
+<tr><td>Dados em tempo real</td><td><span class="tag-red">Não</span></td><td><span class="tag-green">✅ Sim</span></td></tr>
+<tr><td>Histórico no MyIO</td><td><span class="tag-red">Não</span></td><td><span class="tag-green">✅ Sim</span></td></tr>
+<tr><td>Relatórios MyIO</td><td><span class="tag-red">Não</span></td><td><span class="tag-green">✅ Sim</span></td></tr>
+<tr><td>Controle remoto</td><td><span class="tag-amber">Parcial</span></td><td><span class="tag-green">✅ Nativo</span></td></tr>
+<tr><td>Agendamentos</td><td><span class="tag-red">Não</span></td><td><span class="tag-green">✅ Offline-first</span></td></tr>
+<tr><td>Resiliência offline</td><td><span class="tag-red">Não</span></td><td><span class="tag-green">✅ Buffer local</span></td></tr>
+<tr><td>SSO / login único</td><td><span class="tag-red">Não</span></td><td><span class="tag-green">✅ Via ThingsBoard</span></td></tr>
+<tr><td>Alertas push</td><td><span class="tag-red">Não</span></td><td><span class="tag-green">✅ <a class="gloss-link" data-gloss-target="gloss-rule-engine" href="#gloss-rule-engine" title="Ver no glossario">Rule Engine</a> TB</span></td></tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="col-stack">
+<article class="card">
+<h3>⚡ Por que é possível agora</h3>
+<p>O DCPF04 expõe <strong>Modbus RTU</strong> via RS485 — protocolo industrial aberto, amplamente documentado. O manual técnico completo está disponível (<em>INS_DCPF04 Reiri for Office Touch</em>). As unidades Daikin são conectadas via adaptador <strong>DCPA01</strong> (<a class="gloss-link" data-gloss-target="gloss-diii-net" href="#gloss-diii-net" title="Ver no glossario">DIII-Net</a> → Modbus), que já faz a tradução internamente. Para o Gateway MyIO, basta ler/escrever registros Modbus — independente da UI web do Hitachi.</p>
+<p style="margin-top:8px;">Se o DCPF04 expor <strong>Modbus TCP</strong> (porta 502 via Ethernet), não há necessidade de cabeamento adicional — a integração ocorre inteiramente via rede local existente.</p>
+</article>
+<div class="highlight-box">
+<div class="hb-title">💡 Princípios da proposta</div>
+<p><strong>(1) Offline-first:</strong> operação continua sem internet. <strong>(2) Zero invasão:</strong> não altera arquitetura Daikin/Hitachi, preservando garantias. <strong>(3) Dados no MyIO:</strong> histórico próprio, relatórios nativos. <strong>(4) Controle contínuo:</strong> SSO ThingsBoard, sem login duplo.</p>
+</div>
+<article class="card blue">
+<h3>📖 Onde cada detalhe está</h3>
+<div class="panel-list">
+<div class="panel-item"><div class="dot blue"></div><div class="text" style="font-size:12.5px;color:#4e4765;"><strong>Pág. 4:</strong> Visão de Alto Nível (features &amp; pilares)</div></div>
+<div class="panel-item"><div class="dot blue"></div><div class="text" style="font-size:12.5px;color:#4e4765;"><strong>Pág. 5:</strong> Painéis VRF Daikin — plano de desenvolvimento</div></div>
+<div class="panel-item"><div class="dot blue"></div><div class="text" style="font-size:12.5px;color:#4e4765;"><strong>Pág. 6:</strong> Software Embarcado do Gateway — plano de desenvolvimento</div></div>
+<div class="panel-item"><div class="dot blue"></div><div class="text" style="font-size:12.5px;color:#4e4765;"><strong>Pág. 7:</strong> Gateway MyIO — especificação técnica</div></div>
+<div class="panel-item"><div class="dot blue"></div><div class="text" style="font-size:12.5px;color:#4e4765;"><strong>Pág. 8:</strong> Infraestrutura — redundância, segurança, robustez</div></div>
+<div class="panel-item"><div class="dot blue"></div><div class="text" style="font-size:12.5px;color:#4e4765;"><strong>Pág. 9:</strong> Escopo Técnico V1 VRF</div></div>
+<div class="panel-item"><div class="dot blue"></div><div class="text" style="font-size:12.5px;color:#4e4765;"><strong>Pág. 10:</strong> Fases e cronograma</div></div>
+<div class="panel-item"><div class="dot blue"></div><div class="text" style="font-size:12.5px;color:#4e4765;"><strong>Pág. 11:</strong> Proposta comercial</div></div>
+</div>
+</article>
+</div>
+</div>
+</main>
+<footer class="footer">
+<strong>MYIO</strong>
+<span>Proposta — Integração Nativa Modbus</span>
+<span style="opacity:0.75;">v1.0 · Pág. 3</span>
+</footer>
+</section>
+<!-- ══════════════════════════════════════════
+       PÁG. 4 — Visão de Alto Nível da Solução
+  ══════════════════════════════════════════ -->
+<section class="page" id="page-4">
+<header class="hero-sm">
+<div>
+<div class="hs-brand">MYIO · Melicidade</div>
+<div class="hs-title">Visão de Alto Nível da Solução</div>
+</div>
+<div class="hs-right">
+<span class="hs-sec">Seção 3</span>
+<span class="hs-pill">Visão Geral</span>
+</div>
+</header>
+<main class="content">
+<div class="headline">
+<h2>A experiência completa — o que o cliente terá nas mãos</h2>
+<p>Panorama funcional da solução: recursos do dashboard, gestão, alarmes, analytics, e as seis camadas de entrega que formam o ecossistema. Detalhamento técnico e de desenvolvimento nas seções seguintes.</p>
+</div>
+<div class="grid-2">
+<article class="card red">
+<h3>📊 Monitoramento em Tempo Real</h3>
+<ul>
+<li>Dashboard com todas as zonas/UIs <a class="gloss-link" data-gloss-target="gloss-vrf" href="#gloss-vrf" title="Ver no glossario">VRF</a></li>
+<li>Temperatura ambiente × setpoint (live)</li>
+<li>Status on/off, modo, velocidade, código de erro</li>
+<li>Indicador de conectividade por device</li>
+<li>Logs de comunicação Modbus + conectividade</li>
+</ul>
+</article>
+<article class="card green">
+<h3>⏰ Automação &amp; Agendamentos</h3>
+<ul>
+<li>Ligar/desligar por horário (dias úteis / fim de semana)</li>
+<li>Agendas por zona ou por UI individual</li>
+<li>Calendário de feriados (pula execução)</li>
+<li>Janelas de manutenção (bloqueia operação automática)</li>
+<li>Gatilhos: sensor ambiente × setpoint × faixa de horário</li>
+</ul>
+</article>
+<article class="card amber">
+<h3>⚡ Eficiência &amp; Analytics <span style="font-size:10px;background:#ffe6b3;color:#92600a;padding:2px 8px;border-radius:6px;font-weight:700;vertical-align:middle;">A confirmar na Fase 0</span></h3>
+<ul>
+<li>Cross-ref: temp sensor MyIO ↔ setpoint VRF (Δ em °C)</li>
+<li>Detecção de "setpoint não atingido" → diagnóstico</li>
+<li>Integração com <strong>medidores 3F MyIO (kWh por zona)</strong></li>
+<li>Benchmark de eficiência por ambiente (kWh / Δ°C / hora)</li>
+<li>Alertas de consumo anormal ou operação ineficiente</li>
+</ul>
+<p style="margin-top:6px;font-size:11.5px;color:var(--muted);"><em>Viabilidade depende do mapeamento dos 3F MyIO por zona VRF — validação na Fase 0.</em></p>
+</article>
+<article class="card blue">
+<h3>🚨 Alarmes &amp; Notificações</h3>
+<ul>
+<li>Alarme por código de erro Daikin (catálogo)</li>
+<li>Alarme por device offline / falha de sync</li>
+<li>Alarme por temperatura fora da banda tolerada</li>
+<li>Notificações: push, email, SMS (via <a class="gloss-link" data-gloss-target="gloss-rule-engine" href="#gloss-rule-engine" title="Ver no glossario">Rule Engine</a> TB)</li>
+<li>Roteamento por perfil/grupo de responsável</li>
+</ul>
+</article>
+<article class="card">
+<h3>📋 Relatórios &amp; Auditoria</h3>
+<ul>
+<li>Relatórios por período (dia / semana / mês / custom)</li>
+<li>Relatórios por equipamento ou zona</li>
+<li>Horas de operação, consumo kWh, temperatura média</li>
+<li>Exportação CSV / Excel / PDF</li>
+<li>Auditoria: logs de comandos write + login/ações</li>
+</ul>
+</article>
+<article class="card blue">
+<h3>👥 Gestão de Usuários &amp; Perfis</h3>
+<ul>
+<li>Controle de usuários, grupos e perfis (roles)</li>
+<li>Permissões granulares por zona ou recurso</li>
+<li>Grupos por função (operação, facilities, diretoria)</li>
+<li>MFA / SSO integrado ao ecossistema MyIO</li>
+<li>Audit trail por usuário (quem fez o quê e quando)</li>
+</ul>
+</article>
+</div>
+<div class="flow-panel">
+<div class="flow-head">🏗️ Seis Pilares de Entrega — camadas que formam o ecossistema</div>
+<div class="flow-body" style="grid-template-columns: repeat(3, 1fr);">
+<div class="flow-step">
+<div class="fs-num">1</div>
+<div class="fs-body"><strong>Software do Painel</strong><br/>UI/UX, widgets, dashboards no <a class="gloss-link" data-gloss-target="gloss-thingsboard" href="#gloss-thingsboard" title="Ver no glossario">ThingsBoard</a> + MyIO</div>
+</div>
+<div class="flow-step">
+<div class="fs-num green">2</div>
+<div class="fs-body"><strong>Software Embarcado</strong><br/>Gateway: <a class="gloss-link" data-gloss-target="gloss-node-red" href="#gloss-node-red" title="Ver no glossario">Node-RED</a>, <a class="gloss-link" data-gloss-target="gloss-buffer" href="#gloss-buffer" title="Ver no glossario">SQLite</a>, cron, drivers Modbus</div>
+</div>
+<div class="flow-step">
+<div class="fs-num amber">3</div>
+<div class="fs-body"><strong>Infraestrutura</strong><br/>Gateway hardware, switch, <a class="gloss-link" data-gloss-target="gloss-ups" href="#gloss-ups" title="Ver no glossario">UPS</a>, rede, cabeamento</div>
+</div>
+<div class="flow-step">
+<div class="fs-num blue">4</div>
+<div class="fs-body"><strong>Testes &amp; Homologação</strong><br/>Unit, integração, aceitação, certificação</div>
+</div>
+<div class="flow-step">
+<div class="fs-num">5</div>
+<div class="fs-body"><strong>Implantação / Go-Live</strong><br/>Entrega técnica, treinamento, aceite formal</div>
+</div>
+<div class="flow-step">
+<div class="fs-num green">6</div>
+<div class="fs-body"><strong>Manutenção &amp; Evolução</strong><br/>Suporte, <a class="gloss-link" data-gloss-target="gloss-sla" href="#gloss-sla" title="Ver no glossario">SLA</a>, alarmes, próximas versões</div>
+</div>
+</div>
+</div>
+</main>
+<footer class="footer">
+<strong>MYIO</strong>
+<span>Visão de Alto Nível — Experiência &amp; Pilares</span>
+<span style="opacity:0.75;">v1.0 · Pág. 4</span>
+</footer>
+</section>
+<!-- ══════════════════════════════════════════
+       PÁG. 5 — Painéis VRF Daikin (Planejamento de Desenvolvimento)
+  ══════════════════════════════════════════ -->
+<section class="page" id="page-5">
+<header class="hero-sm">
+<div>
+<div class="hs-brand">MYIO · Melicidade</div>
+<div class="hs-title">Painéis VRF Daikin — Planejamento de Desenvolvimento</div>
+</div>
+<div class="hs-right">
+<span class="hs-sec">Seção 4</span>
+<span class="hs-pill">Dev VRF</span>
+</div>
+</header>
+<main class="content">
+<div class="headline">
+<h2>Desenvolvimento dos painéis MyIO específicos para <a class="gloss-link" data-gloss-target="gloss-vrf" href="#gloss-vrf" title="Ver no glossario">VRF</a> Daikin</h2>
+<p>Plano detalhado de construção dos dashboards, widgets e integrações MyIO ↔ <a class="gloss-link" data-gloss-target="gloss-thingsboard" href="#gloss-thingsboard" title="Ver no glossario">ThingsBoard</a> ↔ Gateway para o escopo VRF. Engloba análise, desenvolvimento, integração, testes e homologação.</p>
+</div>
+<article class="card">
+<h3>🎨 Componentes do Painel VRF</h3>
+<ul>
+<li><strong>Card de Zona</strong> — identificação + temp atual + setpoint + status on/off</li>
+<li><strong>Widget Controle</strong> — slider setpoint, botão on/off, seletor de modo e velocidade</li>
+<li><strong>Widget Temperatura</strong> — gauge + histórico (chart)</li>
+<li><strong>Widget Status</strong> — conectividade + código de erro + última atualização</li>
+<li><strong>Widget Alarmes VRF</strong> — lista filtrada de alarmes ativos do device</li>
+<li><strong>Widget Agendamentos</strong> — visualização e edição de cron schedules</li>
+<li><strong>Widget Eficiência</strong> — Δ temperatura vs setpoint + kWh (se 3F disponível)</li>
+</ul>
+</article>
+<article class="card blue">
+<h3>🔌 Integrações ThingsBoard &amp; Ecossistema MyIO</h3>
+<ul>
+<li><strong>Datasource TB:</strong> stream de telemetria Modbus do Gateway</li>
+<li><strong>RPC:</strong> comandos write (on/off, setpoint, modo)</li>
+<li><strong><a class="gloss-link" data-gloss-target="gloss-rule-engine" href="#gloss-rule-engine" title="Ver no glossario">Rule Engine</a>:</strong> alarmes + gatilhos de automação</li>
+<li><strong>Shadow DOM widgets:</strong> padrão <code>myio-js-library</code></li>
+<li><strong>AllReportModal:</strong> relatórios VRF integrados (orchIdSet)</li>
+<li><strong>AlarmServiceOrchestrator:</strong> badges de alarme por device VRF</li>
+</ul>
+</article>
+<article class="card green">
+<h3>🧪 Qualidade, Testes &amp; Homologação</h3>
+<ul>
+<li><strong>Unit tests:</strong> widgets e utilities (Vitest)</li>
+<li><strong>Integração:</strong> Gateway ↔ ThingsBoard ↔ dashboard (E2E)</li>
+<li><strong>Load test:</strong> ≥ 50 devices VRF simultâneos</li>
+<li><strong><a class="gloss-link" data-gloss-target="gloss-failover" href="#gloss-failover" title="Ver no glossario">Failover</a>:</strong> teste de queda de internet (<a class="gloss-link" data-gloss-target="gloss-m2m" href="#gloss-m2m" title="Ver no glossario">4G</a> assume) e energia (<a class="gloss-link" data-gloss-target="gloss-ups" href="#gloss-ups" title="Ver no glossario">UPS</a>)</li>
+<li><strong>Aceitação:</strong> checklist por cenário operacional</li>
+<li><strong>Homologação:</strong> assinatura formal do cliente antes do Go-Live</li>
+</ul>
+</article>
+<article class="card red">
+<h3>🚀 Sprint 0 — Kickoff &amp; Fundação Técnica</h3>
+<ul>
+<li><strong>Kickoff:</strong> alinhamento de stakeholders, papéis, canais de comunicação e cadência de entrega</li>
+<li><strong>System Architect:</strong> desenho da arquitetura completa (Gateway ↔ ThingsBoard ↔ dashboards MyIO), decisões de stack</li>
+<li><strong>API Design:</strong> contratos REST/<a class="gloss-link" data-gloss-target="gloss-mqtt" href="#gloss-mqtt" title="Ver no glossario">MQTT</a>, RPCs, payloads de telemetria e comando, versionamento</li>
+<li><strong>Modelagem de Dados:</strong> schema TB (devices, atributos, telemetrias), estrutura do buffer <a class="gloss-link" data-gloss-target="gloss-buffer" href="#gloss-buffer" title="Ver no glossario">SQLite</a>, retenção</li>
+<li><strong>Documentação de Escopo &amp; Manuais:</strong> specs técnicas, manual de operação, runbook, guia do usuário</li>
+<li><strong>Prototipagem:</strong> POC dos widgets principais (Card Zona, Controle, Temperatura) — validação UX antecipada</li>
+<li><strong>Critérios de Aceite para Entrega:</strong> DoD (Definition of Done) formalizado por sprint; checklists assinados pelo cliente</li>
+</ul>
+</article>
+<article class="card amber">
+<h3>📅 Timeline de Desenvolvimento (aprox.)</h3>
+<div class="map-wrap">
+<table class="map-table">
+<thead><tr><th>Sprint</th><th>Duração</th><th>Entrega</th></tr></thead>
+<tbody>
+<tr><td>Sprint 0</td><td>2 sem</td><td>Kickoff, arquitetura, API design, modelagem de dados, docs, protótipo, critérios de aceite</td></tr>
+<tr><td>Sprint 1</td><td>2 sem</td><td>Widgets básicos: Card Zona, Controle, Temperatura, Status</td></tr>
+<tr><td>Sprint 2</td><td>2 sem</td><td>Agendamentos + Alarmes + Rule Engine</td></tr>
+<tr><td>Sprint 3</td><td>2 sem</td><td>Eficiência &amp; Analytics (dep. Fase 0)</td></tr>
+<tr><td>Sprint 4</td><td>2 sem</td><td>Testes integrados + homologação</td></tr>
+<tr style="background:linear-gradient(135deg,#f3eeff,#faf8ff);">
+<td style="font-weight:800;color:#392d69;">TOTAL</td>
+<td style="font-weight:800;color:var(--myio-purple);">10 semanas</td>
+<td style="font-weight:700;color:#392d69;">5 sprints × 2 semanas · ≈ 2,5 meses de desenvolvimento</td>
+</tr>
+</tbody>
+</table>
+</div>
+</article>
+<div class="highlight-box">
+<div class="hb-title">⏱ Sumário do Prazo Previsto</div>
+<p><strong>Desenvolvimento dos painéis VRF:</strong> 10 semanas (5 sprints × 2 sem) · <strong>Instalação do Gateway &amp; Infra</strong> (Anexo B): 3–4 semanas em paralelo · <strong>Fase 0 de Levantamento</strong> (pré-requisito): 1–2 semanas · <strong>Pós-entrega &amp; aceitação</strong>: 30 dias de suporte ativo incluso. <strong>Duração total ponta-a-ponta: ~15 semanas</strong> (≈ 3,5 meses) entre kickoff e Go-Live homologado (ver Gantt consolidado no Anexo F).</p>
+</div>
+<div class="highlight-box">
+<div class="hb-title">🔗 Reaproveitamento do ecossistema MyIO</div>
+<p>O desenvolvimento aproveita a biblioteca <code>myio-js-library</code> existente e estende padrões já consolidados: <strong>TelemetryGridShoppingView</strong>, <strong>MenuView</strong>, <strong>AlarmServiceOrchestrator</strong> e <strong>AllReportModal</strong>. Isso acelera o delivery e mantém consistência visual/comportamental entre módulos.</p>
+</div>
+</main>
+<footer class="footer">
+<strong>MYIO</strong>
+<span>Painéis VRF Daikin — Plano de Desenvolvimento</span>
+<span style="opacity:0.75;">v1.0 · Pág. 5</span>
+</footer>
+</section>
+<!-- ══════════════════════════════════════════
+       PÁG. 6 — Software Embarcado do Gateway (Planejamento de Desenvolvimento)
+  ══════════════════════════════════════════ -->
+<section class="page" id="page-6">
+<header class="hero-sm">
+<div>
+<div class="hs-brand">MYIO · Melicidade</div>
+<div class="hs-title">Software Embarcado do Gateway — Planejamento de Desenvolvimento</div>
+</div>
+<div class="hs-right">
+<span class="hs-sec">Seção 5</span>
+<span class="hs-pill">Dev Gateway</span>
+</div>
+</header>
+<main class="content">
+<div class="headline">
+<h2>Desenvolvimento do software embarcado do <a class="gloss-link" data-gloss-target="gloss-gateway" href="#gloss-gateway" title="Ver no glossario">Gateway MyIO</a></h2>
+<p>Plano detalhado do stack <strong><a class="gloss-link" data-gloss-target="gloss-node-red" href="#gloss-node-red" title="Ver no glossario">Node-RED</a> + <a class="gloss-link" data-gloss-target="gloss-buffer" href="#gloss-buffer" title="Ver no glossario">SQLite</a> + cron + drivers Modbus</strong> que roda on-premise no Gateway. Este software é o coração da integração: coleta, armazena, agenda e sincroniza os dados do <a class="gloss-link" data-gloss-target="gloss-vrf" href="#gloss-vrf" title="Ver no glossario">VRF</a> com o <a class="gloss-link" data-gloss-target="gloss-thingsboard" href="#gloss-thingsboard" title="Ver no glossario">ThingsBoard</a> — em paralelo ao desenvolvimento dos painéis (Pág. 5).</p>
+</div>
+<article class="card">
+<h3>🧩 Componentes do Software Embarcado</h3>
+<ul>
+<li><strong>Node-RED Flows</strong> — orquestrador principal: polling, write RPC, scheduler, error handling, observabilidade</li>
+<li><strong>Driver <a class="gloss-link" data-gloss-target="gloss-modbus" href="#gloss-modbus" title="Ver no glossario">Modbus TCP</a></strong> — cliente para <a class="gloss-link" data-gloss-target="gloss-dcpf04" href="#gloss-dcpf04" title="Ver no glossario">DCPF04</a> via <code>node-red-contrib-modbus</code> (porta 502)</li>
+<li><strong>Driver Modbus RTU</strong> — fallback via USB-<a class="gloss-link" data-gloss-target="gloss-rs485" href="#gloss-rs485" title="Ver no glossario">RS485</a> (contingência se Modbus TCP indisponível)</li>
+<li><strong>Buffer SQLite</strong> — fila de telemetria com retention policy e rotação automática (não enche disco)</li>
+<li><strong>Cron Scheduler Local</strong> — execução de agendamentos offline-first (independe de internet)</li>
+<li><strong><a class="gloss-link" data-gloss-target="gloss-mqtt" href="#gloss-mqtt" title="Ver no glossario">MQTT</a> Client</strong> — sync para ThingsBoard via MQTTS (porta 8883 com TLS + certificado)</li>
+<li><strong>RPC Handler</strong> — recebe comandos do TB (on/off, setpoint, modo) e traduz para Modbus write</li>
+<li><strong>Health Check / Heartbeat</strong> — ping periódico + alarme MyIO se Gateway sumir</li>
+<li><strong>Watchdog Hardware</strong> — reinício automático em travamento de serviço</li>
+<li><strong>VPN <a class="gloss-link" data-gloss-target="gloss-wireguard" href="#gloss-wireguard" title="Ver no glossario">WireGuard</a> Client</strong> — canal seguro de suporte remoto (sem SSH público)</li>
+</ul>
+</article>
+<article class="card blue">
+<h3>🔌 Interfaces &amp; Protocolos</h3>
+<ul>
+<li><strong>Downstream (LAN):</strong> Modbus TCP (porta 502) ↔ DCPF04 — leitura <a class="gloss-link" data-gloss-target="gloss-fc" href="#gloss-fc" title="Ver no glossario">FC03</a>/FC04 + escrita FC06/FC16</li>
+<li><strong>Upstream (WAN):</strong> MQTTS (porta 8883) ↔ ThingsBoard — telemetria, RPC e heartbeat</li>
+<li><strong>Config management:</strong> provisionamento via arquivo JSON + hot-reload de mudanças (sem restart)</li>
+<li><strong>Audit log:</strong> registro local de todo comando write Modbus — rastreabilidade total</li>
+<li><strong>API local de status:</strong> endpoint HTTP para health check na LAN (opcional)</li>
+<li><strong>Vault criptografado:</strong> persistência segura de credenciais (não hardcoded em flows)</li>
+<li><strong><a class="gloss-link" data-gloss-target="gloss-failover" href="#gloss-failover" title="Ver no glossario">Failover</a> <a class="gloss-link" data-gloss-target="gloss-m2m" href="#gloss-m2m" title="Ver no glossario">4G</a>/5G:</strong> detecção automática + switch transparente para link móvel</li>
+</ul>
+</article>
+<article class="card green">
+<h3>🧪 Qualidade, Testes &amp; Homologação</h3>
+<ul>
+<li><strong>Unit tests:</strong> funções puras (parsers, transformadores de registros Modbus) — Vitest/Jest</li>
+<li><strong>Integração:</strong> simulador Modbus local (<code>pymodbus</code>) + TB de desenvolvimento</li>
+<li><strong>Benchmark:</strong> polling sustentado (50+ devices a cada 60s) sem perda de pacotes</li>
+<li><strong>Failover:</strong> desconexão forçada (LAN + WAN) + validação de sync ao reconectar</li>
+<li><strong>Buffer overflow:</strong> simular 24h offline + confirmar que rotação SQLite funciona</li>
+<li><strong>Segurança:</strong> teste de hardening OS + revisão de portas expostas (pentest interno)</li>
+<li><strong>Homologação:</strong> bateria de testes assinada pelo cliente antes do Go-Live</li>
+</ul>
+</article>
+<article class="card red">
+<h3>🚀 Sprint 0 — Kickoff &amp; Fundação Técnica (Gateway)</h3>
+<ul>
+<li><strong>Kickoff:</strong> alinhamento com time de frontend (painéis VRF), contratos MQTT/RPC compartilhados</li>
+<li><strong>System Architect:</strong> topologia de flows Node-RED, padrões de erro, política de retry</li>
+<li><strong>API Design:</strong> contratos MQTT (telemetria, RPC, heartbeat), versionamento, payloads JSON</li>
+<li><strong>Modelagem de Dados:</strong> schema do buffer SQLite (retention, índices), estrutura de registros Modbus</li>
+<li><strong>Documentação:</strong> arquitetura do Gateway, runbook operacional, guia de troubleshooting</li>
+<li><strong>Prototipagem:</strong> POC — ler 1 registro Modbus do DCPF04 simulado e enviar ao TB de dev</li>
+<li><strong>Critérios de Aceite:</strong> DoD por sprint, métricas (coverage ≥80%, benchmark sustentado, uptime &gt;99%)</li>
+</ul>
+</article>
+<article class="card amber">
+<h3>📅 Timeline de Desenvolvimento (Gateway)</h3>
+<div class="map-wrap">
+<table class="map-table">
+<thead><tr><th>Sprint</th><th>Duração</th><th>Entrega</th></tr></thead>
+<tbody>
+<tr><td>Sprint 0</td><td>2 sem</td><td>Kickoff, arquitetura, API, modelagem de dados, docs, POC Modbus</td></tr>
+<tr><td>Sprint 1</td><td>2 sem</td><td>Drivers Modbus TCP/RTU + polling + parsers de registros</td></tr>
+<tr><td>Sprint 2</td><td>2 sem</td><td>Buffer SQLite + sync MQTT com retry/backlog + timestamps</td></tr>
+<tr><td>Sprint 3</td><td>2 sem</td><td>Cron scheduler local + RPC handler (write commands) + audit log</td></tr>
+<tr><td>Sprint 4</td><td>2 sem</td><td>Hardening OS, watchdog, health check, VPN, benchmark, homologação</td></tr>
+<tr style="background:linear-gradient(135deg,#f3eeff,#faf8ff);">
+<td style="font-weight:800;color:#392d69;">TOTAL</td>
+<td style="font-weight:800;color:var(--myio-purple);">10 semanas</td>
+<td style="font-weight:700;color:#392d69;">5 sprints × 2 sem · em paralelo com Dev Painéis VRF (Pág. 5)</td>
+</tr>
+</tbody>
+</table>
+</div>
+</article>
+<div class="highlight-box">
+<div class="hb-title">⏱ Sumário do Prazo Previsto (Gateway)</div>
+<p><strong>Desenvolvimento do software embarcado:</strong> 10 semanas (5 sprints × 2 sem) — executadas em <strong>paralelo</strong> com o desenvolvimento dos painéis VRF (Pág. 5). Ambos convergem na Sprint 4 para integração E2E e homologação conjunta. Time único com rituais coordenados (daily + planning compartilhado) evita silos e garante contratos alinhados.</p>
+</div>
+<div class="highlight-box">
+<div class="hb-title">🔗 Reaproveitamento de stack MyIO</div>
+<p>Aproveitamento dos fluxos Node-RED já consolidados em <code>myio-js-library/src/NODE-RED/</code>: padrões de polling, sync MQTT, error handling e scheduler. A <strong>imagem-base do Gateway</strong> (snapshot Debian + Node-RED pré-configurado) é replicável por cliente, acelerando implantações futuras e reduzindo custo de provisionamento em projetos subsequentes.</p>
+</div>
+</main>
+<footer class="footer">
+<strong>MYIO</strong>
+<span>Software Embarcado do Gateway — Plano de Desenvolvimento</span>
+<span style="opacity:0.75;">v1.0 · Pág. 6</span>
+</footer>
+</section>
+<!-- ══════════════════════════════════════════
+       PÁG. 7 — Gateway MyIO (Especificação)
+  ══════════════════════════════════════════ -->
+<section class="page" id="page-7">
+<header class="hero-sm">
+<div>
+<div class="hs-brand">MYIO · Melicidade</div>
+<div class="hs-title">Gateway MyIO — Especificação Técnica</div>
+</div>
+<div class="hs-right">
+<span class="hs-sec">Seção 6</span>
+<span class="hs-pill">Gateway</span>
+</div>
+</header>
+<main class="content">
+<div class="headline">
+<h2>O que é o <a class="gloss-link" data-gloss-target="gloss-gateway" href="#gloss-gateway" title="Ver no glossario">Gateway MyIO</a> on-premise</h2>
+<p>Pequeno computador (edge gateway industrial) instalado dentro da Melicidade, na mesma LAN do <a class="gloss-link" data-gloss-target="gloss-dcpf04" href="#gloss-dcpf04" title="Ver no glossario">DCPF04</a>. Roda o stack de software MyIO (<a class="gloss-link" data-gloss-target="gloss-node-red" href="#gloss-node-red" title="Ver no glossario">Node-RED</a> + buffer <a class="gloss-link" data-gloss-target="gloss-buffer" href="#gloss-buffer" title="Ver no glossario">SQLite</a>) e faz a ponte entre o controlador <a class="gloss-link" data-gloss-target="gloss-vrf" href="#gloss-vrf" title="Ver no glossario">VRF</a> e a nuvem <a class="gloss-link" data-gloss-target="gloss-thingsboard" href="#gloss-thingsboard" title="Ver no glossario">ThingsBoard</a>. <strong>Não realiza acionamento elétrico direto sobre o VRF</strong>: toda a interação ocorre por rede (<a class="gloss-link" data-gloss-target="gloss-modbus" href="#gloss-modbus" title="Ver no glossario">Modbus TCP</a>/Ethernet) com o DCPF04, que mantém integralmente a responsabilidade física pelo barramento Daikin (<a class="gloss-link" data-gloss-target="gloss-diii-net" href="#gloss-diii-net" title="Ver no glossario">DIII-Net</a> via <a class="gloss-link" data-gloss-target="gloss-dcpa01" href="#gloss-dcpa01" title="Ver no glossario">DCPA01</a>).</p>
+</div>
+<article class="card">
+<h3>🖥️ Composição de Hardware</h3>
+<ul>
+<li><strong>SBC industrial ARM quad-core fanless</strong> em case DIN-rail/rack — <strong>Raspberry Pi 4/5</strong>, <strong>Orange Pi 5</strong> ou <strong>Radxa ROCK 5</strong> (referência: plataforma padrão MyIO para gateways)</li>
+<li><strong>GPIO header 40 pinos</strong> — requisito do <strong>rádio MyIO</strong> (SPI/UART/I²C) para integração com o ecossistema de sensores do ecossistema MyIO</li>
+<li>4–8 GB RAM LPDDR4, armazenamento 64+ GB (eMMC ou SSD NVMe via PCIe/M.2)</li>
+<li><strong>Ethernet Gigabit nativa</strong> + 2ª porta via adapter USB 3.0 — permite segmentação (1× LAN Modbus DCPF04 · 1× WAN) por segurança</li>
+<li><strong>Modem <a class="gloss-link" data-gloss-target="gloss-m2m" href="#gloss-m2m" title="Ver no glossario">4G</a>/5G USB</strong> (com slot SIM) — <a class="gloss-link" data-gloss-target="gloss-failover" href="#gloss-failover" title="Ver no glossario">failover</a> de internet automático</li>
+<li>WiFi + Bluetooth nativos (provisionamento local · não usados em produção)</li>
+<li>Alimentação: 5V DC (USB-C PoE HAT opcional) · TDP ≤15W · Fanless (dissipador passivo)</li>
+<li>Footprint: ~1U de rack ou DIN-rail em quadro técnico · Operação 24/7</li>
+</ul>
+</article><article class="card blue">
+<h3>⚙️ Stack de Software MyIO</h3>
+<div class="map-wrap">
+<table class="map-table">
+<thead><tr><th>Camada</th><th>Tecnologia</th><th>Função</th></tr></thead>
+<tbody>
+<tr><td>OS</td><td class="mono">Debian/Ubuntu LTS</td><td>Base estável, headless</td></tr>
+<tr><td>Runtime</td><td class="mono">Node-RED</td><td>Orquestrador de fluxos (padrão MyIO)</td></tr>
+<tr><td>Modbus</td><td class="mono">node-red-contrib-modbus</td><td>Polling do DCPF04 a cada 60s</td></tr>
+<tr><td>Buffer</td><td class="mono">SQLite local</td><td>Armazena dados durante quedas</td></tr>
+<tr><td>Sync</td><td class="mono"><a class="gloss-link" data-gloss-target="gloss-mqtt" href="#gloss-mqtt" title="Ver no glossario">MQTT</a> / HTTPS</td><td>Envia ao ThingsBoard (timestamp original)</td></tr>
+<tr><td>Scheduler</td><td class="mono">cron local (Node-RED)</td><td>Agendamentos offline-first</td></tr>
+<tr><td>Gestão</td><td class="mono">SSH + <a class="gloss-link" data-gloss-target="gloss-wireguard" href="#gloss-wireguard" title="Ver no glossario">WireGuard VPN</a></td><td>Suporte e atualização remota</td></tr>
+</tbody>
+</table>
+</div>
+</article><div class="grid-2">
+<div class="col-stack">
+<article class="card green">
+<h3>📶 Topologia de Conectividade</h3>
+<p style="margin-bottom:8px;">O Gateway tem <strong>duas direções de comunicação independentes</strong>:</p>
+<div class="map-wrap">
+<table class="map-table">
+<thead><tr><th>Direção</th><th>Destino</th><th>Tecnologia</th></tr></thead>
+<tbody>
+<tr>
+<td><span class="tag-purple">LAN ↓</span></td>
+<td>DCPF04 (Modbus TCP)</td>
+<td class="mono">RJ45 obrigatório</td>
+</tr>
+<tr>
+<td><span class="tag-green">WAN ↑</span></td>
+<td>ThingsBoard Cloud</td>
+<td class="mono">RJ45 + 4G/5G failover</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p style="margin-top:8px;font-size:11.5px;color:var(--muted);">Cenário recomendado: <strong>RJ45 cabeado como primário + 4G/5G como failover</strong>. Se cair a internet cabeada, o link móvel assume automaticamente — alinhado ao discurso de resiliência offline desta proposta.</p>
+</article>
+<article class="card amber">
+<h3>🌐 Requisitos de Infraestrutura</h3>
+<div class="panel-list">
+<div class="panel-item"><div class="dot amber"></div><div class="text" style="font-size:12.5px;color:#4e4765;">1U de rack (ou prateleira) em sala técnica</div></div>
+<div class="panel-item"><div class="dot amber"></div><div class="text" style="font-size:12.5px;color:#4e4765;">Tomada 110/220V AC com <a class="gloss-link" data-gloss-target="gloss-ups" href="#gloss-ups" title="Ver no glossario">no-break</a> (recomendado)</div></div>
+<div class="panel-item"><div class="dot amber"></div><div class="text" style="font-size:12.5px;color:#4e4765;">Ponto de rede com acesso ao IP do DCPF04 (RJ45)</div></div>
+<div class="panel-item"><div class="dot amber"></div><div class="text" style="font-size:12.5px;color:#4e4765;">Saída de internet — RJ45 e/ou chip SIM 4G/5G (firewall: HTTPS:443 e MQTT:8883 outbound)</div></div>
+<div class="panel-item"><div class="dot amber"></div><div class="text" style="font-size:12.5px;color:#4e4765;">Boa cobertura de sinal móvel no local (se 4G/5G adotado)</div></div>
+</div>
+</article><div class="highlight-box">
+<div class="hb-title">🛡️ Garantias do Fabricante Preservadas</div>
+<p>A integração MyIO <strong>não invade nem altera</strong> a arquitetura elétrica/eletrônica original Daikin/Hitachi. Nenhum cabo é cortado, nenhum sensor é interceptado, nenhum sinal físico é injetado no barramento DIII-Net. O Gateway é apenas um cliente Modbus TCP do DCPF04 — uso <strong>documentado e suportado pela própria Hitachi</strong> no manual do equipamento (<em>INS_DCPF04 Reiri for Office Touch</em>).</p>
+</div>
+</div>
+<div class="col-stack">
+<article class="card red">
+<h3>⚡ Sem I/O Físico no VRF</h3>
+<p style="margin-bottom:10px;"><strong>O Gateway MyIO não tem nenhum I/O físico</strong> (digital, analógico, relé, 0–10V, 4–20mA) conectado ao VRF. Possui <strong>apenas conexão de rede Ethernet (RJ45)</strong>.</p>
+<div class="arch-box" style="font-size:10.5px;line-height:1.7;">
+<span class="ac-muted">[UIs Daikin VRF]</span>
+        │ <span class="ac-amber">DIII-Net (proprietário Daikin)</span>
+        ▼
+<span class="ac-amber">[DCPA01]</span>  ← adaptador físico DIII-Net→Modbus
+        │ <span class="ac-purple"><a class="gloss-link" data-gloss-target="gloss-rs485" href="#gloss-rs485" title="Ver no glossario">RS485</a> (par trançado, A/B/GND)</span>
+        ▼
+<span class="ac-purple">[DCPF04 Reiri]</span>
+        │ <span class="ac-green">Ethernet RJ45 — Modbus TCP/502</span>
+        ▼
+<span class="ac-green">[Gateway MyIO]</span>  ← só RJ45, nada físico no VRF
+        │ <span class="ac-blue">Ethernet RJ45 — MQTT/HTTPS</span>
+        ▼
+<span class="ac-blue">[ThingsBoard Cloud]</span></div>
+</article>
+<article class="card green">
+<h3>🔁 Entrada e Saída — apenas via Modbus</h3>
+<p style="margin-bottom:8px;">Apesar de não ter eletrônica de campo, o Gateway faz <strong>leitura e escrita</strong> — tudo encapsulado em Modbus TCP sobre a rede:</p>
+<div class="map-wrap">
+<table class="map-table">
+<thead><tr><th>Direção</th><th>Operação Modbus</th><th>Exemplos</th></tr></thead>
+<tbody>
+<tr>
+<td><span class="tag-green">Entrada (read)</span></td>
+<td class="mono"><a class="gloss-link" data-gloss-target="gloss-fc" href="#gloss-fc" title="Ver no glossario">FC03</a> / FC04</td>
+<td>Temperatura ambiente, setpoint, status on/off, código de erro, modo</td>
+</tr>
+<tr>
+<td><span class="tag-blue">Saída (write)</span></td>
+<td class="mono">FC06 / FC16</td>
+<td>Ligar/desligar zona, mudar setpoint, trocar modo, fan speed</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p style="margin-top:8px;font-size:11.5px;color:var(--muted);">A "saída" do Gateway não é um pino que aciona algo — é um <strong>comando de rede</strong> que escreve num registro do DCPF04. Quem fisicamente comanda a UI Daikin é o próprio DCPF04 via DCPA01.</p>
+</article>
+</div>
+</div>
+</main>
+<footer class="footer">
+<strong>MYIO</strong>
+<span>Gateway MyIO — Especificação Técnica</span>
+<span style="opacity:0.75;">v1.0 · Pág. 7</span>
+</footer>
+</section>
+<!-- ══════════════════════════════════════════
+       PÁG. 8 — Infraestrutura (Redundância, Segurança, Robustez)
+  ══════════════════════════════════════════ -->
+<section class="page" id="page-8">
+<header class="hero-sm">
+<div>
+<div class="hs-brand">MYIO · Melicidade</div>
+<div class="hs-title">Infraestrutura — Redundância, Segurança, Robustez</div>
+</div>
+<div class="hs-right">
+<span class="hs-sec">Seção 7</span>
+<span class="hs-pill">Infra</span>
+</div>
+</header>
+<main class="content">
+<div class="headline">
+<h2>Três pilares de infraestrutura</h2>
+<p>Especificação completa para garantir operação 24/7 da integração <a class="gloss-link" data-gloss-target="gloss-vrf" href="#gloss-vrf" title="Ver no glossario">VRF</a> — com camadas de proteção e redundância proporcionais à criticidade do sistema de climatização para a operação do empreendimento.</p>
+</div>
+<div class="col-stack">
+<article class="card green">
+<h3>🔄 Redundância</h3>
+<ul>
+<li><strong>Energia:</strong> <a class="gloss-link" data-gloss-target="gloss-ups" href="#gloss-ups" title="Ver no glossario">no-break</a> (UPS) ≥ 30 min autonomia</li>
+<li><strong>Internet:</strong> RJ45 primário + <a class="gloss-link" data-gloss-target="gloss-m2m" href="#gloss-m2m" title="Ver no glossario">4G</a>/5G <a class="gloss-link" data-gloss-target="gloss-failover" href="#gloss-failover" title="Ver no glossario">failover</a> automático</li>
+<li><strong>Buffer local:</strong> <a class="gloss-link" data-gloss-target="gloss-buffer" href="#gloss-buffer" title="Ver no glossario">SQLite</a> persiste todas as leituras em quedas</li>
+<li><strong>Cloud:</strong> <a class="gloss-link" data-gloss-target="gloss-thingsboard" href="#gloss-thingsboard" title="Ver no glossario">ThingsBoard</a> MyIO em cluster HA</li>
+<li><strong>Hardware spare:</strong> 1 Gateway extra cold standby (recomendado)</li>
+<li><strong>Time sync:</strong> múltiplos NTPs (pool + fallback local)</li>
+</ul>
+</article>
+<article class="card red">
+<h3>🔒 Segurança</h3>
+<ul>
+<li><strong>Segmentação:</strong> Modbus em <a class="gloss-link" data-gloss-target="gloss-vlan" href="#gloss-vlan" title="Ver no glossario">VLAN</a> isolada da rede corporativa</li>
+<li><strong>Firewall outbound-only:</strong> zero portas expostas à internet</li>
+<li><strong>TLS/<a class="gloss-link" data-gloss-target="gloss-mqtt" href="#gloss-mqtt" title="Ver no glossario">MQTTS</a></strong> (porta 8883 com certificado) para sync ThingsBoard</li>
+<li><strong>VPN <a class="gloss-link" data-gloss-target="gloss-wireguard" href="#gloss-wireguard" title="Ver no glossario">WireGuard</a></strong> MyIO para suporte (sem SSH público)</li>
+<li><strong>OS hardenizado:</strong> Debian minimal + fail2ban + auto-update</li>
+<li><strong>APN privada</strong> se 4G/5G — sem IP público</li>
+<li><strong>Audit trail:</strong> log de todo comando <code>write</code> Modbus</li>
+<li><strong>Credenciais em vault</strong> (não hardcoded em flows)</li>
+</ul>
+</article>
+<article class="card blue">
+<h3>🛡️ Robustez</h3>
+<ul>
+<li><strong>Hardware industrial fanless:</strong> -10°C a 60°C, sem peças móveis</li>
+<li><strong>Watchdog hardware:</strong> reboot automático em travamento</li>
+<li><strong>systemd:</strong> <a class="gloss-link" data-gloss-target="gloss-node-red" href="#gloss-node-red" title="Ver no glossario">Node-RED</a> com auto-restart</li>
+<li><strong>Heartbeat:</strong> a cada 60s + alarme MyIO se Gateway sumir</li>
+<li><strong>Buffer retention policy:</strong> rotação automática (não enche disco)</li>
+<li><strong>Snapshot do sistema:</strong> restore &lt;30 min em hardware spare</li>
+<li><strong>Runbook documentado:</strong> procedimentos de troca e troubleshooting</li>
+</ul>
+</article>
+</div>
+<div class="map-wrap">
+<table class="map-table">
+<thead>
+<tr>
+<th>Item</th>
+<th>Essencial (mínimo)</th>
+<th>Recomendado (alvo)</th>
+<th>Enterprise (premium)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Gateway</td>
+<td>Raspberry Pi 4 (4GB) + case industrial</td>
+<td><strong>SBC ARM 8GB + case DIN-rail</strong> (Pi 5, Orange Pi 5)</td>
+<td>SBC industrial + hot standby spare</td>
+</tr>
+<tr>
+<td>UPS</td>
+<td>Básico (15 min)</td>
+<td><strong>30+ min gerenciável</strong></td>
+<td>UPS dedicado + bypass</td>
+</tr>
+<tr>
+<td>Internet</td>
+<td>RJ45 corporativo</td>
+<td><strong>RJ45 + 4G/5G failover</strong></td>
+<td>2× ISP + 5G failover</td>
+</tr>
+<tr>
+<td>Segmentação rede</td>
+<td>Mesma LAN</td>
+<td><strong>VLAN dedicada</strong></td>
+<td>VLAN + firewall L7</td>
+</tr>
+<tr>
+<td>Hardware spare</td>
+<td>—</td>
+<td><strong>Cold standby (prateleira)</strong></td>
+<td>Hot standby (sincronizado)</td>
+</tr>
+<tr>
+<td>Suporte</td>
+<td>Best effort comercial</td>
+<td><strong><a class="gloss-link" data-gloss-target="gloss-sla" href="#gloss-sla" title="Ver no glossario">SLA</a> 8h business</strong></td>
+<td>SLA 4h 24×7 + on-call</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="highlight-box">
+<div class="hb-title">💡 Recomendação MyIO para o Melicidade</div>
+<p>Para empreendimento comercial de uso contínuo, onde a climatização impacta diretamente o conforto de visitantes e lojistas, recomendamos o nível <strong>Recomendado</strong>. Ele entrega resiliência real (failover de internet, UPS, spare em prateleira, VLAN segregada) sem o custo do tier Enterprise — que só se justifica se o cliente já operar SLAs agressivos sobre o sistema de ar condicionado.</p>
+</div>
+</main>
+<footer class="footer">
+<strong>MYIO</strong>
+<span>Infraestrutura — Redundância, Segurança, Robustez</span>
+<span style="opacity:0.75;">v1.0 · Pág. 8</span>
+</footer>
+</section>
+<!-- ══════════════════════════════════════════
+       PÁG. 9 — Escopo Técnico V1
+  ══════════════════════════════════════════ -->
+<section class="page" id="page-9">
+<header class="hero-sm">
+<div>
+<div class="hs-brand">MYIO · Melicidade</div>
+<div class="hs-title">Escopo Técnico — V1 VRF</div>
+</div>
+<div class="hs-right">
+<span class="hs-sec">Seção 8</span>
+<span class="hs-pill">Escopo V1</span>
+</div>
+</header>
+<main class="content">
+<div class="headline">
+<h2>O que será entregue na V1</h2>
+<p>Escopo focado exclusivamente no sistema <a class="gloss-link" data-gloss-target="gloss-vrf" href="#gloss-vrf" title="Ver no glossario">VRF</a>. CHILLER e GERADOR ficam para versões futuras após consolidação da V1.</p>
+</div>
+<div class="grid-2">
+<div class="col-stack">
+<article class="card">
+<h3>📡 Telemetria Coletada por Unidade Interna</h3>
+<div class="map-wrap">
+<table class="map-table">
+<thead><tr><th>Dado</th><th>Unidade</th><th>Tipo</th></tr></thead>
+<tbody>
+<tr><td>Liga / Desliga</td><td class="mono">bool</td><td><span class="tag-green">Leitura</span></td></tr>
+<tr><td>Modo de operação</td><td class="mono">cooling/heating/fan/dry</td><td><span class="tag-green">Leitura</span></td></tr>
+<tr><td>Temperatura setpoint</td><td class="mono">°C</td><td><span class="tag-green">Leitura</span></td></tr>
+<tr><td>Temperatura ambiente</td><td class="mono">°C</td><td><span class="tag-green">Leitura</span></td></tr>
+<tr><td>Velocidade do ventilador</td><td class="mono">auto/low/mid/high</td><td><span class="tag-green">Leitura</span></td></tr>
+<tr><td>Status operacional</td><td class="mono">running/standby/error</td><td><span class="tag-green">Leitura</span></td></tr>
+<tr><td>Código de erro</td><td class="mono">int</td><td><span class="tag-green">Leitura</span></td></tr>
+</tbody>
+</table>
+</div>
+<p style="margin-top:8px;font-size:11.5px;color:var(--muted);">* Se medidores de energia (<a class="gloss-link" data-gloss-target="gloss-smeter" href="#gloss-smeter" title="Ver no glossario">SMeter</a>) instalados: potência (W) e consumo (kWh) por zona também coletados.</p>
+</article>
+<article class="card blue">
+<h3>🎮 Controle Remoto via Dashboard</h3>
+<div class="panel-list">
+<div class="panel-item"><div class="dot blue"></div><div class="text" style="font-size:12.5px;color:#4e4765;"><strong>Ligar / Desligar</strong> — por unidade interna ou por zona completa</div></div>
+<div class="panel-item"><div class="dot blue"></div><div class="text" style="font-size:12.5px;color:#4e4765;"><strong>Alterar setpoint</strong> — slider de temperatura (16–30°C)</div></div>
+<div class="panel-item"><div class="dot blue"></div><div class="text" style="font-size:12.5px;color:#4e4765;"><strong>Alterar modo</strong> — cooling, heating, fan, dry, auto</div></div>
+<div class="panel-item"><div class="dot blue"></div><div class="text" style="font-size:12.5px;color:#4e4765;"><strong>Alterar velocidade</strong> — auto, baixa, média, alta</div></div>
+</div>
+</article>
+</div>
+<div class="col-stack">
+<article class="card green">
+<h3>📅 Agendamentos (Offline-first)</h3>
+<div class="panel-list">
+<div class="panel-item"><div class="dot green"></div><div class="text" style="font-size:12.5px;color:#4e4765;">Ligar sistema às <strong>07h00</strong> em dias úteis</div></div>
+<div class="panel-item"><div class="dot green"></div><div class="text" style="font-size:12.5px;color:#4e4765;">Desligar às <strong>22h00</strong></div></div>
+<div class="panel-item"><div class="dot green"></div><div class="text" style="font-size:12.5px;color:#4e4765;">Reduzir setpoint em <strong>horário de pico elétrico</strong></div></div>
+<div class="panel-item"><div class="dot green"></div><div class="text" style="font-size:12.5px;color:#4e4765;">Desligar zonas específicas por <strong>agenda de ocupação</strong></div></div>
+<div class="panel-item"><div class="dot green"></div><div class="text" style="font-size:12.5px;color:#4e4765;"><strong>Executados localmente</strong> — independem de conectividade com a nuvem</div></div>
+</div>
+<div style="margin-top:10px;padding:10px 12px;background:linear-gradient(135deg,#f3eeff,#edfff7);border-radius:10px;border-left:4px solid var(--myio-purple);">
+<div style="font-size:12.5px;color:#392d69;line-height:1.55;">
+<strong>📋 LOGS de Execução &amp; Sincronismo (destaque)</strong><br/>
+                Registro detalhado de <strong>cada job agendado</strong>: horário de disparo, device alvo, comando enviado, <strong>sucesso ou falha</strong> (com código de erro Modbus, se houver) e duração. Logs armazenados localmente no Gateway (<a class="gloss-link" data-gloss-target="gloss-buffer" href="#gloss-buffer" title="Ver no glossario">SQLite</a>) e <strong>sincronizados em tempo real com a Cloud (<a class="gloss-link" data-gloss-target="gloss-thingsboard" href="#gloss-thingsboard" title="Ver no glossario">ThingsBoard</a>)</strong> quando há conectividade — em quedas, ficam em backlog e sobem no reconect sem perder ordem nem timestamps. Permite auditoria completa e diagnóstico de execuções anômalas.
+              </div>
+</div>
+</article>
+<article class="card">
+<h3>📊 Relatórios Nativos MyIO</h3>
+<div class="panel-list">
+<div class="panel-item"><div class="dot"></div><div class="text" style="font-size:12.5px;color:#4e4765;"><strong>Horas de operação</strong> por unidade interna ou zona</div></div>
+<div class="panel-item"><div class="dot"></div><div class="text" style="font-size:12.5px;color:#4e4765;"><strong>Temperatura média</strong> por ambiente — histórico</div></div>
+<div class="panel-item"><div class="dot"></div><div class="text" style="font-size:12.5px;color:#4e4765;"><strong>Histórico de modos</strong> — tempo em cooling vs heating</div></div>
+<div class="panel-item"><div class="dot"></div><div class="text" style="font-size:12.5px;color:#4e4765;"><strong>Alarmes e erros</strong> — histórico e frequência</div></div>
+<div class="panel-item"><div class="dot"></div><div class="text" style="font-size:12.5px;color:#4e4765;"><strong>Consumo energético</strong> por zona (se SMeter instalado)</div></div>
+<div class="panel-item"><div class="dot"></div><div class="text" style="font-size:12.5px;color:#4e4765;"><strong>Exportação</strong> CSV / Excel via MyIO</div></div>
+</div>
+</article>
+<div class="highlight-box">
+<div class="hb-title">✅ Resiliência Offline</div>
+<p>O Gateway armazena dados localmente (buffer SQLite) durante quedas de conectividade. Quando a conexão é restabelecida, o backlog é sincronizado automaticamente para o ThingsBoard com os timestamps originais — sem lacunas no histórico e sem perda de dados.</p>
+</div>
+</div>
+</div>
+</main>
+<footer class="footer">
+<strong>MYIO</strong>
+<span>Escopo Técnico V1 — VRF Melicidade</span>
+<span style="opacity:0.75;">v1.0 · Pág. 9</span>
+</footer>
+</section>
+<!-- ══════════════════════════════════════════
+       PÁG. 10 — Fases e Cronograma
+  ══════════════════════════════════════════ -->
+<section class="page" id="page-10">
+<header class="hero-sm">
+<div>
+<div class="hs-brand">MYIO · Melicidade</div>
+<div class="hs-title">Fases e Cronograma</div>
+</div>
+<div class="hs-right">
+<span class="hs-sec">Seção 9</span>
+<span class="hs-pill">Cronograma</span>
+</div>
+</header>
+<main class="content">
+<div class="flow-panel">
+<div class="flow-head">⏱ Linha do Tempo — V1 VRF (15 semanas ponta-a-ponta)</div>
+<div class="flow-body">
+<div class="flow-step">
+<div class="fs-num">0</div>
+<div class="fs-body"><strong>Sem. 1–2:</strong> Kickoff + Fundação (Sprint 0) + Levantamento on-site — arquitetura, API, modelagem, POC Modbus, conectividade</div>
+</div>
+<div class="flow-step">
+<div class="fs-num green">1</div>
+<div class="fs-body"><strong>Sem. 3–5:</strong> Telemetria funcionando — dados VRF no dashboard MyIO em tempo real, sem iframe</div>
+</div>
+<div class="flow-step">
+<div class="fs-num amber">2</div>
+<div class="fs-body"><strong>Sem. 6–8:</strong> Controle remoto e agendamentos — ligar/desligar, setpoint, modos, cron offline, logs de auditoria</div>
+</div>
+<div class="flow-step">
+<div class="fs-num blue">3</div>
+<div class="fs-body"><strong>Sem. 9–11:</strong> Relatórios nativos, homologação, Go-Live e remoção definitiva do iframe VRF</div>
+</div>
+<div class="flow-step">
+<div class="fs-num green">4</div>
+<div class="fs-body"><strong>Sem. 11–15:</strong> Pós-entrega — suporte ativo, monitoramento, ajustes finos e aceite formal do cliente (30 dias)</div>
+</div>
+</div>
+</div>
+<div class="grid-2">
+<div class="col-stack">
+<div class="phase-card">
+<div class="ph-head">
+<span class="ph-num">FASE 0</span>
+<span class="ph-title">Levantamento + Fundação Técnica (Sprint 0)</span>
+<span class="ph-time">2 semanas</span>
+</div>
+<ul>
+<li>Kickoff, alinhamento de stakeholders, System Architect, API design</li>
+<li>Modelagem de dados (TB + <a class="gloss-link" data-gloss-target="gloss-buffer" href="#gloss-buffer" title="Ver no glossario">SQLite</a>), prototipagem POC Modbus</li>
+<li>Acesso à rede interna da Melicidade (VPN ou presencial)</li>
+<li>Confirmar IP do <a class="gloss-link" data-gloss-target="gloss-dcpf04" href="#gloss-dcpf04" title="Ver no glossario">DCPF04</a> + teste de porta 502 (<a class="gloss-link" data-gloss-target="gloss-modbus" href="#gloss-modbus" title="Ver no glossario">Modbus TCP</a>)</li>
+<li>Exportar CSV do Reiri Setup Tool com pontos configurados</li>
+<li>Levantar: zonas, nomes dos ambientes, qtd de UIs, medidores 3F</li>
+<li>Definir localização do Gateway e critérios de aceite por sprint</li>
+</ul>
+</div>
+<div class="phase-card">
+<div class="ph-head">
+<span class="ph-num green">FASE 1</span>
+<span class="ph-title">Telemetria (leitura)</span>
+<span class="ph-time">2–3 semanas</span>
+</div>
+<ul>
+<li>Gateway <a class="gloss-link" data-gloss-target="gloss-node-red" href="#gloss-node-red" title="Ver no glossario">Node-RED</a> lendo DCPF04 via Modbus a cada 60s</li>
+<li>Todos os pontos por UI: liga/desliga, modo, setpoint, temp ambiente, status, erro</li>
+<li>Buffer local SQLite para resiliência offline</li>
+<li>Sync <a class="gloss-link" data-gloss-target="gloss-thingsboard" href="#gloss-thingsboard" title="Ver no glossario">ThingsBoard</a> com timestamps originais</li>
+<li>Devices criados no TB por zona</li>
+<li><strong>Dashboard BAS MyIO: cards <a class="gloss-link" data-gloss-target="gloss-vrf" href="#gloss-vrf" title="Ver no glossario">VRF</a> nativos — sem <a class="gloss-link" data-gloss-target="gloss-iframe" href="#gloss-iframe" title="Ver no glossario">iframe</a></strong></li>
+</ul>
+</div>
+<div class="phase-card">
+<div class="ph-head">
+<span class="ph-num amber">FASE 2</span>
+<span class="ph-title">Controle e Agendamentos</span>
+<span class="ph-time">2–3 semanas</span>
+</div>
+<ul>
+<li>Comandos via ThingsBoard RPC → Gateway → Modbus Write</li>
+<li>Interface de controle no dashboard (botão, slider, seletor modo)</li>
+<li>Agendamentos via <a class="gloss-link" data-gloss-target="gloss-rule-engine" href="#gloss-rule-engine" title="Ver no glossario">Rule Engine</a> → cron local no Gateway</li>
+<li>Execução offline-first — independe de conectividade</li>
+</ul>
+</div>
+</div>
+<div class="col-stack">
+<div class="phase-card">
+<div class="ph-head">
+<span class="ph-num blue">FASE 3</span>
+<span class="ph-title">Relatórios + Deprecar iframe</span>
+<span class="ph-time">2 semanas</span>
+</div>
+<ul>
+<li>Relatórios nativos MyIO: horas de operação, temperaturas, alarmes</li>
+<li>Exportação CSV/Excel via AllReportModal MyIO</li>
+<li>Validação completa da integração nativa</li>
+<li>Remoção da aba VRF do modal de integrações (iframe)</li>
+</ul>
+</div>
+<div class="warn-box">
+<div class="wb-title">⚠️ Principal Incógnita — Fase 0</div>
+<p>O prazo total depende de dois fatores confirmados na Fase 0: <strong>(1)</strong> se o DCPF04 expõe Modbus TCP (porta 502) — se sim, sem necessidade de cabeamento adicional; se não, instalar adaptador USB-<a class="gloss-link" data-gloss-target="gloss-rs485" href="#gloss-rs485" title="Ver no glossario">RS485</a> (+3–5 dias). <strong>(2)</strong> disponibilidade do mapa de registros Modbus do <a class="gloss-link" data-gloss-target="gloss-dcpa01" href="#gloss-dcpa01" title="Ver no glossario">DCPA01</a> — se não disponível, descoberta ativa por varredura (+1 semana).</p>
+</div>
+<article class="card">
+<h3>📋 O que o cliente precisa fornecer</h3>
+<div class="panel-list">
+<div class="panel-item"><div class="dot amber"></div><div class="text" style="font-size:12.5px;color:#4e4765;"><strong>Imediato:</strong> acesso VPN ou presencial à rede interna</div></div>
+<div class="panel-item"><div class="dot amber"></div><div class="text" style="font-size:12.5px;color:#4e4765;">IP do DCPF04 na LAN local</div></div>
+<div class="panel-item"><div class="dot amber"></div><div class="text" style="font-size:12.5px;color:#4e4765;">Acesso a PC Windows com Reiri Setup Tool instalado</div></div>
+<div class="panel-item"><div class="dot amber"></div><div class="text" style="font-size:12.5px;color:#4e4765;">Lista de zonas e nomes dos ambientes</div></div>
+<div class="panel-item"><div class="dot amber"></div><div class="text" style="font-size:12.5px;color:#4e4765;"><strong>Fase 2:</strong> horários de operação desejados para agendamentos</div></div>
+</div>
+</article>
+</div>
+</div>
+</main>
+<footer class="footer">
+<strong>MYIO</strong>
+<span>Fases e Cronograma — V1 VRF Melicidade</span>
+<span style="opacity:0.75;">v1.0 · Pág. 10</span>
+</footer>
+</section>
+<!-- ══════════════════════════════════════════
+       PÁG. 11 — Proposta Comercial
+  ══════════════════════════════════════════ -->
+<section class="page" id="page-11">
+<header class="hero-sm">
+<div>
+<div class="hs-brand">MYIO · Melicidade</div>
+<div class="hs-title">Proposta Comercial</div>
+</div>
+<div class="hs-right">
+<span class="hs-sec">Seção 10</span>
+<span class="hs-pill">Comercial</span>
+</div>
+</header>
+<main class="content">
+<div class="col-stack">
+<article class="card">
+<h3>📦 Composição do Projeto</h3>
+<div class="price-row">
+<div>
+<div class="pr-name">Fase 0 — Levantamento Técnico + Fundação (Sprint 0)</div>
+<div class="pr-hours">~70h · 2 semanas · kickoff, arquitetura, API, modelagem, POC, visita on-site</div>
+</div>
+<div class="pr-val">sob consulta</div>
+</div>
+<div class="price-row">
+<div>
+<div class="pr-name">Fase 1 — Telemetria Nativa (Sprints 1–2 parcial)</div>
+<div class="pr-hours">~140h · 3–4 semanas · drivers Modbus, widgets básicos, buffer <a class="gloss-link" data-gloss-target="gloss-buffer" href="#gloss-buffer" title="Ver no glossario">SQLite</a>, sync <a class="gloss-link" data-gloss-target="gloss-mqtt" href="#gloss-mqtt" title="Ver no glossario">MQTT</a></div>
+</div>
+<div class="pr-val">sob consulta</div>
+</div>
+<div class="price-row">
+<div>
+<div class="pr-name">Fase 2 — Controle e Agendamentos (Sprints 2–3)</div>
+<div class="pr-hours">~140h · 3–4 semanas · RPC, scheduler offline-first, logs de auditoria, alarmes</div>
+</div>
+<div class="pr-val">sob consulta</div>
+</div>
+<div class="price-row">
+<div>
+<div class="pr-name">Fase 3 — Relatórios + Homologação + Pós-entrega (Sprint 4 + 30d)</div>
+<div class="pr-hours">~80h · 4–5 semanas · relatórios, testes E2E, Go-Live, suporte 30d, deprecar <a class="gloss-link" data-gloss-target="gloss-iframe" href="#gloss-iframe" title="Ver no glossario">iframe</a></div>
+</div>
+<div class="pr-val">sob consulta</div>
+</div>
+<div class="price-row" style="background:linear-gradient(135deg,#f3eeff,#faf8ff);border-color:#bca7ea;">
+<div>
+<div class="pr-name" style="font-size:13.5px;">Total do Projeto — V1 <a class="gloss-link" data-gloss-target="gloss-vrf" href="#gloss-vrf" title="Ver no glossario">VRF</a></div>
+<div class="pr-hours">~425h estimadas · <strong>~15 semanas ponta-a-ponta</strong> · 5 sprints × 2 sem · ≈ 2,5 <a class="gloss-link" data-gloss-target="gloss-fte" href="#gloss-fte" title="Ver definição de FTE no glossário">FTE-mês</a></div>
+</div>
+<div class="pr-val" style="font-size:16px;color:var(--myio-purple);">a definir</div>
+</div>
+<p style="margin-top:10px;font-size:11.5px;color:var(--muted);"><em>Total alinhado com o Anexo F (Alocações &amp; Gantt). Inclui Sprint 0 de fundação técnica, desenvolvimento de painéis VRF + software embarcado do Gateway em paralelo, QA, DevOps, doc e 30 dias de suporte pós-entrega.</em></p>
+</article>
+<article class="card green">
+<h3>🚀 Entregas por Fase</h3>
+<div class="deliverable-row">
+<div class="dr-icon">🔍</div>
+<div class="dr-text"><strong>Fase 0:</strong> Relatório técnico de levantamento — protocolos confirmados, mapa de pontos, arquitetura final definida</div>
+</div>
+<div class="deliverable-row">
+<div class="dr-icon">📡</div>
+<div class="dr-text"><strong>Fase 1:</strong> Gateway configurado, telemetria fluindo para <a class="gloss-link" data-gloss-target="gloss-thingsboard" href="#gloss-thingsboard" title="Ver no glossario">ThingsBoard</a>, dashboard VRF nativo funcionando — iframe pode ser removido</div>
+</div>
+<div class="deliverable-row">
+<div class="dr-icon">🎮</div>
+<div class="dr-text"><strong>Fase 2:</strong> Controle remoto ativo no dashboard, agendamentos configurados e testados em modo offline</div>
+</div>
+<div class="deliverable-row">
+<div class="dr-icon">📊</div>
+<div class="dr-text"><strong>Fase 3:</strong> Relatórios MyIO ativos, exportação CSV/Excel disponível, aba iframe VRF removida definitivamente</div>
+</div>
+</article>
+<div class="grid-2">
+<article class="card blue">
+<h3>🔄 Suporte e Manutenção Pós-entrega</h3>
+<div class="panel-list">
+<div class="panel-item"><div class="dot blue"></div><div class="text" style="font-size:12.5px;color:#4e4765;"><strong>30 dias</strong> de suporte incluídos após entrega de cada fase</div></div>
+<div class="panel-item"><div class="dot blue"></div><div class="text" style="font-size:12.5px;color:#4e4765;">Monitoramento do Gateway Agent</div></div>
+<div class="panel-item"><div class="dot blue"></div><div class="text" style="font-size:12.5px;color:#4e4765;">Adição de novas zonas ou UIs: <strong>sob orçamento adicional</strong></div></div>
+<div class="panel-item"><div class="dot blue"></div><div class="text" style="font-size:12.5px;color:#4e4765;">CHILLER e GERADOR: <strong>V2 e V3 — orçamento separado</strong></div></div>
+</div>
+</article>
+<div class="warn-box">
+<div class="wb-title">⚠️ Premissas desta proposta</div>
+<p>Estimativas baseadas em: (1) <a class="gloss-link" data-gloss-target="gloss-dcpf04" href="#gloss-dcpf04" title="Ver no glossario">DCPF04</a> acessível via rede local; (2) <a class="gloss-link" data-gloss-target="gloss-modbus" href="#gloss-modbus" title="Ver no glossario">Modbus TCP</a> disponível na porta 502 — caso contrário, adaptador <a class="gloss-link" data-gloss-target="gloss-rs485" href="#gloss-rs485" title="Ver no glossario">RS485</a> adicional com custo de hardware (~R$ 150) e +3 dias de instalação; (3) mapa de registros Modbus disponível ou fornecido pela Hitachi. Variações confirmadas na Fase 0 serão comunicadas antes do início das fases seguintes.</p>
+</div>
+</div>
+</div>
+</main>
+<footer class="footer">
+<strong>MYIO</strong>
+<span>Proposta Comercial — Integração Nativa VRF · Melicidade</span>
+<span style="opacity:0.75;">v1.0 · Pág. 11</span>
+</footer>
+</section>
+<!-- ══════════════════════════════════════════
+       PÁG. 12 — Anexo A: Ficha de Equipamentos
+  ══════════════════════════════════════════ -->
+<section class="page" id="page-12">
+<header class="hero-sm">
+<div>
+<div class="hs-brand">MYIO · Melicidade</div>
+<div class="hs-title">Anexo A — Ficha de Equipamentos &amp; Estimativa de Custo</div>
+</div>
+<div class="hs-right">
+<span class="hs-sec">Anexo A</span>
+<span class="hs-pill">Equipamentos</span>
+</div>
+</header>
+<main class="content">
+<div class="headline">
+<h2>Lista detalhada de equipamentos — nível Recomendado</h2>
+<p>Estimativa de hardware, recorrentes e licenças para entrega no nível <strong>Recomendado</strong> (escolha sugerida MyIO para o perfil do Melicidade). Valores em BRL, referência <strong>Abril/2026</strong>, podem variar conforme fornecedor, câmbio e disponibilidade. Cliente pode optar por fornecer parte do hardware (descontar do orçamento).</p>
+</div>
+<article class="card">
+<h3>💼 <a class="gloss-link" data-gloss-target="gloss-sla" href="#gloss-sla" title="Ver no glossario">CAPEX</a> — Hardware (one-shot)</h3>
+<div class="map-wrap">
+<table class="map-table">
+<thead>
+<tr>
+<th style="width:24%;">Item</th>
+<th style="width:8%;">Qtd</th>
+<th style="width:30%;">Especificação / Modelo de Referência</th>
+<th style="width:14%;">Classificação</th>
+<th style="width:12%;">Unit. (R$)</th>
+<th style="width:12%;">Total (R$)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong><a class="gloss-link" data-gloss-target="gloss-gateway" href="#gloss-gateway" title="Ver no glossario">Gateway MyIO</a></strong></td>
+<td>1</td>
+<td>SBC ARM quad-core 8GB fanless com <strong>GPIO 40 pinos</strong> (Raspberry Pi 5, Orange Pi 5, Radxa ROCK 5) em case industrial DIN-rail · rádio MyIO no header · SSD NVMe 128GB · modem 4G/5G USB</td>
+<td><span class="tag-purple">Essencial</span></td>
+<td class="mono">~4.500</td>
+<td class="mono"><strong>4.500</strong></td>
+</tr>
+<tr>
+<td><strong>Gateway spare</strong> (cold standby)</td>
+<td>1</td>
+<td>Idem ao primário — fica em prateleira, restore via snapshot &lt;30 min</td>
+<td><span class="tag-green">Recomendado</span></td>
+<td class="mono">~4.500</td>
+<td class="mono"><strong>4.500</strong></td>
+</tr>
+<tr>
+<td><strong>Modem <a class="gloss-link" data-gloss-target="gloss-m2m" href="#gloss-m2m" title="Ver no glossario">4G</a>/5G + chip</strong></td>
+<td>1</td>
+<td>Embutido no Teltonika OU adaptador USB Quectel/Huawei + slot SIM</td>
+<td><span class="tag-green">Recomendado</span></td>
+<td class="mono">~800</td>
+<td class="mono"><strong>800</strong></td>
+</tr>
+<tr>
+<td><strong><a class="gloss-link" data-gloss-target="gloss-ups" href="#gloss-ups" title="Ver no glossario">No-break</a> (UPS)</strong></td>
+<td>1</td>
+<td>1.5kVA gerenciável (APC Smart-UPS / SMS), ≥30 min autonomia</td>
+<td><span class="tag-green">Recomendado</span></td>
+<td class="mono">~2.200</td>
+<td class="mono"><strong>2.200</strong></td>
+</tr>
+<tr>
+<td><strong>Switch industrial L2</strong></td>
+<td>1</td>
+<td>8 portas gerenciável c/ <a class="gloss-link" data-gloss-target="gloss-vlan" href="#gloss-vlan" title="Ver no glossario">VLAN</a> (Cisco SG250, TP-Link TL-SG2210MP)</td>
+<td><span class="tag-green">Recomendado</span></td>
+<td class="mono">~2.500</td>
+<td class="mono"><strong>2.500</strong></td>
+</tr>
+<tr>
+<td><strong>Cabos Cat6 blindado</strong></td>
+<td>~10m</td>
+<td>FTP/STP industrial + conectores RJ45 blindados</td>
+<td><span class="tag-purple">Essencial</span></td>
+<td class="mono">~50/m</td>
+<td class="mono"><strong>500</strong></td>
+</tr>
+<tr>
+<td><strong>Adaptador USB-<a class="gloss-link" data-gloss-target="gloss-rs485" href="#gloss-rs485" title="Ver no glossario">RS485</a></strong></td>
+<td>1</td>
+<td>Fallback caso <a class="gloss-link" data-gloss-target="gloss-dcpf04" href="#gloss-dcpf04" title="Ver no glossario">DCPF04</a> não exponha <a class="gloss-link" data-gloss-target="gloss-modbus" href="#gloss-modbus" title="Ver no glossario">Modbus TCP</a> (Modbus RTU isolado)</td>
+<td><span class="tag-amber">Contingência</span></td>
+<td class="mono">~250</td>
+<td class="mono"><strong>250</strong></td>
+</tr>
+<tr>
+<td><strong>Acessórios</strong></td>
+<td>1 kit</td>
+<td>Suporte de rack/DIN, organizadores, etiquetas, cabos de força</td>
+<td><span class="tag-purple">Essencial</span></td>
+<td class="mono">~300</td>
+<td class="mono"><strong>300</strong></td>
+</tr>
+<tr style="background:linear-gradient(135deg,#f3eeff,#faf8ff);">
+<td colspan="5" style="text-align:right;font-weight:800;color:#392d69;">TOTAL CAPEX (Hardware)</td>
+<td class="mono" style="font-weight:800;color:var(--myio-purple);font-size:13px;">≈ 15.550</td>
+</tr>
+</tbody>
+</table>
+</div>
+</article>
+<div class="grid-2">
+<article class="card blue">
+<h3>🔁 OPEX — Recorrentes (mensal)</h3>
+<div class="map-wrap">
+<table class="map-table">
+<thead>
+<tr>
+<th>Item</th>
+<th>Frequência</th>
+<th>Estimativa (R$)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Plano dados M2M IoT 4G/5G</td>
+<td>Mensal</td>
+<td class="mono">~120</td>
+</tr>
+<tr>
+<td>Licença <a class="gloss-link" data-gloss-target="gloss-thingsboard" href="#gloss-thingsboard" title="Ver no glossario">ThingsBoard</a> MyIO (devices <a class="gloss-link" data-gloss-target="gloss-vrf" href="#gloss-vrf" title="Ver no glossario">VRF</a>)</td>
+<td>Mensal</td>
+<td class="mono">sob consulta</td>
+</tr>
+<tr>
+<td>Contrato de suporte SLA 8h business</td>
+<td>Mensal</td>
+<td class="mono">sob consulta</td>
+</tr>
+<tr style="background:#faf8ff;">
+<td colspan="2" style="text-align:right;font-weight:800;">Subtotal recorrente fixo</td>
+<td class="mono" style="font-weight:800;color:var(--myio-blue);">≈ 120/mês</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p style="margin-top:8px;font-size:11.5px;color:var(--muted);">Licença ThingsBoard pode estar inclusa se cliente já é assinante MyIO. SLA cotado conforme tier escolhido.</p>
+</article>
+<article class="card green">
+<h3>📦 Resumo &amp; Forma de Aquisição</h3>
+<div class="price-row">
+<div>
+<div class="pr-name">Total CAPEX (hardware único)</div>
+<div class="pr-hours">Pagamento contra entrega + instalação</div>
+</div>
+<div class="pr-val">≈ R$ 15.550</div>
+</div>
+<div class="price-row">
+<div>
+<div class="pr-name">OPEX recorrente (4G + suporte)</div>
+<div class="pr-hours">Mensalidade fixa</div>
+</div>
+<div class="pr-val">≈ R$ 120/mês</div>
+</div>
+<div class="price-row" style="background:linear-gradient(135deg,#edfff7,#f7fff9);border-color:#8de8c5;">
+<div>
+<div class="pr-name" style="font-size:13.5px;">Custo total ano 1 (CAPEX + 12× OPEX)</div>
+<div class="pr-hours">Hardware + 12 meses recorrentes</div>
+</div>
+<div class="pr-val" style="font-size:15px;color:#0a7a4a;">≈ R$ 16.990</div>
+</div>
+<div class="deliverable-row" style="margin-top:10px;">
+<div class="dr-icon">💡</div>
+<div class="dr-text"><strong>Opções de aquisição:</strong> (a) MyIO compra e fatura; (b) cliente compra direto seguindo a lista; (c) modelo HaaS (Hardware-as-a-Service) — mensalidade sem CAPEX, sob consulta.</div>
+</div>
+</article>
+</div>
+<div class="warn-box">
+<div class="wb-title">⚠️ Notas Importantes</div>
+<p>(1) Valores indicativos Abril/2026 — confirmados na assinatura via cotação formal. (2) Não inclui: frete de equipamentos, instalação elétrica de tomadas/rack, infraestrutura de rede do cliente, instalação física do hardware no local (estimada em ~R$ 2.000 caso MyIO realize). (3) Variações de tier (Essencial / Enterprise) podem ser cotadas sob solicitação. (4) Equipamentos Essenciais não podem ser suprimidos sem comprometer a entrega; itens Recomendados são opcionais sob risco operacional do cliente; itens de Contingência só serão acionados se confirmado o cenário na Fase 0.</p>
+</div>
+</main>
+<footer class="footer">
+<strong>MYIO</strong>
+<span>Anexo A — Ficha de Equipamentos · Melicidade VRF</span>
+<span style="opacity:0.75;">v1.0 · Pág. 12</span>
+</footer>
+</section>
+<!-- ══════════════════════════════════════════
+       PÁG. 13 — Anexo B: Serviços de Instalação
+  ══════════════════════════════════════════ -->
+<section class="page" id="page-13">
+<header class="hero-sm">
+<div>
+<div class="hs-brand">MYIO · Melicidade</div>
+<div class="hs-title">Anexo B — Serviços de Instalação do Gateway &amp; Infra</div>
+</div>
+<div class="hs-right">
+<span class="hs-sec">Anexo B</span>
+<span class="hs-pill">Instalação</span>
+</div>
+</header>
+<main class="content">
+<div class="headline">
+<h2>Plano de instalação — <a class="gloss-link" data-gloss-target="gloss-gateway" href="#gloss-gateway" title="Ver no glossario">Gateway MyIO</a> e infraestrutura</h2>
+<p>Serviço completo de implantação on-site do Gateway MyIO e da infraestrutura de suporte (rede, energia, cabeamento, segmentação). Executado em <strong>5 etapas</strong> ao longo de aproximadamente <strong>3–4 semanas</strong>, combinando trabalho remoto de preparação e 2 visitas presenciais à Melicidade.</p>
+</div>
+<div class="grid-2">
+<div class="col-stack">
+<div class="phase-card">
+<div class="ph-head">
+<span class="ph-num">ETAPA 1</span>
+<span class="ph-title">Pré-instalação (remote)</span>
+<span class="ph-time">~16h · 3–5 dias</span>
+</div>
+<ul>
+<li>Aquisição e recebimento do hardware (Gateway, <a class="gloss-link" data-gloss-target="gloss-ups" href="#gloss-ups" title="Ver no glossario">UPS</a>, switch, cabos, chip SIM)</li>
+<li>Preparação da imagem do OS (Debian minimal + <a class="gloss-link" data-gloss-target="gloss-node-red" href="#gloss-node-red" title="Ver no glossario">Node-RED</a> + hardening)</li>
+<li>Pré-configuração do Gateway: chaves <a class="gloss-link" data-gloss-target="gloss-mqtt" href="#gloss-mqtt" title="Ver no glossario">MQTT</a>, VPN <a class="gloss-link" data-gloss-target="gloss-wireguard" href="#gloss-wireguard" title="Ver no glossario">WireGuard</a>, certificados TLS</li>
+<li>Teste de bancada MyIO: simulação <a class="gloss-link" data-gloss-target="gloss-modbus" href="#gloss-modbus" title="Ver no glossario">Modbus TCP</a> + validação sync <a class="gloss-link" data-gloss-target="gloss-thingsboard" href="#gloss-thingsboard" title="Ver no glossario">ThingsBoard</a></li>
+<li>Preparação do Gateway spare (snapshot idêntico)</li>
+</ul>
+</div>
+<div class="phase-card">
+<div class="ph-head">
+<span class="ph-num green">ETAPA 2</span>
+<span class="ph-title">Visita 1 — Levantamento on-site</span>
+<span class="ph-time">1 dia · 8h</span>
+</div>
+<ul>
+<li>Mapeamento físico da sala técnica e do rack disponível</li>
+<li>Confirmação do IP do <a class="gloss-link" data-gloss-target="gloss-dcpf04" href="#gloss-dcpf04" title="Ver no glossario">DCPF04</a> e teste de porta 502 (Modbus TCP)</li>
+<li>Levantamento de cobertura <a class="gloss-link" data-gloss-target="gloss-m2m" href="#gloss-m2m" title="Ver no glossario">4G</a>/5G no local (teste com modem)</li>
+<li>Definição de tomada elétrica, ponto de rede e layout final</li>
+<li>Fotos, medições e plano detalhado de cabeamento</li>
+</ul>
+</div>
+<div class="phase-card">
+<div class="ph-head">
+<span class="ph-num amber">ETAPA 3</span>
+<span class="ph-title">Visita 2 — Instalação física</span>
+<span class="ph-time">1–2 dias · 16h</span>
+</div>
+<ul>
+<li>Montagem do Gateway no rack/prateleira (fixação DIN ou rack 1U)</li>
+<li>Instalação e conexão do no-break (UPS) + teste de autonomia</li>
+<li>Cabeamento de rede: LAN → DCPF04 e WAN → internet</li>
+<li>Instalação do chip SIM + teste de <a class="gloss-link" data-gloss-target="gloss-failover" href="#gloss-failover" title="Ver no glossario">failover</a> 4G/5G</li>
+<li>Configuração <a class="gloss-link" data-gloss-target="gloss-vlan" href="#gloss-vlan" title="Ver no glossario">VLAN</a> no switch + regras de firewall outbound</li>
+<li>Etiquetação, documentação física e guarda do Gateway spare</li>
+</ul>
+</div>
+<div class="phase-card">
+<div class="ph-head">
+<span class="ph-num blue">ETAPA 4</span>
+<span class="ph-title">Entrega Técnica &amp; Go-Live</span>
+<span class="ph-time">1 dia · 8h</span>
+</div>
+<ul>
+<li>Validação fim-a-fim: leitura Modbus → ThingsBoard → dashboard MyIO</li>
+<li>Teste de escrita (on/off, setpoint, modo) em UI de teste isolada</li>
+<li>Teste de queda de energia (UPS) e queda de internet (failover 4G)</li>
+<li>Validação do buffer local: desconexão forçada + sync ao reconectar</li>
+<li>Entrega de credenciais, runbook e treinamento do operador (1–2h)</li>
+</ul>
+</div>
+<div class="phase-card">
+<div class="ph-head">
+<span class="ph-num">ETAPA 5</span>
+<span class="ph-title">Pós-instalação (30 dias)</span>
+<span class="ph-time">~16h remote</span>
+</div>
+<ul>
+<li>Monitoramento ativo do Gateway (health check + alarmes proativos)</li>
+<li>Ajustes finos de período de coleta e regras do <a class="gloss-link" data-gloss-target="gloss-rule-engine" href="#gloss-rule-engine" title="Ver no glossario">Rule Engine</a></li>
+<li>Suporte reativo a incidentes (canal dedicado MyIO)</li>
+<li>Handover formal + aceite do serviço</li>
+</ul>
+</div>
+</div>
+<div class="col-stack">
+<div class="flow-panel">
+<div class="flow-head">⏱ Linha do Tempo — Instalação</div>
+<div class="flow-body">
+<div class="flow-step">
+<div class="fs-num">1</div>
+<div class="fs-body"><strong>Sem. 1:</strong> Aquisição e preparação remota do hardware</div>
+</div>
+<div class="flow-step">
+<div class="fs-num green">2</div>
+<div class="fs-body"><strong>Sem. 2:</strong> Visita 1 — levantamento on-site</div>
+</div>
+<div class="flow-step">
+<div class="fs-num amber">3</div>
+<div class="fs-body"><strong>Sem. 3:</strong> Visita 2 — instalação física + Entrega Técnica &amp; Go-Live</div>
+</div>
+<div class="flow-step">
+<div class="fs-num blue">4</div>
+<div class="fs-body"><strong>Sem. 4–7:</strong> Pós-instalação e suporte de aceitação (30 dias)</div>
+</div>
+</div>
+</div>
+<article class="card">
+<h3>👥 Recursos MyIO Envolvidos</h3>
+<div class="panel-list">
+<div class="panel-item"><div class="dot"></div><div class="text" style="font-size:12.5px;color:#4e4765;"><strong>Engenheiro Sênior</strong> — preparação, comissionamento, handover</div></div>
+<div class="panel-item"><div class="dot"></div><div class="text" style="font-size:12.5px;color:#4e4765;"><strong>Técnico de Campo</strong> — instalação física on-site</div></div>
+<div class="panel-item"><div class="dot"></div><div class="text" style="font-size:12.5px;color:#4e4765;"><strong>Analista de Rede</strong> — VLAN, firewall, VPN (remoto)</div></div>
+</div>
+<p style="margin-top:8px;font-size:11.5px;color:var(--muted);">Total estimado: <strong>~64h</strong> de engenharia + <strong>2 visitas</strong> on-site.</p>
+</article>
+<article class="card blue">
+<h3>💼 Estimativa de Custo</h3>
+<div class="price-row">
+<div>
+<div class="pr-name">Serviço de instalação completo</div>
+<div class="pr-hours">Etapas 1–5 · ~64h · 3–4 semanas</div>
+</div>
+<div class="pr-val">sob consulta</div>
+</div>
+<div class="price-row">
+<div>
+<div class="pr-name">Deslocamento / diárias</div>
+<div class="pr-hours">Por visita on-site</div>
+</div>
+<div class="pr-val">à parte</div>
+</div>
+</article>
+<div class="highlight-box">
+<div class="hb-title">✅ Incluso no Serviço</div>
+<p>Configuração completa do Gateway, cabeamento de rede dentro do rack, configuração de VLAN e firewall no switch MyIO (se fornecido), instalação elétrica a partir da tomada existente, testes de validação, runbook e treinamento operacional.</p>
+</div>
+<div class="warn-box">
+<div class="wb-title">⚠️ Não Incluso (cotação à parte)</div>
+<p>Obras civis, abertura de tomadas elétricas novas, passagem de cabos em conduítes fora da sala técnica, mudanças na rede corporativa do cliente, configuração do firewall corporativo (suporte via call com TI do cliente), alimentação 24V não padrão.</p>
+</div>
+</div>
+</div>
+</main>
+<footer class="footer">
+<strong>MYIO</strong>
+<span>Anexo B — Serviços de Instalação · Melicidade VRF</span>
+<span style="opacity:0.75;">v1.0 · Pág. 13</span>
+</footer>
+</section>
+<!-- ══════════════════════════════════════════
+       PÁG. 14 — Anexo C: Justificativas CAPEX & OPEX
+  ══════════════════════════════════════════ -->
+<section class="page" id="page-14">
+<header class="hero-sm">
+<div>
+<div class="hs-brand">MYIO · Melicidade</div>
+<div class="hs-title">Anexo C — Justificativas de CAPEX &amp; OPEX</div>
+</div>
+<div class="hs-right">
+<span class="hs-sec">Anexo C</span>
+<span class="hs-pill">Justificativas</span>
+</div>
+</header>
+<main class="content">
+<div class="headline">
+<h2>Justificativa item a item — por que cada componente está na lista</h2>
+<p>Transparência total sobre a composição do <a class="gloss-link" data-gloss-target="gloss-sla" href="#gloss-sla" title="Ver no glossario">CAPEX</a> e OPEX. Cada linha indica a função do item, por que foi classificado como Essencial / Recomendado / Contingência, e qual é o risco caso o cliente opte por suprimi-lo ou adiá-lo.</p>
+</div>
+<article class="card">
+<h3>💼 CAPEX — Hardware (one-shot)</h3>
+<div class="map-wrap">
+<table class="map-table">
+<thead>
+<tr>
+<th style="width:17%;">Item</th>
+<th style="width:12%;">Classificação</th>
+<th style="width:36%;">Por que é necessário</th>
+<th style="width:35%;">Risco de ausência / Alternativa</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong><a class="gloss-link" data-gloss-target="gloss-gateway" href="#gloss-gateway" title="Ver no glossario">Gateway MyIO</a></strong></td>
+<td><span class="tag-purple">Essencial</span></td>
+<td>Cérebro da integração — executa polling Modbus, buffer local <a class="gloss-link" data-gloss-target="gloss-buffer" href="#gloss-buffer" title="Ver no glossario">SQLite</a>, sync <a class="gloss-link" data-gloss-target="gloss-thingsboard" href="#gloss-thingsboard" title="Ver no glossario">ThingsBoard</a> e cron de agendamentos. Fanless/industrial garante 24/7 sem manutenção.</td>
+<td>Sem ele <strong>não existe integração</strong>. Item insubstituível.</td>
+</tr>
+<tr>
+<td><strong>Gateway spare</strong> (cold standby)</td>
+<td><span class="tag-green">Recomendado</span></td>
+<td>Snapshot idêntico do primário guardado em prateleira. Em falha de hardware, restore fim-a-fim em &lt;30 min.</td>
+<td>MTTR sobe de 30 min → 5–7 dias (RMA + aquisição + deslocamento). Inaceitável para uso 24/7.</td>
+</tr>
+<tr>
+<td><strong>Modem <a class="gloss-link" data-gloss-target="gloss-m2m" href="#gloss-m2m" title="Ver no glossario">4G</a>/5G + chip</strong></td>
+<td><span class="tag-green">Recomendado</span></td>
+<td><a class="gloss-link" data-gloss-target="gloss-failover" href="#gloss-failover" title="Ver no glossario">Failover</a> automático se a internet cabeada cair. Habilita também cenário em que cliente não permite Gateway na rede corporativa.</td>
+<td>Queda de internet = dados ficam só no buffer; sem dashboard e sem comandos remotos. Pode ser eliminado se houver 2 ISPs redundantes.</td>
+</tr>
+<tr>
+<td><strong><a class="gloss-link" data-gloss-target="gloss-ups" href="#gloss-ups" title="Ver no glossario">No-break</a> (UPS)</strong></td>
+<td><span class="tag-green">Recomendado</span></td>
+<td>Protege Gateway contra queda de energia e picos. Autonomia ≥30 min preserva integridade do buffer SQLite durante shutdown controlado.</td>
+<td>Queda curta derruba o Gateway; picos podem danificar hardware; buffer pode corromper por shutdown abrupto.</td>
+</tr>
+<tr>
+<td><strong>Switch industrial L2</strong></td>
+<td><span class="tag-amber">Recomendado*</span></td>
+<td>Permite <a class="gloss-link" data-gloss-target="gloss-vlan" href="#gloss-vlan" title="Ver no glossario">VLAN</a> dedicada para Modbus (isolado da rede corporativa) + SNMP para monitoramento de portas. Grau industrial para sala técnica.</td>
+<td><strong>Pode virar Contingência</strong> se Gateway tiver 2× RJ45 suficientes (LAN+WAN) e topologia ponto-a-ponto ao <a class="gloss-link" data-gloss-target="gloss-dcpf04" href="#gloss-dcpf04" title="Ver no glossario">DCPF04</a> — confirmar na Fase 0.</td>
+</tr>
+<tr>
+<td><strong>Cabos Cat6 blindado</strong></td>
+<td><span class="tag-purple">Essencial</span></td>
+<td>Blindagem (FTP/STP) reduz interferência eletromagnética típica de sala técnica (motores, inversores). Estabilidade do link <a class="gloss-link" data-gloss-target="gloss-modbus" href="#gloss-modbus" title="Ver no glossario">Modbus TCP</a>.</td>
+<td>Problemas intermitentes de conectividade (packet loss aleatório) difíceis de diagnosticar posteriormente.</td>
+</tr>
+<tr>
+<td><strong>Adaptador USB-<a class="gloss-link" data-gloss-target="gloss-rs485" href="#gloss-rs485" title="Ver no glossario">RS485</a></strong></td>
+<td><span class="tag-amber">Contingência</span></td>
+<td>Usado apenas se Fase 0 confirmar que o DCPF04 <strong>não</strong> expõe Modbus TCP — Gateway lê direto o barramento RS485 (Modbus RTU).</td>
+<td>Se cenário RTU se confirmar sem adaptador, integração inviável. Custo baixo (R$ 250) mantido como seguro preventivo.</td>
+</tr>
+<tr>
+<td><strong>Acessórios</strong></td>
+<td><span class="tag-purple">Essencial</span></td>
+<td>Fixação (DIN/rack), cabos de força, etiquetação padronizada, organizadores. Instalação profissional e rastreável.</td>
+<td>Instalação "amadora"; risco de desconexão acidental; troubleshooting futuro mais difícil.</td>
+</tr>
+</tbody>
+</table>
+</div>
+</article>
+<article class="card blue">
+<h3>🔁 OPEX — Recorrentes (mensal)</h3>
+<div class="map-wrap">
+<table class="map-table">
+<thead>
+<tr>
+<th style="width:17%;">Item</th>
+<th style="width:12%;">Classificação</th>
+<th style="width:36%;">Por que é necessário</th>
+<th style="width:35%;">Risco de ausência / Alternativa</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Plano dados M2M IoT 4G/5G</strong></td>
+<td><span class="tag-green">Recomendado</span></td>
+<td>Mantém o chip ativo com plano dedicado. Planos M2M têm preços melhores que linha móvel convencional para telemetria 24/7 de baixo volume.</td>
+<td>Sem plano ativo, não há failover de internet. Pode ser eliminado se cliente aceitar risco de sync interrompido em quedas de ISP.</td>
+</tr>
+<tr>
+<td><strong>Licença ThingsBoard MyIO</strong></td>
+<td><span class="tag-purple">Essencial</span></td>
+<td>Plataforma onde vivem os devices <a class="gloss-link" data-gloss-target="gloss-vrf" href="#gloss-vrf" title="Ver no glossario">VRF</a>, dashboards, alarmes e <a class="gloss-link" data-gloss-target="gloss-rule-engine" href="#gloss-rule-engine" title="Ver no glossario">Rule Engine</a> (agendamentos). Custo por device/zona registrada.</td>
+<td>Sem licença, Gateway coleta dados mas não há onde visualizá-los. Pode estar <strong>já incluso</strong> se cliente já é assinante MyIO.</td>
+</tr>
+<tr>
+<td><strong>Contrato de suporte SLA 8h</strong></td>
+<td><span class="tag-green">Recomendado</span></td>
+<td>Garantia contratual de resposta em 8h úteis. Inclui monitoramento ativo do Gateway e alertas proativos antes de virar incidente.</td>
+<td>Sem SLA, atendimento vira best effort — dias de espera possíveis em incidente. Alternativa: hora avulsa sob demanda.</td>
+</tr>
+</tbody>
+</table>
+</div>
+</article>
+<div class="highlight-box">
+<div class="hb-title">🎯 Ordem sugerida de supressão (se for necessário reduzir escopo)</div>
+<p>(1) <strong>Switch industrial L2</strong> — pode virar Contingência se topologia ponto-a-ponto for viável. (2) <strong>Gateway spare</strong> — pode ser adquirido posteriormente se cliente tolerar MTTR maior. (3) <strong>Modem 4G/5G + plano M2M</strong> — pode ser eliminado se houver 2 ISPs cabeados redundantes. Itens marcados <strong>Essencial</strong> (Gateway, Cabos, Acessórios, Licença ThingsBoard) não podem ser suprimidos sem comprometer a entrega.</p>
+</div>
+</main>
+<footer class="footer">
+<strong>MYIO</strong>
+<span>Anexo C — Justificativas CAPEX &amp; OPEX · Melicidade VRF</span>
+<span style="opacity:0.75;">v1.0 · Pág. 14</span>
+</footer>
+</section>
+<!-- ══════════════════════════════════════════
+       PÁG. 15 — Anexo D: Glossário
+  ══════════════════════════════════════════ -->
+<section class="page" id="page-15">
+<header class="hero-sm">
+<div>
+<div class="hs-brand">MYIO · Melicidade</div>
+<div class="hs-title">Anexo D — Glossário Técnico</div>
+</div>
+<div class="hs-right">
+<span class="hs-sec">Anexo D</span>
+<span class="hs-pill">Glossário</span>
+</div>
+</header>
+<main class="content">
+<div class="headline">
+<h2>Glossário — termos técnicos usados nesta proposta</h2>
+<p>Referência rápida dos termos, protocolos, equipamentos e conceitos de infraestrutura mencionados ao longo do documento. Organizado em dois grupos: (1) sistema VRF e comunicação com o DCPF04; (2) Gateway, rede, segurança e plataforma.</p>
+</div>
+<div class="grid-2">
+<article class="card">
+<h3>🏭 Sistema VRF &amp; Comunicação</h3>
+<div class="gloss-item" id="gloss-vrf">
+<span class="gloss-term">VRF</span>
+<span class="gloss-def">Variable Refrigerant Flow — sistema de ar condicionado central onde uma unidade externa controla múltiplas unidades internas de forma independente por ambiente.</span>
+</div>
+<div class="gloss-item" id="gloss-dcpf04">
+<span class="gloss-term">DCPF04</span>
+<span class="gloss-def">Controlador central Hitachi Reiri for Office Touch — "cérebro" do sistema VRF instalado na Melicidade. Gerencia todas as unidades internas Daikin.</span>
+</div>
+<div class="gloss-item" id="gloss-dcpa01">
+<span class="gloss-term">DCPA01</span>
+<span class="gloss-def">Adaptador de protocolo Daikin → Modbus RTU. Traduz o barramento proprietário DIII-Net das UIs Daikin para Modbus.</span>
+</div>
+<div class="gloss-item" id="gloss-diii-net">
+<span class="gloss-term">DIII-Net</span>
+<span class="gloss-def">Barramento proprietário Daikin para comunicação entre unidades externas e internas do VRF — não é publicamente documentado.</span>
+</div>
+<div class="gloss-item" id="gloss-modbus">
+<span class="gloss-term">Modbus RTU/TCP</span>
+<span class="gloss-def">Protocolo industrial aberto e amplamente documentado. Interface nativa do DCPF04 — RTU usa RS485; TCP usa Ethernet (porta 502).</span>
+</div>
+<div class="gloss-item" id="gloss-fc">
+<span class="gloss-term">FC03/FC04/FC06/FC16</span>
+<span class="gloss-def">Function Codes Modbus: FC03/FC04 leem registros (entrada); FC06 escreve 1 registro, FC16 escreve múltiplos (saída).</span>
+</div>
+<div class="gloss-item" id="gloss-rs485">
+<span class="gloss-term">RS485</span>
+<span class="gloss-def">Padrão elétrico industrial para transmissão serial diferencial em par trançado (A/B/GND). Meio físico usado pelo Modbus RTU.</span>
+</div>
+<div class="gloss-item" id="gloss-smeter">
+<span class="gloss-term">SMeter</span>
+<span class="gloss-def">Medidor elétrico Daikin opcional por zona. Se instalado, permite coletar potência (W) e consumo (kWh) por ambiente.</span>
+</div>
+<div class="gloss-item" id="gloss-iframe">
+<span class="gloss-term">iframe / túnel</span>
+<span class="gloss-def">Modelo atual: a central MyIO age como proxy reverso, exibindo a UI web Hitachi dentro do dashboard. Dependente de conectividade contínua.</span>
+</div>
+</article>
+<article class="card blue">
+<h3>🌐 Gateway, Rede, Segurança &amp; Plataforma</h3>
+<div class="gloss-item" id="gloss-gateway">
+<span class="gloss-term">Gateway MyIO</span>
+<span class="gloss-def">SBC industrial ARM (Raspberry Pi 4/5, Orange Pi 5 ou similar) fanless on-premise que faz a ponte entre o DCPF04 (Modbus TCP) e o ThingsBoard (nuvem MyIO). Possui GPIO 40 pinos para o rádio MyIO (integração com ecossistema de sensores). Sem I/O elétrico no VRF.</span>
+</div>
+<div class="gloss-item" id="gloss-node-red">
+<span class="gloss-term">Node-RED</span>
+<span class="gloss-def">Runtime de fluxos visuais em Node.js — orquestra o polling Modbus, o buffer local e o sync para a nuvem no Gateway MyIO.</span>
+</div>
+<div class="gloss-item" id="gloss-buffer">
+<span class="gloss-term">Buffer local (SQLite)</span>
+<span class="gloss-def">Banco embarcado no Gateway que armazena leituras durante quedas de conectividade — sincronizado quando a internet volta, sem perder timestamps.</span>
+</div>
+<div class="gloss-item" id="gloss-mqtt">
+<span class="gloss-term">MQTT / MQTTS</span>
+<span class="gloss-def">Protocolo leve de mensageria IoT. MQTTS = MQTT sobre TLS (porta 8883). Usado para sync Gateway ↔ ThingsBoard.</span>
+</div>
+<div class="gloss-item" id="gloss-thingsboard">
+<span class="gloss-term">ThingsBoard</span>
+<span class="gloss-def">Plataforma IoT onde vivem os dashboards, relatórios, alarmes e Rule Engine (agendamentos) do MyIO.</span>
+</div>
+<div class="gloss-item" id="gloss-rule-engine">
+<span class="gloss-term">Rule Engine</span>
+<span class="gloss-def">Motor de regras declarativas do ThingsBoard — dispara ações (alarmes, RPC, notificações) em resposta a eventos de telemetria.</span>
+</div>
+<div class="gloss-item" id="gloss-vlan">
+<span class="gloss-term">VLAN</span>
+<span class="gloss-def">Segmentação lógica de rede num switch gerenciado — isola o segmento Modbus da rede corporativa por segurança.</span>
+</div>
+<div class="gloss-item" id="gloss-wireguard">
+<span class="gloss-term">WireGuard VPN</span>
+<span class="gloss-def">Protocolo moderno de VPN (rápido e seguro) usado pela MyIO para suporte remoto ao Gateway — sem expor SSH à internet.</span>
+</div>
+<div class="gloss-item" id="gloss-ups">
+<span class="gloss-term">UPS / No-break</span>
+<span class="gloss-def">Uninterruptible Power Supply — mantém o Gateway operando em quedas curtas de energia e protege contra picos/sub-tensão.</span>
+</div>
+<div class="gloss-item" id="gloss-m2m">
+<span class="gloss-term">M2M IoT (4G/5G)</span>
+<span class="gloss-def">Plano de dados móvel específico para telemetria 24/7 de baixo volume — preço melhor que linha móvel convencional, suporta APN privada.</span>
+</div>
+<div class="gloss-item" id="gloss-failover">
+<span class="gloss-term">Failover / Cold Standby</span>
+<span class="gloss-def">Failover: troca automática para via secundária (ex: 4G assume se RJ45 cair). Cold standby: hardware spare desligado em prateleira, restaurado sob demanda.</span>
+</div>
+<div class="gloss-item" id="gloss-sla">
+<span class="gloss-term">SLA / CAPEX / OPEX</span>
+<span class="gloss-def">SLA: Service Level Agreement (tempo de resposta contratual). CAPEX: investimento único (hardware). OPEX: custo recorrente (licenças, planos).</span>
+</div>
+<div class="gloss-item" id="gloss-fte">
+<span class="gloss-term">FTE / FTE-mês</span>
+<span class="gloss-def">Full-Time Equivalent — unidade de esforço equivalente a 1 profissional dedicado integralmente. "FTE-mês" = 1 pessoa × 1 mês de trabalho em tempo integral (~160h). Usado para dimensionar alocação e custo de projeto independentemente de quantas pessoas o executam.</span>
+</div>
+</article>
+</div>
+</main>
+<footer class="footer">
+<strong>MYIO</strong>
+<span>Anexo D — Glossário Técnico · Melicidade VRF</span>
+<span style="opacity:0.75;">v1.0 · Pág. 15</span>
+</footer>
+</section>
+<!-- ══════════════════════════════════════════
+       PÁG. 16 — Anexo E: Referências
+  ══════════════════════════════════════════ -->
+<section class="page" id="page-16">
+<header class="hero-sm">
+<div>
+<div class="hs-brand">MYIO · Melicidade</div>
+<div class="hs-title">Anexo E — Referências Mapeadas</div>
+</div>
+<div class="hs-right">
+<span class="hs-sec">Anexo E</span>
+<span class="hs-pill">Referências</span>
+</div>
+</header>
+<main class="content">
+<div class="headline">
+<h2>Referências mapeadas para o projeto</h2>
+<p>Compilação de documentos internos MyIO, manuais do fabricante, endpoints do cliente, protocolos identificados por sistema e ações pendentes para a Fase 0. Base consolidada a partir de <code>ESTUDO-INTEGRACAO-NATIVA.md</code> (repositório interno MyIO).</p>
+</div>
+<article class="card">
+<h3>📁 Documentos Internos MyIO (repositório da biblioteca)</h3>
+<div class="map-wrap">
+<table class="map-table">
+<thead>
+<tr>
+<th style="width:36%;">Arquivo</th>
+<th style="width:14%;">Status</th>
+<th style="width:50%;">Descrição</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="mono">ESTUDO-INTEGRACAO-NATIVA.md</td>
+<td><span class="tag-green">✅ Pronto</span></td>
+<td>Estudo-mãe da integração nativa — arquitetura alvo, sistemas, próximos passos</td>
+</tr>
+<tr>
+<td class="mono">ESTUDO-<a class="gloss-link" data-gloss-target="gloss-vrf" href="#gloss-vrf" title="Ver no glossario">VRF</a>-INTEGRACAO-NATIVA.md</td>
+<td><span class="tag-green">✅ Pronto</span></td>
+<td>Estudo aprofundado VRF Daikin/Hitachi <a class="gloss-link" data-gloss-target="gloss-dcpf04" href="#gloss-dcpf04" title="Ver no glossario">DCPF04</a> (<a class="gloss-link" data-gloss-target="gloss-modbus" href="#gloss-modbus" title="Ver no glossario">Modbus TCP</a>/RTU)</td>
+</tr>
+<tr>
+<td class="mono">ESTUDO-CHILLER-INTEGRACAO-NATIVA.md</td>
+<td><span class="tag-amber">⏳ A criar</span></td>
+<td>Estudo aprofundado CHILLER Niagara Framework (BACnet/IP)</td>
+</tr>
+<tr>
+<td class="mono">ESTUDO-GERADOR-INTEGRACAO-NATIVA.md</td>
+<td><span class="tag-amber">⏳ A criar</span></td>
+<td>Estudo GERADOR — bloqueado até identificar marca/modelo do sistema</td>
+</tr>
+</tbody>
+</table>
+</div>
+</article>
+<article class="card blue">
+<h3>📘 Manuais Técnicos do Fabricante</h3>
+<ul>
+<li><a href="https://myio-public-files.s3.us-east-1.amazonaws.com/public/jll/assets/INS_DCPF04_Reiri+for+Office+Touch_DHOS-CS-IM-2107002G.pdf" rel="noopener" target="_blank"><code>INS_DCPF04_Reiri for Office Touch_DHOS-CS-IM-2107002G.pdf</code></a> — manual técnico completo do controlador central Hitachi Reiri DCPF04, incluindo especificação Modbus RTU/TCP e mapa de registros</li>
+<li><a href="https://myio-public-files.s3.us-east-1.amazonaws.com/public/jll/assets/Reiri+-+Folheto.pdf" rel="noopener" target="_blank"><code>Reiri - Folheto.pdf</code></a> — folheto técnico-comercial Hitachi Reiri for Office Touch (visão geral do produto, funcionalidades e arquitetura)</li>
+<li><em>Niagara Framework — documentação BACnet/IP (Tridium)</em> — a consultar na Fase 0 junto ao fornecedor</li>
+<li><em>Daikin <a class="gloss-link" data-gloss-target="gloss-dcpa01" href="#gloss-dcpa01" title="Ver no glossario">DCPA01</a> — manual do adaptador <a class="gloss-link" data-gloss-target="gloss-diii-net" href="#gloss-diii-net" title="Ver no glossario">DIII-Net</a>→Modbus</em> — a solicitar via Hitachi/Daikin caso necessário</li>
+</ul>
+</article>
+<article class="card green">
+<h3>🔗 Endpoints / URLs do Cliente (Melicidade)</h3>
+<div class="map-wrap">
+<table class="map-table">
+<thead>
+<tr>
+<th style="width:32%;">URL</th>
+<th style="width:20%;">Sistema</th>
+<th style="width:18%;">Plataforma</th>
+<th style="width:30%;">Status (16/04/2026)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="mono">melicidade1.myio-bas.com</td>
+<td>CHILLER</td>
+<td>Niagara (JACE)</td>
+<td><span class="tag-amber">⚠️ Online — licença SMA expirada</span></td>
+</tr>
+<tr>
+<td class="mono">melicidade2.myio-bas.com</td>
+<td>VRF</td>
+<td>Hitachi Reiri DCPF04</td>
+<td><span class="tag-green">✅ Online</span></td>
+</tr>
+<tr>
+<td class="mono">melicidade3.myio-bas.com</td>
+<td>GERADOR</td>
+<td>Desconhecida</td>
+<td><span class="tag-red">🔴 502 Bad Gateway</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p style="margin-top:8px;font-size:11.5px;color:var(--muted);">Nota: esta proposta (v1.0) contempla apenas o sistema VRF. CHILLER e GERADOR são versões futuras (V2/V3) com orçamento separado.</p>
+</article>
+<article class="card amber">
+<h3>🔌 Protocolos &amp; Sistemas Mapeados</h3>
+<div class="map-wrap">
+<table class="map-table">
+<thead>
+<tr>
+<th style="width:18%;">Sistema</th>
+<th style="width:22%;">Plataforma</th>
+<th style="width:30%;">Protocolo nativo</th>
+<th style="width:30%;">Porta / Meio físico</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>VRF</strong></td>
+<td>Hitachi Reiri DCPF04</td>
+<td>Modbus RTU / Modbus TCP</td>
+<td class="mono"><a class="gloss-link" data-gloss-target="gloss-rs485" href="#gloss-rs485" title="Ver no glossario">RS485</a> / TCP 502</td>
+</tr>
+<tr>
+<td><strong>CHILLER</strong></td>
+<td>Niagara Framework (JACE)</td>
+<td>BACnet/IP</td>
+<td class="mono">UDP 47808</td>
+</tr>
+<tr>
+<td><strong>GERADOR</strong></td>
+<td>A definir</td>
+<td>A definir (Modbus TCP típico em geradores)</td>
+<td class="mono">TCP 502 (provável)</td>
+</tr>
+</tbody>
+</table>
+</div>
+</article>
+<article class="card red">
+<h3>📋 Checklist Fase 0 — Próximos Passos Imediatos</h3>
+<ul>
+<li>☐ Confirmar IP do <strong>DCPF04</strong> na rede local da Melicidade → testar porta <code>502</code> (Modbus TCP)</li>
+<li>☐ Confirmar IP do <strong>JACE Niagara</strong> → testar porta <code>47808</code> (BACnet/IP) — <em>preparação V2</em></li>
+<li>☐ Restaurar serviço <code>melicidade3.myio-bas.com</code> → identificar marca/modelo do <strong>GERADOR</strong> — <em>preparação V3</em></li>
+<li>☐ Solicitar ao cliente o <strong>mapa de registros Modbus</strong> do DCPF04 ou exportar CSV do <em>Reiri Setup Tool</em></li>
+<li>☐ Definir <strong>localização física</strong> do MyIO Gateway Agent na infraestrutura da Melicidade (rack, sala técnica, tomada, ponto de rede)</li>
+<li>☐ Levantar cobertura <strong><a class="gloss-link" data-gloss-target="gloss-m2m" href="#gloss-m2m" title="Ver no glossario">4G</a>/5G</strong> no local (teste com modem) para validar <a class="gloss-link" data-gloss-target="gloss-failover" href="#gloss-failover" title="Ver no glossario">failover</a> de internet</li>
+<li>☐ Levantar zonas, nomes dos ambientes, quantidade de UIs e medidores <strong>3F MyIO</strong> já instalados (viabilidade do módulo de Eficiência &amp; Analytics)</li>
+</ul>
+</article>
+</main>
+<footer class="footer">
+<strong>MYIO</strong>
+<span>Anexo E — Referências Mapeadas · Melicidade VRF</span>
+<span style="opacity:0.75;">v1.0 · Pág. 16</span>
+</footer>
+</section>
+<!-- ══════════════════════════════════════════
+       PÁG. 17 — Anexo F: Alocações & Cronograma Gantt
+  ══════════════════════════════════════════ -->
+<section class="page" id="page-17">
+<header class="hero-sm">
+<div>
+<div class="hs-brand">MYIO · Melicidade</div>
+<div class="hs-title">Anexo F — Alocações Sugeridas &amp; Cronograma Gantt</div>
+</div>
+<div class="hs-right">
+<span class="hs-sec">Anexo F</span>
+<span class="hs-pill">Alocações</span>
+</div>
+</header>
+<main class="content">
+<div class="headline">
+<h2>Alocação de recursos, papéis e cronograma visual (Gantt)</h2>
+<p>Sugestão MyIO de estrutura de time, % de alocação por sprint, esforço estimado, predecessores e cronograma visual com milestones. Base para planejamento de capacity e negociação de aceite por etapa.</p>
+</div>
+<article class="card">
+<h3>👥 Papéis &amp; Responsabilidades</h3>
+<div class="map-wrap">
+<table class="map-table">
+<thead>
+<tr>
+<th style="width:22%;">Papel</th>
+<th style="width:33%;">Responsabilidade Principal</th>
+<th style="width:17%;">Quando atua</th>
+<th style="width:10%;">Horas est.</th>
+<th style="width:18%;">Predecessor</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Tech Lead / System Architect</strong></td>
+<td>Arquitetura, code review, decisões técnicas, guard rails</td>
+<td>Todo o projeto</td>
+<td class="mono">~50h</td>
+<td>Kickoff</td>
+</tr>
+<tr>
+<td><strong>Frontend Dev (Painéis <a class="gloss-link" data-gloss-target="gloss-vrf" href="#gloss-vrf" title="Ver no glossario">VRF</a>)</strong></td>
+<td>Widgets, dashboards TB, integração RPC, shadow DOM</td>
+<td>Sprints 0–4</td>
+<td class="mono">~80h</td>
+<td>Kickoff + UX</td>
+</tr>
+<tr>
+<td><strong>Backend/Embedded Dev (Gateway)</strong></td>
+<td><a class="gloss-link" data-gloss-target="gloss-node-red" href="#gloss-node-red" title="Ver no glossario">Node-RED</a> flows, drivers Modbus, <a class="gloss-link" data-gloss-target="gloss-buffer" href="#gloss-buffer" title="Ver no glossario">SQLite</a>, sync <a class="gloss-link" data-gloss-target="gloss-mqtt" href="#gloss-mqtt" title="Ver no glossario">MQTT</a></td>
+<td>Sprints 0–4</td>
+<td class="mono">~90h</td>
+<td>Arquitetura</td>
+</tr>
+<tr>
+<td><strong>QA Engineer</strong></td>
+<td>Unit, integração, load test, <a class="gloss-link" data-gloss-target="gloss-failover" href="#gloss-failover" title="Ver no glossario">failover</a>, homologação</td>
+<td>Sprints 1–4 + pós</td>
+<td class="mono">~50h</td>
+<td>Componentes prontos</td>
+</tr>
+<tr>
+<td><strong>DevOps / SRE</strong></td>
+<td>CI/CD, provisionamento Gateway, imagem base, observabilidade</td>
+<td>Sprint 0 + Instal. + Pós</td>
+<td class="mono">~30h</td>
+<td>Arquitetura</td>
+</tr>
+<tr>
+<td><strong>Técnico de Campo</strong></td>
+<td>Instalação física on-site, cabeamento, <a class="gloss-link" data-gloss-target="gloss-ups" href="#gloss-ups" title="Ver no glossario">UPS</a>, rack</td>
+<td>Visitas 1 e 2</td>
+<td class="mono">~20h</td>
+<td>Hardware adquirido</td>
+</tr>
+<tr>
+<td><strong>Analista de Rede</strong></td>
+<td><a class="gloss-link" data-gloss-target="gloss-vlan" href="#gloss-vlan" title="Ver no glossario">VLAN</a>, firewall, VPN <a class="gloss-link" data-gloss-target="gloss-wireguard" href="#gloss-wireguard" title="Ver no glossario">WireGuard</a>, failover <a class="gloss-link" data-gloss-target="gloss-m2m" href="#gloss-m2m" title="Ver no glossario">4G</a>/5G</td>
+<td>Sprint 0 + Instal. + Pós</td>
+<td class="mono">~15h</td>
+<td>Levantamento on-site</td>
+</tr>
+<tr>
+<td><strong>Product Owner / PM</strong></td>
+<td>Coordenação, cliente, escopo, aceite formal, riscos</td>
+<td>Todo o projeto</td>
+<td class="mono">~50h</td>
+<td>Contrato assinado</td>
+</tr>
+<tr>
+<td><strong>UX Designer</strong></td>
+<td>Wireframes, prototipagem, UI widgets VRF</td>
+<td>Sprint 0 (pico) + esporádico</td>
+<td class="mono">~20h</td>
+<td>Kickoff</td>
+</tr>
+<tr>
+<td><strong>Tech Writer / Documentação</strong></td>
+<td>Manuais, runbook, guia usuário, specs técnicas</td>
+<td>Sprint 0 + 4 + pós</td>
+<td class="mono">~20h</td>
+<td>Specs (Sprint 0)</td>
+</tr>
+<tr style="background:linear-gradient(135deg,#f3eeff,#faf8ff);">
+<td colspan="3" style="text-align:right;font-weight:800;color:#392d69;">TOTAL ESFORÇO ESTIMADO</td>
+<td class="mono" style="font-weight:800;color:var(--myio-purple);">~425h</td>
+<td style="font-weight:700;color:#392d69;">≈ 2,5 <a class="gloss-link" data-gloss-target="gloss-fte" href="#gloss-fte" title="Ver definição de FTE no glossário">FTE-mês</a></td>
+</tr>
+</tbody>
+</table>
+</div>
+</article>
+<article class="card blue">
+<h3>📊 Matriz de Alocação % (papel × fase)</h3>
+<div class="map-wrap">
+<table class="map-table">
+<thead>
+<tr>
+<th style="width:22%;">Papel</th>
+<th>Sprint 0</th>
+<th>Sprint 1</th>
+<th>Sprint 2</th>
+<th>Sprint 3</th>
+<th>Sprint 4</th>
+<th>Instalação</th>
+<th>Pós-entrega</th>
+</tr>
+</thead>
+<tbody>
+<tr><td><strong>Tech Lead</strong></td><td><span class="tag-amber">20%</span></td><td><span class="tag-green">8%</span></td><td><span class="tag-green">8%</span></td><td><span class="tag-green">8%</span></td><td><span class="tag-amber">13%</span></td><td><span class="tag-green">5%</span></td><td><span class="tag-green">5%</span></td></tr>
+<tr><td><strong>Frontend Dev</strong></td><td><span class="tag-amber">13%</span></td><td><span class="tag-red">25%</span></td><td><span class="tag-red">25%</span></td><td><span class="tag-red">20%</span></td><td><span class="tag-amber">15%</span></td><td><span class="tag-green">3%</span></td><td><span class="tag-green">5%</span></td></tr>
+<tr><td><strong>Backend/Embedded Dev</strong></td><td><span class="tag-amber">13%</span></td><td><span class="tag-red">25%</span></td><td><span class="tag-red">25%</span></td><td><span class="tag-red">25%</span></td><td><span class="tag-red">20%</span></td><td><span class="tag-green">8%</span></td><td><span class="tag-green">5%</span></td></tr>
+<tr><td><strong>QA</strong></td><td><span class="tag-green">5%</span></td><td><span class="tag-green">8%</span></td><td><span class="tag-amber">10%</span></td><td><span class="tag-amber">15%</span></td><td><span class="tag-red">25%</span></td><td><span class="tag-amber">10%</span></td><td><span class="tag-green">5%</span></td></tr>
+<tr><td><strong>DevOps</strong></td><td><span class="tag-green">8%</span></td><td><span class="tag-green">5%</span></td><td><span class="tag-green">5%</span></td><td><span class="tag-green">5%</span></td><td><span class="tag-amber">10%</span></td><td><span class="tag-amber">15%</span></td><td><span class="tag-green">5%</span></td></tr>
+<tr><td><strong>Técnico Campo</strong></td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class="tag-green">5%</span></td><td><span class="tag-red">25%</span></td><td><span class="tag-green">3%</span></td></tr>
+<tr><td><strong>Analista Rede</strong></td><td><span class="tag-green">3%</span></td><td>—</td><td>—</td><td>—</td><td><span class="tag-green">5%</span></td><td><span class="tag-red">20%</span></td><td><span class="tag-green">1%</span></td></tr>
+<tr><td><strong>PO / PM</strong></td><td><span class="tag-amber">15%</span></td><td><span class="tag-amber">10%</span></td><td><span class="tag-amber">10%</span></td><td><span class="tag-amber">10%</span></td><td><span class="tag-amber">15%</span></td><td><span class="tag-amber">10%</span></td><td><span class="tag-green">8%</span></td></tr>
+<tr><td><strong>UX Designer</strong></td><td><span class="tag-amber">20%</span></td><td><span class="tag-amber">10%</span></td><td><span class="tag-green">5%</span></td><td><span class="tag-green">3%</span></td><td><span class="tag-green">3%</span></td><td>—</td><td>—</td></tr>
+<tr><td><strong>Tech Writer</strong></td><td><span class="tag-amber">15%</span></td><td><span class="tag-green">3%</span></td><td><span class="tag-green">3%</span></td><td><span class="tag-green">5%</span></td><td><span class="tag-amber">10%</span></td><td><span class="tag-green">5%</span></td><td><span class="tag-green">5%</span></td></tr>
+</tbody>
+</table>
+</div>
+<p style="margin-top:8px;font-size:11px;color:var(--muted);">Legenda: <span class="tag-green">≤8%</span> alocação leve · <span class="tag-amber">10–18%</span> média · <span class="tag-red">≥20%</span> alta (pico). Duração de cada sprint = 2 semanas (80h base). Instalação = 3–4 semanas em paralelo; Pós-entrega = 30 dias de suporte ativo. <strong>Escala ajustada para 25% do estimado inicial — ver Premissas.</strong></p>
+</article>
+<article class="card amber">
+<h3>📆 Gráfico Gantt — Cronograma Visual (15 semanas)</h3>
+<div style="overflow-x:auto;">
+<table style="width:100%;border-collapse:collapse;font-size:10px;min-width:640px;">
+<thead>
+<tr style="background:linear-gradient(135deg,#2a2a4a,#3a2d6e);color:#fff;">
+<th style="text-align:left;padding:6px 8px;width:26%;font-size:10px;text-transform:uppercase;letter-spacing:0.05em;">Atividade</th>
+<th style="width:4.9%;padding:6px 0;text-align:center;">S1</th>
+<th style="width:4.9%;text-align:center;">S2</th>
+<th style="width:4.9%;text-align:center;">S3</th>
+<th style="width:4.9%;text-align:center;">S4</th>
+<th style="width:4.9%;text-align:center;">S5</th>
+<th style="width:4.9%;text-align:center;">S6</th>
+<th style="width:4.9%;text-align:center;">S7</th>
+<th style="width:4.9%;text-align:center;">S8</th>
+<th style="width:4.9%;text-align:center;">S9</th>
+<th style="width:4.9%;text-align:center;">S10</th>
+<th style="width:4.9%;text-align:center;">S11</th>
+<th style="width:4.9%;text-align:center;">S12</th>
+<th style="width:4.9%;text-align:center;">S13</th>
+<th style="width:4.9%;text-align:center;">S14</th>
+<th style="width:4.9%;text-align:center;">S15</th>
+</tr>
+</thead>
+<tbody>
+<tr><td style="padding:5px 8px;color:#3d3464;font-weight:600;border-bottom:1px solid #f0ebf8;">Fase 0 — Levantamento</td><td colspan="2" style="background:linear-gradient(90deg,#f5a623,#ffc94d);padding:6px;"></td><td colspan="13" style="border-bottom:1px solid #f0ebf8;"></td></tr>
+<tr><td style="padding:5px 8px;color:#3d3464;font-weight:600;border-bottom:1px solid #f0ebf8;">Sprint 0 — Kickoff &amp; Fundação</td><td colspan="2" style="background:linear-gradient(90deg,#e03131,#ff6b6b);padding:6px;"></td><td colspan="13" style="border-bottom:1px solid #f0ebf8;"></td></tr>
+<tr><td style="padding:5px 8px;color:#3d3464;font-weight:600;border-bottom:1px solid #f0ebf8;">Sprint 1 — Widgets &amp; Drivers Modbus</td><td colspan="2"></td><td colspan="2" style="background:linear-gradient(90deg,#663ab5,#7d52cf);padding:6px;"></td><td colspan="11" style="border-bottom:1px solid #f0ebf8;"></td></tr>
+<tr><td style="padding:5px 8px;color:#3d3464;font-weight:600;border-bottom:1px solid #f0ebf8;">Sprint 2 — Agendamentos &amp; Buffer/Sync</td><td colspan="4"></td><td colspan="2" style="background:linear-gradient(90deg,#663ab5,#7d52cf);padding:6px;"></td><td colspan="9" style="border-bottom:1px solid #f0ebf8;"></td></tr>
+<tr><td style="padding:5px 8px;color:#3d3464;font-weight:600;border-bottom:1px solid #f0ebf8;">Sprint 3 — Eficiência &amp; Scheduler/RPC</td><td colspan="6"></td><td colspan="2" style="background:linear-gradient(90deg,#663ab5,#7d52cf);padding:6px;"></td><td colspan="7" style="border-bottom:1px solid #f0ebf8;"></td></tr>
+<tr><td style="padding:5px 8px;color:#3d3464;font-weight:600;border-bottom:1px solid #f0ebf8;">Sprint 4 — Integração &amp; Homologação</td><td colspan="8"></td><td colspan="2" style="background:linear-gradient(90deg,#663ab5,#7d52cf);padding:6px;"></td><td colspan="5" style="border-bottom:1px solid #f0ebf8;"></td></tr>
+<tr><td style="padding:5px 8px;color:#3d3464;font-weight:600;border-bottom:1px solid #f0ebf8;">Aquisição de Hardware</td><td colspan="1"></td><td colspan="3" style="background:linear-gradient(90deg,#1864c4,#4d8fd6);padding:6px;"></td><td colspan="11" style="border-bottom:1px solid #f0ebf8;"></td></tr>
+<tr><td style="padding:5px 8px;color:#3d3464;font-weight:600;border-bottom:1px solid #f0ebf8;">Pré-instalação (lab)</td><td colspan="4"></td><td colspan="3" style="background:linear-gradient(90deg,#1864c4,#4d8fd6);padding:6px;"></td><td colspan="8" style="border-bottom:1px solid #f0ebf8;"></td></tr>
+<tr><td style="padding:5px 8px;color:#3d3464;font-weight:600;border-bottom:1px solid #f0ebf8;">Visita 1 — Levantamento on-site</td><td colspan="6"></td><td colspan="1" style="background:linear-gradient(90deg,#1864c4,#4d8fd6);padding:6px;"></td><td colspan="8" style="border-bottom:1px solid #f0ebf8;"></td></tr>
+<tr><td style="padding:5px 8px;color:#3d3464;font-weight:600;border-bottom:1px solid #f0ebf8;">Visita 2 — Instalação Física</td><td colspan="8"></td><td colspan="2" style="background:linear-gradient(90deg,#1864c4,#4d8fd6);padding:6px;"></td><td colspan="5" style="border-bottom:1px solid #f0ebf8;"></td></tr>
+<tr><td style="padding:5px 8px;color:#3d3464;font-weight:600;border-bottom:1px solid #f0ebf8;">Entrega Técnica &amp; Go-Live</td><td colspan="10"></td><td colspan="1" style="background:linear-gradient(90deg,#04c081,#00e09b);padding:6px;"></td><td colspan="4" style="border-bottom:1px solid #f0ebf8;"></td></tr>
+<tr><td style="padding:5px 8px;color:#3d3464;font-weight:600;">Pós-instalação (suporte 30d)</td><td colspan="10"></td><td colspan="5" style="background:linear-gradient(90deg,#04c081,#00e09b);padding:6px;"></td></tr>
+</tbody>
+</table>
+</div>
+<p style="margin-top:10px;font-size:11px;color:var(--muted);line-height:1.8;">
+<strong>Legenda de cores:</strong> 
+          <span style="background:linear-gradient(90deg,#f5a623,#ffc94d);color:#fff;padding:2px 8px;border-radius:4px;font-weight:700;">Levantamento</span> 
+          <span style="background:linear-gradient(90deg,#e03131,#ff6b6b);color:#fff;padding:2px 8px;border-radius:4px;font-weight:700;">Kickoff</span> 
+          <span style="background:linear-gradient(90deg,#663ab5,#7d52cf);color:#fff;padding:2px 8px;border-radius:4px;font-weight:700;">Desenvolvimento (Sprints 1–4)</span> 
+          <span style="background:linear-gradient(90deg,#1864c4,#4d8fd6);color:#fff;padding:2px 8px;border-radius:4px;font-weight:700;">Infra / Instalação</span> 
+          <span style="background:linear-gradient(90deg,#04c081,#00e09b);color:#fff;padding:2px 8px;border-radius:4px;font-weight:700;">Go-Live / Pós</span>
+</p>
+</article>
+<article class="card green">
+<h3>🏁 Milestones &amp; Critérios de Aceite</h3>
+<div class="map-wrap">
+<table class="map-table">
+<thead>
+<tr>
+<th style="width:10%;">Marco</th>
+<th style="width:14%;">Semana</th>
+<th style="width:28%;">Entregável</th>
+<th style="width:48%;">Critério de Aceite</th>
+</tr>
+</thead>
+<tbody>
+<tr><td><strong>M0</strong></td><td>S0 (início)</td><td>Kickoff aprovado</td><td>Contrato assinado, time alocado, backlog priorizado, canais de comunicação ativos</td></tr>
+<tr><td><strong>M1</strong></td><td>Fim da S2</td><td>Fundação Técnica</td><td>Arquitetura aprovada, API specs assinados, modelagem de dados, POC Modbus funcional</td></tr>
+<tr><td><strong>M2</strong></td><td>Fim da S4</td><td>MVP — Painéis &amp; Gateway</td><td>Widgets básicos + polling Modbus + sync MQTT + buffer inicial demonstrados</td></tr>
+<tr><td><strong>M3</strong></td><td>Fim da S6</td><td>Automação &amp; Alarmes</td><td>Agendamentos offline-first + alarmes via <a class="gloss-link" data-gloss-target="gloss-rule-engine" href="#gloss-rule-engine" title="Ver no glossario">Rule Engine</a> + logs de execução sincronizados</td></tr>
+<tr><td><strong>M4</strong></td><td>Fim da S8</td><td>Eficiência &amp; Analytics</td><td>Cross-ref temp/setpoint + kWh por zona (se 3F viável confirmado na Fase 0)</td></tr>
+<tr><td><strong>M5</strong></td><td>Fim da S10</td><td>Homologação Técnica</td><td>Testes E2E, load, failover e segurança assinados; bug bar zerada; checklist DoD OK</td></tr>
+<tr><td><strong>M6</strong></td><td>S11</td><td>Go-Live</td><td>Entrega Técnica concluída, treinamento ministrado, aceite formal do cliente assinado</td></tr>
+<tr><td><strong>M7</strong></td><td>S15</td><td>Aceite Final</td><td>30 dias de operação estável, KPIs atingidos, handover formal e encerramento do projeto</td></tr>
+</tbody>
+</table>
+</div>
+</article>
+<div class="warn-box">
+<div class="wb-title">⚠️ Premissas da alocação</div>
+<p>(0) ✎ Ajuste de 25% aplicado ao esforço total: a estimativa foi revisada para absorver a gordura existente no dimensionamento inicial, mantendo o prazo ponta-a-ponta de ~15 semanas. Total revisado: ~425h / ≈2,5 FTE-mês. (1) Papéis podem ser acumulados por um mesmo profissional (ex: Tech Lead + System Architect). (2) Datas reais dependem da Fase 0 e da disponibilidade do cliente para validações/aprovações. (3) % de alocação são sugestões — a execução real é ajustada pelo PO/PM semana a semana conforme backlog. (4) "Horas estimadas" são esforço bruto — não inclui reuniões inter-times nem overhead administrativo (~10% adicional). (5) Time trabalha distribuído/remoto, exceto visitas on-site programadas.</p>
+</div>
+</main>
+<footer class="footer">
+<strong>MYIO</strong>
+<span>Anexo F — Alocações &amp; Cronograma Gantt · Melicidade VRF</span>
+<span style="opacity:0.75;">v1.0 · Pág. 17</span>
+</footer>
+</section>
+<!-- ══════════════════════════════════════════
+       PÁG. 18 — Anexo G: Simulação V2 CHILLER (BACnet/IP Niagara)
+  ══════════════════════════════════════════ -->
+<section class="page" id="page-18">
+<header class="hero-sm">
+<div>
+<div class="hs-brand">MYIO · Melicidade</div>
+<div class="hs-title">Anexo G — Simulação V2: Incorporação CHILLER (BACnet/IP Niagara)</div>
+</div>
+<div class="hs-right">
+<span class="hs-sec">Anexo G</span>
+<span class="hs-pill">V2 CHILLER</span>
+</div>
+</header>
+<main class="content">
+<div class="headline">
+<h2>Análise hipotética — incorporação futura do CHILLER após V1 estabilizado</h2>
+<p>Simulação de esforço, prazo, atividades e alocações caso o cliente decida incorporar o sistema CHILLER (Niagara Framework via BACnet/IP) em uma V2 do projeto. Estimativa baseada em <strong>máximo reaproveitamento</strong> da base V1 <a class="gloss-link" data-gloss-target="gloss-vrf" href="#gloss-vrf" title="Ver no glossario">VRF</a> já entregue — infra, imagem do Gateway, plataforma, widgets e padrões de código.</p>
+</div>
+<article class="card green">
+<h3>♻️ O que é Reaproveitado do V1 (zero retrabalho)</h3>
+<ul>
+<li><strong>Infraestrutura física (100%)</strong> — Gateway hardware, spare, <a class="gloss-link" data-gloss-target="gloss-ups" href="#gloss-ups" title="Ver no glossario">UPS</a>, switch L2, cabos, modem <a class="gloss-link" data-gloss-target="gloss-m2m" href="#gloss-m2m" title="Ver no glossario">4G</a>/5G, rack, cabeamento já instalados. <strong><a class="gloss-link" data-gloss-target="gloss-sla" href="#gloss-sla" title="Ver no glossario">CAPEX</a> adicional: R$ 0</strong>.</li>
+<li><strong>Imagem base do Gateway (100%)</strong> — Debian minimal + <a class="gloss-link" data-gloss-target="gloss-node-red" href="#gloss-node-red" title="Ver no glossario">Node-RED</a> + <a class="gloss-link" data-gloss-target="gloss-buffer" href="#gloss-buffer" title="Ver no glossario">SQLite</a> + <a class="gloss-link" data-gloss-target="gloss-mqtt" href="#gloss-mqtt" title="Ver no glossario">MQTT</a> + cron + VPN <a class="gloss-link" data-gloss-target="gloss-wireguard" href="#gloss-wireguard" title="Ver no glossario">WireGuard</a> + watchdog já provisionados e em operação.</li>
+<li><strong>Plataforma <a class="gloss-link" data-gloss-target="gloss-thingsboard" href="#gloss-thingsboard" title="Ver no glossario">ThingsBoard</a> (100%)</strong> — instance TB, AlarmServiceOrchestrator, <a class="gloss-link" data-gloss-target="gloss-rule-engine" href="#gloss-rule-engine" title="Ver no glossario">Rule Engine</a> patterns, MyIOOrchestrator, MenuView, padrões shadow DOM.</li>
+<li><strong>Framework de widgets (70–90%)</strong> — Card Zona, Widget Status, Widget Alarmes, Widget Agendamentos, AllReportModal — só requerem adaptação de datasource e labels.</li>
+<li><strong>Framework de testes (100%)</strong> — Vitest setup, simuladores, CI/CD pipelines, checklist de homologação.</li>
+<li><strong>Documentação base (60%)</strong> — runbook, arquitetura geral, padrões de deploy — adaptar só as partes BACnet-específicas.</li>
+<li><strong>Equipe treinada (100%)</strong> — time já conhece o cliente, a infra e os padrões — onboarding zerado.</li>
+</ul>
+</article>
+<article class="card red">
+<h3>🆕 Escopo NOVO (CHILLER-específico)</h3>
+<ul>
+<li><strong>Driver BACnet/IP</strong> para comunicação com Niagara Framework (JACE) — <code>node-red-contrib-bacnet</code> ou implementação custom</li>
+<li><strong>Discovery Niagara</strong> — varredura UDP 47808, descoberta de points, mapeamento via Workbench Tridium</li>
+<li><strong>Widget Temperatura CHILLER</strong> — inlet water, outlet water, Δ water (diferente do simples temp ambiente do VRF)</li>
+<li><strong>Widget Vazão (Flow)</strong> — fluxo de água gelada em L/min com curva histórica</li>
+<li><strong>Widget Pressão</strong> — pressão de sucção e descarga do compressor</li>
+<li><strong>Widget Compressor</strong> — status, % de carga, runtime, ciclos liga/desliga</li>
+<li><strong>Widget Energia CHILLER</strong> — kWh específico do chiller (via 3F MyIO se disponível)</li>
+<li><strong>Catálogo de alarmes Niagara</strong> — mapeamento dos códigos BACnet/Niagara → Rule Engine TB</li>
+<li><strong>Automação específica</strong> — lógicas de sequenciamento de compressores, chilled water setpoint reset</li>
+<li><strong>Testes E2E com Niagara station real</strong> — validação com a estação <code>Mercado_Livre</code> do cliente</li>
+</ul>
+</article>
+<article class="card">
+<h3>🔁 Matriz Reuso vs Novo por Componente</h3>
+<div class="map-wrap">
+<table class="map-table">
+<thead>
+<tr>
+<th style="width:28%;">Componente</th>
+<th style="width:20%;">V1 VRF</th>
+<th style="width:27%;">V2 CHILLER</th>
+<th style="width:25%;">% Reuso</th>
+</tr>
+</thead>
+<tbody>
+<tr><td><strong>Hardware Gateway + infra</strong></td><td>Instalado</td><td>Reusado</td><td><span class="tag-green">100%</span></td></tr>
+<tr><td><strong>OS / Node-RED base</strong></td><td>Debian + NR</td><td>Reusado</td><td><span class="tag-green">100%</span></td></tr>
+<tr><td><strong>Driver de protocolo</strong></td><td><a class="gloss-link" data-gloss-target="gloss-modbus" href="#gloss-modbus" title="Ver no glossario">Modbus TCP</a>/RTU</td><td><strong>BACnet/IP (NOVO)</strong></td><td><span class="tag-red">0%</span></td></tr>
+<tr><td><strong>Buffer SQLite + sync MQTT</strong></td><td>✓</td><td>Reusado</td><td><span class="tag-green">100%</span></td></tr>
+<tr><td><strong>Cron scheduler local</strong></td><td>✓</td><td>Reusado</td><td><span class="tag-green">100%</span></td></tr>
+<tr><td><strong>Rule Engine TB</strong></td><td>✓</td><td>Ajuste de regras</td><td><span class="tag-green">90%</span></td></tr>
+<tr><td><strong>Widget Card Zona</strong></td><td>VRF zona</td><td>Adaptar (chiller)</td><td><span class="tag-amber">70%</span></td></tr>
+<tr><td><strong>Widget Status/Alarmes</strong></td><td>✓</td><td>Ajuste labels</td><td><span class="tag-green">90%</span></td></tr>
+<tr><td><strong>Widget Temperatura</strong></td><td>Simples (ambiente)</td><td>Complexo (in/out/Δ)</td><td><span class="tag-amber">60%</span></td></tr>
+<tr><td><strong>Widget Vazão / Pressão / Compressor</strong></td><td>—</td><td><strong>NOVO</strong></td><td><span class="tag-red">0%</span></td></tr>
+<tr><td><strong>Catálogo Alarmes</strong></td><td>Daikin</td><td><strong>Niagara (NOVO)</strong></td><td><span class="tag-red">0%</span></td></tr>
+<tr><td><strong>Relatórios / AllReportModal</strong></td><td>✓</td><td>Add device type</td><td><span class="tag-green">85%</span></td></tr>
+<tr><td><strong>Framework de testes</strong></td><td>✓</td><td>Reusado</td><td><span class="tag-green">100%</span></td></tr>
+<tr><td><strong>Documentação/Runbook</strong></td><td>✓</td><td>Adaptar</td><td><span class="tag-amber">60%</span></td></tr>
+</tbody>
+</table>
+</div>
+<p style="margin-top:8px;font-size:11.5px;color:var(--muted);">Reuso médio ponderado por esforço: <strong>~70%</strong>. Novas entregas concentram-se no driver BACnet e nos widgets específicos de chiller (vazão, pressão, compressor).</p>
+</article>
+<article class="card blue">
+<h3>👥 Esforço Estimado V2 — Comparação com V1</h3>
+<div class="map-wrap">
+<table class="map-table">
+<thead>
+<tr>
+<th style="width:30%;">Papel</th>
+<th style="width:18%;">V1 VRF</th>
+<th style="width:18%;">V2 CHILLER</th>
+<th style="width:16%;">Economia</th>
+<th style="width:18%;">Justificativa</th>
+</tr>
+</thead>
+<tbody>
+<tr><td><strong>Tech Lead</strong></td><td class="mono">50h</td><td class="mono">20h</td><td><span class="tag-green">-60%</span></td><td>Arquitetura base já definida</td></tr>
+<tr><td><strong>Frontend Dev</strong></td><td class="mono">80h</td><td class="mono">35h</td><td><span class="tag-green">-56%</span></td><td>Muitos widgets reusados</td></tr>
+<tr><td><strong>Backend/Embedded Dev</strong></td><td class="mono">90h</td><td class="mono">50h</td><td><span class="tag-amber">-44%</span></td><td>BACnet driver é 100% novo</td></tr>
+<tr><td><strong>QA</strong></td><td class="mono">50h</td><td class="mono">25h</td><td><span class="tag-green">-50%</span></td><td>Framework pronto, novos cenários</td></tr>
+<tr><td><strong>DevOps</strong></td><td class="mono">30h</td><td class="mono">10h</td><td><span class="tag-green">-67%</span></td><td>Imagem base já provisionada</td></tr>
+<tr><td><strong>Técnico Campo</strong></td><td class="mono">20h</td><td class="mono">4h</td><td><span class="tag-green">-80%</span></td><td>Sem instalação física nova</td></tr>
+<tr><td><strong>Analista Rede</strong></td><td class="mono">15h</td><td class="mono">5h</td><td><span class="tag-green">-67%</span></td><td>Só ACL BACnet (UDP 47808)</td></tr>
+<tr><td><strong>PO / PM</strong></td><td class="mono">50h</td><td class="mono">20h</td><td><span class="tag-green">-60%</span></td><td>Cliente e time já alinhados</td></tr>
+<tr><td><strong>UX Designer</strong></td><td class="mono">20h</td><td class="mono">10h</td><td><span class="tag-green">-50%</span></td><td>Novos widgets específicos</td></tr>
+<tr><td><strong>Tech Writer</strong></td><td class="mono">20h</td><td class="mono">10h</td><td><span class="tag-green">-50%</span></td><td>Adaptar docs existentes</td></tr>
+<tr style="background:linear-gradient(135deg,#f3eeff,#faf8ff);">
+<td style="font-weight:800;color:#392d69;">TOTAL</td>
+<td class="mono" style="font-weight:800;">~425h</td>
+<td class="mono" style="font-weight:800;color:var(--myio-purple);">~189h</td>
+<td><span class="tag-green" style="font-weight:800;">-55%</span></td>
+<td style="font-weight:700;color:#392d69;">≈ 1,1 <a class="gloss-link" data-gloss-target="gloss-fte" href="#gloss-fte" title="Ver definição de FTE no glossário">FTE-mês</a> (vs 2,5 do V1)</td>
+</tr>
+</tbody>
+</table>
+</div>
+</article>
+<article class="card amber">
+<h3>📆 Gantt V2 CHILLER — 13 semanas ponta-a-ponta</h3>
+<div style="overflow-x:auto;">
+<table style="width:100%;border-collapse:collapse;font-size:10px;min-width:640px;">
+<thead>
+<tr style="background:linear-gradient(135deg,#2a2a4a,#3a2d6e);color:#fff;">
+<th style="text-align:left;padding:6px 8px;width:26%;font-size:10px;text-transform:uppercase;letter-spacing:0.05em;">Atividade</th>
+<th style="width:5.7%;padding:6px 0;text-align:center;">S1</th>
+<th style="width:5.7%;text-align:center;">S2</th>
+<th style="width:5.7%;text-align:center;">S3</th>
+<th style="width:5.7%;text-align:center;">S4</th>
+<th style="width:5.7%;text-align:center;">S5</th>
+<th style="width:5.7%;text-align:center;">S6</th>
+<th style="width:5.7%;text-align:center;">S7</th>
+<th style="width:5.7%;text-align:center;">S8</th>
+<th style="width:5.7%;text-align:center;">S9</th>
+<th style="width:5.7%;text-align:center;">S10</th>
+<th style="width:5.7%;text-align:center;">S11</th>
+<th style="width:5.7%;text-align:center;">S12</th>
+<th style="width:5.7%;text-align:center;">S13</th>
+</tr>
+</thead>
+<tbody>
+<tr><td style="padding:5px 8px;color:#3d3464;font-weight:600;border-bottom:1px solid #f0ebf8;">Descoberta Niagara (BACnet)</td><td colspan="1" style="background:linear-gradient(90deg,#f5a623,#ffc94d);padding:6px;"></td><td colspan="12" style="border-bottom:1px solid #f0ebf8;"></td></tr>
+<tr><td style="padding:5px 8px;color:#3d3464;font-weight:600;border-bottom:1px solid #f0ebf8;">Sprint 0 — Kickoff (reduzido)</td><td colspan="1" style="background:linear-gradient(90deg,#e03131,#ff6b6b);padding:6px;"></td><td colspan="12" style="border-bottom:1px solid #f0ebf8;"></td></tr>
+<tr><td style="padding:5px 8px;color:#3d3464;font-weight:600;border-bottom:1px solid #f0ebf8;">Sprint 1 — Driver BACnet/IP</td><td colspan="1"></td><td colspan="2" style="background:linear-gradient(90deg,#663ab5,#7d52cf);padding:6px;"></td><td colspan="10" style="border-bottom:1px solid #f0ebf8;"></td></tr>
+<tr><td style="padding:5px 8px;color:#3d3464;font-weight:600;border-bottom:1px solid #f0ebf8;">Sprint 2 — Widgets CHILLER</td><td colspan="3"></td><td colspan="2" style="background:linear-gradient(90deg,#663ab5,#7d52cf);padding:6px;"></td><td colspan="8" style="border-bottom:1px solid #f0ebf8;"></td></tr>
+<tr><td style="padding:5px 8px;color:#3d3464;font-weight:600;border-bottom:1px solid #f0ebf8;">Sprint 3 — Integração + Alarmes</td><td colspan="5"></td><td colspan="2" style="background:linear-gradient(90deg,#663ab5,#7d52cf);padding:6px;"></td><td colspan="6" style="border-bottom:1px solid #f0ebf8;"></td></tr>
+<tr><td style="padding:5px 8px;color:#3d3464;font-weight:600;border-bottom:1px solid #f0ebf8;">Sprint 4 — Testes + Homologação</td><td colspan="7"></td><td colspan="1" style="background:linear-gradient(90deg,#663ab5,#7d52cf);padding:6px;"></td><td colspan="5" style="border-bottom:1px solid #f0ebf8;"></td></tr>
+<tr><td style="padding:5px 8px;color:#3d3464;font-weight:600;border-bottom:1px solid #f0ebf8;">Config BACnet (sem visita física)</td><td colspan="7"></td><td colspan="1" style="background:linear-gradient(90deg,#1864c4,#4d8fd6);padding:6px;"></td><td colspan="5" style="border-bottom:1px solid #f0ebf8;"></td></tr>
+<tr><td style="padding:5px 8px;color:#3d3464;font-weight:600;border-bottom:1px solid #f0ebf8;">Entrega Técnica &amp; Go-Live CHILLER</td><td colspan="8"></td><td colspan="1" style="background:linear-gradient(90deg,#04c081,#00e09b);padding:6px;"></td><td colspan="4" style="border-bottom:1px solid #f0ebf8;"></td></tr>
+<tr><td style="padding:5px 8px;color:#3d3464;font-weight:600;">Pós-instalação (suporte 30d)</td><td colspan="8"></td><td colspan="5" style="background:linear-gradient(90deg,#04c081,#00e09b);padding:6px;"></td></tr>
+</tbody>
+</table>
+</div>
+<p style="margin-top:10px;font-size:11px;color:var(--muted);line-height:1.8;">
+<strong>Legenda:</strong> 
+          <span style="background:linear-gradient(90deg,#f5a623,#ffc94d);color:#fff;padding:2px 8px;border-radius:4px;font-weight:700;">Discovery</span> 
+          <span style="background:linear-gradient(90deg,#e03131,#ff6b6b);color:#fff;padding:2px 8px;border-radius:4px;font-weight:700;">Kickoff</span> 
+          <span style="background:linear-gradient(90deg,#663ab5,#7d52cf);color:#fff;padding:2px 8px;border-radius:4px;font-weight:700;">Desenvolvimento</span> 
+          <span style="background:linear-gradient(90deg,#1864c4,#4d8fd6);color:#fff;padding:2px 8px;border-radius:4px;font-weight:700;">Config Rede</span> 
+          <span style="background:linear-gradient(90deg,#04c081,#00e09b);color:#fff;padding:2px 8px;border-radius:4px;font-weight:700;">Go-Live / Pós</span>
+</p>
+</article>
+<article class="card green">
+<h3>🏁 Milestones V2 CHILLER</h3>
+<div class="map-wrap">
+<table class="map-table">
+<thead>
+<tr>
+<th style="width:10%;">Marco</th>
+<th style="width:14%;">Semana</th>
+<th style="width:30%;">Entregável</th>
+<th style="width:46%;">Critério de Aceite</th>
+</tr>
+</thead>
+<tbody>
+<tr><td><strong>M0-V2</strong></td><td>S1</td><td>Kickoff V2 + Discovery</td><td>Acesso BACnet habilitado, points Niagara exportados, time alocado</td></tr>
+<tr><td><strong>M1-V2</strong></td><td>Fim S3</td><td>Driver BACnet funcional</td><td>Polling de points Niagara + sync TB + POC Widget Temperatura CHILLER</td></tr>
+<tr><td><strong>M2-V2</strong></td><td>Fim S5</td><td>Widgets CHILLER</td><td>Widgets Flow, Pressão, Compressor, Temperatura in/out validados em dashboard</td></tr>
+<tr><td><strong>M3-V2</strong></td><td>Fim S7</td><td>Alarmes &amp; Automação</td><td>Catálogo Niagara mapeado + Rule Engine + relatórios específicos chiller</td></tr>
+<tr><td><strong>M4-V2</strong></td><td>Fim S8</td><td>Homologação V2</td><td>Testes E2E com Niagara real, load test, checklist DoD V2 assinado</td></tr>
+<tr><td><strong>M5-V2</strong></td><td>S9</td><td>Go-Live CHILLER</td><td>Sistema operando em produção + aceite formal do cliente</td></tr>
+<tr><td><strong>M6-V2</strong></td><td>S13</td><td>Aceite Final V2</td><td>30 dias de operação estável + handover V2 encerrado</td></tr>
+</tbody>
+</table>
+</div>
+</article>
+<div class="highlight-box">
+<div class="hb-title">💰 Sumário Comparativo V1 VRF vs V2 CHILLER</div>
+<p>
+<strong>Sprints:</strong> V1=5 · V2=4 (Sprint 0 reduzido) · 
+          <strong>Horas:</strong> V1 ~425h · V2 ~189h <strong>(-55%)</strong> · 
+          <strong>Ponta-a-ponta:</strong> V1 15 sem · V2 13 sem <strong>(-2 sem)</strong> · 
+          <strong>CAPEX hardware:</strong> V1 R$ 15.550 · V2 <strong>R$ 0</strong> (infra existente) · 
+          <strong>OPEX incremental:</strong> apenas licença TB incremental de devices chiller.<br/>
+<strong>Conclusão:</strong> o maior ganho econômico do V2 está no CAPEX zerado e no esforço reduzido em ~55%. O prazo ponta-a-ponta encolhe apenas ~13% porque o tempo de dev + 30 dias de pós continuam necessários.
+        </p>
+</div>
+<div class="warn-box">
+<div class="wb-title">⚠️ Premissas para V2</div>
+<p>(1) V1 VRF entregue, homologado e em operação estável. (2) Licença Niagara ativa no JACE (hoje expirada em <code>melicidade1.myio-bas.com</code> — cliente precisa renovar SMA). (3) Acesso BACnet/IP habilitado via ACL (UDP 47808) ao <a class="gloss-link" data-gloss-target="gloss-gateway" href="#gloss-gateway" title="Ver no glossario">Gateway MyIO</a>. (4) Mapeamento de points Niagara exportado via Workbench Tridium antes do início. (5) Sem necessidade de novo hardware — Gateway reaproveitado. (6) Time V2 preferencialmente os mesmos profissionais do V1 (conhecem cliente, infra e padrões).</p>
+</div>
+</main>
+<footer class="footer">
+<strong>MYIO</strong>
+<span>Anexo G — Simulação V2 CHILLER · Melicidade</span>
+<span style="opacity:0.75;">v1.0 · Pág. 18</span>
+</footer>
+</section>
+</div>
+<script>
+  (function () {
+    // ─── Glossary links: smooth scroll + 8s glow ─────────────────
+    document.addEventListener('click', function (ev) {
+      var link = ev.target.closest && ev.target.closest('.gloss-link');
+      if (!link) return;
+      ev.preventDefault();
+      var id = link.getAttribute('data-gloss-target') || (link.getAttribute('href') || '').replace('#', '');
+      if (!id) return;
+      var target = document.getElementById(id);
+      if (!target) return;
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      target.classList.remove('glow-flash');
+      void target.offsetWidth;
+      target.classList.add('glow-flash');
+      setTimeout(function () { target.classList.remove('glow-flash'); }, 8100);
+    });
+
+    // ─── Sidebar nav: smooth scroll + active scrollspy ────────────
+    document.addEventListener('click', function (ev) {
+      var link = ev.target.closest && ev.target.closest('.sn-link');
+      if (!link) return;
+      ev.preventDefault();
+      var id = link.getAttribute('data-page') || (link.getAttribute('href') || '').replace('#', '');
+      var target = document.getElementById(id);
+      if (!target) return;
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+
+    function initScrollSpy() {
+      var pages = document.querySelectorAll('section.page[id^="page-"]');
+      var links = document.querySelectorAll('.sn-link');
+      if (!pages.length || !links.length) return;
+
+      var linkById = {};
+      links.forEach(function (a) {
+        var id = a.getAttribute('data-page') || (a.getAttribute('href') || '').replace('#', '');
+        if (id) linkById[id] = a;
+      });
+
+      function setActive(id) {
+        links.forEach(function (a) { a.classList.remove('active'); });
+        var a = linkById[id];
+        if (a) {
+          a.classList.add('active');
+          // Keep active link visible inside sidebar's own scroll
+          var nav = a.closest('.side-nav');
+          if (nav) {
+            var aRect = a.getBoundingClientRect();
+            var nRect = nav.getBoundingClientRect();
+            if (aRect.top < nRect.top + 40 || aRect.bottom > nRect.bottom - 20) {
+              a.scrollIntoView({ block: 'nearest' });
+            }
+          }
+        }
+      }
+
+      if ('IntersectionObserver' in window) {
+        var current = null;
+        var ratios = {};
+        var io = new IntersectionObserver(function (entries) {
+          entries.forEach(function (e) { ratios[e.target.id] = e.intersectionRatio; });
+          var best = null, bestR = 0;
+          Object.keys(ratios).forEach(function (k) {
+            if (ratios[k] > bestR) { bestR = ratios[k]; best = k; }
+          });
+          if (best && best !== current) { current = best; setActive(best); }
+        }, { threshold: [0.15, 0.4, 0.6, 0.85], rootMargin: '-10% 0px -40% 0px' });
+        pages.forEach(function (p) { io.observe(p); });
+      } else {
+        // Fallback: simple scroll handler
+        window.addEventListener('scroll', function () {
+          var mid = window.innerHeight / 2;
+          var best = null, bestDist = Infinity;
+          pages.forEach(function (p) {
+            var r = p.getBoundingClientRect();
+            var dist = Math.abs((r.top + r.bottom) / 2 - mid);
+            if (dist < bestDist) { bestDist = dist; best = p.id; }
+          });
+          if (best) setActive(best);
+        }, { passive: true });
+      }
+
+      // Initial state
+      var hash = (location.hash || '').replace('#', '');
+      if (hash && linkById[hash]) setActive(hash);
+      else setActive('page-1');
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initScrollSpy);
+    } else {
+      initScrollSpy();
+    }
+  })();
+</script>
+</body>
+</html>

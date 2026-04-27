@@ -1,0 +1,12 @@
+precisamos fazer uma integração com o cliente melicidade que usa uma integração 
+
+hoje 
+
+C:\Projetos\GitHub\myio\myio-js-library-PROD.git\src\thingsboard\bas-components\MAIN_BAS\controller.js
+
+renderiza o menu com um item derivado do asset 
+MelicidadeAsset
+
+Melicidade-Integrações
+
+que por sua vez está abrindo acho que iframe certo ?

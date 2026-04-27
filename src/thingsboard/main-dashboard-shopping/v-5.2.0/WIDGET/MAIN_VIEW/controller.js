@@ -1272,6 +1272,37 @@ Object.assign(window.MyIOUtils, {
       SHORT_DELAY_IN_MINS_TO_BYPASS_OFFLINE_STATUS
     );
 
+    // Charts SDK base URL — consumed by FOOTER (comparison modal iframe) and
+    // any other widget that renders @myio/energy-chart-sdk iframes. Fallback
+    // to production. Exposed via window.MyIOUtils so children read a single
+    // source of truth instead of hardcoding per widget.
+    widgetSettings.chartsBaseUrl =
+      self.ctx.settings?.chartsBaseUrl || 'https://graphs.apps.myio-bas.com';
+    window.MyIOUtils.chartsBaseUrl = widgetSettings.chartsBaseUrl;
+    LogHelper.log('[Orchestrator] chartsBaseUrl:', widgetSettings.chartsBaseUrl);
+
+    // Max footer selection limit — applied to the shared MyIOSelectionStore
+    // so the "Limite Atingido" alert fires at the configured threshold.
+    widgetSettings.maxSelection = self.ctx.settings?.maxSelection ?? 20;
+    try {
+      const selectionStore =
+        window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
+      if (selectionStore && typeof selectionStore.setMaxSelection === 'function') {
+        selectionStore.setMaxSelection(widgetSettings.maxSelection);
+        LogHelper.log(
+          '[Orchestrator] MyIOSelectionStore.setMaxSelection applied:',
+          widgetSettings.maxSelection
+        );
+      } else {
+        LogHelper.warn(
+          '[Orchestrator] MyIOSelectionStore.setMaxSelection not available (library too old?); limit stays at',
+          selectionStore?.MAX_SELECTION ?? 'unknown'
+        );
+      }
+    } catch (err) {
+      LogHelper.warn('[Orchestrator] Failed to apply maxSelection:', err);
+    }
+
     // RFC-0189: Temperature API fetch for offline detection + modal data source
     widgetSettings.enableTemperatureApiDataFetch = self.ctx.settings?.enableTemperatureApiDataFetch ?? false;
     // Expose via window.MyIOUtils for TELEMETRY widget (modal data source)

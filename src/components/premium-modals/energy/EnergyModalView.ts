@@ -28,7 +28,7 @@ export class EnergyModalView {
   private currentEnergyData: EnergyData | null = null;
   private dateRangePicker: DateRangeControl | null = null;
   private isLoading = false;
-  private currentTheme: 'dark' | 'light' = 'dark';
+  private currentTheme: 'dark' | 'light' = 'light';
   private currentBarMode: 'stacked' | 'grouped' = 'stacked';
   // RFC-0097: Granularity selector state (only 1h and 1d supported)
   private currentGranularity: '1h' | '1d' = '1d';
@@ -66,7 +66,7 @@ export class EnergyModalView {
     } else if (configTheme === 'dark' || configTheme === 'light') {
       this.currentTheme = configTheme;
     } else {
-      this.currentTheme = 'dark';
+      this.currentTheme = 'light';
     }
   }
 
@@ -82,18 +82,20 @@ export class EnergyModalView {
    * RFC-0097: Initializes granularity from config or localStorage
    */
   private initializeGranularity(): void {
+    // Priority: localStorage (user's last choice) > default '1d'.
+    // We intentionally ignore config.params.granularity here so the modal
+    // always opens on '1d' unless the user explicitly selected otherwise.
+    // Callers like FOOTER auto-compute '1h' for ≤1-day ranges, which we
+    // don't want to silently apply as the modal's initial selector state.
     const savedGranularity = localStorage.getItem('myio-modal-granularity') as '1h' | '1d' | null;
-    const configGranularity = this.config.params.granularity as '1h' | '1d' | null;
-    // Priority: localStorage > config params > default '1d'
-    // Only accept '1h' or '1d', fallback to '1d' for any other value
-    const candidate = savedGranularity || configGranularity || '1d';
+    const candidate = savedGranularity || '1d';
     this.currentGranularity = (candidate === '1h' || candidate === '1d') ? candidate : '1d';
   }
 
   /**
    * RFC-0097: Sets granularity and re-renders chart
    */
-  private setGranularity(granularity: '1h' | '1d'): void {
+  private async setGranularity(granularity: '1h' | '1d'): Promise<void> {
     if (this.currentGranularity === granularity) return;
 
     this.currentGranularity = granularity;
@@ -111,6 +113,18 @@ export class EnergyModalView {
 
     // Save preference to localStorage
     localStorage.setItem('myio-modal-granularity', granularity);
+
+    // Rebuild DateRangePicker so the time picker appears only for '1h'.
+    // Await so the picker is ready before the chart re-renders (avoids falling
+    // back to config.params dates during the rebuild window).
+    const dateRangeInput = document.getElementById('date-range') as HTMLInputElement | null;
+    if (dateRangeInput) {
+      try {
+        await this.rebuildDateRangePicker(dateRangeInput);
+      } catch (err) {
+        console.warn('[EnergyModalView] Failed to rebuild DateRangePicker after granularity change:', err);
+      }
+    }
 
     // Re-render chart with new granularity
     this.reRenderChart();
@@ -496,14 +510,12 @@ export class EnergyModalView {
               </svg>
             </button>
             ` : ''}
-            ${this.config.params.mode === 'comparison' ? `
             <!-- RFC-0097: Granularity Selector (only 1h and 1d supported) -->
             <div class="myio-granularity-selector" style="display: flex; align-items: center; gap: 4px; margin-left: 8px; padding: 4px 8px; background: rgba(0,0,0,0.05); border-radius: 8px;">
               <span class="myio-label-secondary" style="font-size: 11px; margin-right: 4px; white-space: nowrap;">Granularidade:</span>
               <button class="myio-btn myio-btn-granularity ${this.currentGranularity === '1h' ? 'active' : ''}" data-granularity="1h" title="Hora">1h</button>
               <button class="myio-btn myio-btn-granularity ${this.currentGranularity === '1d' ? 'active' : ''}" data-granularity="1d" title="Dia">1d</button>
             </div>
-            ` : ''}
             <button id="close-btn" class="myio-btn myio-btn-secondary">
               Fechar
             </button>
@@ -870,7 +882,7 @@ export class EnergyModalView {
       }
 
       const tzIdentifier = this.config.params.timezone || 'America/Sao_Paulo';
-      const granularity = this.config.params.granularity || '1d';
+      const granularity = this.currentGranularity;
       const ingestionId = this.config.context.resolved.ingestionId;
 
       console.log(`[EnergyModalView] Initializing v2 chart with: deviceId=${ingestionId}, startDate=${startISO}, endDate=${endISO}, granularity=${granularity}, theme=${this.currentTheme}, timezone=${tzIdentifier}`);
@@ -953,19 +965,24 @@ export class EnergyModalView {
       }
 
       // Get current dates
-      let startDateStr: string, endDateStr: string;
+      // SDK renderTelemetryStackedChart requires YYYY-MM-DD (no time) —
+      // passing full ISO causes "Invalid Date" in the chart.
+      // The `timezone` param below tells the SDK how to interpret the dates
+      // and render the X-axis in that timezone.
+      let startDateStr: string, endDateStr: string, startISOFull: string, endISOFull: string;
 
       if (this.dateRangePicker) {
         const dates = this.dateRangePicker.getDates();
-        // ⚠️ IMPORTANT: Comparison requires YYYY-MM-DD format (no time)
+        startISOFull = dates.startISO;
+        endISOFull = dates.endISO;
         startDateStr = dates.startISO.split('T')[0];
         endDateStr = dates.endISO.split('T')[0];
       } else {
         // Fallback to params
-        const startDate = new Date(this.config.params.startDate);
-        const endDate = new Date(this.config.params.endDate);
-        startDateStr = startDate.toISOString().split('T')[0];
-        endDateStr = endDate.toISOString().split('T')[0];
+        startISOFull = this.normalizeToSaoPauloISO(this.config.params.startDate, false);
+        endISOFull = this.normalizeToSaoPauloISO(this.config.params.endDate, true);
+        startDateStr = startISOFull.split('T')[0];
+        endDateStr = endISOFull.split('T')[0];
       }
 
       const tzIdentifier = this.config.params.timezone || 'America/Sao_Paulo';
@@ -976,12 +993,17 @@ export class EnergyModalView {
         clientSecret: this.config.params.clientSecret || 'admin_dashboard_secret_2025',
         dataSources: this.config.params.dataSources!,  // Already validated in constructor
         readingType: this.config.params.readingType || 'energy',
-        startDate: startDateStr,  // ← NO TIME (YYYY-MM-DD)
-        endDate: endDateStr,      // ← NO TIME (YYYY-MM-DD)
+        startDate: startDateStr,  // YYYY-MM-DD (SDK requirement)
+        endDate: endDateStr,      // YYYY-MM-DD (SDK requirement)
+        // Also send full ISO with -03:00 offset so newer SDK versions that
+        // support it can honor the exact boundary; older versions ignore these.
+        startTime: startISOFull,
+        endTime: endISOFull,
         granularity: this.currentGranularity,  // RFC-0097: Use current granularity from selector
         theme: this.currentTheme,  // ← Use current theme (dynamic)
         bar_mode: this.currentBarMode,  // ← Use current bar mode (stacked | grouped)
         timezone: tzIdentifier,
+        tz: tzIdentifier,  // Alias in case SDK reads 'tz'
         iframeBaseUrl: this.config.params.chartsBaseUrl || 'https://graphs.apps.myio-bas.com',
         apiBaseUrl: (this.config.params.dataApiHost || '').replace(/\/api\/v1\/?$/, ''),
         deep: this.config.params.deep || false
@@ -1042,17 +1064,21 @@ export class EnergyModalView {
       }
 
       // Get current dates
-      let startDateStr: string, endDateStr: string;
+      // SDK renderTelemetryLineChart requires YYYY-MM-DD (no time) —
+      // passing full ISO causes "Invalid Date" in the chart.
+      let startDateStr: string, endDateStr: string, startISOFull: string, endISOFull: string;
 
       if (this.dateRangePicker) {
         const dates = this.dateRangePicker.getDates();
+        startISOFull = dates.startISO;
+        endISOFull = dates.endISO;
         startDateStr = dates.startISO.split('T')[0];
         endDateStr = dates.endISO.split('T')[0];
       } else {
-        const startDate = new Date(this.config.params.startDate);
-        const endDate = new Date(this.config.params.endDate);
-        startDateStr = startDate.toISOString().split('T')[0];
-        endDateStr = endDate.toISOString().split('T')[0];
+        startISOFull = this.normalizeToSaoPauloISO(this.config.params.startDate, false);
+        endISOFull = this.normalizeToSaoPauloISO(this.config.params.endDate, true);
+        startDateStr = startISOFull.split('T')[0];
+        endDateStr = endISOFull.split('T')[0];
       }
 
       const tzIdentifier = this.config.params.timezone || 'America/Sao_Paulo';
@@ -1065,9 +1091,12 @@ export class EnergyModalView {
         readingType: 'temperature',
         startDate: startDateStr,
         endDate: endDateStr,
+        startTime: startISOFull,
+        endTime: endISOFull,
         granularity: this.currentGranularity,  // RFC-0097: Use current granularity from selector
         theme: this.currentTheme,
         timezone: tzIdentifier,
+        tz: tzIdentifier,
         iframeBaseUrl: this.config.params.chartsBaseUrl || 'https://graphs.apps.myio-bas.com',
         apiBaseUrl: (this.config.params.dataApiHost || '').replace(/\/api\/v1\/?$/, ''),
         deep: this.config.params.deep || false,
@@ -1491,16 +1520,55 @@ export class EnergyModalView {
     }
 
     // Initialize DateRangePicker with widget dates as defaults
+    await this.rebuildDateRangePicker(dateRangeInput);
+
+  }
+
+  /**
+   * (Re)builds the DateRangePicker. Time picker only shown when granularity = '1h'.
+   *
+   * Preserves only the DATE portion of the previous range — times are always
+   * reset to 00:00:00 (start) / 23:59:59 (end) on every rebuild, so toggling
+   * the granularity tab reliably brings back the full-day default. In 1h
+   * mode the user can then adjust hours/minutes freely; switching back to
+   * 1d wipes any custom time and restores the full-day boundaries.
+   */
+  private async rebuildDateRangePicker(input: HTMLInputElement): Promise<void> {
+    const toYmd = (v: unknown): string | undefined => {
+      if (!v) return undefined;
+      if (v instanceof Date) return v.toISOString().split('T')[0];
+      if (typeof v === 'string') return v.split('T')[0]; // strips any time/offset
+      return undefined;
+    };
+
+    let startYmd: string | undefined;
+    let endYmd: string | undefined;
+
+    if (this.dateRangePicker) {
+      try {
+        const current = this.dateRangePicker.getDates();
+        startYmd = toYmd(current.startISO);
+        endYmd = toYmd(current.endISO);
+      } catch { /* ignore, fall back to config */ }
+      this.dateRangePicker.destroy();
+      this.dateRangePicker = null;
+    }
+
+    if (!startYmd) startYmd = toYmd(this.config.params.startDate);
+    if (!endYmd) endYmd = toYmd(this.config.params.endDate);
+
+    // Always normalize to full-day boundaries in São Paulo. DateRangePickerJQ
+    // in `includeTime=false` mode further pins to startOf/endOf day, so the
+    // end result is deterministic regardless of granularity.
+    const presetStart = startYmd ? `${startYmd}T00:00:00-03:00` : undefined;
+    const presetEnd = endYmd ? `${endYmd}T23:59:59-03:00` : undefined;
+
     try {
-      this.dateRangePicker = await attachDateRangePicker(dateRangeInput, {
-        presetStart: this.config.params.startDate instanceof Date
-          ? this.config.params.startDate.toISOString().split('T')[0]
-          : this.config.params.startDate,
-        presetEnd: this.config.params.endDate instanceof Date
-          ? this.config.params.endDate.toISOString().split('T')[0]
-          : this.config.params.endDate,
+      this.dateRangePicker = await attachDateRangePicker(input, {
+        presetStart,
+        presetEnd,
         maxRangeDays: 90,
-        includeTime: true,
+        includeTime: this.currentGranularity === '1h',
         timePrecision: 'minute',
         parentEl: this.modal.element,
         onApply: ({ startISO, endISO }) => {
@@ -1511,7 +1579,6 @@ export class EnergyModalView {
     } catch (error) {
       console.warn('DateRangePicker initialization failed, using fallback:', error);
     }
-
   }
 
   /**

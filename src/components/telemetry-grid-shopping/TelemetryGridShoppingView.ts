@@ -267,14 +267,21 @@ export class TelemetryGridShoppingView {
       || 'Dispositivos';
     const unit = DOMAIN_CONFIG[this.params.domain]?.unit || '';
 
+    const resolveCustomerName = (): string | null => {
+      // Devices share the same customer in a grid; use the first available.
+      const devs = this.controller.getFilteredDevices();
+      const name = devs.find(d => d.customerName)?.customerName;
+      return name ? String(name).trim() : null;
+    };
+
     this.root.querySelector('#btnExportPdf')?.addEventListener('click', () => {
-      exportGridPdf(this.controller.getFilteredDevices(), label, unit);
+      exportGridPdf(this.controller.getFilteredDevices(), label, unit, null, resolveCustomerName());
     });
     this.root.querySelector('#btnExportXls')?.addEventListener('click', () => {
-      exportGridXls(this.controller.getFilteredDevices(), label, unit);
+      exportGridXls(this.controller.getFilteredDevices(), label, unit, null, resolveCustomerName());
     });
     this.root.querySelector('#btnExportCsv')?.addEventListener('click', () => {
-      exportGridCsv(this.controller.getFilteredDevices(), label, unit);
+      exportGridCsv(this.controller.getFilteredDevices(), label, unit, null, resolveCustomerName());
     });
 
     // Bind filter modal events after it's cached but before moving to body

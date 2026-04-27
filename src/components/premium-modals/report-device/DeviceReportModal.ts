@@ -145,10 +145,10 @@ export class DeviceReportModal {
               <label class="myio-label" for="date-range">Período</label>
               <input type="text" id="date-range" class="myio-input" readonly placeholder="Selecione o período" style="width: 300px;">
             </div>
-            <!-- granularity-toggle hidden: 1h not yet supported, default stays 1d -->
-            <div id="granularity-toggle" role="group" aria-label="Granularidade" style="display:none;">
-              <button type="button" data-gran="1d">1d</button>
-              <button type="button" data-gran="1h">1h</button>
+            <div id="granularity-toggle" role="group" aria-label="Granularidade" style="display:flex; align-items:center; gap:4px; padding:4px 8px; background:rgba(0,0,0,0.05); border-radius:8px;">
+              <span style="font-size:11px; margin-right:4px; white-space:nowrap; color:var(--myio-text-muted,#6b7280);">Granularidade:</span>
+              <button type="button" data-gran="1d" title="Dia" style="padding:4px 10px; font-size:12px; font-weight:600; border:1px solid transparent; border-radius:6px; cursor:pointer;">1d</button>
+              <button type="button" data-gran="1h" title="Hora" style="padding:4px 10px; font-size:12px; font-weight:600; border:1px solid transparent; border-radius:6px; cursor:pointer;">1h</button>
             </div>
             <button id="load-btn" class="myio-btn myio-btn-primary">
               <span class="myio-spinner" id="load-spinner" style="display: none;"></span>
@@ -185,26 +185,84 @@ export class DeviceReportModal {
 
     // Granularity toggle
     const granToggle = document.getElementById('granularity-toggle');
-    granToggle?.addEventListener('click', (e) => {
-      const btn = (e.target as HTMLElement).closest('[data-gran]') as HTMLElement | null;
-      if (!btn) return;
-      this.granularity = btn.dataset.gran as '1d' | '1h';
-      granToggle.querySelectorAll<HTMLElement>('[data-gran]').forEach((b) => {
-        const isActive = b === btn;
+    const applyGranularityStyles = () => {
+      granToggle?.querySelectorAll<HTMLElement>('[data-gran]').forEach((b) => {
+        const isActive = b.dataset.gran === this.granularity;
         b.style.background = isActive ? 'var(--myio-primary,#1565c0)' : 'transparent';
         b.style.color = isActive ? '#fff' : '#6b7280';
       });
+    };
+    applyGranularityStyles();
+    granToggle?.addEventListener('click', async (e) => {
+      const btn = (e.target as HTMLElement).closest('[data-gran]') as HTMLElement | null;
+      if (!btn) return;
+      const next = btn.dataset.gran as '1d' | '1h';
+      if (next === this.granularity) return;
+      this.granularity = next;
+      applyGranularityStyles();
+      // Rebuild DateRangePicker so the time input appears only when 1h
+      await this.rebuildDateRangePicker(dateRangeInput);
+      // Clear stale table so the user re-loads with the new granularity
+      this.data = [];
+      const tableContainer = document.getElementById('table-container');
+      if (tableContainer) {
+        tableContainer.innerHTML = `
+          <div style="text-align: center; padding: 40px; color: var(--myio-text-muted);">
+            Granularidade alterada para <strong>${this.granularity}</strong>. Clique em "Carregar" para atualizar os dados.
+          </div>
+        `;
+      }
+      const exportBtn = document.getElementById('export-btn') as HTMLButtonElement | null;
+      if (exportBtn) exportBtn.disabled = true;
     });
 
     // Initialize DateRangePicker with default current month range
+    await this.rebuildDateRangePicker(dateRangeInput);
+  }
+
+  /**
+   * (Re)builds the DateRangePicker. Time picker only shown when granularity = '1h'.
+   * Preserves the currently selected range when rebuilding after a granularity change.
+   */
+  private async rebuildDateRangePicker(input: HTMLInputElement): Promise<void> {
+    // Keep only the date portion (YYYY-MM-DD). Times are always reset to
+    // 00:00:00 / 23:59:59 on rebuild so toggling granularity deterministically
+    // brings back the full-day default.
+    const toYmd = (v: unknown): string | undefined => {
+      if (!v) return undefined;
+      if (v instanceof Date) return v.toISOString().split('T')[0];
+      if (typeof v === 'string') return v.split('T')[0];
+      return undefined;
+    };
+
+    let startYmd: string | undefined;
+    let endYmd: string | undefined;
+
+    if (this.dateRangePicker) {
+      try {
+        const current = this.dateRangePicker.getDates();
+        startYmd = toYmd(current.startISO);
+        endYmd = toYmd(current.endISO);
+      } catch { /* fall back to defaults */ }
+      this.dateRangePicker.destroy();
+      this.dateRangePicker = null;
+    }
+
+    if (!startYmd) startYmd = toYmd(this.getDefaultStartDate());
+    if (!endYmd) endYmd = toYmd(this.getDefaultEndDate());
+
+    const presetStart = startYmd ? `${startYmd}T00:00:00-03:00` : undefined;
+    const presetEnd = endYmd ? `${endYmd}T23:59:59-03:00` : undefined;
+
     try {
-      this.dateRangePicker = await attachDateRangePicker(dateRangeInput, {
-        presetStart: this.getDefaultStartDate(),
-        presetEnd: this.getDefaultEndDate(),
+      this.dateRangePicker = await attachDateRangePicker(input, {
+        presetStart,
+        presetEnd,
         maxRangeDays: 31,
+        includeTime: this.granularity === '1h',
+        timePrecision: 'minute',
         parentEl: this.modal.element,
         onApply: ({ startISO, endISO }) => {
-          // Optional: auto-load when date range changes
           this.hideError();
           console.log('Date range selected:', { startISO, endISO });
         }

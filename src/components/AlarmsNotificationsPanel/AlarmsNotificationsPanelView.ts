@@ -3,6 +3,7 @@
  * DOM rendering and event handling
  */
 
+import { jsPDF } from 'jspdf';
 import type { Alarm, AlarmFilters, AlarmSeverity, AlarmState, AlarmTrendDataPoint } from '../../types/alarm';
 import { SEVERITY_CONFIG, STATE_CONFIG, DEFAULT_EXCLUDED_ALARM_TYPES } from '../../types/alarm';
 import { AlarmService } from '../../services/alarm/AlarmService';
@@ -1204,6 +1205,79 @@ export class AlarmsNotificationsPanelView {
     });
   }
 
+  // =====================================================================
+  // Export helpers
+  // =====================================================================
+
+  /** Returns the single customer name shared by the filtered alarms, or null
+   *  when the selection spans multiple shoppings. */
+  private _exportCustomerName(): string | null {
+    const alarms = this.groupMode === 'separado'
+      ? this.controller.getState().filteredAlarms
+      : this.groupedAlarms;
+    const names = new Set(alarms.map((a) => a.customerName).filter(Boolean));
+    if (names.size === 1) return [...names][0] as string;
+    return null;
+  }
+
+  /** Returns "DD/MM/AAAA — DD/MM/AAAA" from the active filters, or null. */
+  private _exportPeriodLabel(): string | null {
+    const f = this.controller.getFilters();
+    const fromISO = f.fromDate;
+    const toISO = f.toDate;
+    if (!fromISO && !toISO) return null;
+    const fmt = (iso?: string) => {
+      if (!iso) return '';
+      const d = new Date(iso);
+      return isNaN(d.getTime()) ? '' : d.toLocaleDateString('pt-BR');
+    };
+    if (fromISO && toISO) return `${fmt(fromISO)} — ${fmt(toISO)}`;
+    return fmt(fromISO || toISO || '');
+  }
+
+  private _exportDatestamp(): string {
+    const d = new Date();
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`;
+  }
+
+  private _exportSlugify(s: string): string {
+    return s
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .replace(/[^\w]+/g, '-')
+      .toLowerCase()
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 40);
+  }
+
+  /** Builds `alarmes-[customer-]YYYYMMDD-HHmm` for export filenames. */
+  private _exportFilenameBase(): string {
+    const customer = this._exportCustomerName();
+    const parts = ['alarmes'];
+    if (customer) {
+      const slug = this._exportSlugify(customer);
+      if (slug) parts.push(slug);
+    }
+    parts.push(this._exportDatestamp());
+    return parts.join('-');
+  }
+
+  /**
+   * Rows for tabular exports (CSV / XLS / PDF). Schema tuned per groupMode:
+   *
+   * - separado (Disp. + Tipo): one row per (device × alarm type). Drops the
+   *   legacy "Fechado em" / "Motivo" columns that only made sense for the
+   *   closed-history path and cluttered normal exports.
+   *
+   * - consolidado (Por Tipo): one row per alarm type. The "Fonte" column is
+   *   renamed to "Dispositivos afetados" — that's semantically what
+   *   alarm.source carries here (comma-separated list of devices).
+   *
+   * - porDispositivo (Por Disp.): one row per device. Adds a "Tipos de Alarme"
+   *   column with the same list rendered as chips on the cards; drops the
+   *   redundant "Fonte" column (device already identifies the row).
+   */
   private getCsvRows(): string[][] {
     const fmtDt = (iso: string | number | null | undefined): string => {
       if (!iso) return '';
@@ -1211,11 +1285,19 @@ export class AlarmsNotificationsPanelView {
       return isNaN(d.getTime()) ? '' : d.toLocaleString('pt-BR');
     };
 
-    // Separado mode: one row per individual alarm event × device — no aggregation
+    // Separado — one row per device × alarm type
     if (this.groupMode === 'separado') {
       const rawAlarms = this.controller.getState().filteredAlarms;
       const hasCustomer = rawAlarms.some((a) => !!a.customerName);
-      const header = ['Tipo', 'Severidade', 'Estado', ...(hasCustomer ? ['Cliente'] : []), 'Dispositivo', '1a Ocorrência', 'Último Evento', 'Fechado em', 'Motivo'];
+      const header = [
+        'Dispositivo',
+        'Tipo',
+        'Severidade',
+        'Estado',
+        ...(hasCustomer ? ['Cliente'] : []),
+        '1a Ocorrência',
+        'Última Ocorrência',
+      ];
       const rows: string[][] = [header];
       for (const alarm of rawAlarms) {
         const devices = alarm.source
@@ -1223,24 +1305,57 @@ export class AlarmsNotificationsPanelView {
           : [''];
         for (const device of devices) {
           rows.push([
+            device,
             alarm.title || '',
             alarm.severity,
             alarm.state,
             ...(hasCustomer ? [alarm.customerName || ''] : []),
-            device,
             fmtDt(alarm.firstOccurrence),
             fmtDt(alarm.lastOccurrence),
-            fmtDt(alarm.closedAt),
-            alarm.closedReason || '',
           ]);
         }
       }
       return rows;
     }
 
-    // Consolidado / Por Dispositivo: aggregated rows
     const hasCustomer = this.groupedAlarms.some((a) => !!a.customerName);
-    const header = ['Tipo', 'Severidade', 'Estado', ...(hasCustomer ? ['Cliente'] : []), 'Fonte', 'Qte.', '1a Ocorrência', 'Últ. Ocorrência'];
+
+    // porDispositivo — Dispositivo + Tipos de Alarme (from _alarmTypes chips)
+    if (this.groupMode === 'porDispositivo') {
+      const header = [
+        'Dispositivo',
+        'Tipos de Alarme',
+        'Severidade',
+        'Estado',
+        ...(hasCustomer ? ['Cliente'] : []),
+        'Qte.',
+        '1a Ocorrência',
+        'Última Ocorrência',
+      ];
+      const dataRows = this.groupedAlarms.map((a) => [
+        a.title || a.source || '',
+        (a._alarmTypes || []).join(', '),
+        a.severity,
+        a.state,
+        ...(hasCustomer ? [a.customerName || ''] : []),
+        String(a.occurrenceCount || 1),
+        fmtDt(a.firstOccurrence),
+        fmtDt(a.lastOccurrence),
+      ]);
+      return [header, ...dataRows];
+    }
+
+    // consolidado (Por Tipo) — Tipo + list of affected devices
+    const header = [
+      'Tipo',
+      'Severidade',
+      'Estado',
+      ...(hasCustomer ? ['Cliente'] : []),
+      'Dispositivos afetados',
+      'Qte.',
+      '1a Ocorrência',
+      'Última Ocorrência',
+    ];
     const dataRows = this.groupedAlarms.map((a) => [
       a.title || '',
       a.severity,
@@ -1257,41 +1372,185 @@ export class AlarmsNotificationsPanelView {
   private exportToCsv(): void {
     const rows = this.getCsvRows();
     const BOM = '\uFEFF';
-    const csv = BOM + rows.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(',')).join('\r\n');
-    this.triggerDownload(csv, 'alarmes.csv', 'text/csv;charset=utf-8;');
+    const customer = this._exportCustomerName();
+    const period = this._exportPeriodLabel();
+
+    const meta: string[] = ['"Relatório de Alarmes"'];
+    if (customer) meta.push(`"Cliente";"${customer.replace(/"/g, '""')}"`);
+    if (period) meta.push(`"Período";"${period}"`);
+    meta.push(`"Gerado em";"${new Date().toLocaleString('pt-BR')}"`);
+    meta.push('');
+
+    const body = rows
+      .map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(','))
+      .join('\r\n');
+
+    this.triggerDownload(
+      BOM + meta.join('\r\n') + '\r\n' + body,
+      `${this._exportFilenameBase()}.csv`,
+      'text/csv;charset=utf-8;'
+    );
   }
 
   private exportToExcel(): void {
     const rows = this.getCsvRows();
-    // HTML table that Excel opens natively
+    const customer = this._exportCustomerName();
+    const period = this._exportPeriodLabel();
+    const span = Math.max(1, (rows[0]?.length || 1));
+    const metaRow = (k: string, v: string) =>
+      `<tr><td style="background:#F0EDF9;font-weight:700;border:1px solid #ccc;padding:4px 8px;font-size:11px;">${k}</td>` +
+      `<td colspan="${span - 1}" style="border:1px solid #ccc;padding:4px 8px;font-size:11px;">${v}</td></tr>`;
+    const metaBlock =
+      metaRow('Relatório', 'Alarmes') +
+      (customer ? metaRow('Cliente', customer) : '') +
+      (period ? metaRow('Período', period) : '') +
+      metaRow('Gerado em', new Date().toLocaleString('pt-BR')) +
+      `<tr><td colspan="${span}" style="border:0;padding:2px;"></td></tr>`;
+
     const htmlTable = `<html xmlns:x="urn:schemas-microsoft-com:office:excel">
-<head><meta charset="UTF-8"><style>td,th{border:1px solid #ccc;padding:4px 8px;font-size:11px;}th{background:#7c3aed;color:#fff;}</style></head>
-<body><table>${rows.map((r, i) => `<tr>${r.map((c) => i === 0 ? `<th>${c}</th>` : `<td>${c}</td>`).join('')}</tr>`).join('')}</table></body>
+<head><meta charset="UTF-8"><style>td,th{border:1px solid #ccc;padding:4px 8px;font-size:11px;}th{background:#3E1A7D;color:#fff;}</style></head>
+<body><table>${metaBlock}${rows.map((r, i) => `<tr>${r.map((c) => i === 0 ? `<th>${c}</th>` : `<td>${c}</td>`).join('')}</tr>`).join('')}</table></body>
 </html>`;
-    this.triggerDownload(htmlTable, 'alarmes.xls', 'application/vnd.ms-excel;charset=utf-8;');
+    this.triggerDownload(
+      htmlTable,
+      `${this._exportFilenameBase()}.xls`,
+      'application/vnd.ms-excel;charset=utf-8;'
+    );
   }
 
+  /**
+   * Premium PDF export (landscape A4) — mirrors the design used by
+   * `src/components/telemetry-grid-shopping/export.ts`: purple top band
+   * with title, right-side metadata line (Período · Gerado em · # alarmes ·
+   * Pág.), purple column-header row, alternating row shading, purple
+   * footer band. Saves directly via `doc.save()` — no window.open detour.
+   */
   private exportToPdf(): void {
-    // Build a print-friendly page in a new window
     const rows = this.getCsvRows();
-    const tableHtml = `<table style="width:100%;border-collapse:collapse;font-size:11px;">
-      ${rows.map((r, i) => `<tr>${r.map((c) => i === 0
-        ? `<th style="background:#7c3aed;color:#fff;padding:5px 8px;border:1px solid #555;">${c}</th>`
-        : `<td style="padding:4px 8px;border:1px solid #ddd;">${c}</td>`
-      ).join('')}</tr>`).join('')}
-    </table>`;
-    const win = window.open('', '_blank');
-    if (!win) return;
-    win.document.write(`<!DOCTYPE html><html><head><title>Alarmes</title>
-      <style>body{font-family:sans-serif;padding:16px;}h2{font-size:14px;margin-bottom:8px;}@media print{button{display:none}}</style>
-    </head><body>
-      <h2>Relatório de Alarmes</h2>
-      ${tableHtml}
-      <br><button onclick="window.print()">Imprimir / Salvar PDF</button>
-    </body></html>`);
-    win.document.close();
-    win.focus();
-    setTimeout(() => win.print(), 400);
+    if (rows.length < 1) return;
+    const headerRow = rows[0];
+    const dataRows = rows.slice(1);
+
+    const customer = this._exportCustomerName();
+    const period = this._exportPeriodLabel();
+    const generatedAt = new Date().toLocaleString('pt-BR');
+    const title = customer ? `${customer} — Relatório de Alarmes` : 'Relatório de Alarmes';
+
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const PW = doc.internal.pageSize.getWidth();
+    const PH = doc.internal.pageSize.getHeight();
+
+    const MARGIN = 10;
+    const HDR_H = 13;
+    const FTR_H = 10;
+    const ROW_H = 7;
+    const HEAD_H = 8;
+    const TABLE_Y = HDR_H + MARGIN;
+    const MAX_Y = PH - FTR_H - MARGIN;
+    const TABLE_W = PW - MARGIN * 2;
+
+    // Proportional column widths tuned to alarm semantics
+    const colWeights = headerRow.map((label) => {
+      const l = label.toLowerCase();
+      if (l.includes('tipos') || l.includes('afetados')) return 4;
+      if (l.includes('dispositivo') || l === 'tipo' || l === 'cliente') return 3;
+      if (l.includes('ocorrência') || l === 'estado' || l === 'severidade') return 2;
+      return 1.2; // Qte.
+    });
+    const weightSum = colWeights.reduce((s, w) => s + w, 0);
+    const colWidths = colWeights.map((w) => (w / weightSum) * TABLE_W);
+    const colX = (ci: number): number =>
+      MARGIN + colWidths.slice(0, ci).reduce((s, w) => s + w, 0);
+
+    const truncate = (s: string, max: number): string =>
+      s.length > max ? s.slice(0, max - 1) + '…' : s;
+
+    const drawHeader = (pageNo: number): void => {
+      doc.setFillColor(62, 26, 125);
+      doc.rect(0, 0, PW, HDR_H, 'F');
+
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.text(title, MARGIN, HDR_H / 2 + 1.5);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      const parts: string[] = [];
+      if (period) parts.push(`Período: ${period}`);
+      parts.push(`Gerado em: ${generatedAt}`);
+      parts.push(`${dataRows.length} alarme${dataRows.length !== 1 ? 's' : ''}`);
+      parts.push(`Pág. ${pageNo}`);
+      doc.text(parts.join('  •  '), PW - MARGIN, HDR_H / 2 + 1.5, { align: 'right' });
+    };
+
+    const drawColumnHeaders = (y: number): void => {
+      doc.setFillColor(240, 237, 250);
+      doc.rect(MARGIN, y, TABLE_W, HEAD_H, 'F');
+      doc.setTextColor(62, 26, 125);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      headerRow.forEach((label, ci) => {
+        const x = colX(ci) + 1.5;
+        doc.text(label, x, y + HEAD_H / 2 + 2.5);
+      });
+      doc.setDrawColor(200, 195, 220);
+      doc.setLineWidth(0.2);
+      doc.rect(MARGIN, y, TABLE_W, HEAD_H);
+    };
+
+    const drawDataRow = (cells: string[], y: number, even: boolean): void => {
+      if (even) {
+        doc.setFillColor(250, 249, 255);
+        doc.rect(MARGIN, y, TABLE_W, ROW_H, 'F');
+      }
+      doc.setTextColor(40, 40, 40);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.5);
+      cells.forEach((cell, ci) => {
+        const x = colX(ci) + 1.5;
+        const maxChars = Math.floor(colWidths[ci] / 1.8);
+        doc.text(truncate(String(cell ?? ''), maxChars), x, y + ROW_H / 2 + 2.2);
+      });
+      doc.setDrawColor(230, 228, 240);
+      doc.setLineWidth(0.1);
+      doc.line(MARGIN, y + ROW_H, MARGIN + TABLE_W, y + ROW_H);
+    };
+
+    const drawFooter = (): void => {
+      doc.setFillColor(250, 249, 255);
+      doc.rect(0, PH - FTR_H, PW, FTR_H, 'F');
+      doc.setDrawColor(210, 205, 230);
+      doc.setLineWidth(0.2);
+      doc.line(MARGIN, PH - FTR_H + 0.5, PW - MARGIN, PH - FTR_H + 0.5);
+      doc.setTextColor(120, 110, 150);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7);
+      doc.text(`Gerado em ${generatedAt}  —  MyIO`, MARGIN, PH - FTR_H + 6);
+    };
+
+    let pageNo = 1;
+    let currentY = TABLE_Y;
+    drawHeader(pageNo);
+    drawColumnHeaders(currentY);
+    currentY += HEAD_H;
+
+    dataRows.forEach((row, i) => {
+      if (currentY + ROW_H > MAX_Y) {
+        drawFooter();
+        doc.addPage();
+        pageNo++;
+        currentY = TABLE_Y;
+        drawHeader(pageNo);
+        drawColumnHeaders(currentY);
+        currentY += HEAD_H;
+      }
+      drawDataRow(row, currentY, i % 2 === 0);
+      currentY += ROW_H;
+    });
+
+    drawFooter();
+    doc.save(`${this._exportFilenameBase()}.pdf`);
   }
 
   private triggerDownload(content: string, filename: string, mimeType: string): void {

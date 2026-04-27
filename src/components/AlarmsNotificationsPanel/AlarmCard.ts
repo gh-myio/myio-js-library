@@ -255,6 +255,12 @@ export function createAlarmCardElement(
   const scrollRight = card.querySelector('.alarm-type-scroll-btn--right') as HTMLButtonElement | null;
   if (typeList && scrollLeft && scrollRight) {
     const updateArrows = () => {
+      // Overflow check drives both the arrow visibility and the centering
+      // toggle. When chips fit, we keep them centered (CSS default);
+      // when they overflow, we anchor at flex-start so scrolling works.
+      const hasOverflow = typeList.scrollWidth - typeList.clientWidth > 1;
+      typeList.classList.toggle('is-overflowing', hasOverflow);
+
       const canLeft = typeList.scrollLeft > 0;
       const canRight = typeList.scrollLeft < typeList.scrollWidth - typeList.clientWidth - 1;
       scrollLeft.style.opacity = canLeft ? '1' : '0';

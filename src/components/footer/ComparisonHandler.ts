@@ -18,7 +18,7 @@ import {
   type OperationalDevice,
 } from '../operational-comparison-modal';
 
-const DEFAULT_CHARTS_BASE_URL = 'https://graphs.staging.apps.myio-bas.com';
+const DEFAULT_CHARTS_BASE_URL = 'https://graphs.apps.myio-bas.com';
 
 /**
  * Logger helper

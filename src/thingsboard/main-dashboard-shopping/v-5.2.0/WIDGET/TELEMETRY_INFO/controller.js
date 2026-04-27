@@ -3123,6 +3123,101 @@ function setupGroupFilterCards() {
 }
 
 /**
+ * Resolve the device list for a given card group. Returns plain objects
+ * like { id, label, name } ready to be fed to MyIOSelectionStore.
+ *
+ * @param {string} group - value of the data-group attribute on the card
+ * @returns {Array<{id:string,label:string,name:string}>}
+ */
+function _getDevicesForGroup(group) {
+  if (!group || !STATE) return [];
+  // Entrada is the top-of-chain node with its own device list.
+  if (group === 'entrada') return Array.isArray(STATE.entrada?.devices) ? STATE.entrada.devices : [];
+  // All other consumer groups live under STATE.consumidores
+  const groupData = STATE.consumidores?.[group];
+  return Array.isArray(groupData?.devices) ? groupData.devices : [];
+}
+
+/**
+ * Enables dragging an info-card onto the footer dock to bulk-add every
+ * device belonging to that group. The drop is handled by the FOOTER
+ * widget, which reads the `application/x-myio-group` payload.
+ *
+ * The footer's MyIOSelectionStore enforces the max-selection limit; if
+ * we exceed it during the iteration the store fires `selection:limit-reached`
+ * which the footer already surfaces via the premium alert modal.
+ */
+function setupGroupDragCards() {
+  const $container = $root();
+
+  $container.find('.info-card[data-group]').each(function () {
+    const $card = $J(this);
+    const group = $card.data('group');
+    if (!group) return;
+
+    // areaComum is residual in the energy domain (no explicit devices),
+    // and banheiros is water-only with its own state; keep them clickable
+    // for filter but don't make them draggable unless they actually have
+    // devices at drag time.
+    this.setAttribute('draggable', 'true');
+    $card.addClass('info-card--draggable');
+  });
+
+  $container.on('dragstart.myioGroupDrag', '.info-card[data-group]', function (e) {
+    const devices = _getDevicesForGroup($J(this).data('group'));
+    if (!devices.length) {
+      // Nothing to drag — cancel so the browser doesn't start a generic drag.
+      e.preventDefault();
+      return;
+    }
+
+    const group = $J(this).data('group');
+    const deviceIds = devices.map((d) => d.id).filter(Boolean);
+
+    // Register each device's metadata with the SelectionStore so footer
+    // chips render with label/name instead of bare ids.
+    const store = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
+    if (store && typeof store.registerEntity === 'function') {
+      devices.forEach((d) => {
+        if (!d.id) return;
+        try {
+          store.registerEntity({
+            id: d.id,
+            name: d.name || d.label || d.id,
+            label: d.label || d.name || d.id,
+            domain: getWidgetDomain() === 'water' ? 'water' : 'energy',
+          });
+        } catch { /* ignore — footer can still display the chip */ }
+      });
+    }
+
+    const payload = {
+      type: 'myio-group',
+      group,
+      domain: getWidgetDomain() === 'water' ? 'water' : 'energy',
+      deviceIds,
+    };
+
+    const dt = e.originalEvent?.dataTransfer || e.dataTransfer;
+    if (!dt) return;
+    try {
+      dt.setData('application/x-myio-group', JSON.stringify(payload));
+      dt.setData('text/plain', `myio-group:${group}:${deviceIds.join(',')}`);
+      dt.effectAllowed = 'copy';
+    } catch { /* some older browsers reject non-text MIME types */ }
+
+    this.classList.add('info-card--dragging');
+    LogHelper.log('[TELEMETRY_INFO] Drag start — group:', group, 'devices:', deviceIds.length);
+  });
+
+  $container.on('dragend.myioGroupDrag', '.info-card[data-group]', function () {
+    this.classList.remove('info-card--dragging');
+  });
+
+  LogHelper.log('[TELEMETRY_INFO] Group drag handlers registered');
+}
+
+/**
  * RFC-0196: Apply the current GROUP_FILTER state:
  *   - Dim inactive cards
  *   - Recalculate percentages for active groups
@@ -4208,6 +4303,10 @@ self.onInit = async function () {
 
   // RFC-0196: Setup clickable group filter cards
   setupGroupFilterCards();
+
+  // Drag support: drop an info-card on the footer dock to bulk-add all
+  // devices belonging to that group.
+  setupGroupDragCards();
 
   // Setup info tooltips (premium style)
   setTimeout(() => {
