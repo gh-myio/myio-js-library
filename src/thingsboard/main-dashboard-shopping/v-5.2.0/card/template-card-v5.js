@@ -1331,6 +1331,58 @@ export function renderCardComponentV5({
     document.head.appendChild(layoutStyle);
   }
 
+  if (!document.getElementById('myio-card-alert-styles')) {
+    const alertStyle = document.createElement('style');
+    alertStyle.id = 'myio-card-alert-styles';
+    alertStyle.textContent = `
+      .myio-alert-overlay {
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 100000;
+        display: flex; align-items: center; justify-content: center;
+        background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+        animation: myio-fadeIn 0.2s ease-out;
+      }
+      @keyframes myio-fadeIn { from { opacity: 0; } to { opacity: 1; } }
+      .myio-alert-box {
+        position: relative; max-width: 480px; width: 90%; padding: 32px;
+        background: #ffffff; border: 1px solid rgba(0,0,0,0.1); border-radius: 20px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        animation: myio-slideUp 0.3s cubic-bezier(0.4,0,0.2,1);
+      }
+      @keyframes myio-slideUp {
+        from { opacity: 0; transform: translateY(40px) scale(0.95); }
+        to   { opacity: 1; transform: translateY(0) scale(1); }
+      }
+      .myio-alert-icon {
+        width: 64px; height: 64px; margin: 0 auto 20px;
+        display: flex; align-items: center; justify-content: center;
+        background: linear-gradient(135deg, #3E1A7D 0%, #2D1359 100%);
+        border: 2px solid #3E1A7D; border-radius: 50%; color: #ffffff; font-size: 32px;
+      }
+      .myio-alert-title {
+        margin: 0 0 12px; font-size: 24px; font-weight: 700; color: #000000;
+        text-align: center; letter-spacing: -0.02em;
+      }
+      .myio-alert-message {
+        margin: 0 0 28px; font-size: 16px; font-weight: 500; color: #000000;
+        text-align: center; line-height: 1.6;
+      }
+      .myio-alert-button {
+        width: 100%; height: 48px; font-size: 15px; font-weight: 700;
+        text-transform: uppercase;
+        background: linear-gradient(135deg, #3E1A7D 0%, #2D1359 100%);
+        border: none; border-radius: 12px; color: #ffffff; cursor: pointer;
+        box-shadow: 0 4px 16px rgba(62,26,125,0.4);
+        transition: all 0.2s cubic-bezier(0.4,0,0.2,1);
+      }
+      .myio-alert-button:hover {
+        background: linear-gradient(135deg, #4E2A9D 0%, #3E1A7D 100%);
+        box-shadow: 0 6px 24px rgba(62,26,125,0.5); transform: translateY(-2px);
+      }
+    `;
+    document.head.appendChild(alertStyle);
+  }
+
   // Create action buttons container (NO INFO BUTTON)
   const actionsContainer = document.createElement('div');
   actionsContainer.className = 'card-actions';
@@ -1393,6 +1445,44 @@ export function renderCardComponentV5({
     enhancedCardElement.insertBefore(actionsContainer, enhancedCardElement.firstChild);
   }
 
+  // Alert overlay for selection limit
+  let _cardAlertOverlay = null;
+
+  function hideCardAlert() {
+    if (_cardAlertOverlay && _cardAlertOverlay.parentNode) {
+      _cardAlertOverlay.remove();
+      _cardAlertOverlay = null;
+    }
+  }
+
+  function showCardLimitAlert() {
+    if (_cardAlertOverlay) hideCardAlert();
+    const maxAllowed = MyIOSelectionStore?.MAX_SELECTION ?? 20;
+    const overlay = document.createElement('div');
+    overlay.className = 'myio-alert-overlay';
+    overlay.innerHTML = `
+      <div class="myio-alert-box">
+        <div class="myio-alert-icon">⚠</div>
+        <h2 class="myio-alert-title">Limite Atingido</h2>
+        <p class="myio-alert-message">
+          Você pode selecionar no máximo <strong>${maxAllowed} dispositivos</strong> para comparação.
+          Remova um dispositivo antes de adicionar outro.
+        </p>
+        <button class="myio-alert-button">FECHAR</button>
+      </div>`;
+    document.body.appendChild(overlay);
+    _cardAlertOverlay = overlay;
+    const closeBtn = overlay.querySelector('.myio-alert-button');
+    const close = () => {
+      document.removeEventListener('keydown', handleEscape);
+      hideCardAlert();
+    };
+    const handleEscape = (e) => { if (e.key === 'Escape') close(); };
+    closeBtn.addEventListener('click', close);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    document.addEventListener('keydown', handleEscape);
+  }
+
   // Handle selection events
   if (enableSelection && MyIOSelectionStore) {
     const checkbox = enhancedCardElement.querySelector('.card-checkbox');
@@ -1409,10 +1499,10 @@ export function renderCardComponentV5({
           console.log('selectedEntities', selectedEntities);
           const isTryingToAdd = e.target.checked;
 
-          if (isTryingToAdd && currentCount >= 6) {
+          if (isTryingToAdd && currentCount >= (MyIOSelectionStore.MAX_SELECTION ?? 20)) {
             e.preventDefault();
             e.target.checked = false;
-            MyIOToast.show('Não é possível selecionar mais de 6 itens.', 'warning');
+            showCardLimitAlert();
             return;
           }
 

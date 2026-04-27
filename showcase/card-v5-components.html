@@ -557,6 +557,21 @@
         <div class="cards-grid" id="waterCardsGrid"></div>
       </section>
 
+      <!-- Selection Store Config -->
+      <section class="section">
+        <h2>⚙️ Selection Store Config</h2>
+        <div class="control-panel">
+          <div class="control-row">
+            <div class="control-group">
+              <label>Limite máximo de seleção</label>
+              <input type="number" id="maxSelectionInput" value="6" min="1" max="50" />
+            </div>
+            <button class="btn btn-primary" onclick="applyMaxSelection()">Aplicar</button>
+            <span id="maxSelectionStatus" style="font-size:13px; color:#86efac; align-self:center;"></span>
+          </div>
+        </div>
+      </section>
+
       <!-- Event Log -->
       <section class="section">
         <div class="event-log-header">
@@ -1759,6 +1774,19 @@
         });
 
         log(`Updated: ${val}L, nivel ${(level * 100).toFixed(0)}%, ${status}`, 'water');
+      };
+
+      window.applyMaxSelection = function () {
+        const n = parseInt(document.getElementById('maxSelectionInput').value, 10);
+        const store = MyIOLibrary?.MyIOSelectionStore;
+        if (store && typeof store.setMaxSelection === 'function') {
+          store.setMaxSelection(n);
+          document.getElementById('maxSelectionStatus').textContent =
+            `✓ Limite atualizado para ${store.MAX_SELECTION}`;
+          log(`MAX_SELECTION atualizado para ${store.MAX_SELECTION}`, 'store');
+        } else {
+          document.getElementById('maxSelectionStatus').textContent = '✗ Store não disponível';
+        }
       };
 
       // Initialize all cards on load
