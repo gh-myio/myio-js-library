@@ -1,5 +1,3 @@
-/* global self, localStorage, document, window, sessionStorage, $ */
-
 // Pegar parâmetro da URL
 let deviceName = '-';
 const TB_HOST = 'https://dashboard.myio-bas.com';
@@ -246,89 +244,89 @@ const MyIOAuthTB = (() => {
   };
 })();
 
-// // ---- helpers de UI: modal premium + ocultar botões ----
-// function showPremiumErrorModal(msg) {
-//   // injeta CSS do modal uma única vez
-//   if (!document.getElementById('myio-premium-modal-style')) {
-//     const css = document.createElement('style');
-//     css.id = 'myio-premium-modal-style';
-//     css.textContent = `
-//       .myio-modal-backdrop {
-//         position: fixed; inset: 0;
-//         background: rgba(15, 27, 60, 0.55);
-//         -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
-//         display: flex; align-items: center; justify-content: center; z-index: 10050;
-//       }
-//       .myio-modal-card {
-//         width: min(520px, 92vw);
-//         background: linear-gradient(180deg,#0f1b3c 0%, #17284f 100%);
-//         color: #fff;
-//         border: 1px solid rgba(230,238,245,0.25);
-//         border-radius: 16px;
-//         box-shadow: 0 18px 48px rgba(0,0,0,0.35);
-//         overflow: hidden;
-//       }
-//       .myio-modal-header {
-//         display:flex; align-items:center; gap:12px;
-//         padding:16px 18px; background: rgba(255,255,255,0.06);
-//         border-bottom: 1px solid rgba(255,255,255,0.08);
-//       }
-//       .myio-badge {
-//         padding:4px 10px; border-radius:999px;
-//         background:#ffe2e2; color:#a31919; font-weight:700; font-size:12px;
-//       }
-//       .myio-modal-body { padding:18px; line-height:1.5; font-size:15px; }
-//       .myio-modal-actions {
-//         display:flex; justify-content:flex-end; gap:10px; padding:0 18px 16px 18px;
-//       }
-//       .myio-btn {
-//         appearance:none; border:none; cursor:pointer; border-radius:10px;
-//         padding:10px 14px; font-weight:600;
-//       }
-//       .myio-btn-primary { background:#1DA1F2; color:#fff; }
-//       .myio-btn-primary:hover { filter: brightness(1.05); }
-//       .myio-kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-//                   background: rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.12);
-//                   padding:2px 6px; border-radius:6px; }
-//     `;
-//     document.head.appendChild(css);
-//   }
+// ---- helpers de UI: modal premium + ocultar botões ----
+function showPremiumErrorModal(msg) {
+  // injeta CSS do modal uma única vez
+  if (!document.getElementById('myio-premium-modal-style')) {
+    const css = document.createElement('style');
+    css.id = 'myio-premium-modal-style';
+    css.textContent = `
+      .myio-modal-backdrop {
+        position: fixed; inset: 0; 
+        background: rgba(15, 27, 60, 0.55);
+        -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+        display: flex; align-items: center; justify-content: center; z-index: 10050;
+      }
+      .myio-modal-card {
+        width: min(520px, 92vw);
+        background: linear-gradient(180deg,#0f1b3c 0%, #17284f 100%);
+        color: #fff;
+        border: 1px solid rgba(230,238,245,0.25);
+        border-radius: 16px;
+        box-shadow: 0 18px 48px rgba(0,0,0,0.35);
+        overflow: hidden;
+      }
+      .myio-modal-header {
+        display:flex; align-items:center; gap:12px;
+        padding:16px 18px; background: rgba(255,255,255,0.06);
+        border-bottom: 1px solid rgba(255,255,255,0.08);
+      }
+      .myio-badge {
+        padding:4px 10px; border-radius:999px; 
+        background:#ffe2e2; color:#a31919; font-weight:700; font-size:12px;
+      }
+      .myio-modal-body { padding:18px; line-height:1.5; font-size:15px; }
+      .myio-modal-actions {
+        display:flex; justify-content:flex-end; gap:10px; padding:0 18px 16px 18px;
+      }
+      .myio-btn {
+        appearance:none; border:none; cursor:pointer; border-radius:10px; 
+        padding:10px 14px; font-weight:600;
+      }
+      .myio-btn-primary { background:#1DA1F2; color:#fff; }
+      .myio-btn-primary:hover { filter: brightness(1.05); }
+      .myio-kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+                  background: rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.12);
+                  padding:2px 6px; border-radius:6px; }
+    `;
+    document.head.appendChild(css);
+  }
 
-//   // constrói modal
-//   const backdrop = document.createElement('div');
-//   backdrop.className = 'myio-modal-backdrop';
-//   backdrop.innerHTML = `
-//     <div class="myio-modal-card" role="dialog" aria-modal="true" aria-labelledby="myio-modal-title">
-//       <div class="myio-modal-header">
-//         <div class="myio-badge">Atenção</div>
-//         <div id="myio-modal-title" style="font-weight:800; font-size:16px;">Telemetria indisponível</div>
-//       </div>
-//       <div class="myio-modal-body">
-//         <div style="margin-bottom:10px">
-//           Não foi possível habilitar as visualizações de telemetria para este dispositivo porque o
-//           <span class="myio-kbd">centralId</span> não está configurado.
-//         </div>
-//         <div style="opacity:.9">${
-//           msg || "Configure o atributo 'centralId' nos atributos do dispositivo e tente novamente."
-//         }</div>
-//       </div>
-//       <div class="myio-modal-actions">
-//         <button class="myio-btn myio-btn-primary" id="myio-modal-ok">Ok, entendi</button>
-//       </div>
-//     </div>
-//   `;
-//   document.body.appendChild(backdrop);
-//   backdrop.querySelector('#myio-modal-ok').addEventListener('click', () => {
-//     backdrop.remove();
-//   });
-// }
+  // constrói modal
+  const backdrop = document.createElement('div');
+  backdrop.className = 'myio-modal-backdrop';
+  backdrop.innerHTML = `
+    <div class="myio-modal-card" role="dialog" aria-modal="true" aria-labelledby="myio-modal-title">
+      <div class="myio-modal-header">
+        <div class="myio-badge">Atenção</div>
+        <div id="myio-modal-title" style="font-weight:800; font-size:16px;">Telemetria indisponível</div>
+      </div>
+      <div class="myio-modal-body">
+        <div style="margin-bottom:10px">
+          Não foi possível habilitar as visualizações de telemetria para este dispositivo porque o
+          <span class="myio-kbd">centralId</span> não está configurado.
+        </div>
+        <div style="opacity:.9">${
+          msg || "Configure o atributo 'centralId' nos atributos do dispositivo e tente novamente."
+        }</div>
+      </div>
+      <div class="myio-modal-actions">
+        <button class="myio-btn myio-btn-primary" id="myio-modal-ok">Ok, entendi</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+  backdrop.querySelector('#myio-modal-ok').addEventListener('click', () => {
+    backdrop.remove();
+  });
+}
 
-// function hideTelemetryButtons() {
-//   const btnEnergy = document.getElementById('telemetriesEnergy');
-//   const btnWater = document.getElementById('telemetriesWater');
-//   if (btnEnergy) btnEnergy.style.display = 'none';
-//   if (btnWater) btnWater.style.display = 'none';
-// }
+function hideTelemetryButtons() {
+  const btnEnergy = document.getElementById('telemetriesEnergy');
+  const btnWater = document.getElementById('telemetriesWater');
+  if (btnEnergy) btnEnergy.style.display = 'none';
+  if (btnWater) btnWater.style.display = 'none';
+}
 
 async function openDashboardPopupTelemetries(deviceId, response, stateDashboard) {
   console.log('response:', response);
@@ -587,8 +585,8 @@ self.onInit = async function () {
   localStorage.setItem('jwt_token', tokenTB);
 
   const adminCredencials = {
-    username: 'victorhjoe@gmail.com',
-    password: 'Lennon@10',
+    username: 'alarmes@myio.com.br',
+    password: 'hubmyio@2025!',
   };
 
   const loginResponse = await login(adminCredencials);
@@ -606,9 +604,9 @@ self.onInit = async function () {
     const response = await getEntityInfoAndAttributes(token, deviceId);
 
     if (response.active === true) {
-      document.querySelector('#active').innerHTML = 'Ativo.';
+      document.querySelector('#active').innerHTML = 'Ativo.' || '';
     } else if (response.active === false) {
-      document.querySelector('#active').innerHTML = 'Inativo.';
+      document.querySelector('#active').innerHTML = 'Inativo.' || '';
     }
 
     if (supportInfo) {
