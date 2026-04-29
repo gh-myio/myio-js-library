@@ -58,9 +58,10 @@ ssh -i id_rsa root@<ipv6-da-central>
 
 #### Holding: SOUL MALLS
 
-| Central           | IPv6                                     | Gateway ID |
-| ----------------- | ---------------------------------------- | ---------- |
-| Praia da Costa L1 | `200:8e12:1a64:71bc:ff06:5c56:9f09:f4aa` | —          |
+| Central           | IPv6                                     | Gateway ID                             |
+| ----------------- | ---------------------------------------- | -------------------------------------- |
+| Praia da Costa L1 | `200:8e12:1a64:71bc:ff06:5c56:9f09:f4aa` | —                                      |
+| Macaé             | `200:bf4f:c3a0:e697:17ff:28a5:38ae:536b` | `571ff592-8983-43b3-b7f2-96ab688d4f1c` |
 
 #### Holding: SUPERVIA ESTAÇÕES
 
@@ -121,6 +122,9 @@ ssh -i id_rsa root@202:1d97:2112:f9b9:cfcb:e237:5dc:a3f7
 
 # Praia da Costa L1 (Soul Malls)
 ssh -i id_rsa root@200:8e12:1a64:71bc:ff06:5c56:9f09:f4aa
+
+# Macaé (Soul Malls)
+ssh -i id_rsa root@200:bf4f:c3a0:e697:17ff:28a5:38ae:536b
 
 # Central Dimension (Dimension)
 ssh -i id_rsa root@203:984:24ef:b578:69a6:7136:b9f2:b5c2
@@ -550,4 +554,4 @@ reboot
 
 ---
 
-_Última atualização: 2026-04-13_
+_Última atualização: 2026-04-28_
