@@ -57,7 +57,7 @@ src/
 │   └── MAIN_UNIQUE_DATASOURCE/    # Unified datasource simulator
 ├── utils/                          # deviceInfo.js, equipmentCategory.js, etc.
 ├── classify/ codec/ csv/ date/ format/ net/ services/ types/
-├── docs/rfcs/                      # RFC-0001 … RFC-0183
+├── docs/rfcs/                      # RFC-0001 … RFC-0201
 └── NODE-RED/                       # Node-RED integrations (not part of npm package)
 ```
 
@@ -238,6 +238,8 @@ RFCs in `src/docs/rfcs/`. Recent key RFCs:
 | RFC-0181 | ReportsMenuItem in MENU widget |
 | RFC-0182 | OrchestratorGroupClassification + AllReportModal API filter |
 | RFC-0183 | AlarmServiceOrchestrator + AlarmBadge |
+| RFC-0200 | `deviceIcons` shared device-type image map (proposed) |
+| RFC-0201 | MainDashboardShopping v-5.4.0 sync from v-5.2.0 (3-phase plan; party-mode roundtable authored) |
 
 Onboarding guide: `src/docs/ONBOARDING-ECOSYSTEM-GCDR-ALARMS.md`
 
