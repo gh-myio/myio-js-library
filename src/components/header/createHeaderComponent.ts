@@ -82,6 +82,56 @@ declare global {
  * });
  * ```
  */
+/**
+ * RFC-0183 / RFC-0201 Phase 1 — Internal-support alarm predicate.
+ *
+ * Default heuristic: an alarm is "internal-support" when it has an
+ * `internal_support` tag or a `category === 'internal_support'`. This
+ * mirrors the convention used by v-5.2.0's `_prefetchCustomerAlarms`
+ * which queries with `isInternalSupportRule=<bool>`. If the upstream API
+ * later canonicalizes a different field name, update this helper.
+ *
+ * NOTE: This is a documented assumption — the rule semantics in
+ * v-5.2.0 are encoded server-side via the API query param, not in a
+ * client-side predicate. See RFC-0201 § Misuse Audit, row #15.
+ */
+function isInternalSupportAlarm(alarm: { tags?: unknown; category?: unknown }): boolean {
+  if (!alarm) return false;
+  const tags = alarm.tags;
+  if (Array.isArray(tags) && tags.includes('internal_support')) return true;
+  if (alarm.category === 'internal_support') return true;
+  return false;
+}
+
+/**
+ * RFC-0183 / RFC-0201 Phase 1 — Inject (once) the CSS var pinning the
+ * desktop tooltip width to 320 px (Sally's UX spec). Tooltip components
+ * read `--myio-tooltip-width-desktop` at render time.
+ */
+function _injectTooltipWidthVar(width: number): void {
+  if (typeof document === 'undefined') return;
+  const STYLE_ID = 'myio-header-tooltip-width-vars';
+  let styleEl = document.getElementById(STYLE_ID) as HTMLStyleElement | null;
+  if (!styleEl) {
+    styleEl = document.createElement('style');
+    styleEl.id = STYLE_ID;
+    document.head.appendChild(styleEl);
+  }
+  styleEl.textContent = `
+    :root { --myio-tooltip-width-desktop: ${width}px; }
+    @media (min-width: 768px) {
+      .myio-info-tooltip,
+      .myio-energy-summary-tooltip,
+      .myio-water-summary-tooltip,
+      .myio-temp-summary-tooltip,
+      .myio-equipment-summary-tooltip {
+        width: var(--myio-tooltip-width-desktop, 320px) !important;
+        max-width: var(--myio-tooltip-width-desktop, 320px) !important;
+      }
+    }
+  `;
+}
+
 export function createHeaderComponent(params: HeaderComponentParams): HeaderComponentInstance {
   const { container } = params;
 
@@ -89,6 +139,12 @@ export function createHeaderComponent(params: HeaderComponentParams): HeaderComp
   if (!container || !(container instanceof HTMLElement)) {
     throw new Error('[HeaderComponent] Invalid container element. Please provide a valid HTMLElement.');
   }
+
+  // RFC-0183 / RFC-0201 Phase 1 — pin tooltip width via CSS var (default 320 px).
+  const tooltipWidth = params.tooltipWidth ?? 320;
+  _injectTooltipWidthVar(tooltipWidth);
+
+  const isInternalSupportRule = params.isInternalSupportRule === true;
 
   // Create view
   const view = new HeaderView(params);
@@ -582,6 +638,39 @@ export function createHeaderComponent(params: HeaderComponentParams): HeaderComp
     return view.getThemeMode();
   }
 
+  /**
+   * RFC-0183 / RFC-0201 Phase 1 — Reads the live alarm count from
+   * `window.AlarmServiceOrchestrator`, deduplicating by alarm-id (one
+   * alarm should never be counted twice even if it ever appears under
+   * multiple device buckets) and honoring `isInternalSupportRule`.
+   */
+  function getAlarmCount(): number {
+    const aso = (
+      typeof window !== 'undefined'
+        ? (window as unknown as {
+            AlarmServiceOrchestrator?: {
+              deviceAlarmMap?: Map<string, Array<{ id?: unknown; tags?: unknown; category?: unknown }>>;
+            };
+          }).AlarmServiceOrchestrator
+        : undefined
+    );
+    const map = aso?.deviceAlarmMap;
+    if (!map) return 0;
+
+    const seen = new Set<string>();
+    let count = 0;
+    map.forEach((alarms) => {
+      for (const a of alarms) {
+        const id = String(a?.id ?? '');
+        if (!id || seen.has(id)) continue;
+        if (isInternalSupportRule && isInternalSupportAlarm(a)) continue;
+        seen.add(id);
+        count += 1;
+      }
+    });
+    return count;
+  }
+
   function destroy(): void {
     log('Destroying component');
 
@@ -660,5 +749,8 @@ export function createHeaderComponent(params: HeaderComponentParams): HeaderComp
     // Event registration
     on,
     off,
+
+    // RFC-0183 / RFC-0201 Phase 1
+    getAlarmCount,
   };
 }

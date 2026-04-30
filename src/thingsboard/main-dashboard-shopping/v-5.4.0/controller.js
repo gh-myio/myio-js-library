@@ -1079,6 +1079,38 @@ self.onInit = async function () {
     _prefetchCustomerAlarms(gcdrCustomerId, gcdrTenantId, alarmsApiBaseUrl);
   }
 
+  // RFC-0183 / RFC-0201 Phase 1 (rows #8, #9): build window.AlarmServiceOrchestrator
+  // once both `customerAlarms` (from `_prefetchCustomerAlarms`) and `STATE.itemsBase`
+  // (from `processDataAndDispatchEvents`, dispatched as `myio:data-ready`) are ready.
+  // We register the listener BEFORE `createComponents()` so we never miss the first
+  // `myio:data-ready` event (which can fire during component construction).
+  let _alarmOrchBuilt = false;
+  const _showOfflineAlarms = settings.showOfflineAlarms ?? false;
+  window.addEventListener('myio:data-ready', () => {
+    if (_alarmOrchBuilt) return;
+    const lib = window.MyIOLibrary;
+    if (!lib?.createAlarmServiceOrchestrator) return;
+    const customerAlarms = window.MyIOOrchestrator?.customerAlarms;
+    const itemsBase = window.STATE?.itemsBase;
+    if (!Array.isArray(customerAlarms) || !Array.isArray(itemsBase)) return;
+    window.AlarmServiceOrchestrator = lib.createAlarmServiceOrchestrator({
+      customerAlarms,
+      itemsBase,
+      showOfflineAlarms: _showOfflineAlarms,
+      refreshFn: async () => {
+        await _prefetchCustomerAlarms(gcdrCustomerId, gcdrTenantId, alarmsApiBaseUrl);
+        return window.MyIOOrchestrator?.customerAlarms ?? [];
+      },
+    });
+    _alarmOrchBuilt = true;
+    LogHelper.log(
+      '[MAIN] AlarmServiceOrchestrator constructed; deviceAlarmMap size:',
+      window.AlarmServiceOrchestrator.deviceAlarmMap.size,
+    );
+    // Notify cards/tooltips so they can re-render with the now-available counts.
+    window.dispatchEvent(new CustomEvent('myio:alarms-refreshed'));
+  });
+
   // Create components
   createComponents();
 
