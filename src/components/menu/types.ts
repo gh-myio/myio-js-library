@@ -491,6 +491,13 @@ export interface MenuComponentParams {
   showLoadButton?: boolean;
   /** Show clear button (default: true) */
   showClearButton?: boolean;
+  /**
+   * RFC-0181 / RFC-0201 Phase-2 #19 — Show the Reports button in the toolbar.
+   * Default: true. The Reports button opens a per-domain dropdown listing
+   * the report groups (Lojas, Climatização, Entrada, Área Comum, etc.) and
+   * fires `onReportsClick(group)` on selection.
+   */
+  showReportsButton?: boolean;
 
   // Callbacks
   /** Called when a tab is clicked */
@@ -511,7 +518,44 @@ export interface MenuComponentParams {
   onShoppingsReady?: (shoppings: Shopping[]) => void;
   /** Called when theme mode changes */
   onThemeChange?: (themeMode: MenuThemeMode) => void;
+  /**
+   * RFC-0181 / RFC-0201 Phase-2 #19 — Called when the user picks an item
+   * from the Reports submenu. The argument is the group key (e.g.
+   * `'stores'`, `'lojas'`, `'entrada'`, `'climatizavel'`) — match the
+   * vocabulary defined in `src/utils/buildItemsList.ts::ItemsListGroup`.
+   *
+   * The widget is expected to wire this to:
+   *
+   * ```ts
+   * (group) => {
+   *   const items = buildItemsList(domain, group, window.STATE.itemsBase);
+   *   const orchIdSet = new Set(items.map(i => String(i.id)));
+   *   openDashboardPopupAllReport({ ... itemsList: items, orchIdSet });
+   * }
+   * ```
+   */
+  onReportsClick?: (group: ReportsGroup) => void;
 }
+
+/**
+ * RFC-0181 — Group keys for the Reports submenu callback.
+ *
+ * Mirrors a subset of `ItemsListGroup` from `src/utils/buildItemsList.ts`.
+ * Kept narrow on purpose: the MenuView surfaces only the canonical groups
+ * exposed by the v-5.2.0 Reports picker (no internal RFC-0111 context aliases).
+ */
+export type ReportsGroup =
+  // Energy
+  | 'lojas'
+  | 'stores'
+  | 'entrada'
+  | 'area_comum'
+  | 'todos'
+  // Water
+  | 'banheiros'
+  // Temperature
+  | 'climatizavel'
+  | 'nao_climatizavel';
 
 /**
  * Menu Component instance returned by createMenuComponent
@@ -578,7 +622,8 @@ export type MenuEventType =
   | 'clear'
   | 'goals'
   | 'shoppings-ready'
-  | 'theme-change';
+  | 'theme-change'
+  | 'reports-click';
 
 /**
  * Event handler function type

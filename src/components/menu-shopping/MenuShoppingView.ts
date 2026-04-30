@@ -21,7 +21,8 @@ type ViewEventType =
   | 'settings-click'
   | 'shopping-selector-click'
   | 'logout-click'
-  | 'hamburger-click';
+  | 'hamburger-click'
+  | 'reports-click';
 
 type ViewEventHandler = (...args: unknown[]) => void;
 
@@ -44,6 +45,9 @@ export class MenuShoppingView {
   private settingsBtn: HTMLButtonElement | null = null;
   private shoppingSelectorBtn: HTMLButtonElement | null = null;
   private logoutBtn: HTMLButtonElement | null = null;
+  // RFC-0181 / RFC-0201 Phase-2 #19
+  private reportsBtn: HTMLButtonElement | null = null;
+  private reportsMenuEl: HTMLElement | null = null;
 
   constructor(configTemplate?: MenuShoppingConfigTemplate, themeMode?: ThemeMode) {
     this.config = { ...DEFAULT_MENU_SHOPPING_CONFIG, ...configTemplate };
@@ -143,6 +147,12 @@ export class MenuShoppingView {
             : ''
         }
 
+        <!-- RFC-0181 / RFC-0201 Phase-2 #19 — Reports footer button -->
+        <button class="${PREFIX}-footer-btn reports" title="Relatórios" data-reports-btn="true" aria-haspopup="menu" aria-expanded="false">
+          <span class="${PREFIX}-footer-btn-icon">📊</span>
+          <span class="${PREFIX}-footer-btn-label">Relatórios</span>
+        </button>
+
         ${
           showSettingsButton
             ? `
@@ -165,6 +175,8 @@ export class MenuShoppingView {
             : ''
         }
       </div>
+
+      ${this.buildReportsMenuHTML()}
 
       ${
         showLibraryVersion
@@ -195,6 +207,94 @@ export class MenuShoppingView {
     this.settingsBtn = this.root.querySelector(`.${PREFIX}-footer-btn.settings`);
     this.shoppingSelectorBtn = this.root.querySelector(`.${PREFIX}-footer-btn.shopping-selector`);
     this.logoutBtn = this.root.querySelector(`.${PREFIX}-footer-btn.logout`);
+    // RFC-0181 / RFC-0201 Phase-2 #19
+    this.reportsBtn = this.root.querySelector(`.${PREFIX}-footer-btn.reports`);
+    this.reportsMenuEl = this.root.querySelector(`.${PREFIX}-reports-menu`);
+  }
+
+  /**
+   * RFC-0181 / RFC-0201 Phase-2 #19 — Build the Reports submenu HTML.
+   *
+   * Mirrors the structure of `MenuView.buildReportsMenuHTML` from the
+   * toolbar Menu component (RFC-0114). Group keys map to
+   * `MenuShoppingReportsGroup` and ultimately to
+   * `ItemsListGroup` from `src/utils/buildItemsList.ts`.
+   */
+  private buildReportsMenuHTML(): string {
+    type Section = {
+      domain: 'energy' | 'water' | 'temperature';
+      title: string;
+      items: { group: string; label: string; icon: string }[];
+    };
+
+    const sections: Section[] = [
+      {
+        domain: 'energy',
+        title: '⚡ Energia',
+        items: [
+          { group: 'lojas', label: 'Lojas', icon: '🏬' },
+          { group: 'entrada', label: 'Entrada', icon: '📥' },
+          { group: 'area_comum', label: 'Área Comum', icon: '🏢' },
+          { group: 'todos', label: 'Todos os Dispositivos', icon: '📋' },
+        ],
+      },
+      {
+        domain: 'water',
+        title: '💧 Água',
+        items: [
+          { group: 'entrada', label: 'Entrada', icon: '📥' },
+          { group: 'lojas', label: 'Lojas', icon: '🏬' },
+          { group: 'banheiros', label: 'Banheiros', icon: '🚻' },
+          { group: 'area_comum', label: 'Área Comum', icon: '🏢' },
+          { group: 'todos', label: 'Todos os Hidrômetros', icon: '📋' },
+        ],
+      },
+      {
+        domain: 'temperature',
+        title: '🌡️ Temperatura',
+        items: [
+          { group: 'climatizavel', label: 'Ambientes Climatizáveis', icon: '❄️' },
+          { group: 'nao_climatizavel', label: 'Ambientes Não Climatizáveis', icon: '🌤️' },
+          { group: 'todos', label: 'Todos os Ambientes', icon: '📋' },
+        ],
+      },
+    ];
+
+    const sectionHTML = sections
+      .map(
+        (section) => `
+        <div class="${PREFIX}-reports-section" data-domain="${section.domain}">
+          <div class="${PREFIX}-reports-section-title">${section.title}</div>
+          <div class="${PREFIX}-reports-section-items">
+            ${section.items
+              .map(
+                (item) => `
+              <button
+                type="button"
+                class="${PREFIX}-reports-item"
+                data-domain="${section.domain}"
+                data-group="${item.group}"
+                data-reports-item="true"
+              >
+                <span class="${PREFIX}-reports-item-ico">${item.icon}</span>
+                <span class="${PREFIX}-reports-item-label">${item.label}</span>
+              </button>`,
+              )
+              .join('')}
+          </div>
+        </div>`,
+      )
+      .join('');
+
+    return `
+      <div
+        class="${PREFIX}-reports-menu"
+        role="menu"
+        aria-hidden="true"
+      >
+        <div class="${PREFIX}-reports-menu-content">${sectionHTML}</div>
+      </div>
+    `;
   }
 
   /**
@@ -237,8 +337,66 @@ export class MenuShoppingView {
       this.emit('logout-click');
     });
 
+    // RFC-0181 / RFC-0201 Phase-2 #19 — Reports menu wiring
+    this.bindReportsMenuEvents();
+
     // Setup tooltips for collapsed mode
     this.setupCollapsedTooltips();
+  }
+
+  /**
+   * RFC-0181 / RFC-0201 Phase-2 #19 — Bind Reports button + submenu.
+   */
+  private bindReportsMenuEvents(): void {
+    if (!this.reportsBtn || !this.reportsMenuEl) return;
+
+    const btn = this.reportsBtn;
+    const menu = this.reportsMenuEl;
+
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const isOpen = menu.classList.toggle('is-open');
+      menu.setAttribute('aria-hidden', String(!isOpen));
+      btn.setAttribute('aria-expanded', String(isOpen));
+    });
+
+    // Item click — emit reports-click
+    menu.querySelectorAll('[data-reports-item]').forEach((item) => {
+      item.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const el = item as HTMLElement;
+        const group = el.dataset.group;
+        const domain = el.dataset.domain;
+        if (!group) return;
+
+        menu.classList.remove('is-open');
+        menu.setAttribute('aria-hidden', 'true');
+        btn.setAttribute('aria-expanded', 'false');
+
+        this.emit('reports-click', group, domain);
+      });
+    });
+
+    // Close on outside click
+    document.addEventListener('click', (e) => {
+      if (!menu.classList.contains('is-open')) return;
+      const target = e.target as Node | null;
+      if (target && (menu.contains(target) || btn.contains(target))) return;
+      menu.classList.remove('is-open');
+      menu.setAttribute('aria-hidden', 'true');
+      btn.setAttribute('aria-expanded', 'false');
+    });
+
+    // Close on Escape
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && menu.classList.contains('is-open')) {
+        menu.classList.remove('is-open');
+        menu.setAttribute('aria-hidden', 'true');
+        btn.setAttribute('aria-expanded', 'false');
+      }
+    });
   }
 
   /**

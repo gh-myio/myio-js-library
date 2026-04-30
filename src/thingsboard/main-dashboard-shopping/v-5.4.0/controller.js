@@ -622,6 +622,50 @@ function createComponents() {
         switchContentState(domain);
       },
       onToggleCollapse: handleMenuCollapse,
+      // RFC-0181 / RFC-0182 / RFC-0201 Phase-2 #20 — Reports submenu wiring.
+      // Builds the StoreItem[] for (domain, group) using STATE.itemsBase, derives
+      // the orchIdSet (API allow-list), and opens the AllReportModal.
+      onReportsClick: (group) => {
+        const itemsBase = window.STATE?.itemsBase ?? [];
+        if (!Array.isArray(itemsBase) || itemsBase.length === 0) {
+          LogHelper.warn('[MAIN] onReportsClick: STATE.itemsBase empty — aborting');
+          return;
+        }
+
+        const items = lib.buildItemsList?.(_currentDomain, group, itemsBase) ?? [];
+        const orchIdSet = new Set(items.map((item) => String(item.id)));
+
+        LogHelper.log('[MAIN] onReportsClick →', {
+          domain: _currentDomain,
+          group,
+          items: items.length,
+          orchIdSetSize: orchIdSet.size,
+        });
+
+        if (!lib.openDashboardPopupAllReport) {
+          LogHelper.warn('[MAIN] openDashboardPopupAllReport not available on lib');
+          return;
+        }
+
+        const customerId = _credentials?.ingestionId || '';
+        const ingestionToken =
+          window.MyIOOrchestrator?.tokenManager?.getToken?.('ingestionToken') || '';
+
+        lib.openDashboardPopupAllReport({
+          customerId,
+          domain: _currentDomain,
+          group,
+          itemsList: items,
+          orchIdSet,
+          api: {
+            clientId: _credentials?.clientId || '',
+            clientSecret: _credentials?.clientSecret || '',
+            dataApiBaseUrl: DATA_API_HOST,
+            ingestionToken,
+          },
+          ui: { theme: _currentThemeMode },
+        });
+      },
     });
     LogHelper.log('Menu created with theme:', _currentThemeMode);
   }
