@@ -210,6 +210,9 @@ export {
   STATUS_COLORS,
 } from './components/premium-modals/settings/annotations/types';
 
+// Canonical baseline types (RFC-0201 Phase-1 — pod F0)
+export type { BaseItem, BaseItemDomain } from './types';
+
 // RFC-0104: Annotation Indicator Component
 export { AnnotationIndicator, createAnnotationIndicator } from './utils/AnnotationIndicator';
 
