@@ -20,6 +20,10 @@ export type {
   CategoryData,
   ChartColors,
   CategoryConfig,
+  // RFC-0196
+  EnergyGroup,
+  WaterGroup,
+  FilterGroup,
 } from './types';
 
 export {

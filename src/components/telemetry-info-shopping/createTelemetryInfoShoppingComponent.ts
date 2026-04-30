@@ -12,6 +12,7 @@ import {
   WaterSummary,
   EnergyState,
   WaterState,
+  FilterGroup,
 } from './types';
 import { TelemetryInfoShoppingView } from './TelemetryInfoShoppingView';
 
@@ -155,6 +156,16 @@ export function createTelemetryInfoShoppingComponent(
     view.refreshChart();
   }
 
+  // RFC-0196 — slice click
+  function triggerSliceClick(group: FilterGroup): void {
+    log('triggerSliceClick called:', group);
+    view.handleSliceClick(group);
+  }
+
+  function getActiveGroup(): FilterGroup | null {
+    return view.getActiveGroup();
+  }
+
   function destroy(): void {
     log('destroy called');
     view.destroy();
@@ -188,6 +199,10 @@ export function createTelemetryInfoShoppingComponent(
 
     // Chart
     refreshChart,
+
+    // RFC-0196 — slice click
+    triggerSliceClick,
+    getActiveGroup,
 
     // Lifecycle
     destroy,
