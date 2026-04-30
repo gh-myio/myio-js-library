@@ -212,6 +212,18 @@
         "type": "boolean",
         "default": false,
         "description": "RFC-0195 / RFC-0201 Phase 2: When true, telemetry cards expose a manual sync action that calls MyIOOrchestrator.syncDevice(entityId). Will be RBAC-gated in Phase 3 (RFC-0199)."
+      },
+      "alarmNotificationsEnabled": {
+        "title": "Enable closed-alarm toast notifications",
+        "type": "boolean",
+        "default": true,
+        "description": "RFC-0193 / RFC-0201 Phase 2: When true, an info toast appears for every alarm that closes between refreshes (driven by AlarmServiceOrchestrator's myio:alarm-closed event)."
+      },
+      "customerDefaultDashboardKey": {
+        "title": "Customer default dashboard key",
+        "type": "string",
+        "default": "",
+        "description": "RFC-0194 / RFC-0201 Phase 2: TB SERVER_SCOPE attribute key holding the customer-wide default dashboard config object. Empty string falls back to the standard 'customerDefaultDashboard' attribute name."
       }
     }
   },
@@ -296,6 +308,8 @@
     "gcdrTenantId",
     "gcdrApiBaseUrl",
     "enableSyncButton",
+    "alarmNotificationsEnabled",
+    "customerDefaultDashboardKey",
     "dataApiHost"
   ]
 }

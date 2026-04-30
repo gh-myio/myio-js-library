@@ -136,17 +136,17 @@ function buildDeviceAlarmMap(alarms: GCDRAlarm[]): Map<string, GCDRAlarm[]> {
 }
 
 /**
- * Snapshots `Map<id, alarmId>` so we can compute the closed-alarm diff in
- * `refresh()` without holding onto the entire previous alarm objects.
+ * Snapshots `Map<alarmId, GCDRAlarm>` so we can compute the closed-alarm
+ * diff in `refresh()` and surface the full alarm payload to listeners
+ * (RFC-0193 needs `device_label` / `title` to render a meaningful toast).
  */
 function snapshotAlarmIndex(
   deviceAlarmMap: Map<string, GCDRAlarm[]>,
-): Map<string, string> {
-  // alarmId → gcdrDeviceId
-  const idx = new Map<string, string>();
-  deviceAlarmMap.forEach((alarms, gid) => {
+): Map<string, GCDRAlarm> {
+  const idx = new Map<string, GCDRAlarm>();
+  deviceAlarmMap.forEach((alarms) => {
     for (const a of alarms) {
-      if (a.id) idx.set(a.id, gid);
+      if (a.id) idx.set(a.id, a);
     }
   });
   return idx;
@@ -202,14 +202,20 @@ export function createAlarmServiceOrchestrator(
     );
 
     // Compute the closed-alarm diff (RFC-0193): alarm-ids present in old but
-    // not in new.
+    // not in new. Payload includes the previous alarm object so listeners can
+    // render a meaningful toast (device label, title, severity) without a
+    // separate lookup against the device map.
     const newIndex = snapshotAlarmIndex(deviceAlarmMap);
     if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
-      previousIndex.forEach((gcdrDeviceId, alarmId) => {
+      previousIndex.forEach((alarm, alarmId) => {
         if (!newIndex.has(alarmId)) {
           window.dispatchEvent(
             new CustomEvent('myio:alarm-closed', {
-              detail: { alarmId, gcdrDeviceId },
+              detail: {
+                alarmId,
+                gcdrDeviceId: alarm.gcdrDeviceId || alarm.deviceId || '',
+                alarm,
+              },
             }),
           );
         }

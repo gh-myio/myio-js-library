@@ -36,6 +36,20 @@ const LogHelper = {
   error: (...args) => console.error('[MAIN]', ...args),
 };
 
+// RFC-0194 / RFC-0201 Phase 2 (row #26): TB SERVER_SCOPE attributes can be
+// returned as either parsed objects or JSON strings depending on TB version
+// and how the attribute was first written. `safeJsonParse` accepts either
+// shape and returns null on parse failure — never throws.
+function safeJsonParse(raw) {
+  if (raw == null) return null;
+  if (typeof raw !== 'string') return raw;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
 // ============================================================================
 // Global State Setup
 // ============================================================================
@@ -482,12 +496,26 @@ async function fetchCredentials(customerTbId) {
     const attrs = await response.json();
     const get = (key) => attrs.find((a) => a.key === key)?.value;
 
+    // RFC-0194 / RFC-0201 Phase 2 (row #26): customer-wide default-dashboard
+    // config object. Mirrors v-5.2.0's MAIN_VIEW lines 1545–1546 / 1612–1613:
+    // we read whatever shape is stored without normalizing — the management
+    // UI persists the full audit-logged object and we expose it verbatim.
+    const defaultDashboardKey =
+      (self.ctx?.settings?.customerDefaultDashboardKey || '').trim() ||
+      'customerDefaultDashboard';
+    const rawDefaultDashboard = get(defaultDashboardKey);
+    const defaultDashboardCfg =
+      typeof rawDefaultDashboard === 'string'
+        ? safeJsonParse(rawDefaultDashboard)
+        : rawDefaultDashboard || null;
+
     return {
       clientId: get('clientId') || '',
       clientSecret: get('clientSecret') || '',
       ingestionId: get('customerId') || '',
       gcdrCustomerId: get('gcdrCustomerId') || get('gcdrId') || '',
       gcdrTenantId: get('gcdrTenantId') || '',
+      defaultDashboardCfg,
     };
   } catch (err) {
     LogHelper.error('Failed to fetch credentials:', err);
@@ -1196,6 +1224,13 @@ self.onInit = async function () {
   window.MyIOUtils.enableSyncButton = enableSyncButton;
   LogHelper.log('RFC-0195: enableSyncButton:', enableSyncButton);
 
+  // RFC-0193 / RFC-0201 Phase 2 (row #25): closed-alarm toast notifications.
+  // Default true (mirrors v-5.2.0 which reads SERVER_SCOPE attr but defaults
+  // enabled). When true, every `myio:alarm-closed` event fires a toast.
+  const alarmNotificationsEnabled = settings.alarmNotificationsEnabled !== false;
+  window.MyIOUtils.alarmNotificationsEnabled = alarmNotificationsEnabled;
+  LogHelper.log('RFC-0193: alarmNotificationsEnabled:', alarmNotificationsEnabled);
+
   // RFC-0178: Alarms API config from settings
   const alarmsApiBaseUrl = settings.alarmsApiBaseUrl || 'https://alarms-api.a.myio-bas.com/api/v1';
   const alarmsApiKey = settings.alarmsApiKey || '';
@@ -1312,6 +1347,70 @@ self.onInit = async function () {
         }
         return response.json();
       },
+      // RFC-0194 / RFC-0201 Phase 2 (row #26): persist the customer-wide
+      // default-dashboard config object into the TB CUSTOMER SERVER_SCOPE
+      // attribute (key from `customerDefaultDashboardKey` setting, defaults
+      // to `customerDefaultDashboard`). Mirrors v-5.2.0 MENU/controller.js
+      // lines 968-980. Each save appends a changelog entry with the calling
+      // user's identity and bumps a monotonic version counter.
+      setDefaultDashboard: async ({ dashboardId, dashboardName }) => {
+        if (!dashboardId) throw new Error('setDefaultDashboard: dashboardId required');
+        const tbToken = self.ctx?.http?.getServerCredentials?.()?.token;
+        if (!tbToken) throw new Error('setDefaultDashboard: no JWT');
+        if (!customerTbId) throw new Error('setDefaultDashboard: customerTB_ID not configured');
+        const orch = window.MyIOOrchestrator;
+        const previousCfg = orch?.defaultDashboardCfg || null;
+        const previousVersion = Number(previousCfg?.version) || 0;
+        const now = new Date().toISOString();
+        const user = self.ctx?.currentUser || {};
+        const userIdentity = {
+          userId: user.id || user.userId || '',
+          name: user.name || user.firstName || '',
+          email: user.email || '',
+        };
+        const changelogEntry = {
+          changedAt: now,
+          version: previousVersion + 1,
+          previous: previousCfg
+            ? { dashboardId: previousCfg.dashboardId, dashboardName: previousCfg.dashboardName }
+            : null,
+          next: { dashboardId, dashboardName: dashboardName || '' },
+          changedBy: userIdentity,
+        };
+        const newCfg = {
+          dashboardId,
+          dashboardName: dashboardName || '',
+          version: previousVersion + 1,
+          updatedAt: now,
+          updatedBy: userIdentity,
+          changelog: [changelogEntry, ...(previousCfg?.changelog || [])].slice(0, 50),
+        };
+        const attrKey =
+          (settings.customerDefaultDashboardKey || '').trim() || 'customerDefaultDashboard';
+        const url = `${THINGSBOARD_URL}/api/plugins/telemetry/CUSTOMER/${customerTbId}/attributes/SERVER_SCOPE`;
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'X-Authorization': `Bearer ${tbToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ [attrKey]: newCfg }),
+        });
+        if (!response.ok) {
+          const errText = await response.text().catch(() => '');
+          throw new Error(`setDefaultDashboard failed: HTTP ${response.status} ${errText}`);
+        }
+        // Mirror in memory so the menu's UI state reflects the save without
+        // an additional round-trip.
+        if (window.MyIOOrchestrator) {
+          window.MyIOOrchestrator.defaultDashboardCfg = newCfg;
+          window.MyIOOrchestrator.defaultDashboardId = dashboardId;
+        }
+        window.dispatchEvent(
+          new CustomEvent('myio:default-dashboard-changed', { detail: { newCfg } }),
+        );
+        return newCfg;
+      },
     };
     LogHelper.log('[MAIN] MyIOOrchestrator stub created');
   } else {
@@ -1339,6 +1438,19 @@ self.onInit = async function () {
           _credentials.clientSecret
         );
       }
+
+      // RFC-0194 / RFC-0201 Phase 2 (row #26): expose customer-default-dashboard
+      // config + a flat `defaultDashboardId` accessor for downstream consumers
+      // (menu affordance, future on-load redirect logic).
+      if (window.MyIOOrchestrator) {
+        window.MyIOOrchestrator.defaultDashboardCfg = _credentials.defaultDashboardCfg || null;
+        window.MyIOOrchestrator.defaultDashboardId =
+          _credentials.defaultDashboardCfg?.dashboardId || null;
+        LogHelper.log(
+          '[MAIN] RFC-0194: defaultDashboardId:',
+          window.MyIOOrchestrator.defaultDashboardId || '(none)',
+        );
+      }
     }
   }
 
@@ -1354,6 +1466,33 @@ self.onInit = async function () {
   if (gcdrCustomerId) {
     _prefetchCustomerAlarms(gcdrCustomerId, gcdrTenantId, alarmsApiBaseUrl);
   }
+
+  // RFC-0193 / RFC-0201 Phase 2 (row #25): closed-alarm toast listener.
+  // Registered BEFORE the orchestrator construction below so that any
+  // `myio:alarm-closed` event from the very first `refresh()` is observed.
+  // Lookup chain for the toast message:
+  //   1. `event.detail.alarm.device_label` (set by GCDR Alarm API).
+  //   2. `STATE.itemsBase.find(i => i.gcdrDeviceId === gcdrDeviceId).labelOrName`.
+  //   3. raw `gcdrDeviceId` as a final fallback so the user still sees something.
+  window.addEventListener('myio:alarm-closed', (e) => {
+    if (!window.MyIOUtils?.alarmNotificationsEnabled) return;
+    const detail = e?.detail || {};
+    const alarm = detail.alarm || {};
+    const gcdrDeviceId = detail.gcdrDeviceId || alarm.gcdrDeviceId || '';
+    const itemsBase = window.STATE?.itemsBase || [];
+    const item = itemsBase.find((i) => i?.gcdrDeviceId && i.gcdrDeviceId === gcdrDeviceId);
+    const deviceLabel =
+      alarm.device_label ||
+      alarm.deviceLabel ||
+      item?.labelOrName ||
+      item?.label ||
+      gcdrDeviceId ||
+      'dispositivo';
+    const alarmTitle = alarm.title || alarm.rule || alarm.alarmType || 'Alarme';
+    const message = `${alarmTitle} resolvido — ${deviceLabel}`;
+    window.MyIOLibrary?.MyIOToast?.info?.(message);
+    LogHelper.log('[MAIN] RFC-0193: closed-alarm toast →', message);
+  });
 
   // RFC-0183 / RFC-0201 Phase 1 (rows #8, #9): build window.AlarmServiceOrchestrator
   // once both `customerAlarms` (from `_prefetchCustomerAlarms`) and `STATE.itemsBase`
