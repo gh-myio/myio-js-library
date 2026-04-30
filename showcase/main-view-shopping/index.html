@@ -663,7 +663,21 @@
           <select class="ctrl-select" id="alarmBadgePreset">
             <option value="3">3 devices (dev01, 02, 03)</option>
             <option value="5" selected>5 devices (dev01 .. 05)</option>
+            <option value="phase1">Phase-1 seed (3 alarms / 2 devices)</option>
           </select>
+        </div>
+        <!-- RFC-0201 Phase 1 Scenario 3: showOfflineAlarms toggle -->
+        <div class="ctrl-group" style="margin-top:6px;">
+          <label class="ctrl-label" style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+            <input type="checkbox" id="showOfflineAlarmsToggle"
+              onchange="onShowOfflineAlarmsToggle()"
+              style="margin:0;cursor:pointer;">
+            <span><code style="font-size:9px;color:#fca5a5;">showOfflineAlarms</code></span>
+          </label>
+          <div style="font-size:9px;color:#94a3b8;margin-top:2px;line-height:1.4;">
+            &#x1F4CC; When OFF: alarms on offline devices are filtered out (default).
+            <br>&#x1F4CC; Toggle via UI <em>or</em> URL: <code style="font-size:8.5px;color:#fca5a5;">?showOfflineAlarms=true</code>
+          </div>
         </div>
         <div class="controls-grid">
           <button class="ctrl-btn success" onclick="injectMockAlarmServiceOrchestrator()">&#x1F489; Inject ASO</button>
@@ -1458,7 +1472,15 @@
       };
       window.STATE._lastUpdate.temperature = now;
 
-      logEvent('REAL-DATA', `STATE populated: energy=${energyItems.length} water=${waterItems.length} temp=${tempItems.length}`, 'info');
+      // RFC-0201 Phase 1 (Pod F0) — flat baseline list keyed by gcdrDeviceId
+      // for cross-domain alarm/ticket lookups. Mirrors v-5.2.0 controller's
+      // STATE.itemsBase population.
+      window.STATE.itemsBase = [...energyItems, ...waterItems, ...tempItems].map(d => ({
+        ...d,
+        gcdrDeviceId: d.gcdrDeviceId || d.gcdrdeviceid || null,
+      }));
+
+      logEvent('REAL-DATA', `STATE populated: energy=${energyItems.length} water=${waterItems.length} temp=${tempItems.length} (itemsBase=${window.STATE.itemsBase.length})`, 'info');
     }
 
     // ===== MOCK DATA GENERATOR =====
@@ -2320,64 +2342,151 @@
     }
 
     // =========================================================================
-    // RFC-0183: AlarmServiceOrchestrator Mock Injection
+    // RFC-0183 / RFC-0201 Phase 1: AlarmServiceOrchestrator Mock Injection
+    //
+    // Two construction paths:
+    //   A) MyIOLibrary.createAlarmServiceOrchestrator (Pod A factory) — preferred
+    //      Used when the UMD bundle exports the factory (RFC-0201 Phase 1, row #12).
+    //   B) Inline manual construction — fallback for older bundles or when the
+    //      factory is unavailable (e.g., dev/CDN cache).
+    //
+    // Phase-1 seed (Scenario 2): 3 alarms across 2 devices (gcdr-001, gcdr-002).
+    // showOfflineAlarms (Scenario 3): toggle via checkbox or URL ?showOfflineAlarms=true.
     // =========================================================================
 
-    function injectMockAlarmServiceOrchestrator() {
-      const count = parseInt(document.getElementById('alarmBadgePreset')?.value || '5', 10);
+    // RFC-0201 Phase 1 — read showOfflineAlarms from URL or checkbox
+    function _getShowOfflineAlarms() {
+      try {
+        const url = new URL(window.location.href);
+        const qp = url.searchParams.get('showOfflineAlarms');
+        if (qp != null) return qp === 'true' || qp === '1';
+      } catch (_) { /* noop */ }
+      const cb = document.getElementById('showOfflineAlarmsToggle');
+      return !!cb?.checked;
+    }
 
-      // Build mock alarms using gcdrDeviceIds from generateMockDevices (devices 1..N)
-      const MOCK_TITLES = [
-        'Demanda Alta', 'Falta de Energia', 'Comunicação Perdida',
-        'Temperatura Fora da Faixa', 'Consumo Anômalo Noturno',
+    // RFC-0201 Phase 1 Scenario 2 seed — 3 alarms / 2 devices, deterministic shape
+    // matching `GCDRAlarm` from createAlarmServiceOrchestrator.ts
+    function _buildPhase1SeedAlarms() {
+      return [
+        { id: 'alarm-1', gcdrDeviceId: 'gcdr-001', deviceId: 'gcdr-001', source: 'gcdr-001', state: 'OPEN', severity: 'CRITICAL', alarmType: 'Demanda Alta', deviceName: 'Phase1 Dev 1' },
+        { id: 'alarm-2', gcdrDeviceId: 'gcdr-001', deviceId: 'gcdr-001', source: 'gcdr-001', state: 'OPEN', severity: 'WARNING',  alarmType: 'Falta de Energia', deviceName: 'Phase1 Dev 1' },
+        { id: 'alarm-3', gcdrDeviceId: 'gcdr-002', deviceId: 'gcdr-002', source: 'gcdr-002', state: 'OPEN', severity: 'CRITICAL', alarmType: 'Comunicação Perdida', deviceName: 'Phase1 Dev 2' },
       ];
-      const mockAlarms = [];
-      for (let i = 1; i <= count; i++) {
-        const gcdrId = `gcdr-uuid-dev${String(i).padStart(2, '0')}-0000-000000000001`;
-        const alarmCount = (i === 1) ? 2 : 1; // device-1 gets 2 alarms to test count display
-        for (let j = 0; j < alarmCount; j++) {
-          mockAlarms.push({
-            id: `ALM-MOCK-${String(i * 10 + j).padStart(3, '0')}`,
-            deviceId:   gcdrId,
-            // source = deviceId so _updatePanelFromASO → gcdrDeviceNameMap lookup resolves name
-            // (mirrors the normalization done by _buildAlarmServiceOrchestrator in MAIN_VIEW)
-            source:     gcdrId,
-            deviceName: `Dev Mock ${i}`,
-            alarmType: MOCK_TITLES[(i + j) % MOCK_TITLES.length],
-            title:     MOCK_TITLES[(i + j) % MOCK_TITLES.length],
-            severity:  i === 1 ? 'CRITICAL' : 'HIGH',
-            state:     'OPEN',
-            raisedAt:  new Date(Date.now() - (i * 600000)).toISOString(),
-            lastUpdatedAt: new Date(Date.now() - (i * 300000)).toISOString(),
-            centralId: gcdrId,
-          });
+    }
+
+    function injectMockAlarmServiceOrchestrator() {
+      const presetVal = document.getElementById('alarmBadgePreset')?.value || '5';
+
+      let mockAlarms;
+      let modeLabel;
+      if (presetVal === 'phase1') {
+        mockAlarms = _buildPhase1SeedAlarms();
+        modeLabel = 'Phase-1 seed (3 alarms / 2 devices)';
+      } else {
+        const count = parseInt(presetVal, 10) || 5;
+        modeLabel = `${count} devices preset`;
+        // Build mock alarms using gcdrDeviceIds from generateMockDevices (devices 1..N)
+        const MOCK_TITLES = [
+          'Demanda Alta', 'Falta de Energia', 'Comunicação Perdida',
+          'Temperatura Fora da Faixa', 'Consumo Anômalo Noturno',
+        ];
+        mockAlarms = [];
+        for (let i = 1; i <= count; i++) {
+          const gcdrId = `gcdr-uuid-dev${String(i).padStart(2, '0')}-0000-000000000001`;
+          const alarmCount = (i === 1) ? 2 : 1; // device-1 gets 2 alarms to test count display
+          for (let j = 0; j < alarmCount; j++) {
+            mockAlarms.push({
+              id: `ALM-MOCK-${String(i * 10 + j).padStart(3, '0')}`,
+              deviceId:    gcdrId,
+              gcdrDeviceId: gcdrId, // RFC-0201: factory normalizes from either field
+              // source = deviceId so _updatePanelFromASO → gcdrDeviceNameMap lookup resolves name
+              // (mirrors the normalization done by _buildAlarmServiceOrchestrator in MAIN_VIEW)
+              source:     gcdrId,
+              deviceName: `Dev Mock ${i}`,
+              alarmType: MOCK_TITLES[(i + j) % MOCK_TITLES.length],
+              title:     MOCK_TITLES[(i + j) % MOCK_TITLES.length],
+              severity:  i === 1 ? 'CRITICAL' : 'HIGH',
+              state:     'OPEN',
+              raisedAt:  new Date(Date.now() - (i * 600000)).toISOString(),
+              lastUpdatedAt: new Date(Date.now() - (i * 300000)).toISOString(),
+              centralId: gcdrId,
+            });
+          }
         }
       }
 
-      // Build maps — same logic as _buildAlarmServiceOrchestrator in MAIN_VIEW/controller.js
-      const deviceAlarmMap = new Map();
-      for (const alarm of mockAlarms) {
-        const did = alarm.deviceId;
-        if (!did) continue;
-        if (!deviceAlarmMap.has(did)) deviceAlarmMap.set(did, []);
-        deviceAlarmMap.get(did).push(alarm);
+      const showOfflineAlarms = _getShowOfflineAlarms();
+      const itemsBase = (window.STATE && Array.isArray(window.STATE.itemsBase))
+        ? window.STATE.itemsBase
+        : [];
+
+      // RFC-0201 Phase 1 row #12 — prefer the library factory (Pod A).
+      let aso;
+      if (typeof window.MyIOLibrary?.createAlarmServiceOrchestrator === 'function') {
+        try {
+          aso = window.MyIOLibrary.createAlarmServiceOrchestrator({
+            customerAlarms: mockAlarms,
+            itemsBase,
+            showOfflineAlarms,
+            refreshFn: async () => mockAlarms, // showcase mock: re-emit same set
+          });
+          // Augment with `alarms` and `deviceAlarmTypes` (back-compat for legacy showcase consumers)
+          aso.alarms = mockAlarms;
+          const deviceAlarmTypes = new Map();
+          aso.deviceAlarmMap.forEach((devAlarms, did) => {
+            deviceAlarmTypes.set(did, new Set(devAlarms.map(a => a.alarmType || a.title || 'unknown')));
+          });
+          aso.deviceAlarmTypes = deviceAlarmTypes;
+          if (typeof aso.getAlarmTypesForDevice !== 'function') {
+            aso.getAlarmTypesForDevice = (gcdrDeviceId) =>
+              deviceAlarmTypes.get(gcdrDeviceId) ?? new Set();
+          }
+          logEvent('ASO', `[FACTORY] MyIOLibrary.createAlarmServiceOrchestrator OK (showOfflineAlarms=${showOfflineAlarms})`, 'info');
+        } catch (err) {
+          logEvent('ASO', `[FACTORY] failed: ${err.message} — falling back to inline`, 'warn');
+          aso = null;
+        }
       }
-      const deviceAlarmTypes = new Map();
-      deviceAlarmMap.forEach((devAlarms, did) => {
-        deviceAlarmTypes.set(did, new Set(devAlarms.map(a => a.alarmType || a.title || 'unknown')));
-      });
 
-      window.AlarmServiceOrchestrator = {
-        alarms: mockAlarms,
-        deviceAlarmMap,
-        deviceAlarmTypes,
-        getAlarmCountForDevice(gcdrDeviceId) { return deviceAlarmMap.get(gcdrDeviceId)?.length ?? 0; },
-        getAlarmsForDevice(gcdrDeviceId)     { return deviceAlarmMap.get(gcdrDeviceId) ?? []; },
-        getAlarmTypesForDevice(gcdrDeviceId) { return deviceAlarmTypes.get(gcdrDeviceId) ?? new Set(); },
-        async refresh() { /* showcase mock: no-op */ },
-      };
+      if (!aso) {
+        // Inline fallback: build maps locally (mirrors MAIN_VIEW/controller.js logic).
+        const filtered = mockAlarms.filter(a => {
+          const did = a.gcdrDeviceId || a.deviceId;
+          if (!did) return false;
+          if (showOfflineAlarms) return true;
+          // best-effort offline gating: skip alarms whose itemsBase status is offline/no_info
+          const item = itemsBase.find(i => i?.gcdrDeviceId === did);
+          const status = (item?.deviceStatus || '').toLowerCase();
+          return status !== 'offline' && status !== 'no_info';
+        });
+        const deviceAlarmMap = new Map();
+        for (const alarm of filtered) {
+          const did = alarm.gcdrDeviceId || alarm.deviceId;
+          if (!did) continue;
+          if (!deviceAlarmMap.has(did)) deviceAlarmMap.set(did, []);
+          deviceAlarmMap.get(did).push(alarm);
+        }
+        const deviceAlarmTypes = new Map();
+        deviceAlarmMap.forEach((devAlarms, did) => {
+          deviceAlarmTypes.set(did, new Set(devAlarms.map(a => a.alarmType || a.title || 'unknown')));
+        });
+        aso = {
+          alarms: filtered,
+          deviceAlarmMap,
+          deviceAlarmTypes,
+          getAlarmCountForDevice(gcdrDeviceId) { return deviceAlarmMap.get(gcdrDeviceId)?.length ?? 0; },
+          getAlarmsForDevice(gcdrDeviceId)     { return deviceAlarmMap.get(gcdrDeviceId) ?? []; },
+          getAlarmTypesForDevice(gcdrDeviceId) { return deviceAlarmTypes.get(gcdrDeviceId) ?? new Set(); },
+          async refresh() { /* showcase mock: no-op */ },
+        };
+        logEvent('ASO', `[FALLBACK] inline ASO built (factory unavailable) showOfflineAlarms=${showOfflineAlarms}`, 'warn');
+      }
 
-      logEvent('ASO', `Mock ASO injetado: ${deviceAlarmMap.size} devices, ${mockAlarms.length} alarms`, 'info');
+      window.AlarmServiceOrchestrator = aso;
+      window.__phase1MockAlarms = mockAlarms; // exposed for scenario inspection
+
+      logEvent('ASO', `Mock ASO injetado [${modeLabel}]: ${aso.deviceAlarmMap.size} devices, ${mockAlarms.length} alarms (filtered=${aso.alarms.length})`, 'info');
       updateAsoStatus();
 
       // Re-render grids so badges appear immediately
@@ -2386,7 +2495,18 @@
         if (inst && typeof inst.refresh === 'function') inst.refresh();
         else if (inst && typeof inst.update === 'function') inst.update();
       });
-      logEvent('ASO', `Grids refreshed — badges devem aparecer nos cards 1–${count}`, 'info');
+      logEvent('ASO', 'Grids refreshed — badges devem aparecer nos cards correspondentes', 'info');
+    }
+
+    // RFC-0201 Phase 1 Scenario 3: handler for the showOfflineAlarms checkbox.
+    // Rebuilds the orchestrator (with the new flag) so badges re-render.
+    function onShowOfflineAlarmsToggle() {
+      const cb = document.getElementById('showOfflineAlarmsToggle');
+      logEvent('ASO', `showOfflineAlarms toggled → ${!!cb?.checked}`, 'info');
+      // Only rebuild if an ASO is already present — else user must click Inject.
+      if (window.AlarmServiceOrchestrator) {
+        injectMockAlarmServiceOrchestrator();
+      }
     }
 
     function inspectAlarmServiceOrchestrator() {
@@ -3003,6 +3123,31 @@
     window.addEventListener('DOMContentLoaded', async () => {
       updateStateDisplay();
 
+      // RFC-0201 Phase 1 — bootstrap query-param overrides for Scenario 3 (showOfflineAlarms)
+      // and Scenario 2 (auto Phase-1 seed via ?phase1=true).
+      try {
+        const _qp = new URLSearchParams(window.location.search);
+        const _showOff = _qp.get('showOfflineAlarms');
+        if (_showOff != null) {
+          const cb = document.getElementById('showOfflineAlarmsToggle');
+          if (cb) cb.checked = (_showOff === 'true' || _showOff === '1');
+          logEvent('PHASE1', `?showOfflineAlarms=${_showOff} — checkbox synced to ${cb?.checked}`, 'info');
+        }
+        if (_qp.get('phase1') === 'true' || _qp.get('phase1') === '1') {
+          // Pre-select the phase1 preset; auto-inject after components mount.
+          const sel = document.getElementById('alarmBadgePreset');
+          if (sel) sel.value = 'phase1';
+          // Defer inject until grids exist; component creation happens in onInit().
+          setTimeout(() => {
+            try { injectMockAlarmServiceOrchestrator(); }
+            catch (err) { logEvent('PHASE1', `auto-inject failed: ${err.message}`, 'warn'); }
+          }, 1500);
+          logEvent('PHASE1', '?phase1=true — auto-injecting Phase-1 seed in 1.5s', 'info');
+        }
+      } catch (err) {
+        console.warn('[Showcase] Phase-1 query-param parse failed:', err);
+      }
+
       if (typeof MyIOLibrary === 'undefined') {
         logEvent('ERROR', 'MyIOLibrary not loaded. Run: npm run build', 'error');
         updateStatus('error');
@@ -3010,6 +3155,22 @@
       }
 
       logEvent('LIBRARY', `MyIOLibrary loaded (${Object.keys(MyIOLibrary).length} exports)`, 'info');
+
+      // RFC-0201 Phase 1 Scenario 5 — verify deviceIcons map is reachable
+      // (Pod B / RFC-0200). Cards consume `getDeviceIcon` via the components
+      // (TelemetryGridShoppingView), so no inline image URLs live in the
+      // showcase HTML — this is the single check that the export is wired.
+      if (typeof MyIOLibrary.getDeviceIcon === 'function') {
+        logEvent('LIBRARY', `getDeviceIcon('FANCOIL') → ${MyIOLibrary.getDeviceIcon('FANCOIL').slice(0, 60)}…`, 'info');
+      } else {
+        logEvent('LIBRARY', 'getDeviceIcon not exported — rebuild required (Pod B / RFC-0200)', 'warn');
+      }
+      // RFC-0201 Phase 1 Scenarios 1+5 — verify Pod A factory presence
+      if (typeof MyIOLibrary.createAlarmServiceOrchestrator === 'function') {
+        logEvent('LIBRARY', 'createAlarmServiceOrchestrator exported (Pod A / RFC-0183)', 'info');
+      } else {
+        logEvent('LIBRARY', 'createAlarmServiceOrchestrator NOT exported — Pod A factory missing; ASO uses inline fallback', 'warn');
+      }
 
       // Ghost authentication - get real JWT token
       logEvent('AUTH', 'Starting ghost authentication...', 'info');
@@ -3231,5 +3392,101 @@
       }
     });
   </script>
+
+  <!-- =========================================================================
+       RFC-0201 Phase 1 — Showcase Validation Scenarios
+       Documented per RFC-0201 § Showcase Validation. Manual repro steps
+       and expected outcomes for the five Phase-1 acceptance scenarios.
+       ========================================================================= -->
+  <details id="phase1-validation-scenarios" style="
+      margin: 24px 16px;
+      padding: 14px 18px;
+      background: rgba(124, 58, 237, 0.06);
+      border: 1px solid rgba(124, 58, 237, 0.30);
+      border-radius: 10px;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 13px;
+      line-height: 1.55;
+      color: var(--myio-text, #1e293b);">
+    <summary style="cursor:pointer;font-weight:700;font-size:14px;color:#7c3aed;user-select:none;">
+      RFC-0201 Phase 1 — Showcase Validation Scenarios (5 manual tests)
+    </summary>
+    <div style="margin-top: 12px;">
+      <p style="margin: 0 0 10px 0;">
+        Each scenario below mirrors RFC-0201 § Showcase Validation and is the
+        release gate for Phase 1. Run them manually after a clean
+        <code>npm run build</code>; <strong>all five must pass</strong> before
+        merging <code>integration/phase-1</code> into <code>desenv</code>.
+        Pre-conditions: serve via <code>npx serve .</code> from repo root and
+        open <code>showcase/main-view-shopping/index.html</code>.
+      </p>
+
+      <h3 style="margin: 14px 0 6px 0; font-size: 13px; color: #5b21b6;">
+        Scenario 1 — Light default theme &amp; no double-prefixed network requests
+      </h3>
+      <ul style="margin: 0 0 10px 18px; padding: 0;">
+        <li><strong>Steps:</strong> Open the showcase. Open DevTools &gt; Network. Reload.</li>
+        <li><strong>Expected:</strong> <code>&lt;body&gt;</code> has class <code>light-mode</code>; UI background is light; no flicker. In Network, no requests have a doubled host (e.g.,
+          <code>https://api.data…/api/v1/api/v1/...</code>). Theme select defaults to <em>light</em>.</li>
+        <li><strong>AC traced:</strong> AC-Fix-LightDefault-1 (Pod C, RFC-0201 schema), DATA_API_HOST audit (work-list #7).</li>
+      </ul>
+
+      <h3 style="margin: 14px 0 6px 0; font-size: 13px; color: #5b21b6;">
+        Scenario 2 — Mock orchestrator with seed (3 alarms / 2 devices)
+      </h3>
+      <ul style="margin: 0 0 10px 18px; padding: 0;">
+        <li><strong>Steps:</strong> Click <em>Load Real Devices</em> (or <em>onInit</em>) so <code>STATE.itemsBase</code> populates. In the
+          <strong>RFC-0183 Alarm Badge</strong> panel, set the preset to <em>Phase-1 seed (3 alarms / 2 devices)</em>, then click <em>Inject ASO</em>.
+          (Alternative: append <code>?phase1=true</code> to the URL — Phase-1 seed auto-injects 1.5s after load.)</li>
+        <li><strong>Expected:</strong> The seed contains alarms keyed by <code>gcdr-001</code> (2 alarms) and <code>gcdr-002</code> (1 alarm). Inspect
+          <code>window.AlarmServiceOrchestrator.deviceAlarmMap</code> in the console — it must contain those two keys with array lengths 2 and 1
+          respectively. The Event Log shows the line <code>[FACTORY] MyIOLibrary.createAlarmServiceOrchestrator OK</code>.
+          Cards whose <code>gcdrDeviceId</code> matches show 🔴 badges; all others show no badge.</li>
+        <li><strong>AC traced:</strong> AC-RFC-0183-1, AC-Fix-gcdrDeviceId-1, AC-Fix-gcdrDeviceId-2 (work-list rows #1, #2, #8, #10, #16).</li>
+      </ul>
+
+      <h3 style="margin: 14px 0 6px 0; font-size: 13px; color: #5b21b6;">
+        Scenario 3 — <code>showOfflineAlarms</code> toggle gates offline-device alarms
+      </h3>
+      <ul style="margin: 0 0 10px 18px; padding: 0;">
+        <li><strong>Steps:</strong> With the seed injected (Scenario 2), tick the <code>showOfflineAlarms</code> checkbox in the alarm panel.
+          (Alternative: append <code>?showOfflineAlarms=true</code> and reload, then re-inject.) The orchestrator rebuilds automatically.</li>
+        <li><strong>Expected:</strong> Console-inspect <code>window.AlarmServiceOrchestrator.alarms.length</code> — when toggled to <em>true</em>, it
+          returns the full set including offline-device alarms; when toggled to <em>false</em>, alarms whose <code>itemsBase</code> entry has
+          <code>deviceStatus = offline | no_info</code> are excluded. Badges re-render accordingly.</li>
+        <li><strong>AC traced:</strong> AC-RFC-0183-2 (work-list row #13).</li>
+      </ul>
+
+      <h3 style="margin: 14px 0 6px 0; font-size: 13px; color: #5b21b6;">
+        Scenario 4 — Header Alarms KPI tooltip is exactly 320px wide
+      </h3>
+      <ul style="margin: 0 0 10px 18px; padding: 0;">
+        <li><strong>Steps:</strong> Hover over the Alarms KPI card in the Header strip (top of the dashboard).</li>
+        <li><strong>Expected:</strong> The tooltip renders with width = <code>320px</code> (measure via DevTools &gt; Inspect element &gt; Computed). Inline
+          status / category / alarm / ticket toggles render as a single row of equal-width pills. Counters reflect the seed (Scenario 2: 3 alarms across 2 devices).</li>
+        <li><strong>AC traced:</strong> AC-RFC-0183-3 (work-list row #11).</li>
+      </ul>
+
+      <h3 style="margin: 14px 0 6px 0; font-size: 13px; color: #5b21b6;">
+        Scenario 5 — Device-card icons are sourced from <code>deviceIcons</code> map
+      </h3>
+      <ul style="margin: 0 0 10px 18px; padding: 0;">
+        <li><strong>Steps:</strong> Inspect any device card in the grid (DevTools &gt; right-click &gt; Inspect). Locate the icon <code>&lt;img&gt;</code> element.</li>
+        <li><strong>Expected:</strong> The <code>src</code> URL matches the static-token pattern from RFC-0200 (e.g.,
+          <code>https://dashboard.myio-bas.com/api/images/public/&lt;opaque-token&gt;</code>). The Event Log shows
+          <code>getDeviceIcon('FANCOIL') → https://dashboard.myio-bas.com/api/images/public/4BWMuVIFHnsfqatiV86DmTrOB7IF0X8Y…</code> (logged once on load).</li>
+        <li><strong>Notes:</strong> The showcase HTML itself contains no inline image-URL strings for device icons; URL resolution is delegated to
+          <code>createTelemetryGridShoppingComponent</code>, which calls <code>getDeviceIcon(deviceType)</code> internally (Pod B / RFC-0200).</li>
+        <li><strong>AC traced:</strong> AC-RFC-0200-1, AC-RFC-0200-2 (work-list rows #3, #4, #5).</li>
+      </ul>
+
+      <h3 style="margin: 14px 0 6px 0; font-size: 13px; color: #5b21b6;">URL parameters reference</h3>
+      <ul style="margin: 0 0 4px 18px; padding: 0;">
+        <li><code>?phase1=true</code> — auto-inject Phase-1 seed (3 alarms / 2 devices) 1.5 s after load.</li>
+        <li><code>?showOfflineAlarms=true</code> — start with the offline-alarms gate disabled (badges include offline-device alarms).</li>
+        <li>Combine: <code>?phase1=true&amp;showOfflineAlarms=true</code> — auto-inject seed with offline gating off.</li>
+      </ul>
+    </div>
+  </details>
 </body>
 </html>
