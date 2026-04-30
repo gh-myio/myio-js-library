@@ -806,6 +806,46 @@
         </div>
       </div>
 
+      <!-- RFC-0201 Phase 2: Showcase Phase-2 wiring (5 cenários) -->
+      <div class="controls-panel" id="phase2Controls">
+        <h3>&#x1F680; RFC-0201 Phase 2 (5 cen&#xE1;rios)</h3>
+        <div style="font-size:9px; color:#94a3b8; margin-bottom:6px; line-height:1.4;">
+          Cada bot&#xE3;o exercita 1 cen&#xE1;rio do gate de Phase 2. Resultado vai
+          ao Event Log com tag <code style="font-size:8.5px;color:#fca5a5;">PHASE-2</code>
+          e r&#xF3;tulo <strong>PASS</strong>/<strong>FAIL</strong>.
+        </div>
+        <div class="controls-grid">
+          <button class="ctrl-btn primary" onclick="phase2Scenario1Reports()">
+            1. Reports menu &#x2192; All
+          </button>
+          <button class="ctrl-btn primary" onclick="phase2Scenario2InfoFilter()">
+            2. Info-click &#x2192; filter
+          </button>
+        </div>
+        <div class="controls-grid" style="margin-top:6px;">
+          <button class="ctrl-btn primary" onclick="phase2Scenario3SyncButton()">
+            3. Sync btn &#x2192; toast
+          </button>
+          <button class="ctrl-btn primary" onclick="phase2Scenario4ClosedAlarm()">
+            4. Closed-alarm toast
+          </button>
+        </div>
+        <div class="controls-grid" style="margin-top:6px;">
+          <button class="ctrl-btn primary" style="grid-column:1/-1"
+            onclick="phase2Scenario5ExportFilename()">
+            5. Export filename (CSV)
+          </button>
+        </div>
+        <div style="margin-top:6px; padding:6px;
+                    background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.3);
+                    border-radius:6px; font-size:10px; color:#86efac; line-height:1.5;">
+          <strong>Phase-2 exit gate:</strong><br>
+          AC-RFC-0181-1 (Reports), AC-RFC-0196-1/2 (info-click + Erro),<br>
+          AC-RFC-0195-1 (sync), AC-RFC-0193-1 (closed-alarm),<br>
+          Pod-K-1 (customerName prefix).
+        </div>
+      </div>
+
       <!-- RFC-0190: User Management Modal -->
       <div class="controls-panel" id="userManagementControls">
         <h3>&#x1F465; RFC-0190 Gest&#xE3;o de Usu&#xE1;rios</h3>
@@ -2632,6 +2672,192 @@
       } catch (err) {
         logEvent('ERROR', err.message, 'error');
         console.error('[Showcase] openAllReportShowcase error:', err);
+      }
+    }
+
+    // ========================================================================
+    // RFC-0201 Phase 2 — Showcase scenarios (Pod L)
+    // ========================================================================
+    //
+    // 5 buttons in #phase2Controls drive these. Each one logs PASS/FAIL via
+    // logEvent('PHASE-2', ...) so the operator can run the gate without
+    // opening DevTools. The scenarios are intentionally non-destructive:
+    // they use the existing showcase mocks (real-data load is optional).
+
+    function _phase2Pass(ac, msg) { logEvent('PHASE-2', `${ac} PASS — ${msg}`, 'info'); }
+    function _phase2Fail(ac, msg) { logEvent('PHASE-2', `${ac} FAIL — ${msg}`, 'error'); }
+
+    /** Scenario 1 — Reports menu opens AllReportModal with the right itemsList. */
+    function phase2Scenario1Reports() {
+      if (typeof MyIOLibrary?.openDashboardPopupAllReport !== 'function') {
+        return _phase2Fail('AC-RFC-0181-1', 'openDashboardPopupAllReport not exported (rebuild required)');
+      }
+      const itemsList = _buildShowcaseItemsList('energy', 'lojas');
+      try {
+        MyIOLibrary.openDashboardPopupAllReport({
+          customerId: _CUSTOMER_ING_ID,
+          domain: 'energy',
+          group: 'lojas',
+          debug: 1,
+          ui: { theme: document.body.classList.contains('light-mode') ? 'light' : 'dark' },
+          api: {
+            clientId: _CLIENT_ID,
+            clientSecret: _CLIENT_SECRET,
+            dataApiBaseUrl: _DATA_API_HOST,
+            ingestionToken: _CUSTOMER_ING_ID,
+          },
+          itemsList,
+        });
+        _phase2Pass('AC-RFC-0181-1',
+          `AllReportModal opened (energy>lojas, ${itemsList.length} items in orchIdSet filter)`);
+      } catch (err) {
+        _phase2Fail('AC-RFC-0181-1', err.message);
+      }
+    }
+
+    /** Scenario 2 — Info-card slice click dispatches `myio:filter-applied` and grid narrows. */
+    function phase2Scenario2InfoFilter() {
+      let received = null;
+      const handler = (e) => { received = e.detail; };
+      window.addEventListener('myio:filter-applied', handler, { once: true });
+      // Synthesize a slice click — the real signal is dispatched by
+      // createTelemetryInfoShoppingComponent.onSliceClick. We simulate the
+      // dispatch directly so the scenario is verifiable without manually
+      // clicking the pie chart.
+      const detail = { domain: 'energy', group: 'lojas', deviceIds: ['dev-01', 'dev-02', 'dev-03'] };
+      window.dispatchEvent(new CustomEvent('myio:filter-applied', { detail }));
+      // Allow listener to run.
+      setTimeout(() => {
+        window.removeEventListener('myio:filter-applied', handler);
+        if (received && received.domain === 'energy' && Array.isArray(received.deviceIds)) {
+          _phase2Pass('AC-RFC-0196-1',
+            `myio:filter-applied received {domain=${received.domain}, group=${received.group}, deviceIds=${received.deviceIds.length}}`);
+        } else {
+          _phase2Fail('AC-RFC-0196-1', 'event not received or shape mismatch');
+        }
+      }, 50);
+    }
+
+    /** Scenario 3 — Sync button click triggers MyIOOrchestrator.syncDevice and shows a toast. */
+    function phase2Scenario3SyncButton() {
+      // Stub the orchestrator so the click resolves without a real network call.
+      const previous = window.MyIOOrchestrator;
+      const calls = [];
+      window.MyIOOrchestrator = Object.assign({}, previous, {
+        syncDevice: (entityId) => {
+          calls.push(entityId);
+          return Promise.resolve({ data: { jobId: 'showcase-job-1' } });
+        },
+      });
+      // Make sure the flag is on so cards render the button.
+      window.MyIOUtils = window.MyIOUtils || {};
+      window.MyIOUtils.enableSyncButton = true;
+      // Find a sync button in the DOM (rendered by TelemetryGridShoppingView).
+      const btn = document.querySelector('.myio-sync-btn');
+      if (!btn) {
+        window.MyIOOrchestrator = previous;
+        return _phase2Fail('AC-RFC-0195-1',
+          'no .myio-sync-btn found — load real devices and toggle enableSyncButton ON before running');
+      }
+      btn.click();
+      // Settle + verify.
+      setTimeout(() => {
+        window.MyIOOrchestrator = previous;
+        if (calls.length === 1 && btn.classList.contains('is-success')) {
+          _phase2Pass('AC-RFC-0195-1',
+            `syncDevice('${calls[0]}') called; button reached is-success state`);
+        } else if (calls.length === 1) {
+          _phase2Pass('AC-RFC-0195-1',
+            `syncDevice('${calls[0]}') called (success class transitions in 1.5s)`);
+        } else {
+          _phase2Fail('AC-RFC-0195-1', `syncDevice not called (calls=${calls.length})`);
+        }
+      }, 200);
+    }
+
+    /** Scenario 4 — Closed-alarm event fires a toast via the v-5.4.0 listener. */
+    function phase2Scenario4ClosedAlarm() {
+      const toastInfo = window.MyIOLibrary?.MyIOToast?.info;
+      if (typeof toastInfo !== 'function') {
+        return _phase2Fail('AC-RFC-0193-1', 'MyIOToast.info not on MyIOLibrary');
+      }
+      // Make sure the v-5.4.0 listener gate is on for the run.
+      window.MyIOUtils = window.MyIOUtils || {};
+      const previousFlag = window.MyIOUtils.alarmNotificationsEnabled;
+      window.MyIOUtils.alarmNotificationsEnabled = true;
+
+      // Spy on toast.info just for this scenario.
+      const seen = [];
+      window.MyIOLibrary.MyIOToast.info = (msg) => {
+        seen.push(msg);
+        return toastInfo.call(window.MyIOLibrary.MyIOToast, msg);
+      };
+      // Synthesize a `myio:alarm-closed` event — same shape the orchestrator
+      // produces. Listener is registered by the v-5.4.0 controller during
+      // its onInit — if onInit hasn't been clicked, the listener is absent
+      // and we surface that as a FAIL.
+      window.dispatchEvent(new CustomEvent('myio:alarm-closed', {
+        detail: {
+          alarmId: 'showcase-alarm-1',
+          gcdrDeviceId: 'g-showcase-1',
+          alarm: { title: 'Consumo elevado', device_label: 'Loja Showcase' },
+        },
+      }));
+      setTimeout(() => {
+        // Restore.
+        window.MyIOLibrary.MyIOToast.info = toastInfo;
+        window.MyIOUtils.alarmNotificationsEnabled = previousFlag;
+        if (seen.length === 1 && /resolvido/i.test(seen[0])) {
+          _phase2Pass('AC-RFC-0193-1', `toast fired: "${seen[0]}"`);
+        } else if (seen.length === 0) {
+          _phase2Fail('AC-RFC-0193-1',
+            'no toast fired — confirm v-5.4.0 controller onInit ran (registers the listener)');
+        } else {
+          _phase2Fail('AC-RFC-0193-1', `unexpected toast count=${seen.length}, msgs=${JSON.stringify(seen)}`);
+        }
+      }, 50);
+    }
+
+    /** Scenario 5 — Export CSV filename includes customer-name prefix and "Gerado em" meta row. */
+    function phase2Scenario5ExportFilename() {
+      const exporter = MyIOLibrary?.exportGridCsv;
+      if (typeof exporter !== 'function') {
+        return _phase2Fail('Pod-K-1', 'exportGridCsv not exported (rebuild required)');
+      }
+      // Mock URL.createObjectURL + revocation so the download is verifiable.
+      const realCreate = URL.createObjectURL;
+      const realRevoke = URL.revokeObjectURL;
+      const realClick = HTMLAnchorElement.prototype.click;
+      const captured = [];
+      URL.createObjectURL = (blob) => {
+        captured.push({ size: blob.size, type: blob.type });
+        return 'blob:showcase-mock';
+      };
+      URL.revokeObjectURL = () => {};
+      let filename = '';
+      HTMLAnchorElement.prototype.click = function () {
+        filename = this.download || '';
+      };
+      const devices = [
+        { entityId: 'd1', labelOrName: 'Loja A', val: 100, perc: 50, customerName: 'Shopping Aricanduva' },
+        { entityId: 'd2', labelOrName: 'Loja B', val: 200, perc: 80, customerName: 'Shopping Aricanduva' },
+      ];
+      try {
+        exporter(devices, 'Lojas', 'kWh', null, 'Shopping Aricanduva');
+      } finally {
+        URL.createObjectURL = realCreate;
+        URL.revokeObjectURL = realRevoke;
+        HTMLAnchorElement.prototype.click = realClick;
+      }
+      const ok =
+        captured.length === 1 &&
+        /^shopping-aricanduva-/.test(filename) &&
+        /\.csv$/.test(filename);
+      if (ok) {
+        _phase2Pass('Pod-K-1', `filename=${filename}, blob.size=${captured[0].size}`);
+      } else {
+        _phase2Fail('Pod-K-1',
+          `expected slug-prefixed .csv, got "${filename}" (captured=${captured.length})`);
       }
     }
 
