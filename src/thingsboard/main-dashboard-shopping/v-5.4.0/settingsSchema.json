@@ -206,6 +206,12 @@
         "type": "string",
         "default": "https://gcdr-api.a.myio-bas.com",
         "description": "RFC-0180: Base URL for the GCDR REST API (without trailing slash)."
+      },
+      "enableSyncButton": {
+        "title": "Enable manual device-sync button on cards",
+        "type": "boolean",
+        "default": false,
+        "description": "RFC-0195 / RFC-0201 Phase 2: When true, telemetry cards expose a manual sync action that calls MyIOOrchestrator.syncDevice(entityId). Will be RBAC-gated in Phase 3 (RFC-0199)."
       }
     }
   },
@@ -289,6 +295,7 @@
     "gcdrCustomerId",
     "gcdrTenantId",
     "gcdrApiBaseUrl",
+    "enableSyncButton",
     "dataApiHost"
   ]
 }

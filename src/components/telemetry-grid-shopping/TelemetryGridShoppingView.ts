@@ -46,6 +46,8 @@ export class TelemetryGridShoppingView {
   private isMaximized = false;
   private _alarmBadgeStylesInjected = false;
   private _ticketBadgeStylesInjected = false;
+  // RFC-0195 / RFC-0201 Phase 2 (rows #23, #24): sync-button styles flag
+  private _syncButtonStylesInjected = false;
   private originalParent: HTMLElement | null = null;
   private originalNextSibling: Node | null = null;
 
@@ -593,6 +595,19 @@ export class TelemetryGridShoppingView {
               }
             }
 
+            // RFC-0195 / RFC-0201 Phase 2 (rows #23, #24): manual device-sync
+            // button. Visibility is gated by the `enableSyncButton` settings
+            // flag (read from `window.MyIOUtils`, default false). Phase-3 RBAC
+            // gating (admin only) will land via RFC-0199 PermissionGuard — see
+            // `authContext` wiring delta in RFC-0201 § Misuse / Drift Audit
+            // (controller line 656–698). Until then, the flag is the only gate.
+            const utils = (window as unknown as {
+              MyIOUtils?: { enableSyncButton?: boolean };
+            }).MyIOUtils;
+            if (utils?.enableSyncButton === true) {
+              wrapper.appendChild(this._createSyncButton(device));
+            }
+
           } else {
             this.log('Card element not found for:', device.labelOrName);
             wrapper.innerHTML = this.buildFallbackCard(device);
@@ -882,6 +897,122 @@ export class TelemetryGridShoppingView {
         wrapper.appendChild(this._createTicketBadge(count));
       }
     });
+  }
+
+  // =========================================================================
+  // RFC-0195 / RFC-0201 Phase 2: Sync Button (rows #23, #24)
+  // =========================================================================
+
+  /**
+   * Build a small refresh-icon button on a card. Click → calls
+   * `window.MyIOOrchestrator.syncDevice(entityId)`. While the call is in
+   * flight, the button gets a `is-loading` class (CSS spins the icon and
+   * disables clicks); on success a brief checkmark + info toast; on error a
+   * `MyIOToast.error` message.
+   *
+   * NOTE: Phase-3 (RFC-0199) will RBAC-gate this button at render time via
+   * `authContext.canSyncDevice()`. For now, visibility is gated only by the
+   * `enableSyncButton` settings flag at the call site (see `renderCards`).
+   */
+  private _createSyncButton(device: TelemetryDevice): HTMLElement {
+    this._injectSyncButtonStyles();
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'myio-sync-btn';
+    btn.title = 'Sincronizar dispositivo';
+    btn.setAttribute('aria-label', 'Sincronizar dispositivo');
+    btn.dataset.entityId = device.entityId;
+    btn.innerHTML = `
+      <svg class="myio-sync-btn__glyph" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polyline points="23 4 23 10 17 10"></polyline>
+        <polyline points="1 20 1 14 7 14"></polyline>
+        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"></path>
+        <path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"></path>
+      </svg>
+    `;
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (btn.classList.contains('is-loading')) return; // de-dupe rapid clicks
+      const orch = (window as unknown as {
+        MyIOOrchestrator?: { syncDevice?: (id: string) => Promise<unknown> };
+      }).MyIOOrchestrator;
+      const toast = (window as unknown as {
+        MyIOLibrary?: { MyIOToast?: { info: (m: string) => void; error: (m: string) => void } };
+      }).MyIOLibrary?.MyIOToast;
+      if (!orch?.syncDevice) {
+        toast?.error('Sincronização indisponível: orchestrator não inicializado');
+        return;
+      }
+      btn.classList.add('is-loading');
+      btn.disabled = true;
+      try {
+        await orch.syncDevice(device.entityId);
+        btn.classList.remove('is-loading');
+        btn.classList.add('is-success');
+        toast?.info('Sincronização concluída');
+        // Reset success state after a brief moment so the button can be reused.
+        window.setTimeout(() => {
+          btn.classList.remove('is-success');
+          btn.disabled = false;
+        }, 1500);
+      } catch (err) {
+        btn.classList.remove('is-loading');
+        btn.disabled = false;
+        const msg = err instanceof Error ? err.message : 'Erro ao sincronizar';
+        toast?.error(`Falha na sincronização: ${msg}`);
+      }
+    });
+    return btn;
+  }
+
+  private _injectSyncButtonStyles(): void {
+    if (this._syncButtonStylesInjected) return;
+    this._syncButtonStylesInjected = true;
+    if (document.getElementById('myio-sync-btn-styles')) return;
+    const s = document.createElement('style');
+    s.id = 'myio-sync-btn-styles';
+    // Sally's spec: "small refresh icon in card actions row" — we float it
+    // bottom-right of the card wrapper since `renderCardComponentV5` doesn't
+    // expose its actions row directly. Phase-3 will move it inline once the
+    // PermissionGuard re-renders the card actions row.
+    s.textContent = `
+      .myio-sync-btn {
+        position: absolute;
+        bottom: 6px;
+        right: 6px;
+        width: 24px;
+        height: 24px;
+        padding: 0;
+        border: 1px solid #d1d5db;
+        background: #fff;
+        color: #475569;
+        border-radius: 6px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        z-index: 11;
+        transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
+      }
+      .myio-sync-btn:hover { background: #f1f5f9; color: #1e293b; }
+      .myio-sync-btn:disabled { cursor: wait; opacity: 0.7; }
+      .myio-sync-btn.is-loading .myio-sync-btn__glyph {
+        animation: myio-sync-spin 0.9s linear infinite;
+      }
+      .myio-sync-btn.is-success {
+        background: #d1fae5;
+        border-color: #10b981;
+        color: #065f46;
+      }
+      .myio-sync-btn.is-success .myio-sync-btn__glyph {
+        animation: none;
+      }
+      @keyframes myio-sync-spin {
+        from { transform: rotate(0deg); }
+        to   { transform: rotate(360deg); }
+      }
+    `;
+    document.head.appendChild(s);
   }
 
   destroy(): void {

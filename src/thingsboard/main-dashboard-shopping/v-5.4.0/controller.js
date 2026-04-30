@@ -1190,6 +1190,12 @@ self.onInit = async function () {
   window.MyIOUtils.enableAnnotationsOnboarding = enableAnnotationsOnboarding;
   LogHelper.log('RFC-0144: enableAnnotationsOnboarding:', enableAnnotationsOnboarding);
 
+  // RFC-0195 / RFC-0201 Phase 2 (rows #23, #24): manual device-sync button
+  // visibility. Default false. Will be RBAC-gated in Phase 3 (RFC-0199).
+  const enableSyncButton = settings.enableSyncButton ?? false;
+  window.MyIOUtils.enableSyncButton = enableSyncButton;
+  LogHelper.log('RFC-0195: enableSyncButton:', enableSyncButton);
+
   // RFC-0178: Alarms API config from settings
   const alarmsApiBaseUrl = settings.alarmsApiBaseUrl || 'https://alarms-api.a.myio-bas.com/api/v1';
   const alarmsApiKey = settings.alarmsApiKey || '';
@@ -1230,6 +1236,82 @@ self.onInit = async function () {
         },
       },
       inFlight: {},
+      // RFC-0195 / RFC-0201 Phase 2 (rows #23, #24): manual single-device
+      // sync. Mirrors v-5.2.0's bulk GCDR sync job (TELEMETRY/_handleSyncGCDR
+      // → POST {gcdrApiBaseUrl}/api/v1/device-sync/jobs) but for one device:
+      // we POST a single-row device-map and let the GCDR job pipeline handle
+      // CHECK / ACTION_PLAN / APPLY_UPDATES like the bulk path. Endpoint URL,
+      // method, headers, and request shape mirror v-5.2.0 exactly.
+      // The caller awaits the create-job response; polling for terminal state
+      // is the responsibility of higher-level UI when needed (the per-card
+      // button only needs success/error feedback, not full job logs).
+      syncDevice: async (entityId) => {
+        if (!entityId) throw new Error('syncDevice: entityId required');
+        const orch = window.MyIOOrchestrator;
+        const baseUrl = orch?.gcdrApiBaseUrl || gcdrApiBaseUrl;
+        const customerId = orch?.gcdrCustomerId || gcdrCustomerId;
+        // Resolve gcdrApiKey via the same TB SERVER_SCOPE attribute that
+        // v-5.2.0's _fetchGcdrCredentials reads (integration_setup.gcdr).
+        const tbToken =
+          self.ctx?.http?.getServerCredentials?.()?.token ||
+          (typeof localStorage !== 'undefined' ? localStorage.getItem('jwt_token') : null);
+        if (!tbToken) throw new Error('syncDevice: no JWT');
+        if (!customerId) throw new Error('syncDevice: gcdrCustomerId not configured');
+        const credsUrl = `${THINGSBOARD_URL}/api/plugins/telemetry/CUSTOMER/${customerTbId}/values/attributes/SERVER_SCOPE?keys=integration_setup`;
+        const credsRes = await fetch(credsUrl, {
+          headers: { 'X-Authorization': `Bearer ${tbToken}` },
+        });
+        if (!credsRes.ok) throw new Error(`syncDevice: TB attrs HTTP ${credsRes.status}`);
+        const credsAttrs = await credsRes.json();
+        const rawIntegration = Array.isArray(credsAttrs)
+          ? credsAttrs.find((a) => a.key === 'integration_setup')?.value
+          : credsAttrs?.integration_setup;
+        if (!rawIntegration) throw new Error('syncDevice: integration_setup not found on customer');
+        const integrationCfg =
+          typeof rawIntegration === 'string' ? JSON.parse(rawIntegration) : rawIntegration;
+        const gcdrApiKey = integrationCfg?.gcdr?.gcdrApiKey;
+        if (!gcdrApiKey) throw new Error('syncDevice: gcdrApiKey not configured');
+
+        // Build a one-row device-map for the target entityId. Matches the
+        // pipe-delimited header used by _buildDeviceMapContent in v-5.2.0.
+        const header =
+          'tbId|deviceName|label|identifier|deviceType|deviceProfile|slaveId|centralId|gcdrCustomerId|gcdrAssetId|gcdrDeviceId|gcdrSyncAt';
+        const item = (window.STATE?.itemsBase || []).find((i) => i.entityId === entityId);
+        const row = item
+          ? [
+              item.entityId || '',
+              item.name || '',
+              item.label || '',
+              item.identifier || '',
+              item.deviceType || '',
+              item.deviceProfile || '',
+              item.slaveId || '',
+              item.centralId || '',
+              item.gcdrCustomerId || '',
+              item.gcdrAssetId || '',
+              item.gcdrDeviceId || '',
+              item.gcdrSyncAt || '',
+            ].join('|')
+          : [entityId, '', '', '', '', '', '', '', '', '', '', ''].join('|');
+        const content = `${header}\n${row}`;
+        const fileName = `single-${entityId}`;
+
+        const url = `${baseUrl}/api/v1/device-sync/jobs`;
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-API-Key': gcdrApiKey },
+          body: JSON.stringify({
+            customerId,
+            dryRun: false,
+            files: [{ name: fileName, content }],
+          }),
+        });
+        if (!response.ok) {
+          const errText = await response.text().catch(() => '');
+          throw new Error(`syncDevice failed: HTTP ${response.status} ${errText}`);
+        }
+        return response.json();
+      },
     };
     LogHelper.log('[MAIN] MyIOOrchestrator stub created');
   } else {
