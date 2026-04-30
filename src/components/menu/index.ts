@@ -26,6 +26,8 @@ export type {
   MenuEventType,
   MenuEventHandler,
   MenuState,
+  // RFC-0181 / RFC-0201 Phase-2 #19
+  ReportsGroup,
 } from './types';
 
 // Default configurations

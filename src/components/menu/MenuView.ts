@@ -13,6 +13,7 @@ import {
   TabConfig,
   ContextOption,
   Shopping,
+  ReportsGroup,
   DEFAULT_CONFIG_TEMPLATE,
   DEFAULT_LIGHT_THEME,
   DEFAULT_DARK_THEME,
@@ -176,6 +177,7 @@ export class MenuView {
   background: transparent;
   padding: 0 12px; /* RFC-0114: Align with Header (12px) and TelemetryGrid (12px) horizontal padding */
   box-sizing: border-box;
+  position: relative; /* RFC-0181: anchor for the reports menu */
 }
 
 /* ==========================================
@@ -463,6 +465,102 @@ export class MenuView {
 
 .myio-toolbar-item--goals:hover {
   background: var(--menu-goals-hover-bg, #d97706);
+}
+
+/* ==========================================
+   Reports Button + Submenu (RFC-0181 / RFC-0201 Phase-2 #19)
+   ========================================== */
+
+.myio-toolbar-item--reports {
+  background: var(--menu-reports-bg, #1565c0);
+  color: var(--menu-reports-color, #ffffff);
+}
+
+.myio-toolbar-item--reports:hover {
+  background: var(--menu-reports-hover-bg, #0d47a1);
+}
+
+.myio-reports-menu {
+  position: absolute;
+  right: 12px;
+  top: 100%;
+  margin-top: 6px;
+  display: none;
+  z-index: 9998;
+  background: var(--menu-modal-bg, #fff);
+  border: 1px solid var(--menu-modal-border, #e2e8f0);
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+  width: min(640px, 92vw);
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.myio-reports-menu.is-open {
+  display: block;
+}
+
+.myio-reports-menu-content {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.myio-reports-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.myio-reports-section-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--menu-modal-desc, #64748b);
+  padding: 4px 8px;
+}
+
+.myio-reports-section-items {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 6px;
+}
+
+.myio-reports-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--menu-modal-border, #e2e8f0);
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--menu-modal-text, #1c2743);
+  text-align: left;
+  transition: all 0.15s ease;
+}
+
+.myio-reports-item:hover {
+  background: var(--menu-option-hover-bg, #f1f5f9);
+  border-color: var(--menu-option-active-border, #3b82f6);
+}
+
+.myio-reports-item .ico {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.myio-reports-item .label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ==========================================
@@ -1536,6 +1634,8 @@ export class MenuView {
     const showFilter = this.params.showFilterButton !== false;
     const showLoad = this.params.showLoadButton !== false;
     const showClear = this.params.showClearButton !== false;
+    // RFC-0181 — Reports button (default: shown).
+    const showReports = this.params.showReportsButton !== false;
 
     return `
       <section class="myio-toolbar-root">
@@ -1576,11 +1676,17 @@ export class MenuView {
 
           ${showGoals ? '<div class="myio-toolbar-divider"></div>' : ''}
 
+          <!-- Reports (RFC-0181 / RFC-0201 Phase-2 #19) -->
+          ${showReports ? this.buildReportsButtonHTML() : ''}
+
+          ${showReports ? '<div class="myio-toolbar-divider"></div>' : ''}
+
           <!-- Theme Toggle -->
           ${this.buildThemeToggleHTML()}
         </div>
 
         ${this.buildUnifiedContextModalHTML()}
+        ${showReports ? this.buildReportsMenuHTML() : ''}
       </section>
 
       <!-- Mobile Menu Overlay -->
@@ -1899,6 +2005,130 @@ export class MenuView {
   }
 
   /**
+   * RFC-0181 / RFC-0201 Phase-2 #19 — Reports toolbar button.
+   *
+   * Triggers the Reports submenu (`#menuReportsMenu`) which lists the
+   * report groups for the active domain. Selection fires the `reports-click`
+   * view event with the selected `ReportsGroup`.
+   */
+  private buildReportsButtonHTML(): string {
+    return `
+      <button
+        id="menuReportsBtn"
+        class="myio-toolbar-item myio-toolbar-item--reports"
+        type="button"
+        title="Relatórios"
+        aria-haspopup="menu"
+        aria-expanded="false"
+      >
+        <span class="ico">📊</span>
+        <span>Relatórios</span>
+        <span class="dropdown-arrow">▼</span>
+      </button>
+    `;
+  }
+
+  /**
+   * RFC-0181 / RFC-0201 Phase-2 #19 — Reports submenu listing the
+   * group items per domain. Hidden by default; toggled by `#menuReportsBtn`.
+   *
+   * Group keys correspond to `ReportsGroup` (mirrors v-5.2.0
+   * `_renderReportsPicker.DOMAINS`):
+   * - Energy: lojas, climatizacao(area_comum), elevadores(area_comum),
+   *   escadas_rolantes(area_comum), outros(area_comum), entrada, area_comum, todos
+   * - Water: entrada, lojas, banheiros, area_comum, todos
+   * - Temperature: climatizavel, nao_climatizavel, todos
+   *
+   * The granular "Climatização / Elevadores / Escadas Rolantes / Outros"
+   * subdivisions of energy area_comum are surfaced as duplicate `area_comum`
+   * actions for now; widget can refine to RFC-0128 sub-keys later.
+   */
+  private buildReportsMenuHTML(): string {
+    type Section = {
+      domain: 'energy' | 'water' | 'temperature';
+      title: string;
+      icon: string;
+      items: { group: ReportsGroup; label: string; icon: string }[];
+    };
+
+    const sections: Section[] = [
+      {
+        domain: 'energy',
+        title: '⚡ Energia',
+        icon: '⚡',
+        items: [
+          { group: 'lojas', label: 'Lojas', icon: '🏬' },
+          { group: 'entrada', label: 'Entrada', icon: '📥' },
+          { group: 'area_comum', label: 'Área Comum', icon: '🏢' },
+          { group: 'todos', label: 'Todos os Dispositivos', icon: '📋' },
+        ],
+      },
+      {
+        domain: 'water',
+        title: '💧 Água',
+        icon: '💧',
+        items: [
+          { group: 'entrada', label: 'Entrada', icon: '📥' },
+          { group: 'lojas', label: 'Lojas', icon: '🏬' },
+          { group: 'banheiros', label: 'Banheiros', icon: '🚻' },
+          { group: 'area_comum', label: 'Área Comum', icon: '🏢' },
+          { group: 'todos', label: 'Todos os Hidrômetros', icon: '📋' },
+        ],
+      },
+      {
+        domain: 'temperature',
+        title: '🌡️ Temperatura',
+        icon: '🌡️',
+        items: [
+          { group: 'climatizavel', label: 'Ambientes Climatizáveis', icon: '❄️' },
+          { group: 'nao_climatizavel', label: 'Ambientes Não Climatizáveis', icon: '🌤️' },
+          { group: 'todos', label: 'Todos os Ambientes', icon: '📋' },
+        ],
+      },
+    ];
+
+    const sectionHTML = sections
+      .map(
+        (section) => `
+        <div class="myio-reports-section" data-domain="${section.domain}">
+          <div class="myio-reports-section-title">${section.title}</div>
+          <div class="myio-reports-section-items">
+            ${section.items
+              .map(
+                (item) => `
+              <button
+                type="button"
+                class="myio-reports-item"
+                data-domain="${section.domain}"
+                data-group="${item.group}"
+                data-reports-item="true"
+              >
+                <span class="ico">${item.icon}</span>
+                <span class="label">${item.label}</span>
+              </button>`,
+              )
+              .join('')}
+          </div>
+        </div>`,
+      )
+      .join('');
+
+    return `
+      <div
+        id="menuReportsMenu"
+        class="myio-reports-menu"
+        role="menu"
+        aria-labelledby="menuReportsBtn"
+        aria-hidden="true"
+      >
+        <div class="myio-reports-menu-content">
+          ${sectionHTML}
+        </div>
+      </div>
+    `;
+  }
+
+  /**
    * Build Filter button HTML
    */
   private buildFilterButtonHTML(): string {
@@ -2141,6 +2371,9 @@ export class MenuView {
     if (goalsBtn) {
       goalsBtn.addEventListener('click', () => this.emit('goals'));
     }
+
+    // RFC-0181 / RFC-0201 Phase-2 #19 — Reports button + submenu
+    this.bindReportsMenuEvents();
 
     // Filter button
     const filterBtn = this.root.querySelector('#menuFilterBtn');
@@ -2816,6 +3049,73 @@ export class MenuView {
     if (!confirmed) {
       this.pendingTabId = null;
     }
+  }
+
+  /**
+   * RFC-0181 / RFC-0201 Phase-2 #19 — Bind Reports button + submenu.
+   *
+   * - Toggle submenu visibility on `#menuReportsBtn` click.
+   * - Close on outside click or Escape.
+   * - On `.myio-reports-item` click, emit `reports-click` with the group
+   *   key (forwarded by `MenuController` → `params.onReportsClick`).
+   */
+  private bindReportsMenuEvents(): void {
+    const reportsBtn = this.root.querySelector('#menuReportsBtn') as HTMLElement | null;
+    const reportsMenu = this.root.querySelector('#menuReportsMenu') as HTMLElement | null;
+
+    if (!reportsBtn || !reportsMenu) return;
+
+    // Toggle on button click
+    reportsBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const isOpen = reportsMenu.classList.toggle('is-open');
+      reportsMenu.setAttribute('aria-hidden', String(!isOpen));
+      reportsBtn.setAttribute('aria-expanded', String(isOpen));
+    });
+
+    // Item click — emit reports-click with the group key
+    this.root.querySelectorAll('[data-reports-item]').forEach((item) => {
+      item.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const el = item as HTMLElement;
+        const group = el.dataset.group as ReportsGroup | undefined;
+        const domain = el.dataset.domain as 'energy' | 'water' | 'temperature' | undefined;
+        if (!group) return;
+
+        // Close the submenu
+        reportsMenu.classList.remove('is-open');
+        reportsMenu.setAttribute('aria-hidden', 'true');
+        reportsBtn.setAttribute('aria-expanded', 'false');
+
+        // Emit event — controller forwards to params.onReportsClick
+        this.emit('reports-click', { group, domain });
+
+        if (this.configTemplate.enableDebugMode) {
+          console.log('[MenuView] Reports item clicked:', { group, domain });
+        }
+      });
+    });
+
+    // Close on outside click
+    document.addEventListener('click', (e) => {
+      if (!reportsMenu.classList.contains('is-open')) return;
+      const target = e.target as Node | null;
+      if (target && (reportsMenu.contains(target) || reportsBtn.contains(target))) return;
+      reportsMenu.classList.remove('is-open');
+      reportsMenu.setAttribute('aria-hidden', 'true');
+      reportsBtn.setAttribute('aria-expanded', 'false');
+    });
+
+    // Close on Escape
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && reportsMenu.classList.contains('is-open')) {
+        reportsMenu.classList.remove('is-open');
+        reportsMenu.setAttribute('aria-hidden', 'true');
+        reportsBtn.setAttribute('aria-expanded', 'false');
+      }
+    });
   }
 
   /**
