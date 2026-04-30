@@ -20,12 +20,21 @@ import {
   formatWater,
   formatPercentage,
   CategoryType,
+  FilterGroup,
 } from './types';
 import { injectStyles } from './styles';
 
 // Chart.js type (loaded externally)
 type ChartInstance = {
-  data: { labels: string[]; datasets: { data: number[]; backgroundColor: string[] }[] };
+  data: {
+    labels: string[];
+    datasets: {
+      data: number[];
+      backgroundColor: string[];
+      borderColor?: string[];
+      borderWidth?: number | number[];
+    }[];
+  };
   update: () => void;
   destroy: () => void;
 };
@@ -36,7 +45,12 @@ type ChartConstructor = new (
     type: string;
     data: {
       labels: string[];
-      datasets: { data: number[]; backgroundColor: string[]; borderWidth?: number }[];
+      datasets: {
+        data: number[];
+        backgroundColor: string[];
+        borderColor?: string[];
+        borderWidth?: number | number[];
+      }[];
     };
     options: Record<string, unknown>;
   }
@@ -69,6 +83,14 @@ export class TelemetryInfoShoppingView {
   private isMaximized = false;
   private originalParent: HTMLElement | null = null;
   private originalNextSibling: Node | null = null;
+
+  // RFC-0196 — last group activated by a slice click (null when no
+  // active filter). Used for the toggle behaviour: clicking the same
+  // slice twice clears the filter.
+  private activeSliceGroup: FilterGroup | null = null;
+  // Parallel arrays shared between the main chart and the click handler
+  // (rebuilt on every refreshChart).
+  private chartGroups: FilterGroup[] = [];
 
   constructor(params: TelemetryInfoShoppingParams) {
     this.params = params;
@@ -249,6 +271,24 @@ export class TelemetryInfoShoppingView {
           <div class="tis-stat-row tis-main-stat">
             <span class="tis-stat-value" id="areaComumTotal">0,00 kWh</span>
             <span class="tis-stat-perc" id="areaComumPerc">(0%)</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="tis-card tis-erro-card" data-category="erro">
+        <div class="tis-card-header">
+          <span class="tis-card-icon">${config.erro.icon}</span>
+          <h3 class="tis-card-title">${config.erro.label}</h3>
+          ${
+            config.erro.tooltip
+              ? `<span class="tis-tooltip" title="${config.erro.tooltip}">ℹ️</span>`
+              : ''
+          }
+        </div>
+        <div class="tis-card-body">
+          <div class="tis-stat-row tis-main-stat">
+            <span class="tis-stat-value" id="erroTotal">—</span>
+            <span class="tis-stat-perc" id="erroPerc"></span>
           </div>
         </div>
       </div>
@@ -507,6 +547,7 @@ export class TelemetryInfoShoppingView {
               {
                 data: [1],
                 backgroundColor: ['#e0e0e0'],
+                borderColor: ['#ffffff'],
                 borderWidth: 0,
               },
             ],
@@ -514,13 +555,29 @@ export class TelemetryInfoShoppingView {
           options: {
             responsive: true,
             maintainAspectRatio: true,
+            // RFC-0196 — click on slice fires onSliceClick + dispatches
+            // myio:filter-applied. The handler computes the group from
+            // `chartGroups` (parallel to dataset.data) and toggles
+            // visual feedback (4px white ring on active slice; 60%
+            // opacity on siblings).
+            onClick: (_evt: unknown, elements: Array<{ index: number }>) => {
+              if (!elements || elements.length === 0) return;
+              const index = elements[0].index;
+              const group = this.chartGroups[index];
+              if (!group) return;
+              this.handleSliceClick(group);
+            },
             plugins: {
               legend: { display: false },
               tooltip: {
                 callbacks: {
-                  label: (context: { label: string; parsed: number }) => {
+                  // RFC-0196 hover tooltip: percentage + absolute value
+                  // (kWh for energy, m³ for water).
+                  label: (context: { label: string; parsed: number; dataset: { data: number[] } }) => {
                     const formatter = this.domain === 'energy' ? formatEnergy : formatWater;
-                    return `${context.label}: ${formatter(context.parsed)}`;
+                    const total = (context.dataset.data || []).reduce((a, b) => a + b, 0);
+                    const perc = total > 0 ? (context.parsed / total) * 100 : 0;
+                    return `${context.label}: ${formatPercentage(perc)} · ${formatter(context.parsed)}`;
                   },
                 },
               },
@@ -566,6 +623,7 @@ export class TelemetryInfoShoppingView {
             {
               data: [],
               backgroundColor: [],
+              borderColor: [],
               borderWidth: 0,
             },
           ],
@@ -573,13 +631,23 @@ export class TelemetryInfoShoppingView {
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          // RFC-0196 — modal pie also dispatches slice click events.
+          onClick: (_evt: unknown, elements: Array<{ index: number }>) => {
+            if (!elements || elements.length === 0) return;
+            const index = elements[0].index;
+            const group = this.chartGroups[index];
+            if (!group) return;
+            this.handleSliceClick(group);
+          },
           plugins: {
             legend: { display: false },
             tooltip: {
               callbacks: {
-                label: (context: { label: string; parsed: number }) => {
+                label: (context: { label: string; parsed: number; dataset: { data: number[] } }) => {
                   const formatter = this.domain === 'energy' ? formatEnergy : formatWater;
-                  return `${context.label}: ${formatter(context.parsed)}`;
+                  const total = (context.dataset.data || []).reduce((a, b) => a + b, 0);
+                  const perc = total > 0 ? (context.parsed / total) * 100 : 0;
+                  return `${context.label}: ${formatPercentage(perc)} · ${formatter(context.parsed)}`;
                 },
               },
             },
@@ -593,10 +661,24 @@ export class TelemetryInfoShoppingView {
     const chartData = this.getChartData();
     this.log('Refreshing chart with data:', chartData);
 
+    // RFC-0196 — keep chartGroups in sync with the slice order so
+    // onClick can map index → group identifier.
+    this.chartGroups = chartData.groups;
+
+    // RFC-0196 — visual feedback: 4px white ring on the active slice;
+    // siblings fade to 60% opacity. When no slice is active all
+    // borders are 0px and colors are unmodified.
+    const { borderColors, borderWidths, fadedColors } = this.computeSliceVisuals(
+      chartData.colors,
+      chartData.groups
+    );
+
     if (this.mainChart) {
       this.mainChart.data.labels = chartData.labels;
       this.mainChart.data.datasets[0].data = chartData.values;
-      this.mainChart.data.datasets[0].backgroundColor = chartData.colors;
+      this.mainChart.data.datasets[0].backgroundColor = fadedColors;
+      this.mainChart.data.datasets[0].borderColor = borderColors;
+      this.mainChart.data.datasets[0].borderWidth = borderWidths;
       this.mainChart.update();
       this.log('Main chart updated');
     } else {
@@ -606,7 +688,9 @@ export class TelemetryInfoShoppingView {
     if (this.modalChart) {
       this.modalChart.data.labels = chartData.labels;
       this.modalChart.data.datasets[0].data = chartData.values;
-      this.modalChart.data.datasets[0].backgroundColor = chartData.colors;
+      this.modalChart.data.datasets[0].backgroundColor = fadedColors;
+      this.modalChart.data.datasets[0].borderColor = borderColors;
+      this.modalChart.data.datasets[0].borderWidth = borderWidths;
       this.modalChart.update();
       this.log('Modal chart updated');
     }
@@ -616,55 +700,223 @@ export class TelemetryInfoShoppingView {
     this.updateLegend('modalChartLegend', chartData);
   }
 
-  private getChartData(): { labels: string[]; values: number[]; colors: string[] } {
+  /**
+   * RFC-0196 — compute per-slice border + fade arrays based on the
+   * current `activeSliceGroup`. Active slice gets a 4px white border
+   * and full opacity; siblings get 0px border and 60% opacity (via
+   * background colour modification — Chart.js doesn't expose a
+   * per-slice opacity API, so we mutate the colour string).
+   */
+  private computeSliceVisuals(
+    colors: string[],
+    groups: FilterGroup[]
+  ): { borderColors: string[]; borderWidths: number[]; fadedColors: string[] } {
+    const active = this.activeSliceGroup;
+    const borderColors: string[] = [];
+    const borderWidths: number[] = [];
+    const fadedColors: string[] = [];
+
+    for (let i = 0; i < colors.length; i++) {
+      const isActive = active != null && groups[i] === active;
+      borderColors.push('#ffffff');
+      borderWidths.push(isActive ? 4 : 0);
+      if (active != null && !isActive) {
+        // 60% opacity for non-active slices.
+        fadedColors.push(this.fadeColor(colors[i], 0.6));
+      } else {
+        fadedColors.push(colors[i]);
+      }
+    }
+
+    return { borderColors, borderWidths, fadedColors };
+  }
+
+  /** Apply alpha to a hex (#rrggbb / #rgb) or rgb()/rgba() colour. */
+  private fadeColor(color: string, alpha: number): string {
+    const c = color.trim();
+    if (c.startsWith('#')) {
+      const hex = c.slice(1);
+      const full =
+        hex.length === 3
+          ? hex.split('').map((ch) => ch + ch).join('')
+          : hex.length === 6
+          ? hex
+          : null;
+      if (!full) return c;
+      const r = parseInt(full.slice(0, 2), 16);
+      const g = parseInt(full.slice(2, 4), 16);
+      const b = parseInt(full.slice(4, 6), 16);
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+    if (c.startsWith('rgb(')) {
+      return c.replace('rgb(', 'rgba(').replace(')', `, ${alpha})`);
+    }
+    if (c.startsWith('rgba(')) {
+      return c.replace(/rgba\(([^)]+),\s*[\d.]+\)/, (_m, body) => `rgba(${body}, ${alpha})`);
+    }
+    return c;
+  }
+
+  /**
+   * RFC-0196 — public slice-click entry point. Toggles the active
+   * group (clicking the same slice twice clears the filter), updates
+   * the visual ring/fade, fires the `onSliceClick` callback, and
+   * dispatches `myio:filter-applied`.
+   *
+   * Exposed (via the bound `bindEvents` legend hook below) so the
+   * legend chips and tests can simulate slice activations without
+   * needing a Chart.js click event.
+   */
+  handleSliceClick(group: FilterGroup): void {
+    this.log('handleSliceClick:', group, 'previous:', this.activeSliceGroup);
+
+    // Toggle: same slice twice clears the filter.
+    const wasActive = this.activeSliceGroup === group;
+    this.activeSliceGroup = wasActive ? null : group;
+
+    // Re-run refreshChart to apply the visual ring/fade.
+    this.refreshChart();
+    // Re-apply card visual state to keep the corresponding card highlighted.
+    this.updateCardActiveState();
+
+    // Fire callback BEFORE the global event so subscribers see the
+    // same payload twice without duplication risk.
+    this.params.onSliceClick?.(group);
+
+    // RFC-0196 — `myio:filter-applied` event for the dashboard
+    // controller. `deviceIds` is intentionally an empty array here —
+    // the controller resolves device ids from `window.STATE.itemsBase`
+    // since this view does not own the device list.
+    if (typeof window !== 'undefined') {
+      const detail = {
+        domain: this.domain,
+        group: this.activeSliceGroup, // null when toggled off
+        deviceIds: [] as string[],
+      };
+      window.dispatchEvent(new CustomEvent('myio:filter-applied', { detail }));
+    }
+  }
+
+  /**
+   * RFC-0196 — apply CSS class `tis-card--active` to the card whose
+   * `data-category` matches the current filter group, and
+   * `tis-card--faded` to siblings. Group→card mapping bridges
+   * snake_case filter groups to the camelCase card data-category.
+   */
+  private updateCardActiveState(): void {
+    const groupToCard: Partial<Record<FilterGroup, string>> = {
+      entrada: 'entrada',
+      lojas: 'lojas',
+      climatizacao: 'climatizacao',
+      elevadores: 'elevadores',
+      escadas_rolantes: 'escadasRolantes',
+      outros: 'outros',
+      erro: 'erro',
+      banheiros: 'banheiros',
+      areaComum: 'areaComum',
+    };
+
+    const activeCard =
+      this.activeSliceGroup != null ? groupToCard[this.activeSliceGroup] : null;
+
+    this.root.querySelectorAll('.tis-card[data-category]').forEach((el) => {
+      const card = el as HTMLElement;
+      const cat = card.dataset.category || '';
+      if (activeCard == null) {
+        card.classList.remove('tis-card--active');
+        card.classList.remove('tis-card--faded');
+        return;
+      }
+      if (cat === activeCard) {
+        card.classList.add('tis-card--active');
+        card.classList.remove('tis-card--faded');
+      } else if (cat === 'total') {
+        // The "Total Consumidores" card is informational only — do not fade.
+        card.classList.remove('tis-card--active');
+        card.classList.remove('tis-card--faded');
+      } else {
+        card.classList.add('tis-card--faded');
+        card.classList.remove('tis-card--active');
+      }
+    });
+  }
+
+  /**
+   * RFC-0196 — `groups` parallels `labels/values/colors` and gives each
+   * slice the canonical filter-group identifier dispatched on click.
+   * Energy uses snake_case (`escadas_rolantes`) for cross-component
+   * consistency with `buildEquipmentCategorySummary` (RFC-0128). The
+   * `erro` slice is included whenever the residual is strictly > 0.
+   */
+  private getChartData(): {
+    labels: string[];
+    values: number[];
+    colors: string[];
+    groups: FilterGroup[];
+  } {
     const labels: string[] = [];
     const values: number[] = [];
     const colors: string[] = [];
+    const groups: FilterGroup[] = [];
 
     if (this.domain === 'energy' && this.energyState) {
       const state = this.energyState;
       const categories = [
-        { key: 'climatizacao', data: state.consumidores.climatizacao },
-        { key: 'elevadores', data: state.consumidores.elevadores },
-        { key: 'escadasRolantes', data: state.consumidores.escadasRolantes },
-        { key: 'lojas', data: state.consumidores.lojas },
-        { key: 'outros', data: state.consumidores.outros },
-        { key: 'areaComum', data: state.consumidores.areaComum },
+        { key: 'climatizacao', group: 'climatizacao', data: state.consumidores.climatizacao },
+        { key: 'elevadores', group: 'elevadores', data: state.consumidores.elevadores },
+        { key: 'escadasRolantes', group: 'escadas_rolantes', data: state.consumidores.escadasRolantes },
+        { key: 'lojas', group: 'lojas', data: state.consumidores.lojas },
+        { key: 'outros', group: 'outros', data: state.consumidores.outros },
       ] as const;
 
-      categories.forEach(({ key, data }) => {
+      categories.forEach(({ key, group, data }) => {
         if (data.total > 0) {
           const config = ENERGY_CATEGORY_CONFIG[key];
           labels.push(config.label);
           values.push(data.total);
           colors.push(this.chartColors[key]);
+          groups.push(group as FilterGroup);
         }
       });
+
+      // RFC-0196 — Erro slice (only when residual > 0).
+      if (state.erro.total > 0) {
+        const cfg = ENERGY_CATEGORY_CONFIG.erro;
+        labels.push(cfg.label);
+        values.push(state.erro.total);
+        colors.push(cfg.color);
+        groups.push('erro');
+      }
     } else if (this.domain === 'water' && this.waterState) {
       const state = this.waterState;
       const categories = [
-        { key: 'lojas' as const, data: state.lojas },
-        { key: 'banheiros' as const, data: state.banheiros },
-        { key: 'areaComum' as const, data: state.areaComum },
-        { key: 'pontosNaoMapeados' as const, data: state.pontosNaoMapeados },
+        { key: 'lojas' as const, group: 'lojas' as FilterGroup, data: state.lojas },
+        { key: 'banheiros' as const, group: 'banheiros' as FilterGroup, data: state.banheiros },
+        { key: 'areaComum' as const, group: 'areaComum' as FilterGroup, data: state.areaComum },
+        // pontosNaoMapeados has no canonical filter group — treated as
+        // residual visualisation only.
+        { key: 'pontosNaoMapeados' as const, group: null as FilterGroup | null, data: state.pontosNaoMapeados },
       ];
 
-      categories.forEach(({ key, data }) => {
+      categories.forEach(({ key, group, data }) => {
         if (data.total > 0) {
           const config = WATER_CATEGORY_CONFIG[key];
           labels.push(config.label);
           values.push(data.total);
           colors.push(this.chartColors[key]);
+          // Use 'areaComum' as the filter-group fallback when no canonical
+          // group is defined (pontosNaoMapeados is non-clickable for filter).
+          groups.push((group as FilterGroup) || 'areaComum');
         }
       });
     }
 
-    return { labels, values, colors };
+    return { labels, values, colors, groups };
   }
 
   private updateLegend(
     elementId: string,
-    chartData: { labels: string[]; values: number[]; colors: string[] }
+    chartData: { labels: string[]; values: number[]; colors: string[]; groups: FilterGroup[] }
   ): void {
     const legendEl = this.root.querySelector(`#${elementId}`);
     if (!legendEl) return;
@@ -674,7 +926,7 @@ export class TelemetryInfoShoppingView {
     legendEl.innerHTML = chartData.labels
       .map(
         (label, i) => `
-      <div class="tis-legend-item">
+      <div class="tis-legend-item" data-group="${chartData.groups[i] || ''}">
         <span class="tis-legend-color" style="background-color: ${chartData.colors[i]}"></span>
         <span class="tis-legend-label">${label}</span>
         <span class="tis-legend-value">${formatter(chartData.values[i])}</span>
@@ -682,6 +934,22 @@ export class TelemetryInfoShoppingView {
     `
       )
       .join('');
+
+    // RFC-0196 — clicking a legend chip is equivalent to clicking the
+    // matching slice. Useful for keyboard-only flows and as a
+    // Chart.js-free fallback when the canvas hasn't initialised
+    // (e.g. unit tests without Chart.js).
+    legendEl.querySelectorAll('.tis-legend-item').forEach((item) => {
+      const el = item as HTMLElement;
+      const group = el.dataset.group as FilterGroup | undefined;
+      if (!group) return;
+      if (el.hasAttribute('data-bound')) return;
+      el.setAttribute('data-bound', 'true');
+      el.style.cursor = 'pointer';
+      el.addEventListener('click', () => {
+        this.handleSliceClick(group);
+      });
+    });
   }
 
   // =========================================================================
@@ -701,6 +969,17 @@ export class TelemetryInfoShoppingView {
     const totalConsumidores = lojas + climatizacao + elevadores + escadasRolantes + outros;
     const areaComum = Math.max(0, entrada - totalConsumidores);
 
+    // RFC-0196 — calculated residual:
+    //   erro = Entrada − (Lojas + Climatização + Elevadores + Esc. Rolantes + Outros)
+    // When `erro <= 0` the slice is omitted from the pie and the card
+    // renders the placeholder `'—'`.
+    const erroFromSummary = summary.erro?.total;
+    const erroComputed = entrada - totalConsumidores;
+    const erro =
+      typeof erroFromSummary === 'number' && Number.isFinite(erroFromSummary)
+        ? erroFromSummary
+        : erroComputed;
+
     const calcPerc = (val: number) => (entrada > 0 ? (val / entrada) * 100 : 0);
 
     this.energyState = {
@@ -715,6 +994,7 @@ export class TelemetryInfoShoppingView {
         totalGeral: totalConsumidores + areaComum,
       },
       grandTotal: entrada,
+      erro: { total: erro, perc: calcPerc(Math.max(0, erro)) },
     };
 
     this.updateEnergyUI();
@@ -742,6 +1022,18 @@ export class TelemetryInfoShoppingView {
     this.updateElement('#outrosPerc', `(${formatPercentage(state.consumidores.outros.perc)})`);
     this.updateElement('#areaComumTotal', formatEnergy(state.consumidores.areaComum.total));
     this.updateElement('#areaComumPerc', `(${formatPercentage(state.consumidores.areaComum.perc)})`);
+
+    // RFC-0196 — Erro card. When `erro <= 0` the placeholder `'—'` is
+    // shown and the percentage cell is cleared (the slice is also
+    // omitted from the pie via `getChartData`).
+    if (state.erro.total > 0) {
+      this.updateElement('#erroTotal', formatEnergy(state.erro.total));
+      this.updateElement('#erroPerc', `(${formatPercentage(state.erro.perc)})`);
+    } else {
+      this.updateElement('#erroTotal', '—');
+      this.updateElement('#erroPerc', '');
+    }
+
     this.updateElement('#consumidoresTotal', formatEnergy(state.consumidores.totalGeral));
   }
 
@@ -803,6 +1095,9 @@ export class TelemetryInfoShoppingView {
   clearData(): void {
     this.energyState = null;
     this.waterState = null;
+    // RFC-0196 — reset filter state when data is cleared.
+    this.activeSliceGroup = null;
+    this.updateCardActiveState();
 
     // Reset all values to zero
     this.root.querySelectorAll('.tis-stat-value').forEach((el) => {
@@ -861,6 +1156,9 @@ export class TelemetryInfoShoppingView {
       this.domain = domain;
       this.root.setAttribute('data-domain', domain);
 
+      // RFC-0196 — clear filter state when domain switches.
+      this.activeSliceGroup = null;
+
       // Re-render the grid with new domain cards
       const gridEl = this.root.querySelector('#infoGrid');
       if (gridEl) {
@@ -884,6 +1182,11 @@ export class TelemetryInfoShoppingView {
 
   getDomain(): TelemetryDomain {
     return this.domain;
+  }
+
+  /** RFC-0196 — current active filter group, or null when no filter. */
+  getActiveGroup(): FilterGroup | null {
+    return this.activeSliceGroup;
   }
 
   setThemeMode(mode: ThemeMode): void {

@@ -1033,6 +1033,10 @@ export type {
   WaterState as TelemetryInfoWaterState,
   CategoryType as TelemetryInfoCategoryType,
   ChartColors as TelemetryInfoChartColors,
+  // RFC-0196
+  EnergyGroup as TelemetryInfoEnergyGroup,
+  WaterGroup as TelemetryInfoWaterGroup,
+  FilterGroup as TelemetryInfoFilterGroup,
 } from './components/telemetry-info-shopping';
 
 export {
