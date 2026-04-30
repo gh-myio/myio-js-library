@@ -237,6 +237,15 @@ export class TelemetryGridShoppingView {
       this._refreshTicketBadges();
     });
 
+    // RFC-0183 / RFC-0201 Phase 1: Re-render alarm badges when the orchestrator
+    // signals an alarm was closed or the alarm map was just (re)built.
+    window.addEventListener('myio:alarm-closed', () => {
+      this._refreshAlarmBadges();
+    });
+    window.addEventListener('myio:alarms-refreshed', () => {
+      this._refreshAlarmBadges();
+    });
+
     // Search toggle
     const btnSearch = this.root.querySelector('#btnSearch');
     btnSearch?.addEventListener('click', () => this.toggleSearch());
@@ -550,11 +559,23 @@ export class TelemetryGridShoppingView {
             wrapper.appendChild(cardElement);
             this.cardInstances.set(device.entityId, $card);
 
-            // RFC-0183: Inject alarm badge if device has active alarms
+            // RFC-0183 / RFC-0201 Phase 1: Inject alarm badge if device has
+            // active alarms. Hidden when count = 0 OR (when
+            // `showOfflineAlarms = false` AND device is offline). The
+            // showOfflineAlarms gating happens at orchestrator level (offline
+            // alarms are filtered out of `deviceAlarmMap` in that case), so
+            // here we only need to short-circuit on offline-device cards
+            // when the orchestrator was built with offline-gating ON.
             const aso = (window as unknown as { AlarmServiceOrchestrator?: {
               getAlarmCountForDevice: (id: string) => number;
             } }).AlarmServiceOrchestrator;
-            if (aso && device.gcdrDeviceId) {
+            const settingsView = (window as unknown as {
+              MyIOUtils?: { showOfflineAlarms?: boolean };
+            }).MyIOUtils;
+            const showOfflineAlarms = settingsView?.showOfflineAlarms === true;
+            const deviceStatus = (device as { deviceStatus?: string }).deviceStatus?.toLowerCase() ?? '';
+            const isOffline = deviceStatus === 'offline' || deviceStatus === 'no_info';
+            if (aso && device.gcdrDeviceId && !(isOffline && !showOfflineAlarms)) {
               const count = aso.getAlarmCountForDevice(device.gcdrDeviceId);
               if (count > 0) {
                 wrapper.appendChild(this._createAlarmBadge(count));
@@ -688,14 +709,18 @@ export class TelemetryGridShoppingView {
 
   private _createAlarmBadge(count: number): HTMLElement {
     this._injectAlarmBadgeStyles();
+    // RFC-0201 Phase 1 (Sally's UX spec): 20×20 px red bell at top-right of
+    // card, 6px inset (`--myio-badge-offset`), white bell glyph; count > 1
+    // rendered as superscript number to the lower-right of the bell.
     const badge = document.createElement('div');
     badge.className = 'myio-alarm-badge';
     badge.title = `${count} alarme${count !== 1 ? 's' : ''} ativo${count !== 1 ? 's' : ''}`;
+    const display = count > 99 ? '99+' : String(count);
     badge.innerHTML = `
-      <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor" aria-hidden="true">
+      <svg class="myio-alarm-badge__glyph" viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true">
         <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6V11c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
       </svg>
-      <span>${count > 99 ? '99+' : count}</span>
+      ${count > 1 ? `<sup class="myio-alarm-badge__count">${display}</sup>` : ''}
     `;
     return badge;
   }
@@ -706,26 +731,83 @@ export class TelemetryGridShoppingView {
     if (document.getElementById('myio-alarm-badge-styles')) return;
     const s = document.createElement('style');
     s.id = 'myio-alarm-badge-styles';
+    // RFC-0201 Phase 1: Sally's UX spec — pin offset as a CSS var so future
+    // redesigns don't drift; circle, top-right, white bell glyph, sup count.
     s.textContent = `
+      .card-wrapper { position: relative; --myio-badge-offset: 6px; }
       .myio-alarm-badge {
         position: absolute;
-        top: 6px;
-        left: 6px;
+        top: var(--myio-badge-offset, 6px);
+        right: var(--myio-badge-offset, 6px);
+        width: 20px;
+        height: 20px;
         background: #dc2626;
         color: #fff;
-        border-radius: 10px;
-        padding: 2px 5px;
-        font-size: 10px;
-        font-weight: 700;
+        border-radius: 50%;
         display: flex;
         align-items: center;
-        gap: 2px;
+        justify-content: center;
         z-index: 10;
         pointer-events: none;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+      }
+      .myio-alarm-badge__glyph { display: block; }
+      .myio-alarm-badge__count {
+        position: absolute;
+        bottom: -4px;
+        right: -6px;
+        background: #fff;
+        color: #dc2626;
+        border-radius: 8px;
+        padding: 0 3px;
+        font-size: 9px;
+        font-weight: 700;
         line-height: 1.3;
+        min-width: 12px;
+        text-align: center;
       }
     `;
     document.head.appendChild(s);
+  }
+
+  /**
+   * RFC-0183 / RFC-0201 Phase 1: Refresh alarm-badge counts on all currently
+   * rendered card wrappers without re-rendering the grid. Triggered by
+   * `myio:alarm-closed` and `myio:alarms-refreshed`.
+   */
+  private _refreshAlarmBadges(): void {
+    const aso = (window as unknown as { AlarmServiceOrchestrator?: {
+      getAlarmCountForDevice: (id: string) => number;
+    } }).AlarmServiceOrchestrator;
+    if (!aso) return;
+
+    const settingsView = (window as unknown as {
+      MyIOUtils?: { showOfflineAlarms?: boolean };
+    }).MyIOUtils;
+    const showOfflineAlarms = settingsView?.showOfflineAlarms === true;
+
+    const devices = this.controller.getFilteredDevices();
+    const wrappers = this.shopsListEl?.querySelectorAll<HTMLElement>('.card-wrapper');
+    if (!wrappers) return;
+
+    wrappers.forEach((wrapper) => {
+      // Drop the stale badge before reading the new count.
+      wrapper.querySelector('.myio-alarm-badge')?.remove();
+
+      const entityId = wrapper.dataset.entityId;
+      if (!entityId) return;
+      const device = devices.find((d) => d.entityId === entityId);
+      if (!device || !device.gcdrDeviceId) return;
+
+      const status = (device as { deviceStatus?: string }).deviceStatus?.toLowerCase() ?? '';
+      const isOffline = status === 'offline' || status === 'no_info';
+      if (isOffline && !showOfflineAlarms) return;
+
+      const count = aso.getAlarmCountForDevice(device.gcdrDeviceId);
+      if (count > 0) {
+        wrapper.appendChild(this._createAlarmBadge(count));
+      }
+    });
   }
 
   // =========================================================================

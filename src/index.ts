@@ -105,6 +105,16 @@ export {
   isDeviceIconType,
 } from './utils/deviceIcons';
 
+// Alarm Service Orchestrator (RFC-0183 / RFC-0201 Phase 1)
+export {
+  createAlarmServiceOrchestrator,
+} from './components/alarms/createAlarmServiceOrchestrator';
+export type {
+  AlarmServiceOrchestrator,
+  GCDRAlarm,
+  CreateAlarmOrchestratorOpts,
+} from './components/alarms/createAlarmServiceOrchestrator';
+
 // RFC-0109: Device Item Factory utilities
 export {
   DomainType,
