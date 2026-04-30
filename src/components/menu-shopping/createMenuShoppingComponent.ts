@@ -57,6 +57,9 @@ export function createMenuShoppingComponent(params: MenuShoppingParams): MenuSho
   let collapsed = config.collapsed;
   let themeMode: ThemeMode = initialThemeMode || 'light';
 
+  // RFC-0181 / RFC-0201 Phase-2 #19
+  const onReportsClick = params.onReportsClick;
+
   // Event handlers
   const eventHandlers = new Map<MenuShoppingEventType, Set<MenuShoppingEventHandler>>();
 
@@ -167,6 +170,13 @@ export function createMenuShoppingComponent(params: MenuShoppingParams): MenuSho
     view.on('logout-click', () => {
       emitEvent('logout-click');
       onLogoutClick?.();
+    });
+
+    // RFC-0181 / RFC-0201 Phase-2 #19 — Reports click
+    view.on('reports-click', (group: unknown, _domain: unknown) => {
+      const groupKey = group as import('./types').MenuShoppingReportsGroup;
+      emitEvent('reports-click', groupKey);
+      onReportsClick?.(groupKey);
     });
   }
 
