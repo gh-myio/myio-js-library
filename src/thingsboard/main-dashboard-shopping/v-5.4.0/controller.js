@@ -176,6 +176,23 @@ function extractDeviceMetadataFromRows(rows) {
     slaveId: dataKeyValues['slaveId'] || '',
     centralId: dataKeyValues['centralId'] || '',
     customerId: dataKeyValues['customerId'] || '',
+    // RFC-0201 Phase 2 (row #27): customer-name plumbing for export filenames
+    // (`exportGridCsv/Xls/Pdf` → `buildFilenameBase` slugs it as the prefix)
+    // and for the PDF cover/header (`exportGridPdf` renders `{customerName}
+    // — {label}` and includes "Gerado em ..." on the right-side info line).
+    // Source priority mirrors v-5.2.0 TELEMETRY/_getExportCustomerName:
+    //   1. dashboard title (matches what the operator sees in TB chrome)
+    //   2. first datasource name (when the dashboard is embedded sans title)
+    //   3. raw ownerName attribute (last-resort fallback)
+    customerName:
+      (typeof self !== 'undefined' && self.ctx?.dashboard?.title
+        ? String(self.ctx.dashboard.title).trim()
+        : '') ||
+      (typeof self !== 'undefined' && self.ctx?.datasources?.[0]?.name
+        ? String(self.ctx.datasources[0].name).trim()
+        : '') ||
+      dataKeyValues['ownerName'] ||
+      '',
     ownerName: dataKeyValues['ownerName'] || '',
     ingestionId: dataKeyValues['ingestionId'] || '',
     consumption: dataKeyValues['consumption'] || null,
