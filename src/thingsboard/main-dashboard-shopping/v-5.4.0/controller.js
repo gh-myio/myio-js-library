@@ -89,7 +89,16 @@ let _temperatureGridLojas = null;
 // ============================================================================
 
 /**
- * Extract device metadata from all rows for a single device
+ * Extract device metadata from all rows for a single device.
+ *
+ * Canonical implementation lives at `./lib/extractDeviceMetadataFromRows.js`
+ * (used by tests). This inline copy MUST mirror it exactly — TB widgets are
+ * loaded as global scripts and cannot ES-import at runtime, so the duplication
+ * is intentional. If you change one, change both.
+ *
+ * Returned shape mirrors `v-5.2.0/WIDGET/MAIN_VIEW/controller.js
+ * ::buildMetadataMapFromCtxData`, including `gcdrDeviceId` (RFC-0201 Phase-1
+ * row #1) — TB sometimes lowercases the dataKey name, so check both.
  */
 function extractDeviceMetadataFromRows(rows) {
   if (!rows || rows.length === 0) return null;
@@ -165,6 +174,8 @@ function extractDeviceMetadataFromRows(rows) {
     domain,
     lastActivityTime: dataKeyValues['lastActivityTime'],
     lastConnectTime: dataKeyValues['lastConnectTime'],
+    // RFC-0201 Phase-1 row #1: gcdrDeviceId propagation (case-insensitive).
+    gcdrDeviceId: dataKeyValues['gcdrDeviceId'] || dataKeyValues['gcdrdeviceid'] || null,
   };
 }
 
@@ -293,6 +304,10 @@ function processDataAndDispatchEvents() {
     ...classified.water.hidrometro,
   ];
   const allTemp = [...classified.temperature.termostato, ...classified.temperature.termostato_external];
+
+  // RFC-0201 Phase-1 row #2: flat baseline of all classified devices, used by
+  // cross-domain alarm/ticket lookups (e.g., AlarmServiceOrchestrator).
+  window.STATE.itemsBase = [...allEnergy, ...allWater, ...allTemp];
 
   // Calculate totals
   const energyTotal = allEnergy.reduce((sum, d) => sum + Number(d.value || 0), 0);
