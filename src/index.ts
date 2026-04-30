@@ -95,6 +95,16 @@ export {
   calculateDeviceStatusMasterRules, // RFC-0110: Simplified status calculation with master rules
 } from './utils/deviceStatus.js';
 
+// Device Icons utilities (RFC-0200)
+export {
+  DeviceIconType,
+  deviceIcons,
+  deviceIconLabels,
+  DEFAULT_DEVICE_ICON,
+  getDeviceIcon,
+  isDeviceIconType,
+} from './utils/deviceIcons';
+
 // RFC-0109: Device Item Factory utilities
 export {
   DomainType,
