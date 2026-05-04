@@ -1,0 +1,61 @@
+#title {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5%;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+#container {
+  overflow: hidden;
+}
+
+svg {
+  height: 80%;
+  z-index: 2;
+}
+
+.SVGdiv {
+  height: 50%;
+  width: 100%;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+p {
+  margin: 0;
+  padding: 10px;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+#titulo {
+  font-size: 1.1rem;
+  text-align: center;
+}
+#conteudo {
+  font-size: 1.6rem;
+  font-weight: bold;
+}
+#legenda {
+  font-size: 0.9rem;
+  font-weight: 400;
+  margin: 0;
+}
+
+.data {
+  display: flex;
+}
+
+.dataContent {
+  font-size: 25px;
+  width: 150px;
+  text-align: center;
+}
