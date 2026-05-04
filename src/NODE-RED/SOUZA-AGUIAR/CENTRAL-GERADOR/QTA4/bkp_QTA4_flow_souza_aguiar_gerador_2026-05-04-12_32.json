@@ -1,0 +1,170 @@
+[
+    {
+        "id": "36513397.a434cc",
+        "type": "group",
+        "z": "f58a5c30.bc029",
+        "name": "QTA4",
+        "style": {
+            "label": true
+        },
+        "nodes": [
+            "cdfb0afe.c4e898",
+            "e05d3e4b.c3369",
+            "6ea7cdcf.a463c4",
+            "2faa4fd1.66fbf",
+            "d4f4992c.1d82d8",
+            "25facd11.288612",
+            "ff42b7a3.bd4718",
+            "1dd55047.29013"
+        ],
+        "x": 2314,
+        "y": 819,
+        "w": 612,
+        "h": 242
+    },
+    {
+        "id": "cdfb0afe.c4e898",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "36513397.a434cc",
+        "name": "Store Status Rede",
+        "func": "const storedState = flow.get('STATUS_REDE4');\nconst input = msg.payload.channels[1].input;\n\nconst newState = input === 0 ? 'ON' : 'OFF';\n\nflow.set('STATUS_REDE4', newState);\n\nif (newState === 'OFF'\n    && storedState === 'ON') {\n    flow.set('REDE_OFF_TIME4', new Date().getTime());\n    \n    return msg;\n}",
+        "outputs": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 2530,
+        "y": 940,
+        "wires": [],
+        "icon": "node-red/db.svg"
+    },
+    {
+        "id": "e05d3e4b.c3369",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "36513397.a434cc",
+        "name": "Detect Gerador ON",
+        "func": "const lastStatusGerador = flow.get('STATUS_GERADOR4');\nconst statusRede = flow.get('STATUS_REDE4');\nconst input = msg.payload.channels[0].input;\n\nconst statusGerador = input > 0 ? 'OFF' : 'ON';\n\nflow.set('STATUS_GERADOR4', statusGerador);\n\nif (statusRede === 'OFF'\n    && statusGerador === 'ON'\n    && lastStatusGerador === 'OFF') {\n    const redeOffTime = flow.get('REDE_OFF_TIME4');\n    const now = new Date().getTime();\n    \n    const timeDelta = now - redeOffTime;\n    \n    msg.payload = timeDelta;\n\n    return msg;\n}",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 2530,
+        "y": 1020,
+        "wires": [
+            [
+                "6ea7cdcf.a463c4"
+            ]
+        ]
+    },
+    {
+        "id": "6ea7cdcf.a463c4",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "36513397.a434cc",
+        "name": "Send Gerador StartupTime",
+        "func": "msg.payload = {\n    'Gerador 4 (Souza Aguiar Gerador)': [{\n        ts: new Date().getTime(),\n        values: {\n            startupTime: msg.payload,\n        }\n    }]\n}\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 2780,
+        "y": 1020,
+        "wires": [
+            [
+                "ff42b7a3.bd4718"
+            ]
+        ]
+    },
+    {
+        "id": "2faa4fd1.66fbf",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "36513397.a434cc",
+        "name": "Status Rede",
+        "func": "\nmsg.payload = {\n    'Rede 4 (Souza Aguiar Gerador)': [{\n        ts: new Date().getTime(),\n        values: {\n            status: msg.payload.channels[1].input\n        }\n    }]\n}\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 2510,
+        "y": 860,
+        "wires": [
+            [
+                "ff42b7a3.bd4718"
+            ]
+        ]
+    },
+    {
+        "id": "d4f4992c.1d82d8",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "36513397.a434cc",
+        "name": "Status Gerador",
+        "func": "\nmsg.payload = {\n    'Gerador 4 (Souza Aguiar Gerador)': [{\n        ts: new Date().getTime(),\n        values: {\n            status: msg.payload.channels[0].input\n        }\n    }]\n}\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 2520,
+        "y": 900,
+        "wires": [
+            [
+                "ff42b7a3.bd4718"
+            ]
+        ]
+    },
+    {
+        "id": "25facd11.288612",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "36513397.a434cc",
+        "name": "Store Status Rede",
+        "func": "const storedState = flow.get('STATUS_REDE4');\nconst input = msg.payload.channels[1].input;\nlet timeDelta=0; \nconst newState = input === 0 ? 'ON' : 'OFF';\n\nflow.set('STATUS_REDE4', newState);\n\nif (newState === 'OFF'\n    && storedState === 'ON') {\n    flow.set('REDE_OFF_TIME4', new Date().getTime());\n    \n    return null;\n}\nelse if(storedState == 'OFF' && newState=='ON')\n{\n    const redeOffTime = flow.get('REDE_OFF_TIME4');\n    const now = new Date().getTime();\n    timeDelta = now - redeOffTime;\n    msg.payload = \n    {\n     'Rede 4 time (Souza Aguiar Gerador)': [{\n        ts: new Date().getTime(),\n        values: {\n            startupTime: timeDelta,\n        }\n     }]\n    }\n    return msg;\n}\nreturn null;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 2530,
+        "y": 980,
+        "wires": [
+            [
+                "ff42b7a3.bd4718"
+            ]
+        ]
+    },
+    {
+        "id": "ff42b7a3.bd4718",
+        "type": "link out",
+        "z": "f58a5c30.bc029",
+        "g": "36513397.a434cc",
+        "name": "",
+        "links": [
+            "5cc7bf8e.1546a"
+        ],
+        "x": 2855,
+        "y": 920,
+        "wires": []
+    },
+    {
+        "id": "1dd55047.29013",
+        "type": "link in",
+        "z": "f58a5c30.bc029",
+        "g": "36513397.a434cc",
+        "name": "",
+        "links": [
+            "db04bf61.96f04",
+            "41677acc.17f5b4"
+        ],
+        "x": 2355,
+        "y": 940,
+        "wires": [
+            [
+                "2faa4fd1.66fbf",
+                "d4f4992c.1d82d8",
+                "25facd11.288612",
+                "e05d3e4b.c3369"
+            ]
+        ]
+    }
+]

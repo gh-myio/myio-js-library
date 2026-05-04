@@ -1,0 +1,4793 @@
+[
+    {
+        "id": "f58a5c30.bc029",
+        "type": "tab",
+        "label": "Flow 1",
+        "disabled": false,
+        "info": ""
+    },
+    {
+        "id": "d415fa7.58cd708",
+        "type": "tab",
+        "label": "Monitoramento",
+        "disabled": false,
+        "info": ""
+    },
+    {
+        "id": "e9136b7a.091f88",
+        "type": "group",
+        "z": "f58a5c30.bc029",
+        "name": "Map central devices to thingsboard devices",
+        "style": {
+            "label": true
+        },
+        "nodes": [
+            "fe9fc709.0d68f8",
+            "24b16ff3.a5b83",
+            "26354352.5f3cac",
+            "9e49e024.d622b",
+            "118e578f.5bf448",
+            "e81e4ead.60f5e",
+            "a2c1837d.197af",
+            "a9e732c2.75f4c",
+            "32a22d6d.e7f3a2",
+            "49b6f63e.e3a838",
+            "2ab389ed.57b646",
+            "2468e318.c0bb7c",
+            "9923d96c.52cef8",
+            "6f00f389.02a91c",
+            "9b00787e.b10ed8",
+            "cd749d2.d444c6",
+            "f7a20f14.05aee",
+            "54a8fd91.6be344",
+            "fb909ab8.5b6a28",
+            "598314bc.beeddc",
+            "5f6aeb73.dc66b4",
+            "9fb8d3c4.b41e",
+            "96ac5827.829188",
+            "4a7c3e83.51f8b",
+            "cf1f9c96.c65f5",
+            "916f413d.3d343",
+            "8b6d5a01.c07f58",
+            "37ca1062.d5de",
+            "5f266218.93f74c",
+            "4288e055.d28b4",
+            "9fa83504.6dcac8",
+            "620c777e.f78cb8",
+            "cd311666.944f08",
+            "fa640817.e99338",
+            "a067865f.abfe48",
+            "262f2ccc.e89584",
+            "20e3f607.be37ba",
+            "8c658e90.ff116",
+            "96c6a179.c643d",
+            "bfd3c0f0.7bb7b",
+            "8cf0ea9b.8d3568",
+            "3ee50c77.c3ac54",
+            "f3adb67a.0323f8",
+            "69e47c0b.7acea4",
+            "b3b82fc9.65cc8",
+            "d055f8ad.9b7af8",
+            "e2e4c1db.4fc06",
+            "9b643238.245c1",
+            "65b6d17b.4c5b5",
+            "44673234.e0d82c",
+            "fba0e9df.585338",
+            "ecdbc3b9.8a07f",
+            "d0d33f5d.f224",
+            "85bbc4a5.727658",
+            "da93bf07.4731e",
+            "8cd5b327.9b716",
+            "f27dbd69.ad07e",
+            "ac3a4d3a.4bc1c",
+            "592ccb47.c148c4",
+            "abf5924.5a6277",
+            "589b969f.d862a8",
+            "4b2b935.4337b6c",
+            "ebe2e242.f9ddd",
+            "474bc424.297cbc",
+            "7ec0a39.d2ad05c",
+            "4e5701e8.5c631",
+            "f063a909.9e55f8",
+            "3af3ce68.a32aa2",
+            "e9e60efa.bcfe4",
+            "934cecc5.12fc2",
+            "69ed6002.98b53"
+        ],
+        "x": 34,
+        "y": -1,
+        "w": 1522,
+        "h": 762
+    },
+    {
+        "id": "2e7775c2.a00bea",
+        "type": "group",
+        "z": "f58a5c30.bc029",
+        "name": "Store devices to flow.devices",
+        "style": {
+            "label": true
+        },
+        "nodes": [
+            "90bb4009.d365b",
+            "6c6e4dfb.c42674",
+            "e66cdcb6.616df",
+            "7a0fce92.c1146",
+            "e05b4b70.2fc6b8",
+            "acb41a28.450a68",
+            "dc2c2d00.4604f",
+            "9bc23bf7.45a978",
+            "4a19014a.fabb",
+            "8107b38.127015",
+            "be741a1.952f4e8",
+            "fac75346.2e79c",
+            "ee6db9a9.12bc08"
+        ],
+        "x": 34,
+        "y": 779,
+        "w": 1932,
+        "h": 182
+    },
+    {
+        "id": "f457ad4c.56f54",
+        "type": "group",
+        "z": "f58a5c30.bc029",
+        "name": "Alarms",
+        "style": {
+            "label": true
+        },
+        "nodes": [
+            "524977a2.a10c28",
+            "34f612ad.02fc8e",
+            "5a37826b.cc7bbc",
+            "6af5a7e5.f97088",
+            "9d3e3e6b.d9f06",
+            "c2705a84.394db8",
+            "3b846c1f.b73784",
+            "d41edb3f.d18458",
+            "45dd8d72.c1e0a4",
+            "385b83d7.f4ea7c",
+            "ba12caaf.083248",
+            "18f86fb0.5bce9",
+            "5ea6dad6.399434",
+            "fa548d62.0c6bd",
+            "35bbb2cf.98011e",
+            "a0359310.730af",
+            "dc476bb1.3c45f8",
+            "c4014db3.ab9a2",
+            "82c59790.2ab5f8",
+            "42bc6d3a.62a174",
+            "313bf1ad.de449e",
+            "f8872f73.248ae",
+            "133e525b.fe37de",
+            "d2f16d33.835ec",
+            "c942d4a8.dd3458",
+            "ca291f65.e7aff",
+            "3a772152.f9290e",
+            "c8187a94.385368",
+            "2dc63353.10fc6c",
+            "b6fed73d.f663a8",
+            "48ce8e1.2556d7",
+            "626e8e9.db58c7",
+            "5122f08.e15301",
+            "54688f1a.6d66b",
+            "9ca4cbbe.577a58",
+            "f6e21d11.c92b6",
+            "c42775e7.008bf8",
+            "e49d74bc.8fa258"
+        ],
+        "x": 34,
+        "y": 999,
+        "w": 1552,
+        "h": 482
+    },
+    {
+        "id": "e7167cf0.1b7e1",
+        "type": "group",
+        "z": "f58a5c30.bc029",
+        "name": "",
+        "style": {
+            "label": true
+        },
+        "nodes": [
+            "3927ece7.e52934",
+            "78aa436f.650d9c",
+            "4b0ee015.bbcfa",
+            "f49c4f07.5fc01",
+            "850de4b4.d9b6d8",
+            "ec43753b.b98948"
+        ],
+        "x": 34,
+        "y": 1559,
+        "w": 772,
+        "h": 202
+    },
+    {
+        "id": "24d47531.c8125a",
+        "type": "group",
+        "z": "f58a5c30.bc029",
+        "style": {
+            "stroke": "#2e333a",
+            "stroke-opacity": "1",
+            "fill": "#2e333a",
+            "fill-opacity": "0.75",
+            "label": true,
+            "label-position": "nw",
+            "color": "#a4a4a4"
+        },
+        "nodes": [
+            "bc8b8c00.5f303",
+            "bb5302a5.5aaed",
+            "eaa5e9db.102388",
+            "ff48355d.7ea588",
+            "9fba9115.0ed42",
+            "485eb252.0fedcc",
+            "96ab5683.0790e8",
+            "d51efa18.01c438",
+            "d885e336.8856b",
+            "7b0f4aed.ad9b14",
+            "ae1baa1b.748888",
+            "30092dcb.0b4602"
+        ],
+        "x": 854,
+        "y": 1519,
+        "w": 422,
+        "h": 602
+    },
+    {
+        "id": "12b9be57.d3b4e2",
+        "type": "group",
+        "z": "f58a5c30.bc029",
+        "name": "Thingsboard",
+        "style": {
+            "label": true
+        },
+        "nodes": [
+            "5cc7bf8e.1546a",
+            "c66f8a84.0c34d8"
+        ],
+        "x": 1674,
+        "y": 39,
+        "w": 232,
+        "h": 82
+    },
+    {
+        "id": "357c3147.0eb20e",
+        "type": "group",
+        "z": "f58a5c30.bc029",
+        "style": {
+            "stroke": "#2e333a",
+            "stroke-opacity": "1",
+            "fill": "#2e333a",
+            "fill-opacity": "0.75",
+            "label": true,
+            "label-position": "nw",
+            "color": "#a4a4a4"
+        },
+        "nodes": [
+            "71f0ef63.23c11",
+            "e885ad73.48de9",
+            "6e944fdf.aae69",
+            "4bfa416c.97cbc",
+            "3bcf8435.f3accc",
+            "7218573.f4b63a8",
+            "7b2fab2e.f5c014",
+            "4620a875.174fb8",
+            "556a1e36.f63e2",
+            "ba0432f6.3199a",
+            "aa1c353.ade03c8",
+            "7642a0c1.062af",
+            "db04bf61.96f04",
+            "e35c7a21.dbf9a8",
+            "b715b4da.b8bb28",
+            "2c5b2104.bcab6e"
+        ],
+        "x": 1614,
+        "y": 239,
+        "w": 522,
+        "h": 362
+    },
+    {
+        "id": "243927f0.bac878",
+        "type": "group",
+        "z": "f58a5c30.bc029",
+        "name": "QTA1",
+        "style": {
+            "label": true
+        },
+        "nodes": [
+            "548816ae.be38b8",
+            "c9d3c6eb.f27278",
+            "b613f18c.6ae27",
+            "63cca5b9.8988bc",
+            "5aad4b1f.8a3e64",
+            "b30b6ea0.375c5",
+            "3e646b3a.39dfb4",
+            "d13d30ff.736c2",
+            "2de08e9b.53f2a2"
+        ],
+        "x": 2354,
+        "y": 19,
+        "w": 612,
+        "h": 262
+    },
+    {
+        "id": "fb237af5.7e65b8",
+        "type": "group",
+        "z": "f58a5c30.bc029",
+        "name": "QTA2",
+        "style": {
+            "label": true
+        },
+        "nodes": [
+            "38abe34d.bb304c",
+            "543e8804.ade078",
+            "6f8c7966.ad3418",
+            "73de4106.ce5fe",
+            "3dacd444.c0174c",
+            "8c27d9dc.824308",
+            "70312cc4.788cc4",
+            "257ea303.2df02c"
+        ],
+        "x": 2314,
+        "y": 299,
+        "w": 612,
+        "h": 242
+    },
+    {
+        "id": "1ed0b7d4.269998",
+        "type": "group",
+        "z": "f58a5c30.bc029",
+        "name": "QTA3",
+        "style": {
+            "label": true
+        },
+        "nodes": [
+            "9ae4f04.dcd841",
+            "39d516f7.c89e4a",
+            "5c0c9c5.0c5a364",
+            "a8258cd9.dfcc1",
+            "897da649.a7ed68",
+            "efa2801a.42912",
+            "f639041d.1e4748",
+            "b687685c.46a408"
+        ],
+        "x": 2314,
+        "y": 559,
+        "w": 612,
+        "h": 242
+    },
+    {
+        "id": "36513397.a434cc",
+        "type": "group",
+        "z": "f58a5c30.bc029",
+        "name": "QTA4",
+        "style": {
+            "label": true
+        },
+        "nodes": [
+            "cdfb0afe.c4e898",
+            "e05d3e4b.c3369",
+            "6ea7cdcf.a463c4",
+            "2faa4fd1.66fbf",
+            "d4f4992c.1d82d8",
+            "25facd11.288612",
+            "ff42b7a3.bd4718",
+            "1dd55047.29013"
+        ],
+        "x": 2314,
+        "y": 819,
+        "w": 612,
+        "h": 242
+    },
+    {
+        "id": "7b6ca29e.4606dc",
+        "type": "group",
+        "z": "d415fa7.58cd708",
+        "name": "Central Monitor",
+        "style": {
+            "label": true
+        },
+        "nodes": [
+            "8ba83248.de453",
+            "c5707069.0225d",
+            "84c95be9.b47228",
+            "93a5d5fb.6b3888",
+            "de6fd747.0baa28",
+            "351f13dc.dfcf1c"
+        ],
+        "x": 34,
+        "y": 39
+    },
+    {
+        "id": "84b06148.9ab54",
+        "type": "mqtt-broker",
+        "z": "",
+        "name": "Myio BAS",
+        "broker": "mqtt.myio-bas.com",
+        "port": "1883",
+        "clientid": "q3ohkoz4x2j5mb7455at",
+        "usetls": false,
+        "compatmode": false,
+        "keepalive": "60",
+        "cleansession": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthPayload": "",
+        "closeTopic": "",
+        "closeQos": "0",
+        "closePayload": "",
+        "willTopic": "",
+        "willQos": "0",
+        "willPayload": ""
+    },
+    {
+        "id": "c1122b85.73f4c8",
+        "type": "mqtt-broker",
+        "z": "",
+        "name": "Thingsboard (a)",
+        "broker": "dashboard.myio.com.br",
+        "port": "1883",
+        "clientid": "ivxh566waewqowmzfnnx",
+        "usetls": false,
+        "compatmode": false,
+        "keepalive": "60",
+        "cleansession": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthPayload": "",
+        "closeTopic": "",
+        "closeQos": "0",
+        "closePayload": "",
+        "willTopic": "",
+        "willQos": "0",
+        "willPayload": ""
+    },
+    {
+        "id": "71f0ef63.23c11",
+        "type": "myio-emitter",
+        "z": "f58a5c30.bc029",
+        "g": "357c3147.0eb20e",
+        "x": 1690,
+        "y": 400,
+        "wires": [
+            [
+                "e885ad73.48de9",
+                "6e944fdf.aae69",
+                "4bfa416c.97cbc",
+                "3bcf8435.f3accc"
+            ],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            []
+        ]
+    },
+    {
+        "id": "fe9fc709.0d68f8",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "func": "const thingsboardAuth = global.get('thingsboardCredentials');\n\nif (!thingsboardAuth) {\n    node.warn('No auth configured for thingsboard!');\n}\n\nconst { username, password } = thingsboardAuth;\n\nmsg.payload = {\n    username,\n    password,\n};\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 380,
+        "y": 120,
+        "wires": [
+            [
+                "26354352.5f3cac"
+            ]
+        ]
+    },
+    {
+        "id": "24b16ff3.a5b83",
+        "type": "inject",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "900",
+        "crontab": "",
+        "once": false,
+        "onceDelay": "1",
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 115,
+        "y": 120,
+        "wires": [
+            [
+                "fe9fc709.0d68f8"
+            ]
+        ],
+        "l": false
+    },
+    {
+        "id": "26354352.5f3cac",
+        "type": "http request",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "method": "POST",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "https://dashboard.myio.com.br/api/auth/login",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "authType": "",
+        "x": 590,
+        "y": 120,
+        "wires": [
+            [
+                "9e49e024.d622b",
+                "262f2ccc.e89584"
+            ]
+        ]
+    },
+    {
+        "id": "9e49e024.d622b",
+        "type": "debug",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 695,
+        "y": 100,
+        "wires": [],
+        "l": false
+    },
+    {
+        "id": "118e578f.5bf448",
+        "type": "change",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "rules": [
+            {
+                "t": "set",
+                "p": "thingsboardToken",
+                "pt": "global",
+                "to": "payload.token",
+                "tot": "msg"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 920,
+        "y": 160,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "e81e4ead.60f5e",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "func": "const centralDeviceId = global.get('thingsboardDeviceId');\nconst thingsboardToken = global.get('thingsboardToken');\n\nif (!thingsboardToken) {\n    node.warn('No token stored for thingsboard.');\n    \n    return null;\n}\n\nif (!centralDeviceId) {\n    node.warn('No device id defined for thingsboard');\n\n    return null;\n}\n\nmsg.url = `https://dashboard.myio.com.br/api/relations/?fromId=${centralDeviceId}&fromType=DEVICE&relationType=Created`;\nmsg.headers = {\n    'X-Authorization': `Bearer ${thingsboardToken}`\n};\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 380,
+        "y": 200,
+        "wires": [
+            [
+                "a9e732c2.75f4c"
+            ]
+        ]
+    },
+    {
+        "id": "a2c1837d.197af",
+        "type": "inject",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "960",
+        "crontab": "",
+        "once": false,
+        "onceDelay": "4",
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 115,
+        "y": 200,
+        "wires": [
+            [
+                "e81e4ead.60f5e"
+            ]
+        ],
+        "l": false
+    },
+    {
+        "id": "a9e732c2.75f4c",
+        "type": "http request",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "method": "GET",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "authType": "",
+        "x": 580,
+        "y": 200,
+        "wires": [
+            [
+                "fa640817.e99338",
+                "20e3f607.be37ba"
+            ]
+        ]
+    },
+    {
+        "id": "32a22d6d.e7f3a2",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "func": "const devices = msg.payload.map((device) => device.to.id);\n\nglobal.set('thingsboardCentralDevices', devices);\n\nreturn {\n    payload: devices\n};",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 860,
+        "y": 200,
+        "wires": [
+            [
+                "49b6f63e.e3a838"
+            ]
+        ]
+    },
+    {
+        "id": "49b6f63e.e3a838",
+        "type": "debug",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 955,
+        "y": 200,
+        "wires": [],
+        "l": false
+    },
+    {
+        "id": "2ab389ed.57b646",
+        "type": "inject",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "300",
+        "crontab": "",
+        "once": false,
+        "onceDelay": "6",
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 115,
+        "y": 300,
+        "wires": [
+            [
+                "2468e318.c0bb7c"
+            ]
+        ],
+        "l": false
+    },
+    {
+        "id": "2468e318.c0bb7c",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "func": "const devices = global.get('thingsboardCentralDevices');\nconst authToken = global.get('thingsboardToken');\n\nif (!devices) {\n\n    return null;\n}\n\nconst currIndex = this.currentIndex || 0;\n\nif (currIndex === devices.length - 1) {\n    return null;\n}\n\nmsg.url = `https://dashboard.myio.com.br/api/device/${devices[currIndex]}`;\nmsg.headers = {\n    'X-Authorization': `Bearer ${authToken}`,\n};\n\nthis.currentIndex = currIndex + 1;\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 400,
+        "y": 300,
+        "wires": [
+            [
+                "9923d96c.52cef8"
+            ]
+        ]
+    },
+    {
+        "id": "9923d96c.52cef8",
+        "type": "http request",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "method": "GET",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "authType": "",
+        "x": 590,
+        "y": 300,
+        "wires": [
+            [
+                "a067865f.abfe48",
+                "8c658e90.ff116"
+            ]
+        ]
+    },
+    {
+        "id": "6f00f389.02a91c",
+        "type": "debug",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1035,
+        "y": 300,
+        "wires": [],
+        "l": false
+    },
+    {
+        "id": "9b00787e.b10ed8",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "func": "const devices = flow.get('devices') || [];\nconst mappedDevices = global.get('thingsboardMappedDevices') || {};\n\nfunction removeLastParenthesis(text) {\n    return text.replace(/\\s*\\([^)]*\\)\\s*$/, '');\n}\n\nfunction removeFirst3FAndLastParenthesis(text) {\n    // Remove the first occurrence of \"3F\"\n    let result = text.replace(/^3F\\s*/, '');\n\n    return result;\n}\n\nconst deviceName = removeLastParenthesis(msg.payload.name);\n\nlet device = devices[deviceName];\n\nif (!device) {\n    const technicalAlternative = devices[removeFirst3FAndLastParenthesis(deviceName)];\n    if (!technicalAlternative) {\n        node.warn('Device not found!! ' + deviceName);\n        return null;\n    }\n    \n    device = technicalAlternative;\n}\n\nmappedDevices[deviceName] = msg.payload;\n\nglobal.set('thingsboardMappedDevices', mappedDevices);\n\nreturn {\n    payload: {\n        key: 'thingsboardMappedDevices',\n        value: mappedDevices,\n    },\n};",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 920,
+        "y": 280,
+        "wires": [
+            [
+                "6f00f389.02a91c",
+                "cd749d2.d444c6"
+            ]
+        ]
+    },
+    {
+        "id": "cd749d2.d444c6",
+        "type": "persist-in",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "x": 1035,
+        "y": 260,
+        "wires": [],
+        "l": false
+    },
+    {
+        "id": "f7a20f14.05aee",
+        "type": "persist-out",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "x": 430,
+        "y": 360,
+        "wires": [
+            [
+                "54a8fd91.6be344",
+                "5f6aeb73.dc66b4"
+            ]
+        ]
+    },
+    {
+        "id": "54a8fd91.6be344",
+        "type": "change",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "rules": [
+            {
+                "t": "set",
+                "p": "thingsboardMappedDevices",
+                "pt": "global",
+                "to": "payload",
+                "tot": "msg"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 730,
+        "y": 360,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "fb909ab8.5b6a28",
+        "type": "inject",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"key\":\"thingsboardMappedDevices\"}",
+        "payloadType": "json",
+        "x": 115,
+        "y": 360,
+        "wires": [
+            [
+                "f7a20f14.05aee"
+            ]
+        ],
+        "l": false
+    },
+    {
+        "id": "598314bc.beeddc",
+        "type": "debug",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 655,
+        "y": 400,
+        "wires": [],
+        "l": false
+    },
+    {
+        "id": "5f6aeb73.dc66b4",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "func": "msg.payload = `Restored ${Object.keys(msg.payload).length} thingsboard devices.`;\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 595,
+        "y": 400,
+        "wires": [
+            [
+                "598314bc.beeddc"
+            ]
+        ],
+        "l": false
+    },
+    {
+        "id": "9fb8d3c4.b41e",
+        "type": "comment",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "Get all central devices relations",
+        "info": "",
+        "x": 210,
+        "y": 160,
+        "wires": []
+    },
+    {
+        "id": "96ac5827.829188",
+        "type": "comment",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "Get user JWT token",
+        "info": "",
+        "x": 170,
+        "y": 80,
+        "wires": []
+    },
+    {
+        "id": "4a7c3e83.51f8b",
+        "type": "comment",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "Map central device to thingsboard device",
+        "info": "",
+        "x": 240,
+        "y": 260,
+        "wires": []
+    },
+    {
+        "id": "cf1f9c96.c65f5",
+        "type": "inject",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"key\":\"thingsboardCredentials\"}",
+        "payloadType": "json",
+        "x": 95,
+        "y": 560,
+        "wires": [
+            [
+                "916f413d.3d343"
+            ]
+        ],
+        "l": false
+    },
+    {
+        "id": "916f413d.3d343",
+        "type": "persist-out",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "x": 250,
+        "y": 560,
+        "wires": [
+            [
+                "8b6d5a01.c07f58",
+                "37ca1062.d5de"
+            ]
+        ]
+    },
+    {
+        "id": "8b6d5a01.c07f58",
+        "type": "debug",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 415,
+        "y": 560,
+        "wires": [],
+        "l": false
+    },
+    {
+        "id": "37ca1062.d5de",
+        "type": "change",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "rules": [
+            {
+                "t": "set",
+                "p": "thingsboardCredentials",
+                "pt": "global",
+                "to": "payload",
+                "tot": "msg"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 540,
+        "y": 600,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "5f266218.93f74c",
+        "type": "inject",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"key\":\"thingsboardDeviceId\"}",
+        "payloadType": "json",
+        "x": 95,
+        "y": 680,
+        "wires": [
+            [
+                "4288e055.d28b4"
+            ]
+        ],
+        "l": false
+    },
+    {
+        "id": "4288e055.d28b4",
+        "type": "persist-out",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "x": 250,
+        "y": 680,
+        "wires": [
+            [
+                "9fa83504.6dcac8",
+                "620c777e.f78cb8"
+            ]
+        ]
+    },
+    {
+        "id": "9fa83504.6dcac8",
+        "type": "debug",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 415,
+        "y": 680,
+        "wires": [],
+        "l": false
+    },
+    {
+        "id": "620c777e.f78cb8",
+        "type": "change",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "rules": [
+            {
+                "t": "set",
+                "p": "thingsboardDeviceId",
+                "pt": "global",
+                "to": "payload",
+                "tot": "msg"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 530,
+        "y": 720,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "cd311666.944f08",
+        "type": "comment",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "Get credentials from storage",
+        "info": "",
+        "x": 200,
+        "y": 520,
+        "wires": []
+    },
+    {
+        "id": "fa640817.e99338",
+        "type": "debug",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 685,
+        "y": 240,
+        "wires": [],
+        "l": false
+    },
+    {
+        "id": "a067865f.abfe48",
+        "type": "debug",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 695,
+        "y": 320,
+        "wires": [],
+        "l": false
+    },
+    {
+        "id": "262f2ccc.e89584",
+        "type": "switch",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "property": "statusCode",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": "eq",
+                "v": "200",
+                "vt": "str"
+            }
+        ],
+        "checkall": "true",
+        "repair": false,
+        "outputs": 1,
+        "x": 730,
+        "y": 160,
+        "wires": [
+            [
+                "118e578f.5bf448"
+            ]
+        ]
+    },
+    {
+        "id": "20e3f607.be37ba",
+        "type": "switch",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "property": "statusCode",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": "eq",
+                "v": "200",
+                "vt": "str"
+            }
+        ],
+        "checkall": "true",
+        "repair": false,
+        "outputs": 1,
+        "x": 730,
+        "y": 200,
+        "wires": [
+            [
+                "32a22d6d.e7f3a2"
+            ]
+        ]
+    },
+    {
+        "id": "8c658e90.ff116",
+        "type": "switch",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "property": "statusCode",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": "eq",
+                "v": "200",
+                "vt": "str"
+            }
+        ],
+        "checkall": "true",
+        "repair": false,
+        "outputs": 1,
+        "x": 730,
+        "y": 280,
+        "wires": [
+            [
+                "9b00787e.b10ed8"
+            ]
+        ]
+    },
+    {
+        "id": "f3adb67a.0323f8",
+        "type": "inject",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "600",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"username\":\"disparador_souza_gerador@myio.com.br\",\"password\":\"123mudar\"}",
+        "payloadType": "json",
+        "x": 210,
+        "y": 460,
+        "wires": [
+            [
+                "8cf0ea9b.8d3568",
+                "3ee50c77.c3ac54"
+            ]
+        ]
+    },
+    {
+        "id": "8cf0ea9b.8d3568",
+        "type": "change",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "rules": [
+            {
+                "t": "set",
+                "p": "thingsboardCredentials",
+                "pt": "global",
+                "to": "payload",
+                "tot": "msg"
+            },
+            {
+                "t": "set",
+                "p": "thingsboardDeviceId",
+                "pt": "global",
+                "to": "3ee21680-7163-11ef-ad2c-53aeabe7d3fa",
+                "tot": "str"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 420,
+        "y": 440,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "3ee50c77.c3ac54",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "func": "\nmsg.payload = {\n    \"key\": \"thingsboardCredentials\",\n    \"value\": msg.payload\n}\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 400,
+        "y": 480,
+        "wires": [
+            [
+                "96c6a179.c643d",
+                "bfd3c0f0.7bb7b"
+            ]
+        ]
+    },
+    {
+        "id": "96c6a179.c643d",
+        "type": "debug",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 595,
+        "y": 460,
+        "wires": [],
+        "l": false
+    },
+    {
+        "id": "bfd3c0f0.7bb7b",
+        "type": "persist-in",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "x": 660,
+        "y": 500,
+        "wires": []
+    },
+    {
+        "id": "90bb4009.d365b",
+        "type": "inject",
+        "z": "f58a5c30.bc029",
+        "g": "2e7775c2.a00bea",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "600",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 150,
+        "y": 880,
+        "wires": [
+            [
+                "6c6e4dfb.c42674"
+            ]
+        ]
+    },
+    {
+        "id": "6c6e4dfb.c42674",
+        "type": "get-data",
+        "z": "f58a5c30.bc029",
+        "g": "2e7775c2.a00bea",
+        "selectedOption": "slaves",
+        "x": 320,
+        "y": 880,
+        "wires": [
+            [
+                "e66cdcb6.616df",
+                "acb41a28.450a68"
+            ]
+        ]
+    },
+    {
+        "id": "e66cdcb6.616df",
+        "type": "split",
+        "z": "f58a5c30.bc029",
+        "g": "2e7775c2.a00bea",
+        "name": "",
+        "splt": "\\n",
+        "spltType": "str",
+        "arraySplt": 1,
+        "arraySpltType": "len",
+        "stream": false,
+        "addname": "",
+        "x": 490,
+        "y": 880,
+        "wires": [
+            [
+                "7a0fce92.c1146"
+            ]
+        ]
+    },
+    {
+        "id": "7a0fce92.c1146",
+        "type": "switch",
+        "z": "f58a5c30.bc029",
+        "g": "2e7775c2.a00bea",
+        "name": "Device Type",
+        "property": "payload.type",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": "eq",
+                "v": "outlet",
+                "vt": "str"
+            },
+            {
+                "t": "eq",
+                "v": "three_phase_sensor",
+                "vt": "str"
+            },
+            {
+                "t": "eq",
+                "v": "infrared",
+                "vt": "str"
+            }
+        ],
+        "checkall": "true",
+        "repair": false,
+        "outputs": 3,
+        "x": 650,
+        "y": 880,
+        "wires": [
+            [
+                "e05b4b70.2fc6b8"
+            ],
+            [
+                "dc2c2d00.4604f"
+            ],
+            [
+                "9bc23bf7.45a978"
+            ]
+        ]
+    },
+    {
+        "id": "e05b4b70.2fc6b8",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "2e7775c2.a00bea",
+        "name": "Transform slave outlet devices",
+        "func": "const slave = msg.payload;\nconst channels = slave.channels_list\nconst config = slave.config; // This might be null\n\nconst devices = {};\nconst centralId = env.get('CENTRAL_UUID');\n\nfor (let i = 0; i < channels.length; i++) {\n    const channel = channels[i];\n    let channelConfig;\n    \n    if (config && config.channelConfig) {\n        const channelConfigKey = `channel${channel.channel}`;\n\n        if (config.channelConfig.hasOwnProperty(channelConfigKey)) {\n            channelConfig = config.channelConfig[channelConfigKey];\n        }\n    }\n    const name = channel.name.trimStart().trim();\n    devices[name] = {\n        type: channel.type,\n        name: channel.name,\n        channelType: channelConfig ? channelConfig.channel_type : null,\n        outputType: channelConfig ? channelConfig.output : null,\n        slaveId: channel.slaveId,\n        channelId: channel.channel,\n        deviceKind: channel.type,\n        deviceName: channel.name,\n        uniqueId: `${centralId}_${channel.slaveId}_${channel.id}`,\n    };\n\n    \n}\nmsg.payload = devices;\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 990,
+        "y": 840,
+        "wires": [
+            [
+                "4a19014a.fabb"
+            ]
+        ]
+    },
+    {
+        "id": "acb41a28.450a68",
+        "type": "change",
+        "z": "f58a5c30.bc029",
+        "g": "2e7775c2.a00bea",
+        "name": "Set slave_data to flow",
+        "rules": [
+            {
+                "t": "set",
+                "p": "slave_data",
+                "pt": "flow",
+                "to": "payload",
+                "tot": "msg"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 540,
+        "y": 820,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "dc2c2d00.4604f",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "2e7775c2.a00bea",
+        "name": "Transform slave three_phase_sensor devices",
+        "func": "const slave = msg.payload;\nconst channels = slave.channels_list\nconst config = slave.config; // This might be null\n\nconst devices = {};\nconst centralId = env.get('CENTRAL_UUID');\n\nconst isMultiple = slave.name.indexOf('/') >= 0;\n\nfunction getCleanName(roomName, slaveName) {\n    const isAc = slaveName.toLowerCase().indexOf('ar') > -1\n    let name = roomName.replace(/3F/, '');\n    name = name.replace(/Ar/gi, '');\n    name = name.trimStart().trim();\n    \n    if (isAc) {\n        name = `Ar ${name}`;\n    } else {\n        name = `3F ${name}`;\n    }\n\n    return name;\n}\n\nif (!isMultiple) {\n    devices[getCleanName(slave.name, slave.name)] = {\n        version: slave.version,\n        temperature_correction: slave.temperature_correction,\n        deviceKind: 'energy'\n    };\n} else {\n    // Send each one\n    const rooms = slave.name.split('/');\n    \n    for (let i = 0; i < rooms.length; i++ ) {\n        const name = getCleanName(rooms[i], slave.name);\n        if (name.indexOf('NADA') > -1) continue;\n        if (name.indexOf('Nada') > -1) continue;\n\n        devices[name] = {\n            version: slave.version,\n            temperature_correction: slave.temperature_correction,\n            deviceKind: 'energy'\n        };\n    }\n}\n\nfor (let i = 0; i < channels.length; i++) {\n    const channel = channels[i];\n    let channelConfig;\n\n    if (config && config.channelConfig) {\n        const channelConfigKey = `channel${channel.channel}`;\n\n        if (config.channelConfig.hasOwnProperty(channelConfigKey)) {\n            channelConfig = config.channelConfig[channelConfigKey];\n        }\n    }\n    \n    devices[channel.name] = {\n        type: channel.type,\n        name: channel.name,\n        channelType: channelConfig ? channelConfig.channel_type : null,\n        outputType: channelConfig ? channelConfig.output : null,\n        slaveId: channel.slaveId,\n        channelId: channel.channel,\n        deviceName: channel.name,\n        uniqueId: `${centralId}_${channel.slaveId}_${channel.id}`,\n    };\n}\n\nmsg.payload = devices;\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 950,
+        "y": 880,
+        "wires": [
+            [
+                "4a19014a.fabb"
+            ]
+        ]
+    },
+    {
+        "id": "9bc23bf7.45a978",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "2e7775c2.a00bea",
+        "name": "Transform slave infrared devices",
+        "func": "const slave = msg.payload;\nconst channels = slave.channels_list\nconst config = slave.config; // This might be null\n\nconst slaveName = slave.name.trimStart().trim();\nconst centralId = env.get('CENTRAL_UUID');\n\nconst devices = {\n    [slaveName]: {\n        version: slave.version,\n        temperature_correction: slave.temperature_correction,\n        deviceKind: 'temperature_sensor',\n        deviceName: slaveName,\n    }\n};\n\nfor (let i = 0; i < channels.length; i++) {\n    const channel = channels[i];\n    let channelConfig;\n    \n    if (config && config.channelConfig) {\n        const channelConfigKey = `channel${channel.channel}`;\n\n        if (config.channelConfig.hasOwnProperty(channelConfigKey)) {\n            channelConfig = config.channelConfig[channelConfigKey];\n        }\n    }\n    \n    devices[channel.name] = {\n        type: channel.type,\n        name: channel.name,\n        channelType: channelConfig ? channelConfig.channel_type : null,\n        outputType: channelConfig ? channelConfig.output : null,\n        slaveId: channel.slaveId,\n        channelId: channel.channel,\n        uniqueId: `${centralId}_${channel.slaveId}_${channel.id}`,\n    };\n\n    \n}\n\nmsg.payload = devices;\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 990,
+        "y": 920,
+        "wires": [
+            [
+                "4a19014a.fabb"
+            ]
+        ]
+    },
+    {
+        "id": "4a19014a.fabb",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "2e7775c2.a00bea",
+        "name": "",
+        "func": "// const keys = Object.keys(msg.payload);\n\n// const newPayload = keys.reduce((acc, key) => {\n//     acc[`${key} (Benfica)`] = msg.payload[key];\n//     return acc;\n// }, {});\n\n// msg.payload = newPayload;\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 1260,
+        "y": 880,
+        "wires": [
+            [
+                "be741a1.952f4e8"
+            ]
+        ]
+    },
+    {
+        "id": "8107b38.127015",
+        "type": "debug",
+        "z": "f58a5c30.bc029",
+        "g": "2e7775c2.a00bea",
+        "name": "",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1810,
+        "y": 820,
+        "wires": []
+    },
+    {
+        "id": "be741a1.952f4e8",
+        "type": "join",
+        "z": "f58a5c30.bc029",
+        "g": "2e7775c2.a00bea",
+        "name": "",
+        "mode": "auto",
+        "build": "string",
+        "property": "payload",
+        "propertyType": "msg",
+        "key": "topic",
+        "joiner": "\\n",
+        "joinerType": "str",
+        "accumulate": false,
+        "timeout": "",
+        "count": "",
+        "reduceRight": false,
+        "reduceExp": "",
+        "reduceInit": "",
+        "reduceInitType": "",
+        "reduceFixup": "",
+        "x": 1410,
+        "y": 880,
+        "wires": [
+            [
+                "fac75346.2e79c"
+            ]
+        ]
+    },
+    {
+        "id": "fac75346.2e79c",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "2e7775c2.a00bea",
+        "name": "Merge into a single obj",
+        "func": "msg.payload = msg.payload.reduce((acc, obj) => {\n    const keys = Object.keys(obj);\n    for (const key of keys) {\n        acc[key] = obj[key];\n    }\n\n    return acc;\n}, {});\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 1600,
+        "y": 880,
+        "wires": [
+            [
+                "8107b38.127015",
+                "ee6db9a9.12bc08"
+            ]
+        ]
+    },
+    {
+        "id": "ee6db9a9.12bc08",
+        "type": "change",
+        "z": "f58a5c30.bc029",
+        "g": "2e7775c2.a00bea",
+        "name": "Store to flow.devices",
+        "rules": [
+            {
+                "t": "set",
+                "p": "devices",
+                "pt": "flow",
+                "to": "payload",
+                "tot": "msg"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 1840,
+        "y": 880,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "524977a2.a10c28",
+        "type": "debug",
+        "z": "f58a5c30.bc029",
+        "g": "f457ad4c.56f54",
+        "name": "",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 695,
+        "y": 1300,
+        "wires": [],
+        "l": false
+    },
+    {
+        "id": "34f612ad.02fc8e",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "f457ad4c.56f54",
+        "name": "",
+        "func": "const devices = Object.keys(msg.payload);\nconst alarms = flow.get('stored_alarms') || {};\n\nconst shouldCreate = [];\nconst shouldClose = [];\n\nfor (device of devices) {\n    const stateUpdate = msg.payload[device][0].values;\n    \n    if (alarms[device]) {\n        for (alarm of alarms[device]) {\n            switch (alarm.type) {\n                case 'deviceActivated': {\n                    if (stateUpdate.status === 'on'\n                        || stateUpdate.status === 'detected') {\n                        shouldCreate.push({\n                            status: stateUpdate.status,\n                            deviceName: device,\n                            users: alarm.users,\n                            type: alarm.type,\n                            customerId: alarm.customerId,\n                            message: alarm.message,\n                        });\n                    } else {\n                        shouldClose.push({\n                            status: stateUpdate.status,\n                            deviceName: device,\n                            users: alarm.users,\n                            type: alarm.type,\n                            customerId: alarm.customerId,\n                            message: alarm.message,\n                        });\n                    }\n                } break;\n                case 'deviceDeactivated': {\n                    if (stateUpdate.status === 'off'\n                        || stateUpdate.status === 'not_detected') {\n                        shouldCreate.push({\n                            status: stateUpdate.status,\n                            deviceName: device,\n                            users: alarm.users,\n                            type: alarm.type,\n                            customerId: alarm.customerId,\n                            message: alarm.message,\n                        });\n                    } else {\n                        shouldClose.push({\n                            status: stateUpdate.status,\n                            deviceName: device,\n                            users: alarm.users,\n                            type: alarm.type,\n                            customerId: alarm.customerId,\n                            message: alarm.message,\n                        });\n                    }\n                } break;\n                default:\n                break;\n            }\n        }\n    }\n}\n\nif (shouldCreate.length <= 0 && shouldClose.length <= 0) {\n    return null;\n}\n\nreturn [{\n    payload: shouldCreate\n}, {\n    payload: shouldClose\n}];",
+        "outputs": 2,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 600,
+        "y": 1240,
+        "wires": [
+            [
+                "524977a2.a10c28",
+                "f8872f73.248ae"
+            ],
+            [
+                "133e525b.fe37de"
+            ]
+        ]
+    },
+    {
+        "id": "5a37826b.cc7bbc",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "f457ad4c.56f54",
+        "name": "",
+        "func": "const thingsboardDevices = global.get('thingsboardMappedDevices');\nconst thingsboardToken = global.get('thingsboardToken');\nconst activeAlerts = flow.get('activeAlerts') || {};\n\nif (!thingsboardToken) {\n    return null;\n}\n\nif (!thingsboardDevices) {\n    return null;\n}\n\nconst thingsboardDevice = thingsboardDevices[msg.payload.deviceName];\n\nif (!thingsboardDevice) {\n    return null;\n}\n\nconst activeAlert = activeAlerts[msg.payload.deviceName];\n\nlet oldAlert = null;\nif (activeAlert) {\n    const sameAlert = activeAlert.find((alert) => alert.type === msg.payload.type);\n    if (sameAlert) {\n        oldAlert = sameAlert\n    }\n}\n\nconst payload = {\n  \"id\": oldAlert ? oldAlert.id : null,\n  \"customerId\": {\n      \"id\": msg.payload.customerId,\n      \"entityType\": \"CUSTOMER\"\n  },\n  \"name\": oldAlert? oldAlert.name : msg.payload.message,\n  \"type\": oldAlert? oldAlert.type : msg.payload.message,\n  \"originator\": thingsboardDevice.id,\n  // TODO: Change severity to the msg.payload one\n  \"severity\": oldAlert ? oldAlert.severity : 'MAJOR',\n  \"acknowledged\": oldAlert ? oldAlert.acknowledged : false,\n  \"cleared\": oldAlert ? oldAlert.cleared : false,\n  \"startTs\": oldAlert ? oldAlert.startTs : new Date().getTime(),\n  \"details\": {\n      \"Última Atualização\": new Date().getTime(),\n  },\n  \"propagate\": false,\n  \"propagateToOwner\": false,\n  \"propagateToTenant\": false,\n}\n\nmsg.deviceName = msg.payload.deviceName;\n\nmsg.payload = payload;\n\nmsg.url = 'https://dashboard.myio.com.br/api/alarm';\n\nmsg.headers = {\n    'X-Authorization': `Bearer ${thingsboardToken}`,\n};\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 900,
+        "y": 1220,
+        "wires": [
+            [
+                "9d3e3e6b.d9f06",
+                "6af5a7e5.f97088"
+            ]
+        ]
+    },
+    {
+        "id": "6af5a7e5.f97088",
+        "type": "http request",
+        "z": "f58a5c30.bc029",
+        "g": "f457ad4c.56f54",
+        "name": "",
+        "method": "POST",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "authType": "",
+        "x": 1130,
+        "y": 1240,
+        "wires": [
+            [
+                "c2705a84.394db8",
+                "a0359310.730af"
+            ]
+        ]
+    },
+    {
+        "id": "9d3e3e6b.d9f06",
+        "type": "debug",
+        "z": "f58a5c30.bc029",
+        "g": "f457ad4c.56f54",
+        "name": "",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 995,
+        "y": 1180,
+        "wires": [],
+        "l": false
+    },
+    {
+        "id": "c2705a84.394db8",
+        "type": "debug",
+        "z": "f58a5c30.bc029",
+        "g": "f457ad4c.56f54",
+        "name": "",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1275,
+        "y": 1280,
+        "wires": [],
+        "l": false
+    },
+    {
+        "id": "3b846c1f.b73784",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "f457ad4c.56f54",
+        "name": "",
+        "func": "const activeAlerts = flow.get('activeAlerts') || {};\n\nconst activeAlert = activeAlerts[msg.deviceName];\n\nif (activeAlert) {\n    const foundAlerts = activeAlerts[msg.deviceName];\n    const sameType = foundAlerts.find((alert) => alert.type === msg.payload.type);\n    \n    if (sameType) {\n        const index = foundAlerts.indexOf(sameType);\n        foundAlerts[index] = msg.payload;\n    } else {\n        activeAlert.push(msg.payload);\n    }\n} else {\n    activeAlerts[msg.deviceName] = [msg.payload];\n}\n\nflow.set('activeAlerts', activeAlerts);\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 1440,
+        "y": 1220,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "d41edb3f.d18458",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "f457ad4c.56f54",
+        "name": "",
+        "func": "const thingsboardDevices = global.get('thingsboardMappedDevices');\nconst thingsboardToken = global.get('thingsboardToken');\nconst activeAlerts = flow.get('activeAlerts') || {};\n\nif (!thingsboardToken) {\n    return null;\n}\n\nif (!thingsboardDevices) {\n    return null;\n}\n\nconst thingsboardDevice = thingsboardDevices[msg.payload.deviceName];\n\nif (!thingsboardDevice) {\n    return null;\n}\n\nconst activeAlert = activeAlerts[msg.payload.deviceName] || [];\n\nconst oldAlert = activeAlert.find((alert) => alert.type === msg.payload.message);\n\nif (!oldAlert) return null;\n\nconst index = activeAlert.indexOf(oldAlert);\n\n// Remove it from the list\nactiveAlert.splice(index, 1);\n\nflow.set('activeAlerts', activeAlerts);\n\nmsg.deviceName = msg.payload.deviceName;\n\nmsg.url = `https://dashboard.myio.com.br/api/alarm/${oldAlert.id.id}/clear`;\n\nmsg.headers = {\n    'X-Authorization': `Bearer ${thingsboardToken}`,\n};\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 900,
+        "y": 1260,
+        "wires": [
+            [
+                "45dd8d72.c1e0a4",
+                "6af5a7e5.f97088"
+            ]
+        ]
+    },
+    {
+        "id": "45dd8d72.c1e0a4",
+        "type": "debug",
+        "z": "f58a5c30.bc029",
+        "g": "f457ad4c.56f54",
+        "name": "",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 995,
+        "y": 1300,
+        "wires": [],
+        "l": false
+    },
+    {
+        "id": "385b83d7.f4ea7c",
+        "type": "inject",
+        "z": "f58a5c30.bc029",
+        "g": "f457ad4c.56f54",
+        "name": "",
+        "props": [
+            {
+                "p": "credentials",
+                "v": "{\"username\":\"lemonde@myio.com.br\",\"password\":\"123mudar\"}",
+                "vt": "json"
+            },
+            {
+                "p": "deviceId",
+                "v": "cb9337f0-40a1-11ef-ad2c-53aeabe7d3fa",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 0.1,
+        "topic": "",
+        "x": 115,
+        "y": 1380,
+        "wires": [
+            [
+                "ba12caaf.083248",
+                "18f86fb0.5bce9"
+            ]
+        ],
+        "l": false
+    },
+    {
+        "id": "ba12caaf.083248",
+        "type": "change",
+        "z": "f58a5c30.bc029",
+        "g": "f457ad4c.56f54",
+        "name": "",
+        "rules": [
+            {
+                "t": "set",
+                "p": "thingsboardCredentials",
+                "pt": "global",
+                "to": "credentials",
+                "tot": "msg"
+            },
+            {
+                "t": "set",
+                "p": "thingsboardDeviceId",
+                "pt": "global",
+                "to": "deviceId",
+                "tot": "msg"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 280,
+        "y": 1380,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "18f86fb0.5bce9",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "f457ad4c.56f54",
+        "name": "",
+        "func": "\nreturn [{\n    payload: {\n        key: 'thingsboardCredentials',\n        value: msg.credentials,\n    }\n}, {\n    payload: {\n        key: 'thingsboardDeviceId',\n        value: msg.deviceId\n    }\n}];",
+        "outputs": 2,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 260,
+        "y": 1420,
+        "wires": [
+            [
+                "5ea6dad6.399434"
+            ],
+            [
+                "fa548d62.0c6bd"
+            ]
+        ]
+    },
+    {
+        "id": "5ea6dad6.399434",
+        "type": "persist-in",
+        "z": "f58a5c30.bc029",
+        "g": "f457ad4c.56f54",
+        "x": 480,
+        "y": 1400,
+        "wires": []
+    },
+    {
+        "id": "fa548d62.0c6bd",
+        "type": "persist-in",
+        "z": "f58a5c30.bc029",
+        "g": "f457ad4c.56f54",
+        "x": 480,
+        "y": 1440,
+        "wires": []
+    },
+    {
+        "id": "35bbb2cf.98011e",
+        "type": "debug",
+        "z": "f58a5c30.bc029",
+        "g": "f457ad4c.56f54",
+        "name": "",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 855,
+        "y": 1180,
+        "wires": [],
+        "l": false
+    },
+    {
+        "id": "a0359310.730af",
+        "type": "switch",
+        "z": "f58a5c30.bc029",
+        "g": "f457ad4c.56f54",
+        "name": "",
+        "property": "statusCode",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": "eq",
+                "v": "200",
+                "vt": "str"
+            },
+            {
+                "t": "else"
+            }
+        ],
+        "checkall": "true",
+        "repair": false,
+        "outputs": 2,
+        "x": 1290,
+        "y": 1240,
+        "wires": [
+            [
+                "3b846c1f.b73784"
+            ],
+            [
+                "dc476bb1.3c45f8"
+            ]
+        ]
+    },
+    {
+        "id": "dc476bb1.3c45f8",
+        "type": "debug",
+        "z": "f58a5c30.bc029",
+        "g": "f457ad4c.56f54",
+        "name": "",
+        "active": false,
+        "tosidebar": true,
+        "console": true,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1460,
+        "y": 1260,
+        "wires": []
+    },
+    {
+        "id": "c4014db3.ab9a2",
+        "type": "persist-out",
+        "z": "f58a5c30.bc029",
+        "g": "f457ad4c.56f54",
+        "x": 1130,
+        "y": 1420,
+        "wires": [
+            [
+                "42bc6d3a.62a174"
+            ]
+        ]
+    },
+    {
+        "id": "82c59790.2ab5f8",
+        "type": "inject",
+        "z": "f58a5c30.bc029",
+        "g": "f457ad4c.56f54",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"key\":\"stored_alarms\"}",
+        "payloadType": "json",
+        "x": 820,
+        "y": 1420,
+        "wires": [
+            [
+                "c4014db3.ab9a2"
+            ]
+        ]
+    },
+    {
+        "id": "42bc6d3a.62a174",
+        "type": "change",
+        "z": "f58a5c30.bc029",
+        "g": "f457ad4c.56f54",
+        "name": "",
+        "rules": [
+            {
+                "t": "set",
+                "p": "stored_alarms",
+                "pt": "flow",
+                "to": "payload",
+                "tot": "msg"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 1380,
+        "y": 1420,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "313bf1ad.de449e",
+        "type": "debug",
+        "z": "f58a5c30.bc029",
+        "g": "f457ad4c.56f54",
+        "name": "",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 565,
+        "y": 1200,
+        "wires": [],
+        "l": false
+    },
+    {
+        "id": "f8872f73.248ae",
+        "type": "split",
+        "z": "f58a5c30.bc029",
+        "g": "f457ad4c.56f54",
+        "name": "",
+        "splt": "\\n",
+        "spltType": "str",
+        "arraySplt": 1,
+        "arraySpltType": "len",
+        "stream": false,
+        "addname": "",
+        "x": 770,
+        "y": 1220,
+        "wires": [
+            [
+                "5a37826b.cc7bbc",
+                "35bbb2cf.98011e"
+            ]
+        ]
+    },
+    {
+        "id": "133e525b.fe37de",
+        "type": "split",
+        "z": "f58a5c30.bc029",
+        "g": "f457ad4c.56f54",
+        "name": "",
+        "splt": "\\n",
+        "spltType": "str",
+        "arraySplt": 1,
+        "arraySpltType": "len",
+        "stream": false,
+        "addname": "",
+        "x": 770,
+        "y": 1260,
+        "wires": [
+            [
+                "d41edb3f.d18458",
+                "d2f16d33.835ec"
+            ]
+        ]
+    },
+    {
+        "id": "d2f16d33.835ec",
+        "type": "debug",
+        "z": "f58a5c30.bc029",
+        "g": "f457ad4c.56f54",
+        "name": "",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 855,
+        "y": 1300,
+        "wires": [],
+        "l": false
+    },
+    {
+        "id": "c942d4a8.dd3458",
+        "type": "http in",
+        "z": "f58a5c30.bc029",
+        "g": "f457ad4c.56f54",
+        "name": "",
+        "url": "/createAlarms",
+        "method": "post",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 160,
+        "y": 1060,
+        "wires": [
+            [
+                "c8187a94.385368",
+                "b6fed73d.f663a8"
+            ]
+        ]
+    },
+    {
+        "id": "ca291f65.e7aff",
+        "type": "http response",
+        "z": "f58a5c30.bc029",
+        "g": "f457ad4c.56f54",
+        "name": "",
+        "statusCode": "200",
+        "headers": {},
+        "x": 880,
+        "y": 1080,
+        "wires": []
+    },
+    {
+        "id": "3a772152.f9290e",
+        "type": "change",
+        "z": "f58a5c30.bc029",
+        "g": "f457ad4c.56f54",
+        "name": "",
+        "rules": [
+            {
+                "t": "set",
+                "p": "payload",
+                "pt": "msg",
+                "to": "\"\"",
+                "tot": "json"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 775,
+        "y": 1040,
+        "wires": [
+            [
+                "ca291f65.e7aff",
+                "626e8e9.db58c7"
+            ]
+        ],
+        "l": false
+    },
+    {
+        "id": "c8187a94.385368",
+        "type": "debug",
+        "z": "f58a5c30.bc029",
+        "g": "f457ad4c.56f54",
+        "name": "",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 305,
+        "y": 1100,
+        "wires": [],
+        "l": false
+    },
+    {
+        "id": "2dc63353.10fc6c",
+        "type": "http response",
+        "z": "f58a5c30.bc029",
+        "g": "f457ad4c.56f54",
+        "name": "",
+        "statusCode": "500",
+        "headers": {},
+        "x": 880,
+        "y": 1120,
+        "wires": []
+    },
+    {
+        "id": "b6fed73d.f663a8",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "f457ad4c.56f54",
+        "name": "Format name",
+        "func": "const pattern = /\\s\\([^()]+\\)$/;\nconst deviceName = msg.payload.device;\nconst newDeviceName = deviceName.replace(pattern, '');\n\nmsg.payload = {\n    ...msg.payload,\n    device: newDeviceName,\n};\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 410,
+        "y": 1060,
+        "wires": [
+            [
+                "48ce8e1.2556d7"
+            ]
+        ]
+    },
+    {
+        "id": "48ce8e1.2556d7",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "f457ad4c.56f54",
+        "name": "Save individual alarm",
+        "func": "try {\n    const storedAlarms = flow.get('stored_alarms') || {};\n    \n    storedAlarms[msg.payload.device] = msg.payload.params;\n    \n    flow.set('stored_alarms', storedAlarms);\n    \n    msg.payload = {\n        key: 'stored_alarms',\n        value: storedAlarms,\n    };\n    \n    return msg;\n} catch (e) {\n    return [null, 'Error storing schedule'];\n}\n",
+        "outputs": 2,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 620,
+        "y": 1060,
+        "wires": [
+            [
+                "3a772152.f9290e"
+            ],
+            [
+                "2dc63353.10fc6c"
+            ]
+        ]
+    },
+    {
+        "id": "626e8e9.db58c7",
+        "type": "change",
+        "z": "f58a5c30.bc029",
+        "g": "f457ad4c.56f54",
+        "name": "",
+        "rules": [
+            {
+                "t": "set",
+                "p": "payload",
+                "pt": "msg",
+                "to": "stored_alarms",
+                "tot": "flow"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 1040,
+        "y": 1040,
+        "wires": [
+            [
+                "5122f08.e15301"
+            ]
+        ]
+    },
+    {
+        "id": "5122f08.e15301",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "f457ad4c.56f54",
+        "name": "",
+        "func": "const storedAlarms = msg.payload;\n\nreturn {\n    payload: {\n        key: 'stored_alarms',\n        value: storedAlarms\n    }\n};",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 1220,
+        "y": 1040,
+        "wires": [
+            [
+                "54688f1a.6d66b",
+                "9ca4cbbe.577a58"
+            ]
+        ]
+    },
+    {
+        "id": "54688f1a.6d66b",
+        "type": "persist-in",
+        "z": "f58a5c30.bc029",
+        "g": "f457ad4c.56f54",
+        "x": 1420,
+        "y": 1040,
+        "wires": []
+    },
+    {
+        "id": "9ca4cbbe.577a58",
+        "type": "debug",
+        "z": "f58a5c30.bc029",
+        "g": "f457ad4c.56f54",
+        "name": "",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1410,
+        "y": 1080,
+        "wires": []
+    },
+    {
+        "id": "f6e21d11.c92b6",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "f457ad4c.56f54",
+        "name": "Transform channel list to device",
+        "func": "const slave = msg.slave;\nconst lastReading = msg.payload;\n\nmsg.lastReading = lastReading;\n\nlet channelsList = slave.channels_list;\n\nconst devices = {};\n\nfunction getDeviceReading(type, payload) {\n    if (!payload) return null;\n    if (type === 'lamp' || type === 'plug') {\n        return payload.output === 100 ? \"on\": \"off\";\n    } else if (type === 'presence_sensor') {\n        return payload.input === 100 ? \"detected\" : \"not_detected\";\n    } else if (type === 'door_sensor') {\n        return payload.input === 100 ? \"open\" : \"closed\";\n    }\n\n    return payload.output === 100 ? 'on' : 'off';\n}\n\nif (slave.type === 'infrared') {\n    const name = slave.name.trimStart().trim();\n    devices[name] = [{\n        status: getDeviceReading('presence_sensor', lastReading.channels[0]),\n    }]\n} else {\n    for (let i = 0; i < channelsList.length; i++) {\n        const channel = channelsList[i];\n        const name = channel.name.trimStart().trim();\n        \n        const reading = getDeviceReading(channel.type, lastReading.channels[channel.channel]);\n        \n        msg.debug = {\n            reading,\n            name,\n            channel,\n            lastReading\n        }\n\n        if (!reading) continue;\n        \n        devices[name] = [{\n            \"ts\": new Date().getTime(),\n            \"values\": {\n                \"status\": reading\n            }\n        }];\n    }\n}\n\nif (Object.keys(devices) === 0) {\n    return null;\n}\n\nmsg.payload = devices;\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 455,
+        "y": 1220,
+        "wires": [
+            [
+                "34f612ad.02fc8e",
+                "313bf1ad.de449e"
+            ]
+        ],
+        "l": false
+    },
+    {
+        "id": "c42775e7.008bf8",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "f457ad4c.56f54",
+        "name": "Associate slave to msg",
+        "func": "const slaveId = msg.payload.id;\nconst channels = msg.payload.channels;\n\nconst slaveData = flow.get('slave_data');\n\nif (!slaveData) {\n    node.log(\"Received input from emitter but slave data is not set yet.\");\n    return null;\n}\n\nconst slave = slaveData.find((_slave) => _slave.id === slaveId);\n\nif (!slave) {\n    node.log(\"Could not find slave!\");\n    return null;\n}\n\nmsg.type = slave.type;\nmsg.slave = slave;\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 355,
+        "y": 1220,
+        "wires": [
+            [
+                "f6e21d11.c92b6"
+            ]
+        ],
+        "l": false
+    },
+    {
+        "id": "e49d74bc.8fa258",
+        "type": "myio-emitter",
+        "z": "f58a5c30.bc029",
+        "g": "f457ad4c.56f54",
+        "x": 170,
+        "y": 1220,
+        "wires": [
+            [
+                "c42775e7.008bf8"
+            ],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            []
+        ]
+    },
+    {
+        "id": "e885ad73.48de9",
+        "type": "filter-slave",
+        "z": "f58a5c30.bc029",
+        "g": "357c3147.0eb20e",
+        "slaves": [
+            "3"
+        ],
+        "outputs": 1,
+        "generic": false,
+        "x": 1950,
+        "y": 280,
+        "wires": [
+            [
+                "e35c7a21.dbf9a8"
+            ]
+        ]
+    },
+    {
+        "id": "548816ae.be38b8",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "243927f0.bac878",
+        "name": "Store Status Rede",
+        "func": "const storedState = flow.get('STATUS_REDE1');\nconst input = msg.payload.channels[1].input;\nlet timeDelta=0; \nconst newState = input === 0 ? 'ON' : 'OFF';\n\nflow.set('STATUS_REDE1', newState);\n\nif (newState === 'OFF'\n    && storedState === 'ON') {\n    flow.set('REDE_OFF_TIME1', new Date().getTime());\n    \n    return null;\n}\nelse if(storedState=='OFF' && newState=='ON')\n{\n    const redeOffTime = flow.get('REDE_OFF_TIME1');\n    const now = new Date().getTime();\n    timeDelta = now - redeOffTime;\n    msg.payload = \n    {\n    'Rede 1 (Souza Aguiar Gerador)': [{\n        ts: new Date().getTime(),\n        values: {\n            startupTime: timeDelta,\n        }\n     }]\n    }\n    return msg;\n}\nreturn null;",
+        "outputs": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 2590,
+        "y": 200,
+        "wires": [],
+        "icon": "node-red/db.svg"
+    },
+    {
+        "id": "c9d3c6eb.f27278",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "243927f0.bac878",
+        "name": "Detect Gerador ON",
+        "func": "const lastStatusGerador = flow.get('STATUS_GERADOR1');\nconst statusRede = flow.get('STATUS_REDE1');\nconst input = msg.payload.channels[0].input;\n\nconst statusGerador = input > 0 ? 'OFF' : 'ON';\n\nflow.set('STATUS_GERADOR1', statusGerador);\n\nif (statusRede === 'OFF'\n    && statusGerador === 'ON'\n    && lastStatusGerador === 'OFF') {\n    const redeOffTime = flow.get('REDE_OFF_TIME1');\n    const now = new Date().getTime();\n    \n    const timeDelta = now - redeOffTime;\n    \n    msg.payload = timeDelta;\n\n    return msg;\n}",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 2570,
+        "y": 240,
+        "wires": [
+            [
+                "b613f18c.6ae27"
+            ]
+        ]
+    },
+    {
+        "id": "b613f18c.6ae27",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "243927f0.bac878",
+        "name": "Send Gerador StartupTime",
+        "func": "msg.payload = {\n    'Gerador 1 (Souza Aguiar Gerador)': [{\n        ts: new Date().getTime(),\n        values: {\n            startupTime: msg.payload,\n        }\n    }]\n}\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 2820,
+        "y": 240,
+        "wires": [
+            [
+                "d13d30ff.736c2"
+            ]
+        ]
+    },
+    {
+        "id": "63cca5b9.8988bc",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "243927f0.bac878",
+        "name": "Status Rede",
+        "func": "\nmsg.payload = {\n    'Rede 1(Souza Aguiar Gerador)': [{\n        ts: new Date().getTime(),\n        values: {\n            status: msg.payload.channels[1].input\n        }\n    }]\n}\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 2550,
+        "y": 80,
+        "wires": [
+            [
+                "d13d30ff.736c2"
+            ]
+        ]
+    },
+    {
+        "id": "5aad4b1f.8a3e64",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "243927f0.bac878",
+        "name": "Status Gerador",
+        "func": "\nmsg.payload = {\n    'Gerador 1 (Souza Aguiar Gerador)': [{\n        ts: new Date().getTime(),\n        values: {\n            status: msg.payload.channels[0].input\n        }\n    }]\n}\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 2560,
+        "y": 120,
+        "wires": [
+            [
+                "d13d30ff.736c2"
+            ]
+        ]
+    },
+    {
+        "id": "3927ece7.e52934",
+        "type": "filter-slave",
+        "z": "f58a5c30.bc029",
+        "g": "e7167cf0.1b7e1",
+        "slaves": [
+            "1",
+            "2"
+        ],
+        "outputs": 2,
+        "generic": false,
+        "x": 130,
+        "y": 1660,
+        "wires": [
+            [
+                "78aa436f.650d9c",
+                "850de4b4.d9b6d8"
+            ],
+            [
+                "4b0ee015.bbcfa",
+                "ec43753b.b98948"
+            ]
+        ]
+    },
+    {
+        "id": "78aa436f.650d9c",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "e7167cf0.1b7e1",
+        "name": "Store Status Rede",
+        "func": "const storedState = flow.get('STATUS_REDE');\nconst input = msg.payload.channels[1].input;\n\nconst newState = input === 0 ? 'OFF' : 'ON';\n\nflow.set('STATUS_REDE', newState);\n\nif (newState === 'OFF'\n    && storedState === 'ON') {\n    flow.set('REDE_OFF_TIME', new Date().getTime());\n    \n    return msg;\n}",
+        "outputs": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 410,
+        "y": 1640,
+        "wires": [],
+        "icon": "node-red/db.svg"
+    },
+    {
+        "id": "4b0ee015.bbcfa",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "e7167cf0.1b7e1",
+        "name": "Detect Gerador ON",
+        "func": "const lastStatusGerador = flow.get('STATUS_GERADOR');\nconst statusRede = flow.get('STATUS_REDE');\nconst input = msg.payload.channels[0].input;\n\nconst statusGerador = input > 0 ? 'ON' : 'OFF';\n\nflow.set('STATUS_GERADOR', statusGerador);\n\nif (statusRede === 'OFF'\n    && statusGerador === 'ON'\n    && lastStatusGerador === 'OFF') {\n    const redeOffTime = flow.get('REDE_OFF_TIME');\n    const now = new Date().getTime();\n    \n    const timeDelta = now - redeOffTime;\n    \n    msg.payload = timeDelta;\n\n    return msg;\n}",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 410,
+        "y": 1720,
+        "wires": [
+            [
+                "f49c4f07.5fc01"
+            ]
+        ]
+    },
+    {
+        "id": "f49c4f07.5fc01",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "e7167cf0.1b7e1",
+        "name": "Send Gerador StartupTime",
+        "func": "msg.payload = {\n    'Gerador (Souza Aguiar Gerador)': [{\n        ts: new Date().getTime(),\n        values: {\n            startupTime: msg.payload,\n        }\n    }]\n}\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 660,
+        "y": 1720,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "850de4b4.d9b6d8",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "e7167cf0.1b7e1",
+        "name": "Status Rede",
+        "func": "\nmsg.payload = {\n    'Rede (Souza Aguiar Gerador)': [{\n        ts: new Date().getTime(),\n        values: {\n            status: msg.payload.channels[1].input\n        }\n    }]\n}\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 390,
+        "y": 1600,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "ec43753b.b98948",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "e7167cf0.1b7e1",
+        "name": "Status Gerador",
+        "func": "\nmsg.payload = {\n    'Gerador (Souza Aguiar Gerador)': [{\n        ts: new Date().getTime(),\n        values: {\n            status: msg.payload.channels[0].input\n        }\n    }]\n}\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 400,
+        "y": 1680,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "6e944fdf.aae69",
+        "type": "filter-slave",
+        "z": "f58a5c30.bc029",
+        "g": "357c3147.0eb20e",
+        "slaves": [
+            "4"
+        ],
+        "outputs": 1,
+        "generic": false,
+        "x": 1950,
+        "y": 440,
+        "wires": [
+            [
+                "7218573.f4b63a8",
+                "ba0432f6.3199a"
+            ]
+        ]
+    },
+    {
+        "id": "38abe34d.bb304c",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "fb237af5.7e65b8",
+        "name": "Store Status Rede",
+        "func": "const storedState = flow.get('STATUS_REDE2');\nconst input = msg.payload.channels[1].input;\n\nconst newState = input === 0 ? 'ON' : 'OFF';\n\nflow.set('STATUS_REDE2', newState);\n\nif (newState === 'OFF'\n    && storedState === 'ON') {\n    flow.set('REDE_OFF_TIME2', new Date().getTime());\n    \n    return msg;\n}",
+        "outputs": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 2530,
+        "y": 420,
+        "wires": [],
+        "icon": "node-red/db.svg"
+    },
+    {
+        "id": "543e8804.ade078",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "fb237af5.7e65b8",
+        "name": "Detect Gerador ON",
+        "func": "const lastStatusGerador = flow.get('STATUS_GERADOR2');\nconst statusRede = flow.get('STATUS_REDE2');\nconst input = msg.payload.channels[0].input;\n\nconst statusGerador = input > 0 ? 'OFF' : 'ON';\n\nflow.set('STATUS_GERADOR2', statusGerador);\n\nif (statusRede === 'OFF'\n    && statusGerador === 'ON'\n    && lastStatusGerador === 'OFF') {\n    const redeOffTime = flow.get('REDE_OFF_TIME2');\n    const now = new Date().getTime();\n    \n    const timeDelta = now - redeOffTime;\n    \n    msg.payload = timeDelta;\n\n    return msg;\n}",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 2530,
+        "y": 500,
+        "wires": [
+            [
+                "6f8c7966.ad3418"
+            ]
+        ]
+    },
+    {
+        "id": "6f8c7966.ad3418",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "fb237af5.7e65b8",
+        "name": "Send Gerador StartupTime",
+        "func": "msg.payload = {\n    'Gerador 2 (Souza Aguiar Gerador)': [{\n        ts: new Date().getTime(),\n        values: {\n            startupTime: msg.payload,\n        }\n    }]\n}\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 2780,
+        "y": 500,
+        "wires": [
+            [
+                "257ea303.2df02c"
+            ]
+        ]
+    },
+    {
+        "id": "73de4106.ce5fe",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "fb237af5.7e65b8",
+        "name": "Status Rede",
+        "func": "\nmsg.payload = {\n    'Rede 2 (Souza Aguiar Gerador)': [{\n        ts: new Date().getTime(),\n        values: {\n            status: msg.payload.channels[1].input\n        }\n    }]\n}\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 2510,
+        "y": 340,
+        "wires": [
+            [
+                "257ea303.2df02c"
+            ]
+        ]
+    },
+    {
+        "id": "3dacd444.c0174c",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "fb237af5.7e65b8",
+        "name": "Status Gerador",
+        "func": "\nmsg.payload = {\n    'Gerador 2 (Souza Aguiar Gerador)': [{\n        ts: new Date().getTime(),\n        values: {\n            status: msg.payload.channels[0].input\n        }\n    }]\n}\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 2520,
+        "y": 380,
+        "wires": [
+            [
+                "257ea303.2df02c"
+            ]
+        ]
+    },
+    {
+        "id": "4bfa416c.97cbc",
+        "type": "filter-slave",
+        "z": "f58a5c30.bc029",
+        "g": "357c3147.0eb20e",
+        "slaves": [
+            "5"
+        ],
+        "outputs": 1,
+        "generic": false,
+        "x": 1950,
+        "y": 520,
+        "wires": [
+            [
+                "7b2fab2e.f5c014",
+                "aa1c353.ade03c8"
+            ]
+        ]
+    },
+    {
+        "id": "9ae4f04.dcd841",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "1ed0b7d4.269998",
+        "name": "Store Status Rede",
+        "func": "const storedState = flow.get('STATUS_REDE3');\nconst input = msg.payload.channels[1].input;\n\nconst newState = input === 0 ? 'ON' : 'OFF';\n\nflow.set('STATUS_REDE3', newState);\n\nif (newState === 'OFF'\n    && storedState === 'ON') {\n    flow.set('REDE_OFF_TIME3', new Date().getTime());\n    \n    return msg;\n}",
+        "outputs": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 2530,
+        "y": 680,
+        "wires": [],
+        "icon": "node-red/db.svg"
+    },
+    {
+        "id": "39d516f7.c89e4a",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "1ed0b7d4.269998",
+        "name": "Detect Gerador ON",
+        "func": "const lastStatusGerador = flow.get('STATUS_GERADOR3');\nconst statusRede = flow.get('STATUS_REDE3');\nconst input = msg.payload.channels[0].input;\n\nconst statusGerador = input > 0 ? 'OFF' : 'ON';\n\nflow.set('STATUS_GERADOR3', statusGerador);\n\nif (statusRede === 'OFF'\n    && statusGerador === 'ON'\n    && lastStatusGerador === 'OFF') {\n    const redeOffTime = flow.get('REDE_OFF_TIME3');\n    const now = new Date().getTime();\n    \n    const timeDelta = now - redeOffTime;\n    \n    msg.payload = timeDelta;\n\n    return msg;\n}",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 2530,
+        "y": 760,
+        "wires": [
+            [
+                "5c0c9c5.0c5a364"
+            ]
+        ]
+    },
+    {
+        "id": "5c0c9c5.0c5a364",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "1ed0b7d4.269998",
+        "name": "Send Gerador StartupTime",
+        "func": "msg.payload = {\n    'Gerador 3 (Souza Aguiar Gerador)': [{\n        ts: new Date().getTime(),\n        values: {\n            startupTime: msg.payload,\n        }\n    }]\n}\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 2780,
+        "y": 760,
+        "wires": [
+            [
+                "f639041d.1e4748"
+            ]
+        ]
+    },
+    {
+        "id": "a8258cd9.dfcc1",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "1ed0b7d4.269998",
+        "name": "Status Rede",
+        "func": "\nmsg.payload = {\n    'Rede 3 (Souza Aguiar Gerador)': [{\n        ts: new Date().getTime(),\n        values: {\n            status: msg.payload.channels[1].input\n        }\n    }]\n}\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 2510,
+        "y": 600,
+        "wires": [
+            [
+                "f639041d.1e4748"
+            ]
+        ]
+    },
+    {
+        "id": "897da649.a7ed68",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "1ed0b7d4.269998",
+        "name": "Status Gerador",
+        "func": "\nmsg.payload = {\n    'Gerador 3 (Souza Aguiar Gerador)': [{\n        ts: new Date().getTime(),\n        values: {\n            status: msg.payload.channels[0].input\n        }\n    }]\n}\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 2520,
+        "y": 640,
+        "wires": [
+            [
+                "f639041d.1e4748"
+            ]
+        ]
+    },
+    {
+        "id": "3bcf8435.f3accc",
+        "type": "filter-slave",
+        "z": "f58a5c30.bc029",
+        "g": "357c3147.0eb20e",
+        "slaves": [
+            "6"
+        ],
+        "outputs": 1,
+        "generic": false,
+        "x": 1950,
+        "y": 360,
+        "wires": [
+            [
+                "db04bf61.96f04"
+            ]
+        ]
+    },
+    {
+        "id": "cdfb0afe.c4e898",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "36513397.a434cc",
+        "name": "Store Status Rede",
+        "func": "const storedState = flow.get('STATUS_REDE4');\nconst input = msg.payload.channels[1].input;\n\nconst newState = input === 0 ? 'ON' : 'OFF';\n\nflow.set('STATUS_REDE4', newState);\n\nif (newState === 'OFF'\n    && storedState === 'ON') {\n    flow.set('REDE_OFF_TIME4', new Date().getTime());\n    \n    return msg;\n}",
+        "outputs": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 2530,
+        "y": 940,
+        "wires": [],
+        "icon": "node-red/db.svg"
+    },
+    {
+        "id": "e05d3e4b.c3369",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "36513397.a434cc",
+        "name": "Detect Gerador ON",
+        "func": "const lastStatusGerador = flow.get('STATUS_GERADOR4');\nconst statusRede = flow.get('STATUS_REDE4');\nconst input = msg.payload.channels[0].input;\n\nconst statusGerador = input > 0 ? 'OFF' : 'ON';\n\nflow.set('STATUS_GERADOR4', statusGerador);\n\nif (statusRede === 'OFF'\n    && statusGerador === 'ON'\n    && lastStatusGerador === 'OFF') {\n    const redeOffTime = flow.get('REDE_OFF_TIME4');\n    const now = new Date().getTime();\n    \n    const timeDelta = now - redeOffTime;\n    \n    msg.payload = timeDelta;\n\n    return msg;\n}",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 2530,
+        "y": 1020,
+        "wires": [
+            [
+                "6ea7cdcf.a463c4"
+            ]
+        ]
+    },
+    {
+        "id": "6ea7cdcf.a463c4",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "36513397.a434cc",
+        "name": "Send Gerador StartupTime",
+        "func": "msg.payload = {\n    'Gerador 4 (Souza Aguiar Gerador)': [{\n        ts: new Date().getTime(),\n        values: {\n            startupTime: msg.payload,\n        }\n    }]\n}\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 2780,
+        "y": 1020,
+        "wires": [
+            [
+                "ff42b7a3.bd4718"
+            ]
+        ]
+    },
+    {
+        "id": "2faa4fd1.66fbf",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "36513397.a434cc",
+        "name": "Status Rede",
+        "func": "\nmsg.payload = {\n    'Rede 4 (Souza Aguiar Gerador)': [{\n        ts: new Date().getTime(),\n        values: {\n            status: msg.payload.channels[1].input\n        }\n    }]\n}\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 2510,
+        "y": 860,
+        "wires": [
+            [
+                "ff42b7a3.bd4718"
+            ]
+        ]
+    },
+    {
+        "id": "d4f4992c.1d82d8",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "36513397.a434cc",
+        "name": "Status Gerador",
+        "func": "\nmsg.payload = {\n    'Gerador 4 (Souza Aguiar Gerador)': [{\n        ts: new Date().getTime(),\n        values: {\n            status: msg.payload.channels[0].input\n        }\n    }]\n}\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 2520,
+        "y": 900,
+        "wires": [
+            [
+                "ff42b7a3.bd4718"
+            ]
+        ]
+    },
+    {
+        "id": "b30b6ea0.375c5",
+        "type": "inject",
+        "z": "f58a5c30.bc029",
+        "g": "243927f0.bac878",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"Gerador 4 (Souza Aguiar Gerador)\":[{\"ts\":1768239265000,\"values\":{\"startupTime\":17430}}]}",
+        "payloadType": "json",
+        "x": 2750,
+        "y": 60,
+        "wires": [
+            [
+                "d13d30ff.736c2"
+            ]
+        ]
+    },
+    {
+        "id": "7218573.f4b63a8",
+        "type": "debug",
+        "z": "f58a5c30.bc029",
+        "g": "357c3147.0eb20e",
+        "name": "",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 2075,
+        "y": 480,
+        "wires": [],
+        "l": false
+    },
+    {
+        "id": "7b2fab2e.f5c014",
+        "type": "debug",
+        "z": "f58a5c30.bc029",
+        "g": "357c3147.0eb20e",
+        "name": "",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 2075,
+        "y": 560,
+        "wires": [],
+        "l": false
+    },
+    {
+        "id": "4620a875.174fb8",
+        "type": "debug",
+        "z": "f58a5c30.bc029",
+        "g": "357c3147.0eb20e",
+        "name": "",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 2075,
+        "y": 400,
+        "wires": [],
+        "l": false
+    },
+    {
+        "id": "bc8b8c00.5f303",
+        "type": "inject",
+        "z": "f58a5c30.bc029",
+        "g": "24d47531.c8125a",
+        "name": "[1] Rede LIGADA, Gerador DESLIGADO",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"channels\":[{\"id\":0,\"input\":100,\"output\":100,\"value\":100},{\"id\":1,\"input\":0,\"output\":100,\"value\":0}],\"id\":3,\"message_type\":\"channel_update\"}",
+        "payloadType": "json",
+        "x": 1060,
+        "y": 1560,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "bb5302a5.5aaed",
+        "type": "inject",
+        "z": "f58a5c30.bc029",
+        "g": "24d47531.c8125a",
+        "name": "[1] Rede DESLIGADA, Gerador DESLIGADO",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"channels\":[{\"id\":0,\"input\":100,\"output\":100,\"value\":100},{\"id\":1,\"input\":100,\"output\":100,\"value\":0}],\"id\":3,\"message_type\":\"channel_update\"}",
+        "payloadType": "json",
+        "x": 1080,
+        "y": 1600,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "eaa5e9db.102388",
+        "type": "inject",
+        "z": "f58a5c30.bc029",
+        "g": "24d47531.c8125a",
+        "name": "[1] Rede DESLIGADA, Gerador LIGADO",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"channels\":[{\"id\":0,\"input\":0,\"output\":100,\"value\":100},{\"id\":1,\"input\":100,\"output\":100,\"value\":0}],\"id\":3,\"message_type\":\"channel_update\"}",
+        "payloadType": "json",
+        "x": 1060,
+        "y": 1640,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "ff48355d.7ea588",
+        "type": "inject",
+        "z": "f58a5c30.bc029",
+        "g": "24d47531.c8125a",
+        "name": "[1] Rede LIGADA, Gerador DESLIGADO",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"channels\":[{\"id\":0,\"input\":100,\"output\":100,\"value\":100},{\"id\":1,\"input\":0,\"output\":100,\"value\":0}],\"id\":4,\"message_type\":\"channel_update\"}",
+        "payloadType": "json",
+        "x": 1060,
+        "y": 1720,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "9fba9115.0ed42",
+        "type": "inject",
+        "z": "f58a5c30.bc029",
+        "g": "24d47531.c8125a",
+        "name": "[1] Rede DESLIGADA, Gerador DESLIGADO",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"channels\":[{\"id\":0,\"input\":100,\"output\":100,\"value\":100},{\"id\":1,\"input\":100,\"output\":100,\"value\":0}],\"id\":4,\"message_type\":\"channel_update\"}",
+        "payloadType": "json",
+        "x": 1080,
+        "y": 1760,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "485eb252.0fedcc",
+        "type": "inject",
+        "z": "f58a5c30.bc029",
+        "g": "24d47531.c8125a",
+        "name": "[1] Rede DESLIGADA, Gerador LIGADO",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"channels\":[{\"id\":0,\"input\":0,\"output\":100,\"value\":100},{\"id\":1,\"input\":100,\"output\":100,\"value\":0}],\"id\":4,\"message_type\":\"channel_update\"}",
+        "payloadType": "json",
+        "x": 1060,
+        "y": 1800,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "96ab5683.0790e8",
+        "type": "inject",
+        "z": "f58a5c30.bc029",
+        "g": "24d47531.c8125a",
+        "name": "[1] Rede LIGADA, Gerador DESLIGADO",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"channels\":[{\"id\":0,\"input\":100,\"output\":100,\"value\":100},{\"id\":1,\"input\":0,\"output\":100,\"value\":0}],\"id\":5,\"message_type\":\"channel_update\"}",
+        "payloadType": "json",
+        "x": 1060,
+        "y": 1860,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "d51efa18.01c438",
+        "type": "inject",
+        "z": "f58a5c30.bc029",
+        "g": "24d47531.c8125a",
+        "name": "[1] Rede DESLIGADA, Gerador DESLIGADO",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"channels\":[{\"id\":0,\"input\":100,\"output\":100,\"value\":100},{\"id\":1,\"input\":100,\"output\":100,\"value\":0}],\"id\":5,\"message_type\":\"channel_update\"}",
+        "payloadType": "json",
+        "x": 1080,
+        "y": 1900,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "d885e336.8856b",
+        "type": "inject",
+        "z": "f58a5c30.bc029",
+        "g": "24d47531.c8125a",
+        "name": "[1] Rede DESLIGADA, Gerador LIGADO",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"channels\":[{\"id\":0,\"input\":0,\"output\":100,\"value\":100},{\"id\":1,\"input\":100,\"output\":100,\"value\":0}],\"id\":5,\"message_type\":\"channel_update\"}",
+        "payloadType": "json",
+        "x": 1060,
+        "y": 1940,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "7b0f4aed.ad9b14",
+        "type": "inject",
+        "z": "f58a5c30.bc029",
+        "g": "24d47531.c8125a",
+        "name": "[1] Rede DESLIGADA, Gerador LIGADO",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"channels\":[{\"id\":0,\"input\":0,\"output\":100,\"value\":100},{\"id\":1,\"input\":100,\"output\":100,\"value\":0}],\"id\":6,\"message_type\":\"channel_update\"}",
+        "payloadType": "json",
+        "x": 1060,
+        "y": 2080,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "ae1baa1b.748888",
+        "type": "inject",
+        "z": "f58a5c30.bc029",
+        "g": "24d47531.c8125a",
+        "name": "[1] Rede DESLIGADA, Gerador DESLIGADO",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"channels\":[{\"id\":0,\"input\":100,\"output\":100,\"value\":100},{\"id\":1,\"input\":100,\"output\":100,\"value\":0}],\"id\":6,\"message_type\":\"channel_update\"}",
+        "payloadType": "json",
+        "x": 1080,
+        "y": 2040,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "30092dcb.0b4602",
+        "type": "inject",
+        "z": "f58a5c30.bc029",
+        "g": "24d47531.c8125a",
+        "name": "[1] Rede LIGADA, Gerador DESLIGADO",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"channels\":[{\"id\":0,\"input\":100,\"output\":100,\"value\":100},{\"id\":1,\"input\":0,\"output\":100,\"value\":0}],\"id\":6,\"message_type\":\"channel_update\"}",
+        "payloadType": "json",
+        "x": 1060,
+        "y": 2000,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "556a1e36.f63e2",
+        "type": "debug",
+        "z": "f58a5c30.bc029",
+        "g": "357c3147.0eb20e",
+        "name": "",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 2075,
+        "y": 320,
+        "wires": [],
+        "l": false
+    },
+    {
+        "id": "3e646b3a.39dfb4",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "243927f0.bac878",
+        "name": "Store Status Rede",
+        "func": "const storedState = flow.get('STATUS_REDE1');\nconst input = msg.payload.channels[1].input;\nlet timeDelta=0; \nconst newState = input === 0 ? 'ON' : 'OFF';\n\nflow.set('STATUS_REDE1', newState);\n\nif (newState === 'OFF'\n    && storedState === 'ON') {\n    flow.set('REDE_OFF_TIME1', new Date().getTime());\n    \n    return null;\n}\nelse if(storedState == 'OFF' && newState=='ON')\n{\n    const redeOffTime = flow.get('REDE_OFF_TIME1');\n    const now = new Date().getTime();\n    timeDelta = now - redeOffTime;\n    msg.payload = \n    {\n     'Rede 1 time (Souza Aguiar Gerador)': [{\n        ts: new Date().getTime(),\n        values: {\n            startupTime: timeDelta,\n        }\n     }]\n    }\n    return msg;\n}\nreturn null;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 2570,
+        "y": 160,
+        "wires": [
+            [
+                "d13d30ff.736c2"
+            ]
+        ]
+    },
+    {
+        "id": "8c27d9dc.824308",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "fb237af5.7e65b8",
+        "name": "Store Status Rede",
+        "func": "const storedState = flow.get('STATUS_REDE2');\nconst input = msg.payload.channels[1].input;\nlet timeDelta=0; \nconst newState = input === 0 ? 'ON' : 'OFF';\n\nflow.set('STATUS_REDE2', newState);\n\nif (newState === 'OFF'\n    && storedState === 'ON') {\n    flow.set('REDE_OFF_TIME2', new Date().getTime());\n    \n    return null;\n}\nelse if(storedState == 'OFF' && newState=='ON')\n{\n    const redeOffTime = flow.get('REDE_OFF_TIME2');\n    const now = new Date().getTime();\n    timeDelta = now - redeOffTime;\n    msg.payload = \n    {\n     'Rede 2 time (Souza Aguiar Gerador)': [{\n        ts: new Date().getTime(),\n        values: {\n            startupTime: timeDelta,\n        }\n     }]\n    }\n    return msg;\n}\nreturn null;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 2530,
+        "y": 460,
+        "wires": [
+            [
+                "257ea303.2df02c"
+            ]
+        ]
+    },
+    {
+        "id": "efa2801a.42912",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "1ed0b7d4.269998",
+        "name": "Store Status Rede",
+        "func": "const storedState = flow.get('STATUS_REDE3');\nconst input = msg.payload.channels[1].input;\nlet timeDelta=0; \nconst newState = input === 0 ? 'ON' : 'OFF';\n\nflow.set('STATUS_REDE3', newState);\n\nif (newState === 'OFF'\n    && storedState === 'ON') {\n    flow.set('REDE_OFF_TIME3', new Date().getTime());\n    \n    return null;\n}\nelse if(storedState == 'OFF' && newState=='ON')\n{\n    const redeOffTime = flow.get('REDE_OFF_TIME3');\n    const now = new Date().getTime();\n    timeDelta = now - redeOffTime;\n    msg.payload = \n    {\n     'Rede 3 time (Souza Aguiar Gerador)': [{\n        ts: new Date().getTime(),\n        values: {\n            startupTime: timeDelta,\n        }\n     }]\n    }\n    return msg;\n}\nreturn null;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 2530,
+        "y": 720,
+        "wires": [
+            [
+                "f639041d.1e4748"
+            ]
+        ]
+    },
+    {
+        "id": "25facd11.288612",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "36513397.a434cc",
+        "name": "Store Status Rede",
+        "func": "const storedState = flow.get('STATUS_REDE4');\nconst input = msg.payload.channels[1].input;\nlet timeDelta=0; \nconst newState = input === 0 ? 'ON' : 'OFF';\n\nflow.set('STATUS_REDE4', newState);\n\nif (newState === 'OFF'\n    && storedState === 'ON') {\n    flow.set('REDE_OFF_TIME4', new Date().getTime());\n    \n    return null;\n}\nelse if(storedState == 'OFF' && newState=='ON')\n{\n    const redeOffTime = flow.get('REDE_OFF_TIME4');\n    const now = new Date().getTime();\n    timeDelta = now - redeOffTime;\n    msg.payload = \n    {\n     'Rede 4 time (Souza Aguiar Gerador)': [{\n        ts: new Date().getTime(),\n        values: {\n            startupTime: timeDelta,\n        }\n     }]\n    }\n    return msg;\n}\nreturn null;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 2530,
+        "y": 980,
+        "wires": [
+            [
+                "ff42b7a3.bd4718"
+            ]
+        ]
+    },
+    {
+        "id": "e2e4c1db.4fc06",
+        "type": "inject",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 1240,
+        "y": 60,
+        "wires": [
+            [
+                "69e47c0b.7acea4"
+            ]
+        ]
+    },
+    {
+        "id": "69e47c0b.7acea4",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "func": "msg.payload=\n{\n\"channels\":\n[{\n    \"id\":0,\n    \"input\":100,\n    \"output\":100,\n    \"value\":100\n    \n},\n{\n    \"id\":1,\n    \"input\":100,\n    \"output\":100,\n    \"value\":0\n}],\n    \"id\":3,\n    \"message_type\":\"channel_update\"\n}\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 1380,
+        "y": 60,
+        "wires": [
+            [
+                "d055f8ad.9b7af8"
+            ]
+        ]
+    },
+    {
+        "id": "9b643238.245c1",
+        "type": "inject",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 1240,
+        "y": 160,
+        "wires": [
+            [
+                "65b6d17b.4c5b5"
+            ]
+        ]
+    },
+    {
+        "id": "65b6d17b.4c5b5",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "func": "msg.payload=\n{\n\"channels\":\n[{\n    \"id\":0,\n    \"input\":100,\n    \"output\":100,\n    \"value\":100\n    \n},\n{\n    \"id\":1,\n    \"input\":0,\n    \"output\":100,\n    \"value\":0\n}],\n    \"id\":3,\n    \"message_type\":\"channel_update\"\n}\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 1380,
+        "y": 160,
+        "wires": [
+            [
+                "d055f8ad.9b7af8"
+            ]
+        ]
+    },
+    {
+        "id": "b3b82fc9.65cc8",
+        "type": "comment",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "SEm rede",
+        "info": "//Sem rede ",
+        "x": 1240,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "44673234.e0d82c",
+        "type": "comment",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "Com REDE",
+        "info": "//Sem rede ",
+        "x": 1230,
+        "y": 140,
+        "wires": []
+    },
+    {
+        "id": "70312cc4.788cc4",
+        "type": "link in",
+        "z": "f58a5c30.bc029",
+        "g": "fb237af5.7e65b8",
+        "name": "",
+        "links": [
+            "ba0432f6.3199a",
+            "3d10ad9a.d70ce2"
+        ],
+        "x": 2355,
+        "y": 420,
+        "wires": [
+            [
+                "543e8804.ade078",
+                "8c27d9dc.824308",
+                "3dacd444.c0174c",
+                "73de4106.ce5fe"
+            ]
+        ]
+    },
+    {
+        "id": "ba0432f6.3199a",
+        "type": "link out",
+        "z": "f58a5c30.bc029",
+        "g": "357c3147.0eb20e",
+        "name": "",
+        "links": [
+            "70312cc4.788cc4"
+        ],
+        "x": 2075,
+        "y": 440,
+        "wires": []
+    },
+    {
+        "id": "257ea303.2df02c",
+        "type": "link out",
+        "z": "f58a5c30.bc029",
+        "g": "fb237af5.7e65b8",
+        "name": "",
+        "links": [
+            "5cc7bf8e.1546a"
+        ],
+        "x": 2855,
+        "y": 400,
+        "wires": []
+    },
+    {
+        "id": "5cc7bf8e.1546a",
+        "type": "link in",
+        "z": "f58a5c30.bc029",
+        "g": "12b9be57.d3b4e2",
+        "name": "",
+        "links": [
+            "257ea303.2df02c",
+            "d13d30ff.736c2",
+            "f639041d.1e4748",
+            "ff42b7a3.bd4718"
+        ],
+        "x": 1715,
+        "y": 80,
+        "wires": [
+            [
+                "c66f8a84.0c34d8"
+            ]
+        ]
+    },
+    {
+        "id": "d13d30ff.736c2",
+        "type": "link out",
+        "z": "f58a5c30.bc029",
+        "g": "243927f0.bac878",
+        "name": "",
+        "links": [
+            "5cc7bf8e.1546a"
+        ],
+        "x": 2895,
+        "y": 140,
+        "wires": []
+    },
+    {
+        "id": "f639041d.1e4748",
+        "type": "link out",
+        "z": "f58a5c30.bc029",
+        "g": "1ed0b7d4.269998",
+        "name": "",
+        "links": [
+            "5cc7bf8e.1546a"
+        ],
+        "x": 2855,
+        "y": 660,
+        "wires": []
+    },
+    {
+        "id": "ff42b7a3.bd4718",
+        "type": "link out",
+        "z": "f58a5c30.bc029",
+        "g": "36513397.a434cc",
+        "name": "",
+        "links": [
+            "5cc7bf8e.1546a"
+        ],
+        "x": 2855,
+        "y": 920,
+        "wires": []
+    },
+    {
+        "id": "aa1c353.ade03c8",
+        "type": "link out",
+        "z": "f58a5c30.bc029",
+        "g": "357c3147.0eb20e",
+        "name": "",
+        "links": [
+            "b687685c.46a408"
+        ],
+        "x": 2075,
+        "y": 520,
+        "wires": []
+    },
+    {
+        "id": "b687685c.46a408",
+        "type": "link in",
+        "z": "f58a5c30.bc029",
+        "g": "1ed0b7d4.269998",
+        "name": "",
+        "links": [
+            "aa1c353.ade03c8",
+            "e85e8036.91c8b"
+        ],
+        "x": 2355,
+        "y": 680,
+        "wires": [
+            [
+                "a8258cd9.dfcc1",
+                "897da649.a7ed68",
+                "efa2801a.42912",
+                "39d516f7.c89e4a"
+            ]
+        ]
+    },
+    {
+        "id": "d055f8ad.9b7af8",
+        "type": "link out",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "links": [
+            "8dcd581f.86ced8"
+        ],
+        "x": 1515,
+        "y": 140,
+        "wires": []
+    },
+    {
+        "id": "7642a0c1.062af",
+        "type": "link in",
+        "z": "f58a5c30.bc029",
+        "g": "357c3147.0eb20e",
+        "name": "QTA4",
+        "links": [
+            "88096cc8.87dbf"
+        ],
+        "x": 1835,
+        "y": 380,
+        "wires": [
+            [
+                "3bcf8435.f3accc"
+            ]
+        ]
+    },
+    {
+        "id": "1dd55047.29013",
+        "type": "link in",
+        "z": "f58a5c30.bc029",
+        "g": "36513397.a434cc",
+        "name": "",
+        "links": [
+            "db04bf61.96f04",
+            "41677acc.17f5b4"
+        ],
+        "x": 2355,
+        "y": 940,
+        "wires": [
+            [
+                "2faa4fd1.66fbf",
+                "d4f4992c.1d82d8",
+                "25facd11.288612",
+                "e05d3e4b.c3369"
+            ]
+        ]
+    },
+    {
+        "id": "db04bf61.96f04",
+        "type": "link out",
+        "z": "f58a5c30.bc029",
+        "g": "357c3147.0eb20e",
+        "name": "",
+        "links": [
+            "1dd55047.29013"
+        ],
+        "x": 2075,
+        "y": 360,
+        "wires": []
+    },
+    {
+        "id": "2de08e9b.53f2a2",
+        "type": "link in",
+        "z": "f58a5c30.bc029",
+        "g": "243927f0.bac878",
+        "name": "",
+        "links": [
+            "e35c7a21.dbf9a8",
+            "d5a83eb0.dee1"
+        ],
+        "x": 2395,
+        "y": 160,
+        "wires": [
+            [
+                "63cca5b9.8988bc",
+                "5aad4b1f.8a3e64",
+                "3e646b3a.39dfb4",
+                "c9d3c6eb.f27278"
+            ]
+        ]
+    },
+    {
+        "id": "e35c7a21.dbf9a8",
+        "type": "link out",
+        "z": "f58a5c30.bc029",
+        "g": "357c3147.0eb20e",
+        "name": "",
+        "links": [
+            "2de08e9b.53f2a2"
+        ],
+        "x": 2075,
+        "y": 280,
+        "wires": []
+    },
+    {
+        "id": "c66f8a84.0c34d8",
+        "type": "mqtt out",
+        "z": "f58a5c30.bc029",
+        "g": "12b9be57.d3b4e2",
+        "name": "Myio Bas",
+        "topic": "v1/gateway/telemetry",
+        "qos": "",
+        "retain": "",
+        "broker": "84b06148.9ab54",
+        "x": 1820,
+        "y": 80,
+        "wires": []
+    },
+    {
+        "id": "d0d33f5d.f224",
+        "type": "inject",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 1240,
+        "y": 260,
+        "wires": [
+            [
+                "da93bf07.4731e"
+            ]
+        ]
+    },
+    {
+        "id": "da93bf07.4731e",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "func": "msg.payload=\n{\n\"channels\":\n[{\n    \"id\":0,\n    \"input\":100,\n    \"output\":100,\n    \"value\":100\n    \n},\n{\n    \"id\":1,\n    \"input\":100,\n    \"output\":100,\n    \"value\":0\n}],\n    \"id\":4,\n    \"message_type\":\"channel_update\"\n}\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 1380,
+        "y": 260,
+        "wires": [
+            [
+                "1eb640f0.8e307f"
+            ]
+        ]
+    },
+    {
+        "id": "b7cdf8c.0238c08",
+        "type": "inject",
+        "z": "f58a5c30.bc029",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 1240,
+        "y": 340,
+        "wires": [
+            [
+                "3b1c75d6.abdeda"
+            ]
+        ]
+    },
+    {
+        "id": "3b1c75d6.abdeda",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "name": "",
+        "func": "msg.payload=\n{\n\"channels\":\n[{\n    \"id\":0,\n    \"input\":100,\n    \"output\":100,\n    \"value\":100\n    \n},\n{\n    \"id\":1,\n    \"input\":0,\n    \"output\":100,\n    \"value\":0\n}],\n    \"id\":4,\n    \"message_type\":\"channel_update\"\n}\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 1380,
+        "y": 340,
+        "wires": [
+            [
+                "1eb640f0.8e307f"
+            ]
+        ]
+    },
+    {
+        "id": "ecdbc3b9.8a07f",
+        "type": "comment",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "SEm rede",
+        "info": "//Sem rede ",
+        "x": 1240,
+        "y": 240,
+        "wires": []
+    },
+    {
+        "id": "85bbc4a5.727658",
+        "type": "comment",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "Com REDE",
+        "info": "//Sem rede ",
+        "x": 1230,
+        "y": 320,
+        "wires": []
+    },
+    {
+        "id": "1eb640f0.8e307f",
+        "type": "link out",
+        "z": "f58a5c30.bc029",
+        "name": "QTA",
+        "links": [
+            "b715b4da.b8bb28"
+        ],
+        "x": 1515,
+        "y": 300,
+        "wires": []
+    },
+    {
+        "id": "abf5924.5a6277",
+        "type": "inject",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 1240,
+        "y": 420,
+        "wires": [
+            [
+                "fba0e9df.585338"
+            ]
+        ]
+    },
+    {
+        "id": "fba0e9df.585338",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "func": "msg.payload=\n{\n\"channels\":\n[{\n    \"id\":0,\n    \"input\":100,\n    \"output\":100,\n    \"value\":100\n    \n},\n{\n    \"id\":1,\n    \"input\":100,\n    \"output\":100,\n    \"value\":0\n}],\n    \"id\":5,\n    \"message_type\":\"channel_update\"\n}\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 1380,
+        "y": 420,
+        "wires": [
+            [
+                "fac9c61f.c3abb8"
+            ]
+        ]
+    },
+    {
+        "id": "934cecc5.12fc2",
+        "type": "inject",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 1240,
+        "y": 500,
+        "wires": [
+            [
+                "69ed6002.98b53"
+            ]
+        ]
+    },
+    {
+        "id": "69ed6002.98b53",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "func": "msg.payload=\n{\n\"channels\":\n[{\n    \"id\":0,\n    \"input\":100,\n    \"output\":100,\n    \"value\":100\n    \n},\n{\n    \"id\":1,\n    \"input\":0,\n    \"output\":100,\n    \"value\":0\n}],\n    \"id\":5,\n    \"message_type\":\"channel_update\"\n}\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 1380,
+        "y": 500,
+        "wires": [
+            [
+                "fac9c61f.c3abb8"
+            ]
+        ]
+    },
+    {
+        "id": "592ccb47.c148c4",
+        "type": "comment",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "SEm rede",
+        "info": "//Sem rede ",
+        "x": 1240,
+        "y": 400,
+        "wires": []
+    },
+    {
+        "id": "ac3a4d3a.4bc1c",
+        "type": "comment",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "Com REDE",
+        "info": "//Sem rede ",
+        "x": 1230,
+        "y": 480,
+        "wires": []
+    },
+    {
+        "id": "fac9c61f.c3abb8",
+        "type": "link out",
+        "z": "f58a5c30.bc029",
+        "name": "",
+        "links": [
+            "2c5b2104.bcab6e"
+        ],
+        "x": 1515,
+        "y": 480,
+        "wires": []
+    },
+    {
+        "id": "474bc424.297cbc",
+        "type": "inject",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 1220,
+        "y": 580,
+        "wires": [
+            [
+                "4e5701e8.5c631"
+            ]
+        ]
+    },
+    {
+        "id": "4e5701e8.5c631",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "func": "msg.payload=\n{\n\"channels\":\n[{\n    \"id\":0,\n    \"input\":100,\n    \"output\":100,\n    \"value\":100\n    \n},\n{\n    \"id\":1,\n    \"input\":100,\n    \"output\":100,\n    \"value\":0\n}],\n    \"id\":6,\n    \"message_type\":\"channel_update\"\n}\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 1400,
+        "y": 580,
+        "wires": [
+            [
+                "88096cc8.87dbf"
+            ]
+        ]
+    },
+    {
+        "id": "3af3ce68.a32aa2",
+        "type": "inject",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 1220,
+        "y": 680,
+        "wires": [
+            [
+                "f063a909.9e55f8"
+            ]
+        ]
+    },
+    {
+        "id": "f063a909.9e55f8",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "func": "msg.payload=\n{\n\"channels\":\n[{\n    \"id\":0,\n    \"input\":100,\n    \"output\":100,\n    \"value\":100\n    \n},\n{\n    \"id\":1,\n    \"input\":0,\n    \"output\":100,\n    \"value\":0\n}],\n    \"id\":6,\n    \"message_type\":\"channel_update\"\n}\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 1400,
+        "y": 680,
+        "wires": [
+            [
+                "88096cc8.87dbf"
+            ]
+        ]
+    },
+    {
+        "id": "ebe2e242.f9ddd",
+        "type": "comment",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "SEm rede",
+        "info": "//Sem rede ",
+        "x": 1200,
+        "y": 560,
+        "wires": []
+    },
+    {
+        "id": "7ec0a39.d2ad05c",
+        "type": "comment",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "Com REDE",
+        "info": "//Sem rede ",
+        "x": 1210,
+        "y": 660,
+        "wires": []
+    },
+    {
+        "id": "88096cc8.87dbf",
+        "type": "link out",
+        "z": "f58a5c30.bc029",
+        "name": "",
+        "links": [
+            "7642a0c1.062af"
+        ],
+        "x": 1515,
+        "y": 660,
+        "wires": []
+    },
+    {
+        "id": "8dcd581f.86ced8",
+        "type": "link in",
+        "z": "f58a5c30.bc029",
+        "name": "QTA1",
+        "links": [
+            "d055f8ad.9b7af8",
+            "e16ff52e.438e88"
+        ],
+        "x": 1855,
+        "y": 300,
+        "wires": [
+            [
+                "e885ad73.48de9"
+            ]
+        ]
+    },
+    {
+        "id": "b715b4da.b8bb28",
+        "type": "link in",
+        "z": "f58a5c30.bc029",
+        "g": "357c3147.0eb20e",
+        "name": "QTA2",
+        "links": [
+            "1eb640f0.8e307f"
+        ],
+        "x": 1855,
+        "y": 460,
+        "wires": [
+            [
+                "6e944fdf.aae69"
+            ]
+        ]
+    },
+    {
+        "id": "2c5b2104.bcab6e",
+        "type": "link in",
+        "z": "f58a5c30.bc029",
+        "g": "357c3147.0eb20e",
+        "name": "QTA 3",
+        "links": [
+            "fac9c61f.c3abb8"
+        ],
+        "x": 1855,
+        "y": 540,
+        "wires": [
+            [
+                "4bfa416c.97cbc"
+            ]
+        ]
+    },
+    {
+        "id": "828993cd.a8d75",
+        "type": "inject",
+        "z": "f58a5c30.bc029",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 1240,
+        "y": 100,
+        "wires": [
+            [
+                "8feef5f1.14e168"
+            ]
+        ]
+    },
+    {
+        "id": "8feef5f1.14e168",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "name": "",
+        "func": "msg.payload=\n{\n\"channels\":\n[{\n    \"id\":0,\n    \"input\":0,\n    \"output\":100,\n    \"value\":100\n    \n},\n{\n    \"id\":1,\n    \"input\":100,\n    \"output\":100,\n    \"value\":0\n}],\n    \"id\":3,\n    \"message_type\":\"channel_update\"\n}\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 1380,
+        "y": 100,
+        "wires": [
+            [
+                "d055f8ad.9b7af8"
+            ]
+        ]
+    },
+    {
+        "id": "8cd5b327.9b716",
+        "type": "inject",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 1240,
+        "y": 300,
+        "wires": [
+            [
+                "f27dbd69.ad07e"
+            ]
+        ]
+    },
+    {
+        "id": "f27dbd69.ad07e",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "func": "msg.payload=\n{\n\"channels\":\n[{\n    \"id\":0,\n    \"input\":0,\n    \"output\":100,\n    \"value\":100\n    \n},\n{\n    \"id\":1,\n    \"input\":100,\n    \"output\":100,\n    \"value\":0\n}],\n    \"id\":4,\n    \"message_type\":\"channel_update\"\n}\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 1380,
+        "y": 300,
+        "wires": [
+            [
+                "1eb640f0.8e307f"
+            ]
+        ]
+    },
+    {
+        "id": "4b2b935.4337b6c",
+        "type": "inject",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 1240,
+        "y": 460,
+        "wires": [
+            [
+                "589b969f.d862a8"
+            ]
+        ]
+    },
+    {
+        "id": "589b969f.d862a8",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "func": "msg.payload=\n{\n\"channels\":\n[{\n    \"id\":0,\n    \"input\":0,\n    \"output\":100,\n    \"value\":100\n    \n},\n{\n    \"id\":1,\n    \"input\":100,\n    \"output\":100,\n    \"value\":0\n}],\n    \"id\":5,\n    \"message_type\":\"channel_update\"\n}\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 1380,
+        "y": 460,
+        "wires": [
+            [
+                "fac9c61f.c3abb8"
+            ]
+        ]
+    },
+    {
+        "id": "e593fe0a.3b675",
+        "type": "inject",
+        "z": "f58a5c30.bc029",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 1220,
+        "y": 620,
+        "wires": [
+            [
+                "e9e60efa.bcfe4"
+            ]
+        ]
+    },
+    {
+        "id": "e9e60efa.bcfe4",
+        "type": "function",
+        "z": "f58a5c30.bc029",
+        "g": "e9136b7a.091f88",
+        "name": "",
+        "func": "msg.payload=\n{\n\"channels\":\n[{\n    \"id\":0,\n    \"input\":0,\n    \"output\":100,\n    \"value\":100\n    \n},\n{\n    \"id\":1,\n    \"input\":100,\n    \"output\":100,\n    \"value\":0\n}],\n    \"id\":6,\n    \"message_type\":\"channel_update\"\n}\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 1400,
+        "y": 620,
+        "wires": [
+            [
+                "88096cc8.87dbf"
+            ]
+        ]
+    },
+    {
+        "id": "7b2801eb.d8527",
+        "type": "inject",
+        "z": "f58a5c30.bc029",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"Rede 1 time (Souza Aguiar Gerador)\":[{\"ts\":1734516012084,\"values\":{\"startupTime\":3360056}}],\"Rede 2 time (Souza Aguiar Gerador)\":[{\"ts\":1734516012182,\"values\":{\"startupTime\":3360106}}],\"Rede 3 time (Souza Aguiar Gerador)\":[{\"ts\":1734516012123,\"values\":{\"startupTime\":3360143}}],\"Rede 4 time (Souza Aguiar Gerador)\":[{\"ts\":1734516012221,\"values\":{\"startupTime\":3360084}}],\"Gerador 1 (Souza Aguiar Gerador)\":[{\"ts\":1734516012084,\"values\":{\"startupTime\":12084}}],\"Gerador 2 (Souza Aguiar Gerador)\":[{\"ts\":1734516012182,\"values\":{\"startupTime\":12182}}],\"Gerador 3 (Souza Aguiar Gerador)\":[{\"ts\":1734516012123,\"values\":{\"startupTime\":12123}}],\"Gerador 4 (Souza Aguiar Gerador)\":[{\"ts\":1734516012221,\"values\":{\"startupTime\":12221}}]}",
+        "payloadType": "json",
+        "x": 3090,
+        "y": 140,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "8ba83248.de453",
+        "type": "inject",
+        "z": "d415fa7.58cd708",
+        "g": "7b6ca29e.4606dc",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "20",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 150,
+        "y": 100,
+        "wires": [
+            [
+                "c5707069.0225d"
+            ]
+        ]
+    },
+    {
+        "id": "c5707069.0225d",
+        "type": "http request",
+        "z": "d415fa7.58cd708",
+        "g": "7b6ca29e.4606dc",
+        "name": "",
+        "method": "GET",
+        "ret": "txt",
+        "paytoqs": "ignore",
+        "url": "http://healthchecks.myio-bas.com/ping/9a1aeac3-6a3b-44d8-abcd-945351f23fef",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "authType": "",
+        "x": 340,
+        "y": 100,
+        "wires": [
+            [
+                "84c95be9.b47228"
+            ]
+        ]
+    },
+    {
+        "id": "84c95be9.b47228",
+        "type": "switch",
+        "z": "d415fa7.58cd708",
+        "g": "7b6ca29e.4606dc",
+        "name": "",
+        "property": "payload",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": "eq",
+                "v": "OK",
+                "vt": "str"
+            },
+            {
+                "t": "else"
+            }
+        ],
+        "checkall": "true",
+        "repair": false,
+        "outputs": 2,
+        "x": 500,
+        "y": 100,
+        "wires": [
+            [
+                "93a5d5fb.6b3888"
+            ],
+            [
+                "de6fd747.0baa28",
+                "351f13dc.dfcf1c"
+            ]
+        ]
+    },
+    {
+        "id": "93a5d5fb.6b3888",
+        "type": "debug",
+        "z": "d415fa7.58cd708",
+        "g": "7b6ca29e.4606dc",
+        "name": "Healthcheck sent.",
+        "active": true,
+        "tosidebar": true,
+        "console": true,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 690,
+        "y": 80,
+        "wires": []
+    },
+    {
+        "id": "de6fd747.0baa28",
+        "type": "debug",
+        "z": "d415fa7.58cd708",
+        "g": "7b6ca29e.4606dc",
+        "name": "Healthcheck failed.",
+        "active": true,
+        "tosidebar": true,
+        "console": true,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 690,
+        "y": 120,
+        "wires": []
+    },
+    {
+        "id": "351f13dc.dfcf1c",
+        "type": "function",
+        "z": "d415fa7.58cd708",
+        "g": "7b6ca29e.4606dc",
+        "name": "",
+        "func": "let healthcheckFailureCount = flow.get('healthcheck_failure_count');\n\nif (healthcheckFailureCount == null) {\n    healthcheckFailureCount = 0;\n}\n\nhealthcheckFailureCount += 1;\n\nflow.set('healthcheck_failure_count', healthcheckFailureCount);\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 650,
+        "y": 160,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "9a7fc349.2a145",
+        "type": "inject",
+        "z": "f58a5c30.bc029",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"Rede 3 time (Souza Aguiar Gerador)\":[{\"ts\":1758005651000,\"values\":{\"startupTime\":1485540}}]}",
+        "payloadType": "json",
+        "x": 3090,
+        "y": 180,
+        "wires": [
+            [
+                "d13d30ff.736c2"
+            ]
+        ]
+    },
+    {
+        "id": "cd6a8db8.5132b",
+        "type": "inject",
+        "z": "f58a5c30.bc029",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"Gerador 1 (Souza Aguiar Gerador)\":[{\"ts\":1762942116000,\"values\":{\"startupTime\":15060}}]}",
+        "payloadType": "json",
+        "x": 3090,
+        "y": 280,
+        "wires": [
+            [
+                "d13d30ff.736c2"
+            ]
+        ]
+    },
+    {
+        "id": "4b56f95b.213b2",
+        "type": "inject",
+        "z": "f58a5c30.bc029",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"Gerador 1 (Souza Aguiar Gerador)\":[{\"ts\":1758190356000,\"values\":{\"startupTime\":15095}}]}",
+        "payloadType": "json",
+        "x": 3050,
+        "y": 60,
+        "wires": [
+            [
+                "d13d30ff.736c2"
+            ]
+        ]
+    }
+]
