@@ -78,6 +78,12 @@ const MyIOAuth = (() => {
 })();
 
 // ============================================================
+// Force Clear Identity — chunk delay (ms) between batches.
+// Default 5000ms. Overridable via widget settings: forceClearChunkDelayMs.
+// ============================================================
+let GU_CHUNK_DELAY_MS = 5000;
+
+// ============================================================
 // ThingsBoard API helpers
 // ============================================================
 
@@ -330,6 +336,14 @@ function guLoadMyIOLibrary() {
 self.onInit = function () {
   const container = self.ctx.$container[0];
   container.innerHTML = '';
+
+  // Read chunk delay from widget settings (fallback to default)
+  const settings = self.ctx.settings || {};
+  const cfgDelay = Number(settings.forceClearChunkDelayMs);
+  if (Number.isFinite(cfgDelay) && cfgDelay >= 0) {
+    GU_CHUNK_DELAY_MS = cfgDelay;
+  }
+  console.log('[GU] Force Clear chunk delay:', GU_CHUNK_DELAY_MS, 'ms');
 
   // --- Inject styles ---
   const style = document.createElement('style');
@@ -735,6 +749,24 @@ self.onInit = function () {
     .gu-btn-force-clear:hover:not(:disabled) { background: #b91c1c; }
     .gu-btn-force-clear:disabled { opacity: 0.45; cursor: not-allowed; }
 
+    /* Force Clear Identity (slaveId/centralId/ingestionId) button */
+    .gu-btn-force-clear-id {
+      background: #ea580c;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.15s;
+    }
+    .gu-btn-force-clear-id:hover:not(:disabled) { background: #c2410c; }
+    .gu-btn-force-clear-id:disabled { opacity: 0.45; cursor: not-allowed; }
+
     /* Raio X button */
     .gu-btn-raiox {
       background: linear-gradient(180deg, #7c3aed, #5b21b6);
@@ -1067,9 +1099,14 @@ self.onInit = function () {
             </div>
             <div class="gu-card-footer">
               <div id="gu-upsell-status" class="gu-status-msg"></div>
-              <button id="gu-btn-upsell" class="gu-btn gu-btn-upsell" disabled>
-                <span>⚡</span><span>Abrir Upsell</span>
-              </button>
+              <div class="gu-btn-group">
+                <button id="gu-btn-force-clear-id" class="gu-btn gu-btn-force-clear-id" disabled>
+                  <span>🧹</span><span>Force Clear (SlavesIDs, Central IDs, Ingestion)</span>
+                </button>
+                <button id="gu-btn-upsell" class="gu-btn gu-btn-upsell" disabled>
+                  <span>⚡</span><span>Abrir Upsell</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1092,6 +1129,7 @@ self.onInit = function () {
   const btnForceUpdate = root.querySelector('#gu-btn-force-update');
   const btnSyncForceId = root.querySelector('#gu-btn-sync-force-id');
   const btnForceClear = root.querySelector('#gu-btn-force-clear');
+  const btnForceClearId = root.querySelector('#gu-btn-force-clear-id');
   const btnRaioX = root.querySelector('#gu-btn-raiox');
   const btnInitialSetup = root.querySelector('#gu-btn-initial-setup');
 
@@ -1128,6 +1166,7 @@ self.onInit = function () {
       if (btnForceUpdate) btnForceUpdate.disabled = !selectedCustomer;
       if (btnSyncForceId) btnSyncForceId.disabled = !selectedCustomer;
       if (btnForceClear) btnForceClear.disabled = !selectedCustomer;
+      if (btnForceClearId) btnForceClearId.disabled = !selectedCustomer;
       if (btnRaioX) btnRaioX.disabled = !selectedCustomer;
       if (btnInitialSetup) btnInitialSetup.disabled = !selectedCustomer;
     }
@@ -1200,6 +1239,7 @@ self.onInit = function () {
     btnForceUpdate.disabled = false;
     if (btnSyncForceId) btnSyncForceId.disabled = false;
     if (btnForceClear) btnForceClear.disabled = false;
+    if (btnForceClearId) btnForceClearId.disabled = false;
     if (btnRaioX) btnRaioX.disabled = false;
     if (btnInitialSetup) btnInitialSetup.disabled = false;
 
@@ -4220,6 +4260,388 @@ self.onInit = function () {
       if (!selectedCustomer) return;
       openForceClearModal();
     });
+  }
+
+  // --- Force Clear (SlavesIDs, Central IDs, Ingestion) button ---
+  if (btnForceClearId) {
+    btnForceClearId.addEventListener('click', () => {
+      if (!selectedCustomer) return;
+      openForceClearIdentityModal();
+    });
+  }
+
+  // ================================================================
+  // Force Clear Identity Keys
+  // Clears device-identity SERVER_SCOPE keys from TB devices only.
+  //   Devices: slaveId, centralId, ingestionId
+  // Assets are NOT processed (they don't carry slaveId).
+  // ================================================================
+
+  const GCDR_CLEAR_IDENTITY_DEVICE_KEYS = ['slaveId', 'centralId', 'ingestionId'];
+
+  function openForceClearIdentityModal() {
+    if (!selectedCustomer) return;
+
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    let overlay;
+
+    function closeModal() {
+      if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
+    }
+
+    function renderShell(bodyHtml, footerHtml) {
+      overlay.innerHTML = `
+        <div class="gu-fu-modal" style="max-width:820px">
+          <div class="gu-fu-header">
+            <div>
+              <div class="gu-fu-title">🧹 Force Clear (SlavesIDs, Central IDs, Ingestion)</div>
+              <div class="gu-fu-subtitle">Customer: ${selectedCustomer.name}</div>
+            </div>
+            <button class="gu-fu-close" id="gfci-x">✕</button>
+          </div>
+          <div class="gu-fu-body" id="gfci-body">${bodyHtml}</div>
+          <div class="gu-fu-footer" id="gfci-footer">${footerHtml}</div>
+        </div>`;
+      overlay.querySelector('#gfci-x').addEventListener('click', closeModal);
+    }
+
+    function renderLoading(phase, done, total) {
+      const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+      return `
+        <div style="padding:4px 0">
+          <div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:14px">
+            ⏳ ${phase}
+          </div>
+          <div class="gu-fu-progress-bar-bg" style="margin-bottom:6px">
+            <div class="gu-fu-progress-bar" style="width:${pct}%;background:#ea580c"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between">
+            <div class="gu-fu-progress-label">${done} / ${total} devices</div>
+            <div style="font-size:13px;font-weight:700;color:#ea580c">${pct}%</div>
+          </div>
+        </div>`;
+    }
+
+    function renderPreview(deviceRows) {
+      const devToClear = deviceRows.filter((r) => r.hasAny);
+      const devClean   = deviceRows.filter((r) => !r.hasAny);
+
+      function keyBadges(present, keys) {
+        return keys
+          .filter((k) => present[k])
+          .map((k) => `<span style="font-size:10px;background:#ffedd5;color:#9a3412;padding:1px 5px;border-radius:3px;margin:1px;display:inline-block">${k}</span>`)
+          .join('');
+      }
+
+      function buildTable(rows, keys) {
+        if (rows.length === 0) return '<div style="font-size:12px;color:#6b7280;padding:8px 0">Nenhum device a limpar.</div>';
+        return `<div style="overflow-x:auto">
+          <table class="gu-fu-table">
+            <thead><tr><th>Nome TB</th><th>Chaves presentes</th></tr></thead>
+            <tbody>${rows.map((r) => `<tr>
+              <td title="${r.tbId}">${r.name}<br>
+                <span style="color:#9ca3af;font-size:10px;font-family:monospace">${r.tbId.substring(0, 8)}…</span>
+              </td>
+              <td>${keyBadges(r.present, keys)}</td>
+            </tr>`).join('')}</tbody>
+          </table>
+        </div>`;
+      }
+
+      return `
+        <!-- Summary badges -->
+        <div class="gu-fu-summary" style="margin-bottom:16px">
+          <span class="gu-fu-badge fail" style="background:#ffedd5;color:#9a3412">🧹 ${devToClear.length} devices a limpar</span>
+          <span class="gu-fu-badge" style="background:#f3f4f6;color:#374151">✓ ${devClean.length} devices já limpos</span>
+        </div>
+
+        <!-- Devices section -->
+        <div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">
+          📟 Devices (${deviceRows.length})
+          <span style="font-size:10px;font-weight:400;color:#6b7280;text-transform:none;margin-left:6px">
+            chaves: <code>${GCDR_CLEAR_IDENTITY_DEVICE_KEYS.join(', ')}</code>
+          </span>
+        </div>
+        ${buildTable(devToClear, GCDR_CLEAR_IDENTITY_DEVICE_KEYS)}
+
+        ${devToClear.length === 0 ? '<div class="at-empty" style="padding:12px 0;text-align:center;color:#6b7280">Nenhum device possui essas chaves. Nada a limpar.</div>' : ''}`;
+    }
+
+    function renderExecResult(devResults) {
+      const ok  = devResults.filter((r) => r.ok);
+      const err = devResults.filter((r) => !r.ok);
+
+      return `
+        <div class="gu-fu-summary" style="margin-bottom:16px">
+          <span class="gu-fu-badge match">✓ ${ok.length} limpos</span>
+          ${err.length ? `<span class="gu-fu-badge fail">✗ ${err.length} erros</span>` : ''}
+        </div>
+        <div style="font-size:11px;font-weight:700;color:#374151;margin:12px 0 6px;text-transform:uppercase;letter-spacing:.5px">📟 Devices</div>
+        <ul class="gu-fu-result-list">
+          ${devResults.map((r) => `
+            <li class="gu-fu-result-item">
+              <span class="gu-fu-result-icon">${r.ok ? '✅' : '❌'}</span>
+              <div>
+                <div class="gu-fu-result-name">${r.name}</div>
+                ${r.ok
+                  ? `<div class="gu-fu-result-msg">Chaves removidas: ${r.cleared.join(', ')}</div>`
+                  : `<div class="gu-fu-result-err">${r.error}</div>`}
+              </div>
+            </li>`).join('')}
+        </ul>`;
+    }
+
+    // ── Open modal ──
+    overlay = document.createElement('div');
+    overlay.className = 'gu-fu-overlay';
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
+    document.body.appendChild(overlay);
+    renderShell(renderLoading('Buscando devices do customer…', 0, 0), '');
+
+    // ── Phase 1: fetch devices + read SERVER_SCOPE attrs ──
+    (async () => {
+      try {
+        const allTbDevices = await guFetchCustomerDevices(selectedCustomer.id);
+
+        // ── Phase 0.5: filter by device type (multi-select) ──
+        const typeCounts = new Map();
+        for (const d of allTbDevices) {
+          const t = d.type || '(sem type)';
+          typeCounts.set(t, (typeCounts.get(t) || 0) + 1);
+        }
+        const sortedTypes = Array.from(typeCounts.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+
+        const checkboxesHtml = sortedTypes.map(([type, count]) => {
+          const safeId = 'gfci-type-' + type.replace(/[^a-z0-9_-]/gi, '_');
+          return `
+            <label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid #e5e7eb;border-radius:6px;cursor:pointer;background:#fff;transition:background .12s" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='#fff'">
+              <input type="checkbox" class="gfci-type-cb" data-type="${type}" id="${safeId}" checked style="width:15px;height:15px;cursor:pointer">
+              <span style="flex:1;font-size:13px;font-family:monospace;color:#374151">${type}</span>
+              <span style="font-size:11px;background:#f3f4f6;color:#374151;padding:2px 8px;border-radius:10px;font-weight:600">${count}</span>
+            </label>`;
+        }).join('');
+
+        overlay.querySelector('#gfci-body').innerHTML = `
+          <div style="padding:4px 0">
+            <div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:4px">
+              Filtrar por tipo de device
+            </div>
+            <div style="font-size:12px;color:#6b7280;margin-bottom:14px">
+              Selecione os tipos que serão verificados. Total: <b>${allTbDevices.length}</b> devices em <b>${sortedTypes.length}</b> tipo${sortedTypes.length === 1 ? '' : 's'}.
+            </div>
+            <div style="display:flex;gap:8px;margin-bottom:12px">
+              <button class="gu-fu-btn gu-fu-btn-secondary" id="gfci-types-all" style="font-size:11px;padding:6px 10px">Selecionar todos</button>
+              <button class="gu-fu-btn gu-fu-btn-secondary" id="gfci-types-none" style="font-size:11px;padding:6px 10px">Limpar seleção</button>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px;max-height:340px;overflow-y:auto;padding:2px">
+              ${checkboxesHtml}
+            </div>
+          </div>`;
+
+        overlay.querySelector('#gfci-footer').innerHTML = `
+          <button class="gu-fu-btn gu-fu-btn-secondary" id="gfci-cancel-0">Cancelar</button>
+          <button class="gu-fu-btn gu-fu-btn-primary" id="gfci-types-go" style="background:#ea580c">
+            Iniciar busca →
+          </button>`;
+
+        overlay.querySelector('#gfci-cancel-0').addEventListener('click', closeModal);
+        overlay.querySelector('#gfci-types-all').addEventListener('click', () => {
+          overlay.querySelectorAll('.gfci-type-cb').forEach((cb) => { cb.checked = true; });
+        });
+        overlay.querySelector('#gfci-types-none').addEventListener('click', () => {
+          overlay.querySelectorAll('.gfci-type-cb').forEach((cb) => { cb.checked = false; });
+        });
+
+        const selectedTypes = await new Promise((resolveTypes) => {
+          overlay.querySelector('#gfci-types-go').addEventListener('click', () => {
+            const sel = new Set();
+            overlay.querySelectorAll('.gfci-type-cb').forEach((cb) => {
+              if (cb.checked) sel.add(cb.dataset.type);
+            });
+            resolveTypes(sel);
+          }, { once: true });
+        });
+
+        if (selectedTypes.size === 0) {
+          overlay.querySelector('#gfci-body').innerHTML =
+            `<div style="color:#6b7280;font-size:13px;padding:16px 0;text-align:center">Nenhum tipo selecionado. Operação cancelada.</div>`;
+          overlay.querySelector('#gfci-footer').innerHTML =
+            `<button class="gu-fu-btn gu-fu-btn-secondary" id="gfci-close0">Fechar</button>`;
+          overlay.querySelector('#gfci-close0').addEventListener('click', closeModal);
+          return;
+        }
+
+        const tbDevices = allTbDevices.filter((d) => selectedTypes.has(d.type || '(sem type)'));
+        const total = tbDevices.length;
+
+        // Reset body to loading state for Phase 1
+        overlay.querySelector('#gfci-body').innerHTML = renderLoading(`Buscando atributos SERVER_SCOPE (${tbDevices.length} devices)…`, 0, total);
+        overlay.querySelector('#gfci-footer').innerHTML = '';
+
+        const deviceRows = [];
+
+        // Batch helper: process array in chunks of 10 with configurable delay between chunks
+        async function processBatch(items, fetchFn, keys, targetRows) {
+          const chunks = [];
+          for (let i = 0; i < items.length; i += 10) chunks.push(items.slice(i, i + 10));
+          let done = 0;
+          for (let ci = 0; ci < chunks.length; ci++) {
+            if (ci > 0) await sleep(GU_CHUNK_DELAY_MS);
+            await Promise.all(
+              chunks[ci].map(async (entity) => {
+                const tbId = entity.id?.id || entity.id;
+                const name = entity.name || entity.label || tbId;
+                let present = {};
+                let errored = false;
+                let errorMsg = null;
+                try {
+                  const attrs = await fetchFn(tbId);
+                  for (const k of keys) present[k] = attrs[k] != null && attrs[k] !== '';
+                } catch (err) {
+                  errored = true;
+                  errorMsg = err && err.message ? err.message : String(err);
+                }
+                targetRows.push({
+                  tbId, name, present,
+                  hasAny: keys.some((k) => present[k]),
+                  errored, errorMsg,
+                });
+                done++;
+              })
+            );
+            const body = overlay.querySelector('#gfci-body');
+            if (body) body.innerHTML = renderLoading('Buscando atributos SERVER_SCOPE (devices)…', targetRows.length, total);
+          }
+        }
+
+        await processBatch(tbDevices, guFetchDeviceServerScopeAttrs, GCDR_CLEAR_IDENTITY_DEVICE_KEYS, deviceRows);
+
+        const devErrored = deviceRows.filter((r) => r.errored);
+        const devToClear = deviceRows.filter((r) => !r.errored && r.hasAny);
+        const devClean   = deviceRows.filter((r) => !r.errored && !r.hasAny);
+        const totalToClear = devToClear.length;
+
+        // ── Phase 1.5: search complete — wait for user to advance ──
+        const erroredListHtml = devErrored.length === 0 ? '' : `
+          <details style="margin-top:18px;text-align:left;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;background:#fef2f2">
+            <summary style="cursor:pointer;font-size:13px;font-weight:600;color:#991b1b">
+              ⚠️ ${devErrored.length} device${devErrored.length === 1 ? '' : 's'} com erro ao ler SERVER_SCOPE — clique para ver
+            </summary>
+            <div style="font-size:11px;color:#6b7280;margin:8px 0 10px">
+              Estes devices não puderam ser verificados (HTTP 500 ou falha de rede). Eles <b>não</b> serão limpos. Tente novamente mais tarde ou verifique manualmente.
+            </div>
+            <div style="max-height:220px;overflow-y:auto">
+              <table class="gu-fu-table">
+                <thead><tr><th>Nome TB</th><th>Erro</th></tr></thead>
+                <tbody>${devErrored.map((r) => `<tr>
+                  <td title="${r.tbId}">${r.name}<br>
+                    <span style="color:#9ca3af;font-size:10px;font-family:monospace">${r.tbId.substring(0, 8)}…</span>
+                  </td>
+                  <td><span style="font-size:11px;color:#991b1b;font-family:monospace">${r.errorMsg || 'erro desconhecido'}</span></td>
+                </tr>`).join('')}</tbody>
+              </table>
+            </div>
+          </details>`;
+
+        overlay.querySelector('#gfci-body').innerHTML = `
+          <div style="padding:16px 0;text-align:center">
+            <div style="font-size:38px;line-height:1;margin-bottom:10px">${devErrored.length > 0 ? '⚠️' : '✓'}</div>
+            <div style="font-size:15px;font-weight:700;color:#374151;margin-bottom:14px">
+              Busca concluída${devErrored.length > 0 ? ' (com erros)' : ''}
+            </div>
+            <div class="gu-fu-summary" style="justify-content:center;flex-wrap:wrap">
+              <span class="gu-fu-badge" style="background:#f3f4f6;color:#374151">📟 ${deviceRows.length} devices verificados</span>
+              <span class="gu-fu-badge fail" style="background:#ffedd5;color:#9a3412">🧹 ${totalToClear} a limpar</span>
+              <span class="gu-fu-badge match">✓ ${devClean.length} já limpos</span>
+              ${devErrored.length > 0 ? `<span class="gu-fu-badge fail" style="background:#fee2e2;color:#991b1b">❌ ${devErrored.length} com erro</span>` : ''}
+            </div>
+            <div style="margin-top:14px;font-size:12px;color:#6b7280">
+              Clique em <b>Próximo Passo</b> para revisar os devices que serão limpos.
+            </div>
+            ${erroredListHtml}
+          </div>`;
+
+        overlay.querySelector('#gfci-footer').innerHTML = `
+          <button class="gu-fu-btn gu-fu-btn-secondary" id="gfci-cancel-1">Cancelar</button>
+          <button class="gu-fu-btn gu-fu-btn-primary" id="gfci-next" style="background:#ea580c">
+            Próximo Passo →
+          </button>`;
+
+        overlay.querySelector('#gfci-cancel-1').addEventListener('click', closeModal);
+
+        await new Promise((resolveNext) => {
+          overlay.querySelector('#gfci-next').addEventListener('click', resolveNext, { once: true });
+        });
+
+        // ── Phase 2: show preview ──
+        overlay.querySelector('#gfci-body').innerHTML = renderPreview(deviceRows);
+
+        overlay.querySelector('#gfci-footer').innerHTML = `
+          <button class="gu-fu-btn gu-fu-btn-secondary" id="gfci-cancel">Cancelar</button>
+          <button class="gu-fu-btn gu-fu-btn-primary" id="gfci-apply"
+            style="background:#ea580c;${totalToClear === 0 ? 'opacity:.5;cursor:not-allowed' : ''}"
+            ${totalToClear === 0 ? 'disabled' : ''}>
+            🧹 Limpar ${totalToClear} ${totalToClear === 1 ? 'device' : 'devices'}
+          </button>`;
+
+        overlay.querySelector('#gfci-cancel').addEventListener('click', closeModal);
+
+        overlay.querySelector('#gfci-apply')?.addEventListener('click', async () => {
+          // ── Phase 3: execute delete ──
+          const total3 = totalToClear;
+          let done3 = 0;
+
+          overlay.querySelector('#gfci-footer').innerHTML = '';
+          overlay.querySelector('#gfci-body').innerHTML = `
+            <div class="gu-fu-progress-wrap">
+              <div class="gu-fu-progress-bar-bg">
+                <div class="gu-fu-progress-bar" id="gfci-exec-prog" style="width:0%;background:#ea580c"></div>
+              </div>
+              <div class="gu-fu-progress-label" id="gfci-exec-label">Limpando…</div>
+            </div>`;
+
+          async function execClear(rows, deleteFn, keys) {
+            const results = [];
+            const chunks = [];
+            for (let i = 0; i < rows.length; i += 10) chunks.push(rows.slice(i, i + 10));
+            for (let ci = 0; ci < chunks.length; ci++) {
+              if (ci > 0) await sleep(GU_CHUNK_DELAY_MS);
+              await Promise.all(
+                chunks[ci].map(async (row) => {
+                  done3++;
+                  const pct = Math.round((done3 / total3) * 100);
+                  const progEl = overlay.querySelector('#gfci-exec-prog');
+                  const lblEl  = overlay.querySelector('#gfci-exec-label');
+                  if (progEl) progEl.style.width = pct + '%';
+                  if (lblEl)  lblEl.textContent = `${done3}/${total3} — ${row.name}`;
+                  const keysToDelete = keys.filter((k) => row.present[k]);
+                  try {
+                    await deleteFn(row.tbId, keysToDelete);
+                    results.push({ ...row, ok: true, cleared: keysToDelete });
+                  } catch (err) {
+                    results.push({ ...row, ok: false, error: err.message, cleared: [] });
+                  }
+                })
+              );
+            }
+            return results;
+          }
+
+          const devResults = await execClear(devToClear, guDeleteDeviceServerScopeAttrs, GCDR_CLEAR_IDENTITY_DEVICE_KEYS);
+
+          overlay.querySelector('#gfci-body').innerHTML = renderExecResult(devResults);
+          overlay.querySelector('#gfci-footer').innerHTML =
+            `<button class="gu-fu-btn gu-fu-btn-secondary" id="gfci-done">Fechar</button>`;
+          overlay.querySelector('#gfci-done').addEventListener('click', closeModal);
+        });
+      } catch (err) {
+        overlay.querySelector('#gfci-body').innerHTML =
+          `<div style="color:#ef4444;font-size:13px;padding:8px 0">❌ ${err.message}</div>`;
+        overlay.querySelector('#gfci-footer').innerHTML =
+          `<button class="gu-fu-btn gu-fu-btn-secondary" id="gfci-close">Fechar</button>`;
+        overlay.querySelector('#gfci-close').addEventListener('click', closeModal);
+      }
+    })();
   }
 
   // --- Force Update button ---

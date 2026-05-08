@@ -1,0 +1,18 @@
+{
+  "schema": {
+    "type": "object",
+    "title": "GCDR-Upsell-Setup Widget Settings",
+    "properties": {
+      "forceClearChunkDelayMs": {
+        "title": "Force Clear — delay entre batches (ms)",
+        "type": "number",
+        "default": 5000,
+        "minimum": 0,
+        "description": "Tempo de espera (em milissegundos) entre cada chunk de 10 entidades durante as operações Force Clear (SlavesIDs, Central IDs, Ingestion). Aumente este valor se o ThingsBoard estiver retornando 429/timeout em customers com muitos devices. Default: 5000 (5s)."
+      }
+    }
+  },
+  "form": [
+    "forceClearChunkDelayMs"
+  ]
+}
