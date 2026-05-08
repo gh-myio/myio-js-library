@@ -2,17 +2,21 @@ const devices = flow.get('devices');
 const centralId = env.get('CENTRAL_UUID');
 const newDeviceList = {};
 
-// Limpa o nome: remove multiplicador e leitura inicial
-// Ex: "Hidr. Colonial x1 0m3" -> "Hidr. Colonial"
+// Limpa o nome: remove prefixo, multiplicador, offset e leitura inicial
+// Ex: "Hidr. Colonial x1 0m3"                    -> "Hidr. Colonial"
+//     "Temp. SalaA -2"                           -> "SalaA"
+//     "Temperatura xxxx xxxx(Perto da escada)"   -> "xxxx xxxx(Perto da escada)"
 function getCleanName(deviceName) {
     return deviceName
-        .replace(/ x\d+\.?\d*[AV]?/gi, '')  // Remove multiplicador (x1, x100, etc.)
-        .replace(/\s*\d+m[³3]?\s*$/i, '')   // Remove leitura inicial (0m3, 2810m3, etc.)
+        .replace(/^(Temp\.\s*|Temperatura\s+)/i, '') // Remove prefixo Temp.|Temperatura
+        .replace(/ x\d+\.?\d*[AV]?/gi, '')           // Remove multiplicador (x1, x100, etc.)
+        .replace(/\s[+\-x]\d+(\.\d+)?$/, '')         // Remove offset trailing (-2, +1.5, x2)
+        .replace(/\s*\d+m[³3]?\s*$/i, '')            // Remove leitura inicial (0m3, 2810m3, etc.)
         .trim();
 }
 
 function handleDeviceType(name) {
-  const upper = (name || '').toUpperCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+  const upper = (name || '').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 
   // ENERGY
   if (upper.includes('COMPRESSOR')) return 'COMPRESSOR';
@@ -74,7 +78,7 @@ Object.keys(devices).forEach((key) => {
     
         newDeviceList[cleanName] = {
             deviceType: handleDeviceType(key),
-            centralId: centralId.
+            centralId: centralId,
             slaveId: devices[key].slaveId
         };
     }

@@ -266,6 +266,101 @@ Notas agregadas:
 - **`temperature_correction`** — `0` em grande parte dos provisionamentos até 2025-05; `NULL` nos slaves criados depois disso (mudança de bootstrap?).
 - **Gaps de naming** — ausência de RM 16, 35, 36, 37 no inventário; anomalia `3F 22 / X / 23` com canal não mapeado.
 
+### 2.6 Modelo RFIR — caso `RM 5` / `AC 5` (capturado em 2026-05-04)
+
+Investigação do mapeamento UI → BD para entender como um único hardware
+expõe múltiplos devices lógicos. Schemas completos no manual global —
+[`manual-centrais-linix-orangepi.md`](../GLOBAL_INFO/manual-centrais-linix-orangepi.md) §8.
+
+#### 2.6.1 Schema `rfir_devices`
+
+```
+        Column     |    Type     | FK
+   ----------------+-------------+--------------------------------
+    id             | integer     | PK
+    type           | varchar     |
+    category       | varchar     |
+    name           | varchar     |
+    output         | varchar     |
+    slave_id       | integer     | → slaves.id (ON DELETE SET NULL)
+    command_on_id  | integer     | → rfir_commands.id (nullable)
+    command_off_id | integer     | → rfir_commands.id (nullable)
+    created_at     | timestamptz |
+    updated_at     | timestamptz |
+```
+
+#### 2.6.2 Schema `rfir_remotes`
+
+```
+        Column     |    Type     | FK
+   ----------------+-------------+-----------------------------------
+    id             | integer     | PK
+    name           | varchar     |
+    rfir_device_id | integer     | → rfir_devices.id (ON DELETE SET NULL)
+    created_at     | timestamptz |
+    updated_at     | timestamptz |
+```
+
+> ⚠️ `rfir_buttons.rfir_remote_id` tem **3 FK constraints duplicadas** com
+> `ON DELETE` divergente (1 SET NULL + 2 CASCADE). Débito técnico — ver
+> manual §8.4 item 3.
+
+#### 2.6.3 Resultado das queries
+
+```sql
+SELECT * FROM rfir_devices WHERE name ILIKE 'AC 5' OR name ILIKE 'RM 5';
+```
+
+| id | type | category | name | output | slave_id | command_on_id | command_off_id | created_at                |
+| -- | ---- | -------- | ---- | ------ | -------- | ------------- | -------------- | ------------------------- |
+| 1  | ir   | other    | AC 5 | both   | 14       | NULL          | NULL           | 2025-04-19 15:01:07.48+00 |
+
+```sql
+SELECT * FROM rfir_remotes WHERE name ILIKE 'AC 5' OR name ILIKE 'RM 5';
+```
+
+→ **0 rows.**
+
+#### 2.6.4 Interpretação
+
+A UI mostra um agrupador "Remote RM 5" contendo 2 devices: **`AC 5`** (controle
+remoto IR) e **`RM 5`** (`temperature_sensor`). O mapeamento real é:
+
+| Item da UI                         | Origem real                                                                                                                                                                              |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Hardware físico (blaster IR)**   | `slaves.id=14`, `name='RM 5'`, `type='infrared'`, `code='002-002-002-014'`, `version='7.0.0'`, `temperature_correction=0`                                                                |
+| **`AC 5` (UI: controle remoto IR)**| `rfir_devices.id=1`, `name='AC 5'`, `type='ir'`, `category='other'`, `output='both'`, `slave_id=14` ← aponta direto pro slave RM 5                                                       |
+| **`RM 5` (UI: `temperature_sensor`)** | **Sintetizado direto do `slaves.id=14`** quando `temperature_correction IS NOT NULL`. Não tem linha em `rfir_devices` nem em `rfir_remotes`. O firmware 7.0.0 do blaster expõe um termômetro embutido. |
+
+Diagrama:
+
+```
+slaves.id=14 (hardware)
+   │  type=infrared, name="RM 5", temperature_correction=0
+   │
+   ├──► rfir_devices.id=1 (lógico, slave_id=14)         ──► UI: device "AC 5" (controle remoto IR)
+   │       │
+   │       └──► (rfir_buttons → rfir_commands → flash do RM 5)  ← cadeia a investigar
+   │
+   └──► (sem linha em rfir_*)                           ──► UI: device "RM 5" (temperature_sensor)
+                                                              ↑ derivado do próprio slave
+```
+
+#### 2.6.5 Observações úteis pra rediscussão
+
+1. **`rfir_remotes` está vazio** para esse `rfir_device` — o nível "remote" é
+   opcional. Em `AC 5` os comandos provavelmente são endereçados via
+   `rfir_devices.command_on_id`/`command_off_id` direto (mas as duas colunas
+   estão `NULL` aqui, então também não é por aí — investigar onde os comandos
+   ON/OFF do `AC 5` realmente residem; pode ser que os botões não estejam
+   capturados ainda).
+2. O mesmo padrão "1 hardware → N devices lógicos" foi observado também em
+   QTAs de gerador (slave `outlet` → 2 `presence_sensor`) — ver
+   [`investigation-gerador-4-startup-time.md`](../SOUZA-AGUIAR/CENTRAL-GERADOR/investigation-gerador-4-startup-time.md) §6.5.
+3. Inventários da UI não podem assumir 1:1 entre `rfir_devices` e itens
+   visíveis: alguns devices lógicos (`temperature_sensor` aqui) são derivados
+   diretamente de `slaves` sem linha em `rfir_*`.
+
 ---
 
 ## 3. Assets
@@ -313,3 +408,4 @@ Notas agregadas:
 | Data       | Autor               | Alteração                                        |
 | ---------- | ------------------- | ------------------------------------------------ |
 | 2026-04-22 | rplago@gmail.com    | Criação inicial — identificação + `\dt` (27 tabelas) |
+| 2026-05-04 | rplago@gmail.com    | §2.6 — modelo RFIR `RM 5`/`AC 5` capturado (`\d rfir_devices`, `\d rfir_remotes`, queries) |

@@ -49,12 +49,13 @@ ssh -i id_rsa root@<ipv6-da-central>
 
 #### Holding: SOUZA AGUIAR
 
-| Central                         | IPv6                                     | Gateway ID |
-| ------------------------------- | ---------------------------------------- | ---------- |
-| Souza Aguiar — CO2              | `201:3941:4753:9232:901b:19fa:4978:51aa` | —          |
-| Souza Aguiar — Ar Comprimido    | `200:4dbc:14be:a704:6904:81cd:b62a:ab22` | —          |
-| Souza Aguiar — Maternidade Nova | `201:ce30:f047:7f02:a27c:cbac:ffb7:2b67` | —          |
-| Souza Aguiar — T&D              | `202:1d97:2112:f9b9:cfcb:e237:5dc:a3f7`  | —          |
+| Central                         | IPv6                                     | Gateway ID                             |
+| ------------------------------- | ---------------------------------------- | -------------------------------------- |
+| Souza Aguiar — CO2              | `201:3941:4753:9232:901b:19fa:4978:51aa` | —                                      |
+| Souza Aguiar — Ar Comprimido    | `200:4dbc:14be:a704:6904:81cd:b62a:ab22` | —                                      |
+| Souza Aguiar — Maternidade Nova | `201:ce30:f047:7f02:a27c:cbac:ffb7:2b67` | —                                      |
+| Souza Aguiar — T&D              | `202:1d97:2112:f9b9:cfcb:e237:5dc:a3f7`  | —                                      |
+| Souza Aguiar — Gerador          | `200:dd4c:53b0:28d5:33dc:fbef:2c98:b23`  | `bb8193d9-a132-44b5-8605-e50c0521ceb9` |
 
 #### Holding: SOUL MALLS
 
@@ -71,21 +72,29 @@ ssh -i id_rsa root@<ipv6-da-central>
 
 #### Holding: DIMENSION
 
-| Central           | IPv6                                     | Gateway ID |
-| ----------------- | ---------------------------------------- | ---------- |
-| Central Dimension | `203:984:24ef:b578:69a6:7136:b9f2:b5c2`  | —          |
+| Central           | IPv6                                    | Gateway ID |
+| ----------------- | --------------------------------------- | ---------- |
+| Central Dimension | `203:984:24ef:b578:69a6:7136:b9f2:b5c2` | —          |
 
 #### Holding: RAIZ EDUCAÇÃO
 
-| Central              | IPv6                                     | Gateway ID |
-| -------------------- | ---------------------------------------- | ---------- |
-| Central Raiz Educação | `201:3bed:541b:8c61:3e69:9:d453:1bef`   | —          |
+| Central               | IPv6                                  | Gateway ID |
+| --------------------- | ------------------------------------- | ---------- |
+| Central Raiz Educação | `201:3bed:541b:8c61:3e69:9:d453:1bef` | —          |
+
+#### Holding: HCOR
+
+| Central         | IPv6                                     | Gateway ID                             |
+| --------------- | ---------------------------------------- | -------------------------------------- |
+| HCor Q521-527   | `200:a420:9834:fc66:dcf9:f46:4a57:9d09`  | `e45e0453-9593-4aaa-9347-a1daa9cf27e3` |
 
 **Exemplos de conexão:**
 
 ```bash
 # Mestre Álvaro L0L1 (Sá Cavalcante)
 ssh -i id_rsa root@200:ba5f:dacb:b278:8f85:acf4:f33c:f485
+
+ssh -i id_rsa root@200:1e6a:69a5:73f1:b18a:e6e:aa68:9229
 
 # Mestre Álvaro L2AC (Sá Cavalcante)
 ssh -i id_rsa root@200:8b:483c:9008:1184:caec:41b1:fa28
@@ -120,6 +129,9 @@ ssh -i id_rsa root@201:ce30:f047:7f02:a27c:cbac:ffb7:2b67
 # Souza Aguiar — T&D
 ssh -i id_rsa root@202:1d97:2112:f9b9:cfcb:e237:5dc:a3f7
 
+# Souza Aguiar — Gerador
+ssh -i id_rsa root@200:dd4c:53b0:28d5:33dc:fbef:2c98:b23
+
 # Praia da Costa L1 (Soul Malls)
 ssh -i id_rsa root@200:8e12:1a64:71bc:ff06:5c56:9f09:f4aa
 
@@ -131,6 +143,9 @@ ssh -i id_rsa root@203:984:24ef:b578:69a6:7136:b9f2:b5c2
 
 # Central Raiz Educação (Raiz Educação)
 ssh -i id_rsa root@201:3bed:541b:8c61:3e69:9:d453:1bef
+
+# HCor Q521-527 (HCOR)
+ssh -i id_rsa root@200:a420:9834:fc66:dcf9:f46:4a57:9d09
 ```
 
 ---
@@ -368,11 +383,11 @@ WHERE
 
 ## 8. RFIR — Controle Remoto Infravermelho (Modelo de Dados)
 
-> **Status: Em análise (draft).** Esta seção consolida o entendimento atual do
-> modelo RFIR. A conclusão preliminar é que o desenho acumulou débito técnico
-> relevante — excesso de indireção, duplicação entre `slaves` e `rfir_*`,
-> acoplamento com endereçamento físico do firmware. Objetivo desta seção:
-> servir de base para a rediscussão arquitetural.
+> **Status: Em análise (parcial).** Schemas de `rfir_devices` e `rfir_remotes`
+> capturados em 2026-05-04 na Central Raiz Educação. As outras 4 tabelas RFIR
+> (`rfir_buttons`, `rfir_commands`, `ambients_rfir_devices_rel`,
+> `ambients_rfir_slaves_rel`) ainda precisam ser inspecionadas. Esta seção
+> documenta o que já é fato e o que ainda é hipótese.
 
 ### 8.1 Conceito fundamental
 
@@ -390,58 +405,159 @@ crítico é **onde o sinal IR mora**:
   exige recapturar cada comando no hardware destino — o dump do Postgres
   **não é auto-suficiente**.
 
-### 8.2 Tabelas envolvidas
+### 8.2 Tabelas e schemas
 
-| Tabela                        | Papel (entendimento atual)                                     |
-| ----------------------------- | -------------------------------------------------------------- |
-| `slaves` (`type='infrared'`)  | Blaster IR físico (hardware Modbus)                            |
-| `rfir_devices`                | ⚠️ Camada adicional sobre o slave IR — a confirmar via `\d`     |
-| `rfir_remotes`                | Controle remoto lógico (agrupamento de botões)                 |
-| `rfir_buttons`                | Botões do remote — cada botão aponta para um comando           |
-| `rfir_commands`               | Mapa comando → `(page_low, page_high)` no hardware             |
-| `ambients_rfir_devices_rel`   | Junction: ambiente × `rfir_device`                             |
-| `ambients_rfir_slaves_rel`    | Junction: ambiente × `slave` — ⚠️ parece redundante com a anterior |
-
-### 8.3 Cadeia de referências (suspeita — a validar)
+#### 8.2.1 Camadas (entendimento confirmado para `slaves`/`rfir_devices`/`rfir_remotes`)
 
 ```
-ambient ──┬─► ambients_rfir_devices_rel ──► rfir_device ──┐
-          │                                                │
-          └─► ambients_rfir_slaves_rel  ──► slave (IR) ◄──┘
-                                                 ▲
-              rfir_remote ──► rfir_button ──► rfir_command ──► (page_low, page_high) no firmware do slave
+slaves (físico, hardware Modbus)
+   │
+   │ FK rfir_devices.slave_id → slaves.id   (ON DELETE SET NULL)
+   ▼
+rfir_devices (lógico, "device" exposto na UI sobre um blaster)
+   │
+   │ FK rfir_remotes.rfir_device_id → rfir_devices.id   (ON DELETE SET NULL)
+   ▼
+rfir_remotes (sub-agrupamento de botões dentro de um device)
+   │
+   │ FK rfir_buttons.rfir_remote_id → rfir_remotes.id   (ON DELETE CASCADE — ⚠️ ver §8.4)
+   ▼
+rfir_buttons → rfir_commands → (page_low, page_high) na flash do slave
 ```
 
-Para responder "qual botão aciona qual sinal no hardware X" a query precisa
-percorrer **pelo menos 4 tabelas** (`rfir_buttons` → `rfir_commands` →
-`rfir_devices`/`slaves` → `ambients_*`).
+Cardinalidade:
+
+- 1 `slave` (IR) → **N** `rfir_devices` (um hardware pode expor vários devices lógicos — ver §8.2.4).
+- 1 `rfir_device` → **N** `rfir_remotes`.
+- 1 `rfir_remote` → **N** `rfir_buttons`.
+
+#### 8.2.2 `\d rfir_devices`  ✅ confirmado
+
+```
+        Column     |           Type           | Nullable | Default
+   ----------------+--------------------------+----------+-----------
+    id             | integer                  | not null | nextval()
+    type           | varchar(255)             |          |          ← e.g. 'ir'
+    category       | varchar(255)             |          |          ← e.g. 'other'
+    name           | varchar(255)             |          |          ← UI label (ex.: 'AC 5')
+    output         | varchar(255)             |          |          ← e.g. 'both'
+    slave_id       | integer                  |          |          ← FK → slaves.id
+    command_on_id  | integer                  |          |          ← FK → rfir_commands.id (nullable)
+    command_off_id | integer                  |          |          ← FK → rfir_commands.id (nullable)
+    created_at     | timestamptz              | not null | now()
+    updated_at     | timestamptz              | not null | now()
+
+   Foreign keys: slave_id → slaves.id  ON UPDATE CASCADE  ON DELETE SET NULL
+                 command_on_id  → rfir_commands.id  ON UPDATE CASCADE  ON DELETE SET NULL
+                 command_off_id → rfir_commands.id  ON UPDATE CASCADE  ON DELETE SET NULL
+
+   Referenced by: ambients_rfir_devices_rel (rfir_device_id)
+                  rfir_remotes              (rfir_device_id)
+```
+
+#### 8.2.3 `\d rfir_remotes`  ✅ confirmado
+
+```
+        Column     |           Type           | Nullable | Default
+   ----------------+--------------------------+----------+-----------
+    id             | integer                  | not null | nextval()
+    name           | varchar(255)             |          |
+    rfir_device_id | integer                  |          |          ← FK → rfir_devices.id
+    created_at     | timestamptz              | not null | now()
+    updated_at     | timestamptz              | not null | now()
+
+   Foreign keys: rfir_device_id → rfir_devices.id  ON UPDATE CASCADE  ON DELETE SET NULL
+
+   Referenced by: raw_energy   (rfir_remote_id)
+                  rfir_buttons (rfir_remote_id)  ⚠️ TRÊS FKs duplicadas — ver §8.4
+```
+
+#### 8.2.4 Padrão "1 hardware → múltiplos devices lógicos"
+
+Um único slave IR (ex.: blaster `RM 5`, `slaves.id=14`) pode aparecer na UI como
+**dois (ou mais) devices distintos**:
+
+| UI                            | Onde mora                                                                      |
+| ----------------------------- | ------------------------------------------------------------------------------ |
+| `AC 5` (controle remoto IR)   | Linha em `rfir_devices` com `slave_id=14`                                       |
+| `RM 5` (`temperature_sensor`) | **Sintetizado direto do `slaves.id=14`** quando `temperature_correction IS NOT NULL` (firmware 7.0.0 do blaster expõe um termômetro embutido) — **NÃO** existe linha correspondente em `rfir_devices` ou `rfir_remotes` |
+
+Caso confirmado em 2026-05-04 na Raiz Educação — ver
+[`CENTRAL-RAIZ-EDUCACAO.md`](../RAIZ-EDUCACAO/CENTRAL-RAIZ-EDUCACAO.md) §2.6.
+
+Implicações:
+1. Um device da UI **nem sempre** tem linha em `rfir_devices`. O `temperature_sensor` derivado de um slave IR é virtual.
+2. A UI precisa decidir se exibe um device pra cada `rfir_devices.id` **e** pra cada `slaves.id` com flags adicionais.
+3. Pra inventariar "todos os devices visíveis" não basta listar `rfir_devices` — é preciso união com `slaves` filtrando o subset que produz devices virtuais (temperatura, talvez outros).
+
+#### 8.2.5 Outras tabelas RFIR — schemas a capturar
+
+```sql
+\d rfir_buttons
+\d rfir_commands
+\d ambients_rfir_devices_rel
+\d ambients_rfir_slaves_rel
+```
+
+### 8.3 Cadeia de referências confirmada (parcial)
+
+```
+slaves (IR físico)
+   │
+   ▼
+rfir_devices ──► (rfir_device.command_on_id  → rfir_commands.id)
+   │             (rfir_device.command_off_id → rfir_commands.id)
+   ▼
+rfir_remotes ──► rfir_buttons ──► (rfir_command_id → rfir_commands.id)  ← FKs a confirmar
+                                                       │
+                                                       ▼
+                                                  (page_low, page_high) na flash do slave
+```
+
+Pra responder "qual botão aciona qual sinal no hardware X" a query precisa
+percorrer **`rfir_buttons` → `rfir_commands` → (firmware do `slaves`)**, com
+`rfir_remotes` e `rfir_devices` agindo como agrupadores hierárquicos.
 
 ### 8.4 Pontos de fricção / débito técnico
 
-1. **Duplicação `slaves` ↔ `rfir_devices`** — aparentemente representam o mesmo
-   hardware por ângulos diferentes. Qual é a fonte-da-verdade?
-2. **Duas junctions com `ambients`** (`ambients_rfir_devices_rel` e
-   `ambients_rfir_slaves_rel`) — se `rfir_device` está 1:1 com `slave`, uma delas
-   é redundante. Se não está 1:1, a semântica precisa ser documentada.
-3. **`page_low`/`page_high` vaza no modelo relacional** — é um detalhe de
-   implementação do firmware (endereço de página da flash interna). Modelar isso
-   no Postgres acopla o schema ao hardware específico.
-4. **Indireção excessiva** — 4 hops (`button → command → device → ambient`) pra
-   responder perguntas operacionais simples.
-5. **Dump do banco não é portável** — um `pg_dump` de uma central não recria o
-   ambiente RFIR em outra sem recaptura dos comandos físicos.
-6. **Sem integridade referencial óbvia entre `rfir_command.page_*` e o
-   hardware** — nada no banco impede que `page_low/page_high` apontem para uma
-   página vazia/sobrescrita do firmware.
+1. **`slaves` ↔ `rfir_devices` NÃO é duplicação** (item original deste tópico
+   reescrito) — confirmado em 8.2: são camadas distintas. `slaves` é hardware,
+   `rfir_devices` é o device lógico exposto na UI. Um slave IR pode produzir
+   N devices lógicos (ex.: o IR + o termômetro embutido — §8.2.4). O termo
+   "duplicação" estava errado.
+2. **`rfir_remotes` parece sub-utilizada.** Na Raiz Educação, `AC 5` aparece
+   em `rfir_devices` mas **não** em `rfir_remotes` (zero rows pro nome). Isso
+   sugere que `rfir_remotes` é opcional — alguns devices IR usam direto
+   `rfir_devices.command_on_id`/`command_off_id` e não precisam do nível remote.
+   Verificar se `rfir_remotes` cresce em devices mais complexos (TV com 30+
+   botões), e se tem populações inconsistentes entre centrais.
+3. **`rfir_buttons` tem 3 FK constraints duplicadas** apontando pra
+   `rfir_remotes.id`, com **ON DELETE divergente**:
+   - `rfir_buttons_rfir_remote_id_fkey`  → `ON DELETE SET NULL`
+   - `rfir_buttons_rfir_remote_id_fkey1` → `ON DELETE CASCADE`
+   - `rfir_buttons_rfir_remote_id_fkey2` → `ON DELETE CASCADE`
+   Resultado prático: 2 dos 3 dizem CASCADE, então o efetivo é CASCADE — **mas**
+   é débito técnico, código defensivo de migration que ficou. Limpar com um
+   `ALTER TABLE … DROP CONSTRAINT` da redundante.
+4. **Duas junctions com `ambients`** (`ambients_rfir_devices_rel` e
+   `ambients_rfir_slaves_rel`) — pelo schema já visto, `rfir_device.slave_id`
+   é FK direta pra `slaves`, então a junction `ambients_rfir_slaves_rel`
+   provavelmente é vestígio. A confirmar com `count(*)` nas duas e checagem de
+   uso pela app.
+5. **`page_low`/`page_high` vaza no modelo relacional** — endereço de página
+   da flash interna do blaster está exposto no Postgres. Acopla o schema ao
+   hardware. (Mesma observação do draft anterior.)
+6. **Dump do banco não é portável** — `pg_dump` de uma central não recria o
+   ambiente RFIR em outra sem recaptura dos comandos físicos. (Mesma observação.)
+7. **Sem integridade referencial entre `rfir_command.(page_low, page_high)` e
+   o conteúdo real do firmware** — nada impede o banco apontar pra página
+   sobrescrita.
 
-### 8.5 Investigação pendente — schemas a capturar
+### 8.5 Validação pendente — schemas a capturar
 
-Rodar em uma central ativa (sugestão: Raiz Educação — 35 blasters IR) e colar a
-saída em `CENTRAL-RAIZ-EDUCACAO.md` §2.5 e/ou referenciar aqui:
+Rodar em uma central ativa e colar a saída no `.md` da central correspondente:
 
 ```sql
-\d rfir_devices
-\d rfir_remotes
 \d rfir_buttons
 \d rfir_commands
 \d ambients_rfir_devices_rel
@@ -459,50 +575,49 @@ UNION ALL SELECT 'ambients_rfir_devices_rel', count(*) FROM ambients_rfir_device
 UNION ALL SELECT 'ambients_rfir_slaves_rel',  count(*) FROM ambients_rfir_slaves_rel;
 ```
 
-Amostra de um botão até o endereço físico (uma vez que as FKs estejam mapeadas):
+Amostra "botão → endereço físico" (uma vez que as FKs de `rfir_buttons` /
+`rfir_commands` estejam confirmadas):
 
 ```sql
--- Esqueleto — ajustar os joins aos nomes reais das FKs
+-- Esqueleto — ajustar joins aos nomes reais das FKs
 SELECT
   b.id              AS button_id,
   b.name            AS button_name,
   r.name            AS remote_name,
+  d.name            AS device_name,
   c.page_low,
   c.page_high,
   s.id              AS slave_id,
   s.name            AS slave_name
 FROM rfir_buttons b
 JOIN rfir_commands c ON c.id = b.command_id        -- confirmar FK
-JOIN rfir_remotes  r ON r.id = b.remote_id         -- confirmar FK
-JOIN rfir_devices  d ON d.id = r.device_id         -- confirmar FK
-JOIN slaves        s ON s.id = d.slave_id          -- confirmar FK
-ORDER BY r.name, b.name;
+JOIN rfir_remotes  r ON r.id = b.rfir_remote_id    -- ✅ FK confirmada (rfir_buttons → rfir_remotes)
+JOIN rfir_devices  d ON d.id = r.rfir_device_id    -- ✅ FK confirmada
+JOIN slaves        s ON s.id = d.slave_id          -- ✅ FK confirmada
+ORDER BY s.name, d.name, r.name, b.name;
 ```
 
-### 8.6 Perguntas abertas para a rediscussão
+### 8.6 Perguntas — status de resolução
 
-- Qual a **cardinalidade real** `rfir_device` ↔ `slave`? (1:1 via `code`? N:1?)
-- `rfir_remote` representa um **controle físico do cliente** (ex.: remote da TV)
-  ou apenas um agrupamento lógico de botões?
-- `rfir_command` é **compartilhado** entre botões/remotes ou único por
-  `(remote, button)`? Se compartilhado, qual a chave natural?
-- Por que **duas junctions com `ambients`**? Qual delas é consultada pela app e
-  qual está morta?
-- `page_low`/`page_high` são **alocados pelo firmware** (auto-incremento) ou
-  **escolhidos pelo app** no momento da captura?
-- Existe tabela/colunas para **marcar comandos "órfãos"** (apontando para
-  página já sobrescrita no firmware)?
-- Estratégia de **migração** entre centrais: existe ferramenta/flow que relê o
-  firmware e reconstrói `rfir_commands`?
+| # | Pergunta | Status |
+| - | -------- | ------ |
+| 1 | Cardinalidade `rfir_device` ↔ `slave` | ✅ **N:1** — múltiplos `rfir_devices` podem apontar pro mesmo `slave_id` (ver §8.2.4) |
+| 2 | `rfir_remote` representa controle físico do cliente ou agrupamento lógico? | 🟡 Parcialmente: é **subordinado** a `rfir_devices` (FK `rfir_device_id`). Parece ser um agrupamento lógico de botões opcional, sub-utilizado em devices simples (ver §8.4 item 2) |
+| 3 | `rfir_command` compartilhado entre botões/remotes? | ⏳ A confirmar com schema de `rfir_commands` e `rfir_buttons` |
+| 4 | Por que duas junctions com `ambients`? | ⏳ A confirmar — provavelmente `ambients_rfir_slaves_rel` é vestígio (ver §8.4 item 4) |
+| 5 | `page_low/page_high` são alocados pelo firmware ou pelo app? | ⏳ A confirmar |
+| 6 | Existe coluna pra marcar comandos órfãos? | ⏳ A confirmar com `\d rfir_commands` |
+| 7 | Estratégia de migração entre centrais | ⏳ Sem ferramenta documentada — único caminho seguro hoje é recaptura |
 
 ### 8.7 Próximos passos sugeridos
 
-1. Capturar os `\d` das 6 tabelas RFIR e anexar aqui em §8.2.
-2. Desenhar o ERD real (não suposto) após §8.5.
-3. Identificar qual das duas junctions `ambients_*_rel` está em uso — candidate
-   para deprecation.
-4. Avaliar se `rfir_devices` pode ser fundido a `slaves` (view ou migração).
-5. Documentar o procedimento oficial de recaptura IR pós-troca de hardware.
+1. ✅ Capturar `\d rfir_devices` e `\d rfir_remotes` — concluído (§8.2.2 / §8.2.3).
+2. ⏳ Capturar `\d` das 4 tabelas restantes (§8.5).
+3. Desenhar o ERD real após §8.5.
+4. Identificar qual das duas junctions `ambients_*_rel` está em uso — candidata a deprecation.
+5. Limpar as 3 FK constraints duplicadas em `rfir_buttons.rfir_remote_id` (manter só uma — escolher CASCADE ou SET NULL conforme regra de negócio).
+6. Documentar o procedimento oficial de recaptura IR pós-troca de hardware.
+7. Documentar o padrão "1 hardware → N devices lógicos" no glossário do projeto (afeta também outros tipos de slave — ex.: `outlet` com `presence_sensor`s).
 
 ---
 
@@ -554,4 +669,4 @@ reboot
 
 ---
 
-_Última atualização: 2026-04-28_
+_Última atualização: 2026-05-05_
