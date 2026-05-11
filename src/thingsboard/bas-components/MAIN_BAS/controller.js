@@ -1430,7 +1430,7 @@ async function enrichWaterDevicesWithIngestionTotals(classified, panel) {
 
   try {
     // Use _waterDateRange (independent from chart); calculates the period from the range
-    var fetchData = createRealFetchData('water', { preferCache: true }, _waterDateRange);
+    var fetchData = createRealFetchData('water', { preferCache: true, cachePrefix: 'water-panel' }, _waterDateRange);
     var result = await fetchData(0); // period ignored — explicitDateRange drives startTs/endTs directly
 
     if (!result || !result.shoppingData) {
@@ -4264,8 +4264,11 @@ function createRealFetchData(domain, options, explicitDateRange) {
     var actualPeriod = Math.max(1, Math.round((endTs - startTs) / (24 * 60 * 60 * 1000)));
 
     // Cache key includes the actual date range (rounded to hours) so different
-    // ranges never share the same cache slot
-    var cacheKey = domain + ':' + Math.floor(startTs / 3600000) + '-' + Math.floor(endTs / 3600000);
+    // ranges never share the same cache slot. cachePrefix allows callers to
+    // partition by consumer (e.g. 'water-panel' vs 'water' chart) so each
+    // applyXxxDateRange only sweeps its own entries.
+    var cachePrefix = (options && options.cachePrefix) || domain;
+    var cacheKey = cachePrefix + ':' + Math.floor(startTs / 3600000) + '-' + Math.floor(endTs / 3600000);
     var cached = _chartDataCache[cacheKey];
     if (cached) {
       var ageMs = Date.now() - cached.timestamp;
@@ -4809,9 +4812,9 @@ function buildDateRangePickerBar(container, defaultStart, defaultEnd, onApply, t
 function applyChartDateRange(startTs, endTs) {
   _chartDateRange = { startTs: startTs, endTs: endTs };
   _currentChartPeriod = Math.max(1, Math.round((endTs - startTs) / (24 * 60 * 60 * 1000)));
-  // Clear only chart-domain cache entries; water cache is managed independently
+  // Clear chart-domain cache; preserve 'water-panel:' which is managed independently
   Object.keys(_chartDataCache).forEach(function (key) {
-    if (!key.startsWith('water:')) delete _chartDataCache[key];
+    if (!key.startsWith('water-panel:')) delete _chartDataCache[key];
   });
   LogHelper.log('[MAIN_BAS] applyChartDateRange:', _formatChartTitle(startTs, endTs), '(', _currentChartPeriod, 'dias)');
   var chartCard = document.querySelector('.bas-chart-card');
@@ -4826,9 +4829,9 @@ function applyChartDateRange(startTs, endTs) {
  */
 function applyWaterDateRange(startTs, endTs) {
   _waterDateRange = { startTs: startTs, endTs: endTs };
-  // Clear only water cache entries so the next enrichment fetches fresh data
+  // Clear only panel-owned water cache; chart's 'water:' entries are unaffected
   Object.keys(_chartDataCache).forEach(function (key) {
-    if (key.startsWith('water:')) delete _chartDataCache[key];
+    if (key.startsWith('water-panel:')) delete _chartDataCache[key];
   });
   LogHelper.log('[MAIN_BAS] applyWaterDateRange:', _formatChartTitle(startTs, endTs));
   if (_waterPanel && _currentClassified) {
