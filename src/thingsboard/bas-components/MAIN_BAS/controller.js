@@ -1465,10 +1465,10 @@ async function enrichWaterDevicesWithIngestionTotals(classified, panel) {
       // 1. ingestionId attribute on the TB device (explicit mapping, most reliable)
       // 2. device.id direct match (works if ingestion system mirrors TB UUIDs)
       // 3. device name match via shoppingNames reverse lookup (reliable fallback)
-      var ingestionId = device.rawData && device.rawData.ingestionId;
+      var ingestionId = (device.rawData && device.rawData.ingestionId) || (device.attributes && device.attributes.ingestionId) || device.ingestionId;
       var lookupKey = (ingestionId && result.shoppingData[ingestionId] ? ingestionId : null)
         || (result.shoppingData[device.id] ? device.id : null)
-        || nameToIngestionKey[device.name]
+        || nameToIngestionKey[device.name.length > 25 ? device.name.substring(0, 22) + '...' : device.name]
         || null;
 
       var deviceTotals = lookupKey ? result.shoppingData[lookupKey] : null;
