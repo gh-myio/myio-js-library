@@ -69,10 +69,20 @@ let _ambientesPanel = null;
 let _motorsPanel = null;
 let _chartInstance = null;
 let _currentChartDomain = 'energy';
-// RFC-0152: Shared date range for chart + water panel enrichment
+// RFC-0152: Date range for the consumption chart
 // { startTs: number|null, endTs: number|null } — null = "last _currentChartPeriod days"
 var _chartDateRange = { startTs: null, endTs: null };
 var _currentChartPeriod = 7; // days (used when _chartDateRange is null/relative)
+// Independent date range for the water panel — defaults to first of current month → today
+var _waterDateRange = (function () {
+  var _today = new Date();
+  var _first = new Date(_today.getFullYear(), _today.getMonth(), 1);
+  var _end = new Date(_today);
+  _end.setHours(23, 59, 59, 999);
+  return { startTs: _first.getTime(), endTs: _end.getTime() };
+})();
+var _chartDatePicker = null;
+var _waterDatePicker = null;
 let _selectedAmbiente = null;
 let _ctx = null;
 let _settings = null;
@@ -1400,13 +1410,11 @@ function buildWaterCardItems(classified, selectedAmbienteId) {
 }
 
 /**
- * RFC-0152: Enrich HIDROMETRO devices with 7-day consumption totals from ingestion API.
- *
- * Calls createRealFetchData('water', { preferCache: true })(7) — reuses the chart's cache
- * if the water chart was already rendered, making this effectively free in most cases.
+ * Enrich HIDROMETRO devices with consumption totals from ingestion API for the water date range.
+ * Uses _waterDateRange (independent from the chart date range, defaults to current month).
  *
  * Updates device.value in-place on classified.water.* hydrometer devices, then refreshes
- * the CardGridPanel so cards show real 7-day m³ totals instead of the instantaneous
+ * the CardGridPanel so cards show real period totals instead of the instantaneous
  * `consumption` attribute snapshot from ThingsBoard SERVER_SCOPE.
  *
  * CAIXA_DAGUA (level %) and SOLENOIDE (on/off) are intentionally skipped.
@@ -1421,9 +1429,9 @@ async function enrichWaterDevicesWithIngestionTotals(classified, panel) {
   }
 
   try {
-    // createRealFetchData reads _chartDateRange automatically; preferCache reuses chart's result
-    var fetchData = createRealFetchData('water', { preferCache: true });
-    var result = await fetchData(_currentChartPeriod);
+    // Use _waterDateRange (independent from chart); calculates the period from the range
+    var fetchData = createRealFetchData('water', { preferCache: true, cachePrefix: 'water-panel' }, _waterDateRange);
+    var result = await fetchData(0); // period ignored — explicitDateRange drives startTs/endTs directly
 
     if (!result || !result.shoppingData) {
       LogHelper.warn('[MAIN_BAS] enrichWaterDevicesWithIngestionTotals: no shoppingData in result');
@@ -2195,7 +2203,7 @@ function switchChartDomainInContainer(domain, container) {
         theme: (_settings && _settings.defaultThemeMode) || 'light',
         showSettingsButton: false,
         showMaximizeButton: false,
-        showVizModeTabs: true,
+        showVizModeTabs: false, // BAS dashboard is not a shopping mall — "Por Shopping" mode not applicable
         showChartTypeTabs: true,
 
         // Compact header styles for maximized view
@@ -2597,9 +2605,20 @@ function mountWaterPanel(waterHost, settings, classified) {
 
   waterHost.appendChild(panel.getElement());
 
-  // RFC-0152: Async enrich HIDROMETRO cards with 7-day totals from ingestion API.
-  // Cards are already visible with the TB attribute snapshot; this updates val when the API responds.
-  // Uses preferCache:true so if the water chart already fetched, this is instant (no extra request).
+  // Inject independent date range picker into the panel's tabs row (light theme, default: current month)
+  var waterPanelEl = panel.getElement();
+  var waterTabsWrapper = waterPanelEl.querySelector('.myio-cgp__tabs-wrapper');
+  if (waterTabsWrapper) {
+    _waterDatePicker = buildDateRangePickerBar(
+      waterTabsWrapper,
+      new Date(_waterDateRange.startTs),
+      new Date(_waterDateRange.endTs),
+      applyWaterDateRange,
+      'light'
+    );
+  }
+
+  // RFC-0152 amend: enrichment now uses independent _waterDateRange (not _chartDateRange)
   enrichWaterDevicesWithIngestionTotals(classified, panel);
 
   return panel;
@@ -4232,20 +4251,24 @@ var _chartDataCache = {};
  * @param {number} [options.maxAgeMs=300000] - Cache max age in ms for normal use
  * @returns {function} fetchData function that returns { labels, dailyTotals }
  */
-function createRealFetchData(domain, options) {
+function createRealFetchData(domain, options, explicitDateRange) {
   var opts = options || {};
   var preferCache = !!opts.preferCache;
   var maxAgeMs = typeof opts.maxAgeMs === 'number' ? opts.maxAgeMs : 5 * 60 * 1000;
 
   return async function fetchData(period) {
-    // RFC-0152: Use shared date range if set; otherwise compute relative to now
-    var endTs = (_chartDateRange.endTs) || Date.now();
-    var startTs = (_chartDateRange.startTs) || (endTs - period * 24 * 60 * 60 * 1000);
+    // Use explicit date range if provided, otherwise fall back to _chartDateRange
+    var dateRange = explicitDateRange || _chartDateRange;
+    var endTs = dateRange.endTs || Date.now();
+    var startTs = dateRange.startTs || (endTs - period * 24 * 60 * 60 * 1000);
     var actualPeriod = Math.max(1, Math.round((endTs - startTs) / (24 * 60 * 60 * 1000)));
 
     // Cache key includes the actual date range (rounded to hours) so different
-    // ranges never share the same cache slot
-    var cacheKey = domain + ':' + Math.floor(startTs / 3600000) + '-' + Math.floor(endTs / 3600000);
+    // ranges never share the same cache slot. cachePrefix allows callers to
+    // partition by consumer (e.g. 'water-panel' vs 'water' chart) so each
+    // applyXxxDateRange only sweeps its own entries.
+    var cachePrefix = (options && options.cachePrefix) || domain;
+    var cacheKey = cachePrefix + ':' + Math.floor(startTs / 3600000) + '-' + Math.floor(endTs / 3600000);
     var cached = _chartDataCache[cacheKey];
     if (cached) {
       var ageMs = Date.now() - cached.timestamp;
@@ -4643,7 +4666,7 @@ function switchChartDomain(domain, chartContainer) {
       theme: (_settings && _settings.defaultThemeMode) || 'light',
       showSettingsButton: false,
       showMaximizeButton: false,
-      showVizModeTabs: true,
+      showVizModeTabs: false, // BAS dashboard is not a shopping mall — "Por Shopping" mode not applicable
       showChartTypeTabs: true,
 
       // Compact header styles for BAS panel
@@ -4713,22 +4736,104 @@ function _formatChartTitle(startTs, endTs) {
   return fmt(startTs) + ' \u2013 ' + fmt(endTs);
 }
 
+function toLocalISODate(d) {
+  var y = d.getFullYear();
+  var m = String(d.getMonth() + 1).padStart(2, '0');
+  var day = String(d.getDate()).padStart(2, '0');
+  return y + '-' + m + '-' + day;
+}
+
 /**
- * RFC-0152: Apply a new date range to both the chart and Infraestrutura Hídrica cards.
- * Invalidates _chartDataCache so the next fetch always goes to the API.
+ * Create a date range picker bar and append it to a container element.
+ * Reusable by both the chart panel (dark theme) and the water panel (light theme).
+ * @param {HTMLElement} container - Element to append the picker into
+ * @param {Date} defaultStart - Default start date
+ * @param {Date} defaultEnd - Default end date
+ * @param {function} onApply - Called with (startTs, endTs) when either input changes
+ * @param {string} [theme='dark'] - 'dark' = white-on-dark (chart tabs), 'light' = dark-on-white (panel tabs)
+ * @returns {{ setDates: function(Date, Date), destroy: function }}
+ */
+function buildDateRangePickerBar(container, defaultStart, defaultEnd, onApply, theme) {
+  var isDark = (theme || 'dark') === 'dark';
+  var wrap = document.createElement('div');
+  wrap.style.cssText = 'display:flex;align-items:center;gap:4px;padding:0 8px;flex-shrink:0;margin-left:auto;' +
+    (isDark ? 'border-left:1px solid rgba(255,255,255,0.15);' : 'border-left:1px solid rgba(0,0,0,0.08);');
+
+  function makeDateInput(defaultValue) {
+    var inp = document.createElement('input');
+    inp.type = 'date';
+    inp.value = defaultValue;
+    inp.style.cssText = isDark
+      ? 'font-size:10px;padding:2px 5px;border-radius:4px;border:1px solid rgba(255,255,255,0.25);background:rgba(255,255,255,0.1);color:#fff;cursor:pointer;width:100px;font-family:inherit;height:24px;'
+      : 'font-size:10px;padding:2px 5px;border-radius:4px;border:1px solid #ccc;background:#fff;color:#333;cursor:pointer;width:100px;font-family:inherit;height:24px;';
+    return inp;
+  }
+
+  var inputStart = makeDateInput(toLocalISODate(defaultStart));
+  var inputEnd   = makeDateInput(toLocalISODate(defaultEnd));
+
+  var sep = document.createElement('span');
+  sep.textContent = '–';
+  sep.style.cssText = isDark
+    ? 'color:rgba(255,255,255,0.4);font-size:10px;flex-shrink:0;'
+    : 'color:#888;font-size:10px;flex-shrink:0;';
+
+  function tryApply() {
+    if (!inputStart.value || !inputEnd.value) return;
+    var s = new Date(inputStart.value); s.setHours(0, 0, 0, 0);
+    var e = new Date(inputEnd.value);   e.setHours(23, 59, 59, 999);
+    if (s.getTime() >= e.getTime()) return;
+    onApply(s.getTime(), e.getTime());
+  }
+
+  inputStart.addEventListener('change', tryApply);
+  inputEnd.addEventListener('change', tryApply);
+
+  wrap.appendChild(inputStart);
+  wrap.appendChild(sep);
+  wrap.appendChild(inputEnd);
+  container.appendChild(wrap);
+
+  return {
+    setDates: function (start, end) {
+      inputStart.value = toLocalISODate(start);
+      inputEnd.value   = toLocalISODate(end);
+    },
+    destroy: function () { wrap.remove(); },
+  };
+}
+
+/**
+ * RFC-0152: Apply a new date range to the consumption chart only.
+ * Clears chart cache (non-water entries) and re-renders the active domain.
  * @param {number} startTs - UTC ms start of range (midnight)
  * @param {number} endTs   - UTC ms end of range (23:59:59)
  */
 function applyChartDateRange(startTs, endTs) {
   _chartDateRange = { startTs: startTs, endTs: endTs };
   _currentChartPeriod = Math.max(1, Math.round((endTs - startTs) / (24 * 60 * 60 * 1000)));
-  // Wipe all cached data — new date range requires fresh API calls
-  _chartDataCache = {};
+  // Clear chart-domain cache; preserve 'water-panel:' which is managed independently
+  Object.keys(_chartDataCache).forEach(function (key) {
+    if (!key.startsWith('water-panel:')) delete _chartDataCache[key];
+  });
   LogHelper.log('[MAIN_BAS] applyChartDateRange:', _formatChartTitle(startTs, endTs), '(', _currentChartPeriod, 'dias)');
-  // Re-render the active chart
   var chartCard = document.querySelector('.bas-chart-card');
   if (chartCard) switchChartDomain(_currentChartDomain, chartCard);
-  // Re-enrich HIDROMETRO cards with the new period
+}
+
+/**
+ * Apply a new date range to the water panel and re-enrich HIDROMETRO cards.
+ * Independent from the chart date range.
+ * @param {number} startTs - UTC ms start of range (midnight)
+ * @param {number} endTs   - UTC ms end of range (23:59:59)
+ */
+function applyWaterDateRange(startTs, endTs) {
+  _waterDateRange = { startTs: startTs, endTs: endTs };
+  // Clear only panel-owned water cache; chart's 'water:' entries are unaffected
+  Object.keys(_chartDataCache).forEach(function (key) {
+    if (key.startsWith('water-panel:')) delete _chartDataCache[key];
+  });
+  LogHelper.log('[MAIN_BAS] applyWaterDateRange:', _formatChartTitle(startTs, endTs));
   if (_waterPanel && _currentClassified) {
     enrichWaterDevicesWithIngestionTotals(_currentClassified, _waterPanel);
   }
@@ -4841,51 +4946,10 @@ function mountChartPanel(hostEl, settings) {
   }
   tabsWrapper.appendChild(rightBtn);
 
-  // RFC-0152: Date range picker — same row as domain tabs, right-aligned
-  // Controls both the chart AND water card enrichment period.
-  (function buildDateRangePicker() {
-    var wrap = document.createElement('div');
-    wrap.style.cssText = 'display:flex;align-items:center;gap:4px;padding:0 8px;flex-shrink:0;' +
-      'border-left:1px solid rgba(255,255,255,0.15);margin-left:4px;';
-
-    function makeDateInput(defaultValue) {
-      var inp = document.createElement('input');
-      inp.type = 'date';
-      inp.value = defaultValue;
-      inp.style.cssText = 'font-size:10px;padding:2px 5px;border-radius:4px;' +
-        'border:1px solid rgba(255,255,255,0.25);background:rgba(255,255,255,0.1);' +
-        'color:#fff;cursor:pointer;width:100px;font-family:inherit;';
-      return inp;
-    }
-
-    // Default: last 7 days (today inclusive)
-    var today = new Date();
-    var startDefault = new Date(today);
-    startDefault.setDate(startDefault.getDate() - 6);
-
-    var inputStart = makeDateInput(startDefault.toISOString().split('T')[0]);
-    var inputEnd   = makeDateInput(today.toISOString().split('T')[0]);
-
-    var sep = document.createElement('span');
-    sep.textContent = '\u2013';
-    sep.style.cssText = 'color:rgba(255,255,255,0.4);font-size:10px;flex-shrink:0;';
-
-    function tryApply() {
-      if (!inputStart.value || !inputEnd.value) return;
-      var s = new Date(inputStart.value); s.setHours(0, 0, 0, 0);
-      var e = new Date(inputEnd.value);   e.setHours(23, 59, 59, 999);
-      if (s.getTime() >= e.getTime()) return;
-      applyChartDateRange(s.getTime(), e.getTime());
-    }
-
-    inputStart.addEventListener('change', tryApply);
-    inputEnd.addEventListener('change', tryApply);
-
-    wrap.appendChild(inputStart);
-    wrap.appendChild(sep);
-    wrap.appendChild(inputEnd);
-    tabsWrapper.appendChild(wrap);
-  })();
+  // RFC-0152: Date range picker — right-aligned in the tabs row (dark theme, on green header)
+  var _chartToday = new Date();
+  var _chartStart = new Date(_chartToday); _chartStart.setDate(_chartStart.getDate() - 6);
+  _chartDatePicker = buildDateRangePickerBar(tabsWrapper, _chartStart, _chartToday, applyChartDateRange, 'dark');
 
   // Scroll button handlers
   if (chartTabs.length >= 3) {
@@ -5407,6 +5471,8 @@ self.onDestroy = function () {
   if (_sidebarMenu && _sidebarMenu.destroy) {
     _sidebarMenu.destroy();
   }
+  if (_chartDatePicker) { _chartDatePicker.destroy(); _chartDatePicker = null; }
+  if (_waterDatePicker) { _waterDatePicker.destroy(); _waterDatePicker = null; }
   _chartInstance = null;
   _currentChartDomain = 'energy';
   _ambientesListPanel = null;
