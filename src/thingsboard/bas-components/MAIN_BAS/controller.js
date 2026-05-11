@@ -1441,26 +1441,49 @@ async function enrichWaterDevicesWithIngestionTotals(classified, panel) {
     var waterDevices = getWaterDevicesFromClassified(classified);
     var enrichedCount = 0;
 
-    // DEBUG: log IDs from ingestion vs IDs from classified (helps diagnose ID mismatch)
+    // shoppingData keys = ingestion API device IDs (own UUIDs, not ThingsBoard entity UUIDs)
+    // shoppingNames maps those same keys to device names
+    // Build a reverse name lookup so we can match by device name when IDs don't align
+    var nameToIngestionKey = {};
+    Object.keys(result.shoppingNames).forEach(function (key) {
+      nameToIngestionKey[result.shoppingNames[key]] = key;
+    });
+
     var hydrometerDevices = waterDevices.filter(function (d) { return d.type === 'hydrometer'; });
-    LogHelper.log('[MAIN_BAS] enrichWater — shoppingData keys (ingestion IDs):', Object.keys(result.shoppingData));
-    LogHelper.log('[MAIN_BAS] enrichWater — hydrometer device.id (TB entityIds):', hydrometerDevices.map(function (d) { return d.id + ' (' + d.name + ')'; }));
+    LogHelper.log('[MAIN_BAS] enrichWater — shoppingData keys:', Object.keys(result.shoppingData));
+    LogHelper.log('[MAIN_BAS] enrichWater — shoppingNames:', result.shoppingNames);
+    LogHelper.log('[MAIN_BAS] enrichWater — hydrometers:', hydrometerDevices.map(function (d) {
+      var iid = d.rawData && d.rawData.ingestionId;
+      return d.name + ' (ingestionId:' + iid + ', tbId:' + d.id.substring(0, 8) + ')';
+    }));
 
     waterDevices.forEach(function (device) {
       // Only enrich HIDROMETRO devices — tanks show level %, solenoids show on/off
       if (device.type !== 'hydrometer') return;
 
-      var deviceTotals = result.shoppingData[device.id];
+      // 3-step key resolution (ingestion API uses its own UUIDs, not ThingsBoard entity UUIDs):
+      // 1. ingestionId attribute on the TB device (explicit mapping, most reliable)
+      // 2. device.id direct match (works if ingestion system mirrors TB UUIDs)
+      // 3. device name match via shoppingNames reverse lookup (reliable fallback)
+      var ingestionId = device.rawData && device.rawData.ingestionId;
+      var lookupKey = (ingestionId && result.shoppingData[ingestionId] ? ingestionId : null)
+        || (result.shoppingData[device.id] ? device.id : null)
+        || nameToIngestionKey[device.name]
+        || null;
+
+      var deviceTotals = lookupKey ? result.shoppingData[lookupKey] : null;
       if (!deviceTotals) {
-        LogHelper.log('[MAIN_BAS] enrichWater — no match for device:', device.id, device.name);
+        LogHelper.log('[MAIN_BAS] enrichWater — no match for device:', device.name,
+          '(tried ingestionId:', ingestionId, ', tbId:', device.id.substring(0, 8),
+          ', nameKey:', nameToIngestionKey[device.name], ')');
         return;
       }
 
-      var total7d = deviceTotals.reduce(function (sum, v) { return sum + (Number(v) || 0); }, 0);
-      LogHelper.log('[MAIN_BAS] enrichWater — device', device.name, '7d total:', total7d);
-      if (total7d > 0) {
-        device.value = parseFloat(total7d.toFixed(3));
-        device.valueSource = 'ingestion_7d';
+      var total = deviceTotals.reduce(function (sum, v) { return sum + (Number(v) || 0); }, 0);
+      LogHelper.log('[MAIN_BAS] enrichWater — device', device.name, 'period total:', total);
+      if (total > 0) {
+        device.value = parseFloat(total.toFixed(3));
+        device.valueSource = 'ingestion';
         enrichedCount++;
       }
     });
