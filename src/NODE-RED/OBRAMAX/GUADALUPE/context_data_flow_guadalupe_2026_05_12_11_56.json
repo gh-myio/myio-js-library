@@ -1,0 +1,4054 @@
+{
+  "_meta": {
+    "source": "Node-RED — Central Obramax Guadalupe — flow context inspector",
+    "captured_at": "2026-05-12T11:56:00-03:00",
+    "scope": "flow.context (top-level keys as listed in the Node-RED debug-sidebar context viewer)",
+    "completeness": "PARTIAL — values rendered as 'object' or 'array[N]' in the UI are preserved as empty containers of the matching type. Top-level keys whose UI preview ended with '…' (more entries elided) are listed in `truncated_keys` below.",
+    "truncated_keys": [
+      "slave_data"
+    ],
+    "still_opaque": [],
+    "known_ids": {
+      "obramax_guadalupe_customer_id_tb": "b6d38970-a1d4-11ef-9e25-b7f6e6d4253b",
+      "comment": "Customer UUID (v1) do ThingsBoard para Obramax Guadalupe — aparece em todos os controlDevice de stored_automations."
+    },
+    "anomalies": [
+      "compressores: SPT9 e SPT10 aparecem com DUAS convenções de naming simultaneamente — 'SPTN: COMPM' e 'Split N Comp M ON/OFF' — apontando para o mesmo hardware mas com estados booleanos divergentes (SPT9: COMP1=true vs 'Split 9 Comp 1 ON/OFF'=false; idem SPT10). Provável débito histórico: uma rota de escrita usa a convenção antiga ('Split N Comp M ON/OFF'), outra usa a nova ('SPTN: COMPM'). Investigar quais functions/grupos escrevem em cada chave antes de assumir consistência.",
+      "stored_demand.Trafo.controlDevices: aponta para SPT10:COMP1 e SPT10:COMP2 — o MESMO SPT10 que sofre da divergência de naming em `compressores`. O controle de demanda usa os IDs UUID v1 do ThingsBoard, então o shed funciona; mas o STATUS lido de volta pode estar dessincronizado dependendo de qual chave do `compressores` é consultada.",
+      "stored_automations: chaves agrupam compressores em PARES, mas o nome da chave é inconsistente — às vezes pega o LAST do par ('SPT2: COMP1/COMP2' = SPT1+SPT2; 'SPT4...' = SPT3+SPT4; 'SPT8...' = SPT7+SPT8), às vezes o FIRST ('SPT5...' = SPT5+SPT6; 'SPT9...' = SPT9+SPT10). Não há regra clara — provável artefato de quem criou cada par na UI. Lookup por nome da chave é UNRELIABLE; usar `controlDevice.name` interno como ground truth.",
+      "stored_automations: SPT1, SPT3, SPT6, SPT7 e SPT10 NÃO aparecem como chaves top-level — só existem como `controlDevice.name` dentro dos arrays de outros pares. Inferir a lista de splits com automação a partir das chaves top-level é incompleto.",
+      "stored_automations: Temp.Frente Loja / Temp.Meio Loja / Temp. Fundo Loja são chaves declaradas mas com array[] vazio — automação registrada porém sem regras. Decidir se isso é estado intencional (placeholder) ou regras deletadas. Nota: 'Temp. Fundo Loja' tem espaço duplo após o ponto, divergente das outras duas.",
+      "stored_automations.['SPT8: COMP1/COMP2'][1] (SPT7:COMP2): controlDevice.id está SEM `entityType` e SEM `id` (no inspector aparece apenas `id: object` em branco + `name`). É um registro CORROMPIDO — a automação não tem como rotear o RPC. Provável necessidade de re-cadastro pelo dashboard. Todos os outros 19 controlDevice.id estão íntegros.",
+      "stored_automations: existem DOIS namespaces de UUID v1 (último grupo do UUID = node-id, tipicamente MAC do gerador): `*-a212-67802bff4221` (maioria das devices, ex: SPT1-4, SPT6-8, SPT10) e `*-9baa-8137e6ac9d72` (SPT5:COMP1, SPT5:COMP2, SPT9:COMP2). Sinal de que devices foram criadas a partir de instâncias/máquinas diferentes do ThingsBoard ao longo do tempo. Não afeta funcionamento, mas indica histórico de re-provisionamento.",
+      "stored_automations: cross-ref com stored_demand.Trafo.controlDevices CONFIRMA os IDs do SPT10 (`a78e49b0-...` = SPT10:COMP1; `a78e49b2-...` = SPT10:COMP2). O controle de demanda e a automação de temperatura competem pelos mesmos devices — convém verificar precedência (quem desliga ganha? quem religa primeiro?).",
+      "stored_schedules: chaves DUPLICADAS por whitespace — \"Luz Retira Externa\" (válida, retain=true) e \"Luz Retira Externa \" (com espaço final, retain=false + todos daysWeek=false) coexistem como entradas separadas. A segunda está efetivamente desabilitada mas permanece no contexto — provável soft-delete não limpo.",
+      "stored_schedules: chaves DUPLICADAS por uso de barra+espaço — \"Luz Depósito Alta/ Recebimento\" (com espaço após /) e \"Luz Depósito Alta/Recebimento\" (sem espaço) são entradas separadas com schedules levemente diferentes. Existe AINDA uma terceira chave relacionada \"Luz Depósito Alta\" sem o sufixo. Risco de quem configurou pela UI ter visto e duplicado por engano.",
+      "stored_schedules: \"Check Meio\" tem array[0] — placeholder sem schedule cadastrado. Outras 51 chaves têm 1 a 3 schedules.",
+      "stored_schedules: 13 entries têm endHour < startHour (ex: \"08:00\" → \"05:00\") — INTENCIONAL (atravessa meia-noite), comum em iluminação noturna. Código que calcula duração precisa tratar isso (typically: if end<start then duration = 24h - start + end).",
+      "stored_schedules: cross-ref com stored_automations — todos os 20 SPTx:COMPy aparecem nos dois (schedules + automation), mas os 10 \"Splitão NN\" só aparecem em schedules — não há automação de temperatura cadastrada para os Splitões. Decidir se isso é intencional (Splitões dependem só de horário) ou gap de configuração.",
+      "stored_schedules: convenção de tipo — type=\"group\" usado para SPTx:COMPy (20×3 = 60 schedules) e Splitão NN (10×3 = 30 schedules) = 90 total; type=\"individual\" para os demais (iluminação, status, exaustores) = 48 total. \"group\" provavelmente agrupa comandos para envio em lote ao Modbus.",
+      "last_consumption_3F_LOJA_CORR: NÃO é um objeto plano de 3 sub-chaves irmãs — é uma CHAIN ANINHADA em 3 níveis: _FRENTE > _MEIO > FUNDO. O leaf FUNDO carrega o {ts, consumption} real. Provável artefato de código que tratou um nome de device com espaços como path aninhado (ex.: \"3F LOJA CORR _FRENTE _MEIO FUNDO\" splitado em segmentos virou obj[a][b][c][d] = val). Lookup correto: last_consumption_3F_LOJA_CORR._FRENTE._MEIO.FUNDO. Investigar a function que escreve isso — provavelmente o mesmo bug existe para outras chaves last_consumption_* com sub-objects.",
+      "last_consumption_3F_*: as chaves Hid/Hidr/QT/QT_ADM/Temp têm sub-objects diretos (siblings) — devices com nomes compostos foram quebrados em múltiplas chaves under a chave-pai. Cross-ref com LOJA_CORR (cadeia aninhada) sugere DOIS caminhos de escrita diferentes na codebase. Identificar quais functions fazem cada um antes de assumir comportamento uniforme."
+    ],
+    "notes": [
+      "consumption is stored as a STRING ('0.00', '3.00', '20.00') — preserved verbatim; not converted to a number.",
+      "ts is Unix epoch in milliseconds. Sample: 1778596685496 ≈ 2026-05-12 ~14:38 UTC (11:38 GMT-3).",
+      "Compressor channel keys contain embedded colons / slashes ('SPT8: COMP2', 'SPT2: COMP1/COMP2'). These are literal keys in flow.context — preserved exactly.",
+      "Leading underscores in nested keys ('_Fundo_Loja', '_Potável_Entrada', '_Estacionamento_Coberto') are preserved as shown in the Node-RED viewer. They are most likely UI-rendered spaces or literal underscores from the original key naming — verify against the source flow when wiring code to these paths.",
+      "slave_data preview showed 10 opaque objects + '…' truncation — modeled here as 10 empty objects to retain the visible count.",
+      "stored_holidays appeared complete (no '…') — listed verbatim. Mix of 2025 and 2026 dates and not in chronological order.",
+      "devices: hydrated from devices_node_red.log (2026-05-12) — 107 entries; replaces 5-entry truncated view from the inspector. uniqueId pattern: <customerId-uuid-v4>_<slaveId>_<n>; customer-uuid \"96a7ca86-c291-4d77-aa66-4706641eaa5a\" is INTERNAL (Node-RED) — distinct from the TB customer UUID v1 in known_ids."
+    ],
+    "key_descriptions": {
+      "automation_logs": "Logs de execução das automações on/off (vide grupo 'Save Schedule from Thingsboard' no flow).",
+      "compressores": "Estado on/off por canal de compressor (true/false). Chaves nomeadas por unidade ('SPT8: COMP2', 'Split 10 Comp 1 ON/OFF').",
+      "demand_ignore_schedule_list": "Lista de schedules a ignorar para controle por demanda (alimentado por 'Should ignore?' / 'Stop ignoring.').",
+      "devices": "Dicionário principal de devices lógicos do site — hidratado pelo grupo 'Store devices to flow.devices' a partir de slaves + canais.",
+      "last_consumption_*": "Última leitura de consumo por device (ts em ms + consumption como string). Devices aninhados (Hid, Hidr, LOJA_CORR, QT, QT_ADM, Temp) carregam sub-objetos no mesmo formato.",
+      "rfirCommands": "Cache de comandos RFIR (botões IR para climatização). Vazio neste snapshot.",
+      "slave_data": "Array com leituras cruas dos slaves Modbus.",
+      "stored_automations": "Automações de climatização por agrupamento. Cada entrada do array é uma regra `{type, settings, customerId, minTemperature, maxTemperature, controlDevice:{id,name}}`. Threshold escalonado entre COMP1 (23.1–24°C) e COMP2 (23.5–25°C) provavelmente para evitar partida simultânea. Chaves top-level agrupam 2 splits (4 regras = 2 splits × 2 comps); 'Temp.* Loja' são placeholders vazios.",
+      "stored_demand": "Configuração de limite de demanda por monitor de potência (ex.: 'Trafo'). Cada entrada define `minPower`/`maxPower` (kW, banda de histerese) e `controlDevices` (lista `{id, name}` dos compressores a desligar/ligar quando a demanda cruza os limites). `id` é UUID v1 do device no ThingsBoard.",
+      "stored_holidays": "Feriados que pausam automações (datas ISO 'YYYY-MM-DD').",
+      "stored_schedules": "Agendamentos liga/desliga por device. Cada entrada do array é uma janela {type:group|individual, startHour:HH:MM, endHour:HH:MM, daysWeek:{mon..sun, holiday: boolean}, retain: boolean}. As 3 posições do array tipicamente correspondem a (0) dias úteis, (1) domingo, (2) feriado. type=group é o padrão para SPT/Splitão (envia comando agrupado pro Modbus); type=individual para iluminação/status/exaustores. retain é o flag MQTT (true = broker retém última mensagem)."
+    }
+  },
+  "automation_logs": {},
+  "compressores": {
+    "SPT8: COMP2": true,
+    "SPT8: COMP1": true,
+    "SPT7: COMP2": true,
+    "SPT7: COMP1": true,
+    "Split 10 Comp 1 ON/OFF": false,
+    "Split 10 Comp 2 ON/OFF": false,
+    "SPT10: COMP2": true,
+    "SPT10: COMP1": true,
+    "SPT3: COMP1": true,
+    "SPT3: COMP2": true,
+    "SPT6: COMP1": true,
+    "SPT6: COMP2": true,
+    "Split 9 Comp 1 ON/OFF": false,
+    "Split 9 Comp 2 ON/OFF": false,
+    "SPT9: COMP1": true,
+    "SPT9: COMP2": true,
+    "SPT2: COMP1": true,
+    "SPT2: COMP2": true,
+    "SPT1: COMP1": true,
+    "SPT1: COMP2": true,
+    "SPT5: COMP1": true,
+    "SPT5: COMP2": true,
+    "SPT4: COMP2": true,
+    "SPT4: COMP1": true
+  },
+  "demand_ignore_schedule_list": {},
+  "devices": {
+    "Desligar Automação": {
+      "type": "lamp",
+      "name": "Desligar Automação",
+      "channelType": null,
+      "outputType": null,
+      "slaveId": 11,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "Desligar Automação",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_11_14"
+    },
+    "Auto. Splitao 8": {
+      "type": "presence_sensor",
+      "name": "Auto. Splitao 8",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 17,
+      "channelId": 1,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Auto. Splitao 8",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_17_34"
+    },
+    "Auto. Splitao 7": {
+      "type": "presence_sensor",
+      "name": "Auto. Splitao 7",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 17,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Auto. Splitao 7",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_17_33"
+    },
+    "Splitão 08": {
+      "type": "lamp",
+      "name": "Splitão 08",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 17,
+      "channelId": 1,
+      "deviceKind": "lamp",
+      "deviceName": "Splitão 08",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_17_24"
+    },
+    "Splitão 07": {
+      "type": "lamp",
+      "name": "Splitão 07",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 17,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "Splitão 07",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_17_23"
+    },
+    "SPT8: COMP2": {
+      "type": "lamp",
+      "name": "SPT8: COMP2",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 66,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "SPT8: COMP2",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_66_63"
+    },
+    "SPT8: COMP1": {
+      "type": "lamp",
+      "name": "SPT8: COMP1",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 66,
+      "channelId": 1,
+      "deviceKind": "lamp",
+      "deviceName": "SPT8: COMP1",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_66_62"
+    },
+    "Nivel Potável": {
+      "type": "presence_sensor",
+      "name": "Nivel Potável",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 57,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Nivel Potável",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_57_43"
+    },
+    "Auto. Splitao 10": {
+      "type": "presence_sensor",
+      "name": "Auto. Splitao 10",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 18,
+      "channelId": 1,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Auto. Splitao 10",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_18_36"
+    },
+    "Auto. Splitao 9": {
+      "type": "presence_sensor",
+      "name": "Auto. Splitao 9",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 18,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Auto. Splitao 9",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_18_35"
+    },
+    "Splitão 10": {
+      "type": "lamp",
+      "name": "Splitão 10",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 18,
+      "channelId": 1,
+      "deviceKind": "lamp",
+      "deviceName": "Splitão 10",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_18_26"
+    },
+    "Splitão 09": {
+      "type": "lamp",
+      "name": "Splitão 09",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 18,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "Splitão 09",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_18_25"
+    },
+    "Split 9 Comp 1 ON/OFF": {
+      "type": "presence_sensor",
+      "name": "Split 9 Comp 1 ON/OFF",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 64,
+      "channelId": 1,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Split 9 Comp 1 ON/OFF",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_64_113"
+    },
+    "Split 9 Comp 2 ON/OFF": {
+      "type": "presence_sensor",
+      "name": "Split 9 Comp 2 ON/OFF",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 64,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Split 9 Comp 2 ON/OFF",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_64_112"
+    },
+    "SPT9: COMP1": {
+      "type": "lamp",
+      "name": "SPT9: COMP1",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 64,
+      "channelId": 1,
+      "deviceKind": "lamp",
+      "deviceName": "SPT9: COMP1",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_64_58"
+    },
+    "SPT9: COMP2": {
+      "type": "lamp",
+      "name": "SPT9: COMP2",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 64,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "SPT9: COMP2",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_64_59"
+    },
+    "SPT1: COMP1": {
+      "type": "lamp",
+      "name": "SPT1: COMP1",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 71,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "SPT1: COMP1",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_71_72"
+    },
+    "SPT1: COMP2": {
+      "type": "lamp",
+      "name": "SPT1: COMP2",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 71,
+      "channelId": 1,
+      "deviceKind": "lamp",
+      "deviceName": "SPT1: COMP2",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_71_73"
+    },
+    "Auto-corredor Manutenção": {
+      "type": "presence_sensor",
+      "name": "Auto-corredor Manutenção",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 2,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Auto-corredor Manutenção",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_2_96"
+    },
+    "Corredor Manutenção": {
+      "type": "lamp",
+      "name": "Corredor Manutenção",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 2,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "Corredor Manutenção",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_2_3"
+    },
+    "SPT2: COMP1": {
+      "type": "lamp",
+      "name": "SPT2: COMP1",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 72,
+      "channelId": 1,
+      "deviceKind": "lamp",
+      "deviceName": "SPT2: COMP1",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_72_74"
+    },
+    "SPT2: COMP2": {
+      "type": "lamp",
+      "name": "SPT2: COMP2",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 72,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "SPT2: COMP2",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_72_75"
+    },
+    "Auto. Splitao 4": {
+      "type": "presence_sensor",
+      "name": "Auto. Splitao 4",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 15,
+      "channelId": 1,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Auto. Splitao 4",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_15_30"
+    },
+    "Auto. Splitao 3": {
+      "type": "presence_sensor",
+      "name": "Auto. Splitao 3",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 15,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Auto. Splitao 3",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_15_29"
+    },
+    "Splitão 04": {
+      "type": "lamp",
+      "name": "Splitão 04",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 15,
+      "channelId": 1,
+      "deviceKind": "lamp",
+      "deviceName": "Splitão 04",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_15_20"
+    },
+    "Splitão 03": {
+      "type": "lamp",
+      "name": "Splitão 03",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 15,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "Splitão 03",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_15_19"
+    },
+    "Hidr. Potável Entrada x1": {
+      "type": "flow_sensor",
+      "name": "Hidr. Potável Entrada x1",
+      "channelType": "PULSE_ON_POWER",
+      "outputType": "HOLDING",
+      "slaveId": 77,
+      "channelId": 1,
+      "deviceKind": "flow_sensor",
+      "deviceName": "Hidr. Potável Entrada x1",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_77_81"
+    },
+    "Energia": {
+      "type": "presence_sensor",
+      "name": "Energia ",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 79,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Energia ",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_79_85"
+    },
+    "Alarme De Incêndio": {
+      "type": "presence_sensor",
+      "name": "Alarme De Incêndio ",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 73,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Alarme De Incêndio ",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_73_76"
+    },
+    "Porta G": {
+      "type": "presence_sensor",
+      "name": "Porta G",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 56,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Porta G",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_56_42"
+    },
+    "Check 2": {
+      "type": "lamp",
+      "name": "Check 2",
+      "channelType": null,
+      "outputType": null,
+      "slaveId": 13,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "Check 2",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_13_16"
+    },
+    "Auto-Deposito/Recebimento": {
+      "type": "presence_sensor",
+      "name": "Auto-Deposito/Recebimento",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 5,
+      "channelId": 1,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Auto-Deposito/Recebimento",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_5_94"
+    },
+    "Auto- Luz Alta Depósito": {
+      "type": "presence_sensor",
+      "name": "Auto- Luz Alta Depósito",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 5,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Auto- Luz Alta Depósito",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_5_93"
+    },
+    "Luz Depósito Alta/Recebimento": {
+      "type": "lamp",
+      "name": "Luz Depósito Alta/Recebimento",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 5,
+      "channelId": 1,
+      "deviceKind": "lamp",
+      "deviceName": "Luz Depósito Alta/Recebimento",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_5_7"
+    },
+    "Luz Depósito Alta": {
+      "type": "lamp",
+      "name": "Luz Depósito Alta",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 5,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "Luz Depósito Alta",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_5_6"
+    },
+    "SPT7: COMP2": {
+      "type": "lamp",
+      "name": "SPT7: COMP2",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 65,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "SPT7: COMP2",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_65_61"
+    },
+    "SPT7: COMP1": {
+      "type": "lamp",
+      "name": "SPT7: COMP1",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 65,
+      "channelId": 1,
+      "deviceKind": "lamp",
+      "deviceName": "SPT7: COMP1",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_65_60"
+    },
+    "Chck Fundo": {
+      "type": "lamp",
+      "name": "Chck Fundo",
+      "channelType": null,
+      "outputType": null,
+      "slaveId": 52,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "Chck Fundo",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_52_37"
+    },
+    "Válvula Morotizada": {
+      "type": "lamp",
+      "name": "Válvula Morotizada",
+      "channelType": null,
+      "outputType": null,
+      "slaveId": 78,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "Válvula Morotizada",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_78_83"
+    },
+    "Porta E": {
+      "type": "presence_sensor",
+      "name": "Porta E",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 55,
+      "channelId": 1,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Porta E",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_55_41"
+    },
+    "Porta F": {
+      "type": "presence_sensor",
+      "name": "Porta F",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 55,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Porta F",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_55_40"
+    },
+    "SPT5: COMP1": {
+      "type": "lamp",
+      "name": "SPT5: COMP1",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 68,
+      "channelId": 1,
+      "deviceKind": "lamp",
+      "deviceName": "SPT5: COMP1",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_68_66"
+    },
+    "SPT5: COMP2": {
+      "type": "lamp",
+      "name": "SPT5: COMP2",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 68,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "SPT5: COMP2",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_68_67"
+    },
+    "Auto- Retira Externa": {
+      "type": "presence_sensor",
+      "name": "Auto- Retira Externa",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 8,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Auto- Retira Externa",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_8_100"
+    },
+    "Auto-Drive": {
+      "type": "presence_sensor",
+      "name": "Auto-Drive",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 8,
+      "channelId": 1,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Auto-Drive",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_8_99"
+    },
+    "Luz Drive Thru": {
+      "type": "lamp",
+      "name": "Luz Drive Thru",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 8,
+      "channelId": 1,
+      "deviceKind": "lamp",
+      "deviceName": "Luz Drive Thru",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_8_12"
+    },
+    "Luz Retira Externa": {
+      "type": "lamp",
+      "name": "Luz Retira Externa",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 8,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "Luz Retira Externa",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_8_11"
+    },
+    "Hidr. Saída Potável x1": {
+      "type": "flow_sensor",
+      "name": "Hidr. Saída Potável x1",
+      "channelType": "PULSE_ON_POWER",
+      "outputType": "HOLDING",
+      "slaveId": 80,
+      "channelId": 1,
+      "deviceKind": "flow_sensor",
+      "deviceName": "Hidr. Saída Potável x1",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_80_86"
+    },
+    "check": {
+      "type": "lamp",
+      "name": "check",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 62,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "check",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_62_115"
+    },
+    "Nivel Reuso": {
+      "type": "presence_sensor",
+      "name": "Nivel Reuso",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 62,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Nivel Reuso",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_62_55"
+    },
+    "SPT6: COMP1": {
+      "type": "lamp",
+      "name": "SPT6: COMP1",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 67,
+      "channelId": 1,
+      "deviceKind": "lamp",
+      "deviceName": "SPT6: COMP1",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_67_64"
+    },
+    "SPT6: COMP2": {
+      "type": "lamp",
+      "name": "SPT6: COMP2",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 67,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "SPT6: COMP2",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_67_65"
+    },
+    "Falha Geral Diesel": {
+      "type": "presence_sensor",
+      "name": "Falha Geral Diesel",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 76,
+      "channelId": 1,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Falha Geral Diesel",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_76_80"
+    },
+    "Bomba Diesel Ligada": {
+      "type": "presence_sensor",
+      "name": "Bomba Diesel Ligada",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 76,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Bomba Diesel Ligada",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_76_79"
+    },
+    "SPT3: COMP1": {
+      "type": "lamp",
+      "name": "SPT3: COMP1",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 69,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "SPT3: COMP1",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_69_68"
+    },
+    "SPT3: COMP2": {
+      "type": "lamp",
+      "name": "SPT3: COMP2",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 69,
+      "channelId": 1,
+      "deviceKind": "lamp",
+      "deviceName": "SPT3: COMP2",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_69_69"
+    },
+    "Hidr. Saída Reuso x1": {
+      "type": "flow_sensor",
+      "name": "Hidr. Saída Reuso x1",
+      "channelType": "PULSE_ON_POWER",
+      "outputType": "HOLDING",
+      "slaveId": 79,
+      "channelId": 1,
+      "deviceKind": "flow_sensor",
+      "deviceName": "Hidr. Saída Reuso x1",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_79_84"
+    },
+    "Desligar ADM Armários": {
+      "type": "pulse_up",
+      "name": "Desligar ADM Armários",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 59,
+      "channelId": 1,
+      "deviceKind": "pulse_up",
+      "deviceName": "Desligar ADM Armários",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_59_47"
+    },
+    "Ligar ADM Armários": {
+      "type": "pulse_up",
+      "name": "Ligar ADM Armários",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 59,
+      "channelId": 0,
+      "deviceKind": "pulse_up",
+      "deviceName": "Ligar ADM Armários",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_59_46"
+    },
+    "Status ADM ARMÁRIOS": {
+      "type": "presence_sensor",
+      "name": "Status ADM ARMÁRIOS",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 59,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Status ADM ARMÁRIOS",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_59_52"
+    },
+    "Auto.Ilum.Est.Coberto": {
+      "type": "presence_sensor",
+      "name": "Auto.Ilum.Est.Coberto",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 6,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Auto.Ilum.Est.Coberto",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_6_90"
+    },
+    "Iluminacao Estacionamento Coberto": {
+      "type": "lamp",
+      "name": "Iluminacao Estacionamento Coberto",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 6,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "Iluminacao Estacionamento Coberto",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_6_8"
+    },
+    "Auto. Splitao 6": {
+      "type": "presence_sensor",
+      "name": "Auto. Splitao 6",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 16,
+      "channelId": 1,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Auto. Splitao 6",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_16_32"
+    },
+    "Auto. Splitao 5": {
+      "type": "presence_sensor",
+      "name": "Auto. Splitao 5",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 16,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Auto. Splitao 5",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_16_31"
+    },
+    "Splitão 06": {
+      "type": "lamp",
+      "name": "Splitão 06",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 16,
+      "channelId": 1,
+      "deviceKind": "lamp",
+      "deviceName": "Splitão 06",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_16_22"
+    },
+    "Splitão 05": {
+      "type": "lamp",
+      "name": "Splitão 05",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 16,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "Splitão 05",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_16_21"
+    },
+    "Check Frente": {
+      "type": "lamp",
+      "name": "Check Frente",
+      "channelType": null,
+      "outputType": null,
+      "slaveId": 54,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "Check Frente",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_54_39"
+    },
+    "Auto-externa Depósito": {
+      "type": "presence_sensor",
+      "name": "Auto-externa Depósito",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 4,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Auto-externa Depósito",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_4_95"
+    },
+    "Luz Externa Depósito": {
+      "type": "lamp",
+      "name": "Luz Externa Depósito ",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 4,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "Luz Externa Depósito ",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_4_5"
+    },
+    "Check Meio": {
+      "type": "lamp",
+      "name": "Check Meio",
+      "channelType": null,
+      "outputType": null,
+      "slaveId": 53,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "Check Meio",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_53_38"
+    },
+    "Geral(SPU/VMF/ADM)": {
+      "type": "plug",
+      "name": "Geral(SPU/VMF/ADM)",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 58,
+      "channelId": 0,
+      "deviceKind": "plug",
+      "deviceName": "Geral(SPU/VMF/ADM)",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_58_44"
+    },
+    "Selet. Geral Exaust": {
+      "type": "presence_sensor",
+      "name": "Selet. Geral Exaust",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 58,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Selet. Geral Exaust",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_58_45"
+    },
+    "Auto-Meio/Fundo Loja": {
+      "type": "presence_sensor",
+      "name": "Auto-Meio/Fundo Loja",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 1,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Auto-Meio/Fundo Loja",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_1_98"
+    },
+    "Auto-Frente/Corredor Loja": {
+      "type": "presence_sensor",
+      "name": "Auto-Frente/Corredor Loja",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 1,
+      "channelId": 1,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Auto-Frente/Corredor Loja",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_1_97"
+    },
+    "Meio /Fundo Loja": {
+      "type": "lamp",
+      "name": "Meio /Fundo Loja",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 1,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "Meio /Fundo Loja",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_1_1"
+    },
+    "Frente / Corredor Loja": {
+      "type": "lamp",
+      "name": "Frente / Corredor Loja",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 1,
+      "channelId": 1,
+      "deviceKind": "lamp",
+      "deviceName": "Frente / Corredor Loja",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_1_2"
+    },
+    "Sinal Eletroboia": {
+      "type": "presence_sensor",
+      "name": "Sinal Eletroboia ",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 86,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Sinal Eletroboia ",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_86_89"
+    },
+    "Check": {
+      "type": "lamp",
+      "name": "Check",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 86,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "Check",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_86_88"
+    },
+    "SPT4: COMP2": {
+      "type": "lamp",
+      "name": "SPT4: COMP2",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 70,
+      "channelId": 1,
+      "deviceKind": "lamp",
+      "deviceName": "SPT4: COMP2",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_70_71"
+    },
+    "SPT4: COMP1": {
+      "type": "lamp",
+      "name": "SPT4: COMP1",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 70,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "SPT4: COMP1",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_70_70"
+    },
+    "Desligar Exaust. Cozinha": {
+      "type": "pulse_up",
+      "name": "Desligar Exaust. Cozinha",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 60,
+      "channelId": 1,
+      "deviceKind": "pulse_up",
+      "deviceName": "Desligar Exaust. Cozinha",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_60_49"
+    },
+    "Ligar Exaust. Cozinha": {
+      "type": "pulse_up",
+      "name": "Ligar Exaust. Cozinha",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 60,
+      "channelId": 0,
+      "deviceKind": "pulse_up",
+      "deviceName": "Ligar Exaust. Cozinha",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_60_48"
+    },
+    "Status Exaust. Cozinha": {
+      "type": "presence_sensor",
+      "name": "Status Exaust. Cozinha",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 60,
+      "channelId": 1,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Status Exaust. Cozinha",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_60_53"
+    },
+    "Bomba Elétrica Ligada": {
+      "type": "presence_sensor",
+      "name": "Bomba Elétrica Ligada ",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 75,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Bomba Elétrica Ligada ",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_75_77"
+    },
+    "Falha Do Motor Elétrico": {
+      "type": "presence_sensor",
+      "name": "Falha Do Motor Elétrico ",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 75,
+      "channelId": 1,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Falha Do Motor Elétrico ",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_75_78"
+    },
+    "Auto-Externa Manutenção": {
+      "type": "presence_sensor",
+      "name": "Auto-Externa Manutenção",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 3,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Auto-Externa Manutenção",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_3_101"
+    },
+    "Luz Externa Manut.": {
+      "type": "lamp",
+      "name": "Luz Externa Manut.",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 3,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "Luz Externa Manut.",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_3_4"
+    },
+    "Ligar Exaust. LT": {
+      "type": "pulse_up",
+      "name": "Ligar Exaust. LT",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 61,
+      "channelId": 0,
+      "deviceKind": "pulse_up",
+      "deviceName": "Ligar Exaust. LT",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_61_51"
+    },
+    "Desligar Exaust. LT": {
+      "type": "pulse_up",
+      "name": "Desligar Exaust. LT",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 61,
+      "channelId": 1,
+      "deviceKind": "pulse_up",
+      "deviceName": "Desligar Exaust. LT",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_61_50"
+    },
+    "Status Laje Técnica": {
+      "type": "presence_sensor",
+      "name": "Status Laje Técnica ",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 61,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Status Laje Técnica ",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_61_54"
+    },
+    "Splitão 01": {
+      "type": "lamp",
+      "name": "Splitão 01",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 14,
+      "channelId": 1,
+      "deviceKind": "lamp",
+      "deviceName": "Splitão 01",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_14_18"
+    },
+    "Splitão 02": {
+      "type": "lamp",
+      "name": "Splitão 02",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 14,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "Splitão 02",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_14_17"
+    },
+    "Auto. Splitao 2": {
+      "type": "presence_sensor",
+      "name": "Auto. Splitao 2",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 14,
+      "channelId": 1,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Auto. Splitao 2",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_14_28"
+    },
+    "Auto. Splitao 1": {
+      "type": "presence_sensor",
+      "name": "Auto. Splitao 1",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 14,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Auto. Splitao 1",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_14_27"
+    },
+    "Split 10 Comp 1 ON/OFF": {
+      "type": "presence_sensor",
+      "name": "Split 10 Comp 1 ON/OFF",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 63,
+      "channelId": 1,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Split 10 Comp 1 ON/OFF",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_63_111"
+    },
+    "Split 10 Comp 2 ON/OFF": {
+      "type": "presence_sensor",
+      "name": "Split 10 Comp 2 ON/OFF",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 63,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Split 10 Comp 2 ON/OFF",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_63_110"
+    },
+    "SPT10: COMP2": {
+      "type": "lamp",
+      "name": "SPT10: COMP2",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 63,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "SPT10: COMP2",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_63_57"
+    },
+    "SPT10: COMP1": {
+      "type": "lamp",
+      "name": "SPT10: COMP1",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 63,
+      "channelId": 1,
+      "deviceKind": "lamp",
+      "deviceName": "SPT10: COMP1",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_63_56"
+    },
+    "Splitao Geral": {
+      "type": "plug",
+      "name": "Splitao Geral",
+      "channelType": "REPLICATED",
+      "outputType": "HOLDING",
+      "slaveId": 9,
+      "channelId": 0,
+      "deviceKind": "plug",
+      "deviceName": "Splitao Geral",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_9_13"
+    },
+    "IL-2": {
+      "type": "lamp",
+      "name": "IL-2",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 88,
+      "channelId": 1,
+      "deviceKind": "lamp",
+      "deviceName": "IL-2",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_88_109"
+    },
+    "Auto IL-2": {
+      "type": "presence_sensor",
+      "name": "Auto IL-2",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 88,
+      "channelId": 1,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Auto IL-2",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_88_108"
+    },
+    "Auto IL-1": {
+      "type": "presence_sensor",
+      "name": "Auto IL-1",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 88,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Auto IL-1",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_88_107"
+    },
+    "IL-1": {
+      "type": "lamp",
+      "name": "IL-1",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 88,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "IL-1",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_88_106"
+    },
+    "Auto-Estac-Descoberto": {
+      "type": "presence_sensor",
+      "name": "Auto-Estac-Descoberto",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 7,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Auto-Estac-Descoberto",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_7_92"
+    },
+    "Auto.Ilum.Toten": {
+      "type": "presence_sensor",
+      "name": "Auto.Ilum.Toten ",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 7,
+      "channelId": 1,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Auto.Ilum.Toten ",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_7_91"
+    },
+    "Totem Publicidade": {
+      "type": "lamp",
+      "name": "Totem Publicidade",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 7,
+      "channelId": 1,
+      "deviceKind": "lamp",
+      "deviceName": "Totem Publicidade",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_7_10"
+    },
+    "Luz Estacio. Descoberto": {
+      "type": "lamp",
+      "name": "Luz Estacio. Descoberto",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 7,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "Luz Estacio. Descoberto",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_7_9"
+    }
+  },
+  "last_consumption_3F_Bomba_Diesel": {
+    "ts": 1778596685496,
+    "consumption": "0.00"
+  },
+  "last_consumption_3F_Bomba_Elétrica_Disp_1": {
+    "ts": 1778596625498,
+    "consumption": "0.00"
+  },
+  "last_consumption_3F_Bomba_Elétrica_Disp_2": {
+    "ts": 1778596631497,
+    "consumption": "0.00"
+  },
+  "last_consumption_3F_CD_-_Guadalupe": {
+    "ts": 1778596589494,
+    "consumption": "20.00"
+  },
+  "last_consumption_3F_Corredor_34_(3mt)": {
+    "ts": 1778596763481,
+    "consumption": "0.00"
+  },
+  "last_consumption_3F_DRIVE_Drive": {
+    "ts": 1778596553824,
+    "consumption": "3.00"
+  },
+  "last_consumption_3F_Eletroboia_Reuso": {
+    "ts": 1778596661845,
+    "consumption": "0.00"
+  },
+  "last_consumption_3F_Gerador_1": {
+    "ts": 1778596715807,
+    "consumption": "0.00"
+  },
+  "last_consumption_3F_Gerador_2": {
+    "ts": 1778596577500,
+    "consumption": "0.00"
+  },
+  "last_consumption_3F_Hid": {
+    "Saída_Reuso": {
+      "ts": 1778600544117,
+      "consumption": "0.00"
+    }
+  },
+  "last_consumption_3F_Hidr": {
+    "Saída_Potável": {
+      "ts": 1778600375487,
+      "consumption": "0.00"
+    },
+    "_Potável_Entrada": {
+      "ts": 1778600439827,
+      "consumption": "0.00"
+    }
+  },
+  "last_consumption_3F_LOJA_CORR": {
+    "_FRENTE": {
+      "_MEIO": {
+        "FUNDO": {
+          "ts": 1778600279497,
+          "consumption": "0.00"
+        }
+      }
+    }
+  },
+  "last_consumption_3F_Lj1": {
+    "ts": 1778596613508,
+    "consumption": "0.00"
+  },
+  "last_consumption_3F_Lj2": {
+    "ts": 1778596758454,
+    "consumption": "0.00"
+  },
+  "last_consumption_3F_Lj3": {
+    "ts": 1778596753496,
+    "consumption": "0.00"
+  },
+  "last_consumption_3F_Lj4": {
+    "ts": 1778596756125,
+    "consumption": "0.00"
+  },
+  "last_consumption_3F_QT": {
+    "Depósito": {
+      "ts": 1778600309497,
+      "consumption": "13.00"
+    }
+  },
+  "last_consumption_3F_QT_ADM": {
+    "L": {
+      "ts": 1778600267515,
+      "consumption": "0.00"
+    },
+    "_Estacionamento_Coberto": {
+      "ts": 1778600316147,
+      "consumption": "0.00"
+    }
+  },
+  "last_consumption_3F_QT_Depósito_Luz_Externa": {
+    "ts": 1778596619492,
+    "consumption": "0.00"
+  },
+  "last_consumption_3F_QT_Loja_Corredor_Manutenção": {
+    "ts": 1778596637498,
+    "consumption": "0.00"
+  },
+  "last_consumption_3F_Repetidor_Frente_Loja": {
+    "ts": 1778596709538,
+    "consumption": "0.00"
+  },
+  "last_consumption_3F_Repetidor_Fundo_Loja": {
+    "ts": 1778596559815,
+    "consumption": "0.00"
+  },
+  "last_consumption_3F_Repetidor_Meio_Loja": {
+    "ts": 1778596481777,
+    "consumption": "0.00"
+  },
+  "last_consumption_3F_Solenoide_Reuso": {
+    "ts": 1778596673463,
+    "consumption": "0.00"
+  },
+  "last_consumption_3F_Temp": {
+    "_Fundo_Loja": {
+      "ts": 1778600273527,
+      "consumption": "0.00"
+    },
+    "Frente_Loja": {
+      "ts": 1778600321847,
+      "consumption": "0.00"
+    },
+    "_Corredor_10": {
+      "ts": 1778600489468,
+      "consumption": "0.00"
+    },
+    "Meio_Loja": {
+      "ts": 1778600502910,
+      "consumption": "0.00"
+    }
+  },
+  "last_consumption_3F_Temperatura_Corredor_04": {
+    "ts": 1778596669254,
+    "consumption": "0.00"
+  },
+  "last_consumption_3F_Temperatura_Corredor_14": {
+    "ts": 1778596535575,
+    "consumption": "0.00"
+  },
+  "last_consumption_3F_Temperatura_Corredor_18": {
+    "ts": 1778596673510,
+    "consumption": "0.00"
+  },
+  "rfirCommands": {},
+  "slave_data": [
+    {},
+    {},
+    {},
+    {},
+    {},
+    {},
+    {},
+    {},
+    {},
+    {}
+  ],
+  "stored_automations": {
+    "Temp.Frente Loja": [],
+    "Temp.Meio Loja": [],
+    "Temp. Fundo Loja": [],
+    "SPT2: COMP1/COMP2": [
+      {
+        "type": "temperature",
+        "settings": {},
+        "customerId": "b6d38970-a1d4-11ef-9e25-b7f6e6d4253b",
+        "minTemperature": 23.1,
+        "maxTemperature": 24,
+        "controlDevice": {
+          "id": {
+            "entityType": "DEVICE",
+            "id": "d0eaf3a0-e957-11ef-a212-67802bff4221"
+          },
+          "name": "SPT1: COMP1 (Guadalupe)"
+        }
+      },
+      {
+        "type": "temperature",
+        "settings": {},
+        "customerId": "b6d38970-a1d4-11ef-9e25-b7f6e6d4253b",
+        "minTemperature": 23.5,
+        "maxTemperature": 25,
+        "controlDevice": {
+          "id": {
+            "entityType": "DEVICE",
+            "id": "d0eb1ab0-e957-11ef-a212-67802bff4221"
+          },
+          "name": "SPT1: COMP2 (Guadalupe)"
+        }
+      },
+      {
+        "type": "temperature",
+        "settings": {},
+        "customerId": "b6d38970-a1d4-11ef-9e25-b7f6e6d4253b",
+        "minTemperature": 23.1,
+        "maxTemperature": 24,
+        "controlDevice": {
+          "id": {
+            "entityType": "DEVICE",
+            "id": "36a6b1b0-e959-11ef-a212-67802bff4221"
+          },
+          "name": "SPT2: COMP1 (Guadalupe)"
+        }
+      },
+      {
+        "type": "temperature",
+        "settings": {},
+        "customerId": "b6d38970-a1d4-11ef-9e25-b7f6e6d4253b",
+        "minTemperature": 23.5,
+        "maxTemperature": 25,
+        "controlDevice": {
+          "id": {
+            "entityType": "DEVICE",
+            "id": "36a68aa0-e959-11ef-a212-67802bff4221"
+          },
+          "name": "SPT2: COMP2 (Guadalupe)"
+        }
+      }
+    ],
+    "SPT4: COMP1/COMP2": [
+      {
+        "type": "temperature",
+        "settings": {},
+        "customerId": "b6d38970-a1d4-11ef-9e25-b7f6e6d4253b",
+        "minTemperature": 23.1,
+        "maxTemperature": 24,
+        "controlDevice": {
+          "id": {
+            "entityType": "DEVICE",
+            "id": "a001e1d0-e953-11ef-a212-67802bff4221"
+          },
+          "name": "SPT3: COMP1 (Guadalupe)"
+        }
+      },
+      {
+        "type": "temperature",
+        "settings": {},
+        "customerId": "b6d38970-a1d4-11ef-9e25-b7f6e6d4253b",
+        "minTemperature": 23.5,
+        "maxTemperature": 25,
+        "controlDevice": {
+          "id": {
+            "entityType": "DEVICE",
+            "id": "058292b0-e955-11ef-a212-67802bff4221"
+          },
+          "name": "SPT3: COMP2 (Guadalupe)"
+        }
+      },
+      {
+        "type": "temperature",
+        "settings": {},
+        "customerId": "b6d38970-a1d4-11ef-9e25-b7f6e6d4253b",
+        "minTemperature": 23.1,
+        "maxTemperature": 24,
+        "controlDevice": {
+          "id": {
+            "entityType": "DEVICE",
+            "id": "058ddd50-e955-11ef-a212-67802bff4221"
+          },
+          "name": "SPT4: COMP1 (Guadalupe)"
+        }
+      },
+      {
+        "type": "temperature",
+        "settings": {},
+        "customerId": "b6d38970-a1d4-11ef-9e25-b7f6e6d4253b",
+        "minTemperature": 23.5,
+        "maxTemperature": 25,
+        "controlDevice": {
+          "id": {
+            "entityType": "DEVICE",
+            "id": "058d8f30-e955-11ef-a212-67802bff4221"
+          },
+          "name": "SPT4: COMP2 (Guadalupe)"
+        }
+      }
+    ],
+    "SPT5: COMP1/COMP2": [
+      {
+        "type": "temperature",
+        "settings": {},
+        "customerId": "b6d38970-a1d4-11ef-9e25-b7f6e6d4253b",
+        "minTemperature": 23.1,
+        "maxTemperature": 24,
+        "controlDevice": {
+          "id": {
+            "entityType": "DEVICE",
+            "id": "5362ec20-f48e-11ef-9baa-8137e6ac9d72"
+          },
+          "name": "SPT5: COMP1 (Guadalupe)"
+        }
+      },
+      {
+        "type": "temperature",
+        "settings": {},
+        "customerId": "b6d38970-a1d4-11ef-9e25-b7f6e6d4253b",
+        "minTemperature": 23.5,
+        "maxTemperature": 25,
+        "controlDevice": {
+          "id": {
+            "entityType": "DEVICE",
+            "id": "5362c510-f48e-11ef-9baa-8137e6ac9d72"
+          },
+          "name": "SPT5: COMP2 (Guadalupe)"
+        }
+      },
+      {
+        "type": "temperature",
+        "settings": {},
+        "customerId": "b6d38970-a1d4-11ef-9e25-b7f6e6d4253b",
+        "minTemperature": 23.1,
+        "maxTemperature": 24,
+        "controlDevice": {
+          "id": {
+            "entityType": "DEVICE",
+            "id": "6f23f390-e94f-11ef-a212-67802bff4221"
+          },
+          "name": "SPT6: COMP1 (Guadalupe)"
+        }
+      },
+      {
+        "type": "temperature",
+        "settings": {},
+        "customerId": "b6d38970-a1d4-11ef-9e25-b7f6e6d4253b",
+        "minTemperature": 23.5,
+        "maxTemperature": 25,
+        "controlDevice": {
+          "id": {
+            "entityType": "DEVICE",
+            "id": "6f23cc80-e94f-11ef-a212-67802bff4221"
+          },
+          "name": "SPT6: COMP2 (Guadalupe)"
+        }
+      }
+    ],
+    "SPT8: COMP1/COMP2": [
+      {
+        "type": "temperature",
+        "settings": {},
+        "customerId": "b6d38970-a1d4-11ef-9e25-b7f6e6d4253b",
+        "minTemperature": 23.1,
+        "maxTemperature": 24,
+        "controlDevice": {
+          "id": {
+            "entityType": "DEVICE",
+            "id": "d8718f20-e949-11ef-a212-67802bff4221"
+          },
+          "name": "SPT7: COMP1 (Guadalupe)"
+        }
+      },
+      {
+        "type": "temperature",
+        "settings": {},
+        "customerId": "b6d38970-a1d4-11ef-9e25-b7f6e6d4253b",
+        "minTemperature": 23.5,
+        "maxTemperature": 25,
+        "controlDevice": {
+          "id": {},
+          "name": "SPT7: COMP2 (Guadalupe)",
+          "_warning": "controlDevice.id está VAZIO (sem entityType/id) no flow.context — registro corrompido; ver _meta.anomalies"
+        }
+      },
+      {
+        "type": "temperature",
+        "settings": {},
+        "customerId": "b6d38970-a1d4-11ef-9e25-b7f6e6d4253b",
+        "minTemperature": 23.1,
+        "maxTemperature": 24,
+        "controlDevice": {
+          "id": {
+            "entityType": "DEVICE",
+            "id": "d8720450-e949-11ef-a212-67802bff4221"
+          },
+          "name": "SPT8: COMP1 (Guadalupe)"
+        }
+      },
+      {
+        "type": "temperature",
+        "settings": {},
+        "customerId": "b6d38970-a1d4-11ef-9e25-b7f6e6d4253b",
+        "minTemperature": 23.5,
+        "maxTemperature": 25,
+        "controlDevice": {
+          "id": {
+            "entityType": "DEVICE",
+            "id": "3e35d8b0-e94b-11ef-a212-67802bff4221"
+          },
+          "name": "SPT8: COMP2 (Guadalupe)"
+        }
+      }
+    ],
+    "SPT9: COMP1/COMP2": [
+      {
+        "type": "temperature",
+        "settings": {},
+        "customerId": "b6d38970-a1d4-11ef-9e25-b7f6e6d4253b",
+        "minTemperature": 23.1,
+        "maxTemperature": 24,
+        "controlDevice": {
+          "id": {
+            "entityType": "DEVICE",
+            "id": "a78e49b1-e945-11ef-a212-67802bff4221"
+          },
+          "name": "SPT9: COMP1 (Guadalupe)"
+        }
+      },
+      {
+        "type": "temperature",
+        "settings": {},
+        "customerId": "b6d38970-a1d4-11ef-9e25-b7f6e6d4253b",
+        "minTemperature": 23.5,
+        "maxTemperature": 25,
+        "controlDevice": {
+          "id": {
+            "entityType": "DEVICE",
+            "id": "d5089ea0-f48e-11ef-9baa-8137e6ac9d72"
+          },
+          "name": "SPT9: COMP2 (Guadalupe)"
+        }
+      },
+      {
+        "type": "temperature",
+        "settings": {},
+        "customerId": "b6d38970-a1d4-11ef-9e25-b7f6e6d4253b",
+        "minTemperature": 23.1,
+        "maxTemperature": 24,
+        "controlDevice": {
+          "id": {
+            "entityType": "DEVICE",
+            "id": "a78e49b0-e945-11ef-a212-67802bff4221"
+          },
+          "name": "SPT10: COMP1 (Guadalupe)"
+        }
+      },
+      {
+        "type": "temperature",
+        "settings": {},
+        "customerId": "b6d38970-a1d4-11ef-9e25-b7f6e6d4253b",
+        "minTemperature": 23.5,
+        "maxTemperature": 25,
+        "controlDevice": {
+          "id": {
+            "entityType": "DEVICE",
+            "id": "a78e49b2-e945-11ef-a212-67802bff4221"
+          },
+          "name": "SPT10: COMP2 (Guadalupe)"
+        }
+      }
+    ]
+  },
+  "stored_demand": {
+    "Trafo": {
+      "minPower": 500,
+      "maxPower": 530,
+      "controlDevices": [
+        {
+          "id": "a78e49b0-e945-11ef-a212-67802bff4221",
+          "name": "SPT10: COMP1 (Guadalupe)"
+        },
+        {
+          "id": "a78e49b2-e945-11ef-a212-67802bff4221",
+          "name": "SPT10: COMP2 (Guadalupe)"
+        }
+      ]
+    }
+  },
+  "stored_holidays": [
+    "2025-12-24",
+    "2025-12-31",
+    "2026-05-01",
+    "2025-11-20",
+    "2026-04-21",
+    "2026-04-23"
+  ],
+  "stored_schedules": {
+    "SPT3: COMP1": [
+      {
+        "type": "group",
+        "startHour": "06:30",
+        "endHour": "20:30",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "09:00",
+        "endHour": "16:30",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:10",
+        "endHour": "17:50",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false,
+          "holiday": true
+        },
+        "retain": true
+      }
+    ],
+    "SPT7: COMP1": [
+      {
+        "type": "group",
+        "startHour": "06:30",
+        "endHour": "20:30",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "09:00",
+        "endHour": "16:30",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:10",
+        "endHour": "17:50",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false,
+          "holiday": true
+        },
+        "retain": true
+      }
+    ],
+    "SPT4: COMP1": [
+      {
+        "type": "group",
+        "startHour": "06:30",
+        "endHour": "20:30",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "09:00",
+        "endHour": "16:30",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:10",
+        "endHour": "17:50",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false,
+          "holiday": true
+        },
+        "retain": true
+      }
+    ],
+    "SPT8: COMP1": [
+      {
+        "type": "group",
+        "startHour": "06:30",
+        "endHour": "20:30",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "09:00",
+        "endHour": "16:30",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:10",
+        "endHour": "17:50",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false,
+          "holiday": true
+        },
+        "retain": true
+      }
+    ],
+    "Splitão 04": [
+      {
+        "type": "group",
+        "startHour": "06:00",
+        "endHour": "20:40",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:30",
+        "endHour": "16:40",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:00",
+        "endHour": "18:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false,
+          "holiday": true
+        },
+        "retain": true
+      }
+    ],
+    "Splitão 03": [
+      {
+        "type": "group",
+        "startHour": "06:00",
+        "endHour": "20:40",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:30",
+        "endHour": "16:40",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:00",
+        "endHour": "18:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false,
+          "holiday": true
+        },
+        "retain": true
+      }
+    ],
+    "Splitão 07": [
+      {
+        "type": "group",
+        "startHour": "06:00",
+        "endHour": "20:40",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:30",
+        "endHour": "16:40",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:00",
+        "endHour": "18:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false,
+          "holiday": true
+        },
+        "retain": true
+      }
+    ],
+    "Splitão 08": [
+      {
+        "type": "group",
+        "startHour": "06:00",
+        "endHour": "20:40",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:30",
+        "endHour": "16:40",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:00",
+        "endHour": "18:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false,
+          "holiday": true
+        },
+        "retain": true
+      }
+    ],
+    "Geral(SPU/VMF/ADM)": [
+      {
+        "type": "individual",
+        "startHour": "05:30",
+        "endHour": "22:00",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": true,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "07:00",
+        "endHour": "19:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true,
+          "holiday": true
+        },
+        "retain": true
+      }
+    ],
+    "Status Exaust. Cozinha": [
+      {
+        "type": "individual",
+        "startHour": "05:30",
+        "endHour": "17:30",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "05:30",
+        "endHour": "18:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "07:30",
+        "endHour": "19:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false,
+          "holiday": true
+        },
+        "retain": true
+      }
+    ],
+    "Status ADM ARMÁRIOS": [
+      {
+        "type": "individual",
+        "startHour": "06:00",
+        "endHour": "22:00",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "08:00",
+        "endHour": "18:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "07:30",
+        "endHour": "19:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false,
+          "holiday": true
+        },
+        "retain": true
+      }
+    ],
+    "Status Laje Técnica": [
+      {
+        "type": "individual",
+        "startHour": "05:30",
+        "endHour": "22:00",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "08:00",
+        "endHour": "18:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true,
+          "holiday": true
+        },
+        "retain": true
+      }
+    ],
+    "SPT6: COMP1": [
+      {
+        "type": "group",
+        "startHour": "06:30",
+        "endHour": "20:30",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "09:00",
+        "endHour": "16:30",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:10",
+        "endHour": "17:50",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false,
+          "holiday": true
+        },
+        "retain": true
+      }
+    ],
+    "SPT10: COMP1": [
+      {
+        "type": "group",
+        "startHour": "06:30",
+        "endHour": "20:30",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "09:00",
+        "endHour": "16:30",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:10",
+        "endHour": "17:50",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false,
+          "holiday": true
+        },
+        "retain": true
+      }
+    ],
+    "SPT2: COMP1": [
+      {
+        "type": "group",
+        "startHour": "06:30",
+        "endHour": "20:30",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "09:00",
+        "endHour": "16:30",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:10",
+        "endHour": "17:50",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false,
+          "holiday": true
+        },
+        "retain": true
+      }
+    ],
+    "SPT1: COMP1": [
+      {
+        "type": "group",
+        "startHour": "06:30",
+        "endHour": "20:30",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "09:00",
+        "endHour": "16:30",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:10",
+        "endHour": "17:50",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false,
+          "holiday": true
+        },
+        "retain": true
+      }
+    ],
+    "SPT5: COMP1": [
+      {
+        "type": "group",
+        "startHour": "06:30",
+        "endHour": "20:30",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "09:00",
+        "endHour": "16:30",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:10",
+        "endHour": "17:50",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false,
+          "holiday": true
+        },
+        "retain": true
+      }
+    ],
+    "SPT9: COMP1": [
+      {
+        "type": "group",
+        "startHour": "06:30",
+        "endHour": "20:30",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "09:00",
+        "endHour": "16:30",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:10",
+        "endHour": "17:50",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false,
+          "holiday": true
+        },
+        "retain": true
+      }
+    ],
+    "SPT3: COMP2": [
+      {
+        "type": "group",
+        "startHour": "07:00",
+        "endHour": "20:20",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "09:10",
+        "endHour": "16:20",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:20",
+        "endHour": "17:40",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false,
+          "holiday": true
+        },
+        "retain": true
+      }
+    ],
+    "SPT4: COMP2": [
+      {
+        "type": "group",
+        "startHour": "07:00",
+        "endHour": "20:20",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "09:10",
+        "endHour": "16:20",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:20",
+        "endHour": "17:40",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false,
+          "holiday": true
+        },
+        "retain": true
+      }
+    ],
+    "SPT7: COMP2": [
+      {
+        "type": "group",
+        "startHour": "07:00",
+        "endHour": "20:20",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "09:10",
+        "endHour": "16:20",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:20",
+        "endHour": "17:40",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false,
+          "holiday": true
+        },
+        "retain": true
+      }
+    ],
+    "SPT8: COMP2": [
+      {
+        "type": "group",
+        "startHour": "07:00",
+        "endHour": "20:20",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "09:10",
+        "endHour": "16:20",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:20",
+        "endHour": "17:40",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false,
+          "holiday": true
+        },
+        "retain": true
+      }
+    ],
+    "SPT10: COMP2": [
+      {
+        "type": "group",
+        "startHour": "07:00",
+        "endHour": "20:20",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "09:10",
+        "endHour": "16:20",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:20",
+        "endHour": "17:40",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false,
+          "holiday": true
+        },
+        "retain": true
+      }
+    ],
+    "SPT2: COMP2": [
+      {
+        "type": "group",
+        "startHour": "07:00",
+        "endHour": "20:20",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "09:10",
+        "endHour": "16:20",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:20",
+        "endHour": "17:40",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false,
+          "holiday": true
+        },
+        "retain": true
+      }
+    ],
+    "SPT1: COMP2": [
+      {
+        "type": "group",
+        "startHour": "07:00",
+        "endHour": "20:20",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "09:10",
+        "endHour": "16:20",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:20",
+        "endHour": "17:40",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false,
+          "holiday": true
+        },
+        "retain": true
+      }
+    ],
+    "SPT9: COMP2": [
+      {
+        "type": "group",
+        "startHour": "07:00",
+        "endHour": "20:20",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "09:10",
+        "endHour": "16:20",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:20",
+        "endHour": "17:40",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false,
+          "holiday": true
+        },
+        "retain": true
+      }
+    ],
+    "SPT5: COMP2": [
+      {
+        "type": "group",
+        "startHour": "07:00",
+        "endHour": "20:20",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "09:10",
+        "endHour": "16:20",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:20",
+        "endHour": "17:40",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false,
+          "holiday": true
+        },
+        "retain": true
+      }
+    ],
+    "SPT6: COMP2": [
+      {
+        "type": "group",
+        "startHour": "07:00",
+        "endHour": "20:20",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "09:10",
+        "endHour": "16:20",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:20",
+        "endHour": "17:40",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false,
+          "holiday": true
+        },
+        "retain": true
+      }
+    ],
+    "Splitão 09": [
+      {
+        "type": "group",
+        "startHour": "06:00",
+        "endHour": "20:40",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:30",
+        "endHour": "16:40",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:00",
+        "endHour": "18:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false,
+          "holiday": true
+        },
+        "retain": true
+      }
+    ],
+    "Splitão 10": [
+      {
+        "type": "group",
+        "startHour": "06:00",
+        "endHour": "20:40",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:30",
+        "endHour": "16:40",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:00",
+        "endHour": "18:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false,
+          "holiday": true
+        },
+        "retain": true
+      }
+    ],
+    "Splitão 06": [
+      {
+        "type": "group",
+        "startHour": "06:00",
+        "endHour": "20:40",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:30",
+        "endHour": "16:40",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:00",
+        "endHour": "18:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false,
+          "holiday": true
+        },
+        "retain": true
+      }
+    ],
+    "Splitão 05": [
+      {
+        "type": "group",
+        "startHour": "06:00",
+        "endHour": "20:40",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:30",
+        "endHour": "16:40",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:00",
+        "endHour": "18:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false,
+          "holiday": true
+        },
+        "retain": true
+      }
+    ],
+    "Splitão 02": [
+      {
+        "type": "group",
+        "startHour": "06:00",
+        "endHour": "20:40",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:30",
+        "endHour": "16:40",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:00",
+        "endHour": "18:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false,
+          "holiday": true
+        },
+        "retain": true
+      }
+    ],
+    "Splitão 01": [
+      {
+        "type": "group",
+        "startHour": "06:00",
+        "endHour": "20:40",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:30",
+        "endHour": "16:40",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:00",
+        "endHour": "18:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false,
+          "holiday": true
+        },
+        "retain": true
+      }
+    ],
+    "Corredores/Meio Loja": [
+      {
+        "type": "individual",
+        "startHour": "06:00",
+        "endHour": "23:00",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "08:00",
+        "endHour": "05:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "07:00",
+        "endHour": "19:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false,
+          "holiday": true
+        },
+        "retain": true
+      }
+    ],
+    "Luz Externa Depósito": [
+      {
+        "type": "individual",
+        "startHour": "17:00",
+        "endHour": "05:30",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": true,
+          "holiday": true
+        },
+        "retain": true
+      }
+    ],
+    "Luz Externa Manut.": [
+      {
+        "type": "individual",
+        "startHour": "17:30",
+        "endHour": "06:00",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": true,
+          "holiday": true
+        },
+        "retain": true
+      }
+    ],
+    "Luz Depósito Alta/ Recebimento": [
+      {
+        "type": "individual",
+        "startHour": "05:00",
+        "endHour": "22:30",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "07:00",
+        "endHour": "18:30",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "06:00",
+        "endHour": "19:30",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false,
+          "holiday": true
+        },
+        "retain": true
+      }
+    ],
+    "Iluminacao Estacionamento Coberto": [
+      {
+        "type": "individual",
+        "startHour": "17:00",
+        "endHour": "23:00",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "17:00",
+        "endHour": "05:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true,
+          "holiday": true
+        },
+        "retain": true
+      }
+    ],
+    "Luz Depósito Alta": [
+      {
+        "type": "individual",
+        "startHour": "06:00",
+        "endHour": "23:00",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "08:00",
+        "endHour": "05:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "07:00",
+        "endHour": "19:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false,
+          "holiday": true
+        },
+        "retain": true
+      }
+    ],
+    "Totem Publicidade": [
+      {
+        "type": "individual",
+        "startHour": "17:30",
+        "endHour": "06:00",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": true,
+          "holiday": true
+        },
+        "retain": true
+      }
+    ],
+    "Luz Estacio. Descoberto": [
+      {
+        "type": "individual",
+        "startHour": "17:00",
+        "endHour": "23:00",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "17:00",
+        "endHour": "18:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "17:00",
+        "endHour": "19:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false,
+          "holiday": true
+        },
+        "retain": true
+      }
+    ],
+    "Luz Retira Externa": [
+      {
+        "type": "individual",
+        "startHour": "17:30",
+        "endHour": "05:30",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": true,
+          "holiday": true
+        },
+        "retain": true
+      }
+    ],
+    "Luz Drive Thru": [
+      {
+        "type": "individual",
+        "startHour": "06:00",
+        "endHour": "23:00",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "08:00",
+        "endHour": "05:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "07:00",
+        "endHour": "19:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false,
+          "holiday": true
+        },
+        "retain": true
+      }
+    ],
+    "Frente / Corredor Loja": [
+      {
+        "type": "individual",
+        "startHour": "06:00",
+        "endHour": "23:00",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "08:00",
+        "endHour": "05:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "07:00",
+        "endHour": "19:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false,
+          "holiday": true
+        },
+        "retain": true
+      }
+    ],
+    "Luz Retira Externa ": [
+      {
+        "type": "individual",
+        "startHour": "16:30",
+        "endHour": "05:30",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false,
+          "holiday": false
+        },
+        "retain": false
+      }
+    ],
+    "Corredor Manutenção": [
+      {
+        "type": "individual",
+        "startHour": "17:30",
+        "endHour": "06:00",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": true,
+          "holiday": true
+        },
+        "retain": true
+      }
+    ],
+    "Check Meio": [],
+    "Meio /Fundo Loja": [
+      {
+        "type": "individual",
+        "startHour": "06:00",
+        "endHour": "23:00",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "08:00",
+        "endHour": "05:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "07:00",
+        "endHour": "19:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false,
+          "holiday": true
+        },
+        "retain": true
+      }
+    ],
+    "Luz Depósito Alta/Recebimento": [
+      {
+        "type": "individual",
+        "startHour": "06:00",
+        "endHour": "23:00",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "08:00",
+        "endHour": "05:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "07:00",
+        "endHour": "19:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false,
+          "holiday": true
+        },
+        "retain": true
+      }
+    ],
+    "IL-1": [
+      {
+        "type": "individual",
+        "startHour": "06:00",
+        "endHour": "23:00",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "08:00",
+        "endHour": "18:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "07:00",
+        "endHour": "19:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false,
+          "holiday": true
+        },
+        "retain": true
+      }
+    ],
+    "IL-2": [
+      {
+        "type": "individual",
+        "startHour": "06:00",
+        "endHour": "23:00",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "08:00",
+        "endHour": "18:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true,
+          "holiday": false
+        },
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "07:00",
+        "endHour": "19:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false,
+          "holiday": true
+        },
+        "retain": true
+      }
+    ]
+  }
+}
