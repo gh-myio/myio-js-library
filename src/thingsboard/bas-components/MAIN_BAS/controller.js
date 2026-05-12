@@ -2477,6 +2477,21 @@ function mountWaterPanel(waterHost, settings, classified) {
     });
   }
 
+  // Re-inject date picker after CardGridPanel.renderTabs() rebuilds the tabs wrapper.
+  // handleClick fires AFTER renderTabs(), so the new wrapper already exists here.
+  function reattachWaterDatePicker() {
+    if (_waterDatePicker) { _waterDatePicker.destroy(); }
+    var newWrapper = waterPanelEl.querySelector('.myio-cgp__tabs-wrapper');
+    if (!newWrapper) return;
+    _waterDatePicker = buildDateRangePickerBar(
+      newWrapper,
+      new Date(_waterDateRange.startTs),
+      new Date(_waterDateRange.endTs),
+      applyWaterDateRange,
+      'light'
+    );
+  }
+
   // Water tab configuration
   var waterTabs = [
     {
@@ -2484,9 +2499,11 @@ function mountWaterPanel(waterHost, settings, classified) {
       label: 'Todos',
       selected: true,
       handleClick: function () {
-        var filtered = filterWaterItemsByTab(waterItems, 'all');
+        var freshItems = buildWaterCardItems(_currentClassified, _selectedAmbiente);
+        var filtered = filterWaterItemsByTab(freshItems, 'all');
         panel.setItems(filtered);
         panel.setQuantity(filtered.length);
+        reattachWaterDatePicker();
       },
     },
     {
@@ -2494,9 +2511,11 @@ function mountWaterPanel(waterHost, settings, classified) {
       label: "Caixa d'Água",
       selected: false,
       handleClick: function () {
-        var filtered = filterWaterItemsByTab(waterItems, 'tank');
+        var freshItems = buildWaterCardItems(_currentClassified, _selectedAmbiente);
+        var filtered = filterWaterItemsByTab(freshItems, 'tank');
         panel.setItems(filtered);
         panel.setQuantity(filtered.length);
+        reattachWaterDatePicker();
       },
     },
     {
@@ -2504,9 +2523,11 @@ function mountWaterPanel(waterHost, settings, classified) {
       label: 'Hidrômetro',
       selected: false,
       handleClick: function () {
-        var filtered = filterWaterItemsByTab(waterItems, 'hydrometer');
+        var freshItems = buildWaterCardItems(_currentClassified, _selectedAmbiente);
+        var filtered = filterWaterItemsByTab(freshItems, 'hydrometer');
         panel.setItems(filtered);
         panel.setQuantity(filtered.length);
+        reattachWaterDatePicker();
       },
     },
     {
@@ -2514,9 +2535,11 @@ function mountWaterPanel(waterHost, settings, classified) {
       label: 'Solenóide',
       selected: false,
       handleClick: function () {
-        var filtered = filterWaterItemsByTab(waterItems, 'solenoid');
+        var freshItems = buildWaterCardItems(_currentClassified, _selectedAmbiente);
+        var filtered = filterWaterItemsByTab(freshItems, 'solenoid');
         panel.setItems(filtered);
         panel.setQuantity(filtered.length);
+        reattachWaterDatePicker();
       },
     },
   ];
