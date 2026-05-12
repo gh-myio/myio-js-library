@@ -2048,6 +2048,8 @@ function showMaximizedPanel(panelElement, panelTitle, options) {
   `;
 
   // For charts, we need to recreate the structure instead of cloning
+  var originalParent = null;
+  var originalNextSibling = null;
   if (opts.isChart) {
     // Clone header only
     var originalHeader = panelElement.querySelector('.bas-chart-header');
@@ -2100,13 +2102,14 @@ function showMaximizedPanel(panelElement, panelTitle, options) {
     var chartDomain = opts.chartDomain || _currentChartDomain;
     switchChartDomainInContainer(chartDomain, chartArea);
   } else {
-    // Standard panel - just clone
-    var clone = panelElement.cloneNode(true);
-    clone.style.width = '100%';
-    clone.style.height = '100%';
-    clone.style.maxWidth = 'none';
-    clone.style.maxHeight = 'none';
-    panelContainer.appendChild(clone);
+    // Move original element into overlay to preserve all event listeners (cloneNode loses them)
+    originalParent = panelElement.parentElement;
+    originalNextSibling = panelElement.nextSibling;
+    panelElement.style.width = '100%';
+    panelElement.style.height = '100%';
+    panelElement.style.maxWidth = 'none';
+    panelElement.style.maxHeight = 'none';
+    panelContainer.appendChild(panelElement);
   }
 
   // Wrap in container for positioning (close button goes here, outside panelContainer's overflow:hidden)
@@ -2159,7 +2162,15 @@ function showMaximizedPanel(panelElement, panelTitle, options) {
     panelContainer.style.transform = 'scale(1)';
   });
 
-  _maximizedPanel = { overlay: overlay, panel: panelContainer, title: panelTitle, isChart: opts.isChart };
+  _maximizedPanel = {
+    overlay: overlay,
+    panel: panelContainer,
+    title: panelTitle,
+    isChart: !!opts.isChart,
+    panelElement: panelElement,
+    originalParent: originalParent,
+    originalNextSibling: originalNextSibling,
+  };
 
   LogHelper.log(
     '[MAIN_BAS] Panel maximized:',
@@ -2308,6 +2319,19 @@ function closeMaximizedPanel() {
   }
 
   setTimeout(function () {
+    if (_maximizedPanel && !_maximizedPanel.isChart && _maximizedPanel.originalParent) {
+      var el = _maximizedPanel.panelElement;
+      el.style.width = '';
+      el.style.height = '';
+      el.style.maxWidth = '';
+      el.style.maxHeight = '';
+      var sib = _maximizedPanel.originalNextSibling;
+      if (sib && sib.parentElement === _maximizedPanel.originalParent) {
+        _maximizedPanel.originalParent.insertBefore(el, sib);
+      } else {
+        _maximizedPanel.originalParent.appendChild(el);
+      }
+    }
     _maximizeOverlay.innerHTML = '';
     _maximizedPanel = null;
   }, 200);
