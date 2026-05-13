@@ -83,6 +83,7 @@ var _waterDateRange = (function () {
 })();
 var _chartDatePicker = null;
 var _waterDatePicker = null;
+var _activeWaterTabId = 'all'; // tracks the water panel's selected tab
 let _selectedAmbiente = null;
 let _ctx = null;
 let _settings = null;
@@ -1491,7 +1492,10 @@ async function enrichWaterDevicesWithIngestionTotals(classified, panel) {
     LogHelper.log('[MAIN_BAS] enrichWaterDevicesWithIngestionTotals: enriched', enrichedCount, 'of', hydrometerDevices.length, 'HIDROMETRO devices');
 
     if (enrichedCount > 0 && panel) {
-      var enrichedItems = buildWaterCardItems(classified, null);
+      var allItems = buildWaterCardItems(classified, _selectedAmbiente);
+      var enrichedItems = (_activeWaterTabId && _activeWaterTabId !== 'all')
+        ? allItems.filter(function (item) { return (item.source && item.source.type || '') === _activeWaterTabId; })
+        : allItems;
       panel.setItems(enrichedItems);
       panel.setQuantity(enrichedItems.length);
     }
@@ -2494,6 +2498,7 @@ function mountWaterPanel(waterHost, settings, classified) {
 
   function makeWaterTabHandler(tabId) {
     return function () {
+      _activeWaterTabId = tabId;
       var freshItems = buildWaterCardItems(_currentClassified, _selectedAmbiente);
       var filtered = filterWaterItemsByTab(freshItems, tabId);
       panel.setItems(filtered);
@@ -4783,6 +4788,7 @@ function buildDateRangePickerBar(container, defaultStart, defaultEnd, onApply, t
 
   var inputStart = makeDateInput(toLocalISODate(defaultStart));
   var inputEnd   = makeDateInput(toLocalISODate(defaultEnd));
+  inputEnd.min = toLocalISODate(defaultStart); // initial constraint
 
   var sep = document.createElement('span');
   sep.textContent = '–';
@@ -4794,12 +4800,20 @@ function buildDateRangePickerBar(container, defaultStart, defaultEnd, onApply, t
     if (!inputStart.value || !inputEnd.value) return;
     var s = new Date(inputStart.value); s.setHours(0, 0, 0, 0);
     var e = new Date(inputEnd.value);   e.setHours(23, 59, 59, 999);
-    if (s.getTime() >= e.getTime()) return;
+    var invalid = s.getTime() >= e.getTime();
+    inputEnd.style.borderColor = invalid ? '#e53e3e' : '';
+    inputEnd.style.outline = invalid ? 'none' : '';
+    if (invalid) return;
     onApply(s.getTime(), e.getTime());
   }
 
-  inputStart.addEventListener('change', tryApply);
-  inputEnd.addEventListener('change', tryApply);
+  inputStart.addEventListener('change', function () {
+    if (inputStart.value) inputEnd.min = inputStart.value;
+    tryApply();
+  });
+  inputEnd.addEventListener('change', function () {
+    tryApply();
+  });
 
   wrap.appendChild(inputStart);
   wrap.appendChild(sep);
