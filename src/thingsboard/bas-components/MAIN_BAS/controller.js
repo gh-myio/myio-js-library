@@ -1932,6 +1932,21 @@ function buildEnergyCardItems(classified, selectedAmbienteId) {
 let _maximizeOverlay = null;
 let _maximizedPanel = null;
 
+function restorePanelElement(snapshot) {
+  if (!snapshot || snapshot.isChart || !snapshot.originalParent) return;
+  var el = snapshot.panelElement;
+  el.style.width = '';
+  el.style.height = '';
+  el.style.maxWidth = '';
+  el.style.maxHeight = '';
+  var sib = snapshot.originalNextSibling;
+  if (sib && sib.parentElement === snapshot.originalParent) {
+    snapshot.originalParent.insertBefore(el, sib);
+  } else {
+    snapshot.originalParent.appendChild(el);
+  }
+}
+
 // Theme colors for maximize modal
 var MAXIMIZE_THEME = {
   light: {
@@ -2022,6 +2037,7 @@ function showMaximizedPanel(panelElement, panelTitle, options) {
 
   // Recreate overlay with current theme
   if (_maximizeOverlay) {
+    restorePanelElement(_maximizedPanel);
     _maximizeOverlay.remove();
     _maximizeOverlay = null;
   }
@@ -2318,20 +2334,9 @@ function closeMaximizedPanel() {
     _maximizedChartInstance = null;
   }
 
+  var toRestore = _maximizedPanel;
   setTimeout(function () {
-    if (_maximizedPanel && !_maximizedPanel.isChart && _maximizedPanel.originalParent) {
-      var el = _maximizedPanel.panelElement;
-      el.style.width = '';
-      el.style.height = '';
-      el.style.maxWidth = '';
-      el.style.maxHeight = '';
-      var sib = _maximizedPanel.originalNextSibling;
-      if (sib && sib.parentElement === _maximizedPanel.originalParent) {
-        _maximizedPanel.originalParent.insertBefore(el, sib);
-      } else {
-        _maximizedPanel.originalParent.appendChild(el);
-      }
-    }
+    restorePanelElement(toRestore);
     _maximizeOverlay.innerHTML = '';
     _maximizedPanel = null;
   }, 200);
@@ -5482,6 +5487,7 @@ self.onDestroy = function () {
   _maximizedChartInstance = null;
 
   if (_maximizeOverlay) {
+    restorePanelElement(_maximizedPanel);
     _maximizeOverlay.remove();
   }
   _maximizeOverlay = null;
