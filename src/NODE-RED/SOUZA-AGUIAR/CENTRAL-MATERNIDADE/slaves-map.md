@@ -2,7 +2,7 @@
 
 > Central: **Souza Aguiar — Maternidade Nova** (`cea3473b-6e46-4a2f-85b8-f228d2a8347a`)
 > IPv6: `201:ce30:f047:7f02:a27c:cbac:ffb7:2b67`
-> Total slaves: 40
+> Total slaves: 41
 
 ---
 
@@ -31,14 +31,14 @@ Pares IR (sensor infravermelho) + Swt (switch de controle) por ambiente.
 
 ---
 
-## 2. Temperatura CO2 — Ativos (pós-fix)
+## 2. Temperatura CO2 — Ativos (pós-fix, sem offset no nome)
 
-| Slave ID | Nome                           | Central                    | Ambiente             | Obs                     |
-|----------|--------------------------------|----------------------------|----------------------|-------------------------|
-| 20       | Temp. Co2_Centro_Obstetrico_01 | Souza Aguiar — Maternidade | Centro Obstétrico 01 | Migrado de id=19        |
-| 10       | Temp. Co2_Centro_Obstetrico_02 | Souza Aguiar — Maternidade | Centro Obstétrico 02 | Migrado de id=8         |
-| 28       | Temp. Co2_Centro_Obstetrico_03 | Souza Aguiar — Maternidade | Centro Obstétrico 03 | Migrado de id=27        |
-| 22       | Temp. Co2_UTI_Neonatal -4      | Souza Aguiar — Maternidade | UTI Neonatal         | Offset -4°C no nome — candidato a renomear |
+| Slave ID | Nome                           | Central                    | Ambiente             | Obs                          |
+|----------|--------------------------------|----------------------------|----------------------|------------------------------|
+| 20       | Temp. Co2_Centro_Obstetrico_01 | Souza Aguiar — Maternidade | Centro Obstétrico 01 | Migrado de id=19             |
+| 10       | Temp. Co2_Centro_Obstetrico_02 | Souza Aguiar — Maternidade | Centro Obstétrico 02 | Migrado de id=8              |
+| 28       | Temp. Co2_Centro_Obstetrico_03 | Souza Aguiar — Maternidade | Centro Obstétrico 03 | Migrado de id=27             |
+| 21       | Temp. Co2_UTI_Neonatal         | Souza Aguiar — Maternidade | UTI Neonatal         | Ex-GAS — migrado de id=22 (mesmo padrão batch3 CO2: slave GAS assumiu lugar do Temp com offset) |
 
 ---
 
@@ -49,8 +49,15 @@ Pares IR (sensor infravermelho) + Swt (switch de controle) por ambiente.
 | 19       | OLD-T.e.m.p. Co2_Centro_Obstetrico_01 -4 | Souza Aguiar — Maternidade | -4°C   | id=20        |
 | 8        | OLD-T.e.m.p. Co2_Centro_Obstetrico_02 -3 | Souza Aguiar — Maternidade | -3°C   | id=10        |
 | 27       | OLD-T.e.m.p. Co2_Centro_Obstetrico_03 -4 | Souza Aguiar — Maternidade | -4°C   | id=28        |
+| 22       | OLD-T.e.m.p. Co2_UTI_Neonatal -4         | Souza Aguiar — Maternidade | -4°C   | id=21        |
+| 41       | OLD-T.e.m.p. Co2_UTI_Neonatal -4         | Souza Aguiar — Maternidade | -4°C   | id=21 (?)    |
 
-> SQL de renomeação: ver fix-temp-registry (rows 015, 016, 017).
+> ⚠️ Slaves 22 e 41 têm **nome idêntico** (`OLD-T.e.m.p. Co2_UTI_Neonatal -4`). Provável artefato de um segundo fix-pass ou criação manual. Verificar:
+> ```sql
+> SELECT id, MIN(timestamp), MAX(timestamp), COUNT(*) FROM temperature_history WHERE slave_id IN (22, 41) GROUP BY 1;
+> ```
+
+> SQL de renomeação Centro Obstétrico: ver fix-temp-registry (rows 015, 016, 017).
 
 ---
 
@@ -60,9 +67,10 @@ Pares IR (sensor infravermelho) + Swt (switch de controle) por ambiente.
 |----------|---------------------------------------|----------------------------|---------------|--------|--------|
 | 38       | GAS Nitroso_Matern 132 700 x3.9       | Souza Aguiar — Maternidade | Óxido Nitroso | 0–700  | ×3.9   |
 | 39       | GAS Vacuo_Maternidade 132 200 x0.378  | Souza Aguiar — Maternidade | Vácuo         | 0–200  | ×0.378 |
-| 21       | GAS Co2_UTI_Neonatal 132 5000 x9.47   | Souza Aguiar — Maternidade | CO₂           | 0–5000 | ×9.47  |
 
 > Formato: `GAS <tag> <addr_modbus> <range_max> <fator>` — addr=132 é o registrador Modbus de leitura bruta.
+>
+> Nota: o ex-slave 21 (`GAS Co2_UTI_Neonatal 132 5000 x9.47`) foi removido desta seção — agora é `Temp. Co2_UTI_Neonatal` (seção 2).
 
 ---
 
@@ -87,12 +95,12 @@ Pares IR (sensor infravermelho) + Swt (switch de controle) por ambiente.
 
 | Categoria              | Qtd    |
 |------------------------|--------|
-| IR (climatização)      | 14     |
+| IR (climatização)      | 13     |
 | Switch (climatização)  | 13     |
 | Caixa (climatização)   | 1      |
 | Temp CO2 (ativos)      | 4      |
-| Temp CO2 (legados OLD) | 3      |
-| Gases medicinais       | 3      |
+| Temp CO2 (legados OLD) | 5      |
+| Gases medicinais       | 2      |
 | Controle/Sistema       | 1      |
 | Sem nome               | 2      |
-| **Total**              | **40** |
+| **Total**              | **41** |

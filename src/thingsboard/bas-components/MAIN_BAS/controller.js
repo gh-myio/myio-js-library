@@ -2501,48 +2501,37 @@ function mountWaterPanel(waterHost, settings, classified) {
     });
   }
 
+  // Re-inject date picker after CardGridPanel.renderTabs() rebuilds the tabs wrapper.
+  // handleClick fires AFTER renderTabs(), so the new wrapper already exists here.
+  function reattachWaterDatePicker() {
+    if (_waterDatePicker) { _waterDatePicker.destroy(); _waterDatePicker = null; }
+    var newWrapper = waterPanelEl.querySelector('.myio-cgp__tabs-wrapper');
+    if (!newWrapper) return;
+    _waterDatePicker = buildDateRangePickerBar(
+      newWrapper,
+      new Date(_waterDateRange.startTs),
+      new Date(_waterDateRange.endTs),
+      applyWaterDateRange,
+      'light'
+    );
+  }
+
+  function makeWaterTabHandler(tabId) {
+    return function () {
+      var freshItems = buildWaterCardItems(_currentClassified, _selectedAmbiente);
+      var filtered = filterWaterItemsByTab(freshItems, tabId);
+      panel.setItems(filtered);
+      panel.setQuantity(filtered.length);
+      reattachWaterDatePicker();
+    };
+  }
+
   // Water tab configuration
   var waterTabs = [
-    {
-      id: 'all',
-      label: 'Todos',
-      selected: true,
-      handleClick: function () {
-        var filtered = filterWaterItemsByTab(waterItems, 'all');
-        panel.setItems(filtered);
-        panel.setQuantity(filtered.length);
-      },
-    },
-    {
-      id: 'tank',
-      label: "Caixa d'Água",
-      selected: false,
-      handleClick: function () {
-        var filtered = filterWaterItemsByTab(waterItems, 'tank');
-        panel.setItems(filtered);
-        panel.setQuantity(filtered.length);
-      },
-    },
-    {
-      id: 'hydrometer',
-      label: 'Hidrômetro',
-      selected: false,
-      handleClick: function () {
-        var filtered = filterWaterItemsByTab(waterItems, 'hydrometer');
-        panel.setItems(filtered);
-        panel.setQuantity(filtered.length);
-      },
-    },
-    {
-      id: 'solenoid',
-      label: 'Solenóide',
-      selected: false,
-      handleClick: function () {
-        var filtered = filterWaterItemsByTab(waterItems, 'solenoid');
-        panel.setItems(filtered);
-        panel.setQuantity(filtered.length);
-      },
-    },
+    { id: 'all',        label: 'Todos',        selected: true,  handleClick: makeWaterTabHandler('all') },
+    { id: 'tank',       label: "Caixa d'Água", selected: false, handleClick: makeWaterTabHandler('tank') },
+    { id: 'hydrometer', label: 'Hidrômetro',   selected: false, handleClick: makeWaterTabHandler('hydrometer') },
+    { id: 'solenoid',   label: 'Solenóide',    selected: false, handleClick: makeWaterTabHandler('solenoid') },
   ];
 
   // Use premium green header style from library

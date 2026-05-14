@@ -24,6 +24,9 @@ Slaves cujo fix-temp-registry já foi concluído: histórico migrado, OLD renome
 | 112      | Temp. CO2_CC10          | Souza Aguiar — CO2    | Centro Cirúrgico 10  | row_011      | id=113     |
 | 79       | Temp. Co2_Laboratorio   | Souza Aguiar — CO2    | Laboratório          | row_012      | id=80      |
 | 127      | Temp. Co2_CTI_03        | Souza Aguiar — CO2    | CTI 03               | row_013      | id=128     |
+| 122      | Temp. Co2_CME_SL01      | Souza Aguiar — CO2    | CME — SL01           | batch3_001   | id=121     |
+| 123      | Temp. Co2_CME_SL02      | Souza Aguiar — CO2    | CME — SL02           | batch3_002 (0 rows) | id=124 |
+| 151      | Temp. Co2_Queimados     | Souza Aguiar — CO2    | Queimados            | batch3_003   | id=150     |
 
 ---
 
@@ -38,11 +41,8 @@ Slaves ativos que ainda carregam o offset na nomenclatura — cada um é candida
 | 144      | Temp. Co2_CTI_02 -4                | Souza Aguiar — CO2 | CTI 02                    | -4°C   |
 | 84       | Temp. Co2_CTI_04 -5                | Souza Aguiar — CO2 | CTI 04                    | -5°C   |
 | 126      | Temp. Co2_CTI_Pediatrico -6        | Souza Aguiar — CO2 | CTI Pediátrico            | -6°C   |
-| 121      | Temp. Co2_CME_SL01 -6              | Souza Aguiar — CO2 | CME — SL01                | -6°C   |
-| 124      | Temp. Co2_CME_SL02 -7              | Souza Aguiar — CO2 | CME — SL02                | -7°C   |
 | 74       | Temp. Co2_Sala_Vermelha_Adulto -8  | Souza Aguiar — CO2 | Sala Vermelha Adulto      | -8°C   |
 | 135      | Temp. Co2_Sala_Vermelha_Infantil -8| Souza Aguiar — CO2 | Sala Vermelha Infantil    | -8°C   |
-| 150      | Temp. Co2_Queimados -4             | Souza Aguiar — CO2 | Queimados                 | -4°C   |
 | 130      | Temp. Co2_Hemodialise -6           | Souza Aguiar — CO2 | Hemodiálise               | -6°C   |
 | 137      | Temp. Co2_Agencia_Transfusional -5 | Souza Aguiar — CO2 | Agência Transfusional     | -5°C   |
 | 149      | Temp. Co2_CAF -7                   | Souza Aguiar — CO2 | CAF                       | -7°C   |
@@ -67,11 +67,8 @@ addr=132 = registrador Modbus; range=5000 (padrão), exceto CME SL02 (range=500)
 | 152      | GAS Co2_CTI_02 132 5000 x9.47              | Souza Aguiar — CO2 | CTI 02                 | 5000  | ×9.47  |
 | 91       | GAS Co2_CTI_04 132 5000 x9.47              | Souza Aguiar — CO2 | CTI 04                 | 5000  | ×9.47  |
 | 125      | GAS Co2_CTI_Pediatrico 132 5000 x9.47      | Souza Aguiar — CO2 | CTI Pediátrico         | 5000  | ×9.47  |
-| 122      | GAS Co2_CME_SL01 132 5000 x9.47            | Souza Aguiar — CO2 | CME — SL01             | 5000  | ×9.47  |
-| 123      | GAS Co2_CME_SL02 132 500 x9.47             | Souza Aguiar — CO2 | CME — SL02             | **500** | ×9.47 |
 | 145      | GAS Co2_Sala_Vermelha_Adulto 132 5000 x9.47 | Souza Aguiar — CO2 | Sala Vermelha Adulto  | 5000  | ×9.47  |
 | 134      | GAS Co2_Sala_Vermelha_Infantil 132 5000 x9.47 | Souza Aguiar — CO2 | Sala Vermelha Infantil | 5000 | ×9.47 |
-| 151      | GAS Co2_Queimados 132 5000 x9.47           | Souza Aguiar — CO2 | Queimados              | 5000  | ×9.47  |
 | 131      | GAS Co2_Hemodialise 132 5000 x9.47         | Souza Aguiar — CO2 | Hemodiálise            | 5000  | ×9.47  |
 | 138      | GAS Co2_Agencia_Transfusional 132 5000 x9.47 | Souza Aguiar — CO2 | Agência Transfusional | 5000  | ×9.47  |
 | 148      | GAS Co2_CAF 132 5000 x9.47                 | Souza Aguiar — CO2 | CAF                    | 5000  | ×9.47  |
@@ -81,8 +78,6 @@ addr=132 = registrador Modbus; range=5000 (padrão), exceto CME SL02 (range=500)
 | 98       | GAS Co2_Raio-X2 132 5000 x9.47             | Souza Aguiar — CO2 | Raio-X 02              | 5000  | ×9.47  |
 | 104      | Gas Co2_Raiox3 132 5000 x9.47              | Souza Aguiar — CO2 | Raio-X 03              | 5000  | ×9.47  |
 | 100      | Gas Co2_RaioX4 132 5000 x9.47              | Souza Aguiar — CO2 | Raio-X 04              | 5000  | ×9.47  |
-
-> ⚠️ `GAS Co2_CME_SL02` tem range=**500** (diferente do padrão 5000) — verificar se correto.
 
 ---
 
@@ -103,6 +98,9 @@ addr=132 = registrador Modbus; range=5000 (padrão), exceto CME SL02 (range=500)
 | 113      | OLD-T.e.m.p. CO2_CC10 -5                      | Souza Aguiar — CO2 | -5°C   | id=112       | row_011         |
 | 80       | OLD-T.e.m.p. Co2_Laboratorio -6               | Souza Aguiar — CO2 | -6°C   | id=79        | row_012         |
 | 128      | OLD-T.e.m.p. Co2_CTI_03 -9                    | Souza Aguiar — CO2 | -9°C   | id=127       | row_013         |
+| 121      | OLD-T.e.m.p. Co2_CME_SL01 -6                  | Souza Aguiar — CO2 | -6°C   | id=122       | batch3_001      |
+| 124      | OLD-T.e.m.p. Co2_CME_SL02 -7                  | Souza Aguiar — CO2 | -7°C   | id=123       | batch3_002 (0 rows) |
+| 150      | OLD-T.e.m.p. Co2_Queimados -4                 | Souza Aguiar — CO2 | -4°C   | id=151       | batch3_003      |
 
 ---
 
@@ -132,10 +130,10 @@ addr=132 = registrador Modbus; range=5000 (padrão), exceto CME SL02 (range=500)
 
 | Categoria                          | Qtd    |
 |------------------------------------|--------|
-| Temp CO2 ativos (sem offset)       | 12     |
-| Temp CO2 ativos (com offset — pendentes fix) | 19 |
-| GAS CO2 (brutos)                   | 19     |
-| Temp CO2 legados (OLD-)            | 13     |
+| Temp CO2 ativos (sem offset)       | 15     |
+| Temp CO2 ativos (com offset — pendentes fix) | 16 |
+| GAS CO2 (brutos)                   | 16     |
+| Temp CO2 legados (OLD-)            | 16     |
 | Repetidores / Mesh                 | 4      |
 | A identificar                      | 2      |
 | **Total**                          | **69** |

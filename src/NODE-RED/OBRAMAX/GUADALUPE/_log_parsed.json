@@ -1,0 +1,6908 @@
+{
+  "compressores": {
+    "SPT8: COMP2": true,
+    "SPT8: COMP1": true,
+    "SPT7: COMP2": true,
+    "SPT7: COMP1": true,
+    "Split 10 Comp 1 ON/OFF": false,
+    "Split 10 Comp 2 ON/OFF": false,
+    "SPT10: COMP2": true,
+    "SPT10: COMP1": true,
+    "SPT3: COMP1": true,
+    "SPT3: COMP2": true,
+    "SPT6: COMP1": true,
+    "SPT6: COMP2": true,
+    "Split 9 Comp 1 ON/OFF": false,
+    "Split 9 Comp 2 ON/OFF": false,
+    "SPT9: COMP1": true,
+    "SPT9: COMP2": true,
+    "SPT2: COMP1": true,
+    "SPT2: COMP2": true,
+    "SPT1: COMP1": true,
+    "SPT1: COMP2": true,
+    "SPT5: COMP1": true,
+    "SPT5: COMP2": true,
+    "SPT4: COMP2": true,
+    "SPT4: COMP1": true
+  },
+  "devices": {
+    "Desligar Automação": {
+      "type": "lamp",
+      "name": "Desligar Automação",
+      "channelType": null,
+      "outputType": null,
+      "slaveId": 11,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "Desligar Automação",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_11_14"
+    },
+    "Auto. Splitao 8": {
+      "type": "presence_sensor",
+      "name": "Auto. Splitao 8",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 17,
+      "channelId": 1,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Auto. Splitao 8",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_17_34"
+    },
+    "Auto. Splitao 7": {
+      "type": "presence_sensor",
+      "name": "Auto. Splitao 7",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 17,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Auto. Splitao 7",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_17_33"
+    },
+    "Splitão 08": {
+      "type": "lamp",
+      "name": "Splitão 08",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 17,
+      "channelId": 1,
+      "deviceKind": "lamp",
+      "deviceName": "Splitão 08",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_17_24"
+    },
+    "Splitão 07": {
+      "type": "lamp",
+      "name": "Splitão 07",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 17,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "Splitão 07",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_17_23"
+    },
+    "SPT8: COMP2": {
+      "type": "lamp",
+      "name": "SPT8: COMP2",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 66,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "SPT8: COMP2",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_66_63"
+    },
+    "SPT8: COMP1": {
+      "type": "lamp",
+      "name": "SPT8: COMP1",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 66,
+      "channelId": 1,
+      "deviceKind": "lamp",
+      "deviceName": "SPT8: COMP1",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_66_62"
+    },
+    "Nivel Potável": {
+      "type": "presence_sensor",
+      "name": "Nivel Potável",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 57,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Nivel Potável",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_57_43"
+    },
+    "Auto. Splitao 10": {
+      "type": "presence_sensor",
+      "name": "Auto. Splitao 10",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 18,
+      "channelId": 1,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Auto. Splitao 10",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_18_36"
+    },
+    "Auto. Splitao 9": {
+      "type": "presence_sensor",
+      "name": "Auto. Splitao 9",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 18,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Auto. Splitao 9",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_18_35"
+    },
+    "Splitão 10": {
+      "type": "lamp",
+      "name": "Splitão 10",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 18,
+      "channelId": 1,
+      "deviceKind": "lamp",
+      "deviceName": "Splitão 10",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_18_26"
+    },
+    "Splitão 09": {
+      "type": "lamp",
+      "name": "Splitão 09",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 18,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "Splitão 09",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_18_25"
+    },
+    "Split 9 Comp 1 ON/OFF": {
+      "type": "presence_sensor",
+      "name": "Split 9 Comp 1 ON/OFF",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 64,
+      "channelId": 1,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Split 9 Comp 1 ON/OFF",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_64_113"
+    },
+    "Split 9 Comp 2 ON/OFF": {
+      "type": "presence_sensor",
+      "name": "Split 9 Comp 2 ON/OFF",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 64,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Split 9 Comp 2 ON/OFF",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_64_112"
+    },
+    "SPT9: COMP1": {
+      "type": "lamp",
+      "name": "SPT9: COMP1",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 64,
+      "channelId": 1,
+      "deviceKind": "lamp",
+      "deviceName": "SPT9: COMP1",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_64_58"
+    },
+    "SPT9: COMP2": {
+      "type": "lamp",
+      "name": "SPT9: COMP2",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 64,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "SPT9: COMP2",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_64_59"
+    },
+    "SPT1: COMP1": {
+      "type": "lamp",
+      "name": "SPT1: COMP1",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 71,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "SPT1: COMP1",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_71_72"
+    },
+    "SPT1: COMP2": {
+      "type": "lamp",
+      "name": "SPT1: COMP2",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 71,
+      "channelId": 1,
+      "deviceKind": "lamp",
+      "deviceName": "SPT1: COMP2",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_71_73"
+    },
+    "Auto-corredor Manutenção": {
+      "type": "presence_sensor",
+      "name": "Auto-corredor Manutenção",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 2,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Auto-corredor Manutenção",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_2_96"
+    },
+    "Corredor Manutenção": {
+      "type": "lamp",
+      "name": "Corredor Manutenção",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 2,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "Corredor Manutenção",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_2_3"
+    },
+    "SPT2: COMP1": {
+      "type": "lamp",
+      "name": "SPT2: COMP1",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 72,
+      "channelId": 1,
+      "deviceKind": "lamp",
+      "deviceName": "SPT2: COMP1",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_72_74"
+    },
+    "SPT2: COMP2": {
+      "type": "lamp",
+      "name": "SPT2: COMP2",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 72,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "SPT2: COMP2",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_72_75"
+    },
+    "Auto. Splitao 4": {
+      "type": "presence_sensor",
+      "name": "Auto. Splitao 4",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 15,
+      "channelId": 1,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Auto. Splitao 4",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_15_30"
+    },
+    "Auto. Splitao 3": {
+      "type": "presence_sensor",
+      "name": "Auto. Splitao 3",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 15,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Auto. Splitao 3",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_15_29"
+    },
+    "Splitão 04": {
+      "type": "lamp",
+      "name": "Splitão 04",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 15,
+      "channelId": 1,
+      "deviceKind": "lamp",
+      "deviceName": "Splitão 04",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_15_20"
+    },
+    "Splitão 03": {
+      "type": "lamp",
+      "name": "Splitão 03",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 15,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "Splitão 03",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_15_19"
+    },
+    "Hidr. Potável Entrada x1": {
+      "type": "flow_sensor",
+      "name": "Hidr. Potável Entrada x1",
+      "channelType": "PULSE_ON_POWER",
+      "outputType": "HOLDING",
+      "slaveId": 77,
+      "channelId": 1,
+      "deviceKind": "flow_sensor",
+      "deviceName": "Hidr. Potável Entrada x1",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_77_81"
+    },
+    "Energia": {
+      "type": "presence_sensor",
+      "name": "Energia ",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 79,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Energia ",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_79_85"
+    },
+    "Alarme De Incêndio": {
+      "type": "presence_sensor",
+      "name": "Alarme De Incêndio ",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 73,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Alarme De Incêndio ",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_73_76"
+    },
+    "Porta G": {
+      "type": "presence_sensor",
+      "name": "Porta G",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 56,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Porta G",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_56_42"
+    },
+    "Check 2": {
+      "type": "lamp",
+      "name": "Check 2",
+      "channelType": null,
+      "outputType": null,
+      "slaveId": 13,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "Check 2",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_13_16"
+    },
+    "Auto-Deposito/Recebimento": {
+      "type": "presence_sensor",
+      "name": "Auto-Deposito/Recebimento",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 5,
+      "channelId": 1,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Auto-Deposito/Recebimento",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_5_94"
+    },
+    "Auto- Luz Alta Depósito": {
+      "type": "presence_sensor",
+      "name": "Auto- Luz Alta Depósito",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 5,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Auto- Luz Alta Depósito",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_5_93"
+    },
+    "Luz Depósito Alta/Recebimento": {
+      "type": "lamp",
+      "name": "Luz Depósito Alta/Recebimento",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 5,
+      "channelId": 1,
+      "deviceKind": "lamp",
+      "deviceName": "Luz Depósito Alta/Recebimento",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_5_7"
+    },
+    "Luz Depósito Alta": {
+      "type": "lamp",
+      "name": "Luz Depósito Alta",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 5,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "Luz Depósito Alta",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_5_6"
+    },
+    "SPT7: COMP2": {
+      "type": "lamp",
+      "name": "SPT7: COMP2",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 65,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "SPT7: COMP2",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_65_61"
+    },
+    "SPT7: COMP1": {
+      "type": "lamp",
+      "name": "SPT7: COMP1",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 65,
+      "channelId": 1,
+      "deviceKind": "lamp",
+      "deviceName": "SPT7: COMP1",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_65_60"
+    },
+    "Chck Fundo": {
+      "type": "lamp",
+      "name": "Chck Fundo",
+      "channelType": null,
+      "outputType": null,
+      "slaveId": 52,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "Chck Fundo",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_52_37"
+    },
+    "Válvula Morotizada": {
+      "type": "lamp",
+      "name": "Válvula Morotizada",
+      "channelType": null,
+      "outputType": null,
+      "slaveId": 78,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "Válvula Morotizada",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_78_83"
+    },
+    "Porta E": {
+      "type": "presence_sensor",
+      "name": "Porta E",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 55,
+      "channelId": 1,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Porta E",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_55_41"
+    },
+    "Porta F": {
+      "type": "presence_sensor",
+      "name": "Porta F",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 55,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Porta F",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_55_40"
+    },
+    "SPT5: COMP1": {
+      "type": "lamp",
+      "name": "SPT5: COMP1",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 68,
+      "channelId": 1,
+      "deviceKind": "lamp",
+      "deviceName": "SPT5: COMP1",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_68_66"
+    },
+    "SPT5: COMP2": {
+      "type": "lamp",
+      "name": "SPT5: COMP2",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 68,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "SPT5: COMP2",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_68_67"
+    },
+    "Auto- Retira Externa": {
+      "type": "presence_sensor",
+      "name": "Auto- Retira Externa",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 8,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Auto- Retira Externa",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_8_100"
+    },
+    "Auto-Drive": {
+      "type": "presence_sensor",
+      "name": "Auto-Drive",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 8,
+      "channelId": 1,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Auto-Drive",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_8_99"
+    },
+    "Luz Drive Thru": {
+      "type": "lamp",
+      "name": "Luz Drive Thru",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 8,
+      "channelId": 1,
+      "deviceKind": "lamp",
+      "deviceName": "Luz Drive Thru",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_8_12"
+    },
+    "Luz Retira Externa": {
+      "type": "lamp",
+      "name": "Luz Retira Externa",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 8,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "Luz Retira Externa",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_8_11"
+    },
+    "Hidr. Saída Potável x1": {
+      "type": "flow_sensor",
+      "name": "Hidr. Saída Potável x1",
+      "channelType": "PULSE_ON_POWER",
+      "outputType": "HOLDING",
+      "slaveId": 80,
+      "channelId": 1,
+      "deviceKind": "flow_sensor",
+      "deviceName": "Hidr. Saída Potável x1",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_80_86"
+    },
+    "check": {
+      "type": "lamp",
+      "name": "check",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 62,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "check",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_62_115"
+    },
+    "Nivel Reuso": {
+      "type": "presence_sensor",
+      "name": "Nivel Reuso",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 62,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Nivel Reuso",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_62_55"
+    },
+    "SPT6: COMP1": {
+      "type": "lamp",
+      "name": "SPT6: COMP1",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 67,
+      "channelId": 1,
+      "deviceKind": "lamp",
+      "deviceName": "SPT6: COMP1",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_67_64"
+    },
+    "SPT6: COMP2": {
+      "type": "lamp",
+      "name": "SPT6: COMP2",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 67,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "SPT6: COMP2",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_67_65"
+    },
+    "Falha Geral Diesel": {
+      "type": "presence_sensor",
+      "name": "Falha Geral Diesel",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 76,
+      "channelId": 1,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Falha Geral Diesel",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_76_80"
+    },
+    "Bomba Diesel Ligada": {
+      "type": "presence_sensor",
+      "name": "Bomba Diesel Ligada",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 76,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Bomba Diesel Ligada",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_76_79"
+    },
+    "SPT3: COMP1": {
+      "type": "lamp",
+      "name": "SPT3: COMP1",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 69,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "SPT3: COMP1",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_69_68"
+    },
+    "SPT3: COMP2": {
+      "type": "lamp",
+      "name": "SPT3: COMP2",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 69,
+      "channelId": 1,
+      "deviceKind": "lamp",
+      "deviceName": "SPT3: COMP2",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_69_69"
+    },
+    "Hidr. Saída Reuso x1": {
+      "type": "flow_sensor",
+      "name": "Hidr. Saída Reuso x1",
+      "channelType": "PULSE_ON_POWER",
+      "outputType": "HOLDING",
+      "slaveId": 79,
+      "channelId": 1,
+      "deviceKind": "flow_sensor",
+      "deviceName": "Hidr. Saída Reuso x1",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_79_84"
+    },
+    "Desligar ADM Armários": {
+      "type": "pulse_up",
+      "name": "Desligar ADM Armários",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 59,
+      "channelId": 1,
+      "deviceKind": "pulse_up",
+      "deviceName": "Desligar ADM Armários",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_59_47"
+    },
+    "Ligar ADM Armários": {
+      "type": "pulse_up",
+      "name": "Ligar ADM Armários",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 59,
+      "channelId": 0,
+      "deviceKind": "pulse_up",
+      "deviceName": "Ligar ADM Armários",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_59_46"
+    },
+    "Status ADM ARMÁRIOS": {
+      "type": "presence_sensor",
+      "name": "Status ADM ARMÁRIOS",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 59,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Status ADM ARMÁRIOS",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_59_52"
+    },
+    "Auto.Ilum.Est.Coberto": {
+      "type": "presence_sensor",
+      "name": "Auto.Ilum.Est.Coberto",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 6,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Auto.Ilum.Est.Coberto",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_6_90"
+    },
+    "Iluminacao Estacionamento Coberto": {
+      "type": "lamp",
+      "name": "Iluminacao Estacionamento Coberto",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 6,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "Iluminacao Estacionamento Coberto",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_6_8"
+    },
+    "Auto. Splitao 6": {
+      "type": "presence_sensor",
+      "name": "Auto. Splitao 6",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 16,
+      "channelId": 1,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Auto. Splitao 6",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_16_32"
+    },
+    "Auto. Splitao 5": {
+      "type": "presence_sensor",
+      "name": "Auto. Splitao 5",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 16,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Auto. Splitao 5",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_16_31"
+    },
+    "Splitão 06": {
+      "type": "lamp",
+      "name": "Splitão 06",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 16,
+      "channelId": 1,
+      "deviceKind": "lamp",
+      "deviceName": "Splitão 06",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_16_22"
+    },
+    "Splitão 05": {
+      "type": "lamp",
+      "name": "Splitão 05",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 16,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "Splitão 05",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_16_21"
+    },
+    "Check Frente": {
+      "type": "lamp",
+      "name": "Check Frente",
+      "channelType": null,
+      "outputType": null,
+      "slaveId": 54,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "Check Frente",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_54_39"
+    },
+    "Auto-externa Depósito": {
+      "type": "presence_sensor",
+      "name": "Auto-externa Depósito",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 4,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Auto-externa Depósito",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_4_95"
+    },
+    "Luz Externa Depósito": {
+      "type": "lamp",
+      "name": "Luz Externa Depósito ",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 4,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "Luz Externa Depósito ",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_4_5"
+    },
+    "Check Meio": {
+      "type": "lamp",
+      "name": "Check Meio",
+      "channelType": null,
+      "outputType": null,
+      "slaveId": 53,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "Check Meio",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_53_38"
+    },
+    "Geral(SPU/VMF/ADM)": {
+      "type": "plug",
+      "name": "Geral(SPU/VMF/ADM)",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 58,
+      "channelId": 0,
+      "deviceKind": "plug",
+      "deviceName": "Geral(SPU/VMF/ADM)",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_58_44"
+    },
+    "Selet. Geral Exaust": {
+      "type": "presence_sensor",
+      "name": "Selet. Geral Exaust",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 58,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Selet. Geral Exaust",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_58_45"
+    },
+    "Auto-Meio/Fundo Loja": {
+      "type": "presence_sensor",
+      "name": "Auto-Meio/Fundo Loja",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 1,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Auto-Meio/Fundo Loja",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_1_98"
+    },
+    "Auto-Frente/Corredor Loja": {
+      "type": "presence_sensor",
+      "name": "Auto-Frente/Corredor Loja",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 1,
+      "channelId": 1,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Auto-Frente/Corredor Loja",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_1_97"
+    },
+    "Meio /Fundo Loja": {
+      "type": "lamp",
+      "name": "Meio /Fundo Loja",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 1,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "Meio /Fundo Loja",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_1_1"
+    },
+    "Frente / Corredor Loja": {
+      "type": "lamp",
+      "name": "Frente / Corredor Loja",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 1,
+      "channelId": 1,
+      "deviceKind": "lamp",
+      "deviceName": "Frente / Corredor Loja",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_1_2"
+    },
+    "Sinal Eletroboia": {
+      "type": "presence_sensor",
+      "name": "Sinal Eletroboia ",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 86,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Sinal Eletroboia ",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_86_89"
+    },
+    "Check": {
+      "type": "lamp",
+      "name": "Check",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 86,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "Check",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_86_88"
+    },
+    "SPT4: COMP2": {
+      "type": "lamp",
+      "name": "SPT4: COMP2",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 70,
+      "channelId": 1,
+      "deviceKind": "lamp",
+      "deviceName": "SPT4: COMP2",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_70_71"
+    },
+    "SPT4: COMP1": {
+      "type": "lamp",
+      "name": "SPT4: COMP1",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 70,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "SPT4: COMP1",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_70_70"
+    },
+    "Desligar Exaust. Cozinha": {
+      "type": "pulse_up",
+      "name": "Desligar Exaust. Cozinha",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 60,
+      "channelId": 1,
+      "deviceKind": "pulse_up",
+      "deviceName": "Desligar Exaust. Cozinha",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_60_49"
+    },
+    "Ligar Exaust. Cozinha": {
+      "type": "pulse_up",
+      "name": "Ligar Exaust. Cozinha",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 60,
+      "channelId": 0,
+      "deviceKind": "pulse_up",
+      "deviceName": "Ligar Exaust. Cozinha",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_60_48"
+    },
+    "Status Exaust. Cozinha": {
+      "type": "presence_sensor",
+      "name": "Status Exaust. Cozinha",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 60,
+      "channelId": 1,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Status Exaust. Cozinha",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_60_53"
+    },
+    "Bomba Elétrica Ligada": {
+      "type": "presence_sensor",
+      "name": "Bomba Elétrica Ligada ",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 75,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Bomba Elétrica Ligada ",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_75_77"
+    },
+    "Falha Do Motor Elétrico": {
+      "type": "presence_sensor",
+      "name": "Falha Do Motor Elétrico ",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 75,
+      "channelId": 1,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Falha Do Motor Elétrico ",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_75_78"
+    },
+    "Auto-Externa Manutenção": {
+      "type": "presence_sensor",
+      "name": "Auto-Externa Manutenção",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 3,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Auto-Externa Manutenção",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_3_101"
+    },
+    "Luz Externa Manut.": {
+      "type": "lamp",
+      "name": "Luz Externa Manut.",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 3,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "Luz Externa Manut.",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_3_4"
+    },
+    "Ligar Exaust. LT": {
+      "type": "pulse_up",
+      "name": "Ligar Exaust. LT",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 61,
+      "channelId": 0,
+      "deviceKind": "pulse_up",
+      "deviceName": "Ligar Exaust. LT",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_61_51"
+    },
+    "Desligar Exaust. LT": {
+      "type": "pulse_up",
+      "name": "Desligar Exaust. LT",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 61,
+      "channelId": 1,
+      "deviceKind": "pulse_up",
+      "deviceName": "Desligar Exaust. LT",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_61_50"
+    },
+    "Status Laje Técnica": {
+      "type": "presence_sensor",
+      "name": "Status Laje Técnica ",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 61,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Status Laje Técnica ",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_61_54"
+    },
+    "Splitão 01": {
+      "type": "lamp",
+      "name": "Splitão 01",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 14,
+      "channelId": 1,
+      "deviceKind": "lamp",
+      "deviceName": "Splitão 01",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_14_18"
+    },
+    "Splitão 02": {
+      "type": "lamp",
+      "name": "Splitão 02",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 14,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "Splitão 02",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_14_17"
+    },
+    "Auto. Splitao 2": {
+      "type": "presence_sensor",
+      "name": "Auto. Splitao 2",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 14,
+      "channelId": 1,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Auto. Splitao 2",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_14_28"
+    },
+    "Auto. Splitao 1": {
+      "type": "presence_sensor",
+      "name": "Auto. Splitao 1",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 14,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Auto. Splitao 1",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_14_27"
+    },
+    "Split 10 Comp 1 ON/OFF": {
+      "type": "presence_sensor",
+      "name": "Split 10 Comp 1 ON/OFF",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 63,
+      "channelId": 1,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Split 10 Comp 1 ON/OFF",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_63_111"
+    },
+    "Split 10 Comp 2 ON/OFF": {
+      "type": "presence_sensor",
+      "name": "Split 10 Comp 2 ON/OFF",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 63,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Split 10 Comp 2 ON/OFF",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_63_110"
+    },
+    "SPT10: COMP2": {
+      "type": "lamp",
+      "name": "SPT10: COMP2",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 63,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "SPT10: COMP2",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_63_57"
+    },
+    "SPT10: COMP1": {
+      "type": "lamp",
+      "name": "SPT10: COMP1",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 63,
+      "channelId": 1,
+      "deviceKind": "lamp",
+      "deviceName": "SPT10: COMP1",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_63_56"
+    },
+    "Splitao Geral": {
+      "type": "plug",
+      "name": "Splitao Geral",
+      "channelType": "REPLICATED",
+      "outputType": "HOLDING",
+      "slaveId": 9,
+      "channelId": 0,
+      "deviceKind": "plug",
+      "deviceName": "Splitao Geral",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_9_13"
+    },
+    "IL-2": {
+      "type": "lamp",
+      "name": "IL-2",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 88,
+      "channelId": 1,
+      "deviceKind": "lamp",
+      "deviceName": "IL-2",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_88_109"
+    },
+    "Auto IL-2": {
+      "type": "presence_sensor",
+      "name": "Auto IL-2",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 88,
+      "channelId": 1,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Auto IL-2",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_88_108"
+    },
+    "Auto IL-1": {
+      "type": "presence_sensor",
+      "name": "Auto IL-1",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 88,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Auto IL-1",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_88_107"
+    },
+    "IL-1": {
+      "type": "lamp",
+      "name": "IL-1",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 88,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "IL-1",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_88_106"
+    },
+    "Auto-Estac-Descoberto": {
+      "type": "presence_sensor",
+      "name": "Auto-Estac-Descoberto",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 7,
+      "channelId": 0,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Auto-Estac-Descoberto",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_7_92"
+    },
+    "Auto.Ilum.Toten": {
+      "type": "presence_sensor",
+      "name": "Auto.Ilum.Toten ",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 7,
+      "channelId": 1,
+      "deviceKind": "presence_sensor",
+      "deviceName": "Auto.Ilum.Toten ",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_7_91"
+    },
+    "Totem Publicidade": {
+      "type": "lamp",
+      "name": "Totem Publicidade",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 7,
+      "channelId": 1,
+      "deviceKind": "lamp",
+      "deviceName": "Totem Publicidade",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_7_10"
+    },
+    "Luz Estacio. Descoberto": {
+      "type": "lamp",
+      "name": "Luz Estacio. Descoberto",
+      "channelType": "REMOTE_INPUT",
+      "outputType": "HOLDING",
+      "slaveId": 7,
+      "channelId": 0,
+      "deviceKind": "lamp",
+      "deviceName": "Luz Estacio. Descoberto",
+      "uniqueId": "96a7ca86-c291-4d77-aa66-4706641eaa5a_7_9"
+    }
+  },
+  "last_consumption_3F_Hid": {
+    "Saída_Reuso": {
+      "ts": 1778600544117,
+      "consumption": "0.00"
+    }
+  },
+  "last_consumption_3F_Hidr": {
+    "Saída_Potável": {
+      "ts": 1778600375487,
+      "consumption": "0.00"
+    },
+    "_Potável_Entrada": {
+      "ts": 1778600439827,
+      "consumption": "0.00"
+    }
+  },
+  "last_consumption_3F_LOJA_CORR": {
+    "_FRENTE": {
+      "_MEIO": {
+        "FUNDO": {
+          "ts": 1778600279497,
+          "consumption": "0.00"
+        }
+      }
+    }
+  },
+  "last_consumption_3F_QT": {
+    "Depósito": {
+      "ts": 1778600309497,
+      "consumption": "13.00"
+    }
+  },
+  "last_consumption_3F_QT_ADM": {
+    "L": {
+      "ts": 1778600267515,
+      "consumption": "0.00"
+    },
+    "_Estacionamento_Coberto": {
+      "ts": 1778600316147,
+      "consumption": "0.00"
+    }
+  },
+  "last_consumption_3F_Temp": {
+    "_Fundo_Loja": {
+      "ts": 1778600273527,
+      "consumption": "0.00"
+    },
+    "Frente_Loja": {
+      "ts": 1778600321847,
+      "consumption": "0.00"
+    },
+    "_Corredor_10": {
+      "ts": 1778600489468,
+      "consumption": "0.00"
+    },
+    "Meio_Loja": {
+      "ts": 1778600502910,
+      "consumption": "0.00"
+    }
+  },
+  "slave_data": [
+    {
+      "id": 82,
+      "type": "outlet",
+      "addr_low": 154,
+      "addr_high": 248,
+      "channels": 2,
+      "name": "Temp. Corredor 10",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": null,
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [],
+      "devices": []
+    },
+    {
+      "id": 11,
+      "type": "outlet",
+      "addr_low": 86,
+      "addr_high": 249,
+      "channels": 2,
+      "name": "Repetidor Frente Loja",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": null,
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [
+        {
+          "id": 14,
+          "type": "lamp",
+          "channel": 0,
+          "name": "Desligar Automação",
+          "config": {
+            "confirm": false
+          },
+          "channel_id": null,
+          "slaveId": 11,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 11
+        }
+      ],
+      "devices": []
+    },
+    {
+      "id": 17,
+      "type": "outlet",
+      "addr_low": 94,
+      "addr_high": 248,
+      "channels": 2,
+      "name": "Splitão 07/08",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": {
+        "channelConfig": {
+          "channel0": {
+            "slaveId": 17,
+            "channel": 0,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          },
+          "channel1": {
+            "slaveId": 17,
+            "channel": 1,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          }
+        }
+      },
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [
+        {
+          "id": 34,
+          "type": "presence_sensor",
+          "channel": 1,
+          "name": "Auto. Splitao 8",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 17,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 17
+        },
+        {
+          "id": 33,
+          "type": "presence_sensor",
+          "channel": 0,
+          "name": "Auto. Splitao 7",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 17,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 17
+        },
+        {
+          "id": 24,
+          "type": "lamp",
+          "channel": 1,
+          "name": "Splitão 08",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 17,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 17
+        },
+        {
+          "id": 23,
+          "type": "lamp",
+          "channel": 0,
+          "name": "Splitão 07",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 17,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 17
+        }
+      ],
+      "devices": []
+    },
+    {
+      "id": 66,
+      "type": "outlet",
+      "addr_low": 124,
+      "addr_high": 248,
+      "channels": 2,
+      "name": "SPT8: COMP1/COMP2",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": {
+        "channelConfig": {
+          "channel1": {
+            "slaveId": 66,
+            "channel": 1,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          },
+          "channel0": {
+            "slaveId": 66,
+            "channel": 0,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          }
+        }
+      },
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [
+        {
+          "id": 63,
+          "type": "lamp",
+          "channel": 0,
+          "name": "SPT8: COMP2",
+          "config": {
+            "confirm": false
+          },
+          "channel_id": null,
+          "slaveId": 66,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 66
+        },
+        {
+          "id": 62,
+          "type": "lamp",
+          "channel": 1,
+          "name": "SPT8: COMP1",
+          "config": {
+            "confirm": false
+          },
+          "channel_id": null,
+          "slaveId": 66,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 66
+        }
+      ],
+      "devices": []
+    },
+    {
+      "id": 57,
+      "type": "outlet",
+      "addr_low": 60,
+      "addr_high": 248,
+      "channels": 2,
+      "name": "SCD Potável 129 160 x0.95",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": {
+        "channelConfig": {
+          "channel0": {
+            "slaveId": 57,
+            "channel": 0,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          }
+        }
+      },
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [
+        {
+          "id": 43,
+          "type": "presence_sensor",
+          "channel": 0,
+          "name": "Nivel Potável",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 57,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 57
+        }
+      ],
+      "devices": []
+    },
+    {
+      "id": 12,
+      "type": "outlet",
+      "addr_low": 82,
+      "addr_high": 249,
+      "channels": 2,
+      "name": "Repetidor Meio Loja",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": {
+        "channelConfig": {
+          "channel0": {
+            "slaveId": 12,
+            "channel": 0,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          },
+          "channel1": {
+            "slaveId": 12,
+            "channel": 1,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          }
+        }
+      },
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [],
+      "devices": []
+    },
+    {
+      "id": 18,
+      "type": "outlet",
+      "addr_low": 84,
+      "addr_high": 248,
+      "channels": 2,
+      "name": "Splitão 09/10",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": {
+        "channelConfig": {
+          "channel0": {
+            "slaveId": 18,
+            "channel": 0,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          },
+          "channel1": {
+            "slaveId": 18,
+            "channel": 1,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          }
+        }
+      },
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [
+        {
+          "id": 36,
+          "type": "presence_sensor",
+          "channel": 1,
+          "name": "Auto. Splitao 10",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 18,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 18
+        },
+        {
+          "id": 35,
+          "type": "presence_sensor",
+          "channel": 0,
+          "name": "Auto. Splitao 9",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 18,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 18
+        },
+        {
+          "id": 26,
+          "type": "lamp",
+          "channel": 1,
+          "name": "Splitão 10",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 18,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 18
+        },
+        {
+          "id": 25,
+          "type": "lamp",
+          "channel": 0,
+          "name": "Splitão 09",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 18,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 18
+        }
+      ],
+      "devices": []
+    },
+    {
+      "id": 64,
+      "type": "outlet",
+      "addr_low": 87,
+      "addr_high": 249,
+      "channels": 2,
+      "name": "SPT9: COMP1/COMP2",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": {
+        "channelConfig": {
+          "channel0": {
+            "slaveId": 64,
+            "channel": 0,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          },
+          "channel1": {
+            "slaveId": 64,
+            "channel": 1,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          }
+        }
+      },
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [
+        {
+          "id": 113,
+          "type": "presence_sensor",
+          "channel": 1,
+          "name": "Split 9 Comp 1 ON/OFF",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 64,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 64
+        },
+        {
+          "id": 112,
+          "type": "presence_sensor",
+          "channel": 0,
+          "name": "Split 9 Comp 2 ON/OFF",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 64,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 64
+        },
+        {
+          "id": 58,
+          "type": "lamp",
+          "channel": 1,
+          "name": "SPT9: COMP1",
+          "config": {
+            "confirm": false
+          },
+          "channel_id": null,
+          "slaveId": 64,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 64
+        },
+        {
+          "id": 59,
+          "type": "lamp",
+          "channel": 0,
+          "name": "SPT9: COMP2",
+          "config": {
+            "confirm": false
+          },
+          "channel_id": null,
+          "slaveId": 64,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 64
+        }
+      ],
+      "devices": []
+    },
+    {
+      "id": 71,
+      "type": "outlet",
+      "addr_low": 158,
+      "addr_high": 249,
+      "channels": 2,
+      "name": "SPT1: COMP1/COMP2",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": {
+        "channelConfig": {
+          "channel0": {
+            "slaveId": 71,
+            "channel": 0,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          },
+          "channel1": {
+            "slaveId": 71,
+            "channel": 1,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          }
+        }
+      },
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [
+        {
+          "id": 72,
+          "type": "lamp",
+          "channel": 0,
+          "name": "SPT1: COMP1",
+          "config": {
+            "confirm": false
+          },
+          "channel_id": null,
+          "slaveId": 71,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 71
+        },
+        {
+          "id": 73,
+          "type": "lamp",
+          "channel": 1,
+          "name": "SPT1: COMP2",
+          "config": {
+            "confirm": false
+          },
+          "channel_id": null,
+          "slaveId": 71,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 71
+        }
+      ],
+      "devices": []
+    },
+    {
+      "id": 2,
+      "type": "outlet",
+      "addr_low": 200,
+      "addr_high": 248,
+      "channels": 2,
+      "name": "QT Loja Corredor Manutenção",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": {
+        "channelConfig": {
+          "channel0": {
+            "slaveId": 2,
+            "channel": 0,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          },
+          "channel1": {
+            "slaveId": 2,
+            "channel": 1,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          }
+        }
+      },
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [
+        {
+          "id": 96,
+          "type": "presence_sensor",
+          "channel": 0,
+          "name": "Auto-corredor Manutenção",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 2,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 2
+        },
+        {
+          "id": 3,
+          "type": "lamp",
+          "channel": 0,
+          "name": "Corredor Manutenção",
+          "config": {
+            "confirm": false
+          },
+          "channel_id": null,
+          "slaveId": 2,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 2
+        }
+      ],
+      "devices": []
+    },
+    {
+      "id": 72,
+      "type": "outlet",
+      "addr_low": 72,
+      "addr_high": 248,
+      "channels": 2,
+      "name": "SPT2: COMP1/COMP2",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": {
+        "channelConfig": {
+          "channel0": {
+            "slaveId": 72,
+            "channel": 0,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          },
+          "channel1": {
+            "slaveId": 72,
+            "channel": 1,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          }
+        }
+      },
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [
+        {
+          "id": 74,
+          "type": "lamp",
+          "channel": 1,
+          "name": "SPT2: COMP1",
+          "config": {
+            "confirm": false
+          },
+          "channel_id": null,
+          "slaveId": 72,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 72
+        },
+        {
+          "id": 75,
+          "type": "lamp",
+          "channel": 0,
+          "name": "SPT2: COMP2",
+          "config": {
+            "confirm": false
+          },
+          "channel_id": null,
+          "slaveId": 72,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 72
+        }
+      ],
+      "devices": []
+    },
+    {
+      "id": 83,
+      "type": "outlet",
+      "addr_low": 215,
+      "addr_high": 249,
+      "channels": 2,
+      "name": "Temperatura Corredor 04",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": null,
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [],
+      "devices": []
+    },
+    {
+      "id": 15,
+      "type": "outlet",
+      "addr_low": 81,
+      "addr_high": 248,
+      "channels": 2,
+      "name": "Splitão 03/04",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": {
+        "channelConfig": {
+          "channel0": {
+            "slaveId": 15,
+            "channel": 0,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          },
+          "channel1": {
+            "slaveId": 15,
+            "channel": 1,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          }
+        }
+      },
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [
+        {
+          "id": 30,
+          "type": "presence_sensor",
+          "channel": 1,
+          "name": "Auto. Splitao 4",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 15,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 15
+        },
+        {
+          "id": 29,
+          "type": "presence_sensor",
+          "channel": 0,
+          "name": "Auto. Splitao 3",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 15,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 15
+        },
+        {
+          "id": 20,
+          "type": "lamp",
+          "channel": 1,
+          "name": "Splitão 04",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 15,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 15
+        },
+        {
+          "id": 19,
+          "type": "lamp",
+          "channel": 0,
+          "name": "Splitão 03",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 15,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 15
+        }
+      ],
+      "devices": []
+    },
+    {
+      "id": 77,
+      "type": "outlet",
+      "addr_low": 63,
+      "addr_high": 248,
+      "channels": 2,
+      "name": "Hidr. Potável Entrada ",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": {
+        "channelConfig": {
+          "channel0": {
+            "slaveId": 77,
+            "channel": 0,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          },
+          "channel1": {
+            "slaveId": 77,
+            "channel": 1,
+            "channel_type": "PULSE_ON_POWER",
+            "pulses": 5,
+            "output": "HOLDING"
+          }
+        }
+      },
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [
+        {
+          "id": 81,
+          "type": "flow_sensor",
+          "channel": 1,
+          "name": "Hidr. Potável Entrada x1",
+          "config": {
+            "confirm": false
+          },
+          "channel_id": null,
+          "slaveId": 77,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 77
+        },
+        {
+          "id": 82,
+          "type": "presence_sensor",
+          "channel": 0,
+          "name": "Energia ",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 77,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 77
+        }
+      ],
+      "devices": []
+    },
+    {
+      "id": 73,
+      "type": "outlet",
+      "addr_low": 47,
+      "addr_high": 248,
+      "channels": 2,
+      "name": "Bomba Elétrica Disp 1",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": {
+        "channelConfig": {
+          "channel0": {
+            "slaveId": 73,
+            "channel": 0,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          }
+        }
+      },
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [
+        {
+          "id": 76,
+          "type": "presence_sensor",
+          "channel": 0,
+          "name": "Alarme De Incêndio ",
+          "config": {
+            "confirm": false
+          },
+          "channel_id": null,
+          "slaveId": 73,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 73
+        }
+      ],
+      "devices": []
+    },
+    {
+      "id": 56,
+      "type": "outlet",
+      "addr_low": 11,
+      "addr_high": 248,
+      "channels": 2,
+      "name": "Gerador 2",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": {
+        "channelConfig": {
+          "channel0": {
+            "slaveId": 56,
+            "channel": 0,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          },
+          "channel1": {
+            "slaveId": 56,
+            "channel": 1,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          }
+        }
+      },
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [
+        {
+          "id": 42,
+          "type": "presence_sensor",
+          "channel": 0,
+          "name": "Porta G",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 56,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 56
+        }
+      ],
+      "devices": []
+    },
+    {
+      "id": 13,
+      "type": "outlet",
+      "addr_low": 84,
+      "addr_high": 249,
+      "channels": 2,
+      "name": "Repetidor Fundo Loja",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": null,
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [
+        {
+          "id": 16,
+          "type": "lamp",
+          "channel": 0,
+          "name": "Check 2",
+          "config": {
+            "confirm": false
+          },
+          "channel_id": null,
+          "slaveId": 13,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 13
+        }
+      ],
+      "devices": []
+    },
+    {
+      "id": 5,
+      "type": "outlet",
+      "addr_low": 193,
+      "addr_high": 249,
+      "channels": 2,
+      "name": "QT.Depósito ",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": {
+        "channelConfig": {
+          "channel0": {
+            "slaveId": 5,
+            "channel": 0,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          },
+          "channel1": {
+            "slaveId": 5,
+            "channel": 1,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          }
+        }
+      },
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [
+        {
+          "id": 94,
+          "type": "presence_sensor",
+          "channel": 1,
+          "name": "Auto-Deposito/Recebimento",
+          "config": {
+            "confirm": false
+          },
+          "channel_id": null,
+          "slaveId": 5,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 5
+        },
+        {
+          "id": 93,
+          "type": "presence_sensor",
+          "channel": 0,
+          "name": "Auto- Luz Alta Depósito",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 5,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 5
+        },
+        {
+          "id": 7,
+          "type": "lamp",
+          "channel": 1,
+          "name": "Luz Depósito Alta/Recebimento",
+          "config": {
+            "confirm": false
+          },
+          "channel_id": null,
+          "slaveId": 5,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 5
+        },
+        {
+          "id": 6,
+          "type": "lamp",
+          "channel": 0,
+          "name": "Luz Depósito Alta",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 5,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 5
+        }
+      ],
+      "devices": []
+    },
+    {
+      "id": 65,
+      "type": "outlet",
+      "addr_low": 43,
+      "addr_high": 249,
+      "channels": 2,
+      "name": "SPT7: COMP1/COMP2",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": {
+        "channelConfig": {
+          "channel0": {
+            "slaveId": 65,
+            "channel": 0,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          },
+          "channel1": {
+            "slaveId": 65,
+            "channel": 1,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          }
+        }
+      },
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [
+        {
+          "id": 61,
+          "type": "lamp",
+          "channel": 0,
+          "name": "SPT7: COMP2",
+          "config": {
+            "confirm": false
+          },
+          "channel_id": null,
+          "slaveId": 65,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 65
+        },
+        {
+          "id": 60,
+          "type": "lamp",
+          "channel": 1,
+          "name": "SPT7: COMP1",
+          "config": {
+            "confirm": false
+          },
+          "channel_id": null,
+          "slaveId": 65,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 65
+        }
+      ],
+      "devices": []
+    },
+    {
+      "id": 52,
+      "type": "outlet",
+      "addr_low": 186,
+      "addr_high": 249,
+      "channels": 2,
+      "name": "Temp. Fundo Loja ",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": null,
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [
+        {
+          "id": 37,
+          "type": "lamp",
+          "channel": 0,
+          "name": "Chck Fundo",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 52,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 52
+        }
+      ],
+      "devices": []
+    },
+    {
+      "id": 85,
+      "type": "outlet",
+      "addr_low": 243,
+      "addr_high": 249,
+      "channels": 2,
+      "name": "Temperatura Corredor 14",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": null,
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [],
+      "devices": []
+    },
+    {
+      "id": 78,
+      "type": "outlet",
+      "addr_low": 248,
+      "addr_high": 248,
+      "channels": 2,
+      "name": "Solenoide Reuso",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": null,
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [
+        {
+          "id": 83,
+          "type": "lamp",
+          "channel": 0,
+          "name": "Válvula Morotizada",
+          "config": {
+            "confirm": false
+          },
+          "channel_id": null,
+          "slaveId": 78,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 78
+        }
+      ],
+      "devices": []
+    },
+    {
+      "id": 55,
+      "type": "outlet",
+      "addr_low": 22,
+      "addr_high": 249,
+      "channels": 2,
+      "name": "Gerador 1",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": {
+        "channelConfig": {
+          "channel0": {
+            "slaveId": 55,
+            "channel": 0,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          },
+          "channel1": {
+            "slaveId": 55,
+            "channel": 1,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          }
+        }
+      },
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [
+        {
+          "id": 41,
+          "type": "presence_sensor",
+          "channel": 1,
+          "name": "Porta E",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 55,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 55
+        },
+        {
+          "id": 40,
+          "type": "presence_sensor",
+          "channel": 0,
+          "name": "Porta F",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 55,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 55
+        }
+      ],
+      "devices": []
+    },
+    {
+      "id": 68,
+      "type": "outlet",
+      "addr_low": 241,
+      "addr_high": 248,
+      "channels": 2,
+      "name": "SPT5: COMP1/COMP2",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": {
+        "channelConfig": {
+          "channel0": {
+            "slaveId": 68,
+            "channel": 0,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          },
+          "channel1": {
+            "slaveId": 68,
+            "channel": 1,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          }
+        }
+      },
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [
+        {
+          "id": 66,
+          "type": "lamp",
+          "channel": 1,
+          "name": "SPT5: COMP1",
+          "config": {
+            "confirm": false
+          },
+          "channel_id": null,
+          "slaveId": 68,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 68
+        },
+        {
+          "id": 67,
+          "type": "lamp",
+          "channel": 0,
+          "name": "SPT5: COMP2",
+          "config": {
+            "confirm": false
+          },
+          "channel_id": null,
+          "slaveId": 68,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 68
+        }
+      ],
+      "devices": []
+    },
+    {
+      "id": 8,
+      "type": "outlet",
+      "addr_low": 71,
+      "addr_high": 248,
+      "channels": 2,
+      "name": "DRIVE Drive",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": {
+        "channelConfig": {
+          "channel0": {
+            "slaveId": 8,
+            "channel": 0,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          },
+          "channel1": {
+            "slaveId": 8,
+            "channel": 1,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          }
+        }
+      },
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [
+        {
+          "id": 100,
+          "type": "presence_sensor",
+          "channel": 0,
+          "name": "Auto- Retira Externa",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 8,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 8
+        },
+        {
+          "id": 99,
+          "type": "presence_sensor",
+          "channel": 1,
+          "name": "Auto-Drive",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 8,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 8
+        },
+        {
+          "id": 12,
+          "type": "lamp",
+          "channel": 1,
+          "name": "Luz Drive Thru",
+          "config": {
+            "confirm": false
+          },
+          "channel_id": null,
+          "slaveId": 8,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 8
+        },
+        {
+          "id": 11,
+          "type": "lamp",
+          "channel": 0,
+          "name": "Luz Retira Externa",
+          "config": {
+            "confirm": false
+          },
+          "channel_id": null,
+          "slaveId": 8,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 8
+        }
+      ],
+      "devices": []
+    },
+    {
+      "id": 80,
+      "type": "outlet",
+      "addr_low": 71,
+      "addr_high": 249,
+      "channels": 2,
+      "name": "Hidr.Saída Potável",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": {
+        "channelConfig": {
+          "channel1": {
+            "slaveId": 80,
+            "channel": 1,
+            "channel_type": "PULSE_ON_POWER",
+            "pulses": 5,
+            "output": "HOLDING"
+          },
+          "channel0": {
+            "slaveId": 80,
+            "channel": 0,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          }
+        }
+      },
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [
+        {
+          "id": 86,
+          "type": "flow_sensor",
+          "channel": 1,
+          "name": "Hidr. Saída Potável x1",
+          "config": {
+            "confirm": false
+          },
+          "channel_id": null,
+          "slaveId": 80,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 80
+        },
+        {
+          "id": 87,
+          "type": "presence_sensor",
+          "channel": 0,
+          "name": "Energia",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 80,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 80
+        }
+      ],
+      "devices": []
+    },
+    {
+      "id": 62,
+      "type": "outlet",
+      "addr_low": 236,
+      "addr_high": 249,
+      "channels": 2,
+      "name": "SCD Reuso 129 160 x0.95",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": {
+        "channelConfig": {
+          "channel0": {
+            "slaveId": 62,
+            "channel": 0,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          }
+        }
+      },
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [
+        {
+          "id": 115,
+          "type": "lamp",
+          "channel": 0,
+          "name": "check",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 62,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 62
+        },
+        {
+          "id": 55,
+          "type": "presence_sensor",
+          "channel": 0,
+          "name": "Nivel Reuso",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 62,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 62
+        }
+      ],
+      "devices": []
+    },
+    {
+      "id": 67,
+      "type": "outlet",
+      "addr_low": 121,
+      "addr_high": 248,
+      "channels": 2,
+      "name": "SPT6: COMP1/COMP2",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": {
+        "channelConfig": {
+          "channel0": {
+            "slaveId": 67,
+            "channel": 0,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          },
+          "channel1": {
+            "slaveId": 67,
+            "channel": 1,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          }
+        }
+      },
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [
+        {
+          "id": 64,
+          "type": "lamp",
+          "channel": 1,
+          "name": "SPT6: COMP1",
+          "config": {
+            "confirm": false
+          },
+          "channel_id": null,
+          "slaveId": 67,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 67
+        },
+        {
+          "id": 65,
+          "type": "lamp",
+          "channel": 0,
+          "name": "SPT6: COMP2",
+          "config": {
+            "confirm": false
+          },
+          "channel_id": null,
+          "slaveId": 67,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 67
+        }
+      ],
+      "devices": []
+    },
+    {
+      "id": 76,
+      "type": "outlet",
+      "addr_low": 182,
+      "addr_high": 248,
+      "channels": 2,
+      "name": "Bomba Diesel",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": {
+        "channelConfig": {
+          "channel0": {
+            "slaveId": 76,
+            "channel": 0,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          },
+          "channel1": {
+            "slaveId": 76,
+            "channel": 1,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          }
+        }
+      },
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [
+        {
+          "id": 80,
+          "type": "presence_sensor",
+          "channel": 1,
+          "name": "Falha Geral Diesel",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 76,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 76
+        },
+        {
+          "id": 79,
+          "type": "presence_sensor",
+          "channel": 0,
+          "name": "Bomba Diesel Ligada",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 76,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 76
+        }
+      ],
+      "devices": []
+    },
+    {
+      "id": 69,
+      "type": "outlet",
+      "addr_low": 194,
+      "addr_high": 248,
+      "channels": 2,
+      "name": "SPT3: COMP1/COMP2",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": {
+        "channelConfig": {
+          "channel0": {
+            "slaveId": 69,
+            "channel": 0,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          },
+          "channel1": {
+            "slaveId": 69,
+            "channel": 1,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          }
+        }
+      },
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [
+        {
+          "id": 68,
+          "type": "lamp",
+          "channel": 0,
+          "name": "SPT3: COMP1",
+          "config": {
+            "confirm": false
+          },
+          "channel_id": null,
+          "slaveId": 69,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 69
+        },
+        {
+          "id": 69,
+          "type": "lamp",
+          "channel": 1,
+          "name": "SPT3: COMP2",
+          "config": {
+            "confirm": false
+          },
+          "channel_id": null,
+          "slaveId": 69,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 69
+        }
+      ],
+      "devices": []
+    },
+    {
+      "id": 81,
+      "type": "outlet",
+      "addr_low": 198,
+      "addr_high": 249,
+      "channels": 2,
+      "name": "Corredor 34 (3mt)",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": null,
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [],
+      "devices": []
+    },
+    {
+      "id": 79,
+      "type": "outlet",
+      "addr_low": 217,
+      "addr_high": 248,
+      "channels": 2,
+      "name": "Hid.Saída Reuso",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": {
+        "channelConfig": {
+          "channel1": {
+            "slaveId": 79,
+            "channel": 1,
+            "channel_type": "PULSE_ON_POWER",
+            "pulses": 5,
+            "output": "HOLDING"
+          },
+          "channel0": {
+            "slaveId": 79,
+            "channel": 0,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          }
+        }
+      },
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [
+        {
+          "id": 84,
+          "type": "flow_sensor",
+          "channel": 1,
+          "name": "Hidr. Saída Reuso x1",
+          "config": {
+            "confirm": false
+          },
+          "channel_id": null,
+          "slaveId": 79,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 79
+        },
+        {
+          "id": 85,
+          "type": "presence_sensor",
+          "channel": 0,
+          "name": "Energia ",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 79,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 79
+        }
+      ],
+      "devices": []
+    },
+    {
+      "id": 59,
+      "type": "outlet",
+      "addr_low": 176,
+      "addr_high": 248,
+      "channels": 2,
+      "name": "Lj2",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": {
+        "channelConfig": {
+          "channel0": {
+            "slaveId": 59,
+            "channel": 0,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          },
+          "channel1": {
+            "slaveId": 59,
+            "channel": 1,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          }
+        }
+      },
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [
+        {
+          "id": 47,
+          "type": "pulse_up",
+          "channel": 1,
+          "name": "Desligar ADM Armários",
+          "config": {
+            "confirm": false
+          },
+          "channel_id": null,
+          "slaveId": 59,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 59
+        },
+        {
+          "id": 46,
+          "type": "pulse_up",
+          "channel": 0,
+          "name": "Ligar ADM Armários",
+          "config": {
+            "confirm": false
+          },
+          "channel_id": null,
+          "slaveId": 59,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 59
+        },
+        {
+          "id": 52,
+          "type": "presence_sensor",
+          "channel": 0,
+          "name": "Status ADM ARMÁRIOS",
+          "config": {
+            "confirm": false
+          },
+          "channel_id": null,
+          "slaveId": 59,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 59
+        }
+      ],
+      "devices": []
+    },
+    {
+      "id": 84,
+      "type": "outlet",
+      "addr_low": 103,
+      "addr_high": 248,
+      "channels": 2,
+      "name": "Temperatura Corredor 18",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": null,
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [],
+      "devices": []
+    },
+    {
+      "id": 6,
+      "type": "outlet",
+      "addr_low": 220,
+      "addr_high": 248,
+      "channels": 2,
+      "name": "QT ADM. Estacionamento Coberto ",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": {
+        "channelConfig": {
+          "channel0": {
+            "slaveId": 6,
+            "channel": 0,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          }
+        }
+      },
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [
+        {
+          "id": 90,
+          "type": "presence_sensor",
+          "channel": 0,
+          "name": "Auto.Ilum.Est.Coberto",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 6,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 6
+        },
+        {
+          "id": 8,
+          "type": "lamp",
+          "channel": 0,
+          "name": "Iluminacao Estacionamento Coberto",
+          "config": {
+            "confirm": false
+          },
+          "channel_id": null,
+          "slaveId": 6,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 6
+        }
+      ],
+      "devices": []
+    },
+    {
+      "id": 16,
+      "type": "outlet",
+      "addr_low": 31,
+      "addr_high": 249,
+      "channels": 2,
+      "name": "Splitão 05/06",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": {
+        "channelConfig": {
+          "channel0": {
+            "slaveId": 16,
+            "channel": 0,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          },
+          "channel1": {
+            "slaveId": 16,
+            "channel": 1,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          }
+        }
+      },
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [
+        {
+          "id": 32,
+          "type": "presence_sensor",
+          "channel": 1,
+          "name": "Auto. Splitao 6",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 16,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 16
+        },
+        {
+          "id": 31,
+          "type": "presence_sensor",
+          "channel": 0,
+          "name": "Auto. Splitao 5",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 16,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 16
+        },
+        {
+          "id": 22,
+          "type": "lamp",
+          "channel": 1,
+          "name": "Splitão 06",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 16,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 16
+        },
+        {
+          "id": 21,
+          "type": "lamp",
+          "channel": 0,
+          "name": "Splitão 05",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 16,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 16
+        }
+      ],
+      "devices": []
+    },
+    {
+      "id": 54,
+      "type": "outlet",
+      "addr_low": 225,
+      "addr_high": 248,
+      "channels": 2,
+      "name": "Temp.Frente Loja",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": null,
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [
+        {
+          "id": 39,
+          "type": "lamp",
+          "channel": 0,
+          "name": "Check Frente",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 54,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 54
+        }
+      ],
+      "devices": []
+    },
+    {
+      "id": 4,
+      "type": "outlet",
+      "addr_low": 104,
+      "addr_high": 249,
+      "channels": 2,
+      "name": "QT Depósito Luz Externa ",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": {
+        "channelConfig": {
+          "channel0": {
+            "slaveId": 4,
+            "channel": 0,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          },
+          "channel1": {
+            "slaveId": 4,
+            "channel": 1,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          }
+        }
+      },
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [
+        {
+          "id": 95,
+          "type": "presence_sensor",
+          "channel": 0,
+          "name": "Auto-externa Depósito",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 4,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 4
+        },
+        {
+          "id": 5,
+          "type": "lamp",
+          "channel": 0,
+          "name": "Luz Externa Depósito ",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 4,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 4
+        }
+      ],
+      "devices": []
+    },
+    {
+      "id": 53,
+      "type": "outlet",
+      "addr_low": 29,
+      "addr_high": 248,
+      "channels": 2,
+      "name": "Temp.Meio Loja",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": null,
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [
+        {
+          "id": 38,
+          "type": "lamp",
+          "channel": 0,
+          "name": "Check Meio",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 53,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 53
+        }
+      ],
+      "devices": []
+    },
+    {
+      "id": 58,
+      "type": "outlet",
+      "addr_low": 142,
+      "addr_high": 249,
+      "channels": 2,
+      "name": "Lj1",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": {
+        "channelConfig": {
+          "channel0": {
+            "slaveId": 58,
+            "channel": 0,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          },
+          "channel1": {
+            "slaveId": 58,
+            "channel": 1,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          }
+        }
+      },
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [
+        {
+          "id": 44,
+          "type": "plug",
+          "channel": 0,
+          "name": "Geral(SPU/VMF/ADM)",
+          "config": {
+            "confirm": false
+          },
+          "channel_id": null,
+          "slaveId": 58,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 58
+        },
+        {
+          "id": 45,
+          "type": "presence_sensor",
+          "channel": 0,
+          "name": "Selet. Geral Exaust",
+          "config": {
+            "confirm": false
+          },
+          "channel_id": null,
+          "slaveId": 58,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 58
+        }
+      ],
+      "devices": []
+    },
+    {
+      "id": 1,
+      "type": "outlet",
+      "addr_low": 74,
+      "addr_high": 249,
+      "channels": 2,
+      "name": "LOJA CORR. FRENTE. MEIO.FUNDO",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": {
+        "channelConfig": {
+          "channel0": {
+            "slaveId": 1,
+            "channel": 0,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          },
+          "channel1": {
+            "slaveId": 1,
+            "channel": 1,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          }
+        }
+      },
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [
+        {
+          "id": 98,
+          "type": "presence_sensor",
+          "channel": 0,
+          "name": "Auto-Meio/Fundo Loja",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 1,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 1
+        },
+        {
+          "id": 97,
+          "type": "presence_sensor",
+          "channel": 1,
+          "name": "Auto-Frente/Corredor Loja",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 1,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 1
+        },
+        {
+          "id": 1,
+          "type": "lamp",
+          "channel": 0,
+          "name": "Meio /Fundo Loja",
+          "config": {
+            "confirm": false
+          },
+          "channel_id": null,
+          "slaveId": 1,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 1
+        },
+        {
+          "id": 2,
+          "type": "lamp",
+          "channel": 1,
+          "name": "Frente / Corredor Loja",
+          "config": {
+            "confirm": false
+          },
+          "channel_id": null,
+          "slaveId": 1,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 1
+        }
+      ],
+      "devices": []
+    },
+    {
+      "id": 86,
+      "type": "outlet",
+      "addr_low": 180,
+      "addr_high": 248,
+      "channels": 2,
+      "name": "Eletroboia Reuso",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": {
+        "channelConfig": {
+          "channel0": {
+            "slaveId": 86,
+            "channel": 0,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          },
+          "channel1": {
+            "slaveId": 86,
+            "channel": 1,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          }
+        }
+      },
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [
+        {
+          "id": 89,
+          "type": "presence_sensor",
+          "channel": 0,
+          "name": "Sinal Eletroboia ",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 86,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 86
+        },
+        {
+          "id": 88,
+          "type": "lamp",
+          "channel": 0,
+          "name": "Check",
+          "config": {
+            "confirm": false
+          },
+          "channel_id": null,
+          "slaveId": 86,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 86
+        }
+      ],
+      "devices": []
+    },
+    {
+      "id": 70,
+      "type": "outlet",
+      "addr_low": 165,
+      "addr_high": 249,
+      "channels": 2,
+      "name": "SPT4: COMP1/COMP2",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": {
+        "channelConfig": {
+          "channel0": {
+            "slaveId": 70,
+            "channel": 0,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          },
+          "channel1": {
+            "slaveId": 70,
+            "channel": 1,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          }
+        }
+      },
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [
+        {
+          "id": 71,
+          "type": "lamp",
+          "channel": 1,
+          "name": "SPT4: COMP2",
+          "config": {
+            "confirm": false
+          },
+          "channel_id": null,
+          "slaveId": 70,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 70
+        },
+        {
+          "id": 70,
+          "type": "lamp",
+          "channel": 0,
+          "name": "SPT4: COMP1",
+          "config": {
+            "confirm": false
+          },
+          "channel_id": null,
+          "slaveId": 70,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 70
+        }
+      ],
+      "devices": []
+    },
+    {
+      "id": 60,
+      "type": "outlet",
+      "addr_low": 124,
+      "addr_high": 249,
+      "channels": 2,
+      "name": "Lj3",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": {
+        "channelConfig": {
+          "channel0": {
+            "slaveId": 60,
+            "channel": 0,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          },
+          "channel1": {
+            "slaveId": 60,
+            "channel": 1,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          }
+        }
+      },
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [
+        {
+          "id": 49,
+          "type": "pulse_up",
+          "channel": 1,
+          "name": "Desligar Exaust. Cozinha",
+          "config": {
+            "confirm": false
+          },
+          "channel_id": null,
+          "slaveId": 60,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 60
+        },
+        {
+          "id": 48,
+          "type": "pulse_up",
+          "channel": 0,
+          "name": "Ligar Exaust. Cozinha",
+          "config": {
+            "confirm": false
+          },
+          "channel_id": null,
+          "slaveId": 60,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 60
+        },
+        {
+          "id": 53,
+          "type": "presence_sensor",
+          "channel": 1,
+          "name": "Status Exaust. Cozinha",
+          "config": {
+            "confirm": false
+          },
+          "channel_id": null,
+          "slaveId": 60,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 60
+        }
+      ],
+      "devices": []
+    },
+    {
+      "id": 75,
+      "type": "outlet",
+      "addr_low": 16,
+      "addr_high": 248,
+      "channels": 2,
+      "name": "Bomba Elétrica Disp 2",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": {
+        "channelConfig": {
+          "channel0": {
+            "slaveId": 75,
+            "channel": 0,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          },
+          "channel1": {
+            "slaveId": 75,
+            "channel": 1,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          }
+        }
+      },
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [
+        {
+          "id": 77,
+          "type": "presence_sensor",
+          "channel": 0,
+          "name": "Bomba Elétrica Ligada ",
+          "config": {
+            "confirm": false
+          },
+          "channel_id": null,
+          "slaveId": 75,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 75
+        },
+        {
+          "id": 78,
+          "type": "presence_sensor",
+          "channel": 1,
+          "name": "Falha Do Motor Elétrico ",
+          "config": {
+            "confirm": false
+          },
+          "channel_id": null,
+          "slaveId": 75,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 75
+        }
+      ],
+      "devices": []
+    },
+    {
+      "id": 3,
+      "type": "outlet",
+      "addr_low": 13,
+      "addr_high": 249,
+      "channels": 2,
+      "name": "Manut. Luz Externa Manut.",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": {
+        "channelConfig": {
+          "channel0": {
+            "slaveId": 3,
+            "channel": 0,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          },
+          "channel1": {
+            "slaveId": 3,
+            "channel": 1,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          }
+        }
+      },
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [
+        {
+          "id": 101,
+          "type": "presence_sensor",
+          "channel": 0,
+          "name": "Auto-Externa Manutenção",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 3,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 3
+        },
+        {
+          "id": 4,
+          "type": "lamp",
+          "channel": 0,
+          "name": "Luz Externa Manut.",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 3,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 3
+        }
+      ],
+      "devices": []
+    },
+    {
+      "id": 61,
+      "type": "outlet",
+      "addr_low": 24,
+      "addr_high": 249,
+      "channels": 2,
+      "name": "Lj4",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": {
+        "channelConfig": {
+          "channel0": {
+            "slaveId": 61,
+            "channel": 0,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          },
+          "channel1": {
+            "slaveId": 61,
+            "channel": 1,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          }
+        }
+      },
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [
+        {
+          "id": 51,
+          "type": "pulse_up",
+          "channel": 0,
+          "name": "Ligar Exaust. LT",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 61,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 61
+        },
+        {
+          "id": 50,
+          "type": "pulse_up",
+          "channel": 1,
+          "name": "Desligar Exaust. LT",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 61,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 61
+        },
+        {
+          "id": 54,
+          "type": "presence_sensor",
+          "channel": 0,
+          "name": "Status Laje Técnica ",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 61,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 61
+        }
+      ],
+      "devices": []
+    },
+    {
+      "id": 14,
+      "type": "outlet",
+      "addr_low": 228,
+      "addr_high": 249,
+      "channels": 2,
+      "name": "Splitão 01/02",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": {
+        "channelConfig": {
+          "channel0": {
+            "slaveId": 14,
+            "channel": 0,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          },
+          "channel1": {
+            "slaveId": 14,
+            "channel": 1,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          }
+        }
+      },
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [
+        {
+          "id": 18,
+          "type": "lamp",
+          "channel": 1,
+          "name": "Splitão 01",
+          "config": {
+            "confirm": false
+          },
+          "channel_id": null,
+          "slaveId": 14,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 14
+        },
+        {
+          "id": 17,
+          "type": "lamp",
+          "channel": 0,
+          "name": "Splitão 02",
+          "config": {
+            "confirm": false
+          },
+          "channel_id": null,
+          "slaveId": 14,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 14
+        },
+        {
+          "id": 28,
+          "type": "presence_sensor",
+          "channel": 1,
+          "name": "Auto. Splitao 2",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 14,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 14
+        },
+        {
+          "id": 27,
+          "type": "presence_sensor",
+          "channel": 0,
+          "name": "Auto. Splitao 1",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 14,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 14
+        }
+      ],
+      "devices": []
+    },
+    {
+      "id": 63,
+      "type": "outlet",
+      "addr_low": 55,
+      "addr_high": 249,
+      "channels": 2,
+      "name": "SPT10: COMP1/COMP2",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": {
+        "channelConfig": {
+          "channel0": {
+            "slaveId": 63,
+            "channel": 0,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          },
+          "channel1": {
+            "slaveId": 63,
+            "channel": 1,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          }
+        }
+      },
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [
+        {
+          "id": 111,
+          "type": "presence_sensor",
+          "channel": 1,
+          "name": "Split 10 Comp 1 ON/OFF",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 63,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 63
+        },
+        {
+          "id": 110,
+          "type": "presence_sensor",
+          "channel": 0,
+          "name": "Split 10 Comp 2 ON/OFF",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 63,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 63
+        },
+        {
+          "id": 57,
+          "type": "lamp",
+          "channel": 0,
+          "name": "SPT10: COMP2",
+          "config": {
+            "confirm": false
+          },
+          "channel_id": null,
+          "slaveId": 63,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 63
+        },
+        {
+          "id": 56,
+          "type": "lamp",
+          "channel": 1,
+          "name": "SPT10: COMP1",
+          "config": {
+            "confirm": false
+          },
+          "channel_id": null,
+          "slaveId": 63,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 63
+        }
+      ],
+      "devices": []
+    },
+    {
+      "id": 9,
+      "type": "outlet",
+      "addr_low": 53,
+      "addr_high": 248,
+      "channels": 2,
+      "name": "Sw Splitao Geral",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": {
+        "channelConfig": {
+          "channel0": {
+            "slaveId": 9,
+            "channel": 0,
+            "channel_type": "REPLICATED",
+            "pulses": 1,
+            "output": "HOLDING"
+          },
+          "channel1": {
+            "slaveId": 9,
+            "channel": 1,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          }
+        }
+      },
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [
+        {
+          "id": 13,
+          "type": "plug",
+          "channel": 0,
+          "name": "Splitao Geral",
+          "config": {
+            "confirm": false
+          },
+          "channel_id": null,
+          "slaveId": 9,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 9
+        }
+      ],
+      "devices": []
+    },
+    {
+      "id": 88,
+      "type": "outlet",
+      "addr_low": 208,
+      "addr_high": 249,
+      "channels": 2,
+      "name": "CD - Guadalupe",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": {
+        "channelConfig": {
+          "channel0": {
+            "slaveId": 88,
+            "channel": 0,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          },
+          "channel1": {
+            "slaveId": 88,
+            "channel": 1,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          }
+        }
+      },
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [
+        {
+          "id": 109,
+          "type": "lamp",
+          "channel": 1,
+          "name": "IL-2",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 88,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 88
+        },
+        {
+          "id": 108,
+          "type": "presence_sensor",
+          "channel": 1,
+          "name": "Auto IL-2",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 88,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 88
+        },
+        {
+          "id": 107,
+          "type": "presence_sensor",
+          "channel": 0,
+          "name": "Auto IL-1",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 88,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 88
+        },
+        {
+          "id": 106,
+          "type": "lamp",
+          "channel": 0,
+          "name": "IL-1",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 88,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 88
+        }
+      ],
+      "devices": []
+    },
+    {
+      "id": 7,
+      "type": "outlet",
+      "addr_low": 63,
+      "addr_high": 249,
+      "channels": 2,
+      "name": "QT ADM.L",
+      "color": null,
+      "code": "002-002-002-012",
+      "clamp_type": null,
+      "config": {
+        "channelConfig": {
+          "channel1": {
+            "slaveId": 7,
+            "channel": 1,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          },
+          "channel0": {
+            "slaveId": 7,
+            "channel": 0,
+            "channel_type": "REMOTE_INPUT",
+            "pulses": 1,
+            "output": "HOLDING"
+          }
+        }
+      },
+      "temperature_correction": null,
+      "aggregate": true,
+      "version": "6.0.0",
+      "channels_list": [
+        {
+          "id": 92,
+          "type": "presence_sensor",
+          "channel": 0,
+          "name": "Auto-Estac-Descoberto",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 7,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 7
+        },
+        {
+          "id": 91,
+          "type": "presence_sensor",
+          "channel": 1,
+          "name": "Auto.Ilum.Toten ",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 7,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 7
+        },
+        {
+          "id": 10,
+          "type": "lamp",
+          "channel": 1,
+          "name": "Totem Publicidade",
+          "config": {
+            "confirm": false
+          },
+          "channel_id": null,
+          "slaveId": 7,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 7
+        },
+        {
+          "id": 9,
+          "type": "lamp",
+          "channel": 0,
+          "name": "Luz Estacio. Descoberto",
+          "config": null,
+          "channel_id": null,
+          "slaveId": 7,
+          "scene_up_id": null,
+          "scene_down_id": null,
+          "slave_id": 7
+        }
+      ],
+      "devices": []
+    }
+  ],
+  "stored_automations": {
+    "Temp.Frente Loja": [],
+    "Temp.Meio Loja": [],
+    "Temp. Fundo Loja": [],
+    "SPT2: COMP1/COMP2": [
+      {
+        "type": "temperature",
+        "settings": {},
+        "customerId": "b6d38970-a1d4-11ef-9e25-b7f6e6d4253b",
+        "minTemperature": 23.1,
+        "maxTemperature": 24,
+        "controlDevice": {
+          "id": {
+            "entityType": "DEVICE",
+            "id": "d0eaf3a0-e957-11ef-a212-67802bff4221"
+          },
+          "name": "SPT1: COMP1 (Guadalupe)"
+        }
+      },
+      {
+        "type": "temperature",
+        "settings": {},
+        "customerId": "b6d38970-a1d4-11ef-9e25-b7f6e6d4253b",
+        "minTemperature": 23.5,
+        "maxTemperature": 25,
+        "controlDevice": {
+          "id": {
+            "entityType": "DEVICE",
+            "id": "d0eb1ab0-e957-11ef-a212-67802bff4221"
+          },
+          "name": "SPT1: COMP2 (Guadalupe)"
+        }
+      },
+      {
+        "type": "temperature",
+        "settings": {},
+        "customerId": "b6d38970-a1d4-11ef-9e25-b7f6e6d4253b",
+        "minTemperature": 23.1,
+        "maxTemperature": 24,
+        "controlDevice": {
+          "id": {
+            "entityType": "DEVICE",
+            "id": "36a6b1b0-e959-11ef-a212-67802bff4221"
+          },
+          "name": "SPT2: COMP1 (Guadalupe)"
+        }
+      },
+      {
+        "type": "temperature",
+        "settings": {},
+        "customerId": "b6d38970-a1d4-11ef-9e25-b7f6e6d4253b",
+        "minTemperature": 23.5,
+        "maxTemperature": 25,
+        "controlDevice": {
+          "id": {
+            "entityType": "DEVICE",
+            "id": "36a68aa0-e959-11ef-a212-67802bff4221"
+          },
+          "name": "SPT2: COMP2 (Guadalupe)"
+        }
+      }
+    ],
+    "SPT4: COMP1/COMP2": [
+      {
+        "type": "temperature",
+        "settings": {},
+        "customerId": "b6d38970-a1d4-11ef-9e25-b7f6e6d4253b",
+        "minTemperature": 23.1,
+        "maxTemperature": 24,
+        "controlDevice": {
+          "id": {
+            "entityType": "DEVICE",
+            "id": "a001e1d0-e953-11ef-a212-67802bff4221"
+          },
+          "name": "SPT3: COMP1 (Guadalupe)"
+        }
+      },
+      {
+        "type": "temperature",
+        "settings": {},
+        "customerId": "b6d38970-a1d4-11ef-9e25-b7f6e6d4253b",
+        "minTemperature": 23.5,
+        "maxTemperature": 25,
+        "controlDevice": {
+          "id": {
+            "entityType": "DEVICE",
+            "id": "058292b0-e955-11ef-a212-67802bff4221"
+          },
+          "name": "SPT3: COMP2 (Guadalupe)"
+        }
+      },
+      {
+        "type": "temperature",
+        "settings": {},
+        "customerId": "b6d38970-a1d4-11ef-9e25-b7f6e6d4253b",
+        "minTemperature": 23.1,
+        "maxTemperature": 24,
+        "controlDevice": {
+          "id": {
+            "entityType": "DEVICE",
+            "id": "058ddd50-e955-11ef-a212-67802bff4221"
+          },
+          "name": "SPT4: COMP1 (Guadalupe)"
+        }
+      },
+      {
+        "type": "temperature",
+        "settings": {},
+        "customerId": "b6d38970-a1d4-11ef-9e25-b7f6e6d4253b",
+        "minTemperature": 23.5,
+        "maxTemperature": 25,
+        "controlDevice": {
+          "id": {
+            "entityType": "DEVICE",
+            "id": "058d8f30-e955-11ef-a212-67802bff4221"
+          },
+          "name": "SPT4: COMP2 (Guadalupe)"
+        }
+      }
+    ],
+    "SPT5: COMP1/COMP2": [
+      {
+        "type": "temperature",
+        "settings": {},
+        "customerId": "b6d38970-a1d4-11ef-9e25-b7f6e6d4253b",
+        "minTemperature": 23.1,
+        "maxTemperature": 24,
+        "controlDevice": {
+          "id": {
+            "entityType": "DEVICE",
+            "id": "5362ec20-f48e-11ef-9baa-8137e6ac9d72"
+          },
+          "name": "SPT5: COMP1 (Guadalupe)"
+        }
+      },
+      {
+        "type": "temperature",
+        "settings": {},
+        "customerId": "b6d38970-a1d4-11ef-9e25-b7f6e6d4253b",
+        "minTemperature": 23.5,
+        "maxTemperature": 25,
+        "controlDevice": {
+          "id": {
+            "entityType": "DEVICE",
+            "id": "5362c510-f48e-11ef-9baa-8137e6ac9d72"
+          },
+          "name": "SPT5: COMP2 (Guadalupe)"
+        }
+      },
+      {
+        "type": "temperature",
+        "settings": {},
+        "customerId": "b6d38970-a1d4-11ef-9e25-b7f6e6d4253b",
+        "minTemperature": 23.1,
+        "maxTemperature": 24,
+        "controlDevice": {
+          "id": {
+            "entityType": "DEVICE",
+            "id": "6f23f390-e94f-11ef-a212-67802bff4221"
+          },
+          "name": "SPT6: COMP1 (Guadalupe)"
+        }
+      },
+      {
+        "type": "temperature",
+        "settings": {},
+        "customerId": "b6d38970-a1d4-11ef-9e25-b7f6e6d4253b",
+        "minTemperature": 23.5,
+        "maxTemperature": 25,
+        "controlDevice": {
+          "id": {
+            "entityType": "DEVICE",
+            "id": "6f23cc80-e94f-11ef-a212-67802bff4221"
+          },
+          "name": "SPT6: COMP2 (Guadalupe)"
+        }
+      }
+    ],
+    "SPT8: COMP1/COMP2": [
+      {
+        "type": "temperature",
+        "settings": {},
+        "customerId": "b6d38970-a1d4-11ef-9e25-b7f6e6d4253b",
+        "minTemperature": 23.1,
+        "maxTemperature": 24,
+        "controlDevice": {
+          "id": {
+            "entityType": "DEVICE",
+            "id": "d8718f20-e949-11ef-a212-67802bff4221"
+          },
+          "name": "SPT7: COMP1 (Guadalupe)"
+        }
+      },
+      {
+        "type": "temperature",
+        "settings": {},
+        "customerId": "b6d38970-a1d4-11ef-9e25-b7f6e6d4253b",
+        "minTemperature": 23.5,
+        "maxTemperature": 25,
+        "controlDevice": {
+          "id": {
+            "entityType": "DEVICE",
+            "id": "d8738af0-e949-11ef-a212-67802bff4221"
+          },
+          "name": "SPT7: COMP2 (Guadalupe)"
+        }
+      },
+      {
+        "type": "temperature",
+        "settings": {},
+        "customerId": "b6d38970-a1d4-11ef-9e25-b7f6e6d4253b",
+        "minTemperature": 23.1,
+        "maxTemperature": 24,
+        "controlDevice": {
+          "id": {
+            "entityType": "DEVICE",
+            "id": "d8720450-e949-11ef-a212-67802bff4221"
+          },
+          "name": "SPT8: COMP1 (Guadalupe)"
+        }
+      },
+      {
+        "type": "temperature",
+        "settings": {},
+        "customerId": "b6d38970-a1d4-11ef-9e25-b7f6e6d4253b",
+        "minTemperature": 23.5,
+        "maxTemperature": 25,
+        "controlDevice": {
+          "id": {
+            "entityType": "DEVICE",
+            "id": "3e35d8b0-e94b-11ef-a212-67802bff4221"
+          },
+          "name": "SPT8: COMP2 (Guadalupe)"
+        }
+      }
+    ],
+    "SPT9: COMP1/COMP2": [
+      {
+        "type": "temperature",
+        "settings": {},
+        "customerId": "b6d38970-a1d4-11ef-9e25-b7f6e6d4253b",
+        "minTemperature": 23.1,
+        "maxTemperature": 24,
+        "controlDevice": {
+          "id": {
+            "entityType": "DEVICE",
+            "id": "a78e49b1-e945-11ef-a212-67802bff4221"
+          },
+          "name": "SPT9: COMP1 (Guadalupe)"
+        }
+      },
+      {
+        "type": "temperature",
+        "settings": {},
+        "customerId": "b6d38970-a1d4-11ef-9e25-b7f6e6d4253b",
+        "minTemperature": 23.5,
+        "maxTemperature": 25,
+        "controlDevice": {
+          "id": {
+            "entityType": "DEVICE",
+            "id": "d5089ea0-f48e-11ef-9baa-8137e6ac9d72"
+          },
+          "name": "SPT9: COMP2 (Guadalupe)"
+        }
+      },
+      {
+        "type": "temperature",
+        "settings": {},
+        "customerId": "b6d38970-a1d4-11ef-9e25-b7f6e6d4253b",
+        "minTemperature": 23.1,
+        "maxTemperature": 24,
+        "controlDevice": {
+          "id": {
+            "entityType": "DEVICE",
+            "id": "a78e49b0-e945-11ef-a212-67802bff4221"
+          },
+          "name": "SPT10: COMP1 (Guadalupe)"
+        }
+      },
+      {
+        "type": "temperature",
+        "settings": {},
+        "customerId": "b6d38970-a1d4-11ef-9e25-b7f6e6d4253b",
+        "minTemperature": 23.5,
+        "maxTemperature": 25,
+        "controlDevice": {
+          "id": {
+            "entityType": "DEVICE",
+            "id": "a78e49b2-e945-11ef-a212-67802bff4221"
+          },
+          "name": "SPT10: COMP2 (Guadalupe)"
+        }
+      }
+    ]
+  },
+  "stored_demand": {
+    "Trafo": {
+      "minPower": 500,
+      "maxPower": 530,
+      "controlDevices": [
+        {
+          "id": "a78e49b0-e945-11ef-a212-67802bff4221",
+          "name": "SPT10: COMP1 (Guadalupe)"
+        },
+        {
+          "id": "a78e49b2-e945-11ef-a212-67802bff4221",
+          "name": "SPT10: COMP2 (Guadalupe)"
+        }
+      ]
+    }
+  },
+  "stored_holidays": [
+    "2025-12-24",
+    "2025-12-31",
+    "2026-05-01",
+    "2025-11-20",
+    "2026-04-21",
+    "2026-04-23"
+  ],
+  "stored_schedules": {
+    "SPT3: COMP1": [
+      {
+        "type": "group",
+        "startHour": "06:30",
+        "endHour": "20:30",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "09:00",
+        "endHour": "16:30",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:10",
+        "endHour": "17:50",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false
+        },
+        "holiday": true,
+        "retain": true
+      }
+    ],
+    "SPT7: COMP1": [
+      {
+        "type": "group",
+        "startHour": "06:30",
+        "endHour": "20:30",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "09:00",
+        "endHour": "16:30",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:10",
+        "endHour": "17:50",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false
+        },
+        "holiday": true,
+        "retain": true
+      }
+    ],
+    "SPT4: COMP1": [
+      {
+        "type": "group",
+        "startHour": "06:30",
+        "endHour": "20:30",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "09:00",
+        "endHour": "16:30",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:10",
+        "endHour": "17:50",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false
+        },
+        "holiday": true,
+        "retain": true
+      }
+    ],
+    "SPT8: COMP1": [
+      {
+        "type": "group",
+        "startHour": "06:30",
+        "endHour": "20:30",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "09:00",
+        "endHour": "16:30",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:10",
+        "endHour": "17:50",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false
+        },
+        "holiday": true,
+        "retain": true
+      }
+    ],
+    "Splitão 04": [
+      {
+        "type": "group",
+        "startHour": "06:00",
+        "endHour": "20:40",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:30",
+        "endHour": "16:40",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:00",
+        "endHour": "18:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false
+        },
+        "holiday": true,
+        "retain": true
+      }
+    ],
+    "Splitão 03": [
+      {
+        "type": "group",
+        "startHour": "06:00",
+        "endHour": "20:40",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:30",
+        "endHour": "16:40",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:00",
+        "endHour": "18:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false
+        },
+        "holiday": true,
+        "retain": true
+      }
+    ],
+    "Splitão 07": [
+      {
+        "type": "group",
+        "startHour": "06:00",
+        "endHour": "20:40",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:30",
+        "endHour": "16:40",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:00",
+        "endHour": "18:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false
+        },
+        "holiday": true,
+        "retain": true
+      }
+    ],
+    "Splitão 08": [
+      {
+        "type": "group",
+        "startHour": "06:00",
+        "endHour": "20:40",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:30",
+        "endHour": "16:40",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:00",
+        "endHour": "18:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false
+        },
+        "holiday": true,
+        "retain": true
+      }
+    ],
+    "Geral(SPU/VMF/ADM)": [
+      {
+        "type": "individual",
+        "startHour": "05:30",
+        "endHour": "22:00",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": true
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "07:00",
+        "endHour": "19:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true
+        },
+        "holiday": true,
+        "retain": true
+      }
+    ],
+    "Status Exaust. Cozinha": [
+      {
+        "type": "individual",
+        "startHour": "05:30",
+        "endHour": "17:30",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "05:30",
+        "endHour": "18:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "07:30",
+        "endHour": "19:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false
+        },
+        "holiday": true,
+        "retain": true
+      }
+    ],
+    "Status ADM ARMÁRIOS": [
+      {
+        "type": "individual",
+        "startHour": "06:00",
+        "endHour": "22:00",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "08:00",
+        "endHour": "18:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "07:30",
+        "endHour": "19:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false
+        },
+        "holiday": true,
+        "retain": true
+      }
+    ],
+    "Status Laje Técnica": [
+      {
+        "type": "individual",
+        "startHour": "05:30",
+        "endHour": "22:00",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "08:00",
+        "endHour": "18:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true
+        },
+        "holiday": true,
+        "retain": true
+      }
+    ],
+    "SPT6: COMP1": [
+      {
+        "type": "group",
+        "startHour": "06:30",
+        "endHour": "20:30",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "09:00",
+        "endHour": "16:30",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:10",
+        "endHour": "17:50",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false
+        },
+        "holiday": true,
+        "retain": true
+      }
+    ],
+    "SPT10: COMP1": [
+      {
+        "type": "group",
+        "startHour": "06:30",
+        "endHour": "20:30",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "09:00",
+        "endHour": "16:30",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:10",
+        "endHour": "17:50",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false
+        },
+        "holiday": true,
+        "retain": true
+      }
+    ],
+    "SPT2: COMP1": [
+      {
+        "type": "group",
+        "startHour": "06:30",
+        "endHour": "20:30",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "09:00",
+        "endHour": "16:30",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:10",
+        "endHour": "17:50",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false
+        },
+        "holiday": true,
+        "retain": true
+      }
+    ],
+    "SPT1: COMP1": [
+      {
+        "type": "group",
+        "startHour": "06:30",
+        "endHour": "20:30",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "09:00",
+        "endHour": "16:30",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:10",
+        "endHour": "17:50",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false
+        },
+        "holiday": true,
+        "retain": true
+      }
+    ],
+    "SPT5: COMP1": [
+      {
+        "type": "group",
+        "startHour": "06:30",
+        "endHour": "20:30",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "09:00",
+        "endHour": "16:30",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:10",
+        "endHour": "17:50",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false
+        },
+        "holiday": true,
+        "retain": true
+      }
+    ],
+    "SPT9: COMP1": [
+      {
+        "type": "group",
+        "startHour": "06:30",
+        "endHour": "20:30",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "09:00",
+        "endHour": "16:30",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:10",
+        "endHour": "17:50",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false
+        },
+        "holiday": true,
+        "retain": true
+      }
+    ],
+    "SPT3: COMP2": [
+      {
+        "type": "group",
+        "startHour": "07:00",
+        "endHour": "20:20",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "09:10",
+        "endHour": "16:20",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:20",
+        "endHour": "17:40",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false
+        },
+        "holiday": true,
+        "retain": true
+      }
+    ],
+    "SPT4: COMP2": [
+      {
+        "type": "group",
+        "startHour": "07:00",
+        "endHour": "20:20",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "09:10",
+        "endHour": "16:20",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:20",
+        "endHour": "17:40",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false
+        },
+        "holiday": true,
+        "retain": true
+      }
+    ],
+    "SPT7: COMP2": [
+      {
+        "type": "group",
+        "startHour": "07:00",
+        "endHour": "20:20",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "09:10",
+        "endHour": "16:20",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:20",
+        "endHour": "17:40",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false
+        },
+        "holiday": true,
+        "retain": true
+      }
+    ],
+    "SPT8: COMP2": [
+      {
+        "type": "group",
+        "startHour": "07:00",
+        "endHour": "20:20",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "09:10",
+        "endHour": "16:20",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:20",
+        "endHour": "17:40",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false
+        },
+        "holiday": true,
+        "retain": true
+      }
+    ],
+    "SPT10: COMP2": [
+      {
+        "type": "group",
+        "startHour": "07:00",
+        "endHour": "20:20",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "09:10",
+        "endHour": "16:20",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:20",
+        "endHour": "17:40",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false
+        },
+        "holiday": true,
+        "retain": true
+      }
+    ],
+    "SPT2: COMP2": [
+      {
+        "type": "group",
+        "startHour": "07:00",
+        "endHour": "20:20",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "09:10",
+        "endHour": "16:20",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:20",
+        "endHour": "17:40",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false
+        },
+        "holiday": true,
+        "retain": true
+      }
+    ],
+    "SPT1: COMP2": [
+      {
+        "type": "group",
+        "startHour": "07:00",
+        "endHour": "20:20",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "09:10",
+        "endHour": "16:20",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:20",
+        "endHour": "17:40",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false
+        },
+        "holiday": true,
+        "retain": true
+      }
+    ],
+    "SPT9: COMP2": [
+      {
+        "type": "group",
+        "startHour": "07:00",
+        "endHour": "20:20",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "09:10",
+        "endHour": "16:20",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:20",
+        "endHour": "17:40",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false
+        },
+        "holiday": true,
+        "retain": true
+      }
+    ],
+    "SPT5: COMP2": [
+      {
+        "type": "group",
+        "startHour": "07:00",
+        "endHour": "20:20",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "09:10",
+        "endHour": "16:20",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:20",
+        "endHour": "17:40",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false
+        },
+        "holiday": true,
+        "retain": true
+      }
+    ],
+    "SPT6: COMP2": [
+      {
+        "type": "group",
+        "startHour": "07:00",
+        "endHour": "20:20",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "09:10",
+        "endHour": "16:20",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:20",
+        "endHour": "17:40",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false
+        },
+        "holiday": true,
+        "retain": true
+      }
+    ],
+    "Splitão 09": [
+      {
+        "type": "group",
+        "startHour": "06:00",
+        "endHour": "20:40",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:30",
+        "endHour": "16:40",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:00",
+        "endHour": "18:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false
+        },
+        "holiday": true,
+        "retain": true
+      }
+    ],
+    "Splitão 10": [
+      {
+        "type": "group",
+        "startHour": "06:00",
+        "endHour": "20:40",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:30",
+        "endHour": "16:40",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:00",
+        "endHour": "18:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false
+        },
+        "holiday": true,
+        "retain": true
+      }
+    ],
+    "Splitão 06": [
+      {
+        "type": "group",
+        "startHour": "06:00",
+        "endHour": "20:40",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:30",
+        "endHour": "16:40",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:00",
+        "endHour": "18:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false
+        },
+        "holiday": true,
+        "retain": true
+      }
+    ],
+    "Splitão 05": [
+      {
+        "type": "group",
+        "startHour": "06:00",
+        "endHour": "20:40",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:30",
+        "endHour": "16:40",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:00",
+        "endHour": "18:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false
+        },
+        "holiday": true,
+        "retain": true
+      }
+    ],
+    "Splitão 02": [
+      {
+        "type": "group",
+        "startHour": "06:00",
+        "endHour": "20:40",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:30",
+        "endHour": "16:40",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:00",
+        "endHour": "18:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false
+        },
+        "holiday": true,
+        "retain": true
+      }
+    ],
+    "Splitão 01": [
+      {
+        "type": "group",
+        "startHour": "06:00",
+        "endHour": "20:40",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:30",
+        "endHour": "16:40",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "group",
+        "startHour": "08:00",
+        "endHour": "18:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false
+        },
+        "holiday": true,
+        "retain": true
+      }
+    ],
+    "Corredores/Meio Loja": [
+      {
+        "type": "individual",
+        "startHour": "06:00",
+        "endHour": "23:00",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "08:00",
+        "endHour": "05:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "07:00",
+        "endHour": "19:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false
+        },
+        "holiday": true,
+        "retain": true
+      }
+    ],
+    "Luz Externa Depósito": [
+      {
+        "type": "individual",
+        "startHour": "17:00",
+        "endHour": "05:30",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": true
+        },
+        "holiday": true,
+        "retain": true
+      }
+    ],
+    "Luz Externa Manut.": [
+      {
+        "type": "individual",
+        "startHour": "17:30",
+        "endHour": "06:00",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": true
+        },
+        "holiday": true,
+        "retain": true
+      }
+    ],
+    "Luz Depósito Alta/ Recebimento": [
+      {
+        "type": "individual",
+        "startHour": "05:00",
+        "endHour": "22:30",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "07:00",
+        "endHour": "18:30",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "06:00",
+        "endHour": "19:30",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false
+        },
+        "holiday": true,
+        "retain": true
+      }
+    ],
+    "Iluminacao Estacionamento Coberto": [
+      {
+        "type": "individual",
+        "startHour": "17:00",
+        "endHour": "23:00",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "17:00",
+        "endHour": "05:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true
+        },
+        "holiday": true,
+        "retain": true
+      }
+    ],
+    "Luz Depósito Alta": [
+      {
+        "type": "individual",
+        "startHour": "06:00",
+        "endHour": "23:00",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "08:00",
+        "endHour": "05:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "07:00",
+        "endHour": "19:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false
+        },
+        "holiday": true,
+        "retain": true
+      }
+    ],
+    "Totem Publicidade": [
+      {
+        "type": "individual",
+        "startHour": "17:30",
+        "endHour": "06:00",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": true
+        },
+        "holiday": true,
+        "retain": true
+      }
+    ],
+    "Luz Estacio. Descoberto": [
+      {
+        "type": "individual",
+        "startHour": "17:00",
+        "endHour": "23:00",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "17:00",
+        "endHour": "18:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "17:00",
+        "endHour": "19:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false
+        },
+        "holiday": true,
+        "retain": true
+      }
+    ],
+    "Luz Retira Externa": [
+      {
+        "type": "individual",
+        "startHour": "17:30",
+        "endHour": "05:30",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": true
+        },
+        "holiday": true,
+        "retain": true
+      }
+    ],
+    "Luz Drive Thru": [
+      {
+        "type": "individual",
+        "startHour": "06:00",
+        "endHour": "23:00",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "08:00",
+        "endHour": "05:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "07:00",
+        "endHour": "19:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false
+        },
+        "holiday": true,
+        "retain": true
+      }
+    ],
+    "Frente / Corredor Loja": [
+      {
+        "type": "individual",
+        "startHour": "06:00",
+        "endHour": "23:00",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "08:00",
+        "endHour": "05:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "07:00",
+        "endHour": "19:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false
+        },
+        "holiday": true,
+        "retain": true
+      }
+    ],
+    "Luz Retira Externa ": [
+      {
+        "type": "individual",
+        "startHour": "16:30",
+        "endHour": "05:30",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false
+        },
+        "holiday": false,
+        "retain": false
+      }
+    ],
+    "Corredor Manutenção": [
+      {
+        "type": "individual",
+        "startHour": "17:30",
+        "endHour": "06:00",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": true
+        },
+        "holiday": true,
+        "retain": true
+      }
+    ],
+    "Check Meio": [],
+    "Meio /Fundo Loja": [
+      {
+        "type": "individual",
+        "startHour": "06:00",
+        "endHour": "23:00",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "08:00",
+        "endHour": "05:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "07:00",
+        "endHour": "19:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false
+        },
+        "holiday": true,
+        "retain": true
+      }
+    ],
+    "Luz Depósito Alta/Recebimento": [
+      {
+        "type": "individual",
+        "startHour": "06:00",
+        "endHour": "23:00",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "08:00",
+        "endHour": "05:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "07:00",
+        "endHour": "19:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false
+        },
+        "holiday": true,
+        "retain": true
+      }
+    ],
+    "IL-1": [
+      {
+        "type": "individual",
+        "startHour": "06:00",
+        "endHour": "23:00",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "08:00",
+        "endHour": "18:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "07:00",
+        "endHour": "19:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false
+        },
+        "holiday": true,
+        "retain": true
+      }
+    ],
+    "IL-2": [
+      {
+        "type": "individual",
+        "startHour": "06:00",
+        "endHour": "23:00",
+        "daysWeek": {
+          "mon": true,
+          "tue": true,
+          "wed": true,
+          "thu": true,
+          "fri": true,
+          "sat": true,
+          "sun": false
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "08:00",
+        "endHour": "18:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": true
+        },
+        "holiday": false,
+        "retain": true
+      },
+      {
+        "type": "individual",
+        "startHour": "07:00",
+        "endHour": "19:00",
+        "daysWeek": {
+          "mon": false,
+          "tue": false,
+          "wed": false,
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false
+        },
+        "holiday": true,
+        "retain": true
+      }
+    ]
+  }
+}

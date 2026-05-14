@@ -1,0 +1,2313 @@
+{
+  "SPT3: COMP1": [
+    {
+      "type": "group",
+      "startHour": "06:30",
+      "endHour": "20:30",
+      "daysWeek": {
+        "mon": true,
+        "tue": true,
+        "wed": true,
+        "thu": true,
+        "fri": true,
+        "sat": true,
+        "sun": false,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "09:00",
+      "endHour": "16:30",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": true,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "08:10",
+      "endHour": "17:50",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": false,
+        "holiday": true
+      },
+      "retain": true
+    }
+  ],
+  "SPT7: COMP1": [
+    {
+      "type": "group",
+      "startHour": "06:30",
+      "endHour": "20:30",
+      "daysWeek": {
+        "mon": true,
+        "tue": true,
+        "wed": true,
+        "thu": true,
+        "fri": true,
+        "sat": true,
+        "sun": false,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "09:00",
+      "endHour": "16:30",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": true,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "08:10",
+      "endHour": "17:50",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": false,
+        "holiday": true
+      },
+      "retain": true
+    }
+  ],
+  "SPT4: COMP1": [
+    {
+      "type": "group",
+      "startHour": "06:30",
+      "endHour": "20:30",
+      "daysWeek": {
+        "mon": true,
+        "tue": true,
+        "wed": true,
+        "thu": true,
+        "fri": true,
+        "sat": true,
+        "sun": false,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "09:00",
+      "endHour": "16:30",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": true,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "08:10",
+      "endHour": "17:50",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": false,
+        "holiday": true
+      },
+      "retain": true
+    }
+  ],
+  "SPT8: COMP1": [
+    {
+      "type": "group",
+      "startHour": "06:30",
+      "endHour": "20:30",
+      "daysWeek": {
+        "mon": true,
+        "tue": true,
+        "wed": true,
+        "thu": true,
+        "fri": true,
+        "sat": true,
+        "sun": false,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "09:00",
+      "endHour": "16:30",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": true,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "08:10",
+      "endHour": "17:50",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": false,
+        "holiday": true
+      },
+      "retain": true
+    }
+  ],
+  "Splitão 04": [
+    {
+      "type": "group",
+      "startHour": "06:00",
+      "endHour": "20:40",
+      "daysWeek": {
+        "mon": true,
+        "tue": true,
+        "wed": true,
+        "thu": true,
+        "fri": true,
+        "sat": true,
+        "sun": false,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "08:30",
+      "endHour": "16:40",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": true,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "08:00",
+      "endHour": "18:00",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": false,
+        "holiday": true
+      },
+      "retain": true
+    }
+  ],
+  "Splitão 03": [
+    {
+      "type": "group",
+      "startHour": "06:00",
+      "endHour": "20:40",
+      "daysWeek": {
+        "mon": true,
+        "tue": true,
+        "wed": true,
+        "thu": true,
+        "fri": true,
+        "sat": true,
+        "sun": false,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "08:30",
+      "endHour": "16:40",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": true,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "08:00",
+      "endHour": "18:00",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": false,
+        "holiday": true
+      },
+      "retain": true
+    }
+  ],
+  "Splitão 07": [
+    {
+      "type": "group",
+      "startHour": "06:00",
+      "endHour": "20:40",
+      "daysWeek": {
+        "mon": true,
+        "tue": true,
+        "wed": true,
+        "thu": true,
+        "fri": true,
+        "sat": true,
+        "sun": false,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "08:30",
+      "endHour": "16:40",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": true,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "08:00",
+      "endHour": "18:00",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": false,
+        "holiday": true
+      },
+      "retain": true
+    }
+  ],
+  "Splitão 08": [
+    {
+      "type": "group",
+      "startHour": "06:00",
+      "endHour": "20:40",
+      "daysWeek": {
+        "mon": true,
+        "tue": true,
+        "wed": true,
+        "thu": true,
+        "fri": true,
+        "sat": true,
+        "sun": false,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "08:30",
+      "endHour": "16:40",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": true,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "08:00",
+      "endHour": "18:00",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": false,
+        "holiday": true
+      },
+      "retain": true
+    }
+  ],
+  "Geral(SPU/VMF/ADM)": [
+    {
+      "type": "individual",
+      "startHour": "05:30",
+      "endHour": "22:00",
+      "daysWeek": {
+        "mon": true,
+        "tue": true,
+        "wed": true,
+        "thu": true,
+        "fri": true,
+        "sat": true,
+        "sun": true,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "individual",
+      "startHour": "07:00",
+      "endHour": "19:00",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": true,
+        "holiday": true
+      },
+      "retain": true
+    }
+  ],
+  "Status Exaust. Cozinha": [
+    {
+      "type": "individual",
+      "startHour": "05:30",
+      "endHour": "17:30",
+      "daysWeek": {
+        "mon": true,
+        "tue": true,
+        "wed": true,
+        "thu": true,
+        "fri": true,
+        "sat": true,
+        "sun": false,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "individual",
+      "startHour": "05:30",
+      "endHour": "18:00",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": true,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "individual",
+      "startHour": "07:30",
+      "endHour": "19:00",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": false,
+        "holiday": true
+      },
+      "retain": true
+    }
+  ],
+  "Status ADM ARMÁRIOS": [
+    {
+      "type": "individual",
+      "startHour": "06:00",
+      "endHour": "22:00",
+      "daysWeek": {
+        "mon": true,
+        "tue": true,
+        "wed": true,
+        "thu": true,
+        "fri": true,
+        "sat": true,
+        "sun": false,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "individual",
+      "startHour": "08:00",
+      "endHour": "18:00",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": true,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "individual",
+      "startHour": "07:30",
+      "endHour": "19:00",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": false,
+        "holiday": true
+      },
+      "retain": true
+    }
+  ],
+  "Status Laje Técnica": [
+    {
+      "type": "individual",
+      "startHour": "05:30",
+      "endHour": "22:00",
+      "daysWeek": {
+        "mon": true,
+        "tue": true,
+        "wed": true,
+        "thu": true,
+        "fri": true,
+        "sat": true,
+        "sun": false,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "individual",
+      "startHour": "08:00",
+      "endHour": "18:00",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": true,
+        "holiday": true
+      },
+      "retain": true
+    }
+  ],
+  "SPT6: COMP1": [
+    {
+      "type": "group",
+      "startHour": "06:30",
+      "endHour": "20:30",
+      "daysWeek": {
+        "mon": true,
+        "tue": true,
+        "wed": true,
+        "thu": true,
+        "fri": true,
+        "sat": true,
+        "sun": false,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "09:00",
+      "endHour": "16:30",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": true,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "08:10",
+      "endHour": "17:50",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": false,
+        "holiday": true
+      },
+      "retain": true
+    }
+  ],
+  "SPT10: COMP1": [
+    {
+      "type": "group",
+      "startHour": "06:30",
+      "endHour": "20:30",
+      "daysWeek": {
+        "mon": true,
+        "tue": true,
+        "wed": true,
+        "thu": true,
+        "fri": true,
+        "sat": true,
+        "sun": false,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "09:00",
+      "endHour": "16:30",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": true,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "08:10",
+      "endHour": "17:50",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": false,
+        "holiday": true
+      },
+      "retain": true
+    }
+  ],
+  "SPT2: COMP1": [
+    {
+      "type": "group",
+      "startHour": "06:30",
+      "endHour": "20:30",
+      "daysWeek": {
+        "mon": true,
+        "tue": true,
+        "wed": true,
+        "thu": true,
+        "fri": true,
+        "sat": true,
+        "sun": false,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "09:00",
+      "endHour": "16:30",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": true,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "08:10",
+      "endHour": "17:50",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": false,
+        "holiday": true
+      },
+      "retain": true
+    }
+  ],
+  "SPT1: COMP1": [
+    {
+      "type": "group",
+      "startHour": "06:30",
+      "endHour": "20:30",
+      "daysWeek": {
+        "mon": true,
+        "tue": true,
+        "wed": true,
+        "thu": true,
+        "fri": true,
+        "sat": true,
+        "sun": false,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "09:00",
+      "endHour": "16:30",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": true,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "08:10",
+      "endHour": "17:50",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": false,
+        "holiday": true
+      },
+      "retain": true
+    }
+  ],
+  "SPT5: COMP1": [
+    {
+      "type": "group",
+      "startHour": "06:30",
+      "endHour": "20:30",
+      "daysWeek": {
+        "mon": true,
+        "tue": true,
+        "wed": true,
+        "thu": true,
+        "fri": true,
+        "sat": true,
+        "sun": false,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "09:00",
+      "endHour": "16:30",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": true,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "08:10",
+      "endHour": "17:50",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": false,
+        "holiday": true
+      },
+      "retain": true
+    }
+  ],
+  "SPT9: COMP1": [
+    {
+      "type": "group",
+      "startHour": "06:30",
+      "endHour": "20:30",
+      "daysWeek": {
+        "mon": true,
+        "tue": true,
+        "wed": true,
+        "thu": true,
+        "fri": true,
+        "sat": true,
+        "sun": false,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "09:00",
+      "endHour": "16:30",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": true,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "08:10",
+      "endHour": "17:50",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": false,
+        "holiday": true
+      },
+      "retain": true
+    }
+  ],
+  "SPT3: COMP2": [
+    {
+      "type": "group",
+      "startHour": "07:00",
+      "endHour": "20:20",
+      "daysWeek": {
+        "mon": true,
+        "tue": true,
+        "wed": true,
+        "thu": true,
+        "fri": true,
+        "sat": true,
+        "sun": false,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "09:10",
+      "endHour": "16:20",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": true,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "08:20",
+      "endHour": "17:40",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": false,
+        "holiday": true
+      },
+      "retain": true
+    }
+  ],
+  "SPT4: COMP2": [
+    {
+      "type": "group",
+      "startHour": "07:00",
+      "endHour": "20:20",
+      "daysWeek": {
+        "mon": true,
+        "tue": true,
+        "wed": true,
+        "thu": true,
+        "fri": true,
+        "sat": true,
+        "sun": false,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "09:10",
+      "endHour": "16:20",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": true,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "08:20",
+      "endHour": "17:40",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": false,
+        "holiday": true
+      },
+      "retain": true
+    }
+  ],
+  "SPT7: COMP2": [
+    {
+      "type": "group",
+      "startHour": "07:00",
+      "endHour": "20:20",
+      "daysWeek": {
+        "mon": true,
+        "tue": true,
+        "wed": true,
+        "thu": true,
+        "fri": true,
+        "sat": true,
+        "sun": false,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "09:10",
+      "endHour": "16:20",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": true,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "08:20",
+      "endHour": "17:40",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": false,
+        "holiday": true
+      },
+      "retain": true
+    }
+  ],
+  "SPT8: COMP2": [
+    {
+      "type": "group",
+      "startHour": "07:00",
+      "endHour": "20:20",
+      "daysWeek": {
+        "mon": true,
+        "tue": true,
+        "wed": true,
+        "thu": true,
+        "fri": true,
+        "sat": true,
+        "sun": false,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "09:10",
+      "endHour": "16:20",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": true,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "08:20",
+      "endHour": "17:40",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": false,
+        "holiday": true
+      },
+      "retain": true
+    }
+  ],
+  "SPT10: COMP2": [
+    {
+      "type": "group",
+      "startHour": "07:00",
+      "endHour": "20:20",
+      "daysWeek": {
+        "mon": true,
+        "tue": true,
+        "wed": true,
+        "thu": true,
+        "fri": true,
+        "sat": true,
+        "sun": false,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "09:10",
+      "endHour": "16:20",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": true,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "08:20",
+      "endHour": "17:40",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": false,
+        "holiday": true
+      },
+      "retain": true
+    }
+  ],
+  "SPT2: COMP2": [
+    {
+      "type": "group",
+      "startHour": "07:00",
+      "endHour": "20:20",
+      "daysWeek": {
+        "mon": true,
+        "tue": true,
+        "wed": true,
+        "thu": true,
+        "fri": true,
+        "sat": true,
+        "sun": false,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "09:10",
+      "endHour": "16:20",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": true,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "08:20",
+      "endHour": "17:40",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": false,
+        "holiday": true
+      },
+      "retain": true
+    }
+  ],
+  "SPT1: COMP2": [
+    {
+      "type": "group",
+      "startHour": "07:00",
+      "endHour": "20:20",
+      "daysWeek": {
+        "mon": true,
+        "tue": true,
+        "wed": true,
+        "thu": true,
+        "fri": true,
+        "sat": true,
+        "sun": false,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "09:10",
+      "endHour": "16:20",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": true,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "08:20",
+      "endHour": "17:40",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": false,
+        "holiday": true
+      },
+      "retain": true
+    }
+  ],
+  "SPT9: COMP2": [
+    {
+      "type": "group",
+      "startHour": "07:00",
+      "endHour": "20:20",
+      "daysWeek": {
+        "mon": true,
+        "tue": true,
+        "wed": true,
+        "thu": true,
+        "fri": true,
+        "sat": true,
+        "sun": false,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "09:10",
+      "endHour": "16:20",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": true,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "08:20",
+      "endHour": "17:40",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": false,
+        "holiday": true
+      },
+      "retain": true
+    }
+  ],
+  "SPT5: COMP2": [
+    {
+      "type": "group",
+      "startHour": "07:00",
+      "endHour": "20:20",
+      "daysWeek": {
+        "mon": true,
+        "tue": true,
+        "wed": true,
+        "thu": true,
+        "fri": true,
+        "sat": true,
+        "sun": false,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "09:10",
+      "endHour": "16:20",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": true,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "08:20",
+      "endHour": "17:40",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": false,
+        "holiday": true
+      },
+      "retain": true
+    }
+  ],
+  "SPT6: COMP2": [
+    {
+      "type": "group",
+      "startHour": "07:00",
+      "endHour": "20:20",
+      "daysWeek": {
+        "mon": true,
+        "tue": true,
+        "wed": true,
+        "thu": true,
+        "fri": true,
+        "sat": true,
+        "sun": false,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "09:10",
+      "endHour": "16:20",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": true,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "08:20",
+      "endHour": "17:40",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": false,
+        "holiday": true
+      },
+      "retain": true
+    }
+  ],
+  "Splitão 09": [
+    {
+      "type": "group",
+      "startHour": "06:00",
+      "endHour": "20:40",
+      "daysWeek": {
+        "mon": true,
+        "tue": true,
+        "wed": true,
+        "thu": true,
+        "fri": true,
+        "sat": true,
+        "sun": false,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "08:30",
+      "endHour": "16:40",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": true,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "08:00",
+      "endHour": "18:00",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": false,
+        "holiday": true
+      },
+      "retain": true
+    }
+  ],
+  "Splitão 10": [
+    {
+      "type": "group",
+      "startHour": "06:00",
+      "endHour": "20:40",
+      "daysWeek": {
+        "mon": true,
+        "tue": true,
+        "wed": true,
+        "thu": true,
+        "fri": true,
+        "sat": true,
+        "sun": false,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "08:30",
+      "endHour": "16:40",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": true,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "08:00",
+      "endHour": "18:00",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": false,
+        "holiday": true
+      },
+      "retain": true
+    }
+  ],
+  "Splitão 06": [
+    {
+      "type": "group",
+      "startHour": "06:00",
+      "endHour": "20:40",
+      "daysWeek": {
+        "mon": true,
+        "tue": true,
+        "wed": true,
+        "thu": true,
+        "fri": true,
+        "sat": true,
+        "sun": false,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "08:30",
+      "endHour": "16:40",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": true,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "08:00",
+      "endHour": "18:00",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": false,
+        "holiday": true
+      },
+      "retain": true
+    }
+  ],
+  "Splitão 05": [
+    {
+      "type": "group",
+      "startHour": "06:00",
+      "endHour": "20:40",
+      "daysWeek": {
+        "mon": true,
+        "tue": true,
+        "wed": true,
+        "thu": true,
+        "fri": true,
+        "sat": true,
+        "sun": false,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "08:30",
+      "endHour": "16:40",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": true,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "08:00",
+      "endHour": "18:00",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": false,
+        "holiday": true
+      },
+      "retain": true
+    }
+  ],
+  "Splitão 02": [
+    {
+      "type": "group",
+      "startHour": "06:00",
+      "endHour": "20:40",
+      "daysWeek": {
+        "mon": true,
+        "tue": true,
+        "wed": true,
+        "thu": true,
+        "fri": true,
+        "sat": true,
+        "sun": false,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "08:30",
+      "endHour": "16:40",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": true,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "08:00",
+      "endHour": "18:00",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": false,
+        "holiday": true
+      },
+      "retain": true
+    }
+  ],
+  "Splitão 01": [
+    {
+      "type": "group",
+      "startHour": "06:00",
+      "endHour": "20:40",
+      "daysWeek": {
+        "mon": true,
+        "tue": true,
+        "wed": true,
+        "thu": true,
+        "fri": true,
+        "sat": true,
+        "sun": false,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "08:30",
+      "endHour": "16:40",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": true,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "group",
+      "startHour": "08:00",
+      "endHour": "18:00",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": false,
+        "holiday": true
+      },
+      "retain": true
+    }
+  ],
+  "Corredores/Meio Loja": [
+    {
+      "type": "individual",
+      "startHour": "06:00",
+      "endHour": "23:00",
+      "daysWeek": {
+        "mon": true,
+        "tue": true,
+        "wed": true,
+        "thu": true,
+        "fri": true,
+        "sat": true,
+        "sun": false,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "individual",
+      "startHour": "08:00",
+      "endHour": "05:00",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": true,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "individual",
+      "startHour": "07:00",
+      "endHour": "19:00",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": false,
+        "holiday": true
+      },
+      "retain": true
+    }
+  ],
+  "Luz Externa Depósito": [
+    {
+      "type": "individual",
+      "startHour": "17:00",
+      "endHour": "05:30",
+      "daysWeek": {
+        "mon": true,
+        "tue": true,
+        "wed": true,
+        "thu": true,
+        "fri": true,
+        "sat": true,
+        "sun": true,
+        "holiday": true
+      },
+      "retain": true
+    }
+  ],
+  "Luz Externa Manut.": [
+    {
+      "type": "individual",
+      "startHour": "17:30",
+      "endHour": "06:00",
+      "daysWeek": {
+        "mon": true,
+        "tue": true,
+        "wed": true,
+        "thu": true,
+        "fri": true,
+        "sat": true,
+        "sun": true,
+        "holiday": true
+      },
+      "retain": true
+    }
+  ],
+  "Luz Depósito Alta/ Recebimento": [
+    {
+      "type": "individual",
+      "startHour": "05:00",
+      "endHour": "22:30",
+      "daysWeek": {
+        "mon": true,
+        "tue": true,
+        "wed": true,
+        "thu": true,
+        "fri": true,
+        "sat": true,
+        "sun": false,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "individual",
+      "startHour": "07:00",
+      "endHour": "18:30",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": true,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "individual",
+      "startHour": "06:00",
+      "endHour": "19:30",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": false,
+        "holiday": true
+      },
+      "retain": true
+    }
+  ],
+  "Iluminacao Estacionamento Coberto": [
+    {
+      "type": "individual",
+      "startHour": "17:00",
+      "endHour": "23:00",
+      "daysWeek": {
+        "mon": true,
+        "tue": true,
+        "wed": true,
+        "thu": true,
+        "fri": true,
+        "sat": true,
+        "sun": false,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "individual",
+      "startHour": "17:00",
+      "endHour": "05:00",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": true,
+        "holiday": true
+      },
+      "retain": true
+    }
+  ],
+  "Luz Depósito Alta": [
+    {
+      "type": "individual",
+      "startHour": "06:00",
+      "endHour": "23:00",
+      "daysWeek": {
+        "mon": true,
+        "tue": true,
+        "wed": true,
+        "thu": true,
+        "fri": true,
+        "sat": true,
+        "sun": false,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "individual",
+      "startHour": "08:00",
+      "endHour": "05:00",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": true,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "individual",
+      "startHour": "07:00",
+      "endHour": "19:00",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": false,
+        "holiday": true
+      },
+      "retain": true
+    }
+  ],
+  "Totem Publicidade": [
+    {
+      "type": "individual",
+      "startHour": "17:30",
+      "endHour": "06:00",
+      "daysWeek": {
+        "mon": true,
+        "tue": true,
+        "wed": true,
+        "thu": true,
+        "fri": true,
+        "sat": true,
+        "sun": true,
+        "holiday": true
+      },
+      "retain": true
+    }
+  ],
+  "Luz Estacio. Descoberto": [
+    {
+      "type": "individual",
+      "startHour": "17:00",
+      "endHour": "23:00",
+      "daysWeek": {
+        "mon": true,
+        "tue": true,
+        "wed": true,
+        "thu": true,
+        "fri": true,
+        "sat": true,
+        "sun": false,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "individual",
+      "startHour": "17:00",
+      "endHour": "18:00",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": true,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "individual",
+      "startHour": "17:00",
+      "endHour": "19:00",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": false,
+        "holiday": true
+      },
+      "retain": true
+    }
+  ],
+  "Luz Retira Externa": [
+    {
+      "type": "individual",
+      "startHour": "17:30",
+      "endHour": "05:30",
+      "daysWeek": {
+        "mon": true,
+        "tue": true,
+        "wed": true,
+        "thu": true,
+        "fri": true,
+        "sat": true,
+        "sun": true,
+        "holiday": true
+      },
+      "retain": true
+    }
+  ],
+  "Luz Drive Thru": [
+    {
+      "type": "individual",
+      "startHour": "06:00",
+      "endHour": "23:00",
+      "daysWeek": {
+        "mon": true,
+        "tue": true,
+        "wed": true,
+        "thu": true,
+        "fri": true,
+        "sat": true,
+        "sun": false,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "individual",
+      "startHour": "08:00",
+      "endHour": "05:00",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": true,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "individual",
+      "startHour": "07:00",
+      "endHour": "19:00",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": false,
+        "holiday": true
+      },
+      "retain": true
+    }
+  ],
+  "Frente / Corredor Loja": [
+    {
+      "type": "individual",
+      "startHour": "06:00",
+      "endHour": "23:00",
+      "daysWeek": {
+        "mon": true,
+        "tue": true,
+        "wed": true,
+        "thu": true,
+        "fri": true,
+        "sat": true,
+        "sun": false,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "individual",
+      "startHour": "08:00",
+      "endHour": "05:00",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": true,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "individual",
+      "startHour": "07:00",
+      "endHour": "19:00",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": false,
+        "holiday": true
+      },
+      "retain": true
+    }
+  ],
+  "Luz Retira Externa ": [
+    {
+      "type": "individual",
+      "startHour": "16:30",
+      "endHour": "05:30",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": false,
+        "holiday": false
+      },
+      "retain": false
+    }
+  ],
+  "Corredor Manutenção": [
+    {
+      "type": "individual",
+      "startHour": "17:30",
+      "endHour": "06:00",
+      "daysWeek": {
+        "mon": true,
+        "tue": true,
+        "wed": true,
+        "thu": true,
+        "fri": true,
+        "sat": true,
+        "sun": true,
+        "holiday": true
+      },
+      "retain": true
+    }
+  ],
+  "Check Meio": [],
+  "Meio /Fundo Loja": [
+    {
+      "type": "individual",
+      "startHour": "06:00",
+      "endHour": "23:00",
+      "daysWeek": {
+        "mon": true,
+        "tue": true,
+        "wed": true,
+        "thu": true,
+        "fri": true,
+        "sat": true,
+        "sun": false,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "individual",
+      "startHour": "08:00",
+      "endHour": "05:00",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": true,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "individual",
+      "startHour": "07:00",
+      "endHour": "19:00",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": false,
+        "holiday": true
+      },
+      "retain": true
+    }
+  ],
+  "Luz Depósito Alta/Recebimento": [
+    {
+      "type": "individual",
+      "startHour": "06:00",
+      "endHour": "23:00",
+      "daysWeek": {
+        "mon": true,
+        "tue": true,
+        "wed": true,
+        "thu": true,
+        "fri": true,
+        "sat": true,
+        "sun": false,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "individual",
+      "startHour": "08:00",
+      "endHour": "05:00",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": true,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "individual",
+      "startHour": "07:00",
+      "endHour": "19:00",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": false,
+        "holiday": true
+      },
+      "retain": true
+    }
+  ],
+  "IL-1": [
+    {
+      "type": "individual",
+      "startHour": "06:00",
+      "endHour": "23:00",
+      "daysWeek": {
+        "mon": true,
+        "tue": true,
+        "wed": true,
+        "thu": true,
+        "fri": true,
+        "sat": true,
+        "sun": false,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "individual",
+      "startHour": "08:00",
+      "endHour": "18:00",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": true,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "individual",
+      "startHour": "07:00",
+      "endHour": "19:00",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": false,
+        "holiday": true
+      },
+      "retain": true
+    }
+  ],
+  "IL-2": [
+    {
+      "type": "individual",
+      "startHour": "06:00",
+      "endHour": "23:00",
+      "daysWeek": {
+        "mon": true,
+        "tue": true,
+        "wed": true,
+        "thu": true,
+        "fri": true,
+        "sat": true,
+        "sun": false,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "individual",
+      "startHour": "08:00",
+      "endHour": "18:00",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": true,
+        "holiday": false
+      },
+      "retain": true
+    },
+    {
+      "type": "individual",
+      "startHour": "07:00",
+      "endHour": "19:00",
+      "daysWeek": {
+        "mon": false,
+        "tue": false,
+        "wed": false,
+        "thu": false,
+        "fri": false,
+        "sat": false,
+        "sun": false,
+        "holiday": true
+      },
+      "retain": true
+    }
+  ]
+}
