@@ -1493,6 +1493,9 @@ async function enrichWaterDevicesWithIngestionTotals(classified, panel) {
 
     if (enrichedCount > 0 && panel) {
       var allItems = buildWaterCardItems(classified, _selectedAmbiente);
+      // NOTE: _activeWaterTabId tracks tab clicks only — filters applied via the modal
+      // (handleActionFilter) are not reflected here. If the user filtered by modal,
+      // enrichment resets to the active tab state. TODO: track modal filter separately.
       var enrichedItems = (_activeWaterTabId && _activeWaterTabId !== 'all')
         ? allItems.filter(function (item) { return (item.source && item.source.type || '') === _activeWaterTabId; })
         : allItems;
@@ -2467,6 +2470,7 @@ function mountWaterPanel(waterHost, settings, classified) {
     LogHelper.warn('[MAIN_BAS] MyIOLibrary.CardGridPanel not available');
     return null;
   }
+  _activeWaterTabId = 'all'; // reset on each mount — tabs start on "Todos"
 
   var waterItems = buildWaterCardItems(classified, null);
   var waterDevices = getWaterDevicesFromClassified(classified);
@@ -4801,7 +4805,7 @@ function buildDateRangePickerBar(container, defaultStart, defaultEnd, onApply, t
     var s = new Date(inputStart.value); s.setHours(0, 0, 0, 0);
     var e = new Date(inputEnd.value);   e.setHours(23, 59, 59, 999);
     var invalid = s.getTime() >= e.getTime();
-    inputEnd.style.borderColor = invalid ? '#e53e3e' : '';
+    inputEnd.style.borderColor = invalid ? '#e53e3e' : (isDark ? 'rgba(255,255,255,0.25)' : '#ccc');
     inputEnd.style.outline = invalid ? 'none' : '';
     if (invalid) return;
     onApply(s.getTime(), e.getTime());
