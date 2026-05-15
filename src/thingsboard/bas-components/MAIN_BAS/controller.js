@@ -1944,6 +1944,21 @@ function buildEnergyCardItems(classified, selectedAmbienteId) {
 let _maximizeOverlay = null;
 let _maximizedPanel = null;
 
+function restorePanelElement(snapshot) {
+  if (!snapshot || snapshot.isChart || !snapshot.originalParent) return;
+  var el = snapshot.panelElement;
+  el.style.width = '';
+  el.style.height = '';
+  el.style.maxWidth = '';
+  el.style.maxHeight = '';
+  var sib = snapshot.originalNextSibling;
+  if (sib && sib.parentElement === snapshot.originalParent) {
+    snapshot.originalParent.insertBefore(el, sib);
+  } else {
+    snapshot.originalParent.appendChild(el);
+  }
+}
+
 // Theme colors for maximize modal
 var MAXIMIZE_THEME = {
   light: {
@@ -2034,6 +2049,7 @@ function showMaximizedPanel(panelElement, panelTitle, options) {
 
   // Recreate overlay with current theme
   if (_maximizeOverlay) {
+    restorePanelElement(_maximizedPanel);
     _maximizeOverlay.remove();
     _maximizeOverlay = null;
   }
@@ -2060,6 +2076,8 @@ function showMaximizedPanel(panelElement, panelTitle, options) {
   `;
 
   // For charts, we need to recreate the structure instead of cloning
+  var originalParent = null;
+  var originalNextSibling = null;
   if (opts.isChart) {
     // Clone header only
     var originalHeader = panelElement.querySelector('.bas-chart-header');
@@ -2112,13 +2130,14 @@ function showMaximizedPanel(panelElement, panelTitle, options) {
     var chartDomain = opts.chartDomain || _currentChartDomain;
     switchChartDomainInContainer(chartDomain, chartArea);
   } else {
-    // Standard panel - just clone
-    var clone = panelElement.cloneNode(true);
-    clone.style.width = '100%';
-    clone.style.height = '100%';
-    clone.style.maxWidth = 'none';
-    clone.style.maxHeight = 'none';
-    panelContainer.appendChild(clone);
+    // Move original element into overlay to preserve all event listeners (cloneNode loses them)
+    originalParent = panelElement.parentElement;
+    originalNextSibling = panelElement.nextSibling;
+    panelElement.style.width = '100%';
+    panelElement.style.height = '100%';
+    panelElement.style.maxWidth = 'none';
+    panelElement.style.maxHeight = 'none';
+    panelContainer.appendChild(panelElement);
   }
 
   // Wrap in container for positioning (close button goes here, outside panelContainer's overflow:hidden)
@@ -2171,7 +2190,15 @@ function showMaximizedPanel(panelElement, panelTitle, options) {
     panelContainer.style.transform = 'scale(1)';
   });
 
-  _maximizedPanel = { overlay: overlay, panel: panelContainer, title: panelTitle, isChart: opts.isChart };
+  _maximizedPanel = {
+    overlay: overlay,
+    panel: panelContainer,
+    title: panelTitle,
+    isChart: !!opts.isChart,
+    panelElement: panelElement,
+    originalParent: originalParent,
+    originalNextSibling: originalNextSibling,
+  };
 
   LogHelper.log(
     '[MAIN_BAS] Panel maximized:',
@@ -2319,7 +2346,9 @@ function closeMaximizedPanel() {
     _maximizedChartInstance = null;
   }
 
+  var toRestore = _maximizedPanel;
   setTimeout(function () {
+    restorePanelElement(toRestore);
     _maximizeOverlay.innerHTML = '';
     _maximizedPanel = null;
   }, 200);
@@ -5476,6 +5505,7 @@ self.onDestroy = function () {
   _maximizedChartInstance = null;
 
   if (_maximizeOverlay) {
+    restorePanelElement(_maximizedPanel);
     _maximizeOverlay.remove();
   }
   _maximizeOverlay = null;
