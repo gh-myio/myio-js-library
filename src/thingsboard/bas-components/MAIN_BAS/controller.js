@@ -84,6 +84,13 @@ var _waterDateRange = (function () {
 var _chartDatePicker = null;
 var _waterDatePicker = null;
 var _activeWaterTabId = 'all'; // tracks the water panel's selected tab
+
+function filterWaterItemsByTab(items, tabId) {
+  if (!tabId || tabId === 'all') return items;
+  return items.filter(function (item) {
+    return (item.source && item.source.type || '') === tabId;
+  });
+}
 let _selectedAmbiente = null;
 let _ctx = null;
 let _settings = null;
@@ -1496,9 +1503,7 @@ async function enrichWaterDevicesWithIngestionTotals(classified, panel) {
       // NOTE: _activeWaterTabId tracks tab clicks only — filters applied via the modal
       // (handleActionFilter) are not reflected here. If the user filtered by modal,
       // enrichment resets to the active tab state. TODO: track modal filter separately.
-      var enrichedItems = (_activeWaterTabId && _activeWaterTabId !== 'all')
-        ? allItems.filter(function (item) { return (item.source && item.source.type || '') === _activeWaterTabId; })
-        : allItems;
+      var enrichedItems = filterWaterItemsByTab(allItems, _activeWaterTabId);
       panel.setItems(enrichedItems);
       panel.setQuantity(enrichedItems.length);
     }
@@ -2475,15 +2480,6 @@ function mountWaterPanel(waterHost, settings, classified) {
   var waterItems = buildWaterCardItems(classified, null);
   var waterDevices = getWaterDevicesFromClassified(classified);
   var currentFilter = { categories: null, sortId: null };
-
-  // Helper to filter items by tab
-  function filterWaterItemsByTab(items, tabId) {
-    if (tabId === 'all') return items;
-    return items.filter(function (item) {
-      var type = item.source?.type || '';
-      return type === tabId;
-    });
-  }
 
   // Re-inject date picker after CardGridPanel.renderTabs() rebuilds the tabs wrapper.
   // handleClick fires AFTER renderTabs(), so the new wrapper already exists here.
@@ -4792,7 +4788,8 @@ function buildDateRangePickerBar(container, defaultStart, defaultEnd, onApply, t
 
   var inputStart = makeDateInput(toLocalISODate(defaultStart));
   var inputEnd   = makeDateInput(toLocalISODate(defaultEnd));
-  inputEnd.min = toLocalISODate(defaultStart); // initial constraint
+  inputEnd.min   = toLocalISODate(defaultStart); // initial constraint
+  inputStart.max = toLocalISODate(defaultEnd);
 
   var sep = document.createElement('span');
   sep.textContent = '–';
@@ -4816,6 +4813,7 @@ function buildDateRangePickerBar(container, defaultStart, defaultEnd, onApply, t
     tryApply();
   });
   inputEnd.addEventListener('change', function () {
+    if (inputEnd.value) inputStart.max = inputEnd.value;
     tryApply();
   });
 
@@ -4828,6 +4826,8 @@ function buildDateRangePickerBar(container, defaultStart, defaultEnd, onApply, t
     setDates: function (start, end) {
       inputStart.value = toLocalISODate(start);
       inputEnd.value   = toLocalISODate(end);
+      inputEnd.min     = toLocalISODate(start);
+      inputStart.max   = toLocalISODate(end);
     },
     destroy: function () { wrap.remove(); },
   };
