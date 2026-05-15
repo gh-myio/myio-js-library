@@ -2991,13 +2991,8 @@ function openBASWaterModal(device, _settings) {
     },
   };
 
-  // Get date range (last 7 days default)
-  var endDate = new Date();
-  var startDate = new Date();
-  startDate.setDate(startDate.getDate() - 7);
-
-  var startDateStr = startDate.toISOString().split('T')[0];
-  var endDateStr = endDate.toISOString().split('T')[0];
+  var startDateStr = toLocalISODate(new Date(_waterDateRange.startTs));
+  var endDateStr   = toLocalISODate(new Date(_waterDateRange.endTs));
 
   LogHelper.log('[MAIN_BAS] Opening BAS Water modal for device:', waterDevice);
 
@@ -4378,12 +4373,13 @@ async function fetchIngestionData(domain, customerId, clientId, clientSecret, pe
   var shoppingNames = {}; // { deviceId: "Device Label" }
   var dayMs = 24 * 60 * 60 * 1000;
 
-  // Calculate day boundaries (same pattern as ENERGY widget)
+  // Day boundaries use local midnight so they match the date the user selected
   var dayBoundaries = [];
   for (var i = 0; i < period; i++) {
     var dayStart = new Date(startTs + i * dayMs);
-    dayStart.setUTCHours(0, 0, 0, 0);
-    var dayEnd = new Date(dayStart.getTime() + dayMs - 1);
+    dayStart.setHours(0, 0, 0, 0);
+    var dayEnd = new Date(dayStart);
+    dayEnd.setHours(23, 59, 59, 999);
     dayBoundaries.push({
       startTs: dayStart.getTime(),
       endTs: dayEnd.getTime(),
