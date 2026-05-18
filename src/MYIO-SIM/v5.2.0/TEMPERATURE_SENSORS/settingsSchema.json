@@ -35,5 +35,12 @@
       }
     }
   },
-  "form": ["useNewComponents", "enableSelection", "enableDragDrop", "hideInfoMenuItem", "debugActive", "activeTooltipDebug"]
+  "form": [
+    "useNewComponents",
+    "enableSelection",
+    "enableDragDrop",
+    "hideInfoMenuItem",
+    "debugActive",
+    "activeTooltipDebug"
+  ]
 }

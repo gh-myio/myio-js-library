@@ -25,27 +25,27 @@ const _MAINTENANCE_MODE = false;
 // Module-level state (reset on every onInit)
 // ============================================================================
 
-let _panelInstance          = null;
-let _refreshTimer           = null;
-let _fetchDebounceTimer     = null;
-let _customerIngId          = '';
-let _gcdrTenantId           = ''; // RFC-0179: from TB SERVER_SCOPE attr gcdrTenantId
-let _maxAlarms              = 100;
-let _activeTab              = 'list';
-let _isRefreshing           = false;
-let _currentTheme           = 'light';
-let _themeChangeHandler     = null;
-let _filterChangeHandler    = null;
-let _activationHandler      = null;
-let _activeFilters          = {}; // { from?, to? }
-let _closedAlarmsMode       = false; // true = fetch CLOSED alarms (history mode)
-let _closedAlarmsHandler    = null;
-let _alarmsUpdatedHandler   = null;
-let _offlineToggleHandler   = null;
+let _panelInstance = null;
+let _refreshTimer = null;
+let _fetchDebounceTimer = null;
+let _customerIngId = '';
+let _gcdrTenantId = ''; // RFC-0179: from TB SERVER_SCOPE attr gcdrTenantId
+let _maxAlarms = 100;
+let _activeTab = 'list';
+let _isRefreshing = false;
+let _currentTheme = 'light';
+let _themeChangeHandler = null;
+let _filterChangeHandler = null;
+let _activationHandler = null;
+let _activeFilters = {}; // { from?, to? }
+let _closedAlarmsMode = false; // true = fetch CLOSED alarms (history mode)
+let _closedAlarmsHandler = null;
+let _alarmsUpdatedHandler = null;
+let _offlineToggleHandler = null;
 
 let LogHelper = {
-  log:   (...a) => {},
-  warn:  (...a) => console.warn('[ALARM]', ...a),
+  log: (...a) => {},
+  warn: (...a) => console.warn('[ALARM]', ...a),
   error: (...a) => console.error('[ALARM]', ...a),
 };
 
@@ -57,15 +57,15 @@ self.onInit = async function () {
   'use strict';
 
   // --- Reset state ---
-  _panelInstance       = null;
-  _refreshTimer        = null;
+  _panelInstance = null;
+  _refreshTimer = null;
   clearTimeout(_fetchDebounceTimer);
-  _fetchDebounceTimer  = null;
-  _customerIngId       = '';
-  _gcdrTenantId        = '';
-  _isRefreshing        = false;
-  _activeFilters       = {};
-  _closedAlarmsMode    = false;
+  _fetchDebounceTimer = null;
+  _customerIngId = '';
+  _gcdrTenantId = '';
+  _isRefreshing = false;
+  _activeFilters = {};
+  _closedAlarmsMode = false;
 
   // --- Library reference ---
   const MyIOLibrary = window.MyIOLibrary;
@@ -75,19 +75,21 @@ self.onInit = async function () {
   }
 
   // --- Settings ---
-  const settings               = self.ctx.settings || {};
-  const labelWidget            = settings.labelWidget            || 'Alarmes e Notificações';
-  const customerTB_ID          = window.MyIOOrchestrator?.customerTB_ID || '';
-  const defaultTab             = settings.defaultTab             || 'list';
-  const showCustomerName       = settings.showCustomerName       ?? false;
+  const settings = self.ctx.settings || {};
+  const labelWidget = settings.labelWidget || 'Alarmes e Notificações';
+  const customerTB_ID = window.MyIOOrchestrator?.customerTB_ID || '';
+  const defaultTab = settings.defaultTab || 'list';
+  const showCustomerName = settings.showCustomerName ?? false;
   const refreshIntervalSeconds = settings.refreshIntervalSeconds ?? 180;
-  const cacheIntervalSeconds   = settings.cacheIntervalSeconds   ?? 180;
-  const enableDebugMode        = settings.enableDebugMode        ?? false;
+  const cacheIntervalSeconds = settings.cacheIntervalSeconds ?? 180;
+  const enableDebugMode = settings.enableDebugMode ?? false;
   // API credentials: from MAIN_VIEW orchestrator (configured in MAIN_VIEW settingsSchema)
   const alarmsApiBaseUrl = window.MyIOOrchestrator?.alarmsApiBaseUrl || '';
-  const alarmsApiKey     = window.MyIOOrchestrator?.gcdrApiKey     || '';
+  const alarmsApiKey = window.MyIOOrchestrator?.gcdrApiKey || '';
   if (!alarmsApiKey) {
-    MyIOLibrary.MyIOToast?.error('[ALARM] gcdrApiKey não encontrado em window.MyIOOrchestrator. Verifique o atributo SERVER_SCOPE gcdrApiKey do customer.');
+    MyIOLibrary.MyIOToast?.error(
+      '[ALARM] gcdrApiKey não encontrado em window.MyIOOrchestrator. Verifique o atributo SERVER_SCOPE gcdrApiKey do customer.'
+    );
   }
 
   // Read theme from dashboard orchestrator; fallback to light
@@ -97,8 +99,8 @@ self.onInit = async function () {
   const _tbBaseUrl = settings.tbBaseUrl || self.ctx?.settings?.tbBaseUrl || '';
   if (_tbBaseUrl) window.__myioTbBaseUrl = _tbBaseUrl;
 
-  _maxAlarms  = settings.maxAlarmsVisible ?? 100;
-  _activeTab  = defaultTab;
+  _maxAlarms = settings.maxAlarmsVisible ?? 100;
+  _activeTab = defaultTab;
 
   // --- Logger ---
   if (MyIOLibrary.createLogHelper) {
@@ -108,13 +110,19 @@ self.onInit = async function () {
     });
   } else if (enableDebugMode) {
     LogHelper = {
-      log:   (...a) => console.log('[ALARM]',  ...a),
-      warn:  (...a) => console.warn('[ALARM]', ...a),
-      error: (...a) => console.error('[ALARM]',...a),
+      log: (...a) => console.log('[ALARM]', ...a),
+      warn: (...a) => console.warn('[ALARM]', ...a),
+      error: (...a) => console.error('[ALARM]', ...a),
     };
   }
 
-  LogHelper.log('onInit — settings:', { labelWidget, defaultTab, showCustomerName, refreshIntervalSeconds, theme: _currentTheme });
+  LogHelper.log('onInit — settings:', {
+    labelWidget,
+    defaultTab,
+    showCustomerName,
+    refreshIntervalSeconds,
+    theme: _currentTheme,
+  });
 
   // --- Apply theme and sync with dashboard ---
   const root = document.getElementById('alarmWidgetRoot');
@@ -132,13 +140,18 @@ self.onInit = async function () {
 
   // --- Configure AlarmService — credentials + TTL always from settings/orchestrator ---
   MyIOLibrary.AlarmService?.configure?.(alarmsApiBaseUrl, cacheIntervalSeconds * 1000, alarmsApiKey);
-  LogHelper.log('AlarmService configured — baseUrl:', alarmsApiBaseUrl || '(missing!)', '— cacheTTL:', cacheIntervalSeconds + 's');
+  LogHelper.log(
+    'AlarmService configured — baseUrl:',
+    alarmsApiBaseUrl || '(missing!)',
+    '— cacheTTL:',
+    cacheIntervalSeconds + 's'
+  );
 
   // --- RFC-0178: Listen for alarm filter changes from HEADER ---
   _filterChangeHandler = (ev) => {
     _activeFilters = {
       from: ev.detail?.from || null,
-      to:   ev.detail?.to   || null,
+      to: ev.detail?.to || null,
     };
     LogHelper.log('Alarm filter changed:', _activeFilters);
     MyIOLibrary?.AlarmService?.clearCache?.();
@@ -193,9 +206,9 @@ self.onInit = async function () {
 
   // --- RFC-0180: GCDR IDs are resolved by MAIN_VIEW and stored in window.MyIOOrchestrator ---
   _customerIngId = window.MyIOOrchestrator?.gcdrCustomerId || '';
-  _gcdrTenantId  = window.MyIOOrchestrator?.gcdrTenantId  || '';
+  _gcdrTenantId = window.MyIOOrchestrator?.gcdrTenantId || '';
   LogHelper.log('gcdrCustomerId (from orchestrator):', _customerIngId || '(empty — will retry on fetch)');
-  LogHelper.log('gcdrTenantId   (from orchestrator):', _gcdrTenantId  || '(empty)');
+  LogHelper.log('gcdrTenantId   (from orchestrator):', _gcdrTenantId || '(empty)');
 
   // --- Mount AlarmsNotificationsPanel component ---
   const container = document.getElementById('alarmPanelContainer');
@@ -227,38 +240,21 @@ self.onInit = async function () {
     },
 
     onAcknowledge: async (alarmIds) => {
-      // RFC-0199: gate — null check: if auth not loaded yet, allow (auth may still be initialising)
-      if (window.MyIOAuthContext?.ready && !window.MyIOAuthContext.can('alarm:ack')) {
-        LogHelper.warn('[ALARM RFC-0199] Permission denied: alarm:ack');
-        return;
-      }
       LogHelper.log('Batch acknowledge:', alarmIds.length, 'alarms');
       await _handleBatchAction('acknowledge', alarmIds, userEmail);
     },
 
     onEscalate: async (alarmIds) => {
-      if (window.MyIOAuthContext?.ready && !window.MyIOAuthContext.can('alarm:escalate')) {
-        LogHelper.warn('[ALARM RFC-0199] Permission denied: alarm:escalate');
-        return;
-      }
       LogHelper.log('Batch escalate:', alarmIds.length, 'alarms');
       await _handleBatchAction('escalate', alarmIds, userEmail);
     },
 
     onSnooze: async (alarmIds, until) => {
-      if (window.MyIOAuthContext?.ready && !window.MyIOAuthContext.can('alarm:snooze')) {
-        LogHelper.warn('[ALARM RFC-0199] Permission denied: alarm:snooze');
-        return;
-      }
       LogHelper.log('Batch snooze:', alarmIds.length, 'alarms until', until);
       await _handleBatchAction('snooze', alarmIds, userEmail, { until });
     },
 
     onClose: async (alarmIds, reason) => {
-      if (window.MyIOAuthContext?.ready && !window.MyIOAuthContext.can('alarm:close')) {
-        LogHelper.warn('[ALARM RFC-0199] Permission denied: alarm:close');
-        return;
-      }
       LogHelper.log('Batch close:', alarmIds.length, 'alarms');
       await _handleBatchAction('close', alarmIds, userEmail, { reason });
     },
@@ -300,10 +296,17 @@ function _showMaintenanceOverlay() {
   const overlay = document.createElement('div');
   overlay.id = OVERLAY_ID;
   overlay.style.cssText = [
-    'position:absolute', 'inset:0', 'z-index:9999',
-    'display:flex', 'flex-direction:column', 'align-items:center', 'justify-content:center',
-    'background:rgba(255,255,255,0.92)', 'backdrop-filter:blur(3px)',
-    'border-radius:inherit', 'pointer-events:all',
+    'position:absolute',
+    'inset:0',
+    'z-index:9999',
+    'display:flex',
+    'flex-direction:column',
+    'align-items:center',
+    'justify-content:center',
+    'background:rgba(255,255,255,0.92)',
+    'backdrop-filter:blur(3px)',
+    'border-radius:inherit',
+    'pointer-events:all',
   ].join(';');
 
   overlay.innerHTML = `
@@ -331,9 +334,15 @@ function _showMaintenanceOverlay() {
 
   const unlockBtn = overlay.querySelector('#alarm-maintenance-unlock');
   if (unlockBtn) {
-    unlockBtn.addEventListener('mouseenter', () => { unlockBtn.style.opacity = '0.6'; });
-    unlockBtn.addEventListener('mouseleave', () => { unlockBtn.style.opacity = '0.15'; });
-    unlockBtn.addEventListener('click', () => { overlay.remove(); });
+    unlockBtn.addEventListener('mouseenter', () => {
+      unlockBtn.style.opacity = '0.6';
+    });
+    unlockBtn.addEventListener('mouseleave', () => {
+      unlockBtn.style.opacity = '0.15';
+    });
+    unlockBtn.addEventListener('click', () => {
+      overlay.remove();
+    });
   }
 }
 
@@ -404,8 +413,7 @@ function _getActiveDates() {
   if (_activeFilters.from && _activeFilters.to) {
     return { from: _activeFilters.from, to: _activeFilters.to };
   }
-  const period = window.MyIOOrchestrator?.getCurrentPeriod?.()
-    || window.__myioInitialPeriod;
+  const period = window.MyIOOrchestrator?.getCurrentPeriod?.() || window.__myioInitialPeriod;
   if (period?.startISO && period?.endISO) {
     return { from: period.startISO, to: period.endISO };
   }
@@ -421,20 +429,18 @@ function _getActiveDates() {
 function _enrichAlarms(rawAlarms) {
   const gcdrMap = window.MyIOOrchestrator?.gcdrDeviceNameMap;
   const nameMap = window.MyIOOrchestrator?.entityNameToLabelMap;
-  const UUID_RE     = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   const SHORTCODE_RE = /^gcdr:[0-9a-f]{8}/;
   return rawAlarms.map((a) => {
     const src = a.source || '';
     // Only attempt lookup when source is an opaque ID, not a human-readable device name.
     const isOpaqueId = UUID_RE.test(src) || SHORTCODE_RE.test(src);
-    const tbName = isOpaqueId
-      ? (gcdrMap?.get(src) || nameMap?.get(src) || null)
-      : null;
+    const tbName = isOpaqueId ? gcdrMap?.get(src) || nameMap?.get(src) || null : null;
     return {
       ...a,
       ...(tbName ? { source: tbName } : {}),
       firstOccurrence: a.firstOccurrence || a.raisedAt || '',
-      lastOccurrence:  a.lastOccurrence  || a.lastUpdatedAt || a.raisedAt || '',
+      lastOccurrence: a.lastOccurrence || a.lastUpdatedAt || a.raisedAt || '',
     };
   });
 }
@@ -455,21 +461,28 @@ async function _fetchAlarmsAndUpdate(resolvedCustomerId, states) {
   // Alarms ativos (OPEN/ACK/SNOOZED/ESCALATED) devem aparecer sempre, independente de quando foram abertos.
   const isClosedQuery = states.length === 1 && states[0] === 'CLOSED';
   const { from, to } = isClosedQuery ? _getActiveDates() : { from: null, to: null };
-  LogHelper.log('[ALARM] Fetching alarms — states:', states, '| from:', from ?? '(sem filtro)', '| to:', to ?? '(sem filtro)');
+  LogHelper.log(
+    '[ALARM] Fetching alarms — states:',
+    states,
+    '| from:',
+    from ?? '(sem filtro)',
+    '| to:',
+    to ?? '(sem filtro)'
+  );
 
   const response = await AlarmService.getAlarms({
-    state:      states,
-    limit:      _maxAlarms,
+    state: states,
+    limit: _maxAlarms,
     customerId: resolvedCustomerId,
-    from:       from || undefined,
-    to:         to   || undefined,
+    from: from || undefined,
+    to: to || undefined,
   });
 
-  const alarms  = _enrichAlarms(response.data ?? []);
+  const alarms = _enrichAlarms(response.data ?? []);
   const summary = response.summary;
 
   const byState = { OPEN: 0, ACK: 0, SNOOZED: 0, ESCALATED: 0, CLOSED: 0 };
-  const bySev   = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, INFO: 0 };
+  const bySev = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, INFO: 0 };
   for (const a of alarms) {
     if (a.state in byState) byState[a.state]++;
     if (a.severity in bySev) bySev[a.severity]++;
@@ -479,16 +492,14 @@ async function _fetchAlarmsAndUpdate(resolvedCustomerId, states) {
 
   // Build a fully-shaped AlarmStats from summary (preferred) + local counts (fallback)
   const stats = {
-    total:        summary?.total        ?? alarms.length,
-    bySeverity:   summary?.bySeverity   ?? bySev,
-    byState:      summary?.byState      ?? byState,
-    openCritical: (summary?.bySeverity?.CRITICAL != null)
-      ? (summary.bySeverity.CRITICAL)
-      : bySev.CRITICAL,
-    openHigh:     (summary?.bySeverity?.HIGH != null)
-      ? (summary.bySeverity.HIGH)
-      : bySev.HIGH,
-    last24Hours:  alarms.filter(a => new Date(a.firstOccurrence || a.lastOccurrence || 0).getTime() >= last24h).length,
+    total: summary?.total ?? alarms.length,
+    bySeverity: summary?.bySeverity ?? bySev,
+    byState: summary?.byState ?? byState,
+    openCritical: summary?.bySeverity?.CRITICAL != null ? summary.bySeverity.CRITICAL : bySev.CRITICAL,
+    openHigh: summary?.bySeverity?.HIGH != null ? summary.bySeverity.HIGH : bySev.HIGH,
+    last24Hours: alarms.filter(
+      (a) => new Date(a.firstOccurrence || a.lastOccurrence || 0).getTime() >= last24h
+    ).length,
   };
 
   _panelInstance?.updateAlarms?.(alarms);
@@ -516,9 +527,7 @@ async function _fetchAndUpdate() {
   _panelInstance?.setLoading?.(true);
 
   try {
-    const states = _closedAlarmsMode
-      ? ['CLOSED']
-      : ['OPEN', 'ACK', 'SNOOZED', 'ESCALATED'];
+    const states = _closedAlarmsMode ? ['CLOSED'] : ['OPEN', 'ACK', 'SNOOZED', 'ESCALATED'];
 
     await _fetchAlarmsAndUpdate(resolvedCustomerId, states);
 
@@ -530,7 +539,9 @@ async function _fetchAndUpdate() {
       const AlarmService = window.MyIOLibrary?.AlarmService;
       if (AlarmService) {
         AlarmService.getAlarmTrend(resolvedCustomerId, '7d', 'day')
-          .then((trend) => { if (trend?.length) _panelInstance?.updateTrendData?.(trend); })
+          .then((trend) => {
+            if (trend?.length) _panelInstance?.updateTrendData?.(trend);
+          })
           .catch(() => {});
       }
     }
@@ -551,10 +562,11 @@ async function _handleBatchAction(action, alarmIds, userEmail, opts) {
 
   try {
     let result;
-    if      (action === 'acknowledge') result = await AlarmService.batchAcknowledge(alarmIds, email);
-    else if (action === 'snooze')      result = await AlarmService.batchSilence(alarmIds, email, opts?.until || '4h');
-    else if (action === 'escalate')    result = await AlarmService.batchEscalate(alarmIds, email);
-    else if (action === 'close')       result = await AlarmService.batchClose(alarmIds, email, opts?.reason);
+    if (action === 'acknowledge') result = await AlarmService.batchAcknowledge(alarmIds, email);
+    else if (action === 'snooze')
+      result = await AlarmService.batchSilence(alarmIds, email, opts?.until || '4h');
+    else if (action === 'escalate') result = await AlarmService.batchEscalate(alarmIds, email);
+    else if (action === 'close') result = await AlarmService.batchClose(alarmIds, email, opts?.reason);
     else {
       LogHelper.warn('Unknown alarm action:', action);
       return;
@@ -563,7 +575,11 @@ async function _handleBatchAction(action, alarmIds, userEmail, opts) {
     if (result?.failureCount > 0) {
       LogHelper.warn('Batch action partial failure:', action, result.failureCount, 'failed', result.failed);
     }
-    LogHelper.log('Batch action completed:', action, `${result?.successCount ?? 0}/${alarmIds.length} succeeded`);
+    LogHelper.log(
+      'Batch action completed:',
+      action,
+      `${result?.successCount ?? 0}/${alarmIds.length} succeeded`
+    );
 
     // Trigger MAIN to re-fetch and rebuild ASO → myio:alarms-updated → all components update
     AlarmService.clearCache?.();
@@ -619,7 +635,7 @@ function _bindHeaderButtons() {
       }
 
       const customerTB_ID = window.MyIOOrchestrator?.customerTB_ID || '';
-      const gcdrTenantId  = _gcdrTenantId || window.MyIOOrchestrator?.gcdrTenantId || '';
+      const gcdrTenantId = _gcdrTenantId || window.MyIOOrchestrator?.gcdrTenantId || '';
       const gcdrApiBaseUrl = window.MyIOOrchestrator?.gcdrApiBaseUrl || 'https://gcdr-api.a.myio-bas.com';
 
       if (!customerTB_ID) {

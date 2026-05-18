@@ -23,7 +23,8 @@ tb-widget-actions,
 .welcome-lv {
   width: 100% !important;
   min-height: 800px !important;
-  background: linear-gradient(120deg, var(--welcome-grad-start), var(--welcome-grad-end)),
+  background:
+    linear-gradient(120deg, var(--welcome-grad-start), var(--welcome-grad-end)),
     url('https://dashboard.myio-bas.com/api/images/public/wntqPf1KcpLX2l182DY86Y4p8pa3bj6F') !important;
   background-size: cover !important;
   background-position: center !important;

@@ -67,17 +67,18 @@ window.__myioHeaderOnInitRan = false;
 
       const now = new Date();
       const startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
-      const endDate   = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 0);
+      const endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 0);
       const fallbackPeriod = {
-        startISO:    startDate.toISOString(),
-        endISO:      endDate.toISOString(),
+        startISO: startDate.toISOString(),
+        endISO: endDate.toISOString(),
         granularity: 'day',
-        tz:          'America/Sao_Paulo',
+        tz: 'America/Sao_Paulo',
       };
       window.__myioInitialPeriod = fallbackPeriod;
       console.warn(
         '[HEADER] ⚠️ RFC-0152 FALLBACK: onInit not called — emitting default period for domain:',
-        domain, fallbackPeriod
+        domain,
+        fallbackPeriod
       );
       window.dispatchEvent(new CustomEvent('myio:update-date', { detail: { period: fallbackPeriod } }));
       window.removeEventListener('myio:dashboard-state', _fallbackHandler);
@@ -352,15 +353,9 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   const tbToken = localStorage.getItem('jwt_token');
   let customerCredentials = {};
   try {
-    customerCredentials = await MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage(
-      CUSTOMER_ID,
-      tbToken
-    );
+    customerCredentials = await MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage(CUSTOMER_ID, tbToken);
   } catch (credErr) {
-    LogHelper.warn(
-      '[HEADER] ⚠️ Could not fetch customer credentials from ThingsBoard:',
-      credErr?.message
-    );
+    LogHelper.warn('[HEADER] ⚠️ Could not fetch customer credentials from ThingsBoard:', credErr?.message);
     // Continue without credentials — controls will still be enabled via custom events
   }
   const CLIENT_ID = customerCredentials.client_id || ' ';
@@ -568,8 +563,8 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
       // RFC-0178: Alarm domain — enable date controls, swap report buttons
       if (domain === 'alarm') {
-        if (inputRange)      inputRange.disabled      = false;
-        if (btnLoad)         btnLoad.disabled         = false;
+        if (inputRange) inputRange.disabled = false;
+        if (btnLoad) btnLoad.disabled = false;
         if (btnForceRefresh) btnForceRefresh.disabled = false;
 
         // Hide general report button for alarm domain
@@ -691,7 +686,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       setTimeout(() => {
         if (self.__range.start && self.__range.end) {
           const startISO = toISO(self.__range.start.toDate(), 'America/Sao_Paulo');
-          const endISO   = toISO(self.__range.end.toDate(), 'America/Sao_Paulo');
+          const endISO = toISO(self.__range.end.toDate(), 'America/Sao_Paulo');
           const racePeriod = {
             startISO,
             endISO,
@@ -699,10 +694,15 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
             tz: 'America/Sao_Paulo',
           };
           window.__myioInitialPeriod = racePeriod;
-          LogHelper.log(`[HEADER] 🚀 RFC-0096 Race fix: Emitting period for domain ${raceDomain}:`, racePeriod);
+          LogHelper.log(
+            `[HEADER] 🚀 RFC-0096 Race fix: Emitting period for domain ${raceDomain}:`,
+            racePeriod
+          );
           emitToAllContexts('myio:update-date', { period: racePeriod });
         } else {
-          LogHelper.warn(`[HEADER] ⚠️ RFC-0096 Race fix: date range not ready, orchestrator will use its own fallback`);
+          LogHelper.warn(
+            `[HEADER] ⚠️ RFC-0096 Race fix: date range not ready, orchestrator will use its own fallback`
+          );
         }
       }, 300);
     }
@@ -754,12 +754,21 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       if (!ev.detail?.enabled) return; // only emit when entering historical mode
       const filters = self.getFilters();
       if (filters.startAt && filters.endAt) {
-        LogHelper.log('[HEADER] Auto-emitting alarm-filter-change for closed-alarms-toggle:', filters.startAt, '→', filters.endAt);
-        window.dispatchEvent(new CustomEvent('myio:alarm-filter-change', {
-          detail: { from: filters.startAt, to: filters.endAt },
-        }));
+        LogHelper.log(
+          '[HEADER] Auto-emitting alarm-filter-change for closed-alarms-toggle:',
+          filters.startAt,
+          '→',
+          filters.endAt
+        );
+        window.dispatchEvent(
+          new CustomEvent('myio:alarm-filter-change', {
+            detail: { from: filters.startAt, to: filters.endAt },
+          })
+        );
       } else {
-        LogHelper.warn('[HEADER] closed-alarms-toggle: no date range available, ALARM will use fallback period');
+        LogHelper.warn(
+          '[HEADER] closed-alarms-toggle: no date range available, ALARM will use fallback period'
+        );
       }
     });
 
@@ -1000,7 +1009,8 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       const id = 'myio-ant-styles';
       if (!document.getElementById(id)) {
         const s = document.createElement('style');
-        s.id = id; s.textContent = ALARM_NOTIF_CSS;
+        s.id = id;
+        s.textContent = ALARM_NOTIF_CSS;
         document.head.appendChild(s);
       }
       _antCssInjected = true;
@@ -1011,13 +1021,17 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       try {
         const d = new Date(iso);
         return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-      } catch { return ''; }
+      } catch {
+        return '';
+      }
     }
 
     function _antFmtNow() {
       try {
         return new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-      } catch { return ''; }
+      } catch {
+        return '';
+      }
     }
 
     const _OFFLINE_TYPES = ['DEVICE OFFLINE', 'DISPOSITIVO OFFLINE'];
@@ -1077,24 +1091,28 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         const enabled = window.MyIOOrchestrator?.alarmNotificationsEnabled !== false;
         const showOffline = window.MyIOOrchestrator?.showOfflineAlarms === true;
         const _email = (window.MyIOUtils?.currentUserEmail || '').toLowerCase();
-        const isMyioUser = _email.endsWith('@myio.com.br') && !_email.startsWith('alarme@') && !_email.startsWith('alarmes@');
+        const isMyioUser =
+          _email.endsWith('@myio.com.br') && !_email.startsWith('alarme@') && !_email.startsWith('alarmes@');
         const isInternalSupportRule = window.MyIOOrchestrator?.isInternalSupportRule !== false;
 
         const _offlineFilter = (a) => showOffline || !_isOfflineAlarm(a);
 
-        const all     = (adm ? adm.listAll() : []).filter(_offlineFilter);
-        const closed  = (adm ? adm.listByStatus('CLOSED') : []).filter(_offlineFilter);
+        const all = (adm ? adm.listAll() : []).filter(_offlineFilter);
+        const closed = (adm ? adm.listByStatus('CLOSED') : []).filter(_offlineFilter);
 
         // "Ativos agora" = same source as the badge (customerAlarms = _prefetchCustomerAlarms result)
         // alarmDayMap only covers today's date range — would under-count older open alarms
         const customerAlarms = window.MyIOOrchestrator?.customerAlarms || [];
-        const active = (customerAlarms.length > 0
-          ? customerAlarms
-          : (adm ? adm.listByStatus(['OPEN','ACK','ESCALATED','SNOOZED']) : [])
+        const active = (
+          customerAlarms.length > 0
+            ? customerAlarms
+            : adm
+              ? adm.listByStatus(['OPEN', 'ACK', 'ESCALATED', 'SNOOZED'])
+              : []
         ).filter(_offlineFilter);
 
         // Severity breakdown of active alarms
-        const sevCount   = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, INFO: 0 };
+        const sevCount = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, INFO: 0 };
         const stateCount = { ACK: 0, SNOOZED: 0, ESCALATED: 0 };
         for (const a of active) {
           const s = a.severity || 'LOW';
@@ -1103,7 +1121,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
           if (st in stateCount) stateCount[st]++;
         }
 
-        const sevLabels   = { CRITICAL: 'Crítico', HIGH: 'Alto', MEDIUM: 'Médio', LOW: 'Baixo', INFO: 'Info' };
+        const sevLabels = { CRITICAL: 'Crítico', HIGH: 'Alto', MEDIUM: 'Médio', LOW: 'Baixo', INFO: 'Info' };
         const stateLabels = { ACK: 'Reconhecido', SNOOZED: 'Adiado', ESCALATED: 'Escalado' };
 
         const mkBreakdown = (key, label, dotCls) => `
@@ -1115,31 +1133,39 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
             </div>
           </div>`;
 
-        const sevGrid   = Object.keys(sevCount).map(k => mkBreakdown(k, sevLabels[k], k)).join('');
-        const stateGrid = Object.keys(stateCount).map(k => mkBreakdown(k, stateLabels[k], k)).join('');
+        const sevGrid = Object.keys(sevCount)
+          .map((k) => mkBreakdown(k, sevLabels[k], k))
+          .join('');
+        const stateGrid = Object.keys(stateCount)
+          .map((k) => mkBreakdown(k, stateLabels[k], k))
+          .join('');
 
         // First and last alarm of the day
-        const sortedAll = [...all].sort((a,b) => {
+        const sortedAll = [...all].sort((a, b) => {
           const ta = new Date(a.firstOccurrence || a.raisedAt || 0).getTime();
           const tb = new Date(b.firstOccurrence || b.raisedAt || 0).getTime();
           return ta - tb;
         });
         const firstAlarm = sortedAll[0] || null;
-        const lastAlarm  = sortedAll[sortedAll.length - 1] || null;
+        const lastAlarm = sortedAll[sortedAll.length - 1] || null;
 
         const gcdrMap = window.MyIOOrchestrator?.gcdrDeviceNameMap;
         const _resolveAlarmDeviceLabel = (alarm) => {
-          const label   = gcdrMap?.get(alarm.deviceId || alarm.source || '') || null;
+          const label = gcdrMap?.get(alarm.deviceId || alarm.source || '') || null;
           const rawName = alarm.deviceName || '';
           if (label && rawName && label !== rawName) return `${label} (${rawName})`;
           return label || rawName || alarm.source || '';
         };
 
         const mkFlCard = (label, alarm) => {
-          if (!alarm) return `<div class="ant-fl-card"><div class="ant-fl-label">${label}</div><div class="ant-fl-title" style="color:#94a3b8">—</div></div>`;
-          const title  = alarm.title || alarm.alarmType || 'Alarme';
+          if (!alarm)
+            return `<div class="ant-fl-card"><div class="ant-fl-label">${label}</div><div class="ant-fl-title" style="color:#94a3b8">—</div></div>`;
+          const title = alarm.title || alarm.alarmType || 'Alarme';
           const device = _resolveAlarmDeviceLabel(alarm);
-          const ts     = label === 'Primeiro' ? (alarm.firstOccurrence || alarm.raisedAt) : (alarm.lastOccurrence || alarm.lastUpdatedAt || alarm.raisedAt);
+          const ts =
+            label === 'Primeiro'
+              ? alarm.firstOccurrence || alarm.raisedAt
+              : alarm.lastOccurrence || alarm.lastUpdatedAt || alarm.raisedAt;
           return `
             <div class="ant-fl-card">
               <div class="ant-fl-label">${label}</div>
@@ -1151,12 +1177,12 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
         // Row renderer shared by both lists
         const mkAlarmRow = (a) => {
-          const sev    = a.severity || 'LOW';
-          const state  = a.state || '';
+          const sev = a.severity || 'LOW';
+          const state = a.state || '';
           const dotCls = state === 'CLOSED' ? 'CLOSED' : sev;
           const device = _resolveAlarmDeviceLabel(a);
-          const title  = a.title || a.alarmType || 'Alarme';
-          const time   = _antFmtTime(a.lastOccurrence || a.lastUpdatedAt || a.raisedAt);
+          const title = a.title || a.alarmType || 'Alarme';
+          const time = _antFmtTime(a.lastOccurrence || a.lastUpdatedAt || a.raisedAt);
           return `
             <div class="ant-alarm-row">
               <div class="ant-alarm-dot ${dotCls}"></div>
@@ -1169,32 +1195,40 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         };
 
         // Active alarms list (Ativos do Dia)
-        const activeSorted = [...active].sort((a,b) => {
+        const activeSorted = [...active].sort((a, b) => {
           const ta = new Date(a.lastOccurrence || a.lastUpdatedAt || a.raisedAt || 0).getTime();
           const tb = new Date(b.lastOccurrence || b.lastUpdatedAt || b.raisedAt || 0).getTime();
           return tb - ta;
         });
-        const activeSection = active.length > 0 ? `
+        const activeSection =
+          active.length > 0
+            ? `
           <details class="ant-collapse">
             <summary>Ativos (${active.length})</summary>
             <div class="ant-collapse-body">
               <div class="ant-alarm-list">${activeSorted.map(mkAlarmRow).join('')}</div>
             </div>
-          </details>` : '';
+          </details>`
+            : '';
 
         // History list (Histórico do Dia — all, most recent first, max 40)
-        const sorted = [...all].sort((a,b) => {
-          const ta = new Date(a.lastOccurrence || a.lastUpdatedAt || a.raisedAt || 0).getTime();
-          const tb = new Date(b.lastOccurrence || b.lastUpdatedAt || b.raisedAt || 0).getTime();
-          return tb - ta;
-        }).slice(0, 40);
-        const histSection = all.length > 0 ? `
+        const sorted = [...all]
+          .sort((a, b) => {
+            const ta = new Date(a.lastOccurrence || a.lastUpdatedAt || a.raisedAt || 0).getTime();
+            const tb = new Date(b.lastOccurrence || b.lastUpdatedAt || b.raisedAt || 0).getTime();
+            return tb - ta;
+          })
+          .slice(0, 40);
+        const histSection =
+          all.length > 0
+            ? `
           <details class="ant-collapse">
             <summary>Histórico do Dia (${all.length})</summary>
             <div class="ant-collapse-body">
               <div class="ant-alarm-list">${sorted.map(mkAlarmRow).join('')}</div>
             </div>
-          </details>` : '';
+          </details>`
+            : '';
 
         return `
           <div class="ant-content">
@@ -1246,7 +1280,9 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
                     <span class="ant-switch-thumb"></span>
                   </label>
                 </div>
-                ${isMyioUser ? `
+                ${
+                  isMyioUser
+                    ? `
                 <div class="ant-toggle-row">
                   <div>
                     <div class="ant-toggle-label">Regras Internas MyIO</div>
@@ -1257,7 +1293,9 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
                     <span class="ant-switch-track"></span>
                     <span class="ant-switch-thumb"></span>
                   </label>
-                </div>` : ''}
+                </div>`
+                    : ''
+                }
               </div>
 
               <div class="ant-summary-primary">
@@ -1302,8 +1340,14 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       },
 
       show(triggerElement) {
-        if (this._hideTimer)  { clearTimeout(this._hideTimer);  this._hideTimer  = null; }
-        if (this._forceHideTimer) { clearTimeout(this._forceHideTimer); this._forceHideTimer = null; }
+        if (this._hideTimer) {
+          clearTimeout(this._hideTimer);
+          this._hideTimer = null;
+        }
+        if (this._forceHideTimer) {
+          clearTimeout(this._forceHideTimer);
+          this._forceHideTimer = null;
+        }
         const container = this.getContainer();
         container.innerHTML = this.renderHTML();
         this._bindEvents(container);
@@ -1317,7 +1361,10 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
         container.addEventListener('mouseenter', () => {
           this._isMouseOver = true;
-          if (this._hideTimer) { clearTimeout(this._hideTimer); this._hideTimer = null; }
+          if (this._hideTimer) {
+            clearTimeout(this._hideTimer);
+            this._hideTimer = null;
+          }
         });
         container.addEventListener('mouseleave', () => {
           this._isMouseOver = false;
@@ -1327,35 +1374,41 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
       hide(immediate) {
         if (this._isPinned && !immediate) return;
-        if (this._hideTimer) { clearTimeout(this._hideTimer); this._hideTimer = null; }
-        this._hideTimer = setTimeout(() => {
-          const container = document.getElementById(this.containerId);
-          if (!container) return;
-          container.classList.add('closing');
-          container.classList.remove('visible');
+        if (this._hideTimer) {
+          clearTimeout(this._hideTimer);
           this._hideTimer = null;
-        }, immediate ? 0 : 300);
+        }
+        this._hideTimer = setTimeout(
+          () => {
+            const container = document.getElementById(this.containerId);
+            if (!container) return;
+            container.classList.add('closing');
+            container.classList.remove('visible');
+            this._hideTimer = null;
+          },
+          immediate ? 0 : 300
+        );
       },
 
       _position(triggerElement) {
         const container = document.getElementById(this.containerId);
         if (!container || !triggerElement) return;
         const rect = triggerElement.getBoundingClientRect();
-        const vw   = window.innerWidth;
-        const vh   = window.innerHeight;
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
         container.style.position = 'fixed';
         container.style.removeProperty('right');
         container.style.removeProperty('bottom');
         // Use actual rendered width so it works regardless of CSS changes
-        const cw   = container.offsetWidth || 720;
-        let top  = rect.bottom + 8;
+        const cw = container.offsetWidth || 720;
+        let top = rect.bottom + 8;
         // Align right edge of tooltip to right edge of trigger, then clamp to viewport
         let left = rect.right - cw;
         if (left + cw > vw - 8) left = vw - cw - 8;
         if (left < 8) left = 8;
         if (top + 500 > vh) top = rect.top - 510;
         if (top < 8) top = 8;
-        container.style.top  = `${top}px`;
+        container.style.top = `${top}px`;
         container.style.left = `${left}px`;
       },
 
@@ -1391,8 +1444,8 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
             LogHelper.warn('[HEADER] openAlarmBundleMapModal not available in MyIOLibrary');
             return;
           }
-          const customerTB_ID  = window.MyIOOrchestrator?.customerTB_ID || '';
-          const gcdrTenantId   = window.MyIOOrchestrator?.gcdrTenantId  || '';
+          const customerTB_ID = window.MyIOOrchestrator?.customerTB_ID || '';
+          const gcdrTenantId = window.MyIOOrchestrator?.gcdrTenantId || '';
           const gcdrApiBaseUrl = window.MyIOOrchestrator?.gcdrApiBaseUrl || 'https://gcdr-api.a.myio-bas.com';
           if (!customerTB_ID) {
             LogHelper.warn('[HEADER] open-alarm-map: customerTB_ID not available');
@@ -1414,14 +1467,17 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
               const customerId = window.MyIOOrchestrator?.customerTB_ID;
               const tbBase = self.ctx?.settings?.tbBaseUrl || '';
               if (jwt && customerId) {
-                await fetch(`${tbBase}/api/plugins/telemetry/CUSTOMER/${customerId}/attributes/SERVER_SCOPE`, {
-                  method: 'POST',
-                  headers: {
-                    'X-Authorization': `Bearer ${jwt}`,
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({ alarmNotificationsEnabled: enabled }),
-                });
+                await fetch(
+                  `${tbBase}/api/plugins/telemetry/CUSTOMER/${customerId}/attributes/SERVER_SCOPE`,
+                  {
+                    method: 'POST',
+                    headers: {
+                      'X-Authorization': `Bearer ${jwt}`,
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ alarmNotificationsEnabled: enabled }),
+                  }
+                );
               }
             } catch (err) {
               LogHelper.warn('[HEADER] Failed to save alarmNotificationsEnabled:', err);
@@ -1441,14 +1497,17 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
               const customerId = window.MyIOOrchestrator?.customerTB_ID;
               const tbBase = self.ctx?.settings?.tbBaseUrl || '';
               if (jwt && customerId) {
-                await fetch(`${tbBase}/api/plugins/telemetry/CUSTOMER/${customerId}/attributes/SERVER_SCOPE`, {
-                  method: 'POST',
-                  headers: {
-                    'X-Authorization': `Bearer ${jwt}`,
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({ showOfflineAlarms: show }),
-                });
+                await fetch(
+                  `${tbBase}/api/plugins/telemetry/CUSTOMER/${customerId}/attributes/SERVER_SCOPE`,
+                  {
+                    method: 'POST',
+                    headers: {
+                      'X-Authorization': `Bearer ${jwt}`,
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ showOfflineAlarms: show }),
+                  }
+                );
               }
             } catch (err) {
               LogHelper.warn('[HEADER] Failed to save showOfflineAlarms:', err);
@@ -1462,21 +1521,26 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
           internalRuleToggle.addEventListener('change', async () => {
             const value = internalRuleToggle.checked;
             if (window.MyIOOrchestrator) window.MyIOOrchestrator.isInternalSupportRule = value;
-            window.dispatchEvent(new CustomEvent('myio:internal-support-rule-changed', { detail: { value } }));
+            window.dispatchEvent(
+              new CustomEvent('myio:internal-support-rule-changed', { detail: { value } })
+            );
             LogHelper.log('[HEADER] isInternalSupportRule →', value);
             try {
               const jwt = localStorage.getItem('jwt_token');
               const customerId = window.MyIOOrchestrator?.customerTB_ID;
               const tbBase = self.ctx?.settings?.tbBaseUrl || '';
               if (jwt && customerId) {
-                await fetch(`${tbBase}/api/plugins/telemetry/CUSTOMER/${customerId}/attributes/SERVER_SCOPE`, {
-                  method: 'POST',
-                  headers: {
-                    'X-Authorization': `Bearer ${jwt}`,
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({ isInternalSupportRule: value }),
-                });
+                await fetch(
+                  `${tbBase}/api/plugins/telemetry/CUSTOMER/${customerId}/attributes/SERVER_SCOPE`,
+                  {
+                    method: 'POST',
+                    headers: {
+                      'X-Authorization': `Bearer ${jwt}`,
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ isInternalSupportRule: value }),
+                  }
+                );
               }
             } catch (err) {
               LogHelper.warn('[HEADER] Failed to save isInternalSupportRule:', err);
@@ -1504,7 +1568,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
           const cx = e.clientX || e.touches?.[0]?.clientX;
           const cy = e.clientY || e.touches?.[0]?.clientY;
           container.style.left = `${cx - this._dragOffset.x}px`;
-          container.style.top  = `${cy - this._dragOffset.y}px`;
+          container.style.top = `${cy - this._dragOffset.y}px`;
         };
         const onUp = () => {
           this._isDragging = false;
@@ -1513,9 +1577,9 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         handle.addEventListener('mousedown', onDown);
         handle.addEventListener('touchstart', onDown, { passive: true });
         document.addEventListener('mousemove', onMove);
-        document.addEventListener('mouseup',   onUp);
+        document.addEventListener('mouseup', onUp);
         document.addEventListener('touchmove', onMove, { passive: true });
-        document.addEventListener('touchend',  onUp);
+        document.addEventListener('touchend', onUp);
       },
     };
 
@@ -1639,7 +1703,10 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
     let _tntCSSInjected = false;
     function _tntInjectCSS() {
-      if (_tntCSSInjected || document.getElementById('myio-tnt-styles')) { _tntCSSInjected = true; return; }
+      if (_tntCSSInjected || document.getElementById('myio-tnt-styles')) {
+        _tntCSSInjected = true;
+        return;
+      }
       const s = document.createElement('style');
       s.id = 'myio-tnt-styles';
       s.textContent = TICKET_NOTIF_CSS;
@@ -1650,20 +1717,22 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     function _tntFmtTs(iso) {
       if (!iso) return '';
       try {
-        const d   = new Date(iso);
+        const d = new Date(iso);
         const now = new Date();
         const isToday = d.toDateString() === now.toDateString();
         const time = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
         if (isToday) return time;
         return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' ' + time;
-      } catch { return ''; }
+      } catch {
+        return '';
+      }
     }
 
     const TicketNotificationTooltip = {
       containerId: 'myio-tnt-tooltip',
-      _hideTimer:  null,
+      _hideTimer: null,
       _isMouseOver: false,
-      _isPinned:   false,
+      _isPinned: false,
       _isMaximized: false,
       _isDragging: false,
       _dragOffset: { x: 0, y: 0 },
@@ -1681,7 +1750,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       },
 
       renderHTML() {
-        const tso    = window.TicketServiceOrchestrator;
+        const tso = window.TicketServiceOrchestrator;
         const domain = window.MyIOUtils?.freshdeskDomain || 'myiocom.freshdesk.com';
 
         if (!tso) {
@@ -1707,35 +1776,40 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         }
 
         const allTickets = tso.tickets || [];
-        const byStatus   = { 2: 0, 3: 0, 6: 0 };
-        for (const t of allTickets) { if (t.status in byStatus) byStatus[t.status]++; }
+        const byStatus = { 2: 0, 3: 0, 6: 0 };
+        for (const t of allTickets) {
+          if (t.status in byStatus) byStatus[t.status]++;
+        }
 
-        const deviceMap     = tso.deviceTicketMap || new Map();
-        const deviceEntries = [...deviceMap.entries()]
-          .sort((a, b) => b[1].length - a[1].length)
-          .slice(0, 6);
+        const deviceMap = tso.deviceTicketMap || new Map();
+        const deviceEntries = [...deviceMap.entries()].sort((a, b) => b[1].length - a[1].length).slice(0, 6);
 
         const recentTickets = [...allTickets]
           .sort((a, b) => new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime())
           .slice(0, 10);
 
         const statusColors = { 2: '#dc2626', 3: '#d97706', 6: '#7c3aed' };
-        const statusLabels = { 2: 'Aberto',  3: 'Pendente', 6: 'Aguardando' };
+        const statusLabels = { 2: 'Aberto', 3: 'Pendente', 6: 'Aguardando' };
 
-        const deviceRows = deviceEntries.map(([id, tickets]) => `
+        const deviceRows = deviceEntries
+          .map(
+            ([id, tickets]) => `
           <div class="tnt-breakdown-item">
             <div class="tnt-breakdown-id">${id}</div>
             <div class="tnt-breakdown-count">${tickets.length} chamado${tickets.length !== 1 ? 's' : ''}</div>
-          </div>`).join('');
+          </div>`
+          )
+          .join('');
 
-        const ticketRows = recentTickets.map((t) => {
-          const color   = statusColors[t.status] || '#6b7280';
-          const label   = statusLabels[t.status] || String(t.status);
-          const device  = t.custom_fields?.cf_device_identifier || '';
-          const subj    = (t.subject || `#${t.id}`);
-          const subject = subj.length > 48 ? subj.slice(0, 46) + '…' : subj;
-          const ts      = _tntFmtTs(t.updated_at);
-          return `
+        const ticketRows = recentTickets
+          .map((t) => {
+            const color = statusColors[t.status] || '#6b7280';
+            const label = statusLabels[t.status] || String(t.status);
+            const device = t.custom_fields?.cf_device_identifier || '';
+            const subj = t.subject || `#${t.id}`;
+            const subject = subj.length > 48 ? subj.slice(0, 46) + '…' : subj;
+            const ts = _tntFmtTs(t.updated_at);
+            return `
             <div class="tnt-ticket-row" data-ticket-id="${t.id}" style="cursor:pointer;" title="Ver detalhes">
               <div class="tnt-ticket-dot" style="background:${color}"></div>
               <div class="tnt-ticket-info">
@@ -1747,20 +1821,25 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
                 ${ts ? `<span class="tnt-ticket-time">${ts}</span>` : ''}
               </div>
             </div>`;
-        }).join('');
+          })
+          .join('');
 
-        const deviceSection = deviceEntries.length > 0 ? `
+        const deviceSection =
+          deviceEntries.length > 0
+            ? `
           <div class="tnt-section-hdr">Dispositivos com chamados</div>
-          <div class="tnt-breakdown">${deviceRows}</div>` : '';
+          <div class="tnt-breakdown">${deviceRows}</div>`
+            : '';
 
-        const ticketsSection = recentTickets.length > 0
-          ? `<details class="tnt-collapse" open>
+        const ticketsSection =
+          recentTickets.length > 0
+            ? `<details class="tnt-collapse" open>
                <summary>Chamados recentes (${recentTickets.length})</summary>
                <div class="tnt-collapse-body">
                  <div class="tnt-ticket-list">${ticketRows}</div>
                </div>
              </details>`
-          : `<div class="tnt-empty">Nenhum chamado aberto no momento.</div>`;
+            : `<div class="tnt-empty">Nenhum chamado aberto no momento.</div>`;
 
         return `
           <div class="tnt-content">
@@ -1824,7 +1903,10 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       },
 
       show(triggerElement) {
-        if (this._hideTimer) { clearTimeout(this._hideTimer); this._hideTimer = null; }
+        if (this._hideTimer) {
+          clearTimeout(this._hideTimer);
+          this._hideTimer = null;
+        }
         const container = this.getContainer();
         container.innerHTML = this.renderHTML();
         this._bindEvents(container);
@@ -1836,7 +1918,10 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         }, 0);
         container.addEventListener('mouseenter', () => {
           this._isMouseOver = true;
-          if (this._hideTimer) { clearTimeout(this._hideTimer); this._hideTimer = null; }
+          if (this._hideTimer) {
+            clearTimeout(this._hideTimer);
+            this._hideTimer = null;
+          }
         });
         container.addEventListener('mouseleave', () => {
           this._isMouseOver = false;
@@ -1848,19 +1933,19 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         const container = document.getElementById(this.containerId);
         if (!container || !triggerElement) return;
         const rect = triggerElement.getBoundingClientRect();
-        const vw   = window.innerWidth;
-        const vh   = window.innerHeight;
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
         container.style.position = 'fixed';
         container.style.removeProperty('right');
         container.style.removeProperty('bottom');
-        const cw  = container.offsetWidth || 420;
-        let top   = rect.bottom + 8;
-        let left  = rect.right - cw;
+        const cw = container.offsetWidth || 420;
+        let top = rect.bottom + 8;
+        let left = rect.right - cw;
         if (left + cw > vw - 8) left = vw - cw - 8;
         if (left < 8) left = 8;
         if (top + 480 > vh) top = rect.top - 488;
         if (top < 8) top = 8;
-        container.style.top  = `${top}px`;
+        container.style.top = `${top}px`;
         container.style.left = `${left}px`;
       },
 
@@ -1896,7 +1981,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
             e.stopPropagation();
             const ticketId = parseInt(row.getAttribute('data-ticket-id'), 10);
             const tso = window.TicketServiceOrchestrator;
-            const ticket = tso?.tickets?.find(t => t.id === ticketId);
+            const ticket = tso?.tickets?.find((t) => t.id === ticketId);
             if (!ticket) return;
             _openTicketDetail(ticket);
           });
@@ -1922,7 +2007,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
           const cx = e.clientX || e.touches?.[0]?.clientX;
           const cy = e.clientY || e.touches?.[0]?.clientY;
           container.style.left = `${cx - this._dragOffset.x}px`;
-          container.style.top  = `${cy - this._dragOffset.y}px`;
+          container.style.top = `${cy - this._dragOffset.y}px`;
         };
         const onUp = () => {
           this._isDragging = false;
@@ -1931,21 +2016,27 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         handle.addEventListener('mousedown', onDown);
         handle.addEventListener('touchstart', onDown, { passive: true });
         document.addEventListener('mousemove', onMove);
-        document.addEventListener('mouseup',   onUp);
+        document.addEventListener('mouseup', onUp);
         document.addEventListener('touchmove', onMove, { passive: true });
-        document.addEventListener('touchend',  onUp);
+        document.addEventListener('touchend', onUp);
       },
 
       hide(immediate) {
         if (this._isPinned && !immediate) return;
-        if (this._hideTimer) { clearTimeout(this._hideTimer); this._hideTimer = null; }
-        this._hideTimer = setTimeout(() => {
-          const container = document.getElementById(this.containerId);
-          if (!container) return;
-          container.classList.add('closing');
-          container.classList.remove('visible');
+        if (this._hideTimer) {
+          clearTimeout(this._hideTimer);
           this._hideTimer = null;
-        }, immediate ? 0 : 300);
+        }
+        this._hideTimer = setTimeout(
+          () => {
+            const container = document.getElementById(this.containerId);
+            if (!container) return;
+            container.classList.add('closing');
+            container.classList.remove('visible');
+            this._hideTimer = null;
+          },
+          immediate ? 0 : 300
+        );
       },
     };
 
@@ -1963,15 +2054,17 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       // Stub required before the script loads (matches FreshWorks boilerplate)
       window.fwSettings = { widget_id: Number(widgetId) };
       if (typeof window.FreshworksWidget !== 'function') {
-        const n = function() { n.q.push(arguments); };
+        const n = function () {
+          n.q.push(arguments);
+        };
         n.q = [];
         window.FreshworksWidget = n;
       }
 
       const script = document.createElement('script');
-      script.id   = 'freshworks-widget-script';
+      script.id = 'freshworks-widget-script';
       script.type = 'text/javascript';
-      script.src  = `https://widget.freshworks.com/widgets/${widgetId}.js`;
+      script.src = `https://widget.freshworks.com/widgets/${widgetId}.js`;
       script.async = true;
       script.defer = true;
       // Hide their floating launcher — we open the widget via our own button
@@ -2003,21 +2096,21 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       const Lib = window.MyIOLibrary;
       if (!Lib?.createNewTicketWizard) return null;
       _ticketWizard = Lib.createNewTicketWizard({
-        freshdeskDomain:  window.MyIOUtils?.freshdeskDomain   || 'myiocom.freshdesk.com',
-        freshdeskApiKey:  window.MyIOUtils?.freshdeskApiKey   || '',
-        requesterEmail:   window.MyIOUtils?.freshdeskRequesterEmail || '',
+        freshdeskDomain: window.MyIOUtils?.freshdeskDomain || 'myiocom.freshdesk.com',
+        freshdeskApiKey: window.MyIOUtils?.freshdeskApiKey || '',
+        requesterEmail: window.MyIOUtils?.freshdeskRequesterEmail || '',
         getDevices: () => {
           const data = window.MyIOOrchestratorData || {};
           const toW = (d, domain) => ({
-            identifier:    d.identifier    || '',
-            label:         d.label         || d.identifier || '',
+            identifier: d.identifier || '',
+            label: d.label || d.identifier || '',
             domain,
-            deviceProfile: d.deviceProfile || d.deviceType  || '',
+            deviceProfile: d.deviceProfile || d.deviceType || '',
           });
           return [
-            ...(data.energy?.items      || []).map(d => toW(d, 'energy')),
-            ...(data.water?.items       || []).map(d => toW(d, 'water')),
-            ...(data.temperature?.items || []).map(d => toW(d, 'temperature')),
+            ...(data.energy?.items || []).map((d) => toW(d, 'energy')),
+            ...(data.water?.items || []).map((d) => toW(d, 'water')),
+            ...(data.temperature?.items || []).map((d) => toW(d, 'temperature')),
           ];
         },
       });
@@ -2046,8 +2139,8 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         return;
       }
       const modal = Lib.createTicketDetailModal({
-        freshdeskDomain: window.MyIOUtils?.freshdeskDomain  || 'myiocom.freshdesk.com',
-        freshdeskApiKey: window.MyIOUtils?.freshdeskApiKey  || '',
+        freshdeskDomain: window.MyIOUtils?.freshdeskDomain || 'myiocom.freshdesk.com',
+        freshdeskApiKey: window.MyIOUtils?.freshdeskApiKey || '',
         ticket,
         onTicketCancelled: () => {
           // Refresh TSO so badge counts update
@@ -2062,7 +2155,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
     // Setup ticket button: show + bind events. Idempotent via data-bound guard.
     function _setupTicketButton() {
-      const apiKey   = window.MyIOUtils?.freshdeskApiKey   || '';
+      const apiKey = window.MyIOUtils?.freshdeskApiKey || '';
       const widgetId = window.MyIOUtils?.freshdeskWidgetId || '';
       if (!apiKey || window.MyIOUtils?.ticketsEnabled !== true || !btnTicketNotif) return;
 
@@ -2102,7 +2195,9 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       const ticketMap = e.detail?.ticketMap;
       if (!ticketMap) return;
       let total = 0;
-      ticketMap.forEach((tickets) => { total += tickets.length; });
+      ticketMap.forEach((tickets) => {
+        total += tickets.length;
+      });
       _updateTicketNotifBadge(total);
       // Show button now that FreshDesk data is available
       if (total > 0 && btnTicketNotif) btnTicketNotif.style.display = '';
@@ -2124,7 +2219,9 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     const _tso = window.TicketServiceOrchestrator;
     if (_tso) {
       let _seedTotal = 0;
-      _tso.deviceTicketMap?.forEach((t) => { _seedTotal += t.length; });
+      _tso.deviceTicketMap?.forEach((t) => {
+        _seedTotal += t.length;
+      });
       if (_seedTotal > 0) _updateTicketNotifBadge(_seedTotal);
     }
 
@@ -2158,7 +2255,9 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
           if (!window.MyIOOrchestrator?.alarmsConfigured) return;
           const visibleCount = _countVisible(window.MyIOOrchestrator?.customerAlarms || []);
           if (visibleCount === 0) {
-            LogHelper.log('[HEADER] alarm filter suppressed — no visible alarms (showOfflineAlarms=false or no alarms)');
+            LogHelper.log(
+              '[HEADER] alarm filter suppressed — no visible alarms (showOfflineAlarms=false or no alarms)'
+            );
             return;
           }
         }
@@ -2273,12 +2372,14 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       if (currentDomain.value === 'alarm') {
         const filters = self.getFilters();
         LogHelper.log('[HEADER] RFC-0178: Emitting myio:alarm-filter-change:', filters);
-        window.dispatchEvent(new CustomEvent('myio:alarm-filter-change', {
-          detail: {
-            from: filters.startAt,  // ISO 8601
-            to:   filters.endAt,    // ISO 8601
-          },
-        }));
+        window.dispatchEvent(
+          new CustomEvent('myio:alarm-filter-change', {
+            detail: {
+              from: filters.startAt, // ISO 8601
+              to: filters.endAt, // ISO 8601
+            },
+          })
+        );
         return;
       }
 

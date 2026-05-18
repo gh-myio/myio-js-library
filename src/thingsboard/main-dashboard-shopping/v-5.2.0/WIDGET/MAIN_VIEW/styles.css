@@ -130,7 +130,7 @@
 
 /* .tb-child { overflow: auto } faria o wrapper do TB scrollar ao invés do panel.
    Para o alarm_content, o scroll deve ser gerenciado internamente pelo painel. */
-#myio-root .myio-content [data-content-state="alarm_content"] .tb-child {
+#myio-root .myio-content [data-content-state='alarm_content'] .tb-child {
   overflow: hidden;
 }
 #myio-root .myio-footer .tb-child {
