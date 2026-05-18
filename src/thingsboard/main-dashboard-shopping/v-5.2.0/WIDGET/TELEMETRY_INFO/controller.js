@@ -70,7 +70,7 @@ function getWidgetDomain() {
     btn.textContent = opening ? '\u2212' : '+';
   }
   document.addEventListener('click', _rfc196Toggle, true);
-}());
+})();
 
 // RFC-0056: Chart colors with MyIO palette (6 categories)
 let CHART_COLORS = {
@@ -1398,16 +1398,16 @@ function processStateFromSummaryEnergy(summary, grandTotal) {
   // (which already includes climatizacao + elevadores + escadas + outros as sub-groups).
   // The correct formula is: AreaComum = max(0, Entrada − (Lojas + Climat + Elev + Esc + Outros))
   const _entradaTot = summary.entrada?.summary?.total || 0;
-  const _lojasTot   = summary.lojas?.summary?.total || 0;
-  const _climatTot  = summary.climatizacao?.summary?.total || 0;
-  const _elevTot    = summary.elevadores?.summary?.total || 0;
-  const _escTot     = summary.escadasRolantes?.summary?.total || 0;
-  const _outrosTot  = summary.outros?.summary?.total || 0;
+  const _lojasTot = summary.lojas?.summary?.total || 0;
+  const _climatTot = summary.climatizacao?.summary?.total || 0;
+  const _elevTot = summary.elevadores?.summary?.total || 0;
+  const _escTot = summary.escadasRolantes?.summary?.total || 0;
+  const _outrosTot = summary.outros?.summary?.total || 0;
 
   const _consumidoresNamed = _lojasTot + _climatTot + _elevTot + _escTot + _outrosTot;
   const _areaComumResidual = Math.max(0, _entradaTot - _consumidoresNamed);
-  const _totalConsum       = _consumidoresNamed + _areaComumResidual;
-  const _pct = (v) => _totalConsum > 0 ? (v / _totalConsum) * 100 : 0;
+  const _totalConsum = _consumidoresNamed + _areaComumResidual;
+  const _pct = (v) => (_totalConsum > 0 ? (v / _totalConsum) * 100 : 0);
 
   // Update STATE.consumidores - ALL from pre-computed data!
   STATE.consumidores = {
@@ -2179,7 +2179,7 @@ function renderWaterStats() {
 
   // RFC-0196: Show water-total-card and update its value
   const waterLojas = STATE_WATER.lojas?.total || 0;
-  const waterBanheiros = STATE_WATER.includeBathrooms ? (STATE_WATER.banheiros?.total || 0) : 0;
+  const waterBanheiros = STATE_WATER.includeBathrooms ? STATE_WATER.banheiros?.total || 0 : 0;
   const waterAreaComum = STATE_WATER.areaComum?.total || 0;
   const waterPontos = STATE_WATER.pontosNaoMapeados?.total || 0;
   const waterTotal = waterLojas + waterBanheiros + waterAreaComum + waterPontos;
@@ -2607,11 +2607,7 @@ function buildClimatizacaoContent() {
         // RFC-0106: Label comes from .details.name
         const label = data?.details?.name || key.toUpperCase();
         const icon = subcatIcons[key] || '❄️';
-        const expandHtml = buildDeviceExpandList(
-          'clim_' + key,
-          data?.details?.devices || [],
-          formatEnergy
-        );
+        const expandHtml = buildDeviceExpandList('clim_' + key, data?.details?.devices || [], formatEnergy);
         subcatHtml += `
           <div class="myio-info-tooltip__category myio-info-tooltip__category--climatizacao">
             <span class="myio-info-tooltip__category-icon">${icon}</span>
@@ -2758,11 +2754,7 @@ function buildOutrosContent() {
         // RFC-0106: Label comes from .details.name
         const label = data?.details?.name || key.toUpperCase();
         const icon = subcatIcons[key] || '🔌';
-        const expandHtml = buildDeviceExpandList(
-          'outros_' + key,
-          data?.details?.devices || [],
-          formatEnergy
-        );
+        const expandHtml = buildDeviceExpandList('outros_' + key, data?.details?.devices || [], formatEnergy);
         subcatHtml += `
           <div class="myio-info-tooltip__category myio-info-tooltip__category--outros">
             <span class="myio-info-tooltip__category-icon">${icon}</span>
@@ -3091,16 +3083,20 @@ function buildDeviceExpandList(id, devices, formatFn) {
   if (!devices || devices.length === 0) return '';
   const safeId = String(id).replace(/[^a-zA-Z0-9_-]/g, '_');
   const sorted = [...devices].sort((a, b) => (b.value || 0) - (a.value || 0));
-  const rows = sorted.map((d) => {
-    const name = d.label || d.identifier || d.name || '—';
-    const val = typeof d.value === 'number' ? formatFn(d.value) : '—';
-    return `<div class="rfc196-device-item">
+  const rows = sorted
+    .map((d) => {
+      const name = d.label || d.identifier || d.name || '—';
+      const val = typeof d.value === 'number' ? formatFn(d.value) : '—';
+      return `<div class="rfc196-device-item">
       <span class="rfc196-device-item__name" title="${name}">${name}</span>
       <span class="rfc196-device-item__value">${val}</span>
     </div>`;
-  }).join('');
-  return `<button class="rfc196-expand-btn" data-devtoggle="${safeId}">+</button>` +
-    `<div id="rfc196-devlist-${safeId}" style="display:none" class="rfc196-device-list">${rows}</div>`;
+    })
+    .join('');
+  return (
+    `<button class="rfc196-expand-btn" data-devtoggle="${safeId}">+</button>` +
+    `<div id="rfc196-devlist-${safeId}" style="display:none" class="rfc196-device-list">${rows}</div>`
+  );
 }
 
 /**
@@ -3187,7 +3183,9 @@ function setupGroupDragCards() {
             label: d.label || d.name || d.id,
             domain: getWidgetDomain() === 'water' ? 'water' : 'energy',
           });
-        } catch { /* ignore — footer can still display the chip */ }
+        } catch {
+          /* ignore — footer can still display the chip */
+        }
       });
     }
 
@@ -3204,7 +3202,9 @@ function setupGroupDragCards() {
       dt.setData('application/x-myio-group', JSON.stringify(payload));
       dt.setData('text/plain', `myio-group:${group}:${deviceIds.join(',')}`);
       dt.effectAllowed = 'copy';
-    } catch { /* some older browsers reject non-text MIME types */ }
+    } catch {
+      /* some older browsers reject non-text MIME types */
+    }
 
     this.classList.add('info-card--dragging');
     LogHelper.log('[TELEMETRY_INFO] Drag start — group:', group, 'devices:', deviceIds.length);
@@ -3235,9 +3235,11 @@ function applyGroupFilter(domain) {
     _applyGroupFilterEnergy(filter, $container);
   }
 
-  window.dispatchEvent(new CustomEvent('myio:group-filter-changed', {
-    detail: { domain, groupFilter: { ...filter } },
-  }));
+  window.dispatchEvent(
+    new CustomEvent('myio:group-filter-changed', {
+      detail: { domain, groupFilter: { ...filter } },
+    })
+  );
   LogHelper.log('[RFC-0196] Group filter applied:', domain, filter);
 }
 
@@ -3246,8 +3248,7 @@ function _applyGroupFilterEnergy(filter, $container) {
 
   // Toggle inactive class on each filterable card
   Object.keys(filter).forEach((group) => {
-    $container.find(`.info-card[data-group="${group}"]`)
-      .toggleClass('info-card--inactive', !filter[group]);
+    $container.find(`.info-card[data-group="${group}"]`).toggleClass('info-card--inactive', !filter[group]);
   });
 
   // Area Comum is dimmed whenever any group is inactive (it's a residual — only valid with all groups)
@@ -3257,7 +3258,9 @@ function _applyGroupFilterEnergy(filter, $container) {
   const $areaComumTitle = $areaComumCard.find('.card-title');
   if (!allActive) {
     if (!$areaComumTitle.find('.rfc196-residual-note').length) {
-      $areaComumTitle.append('<span class="rfc196-residual-note" title="Área Comum é um residual e só é válido quando todos os grupos estão ativos"> ⚠</span>');
+      $areaComumTitle.append(
+        '<span class="rfc196-residual-note" title="Área Comum é um residual e só é válido quando todos os grupos estão ativos"> ⚠</span>'
+      );
     }
   } else {
     $areaComumTitle.find('.rfc196-residual-note').remove();
@@ -3281,7 +3284,8 @@ function _applyGroupFilterEnergy(filter, $container) {
   else $$('#climatizacaoPerc').text('');
   if (filter.elevadores) $$('#elevadoresPerc').text(`(${safePerc(cons.elevadores?.total || 0)}%)`);
   else $$('#elevadoresPerc').text('');
-  if (filter.escadasRolantes) $$('#escadasRolantesPerc').text(`(${safePerc(cons.escadasRolantes?.total || 0)}%)`);
+  if (filter.escadasRolantes)
+    $$('#escadasRolantesPerc').text(`(${safePerc(cons.escadasRolantes?.total || 0)}%)`);
   else $$('#escadasRolantesPerc').text('');
   if (filter.outros) $$('#outrosPerc').text(`(${safePerc(cons.outros?.total || 0)}%)`);
   else $$('#outrosPerc').text('');
@@ -3297,8 +3301,7 @@ function _applyGroupFilterWater(filter, $container) {
   const allActive = Object.values(filter).every(Boolean);
 
   Object.keys(filter).forEach((group) => {
-    $container.find(`.info-card[data-group="${group}"]`)
-      .toggleClass('info-card--inactive', !filter[group]);
+    $container.find(`.info-card[data-group="${group}"]`).toggleClass('info-card--inactive', !filter[group]);
   });
 
   let activeTotal = 0;
@@ -3310,7 +3313,8 @@ function _applyGroupFilterWater(filter, $container) {
   const safePerc = (val) => (activeTotal > 0 ? ((val / activeTotal) * 100).toFixed(1) : '0.0');
   if (filter.lojas) $$('#lojasPerc').text(`(${safePerc(STATE_WATER.lojas?.total || 0)}%)`);
   else $$('#lojasPerc').text('');
-  if (filter.banheiros && STATE_WATER.includeBathrooms) $$('#banheirosPerc').text(`(${safePerc(STATE_WATER.banheiros?.total || 0)}%)`);
+  if (filter.banheiros && STATE_WATER.includeBathrooms)
+    $$('#banheirosPerc').text(`(${safePerc(STATE_WATER.banheiros?.total || 0)}%)`);
   else $$('#banheirosPerc').text('');
   if (filter.areaComum) $$('#areaComumPerc').text(`(${safePerc(STATE_WATER.areaComum?.total || 0)}%)`);
   else $$('#areaComumPerc').text('');
@@ -3341,32 +3345,58 @@ function checkCalculationErrors() {
 
     const pontosTotal = STATE_WATER.pontosNaoMapeados?.total || 0;
     // .total-card is reused as "Pontos Não Mapeados" by renderWaterStats()
-    _setCardError($container, '.total-card', pontosTotal < 0,
-      'Pontos Nao Mapeados e negativo (' + formatValue(pontosTotal, 'water') + '). ' +
-      'Formula: Entrada - (Lojas + Banheiros + Area Comum). Verifique a classificacao dos dispositivos.');
+    _setCardError(
+      $container,
+      '.total-card',
+      pontosTotal < 0,
+      'Pontos Nao Mapeados e negativo (' +
+        formatValue(pontosTotal, 'water') +
+        '). ' +
+        'Formula: Entrada - (Lojas + Banheiros + Area Comum). Verifique a classificacao dos dispositivos.'
+    );
 
     // RFC-0196: Total Consumidores > Entrada
     const waterLojas = STATE_WATER.lojas?.total || 0;
-    const waterBanheiros = STATE_WATER.includeBathrooms ? (STATE_WATER.banheiros?.total || 0) : 0;
+    const waterBanheiros = STATE_WATER.includeBathrooms ? STATE_WATER.banheiros?.total || 0 : 0;
     const waterAreaComum = STATE_WATER.areaComum?.total || 0;
     const waterTotalCons = waterLojas + waterBanheiros + waterAreaComum + pontosTotal;
-    _setCardError($container, '.entrada-card', waterTotalCons > entradaTotal,
-      'Total Consumidores (' + formatValue(waterTotalCons, 'water') + ') e maior que Entrada (' +
-      formatValue(entradaTotal, 'water') + '). Verifique a configuracao dos medidores.');
+    _setCardError(
+      $container,
+      '.entrada-card',
+      waterTotalCons > entradaTotal,
+      'Total Consumidores (' +
+        formatValue(waterTotalCons, 'water') +
+        ') e maior que Entrada (' +
+        formatValue(entradaTotal, 'water') +
+        '). Verifique a configuracao dos medidores.'
+    );
   } else {
     const entradaTotal = STATE.entrada?.total || 0;
     if (entradaTotal <= 0) return; // No data yet — skip
 
     const areaComumTotal = STATE.consumidores?.areaComum?.total || 0;
-    _setCardError($container, '.area-comum-card', areaComumTotal < 0,
-      'Area Comum e negativa (' + formatEnergy(areaComumTotal) + '). ' +
-      'Formula: Entrada - (Lojas + Climatizacao + Elevadores + Esc. Rolantes + Outros). Verifique a classificacao dos dispositivos.');
+    _setCardError(
+      $container,
+      '.area-comum-card',
+      areaComumTotal < 0,
+      'Area Comum e negativa (' +
+        formatEnergy(areaComumTotal) +
+        '). ' +
+        'Formula: Entrada - (Lojas + Climatizacao + Elevadores + Esc. Rolantes + Outros). Verifique a classificacao dos dispositivos.'
+    );
 
     // RFC-0196: Total Consumidores > Entrada
     const totalCons = STATE.consumidores?.totalGeral || 0;
-    _setCardError($container, '.entrada-card', totalCons > entradaTotal,
-      'Total Consumidores (' + formatEnergy(totalCons) + ') e maior que Entrada (' +
-      formatEnergy(entradaTotal) + '). Verifique a configuracao dos medidores.');
+    _setCardError(
+      $container,
+      '.entrada-card',
+      totalCons > entradaTotal,
+      'Total Consumidores (' +
+        formatEnergy(totalCons) +
+        ') e maior que Entrada (' +
+        formatEnergy(entradaTotal) +
+        '). Verifique a configuracao dos medidores.'
+    );
   }
 }
 
@@ -3769,9 +3799,9 @@ self.onInit = async function () {
   // is accidentally called in this widget's scope.
   (function () {
     const _el = self.ctx && self.ctx.$container && self.ctx.$container[0];
-    const _dom = self.ctx && self.ctx.settings && self.ctx.settings.DOMAIN || '';
+    const _dom = (self.ctx && self.ctx.settings && self.ctx.settings.DOMAIN) || '';
     if (_el && _dom) _el.setAttribute('data-widget-domain', _dom);
-  }());
+  })();
 
   // RFC-0056 FIX: Expose openModal globally IMMEDIATELY for onclick handler
   window.TELEMETRY_INFO_openModal = openModal;
@@ -3972,15 +4002,17 @@ self.onInit = async function () {
   // Alarm filter banner: shown when HEADER or TELEMETRY has an active alarm filter
   function _updateAlarmFilterBanner(mode) {
     const banner = document.getElementById('tiAlarmFilterBanner');
-    const text   = document.getElementById('tiAlarmFilterBannerText');
+    const text = document.getElementById('tiAlarmFilterBannerText');
     if (!banner) return;
     if (!mode || mode === 'ativado') {
       banner.style.display = 'none';
     } else {
       banner.style.display = 'flex';
-      if (text) text.textContent = mode === 'apenas_ativados'
-        ? 'Filtro ativo: apenas dispositivos com alarmes'
-        : 'Filtro ativo: apenas dispositivos sem alarmes';
+      if (text)
+        text.textContent =
+          mode === 'apenas_ativados'
+            ? 'Filtro ativo: apenas dispositivos com alarmes'
+            : 'Filtro ativo: apenas dispositivos sem alarmes';
     }
   }
   window.addEventListener('myio:global-alarm-filter', (ev) => {

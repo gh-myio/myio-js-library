@@ -66,9 +66,9 @@ ssh -i id_rsa root@<ipv6-da-central>
 
 #### Holding: SUPERVIA ESTAÇÕES
 
-| Central | IPv6 |
-| ------- | ---- |
-| —       | —    |
+| Central | IPv6                                         | Gateway ID                             |
+| ------- | -------------------------------------------- | -------------------------------------- |
+| Deodoro | `200:1e6a:69a5:73f1:b18a:e6e:aa68:9229`      | `adb43bf6-6107-44fa-b786-6e88c150d779` |
 
 #### Holding: DIMENSION
 
@@ -93,8 +93,6 @@ ssh -i id_rsa root@<ipv6-da-central>
 ```bash
 # Mestre Álvaro L0L1 (Sá Cavalcante)
 ssh -i id_rsa root@200:ba5f:dacb:b278:8f85:acf4:f33c:f485
-
-ssh -i id_rsa root@200:1e6a:69a5:73f1:b18a:e6e:aa68:9229
 
 # Mestre Álvaro L2AC (Sá Cavalcante)
 ssh -i id_rsa root@200:8b:483c:9008:1184:caec:41b1:fa28
@@ -137,6 +135,9 @@ ssh -i id_rsa root@200:8e12:1a64:71bc:ff06:5c56:9f09:f4aa
 
 # Macaé (Soul Malls)
 ssh -i id_rsa root@200:bf4f:c3a0:e697:17ff:28a5:38ae:536b
+
+# Deodoro (Supervia Estações)
+ssh -i id_rsa root@200:1e6a:69a5:73f1:b18a:e6e:aa68:9229
 
 # Central Dimension (Dimension)
 ssh -i id_rsa root@203:984:24ef:b578:69a6:7136:b9f2:b5c2
@@ -216,6 +217,8 @@ systemctl restart nodered
 psql -U hubot
 ```
 
+ 162 (CTI Pediátrico_ sétimo-andar), 164 (TEMP_FARMACIA-CAF).
+ 
 > **Troubleshooting** — se retornar
 > `could not connect to server: No such file or directory / Is the server running locally and accepting connections on Unix domain socket "/tmp/.s.PGSQL.5432"?`,
 > o cliente está procurando o socket em `/tmp`, mas no Debian/Ubuntu o Postgres usa `/var/run/postgresql`. Force o host correto:

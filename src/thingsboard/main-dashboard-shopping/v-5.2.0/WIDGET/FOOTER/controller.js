@@ -1573,7 +1573,7 @@ const footerController = {
 
       LogHelper.log(
         `[MyIO Footer] Group drop '${payload.group}' — requested ${deviceIds.length}, added ${added}` +
-        (limitReachedDuringBulk ? ' (limit reached)' : '')
+          (limitReachedDuringBulk ? ' (limit reached)' : '')
       );
       return;
     }
@@ -1626,7 +1626,11 @@ const footerController = {
       this.$dockScrollRight.removeEventListener('click', this.boundDockScrollRightClick);
     }
     if (this.dockResizeObserver) {
-      try { this.dockResizeObserver.disconnect(); } catch { /* noop */ }
+      try {
+        this.dockResizeObserver.disconnect();
+      } catch {
+        /* noop */
+      }
       this.dockResizeObserver = null;
     } else if (this.boundDockScrollUpdate) {
       window.removeEventListener('resize', this.boundDockScrollUpdate);

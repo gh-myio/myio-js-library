@@ -121,7 +121,6 @@ self.onInit = function () {
   fetchUserInfo();
 
   async function fetchUserInfo() {
-
     try {
       const response = await fetch('/api/auth/user', {
         method: 'GET',
@@ -609,38 +608,54 @@ self.onInit = function () {
               <span class="myio-settings-option__desc">Unidades e casas decimais</span>
             </div>
           </button>
-          ${isSuperAdmin ? `
+          ${
+            isSuperAdmin
+              ? `
           <button class="myio-settings-option myio-settings-option--myio" data-action="integration">
             <span class="myio-settings-option__icon">🔗</span>
             <div class="myio-settings-option__text">
               <span class="myio-settings-option__title">Setup de Integração</span>
               <span class="myio-settings-option__desc">Ingestion · GCDR — apenas MyIO</span>
             </div>
-          </button>` : ''}
-          ${isSuperAdmin ? `
+          </button>`
+              : ''
+          }
+          ${
+            isSuperAdmin
+              ? `
           <button class="myio-settings-option myio-settings-option--myio" data-action="user-management">
             <span class="myio-settings-option__icon">👥</span>
             <div class="myio-settings-option__text">
               <span class="myio-settings-option__title">Gestão de Usuários</span>
               <span class="myio-settings-option__desc">Usuários e perfis — apenas MyIO</span>
             </div>
-          </button>` : ''}
-          ${isSuperAdmin ? `
+          </button>`
+              : ''
+          }
+          ${
+            isSuperAdmin
+              ? `
           <button class="myio-settings-option myio-settings-option--myio" data-action="default-dashboard">
             <span class="myio-settings-option__icon">🏠</span>
             <div class="myio-settings-option__text">
               <span class="myio-settings-option__title">Dashboard Padrão</span>
               <span class="myio-settings-option__desc">Dashboard exibido ao criar novos usuários — apenas MyIO</span>
             </div>
-          </button>` : ''}
-          ${isSuperAdmin ? `
+          </button>`
+              : ''
+          }
+          ${
+            isSuperAdmin
+              ? `
           <button class="myio-settings-option myio-settings-option--myio" data-action="client-config">
             <span class="myio-settings-option__icon">🏢</span>
             <div class="myio-settings-option__text">
               <span class="myio-settings-option__title">Configurações Cliente</span>
               <span class="myio-settings-option__desc">Funcionalidades e senha master — apenas MyIO</span>
             </div>
-          </button>` : ''}
+          </button>`
+              : ''
+          }
         </div>
       </div>
     `;
@@ -707,16 +722,17 @@ self.onInit = function () {
     const jwt = localStorage.getItem('jwt_token') || '';
     const orch = window.MyIOOrchestrator;
     window.MyIOLibrary.openUserManagementModal({
-      customerId:   orch?.customerTB_ID || self.ctx.settings?.customerTB_ID || '',
-      tenantId:     user.tenantId?.id || '',
-      customerName: orch?.customerName || user?.customerTitle || user?.customerName || getCurrentDashboardTitle() || '',
-      jwtToken:     jwt,
-      tbBaseUrl:    self.ctx.settings?.tbBaseUrl || '',
-      currentUser:  {
-        id:        user.id?.id || '',
-        email:     user.email || '',
+      customerId: orch?.customerTB_ID || self.ctx.settings?.customerTB_ID || '',
+      tenantId: user.tenantId?.id || '',
+      customerName:
+        orch?.customerName || user?.customerTitle || user?.customerName || getCurrentDashboardTitle() || '',
+      jwtToken: jwt,
+      tbBaseUrl: self.ctx.settings?.tbBaseUrl || '',
+      currentUser: {
+        id: user.id?.id || '',
+        email: user.email || '',
         firstName: user.firstName || '',
-        lastName:  user.lastName  || '',
+        lastName: user.lastName || '',
       },
     });
   }
@@ -725,16 +741,29 @@ self.onInit = function () {
   // Lê/salva customerDefaultDashboard (SERVER_SCOPE) com changelog auditável.
   function openDefaultDashboardSettings(user) {
     const topWin = window.top || window;
-    const topDoc = (() => { try { return topWin.document; } catch { return document; } })();
+    const topDoc = (() => {
+      try {
+        return topWin.document;
+      } catch {
+        return document;
+      }
+    })();
 
     const jwtToken = localStorage.getItem('jwt_token');
-    if (!jwtToken) { window.alert('Token não encontrado. Faça login novamente.'); return; }
+    if (!jwtToken) {
+      window.alert('Token não encontrado. Faça login novamente.');
+      return;
+    }
 
     const orch = window.MyIOOrchestrator;
     const customerId = orch?.customerTB_ID || user?.customerId?.id;
-    if (!customerId) { window.alert('ID do cliente não encontrado.'); return; }
+    if (!customerId) {
+      window.alert('ID do cliente não encontrado.');
+      return;
+    }
 
-    const customerName = orch?.customerName || user?.customerTitle || user?.customerName || getCurrentDashboardTitle() || '';
+    const customerName =
+      orch?.customerName || user?.customerTitle || user?.customerName || getCurrentDashboardTitle() || '';
 
     const tbBase = self.ctx?.settings?.tbBaseUrl || '';
 
@@ -812,14 +841,15 @@ self.onInit = function () {
       const entries = currentCfg?.changelog;
       if (!entries?.length) return '';
       // Filtra entradas válidas (ignorar sentinels ou objetos malformados)
-      const valid = entries.filter(e => e && e.changedAt && e.next);
+      const valid = entries.filter((e) => e && e.changedAt && e.next);
       if (!valid.length) return '';
-      const rows = valid.map(e => {
-        const d = new Date(e.changedAt);
-        const ts = isNaN(d.getTime()) ? e.changedAt : d.toLocaleString('pt-BR');
-        const prev = e.previous?.dashboardName || '—';
-        const next = e.next?.dashboardName || '—';
-        return `
+      const rows = valid
+        .map((e) => {
+          const d = new Date(e.changedAt);
+          const ts = isNaN(d.getTime()) ? e.changedAt : d.toLocaleString('pt-BR');
+          const prev = e.previous?.dashboardName || '—';
+          const next = e.next?.dashboardName || '—';
+          return `
           <div class="mdd-log-entry">
             <div class="mdd-log-header">
               <span class="mdd-log-actor">${e.changedBy?.name || 'Desconhecido'}</span>
@@ -828,7 +858,8 @@ self.onInit = function () {
             </div>
             <div class="mdd-log-change">${prev} → ${next}</div>
           </div>`;
-      }).join('');
+        })
+        .join('');
       return `
         <details class="mdd-changelog">
           <summary>Histórico de Alterações (${valid.length})</summary>
@@ -837,15 +868,17 @@ self.onInit = function () {
     }
 
     // ── Modal ──────────────────────────────────────────────────────────────────
-    const mddHeaderHtml = window.MyIOLibrary?.ModalHeader?.generateInlineHTML({
-      icon: '🏠',
-      title: `Dashboard Padrão${customerName ? ` — ${customerName}` : ''}`,
-      modalId: 'mdd-modal',
-      showThemeToggle: false,
-      showMaximize: true,
-      showClose: true,
-      draggable: false,
-    }) ?? `<div style="padding:12px 20px;background:#3e1a7d;color:#fff;font-weight:600">🏠 Dashboard Padrão</div>`;
+    const mddHeaderHtml =
+      window.MyIOLibrary?.ModalHeader?.generateInlineHTML({
+        icon: '🏠',
+        title: `Dashboard Padrão${customerName ? ` — ${customerName}` : ''}`,
+        modalId: 'mdd-modal',
+        showThemeToggle: false,
+        showMaximize: true,
+        showClose: true,
+        draggable: false,
+      }) ??
+      `<div style="padding:12px 20px;background:#3e1a7d;color:#fff;font-weight:600">🏠 Dashboard Padrão</div>`;
 
     const modal = topDoc.createElement('div');
     modal.id = 'myio-default-dashboard';
@@ -895,7 +928,10 @@ self.onInit = function () {
     });
 
     const escHandler = (e) => {
-      if (e.key === 'Escape') { closeModal(); topDoc.removeEventListener('keydown', escHandler); }
+      if (e.key === 'Escape') {
+        closeModal();
+        topDoc.removeEventListener('keydown', escHandler);
+      }
     };
     topDoc.addEventListener('keydown', escHandler);
 
@@ -915,18 +951,23 @@ self.onInit = function () {
           resultsEl.innerHTML = '<div class="mdd-empty">Nenhum dashboard encontrado.</div>';
           return;
         }
-        resultsEl.innerHTML = items.map(d => `
+        resultsEl.innerHTML = items
+          .map(
+            (d) => `
           <div class="mdd-result-item" data-id="${d.id.id}" data-title="${d.title}">
             <span class="mdd-result-name">${d.title}</span>
             <span class="mdd-result-id">${d.id.id}</span>
           </div>
-        `).join('');
-        resultsEl.querySelectorAll('.mdd-result-item').forEach(item => {
+        `
+          )
+          .join('');
+        resultsEl.querySelectorAll('.mdd-result-item').forEach((item) => {
           item.addEventListener('click', () => {
-            resultsEl.querySelectorAll('.mdd-result-item').forEach(i => i.classList.remove('selected'));
+            resultsEl.querySelectorAll('.mdd-result-item').forEach((i) => i.classList.remove('selected'));
             item.classList.add('selected');
             selectedDashboard = { id: item.dataset.id, title: item.dataset.title };
-            modal.querySelector('#mdd-selection-label').textContent = `Selecionado: ${selectedDashboard.title}`;
+            modal.querySelector('#mdd-selection-label').textContent =
+              `Selecionado: ${selectedDashboard.title}`;
             modal.querySelector('#mdd-save-btn').disabled = false;
           });
         });
@@ -939,7 +980,10 @@ self.onInit = function () {
       searchDashboards(modal.querySelector('#mdd-search-input').value.trim());
     });
     modal.querySelector('#mdd-search-input').addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') { e.preventDefault(); searchDashboards(e.target.value.trim()); }
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        searchDashboards(e.target.value.trim());
+      }
     });
 
     // ── Salvar ────────────────────────────────────────────────────────────────
@@ -951,32 +995,38 @@ self.onInit = function () {
       try {
         const version = window.MyIOLibrary?.version || '0.0.0';
         const now = new Date().toISOString();
-        const currentUserName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.email || '';
+        const currentUserName =
+          [user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.email || '';
         const newEntry = {
           changedAt: now,
           version,
-          previous: currentCfg ? { dashboardId: currentCfg.dashboardId, dashboardName: currentCfg.dashboardName } : null,
+          previous: currentCfg
+            ? { dashboardId: currentCfg.dashboardId, dashboardName: currentCfg.dashboardName }
+            : null,
           next: { dashboardId: selectedDashboard.id, dashboardName: selectedDashboard.title },
           changedBy: { userId: user?.id?.id || '', name: currentUserName, email: user?.email || '' },
         };
         const newCfg = {
           dashboardName: selectedDashboard.title,
-          dashboardId:   selectedDashboard.id,
-          updatedAt:     now,
-          changelog:     [newEntry, ...(currentCfg?.changelog || [])],
+          dashboardId: selectedDashboard.id,
+          updatedAt: now,
+          changelog: [newEntry, ...(currentCfg?.changelog || [])],
         };
-        const res = await fetch(`${tbBase}/api/plugins/telemetry/CUSTOMER/${customerId}/attributes/SERVER_SCOPE`, {
-          method: 'POST',
-          headers: { 'X-Authorization': `Bearer ${jwtToken}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ customerDefaultDashboard: newCfg }),
-        });
+        const res = await fetch(
+          `${tbBase}/api/plugins/telemetry/CUSTOMER/${customerId}/attributes/SERVER_SCOPE`,
+          {
+            method: 'POST',
+            headers: { 'X-Authorization': `Bearer ${jwtToken}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ customerDefaultDashboard: newCfg }),
+          }
+        );
         if (!res.ok) {
           const errText = await res.text().catch(() => '');
           throw new Error(`HTTP ${res.status}${errText ? ': ' + errText.slice(0, 120) : ''}`);
         }
         // Atualiza orquestrador em memória
         if (window.MyIOOrchestrator) {
-          window.MyIOOrchestrator.defaultDashboardId  = selectedDashboard.id;
+          window.MyIOOrchestrator.defaultDashboardId = selectedDashboard.id;
           window.MyIOOrchestrator.defaultDashboardCfg = newCfg;
         }
         LogHelper.log('[MENU] RFC-0194: customerDefaultDashboard salvo:', newCfg.dashboardName);
@@ -1000,13 +1050,25 @@ self.onInit = function () {
   // Schema v1.0.0 — seções: ingestion, gcdr, gateways (tb / ingestion / gcdr).
   function openIntegrationSetupModal(user) {
     const topWin = window.top || window;
-    const topDoc = (() => { try { return topWin.document; } catch { return document; } })();
+    const topDoc = (() => {
+      try {
+        return topWin.document;
+      } catch {
+        return document;
+      }
+    })();
 
     const jwtToken = localStorage.getItem('jwt_token');
-    if (!jwtToken) { window.alert('Token não encontrado. Faça login novamente.'); return; }
+    if (!jwtToken) {
+      window.alert('Token não encontrado. Faça login novamente.');
+      return;
+    }
 
     const customerId = window.MyIOOrchestrator?.customerTB_ID || user?.customerId?.id;
-    if (!customerId) { window.alert('ID do cliente não encontrado.'); return; }
+    if (!customerId) {
+      window.alert('ID do cliente não encontrado.');
+      return;
+    }
 
     // ── CSS ──────────────────────────────────────────────────────────────────
     const STYLE_ID = 'myio-integration-setup-styles';
@@ -1079,15 +1141,17 @@ self.onInit = function () {
     const existing = topDoc.getElementById('myio-isetup');
     if (existing) existing.remove();
 
-    const isetupHeaderHtml = window.MyIOLibrary?.ModalHeader?.generateInlineHTML({
-      icon: '🔗',
-      title: 'Setup de Integração',
-      modalId: 'isetup-modal',
-      showThemeToggle: false,
-      showMaximize: true,
-      showClose: true,
-      draggable: false,
-    }) ?? `<div style="padding:8px 12px;background:#3e1a7d;color:#fff;font-weight:600;min-height:32px;display:flex;align-items:center">🔗 Setup de Integração</div>`;
+    const isetupHeaderHtml =
+      window.MyIOLibrary?.ModalHeader?.generateInlineHTML({
+        icon: '🔗',
+        title: 'Setup de Integração',
+        modalId: 'isetup-modal',
+        showThemeToggle: false,
+        showMaximize: true,
+        showClose: true,
+        draggable: false,
+      }) ??
+      `<div style="padding:8px 12px;background:#3e1a7d;color:#fff;font-weight:600;min-height:32px;display:flex;align-items:center">🔗 Setup de Integração</div>`;
 
     const modal = topDoc.createElement('div');
     modal.id = 'myio-isetup';
@@ -1192,7 +1256,12 @@ self.onInit = function () {
     });
     modal.querySelector('#isetup-cancel').addEventListener('click', closeModal);
 
-    const escHandler = (e) => { if (e.key === 'Escape') { closeModal(); topDoc.removeEventListener('keydown', escHandler); } };
+    const escHandler = (e) => {
+      if (e.key === 'Escape') {
+        closeModal();
+        topDoc.removeEventListener('keydown', escHandler);
+      }
+    };
     topDoc.addEventListener('keydown', escHandler);
 
     // ── Tab switching (gateways) ──────────────────────────────────────────────
@@ -1209,22 +1278,39 @@ self.onInit = function () {
     const _gwData = { tb: [], ingestion: [], gcdr: [] };
 
     const GW_DEFAULTS = {
-      tb:        () => ({ uuid: '', name: '', assetParent: '', mqtt: { clientId: '', userName: '', password: '' } }),
-      ingestion: () => ({ uuid: '', hardwareId: '', name: '', assetParent: '',
-                          legacyFetchInterval: 30000, energyFetchInterval: 300000,
-                          waterFetchInterval: 300000, temperatureFetchInterval: 60000,
-                          pauseGateway: false,
-                          lastEnergyFetch: null, lastWaterFetch: null, lastTemperatureFetch: null }),
-      gcdr:      () => ({ uuid: '', name: '', assetParent: '', bundleVersion: '' }),
+      tb: () => ({ uuid: '', name: '', assetParent: '', mqtt: { clientId: '', userName: '', password: '' } }),
+      ingestion: () => ({
+        uuid: '',
+        hardwareId: '',
+        name: '',
+        assetParent: '',
+        legacyFetchInterval: 30000,
+        energyFetchInterval: 300000,
+        waterFetchInterval: 300000,
+        temperatureFetchInterval: 60000,
+        pauseGateway: false,
+        lastEnergyFetch: null,
+        lastWaterFetch: null,
+        lastTemperatureFetch: null,
+      }),
+      gcdr: () => ({ uuid: '', name: '', assetParent: '', bundleVersion: '' }),
     };
 
-    const fmtDate = (v) => { if (!v) return ''; try { return new Date(v).toLocaleString('pt-BR'); } catch { return String(v); } };
+    const fmtDate = (v) => {
+      if (!v) return '';
+      try {
+        return new Date(v).toLocaleString('pt-BR');
+      } catch {
+        return String(v);
+      }
+    };
     const e = escHtml;
 
     function makeGwItem(type, item, idx) {
-      const title = e(item.name) || ('Gateway ' + (idx + 1));
+      const title = e(item.name) || 'Gateway ' + (idx + 1);
 
-      if (type === 'tb') return `
+      if (type === 'tb')
+        return `
         <div class="myio-igw-item" data-gw-idx="${idx}">
           <div class="myio-igw-item__head">
             <span class="myio-igw-item__title">${title}</span>
@@ -1263,7 +1349,8 @@ self.onInit = function () {
           </div>
         </div>`;
 
-      if (type === 'ingestion') return `
+      if (type === 'ingestion')
+        return `
         <div class="myio-igw-item" data-gw-idx="${idx}">
           <div class="myio-igw-item__head">
             <span class="myio-igw-item__title">${title}</span>
@@ -1330,7 +1417,8 @@ self.onInit = function () {
           </div>
         </div>`;
 
-      if (type === 'gcdr') return `
+      if (type === 'gcdr')
+        return `
         <div class="myio-igw-item" data-gw-idx="${idx}">
           <div class="myio-igw-item__head">
             <span class="myio-igw-item__title">${title}</span>
@@ -1367,14 +1455,18 @@ self.onInit = function () {
     function setNestedField(obj, path, value) {
       const parts = path.split('.');
       let cur = obj;
-      for (let i = 0; i < parts.length - 1; i++) { if (!cur[parts[i]]) cur[parts[i]] = {}; cur = cur[parts[i]]; }
+      for (let i = 0; i < parts.length - 1; i++) {
+        if (!cur[parts[i]]) cur[parts[i]] = {};
+        cur = cur[parts[i]];
+      }
       cur[parts[parts.length - 1]] = value;
     }
 
     function renderGwList(type) {
       const panel = modal.querySelector('#isetup-gw-' + type);
       const items = _gwData[type];
-      panel.innerHTML = items.map((item, idx) => makeGwItem(type, item, idx)).join('') +
+      panel.innerHTML =
+        items.map((item, idx) => makeGwItem(type, item, idx)).join('') +
         `<button class="myio-igw-add" data-gw-add="${type}">＋ Adicionar gateway</button>`;
 
       // Collapse toggle
@@ -1382,7 +1474,7 @@ self.onInit = function () {
         head.addEventListener('click', (ev) => {
           if (ev.target.closest('[data-gw-del]')) return;
           const body = head.nextElementSibling;
-          const tog  = head.querySelector('.myio-igw-item__toggle');
+          const tog = head.querySelector('.myio-igw-item__toggle');
           const collapsed = body.classList.toggle('collapsed');
           if (tog) tog.textContent = collapsed ? '▶' : '▼';
         });
@@ -1391,22 +1483,25 @@ self.onInit = function () {
       // Field input → update _gwData reactively
       panel.querySelectorAll('[data-gw-field]').forEach((input) => {
         input.addEventListener('input', () => {
-          const idx   = parseInt(input.dataset.gwIdx);
+          const idx = parseInt(input.dataset.gwIdx);
           const field = input.dataset.gwField;
-          const val   = input.type === 'checkbox' ? input.checked
-                      : input.type === 'number'   ? Number(input.value)
-                      : input.value;
+          const val =
+            input.type === 'checkbox'
+              ? input.checked
+              : input.type === 'number'
+                ? Number(input.value)
+                : input.value;
           setNestedField(_gwData[type][idx], field, val);
           // Update card title if name changed
           if (field === 'name') {
             const titleEl = panel.querySelector(`[data-gw-idx="${idx}"] .myio-igw-item__title`);
-            if (titleEl) titleEl.textContent = input.value || ('Gateway ' + (idx + 1));
+            if (titleEl) titleEl.textContent = input.value || 'Gateway ' + (idx + 1);
           }
         });
         // Checkbox change event
         if (input.type === 'checkbox') {
           input.addEventListener('change', () => {
-            const idx   = parseInt(input.dataset.gwIdx);
+            const idx = parseInt(input.dataset.gwIdx);
             const field = input.dataset.gwField;
             setNestedField(_gwData[type][idx], field, input.checked);
           });
@@ -1425,13 +1520,14 @@ self.onInit = function () {
 
       // Add
       const addBtn = panel.querySelector('[data-gw-add]');
-      if (addBtn) addBtn.addEventListener('click', () => {
-        _gwData[type].push(GW_DEFAULTS[type]());
-        renderGwList(type);
-        // scroll last item into view
-        const last = panel.querySelector('.myio-igw-item:last-of-type');
-        if (last) last.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      });
+      if (addBtn)
+        addBtn.addEventListener('click', () => {
+          _gwData[type].push(GW_DEFAULTS[type]());
+          renderGwList(type);
+          // scroll last item into view
+          const last = panel.querySelector('.myio-igw-item:last-of-type');
+          if (last) last.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        });
     }
 
     // ── Fetch dados do customer (SERVER_SCOPE) ────────────────────────────────
@@ -1449,29 +1545,39 @@ self.onInit = function () {
     )
       .then((res) => (res.ok ? res.json().catch(() => []) : []))
       .then((attrs) => {
-        const attr   = Array.isArray(attrs) ? attrs.find((a) => a.key === 'integration_setup') : null;
+        const attr = Array.isArray(attrs) ? attrs.find((a) => a.key === 'integration_setup') : null;
         const parsed = attr?.value
-          ? (typeof attr.value === 'string' ? JSON.parse(attr.value) : attr.value)
+          ? typeof attr.value === 'string'
+            ? JSON.parse(attr.value)
+            : attr.value
           : {};
 
-        const ing  = { ...EMPTY_DATA.ingestion, ...(parsed.ingestion || {}) };
-        const gcdr = { ...EMPTY_DATA.gcdr,       ...(parsed.gcdr      || {}) };
-        const gw   = parsed.gateways || EMPTY_DATA.gateways;
+        const ing = { ...EMPTY_DATA.ingestion, ...(parsed.ingestion || {}) };
+        const gcdr = { ...EMPTY_DATA.gcdr, ...(parsed.gcdr || {}) };
+        const gw = parsed.gateways || EMPTY_DATA.gateways;
         gcdrSyncedAt = gcdr.gcdrSyncedAt;
 
         // Seções 1 e 2 — campos simples
-        modal.querySelector('#isetup-ingestionId').value    = ing.ingestionId;
-        modal.querySelector('#isetup-clientId').value       = ing.client_id;
-        modal.querySelector('#isetup-clientSecret').value   = ing.client_secret;
+        modal.querySelector('#isetup-ingestionId').value = ing.ingestionId;
+        modal.querySelector('#isetup-clientId').value = ing.client_id;
+        modal.querySelector('#isetup-clientSecret').value = ing.client_secret;
         modal.querySelector('#isetup-gcdrCustomerId').value = gcdr.gcdrCustomerId;
-        modal.querySelector('#isetup-gcdrApiKey').value     = gcdr.gcdrApiKey;
-        modal.querySelector('#isetup-gcdrTenantId').value   = gcdr.gcdrTenantId;
-        modal.querySelector('#isetup-gcdrSyncedAt').value   = fmtDate(gcdr.gcdrSyncedAt);
+        modal.querySelector('#isetup-gcdrApiKey').value = gcdr.gcdrApiKey;
+        modal.querySelector('#isetup-gcdrTenantId').value = gcdr.gcdrTenantId;
+        modal.querySelector('#isetup-gcdrSyncedAt').value = fmtDate(gcdr.gcdrSyncedAt);
 
         // Seção 3 — gateways
-        _gwData.tb        = Array.isArray(gw.tb)        ? gw.tb.map((i) => ({ ...GW_DEFAULTS.tb(),        ...i, mqtt: { ...GW_DEFAULTS.tb().mqtt,         ...(i.mqtt || {}) } })) : [];
-        _gwData.ingestion = Array.isArray(gw.ingestion) ? gw.ingestion.map((i) => ({ ...GW_DEFAULTS.ingestion(), ...i })) : [];
-        _gwData.gcdr      = Array.isArray(gw.gcdr)      ? gw.gcdr.map((i) => ({ ...GW_DEFAULTS.gcdr(),      ...i })) : [];
+        _gwData.tb = Array.isArray(gw.tb)
+          ? gw.tb.map((i) => ({
+              ...GW_DEFAULTS.tb(),
+              ...i,
+              mqtt: { ...GW_DEFAULTS.tb().mqtt, ...(i.mqtt || {}) },
+            }))
+          : [];
+        _gwData.ingestion = Array.isArray(gw.ingestion)
+          ? gw.ingestion.map((i) => ({ ...GW_DEFAULTS.ingestion(), ...i }))
+          : [];
+        _gwData.gcdr = Array.isArray(gw.gcdr) ? gw.gcdr.map((i) => ({ ...GW_DEFAULTS.gcdr(), ...i })) : [];
 
         renderGwList('tb');
         renderGwList('ingestion');
@@ -1481,8 +1587,9 @@ self.onInit = function () {
       })
       .catch((err) => {
         LogHelper.warn('[MENU] Error loading integration_setup:', err);
-        modal.querySelector('#isetup-status').textContent = 'Aviso: não foi possível carregar dados existentes.';
-        modal.querySelector('#isetup-status').className   = 'myio-isetup__status err';
+        modal.querySelector('#isetup-status').textContent =
+          'Aviso: não foi possível carregar dados existentes.';
+        modal.querySelector('#isetup-status').className = 'myio-isetup__status err';
         // render empty lists so user can still add items
         renderGwList('tb');
         renderGwList('ingestion');
@@ -1490,36 +1597,36 @@ self.onInit = function () {
       })
       .finally(() => {
         modal.querySelector('#isetup-loading').style.display = 'none';
-        modal.querySelector('#isetup-form').style.display    = 'flex';
+        modal.querySelector('#isetup-form').style.display = 'flex';
         modal.querySelector('#isetup-form').style.flexDirection = 'column';
-        modal.querySelector('#isetup-form').style.gap        = '16px';
-        modal.querySelector('#isetup-save').disabled         = false;
+        modal.querySelector('#isetup-form').style.gap = '16px';
+        modal.querySelector('#isetup-save').disabled = false;
       });
 
     // ── Save ─────────────────────────────────────────────────────────────────
     modal.querySelector('#isetup-save').addEventListener('click', async () => {
       const statusEl = modal.querySelector('#isetup-status');
-      const saveBtn  = modal.querySelector('#isetup-save');
+      const saveBtn = modal.querySelector('#isetup-save');
 
       const payload = {
         schema_version: '1.0.0',
-        updated_at:     new Date().toISOString(),
-        updated_by:     window.MyIOUtils?.currentUserEmail || user?.email || 'unknown',
+        updated_at: new Date().toISOString(),
+        updated_by: window.MyIOUtils?.currentUserEmail || user?.email || 'unknown',
         ingestion: {
-          ingestionId:   modal.querySelector('#isetup-ingestionId').value.trim(),
-          client_id:     modal.querySelector('#isetup-clientId').value.trim(),
+          ingestionId: modal.querySelector('#isetup-ingestionId').value.trim(),
+          client_id: modal.querySelector('#isetup-clientId').value.trim(),
           client_secret: modal.querySelector('#isetup-clientSecret').value,
         },
         gcdr: {
           gcdrCustomerId: modal.querySelector('#isetup-gcdrCustomerId').value.trim(),
-          gcdrApiKey:     modal.querySelector('#isetup-gcdrApiKey').value,
-          gcdrTenantId:   modal.querySelector('#isetup-gcdrTenantId').value.trim(),
-          gcdrSyncedAt:   gcdrSyncedAt,
+          gcdrApiKey: modal.querySelector('#isetup-gcdrApiKey').value,
+          gcdrTenantId: modal.querySelector('#isetup-gcdrTenantId').value.trim(),
+          gcdrSyncedAt: gcdrSyncedAt,
         },
         gateways: {
-          tb:        JSON.parse(JSON.stringify(_gwData.tb)),
+          tb: JSON.parse(JSON.stringify(_gwData.tb)),
           ingestion: JSON.parse(JSON.stringify(_gwData.ingestion)),
-          gcdr:      JSON.parse(JSON.stringify(_gwData.gcdr)),
+          gcdr: JSON.parse(JSON.stringify(_gwData.gcdr)),
         },
       };
 
@@ -1528,15 +1635,12 @@ self.onInit = function () {
       statusEl.className = 'myio-isetup__status';
 
       try {
-        const res = await fetch(
-          `/api/plugins/telemetry/CUSTOMER/${customerId}/SERVER_SCOPE`,
-          {
-            method:      'POST',
-            headers:     { ...buildAuthHeaders(), 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body:        JSON.stringify({ integration_setup: payload }),
-          }
-        );
+        const res = await fetch(`/api/plugins/telemetry/CUSTOMER/${customerId}/SERVER_SCOPE`, {
+          method: 'POST',
+          headers: { ...buildAuthHeaders(), 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ integration_setup: payload }),
+        });
 
         if (res.ok) {
           statusEl.textContent = '✓ Salvo com sucesso';
@@ -1561,7 +1665,11 @@ self.onInit = function () {
 
   // Helper: escape HTML for safe insertion in innerHTML
   function escHtml(v) {
-    return String(v ?? '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return String(v ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
   }
 
   // RFC-0108: Open temperature settings modal
@@ -2029,14 +2137,14 @@ self.onInit = function () {
   }
 
   function openReportsPickerModal() {
-    const orch  = window.MyIOOrchestrator || {};
+    const orch = window.MyIOOrchestrator || {};
     const creds = orch.getCredentials?.() || {};
     const baseParams = {
       customerId: creds.CUSTOMER_ING_ID || '',
       debug: 0,
       api: {
-        clientId:       creds.CLIENT_ID     || '',
-        clientSecret:   creds.CLIENT_SECRET || '',
+        clientId: creds.CLIENT_ID || '',
+        clientSecret: creds.CLIENT_SECRET || '',
         dataApiBaseUrl: window.MyIOUtils?.getDataApiHost?.(),
         ingestionToken: orch.tokenManager?.getToken('ingestionToken') || '',
       },
@@ -2051,11 +2159,20 @@ self.onInit = function () {
 
     // Inject at the highest accessible document level so modal covers full viewport
     const topWin = window.top || window;
-    const topDoc = (() => { try { return topWin.document; } catch { return document; } })();
+    const topDoc = (() => {
+      try {
+        return topWin.document;
+      } catch {
+        return document;
+      }
+    })();
 
     // Second click on Reports closes the modal
     const existing = topDoc.getElementById(MODAL_ID);
-    if (existing) { existing.remove(); return; }
+    if (existing) {
+      existing.remove();
+      return;
+    }
 
     // Inject styles once
     if (!topDoc.getElementById(STYLE_ID)) {
@@ -2097,49 +2214,168 @@ self.onInit = function () {
 
     const DOMAINS = [
       {
-        id: 'energy', label: '⚡ Energia',
+        id: 'energy',
+        label: '⚡ Energia',
         items: [
-          { id: 'entrada',    label: 'Entrada',            icon: '📥', bg: '#fff8e1', color: '#f57f17', desc: 'Medidores de entrada',    enabled: ei('energy_entrada')    },
-          { id: 'area_comum', label: 'Área Comum',         icon: '🏢', bg: '#f3e5f5', color: '#6a1b9a', desc: 'Consumo de áreas comuns', enabled: ei('energy_area_comum') },
-          { id: 'lojas',      label: 'Lojas',              icon: '🏬', bg: '#e8f5e9', color: '#2e7d32', desc: 'Consumo por loja',         enabled: ei('energy_lojas', true)},
-          { id: 'todos',      label: 'Todos Dispositivos', icon: '📋', bg: '#e3f2fd', color: '#1565c0', desc: 'Todos os medidores',       enabled: ei('energy_todos')      },
+          {
+            id: 'entrada',
+            label: 'Entrada',
+            icon: '📥',
+            bg: '#fff8e1',
+            color: '#f57f17',
+            desc: 'Medidores de entrada',
+            enabled: ei('energy_entrada'),
+          },
+          {
+            id: 'area_comum',
+            label: 'Área Comum',
+            icon: '🏢',
+            bg: '#f3e5f5',
+            color: '#6a1b9a',
+            desc: 'Consumo de áreas comuns',
+            enabled: ei('energy_area_comum'),
+          },
+          {
+            id: 'lojas',
+            label: 'Lojas',
+            icon: '🏬',
+            bg: '#e8f5e9',
+            color: '#2e7d32',
+            desc: 'Consumo por loja',
+            enabled: ei('energy_lojas', true),
+          },
+          {
+            id: 'todos',
+            label: 'Todos Dispositivos',
+            icon: '📋',
+            bg: '#e3f2fd',
+            color: '#1565c0',
+            desc: 'Todos os medidores',
+            enabled: ei('energy_todos'),
+          },
         ],
       },
       {
-        id: 'water', label: '💧 Água',
+        id: 'water',
+        label: '💧 Água',
         items: [
-          { id: 'entrada',    label: 'Entrada',            icon: '📥', bg: '#fff8e1', color: '#f57f17', desc: 'Medidores de entrada',    enabled: ei('water_entrada')    },
-          { id: 'area_comum', label: 'Área Comum',         icon: '🏢', bg: '#f3e5f5', color: '#6a1b9a', desc: 'Consumo de áreas comuns', enabled: ei('water_area_comum') },
-          { id: 'lojas',      label: 'Lojas',              icon: '🏬', bg: '#e0f2f1', color: '#00695c', desc: 'Consumo por loja',         enabled: ei('water_lojas')      },
-          { id: 'todos',      label: 'Todos Dispositivos', icon: '📋', bg: '#e3f2fd', color: '#1565c0', desc: 'Todos os hidrômetros',    enabled: ei('water_todos')      },
+          {
+            id: 'entrada',
+            label: 'Entrada',
+            icon: '📥',
+            bg: '#fff8e1',
+            color: '#f57f17',
+            desc: 'Medidores de entrada',
+            enabled: ei('water_entrada'),
+          },
+          {
+            id: 'area_comum',
+            label: 'Área Comum',
+            icon: '🏢',
+            bg: '#f3e5f5',
+            color: '#6a1b9a',
+            desc: 'Consumo de áreas comuns',
+            enabled: ei('water_area_comum'),
+          },
+          {
+            id: 'lojas',
+            label: 'Lojas',
+            icon: '🏬',
+            bg: '#e0f2f1',
+            color: '#00695c',
+            desc: 'Consumo por loja',
+            enabled: ei('water_lojas'),
+          },
+          {
+            id: 'todos',
+            label: 'Todos Dispositivos',
+            icon: '📋',
+            bg: '#e3f2fd',
+            color: '#1565c0',
+            desc: 'Todos os hidrômetros',
+            enabled: ei('water_todos'),
+          },
         ],
       },
       {
-        id: 'temperature', label: '🌡️ Temperatura',
+        id: 'temperature',
+        label: '🌡️ Temperatura',
         items: [
-          { id: 'climatizavel',     label: 'Ambientes Climatizáveis',     icon: '❄️', bg: '#e1f5fe', color: '#0277bd', desc: 'Ambientes com termostato',    enabled: ei('temperature_climatizavel')     },
-          { id: 'nao_climatizavel', label: 'Ambientes Não Climatizáveis', icon: '🌤️', bg: '#fff3e0', color: '#e65100', desc: 'Ambientes sem climatização', enabled: ei('temperature_nao_climatizavel') },
-          { id: 'todos',            label: 'Todos Ambientes',             icon: '📋', bg: '#e3f2fd', color: '#1565c0', desc: 'Todos os termostatos',         enabled: ei('temperature_todos')            },
+          {
+            id: 'climatizavel',
+            label: 'Ambientes Climatizáveis',
+            icon: '❄️',
+            bg: '#e1f5fe',
+            color: '#0277bd',
+            desc: 'Ambientes com termostato',
+            enabled: ei('temperature_climatizavel'),
+          },
+          {
+            id: 'nao_climatizavel',
+            label: 'Ambientes Não Climatizáveis',
+            icon: '🌤️',
+            bg: '#fff3e0',
+            color: '#e65100',
+            desc: 'Ambientes sem climatização',
+            enabled: ei('temperature_nao_climatizavel'),
+          },
+          {
+            id: 'todos',
+            label: 'Todos Ambientes',
+            icon: '📋',
+            bg: '#e3f2fd',
+            color: '#1565c0',
+            desc: 'Todos os termostatos',
+            enabled: ei('temperature_todos'),
+          },
         ],
       },
       {
-        id: 'alarms', label: '🔔 Alarmes',
+        id: 'alarms',
+        label: '🔔 Alarmes',
         items: [
-          { id: 'por_dispositivo',      label: 'Por Dispositivo',           icon: '📟', bg: '#fce4ec', color: '#880e4f', desc: 'Alarmes por dispositivo',         enabled: ei('alarms_por_dispositivo')      },
-          { id: 'dispositivo_x_alarme', label: 'Por Dispositivo × Tipo',   icon: '🔀', bg: '#fff3e0', color: '#bf360c', desc: 'Cruzamento dispositivo × regra',  enabled: ei('alarms_dispositivo_x_alarme') },
-          { id: 'por_tipo',             label: 'Por Tipo de Alarme',        icon: '🏷️', bg: '#ede7f6', color: '#4527a0', desc: 'Alarmes agrupados por tipo',      enabled: ei('alarms_por_tipo')             },
+          {
+            id: 'por_dispositivo',
+            label: 'Por Dispositivo',
+            icon: '📟',
+            bg: '#fce4ec',
+            color: '#880e4f',
+            desc: 'Alarmes por dispositivo',
+            enabled: ei('alarms_por_dispositivo'),
+          },
+          {
+            id: 'dispositivo_x_alarme',
+            label: 'Por Dispositivo × Tipo',
+            icon: '🔀',
+            bg: '#fff3e0',
+            color: '#bf360c',
+            desc: 'Cruzamento dispositivo × regra',
+            enabled: ei('alarms_dispositivo_x_alarme'),
+          },
+          {
+            id: 'por_tipo',
+            label: 'Por Tipo de Alarme',
+            icon: '🏷️',
+            bg: '#ede7f6',
+            color: '#4527a0',
+            desc: 'Alarmes agrupados por tipo',
+            enabled: ei('alarms_por_tipo'),
+          },
         ],
       },
     ];
 
-    const tabsHTML = DOMAINS.map((d, i) =>
-      `<button class="rp-tab${i === 0 ? ' active' : ''}" data-domain="${d.id}">${d.label}</button>`
+    const tabsHTML = DOMAINS.map(
+      (d, i) => `<button class="rp-tab${i === 0 ? ' active' : ''}" data-domain="${d.id}">${d.label}</button>`
     ).join('');
 
-    const panelsHTML = DOMAINS.map((d, i) => `
+    const panelsHTML = DOMAINS.map(
+      (d, i) => `
       <div class="rp-panel${i === 0 ? ' active' : ''}" data-domain="${d.id}">
         <div class="rp-cards">
-          ${d.items.map(item => `
+          ${d.items
+            .map(
+              (item) => `
             <button class="rp-card" data-domain="${d.id}" data-item="${item.id}" data-enabled="${item.enabled}" type="button">
               <span class="rp-card__icon" style="background:${item.bg};color:${item.color};">${item.icon}</span>
               <span class="rp-card__text">
@@ -2148,10 +2384,13 @@ self.onInit = function () {
               </span>
               ${!item.enabled ? '<span class="rp-badge">🔒</span>' : ''}
             </button>
-          `).join('')}
+          `
+            )
+            .join('')}
         </div>
       </div>
-    `).join('');
+    `
+    ).join('');
 
     const overlay = topDoc.createElement('div');
     overlay.id = MODAL_ID;
@@ -2175,53 +2414,55 @@ self.onInit = function () {
       overlay.addEventListener('transitionend', () => overlay.remove(), { once: true });
     }
 
-    overlay.querySelectorAll('.rp-tab').forEach(tab => {
+    overlay.querySelectorAll('.rp-tab').forEach((tab) => {
       tab.addEventListener('click', () => {
-        overlay.querySelectorAll('.rp-tab').forEach(t => t.classList.remove('active'));
-        overlay.querySelectorAll('.rp-panel').forEach(p => p.classList.remove('active'));
+        overlay.querySelectorAll('.rp-tab').forEach((t) => t.classList.remove('active'));
+        overlay.querySelectorAll('.rp-panel').forEach((p) => p.classList.remove('active'));
         tab.classList.add('active');
         overlay.querySelector(`.rp-panel[data-domain="${tab.dataset.domain}"]`).classList.add('active');
       });
     });
 
-    overlay.querySelectorAll('.rp-card[data-enabled="true"]').forEach(card => {
+    overlay.querySelectorAll('.rp-card[data-enabled="true"]').forEach((card) => {
       card.addEventListener('click', () => {
         const domain = card.dataset.domain;
-        const group  = card.dataset.item;
+        const group = card.dataset.item;
         closeModal();
         _openGroupReport(domain, group, baseParams);
       });
     });
 
     overlay.querySelector('.rp-close').addEventListener('click', closeModal);
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) closeModal();
+    });
   }
 
   // RFC-0182: group → itemsList mapping using orchestrator classified groups
   const GROUP_LABELS = {
-    lojas:           'Lojas',
-    entrada:         'Entrada',
-    area_comum:      'Área Comum',
-    banheiros:       'Banheiros',
-    climatizavel:    'Climatizável',
-    nao_climatizavel:'Não Climatizável',
+    lojas: 'Lojas',
+    entrada: 'Entrada',
+    area_comum: 'Área Comum',
+    banheiros: 'Banheiros',
+    climatizavel: 'Climatizável',
+    nao_climatizavel: 'Não Climatizável',
   };
 
   function _buildItemsList(domain, group) {
     const orch = window.MyIOOrchestrator;
     let groups;
     if (domain === 'water') {
-      groups = orch?.getWaterGroups?.()       || {};
+      groups = orch?.getWaterGroups?.() || {};
     } else if (domain === 'temperature') {
       groups = orch?.getTemperatureGroups?.() || {};
     } else {
-      groups = orch?.getEnergyGroups?.()      || {};
+      groups = orch?.getEnergyGroups?.() || {};
     }
 
     const toItem = (d, groupLabel) => ({
-      id:         d.ingestionId || d.id || '',
-      identifier: d.identifier  || d.label || d.name || '',
-      label:      d.label       || d.name  || d.identifier || '',
+      id: d.ingestionId || d.id || '',
+      identifier: d.identifier || d.label || d.name || '',
+      label: d.label || d.name || d.identifier || '',
       ...(groupLabel ? { groupLabel } : {}),
     });
 
@@ -2229,13 +2470,13 @@ self.onInit = function () {
       // Combine all groups (except ocultos), each item carries its groupLabel
       return Object.entries(groups)
         .filter(([key]) => key !== 'ocultos')
-        .flatMap(([key, items]) => (items || []).map(d => toItem(d, GROUP_LABELS[key] || key)));
+        .flatMap(([key, items]) => (items || []).map((d) => toItem(d, GROUP_LABELS[key] || key)));
     }
 
     // Map group id → key in getXGroups() result
     // 'area_comum' in DOMAINS maps to 'areacomum' key returned by categorizeItemsByGroup
     const groupKey = group === 'area_comum' ? 'areacomum' : group;
-    return (groups[groupKey] || []).map(d => toItem(d, null));
+    return (groups[groupKey] || []).map((d) => toItem(d, null));
   }
 
   function _openGroupReport(domain, group, baseParams) {
@@ -2541,16 +2782,29 @@ self.onInit = function () {
   // Gerencia atributos SERVER_SCOPE do Customer: canShowDemandButtons, master_admin_password
   function openClientConfigModal(user) {
     const topWin = window.top || window;
-    const topDoc = (() => { try { return topWin.document; } catch { return document; } })();
+    const topDoc = (() => {
+      try {
+        return topWin.document;
+      } catch {
+        return document;
+      }
+    })();
 
     const jwtToken = localStorage.getItem('jwt_token');
-    if (!jwtToken) { window.alert('Token não encontrado. Faça login novamente.'); return; }
+    if (!jwtToken) {
+      window.alert('Token não encontrado. Faça login novamente.');
+      return;
+    }
 
     const orch = window.MyIOOrchestrator;
     const customerId = orch?.customerTB_ID || user?.customerId?.id;
-    if (!customerId) { window.alert('ID do cliente não encontrado.'); return; }
+    if (!customerId) {
+      window.alert('ID do cliente não encontrado.');
+      return;
+    }
 
-    const customerName = orch?.customerName || user?.customerTitle || user?.customerName || getCurrentDashboardTitle() || '';
+    const customerName =
+      orch?.customerName || user?.customerTitle || user?.customerName || getCurrentDashboardTitle() || '';
     const tbBase = self.ctx?.settings?.tbBaseUrl || '';
 
     // ── CSS ──────────────────────────────────────────────────────────────────
@@ -2636,7 +2890,12 @@ self.onInit = function () {
     modal.querySelector('.mcc-bg').addEventListener('click', closeModal);
     modal.querySelector('.mcc-close').addEventListener('click', closeModal);
     modal.querySelector('.mcc-btn-cancel').addEventListener('click', closeModal);
-    const escHandler = (e) => { if (e.key === 'Escape') { closeModal(); topDoc.removeEventListener('keydown', escHandler); } };
+    const escHandler = (e) => {
+      if (e.key === 'Escape') {
+        closeModal();
+        topDoc.removeEventListener('keydown', escHandler);
+      }
+    };
     topDoc.addEventListener('keydown', escHandler);
 
     // ── Carrega atributos atuais ──────────────────────────────────────────────
@@ -2644,18 +2903,27 @@ self.onInit = function () {
     const fetchUrl = `${tbBase}/api/plugins/telemetry/CUSTOMER/${customerId}/values/attributes/SERVER_SCOPE?keys=${KEYS.join(',')}`;
 
     fetch(fetchUrl, { headers: { 'X-Authorization': `Bearer ${jwtToken}` } })
-      .then(r => r.ok ? r.json().catch(() => []) : [])
-      .then(attrs => {
+      .then((r) => (r.ok ? r.json().catch(() => []) : []))
+      .then((attrs) => {
         const attrMap = {};
-        if (Array.isArray(attrs)) attrs.forEach(a => { attrMap[a.key] = a.value; });
+        if (Array.isArray(attrs))
+          attrs.forEach((a) => {
+            attrMap[a.key] = a.value;
+          });
 
         const currentDemand = attrMap['canShowDemandButtons'] ?? null;
         const currentPassword = attrMap['master_admin_password'] ?? '';
         const rawTickets = attrMap['tickets_enabled'];
-        const currentTickets = rawTickets === true || rawTickets === 'true' || rawTickets === 1 || rawTickets === '1';
+        const currentTickets =
+          rawTickets === true || rawTickets === 'true' || rawTickets === 1 || rawTickets === '1';
         const rawOnlyMyio = attrMap['tickets_only_to_myio'];
         // Default TRUE — only false when explicitly set to false/0/'false'/'0'
-        const currentOnlyMyio = !(rawOnlyMyio === false || rawOnlyMyio === 'false' || rawOnlyMyio === 0 || rawOnlyMyio === '0');
+        const currentOnlyMyio = !(
+          rawOnlyMyio === false ||
+          rawOnlyMyio === 'false' ||
+          rawOnlyMyio === 0 ||
+          rawOnlyMyio === '0'
+        );
 
         const body = modal.querySelector('.mcc-body');
         const footer = modal.querySelector('.mcc-footer');
@@ -2731,14 +2999,19 @@ self.onInit = function () {
         const saveBtn = footer.querySelector('.mcc-btn-save');
 
         // Habilita salvar ao detectar qualquer mudança
-        const enableSave = () => { saveBtn.disabled = false; };
+        const enableSave = () => {
+          saveBtn.disabled = false;
+        };
         modal.querySelector('#mcc-demand-toggle').addEventListener('change', enableSave);
         modal.querySelector('#mcc-tickets-toggle').addEventListener('change', (e) => {
           enableSave();
           const onlyMyioRow = modal.querySelector('#mcc-only-myio-row');
           const onlyMyioToggle = modal.querySelector('#mcc-only-myio-toggle');
           const on = e.target.checked;
-          if (onlyMyioRow) { onlyMyioRow.style.opacity = on ? '' : '.4'; onlyMyioRow.style.pointerEvents = on ? '' : 'none'; }
+          if (onlyMyioRow) {
+            onlyMyioRow.style.opacity = on ? '' : '.4';
+            onlyMyioRow.style.pointerEvents = on ? '' : 'none';
+          }
           if (onlyMyioToggle) onlyMyioToggle.disabled = !on;
         });
         modal.querySelector('#mcc-only-myio-toggle').addEventListener('change', enableSave);
@@ -2751,8 +3024,8 @@ self.onInit = function () {
           const errEl = modal.querySelector('#mcc-error-msg');
           errEl.style.display = 'none';
 
-          const demandValue   = modal.querySelector('#mcc-demand-toggle').checked;
-          const ticketsValue  = modal.querySelector('#mcc-tickets-toggle').checked;
+          const demandValue = modal.querySelector('#mcc-demand-toggle').checked;
+          const ticketsValue = modal.querySelector('#mcc-tickets-toggle').checked;
           const onlyMyioValue = modal.querySelector('#mcc-only-myio-toggle').checked;
           const passwordValue = modal.querySelector('#mcc-password-input').value.trim();
 
@@ -2793,9 +3066,10 @@ self.onInit = function () {
           }
         });
       })
-      .catch(err => {
+      .catch((err) => {
         LogHelper.error('[MENU] Erro ao carregar Configurações Cliente:', err);
-        modal.querySelector('.mcc-body').innerHTML = `<div style="padding:24px;text-align:center;color:#DC2626;font-size:13px">Erro ao carregar configurações: ${err.message}</div>`;
+        modal.querySelector('.mcc-body').innerHTML =
+          `<div style="padding:24px;text-align:center;color:#DC2626;font-size:13px">Erro ao carregar configurações: ${err.message}</div>`;
         modal.querySelector('.mcc-footer').style.display = '';
       });
 

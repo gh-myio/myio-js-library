@@ -209,8 +209,10 @@ function addTicketBadge(cardElement, identifier, ticketsItemsRaw) {
     try {
       const parsed = typeof ticketsItemsRaw === 'string' ? JSON.parse(ticketsItemsRaw) : ticketsItemsRaw;
       const summaries = Array.isArray(parsed) ? parsed : (parsed?.items ?? []);
-      count = summaries.filter(t => [2, 3, 6].includes(t.status)).length;
-    } catch (_e) { /* ignore */ }
+      count = summaries.filter((t) => [2, 3, 6].includes(t.status)).length;
+    } catch (_e) {
+      /* ignore */
+    }
   }
 
   injectTicketBadgeStyles();
@@ -221,10 +223,11 @@ function addTicketBadge(cardElement, identifier, ticketsItemsRaw) {
   badge.setAttribute('data-ticket-identifier', identifier);
   // Hidden if no tickets yet OR if tickets gate is not open
   const gateOpen = window.MyIOUtils?.ticketsEnabled === true;
-  badge.style.display = (count > 0 && gateOpen) ? '' : 'none';
-  badge.title = count > 0
-    ? count + ' chamado' + (count !== 1 ? 's' : '') + ' aberto' + (count !== 1 ? 's' : '')
-    : 'Chamados';
+  badge.style.display = count > 0 && gateOpen ? '' : 'none';
+  badge.title =
+    count > 0
+      ? count + ' chamado' + (count !== 1 ? 's' : '') + ' aberto' + (count !== 1 ? 's' : '')
+      : 'Chamados';
   // SVG: same headphone icon as HEADER tbx-btn-ticket-notif
   badge.innerHTML =
     '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
@@ -232,9 +235,7 @@ function addTicketBadge(cardElement, identifier, ticketsItemsRaw) {
     '<path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3z"/>' +
     '<path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/>' +
     '</svg>' +
-    (count > 0
-      ? '<span class="myio-ticket-badge-count">' + (count > 99 ? '99+' : count) + '</span>'
-      : '');
+    (count > 0 ? '<span class="myio-ticket-badge-count">' + (count > 99 ? '99+' : count) + '</span>' : '');
   cardElement.appendChild(badge);
 }
 
@@ -246,7 +247,9 @@ function refreshTicketBadges() {
   if (!tso) return;
   // Gate: hide all badges if ticketsEnabled is no longer true (e.g. email changed, gate re-evaluated)
   if (window.MyIOUtils?.ticketsEnabled !== true) {
-    document.querySelectorAll('.myio-ticket-badge').forEach((el) => { el.style.display = 'none'; });
+    document.querySelectorAll('.myio-ticket-badge').forEach((el) => {
+      el.style.display = 'none';
+    });
     return;
   }
 
@@ -643,9 +646,10 @@ function _groupFilterChangedHandler(ev) {
   // For energy: each item has its own group key (from deviceType/profile/identifier).
   const allItems = STATE.lastVisible || [];
   const visibleItems = allItems.filter((item) => {
-    const itemGroup = domain === 'water'
-      ? _getWaterGroupKey(self.ctx.settings && self.ctx.settings.labelWidget)
-      : _getEnergyGroupKey(item);
+    const itemGroup =
+      domain === 'water'
+        ? _getWaterGroupKey(self.ctx.settings && self.ctx.settings.labelWidget)
+        : _getEnergyGroupKey(item);
     // null group = untagged card, always shown
     return itemGroup === null || groupFilter[itemGroup] !== false;
   });
@@ -888,17 +892,12 @@ function _getEnergyGroupKey(it) {
     id.startsWith('CAG-') ||
     id.startsWith('FANCOIL-') ||
     (DEVICE_CLASSIFICATION_CONFIG.climatizacao.deviceProfiles || []).includes(dp)
-  ) return 'climatizacao';
-  if (
-    ELEVADORES_DEVICE_TYPES_SET.has(dt) ||
-    ELEVADORES_IDENTIFIERS_SET.has(id) ||
-    id.startsWith('ELV-')
-  ) return 'elevadores';
-  if (
-    ESCADAS_DEVICE_TYPES_SET.has(dt) ||
-    ESCADAS_IDENTIFIERS_SET.has(id) ||
-    id.startsWith('ESC-')
-  ) return 'escadasRolantes';
+  )
+    return 'climatizacao';
+  if (ELEVADORES_DEVICE_TYPES_SET.has(dt) || ELEVADORES_IDENTIFIERS_SET.has(id) || id.startsWith('ELV-'))
+    return 'elevadores';
+  if (ESCADAS_DEVICE_TYPES_SET.has(dt) || ESCADAS_IDENTIFIERS_SET.has(id) || id.startsWith('ESC-'))
+    return 'escadasRolantes';
   if (dt === '3F_MEDIDOR' && (dp === '3F_MEDIDOR' || !dp)) return 'lojas';
   if (dt === '3F_MEDIDOR') return 'outros';
   return null;
@@ -2678,9 +2677,14 @@ function renderList(visible) {
                     .map((e) => ({ ts: new Date(e.timestamp).getTime(), value: Number(e.value) }));
                 };
 
-                LogHelper.log(`[TELEMETRY v5] 🌡️ RFC-0189: using ingestion API for modal (ingestionId: ${ingestionId})`);
+                LogHelper.log(
+                  `[TELEMETRY v5] 🌡️ RFC-0189: using ingestion API for modal (ingestionId: ${ingestionId})`
+                );
               } catch (authErr) {
-                LogHelper.warn('[TELEMETRY v5] 🌡️ RFC-0189: could not build ingestion fetcher, falling back to TB:', authErr.message);
+                LogHelper.warn(
+                  '[TELEMETRY v5] 🌡️ RFC-0189: could not build ingestion fetcher, falling back to TB:',
+                  authErr.message
+                );
               }
             }
 
@@ -2698,9 +2702,10 @@ function renderList(visible) {
 
             // RFC: use customer-level clamp range if configured, else library default
             const customerClampRange = window.MyIOUtils?.temperatureClampRange;
-            const clampRange = (customerClampRange?.min !== undefined && customerClampRange?.max !== undefined)
-              ? { min: customerClampRange.min, max: customerClampRange.max }
-              : undefined;
+            const clampRange =
+              customerClampRange?.min !== undefined && customerClampRange?.max !== undefined
+                ? { min: customerClampRange.min, max: customerClampRange.max }
+                : undefined;
 
             const modalHandle = MyIOLibrary.openTemperatureModal({
               token: jwtToken,
@@ -3125,7 +3130,9 @@ function renderList(visible) {
               const pwdResp = await fetch(pwdUrl, { headers: { 'X-Authorization': `Bearer ${jwt}` } });
               if (pwdResp.ok) {
                 const pwdData = await pwdResp.json();
-                const pwdAttr = Array.isArray(pwdData) ? pwdData.find(a => a.key === 'master_admin_password') : null;
+                const pwdAttr = Array.isArray(pwdData)
+                  ? pwdData.find((a) => a.key === 'master_admin_password')
+                  : null;
                 masterAdminPassword = pwdAttr?.value || null;
               }
             } catch (e) {
@@ -3328,7 +3335,9 @@ function _getExportCustomerName() {
   try {
     const ds = self.ctx?.datasources?.[0];
     if (ds?.name) return String(ds.name).trim();
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
   return null;
 }
 
@@ -3347,9 +3356,14 @@ function _openPresetupModal() {
   const clientSecret = s.presetupClientSecret || orchCreds.CLIENT_SECRET || '';
 
   if (!gatewayId || !clientId || !clientSecret) {
-    _openPresetupConfigPrompt(s, clientId, clientSecret, (resolvedGatewayId, resolvedClientId, resolvedClientSecret) => {
-      _launchPresetupGateway(lib, s, resolvedGatewayId, resolvedClientId, resolvedClientSecret);
-    });
+    _openPresetupConfigPrompt(
+      s,
+      clientId,
+      clientSecret,
+      (resolvedGatewayId, resolvedClientId, resolvedClientSecret) => {
+        _launchPresetupGateway(lib, s, resolvedGatewayId, resolvedClientId, resolvedClientSecret);
+      }
+    );
     return;
   }
 
@@ -3393,11 +3407,12 @@ function _openPresetupConfigPrompt(s, prefillClientId, prefillClientSecret, onCo
   // Collect unique centralIds: first from MAIN_VIEW orchestrator, fallback to local STATE
   const orchCentralIds = window.MyIOOrchestrator?.centralIds || [];
   const localCentralIds = STATE.itemsBase
-    ? [...new Set(STATE.itemsBase.map(i => i.centralId).filter(Boolean))].sort()
+    ? [...new Set(STATE.itemsBase.map((i) => i.centralId).filter(Boolean))].sort()
     : [];
   const centralIds = orchCentralIds.length ? orchCentralIds : localCentralIds;
 
-  const inputStyle = 'display:block;width:100%;margin-top:4px;padding:8px 10px;border:1px solid #ddd;border-radius:7px;font-size:13px;box-sizing:border-box;';
+  const inputStyle =
+    'display:block;width:100%;margin-top:4px;padding:8px 10px;border:1px solid #ddd;border-radius:7px;font-size:13px;box-sizing:border-box;';
   const labelStyle = 'font-size:12px;color:#555;font-weight:600;';
 
   // Build Gateway ID field: select when centralIds available, plain input otherwise
@@ -3406,10 +3421,12 @@ function _openPresetupConfigPrompt(s, prefillClientId, prefillClientSecret, onCo
 
   let gatewayField;
   if (centralIds.length > 0) {
-    const options = centralIds.map(id => {
-      const sel = id === gwPreset ? ' selected' : '';
-      return `<option value="${id}"${sel}>${id}</option>`;
-    }).join('');
+    const options = centralIds
+      .map((id) => {
+        const sel = id === gwPreset ? ' selected' : '';
+        return `<option value="${id}"${sel}>${id}</option>`;
+      })
+      .join('');
     gatewayField = `
       <label style="${labelStyle}">Gateway ID (Central)
         <select id="_psgw" style="${inputStyle}background:#fff;cursor:pointer;">
@@ -3489,9 +3506,10 @@ function _openPresetupConfigPrompt(s, prefillClientId, prefillClientSecret, onCo
   card.querySelector('#_psConfirmBtn').onclick = () => {
     let gw;
     if (gwSelect && gwSelect.tagName === 'SELECT') {
-      gw = gwSelect.value === '__outro__'
-        ? (card.querySelector('#_psgwCustom')?.value.trim() || '')
-        : gwSelect.value.trim();
+      gw =
+        gwSelect.value === '__outro__'
+          ? card.querySelector('#_psgwCustom')?.value.trim() || ''
+          : gwSelect.value.trim();
     } else {
       gw = gwSelect?.value.trim() || '';
     }
@@ -3658,14 +3676,24 @@ function openFilterModal() {
 
 const _GCDR_SYNC_BASE = 'https://gcdr-api.a.myio-bas.com';
 const _GCDR_PHASE_PROGRESS = {
-  QUEUED: 0, CHECK: 15, ACTION_PLAN: 30, DETECT_RELOCATIONS: 45,
-  RELOCATE: 55, APPLY_UPDATES: 70, CONSOLIDATE_CREATES: 85, DONE: 100,
+  QUEUED: 0,
+  CHECK: 15,
+  ACTION_PLAN: 30,
+  DETECT_RELOCATIONS: 45,
+  RELOCATE: 55,
+  APPLY_UPDATES: 70,
+  CONSOLIDATE_CREATES: 85,
+  DONE: 100,
 };
 const _GCDR_PHASE_LABELS = {
-  QUEUED: 'Aguardando na fila…', CHECK: 'Comparando devices com GCDR…',
-  ACTION_PLAN: 'Classificando ações…', DETECT_RELOCATIONS: 'Detectando relocações…',
-  RELOCATE: 'Movendo devices…', APPLY_UPDATES: 'Aplicando atualizações…',
-  CONSOLIDATE_CREATES: 'Criando devices novos…', DONE: 'Concluído',
+  QUEUED: 'Aguardando na fila…',
+  CHECK: 'Comparando devices com GCDR…',
+  ACTION_PLAN: 'Classificando ações…',
+  DETECT_RELOCATIONS: 'Detectando relocações…',
+  RELOCATE: 'Movendo devices…',
+  APPLY_UPDATES: 'Aplicando atualizações…',
+  CONSOLIDATE_CREATES: 'Criando devices novos…',
+  DONE: 'Concluído',
 };
 const _GCDR_DEVICE_MAP_HEADER =
   'tbId|deviceName|label|identifier|deviceType|deviceProfile|slaveId|centralId|gcdrCustomerId|gcdrAssetId|gcdrDeviceId|gcdrSyncAt';
@@ -3685,7 +3713,10 @@ async function _fetchGcdrCredentials() {
   const raw = Array.isArray(attrs)
     ? attrs.find((a) => a.key === 'integration_setup')?.value
     : attrs.integration_setup;
-  if (!raw) throw new Error('Atributo integration_setup não encontrado no customer.\nConfigure-o via widget GCDR-Upsell-Setup.');
+  if (!raw)
+    throw new Error(
+      'Atributo integration_setup não encontrado no customer.\nConfigure-o via widget GCDR-Upsell-Setup.'
+    );
   const cfg = typeof raw === 'string' ? JSON.parse(raw) : raw;
   const gcdr = cfg?.gcdr;
   if (!gcdr?.gcdrCustomerId || !gcdr?.gcdrApiKey) {
@@ -3697,9 +3728,20 @@ async function _fetchGcdrCredentials() {
 /** RFC-0195: Builds pipe-delimited device-map content from _exportKey array. */
 function _buildDeviceMapContent(data) {
   const rows = data.map((d) =>
-    [d.tbId, d.deviceName, d.label, d.identifier,
-     d.deviceType, d.deviceProfile, d.slaveId, d.centralId,
-     d.gcdrCustomerId, d.gcdrAssetId, d.gcdrDeviceId, d.gcdrSyncAt].join('|')
+    [
+      d.tbId,
+      d.deviceName,
+      d.label,
+      d.identifier,
+      d.deviceType,
+      d.deviceProfile,
+      d.slaveId,
+      d.centralId,
+      d.gcdrCustomerId,
+      d.gcdrAssetId,
+      d.gcdrDeviceId,
+      d.gcdrSyncAt,
+    ].join('|')
   );
   return _GCDR_DEVICE_MAP_HEADER + '\n' + rows.join('\n');
 }
@@ -3769,7 +3811,9 @@ function _openSyncJobModal(data, creds) {
   document.body.appendChild(overlay);
 
   overlay.querySelector('#sgj-close').addEventListener('click', _destroySyncJobModal);
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) _destroySyncJobModal(); });
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) _destroySyncJobModal();
+  });
 
   // Expand / collapse toggle
   let _sgjExpanded = false;
@@ -3779,9 +3823,10 @@ function _openSyncJobModal(data, creds) {
     const icon = _el('#sgj-expand-icon');
     if (card) card.classList.toggle('sgj-expanded', _sgjExpanded);
     overlay.classList.toggle('sgj-overlay-expanded', _sgjExpanded);
-    if (icon) icon.innerHTML = _sgjExpanded
-      ? '<polyline points="4 14 10 14 10 20"></polyline><polyline points="20 10 14 10 14 4"></polyline><line x1="10" y1="14" x2="3" y2="21"></line><line x1="21" y1="3" x2="14" y2="10"></line>'
-      : '<polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line>';
+    if (icon)
+      icon.innerHTML = _sgjExpanded
+        ? '<polyline points="4 14 10 14 10 20"></polyline><polyline points="20 10 14 10 14 4"></polyline><line x1="10" y1="14" x2="3" y2="21"></line><line x1="21" y1="3" x2="14" y2="10"></line>'
+        : '<polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line>';
   });
 
   // Closure state for download report
@@ -3803,7 +3848,9 @@ function _openSyncJobModal(data, creds) {
     lines.push(`  Status   : ${_sgjJobResult?.status || '—'}`);
     lines.push(`  DryRun   : ${_sgjJobResult?.dryRun ?? false}`);
     lines.push(`  Iniciado : ${_sgjStartedAt}`);
-    lines.push(`  Duração  : ${_sgjJobResult?.durationMs != null ? (_sgjJobResult.durationMs / 1000).toFixed(1) + 's' : '—'}`);
+    lines.push(
+      `  Duração  : ${_sgjJobResult?.durationMs != null ? (_sgjJobResult.durationMs / 1000).toFixed(1) + 's' : '—'}`
+    );
     lines.push('');
     lines.push('── DEVICE-MAP ENVIADO ──────────────────────────────────────────────');
     lines.push(_sgjDeviceMapContent);
@@ -3811,18 +3858,31 @@ function _openSyncJobModal(data, creds) {
     if (_sgjJobResult?.summary) {
       const s = _sgjJobResult.summary;
       lines.push('── RESUMO ──────────────────────────────────────────────────────────');
-      if (s.check)              lines.push(`  CHECK              conformant=${s.check.conformant}  divergent=${s.check.divergent}  notLinked=${s.check.notLinked}`);
-      if (s.actionPlan)         lines.push(`  ACTION_PLAN        create=${s.actionPlan.create}  update=${s.actionPlan.update}  skip=${s.actionPlan.skip}`);
-      if (s.detectRelocations)  lines.push(`  DETECT_RELOCATIONS relocate=${s.detectRelocations.relocate}  genuineCreates=${s.detectRelocations.genuineCreates}`);
-      if (s.relocate)           lines.push(`  RELOCATE           ok=${s.relocate.ok}  fail=${s.relocate.fail}`);
-      if (s.applyUpdates)       lines.push(`  APPLY_UPDATES      ok=${s.applyUpdates.ok}  fail=${s.applyUpdates.fail}`);
-      if (s.consolidateCreates) lines.push(`  CONSOLIDATE        ok=${s.consolidateCreates.ok}  fail=${s.consolidateCreates.fail}`);
+      if (s.check)
+        lines.push(
+          `  CHECK              conformant=${s.check.conformant}  divergent=${s.check.divergent}  notLinked=${s.check.notLinked}`
+        );
+      if (s.actionPlan)
+        lines.push(
+          `  ACTION_PLAN        create=${s.actionPlan.create}  update=${s.actionPlan.update}  skip=${s.actionPlan.skip}`
+        );
+      if (s.detectRelocations)
+        lines.push(
+          `  DETECT_RELOCATIONS relocate=${s.detectRelocations.relocate}  genuineCreates=${s.detectRelocations.genuineCreates}`
+        );
+      if (s.relocate) lines.push(`  RELOCATE           ok=${s.relocate.ok}  fail=${s.relocate.fail}`);
+      if (s.applyUpdates)
+        lines.push(`  APPLY_UPDATES      ok=${s.applyUpdates.ok}  fail=${s.applyUpdates.fail}`);
+      if (s.consolidateCreates)
+        lines.push(`  CONSOLIDATE        ok=${s.consolidateCreates.ok}  fail=${s.consolidateCreates.fail}`);
       lines.push('');
     }
     lines.push('── LOG DE OPERAÇÕES ────────────────────────────────────────────────');
     if (_sgjLogEntries.length) {
       _sgjLogEntries.forEach((e) => {
-        lines.push(`  [${(e.ts || '').substring(11, 23)}] [${(e.level || '').padEnd(5)}] [${(e.phase || '').padEnd(22)}] ${e.message || ''}`);
+        lines.push(
+          `  [${(e.ts || '').substring(11, 23)}] [${(e.level || '').padEnd(5)}] [${(e.phase || '').padEnd(22)}] ${e.message || ''}`
+        );
       });
     } else {
       lines.push('  (sem entradas de log)');
@@ -3834,17 +3894,28 @@ function _openSyncJobModal(data, creds) {
     const a = document.createElement('a');
     a.href = url;
     a.download = `gcdr-sync-log_${fileName}_${ts}.txt`;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
     URL.revokeObjectURL(url);
   });
 
   // Helpers that operate on overlay elements
   const _el = (id) => overlay.querySelector(id);
-  const setProgress = (pct) => { const b = _el('#sgj-bar'); if (b) b.style.width = pct + '%'; };
-  const setPhase = (t) => { const e = _el('#sgj-phase'); if (e) e.textContent = t; };
+  const setProgress = (pct) => {
+    const b = _el('#sgj-bar');
+    if (b) b.style.width = pct + '%';
+  };
+  const setPhase = (t) => {
+    const e = _el('#sgj-phase');
+    if (e) e.textContent = t;
+  };
   const setBadge = (cls, t) => {
     const e = _el('#sgj-badge');
-    if (e) { e.className = `telemetry-sync-gcdr-badge ${cls}`; e.textContent = t; }
+    if (e) {
+      e.className = `telemetry-sync-gcdr-badge ${cls}`;
+      e.textContent = t;
+    }
   };
 
   const renderSummary = (summary) => {
@@ -3887,18 +3958,23 @@ function _openSyncJobModal(data, creds) {
     if (!entries || !entries.length) return;
     _sgjLogEntries = entries; // store for download
     const failCount = entries.filter((e) => e.level === 'FAIL' || e.level === 'ERROR').length;
-    const rows = entries.map((e) => {
-      const ts = (e.ts || '').substring(11, 19);
-      return `<tr>
+    const rows = entries
+      .map((e) => {
+        const ts = (e.ts || '').substring(11, 19);
+        return `<tr>
         <td>${ts}</td>
         <td class="sgj-level-${e.level}">${e.level}</td>
         <td>${e.phase || ''}</td>
         <td>${e.message || ''}</td>
       </tr>`;
-    }).join('');
+      })
+      .join('');
     const el = _el('#sgj-log');
     if (!el) return;
-    const failBadge = failCount > 0 ? ` <span style="background:#fee2e2;color:#991b1b;padding:1px 8px;border-radius:10px;font-size:10px;font-weight:700">${failCount} falha${failCount !== 1 ? 's' : ''}</span>` : '';
+    const failBadge =
+      failCount > 0
+        ? ` <span style="background:#fee2e2;color:#991b1b;padding:1px 8px;border-radius:10px;font-size:10px;font-weight:700">${failCount} falha${failCount !== 1 ? 's' : ''}</span>`
+        : '';
     el.innerHTML = `
       <div class="telemetry-sync-gcdr-log-wrap">
         <div class="telemetry-sync-gcdr-log-title">Log de operações (${entries.length} entradas)${failBadge}</div>
@@ -3921,7 +3997,11 @@ function _openSyncJobModal(data, creds) {
       const res = await fetch(`${_GCDR_SYNC_BASE}/api/v1/device-sync/jobs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-API-Key': creds.gcdrApiKey },
-        body: JSON.stringify({ customerId: creds.gcdrCustomerId, dryRun: false, files: [{ name: fileName, content }] }),
+        body: JSON.stringify({
+          customerId: creds.gcdrCustomerId,
+          dryRun: false,
+          files: [{ name: fileName, content }],
+        }),
       });
       const json = await res.json();
       if (!res.ok) {
@@ -3960,9 +4040,16 @@ function _openSyncJobModal(data, creds) {
           _syncJobPollingId = null;
           setProgress(100);
           _sgjJobResult = job; // store for download report
-          if (job.status === 'DONE')         { setBadge('done',    '✅ Concluído');           setPhase('Sincronização concluída com sucesso.'); }
-          else if (job.status === 'PARTIAL') { setBadge('partial', '⚠️ Concluído com erros'); setPhase('Concluído — veja o log abaixo.'); }
-          else                               { setBadge('failed',  '❌ Falha fatal');          setPhase('Erro fatal durante execução.'); }
+          if (job.status === 'DONE') {
+            setBadge('done', '✅ Concluído');
+            setPhase('Sincronização concluída com sucesso.');
+          } else if (job.status === 'PARTIAL') {
+            setBadge('partial', '⚠️ Concluído com erros');
+            setPhase('Concluído — veja o log abaixo.');
+          } else {
+            setBadge('failed', '❌ Falha fatal');
+            setPhase('Erro fatal durante execução.');
+          }
           renderSummary(job.summary);
 
           // 3. Fetch and render log
@@ -3974,16 +4061,23 @@ function _openSyncJobModal(data, creds) {
               const logJson = await logRes.json();
               renderLog(logJson.data?.entries || []);
             }
-          } catch { /* non-critical */ }
+          } catch {
+            /* non-critical */
+          }
         }
-      } catch { /* network hiccup — retry next tick */ }
+      } catch {
+        /* network hiccup — retry next tick */
+      }
     }, 2000);
   })();
 }
 
 /** RFC-0195: Cancels polling and removes modal from DOM. */
 function _destroySyncJobModal() {
-  if (_syncJobPollingId) { clearInterval(_syncJobPollingId); _syncJobPollingId = null; }
+  if (_syncJobPollingId) {
+    clearInterval(_syncJobPollingId);
+    _syncJobPollingId = null;
+  }
   if (_syncJobModalEl && _syncJobModalEl.parentElement) {
     _syncJobModalEl.parentElement.removeChild(_syncJobModalEl);
   }
@@ -4008,10 +4102,23 @@ function bindModal() {
       alert('Nenhum dado de dispositivo disponível. Abra o painel de dados primeiro.');
       return;
     }
-    const header = 'tbId|deviceName|label|identifier|deviceType|deviceProfile|slaveId|centralId|gcdrCustomerId|gcdrAssetId|gcdrDeviceId|gcdrSyncAt';
+    const header =
+      'tbId|deviceName|label|identifier|deviceType|deviceProfile|slaveId|centralId|gcdrCustomerId|gcdrAssetId|gcdrDeviceId|gcdrSyncAt';
     const rows = data.map((d) =>
-      [d.tbId, d.deviceName, d.label, d.identifier, d.deviceType, d.deviceProfile,
-       d.slaveId, d.centralId, d.gcdrCustomerId, d.gcdrAssetId, d.gcdrDeviceId, d.gcdrSyncAt].join('|')
+      [
+        d.tbId,
+        d.deviceName,
+        d.label,
+        d.identifier,
+        d.deviceType,
+        d.deviceProfile,
+        d.slaveId,
+        d.centralId,
+        d.gcdrCustomerId,
+        d.gcdrAssetId,
+        d.gcdrDeviceId,
+        d.gcdrSyncAt,
+      ].join('|')
     );
     const content = header + '\n' + rows.join('\n');
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
@@ -4055,7 +4162,9 @@ function bindModal() {
     $m.find('.check-item input[type="checkbox"]').prop('checked', true);
     $m.find('input[name="sortMode"][value="cons_desc"]').prop('checked', true);
     $m.find('input[name="alarmFilter"][value="ativado"]').prop('checked', true);
-    window.dispatchEvent(new CustomEvent('myio:telemetry-alarm-filter-changed', { detail: { mode: 'ativado' } }));
+    window.dispatchEvent(
+      new CustomEvent('myio:telemetry-alarm-filter-changed', { detail: { mode: 'ativado' } })
+    );
     syncChecklistSelectionVisual();
     reflowFromState();
   });
@@ -4074,7 +4183,9 @@ function bindModal() {
       String($m.find('input[name="alarmFilter"]:checked').val() || 'ativado')
     );
     // Notifica o HEADER para sincronizar estado visual do botão 🔔
-    window.dispatchEvent(new CustomEvent('myio:telemetry-alarm-filter-changed', { detail: { mode: STATE.alarmFilter } }));
+    window.dispatchEvent(
+      new CustomEvent('myio:telemetry-alarm-filter-changed', { detail: { mode: STATE.alarmFilter } })
+    );
 
     reflowFromState();
     closeFilterModal();
@@ -5589,7 +5700,9 @@ self.onInit = async function () {
   window.addEventListener('myio:tickets-gate-changed', (e) => {
     const enabled = e.detail?.ticketsEnabled === true;
     if (!enabled) {
-      document.querySelectorAll('.myio-ticket-badge').forEach((el) => { el.style.display = 'none'; });
+      document.querySelectorAll('.myio-ticket-badge').forEach((el) => {
+        el.style.display = 'none';
+      });
     } else {
       refreshTicketBadges();
     }
@@ -5966,7 +6079,11 @@ self.onDestroy = function () {
   }
 
   // RFC-0195: Cleanup sync job modal + polling
-  try { _destroySyncJobModal(); } catch { /* non-critical */ }
+  try {
+    _destroySyncJobModal();
+  } catch {
+    /* non-critical */
+  }
 
   // Remove portalled filter modal from body
   try {
