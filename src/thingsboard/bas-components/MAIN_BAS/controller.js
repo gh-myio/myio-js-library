@@ -83,6 +83,14 @@ var _waterDateRange = (function () {
 })();
 var _chartDatePicker = null;
 var _waterDatePicker = null;
+var _activeWaterTabId = 'all'; // tracks the water panel's selected tab
+
+function filterWaterItemsByTab(items, tabId) {
+  if (!tabId || tabId === 'all') return items;
+  return items.filter(function (item) {
+    return (item.source && item.source.type || '') === tabId;
+  });
+}
 let _selectedAmbiente = null;
 let _ctx = null;
 let _settings = null;
@@ -1491,7 +1499,11 @@ async function enrichWaterDevicesWithIngestionTotals(classified, panel) {
     LogHelper.log('[MAIN_BAS] enrichWaterDevicesWithIngestionTotals: enriched', enrichedCount, 'of', hydrometerDevices.length, 'HIDROMETRO devices');
 
     if (enrichedCount > 0 && panel) {
-      var enrichedItems = buildWaterCardItems(classified, null);
+      var allItems = buildWaterCardItems(classified, _selectedAmbiente);
+      // NOTE: _activeWaterTabId tracks tab clicks only — filters applied via the modal
+      // (handleActionFilter) are not reflected here. If the user filtered by modal,
+      // enrichment resets to the active tab state. TODO: track modal filter separately.
+      var enrichedItems = filterWaterItemsByTab(allItems, _activeWaterTabId);
       panel.setItems(enrichedItems);
       panel.setQuantity(enrichedItems.length);
     }
@@ -1932,6 +1944,21 @@ function buildEnergyCardItems(classified, selectedAmbienteId) {
 let _maximizeOverlay = null;
 let _maximizedPanel = null;
 
+function restorePanelElement(snapshot) {
+  if (!snapshot || snapshot.isChart || !snapshot.originalParent) return;
+  var el = snapshot.panelElement;
+  el.style.width = '';
+  el.style.height = '';
+  el.style.maxWidth = '';
+  el.style.maxHeight = '';
+  var sib = snapshot.originalNextSibling;
+  if (sib && sib.parentElement === snapshot.originalParent) {
+    snapshot.originalParent.insertBefore(el, sib);
+  } else {
+    snapshot.originalParent.appendChild(el);
+  }
+}
+
 // Theme colors for maximize modal
 var MAXIMIZE_THEME = {
   light: {
@@ -2022,6 +2049,7 @@ function showMaximizedPanel(panelElement, panelTitle, options) {
 
   // Recreate overlay with current theme
   if (_maximizeOverlay) {
+    restorePanelElement(_maximizedPanel);
     _maximizeOverlay.remove();
     _maximizeOverlay = null;
   }
@@ -2048,6 +2076,8 @@ function showMaximizedPanel(panelElement, panelTitle, options) {
   `;
 
   // For charts, we need to recreate the structure instead of cloning
+  var originalParent = null;
+  var originalNextSibling = null;
   if (opts.isChart) {
     // Clone header only
     var originalHeader = panelElement.querySelector('.bas-chart-header');
@@ -2100,13 +2130,14 @@ function showMaximizedPanel(panelElement, panelTitle, options) {
     var chartDomain = opts.chartDomain || _currentChartDomain;
     switchChartDomainInContainer(chartDomain, chartArea);
   } else {
-    // Standard panel - just clone
-    var clone = panelElement.cloneNode(true);
-    clone.style.width = '100%';
-    clone.style.height = '100%';
-    clone.style.maxWidth = 'none';
-    clone.style.maxHeight = 'none';
-    panelContainer.appendChild(clone);
+    // Move original element into overlay to preserve all event listeners (cloneNode loses them)
+    originalParent = panelElement.parentElement;
+    originalNextSibling = panelElement.nextSibling;
+    panelElement.style.width = '100%';
+    panelElement.style.height = '100%';
+    panelElement.style.maxWidth = 'none';
+    panelElement.style.maxHeight = 'none';
+    panelContainer.appendChild(panelElement);
   }
 
   // Wrap in container for positioning (close button goes here, outside panelContainer's overflow:hidden)
@@ -2159,7 +2190,15 @@ function showMaximizedPanel(panelElement, panelTitle, options) {
     panelContainer.style.transform = 'scale(1)';
   });
 
-  _maximizedPanel = { overlay: overlay, panel: panelContainer, title: panelTitle, isChart: opts.isChart };
+  _maximizedPanel = {
+    overlay: overlay,
+    panel: panelContainer,
+    title: panelTitle,
+    isChart: !!opts.isChart,
+    panelElement: panelElement,
+    originalParent: originalParent,
+    originalNextSibling: originalNextSibling,
+  };
 
   LogHelper.log(
     '[MAIN_BAS] Panel maximized:',
@@ -2307,7 +2346,9 @@ function closeMaximizedPanel() {
     _maximizedChartInstance = null;
   }
 
+  var toRestore = _maximizedPanel;
   setTimeout(function () {
+    restorePanelElement(toRestore);
     _maximizeOverlay.innerHTML = '';
     _maximizedPanel = null;
   }, 200);
@@ -2463,19 +2504,11 @@ function mountWaterPanel(waterHost, settings, classified) {
     LogHelper.warn('[MAIN_BAS] MyIOLibrary.CardGridPanel not available');
     return null;
   }
+  _activeWaterTabId = 'all'; // reset on each mount — tabs start on "Todos"
 
   var waterItems = buildWaterCardItems(classified, null);
   var waterDevices = getWaterDevicesFromClassified(classified);
   var currentFilter = { categories: null, sortId: null };
-
-  // Helper to filter items by tab
-  function filterWaterItemsByTab(items, tabId) {
-    if (tabId === 'all') return items;
-    return items.filter(function (item) {
-      var type = item.source?.type || '';
-      return type === tabId;
-    });
-  }
 
   // Re-inject date picker after CardGridPanel.renderTabs() rebuilds the tabs wrapper.
   // handleClick fires AFTER renderTabs(), so the new wrapper already exists here.
@@ -2494,6 +2527,7 @@ function mountWaterPanel(waterHost, settings, classified) {
 
   function makeWaterTabHandler(tabId) {
     return function () {
+      _activeWaterTabId = tabId;
       var freshItems = buildWaterCardItems(_currentClassified, _selectedAmbiente);
       var filtered = filterWaterItemsByTab(freshItems, tabId);
       panel.setItems(filtered);
@@ -4783,6 +4817,8 @@ function buildDateRangePickerBar(container, defaultStart, defaultEnd, onApply, t
 
   var inputStart = makeDateInput(toLocalISODate(defaultStart));
   var inputEnd   = makeDateInput(toLocalISODate(defaultEnd));
+  inputEnd.min   = toLocalISODate(defaultStart); // initial constraint
+  inputStart.max = toLocalISODate(defaultEnd);
 
   var sep = document.createElement('span');
   sep.textContent = '–';
@@ -4794,12 +4830,21 @@ function buildDateRangePickerBar(container, defaultStart, defaultEnd, onApply, t
     if (!inputStart.value || !inputEnd.value) return;
     var s = new Date(inputStart.value); s.setHours(0, 0, 0, 0);
     var e = new Date(inputEnd.value);   e.setHours(23, 59, 59, 999);
-    if (s.getTime() >= e.getTime()) return;
+    var invalid = s.getTime() >= e.getTime();
+    inputEnd.style.borderColor = invalid ? '#e53e3e' : (isDark ? 'rgba(255,255,255,0.25)' : '#ccc');
+    inputEnd.style.outline = invalid ? 'none' : '';
+    if (invalid) return;
     onApply(s.getTime(), e.getTime());
   }
 
-  inputStart.addEventListener('change', tryApply);
-  inputEnd.addEventListener('change', tryApply);
+  inputStart.addEventListener('change', function () {
+    if (inputStart.value) inputEnd.min = inputStart.value;
+    tryApply();
+  });
+  inputEnd.addEventListener('change', function () {
+    if (inputEnd.value) inputStart.max = inputEnd.value;
+    tryApply();
+  });
 
   wrap.appendChild(inputStart);
   wrap.appendChild(sep);
@@ -4810,6 +4855,8 @@ function buildDateRangePickerBar(container, defaultStart, defaultEnd, onApply, t
     setDates: function (start, end) {
       inputStart.value = toLocalISODate(start);
       inputEnd.value   = toLocalISODate(end);
+      inputEnd.min     = toLocalISODate(start);
+      inputStart.max   = toLocalISODate(end);
     },
     destroy: function () { wrap.remove(); },
   };
@@ -5458,6 +5505,7 @@ self.onDestroy = function () {
   _maximizedChartInstance = null;
 
   if (_maximizeOverlay) {
+    restorePanelElement(_maximizedPanel);
     _maximizeOverlay.remove();
   }
   _maximizeOverlay = null;
