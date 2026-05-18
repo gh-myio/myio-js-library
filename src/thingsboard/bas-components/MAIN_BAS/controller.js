@@ -2351,6 +2351,8 @@ function closeMaximizedPanel() {
   setTimeout(function () {
     restorePanelElement(toRestore);
     if (toRestore.panelInstance && typeof toRestore.panelInstance.setMaximized === 'function') {
+      // setMaximized() only updates button UI — it does NOT fire onMaximizeToggle.
+      // No recursion risk: closeMaximizedPanel() will not be re-entered from here.
       toRestore.panelInstance.setMaximized(false);
     }
     _maximizeOverlay.innerHTML = '';
@@ -2886,13 +2888,14 @@ function openBASDeviceModal(device, _settings) {
     isEnergyDevice: true,
   };
 
-  // Get date range (last 7 days default)
-  var endDate = new Date();
-  var startDate = new Date();
-  startDate.setDate(startDate.getDate() - 7);
-
-  var startDateStr = startDate.toISOString().split('T')[0];
-  var endDateStr = endDate.toISOString().split('T')[0];
+  // Use the energy chart's active date range (_chartDateRange), consistent with the chart panel.
+  // Falls back to _currentChartPeriod days when no explicit range is set (relative mode).
+  var ce = (_chartDateRange && _chartDateRange.endTs) ? new Date(_chartDateRange.endTs) : new Date();
+  var cs = (_chartDateRange && _chartDateRange.startTs)
+    ? new Date(_chartDateRange.startTs)
+    : new Date(ce.getTime() - _currentChartPeriod * 86400000);
+  var startDateStr = toLocalISODate(cs);
+  var endDateStr   = toLocalISODate(ce);
 
   LogHelper.log('[MAIN_BAS] Opening BAS modal for device:', basDevice);
 
@@ -3489,10 +3492,10 @@ function openWaterTankModal(device, entityObject, _settings) {
   var currentLevelClamped = Math.min(100, Math.max(0, currentLevelPercent));
 
   // Use the water panel's active date range (mirrors _waterDateRange, same as hydrometer modal).
-  var wt_s = (_waterDateRange && _waterDateRange.startTs) || (Date.now() - 7 * 86400000);
-  var wt_e = (_waterDateRange && _waterDateRange.endTs)   || Date.now();
-  var startTs = wt_s;
-  var endTs   = wt_e;
+  var ws = (_waterDateRange && _waterDateRange.startTs) || (Date.now() - 7 * 86400000);
+  var we = (_waterDateRange && _waterDateRange.endTs)   || Date.now();
+  var startTs = ws;
+  var endTs   = we;
 
   var deviceType = device?.deviceType || device?.deviceProfile || 'CAIXA_DAGUA';
   var deviceLabel = device?.name || device?.label || "Caixa d'Água";
