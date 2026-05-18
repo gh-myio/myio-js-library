@@ -2198,6 +2198,7 @@ function showMaximizedPanel(panelElement, panelTitle, options) {
     panelElement: panelElement,
     originalParent: originalParent,
     originalNextSibling: originalNextSibling,
+    panelInstance: opts.panelInstance || null,
   };
 
   LogHelper.log(
@@ -2349,6 +2350,9 @@ function closeMaximizedPanel() {
   var toRestore = _maximizedPanel;
   setTimeout(function () {
     restorePanelElement(toRestore);
+    if (toRestore.panelInstance && typeof toRestore.panelInstance.setMaximized === 'function') {
+      toRestore.panelInstance.setMaximized(false);
+    }
     _maximizeOverlay.innerHTML = '';
     _maximizedPanel = null;
   }, 200);
@@ -2620,7 +2624,7 @@ function mountWaterPanel(waterHost, settings, classified) {
     },
     onMaximizeToggle: function (isMaximized) {
       if (isMaximized) {
-        showMaximizedPanel(panel.getElement(), 'Infraestrutura Hidrica');
+        showMaximizedPanel(panel.getElement(), 'Infraestrutura Hidrica', { panelInstance: panel });
       } else {
         closeMaximizedPanel();
       }
@@ -2628,6 +2632,8 @@ function mountWaterPanel(waterHost, settings, classified) {
     handleClickCard: function (item) {
       LogHelper.log('[MAIN_BAS] Water device clicked:', item.source);
       window.dispatchEvent(new CustomEvent('bas:device-clicked', { detail: { device: item.source } }));
+
+      closeMaximizedPanel(); // dismiss overlay before any modal — prevents pointer-events block
 
       var deviceProfile = (item.source?.deviceProfile || item.source?.deviceType || '').toUpperCase();
       var deviceType = (item.source?.type || '').toLowerCase();
@@ -3483,9 +3489,11 @@ function openWaterTankModal(device, entityObject, _settings) {
   // Clamp for display (can be >100% but visual indicator should cap at 100)
   var currentLevelClamped = Math.min(100, Math.max(0, currentLevelPercent));
 
-  // Get date range (last 7 days default)
-  var endTs = Date.now();
-  var startTs = endTs - 7 * 24 * 60 * 60 * 1000;
+  // Use the water panel's active date range (mirrors _waterDateRange, same as hydrometer modal).
+  var wt_s = (_waterDateRange && _waterDateRange.startTs) || (Date.now() - 7 * 86400000);
+  var wt_e = (_waterDateRange && _waterDateRange.endTs)   || Date.now();
+  var startTs = wt_s;
+  var endTs   = wt_e;
 
   var deviceType = device?.deviceType || device?.deviceProfile || 'CAIXA_DAGUA';
   var deviceLabel = device?.name || device?.label || "Caixa d'Água";
