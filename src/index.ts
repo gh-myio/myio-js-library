@@ -306,6 +306,27 @@ export { createLibraryVersionChecker } from './components/library-version-checke
 // RFC-0084: Real-Time Telemetry Modal
 export { openRealTimeTelemetryModal } from './components/RealTimeTelemetryModal';
 export type { RealTimeTelemetryParams, RealTimeTelemetryInstance } from './components/RealTimeTelemetryModal';
+// RFC-0201 Phase-2 pod J: realtime drawer pure helpers (FP/255, mm:ss, status icon, friendly errors).
+export {
+  scaleFp,
+  applyFpScalingIfNeeded,
+  isFpKey,
+  FP_TELEMETRY_KEYS,
+  formatSessionRemaining,
+  isSessionExpired,
+  getDeviceDisplayLabel,
+  getDeviceChartTitle,
+  bucketStatus,
+  statusDotClass,
+  getRealtimeStatusIcon,
+  toFriendlyError,
+  REALTIME_DEFAULT_FRIENDLY_ERROR,
+} from './components/realtime-drawer/helpers';
+export type {
+  FpTelemetryKey,
+  RealtimeDeviceInfo,
+  RealtimeStatusBucket,
+} from './components/realtime-drawer/helpers';
 
 // Premium Modal Components
 export {
