@@ -8,6 +8,7 @@ coverage/
 .vscode/
 .idea/
 .claude/settings.local.json
+.claude/worktrees/
 logs/
 src/thingsboard/smart-hospital/Tabela_Temp_V5/prod/*.json
 src/thingsboard/smart-hospital/Tabela_Temp_V5/prod/sistema-os/fix_souza_aguiar.xlsx
