@@ -22,7 +22,14 @@
 /* === CONTAINER PRINCIPAL === */
 /* RFC-0159: Force scroll in ThingsBoard widget containers */
 .tb-temp-root {
-  font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  font-family:
+    Inter,
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    Arial,
+    sans-serif;
   color: var(--ink-1);
   width: 100%;
   height: 100%;
@@ -102,7 +109,9 @@ tb-widget-container,
   border-radius: 16px;
   padding: 16px;
   box-shadow: var(--shadow);
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s;
 }
 
 .kpi-card:hover {
@@ -409,7 +418,10 @@ tb-widget-container,
   border-radius: 12px;
   padding: 12px 14px;
   box-shadow: var(--shadow);
-  transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s,
+    border-color 0.2s;
 }
 
 .shopping-row:hover {

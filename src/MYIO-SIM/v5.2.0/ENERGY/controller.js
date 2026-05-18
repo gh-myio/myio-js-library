@@ -948,9 +948,8 @@ async function fetchPeriodConsumptionByDay(customerId, startTs, endTs, dayBounda
       const allDevices = result.devices || [];
 
       // RFC-FIX: Filter devices to only include those that exist in ctx.data
-      const devices = validIngestionIds.size > 0
-        ? allDevices.filter((d) => validIngestionIds.has(d.id))
-        : allDevices;
+      const devices =
+        validIngestionIds.size > 0 ? allDevices.filter((d) => validIngestionIds.has(d.id)) : allDevices;
 
       const discardedCount = allDevices.length - devices.length;
       if (discardedCount > 0) {

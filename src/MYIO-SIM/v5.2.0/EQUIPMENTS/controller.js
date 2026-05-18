@@ -962,8 +962,8 @@ self.onInit = async function () {
           const effectiveTimestamp = hasConsumptionTs
             ? telemetryTs
             : hasLastActivityTime
-            ? lastActivityTime
-            : null;
+              ? lastActivityTime
+              : null;
           const hasEffectiveTimestamp = effectiveTimestamp !== null;
 
           // RFC-0110 v5: Calculate telemetry freshness
@@ -1115,8 +1115,8 @@ self.onInit = async function () {
           const deviceIdentifier = !rawIdentifier
             ? 'Sem identificador'
             : rawIdentifier.toUpperCase().includes('SEM IDENTIFICADOR')
-            ? 'Sem identificador'
-            : rawIdentifier;
+              ? 'Sem identificador'
+              : rawIdentifier;
 
           // RFC-0102: ownerName from ctx.data is the customerName for the device
           const ownerName = findValue(device.values, 'ownerName', null);

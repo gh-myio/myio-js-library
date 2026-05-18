@@ -1368,9 +1368,7 @@ self.onInit = async function () {
     };
 
     if (!myPeriod.startISO || !myPeriod.endISO) {
-      LogHelper.warn(
-        `[WATER_STORES] ⏸️ Period not set yet, storing provide-data event for later processing`
-      );
+      LogHelper.warn(`[WATER_STORES] ⏸️ Period not set yet, storing provide-data event for later processing`);
       return;
     }
 
@@ -1378,9 +1376,7 @@ self.onInit = async function () {
     lastProcessedVersion = eventVersion;
 
     LogHelper.log(`[WATER_STORES] 🔄 Processing data from orchestrator...`);
-    LogHelper.log(
-      `[WATER_STORES] Received ${items.length} items from orchestrator for domain ${domain}`
-    );
+    LogHelper.log(`[WATER_STORES] Received ${items.length} items from orchestrator for domain ${domain}`);
 
     const myDatasourceIds = extractDatasourceIds(self.ctx.datasources);
     const datasourceIdSet = new Set(myDatasourceIds);
@@ -1793,9 +1789,7 @@ self.onInit = async function () {
       // Simulate event with cached data in new format
       waterTbDataHandler({ detail: { classified: { water: cachedClassified } } });
     } else {
-      LogHelper.warn(
-        `[WATER_STORES] ⏰ Cache too old (${cacheAge}ms > 60000ms), waiting for fresh data`
-      );
+      LogHelper.warn(`[WATER_STORES] ⏰ Cache too old (${cacheAge}ms > 60000ms), waiting for fresh data`);
     }
   } else if (cachedClassified) {
     LogHelper.warn(`[WATER_STORES] ⚠️ Cache exists but hidrometro_lojas is empty or missing`);
@@ -1891,9 +1885,7 @@ self.onInit = async function () {
     LogHelper.log(`[WATER_STORES ${WIDGET_DOMAIN}] Initial period defined, showing busy...`);
     showBusy();
   } else {
-    LogHelper.log(
-      `[WATER_STORES ${WIDGET_DOMAIN}] No initial period, waiting for myio:update-date event...`
-    );
+    LogHelper.log(`[WATER_STORES ${WIDGET_DOMAIN}] No initial period, waiting for myio:update-date event...`);
   }
 
   // RFC-0109: WATER_STORES relies ONLY on data from MAIN (like EQUIPMENTS pattern)

@@ -30,10 +30,12 @@ const LogHelper = {
 };
 
 // RFC-0144: Use periodKey from myio-js-library (exported in src/utils/periodUtils)
-const periodKey = (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.periodKey) || (() => {
-  console.error('[MAIN] periodKey not available from MyIOLibrary - library not loaded correctly');
-  return '';
-});
+const periodKey =
+  (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.periodKey) ||
+  (() => {
+    console.error('[MAIN] periodKey not available from MyIOLibrary - library not loaded correctly');
+    return '';
+  });
 
 // RFC-0091: Expose shared utilities globally for child widgets (TELEMETRY, etc.)
 // RFC-0091: Shared constants across all widgets
@@ -381,7 +383,9 @@ Object.assign(window.MyIOUtils, {
       // Build API URL
       // RFC-FIX: Add profileIds to filter only 3F_MEDIDOR devices (lojas)
       const ENERGY_PROFILE_ID = '696be74a-a978-44ce-b50f-5b724e7effb8'; // 3F_MEDIDOR profile
-      const url = new URL(`${DATA_API_HOST.replace(/\/api\/v1\/?$/, '')}/api/v1/telemetry/customers/${customerId}/energy/devices/totals`);
+      const url = new URL(
+        `${DATA_API_HOST.replace(/\/api\/v1\/?$/, '')}/api/v1/telemetry/customers/${customerId}/energy/devices/totals`
+      );
       url.searchParams.set('startTime', startISO);
       url.searchParams.set('endTime', endISO);
       url.searchParams.set('deep', '1');
@@ -489,7 +493,9 @@ Object.assign(window.MyIOUtils, {
       // Build URL for water API
       // RFC-FIX: Add profileIds to filter only HIDROMETRO devices
       const WATER_PROFILE_ID = '526275a7-55cd-4e40-a9b8-0b08b7db6cdc'; // HIDROMETRO profile
-      const url = new URL(`${DATA_API_HOST.replace(/\/api\/v1\/?$/, '')}/api/v1/telemetry/customers/${customerId}/water/devices/totals`);
+      const url = new URL(
+        `${DATA_API_HOST.replace(/\/api\/v1\/?$/, '')}/api/v1/telemetry/customers/${customerId}/water/devices/totals`
+      );
       url.searchParams.set('startTime', startISO);
       url.searchParams.set('endTime', endISO);
       url.searchParams.set('deep', '1');
@@ -2569,14 +2575,12 @@ function createFilterModal(config) {
       // Shopping interface: value = ingestionId, customerId = ThingsBoard customer UUID
       const allowedCustomerIds = globalSelection.map((c) => c.customerId).filter(Boolean);
       const allowedIngestionIds = globalSelection.map((c) => c.value).filter(Boolean);
-      itemsProcessing = itemsProcessing.filter(
-        (item) => {
-          // Match by ThingsBoard customerId OR by ingestionId for backward compatibility
-          const matchByCustomerId = item.customerId && allowedCustomerIds.includes(item.customerId);
-          const matchByIngestionId = item.ingestionId && allowedIngestionIds.includes(item.ingestionId);
-          return matchByCustomerId || matchByIngestionId;
-        }
-      );
+      itemsProcessing = itemsProcessing.filter((item) => {
+        // Match by ThingsBoard customerId OR by ingestionId for backward compatibility
+        const matchByCustomerId = item.customerId && allowedCustomerIds.includes(item.customerId);
+        const matchByIngestionId = item.ingestionId && allowedIngestionIds.includes(item.ingestionId);
+        return matchByCustomerId || matchByIngestionId;
+      });
     }
 
     const sortedItems = itemsProcessing.sort((a, b) =>
@@ -3621,7 +3625,9 @@ Object.assign(window.MyIOUtils, {
     if (!DATA_API_HOST) {
       const msg = 'dataApiHost não configurado. Verifique as configurações do widget.';
       LogHelper.warn('[MAIN]', msg);
-      if (window.MyIOLibrary?.MyIOToast?.error) { window.MyIOLibrary.MyIOToast.error(msg); }
+      if (window.MyIOLibrary?.MyIOToast?.error) {
+        window.MyIOLibrary.MyIOToast.error(msg);
+      }
     }
     window.MyIOUtils.DATA_API_HOST = DATA_API_HOST; // update for child widgets
 
@@ -3629,8 +3635,7 @@ Object.assign(window.MyIOUtils, {
     // any child widget that renders @myio/energy-chart-sdk. Fallback to
     // production; the single source of truth lives here on MAIN so FOOTER
     // does not hold its own fallback.
-    const chartsBaseUrl =
-      self.ctx.settings?.chartsBaseUrl || 'https://graphs.apps.myio-bas.com';
+    const chartsBaseUrl = self.ctx.settings?.chartsBaseUrl || 'https://graphs.apps.myio-bas.com';
     window.MyIOUtils.chartsBaseUrl = chartsBaseUrl;
     LogHelper.log('[MAIN] chartsBaseUrl:', chartsBaseUrl);
 
@@ -6380,7 +6385,9 @@ const MyIOOrchestrator = (() => {
         const cacheAge = Date.now() - (cachedData.timestamp || 0);
         // RFC-FIX: Also validate that the cached data is for the same period
         // Guard: Only call periodKey if CUSTOMER_ING_ID is available
-        const currentPeriodKey = CUSTOMER_ING_ID ? periodKey(CUSTOMER_ING_ID, domain, period) : `${domain}-no-customer`;
+        const currentPeriodKey = CUSTOMER_ING_ID
+          ? periodKey(CUSTOMER_ING_ID, domain, period)
+          : `${domain}-no-customer`;
         const cachedPeriodKey = cachedData.periodKey;
         const periodMatches = currentPeriodKey === cachedPeriodKey;
 
@@ -6907,7 +6914,9 @@ const MyIOOrchestrator = (() => {
   // Fetch data for a domain and period
   async function hydrateDomain(domain, period) {
     // Guard: Only call periodKey if CUSTOMER_ING_ID is available
-    const key = CUSTOMER_ING_ID ? periodKey(CUSTOMER_ING_ID, domain, period) : `${domain}-${period?.startDate || 'no-period'}`;
+    const key = CUSTOMER_ING_ID
+      ? periodKey(CUSTOMER_ING_ID, domain, period)
+      : `${domain}-${period?.startDate || 'no-period'}`;
     const startTime = Date.now();
 
     LogHelper.log(`[Orchestrator] hydrateDomain called for ${domain}:`, { key, inFlight: inFlight.has(key) });
@@ -8807,7 +8816,9 @@ const MyIOOrchestrator = (() => {
      * @returns {Promise<Object>} Chart data with labels, dailyTotals, shoppingData
      */
     fetchTemperatureDayAverages: async (startTs, endTs) => {
-      LogHelper.log(`[Orchestrator] 🌡️ fetchTemperatureDayAverages: ${new Date(startTs).toISOString()} to ${new Date(endTs).toISOString()}`);
+      LogHelper.log(
+        `[Orchestrator] 🌡️ fetchTemperatureDayAverages: ${new Date(startTs).toISOString()} to ${new Date(endTs).toISOString()}`
+      );
 
       try {
         // Get temperature devices from cache
@@ -8819,7 +8830,9 @@ const MyIOOrchestrator = (() => {
           return null;
         }
 
-        LogHelper.log(`[Orchestrator] fetchTemperatureDayAverages: Found ${devices.length} temperature devices`);
+        LogHelper.log(
+          `[Orchestrator] fetchTemperatureDayAverages: Found ${devices.length} temperature devices`
+        );
 
         // Get JWT token for ThingsBoard API
         const token = localStorage.getItem('jwt_token');
@@ -8882,13 +8895,15 @@ const MyIOOrchestrator = (() => {
 
               const response = await fetch(url, {
                 headers: {
-                  'Authorization': `Bearer ${token}`,
+                  Authorization: `Bearer ${token}`,
                   'Content-Type': 'application/json',
                 },
               });
 
               if (!response.ok) {
-                LogHelper.warn(`[Orchestrator] fetchTemperatureDayAverages: Failed to fetch device ${deviceId}`);
+                LogHelper.warn(
+                  `[Orchestrator] fetchTemperatureDayAverages: Failed to fetch device ${deviceId}`
+                );
                 continue;
               }
 
@@ -8908,7 +8923,10 @@ const MyIOOrchestrator = (() => {
                 }
               });
             } catch (err) {
-              LogHelper.warn(`[Orchestrator] fetchTemperatureDayAverages: Error fetching device ${deviceId}:`, err.message);
+              LogHelper.warn(
+                `[Orchestrator] fetchTemperatureDayAverages: Error fetching device ${deviceId}:`,
+                err.message
+              );
             }
           }
 
@@ -8931,7 +8949,9 @@ const MyIOOrchestrator = (() => {
           return Number((sum / globalDailyCounts[i]).toFixed(1));
         });
 
-        LogHelper.log(`[Orchestrator] 🌡️ fetchTemperatureDayAverages: Completed - ${labels.length} days, ${Object.keys(shoppingData).length} shoppings`);
+        LogHelper.log(
+          `[Orchestrator] 🌡️ fetchTemperatureDayAverages: Completed - ${labels.length} days, ${Object.keys(shoppingData).length} shoppings`
+        );
 
         return {
           labels,
@@ -9059,7 +9079,9 @@ function setupContractValidationListeners(expectedCounts) {
     const isEnabled = enabledDomains[d];
     const hasDevices = expectedCounts[d]?.total > 0;
     if (isEnabled && !hasDevices) {
-      LogHelper.log(`[RFC-0107] Domain ${d} enabled but has no configured devices (total=0), skipping validation`);
+      LogHelper.log(
+        `[RFC-0107] Domain ${d} enabled but has no configured devices (total=0), skipping validation`
+      );
     }
     return isEnabled && hasDevices;
   });
@@ -9068,7 +9090,9 @@ function setupContractValidationListeners(expectedCounts) {
 
   // If no domains have configured devices, finalize immediately with current state
   if (activeDomains.length === 0) {
-    LogHelper.log('[RFC-0107] No domains with configured devices, finalizing contract validation immediately');
+    LogHelper.log(
+      '[RFC-0107] No domains with configured devices, finalizing contract validation immediately'
+    );
     storeContractState(expectedCounts, { isValid: true, discrepancies: [] });
     return;
   }
@@ -9090,18 +9114,30 @@ function setupContractValidationListeners(expectedCounts) {
   const finalizeWithTimeout = () => {
     if (validationFinalized) return;
 
-    const loadedDomains = Object.entries(domainsLoaded).filter(([_, loaded]) => loaded).map(([d]) => d);
-    const pendingDomains = Object.entries(domainsLoaded).filter(([_, loaded]) => !loaded).map(([d]) => d);
+    const loadedDomains = Object.entries(domainsLoaded)
+      .filter(([_, loaded]) => loaded)
+      .map(([d]) => d);
+    const pendingDomains = Object.entries(domainsLoaded)
+      .filter(([_, loaded]) => !loaded)
+      .map(([d]) => d);
 
-    LogHelper.warn(`[RFC-0107] Validation timeout after ${VALIDATION_TIMEOUT_MS}ms - finalizing with partial data`);
-    LogHelper.log(`[RFC-0107] Loaded domains: [${loadedDomains.join(', ')}], Pending: [${pendingDomains.join(', ')}]`);
+    LogHelper.warn(
+      `[RFC-0107] Validation timeout after ${VALIDATION_TIMEOUT_MS}ms - finalizing with partial data`
+    );
+    LogHelper.log(
+      `[RFC-0107] Loaded domains: [${loadedDomains.join(', ')}], Pending: [${pendingDomains.join(', ')}]`
+    );
 
     validationFinalized = true;
     window.removeEventListener('myio:state:ready', handleStateReady);
     window.removeEventListener('myio:domain:fetch-complete', handleFetchComplete);
 
     // Finalize with whatever data we have - skip validation for pending domains
-    storeContractState(expectedCounts, { isValid: true, discrepancies: [], partialLoad: pendingDomains.length > 0 });
+    storeContractState(expectedCounts, {
+      isValid: true,
+      discrepancies: [],
+      partialLoad: pendingDomains.length > 0,
+    });
   };
 
   validationTimeoutId = setTimeout(finalizeWithTimeout, VALIDATION_TIMEOUT_MS);

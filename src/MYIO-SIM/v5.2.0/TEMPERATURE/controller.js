@@ -210,9 +210,10 @@ function renderComparisonChart(shoppingSeries, chartType) {
   const maxIdeal = target + tol;
 
   // Sort by name for line chart (alphabetical), by avgTemp for bar chart
-  const sortedSeries = type === 'line'
-    ? [...shoppingSeries].sort((a, b) => (a.label || '').localeCompare(b.label || ''))
-    : [...shoppingSeries].sort((a, b) => (b.avgTemp || 0) - (a.avgTemp || 0));
+  const sortedSeries =
+    type === 'line'
+      ? [...shoppingSeries].sort((a, b) => (a.label || '').localeCompare(b.label || ''))
+      : [...shoppingSeries].sort((a, b) => (b.avgTemp || 0) - (a.avgTemp || 0));
 
   // Labels are shopping names
   const labels = sortedSeries.map((s) => s.label || 'Desconhecido');
@@ -234,62 +235,41 @@ function renderComparisonChart(shoppingSeries, chartType) {
 
   // RFC-0159: Build chart configuration based on type
   if (type === 'line') {
-    // RFC-0159: LINE CHART with multiple datasets (one line per shopping)
-    // Define distinct colors for each shopping
-    const lineColors = [
-      { bg: 'rgba(230, 81, 0, 0.2)', border: '#e65100' },    // Orange
-      { bg: 'rgba(21, 101, 192, 0.2)', border: '#1565c0' },  // Blue
-      { bg: 'rgba(46, 125, 50, 0.2)', border: '#2e7d32' },   // Green
-      { bg: 'rgba(156, 39, 176, 0.2)', border: '#9c27b0' },  // Purple
-      { bg: 'rgba(0, 150, 136, 0.2)', border: '#009688' },   // Teal
-      { bg: 'rgba(255, 87, 34, 0.2)', border: '#ff5722' },   // Deep Orange
-      { bg: 'rgba(63, 81, 181, 0.2)', border: '#3f51b5' },   // Indigo
-      { bg: 'rgba(233, 30, 99, 0.2)', border: '#e91e63' },   // Pink
-    ];
-
-    // Create one dataset per shopping (each shopping gets its own "line")
-    // X-axis shows a single label "Temperatura Atual"
-    const datasets = sortedSeries.map((shopping, index) => {
-      const colorSet = lineColors[index % lineColors.length];
-      const status = getTemperatureStatus(shopping.avgTemp, target, tol);
-
-      return {
-        label: shopping.label || `Shopping ${index + 1}`,
-        data: [shopping.avgTemp !== null ? Number(shopping.avgTemp.toFixed(1)) : null],
-        backgroundColor: colorSet.bg,
-        borderColor: colorSet.border,
-        borderWidth: 2,
-        fill: false,
-        tension: 0,
-        pointBackgroundColor: colorSet.border,
-        pointBorderColor: colorSet.border,
-        pointRadius: 8,
-        pointHoverRadius: 10,
-        pointStyle: 'circle',
-        // Store metadata for tooltip
-        _shopping: shopping,
-        _status: status,
-      };
-    });
-
+    // LINE CHART configuration
     STATE.chartInstance = new Chart(canvas.getContext('2d'), {
       type: 'line',
       data: {
-        labels: ['Temperatura Atual'],
-        datasets,
+        labels,
+        datasets: [
+          {
+            label: 'Temperatura Média (°C)',
+            data: sortedSeries.map((s) => (s.avgTemp !== null ? Number(s.avgTemp.toFixed(1)) : null)),
+            backgroundColor: 'rgba(230, 81, 0, 0.2)',
+            borderColor: '#e65100',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.3,
+            pointBackgroundColor: borderColors,
+            pointBorderColor: borderColors,
+            pointRadius: 6,
+            pointHoverRadius: 8,
+          },
+        ],
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
         interaction: {
-          mode: 'nearest',
-          intersect: true,
+          mode: 'index',
+          intersect: false,
         },
         scales: {
           x: {
-            grid: { display: false },
+            grid: { color: 'rgba(28,39,67,0.08)' },
             ticks: {
-              font: { size: 12, weight: 'bold' },
+              font: { size: 10 },
+              maxRotation: 45,
+              minRotation: 45,
             },
           },
           y: {
@@ -304,14 +284,7 @@ function renderComparisonChart(shoppingSeries, chartType) {
         },
         plugins: {
           legend: {
-            display: true,
-            position: 'right',
-            labels: {
-              usePointStyle: true,
-              pointStyle: 'circle',
-              padding: 12,
-              font: { size: 11 },
-            },
+            display: false,
           },
           tooltip: {
             backgroundColor: 'rgba(28, 39, 67, 0.95)',
@@ -319,17 +292,13 @@ function renderComparisonChart(shoppingSeries, chartType) {
             bodyFont: { size: 12 },
             padding: 12,
             callbacks: {
-              title: (items) => {
-                if (items.length === 0) return '';
-                return items[0].dataset.label || 'Shopping';
-              },
               label: (context) => {
-                const dataset = context.dataset;
-                const shopping = dataset._shopping;
+                const series = sortedSeries[context.dataIndex];
                 const value = context.parsed.y;
-                const sensorCount = shopping?.sensorCount || 0;
-                const status = dataset._status;
-                const statusText = status === 'hot' ? '🔴 Acima' : status === 'cold' ? '🔵 Abaixo' : '🟢 Normal';
+                const sensorCount = series?.sensorCount || 0;
+                const status = getTemperatureStatus(value, target, tol);
+                const statusText =
+                  status === 'hot' ? '🔴 Acima' : status === 'cold' ? '🔵 Abaixo' : '🟢 Normal';
                 return [
                   `Temperatura: ${formatTemperature(value)}`,
                   `Sensores: ${sensorCount}`,
@@ -371,22 +340,24 @@ function renderComparisonChart(shoppingSeries, chartType) {
         },
       },
     });
-    LogHelper.log('[TEMPERATURE] Chart rendered with', shoppingSeries.length, 'shopping series (line chart - multi dataset)');
+    LogHelper.log('[TEMPERATURE] Chart rendered with', shoppingSeries.length, 'shopping series (line chart)');
   } else {
     // BAR CHART configuration (horizontal)
     STATE.chartInstance = new Chart(canvas.getContext('2d'), {
       type: 'bar',
       data: {
         labels,
-        datasets: [{
-          label: 'Temperatura Média (°C)',
-          data: sortedSeries.map((s) => s.avgTemp !== null ? Number(s.avgTemp.toFixed(1)) : null),
-          backgroundColor: backgroundColors,
-          borderColor: borderColors,
-          borderWidth: 1,
-          borderRadius: 4,
-          barThickness: 28,
-        }],
+        datasets: [
+          {
+            label: 'Temperatura Média (°C)',
+            data: sortedSeries.map((s) => (s.avgTemp !== null ? Number(s.avgTemp.toFixed(1)) : null)),
+            backgroundColor: backgroundColors,
+            borderColor: borderColors,
+            borderWidth: 1,
+            borderRadius: 4,
+            barThickness: 28,
+          },
+        ],
       },
       options: {
         indexAxis: 'y', // Horizontal bar chart
@@ -429,7 +400,8 @@ function renderComparisonChart(shoppingSeries, chartType) {
                 const value = context.parsed.x;
                 const sensorCount = series?.sensorCount || 0;
                 const status = getTemperatureStatus(value, target, tol);
-                const statusText = status === 'hot' ? '🔴 Acima' : status === 'cold' ? '🔵 Abaixo' : '🟢 Normal';
+                const statusText =
+                  status === 'hot' ? '🔴 Acima' : status === 'cold' ? '🔵 Abaixo' : '🟢 Normal';
                 return [
                   `Temperatura: ${formatTemperature(value)}`,
                   `Sensores: ${sensorCount}`,
@@ -513,7 +485,6 @@ function renderShoppingList(shoppingSeries) {
 
     const row = document.createElement('div');
     row.className = `shopping-row status-${status}`;
-    // RFC-0159: Compact card layout for 2-column grid
     row.innerHTML = `
       <div class="shopping-left">
         <span class="dot ${status}"></span>
@@ -522,16 +493,19 @@ function renderShoppingList(shoppingSeries) {
           <div class="shopping-sensors">${shopping.sensorCount || 0} sensores</div>
         </div>
       </div>
-      <div class="shopping-stats">
-        <div class="ft">
-          <span class="label">Média:</span>
-          <span class="value">${formatTemperature(shopping.avgTemp)}</span>
-        </div>
-        <div class="ft">
-          <span class="label">Min/Max:</span>
-          <span class="value">${formatTemperature(shopping.minTemp)}/${formatTemperature(shopping.maxTemp)}</span>
-        </div>
-        <span class="status-badge ${status}">${statusLabels[status]}</span>
+      <div class="ft">
+        <div class="label">Temp. Media</div>
+        <div class="value">${formatTemperature(shopping.avgTemp)}</div>
+      </div>
+      <div class="ft">
+        <div class="label">Min / Max</div>
+        <div class="value">${formatTemperature(shopping.minTemp)} / ${formatTemperature(
+          shopping.maxTemp
+        )}</div>
+      </div>
+      <div class="ft">
+        <div class="label">Status</div>
+        <div class="value status-badge ${status}">${statusLabels[status]}</div>
       </div>
     `;
 
@@ -782,7 +756,12 @@ async function fetchTemperatureData() {
 async function updateAll() {
   // RFC-0159 FIX: Skip if we already have data rendered from provide-data event
   // This prevents onDataUpdated from clearing data that was already rendered
-  if (STATE.allSensors && STATE.allSensors.length > 0 && STATE.shoppingData && STATE.shoppingData.length > 0) {
+  if (
+    STATE.allSensors &&
+    STATE.allSensors.length > 0 &&
+    STATE.shoppingData &&
+    STATE.shoppingData.length > 0
+  ) {
     LogHelper.log('[TEMPERATURE] Skipping updateAll - data already rendered from events');
     return;
   }
@@ -882,7 +861,7 @@ async function fetchTemperatureDataAdapter(period) {
 
 /**
  * RFC-0098: Initialize the 7-day temperature chart using the standardized component
- * RFC-0159: Now uses fetchTemperatureDayAverages from orchestrator
+ * RFC-0159: Shows "not available" message when historical data isn't implemented
  */
 async function initializeTemperature7DaysChart() {
   // Get widget container for ThingsBoard compatibility
@@ -899,27 +878,43 @@ async function initializeTemperature7DaysChart() {
     return;
   }
 
-  // RFC-0159: Show loading state while waiting for data
-  containerEl.innerHTML = `
-    <div style="
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 280px;
-      background: linear-gradient(180deg, #ffffff 0%, #fafafa 100%);
-      border: 1px solid #e6eef5;
-      border-radius: 12px;
-      padding: 24px;
-      text-align: center;
-    ">
-      <div style="font-size: 32px; margin-bottom: 12px; animation: pulse 1.5s ease-in-out infinite;">🌡️</div>
-      <p style="margin: 0; font-size: 13px; color: #6b7a90;">Carregando histórico de temperatura...</p>
-    </div>
-    <style>
-      @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-    </style>
-  `;
+  // RFC-0159: Check if historical data API is available
+  const orchestrator = window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
+  const hasHistoricalAPI = orchestrator && typeof orchestrator.fetchTemperatureDayAverages === 'function';
+
+  if (!hasHistoricalAPI) {
+    // RFC-0159: Show "not available" message instead of empty chart
+    LogHelper.warn('[TEMPERATURE] [RFC-0159] Historical temperature API not available');
+    containerEl.innerHTML = `
+      <div style="
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 280px;
+        background: linear-gradient(180deg, #ffffff 0%, #fafafa 100%);
+        border: 1px solid #e6eef5;
+        border-radius: 12px;
+        padding: 24px;
+        text-align: center;
+      ">
+        <div style="font-size: 48px; margin-bottom: 16px; opacity: 0.5;">📊</div>
+        <h3 style="
+          margin: 0 0 8px 0;
+          font-size: 16px;
+          font-weight: 600;
+          color: #1c2743;
+        ">Temperatura - 7 dias</h3>
+        <p style="
+          margin: 0;
+          font-size: 13px;
+          color: #6b7a90;
+          max-width: 300px;
+        ">Dados históricos não disponíveis. Esta funcionalidade será implementada em uma versão futura.</p>
+      </div>
+    `;
+    return;
+  }
 
   // RFC-0098: Check for createConsumptionChartWidget first (it creates its own canvas)
   if (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.createConsumptionChartWidget) {
@@ -1201,50 +1196,15 @@ function bindEventListeners() {
     });
     renderShoppingList(shoppingSeries);
 
-    LogHelper.log('[TEMPERATURE] RFC-0159: Updated with', items.length, 'sensors,', shoppingSeries.length, 'shoppings');
+    LogHelper.log(
+      '[TEMPERATURE] RFC-0159: Updated with',
+      items.length,
+      'sensors,',
+      shoppingSeries.length,
+      'shoppings'
+    );
   };
   window.addEventListener('myio:telemetry:provide-data', self._onProvideData);
-}
-
-// ============================================
-// RFC-0159: FORCE SCROLL IN THINGSBOARD
-// ============================================
-
-/**
- * RFC-0159: Force scroll on ThingsBoard parent containers
- * ThingsBoard sets overflow:hidden on .tb-widget which blocks scrolling
- */
-function forceScrollOnParentContainers() {
-  const root = document.querySelector('.tb-temp-root');
-  if (!root) return;
-
-  // Walk up the DOM tree and force overflow:auto on parents
-  let parent = root.parentElement;
-  let depth = 0;
-  const maxDepth = 10;
-
-  while (parent && depth < maxDepth) {
-    const tagName = parent.tagName?.toLowerCase() || '';
-    const className = parent.className || '';
-
-    // Target ThingsBoard widget containers
-    if (tagName === 'tb-widget-container' ||
-        className.includes('tb-widget-container') ||
-        className.includes('tb-widget')) {
-      parent.style.overflow = 'auto';
-      parent.style.position = 'relative';
-      LogHelper.log(`[TEMPERATURE] RFC-0159: Forced scroll on ${tagName}.${className}`);
-    }
-
-    // Also target the direct div.tb-widget inside tb-widget-container
-    if (className.includes('tb-widget') && !className.includes('tb-widget-container')) {
-      parent.style.overflow = 'auto';
-      LogHelper.log(`[TEMPERATURE] RFC-0159: Forced scroll on .tb-widget`);
-    }
-
-    parent = parent.parentElement;
-    depth++;
-  }
 }
 
 // ============================================
@@ -1254,9 +1214,6 @@ function forceScrollOnParentContainers() {
 self.onInit = function () {
   LogHelper.log('[TEMPERATURE] RFC-0092: onInit');
   const ctx = self.ctx;
-
-  // RFC-0159: Force scroll on ThingsBoard containers
-  setTimeout(() => forceScrollOnParentContainers(), 100);
 
   // Set target temp display
   const $avgTempTarget = document.getElementById('avgTempTarget');

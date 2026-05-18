@@ -294,7 +294,10 @@ function initializeSensorCards(sensors) {
               temperatureMax: entity.temperatureMax,
             });
             store.add(entity.entityId);
-            LogHelper.log('[TEMPERATURE_SENSORS] Entity registered and added to selection:', entity.labelOrName);
+            LogHelper.log(
+              '[TEMPERATURE_SENSORS] Entity registered and added to selection:',
+              entity.labelOrName
+            );
           } else {
             store.remove(entity.entityId);
             LogHelper.log('[TEMPERATURE_SENSORS] Entity removed from selection:', entity.labelOrName);
