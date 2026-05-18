@@ -189,7 +189,7 @@
   line-height: 16px;
   text-align: center;
   pointer-events: none;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 /* Ticket / Chamados button (RFC-0198) — teal/support theme */
@@ -230,7 +230,7 @@
   line-height: 16px;
   text-align: center;
   pointer-events: none;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 /* Ícones */

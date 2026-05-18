@@ -174,9 +174,7 @@
         <div class="filter-block">
           <label class="block-label">Filtro de Alarmes</label>
           <div class="radio-grid alarm-filter-grid">
-            <label
-              ><input type="radio" name="alarmFilter" value="ativado" checked /> Mostrar todos</label
-            >
+            <label><input type="radio" name="alarmFilter" value="ativado" checked /> Mostrar todos</label>
             <label
               ><input type="radio" name="alarmFilter" value="apenas_ativados" /> Apenas com alarmes</label
             >
@@ -231,15 +229,43 @@
         <button id="applyFilters" class="btn primary">Aplicar</button>
         <button id="resetFilters" class="btn">Resetar</button>
         <!-- RFC-0152: Device mapping export — shown only for @myio.com.br users -->
-        <button id="btnDownloadDeviceMap" class="btn btn-device-map-download" style="display:none" title="Download mapeamento TB↔GCDR">
-          <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true" style="margin-right:5px;flex-shrink:0">
-            <path d="M12 16l-5-5 1.41-1.41L11 13.17V4h2v9.17l2.59-2.58L17 11l-5 5zm-7 4v-2h14v2H5z"/>
+        <button
+          id="btnDownloadDeviceMap"
+          class="btn btn-device-map-download"
+          style="display: none"
+          title="Download mapeamento TB↔GCDR"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="13"
+            height="13"
+            fill="currentColor"
+            aria-hidden="true"
+            style="margin-right: 5px; flex-shrink: 0"
+          >
+            <path d="M12 16l-5-5 1.41-1.41L11 13.17V4h2v9.17l2.59-2.58L17 11l-5 5zm-7 4v-2h14v2H5z" />
           </svg>
           Device Map
         </button>
         <!-- RFC-0195: GCDR Device Sync Job — shown only for @myio.com.br users -->
-        <button id="btnSyncGCDR" class="btn btn-sync-gcdr" style="display:none" title="Sincronizar devices com GCDR via Sync Job">
-          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-right:5px;flex-shrink:0">
+        <button
+          id="btnSyncGCDR"
+          class="btn btn-sync-gcdr"
+          style="display: none"
+          title="Sincronizar devices com GCDR via Sync Job"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="13"
+            height="13"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+            style="margin-right: 5px; flex-shrink: 0"
+          >
             <polyline points="1 4 1 10 7 10"></polyline>
             <path d="M3.51 15a9 9 0 1 0 .49-4.49"></path>
           </svg>
