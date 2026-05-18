@@ -2198,6 +2198,7 @@ function showMaximizedPanel(panelElement, panelTitle, options) {
     panelElement: panelElement,
     originalParent: originalParent,
     originalNextSibling: originalNextSibling,
+    panelInstance: opts.panelInstance || null,
   };
 
   LogHelper.log(
@@ -2349,6 +2350,11 @@ function closeMaximizedPanel() {
   var toRestore = _maximizedPanel;
   setTimeout(function () {
     restorePanelElement(toRestore);
+    if (toRestore.panelInstance && typeof toRestore.panelInstance.setMaximized === 'function') {
+      // setMaximized() only updates button UI — it does NOT fire onMaximizeToggle.
+      // No recursion risk: closeMaximizedPanel() will not be re-entered from here.
+      toRestore.panelInstance.setMaximized(false);
+    }
     _maximizeOverlay.innerHTML = '';
     _maximizedPanel = null;
   }, 200);
@@ -2620,7 +2626,7 @@ function mountWaterPanel(waterHost, settings, classified) {
     },
     onMaximizeToggle: function (isMaximized) {
       if (isMaximized) {
-        showMaximizedPanel(panel.getElement(), 'Infraestrutura Hidrica');
+        showMaximizedPanel(panel.getElement(), 'Infraestrutura Hidrica', { panelInstance: panel });
       } else {
         closeMaximizedPanel();
       }
@@ -2628,6 +2634,8 @@ function mountWaterPanel(waterHost, settings, classified) {
     handleClickCard: function (item) {
       LogHelper.log('[MAIN_BAS] Water device clicked:', item.source);
       window.dispatchEvent(new CustomEvent('bas:device-clicked', { detail: { device: item.source } }));
+
+      closeMaximizedPanel(); // dismiss overlay before any modal — prevents pointer-events block
 
       var deviceProfile = (item.source?.deviceProfile || item.source?.deviceType || '').toUpperCase();
       var deviceType = (item.source?.type || '').toLowerCase();
@@ -2880,13 +2888,14 @@ function openBASDeviceModal(device, _settings) {
     isEnergyDevice: true,
   };
 
-  // Get date range (last 7 days default)
-  var endDate = new Date();
-  var startDate = new Date();
-  startDate.setDate(startDate.getDate() - 7);
-
-  var startDateStr = startDate.toISOString().split('T')[0];
-  var endDateStr = endDate.toISOString().split('T')[0];
+  // Use the energy chart's active date range (_chartDateRange), consistent with the chart panel.
+  // Falls back to _currentChartPeriod days when no explicit range is set (relative mode).
+  var ce = (_chartDateRange && _chartDateRange.endTs) ? new Date(_chartDateRange.endTs) : new Date();
+  var cs = (_chartDateRange && _chartDateRange.startTs)
+    ? new Date(_chartDateRange.startTs)
+    : new Date(ce.getTime() - _currentChartPeriod * 86400000);
+  var startDateStr = toLocalISODate(cs);
+  var endDateStr   = toLocalISODate(ce);
 
   LogHelper.log('[MAIN_BAS] Opening BAS modal for device:', basDevice);
 
@@ -3482,9 +3491,11 @@ function openWaterTankModal(device, entityObject, _settings) {
   // Clamp for display (can be >100% but visual indicator should cap at 100)
   var currentLevelClamped = Math.min(100, Math.max(0, currentLevelPercent));
 
-  // Get date range (last 7 days default)
-  var endTs = Date.now();
-  var startTs = endTs - 7 * 24 * 60 * 60 * 1000;
+  // Use the water panel's active date range (mirrors _waterDateRange, same as hydrometer modal).
+  var ws = (_waterDateRange && _waterDateRange.startTs) || (Date.now() - 7 * 86400000);
+  var we = (_waterDateRange && _waterDateRange.endTs)   || Date.now();
+  var startTs = ws;
+  var endTs   = we;
 
   var deviceType = device?.deviceType || device?.deviceProfile || 'CAIXA_DAGUA';
   var deviceLabel = device?.name || device?.label || "Caixa d'Água";
