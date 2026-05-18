@@ -2991,8 +2991,12 @@ function openBASWaterModal(device, _settings) {
     },
   };
 
-  var startDateStr = toLocalISODate(new Date(_waterDateRange.startTs));
-  var endDateStr   = toLocalISODate(new Date(_waterDateRange.endTs));
+  // Mirrors the user's selection in the water panel (_waterDateRange).
+  // Independent of _chartDateRange used by the consumption chart.
+  var ws = (_waterDateRange && _waterDateRange.startTs) || (Date.now() - 7 * 86400000);
+  var we = (_waterDateRange && _waterDateRange.endTs)   || Date.now();
+  var startDateStr = toLocalISODate(new Date(ws));
+  var endDateStr   = toLocalISODate(new Date(we));
 
   LogHelper.log('[MAIN_BAS] Opening BAS Water modal for device:', waterDevice);
 
@@ -4373,7 +4377,11 @@ async function fetchIngestionData(domain, customerId, clientId, clientSecret, pe
   var shoppingNames = {}; // { deviceId: "Device Label" }
   var dayMs = 24 * 60 * 60 * 1000;
 
-  // Day boundaries use local midnight so they match the date the user selected
+  // Day boundaries use local midnight (setHours) — consistent with buildDateRangePickerBar.
+  // Applies to BOTH water and energy domains (both call fetchIngestionData).
+  // Previous setUTCHours(0,0,0,0) caused dashboard/detail divergence in UTC-offset
+  // timezones (e.g. Brazil UTC-3): API received UTC day 07/05 while the detail
+  // modal sent local day 07/05, yielding different consumption totals.
   var dayBoundaries = [];
   for (var i = 0; i < period; i++) {
     var dayStart = new Date(startTs + i * dayMs);
