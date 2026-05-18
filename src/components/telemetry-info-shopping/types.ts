@@ -22,7 +22,8 @@ export type EnergyCategoryType =
   | 'escadasRolantes'
   | 'lojas'
   | 'outros'
-  | 'areaComum';
+  | 'areaComum'
+  | 'erro';
 
 export type WaterCategoryType =
   | 'entrada'
@@ -32,6 +33,30 @@ export type WaterCategoryType =
   | 'pontosNaoMapeados';
 
 export type CategoryType = EnergyCategoryType | WaterCategoryType;
+
+/**
+ * RFC-0196 — Group identifier dispatched on `myio:filter-applied`.
+ *
+ * Energy groups follow the canonical
+ * `buildEquipmentCategorySummary` keys (with `escadas_rolantes` and
+ * `area_comum` underscored) for cross-component compatibility. The
+ * `erro` slice is a calculated residual; clicks on it dispatch the
+ * filter event but the controller treats it as a no-op (no devices).
+ *
+ * Water groups mirror the existing component key set (camelCase).
+ */
+export type EnergyGroup =
+  | 'entrada'
+  | 'lojas'
+  | 'climatizacao'
+  | 'elevadores'
+  | 'escadas_rolantes'
+  | 'outros'
+  | 'erro';
+
+export type WaterGroup = 'entrada' | 'lojas' | 'banheiros' | 'areaComum';
+
+export type FilterGroup = EnergyGroup | WaterGroup;
 
 // ============================================
 // CATEGORY DATA
@@ -55,6 +80,15 @@ export interface EnergyState {
     totalGeral: number;
   };
   grandTotal: number;
+  /**
+   * RFC-0196 — calculated residual:
+   * `Entrada − (Lojas + Climatização + Elevadores + Esc. Rolantes + Outros)`.
+   *
+   * When `value > 0` the chart includes a dedicated "Erro" slice. When
+   * `value <= 0` the slice is omitted entirely (placeholder rendered in
+   * card UI as `'—'`).
+   */
+  erro: CategoryData;
 }
 
 export interface WaterState {
@@ -129,6 +163,14 @@ export const ENERGY_CATEGORY_CONFIG: Record<EnergyCategoryType, CategoryConfig> 
     color: '#4CAF50',
     tooltip: 'Entrada - (Lojas + Climatização + Elevadores + Esc. Rolantes + Outros)',
   },
+  // RFC-0196 — calculated residual when the sum of mapped consumers exceeds
+  // the Entrada total (typically a measurement or classification error).
+  erro: {
+    label: 'Erro',
+    icon: '⚠️',
+    color: '#E53935',
+    tooltip: 'Resíduo calculado: Entrada − (Lojas + Climatização + Elevadores + Esc. Rolantes + Outros)',
+  },
 };
 
 export const WATER_CATEGORY_CONFIG: Record<WaterCategoryType, CategoryConfig> = {
@@ -170,6 +212,20 @@ export interface TelemetryInfoShoppingParams {
   // Callbacks
   onCategoryClick?: (category: CategoryType) => void;
   onExpandClick?: () => void;
+  /**
+   * RFC-0196 — fires when the user clicks a pie-chart slice.
+   *
+   * `group` is the canonical group identifier (see `EnergyGroup` /
+   * `WaterGroup`). The component also dispatches a global
+   * `myio:filter-applied` CustomEvent on the `window` object so the
+   * dashboard controller can narrow grids without a direct callback wire.
+   *
+   * Implementations should treat the same-slice-clicked-twice case as a
+   * filter-clear (toggle behaviour) — the component fires the callback
+   * with the same group on both clicks; the controller is responsible
+   * for tracking activation.
+   */
+  onSliceClick?: (group: FilterGroup) => void;
 }
 
 // ============================================
@@ -184,6 +240,12 @@ export interface EnergySummary {
   escadasRolantes?: { total: number; perc?: number };
   outros?: { total: number; perc?: number };
   areaComum?: { total: number; perc?: number };
+  /**
+   * RFC-0196 — optional pre-calculated residual. When omitted the
+   * component computes `erro = entrada − (lojas + climatizacao +
+   * elevadores + escadasRolantes + outros)` itself.
+   */
+  erro?: { total: number; perc?: number };
 }
 
 export interface WaterSummary {
@@ -207,7 +269,7 @@ export interface TelemetryInfoShoppingInstance {
   clearData: () => void;
 
   // State
-  getState: () => EnergyState | WaterState;
+  getState: () => EnergyState | WaterState | null;
   getDomain: () => TelemetryDomain;
 
   // Config
@@ -222,6 +284,17 @@ export interface TelemetryInfoShoppingInstance {
 
   // Chart
   refreshChart: () => void;
+
+  // RFC-0196 — slice activation
+  /**
+   * Trigger a slice click programmatically. Same toggle semantics as a
+   * user click on the pie: same group twice clears the filter.
+   *
+   * Fires `onSliceClick` and dispatches `myio:filter-applied`.
+   */
+  triggerSliceClick: (group: FilterGroup) => void;
+  /** Returns the currently-active filter group, or `null` when none. */
+  getActiveGroup: () => FilterGroup | null;
 
   // Lifecycle
   destroy: () => void;

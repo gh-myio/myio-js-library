@@ -11,6 +11,7 @@ import {
   attach as attachDateRangePicker,
   type DateRangeControl,
 } from './premium-modals/internal/DateRangePickerJQ';
+import { toFriendlyError } from './realtime-drawer/helpers';
 
 export interface RealTimeTelemetryParams {
   token: string; // JWT token for ThingsBoard authentication
@@ -2386,7 +2387,8 @@ export async function openRealTimeTelemetryModal(
         rebuildChart();
       }
     } catch (error) {
-      console.error('[RealTimeTelemetry] Error loading period data:', error);
+      // RFC-0201 Phase-2 pod J: friendly PT-BR error, log raw detail to console.
+      errorState.textContent = toFriendlyError(error);
       errorState.style.display = 'block';
       loadingState.style.display = 'none';
     }
@@ -2904,7 +2906,8 @@ export async function openRealTimeTelemetryModal(
         initializeChart();
       }
     } catch (error) {
-      console.error('[RealTimeTelemetry] Error fetching data:', error);
+      // RFC-0201 Phase-2 pod J: friendly PT-BR error, log raw detail to console.
+      errorState.textContent = toFriendlyError(error);
       errorState.style.display = 'block';
       loadingState.style.display = 'none';
       telemetryContent.style.display = 'none';

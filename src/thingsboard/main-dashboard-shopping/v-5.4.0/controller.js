@@ -89,7 +89,16 @@ let _temperatureGridLojas = null;
 // ============================================================================
 
 /**
- * Extract device metadata from all rows for a single device
+ * Extract device metadata from all rows for a single device.
+ *
+ * Canonical implementation lives at `./lib/extractDeviceMetadataFromRows.js`
+ * (used by tests). This inline copy MUST mirror it exactly — TB widgets are
+ * loaded as global scripts and cannot ES-import at runtime, so the duplication
+ * is intentional. If you change one, change both.
+ *
+ * Returned shape mirrors `v-5.2.0/WIDGET/MAIN_VIEW/controller.js
+ * ::buildMetadataMapFromCtxData`, including `gcdrDeviceId` (RFC-0201 Phase-1
+ * row #1) — TB sometimes lowercases the dataKey name, so check both.
  */
 function extractDeviceMetadataFromRows(rows) {
   if (!rows || rows.length === 0) return null;
@@ -165,6 +174,8 @@ function extractDeviceMetadataFromRows(rows) {
     domain,
     lastActivityTime: dataKeyValues['lastActivityTime'],
     lastConnectTime: dataKeyValues['lastConnectTime'],
+    // RFC-0201 Phase-1 row #1: gcdrDeviceId propagation (case-insensitive).
+    gcdrDeviceId: dataKeyValues['gcdrDeviceId'] || dataKeyValues['gcdrdeviceid'] || null,
   };
 }
 
@@ -294,11 +305,33 @@ function processDataAndDispatchEvents() {
   ];
   const allTemp = [...classified.temperature.termostato, ...classified.temperature.termostato_external];
 
+  // RFC-0201 Phase-1 row #2: flat baseline of all classified devices, used by
+  // cross-domain alarm/ticket lookups (e.g., AlarmServiceOrchestrator).
+  window.STATE.itemsBase = [...allEnergy, ...allWater, ...allTemp];
+
   // Calculate totals
   const energyTotal = allEnergy.reduce((sum, d) => sum + Number(d.value || 0), 0);
   const waterTotal = allWater.reduce((sum, d) => sum + Number(d.value || 0), 0);
   const tempValues = allTemp.map((d) => Number(d.temperature || 0)).filter((v) => v > 0);
   const tempAvg = tempValues.length > 0 ? tempValues.reduce((a, b) => a + b, 0) / tempValues.length : null;
+
+  // RFC-0201 Phase-2 / RFC-0196 — `byCategory` payload for the
+  // `myio:energy-summary-ready` event. Consumed by the Info component
+  // (pie chart) and the Header KPI tooltips. We hand back the canonical
+  // `buildEquipmentCategorySummary` result (snake_case keys:
+  // `entrada`, `lojas`, `climatizacao`, `elevadores`, `escadas_rolantes`,
+  // `outros`, `area_comum`). Falls back to `null` when the library is
+  // not available — listeners must handle the missing-field case.
+  const lib = window.MyIOLibrary;
+  let energyByCategory = null;
+  if (lib && typeof lib.buildEquipmentCategorySummary === 'function') {
+    try {
+      energyByCategory = lib.buildEquipmentCategorySummary(allEnergy);
+    } catch (err) {
+      LogHelper.warn('buildEquipmentCategorySummary failed:', err);
+      energyByCategory = null;
+    }
+  }
 
   // Dispatch events
   window.dispatchEvent(
@@ -313,10 +346,20 @@ function processDataAndDispatchEvents() {
         totalDevices: allEnergy.length,
         totalConsumption: energyTotal,
         byStatus: buildByStatusFromDevices(allEnergy),
+        // RFC-0196 — required for Info-cards click-by-group + Header
+        // tooltip percentages. May be `null` when the helper is not
+        // available; listeners must handle that case.
+        byCategory: energyByCategory,
       },
     })
   );
 
+  // RFC-0196 — water has no canonical equipment-category summary
+  // because hidrômetros aren't subcategorized the way 3F_MEDIDOR
+  // equipment is (no Climatização/Elevadores/Esc.Rolantes/Outros split).
+  // The Info component derives water groups (entrada / lojas /
+  // banheiros / areaComum) directly from `classified.water.*` arrays
+  // via `updateTelemetryInfoComponents`, so we omit `byCategory` here.
   window.dispatchEvent(
     new CustomEvent('myio:water-summary-ready', {
       detail: {
@@ -607,6 +650,50 @@ function createComponents() {
         switchContentState(domain);
       },
       onToggleCollapse: handleMenuCollapse,
+      // RFC-0181 / RFC-0182 / RFC-0201 Phase-2 #20 — Reports submenu wiring.
+      // Builds the StoreItem[] for (domain, group) using STATE.itemsBase, derives
+      // the orchIdSet (API allow-list), and opens the AllReportModal.
+      onReportsClick: (group) => {
+        const itemsBase = window.STATE?.itemsBase ?? [];
+        if (!Array.isArray(itemsBase) || itemsBase.length === 0) {
+          LogHelper.warn('[MAIN] onReportsClick: STATE.itemsBase empty — aborting');
+          return;
+        }
+
+        const items = lib.buildItemsList?.(_currentDomain, group, itemsBase) ?? [];
+        const orchIdSet = new Set(items.map((item) => String(item.id)));
+
+        LogHelper.log('[MAIN] onReportsClick →', {
+          domain: _currentDomain,
+          group,
+          items: items.length,
+          orchIdSetSize: orchIdSet.size,
+        });
+
+        if (!lib.openDashboardPopupAllReport) {
+          LogHelper.warn('[MAIN] openDashboardPopupAllReport not available on lib');
+          return;
+        }
+
+        const customerId = _credentials?.ingestionId || '';
+        const ingestionToken =
+          window.MyIOOrchestrator?.tokenManager?.getToken?.('ingestionToken') || '';
+
+        lib.openDashboardPopupAllReport({
+          customerId,
+          domain: _currentDomain,
+          group,
+          itemsList: items,
+          orchIdSet,
+          api: {
+            clientId: _credentials?.clientId || '',
+            clientSecret: _credentials?.clientSecret || '',
+            dataApiBaseUrl: DATA_API_HOST,
+            ingestionToken,
+          },
+          ui: { theme: _currentThemeMode },
+        });
+      },
     });
     LogHelper.log('Menu created with theme:', _currentThemeMode);
   }
@@ -708,6 +795,12 @@ function createEnergyGrids(lib) {
       showChart: true,
       showExpandButton: true,
       debugActive: DEBUG_ACTIVE,
+      // RFC-0196 — slice click → controller dispatches
+      // `myio:filter-applied` (already done by the component itself);
+      // the callback is kept for log/debug observability.
+      onSliceClick: (group) => {
+        LogHelper.log('[RFC-0196] Energy slice clicked:', group);
+      },
     });
     LogHelper.log('Energy Info created');
   }
@@ -772,6 +865,10 @@ function createWaterGrids(lib) {
       showChart: true,
       showExpandButton: true,
       debugActive: DEBUG_ACTIVE,
+      // RFC-0196 — slice click hook (parallel to energy panel).
+      onSliceClick: (group) => {
+        LogHelper.log('[RFC-0196] Water slice clicked:', group);
+      },
     });
     LogHelper.log('Water Info created');
   }
@@ -960,6 +1057,118 @@ window.addEventListener('myio:theme-change', (e) => {
 });
 
 // ============================================================================
+// RFC-0196 / RFC-0201 Phase-2 — Info-cards click-by-group filter wiring
+// ============================================================================
+// Listens for `myio:filter-applied` (dispatched by the
+// TelemetryInfoShopping component on slice click) and narrows the
+// visible domain grids to the matching device list. When `group` is
+// `null` (filter cleared via toggle) all grids are restored to their
+// classified baselines.
+//
+// NOTE: registered at module scope BEFORE `onInit` to avoid the
+// well-known "event fired during async onInit awaits" race (RFC-0126).
+
+/**
+ * RFC-0196 — match a device against a filter group within a domain.
+ * Energy uses snake_case group keys (mirrors `buildEquipmentCategorySummary`).
+ * Water uses camelCase group keys (mirrors the Info component).
+ */
+function _matchDeviceForGroup(device, domain, group) {
+  if (!device || !domain || !group) return false;
+
+  if (domain === 'energy') {
+    const lib = window.MyIOLibrary;
+    const classify = lib && lib.classifyEquipment;
+    if (!classify) return false;
+    const cat = classify(device); // returns snake_case key
+    if (group === 'erro') return false; // Erro is residual, no devices
+    return cat === group;
+  }
+
+  if (domain === 'water') {
+    // Water groups are derived from the original `classified.water.*`
+    // bucket (set on STATE.water.<group>.items by processDataAndDispatchEvents).
+    // We match by checking which bucket the device lives in.
+    const water = window.STATE?.water || {};
+    const bucketName =
+      group === 'lojas' ? 'lojas'
+      : group === 'banheiros' ? 'banheiros'
+      : group === 'areaComum' ? 'areacomum'
+      : group === 'entrada' ? 'entrada'
+      : null;
+    if (!bucketName) return false;
+    const bucket = water[bucketName];
+    if (!bucket || !Array.isArray(bucket.items)) return false;
+    return bucket.items.some((d) => d?.entityId === device.entityId);
+  }
+
+  return false;
+}
+
+/**
+ * RFC-0196 — narrow energy grids on filter, restore on clear.
+ * Mirror is symmetric for water.
+ */
+function _applyFilterToGrids(domain, group) {
+  const itemsBase = window.STATE?.itemsBase || [];
+
+  if (domain === 'energy') {
+    const matches = group
+      ? itemsBase.filter((d) => d?.domain === 'energy' && _matchDeviceForGroup(d, 'energy', group))
+      : null;
+
+    // When filter is cleared (group=null), restore each grid to its
+    // classified baseline. When set, push the matched subset to all
+    // three energy grids (the user clicked one slice — they want all
+    // visible energy grids to converge on those devices).
+    if (matches != null) {
+      _energyGridEntrada?.updateDevices?.(matches.filter((d) => window.STATE?.energy?.entrada?.items?.some((x) => x.entityId === d.entityId)));
+      _energyGridAreaComum?.updateDevices?.(matches.filter((d) => window.STATE?.energy?.areacomum?.items?.some((x) => x.entityId === d.entityId)));
+      _energyGridLojas?.updateDevices?.(matches.filter((d) => window.STATE?.energy?.lojas?.items?.some((x) => x.entityId === d.entityId)));
+    } else {
+      // Clear filter — restore baselines.
+      _energyGridEntrada?.updateDevices?.(window.STATE?.energy?.entrada?.items || []);
+      _energyGridAreaComum?.updateDevices?.(window.STATE?.energy?.areacomum?.items || []);
+      _energyGridLojas?.updateDevices?.(window.STATE?.energy?.lojas?.items || []);
+    }
+  } else if (domain === 'water') {
+    if (group) {
+      const matches = itemsBase.filter(
+        (d) => d?.domain === 'water' && _matchDeviceForGroup(d, 'water', group)
+      );
+      _waterGridEntrada?.updateDevices?.(matches.filter((d) => window.STATE?.water?.entrada?.items?.some((x) => x.entityId === d.entityId)));
+      _waterGridAreaComum?.updateDevices?.(matches.filter((d) => window.STATE?.water?.areacomum?.items?.some((x) => x.entityId === d.entityId)));
+      _waterGridLojas?.updateDevices?.(matches.filter((d) => window.STATE?.water?.lojas?.items?.some((x) => x.entityId === d.entityId)));
+    } else {
+      _waterGridEntrada?.updateDevices?.(window.STATE?.water?.entrada?.items || []);
+      _waterGridAreaComum?.updateDevices?.(window.STATE?.water?.areacomum?.items || []);
+      _waterGridLojas?.updateDevices?.(window.STATE?.water?.lojas?.items || []);
+    }
+  }
+}
+
+window.addEventListener('myio:filter-applied', (e) => {
+  const detail = e?.detail || {};
+  const domain = detail.domain;
+  const group = detail.group; // null when filter is toggled off
+  if (!domain) return;
+
+  // Resolve deviceIds from `STATE.itemsBase` and fold them into the
+  // detail object so downstream listeners (footer, settings) get a
+  // ready-to-use list. This is best-effort — when the Info component
+  // dispatches the event it leaves `deviceIds` empty; we patch it here.
+  const itemsBase = window.STATE?.itemsBase || [];
+  const matches = group
+    ? itemsBase.filter((d) => d?.domain === domain && _matchDeviceForGroup(d, domain, group))
+    : [];
+  detail.deviceIds = matches.map((d) => d.entityId).filter(Boolean);
+
+  LogHelper.log('[RFC-0196] myio:filter-applied:', { domain, group, count: detail.deviceIds.length });
+
+  _applyFilterToGrids(domain, group);
+});
+
+// ============================================================================
 // ThingsBoard Widget Lifecycle
 // ============================================================================
 
@@ -1063,6 +1272,38 @@ self.onInit = async function () {
   if (gcdrCustomerId) {
     _prefetchCustomerAlarms(gcdrCustomerId, gcdrTenantId, alarmsApiBaseUrl);
   }
+
+  // RFC-0183 / RFC-0201 Phase 1 (rows #8, #9): build window.AlarmServiceOrchestrator
+  // once both `customerAlarms` (from `_prefetchCustomerAlarms`) and `STATE.itemsBase`
+  // (from `processDataAndDispatchEvents`, dispatched as `myio:data-ready`) are ready.
+  // We register the listener BEFORE `createComponents()` so we never miss the first
+  // `myio:data-ready` event (which can fire during component construction).
+  let _alarmOrchBuilt = false;
+  const _showOfflineAlarms = settings.showOfflineAlarms ?? false;
+  window.addEventListener('myio:data-ready', () => {
+    if (_alarmOrchBuilt) return;
+    const lib = window.MyIOLibrary;
+    if (!lib?.createAlarmServiceOrchestrator) return;
+    const customerAlarms = window.MyIOOrchestrator?.customerAlarms;
+    const itemsBase = window.STATE?.itemsBase;
+    if (!Array.isArray(customerAlarms) || !Array.isArray(itemsBase)) return;
+    window.AlarmServiceOrchestrator = lib.createAlarmServiceOrchestrator({
+      customerAlarms,
+      itemsBase,
+      showOfflineAlarms: _showOfflineAlarms,
+      refreshFn: async () => {
+        await _prefetchCustomerAlarms(gcdrCustomerId, gcdrTenantId, alarmsApiBaseUrl);
+        return window.MyIOOrchestrator?.customerAlarms ?? [];
+      },
+    });
+    _alarmOrchBuilt = true;
+    LogHelper.log(
+      '[MAIN] AlarmServiceOrchestrator constructed; deviceAlarmMap size:',
+      window.AlarmServiceOrchestrator.deviceAlarmMap.size,
+    );
+    // Notify cards/tooltips so they can re-render with the now-available counts.
+    window.dispatchEvent(new CustomEvent('myio:alarms-refreshed'));
+  });
 
   // Create components
   createComponents();

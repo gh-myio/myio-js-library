@@ -99,6 +99,22 @@ export const DEFAULT_MENU_SHOPPING_CONFIG: Required<MenuShoppingConfigTemplate> 
 };
 
 /**
+ * RFC-0181 / RFC-0201 Phase-2 #19 — Group keys for the Reports menu in
+ * MenuShopping. Mirrors `ReportsGroup` from the toolbar Menu component
+ * (`src/components/menu/types.ts`) — kept locally to avoid a cyclic
+ * import between the two menu families.
+ */
+export type MenuShoppingReportsGroup =
+  | 'lojas'
+  | 'stores'
+  | 'entrada'
+  | 'area_comum'
+  | 'todos'
+  | 'banheiros'
+  | 'climatizavel'
+  | 'nao_climatizavel';
+
+/**
  * Parameters for creating the component
  */
 export interface MenuShoppingParams {
@@ -122,6 +138,12 @@ export interface MenuShoppingParams {
   onLogoutClick?: () => void;
   /** Callback when hamburger toggle clicked */
   onToggleCollapse?: (collapsed: boolean) => void;
+  /**
+   * RFC-0181 / RFC-0201 Phase-2 #19 — Called when the user picks an item
+   * from the Reports submenu. The argument is the group key (e.g.
+   * `'lojas'`, `'entrada'`, `'climatizavel'`).
+   */
+  onReportsClick?: (group: MenuShoppingReportsGroup) => void;
 }
 
 /**
@@ -167,7 +189,8 @@ export type MenuShoppingEventType =
   | 'shopping-selector-click'
   | 'logout-click'
   | 'collapse-toggle'
-  | 'domain-changed';
+  | 'domain-changed'
+  | 'reports-click';
 
 /**
  * Event handler type

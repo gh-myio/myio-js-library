@@ -15,10 +15,17 @@
         "description": "Base URL for apps myio"
       },
       "defaultThemeMode": {
-        "title": "Default Theme Mode",
+        "title": "Default theme mode",
         "type": "string",
-        "enum": ["dark", "light"],
-        "default": "light"
+        "enum": ["light", "dark"],
+        "default": "light",
+        "description": "Initial theme on dashboard load. Default 'light' matches v-5.2.0."
+      },
+      "showOfflineAlarms": {
+        "title": "Show offline-device alarms in counts",
+        "type": "boolean",
+        "default": false,
+        "description": "When true, alarms on offline devices count toward badges and tooltips. Default false avoids alarm flooding when a central goes offline."
       },
       "darkMode": {
         "type": "object",
@@ -276,6 +283,7 @@
     },
     "excludeDevicesAtCountSubtotalCAG",
     "enableAnnotationsOnboarding",
+    "showOfflineAlarms",
     "alarmsApiBaseUrl",
     "alarmsApiKey",
     "gcdrCustomerId",

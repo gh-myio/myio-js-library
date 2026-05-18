@@ -411,6 +411,27 @@ export interface HeaderComponentParams {
   onCardClick?: (cardType: CardType) => void;
   /** Called when hovering over a card */
   onCardHover?: (cardType: CardType, isHovering: boolean) => void;
+
+  // RFC-0183 / RFC-0201 Phase 1 — Header alarm tooltip wiring
+  /**
+   * Desktop tooltip width in pixels. Pinned to 320 by default per Sally's
+   * UX spec (`--myio-tooltip-width-desktop`). Below 768px breakpoint the
+   * tooltip is content-driven.
+   */
+  tooltipWidth?: number;
+  /**
+   * When `true`, internal-support alarms are filtered out of the visible
+   * Header alarm count (so customer-facing tooltips don't include the
+   * MYIO-internal noise). Default: `false`.
+   */
+  isInternalSupportRule?: boolean;
+  /**
+   * When `true`, alarms whose underlying device is offline still count
+   * toward the Header total. When `false` (default), they are excluded.
+   * Mirrors the orchestrator-level setting so the Header total matches
+   * the badge totals on cards.
+   */
+  showOfflineAlarms?: boolean;
 }
 
 // ============================================================================
@@ -468,6 +489,14 @@ export interface HeaderComponentInstance {
   on: (event: HeaderEventType, handler: HeaderEventHandler) => void;
   /** Unregister an event handler */
   off: (event: HeaderEventType, handler: HeaderEventHandler) => void;
+
+  // RFC-0183 / RFC-0201 Phase 1
+  /**
+   * Returns the deduplicated alarm count read from
+   * `window.AlarmServiceOrchestrator`, with `isInternalSupportRule`
+   * filtering applied if enabled on the component.
+   */
+  getAlarmCount: () => number;
 }
 
 // ============================================================================

@@ -95,6 +95,26 @@ export {
   calculateDeviceStatusMasterRules, // RFC-0110: Simplified status calculation with master rules
 } from './utils/deviceStatus.js';
 
+// Device Icons utilities (RFC-0200)
+export {
+  DeviceIconType,
+  deviceIcons,
+  deviceIconLabels,
+  DEFAULT_DEVICE_ICON,
+  getDeviceIcon,
+  isDeviceIconType,
+} from './utils/deviceIcons';
+
+// Alarm Service Orchestrator (RFC-0183 / RFC-0201 Phase 1)
+export {
+  createAlarmServiceOrchestrator,
+} from './components/alarms/createAlarmServiceOrchestrator';
+export type {
+  AlarmServiceOrchestrator,
+  GCDRAlarm,
+  CreateAlarmOrchestratorOpts,
+} from './components/alarms/createAlarmServiceOrchestrator';
+
 // RFC-0109: Device Item Factory utilities
 export {
   DomainType,
@@ -210,6 +230,9 @@ export {
   STATUS_COLORS,
 } from './components/premium-modals/settings/annotations/types';
 
+// Canonical baseline types (RFC-0201 Phase-1 — pod F0)
+export type { BaseItem, BaseItemDomain } from './types';
+
 // RFC-0104: Annotation Indicator Component
 export { AnnotationIndicator, createAnnotationIndicator } from './utils/AnnotationIndicator';
 
@@ -283,6 +306,27 @@ export { createLibraryVersionChecker } from './components/library-version-checke
 // RFC-0084: Real-Time Telemetry Modal
 export { openRealTimeTelemetryModal } from './components/RealTimeTelemetryModal';
 export type { RealTimeTelemetryParams, RealTimeTelemetryInstance } from './components/RealTimeTelemetryModal';
+// RFC-0201 Phase-2 pod J: realtime drawer pure helpers (FP/255, mm:ss, status icon, friendly errors).
+export {
+  scaleFp,
+  applyFpScalingIfNeeded,
+  isFpKey,
+  FP_TELEMETRY_KEYS,
+  formatSessionRemaining,
+  isSessionExpired,
+  getDeviceDisplayLabel,
+  getDeviceChartTitle,
+  bucketStatus,
+  statusDotClass,
+  getRealtimeStatusIcon,
+  toFriendlyError,
+  REALTIME_DEFAULT_FRIENDLY_ERROR,
+} from './components/realtime-drawer/helpers';
+export type {
+  FpTelemetryKey,
+  RealtimeDeviceInfo,
+  RealtimeStatusBucket,
+} from './components/realtime-drawer/helpers';
 
 // Premium Modal Components
 export {
@@ -771,7 +815,13 @@ export type {
   MenuEventType,
   MenuEventHandler,
   MenuState,
+  // RFC-0181 / RFC-0201 Phase-2 #19
+  ReportsGroup,
 } from './components/menu';
+
+// RFC-0182 / RFC-0201 Phase-2 #17 — Items list helper for AllReportModal.
+export { buildItemsList } from './utils/buildItemsList';
+export type { ItemsListDomain, ItemsListGroup } from './utils/buildItemsList';
 
 export { DEFAULT_MENU_CONFIG, DEFAULT_TABS } from './components/menu';
 
@@ -1004,6 +1054,10 @@ export type {
   WaterState as TelemetryInfoWaterState,
   CategoryType as TelemetryInfoCategoryType,
   ChartColors as TelemetryInfoChartColors,
+  // RFC-0196
+  EnergyGroup as TelemetryInfoEnergyGroup,
+  WaterGroup as TelemetryInfoWaterGroup,
+  FilterGroup as TelemetryInfoFilterGroup,
 } from './components/telemetry-info-shopping';
 
 export {

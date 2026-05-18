@@ -900,10 +900,15 @@ export class AllReportModal {
       return [];
     }
 
-    // 2a) When no itemsList is provided (undefined/null), map directly from the API array.
+    // 2a) When no itemsList AND no orchIdSet is provided, map directly from the API array.
     //     An explicitly provided empty itemsList means the group has no devices → return [].
-    if (!this.params.itemsList) {
-      this.debugLog('📋 No itemsList provided — mapping directly from API array');
+    //     An explicitly provided empty orchIdSet (size 0) does NOT trigger filtering — falls
+    //     back to direct mapping for backwards compatibility.
+    const hasItemsList = !!this.params.itemsList;
+    const hasOrchIdSet = this.params.orchIdSet instanceof Set && this.params.orchIdSet.size > 0;
+
+    if (!hasItemsList && !hasOrchIdSet) {
+      this.debugLog('📋 No itemsList / orchIdSet provided — mapping directly from API array');
       return apiArray.map((item) => ({
         identifier: item.assetName || this.resolveStoreIdentifierFromApi(item) || item.id || '',
         name: item.name || item.assetName || item.id || '',
@@ -915,10 +920,18 @@ export class AllReportModal {
     //     Discards API items that don't belong to this group (e.g. area_comum filters out lojas,
     //     entrada, etc. from the full 271-device energy response).
     //     Uses total_value from the API item (picked via pickConsumption).
+    //
+    //     RFC-0201 Phase-2 #18 — `orchIdSet` (when provided) takes precedence over rebuilding
+    //     a Set from `itemsList`. Metadata (label/identifier/groupLabel) still comes from
+    //     `itemsList` when available; otherwise the API response shape is used as fallback.
 
-    // Build O(1) lookup structures from itemsList
-    const orchIdSet = new Set(this.params.itemsList.map((item) => String(item.id)));
-    const orchMeta  = new Map(this.params.itemsList.map((item) => [String(item.id), item]));
+    const orchIdSet = hasOrchIdSet
+      ? (this.params.orchIdSet as Set<string>)
+      : new Set((this.params.itemsList ?? []).map((item) => String(item.id)));
+
+    const orchMeta = new Map(
+      (this.params.itemsList ?? []).map((item) => [String(item.id), item]),
+    );
 
     this.debugLog('[AllReportModal] API-driven filter — orchestrator devices:', orchIdSet.size);
     this.debugLog('[AllReportModal] API-driven filter — API total devices:', apiArray.length);
