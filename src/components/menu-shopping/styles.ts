@@ -430,6 +430,102 @@ export const MENU_SHOPPING_STYLES = `
   direction: ltr;
   -webkit-font-smoothing: antialiased;
 }
+
+/* ==========================================================================
+   RFC-0181 / RFC-0201 Phase-2 #19 — Reports submenu
+   ========================================================================== */
+.${PREFIX}-container { position: relative; }
+
+.${PREFIX}-reports-menu {
+  position: absolute;
+  left: calc(100% + 8px);
+  bottom: 16px;
+  display: none;
+  z-index: 10000;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+  width: min(640px, 92vw);
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.${PREFIX}-container[data-theme='dark'] .${PREFIX}-reports-menu {
+  background: #1f2937;
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #f3f4f6;
+}
+
+.${PREFIX}-reports-menu.is-open { display: block; }
+
+.${PREFIX}-reports-menu-content {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.${PREFIX}-reports-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.${PREFIX}-reports-section-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #64748b;
+  padding: 4px 8px;
+}
+
+.${PREFIX}-reports-section-items {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 6px;
+}
+
+.${PREFIX}-reports-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: inherit;
+  text-align: left;
+  transition: all 0.15s ease;
+}
+
+.${PREFIX}-reports-item:hover {
+  background: rgba(99, 102, 241, 0.08);
+  border-color: rgba(99, 102, 241, 0.4);
+}
+
+.${PREFIX}-container[data-theme='dark'] .${PREFIX}-reports-item {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.${PREFIX}-reports-item-ico { font-size: 16px; flex-shrink: 0; }
+
+.${PREFIX}-reports-item-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.${PREFIX}-footer-btn.reports {
+  /* same shape as other footer btns; default colors inherited */
+}
 `;
 
 let stylesInjected = false;

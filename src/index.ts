@@ -794,7 +794,13 @@ export type {
   MenuEventType,
   MenuEventHandler,
   MenuState,
+  // RFC-0181 / RFC-0201 Phase-2 #19
+  ReportsGroup,
 } from './components/menu';
+
+// RFC-0182 / RFC-0201 Phase-2 #17 — Items list helper for AllReportModal.
+export { buildItemsList } from './utils/buildItemsList';
+export type { ItemsListDomain, ItemsListGroup } from './utils/buildItemsList';
 
 export { DEFAULT_MENU_CONFIG, DEFAULT_TABS } from './components/menu';
 

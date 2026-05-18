@@ -76,6 +76,23 @@ export interface OpenAllReportParams {
   ui?: BaseUiCfg;
   api: BaseApiCfg;
   itemsList?: StoreItem[]; // RFC-0182: Optional — if absent, maps directly from API response
+  /**
+   * RFC-0182 / RFC-0201 Phase-2 #18 — Server-side ingestionId allow-list.
+   *
+   * When provided, the modal filters the API response so only rows whose
+   * `id` is present in `orchIdSet` are kept. This is the API-driven filter
+   * counterpart to `itemsList`: callers can pass a pre-built `Set<string>`
+   * built from `itemsList.map(i => String(i.id))` to avoid the modal
+   * rebuilding it on every render.
+   *
+   * If both `itemsList` and `orchIdSet` are provided, `orchIdSet` takes
+   * precedence for the API-response filter (label/identifier/groupLabel
+   * still come from `itemsList`).
+   *
+   * If `orchIdSet` is `undefined` or empty AND `itemsList` is also absent,
+   * the modal falls back to mapping every API item directly.
+   */
+  orchIdSet?: Set<string>;
   fetcher?: CustomerTotalsFetcher; // Optional dependency injection for testing
   debug?: 1 | 0; // Optional debug logging flag (1 = enabled, 0 = disabled)
 }

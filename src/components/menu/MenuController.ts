@@ -177,6 +177,21 @@ export class MenuController implements MenuComponentInstance {
         console.log('[MenuController] Theme changed:', themeMode);
       }
     });
+
+    // RFC-0181 / RFC-0201 Phase-2 #19 — Reports click
+    this.view.on('reports-click', (data: unknown) => {
+      const { group, domain } = data as {
+        group: import('./types').ReportsGroup;
+        domain?: 'energy' | 'water' | 'temperature';
+      };
+
+      this.params.onReportsClick?.(group);
+      this.dispatchCustomEvent('myio:reports-click', { group, domain });
+
+      if (this.config.enableDebugMode) {
+        console.log('[MenuController] Reports clicked:', { group, domain });
+      }
+    });
   }
 
   /**
