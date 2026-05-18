@@ -676,6 +676,28 @@ export const TELEMETRY_INFO_SHOPPING_STYLES = `
     gap: 12px !important;
   }
 }
+
+/* ========== RFC-0196: SLICE CLICK VISUAL FEEDBACK ========== */
+/* Active card: solid 2px ring (matches the 4px white ring on the chart slice). */
+.telemetry-info-root .tis-card--active {
+  outline: 2px solid var(--tis-primary) !important;
+  outline-offset: 1px !important;
+  transition: outline 120ms ease, opacity 120ms ease !important;
+}
+
+/* Faded sibling: 60% opacity per Sally's Visual-Parity spec. */
+.telemetry-info-root .tis-card--faded {
+  opacity: 0.6 !important;
+  transition: opacity 120ms ease !important;
+}
+
+/* RFC-0196 — Erro card stylings (red accent). */
+.telemetry-info-root .tis-erro-card .tis-card-title {
+  color: #C62828 !important;
+}
+.telemetry-info-root .tis-erro-card .tis-stat-value {
+  color: #C62828 !important;
+}
 `;
 
 export function injectStyles(_container?: HTMLElement): void {
