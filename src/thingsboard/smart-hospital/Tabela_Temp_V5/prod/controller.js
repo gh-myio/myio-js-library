@@ -3644,6 +3644,7 @@ function _man4BuildReport(allData) {
   var MAN4_SLOT_HOURS = [8, 10, 12, 14, 16, 18, 20];
   var TEMP_LIMIT = 24;
   var nowMs = Date.now();
+  var GRACE_MS = 5 * 60 * 1000;
 
   function fmtDate(d) {
     return String(d.getDate()).padStart(2, '0') + '/' +
@@ -3696,7 +3697,7 @@ function _man4BuildReport(allData) {
       for (var hi = 0; hi < MAN4_SLOT_HOURS.length; hi++) {
         var hourBRT = MAN4_SLOT_HOURS[hi];
         var slotTs = Date.UTC(day.y, day.m, day.d, hourBRT + 3, 0, 0, 0);
-        if (slotTs > nowMs) continue;
+        if (slotTs > nowMs - GRACE_MS && !tsMap[slotTs]) continue;
         var row = tsMap[slotTs];
         var status, value;
 
@@ -3719,7 +3720,7 @@ function _man4BuildReport(allData) {
       devDays.push({ date: day.label, conformeCount: dayConf, semDadosCount: daySem, tempAltaCount: dayAlta, slots: slots });
     }
 
-    var devTotal = devDays.reduce(function(acc, dd) { return acc + dd.slots.length; }, 0);
+    var devTotal = devConforme + devSemDados + devTempAlta;
     var devConformePct = devTotal ? parseFloat(((devConforme / devTotal) * 100).toFixed(2)) : 0;
 
     totalConforme += devConforme; totalSemDados += devSemDados; totalTempAlta += devTempAlta;
@@ -3733,9 +3734,7 @@ function _man4BuildReport(allData) {
   // Sort worst conformity first
   devices.sort(function (a, b) { return a.conformePct - b.conformePct; });
 
-  var totalSlots = devices.reduce(function(acc, dev) {
-    return acc + dev.days.reduce(function(b, dd) { return b + dd.slots.length; }, 0);
-  }, 0);
+  var totalSlots = totalConforme + totalSemDados + totalTempAlta;
   var overallConformePct = totalSlots ? parseFloat(((totalConforme / totalSlots) * 100).toFixed(2)) : 0;
   var semDadosPct        = totalSlots ? parseFloat(((totalSemDados  / totalSlots) * 100).toFixed(2)) : 0;
   var tempAltaPct        = totalSlots ? parseFloat(((totalTempAlta  / totalSlots) * 100).toFixed(2)) : 0;
