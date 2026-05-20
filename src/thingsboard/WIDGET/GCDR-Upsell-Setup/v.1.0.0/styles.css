@@ -1,1 +1,31 @@
-/* Styles injected by controller.js */
+#container {
+  overflow: auto;
+}
+
+.tbDatasource-container {
+  margin: 5px;
+  padding: 8px;
+}
+
+.tbDatasource-title {
+  font-size: 1.2rem;
+  font-weight: 500;
+  padding-bottom: 10px;
+}
+
+.tbDatasource-table {
+  width: 100%;
+  box-shadow: 0 0 10px #ccc;
+  border-collapse: collapse;
+  white-space: nowrap;
+  font-size: 1rem;
+  color: #757575;
+}
+
+.tbDatasource-table td {
+  position: relative;
+  border-top: 1px solid rgba(0, 0, 0, 0.12);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+  padding: 0px 18px;
+  box-sizing: border-box;
+}

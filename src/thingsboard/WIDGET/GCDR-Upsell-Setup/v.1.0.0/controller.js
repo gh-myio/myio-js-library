@@ -264,7 +264,10 @@ async function guFetchAssetServerScopeAttrs(assetId) {
   if (!res.ok) return {};
   const payload = await res.json();
   const map = {};
-  if (Array.isArray(payload)) payload.forEach((a) => { map[a.key] = a.value; });
+  if (Array.isArray(payload))
+    payload.forEach((a) => {
+      map[a.key] = a.value;
+    });
   return map;
 }
 
@@ -1270,8 +1273,8 @@ self.onInit = function () {
       }
 
       // 2) Resolve values — integration_setup.gcdr wins; individual attrs as fallback
-      gcdrTenantId  = gcdrCfg?.gcdrTenantId  ?? attrs.gcdrTenantId  ?? null;
-      gcdrApiKey    = gcdrCfg?.gcdrApiKey     ?? attrs.gcdrApiKey    ?? null;
+      gcdrTenantId = gcdrCfg?.gcdrTenantId ?? attrs.gcdrTenantId ?? null;
+      gcdrApiKey = gcdrCfg?.gcdrApiKey ?? attrs.gcdrApiKey ?? null;
       gcdrCustomerId = gcdrCfg?.gcdrCustomerId ?? attrs.gcdrCustomerId ?? attrs.gcdrId ?? null;
 
       if (!gcdrCfg) {
@@ -1649,7 +1652,9 @@ self.onInit = function () {
                 scope,
               });
               allTreeDevIds.add(devId);
-            } catch { /* non-fatal */ }
+            } catch {
+              /* non-fatal */
+            }
           })
         );
       }
@@ -1797,15 +1802,15 @@ self.onInit = function () {
     function downloadLog(log) {
       const now = new Date();
       const pad = (n) => String(n).padStart(2, '0');
-      const ts = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}`;
+      const ts = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}`;
       const filename = `gcdr-sync_${(selectedCustomer.name || 'customer').replace(/[^a-zA-Z0-9_-]/g, '_')}_${ts}.txt`;
 
-      const assetCreate  = log.assets.filter((r) => r.ok && r.action === 'CREATE');
-      const assetUpdate  = log.assets.filter((r) => r.ok && r.action === 'UPDATE');
-      const assetErr     = log.assets.filter((r) => !r.ok);
-      const devCreate    = log.devices.filter((r) => r.ok && r.action === 'CREATE');
-      const devUpdate    = log.devices.filter((r) => r.ok && r.action === 'UPDATE');
-      const devErr       = log.devices.filter((r) => !r.ok);
+      const assetCreate = log.assets.filter((r) => r.ok && r.action === 'CREATE');
+      const assetUpdate = log.assets.filter((r) => r.ok && r.action === 'UPDATE');
+      const assetErr = log.assets.filter((r) => !r.ok);
+      const devCreate = log.devices.filter((r) => r.ok && r.action === 'CREATE');
+      const devUpdate = log.devices.filter((r) => r.ok && r.action === 'UPDATE');
+      const devErr = log.devices.filter((r) => !r.ok);
 
       const lines = [];
       lines.push('='.repeat(72));
@@ -1836,9 +1841,9 @@ self.onInit = function () {
           lines.push(`             tbId        : ${r.tbId || '—'}`);
           lines.push(`             gcdrAssetId : ${r.gcdrAssetId || '—'}`);
           if (r.gcdrParentAssetId) lines.push(`             gcdrParent  : ${r.gcdrParentAssetId}`);
-          if (r.matchBy)  lines.push(`             match       : ${r.matchBy}`);
-          if (r.moved)    lines.push(`             movido      : sim`);
-          if (r.error)    lines.push(`             erro        : ${r.error}`);
+          if (r.matchBy) lines.push(`             match       : ${r.matchBy}`);
+          if (r.moved) lines.push(`             movido      : sim`);
+          if (r.error) lines.push(`             erro        : ${r.error}`);
         }
         lines.push('');
       }
@@ -1852,11 +1857,14 @@ self.onInit = function () {
           lines.push(`             tbId         : ${r.tbId || '—'}`);
           lines.push(`             gcdrDeviceId : ${r.gcdrDeviceId || '—'}`);
           if (r.slaveId != null) lines.push(`             slaveId      : ${r.slaveId}`);
-          if (r.centralId)       lines.push(`             centralId    : ${r.centralId}`);
-          if (r.by)       lines.push(`             match        : ${r.by}`);
-          if (r.moved)    lines.push(`             movido       : sim`);
-          if (r.prevTbId) lines.push(`             ⚠️ prev tbId  : ${r.prevTbId}  ← GCDR device estava vinculado a outro TB device`);
-          if (r.error)    lines.push(`             erro         : ${r.error}`);
+          if (r.centralId) lines.push(`             centralId    : ${r.centralId}`);
+          if (r.by) lines.push(`             match        : ${r.by}`);
+          if (r.moved) lines.push(`             movido       : sim`);
+          if (r.prevTbId)
+            lines.push(
+              `             ⚠️ prev tbId  : ${r.prevTbId}  ← GCDR device estava vinculado a outro TB device`
+            );
+          if (r.error) lines.push(`             erro         : ${r.error}`);
         }
         for (const r of log.skipped) {
           lines.push(`  ⚠️  IGNORADO     ${r.name}`);
@@ -1956,7 +1964,7 @@ self.onInit = function () {
           <td style="padding:7px 8px">
             ${r.by ? chip(r.by, '#f0fdf4', '#166534') : '<span style="color:#9ca3af">—</span>'}
             ${r.moved ? chip('↪ movido', '#fef9c3', '#854d0e') : ''}
-            ${r.prevTbId ? `<div style="font-size:10px;color:#b45309;margin-top:3px" title="GCDR device estava vinculado a outro TB device antes do sync">⚠️ prev: <code style="font-size:9px">${r.prevTbId.substring(0,8)}…</code></div>` : ''}
+            ${r.prevTbId ? `<div style="font-size:10px;color:#b45309;margin-top:3px" title="GCDR device estava vinculado a outro TB device antes do sync">⚠️ prev: <code style="font-size:9px">${r.prevTbId.substring(0, 8)}…</code></div>` : ''}
           </td>
           <td style="padding:7px 8px;color:#ef4444;font-size:11px">${r.error || ''}</td>
         </tr>`
@@ -2091,10 +2099,13 @@ self.onInit = function () {
 
     function renderDevicePickerHTML(devices, mode) {
       const isMulti = mode === 'multiplos';
-      const rows = devices.map(d => {
-        const scope = d._scope || {};
-        const meta = [scope.deviceType || d.type || '', scope.slaveId ? `slave:${scope.slaveId}` : ''].filter(Boolean).join(' · ');
-        return `
+      const rows = devices
+        .map((d) => {
+          const scope = d._scope || {};
+          const meta = [scope.deviceType || d.type || '', scope.slaveId ? `slave:${scope.slaveId}` : '']
+            .filter(Boolean)
+            .join(' · ');
+          return `
           <label class="gu-picker-item" data-id="${d.id?.id || d.id}">
             <input type="${isMulti ? 'checkbox' : 'radio'}" name="gu-picker-dev"
               value="${d.id?.id || d.id}" style="accent-color:#92400e">
@@ -2103,7 +2114,8 @@ self.onInit = function () {
               ${meta ? `<div class="gu-picker-item-meta">${meta}</div>` : ''}
             </div>
           </label>`;
-      }).join('');
+        })
+        .join('');
       return `
         <div style="font-size:12px;color:#64748b;margin-bottom:10px">
           ${isMulti ? 'Selecione os devices a sincronizar:' : 'Selecione um device:'}
@@ -2112,16 +2124,19 @@ self.onInit = function () {
         <div class="gu-picker-list" id="gu-picker-list">${rows || '<div class="gu-picker-empty">Nenhum device encontrado</div>'}</div>`;
     }
 
-    renderShell(renderModeSelectionHTML(), `
+    renderShell(
+      renderModeSelectionHTML(),
+      `
       <button class="gu-fu-btn gu-fu-btn-secondary" id="gcs-cancel-mode">Cancelar</button>
-      <button class="gu-fu-btn gu-fu-btn-primary" id="gcs-confirm-mode" disabled>Continuar →</button>`);
+      <button class="gu-fu-btn gu-fu-btn-primary" id="gcs-confirm-mode" disabled>Continuar →</button>`
+    );
 
     overlay.querySelector('#gcs-cancel-mode').addEventListener('click', closeModal);
 
     // Mode card selection
-    overlay.querySelectorAll('.gu-sync-mode-card').forEach(card => {
+    overlay.querySelectorAll('.gu-sync-mode-card').forEach((card) => {
       card.addEventListener('click', () => {
-        overlay.querySelectorAll('.gu-sync-mode-card').forEach(c => c.classList.remove('selected'));
+        overlay.querySelectorAll('.gu-sync-mode-card').forEach((c) => c.classList.remove('selected'));
         card.classList.add('selected');
         _syncMode = card.dataset.mode;
         overlay.querySelector('#gcs-confirm-mode').disabled = false;
@@ -2137,20 +2152,27 @@ self.onInit = function () {
       }
 
       // Individual / Múltiplos — load device picker
-      setBody(`<div style="text-align:center;padding:30px;color:#64748b;font-size:13px">⏳ Carregando devices…</div>`);
+      setBody(
+        `<div style="text-align:center;padding:30px;color:#64748b;font-size:13px">⏳ Carregando devices…</div>`
+      );
       overlay.querySelector('#gcs-footer').innerHTML = '';
       let allDevices = [];
       try {
         allDevices = await guFetchCustomerDevices(selectedCustomer.id);
         // Enrich with SERVER_SCOPE for display (lightweight: already fetched as part of sync tree later)
       } catch (err) {
-        setBody(`<div style="color:#ef4444;font-size:13px">❌ Erro ao carregar devices: ${err.message}</div>`);
+        setBody(
+          `<div style="color:#ef4444;font-size:13px">❌ Erro ao carregar devices: ${err.message}</div>`
+        );
         overlay.querySelector('#gcs-footer').innerHTML =
           `<button class="gu-fu-btn gu-fu-btn-secondary" id="gcs-back">← Voltar</button>`;
         overlay.querySelector('#gcs-back').addEventListener('click', () => {
-          renderShell(renderModeSelectionHTML(), `
+          renderShell(
+            renderModeSelectionHTML(),
+            `
             <button class="gu-fu-btn gu-fu-btn-secondary" id="gcs-cancel-mode">Cancelar</button>
-            <button class="gu-fu-btn gu-fu-btn-primary" id="gcs-confirm-mode" disabled>Continuar →</button>`);
+            <button class="gu-fu-btn gu-fu-btn-primary" id="gcs-confirm-mode" disabled>Continuar →</button>`
+          );
         });
         return;
       }
@@ -2168,13 +2190,16 @@ self.onInit = function () {
 
       overlay.querySelector('#gcs-back-picker').addEventListener('click', () => {
         _syncMode = null;
-        renderShell(renderModeSelectionHTML(), `
+        renderShell(
+          renderModeSelectionHTML(),
+          `
           <button class="gu-fu-btn gu-fu-btn-secondary" id="gcs-cancel-mode">Cancelar</button>
-          <button class="gu-fu-btn gu-fu-btn-primary" id="gcs-confirm-mode" disabled>Continuar →</button>`);
+          <button class="gu-fu-btn gu-fu-btn-primary" id="gcs-confirm-mode" disabled>Continuar →</button>`
+        );
         overlay.querySelector('#gcs-cancel-mode').addEventListener('click', closeModal);
-        overlay.querySelectorAll('.gu-sync-mode-card').forEach(c => {
+        overlay.querySelectorAll('.gu-sync-mode-card').forEach((c) => {
           c.addEventListener('click', () => {
-            overlay.querySelectorAll('.gu-sync-mode-card').forEach(x => x.classList.remove('selected'));
+            overlay.querySelectorAll('.gu-sync-mode-card').forEach((x) => x.classList.remove('selected'));
             c.classList.add('selected');
             _syncMode = c.dataset.mode;
             overlay.querySelector('#gcs-confirm-mode').disabled = false;
@@ -2182,14 +2207,16 @@ self.onInit = function () {
         });
         overlay.querySelector('#gcs-confirm-mode').addEventListener('click', () => {
           if (!_syncMode) return;
-          if (_syncMode === 'geral') { startSync(null); }
+          if (_syncMode === 'geral') {
+            startSync(null);
+          }
         });
       });
 
       // Search filter
       overlay.querySelector('#gu-picker-q').addEventListener('input', (e) => {
         const q = e.target.value.toLowerCase();
-        overlay.querySelectorAll('.gu-picker-item').forEach(item => {
+        overlay.querySelectorAll('.gu-picker-item').forEach((item) => {
           const name = item.querySelector('.gu-picker-item-name')?.textContent?.toLowerCase() || '';
           item.style.display = name.includes(q) ? '' : 'none';
         });
@@ -2201,11 +2228,12 @@ self.onInit = function () {
         const btn = overlay.querySelector('#gcs-start-filtered');
         if (btn) {
           btn.disabled = checked.length === 0;
-          btn.textContent = checked.length > 0
-            ? `Sincronizar ${checked.length} device${checked.length > 1 ? 's' : ''}`
-            : 'Sincronizar selecionados';
+          btn.textContent =
+            checked.length > 0
+              ? `Sincronizar ${checked.length} device${checked.length > 1 ? 's' : ''}`
+              : 'Sincronizar selecionados';
         }
-        overlay.querySelectorAll('.gu-picker-item').forEach(item => {
+        overlay.querySelectorAll('.gu-picker-item').forEach((item) => {
           const inp = item.querySelector('input');
           item.classList.toggle('selected', inp?.checked === true);
         });
@@ -2216,7 +2244,7 @@ self.onInit = function () {
       overlay.querySelector('#gcs-start-filtered').addEventListener('click', () => {
         const checked = [...overlay.querySelectorAll('input[name="gu-picker-dev"]:checked')];
         if (checked.length === 0) return;
-        const deviceFilter = new Set(checked.map(inp => inp.value));
+        const deviceFilter = new Set(checked.map((inp) => inp.value));
         startSync(deviceFilter);
       });
     });
@@ -2224,452 +2252,463 @@ self.onInit = function () {
     function startSync(deviceFilter) {
       renderShell(renderProgress('Iniciando sincronização…', 0, 0), '');
 
-    (async () => {
-      const nowSynced = new Date().toISOString();
-      const log = { assets: [], devices: [], skipped: [], tbAssetTotal: 0, tbDeviceTotal: 0 };
+      (async () => {
+        const nowSynced = new Date().toISOString();
+        const log = { assets: [], devices: [], skipped: [], tbAssetTotal: 0, tbDeviceTotal: 0 };
 
-      try {
-        // ── FASE 0: Monta árvore TB ────────────────────────────────
-        setBody(renderProgress('Fase 0/3 — Mapeando árvore ThingsBoard…', 0, 0));
-        console.log('[GCDR Sync RFC-0186] Fase 0: buildTree TB');
-        const tbAssets = await guTbBuildTree(selectedCustomer.id, selectedCustomer.name);
-        const topoAssets = guTopoFlatten(tbAssets);
-        log.tbAssetTotal = topoAssets.length;
-        console.log(`[GCDR Sync] TB tree: ${topoAssets.length} assets`);
+        try {
+          // ── FASE 0: Monta árvore TB ────────────────────────────────
+          setBody(renderProgress('Fase 0/3 — Mapeando árvore ThingsBoard…', 0, 0));
+          console.log('[GCDR Sync RFC-0186] Fase 0: buildTree TB');
+          const tbAssets = await guTbBuildTree(selectedCustomer.id, selectedCustomer.name);
+          const topoAssets = guTopoFlatten(tbAssets);
+          log.tbAssetTotal = topoAssets.length;
+          console.log(`[GCDR Sync] TB tree: ${topoAssets.length} assets`);
 
-        // ── FASE 1: Carrega bundle GCDR ────────────────────────────
-        setBody(renderProgress('Fase 1/3 — Carregando bundle GCDR…', 0, 0));
-        console.log('[GCDR Sync RFC-0186] Fase 1: GCDR bundle');
-        const bundle = await guFetchGCDRCustomerBundle(selectedCustomer.id, gcdrTenantId);
-        if (!bundle)
-          throw new Error(
-            'Customer não encontrado no GCDR. Configure gcdrCustomerId em SERVER_SCOPE e verifique o tenant.'
+          // ── FASE 1: Carrega bundle GCDR ────────────────────────────
+          setBody(renderProgress('Fase 1/3 — Carregando bundle GCDR…', 0, 0));
+          console.log('[GCDR Sync RFC-0186] Fase 1: GCDR bundle');
+          const bundle = await guFetchGCDRCustomerBundle(selectedCustomer.id, gcdrTenantId);
+          if (!bundle)
+            throw new Error(
+              'Customer não encontrado no GCDR. Configure gcdrCustomerId em SERVER_SCOPE e verifique o tenant.'
+            );
+
+          // Filtrar estritamente por gcdrCustomerId — o bundle ?deep=1 pode conter
+          // assets/devices de outros customers no mesmo tenant GCDR, causando match cruzado
+          const bundleAssets = Array.isArray(bundle.assets) ? bundle.assets : [];
+          const bundleDevices = Array.isArray(bundle.devices) ? bundle.devices : [];
+          const gcdrAssetList = bundleAssets.filter((a) => !a.customerId || a.customerId === gcdrCustomerId);
+          const gcdrDeviceList = bundleDevices.filter(
+            (d) => !d.customerId || d.customerId === gcdrCustomerId
           );
 
-        // Filtrar estritamente por gcdrCustomerId — o bundle ?deep=1 pode conter
-        // assets/devices de outros customers no mesmo tenant GCDR, causando match cruzado
-        const bundleAssets  = Array.isArray(bundle.assets)  ? bundle.assets  : [];
-        const bundleDevices = Array.isArray(bundle.devices) ? bundle.devices : [];
-        const gcdrAssetList  = bundleAssets.filter( (a) => !a.customerId || a.customerId === gcdrCustomerId);
-        const gcdrDeviceList = bundleDevices.filter((d) => !d.customerId || d.customerId === gcdrCustomerId);
+          const filteredAssets = bundleAssets.length - gcdrAssetList.length;
+          const filteredDevices = bundleDevices.length - gcdrDeviceList.length;
+          if (filteredAssets > 0)
+            console.warn(
+              `[GCDR Sync] ⚠️ ${filteredAssets} assets de outros customers ignorados (bundle contaminado)`
+            );
+          if (filteredDevices > 0)
+            console.warn(
+              `[GCDR Sync] ⚠️ ${filteredDevices} devices de outros customers ignorados (bundle contaminado)`
+            );
 
-        const filteredAssets  = bundleAssets.length  - gcdrAssetList.length;
-        const filteredDevices = bundleDevices.length - gcdrDeviceList.length;
-        if (filteredAssets  > 0) console.warn(`[GCDR Sync] ⚠️ ${filteredAssets} assets de outros customers ignorados (bundle contaminado)`);
-        if (filteredDevices > 0) console.warn(`[GCDR Sync] ⚠️ ${filteredDevices} devices de outros customers ignorados (bundle contaminado)`);
-
-        // Indexar em memória apenas do customer correto
-        const gcdrAssetMap = new Map(gcdrAssetList.map((a) => [a.id, { ...a, devices: [] }]));
-        for (const d of gcdrDeviceList) {
-          gcdrAssetMap.get(d.assetId)?.devices.push(d);
-        }
-        console.log(
-          `[GCDR Sync] bundle filtrado: ${gcdrAssetList.length} assets, ${gcdrDeviceList.length} devices → customer ${gcdrCustomerId}`
-        );
-
-        // ── FASE 2: Sincronizar Assets (topológico, um a um) ───────
-        const totalAssets = topoAssets.length;
-        let doneAssets = 0;
-
-        // Mapa: tbAssetId → gcdrAssetId (preenchido conforme sync)
-        const gcdrAssetIdByTbId = new Map();
-        // Pré-popular do SERVER_SCOPE já gravado
-        for (const a of topoAssets) {
-          if (a.scope?.gcdrAssetId) gcdrAssetIdByTbId.set(a.id, a.scope.gcdrAssetId);
-        }
-
-        for (const tbAsset of topoAssets) {
-          doneAssets++;
-          setBody(
-            renderProgress(
-              `Fase 2/3 — Sincronizando assets… (${doneAssets}/${totalAssets})`,
-              doneAssets,
-              totalAssets,
-              '#7c3aed'
-            )
+          // Indexar em memória apenas do customer correto
+          const gcdrAssetMap = new Map(gcdrAssetList.map((a) => [a.id, { ...a, devices: [] }]));
+          for (const d of gcdrDeviceList) {
+            gcdrAssetMap.get(d.assetId)?.devices.push(d);
+          }
+          console.log(
+            `[GCDR Sync] bundle filtrado: ${gcdrAssetList.length} assets, ${gcdrDeviceList.length} devices → customer ${gcdrCustomerId}`
           );
 
-          const matchedGcdr = guMatchAsset(tbAsset, gcdrAssetList);
+          // ── FASE 2: Sincronizar Assets (topológico, um a um) ───────
+          const totalAssets = topoAssets.length;
+          let doneAssets = 0;
 
-          // Resolver gcdrParentAssetId: buscar no mapa pelo pai TB
-          const gcdrParentAssetId = tbAsset._parentId
-            ? (gcdrAssetIdByTbId.get(tbAsset._parentId) ?? null)
-            : null;
+          // Mapa: tbAssetId → gcdrAssetId (preenchido conforme sync)
+          const gcdrAssetIdByTbId = new Map();
+          // Pré-popular do SERVER_SCOPE já gravado
+          for (const a of topoAssets) {
+            if (a.scope?.gcdrAssetId) gcdrAssetIdByTbId.set(a.id, a.scope.gcdrAssetId);
+          }
 
-          if (matchedGcdr) {
-            // UPDATE
-            try {
-              const updatePayload = {
-                name: tbAsset.name,
-                displayName: tbAsset.label || tbAsset.name,
-                code: tbAsset.name,
-                type: tbAsset.type || 'OTHER',
-                status: 'ACTIVE',
-                metadata: {
+          for (const tbAsset of topoAssets) {
+            doneAssets++;
+            setBody(
+              renderProgress(
+                `Fase 2/3 — Sincronizando assets… (${doneAssets}/${totalAssets})`,
+                doneAssets,
+                totalAssets,
+                '#7c3aed'
+              )
+            );
+
+            const matchedGcdr = guMatchAsset(tbAsset, gcdrAssetList);
+
+            // Resolver gcdrParentAssetId: buscar no mapa pelo pai TB
+            const gcdrParentAssetId = tbAsset._parentId
+              ? (gcdrAssetIdByTbId.get(tbAsset._parentId) ?? null)
+              : null;
+
+            if (matchedGcdr) {
+              // UPDATE
+              try {
+                const updatePayload = {
+                  name: tbAsset.name,
+                  displayName: tbAsset.label || tbAsset.name,
+                  code: tbAsset.name,
+                  type: tbAsset.type || 'OTHER',
+                  status: 'ACTIVE',
+                  metadata: {
+                    tbId: tbAsset.id,
+                    tbAssetName: tbAsset.name,
+                    tbAssetType: tbAsset.type || 'default',
+                    syncedAt: nowSynced,
+                  },
+                };
+                await guGCDRFetch('PUT', `/api/v1/assets/${matchedGcdr.id}`, updatePayload);
+
+                // Move se parent diferir
+                if (gcdrParentAssetId && matchedGcdr.parentAssetId !== gcdrParentAssetId) {
+                  await guGCDRFetch('POST', `/api/v1/assets/${matchedGcdr.id}/move`, {
+                    newParentAssetId: gcdrParentAssetId,
+                  });
+                }
+
+                // Salvar no TB SERVER_SCOPE do asset
+                const tbAttrs = {
+                  gcdrAssetId: matchedGcdr.id,
+                  gcdrSyncAt: nowSynced,
+                  gcdrCustomerId: gcdrCustomerId,
+                };
+                if (gcdrParentAssetId) tbAttrs.gcdrParentAssetId = gcdrParentAssetId;
+                await guSaveAssetServerScopeAttrs(tbAsset.id, tbAttrs);
+
+                gcdrAssetIdByTbId.set(tbAsset.id, matchedGcdr.id);
+                log.assets.push({
+                  name: tbAsset.name,
                   tbId: tbAsset.id,
-                  tbAssetName: tbAsset.name,
-                  tbAssetType: tbAsset.type || 'default',
-                  syncedAt: nowSynced,
-                },
-              };
-              await guGCDRFetch('PUT', `/api/v1/assets/${matchedGcdr.id}`, updatePayload);
-
-              // Move se parent diferir
-              if (gcdrParentAssetId && matchedGcdr.parentAssetId !== gcdrParentAssetId) {
-                await guGCDRFetch('POST', `/api/v1/assets/${matchedGcdr.id}/move`, {
-                  newParentAssetId: gcdrParentAssetId,
+                  label: tbAsset.label,
+                  action: 'UPDATE',
+                  gcdrAssetId: matchedGcdr.id,
+                  gcdrParentAssetId: gcdrParentAssetId || null,
+                  matchBy: [guNorm(tbAsset.name), guNorm(tbAsset.label)].filter(Boolean).join(' / '),
+                  moved: !!(gcdrParentAssetId && matchedGcdr.parentAssetId !== gcdrParentAssetId),
+                  ok: true,
                 });
-              }
-
-              // Salvar no TB SERVER_SCOPE do asset
-              const tbAttrs = {
-                gcdrAssetId: matchedGcdr.id,
-                gcdrSyncAt: nowSynced,
-                gcdrCustomerId: gcdrCustomerId,
-              };
-              if (gcdrParentAssetId) tbAttrs.gcdrParentAssetId = gcdrParentAssetId;
-              await guSaveAssetServerScopeAttrs(tbAsset.id, tbAttrs);
-
-              gcdrAssetIdByTbId.set(tbAsset.id, matchedGcdr.id);
-              log.assets.push({
-                name: tbAsset.name,
-                tbId: tbAsset.id,
-                label: tbAsset.label,
-                action: 'UPDATE',
-                gcdrAssetId: matchedGcdr.id,
-                gcdrParentAssetId: gcdrParentAssetId || null,
-                matchBy: [guNorm(tbAsset.name), guNorm(tbAsset.label)].filter(Boolean).join(' / '),
-                moved: !!(gcdrParentAssetId && matchedGcdr.parentAssetId !== gcdrParentAssetId),
-                ok: true,
-              });
-              console.log(`[GCDR Sync] Asset UPDATED: "${tbAsset.name}" → ${matchedGcdr.id}`);
-            } catch (err) {
-              log.assets.push({
-                name: tbAsset.name,
-                tbId: tbAsset.id,
-                action: 'UPDATE',
-                ok: false,
-                error: err.message,
-              });
-              console.error(`[GCDR Sync] Asset UPDATE failed "${tbAsset.name}":`, err);
-            }
-          } else {
-            // CREATE
-            try {
-              const createPayload = {
-                customerId: gcdrCustomerId,
-                parentAssetId: gcdrParentAssetId,
-                name: tbAsset.name,
-                displayName: tbAsset.label || tbAsset.name,
-                code: tbAsset.name,
-                type: 'OTHER',
-                metadata: {
+                console.log(`[GCDR Sync] Asset UPDATED: "${tbAsset.name}" → ${matchedGcdr.id}`);
+              } catch (err) {
+                log.assets.push({
+                  name: tbAsset.name,
                   tbId: tbAsset.id,
-                  tbAssetName: tbAsset.name,
-                  tbAssetType: tbAsset.type || 'default',
-                  syncedAt: nowSynced,
-                },
-              };
-              const created = await guGCDRFetch('POST', '/api/v1/assets', createPayload);
-              const newGcdrAssetId = created?.id ?? null;
-
-              const tbAttrs = {
-                gcdrAssetId: newGcdrAssetId,
-                gcdrSyncAt: nowSynced,
-                gcdrCustomerId: gcdrCustomerId,
-              };
-              if (gcdrParentAssetId) tbAttrs.gcdrParentAssetId = gcdrParentAssetId;
-              await guSaveAssetServerScopeAttrs(tbAsset.id, tbAttrs);
-
-              if (newGcdrAssetId) {
-                gcdrAssetIdByTbId.set(tbAsset.id, newGcdrAssetId);
-                // Add to local index so device phase can find it
-                gcdrAssetMap.set(newGcdrAssetId, { ...created, devices: [] });
-                gcdrAssetList.push({ ...created });
-              }
-
-              log.assets.push({
-                name: tbAsset.name,
-                tbId: tbAsset.id,
-                label: tbAsset.label,
-                action: 'CREATE',
-                gcdrAssetId: newGcdrAssetId,
-                gcdrParentAssetId: gcdrParentAssetId || null,
-                matchBy: null,
-                moved: false,
-                ok: true,
-              });
-              console.log(`[GCDR Sync] Asset CREATED: "${tbAsset.name}" → ${newGcdrAssetId}`);
-            } catch (err) {
-              log.assets.push({
-                name: tbAsset.name,
-                tbId: tbAsset.id,
-                action: 'CREATE',
-                ok: false,
-                error: err.message,
-              });
-              console.error(`[GCDR Sync] Asset CREATE failed "${tbAsset.name}":`, err);
-            }
-          }
-
-          await sleep(300); // rate-limit gentil
-        }
-
-        // ── FASE 3: Sincronizar Devices (por asset, um a um) ───────
-        // Flatten todos os devices de todos os TB assets
-        const allTbDevices = [];
-        for (const tbAsset of topoAssets) {
-          const gcdrAssetId = gcdrAssetIdByTbId.get(tbAsset.id) ?? null;
-          for (const dev of tbAsset.devices || []) {
-            allTbDevices.push({ ...dev, _tbAssetId: tbAsset.id, _gcdrAssetId: gcdrAssetId });
-          }
-        }
-
-        const totalDevices = allTbDevices.length;
-        log.tbDeviceTotal = totalDevices;
-        let doneDevices = 0;
-
-        // Garante que cada GCDR device é consumido por no máximo 1 TB device
-        const consumedGcdrDeviceIds = new Set();
-
-        // Rastreia identifiers globalmente — GCDR tem constraint única de identifier
-        // por tenant/customer (NÃO por asset), então o Set deve ser global ao sync.
-        // Pré-popular com identifiers já existentes no GCDR para evitar HTTP 500
-        // em runs subsequentes (identifiers de runs anteriores já estão no DB).
-        const identifiersSeen = new Set();
-        for (const d of gcdrDeviceList) {
-          if (d.identifier) identifiersSeen.add(d.identifier);
-        }
-
-        // Mapa global externalId (= tbId) → gcdrDevice para match cross-asset.
-        // Devices criados em runs anteriores ficam num asset diferente (novo gcdrAssetId),
-        // por isso guMatchDevice (per-asset) não os encontra → 409 CONFLICT no CREATE.
-        const gcdrDeviceByExternalId = new Map();
-        for (const d of gcdrDeviceList) {
-          if (d.externalId) gcdrDeviceByExternalId.set(d.externalId, d);
-        }
-
-        for (const tbDev of allTbDevices) {
-          // deviceFilter: Set<tbId> — null means process all
-          if (deviceFilter && !deviceFilter.has(tbDev.id)) continue;
-
-          doneDevices++;
-          setBody(
-            renderProgress(
-              `Fase 3/3 — Sincronizando devices… (${doneDevices}/${deviceFilter ? deviceFilter.size : totalDevices})`,
-              doneDevices,
-              deviceFilter ? deviceFilter.size : totalDevices,
-              '#0db89e'
-            )
-          );
-
-          const scope = tbDev.scope || {};
-          const slaveId = scope.slaveId != null ? scope.slaveId : null;
-          const centralId = scope.centralId ?? null;
-
-          // Ignorar devices sem slaveId E sem centralId
-          if (slaveId == null && !centralId) {
-            log.skipped.push({ name: tbDev.name, tbId: tbDev.id, label: tbDev.label });
-            console.log(`[GCDR Sync] Device ignorado (sem slaveId+centralId): "${tbDev.name}"`);
-            continue;
-          }
-
-          const gcdrAssetId = tbDev._gcdrAssetId;
-          if (!gcdrAssetId) {
-            log.devices.push({
-              name: tbDev.name,
-              action: 'SKIP',
-              ok: false,
-              error: 'Asset TB não foi sincronizado ao GCDR',
-            });
-            continue;
-          }
-
-          // GCDR devices do asset correspondente — excluindo os já consumidos por outro TB device
-          const gcdrDevicesForAsset = (gcdrAssetMap.get(gcdrAssetId)?.devices ?? [])
-            .filter((d) => !consumedGcdrDeviceIds.has(d.id));
-
-          // Match: primeiro por asset (slaveId/nome), depois global por externalId
-          // (device pode estar num asset diferente de um run anterior — evita 409 CONFLICT)
-          let matchResult = guMatchDevice(tbDev, scope, gcdrDevicesForAsset);
-          if (!matchResult) {
-            const byExtId = gcdrDeviceByExternalId.get(tbDev.id);
-            if (byExtId && !consumedGcdrDeviceIds.has(byExtId.id)) {
-              matchResult = { device: byExtId, by: 'externalId' };
-            }
-          }
-
-          // Marcar o GCDR device como consumido imediatamente após o match
-          if (matchResult) consumedGcdrDeviceIds.add(matchResult.device.id);
-
-          // --- Resolver identifier globalmente único ---
-          // GCDR tem constraint única de identifier por tenant/customer (global, não por asset).
-          // Normalizar sempre: remove espaços, chars inválidos, lowercase.
-          // Fallback para nome normalizado quando scope.identifier é nulo (evita HTTP 500 NOT NULL).
-          // Colisão → sufixo com 8 chars do tbId (UUID garante unicidade global).
-          const rawIdentifier = scope.identifier || null;
-          let resolvedIdentifier;
-          {
-            const normalize = (s) =>
-              s.trim().replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase() || null;
-            const base =
-              (rawIdentifier ? normalize(rawIdentifier) : null) ||
-              normalize(tbDev.label || tbDev.name) ||
-              `dev_${tbDev.id.substring(0, 8)}`;
-            // identifiersSeen é global a todos os assets do sync
-            const candidate = identifiersSeen.has(base)
-              ? `${base}_${tbDev.id.substring(0, 8)}`
-              : base;
-            resolvedIdentifier = candidate;
-            identifiersSeen.add(resolvedIdentifier);
-          }
-
-          const deviceType = scope.deviceType || scope.deviceProfile || tbDev.type || '';
-          const updatePayload = {
-            name: tbDev.name,
-            displayName: tbDev.label || tbDev.name,
-            label: tbDev.label || '',
-            type: guMapToGCDRType(deviceType),
-            externalId: tbDev.id,
-            status: 'ACTIVE',
-            ...(slaveId != null ? { slaveId: Number(slaveId) } : {}),
-            ...(centralId ? { centralId } : {}),
-            identifier: resolvedIdentifier,
-            ...(scope.deviceProfile ? { deviceProfile: scope.deviceProfile } : {}),
-            ...(scope.deviceType ? { deviceType: scope.deviceType } : {}),
-            ...(scope.ingestionId ? { ingestionId: scope.ingestionId } : {}),
-            ...(scope.ingestionGatewayId ? { ingestionGatewayId: scope.ingestionGatewayId } : {}),
-            metadata: {
-              tbId: tbDev.id,
-              tbDeviceName: tbDev.name,
-              tbProfile: scope.deviceProfile || '',
-              syncedAt: nowSynced,
-            },
-          };
-
-          try {
-            let gcdrDeviceId;
-
-            if (matchResult) {
-              const gcdrDev = matchResult.device;
-              gcdrDeviceId = gcdrDev.id;
-
-              // PUT — atualiza tudo
-              await guGCDRFetch('PUT', `/api/v1/devices/${gcdrDeviceId}`, updatePayload);
-
-              // Move se assetId diferir
-              if (gcdrDev.assetId !== gcdrAssetId) {
-                await sleep(400); // pausa entre chamadas GCDR consecutivas
-                await guGCDRFetch('POST', `/api/v1/devices/${gcdrDeviceId}/move`, {
-                  newAssetId: gcdrAssetId,
+                  action: 'UPDATE',
+                  ok: false,
+                  error: err.message,
                 });
+                console.error(`[GCDR Sync] Asset UPDATE failed "${tbAsset.name}":`, err);
               }
-
-              // Salvar no TB SERVER_SCOPE do device
-              await guSaveDeviceServerScopeAttrs(tbDev.id, {
-                gcdrDeviceId,
-                gcdrAssetId,
-                gcdrSyncAt: nowSynced,
-                gcdrCustomerId: gcdrCustomerId,
-              });
-
-              const prevTbId = gcdrDev.externalId || gcdrDev.metadata?.tbId || null;
-              log.devices.push({
-                name: tbDev.name,
-                tbId: tbDev.id,
-                label: tbDev.label,
-                action: 'UPDATE',
-                gcdrDeviceId,
-                gcdrAssetId,
-                by: matchResult.by,
-                slaveId: slaveId != null ? slaveId : null,
-                centralId: centralId || null,
-                moved: matchResult.device.assetId !== gcdrAssetId,
-                // prevTbId: tbId que o GCDR device tinha ANTES do update (null = era novo/limpo)
-                prevTbId: prevTbId !== tbDev.id ? prevTbId : null,
-                ok: true,
-              });
-              console.log(
-                `[GCDR Sync] Device UPDATED: "${tbDev.name}" → ${gcdrDeviceId} (via ${matchResult.by})`
-              );
             } else {
               // CREATE
-              const createPayload = { ...updatePayload, assetId: gcdrAssetId, customerId: gcdrCustomerId };
-              const created = await guGCDRFetch('POST', '/api/v1/devices', createPayload);
-              gcdrDeviceId = created?.id ?? null;
+              try {
+                const createPayload = {
+                  customerId: gcdrCustomerId,
+                  parentAssetId: gcdrParentAssetId,
+                  name: tbAsset.name,
+                  displayName: tbAsset.label || tbAsset.name,
+                  code: tbAsset.name,
+                  type: 'OTHER',
+                  metadata: {
+                    tbId: tbAsset.id,
+                    tbAssetName: tbAsset.name,
+                    tbAssetType: tbAsset.type || 'default',
+                    syncedAt: nowSynced,
+                  },
+                };
+                const created = await guGCDRFetch('POST', '/api/v1/assets', createPayload);
+                const newGcdrAssetId = created?.id ?? null;
 
-              // Detectar upsert silencioso: GCDR constraint (assetId, identifier) pode retornar
-              // o ID de um device já existente em vez de criar um novo.
-              if (gcdrDeviceId && consumedGcdrDeviceIds.has(gcdrDeviceId)) {
-                throw new Error(
-                  `GCDR upsert silencioso: gcdrDeviceId=${gcdrDeviceId} já foi consumido por outro TB device — colisão de identifier "${resolvedIdentifier}" no asset ${gcdrAssetId}`
-                );
+                const tbAttrs = {
+                  gcdrAssetId: newGcdrAssetId,
+                  gcdrSyncAt: nowSynced,
+                  gcdrCustomerId: gcdrCustomerId,
+                };
+                if (gcdrParentAssetId) tbAttrs.gcdrParentAssetId = gcdrParentAssetId;
+                await guSaveAssetServerScopeAttrs(tbAsset.id, tbAttrs);
+
+                if (newGcdrAssetId) {
+                  gcdrAssetIdByTbId.set(tbAsset.id, newGcdrAssetId);
+                  // Add to local index so device phase can find it
+                  gcdrAssetMap.set(newGcdrAssetId, { ...created, devices: [] });
+                  gcdrAssetList.push({ ...created });
+                }
+
+                log.assets.push({
+                  name: tbAsset.name,
+                  tbId: tbAsset.id,
+                  label: tbAsset.label,
+                  action: 'CREATE',
+                  gcdrAssetId: newGcdrAssetId,
+                  gcdrParentAssetId: gcdrParentAssetId || null,
+                  matchBy: null,
+                  moved: false,
+                  ok: true,
+                });
+                console.log(`[GCDR Sync] Asset CREATED: "${tbAsset.name}" → ${newGcdrAssetId}`);
+              } catch (err) {
+                log.assets.push({
+                  name: tbAsset.name,
+                  tbId: tbAsset.id,
+                  action: 'CREATE',
+                  ok: false,
+                  error: err.message,
+                });
+                console.error(`[GCDR Sync] Asset CREATE failed "${tbAsset.name}":`, err);
               }
+            }
 
-              await guSaveDeviceServerScopeAttrs(tbDev.id, {
-                gcdrDeviceId,
-                gcdrAssetId,
-                gcdrSyncAt: nowSynced,
-                gcdrCustomerId: gcdrCustomerId,
+            await sleep(300); // rate-limit gentil
+          }
+
+          // ── FASE 3: Sincronizar Devices (por asset, um a um) ───────
+          // Flatten todos os devices de todos os TB assets
+          const allTbDevices = [];
+          for (const tbAsset of topoAssets) {
+            const gcdrAssetId = gcdrAssetIdByTbId.get(tbAsset.id) ?? null;
+            for (const dev of tbAsset.devices || []) {
+              allTbDevices.push({ ...dev, _tbAssetId: tbAsset.id, _gcdrAssetId: gcdrAssetId });
+            }
+          }
+
+          const totalDevices = allTbDevices.length;
+          log.tbDeviceTotal = totalDevices;
+          let doneDevices = 0;
+
+          // Garante que cada GCDR device é consumido por no máximo 1 TB device
+          const consumedGcdrDeviceIds = new Set();
+
+          // Rastreia identifiers globalmente — GCDR tem constraint única de identifier
+          // por tenant/customer (NÃO por asset), então o Set deve ser global ao sync.
+          // Pré-popular com identifiers já existentes no GCDR para evitar HTTP 500
+          // em runs subsequentes (identifiers de runs anteriores já estão no DB).
+          const identifiersSeen = new Set();
+          for (const d of gcdrDeviceList) {
+            if (d.identifier) identifiersSeen.add(d.identifier);
+          }
+
+          // Mapa global externalId (= tbId) → gcdrDevice para match cross-asset.
+          // Devices criados em runs anteriores ficam num asset diferente (novo gcdrAssetId),
+          // por isso guMatchDevice (per-asset) não os encontra → 409 CONFLICT no CREATE.
+          const gcdrDeviceByExternalId = new Map();
+          for (const d of gcdrDeviceList) {
+            if (d.externalId) gcdrDeviceByExternalId.set(d.externalId, d);
+          }
+
+          for (const tbDev of allTbDevices) {
+            // deviceFilter: Set<tbId> — null means process all
+            if (deviceFilter && !deviceFilter.has(tbDev.id)) continue;
+
+            doneDevices++;
+            setBody(
+              renderProgress(
+                `Fase 3/3 — Sincronizando devices… (${doneDevices}/${deviceFilter ? deviceFilter.size : totalDevices})`,
+                doneDevices,
+                deviceFilter ? deviceFilter.size : totalDevices,
+                '#0db89e'
+              )
+            );
+
+            const scope = tbDev.scope || {};
+            const slaveId = scope.slaveId != null ? scope.slaveId : null;
+            const centralId = scope.centralId ?? null;
+
+            // Ignorar devices sem slaveId E sem centralId
+            if (slaveId == null && !centralId) {
+              log.skipped.push({ name: tbDev.name, tbId: tbDev.id, label: tbDev.label });
+              console.log(`[GCDR Sync] Device ignorado (sem slaveId+centralId): "${tbDev.name}"`);
+              continue;
+            }
+
+            const gcdrAssetId = tbDev._gcdrAssetId;
+            if (!gcdrAssetId) {
+              log.devices.push({
+                name: tbDev.name,
+                action: 'SKIP',
+                ok: false,
+                error: 'Asset TB não foi sincronizado ao GCDR',
               });
+              continue;
+            }
 
-              // Adicionar ao índice local e marcar como consumido para evitar re-match
-              if (gcdrDeviceId) {
-                gcdrAssetMap.get(gcdrAssetId)?.devices.push({ ...created, assetId: gcdrAssetId });
-                consumedGcdrDeviceIds.add(gcdrDeviceId);
+            // GCDR devices do asset correspondente — excluindo os já consumidos por outro TB device
+            const gcdrDevicesForAsset = (gcdrAssetMap.get(gcdrAssetId)?.devices ?? []).filter(
+              (d) => !consumedGcdrDeviceIds.has(d.id)
+            );
+
+            // Match: primeiro por asset (slaveId/nome), depois global por externalId
+            // (device pode estar num asset diferente de um run anterior — evita 409 CONFLICT)
+            let matchResult = guMatchDevice(tbDev, scope, gcdrDevicesForAsset);
+            if (!matchResult) {
+              const byExtId = gcdrDeviceByExternalId.get(tbDev.id);
+              if (byExtId && !consumedGcdrDeviceIds.has(byExtId.id)) {
+                matchResult = { device: byExtId, by: 'externalId' };
               }
+            }
 
+            // Marcar o GCDR device como consumido imediatamente após o match
+            if (matchResult) consumedGcdrDeviceIds.add(matchResult.device.id);
+
+            // --- Resolver identifier globalmente único ---
+            // GCDR tem constraint única de identifier por tenant/customer (global, não por asset).
+            // Normalizar sempre: remove espaços, chars inválidos, lowercase.
+            // Fallback para nome normalizado quando scope.identifier é nulo (evita HTTP 500 NOT NULL).
+            // Colisão → sufixo com 8 chars do tbId (UUID garante unicidade global).
+            const rawIdentifier = scope.identifier || null;
+            let resolvedIdentifier;
+            {
+              const normalize = (s) =>
+                s
+                  .trim()
+                  .replace(/\s+/g, '_')
+                  .replace(/[^a-zA-Z0-9_-]/g, '')
+                  .toLowerCase() || null;
+              const base =
+                (rawIdentifier ? normalize(rawIdentifier) : null) ||
+                normalize(tbDev.label || tbDev.name) ||
+                `dev_${tbDev.id.substring(0, 8)}`;
+              // identifiersSeen é global a todos os assets do sync
+              const candidate = identifiersSeen.has(base) ? `${base}_${tbDev.id.substring(0, 8)}` : base;
+              resolvedIdentifier = candidate;
+              identifiersSeen.add(resolvedIdentifier);
+            }
+
+            const deviceType = scope.deviceType || scope.deviceProfile || tbDev.type || '';
+            const updatePayload = {
+              name: tbDev.name,
+              displayName: tbDev.label || tbDev.name,
+              label: tbDev.label || '',
+              type: guMapToGCDRType(deviceType),
+              externalId: tbDev.id,
+              status: 'ACTIVE',
+              ...(slaveId != null ? { slaveId: Number(slaveId) } : {}),
+              ...(centralId ? { centralId } : {}),
+              identifier: resolvedIdentifier,
+              ...(scope.deviceProfile ? { deviceProfile: scope.deviceProfile } : {}),
+              ...(scope.deviceType ? { deviceType: scope.deviceType } : {}),
+              ...(scope.ingestionId ? { ingestionId: scope.ingestionId } : {}),
+              ...(scope.ingestionGatewayId ? { ingestionGatewayId: scope.ingestionGatewayId } : {}),
+              metadata: {
+                tbId: tbDev.id,
+                tbDeviceName: tbDev.name,
+                tbProfile: scope.deviceProfile || '',
+                syncedAt: nowSynced,
+              },
+            };
+
+            try {
+              let gcdrDeviceId;
+
+              if (matchResult) {
+                const gcdrDev = matchResult.device;
+                gcdrDeviceId = gcdrDev.id;
+
+                // PUT — atualiza tudo
+                await guGCDRFetch('PUT', `/api/v1/devices/${gcdrDeviceId}`, updatePayload);
+
+                // Move se assetId diferir
+                if (gcdrDev.assetId !== gcdrAssetId) {
+                  await sleep(400); // pausa entre chamadas GCDR consecutivas
+                  await guGCDRFetch('POST', `/api/v1/devices/${gcdrDeviceId}/move`, {
+                    newAssetId: gcdrAssetId,
+                  });
+                }
+
+                // Salvar no TB SERVER_SCOPE do device
+                await guSaveDeviceServerScopeAttrs(tbDev.id, {
+                  gcdrDeviceId,
+                  gcdrAssetId,
+                  gcdrSyncAt: nowSynced,
+                  gcdrCustomerId: gcdrCustomerId,
+                });
+
+                const prevTbId = gcdrDev.externalId || gcdrDev.metadata?.tbId || null;
+                log.devices.push({
+                  name: tbDev.name,
+                  tbId: tbDev.id,
+                  label: tbDev.label,
+                  action: 'UPDATE',
+                  gcdrDeviceId,
+                  gcdrAssetId,
+                  by: matchResult.by,
+                  slaveId: slaveId != null ? slaveId : null,
+                  centralId: centralId || null,
+                  moved: matchResult.device.assetId !== gcdrAssetId,
+                  // prevTbId: tbId que o GCDR device tinha ANTES do update (null = era novo/limpo)
+                  prevTbId: prevTbId !== tbDev.id ? prevTbId : null,
+                  ok: true,
+                });
+                console.log(
+                  `[GCDR Sync] Device UPDATED: "${tbDev.name}" → ${gcdrDeviceId} (via ${matchResult.by})`
+                );
+              } else {
+                // CREATE
+                const createPayload = { ...updatePayload, assetId: gcdrAssetId, customerId: gcdrCustomerId };
+                const created = await guGCDRFetch('POST', '/api/v1/devices', createPayload);
+                gcdrDeviceId = created?.id ?? null;
+
+                // Detectar upsert silencioso: GCDR constraint (assetId, identifier) pode retornar
+                // o ID de um device já existente em vez de criar um novo.
+                if (gcdrDeviceId && consumedGcdrDeviceIds.has(gcdrDeviceId)) {
+                  throw new Error(
+                    `GCDR upsert silencioso: gcdrDeviceId=${gcdrDeviceId} já foi consumido por outro TB device — colisão de identifier "${resolvedIdentifier}" no asset ${gcdrAssetId}`
+                  );
+                }
+
+                await guSaveDeviceServerScopeAttrs(tbDev.id, {
+                  gcdrDeviceId,
+                  gcdrAssetId,
+                  gcdrSyncAt: nowSynced,
+                  gcdrCustomerId: gcdrCustomerId,
+                });
+
+                // Adicionar ao índice local e marcar como consumido para evitar re-match
+                if (gcdrDeviceId) {
+                  gcdrAssetMap.get(gcdrAssetId)?.devices.push({ ...created, assetId: gcdrAssetId });
+                  consumedGcdrDeviceIds.add(gcdrDeviceId);
+                }
+
+                log.devices.push({
+                  name: tbDev.name,
+                  tbId: tbDev.id,
+                  label: tbDev.label,
+                  action: 'CREATE',
+                  gcdrDeviceId,
+                  gcdrAssetId,
+                  by: null,
+                  slaveId: slaveId != null ? slaveId : null,
+                  centralId: centralId || null,
+                  moved: false,
+                  ok: true,
+                });
+                console.log(`[GCDR Sync] Device CREATED: "${tbDev.name}" → ${gcdrDeviceId}`);
+              }
+            } catch (err) {
               log.devices.push({
                 name: tbDev.name,
                 tbId: tbDev.id,
                 label: tbDev.label,
-                action: 'CREATE',
-                gcdrDeviceId,
+                action: matchResult ? 'UPDATE' : 'CREATE',
+                gcdrDeviceId: null,
                 gcdrAssetId,
-                by: null,
+                by: matchResult?.by || null,
                 slaveId: slaveId != null ? slaveId : null,
                 centralId: centralId || null,
-                moved: false,
-                ok: true,
+                ok: false,
+                error: err.message,
               });
-              console.log(`[GCDR Sync] Device CREATED: "${tbDev.name}" → ${gcdrDeviceId}`);
+              console.error(`[GCDR Sync] Device failed "${tbDev.name}":`, err);
             }
-          } catch (err) {
-            log.devices.push({
-              name: tbDev.name,
-              tbId: tbDev.id,
-              label: tbDev.label,
-              action: matchResult ? 'UPDATE' : 'CREATE',
-              gcdrDeviceId: null,
-              gcdrAssetId,
-              by: matchResult?.by || null,
-              slaveId: slaveId != null ? slaveId : null,
-              centralId: centralId || null,
-              ok: false,
-              error: err.message,
-            });
-            console.error(`[GCDR Sync] Device failed "${tbDev.name}":`, err);
+
+            // Rate-limit GCDR: CREATE precisa de mais folga para o servidor processar
+            await sleep(matchResult ? 500 : 800);
           }
 
-          // Rate-limit GCDR: CREATE precisa de mais folga para o servidor processar
-          await sleep(matchResult ? 500 : 800);
-        }
-
-        // ── Resultado final ────────────────────────────────────────
-        setBody(renderFinalLog(log));
-        overlay.querySelector('#gcs-footer').innerHTML = `
+          // ── Resultado final ────────────────────────────────────────
+          setBody(renderFinalLog(log));
+          overlay.querySelector('#gcs-footer').innerHTML = `
           <button class="gu-fu-btn gu-fu-btn-secondary" id="gcs-download-log">⬇ Baixar Log</button>
           <button class="gu-fu-btn gu-fu-btn-secondary" id="gcs-done">Fechar</button>`;
-        overlay.querySelector('#gcs-download-log').addEventListener('click', () => downloadLog(log));
-        overlay.querySelector('#gcs-done').addEventListener('click', closeModal);
-      } catch (err) {
-        console.error('[GCDR Sync RFC-0186] Erro fatal:', err);
-        setBody(`<div style="color:#ef4444;font-size:13px;padding:8px 0">❌ ${err.message}</div>`);
-        overlay.querySelector('#gcs-footer').innerHTML =
-          `<button class="gu-fu-btn gu-fu-btn-secondary" id="gcs-close">Fechar</button>`;
-        overlay.querySelector('#gcs-close').addEventListener('click', closeModal);
-      }
-    })();
+          overlay.querySelector('#gcs-download-log').addEventListener('click', () => downloadLog(log));
+          overlay.querySelector('#gcs-done').addEventListener('click', closeModal);
+        } catch (err) {
+          console.error('[GCDR Sync RFC-0186] Erro fatal:', err);
+          setBody(`<div style="color:#ef4444;font-size:13px;padding:8px 0">❌ ${err.message}</div>`);
+          overlay.querySelector('#gcs-footer').innerHTML =
+            `<button class="gu-fu-btn gu-fu-btn-secondary" id="gcs-close">Fechar</button>`;
+          overlay.querySelector('#gcs-close').addEventListener('click', closeModal);
+        }
+      })();
     } // end startSync
   }
 
@@ -3036,7 +3075,9 @@ self.onInit = function () {
         !gcdrTenantId && 'gcdrTenantId',
         !gcdrCustomerId && 'gcdrCustomerId',
         !gcdrApiKey && 'gcdrApiKey',
-      ].filter(Boolean).join(', ');
+      ]
+        .filter(Boolean)
+        .join(', ');
       window.alert(`Raio X bloqueado.\nAtributos SERVER_SCOPE ausentes no customer: ${missing}`);
       return;
     }
@@ -3089,25 +3130,25 @@ self.onInit = function () {
     }
 
     function renderReport(assetReport, deviceReport) {
-      const aSynced  = assetReport.filter((r) => r.status === 'SYNCED').length;
-      const aMatch   = assetReport.filter((r) => r.status === 'MATCH').length;
-      const aNew     = assetReport.filter((r) => r.status === 'NEW').length;
-      const aErr     = assetReport.filter((r) => r.status === 'ERROR').length;
-      const dSynced  = deviceReport.filter((r) => r.status === 'SYNCED').length;
-      const dMatch   = deviceReport.filter((r) => r.status === 'MATCH').length;
-      const dNew     = deviceReport.filter((r) => r.status === 'NEW').length;
+      const aSynced = assetReport.filter((r) => r.status === 'SYNCED').length;
+      const aMatch = assetReport.filter((r) => r.status === 'MATCH').length;
+      const aNew = assetReport.filter((r) => r.status === 'NEW').length;
+      const aErr = assetReport.filter((r) => r.status === 'ERROR').length;
+      const dSynced = deviceReport.filter((r) => r.status === 'SYNCED').length;
+      const dMatch = deviceReport.filter((r) => r.status === 'MATCH').length;
+      const dNew = deviceReport.filter((r) => r.status === 'NEW').length;
       const dSkipped = deviceReport.filter((r) => r.status === 'SKIPPED').length;
       const dNoAsset = deviceReport.filter((r) => r.status === 'NO_ASSET').length;
-      const dErr     = deviceReport.filter((r) => r.status === 'ERROR').length;
+      const dErr = deviceReport.filter((r) => r.status === 'ERROR').length;
 
       function statusChip(status) {
         const map = {
-          SYNCED:   ['✅ SYNCED',    '#d1fae5', '#065f46'],
-          MATCH:    ['🔄 MATCH',     '#dbeafe', '#1e40af'],
-          NEW:      ['✨ NOVO',      '#ede9ff', '#4c1d95'],
-          SKIPPED:  ['⚠️ IGNORADO',  '#fef3c7', '#92400e'],
+          SYNCED: ['✅ SYNCED', '#d1fae5', '#065f46'],
+          MATCH: ['🔄 MATCH', '#dbeafe', '#1e40af'],
+          NEW: ['✨ NOVO', '#ede9ff', '#4c1d95'],
+          SKIPPED: ['⚠️ IGNORADO', '#fef3c7', '#92400e'],
           NO_ASSET: ['❌ SEM ASSET', '#fee2e2', '#991b1b'],
-          ERROR:    ['❌ ERRO',      '#fee2e2', '#991b1b'],
+          ERROR: ['❌ ERRO', '#fee2e2', '#991b1b'],
         };
         const [label, bg, color] = map[status] || [status, '#f3f4f6', '#374151'];
         return `<span style="font-size:10px;background:${bg};color:${color};padding:2px 7px;border-radius:4px;font-weight:700;white-space:nowrap">${label}</span>`;
@@ -3132,10 +3173,13 @@ self.onInit = function () {
         return `${uuid(gcdrVal)}<div style="margin-top:3px">${tbPart}</div>`;
       }
 
-      const thStyle = 'padding:6px 8px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#6b7280;background:#f9fafb;border-bottom:2px solid #e5e7eb';
+      const thStyle =
+        'padding:6px 8px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#6b7280;background:#f9fafb;border-bottom:2px solid #e5e7eb';
       const tableStyle = 'width:100%;border-collapse:collapse;font-size:12px';
 
-      const assetRows = assetReport.map((r) => `
+      const assetRows = assetReport
+        .map(
+          (r) => `
         <tr data-status="${r.status}" style="border-bottom:1px solid #f3f4f6">
           <td style="padding:7px 8px">${statusChip(r.status)}</td>
           <td style="padding:7px 8px">
@@ -3150,9 +3194,13 @@ self.onInit = function () {
             ${r.wouldMove ? `<span style="font-size:10px;background:#fef9c3;color:#854d0e;padding:1px 5px;border-radius:3px;margin-left:4px">↪ mover</span>` : ''}
           </td>
           <td style="padding:7px 8px;color:#ef4444;font-size:11px">${r.error || ''}</td>
-        </tr>`).join('');
+        </tr>`
+        )
+        .join('');
 
-      const deviceRows = deviceReport.map((r) => `
+      const deviceRows = deviceReport
+        .map(
+          (r) => `
         <tr data-status="${r.status}" style="border-bottom:1px solid #f3f4f6">
           <td style="padding:7px 8px">${statusChip(r.status)}</td>
           <td style="padding:7px 8px">
@@ -3170,29 +3218,105 @@ self.onInit = function () {
             ${r.wouldMove ? `<span style="font-size:10px;background:#fef9c3;color:#854d0e;padding:1px 5px;border-radius:3px;margin-left:4px">↪ mover</span>` : ''}
           </td>
           <td style="padding:7px 8px;color:#6b7280;font-size:11px">${r.note || r.error || ''}</td>
-        </tr>`).join('');
+        </tr>`
+        )
+        .join('');
 
       return `
         <!-- Summary cards (clicáveis para filtrar) -->
         <div id="grx-filter-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px;margin-bottom:6px">
           ${[
-            { label: 'Assets TB',       val: assetReport.length,       color: '#374151', bg: '#f3f4f6', scope: 'assets',  fstatus: 'ALL'     },
-            { label: 'Assets OK',       val: aSynced,                  color: '#065f46', bg: '#d1fae5', scope: 'assets',  fstatus: 'SYNCED'  },
-            { label: 'Assets match',    val: aMatch,                   color: '#1e40af', bg: '#dbeafe', scope: 'assets',  fstatus: 'MATCH'   },
-            { label: 'Assets novos',    val: aNew,                     color: '#4c1d95', bg: '#ede9ff', scope: 'assets',  fstatus: 'NEW'     },
-            { label: 'Devices TB',      val: deviceReport.length,      color: '#374151', bg: '#f3f4f6', scope: 'devices', fstatus: 'ALL'     },
-            { label: 'Devices OK',      val: dSynced,                  color: '#065f46', bg: '#d1fae5', scope: 'devices', fstatus: 'SYNCED'  },
-            { label: 'Devices match',   val: dMatch,                   color: '#1e40af', bg: '#dbeafe', scope: 'devices', fstatus: 'MATCH'   },
-            { label: 'Devices novos',   val: dNew,                     color: '#4c1d95', bg: '#ede9ff', scope: 'devices', fstatus: 'NEW'     },
-            { label: 'Ignorados',       val: dSkipped,                 color: '#92400e', bg: '#fef3c7', scope: 'devices', fstatus: 'SKIPPED' },
-            { label: 'Erros/Sem asset', val: aErr + dNoAsset + dErr,   color: '#991b1b', bg: '#fee2e2', scope: 'both',   fstatus: 'ERRORS'  },
-          ].map(({ label, val, color, bg, scope, fstatus }) => `
+            {
+              label: 'Assets TB',
+              val: assetReport.length,
+              color: '#374151',
+              bg: '#f3f4f6',
+              scope: 'assets',
+              fstatus: 'ALL',
+            },
+            {
+              label: 'Assets OK',
+              val: aSynced,
+              color: '#065f46',
+              bg: '#d1fae5',
+              scope: 'assets',
+              fstatus: 'SYNCED',
+            },
+            {
+              label: 'Assets match',
+              val: aMatch,
+              color: '#1e40af',
+              bg: '#dbeafe',
+              scope: 'assets',
+              fstatus: 'MATCH',
+            },
+            {
+              label: 'Assets novos',
+              val: aNew,
+              color: '#4c1d95',
+              bg: '#ede9ff',
+              scope: 'assets',
+              fstatus: 'NEW',
+            },
+            {
+              label: 'Devices TB',
+              val: deviceReport.length,
+              color: '#374151',
+              bg: '#f3f4f6',
+              scope: 'devices',
+              fstatus: 'ALL',
+            },
+            {
+              label: 'Devices OK',
+              val: dSynced,
+              color: '#065f46',
+              bg: '#d1fae5',
+              scope: 'devices',
+              fstatus: 'SYNCED',
+            },
+            {
+              label: 'Devices match',
+              val: dMatch,
+              color: '#1e40af',
+              bg: '#dbeafe',
+              scope: 'devices',
+              fstatus: 'MATCH',
+            },
+            {
+              label: 'Devices novos',
+              val: dNew,
+              color: '#4c1d95',
+              bg: '#ede9ff',
+              scope: 'devices',
+              fstatus: 'NEW',
+            },
+            {
+              label: 'Ignorados',
+              val: dSkipped,
+              color: '#92400e',
+              bg: '#fef3c7',
+              scope: 'devices',
+              fstatus: 'SKIPPED',
+            },
+            {
+              label: 'Erros/Sem asset',
+              val: aErr + dNoAsset + dErr,
+              color: '#991b1b',
+              bg: '#fee2e2',
+              scope: 'both',
+              fstatus: 'ERRORS',
+            },
+          ]
+            .map(
+              ({ label, val, color, bg, scope, fstatus }) => `
             <div data-grx-scope="${scope}" data-grx-fstatus="${fstatus}"
                  style="background:${bg};border-radius:8px;padding:8px 10px;text-align:center;cursor:pointer;transition:box-shadow .15s,outline .15s"
                  title="Clique para filtrar">
               <div style="font-size:20px;font-weight:800;color:${color}">${val}</div>
               <div style="font-size:10px;color:${color};font-weight:600;margin-top:1px">${label}</div>
-            </div>`).join('')}
+            </div>`
+            )
+            .join('')}
         </div>
         <div id="grx-filter-badge" style="display:none;margin-bottom:10px;font-size:11px;color:#6b7280;padding:4px 0">
           Filtro ativo: <span id="grx-filter-label" style="font-weight:700;color:#374151"></span>
@@ -3202,16 +3326,20 @@ self.onInit = function () {
         <!-- Legend -->
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;padding:8px 12px;background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb">
           ${[
-            ['✅ SYNCED',    '#d1fae5', '#065f46', 'gcdrId em TB correto'],
-            ['🔄 MATCH',    '#dbeafe', '#1e40af', 'encontrado no GCDR, TB desatualizado'],
-            ['✨ NOVO',     '#ede9ff', '#4c1d95', 'não existe no GCDR ainda'],
+            ['✅ SYNCED', '#d1fae5', '#065f46', 'gcdrId em TB correto'],
+            ['🔄 MATCH', '#dbeafe', '#1e40af', 'encontrado no GCDR, TB desatualizado'],
+            ['✨ NOVO', '#ede9ff', '#4c1d95', 'não existe no GCDR ainda'],
             ['⚠️ IGNORADO', '#fef3c7', '#92400e', 'sem slaveId+centralId'],
-            ['❌ SEM ASSET','#fee2e2', '#991b1b', 'asset pai não mapeado'],
-          ].map(([label, bg, c, desc]) =>
-            `<span style="display:flex;align-items:center;gap:4px;font-size:11px;color:#374151">
+            ['❌ SEM ASSET', '#fee2e2', '#991b1b', 'asset pai não mapeado'],
+          ]
+            .map(
+              ([label, bg, c, desc]) =>
+                `<span style="display:flex;align-items:center;gap:4px;font-size:11px;color:#374151">
               <span style="background:${bg};color:${c};padding:1px 6px;border-radius:4px;font-weight:700;font-size:10px;white-space:nowrap">${label}</span>
               <span style="color:#6b7280">${desc}</span>
-            </span>`).join('')}
+            </span>`
+            )
+            .join('')}
         </div>
 
         <!-- Assets table -->
@@ -3252,7 +3380,10 @@ self.onInit = function () {
     }
 
     function buildRaioXLog(aReport, dReport) {
-      const pad = (s, n) => String(s ?? '').slice(0, n).padEnd(n);
+      const pad = (s, n) =>
+        String(s ?? '')
+          .slice(0, n)
+          .padEnd(n);
       const hr = (n) => '─'.repeat(n);
       const ts = new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
       const lines = [
@@ -3276,10 +3407,16 @@ self.onInit = function () {
         hr(120),
         ...aReport.map((r) => {
           const obs = [
-            r.gcdrAssetIdInTB && r.gcdrAssetIdInTB !== r.gcdrAssetId ? `TB atual: ${r.gcdrAssetIdInTB}` : (r.gcdrAssetId && !r.gcdrAssetIdInTB ? 'ausente no TB' : ''),
+            r.gcdrAssetIdInTB && r.gcdrAssetIdInTB !== r.gcdrAssetId
+              ? `TB atual: ${r.gcdrAssetIdInTB}`
+              : r.gcdrAssetId && !r.gcdrAssetIdInTB
+                ? 'ausente no TB'
+                : '',
             r.wouldMove ? '[MOVE]' : '',
             r.error || '',
-          ].filter(Boolean).join(' ');
+          ]
+            .filter(Boolean)
+            .join(' ');
           return `${pad(r.status, 10)} ${pad(r.name, 40)} ${pad(r.gcdrAssetId || '—', 38)} ${pad(r.matchBy || '—', 20)} ${obs}`;
         }),
         '',
@@ -3333,7 +3470,8 @@ self.onInit = function () {
         const badge = overlay.querySelector('#grx-filter-badge');
         const labelEl = overlay.querySelector('#grx-filter-label');
         if (badge && labelEl) {
-          const scopeLabel = { assets: 'Assets', devices: 'Devices', both: 'Assets + Devices' }[scope] || scope;
+          const scopeLabel =
+            { assets: 'Assets', devices: 'Devices', both: 'Assets + Devices' }[scope] || scope;
           labelEl.textContent = `${scopeLabel} — ${fstatus === 'ALL' ? 'todos' : fstatus}`;
           badge.style.display = 'block';
         }
@@ -3342,9 +3480,11 @@ self.onInit = function () {
       function resetFilter() {
         activeScope = null;
         activeFStatus = null;
-        overlay.querySelectorAll('#grx-asset-tbody tr[data-status], #grx-device-tbody tr[data-status]').forEach((tr) => {
-          tr.style.display = '';
-        });
+        overlay
+          .querySelectorAll('#grx-asset-tbody tr[data-status], #grx-device-tbody tr[data-status]')
+          .forEach((tr) => {
+            tr.style.display = '';
+          });
         overlay.querySelectorAll('[data-grx-scope]').forEach((card) => {
           card.style.outline = '';
           card.style.boxShadow = '';
@@ -3391,7 +3531,9 @@ self.onInit = function () {
     // ── Open modal ────────────────────────────────────────────────
     overlay = document.createElement('div');
     overlay.className = 'gu-fu-overlay';
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) closeModal();
+    });
     document.body.appendChild(overlay);
     renderShell(renderProgress('Iniciando análise…', 0, 0), '');
 
@@ -3410,9 +3552,9 @@ self.onInit = function () {
         const bundle = await guFetchGCDRCustomerBundle(selectedCustomer.id, gcdrTenantId);
         if (!bundle) throw new Error('Customer não encontrado no GCDR. Verifique gcdrCustomerId e tenant.');
 
-        const bundleAssets  = Array.isArray(bundle.assets)  ? bundle.assets  : [];
+        const bundleAssets = Array.isArray(bundle.assets) ? bundle.assets : [];
         const bundleDevices = Array.isArray(bundle.devices) ? bundle.devices : [];
-        const gcdrAssetList  = bundleAssets.filter( (a) => !a.customerId || a.customerId === gcdrCustomerId);
+        const gcdrAssetList = bundleAssets.filter((a) => !a.customerId || a.customerId === gcdrCustomerId);
         const gcdrDeviceList = bundleDevices.filter((d) => !d.customerId || d.customerId === gcdrCustomerId);
 
         const gcdrAssetMap = new Map(gcdrAssetList.map((a) => [a.id, { ...a, devices: [] }]));
@@ -3434,15 +3576,17 @@ self.onInit = function () {
 
         for (const tbAsset of topoAssets) {
           doneAssets++;
-          setBody(renderProgress(
-            `Fase 2/2 — Analisando assets… (${doneAssets}/${totalAssets})`,
-            doneAssets, totalAssets, '#7c3aed'
-          ));
+          setBody(
+            renderProgress(
+              `Fase 2/2 — Analisando assets… (${doneAssets}/${totalAssets})`,
+              doneAssets,
+              totalAssets,
+              '#7c3aed'
+            )
+          );
 
           const matchedGcdr = guMatchAsset(tbAsset, gcdrAssetList);
-          const parentGcdrId = tbAsset._parentId
-            ? (gcdrAssetIdByTbId.get(tbAsset._parentId) ?? null)
-            : null;
+          const parentGcdrId = tbAsset._parentId ? (gcdrAssetIdByTbId.get(tbAsset._parentId) ?? null) : null;
           const gcdrAssetIdInTB = tbAsset.scope?.gcdrAssetId ?? null;
 
           if (matchedGcdr) {
@@ -3450,7 +3594,9 @@ self.onInit = function () {
             const synced = gcdrAssetIdInTB === matchedGcdr.id;
             const wouldMove = !!(parentGcdrId && matchedGcdr.parentAssetId !== parentGcdrId);
             assetReport.push({
-              name: tbAsset.name, tbId: tbAsset.id, label: tbAsset.label || '',
+              name: tbAsset.name,
+              tbId: tbAsset.id,
+              label: tbAsset.label || '',
               status: synced && !wouldMove ? 'SYNCED' : 'MATCH',
               gcdrAssetId: matchedGcdr.id,
               gcdrAssetIdInTB,
@@ -3460,7 +3606,9 @@ self.onInit = function () {
             });
           } else {
             assetReport.push({
-              name: tbAsset.name, tbId: tbAsset.id, label: tbAsset.label || '',
+              name: tbAsset.name,
+              tbId: tbAsset.id,
+              label: tbAsset.label || '',
               status: 'NEW',
               gcdrAssetId: null,
               gcdrAssetIdInTB,
@@ -3496,11 +3644,16 @@ self.onInit = function () {
 
           if (slaveId == null && !centralId) {
             deviceReport.push({
-              name: tbDev.name, tbId: tbDev.id, label: tbDev.label || '',
+              name: tbDev.name,
+              tbId: tbDev.id,
+              label: tbDev.label || '',
               status: 'SKIPPED',
-              gcdrDeviceId: null, gcdrDeviceIdInTB,
-              slaveId: null, centralId: null,
-              matchBy: null, wouldMove: false,
+              gcdrDeviceId: null,
+              gcdrDeviceIdInTB,
+              slaveId: null,
+              centralId: null,
+              matchBy: null,
+              wouldMove: false,
               note: 'Sem slaveId e centralId',
             });
             continue;
@@ -3509,18 +3662,24 @@ self.onInit = function () {
           const gcdrAssetId = tbDev._gcdrAssetId;
           if (!gcdrAssetId) {
             deviceReport.push({
-              name: tbDev.name, tbId: tbDev.id, label: tbDev.label || '',
+              name: tbDev.name,
+              tbId: tbDev.id,
+              label: tbDev.label || '',
               status: 'NO_ASSET',
-              gcdrDeviceId: null, gcdrDeviceIdInTB,
-              slaveId, centralId,
-              matchBy: null, wouldMove: false,
+              gcdrDeviceId: null,
+              gcdrDeviceIdInTB,
+              slaveId,
+              centralId,
+              matchBy: null,
+              wouldMove: false,
               note: 'Asset TB não foi mapeado ao GCDR',
             });
             continue;
           }
 
-          const gcdrDevicesForAsset = (gcdrAssetMap.get(gcdrAssetId)?.devices ?? [])
-            .filter((d) => !consumedGcdrDeviceIds.has(d.id));
+          const gcdrDevicesForAsset = (gcdrAssetMap.get(gcdrAssetId)?.devices ?? []).filter(
+            (d) => !consumedGcdrDeviceIds.has(d.id)
+          );
 
           let matchResult = guMatchDevice(tbDev, scope, gcdrDevicesForAsset);
           if (!matchResult) {
@@ -3536,22 +3695,28 @@ self.onInit = function () {
             const synced = gcdrDeviceIdInTB === gcdrDeviceId;
             const wouldMove = matchResult.device.assetId !== gcdrAssetId;
             deviceReport.push({
-              name: tbDev.name, tbId: tbDev.id, label: tbDev.label || '',
+              name: tbDev.name,
+              tbId: tbDev.id,
+              label: tbDev.label || '',
               status: synced && !wouldMove ? 'SYNCED' : 'MATCH',
               gcdrDeviceId,
               gcdrDeviceIdInTB,
-              slaveId, centralId,
+              slaveId,
+              centralId,
               matchBy: matchResult.by,
               wouldMove,
               note: null,
             });
           } else {
             deviceReport.push({
-              name: tbDev.name, tbId: tbDev.id, label: tbDev.label || '',
+              name: tbDev.name,
+              tbId: tbDev.id,
+              label: tbDev.label || '',
               status: 'NEW',
               gcdrDeviceId: null,
               gcdrDeviceIdInTB,
-              slaveId, centralId,
+              slaveId,
+              centralId,
               matchBy: null,
               wouldMove: false,
               note: null,
@@ -3981,7 +4146,13 @@ self.onInit = function () {
   // ================================================================
 
   const GCDR_CLEAR_DEVICE_KEYS = ['gcdrDeviceId', 'gcdrId', 'gcdrSyncedAt', 'gcdrAssetId', 'gcdrCustomerId'];
-  const GCDR_CLEAR_ASSET_KEYS  = ['gcdrAssetId', 'gcdrId', 'gcdrSyncedAt', 'gcdrParentAssetId', 'gcdrCustomerId'];
+  const GCDR_CLEAR_ASSET_KEYS = [
+    'gcdrAssetId',
+    'gcdrId',
+    'gcdrSyncedAt',
+    'gcdrParentAssetId',
+    'gcdrCustomerId',
+  ];
 
   function openForceClearModal() {
     if (!selectedCustomer) return;
@@ -4027,30 +4198,38 @@ self.onInit = function () {
     }
 
     function renderPreview(deviceRows, assetRows) {
-      const devToClear  = deviceRows.filter((r) => r.hasAny);
-      const devClean    = deviceRows.filter((r) => !r.hasAny);
+      const devToClear = deviceRows.filter((r) => r.hasAny);
+      const devClean = deviceRows.filter((r) => !r.hasAny);
       const assetToClear = assetRows.filter((r) => r.hasAny);
-      const assetClean  = assetRows.filter((r) => !r.hasAny);
+      const assetClean = assetRows.filter((r) => !r.hasAny);
       const totalToClear = devToClear.length + assetToClear.length;
 
       function keyBadges(present, keys) {
         return keys
           .filter((k) => present[k])
-          .map((k) => `<span style="font-size:10px;background:#fee2e2;color:#991b1b;padding:1px 5px;border-radius:3px;margin:1px;display:inline-block">${k}</span>`)
+          .map(
+            (k) =>
+              `<span style="font-size:10px;background:#fee2e2;color:#991b1b;padding:1px 5px;border-radius:3px;margin:1px;display:inline-block">${k}</span>`
+          )
           .join('');
       }
 
       function buildTable(rows, keys) {
-        if (rows.length === 0) return '<div style="font-size:12px;color:#6b7280;padding:8px 0">Nenhum item a limpar.</div>';
+        if (rows.length === 0)
+          return '<div style="font-size:12px;color:#6b7280;padding:8px 0">Nenhum item a limpar.</div>';
         return `<div style="overflow-x:auto">
           <table class="gu-fu-table">
             <thead><tr><th>Nome TB</th><th>Chaves presentes</th></tr></thead>
-            <tbody>${rows.map((r) => `<tr>
+            <tbody>${rows
+              .map(
+                (r) => `<tr>
               <td title="${r.tbId}">${r.name}<br>
                 <span style="color:#9ca3af;font-size:10px;font-family:monospace">${r.tbId.substring(0, 8)}…</span>
               </td>
               <td>${keyBadges(r.present, keys)}</td>
-            </tr>`).join('')}</tbody>
+            </tr>`
+              )
+              .join('')}</tbody>
           </table>
         </div>`;
       }
@@ -4087,7 +4266,7 @@ self.onInit = function () {
 
     function renderExecResult(devResults, assetResults) {
       const allResults = [...devResults, ...assetResults];
-      const ok  = allResults.filter((r) => r.ok);
+      const ok = allResults.filter((r) => r.ok);
       const err = allResults.filter((r) => !r.ok);
 
       function section(title, results) {
@@ -4095,16 +4274,22 @@ self.onInit = function () {
         return `
           <div style="font-size:11px;font-weight:700;color:#374151;margin:12px 0 6px;text-transform:uppercase;letter-spacing:.5px">${title}</div>
           <ul class="gu-fu-result-list">
-            ${results.map((r) => `
+            ${results
+              .map(
+                (r) => `
               <li class="gu-fu-result-item">
                 <span class="gu-fu-result-icon">${r.ok ? '✅' : '❌'}</span>
                 <div>
                   <div class="gu-fu-result-name">${r.name}</div>
-                  ${r.ok
-                    ? `<div class="gu-fu-result-msg">Chaves removidas: ${r.cleared.join(', ')}</div>`
-                    : `<div class="gu-fu-result-err">${r.error}</div>`}
+                  ${
+                    r.ok
+                      ? `<div class="gu-fu-result-msg">Chaves removidas: ${r.cleared.join(', ')}</div>`
+                      : `<div class="gu-fu-result-err">${r.error}</div>`
+                  }
                 </div>
-              </li>`).join('')}
+              </li>`
+              )
+              .join('')}
           </ul>`;
       }
 
@@ -4120,7 +4305,9 @@ self.onInit = function () {
     // ── Open modal ──
     overlay = document.createElement('div');
     overlay.className = 'gu-fu-overlay';
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) closeModal();
+    });
     document.body.appendChild(overlay);
     renderShell(renderLoading('Buscando devices e assets do customer…', 0, 0), '');
 
@@ -4134,7 +4321,7 @@ self.onInit = function () {
         const total = tbDevices.length + tbAssets.length;
 
         const deviceRows = [];
-        const assetRows  = [];
+        const assetRows = [];
 
         // Batch helper: process array in chunks of 10 with 1s delay between chunks
         async function processBatch(items, fetchFn, keys, targetRows, entityType) {
@@ -4151,23 +4338,36 @@ self.onInit = function () {
                 try {
                   const attrs = await fetchFn(tbId);
                   for (const k of keys) present[k] = attrs[k] != null && attrs[k] !== '';
-                } catch { /* non-fatal */ }
+                } catch {
+                  /* non-fatal */
+                }
                 targetRows.push({ tbId, name, entityType, present, hasAny: keys.some((k) => present[k]) });
                 done++;
               })
             );
             const totalDone = deviceRows.length + assetRows.length;
             const body = overlay.querySelector('#gfc-body');
-            if (body) body.innerHTML = renderLoading(`Buscando atributos SERVER_SCOPE (${entityType})…`, totalDone, total);
+            if (body)
+              body.innerHTML = renderLoading(
+                `Buscando atributos SERVER_SCOPE (${entityType})…`,
+                totalDone,
+                total
+              );
           }
         }
 
-        await processBatch(tbDevices, guFetchDeviceServerScopeAttrs, GCDR_CLEAR_DEVICE_KEYS, deviceRows, 'DEVICE');
-        await processBatch(tbAssets,  guFetchAssetServerScopeAttrs,  GCDR_CLEAR_ASSET_KEYS,  assetRows,  'ASSET');
+        await processBatch(
+          tbDevices,
+          guFetchDeviceServerScopeAttrs,
+          GCDR_CLEAR_DEVICE_KEYS,
+          deviceRows,
+          'DEVICE'
+        );
+        await processBatch(tbAssets, guFetchAssetServerScopeAttrs, GCDR_CLEAR_ASSET_KEYS, assetRows, 'ASSET');
 
         // ── Phase 2: show preview ──
         overlay.querySelector('#gfc-body').innerHTML = renderPreview(deviceRows, assetRows);
-        const devToClear   = deviceRows.filter((r) => r.hasAny);
+        const devToClear = deviceRows.filter((r) => r.hasAny);
         const assetToClear = assetRows.filter((r) => r.hasAny);
         const totalToClear = devToClear.length + assetToClear.length;
 
@@ -4206,9 +4406,9 @@ self.onInit = function () {
                   done3++;
                   const pct = Math.round((done3 / total3) * 100);
                   const progEl = overlay.querySelector('#gfc-exec-prog');
-                  const lblEl  = overlay.querySelector('#gfc-exec-label');
+                  const lblEl = overlay.querySelector('#gfc-exec-label');
                   if (progEl) progEl.style.width = pct + '%';
-                  if (lblEl)  lblEl.textContent = `${done3}/${total3} — ${row.name}`;
+                  if (lblEl) lblEl.textContent = `${done3}/${total3} — ${row.name}`;
                   const keysToDelete = keys.filter((k) => row.present[k]);
                   try {
                     await deleteFn(row.tbId, keysToDelete);
@@ -4222,8 +4422,16 @@ self.onInit = function () {
             return results;
           }
 
-          const devResults   = await execClear(devToClear,   guDeleteDeviceServerScopeAttrs, GCDR_CLEAR_DEVICE_KEYS);
-          const assetResults = await execClear(assetToClear, guDeleteAssetServerScopeAttrs,  GCDR_CLEAR_ASSET_KEYS);
+          const devResults = await execClear(
+            devToClear,
+            guDeleteDeviceServerScopeAttrs,
+            GCDR_CLEAR_DEVICE_KEYS
+          );
+          const assetResults = await execClear(
+            assetToClear,
+            guDeleteAssetServerScopeAttrs,
+            GCDR_CLEAR_ASSET_KEYS
+          );
 
           overlay.querySelector('#gfc-body').innerHTML = renderExecResult(devResults, assetResults);
           overlay.querySelector('#gfc-footer').innerHTML =
@@ -4324,26 +4532,34 @@ self.onInit = function () {
 
     function renderPreview(deviceRows) {
       const devToClear = deviceRows.filter((r) => r.hasAny);
-      const devClean   = deviceRows.filter((r) => !r.hasAny);
+      const devClean = deviceRows.filter((r) => !r.hasAny);
 
       function keyBadges(present, keys) {
         return keys
           .filter((k) => present[k])
-          .map((k) => `<span style="font-size:10px;background:#ffedd5;color:#9a3412;padding:1px 5px;border-radius:3px;margin:1px;display:inline-block">${k}</span>`)
+          .map(
+            (k) =>
+              `<span style="font-size:10px;background:#ffedd5;color:#9a3412;padding:1px 5px;border-radius:3px;margin:1px;display:inline-block">${k}</span>`
+          )
           .join('');
       }
 
       function buildTable(rows, keys) {
-        if (rows.length === 0) return '<div style="font-size:12px;color:#6b7280;padding:8px 0">Nenhum device a limpar.</div>';
+        if (rows.length === 0)
+          return '<div style="font-size:12px;color:#6b7280;padding:8px 0">Nenhum device a limpar.</div>';
         return `<div style="overflow-x:auto">
           <table class="gu-fu-table">
             <thead><tr><th>Nome TB</th><th>Chaves presentes</th></tr></thead>
-            <tbody>${rows.map((r) => `<tr>
+            <tbody>${rows
+              .map(
+                (r) => `<tr>
               <td title="${r.tbId}">${r.name}<br>
                 <span style="color:#9ca3af;font-size:10px;font-family:monospace">${r.tbId.substring(0, 8)}…</span>
               </td>
               <td>${keyBadges(r.present, keys)}</td>
-            </tr>`).join('')}</tbody>
+            </tr>`
+              )
+              .join('')}</tbody>
           </table>
         </div>`;
       }
@@ -4368,7 +4584,7 @@ self.onInit = function () {
     }
 
     function renderExecResult(devResults) {
-      const ok  = devResults.filter((r) => r.ok);
+      const ok = devResults.filter((r) => r.ok);
       const err = devResults.filter((r) => !r.ok);
 
       return `
@@ -4378,23 +4594,31 @@ self.onInit = function () {
         </div>
         <div style="font-size:11px;font-weight:700;color:#374151;margin:12px 0 6px;text-transform:uppercase;letter-spacing:.5px">📟 Devices</div>
         <ul class="gu-fu-result-list">
-          ${devResults.map((r) => `
+          ${devResults
+            .map(
+              (r) => `
             <li class="gu-fu-result-item">
               <span class="gu-fu-result-icon">${r.ok ? '✅' : '❌'}</span>
               <div>
                 <div class="gu-fu-result-name">${r.name}</div>
-                ${r.ok
-                  ? `<div class="gu-fu-result-msg">Chaves removidas: ${r.cleared.join(', ')}</div>`
-                  : `<div class="gu-fu-result-err">${r.error}</div>`}
+                ${
+                  r.ok
+                    ? `<div class="gu-fu-result-msg">Chaves removidas: ${r.cleared.join(', ')}</div>`
+                    : `<div class="gu-fu-result-err">${r.error}</div>`
+                }
               </div>
-            </li>`).join('')}
+            </li>`
+            )
+            .join('')}
         </ul>`;
     }
 
     // ── Open modal ──
     overlay = document.createElement('div');
     overlay.className = 'gu-fu-overlay';
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) closeModal();
+    });
     document.body.appendChild(overlay);
     renderShell(renderLoading('Buscando devices do customer…', 0, 0), '');
 
@@ -4411,15 +4635,17 @@ self.onInit = function () {
         }
         const sortedTypes = Array.from(typeCounts.entries()).sort((a, b) => a[0].localeCompare(b[0]));
 
-        const checkboxesHtml = sortedTypes.map(([type, count]) => {
-          const safeId = 'gfci-type-' + type.replace(/[^a-z0-9_-]/gi, '_');
-          return `
+        const checkboxesHtml = sortedTypes
+          .map(([type, count]) => {
+            const safeId = 'gfci-type-' + type.replace(/[^a-z0-9_-]/gi, '_');
+            return `
             <label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid #e5e7eb;border-radius:6px;cursor:pointer;background:#fff;transition:background .12s" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='#fff'">
               <input type="checkbox" class="gfci-type-cb" data-type="${type}" id="${safeId}" checked style="width:15px;height:15px;cursor:pointer">
               <span style="flex:1;font-size:13px;font-family:monospace;color:#374151">${type}</span>
               <span style="font-size:11px;background:#f3f4f6;color:#374151;padding:2px 8px;border-radius:10px;font-weight:600">${count}</span>
             </label>`;
-        }).join('');
+          })
+          .join('');
 
         overlay.querySelector('#gfci-body').innerHTML = `
           <div style="padding:4px 0">
@@ -4446,20 +4672,28 @@ self.onInit = function () {
 
         overlay.querySelector('#gfci-cancel-0').addEventListener('click', closeModal);
         overlay.querySelector('#gfci-types-all').addEventListener('click', () => {
-          overlay.querySelectorAll('.gfci-type-cb').forEach((cb) => { cb.checked = true; });
+          overlay.querySelectorAll('.gfci-type-cb').forEach((cb) => {
+            cb.checked = true;
+          });
         });
         overlay.querySelector('#gfci-types-none').addEventListener('click', () => {
-          overlay.querySelectorAll('.gfci-type-cb').forEach((cb) => { cb.checked = false; });
+          overlay.querySelectorAll('.gfci-type-cb').forEach((cb) => {
+            cb.checked = false;
+          });
         });
 
         const selectedTypes = await new Promise((resolveTypes) => {
-          overlay.querySelector('#gfci-types-go').addEventListener('click', () => {
-            const sel = new Set();
-            overlay.querySelectorAll('.gfci-type-cb').forEach((cb) => {
-              if (cb.checked) sel.add(cb.dataset.type);
-            });
-            resolveTypes(sel);
-          }, { once: true });
+          overlay.querySelector('#gfci-types-go').addEventListener(
+            'click',
+            () => {
+              const sel = new Set();
+              overlay.querySelectorAll('.gfci-type-cb').forEach((cb) => {
+                if (cb.checked) sel.add(cb.dataset.type);
+              });
+              resolveTypes(sel);
+            },
+            { once: true }
+          );
         });
 
         if (selectedTypes.size === 0) {
@@ -4475,7 +4709,11 @@ self.onInit = function () {
         const total = tbDevices.length;
 
         // Reset body to loading state for Phase 1
-        overlay.querySelector('#gfci-body').innerHTML = renderLoading(`Buscando atributos SERVER_SCOPE (${tbDevices.length} devices)…`, 0, total);
+        overlay.querySelector('#gfci-body').innerHTML = renderLoading(
+          `Buscando atributos SERVER_SCOPE (${tbDevices.length} devices)…`,
+          0,
+          total
+        );
         overlay.querySelector('#gfci-footer').innerHTML = '';
 
         const deviceRows = [];
@@ -4502,27 +4740,43 @@ self.onInit = function () {
                   errorMsg = err && err.message ? err.message : String(err);
                 }
                 targetRows.push({
-                  tbId, name, present,
+                  tbId,
+                  name,
+                  present,
                   hasAny: keys.some((k) => present[k]),
-                  errored, errorMsg,
+                  errored,
+                  errorMsg,
                 });
                 done++;
               })
             );
             const body = overlay.querySelector('#gfci-body');
-            if (body) body.innerHTML = renderLoading('Buscando atributos SERVER_SCOPE (devices)…', targetRows.length, total);
+            if (body)
+              body.innerHTML = renderLoading(
+                'Buscando atributos SERVER_SCOPE (devices)…',
+                targetRows.length,
+                total
+              );
           }
         }
 
-        await processBatch(tbDevices, guFetchDeviceServerScopeAttrs, GCDR_CLEAR_IDENTITY_DEVICE_KEYS, deviceRows);
+        await processBatch(
+          tbDevices,
+          guFetchDeviceServerScopeAttrs,
+          GCDR_CLEAR_IDENTITY_DEVICE_KEYS,
+          deviceRows
+        );
 
         const devErrored = deviceRows.filter((r) => r.errored);
         const devToClear = deviceRows.filter((r) => !r.errored && r.hasAny);
-        const devClean   = deviceRows.filter((r) => !r.errored && !r.hasAny);
+        const devClean = deviceRows.filter((r) => !r.errored && !r.hasAny);
         const totalToClear = devToClear.length;
 
         // ── Phase 1.5: search complete — wait for user to advance ──
-        const erroredListHtml = devErrored.length === 0 ? '' : `
+        const erroredListHtml =
+          devErrored.length === 0
+            ? ''
+            : `
           <details style="margin-top:18px;text-align:left;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;background:#fef2f2">
             <summary style="cursor:pointer;font-size:13px;font-weight:600;color:#991b1b">
               ⚠️ ${devErrored.length} device${devErrored.length === 1 ? '' : 's'} com erro ao ler SERVER_SCOPE — clique para ver
@@ -4533,12 +4787,16 @@ self.onInit = function () {
             <div style="max-height:220px;overflow-y:auto">
               <table class="gu-fu-table">
                 <thead><tr><th>Nome TB</th><th>Erro</th></tr></thead>
-                <tbody>${devErrored.map((r) => `<tr>
+                <tbody>${devErrored
+                  .map(
+                    (r) => `<tr>
                   <td title="${r.tbId}">${r.name}<br>
                     <span style="color:#9ca3af;font-size:10px;font-family:monospace">${r.tbId.substring(0, 8)}…</span>
                   </td>
                   <td><span style="font-size:11px;color:#991b1b;font-family:monospace">${r.errorMsg || 'erro desconhecido'}</span></td>
-                </tr>`).join('')}</tbody>
+                </tr>`
+                  )
+                  .join('')}</tbody>
               </table>
             </div>
           </details>`;
@@ -4611,9 +4869,9 @@ self.onInit = function () {
                   done3++;
                   const pct = Math.round((done3 / total3) * 100);
                   const progEl = overlay.querySelector('#gfci-exec-prog');
-                  const lblEl  = overlay.querySelector('#gfci-exec-label');
+                  const lblEl = overlay.querySelector('#gfci-exec-label');
                   if (progEl) progEl.style.width = pct + '%';
-                  if (lblEl)  lblEl.textContent = `${done3}/${total3} — ${row.name}`;
+                  if (lblEl) lblEl.textContent = `${done3}/${total3} — ${row.name}`;
                   const keysToDelete = keys.filter((k) => row.present[k]);
                   try {
                     await deleteFn(row.tbId, keysToDelete);
@@ -4627,7 +4885,11 @@ self.onInit = function () {
             return results;
           }
 
-          const devResults = await execClear(devToClear, guDeleteDeviceServerScopeAttrs, GCDR_CLEAR_IDENTITY_DEVICE_KEYS);
+          const devResults = await execClear(
+            devToClear,
+            guDeleteDeviceServerScopeAttrs,
+            GCDR_CLEAR_IDENTITY_DEVICE_KEYS
+          );
 
           overlay.querySelector('#gfci-body').innerHTML = renderExecResult(devResults);
           overlay.querySelector('#gfci-footer').innerHTML =
@@ -4657,9 +4919,9 @@ self.onInit = function () {
   // gcdrApiKey to TB customer SERVER_SCOPE.
   // ================================================================
 
-  const GCDR_INIT_BASE    = 'https://gcdr-api.a.myio-bas.com';
+  const GCDR_INIT_BASE = 'https://gcdr-api.a.myio-bas.com';
   const GCDR_FIXED_TENANT = '11111111-1111-1111-1111-111111111111';
-  const GCDR_MASTER_KEY   = 'd63cefba02940d7caf1ea09f9e3a703c4cf8947c8d96c444585cc8c95bf02a45';
+  const GCDR_MASTER_KEY = 'd63cefba02940d7caf1ea09f9e3a703c4cf8947c8d96c444585cc8c95bf02a45';
 
   btnInitialSetup.addEventListener('click', () => {
     if (!selectedCustomer) return;
@@ -4675,23 +4937,24 @@ self.onInit = function () {
     }
 
     const STEPS = [
-      { id: 'customer',  label: 'Customer GCDR' },
-      { id: 'asset',     label: 'Asset Central' },
-      { id: 'centrals',  label: 'Centrais' },
-      { id: 'apikey',    label: 'API Key' },
-      { id: 'tbattrs',   label: 'Attrs TB' },
+      { id: 'customer', label: 'Customer GCDR' },
+      { id: 'asset', label: 'Asset Central' },
+      { id: 'centrals', label: 'Centrais' },
+      { id: 'apikey', label: 'API Key' },
+      { id: 'tbattrs', label: 'Attrs TB' },
     ];
 
     function stepsHtml(activeId, doneIds, errorIds) {
       return STEPS.map((s, i) => {
-        const cls = (errorIds || []).includes(s.id) ? 'error'
-          : (doneIds || []).includes(s.id) ? 'done'
-          : s.id === activeId ? 'active' : '';
-        const icon = (errorIds || []).includes(s.id) ? '✕'
-          : (doneIds || []).includes(s.id) ? '✓'
-          : i + 1;
-        const sep = i < STEPS.length - 1
-          ? '<span class="gu-is-step-sep">›</span>' : '';
+        const cls = (errorIds || []).includes(s.id)
+          ? 'error'
+          : (doneIds || []).includes(s.id)
+            ? 'done'
+            : s.id === activeId
+              ? 'active'
+              : '';
+        const icon = (errorIds || []).includes(s.id) ? '✕' : (doneIds || []).includes(s.id) ? '✓' : i + 1;
+        const sep = i < STEPS.length - 1 ? '<span class="gu-is-step-sep">›</span>' : '';
         return `<div class="gu-is-step ${cls}">
           <div class="gu-is-step-num">${icon}</div>
           <span>${s.label}</span>
@@ -4732,7 +4995,9 @@ self.onInit = function () {
     // Live log
     const logEntries = [];
     function addLog(icon, msg, cls) {
-      logEntries.push(`<div class="gu-is-log-row ${cls || 'info'}"><span class="gu-is-log-icon">${icon}</span><span>${msg}</span></div>`);
+      logEntries.push(
+        `<div class="gu-is-log-row ${cls || 'info'}"><span class="gu-is-log-icon">${icon}</span><span>${msg}</span></div>`
+      );
       const logEl = overlay.querySelector('#gis-log');
       if (logEl) {
         logEl.innerHTML = logEntries.join('');
@@ -4740,10 +5005,18 @@ self.onInit = function () {
       }
     }
 
-    function logInfo(msg) { addLog('ℹ️', msg, 'info'); }
-    function logOk(msg)   { addLog('✅', msg, 'ok'); }
-    function logWarn(msg) { addLog('⚠️', msg, 'warn'); }
-    function logErr(msg)  { addLog('❌', msg, 'err'); }
+    function logInfo(msg) {
+      addLog('ℹ️', msg, 'info');
+    }
+    function logOk(msg) {
+      addLog('✅', msg, 'ok');
+    }
+    function logWarn(msg) {
+      addLog('⚠️', msg, 'warn');
+    }
+    function logErr(msg) {
+      addLog('❌', msg, 'err');
+    }
 
     function renderProgress(stepLabel, logHtml) {
       return `
@@ -4761,7 +5034,7 @@ self.onInit = function () {
       const headers = {
         'X-API-Key': GCDR_MASTER_KEY,
         'X-Tenant-Id': GCDR_FIXED_TENANT,
-        'Accept': 'application/json',
+        Accept: 'application/json',
         ...(body ? { 'Content-Type': 'application/json' } : {}),
       };
       const res = await fetch(`${GCDR_INIT_BASE}${path}`, {
@@ -4771,7 +5044,11 @@ self.onInit = function () {
       });
       const text = await res.text();
       let json = null;
-      try { json = JSON.parse(text); } catch { /* keep null */ }
+      try {
+        json = JSON.parse(text);
+      } catch {
+        /* keep null */
+      }
       if (!res.ok) throw new Error(`GCDR ${method} ${path} HTTP ${res.status}: ${text}`);
       return json?.data ?? json;
     }
@@ -4805,7 +5082,7 @@ self.onInit = function () {
         },
         body: JSON.stringify({
           from: { id: fromId, entityType: fromType },
-          to:   { id: toId,   entityType: toType },
+          to: { id: toId, entityType: toType },
           type: 'Contains',
           typeGroup: 'COMMON',
         }),
@@ -4826,8 +5103,8 @@ self.onInit = function () {
     // ── Phase 0: Preview ─────────────────────────────────────────
     const tbCustomerId = selectedCustomer.id;
     const customerName = selectedCustomer.name;
-    const assetName    = `Asset Central ${customerName}`;
-    const tbAssetName  = `AssetCentral_${customerName}`;
+    const assetName = `Asset Central ${customerName}`;
+    const tbAssetName = `AssetCentral_${customerName}`;
 
     overlay = document.createElement('div');
     overlay.className = 'gu-fu-overlay';
@@ -4842,11 +5119,13 @@ self.onInit = function () {
         <div class="gu-attr-row"><div class="gu-attr-label">Asset TB</div><div class="gu-attr-value">${tbAssetName} (type=AssetCentral)</div></div>
         <div class="gu-attr-row"><div class="gu-attr-label">Centrais</div><div class="gu-attr-value">Uma por centralId único nos devices (SERVER_SCOPE)</div></div>
         <div class="gu-attr-row"><div class="gu-attr-label">API Key</div><div class="gu-attr-value">Criada e salva em gcdrApiKey (SERVER_SCOPE)</div></div>
-        ${gcdrCustomerId
-          ? `<p style="margin:12px 0 0;padding:8px 12px;background:#fef3c7;border-radius:8px;font-size:12px;color:#92400e">
+        ${
+          gcdrCustomerId
+            ? `<p style="margin:12px 0 0;padding:8px 12px;background:#fef3c7;border-radius:8px;font-size:12px;color:#92400e">
               ⚠️ Este customer já possui gcdrCustomerId (<code>${gcdrCustomerId}</code>). O setup irá sobrescrever os atributos SERVER_SCOPE.
              </p>`
-          : ''}
+            : ''
+        }
       </div>`,
       `<button class="gu-fu-btn gu-fu-btn-secondary" id="gis-cancel">Cancelar</button>
        <button class="gu-fu-btn gu-fu-btn-primary" id="gis-run" style="background:#059669">
@@ -4955,23 +5234,30 @@ self.onInit = function () {
         for (let i = 0; i < devices.length; i += chunkSize) {
           if (i > 0) await sleep(500);
           const chunk = devices.slice(i, i + chunkSize);
-          await Promise.all(chunk.map(async (dev) => {
-            const devId = dev.id?.id || dev.id;
-            try {
-              const attrs = await guFetchDeviceServerScopeAttrs(devId);
-              const cId = attrs.centralId;
-              if (cId && String(cId).trim()) centralIdSet.add(String(cId).trim());
-            } catch { /* skip */ }
-          }));
-          const bodyEl = overlay.querySelector('#gis-body');
-          if (bodyEl) bodyEl.innerHTML = renderProgress(
-            `Coletando centralIds… (${Math.min(i + chunkSize, devices.length)}/${devices.length})`,
-            logEntries.join('')
+          await Promise.all(
+            chunk.map(async (dev) => {
+              const devId = dev.id?.id || dev.id;
+              try {
+                const attrs = await guFetchDeviceServerScopeAttrs(devId);
+                const cId = attrs.centralId;
+                if (cId && String(cId).trim()) centralIdSet.add(String(cId).trim());
+              } catch {
+                /* skip */
+              }
+            })
           );
+          const bodyEl = overlay.querySelector('#gis-body');
+          if (bodyEl)
+            bodyEl.innerHTML = renderProgress(
+              `Coletando centralIds… (${Math.min(i + chunkSize, devices.length)}/${devices.length})`,
+              logEntries.join('')
+            );
         }
 
         centralIds = Array.from(centralIdSet);
-        logInfo(`centralIds únicos encontrados: ${centralIds.length > 0 ? centralIds.join(', ') : '(nenhum)'}`);
+        logInfo(
+          `centralIds únicos encontrados: ${centralIds.length > 0 ? centralIds.join(', ') : '(nenhum)'}`
+        );
 
         // Create one central per unique centralId
         for (const cId of centralIds) {
@@ -5038,7 +5324,9 @@ self.onInit = function () {
         if (newApiKey) attrsToSave.gcdrApiKey = newApiKey;
 
         await tbSaveCustomerServerScopeAttrs(tbCustomerId, attrsToSave);
-        logOk(`gcdrCustomerId, gcdrTenantId${newApiKey ? ', gcdrApiKey' : ''} salvos em SERVER_SCOPE do customer TB`);
+        logOk(
+          `gcdrCustomerId, gcdrTenantId${newApiKey ? ', gcdrApiKey' : ''} salvos em SERVER_SCOPE do customer TB`
+        );
         done.push('tbattrs');
       } catch (err) {
         logErr(`Falha ao salvar attrs no TB: ${err.message}`);
@@ -5051,13 +5339,15 @@ self.onInit = function () {
 
       setBody(`
         <div style="margin-bottom:14px">
-          ${hasErrors
-            ? `<div style="padding:10px 14px;background:#fef2f2;border-radius:8px;font-size:13px;color:#991b1b;margin-bottom:10px">
+          ${
+            hasErrors
+              ? `<div style="padding:10px 14px;background:#fef2f2;border-radius:8px;font-size:13px;color:#991b1b;margin-bottom:10px">
                 ⚠️ Setup concluído com ${errors.length} erro(s). Verifique o log abaixo.
                </div>`
-            : `<div style="padding:10px 14px;background:#d1fae5;border-radius:8px;font-size:13px;color:#065f46;margin-bottom:10px">
+              : `<div style="padding:10px 14px;background:#d1fae5;border-radius:8px;font-size:13px;color:#065f46;margin-bottom:10px">
                 ✅ Setup concluído com sucesso!
-               </div>`}
+               </div>`
+          }
           <div class="gu-attr-row"><div class="gu-attr-label">gcdrCustomerId</div><div class="gu-attr-value success">${gcdrCustId || '—'}</div></div>
           <div class="gu-attr-row"><div class="gu-attr-label">gcdrTenantId</div><div class="gu-attr-value success">${GCDR_FIXED_TENANT}</div></div>
           <div class="gu-attr-row"><div class="gu-attr-label">gcdrAssetId</div><div class="gu-attr-value ${gcdrAssetId ? 'success' : 'warn'}">${gcdrAssetId || '—'}</div></div>
@@ -5067,7 +5357,9 @@ self.onInit = function () {
         <div class="gu-is-log" id="gis-log">${logEntries.join('')}</div>
       `);
 
-      setFooter(`<button class="gu-fu-btn gu-fu-btn-primary" id="gis-close-done" style="background:#059669">Fechar</button>`);
+      setFooter(
+        `<button class="gu-fu-btn gu-fu-btn-primary" id="gis-close-done" style="background:#059669">Fechar</button>`
+      );
       overlay.querySelector('#gis-close-done').addEventListener('click', () => {
         closeModal();
         // Reload the customer panel to reflect new attrs
