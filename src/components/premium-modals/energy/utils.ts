@@ -51,39 +51,33 @@ export function validateOptions(options: OpenDashboardPopupEnergyOptions): void 
 }
 
 /**
- * Normalizes date to São Paulo timezone ISO string
+ * Normalizes date to São Paulo timezone ISO string.
+ *
+ * Constructs the ISO string directly from the YYYY-MM-DD portion without
+ * Date object manipulation — avoids double timezone adjustment bugs that
+ * arise when the input already carries an offset (e.g. '2025-05-07T00:00:00-03:00').
+ *
+ * For Date objects, UTC-3 is applied arithmetically (Brazil abolished DST in 2019
+ * so the offset is always fixed).
  */
 export function normalizeToSaoPauloISO(dateLike: string | Date, endOfDay: boolean = false): string {
-  let date: Date;
-  
+  let ymd: string;
+
   if (typeof dateLike === 'string') {
-    // Handle YYYY-MM-DD format
-    if (/^\d{4}-\d{2}-\d{2}$/.test(dateLike)) {
-      date = new Date(dateLike + 'T00:00:00-03:00');
-    } else {
-      date = new Date(dateLike);
-    }
+    // Extract only the YYYY-MM-DD part — strip any time or offset already present
+    ymd = dateLike.split('T')[0];
   } else {
-    date = new Date(dateLike);
+    // Convert the Date to São Paulo local date via fixed UTC-3 arithmetic
+    const SP_OFFSET_MS = 3 * 60 * 60 * 1000;
+    const d = new Date(dateLike.getTime() - SP_OFFSET_MS);
+    const y = d.getUTCFullYear();
+    const mo = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const da = String(d.getUTCDate()).padStart(2, '0');
+    ymd = `${y}-${mo}-${da}`;
   }
-  
-  // Adjust to São Paulo timezone if needed
-  const saoPauloOffset = -3 * 60; // UTC-3 in minutes
-  const localOffset = date.getTimezoneOffset();
-  const offsetDiff = saoPauloOffset - localOffset;
-  
-  if (offsetDiff !== 0) {
-    date.setMinutes(date.getMinutes() + offsetDiff);
-  }
-  
-  // Set to end of day if requested
-  if (endOfDay) {
-    date.setHours(23, 59, 59, 999);
-  } else {
-    date.setHours(0, 0, 0, 0);
-  }
-  
-  return date.toISOString().replace('Z', '-03:00');
+
+  const time = endOfDay ? 'T23:59:59.000' : 'T00:00:00.000';
+  return `${ymd}${time}-03:00`;
 }
 
 /**
