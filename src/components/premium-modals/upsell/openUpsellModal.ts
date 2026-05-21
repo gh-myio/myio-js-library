@@ -489,8 +489,11 @@ function findIngestionDeviceByCentralSlaveId(
   const slaveIdNum = typeof slaveId === 'string' ? parseInt(slaveId, 10) : slaveId;
 
   for (const device of devices) {
-    // In ingestion API: gatewayId or gateway.id corresponds to ThingsBoard's centralId
-    const deviceGatewayId = device.gatewayId || device.gateway?.id;
+    // The TB device's centralId is the gateway HARDWARE uuid. Match against
+    // gateway.hardwareUuid first; gatewayId/gateway.id are the ingestion-internal
+    // ids and only coincide with the hardware uuid for some gateways.
+    const deviceGatewayId =
+      device.gateway?.hardwareUuid || device.gatewayId || device.gateway?.id;
     if (deviceGatewayId === centralId && device.slaveId === slaveIdNum) {
       console.log(
         '[UpsellModal] Found matching device:',
@@ -510,8 +513,8 @@ function findIngestionDeviceByCentralSlaveId(
     console.log(
       `[UpsellModal] Sample device ${i}:`,
       d.name,
-      'gatewayId:',
-      d.gatewayId || d.gateway?.id,
+      'gateway(hwUuid|id):',
+      d.gateway?.hardwareUuid || d.gatewayId || d.gateway?.id,
       'slaveId:',
       d.slaveId
     );
