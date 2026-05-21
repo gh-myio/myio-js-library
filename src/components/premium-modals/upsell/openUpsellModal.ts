@@ -751,6 +751,7 @@ interface ModalState {
     deviceType: string;
     deviceProfile: string;
   } | null;
+  lojasApplyRelation: boolean; // CUSTOM/LOJAS: força a relação Customer→Device (default true)
   // CUSTOM mode picker modal (replaces old LOJAS shortcut)
   customModeModal: { open: boolean };
   // Bulk Relation Modal (force relation in batch)
@@ -941,6 +942,7 @@ export function openUpsellModal(params: UpsellModalParams): UpsellModalInstance 
     lojasDeviceData: [],
     lojasDataLoading: false,
     lojasConfig: null,
+    lojasApplyRelation: true,
     customModeModal: { open: false },
     bulkRelationModal: { open: false, target: 'CUSTOMER', selectedAssetId: '', selectedAssetName: '', search: '', newAssetName: '', assetsLoaded: false, overrideCustomerId: '', overrideCustomerName: '', customerSearch: '', customerPickerOpen: false },
     checkFixLoading: false,
@@ -3718,7 +3720,13 @@ function renderLojasStep3(state: ModalState, modalId: string, colors: ThemeColor
         <span>Profile alvo: <strong style="color: ${colors.text};">3F_MEDIDOR</strong></span>
         <span>deviceType: <strong style="color: ${colors.text};">3F_MEDIDOR</strong></span>
         <span>deviceProfile: <strong style="color: ${colors.text};">3F_MEDIDOR</strong></span>
-        <span>Relação: <strong style="color: ${colors.text};">CUSTOMER → DEVICE (Contains)</strong></span>
+        <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;"
+               title="Marcado: força a relação Customer → Device. Desmarcado: não altera relações.">
+          <input type="checkbox" id="${modalId}-lojas-apply-relation" ${
+            state.lojasApplyRelation ? 'checked' : ''
+          } style="accent-color: ${MYIO_PURPLE}; cursor: pointer;" />
+          <span>Relação: <strong style="color: ${colors.text};">CUSTOMER → DEVICE (Contains)</strong></span>
+        </label>
       </div>
     </div>
   `;
@@ -5522,6 +5530,16 @@ function setupEventListeners(
         });
       }
     });
+
+    // "Forçar relação Customer→Device" toggle (default on)
+    const applyRelCb = document.getElementById(
+      `${modalId}-lojas-apply-relation`
+    ) as HTMLInputElement | null;
+    if (applyRelCb) {
+      applyRelCb.addEventListener('change', () => {
+        state.lojasApplyRelation = applyRelCb.checked;
+      });
+    }
   }
 
   // ========================
@@ -6902,15 +6920,17 @@ async function handleLojasApply(
   }
 
   const activeConfig = state.lojasConfig ?? CUSTOM_MODES[0];
+  const applyRelation = state.lojasApplyRelation;
   const confirmMsg =
     `Aplicar configuração "${activeConfig.label}" para ${data.length} dispositivos?\n\n` +
     `Cada device receberá:\n` +
     `- Label atualizado (etiqueta)\n` +
     `- Profile: ${activeConfig.deviceProfile}\n` +
     `- deviceType/deviceProfile: ${activeConfig.deviceType} / ${activeConfig.deviceProfile}\n` +
-    `- Relações existentes removidas\n` +
-    `- Nova relação: Customer → Device (Contains)\n\n` +
-    `Deseja continuar?`;
+    (applyRelation
+      ? `- Relações existentes removidas\n` + `- Nova relação: Customer → Device (Contains)\n`
+      : `- Relações NÃO serão alteradas (checkbox de relação desmarcado)\n`) +
+    `\nDeseja continuar?`;
   if (!confirm(confirmMsg)) return;
 
   showBusyProgress(`Aplicando ${activeConfig.label}...`, data.length);
@@ -6947,34 +6967,37 @@ async function handleLojasApply(
       }
       await tbPost(state, `/api/plugins/telemetry/DEVICE/${d.deviceId}/attributes/SERVER_SCOPE`, attrs);
 
-      // Step D: Delete existing relations (device is TO)
-      if (d.currentRelations.length > 0) {
-        updateBusyProgress(i + 1, `[${i + 1}/${data.length}] ${d.name}: Removendo relações...`);
-        for (const rel of d.currentRelations) {
-          try {
-            const params = new URLSearchParams({
-              fromId: rel.from.id,
-              fromType: rel.from.entityType,
-              toId: d.deviceId,
-              toType: 'DEVICE',
-              relationType: rel.type || 'Contains',
-              relationTypeGroup: rel.typeGroup || 'COMMON',
-            });
-            await tbDelete(state, `/api/relation?${params.toString()}`);
-          } catch (e) {
-            console.warn('[UpsellModal] Error deleting relation for LOJAS:', e);
+      // Steps D + E: only when the "Forçar relação" checkbox is checked
+      if (applyRelation) {
+        // Step D: Delete existing relations (device is TO)
+        if (d.currentRelations.length > 0) {
+          updateBusyProgress(i + 1, `[${i + 1}/${data.length}] ${d.name}: Removendo relações...`);
+          for (const rel of d.currentRelations) {
+            try {
+              const params = new URLSearchParams({
+                fromId: rel.from.id,
+                fromType: rel.from.entityType,
+                toId: d.deviceId,
+                toType: 'DEVICE',
+                relationType: rel.type || 'Contains',
+                relationTypeGroup: rel.typeGroup || 'COMMON',
+              });
+              await tbDelete(state, `/api/relation?${params.toString()}`);
+            } catch (e) {
+              console.warn('[UpsellModal] Error deleting relation for LOJAS:', e);
+            }
           }
         }
-      }
 
-      // Step E: Create customer relation
-      updateBusyProgress(i + 1, `[${i + 1}/${data.length}] ${d.name}: Criando relação...`);
-      await tbPost(state, '/api/relation', {
-        from: { entityType: 'CUSTOMER', id: customerId },
-        to: { entityType: 'DEVICE', id: d.deviceId },
-        type: 'Contains',
-        typeGroup: 'COMMON',
-      });
+        // Step E: Create customer relation
+        updateBusyProgress(i + 1, `[${i + 1}/${data.length}] ${d.name}: Criando relação...`);
+        await tbPost(state, '/api/relation', {
+          from: { entityType: 'CUSTOMER', id: customerId },
+          to: { entityType: 'DEVICE', id: d.deviceId },
+          type: 'Contains',
+          typeGroup: 'COMMON',
+        });
+      }
 
       successCount++;
     } catch (error) {
@@ -7352,8 +7375,8 @@ async function loadDeviceTelemetryInBatch(
   }
 }
 
-// RFC-0184: Scope dialog — lets the operator scan ALL devices, a name pattern,
-// or a multi-select of device.type values, to keep the diagnostic to a controlled set.
+// RFC-0184: Scope dialog — two combinable filters (name pattern AND device.type)
+// to keep the diagnostic to a controlled set. No filter = all devices.
 function openCheckFixScopeDialog(state: ModalState, onConfirm: (devices: Device[]) => void): void {
   const DIALOG_ID = 'myio-upsell-cf-scope-dialog';
   document.getElementById(DIALOG_ID)?.remove();
@@ -7362,25 +7385,24 @@ function openCheckFixScopeDialog(state: ModalState, onConfirm: (devices: Device[
   const allDevices = state.devices;
   const allTypes = [...new Set(allDevices.map((d) => d.type).filter(Boolean))].sort() as string[];
 
-  let mode: 'all' | 'name' | 'type' = 'all';
   let namePattern = '';
   let caseSensitive = false;
   const selectedTypes = new Set<string>();
 
+  // Both filters combine with AND. Each is optional — empty means "don't filter by it".
   function computeSubset(): Device[] {
-    if (mode === 'name') {
-      if (!namePattern) return [];
+    let result = allDevices;
+    if (namePattern) {
       const pat = caseSensitive ? namePattern : namePattern.toLowerCase();
-      return allDevices.filter((d) => {
+      result = result.filter((d) => {
         const n = caseSensitive ? d.name || '' : (d.name || '').toLowerCase();
         return n.includes(pat);
       });
     }
-    if (mode === 'type') {
-      if (selectedTypes.size === 0) return [];
-      return allDevices.filter((d) => selectedTypes.has(d.type || ''));
+    if (selectedTypes.size > 0) {
+      result = result.filter((d) => selectedTypes.has(d.type || ''));
     }
-    return allDevices;
+    return result;
   }
 
   const overlay = document.createElement('div');
@@ -7389,28 +7411,21 @@ function openCheckFixScopeDialog(state: ModalState, onConfirm: (devices: Device[
     'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.55);display:flex;' +
     'align-items:center;justify-content:center;font-family:Roboto,Inter,system-ui,sans-serif;';
 
-  const radio = (val: string, label: string, desc: string) => `
-    <label style="display:flex;gap:8px;align-items:flex-start;padding:8px 10px;border:1px solid ${c.border};
-      border-radius:8px;cursor:pointer;background:${c.cardBg};">
-      <input type="radio" name="cf-scope-mode" value="${val}" ${val === 'all' ? 'checked' : ''}
-        style="margin-top:2px;accent-color:${MYIO_PURPLE};" />
-      <span>
-        <span style="font-size:12px;font-weight:600;color:${c.text};">${label}</span><br/>
-        <span style="font-size:10px;color:${c.textMuted};">${desc}</span>
-      </span>
-    </label>`;
-
   overlay.innerHTML = `
     <div style="background:${c.surface};border-radius:12px;width:480px;max-width:92vw;max-height:88vh;
       overflow:hidden;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,0.4);">
       <div style="background:${MYIO_PURPLE};color:#fff;padding:12px 16px;font-size:14px;font-weight:700;">
         🔬 Escopo do CHECK &amp; FIX
       </div>
-      <div style="padding:16px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;">
-        ${radio('all', 'Todos os dispositivos', `Diagnostica os ${allDevices.length} dispositivos do cliente.`)}
-        ${radio('name', 'Por padrão de nome', 'Filtra por um trecho contido no nome do dispositivo.')}
-        <div id="cf-scope-name-box" style="display:none;padding:8px 10px 8px 32px;flex-direction:column;gap:8px;">
-          <input id="cf-scope-name-input" type="text" placeholder="ex.: TEMP." style="
+      <div style="padding:16px;overflow-y:auto;display:flex;flex-direction:column;gap:14px;">
+        <div style="font-size:11px;color:${c.textMuted};">
+          Os filtros abaixo se <strong>combinam (E)</strong>. Deixe ambos vazios para
+          diagnosticar todos os ${allDevices.length} dispositivos.
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <span style="font-size:12px;font-weight:600;color:${c.text};">Filtro por nome</span>
+          <input id="cf-scope-name-input" type="text" placeholder="nome contém… (ex.: TEMP.)" style="
             font-size:12px;padding:7px 9px;border-radius:6px;border:1px solid ${c.border};
             background:${c.inputBg};color:${c.text};" />
           <label style="display:flex;gap:6px;align-items:center;font-size:11px;color:${c.textMuted};cursor:pointer;">
@@ -7418,8 +7433,9 @@ function openCheckFixScopeDialog(state: ModalState, onConfirm: (devices: Device[
             Diferenciar maiúsculas/minúsculas (case-sensitive)
           </label>
         </div>
-        ${radio('type', 'Por tipo (device.type)', 'Seleciona um ou mais tipos da coluna Type.')}
-        <div id="cf-scope-type-box" style="display:none;padding:4px 10px 4px 32px;">
+
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <span style="font-size:12px;font-weight:600;color:${c.text};">Filtro por tipo (device.type)</span>
           <div style="display:flex;flex-wrap:wrap;gap:6px;max-height:160px;overflow-y:auto;">
             ${
               allTypes.length === 0
@@ -7448,13 +7464,9 @@ function openCheckFixScopeDialog(state: ModalState, onConfirm: (devices: Device[
 
   document.body.appendChild(overlay);
 
-  const nameBox = overlay.querySelector('#cf-scope-name-box') as HTMLElement;
-  const typeBox = overlay.querySelector('#cf-scope-type-box') as HTMLElement;
   const runBtn = overlay.querySelector('#cf-scope-run') as HTMLButtonElement;
 
   function refresh(): void {
-    nameBox.style.display = mode === 'name' ? 'flex' : 'none';
-    typeBox.style.display = mode === 'type' ? 'block' : 'none';
     const n = computeSubset().length;
     runBtn.textContent = `Executar diagnóstico (${n})`;
     runBtn.disabled = n === 0;
@@ -7462,12 +7474,6 @@ function openCheckFixScopeDialog(state: ModalState, onConfirm: (devices: Device[
     runBtn.style.cursor = n === 0 ? 'not-allowed' : 'pointer';
   }
 
-  overlay.querySelectorAll<HTMLInputElement>('input[name="cf-scope-mode"]').forEach((rb) => {
-    rb.addEventListener('change', () => {
-      mode = rb.value as 'all' | 'name' | 'type';
-      refresh();
-    });
-  });
   (overlay.querySelector('#cf-scope-name-input') as HTMLInputElement).addEventListener('input', (e) => {
     namePattern = (e.target as HTMLInputElement).value;
     refresh();
