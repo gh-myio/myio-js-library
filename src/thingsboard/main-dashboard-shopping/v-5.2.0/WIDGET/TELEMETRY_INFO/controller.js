@@ -1496,9 +1496,8 @@ function processStateFromSummaryWater(summary, grandTotal) {
   let banheirosDevices = summary.banheiros?.details?.devices || [];
   let areaComumDevices = summary.areaComum?.details?.devices || [];
 
-  // RFC-0106 FIX: Extract banheiros from areaComum when summary doesn't have them separated
-  // This happens when devices with identifier/label containing bathroom patterns have deviceType = HIDROMETRO_AREA_COMUM
-  const BANHEIRO_PATTERNS = ['banheiro', 'wc', 'sanitario', 'toalete', 'lavabo'];
+  // RFC-0106 FIX: Extract banheiros from areaComum when summary doesn't have them separated.
+  // Bathroom meters have deviceProfile = HIDROMETRO_AREA_COMUM and identifier containing BANHEIRO.
   let banheirosExtracted = false;
   let banheirosTotal = summary.banheiros?.summary?.total || 0;
   let areaComumTotal = summary.areaComum?.summary?.total || 0;
@@ -1508,9 +1507,11 @@ function processStateFromSummaryWater(summary, grandTotal) {
     const remainingAreaComum = [];
 
     areaComumDevices.forEach((device) => {
-      const labelLower = (device.label || '').toLowerCase();
-      const identifierLower = (device.identifier || device.id || '').toLowerCase();
-      const isBanheiro = BANHEIRO_PATTERNS.some((p) => labelLower.includes(p) || identifierLower.includes(p));
+      // A bathroom meter = deviceProfile HIDROMETRO_AREA_COMUM + identifier contains BANHEIRO
+      // (both are SERVER_SCOPE attributes on the TB device).
+      const dp = String(device.deviceProfile || '').toUpperCase();
+      const idf = String(device.identifier || device.id || '').toUpperCase();
+      const isBanheiro = dp === 'HIDROMETRO_AREA_COMUM' && idf.includes('BANHEIRO');
 
       if (isBanheiro) {
         extractedBanheiros.push(device);
@@ -2048,13 +2049,24 @@ function processWaterTelemetryData(eventDetail) {
  * Formula: entrada - (lojas + banheiros + areaComum) when includeBathrooms is true
  * Formula: entrada - (lojas + areaComum) when includeBathrooms is false
  */
+// Effective "Área Comum" value for the card/chart. When the Banheiros card is not
+// broken out (includeBathrooms = false) the whole água-comum group is shown
+// (área comum + banheiros); with bathrooms on, only the non-bathroom part.
+function _waterAreaComumDisplay() {
+  const ac = STATE_WATER.areaComum?.total || 0;
+  const ba = STATE_WATER.banheiros?.total || 0;
+  return STATE_WATER.includeBathrooms ? ac : ac + ba;
+}
+
 function calculateWaterPontosNaoMapeados() {
   const entrada = STATE_WATER.entrada.total;
   const lojas = STATE_WATER.lojas.total;
-  const banheiros = STATE_WATER.includeBathrooms ? STATE_WATER.banheiros.total : 0;
+  // Banheiros is always part of the measured group (a real meter) — count it always,
+  // regardless of whether it gets its own card.
+  const banheiros = STATE_WATER.banheiros.total || 0;
   const areaComum = STATE_WATER.areaComum.total;
 
-  // Sum of measured points (includes banheiros only if enabled)
+  // Measured points: Lojas + (Banheiros + Área Comum) = Lojas + grupo Área Comum inteiro
   const medidosTotal = lojas + banheiros + areaComum;
 
   // Residual (difference)
@@ -2143,8 +2155,11 @@ function renderWaterStats() {
     $$('#banheirosPerc').text(`(${STATE_WATER.banheiros.perc.toFixed(1)}%)`);
   }
 
-  // Reuse "área comum" card for water área comum
-  $$('#areaComumTotal').text(formatValue(STATE_WATER.areaComum.total, 'water'));
+  // Reuse "área comum" card for water área comum.
+  // The card-title is static "Pontos Não Mapeados" (its energy-domain role) — relabel it
+  // to "Área Comum" here, otherwise it duplicates the .total-card label below in water.
+  $$('.area-comum-card .card-title').text('Área Comum');
+  $$('#areaComumTotal').text(formatValue(_waterAreaComumDisplay(), 'water'));
   $$('#areaComumPerc').text(`(${STATE_WATER.areaComum.perc.toFixed(1)}%)`);
 
   // RFC-0056: Hide Área Comum card when bathrooms are included
@@ -2162,6 +2177,8 @@ function renderWaterStats() {
   if ($totalCard.length > 0) {
     $totalCard.text('Pontos Não Mapeados');
   }
+  // Surface the (i) info icon on this card — only meaningful in water (Pontos Não Mapeados)
+  $$('.total-card .info-tooltip').show();
   $$('#consumidoresTotal').text(formatValue(STATE_WATER.pontosNaoMapeados.total, 'water'));
   $$('#consumidoresPerc').text(`(${STATE_WATER.pontosNaoMapeados.perc.toFixed(1)}%)`);
 
@@ -2229,7 +2246,7 @@ function renderWaterPieChart() {
     {
       label: 'Área Comum',
       color: colors.areaComum,
-      value: STATE_WATER.areaComum.total,
+      value: _waterAreaComumDisplay(),
       perc: STATE_WATER.areaComum.perc,
     },
     {
@@ -2496,20 +2513,16 @@ function buildAreaComumContentEnergy() {
  * @returns {string} HTML content
  */
 function buildAreaComumContentWater() {
-  const entrada = STATE_WATER.entrada.total || 0;
-  const lojas = STATE_WATER.lojas?.total || 0;
   const banheiros = STATE_WATER.banheiros?.total || 0;
-  const areaComum = STATE_WATER.areaComum?.total || 0;
+  const areaComumSemBanheiros = STATE_WATER.areaComum?.total || 0;
   const includeBathrooms = STATE_WATER.includeBathrooms;
+  const grupoAreaComum = areaComumSemBanheiros + banheiros;
+  const areaComumCard = _waterAreaComumDisplay();
 
   let rows = `
     <div class="myio-info-tooltip__row">
-      <span class="myio-info-tooltip__label">📥 Entrada (Total):</span>
-      <span class="myio-info-tooltip__value">${formatValue(entrada, 'water')}</span>
-    </div>
-    <div class="myio-info-tooltip__row">
-      <span class="myio-info-tooltip__label">➖ Lojas:</span>
-      <span class="myio-info-tooltip__value">${formatValue(lojas, 'water')}</span>
+      <span class="myio-info-tooltip__label">📥 Grupo Área Comum:</span>
+      <span class="myio-info-tooltip__value">${formatValue(grupoAreaComum, 'water')}</span>
     </div>
   `;
 
@@ -2525,13 +2538,13 @@ function buildAreaComumContentWater() {
   rows += `
     <div class="myio-info-tooltip__row" style="border-top: 1px solid #e2e8f0; padding-top: 8px; margin-top: 6px;">
       <span class="myio-info-tooltip__label"><strong>= Área Comum:</strong></span>
-      <span class="myio-info-tooltip__value myio-info-tooltip__value--highlight">${formatValue(areaComum, 'water')}</span>
+      <span class="myio-info-tooltip__value myio-info-tooltip__value--highlight">${formatValue(areaComumCard, 'water')}</span>
     </div>
   `;
 
   const formula = includeBathrooms
-    ? 'Área Comum = Entrada − (Lojas + Banheiros)'
-    : 'Área Comum = Entrada − Lojas';
+    ? 'Área Comum = Grupo Área Comum − Banheiros'
+    : 'Área Comum = Grupo Área Comum (banheiros incluídos)';
 
   return `
     <div class="myio-info-tooltip__section">
@@ -2551,7 +2564,8 @@ function buildAreaComumContentWater() {
     <div class="myio-info-tooltip__notice">
       <span class="myio-info-tooltip__notice-icon">💡</span>
       <div class="myio-info-tooltip__notice-text">
-        <strong>Área Comum</strong> representa o consumo de água residual do shopping que não está associado a lojas${includeBathrooms ? ' ou banheiros' : ''} (jardins, limpeza, etc).
+        <strong>Área Comum</strong> é o consumo dos hidrômetros do grupo área comum
+        (chafariz, bebedouros, lago, jardins, etc.)${includeBathrooms ? ', excluindo os banheiros' : ' — banheiros incluídos'}.
       </div>
     </div>
   `;
@@ -3307,7 +3321,7 @@ function _applyGroupFilterWater(filter, $container) {
   let activeTotal = 0;
   if (filter.lojas) activeTotal += STATE_WATER.lojas?.total || 0;
   if (filter.banheiros && STATE_WATER.includeBathrooms) activeTotal += STATE_WATER.banheiros?.total || 0;
-  if (filter.areaComum) activeTotal += STATE_WATER.areaComum?.total || 0;
+  if (filter.areaComum) activeTotal += _waterAreaComumDisplay();
   if (allActive) activeTotal += STATE_WATER.pontosNaoMapeados?.total || 0;
 
   const safePerc = (val) => (activeTotal > 0 ? ((val / activeTotal) * 100).toFixed(1) : '0.0');
@@ -3316,7 +3330,7 @@ function _applyGroupFilterWater(filter, $container) {
   if (filter.banheiros && STATE_WATER.includeBathrooms)
     $$('#banheirosPerc').text(`(${safePerc(STATE_WATER.banheiros?.total || 0)}%)`);
   else $$('#banheirosPerc').text('');
-  if (filter.areaComum) $$('#areaComumPerc').text(`(${safePerc(STATE_WATER.areaComum?.total || 0)}%)`);
+  if (filter.areaComum) $$('#areaComumPerc').text(`(${safePerc(_waterAreaComumDisplay())}%)`);
   else $$('#areaComumPerc').text('');
 
   // Update water Total Consumidores card
@@ -3529,8 +3543,9 @@ function setupInfoTooltips() {
     LogHelper.log('[Tooltip] Banheiros trigger bound');
   }
 
-  // RFC-0106: Pontos Não Mapeados tooltip trigger (water domain)
-  const $pontosNaoMapeadosTrigger = $container.find('.pontos-nao-mapeados-card .info-tooltip');
+  // RFC-0106: Pontos Não Mapeados tooltip trigger (water domain).
+  // The card is the .total-card reused — its (i) is shown only in water by renderWaterStats.
+  const $pontosNaoMapeadosTrigger = $container.find('.total-card .info-tooltip');
   if ($pontosNaoMapeadosTrigger.length) {
     $pontosNaoMapeadosTrigger
       .addClass('info-tooltip-trigger')
