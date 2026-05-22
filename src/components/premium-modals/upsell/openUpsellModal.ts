@@ -2917,6 +2917,69 @@ function buildDeviceSearchHaystack(d: Device, state: ModalState): string {
     .join(''); // control-char separator avoids cross-field false matches
 }
 
+// Devices currently visible in the grid — same filtering the render applies:
+// dropdown filters + search term, plus the CHECK & FIX status/advanced filters
+// when a diagnostic report is loaded. "Select All" must use exactly this set.
+function getGridVisibleDevices(state: ModalState): Device[] {
+  const {
+    types: filterTypes,
+    deviceTypes: filterDeviceTypes,
+    deviceProfiles: filterDeviceProfiles,
+    statuses: filterStatuses,
+    telemetryKeys: filterTelemetryKeys,
+  } = state.deviceFilters;
+  const searchTerm = state.deviceSearchTerm.toLowerCase();
+
+  let result = state.devices.filter((d) => {
+    if (filterTypes.length > 0 && !filterTypes.includes(d.type || '')) return false;
+    if (filterDeviceTypes.length > 0 && !filterDeviceTypes.includes(d.serverAttrs?.deviceType || ''))
+      return false;
+    if (
+      filterDeviceProfiles.length > 0 &&
+      !filterDeviceProfiles.includes(d.serverAttrs?.deviceProfile || '')
+    )
+      return false;
+    if (filterStatuses.length > 0) {
+      const status = d.latestTelemetry?.connectionStatus?.value || 'offline';
+      if (!filterStatuses.includes(status)) return false;
+    }
+    if (filterTelemetryKeys.length > 0) {
+      const telem = d.latestTelemetry;
+      const hasMatch = filterTelemetryKeys.some((k) => {
+        if (k === 'pulses') return telem?.pulses != null;
+        if (k === 'consumption') return telem?.consumption != null;
+        return false;
+      });
+      if (!hasMatch) return false;
+    }
+    return true;
+  });
+
+  if (searchTerm) {
+    result = result.filter((d) => buildDeviceSearchHaystack(d, state).includes(searchTerm));
+  }
+
+  // CHECK & FIX mode: the grid only shows devices with a diagnostic record that
+  // also passes the status filter and the advanced filters.
+  if (state.checkFixReport) {
+    const idToRecord = new Map(state.checkFixReport.records.map((r) => [r.deviceId, r]));
+    const af = state.checkFixAdvancedFilter;
+    result = result.filter((d) => {
+      const r = idToRecord.get(getEntityId(d));
+      if (!r) return false;
+      if (!(state.checkFixFilter === 'all' || r.status === state.checkFixFilter)) return false;
+      if (af.statuses.length > 0 && !af.statuses.includes(r.status)) return false;
+      if (af.connStatuses.length > 0 && !af.connStatuses.includes(r.connStatus || 'null')) return false;
+      if (af.domains.length > 0 && !af.domains.includes(r.domain || 'null')) return false;
+      if (af.missingIngestionId && r.ingestionId) return false;
+      if (af.missingCentralSlave && r.centralId && r.slaveId != null) return false;
+      return true;
+    });
+  }
+
+  return result;
+}
+
 // Copy a cell value to the clipboard with a brief visual flash on the cell.
 function copyCellValue(text: string, el: HTMLElement): void {
   if (!text) return;
@@ -5076,39 +5139,9 @@ function setupEventListeners(
 
   // Select All button
   document.getElementById(`${modalId}-select-all`)?.addEventListener('click', () => {
-    const {
-      types: filterTypes,
-      deviceTypes: filterDeviceTypes,
-      deviceProfiles: filterDeviceProfiles,
-      statuses: filterStatuses,
-      telemetryKeys: filterTelemetryKeys,
-    } = state.deviceFilters;
-    // Select all visible/filtered devices
-    let filteredDevices = state.devices.filter((d) => {
-      if (filterTypes.length > 0 && !filterTypes.includes(d.type || '')) return false;
-      if (filterDeviceTypes.length > 0 && !filterDeviceTypes.includes(d.serverAttrs?.deviceType || ''))
-        return false;
-      if (
-        filterDeviceProfiles.length > 0 &&
-        !filterDeviceProfiles.includes(d.serverAttrs?.deviceProfile || '')
-      )
-        return false;
-      if (filterStatuses.length > 0) {
-        const status = d.latestTelemetry?.connectionStatus?.value || 'offline';
-        if (!filterStatuses.includes(status)) return false;
-      }
-      if (filterTelemetryKeys.length > 0) {
-        const telem = d.latestTelemetry;
-        const hasMatch = filterTelemetryKeys.some((k) => {
-          if (k === 'pulses') return telem?.pulses != null;
-          if (k === 'consumption') return telem?.consumption != null;
-          return false;
-        });
-        if (!hasMatch) return false;
-      }
-      return true;
-    });
-    state.selectedDevices = [...filteredDevices];
+    // Select exactly the devices visible in the grid — honors dropdown filters,
+    // search term and (when active) the CHECK & FIX status/advanced filters.
+    state.selectedDevices = [...getGridVisibleDevices(state)];
 
     // Save scroll position before re-render
     const listEl = document.getElementById(`${modalId}-device-list`);

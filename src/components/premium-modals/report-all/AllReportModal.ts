@@ -642,58 +642,7 @@ export class AllReportModal {
   }
 
   private renderPagination(): void {
-    // RFC-0060: Pagination removed - this function is now deprecated
-    return;
-    const container = document.getElementById('pagination-container');
-    if (!container) return;
-
-    const filteredData = this.getFilteredData();
-    const totalPages = Math.ceil(filteredData.length / this.itemsPerPage);
-
-    if (totalPages <= 1) {
-      container.style.display = 'none';
-      return;
-    }
-
-    const startItem = (this.currentPage - 1) * this.itemsPerPage + 1;
-    const endItem = Math.min(this.currentPage * this.itemsPerPage, filteredData.length);
-
-    container.innerHTML = `
-      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
-        <div style="color: var(--myio-text-muted);">
-          Mostrando ${startItem}-${endItem} de ${filteredData.length} lojas
-        </div>
-        <div style="display: flex; gap: 8px; align-items: center;">
-          <button id="prev-page" class="myio-btn myio-btn-outline" ${this.currentPage === 1 ? 'disabled' : ''}>
-            Anterior
-          </button>
-          <span style="padding: 0 12px; font-weight: bold;">
-            ${this.currentPage} / ${totalPages}
-          </span>
-          <button id="next-page" class="myio-btn myio-btn-outline" ${this.currentPage === totalPages ? 'disabled' : ''}>
-            Próximo
-          </button>
-        </div>
-      </div>
-    `;
-
-    document.getElementById('prev-page')?.addEventListener('click', () => {
-      if (this.currentPage > 1) {
-        this.currentPage--;
-        this.renderTable();
-        // RFC-0060: Removed pagination
-      }
-    });
-
-    document.getElementById('next-page')?.addEventListener('click', () => {
-      if (this.currentPage < totalPages) {
-        this.currentPage++;
-        this.renderTable();
-        // RFC-0060: Removed pagination
-      }
-    });
-
-    container.style.display = 'block';
+    // RFC-0060: Pagination removed - this function is now a no-op
   }
 
   private calculateTotalConsumption(): number {
@@ -819,8 +768,10 @@ export class AllReportModal {
     if (this.params.fetcher) {
       // Use ingestionToken for Data API endpoints (data.apps.myio-bas.com)
       const token = this.params.api.ingestionToken || (await this.authClient.getBearer());
+      const baseUrl = this.params.api.dataApiBaseUrl;
+      if (!baseUrl) throw new Error('dataApiBaseUrl não configurado.');
       return await this.params.fetcher({
-        baseUrl: this.params.api.dataApiBaseUrl,
+        baseUrl,
         token: token,
         customerId: this.params.customerId,
         startISO,
