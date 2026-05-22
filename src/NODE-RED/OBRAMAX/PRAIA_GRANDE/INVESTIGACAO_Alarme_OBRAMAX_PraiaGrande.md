@@ -61,7 +61,7 @@ Este documento consolida todo o conhecimento necessário para a investigação.
 |---|----------------|-------------|------------|
 | 1 | ~~`Rede (PG)` — série temporal de `status`~~ | ✅ **FECHADO (§9.10)** — sinal real (3 transições limpas), alarme legítimo; correlação 18:06/07:33 com o `Motor Ligado` confirmada | §9.10 |
 | 1b | **Polaridade do sinal "Sinal De Rede"** | Confirmar se `detected` = rede normal ou = falta — define se a *alarm rule* `Falta de Fase` está invertida | campo / device profile |
-| 2 | **Qual slave é o "Motor Ligado"** | Confirmar **35** (Bombas Diesel Principal, ch77) × **45** (Gerador Diesel, ch93) — define o ponto da inspeção de campo | §9.9 · [`slaves-map.md`](./slaves-map.md) §1 |
+| 2 | **🔴 Colisão de devices homônimos "Motor Ligado"** | Rodar a query `device` (§9.11) — se 1 device só, os channels ch77 (slave 35) **e** ch93 (slave 45) colidem → reinterpreta a §9.9. Decisivo. | §9.11 |
 | 3 | **Inspeção de campo** da entrada digital "Motor Ligado" | Ação física — fiação / contato / relé / contato auxiliar | veredito §9.9 |
 | 4 | **Debounce na *alarm rule* `Bomba Ligada`** | Adicionar duração mínima no device profile (mitigação) | OBS-5 · §8 |
 | 5 | **Correções da rule chain** | BUG-1 (texto fixo nó 27), nós órfãos, etc. | §5 · §8 |
@@ -274,6 +274,27 @@ A chain "Obramax" é única para todas as unidades. A separação Praia Grande �
 depende **inteiramente** dos atributos `telegramGroup` / `telegramSpecialGroup` do Customer.
 Se esses atributos estiverem errados/ausentes no Customer da Praia Grande, alarmes vão para
 o grupo errado ou falham silenciosamente (filtro *fail-closed*).
+
+### 🔴 OBS-7 — Devices homônimos colidem no ThingsBoard
+
+Channels `presence_sensor` com **nome idêntico** são sincronizados como o **mesmo device**
+no ThingsBoard (que casa device por **nome**) → a telemetria de equipamentos físicos
+distintos **colide num só entity**.
+
+Casos na Praia Grande (tabela `channels` / [`slaves-map.md`](./slaves-map.md)):
+
+| Nome duplicado | Channels / slaves | Gravidade |
+|----------------|-------------------|-----------|
+| **`Motor Ligado`** | ch77 (slave 35, Bombas Diesel Principal) + ch93 (slave 45, Gerador Diesel) | 🔴 **suspeito de ser a causa-raiz do flapping** — ver §9.11 |
+| `Comp1` / `Comp2` | repetidos em 6 slaves (39–44) | 🟠 colisão latente |
+| `Teste` | ch111 (slave 48) + ch113 (slave 49) | 🟡 provisório |
+
+**Risco:** além de poluir o dashboard, **mistura a telemetria de equipamentos diferentes**
+no mesmo device → alarmes falsos / flapping. O nome duplicado é um defeito **mesmo que ainda
+não tenha colidido** — qualquer re-sincronização pode colapsar os entities.
+
+**Correção:** renomear cada channel com nome único (ex.: `Motor Ligado - Gerador`,
+`Motor Ligado - Bombas Principal`) e re-sincronizar.
 
 ---
 
@@ -754,6 +775,12 @@ key 58 (`status`), janela 18/05 17:00 → 19/05 ~05:00 (~200 amostras).
 > *flood* de alarme — **amplificam**, mas não originam. Direção da causa-raiz:
 > **campo / elétrica** — inspecionar a entrada digital "Motor Ligado" (fiação, contato,
 > relé / contato auxiliar monitorado) no slave **35** (ch77) ou **45** (ch93).
+>
+> ⚠️ **VEREDITO REVISADO — ver §9.11:** a hipótese de **colisão de dois devices homônimos
+> "Motor Ligado"** (ch77 slave 35 + ch93 slave 45 → mesmo device TB) explica o padrão de
+> forma mais simples e completa. Se confirmada, o "chattering" **não existe** — é a
+> telemetria de **dois equipamentos colidindo num só entity**, e a causa-raiz passa a ser
+> **configuração / modelo de dados**, não campo.
 
 ### 9.10 Série temporal `ts_kv` — `Rede (PG)` (parcial)
 
@@ -799,6 +826,59 @@ Passos B/C executados 2026-05-20. Device `5226a330-0021-11f0-9baa-8137e6ac9d72`,
 > ⚠️ **Possível inversão de polaridade:** se `detected` = "rede normal/presente", a
 > *alarm rule* `Falta de Fase no Gerador` dispara na condição **normal** — a confirmar com o
 > significado físico do sinal "Sinal De Rede" (slave 46).
+
+### 9.11 ⚠️ Hipótese forte — colisão de dois devices homônimos "Motor Ligado"
+
+**Fato** (tabela `channels` / [`slaves-map.md`](./slaves-map.md) §1): existem **dois channels
+`presence_sensor` com o nome IDÊNTICO `Motor Ligado`**:
+
+| Channel | Slave | Equipamento |
+|---------|-------|-------------|
+| **ch 77** | 35 | `Alarmes Bombas Diesel Principal` |
+| **ch 93** | 45 | `Gerador Diesel` |
+
+(ch 80 "Motor Ligado **(Reserva)**" tem nome distinto → não colide.)
+
+O ThingsBoard casa device por **nome**. Se ambos sincronizam para o **mesmo device TB**
+`Motor Ligado (PG)` (`68c8aee1`), a telemetria dos **dois equipamentos físicos colide num só
+entity** — e isso **reinterpreta o "flapping" da §9.9**.
+
+**O padrão da §9.9 (par de leituras ~7 s apart, sempre `not_detected` → `detected`, a cada
+~7,4 min) deixa de ser "chattering" e passa a ser a central lendo os dois slaves com ~7 s de
+diferença e publicando ambos no mesmo device:**
+
+| Período | slave 35 (Bombas Diesel Principal) | slave 45 (Gerador Diesel) | par no device TB |
+|---------|-----------------------------------|---------------------------|------------------|
+| Antes 18/05 18:06 | `not_detected` (parado) | `not_detected` (parado) | (N, N) |
+| 18:06 → 19/05 07:33 | `not_detected` (parado) | **`detected` (rodando)** | (N, D) |
+
+**Encaixa com toda a evidência:**
+1. Explica a ordem **sempre** (N, D) — ordem fixa de polling dos 2 slaves.
+2. Durante a queda (~13,5 h) o **Gerador rodou contínuo e correto** (`detected`), sem
+   chattering nenhum — comportamento esperado numa falta de energia.
+3. Bate com o relato do cliente **"bombas não partiram"** — o slave 35 ficou `not_detected`.
+
+**Consequência:** se confirmada, a causa-raiz **não é falha de campo** — o veredito da §9.9
+está **incorreto**. A causa-raiz passa a ser **configuração / modelo de dados**: dois
+devices homônimos sincronizados para o mesmo entity ThingsBoard.
+
+**Verificação decisiva:**
+
+```sql
+-- ThingsBoard: quantos devices se chamam "Motor Ligado..."?
+SELECT id, name, type,
+       to_timestamp(created_time/1000) AT TIME ZONE 'America/Sao_Paulo' AS criado
+FROM device
+WHERE name ILIKE '%motor ligado%';
+```
+
+- **1 linha** (`68c8aee1`) → **colisão confirmada** (2 channels físicos → 1 device TB).
+- **2 linhas** → são devices separados; aí o veredito da §9.9 se mantém.
+
+> 🔧 **Correção (se confirmada):** renomear os channels para nomes únicos — ex.:
+> `Motor Ligado - Gerador` e `Motor Ligado - Bombas Principal` — e re-sincronizar para
+> separar os dois entities no ThingsBoard. Vale também para os channels `Comp1`/`Comp2`
+> (repetidos em 6 slaves) e `Teste` (slaves-map §3.4 / §2).
 
 ---
 

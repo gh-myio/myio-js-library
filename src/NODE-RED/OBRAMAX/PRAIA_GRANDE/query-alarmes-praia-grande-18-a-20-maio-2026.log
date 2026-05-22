@@ -184,3 +184,4 @@ d88e9ad4-2ccb-4503-af25-d83b7a7f62e5|Motor Ligado (PG)                          
 53722f3e-05ed-4c37-adab-6f75391b32b1|Auto. Selet. 50% Frente Loja (C) (PG)         |Obramax - Chaves Seletoras         |Chave seletora em manual|MAJOR   |false       |true   |2026-05-18 18:06:01.000|2026-05-18 18:06:02.000|2026-05-18 18:07:06.000|        1.4|221affa0-ec69-11ee-9378-6b50e3ef4c75|
 ff8e5922-b9aa-4f62-9bd8-8b195abbffe0|Auto. Selet. Ilum Externa (I) (PG)            |Obramax - Chaves Seletoras         |Chave seletora em manual|MAJOR   |false       |true   |2026-05-18 18:06:01.000|2026-05-18 18:06:02.000|2026-05-18 18:09:04.000|        0.9|3811af70-ead9-11ee-8327-cfc6eea1d65a|
 db658abb-c488-4199-8e47-ec2aa048e1de|Potável (PG)                                  |Obramax - Nível Caixa D'agua       |Nível Máximo Atingido   |CRITICAL|false       |true   |2026-05-18 07:06:41.000|2026-05-18 07:06:41.000|2026-05-18 07:17:47.000|        0.0|dc6f08d0-f38c-11ef-a212-67802bff4221|
+
