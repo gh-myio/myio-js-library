@@ -101,8 +101,8 @@ const INFO_TOOLTIP_CSS = `
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12), 0 2px 10px rgba(0, 0, 0, 0.08);
-  min-width: 320px;
-  max-width: 400px;
+  width: 395px;
+  max-width: 90vw;
   font-size: 12px;
   color: #1e293b;
   overflow: hidden;

@@ -1,0 +1,276 @@
+hubot=# select * from slaves;
+ id |        type        | addr_low | addr_high | channels |                  name                   | color |      code       | clamp_type | aggregate | version | temperature_correction |
+                                                                                                         config
+                            |          created_at           |          updated_at
+----+--------------------+----------+-----------+----------+-----------------------------------------+-------+-----------------+------------+-----------+---------+------------------------+-------------------------------------------------
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+----------------------------+-------------------------------+-------------------------------
+  1 | outlet             |      175 |       249 |        2 | SW ADM Iluminação Ext. 1              |       | 002-002-002-012 |            | t         | 6.0.0   |                        | {"channelConfig":{"channel0":{"slaveId":1,"channel":
+0,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"},"channel1":{"slaveId":1,"channel":1,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"}}}
+                        | 2024-01-29 12:59:44.809655+00 | 2024-01-29 13:03:20.502+00
+  2 | outlet             |      218 |       249 |        2 | SW Barramento I/H                       |       | 002-002-002-012 |            | t         | 6.0.0   |                        | {"channelConfig":{"channel0":{"slaveId":2,"chann
+el":0,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"},"channel1":{"slaveId":2,"channel":1,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"}}}
+                            | 2024-01-29 13:05:02.734141+00 | 2024-01-29 13:07:22.112+00
+ 10 | outlet             |        2 |       248 |        2 | SW Exaustão QGBT ADM                   |       | 002-002-002-012 |            | t         | 6.0.0   |                        | {"channelConfig":{"channel1":{"slaveId":10,"channe
+l":1,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"},"channel0":{"slaveId":10,"channel":0,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"}},"config_temperature":{"confirmed":true,"value":0}}
+                          | 2024-01-29 17:53:49.177685+00 | 2024-01-30 13:07:44.303+00
+  3 | outlet             |      230 |       248 |        2 | Sw Barramento G/F                       |       | 002-002-002-012 |            | t         | 6.0.0   |                        | {"channelConfig":{"channel0":{"slaveId":3,"chann
+el":0,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"},"channel1":{"slaveId":3,"channel":1,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"}}}
+                            | 2024-01-29 13:16:36.846569+00 | 2024-01-29 13:18:07.725+00
+  5 | outlet             |      145 |       249 |        2 | Sw Splitao 01                           |       | 002-002-002-012 |            | t         | 6.0.0   |                        | {"channelConfig":{"channel0":{"slaveId":5,"chann
+el":0,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"},"channel1":{"slaveId":5,"channel":1,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"}}}
+                            | 2024-01-29 16:08:42.294793+00 | 2024-01-29 16:10:06.532+00
+  6 | outlet             |      233 |       248 |        2 | Sw Splitao 1/7                          |       | 002-002-002-012 |            | t         | 6.0.0   |                        | {"channelConfig":{"channel0":{"slaveId":6,"chann
+el":0,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"},"channel1":{"slaveId":6,"channel":1,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"}}}
+                            | 2024-01-29 16:24:38.903833+00 | 2024-01-29 16:32:47.261+00
+ 13 | outlet             |      104 |       248 |        2 | SW Exaustores coz/San.                  |       | 002-002-002-012 |            | t         | 6.0.0   |                        | {"channelConfig":{"channel0":{"slaveId":13,"chan
+nel":0,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"},"channel1":{"slaveId":13,"channel":1,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"}}}
+                            | 2024-01-30 13:31:42.256035+00 | 2024-02-23 21:31:46.934+00
+ 18 | outlet             |       85 |       249 |        2 | Sw Depósito Barr. i                    |       | 002-002-002-012 |            | t         | 6.0.0   |                        | {"channelConfig":{"channel0":{"slaveId":18,"channe
+l":0,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"},"channel1":{"slaveId":18,"channel":1,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"}}}
+                          | 2024-01-30 18:07:28.269284+00 | 2024-06-07 20:37:13.188+00
+  7 | outlet             |       46 |       249 |        2 | SW Split 3/2                            |       | 002-002-002-012 |            | t         | 6.0.0   |                        | {"channelConfig":{"channel0":{"slaveId":7,"chann
+el":0,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"},"channel1":{"slaveId":7,"channel":1,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"}}}
+                            | 2024-01-29 16:35:27.839801+00 | 2024-01-29 16:37:55.706+00
+ 12 | outlet             |      152 |       248 |        2 | SW Ares cobertura                       |       | 002-002-002-012 |            | t         | 6.0.0   |                        | {"channelConfig":{"channel0":{"slaveId":12,"chan
+nel":0,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"},"channel1":{"slaveId":12,"channel":1,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"}}}
+                            | 2024-01-29 20:54:17.314609+00 | 2024-01-30 13:57:36.915+00
+ 15 | outlet             |      242 |       249 |        2 | SW Loja Incorp-Barra.C/D                |       | 002-002-002-012 |            | t         | 6.0.0   |                        | {"channelConfig":{"channel0":{"slaveId":15,"chan
+nel":0,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"},"channel1":{"slaveId":15,"channel":1,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"}}}
+                            | 2024-01-30 16:55:38.6164+00   | 2024-01-30 17:00:19.314+00
+  8 | outlet             |      244 |       248 |        2 | SW Splitao 5/4                          |       | 002-002-002-012 |            | t         | 6.0.0   |                        | {"channelConfig":{"channel0":{"slaveId":8,"chann
+el":0,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"},"channel1":{"slaveId":8,"channel":1,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"}}}
+                            | 2024-01-29 16:41:40.977846+00 | 2024-01-29 16:43:04.538+00
+ 22 | outlet             |      169 |       248 |        2 | Sw caixa dagua                          |       | 002-002-002-012 |            | t         | 6.0.0   |                        | {"channelConfig":{"channel0":{"slaveId":22,"chan
+nel":0,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"},"channel1":{"slaveId":22,"channel":1,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"}}}
+                            | 2024-01-31 18:00:02.973914+00 | 2024-01-31 18:01:22.339+00
+ 14 | outlet             |      174 |       248 |        2 | Repetidor Final loja                    |       | 002-002-002-012 |            | t         | 6.0.0   |                        | {"channelConfig":{"channel0":{"slaveId":14,"chan
+nel":0,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"},"channel1":{"slaveId":14,"channel":1,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"}}}
+                            | 2024-01-30 15:54:05.020726+00 | 2024-01-30 15:57:20.476+00
+ 16 | outlet             |      114 |       249 |        2 | Sw Loja Incorp Barr. E/ F               |       | 002-002-002-012 |            | t         | 6.0.0   |                        | {"channelConfig":{"channel0":{"slaveId":16,"chan
+nel":0,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"},"channel1":{"slaveId":16,"channel":1,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"}}}
+                            | 2024-01-30 17:04:40.884995+00 | 2024-01-30 17:06:35.155+00
+ 21 | outlet             |        6 |       249 |        2 | sw REUSO                                |       | 002-002-002-012 |            | t         | 6.0.0   |                        | {"channelConfig":{"channel0":{"slaveId":21,"chan
+nel":0,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"},"channel1":{"slaveId":21,"channel":1,"channel_type":"PULSE_ON_POWER","pulses":1,"output":"HOLDING"}}}
+                            | 2024-01-31 17:31:20.136617+00 | 2024-01-31 17:32:45.896+00
+ 17 | outlet             |       73 |       249 |        2 | SW Depósito Barr G/H                   |       | 002-002-002-012 |            | t         | 6.0.0   |                        | {"channelConfig":{"channel0":{"slaveId":17,"channe
+l":0,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"},"channel1":{"slaveId":17,"channel":1,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"}}}
+                          | 2024-01-30 17:29:51.195766+00 | 2024-01-30 17:32:10.519+00
+ 19 | outlet             |       94 |       249 |        2 | SW Depósito Manutenção               |       | 002-002-002-012 |            | t         | 6.0.0   |                        | {"channelConfig":{"channel0":{"slaveId":19,"channel":0
+,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"},"channel1":{"slaveId":19,"channel":1,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"}}}
+                      | 2024-01-30 18:38:07.622079+00 | 2024-01-30 18:39:52.558+00
+ 24 | infrared           |       29 |       249 |        1 | A/C No-break                            |       | 002-002-002-014 |            | t         | 7.0.0   |                        |
+
+                            | 2024-02-01 14:23:49.649768+00 | 2024-02-01 17:14:34.472+00
+ 26 | infrared           |       51 |       249 |        1 | A/C CPD                                 |       | 002-002-002-014 |            | t         | 7.0.0   |                        |
+
+                            | 2024-02-01 15:52:41.907451+00 | 2024-02-01 15:53:02.457+00
+ 23 | three_phase_sensor |      132 |       248 |        3 | 3F Cpd / X/ Rack                        |       | 002-002-002-015 |          0 | t         | 6.0.0   |                        | {"config_clamp":{"confirmed":true,"value":0}}
+
+                            | 2024-02-01 13:17:33.716338+00 | 2024-02-01 17:03:10.361+00
+ 28 | infrared           |      156 |       249 |        1 | A/C Monitoramento                       |       | 002-002-002-014 |            | t         | 7.0.0   |                        |
+
+                            | 2024-02-01 19:32:12.937301+00 | 2024-02-01 19:35:31.706+00
+  9 | three_phase_sensor |      118 |       248 |        3 | 3F Splitao1                             |       | 002-002-002-015 |          2 | t         | 6.0.0   |                        |
+
+                            | 2024-01-29 16:47:28.637595+00 | 2024-02-23 20:08:28.21+00
+ 31 | outlet             |      116 |       248 |        2 | Temp. Fundo Loja                        |       | 002-002-002-012 |            | t         | 6.0.0   |                        |
+
+                            | 2024-07-12 14:00:00.493506+00 | 2024-07-12 14:00:09.543+00
+ 29 | outlet             |      107 |       249 |        2 | Temp. Frente Loja                       |       | 002-002-002-012 |            | t         | 6.0.0   |                        |
+
+                            | 2024-07-12 13:53:39.81433+00  | 2024-07-12 13:58:57.381+00
+ 30 | outlet             |       12 |       249 |        2 | Temp. Meio Loja                         |       | 002-002-002-012 |            | t         | 6.0.0   |                        |
+
+                            | 2024-07-12 13:56:44.468325+00 | 2024-07-12 13:57:34.162+00
+ 38 | outlet             |       84 |       249 |        2 |                                         |       | 002-002-002-012 |            | t         | 6.0.0   |                        |
+
+                            | 2025-02-23 13:24:23.986384+00 | 2025-02-23 13:24:23.986384+00
+ 32 | outlet             |       58 |       249 |        2 | SCD Reuso 132 160 x1.95                 |       | 002-002-002-012 |            | t         | 6.0.0   |                        | {"channelConfig":{"channel0":{"slaveId":32,"chan
+nel":0,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"},"channel1":{"slaveId":32,"channel":1,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"}},"config_temperature":{"confirmed":true,"value":0}}
+                            | 2025-02-22 12:44:13.23798+00  | 2025-02-22 13:31:49.93+00
+ 49 | outlet             |      139 |       248 |        2 | Sw ENTRADA POTÁVEL Redundância        |       | 002-002-002-012 |            | t         | 6.0.0   |                        | {"channelConfig":{"channel1":{"slaveId":49,"channel"
+:1,"channel_type":"PULSE_ON_POWER","pulses":1,"output":"HOLDING"},"channel0":{"slaveId":49,"channel":0,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"}}}
+                        | 2026-04-16 16:23:03.704422+00 | 2026-04-16 16:24:12.416+00
+ 20 | outlet             |      214 |       248 |        2 | SW Agua potavel                         |       | 002-002-002-012 |            | t         | 6.0.0   |                        | {"channelConfig":{"channel1":{"slaveId":20,"chan
+nel":1,"channel_type":"PULSE_ON_POWER","pulses":1,"output":"HOLDING"},"channel0":{"slaveId":20,"channel":0,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"}},"config_temperature":{"confirmed":true,"value":0}}
+                            | 2024-01-31 17:20:27.084917+00 | 2024-07-12 17:46:27.578+00
+ 41 | outlet             |       94 |       248 |        2 | SPST2 : COMP1/ COMP2                    |       | 002-002-002-012 |            | t         | 6.0.0   |                        | {"channelConfig":{"channel0":{"slaveId":41,"chan
+nel":0,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"},"channel1":{"slaveId":41,"channel":1,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"}}}
+                            | 2025-02-23 14:30:22.867309+00 | 2025-02-23 16:27:23.806+00
+ 39 | outlet             |      201 |       248 |        2 | Termostato 6                            |       | 002-002-002-012 |            | t         | 6.0.0   |                        | {"channelConfig":{"channel0":{"slaveId":39,"chan
+nel":0,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"},"channel1":{"slaveId":39,"channel":1,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"}},"config_clamp":{"confirmed":true,"value":null},"config_temperature":{"
+confirmed":true,"value":0}} | 2025-02-23 13:28:45.810585+00 | 2026-03-12 23:30:36.715+00
+ 47 | outlet             |       71 |       249 |        2 | Solenoide Água Potável/caixa De Reuso |       | 002-002-002-012 |            | t         | 6.0.0   |                        |                                                   
+
+                        | 2026-03-12 18:16:44.300546+00 | 2026-03-12 18:17:16.235+00
+ 40 | outlet             |        6 |       248 |        2 | Termostato 7                            |       | 002-002-002-012 |            | t         | 6.0.0   |                        | {"channelConfig":{"channel0":{"slaveId":40,"chan
+nel":0,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"},"channel1":{"slaveId":40,"channel":1,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"}}}
+                            | 2025-02-23 14:05:28.198715+00 | 2025-02-23 14:08:51.763+00
+ 33 | outlet             |      129 |       249 |        2 | SCD Potável 132 160 x1.95              |       | 002-002-002-012 |            | t         | 6.0.0   |                        |                                                  
+
+                          | 2025-02-22 12:50:59.594756+00 | 2025-02-22 13:24:51.304+00
+ 35 | outlet             |      204 |       248 |        2 | Alarmes Bombas Diesel Principal         |       | 002-002-002-012 |            | t         | 6.0.0   |                        | {"channelConfig":{"channel0":{"slaveId":35,"chan
+nel":0,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"},"channel1":{"slaveId":35,"channel":1,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"}}}
+                            | 2025-02-22 17:27:53.246493+00 | 2025-02-22 17:42:40.522+00
+ 34 | outlet             |      162 |       249 |        2 | Alarmes Bomba Diesel Principal          |       | 002-002-002-012 |            | t         | 6.0.0   |                        | {"channelConfig":{"channel0":{"slaveId":34,"chan
+nel":0,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"}}}
+                            | 2025-02-22 17:22:58.754253+00 | 2025-02-22 17:42:52.624+00
+ 36 | outlet             |      190 |       249 |        2 | Bombas Diesel Reserva                   |       | 002-002-002-012 |            | t         | 6.0.0   |                        | {"channelConfig":{"channel0":{"slaveId":36,"chan
+nel":0,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"}}}
+                            | 2025-02-22 19:50:18.446191+00 | 2025-02-22 19:53:08.06+00
+ 48 | outlet             |      185 |       249 |        2 | Água Potável Entra Novo               |       | 002-002-002-012 |            | t         | 6.0.0   |                        | {"channelConfig":{"channel1":{"slaveId":48,"channel"
+:1,"channel_type":"PULSE_ON_POWER","pulses":1,"output":"HOLDING"},"channel0":{"slaveId":48,"channel":0,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"}}}
+                        | 2026-03-12 18:35:37.574451+00 | 2026-04-16 16:05:18.857+00
+ 46 | outlet             |      171 |       249 |        2 | Sinal De Rede                           |       | 002-002-002-012 |            | t         | 6.0.0   |                        | {"channelConfig":{"channel0":{"slaveId":46,"chan
+nel":0,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"},"channel1":{"slaveId":46,"channel":1,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"}}}
+                            | 2025-03-13 15:27:13.656518+00 | 2025-03-13 15:28:15.28+00
+ 37 | outlet             |       90 |       248 |        2 | Bombas Diesel Reserva                   |       | 002-002-002-012 |            | t         | 6.0.0   |                        | {"channelConfig":{"channel0":{"slaveId":37,"chan
+nel":0,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"},"channel1":{"slaveId":37,"channel":1,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"}}}
+                            | 2025-02-22 19:58:59.552703+00 | 2025-02-22 20:01:35.674+00
+ 42 | outlet             |      107 |       248 |        2 | Termostato 4                            |       | 002-002-002-012 |            | t         | 6.0.0   |                        | {"channelConfig":{"channel0":{"slaveId":42,"chan
+nel":0,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"},"channel1":{"slaveId":42,"channel":1,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"}}}
+                            | 2025-02-23 15:10:48.951916+00 | 2025-02-23 15:12:16.378+00
+ 45 | outlet             |      111 |       248 |        2 | Gerador Diesel                          |       | 002-002-002-012 |            | t         | 6.0.0   |                        | {"channelConfig":{"channel0":{"slaveId":45,"chan
+nel":0,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"},"channel1":{"slaveId":45,"channel":1,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"}}}
+                            | 2025-03-13 14:19:17.096014+00 | 2025-10-07 14:37:38.711+00
+ 50 | outlet             |      150 |       248 |        2 | Eletroboia Reuso                        |       | 002-002-002-012 |            | t         | 6.0.0   |                        | {"channelConfig":{"channel0":{"slaveId":50,"chan
+nel":0,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"},"channel1":{"slaveId":50,"channel":1,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"}}}
+                            | 2026-04-16 17:03:58.052829+00 | 2026-04-16 17:04:49.703+00
+ 43 | outlet             |      224 |       248 |        2 | Termostato 3                            |       | 002-002-002-012 |            | t         | 6.0.0   |                        | {"channelConfig":{"channel1":{"slaveId":43,"chan
+nel":1,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"},"channel0":{"slaveId":43,"channel":0,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"}}}
+                            | 2025-02-23 15:50:04.735904+00 | 2025-02-23 15:51:32.479+00
+ 44 | outlet             |      146 |       249 |        2 | SPST5:COMP1/COMP2                       |       | 002-002-002-012 |            | t         | 6.0.0   |                        | {"channelConfig":{"channel0":{"slaveId":44,"chan
+nel":0,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"},"channel1":{"slaveId":44,"channel":1,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"}}}
+                            | 2025-02-23 15:50:18.918835+00 | 2026-03-12 21:44:56.495+00
+(46 rows)
+
+
+---
+
+channels
+
+hubot=# select * from channels;
+ id  |        type         | channel |                    name                    | channel_id | slave_id | scene_up_id | scene_down_id |      config       |         created_at         |         updated_at
+-----+---------------------+---------+--------------------------------------------+------------+----------+-------------+---------------+-------------------+----------------------------+----------------------------
+   3 | presence_sensor     |       0 | Aut. Selet. 1                              |            |        1 |             |               |                   | 2024-01-29 13:02:39.161+00 | 2024-01-29 13:02:39.161+00
+   4 | presence_sensor     |       1 | Aut. Selet. 2                              |            |        1 |             |               |                   | 2024-01-29 13:03:06.764+00 | 2024-01-29 13:03:06.764+00
+   7 | presence_sensor     |       1 | Aut. Selet. H                              |            |        2 |             |               |                   | 2024-01-29 13:06:18.627+00 | 2024-01-29 13:06:18.627+00
+   9 | presence_sensor     |       0 | Aut. Selet. G                              |            |        3 |             |               |                   | 2024-01-29 13:17:21.189+00 | 2024-01-29 13:17:21.189+00
+  10 | presence_sensor     |       1 | Aut. Selet. F                              |            |        3 |             |               |                   | 2024-01-29 13:17:31.199+00 | 2024-01-29 13:17:31.199+00
+  15 | presence_sensor     |       0 | Aut. Split 1                               |            |        6 |             |               |                   | 2024-01-29 16:28:43.838+00 | 2024-01-29 16:28:43.838+00
+  16 | presence_sensor     |       1 | Aut. Split 7                               |            |        6 |             |               | {"confirm":false} | 2024-01-29 16:30:29.848+00 | 2024-01-29 16:30:35.926+00
+  17 | plug                |       0 | Splitao 1                                  |            |        6 |             |               |                   | 2024-01-29 16:30:49.271+00 | 2024-01-29 16:30:49.271+00
+  18 | plug                |       1 | Splitao 7                                  |            |        6 |             |               |                   | 2024-01-29 16:30:59.059+00 | 2024-01-29 16:30:59.059+00
+  19 | presence_sensor     |       0 | Aut. Split 3                               |            |        7 |             |               |                   | 2024-01-29 16:36:14.221+00 | 2024-01-29 16:36:14.221+00
+  20 | presence_sensor     |       1 | Aut. Split 2                               |            |        7 |             |               | {"confirm":false} | 2024-01-29 16:36:23.777+00 | 2024-01-29 16:36:32.359+00
+  21 | plug                |       1 | Splitao 2                                  |            |        7 |             |               |                   | 2024-01-29 16:36:42.419+00 | 2024-01-29 16:36:42.419+00
+  22 | plug                |       0 | Splitao 3                                  |            |        7 |             |               |                   | 2024-01-29 16:37:33.01+00  | 2024-01-29 16:37:33.01+00
+  23 | presence_sensor     |       0 | Aut. Split 5                               |            |        8 |             |               |                   | 2024-01-29 16:42:12.701+00 | 2024-01-29 16:42:12.701+00
+  24 | presence_sensor     |       1 | Aut. Split 4                               |            |        8 |             |               |                   | 2024-01-29 16:42:25.064+00 | 2024-01-29 16:42:25.064+00
+  25 | plug                |       0 | Splitao 5                                  |            |        8 |             |               |                   | 2024-01-29 16:42:38.596+00 | 2024-01-29 16:42:38.596+00
+  26 | plug                |       1 | Splitao 4                                  |            |        8 |             |               |                   | 2024-01-29 16:42:53.544+00 | 2024-01-29 16:42:53.544+00
+  14 | plug                |       0 | Splitao 6                                  |            |        5 |             |               | {"confirm":false} | 2024-01-29 16:09:31.961+00 | 2024-01-29 17:15:16.081+00
+  13 | presence_sensor     |       0 | Aut. Split.6                               |            |        5 |             |               | {"confirm":false} | 2024-01-29 16:09:23.986+00 | 2024-01-29 17:15:32.991+00
+  27 | presence_sensor     |       0 | Aut. Selet. Exaust                         |            |       10 |             |               | {"confirm":false} | 2024-01-29 17:54:38.345+00 | 2024-01-29 17:54:43.705+00
+  28 | plug                |       0 | Exaust. QGBT ADM                           |            |       10 |             |               | {"confirm":false} | 2024-01-29 17:55:06.237+00 | 2024-01-29 18:09:51.905+00
+  37 | presence_sensor     |       1 | Aut. Seletora Exaustor                     |            |       13 |             |               |                   | 2024-01-30 13:34:06.518+00 | 2024-01-30 13:34:06.518+00
+  54 | presence_sensor     |       0 | Status Comando on                          |            |       13 |             |               |                   | 2024-01-30 18:30:36.885+00 | 2024-01-30 18:30:36.885+00
+  35 | pulse_up            |       1 | Ligar Exasutores                           |            |       13 |             |               | {"confirm":false} | 2024-01-30 13:32:52.194+00 | 2024-02-23 21:31:21.445+00
+  30 | presence_sensor     |       1 | Auto. Ar Preparo                           |            |       12 |             |               | {"confirm":false} | 2024-01-29 20:59:59.797+00 | 2024-01-30 14:18:25.922+00
+  29 | presence_sensor     |       0 | Auto. Ar Exter ADM                         |            |       12 |             |               | {"confirm":false} | 2024-01-29 20:59:30.347+00 | 2024-01-30 14:18:45.354+00
+  32 | plug                |       1 | AR Extern Preparo                          |            |       12 |             |               | {"confirm":false} | 2024-01-29 21:00:26.662+00 | 2024-01-30 14:19:01.641+00
+  31 | plug                |       0 | AR Extern ADM                              |            |       12 |             |               | {"confirm":false} | 2024-01-29 21:00:17.252+00 | 2024-01-30 14:19:10.65+00
+  38 | lamp                |       0 | F1                                         |            |       14 |             |               |                   | 2024-01-30 15:54:35.407+00 | 2024-01-30 15:54:35.407+00
+  39 | lamp                |       1 | F2                                         |            |       14 |             |               |                   | 2024-01-30 15:54:42.12+00  | 2024-01-30 15:54:42.12+00
+  70 | lamp                |       1 | S2                                         |            |       29 |             |               | {"confirm":false} | 2024-07-12 13:54:28.528+00 | 2024-07-12 13:54:35.178+00
+  44 | presence_sensor     |       0 | Auto. Selet. 50% Central e Fundo Loja (E)  |            |       16 |             |               | {"confirm":false} | 2024-01-30 17:05:27.332+00 | 2024-08-20 18:32:32.248+00
+  73 | lamp                |       0 | Automação Obramax                        |            |       31 |             |               | {"confirm":false} | 2024-07-12 14:00:18.704+00 | 2024-12-12 12:57:48.001+00
+  45 | presence_sensor     |       1 | Auto. Selet. 50% Central e Fundo Loja (F)  |            |       16 |             |               | {"confirm":false} | 2024-01-30 17:05:52.608+00 | 2024-08-20 18:33:55.442+00
+  58 | presence_sensor     |       0 | Energia água potavel                      |            |       20 |             |               |                   | 2024-01-31 17:21:48.569+00 | 2024-01-31 17:21:48.569+00
+  75 | presence_sensor     |       0 | Seletor Automático                        |            |       34 |             |               |                   | 2025-02-22 17:24:34.46+00  | 2025-02-22 17:24:34.46+00
+  57 | flow_sensor         |       1 | Água potÁvel(x10)                        |            |       20 |             |               | {"confirm":false} | 2024-01-31 17:20:53.997+00 | 2024-01-31 17:25:02.877+00
+  60 | presence_sensor     |       0 | ENERGIA REUSO                              |            |       21 |             |               |                   | 2024-01-31 17:32:25.995+00 | 2024-01-31 17:32:25.995+00
+  59 | flow_sensor         |       1 | ÁGUA Reuso(x10)                           |            |       21 |             |               | {"confirm":false} | 2024-01-31 17:31:58.982+00 | 2024-01-31 17:33:23.159+00
+  61 | presence_sensor     |       0 | Agua potavel                               |            |       22 |             |               |                   | 2024-01-31 18:00:51.375+00 | 2024-01-31 18:00:51.375+00
+  62 | presence_sensor     |       1 | Agua Reuso                                 |            |       22 |             |               |                   | 2024-01-31 18:01:07.801+00 | 2024-01-31 18:01:07.801+00
+  42 | presence_sensor     |       0 | Auto. Selet. 50% Frente Loja (C)           |            |       15 |             |               | {"confirm":false} | 2024-01-30 16:59:13.255+00 | 2024-08-20 18:28:07.579+00
+  43 | presence_sensor     |       1 | Auto. Selet. 50% Frente Loja (D)           |            |       15 |             |               | {"confirm":false} | 2024-01-30 16:59:49.094+00 | 2024-08-20 18:29:33.562+00
+  47 | lamp                |       1 | 50% Central e Fundo Loja (F)               |            |       16 |             |               | {"confirm":false} | 2024-01-30 17:06:20.092+00 | 2024-08-20 18:33:27.766+00
+   2 | lamp                |       1 | Iluminação Interna Retira                |            |        1 |             |               | {"confirm":false} | 2024-01-29 13:02:13.651+00 | 2024-08-20 18:01:06.966+00
+  36 | pulse_up            |       0 | Desligar Exaustores                        |            |       13 |             |               | {"confirm":false} | 2024-01-30 13:33:21.312+00 | 2024-02-23 21:30:34.023+00
+  46 | lamp                |       0 | 50% Central e Fundo Loja (E)               |            |       16 |             |               | {"confirm":false} | 2024-01-30 17:06:11.708+00 | 2024-08-20 18:31:56.329+00
+  33 | lamp                |       0 | Ref 1                                      |            |          |             |               |                   | 2024-01-30 12:34:16.184+00 | 2024-01-30 12:34:16.184+00
+  34 | lamp                |       1 | Ref 2                                      |            |          |             |               |                   | 2024-01-30 12:34:23.622+00 | 2024-01-30 12:34:23.622+00
+   1 | lamp                |       0 | Iluminação est. Cob. Retira              |            |        1 |             |               | {"confirm":false} | 2024-01-29 13:01:45.495+00 | 2024-12-09 19:05:43.597+00
+  71 | lamp                |       0 | S3                                         |            |       30 |             |               |                   | 2024-07-12 13:58:11.642+00 | 2024-07-12 13:58:11.642+00
+  72 | lamp                |       1 | S4                                         |            |       30 |             |               |                   | 2024-07-12 13:58:20.564+00 | 2024-07-12 13:58:20.564+00
+  65 | lamp                |       0 | 01                                         |            |          |             |               |                   | 2024-02-01 15:18:46.831+00 | 2024-02-01 15:18:46.831+00
+  66 | lamp                |       1 | 02                                         |            |          |             |               |                   | 2024-02-01 15:18:55.237+00 | 2024-02-01 15:18:55.237+00
+  74 | lamp                |       1 | S6                                         |            |       31 |             |               |                   | 2024-07-12 14:00:35.858+00 | 2024-07-12 14:00:35.858+00
+  68 | lamp                |       1 | 002                                        |            |          |             |               | {"confirm":false} | 2024-02-01 19:05:02.862+00 | 2024-02-01 19:05:41.289+00
+  67 | plug                |       0 | Automação OBramax PG                     |            |          |             |               | {"confirm":false} | 2024-02-01 19:04:56.316+00 | 2024-06-07 17:11:02.205+00
+   5 | lamp                |       0 | Lateral Loja                               |            |        2 |             |               | {"confirm":false} | 2024-01-29 13:05:41.339+00 | 2024-08-20 18:03:07.559+00
+   6 | lamp                |       1 | 50% est. Cob.                              |            |        2 |             |               | {"confirm":false} | 2024-01-29 13:05:54.149+00 | 2024-08-20 18:05:24.155+00
+   8 | presence_sensor     |       0 | Aut. Selet. 3                              |            |        2 |             |               | {"confirm":false} | 2024-01-29 13:07:02.678+00 | 2024-07-24 17:31:07.292+00
+  11 | lamp                |       0 | Ilum lateral, postes frente, 50% est. Cob. |            |        3 |             |               | {"confirm":false} | 2024-01-29 13:17:43.59+00  | 2024-08-20 18:11:35.237+00
+  12 | lamp                |       1 | Ilum. Interna Mezanino                     |            |        3 |             |               | {"confirm":false} | 2024-01-29 13:17:51.868+00 | 2024-08-20 18:12:27.761+00
+  50 | lamp                |       0 | 50% Drive e Cer (G)                        |            |       17 |             |               | {"confirm":false} | 2024-01-30 17:31:40.131+00 | 2024-08-20 18:20:55.428+00
+  51 | lamp                |       1 | 50% Drive e Cer (H)                        |            |       17 |             |               | {"confirm":false} | 2024-01-30 17:31:53.539+00 | 2024-08-20 18:21:53.169+00
+  40 | lamp                |       0 | 50% Frente Loja (C)                        |            |       15 |             |               | {"confirm":false} | 2024-01-30 16:57:22.219+00 | 2024-08-20 18:27:09.71+00
+  56 | lamp                |       0 | Depósito                                  |            |       19 |             |               | {"confirm":false} | 2024-01-30 18:39:38.102+00 | 2024-08-20 18:23:00.756+00
+  48 | presence_sensor     |       0 | Auto. Selet. 50% Drive e Cer (G)           |            |       17 |             |               | {"confirm":false} | 2024-01-30 17:31:07.185+00 | 2024-08-20 18:25:17.667+00
+  53 | lamp                |       0 | Ilum Externa (I)                           |            |       18 |             |               | {"confirm":false} | 2024-01-30 18:08:20.35+00  | 2024-07-24 18:08:09.839+00
+  52 | presence_sensor     |       0 | Auto. Selet. Ilum Externa (I)              |            |       18 |             |               | {"confirm":false} | 2024-01-30 18:08:03.952+00 | 2024-07-24 18:08:50.387+00
+  55 | presence_sensor     |       0 | Auto. Selet. Depósito                     |            |       19 |             |               | {"confirm":false} | 2024-01-30 18:39:13.839+00 | 2024-08-20 18:23:29.877+00
+  49 | presence_sensor     |       1 | Auto. Selet. 50% Drive e Cer (H)           |            |       17 |             |               | {"confirm":false} | 2024-01-30 17:31:26.432+00 | 2024-08-20 18:25:05.582+00
+  41 | lamp                |       1 | 50% Frente Loja (D)                        |            |       15 |             |               | {"confirm":false} | 2024-01-30 16:57:32.748+00 | 2024-08-20 18:29:19.421+00
+  76 | presence_sensor     |       0 | Falha Geral                                |            |       35 |             |               |                   | 2025-02-22 17:28:41.834+00 | 2025-02-22 17:28:41.834+00
+  77 | presence_sensor     |       1 | Motor Ligado                               |            |       35 |             |               |                   | 2025-02-22 17:29:01.785+00 | 2025-02-22 17:29:01.785+00
+  78 | presence_sensor     |       0 | Seletor Automático (Reserva)              |            |       36 |             |               | {"confirm":false} | 2025-02-22 19:51:52.409+00 | 2025-02-22 19:53:51.823+00
+  80 | presence_sensor     |       1 | Motor Ligado (Reserva)                     |            |       37 |             |               |                   | 2025-02-22 20:00:38.736+00 | 2025-02-22 20:00:38.736+00
+  79 | presence_sensor     |       0 | Falha Geral (Reserva)                      |            |       37 |             |               | {"confirm":false} | 2025-02-22 19:59:39.049+00 | 2025-02-22 20:00:49.514+00
+  93 | presence_sensor     |       0 | Motor Ligado                               |            |       45 |             |               |                   | 2025-03-13 14:20:05.286+00 | 2025-03-13 14:20:05.286+00
+  94 | presence_sensor     |       1 | Defeito Geral                              |            |       45 |             |               |                   | 2025-03-13 14:20:27.421+00 | 2025-03-13 14:20:27.421+00
+  95 | presence_sensor     |       0 | Rede                                       |            |       46 |             |               |                   | 2025-03-13 15:27:58.697+00 | 2025-03-13 15:27:58.697+00
+  96 | inverted_actionable |       0 | Solenoide Água Potável/caixa De Reuso    |            |       47 |             |               | {"confirm":false} | 2026-03-12 18:17:04.963+00 | 2026-03-12 18:20:37.951+00
+  97 | presence_sensor     |       0 | Fonte                                      |            |       48 |             |               |                   | 2026-03-12 18:36:06.741+00 | 2026-03-12 18:36:06.741+00
+  89 | lamp                |       0 | SPT3:COMP1                                 |            |       43 |             |               | {"confirm":false} | 2025-02-23 15:50:41.126+00 | 2026-03-12 20:42:46.029+00
+  91 | lamp                |       1 | SPT3:COMP2                                 |            |       43 |             |               | {"confirm":false} | 2025-02-23 15:51:03.425+00 | 2026-03-12 20:42:54.332+00
+  99 | presence_sensor     |       0 | Comp1                                      |            |       43 |             |               |                   | 2026-03-12 20:43:05.099+00 | 2026-03-12 20:43:05.099+00
+ 100 | presence_sensor     |       1 | Comp2                                      |            |       43 |             |               |                   | 2026-03-12 20:43:16.372+00 | 2026-03-12 20:43:16.372+00
+  87 | lamp                |       0 | SPT4:COMP1                                 |            |       42 |             |               | {"confirm":false} | 2025-02-23 15:11:31.406+00 | 2026-03-12 21:18:41.781+00
+  88 | lamp                |       1 | SPT4:COMP2                                 |            |       42 |             |               | {"confirm":false} | 2025-02-23 15:11:52.523+00 | 2026-03-12 21:18:48.691+00
+ 101 | presence_sensor     |       0 | Comp1                                      |            |       42 |             |               |                   | 2026-03-12 21:19:00.618+00 | 2026-03-12 21:19:00.618+00
+ 102 | presence_sensor     |       1 | Comp2                                      |            |       42 |             |               |                   | 2026-03-12 21:19:14.124+00 | 2026-03-12 21:19:14.124+00
+  90 | lamp                |       0 | SPST5: COMP1                               |            |       44 |             |               | {"confirm":false} | 2025-02-23 15:51:00.124+00 | 2026-03-12 21:43:21.169+00
+  92 | lamp                |       1 | SPST5: COMP2                               |            |       44 |             |               | {"confirm":false} | 2025-02-23 15:51:27.076+00 | 2026-03-12 21:43:28.279+00
+ 103 | presence_sensor     |       1 | Comp2                                      |            |       44 |             |               |                   | 2026-03-12 21:43:43.122+00 | 2026-03-12 21:43:43.122+00
+ 104 | presence_sensor     |       0 | Comp1                                      |            |       44 |             |               |                   | 2026-03-12 21:43:52.875+00 | 2026-03-12 21:43:52.875+00
+  81 | lamp                |       0 | SPT6:COMP1                                 |            |       39 |             |               | {"confirm":false} | 2025-02-23 13:30:10.071+00 | 2026-03-12 22:29:20.819+00
+  82 | lamp                |       1 | SPT6:COMP2                                 |            |       39 |             |               | {"confirm":false} | 2025-02-23 13:31:28.089+00 | 2026-03-12 22:29:30.058+00
+ 105 | presence_sensor     |       0 | Comp1                                      |            |       39 |             |               |                   | 2026-03-12 22:32:59.721+00 | 2026-03-12 22:32:59.721+00
+ 106 | presence_sensor     |       1 | Comp2                                      |            |       39 |             |               |                   | 2026-03-12 22:33:09.268+00 | 2026-03-12 22:33:09.268+00
+  83 | lamp                |       0 | SPT7:COMP1                                 |            |       40 |             |               | {"confirm":false} | 2025-02-23 14:06:24.264+00 | 2026-03-12 22:48:13.605+00
+  84 | lamp                |       1 | SPT7:COMP2                                 |            |       40 |             |               | {"confirm":false} | 2025-02-23 14:06:49.945+00 | 2026-03-12 22:48:23.636+00
+ 107 | presence_sensor     |       0 | Comp1                                      |            |       40 |             |               |                   | 2026-03-12 22:48:36.616+00 | 2026-03-12 22:48:36.616+00
+ 108 | presence_sensor     |       1 | Comp2                                      |            |       40 |             |               |                   | 2026-03-12 22:48:59.015+00 | 2026-03-12 22:48:59.015+00
+  85 | lamp                |       0 | SPST2 : COMP1                              |            |       41 |             |               | {"confirm":false} | 2025-02-23 14:31:09.646+00 | 2026-03-12 23:14:18.536+00
+  86 | lamp                |       1 | SPST2: COMP 2                              |            |       41 |             |               | {"confirm":false} | 2025-02-23 14:31:35.764+00 | 2026-03-12 23:14:28.065+00
+ 109 | presence_sensor     |       0 | Comp1                                      |            |       41 |             |               |                   | 2026-03-12 23:15:09.853+00 | 2026-03-12 23:15:09.853+00
+ 110 | presence_sensor     |       1 | Comp2                                      |            |       41 |             |               |                   | 2026-03-12 23:15:20.71+00  | 2026-03-12 23:15:20.71+00
+ 111 | lamp                |       0 | Teste                                      |            |       48 |             |               |                   | 2026-04-16 15:52:26.049+00 | 2026-04-16 15:52:26.049+00
+  98 | flow_sensor         |       1 | Hidr. Água_Potável_Entrada x10           |            |       48 |             |               | {"confirm":false} | 2026-03-12 18:36:18.967+00 | 2026-04-16 15:59:12.864+00
+ 113 | lamp                |       0 | Teste                                      |            |       49 |             |               |                   | 2026-04-16 16:24:46.308+00 | 2026-04-16 16:24:46.308+00
+ 112 | flow_sensor         |       1 | Hidr. EntradaPotavel_Redundancia x10       |            |       49 |             |               | {"confirm":false} | 2026-04-16 16:23:49.68+00  | 2026-04-16 16:25:02.749+00
+ 116 | lamp                |       0 | 1                                          |            |       50 |             |               |                   | 2026-04-16 17:41:26.117+00 | 2026-04-16 17:41:26.117+00
+ 117 | lamp                |       1 | 2                                          |            |       50 |             |               |                   | 2026-04-16 17:41:36.085+00 | 2026-04-16 17:41:36.085+00
+ 114 | presence_sensor     |       0 | Nivel Mínimo Pluvial                      |            |       50 |             |               | {"confirm":false} | 2026-04-16 17:04:25.745+00 | 2026-04-16 18:44:57.851+00
+(113 rows)
+
+
+SELECT *
+  FROM logs
+  WHERE slave_id = 46
+    AND timestamp >= '2026-05-19 00:00-03' AND timestamp < '2026-05-20 00:00-03'
+  ORDER BY timestamp;

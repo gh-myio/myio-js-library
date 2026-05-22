@@ -33,6 +33,7 @@ import { TempRangeTooltip } from '../../../../utils/TempRangeTooltip';
 import { EnergyRangeTooltip } from '../../../../utils/EnergyRangeTooltip';
 import { DeviceComparisonTooltip } from '../../../../utils/DeviceComparisonTooltip';
 import { TempComparisonTooltip } from '../../../../utils/TempComparisonTooltip';
+import { resolvePercentDecimals } from '../../../../utils/percentDecimals';
 
 // ============================================
 // CONSTANTS
@@ -193,6 +194,9 @@ export function renderCardComponentV5({
   showPercentageTooltip = false, // Tooltip on percentage badge
   showTempComparisonTooltip = false, // Tooltip on temperature deviation badge
   showTempRangeTooltip = false, // Tooltip on device image for temperature devices
+  // Decimal places for the % badge. Resolved at render time so it can be changed
+  // without rebuilding the lib: this prop > window.MyIOUtils.percentDecimals > 2.
+  percentDecimals,
 }) {
   const {
     entityId,
@@ -219,6 +223,8 @@ export function renderCardComponentV5({
     temperatureMin,
     temperatureMax,
     temperatureStatus, // 'ok' | 'above' | 'below' | undefined
+    // Per-device exclude_groups_totals attribute (SERVER_SCOPE) — drives the orange marker
+    excludeGroupsTotals,
   } = entityObject;
 
   /*********************************************************
@@ -518,6 +524,20 @@ export function renderCardComponentV5({
         height: 100%;
       }
 
+      /* Subtle orange marker — device flagged in exclude_groups_totals */
+      .myio-enhanced-card-container-v5.myio-card-excluded::after {
+        content: '';
+        position: absolute;
+        left: 12px;
+        right: 12px;
+        bottom: 3px;
+        height: 3px;
+        border-radius: 2px;
+        background: linear-gradient(90deg, rgba(245, 158, 11, 0), #f59e0b 50%, rgba(245, 158, 11, 0));
+        pointer-events: none;
+        z-index: 5;
+      }
+
       .myio-enhanced-card-container-v5 .myio-draggable-card {
         width: 100%;
         border-radius: 10px;
@@ -737,6 +757,10 @@ export function renderCardComponentV5({
   const isEnergyDeviceFlag = isEnergyDevice(deviceType);
   const percentageForDisplay = isTankDevice ? (waterPercentage || 0) * 100 : perc;
 
+  // Decimal places for the percentage badge — prop > window.MyIOUtils.percentDecimals > 2.
+  // Runtime-resolved, so it can change without a lib rebuild.
+  const _pctDecimals = resolvePercentDecimals(percentDecimals);
+
   // Calculate temperature status for TERMOSTATO devices
   const calculateTempStatus = () => {
     // If status is explicitly provided, use it
@@ -851,9 +875,7 @@ export function renderCardComponentV5({
               </div>
               ${
                 !isTermostatoDevice
-                  ? `<span class="device-percentage-badge percentage-tooltip-trigger" style="position: absolute; bottom: 12px; right: 12px; z-index: 20; background: none !important; cursor: help;">${percentageForDisplay.toFixed(
-                      1
-                    )}%</span>`
+                  ? `<span class="device-percentage-badge percentage-tooltip-trigger" style="position: absolute; bottom: 12px; right: 12px; z-index: 20; background: none !important; cursor: help;">${percentageForDisplay.toFixed(_pctDecimals).replace('.', ',')}%</span>`
                   : tempDeviationPercent
                   ? `<span class="device-percentage-badge temp-deviation-badge temp-comparison-tooltip-trigger" style="position: absolute; bottom: 12px; right: 12px; z-index: 20; background: none !important; color: ${
                       tempDeviationPercent.isAbove
@@ -877,6 +899,23 @@ export function renderCardComponentV5({
 
   container.innerHTML = cardHTML;
   const enhancedCardElement = container.querySelector('.device-card-centered');
+
+  // Subtle orange bottom line when the device is flagged in exclude_groups_totals.
+  try {
+    const _excl =
+      typeof excludeGroupsTotals === 'string'
+        ? JSON.parse(excludeGroupsTotals)
+        : excludeGroupsTotals;
+    const _isExcluded = !!(
+      _excl &&
+      _excl.enabled === true &&
+      ((_excl.groups && Object.values(_excl.groups).some((v) => v === true)) ||
+        (Array.isArray(_excl.excludedGroups) && _excl.excludedGroups.length > 0))
+    );
+    if (_isExcluded) container.classList.add('myio-card-excluded');
+  } catch (e) {
+    /* malformed exclude_groups_totals — no marker */
+  }
 
   // Add premium enhanced card styles - V5 OPTIMIZED
   if (!document.getElementById('myio-enhanced-card-layout-styles-v5')) {

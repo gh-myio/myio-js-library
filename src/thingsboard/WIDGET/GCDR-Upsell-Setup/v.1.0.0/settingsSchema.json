@@ -12,7 +12,5 @@
       }
     }
   },
-  "form": [
-    "forceClearChunkDelayMs"
-  ]
+  "form": ["forceClearChunkDelayMs"]
 }

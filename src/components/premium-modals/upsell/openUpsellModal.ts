@@ -489,8 +489,11 @@ function findIngestionDeviceByCentralSlaveId(
   const slaveIdNum = typeof slaveId === 'string' ? parseInt(slaveId, 10) : slaveId;
 
   for (const device of devices) {
-    // In ingestion API: gatewayId or gateway.id corresponds to ThingsBoard's centralId
-    const deviceGatewayId = device.gatewayId || device.gateway?.id;
+    // The TB device's centralId is the gateway HARDWARE uuid. Match against
+    // gateway.hardwareUuid first; gatewayId/gateway.id are the ingestion-internal
+    // ids and only coincide with the hardware uuid for some gateways.
+    const deviceGatewayId =
+      device.gateway?.hardwareUuid || device.gatewayId || device.gateway?.id;
     if (deviceGatewayId === centralId && device.slaveId === slaveIdNum) {
       console.log(
         '[UpsellModal] Found matching device:',
@@ -510,8 +513,8 @@ function findIngestionDeviceByCentralSlaveId(
     console.log(
       `[UpsellModal] Sample device ${i}:`,
       d.name,
-      'gatewayId:',
-      d.gatewayId || d.gateway?.id,
+      'gateway(hwUuid|id):',
+      d.gateway?.hardwareUuid || d.gatewayId || d.gateway?.id,
       'slaveId:',
       d.slaveId
     );
@@ -720,6 +723,7 @@ interface ModalState {
   bulkOwnerModal: {
     open: boolean;
     saving: boolean;
+    targetCustomerId: string; // owner customer chosen in the modal (defaults to selectedCustomer)
   };
   columnWidths: ColumnWidths;
   deviceAttrsLoaded: boolean;
@@ -750,6 +754,7 @@ interface ModalState {
     deviceType: string;
     deviceProfile: string;
   } | null;
+  lojasApplyRelation: boolean; // CUSTOM/LOJAS: força a relação Customer→Device (default true)
   // CUSTOM mode picker modal (replaces old LOJAS shortcut)
   customModeModal: { open: boolean };
   // Bulk Relation Modal (force relation in batch)
@@ -903,7 +908,7 @@ export function openUpsellModal(params: UpsellModalParams): UpsellModalInstance 
     selectedDevices: [],
     bulkAttributeModal: { open: false, attribute: 'deviceType', value: '', saving: false },
     bulkProfileModal: { open: false, selectedProfileId: '', saving: false },
-    bulkOwnerModal: { open: false, saving: false },
+    bulkOwnerModal: { open: false, saving: false, targetCustomerId: '' },
     columnWidths: {
       name: 180,
       label: 120,
@@ -940,6 +945,7 @@ export function openUpsellModal(params: UpsellModalParams): UpsellModalInstance 
     lojasDeviceData: [],
     lojasDataLoading: false,
     lojasConfig: null,
+    lojasApplyRelation: true,
     customModeModal: { open: false },
     bulkRelationModal: { open: false, target: 'CUSTOMER', selectedAssetId: '', selectedAssetName: '', search: '', newAssetName: '', assetsLoaded: false, overrideCustomerId: '', overrideCustomerName: '', customerSearch: '', customerPickerOpen: false },
     checkFixLoading: false,
@@ -1156,6 +1162,12 @@ function renderModal(
                 font-size: 14px; font-weight: 500; font-family: 'Roboto', Arial, sans-serif;
                 display: flex; align-items: center; gap: 6px;
               " ${!state.selectedCustomer ? 'disabled title="Selecione um Customer primeiro"' : ''}>🔄 Sync Ingestion ID (${state.selectedDevices.length})</button>
+              <button id="${modalId}-bulk-delete" style="
+                background: #b91c1c; color: white; border: 1px solid #7f1d1d;
+                padding: 8px 16px; border-radius: 6px; cursor: pointer;
+                font-size: 14px; font-weight: 600; font-family: 'Roboto', Arial, sans-serif;
+                display: flex; align-items: center; gap: 6px;
+              " title="Deletar permanentemente os dispositivos selecionados (irreversível)">🗑️ Deletar (${state.selectedDevices.length})</button>
             `
                 : ''
             }
@@ -1459,7 +1471,27 @@ function renderModal(
 
     ${
       state.bulkOwnerModal.open
-        ? `
+        ? (() => {
+            // Resolve the effective target owner: chosen in the modal, or the current customer
+            const effId =
+              state.bulkOwnerModal.targetCustomerId || state.selectedCustomer?.id?.id || '';
+            const effCustomer =
+              state.customers.find((c) => c.id?.id === effId) || state.selectedCustomer;
+            const effName = effCustomer?.name || effCustomer?.title || 'Não selecionado';
+            const customerOptions =
+              state.customers.length === 0
+                ? `<option value="${effId}">${effName}</option>`
+                : [...state.customers]
+                    .sort((a, b) =>
+                      (a.name || a.title || '').localeCompare(b.name || b.title || '', 'pt-BR')
+                    )
+                    .map((c) => {
+                      const cid = c.id?.id || '';
+                      const cname = c.name || c.title || cid;
+                      return `<option value="${cid}" ${cid === effId ? 'selected' : ''}>${cname}</option>`;
+                    })
+                    .join('');
+            return `
       <!-- Bulk Owner Modal -->
       <div class="myio-bulk-owner-overlay" style="
         position: fixed; top: 0; left: 0; right: 0; bottom: 0;
@@ -1487,21 +1519,25 @@ function renderModal(
               colors.textMuted
             }; margin-bottom: 4px;">Devices selecionados:</div>
             <div style="font-size: 14px; color: ${colors.text}; font-weight: 500;">${
-            state.selectedDevices.length
-          } dispositivos</div>
+              state.selectedDevices.length
+            } dispositivos</div>
           </div>
 
-          <div style="margin-bottom: 16px; padding: 12px; background: ${
-            colors.success
-          }20; border-radius: 8px; border: 1px solid ${colors.success}40;">
-            <div style="font-size: 12px; color: ${
-              colors.textMuted
-            }; margin-bottom: 4px;">Novo Owner (Customer):</div>
-            <div style="font-size: 14px; color: ${colors.success}; font-weight: 600;">${
-            state.selectedCustomer?.name || state.selectedCustomer?.title || 'Não selecionado'
-          }</div>
+          <div style="margin-bottom: 16px;">
+            <div style="font-size: 12px; color: ${colors.textMuted}; margin-bottom: 6px;">
+              Novo Owner (Customer):
+            </div>
+            <select id="${modalId}-bulk-owner-customer" style="
+              width: 100%; padding: 9px 10px; border-radius: 8px;
+              border: 1px solid ${colors.border}; background: ${colors.inputBg};
+              color: ${colors.text}; font-size: 13px; cursor: pointer;
+            ">
+              ${customerOptions}
+            </select>
             <div style="font-size: 11px; color: ${colors.textMuted}; margin-top: 4px;">
-              ID: ${state.selectedCustomer?.id?.id || 'N/A'}
+              ID: ${effId || 'N/A'}${
+                state.customers.length === 0 ? ' · carregando lista de clientes…' : ''
+              }
             </div>
           </div>
 
@@ -1509,7 +1545,9 @@ function renderModal(
             colors.warning
           }20; border-radius: 8px; border: 1px solid ${colors.warning}40;">
             <div style="font-size: 12px; color: ${colors.warning}; font-weight: 500;">
-              ⚠️ Atenção: Esta ação irá atribuir todos os ${state.selectedDevices.length} devices selecionados ao customer "${state.selectedCustomer?.name || state.selectedCustomer?.title}".
+              ⚠️ Atenção: Esta ação irá atribuir todos os ${
+                state.selectedDevices.length
+              } devices selecionados ao customer "${effName}".
             </div>
           </div>
 
@@ -1523,7 +1561,7 @@ function renderModal(
               background: #10b981; color: white; border: none;
               padding: 10px 20px; border-radius: 6px; cursor: pointer;
               font-size: 14px; font-weight: 500;
-            " ${state.bulkOwnerModal.saving || !state.selectedCustomer ? 'disabled' : ''}>
+            " ${state.bulkOwnerModal.saving || !effId ? 'disabled' : ''}>
               ${
                 state.bulkOwnerModal.saving
                   ? 'Salvando...'
@@ -1533,7 +1571,8 @@ function renderModal(
           </div>
         </div>
       </div>
-    `
+    `;
+          })()
         : ''
     }
 
@@ -1779,7 +1818,8 @@ function renderModal(
     }
   `;
 
-  // Setup event listeners
+  // Setup event listeners — reset idempotency guard for this fresh render generation
+  delete container.dataset.upsellListenersBound;
   setupEventListeners(container, state, modalId, t);
 }
 
@@ -2044,6 +2084,14 @@ function renderCheckFixRow(
 
   const connColor = r.connStatus ? (CONN_COLOR[r.connStatus] || colors.textMuted) : colors.textMuted;
 
+  // Plain-text telemetry values for click-to-copy (valStr carries HTML <b> tags)
+  const valCopy = Object.entries(r.telemetry.values)
+    .filter(([, v]) => v != null)
+    .map(([k, v]) => `${k}: ${v}${unit[k] ?? ''}`)
+    .join(' · ');
+  const copyAttr = (v: unknown) =>
+    `class="myio-copy-cell" data-copy="${encodeURIComponent(String(v ?? ''))}"`;
+
   return `
     <tr class="myio-list-item ${isSelected ? 'selected' : ''}" data-device-id="${r.deviceId}"
         style="border-bottom:1px solid ${colors.border}; cursor:pointer;">
@@ -2052,21 +2100,21 @@ function renderCheckFixRow(
           <input type="checkbox" class="myio-device-checkbox" data-device-id="${r.deviceId}"
             ${isSelectedMulti ? 'checked' : ''} style="width:14px;height:14px;cursor:pointer;accent-color:${MYIO_PURPLE};"/>
         </td>` : ''}
-      <td style="${cell()} max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${r.deviceName}">${r.deviceName}</td>
-      <td style="${cell()} max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:${colors.textMuted};" title="${r.deviceLabel}">${r.deviceLabel || dash}</td>
-      <td style="${cell(typeActWrong ? 'ok' : 'none', true)}">${r.inferred.deviceType}</td>
-      <td style="${cell(typeActWrong ? (r.typeEqualsProfile ? 'warn' : 'bad') : 'none', true)}" title="${typeActWrong ? `esperado: ${r.inferred.deviceType}` : ''}">${r.actual.type || dash}</td>
-      <td style="${cell(devTypeWrong ? 'ok' : 'none', true)}">${r.inferred.deviceType}</td>
-      <td style="${cell(devTypeWrong ? 'bad' : 'none', true)}" title="${devTypeWrong ? `esperado: ${r.inferred.deviceType}` : ''}">${r.actual.deviceType || dash}</td>
-      <td style="${cell(devProfWrong ? 'ok' : 'none', true)}">${r.inferred.deviceProfile}</td>
-      <td style="${cell(devProfWrong ? 'bad' : 'none', true)}" title="${devProfWrong ? `esperado: ${r.inferred.deviceProfile}` : ''}">${r.actual.deviceProfile || dash}</td>
-      <td style="${cell()} white-space:nowrap; color:${colors.textMuted}; font-size:9px;">${tsStr}</td>
-      <td style="${cell()} font-size:9px;">${valStr}</td>
-      <td style="${cell()} color:${connColor}; font-weight:600; white-space:nowrap;">${r.connStatus || dash}</td>
-      <td style="${cell()} font-size:9px; font-family:monospace; color:${colors.textMuted}; max-width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${r.gcdrDeviceId || ''}">${r.gcdrDeviceId || dash}</td>
-      <td style="${cell(dupIngestionIds.has(r.deviceId) ? 'bad' : 'none')} font-size:9px; font-family:monospace; max-width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${r.ingestionId || ''}">${r.ingestionId || dash}</td>
-      <td style="${cell(dupPairIds.has(r.deviceId) ? 'bad' : 'none')} font-size:9px; font-family:monospace; max-width:80px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${r.centralId || ''}">${r.centralId || dash}</td>
-      <td style="${cell(dupPairIds.has(r.deviceId) ? 'bad' : 'none')} font-size:9px; font-family:monospace; max-width:50px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${r.slaveId || dash}</td>
+      <td ${copyAttr(r.deviceName)} style="${cell()} max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${r.deviceName}">${r.deviceName}</td>
+      <td ${copyAttr(r.deviceLabel)} style="${cell()} max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:${colors.textMuted};" title="${r.deviceLabel}">${r.deviceLabel || dash}</td>
+      <td ${copyAttr(r.inferred.deviceType)} style="${cell(typeActWrong ? 'ok' : 'none', true)}">${r.inferred.deviceType}</td>
+      <td ${copyAttr(r.actual.type ?? '')} style="${cell(typeActWrong ? (r.typeEqualsProfile ? 'warn' : 'bad') : 'none', true)}" title="${typeActWrong ? `esperado: ${r.inferred.deviceType}` : ''}">${r.actual.type || dash}</td>
+      <td ${copyAttr(r.inferred.deviceType)} style="${cell(devTypeWrong ? 'ok' : 'none', true)}">${r.inferred.deviceType}</td>
+      <td ${copyAttr(r.actual.deviceType ?? '')} style="${cell(devTypeWrong ? 'bad' : 'none', true)}" title="${devTypeWrong ? `esperado: ${r.inferred.deviceType}` : ''}">${r.actual.deviceType || dash}</td>
+      <td ${copyAttr(r.inferred.deviceProfile)} style="${cell(devProfWrong ? 'ok' : 'none', true)}">${r.inferred.deviceProfile}</td>
+      <td ${copyAttr(r.actual.deviceProfile ?? '')} style="${cell(devProfWrong ? 'bad' : 'none', true)}" title="${devProfWrong ? `esperado: ${r.inferred.deviceProfile}` : ''}">${r.actual.deviceProfile || dash}</td>
+      <td ${copyAttr(r.telemetry.ts ? tsStr : '')} style="${cell()} white-space:nowrap; color:${colors.textMuted}; font-size:9px;">${tsStr}</td>
+      <td ${copyAttr(valCopy)} style="${cell()} font-size:9px;">${valStr}</td>
+      <td ${copyAttr(r.connStatus ?? '')} style="${cell()} color:${connColor}; font-weight:600; white-space:nowrap;">${r.connStatus || dash}</td>
+      <td ${copyAttr(r.gcdrDeviceId ?? '')} style="${cell()} font-size:9px; font-family:monospace; color:${colors.textMuted}; max-width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${r.gcdrDeviceId || ''}">${r.gcdrDeviceId || dash}</td>
+      <td ${copyAttr(r.ingestionId ?? '')} style="${cell(dupIngestionIds.has(r.deviceId) ? 'bad' : 'none')} font-size:9px; font-family:monospace; max-width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${r.ingestionId || ''}">${r.ingestionId || dash}</td>
+      <td ${copyAttr(r.centralId ?? '')} style="${cell(dupPairIds.has(r.deviceId) ? 'bad' : 'none')} font-size:9px; font-family:monospace; max-width:80px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${r.centralId || ''}">${r.centralId || dash}</td>
+      <td ${copyAttr(r.slaveId ?? '')} style="${cell(dupPairIds.has(r.deviceId) ? 'bad' : 'none')} font-size:9px; font-family:monospace; max-width:50px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${r.slaveId || dash}</td>
       <td style="padding:4px 6px; font-size:10px; color:${STATUS_COLOR[r.status]}; font-weight:700; white-space:nowrap; cursor:${r.status !== 'ok' ? 'help' : 'default'};"
           ${r.status !== 'ok' ? `data-cf-status="${r.status}" data-cf-device="${encodeURIComponent(r.deviceName)}" data-cf-detail="${encodeURIComponent(_buildCfStatusDetail(r))}"` : ''}>
         ${STATUS_ICON[r.status]} ${r.status}
@@ -2256,26 +2304,9 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
     return true;
   });
 
-  // Apply search term filter — hybrid across name, label, type, devType, devProfile, slaveId, status
+  // Apply search term filter — matches against every grid column (see buildDeviceSearchHaystack)
   const searchFilteredDevices = searchTerm
-    ? filteredDevices.filter((d) => {
-        const name = (d.name || '').toLowerCase();
-        const label = (d.label || '').toLowerCase();
-        const type = (d.type || '').toLowerCase();
-        const deviceType = (d.serverAttrs?.deviceType || '').toLowerCase();
-        const deviceProfile = (d.serverAttrs?.deviceProfile || '').toLowerCase();
-        const slaveId = String(d.serverAttrs?.slaveId ?? '').toLowerCase();
-        const status = (d.latestTelemetry?.connectionStatus?.value || '').toLowerCase();
-        return (
-          name.includes(searchTerm) ||
-          label.includes(searchTerm) ||
-          type.includes(searchTerm) ||
-          deviceType.includes(searchTerm) ||
-          deviceProfile.includes(searchTerm) ||
-          slaveId.includes(searchTerm) ||
-          status.includes(searchTerm)
-        );
-      })
+    ? filteredDevices.filter((d) => buildDeviceSearchHaystack(d, state).includes(searchTerm))
     : filteredDevices;
 
   // Sort devices (use searchFilteredDevices so the text search also filters the grid)
@@ -2857,6 +2888,116 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
   `;
 }
 
+// Build a single lowercased searchable string covering every column shown in the
+// device grid, so the search box matches any column (name, label, type, createdTime,
+// relations, centralId, slaveId, deviceType, deviceProfile, telemetry, status).
+function buildDeviceSearchHaystack(d: Device, state: ModalState): string {
+  const id = getEntityId(d);
+  const relTo = (state.deviceRelToMap.get(id) || []).map((r) => r.name || '').join(' ');
+  const relFrom = (state.deviceRelFromMap.get(id) || []).map((r) => r.name || '').join(' ');
+  const tel = d.latestTelemetry || {};
+  const a = d.serverAttrs || {};
+  return [
+    d.name,
+    d.label,
+    d.type,
+    d.createdTime ? formatDate(d.createdTime, state.locale) : '',
+    relTo,
+    relFrom,
+    a.centralId,
+    a.slaveId,
+    a.deviceType,
+    a.deviceProfile,
+    tel.pulses?.value,
+    tel.consumption?.value,
+    tel.temperature?.value,
+    tel.connectionStatus?.value,
+  ]
+    .map((v) => String(v ?? '').toLowerCase())
+    .join(''); // control-char separator avoids cross-field false matches
+}
+
+// Devices currently visible in the grid — same filtering the render applies:
+// dropdown filters + search term, plus the CHECK & FIX status/advanced filters
+// when a diagnostic report is loaded. "Select All" must use exactly this set.
+function getGridVisibleDevices(state: ModalState): Device[] {
+  const {
+    types: filterTypes,
+    deviceTypes: filterDeviceTypes,
+    deviceProfiles: filterDeviceProfiles,
+    statuses: filterStatuses,
+    telemetryKeys: filterTelemetryKeys,
+  } = state.deviceFilters;
+  const searchTerm = state.deviceSearchTerm.toLowerCase();
+
+  let result = state.devices.filter((d) => {
+    if (filterTypes.length > 0 && !filterTypes.includes(d.type || '')) return false;
+    if (filterDeviceTypes.length > 0 && !filterDeviceTypes.includes(d.serverAttrs?.deviceType || ''))
+      return false;
+    if (
+      filterDeviceProfiles.length > 0 &&
+      !filterDeviceProfiles.includes(d.serverAttrs?.deviceProfile || '')
+    )
+      return false;
+    if (filterStatuses.length > 0) {
+      const status = d.latestTelemetry?.connectionStatus?.value || 'offline';
+      if (!filterStatuses.includes(status)) return false;
+    }
+    if (filterTelemetryKeys.length > 0) {
+      const telem = d.latestTelemetry;
+      const hasMatch = filterTelemetryKeys.some((k) => {
+        if (k === 'pulses') return telem?.pulses != null;
+        if (k === 'consumption') return telem?.consumption != null;
+        return false;
+      });
+      if (!hasMatch) return false;
+    }
+    return true;
+  });
+
+  if (searchTerm) {
+    result = result.filter((d) => buildDeviceSearchHaystack(d, state).includes(searchTerm));
+  }
+
+  // CHECK & FIX mode: the grid only shows devices with a diagnostic record that
+  // also passes the status filter and the advanced filters.
+  if (state.checkFixReport) {
+    const idToRecord = new Map(state.checkFixReport.records.map((r) => [r.deviceId, r]));
+    const af = state.checkFixAdvancedFilter;
+    result = result.filter((d) => {
+      const r = idToRecord.get(getEntityId(d));
+      if (!r) return false;
+      if (!(state.checkFixFilter === 'all' || r.status === state.checkFixFilter)) return false;
+      if (af.statuses.length > 0 && !af.statuses.includes(r.status)) return false;
+      if (af.connStatuses.length > 0 && !af.connStatuses.includes(r.connStatus || 'null')) return false;
+      if (af.domains.length > 0 && !af.domains.includes(r.domain || 'null')) return false;
+      if (af.missingIngestionId && r.ingestionId) return false;
+      if (af.missingCentralSlave && r.centralId && r.slaveId != null) return false;
+      return true;
+    });
+  }
+
+  return result;
+}
+
+// Copy a cell value to the clipboard with a brief visual flash on the cell.
+function copyCellValue(text: string, el: HTMLElement): void {
+  if (!text) return;
+  const flash = (ok: boolean) => {
+    const prev = el.style.backgroundColor;
+    el.style.transition = 'background-color 0.15s ease';
+    el.style.backgroundColor = ok ? 'rgba(34,197,94,0.35)' : 'rgba(239,68,68,0.35)';
+    setTimeout(() => {
+      el.style.backgroundColor = prev;
+    }, 350);
+  };
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(text).then(() => flash(true), () => flash(false));
+  } else {
+    flash(false);
+  }
+}
+
 // Render a single device row
 function renderDeviceRow(device: Device, state: ModalState, modalId: string, colors: ThemeColors): string {
   const deviceId = getEntityId(device);
@@ -3039,6 +3180,17 @@ function renderDeviceRow(device: Device, state: ModalState, modalId: string, col
     `;
   };
 
+  // Copy values for click-to-copy cells (RFC: copy-only, does not select the device)
+  const relToNames = state.relationsLoaded
+    ? (state.deviceRelToMap.get(deviceId) || []).map((r) => r.name || '').filter(Boolean).join(', ')
+    : '';
+  const relFromNames = state.relationsLoaded
+    ? (state.deviceRelFromMap.get(deviceId) || []).map((r) => r.name || '').filter(Boolean).join(', ')
+    : '';
+  const telemetryCopy = telemetryItems.map((it) => `${it.label}: ${it.value}${it.unit}`).join('; ');
+  const copyAttr = (v: unknown) =>
+    `class="myio-copy-cell" data-copy="${encodeURIComponent(String(v ?? ''))}" title="Clique para copiar valor"`;
+
   return `
     <div class="myio-list-item ${isSelected ? 'selected' : ''}"
          data-device-id="${deviceId}" style="
@@ -3058,10 +3210,10 @@ function renderDeviceRow(device: Device, state: ModalState, modalId: string, col
       `
           : ''
       }
-      <div style="width: 28px; font-size: 16px; flex-shrink: 0;">${getDeviceIcon(device.type)}</div>
-      <div style="width: ${
+      <div style="width: 28px; font-size: 16px; flex-shrink: 0; cursor: pointer;" title="Clique para selecionar o dispositivo">${getDeviceIcon(device.type)}</div>
+      <div ${copyAttr(device.name)} style="width: ${
         state.columnWidths.name
-      }px; padding: 0 6px; overflow: hidden; display: flex; align-items: center; gap: 4px;">
+      }px; padding: 0 6px; overflow: hidden; display: flex; align-items: center; gap: 4px; cursor: pointer;">
         <div style="font-weight: 600; color: ${
           colors.text
         }; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;" title="${device.name}">
@@ -3073,30 +3225,30 @@ function renderDeviceRow(device: Device, state: ModalState, modalId: string, col
           display: flex; align-items: center; justify-content: center; border: 1px solid ${colors.border};
         " title="Ver detalhes">ⓘ</span>
       </div>
-      <div style="width: ${
+      <div ${copyAttr(device.label ?? '')} style="width: ${
         state.columnWidths.label
-      }px; padding: 0 6px; overflow: hidden; flex-shrink: 0;">
+      }px; padding: 0 6px; overflow: hidden; flex-shrink: 0; cursor: pointer;">
         <div style="font-size: 10px; color: ${
           colors.textMuted
         }; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${device.label ?? ''}">
           ${device.label ?? ''}
         </div>
       </div>
-      <div style="width: ${
+      <div ${copyAttr(device.type ?? '')} style="width: ${
         state.columnWidths.type
-      }px; padding: 0 6px; text-align: center; flex-shrink: 0; overflow: hidden;">
+      }px; padding: 0 6px; text-align: center; flex-shrink: 0; overflow: hidden; cursor: pointer;">
         <div style="font-size: 9px; padding: 2px 4px; border-radius: 3px; display: inline-block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
           background: ${device.type?.includes('HIDRO') ? '#dbeafe' : '#fef3c7'};
           color: ${device.type?.includes('HIDRO') ? '#1e40af' : '#92400e'};" title="${device.type || ''}">
           ${device.type || '—'}
         </div>
       </div>
-      <div style="width: ${
+      <div ${copyAttr(device.createdTime ? createdTimeStr : '')} style="width: ${
         state.columnWidths.createdTime
-      }px; padding: 0 6px; text-align: center; flex-shrink: 0;">
+      }px; padding: 0 6px; text-align: center; flex-shrink: 0; cursor: pointer;">
         <span style="font-size: 9px; color: ${colors.textMuted};">${createdTimeStr}</span>
       </div>
-      <div style="width: ${state.columnWidths.relationTo}px; padding: 0 6px; flex-shrink: 0; overflow: hidden; display:flex; align-items:center; justify-content:center; gap:3px;">
+      <div ${copyAttr(relToNames)} style="width: ${state.columnWidths.relationTo}px; padding: 0 6px; flex-shrink: 0; overflow: hidden; display:flex; align-items:center; justify-content:center; gap:3px; cursor: pointer;">
         ${(() => {
           if (!state.relationsLoaded) return `<span style="font-size: 8px; color: ${colors.textMuted}; font-style: italic;">—</span>`;
           const rels = state.deviceRelToMap.get(deviceId) || [];
@@ -3110,7 +3262,7 @@ function renderDeviceRow(device: Device, state: ModalState, modalId: string, col
           }`;
         })()}
       </div>
-      <div style="width: ${state.columnWidths.relationFrom}px; padding: 0 6px; flex-shrink: 0; overflow: hidden; display:flex; align-items:center; justify-content:center; gap:3px;">
+      <div ${copyAttr(relFromNames)} style="width: ${state.columnWidths.relationFrom}px; padding: 0 6px; flex-shrink: 0; overflow: hidden; display:flex; align-items:center; justify-content:center; gap:3px; cursor: pointer;">
         ${(() => {
           if (!state.relationsLoaded) return `<span style="font-size: 8px; color: ${colors.textMuted}; font-style: italic;">—</span>`;
           const rels = state.deviceRelFromMap.get(deviceId) || [];
@@ -3124,9 +3276,9 @@ function renderDeviceRow(device: Device, state: ModalState, modalId: string, col
           }`;
         })()}
       </div>
-      <div style="width: ${
+      <div ${copyAttr(attrs.centralId ?? '')} style="width: ${
         state.columnWidths.centralId
-      }px; padding: 0 6px; text-align: center; flex-shrink: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;">
+      }px; padding: 0 6px; text-align: center; flex-shrink: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; cursor: pointer;">
         ${!state.deviceAttrsLoaded
           ? `<span style="font-size: 8px; color: ${colors.textMuted}; font-style: italic;">—</span>`
           : attrs.centralId
@@ -3134,9 +3286,9 @@ function renderDeviceRow(device: Device, state: ModalState, modalId: string, col
             : `<span style="font-size: 9px; color: ${colors.textMuted};">—</span>`
         }
       </div>
-      <div style="width: ${
+      <div ${copyAttr(attrs.slaveId ?? '')} style="width: ${
         state.columnWidths.slaveId
-      }px; padding: 0 6px; text-align: center; flex-shrink: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;">
+      }px; padding: 0 6px; text-align: center; flex-shrink: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; cursor: pointer;">
         ${!state.deviceAttrsLoaded
           ? `<span style="font-size: 8px; color: ${colors.textMuted}; font-style: italic;">—</span>`
           : attrs.slaveId != null && attrs.slaveId !== ''
@@ -3144,27 +3296,27 @@ function renderDeviceRow(device: Device, state: ModalState, modalId: string, col
             : `<span style="font-size: 9px; color: ${colors.textMuted};">—</span>`
         }
       </div>
-      <div style="width: ${
+      <div ${copyAttr(state.deviceAttrsLoaded ? (attrs.deviceType ?? '') : '')} style="width: ${
         state.columnWidths.deviceType
-      }px; padding: 0 6px; text-align: center; flex-shrink: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;">
+      }px; padding: 0 6px; text-align: center; flex-shrink: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; cursor: pointer;">
         ${renderDeviceTypeValue()}
       </div>
-      <div style="width: ${
+      <div ${copyAttr(state.deviceAttrsLoaded ? (attrs.deviceProfile ?? '') : '')} style="width: ${
         state.columnWidths.deviceProfile
-      }px; padding: 0 6px; text-align: center; flex-shrink: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;">
+      }px; padding: 0 6px; text-align: center; flex-shrink: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; cursor: pointer;">
         ${renderDeviceProfileValue()}
       </div>
-      <div style="width: ${
+      <div ${copyAttr(telemetryCopy)} style="width: ${
         state.columnWidths.telemetry
-      }px; padding: 0 6px; text-align: center; flex-shrink: 0; display: flex; align-items: center; justify-content: center; gap: 4px; flex-wrap: wrap;">
+      }px; padding: 0 6px; text-align: center; flex-shrink: 0; display: flex; align-items: center; justify-content: center; gap: 4px; flex-wrap: wrap; cursor: pointer;">
         ${renderTelemetryValue()}
       </div>
-      <div style="width: ${
+      <div ${copyAttr(connStatus ?? '')} style="width: ${
         state.columnWidths.status
-      }px; padding: 0 6px; text-align: center; flex-shrink: 0; display: flex; align-items: center; justify-content: center; gap: 2px;">
+      }px; padding: 0 6px; text-align: center; flex-shrink: 0; display: flex; align-items: center; justify-content: center; gap: 2px; cursor: pointer;">
         ${renderStatusValue()}
       </div>
-      <div style="width: 24px; flex-shrink: 0; text-align: center;">
+      <div style="width: 24px; flex-shrink: 0; text-align: center; cursor: pointer;" title="Clique para selecionar o dispositivo">
         ${isSelected ? `<span style="color: ${colors.success}; font-size: 14px;">✓</span>` : ''}
       </div>
     </div>
@@ -3634,7 +3786,13 @@ function renderLojasStep3(state: ModalState, modalId: string, colors: ThemeColor
         <span>Profile alvo: <strong style="color: ${colors.text};">3F_MEDIDOR</strong></span>
         <span>deviceType: <strong style="color: ${colors.text};">3F_MEDIDOR</strong></span>
         <span>deviceProfile: <strong style="color: ${colors.text};">3F_MEDIDOR</strong></span>
-        <span>Relação: <strong style="color: ${colors.text};">CUSTOMER → DEVICE (Contains)</strong></span>
+        <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;"
+               title="Marcado: força a relação Customer → Device. Desmarcado: não altera relações.">
+          <input type="checkbox" id="${modalId}-lojas-apply-relation" ${
+            state.lojasApplyRelation ? 'checked' : ''
+          } style="accent-color: ${MYIO_PURPLE}; cursor: pointer;" />
+          <span>Relação: <strong style="color: ${colors.text};">CUSTOMER → DEVICE (Contains)</strong></span>
+        </label>
       </div>
     </div>
   `;
@@ -4354,6 +4512,11 @@ function setupEventListeners(
   t: typeof i18n.pt,
   onClose?: () => void
 ): void {
+  // Idempotency guard: renderModal() binds listeners at its end AND callers often
+  // re-bind after renderModal() — double-binding cancels out toggle buttons (maximize).
+  if (container.dataset.upsellListenersBound === 'true') return;
+  container.dataset.upsellListenersBound = 'true';
+
   // Close handlers
   const closeHandler = () => closeModal(container, onClose);
 
@@ -4506,11 +4669,22 @@ function setupEventListeners(
     });
   });
 
+  // Click-to-copy on grid cells — copy-only: stopPropagation prevents the per-row
+  // select listener from firing. Interactive sub-elements keep their own behavior.
+  container.querySelectorAll('.myio-copy-cell').forEach((cell) => {
+    cell.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const target = e.target as HTMLElement;
+      if (target.closest('button, input, .myio-info-btn, .myio-ts-btn')) return;
+      copyCellValue(decodeURIComponent((cell as HTMLElement).dataset.copy || ''), cell as HTMLElement);
+    });
+  });
+
   // Device search - just filter visually without re-rendering
   document.getElementById(`${modalId}-device-search`)?.addEventListener('input', (e) => {
     const search = (e.target as HTMLInputElement).value.toLowerCase();
     state.deviceSearchTerm = (e.target as HTMLInputElement).value; // Preserve original case
-    filterDeviceListVisual(container, state.devices, search, state.deviceFilters, state.deviceSort);
+    filterDeviceListVisual(container, state.devices, search, state.deviceFilters, state.deviceSort, state);
   });
 
   // Device type filter (multiselect) - device.type
@@ -4834,15 +5008,17 @@ function setupEventListeners(
   // RFC-0184: CHECK & FIX
   // ========================
 
-  document.getElementById(`${modalId}-check-fix`)?.addEventListener('click', async () => {
+  document.getElementById(`${modalId}-check-fix`)?.addEventListener('click', () => {
     if (state.checkFixLoading) return;
-    state.checkFixLoading = true;
-    renderModal(container, state, modalId, t);
-    setupEventListeners(container, state, modalId, t, onClose);
-    await runCheckFixRoutine(state, container, modalId, t, onClose);
-    state.checkFixLoading = false;
-    renderModal(container, state, modalId, t);
-    setupEventListeners(container, state, modalId, t, onClose);
+    openCheckFixScopeDialog(state, async (scopeDevices) => {
+      state.checkFixLoading = true;
+      renderModal(container, state, modalId, t);
+      setupEventListeners(container, state, modalId, t, onClose);
+      await runCheckFixRoutine(state, container, modalId, t, onClose, scopeDevices);
+      state.checkFixLoading = false;
+      renderModal(container, state, modalId, t);
+      setupEventListeners(container, state, modalId, t, onClose);
+    });
   });
 
   document.getElementById(`${modalId}-checkfix-filter`)?.addEventListener('change', (e) => {
@@ -4963,39 +5139,9 @@ function setupEventListeners(
 
   // Select All button
   document.getElementById(`${modalId}-select-all`)?.addEventListener('click', () => {
-    const {
-      types: filterTypes,
-      deviceTypes: filterDeviceTypes,
-      deviceProfiles: filterDeviceProfiles,
-      statuses: filterStatuses,
-      telemetryKeys: filterTelemetryKeys,
-    } = state.deviceFilters;
-    // Select all visible/filtered devices
-    let filteredDevices = state.devices.filter((d) => {
-      if (filterTypes.length > 0 && !filterTypes.includes(d.type || '')) return false;
-      if (filterDeviceTypes.length > 0 && !filterDeviceTypes.includes(d.serverAttrs?.deviceType || ''))
-        return false;
-      if (
-        filterDeviceProfiles.length > 0 &&
-        !filterDeviceProfiles.includes(d.serverAttrs?.deviceProfile || '')
-      )
-        return false;
-      if (filterStatuses.length > 0) {
-        const status = d.latestTelemetry?.connectionStatus?.value || 'offline';
-        if (!filterStatuses.includes(status)) return false;
-      }
-      if (filterTelemetryKeys.length > 0) {
-        const telem = d.latestTelemetry;
-        const hasMatch = filterTelemetryKeys.some((k) => {
-          if (k === 'pulses') return telem?.pulses != null;
-          if (k === 'consumption') return telem?.consumption != null;
-          return false;
-        });
-        if (!hasMatch) return false;
-      }
-      return true;
-    });
-    state.selectedDevices = [...filteredDevices];
+    // Select exactly the devices visible in the grid — honors dropdown filters,
+    // search term and (when active) the CHECK & FIX status/advanced filters.
+    state.selectedDevices = [...getGridVisibleDevices(state)];
 
     // Save scroll position before re-render
     const listEl = document.getElementById(`${modalId}-device-list`);
@@ -5164,12 +5310,31 @@ function setupEventListeners(
   // ========================
 
   // Open bulk owner modal
-  document.getElementById(`${modalId}-bulk-owner`)?.addEventListener('click', () => {
+  document.getElementById(`${modalId}-bulk-owner`)?.addEventListener('click', async () => {
     if (!state.selectedCustomer) {
       alert('Selecione um Customer primeiro no Step 1');
       return;
     }
     state.bulkOwnerModal.open = true;
+    // Default the target to the current customer; user can change it in the select
+    if (!state.bulkOwnerModal.targetCustomerId) {
+      state.bulkOwnerModal.targetCustomerId = state.selectedCustomer.id?.id || '';
+    }
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
+    // Ensure the customer list is loaded so the owner can be changed (preselected flow skips Step 1)
+    if (state.customers.length === 0) {
+      await loadCustomers(state, container, modalId, t, onClose);
+      if (state.bulkOwnerModal.open) {
+        renderModal(container, state, modalId, t);
+        setupEventListeners(container, state, modalId, t, onClose);
+      }
+    }
+  });
+
+  // Change the target owner customer
+  document.getElementById(`${modalId}-bulk-owner-customer`)?.addEventListener('change', (e) => {
+    state.bulkOwnerModal.targetCustomerId = (e.target as HTMLSelectElement).value;
     renderModal(container, state, modalId, t);
     setupEventListeners(container, state, modalId, t, onClose);
   });
@@ -5232,6 +5397,12 @@ function setupEventListeners(
   document.getElementById(`${modalId}-bulk-sync-ingestion`)?.addEventListener('click', async () => {
     if (!state.selectedCustomer || state.selectedDevices.length === 0) return;
     await handleBulkSyncIngestionId(state, container, modalId, t, onClose);
+  });
+
+  // Bulk Delete — permanently remove selected devices (irreversible, double-confirmed)
+  document.getElementById(`${modalId}-bulk-delete`)?.addEventListener('click', async () => {
+    if (state.selectedDevices.length === 0) return;
+    await handleBulkDeleteDevices(state, container, modalId, t, onClose);
   });
 
   // ========================
@@ -5395,6 +5566,16 @@ function setupEventListeners(
         });
       }
     });
+
+    // "Forçar relação Customer→Device" toggle (default on)
+    const applyRelCb = document.getElementById(
+      `${modalId}-lojas-apply-relation`
+    ) as HTMLInputElement | null;
+    if (applyRelCb) {
+      applyRelCb.addEventListener('change', () => {
+        state.lojasApplyRelation = applyRelCb.checked;
+      });
+    }
   }
 
   // ========================
@@ -5686,7 +5867,8 @@ function setupEventListeners(
       state.devices,
       state.deviceSearchTerm.toLowerCase(),
       state.deviceFilters,
-      state.deviceSort
+      state.deviceSort,
+      state
     );
   }
 }
@@ -5975,7 +6157,8 @@ function filterDeviceListVisual(
   devices: Device[],
   search: string,
   filters: { types: string[]; deviceTypes: string[]; deviceProfiles: string[] },
-  sort: { field: DeviceSortField; order: SortOrder }
+  sort: { field: DeviceSortField; order: SortOrder },
+  state: ModalState
 ): void {
   const listContainer = container.querySelector('[id$="-device-list"]');
   if (!listContainer) return;
@@ -6003,13 +6186,7 @@ function filterDeviceListVisual(
       (item as HTMLElement).style.display = 'none';
       return;
     }
-    const matchesSearch =
-      !search ||
-      device.name?.toLowerCase().includes(search) ||
-      device.label?.toLowerCase().includes(search) ||
-      device.type?.toLowerCase().includes(search) ||
-      device.serverAttrs?.deviceType?.toLowerCase().includes(search) ||
-      device.serverAttrs?.deviceProfile?.toLowerCase().includes(search);
+    const matchesSearch = !search || buildDeviceSearchHaystack(device, state).includes(search);
     const el = item as HTMLElement;
     const isTableRow = el.tagName === 'TR';
     el.style.display = matchesSearch ? (isTableRow ? '' : 'flex') : 'none';
@@ -6507,6 +6684,80 @@ async function loadLojasData(
 }
 
 // ============================================================================
+// Bulk Delete — permanently removes selected devices from ThingsBoard.
+// Irreversible: requires double confirmation. Works on state.selectedDevices.
+// ============================================================================
+async function handleBulkDeleteDevices(
+  state: ModalState,
+  container: HTMLElement,
+  modalId: string,
+  t: typeof i18n.pt,
+  onClose?: () => void
+): Promise<void> {
+  const devices = [...state.selectedDevices];
+  if (devices.length === 0) return;
+
+  const preview = devices
+    .slice(0, 8)
+    .map((d) => `• ${d.name || d.label || getEntityId(d)}`)
+    .join('\n');
+  const more = devices.length > 8 ? `\n… e mais ${devices.length - 8}` : '';
+  const confirm1 =
+    `⚠️ DELETAR ${devices.length} dispositivo(s) do ThingsBoard?\n\n` +
+    `${preview}${more}\n\n` +
+    `Esta ação é IRREVERSÍVEL — os dispositivos, suas relações e telemetria serão removidos permanentemente.`;
+  if (!confirm(confirm1)) return;
+  if (
+    !confirm(
+      `Confirmação final: deletar ${devices.length} dispositivo(s)?\nEsta ação NÃO pode ser desfeita.`
+    )
+  )
+    return;
+
+  showBusyProgress(`Deletando ${devices.length} dispositivos...`, devices.length);
+
+  let okCount = 0;
+  let failCount = 0;
+  const errors: string[] = [];
+  const deletedIds = new Set<string>();
+
+  // Sequential delete — safer for an irreversible op and avoids TB rate-limiting.
+  for (let i = 0; i < devices.length; i++) {
+    const d = devices[i];
+    const id = getEntityId(d);
+    try {
+      await tbDelete(state, `/api/device/${id}`);
+      deletedIds.add(id);
+      okCount++;
+    } catch (err) {
+      failCount++;
+      errors.push(`${d.name || id}: ${(err as Error).message}`);
+    }
+    updateBusyProgress(i + 1);
+  }
+
+  hideBusyProgress();
+
+  // Drop deleted devices from state
+  state.devices = state.devices.filter((d) => !deletedIds.has(getEntityId(d)));
+  state.selectedDevices = state.selectedDevices.filter((d) => !deletedIds.has(getEntityId(d)));
+  if (state.selectedDevice && deletedIds.has(getEntityId(state.selectedDevice))) {
+    state.selectedDevice = null;
+  }
+
+  renderModal(container, state, modalId, t);
+  setupEventListeners(container, state, modalId, t, onClose);
+
+  alert(
+    `Dispositivos deletados: ${okCount}` +
+      (failCount > 0
+        ? `\nFalhas: ${failCount}\n${errors.slice(0, 5).join('\n')}` +
+          (errors.length > 5 ? `\n… e mais ${errors.length - 5} erros` : '')
+        : '')
+  );
+}
+
+// ============================================================================
 // Bulk Sync Ingestion ID — updates ONLY ingestionId SERVER_SCOPE attribute
 // No profile/type/relation changes. Works on state.selectedDevices.
 // ============================================================================
@@ -6705,15 +6956,17 @@ async function handleLojasApply(
   }
 
   const activeConfig = state.lojasConfig ?? CUSTOM_MODES[0];
+  const applyRelation = state.lojasApplyRelation;
   const confirmMsg =
     `Aplicar configuração "${activeConfig.label}" para ${data.length} dispositivos?\n\n` +
     `Cada device receberá:\n` +
     `- Label atualizado (etiqueta)\n` +
     `- Profile: ${activeConfig.deviceProfile}\n` +
     `- deviceType/deviceProfile: ${activeConfig.deviceType} / ${activeConfig.deviceProfile}\n` +
-    `- Relações existentes removidas\n` +
-    `- Nova relação: Customer → Device (Contains)\n\n` +
-    `Deseja continuar?`;
+    (applyRelation
+      ? `- Relações existentes removidas\n` + `- Nova relação: Customer → Device (Contains)\n`
+      : `- Relações NÃO serão alteradas (checkbox de relação desmarcado)\n`) +
+    `\nDeseja continuar?`;
   if (!confirm(confirmMsg)) return;
 
   showBusyProgress(`Aplicando ${activeConfig.label}...`, data.length);
@@ -6750,34 +7003,37 @@ async function handleLojasApply(
       }
       await tbPost(state, `/api/plugins/telemetry/DEVICE/${d.deviceId}/attributes/SERVER_SCOPE`, attrs);
 
-      // Step D: Delete existing relations (device is TO)
-      if (d.currentRelations.length > 0) {
-        updateBusyProgress(i + 1, `[${i + 1}/${data.length}] ${d.name}: Removendo relações...`);
-        for (const rel of d.currentRelations) {
-          try {
-            const params = new URLSearchParams({
-              fromId: rel.from.id,
-              fromType: rel.from.entityType,
-              toId: d.deviceId,
-              toType: 'DEVICE',
-              relationType: rel.type || 'Contains',
-              relationTypeGroup: rel.typeGroup || 'COMMON',
-            });
-            await tbDelete(state, `/api/relation?${params.toString()}`);
-          } catch (e) {
-            console.warn('[UpsellModal] Error deleting relation for LOJAS:', e);
+      // Steps D + E: only when the "Forçar relação" checkbox is checked
+      if (applyRelation) {
+        // Step D: Delete existing relations (device is TO)
+        if (d.currentRelations.length > 0) {
+          updateBusyProgress(i + 1, `[${i + 1}/${data.length}] ${d.name}: Removendo relações...`);
+          for (const rel of d.currentRelations) {
+            try {
+              const params = new URLSearchParams({
+                fromId: rel.from.id,
+                fromType: rel.from.entityType,
+                toId: d.deviceId,
+                toType: 'DEVICE',
+                relationType: rel.type || 'Contains',
+                relationTypeGroup: rel.typeGroup || 'COMMON',
+              });
+              await tbDelete(state, `/api/relation?${params.toString()}`);
+            } catch (e) {
+              console.warn('[UpsellModal] Error deleting relation for LOJAS:', e);
+            }
           }
         }
-      }
 
-      // Step E: Create customer relation
-      updateBusyProgress(i + 1, `[${i + 1}/${data.length}] ${d.name}: Criando relação...`);
-      await tbPost(state, '/api/relation', {
-        from: { entityType: 'CUSTOMER', id: customerId },
-        to: { entityType: 'DEVICE', id: d.deviceId },
-        type: 'Contains',
-        typeGroup: 'COMMON',
-      });
+        // Step E: Create customer relation
+        updateBusyProgress(i + 1, `[${i + 1}/${data.length}] ${d.name}: Criando relação...`);
+        await tbPost(state, '/api/relation', {
+          from: { entityType: 'CUSTOMER', id: customerId },
+          to: { entityType: 'DEVICE', id: d.deviceId },
+          type: 'Contains',
+          typeGroup: 'COMMON',
+        });
+      }
 
       successCount++;
     } catch (error) {
@@ -7155,15 +7411,141 @@ async function loadDeviceTelemetryInBatch(
   }
 }
 
+// RFC-0184: Scope dialog — two combinable filters (name pattern AND device.type)
+// to keep the diagnostic to a controlled set. No filter = all devices.
+function openCheckFixScopeDialog(state: ModalState, onConfirm: (devices: Device[]) => void): void {
+  const DIALOG_ID = 'myio-upsell-cf-scope-dialog';
+  document.getElementById(DIALOG_ID)?.remove();
+
+  const c = getThemeColors(state.theme);
+  const allDevices = state.devices;
+  const allTypes = [...new Set(allDevices.map((d) => d.type).filter(Boolean))].sort() as string[];
+
+  let namePattern = '';
+  let caseSensitive = false;
+  const selectedTypes = new Set<string>();
+
+  // Both filters combine with AND. Each is optional — empty means "don't filter by it".
+  function computeSubset(): Device[] {
+    let result = allDevices;
+    if (namePattern) {
+      const pat = caseSensitive ? namePattern : namePattern.toLowerCase();
+      result = result.filter((d) => {
+        const n = caseSensitive ? d.name || '' : (d.name || '').toLowerCase();
+        return n.includes(pat);
+      });
+    }
+    if (selectedTypes.size > 0) {
+      result = result.filter((d) => selectedTypes.has(d.type || ''));
+    }
+    return result;
+  }
+
+  const overlay = document.createElement('div');
+  overlay.id = DIALOG_ID;
+  overlay.style.cssText =
+    'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.55);display:flex;' +
+    'align-items:center;justify-content:center;font-family:Roboto,Inter,system-ui,sans-serif;';
+
+  overlay.innerHTML = `
+    <div style="background:${c.surface};border-radius:12px;width:480px;max-width:92vw;max-height:88vh;
+      overflow:hidden;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,0.4);">
+      <div style="background:${MYIO_PURPLE};color:#fff;padding:12px 16px;font-size:14px;font-weight:700;">
+        🔬 Escopo do CHECK &amp; FIX
+      </div>
+      <div style="padding:16px;overflow-y:auto;display:flex;flex-direction:column;gap:14px;">
+        <div style="font-size:11px;color:${c.textMuted};">
+          Os filtros abaixo se <strong>combinam (E)</strong>. Deixe ambos vazios para
+          diagnosticar todos os ${allDevices.length} dispositivos.
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <span style="font-size:12px;font-weight:600;color:${c.text};">Filtro por nome</span>
+          <input id="cf-scope-name-input" type="text" placeholder="nome contém… (ex.: TEMP.)" style="
+            font-size:12px;padding:7px 9px;border-radius:6px;border:1px solid ${c.border};
+            background:${c.inputBg};color:${c.text};" />
+          <label style="display:flex;gap:6px;align-items:center;font-size:11px;color:${c.textMuted};cursor:pointer;">
+            <input id="cf-scope-case" type="checkbox" style="accent-color:${MYIO_PURPLE};" />
+            Diferenciar maiúsculas/minúsculas (case-sensitive)
+          </label>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <span style="font-size:12px;font-weight:600;color:${c.text};">Filtro por tipo (device.type)</span>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;max-height:160px;overflow-y:auto;">
+            ${
+              allTypes.length === 0
+                ? `<span style="font-size:11px;color:${c.textMuted};">Nenhum tipo disponível.</span>`
+                : allTypes
+                    .map(
+                      (tp) => `
+              <label style="display:flex;gap:5px;align-items:center;font-size:11px;color:${c.text};
+                cursor:pointer;border:1px solid ${c.border};border-radius:6px;padding:3px 8px;background:${c.cardBg};">
+                <input type="checkbox" class="cf-scope-type-cb" value="${tp}" style="accent-color:${MYIO_PURPLE};" />
+                ${tp}
+              </label>`
+                    )
+                    .join('')
+            }
+          </div>
+        </div>
+      </div>
+      <div style="padding:12px 16px;border-top:1px solid ${c.border};display:flex;justify-content:flex-end;gap:8px;">
+        <button id="cf-scope-cancel" style="font-size:12px;font-weight:600;padding:8px 14px;border-radius:6px;
+          border:1px solid ${c.border};background:${c.cardBg};color:${c.text};cursor:pointer;">Cancelar</button>
+        <button id="cf-scope-run" style="font-size:12px;font-weight:700;padding:8px 14px;border-radius:6px;
+          border:none;background:${MYIO_PURPLE};color:#fff;cursor:pointer;">Executar diagnóstico (${allDevices.length})</button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+
+  const runBtn = overlay.querySelector('#cf-scope-run') as HTMLButtonElement;
+
+  function refresh(): void {
+    const n = computeSubset().length;
+    runBtn.textContent = `Executar diagnóstico (${n})`;
+    runBtn.disabled = n === 0;
+    runBtn.style.opacity = n === 0 ? '0.5' : '1';
+    runBtn.style.cursor = n === 0 ? 'not-allowed' : 'pointer';
+  }
+
+  (overlay.querySelector('#cf-scope-name-input') as HTMLInputElement).addEventListener('input', (e) => {
+    namePattern = (e.target as HTMLInputElement).value;
+    refresh();
+  });
+  (overlay.querySelector('#cf-scope-case') as HTMLInputElement).addEventListener('change', (e) => {
+    caseSensitive = (e.target as HTMLInputElement).checked;
+    refresh();
+  });
+  overlay.querySelectorAll<HTMLInputElement>('.cf-scope-type-cb').forEach((cb) => {
+    cb.addEventListener('change', () => {
+      if (cb.checked) selectedTypes.add(cb.value);
+      else selectedTypes.delete(cb.value);
+      refresh();
+    });
+  });
+  overlay.querySelector('#cf-scope-cancel')!.addEventListener('click', () => overlay.remove());
+  runBtn.addEventListener('click', () => {
+    const subset = computeSubset();
+    if (subset.length === 0) return;
+    overlay.remove();
+    onConfirm(subset);
+  });
+
+  refresh();
+}
+
 // RFC-0184: Diagnostic scan — infer expected attrs from device names, compare against actual TB attrs
 async function runCheckFixRoutine(
   state: ModalState,
   container: HTMLElement,
   modalId: string,
   t: typeof i18n.pt,
-  onClose?: () => void
+  onClose?: () => void,
+  scopeDevices?: Device[]
 ): Promise<void> {
-  const devices = state.devices; // ALL devices — ignores active grid filter
+  const devices = scopeDevices ?? state.devices; // subset chosen in the scope dialog, or all
   if (devices.length === 0) return;
 
   const BATCH_SIZE = 5;
@@ -7563,11 +7945,14 @@ async function saveBulkOwner(
   onClose?: () => void
 ): Promise<void> {
   const devices = state.selectedDevices;
-  const newCustomerId = state.selectedCustomer?.id?.id;
-  const customerName = state.selectedCustomer?.name || state.selectedCustomer?.title || 'Unknown';
+  // Target owner chosen in the modal select, falling back to the current customer
+  const newCustomerId = state.bulkOwnerModal.targetCustomerId || state.selectedCustomer?.id?.id;
+  const targetCustomer =
+    state.customers.find((c) => c.id?.id === newCustomerId) || state.selectedCustomer;
+  const customerName = targetCustomer?.name || targetCustomer?.title || 'Unknown';
 
   if (!newCustomerId) {
-    alert('Por favor, selecione um Customer no Step 1 primeiro.');
+    alert('Por favor, selecione um Customer de destino.');
     return;
   }
 

@@ -488,6 +488,8 @@ export type {
 export { EnergySummaryTooltip } from './utils/EnergySummaryTooltip';
 export { WaterSummaryTooltip } from './utils/WaterSummaryTooltip';
 export { InfoTooltip } from './utils/InfoTooltip';
+export { ColumnSummaryTooltip } from './utils/ColumnSummaryTooltip';
+export { resolvePercentDecimals } from './utils/percentDecimals';
 export type {
   DashboardEnergySummary,
   CategorySummary,
@@ -495,6 +497,7 @@ export type {
   DeviceInfo,
 } from './utils/EnergySummaryTooltip';
 export type { DashboardWaterSummary, WaterCategorySummary } from './utils/WaterSummaryTooltip';
+export type { ColumnSummaryData, ColumnSummaryDevice } from './utils/ColumnSummaryTooltip';
 
 // RFC-0110: Device Comparison Tooltip (Premium device comparison on percentage hover)
 export { DeviceComparisonTooltip } from './utils/DeviceComparisonTooltip';

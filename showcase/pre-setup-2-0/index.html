@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pre-Setup 2.0 — GCDR Upsell Setup Showcase</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --ps-bg: #0f172a;
+      --ps-panel: #1e293b;
+      --ps-panel-2: #273449;
+      --ps-border: #334155;
+      --ps-text: #e2e8f0;
+      --ps-muted: #94a3b8;
+      --ps-primary: #6d28d9;
+      --ps-primary-hover: #7c3aed;
+      --ps-accent: #00c896;
+      --ps-danger: #ef4444;
+      --ps-warning: #f59e0b;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--ps-bg);
+      color: var(--ps-text);
+    }
+
+    .ps-layout {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      grid-template-rows: auto 1fr;
+      height: 100vh;
+    }
+
+    /* ---- Header ---- */
+    .ps-header {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 20px;
+      background: linear-gradient(90deg, #2d1360 0%, #6d28d9 100%);
+      border-bottom: 1px solid var(--ps-border);
+    }
+    .ps-header h1 { font-size: 16px; font-weight: 700; letter-spacing: 0.2px; }
+    .ps-header .ps-sub { font-size: 11px; color: #cbb6f0; font-weight: 500; }
+    .ps-header-right { display: flex; align-items: center; gap: 10px; }
+
+    .ps-badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid transparent;
+    }
+    .ps-badge--idle    { background: #334155; color: #cbd5e1; }
+    .ps-badge--running { background: #78350f; color: #fbbf24; border-color: #92400e; }
+    .ps-badge--ready   { background: #064e3b; color: #34d399; border-color: #065f46; }
+    .ps-badge--error   { background: #7f1d1d; color: #fca5a5; border-color: #991b1b; }
+
+    /* ---- Widget area ---- */
+    .ps-widget-area {
+      overflow: auto;
+      background: #f6f7fb;
+      position: relative;
+    }
+    #gcdr-upsell-root { min-height: 100%; }
+
+    .ps-widget-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      gap: 12px;
+      color: #6b7280;
+      text-align: center;
+      padding: 40px;
+    }
+    .ps-widget-placeholder .ps-ph-icon { font-size: 48px; }
+    .ps-widget-placeholder h2 { font-size: 18px; color: #374151; }
+    .ps-widget-placeholder p { font-size: 13px; max-width: 420px; line-height: 1.6; }
+
+    /* ---- Sidebar ---- */
+    .ps-sidebar {
+      background: var(--ps-panel);
+      border-left: 1px solid var(--ps-border);
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .ps-panel {
+      border-bottom: 1px solid var(--ps-border);
+      padding: 14px 16px;
+    }
+    .ps-panel h3 {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--ps-muted);
+      margin-bottom: 10px;
+    }
+
+    .ps-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .ps-row + .ps-row { margin-top: 8px; }
+
+    button.ps-btn {
+      flex: 1;
+      min-width: 90px;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--ps-border);
+      background: var(--ps-panel-2);
+      color: var(--ps-text);
+      cursor: pointer;
+      transition: background 0.15s ease, transform 0.05s ease;
+    }
+    button.ps-btn:hover:not(:disabled) { background: #324159; }
+    button.ps-btn:active:not(:disabled) { transform: scale(0.98); }
+    button.ps-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    button.ps-btn--primary {
+      background: var(--ps-primary);
+      border-color: var(--ps-primary);
+      color: #fff;
+    }
+    button.ps-btn--primary:hover:not(:disabled) { background: var(--ps-primary-hover); }
+
+    button.ps-btn--accent {
+      background: #065f46;
+      border-color: #047857;
+      color: #d1fae5;
+    }
+    button.ps-btn--accent:hover:not(:disabled) { background: #047857; }
+
+    label.ps-label {
+      display: block;
+      font-size: 11px;
+      color: var(--ps-muted);
+      margin-bottom: 4px;
+      font-weight: 500;
+    }
+    input.ps-input {
+      width: 100%;
+      font-family: inherit;
+      font-size: 12px;
+      padding: 7px 9px;
+      border-radius: 6px;
+      border: 1px solid var(--ps-border);
+      background: var(--ps-bg);
+      color: var(--ps-text);
+    }
+    input.ps-input:focus { outline: 1px solid var(--ps-primary); }
+
+    .ps-field + .ps-field { margin-top: 10px; }
+
+    .ps-kv {
+      font-size: 11px;
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 3px 0;
+    }
+    .ps-kv span:first-child { color: var(--ps-muted); }
+    .ps-kv span:last-child {
+      color: var(--ps-text);
+      font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+      word-break: break-all;
+      text-align: right;
+    }
+
+    /* ---- Event log ---- */
+    .ps-log-panel { flex: 1; display: flex; flex-direction: column; min-height: 160px; }
+    .ps-log {
+      flex: 1;
+      overflow-y: auto;
+      font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+      font-size: 11px;
+      line-height: 1.5;
+      background: var(--ps-bg);
+      border: 1px solid var(--ps-border);
+      border-radius: 6px;
+      padding: 8px;
+    }
+    .ps-log-entry { padding: 1px 0; white-space: pre-wrap; word-break: break-word; }
+    .ps-log-entry .t { color: #64748b; }
+    .ps-log-entry--info  .m { color: #93c5fd; }
+    .ps-log-entry--ok    .m { color: #6ee7b7; }
+    .ps-log-entry--warn  .m { color: #fcd34d; }
+    .ps-log-entry--error .m { color: #fca5a5; }
+
+    .ps-hint {
+      font-size: 11px;
+      color: var(--ps-muted);
+      line-height: 1.55;
+    }
+    .ps-hint code {
+      background: var(--ps-bg);
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-size: 10px;
+    }
+    .ps-hint ol { margin: 6px 0 0 16px; }
+    .ps-hint li { margin: 2px 0; }
+  </style>
+</head>
+<body>
+  <div class="ps-layout">
+    <!-- ===== Header ===== -->
+    <header class="ps-header">
+      <div>
+        <h1>Pre-Setup 2.0 &mdash; GCDR Upsell Setup</h1>
+        <div class="ps-sub">Showcase / harness simulado &middot; widget <code>GCDR-Upsell-Setup v1.0.0</code></div>
+      </div>
+      <div class="ps-header-right">
+        <span id="psStatus" class="ps-badge ps-badge--idle">idle</span>
+      </div>
+    </header>
+
+    <!-- ===== Widget area ===== -->
+    <main class="ps-widget-area">
+      <div id="gcdr-upsell-root">
+        <div class="ps-widget-placeholder" id="psPlaceholder">
+          <div class="ps-ph-icon">&#9881;&#65039;</div>
+          <h2>Widget ainda n&atilde;o inicializado</h2>
+          <p>
+            Aguarde a autentica&ccedil;&atilde;o no ThingsBoard concluir e clique em
+            <strong>onInit</strong> no painel lateral para dar boot no widget
+            GCDR-Upsell-Setup.
+          </p>
+        </div>
+      </div>
+    </main>
+
+    <!-- ===== Sidebar ===== -->
+    <aside class="ps-sidebar">
+      <!-- Status & Auth -->
+      <section class="ps-panel">
+        <h3>Status &amp; Auth (ThingsBoard)</h3>
+        <div class="ps-kv"><span>Auth</span><span id="psAuthState">n&atilde;o autenticado</span></div>
+        <div class="ps-kv"><span>JWT</span><span id="psJwtState">&mdash;</span></div>
+        <div class="ps-row" style="margin-top:8px;">
+          <button class="ps-btn ps-btn--primary" id="btnReauth">Re-Auth</button>
+          <button class="ps-btn" id="btnCopyJwt" disabled>Copiar JWT</button>
+        </div>
+      </section>
+
+      <!-- Widget Lifecycle -->
+      <section class="ps-panel">
+        <h3>Widget Lifecycle</h3>
+        <div class="ps-row">
+          <button class="ps-btn ps-btn--accent" id="btnOnInit" disabled>onInit</button>
+          <button class="ps-btn" id="btnReset" disabled>Reset</button>
+        </div>
+        <p class="ps-hint" style="margin-top:8px;">
+          O widget GCDR-Upsell-Setup tem apenas <code>onInit()</code> &mdash; sem
+          <code>onDataUpdated</code>/<code>onResize</code>. <strong>Reset</strong> limpa o
+          container e recarrega o controller.
+        </p>
+      </section>
+
+      <!-- ctx.settings -->
+      <section class="ps-panel">
+        <h3>ctx.settings</h3>
+        <div class="ps-field">
+          <label class="ps-label" for="psChunkDelay">forceClearChunkDelayMs</label>
+          <input class="ps-input" type="number" id="psChunkDelay" value="5000" min="0" step="500" />
+        </div>
+        <p class="ps-hint" style="margin-top:6px;">
+          Delay entre batches de 10 entidades nas opera&ccedil;&otilde;es Force Clear.
+          Aplicado no pr&oacute;ximo <code>onInit</code>.
+        </p>
+      </section>
+
+      <!-- Fluxo -->
+      <section class="ps-panel">
+        <h3>Fluxo de uso</h3>
+        <div class="ps-hint">
+          <ol>
+            <li><strong>Re-Auth</strong> &rarr; loga no TB, salva <code>jwt_token</code></li>
+            <li><strong>onInit</strong> &rarr; d&aacute; boot no widget</li>
+            <li>Selecione um cliente na lista (painel esquerdo do widget)</li>
+            <li>Use os cards <em>GCDR Sync</em> / <em>Upsell Setup</em> &mdash; ou
+              <em>Abrir Upsell</em> para o wizard <code>openUpsellModal</code></li>
+          </ol>
+          <p style="margin-top:8px;">
+            APIs TB usam URL relativa <code>/api/*</code> &mdash; o harness reescreve
+            para o host real automaticamente. GCDR e ingestion j&aacute; s&atilde;o absolutas.
+          </p>
+        </div>
+      </section>
+
+      <!-- Event log -->
+      <section class="ps-panel ps-log-panel">
+        <h3>Event Log
+          <button class="ps-btn" id="btnClearLog"
+                  style="float:right;flex:0;min-width:auto;padding:2px 8px;font-size:10px;">Clear</button>
+        </h3>
+        <div class="ps-log" id="psLog"></div>
+      </section>
+    </aside>
+  </div>
+
+  <script>
+  /* ============================================================
+   * Pre-Setup 2.0 Showcase — harness
+   * Widget: src/thingsboard/WIDGET/GCDR-Upsell-Setup/v.1.0.0/controller.js
+   * ============================================================ */
+  (function () {
+    'use strict';
+
+    // ---- Config (ver SHOWCASE-CONFIG.md) ----
+    var _TB_URL        = 'https://dashboard.myio-bas.com';
+    var _SERVICE_USER  = 'alarmes@myio.com.br';
+    var _SERVICE_PASS  = 'hubmyio@2025!';
+    var _CONTROLLER_SRC = '../../src/thingsboard/WIDGET/GCDR-Upsell-Setup/v.1.0.0/controller.js';
+    var _LOCAL_UMD_SRC  = '../../dist/myio-js-library.umd.js';
+
+    // ---- State ----
+    var ghostAuthToken = null;
+    var controllerLoaded = false;
+
+    // ---- DOM refs ----
+    var $ = function (id) { return document.getElementById(id); };
+    var elLog = $('psLog');
+
+    // ---- Logging ----
+    function logEvent(scope, msg, level) {
+      level = level || 'info';
+      var now = new Date();
+      var t = String(now.getHours()).padStart(2, '0') + ':' +
+              String(now.getMinutes()).padStart(2, '0') + ':' +
+              String(now.getSeconds()).padStart(2, '0');
+      var div = document.createElement('div');
+      div.className = 'ps-log-entry ps-log-entry--' + level;
+      div.innerHTML = '<span class="t">[' + t + ']</span> ' +
+                      '<span class="m"><strong>' + scope + '</strong> &middot; ' +
+                      String(msg).replace(/</g, '&lt;') + '</span>';
+      elLog.appendChild(div);
+      elLog.scrollTop = elLog.scrollHeight;
+    }
+
+    function setStatus(state) {
+      var badge = $('psStatus');
+      badge.className = 'ps-badge ps-badge--' + state;
+      badge.textContent = state;
+    }
+
+    // ---- fetch patch: relative /api/* (ThingsBoard) → real TB host ----
+    // O widget foi escrito para rodar dentro do host do ThingsBoard, então
+    // usa URLs relativas (fetch('/api/customers')). No showcase reescrevemos
+    // para o host real. GCDR e ingestion APIs já usam URL absoluta.
+    (function patchFetch() {
+      var orig = window.fetch.bind(window);
+      window.fetch = function (input, init) {
+        try {
+          if (typeof input === 'string' && input.charAt(0) === '/' &&
+              input.indexOf('/api/') === 0) {
+            input = _TB_URL + input;
+          } else if (input && typeof input === 'object' && typeof input.url === 'string' &&
+                     input.url.indexOf('/api/') === 0 && input.url.charAt(0) === '/') {
+            input = new Request(_TB_URL + input.url, input);
+          }
+        } catch (e) { /* noop — segue com input original */ }
+        return orig(input, init);
+      };
+      logEvent('harness', 'fetch patch instalado (/api/* → ' + _TB_URL + ')', 'info');
+    })();
+
+    // ---- Ghost auth ----
+    async function authenticateGhost() {
+      logEvent('auth', 'Autenticando em ' + _TB_URL + ' …', 'info');
+      $('psAuthState').textContent = 'autenticando…';
+      try {
+        var res = await fetch(_TB_URL + '/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: _SERVICE_USER, password: _SERVICE_PASS }),
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status + ' ' + res.statusText);
+        var data = await res.json();
+        ghostAuthToken = data.token;
+        localStorage.setItem('jwt_token', data.token);
+        $('psAuthState').textContent = 'autenticado';
+        $('psJwtState').textContent = data.token.slice(0, 16) + '…';
+        $('btnCopyJwt').disabled = false;
+        $('btnOnInit').disabled = false;
+        logEvent('auth', 'Login OK — jwt_token salvo no localStorage', 'ok');
+        return data.token;
+      } catch (err) {
+        $('psAuthState').textContent = 'falha';
+        setStatus('error');
+        logEvent('auth', 'Falha no login: ' + err.message, 'error');
+        throw err;
+      }
+    }
+
+    // ---- ctx builder ----
+    // O widget só consome ctx.$container[0] e ctx.settings.forceClearChunkDelayMs.
+    // $container só precisa suportar indexação [0] → elemento DOM (não exige jQuery).
+    function buildCtx() {
+      var host = $('gcdr-upsell-root');
+      var chunk = Number($('psChunkDelay').value);
+      self.ctx = {
+        $container: [host],
+        settings: {
+          forceClearChunkDelayMs: Number.isFinite(chunk) ? chunk : 5000,
+        },
+      };
+      return self.ctx;
+    }
+
+    // ---- Controller loader ----
+    function loadController() {
+      return new Promise(function (resolve, reject) {
+        if (controllerLoaded && typeof self.onInit === 'function') {
+          resolve();
+          return;
+        }
+        logEvent('harness', 'Carregando controller.js …', 'info');
+        var s = document.createElement('script');
+        s.src = _CONTROLLER_SRC + '?v=' + Date.now();
+        s.onload = function () {
+          if (typeof self.onInit === 'function') {
+            controllerLoaded = true;
+            logEvent('harness', 'controller.js carregado (self.onInit definido)', 'ok');
+            resolve();
+          } else {
+            reject(new Error('controller.js carregou mas self.onInit não foi definido'));
+          }
+        };
+        s.onerror = function () {
+          reject(new Error('Falha ao carregar ' + _CONTROLLER_SRC));
+        };
+        document.body.appendChild(s);
+      });
+    }
+
+    // ---- Trigger onInit ----
+    async function triggerOnInit() {
+      if (!localStorage.getItem('jwt_token')) {
+        logEvent('lifecycle', 'Sem jwt_token — rode Re-Auth primeiro', 'warn');
+        return;
+      }
+      setStatus('running');
+      $('btnOnInit').disabled = true;
+      try {
+        await loadController();
+        buildCtx();
+        logEvent('lifecycle', 'Chamando self.onInit() …', 'info');
+        self.onInit();
+        var ph = $('psPlaceholder');
+        if (ph) ph.remove();
+        $('btnReset').disabled = false;
+        setStatus('ready');
+        logEvent('lifecycle', 'onInit() executado — widget renderizado', 'ok');
+      } catch (err) {
+        setStatus('error');
+        $('btnOnInit').disabled = false;
+        logEvent('lifecycle', 'Erro no onInit: ' + err.message, 'error');
+        console.error('[Pre-Setup 2.0]', err);
+      }
+    }
+
+    // ---- Reset ----
+    function resetWidget() {
+      var host = $('gcdr-upsell-root');
+      host.innerHTML = '';
+      controllerLoaded = false;
+      delete self.onInit;
+      $('btnReset').disabled = true;
+      $('btnOnInit').disabled = false;
+      setStatus('idle');
+      logEvent('lifecycle', 'Widget resetado — controller será recarregado no próximo onInit', 'warn');
+    }
+
+    // ---- Wire up ----
+    $('btnReauth').addEventListener('click', function () {
+      authenticateGhost().catch(function () {});
+    });
+    $('btnCopyJwt').addEventListener('click', function () {
+      var tok = localStorage.getItem('jwt_token') || '';
+      navigator.clipboard.writeText(tok).then(function () {
+        logEvent('auth', 'JWT copiado para a área de transferência', 'ok');
+      }, function () {
+        logEvent('auth', 'Não foi possível copiar o JWT', 'warn');
+      });
+    });
+    $('btnOnInit').addEventListener('click', triggerOnInit);
+    $('btnReset').addEventListener('click', resetWidget);
+    $('btnClearLog').addEventListener('click', function () {
+      elLog.innerHTML = '';
+    });
+
+    // ---- Optional: pre-load local UMD build (para testar openUpsellModal local) ----
+    // Se dist/ existir, o widget usa o build local; senão cai no CDN (guLoadMyIOLibrary).
+    (function preloadLocalUmd() {
+      var s = document.createElement('script');
+      s.src = _LOCAL_UMD_SRC + '?v=' + Date.now();
+      s.onload = function () {
+        if (window.MyIOLibrary && typeof window.MyIOLibrary.openUpsellModal === 'function') {
+          logEvent('harness', 'MyIOLibrary local carregada (dist/) — openUpsellModal usará o build local', 'ok');
+        } else {
+          logEvent('harness', 'dist/ carregou mas sem openUpsellModal — widget usará CDN', 'warn');
+        }
+      };
+      s.onerror = function () {
+        logEvent('harness', 'dist/ não encontrado — widget carregará MyIOLibrary do CDN (npm run build para testar local)', 'info');
+      };
+      document.body.appendChild(s);
+    })();
+
+    // ---- Auto-auth on load ----
+    window.addEventListener('DOMContentLoaded', function () {
+      logEvent('harness', 'Pre-Setup 2.0 showcase iniciado', 'info');
+      authenticateGhost().catch(function () {});
+    });
+  })();
+  </script>
+</body>
+</html>

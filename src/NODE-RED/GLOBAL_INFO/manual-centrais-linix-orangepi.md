@@ -88,6 +88,12 @@ ssh -i id_rsa root@<ipv6-da-central>
 | --------------- | ---------------------------------------- | -------------------------------------- |
 | HCor Q521-527   | `200:a420:9834:fc66:dcf9:f46:4a57:9d09`  | `e45e0453-9593-4aaa-9347-a1daa9cf27e3` |
 
+#### Holding: OBRAMAX
+
+| Central       | IPv6                                     | Gateway ID |
+| ------------- | ---------------------------------------- | ---------- |
+| Praia Grande  | `200:a12e:4703:c680:dfb7:936b:88b9:6f4b` | —          |
+
 **Exemplos de conexão:**
 
 ```bash
@@ -147,6 +153,9 @@ ssh -i id_rsa root@201:3bed:541b:8c61:3e69:9:d453:1bef
 
 # HCor Q521-527 (HCOR)
 ssh -i id_rsa root@200:a420:9834:fc66:dcf9:f46:4a57:9d09
+
+# Praia Grande (Obramax)
+ssh -i id_rsa root@200:a12e:4703:c680:dfb7:936b:88b9:6f4b
 ```
 
 ---
@@ -251,7 +260,49 @@ psql -U hubot
 \q
 ```
 
-### 5.3 Executar um arquivo SQL
+### 5.3 Tabela `logs` — histórico de ações da central
+
+Registra ações sobre slaves / canais / cenas (liga/desliga, acionamentos IR, etc.).
+É uma **hypertable TimescaleDB** (child tables particionadas + trigger `ts_insert_blocker`)
+— **sempre filtre por `timestamp`** nas queries.
+
+```
+\d logs
+     Column      |            Type             | Nullable | Default
+-----------------+-----------------------------+----------+---------
+ timestamp       | timestamp(0) with time zone | not null | now()
+ type            | varchar(255)                |          |
+ action_type     | varchar(255)                |          |
+ user            | varchar(255)                |          |   ← reservada: usar "user"
+ slave_id        | integer                     |          |   → slaves.id
+ ambient_id      | integer                     |          |   → ambients.id
+ scene_id        | integer                     |          |   → scenes.id
+ channel         | integer                     |          |
+ rfir_command_id | integer                     |          |   → rfir_commands.id
+ value           | integer                     |          |
+Index: logs_timestamp_idx btree ("timestamp" DESC)
+```
+
+> ⚠️ `user` é palavra reservada no SQL — referencie sempre como `"user"`.
+
+```sql
+-- Últimos registros
+SELECT timestamp, type, action_type, "user", slave_id, channel, value
+FROM logs ORDER BY timestamp DESC LIMIT 50;
+
+-- Vocabulário da tabela (quais type/action_type existem)
+SELECT type, action_type, count(*) FROM logs
+GROUP BY type, action_type ORDER BY count(*) DESC;
+
+-- Janela de datas + ações de um slave (sempre filtrar por timestamp — hypertable)
+SELECT timestamp, type, action_type, "user", channel, value
+FROM logs
+WHERE slave_id = <ID>
+  AND timestamp >= '2026-05-18 00:00-03' AND timestamp < '2026-05-21 00:00-03'
+ORDER BY timestamp DESC;
+```
+
+### 5.4 Executar um arquivo SQL
 
 ```bash
 # 1. Criar arquivo temporário
@@ -283,6 +334,50 @@ systemctl restart myio-api.service
 systemctl status myio.service
 systemctl status myio-api.service
 ```
+
+### 6.3 Verificar se a API está no ar
+
+Checagem em camadas — do serviço, passando pela porta, até a resposta HTTP.
+
+```bash
+# 1) O serviço está ativo? ("active" = rodando)
+systemctl is-active myio-api.service
+systemctl is-active nodered
+
+# 2) Em que porta a API está escutando? (LISTEN)
+ss -tlnp | grep -E 'node|myio|1880'
+ss -tlnp                  # se nada acima casar, lista TODAS as portas TCP em LISTEN
+
+# 3) A API responde HTTP? (Node-RED expõe os endpoints na porta 1880)
+curl -s -o /dev/null -w "HTTP %{http_code}\n" http://localhost:1880/
+#   HTTP 200  -> no ar
+#   "Connection refused" / sem resposta -> fora do ar
+
+# 4) Testar um endpoint REAL da API (substituir pelo caminho do http-in do flow)
+curl -i http://localhost:1880/<rota-da-api>
+
+# 5) Processo de fato rodando?
+ps aux | grep -E 'node-red|myio' | grep -v grep
+
+# 6) Logs em tempo real (Ctrl+C para sair)
+journalctl -u myio-api.service -f
+journalctl -u nodered -f
+```
+
+**Conectividade com a nuvem MyIO** (a central envia dados para `dashboard.myio.com.br`):
+
+```bash
+# A central alcança a API da nuvem?
+curl -s -o /dev/null -w "HTTP %{http_code}\n" https://dashboard.myio.com.br
+ping -c 3 dashboard.myio.com.br
+```
+
+| Resultado | Interpretação |
+| --------- | ------------- |
+| `is-active` = `active` + `curl` HTTP 200 | API local no ar |
+| `is-active` = `inactive`/`failed` | Serviço parado → `systemctl restart myio-api.service` (§6.1) e ver logs |
+| Serviço `active` mas `curl` recusa conexão | App subiu mas não abriu a porta → ver `journalctl` por erro de boot/porta em uso |
+| API local OK mas nuvem não responde | Problema de rede/internet da central, não da API |
 
 ---
 
@@ -672,4 +767,4 @@ reboot
 
 ---
 
-_Última atualização: 2026-05-05_
+_Última atualização: 2026-05-20_
