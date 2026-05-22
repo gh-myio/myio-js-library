@@ -1276,8 +1276,7 @@ Object.assign(window.MyIOUtils, {
     // any other widget that renders @myio/energy-chart-sdk iframes. Fallback
     // to production. Exposed via window.MyIOUtils so children read a single
     // source of truth instead of hardcoding per widget.
-    widgetSettings.chartsBaseUrl =
-      self.ctx.settings?.chartsBaseUrl || 'https://graphs.apps.myio-bas.com';
+    widgetSettings.chartsBaseUrl = self.ctx.settings?.chartsBaseUrl || 'https://graphs.apps.myio-bas.com';
     window.MyIOUtils.chartsBaseUrl = widgetSettings.chartsBaseUrl;
     LogHelper.log('[Orchestrator] chartsBaseUrl:', widgetSettings.chartsBaseUrl);
 
@@ -1285,8 +1284,7 @@ Object.assign(window.MyIOUtils, {
     // so the "Limite Atingido" alert fires at the configured threshold.
     widgetSettings.maxSelection = self.ctx.settings?.maxSelection ?? 20;
     try {
-      const selectionStore =
-        window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
+      const selectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
       if (selectionStore && typeof selectionStore.setMaxSelection === 'function') {
         selectionStore.setMaxSelection(widgetSettings.maxSelection);
         LogHelper.log(
@@ -1619,11 +1617,24 @@ Object.assign(window.MyIOUtils, {
           // non-@myio users always false regardless of stored value.
           {
             const _email = (window.MyIOUtils?.currentUserEmail || '').toLowerCase();
-            const _isMyio = _email.endsWith('@myio.com.br') && !_email.startsWith('alarme@') && !_email.startsWith('alarmes@');
+            const _isMyio =
+              _email.endsWith('@myio.com.br') &&
+              !_email.startsWith('alarme@') &&
+              !_email.startsWith('alarmes@');
             window.MyIOOrchestrator.isInternalSupportRule = _isMyio
-              ? (isInternalSupportRuleRaw === false ? false : true)
+              ? isInternalSupportRuleRaw === false
+                ? false
+                : true
               : false;
-            LogHelper.log('[MAIN_VIEW] isInternalSupportRule:', window.MyIOOrchestrator.isInternalSupportRule, '(raw:', isInternalSupportRuleRaw, ', isMyio:', _isMyio, ')');
+            LogHelper.log(
+              '[MAIN_VIEW] isInternalSupportRule:',
+              window.MyIOOrchestrator.isInternalSupportRule,
+              '(raw:',
+              isInternalSupportRuleRaw,
+              ', isMyio:',
+              _isMyio,
+              ')'
+            );
           }
         }
         if (!gcdrApiKey)
@@ -2707,18 +2718,22 @@ function _buildAlarmServiceOrchestrator(alarms) {
  * Called whenever tickets_enabled, tickets_only_to_myio, or currentUserEmail changes.
  */
 function _applyTicketsGate() {
-  const raw      = window.MyIOUtils?._ticketsRawEnabled === true;
+  const raw = window.MyIOUtils?._ticketsRawEnabled === true;
   // tickets_only_to_myio defaults to TRUE (undefined → restrict to @myio.com.br)
   // Only opens to all when explicitly set to false
   const onlyMyio = window.MyIOUtils?.ticketsOnlyToMyio !== false;
-  const email    = (window.MyIOUtils?.currentUserEmail || '').toLowerCase().trim();
+  const email = (window.MyIOUtils?.currentUserEmail || '').toLowerCase().trim();
   const userAllowed = !onlyMyio || email.endsWith('@myio.com.br');
   const effective = raw && userAllowed;
   if (window.MyIOUtils && window.MyIOUtils.ticketsEnabled !== effective) {
     window.MyIOUtils.ticketsEnabled = effective;
-    LogHelper.log(`[MAIN_VIEW] ticketsEnabled effective=${effective} (raw=${raw}, onlyMyio=${onlyMyio}, email=${email || 'unknown'})`);
+    LogHelper.log(
+      `[MAIN_VIEW] ticketsEnabled effective=${effective} (raw=${raw}, onlyMyio=${onlyMyio}, email=${email || 'unknown'})`
+    );
     // Notify HEADER and TELEMETRY so they can re-evaluate the ticket UI
-    window.dispatchEvent(new CustomEvent('myio:tickets-gate-changed', { detail: { ticketsEnabled: effective } }));
+    window.dispatchEvent(
+      new CustomEvent('myio:tickets-gate-changed', { detail: { ticketsEnabled: effective } })
+    );
     // If gate just opened, (re-)build the TicketServiceOrchestrator.
     // _buildTicketServiceOrchestrator may have bailed early on first call because
     // ticketsEnabled was still false while customer attributes were being processed.
@@ -2731,14 +2746,14 @@ function _applyTicketsGate() {
 // RFC-0198: Build window.TicketServiceOrchestrator from FreshDesk API.
 // Reads freshdeskApiKey from ctx.settings; skips silently if key is absent.
 async function _buildTicketServiceOrchestrator() {
-  const apiKey   = self.ctx.settings?.freshdeskApiKey   || '';
-  const domain   = self.ctx.settings?.freshdeskDomain   || 'myiocom.freshdesk.com';
+  const apiKey = self.ctx.settings?.freshdeskApiKey || '';
+  const domain = self.ctx.settings?.freshdeskDomain || 'myiocom.freshdesk.com';
   const widgetId = self.ctx.settings?.freshdeskWidgetId || '';
 
   // Expose on MyIOUtils so HEADER / SettingsModalView / ChamadosTab can read them
   if (window.MyIOUtils) {
-    window.MyIOUtils.freshdeskApiKey   = apiKey;
-    window.MyIOUtils.freshdeskDomain   = domain;
+    window.MyIOUtils.freshdeskApiKey = apiKey;
+    window.MyIOUtils.freshdeskDomain = domain;
     window.MyIOUtils.freshdeskWidgetId = widgetId;
   }
 
@@ -2783,16 +2798,20 @@ async function _buildTicketServiceOrchestrator() {
       domain,
       apiKey,
       FreshdeskClient,
-      jwtToken ? {
-        tbBaseUrl: window.location.origin,
-        jwtToken,
-        identifierToTbId,
-      } : undefined
+      jwtToken
+        ? {
+            tbBaseUrl: window.location.origin,
+            jwtToken,
+            identifierToTbId,
+          }
+        : undefined
     );
 
-    LogHelper.log('[TicketServiceOrchestrator] Built —',
+    LogHelper.log(
+      '[TicketServiceOrchestrator] Built —',
       window.TicketServiceOrchestrator.deviceTicketMap.size,
-      'devices with tickets');
+      'devices with tickets'
+    );
   } catch (err) {
     LogHelper.warn('[TicketServiceOrchestrator] build error:', err);
   }
@@ -2814,12 +2833,12 @@ async function _initAuthContext(gcdrCustomerId, gcdrTenantId, gcdrApiKey, gcdrAp
     return;
   }
 
-  const orch      = window.MyIOOrchestrator;
-  const jwtToken  = localStorage.getItem('jwt_token') || '';
+  const orch = window.MyIOOrchestrator;
+  const jwtToken = localStorage.getItem('jwt_token') || '';
   const tbBaseUrl = orch?.tbBaseUrl || self.ctx?.settings?.tbBaseUrl || '';
 
   // Resolve current user info
-  const email      = window.MyIOUtils?.currentUserEmail || '';
+  const email = window.MyIOUtils?.currentUserEmail || '';
   const isSuperAdmin = window.MyIOUtils?.SuperAdmin === true;
 
   // Resolve TB user ID (needed for gcdrUserConfigs attribute lookup)
@@ -2834,9 +2853,14 @@ async function _initAuthContext(gcdrCustomerId, gcdrTenantId, gcdrApiKey, gcdrAp
       // TENANT_ADMIN → allow all without GCDR lookup
       if (u?.authority === 'TENANT_ADMIN' || isSuperAdmin) {
         window.MyIOAuthContext = await window.MyIOLibrary.initMyIOAuthContext({
-          gcdrApiBaseUrl, gcdrApiKey, gcdrTenantId,
-          tbBaseUrl, jwtToken, currentUserEmail: email,
-          currentUserTbId, customerId: gcdrCustomerId,
+          gcdrApiBaseUrl,
+          gcdrApiKey,
+          gcdrTenantId,
+          tbBaseUrl,
+          jwtToken,
+          currentUserEmail: email,
+          currentUserTbId,
+          customerId: gcdrCustomerId,
           allowAll: true,
         });
         LogHelper.log('[RFC-0199] Auth context ready (allowAll=true — admin bypass)');
@@ -2849,17 +2873,23 @@ async function _initAuthContext(gcdrCustomerId, gcdrTenantId, gcdrApiKey, gcdrAp
 
   try {
     window.MyIOAuthContext = await window.MyIOLibrary.initMyIOAuthContext({
-      gcdrApiBaseUrl, gcdrApiKey, gcdrTenantId,
-      tbBaseUrl, jwtToken,
-      currentUserEmail:  email,
+      gcdrApiBaseUrl,
+      gcdrApiKey,
+      gcdrTenantId,
+      tbBaseUrl,
+      jwtToken,
+      currentUserEmail: email,
       currentUserTbId,
-      customerId:        gcdrCustomerId,
-      allowAll:          false,
+      customerId: gcdrCustomerId,
+      allowAll: false,
     });
     LogHelper.log(
-      '[RFC-0199] Auth context ready — scope:', window.MyIOAuthContext.scope,
-      '| assignments:', window.MyIOAuthContext.assignments.length,
-      '| error:', window.MyIOAuthContext.error || 'none',
+      '[RFC-0199] Auth context ready — scope:',
+      window.MyIOAuthContext.scope,
+      '| assignments:',
+      window.MyIOAuthContext.assignments.length,
+      '| error:',
+      window.MyIOAuthContext.error || 'none'
     );
   } catch (err) {
     LogHelper.warn('[RFC-0199] Auth context init failed:', err);
@@ -3309,9 +3339,9 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
 
     // Identifier-prefix checks mirror TELEMETRY _getEnergyGroupKey so both widgets
     // classify devices consistently (identifier is NOT included in `combined`).
-    const isElevadorById  = id.startsWith('ELV-');
-    const isEscadaById    = id.startsWith('ESC-');
-    const isClimatById    = id.startsWith('CAG-') || id.startsWith('FANCOIL-') || id.startsWith('CHILLER-');
+    const isElevadorById = id.startsWith('ELV-');
+    const isEscadaById = id.startsWith('ESC-');
+    const isClimatById = id.startsWith('CAG-') || id.startsWith('FANCOIL-') || id.startsWith('CHILLER-');
 
     if (ELEVADOR_PATTERNS.some((p) => combined.includes(p)) || isElevadorById) {
       elevadoresItems.push(item);
@@ -3327,7 +3357,8 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
         (combined.includes('BOMBA') && !BOMBA_INCENDIO_PATTERNS.some((p) => combined.includes(p)))
       ) {
         bombaHidraulicaItems.push(item);
-      } else if (combined.includes('CAG') || combined.includes('CENTRAL') || id.startsWith('CAG-')) cagItems.push(item);
+      } else if (combined.includes('CAG') || combined.includes('CENTRAL') || id.startsWith('CAG-'))
+        cagItems.push(item);
       else hvacOutrosItems.push(item);
     } else {
       outrosItems.push(item);
@@ -4620,7 +4651,9 @@ const MyIOOrchestrator = (() => {
           const spinnerForMsg = getLoadingSpinner();
           if (spinnerForMsg?.isShowing()) {
             spinnerForMsg.updateMessage('Carregando painéis...');
-            LogHelper.log('[Orchestrator] 🔄 RFC-GAP-FIX: Contract done, panels still loading — message updated');
+            LogHelper.log(
+              '[Orchestrator] 🔄 RFC-GAP-FIX: Contract done, panels still loading — message updated'
+            );
           }
         }
         return; // mantém overlay enquanto houver ativas
@@ -5447,7 +5480,9 @@ const MyIOOrchestrator = (() => {
       else if (keyName === 'tickets_items') {
         try {
           meta.ticketsItems = typeof val === 'string' ? JSON.parse(val) : val;
-        } catch (_) { meta.ticketsItems = null; }
+        } catch (_) {
+          meta.ticketsItems = null;
+        }
       }
       // RFC-0183: GCDR device UUID — needed for AlarmServiceOrchestrator badge lookup
       else if (keyName === 'gcdrdeviceid') meta.gcdrDeviceId = val;
@@ -5805,9 +5840,7 @@ const MyIOOrchestrator = (() => {
 
             const results = await Promise.allSettled(
               devicesWithIngestionId.map(async (meta) => {
-                const url = new URL(
-                  `${getDataApiHost()}/telemetry/devices/${meta.ingestionId}/temperature`
-                );
+                const url = new URL(`${getDataApiHost()}/telemetry/devices/${meta.ingestionId}/temperature`);
                 url.searchParams.set('startTime', startTime);
                 url.searchParams.set('endTime', endTime);
                 url.searchParams.set('granularity', '1h');
@@ -6199,9 +6232,7 @@ const MyIOOrchestrator = (() => {
       const customerId = latestCreds.CUSTOMER_ING_ID;
 
       // Build API URL based on domain
-      const url = new URL(
-        `${getDataApiHost()}/telemetry/customers/${customerId}/${domain}/devices/totals`
-      );
+      const url = new URL(`${getDataApiHost()}/telemetry/customers/${customerId}/${domain}/devices/totals`);
       url.searchParams.set('startTime', period.startISO);
       url.searchParams.set('endTime', period.endISO);
       url.searchParams.set('deep', '1');
@@ -6966,7 +6997,9 @@ const MyIOOrchestrator = (() => {
       if (itemToUpdate) {
         // Patch the cached item so getValorEfetivo picks up the new rule immediately.
         itemToUpdate.excludeGroupsTotals = exclude_groups_totals;
-        LogHelper.log(`[MAIN_VIEW] Item ${itemToUpdate.label} atualizado no cache. Forçando re-renderização...`);
+        LogHelper.log(
+          `[MAIN_VIEW] Item ${itemToUpdate.label} atualizado no cache. Forçando re-renderização...`
+        );
 
         // Re-emit with a fresh periodKey to bypass the 100ms duplicate-emission guard in
         // emitProvide. The _recalc_ suffix is stripped on the next real onDataUpdated so
