@@ -142,6 +142,16 @@
         </span>
         <h2 class="shops-title" id="labelWidgetId"></h2>
         <span class="shops-count" id="shopsCount">(0)</span>
+        <span
+          class="shops-col-info"
+          id="shopsColInfo"
+          role="button"
+          tabindex="0"
+          aria-label="Resumo da coluna"
+          title="Resumo da coluna"
+          style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;margin-left:4px;background:rgba(62,26,125,0.12);color:#3e1a7d;font:italic 700 10px Georgia,serif;cursor:help;user-select:none;"
+          >i</span
+        >
       </div>
 
       <a class="shops-total" id="shopsTotal">0,00</a>
@@ -160,7 +170,19 @@
   >
     <div class="shops-modal-card">
       <header class="shops-modal-header">
-        <h3 id="filterTitle">Filtros & Ordenação</h3>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <h3 id="filterTitle">Filtros & Ordenação</h3>
+          <span
+            class="filter-info-icon"
+            id="filterColInfo"
+            role="button"
+            tabindex="0"
+            style="background: rgba(255, 255, 255, 0.22); color: #fff;"
+            aria-label="Resumo da coluna"
+            title="Resumo da coluna"
+            >i</span
+          >
+        </div>
         <button class="icon-btn" id="closeFilter" aria-label="Fechar">
           <svg viewBox="0 0 24 24" width="18" height="18">
             <path

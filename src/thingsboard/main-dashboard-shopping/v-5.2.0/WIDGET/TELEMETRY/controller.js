@@ -2223,6 +2223,9 @@ function buildTempSensorSummaryData() {
 
 // Cleanup function for tooltip (stored globally for widget destroy)
 let _tempTooltipCleanup = null;
+// Cleanups for the ColumnSummaryTooltip (i) icons — header + filter modal
+let _colSummaryCleanupHeader = null;
+let _colSummaryCleanupModal = null;
 
 // ============================================
 // LEGACY CODE BELOW - DEPRECATED (kept for reference)
@@ -4081,6 +4084,56 @@ function _sortChecklistDom($m) {
   nodes.forEach((n) => $cl[0].appendChild(n));
 }
 
+// Builds the search-period label "DD/MM/YYYY — DD/MM/YYYY" from the widget scope.
+function _buildPeriodLabel() {
+  const fmt = (iso) => {
+    if (!iso) return '';
+    const m = String(iso).slice(0, 10).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    return m ? `${m[3]}/${m[2]}/${m[1]}` : String(iso).slice(0, 10);
+  };
+  const s = fmt(self.ctx && self.ctx.scope && self.ctx.scope.startDateISO);
+  const e = fmt(self.ctx && self.ctx.scope && self.ctx.scope.endDateISO);
+  if (s && e) return `${s} — ${e}`;
+  return s || e || '';
+}
+
+// Builds the ColumnSummaryTooltip payload from the current STATE.itemsBase.
+function _buildColumnSummaryData() {
+  const devices = (STATE.itemsBase || []).map((it) => ({
+    name: it.label || it.identifier || it.id || 'Sem nome',
+    value: Number(it.value) || 0,
+  }));
+  return {
+    title: (self.ctx && self.ctx.settings && self.ctx.settings.labelWidget) || '',
+    periodLabel: _buildPeriodLabel(),
+    unit: _getExportUnit(),
+    devices: devices,
+    formatValue: _fmtDeviceValue,
+  };
+}
+
+// Attaches the library ColumnSummaryTooltip to the (i) icons — shops-header + filter modal.
+function _attachColumnSummary($m) {
+  const CST =
+    (typeof MyIO !== 'undefined' && MyIO && MyIO.ColumnSummaryTooltip) ||
+    (window.MyIOLibrary && window.MyIOLibrary.ColumnSummaryTooltip) ||
+    null;
+  const $headerInfo = $root().find('#shopsColInfo');
+  const $modalInfo = $m ? $m.find('#filterColInfo') : null;
+  if (!CST) {
+    LogHelper.warn('[TELEMETRY] ColumnSummaryTooltip indisponível na lib — ocultando ícones (i)');
+    $headerInfo.hide();
+    if ($modalInfo) $modalInfo.hide();
+    return;
+  }
+  if ($headerInfo.length && !_colSummaryCleanupHeader) {
+    _colSummaryCleanupHeader = CST.attach($headerInfo[0], _buildColumnSummaryData);
+  }
+  if ($modalInfo && $modalInfo.length && !_colSummaryCleanupModal) {
+    _colSummaryCleanupModal = CST.attach($modalInfo[0], _buildColumnSummaryData);
+  }
+}
+
 // Formats a device value as a percentage of the group total (pt-BR).
 function _fmtPct(value, total) {
   const p = total > 0 ? ((Number(value) || 0) / total) * 100 : 0;
@@ -4859,6 +4912,9 @@ function bindModal() {
           }
     );
   });
+
+  // ColumnSummaryTooltip (i) — header + modal info icons
+  _attachColumnSummary($m);
 }
 
 /**
@@ -6702,6 +6758,16 @@ self.onDestroy = function () {
     _tempTooltipCleanup();
     _tempTooltipCleanup = null;
     LogHelper.log('[TELEMETRY] TempSensorSummaryTooltip cleanup executed.');
+  }
+
+  // Cleanup ColumnSummaryTooltip (i) icons if attached
+  if (_colSummaryCleanupHeader) {
+    _colSummaryCleanupHeader();
+    _colSummaryCleanupHeader = null;
+  }
+  if (_colSummaryCleanupModal) {
+    _colSummaryCleanupModal();
+    _colSummaryCleanupModal = null;
   }
 
   // RFC-0195: Cleanup sync job modal + polling
