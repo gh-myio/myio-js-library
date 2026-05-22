@@ -2464,6 +2464,9 @@ self.onInit = function () {
       identifier: d.identifier || d.label || d.name || '',
       label: d.label || d.name || d.identifier || '',
       ...(groupLabel ? { groupLabel } : {}),
+      // RFC-0128: carry exclude_groups_totals so the report can drop devices that the
+      // dashboard KPIs already exclude (keeps report total == card total).
+      excludeGroupsTotals: d.excludeGroupsTotals || null,
     });
 
     if (group === 'todos') {

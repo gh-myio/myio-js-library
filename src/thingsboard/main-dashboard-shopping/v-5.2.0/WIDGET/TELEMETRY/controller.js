@@ -321,6 +321,71 @@ function injectFilterModalStyles() {
     .telemetry-filter-overlay .shops-modal-body {
       flex: 1 1 auto; min-height: 0; overflow: auto; padding: 14px;
     }
+    /* Quick filters: 3-column layout — quick filters | store selection | sort+alarms */
+    .telemetry-filter-overlay .shops-modal-body--cols {
+      display: grid; grid-template-columns: 212px 1fr 234px;
+      gap: 14px; align-items: start;
+    }
+    .telemetry-filter-overlay .filter-sidebar,
+    .telemetry-filter-overlay .filter-sortbar {
+      display: flex; flex-direction: column; gap: 12px; min-width: 0;
+    }
+    .telemetry-filter-overlay .filter-sidebar-title {
+      font: 800 11px var(--font-ui); letter-spacing: 0.5px;
+      text-transform: uppercase; color: var(--ink-2);
+    }
+    .telemetry-filter-overlay .filter-tabs {
+      display: flex; flex-direction: column; gap: 11px;
+    }
+    .telemetry-filter-overlay .filter-group {
+      display: flex; flex-direction: column; gap: 5px;
+    }
+    .telemetry-filter-overlay .filter-group-label {
+      font: 700 10px var(--font-ui); letter-spacing: 0.4px;
+      text-transform: uppercase; color: var(--ink-2);
+    }
+    .telemetry-filter-overlay .filter-group-tabs {
+      display: flex; flex-wrap: wrap; gap: 5px;
+    }
+    .telemetry-filter-overlay .filter-tab {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 4px 9px; border-radius: 999px; cursor: pointer;
+      border: 1px solid transparent; font: 700 11px var(--font-ui);
+      background: #eef2f7; color: #475569;
+      transition: opacity 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .telemetry-filter-overlay .filter-tab:hover { transform: translateY(-1px); }
+    .telemetry-filter-overlay .filter-tab:not(.active) { opacity: 0.5; }
+    .telemetry-filter-overlay .filter-tab.active {
+      box-shadow: 0 1px 4px rgba(0,0,0,0.18); border-color: rgba(62,26,125,0.35);
+    }
+    .telemetry-filter-overlay .filter-group-all .filter-tab {
+      width: 100%; justify-content: center; padding: 6px 10px;
+      background: #3e1a7d; color: #fff;
+    }
+    .telemetry-filter-overlay .filter-tab[data-filter="online"] { background:#dbeafe; color:#1d4ed8; }
+    .telemetry-filter-overlay .filter-tab[data-filter="offline"] { background:#e2e8f0; color:#475569; }
+    .telemetry-filter-overlay .filter-tab[data-filter="notInstalled"] { background:#fef3c7; color:#92400e; }
+    .telemetry-filter-overlay .filter-tab[data-filter="normal"] { background:#dcfce7; color:#15803d; }
+    .telemetry-filter-overlay .filter-tab[data-filter="standby"] { background:#e2e8f0; color:#475569; }
+    .telemetry-filter-overlay .filter-tab[data-filter="alert"] { background:#fef3c7; color:#b45309; }
+    .telemetry-filter-overlay .filter-tab[data-filter="failure"] { background:#fee2e2; color:#b91c1c; }
+    .telemetry-filter-overlay .filter-tab[data-filter="withConsumption"] { background:#dcfce7; color:#15803d; }
+    .telemetry-filter-overlay .filter-tab[data-filter="noConsumption"] { background:#e2e8f0; color:#475569; }
+    .telemetry-filter-overlay .filter-tab[data-filter="stores"] { background:#f3e8ff; color:#9333ea; }
+    .telemetry-filter-overlay .filter-tab[data-filter="hvac"] { background:#cffafe; color:#0891b2; }
+    .telemetry-filter-overlay .filter-tab[data-filter="elevators"] { background:#e9d5ff; color:#7c3aed; }
+    .telemetry-filter-overlay .filter-tab[data-filter="escalators"] { background:#fce7f3; color:#db2777; }
+    .telemetry-filter-overlay .filter-tab[data-filter="commonArea"] { background:#e0f2fe; color:#0284c7; }
+    .telemetry-filter-overlay .filter-tab[data-filter="entrada"] { background:#fae8ff; color:#a21caf; }
+    .telemetry-filter-overlay .filter-tab[data-filter="others"] { background:#e7e5e4; color:#57534e; }
+    .telemetry-filter-overlay .filter-tabs-empty {
+      font: 500 11px var(--font-ui); color: var(--ink-2); padding: 4px 2px;
+    }
+    .telemetry-filter-overlay .radio-stack { display: flex; flex-direction: column; gap: 4px; }
+    @media (max-width: 760px) {
+      .telemetry-filter-overlay .shops-modal-body--cols { grid-template-columns: 1fr; }
+    }
     .telemetry-filter-overlay .shops-modal-footer {
       position: sticky; bottom: 0; z-index: 2;
       display: flex; gap: 8px; align-items: center; justify-content: flex-end;
@@ -3622,6 +3687,126 @@ function bindHeader() {
   $root().on('click', '#btnPresetup', _openPresetupModal);
 }
 
+// ============================================================
+// Quick filters (left sidebar of the filter modal)
+// ============================================================
+
+// Active quick filter for the device checklist — 'all' shows everything.
+let _activeQuickFilter = 'all';
+
+const _QF_OFFLINE = ['power_off', 'offline', 'no_info'];
+const _QF_WAITING = ['waiting', 'aguardando', 'not_installed', 'pending', 'connecting'];
+
+// Quick-filter tab groups. Each filter id matches a tag produced by _quickFilterTags().
+const _QF_GROUPS = [
+  {
+    label: 'Conectividade',
+    filters: [['online', 'Online'], ['offline', 'Offline'], ['notInstalled', 'Não instalado']],
+  },
+  {
+    label: 'Status',
+    filters: [['normal', 'Normal'], ['standby', 'Standby'], ['alert', 'Alerta'], ['failure', 'Falha']],
+  },
+  {
+    label: 'Consumo',
+    filters: [['withConsumption', 'Com consumo'], ['noConsumption', 'Sem consumo']],
+  },
+  {
+    label: 'Tipo',
+    filters: [
+      ['stores', 'Lojas'], ['hvac', 'Climatização'], ['elevators', 'Elevadores'],
+      ['escalators', 'Esc. Rolantes'], ['entrada', 'Entrada'], ['others', 'Outros'],
+    ],
+  },
+];
+
+// RFC-0128 mirror — equipment category for the "Tipo" quick-filter group.
+function _quickFilterCategory(item) {
+  const dt = String(item.deviceType || '').toUpperCase();
+  const dp = String(item.deviceProfile || '').toUpperCase();
+  const idf = String(item.identifier || '').toUpperCase();
+  const hasAny = (s, arr) => arr.some((k) => s.includes(k));
+  const ENTRADA = ['ENTRADA', 'RELOGIO', 'TRAFO', 'SUBESTACAO'];
+  const HVAC = ['CHILLER', 'FANCOIL', 'HVAC', 'AR_CONDICIONADO', 'BOMBA_CAG'];
+  if (hasAny(dt, ENTRADA) || hasAny(dp, ENTRADA)) return 'entrada';
+  if (hasAny(dt, HVAC) || hasAny(dp, HVAC) || idf.includes('CAG')) return 'hvac';
+  if (dt.includes('ELEVADOR') || dp.includes('ELEVADOR') || idf.startsWith('ELV-')) return 'elevators';
+  if (dt.includes('ESCADA_ROLANTE') || dp.includes('ESCADA_ROLANTE') || idf.startsWith('ESC-'))
+    return 'escalators';
+  if (dt === '3F_MEDIDOR' && dp === '3F_MEDIDOR') return 'stores';
+  return 'others';
+}
+
+// Tags a device with the quick-filter ids it belongs to (one per group).
+function _quickFilterTags(item) {
+  const tags = [];
+  const ds = String(item.deviceStatus || '').toLowerCase();
+  const cs = String(item.connectionStatus || '').toLowerCase();
+  // Conectividade
+  if (_QF_OFFLINE.includes(ds) || _QF_OFFLINE.includes(cs)) tags.push('offline');
+  else if (_QF_WAITING.includes(ds) || _QF_WAITING.includes(cs)) tags.push('notInstalled');
+  else tags.push('online');
+  // Status (deviceStatus)
+  if (['alert', 'alarm', 'warning', 'warn'].includes(ds)) tags.push('alert');
+  else if (['failure', 'fail', 'danger', 'critical', 'error'].includes(ds)) tags.push('failure');
+  else if (['standby', 'stand_by', 'idle', 'pausado'].includes(ds)) tags.push('standby');
+  else tags.push('normal');
+  // Consumo
+  tags.push((Number(item.value) || 0) > 0 ? 'withConsumption' : 'noConsumption');
+  // Tipo
+  tags.push(_quickFilterCategory(item));
+  return tags;
+}
+
+// Renders the quick-filter tabs into #quickFilterTabs. Tabs with count 0 are hidden;
+// groups with no non-zero tab are skipped.
+function _renderQuickFilterTabs($m, list) {
+  const counts = {};
+  list.forEach((it) => (it._qfTags || []).forEach((t) => (counts[t] = (counts[t] || 0) + 1)));
+
+  let html = `
+    <div class="filter-group filter-group-all">
+      <button class="filter-tab ${_activeQuickFilter === 'all' ? 'active' : ''}" data-filter="all">
+        Todos (${list.length})
+      </button>
+    </div>`;
+
+  for (const group of _QF_GROUPS) {
+    const tabs = group.filters.filter(([id]) => (counts[id] || 0) > 0);
+    if (!tabs.length) continue;
+    html += `
+      <div class="filter-group">
+        <span class="filter-group-label">${group.label}</span>
+        <div class="filter-group-tabs">
+          ${tabs
+            .map(
+              ([id, label]) => `
+            <button class="filter-tab ${_activeQuickFilter === id ? 'active' : ''}" data-filter="${id}">
+              ${label} (${counts[id]})
+            </button>`
+            )
+            .join('')}
+        </div>
+      </div>`;
+  }
+  $m.find('#quickFilterTabs').html(html);
+}
+
+// Shows/hides .check-item rows by the active quick filter AND the search term.
+function _applyChecklistVisibility($m) {
+  const q = String($m.find('#filterDeviceSearch').val() || '')
+    .trim()
+    .toLowerCase();
+  const f = _activeQuickFilter;
+  $m.find('.check-item').each((_, node) => {
+    const $n = $(node);
+    const tags = String($n.attr('data-filter-tags') || '').split(' ');
+    const matchFilter = f === 'all' || tags.indexOf(f) !== -1;
+    const matchSearch = !q || $n.text().trim().toLowerCase().includes(q);
+    $n.toggle(matchFilter && matchSearch);
+  });
+}
+
 function openFilterModal() {
   const $m = $modal();
   const $cl = $m.find('#deviceChecklist').empty();
@@ -3634,6 +3819,7 @@ function openFilterModal() {
 
   if (!list.length) {
     $cl.html('<div class="muted">Nenhuma loja carregada.</div>');
+    $m.find('#quickFilterTabs').html('<div class="filter-tabs-empty">Sem dispositivos.</div>');
     $m.removeClass('hidden');
     return;
   }
@@ -3651,6 +3837,9 @@ function openFilterModal() {
     const label = document.createElement('label');
     label.className = 'check-item';
     label.setAttribute('role', 'option');
+    // Quick filters: tag the row with its quick-filter ids for sidebar filtering
+    it._qfTags = _quickFilterTags(it);
+    label.setAttribute('data-filter-tags', it._qfTags.join(' '));
     label.innerHTML = `
       <input type="checkbox" id="chk-${safeId}" data-entity="${escapeHtml(it.id)}" ${
         checked ? 'checked' : ''
@@ -3661,6 +3850,9 @@ function openFilterModal() {
   }
 
   $cl[0].appendChild(frag);
+  // Quick filters: build the quick-filter sidebar and apply current filter visibility
+  _renderQuickFilterTabs($m, list);
+  _applyChecklistVisibility($m);
   $m.find(`input[name="sortMode"][value="${STATE.sortMode}"]`).prop('checked', true);
   $m.find(`input[name="alarmFilter"][value="${STATE.alarmFilter || 'ativado'}"]`).prop('checked', true);
 
@@ -4142,15 +4334,26 @@ function bindModal() {
     _handleSyncGCDR();
   });
 
+  // Quick filters: quick-filter tab click — filters the visible checklist rows
+  $m.on('click', '.filter-tab', (ev) => {
+    ev.preventDefault();
+    const id = String($(ev.currentTarget).data('filter') || 'all');
+    _activeQuickFilter = id;
+    $m.find('.filter-tab').removeClass('active');
+    $(ev.currentTarget).addClass('active');
+    _applyChecklistVisibility($m);
+  });
+
+  // Select/clear operate on the rows currently visible (respects quick filter + search)
   $m.on('click', '#selectAll', (ev) => {
     ev.preventDefault();
-    $m.find('.check-item input[type="checkbox"]').prop('checked', true);
+    $m.find('.check-item:visible input[type="checkbox"]').prop('checked', true);
     syncChecklistSelectionVisual();
   });
 
   $m.on('click', '#clearAll', (ev) => {
     ev.preventDefault();
-    $m.find('.check-item input[type="checkbox"]').prop('checked', false);
+    $m.find('.check-item:visible input[type="checkbox"]').prop('checked', false);
     syncChecklistSelectionVisual();
   });
 
@@ -4159,12 +4362,18 @@ function bindModal() {
     STATE.selectedIds = null;
     STATE.sortMode = 'cons_desc';
     STATE.alarmFilter = 'ativado';
+    // Quick filters: clear the quick filter + search back to "Todos"
+    _activeQuickFilter = 'all';
+    $m.find('#filterDeviceSearch').val('');
+    $m.find('.filter-tab').removeClass('active');
+    $m.find('.filter-tab[data-filter="all"]').addClass('active');
     $m.find('.check-item input[type="checkbox"]').prop('checked', true);
     $m.find('input[name="sortMode"][value="cons_desc"]').prop('checked', true);
     $m.find('input[name="alarmFilter"][value="ativado"]').prop('checked', true);
     window.dispatchEvent(
       new CustomEvent('myio:telemetry-alarm-filter-changed', { detail: { mode: 'ativado' } })
     );
+    _applyChecklistVisibility($m);
     syncChecklistSelectionVisual();
     reflowFromState();
   });
@@ -4191,19 +4400,16 @@ function bindModal() {
     closeFilterModal();
   });
 
-  $m.on('input', '#filterDeviceSearch', (ev) => {
-    const q = (ev.target.value || '').trim().toLowerCase();
-    $m.find('.check-item').each((_, node) => {
-      const txt = $(node).text().trim().toLowerCase();
-      $(node).toggle(txt.includes(q));
-    });
+  // Quick filters: search now combines with the active quick filter
+  $m.on('input', '#filterDeviceSearch', () => {
+    _applyChecklistVisibility($m);
   });
 
   $m.on('click', '#filterDeviceClear', (ev) => {
     ev.preventDefault();
     const $inp = $m.find('#filterDeviceSearch');
     $inp.val('');
-    $m.find('.check-item').show();
+    _applyChecklistVisibility($m);
     $inp.trigger('focus');
   });
 
