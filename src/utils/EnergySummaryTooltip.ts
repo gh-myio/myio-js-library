@@ -143,8 +143,7 @@ const ENERGY_SUMMARY_TOOLTIP_CSS = `
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15), 0 2px 10px rgba(0, 0, 0, 0.08);
-  min-width: 380px;
-  width: max-content;
+  width: 395px;
   max-width: 90vw;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: 12px;
@@ -2245,7 +2244,9 @@ export const EnergySummaryTooltip = {
 
     // Calculate totals
     summary.totalDevices = entrada.deviceCount + lojas.deviceCount + areaComumDeviceCount;
-    summary.totalConsumption = state.grandTotal || entrada.consumption;
+    // "Consumo Total" = Entrada (the reference / 100%), matching TELEMETRY_INFO's
+    // "Total Consumidores". Never sum byCategory — that would double-count Entrada.
+    summary.totalConsumption = entrada.consumption || state.grandTotal || 0;
 
     // RFC-0105 Enhancement: Use device status aggregation passed from widget controller
     // Priority: 1. deviceStatusAggregation from receivedData (widget context)

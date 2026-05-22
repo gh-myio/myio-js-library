@@ -7,20 +7,10 @@
  * Compact view: search period, device count, average/total consumption and
  * the top 3 / bottom 3 / 3-closest-to-average devices.
  *
- * Maximized view (InfoTooltip maximize button): the extra space is used for a
- * pie chart of ALL devices with a scrollable legend, plus the three lists laid
- * out side by side. The maximized layout is driven purely by CSS reacting to
- * the `.myio-info-tooltip.maximized` class — no InfoTooltip API change needed.
- *
- * @example
- * const cleanup = ColumnSummaryTooltip.attach(iconEl, () => ({
- *   title: 'Lojas',
- *   periodLabel: '01/05/2026 — 21/05/2026',
- *   unit: 'kWh',
- *   devices: items.map((i) => ({ name: i.label, value: i.value })),
- *   formatValue: (v) => MyIO.formatEnergy(v),
- * }));
- * // later: cleanup();
+ * Maximized view (InfoTooltip maximize button): an interactive SVG pie of all
+ * devices with a legend. Hovering a slice highlights its legend row (and vice
+ * versa); clicking a legend row toggles that device out of the pie/totals
+ * (local to the tooltip — does NOT propagate to the dashboard).
  */
 
 import { InfoTooltip } from './InfoTooltip';
@@ -62,7 +52,7 @@ const PIE_COLORS = [
 
 const COLUMN_SUMMARY_CSS = `
 .myio-col-summary {
-  max-width: 300px;
+  max-width: 320px;
   font-family: 'Nunito', 'Segoe UI', system-ui, sans-serif;
 }
 .myio-col-summary__kpis {
@@ -80,14 +70,10 @@ const COLUMN_SUMMARY_CSS = `
 .myio-col-summary__kpi-value {
   font-size: 12px; font-weight: 700; color: #1e293b; text-align: right;
 }
-.myio-col-summary__kpi-value--accent {
-  font-size: 14px; color: #3e1a7d;
-}
+.myio-col-summary__kpi-value--accent { font-size: 14px; color: #3e1a7d; }
 .myio-col-summary__body { display: block; }
 .myio-col-summary__lists { display: flex; flex-direction: column; }
-.myio-col-summary__group {
-  display: flex; flex-direction: column; gap: 1px; margin-top: 8px;
-}
+.myio-col-summary__group { display: flex; flex-direction: column; gap: 1px; margin-top: 8px; }
 .myio-col-summary__group-label {
   font-size: 10px; font-weight: 800; letter-spacing: 0.3px;
   text-transform: uppercase; color: #64748b; margin-bottom: 3px;
@@ -100,9 +86,7 @@ const COLUMN_SUMMARY_CSS = `
   flex: 1 1 auto; min-width: 0;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.myio-col-summary__val {
-  flex: 0 0 auto; font-weight: 700; color: #16a34a; text-align: right;
-}
+.myio-col-summary__val { flex: 0 0 auto; font-weight: 700; color: #16a34a; text-align: right; }
 .myio-col-summary__pct {
   flex: 0 0 auto; min-width: 44px; text-align: right;
   font-size: 10px; font-weight: 600; color: #64748b;
@@ -118,19 +102,37 @@ const COLUMN_SUMMARY_CSS = `
   font-size: 11px; font-weight: 800; letter-spacing: 0.3px;
   text-transform: uppercase; color: #3e1a7d; margin-bottom: 8px;
 }
-.myio-col-summary__chart-body {
-  display: flex; gap: 16px; align-items: flex-start;
+.myio-col-summary__chart-hint {
+  font-size: 10px; font-weight: 500; color: #94a3b8; margin: 0 0 8px;
 }
+.myio-col-summary__chart-body { display: flex; gap: 16px; align-items: flex-start; }
 .myio-col-summary__pie {
-  width: 190px; height: 190px; border-radius: 50%; flex-shrink: 0;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.18);
+  width: 200px; height: 200px; flex-shrink: 0;
+  filter: drop-shadow(0 2px 8px rgba(0,0,0,0.15));
 }
+.myio-col-summary__slice {
+  stroke: #ffffff; stroke-width: 1.5;
+  transition: opacity 0.12s ease;
+  cursor: pointer;
+}
+.myio-col-summary__slice.is-hl {
+  stroke: #1e293b; stroke-width: 3;
+}
+.myio-col-summary__slice:hover { opacity: 0.85; }
 .myio-col-summary__legend {
-  flex: 1 1 auto; min-width: 0; max-height: 300px; overflow-y: auto;
+  flex: 1 1 auto; min-width: 0; max-height: 320px; overflow-y: auto;
   display: flex; flex-direction: column; gap: 1px;
 }
 .myio-col-summary__legend-row {
-  display: flex; align-items: center; gap: 6px; padding: 2px 0; font-size: 11px;
+  display: flex; align-items: center; gap: 6px; padding: 3px 5px; font-size: 11px;
+  border-radius: 4px; cursor: pointer;
+  transition: background 0.12s ease;
+}
+.myio-col-summary__legend-row:hover,
+.myio-col-summary__legend-row.is-hl { background: #f1ecfa; }
+.myio-col-summary__legend-row.is-excluded { opacity: 0.45; }
+.myio-col-summary__legend-row.is-excluded .myio-col-summary__legend-name {
+  text-decoration: line-through;
 }
 .myio-col-summary__legend-dot {
   width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0;
@@ -144,12 +146,14 @@ const COLUMN_SUMMARY_CSS = `
   flex: 0 0 auto; min-width: 42px; text-align: right; font-size: 10px; color: #64748b;
 }
 
-/* Maximized — use the extra space: widen, show the pie chart, lists side-by-side. */
+/* Maximized — use the extra space: widen, big pie, lists side-by-side. */
 .myio-info-tooltip.maximized .myio-col-summary { max-width: none; }
 .myio-info-tooltip.maximized .myio-col-summary__chart {
   display: block; margin-bottom: 16px;
   padding-bottom: 14px; border-bottom: 1px solid #e3d9f3;
 }
+.myio-info-tooltip.maximized .myio-col-summary__pie { width: 380px; height: 380px; }
+.myio-info-tooltip.maximized .myio-col-summary__legend { max-height: 380px; }
 .myio-info-tooltip.maximized .myio-col-summary__lists {
   display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px;
 }
@@ -193,56 +197,119 @@ function fmtPct(value: number, total: number, decimals: number): string {
   return p.toFixed(decimals).replace('.', ',') + '%';
 }
 
-// Builds the pie chart (conic-gradient) + scrollable legend for ALL devices.
-function buildPieChart(
-  devices: ColumnSummaryDevice[],
-  total: number,
-  fmt: (v: number) => string,
-  pctDecimals: number
-): string {
-  const sorted = devices
-    .slice()
-    .sort((a, b) => (Number(b.value) || 0) - (Number(a.value) || 0));
+function sliceColor(originalIndex: number): string {
+  return PIE_COLORS[originalIndex % PIE_COLORS.length];
+}
 
-  if (total <= 0 || !sorted.length) {
-    return `<div class="myio-col-summary__chart">
-      <div class="myio-col-summary__empty">Sem dados para o gráfico.</div>
-    </div>`;
+function polar(cx: number, cy: number, r: number, deg: number): [number, number] {
+  const rad = ((deg - 90) * Math.PI) / 180;
+  return [cx + r * Math.cos(rad), cy + r * Math.sin(rad)];
+}
+
+function arcPath(cx: number, cy: number, r: number, a0: number, a1: number): string {
+  const [x0, y0] = polar(cx, cy, r, a0);
+  const [x1, y1] = polar(cx, cy, r, a1);
+  const large = a1 - a0 > 180 ? 1 : 0;
+  return `M${cx},${cy} L${x0.toFixed(2)},${y0.toFixed(2)} A${r},${r} 0 ${large} 1 ${x1.toFixed(
+    2
+  )},${y1.toFixed(2)} Z`;
+}
+
+// ============================================
+// Render state (the currently-shown tooltip)
+// ============================================
+
+interface RenderState {
+  data: ColumnSummaryData;
+  excluded: Set<number>; // original indices toggled off
+  fmt: (v: number) => string;
+  pd: number;
+}
+
+let _state: RenderState | null = null;
+let _rootEl: HTMLElement | null = null;
+
+/** Devices kept in the pie/totals — original index preserved. */
+function visibleDevices(): { d: ColumnSummaryDevice; idx: number }[] {
+  if (!_state) return [];
+  return _state.data.devices
+    .map((d, idx) => ({ d, idx }))
+    .filter((x) => !_state!.excluded.has(x.idx));
+}
+
+// ============================================
+// HTML builders
+// ============================================
+
+function buildPieSvg(visible: { d: ColumnSummaryDevice; idx: number }[], total: number): string {
+  if (!_state) return '';
+  const positives = visible.filter((v) => (Number(v.d.value) || 0) > 0);
+
+  if (!positives.length || total <= 0) {
+    return `<svg class="myio-col-summary__pie" viewBox="0 0 220 220" role="img" aria-label="Sem dados">
+      <circle cx="110" cy="110" r="100" fill="#f1f5f9"></circle>
+      <text x="110" y="115" text-anchor="middle" font-size="12" fill="#94a3b8">sem dados</text>
+    </svg>`;
+  }
+
+  const { fmt, pd } = _state;
+
+  // Single slice covering the whole circle → draw a plain circle (an arc would degenerate).
+  if (positives.length === 1) {
+    const v = positives[0];
+    const val = Number(v.d.value) || 0;
+    return `<svg class="myio-col-summary__pie" viewBox="0 0 220 220">
+      <circle class="myio-col-summary__slice" data-idx="${v.idx}" cx="110" cy="110" r="100"
+        fill="${sliceColor(v.idx)}"><title>${esc(v.d.name)} — ${esc(fmt(val))} (${fmtPct(
+      val,
+      total,
+      pd
+    )})</title></circle>
+    </svg>`;
   }
 
   let acc = 0;
-  const stops: string[] = [];
-  const legend: string[] = [];
-  sorted.forEach((d, i) => {
-    const v = Number(d.value) || 0;
-    const color = PIE_COLORS[i % PIE_COLORS.length];
-    const start = (acc / total) * 360;
-    acc += v;
-    const end = (acc / total) * 360;
-    stops.push(`${color} ${start.toFixed(3)}deg ${end.toFixed(3)}deg`);
-    legend.push(`<div class="myio-col-summary__legend-row">
-      <span class="myio-col-summary__legend-dot" style="background:${color};"></span>
-      <span class="myio-col-summary__legend-name" title="${esc(d.name)}">${esc(d.name)}</span>
-      <span class="myio-col-summary__legend-val">${esc(fmt(v))}</span>
-      <span class="myio-col-summary__legend-pct">${fmtPct(v, total, pctDecimals)}</span>
-    </div>`);
-  });
+  const paths = positives
+    .map((v) => {
+      const val = Number(v.d.value) || 0;
+      const a0 = (acc / total) * 360;
+      acc += val;
+      const a1 = (acc / total) * 360;
+      return `<path class="myio-col-summary__slice" data-idx="${v.idx}"
+        d="${arcPath(110, 110, 100, a0, a1)}" fill="${sliceColor(v.idx)}"
+        ><title>${esc(v.d.name)} — ${esc(fmt(val))} (${fmtPct(val, total, pd)})</title></path>`;
+    })
+    .join('');
 
-  return `<div class="myio-col-summary__chart">
-    <div class="myio-col-summary__chart-title">Distribuição — ${sorted.length} dispositivos</div>
-    <div class="myio-col-summary__chart-body">
-      <div class="myio-col-summary__pie" style="background: conic-gradient(${stops.join(', ')});"></div>
-      <div class="myio-col-summary__legend">${legend.join('')}</div>
-    </div>
-  </div>`;
+  return `<svg class="myio-col-summary__pie" viewBox="0 0 220 220">${paths}</svg>`;
 }
 
-function buildContent(data: ColumnSummaryData): string {
-  const devices = Array.isArray(data.devices) ? data.devices.slice() : [];
-  const fmt = data.formatValue || defaultFormatter(data.unit || '');
-  const pd = resolvePercentDecimals(data.percentDecimals);
-  const count = devices.length;
-  const total = devices.reduce((s, d) => s + (Number(d.value) || 0), 0);
+function buildLegend(total: number): string {
+  if (!_state) return '';
+  const { data, excluded, fmt, pd } = _state;
+  const rows = data.devices
+    .map((d, idx) => {
+      const val = Number(d.value) || 0;
+      const isExcl = excluded.has(idx);
+      const pct = isExcl ? '—' : fmtPct(val, total, pd);
+      return `<div class="myio-col-summary__legend-row${isExcl ? ' is-excluded' : ''}" data-idx="${idx}"
+          title="Clique para ${isExcl ? 'incluir' : 'remover'} da pizza">
+        <span class="myio-col-summary__legend-dot" style="background:${sliceColor(idx)};"></span>
+        <span class="myio-col-summary__legend-name">${esc(d.name)}</span>
+        <span class="myio-col-summary__legend-val">${esc(fmt(val))}</span>
+        <span class="myio-col-summary__legend-pct">${pct}</span>
+      </div>`;
+    })
+    .join('');
+  return `<div class="myio-col-summary__legend">${rows}</div>`;
+}
+
+function buildInner(): string {
+  if (!_state) return '';
+  const { data, fmt, pd } = _state;
+  const visible = visibleDevices();
+  const count = visible.length;
+  const total = visible.reduce((s, v) => s + (Number(v.d.value) || 0), 0);
   const avg = count ? total / count : 0;
 
   const periodRow = data.periodLabel
@@ -252,49 +319,7 @@ function buildContent(data: ColumnSummaryData): string {
        </div>`
     : '';
 
-  if (!count) {
-    return `<div class="myio-col-summary">
-      <div class="myio-col-summary__kpis">
-        ${periodRow}
-        <div class="myio-col-summary__kpi">
-          <span class="myio-col-summary__kpi-label">Dispositivos</span>
-          <span class="myio-col-summary__kpi-value">0</span>
-        </div>
-      </div>
-      <div class="myio-col-summary__empty">Nenhum dispositivo.</div>
-    </div>`;
-  }
-
-  const desc = devices
-    .slice()
-    .sort((a, b) => (Number(b.value) || 0) - (Number(a.value) || 0));
-  const top3 = desc.slice(0, 3);
-  const bottom3 = desc.slice(-3).reverse();
-  const near3 = devices
-    .slice()
-    .sort(
-      (a, b) =>
-        Math.abs((Number(a.value) || 0) - avg) - Math.abs((Number(b.value) || 0) - avg)
-    )
-    .slice(0, 3);
-
-  const row = (d: ColumnSummaryDevice) => `
-    <div class="myio-col-summary__row">
-      <span class="myio-col-summary__name" title="${esc(d.name)}">${esc(d.name)}</span>
-      <span class="myio-col-summary__val">${esc(fmt(Number(d.value) || 0))}</span>
-      <span class="myio-col-summary__pct">${fmtPct(Number(d.value) || 0, total, pd)}</span>
-    </div>`;
-
-  const group = (label: string, list: ColumnSummaryDevice[]) =>
-    list.length
-      ? `<div class="myio-col-summary__group">
-           <span class="myio-col-summary__group-label">${label}</span>
-           ${list.map(row).join('')}
-         </div>`
-      : '';
-
-  return `<div class="myio-col-summary">
-    <div class="myio-col-summary__kpis">
+  const kpis = `<div class="myio-col-summary__kpis">
       ${periodRow}
       <div class="myio-col-summary__kpi">
         <span class="myio-col-summary__kpi-label">Dispositivos</span>
@@ -310,16 +335,96 @@ function buildContent(data: ColumnSummaryData): string {
         <span class="myio-col-summary__kpi-label">Consumo total</span>
         <span class="myio-col-summary__kpi-value">${esc(fmt(total))}</span>
       </div>
-    </div>
+    </div>`;
+
+  if (!data.devices.length) {
+    return `${kpis}<div class="myio-col-summary__empty">Nenhum dispositivo.</div>`;
+  }
+
+  // 3 lists — computed from the visible (non-excluded) devices.
+  const desc = visible.slice().sort((a, b) => (Number(b.d.value) || 0) - (Number(a.d.value) || 0));
+  const top3 = desc.slice(0, 3);
+  const bottom3 = desc.slice(-3).reverse();
+  const near3 = visible
+    .slice()
+    .sort(
+      (a, b) =>
+        Math.abs((Number(a.d.value) || 0) - avg) - Math.abs((Number(b.d.value) || 0) - avg)
+    )
+    .slice(0, 3);
+
+  const row = (v: { d: ColumnSummaryDevice; idx: number }) => `
+    <div class="myio-col-summary__row">
+      <span class="myio-col-summary__name" title="${esc(v.d.name)}">${esc(v.d.name)}</span>
+      <span class="myio-col-summary__val">${esc(fmt(Number(v.d.value) || 0))}</span>
+      <span class="myio-col-summary__pct">${fmtPct(Number(v.d.value) || 0, total, pd)}</span>
+    </div>`;
+
+  const group = (label: string, list: { d: ColumnSummaryDevice; idx: number }[]) =>
+    list.length
+      ? `<div class="myio-col-summary__group">
+           <span class="myio-col-summary__group-label">${label}</span>
+           ${list.map(row).join('')}
+         </div>`
+      : '';
+
+  return `${kpis}
     <div class="myio-col-summary__body">
-      ${buildPieChart(devices, total, fmt, pd)}
+      <div class="myio-col-summary__chart">
+        <div class="myio-col-summary__chart-title">Distribuição — ${count} dispositivos</div>
+        <p class="myio-col-summary__chart-hint">Passe o mouse para destacar · clique na lista para remover da pizza</p>
+        <div class="myio-col-summary__chart-body">
+          ${buildPieSvg(visible, total)}
+          ${buildLegend(total)}
+        </div>
+      </div>
       <div class="myio-col-summary__lists">
         ${group('▲ 3 maiores', top3)}
         ${group('▼ 3 menores', bottom3)}
         ${group('● 3 na média', near3)}
       </div>
-    </div>
-  </div>`;
+    </div>`;
+}
+
+// ============================================
+// Interactivity
+// ============================================
+
+function setHighlight(idx: string | null): void {
+  if (!_rootEl) return;
+  _rootEl.querySelectorAll('.is-hl').forEach((el) => el.classList.remove('is-hl'));
+  if (idx == null) return;
+  _rootEl
+    .querySelectorAll(`[data-idx="${idx}"]`)
+    .forEach((el) => el.classList.add('is-hl'));
+}
+
+function rerender(): void {
+  if (!_rootEl) return;
+  _rootEl.innerHTML = buildInner();
+}
+
+function wireRoot(root: HTMLElement): void {
+  // Delegated listeners on the stable .myio-col-summary root — survive re-renders.
+  root.addEventListener('mouseover', (e) => {
+    const el = (e.target as HTMLElement)?.closest?.('[data-idx]') as HTMLElement | null;
+    setHighlight(el ? el.getAttribute('data-idx') : null);
+  });
+  root.addEventListener('mouseout', (e) => {
+    const el = (e.target as HTMLElement)?.closest?.('[data-idx]');
+    if (el) setHighlight(null);
+  });
+  root.addEventListener('click', (e) => {
+    const legendRow = (e.target as HTMLElement)?.closest?.(
+      '.myio-col-summary__legend-row'
+    ) as HTMLElement | null;
+    if (!legendRow || !_state) return;
+    const idx = Number(legendRow.getAttribute('data-idx'));
+    if (!Number.isInteger(idx)) return;
+    if (_state.excluded.has(idx)) _state.excluded.delete(idx);
+    else _state.excluded.add(idx);
+    rerender();
+  });
 }
 
 // ============================================
@@ -330,11 +435,27 @@ export const ColumnSummaryTooltip = {
   /** Shows the column summary tooltip anchored to the trigger element. */
   show(triggerElement: HTMLElement, data: ColumnSummaryData): void {
     injectCSS();
+    _state = {
+      data: data && Array.isArray(data.devices) ? data : { ...data, devices: [] },
+      excluded: new Set<number>(),
+      fmt: data.formatValue || defaultFormatter(data.unit || ''),
+      pd: resolvePercentDecimals(data.percentDecimals),
+    };
     InfoTooltip.show(triggerElement, {
       icon: '📊',
       title: data.title ? `Resumo — ${data.title}` : 'Resumo da Coluna',
-      content: buildContent(data),
+      content: `<div class="myio-col-summary">${buildInner()}</div>`,
     });
+    // Wire interactivity after InfoTooltip renders the content into the DOM.
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => {
+        const roots = document.querySelectorAll<HTMLElement>(
+          '.myio-info-tooltip .myio-col-summary'
+        );
+        _rootEl = roots.length ? roots[roots.length - 1] : null;
+        if (_rootEl) wireRoot(_rootEl);
+      });
+    }
   },
 
   /** Hides the tooltip immediately. */
