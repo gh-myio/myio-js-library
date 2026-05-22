@@ -206,6 +206,29 @@ Ambas as categorias zeradas. Ou não há medição dedicada para esses equipamen
 ou os devices não estão classificados (RFC-0128: `ELEVADOR`/`ELV-`,
 `ESCADA_ROLANTE`/`ESC-`). Confirmar se é ausência de hardware ou de classificação.
 
+### 6.5 — Water — `Entrada Sanasa` mostra consumo 0 no card (corrigido)
+No domínio **water**, o card do hidrômetro de entrada `Entrada Sanasa`
+(tbId `4a04bba0-…`, slave 156) mostrava **consumo 0**, mas o gráfico (ao clicar
+no card) mostrava consumo real.
+
+**Causa — misclassificação como tanque.** Runtime do STATE:
+`deviceType = ENTRADA`, `deviceProfile = HIDROMETRO_SHOPPING`, mas
+`_isTankDevice: true`, `labelWidget: "Caixa D'Água"`, `value = waterLevel = 0`
+(`consumptionTs: null`, `pulsesTs` preenchido — o device **mede consumo** via pulsos).
+
+A detecção de hidrômetro em `MAIN_VIEW/controller.js` olhava **só o `deviceType`**
+(`deviceType.includes('HIDROMETRO')`). Como o `deviceType` é `ENTRADA`, o device
+não era visto como hidrômetro e caía no ramo de tanque (tem dataKeys
+`water_level`/`water_percentage`) → card exibe nível de tanque (0) em vez do consumo.
+
+O **gráfico** funciona porque `openDashboardPopupEnergy({ deviceId: tbId, readingType:'water' })`
+busca a série de consumo por `tbId`, independente dessa classificação.
+
+**✅ Fix (2026-05-22)** — `MAIN_VIEW/controller.js`: `isHidrometer`/`isTankByType`
+passam a usar `deviceProfile` como fonte autoritativa (`deviceType` só fallback).
+Com `deviceProfile = HIDROMETRO_SHOPPING`, o `Entrada Sanasa` entra no ramo de
+hidrômetro → `labelWidget = 'Entrada'`, `value` vem do enriquecimento da API (consumo).
+
 ---
 
 ## 7. Resumo executivo
@@ -219,6 +242,7 @@ ou os devices não estão classificados (RFC-0128: `ELEVADOR`/`ELV-`,
 | Card Entrada exclui DETRAN (intencional) | ✅ correto — bug é o relatório ignorar `exclude_groups_totals` |
 | 14 lojas sem Identificador | ⚠️ preencher |
 | Elevadores / Esc. Rolantes em 0 | ⚠️ verificar |
+| Water `Entrada Sanasa` card em 0 | ✅ corrigido — classificação por `deviceProfile` |
 
 **Prioridade #1:** auditar a relação de TC / multiplicador dos medidores de
 subestação — sem isso, todo o cálculo de Área Comum por diferença permanece

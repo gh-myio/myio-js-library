@@ -883,27 +883,25 @@ export class AllReportModal {
   // Premium tooltip content for the exclusion-flag info icon. Uses the library
   // InfoTooltip CSS classes (myio-info-tooltip__*) — injected by InfoTooltip itself.
   private buildExclusionTooltipContent(): string {
+    // Plain <p> blocks — the library's __row/__label pair uses flex + flex-shrink:0
+    // on the label, so long text won't wrap there. Block paragraphs wrap normally.
+    const p = 'margin:0 0 8px;font-size:11px;line-height:1.5;color:#475569;';
+    const pLast = 'margin:0;font-size:11px;line-height:1.5;color:#475569;';
     return `
       <div class="myio-info-tooltip__section" style="max-width:280px;">
-        <div class="myio-info-tooltip__row" style="align-items:flex-start;padding:3px 0;">
-          <span class="myio-info-tooltip__label" style="font-size:11px;line-height:1.5;white-space:normal;">
-            Alguns dispositivos têm o atributo <strong>exclude_groups_totals</strong> e são
-            propositalmente removidos dos totais do dashboard (ex.: medidor de locatário que
-            não é consumo operacional do shopping).
-          </span>
-        </div>
-        <div class="myio-info-tooltip__row" style="align-items:flex-start;padding:3px 0;">
-          <span class="myio-info-tooltip__label" style="font-size:11px;line-height:1.5;white-space:normal;">
-            <strong>Ligado</strong> (padrão): esses dispositivos são omitidos do relatório —
-            o total bate com os cards do dashboard.
-          </span>
-        </div>
-        <div class="myio-info-tooltip__row" style="align-items:flex-start;padding:3px 0;">
-          <span class="myio-info-tooltip__label" style="font-size:11px;line-height:1.5;white-space:normal;">
-            <strong>Desligado</strong>: todos os dispositivos do grupo entram — mostra o
-            consumo bruto, inclusive os excluídos.
-          </span>
-        </div>
+        <p style="${p}">
+          Alguns dispositivos têm o atributo <strong>exclude_groups_totals</strong> e são
+          propositalmente removidos dos totais do dashboard (ex.: medidor de locatário que
+          não é consumo operacional do shopping).
+        </p>
+        <p style="${p}">
+          <strong>Ligado</strong> (padrão): esses dispositivos são omitidos do relatório —
+          o total bate com os cards do dashboard.
+        </p>
+        <p style="${pLast}">
+          <strong>Desligado</strong>: todos os dispositivos do grupo entram — mostra o
+          consumo bruto, inclusive os excluídos.
+        </p>
       </div>
       <div class="myio-info-tooltip__notice">
         <span class="myio-info-tooltip__notice-icon">💡</span>

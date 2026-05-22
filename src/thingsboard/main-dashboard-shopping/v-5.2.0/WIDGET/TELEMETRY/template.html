@@ -209,31 +209,87 @@
         <!-- RIGHT COLUMN: sort + alarm filters -->
         <aside class="filter-sortbar">
           <div class="filter-block">
-            <label class="block-label">Ordenação</label>
-            <div class="radio-inline radio-stack">
-              <label><input type="radio" name="sortMode" value="cons_desc" checked /> Consumo ↓</label>
-              <label><input type="radio" name="sortMode" value="cons_asc" /> Consumo ↑</label>
-              <label><input type="radio" name="sortMode" value="alpha_asc" /> A → Z</label>
-              <label><input type="radio" name="sortMode" value="alpha_desc" /> Z → A</label>
-            </div>
+            <label class="block-label" for="sortModeSelect">Ordenação</label>
+            <select id="sortModeSelect" class="myio-premium-select">
+              <option value="cons_desc">Consumo ↓</option>
+              <option value="cons_asc">Consumo ↑</option>
+              <option value="alpha_asc">A → Z</option>
+              <option value="alpha_desc">Z → A</option>
+            </select>
           </div>
 
           <div class="filter-block">
-            <label class="block-label">Filtro de Alarmes</label>
-            <div class="radio-grid alarm-filter-grid">
-              <label><input type="radio" name="alarmFilter" value="ativado" checked /> Mostrar todos</label>
-              <label
-                ><input type="radio" name="alarmFilter" value="apenas_ativados" /> Apenas com alarmes</label
-              >
-              <label
-                ><input type="radio" name="alarmFilter" value="apenas_sem_alarmes" /> Apenas sem alarmes</label
+            <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 10px;">
+              <label class="block-label" style="margin: 0;">Filtro de Alarmes</label>
+              <span
+                class="filter-info-icon"
+                id="alarmFilterInfo"
+                role="button"
+                tabindex="0"
+                aria-label="Sobre o filtro de alarmes"
+                title="Sobre o filtro de alarmes"
+                >i</span
               >
             </div>
-            <p class="muted">
-              <strong>Apenas com alarmes</strong> oculta cards sem alarme ativo.
-              <strong>Apenas sem alarmes</strong> oculta cards com alarme ativo.
-            </p>
+            <select id="alarmFilterSelect" class="myio-premium-select">
+              <option value="ativado">Mostrar todos</option>
+              <option value="apenas_ativados">Apenas com alarmes</option>
+              <option value="apenas_sem_alarmes">Apenas sem alarmes</option>
+            </select>
           </div>
+
+          <!-- Consumption range filter -->
+          <div class="filter-block">
+            <label class="block-label"
+              >Faixa de Consumo <span class="cons-range-unit" id="consRangeUnit"></span
+            ></label>
+            <div class="cons-range">
+              <div class="cons-range-field">
+                <input
+                  type="number"
+                  id="consMin"
+                  class="cons-range-input"
+                  placeholder="Mínimo"
+                  min="0"
+                  step="any"
+                  inputmode="decimal"
+                />
+                <button
+                  type="button"
+                  class="cons-range-clear"
+                  data-clear="consMin"
+                  aria-label="Limpar mínimo"
+                  title="Limpar"
+                >
+                  ×
+                </button>
+              </div>
+              <span class="cons-range-sep">—</span>
+              <div class="cons-range-field">
+                <input
+                  type="number"
+                  id="consMax"
+                  class="cons-range-input"
+                  placeholder="Máximo"
+                  min="0"
+                  step="any"
+                  inputmode="decimal"
+                />
+                <button
+                  type="button"
+                  class="cons-range-clear"
+                  data-clear="consMax"
+                  aria-label="Limpar máximo"
+                  title="Limpar"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Consumption summary card (populated by _renderFilterStats) -->
+          <div class="filter-stats-card" id="filterStatsCard"></div>
         </aside>
       </section>
 

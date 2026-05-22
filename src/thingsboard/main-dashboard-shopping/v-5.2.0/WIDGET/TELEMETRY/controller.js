@@ -295,7 +295,7 @@ function injectFilterModalStyles() {
       display: flex; align-items: center; justify-content: center;
     }
     .telemetry-filter-overlay .shops-modal-card {
-      max-width: 1006px; width: 100%; max-height: calc(100% - 48px);
+      max-width: 1320px; width: 100%; max-height: calc(100% - 48px);
       background: #fff; border-radius: 14px;
       box-shadow: 0 12px 40px rgba(0,0,0,0.2);
       display: flex; flex-direction: column; overflow: hidden;
@@ -322,13 +322,67 @@ function injectFilterModalStyles() {
       flex: 1 1 auto; min-height: 0; overflow: auto; padding: 14px;
     }
     /* Quick filters: 3-column layout — quick filters | store selection | sort+alarms */
+    /* First column == third column width; only the device list scrolls */
     .telemetry-filter-overlay .shops-modal-body--cols {
-      display: grid; grid-template-columns: 212px 1fr 234px;
-      gap: 14px; align-items: start;
+      display: grid; grid-template-columns: 340px 1fr 340px;
+      gap: 14px; align-items: stretch; overflow: hidden;
     }
     .telemetry-filter-overlay .filter-sidebar,
     .telemetry-filter-overlay .filter-sortbar {
-      display: flex; flex-direction: column; gap: 12px; min-width: 0;
+      display: flex; flex-direction: column; gap: 12px; min-width: 0; min-height: 0;
+    }
+    .telemetry-filter-overlay .filter-sidebar,
+    .telemetry-filter-overlay .filter-sortbar { overflow-y: auto; }
+    /* Consumption summary card (3rd column) */
+    .telemetry-filter-overlay .filter-stats-card {
+      border: 1px solid #e3d9f3; border-radius: 10px;
+      background: linear-gradient(180deg, #faf8ff, #f1ecfa);
+      padding: 10px 12px; display: flex; flex-direction: column; gap: 8px;
+    }
+    .telemetry-filter-overlay .filter-stats-card:empty { display: none; }
+    .telemetry-filter-overlay .filter-stats-head {
+      font: 800 12px var(--font-ui); color: #3e1a7d; letter-spacing: 0.3px;
+    }
+    .telemetry-filter-overlay .filter-stats-avg {
+      display: flex; align-items: baseline; justify-content: space-between;
+      gap: 8px; padding: 7px 9px; border-radius: 8px;
+      background: #fff; border: 1px solid #e3d9f3;
+    }
+    .telemetry-filter-overlay .filter-stats-avg-label {
+      font: 700 9px var(--font-ui); text-transform: uppercase;
+      letter-spacing: 0.5px; color: var(--ink-2);
+    }
+    .telemetry-filter-overlay .filter-stats-avg-val {
+      font: 800 16px var(--font-ui); color: #3e1a7d;
+    }
+    .telemetry-filter-overlay .filter-stats-group {
+      display: flex; flex-direction: column; gap: 1px;
+    }
+    .telemetry-filter-overlay .filter-stats-group-label {
+      font: 700 9px var(--font-ui); color: var(--ink-2);
+      text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 2px;
+    }
+    .telemetry-filter-overlay .filter-stats-row {
+      display: flex; align-items: center; gap: 8px;
+      font: 500 11px var(--font-ui); color: var(--ink-1); padding: 2px 0;
+    }
+    .telemetry-filter-overlay .filter-stats-name {
+      flex: 1 1 auto; min-width: 0;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .telemetry-filter-overlay .filter-stats-val {
+      flex: 0 0 auto; font-weight: 700;
+    }
+    .telemetry-filter-overlay .filter-stats-pct {
+      flex: 0 0 auto; font: 600 9px var(--font-ui); color: var(--ink-2);
+      min-width: 42px; text-align: right;
+    }
+    .telemetry-filter-overlay .filter-content {
+      display: flex; flex-direction: column; min-height: 0; min-width: 0;
+    }
+    .telemetry-filter-overlay .filter-content > .filter-block {
+      display: flex; flex-direction: column; min-height: 0;
+      flex: 1 1 auto; margin: 0;
     }
     .telemetry-filter-overlay .filter-sidebar-title {
       font: 800 11px var(--font-ui); letter-spacing: 0.5px;
@@ -345,14 +399,26 @@ function injectFilterModalStyles() {
       text-transform: uppercase; color: var(--ink-2);
     }
     .telemetry-filter-overlay .filter-group-tabs {
-      display: flex; flex-wrap: wrap; gap: 5px;
+      display: flex; flex-direction: column; gap: 5px;
     }
     .telemetry-filter-overlay .filter-tab {
-      display: inline-flex; align-items: center; gap: 4px;
-      padding: 4px 9px; border-radius: 999px; cursor: pointer;
+      display: flex; align-items: center; gap: 4px;
+      padding: 5px 10px; border-radius: 999px; cursor: pointer;
       border: 1px solid transparent; font: 700 11px var(--font-ui);
-      background: #eef2f7; color: #475569;
+      background: #eef2f7; color: #475569; text-align: left;
       transition: opacity 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .telemetry-filter-overlay .filter-tab-label { flex: 1 1 auto; min-width: 0; }
+    .telemetry-filter-overlay .filter-tab-expand {
+      width: 16px; height: 16px; flex-shrink: 0; margin-left: 4px;
+      border-radius: 50%; border: none; cursor: pointer;
+      background: rgba(0,0,0,0.12); color: inherit;
+      font: 700 11px var(--font-ui); line-height: 1;
+      display: inline-flex; align-items: center; justify-content: center;
+      opacity: 0.7; transition: background 0.15s ease, transform 0.15s ease, opacity 0.15s ease;
+    }
+    .telemetry-filter-overlay .filter-tab-expand:hover {
+      background: rgba(0,0,0,0.28); transform: scale(1.12); opacity: 1;
     }
     .telemetry-filter-overlay .filter-tab:hover { transform: translateY(-1px); }
     .telemetry-filter-overlay .filter-tab:not(.active) { opacity: 0.5; }
@@ -382,7 +448,94 @@ function injectFilterModalStyles() {
     .telemetry-filter-overlay .filter-tabs-empty {
       font: 500 11px var(--font-ui); color: var(--ink-2); padding: 4px 2px;
     }
-    .telemetry-filter-overlay .radio-stack { display: flex; flex-direction: column; gap: 4px; }
+    /* Checklist: single column (one device per row); scrolls on its own */
+    .telemetry-filter-overlay .checklist {
+      grid-template-columns: 1fr !important;
+      flex: 1 1 auto; min-height: 120px; overflow-y: auto;
+    }
+    .telemetry-filter-overlay .check-item-name {
+      flex: 1 1 auto; min-width: 0;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .telemetry-filter-overlay .check-item-value {
+      flex: 0 0 auto; font: 700 12px var(--font-ui);
+      min-width: 92px; text-align: right;
+    }
+    .telemetry-filter-overlay .check-item-pct {
+      flex: 0 0 auto; font: 600 10px var(--font-ui); color: var(--ink-2);
+      min-width: 48px; text-align: right;
+    }
+    .telemetry-filter-overlay .filter-info-icon {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 15px; height: 15px; border-radius: 50%; flex-shrink: 0;
+      background: #3e1a7d; color: #fff;
+      font: italic 700 10px Georgia, 'Times New Roman', serif;
+      cursor: help; user-select: none;
+    }
+    /* Consumption range filter (min / max inputs) */
+    .telemetry-filter-overlay .cons-range {
+      display: flex; align-items: center; gap: 8px;
+    }
+    .telemetry-filter-overlay .cons-range-field {
+      position: relative; flex: 1 1 0; min-width: 0;
+    }
+    .telemetry-filter-overlay .cons-range-input {
+      width: 100%; box-sizing: border-box;
+      padding: 7px 27px 7px 9px; border: 1px solid var(--bd-2); border-radius: 8px;
+      font: 600 12px var(--font-ui); color: var(--ink-1); background: #fff;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .telemetry-filter-overlay .cons-range-input:focus {
+      outline: none; border-color: #3e1a7d;
+      box-shadow: 0 0 0 3px rgba(62,26,125,0.12);
+    }
+    .telemetry-filter-overlay .cons-range-clear {
+      position: absolute; right: 5px; top: 50%; transform: translateY(-50%);
+      width: 17px; height: 17px; padding: 0; border: none; border-radius: 50%;
+      background: rgba(0,0,0,0.08); color: #6b7a90; cursor: pointer;
+      font: 700 13px/1 var(--font-ui);
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .telemetry-filter-overlay .cons-range-clear:hover {
+      background: rgba(0,0,0,0.18); color: var(--ink-1);
+    }
+    /* Hide the clear button while the field is empty (placeholder visible) */
+    .telemetry-filter-overlay .cons-range-input:placeholder-shown + .cons-range-clear {
+      display: none;
+    }
+    .telemetry-filter-overlay .cons-range-sep { color: var(--ink-2); font-weight: 700; }
+    .telemetry-filter-overlay .cons-range-unit {
+      font: 600 10px var(--font-ui); color: var(--ink-2);
+    }
+    /* Premium select (Ordenação / Filtro de Alarmes) */
+    .telemetry-filter-overlay .myio-premium-select {
+      width: 100%; box-sizing: border-box;
+      padding: 8px 32px 8px 11px;
+      border: 1px solid var(--bd-2); border-radius: 8px;
+      background-color: #fff; color: var(--ink-1);
+      font: 600 12px var(--font-ui); cursor: pointer;
+      appearance: none; -webkit-appearance: none; -moz-appearance: none;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%236b7a90'><path d='M7 10l5 5 5-5z'/></svg>");
+      background-repeat: no-repeat; background-position: right 9px center; background-size: 13px;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .telemetry-filter-overlay .myio-premium-select:hover { border-color: var(--brand); }
+    .telemetry-filter-overlay .myio-premium-select:focus {
+      outline: none; border-color: #3e1a7d;
+      box-shadow: 0 0 0 3px rgba(62,26,125,0.12);
+    }
+    /* radio-stack forces vertical stacking even over .radio-grid (display:grid) */
+    .telemetry-filter-overlay .radio-stack {
+      display: flex !important; flex-direction: column; gap: 4px;
+    }
+    /* Force identical look for both stacks (alarm uses .radio-grid, sort uses .radio-inline) */
+    .telemetry-filter-overlay .radio-stack label {
+      display: flex !important; align-items: center; gap: 6px;
+      padding: 3px 2px !important; margin: 0 !important;
+      border: none !important; border-radius: 0 !important;
+      background: transparent !important;
+      font: 500 12px var(--font-ui); color: var(--ink-1); cursor: pointer;
+    }
     @media (max-width: 760px) {
       .telemetry-filter-overlay .shops-modal-body--cols { grid-template-columns: 1fr; }
     }
@@ -3720,20 +3873,24 @@ const _QF_GROUPS = [
   },
 ];
 
-// RFC-0128 mirror — equipment category for the "Tipo" quick-filter group.
+// Equipment category for the "Tipo" quick-filter group.
+// Mirrors categorizeItemsByGroup (MAIN_VIEW): the device GROUP is decided by
+// deviceProfile alone — so a device living in the "lojas" group always reads as
+// 'stores' here, even if its deviceType says otherwise. The areacomum bucket is
+// then sub-categorized by RFC-0128 (deviceType / identifier).
 function _quickFilterCategory(item) {
   const dt = String(item.deviceType || '').toUpperCase();
   const dp = String(item.deviceProfile || '').toUpperCase();
   const idf = String(item.identifier || '').toUpperCase();
   const hasAny = (s, arr) => arr.some((k) => s.includes(k));
-  const ENTRADA = ['ENTRADA', 'RELOGIO', 'TRAFO', 'SUBESTACAO'];
-  const HVAC = ['CHILLER', 'FANCOIL', 'HVAC', 'AR_CONDICIONADO', 'BOMBA_CAG'];
-  if (hasAny(dt, ENTRADA) || hasAny(dp, ENTRADA)) return 'entrada';
-  if (hasAny(dt, HVAC) || hasAny(dp, HVAC) || idf.includes('CAG')) return 'hvac';
-  if (dt.includes('ELEVADOR') || dp.includes('ELEVADOR') || idf.startsWith('ELV-')) return 'elevators';
-  if (dt.includes('ESCADA_ROLANTE') || dp.includes('ESCADA_ROLANTE') || idf.startsWith('ESC-'))
-    return 'escalators';
-  if (dt === '3F_MEDIDOR' && dp === '3F_MEDIDOR') return 'stores';
+
+  if (dp === '3F_MEDIDOR') return 'stores';
+  if (['TRAFO', 'ENTRADA', 'RELOGIO', 'SUBESTACAO'].indexOf(dp) !== -1) return 'entrada';
+  // areacomum bucket
+  if (hasAny(dt, ['CHILLER', 'FANCOIL', 'HVAC', 'AR_CONDICIONADO', 'BOMBA_CAG']) || idf.includes('CAG'))
+    return 'hvac';
+  if (dt.includes('ELEVADOR') || idf.startsWith('ELV-')) return 'elevators';
+  if (dt.includes('ESCADA_ROLANTE') || idf.startsWith('ESC-')) return 'escalators';
   return 'others';
 }
 
@@ -3767,7 +3924,7 @@ function _renderQuickFilterTabs($m, list) {
   let html = `
     <div class="filter-group filter-group-all">
       <button class="filter-tab ${_activeQuickFilter === 'all' ? 'active' : ''}" data-filter="all">
-        Todos (${list.length})
+        <span class="filter-tab-label">Todos (${list.length})</span>
       </button>
     </div>`;
 
@@ -3782,7 +3939,9 @@ function _renderQuickFilterTabs($m, list) {
             .map(
               ([id, label]) => `
             <button class="filter-tab ${_activeQuickFilter === id ? 'active' : ''}" data-filter="${id}">
-              ${label} (${counts[id]})
+              <span class="filter-tab-label">${label} (${counts[id]})</span>
+              <span class="filter-tab-expand" role="button" data-expand-filter="${id}"
+                    title="Ver dispositivos" aria-label="Ver dispositivos">+</span>
             </button>`
             )
             .join('')}
@@ -3798,13 +3957,207 @@ function _applyChecklistVisibility($m) {
     .trim()
     .toLowerCase();
   const f = _activeQuickFilter;
+  const minRaw = parseFloat($m.find('#consMin').val());
+  const maxRaw = parseFloat($m.find('#consMax').val());
+  const hasMin = !isNaN(minRaw);
+  const hasMax = !isNaN(maxRaw);
   $m.find('.check-item').each((_, node) => {
     const $n = $(node);
     const tags = String($n.attr('data-filter-tags') || '').split(' ');
     const matchFilter = f === 'all' || tags.indexOf(f) !== -1;
     const matchSearch = !q || $n.text().trim().toLowerCase().includes(q);
-    $n.toggle(matchFilter && matchSearch);
+    const v = parseFloat($n.attr('data-value')) || 0;
+    const matchRange = (!hasMin || v >= minRaw) && (!hasMax || v <= maxRaw);
+    $n.toggle(matchFilter && matchSearch && matchRange);
   });
+}
+
+// Quick filters: device-list tooltip shown by the (+) button on a tab.
+function _showQuickFilterDevices(triggerEl, filterId) {
+  const InfoTooltip = window.MyIOLibrary && window.MyIOLibrary.InfoTooltip;
+  if (!InfoTooltip) {
+    LogHelper.warn('[TELEMETRY] InfoTooltip indisponível para o (+) de filtros');
+    return;
+  }
+
+  const devices = (STATE.itemsBase || []).filter(
+    (it) => (it._qfTags || []).indexOf(filterId) !== -1
+  );
+
+  let flabel = filterId;
+  for (const g of _QF_GROUPS) {
+    const f = g.filters.find((x) => x[0] === filterId);
+    if (f) {
+      flabel = f[1];
+      break;
+    }
+  }
+
+  const dotColors = {
+    online: '#22c55e', offline: '#6b7280', notInstalled: '#92400e',
+    normal: '#3b82f6', standby: '#22c55e', alert: '#f59e0b', failure: '#ef4444',
+    withConsumption: '#15803d', noConsumption: '#6b7280',
+    stores: '#9333ea', hvac: '#0891b2', elevators: '#7c3aed',
+    escalators: '#db2777', entrada: '#a21caf', others: '#57534e',
+  };
+  const dot = dotColors[filterId] || '#94a3b8';
+
+  let body;
+  if (!devices.length) {
+    body =
+      '<div class="myio-info-tooltip__section">' +
+      '<div style="text-align:center;padding:16px 0;color:#94a3b8;font-style:italic;">Nenhum dispositivo</div>' +
+      '</div>';
+  } else {
+    const rows = devices
+      .slice(0, 50)
+      .map((d) => {
+        const name = escapeHtml(d.label || d.identifier || d.id || 'Sem nome');
+        return `<div class="myio-info-tooltip__row" style="padding:5px 0;gap:8px;justify-content:flex-start;">
+          <span style="width:8px;height:8px;border-radius:50%;background:${dot};flex-shrink:0;"></span>
+          <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;" title="${name}">${name}</span>
+        </div>`;
+      })
+      .join('');
+    const more =
+      devices.length > 50
+        ? `<div style="font-style:italic;color:#94a3b8;font-size:10px;padding-top:8px;border-top:1px dashed #e2e8f0;margin-top:8px;">… e mais ${
+            devices.length - 50
+          } dispositivos</div>`
+        : '';
+    body = `<div class="myio-info-tooltip__section">
+      <div class="myio-info-tooltip__section-title">Dispositivos (${devices.length})</div>
+      <div style="max-height:280px;overflow-y:auto;">${rows}${more}</div>
+    </div>`;
+  }
+
+  InfoTooltip.show(triggerEl, {
+    icon: '📋',
+    title: `${flabel} (${devices.length})`,
+    content: body,
+  });
+}
+
+// Formats a device value for the checklist, matching the domain (energy/water/temp).
+function _fmtDeviceValue(value) {
+  const v = Number(value) || 0;
+  const hasMyIO = typeof MyIO !== 'undefined' && MyIO;
+  if (WIDGET_DOMAIN === 'energy') {
+    if (window.MyIOUtils?.formatEnergyWithSettings) return window.MyIOUtils.formatEnergyWithSettings(v);
+    return hasMyIO && MyIO.formatEnergy ? MyIO.formatEnergy(v) : v.toFixed(2) + ' kWh';
+  }
+  if (WIDGET_DOMAIN === 'water') {
+    if (window.MyIOUtils?.formatWaterWithSettings) return window.MyIOUtils.formatWaterWithSettings(v);
+    return hasMyIO && MyIO.formatWaterVolumeM3 ? MyIO.formatWaterVolumeM3(v) : v.toFixed(2) + ' m³';
+  }
+  if (WIDGET_DOMAIN === 'tank') {
+    return hasMyIO && MyIO.formatTankHeadFromCm ? MyIO.formatTankHeadFromCm(v) : v.toFixed(0) + ' cm';
+  }
+  if (WIDGET_DOMAIN === 'temperature') return v.toFixed(1) + '°C';
+  return v.toFixed(2);
+}
+
+// Reorders the checklist .check-item nodes by STATE.sortMode.
+// Sorts by the raw numeric value (data-value) — never the formatted kWh/MWh string —
+// so mixed display units don't break the order. Moving existing nodes keeps checkboxes.
+function _sortChecklistDom($m) {
+  const $cl = $m.find('#deviceChecklist');
+  if (!$cl.length) return;
+  const nodes = $cl.children('.check-item').toArray();
+  if (!nodes.length) return;
+  const mode = STATE.sortMode || 'cons_desc';
+  const valOf = (n) => parseFloat(n.getAttribute('data-value')) || 0;
+  const labelOf = (n) => {
+    const el = n.querySelector('.check-item-name');
+    return ((el && el.textContent) || '').trim();
+  };
+  nodes.sort((a, b) => {
+    if (mode === 'cons_desc') return valOf(b) - valOf(a);
+    if (mode === 'cons_asc') return valOf(a) - valOf(b);
+    if (mode === 'alpha_desc')
+      return labelOf(b).localeCompare(labelOf(a), 'pt-BR', { sensitivity: 'base' });
+    return labelOf(a).localeCompare(labelOf(b), 'pt-BR', { sensitivity: 'base' }); // alpha_asc
+  });
+  nodes.forEach((n) => $cl[0].appendChild(n));
+}
+
+// Formats a device value as a percentage of the group total (pt-BR).
+function _fmtPct(value, total) {
+  const p = total > 0 ? ((Number(value) || 0) / total) * 100 : 0;
+  return p.toFixed(1).replace('.', ',') + '%';
+}
+
+// Renders the consumption summary card (3rd column): average, 3 highest,
+// 3 lowest and the 3 devices closest to the average.
+function _renderFilterStats($m, list) {
+  const $card = $m.find('#filterStatsCard');
+  if (!$card.length) return;
+  if (!list || !list.length) {
+    $card.empty();
+    return;
+  }
+
+  const items = list.map((it) => ({
+    name: it.label || it.identifier || it.id || 'Sem nome',
+    v: Number(it.value) || 0,
+  }));
+  const total = items.reduce((s, x) => s + x.v, 0);
+  const avg = items.length ? total / items.length : 0;
+
+  const desc = [...items].sort((a, b) => b.v - a.v);
+  const top3 = desc.slice(0, 3);
+  const bottom3 = desc.slice(-3).reverse();
+  const near3 = [...items]
+    .sort((a, b) => Math.abs(a.v - avg) - Math.abs(b.v - avg))
+    .slice(0, 3);
+
+  const row = (x) => {
+    const color = x.v > 0 ? '#16a34a' : '#94a3b8';
+    return `<div class="filter-stats-row">
+      <span class="filter-stats-name" title="${escapeHtml(x.name)}">${escapeHtml(x.name)}</span>
+      <span class="filter-stats-val" style="color:${color};">${escapeHtml(_fmtDeviceValue(x.v))}</span>
+      <span class="filter-stats-pct">${_fmtPct(x.v, total)}</span>
+    </div>`;
+  };
+
+  $card.html(`
+    <div class="filter-stats-head">📊 Resumo de Consumo</div>
+    <div class="filter-stats-avg">
+      <span class="filter-stats-avg-label">Média (${items.length})</span>
+      <span class="filter-stats-avg-val">${escapeHtml(_fmtDeviceValue(avg))}</span>
+    </div>
+    <div class="filter-stats-group">
+      <span class="filter-stats-group-label">▲ 3 maiores</span>
+      ${top3.map(row).join('')}
+    </div>
+    <div class="filter-stats-group">
+      <span class="filter-stats-group-label">▼ 3 menores</span>
+      ${bottom3.map(row).join('')}
+    </div>
+    <div class="filter-stats-group">
+      <span class="filter-stats-group-label">● 3 na média</span>
+      ${near3.map(row).join('')}
+    </div>
+  `);
+}
+
+// Premium tooltip content for the alarm-filter info icon (i).
+// Plain <p> blocks — the library __row/__label pair won't wrap long text.
+function _alarmFilterInfoContent() {
+  const p = 'margin:0 0 8px;font-size:11px;line-height:1.5;color:#475569;';
+  const pLast = 'margin:0;font-size:11px;line-height:1.5;color:#475569;';
+  return `
+    <div class="myio-info-tooltip__section" style="max-width:260px;">
+      <p style="${p}">
+        <strong>Mostrar todos</strong>: exibe todos os cards, com ou sem alarme.
+      </p>
+      <p style="${p}">
+        <strong>Apenas com alarmes</strong>: oculta os cards sem alarme ativo.
+      </p>
+      <p style="${pLast}">
+        <strong>Apenas sem alarmes</strong>: oculta os cards com alarme ativo.
+      </p>
+    </div>`;
 }
 
 function openFilterModal() {
@@ -3826,6 +4179,8 @@ function openFilterModal() {
 
   const selected = STATE.selectedIds;
   const frag = document.createDocumentFragment();
+  // Group total — used for each device's "% of total" (mirrors line ~2111)
+  const _totalValue = list.reduce((s, it) => s + (Number(it.value) || 0), 0);
 
   for (const it of list) {
     const safeId =
@@ -3840,21 +4195,29 @@ function openFilterModal() {
     // Quick filters: tag the row with its quick-filter ids for sidebar filtering
     it._qfTags = _quickFilterTags(it);
     label.setAttribute('data-filter-tags', it._qfTags.join(' '));
+    const _v = Number(it.value) || 0;
+    const _vColor = _v > 0 ? '#16a34a' : '#94a3b8';
+    label.setAttribute('data-value', String(_v));
     label.innerHTML = `
       <input type="checkbox" id="chk-${safeId}" data-entity="${escapeHtml(it.id)}" ${
         checked ? 'checked' : ''
       }>
-      <span>${escapeHtml(it.label || it.identifier || it.id)}</span>
+      <span class="check-item-name">${escapeHtml(it.label || it.identifier || it.id)}</span>
+      <span class="check-item-value" style="color:${_vColor};">${escapeHtml(_fmtDeviceValue(_v))}</span>
+      <span class="check-item-pct">${_fmtPct(_v, _totalValue)}</span>
     `;
     frag.appendChild(label);
   }
 
   $cl[0].appendChild(frag);
+  _sortChecklistDom($m); // order the checklist by the selected sort mode
   // Quick filters: build the quick-filter sidebar and apply current filter visibility
   _renderQuickFilterTabs($m, list);
   _applyChecklistVisibility($m);
-  $m.find(`input[name="sortMode"][value="${STATE.sortMode}"]`).prop('checked', true);
-  $m.find(`input[name="alarmFilter"][value="${STATE.alarmFilter || 'ativado'}"]`).prop('checked', true);
+  _renderFilterStats($m, list);
+  $m.find('#sortModeSelect').val(STATE.sortMode || 'cons_desc');
+  $m.find('#alarmFilterSelect').val(STATE.alarmFilter || 'ativado');
+  $m.find('#consRangeUnit').text(`(${_getExportUnit()})`);
 
   const $footer = $m.find('.shops-modal-footer');
   if ($footer.length) $footer.show().find('#applyFilters, #resetFilters').show();
@@ -4334,7 +4697,8 @@ function bindModal() {
     _handleSyncGCDR();
   });
 
-  // Quick filters: quick-filter tab click — filters the visible checklist rows
+  // Quick filters: tab click — filters the list to that category AND selects (checks)
+  // the matching rows, so picking a category re-selects its devices in the grid.
   $m.on('click', '.filter-tab', (ev) => {
     ev.preventDefault();
     const id = String($(ev.currentTarget).data('filter') || 'all');
@@ -4342,19 +4706,72 @@ function bindModal() {
     $m.find('.filter-tab').removeClass('active');
     $(ev.currentTarget).addClass('active');
     _applyChecklistVisibility($m);
+    $m.find('.check-item:visible input[type="checkbox"]').prop('checked', true);
+    syncChecklistSelectionVisual();
   });
 
-  // Select/clear operate on the rows currently visible (respects quick filter + search)
+  // Quick filters: (+) button shows a tooltip listing the devices of that filter
+  $m.on('mouseenter', '.filter-tab-expand', function (ev) {
+    ev.stopPropagation();
+    _showQuickFilterDevices(this, String($(this).data('expand-filter') || ''));
+  });
+  $m.on('mouseleave', '.filter-tab-expand', function () {
+    const T = window.MyIOLibrary && window.MyIOLibrary.InfoTooltip;
+    if (T) T.startDelayedHide();
+  });
+  $m.on('click', '.filter-tab-expand', function (ev) {
+    ev.stopPropagation();
+    ev.preventDefault();
+  });
+
+  // Alarm-filter info icon (i) — premium InfoTooltip on hover
+  $m.on('mouseenter', '#alarmFilterInfo', function (ev) {
+    ev.stopPropagation();
+    const T = getInfoTooltip();
+    if (T) {
+      T.show(this, {
+        icon: 'ℹ️',
+        title: 'Filtro de Alarmes',
+        content: _alarmFilterInfoContent(),
+      });
+    }
+  });
+  $m.on('mouseleave', '#alarmFilterInfo', function () {
+    const T = getInfoTooltip();
+    if (T) T.startDelayedHide();
+  });
+
+  // Ordenação select — re-sorts the device checklist live
+  $m.on('change', '#sortModeSelect', () => {
+    STATE.sortMode = String($m.find('#sortModeSelect').val() || 'cons_desc');
+    _sortChecklistDom($m);
+  });
+
+  // Consumption range inputs — filter the checklist by min/max value
+  $m.on('input', '#consMin, #consMax', () => {
+    _applyChecklistVisibility($m);
+  });
+  $m.on('click', '.cons-range-clear', (ev) => {
+    ev.preventDefault();
+    const id = String($(ev.currentTarget).data('clear') || '');
+    if (id) $m.find('#' + id).val('').trigger('focus');
+    _applyChecklistVisibility($m);
+  });
+
+  // Select/clear operate on the rows currently visible (respects quick filter + search).
+  // The "Todos" quick-filter tab is kept in sync: selecting all marks it, clearing unmarks it.
   $m.on('click', '#selectAll', (ev) => {
     ev.preventDefault();
     $m.find('.check-item:visible input[type="checkbox"]').prop('checked', true);
     syncChecklistSelectionVisual();
+    $m.find('.filter-tab[data-filter="all"]').addClass('active');
   });
 
   $m.on('click', '#clearAll', (ev) => {
     ev.preventDefault();
     $m.find('.check-item:visible input[type="checkbox"]').prop('checked', false);
     syncChecklistSelectionVisual();
+    $m.find('.filter-tab[data-filter="all"]').removeClass('active');
   });
 
   $m.on('click', '#resetFilters', (ev) => {
@@ -4368,8 +4785,9 @@ function bindModal() {
     $m.find('.filter-tab').removeClass('active');
     $m.find('.filter-tab[data-filter="all"]').addClass('active');
     $m.find('.check-item input[type="checkbox"]').prop('checked', true);
-    $m.find('input[name="sortMode"][value="cons_desc"]').prop('checked', true);
-    $m.find('input[name="alarmFilter"][value="ativado"]').prop('checked', true);
+    $m.find('#sortModeSelect').val('cons_desc');
+    $m.find('#alarmFilterSelect').val('ativado');
+    $m.find('#consMin, #consMax').val('');
     window.dispatchEvent(
       new CustomEvent('myio:telemetry-alarm-filter-changed', { detail: { mode: 'ativado' } })
     );
@@ -4380,16 +4798,18 @@ function bindModal() {
 
   $m.on('click', '#applyFilters', (ev) => {
     ev.preventDefault();
+    // Apply only devices that are checked AND currently visible (pass quick filter,
+    // search and the consumption range) — so the grid reflects what was filtered.
     const set = new Set();
-    $m.find('.check-item input[type="checkbox"]:checked').each((_, el) => {
+    $m.find('.check-item:visible input[type="checkbox"]:checked').each((_, el) => {
       const id = $(el).data('entity');
       if (id) set.add(id);
     });
 
     STATE.selectedIds = set.size === 0 || set.size === STATE.itemsBase.length ? null : set;
-    STATE.sortMode = String($m.find('input[name="sortMode"]:checked').val() || 'cons_desc');
+    STATE.sortMode = String($m.find('#sortModeSelect').val() || 'cons_desc');
     STATE.alarmFilter = /** @type {'ativado'|'apenas_ativados'|'apenas_sem_alarmes'} */ (
-      String($m.find('input[name="alarmFilter"]:checked').val() || 'ativado')
+      String($m.find('#alarmFilterSelect').val() || 'ativado')
     );
     // Notifica o HEADER para sincronizar estado visual do botão 🔔
     window.dispatchEvent(
@@ -5921,8 +6341,8 @@ self.onInit = async function () {
   window.addEventListener('myio:global-alarm-filter', (ev) => {
     const mode = ev.detail?.mode || 'ativado';
     STATE.alarmFilter = /** @type {'ativado'|'apenas_ativados'|'apenas_sem_alarmes'} */ (mode);
-    // Sync radio in filter modal
-    $modal().find(`input[name="alarmFilter"][value="${mode}"]`).prop('checked', true);
+    // Sync the alarm-filter select in the filter modal
+    $modal().find('#alarmFilterSelect').val(mode);
     reflowFromState();
   });
 

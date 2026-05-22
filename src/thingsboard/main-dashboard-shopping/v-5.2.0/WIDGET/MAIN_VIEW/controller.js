@@ -6001,9 +6001,15 @@ const MyIOOrchestrator = (() => {
           // 2. OR has water_level/water_percentage data (even without deviceType)
           // BUT EXCLUDE hidrometers (devices with pulses data or HIDROMETRO deviceType)
           const hasWaterLevelData = meta.waterLevel !== undefined || meta.waterPercentage !== undefined;
-          const isTankByType = deviceType === 'TANK' || deviceType === 'CAIXA_DAGUA';
-          // Check for hidrometers: deviceType contains HIDROMETRO
-          const isHidrometer = deviceType.includes('HIDROMETRO');
+          // deviceProfile is authoritative when present; deviceType is only a fallback.
+          // (e.g. "Entrada Sanasa" has deviceType=ENTRADA but deviceProfile=HIDROMETRO_SHOPPING —
+          //  it is a water meter, not a tank.)
+          const isTankByType = deviceProfile
+            ? deviceProfile === 'TANK' || deviceProfile === 'CAIXA_DAGUA'
+            : deviceType === 'TANK' || deviceType === 'CAIXA_DAGUA';
+          const isHidrometer = deviceProfile
+            ? deviceProfile.includes('HIDROMETRO')
+            : deviceType.includes('HIDROMETRO');
 
           // RFC-0107: Build HIDROMETRO items from ctx.data
           // Categorization based on deviceType AND deviceProfile:
