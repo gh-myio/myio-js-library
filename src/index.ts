@@ -489,6 +489,7 @@ export { EnergySummaryTooltip } from './utils/EnergySummaryTooltip';
 export { WaterSummaryTooltip } from './utils/WaterSummaryTooltip';
 export { InfoTooltip } from './utils/InfoTooltip';
 export { ColumnSummaryTooltip } from './utils/ColumnSummaryTooltip';
+export { resolvePercentDecimals } from './utils/percentDecimals';
 export type {
   DashboardEnergySummary,
   CategorySummary,

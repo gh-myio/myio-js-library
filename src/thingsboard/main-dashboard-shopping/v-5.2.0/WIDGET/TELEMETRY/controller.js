@@ -4137,7 +4137,7 @@ function _attachColumnSummary($m) {
 // Formats a device value as a percentage of the group total (pt-BR).
 function _fmtPct(value, total) {
   const p = total > 0 ? ((Number(value) || 0) / total) * 100 : 0;
-  return p.toFixed(1).replace('.', ',') + '%';
+  return p.toFixed(2).replace('.', ',') + '%';
 }
 
 // Renders the consumption summary card (3rd column): average, 3 highest,

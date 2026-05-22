@@ -33,6 +33,7 @@ import { TempRangeTooltip } from '../../../../utils/TempRangeTooltip';
 import { EnergyRangeTooltip } from '../../../../utils/EnergyRangeTooltip';
 import { DeviceComparisonTooltip } from '../../../../utils/DeviceComparisonTooltip';
 import { TempComparisonTooltip } from '../../../../utils/TempComparisonTooltip';
+import { resolvePercentDecimals } from '../../../../utils/percentDecimals';
 
 // ============================================
 // CONSTANTS
@@ -193,6 +194,9 @@ export function renderCardComponentV5({
   showPercentageTooltip = false, // Tooltip on percentage badge
   showTempComparisonTooltip = false, // Tooltip on temperature deviation badge
   showTempRangeTooltip = false, // Tooltip on device image for temperature devices
+  // Decimal places for the % badge. Resolved at render time so it can be changed
+  // without rebuilding the lib: this prop > window.MyIOUtils.percentDecimals > 2.
+  percentDecimals,
 }) {
   const {
     entityId,
@@ -737,6 +741,10 @@ export function renderCardComponentV5({
   const isEnergyDeviceFlag = isEnergyDevice(deviceType);
   const percentageForDisplay = isTankDevice ? (waterPercentage || 0) * 100 : perc;
 
+  // Decimal places for the percentage badge — prop > window.MyIOUtils.percentDecimals > 2.
+  // Runtime-resolved, so it can change without a lib rebuild.
+  const _pctDecimals = resolvePercentDecimals(percentDecimals);
+
   // Calculate temperature status for TERMOSTATO devices
   const calculateTempStatus = () => {
     // If status is explicitly provided, use it
@@ -851,9 +859,7 @@ export function renderCardComponentV5({
               </div>
               ${
                 !isTermostatoDevice
-                  ? `<span class="device-percentage-badge percentage-tooltip-trigger" style="position: absolute; bottom: 12px; right: 12px; z-index: 20; background: none !important; cursor: help;">${percentageForDisplay.toFixed(
-                      1
-                    )}%</span>`
+                  ? `<span class="device-percentage-badge percentage-tooltip-trigger" style="position: absolute; bottom: 12px; right: 12px; z-index: 20; background: none !important; cursor: help;">${percentageForDisplay.toFixed(_pctDecimals).replace('.', ',')}%</span>`
                   : tempDeviationPercent
                   ? `<span class="device-percentage-badge temp-deviation-badge temp-comparison-tooltip-trigger" style="position: absolute; bottom: 12px; right: 12px; z-index: 20; background: none !important; color: ${
                       tempDeviationPercent.isAbove

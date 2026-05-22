@@ -1287,6 +1287,9 @@ export const EnergySummaryTooltip = {
     const timestamp = formatTimestamp(summary.lastUpdated);
     const excludedNotice = this.renderExcludedNotice(summary.excludedFromCAG, summary.unit);
     const titleSuffix = summary.customerName ? ` (${summary.customerName})` : '';
+    // "Por Shopping" only makes sense with ≥2 shoppings (head-office view).
+    // In a single-shopping context the tab + shopping view are hidden.
+    const isMultiShopping = (summary.byShoppingTotal?.length || 0) >= 2;
 
     return `
       <div class="energy-summary-tooltip__content">
@@ -1321,10 +1324,14 @@ export const EnergySummaryTooltip = {
           </div>
           <div class="energy-summary-tooltip__section-header">
             <span class="energy-summary-tooltip__section-title">Distribuição</span>
-            <div class="energy-summary-tooltip__grouping-tabs">
+            ${
+              isMultiShopping
+                ? `<div class="energy-summary-tooltip__grouping-tabs">
               <button class="energy-summary-tooltip__grouping-tab active" data-view="category">Por Categoria</button>
               <button class="energy-summary-tooltip__grouping-tab" data-view="shopping">Por ${summary.entityLabel || 'Shopping'}</button>
-            </div>
+            </div>`
+                : ''
+            }
           </div>
 
           <!-- Category View (default) -->
@@ -1339,8 +1346,10 @@ export const EnergySummaryTooltip = {
             </div>
           </div>
 
-          <!-- Shopping View -->
-          <div class="energy-summary-tooltip__shopping-view" data-grouping="shopping">
+          <!-- Shopping View (head-office only) -->
+          ${
+            isMultiShopping
+              ? `<div class="energy-summary-tooltip__shopping-view" data-grouping="shopping">
             <div class="energy-summary-tooltip__category-tree">
               <div class="energy-summary-tooltip__category-header">
                 <span>${summary.entityLabel || 'Shopping'}</span>
@@ -1349,7 +1358,9 @@ export const EnergySummaryTooltip = {
               </div>
               ${this.renderShoppingView(summary.byShoppingTotal, summary.unit)}
             </div>
-          </div>
+          </div>`
+              : ''
+          }
 
           <div class="energy-summary-tooltip__section-title">Status dos Dispositivos</div>
           <div class="energy-summary-tooltip__status-matrix">

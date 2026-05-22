@@ -613,11 +613,11 @@ function aggregateData(items) {
   STATE.grandTotal = grandTotalEffective;
 
   LogHelper.log('RFC-0056: Percentages calculated:', {
-    climatizacao: STATE.consumidores.climatizacao.perc.toFixed(1) + '%',
-    elevadores: STATE.consumidores.elevadores.perc.toFixed(1) + '%',
-    escadasRolantes: STATE.consumidores.escadasRolantes.perc.toFixed(1) + '%',
-    lojas: STATE.consumidores.lojas.perc.toFixed(1) + '%',
-    areaComum: STATE.consumidores.areaComum.perc.toFixed(1) + '%',
+    climatizacao: STATE.consumidores.climatizacao.perc.toFixed(2).replace('.', ',') + '%',
+    elevadores: STATE.consumidores.elevadores.perc.toFixed(2).replace('.', ',') + '%',
+    escadasRolantes: STATE.consumidores.escadasRolantes.perc.toFixed(2).replace('.', ',') + '%',
+    lojas: STATE.consumidores.lojas.perc.toFixed(2).replace('.', ',') + '%',
+    areaComum: STATE.consumidores.areaComum.perc.toFixed(2).replace('.', ',') + '%',
   });
 
   // ========== 5. VALIDATE TOTALS ==========
@@ -716,24 +716,24 @@ function renderStats() {
 
   // ClimatizaÃ§Ã£o
   $$('#climatizacaoTotal').text(formatEnergy(STATE.consumidores.climatizacao.total));
-  $$('#climatizacaoPerc').text(`(${STATE.consumidores.climatizacao.perc.toFixed(1)}%)`);
+  $$('#climatizacaoPerc').text(`(${STATE.consumidores.climatizacao.perc.toFixed(2).replace('.', ',')}%)`);
 
   // Elevadores
   $$('#elevadoresTotal').text(formatEnergy(STATE.consumidores.elevadores.total));
-  $$('#elevadoresPerc').text(`(${STATE.consumidores.elevadores.perc.toFixed(1)}%)`);
+  $$('#elevadoresPerc').text(`(${STATE.consumidores.elevadores.perc.toFixed(2).replace('.', ',')}%)`);
 
   // Escadas Rolantes
   $$('#escadasRolantesTotal').text(formatEnergy(STATE.consumidores.escadasRolantes.total));
-  $$('#escadasRolantesPerc').text(`(${STATE.consumidores.escadasRolantes.perc.toFixed(1)}%)`);
+  $$('#escadasRolantesPerc').text(`(${STATE.consumidores.escadasRolantes.perc.toFixed(2).replace('.', ',')}%)`);
 
   // Lojas
   $$('#lojasTotal').text(formatEnergy(STATE.consumidores.lojas.total));
-  $$('#lojasPerc').text(`(${STATE.consumidores.lojas.perc.toFixed(1)}%)`);
+  $$('#lojasPerc').text(`(${STATE.consumidores.lojas.perc.toFixed(2).replace('.', ',')}%)`);
 
   // Outros Equipamentos (RFC-0056: Defensiva para compatibilidade)
   if (STATE.consumidores.outros) {
     $$('#outrosTotal').text(formatEnergy(STATE.consumidores.outros.total));
-    $$('#outrosPerc').text(`(${STATE.consumidores.outros.perc.toFixed(1)}%)`);
+    $$('#outrosPerc').text(`(${STATE.consumidores.outros.perc.toFixed(2).replace('.', ',')}%)`);
   } else {
     // RFC-0108: Use formatEnergy(0) to respect measurement settings
     $$('#outrosTotal').text(formatEnergy(0));
@@ -742,7 +742,7 @@ function renderStats() {
 
   // Ãrea Comum (residual)
   $$('#areaComumTotal').text(formatEnergy(STATE.consumidores.areaComum.total));
-  $$('#areaComumPerc').text(`(${STATE.consumidores.areaComum.perc.toFixed(1)}%)`);
+  $$('#areaComumPerc').text(`(${STATE.consumidores.areaComum.perc.toFixed(2).replace('.', ',')}%)`);
 
   // RFC-0056: Hide Área Comum card when water domain has bathrooms enabled
   // Consolidate área comum into "Pontos não mapeados" instead
@@ -893,7 +893,7 @@ function renderPieChart() {
               const label = context.label || '';
               const value = context.parsed || 0;
               const total = context.dataset.data.reduce((a, b) => a + b, 0);
-              const perc = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+              const perc = total > 0 ? ((value / total) * 100).toFixed(2).replace('.', ',') : 0;
               return `${label}: ${formatEnergy(value)} (${perc}%)`;
             },
           },
@@ -964,7 +964,7 @@ function renderChartLegend() {
       <div class="legend-item">
         <div class="legend-color" style="background: ${item.color};"></div>
         <span class="legend-label">${item.label}:</span>
-        <span class="legend-value">${formatEnergy(item.value)} (${item.perc.toFixed(1)}%)</span>
+        <span class="legend-value">${formatEnergy(item.value)} (${item.perc.toFixed(2).replace('.', ',')}%)</span>
       </div>
     `;
     $legend.append(html);
@@ -1189,7 +1189,7 @@ function renderModalChart() {
               const label = context.label || '';
               const value = context.parsed || 0;
               const total = context.dataset.data.reduce((a, b) => a + b, 0);
-              const perc = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+              const perc = total > 0 ? ((value / total) * 100).toFixed(2).replace('.', ',') : 0;
               return `${label}: ${formatEnergy(value)} (${perc}%)`;
             },
           },
@@ -2114,10 +2114,10 @@ function calculateWaterPercentages() {
   STATE_WATER.pontosNaoMapeados.perc = (STATE_WATER.pontosNaoMapeados.total / entrada) * 100;
 
   LogHelper.log(`[RFC-0002 Water] Percentages:`, {
-    lojas: STATE_WATER.lojas.perc.toFixed(1) + '%',
-    banheiros: STATE_WATER.banheiros.perc.toFixed(1) + '%',
-    areaComum: STATE_WATER.areaComum.perc.toFixed(1) + '%',
-    naoMapeados: STATE_WATER.pontosNaoMapeados.perc.toFixed(1) + '%',
+    lojas: STATE_WATER.lojas.perc.toFixed(2).replace('.', ',') + '%',
+    banheiros: STATE_WATER.banheiros.perc.toFixed(2).replace('.', ',') + '%',
+    areaComum: STATE_WATER.areaComum.perc.toFixed(2).replace('.', ',') + '%',
+    naoMapeados: STATE_WATER.pontosNaoMapeados.perc.toFixed(2).replace('.', ',') + '%',
   });
 }
 
@@ -2147,12 +2147,12 @@ function renderWaterStats() {
 
   // Update Lojas card
   $$('#lojasTotal').text(formatValue(STATE_WATER.lojas.total, 'water'));
-  $$('#lojasPerc').text(`(${STATE_WATER.lojas.perc.toFixed(1)}%)`);
+  $$('#lojasPerc').text(`(${STATE_WATER.lojas.perc.toFixed(2).replace('.', ',')}%)`);
 
   // Update Banheiros card (only if enabled)
   if (STATE_WATER.includeBathrooms) {
     $$('#banheirosTotal').text(formatValue(STATE_WATER.banheiros.total, 'water'));
-    $$('#banheirosPerc').text(`(${STATE_WATER.banheiros.perc.toFixed(1)}%)`);
+    $$('#banheirosPerc').text(`(${STATE_WATER.banheiros.perc.toFixed(2).replace('.', ',')}%)`);
   }
 
   // Reuse "área comum" card for water área comum.
@@ -2160,7 +2160,7 @@ function renderWaterStats() {
   // to "Área Comum" here, otherwise it duplicates the .total-card label below in water.
   $$('.area-comum-card .card-title').text('Área Comum');
   $$('#areaComumTotal').text(formatValue(_waterAreaComumDisplay(), 'water'));
-  $$('#areaComumPerc').text(`(${STATE_WATER.areaComum.perc.toFixed(1)}%)`);
+  $$('#areaComumPerc').text(`(${STATE_WATER.areaComum.perc.toFixed(2).replace('.', ',')}%)`);
 
   // RFC-0056: Hide Área Comum card when bathrooms are included
   // Consolidate área comum into "Pontos não mapeados" instead
@@ -2180,7 +2180,7 @@ function renderWaterStats() {
   // Surface the (i) info icon on this card — only meaningful in water (Pontos Não Mapeados)
   $$('.total-card .info-tooltip').show();
   $$('#consumidoresTotal').text(formatValue(STATE_WATER.pontosNaoMapeados.total, 'water'));
-  $$('#consumidoresPerc').text(`(${STATE_WATER.pontosNaoMapeados.perc.toFixed(1)}%)`);
+  $$('#consumidoresPerc').text(`(${STATE_WATER.pontosNaoMapeados.perc.toFixed(2).replace('.', ',')}%)`);
 
   // Show warning if inconsistency
   if (STATE_WATER.pontosNaoMapeados.hasInconsistency) {
@@ -2305,7 +2305,7 @@ function renderWaterPieChart() {
               label: function (context) {
                 const label = context.label || '';
                 const value = formatValue(context.parsed, 'water');
-                const perc = validData[context.dataIndex].perc.toFixed(1);
+                const perc = validData[context.dataIndex].perc.toFixed(2).replace('.', ',');
                 return `${label}: ${value} (${perc}%)`;
               },
             },
@@ -2324,7 +2324,7 @@ function renderWaterPieChart() {
         <div class="legend-item">
           <span class="legend-color" style="background-color: ${item.color};"></span>
           <span class="legend-label">${item.label}</span>
-          <span class="legend-value">${formatValue(item.value, 'water')} (${item.perc.toFixed(1)}%)</span>
+          <span class="legend-value">${formatValue(item.value, 'water')} (${item.perc.toFixed(2).replace('.', ',')}%)</span>
         </div>
       `);
     });
@@ -2665,7 +2665,7 @@ function buildClimatizacaoContent() {
       </div>
       <div class="myio-info-tooltip__row">
         <span class="myio-info-tooltip__label">Participação:</span>
-        <span class="myio-info-tooltip__value">${climatizacaoPerc.toFixed(1)}%</span>
+        <span class="myio-info-tooltip__value">${climatizacaoPerc.toFixed(2).replace('.', ',')}%</span>
       </div>
     </div>
 
@@ -2812,7 +2812,7 @@ function buildOutrosContent() {
       </div>
       <div class="myio-info-tooltip__row">
         <span class="myio-info-tooltip__label">Participação:</span>
-        <span class="myio-info-tooltip__value">${outrosPerc.toFixed(1)}%</span>
+        <span class="myio-info-tooltip__value">${outrosPerc.toFixed(2).replace('.', ',')}%</span>
       </div>
     </div>
 
@@ -2897,7 +2897,7 @@ function buildBanheirosContent() {
       </div>
       <div class="myio-info-tooltip__row">
         <span class="myio-info-tooltip__label">Percentual:</span>
-        <span class="myio-info-tooltip__value">${banheirosPerc.toFixed(1)}% da entrada</span>
+        <span class="myio-info-tooltip__value">${banheirosPerc.toFixed(2).replace('.', ',')}% da entrada</span>
       </div>
       <div class="myio-info-tooltip__row">
         <span class="myio-info-tooltip__label">Pontos de medição:</span>
@@ -2977,7 +2977,7 @@ function buildPontosNaoMapeadosContent() {
       </div>
       <div class="myio-info-tooltip__row" style="border-top: 1px solid #e2e8f0; padding-top: 8px; margin-top: 6px;">
         <span class="myio-info-tooltip__label"><strong>= Não Mapeados:</strong></span>
-        <span class="myio-info-tooltip__value myio-info-tooltip__value--highlight">${formatValue(pontosNaoMapeados, 'water')} (${pontosNaoMapeadosPerc.toFixed(1)}%)</span>
+        <span class="myio-info-tooltip__value myio-info-tooltip__value--highlight">${formatValue(pontosNaoMapeados, 'water')} (${pontosNaoMapeadosPerc.toFixed(2).replace('.', ',')}%)</span>
       </div>
     </div>
 
@@ -3291,7 +3291,7 @@ function _applyGroupFilterEnergy(filter, $container) {
   if (allActive) activeTotal += cons.areaComum?.total || 0;
 
   // Update percentage displays for active cards
-  const safePerc = (val) => (activeTotal > 0 ? ((val / activeTotal) * 100).toFixed(1) : '0.0');
+  const safePerc = (val) => (activeTotal > 0 ? ((val / activeTotal) * 100).toFixed(2).replace('.', ',') : '0,00');
   if (filter.lojas) $$('#lojasPerc').text(`(${safePerc(cons.lojas?.total || 0)}%)`);
   else $$('#lojasPerc').text('');
   if (filter.climatizacao) $$('#climatizacaoPerc').text(`(${safePerc(cons.climatizacao?.total || 0)}%)`);
@@ -3324,7 +3324,7 @@ function _applyGroupFilterWater(filter, $container) {
   if (filter.areaComum) activeTotal += _waterAreaComumDisplay();
   if (allActive) activeTotal += STATE_WATER.pontosNaoMapeados?.total || 0;
 
-  const safePerc = (val) => (activeTotal > 0 ? ((val / activeTotal) * 100).toFixed(1) : '0.0');
+  const safePerc = (val) => (activeTotal > 0 ? ((val / activeTotal) * 100).toFixed(2).replace('.', ',') : '0,00');
   if (filter.lojas) $$('#lojasPerc').text(`(${safePerc(STATE_WATER.lojas?.total || 0)}%)`);
   else $$('#lojasPerc').text('');
   if (filter.banheiros && STATE_WATER.includeBathrooms)

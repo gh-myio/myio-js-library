@@ -24,6 +24,7 @@
  */
 
 import { InfoTooltip } from './InfoTooltip';
+import { resolvePercentDecimals } from './percentDecimals';
 
 // ============================================
 // Types
@@ -45,6 +46,8 @@ export interface ColumnSummaryData {
   devices: ColumnSummaryDevice[];
   /** Optional value formatter — overrides the default pt-BR + unit formatting. */
   formatValue?: (value: number) => string;
+  /** Decimal places for percentages — overrides window.MyIOUtils.percentDecimals (default 2). */
+  percentDecimals?: number;
 }
 
 // Slice palette for the pie chart — 14 distinct hues, cycled.
@@ -185,16 +188,17 @@ function defaultFormatter(unit: string): (value: number) => string {
   return (v) => nf.format(Number(v) || 0) + (unit ? ' ' + unit : '');
 }
 
-function fmtPct(value: number, total: number): string {
+function fmtPct(value: number, total: number, decimals: number): string {
   const p = total > 0 ? ((Number(value) || 0) / total) * 100 : 0;
-  return p.toFixed(1).replace('.', ',') + '%';
+  return p.toFixed(decimals).replace('.', ',') + '%';
 }
 
 // Builds the pie chart (conic-gradient) + scrollable legend for ALL devices.
 function buildPieChart(
   devices: ColumnSummaryDevice[],
   total: number,
-  fmt: (v: number) => string
+  fmt: (v: number) => string,
+  pctDecimals: number
 ): string {
   const sorted = devices
     .slice()
@@ -220,7 +224,7 @@ function buildPieChart(
       <span class="myio-col-summary__legend-dot" style="background:${color};"></span>
       <span class="myio-col-summary__legend-name" title="${esc(d.name)}">${esc(d.name)}</span>
       <span class="myio-col-summary__legend-val">${esc(fmt(v))}</span>
-      <span class="myio-col-summary__legend-pct">${fmtPct(v, total)}</span>
+      <span class="myio-col-summary__legend-pct">${fmtPct(v, total, pctDecimals)}</span>
     </div>`);
   });
 
@@ -236,6 +240,7 @@ function buildPieChart(
 function buildContent(data: ColumnSummaryData): string {
   const devices = Array.isArray(data.devices) ? data.devices.slice() : [];
   const fmt = data.formatValue || defaultFormatter(data.unit || '');
+  const pd = resolvePercentDecimals(data.percentDecimals);
   const count = devices.length;
   const total = devices.reduce((s, d) => s + (Number(d.value) || 0), 0);
   const avg = count ? total / count : 0;
@@ -277,7 +282,7 @@ function buildContent(data: ColumnSummaryData): string {
     <div class="myio-col-summary__row">
       <span class="myio-col-summary__name" title="${esc(d.name)}">${esc(d.name)}</span>
       <span class="myio-col-summary__val">${esc(fmt(Number(d.value) || 0))}</span>
-      <span class="myio-col-summary__pct">${fmtPct(Number(d.value) || 0, total)}</span>
+      <span class="myio-col-summary__pct">${fmtPct(Number(d.value) || 0, total, pd)}</span>
     </div>`;
 
   const group = (label: string, list: ColumnSummaryDevice[]) =>
@@ -307,7 +312,7 @@ function buildContent(data: ColumnSummaryData): string {
       </div>
     </div>
     <div class="myio-col-summary__body">
-      ${buildPieChart(devices, total, fmt)}
+      ${buildPieChart(devices, total, fmt, pd)}
       <div class="myio-col-summary__lists">
         ${group('▲ 3 maiores', top3)}
         ${group('▼ 3 menores', bottom3)}
