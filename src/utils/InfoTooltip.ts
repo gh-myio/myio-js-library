@@ -101,7 +101,7 @@ const INFO_TOOLTIP_CSS = `
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12), 0 2px 10px rgba(0, 0, 0, 0.08);
-  width: 395px;
+  width: 450px;
   max-width: 90vw;
   font-size: 12px;
   color: #1e293b;
@@ -631,6 +631,11 @@ function toggleMaximize(container: HTMLElement): void {
       left: container.style.left,
       top: container.style.top,
     };
+    // Maximizing implies pinning — otherwise a mouse-leave would close the full-screen panel.
+    state.isPinned = true;
+    container.classList.add('pinned');
+    const pinBtn = container.querySelector('[data-action="pin"]');
+    pinBtn?.classList.add('pinned');
   }
 
   container.classList.toggle('maximized', state.isMaximized);

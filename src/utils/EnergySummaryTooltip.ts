@@ -143,7 +143,7 @@ const ENERGY_SUMMARY_TOOLTIP_CSS = `
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15), 0 2px 10px rgba(0, 0, 0, 0.08);
-  width: 395px;
+  width: 450px;
   max-width: 90vw;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: 12px;
@@ -245,7 +245,9 @@ const ENERGY_SUMMARY_TOOLTIP_CSS = `
 }
 
 .energy-summary-tooltip.maximized .energy-summary-tooltip__body {
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
   overflow-y: auto;
 }
 
@@ -1876,6 +1878,8 @@ export const EnergySummaryTooltip = {
         left: container.style.left,
         top: container.style.top
       };
+      // Maximizing implies pinning — a full-screen panel must not auto-hide.
+      if (!this._isPinned) this.togglePin();
     }
 
     container.classList.toggle('maximized', this._isMaximized);

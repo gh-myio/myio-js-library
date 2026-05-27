@@ -109,6 +109,8 @@ const COLUMN_SUMMARY_CSS = `
   display: block; width: 100%; height: auto; aspect-ratio: 1 / 1;
   filter: drop-shadow(0 2px 8px rgba(0,0,0,0.15));
 }
+/* Footer band — hidden in compact, shown when maximized (mirrors Energy/Water). */
+.myio-col-summary__footer { display: none; }
 .myio-col-summary__slice {
   stroke: #ffffff; stroke-width: 1.5;
   transition: opacity 0.12s ease;
@@ -163,7 +165,9 @@ const COLUMN_SUMMARY_CSS = `
 .myio-info-tooltip.maximized .myio-col-summary__chart {
   display: block; grid-column: 1; grid-row: 1; min-width: 0;
 }
-.myio-info-tooltip.maximized .myio-col-summary__pie { max-width: 440px; margin: 0 auto; }
+.myio-info-tooltip.maximized .myio-col-summary__pie {
+  width: 320px; height: 320px; aspect-ratio: auto; margin: 0 auto;
+}
 .myio-info-tooltip.maximized .myio-col-summary__lists {
   grid-column: 1; grid-row: 2; min-height: 0; overflow-y: auto;
   display: flex; flex-direction: column; gap: 14px;
@@ -175,6 +179,22 @@ const COLUMN_SUMMARY_CSS = `
   border-left: 1px solid #e3d9f3; padding-left: 20px;
 }
 .myio-info-tooltip.maximized .myio-col-summary__group { margin-top: 0; }
+/* Footer band — same visual language as Energy/Water tooltips. */
+.myio-info-tooltip.maximized .myio-col-summary__footer {
+  display: flex; justify-content: space-between; align-items: center;
+  flex: 0 0 auto;
+  margin: 14px -16px -16px -16px;  /* bleed to the panel edges (cancels __content padding) */
+  padding: 12px 18px;
+  background: linear-gradient(135deg, #3e1a7d 0%, #6d28d9 100%);
+  color: #ffffff; border-radius: 0 0 11px 11px;
+}
+.myio-info-tooltip.maximized .myio-col-summary__footer-label {
+  font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.92);
+  letter-spacing: 0.3px;
+}
+.myio-info-tooltip.maximized .myio-col-summary__footer-value {
+  font-size: 18px; font-weight: 700; color: #ffffff;
+}
 `;
 
 let _cssInjected = false;
@@ -398,6 +418,10 @@ function buildInner(): string {
         ${group('▼ 3 menores', bottom3)}
         ${group('● 3 na média', near3)}
       </div>
+    </div>
+    <div class="myio-col-summary__footer">
+      <span class="myio-col-summary__footer-label">Consumo Total · ${count} dispositivos</span>
+      <span class="myio-col-summary__footer-value">${esc(fmt(total))}</span>
     </div>`;
 }
 
