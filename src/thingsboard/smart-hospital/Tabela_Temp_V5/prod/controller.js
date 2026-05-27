@@ -1897,6 +1897,8 @@ async function getData() {
           // Se não há dados reais, pula a interpolação
           if (!firstRealData || !lastRealData) continue;
 
+          var _ovPpStart = allProcessed.length;
+
           const interpolated = interpolateSeries(
             arr,
             devName,
@@ -1967,6 +1969,48 @@ async function getData() {
               gapSize: !isManual ? (r.gapSize || null) : null,
               isManual,
             });
+          }
+
+          // FIX (override post-pass injection):
+          // interpolateSeries so processa dias com leitura real (linhas 657-720).
+          // Para dias 100% SEM DADOS, mesmo havendo override valido, nenhum slot
+          // era emitido. Esta passada injeta os slots de override do chunk que
+          // ainda nao sairam pelo loop principal.
+          var _ovPpKey = devName.split(' ')[0];
+          var _ovPpMap = overrideMap.get(_ovPpKey);
+          if (_ovPpMap && _ovPpMap.size > 0) {
+            var _ovPpChunkStart = chunk.start.toISOString();
+            var _ovPpChunkEnd = chunk.end.toISOString();
+            var _ovPpEmitted = {};
+            for (var _ovIdx = _ovPpStart; _ovIdx < allProcessed.length; _ovIdx++) {
+              _ovPpEmitted[allProcessed[_ovIdx].sort_ts] = true;
+            }
+            var _ovPpCount = 0;
+            _ovPpMap.forEach(function (ovValue, ovTimeUTC) {
+              if (ovTimeUTC < _ovPpChunkStart || ovTimeUTC > _ovPpChunkEnd) return;
+              var _ovTs = new Date(ovTimeUTC).getTime();
+              if (_ovPpEmitted[_ovTs]) return;
+              var _ovClamp = clampTemperature(ovValue);
+              allProcessed.push({
+                centralId: centralId,
+                deviceName: deviceLabel,
+                reading_date: brDatetime(ovTimeUTC),
+                sort_ts: _ovTs,
+                temperature: _ovClamp.value == null ? '-' : _ovClamp.value.toFixed(2),
+                interpolated: false,
+                equalSign: false,
+                correctedBelowThreshold: false,
+                missing: false,
+                missingReason: null,
+                gapSize: null,
+                isManual: true
+              });
+              _ovPpEmitted[_ovTs] = true;
+              _ovPpCount++;
+            });
+            if (_ovPpCount > 0) {
+              LogHelper.log('[OVERRIDE] post-pass injected ' + _ovPpCount + ' override-only slots for ' + devName);
+            }
           }
         }
       }
