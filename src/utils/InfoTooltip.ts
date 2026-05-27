@@ -92,7 +92,9 @@ const INFO_TOOLTIP_CSS = `
 }
 
 .myio-info-tooltip.maximized .myio-info-tooltip__content {
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
   overflow-y: auto;
 }
 

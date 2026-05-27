@@ -3185,16 +3185,28 @@ function setupGroupDragCards() {
     const deviceIds = devices.map((d) => d.id).filter(Boolean);
 
     // Register each device's metadata with the SelectionStore so footer
-    // chips render with label/name instead of bare ids.
+    // chips render with label/name + consumption value.
+    // - `value` is the per-device consumption (SelectionStore picks it up as
+    //   lastValue, otherwise the chip shows "Sem dados").
+    // - `domain` lets the store auto-derive the unit (kWh / m³).
+    // - The label is sanitized to drop a trailing parenthetical like
+    //   "Fancoil 25 (Fancoil)" → "Fancoil 25".
     const store = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
     if (store && typeof store.registerEntity === 'function') {
+      const cleanLabel = (raw) => {
+        const s = String(raw || '').trim();
+        const stripped = s.replace(/\s*\([^()]*\)\s*$/, '').trim();
+        return stripped || s;
+      };
       devices.forEach((d) => {
         if (!d.id) return;
         try {
+          const display = cleanLabel(d.label || d.name || d.id);
           store.registerEntity({
             id: d.id,
-            name: d.name || d.label || d.id,
-            label: d.label || d.name || d.id,
+            name: display,
+            label: display,
+            value: Number(d.value) || 0,
             domain: getWidgetDomain() === 'water' ? 'water' : 'energy',
           });
         } catch {

@@ -158,7 +158,7 @@ const COLUMN_SUMMARY_CSS = `
 .myio-info-tooltip.maximized .myio-col-summary__body {
   flex: 1 1 auto; min-height: 0;
   display: grid;
-  grid-template-columns: minmax(340px, 440px) 1fr;
+  grid-template-columns: minmax(520px, 620px) 1fr;
   grid-template-rows: auto 1fr;
   gap: 14px 22px;
 }
@@ -166,7 +166,7 @@ const COLUMN_SUMMARY_CSS = `
   display: block; grid-column: 1; grid-row: 1; min-width: 0;
 }
 .myio-info-tooltip.maximized .myio-col-summary__pie {
-  width: 320px; height: 320px; aspect-ratio: auto; margin: 0 auto;
+  width: 500px; height: 500px; aspect-ratio: auto; margin: 0 auto;
 }
 .myio-info-tooltip.maximized .myio-col-summary__lists {
   grid-column: 1; grid-row: 2; min-height: 0; overflow-y: auto;
@@ -324,8 +324,13 @@ function buildPieSvg(visible: { d: ColumnSummaryDevice; idx: number }[], total: 
 function buildLegend(total: number): string {
   if (!_state) return '';
   const { data, excluded, fmt, pd } = _state;
+  // Sort by descending value (highest % at top). Original idx is preserved
+  // so dot color (sliceColor(idx)) and the data-idx cross-highlight key still
+  // match the pie slices.
   const rows = data.devices
-    .map((d, idx) => {
+    .map((d, idx) => ({ d, idx }))
+    .sort((a, b) => (Number(b.d.value) || 0) - (Number(a.d.value) || 0))
+    .map(({ d, idx }) => {
       const val = Number(d.value) || 0;
       const isExcl = excluded.has(idx);
       const pct = isExcl ? '—' : fmtPct(val, total, pd);
