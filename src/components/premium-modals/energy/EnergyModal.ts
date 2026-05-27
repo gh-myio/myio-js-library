@@ -457,11 +457,17 @@ export class EnergyModal {
       // Show loading state
       this.view.showLoadingState();
 
+      // Normalize picker dates to São Paulo midnight boundaries before the API call.
+      // The picker may emit UTC-offset dates (e.g. +00:00 in a UTC browser environment)
+      // which would send wrong boundaries and return zero — same normalization as loadEnergyData.
+      const normalizedStart = normalizeToSaoPauloISO(startISO, false);
+      const normalizedEnd = normalizeToSaoPauloISO(endISO, true);
+
       // Fetch energy data with new date range
       const energyData = await this.dataFetcher.fetchEnergyData({
         ingestionId: this.context.resolved.ingestionId,
-        startISO,
-        endISO,
+        startISO: normalizedStart,
+        endISO: normalizedEnd,
         granularity: this.params.granularity || '1d',
         readingType: this.params.readingType,
       });
