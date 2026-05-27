@@ -52,7 +52,7 @@ const PIE_COLORS = [
 
 const COLUMN_SUMMARY_CSS = `
 .myio-col-summary {
-  max-width: 320px;
+  width: 100%;
   font-family: 'Nunito', 'Segoe UI', system-ui, sans-serif;
 }
 .myio-col-summary__kpis {
@@ -96,7 +96,7 @@ const COLUMN_SUMMARY_CSS = `
   font-size: 11px; color: #94a3b8;
 }
 
-/* Pie chart — hidden in the compact view, revealed when maximized. */
+/* Pie chart + legend — hidden in the compact view, revealed when maximized. */
 .myio-col-summary__chart { display: none; }
 .myio-col-summary__chart-title {
   font-size: 11px; font-weight: 800; letter-spacing: 0.3px;
@@ -105,9 +105,8 @@ const COLUMN_SUMMARY_CSS = `
 .myio-col-summary__chart-hint {
   font-size: 10px; font-weight: 500; color: #94a3b8; margin: 0 0 8px;
 }
-.myio-col-summary__chart-body { display: flex; gap: 16px; align-items: flex-start; }
 .myio-col-summary__pie {
-  width: 200px; height: 200px; flex-shrink: 0;
+  display: block; width: 100%; height: auto; aspect-ratio: 1 / 1;
   filter: drop-shadow(0 2px 8px rgba(0,0,0,0.15));
 }
 .myio-col-summary__slice {
@@ -120,8 +119,9 @@ const COLUMN_SUMMARY_CSS = `
 }
 .myio-col-summary__slice:hover { opacity: 0.85; }
 .myio-col-summary__legend {
-  flex: 1 1 auto; min-width: 0; max-height: 320px; overflow-y: auto;
-  display: flex; flex-direction: column; gap: 1px;
+  display: none;
+  min-width: 0; overflow-y: auto;
+  flex-direction: column; gap: 1px;
 }
 .myio-col-summary__legend-row {
   display: flex; align-items: center; gap: 6px; padding: 3px 5px; font-size: 11px;
@@ -146,16 +146,33 @@ const COLUMN_SUMMARY_CSS = `
   flex: 0 0 auto; min-width: 42px; text-align: right; font-size: 10px; color: #64748b;
 }
 
-/* Maximized — use the extra space: widen, big pie, lists side-by-side. */
-.myio-info-tooltip.maximized .myio-col-summary { max-width: none; }
-.myio-info-tooltip.maximized .myio-col-summary__chart {
-  display: block; margin-bottom: 16px;
-  padding-bottom: 14px; border-bottom: 1px solid #e3d9f3;
+/* Maximized — fill the whole panel: KPIs on top, then a 2-column grid
+   (pie + lists on the left, full-height legend on the right). No dead space. */
+.myio-info-tooltip.maximized .myio-col-summary {
+  max-width: none; height: 100%;
+  display: flex; flex-direction: column;
 }
-.myio-info-tooltip.maximized .myio-col-summary__pie { width: 380px; height: 380px; }
-.myio-info-tooltip.maximized .myio-col-summary__legend { max-height: 380px; }
+.myio-info-tooltip.maximized .myio-col-summary__kpis { flex: 0 0 auto; }
+.myio-info-tooltip.maximized .myio-col-summary__body {
+  flex: 1 1 auto; min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(340px, 440px) 1fr;
+  grid-template-rows: auto 1fr;
+  gap: 14px 22px;
+}
+.myio-info-tooltip.maximized .myio-col-summary__chart {
+  display: block; grid-column: 1; grid-row: 1; min-width: 0;
+}
+.myio-info-tooltip.maximized .myio-col-summary__pie { max-width: 440px; margin: 0 auto; }
 .myio-info-tooltip.maximized .myio-col-summary__lists {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px;
+  grid-column: 1; grid-row: 2; min-height: 0; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 14px;
+  padding-right: 4px;
+}
+.myio-info-tooltip.maximized .myio-col-summary__legend {
+  display: flex; grid-column: 2; grid-row: 1 / 3;
+  min-height: 0; max-height: none;
+  border-left: 1px solid #e3d9f3; padding-left: 20px;
 }
 .myio-info-tooltip.maximized .myio-col-summary__group { margin-top: 0; }
 `;
@@ -373,11 +390,9 @@ function buildInner(): string {
       <div class="myio-col-summary__chart">
         <div class="myio-col-summary__chart-title">Distribuição — ${count} dispositivos</div>
         <p class="myio-col-summary__chart-hint">Passe o mouse para destacar · clique na lista para remover da pizza</p>
-        <div class="myio-col-summary__chart-body">
-          ${buildPieSvg(visible, total)}
-          ${buildLegend(total)}
-        </div>
+        ${buildPieSvg(visible, total)}
       </div>
+      ${buildLegend(total)}
       <div class="myio-col-summary__lists">
         ${group('▲ 3 maiores', top3)}
         ${group('▼ 3 menores', bottom3)}

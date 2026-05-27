@@ -12,6 +12,8 @@ import {
 } from '../internal/filter-ordering/FilterOrderingModal';
 import { OpenAllReportParams, ModalHandle, StoreItem } from '../types';
 import { InfoTooltip } from '../../../utils/InfoTooltip';
+import { exportGridPdf, exportGridXls } from '../../telemetry-grid-shopping/export';
+import type { TelemetryDevice } from '../../telemetry-grid-shopping/types';
 
 // Domain configuration
 type Domain = 'energy' | 'water' | 'temperature';
@@ -83,6 +85,8 @@ export class AllReportModal {
   private considerExclusion = true;
   // Raw API response kept so the exclusion toggle can re-map without a new fetch.
   private lastApiResponse: any = null;
+  // Search period of the last load — fed to the PDF/XLS export headers.
+  private exportPeriod: { startISO?: string | null; endISO?: string | null } | null = null;
   // Cleanup for the InfoTooltip attached to the exclusion-flag info icon.
   private exclusionTooltipCleanup: (() => void) | null = null;
 
@@ -258,6 +262,12 @@ export class AllReportModal {
             <button id="export-btn" class="myio-btn myio-btn-secondary" disabled>
               Exportar CSV
             </button>
+            <button id="export-pdf-btn" class="myio-btn myio-btn-secondary" disabled>
+              Exportar PDF
+            </button>
+            <button id="export-xls-btn" class="myio-btn myio-btn-secondary" disabled>
+              Exportar XLS
+            </button>
             <button id="filter-btn" class="myio-btn myio-btn-secondary" style="background: var(--myio-brand-700); color: white;">
               🔍 Filtros & Ordenação
             </button>
@@ -312,6 +322,8 @@ export class AllReportModal {
 
     loadBtn?.addEventListener('click', () => this.loadData());
     exportBtn?.addEventListener('click', () => this.exportCSV());
+    document.getElementById('export-pdf-btn')?.addEventListener('click', () => this.exportPDF());
+    document.getElementById('export-xls-btn')?.addEventListener('click', () => this.exportXLS());
     filterBtn?.addEventListener('click', () => this.openFilterModal());
 
     // Granularity toggle
@@ -402,6 +414,7 @@ export class AllReportModal {
     try {
       const { startISO, endISO } = this.dateRangePicker.getDates();
       this.debugLog('📅 Date range selected', { startISO, endISO });
+      this.exportPeriod = { startISO, endISO };
 
       if (!startISO || !endISO) {
         this.showError('Selecione um período válido');
@@ -440,6 +453,10 @@ export class AllReportModal {
       this.renderTable();
       // RFC-0060: Removed pagination
       exportBtn.disabled = false;
+      const pdfBtn = document.getElementById('export-pdf-btn') as HTMLButtonElement | null;
+      const xlsBtn = document.getElementById('export-xls-btn') as HTMLButtonElement | null;
+      if (pdfBtn) pdfBtn.disabled = false;
+      if (xlsBtn) xlsBtn.disabled = false;
 
       this.debugLog('🎉 Load process completed successfully');
 
@@ -809,6 +826,44 @@ export class AllReportModal {
 
     const csvContent = toCsv(csvData);
     this.downloadCSV(csvContent, `relatorio-geral-lojas-${new Date().toISOString().split('T')[0]}.csv`);
+  }
+
+  // Maps the report rows to the TelemetryDevice shape consumed by the shared
+  // TELEMETRY grid exporters (only labelOrName/name/deviceIdentifier/val/perc are read).
+  private buildExportDevices(): TelemetryDevice[] {
+    const sorted = [...this.data].sort((a, b) => b.consumption - a.consumption);
+    const total = sorted.reduce((s, r) => s + (r.consumption || 0), 0);
+    return sorted.map((r) => ({
+      labelOrName: r.name,
+      name: r.name,
+      deviceIdentifier: r.identifier,
+      val: r.consumption,
+      perc: total > 0 ? (r.consumption / total) * 100 : 0,
+    })) as unknown as TelemetryDevice[];
+  }
+
+  // PDF export — same premium layout as the TELEMETRY grid export.
+  private exportPDF(): void {
+    if (!this.data.length) return;
+    exportGridPdf(
+      this.buildExportDevices(),
+      this.resolveTitle(),
+      this.domainConfig.unit,
+      this.exportPeriod,
+      null,
+    );
+  }
+
+  // XLS export (XML Spreadsheet) — same as the TELEMETRY grid export.
+  private exportXLS(): void {
+    if (!this.data.length) return;
+    exportGridXls(
+      this.buildExportDevices(),
+      this.resolveTitle(),
+      this.domainConfig.unit,
+      this.exportPeriod,
+      null,
+    );
   }
 
   private async fetchCustomerTotals(startISO: string, endISO: string): Promise<any> {
