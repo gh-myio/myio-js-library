@@ -90,27 +90,43 @@ export const HEADER_ANNOTATIONS_STYLES = `
   align-items: center;
   gap: 4px;
 }
+/* Header action buttons — mirror src/utils/InfoTooltip.ts pattern
+   (24×24 button with white-ish bg, SVG 14×14, slate hover, emerald
+   pinned state). RFC-0203 M7 follow-up: alignment with InfoTooltip. */
 .myio-annotations-panel-action {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 4px;
+  cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  background: transparent;
+  transition: background 0.15s ease, color 0.15s ease;
   color: #64748b;
-  cursor: pointer;
-  font-size: 14px;
-  transition: background 0.15s, color 0.15s;
+  padding: 0;
 }
 .myio-annotations-panel-action:hover {
-  background: rgba(108, 92, 231, 0.1);
-  color: #4c3aac;
+  background: rgba(255, 255, 255, 0.95);
+  color: #1e293b;
 }
 .myio-annotations-panel-action:focus-visible {
   outline: 2px solid #6c5ce7;
   outline-offset: 2px;
+}
+/* Pinned state — emerald-700, matches InfoTooltip */
+.myio-annotations-panel-action.pinned {
+  background: #047857;
+  color: #ffffff;
+}
+.myio-annotations-panel-action.pinned:hover {
+  background: #065f46;
+}
+.myio-annotations-panel-action svg {
+  width: 14px;
+  height: 14px;
+  display: block;
 }
 
 /* Tabs */
@@ -170,6 +186,25 @@ export const HEADER_ANNOTATIONS_STYLES = `
   padding-bottom: 6px;
 }
 .myio-annotations-toolbar-count { font-weight: 600; }
+.myio-annotations-toolbar-spacer { flex: 1; }
+.myio-annotations-toolbar-mini {
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  background: transparent;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  padding: 2px 8px;
+  margin-left: 4px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.myio-annotations-toolbar-mini:hover {
+  background: rgba(108, 92, 231, 0.08);
+  color: #4c3aac;
+  border-color: rgba(108, 92, 231, 0.3);
+}
 
 .myio-annotations-toolbar-search {
   flex: 1;
@@ -326,6 +361,26 @@ export const HEADER_ANNOTATIONS_STYLES = `
   font-size: 12px;
   font-weight: 700;
   color: #334155;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s ease;
+}
+.myio-annotations-group-header:hover {
+  background: #f1f5f9;
+}
+.myio-annotations-group-header:focus-visible {
+  outline: 2px solid #6c5ce7;
+  outline-offset: -2px;
+}
+.myio-annotations-group-chevron {
+  display: inline-block;
+  width: 10px;
+  font-size: 10px;
+  color: #94a3b8;
+  transition: transform 0.15s ease;
+}
+.myio-annotations-group.is-collapsed .myio-annotations-group-header {
+  border-bottom-color: transparent;
 }
 .myio-annotations-group-icon { font-size: 14px; }
 .myio-annotations-group-label { flex: 1; }
@@ -343,13 +398,21 @@ export const HEADER_ANNOTATIONS_STYLES = `
   border-bottom-color: #fde68a;
 }
 
-/* Item */
+/* Item — rendered as <button>, so must reset UA defaults
+   (RFC-0203 M7 follow-up: black border + non-100% width came from
+   browser default button styling). */
 .myio-annotations-item {
   display: grid;
   grid-template-columns: 22px 1fr auto;
   gap: 10px;
   padding: 10px 12px;
+  width: 100%;
+  border: none;
   border-bottom: 1px solid #f1f5f9;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
   cursor: pointer;
   transition: background 0.12s;
 }

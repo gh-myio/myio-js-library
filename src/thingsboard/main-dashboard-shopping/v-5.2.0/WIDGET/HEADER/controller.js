@@ -2335,10 +2335,22 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
       function _syncAnnotationButtonVisibility() {
         const configured = !!window.MyIOOrchestrator?.annotationsConfigured;
-        const total = window.AnnotationServiceOrchestrator?.getTotalCount?.() ?? 0;
-        // AC-3: visible when orchestrator is configured OR there are annotations to show
-        btnAnnotationNotif.style.display = configured || total > 0 ? '' : 'none';
-        if (configured || total > 0) _updateAnnotationBadge();
+        // RFC-0203 follow-up: button is visible from page load with a loading
+        // spinner (set in template.html with .is-loading + disabled). Once
+        // orchestrator builds, remove the loading state so it's clickable.
+        btnAnnotationNotif.style.display = '';
+        if (configured) {
+          btnAnnotationNotif.classList.remove('is-loading');
+          btnAnnotationNotif.removeAttribute('disabled');
+          btnAnnotationNotif.removeAttribute('aria-busy');
+          btnAnnotationNotif.setAttribute('title', 'Anotações operacionais');
+          _updateAnnotationBadge();
+        } else {
+          btnAnnotationNotif.classList.add('is-loading');
+          btnAnnotationNotif.setAttribute('disabled', '');
+          btnAnnotationNotif.setAttribute('aria-busy', 'true');
+          btnAnnotationNotif.setAttribute('title', 'Anotações operacionais (carregando…)');
+        }
       }
 
       // RFC-0203 M4 — mount HeaderAnnotationsPanel (3 tabs, static render).
@@ -2362,13 +2374,13 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
           LogHelper.warn('[HEADER] RFC-0203: HeaderAnnotationsPanel unavailable in MyIOLibrary');
           try {
             const total = window.AnnotationServiceOrchestrator?.getTotalCount?.() ?? 0;
-            alert(
+            window.alert(
               `Painel indisponível (MyIOLibrary não carregado).\n\n` +
                 `${total} anotações ativas no Customer.\n` +
                 `Acesso individual via card → SettingsModal → Anotações.`
             );
-          } catch (err) {
-            // ignore
+          } catch {
+            // ignore — alert may be suppressed in iframe contexts
           }
         }
       });

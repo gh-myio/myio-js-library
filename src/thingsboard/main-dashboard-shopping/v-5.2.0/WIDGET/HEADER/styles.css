@@ -269,6 +269,34 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
+/* RFC-0203 follow-up — loading state for annotation button.
+   Visible from page load with spinner; swaps to icon once orchestrator ready. */
+.tbx-btn-annotation-notif .tbx-annotation-spinner {
+  display: none;
+}
+.tbx-btn-annotation-notif.is-loading .tbx-annotation-icon {
+  display: none;
+}
+.tbx-btn-annotation-notif.is-loading .tbx-annotation-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(108, 92, 231, 0.3);
+  border-top-color: #6c5ce7;
+  border-radius: 50%;
+  animation: tbx-anno-spin 0.7s linear infinite;
+}
+@keyframes tbx-anno-spin {
+  to { transform: rotate(360deg); }
+}
+.tbx-btn-annotation-notif[disabled] {
+  /* override generic disabled greying — keep amethyst while loading */
+  background: rgba(108, 92, 231, 0.12) !important;
+  color: #6c5ce7 !important;
+  cursor: progress !important;
+  opacity: 1 !important;
+}
+
 /* Ícones */
 .tbx-ico {
   display: inline-block;

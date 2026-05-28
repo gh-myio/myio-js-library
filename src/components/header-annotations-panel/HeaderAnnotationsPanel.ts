@@ -63,7 +63,7 @@ import type {
 
 const TABS: { id: AnnotationGroupBy; label: string }[] = [
   { id: 'identifier', label: 'Por Identificador' },
-  { id: 'device', label: 'Por Device' },
+  { id: 'device', label: 'Por Dispositivo' },
   { id: 'domain', label: 'Por Domínio' },
 ];
 
@@ -93,6 +93,8 @@ export class HeaderAnnotationsPanel {
   private sortBy: AnnotationSortKey = DEFAULT_SORT;
   private filter: AnnotationFilter = createDefaultFilter();
   private isOpen = false;
+  // RFC-0203 follow-up — collapsible group state per (tab,key). Default: expanded.
+  private collapsedKeys: Set<string> = new Set();
   // RFC-0203 M6 — Tooltip behaviors state
   private isPinned = false;
   private isMaximized = false;
@@ -478,30 +480,53 @@ export class HeaderAnnotationsPanel {
     const filteredCount = countAnnotationsInGroups(groups);
     const bodyHtml = this._renderBody(groups);
 
+    // RFC-0203: header actions follow the InfoTooltip pattern (pin →
+    // maximize → close, 24x24 SVG-icon buttons, white-ish background, slate
+    // hover, emerald "pinned" state) for visual consistency with
+    // src/utils/InfoTooltip.ts.
     return `
 <div class="myio-annotations-panel-header" data-region="header" data-drag-handle>
-  <h2 class="myio-annotations-panel-title" id="${PANEL_DOM_ID}-title">
-    <span class="myio-annotations-icon" aria-hidden="true">📋</span>Anotações
-  </h2>
+  <span class="myio-annotations-icon" aria-hidden="true">📋</span>
+  <h2 class="myio-annotations-panel-title" id="${PANEL_DOM_ID}-title">Anotações</h2>
   <span class="myio-annotations-panel-meta">${totalAllUnfiltered} ativas · ${pending} pendentes · ${overdue} vencidas</span>
   <div class="myio-annotations-panel-actions">
     <button
-      class="myio-annotations-panel-action ${this.isMaximized ? 'is-active' : ''}"
+      class="myio-annotations-panel-action ${this.isPinned ? 'pinned' : ''}"
+      type="button"
+      data-action="pin"
+      title="${this.isPinned ? 'Desafixar' : 'Fixar na tela'}"
+      aria-label="${this.isPinned ? 'Desafixar painel' : 'Fixar painel'}"
+      aria-pressed="${this.isPinned}"
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M9 4v6l-2 4v2h10v-2l-2-4V4"/>
+        <line x1="12" y1="16" x2="12" y2="21"/>
+        <line x1="8" y1="4" x2="16" y2="4"/>
+      </svg>
+    </button>
+    <button
+      class="myio-annotations-panel-action"
       type="button"
       data-action="maximize"
       title="${this.isMaximized ? 'Restaurar' : 'Maximizar'}"
       aria-label="${this.isMaximized ? 'Restaurar tamanho' : 'Maximizar painel'}"
       aria-pressed="${this.isMaximized}"
-    >${this.isMaximized ? '🗗' : '⤢'}</button>
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="3" width="18" height="18" rx="2"/>
+      </svg>
+    </button>
     <button
-      class="myio-annotations-panel-action ${this.isPinned ? 'is-active' : ''}"
+      class="myio-annotations-panel-action"
       type="button"
-      data-action="pin"
-      title="${this.isPinned ? 'Desafixar' : 'Afixar painel'}"
-      aria-label="${this.isPinned ? 'Desafixar painel' : 'Afixar painel'}"
-      aria-pressed="${this.isPinned}"
-    >📌</button>
-    <button class="myio-annotations-panel-action" type="button" data-action="close" title="Fechar" aria-label="Fechar painel">✕</button>
+      data-action="close"
+      title="Fechar"
+      aria-label="Fechar painel"
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M18 6L6 18M6 6l12 12"/>
+      </svg>
+    </button>
   </div>
 </div>
 <div class="myio-annotations-tabs" role="tablist" aria-label="Modo de agrupamento">${tabsHtml}</div>
@@ -559,6 +584,9 @@ ${this._renderToolbar(filteredCount, totalAllUnfiltered)}
   </div>
   <div class="myio-annotations-toolbar-row myio-annotations-toolbar-meta">
     <span class="myio-annotations-toolbar-count">${showingHtml}</span>
+    <span class="myio-annotations-toolbar-spacer"></span>
+    <button type="button" class="myio-annotations-toolbar-mini" data-action="expand-all" title="Expandir todos os grupos">▼ Expandir tudo</button>
+    <button type="button" class="myio-annotations-toolbar-mini" data-action="collapse-all" title="Recolher todos os grupos">▶ Recolher tudo</button>
   </div>
   <div id="myio-anno-filters" class="myio-annotations-filters" hidden>${this._renderFilters()}</div>
 </div>`;
@@ -646,19 +674,63 @@ ${this._renderToolbar(filteredCount, totalAllUnfiltered)}
       d.annotations.map((a) => renderAnnotationItemCard(d as AnnotatedDevice, a, term))
     );
 
-    const groupClass = isNoIdentifier
+    const compoundKey = `${this.activeTab}::${group.key}`;
+    const isCollapsed = this.collapsedKeys.has(compoundKey);
+    const baseClass = isNoIdentifier
       ? 'myio-annotations-group myio-annotations-group--no-id'
       : 'myio-annotations-group';
+    const groupClass = isCollapsed ? `${baseClass} is-collapsed` : baseClass;
+    const itemsHtml = isCollapsed
+      ? `<div class="myio-annotations-items" hidden></div>`
+      : `<div class="myio-annotations-items">${items.join('\n')}</div>`;
 
     return `
 <section class="${groupClass}">
-  <header class="myio-annotations-group-header">
+  <header class="myio-annotations-group-header" role="button" tabindex="0"
+          data-group-toggle="${escapeHtml(group.key)}"
+          aria-expanded="${!isCollapsed}"
+          title="${isCollapsed ? 'Expandir grupo' : 'Recolher grupo'}">
+    <span class="myio-annotations-group-chevron" aria-hidden="true">${isCollapsed ? '▶' : '▼'}</span>
     ${group.icon ? `<span class="myio-annotations-group-icon" aria-hidden="true">${escapeHtml(group.icon)}</span>` : ''}
     <span class="myio-annotations-group-label">${escapeHtml(group.label)}</span>
     <span class="myio-annotations-group-count">${group.totalAnnotations}</span>
   </header>
-  ${items.join('\n')}
+  ${itemsHtml}
 </section>`;
+  }
+
+  /** Toggle a single group's collapsed state (scoped to current tab). */
+  private _toggleGroupCollapsed(groupKey: string): void {
+    const compoundKey = `${this.activeTab}::${groupKey}`;
+    if (this.collapsedKeys.has(compoundKey)) {
+      this.collapsedKeys.delete(compoundKey);
+    } else {
+      this.collapsedKeys.add(compoundKey);
+    }
+    if (this.isOpen) this._render();
+  }
+
+  /** Expand every group in the current tab. */
+  private _expandAll(): void {
+    const prefix = `${this.activeTab}::`;
+    let changed = false;
+    for (const k of Array.from(this.collapsedKeys)) {
+      if (k.startsWith(prefix)) {
+        this.collapsedKeys.delete(k);
+        changed = true;
+      }
+    }
+    if (changed && this.isOpen) this._render();
+  }
+
+  /** Collapse every group in the current tab. */
+  private _collapseAll(): void {
+    const orch = this.opts.getOrchestrator();
+    if (!orch) return;
+    const rawGroups = orch.getGroups(this.activeTab, this.filter);
+    const prefix = `${this.activeTab}::`;
+    for (const g of rawGroups) this.collapsedKeys.add(`${prefix}${g.key}`);
+    if (this.isOpen) this._render();
   }
 
   private _bindInteractiveElements(): void {
@@ -752,6 +824,26 @@ ${this._renderToolbar(filteredCount, totalAllUnfiltered)}
     if (exportBtn) {
       exportBtn.addEventListener('click', () => this._openExportFlow());
     }
+
+    // RFC-0203 follow-up — Collapse/expand all in current tab
+    const expandAllBtn = this.root.querySelector<HTMLButtonElement>('[data-action="expand-all"]');
+    if (expandAllBtn) expandAllBtn.addEventListener('click', () => this._expandAll());
+    const collapseAllBtn = this.root.querySelector<HTMLButtonElement>('[data-action="collapse-all"]');
+    if (collapseAllBtn) collapseAllBtn.addEventListener('click', () => this._collapseAll());
+
+    // RFC-0203 follow-up — per-group toggle (click + keyboard on header)
+    const groupHeaders = this.root.querySelectorAll<HTMLElement>('[data-group-toggle]');
+    groupHeaders.forEach((h) => {
+      const key = h.getAttribute('data-group-toggle') || '';
+      h.addEventListener('click', () => this._toggleGroupCollapsed(key));
+      h.addEventListener('keydown', (e) => {
+        const ke = e as KeyboardEvent;
+        if (ke.key === 'Enter' || ke.key === ' ') {
+          ke.preventDefault();
+          this._toggleGroupCollapsed(key);
+        }
+      });
+    });
 
     // Toolbar — search input (AC-20 debounced 250ms, AC-21 NFD normalized via filter)
     const searchInput = this.root.querySelector<HTMLInputElement>('[data-input="search"]');
