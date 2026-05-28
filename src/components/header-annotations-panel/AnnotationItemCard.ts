@@ -26,6 +26,24 @@ const TYPE_ICONS: Record<Annotation['type'], string> = {
   activity: '✓',
 };
 
+// RFC-0203 follow-up — importance labels + colors mirror canonical RFC-0104
+// (src/components/premium-modals/settings/annotations/types.ts).
+const IMPORTANCE_LABELS: Record<1 | 2 | 3 | 4 | 5, string> = {
+  1: 'Muito Baixa',
+  2: 'Baixa',
+  3: 'Normal',
+  4: 'Alta',
+  5: 'Muito Alta',
+};
+
+const IMPORTANCE_COLORS: Record<1 | 2 | 3 | 4 | 5, string> = {
+  1: '#9E9E9E', // gray
+  2: '#64B5F6', // light blue
+  3: '#2196F3', // blue
+  4: '#FF9800', // orange
+  5: '#F44336', // red
+};
+
 const ITEM_TEXT_MAX = 120;
 
 /** Escape HTML special characters to prevent injection from annotation text. */
@@ -136,7 +154,11 @@ export function renderAnnotationItemCard(
     </div>
   </div>
   <div class="myio-annotations-item-side">
-    <span class="myio-annotations-importance-badge myio-annotations-importance-${importance}" title="Importância ${importance}">${importance}</span>
+    <span
+      class="myio-annotations-importance-badge"
+      style="background:${IMPORTANCE_COLORS[importance as 1|2|3|4|5]}"
+      title="Importância: ${IMPORTANCE_LABELS[importance as 1|2|3|4|5]}"
+    >${IMPORTANCE_LABELS[importance as 1|2|3|4|5]}</span>
     ${overdueTag}
   </div>
 </button>

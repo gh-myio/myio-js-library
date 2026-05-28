@@ -132,10 +132,16 @@ function _compareIsoDesc(a: string | null, b: string | null): number {
 
 // ─── Filter helpers ────────────────────────────────────────────────────────
 
+/**
+ * Default filter (RFC-0203 follow-up):
+ *   - statuses pre-checks {'created','modified'}; 'archived' stays UNchecked
+ *     so the panel hides archived by default. User toggles 'archived' to
+ *     include archived items (re-fetch is automatic via re-render).
+ */
 export function createDefaultFilter(): AnnotationFilter {
   return {
     types: new Set<AnnotationType>(),
-    statuses: new Set<AnnotationStatus>(),
+    statuses: new Set<AnnotationStatus>(['created', 'modified']),
     importance: new Set<1 | 2 | 3 | 4 | 5>(),
     actionableOnly: false,
     searchTerm: '',

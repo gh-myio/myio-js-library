@@ -150,6 +150,9 @@ describe('AnnotationItemCard helpers', () => {
   });
 
   it('renderAnnotationItemCard exposes all required fields (AC-19)', () => {
+    // RFC-0203 follow-up: importance now renders as a label ("Muito Alta"
+    // for 5) with inline color from RFC-0104 canonical IMPORTANCE_COLORS
+    // (#F44336 for level 5), instead of a number + scale class.
     const dev = makeDevice({ identifier: 'L-100', label: 'Riachuelo Energia', domain: 'energy' });
     const ann = makeAnn({ text: 'Quadro vibrando', importance: 5 });
     const html = renderAnnotationItemCard(dev, ann);
@@ -159,7 +162,8 @@ describe('AnnotationItemCard helpers', () => {
     expect(html).toContain('L-100');
     expect(html).toContain('Riachuelo Energia');
     expect(html).toContain('Quadro vibrando');
-    expect(html).toContain('myio-annotations-importance-5');
+    expect(html).toContain('Muito Alta');
+    expect(html).toContain('#F44336');
     expect(html).toContain('João Silva');
   });
 });

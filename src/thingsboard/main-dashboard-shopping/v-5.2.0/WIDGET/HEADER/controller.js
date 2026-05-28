@@ -2160,6 +2160,10 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       if (!apiKey || window.MyIOUtils?.ticketsEnabled !== true || !btnTicketNotif) return;
 
       btnTicketNotif.style.display = '';
+      // RFC-0203 follow-up — remove loading spinner now that ticket config is ready
+      btnTicketNotif.classList.remove('is-loading');
+      btnTicketNotif.removeAttribute('aria-busy');
+      btnTicketNotif.setAttribute('title', 'Chamados (FreshDesk)');
 
       // Bind events only once
       if (!btnTicketNotif.dataset.bound) {
@@ -2292,9 +2296,20 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         badge.style.display = 'none';
       }
     }
+    // RFC-0203 follow-up — strip the loading spinner from the alarm button
+    // once we have any signal that alarms data is available (configured OR
+    // first refresh OR cache seeded). Idempotent.
+    function _stripAlarmLoading() {
+      if (!btnAlarmNotif) return;
+      if (!btnAlarmNotif.classList.contains('is-loading')) return;
+      btnAlarmNotif.classList.remove('is-loading');
+      btnAlarmNotif.removeAttribute('aria-busy');
+      btnAlarmNotif.setAttribute('title', 'Notificações de Alarme');
+    }
     window.addEventListener('myio:alarms-updated', (e) => {
       _lastAlarmList = e.detail?.alarms || [];
       _updateAlarmNotifBadge(_countVisible(_lastAlarmList));
+      _stripAlarmLoading();
     });
     // Re-compute badge when offline toggle changes
     window.addEventListener('myio:offline-alarms-toggle', () => {
@@ -2304,6 +2319,9 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     const _cachedAlarms = window.MyIOOrchestrator?.customerAlarms || [];
     _lastAlarmList = _cachedAlarms;
     if (_cachedAlarms.length > 0) _updateAlarmNotifBadge(_countVisible(_cachedAlarms));
+    if (window.MyIOOrchestrator?.alarmsConfigured || _cachedAlarms.length > 0) {
+      _stripAlarmLoading();
+    }
 
     // ─────────────────────────────────────────────────────────────────────────
     // RFC-0203 M3 — Annotations button wire-up (panel comes in M4)
@@ -2382,6 +2400,23 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
           } catch {
             // ignore — alert may be suppressed in iframe contexts
           }
+        }
+      });
+
+      // RFC-0203 follow-up — hover-to-open + delayed auto-close, parity
+      // with AlarmNotificationTooltip. Disabled while in loading state.
+      btnAnnotationNotif.addEventListener('mouseenter', () => {
+        if (btnAnnotationNotif.classList.contains('is-loading')) return;
+        const panel = _getAnnotationsPanel();
+        if (panel && typeof panel.showFromHover === 'function') {
+          panel.showFromHover(btnAnnotationNotif);
+        }
+      });
+      btnAnnotationNotif.addEventListener('mouseleave', () => {
+        if (btnAnnotationNotif.classList.contains('is-loading')) return;
+        const panel = _getAnnotationsPanel();
+        if (panel && typeof panel.startDelayedHide === 'function') {
+          panel.startDelayedHide();
         }
       });
 

@@ -269,30 +269,51 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
-/* RFC-0203 follow-up — loading state for annotation button.
-   Visible from page load with spinner; swaps to icon once orchestrator ready. */
-.tbx-btn-annotation-notif .tbx-annotation-spinner {
+/* RFC-0203 follow-up — generic loading spinner applied to any notification
+   button via `.is-loading`. Each button's icon is hidden while loading and
+   the spinner uses the button's own theme color via currentColor. */
+.tbx-btn .tbx-loading-spinner {
   display: none;
 }
-.tbx-btn-annotation-notif.is-loading .tbx-annotation-icon {
+.tbx-btn.is-loading .tbx-annotation-icon,
+.tbx-btn.is-loading .tbx-alarm-icon,
+.tbx-btn.is-loading .tbx-ticket-icon {
   display: none;
 }
-.tbx-btn-annotation-notif.is-loading .tbx-annotation-spinner {
+.tbx-btn.is-loading .tbx-loading-spinner {
   display: inline-block;
   width: 14px;
   height: 14px;
-  border: 2px solid rgba(108, 92, 231, 0.3);
-  border-top-color: #6c5ce7;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
   border-radius: 50%;
   animation: tbx-anno-spin 0.7s linear infinite;
+  opacity: 0.85;
 }
 @keyframes tbx-anno-spin {
   to { transform: rotate(360deg); }
 }
-.tbx-btn-annotation-notif[disabled] {
-  /* override generic disabled greying — keep amethyst while loading */
+
+/* Override generic disabled greying for the notification buttons —
+   keep their own theme color while in loading state. */
+.tbx-btn-annotation-notif[disabled],
+.tbx-btn-annotation-notif.is-loading {
   background: rgba(108, 92, 231, 0.12) !important;
   color: #6c5ce7 !important;
+  cursor: progress !important;
+  opacity: 1 !important;
+}
+.tbx-btn-alarm-notif[disabled],
+.tbx-btn-alarm-notif.is-loading {
+  background: rgba(220, 38, 38, 0.12) !important;
+  color: #dc2626 !important;
+  cursor: progress !important;
+  opacity: 1 !important;
+}
+.tbx-btn-ticket-notif[disabled],
+.tbx-btn-ticket-notif.is-loading {
+  background: rgba(8, 145, 178, 0.12) !important;
+  color: #0891b2 !important;
   cursor: progress !important;
   opacity: 1 !important;
 }

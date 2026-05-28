@@ -183,10 +183,15 @@ describe('toggleInSet', () => {
 });
 
 describe('createDefaultFilter', () => {
-  it('returns an empty, mutable filter shape', () => {
+  it('pre-checks {created, modified} statuses and leaves the rest empty', () => {
+    // RFC-0203 follow-up: status chips start with 'created' and 'modified'
+    // CHECKED; 'archived' UNchecked so archived items are hidden by default.
     const f = createDefaultFilter();
     expect(f.types.size).toBe(0);
-    expect(f.statuses.size).toBe(0);
+    expect(f.statuses.size).toBe(2);
+    expect(f.statuses.has('created')).toBe(true);
+    expect(f.statuses.has('modified')).toBe(true);
+    expect(f.statuses.has('archived')).toBe(false);
     expect(f.importance.size).toBe(0);
     expect(f.actionableOnly).toBe(false);
     expect(f.searchTerm).toBe('');

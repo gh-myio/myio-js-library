@@ -59,26 +59,30 @@ export const HEADER_ANNOTATIONS_STYLES = `
 .myio-vlist-container { /* container is .myio-annotations-body in practice */ }
 .myio-vlist-viewport { will-change: transform; }
 
-/* Header */
+/* Header — subtle line in the InfoTooltip/EnergySummaryTooltip pattern.
+   Soft amethyst gradient + thin border, compact padding. */
 .myio-annotations-panel-header {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 16px;
-  border-bottom: 1px solid #e2e8f0;
-  background: linear-gradient(135deg, rgba(108, 92, 231, 0.05), rgba(108, 92, 231, 0.02));
+  padding: 10px 14px;
+  border-bottom: 1px solid #c4b5fd;
+  background: linear-gradient(90deg, #faf9ff 0%, #ede9fe 100%);
+  border-radius: 12px 12px 0 0;
+  cursor: move;
+  user-select: none;
+}
+.myio-annotations-icon {
+  font-size: 16px;
+  flex-shrink: 0;
 }
 .myio-annotations-panel-title {
-  flex: 1;
   margin: 0;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
   color: #4c3aac;
-  letter-spacing: -0.01em;
-}
-.myio-annotations-panel-title .myio-annotations-icon {
-  margin-right: 6px;
-  font-size: 16px;
+  letter-spacing: 0.2px;
+  flex-shrink: 0;
 }
 .myio-annotations-panel-meta {
   font-size: 11px;
@@ -458,22 +462,19 @@ export const HEADER_ANNOTATIONS_STYLES = `
   align-items: flex-end;
   gap: 4px;
 }
+/* Importance badge — label + color come from inline style (RFC-0104
+   canonical colors). Padding leaves room for "Muito Baixa"/"Muito Alta". */
 .myio-annotations-importance-badge {
   display: inline-block;
-  min-width: 18px;
-  padding: 2px 6px;
+  padding: 2px 8px;
   border-radius: 10px;
   font-size: 10px;
   font-weight: 700;
   color: #fff;
   text-align: center;
-  line-height: 1.2;
+  line-height: 1.3;
+  white-space: nowrap;
 }
-.myio-annotations-importance-1 { background: #94a3b8; }
-.myio-annotations-importance-2 { background: #64748b; }
-.myio-annotations-importance-3 { background: #6c5ce7; }
-.myio-annotations-importance-4 { background: #f59e0b; }
-.myio-annotations-importance-5 { background: #dc2626; }
 
 .myio-annotations-overdue {
   font-size: 10px;
@@ -503,43 +504,60 @@ export const HEADER_ANNOTATIONS_STYLES = `
   font-size: 13px;
 }
 
-/* Footer */
+/* Footer — modeled on the TELEMETRY_INFO climatização tooltip:
+   icon-style buttons left + right, subtle meta in the middle. */
 .myio-annotations-panel-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 16px;
+  gap: 8px;
+  padding: 6px 12px;
   border-top: 1px solid #e2e8f0;
   background: #fafbff;
   font-size: 11px;
   color: #64748b;
   flex-shrink: 0;
 }
+.myio-annotations-panel-footer-tools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
 .myio-annotations-panel-footer-meta {
   flex: 1;
   text-align: center;
   font-size: 11px;
   color: #94a3b8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.myio-annotations-panel-footer-action {
+.myio-annotations-panel-footer-iconbtn {
   font: inherit;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   color: #4c3aac;
-  background: transparent;
-  border: 1px solid rgba(108, 92, 231, 0.3);
+  background: rgba(108, 92, 231, 0.06);
+  border: 1px solid rgba(108, 92, 231, 0.2);
   border-radius: 6px;
-  padding: 4px 10px;
+  padding: 4px 8px;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
-.myio-annotations-panel-footer-action:hover {
-  background: rgba(108, 92, 231, 0.08);
+.myio-annotations-panel-footer-iconbtn:hover {
+  background: rgba(108, 92, 231, 0.14);
   border-color: rgba(108, 92, 231, 0.5);
+  color: #3b2e8a;
 }
-.myio-annotations-panel-footer-action:focus-visible {
+.myio-annotations-panel-footer-iconbtn:focus-visible {
   outline: 2px solid #6c5ce7;
   outline-offset: 1px;
+}
+.myio-annotations-panel-footer-iconbtn svg {
+  display: block;
 }
 `;
 
