@@ -1753,3 +1753,17 @@ export {
   toSummary as toFreshdeskTicketSummary,
 } from './components/premium-modals/settings/tickets/TbTicketSync';
 
+// RFC-0203 M2 — AnnotationServiceOrchestrator (cross-domain annotations)
+export { buildAnnotationServiceOrchestrator } from './services/annotations/AnnotationServiceOrchestrator';
+export { CustomerDeviceService } from './services/annotations/CustomerDeviceService';
+export { parseLogAnnotations } from './services/annotations/parseLogAnnotations';
+export type {
+  AnnotatedDevice,
+  AnnotationDeviceDomain,
+  AnnotationFilter,
+  AnnotationGroup,
+  AnnotationGroupBy,
+  AnnotationServiceOrchestratorShape,
+  BuildAnnotationServiceOrchestratorParams,
+} from './services/annotations/types';
+

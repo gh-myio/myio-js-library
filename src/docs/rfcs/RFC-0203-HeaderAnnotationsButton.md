@@ -229,16 +229,30 @@ Handler abre SettingsModal na aba Annotations. Ao fechar com `returnTo === 'head
 
 ## 5. Schema de Dados
 
+> **Errata 2026-05-27 (M2 prep):** os tipos canônicos JÁ existem em
+> `src/components/premium-modals/settings/annotations/types.ts` (RFC-0104) e
+> estão em produção via TELEMETRY badge + AnnotationsTab. A spec original
+> deste RFC listou valores incorretos. A definição CORRETA é:
+>
+> ```ts
+> export type AnnotationType = 'observation' | 'pending' | 'maintenance' | 'activity';
+> export type AnnotationStatus = 'created' | 'modified' | 'archived';
+> export type ResponseType = 'approved' | 'rejected' | 'comment' | 'archived';
+> ```
+>
+> `'approved' | 'rejected'` são **ResponseType** (campo `responses[]` da annotation),
+> NÃO `AnnotationStatus`. AC-25 ajustado abaixo (§8.4) pra refletir isso.
+
 ```ts
-// src/types/annotations.ts
+// src/services/annotations/types.ts (re-exporta de premium-modals/settings/annotations/types.ts)
 
 export interface Annotation {
   id: string;
   version: number;
   text: string;
-  type: 'observation' | 'issue' | 'maintenance' | 'alert';
+  type: 'observation' | 'pending' | 'maintenance' | 'activity';
   importance: 1 | 2 | 3 | 4 | 5;
-  status: 'pending' | 'approved' | 'rejected' | 'archived' | 'created' | 'modified';
+  status: 'created' | 'modified' | 'archived';
   createdAt: string;          // ISO-8601
   dueDate?: string;
   createdBy: { id: string; email: string; name: string };
@@ -425,7 +439,7 @@ export function createAnnotationServiceOrchestrator(
 | **AC-22** | Termo encontrado destacado com `<mark>`. |
 | **AC-23** | Sort 6 opções; default `alpha-asc`. |
 | **AC-24** | Filtros: `type`, `status`, `importance`, "Acionáveis apenas". AND entre seções, OR dentro. |
-| **AC-25** | "Acionáveis apenas" = `status === 'pending' && (!dueDate || dueDate <= now + 7d)`. |
+| **AC-25** | "Acionáveis apenas" = `type === 'pending' && status !== 'archived' && (!dueDate || dueDate <= now + 7d)`. (Errata: `pending` é `AnnotationType`, não `AnnotationStatus` — corrigido em 2026-05-27 conforme nota §5.) |
 | **AC-26** | Contador "N anotações" reflete resultado filtrado/buscado. |
 | **AC-27** | `status === 'archived'` excluído por default; toggle nos filtros. |
 
