@@ -26,11 +26,26 @@ import {
   injectStylesOnce,
 } from './styles';
 import { renderAnnotationItemCard, escapeHtml } from './AnnotationItemCard';
+import {
+  SORT_OPTIONS,
+  DEFAULT_SORT,
+  sortGroups,
+  createDefaultFilter,
+  FILTER_TYPE_OPTIONS,
+  FILTER_STATUS_OPTIONS,
+  toggleInSet,
+  withSearchTerm,
+  countAnnotationsInGroups,
+} from './searchSortFilter';
 import type {
   AnnotatedDevice,
+  AnnotationFilter,
   AnnotationGroup,
   AnnotationGroupBy,
   AnnotationServiceOrchestratorShape,
+  AnnotationSortKey,
+  AnnotationStatus,
+  AnnotationType,
 } from '../../services/annotations/types';
 
 // ─── Tab metadata ──────────────────────────────────────────────────────────
@@ -42,6 +57,8 @@ const TABS: { id: AnnotationGroupBy; label: string }[] = [
 ];
 
 const TAB_STORAGE_KEY = 'myio.annotations.activeTab';
+const SORT_STORAGE_KEY = 'myio.annotations.sortBy';
+const SEARCH_DEBOUNCE_MS = 250;
 const PANEL_DOM_ID = 'myio-annotations-panel';
 
 // ─── Public surface ────────────────────────────────────────────────────────
@@ -62,6 +79,8 @@ export class HeaderAnnotationsPanel {
   private root: HTMLDivElement | null = null;
   private anchorButton: HTMLElement | null = null;
   private activeTab: AnnotationGroupBy = 'identifier';
+  private sortBy: AnnotationSortKey = DEFAULT_SORT;
+  private filter: AnnotationFilter = createDefaultFilter();
   private isOpen = false;
   private readonly opts: Required<HeaderAnnotationsPanelOptions>;
 
@@ -69,6 +88,9 @@ export class HeaderAnnotationsPanel {
   private readonly _onEscKey: (e: KeyboardEvent) => void;
   private readonly _onClickOutside: (e: MouseEvent) => void;
   private readonly _onAnnotationsRefreshed: () => void;
+
+  // Debounce timer for search input
+  private _searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(options: HeaderAnnotationsPanelOptions = {}) {
     this.opts = {
@@ -84,6 +106,7 @@ export class HeaderAnnotationsPanel {
     };
 
     this.activeTab = this._loadActiveTab();
+    this.sortBy = this._loadSortBy();
     this._onEscKey = (e) => {
       if (e.key === 'Escape' && this.isOpen) this.hide();
     };
@@ -164,6 +187,30 @@ export class HeaderAnnotationsPanel {
     if (this.isOpen) this._render();
   }
 
+  /** Test/inspection helper. */
+  getSortBy(): AnnotationSortKey {
+    return this.sortBy;
+  }
+
+  /** Test helper — programmatic sort change (persists). */
+  setSortBy(sort: AnnotationSortKey): void {
+    if (!SORT_OPTIONS.some((o) => o.key === sort)) return;
+    this.sortBy = sort;
+    this._saveSortBy(sort);
+    if (this.isOpen) this._render();
+  }
+
+  /** Test/inspection helper. */
+  getFilter(): AnnotationFilter {
+    return this.filter;
+  }
+
+  /** Test helper — programmatic filter merge. */
+  setFilter(patch: Partial<AnnotationFilter>): void {
+    this.filter = { ...this.filter, ...patch };
+    if (this.isOpen) this._render();
+  }
+
   // ── Internals ──────────────────────────────────────────────────────────
 
   private _loadActiveTab(): AnnotationGroupBy {
@@ -181,6 +228,27 @@ export class HeaderAnnotationsPanel {
     try {
       if (typeof sessionStorage !== 'undefined') {
         sessionStorage.setItem(TAB_STORAGE_KEY, tab);
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  private _loadSortBy(): AnnotationSortKey {
+    try {
+      if (typeof sessionStorage === 'undefined') return DEFAULT_SORT;
+      const stored = sessionStorage.getItem(SORT_STORAGE_KEY) as AnnotationSortKey | null;
+      if (stored && SORT_OPTIONS.some((o) => o.key === stored)) return stored;
+    } catch {
+      /* ignore */
+    }
+    return DEFAULT_SORT;
+  }
+
+  private _saveSortBy(sort: AnnotationSortKey): void {
+    try {
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.setItem(SORT_STORAGE_KEY, sort);
       }
     } catch {
       /* ignore */
@@ -241,7 +309,7 @@ export class HeaderAnnotationsPanel {
   }
 
   private _renderHTML(orch: AnnotationServiceOrchestratorShape | null): string {
-    const totalAll = orch?.getTotalCount?.() ?? 0;
+    const totalAllUnfiltered = orch?.getTotalCount?.() ?? 0;
     const pending = orch?.getPendingCount?.() ?? 0;
     const overdue = orch?.getOverdueCount?.() ?? 0;
 
@@ -259,7 +327,11 @@ export class HeaderAnnotationsPanel {
         >${t.label}</button>`
     ).join('');
 
-    const groups = orch ? orch.getGroups(this.activeTab) : [];
+    // AC-24: get filtered groups from orchestrator; then sort (AC-23) in panel.
+    const rawGroups = orch ? orch.getGroups(this.activeTab, this.filter) : [];
+    const groups = sortGroups(rawGroups, this.sortBy);
+    // AC-26: filtered count reflected in toolbar
+    const filteredCount = countAnnotationsInGroups(groups);
     const bodyHtml = this._renderBody(groups);
 
     return `
@@ -267,26 +339,137 @@ export class HeaderAnnotationsPanel {
   <h2 class="myio-annotations-panel-title" id="${PANEL_DOM_ID}-title">
     <span class="myio-annotations-icon" aria-hidden="true">📋</span>Anotações
   </h2>
-  <span class="myio-annotations-panel-meta">${totalAll} ativas · ${pending} pendentes · ${overdue} vencidas</span>
+  <span class="myio-annotations-panel-meta">${totalAllUnfiltered} ativas · ${pending} pendentes · ${overdue} vencidas</span>
   <div class="myio-annotations-panel-actions">
     <button class="myio-annotations-panel-action" type="button" data-action="close" title="Fechar" aria-label="Fechar painel">✕</button>
   </div>
 </div>
 <div class="myio-annotations-tabs" role="tablist" aria-label="Modo de agrupamento">${tabsHtml}</div>
+${this._renderToolbar(filteredCount, totalAllUnfiltered)}
 <div class="myio-annotations-body" id="myio-anno-body" role="tabpanel" aria-labelledby="myio-anno-tab-${this.activeTab}">${bodyHtml}</div>
 <div class="myio-annotations-panel-footer">
-  <span>RFC-0203 · M4 (painel base)</span>
+  <span>RFC-0203 · M5 (busca + ordenação + filtros)</span>
   <button class="myio-annotations-panel-footer-action" type="button" data-action="refresh">Atualizar</button>
 </div>
 `;
   }
 
+  private _renderToolbar(filteredCount: number, totalCount: number): string {
+    const sortOptions = SORT_OPTIONS.map(
+      (o) =>
+        `<option value="${o.key}" ${o.key === this.sortBy ? 'selected' : ''}>${escapeHtml(o.label)}</option>`
+    ).join('');
+
+    const term = escapeHtml(this.filter.searchTerm || '');
+    const filtersActiveCount = this._activeFilterCount();
+    const filterIndicator =
+      filtersActiveCount > 0
+        ? `<span class="myio-annotations-group-count">${filtersActiveCount}</span>`
+        : '';
+
+    const showingHtml =
+      filteredCount === totalCount
+        ? `${totalCount} anotações`
+        : `${filteredCount} de ${totalCount} anotações`;
+
+    return `
+<div class="myio-annotations-toolbar" data-region="toolbar">
+  <div class="myio-annotations-toolbar-row">
+    <label class="myio-annotations-toolbar-search">
+      <span class="myio-annotations-search-icon" aria-hidden="true">🔍</span>
+      <input
+        type="search"
+        data-input="search"
+        placeholder="Buscar identificador, device, texto…"
+        aria-label="Buscar anotações"
+        value="${term}"
+      />
+    </label>
+    <select class="myio-annotations-toolbar-sort" data-input="sort" aria-label="Ordenação">
+      ${sortOptions}
+    </select>
+    <button
+      class="myio-annotations-toolbar-filter-btn"
+      type="button"
+      data-action="toggle-filters"
+      aria-expanded="false"
+      aria-controls="myio-anno-filters"
+    >⚙ Filtros ${filterIndicator}</button>
+  </div>
+  <div class="myio-annotations-toolbar-row myio-annotations-toolbar-meta">
+    <span class="myio-annotations-toolbar-count">${showingHtml}</span>
+  </div>
+  <div id="myio-anno-filters" class="myio-annotations-filters" hidden>${this._renderFilters()}</div>
+</div>`;
+  }
+
+  private _renderFilters(): string {
+    const typesHtml = FILTER_TYPE_OPTIONS.map(
+      (t) =>
+        `<label class="myio-annotations-filter-chip ${this.filter.types.has(t.id) ? 'is-on' : ''}">
+          <input type="checkbox" data-filter="type" value="${t.id}" ${this.filter.types.has(t.id) ? 'checked' : ''} />
+          <span>${t.icon} ${escapeHtml(t.label)}</span>
+        </label>`
+    ).join('');
+
+    const statusHtml = FILTER_STATUS_OPTIONS.map(
+      (s) =>
+        `<label class="myio-annotations-filter-chip ${this.filter.statuses.has(s.id) ? 'is-on' : ''}">
+          <input type="checkbox" data-filter="status" value="${s.id}" ${this.filter.statuses.has(s.id) ? 'checked' : ''} />
+          <span>${escapeHtml(s.label)}</span>
+        </label>`
+    ).join('');
+
+    const impHtml = ([1, 2, 3, 4, 5] as const)
+      .map(
+        (lv) =>
+          `<label class="myio-annotations-filter-chip ${this.filter.importance.has(lv) ? 'is-on' : ''}">
+            <input type="checkbox" data-filter="importance" value="${lv}" ${this.filter.importance.has(lv) ? 'checked' : ''} />
+            <span>${lv}</span>
+          </label>`
+      )
+      .join('');
+
+    return `
+<div class="myio-annotations-filter-section">
+  <div class="myio-annotations-filter-section-title">Tipo</div>
+  <div class="myio-annotations-filter-chips">${typesHtml}</div>
+</div>
+<div class="myio-annotations-filter-section">
+  <div class="myio-annotations-filter-section-title">Status</div>
+  <div class="myio-annotations-filter-chips">${statusHtml}</div>
+</div>
+<div class="myio-annotations-filter-section">
+  <div class="myio-annotations-filter-section-title">Importância</div>
+  <div class="myio-annotations-filter-chips">${impHtml}</div>
+</div>
+<div class="myio-annotations-filter-section">
+  <label class="myio-annotations-filter-chip ${this.filter.actionableOnly ? 'is-on' : ''}">
+    <input type="checkbox" data-filter="actionable" ${this.filter.actionableOnly ? 'checked' : ''} />
+    <span>Acionáveis apenas (pendentes não-arquivadas, com vencimento ≤ 7 dias ou sem vencimento)</span>
+  </label>
+</div>
+<div class="myio-annotations-filter-actions">
+  <button type="button" class="myio-annotations-panel-footer-action" data-action="clear-filters">Limpar</button>
+</div>`;
+  }
+
+  private _activeFilterCount(): number {
+    let n = 0;
+    n += this.filter.types.size;
+    n += this.filter.statuses.size;
+    n += this.filter.importance.size;
+    if (this.filter.actionableOnly) n += 1;
+    return n;
+  }
+
   private _renderBody(groups: AnnotationGroup[]): string {
     if (!groups || groups.length === 0) {
+      const hasFilters = this.filter.searchTerm || this._activeFilterCount() > 0;
       return `
 <div class="myio-annotations-empty">
   <div class="myio-annotations-empty-icon" aria-hidden="true">📋</div>
-  <div>Nenhuma anotação ativa.</div>
+  <div>${hasFilters ? 'Nada encontrado para o filtro / busca atual.' : 'Nenhuma anotação ativa.'}</div>
 </div>`;
     }
 
@@ -297,8 +480,9 @@ export class HeaderAnnotationsPanel {
 
   private _renderGroup(group: AnnotationGroup): string {
     const isNoIdentifier = this.activeTab === 'identifier' && group.key === 'Sem Identificador';
+    const term = this.filter.searchTerm || '';
     const items = group.devices.flatMap((d) =>
-      d.annotations.map((a) => renderAnnotationItemCard(d as AnnotatedDevice, a))
+      d.annotations.map((a) => renderAnnotationItemCard(d as AnnotatedDevice, a, term))
     );
 
     const groupClass = isNoIdentifier
@@ -353,6 +537,105 @@ export class HeaderAnnotationsPanel {
         }
       });
     }
+
+    // Toolbar — search input (AC-20 debounced 250ms, AC-21 NFD normalized via filter)
+    const searchInput = this.root.querySelector<HTMLInputElement>('[data-input="search"]');
+    if (searchInput) {
+      searchInput.addEventListener('input', () => {
+        if (this._searchDebounceTimer) clearTimeout(this._searchDebounceTimer);
+        this._searchDebounceTimer = setTimeout(() => {
+          this.filter = withSearchTerm(this.filter, searchInput.value);
+          if (this.isOpen) this._render();
+          // Restore focus + caret to the input after re-render
+          requestAnimationFrame(() => {
+            const fresh = this.root?.querySelector<HTMLInputElement>('[data-input="search"]');
+            if (fresh) {
+              fresh.focus();
+              try {
+                fresh.setSelectionRange(fresh.value.length, fresh.value.length);
+              } catch {
+                /* ignore */
+              }
+            }
+          });
+        }, SEARCH_DEBOUNCE_MS);
+      });
+    }
+
+    // Toolbar — sort select (AC-23)
+    const sortSelect = this.root.querySelector<HTMLSelectElement>('[data-input="sort"]');
+    if (sortSelect) {
+      sortSelect.addEventListener('change', () => {
+        this.setSortBy(sortSelect.value as AnnotationSortKey);
+      });
+    }
+
+    // Toolbar — toggle filters dropdown
+    const filterToggle = this.root.querySelector<HTMLButtonElement>(
+      '[data-action="toggle-filters"]'
+    );
+    const filterPanel = this.root.querySelector<HTMLDivElement>('#myio-anno-filters');
+    if (filterToggle && filterPanel) {
+      filterToggle.addEventListener('click', () => {
+        const isHidden = filterPanel.hasAttribute('hidden');
+        if (isHidden) {
+          filterPanel.removeAttribute('hidden');
+          filterToggle.setAttribute('aria-expanded', 'true');
+        } else {
+          filterPanel.setAttribute('hidden', '');
+          filterToggle.setAttribute('aria-expanded', 'false');
+        }
+      });
+    }
+
+    // Filter checkboxes — AC-24 (AND between sections, OR within), AC-25 actionable
+    const filterInputs = this.root.querySelectorAll<HTMLInputElement>('[data-filter]');
+    filterInputs.forEach((cb) => {
+      cb.addEventListener('change', () => {
+        const kind = cb.getAttribute('data-filter');
+        if (kind === 'type') {
+          const v = cb.value as AnnotationType;
+          this.setFilter({ types: toggleInSet(this.filter.types, v) });
+          this._reopenFiltersAfterRender();
+        } else if (kind === 'status') {
+          const v = cb.value as AnnotationStatus;
+          this.setFilter({ statuses: toggleInSet(this.filter.statuses, v) });
+          this._reopenFiltersAfterRender();
+        } else if (kind === 'importance') {
+          const v = Number(cb.value) as 1 | 2 | 3 | 4 | 5;
+          this.setFilter({ importance: toggleInSet(this.filter.importance, v) });
+          this._reopenFiltersAfterRender();
+        } else if (kind === 'actionable') {
+          this.setFilter({ actionableOnly: cb.checked });
+          this._reopenFiltersAfterRender();
+        }
+      });
+    });
+
+    // Clear filters
+    const clearBtn = this.root.querySelector<HTMLButtonElement>('[data-action="clear-filters"]');
+    if (clearBtn) {
+      clearBtn.addEventListener('click', () => {
+        this.filter = createDefaultFilter();
+        if (this.isOpen) this._render();
+        this._reopenFiltersAfterRender();
+      });
+    }
+  }
+
+  /** After a re-render triggered by a filter checkbox, re-open the filter panel
+   * so the user keeps the context visible. */
+  private _reopenFiltersAfterRender(): void {
+    requestAnimationFrame(() => {
+      const fp = this.root?.querySelector<HTMLDivElement>('#myio-anno-filters');
+      const toggle = this.root?.querySelector<HTMLButtonElement>(
+        '[data-action="toggle-filters"]'
+      );
+      if (fp && toggle) {
+        fp.removeAttribute('hidden');
+        toggle.setAttribute('aria-expanded', 'true');
+      }
+    });
   }
 
   private _onTabKeydown(e: KeyboardEvent, tabBtns: HTMLButtonElement[]): void {

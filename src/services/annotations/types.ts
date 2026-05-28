@@ -60,6 +60,15 @@ export interface AnnotatedDevice {
 /** Tab grouping mode for the HEADER panel. */
 export type AnnotationGroupBy = 'identifier' | 'device' | 'domain';
 
+/** Sort modes for groups in the HEADER panel (RFC-0203 M5, AC-23). */
+export type AnnotationSortKey =
+  | 'alpha-asc'
+  | 'alpha-desc'
+  | 'count-desc'
+  | 'count-asc'
+  | 'importance-desc'
+  | 'recent-desc';
+
 /**
  * A logical group of devices sharing some axis (identifier / device / domain).
  * Computed on-demand from the indexed maps inside the orchestrator.

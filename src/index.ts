@@ -1783,4 +1783,15 @@ export {
   formatRelative as formatAnnotationRelativeTime,
   isOverdue as isAnnotationOverdue,
 } from './components/header-annotations-panel/AnnotationItemCard';
+export {
+  nfdNormalize as nfdNormalizeAnnotationSearch,
+  highlightMatches as highlightAnnotationMatches,
+  sortGroups as sortAnnotationGroups,
+  createDefaultFilter as createDefaultAnnotationFilter,
+  SORT_OPTIONS as ANNOTATION_SORT_OPTIONS,
+  DEFAULT_SORT as DEFAULT_ANNOTATION_SORT,
+} from './components/header-annotations-panel/searchSortFilter';
+export type {
+  AnnotationSortKey,
+} from './services/annotations/types';
 

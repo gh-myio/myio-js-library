@@ -10,6 +10,7 @@ import type {
   Annotation,
   AnnotationDeviceDomain,
 } from '../../services/annotations/types';
+import { highlightMatches } from './searchSortFilter';
 
 const DOMAIN_ICONS: Record<AnnotationDeviceDomain, string> = {
   energy: '⚡',
@@ -78,23 +79,38 @@ export function isOverdue(annotation: Annotation, now: number = Date.now()): boo
  * Pure renderer for one annotation item. Generates the `<button>` HTML for
  * a clickable row. The button carries the data-* attributes used by the
  * parent panel to dispatch `myio:annotation-clicked`.
+ *
+ * @param searchTerm — optional; when present, matches are wrapped in <mark>
+ *                     across the displayed text + identifier + label (AC-22).
  */
 export function renderAnnotationItemCard(
   device: Pick<AnnotatedDevice, 'deviceId' | 'name' | 'label' | 'identifier' | 'domain'>,
-  annotation: Annotation
+  annotation: Annotation,
+  searchTerm?: string
 ): string {
   const domainIcon = DOMAIN_ICONS[device.domain] ?? DOMAIN_ICONS.unknown;
   const typeIcon = TYPE_ICONS[annotation.type] ?? '·';
   const importance = Math.max(1, Math.min(5, annotation.importance || 1));
-  const text = escapeHtml(truncate(annotation.text || '', ITEM_TEXT_MAX));
-  const deviceLabel = escapeHtml(device.label || device.name || device.deviceId);
+  const textEscaped = escapeHtml(truncate(annotation.text || '', ITEM_TEXT_MAX));
+  const deviceLabelEscaped = escapeHtml(device.label || device.name || device.deviceId);
   const author = escapeHtml(annotation.createdBy?.name || 'sem autor');
   const when = escapeHtml(formatRelative(annotation.createdAt));
   const overdueTag = isOverdue(annotation)
     ? '<span class="myio-annotations-overdue">Vencida</span>'
     : '';
+
+  // Highlight matched substrings (already-escaped) — AC-22.
+  const text = searchTerm ? highlightMatches(textEscaped, searchTerm) : textEscaped;
+  const deviceLabel = searchTerm
+    ? highlightMatches(deviceLabelEscaped, searchTerm)
+    : deviceLabelEscaped;
+  const identifierEscaped = device.identifier ? escapeHtml(device.identifier) : '';
+  const identifierHighlighted =
+    searchTerm && identifierEscaped
+      ? highlightMatches(identifierEscaped, searchTerm)
+      : identifierEscaped;
   const identifierTag = device.identifier
-    ? `<span class="myio-annotations-item-device">${escapeHtml(device.identifier)}</span>`
+    ? `<span class="myio-annotations-item-device">${identifierHighlighted}</span>`
     : '';
 
   return `
