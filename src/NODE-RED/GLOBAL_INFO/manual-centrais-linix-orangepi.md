@@ -90,9 +90,10 @@ ssh -i id_rsa root@<ipv6-da-central>
 
 #### Holding: OBRAMAX
 
-| Central       | IPv6                                     | Gateway ID |
-| ------------- | ---------------------------------------- | ---------- |
-| Praia Grande  | `200:a12e:4703:c680:dfb7:936b:88b9:6f4b` | —          |
+| Central      | IPv6                                     | Gateway ID                             |
+| ------------ | ---------------------------------------- | -------------------------------------- |
+| Praia Grande | `200:a12e:4703:c680:dfb7:936b:88b9:6f4b` | —                                      |
+| Aricanduva   | `200:bc45:34ee:59da:371a:cfe9:98d3:3805` | `1e0c1d77-1d41-4004-8be7-41328e590111` |
 
 **Exemplos de conexão:**
 
@@ -156,6 +157,9 @@ ssh -i id_rsa root@200:a420:9834:fc66:dcf9:f46:4a57:9d09
 
 # Praia Grande (Obramax)
 ssh -i id_rsa root@200:a12e:4703:c680:dfb7:936b:88b9:6f4b
+
+# Aricanduva (Obramax)
+ssh -i id_rsa root@200:bc45:34ee:59da:371a:cfe9:98d3:3805
 ```
 
 ---
@@ -767,4 +771,4 @@ reboot
 
 ---
 
-_Última atualização: 2026-05-20_
+_Última atualização: 2026-05-27_
