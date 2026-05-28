@@ -2643,6 +2643,59 @@ function _buildAlarmServiceOrchestrator(alarms) {
     'total alarms'
   );
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // RFC-0203 M3 — AnnotationServiceOrchestrator (cross-domain annotations).
+  // Built once, alongside AlarmServiceOrchestrator. Failures are non-fatal:
+  // the HEADER button simply stays hidden if construction fails.
+  // ─────────────────────────────────────────────────────────────────────────
+  (async function _initAnnotationServiceOrchestrator() {
+    try {
+      const buildFn = window.MyIOLibrary?.buildAnnotationServiceOrchestrator;
+      if (typeof buildFn !== 'function') {
+        LogHelper.warn(
+          '[AnnotationServiceOrchestrator] buildAnnotationServiceOrchestrator unavailable in MyIOLibrary — skipping'
+        );
+        return;
+      }
+      const jwt = localStorage.getItem('jwt_token');
+      const customerTB_ID = self.ctx?.settings?.customerTB_ID;
+      if (!jwt || !customerTB_ID) {
+        LogHelper.warn(
+          '[AnnotationServiceOrchestrator] missing jwt or customerTB_ID — skipping',
+          { hasJwt: !!jwt, hasCustomerId: !!customerTB_ID }
+        );
+        return;
+      }
+      const tbHost = window.location.origin;
+      const orchestrator = await buildFn({
+        customerId: customerTB_ID,
+        tbHost,
+        jwt,
+        logger: LogHelper,
+      });
+      window.AnnotationServiceOrchestrator = orchestrator;
+      if (window.MyIOOrchestrator) {
+        window.MyIOOrchestrator.annotationsConfigured = true;
+      }
+      const total = orchestrator.getTotalCount();
+      LogHelper.log(
+        '[AnnotationServiceOrchestrator] Built —',
+        orchestrator.devices.length,
+        'devices,',
+        total,
+        'active annotations'
+      );
+      // Signal HEADER + any other consumer
+      window.dispatchEvent(
+        new CustomEvent('myio:annotations-ready', {
+          detail: { totalCount: total, deviceCount: orchestrator.devices.length },
+        })
+      );
+    } catch (err) {
+      LogHelper.warn('[AnnotationServiceOrchestrator] init failed (non-fatal):', err);
+    }
+  })();
+
   // ── Contamination detector ──────────────────────────────────────────────
   // Scans STATE.itemsBase for TB devices that share the same gcdrDeviceId.
   // If multiple TB items have the same gcdrDeviceId that matches an active alarm,

@@ -2306,6 +2306,68 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     if (_cachedAlarms.length > 0) _updateAlarmNotifBadge(_countVisible(_cachedAlarms));
 
     // ─────────────────────────────────────────────────────────────────────────
+    // RFC-0203 M3 — Annotations button wire-up (panel comes in M4)
+    // ─────────────────────────────────────────────────────────────────────────
+    const btnAnnotationNotif = document.getElementById('tbx-btn-annotation-notif');
+    if (btnAnnotationNotif) {
+      const _annotationBadge = document.getElementById('tbx-annotation-notif-badge');
+
+      function _updateAnnotationBadge() {
+        const orch = window.AnnotationServiceOrchestrator;
+        const total = orch?.getTotalCount?.() ?? 0;
+        const pending = orch?.getPendingCount?.() ?? 0;
+        const overdue = orch?.getOverdueCount?.() ?? 0;
+
+        if (_annotationBadge) {
+          if (total > 0) {
+            _annotationBadge.textContent = total > 99 ? '99+' : String(total);
+            _annotationBadge.style.display = '';
+          } else {
+            _annotationBadge.style.display = 'none';
+          }
+        }
+        // AC-6: dynamic aria-label
+        btnAnnotationNotif.setAttribute(
+          'aria-label',
+          `Anotações operacionais: ${pending} pendentes, ${overdue} vencidas`
+        );
+      }
+
+      function _syncAnnotationButtonVisibility() {
+        const configured = !!window.MyIOOrchestrator?.annotationsConfigured;
+        const total = window.AnnotationServiceOrchestrator?.getTotalCount?.() ?? 0;
+        // AC-3: visible when orchestrator is configured OR there are annotations to show
+        btnAnnotationNotif.style.display = configured || total > 0 ? '' : 'none';
+        if (configured || total > 0) _updateAnnotationBadge();
+      }
+
+      // M3 placeholder click handler — full panel comes in M4
+      btnAnnotationNotif.addEventListener('click', (e) => {
+        e.stopPropagation();
+        LogHelper.log('[HEADER] RFC-0203 M3: annotation button clicked (panel pending M4)');
+        // Soft toast-style hint; replace with HeaderAnnotationsPanel in M4
+        try {
+          const total = window.AnnotationServiceOrchestrator?.getTotalCount?.() ?? 0;
+          alert(
+            `Painel de Anotações em construção (M4).\n\n` +
+              `${total} anotações ativas no Customer.\n` +
+              `Acesso individual continua disponível pelo card → SettingsModal → Anotações.`
+          );
+        } catch (err) {
+          // ignore
+        }
+      });
+
+      // Listeners — orchestrator builds in MAIN_VIEW, dispatches these events
+      window.addEventListener('myio:annotations-ready', _syncAnnotationButtonVisibility);
+      window.addEventListener('myio:annotations-refreshed', _updateAnnotationBadge);
+      window.addEventListener('myio:annotation-changed', _updateAnnotationBadge);
+
+      // Initial sync — orchestrator may already be ready by the time HEADER mounts
+      _syncAnnotationButtonVisibility();
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // RFC-0045 FIX: Track last emission to prevent duplicates
     let lastEmission = {};
 
