@@ -1804,4 +1804,26 @@ export type {
   VirtualRow,
   VirtualListOptions,
 } from './components/header-annotations-panel/VirtualList';
+// RFC-0203 M7 — Export helpers (PDF + CSV) and the export modal
+export {
+  exportAnnotationsCsv,
+  buildAnnotationsCsv,
+  buildExportFilename as buildAnnotationsExportFilename,
+  csvEscape as csvEscapeAnnotation,
+  downloadTextFile as downloadAnnotationsTextFile,
+  CSV_COLUMNS as ANNOTATION_CSV_COLUMNS,
+} from './components/header-annotations-panel/ExportCSV';
+export type { CsvColumn as AnnotationCsvColumn } from './components/header-annotations-panel/ExportCSV';
+export {
+  exportAnnotationsPdf,
+} from './components/header-annotations-panel/ExportPDF';
+export type {
+  PdfLevel as AnnotationPdfLevel,
+  ExportPdfOptions as AnnotationExportPdfOptions,
+} from './components/header-annotations-panel/ExportPDF';
+export {
+  openExportModal as openAnnotationsExportModal,
+  closeExportModal as closeAnnotationsExportModal,
+} from './components/header-annotations-panel/ExportModal';
+export type { OpenExportModalOptions as OpenAnnotationsExportModalOptions } from './components/header-annotations-panel/ExportModal';
 

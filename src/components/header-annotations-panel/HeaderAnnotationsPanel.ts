@@ -42,6 +42,12 @@ import {
   shouldVirtualize,
   type VirtualRow,
 } from './VirtualList';
+import { openExportModal } from './ExportModal';
+import { exportAnnotationsCsv } from './ExportCSV';
+import { exportAnnotationsPdf } from './ExportPDF';
+import type {
+  AnnotationExportOptions,
+} from '../../services/annotations/types';
 import type {
   AnnotatedDevice,
   AnnotationFilter,
@@ -502,8 +508,9 @@ export class HeaderAnnotationsPanel {
 ${this._renderToolbar(filteredCount, totalAllUnfiltered)}
 <div class="myio-annotations-body" id="myio-anno-body" role="tabpanel" aria-labelledby="myio-anno-tab-${this.activeTab}">${bodyHtml}</div>
 <div class="myio-annotations-panel-footer">
-  <span>RFC-0203 · M5 (busca + ordenação + filtros)</span>
-  <button class="myio-annotations-panel-footer-action" type="button" data-action="refresh">Atualizar</button>
+  <button class="myio-annotations-panel-footer-action" type="button" data-action="export">📥 Exportar…</button>
+  <span class="myio-annotations-panel-footer-meta">RFC-0203 · ${groups.length} grupos · ${filteredCount} anotações</span>
+  <button class="myio-annotations-panel-footer-action" type="button" data-action="refresh">Atualizar ↻</button>
 </div>
 `;
   }
@@ -740,6 +747,12 @@ ${this._renderToolbar(filteredCount, totalAllUnfiltered)}
       });
     }
 
+    // RFC-0203 M7 — Export button opens modal
+    const exportBtn = this.root.querySelector<HTMLButtonElement>('[data-action="export"]');
+    if (exportBtn) {
+      exportBtn.addEventListener('click', () => this._openExportFlow());
+    }
+
     // Toolbar — search input (AC-20 debounced 250ms, AC-21 NFD normalized via filter)
     const searchInput = this.root.querySelector<HTMLInputElement>('[data-input="search"]');
     if (searchInput) {
@@ -889,8 +902,93 @@ ${this._renderToolbar(filteredCount, totalAllUnfiltered)}
         })
       );
     }
-    // The downstream handler decides whether to open SettingsModal etc.
-    // M4 scope: dispatch only. M7 will wire the actual SettingsModal handler.
+    // MAIN_VIEW listens (RFC-0203 M7) and opens SettingsModal on Annotations tab.
+  }
+
+  /**
+   * RFC-0203 M7 — Opens the export modal and dispatches CSV/PDF generation.
+   */
+  private _openExportFlow(): void {
+    const orch = this.opts.getOrchestrator();
+    if (!orch) {
+      this.opts.logger.warn('[HeaderAnnotationsPanel] export: no orchestrator');
+      return;
+    }
+
+    const hasActiveFilter =
+      !!this.filter.searchTerm ||
+      this.filter.types.size > 0 ||
+      this.filter.statuses.size > 0 ||
+      this.filter.importance.size > 0 ||
+      this.filter.actionableOnly;
+
+    const customerName =
+      (typeof window !== 'undefined' &&
+        ((window as unknown as { MyIOOrchestrator?: { customerName?: string } })
+          .MyIOOrchestrator?.customerName)) ||
+      '';
+
+    openExportModal({
+      hasActiveFilter,
+      logger: this.opts.logger,
+      onExport: (opts: AnnotationExportOptions) => {
+        try {
+          const devices = this._devicesForScope(opts.scope, orch);
+          if (opts.format === 'csv') {
+            exportAnnotationsCsv(devices, {
+              customerName,
+              includeArchived: this.filter.statuses.has('archived'),
+            });
+            this.opts.logger.debug('[HeaderAnnotationsPanel] CSV exported');
+          } else if (opts.format === 'pdf') {
+            const fallback: Array<'summary' | 'consolidated' | 'detailed'> = ['summary'];
+            const levels =
+              opts.levels && opts.levels.length > 0 ? opts.levels : fallback;
+            exportAnnotationsPdf(devices, {
+              customerName,
+              levels,
+              includeArchived: this.filter.statuses.has('archived'),
+            });
+            this.opts.logger.debug('[HeaderAnnotationsPanel] PDF exported (levels=' + levels.join(',') + ')');
+          }
+        } catch (err) {
+          this.opts.logger.warn('[HeaderAnnotationsPanel] export failed:', err);
+          if (typeof window !== 'undefined') {
+            try {
+              alert('Falha ao exportar: ' + (err as Error)?.message);
+            } catch {
+              /* ignore */
+            }
+          }
+        }
+      },
+    });
+  }
+
+  /**
+   * Resolves the device subset used by the export based on the chosen scope:
+   *   - 'current-tab': groups visible in the active tab (respecting filter)
+   *   - 'filtered'   : the same as current-tab when a filter is active
+   *   - 'all'        : every device known to the orchestrator (unfiltered)
+   */
+  private _devicesForScope(
+    scope: AnnotationExportOptions['scope'],
+    orch: AnnotationServiceOrchestratorShape
+  ): AnnotatedDevice[] {
+    if (scope === 'all') return orch.getAll();
+    // current-tab and filtered both go through getGroups with active filter
+    const groups = orch.getGroups(this.activeTab, this.filter);
+    const seen = new Set<string>();
+    const out: AnnotatedDevice[] = [];
+    for (const g of groups) {
+      for (const d of g.devices) {
+        if (!seen.has(d.deviceId)) {
+          seen.add(d.deviceId);
+          out.push(d as AnnotatedDevice);
+        }
+      }
+    }
+    return out;
   }
 }
 

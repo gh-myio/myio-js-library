@@ -69,6 +69,14 @@ export type AnnotationSortKey =
   | 'importance-desc'
   | 'recent-desc';
 
+/** Export options chosen via the export modal (RFC-0203 M7, AC-39..AC-43). */
+export interface AnnotationExportOptions {
+  format: 'pdf' | 'csv';
+  /** PDF levels — combinable. Ignored when format === 'csv'. */
+  levels?: Array<'summary' | 'consolidated' | 'detailed'>;
+  scope: 'current-tab' | 'all' | 'filtered';
+}
+
 /**
  * A logical group of devices sharing some axis (identifier / device / domain).
  * Computed on-demand from the indexed maps inside the orchestrator.

@@ -452,6 +452,12 @@ export const HEADER_ANNOTATIONS_STYLES = `
   color: #64748b;
   flex-shrink: 0;
 }
+.myio-annotations-panel-footer-meta {
+  flex: 1;
+  text-align: center;
+  font-size: 11px;
+  color: #94a3b8;
+}
 .myio-annotations-panel-footer-action {
   font: inherit;
   font-size: 12px;
