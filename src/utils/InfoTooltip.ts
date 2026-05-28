@@ -729,18 +729,27 @@ function hideWithAnimation(): void {
  */
 function positionTooltip(container: HTMLElement, triggerElement: HTMLElement): void {
   const rect = triggerElement.getBoundingClientRect();
+  const margin = 12;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+
+  // Measure the just-rendered panel (it's already laid out — only opacity/transform hide it).
+  // Fallback to the panel default width / a sensible height if measurement is unavailable.
+  const cw = container.offsetWidth || 450;
+  const ch = container.offsetHeight || 420;
+
   let left = rect.left;
+  // Horizontal clamp: try anchor on trigger.left, push back if overflowing the right edge,
+  // then never let it sit past the left edge.
+  if (left + cw > vw - margin) left = vw - cw - margin;
+  if (left < margin) left = margin;
+
+  // Vertical: prefer below the trigger; if it would overflow, flip above; if it still
+  // doesn't fit, pin to the bottom edge with a margin so it's fully on-screen.
   let top = rect.bottom + 8;
-
-  const tooltipWidth = 380;
-  if (left + tooltipWidth > window.innerWidth - 20) {
-    left = window.innerWidth - tooltipWidth - 20;
-  }
-  if (left < 10) left = 10;
-
-  if (top + 400 > window.innerHeight) {
-    top = rect.top - 8 - 400;
-    if (top < 10) top = 10;
+  if (top + ch > vh - margin) {
+    const above = rect.top - 8 - ch;
+    top = above >= margin ? above : Math.max(margin, vh - ch - margin);
   }
 
   container.style.left = left + 'px';

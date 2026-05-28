@@ -52,8 +52,108 @@ function getWidgetDomain() {
   return self.ctx.settings?.DOMAIN || '';
 }
 
+// Inject button styles into the host document so they reach the InfoTooltip,
+// which is appended to document.body and lives outside the widget's CSS scope.
+// Idempotent (id-guarded) — safe across multiple widget instances and re-inits.
+(function _injectInfoTooltipButtonCss() {
+  if (typeof document === 'undefined') return;
+  const STYLE_ID = 'myio-tinfo-tooltip-buttons-css';
+  if (document.getElementById(STYLE_ID)) return;
+  const css = `
+    /* +/- expand toggle inside (i) tooltip device lists */
+    .rfc196-expand-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 22px; height: 22px; padding: 0; line-height: 1;
+      border-radius: 6px; border: 1px solid #c7d2fe;
+      background: linear-gradient(180deg, #f5f7ff 0%, #e0e7ff 100%);
+      color: #3730a3; font-size: 14px; font-weight: 700;
+      cursor: pointer; margin-left: 8px; vertical-align: middle;
+      box-shadow: 0 1px 2px rgba(67, 56, 202, 0.12);
+      transition: background 0.15s, transform 0.08s, box-shadow 0.15s, border-color 0.15s;
+      user-select: none;
+    }
+    .rfc196-expand-btn:hover {
+      background: linear-gradient(180deg, #e0e7ff 0%, #c7d2fe 100%);
+      border-color: #a5b4fc; box-shadow: 0 2px 5px rgba(67, 56, 202, 0.2);
+    }
+    .rfc196-expand-btn:active { transform: scale(0.94); }
+    .rfc196-expand-btn:focus-visible { outline: 2px solid #6366f1; outline-offset: 1px; }
+    .rfc196-expand-btn[aria-expanded="true"] {
+      background: linear-gradient(180deg, #4338ca 0%, #3730a3 100%);
+      border-color: #312e81; color: #ffffff;
+      box-shadow: 0 2px 6px rgba(55, 48, 163, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    }
+    .rfc196-device-list {
+      margin-top: 6px; padding: 6px 10px;
+      background: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0;
+    }
+    .rfc196-device-item {
+      display: grid; grid-template-columns: 70% 30%; align-items: center;
+      column-gap: 8px;
+      padding: 4px 0; border-bottom: 1px dashed #e2e8f0;
+      font-size: 11px; color: #475569;
+    }
+    .rfc196-device-item:last-child { border-bottom: none; }
+    .rfc196-device-item__name {
+      min-width: 0;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .rfc196-device-item__value {
+      text-align: right; font-variant-numeric: tabular-nums;
+      font-weight: 600; color: #1e293b; font-size: 11px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+
+    /* Export footer (CSV / XLS / PDF) — pinned at the bottom of the (i) modal */
+    .tinfo-export-footer {
+      display: flex; gap: 8px; justify-content: flex-end; align-items: center;
+      margin: 14px -16px -16px -16px;
+      padding: 10px 14px;
+      background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+      border-top: 1px solid #e2e8f0;
+      border-radius: 0 0 11px 11px;
+    }
+    .tinfo-export-btn {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 6px 12px;
+      border-radius: 6px; border: 1px solid #cbd5e1;
+      background: #ffffff; color: #334155;
+      font-size: 11px; font-weight: 600; letter-spacing: 0.2px;
+      cursor: pointer; user-select: none; font-family: inherit; line-height: 1;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+      transition: background 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.08s;
+    }
+    .tinfo-export-btn:hover {
+      background: #f1f5f9; border-color: #94a3b8;
+      box-shadow: 0 2px 4px rgba(15, 23, 42, 0.1);
+    }
+    .tinfo-export-btn:active { transform: scale(0.97); }
+    .tinfo-export-btn:focus-visible { outline: 2px solid #6366f1; outline-offset: 1px; }
+    .tinfo-export-btn--accent {
+      background: linear-gradient(180deg, #4338ca 0%, #3730a3 100%);
+      border-color: #312e81; color: #ffffff;
+      box-shadow: 0 2px 6px rgba(55, 48, 163, 0.25);
+    }
+    .tinfo-export-btn--accent:hover {
+      background: linear-gradient(180deg, #3730a3 0%, #312e81 100%);
+      border-color: #312e81;
+    }
+    .tinfo-export-btn__icon { font-size: 14px; line-height: 1; }
+  `;
+  const style = document.createElement('style');
+  style.id = STYLE_ID;
+  style.textContent = css;
+  document.head.appendChild(style);
+})();
+
 // RFC-0196: Global toggle for expandable device lists inside tooltips.
 // Registered as capture-phase listener so it fires before InfoTooltip dismiss handlers.
+//
+// When the InfoTooltip is pinned a clone is created \u2014 both original and clone
+// share the same id="rfc196-devlist-${id}". getElementById always returns the
+// first in DOM order, so the clone's button toggled the original's hidden list
+// and the clone's "+" appeared broken. Fix: scope the lookup to the button's
+// closest tooltip container.
 (function () {
   function _rfc196Toggle(e) {
     const btn = e.target && e.target.closest ? e.target.closest('.rfc196-expand-btn') : null;
@@ -61,13 +161,17 @@ function getWidgetDomain() {
     e.stopPropagation();
     const id = btn.getAttribute('data-devtoggle');
     if (!id) return;
-    // Search in the owner document of the button (works in both iframe and body contexts)
-    const root = btn.ownerDocument || document;
-    const el = root.getElementById('rfc196-devlist-' + id);
+    const scope =
+      btn.closest('.myio-info-tooltip') ||
+      btn.closest('.myio-info-tooltip__content') ||
+      btn.ownerDocument ||
+      document;
+    const el = scope.querySelector('#rfc196-devlist-' + id);
     if (!el) return;
     const opening = el.style.display === 'none' || el.style.display === '';
     el.style.display = opening ? 'block' : 'none';
     btn.textContent = opening ? '\u2212' : '+';
+    btn.setAttribute('aria-expanded', opening ? 'true' : 'false');
   }
   document.addEventListener('click', _rfc196Toggle, true);
 })();
@@ -3012,7 +3116,7 @@ function showAreaComumTooltip(triggerElement) {
   InfoTooltip.show(triggerElement, {
     icon: '🏢',
     title: 'Área Comum - Detalhes',
-    content: buildAreaComumContent(),
+    content: buildAreaComumContent() + buildExportFooter(getWidgetDomain() === 'water' ? 'water' : 'energy', 'areaComum'),
   });
 }
 
@@ -3029,7 +3133,7 @@ function showClimatizacaoTooltip(triggerElement) {
   InfoTooltip.show(triggerElement, {
     icon: '❄️',
     title: 'Climatização - Detalhes',
-    content: buildClimatizacaoContent(),
+    content: buildClimatizacaoContent() + buildExportFooter('energy', 'climatizacao'),
   });
 }
 
@@ -3046,7 +3150,7 @@ function showOutrosTooltip(triggerElement) {
   InfoTooltip.show(triggerElement, {
     icon: '🔌',
     title: 'Outros Equipamentos - Detalhes',
-    content: buildOutrosContent(),
+    content: buildOutrosContent() + buildExportFooter('energy', 'outros'),
   });
 }
 
@@ -3063,7 +3167,7 @@ function showBanheirosTooltip(triggerElement) {
   InfoTooltip.show(triggerElement, {
     icon: '🚿',
     title: 'Banheiros - Detalhes',
-    content: buildBanheirosContent(),
+    content: buildBanheirosContent() + buildExportFooter('water', 'banheiros'),
   });
 }
 
@@ -3080,8 +3184,340 @@ function showPontosNaoMapeadosTooltip(triggerElement) {
   InfoTooltip.show(triggerElement, {
     icon: '❓',
     title: 'Pontos Não Mapeados - Detalhes',
-    content: buildPontosNaoMapeadosContent(),
+    content: buildPontosNaoMapeadosContent() + buildExportFooter('water', 'pontosNaoMapeados'),
   });
+}
+
+// ===================== EXPORT FOOTER (PDF / XLS / CSV) =====================
+// Appended at the bottom of every (i) tooltip content. Each button carries the
+// group + domain in data-* so the global delegated handler can resolve the
+// right device list at click time.
+
+function buildExportFooter(domain, group) {
+  const d = String(domain || 'energy');
+  const g = String(group || '');
+  return `
+    <div class="tinfo-export-footer" role="group" aria-label="Exportar relatório">
+      <button type="button" class="tinfo-export-btn" data-format="csv" data-domain="${d}" data-group="${g}" title="Exportar CSV">
+        <span class="tinfo-export-btn__icon">📄</span><span>CSV</span>
+      </button>
+      <button type="button" class="tinfo-export-btn" data-format="xls" data-domain="${d}" data-group="${g}" title="Exportar XLS">
+        <span class="tinfo-export-btn__icon">📊</span><span>XLS</span>
+      </button>
+      <button type="button" class="tinfo-export-btn tinfo-export-btn--accent" data-format="pdf" data-domain="${d}" data-group="${g}" title="Exportar PDF">
+        <span class="tinfo-export-btn__icon">📕</span><span>PDF</span>
+      </button>
+    </div>
+  `;
+}
+
+// Returns the (sanitized) device list for a group in TelemetryDevice-ish
+// shape, so it can be fed directly to the shared lib exporters.
+function _getExportDevices(domain, group) {
+  const cleanLabel = (raw) => {
+    const s = String(raw || '').trim();
+    const stripped = s.replace(/\s*\([^()]*\)\s*$/, '').trim();
+    return stripped || s;
+  };
+  let raw = [];
+  if (domain === 'water') {
+    const ST = (typeof STATE_WATER !== 'undefined' && STATE_WATER) ? STATE_WATER : null;
+    if (!ST) return [];
+    if (group === 'entrada') raw = ST.entrada?.devices || [];
+    else if (group === 'banheiros') raw = ST.banheiros?.devices || [];
+    else if (group === 'areaComum') raw = ST.areaComum?.devices || [];
+    else if (group === 'lojas') raw = ST.consumidores?.lojas?.devices || ST.lojas?.devices || [];
+    else if (group === 'totalConsumidores') {
+      const c = ST.consumidores || {};
+      raw = [
+        ...(c.lojas?.devices || ST.lojas?.devices || []),
+        ...(c.banheiros?.devices || ST.banheiros?.devices || []),
+        ...(c.areaComum?.devices || ST.areaComum?.devices || []),
+      ];
+    } else if (group === 'pontosNaoMapeados') {
+      raw = []; // synthetic residual — no per-device list
+    }
+  } else {
+    if (!STATE) return [];
+    if (group === 'entrada') raw = STATE.entrada?.devices || [];
+    else if (group === 'climatizacao') raw = STATE.consumidores?.climatizacao?.devices || [];
+    else if (group === 'elevadores') raw = STATE.consumidores?.elevadores?.devices || [];
+    else if (group === 'escadasRolantes') raw = STATE.consumidores?.escadasRolantes?.devices || [];
+    else if (group === 'lojas') raw = STATE.consumidores?.lojas?.devices || [];
+    else if (group === 'outros') raw = STATE.consumidores?.outros?.devices || [];
+    else if (group === 'areaComum') raw = STATE.consumidores?.areaComum?.devices || [];
+    else if (group === 'totalConsumidores') {
+      const c = STATE.consumidores || {};
+      raw = [
+        ...(c.climatizacao?.devices || []),
+        ...(c.elevadores?.devices || []),
+        ...(c.escadasRolantes?.devices || []),
+        ...(c.lojas?.devices || []),
+        ...(c.outros?.devices || []),
+        ...(c.areaComum?.devices || []),
+      ];
+    }
+  }
+  const total = raw.reduce((s, d) => s + (Number(d.value) || 0), 0);
+  return [...raw]
+    .sort((a, b) => (Number(b.value) || 0) - (Number(a.value) || 0))
+    .map((d) => {
+      const display = cleanLabel(d.label || d.name || d.identifier || d.id || '—');
+      const val = Number(d.value) || 0;
+      return {
+        labelOrName: display,
+        name: display,
+        deviceIdentifier: d.identifier || d.id || '',
+        val,
+        perc: total > 0 ? (val / total) * 100 : 0,
+      };
+    });
+}
+
+function _exportGetUnit(domain) {
+  return domain === 'water' ? 'm³' : 'kWh';
+}
+
+function _exportGetLabel(domain, group) {
+  const titles = {
+    entrada: 'Entrada',
+    lojas: 'Lojas',
+    climatizacao: 'Climatização',
+    elevadores: 'Elevadores',
+    escadasRolantes: 'Escadas Rolantes',
+    outros: 'Outros Equipamentos',
+    areaComum: domain === 'water' ? 'Área Comum (água)' : 'Pontos Não Mapeados',
+    banheiros: 'Banheiros',
+    totalConsumidores: 'Total Consumidores',
+    pontosNaoMapeados: 'Pontos Não Mapeados',
+  };
+  return titles[group] || group;
+}
+
+function _exportGetPeriod() {
+  // Best-effort: the orchestrator exposes the current period when available.
+  const ts = window.MyIOOrchestratorData?.[getWidgetDomain() === 'water' ? 'water' : 'energy']?.periodKey;
+  if (!ts) return null;
+  // periodKey shape is "<customerId>:<startISO>:<endISO>" — extract the timestamps.
+  const parts = String(ts).split(':');
+  if (parts.length >= 3) {
+    return { startISO: parts.slice(1, -1).join(':') || null, endISO: parts[parts.length - 1] || null };
+  }
+  return null;
+}
+
+function _exportRunCsv(domain, group) {
+  const devices = _getExportDevices(domain, group);
+  if (!devices.length) {
+    LogHelper.warn('[Export] No devices for', domain, group);
+    return;
+  }
+  const unit = _exportGetUnit(domain);
+  const label = _exportGetLabel(domain, group);
+  const rows = [
+    ['#', 'Nome', 'Identificador', `Consumo (${unit})`, '%'],
+    ...devices.map((d, i) => [
+      String(i + 1),
+      d.labelOrName,
+      d.deviceIdentifier,
+      Number(d.val).toLocaleString('pt-BR', { maximumFractionDigits: 3, useGrouping: false }),
+      `${(d.perc || 0).toFixed(2).replace('.', ',')}%`,
+    ]),
+  ];
+  const escCell = (s) => {
+    const v = String(s ?? '');
+    return /[",;\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+  };
+  const csv = rows.map((r) => r.map(escCell).join(';')).join('\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${label.replace(/[^\w-]+/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 0);
+}
+
+function _exportRunLibrary(format, domain, group) {
+  const lib = window.MyIOLibrary || {};
+  const fn = format === 'pdf' ? lib.exportGridPdf : lib.exportGridXls;
+  if (typeof fn !== 'function') {
+    LogHelper.warn('[Export] MyIOLibrary.exportGrid' + format.toUpperCase() + ' is not available');
+    return;
+  }
+  const devices = _getExportDevices(domain, group);
+  if (!devices.length) {
+    LogHelper.warn('[Export] No devices for', domain, group);
+    return;
+  }
+  try {
+    fn(devices, _exportGetLabel(domain, group), _exportGetUnit(domain), _exportGetPeriod(), null);
+  } catch (err) {
+    LogHelper.error('[Export] Library call failed:', err);
+  }
+}
+
+// Global delegated handler — capture phase so the click runs before the
+// InfoTooltip's auto-dismiss listeners get a chance to close the panel.
+(function () {
+  function _onExportClick(e) {
+    const btn = e.target && e.target.closest ? e.target.closest('.tinfo-export-btn') : null;
+    if (!btn) return;
+    e.stopPropagation();
+    e.preventDefault();
+    const format = btn.getAttribute('data-format');
+    const domain = btn.getAttribute('data-domain') || 'energy';
+    const group = btn.getAttribute('data-group') || '';
+    if (format === 'csv') {
+      _exportRunCsv(domain, group);
+    } else if (format === 'xls' || format === 'pdf') {
+      _exportRunLibrary(format, domain, group);
+    }
+  }
+  document.addEventListener('click', _onExportClick, true);
+})();
+
+// ===================== NEW (i) TOOLTIPS — Energy: Entrada / Lojas / Elevadores / Esc. Rolantes / Total Consumidores =====================
+//
+// All five share the same lightweight layout: KPI summary, expandable device
+// list, then the export footer. They reuse buildDeviceExpandList (with the
+// stripping + 23-char truncation already applied) and formatEnergy.
+
+function _buildSimpleGroupContent(opts) {
+  const { id, icon, total, perc, count, devices, formatFn, footerHtml, noticeText } = opts;
+  const percRow = (perc === undefined || perc === null) ? '' : `
+      <div class="myio-info-tooltip__row">
+        <span class="myio-info-tooltip__label">Participação:</span>
+        <span class="myio-info-tooltip__value">${Number(perc).toFixed(2).replace('.', ',')}%</span>
+      </div>`;
+  const expandHtml = devices && devices.length ? buildDeviceExpandList(id, devices, formatFn) : '';
+  const devicesSection = expandHtml ? `
+    <div class="myio-info-tooltip__section">
+      <div class="myio-info-tooltip__section-title">
+        <span>${icon}</span> Dispositivos ${expandHtml.split('</button>')[0]}</button>
+      </div>
+      ${expandHtml.split('</button>')[1] || ''}
+    </div>` : '';
+  return `
+    <div class="myio-info-tooltip__section">
+      <div class="myio-info-tooltip__section-title"><span>📊</span> Resumo</div>
+      <div class="myio-info-tooltip__row">
+        <span class="myio-info-tooltip__label">Total:</span>
+        <span class="myio-info-tooltip__value">${formatFn(total)}</span>
+      </div>
+      ${percRow}
+      <div class="myio-info-tooltip__row">
+        <span class="myio-info-tooltip__label">Dispositivos:</span>
+        <span class="myio-info-tooltip__value">${count}</span>
+      </div>
+    </div>
+    ${devicesSection}
+    ${noticeText ? `
+    <div class="myio-info-tooltip__notice">
+      <span class="myio-info-tooltip__notice-icon">💡</span>
+      <div class="myio-info-tooltip__notice-text">${noticeText}</div>
+    </div>` : ''}
+    ${footerHtml}
+  `;
+}
+
+function buildEntradaContent() {
+  const devices = STATE?.entrada?.devices || [];
+  return _buildSimpleGroupContent({
+    id: 'entrada',
+    icon: '📥',
+    total: STATE?.entrada?.total || 0,
+    perc: null,
+    count: devices.length,
+    devices,
+    formatFn: formatEnergy,
+    footerHtml: buildExportFooter('energy', 'entrada'),
+    noticeText: 'Soma de todos os medidores de <strong>Entrada</strong> do shopping (transformadores e relógios principais).',
+  });
+}
+
+function buildLojasContent() {
+  const devices = STATE?.consumidores?.lojas?.devices || [];
+  return _buildSimpleGroupContent({
+    id: 'lojas',
+    icon: '🏪',
+    total: STATE?.consumidores?.lojas?.total || 0,
+    perc: STATE?.consumidores?.lojas?.perc || 0,
+    count: devices.length,
+    devices,
+    formatFn: formatEnergy,
+    footerHtml: buildExportFooter('energy', 'lojas'),
+    noticeText: 'Consumo agregado das lojas medidas individualmente.',
+  });
+}
+
+function buildElevadoresContent() {
+  const devices = STATE?.consumidores?.elevadores?.devices || [];
+  return _buildSimpleGroupContent({
+    id: 'elevadores',
+    icon: '🛗',
+    total: STATE?.consumidores?.elevadores?.total || 0,
+    perc: STATE?.consumidores?.elevadores?.perc || 0,
+    count: devices.length,
+    devices,
+    formatFn: formatEnergy,
+    footerHtml: buildExportFooter('energy', 'elevadores'),
+    noticeText: 'Consumo dos elevadores do shopping.',
+  });
+}
+
+function buildEscadasRolantesContent() {
+  const devices = STATE?.consumidores?.escadasRolantes?.devices || [];
+  return _buildSimpleGroupContent({
+    id: 'escadas',
+    icon: '🎢',
+    total: STATE?.consumidores?.escadasRolantes?.total || 0,
+    perc: STATE?.consumidores?.escadasRolantes?.perc || 0,
+    count: devices.length,
+    devices,
+    formatFn: formatEnergy,
+    footerHtml: buildExportFooter('energy', 'escadasRolantes'),
+    noticeText: 'Consumo das escadas rolantes do shopping.',
+  });
+}
+
+function buildTotalConsumidoresContent() {
+  const c = STATE?.consumidores || {};
+  const groups = ['climatizacao', 'elevadores', 'escadasRolantes', 'lojas', 'outros', 'areaComum'];
+  const allDevices = groups.flatMap((g) => c[g]?.devices || []);
+  const total = c.totalGeral || allDevices.reduce((s, d) => s + (Number(d.value) || 0), 0);
+  return _buildSimpleGroupContent({
+    id: 'totalConsumidores',
+    icon: '📊',
+    total,
+    perc: 100,
+    count: allDevices.length,
+    devices: allDevices,
+    formatFn: formatEnergy,
+    footerHtml: buildExportFooter('energy', 'totalConsumidores'),
+    noticeText: 'Soma de todos os consumidores: Lojas + Climatização + Elevadores + Esc. Rolantes + Outros + Área Comum.',
+  });
+}
+
+function showEntradaTooltip(t) {
+  const I = getInfoTooltip(); if (!I) return;
+  I.show(t, { icon: '📥', title: 'Entrada - Detalhes', content: buildEntradaContent() });
+}
+function showLojasTooltip(t) {
+  const I = getInfoTooltip(); if (!I) return;
+  I.show(t, { icon: '🏪', title: 'Lojas - Detalhes', content: buildLojasContent() });
+}
+function showElevadoresTooltip(t) {
+  const I = getInfoTooltip(); if (!I) return;
+  I.show(t, { icon: '🛗', title: 'Elevadores - Detalhes', content: buildElevadoresContent() });
+}
+function showEscadasRolantesTooltip(t) {
+  const I = getInfoTooltip(); if (!I) return;
+  I.show(t, { icon: '🎢', title: 'Escadas Rolantes - Detalhes', content: buildEscadasRolantesContent() });
+}
+function showTotalConsumidoresTooltip(t) {
+  const I = getInfoTooltip(); if (!I) return;
+  I.show(t, { icon: '📊', title: 'Total Consumidores - Detalhes', content: buildTotalConsumidoresContent() });
 }
 
 // ===================== RFC-0196: GROUP FILTER + ERROR INDICATORS =====================
@@ -3097,18 +3533,29 @@ function buildDeviceExpandList(id, devices, formatFn) {
   if (!devices || devices.length === 0) return '';
   const safeId = String(id).replace(/[^a-zA-Z0-9_-]/g, '_');
   const sorted = [...devices].sort((a, b) => (b.value || 0) - (a.value || 0));
+  // Strip a trailing parenthetical from the label (e.g. "Fancoil 25 (Fancoil)" → "Fancoil 25").
+  const cleanLabel = (raw) => {
+    const s = String(raw || '').trim();
+    const stripped = s.replace(/\s*\([^()]*\)\s*$/, '').trim();
+    return stripped || s;
+  };
+  const escAttr = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  // Truncate long names — full name stays in the hover title.
+  const MAX = 23;
+  const truncate = (s) => (s.length > MAX ? s.slice(0, MAX) + '…' : s);
   const rows = sorted
     .map((d) => {
-      const name = d.label || d.identifier || d.name || '—';
+      const full = cleanLabel(d.label || d.identifier || d.name || '—');
+      const display = truncate(full);
       const val = typeof d.value === 'number' ? formatFn(d.value) : '—';
       return `<div class="rfc196-device-item">
-      <span class="rfc196-device-item__name" title="${name}">${name}</span>
+      <span class="rfc196-device-item__name" title="${escAttr(full)}">${escAttr(display)}</span>
       <span class="rfc196-device-item__value">${val}</span>
     </div>`;
     })
     .join('');
   return (
-    `<button class="rfc196-expand-btn" data-devtoggle="${safeId}">+</button>` +
+    `<button class="rfc196-expand-btn" data-devtoggle="${safeId}" aria-expanded="false" title="Expandir lista">+</button>` +
     `<div id="rfc196-devlist-${safeId}" style="display:none" class="rfc196-device-list">${rows}</div>`
   );
 }
@@ -3555,22 +4002,40 @@ function setupInfoTooltips() {
     LogHelper.log('[Tooltip] Banheiros trigger bound');
   }
 
-  // RFC-0106: Pontos Não Mapeados tooltip trigger (water domain).
-  // The card is the .total-card reused — its (i) is shown only in water by renderWaterStats.
-  const $pontosNaoMapeadosTrigger = $container.find('.total-card .info-tooltip');
-  if ($pontosNaoMapeadosTrigger.length) {
-    $pontosNaoMapeadosTrigger
+  // RFC-0106: total-card tooltip trigger — routed by domain.
+  //   - Water: card is reused as "Pontos Não Mapeados" → showPontosNaoMapeadosTooltip
+  //   - Energy: card stays "Total Consumidores" → showTotalConsumidoresTooltip
+  const $totalCardTrigger = $container.find('.total-card .info-tooltip');
+  if ($totalCardTrigger.length) {
+    $totalCardTrigger
       .addClass('info-tooltip-trigger')
       .removeAttr('title')
       .off('mouseenter.infoTooltip mouseleave.infoTooltip')
       .on('mouseenter.infoTooltip', function () {
-        showPontosNaoMapeadosTooltip(this);
+        if (getWidgetDomain() === 'water') showPontosNaoMapeadosTooltip(this);
+        else showTotalConsumidoresTooltip(this);
       })
       .on('mouseleave.infoTooltip', function () {
         InfoTooltip.startDelayedHide();
       });
-    LogHelper.log('[Tooltip] Pontos Não Mapeados trigger bound');
+    LogHelper.log('[Tooltip] total-card trigger bound (routed by domain)');
   }
+
+  // Energy-only triggers — Entrada / Lojas / Elevadores / Esc. Rolantes.
+  const _bindTrigger = (sel, showFn, name) => {
+    const $t = $container.find(sel);
+    if (!$t.length) return;
+    $t.addClass('info-tooltip-trigger')
+      .removeAttr('title')
+      .off('mouseenter.infoTooltip mouseleave.infoTooltip')
+      .on('mouseenter.infoTooltip', function () { showFn(this); })
+      .on('mouseleave.infoTooltip', function () { InfoTooltip.startDelayedHide(); });
+    LogHelper.log('[Tooltip] ' + name + ' trigger bound');
+  };
+  _bindTrigger('.entrada-card .info-tooltip',    showEntradaTooltip,         'Entrada');
+  _bindTrigger('.lojas-card .info-tooltip',      showLojasTooltip,           'Lojas');
+  _bindTrigger('.elevadores-card .info-tooltip', showElevadoresTooltip,      'Elevadores');
+  _bindTrigger('.escadas-card .info-tooltip',    showEscadasRolantesTooltip, 'Esc. Rolantes');
 
   LogHelper.log('[Tooltip] All info tooltips configured');
 }
