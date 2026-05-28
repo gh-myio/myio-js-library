@@ -59,10 +59,32 @@ const BUCKET_NO_IDENTIFIER = 'Sem Identificador';
  * indices, registers the `myio:annotation-changed` listener, and returns the
  * orchestrator object.
  */
+/**
+ * Returns a logger that always has debug/info/warn/error methods, falling
+ * back to `log` (or no-op) for missing ones. Defensive against widget-side
+ * loggers like LogHelper that may only expose `log`/`warn`/`error`.
+ */
+function _normalizeLogger(
+  raw?: Partial<Console>
+): Pick<Console, 'debug' | 'info' | 'warn' | 'error'> {
+  const noop = (): void => {
+    /* no-op */
+  };
+  const log = (raw && (raw as { log?: (...a: unknown[]) => void }).log) || noop;
+  return {
+    debug: (raw?.debug as (...a: unknown[]) => void) || log,
+    info: (raw?.info as (...a: unknown[]) => void) || log,
+    warn: (raw?.warn as (...a: unknown[]) => void) || log,
+    error: (raw?.error as (...a: unknown[]) => void) || log,
+  };
+}
+
 export async function buildAnnotationServiceOrchestrator(
   params: BuildAnnotationServiceOrchestratorParams
 ): Promise<AnnotationServiceOrchestratorShape> {
-  const logger = params.logger ?? console;
+  // Defensive: callers (e.g. widget controllers using LogHelper) may pass a
+  // partial logger missing .debug. Normalize before use to avoid TypeError.
+  const logger = _normalizeLogger(params.logger ?? console);
   const cacheTtlMs = params.cacheTtlMs ?? 60_000;
 
   const client = new CustomerDeviceService({

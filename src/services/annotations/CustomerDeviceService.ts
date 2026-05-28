@@ -87,7 +87,21 @@ export class CustomerDeviceService {
     this.concurrency = cfg.concurrency ?? 5;
     this.chunkDelayMs = cfg.chunkDelayMs ?? 50;
     this.maxRetries = cfg.maxRetries ?? 3;
-    this.logger = cfg.logger ?? console;
+    // Defensive: callers may pass a partial logger (e.g. widget LogHelper
+    // missing .debug). Normalize so all 4 methods exist, falling back to
+    // `log` (then no-op). Fixes runtime TypeError "this.logger.debug is not
+    // a function" reported in v-5.2.0 dashboard log.
+    const raw = (cfg.logger ?? console) as Partial<Console> & { log?: (...a: unknown[]) => void };
+    const noop = (): void => {
+      /* no-op */
+    };
+    const log = raw.log || noop;
+    this.logger = {
+      debug: (raw.debug as (...a: unknown[]) => void) || log,
+      info: (raw.info as (...a: unknown[]) => void) || log,
+      warn: (raw.warn as (...a: unknown[]) => void) || log,
+      error: (raw.error as (...a: unknown[]) => void) || log,
+    };
   }
 
   private get headers(): HeadersInit {

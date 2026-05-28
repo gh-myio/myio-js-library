@@ -398,6 +398,44 @@ describe('buildAnnotationServiceOrchestrator', () => {
     expect(ssSet).not.toHaveBeenCalled();
   });
 
+  it('tolerates a partial logger (e.g. widget LogHelper missing .debug) — regression for v-5.2.0 init crash', async () => {
+    // Reproduces the production failure: passing a logger that only has
+    // .log/.warn/.error caused `this.logger.debug is not a function` and
+    // the whole orchestrator init aborted silently.
+    installFetch(async (url: string) => {
+      if (url.includes('/deviceInfos')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ data: [makeDeviceInfo({ id: 'd1' })], hasNext: false }),
+        };
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => makeAttrs([{ key: 'log_annotations', value: [makeAnnotation()] }]),
+      };
+    });
+
+    // Mimic the widget LogHelper shape: no .debug, no .info.
+    const partialLogger = {
+      log: () => {},
+      warn: () => {},
+      error: () => {},
+    } as unknown as Partial<Console>;
+
+    // Should NOT throw and should produce a working orchestrator.
+    const orch = await buildAnnotationServiceOrchestrator({
+      customerId: 'c',
+      tbHost: 'https://tb',
+      jwt: 'j',
+      logger: partialLogger as never,
+    });
+
+    expect(orch.devices.length).toBe(1);
+    expect(orch.getTotalCount()).toBe(1);
+  });
+
   it('getGroups("identifier") buckets "Sem Identificador" for null identifier', async () => {
     installFetch(async (url: string) => {
       if (url.includes('/deviceInfos')) {
