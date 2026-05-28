@@ -1767,3 +1767,20 @@ export type {
   BuildAnnotationServiceOrchestratorParams,
 } from './services/annotations/types';
 
+// RFC-0203 M4 — HeaderAnnotationsPanel (3 tabs, static render)
+export {
+  HeaderAnnotationsPanel,
+  getHeaderAnnotationsPanel,
+  injectStylesOnce as injectHeaderAnnotationsStyles,
+} from './components/header-annotations-panel/HeaderAnnotationsPanel';
+export type {
+  HeaderAnnotationsPanelOptions,
+} from './components/header-annotations-panel/HeaderAnnotationsPanel';
+export {
+  renderAnnotationItemCard,
+  escapeHtml as escapeAnnotationHtml,
+  truncate as truncateAnnotationText,
+  formatRelative as formatAnnotationRelativeTime,
+  isOverdue as isAnnotationOverdue,
+} from './components/header-annotations-panel/AnnotationItemCard';
+

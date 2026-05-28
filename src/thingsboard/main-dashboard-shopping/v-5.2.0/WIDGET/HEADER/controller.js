@@ -2341,20 +2341,35 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         if (configured || total > 0) _updateAnnotationBadge();
       }
 
-      // M3 placeholder click handler — full panel comes in M4
+      // RFC-0203 M4 — mount HeaderAnnotationsPanel (3 tabs, static render).
+      // Singleton acessed lazily via MyIOLibrary; if unavailable, fall back to a soft hint.
+      let _annotationsPanel = null;
+      function _getAnnotationsPanel() {
+        if (_annotationsPanel) return _annotationsPanel;
+        const factory = window.MyIOLibrary?.getHeaderAnnotationsPanel;
+        if (typeof factory === 'function') {
+          _annotationsPanel = factory();
+        }
+        return _annotationsPanel;
+      }
       btnAnnotationNotif.addEventListener('click', (e) => {
         e.stopPropagation();
-        LogHelper.log('[HEADER] RFC-0203 M3: annotation button clicked (panel pending M4)');
-        // Soft toast-style hint; replace with HeaderAnnotationsPanel in M4
-        try {
-          const total = window.AnnotationServiceOrchestrator?.getTotalCount?.() ?? 0;
-          alert(
-            `Painel de Anotações em construção (M4).\n\n` +
-              `${total} anotações ativas no Customer.\n` +
-              `Acesso individual continua disponível pelo card → SettingsModal → Anotações.`
-          );
-        } catch (err) {
-          // ignore
+        const panel = _getAnnotationsPanel();
+        if (panel && typeof panel.toggle === 'function') {
+          panel.toggle(btnAnnotationNotif);
+          LogHelper.log('[HEADER] RFC-0203 M4: annotation panel toggled');
+        } else {
+          LogHelper.warn('[HEADER] RFC-0203: HeaderAnnotationsPanel unavailable in MyIOLibrary');
+          try {
+            const total = window.AnnotationServiceOrchestrator?.getTotalCount?.() ?? 0;
+            alert(
+              `Painel indisponível (MyIOLibrary não carregado).\n\n` +
+                `${total} anotações ativas no Customer.\n` +
+                `Acesso individual via card → SettingsModal → Anotações.`
+            );
+          } catch (err) {
+            // ignore
+          }
         }
       });
 
