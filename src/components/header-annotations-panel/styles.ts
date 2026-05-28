@@ -31,12 +31,33 @@ export const HEADER_ANNOTATIONS_STYLES = `
 }
 
 .myio-annotations-panel.maximized {
-  width: 90vw;
-  height: 90vh;
-  max-height: 90vh;
+  width: 90vw !important;
+  height: 90vh !important;
+  max-height: 90vh !important;
   top: 5vh !important;
   left: 5vw !important;
 }
+.myio-annotations-panel.is-dragging {
+  cursor: grabbing;
+  user-select: none;
+}
+.myio-annotations-panel.is-dragging * {
+  pointer-events: none;
+}
+.myio-annotations-panel-header[data-drag-handle] {
+  cursor: grab;
+}
+.myio-annotations-panel-header[data-drag-handle]:active {
+  cursor: grabbing;
+}
+.myio-annotations-panel-action.is-active {
+  background: rgba(108, 92, 231, 0.18);
+  color: #4c3aac;
+}
+
+/* Virtual list bookkeeping styles (RFC-0203 M6) */
+.myio-vlist-container { /* container is .myio-annotations-body in practice */ }
+.myio-vlist-viewport { will-change: transform; }
 
 /* Header */
 .myio-annotations-panel-header {

@@ -1794,4 +1794,14 @@ export {
 export type {
   AnnotationSortKey,
 } from './services/annotations/types';
+// RFC-0203 M6 — VirtualList helper (used by HeaderAnnotationsPanel when items > 100)
+export {
+  VirtualList,
+  shouldVirtualize as shouldVirtualizeAnnotationList,
+  VIRTUAL_SCROLL_THRESHOLD as ANNOTATION_VIRTUAL_THRESHOLD,
+} from './components/header-annotations-panel/VirtualList';
+export type {
+  VirtualRow,
+  VirtualListOptions,
+} from './components/header-annotations-panel/VirtualList';
 

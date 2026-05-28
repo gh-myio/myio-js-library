@@ -37,6 +37,11 @@ import {
   withSearchTerm,
   countAnnotationsInGroups,
 } from './searchSortFilter';
+import {
+  VirtualList,
+  shouldVirtualize,
+  type VirtualRow,
+} from './VirtualList';
 import type {
   AnnotatedDevice,
   AnnotationFilter,
@@ -82,12 +87,21 @@ export class HeaderAnnotationsPanel {
   private sortBy: AnnotationSortKey = DEFAULT_SORT;
   private filter: AnnotationFilter = createDefaultFilter();
   private isOpen = false;
+  // RFC-0203 M6 — Tooltip behaviors state
+  private isPinned = false;
+  private isMaximized = false;
+  private isDragging = false;
+  private dragOffset: { x: number; y: number } = { x: 0, y: 0 };
+  private vlist: VirtualList | null = null;
   private readonly opts: Required<HeaderAnnotationsPanelOptions>;
 
   // Bound listeners stored for removal
   private readonly _onEscKey: (e: KeyboardEvent) => void;
   private readonly _onClickOutside: (e: MouseEvent) => void;
   private readonly _onAnnotationsRefreshed: () => void;
+  private readonly _onDragMove: (e: MouseEvent) => void;
+  private readonly _onDragEnd: () => void;
+  private readonly _onFocusTrap: (e: KeyboardEvent) => void;
 
   // Debounce timer for search input
   private _searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -112,6 +126,8 @@ export class HeaderAnnotationsPanel {
     };
     this._onClickOutside = (e) => {
       if (!this.isOpen || !this.root) return;
+      // AC-33: pinned panel ignores click-outside close
+      if (this.isPinned) return;
       const target = e.target as Node | null;
       if (!target) return;
       if (this.root.contains(target)) return;
@@ -120,6 +136,47 @@ export class HeaderAnnotationsPanel {
     };
     this._onAnnotationsRefreshed = () => {
       if (this.isOpen) this._render();
+    };
+
+    // RFC-0203 M6 — drag handlers
+    this._onDragMove = (e: MouseEvent) => {
+      if (!this.isDragging || !this.root) return;
+      e.preventDefault();
+      const left = e.clientX - this.dragOffset.x;
+      const top = e.clientY - this.dragOffset.y;
+      // Clamp within viewport so user can't lose the panel offscreen
+      const maxLeft = window.innerWidth - 80;
+      const maxTop = window.innerHeight - 40;
+      this.root.style.left = `${Math.max(0, Math.min(left, maxLeft))}px`;
+      this.root.style.top = `${Math.max(0, Math.min(top, maxTop))}px`;
+    };
+    this._onDragEnd = () => {
+      if (!this.isDragging) return;
+      this.isDragging = false;
+      if (this.root) this.root.classList.remove('is-dragging');
+      window.removeEventListener('mousemove', this._onDragMove);
+      window.removeEventListener('mouseup', this._onDragEnd);
+    };
+
+    // AC-34: focus trap when maximized
+    this._onFocusTrap = (e: KeyboardEvent) => {
+      if (!this.isMaximized || !this.root || e.key !== 'Tab') return;
+      const focusables = Array.from(
+        this.root.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [tabindex="0"], input:not([disabled]), select:not([disabled])'
+        )
+      ).filter((el) => el.offsetParent !== null);
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (e.shiftKey && active === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
     };
   }
 
@@ -168,10 +225,17 @@ export class HeaderAnnotationsPanel {
   /** Remove the panel DOM + listeners. After this, `show()` recreates. */
   destroy(): void {
     this._unbindWindowListeners();
+    if (this.vlist) {
+      this.vlist.destroy();
+      this.vlist = null;
+    }
     if (this.root && this.root.parentNode) this.root.parentNode.removeChild(this.root);
     this.root = null;
     this.anchorButton = null;
     this.isOpen = false;
+    this.isPinned = false;
+    this.isMaximized = false;
+    this.isDragging = false;
   }
 
   /** Test/inspection helper. */
@@ -292,6 +356,8 @@ export class HeaderAnnotationsPanel {
       window.addEventListener('mousedown', this._onClickOutside, true);
     }, 0);
     window.addEventListener('myio:annotations-refreshed', this._onAnnotationsRefreshed);
+    // AC-34: focus trap when maximized
+    window.addEventListener('keydown', this._onFocusTrap);
   }
 
   private _unbindWindowListeners(): void {
@@ -299,14 +365,86 @@ export class HeaderAnnotationsPanel {
     window.removeEventListener('keydown', this._onEscKey);
     window.removeEventListener('mousedown', this._onClickOutside, true);
     window.removeEventListener('myio:annotations-refreshed', this._onAnnotationsRefreshed);
+    window.removeEventListener('keydown', this._onFocusTrap);
+    // Ensure drag listeners are also unbound on full close
+    window.removeEventListener('mousemove', this._onDragMove);
+    window.removeEventListener('mouseup', this._onDragEnd);
   }
 
   private _render(): void {
     if (!this.root) return;
+    // Destroy any prior VirtualList before re-rendering
+    if (this.vlist) {
+      this.vlist.destroy();
+      this.vlist = null;
+    }
     const orch = this.opts.getOrchestrator();
     this.root.innerHTML = this._renderHTML(orch);
     this._bindInteractiveElements();
+    this._maybeActivateVirtualScroll(orch);
   }
+
+  /**
+   * AC-28 — Replace the body's flat innerHTML with a VirtualList when total
+   * item count exceeds the threshold (100). Below the threshold, the static
+   * render path stays as-is for simplicity.
+   */
+  private _maybeActivateVirtualScroll(
+    orch: AnnotationServiceOrchestratorShape | null
+  ): void {
+    if (!this.root) return;
+    const body = this.root.querySelector<HTMLDivElement>('#myio-anno-body');
+    if (!body) return;
+    if (!orch) return;
+
+    const rawGroups = orch.getGroups(this.activeTab, this.filter);
+    const groups = sortGroups(rawGroups, this.sortBy);
+    const totalItems = countAnnotationsInGroups(groups);
+
+    if (!shouldVirtualize(totalItems)) return; // AC-28 — stay on static render
+
+    // Build flat rows: one row per group header + one per annotation item
+    const term = this.filter.searchTerm || '';
+    const rows: VirtualRow[] = [];
+    for (const g of groups) {
+      const isNoIdentifier =
+        this.activeTab === 'identifier' && g.key === 'Sem Identificador';
+      const groupClass = isNoIdentifier
+        ? 'myio-annotations-group myio-annotations-group--no-id'
+        : 'myio-annotations-group';
+      rows.push({
+        key: `g:${g.key}`,
+        height: 40, // group header
+        render: () => `
+<header class="myio-annotations-group-header ${groupClass}">
+  ${g.icon ? `<span class="myio-annotations-group-icon" aria-hidden="true">${escapeHtml(g.icon)}</span>` : ''}
+  <span class="myio-annotations-group-label">${escapeHtml(g.label)}</span>
+  <span class="myio-annotations-group-count">${g.totalAnnotations}</span>
+</header>`,
+      });
+      for (const d of g.devices) {
+        for (const a of d.annotations) {
+          rows.push({
+            key: `i:${d.deviceId}:${a.id}`,
+            height: 78, // item card (text + meta + badges)
+            render: () => renderAnnotationItemCard(d as AnnotatedDevice, a, term),
+          });
+        }
+      }
+    }
+
+    this.vlist = new VirtualList({ container: body, rows });
+    // Re-bind item clicks since virtual rows are rendered after _bind...
+    body.addEventListener('click', this._onBodyClickDelegated);
+  }
+
+  /** Delegated click handler for items rendered by the VirtualList. */
+  private readonly _onBodyClickDelegated = (e: Event): void => {
+    const target = e.target as HTMLElement | null;
+    if (!target) return;
+    const item = target.closest<HTMLButtonElement>('.myio-annotations-item');
+    if (item) this._handleItemClick(item);
+  };
 
   private _renderHTML(orch: AnnotationServiceOrchestratorShape | null): string {
     const totalAllUnfiltered = orch?.getTotalCount?.() ?? 0;
@@ -335,12 +473,28 @@ export class HeaderAnnotationsPanel {
     const bodyHtml = this._renderBody(groups);
 
     return `
-<div class="myio-annotations-panel-header" data-region="header">
+<div class="myio-annotations-panel-header" data-region="header" data-drag-handle>
   <h2 class="myio-annotations-panel-title" id="${PANEL_DOM_ID}-title">
     <span class="myio-annotations-icon" aria-hidden="true">📋</span>Anotações
   </h2>
   <span class="myio-annotations-panel-meta">${totalAllUnfiltered} ativas · ${pending} pendentes · ${overdue} vencidas</span>
   <div class="myio-annotations-panel-actions">
+    <button
+      class="myio-annotations-panel-action ${this.isMaximized ? 'is-active' : ''}"
+      type="button"
+      data-action="maximize"
+      title="${this.isMaximized ? 'Restaurar' : 'Maximizar'}"
+      aria-label="${this.isMaximized ? 'Restaurar tamanho' : 'Maximizar painel'}"
+      aria-pressed="${this.isMaximized}"
+    >${this.isMaximized ? '🗗' : '⤢'}</button>
+    <button
+      class="myio-annotations-panel-action ${this.isPinned ? 'is-active' : ''}"
+      type="button"
+      data-action="pin"
+      title="${this.isPinned ? 'Desafixar' : 'Afixar painel'}"
+      aria-label="${this.isPinned ? 'Desafixar painel' : 'Afixar painel'}"
+      aria-pressed="${this.isPinned}"
+    >📌</button>
     <button class="myio-annotations-panel-action" type="button" data-action="close" title="Fechar" aria-label="Fechar painel">✕</button>
   </div>
 </div>
@@ -527,6 +681,54 @@ ${this._renderToolbar(filteredCount, totalAllUnfiltered)}
     // Header actions
     const closeBtn = this.root.querySelector<HTMLButtonElement>('[data-action="close"]');
     if (closeBtn) closeBtn.addEventListener('click', () => this.hide());
+
+    // RFC-0203 M6 — Pin button (AC-32, AC-33)
+    const pinBtn = this.root.querySelector<HTMLButtonElement>('[data-action="pin"]');
+    if (pinBtn) {
+      pinBtn.addEventListener('click', () => {
+        this.isPinned = !this.isPinned;
+        if (this.isOpen) this._render();
+      });
+    }
+
+    // RFC-0203 M6 — Maximize button (AC-32, AC-34)
+    const maxBtn = this.root.querySelector<HTMLButtonElement>('[data-action="maximize"]');
+    if (maxBtn) {
+      maxBtn.addEventListener('click', () => {
+        this.isMaximized = !this.isMaximized;
+        if (this.root) {
+          if (this.isMaximized) {
+            this.root.classList.add('maximized');
+            // Reset inline positioning so CSS .maximized rules apply
+            this.root.style.width = '';
+          } else {
+            this.root.classList.remove('maximized');
+            // Re-position relative to anchor on restore
+            this._position();
+          }
+        }
+        if (this.isOpen) this._render();
+      });
+    }
+
+    // RFC-0203 M6 — Drag handle (AC-32)
+    const dragHandle = this.root.querySelector<HTMLElement>('[data-drag-handle]');
+    if (dragHandle) {
+      dragHandle.addEventListener('mousedown', (e) => {
+        // Ignore drags initiated on header action buttons
+        const target = e.target as HTMLElement;
+        if (target.closest('.myio-annotations-panel-action')) return;
+        if (this.isMaximized) return; // no drag when maximized
+        if (!this.root) return;
+        const rect = this.root.getBoundingClientRect();
+        this.dragOffset = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        this.isDragging = true;
+        this.root.classList.add('is-dragging');
+        window.addEventListener('mousemove', this._onDragMove);
+        window.addEventListener('mouseup', this._onDragEnd);
+        e.preventDefault();
+      });
+    }
 
     const refreshBtn = this.root.querySelector<HTMLButtonElement>('[data-action="refresh"]');
     if (refreshBtn) {
