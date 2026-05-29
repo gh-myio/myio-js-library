@@ -303,6 +303,18 @@
   cursor: progress !important;
   opacity: 1 !important;
 }
+
+/* RFC-0203 follow-up — active filter state mirrors the alarm button
+   (toggle filter: show only devices WITH annotations). */
+.tbx-btn-annotation-notif.annotation-filter-active {
+  background: #ede9fe !important;
+  border: 1px solid #6c5ce7 !important;
+  color: #4c3aac !important;
+  box-shadow: 0 0 0 2px rgba(108, 92, 231, 0.28) !important;
+}
+.tbx-btn-annotation-notif.annotation-filter-active .tbx-ico {
+  filter: none;
+}
 .tbx-btn-alarm-notif[disabled],
 .tbx-btn-alarm-notif.is-loading {
   background: rgba(220, 38, 38, 0.12) !important;

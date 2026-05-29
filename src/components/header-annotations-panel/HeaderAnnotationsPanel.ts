@@ -548,7 +548,7 @@ export class HeaderAnnotationsPanel {
     // src/utils/InfoTooltip.ts.
     return `
 <div class="myio-annotations-panel-header" data-region="header" data-drag-handle>
-  <span class="myio-annotations-icon" aria-hidden="true">📋</span>
+  <span class="myio-annotations-icon" aria-hidden="true">✏️</span>
   <h2 class="myio-annotations-panel-title" id="${PANEL_DOM_ID}-title">Anotações</h2>
   <span class="myio-annotations-panel-meta">${totalAllUnfiltered} ativas · ${pending} pendentes · ${overdue} vencidas</span>
   <div class="myio-annotations-panel-actions">
@@ -754,7 +754,7 @@ ${this._renderToolbar(filteredCount, totalAllUnfiltered)}
       const hasFilters = this.filter.searchTerm || this._activeFilterCount() > 0;
       return `
 <div class="myio-annotations-empty">
-  <div class="myio-annotations-empty-icon" aria-hidden="true">📋</div>
+  <div class="myio-annotations-empty-icon" aria-hidden="true">✏️</div>
   <div>${hasFilters ? 'Nada encontrado para o filtro / busca atual.' : 'Nenhuma anotação ativa.'}</div>
 </div>`;
     }

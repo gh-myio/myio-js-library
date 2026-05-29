@@ -2382,25 +2382,43 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         }
         return _annotationsPanel;
       }
+      // RFC-0203 follow-up — click toggles the global "only devices WITH
+      // annotations" filter, mirroring the alarm bell pattern. The panel
+      // continues to open via hover (handlers below). Filter event:
+      //   myio:global-annotation-filter { mode: 'ativado' | 'apenas_com_anotacao' }
+      let _annotationFilterActive = false;
       btnAnnotationNotif.addEventListener('click', (e) => {
         e.stopPropagation();
-        const panel = _getAnnotationsPanel();
-        if (panel && typeof panel.toggle === 'function') {
-          panel.toggle(btnAnnotationNotif);
-          LogHelper.log('[HEADER] RFC-0203 M4: annotation panel toggled');
-        } else {
-          LogHelper.warn('[HEADER] RFC-0203: HeaderAnnotationsPanel unavailable in MyIOLibrary');
-          try {
-            const total = window.AnnotationServiceOrchestrator?.getTotalCount?.() ?? 0;
-            window.alert(
-              `Painel indisponível (MyIOLibrary não carregado).\n\n` +
-                `${total} anotações ativas no Customer.\n` +
-                `Acesso individual via card → SettingsModal → Anotações.`
+        if (btnAnnotationNotif.classList.contains('is-loading')) return;
+        // Only activate if there are annotations to filter to; deactivating
+        // is always allowed.
+        if (!_annotationFilterActive) {
+          const total = window.AnnotationServiceOrchestrator?.getTotalCount?.() ?? 0;
+          if (total === 0) {
+            LogHelper.log(
+              '[HEADER] annotation filter suppressed — no annotations in customer scope'
             );
-          } catch {
-            // ignore — alert may be suppressed in iframe contexts
+            return;
           }
         }
+        _annotationFilterActive = !_annotationFilterActive;
+        btnAnnotationNotif.classList.toggle('annotation-filter-active', _annotationFilterActive);
+        const mode = _annotationFilterActive ? 'apenas_com_anotacao' : 'ativado';
+        window.dispatchEvent(
+          new CustomEvent('myio:global-annotation-filter', { detail: { mode } })
+        );
+        LogHelper.log('[HEADER] RFC-0203 global annotation filter →', mode);
+      });
+
+      // Reverse sync: TELEMETRY may flip the filter manually (e.g. via its
+      // own filter modal). Mirror state on the button.
+      window.addEventListener('myio:telemetry-annotation-filter-changed', (ev) => {
+        const mode = ev.detail?.mode || 'ativado';
+        _annotationFilterActive = mode === 'apenas_com_anotacao';
+        btnAnnotationNotif.classList.toggle(
+          'annotation-filter-active',
+          _annotationFilterActive
+        );
       });
 
       // RFC-0203 follow-up — hover-to-open + delayed auto-close, parity
