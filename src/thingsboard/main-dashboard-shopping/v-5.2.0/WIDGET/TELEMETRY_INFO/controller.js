@@ -161,13 +161,57 @@ function getWidgetDomain() {
     e.stopPropagation();
     const id = btn.getAttribute('data-devtoggle');
     if (!id) return;
-    const scope =
+
+    // First try to scope the lookup to the closest tooltip so a pinned
+    // clone toggles its OWN list (and not the original's). Then fall
+    // back to a global lookup of all matching IDs and pick the one
+    // closest to the clicked button (handles edge cases where the
+    // tooltip root selector evolves, or the button/list end up in
+    // different ancestor chains).
+    let el = null;
+    const tooltipRoot =
       btn.closest('.myio-info-tooltip') ||
       btn.closest('.myio-info-tooltip__content') ||
-      btn.ownerDocument ||
-      document;
-    const el = scope.querySelector('#rfc196-devlist-' + id);
-    if (!el) return;
+      btn.closest('.tnt-tooltip') ||
+      btn.closest('.ant-tooltip') ||
+      null;
+    if (tooltipRoot) {
+      el = tooltipRoot.querySelector('#rfc196-devlist-' + id);
+    }
+    if (!el) {
+      // Fallback A: same parent / nearby sibling (button + list are
+      // emitted adjacent in buildDeviceExpandList).
+      el =
+        btn.parentElement &&
+        btn.parentElement.querySelector('#rfc196-devlist-' + id);
+    }
+    if (!el) {
+      // Fallback B: getElementById against all instances; if multiple
+      // (clone scenario), pick the one whose root is the SAME tooltip
+      // ancestor as the button.
+      const doc = btn.ownerDocument || document;
+      const all = doc.querySelectorAll('#rfc196-devlist-' + id);
+      if (all.length === 1) {
+        el = all[0];
+      } else if (all.length > 1 && tooltipRoot) {
+        for (const candidate of all) {
+          if (tooltipRoot.contains(candidate)) {
+            el = candidate;
+            break;
+          }
+        }
+        if (!el) el = all[0]; // last-resort default
+      } else if (all.length > 0) {
+        el = all[0];
+      } else {
+        el = doc.getElementById('rfc196-devlist-' + id);
+      }
+    }
+    if (!el) {
+      // Diagnostic: log so we can spot future regressions in DevTools.
+      console.warn('[rfc196] expand list not found for id=' + id);
+      return;
+    }
     const opening = el.style.display === 'none' || el.style.display === '';
     el.style.display = opening ? 'block' : 'none';
     btn.textContent = opening ? '\u2212' : '+';
