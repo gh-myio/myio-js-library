@@ -27,6 +27,12 @@
         "default": "https://alarms-api.a.myio-bas.com",
         "description": "RFC-0178: Base URL for the Alarms Backend REST API (without trailing slash and without /api/v1)."
       },
+      "alarmsApiKey": {
+        "title": "Alarms API Key (X-API-Key header)",
+        "type": "string",
+        "default": "",
+        "description": "RFC-0178: Tenant bundle key sent as the X-API-Key header on every Alarms API request. Without it the backend responds 401 Unauthorized. Example: gcdr_myio_tenant_bundle_key_2026"
+      },
       "gcdrApiBaseUrl": {
         "title": "GCDR API Base URL",
         "type": "string",
@@ -260,6 +266,10 @@
     },
     {
       "key": "alarmsApiBaseUrl",
+      "type": "text"
+    },
+    {
+      "key": "alarmsApiKey",
       "type": "text"
     },
     {

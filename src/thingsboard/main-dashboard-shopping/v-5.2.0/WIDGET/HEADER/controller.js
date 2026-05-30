@@ -2160,6 +2160,10 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       if (!apiKey || window.MyIOUtils?.ticketsEnabled !== true || !btnTicketNotif) return;
 
       btnTicketNotif.style.display = '';
+      // RFC-0203 follow-up — remove loading spinner now that ticket config is ready
+      btnTicketNotif.classList.remove('is-loading');
+      btnTicketNotif.removeAttribute('aria-busy');
+      btnTicketNotif.setAttribute('title', 'Chamados (FreshDesk)');
 
       // Bind events only once
       if (!btnTicketNotif.dataset.bound) {
@@ -2292,9 +2296,20 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         badge.style.display = 'none';
       }
     }
+    // RFC-0203 follow-up — strip the loading spinner from the alarm button
+    // once we have any signal that alarms data is available (configured OR
+    // first refresh OR cache seeded). Idempotent.
+    function _stripAlarmLoading() {
+      if (!btnAlarmNotif) return;
+      if (!btnAlarmNotif.classList.contains('is-loading')) return;
+      btnAlarmNotif.classList.remove('is-loading');
+      btnAlarmNotif.removeAttribute('aria-busy');
+      btnAlarmNotif.setAttribute('title', 'Notificações de Alarme');
+    }
     window.addEventListener('myio:alarms-updated', (e) => {
       _lastAlarmList = e.detail?.alarms || [];
       _updateAlarmNotifBadge(_countVisible(_lastAlarmList));
+      _stripAlarmLoading();
     });
     // Re-compute badge when offline toggle changes
     window.addEventListener('myio:offline-alarms-toggle', () => {
@@ -2304,6 +2319,133 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     const _cachedAlarms = window.MyIOOrchestrator?.customerAlarms || [];
     _lastAlarmList = _cachedAlarms;
     if (_cachedAlarms.length > 0) _updateAlarmNotifBadge(_countVisible(_cachedAlarms));
+    if (window.MyIOOrchestrator?.alarmsConfigured || _cachedAlarms.length > 0) {
+      _stripAlarmLoading();
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // RFC-0203 M3 — Annotations button wire-up (panel comes in M4)
+    // ─────────────────────────────────────────────────────────────────────────
+    const btnAnnotationNotif = document.getElementById('tbx-btn-annotation-notif');
+    if (btnAnnotationNotif) {
+      const _annotationBadge = document.getElementById('tbx-annotation-notif-badge');
+
+      function _updateAnnotationBadge() {
+        const orch = window.AnnotationServiceOrchestrator;
+        const total = orch?.getTotalCount?.() ?? 0;
+        const pending = orch?.getPendingCount?.() ?? 0;
+        const overdue = orch?.getOverdueCount?.() ?? 0;
+
+        if (_annotationBadge) {
+          if (total > 0) {
+            _annotationBadge.textContent = total > 99 ? '99+' : String(total);
+            _annotationBadge.style.display = '';
+          } else {
+            _annotationBadge.style.display = 'none';
+          }
+        }
+        // AC-6: dynamic aria-label
+        btnAnnotationNotif.setAttribute(
+          'aria-label',
+          `Anotações operacionais: ${pending} pendentes, ${overdue} vencidas`
+        );
+      }
+
+      function _syncAnnotationButtonVisibility() {
+        const configured = !!window.MyIOOrchestrator?.annotationsConfigured;
+        // RFC-0203 follow-up: button is visible from page load with a loading
+        // spinner (set in template.html with .is-loading + disabled). Once
+        // orchestrator builds, remove the loading state so it's clickable.
+        btnAnnotationNotif.style.display = '';
+        if (configured) {
+          btnAnnotationNotif.classList.remove('is-loading');
+          btnAnnotationNotif.removeAttribute('disabled');
+          btnAnnotationNotif.removeAttribute('aria-busy');
+          btnAnnotationNotif.setAttribute('title', 'Anotações operacionais');
+          _updateAnnotationBadge();
+        } else {
+          btnAnnotationNotif.classList.add('is-loading');
+          btnAnnotationNotif.setAttribute('disabled', '');
+          btnAnnotationNotif.setAttribute('aria-busy', 'true');
+          btnAnnotationNotif.setAttribute('title', 'Anotações operacionais (carregando…)');
+        }
+      }
+
+      // RFC-0203 M4 — mount HeaderAnnotationsPanel (3 tabs, static render).
+      // Singleton acessed lazily via MyIOLibrary; if unavailable, fall back to a soft hint.
+      let _annotationsPanel = null;
+      function _getAnnotationsPanel() {
+        if (_annotationsPanel) return _annotationsPanel;
+        const factory = window.MyIOLibrary?.getHeaderAnnotationsPanel;
+        if (typeof factory === 'function') {
+          _annotationsPanel = factory();
+        }
+        return _annotationsPanel;
+      }
+      // RFC-0203 follow-up — click toggles the global "only devices WITH
+      // annotations" filter, mirroring the alarm bell pattern. The panel
+      // continues to open via hover (handlers below). Filter event:
+      //   myio:global-annotation-filter { mode: 'ativado' | 'apenas_com_anotacao' }
+      let _annotationFilterActive = false;
+      btnAnnotationNotif.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (btnAnnotationNotif.classList.contains('is-loading')) return;
+        // Only activate if there are annotations to filter to; deactivating
+        // is always allowed.
+        if (!_annotationFilterActive) {
+          const total = window.AnnotationServiceOrchestrator?.getTotalCount?.() ?? 0;
+          if (total === 0) {
+            LogHelper.log(
+              '[HEADER] annotation filter suppressed — no annotations in customer scope'
+            );
+            return;
+          }
+        }
+        _annotationFilterActive = !_annotationFilterActive;
+        btnAnnotationNotif.classList.toggle('annotation-filter-active', _annotationFilterActive);
+        const mode = _annotationFilterActive ? 'apenas_com_anotacao' : 'ativado';
+        window.dispatchEvent(
+          new CustomEvent('myio:global-annotation-filter', { detail: { mode } })
+        );
+        LogHelper.log('[HEADER] RFC-0203 global annotation filter →', mode);
+      });
+
+      // Reverse sync: TELEMETRY may flip the filter manually (e.g. via its
+      // own filter modal). Mirror state on the button.
+      window.addEventListener('myio:telemetry-annotation-filter-changed', (ev) => {
+        const mode = ev.detail?.mode || 'ativado';
+        _annotationFilterActive = mode === 'apenas_com_anotacao';
+        btnAnnotationNotif.classList.toggle(
+          'annotation-filter-active',
+          _annotationFilterActive
+        );
+      });
+
+      // RFC-0203 follow-up — hover-to-open + delayed auto-close, parity
+      // with AlarmNotificationTooltip. Disabled while in loading state.
+      btnAnnotationNotif.addEventListener('mouseenter', () => {
+        if (btnAnnotationNotif.classList.contains('is-loading')) return;
+        const panel = _getAnnotationsPanel();
+        if (panel && typeof panel.showFromHover === 'function') {
+          panel.showFromHover(btnAnnotationNotif);
+        }
+      });
+      btnAnnotationNotif.addEventListener('mouseleave', () => {
+        if (btnAnnotationNotif.classList.contains('is-loading')) return;
+        const panel = _getAnnotationsPanel();
+        if (panel && typeof panel.startDelayedHide === 'function') {
+          panel.startDelayedHide();
+        }
+      });
+
+      // Listeners — orchestrator builds in MAIN_VIEW, dispatches these events
+      window.addEventListener('myio:annotations-ready', _syncAnnotationButtonVisibility);
+      window.addEventListener('myio:annotations-refreshed', _updateAnnotationBadge);
+      window.addEventListener('myio:annotation-changed', _updateAnnotationBadge);
+
+      // Initial sync — orchestrator may already be ready by the time HEADER mounts
+      _syncAnnotationButtonVisibility();
+    }
 
     // ─────────────────────────────────────────────────────────────────────────
     // RFC-0045 FIX: Track last emission to prevent duplicates

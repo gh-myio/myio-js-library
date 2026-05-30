@@ -792,6 +792,32 @@ function _getVisibleAlarmCount(gcdrDeviceId) {
   return alarms.filter((a) => !_isOfflineAlarmEntry(a)).length;
 }
 
+// RFC-0203 follow-up — detect if a STATE.itemsBase item has at least 1
+// non-archived annotation. Used by the global annotation filter when
+// the AnnotationServiceOrchestrator is unavailable (fallback path).
+function _itemHasActiveAnnotation(item) {
+  if (!item) return false;
+  let raw = item.log_annotations;
+  if (raw == null || raw === '') return false;
+  let parsed;
+  if (typeof raw === 'string') {
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return false;
+    }
+  } else {
+    parsed = raw;
+  }
+  let arr;
+  if (Array.isArray(parsed)) arr = parsed;
+  else if (parsed && Array.isArray(parsed.annotations)) arr = parsed.annotations;
+  else return false;
+  return arr.some(
+    (a) => a && typeof a === 'object' && a.status !== 'archived'
+  );
+}
+
 // RFC-0183: Append alarm badge to a card element if the device has active alarms.
 // gcdrDeviceId comes from entityObject.gcdrDeviceId (set via RFC-0180).
 function addAlarmBadge(cardElement, gcdrDeviceId) {
@@ -1725,6 +1751,9 @@ const STATE = {
   sortMode: /** @type {'cons_desc'|'cons_asc'|'alpha_asc'|'alpha_desc'} */ ('cons_desc'),
   /** @type {'ativado'|'apenas_ativados'|'apenas_sem_alarmes'} */
   alarmFilter: 'ativado',
+  /** RFC-0203 — Annotation global filter from HEADER button 📋
+   *  @type {'ativado'|'apenas_com_anotacao'} */
+  annotationFilter: 'ativado',
   firstHydrates: 0,
 };
 
@@ -2120,6 +2149,24 @@ function applyFilters(enriched, searchTerm, selectedIds, sortMode, alarmFilter) 
         const hasAlarm = x.gcdrDeviceId && _getVisibleAlarmCount(x.gcdrDeviceId) > 0;
         return alarmFilter === 'apenas_ativados' ? hasAlarm : !hasAlarm;
       });
+    }
+  }
+
+  // RFC-0203 follow-up — Annotation filter: when active, only show devices
+  // with at least 1 non-archived annotation. Mirrors the alarm filter
+  // mechanism (dispatched from HEADER bell button counterpart 📋).
+  const annotationFilter = STATE.annotationFilter || 'ativado';
+  if (annotationFilter === 'apenas_com_anotacao') {
+    const ano = window.AnnotationServiceOrchestrator;
+    if (ano && typeof ano.getByDevice === 'function') {
+      v = v.filter((x) => {
+        const dev = ano.getByDevice(x.id);
+        if (!dev || !dev.annotations) return false;
+        return dev.annotations.some((a) => a.status !== 'archived');
+      });
+    } else {
+      // Fallback: parse log_annotations on the item itself if present
+      v = v.filter((x) => _itemHasActiveAnnotation(x));
     }
   }
 
@@ -6400,6 +6447,22 @@ self.onInit = async function () {
     // Sync the alarm-filter select in the filter modal
     $modal().find('#alarmFilterSelect').val(mode);
     reflowFromState();
+  });
+
+  // RFC-0203 follow-up — Listen for global annotation filter dispatched by
+  // HEADER annotation button 📋. Modes: 'ativado' (show all) |
+  // 'apenas_com_anotacao' (only devices with at least 1 non-archived annotation).
+  window.addEventListener('myio:global-annotation-filter', (ev) => {
+    const mode = ev.detail?.mode || 'ativado';
+    STATE.annotationFilter = /** @type {'ativado'|'apenas_com_anotacao'} */ (mode);
+    reflowFromState();
+    // Echo back so other listeners (HEADER button, future filter modal)
+    // can sync UI without dispatching to themselves.
+    window.dispatchEvent(
+      new CustomEvent('myio:telemetry-annotation-filter-changed', {
+        detail: { mode },
+      })
+    );
   });
 
   // Show #btnPresetup, #btnDownloadDeviceMap and #btnSyncGCDR only for MyIO users (@myio.com.br)

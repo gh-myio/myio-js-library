@@ -146,32 +146,109 @@ function getWidgetDomain() {
   document.head.appendChild(style);
 })();
 
-// RFC-0196: Global toggle for expandable device lists inside tooltips.
-// Registered as capture-phase listener so it fires before InfoTooltip dismiss handlers.
+// RFC-0196: Inline toggle for expandable device lists inside (i) tooltips.
+// Switched from capture-phase document listener to inline onclick on each
+// button so the handler fires regardless of portal/clone/stopPropagation
+// scenarios \u2014 see _installRfc196Toggle below for full notes.
 //
+// Original capture-phase listener kept as a SAFETY NET so the toggle still
+// works if some legacy embed re-uses old HTML without the onclick attribute.
+
+// Inline handler installed on `window` so the onclick attribute in the
+// generated button HTML can call it directly. Idempotent across re-inits.
+(function _installRfc196InlineToggle() {
+  if (typeof window === 'undefined') return;
+  if (window.__myioRfc196Toggle) return;
+  window.__myioRfc196Toggle = function (btn, ev) {
+    // Diagnostic trace \u2014 inspect via window.__rfc196LastCall in console.
+    var trace = { stage: 'enter', btn: btn, ev: ev, ts: Date.now() };
+    window.__rfc196LastCall = trace;
+    try {
+      if (ev && typeof ev.stopPropagation === 'function') ev.stopPropagation();
+      if (ev && typeof ev.preventDefault === 'function') ev.preventDefault();
+      if (!btn || !btn.getAttribute) { trace.stage = 'no-btn'; return false; }
+      var id = btn.getAttribute('data-devtoggle');
+      trace.id = id;
+      if (!id) { trace.stage = 'no-id'; return false; }
+      var doc = btn.ownerDocument || document;
+      var el = null;
+      var tooltipRoot =
+        (btn.closest && (btn.closest('.myio-info-tooltip') ||
+          btn.closest('.myio-info-tooltip__content') ||
+          btn.closest('.tnt-tooltip') ||
+          btn.closest('.ant-tooltip'))) ||
+        null;
+      trace.tooltipRoot = tooltipRoot;
+      if (tooltipRoot) {
+        el = tooltipRoot.querySelector('#rfc196-devlist-' + id);
+        trace.viaTooltip = el;
+      }
+      if (!el && btn.parentElement) {
+        el = btn.parentElement.querySelector('#rfc196-devlist-' + id);
+        trace.viaParent = el;
+        trace.parentHTML = btn.parentElement.innerHTML.slice(0, 500);
+      }
+      if (!el) {
+        var all = doc.querySelectorAll('#rfc196-devlist-' + id);
+        trace.queryAllCount = all.length;
+        if (all.length === 1) el = all[0];
+        else if (all.length > 1 && tooltipRoot) {
+          for (var i = 0; i < all.length; i++) {
+            if (tooltipRoot.contains(all[i])) { el = all[i]; break; }
+          }
+          if (!el) el = all[0];
+        } else if (all.length > 0) {
+          el = all[0];
+        } else {
+          el = doc.getElementById('rfc196-devlist-' + id);
+          trace.viaGetById = el;
+        }
+      }
+      trace.el = el;
+      if (!el) {
+        trace.stage = 'list-not-found';
+        // Also dump sibling chain so we can see what IS there.
+        if (btn.parentElement) {
+          trace.siblings = Array.from(btn.parentElement.children).map(function (c) {
+            return c.tagName + '#' + c.id + '.' + (c.className || '');
+          });
+        }
+        console.warn('[rfc196] list not found', trace);
+        return false;
+      }
+      var opening = el.style.display === 'none' || el.style.display === '';
+      trace.displayBefore = el.style.display;
+      trace.opening = opening;
+      el.style.display = opening ? 'block' : 'none';
+      btn.textContent = opening ? '\u2212' : '+';
+      btn.setAttribute('aria-expanded', opening ? 'true' : 'false');
+      trace.displayAfter = el.style.display;
+      trace.stage = 'toggled';
+    } catch (err) {
+      trace.stage = 'error';
+      trace.error = err && err.message;
+      console.warn('[rfc196] toggle error', err);
+    }
+    return false;
+  };
+})();
+
 // When the InfoTooltip is pinned a clone is created \u2014 both original and clone
 // share the same id="rfc196-devlist-${id}". getElementById always returns the
 // first in DOM order, so the clone's button toggled the original's hidden list
 // and the clone's "+" appeared broken. Fix: scope the lookup to the button's
 // closest tooltip container.
+// Capture-phase listener (PRIMARY path). ThingsBoard widget CSP blocks inline
+// onclick attributes, so the document-level listener is the only reliable way
+// to receive clicks on `.rfc196-expand-btn` regardless of how the popup is
+// mounted (portal, pinned clone, etc).
 (function () {
   function _rfc196Toggle(e) {
     const btn = e.target && e.target.closest ? e.target.closest('.rfc196-expand-btn') : null;
     if (!btn) return;
-    e.stopPropagation();
-    const id = btn.getAttribute('data-devtoggle');
-    if (!id) return;
-    const scope =
-      btn.closest('.myio-info-tooltip') ||
-      btn.closest('.myio-info-tooltip__content') ||
-      btn.ownerDocument ||
-      document;
-    const el = scope.querySelector('#rfc196-devlist-' + id);
-    if (!el) return;
-    const opening = el.style.display === 'none' || el.style.display === '';
-    el.style.display = opening ? 'block' : 'none';
-    btn.textContent = opening ? '\u2212' : '+';
-    btn.setAttribute('aria-expanded', opening ? 'true' : 'false');
+    if (typeof window.__myioRfc196Toggle === 'function') {
+      window.__myioRfc196Toggle(btn, e);
+    }
   }
   document.addEventListener('click', _rfc196Toggle, true);
 })();
@@ -3554,8 +3631,12 @@ function buildDeviceExpandList(id, devices, formatFn) {
     </div>`;
     })
     .join('');
+  // No inline onclick — ThingsBoard CSP blocks inline event handlers.
+  // The capture-phase document listener registered at the top of this file
+  // handles all clicks on `.rfc196-expand-btn`.
   return (
-    `<button class="rfc196-expand-btn" data-devtoggle="${safeId}" aria-expanded="false" title="Expandir lista">+</button>` +
+    `<button type="button" class="rfc196-expand-btn" data-devtoggle="${safeId}" ` +
+    `aria-expanded="false" title="Expandir lista">+</button>` +
     `<div id="rfc196-devlist-${safeId}" style="display:none" class="rfc196-device-list">${rows}</div>`
   );
 }

@@ -1,11 +1,16 @@
 # Investigação de Alarme — OBRAMAX / Praia Grande (PG)
 
-> **Status:** 🔬 Em investigação
+> **Status:** ⏸️ **PAUSADO em 2026-05-28** — diagnóstico preliminar fechado; aguardando confirmação da hipótese de colisão (§9.11) e ações de campo (§1.1).
+> **Última atualização:** 2026-05-28
+> **Resumo curto:** flapping de 116 alarmes `Bomba Ligada` em 13 h (18/05 18:06 → 19/05 07:30) decifrado. Hipótese mais forte: **dois channels "Motor Ligado" homônimos colidindo no mesmo device TB** (§9.11). Falta query `device WHERE name ILIKE '%motor ligado%'` para confirmar 1 ou 2 entities.
+>
 > **Unidade:** Obramax Praia Grande (sufixo de device `(PG)`)
 > **Data do evento:** 2026-05-19, ~06:49 (GMT-3)
 > **Canal da evidência:** Grupo Telegram "Alarmes Grupo Especial de..." (bot `Myio Dashboard`)
 > **Evidência:** [`Evidencia_Alarme_Telegram_OBRAMAX_PraiaGrande.png`](./Evidencia_Alarme_Telegram_OBRAMAX_PraiaGrande.png)
 > **Rule chain de referência:** [`../bkp-rule-chain-thingsboard-obramax-2026-05-20-10-34.json`](../bkp-rule-chain-thingsboard-obramax-2026-05-20-10-34.json) (`ruleChain.name = "Obramax"`, `metadata.version = 48`)
+>
+> **🎯 Para retomar:** começar por **§1.1 (Itens em aberto)** — tem a query SQL pronta para confirmar/refutar a hipótese de colisão.
 
 ---
 

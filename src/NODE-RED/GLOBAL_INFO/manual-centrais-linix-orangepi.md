@@ -7,12 +7,16 @@
 
 ## 1. Visão Geral
 
-| Campo          | Valor                                          |
-| -------------- | ---------------------------------------------- |
-| Hardware       | Orange Pi <!-- modelo: ex. Orange Pi 3 LTS --> |
-| SO             | <!-- ex. Armbian 22.x / Ubuntu 20.04 -->       |
-| Node-RED       | <!-- versão: ex. 3.x -->                       |
-| Porta Node-RED | `1880`                                         |
+| Campo                  | Valor                                          |
+| ---------------------- | ---------------------------------------------- |
+| Hardware               | Orange Pi <!-- modelo: ex. Orange Pi 3 LTS --> |
+| SO                     | Imagem custom MyIO (rootfs gerenciado por **Mender**) |
+| Shell                  | **BusyBox `ash`** — *não* é bash. `uptime -p`/`-s` **não existem**; o prompt mostra `-sh:` em erros |
+| Init                   | `systemd` (com `DynamicUser=yes` para `myio-api` e Postgres — afeta paths, ver §4) |
+| Node-RED               | **`1.2.0-beta.1` — embarcado** no `myio-api.service` (não existe service `nodered`). Ver §4.1 |
+| Porta HTTP             | **`8080`** (Express + Node-RED rodam no mesmo processo) |
+| Editor Node-RED        | **`http://<ip-da-central>:8080/red`** |
+| Endpoints `http-in`    | **`http://<ip-da-central>:8080/api/<rota>`** |
 
 ---
 
@@ -166,58 +170,173 @@ ssh -i id_rsa root@200:bc45:34ee:59da:371a:cfe9:98d3:3805
 
 ## 3. Node-RED
 
+> ⚠️ **Não existe `nodered.service`** nessas centrais. O Node-RED roda **embarcado** dentro
+> do `myio-api.service` — todos os comandos abaixo gerenciam o `myio-api`. Reiniciar ele
+> reinicia o Node-RED, a REST API e o WebSocket juntos. Ver §4.1 para a arquitetura.
+
 ### 3.1 Verificar status
 
 ```bash
-systemctl status nodered
+systemctl status myio-api.service
 ```
 
 ### 3.2 Iniciar / Parar / Reiniciar
 
 ```bash
-systemctl start nodered
-systemctl stop nodered
-systemctl restart nodered
+systemctl start  myio-api.service
+systemctl stop   myio-api.service
+systemctl restart myio-api.service
 ```
 
 ### 3.3 Ver logs em tempo real
 
 ```bash
-journalctl -u nodered -f
+journalctl -u myio-api.service -f
 ```
 
 ### 3.4 Acessar editor Node-RED (browser)
 
 ```
-http://<ip-da-central>:1880
+http://<ip-da-central>:8080/red
 ```
+
+> Note: porta **`8080`** (não `1880`) e prefixo **`/red`** — definidos no `server.js` do
+> myio-api (`httpAdminRoot: '/red'`, `httpNodeRoot: '/api'`).
 
 ---
 
 ## 4. Arquivos e Diretórios
 
-| Caminho                                  | Descrição                       |
-| ---------------------------------------- | ------------------------------- |
-| <!-- ex. /root/.node-red/ -->            | Diretório principal do Node-RED |
-| <!-- ex. /root/.node-red/flows.json -->  | Flow principal                  |
-| <!-- ex. /root/.node-red/settings.js --> | Configurações do Node-RED       |
-| <!-- ex. /opt/myio/scripts/ -->          | Scripts JS customizados         |
+### 4.1 Arquitetura — `myio-api.service` embarca o Node-RED
 
-### 4.1 Editar um arquivo JS na central
+Diferente do padrão "Node-RED standalone", essas centrais rodam o Node-RED **como
+biblioteca** dentro de um Express custom (o `myio-api.service`). Um único processo Node.js
+serve a editor UI, os flows, e a REST API ao mesmo tempo.
+
+```
+┌───────────────────────────────────────────────────────────────────────────┐
+│ myio-api.service     (Node.js + Express + Node-RED embarcado)             │
+│                                                                           │
+│ WorkingDirectory: /usr/lib/node_modules/API                               │
+│ ExecStart:        /usr/bin/node /usr/lib/node_modules/API/server.js       │
+│                                                                           │
+│   server.js                                                               │
+│     ├─ express()  →  server.listen(8080)                                  │
+│     ├─ Sequelize ORM  →  DB hubot                                         │
+│     ├─ JWT (passport-jwt) auth                                            │
+│     └─ require('node-red')  →  bootstrap programático:                    │
+│           settings = {                                                    │
+│             httpAdminRoot: '/red',      # editor em :8080/red             │
+│             httpNodeRoot:  '/api',      # http-in em :8080/api/<rota>     │
+│             userDir:  __dirname/'nodered_data/',                          │
+│             nodesDir: __dirname/'nodered_nodes/',                         │
+│             adminAuth: { users: <do banco>, ... },                        │
+│             functionGlobalContext: {},                                    │
+│           }                                                               │
+│                                                                           │
+│ ❗ Não existe `nodered.service`. Não existe `settings.js` no disco — as   │
+│    configs são passadas em código pelo `server.js`.                       │
+└───────────────────────────────────────────────────────────────────────────┘
+
+┌───────────────────────────────────────────────────────────────────────────┐
+│ myio.service     (Erlang/OTP — camada de rádio + Modbus)                  │
+│ ExecStart: /usr/lib/myio/bin/myio start                                   │
+│ Pinos SPI: POWER=6, CE=3, CSN=13, IRQ=1, STATUS=7                         │
+│ Comunica com slaves nRF24L01 via SPI; expõe via socket local.             │
+└───────────────────────────────────────────────────────────────────────────┘
+```
+
+`myio-api` ↔ `myio` falam pelo banco `hubot` (Postgres) e por sockets locais. O Node-RED
+não toca em hardware diretamente — usa os contribs custom para falar com o `myio`.
+
+### 4.2 Layout no disco
+
+| Caminho | O que é |
+| ------- | ------- |
+| **`/usr/lib/node_modules/API/`** | **🔑 App principal** — onde o `server.js` e a Node-RED ativa moram |
+| `/usr/lib/node_modules/API/nodered_data/` | **userDir ATIVO** — `flows.json`, `credentials`, etc. |
+| `/usr/lib/node_modules/API/nodered_nodes/` | **nodesDir** — os 20 contribs custom MyIO (ver §4.4) |
+| `/usr/lib/node_modules/API/node_modules/` | npm deps (node-red 1.2.0-beta.1, dashboard, sequelize, express…) |
+| `/usr/lib/node_modules/API/{lib,models,migrations}/` | REST API + Sequelize ORM + migrations |
+| `/usr/lib/myio/bin/myio` | Binário Erlang/OTP do `myio.service` (camada de rádio) |
+| `/var/lib/private/postgresql/` | Dados do Postgres (DB `hubot`) — via `DynamicUser=yes` |
+| `/var/lib/postgresql` | *symlink* → `private/postgresql` |
+| `/var/cache/node-red/` | `HOME=%C/node-red` definido no unit; cache npm/node |
+| `/var/lib/private/node-red/` ⚠️ | **Provável legado** — tem `package.json`, contrib `myio-modbus` (158 linhas, registra só o type `modbus`), e snapshots `old/node_modules_*/`. **Não é o userDir ativo** do Node-RED. Validar antes de remover. |
+| `/var/lib/node-red` | *symlink* → `private/node-red` (mesmo destino legado) |
+| `/data/...` | Overlay Mender (sobrevive a *rootfs update*) — espelhos persistentes |
+
+### 4.3 Arquivos-chave do app
+
+| Caminho | Descrição |
+| ------- | --------- |
+| `/usr/lib/node_modules/API/server.js` | Bootstrap — Express + JWT + `require('node-red')` |
+| `/usr/lib/node_modules/API/package.json` | Deps do app (Node-RED, dashboard, sequelize, etc.) |
+| `/usr/lib/node_modules/API/nodered_data/flows.json` | **Flow principal** (editado pela UI) |
+| `/usr/lib/node_modules/API/nodered_data/flows_cred.json` | Credenciais cifradas dos nós |
+| `/usr/lib/node_modules/API/scheduler.js` | Cron interno (`node-schedule`) |
+| `/usr/lib/node_modules/API/lib/routes/` | Endpoints REST (não-Node-RED) |
+| `/usr/lib/node_modules/API/models/` | Modelos Sequelize (tabelas do DB `hubot`) |
+
+> 💡 **Comandos de descoberta** (caso outra central tenha layout diferente):
+> ```sh
+> systemctl cat myio-api.service                # WorkingDirectory + ExecStart
+> ps -ef | grep -v grep | grep -E 'node|myio'   # processos rodando
+> grep -rln "RED.nodes.registerType" /usr/lib/node_modules/API/ 2>/dev/null
+> ```
+
+### 4.4 Node types custom MyIO (em `nodered_nodes/`)
+
+20 contribs, **um diretório por contrib**, cada um registrando 1 ou 2 node types:
+
+| Diretório | Types registrados | Função |
+|-----------|-------------------|--------|
+| `node-red-contrib-myio-emitter` | `emitter` | 🔑 **Publica telemetria** (cloud / TB) |
+| `node-red-contrib-myio-persist` | `persist-in`, `persist-out` | Persistência (flow/global context) |
+| `node-red-contrib-myio-activate-channel` | `activate-channel` | Liga/desliga canal Modbus |
+| `node-red-contrib-myio-activate-scene` | `activate-scene` | Executa cena |
+| `node-red-contrib-myio-time-range` | `time-range` | Janela horária (Agendamentos) |
+| `node-red-contrib-myio-get-data` | `get-data` | Lê tabelas (`slaves`/`channels`/…) |
+| `node-red-contrib-myio-slave` | `filter-slave` | Filtra por slave |
+| `node-red-contrib-myio-channel` | `filter-channel` | Filtra por channel |
+| `node-red-contrib-myio-channel_and` | `filter-channel_and` | Combinador AND |
+| `node-red-contrib-myio-channel_or` | `filter-channel_or` | Combinador OR |
+| `node-red-contrib-myio-temperature` | `filter-temperature` | Filtra leitura de temperatura |
+| `node-red-contrib-myio-consumption` | `filter-consumption` | Filtra consumo |
+| `node-red-contrib-myio-three_phase` | `three-phase` | Trifásico |
+| `node-red-contrib-myio-slave-info` | `slave-info` | Lookup info do slave |
+| `node-red-contrib-myio-send-check` | `send-check` | Envia checagem |
+| `node-red-contrib-myio-send-email` | `send-email` | Envia e-mail |
+| `node-red-contrib-myio-send-notification` | `send-notification` | Notificação genérica |
+| `node-red-contrib-myio-register-device` | `register-device` | Registro de device |
+| `node-red-contrib-myio-transmit-rfir-command` | `transmit-rfir-command` | IR (rfir) |
+| `node-red-contrib-myio-stress-test` | `stress-test` | Bench/teste |
+
+➕ Via npm em `API/node_modules/`: `node-red-dashboard` (todos os `ui_*`),
+`node-red-node-ui-list`, `node-red-node-tail`, `node-red-node-rbe`,
+`node-red-contrib-wait-paths`.
+
+> **Editar um node type custom** = editar o `.js` correspondente em
+> `/usr/lib/node_modules/API/nodered_nodes/<contrib>/` + reiniciar (§4.6).
+
+### 4.5 Editar um arquivo JS na central
 
 ```bash
-# Usando nano
+# Usando nano (não vem com vim por padrão)
 nano <caminho-do-arquivo>
 
 # Salvar: Ctrl+O → Enter
 # Sair:   Ctrl+X
 ```
 
-### 4.2 Fazer deploy após editar flow manualmente
+### 4.6 Fazer deploy após editar manualmente
 
 ```bash
-# Reiniciar o serviço para recarregar os flows
-systemctl restart nodered
+# Reiniciar o myio-api = recarregar Node-RED + REST API
+systemctl restart myio-api.service
+
+# Acompanhar a subida
+journalctl -u myio-api.service -f
 ```
 
 ---

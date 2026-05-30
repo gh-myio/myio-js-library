@@ -2643,6 +2643,117 @@ function _buildAlarmServiceOrchestrator(alarms) {
     'total alarms'
   );
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // RFC-0203 M7 — Annotation-clicked handler: open SettingsModal on
+  // Annotations tab. Listens at MAIN_VIEW because we have access to the
+  // device metadata + the openDashboardPopupSettings helper.
+  // ─────────────────────────────────────────────────────────────────────────
+  if (!window.__myioAnnotationClickedBound) {
+    window.__myioAnnotationClickedBound = true;
+    window.addEventListener('myio:annotation-clicked', async (ev) => {
+      try {
+        const detail = ev?.detail || {};
+        const deviceId = detail.deviceId;
+        if (!deviceId) {
+          LogHelper.warn('[Annotations] annotation-clicked without deviceId, ignoring');
+          return;
+        }
+        const orch = window.AnnotationServiceOrchestrator;
+        const annotatedDev = orch?.getByDevice?.(deviceId);
+        const openFn = window.MyIOLibrary?.openDashboardPopupSettings;
+        if (typeof openFn !== 'function') {
+          LogHelper.warn('[Annotations] openDashboardPopupSettings unavailable; cannot open SettingsModal');
+          return;
+        }
+        const jwt = localStorage.getItem('jwt_token');
+        const customerTbId = self.ctx?.settings?.customerTB_ID;
+        await openFn({
+          deviceId,
+          label: annotatedDev?.label || annotatedDev?.name || deviceId,
+          deviceName: annotatedDev?.name || '',
+          jwtToken: jwt,
+          domain: annotatedDev?.domain || 'energy',
+          deviceType: annotatedDev?.deviceType || '',
+          deviceProfile: null,
+          customerId: customerTbId,
+          superadmin: !!window.MyIOOrchestrator?.isSuperAdmin,
+          userEmail: window.MyIOUtils?.currentUserEmail || '',
+          enableAnnotationsOnboarding: false,
+          createdTime: null,
+          lastActivityTime: null,
+          connectionData: {
+            centralName: '',
+            connectionStatusTime: null,
+            lastDisconnectTime: null,
+            timeVal: null,
+            deviceStatus: 'no_info',
+          },
+          ui: { title: 'Anotações', width: 1100, initialTab: 'annotations' },
+          gcdrDeviceId: null,
+          prefetchedBundle: window.MyIOOrchestrator?.alarmBundle ?? null,
+          prefetchedAlarms: window.MyIOOrchestrator?.customerAlarms ?? null,
+          masterAdminPassword: null,
+        });
+        LogHelper.log('[Annotations] SettingsModal opened for device:', deviceId);
+      } catch (err) {
+        LogHelper.warn('[Annotations] failed to open SettingsModal from click:', err);
+      }
+    });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // RFC-0203 M3 — AnnotationServiceOrchestrator (cross-domain annotations).
+  // Built once, alongside AlarmServiceOrchestrator. Failures are non-fatal:
+  // the HEADER button simply stays hidden if construction fails.
+  // ─────────────────────────────────────────────────────────────────────────
+  (async function _initAnnotationServiceOrchestrator() {
+    try {
+      const buildFn = window.MyIOLibrary?.buildAnnotationServiceOrchestrator;
+      if (typeof buildFn !== 'function') {
+        LogHelper.warn(
+          '[AnnotationServiceOrchestrator] buildAnnotationServiceOrchestrator unavailable in MyIOLibrary — skipping'
+        );
+        return;
+      }
+      const jwt = localStorage.getItem('jwt_token');
+      const customerTB_ID = self.ctx?.settings?.customerTB_ID;
+      if (!jwt || !customerTB_ID) {
+        LogHelper.warn(
+          '[AnnotationServiceOrchestrator] missing jwt or customerTB_ID — skipping',
+          { hasJwt: !!jwt, hasCustomerId: !!customerTB_ID }
+        );
+        return;
+      }
+      const tbHost = window.location.origin;
+      const orchestrator = await buildFn({
+        customerId: customerTB_ID,
+        tbHost,
+        jwt,
+        logger: LogHelper,
+      });
+      window.AnnotationServiceOrchestrator = orchestrator;
+      if (window.MyIOOrchestrator) {
+        window.MyIOOrchestrator.annotationsConfigured = true;
+      }
+      const total = orchestrator.getTotalCount();
+      LogHelper.log(
+        '[AnnotationServiceOrchestrator] Built —',
+        orchestrator.devices.length,
+        'devices,',
+        total,
+        'active annotations'
+      );
+      // Signal HEADER + any other consumer
+      window.dispatchEvent(
+        new CustomEvent('myio:annotations-ready', {
+          detail: { totalCount: total, deviceCount: orchestrator.devices.length },
+        })
+      );
+    } catch (err) {
+      LogHelper.warn('[AnnotationServiceOrchestrator] init failed (non-fatal):', err);
+    }
+  })();
+
   // ── Contamination detector ──────────────────────────────────────────────
   // Scans STATE.itemsBase for TB devices that share the same gcdrDeviceId.
   // If multiple TB items have the same gcdrDeviceId that matches an active alarm,

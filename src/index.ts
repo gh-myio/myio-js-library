@@ -1753,3 +1753,77 @@ export {
   toSummary as toFreshdeskTicketSummary,
 } from './components/premium-modals/settings/tickets/TbTicketSync';
 
+// RFC-0203 M2 — AnnotationServiceOrchestrator (cross-domain annotations)
+export { buildAnnotationServiceOrchestrator } from './services/annotations/AnnotationServiceOrchestrator';
+export { CustomerDeviceService } from './services/annotations/CustomerDeviceService';
+export { parseLogAnnotations } from './services/annotations/parseLogAnnotations';
+export type {
+  AnnotatedDevice,
+  AnnotationDeviceDomain,
+  AnnotationFilter,
+  AnnotationGroup,
+  AnnotationGroupBy,
+  AnnotationServiceOrchestratorShape,
+  BuildAnnotationServiceOrchestratorParams,
+} from './services/annotations/types';
+
+// RFC-0203 M4 — HeaderAnnotationsPanel (3 tabs, static render)
+export {
+  HeaderAnnotationsPanel,
+  getHeaderAnnotationsPanel,
+  injectStylesOnce as injectHeaderAnnotationsStyles,
+} from './components/header-annotations-panel/HeaderAnnotationsPanel';
+export type {
+  HeaderAnnotationsPanelOptions,
+} from './components/header-annotations-panel/HeaderAnnotationsPanel';
+export {
+  renderAnnotationItemCard,
+  escapeHtml as escapeAnnotationHtml,
+  truncate as truncateAnnotationText,
+  formatRelative as formatAnnotationRelativeTime,
+  isOverdue as isAnnotationOverdue,
+} from './components/header-annotations-panel/AnnotationItemCard';
+export {
+  nfdNormalize as nfdNormalizeAnnotationSearch,
+  highlightMatches as highlightAnnotationMatches,
+  sortGroups as sortAnnotationGroups,
+  createDefaultFilter as createDefaultAnnotationFilter,
+  SORT_OPTIONS as ANNOTATION_SORT_OPTIONS,
+  DEFAULT_SORT as DEFAULT_ANNOTATION_SORT,
+} from './components/header-annotations-panel/searchSortFilter';
+export type {
+  AnnotationSortKey,
+} from './services/annotations/types';
+// RFC-0203 M6 — VirtualList helper (used by HeaderAnnotationsPanel when items > 100)
+export {
+  VirtualList,
+  shouldVirtualize as shouldVirtualizeAnnotationList,
+  VIRTUAL_SCROLL_THRESHOLD as ANNOTATION_VIRTUAL_THRESHOLD,
+} from './components/header-annotations-panel/VirtualList';
+export type {
+  VirtualRow,
+  VirtualListOptions,
+} from './components/header-annotations-panel/VirtualList';
+// RFC-0203 M7 — Export helpers (PDF + CSV) and the export modal
+export {
+  exportAnnotationsCsv,
+  buildAnnotationsCsv,
+  buildExportFilename as buildAnnotationsExportFilename,
+  csvEscape as csvEscapeAnnotation,
+  downloadTextFile as downloadAnnotationsTextFile,
+  CSV_COLUMNS as ANNOTATION_CSV_COLUMNS,
+} from './components/header-annotations-panel/ExportCSV';
+export type { CsvColumn as AnnotationCsvColumn } from './components/header-annotations-panel/ExportCSV';
+export {
+  exportAnnotationsPdf,
+} from './components/header-annotations-panel/ExportPDF';
+export type {
+  PdfLevel as AnnotationPdfLevel,
+  ExportPdfOptions as AnnotationExportPdfOptions,
+} from './components/header-annotations-panel/ExportPDF';
+export {
+  openExportModal as openAnnotationsExportModal,
+  closeExportModal as closeAnnotationsExportModal,
+} from './components/header-annotations-panel/ExportModal';
+export type { OpenExportModalOptions as OpenAnnotationsExportModalOptions } from './components/header-annotations-panel/ExportModal';
+

@@ -233,6 +233,103 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
+/* Annotations button (RFC-0203) — amethyst/notes theme */
+.tbx-btn-annotation-notif {
+  background: rgba(108, 92, 231, 0.12);
+  color: #6c5ce7;
+  border: 1px solid rgba(108, 92, 231, 0.25);
+  position: relative;
+}
+
+.tbx-btn-annotation-notif:hover {
+  background: rgba(108, 92, 231, 0.22);
+  border-color: rgba(108, 92, 231, 0.45);
+}
+
+.tbx-btn-annotation-notif:active {
+  background: rgba(108, 92, 231, 0.32);
+  transform: translateY(1px);
+}
+
+.tbx-annotation-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: #6c5ce7;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  pointer-events: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* RFC-0203 follow-up — generic loading spinner applied to any notification
+   button via `.is-loading`. Each button's icon is hidden while loading and
+   the spinner uses the button's own theme color via currentColor. */
+.tbx-btn .tbx-loading-spinner {
+  display: none;
+}
+.tbx-btn.is-loading .tbx-annotation-icon,
+.tbx-btn.is-loading .tbx-alarm-icon,
+.tbx-btn.is-loading .tbx-ticket-icon {
+  display: none;
+}
+.tbx-btn.is-loading .tbx-loading-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: tbx-anno-spin 0.7s linear infinite;
+  opacity: 0.85;
+}
+@keyframes tbx-anno-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Override generic disabled greying for the notification buttons —
+   keep their own theme color while in loading state. */
+.tbx-btn-annotation-notif[disabled],
+.tbx-btn-annotation-notif.is-loading {
+  background: rgba(108, 92, 231, 0.12) !important;
+  color: #6c5ce7 !important;
+  cursor: progress !important;
+  opacity: 1 !important;
+}
+
+/* RFC-0203 follow-up — active filter state mirrors the alarm button
+   (toggle filter: show only devices WITH annotations). */
+.tbx-btn-annotation-notif.annotation-filter-active {
+  background: #ede9fe !important;
+  border: 1px solid #6c5ce7 !important;
+  color: #4c3aac !important;
+  box-shadow: 0 0 0 2px rgba(108, 92, 231, 0.28) !important;
+}
+.tbx-btn-annotation-notif.annotation-filter-active .tbx-ico {
+  filter: none;
+}
+.tbx-btn-alarm-notif[disabled],
+.tbx-btn-alarm-notif.is-loading {
+  background: rgba(220, 38, 38, 0.12) !important;
+  color: #dc2626 !important;
+  cursor: progress !important;
+  opacity: 1 !important;
+}
+.tbx-btn-ticket-notif[disabled],
+.tbx-btn-ticket-notif.is-loading {
+  background: rgba(8, 145, 178, 0.12) !important;
+  color: #0891b2 !important;
+  cursor: progress !important;
+  opacity: 1 !important;
+}
+
 /* Ícones */
 .tbx-ico {
   display: inline-block;

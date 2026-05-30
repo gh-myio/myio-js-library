@@ -1,10 +1,15 @@
 # Investigação de Device — `Água Potável Entra Novo` (slave 48)
 
-> **Status:** 🔬 Em investigação
+> **Status:** ⏸️ **PAUSADO em 2026-05-28** — cadeia de publicação rastreada; envio matematicamente correto. Falta rodar T1–T4 para confirmar bug do widget.
+> **Última atualização:** 2026-05-28
+> **Resumo curto:** dashboard mostra anomalias `Min > Avg` (matematicamente impossíveis no envio — §B), portanto o bug é **no widget/recebimento TB** (hipótese F1 🔥). Cadeia rastreada: postgres SQL → Map devices → function (adiciona `(PG)`) → `mqtt out` → `mqtt.myio-bas.com:1883` topic `v1/gateway/telemetry`. Detalhes em §A.
+>
 > **Central:** Obramax Praia Grande (`200:a12e:4703:c680:dfb7:936b:88b9:6f4b`)
 > **Customer TB:** `f3455100-8360-11ef-a17c-dfe898a3f1e0`
-> **Data:** 2026-05-25
-> **Referências:** [`slaves-map.md`](./slaves-map.md) §2 · `manual-centrais-linix-orangepi.md` §5
+> **Data inicial:** 2026-05-25
+> **Referências:** [`slaves-map.md`](./slaves-map.md) §2 · `manual-centrais-linix-orangepi.md` §1/§4
+>
+> **🎯 Para retomar:** começar pela seção **⭐ Foco → Queries (T1–T4)** — em especial **(T3)** no `ts_kv` do TB para confirmar `Min ≤ Avg ≤ Max` no que foi enviado. Decide se o bug é do widget (F1) ou de outra fonte.
 
 ---
 
@@ -66,13 +71,13 @@ Device: `Hidr. Água_Potável_Entrada x10` (slave 48 / ch 98).
 
 ### Hipóteses a verificar
 
-| # | Hipótese | Como verificar |
-|---|----------|----------------|
-| **F1** | Widget do dashboard tem **Min/Avg trocados** em alguma linha | Comparar valores enviados ao `ts_kv` (chaves `pulsesHourlyAverage` × `…Min` × `…Max`) hora a hora |
-| **F2** | Pipeline `Get 30 days average every hour` dispara **2× por hora** ou colide com outro device (OBS-7) | Contar samples por hora em `ts_kv` — deveria ser **1 sample/hora** |
-| **F3** | Coluna "Litros" calcula **delta de `pulses`** e o contador só muda em batches (cisterna) | Comparar com `channel_pulse_log` na central (slave 48 ch 1) |
-| **F4** | "Total 9 830 L" vem de **outra chave** (ex.: contador acumulado) | Listar todas as chaves do device com (T2) |
-| **F5** | Dois devices TB com nome parecido publicando — um dá Média, outro dá Min, dashboard mistura | `SELECT id,name FROM device WHERE name ILIKE '%hidr%potavel%'` |
+| # | Hipótese | Status | Como verificar |
+|---|----------|--------|----------------|
+| **F1** 🔥 | Widget do dashboard tem **Min/Avg trocados** em alguma linha | **PROVÁVEL — ver §A** (envio é matematicamente correto) | Comparar `ts_kv` (`pulsesHourlyAverage` × `…Min` × `…Max`) hora a hora — (T3) |
+| **F2** | Pipeline dispara 2× por hora ou colide com outro device | Possível — verificar nº de samples / hora | Contar samples em `ts_kv` (deveria ser 1/hora) |
+| **F3** | Coluna "Litros" calcula **delta de `pulses`** (batches de cisterna) | Possível | Comparar com `channel_pulse_log` slave 48 ch 1 |
+| **F4** | "Total 9 830 L" vem de **outra chave** (ex.: contador acumulado `pulses` × 10) | Provável | Listar chaves do device (T2) |
+| **F5** | Dois devices TB homônimos publicando — um dá Média, outro dá Min | Possível | `SELECT id,name FROM device WHERE name ILIKE '%hidr%potavel%'` (T1) |
 
 ### Queries para AGORA — comparar envio × display
 
@@ -119,6 +124,77 @@ GROUP BY hora ORDER BY hora;
 | (T4) pulsos central × (T3) `pulses` no TB | F3 — confirma se o "Litros" mostrado é delta do `pulses` |
 | (T2) chave com 1 sample / valor enorme | F4 — provável fonte do "9 830 L total" |
 | (T1) >1 linha | F5 — colisão de nomes (mesmo padrão da OBS-7) |
+
+### §A — Cadeia de publicação MQTT rastreada (Node-RED → ThingsBoard)
+
+Decifrada lendo o flow backup. **6 pipelines convergem** num único publisher MQTT:
+
+```
+[Get 30 days average every hour]  link out dd26b6d7 ┐
+[Get pulses every 10 min]         link out c65c3035 ┤
+[telemetria real-time x2]         link outs 3cc5e4e3, 17d1c236 ┼─► link in e917d9d9
+[Min temperature → Control]       link out 6bc51d1c ┤        │
+[Demand → Control]                link out 97f1ad80 ┘        ▼
+                                                  function 7cf444b7 (adiciona " (PG)")
+                                                              │
+                                                              ▼
+                                              mqtt out "Thingsboard PE"
+                                              broker:  mqtt.myio-bas.com:1883
+                                              topic:   v1/gateway/telemetry  (TB Gateway API)
+                                              clientid: ak0a8m0pdofe3hyt4gc3
+```
+
+**Function `7cf444b7` (snippet exato):**
+
+```js
+const keys = Object.keys(msg.payload);
+const newPayload = keys.reduce((acc, key) => {
+    acc[`${key} (PG)`] = msg.payload[key];   // 🔑 hardcoded " (PG)"
+    return acc;
+}, {});
+msg.payload = newPayload;
+```
+
+➡️ **Daqui sai o sufixo `(PG)`** em todos os device names do TB. Hardcoded para Praia
+Grande — em outra unidade marcaria "(PG)" erradamente (bug latente).
+
+**Formato publicado** (TB Gateway API espera exatamente esse JSON):
+
+```json
+{
+  "Hidr. Água_Potável_Entrada x10 (PG)": [
+    { "ts": <ms>, "values": {
+        "pulsesHourlyAverage":    <num>,
+        "pulsesHourlyAverageMin": <num>,
+        "pulsesHourlyAverageMax": <num>
+    }}
+  ]
+}
+```
+
+### §B — 🔥 Conclusão sobre as anomalias `Min > Avg`
+
+A query SQL do `Get 30 days average every hour` calcula `MIN()`, `AVG()`, `MAX()` sobre o
+**mesmo conjunto** `hourly_sum`. Pela definição matemática de agregação:
+
+> `MIN ≤ AVG ≤ MAX` — **garantido**.
+
+Logo, as duas linhas anômalas da tabela do dashboard (`04–05: Mín 1485 > Méd 860` e
+`14–15: Mín 3070 > Méd 1970,7`) **não podem ter origem no envio**. A causa está:
+
+1. **Mais provável (F1):** no **widget do dashboard** — colunas Min e Avg trocadas, ou
+   *keys* mapeadas erradas no template.
+2. **Possível (F2):** dois pipelines publicando com keys cruzadas.
+3. **Possível (F5):** dois devices TB homônimos misturando dados.
+
+A query **(T3)** decide entre os três — ela mostra exatamente os 3 valores enviados por
+hora para a chave correta. Se na (T3) **`pulsesHourlyAverageMin ≤ pulsesHourlyAverage`**
+sempre, então o envio está OK e o bug é puramente do widget (F1 confirmado).
+
+> ℹ️ **Sobre o `emitter.js`** (node type `myio-emitter`): esse pipeline NÃO usa `emitter` —
+> publica direto via `mqtt out` padrão. Não precisamos inspecionar `emitter.js` para esta
+> investigação. O `emitter` MyIO é usado em fluxos diferentes (provavelmente comandos
+> cloud → central).
 
 ---
 
