@@ -2180,8 +2180,19 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         });
       }
     }
-    // Fast path: already enabled at init time (e.g. cached from previous onDataUpdated)
-    _setupTicketButton();
+    // Apply current gate state at init. The myio:tickets-gate-changed event may have
+    // been dispatched by MAIN_VIEW BEFORE this listener was registered (HEADER inits
+    // after MAIN_VIEW computes the gate), so we must read the current state directly
+    // instead of relying solely on the event.
+    if (window.MyIOUtils?.ticketsEnabled === true) {
+      _setupTicketButton();
+    } else if (btnTicketNotif) {
+      // Fail-closed: tickets disabled/unknown → remove the default loading spinner
+      // and hide the button (otherwise it spins forever — RFC-0198 follow-up).
+      btnTicketNotif.classList.remove('is-loading');
+      btnTicketNotif.removeAttribute('aria-busy');
+      btnTicketNotif.style.display = 'none';
+    }
 
     function _updateTicketNotifBadge(count) {
       const badge = document.getElementById('tbx-ticket-notif-badge');
