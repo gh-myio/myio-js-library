@@ -10,9 +10,11 @@ if (!lastReading.hasOwnProperty('temperature')) {
 
 const match = slave.name.match(/^(Temp\.\s*)([\wÀ-ÿ\s\d-]+?)(?:\s([+\-x]\d+(\.\d+)?))?$/i);
 // node.warn(match);
-// Always strip trailing offset (e.g. " -2", " +1.5") from the name — even when regex doesn't match
-const rawName = match ? match[2].trim() : name;
-const finalName = rawName.replace(/\s[+\-x]\d+(\.\d+)?$/, '').trim();
+// Strip ONLY the trailing offset (e.g. " -2", " +1.5") from the FULL name —
+// KEEP the "Temp." prefix so the telemetry key matches the device registered in
+// ThingsBoard (e.g. "TEMP. SCMPAC-Temp1"). Using match[2] here dropped the prefix,
+// which made TB receive temperature telemetry without the TEMP. prefix.
+const finalName = name.replace(/\s[+\-x]\d+(\.\d+)?$/, '').trim();
 const adjustment =
   match && match[3] ? match[3].trim() : (name.match(/\s([+\-x]\d+(\.\d+)?)$/) || [])[1] || '';
 

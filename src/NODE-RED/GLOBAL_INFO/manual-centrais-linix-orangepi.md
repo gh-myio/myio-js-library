@@ -98,6 +98,7 @@ ssh -i id_rsa root@<ipv6-da-central>
 | ------------ | ---------------------------------------- | -------------------------------------- |
 | Praia Grande | `200:a12e:4703:c680:dfb7:936b:88b9:6f4b` | —                                      |
 | Aricanduva   | `200:bc45:34ee:59da:371a:cfe9:98d3:3805` | `1e0c1d77-1d41-4004-8be7-41328e590111` |
+| Guadalupe    | `202:f573:1e70:22f1:1dae:95bd:eeb9:1157` | `96a7ca86-c291-4d77-aa66-4706641eaa5a` |
 
 **Exemplos de conexão:**
 
@@ -164,6 +165,9 @@ ssh -i id_rsa root@200:a12e:4703:c680:dfb7:936b:88b9:6f4b
 
 # Aricanduva (Obramax)
 ssh -i id_rsa root@200:bc45:34ee:59da:371a:cfe9:98d3:3805
+
+# Guadalupe (Obramax)
+ssh -i id_rsa root@202:f573:1e70:22f1:1dae:95bd:eeb9:1157
 ```
 
 ---
@@ -890,4 +894,4 @@ reboot
 
 ---
 
-_Última atualização: 2026-05-27_
+_Última atualização: 2026-06-02_
