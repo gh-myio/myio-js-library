@@ -1,22 +1,8 @@
 import type { PresetupDevice, DeviceType } from '../types';
+// RFC-0202: device-type prefixes come from the shared lib util (single source).
+import { getDeviceTypePrefix } from '../../../utils/device';
 
 // ─── Type mappings ────────────────────────────────────────────────────────────
-
-const PREFIX_MAP: Record<string, string> = {
-  COMPRESSOR: '3F COMP.',
-  VENTILADOR: '3F VENT.',
-  SELETOR_AUTO_MANUAL: 'S_AUTO_MANUAL.',
-  TERMOSTATO: 'TEMP.',
-  '3F_MEDIDOR': '3F',
-  MOTOR: '3F MOTR.',
-  ESCADA_ROLANTE: '3F ESRL.',
-  ELEVADOR: '3F ELEV.',
-  HIDROMETRO: 'HIDR.',
-  SOLENOIDE: 'ABFE.',
-  CONTROLE_REMOTO: 'AC',
-  CAIXA_D_AGUA: 'SCD',
-  CONTROLE_AUTOMACAO: 'GW_AUTO.',
-};
 
 /**
  * Maps a ThingsBoard/presetup device type to the Ingestion API deviceType.
@@ -125,21 +111,21 @@ export function generateDeviceNameWithPrefix(
   hierarchyPath?: string[],
   allDevicesInAsset?: Pick<PresetupDevice, 'type' | 'identifier' | 'name' | 'addr_low' | '_localId'>[],
 ): string {
-  const prefix = PREFIX_MAP[device.type] ?? 'DEV.';
+  const prefix = getDeviceTypePrefix(device.type);
   const identifier = generateDeviceIdentifier(device, hierarchyPath);
   const baseName = `${prefix} ${identifier}`;
 
   if (allDevicesInAsset && allDevicesInAsset.length > 0) {
     const conflicts = allDevicesInAsset.filter(d => {
       if (d._localId === device._localId) return false;
-      const otherPrefix = PREFIX_MAP[d.type] ?? 'DEV.';
+      const otherPrefix = getDeviceTypePrefix(d.type);
       const otherId = generateDeviceIdentifier(d, hierarchyPath);
       return `${otherPrefix} ${otherId}` === baseName;
     });
 
     if (conflicts.length > 0) {
       const all = allDevicesInAsset.filter(d => {
-        const otherPrefix = PREFIX_MAP[d.type] ?? 'DEV.';
+        const otherPrefix = getDeviceTypePrefix(d.type);
         const otherId = generateDeviceIdentifier(d, hierarchyPath);
         return `${otherPrefix} ${otherId}` === baseName;
       });

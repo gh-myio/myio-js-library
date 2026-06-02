@@ -1,5 +1,6 @@
 import { ModalConfig } from './types';
 import { mapDeviceStatusToCardStatus } from '../../../utils/deviceStatus';
+import { deviceIcons } from '../../../utils/deviceIcons';
 import { ModalHeader } from '../../../utils/ModalHeader';
 import { AnnotationsTab } from './annotations/AnnotationsTab';
 import { AlarmsTab } from './alarms/AlarmsTab';
@@ -987,29 +988,9 @@ export class SettingsModalView {
       }
     }
 
-    const IMAGES: Record<string, string> = {
-      ESCADA_ROLANTE: 'https://dashboard.myio-bas.com/api/images/public/EJ997iB2HD1AYYUHwIloyQOOszeqb2jp',
-      ELEVADOR:       'https://dashboard.myio-bas.com/api/images/public/rAjOvdsYJLGah6w6BABPJSD9znIyrkJX',
-      MOTOR:          'https://dashboard.myio-bas.com/api/images/public/Rge8Q3t0CP5PW8XyTn9bBK9aVP6uzSTT',
-      BOMBA_HIDRAULICA: 'https://dashboard.myio-bas.com/api/images/public/rbO2wQb6iKBtX0Ec04DFDcO3Qg04EOoD',
-      BOMBA_CAG:      'https://dashboard.myio-bas.com/api/images/public/rbO2wQb6iKBtX0Ec04DFDcO3Qg04EOoD',
-      BOMBA_INCENDIO: 'https://dashboard.myio-bas.com/api/images/public/YJkELCk9kluQSM6QXaFINX6byQWI7vbB',
-      BOMBA:          'https://dashboard.myio-bas.com/api/images/public/Rge8Q3t0CP5PW8XyTn9bBK9aVP6uzSTT',
-      '3F_MEDIDOR':   'https://dashboard.myio-bas.com/api/images/public/f9Ce4meybsdaAhAkUlAfy5ei3I4kcN4k',
-      RELOGIO:        'https://dashboard.myio-bas.com/api/images/public/ljHZostWg0G5AfKiyM8oZixWRIIGRASB',
-      ENTRADA:        'https://dashboard.myio-bas.com/api/images/public/TQHPFqiejMW6lOSVsb8Pi85WtC0QKOLU',
-      SUBESTACAO:     'https://dashboard.myio-bas.com/api/images/public/TQHPFqiejMW6lOSVsb8Pi85WtC0QKOLU',
-      FANCOIL:        'https://dashboard.myio-bas.com/api/images/public/4BWMuVIFHnsfqatiV86DmTrOB7IF0X8Y',
-      CHILLER:        'https://dashboard.myio-bas.com/api/images/public/27Rvy9HbNoPz8KKWPa0SBDwu4kQ827VU',
-      HIDROMETRO:     'https://dashboard.myio-bas.com/api/images/public/aMQYFJbGHs9gQbQkMn6XseAlUZHanBR4',
-      HIDROMETRO_AREA_COMUM: 'https://dashboard.myio-bas.com/api/images/public/IbEhjsvixAxwKg1ntGGZc5xZwwvGKv2t',
-      HIDROMETRO_SHOPPING: 'https://dashboard.myio-bas.com/api/images/public/OIMmvN4ZTKYDvrpPGYY5agqMRoSaWNTI',
-      CAIXA_DAGUA:    'https://dashboard.myio-bas.com/api/images/public/3t6WVhMQJFsrKA8bSZmrngDsNPkZV7fq',
-      TERMOSTATO:     'https://dashboard.myio-bas.com/api/images/public/rtCcq6kZZVCD7wgJywxEurRZwR8LA7Q7',
-    };
-
+    // RFC-0202: device-type image URLs come from the shared deviceIcons map.
     const DEFAULT = 'https://cdn-icons-png.flaticon.com/512/1178/1178428.png';
-    const url = IMAGES[normalized] || DEFAULT;
+    const url = (deviceIcons as Record<string, string>)[normalized] || DEFAULT;
     return `<img src="${url}" class="identity-device-image" alt="${normalized}" />`;
   }
 
