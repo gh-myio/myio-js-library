@@ -7,16 +7,16 @@
 
 ## 1. Visão Geral
 
-| Campo                  | Valor                                          |
-| ---------------------- | ---------------------------------------------- |
-| Hardware               | Orange Pi <!-- modelo: ex. Orange Pi 3 LTS --> |
-| SO                     | Imagem custom MyIO (rootfs gerenciado por **Mender**) |
-| Shell                  | **BusyBox `ash`** — *não* é bash. `uptime -p`/`-s` **não existem**; o prompt mostra `-sh:` em erros |
-| Init                   | `systemd` (com `DynamicUser=yes` para `myio-api` e Postgres — afeta paths, ver §4) |
-| Node-RED               | **`1.2.0-beta.1` — embarcado** no `myio-api.service` (não existe service `nodered`). Ver §4.1 |
-| Porta HTTP             | **`8080`** (Express + Node-RED rodam no mesmo processo) |
-| Editor Node-RED        | **`http://<ip-da-central>:8080/red`** |
-| Endpoints `http-in`    | **`http://<ip-da-central>:8080/api/<rota>`** |
+| Campo               | Valor                                                                                               |
+| ------------------- | --------------------------------------------------------------------------------------------------- |
+| Hardware            | Orange Pi <!-- modelo: ex. Orange Pi 3 LTS -->                                                      |
+| SO                  | Imagem custom MyIO (rootfs gerenciado por **Mender**)                                               |
+| Shell               | **BusyBox `ash`** — _não_ é bash. `uptime -p`/`-s` **não existem**; o prompt mostra `-sh:` em erros |
+| Init                | `systemd` (com `DynamicUser=yes` para `myio-api` e Postgres — afeta paths, ver §4)                  |
+| Node-RED            | **`1.2.0-beta.1` — embarcado** no `myio-api.service` (não existe service `nodered`). Ver §4.1       |
+| Porta HTTP          | **`8080`** (Express + Node-RED rodam no mesmo processo)                                             |
+| Editor Node-RED     | **`http://<ip-da-central>:8080/red`**                                                               |
+| Endpoints `http-in` | **`http://<ip-da-central>:8080/api/<rota>`**                                                        |
 
 ---
 
@@ -70,9 +70,9 @@ ssh -i id_rsa root@<ipv6-da-central>
 
 #### Holding: SUPERVIA ESTAÇÕES
 
-| Central | IPv6                                         | Gateway ID                             |
-| ------- | -------------------------------------------- | -------------------------------------- |
-| Deodoro | `200:1e6a:69a5:73f1:b18a:e6e:aa68:9229`      | `adb43bf6-6107-44fa-b786-6e88c150d779` |
+| Central | IPv6                                    | Gateway ID                             |
+| ------- | --------------------------------------- | -------------------------------------- |
+| Deodoro | `200:1e6a:69a5:73f1:b18a:e6e:aa68:9229` | `adb43bf6-6107-44fa-b786-6e88c150d779` |
 
 #### Holding: DIMENSION
 
@@ -88,9 +88,9 @@ ssh -i id_rsa root@<ipv6-da-central>
 
 #### Holding: HCOR
 
-| Central         | IPv6                                     | Gateway ID                             |
-| --------------- | ---------------------------------------- | -------------------------------------- |
-| HCor Q521-527   | `200:a420:9834:fc66:dcf9:f46:4a57:9d09`  | `e45e0453-9593-4aaa-9347-a1daa9cf27e3` |
+| Central       | IPv6                                    | Gateway ID                             |
+| ------------- | --------------------------------------- | -------------------------------------- |
+| HCor Q521-527 | `200:a420:9834:fc66:dcf9:f46:4a57:9d09` | `e45e0453-9593-4aaa-9347-a1daa9cf27e3` |
 
 #### Holding: OBRAMAX
 
@@ -99,6 +99,7 @@ ssh -i id_rsa root@<ipv6-da-central>
 | Praia Grande | `200:a12e:4703:c680:dfb7:936b:88b9:6f4b` | —                                      |
 | Aricanduva   | `200:bc45:34ee:59da:371a:cfe9:98d3:3805` | `1e0c1d77-1d41-4004-8be7-41328e590111` |
 | Guadalupe    | `202:f573:1e70:22f1:1dae:95bd:eeb9:1157` | `96a7ca86-c291-4d77-aa66-4706641eaa5a` |
+| Benfica      | `200:47f1:8bf6:36da:65fa:4124:bcdb:dbb4` | `1248905a-ed03-414d-bde6-c4410604ae8f` |
 
 **Exemplos de conexão:**
 
@@ -168,6 +169,9 @@ ssh -i id_rsa root@200:bc45:34ee:59da:371a:cfe9:98d3:3805
 
 # Guadalupe (Obramax)
 ssh -i id_rsa root@202:f573:1e70:22f1:1dae:95bd:eeb9:1157
+
+# Benfica (Obramax)
+ssh -i id_rsa root@200:47f1:8bf6:36da:65fa:4124:bcdb:dbb4
 ```
 
 ---
@@ -255,34 +259,35 @@ não toca em hardware diretamente — usa os contribs custom para falar com o `m
 
 ### 4.2 Layout no disco
 
-| Caminho | O que é |
-| ------- | ------- |
-| **`/usr/lib/node_modules/API/`** | **🔑 App principal** — onde o `server.js` e a Node-RED ativa moram |
-| `/usr/lib/node_modules/API/nodered_data/` | **userDir ATIVO** — `flows.json`, `credentials`, etc. |
-| `/usr/lib/node_modules/API/nodered_nodes/` | **nodesDir** — os 20 contribs custom MyIO (ver §4.4) |
-| `/usr/lib/node_modules/API/node_modules/` | npm deps (node-red 1.2.0-beta.1, dashboard, sequelize, express…) |
-| `/usr/lib/node_modules/API/{lib,models,migrations}/` | REST API + Sequelize ORM + migrations |
-| `/usr/lib/myio/bin/myio` | Binário Erlang/OTP do `myio.service` (camada de rádio) |
-| `/var/lib/private/postgresql/` | Dados do Postgres (DB `hubot`) — via `DynamicUser=yes` |
-| `/var/lib/postgresql` | *symlink* → `private/postgresql` |
-| `/var/cache/node-red/` | `HOME=%C/node-red` definido no unit; cache npm/node |
-| `/var/lib/private/node-red/` ⚠️ | **Provável legado** — tem `package.json`, contrib `myio-modbus` (158 linhas, registra só o type `modbus`), e snapshots `old/node_modules_*/`. **Não é o userDir ativo** do Node-RED. Validar antes de remover. |
-| `/var/lib/node-red` | *symlink* → `private/node-red` (mesmo destino legado) |
-| `/data/...` | Overlay Mender (sobrevive a *rootfs update*) — espelhos persistentes |
+| Caminho                                              | O que é                                                                                                                                                                                                        |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`/usr/lib/node_modules/API/`**                     | **🔑 App principal** — onde o `server.js` e a Node-RED ativa moram                                                                                                                                             |
+| `/usr/lib/node_modules/API/nodered_data/`            | **userDir ATIVO** — `flows.json`, `credentials`, etc.                                                                                                                                                          |
+| `/usr/lib/node_modules/API/nodered_nodes/`           | **nodesDir** — os 20 contribs custom MyIO (ver §4.4)                                                                                                                                                           |
+| `/usr/lib/node_modules/API/node_modules/`            | npm deps (node-red 1.2.0-beta.1, dashboard, sequelize, express…)                                                                                                                                               |
+| `/usr/lib/node_modules/API/{lib,models,migrations}/` | REST API + Sequelize ORM + migrations                                                                                                                                                                          |
+| `/usr/lib/myio/bin/myio`                             | Binário Erlang/OTP do `myio.service` (camada de rádio)                                                                                                                                                         |
+| `/var/lib/private/postgresql/`                       | Dados do Postgres (DB `hubot`) — via `DynamicUser=yes`                                                                                                                                                         |
+| `/var/lib/postgresql`                                | _symlink_ → `private/postgresql`                                                                                                                                                                               |
+| `/var/cache/node-red/`                               | `HOME=%C/node-red` definido no unit; cache npm/node                                                                                                                                                            |
+| `/var/lib/private/node-red/` ⚠️                      | **Provável legado** — tem `package.json`, contrib `myio-modbus` (158 linhas, registra só o type `modbus`), e snapshots `old/node_modules_*/`. **Não é o userDir ativo** do Node-RED. Validar antes de remover. |
+| `/var/lib/node-red`                                  | _symlink_ → `private/node-red` (mesmo destino legado)                                                                                                                                                          |
+| `/data/...`                                          | Overlay Mender (sobrevive a _rootfs update_) — espelhos persistentes                                                                                                                                           |
 
 ### 4.3 Arquivos-chave do app
 
-| Caminho | Descrição |
-| ------- | --------- |
-| `/usr/lib/node_modules/API/server.js` | Bootstrap — Express + JWT + `require('node-red')` |
-| `/usr/lib/node_modules/API/package.json` | Deps do app (Node-RED, dashboard, sequelize, etc.) |
-| `/usr/lib/node_modules/API/nodered_data/flows.json` | **Flow principal** (editado pela UI) |
-| `/usr/lib/node_modules/API/nodered_data/flows_cred.json` | Credenciais cifradas dos nós |
-| `/usr/lib/node_modules/API/scheduler.js` | Cron interno (`node-schedule`) |
-| `/usr/lib/node_modules/API/lib/routes/` | Endpoints REST (não-Node-RED) |
-| `/usr/lib/node_modules/API/models/` | Modelos Sequelize (tabelas do DB `hubot`) |
+| Caminho                                                  | Descrição                                          |
+| -------------------------------------------------------- | -------------------------------------------------- |
+| `/usr/lib/node_modules/API/server.js`                    | Bootstrap — Express + JWT + `require('node-red')`  |
+| `/usr/lib/node_modules/API/package.json`                 | Deps do app (Node-RED, dashboard, sequelize, etc.) |
+| `/usr/lib/node_modules/API/nodered_data/flows.json`      | **Flow principal** (editado pela UI)               |
+| `/usr/lib/node_modules/API/nodered_data/flows_cred.json` | Credenciais cifradas dos nós                       |
+| `/usr/lib/node_modules/API/scheduler.js`                 | Cron interno (`node-schedule`)                     |
+| `/usr/lib/node_modules/API/lib/routes/`                  | Endpoints REST (não-Node-RED)                      |
+| `/usr/lib/node_modules/API/models/`                      | Modelos Sequelize (tabelas do DB `hubot`)          |
 
 > 💡 **Comandos de descoberta** (caso outra central tenha layout diferente):
+>
 > ```sh
 > systemctl cat myio-api.service                # WorkingDirectory + ExecStart
 > ps -ef | grep -v grep | grep -E 'node|myio'   # processos rodando
@@ -293,28 +298,28 @@ não toca em hardware diretamente — usa os contribs custom para falar com o `m
 
 20 contribs, **um diretório por contrib**, cada um registrando 1 ou 2 node types:
 
-| Diretório | Types registrados | Função |
-|-----------|-------------------|--------|
-| `node-red-contrib-myio-emitter` | `emitter` | 🔑 **Publica telemetria** (cloud / TB) |
-| `node-red-contrib-myio-persist` | `persist-in`, `persist-out` | Persistência (flow/global context) |
-| `node-red-contrib-myio-activate-channel` | `activate-channel` | Liga/desliga canal Modbus |
-| `node-red-contrib-myio-activate-scene` | `activate-scene` | Executa cena |
-| `node-red-contrib-myio-time-range` | `time-range` | Janela horária (Agendamentos) |
-| `node-red-contrib-myio-get-data` | `get-data` | Lê tabelas (`slaves`/`channels`/…) |
-| `node-red-contrib-myio-slave` | `filter-slave` | Filtra por slave |
-| `node-red-contrib-myio-channel` | `filter-channel` | Filtra por channel |
-| `node-red-contrib-myio-channel_and` | `filter-channel_and` | Combinador AND |
-| `node-red-contrib-myio-channel_or` | `filter-channel_or` | Combinador OR |
-| `node-red-contrib-myio-temperature` | `filter-temperature` | Filtra leitura de temperatura |
-| `node-red-contrib-myio-consumption` | `filter-consumption` | Filtra consumo |
-| `node-red-contrib-myio-three_phase` | `three-phase` | Trifásico |
-| `node-red-contrib-myio-slave-info` | `slave-info` | Lookup info do slave |
-| `node-red-contrib-myio-send-check` | `send-check` | Envia checagem |
-| `node-red-contrib-myio-send-email` | `send-email` | Envia e-mail |
-| `node-red-contrib-myio-send-notification` | `send-notification` | Notificação genérica |
-| `node-red-contrib-myio-register-device` | `register-device` | Registro de device |
-| `node-red-contrib-myio-transmit-rfir-command` | `transmit-rfir-command` | IR (rfir) |
-| `node-red-contrib-myio-stress-test` | `stress-test` | Bench/teste |
+| Diretório                                     | Types registrados           | Função                                 |
+| --------------------------------------------- | --------------------------- | -------------------------------------- |
+| `node-red-contrib-myio-emitter`               | `emitter`                   | 🔑 **Publica telemetria** (cloud / TB) |
+| `node-red-contrib-myio-persist`               | `persist-in`, `persist-out` | Persistência (flow/global context)     |
+| `node-red-contrib-myio-activate-channel`      | `activate-channel`          | Liga/desliga canal Modbus              |
+| `node-red-contrib-myio-activate-scene`        | `activate-scene`            | Executa cena                           |
+| `node-red-contrib-myio-time-range`            | `time-range`                | Janela horária (Agendamentos)          |
+| `node-red-contrib-myio-get-data`              | `get-data`                  | Lê tabelas (`slaves`/`channels`/…)     |
+| `node-red-contrib-myio-slave`                 | `filter-slave`              | Filtra por slave                       |
+| `node-red-contrib-myio-channel`               | `filter-channel`            | Filtra por channel                     |
+| `node-red-contrib-myio-channel_and`           | `filter-channel_and`        | Combinador AND                         |
+| `node-red-contrib-myio-channel_or`            | `filter-channel_or`         | Combinador OR                          |
+| `node-red-contrib-myio-temperature`           | `filter-temperature`        | Filtra leitura de temperatura          |
+| `node-red-contrib-myio-consumption`           | `filter-consumption`        | Filtra consumo                         |
+| `node-red-contrib-myio-three_phase`           | `three-phase`               | Trifásico                              |
+| `node-red-contrib-myio-slave-info`            | `slave-info`                | Lookup info do slave                   |
+| `node-red-contrib-myio-send-check`            | `send-check`                | Envia checagem                         |
+| `node-red-contrib-myio-send-email`            | `send-email`                | Envia e-mail                           |
+| `node-red-contrib-myio-send-notification`     | `send-notification`         | Notificação genérica                   |
+| `node-red-contrib-myio-register-device`       | `register-device`           | Registro de device                     |
+| `node-red-contrib-myio-transmit-rfir-command` | `transmit-rfir-command`     | IR (rfir)                              |
+| `node-red-contrib-myio-stress-test`           | `stress-test`               | Bench/teste                            |
 
 ➕ Via npm em `API/node_modules/`: `node-red-dashboard` (todos os `ui_*`),
 `node-red-node-ui-list`, `node-red-node-tail`, `node-red-node-rbe`,
@@ -353,8 +358,8 @@ journalctl -u myio-api.service -f
 psql -U hubot
 ```
 
- 162 (CTI Pediátrico_ sétimo-andar), 164 (TEMP_FARMACIA-CAF).
- 
+162 (CTI Pediátrico\_ sétimo-andar), 164 (TEMP_FARMACIA-CAF).
+
 > **Troubleshooting** — se retornar
 > `could not connect to server: No such file or directory / Is the server running locally and accepting connections on Unix domain socket "/tmp/.s.PGSQL.5432"?`,
 > o cliente está procurando o socket em `/tmp`, mas no Debian/Ubuntu o Postgres usa `/var/run/postgresql`. Force o host correto:
@@ -499,12 +504,12 @@ curl -s -o /dev/null -w "HTTP %{http_code}\n" https://dashboard.myio.com.br
 ping -c 3 dashboard.myio.com.br
 ```
 
-| Resultado | Interpretação |
-| --------- | ------------- |
-| `is-active` = `active` + `curl` HTTP 200 | API local no ar |
-| `is-active` = `inactive`/`failed` | Serviço parado → `systemctl restart myio-api.service` (§6.1) e ver logs |
+| Resultado                                  | Interpretação                                                                    |
+| ------------------------------------------ | -------------------------------------------------------------------------------- |
+| `is-active` = `active` + `curl` HTTP 200   | API local no ar                                                                  |
+| `is-active` = `inactive`/`failed`          | Serviço parado → `systemctl restart myio-api.service` (§6.1) e ver logs          |
 | Serviço `active` mas `curl` recusa conexão | App subiu mas não abriu a porta → ver `journalctl` por erro de boot/porta em uso |
-| API local OK mas nuvem não responde | Problema de rede/internet da central, não da API |
+| API local OK mas nuvem não responde        | Problema de rede/internet da central, não da API                                 |
 
 ---
 
@@ -656,7 +661,7 @@ Cardinalidade:
 - 1 `rfir_device` → **N** `rfir_remotes`.
 - 1 `rfir_remote` → **N** `rfir_buttons`.
 
-#### 8.2.2 `\d rfir_devices`  ✅ confirmado
+#### 8.2.2 `\d rfir_devices` ✅ confirmado
 
 ```
         Column     |           Type           | Nullable | Default
@@ -680,7 +685,7 @@ Cardinalidade:
                   rfir_remotes              (rfir_device_id)
 ```
 
-#### 8.2.3 `\d rfir_remotes`  ✅ confirmado
+#### 8.2.3 `\d rfir_remotes` ✅ confirmado
 
 ```
         Column     |           Type           | Nullable | Default
@@ -702,15 +707,16 @@ Cardinalidade:
 Um único slave IR (ex.: blaster `RM 5`, `slaves.id=14`) pode aparecer na UI como
 **dois (ou mais) devices distintos**:
 
-| UI                            | Onde mora                                                                      |
-| ----------------------------- | ------------------------------------------------------------------------------ |
-| `AC 5` (controle remoto IR)   | Linha em `rfir_devices` com `slave_id=14`                                       |
+| UI                            | Onde mora                                                                                                                                                                                                               |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AC 5` (controle remoto IR)   | Linha em `rfir_devices` com `slave_id=14`                                                                                                                                                                               |
 | `RM 5` (`temperature_sensor`) | **Sintetizado direto do `slaves.id=14`** quando `temperature_correction IS NOT NULL` (firmware 7.0.0 do blaster expõe um termômetro embutido) — **NÃO** existe linha correspondente em `rfir_devices` ou `rfir_remotes` |
 
 Caso confirmado em 2026-05-04 na Raiz Educação — ver
 [`CENTRAL-RAIZ-EDUCACAO.md`](../RAIZ-EDUCACAO/CENTRAL-RAIZ-EDUCACAO.md) §2.6.
 
 Implicações:
+
 1. Um device da UI **nem sempre** tem linha em `rfir_devices`. O `temperature_sensor` derivado de um slave IR é virtual.
 2. A UI precisa decidir se exibe um device pra cada `rfir_devices.id` **e** pra cada `slaves.id` com flags adicionais.
 3. Pra inventariar "todos os devices visíveis" não basta listar `rfir_devices` — é preciso união com `slaves` filtrando o subset que produz devices virtuais (temperatura, talvez outros).
@@ -758,12 +764,12 @@ percorrer **`rfir_buttons` → `rfir_commands` → (firmware do `slaves`)**, com
    botões), e se tem populações inconsistentes entre centrais.
 3. **`rfir_buttons` tem 3 FK constraints duplicadas** apontando pra
    `rfir_remotes.id`, com **ON DELETE divergente**:
-   - `rfir_buttons_rfir_remote_id_fkey`  → `ON DELETE SET NULL`
+   - `rfir_buttons_rfir_remote_id_fkey` → `ON DELETE SET NULL`
    - `rfir_buttons_rfir_remote_id_fkey1` → `ON DELETE CASCADE`
    - `rfir_buttons_rfir_remote_id_fkey2` → `ON DELETE CASCADE`
-   Resultado prático: 2 dos 3 dizem CASCADE, então o efetivo é CASCADE — **mas**
-   é débito técnico, código defensivo de migration que ficou. Limpar com um
-   `ALTER TABLE … DROP CONSTRAINT` da redundante.
+     Resultado prático: 2 dos 3 dizem CASCADE, então o efetivo é CASCADE — **mas**
+     é débito técnico, código defensivo de migration que ficou. Limpar com um
+     `ALTER TABLE … DROP CONSTRAINT` da redundante.
 4. **Duas junctions com `ambients`** (`ambients_rfir_devices_rel` e
    `ambients_rfir_slaves_rel`) — pelo schema já visto, `rfir_device.slave_id`
    é FK direta pra `slaves`, então a junction `ambients_rfir_slaves_rel`
@@ -824,15 +830,15 @@ ORDER BY s.name, d.name, r.name, b.name;
 
 ### 8.6 Perguntas — status de resolução
 
-| # | Pergunta | Status |
-| - | -------- | ------ |
-| 1 | Cardinalidade `rfir_device` ↔ `slave` | ✅ **N:1** — múltiplos `rfir_devices` podem apontar pro mesmo `slave_id` (ver §8.2.4) |
-| 2 | `rfir_remote` representa controle físico do cliente ou agrupamento lógico? | 🟡 Parcialmente: é **subordinado** a `rfir_devices` (FK `rfir_device_id`). Parece ser um agrupamento lógico de botões opcional, sub-utilizado em devices simples (ver §8.4 item 2) |
-| 3 | `rfir_command` compartilhado entre botões/remotes? | ⏳ A confirmar com schema de `rfir_commands` e `rfir_buttons` |
-| 4 | Por que duas junctions com `ambients`? | ⏳ A confirmar — provavelmente `ambients_rfir_slaves_rel` é vestígio (ver §8.4 item 4) |
-| 5 | `page_low/page_high` são alocados pelo firmware ou pelo app? | ⏳ A confirmar |
-| 6 | Existe coluna pra marcar comandos órfãos? | ⏳ A confirmar com `\d rfir_commands` |
-| 7 | Estratégia de migração entre centrais | ⏳ Sem ferramenta documentada — único caminho seguro hoje é recaptura |
+| #   | Pergunta                                                                   | Status                                                                                                                                                                             |
+| --- | -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Cardinalidade `rfir_device` ↔ `slave`                                      | ✅ **N:1** — múltiplos `rfir_devices` podem apontar pro mesmo `slave_id` (ver §8.2.4)                                                                                              |
+| 2   | `rfir_remote` representa controle físico do cliente ou agrupamento lógico? | 🟡 Parcialmente: é **subordinado** a `rfir_devices` (FK `rfir_device_id`). Parece ser um agrupamento lógico de botões opcional, sub-utilizado em devices simples (ver §8.4 item 2) |
+| 3   | `rfir_command` compartilhado entre botões/remotes?                         | ⏳ A confirmar com schema de `rfir_commands` e `rfir_buttons`                                                                                                                      |
+| 4   | Por que duas junctions com `ambients`?                                     | ⏳ A confirmar — provavelmente `ambients_rfir_slaves_rel` é vestígio (ver §8.4 item 4)                                                                                             |
+| 5   | `page_low/page_high` são alocados pelo firmware ou pelo app?               | ⏳ A confirmar                                                                                                                                                                     |
+| 6   | Existe coluna pra marcar comandos órfãos?                                  | ⏳ A confirmar com `\d rfir_commands`                                                                                                                                              |
+| 7   | Estratégia de migração entre centrais                                      | ⏳ Sem ferramenta documentada — único caminho seguro hoje é recaptura                                                                                                              |
 
 ### 8.7 Próximos passos sugeridos
 
