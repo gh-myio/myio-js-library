@@ -34,6 +34,25 @@ export interface AmbienteRemoteDevice {
 }
 
 /**
+ * Selector (auto/manual) device — read-only.
+ * Telemetry status: `detected` → auto, `not_detected` → manual.
+ */
+export interface AmbienteSeletorDevice {
+  id: string;
+  name: string;
+  label: string;
+  deviceType: string;
+  deviceProfile?: string;
+  /** 'auto' (detected) | 'manual' (not_detected) */
+  mode: 'auto' | 'manual';
+  /** Raw switch status: detected | not_detected */
+  switchStatus?: string;
+  /** Device connection status (online/offline) */
+  status: string;
+  isConnected?: boolean;
+}
+
+/**
  * Child device in the ambiente hierarchy
  */
 export interface AmbienteChildDevice {
@@ -58,6 +77,7 @@ export interface AmbienteData {
   consumption: number | null;
   energyDevices: AmbienteEnergyDevice[];
   remoteDevices: AmbienteRemoteDevice[];
+  seletorDevices?: AmbienteSeletorDevice[];
   isOn?: boolean;
   hasRemote?: boolean;
   status: 'online' | 'offline' | 'warning';

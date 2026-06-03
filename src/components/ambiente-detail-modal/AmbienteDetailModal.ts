@@ -12,6 +12,7 @@ import type {
   AmbienteDetailModalInstance,
   AmbienteEnergyDevice,
   AmbienteRemoteDevice,
+  AmbienteSeletorDevice,
   AmbienteHierarchyNode,
 } from './types';
 
@@ -98,9 +99,14 @@ function renderModalHTML(
 ): string {
   const themeClass = config.themeMode === 'dark' ? `${AMBIENTE_MODAL_CSS_PREFIX}--dark` : '';
 
-  // Metrics section
-  const metricsHTML = `
-    <div class="${AMBIENTE_MODAL_CSS_PREFIX}__metrics-grid">
+  // Metrics section — only render cards that actually have data.
+  const hasMetricValue = (v: number | null | undefined): boolean =>
+    v !== null && v !== undefined && !isNaN(Number(v));
+
+  const metricCards: string[] = [];
+
+  if (hasMetricValue(data.temperature)) {
+    metricCards.push(`
       <div class="${AMBIENTE_MODAL_CSS_PREFIX}__metric-card">
         <div class="${AMBIENTE_MODAL_CSS_PREFIX}__metric-header">
           <span class="${AMBIENTE_MODAL_CSS_PREFIX}__metric-icon">🌡️</span>
@@ -111,6 +117,11 @@ function renderModalHTML(
           <span class="${AMBIENTE_MODAL_CSS_PREFIX}__metric-unit">°C</span>
         </div>
       </div>
+    `);
+  }
+
+  if (hasMetricValue(data.humidity)) {
+    metricCards.push(`
       <div class="${AMBIENTE_MODAL_CSS_PREFIX}__metric-card">
         <div class="${AMBIENTE_MODAL_CSS_PREFIX}__metric-header">
           <span class="${AMBIENTE_MODAL_CSS_PREFIX}__metric-icon">💧</span>
@@ -121,6 +132,11 @@ function renderModalHTML(
           <span class="${AMBIENTE_MODAL_CSS_PREFIX}__metric-unit">%</span>
         </div>
       </div>
+    `);
+  }
+
+  if (hasMetricValue(data.consumption)) {
+    metricCards.push(`
       <div class="${AMBIENTE_MODAL_CSS_PREFIX}__metric-card">
         <div class="${AMBIENTE_MODAL_CSS_PREFIX}__metric-header">
           <span class="${AMBIENTE_MODAL_CSS_PREFIX}__metric-icon">⚡</span>
@@ -130,6 +146,11 @@ function renderModalHTML(
           ${formatConsumption(data.consumption)}
         </div>
       </div>
+    `);
+  }
+
+  // Devices count card is always shown
+  metricCards.push(`
       <div class="${AMBIENTE_MODAL_CSS_PREFIX}__metric-card">
         <div class="${AMBIENTE_MODAL_CSS_PREFIX}__metric-header">
           <span class="${AMBIENTE_MODAL_CSS_PREFIX}__metric-icon">📱</span>
@@ -139,6 +160,11 @@ function renderModalHTML(
           ${data.childDeviceCount || data.devices?.length || 0}
         </div>
       </div>
+  `);
+
+  const metricsHTML = `
+    <div class="${AMBIENTE_MODAL_CSS_PREFIX}__metrics-grid">
+      ${metricCards.join('')}
     </div>
   `;
 
@@ -202,6 +228,39 @@ function renderModalHTML(
         </h4>
         <div class="${AMBIENTE_MODAL_CSS_PREFIX}__remote-controls">
           ${remoteButtons}
+        </div>
+      </div>
+    `;
+  }
+
+  // Seletor Auto/Manual section — read-only premium slider (detected=auto, not_detected=manual)
+  let seletorHTML = '';
+  if (data.seletorDevices && data.seletorDevices.length > 0) {
+    const seletorItems = data.seletorDevices.map((sel: AmbienteSeletorDevice) => {
+      const isAuto = sel.mode === 'auto';
+      return `
+        <div class="${AMBIENTE_MODAL_CSS_PREFIX}__seletor-item" data-seletor-id="${sel.id}" data-mode="${sel.mode}">
+          <div class="${AMBIENTE_MODAL_CSS_PREFIX}__seletor-info">
+            <span class="${AMBIENTE_MODAL_CSS_PREFIX}__seletor-icon">🔀</span>
+            <span class="${AMBIENTE_MODAL_CSS_PREFIX}__seletor-name">${sel.label || sel.name}</span>
+          </div>
+          <div class="${AMBIENTE_MODAL_CSS_PREFIX}__seletor-toggle ${isAuto ? 'is-auto' : 'is-manual'}" role="img" aria-label="${isAuto ? 'Automático' : 'Manual'}">
+            <span class="${AMBIENTE_MODAL_CSS_PREFIX}__seletor-thumb"></span>
+            <span class="${AMBIENTE_MODAL_CSS_PREFIX}__seletor-opt left">Manual</span>
+            <span class="${AMBIENTE_MODAL_CSS_PREFIX}__seletor-opt right">Automático</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    seletorHTML = `
+      <div class="${AMBIENTE_MODAL_CSS_PREFIX}__section">
+        <h4 class="${AMBIENTE_MODAL_CSS_PREFIX}__section-title">
+          <span class="${AMBIENTE_MODAL_CSS_PREFIX}__section-icon">🔀</span>
+          Seletor Auto/Manual (${data.seletorDevices.length})
+        </h4>
+        <div class="${AMBIENTE_MODAL_CSS_PREFIX}__seletor-list">
+          ${seletorItems}
         </div>
       </div>
     `;
@@ -276,6 +335,7 @@ function renderModalHTML(
           ${data.hasSetupWarning ? warningHTML : ''}
           ${energyDevicesHTML}
           ${remoteControlsHTML}
+          ${seletorHTML}
           ${allDevicesHTML}
         </div>
         <div class="${AMBIENTE_MODAL_CSS_PREFIX}__footer">

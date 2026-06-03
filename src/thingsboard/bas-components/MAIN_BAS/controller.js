@@ -857,8 +857,10 @@ function parseDevicesFromData(data) {
     var isSwitchDevice =
       profileUpper === 'LAMP' ||
       profileUpper === 'REMOTE' ||
+      profileUpper === 'SELETOR_AUTO_MANUAL' ||
       typeUpper === 'LAMP' ||
-      typeUpper === 'REMOTE';
+      typeUpper === 'REMOTE' ||
+      typeUpper === 'SELETOR_AUTO_MANUAL';
 
     if (isSwitchDevice) {
       domain = 'switch';
@@ -973,15 +975,16 @@ function parseDevicesFromData(data) {
       // status (timeseries) = on | off | detected | not_detected (switch state)
       var switchStatus = (cd.status || cd.state || '').toLowerCase();
       var isOn = switchStatus === 'on' || switchStatus === 'detected';
+      var isSeletor = profileUpper === 'SELETOR_AUTO_MANUAL' || typeUpper === 'SELETOR_AUTO_MANUAL';
       device.switchStatus = switchStatus; // Raw switch state value (on/off/detected/not_detected)
       device.isOn = isOn;
-      device.type = profileUpper === 'LAMP' ? 'lamp' : 'remote';
+      device.type = isSeletor ? 'seletor' : profileUpper === 'LAMP' ? 'lamp' : 'remote';
       // IMPORTANT: Keep device.status based on connectionStatus (online/offline)
       // This is already set above: device.status = isOnline ? 'online' : 'offline'
       // Do NOT override it with switch state
       device.connectionStatus = connectionStatus; // Store raw connectionStatus
       // Determine context based on device type
-      context = profileUpper === 'LAMP' ? 'lamp' : 'remote';
+      context = device.type;
       device.context = context;
       LogHelper.log(
         '[MAIN_BAS] Switch device:',
@@ -1660,8 +1663,10 @@ function assetAmbientToAmbienteData(hierarchyNode) {
     }
   });
 
-  // RFC-0176: Collect ALL switch devices (LAMP, REMOTE) from switch domain
+  // RFC-0176: Collect switch devices (LAMP, REMOTE) from switch domain.
+  // SELETOR_AUTO_MANUAL devices are collected separately (read-only Auto/Manual selector).
   var switchDevices = [];
+  var seletorDevices = [];
   devices.forEach(function (d) {
     // Check if device is in switch domain (set during parseDevicesFromData)
     var isSwitchDomain = d.domain === 'switch';
@@ -1682,25 +1687,44 @@ function assetAmbientToAmbienteData(hierarchyNode) {
 
       // Determine device type for visual display
       var dp = (d.deviceProfile || '').toUpperCase();
-      var switchType = dp === 'LAMP' ? 'lamp' : 'remote';
+      var dtUpper = (d.deviceType || '').toUpperCase();
+      var isSeletor = dp === 'SELETOR_AUTO_MANUAL' || dtUpper === 'SELETOR_AUTO_MANUAL' || d.type === 'seletor';
 
       // connectionStatus = online/offline (device connection state)
       var connStatus = d.connectionStatus || d.status || 'offline';
       var isConnected = connStatus === 'online';
 
-      switchDevices.push({
-        id: d.id,
-        name: d.name || d.label || (switchType === 'lamp' ? 'Lâmpada' : 'Controle'),
-        label: (d.rawData && d.rawData.label) || d.label || d.name || (switchType === 'lamp' ? 'Lâmpada' : 'Controle'),
-        deviceType: d.deviceType,
-        deviceProfile: d.deviceProfile,
-        type: switchType, // 'lamp' or 'remote'
-        isOn: isDeviceOn,
-        switchStatus: statusLower, // on|off|detected|not_detected (switch state)
-        connectionStatus: connStatus, // online|offline (device connection)
-        isConnected: isConnected, // true if device is connected
-        status: connStatus, // Keep for backwards compatibility
-      });
+      if (isSeletor) {
+        // Read-only selector: detected → Automático, not_detected → Manual
+        seletorDevices.push({
+          id: d.id,
+          name: d.name || d.label || 'Seletor',
+          label: (d.rawData && d.rawData.label) || d.label || d.name || 'Seletor',
+          deviceType: d.deviceType,
+          deviceProfile: d.deviceProfile,
+          type: 'seletor',
+          mode: statusLower === 'detected' ? 'auto' : 'manual', // 'auto' | 'manual'
+          switchStatus: statusLower, // detected | not_detected
+          connectionStatus: connStatus, // online|offline (device connection)
+          isConnected: isConnected,
+          status: connStatus,
+        });
+      } else {
+        var switchType = dp === 'LAMP' ? 'lamp' : 'remote';
+        switchDevices.push({
+          id: d.id,
+          name: d.name || d.label || (switchType === 'lamp' ? 'Lâmpada' : 'Controle'),
+          label: (d.rawData && d.rawData.label) || d.label || d.name || (switchType === 'lamp' ? 'Lâmpada' : 'Controle'),
+          deviceType: d.deviceType,
+          deviceProfile: d.deviceProfile,
+          type: switchType, // 'lamp' or 'remote'
+          isOn: isDeviceOn,
+          switchStatus: statusLower, // on|off|detected|not_detected (switch state)
+          connectionStatus: connStatus, // online|offline (device connection)
+          isConnected: isConnected, // true if device is connected
+          status: connStatus, // Keep for backwards compatibility
+        });
+      }
     }
   });
 
@@ -1787,6 +1811,7 @@ function assetAmbientToAmbienteData(hierarchyNode) {
     consumption: hasConsumption ? consumptionTotal : null,
     energyDevices: energyDevices, // Individual energy devices for card display
     switchDevices: switchDevices, // RFC-0176: LAMP and REMOTE devices with on/off status
+    seletorDevices: seletorDevices, // SELETOR_AUTO_MANUAL devices (read-only Auto/Manual)
     remoteDevices: remoteDevices, // Alias for backwards compatibility
     isOn: isOn,
     hasRemote: hasRemote,

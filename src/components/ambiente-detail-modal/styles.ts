@@ -344,6 +344,93 @@ export function injectAmbienteModalStyles(): void {
       font-weight: 600;
     }
 
+    /* ===== Seletor Auto/Manual (read-only premium slider) ===== */
+    .${AMBIENTE_MODAL_CSS_PREFIX}__seletor-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .${AMBIENTE_MODAL_CSS_PREFIX}__seletor-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 16px;
+      border-radius: 10px;
+      background: rgba(108, 117, 125, 0.08);
+      border: 1px solid rgba(108, 117, 125, 0.18);
+    }
+
+    .${AMBIENTE_MODAL_CSS_PREFIX}__seletor-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .${AMBIENTE_MODAL_CSS_PREFIX}__seletor-icon {
+      font-size: 18px;
+    }
+
+    .${AMBIENTE_MODAL_CSS_PREFIX}__seletor-name {
+      font-size: 14px;
+      font-weight: 500;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* Two-position read-only toggle: thumb slides to the active side */
+    .${AMBIENTE_MODAL_CSS_PREFIX}__seletor-toggle {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      flex: 0 0 auto;
+      width: 184px;
+      height: 34px;
+      padding: 3px;
+      border-radius: 999px;
+      background: rgba(108, 117, 125, 0.18);
+      user-select: none;
+    }
+
+    .${AMBIENTE_MODAL_CSS_PREFIX}__seletor-thumb {
+      position: absolute;
+      top: 3px;
+      bottom: 3px;
+      width: calc(50% - 3px);
+      border-radius: 999px;
+      transition: transform 0.22s ease, background 0.22s ease;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+    }
+
+    .${AMBIENTE_MODAL_CSS_PREFIX}__seletor-toggle.is-manual .${AMBIENTE_MODAL_CSS_PREFIX}__seletor-thumb {
+      transform: translateX(0);
+      background: #f39019; /* manual = laranja */
+    }
+
+    .${AMBIENTE_MODAL_CSS_PREFIX}__seletor-toggle.is-auto .${AMBIENTE_MODAL_CSS_PREFIX}__seletor-thumb {
+      transform: translateX(100%);
+      background: #2F5848; /* auto = verde */
+    }
+
+    .${AMBIENTE_MODAL_CSS_PREFIX}__seletor-opt {
+      position: relative;
+      z-index: 1;
+      flex: 1 1 0;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: #6c757d;
+      transition: color 0.22s ease;
+    }
+
+    .${AMBIENTE_MODAL_CSS_PREFIX}__seletor-toggle.is-manual .${AMBIENTE_MODAL_CSS_PREFIX}__seletor-opt.left,
+    .${AMBIENTE_MODAL_CSS_PREFIX}__seletor-toggle.is-auto .${AMBIENTE_MODAL_CSS_PREFIX}__seletor-opt.right {
+      color: #ffffff;
+    }
+
     /* ===== Empty State ===== */
     .${AMBIENTE_MODAL_CSS_PREFIX}__empty {
       display: flex;
