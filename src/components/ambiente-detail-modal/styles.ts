@@ -360,6 +360,13 @@ export function injectAmbienteModalStyles(): void {
       border-radius: 10px;
       background: rgba(108, 117, 125, 0.08);
       border: 1px solid rgba(108, 117, 125, 0.18);
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+
+    .${AMBIENTE_MODAL_CSS_PREFIX}__seletor-item:hover {
+      background: rgba(108, 117, 125, 0.14);
+      border-color: rgba(108, 117, 125, 0.32);
     }
 
     .${AMBIENTE_MODAL_CSS_PREFIX}__seletor-info {

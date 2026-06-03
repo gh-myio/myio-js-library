@@ -112,6 +112,12 @@ export interface AmbienteDetailModalConfig {
   showTimelineChart?: boolean;
   /** Callback when remote toggle is clicked */
   onRemoteToggle?: (isOn: boolean, remote: AmbienteRemoteDevice) => void;
+  /**
+   * Callback when a switch device (Interruptor LAMP/REMOTE or Seletor) is clicked.
+   * Used to open the On/Off device modal (control + actuation logs + scheduling).
+   * Takes precedence over onRemoteToggle for the Interruptor buttons.
+   */
+  onSwitchClick?: (device: AmbienteRemoteDevice | AmbienteSeletorDevice) => void;
   /** Callback when energy device is clicked (closes modal and opens device modal) */
   onEnergyDeviceClick?: (device: AmbienteEnergyDevice) => void;
   /** Callback when modal is closed */

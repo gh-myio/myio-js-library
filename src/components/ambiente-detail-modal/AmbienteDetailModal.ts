@@ -396,18 +396,39 @@ export function createAmbienteDetailModal(
     // Escape key
     document.addEventListener('keydown', handleEscape);
 
-    // Remote toggle buttons
+    // Interruptor (LAMP/REMOTE) buttons — open the On/Off modal (control + logs + scheduling)
+    // when onSwitchClick is provided; otherwise fall back to the legacy toggle callback.
     remoteButtons.forEach((btn) => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const remoteId = (btn as HTMLElement).dataset.remoteId;
-        const currentState = (btn as HTMLElement).dataset.remoteState === 'on';
         const remote = data.remoteDevices?.find((r) => r.id === remoteId);
-        if (remote && config.onRemoteToggle) {
+        if (!remote) return;
+        if (config.onSwitchClick) {
+          close();
+          config.onSwitchClick(remote);
+        } else if (config.onRemoteToggle) {
+          const currentState = (btn as HTMLElement).dataset.remoteState === 'on';
           config.onRemoteToggle(!currentState, remote);
         }
       });
     });
+
+    // Seletor Auto/Manual items — clickable to open the On/Off modal (logs + scheduling)
+    if (config.onSwitchClick) {
+      const seletorItems = container.querySelectorAll(`.${AMBIENTE_MODAL_CSS_PREFIX}__seletor-item`);
+      seletorItems.forEach((item) => {
+        item.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const seletorId = (item as HTMLElement).dataset.seletorId;
+          const seletor = data.seletorDevices?.find((s) => s.id === seletorId);
+          if (seletor && config.onSwitchClick) {
+            close();
+            config.onSwitchClick(seletor);
+          }
+        });
+      });
+    }
 
     // Energy device click handler - opens BAS device modal
     if (config.onEnergyDeviceClick) {
