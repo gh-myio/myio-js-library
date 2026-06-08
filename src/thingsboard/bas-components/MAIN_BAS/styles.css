@@ -452,37 +452,71 @@ tb-html-widget > div,
 
 /* ========================================
    RESPONSIVE
+   The dashboard has 4 big groups (+ the retractable premium menu):
+     water     → INFRAESTRUTURA HÍDRICA
+     charts    → CONSUMO
+     ambientes → AMBIENTES
+     motors    → ENERGIA
+
+   Desktop / default: UNCHANGED — keeps the 3-col grid at every width above
+   the mobile breakpoint (water/charts | ambientes | motors).
+   Mobile (≤768px): the 4 groups stack one on top of another + the menu
+   becomes an overlay so it doesn't squeeze them.
+
+   NOTE: there is intentionally NO tablet breakpoint — a higher one was
+   hijacking the normal (sub-1200px) desktop view. The default layout is
+   preserved as-is; only true mobile widths restack.
+
+   The legacy EntityListPanel sidebar slot is display:none (RFC-0173 premium
+   menu), so it is NOT referenced in any grid area.
    ======================================== */
-@media (max-width: 900px) {
+
+/* ---- Mobile: single column — the 4 groups stacked one on top of another ---- */
+@media (max-width: 768px) {
+  /* Menu overlays the content (drawer) instead of pushing the stacked groups.
+     Taken out of the flex flow so #bas-main-content gets the full width. */
+  #bas-sidebar-menu-host {
+    position: absolute !important;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 1000;
+    box-shadow: 2px 0 14px rgba(0, 0, 0, 0.35);
+  }
+
+  #bas-main-content {
+    width: 100% !important;
+  }
+
   .bas-content-layout {
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: auto auto auto;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+    grid-auto-rows: minmax(320px, auto);
+    /* INFRAESTRUTURA HÍDRICA → CONSUMO → AMBIENTES → ENERGIA */
     grid-template-areas:
-      'sidebar   water'
-      'charts    charts'
-      'ambientes motors';
+      'water'
+      'charts'
+      'ambientes'
+      'motors';
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
   }
 
-  .bas-sidebar-slot {
-    max-height: 220px;
-  }
-
-  .bas-water-slot {
-    max-height: 220px;
-    border-right: none;
-  }
-
-  .bas-charts-slot {
-    max-height: 300px;
-    border-right: none;
-  }
-
-  .bas-ambientes-slot {
-    min-height: 280px;
-    border-right: 1px solid rgba(255, 255, 255, 0.08);
-  }
-
+  .bas-water-slot,
+  .bas-charts-slot,
+  .bas-ambientes-slot,
   .bas-motors-slot {
-    min-height: 280px;
+    min-height: 320px !important;
+    max-height: none !important;
+    border-right: none !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  /* tighten padding on small screens to gain usable area */
+  .bas-water-slot,
+  .bas-charts-slot,
+  .bas-ambientes-slot,
+  .bas-motors-slot {
+    padding: 8px !important;
   }
 }
