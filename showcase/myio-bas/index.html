@@ -332,6 +332,27 @@
         max-height: 280px;
       }
     }
+
+    /* ===== VIEWPORT SIMULATOR ===== */
+    .widget-area.viewport-sim {
+      display: flex !important;
+      align-items: flex-start !important;
+      justify-content: center !important;
+      overflow: auto !important;
+      background: #111827 !important;
+      padding: 16px;
+    }
+    #bas-dashboard-root.viewport-sim {
+      position: relative !important;
+      flex: 0 0 auto !important;
+      border-radius: 8px;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.1), 0 8px 32px rgba(0,0,0,0.5);
+    }
+    .ctrl-btn.viewport-active {
+      background: #2F5848 !important;
+      color: white !important;
+      border-color: #3d7a62 !important;
+    }
   </style>
 </head>
 <body>
@@ -417,6 +438,20 @@
           <button class="ctrl-btn secondary" onclick="simulateDataUpdate()">
             &#x1F4E1; Simulate
           </button>
+        </div>
+      </div>
+
+      <!-- Viewport Simulator -->
+      <div class="controls-panel">
+        <h3>Viewport Simulator</h3>
+        <div class="ctrl-group">
+          <label class="ctrl-label" id="viewportLabel">Tamanho: Full</label>
+        </div>
+        <div class="controls-grid">
+          <button class="ctrl-btn secondary viewport-active" id="vpBtn-full" onclick="setViewport(null)">Full</button>
+          <button class="ctrl-btn secondary" id="vpBtn-mobile" onclick="setViewport(375, 667)">Mobile</button>
+          <button class="ctrl-btn secondary" id="vpBtn-tablet" onclick="setViewport(768, 1024)">Tablet</button>
+          <button class="ctrl-btn secondary" id="vpBtn-laptop" onclick="setViewport(1280, 800)">Laptop</button>
         </div>
       </div>
 
@@ -1814,6 +1849,42 @@
     // Ghost auth + real data (defined inside IIFE to share log() context)
     window.loadRealData = loadRealData;
   })(); // End IIFE
+
+  // ===== VIEWPORT SIMULATOR =====
+  function setViewport(width, height) {
+    const widgetArea = document.querySelector('.widget-area');
+    const root = document.getElementById('bas-dashboard-root');
+    const label = document.getElementById('viewportLabel');
+    const btns = { full: 'vpBtn-full', mobile: 'vpBtn-mobile', tablet: 'vpBtn-tablet', laptop: 'vpBtn-laptop' };
+
+    // Reset all button states
+    Object.values(btns).forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.remove('viewport-active');
+    });
+
+    if (!width) {
+      widgetArea.classList.remove('viewport-sim');
+      root.classList.remove('viewport-sim');
+      root.style.width = '';
+      root.style.height = '';
+      if (label) label.textContent = 'Tamanho: Full';
+      const fullBtn = document.getElementById(btns.full);
+      if (fullBtn) fullBtn.classList.add('viewport-active');
+    } else {
+      widgetArea.classList.add('viewport-sim');
+      root.classList.add('viewport-sim');
+      root.style.width = width + 'px';
+      root.style.height = (height || 667) + 'px';
+      if (label) label.textContent = `Tamanho: ${width}×${height || 667}px`;
+
+      // Mark active button
+      if (width === 375) document.getElementById(btns.mobile)?.classList.add('viewport-active');
+      else if (width === 768) document.getElementById(btns.tablet)?.classList.add('viewport-active');
+      else if (width === 1280) document.getElementById(btns.laptop)?.classList.add('viewport-active');
+    }
+  }
+  window.setViewport = setViewport;
   </script>
 </body>
 </html>

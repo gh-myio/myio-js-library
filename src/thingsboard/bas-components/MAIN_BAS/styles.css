@@ -58,12 +58,10 @@ tb-html-widget > div,
 /* ========================================
    ROOT CONTAINER
    RFC-0173: Flex layout with sidebar menu + main content
-   FALLBACK: Use 100vh if 100% doesn't work
    ======================================== */
 .bas-dashboard-container {
   width: 100%;
   height: 100%;
-  height: 100vh; /* Fallback: use viewport height */
   min-height: 0;
   overflow: hidden;
   font-family: 'Roboto', 'Segoe UI', sans-serif;
@@ -458,41 +456,51 @@ tb-html-widget > div,
      ambientes → AMBIENTES
      motors    → ENERGIA
 
-   Desktop / default: UNCHANGED — keeps the 3-col grid at every width above
-   the mobile breakpoint (water/charts | ambientes | motors).
-   Mobile (≤768px): the 4 groups stack one on top of another + the menu
-   becomes an overlay so it doesn't squeeze them.
+   Desktop / default (>960px): 3-col grid (54% | 23% | 23%).
+   Tablet / Laptop (≤960px): 2×2 grid (50% | 50%) — sidebar permanece na flex row (64px).
+   Mobile (≤768px): 4 grupos em coluna única + sidebar na flex row (64px).
 
-   NOTE: there is intentionally NO tablet breakpoint — a higher one was
-   hijacking the normal (sub-1200px) desktop view. The default layout is
-   preserved as-is; only true mobile widths restack.
+   Em TODOS os tamanhos o sidebar fica no flex flow (não usa position: absolute).
+   Colapsado = barra de ícones 64px visível; expandido = 260px drawer lateral.
+   Ao expandir em telas muito pequenas o conteúdo se ajusta (min-width: 0).
 
    The legacy EntityListPanel sidebar slot is display:none (RFC-0173 premium
    menu), so it is NOT referenced in any grid area.
    ======================================== */
 
+/* ---- Tablet / Laptop pequeno (769px–960px): grade 2×2 ---- */
+@media (max-width: 960px) {
+  /* Grade 2×2: water+charts à esquerda, ambientes+motors à direita.
+     Sidebar permanece no flex flow — sem position: absolute. */
+  .bas-content-layout {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 50% 50%;
+    grid-template-areas:
+      'water    ambientes'
+      'charts   motors';
+  }
+}
+
 /* ---- Mobile: single column — the 4 groups stacked one on top of another ---- */
 @media (max-width: 768px) {
-  /* Menu overlays the content (drawer) instead of pushing the stacked groups.
-     Taken out of the flex flow so #bas-main-content gets the full width. */
-  #bas-sidebar-menu-host {
-    position: absolute !important;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    z-index: 1000;
-    box-shadow: 2px 0 14px rgba(0, 0, 0, 0.35);
+  /* O SidebarMenu component injeta CSS-in-JS que, em ≤768px, define:
+       .myio-sidebar { position: fixed; transform: translateX(-100%) }
+     Isso esconde o sidebar off-screen (padrão drawer nunca finalizado).
+     Aqui sobrescrevemos para manter o sidebar VISÍVEL no flex flow.
+     !important + seletor de ID garante precedência sobre o CSS-in-JS. */
+  #bas-sidebar-menu-host .myio-sidebar {
+    position: relative !important;
+    transform: none !important;
+    height: 100% !important;
   }
 
-  #bas-main-content {
-    width: 100% !important;
-  }
-
+  /* Sidebar permanece no flex flow (64px colapsado) — visível como barra de ícones.
+     O conteúdo ocupa o restante da largura (screen - 64px).
+     INFRAESTRUTURA HÍDRICA → CONSUMO → AMBIENTES → ENERGIA */
   .bas-content-layout {
     grid-template-columns: 1fr;
     grid-template-rows: auto;
     grid-auto-rows: minmax(320px, auto);
-    /* INFRAESTRUTURA HÍDRICA → CONSUMO → AMBIENTES → ENERGIA */
     grid-template-areas:
       'water'
       'charts'
