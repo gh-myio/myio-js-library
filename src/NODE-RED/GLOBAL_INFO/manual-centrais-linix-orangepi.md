@@ -67,6 +67,9 @@ ssh -i id_rsa root@<ipv6-da-central>
 | ----------------- | ---------------------------------------- | -------------------------------------- |
 | Praia da Costa L1 | `200:8e12:1a64:71bc:ff06:5c56:9f09:f4aa` | —                                      |
 | Macaé             | `200:bf4f:c3a0:e697:17ff:28a5:38ae:536b` | `571ff592-8983-43b3-b7f2-96ab688d4f1c` |
+| Ilha Plaza AL1    | `200:dc42:651b:5ae5:338d:2b26:670d:34e6` | `81a60176-222c-4bb9-88f5-bc2b47802d82` |
+| Ilha Plaza AL2    | `200:24a5:8297:cce7:59d2:8126:6d67:7e4d` | `53052549-cc8c-4ca2-a597-58e0577548a2` |
+| Ilha Plaza AL3    | `206:c160:eb69:3ddb:42c7:efce:511e:792a` | `91b719b7-f2d2-4d3f-9fb9-ab3d4edbac0d` |
 
 #### Holding: SUPERVIA ESTAÇÕES
 
@@ -148,6 +151,15 @@ ssh -i id_rsa root@200:8e12:1a64:71bc:ff06:5c56:9f09:f4aa
 
 # Macaé (Soul Malls)
 ssh -i id_rsa root@200:bf4f:c3a0:e697:17ff:28a5:38ae:536b
+
+# Ilha Plaza AL1 (Soul Malls)
+ssh -i id_rsa root@200:dc42:651b:5ae5:338d:2b26:670d:34e6
+
+# Ilha Plaza AL2 (Soul Malls)
+ssh -i id_rsa root@200:24a5:8297:cce7:59d2:8126:6d67:7e4d
+
+# Ilha Plaza AL3 (Soul Malls)
+ssh -i id_rsa root@206:c160:eb69:3ddb:42c7:efce:511e:792a
 
 # Deodoro (Supervia Estações)
 ssh -i id_rsa root@200:1e6a:69a5:73f1:b18a:e6e:aa68:9229
