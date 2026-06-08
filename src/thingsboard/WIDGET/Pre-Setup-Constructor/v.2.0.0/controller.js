@@ -4549,22 +4549,25 @@ self.onInit = function () {
         const ymd = gerarCodigoUnico();
         const incremental = window.deviceCounter.toString().padStart(3, '0');
         window.deviceCounter++;
-        const prefixMap = {
-          COMPRESSOR: '3F COMP.',
-          VENTILADOR: '3F VENT.',
-          SELETOR_AUTO_MANUAL: 'S_AUTO_MANUAL.',
-          TERMOSTATO: 'TEMP.',
-          '3F_MEDIDOR': '3F',
-          MOTOR: '3F MOTR.',
-          ESCADA_ROLANTE: '3F ESRL.',
-          ELEVADOR: '3F ELEV.',
-          HIDROMETRO: 'HIDR.',
-          SOLENOIDE: 'ABFE.',
-          CONTROLE_REMOTO: 'AC',
-          CAIXA_D_AGUA: 'SCD',
-          CONTROLE_AUTOMACAO: 'GW_AUTO.',
-        };
-        const prefix = prefixMap[deviceType] || 'DEV.';
+        // RFC-0202: prefixo de tipo vem da lib MyIO (fonte única — src/utils/device.ts).
+        // Sem fallback silencioso: se a lib não estiver carregada, emite toast de erro.
+        let prefix;
+        {
+          const _lib = window.MyIOLibrary;
+          if (_lib && typeof _lib.getDeviceTypePrefix === 'function') {
+            prefix = _lib.getDeviceTypePrefix(deviceType);
+          } else {
+            const _msg =
+              'MyIOLibrary.getDeviceTypePrefix indisponível — carregue/atualize a biblioteca MyIO para gerar o prefixo do dispositivo.';
+            if (_lib && _lib.MyIOToast && typeof _lib.MyIOToast.error === 'function') {
+              _lib.MyIOToast.error(_msg, 6000);
+            } else {
+              try { window.alert(_msg); } catch { /* alert pode estar bloqueado */ }
+            }
+            console.error(_msg, { deviceType });
+            prefix = 'DEV.';
+          }
+        }
         const generatedName = `${prefix} ${ymd}${incremental}`;
 
         const idh = 248; // fixo

@@ -57,6 +57,21 @@ const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const MYIO_PURPLE = '#3e1a7d';
 const MYIO_PURPLE_DARK = '#2d1360';
 
+// Canonical device-type/profile values offered in the bulk "force attribute" modal.
+// Use "Outro (digitar)…" in the dropdown to enter any value not listed here.
+const BULK_DEVICE_TYPE_OPTIONS: string[] = [
+  // Energia
+  'COMPRESSOR', 'VENTILADOR', 'MOTOR',
+  'BOMBA_HIDRAULICA', 'BOMBA_CAG', 'BOMBA_INCENDIO',
+  'CHILLER', 'FANCOIL', 'AR_CONDICIONADO', '3F_MEDIDOR',
+  'ELEVADOR', 'ESCADA_ROLANTE', 'RELOGIO', 'ENTRADA', 'SUBESTACAO', 'TRAFO',
+  // Água
+  'HIDROMETRO', 'HIDROMETRO_AREA_COMUM', 'HIDROMETRO_SHOPPING', 'CAIXA_DAGUA', 'TANK',
+  // BAS / Outros (switch, automação, climatização auxiliar)
+  'TERMOSTATO', 'LAMP', 'PLUG', 'REMOTE', 'CONTROLE_REMOTO',
+  'SELETOR_AUTO_MANUAL', 'SOLENOIDE', 'GLOBAL_AUTOMACAO',
+];
+
 // RFC-0184: domain classification by inferred deviceType
 const CHECK_FIX_DOMAIN: Record<string, string> = {
   COMPRESSOR: 'energy', VENTILADOR: 'energy', ESCADA_ROLANTE: 'energy', ELEVADOR: 'energy',
@@ -714,6 +729,8 @@ interface ModalState {
     attribute: string;
     value: string;
     saving: boolean;
+    /** true when "Outro (digitar)…" is selected → value comes from a free-text input */
+    customValue: boolean;
   };
   bulkProfileModal: {
     open: boolean;
@@ -906,7 +923,7 @@ export function openUpsellModal(params: UpsellModalParams): UpsellModalInstance 
     deviceFilters: { types: [], deviceTypes: [], deviceProfiles: [], statuses: [], telemetryKeys: [] },
     deviceSelectionMode: 'single',
     selectedDevices: [],
-    bulkAttributeModal: { open: false, attribute: 'deviceType', value: '', saving: false },
+    bulkAttributeModal: { open: false, attribute: 'deviceType', value: '', saving: false, customValue: false },
     bulkProfileModal: { open: false, selectedProfileId: '', saving: false },
     bulkOwnerModal: { open: false, saving: false, targetCustomerId: '' },
     columnWidths: {
@@ -1317,21 +1334,24 @@ function renderModal(
             </label>
             ${
               state.bulkAttributeModal.attribute === 'deviceType' || state.bulkAttributeModal.attribute === 'deviceProfile'
-                ? `<select id="${modalId}-bulk-attr-value" style="
+                ? `<select id="${modalId}-bulk-attr-type-select" style="
                     width: 100%; padding: 10px 12px; border: 1px solid ${colors.border};
                     border-radius: 6px; font-size: 14px; color: ${colors.text};
                     background: ${colors.inputBg}; cursor: pointer; box-sizing: border-box;
                   ">
                     <option value="">— Selecione —</option>
-                    ${[
-                      'ELEVADOR', 'ESCADA_ROLANTE', 'MOTOR',
-                      'BOMBA_HIDRAULICA', 'BOMBA_CAG', 'BOMBA_INCENDIO',
-                      'CHILLER', 'FANCOIL', '3F_MEDIDOR',
-                      'RELOGIO', 'ENTRADA', 'SUBESTACAO', 'AR_CONDICIONADO',
-                      'HIDROMETRO', 'HIDROMETRO_AREA_COMUM', 'HIDROMETRO_SHOPPING',
-                      'CAIXA_DAGUA', 'TANK', 'TERMOSTATO',
-                    ].map((opt) => `<option value="${opt}" ${state.bulkAttributeModal.value === opt ? 'selected' : ''}>${opt}</option>`).join('')}
-                  </select>`
+                    ${BULK_DEVICE_TYPE_OPTIONS.map((opt) => `<option value="${opt}" ${!state.bulkAttributeModal.customValue && state.bulkAttributeModal.value === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+                    <option value="__OTHER__" ${state.bulkAttributeModal.customValue ? 'selected' : ''}>Outro (digitar)…</option>
+                  </select>
+                  ${
+                    state.bulkAttributeModal.customValue
+                      ? `<input type="text" id="${modalId}-bulk-attr-value" value="${state.bulkAttributeModal.value}" placeholder="Digite o valor..." style="
+                          width: 100%; padding: 10px 12px; margin-top: 8px; border: 1px solid ${colors.border};
+                          border-radius: 6px; font-size: 14px; color: ${colors.text};
+                          background: ${colors.inputBg}; box-sizing: border-box;
+                        "/>`
+                      : ''
+                  }`
                 : `<input type="text" id="${modalId}-bulk-attr-value" value="${
                     state.bulkAttributeModal.value
                   }" placeholder="Digite o valor..." style="
@@ -5221,6 +5241,7 @@ function setupEventListeners(
   document.getElementById(`${modalId}-bulk-close`)?.addEventListener('click', () => {
     state.bulkAttributeModal.open = false;
     state.bulkAttributeModal.value = '';
+    state.bulkAttributeModal.customValue = false;
     renderModal(container, state, modalId, t);
   });
 
@@ -5228,6 +5249,7 @@ function setupEventListeners(
   document.getElementById(`${modalId}-bulk-cancel`)?.addEventListener('click', () => {
     state.bulkAttributeModal.open = false;
     state.bulkAttributeModal.value = '';
+    state.bulkAttributeModal.customValue = false;
     renderModal(container, state, modalId, t);
   });
 
@@ -5235,17 +5257,30 @@ function setupEventListeners(
   document.getElementById(`${modalId}-bulk-attr-select`)?.addEventListener('change', (e) => {
     state.bulkAttributeModal.attribute = (e.target as HTMLSelectElement).value;
     state.bulkAttributeModal.value = '';
+    state.bulkAttributeModal.customValue = false;
     renderModal(container, state, modalId, t);
     setupEventListeners(container, state, modalId, t, onClose);
   });
 
-  // Value input/select change (handles both text input and select dropdown)
+  // deviceType/deviceProfile dropdown change — handle "Outro (digitar)…" by
+  // switching to a free-text input; otherwise store the selected value.
+  document.getElementById(`${modalId}-bulk-attr-type-select`)?.addEventListener('change', (e) => {
+    const selected = (e.target as HTMLSelectElement).value;
+    if (selected === '__OTHER__') {
+      state.bulkAttributeModal.customValue = true;
+      state.bulkAttributeModal.value = '';
+    } else {
+      state.bulkAttributeModal.customValue = false;
+      state.bulkAttributeModal.value = selected;
+    }
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
+  });
+
+  // Free-text value input (non-type attributes, or "Outro (digitar)…" custom value)
   const bulkAttrValueEl = document.getElementById(`${modalId}-bulk-attr-value`);
   bulkAttrValueEl?.addEventListener('input', (e) => {
     state.bulkAttributeModal.value = (e.target as HTMLInputElement).value;
-  });
-  bulkAttrValueEl?.addEventListener('change', (e) => {
-    state.bulkAttributeModal.value = (e.target as HTMLSelectElement).value;
   });
 
   // Save bulk attributes
@@ -7834,6 +7869,7 @@ async function saveBulkAttribute(
   state.bulkAttributeModal.saving = false;
   state.bulkAttributeModal.open = false;
   state.bulkAttributeModal.value = '';
+  state.bulkAttributeModal.customValue = false;
 
   // Show result message
   if (errorCount === 0) {

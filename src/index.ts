@@ -95,6 +95,34 @@ export {
   calculateDeviceStatusMasterRules, // RFC-0110: Simplified status calculation with master rules
 } from './utils/deviceStatus.js';
 
+// Device Icons utilities (RFC-0200)
+export {
+  DeviceIconType,
+  deviceIcons,
+  deviceIconLabels,
+  DEFAULT_DEVICE_ICON,
+  getDeviceIcon,
+  isDeviceIconType,
+} from './utils/deviceIcons';
+
+// Device Type Config — single source of truth (RFC-0202)
+export {
+  DEVICE_TYPE_CONFIG,
+  DEFAULT_DEVICE_IMAGE,
+  getDeviceCategory,
+  getStaticDeviceImage,
+  getTypesByCategory,
+} from './utils/deviceTypeConfig';
+export type { DeviceTypeCategory, DeviceTypeConfigEntry } from './utils/deviceTypeConfig';
+
+// Device naming utilities
+export {
+  generateMercosulPlate,
+  DEVICE_TYPE_PREFIX_MAP,
+  DEFAULT_DEVICE_TYPE_PREFIX,
+  getDeviceTypePrefix,
+} from './utils/device';
+
 // RFC-0109: Device Item Factory utilities
 export {
   DomainType,

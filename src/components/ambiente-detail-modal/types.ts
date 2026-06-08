@@ -34,6 +34,25 @@ export interface AmbienteRemoteDevice {
 }
 
 /**
+ * Selector (auto/manual) device — read-only.
+ * Telemetry status: `detected` → auto, `not_detected` → manual.
+ */
+export interface AmbienteSeletorDevice {
+  id: string;
+  name: string;
+  label: string;
+  deviceType: string;
+  deviceProfile?: string;
+  /** 'auto' (detected) | 'manual' (not_detected) */
+  mode: 'auto' | 'manual';
+  /** Raw switch status: detected | not_detected */
+  switchStatus?: string;
+  /** Device connection status (online/offline) */
+  status: string;
+  isConnected?: boolean;
+}
+
+/**
  * Child device in the ambiente hierarchy
  */
 export interface AmbienteChildDevice {
@@ -58,6 +77,7 @@ export interface AmbienteData {
   consumption: number | null;
   energyDevices: AmbienteEnergyDevice[];
   remoteDevices: AmbienteRemoteDevice[];
+  seletorDevices?: AmbienteSeletorDevice[];
   isOn?: boolean;
   hasRemote?: boolean;
   status: 'online' | 'offline' | 'warning';
@@ -92,6 +112,12 @@ export interface AmbienteDetailModalConfig {
   showTimelineChart?: boolean;
   /** Callback when remote toggle is clicked */
   onRemoteToggle?: (isOn: boolean, remote: AmbienteRemoteDevice) => void;
+  /**
+   * Callback when a switch device (Interruptor LAMP/REMOTE or Seletor) is clicked.
+   * Used to open the On/Off device modal (control + actuation logs + scheduling).
+   * Takes precedence over onRemoteToggle for the Interruptor buttons.
+   */
+  onSwitchClick?: (device: AmbienteRemoteDevice | AmbienteSeletorDevice) => void;
   /** Callback when energy device is clicked (closes modal and opens device modal) */
   onEnergyDeviceClick?: (device: AmbienteEnergyDevice) => void;
   /** Callback when modal is closed */

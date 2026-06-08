@@ -10,78 +10,45 @@
  *
  * Dependencies:
  *   - ThingsBoard JWT token (localStorage.jwt_token)
- *   - MyIO Ingestion API (via MyIOAuth for Upsell)
+ *   - MyIO Ingestion API (via MyIOLibrary.buildMyioIngestionAuth for Upsell)
  *   - myio-js-library UMD (loaded from CDN on demand)
  */
 
 // ============================================================
-// MyIOAuth — Ingestion API token cache and renewal
+// Ingestion API config — token is obtained via MyIOLibrary.buildMyioIngestionAuth.
+// Credentials come from widget settings (ingestionClientId / ingestionClientSecret),
+// populated in onInit from self.ctx.settings. No hardcoded fallback: if missing,
+// the Upsell handler shows a MyIOToast error and aborts.
+// DATA_API_HOST includes /api/v1 → buildMyioIngestionAuth appends /auth.
 // ============================================================
-const MyIOAuth = (() => {
-  const AUTH_URL = 'https://api.data.apps.myio-bas.com/api/v1/auth';
-  const CLIENT_ID = 'myioadmi_mekj7xw7_sccibe';
-  const CLIENT_SECRET = 'KmXhNZu0uydeWZ8scAi43h7P2pntGoWkdzNVMSjbVj3slEsZ5hGVXyayshgJAoqA';
-  const RENEW_SKEW_S = 60;
-  const RETRY_BASE_MS = 500;
-  const RETRY_MAX_ATTEMPTS = 3;
-
-  let _token = null;
-  let _expiresAt = 0;
-  let _inFlight = null;
-
-  const _now = () => Date.now();
-  const _aboutToExpire = () => !_token || _now() >= _expiresAt - RENEW_SKEW_S * 1000;
-  const _sleep = (ms) => new Promise((res) => setTimeout(res, ms));
-
-  async function _requestNewToken() {
-    let attempt = 0;
-    while (true) {
-      try {
-        const resp = await fetch(AUTH_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ client_id: CLIENT_ID, client_secret: CLIENT_SECRET }),
-        });
-        if (!resp.ok) {
-          const text = await resp.text().catch(() => '');
-          throw new Error(`Auth falhou: HTTP ${resp.status} ${text}`);
-        }
-        const json = await resp.json();
-        if (!json || !json.access_token || !json.expires_in) {
-          throw new Error('Resposta de auth inválida.');
-        }
-        _token = json.access_token;
-        _expiresAt = _now() + Number(json.expires_in) * 1000;
-        console.log('[MyIOAuth] Token obtido. Expira em ~', Math.round(Number(json.expires_in) / 60), 'min');
-        return _token;
-      } catch (err) {
-        attempt++;
-        console.warn(`[MyIOAuth] Erro (tentativa ${attempt}/${RETRY_MAX_ATTEMPTS}):`, err?.message || err);
-        if (attempt >= RETRY_MAX_ATTEMPTS) throw err;
-        await _sleep(RETRY_BASE_MS * Math.pow(2, attempt - 1));
-      }
-    }
-  }
-
-  async function getToken() {
-    if (_inFlight) return _inFlight;
-    if (_aboutToExpire()) {
-      _inFlight = _requestNewToken().finally(() => {
-        _inFlight = null;
-      });
-      return _inFlight;
-    }
-    return _token;
-  }
-
-  return { getToken };
-})();
+const GU_DATA_API_HOST = 'https://api.data.apps.myio-bas.com/api/v1';
+let GU_INGESTION_CLIENT_ID = '';
+let GU_INGESTION_CLIENT_SECRET = '';
 
 // ============================================================
 // Force Clear Identity — chunk delay (ms) between batches.
 // Default 5000ms. Overridable via widget settings: forceClearChunkDelayMs.
 // ============================================================
 let GU_CHUNK_DELAY_MS = 5000;
+
+// ============================================================
+// GCDR master API key — used as X-API-Key in gcdrFetch (Initial Setup).
+// Set via widget settings: gcdrMasterKey. No hardcoded fallback: if missing,
+// gcdrFetch shows a MyIOToast error and aborts.
+// ============================================================
+let GU_GCDR_MASTER_KEY = '';
+
+// Returns the configured GCDR master key, or shows a MyIOToast error and throws if missing.
+function guRequireGcdrMasterKey() {
+  if (!GU_GCDR_MASTER_KEY) {
+    const msg = 'GCDR Master API Key não configurada nas settings do widget.';
+    console.error('[GU]', msg);
+    const MyIOToast = window.MyIOLibrary?.MyIOToast || window.MyIOToast;
+    if (MyIOToast) MyIOToast.error(msg);
+    throw new Error(msg);
+  }
+  return GU_GCDR_MASTER_KEY;
+}
 
 // ============================================================
 // ThingsBoard API helpers
@@ -347,6 +314,22 @@ self.onInit = function () {
     GU_CHUNK_DELAY_MS = cfgDelay;
   }
   console.log('[GU] Force Clear chunk delay:', GU_CHUNK_DELAY_MS, 'ms');
+
+  // Read GCDR master API key from widget settings (no hardcoded fallback)
+  const cfgKey = typeof settings.gcdrMasterKey === 'string' ? settings.gcdrMasterKey.trim() : '';
+  GU_GCDR_MASTER_KEY = cfgKey;
+  if (!cfgKey) {
+    console.warn('[GU] GCDR master key ausente nas settings — Initial Setup dará erro (toast) quando chamada.');
+  }
+
+  // Read Ingestion API credentials from widget settings (fallback to legacy hardcoded values)
+  const cfgClientId = typeof settings.ingestionClientId === 'string' ? settings.ingestionClientId.trim() : '';
+  const cfgClientSecret = typeof settings.ingestionClientSecret === 'string' ? settings.ingestionClientSecret.trim() : '';
+  GU_INGESTION_CLIENT_ID = cfgClientId;
+  GU_INGESTION_CLIENT_SECRET = cfgClientSecret;
+  if (!cfgClientId || !cfgClientSecret) {
+    console.warn('[GU] Ingestion credentials ausentes nas settings — auth dará erro (toast) quando chamada.');
+  }
 
   // --- Inject styles ---
   const style = document.createElement('style');
@@ -1314,14 +1297,14 @@ self.onInit = function () {
   // GCDR Sync Force ID — fetch ALL GCDR customer devices (paginated),
   // match by centralId+slaveId (primary) or externalId (fallback),
   // write gcdrDeviceId back to TB SERVER_SCOPE.
-  // API key: gcdrApiKey from customer SERVER_SCOPE attr.
+  // API key: GCDR master key from widget settings (settings.gcdrMasterKey).
   // ================================================================
 
   // Fetch ALL devices for a GCDR customer (paginated, limit=100).
   // Endpoint: GET /api/v1/customers/{gcdrCustomerId}/devices
-  async function guFetchGCDRCustomerDevices(gcdrCustomerId, tenantId, apiKey) {
+  async function guFetchGCDRCustomerDevices(gcdrCustomerId, tenantId) {
     const GCDR_BASE = 'https://gcdr-api.a.myio-bas.com';
-    const resolvedKey = apiKey || 'gcdr_cust_tb_master_key_2026';
+    const resolvedKey = guRequireGcdrMasterKey();
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const headers = {
       'X-API-Key': resolvedKey,
@@ -1332,8 +1315,7 @@ self.onInit = function () {
     console.group('[GCDR Sync] guFetchGCDRCustomerDevices — config');
     console.log('gcdrCustomerId :', gcdrCustomerId);
     console.log('tenantId       :', tenantId);
-    console.log('apiKey (raw)   :', apiKey);
-    console.log('apiKey (used)  :', resolvedKey);
+    console.log('apiKey (master):', resolvedKey);
     console.log('headers        :', headers);
     console.groupEnd();
 
@@ -1381,11 +1363,11 @@ self.onInit = function () {
 
   /**
    * Low-level GCDR API fetch helper.
-   * Uses the customer-specific gcdrApiKey (from SERVER_SCOPE) with gcdrTenantId.
+   * Uses the GCDR master key (settings.gcdrMasterKey) with gcdrTenantId.
    */
   async function guGCDRFetch(method, path, body) {
     const GCDR_BASE = 'https://gcdr-api.a.myio-bas.com';
-    const resolvedKey = gcdrApiKey || 'gcdr_cust_tb_master_key_2026';
+    const resolvedKey = guRequireGcdrMasterKey();
     const headers = {
       'X-API-Key': resolvedKey,
       'x-tenant-id': gcdrTenantId || '',
@@ -1413,7 +1395,7 @@ self.onInit = function () {
 
   async function guFetchGCDRCustomerBundle(tbCustomerId, tenantId) {
     const GCDR_BASE = 'https://gcdr-api.a.myio-bas.com';
-    const resolvedKey = gcdrApiKey || 'gcdr_cust_tb_master_key_2026';
+    const resolvedKey = guRequireGcdrMasterKey();
     const url = `${GCDR_BASE}/api/v1/customers/external/${encodeURIComponent(tbCustomerId)}?deep=1`;
     console.group('[GCDR Sync] guFetchGCDRCustomerBundle');
     console.log('url          :', url);
@@ -1432,6 +1414,41 @@ self.onInit = function () {
     if (!res.ok) throw new Error(`GCDR bundle HTTP ${res.status} ${res.statusText}`);
     const json = await res.json();
     return json.data ?? json; // { customer, assets, devices, rules }
+  }
+
+  /**
+   * Preflight: validate the GCDR master key + tenant with a cheap GCDR call
+   * BEFORE the slow TB-tree mapping, so an invalid key fails fast instead of
+   * surprising the user after Fase 0. Treats 401/403 as "invalid key";
+   * any other status (incl. 404) means the key is accepted.
+   */
+  async function guGcdrPreflight() {
+    const masterKey = guRequireGcdrMasterKey(); // throws + toast if not configured
+    const GCDR_BASE = 'https://gcdr-api.a.myio-bas.com';
+    const url = `${GCDR_BASE}/api/v1/customers/${encodeURIComponent(gcdrCustomerId)}/devices?limit=1&page=1`;
+    const MyIOToast = window.MyIOLibrary?.MyIOToast || window.MyIOToast;
+    let res;
+    try {
+      res = await fetch(url, {
+        headers: {
+          'X-API-Key': masterKey,
+          'x-tenant-id': gcdrTenantId || '',
+          Accept: 'application/json',
+        },
+      });
+    } catch (e) {
+      const msg = `Falha de rede ao validar a chave GCDR: ${e.message}`;
+      if (MyIOToast) MyIOToast.error(msg);
+      throw new Error(msg);
+    }
+    if (res.status === 401 || res.status === 403) {
+      const body = await res.text().catch(() => '');
+      console.error('[GCDR Preflight] auth error', res.status, body);
+      const msg = `GCDR Master API Key inválida ou sem permissão (HTTP ${res.status}). Verifique o campo "GCDR Master API Key" nas settings do widget.`;
+      if (MyIOToast) MyIOToast.error(msg);
+      throw new Error(msg);
+    }
+    console.log(`[GCDR Preflight] OK — HTTP ${res.status} (chave aceita)`);
   }
 
   // ================================================================
@@ -1756,12 +1773,11 @@ self.onInit = function () {
   function openGCDRSyncInlineModal() {
     if (!selectedCustomer) return;
 
-    // Pre-condition: gcdrTenantId + gcdrCustomerId + gcdrApiKey must all be set
-    if (!gcdrTenantId || !gcdrCustomerId || !gcdrApiKey) {
+    // Pre-condition: gcdrTenantId + gcdrCustomerId must be set (API key = master key from settings)
+    if (!gcdrTenantId || !gcdrCustomerId) {
       const missing = [
         !gcdrTenantId && 'gcdrTenantId',
         !gcdrCustomerId && 'gcdrCustomerId',
-        !gcdrApiKey && 'gcdrApiKey',
       ]
         .filter(Boolean)
         .join(', ');
@@ -2257,6 +2273,11 @@ self.onInit = function () {
         const log = { assets: [], devices: [], skipped: [], tbAssetTotal: 0, tbDeviceTotal: 0 };
 
         try {
+          // ── PREFLIGHT: valida a chave GCDR antes do mapeamento lento ──
+          setBody(renderProgress('Validando chave GCDR…', 0, 0));
+          console.log('[GCDR Sync RFC-0186] Preflight: valida master key');
+          await guGcdrPreflight();
+
           // ── FASE 0: Monta árvore TB ────────────────────────────────
           setBody(renderProgress('Fase 0/3 — Mapeando árvore ThingsBoard…', 0, 0));
           console.log('[GCDR Sync RFC-0186] Fase 0: buildTree TB');
@@ -3070,11 +3091,10 @@ self.onInit = function () {
   function openGCDRRaioXModal() {
     if (!selectedCustomer) return;
 
-    if (!gcdrTenantId || !gcdrCustomerId || !gcdrApiKey) {
+    if (!gcdrTenantId || !gcdrCustomerId) {
       const missing = [
         !gcdrTenantId && 'gcdrTenantId',
         !gcdrCustomerId && 'gcdrCustomerId',
-        !gcdrApiKey && 'gcdrApiKey',
       ]
         .filter(Boolean)
         .join(', ');
@@ -3539,6 +3559,11 @@ self.onInit = function () {
 
     (async () => {
       try {
+        // ── PREFLIGHT: valida a chave GCDR antes do mapeamento lento ──
+        setBody(renderProgress('Validando chave GCDR…', 0, 0));
+        console.log('[Raio X] Preflight: valida master key');
+        await guGcdrPreflight();
+
         // ── FASE 0: Build TB tree ──────────────────────────────────
         setBody(renderProgress('Fase 0/2 — Mapeando árvore ThingsBoard…', 0, 0));
         console.log('[Raio X] Fase 0: guTbBuildTree');
@@ -4921,7 +4946,7 @@ self.onInit = function () {
 
   const GCDR_INIT_BASE = 'https://gcdr-api.a.myio-bas.com';
   const GCDR_FIXED_TENANT = '11111111-1111-1111-1111-111111111111';
-  const GCDR_MASTER_KEY = 'd63cefba02940d7caf1ea09f9e3a703c4cf8947c8d96c444585cc8c95bf02a45';
+  // GCDR master key resolved per-request via guRequireGcdrMasterKey() (from settings.gcdrMasterKey).
 
   btnInitialSetup.addEventListener('click', () => {
     if (!selectedCustomer) return;
@@ -5032,7 +5057,7 @@ self.onInit = function () {
     // ── GCDR API helper (master X-API-Key + X-Tenant-Id) ─────────
     async function gcdrFetch(method, path, body) {
       const headers = {
-        'X-API-Key': GCDR_MASTER_KEY,
+        'X-API-Key': guRequireGcdrMasterKey(),
         'X-Tenant-Id': GCDR_FIXED_TENANT,
         Accept: 'application/json',
         ...(body ? { 'Content-Type': 'application/json' } : {}),
@@ -5376,12 +5401,29 @@ self.onInit = function () {
       setBtnLoading(btnUpsell, true);
 
       const lib = await guLoadMyIOLibrary();
+      const MyIOToast = lib?.MyIOToast || window.MyIOToast;
 
       const tbToken = localStorage.getItem('jwt_token');
       if (!tbToken) throw new Error('Token ThingsBoard não encontrado. Faça login novamente.');
 
+      // Ingestion credentials come from widget settings — no hardcoded fallback.
+      if (!GU_INGESTION_CLIENT_ID || !GU_INGESTION_CLIENT_SECRET) {
+        const missing = [
+          !GU_INGESTION_CLIENT_ID && 'Client ID',
+          !GU_INGESTION_CLIENT_SECRET && 'Client Secret',
+        ].filter(Boolean).join(' e ');
+        const msg = `Ingestion API: ${missing} não configurado nas settings do widget.`;
+        if (MyIOToast) MyIOToast.error(msg);
+        throw new Error(msg);
+      }
+
       setStatus(upsellStatusEl, 'loading', 'Obtendo token de ingestion...');
-      const ingestionToken = await MyIOAuth.getToken();
+      const myIOAuth = lib.buildMyioIngestionAuth({
+        dataApiHost: GU_DATA_API_HOST,
+        clientId: GU_INGESTION_CLIENT_ID,
+        clientSecret: GU_INGESTION_CLIENT_SECRET,
+      });
+      const ingestionToken = await myIOAuth.getToken();
 
       setAttr(root.querySelector('#gu-upsell-token-status'), '✓ Obtido', 'success');
       setAttr(root.querySelector('#gu-upsell-tb-status'), '✓ Disponível', 'success');
@@ -5405,6 +5447,8 @@ self.onInit = function () {
     } catch (err) {
       console.error('[GU] Upsell error:', err);
       setStatus(upsellStatusEl, 'error', err.message);
+      const MyIOToast = window.MyIOLibrary?.MyIOToast || window.MyIOToast;
+      if (MyIOToast) MyIOToast.error(`Erro: ${err.message}`);
     } finally {
       setBtnLoading(btnUpsell, false);
     }

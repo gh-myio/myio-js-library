@@ -53,6 +53,34 @@ var LogHelper = {
 };
 
 // ============================================================================
+// Click tracing — instrument every click → modal path to debug which clicks
+// fire and where they stop. Filter the console by "[CLICK-TRACE]".
+// ============================================================================
+function traceClick(where, payload) {
+  try {
+    // Always log (independent of DEBUG_ACTIVE) so tracing works even with debug off.
+    console.log('%c[CLICK-TRACE] ' + where, 'color:#2F5848;font-weight:bold;', payload || '');
+  } catch (e) {
+    /* noop */
+  }
+}
+
+// Summarize a device/source object for tracing (avoids dumping huge objects).
+function clickSummary(src) {
+  if (!src || typeof src !== 'object') return { value: src };
+  return {
+    id: src.id || src.entityId || null,
+    label: src.label || src.name || null,
+    deviceType: src.deviceType || null,
+    deviceProfile: src.deviceProfile || null,
+    type: src.type || null,
+    domain: src.domain || null,
+    context: src.context || null,
+    status: src.status || null,
+  };
+}
+
+// ============================================================================
 // Classification Constants (RFC-0142)
 // Domains: energy | water | temperature (NO motor domain - motors are energy)
 // ============================================================================
@@ -643,8 +671,9 @@ function parseDevicesFromData(data) {
     },
     // RFC-0176: Switch domain for LAMP and REMOTE devices
     switch: {
-      lamp: [],   // Lighting control devices
-      remote: [], // Remote control devices
+      lamp: [],    // Lighting control devices
+      remote: [],  // Remote control devices
+      seletor: [], // SELETOR_AUTO_MANUAL devices (read-only Auto/Manual)
     },
     ocultos: [],
   };
@@ -857,8 +886,10 @@ function parseDevicesFromData(data) {
     var isSwitchDevice =
       profileUpper === 'LAMP' ||
       profileUpper === 'REMOTE' ||
+      profileUpper === 'SELETOR_AUTO_MANUAL' ||
       typeUpper === 'LAMP' ||
-      typeUpper === 'REMOTE';
+      typeUpper === 'REMOTE' ||
+      typeUpper === 'SELETOR_AUTO_MANUAL';
 
     if (isSwitchDevice) {
       domain = 'switch';
@@ -973,15 +1004,16 @@ function parseDevicesFromData(data) {
       // status (timeseries) = on | off | detected | not_detected (switch state)
       var switchStatus = (cd.status || cd.state || '').toLowerCase();
       var isOn = switchStatus === 'on' || switchStatus === 'detected';
+      var isSeletor = profileUpper === 'SELETOR_AUTO_MANUAL' || typeUpper === 'SELETOR_AUTO_MANUAL';
       device.switchStatus = switchStatus; // Raw switch state value (on/off/detected/not_detected)
       device.isOn = isOn;
-      device.type = profileUpper === 'LAMP' ? 'lamp' : 'remote';
+      device.type = isSeletor ? 'seletor' : profileUpper === 'LAMP' ? 'lamp' : 'remote';
       // IMPORTANT: Keep device.status based on connectionStatus (online/offline)
       // This is already set above: device.status = isOnline ? 'online' : 'offline'
       // Do NOT override it with switch state
       device.connectionStatus = connectionStatus; // Store raw connectionStatus
       // Determine context based on device type
-      context = profileUpper === 'LAMP' ? 'lamp' : 'remote';
+      context = device.type;
       device.context = context;
       LogHelper.log(
         '[MAIN_BAS] Switch device:',
@@ -1660,8 +1692,10 @@ function assetAmbientToAmbienteData(hierarchyNode) {
     }
   });
 
-  // RFC-0176: Collect ALL switch devices (LAMP, REMOTE) from switch domain
+  // RFC-0176: Collect switch devices (LAMP, REMOTE) from switch domain.
+  // SELETOR_AUTO_MANUAL devices are collected separately (read-only Auto/Manual selector).
   var switchDevices = [];
+  var seletorDevices = [];
   devices.forEach(function (d) {
     // Check if device is in switch domain (set during parseDevicesFromData)
     var isSwitchDomain = d.domain === 'switch';
@@ -1682,25 +1716,44 @@ function assetAmbientToAmbienteData(hierarchyNode) {
 
       // Determine device type for visual display
       var dp = (d.deviceProfile || '').toUpperCase();
-      var switchType = dp === 'LAMP' ? 'lamp' : 'remote';
+      var dtUpper = (d.deviceType || '').toUpperCase();
+      var isSeletor = dp === 'SELETOR_AUTO_MANUAL' || dtUpper === 'SELETOR_AUTO_MANUAL' || d.type === 'seletor';
 
       // connectionStatus = online/offline (device connection state)
       var connStatus = d.connectionStatus || d.status || 'offline';
       var isConnected = connStatus === 'online';
 
-      switchDevices.push({
-        id: d.id,
-        name: d.name || d.label || (switchType === 'lamp' ? 'Lâmpada' : 'Controle'),
-        label: (d.rawData && d.rawData.label) || d.label || d.name || (switchType === 'lamp' ? 'Lâmpada' : 'Controle'),
-        deviceType: d.deviceType,
-        deviceProfile: d.deviceProfile,
-        type: switchType, // 'lamp' or 'remote'
-        isOn: isDeviceOn,
-        switchStatus: statusLower, // on|off|detected|not_detected (switch state)
-        connectionStatus: connStatus, // online|offline (device connection)
-        isConnected: isConnected, // true if device is connected
-        status: connStatus, // Keep for backwards compatibility
-      });
+      if (isSeletor) {
+        // Read-only selector: detected → Automático, not_detected → Manual
+        seletorDevices.push({
+          id: d.id,
+          name: d.name || d.label || 'Seletor',
+          label: (d.rawData && d.rawData.label) || d.label || d.name || 'Seletor',
+          deviceType: d.deviceType,
+          deviceProfile: d.deviceProfile,
+          type: 'seletor',
+          mode: statusLower === 'detected' ? 'auto' : 'manual', // 'auto' | 'manual'
+          switchStatus: statusLower, // detected | not_detected
+          connectionStatus: connStatus, // online|offline (device connection)
+          isConnected: isConnected,
+          status: connStatus,
+        });
+      } else {
+        var switchType = dp === 'LAMP' ? 'lamp' : 'remote';
+        switchDevices.push({
+          id: d.id,
+          name: d.name || d.label || (switchType === 'lamp' ? 'Lâmpada' : 'Controle'),
+          label: (d.rawData && d.rawData.label) || d.label || d.name || (switchType === 'lamp' ? 'Lâmpada' : 'Controle'),
+          deviceType: d.deviceType,
+          deviceProfile: d.deviceProfile,
+          type: switchType, // 'lamp' or 'remote'
+          isOn: isDeviceOn,
+          switchStatus: statusLower, // on|off|detected|not_detected (switch state)
+          connectionStatus: connStatus, // online|offline (device connection)
+          isConnected: isConnected, // true if device is connected
+          status: connStatus, // Keep for backwards compatibility
+        });
+      }
     }
   });
 
@@ -1787,6 +1840,7 @@ function assetAmbientToAmbienteData(hierarchyNode) {
     consumption: hasConsumption ? consumptionTotal : null,
     energyDevices: energyDevices, // Individual energy devices for card display
     switchDevices: switchDevices, // RFC-0176: LAMP and REMOTE devices with on/off status
+    seletorDevices: seletorDevices, // SELETOR_AUTO_MANUAL devices (read-only Auto/Manual)
     remoteDevices: remoteDevices, // Alias for backwards compatibility
     isOn: isOn,
     hasRemote: hasRemote,
@@ -2632,6 +2686,7 @@ function mountWaterPanel(waterHost, settings, classified) {
       }
     },
     handleClickCard: function (item) {
+      traceClick('WATER card click', clickSummary(item && item.source));
       LogHelper.log('[MAIN_BAS] Water device clicked:', item.source);
       window.dispatchEvent(new CustomEvent('bas:device-clicked', { detail: { device: item.source } }));
 
@@ -2642,16 +2697,17 @@ function mountWaterPanel(waterHost, settings, classified) {
 
       // RFC-0167: Check if this is an On/Off device (solenoid, switch, relay, pump)
       if (isOnOffDeviceProfile(deviceProfile)) {
-        // RFC-0167: Open On/Off Device modal
+        traceClick('WATER → route: On/Off modal', { deviceProfile: deviceProfile });
         openOnOffDeviceModal(item.source, settings);
       } else if (isTankDevice(deviceProfile) || deviceType === 'tank') {
-        // RFC-0174: Open Water Tank modal for TANK/CAIXA_DAGUA devices
+        traceClick('WATER → route: Water Tank modal', { deviceProfile: deviceProfile, deviceType: deviceType });
         openWaterTankModal(item.source, item.entityObject, settings);
       } else if (isHidrometerDevice(deviceProfile)) {
-        // RFC-0172: Open BAS Water modal for HIDROMETRO devices
+        traceClick('WATER → route: BAS Water modal', { deviceProfile: deviceProfile });
         openBASWaterModal(item.source, settings);
       } else {
-        // Fallback: Log warning for unhandled water device type
+        // Fallback: no route matched → click does nothing visible
+        traceClick('WATER → NO ROUTE (click does nothing)', { deviceProfile: deviceProfile, deviceType: deviceType });
         LogHelper.warn('[MAIN_BAS] Unhandled water device type:', deviceProfile, 'deviceType:', deviceType);
       }
     },
@@ -2809,6 +2865,11 @@ function mountAmbientesPanel(host, settings, assetAmbientHierarchy) {
       }
     },
     handleClickCard: function (item) {
+      traceClick('AMBIENTE card click', {
+        ambienteId: item && item.ambienteData && item.ambienteData.id,
+        label: item && item.ambienteData && item.ambienteData.label,
+        hasAmbienteData: !!(item && item.ambienteData),
+      });
       LogHelper.log('[MAIN_BAS] Ambiente clicked:', item.ambienteData);
       window.dispatchEvent(
         new CustomEvent('bas:ambiente-clicked', {
@@ -2839,7 +2900,9 @@ function mountAmbientesPanel(host, settings, assetAmbientHierarchy) {
  * @param {Object} settings - Widget settings
  */
 function openBASDeviceModal(device, _settings) {
+  traceClick('openBASDeviceModal ENTER', { available: !!MyIOLibrary.openDashboardPopupEnergy, device: clickSummary(device) });
   if (!MyIOLibrary.openDashboardPopupEnergy) {
+    traceClick('openBASDeviceModal ABORT — MyIOLibrary.openDashboardPopupEnergy missing');
     LogHelper.warn('[MAIN_BAS] openDashboardPopupEnergy not available');
     return;
   }
@@ -3003,7 +3066,9 @@ function openBASDeviceModal(device, _settings) {
  * @param {Object} settings - Widget settings
  */
 function openBASWaterModal(device, _settings) {
+  traceClick('openBASWaterModal ENTER', { available: !!MyIOLibrary.openDashboardPopupEnergy, device: clickSummary(device) });
   if (!MyIOLibrary.openDashboardPopupEnergy) {
+    traceClick('openBASWaterModal ABORT — MyIOLibrary.openDashboardPopupEnergy missing');
     LogHelper.warn('[MAIN_BAS] openDashboardPopupEnergy not available for water modal');
     return;
   }
@@ -3256,7 +3321,9 @@ function findSubAmbientesForParent(parentItem) {
  * @param {Object} settings - Widget settings
  */
 function openAmbienteGroupModal(parentItem, settings) {
+  traceClick('openAmbienteGroupModal ENTER', { available: !!MyIOLibrary.openAmbienteGroupModal, id: parentItem && parentItem.id, label: parentItem && parentItem.label });
   if (!MyIOLibrary.openAmbienteGroupModal) {
+    traceClick('openAmbienteGroupModal ABORT — MyIOLibrary.openAmbienteGroupModal missing');
     LogHelper.warn('[MAIN_BAS] openAmbienteGroupModal not available');
     return;
   }
@@ -3350,7 +3417,15 @@ function openAmbienteGroupModal(parentItem, settings) {
  * @param {Object} settings - Widget settings
  */
 function openAmbienteDetailModal(ambienteData, source, _settings) {
+  traceClick('openAmbienteDetailModal ENTER', {
+    available: !!MyIOLibrary.openAmbienteDetailModal,
+    id: ambienteData && ambienteData.id,
+    label: ambienteData && ambienteData.label,
+    seletorDevices: ambienteData && ambienteData.seletorDevices ? ambienteData.seletorDevices.length : 0,
+    switchDevices: ambienteData && ambienteData.switchDevices ? ambienteData.switchDevices.length : 0,
+  });
   if (!MyIOLibrary.openAmbienteDetailModal) {
+    traceClick('openAmbienteDetailModal ABORT — MyIOLibrary.openAmbienteDetailModal missing');
     LogHelper.warn('[MAIN_BAS] openAmbienteDetailModal not available');
     return;
   }
@@ -3377,6 +3452,23 @@ function openAmbienteDetailModal(ambienteData, source, _settings) {
         })
       );
     },
+    // Click on an Interruptor (LAMP/REMOTE) or Seletor → open the On/Off device modal
+    // (liga/desliga control + actuation logs + scheduling).
+    onSwitchClick: function (device) {
+      traceClick('AMBIENTE-MODAL switch click → openOnOffDeviceModal', clickSummary(device));
+      LogHelper.log('[MAIN_BAS] Ambiente switch device clicked → opening On/Off modal:', device);
+      openOnOffDeviceModal(device, _settings);
+    },
+    // Click on an energy device row inside the ambiente modal → open its detail modal.
+    onEnergyDeviceClick: function (device) {
+      traceClick('AMBIENTE-MODAL energy click', clickSummary(device));
+      var profile = ((device && (device.deviceProfile || device.deviceType)) || '').toUpperCase();
+      if (isOnOffDeviceProfile(profile)) {
+        openOnOffDeviceModal(device, _settings);
+      } else {
+        openBASDeviceModal(device, _settings);
+      }
+    },
     onClose: function () {
       LogHelper.log('[MAIN_BAS] Ambiente Detail modal closed');
     },
@@ -3389,7 +3481,9 @@ function openAmbienteDetailModal(ambienteData, source, _settings) {
  * @param {Object} settings - Widget settings
  */
 function openOnOffDeviceModal(device, settings) {
+  traceClick('openOnOffDeviceModal ENTER', { available: !!MyIOLibrary.openOnOffDeviceModal, device: clickSummary(device) });
   if (!MyIOLibrary.openOnOffDeviceModal) {
+    traceClick('openOnOffDeviceModal FALLBACK → openBASDeviceModal (lib fn missing)');
     LogHelper.warn('[MAIN_BAS] openOnOffDeviceModal not available');
     // Fallback to BAS modal
     openBASDeviceModal(device, settings);
@@ -3462,7 +3556,9 @@ function openOnOffDeviceModal(device, settings) {
  * @param {Object} settings - Widget settings
  */
 function openWaterTankModal(device, entityObject, _settings) {
+  traceClick('openWaterTankModal ENTER', { available: !!MyIOLibrary.openDashboardPopupWaterTank, device: clickSummary(device) });
   if (!MyIOLibrary.openDashboardPopupWaterTank) {
+    traceClick('openWaterTankModal ABORT — MyIOLibrary.openDashboardPopupWaterTank missing');
     LogHelper.warn('[MAIN_BAS] openDashboardPopupWaterTank not available');
     return;
   }
@@ -3724,16 +3820,17 @@ function mountEnergyPanel(host, settings, classified) {
       }
     },
     handleClickCard: function (item) {
+      traceClick('ENERGY card click', clickSummary(item && item.source));
       LogHelper.log('[MAIN_BAS] Energy device clicked:', item.source);
       window.dispatchEvent(new CustomEvent('bas:device-clicked', { detail: { device: item.source } }));
 
       // RFC-0167: Check if this is an On/Off device (solenoid, switch, relay, pump)
       var deviceProfile = (item.source?.deviceProfile || '').toUpperCase();
       if (isOnOffDeviceProfile(deviceProfile)) {
-        // RFC-0167: Open On/Off Device modal
+        traceClick('ENERGY → route: On/Off modal', { deviceProfile: deviceProfile });
         openOnOffDeviceModal(item.source, settings);
       } else {
-        // RFC-0165: Open BAS modal with device details and chart
+        traceClick('ENERGY → route: BAS device modal', { deviceProfile: deviceProfile });
         openBASDeviceModal(item.source, settings);
       }
     },
@@ -3845,6 +3942,7 @@ function mountSidebarPanel(sidebarHost, settings, ambientes, hierarchyAvailable)
       window.dispatchEvent(new CustomEvent('bas:ambiente-changed', { detail: { ambiente: null } }));
     },
     handleClickItem: function (item) {
+      traceClick('SIDEBAR ambiente-list click', { id: item && item.id, label: item && item.label });
       LogHelper.log('[MAIN_BAS] Ambiente selected:', item.id, item.label);
       _selectedAmbiente = item.id;
 

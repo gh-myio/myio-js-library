@@ -1,0 +1,46 @@
+const slave = msg.payload;
+const channels = slave.channels_list;
+const config = slave.config; // This might be null
+let allDevices = flow.get('devices');
+
+let devices = {
+  [slave.name]: {
+    slaveId: slave.id,
+  },
+};
+
+if (channels.length == 0) {
+  if (allDevices[slave.name]) {
+    devices = { ...allDevices[slave.name] };
+  }
+}
+
+const centralId = env.get('CENTRAL_UUID');
+
+for (let i = 0; i < channels.length; i++) {
+  const channel = channels[i];
+  let channelConfig;
+
+  if (config && config.channelConfig) {
+    const channelConfigKey = `channel${channel.channel}`;
+
+    if (config.channelConfig.hasOwnProperty(channelConfigKey)) {
+      channelConfig = config.channelConfig[channelConfigKey];
+    }
+  }
+  const name = channel.name.trimStart().trim();
+  devices[name] = {
+    type: channel.type,
+    name: channel.name,
+    channelType: channelConfig ? channelConfig.channel_type : null,
+    outputType: channelConfig ? channelConfig.output : null,
+    slaveId: channel.slaveId,
+    channelId: channel.channel,
+    deviceKind: channel.type,
+    deviceName: channel.name,
+    uniqueId: `${centralId}_${channel.slaveId}_${channel.id}`,
+  };
+}
+msg.payload = devices;
+
+return msg;

@@ -1160,6 +1160,7 @@ body.filter-modal-open { overflow: hidden !important; }
     ALARMS_API_BASE,
     ALARMS_API_KEY,
     GCDR_API_BASE,
+    chartsBaseUrl: CHARTS_BASE_URL, // must be re-included here: this full reassignment clobbers the earlier window.MyIOUtils.chartsBaseUrl set (the FOOTER reads it later)
     CLIENT_ID,
     CLIENT_SECRET,
     CUSTOMER_ING_ID,
@@ -3526,6 +3527,47 @@ body.filter-modal-open { overflow: hidden !important; }
     LogHelper.log('[MAIN_UNIQUE] RFC-0175: Alarms & Notifications Panel rendered');
   }
 
+  // Build a Map<gcdrDeviceId, deviceLabel> from the orchestrator device items
+  // (energy/water/temperature). Used to resolve the friendly device label for
+  // alarms whose backend deviceName is empty (AlarmService falls back to the
+  // raw GCDR deviceId, e.g. "ff00047e-..."). Each device carries gcdrDeviceId.
+  function buildGcdrDeviceLabelMap() {
+    const map = new Map();
+    const orch = window.MyIOOrchestratorData || {};
+    const buckets = [orch.energy?.items, orch.water?.items, orch.temperature?.items];
+    for (const items of buckets) {
+      if (!Array.isArray(items)) continue;
+      for (const d of items) {
+        const gid = d.gcdrDeviceId;
+        if (!gid) continue;
+        const label = d.labelOrName || d.label || d.name || '';
+        if (label) map.set(String(gid), label);
+      }
+    }
+    return map;
+  }
+
+  // Replace each alarm's `source` with the friendly device label when `source`
+  // is actually a GCDR deviceId (match by gcdrDeviceId). Alarms whose source is
+  // already a real device name (not a known gcdrDeviceId) are left untouched.
+  function enrichAlarmsWithDeviceLabels(alarms) {
+    if (!Array.isArray(alarms) || alarms.length === 0) return alarms;
+    const labelByGcdrId = buildGcdrDeviceLabelMap();
+    if (labelByGcdrId.size === 0) return alarms;
+    let resolved = 0;
+    const out = alarms.map((a) => {
+      const key = String(a.deviceId ?? a.source ?? '');
+      const label = labelByGcdrId.get(key);
+      if (label && label !== a.source) {
+        resolved++;
+        return { ...a, source: label };
+      }
+      return a;
+    });
+    LogHelper.log(`[MAIN_UNIQUE] RFC-0175: device labels resolved by gcdrDeviceId: ${resolved}/${alarms.length}`);
+    return out;
+  }
+
   // RFC-0175: Fetch real alarm data and update the panel
   async function fetchAndUpdateAlarms() {
     const alarmService = MyIOLibrary?.AlarmService;
@@ -3549,8 +3591,10 @@ body.filter-modal-open { overflow: hidden !important; }
         tenantId ? alarmService.getAlarmTrend(tenantId, 'week', 'day') : Promise.resolve([]),
       ]);
 
-      const alarms  = response.data;
       const summary = response.summary;
+
+      // Resolve friendly device labels by matching alarm device → gcdrDeviceId
+      const alarms = enrichAlarmsWithDeviceLabels(response.data);
 
       alarmsNotificationsPanelInstance?.updateAlarms?.(alarms);
       if (summary) alarmsNotificationsPanelInstance?.updateStats?.(summary);
