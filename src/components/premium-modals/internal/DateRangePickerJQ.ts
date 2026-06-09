@@ -54,8 +54,14 @@ const CDN_RESOURCES = [
   },
   {
     id: 'daterangepicker-3.1.0',
-    src: 'https://cdn.jsdelivr.net/npm/daterangepicker@3.1.0/daterangepicker.min.js',
-    integrity: 'sha384-AH0fqcXzNOQHHyIMQOXM5qhbfCgavCM3rZSoGBBJJtS55if0BfFSI2dip/UVHCfA',
+    // IMPORTANT: use the ORIGINAL packaged file, NOT daterangepicker.min.js.
+    // The npm package ships no .min.js — jsDelivr auto-minifies on the fly and
+    // that output is NOT byte-stable across edges/minifier versions, so any
+    // pinned SRI hash for the .min.js URL breaks randomly in production
+    // (observed 2026-06-09: same URL served two different digests).
+    // The packaged daterangepicker.js bytes are immutable for a pinned version.
+    src: 'https://cdn.jsdelivr.net/npm/daterangepicker@3.1.0/daterangepicker.js',
+    integrity: 'sha384-mnAM7GRdEYmwFIfdpoD/nOPQFbdJrbTrXa7om4CrSzKCQfysFJ0jbwgw+55cdvi7',
     crossorigin: 'anonymous'
   }
 ];
