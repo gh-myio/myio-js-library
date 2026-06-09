@@ -55,7 +55,7 @@ const CDN_RESOURCES = [
   {
     id: 'daterangepicker-3.1.0',
     src: 'https://cdn.jsdelivr.net/npm/daterangepicker@3.1.0/daterangepicker.min.js',
-    integrity: 'sha384-IbJFThFkdkMvvxP0U8wOffxBHPYEJE65UtA/l25/jJQUt/hft6OdAuKLxGjtOVnL',
+    integrity: 'sha384-AH0fqcXzNOQHHyIMQOXM5qhbfCgavCM3rZSoGBBJJtS55if0BfFSI2dip/UVHCfA',
     crossorigin: 'anonymous'
   }
 ];
