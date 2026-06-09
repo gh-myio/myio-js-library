@@ -294,7 +294,10 @@ export type { EntityListItem, EntityListPanelOptions } from './components/entity
 
 // CardGridPanel — Reusable card grid panel component
 export { CardGridPanel } from './components/card-grid-panel/index';
-export type { CardGridItem, CardGridCustomStyle, CardGridPanelOptions } from './components/card-grid-panel/index';
+export type { CardGridItem, CardGridCustomStyle, CardGridPanelOptions, TabItem } from './components/card-grid-panel/index';
+// CardGridTabsBuilder — Builder pattern for data-driven CardGridPanel tabs
+export { CardGridTabsBuilder } from './components/card-grid-panel/index';
+export type { TabSpec } from './components/card-grid-panel/index';
 
 // MYIO Components - Drag-to-Footer Dock Implementation
 export { MyIOSelectionStore, MyIOSelectionStoreClass } from './components/SelectionStore.js';
@@ -1585,6 +1588,16 @@ export {
   DEFAULT_MODAL_STATE as ON_OFF_DEFAULT_MODAL_STATE,
   ON_OFF_MODAL_CSS_PREFIX,
   injectOnOffDeviceModalStyles,
+  // Freshness rule (RFC-0167) — 12h status/connection telemetry window
+  STATUS_FRESHNESS_MAX_HOURS,
+  STATUS_FRESHNESS_MAX_MS,
+  evaluateDeviceStatus,
+  normalizeOnOff as normalizeOnOffStatus,
+  formatStatusTimestamp,
+} from './components/premium-modals/on-off-device';
+export type {
+  DeviceStatusInput,
+  DeviceStatusResult,
 } from './components/premium-modals/on-off-device';
 
 // RFC-0167: On/Off Timeline Chart (for On/Off Device Modal)

@@ -178,8 +178,8 @@ const MODAL_CSS = `
   }
 
   .myio-fm--light .myio-fm__header {
-    border-bottom: 1px solid #e2e8f0;
-    background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+    border-bottom: 1px solid #6ee7b7;
+    background: linear-gradient(90deg, #ecfdf5 0%, #d1fae5 100%);
   }
 
   .myio-fm--dark .myio-fm__header {
@@ -194,18 +194,18 @@ const MODAL_CSS = `
   }
 
   .myio-fm__icon {
-    font-size: 20px;
+    font-size: 18px;
     line-height: 1;
   }
 
   .myio-fm__title {
-    font-size: 1rem;
-    font-weight: 600;
+    font-size: 14px;
+    font-weight: 700;
     margin: 0;
   }
 
   .myio-fm--light .myio-fm__title {
-    color: #1e293b;
+    color: #047857;
   }
 
   .myio-fm--dark .myio-fm__title {
@@ -213,10 +213,10 @@ const MODAL_CSS = `
   }
 
   .myio-fm__close {
-    width: 32px;
-    height: 32px;
+    width: 24px;
+    height: 24px;
     border: none;
-    border-radius: 8px;
+    border-radius: 4px;
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -225,13 +225,18 @@ const MODAL_CSS = `
   }
 
   .myio-fm--light .myio-fm__close {
-    background: rgba(0, 0, 0, 0.05);
+    background: rgba(255, 255, 255, 0.6);
     color: #64748b;
   }
 
   .myio-fm--light .myio-fm__close:hover {
-    background: rgba(0, 0, 0, 0.1);
+    background: rgba(255, 255, 255, 0.9);
     color: #1e293b;
+  }
+
+  .myio-fm__close svg {
+    width: 14px;
+    height: 14px;
   }
 
   .myio-fm--dark .myio-fm__close {

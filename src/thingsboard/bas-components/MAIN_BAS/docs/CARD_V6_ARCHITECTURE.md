@@ -49,6 +49,7 @@ function renderCardComponentV6(options: RenderCardV6Options): CardResult;
 | `showTempComparisonTooltip`| `boolean`                | Nao         | Mostrar tooltip comparacao temperatura   |
 | `showTempRangeTooltip`     | `boolean`                | Nao         | Mostrar tooltip range temperatura        |
 | `customStyle`              | `CustomStyle`            | Nao         | Estilos customizados por card            |
+| `enableActionSelector`     | `boolean`                | Nao         | Step: troca os 3 piano-keys por 1 botao → modal de selecao (default: false) |
 
 #### Retorno (CardResult)
 
@@ -64,6 +65,48 @@ interface CardResult {
   destroy(): void;
 }
 ```
+
+### 2.2 Action Selector Step (modal de selecao) — RFC-0158
+
+Por padrao o card exibe ate **3 botoes piano-key** (Dashboard, Relatorio, Configuracoes) na lateral esquerda, um para cada `handleAction*` fornecido. Com `enableActionSelector: true`, esses botoes sao substituidos por **um unico botao** (icone `⋮`) que abre uma **modal de selecao** ("step"). O usuario entao escolhe a acao.
+
+> Inspirado no padrao do widget MENU do dashboard Shopping (`showSettingsModal` / `.myio-conf-picker`).
+
+```javascript
+renderCardComponentV6({
+  entityObject,
+  handleActionDashboard,  // → opcao "Gráfico"        📊
+  handleActionReport,     // → opcao "Relatório"      📄
+  handleActionSettings,   // → opcao "Configurações"  ⚙️
+  enableActionSelector: true,  // ativa o step (default: false)
+});
+```
+
+| `enableActionSelector` | Render das actions                                   |
+| ---------------------- | ---------------------------------------------------- |
+| `false` (default)      | 3 botoes piano-key separados (comportamento legado)  |
+| `true`                 | 1 botao `⋮` → modal de selecao                       |
+
+**Regras:**
+
+- A modal lista **apenas** as opcoes cujo `handleAction*` correspondente foi fornecido.
+- Se nenhum handler for fornecido, nenhum botao e renderizado (igual ao modo legado).
+- A opcao "Configurações" repassa o mesmo payload do botao direto: `(entityObject, { includeInfo: true, connectionData: { centralName, connectionStatusTime, timeVal, deviceStatus, lastDisconnectTime } })`.
+- Fecha por overlay, botao `×` ou tecla `Esc`. Estilos injetados uma unica vez (`#myio-card-action-selector-styles`); apenas uma instancia da modal por vez (`#myio-card-action-picker`).
+- **Backward-compatible**: opt-in, nao altera consumidores existentes.
+
+**DOM da modal:**
+
+```
+.myio-card-action-picker (overlay fixo, z-index 100001)
+├── .myio-card-action-picker__overlay        (fundo clicavel)
+└── .myio-card-action-picker__content
+    ├── .myio-card-action-picker__header      (titulo = label do device + botao ×)
+    └── .myio-card-action-picker__body
+        └── button.myio-card-action-option *N (icone + titulo + descricao)
+```
+
+**Uso no MAIN_BAS:** habilitado (`enableActionSelector: true`) nos paineis de **Agua** e **Energia/Motores** via `CardGridPanel` (cardType `device`). Gráfico reusa a rota de clique do card; Relatório e Configurações chamam `openDashboardPopupReport` / `openDashboardPopupSettings` (ver MAIN_BAS_ARCHITECTURE §6). O painel de **Ambientes** usa `renderCardAmbienteV6` (cardType `ambiente`), que nao possui este step.
 
 ---
 
@@ -288,9 +331,14 @@ const DEVICE_STATUS = {
 └── .myio-draggable-card [.selected] [.offline]
     ├── .card-actions (piano-keys lateral esquerda)
     │   ├── input.card-checkbox (se enableSelection)
-    │   ├── button.card-action (Dashboard)
-    │   ├── button.card-action (Report)
-    │   └── button.card-action (Settings)
+    │   │
+    │   ├── [enableActionSelector=false] (default — 3 botoes):
+    │   │   ├── button.card-action.action-dashboard (Dashboard)
+    │   │   ├── button.card-action.action-report (Report)
+    │   │   └── button.card-action.action-settings (Settings)
+    │   │
+    │   └── [enableActionSelector=true] (step — 1 botao):
+    │       └── button.card-action.action-selector (⋮ → modal de selecao)
     │
     ├── .card-body (conteudo central)
     │   ├── .card-icon (imagem do dispositivo)
@@ -463,5 +511,5 @@ if (handInfo) {
 ---
 
 _Documento criado em: 2026-02-09_
-_Atualizado em: 2026-02-15_
-_Versao: 6.1.0_
+_Atualizado em: 2026-06-09_
+_Versao: 6.2.0 (RFC-0158: Action Selector Step — enableActionSelector opt-in)_

@@ -549,7 +549,7 @@ export class HeaderAnnotationsPanel {
     return `
 <div class="myio-annotations-panel-header" data-region="header" data-drag-handle>
   <span class="myio-annotations-icon" aria-hidden="true">✏️</span>
-  <h2 class="myio-annotations-panel-title" id="${PANEL_DOM_ID}-title">Anotações</h2>
+  <div class="myio-annotations-panel-title" id="${PANEL_DOM_ID}-title" role="heading" aria-level="2">Anotações</div>
   <span class="myio-annotations-panel-meta">${totalAllUnfiltered} ativas · ${pending} pendentes · ${overdue} vencidas</span>
   <div class="myio-annotations-panel-actions">
     <button

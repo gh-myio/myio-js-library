@@ -99,6 +99,40 @@ tb-html-widget > div,
   display: none;
 }
 
+/* Shared date range picker mounted in the sidebar header slot (below email).
+   This styles ONLY the host-injected content, not the SidebarMenu internals. */
+.bas-sidebar-daterange {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.bas-sidebar-daterange__label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+.bas-sidebar-daterange__input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  color: #1f2937;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 8px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.bas-sidebar-daterange__input:hover,
+.bas-sidebar-daterange__input:focus {
+  border-color: #ffffff;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.25);
+}
+
 /* ========================================
    MAIN CONTENT WRAPPER
    Contains header + content layout
@@ -109,10 +143,20 @@ tb-html-widget > div,
   height: 100%;
   overflow: hidden;
 
-  /* Grid layout: header row (auto) + content row (1fr) */
+  /* Grid layout: header row (auto) + content row (1fr) + footer row (auto) */
   display: grid !important;
-  grid-template-rows: auto 1fr !important;
+  grid-template-rows: auto 1fr auto !important;
   grid-template-columns: 1fr !important;
+}
+
+/* RFC-0115: Comparison footer dock (row 3, auto height) */
+.bas-footer-slot {
+  grid-row: 3;
+  grid-column: 1;
+  min-width: 0;
+}
+.bas-footer-slot:empty {
+  display: none;
 }
 
 /* Transition for sidebar collapse/expand */

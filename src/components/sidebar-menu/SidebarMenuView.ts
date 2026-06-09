@@ -132,8 +132,19 @@ export class SidebarMenuView {
             <span class="${SIDEBAR_MENU_CSS_PREFIX}__user-email">${userInfo.email || ''}</span>
           </div>
         ` : ''}
+        <div class="${SIDEBAR_MENU_CSS_PREFIX}__header-slot" data-slot="header"></div>
       </div>
     `;
+  }
+
+  /**
+   * Returns the host's extension slot rendered below the user-info block.
+   * The host can mount custom content here (e.g. a date range picker that
+   * drives the dashboard). Hidden automatically while the sidebar is collapsed
+   * or when empty. The menu stays generic — it only provides the slot.
+   */
+  getHeaderSlot(): HTMLElement | null {
+    return this.root.querySelector(`.${SIDEBAR_MENU_CSS_PREFIX}__header-slot`);
   }
 
   private renderSearch(): string {

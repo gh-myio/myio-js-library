@@ -30,6 +30,13 @@ import {
   exportTimelineToPDF,
   exportSchedulesToPDF,
 } from './utils';
+import {
+  evaluateDeviceStatus,
+  formatStatusTimestamp,
+  STATUS_FRESHNESS_MAX_HOURS,
+  type DeviceStatusResult,
+} from './deviceStatusRule';
+import InfoTooltip from '../../../utils/InfoTooltip';
 
 export interface OnOffDeviceModalViewOptions {
   container: HTMLElement;
@@ -46,6 +53,8 @@ export interface OnOffDeviceModalViewOptions {
   parentEl?: HTMLElement;
   /** JWT token for ThingsBoard API - enables real data fetching */
   jwtToken?: string;
+  /** Customer/client label — used to compose the exported PDF filename. */
+  customerName?: string;
 }
 
 export class OnOffDeviceModalView {
@@ -82,11 +91,14 @@ export class OnOffDeviceModalView {
 
   // Data fetching
   private jwtToken?: string;
+  private customerName?: string;
   private currentStartISO: string;
   private currentEndISO: string;
   private isLoadingChart: boolean = false;
   private currentTimelineData: OnOffTimelineData | null = null;
   private fallbackIsToggling = false;
+  // Freshness rule (RFC-0167): cleanup for the stale-status warning tooltip
+  private statusWarnTooltipCleanup: (() => void) | null = null;
 
   constructor(options: OnOffDeviceModalViewOptions) {
     this.container = options.container;
@@ -101,6 +113,7 @@ export class OnOffDeviceModalView {
     this.onDateRangeChange = options.onDateRangeChange;
     this.parentEl = options.parentEl;
     this.jwtToken = options.jwtToken;
+    this.customerName = options.customerName;
 
     // Initialize date range (default: last 7 days)
     const now = new Date();
@@ -324,7 +337,7 @@ export class OnOffDeviceModalView {
     exportTimelineToPDF(this.currentTimelineData, {
       on: this.deviceConfig.labelOn,
       off: this.deviceConfig.labelOff,
-    });
+    }, 'pt-BR', { customerName: this.customerName });
   }
 
   private createChartView(): HTMLElement {
@@ -655,50 +668,98 @@ export class OnOffDeviceModalView {
           return true;
         },
       });
+
+      // Freshness rule (RFC-0167): warn when the status telemetry is stale.
+      this.renderStatusFreshnessWarning(this.controlContainer);
     } catch (error) {
       console.error('[OnOffDeviceModalView] Error creating SolenoidControl:', error);
       this.renderFallbackControl();
     }
   }
 
-  private getDeviceStatus(): 'on' | 'off' | 'offline' {
-    // Check device status from various sources
+  /** Whether this device uses inverted solenoid semantics. */
+  private isSolenoidDevice(): boolean {
+    const deviceTypeUpper = (this.device.deviceType || '').toUpperCase();
+    const deviceProfileUpper = (this.device.deviceProfile || '').toUpperCase();
+    return (
+      this.deviceType === 'solenoid' ||
+      deviceTypeUpper.includes('SOLENOIDE') ||
+      deviceProfileUpper.includes('SOLENOIDE') ||
+      deviceTypeUpper === 'SOLENOID' ||
+      deviceProfileUpper === 'SOLENOID'
+    );
+  }
+
+  /**
+   * Apply the freshness rule (RFC-0167) to the device's connection + status
+   * telemetry. Returns the normalized on/off value plus staleness flags.
+   */
+  private evalDeviceStatus(): DeviceStatusResult {
     const attrs = this.device.attributes || {};
     const rawData = this.device.rawData || {};
 
-    // Check if device is offline
-    if (this.device.status === 'offline') {
-      return 'offline';
+    // Status telemetry value: explicit `statusValue` first, then attrs/rawData.
+    // RFC-0175: MAIN_BAS exposes the on/off reading on rawData.status / .state.
+    const statusValue =
+      this.device.statusValue ??
+      attrs.state ?? rawData.state ?? rawData.status ?? attrs.acionamento ?? rawData.acionamento ?? null;
+
+    return evaluateDeviceStatus({
+      connectionStatus: (this.device as { connectionStatus?: string }).connectionStatus ?? this.device.status,
+      connectionStatusTs: this.device.connectionStatusTs ?? null,
+      statusValue,
+      statusTs: this.device.statusTs ?? null,
+      invertLogic: this.isSolenoidDevice(),
+    });
+  }
+
+  private getDeviceStatus(): 'on' | 'off' | 'offline' {
+    // Hard offline from the connection layer.
+    if (this.device.status === 'offline') return 'offline';
+
+    const ev = this.evalDeviceStatus();
+    // No on/off reading at all → show as offline / unavailable.
+    if (ev.value === null) return 'offline';
+    // Staleness does NOT force offline: we keep showing the LAST known value and
+    // surface a warning icon instead (see renderStatusFreshnessWarning).
+    return ev.value;
+  }
+
+  /**
+   * Freshness rule UI (RFC-0167): when the status telemetry is older than
+   * STATUS_FRESHNESS_MAX_HOURS, append a ⚠️ next to `anchor` whose tooltip
+   * explains when the last status reading happened. Reuses the shared
+   * InfoTooltip pattern. No-op when the reading is fresh.
+   */
+  private renderStatusFreshnessWarning(anchor: HTMLElement | null): void {
+    if (this.statusWarnTooltipCleanup) {
+      this.statusWarnTooltipCleanup();
+      this.statusWarnTooltipCleanup = null;
     }
+    if (!anchor) return;
 
-    // Check state from attributes or rawData
-    // RFC-0175: Also check rawData.status for solenoid devices (MAIN_BAS uses cd.status)
-    const state = attrs.state ?? rawData.state ?? rawData.status ?? attrs.acionamento ?? rawData.acionamento;
+    const ev = this.evalDeviceStatus();
+    if (!ev.statusStale && !ev.connectionStale) return;
 
-    // RFC-0175: Solenoid has INVERTED logic - 'off' means valve OPEN, 'on' means valve CLOSED
-    // For solenoid: status='off' → valve open → modal shows 'on' (operating)
-    // For solenoid: status='on' → valve closed → modal shows 'off' (not operating)
-    const deviceTypeUpper = (this.device.deviceType || '').toUpperCase();
-    const deviceProfileUpper = (this.device.deviceProfile || '').toUpperCase();
-    const isSolenoid = deviceTypeUpper.includes('SOLENOIDE') ||
-      deviceProfileUpper.includes('SOLENOIDE') ||
-      deviceTypeUpper === 'SOLENOID' ||
-      deviceProfileUpper === 'SOLENOID';
+    const icon = document.createElement('span');
+    icon.className = `${ON_OFF_MODAL_CSS_PREFIX}__status-warning`;
+    icon.textContent = '⚠️';
+    icon.style.cssText =
+      'cursor: help; font-size: 16px; margin-left: 8px; line-height: 1; user-select: none; display: inline-block;';
+    icon.setAttribute('aria-label', 'Telemetria de status desatualizada');
+    anchor.appendChild(icon);
 
-    if (isSolenoid) {
-      // Inverted logic for solenoid
-      if (state === false || state === 'off' || state === 0 || state === 'aberta' || state === 'desligado') {
-        return 'on'; // off = valve open = operating
-      }
-      return 'off'; // on = valve closed = not operating
-    }
-
-    // Standard logic for other devices
-    if (state === true || state === 'on' || state === 1 || state === 'aberta' || state === 'ligado') {
-      return 'on';
-    }
-
-    return 'off';
+    const when = formatStatusTimestamp(ev.statusTs);
+    const lastValue = (ev.value || '—').toString().toUpperCase();
+    this.statusWarnTooltipCleanup = InfoTooltip.attach(icon, () => ({
+      icon: '⚠️',
+      title: 'Status possivelmente desatualizado',
+      content:
+        `A última telemetria de <b>status</b> foi em <b>${when}</b>, ` +
+        `há mais de ${STATUS_FRESHNESS_MAX_HOURS} horas.<br><br>` +
+        `O estado exibido (<b>${lastValue}</b>) é o último conhecido e pode não ` +
+        `refletir o estado atual do dispositivo.`,
+    }));
   }
 
   private renderFallbackControl(): void {
@@ -751,6 +812,9 @@ export class OnOffDeviceModalView {
         setTimeout(() => { this.fallbackIsToggling = false; }, 30000);
       });
     }
+
+    // Freshness rule (RFC-0167): warn when the status telemetry is stale.
+    this.renderStatusFreshnessWarning(this.controlContainer.firstElementChild as HTMLElement);
   }
 
   private initializeScheduleOnOff(): void {
@@ -1093,6 +1157,10 @@ export class OnOffDeviceModalView {
     }
     if (this.dateRangePickerInstance?.destroy) {
       this.dateRangePickerInstance.destroy();
+    }
+    if (this.statusWarnTooltipCleanup) {
+      this.statusWarnTooltipCleanup();
+      this.statusWarnTooltipCleanup = null;
     }
 
     // Remove root element

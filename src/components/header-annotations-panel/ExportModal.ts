@@ -40,9 +40,10 @@ const STYLES = `
   font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   color: #1e293b;
 }
-.${MODAL_DOM_ID} h3 {
+.${MODAL_DOM_ID} .${MODAL_DOM_ID}__title {
   margin: 0 0 12px 0;
   font-size: 16px;
+  font-weight: 700;
   color: #4c3aac;
 }
 .${MODAL_DOM_ID} fieldset {
@@ -120,7 +121,7 @@ export function openExportModal(options: OpenExportModalOptions): () => void {
 
   backdrop.innerHTML = `
 <div class="${MODAL_DOM_ID}" role="dialog" aria-modal="true" aria-labelledby="${MODAL_DOM_ID}-title">
-  <h3 id="${MODAL_DOM_ID}-title">Exportar anotações</h3>
+  <div class="${MODAL_DOM_ID}__title" id="${MODAL_DOM_ID}-title" role="heading" aria-level="3">Exportar anotações</div>
 
   <fieldset>
     <legend>Formato</legend>

@@ -574,12 +574,150 @@ function applyCustomStyle(container, customStyle) {
   }
 }
 
+// ============================================
+// ACTION SELECTOR STEP
+// Opt-in single piano-key that opens a selection modal to pick
+// Gráfico / Configurações / Relatório.
+// Inspired by MENU/controller.js showSettingsModal (.myio-conf-picker).
+// ============================================
+
+const CARD_ACTION_SELECTOR_STYLES_ID = 'myio-card-action-selector-styles';
+
+/** Inject the action-selector modal styles once. */
+function injectCardActionSelectorStyles() {
+  if (document.getElementById(CARD_ACTION_SELECTOR_STYLES_ID)) return;
+
+  const style = document.createElement('style');
+  style.id = CARD_ACTION_SELECTOR_STYLES_ID;
+  style.textContent = `
+    .myio-card-action-picker {
+      position: fixed; inset: 0; z-index: 100001;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; transition: opacity .2s ease; pointer-events: none;
+    }
+    .myio-card-action-picker.show { opacity: 1; pointer-events: auto; }
+    .myio-card-action-picker__overlay {
+      position: absolute; inset: 0; background: rgba(0,0,0,.5);
+      backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+    }
+    .myio-card-action-picker__content {
+      position: relative; width: 90%; max-width: 380px;
+      background: #fff; border-radius: 16px; overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0,0,0,.3);
+      font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      transform: translateY(16px) scale(.98); transition: transform .2s ease;
+    }
+    .myio-card-action-picker.show .myio-card-action-picker__content { transform: translateY(0) scale(1); }
+    .myio-card-action-picker__header {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      padding: 14px 16px;
+      background: linear-gradient(135deg, #3E1A7D 0%, #2D1359 100%); color: #fff;
+    }
+    .myio-card-action-picker__title {
+      font-size: 15px; font-weight: 700; margin: 0; flex: 1;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .myio-card-action-picker__close {
+      width: 28px; height: 28px; border: none; border-radius: 6px; flex-shrink: 0;
+      background: rgba(255,255,255,.15); color: #fff; font-size: 18px; cursor: pointer; line-height: 1;
+    }
+    .myio-card-action-picker__close:hover { background: rgba(255,255,255,.3); }
+    .myio-card-action-picker__body { padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+    .myio-card-action-option {
+      display: flex; align-items: center; gap: 12px; width: 100%;
+      padding: 12px 14px; border: 1px solid #E5E7EB; border-radius: 10px;
+      background: #fff; cursor: pointer; text-align: left; transition: all .15s ease;
+    }
+    .myio-card-action-option:hover { background: #F5F3FF; border-color: #7C3AED; transform: translateY(-1px); }
+    .myio-card-action-option__icon { font-size: 22px; flex-shrink: 0; }
+    .myio-card-action-option__text { display: flex; flex-direction: column; }
+    .myio-card-action-option__title { font-size: 14px; font-weight: 600; color: #1F2937; }
+    .myio-card-action-option__desc { font-size: 12px; color: #6B7280; line-height: 1.3; }
+  `;
+  document.head.appendChild(style);
+}
+
+/**
+ * Open the card action-selector modal ("step").
+ * Renders one option per entry; on pick, closes then runs option.onSelect.
+ *
+ * @param {Object} cfg
+ * @param {string} cfg.title - Modal title (e.g. the device label)
+ * @param {Array<{id:string,icon:string,title:string,desc:string,onSelect:Function}>} cfg.options
+ */
+function openCardActionSelector({ title, options }) {
+  injectCardActionSelectorStyles();
+
+  // Only one picker at a time
+  const existing = document.getElementById('myio-card-action-picker');
+  if (existing) existing.remove();
+
+  const safeTitle = String(title || 'Ações');
+  const modal = document.createElement('div');
+  modal.id = 'myio-card-action-picker';
+  modal.className = 'myio-card-action-picker';
+  modal.innerHTML = `
+    <div class="myio-card-action-picker__overlay"></div>
+    <div class="myio-card-action-picker__content" role="dialog" aria-modal="true" aria-label="${safeTitle}">
+      <div class="myio-card-action-picker__header">
+        <span class="myio-card-action-picker__title">${safeTitle}</span>
+        <button class="myio-card-action-picker__close" aria-label="Fechar">&times;</button>
+      </div>
+      <div class="myio-card-action-picker__body">
+        ${options
+          .map(
+            (opt) => `
+          <button class="myio-card-action-option" data-action-id="${opt.id}">
+            <span class="myio-card-action-option__icon">${opt.icon}</span>
+            <span class="myio-card-action-option__text">
+              <span class="myio-card-action-option__title">${opt.title}</span>
+              <span class="myio-card-action-option__desc">${opt.desc}</span>
+            </span>
+          </button>`
+          )
+          .join('')}
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  requestAnimationFrame(() => modal.classList.add('show'));
+
+  const escHandler = (e) => {
+    if (e.key === 'Escape') closeModal();
+  };
+  function closeModal() {
+    modal.classList.remove('show');
+    document.removeEventListener('keydown', escHandler);
+    setTimeout(() => modal.remove(), 200);
+  }
+
+  modal.querySelector('.myio-card-action-picker__overlay').addEventListener('click', closeModal);
+  modal.querySelector('.myio-card-action-picker__close').addEventListener('click', closeModal);
+  document.addEventListener('keydown', escHandler);
+
+  modal.querySelectorAll('.myio-card-action-option').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.actionId;
+      const opt = options.find((o) => o.id === id);
+      closeModal();
+      // Let the close animation finish before opening the next view
+      setTimeout(() => {
+        if (opt && typeof opt.onSelect === 'function') opt.onSelect();
+      }, 220);
+    });
+  });
+}
+
 /**
  * Renders a card component (v6) with optional customStyle overrides.
  * This is a standalone version that does not depend on v5.
  *
  * @param {Object} options - All card options
  * @param {CustomStyle} [options.customStyle] - Per-card style overrides
+ * @param {boolean} [options.enableActionSelector] - When true, replaces the
+ *   3 piano-key buttons with a single button that opens a selection modal
+ *   (Gráfico / Configurações / Relatório). Options shown depend on which
+ *   handleAction* handlers are provided.
  * @returns {Object} jQuery-like object
  */
 export function renderCardComponentV6({
@@ -598,6 +736,7 @@ export function renderCardComponentV6({
   showTempComparisonTooltip = false,
   showTempRangeTooltip = false,
   customStyle, // V6: Per-card style overrides
+  enableActionSelector = false, // V6: "step" — single button opens action selection modal
 }) {
   const {
     entityId,
@@ -1554,8 +1693,67 @@ export function renderCardComponentV6({
   const actionsContainer = document.createElement('div');
   actionsContainer.className = 'card-actions';
 
-  // Add action buttons
-  if (typeof handleActionDashboard === 'function') {
+  // Shared settings opts (used by both the direct button and the selector step)
+  const buildSettingsOpts = () => ({
+    includeInfo: true,
+    connectionData: {
+      centralName,
+      connectionStatusTime,
+      timeVal,
+      deviceStatus,
+      lastDisconnectTime,
+    },
+  });
+
+  if (enableActionSelector) {
+    // ---- "Step" mode: one button opens a selection modal ----
+    const selectorOptions = [];
+    if (typeof handleActionDashboard === 'function') {
+      selectorOptions.push({
+        id: 'dashboard',
+        icon: '📊',
+        title: 'Gráfico',
+        desc: 'Abrir gráfico do dispositivo',
+        onSelect: () => handleActionDashboard(entityObject),
+      });
+    }
+    if (typeof handleActionReport === 'function') {
+      selectorOptions.push({
+        id: 'report',
+        icon: '📄',
+        title: 'Relatório',
+        desc: 'Abrir relatório do dispositivo',
+        onSelect: () => handleActionReport(entityObject),
+      });
+    }
+    if (typeof handleActionSettings === 'function') {
+      selectorOptions.push({
+        id: 'settings',
+        icon: '⚙️',
+        title: 'Configurações',
+        desc: 'Ajustes e informações do dispositivo',
+        onSelect: () => handleActionSettings(entityObject, buildSettingsOpts()),
+      });
+    }
+
+    if (selectorOptions.length > 0) {
+      const selectorBtn = document.createElement('button');
+      selectorBtn.className = 'card-action action-selector';
+      selectorBtn.title = 'Ações';
+      selectorBtn.setAttribute('aria-label', `Ações de ${cardEntity.name}`);
+      selectorBtn.style.color = '#5B2D8E';
+      selectorBtn.innerHTML =
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>';
+      selectorBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openCardActionSelector({ title: cardEntity.name, options: selectorOptions });
+      });
+      actionsContainer.appendChild(selectorBtn);
+    }
+  } else {
+    // ---- Legacy mode: 3 separate piano-key buttons ----
+    // Add action buttons
+    if (typeof handleActionDashboard === 'function') {
     const dashboardBtn = document.createElement('button');
     dashboardBtn.className = 'card-action action-dashboard';
     dashboardBtn.title = 'Dashboard';
@@ -1589,19 +1787,11 @@ export function renderCardComponentV6({
       '<img src="https://dashboard.myio-bas.com/api/images/public/5n9tze6vED2uwIs5VvJxGzNNZ9eV4yoz"/>';
     settingsBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      handleActionSettings(entityObject, {
-        includeInfo: true,
-        connectionData: {
-          centralName,
-          connectionStatusTime,
-          timeVal,
-          deviceStatus,
-          lastDisconnectTime,
-        },
-      });
+      handleActionSettings(entityObject, buildSettingsOpts());
     });
     actionsContainer.appendChild(settingsBtn);
-  }
+    }
+  } // end enableActionSelector / legacy piano-key actions
 
   // Insert actions container into the card
   if (enhancedCardElement && actionsContainer.children.length > 0) {

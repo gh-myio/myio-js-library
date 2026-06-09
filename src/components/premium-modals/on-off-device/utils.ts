@@ -377,6 +377,55 @@ function formatDateForExport(isoString: string, locale: string = 'pt-BR'): strin
 }
 
 /**
+ * Formats the emission timestamp shown in the report footer, e.g.
+ * "09/06/2026 às 13:28:00".
+ */
+function formatIssuedAt(date: Date, locale: string = 'pt-BR'): string {
+  const datePart = date.toLocaleDateString(locale, {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+  const timePart = date.toLocaleTimeString(locale, {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+  return `${datePart} às ${timePart}`;
+}
+
+/**
+ * Sanitizes a string to be used as part of a filename: strips accents and
+ * collapses any run of non-alphanumeric characters into a single underscore.
+ */
+function sanitizeFilenamePart(value: string): string {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '') // strip diacritics
+    .replace(/[^a-zA-Z0-9]+/g, '_')  // non-alphanumeric → underscore
+    .replace(/^_+|_+$/g, '');         // trim leading/trailing underscores
+}
+
+/**
+ * Builds the PDF document title (which browsers use as the suggested "Save as
+ * PDF" filename). Format:
+ *   Relatorio_de_Acionamentos_-_<customer>_<device>_emitido_em_YYYY_MM_DD_as_HH_MM_SS
+ */
+function buildActivationReportTitle(deviceName: string, customerName?: string): string {
+  const now = new Date();
+  const p = (n: number): string => String(n).padStart(2, '0');
+  const stamp =
+    `${now.getFullYear()}_${p(now.getMonth() + 1)}_${p(now.getDate())}` +
+    `_as_${p(now.getHours())}_${p(now.getMinutes())}_${p(now.getSeconds())}`;
+
+  const subject = [sanitizeFilenamePart(customerName || ''), sanitizeFilenamePart(deviceName)]
+    .filter(Boolean)
+    .join('_');
+
+  return `Relatorio_de_Acionamentos_-_${subject}_emitido_em_${stamp}`;
+}
+
+/**
  * Export timeline data to CSV format
  */
 export function exportTimelineToCSV(
@@ -430,70 +479,115 @@ export function exportTimelineToCSV(
 export function exportTimelineToPDF(
   data: OnOffTimelineData,
   labels: { on?: string; off?: string } = {},
-  locale: string = 'pt-BR'
+  locale: string = 'pt-BR',
+  opts: { customerName?: string } = {}
 ): void {
   const labelOn = labels.on || 'Ligado';
   const labelOff = labels.off || 'Desligado';
   const deviceName = data.deviceName || data.deviceId;
+  const customerName = (opts.customerName || '').trim();
   const periodStart = formatDateForExport(data.periodStart, locale);
   const periodEnd = formatDateForExport(data.periodEnd, locale);
+  // Browsers use the document <title> as the suggested "Save as PDF" filename.
+  const docTitle = buildActivationReportTitle(deviceName, opts.customerName);
+  const issuedAt = formatIssuedAt(new Date(), locale);
+  const utilization = data.totalHours > 0
+    ? ((data.totalOnMinutes / (data.totalHours * 60)) * 100).toFixed(1)
+    : '0.0';
+  const esc = (s: string): string =>
+    String(s).replace(/[&<>"]/g, (c) =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
 
-  // Build HTML content for PDF
+  // Build HTML content for PDF — premium MyIO BAS layout (Nunito)
   const htmlContent = `
     <!DOCTYPE html>
-    <html>
+    <html lang="pt-BR">
     <head>
       <meta charset="UTF-8">
-      <title>Relatorio de Acionamentos - ${deviceName}</title>
+      <title>${docTitle}</title>
       <style>
-        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 40px; color: #1f2937; }
-        h1 { color: #3b82f6; font-size: 24px; margin-bottom: 8px; }
-        .subtitle { color: #6b7280; font-size: 14px; margin-bottom: 24px; }
-        .summary { display: flex; gap: 24px; margin-bottom: 32px; flex-wrap: wrap; }
-        .summary-card { background: #f3f4f6; padding: 16px 24px; border-radius: 8px; text-align: center; min-width: 120px; }
-        .summary-value { font-size: 28px; font-weight: 700; color: #3b82f6; }
-        .summary-label { font-size: 12px; color: #6b7280; margin-top: 4px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 16px; }
-        th { background: #3b82f6; color: white; padding: 12px 8px; text-align: left; font-size: 12px; }
-        td { padding: 10px 8px; border-bottom: 1px solid #e5e7eb; font-size: 12px; }
-        tr:nth-child(even) { background: #f9fafb; }
-        .state-on { color: #16a34a; font-weight: 600; }
-        .state-off { color: #6b7280; }
-        .footer { margin-top: 32px; text-align: center; color: #9ca3af; font-size: 11px; }
-        @media print { body { margin: 20px; } }
+        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap');
+        * { box-sizing: border-box; }
+        body { font-family: 'Nunito', 'Segoe UI', Arial, sans-serif; margin: 0; padding: 32px 40px; color: #1f2937; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+        .report-header { background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%); color: #fff; border-radius: 14px; padding: 24px 28px; display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; }
+        .report-header .brand { font-size: 12px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; opacity: .85; }
+        .report-header h1 { font-size: 26px; font-weight: 800; margin: 6px 0 12px; }
+        .report-header .meta { font-size: 13px; line-height: 1.6; opacity: .95; }
+        .report-header .meta b { font-weight: 700; }
+        .customer-badge { background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.28); border-radius: 10px; padding: 12px 16px; text-align: right; min-width: 160px; }
+        .customer-badge .label { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; opacity: .8; }
+        .customer-badge .value { font-size: 16px; font-weight: 800; margin-top: 2px; }
+
+        .summary { display: flex; gap: 16px; margin: 28px 0 8px; flex-wrap: wrap; }
+        .summary-card { flex: 1; min-width: 130px; background: #fff; border: 1px solid #e5e7eb; border-top: 4px solid #2563eb; border-radius: 12px; padding: 18px 20px; text-align: center; box-shadow: 0 1px 3px rgba(16,24,40,.06); }
+        .summary-card.accent-green { border-top-color: #16a34a; }
+        .summary-card.accent-amber { border-top-color: #d97706; }
+        .summary-card.accent-slate { border-top-color: #475569; }
+        .summary-value { font-size: 26px; font-weight: 800; color: #111827; }
+        .summary-label { font-size: 11px; font-weight: 600; color: #6b7280; margin-top: 4px; text-transform: uppercase; letter-spacing: .5px; }
+
+        h2.section-title { font-size: 15px; font-weight: 700; color: #1f2937; margin: 28px 0 10px; padding-bottom: 8px; border-bottom: 2px solid #e5e7eb; }
+        table { width: 100%; border-collapse: collapse; }
+        thead th { background: #f1f5f9; color: #334155; padding: 11px 10px; text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; border-bottom: 2px solid #e2e8f0; }
+        td { padding: 10px; border-bottom: 1px solid #eef2f6; font-size: 12px; color: #374151; }
+        tbody tr:nth-child(even) { background: #fafbfc; }
+        .pill { display: inline-block; padding: 3px 12px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+        .pill-on { background: #dcfce7; color: #15803d; }
+        .pill-off { background: #f1f5f9; color: #64748b; }
+
+        .footer { margin-top: 28px; padding-top: 16px; border-top: 1px solid #e5e7eb; text-align: center; color: #6b7280; font-size: 12px; }
+        .footer .issued { font-weight: 700; color: #374151; }
+        .footer .brand { color: #2563eb; font-weight: 800; }
+
+        @page { margin: 16mm 12mm; }
+        @media print { body { padding: 0; } .report-header { border-radius: 12px; } }
       </style>
     </head>
     <body>
-      <h1>Relatorio de Acionamentos</h1>
-      <div class="subtitle">${deviceName} | ${periodStart} - ${periodEnd}</div>
+      <div class="report-header">
+        <div class="head-left">
+          <div class="brand">MyIO BAS</div>
+          <h1>Relatório de Acionamentos</h1>
+          <div class="meta">
+            <div><b>Dispositivo:</b> ${esc(deviceName)}</div>
+            <div><b>Período:</b> ${periodStart} — ${periodEnd}</div>
+          </div>
+        </div>
+        ${customerName ? `
+        <div class="customer-badge">
+          <div class="label">Cliente</div>
+          <div class="value">${esc(customerName)}</div>
+        </div>` : ''}
+      </div>
 
       <div class="summary">
         <div class="summary-card">
           <div class="summary-value">${data.activationCount}</div>
           <div class="summary-label">Acionamentos</div>
         </div>
-        <div class="summary-card">
+        <div class="summary-card accent-green">
           <div class="summary-value">${formatDurationMinutes(data.totalOnMinutes)}</div>
-          <div class="summary-label">Tempo ${labelOn}</div>
+          <div class="summary-label">Tempo ${esc(labelOn)}</div>
         </div>
-        <div class="summary-card">
-          <div class="summary-value">${((data.totalOnMinutes / (data.totalHours * 60)) * 100).toFixed(1)}%</div>
-          <div class="summary-label">Utilizacao</div>
+        <div class="summary-card accent-amber">
+          <div class="summary-value">${utilization}%</div>
+          <div class="summary-label">Utilização</div>
         </div>
-        <div class="summary-card">
+        <div class="summary-card accent-slate">
           <div class="summary-value">${data.totalHours.toFixed(1)}h</div>
-          <div class="summary-label">Periodo Total</div>
+          <div class="summary-label">Período Total</div>
         </div>
       </div>
 
-      <h2 style="font-size: 16px; color: #374151; margin-bottom: 8px;">Historico de Acionamentos</h2>
+      <h2 class="section-title">Histórico de Acionamentos</h2>
       <table>
         <thead>
           <tr>
-            <th>Inicio</th>
+            <th>Início</th>
             <th>Fim</th>
             <th>Estado</th>
-            <th>Duracao</th>
+            <th>Duração</th>
             <th>Origem</th>
           </tr>
         </thead>
@@ -502,16 +596,16 @@ export function exportTimelineToPDF(
             <tr>
               <td>${formatDateForExport(seg.startTime, locale)}</td>
               <td>${formatDateForExport(seg.endTime, locale)}</td>
-              <td class="${seg.state === 'on' ? 'state-on' : 'state-off'}">${seg.state === 'on' ? labelOn : labelOff}</td>
+              <td><span class="pill ${seg.state === 'on' ? 'pill-on' : 'pill-off'}">${seg.state === 'on' ? esc(labelOn) : esc(labelOff)}</span></td>
               <td>${formatDurationMinutes(seg.durationMinutes)}</td>
-              <td>${seg.source === 'manual' ? 'Manual' : seg.source === 'schedule' ? 'Agendamento' : seg.source === 'automation' ? 'Automacao' : 'Desconhecido'}</td>
+              <td>${seg.source === 'manual' ? 'Manual' : seg.source === 'schedule' ? 'Agendamento' : seg.source === 'automation' ? 'Automação' : 'Desconhecido'}</td>
             </tr>
           `).join('')}
         </tbody>
       </table>
 
       <div class="footer">
-        Gerado em ${new Date().toLocaleString(locale)} | MyIO BAS
+        <span class="issued">Emitido em ${issuedAt}</span>${customerName ? ` &middot; ${esc(customerName)}` : ''} &middot; <span class="brand">MyIO BAS</span>
       </div>
     </body>
     </html>
