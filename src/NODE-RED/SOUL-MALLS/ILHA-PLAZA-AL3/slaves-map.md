@@ -3,7 +3,7 @@
 > Central: **Ilha Plaza AL3** (`91b719b7-f2d2-4d3f-9fb9-ab3d4edbac0d`)
 > IPv6: `206:c160:eb69:3ddb:42c7:efce:511e:792a`
 > Grupo: **Soul Malls** · Shopping: **Ilha Plaza Shopping**
-> Total slaves: **66** · Total channels: **18**
+> Total slaves: **67** · Total channels: **18**
 > Fonte: `slave-and-channels.log` (dump `select * from slaves;` + `channels;`)
 > `version`: **`6.0.0`** em todos, **exceto** os 2 `infrared` (`7.0.0`) · `aggregate`: `t` em todos
 
@@ -83,7 +83,7 @@
 
 ---
 
-## 2. Energia — Climatização / Infra / Área Comum (`3F …`)  · 11 slaves
+## 2. Energia — Climatização / Infra / Área Comum (`3F …`)  · 12 slaves
 
 | ID | Nome | Categoria sugerida | Multiplicador | clamp |
 |----|------|--------------------|---------------|------:|
@@ -98,6 +98,7 @@
 | 126 | `3F Nextel/Tim( 2GXX3G)` | Telecom/antena | — | 0 |
 | 127 | `3F Game_Point` | Loja/área (games) | — | 1 |
 | 130 | _(nome vazio)_ | **SEM NOME — a identificar** | — | _(null)_ |
+| 133 | `Teste` | **TESTE — slave de teste** (criado 2026-06-08) | — | _(null)_ |
 
 ---
 
@@ -162,7 +163,7 @@ Todos com `channelConfig` `REMOTE_INPUT` (ch0) + `PULSE_ON_POWER` (ch1).
 1. **Sufixo de ala** bagunçado: `(AL3)`, `(Al3)`, `L3`, `( Al3)` (espaço), `Al(3)` (43), **`(Al3j`** (41, bracket errado).
 2. **Slaves rotulados `(AL2)` dentro da central AL3**: 101 (Pizzahut), 102 (PastaDiColina), 105 (La mole) — lojas `N_xxx`/`N_XXX` a identificar.
 3. **Lojas não identificadas**: `N_XXX`/`N_xxx` em 101, 102, 105, 106; `N_LB3Parte1/2` em 97, 99.
-4. **Slave 130 sem nome** — identificar.
+4. **Slave 130 sem nome** — identificar. **Slave 133 `Teste`** (novo, 2026-06-08) — slave de teste, provável descartar/identificar.
 5. **Typos de nome de channel vs slave**: 108 `Prado`≠`Prato`; 109 `Produ_penerado`≠`Prod_permeado`.
 6. **Typos**: `Reperidor` (123/124 → Repetidor), `Sw Reborn` (132 → Reboot), `SemLoja`/`Semloja` (4, 44), `Futebol*` (43, asterisco), `N_319/230` (4, `230`≈typo `320`).
 7. **2 channels `lamp` "ignorar"** (slaves 43, 104) — placeholders a descartar.
@@ -176,16 +177,16 @@ Todos com `channelConfig` `REMOTE_INPUT` (ch0) + `PULSE_ON_POWER` (ch1).
 | Categoria | Slaves |
 |-----------|--------|
 | Energia — Medidores de Loja (3F) | 42 |
-| Energia — Climatização/Infra/Antenas (3F) | 11 |
+| Energia — Climatização/Infra/Antenas (3F) | 12 |
 | Água — Hidrômetros (outlet) | 8 |
 | Switch — Reboots remotos (outlet) | 3 |
 | Infravermelho — Repetidores | 2 |
-| **Total** | **66** |
+| **Total** | **67** |
 
 | Métrica | Valor |
 |---------|-------|
-| `three_phase_sensor` | 53 |
+| `three_phase_sensor` | 54 |
 | `outlet` | 11 (8 hidrômetros + 3 reboots) |
 | `infrared` | 2 |
 | `channels` (8 presence + 8 flow + 2 lamp) | 18 |
-| `version` | `6.0.0` (64) · `7.0.0` (2 infrared) |
+| `version` | `6.0.0` (65) · `7.0.0` (2 infrared) |
