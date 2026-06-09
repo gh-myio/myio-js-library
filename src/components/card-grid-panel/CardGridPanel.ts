@@ -145,6 +145,13 @@ export interface CardGridPanelOptions {
   tabs?: TabItem[];
   /** Callback when tab selection changes (receives the newly selected tab) */
   onTabChange?: (tab: TabItem) => void;
+  /**
+   * When true, the panel becomes an accordion item: clicking the header
+   * (anywhere except its buttons) collapses/expands the body. A small arrow
+   * indicator is shown before the title. Default: false (fully backward-compatible).
+   * Can be toggled at runtime via setCollapsible().
+   */
+  collapsible?: boolean;
 }
 
 // ────────────────────────────────────────────
@@ -411,6 +418,35 @@ const PANEL_CSS = `
     background: #ffffff;
     color: #2F5848;
   }
+
+  /* ── Accordion (opt-in via options.collapsible) ─────────────────────────
+     The header (.myio-hp, from HeaderPanelComponent) becomes clickable and an
+     arrow is shown before its title. Collapsed hides the body (.myio-cgp__grid)
+     and lets the panel shrink to header height. Arrow uses CSS escapes
+     (ASCII only) to stay safe across strict CSS parsers (e.g. ThingsBoard). */
+  .myio-cgp--collapsible > .myio-hp {
+    cursor: pointer;
+    user-select: none;
+  }
+  .myio-cgp--collapsible > .myio-hp .myio-hp__title::before {
+    content: "\\25BE";
+    display: inline-block;
+    margin-right: 6px;
+    font-size: 0.7em;
+    opacity: 0.65;
+  }
+  .myio-cgp--collapsed > .myio-hp .myio-hp__title::before {
+    content: "\\25B8";
+  }
+  .myio-cgp--collapsed > .myio-cgp__grid,
+  .myio-cgp--collapsed > .myio-cgp__tabs-wrapper,
+  .myio-cgp--collapsed > .myio-cgp__content {
+    display: none !important;
+  }
+  .myio-cgp--collapsed {
+    height: auto !important;
+    flex: 0 0 auto !important;
+  }
 `;
 
 function injectStyles(): void {
@@ -439,10 +475,14 @@ export class CardGridPanel {
   private headerComponent: HeaderPanelComponent | null = null;
   private searchText = '';
   private tabsContainer: HTMLElement | null = null;
+  private collapsible = false;
+  private collapsed = false;
+  private headerClickBound = false;
 
   constructor(options: CardGridPanelOptions) {
     injectStyles();
     this.options = options;
+    this.collapsible = !!options.collapsible;
     this.root = document.createElement('div');
     this.root.className = 'myio-cgp';
     // Apply custom panel background (color or image)
@@ -622,6 +662,56 @@ export class CardGridPanel {
     this.renderTabs();
 
     this.renderGrid();
+
+    // Accordion (opt-in): wire header click + reflect current state
+    this.applyCollapsibleState();
+  }
+
+  // ── Accordion / collapse (opt-in via options.collapsible) ──
+
+  /** Enable/disable collapsible behavior at runtime. */
+  public setCollapsible(value: boolean): void {
+    this.collapsible = value;
+    if (!value) this.collapsed = false;
+    this.applyCollapsibleState();
+  }
+
+  /** Collapse or expand the panel body programmatically. */
+  public setCollapsed(value: boolean): void {
+    if (!this.collapsible) return;
+    this.collapsed = value;
+    this.root.classList.toggle('myio-cgp--collapsed', this.collapsed);
+  }
+
+  /** Toggle collapsed state. */
+  public toggleCollapsed(): void {
+    this.setCollapsed(!this.collapsed);
+  }
+
+  /** Returns whether the panel is currently collapsed. */
+  public isCollapsed(): boolean {
+    return this.collapsed;
+  }
+
+  /** Reflects collapsible/collapsed state on the DOM and wires the header click once. */
+  private applyCollapsibleState(): void {
+    this.root.classList.toggle('myio-cgp--collapsible', this.collapsible);
+    if (!this.collapsible) this.collapsed = false;
+    this.root.classList.toggle('myio-cgp--collapsed', this.collapsible && this.collapsed);
+
+    if (this.collapsible && !this.headerClickBound) {
+      const header = this.headerComponent?.getElement();
+      if (header) {
+        this.headerClickBound = true;
+        header.addEventListener('click', (e) => {
+          if (!this.collapsible) return;
+          const target = e.target as HTMLElement;
+          // Don't collapse when clicking interactive header controls (search/filter/maximize/tabs)
+          if (target.closest && target.closest('button, a, input, select, svg, [role="button"]')) return;
+          this.toggleCollapsed();
+        });
+      }
+    }
   }
 
   private renderGrid(): void {

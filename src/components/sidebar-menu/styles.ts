@@ -636,40 +636,94 @@ export function injectSidebarMenuStyles(): void {
       background: #6b7280;
     }
 
-    /* ===== Responsive ===== */
-    @media (max-width: 768px) {
-      .${SIDEBAR_MENU_CSS_PREFIX} {
-        position: fixed;
-        left: 0;
-        top: 0;
-        height: 100vh;
-        transform: translateX(-100%);
-        box-shadow: none;
-        z-index: 1000;
-      }
+    /* ===== Mobile mode (JS-driven via .--mobile, NOT @media) =====
+       The host measures its real element width and calls setMobileMode();
+       in ThingsBoard the widget element width != viewport, so @media is
+       unreliable. In mobile mode the sidebar becomes an off-canvas drawer
+       opened by a persistent top bar (hamburger); the drawer keeps its
+       footer/logout. */
 
-      .${SIDEBAR_MENU_CSS_PREFIX}.mobile-open {
-        transform: translateX(0);
-        box-shadow: 4px 0 20px rgba(0, 0, 0, 0.15);
-      }
+    /* Persistent top bar with the hamburger — hidden until mobile */
+    .${SIDEBAR_MENU_CSS_PREFIX}__mobile-topbar {
+      display: none;
+    }
+    .${SIDEBAR_MENU_CSS_PREFIX}__mobile-topbar.is-mobile {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      height: 56px;
+      padding: 0 12px;
+      box-sizing: border-box;
+      background: linear-gradient(135deg, var(--sidebar-primary) 0%, var(--sidebar-primary-light) 100%);
+      color: #ffffff;
+      z-index: 900;
+    }
+    .${SIDEBAR_MENU_CSS_PREFIX}__mobile-hamburger {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      padding: 0;
+      border: none;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.14);
+      color: #ffffff;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+    .${SIDEBAR_MENU_CSS_PREFIX}__mobile-hamburger:hover {
+      background: rgba(255, 255, 255, 0.26);
+    }
+    .${SIDEBAR_MENU_CSS_PREFIX}__mobile-hamburger svg {
+      width: 22px;
+      height: 22px;
+    }
+    .${SIDEBAR_MENU_CSS_PREFIX}__mobile-topbar-title {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+    }
 
-      .${SIDEBAR_MENU_CSS_PREFIX}__backdrop {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.5);
-        opacity: 0;
-        visibility: hidden;
-        transition: opacity 0.3s ease, visibility 0.3s ease;
-        z-index: 999;
-      }
+    /* Sidebar becomes an off-canvas drawer */
+    .${SIDEBAR_MENU_CSS_PREFIX}--mobile {
+      position: fixed;
+      left: 0;
+      top: 0;
+      height: 100vh;
+      width: var(--sidebar-expanded-width);
+      max-width: 86vw;
+      transform: translateX(-100%);
+      box-shadow: none;
+      z-index: 1000;
+      transition: transform var(--sidebar-transition);
+    }
+    .${SIDEBAR_MENU_CSS_PREFIX}--mobile.mobile-open {
+      transform: translateX(0);
+      box-shadow: 4px 0 20px rgba(0, 0, 0, 0.15);
+    }
 
-      .${SIDEBAR_MENU_CSS_PREFIX}.mobile-open + .${SIDEBAR_MENU_CSS_PREFIX}__backdrop {
-        opacity: 1;
-        visibility: visible;
-      }
+    /* Backdrop — only present/active in mobile mode */
+    .${SIDEBAR_MENU_CSS_PREFIX}__backdrop {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+      z-index: 999;
+    }
+    .${SIDEBAR_MENU_CSS_PREFIX}__backdrop.is-mobile {
+      display: block;
+    }
+    .${SIDEBAR_MENU_CSS_PREFIX}__backdrop.is-open {
+      opacity: 1;
+      visibility: visible;
     }
   `;
 

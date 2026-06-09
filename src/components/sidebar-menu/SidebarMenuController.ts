@@ -38,6 +38,23 @@ export class SidebarMenuController implements SidebarMenuInstance {
     this.view.toggle();
   }
 
+  /** Enable/disable mobile mode (hamburger top bar + off-canvas drawer). */
+  setMobileMode(on: boolean): void {
+    this.view.setMobileMode(on);
+  }
+
+  openDrawer(): void {
+    this.view.openDrawer();
+  }
+
+  closeDrawer(): void {
+    this.view.closeDrawer();
+  }
+
+  isMobile(): boolean {
+    return this.view.isMobile();
+  }
+
   getState(): SidebarState {
     return this.view.getState();
   }

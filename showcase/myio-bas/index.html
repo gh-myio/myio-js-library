@@ -88,6 +88,15 @@
       overflow: hidden;
     }
 
+    /* Ocultar o painel lateral (Lifecycle/Mock) para validar o widget em
+       largura cheia — sem o painel de 340px estreitando a área do widget. */
+    .showcase-layout.hide-side {
+      grid-template-columns: 1fr;
+    }
+    .showcase-layout.hide-side .showcase-sidebar {
+      display: none;
+    }
+
     /* ===== SIDEBAR ===== */
     .showcase-sidebar {
       background: #1e293b;
@@ -344,6 +353,9 @@
       </div>
       <div class="header-status">
         <span class="status-badge stopped" id="widgetStatus">STOPPED</span>
+        <button class="ctrl-btn secondary" id="togglePanel" title="Mostrar/ocultar painel lateral (valida o widget em largura cheia)" onclick="document.querySelector('.showcase-layout').classList.toggle('hide-side')">
+          &#x2194;&#xfe0f; Painel
+        </button>
         <button class="ctrl-btn secondary" id="themeToggle" title="Toggle Theme" onclick="toggleTheme()">
           <span id="themeIcon">&#x2600;&#xfe0f;</span>
         </button>
@@ -868,6 +880,7 @@
     let ambientesPanel = null;
     let motorsPanel = null;
     let chartInstance = null;
+    let _chartPanelWrapper = null; // wrapper .myio-cgp do CONSUMO (para accordion)
     let currentChartDomain = 'energy';
     let maximizedPanel = null; // Track which panel is maximized
     let _waterItems = []; // All water items for tab filtering
@@ -1040,8 +1053,19 @@
             else closeMaximizeOverlay();
           },
         });
-        panelWrapper.appendChild(headerComp.getElement());
+        const chartHeaderEl = headerComp.getElement();
+        panelWrapper.appendChild(chartHeaderEl);
+
+        // Accordion: clicar no header "Consumo" recolhe o painel (só quando
+        // .myio-cgp--collapsible está ativo = mobile). Reusa o CSS de collapse
+        // do CardGridPanel (.myio-cgp--collapsed esconde tabs + content).
+        chartHeaderEl.addEventListener('click', (e) => {
+          if (!panelWrapper.classList.contains('myio-cgp--collapsible')) return;
+          if (e.target.closest && e.target.closest('button, a, input, select, svg, [role="button"], [class*="-tab"]')) return;
+          panelWrapper.classList.toggle('myio-cgp--collapsed');
+        });
       }
+      _chartPanelWrapper = panelWrapper;
 
       // Tabs using myio-cgp__tabs-* classes (matches controller.js)
       const tabsWrapper = document.createElement('div');
@@ -1473,6 +1497,10 @@
         motorsHost.appendChild(motorsPanel.getElement());
       }
 
+      // Showcase: responsividade por LARGURA REAL do widget (mirror do MAIN_BAS),
+      // para validar desktop/tablet/mobile + accordion (collapsible) aqui.
+      setupShowcaseResponsive();
+
       currentState.isInitialized = true;
       updateWidgetStatus('running');
       log('success', 'onInit', `Initialized: ${mockData.floors.length} floors, ${mockData.waterDevices.length} water, ${mockData.hvacDevices.length} HVAC, ${mockData.motorDevices.length} motors`);
@@ -1480,6 +1508,56 @@
       document.getElementById('btnOnDataUpdated').disabled = false;
       document.getElementById('btnOnDestroy').disabled = false;
       updateStateDisplay();
+    }
+
+    // Mirror do setupResponsiveWidthClasses do MAIN_BAS/controller.js:
+    // mede a largura real do #bas-dashboard-root, seta .bas-w-* e orquestra os
+    // componentes via API pública (menu.collapse/expand + panel.setCollapsible).
+    let _prevMobile = null;
+    function setupShowcaseResponsive() {
+      const root = document.getElementById('bas-dashboard-root');
+      if (!root) return;
+
+      function applyComponents(isMobile) {
+        if (isMobile === _prevMobile) return;
+        _prevMobile = isMobile;
+        if (_sidebarMenu) {
+          try {
+            // Strong component: hamburger top bar + off-canvas drawer (with footer/logout)
+            // on mobile; full sidebar on desktop.
+            if (typeof _sidebarMenu.setMobileMode === 'function') _sidebarMenu.setMobileMode(isMobile);
+            else if (isMobile) _sidebarMenu.collapse?.(); else _sidebarMenu.expand?.();
+          } catch {}
+        }
+        [waterPanel, ambientesPanel, motorsPanel].forEach((p) => {
+          if (p && typeof p.setCollapsible === 'function') p.setCollapsible(isMobile);
+        });
+        // CONSUMO é um wrapper inline .myio-cgp (não componente): liga/desliga o
+        // accordion via classe — o CSS de collapse do CardGridPanel cuida do resto.
+        if (_chartPanelWrapper) {
+          _chartPanelWrapper.classList.toggle('myio-cgp--collapsible', isMobile);
+          if (!isMobile) _chartPanelWrapper.classList.remove('myio-cgp--collapsed');
+        }
+      }
+
+      function apply() {
+        const w = root.getBoundingClientRect().width;
+        if (!w) return;
+        const isMobile = w <= 620;
+        const isTablet = !isMobile && w <= 960;
+        root.classList.toggle('bas-w-mobile', isMobile);
+        root.classList.toggle('bas-w-tablet', isTablet);
+        root.classList.toggle('bas-w-desktop', !isMobile && !isTablet);
+        applyComponents(isMobile);
+        log('info', 'Responsive', `${Math.round(w)}px -> ${isMobile ? 'mobile' : isTablet ? 'tablet' : 'desktop'}`);
+      }
+
+      apply();
+      if (typeof ResizeObserver !== 'undefined') {
+        new ResizeObserver(() => apply()).observe(root);
+      } else {
+        window.addEventListener('resize', apply);
+      }
     }
 
     function refreshPanels() {

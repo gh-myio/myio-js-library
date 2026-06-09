@@ -1,4 +1,4 @@
-/* global self, window, MyIOLibrary, document, localStorage, sessionStorage */
+/* global self, window, MyIOLibrary, document, localStorage, sessionStorage, ResizeObserver */
 /**
  * MAIN_BAS Controller
  * RFC-0158: Building Automation System (BAS) Dashboard Controller
@@ -60,7 +60,7 @@ function traceClick(where, payload) {
   try {
     // Always log (independent of DEBUG_ACTIVE) so tracing works even with debug off.
     console.log('%c[CLICK-TRACE] ' + where, 'color:#2F5848;font-weight:bold;', payload || '');
-  } catch (e) {
+  } catch {
     /* noop */
   }
 }
@@ -96,6 +96,7 @@ let _waterPanel = null;
 let _ambientesPanel = null;
 let _motorsPanel = null;
 let _chartInstance = null;
+let _chartPanelWrapper = null; // wrapper .myio-cgp do CONSUMO (para accordion mobile)
 let _currentChartDomain = 'energy';
 // RFC-0152: Date range for the consumption chart
 // { startTs: number|null, endTs: number|null } — null = "last _currentChartPeriod days"
@@ -5062,8 +5063,19 @@ function mountChartPanel(hostEl, settings) {
         showMaximizedPanel(panelWrapper, 'Consumo', { isChart: true, chartDomain: _currentChartDomain });
       },
     });
-    panelWrapper.appendChild(headerComponent.getElement());
+    var chartHeaderEl = headerComponent.getElement();
+    panelWrapper.appendChild(chartHeaderEl);
+
+    // Accordion: clicar no header "Consumo" recolhe (só quando .myio-cgp--collapsible
+    // está ativo = mobile). Reusa o CSS de collapse do CardGridPanel (esconde
+    // .myio-cgp__tabs-wrapper + .myio-cgp__content).
+    chartHeaderEl.addEventListener('click', function (e) {
+      if (!panelWrapper.classList.contains('myio-cgp--collapsible')) return;
+      if (e.target.closest && e.target.closest('button, a, input, select, svg, [role="button"], [class*="-tab"]')) return;
+      panelWrapper.classList.toggle('myio-cgp--collapsed');
+    });
   }
+  _chartPanelWrapper = panelWrapper;
 
   // Add tabs wrapper using CardGridPanel tab styles
   var tabsWrapper = document.createElement('div');
@@ -5526,7 +5538,78 @@ self.onInit = async function () {
     motorsHost,
     _settings
   );
+
+  // Responsividade por LARGURA REAL do widget (ThingsBoard não suporta
+  // @container e a @media do viewport é não-confiável no TB). Mede o widget
+  // e seta .bas-w-tablet / .bas-w-mobile no root; o CSS reage só por classe.
+  setupResponsiveWidthClasses(root);
 };
+
+/**
+ * Measures the widget's real width (immune to TB viewport quirks) and toggles
+ * width classes on the root: .bas-w-mobile (<=620), .bas-w-tablet (621-960),
+ * .bas-w-desktop (>960). Re-evaluates on resize via ResizeObserver.
+ */
+function setupResponsiveWidthClasses(root) {
+  if (!root) return;
+
+  var prevMobile = null;
+
+  // Orquestra a responsividade dos COMPONENTES via API pública (sem sobrescrever
+  // o estilo deles): no mobile, recolhe o menu (barra de ícones) e habilita o
+  // accordion dos painéis; fora do mobile, expande o menu e desabilita o accordion.
+  function applyComponentResponsiveness(isMobile) {
+    if (isMobile === prevMobile) return;
+    prevMobile = isMobile;
+
+    if (_sidebarMenu) {
+      try {
+        // Strong component: it renders a hamburger top bar + off-canvas drawer
+        // (with footer/logout) on mobile, and restores the full sidebar on desktop.
+        if (typeof _sidebarMenu.setMobileMode === 'function') {
+          _sidebarMenu.setMobileMode(isMobile);
+        } else if (isMobile && typeof _sidebarMenu.collapse === 'function') {
+          _sidebarMenu.collapse();
+        } else if (!isMobile && typeof _sidebarMenu.expand === 'function') {
+          _sidebarMenu.expand();
+        }
+      } catch {
+        /* noop */
+      }
+    }
+
+    [_waterPanel, _ambientesPanel, _motorsPanel].forEach(function (p) {
+      if (p && typeof p.setCollapsible === 'function') p.setCollapsible(isMobile);
+    });
+    // CONSUMO é um wrapper inline .myio-cgp (não componente): liga/desliga o
+    // accordion via classe — o CSS de collapse do CardGridPanel cuida do resto.
+    if (_chartPanelWrapper) {
+      _chartPanelWrapper.classList.toggle('myio-cgp--collapsible', isMobile);
+      if (!isMobile) _chartPanelWrapper.classList.remove('myio-cgp--collapsed');
+    }
+  }
+
+  function apply() {
+    var w = root.getBoundingClientRect ? root.getBoundingClientRect().width : root.offsetWidth;
+    if (!w) return;
+    var isMobile = w <= 620;
+    var isTablet = !isMobile && w <= 960;
+    root.classList.toggle('bas-w-mobile', isMobile);
+    root.classList.toggle('bas-w-tablet', isTablet);
+    root.classList.toggle('bas-w-desktop', !isMobile && !isTablet);
+    applyComponentResponsiveness(isMobile);
+    LogHelper.log('[MAIN_BAS] width class:', Math.round(w) + 'px ->', isMobile ? 'mobile' : isTablet ? 'tablet' : 'desktop');
+  }
+
+  apply();
+
+  if (typeof ResizeObserver !== 'undefined') {
+    var ro = new ResizeObserver(function () { apply(); });
+    ro.observe(root);
+  } else {
+    window.addEventListener('resize', apply);
+  }
+}
 
 self.onDataUpdated = function () {
   if (!_ctx) return;
