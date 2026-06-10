@@ -2691,7 +2691,7 @@ function mountWaterPanel(waterHost, settings, classified) {
     items: waterItems,
     tabs: waterTabs,
     panelBackground: settings.waterPanelBackground,
-    cardCustomStyle: settings.cardCustomStyle || { zoomMultiplier: 0.9, padding: '15px' },
+    cardCustomStyle: settings.cardCustomStyle || { zoomMultiplier: 0.9, padding: '10px' },
     titleStyle: waterHeaderStyle,
     gridMinCardWidth: settings.waterCardMinWidth || '160px',
     gridGap: settings.cardGridGap || '8px',
@@ -2755,9 +2755,9 @@ function mountWaterPanel(waterHost, settings, classified) {
     handleActionSettings: function (item) {
       basOpenDeviceSettings(item.source, settings);
     },
-    // Comparison: selectable + draggable cards feed the comparison footer dock.
-    enableSelection: true,
-    enableDragDrop: true,
+    // TODO(RFC-0115): selection/drag hidden until comparison flow is implemented (same as footer).
+    enableSelection: false,
+    enableDragDrop: false,
     handleSelect: function () {},
     handleClickCard: function (item) {
       basRouteWaterClick(item, settings);
@@ -2831,7 +2831,7 @@ function mountAmbientesPanel(host, settings, assetAmbientHierarchy) {
     items: ambienteItems,
     cardType: 'ambiente',
     panelBackground: settings.environmentsPanelBackground,
-    cardCustomStyle: settings.cardCustomStyle || { zoomMultiplier: 0.9, padding: '15px' },
+    cardCustomStyle: settings.cardCustomStyle || { zoomMultiplier: 0.9, padding: '10px' },
     titleStyle: headerStyle,
     gridMinCardWidth: '140px',
     gridGap: settings.cardGridGap || '8px',
@@ -3968,9 +3968,9 @@ function mountEnergyPanel(host, settings, classified) {
     quantity: energyItems.length,
     items: energyItems,
     panelBackground: settings.motorsPanelBackground,
-    cardCustomStyle: settings.cardCustomStyle || { zoomMultiplier: 0.9, padding: '15px' },
+    cardCustomStyle: settings.cardCustomStyle || { zoomMultiplier: 0.9, padding: '10px' },
     titleStyle: energyHeaderStyle,
-    gridMinCardWidth: '140px',
+    gridMinCardWidth: '180px',
     gridGap: settings.cardGridGap || '8px',
     gridRowGap: settings.cardGridRowGap || '6px',
     singleColumn: true,
@@ -4033,9 +4033,9 @@ function mountEnergyPanel(host, settings, classified) {
     handleActionSettings: function (item) {
       basOpenDeviceSettings(item.source, settings);
     },
-    // Comparison: selectable + draggable cards feed the comparison footer dock.
-    enableSelection: true,
-    enableDragDrop: true,
+    // TODO(RFC-0115): selection/drag hidden until comparison flow is implemented (same as footer).
+    enableSelection: false,
+    enableDragDrop: false,
     handleSelect: function () {},
     handleClickCard: function (item) {
       basRouteEnergyClick(item, settings);

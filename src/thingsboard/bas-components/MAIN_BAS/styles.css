@@ -413,11 +413,11 @@ tb-html-widget > div,
   min-height: 0 !important;
 }
 
-/* Canvas container - fill available space */
+/* Canvas container - fill available space via flex (height:100% fights flex:1 and causes footer bleed) */
 .bas-charts-slot .myio-chart-widget-canvas-container {
-  height: 100% !important;
-  flex: 1 !important;
+  flex: 1 1 auto !important;
   min-height: 0 !important;
+  overflow: hidden !important;
 }
 
 .bas-charts-slot .myio-chart-widget-canvas-container canvas {
@@ -564,11 +564,21 @@ tb-html-widget > div,
    não referencia classes internas dos componentes. O widget só controla como o
    componente OCUPA o slot; quem é forte/autossuficiente é o componente. */
 .bas-w-mobile .bas-water-slot > *,
-.bas-w-mobile .bas-charts-slot > *,
 .bas-w-mobile .bas-ambientes-slot > *,
 .bas-w-mobile .bas-motors-slot > * {
   flex: 0 0 auto !important;
   height: auto !important;
+  max-height: none !important;
+}
+
+/* Charts slot precisa de altura explícita no mobile — Chart.js não renderiza o
+   canvas sem uma altura definida em px (height:auto → body flex:1 → 0px). */
+.bas-w-mobile .bas-charts-slot {
+  min-height: 320px !important;
+}
+.bas-w-mobile .bas-charts-slot > * {
+  flex: 0 0 auto !important;
+  height: 320px !important;
   max-height: none !important;
 }
 
@@ -591,4 +601,18 @@ tb-html-widget > div,
 #bas-dashboard-root.bas-w-mobile #bas-main-content {
   flex: 1 1 auto !important;
   min-height: 0 !important;
+}
+
+/* TODO(RFC-0115): Comparison footer — hidden until feature is fully implemented.
+   Remove this rule when the comparison/selection flow is ready.
+   Ref: .bas-footer-slot is grid-row 3 in #bas-main-content (controller.js ~linha 5410). */
+.bas-footer-slot {
+  display: none !important;
+}
+
+/* TODO(RFC-0115): Selection checkbox — hidden until comparison/selection flow is ready.
+   Same feature as .bas-footer-slot above. Remove when implemented.
+   Class .card-checkbox rendered by renderCardComponentV6 (template-card-v6.js) when enableSelection=true. */
+.card-checkbox {
+  display: none !important;
 }
