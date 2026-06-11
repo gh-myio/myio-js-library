@@ -5399,12 +5399,15 @@ function mountChartPanel(hostEl, settings) {
     panelWrapper.appendChild(chartHeaderEl);
 
     // Accordion: clicar no header "Consumo" recolhe (só quando .myio-cgp--collapsible
-    // está ativo = mobile). Reusa o CSS de collapse do CardGridPanel (esconde
-    // .myio-cgp__tabs-wrapper + .myio-cgp__content).
+    // está ativo = mobile). Usa inline style (não CSS) para display/height — evita
+    // batalha de especificidade contra prefixo .widget-type-... do ThingsBoard.
     chartHeaderEl.addEventListener('click', function (e) {
       if (!panelWrapper.classList.contains('myio-cgp--collapsible')) return;
       if (e.target.closest && e.target.closest('button, a, input, select, svg, [role="button"], [class*="-tab"]')) return;
-      panelWrapper.classList.toggle('myio-cgp--collapsed');
+      var isCollapsed = panelWrapper.classList.toggle('myio-cgp--collapsed');
+      chartCard.style.display = isCollapsed ? 'none' : '';
+      tabsWrapper.style.display = isCollapsed ? 'none' : '';
+      panelWrapper.style.height = isCollapsed ? 'auto' : '300px';
     });
   }
   _chartPanelWrapper = panelWrapper;
@@ -5926,11 +5929,20 @@ function setupResponsiveWidthClasses(root) {
     [_waterPanel, _ambientesPanel, _motorsPanel].forEach(function (p) {
       if (p && typeof p.setCollapsible === 'function') p.setCollapsible(isMobile);
     });
-    // CONSUMO é um wrapper inline .myio-cgp (não componente): liga/desliga o
-    // accordion via classe — o CSS de collapse do CardGridPanel cuida do resto.
+    // CONSUMO: inline style controla height e collapse — bypassa prefixo TB no CSS.
     if (_chartPanelWrapper) {
       _chartPanelWrapper.classList.toggle('myio-cgp--collapsible', isMobile);
-      if (!isMobile) _chartPanelWrapper.classList.remove('myio-cgp--collapsed');
+      if (isMobile) {
+        // Altura fixa: resolve fullHeight:true do chart widget sem container definido
+        _chartPanelWrapper.style.height = '300px';
+      } else {
+        _chartPanelWrapper.classList.remove('myio-cgp--collapsed');
+        _chartPanelWrapper.style.height = '';
+        var _cc = _chartPanelWrapper.querySelector('.myio-cgp__content');
+        var _tw = _chartPanelWrapper.querySelector('.myio-cgp__tabs-wrapper');
+        if (_cc) _cc.style.display = '';
+        if (_tw) _tw.style.display = '';
+      }
     }
   }
 

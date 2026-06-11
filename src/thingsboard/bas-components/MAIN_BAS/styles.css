@@ -579,9 +579,8 @@ tb-html-widget > div,
   height: auto !important;      /* cancela .bas-chart-panel{height:100%} — sem isso o panel não encolhe */
   max-height: none !important;
 }
-.bas-w-mobile .bas-charts-slot .bas-chart-card {
-  min-height: 220px !important;
-}
+/* min-height removido — JS seta panelWrapper.style.height='300px' no mobile,
+   chartCard (flex:1) ocupa o espaço restante sem precisar de min-height. */
 
 /* ---- Mobile: root stacks vertically so the SidebarMenu's hamburger top bar
         (rendered by the strong component in its host, the first child) sits on
