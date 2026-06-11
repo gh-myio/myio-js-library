@@ -311,7 +311,7 @@ tb-html-widget > div,
   min-height: 0 !important;
   position: relative;
   overflow: hidden;
-  display: flex !important;
+  display: flex;           /* sem !important: CardGridPanel collapse (display:none !important) sempre vence */
   flex-direction: column !important;
 }
 
@@ -649,4 +649,20 @@ tb-html-widget > div,
 .bas-motors-slot .device-title-row {
   left: 40px !important;
   max-width: calc(100% - 48px) !important;
+}
+
+/* ---- CONSUMO: colapso explícito (especificidade alta) ----------------------------
+   O ThingsBoard prefixa styles.css com .widget-type-..., elevando para 0,2,0 qualquer
+   seletor de 1 classe. O CardGridPanel injeta CSS sem prefixo (0,2,0). Empate com
+   !important → fonte order decide. Para garantir que display:none vença, usamos
+   .bas-charts-slot .myio-cgp--collapsed → após prefixo TB fica 0,3,0 (3 classes).
+   Cobre: bas-chart-card (.myio-cgp__content) e tabsWrapper (.myio-cgp__tabs-wrapper).
+   ---------------------------------------------------------------------------------*/
+.bas-charts-slot .myio-cgp--collapsed > .myio-cgp__content,
+.bas-charts-slot .myio-cgp--collapsed > .myio-cgp__tabs-wrapper {
+  display: none !important;
+}
+.bas-charts-slot .myio-cgp--collapsed {
+  height: auto !important;
+  flex: 0 0 auto !important;
 }
