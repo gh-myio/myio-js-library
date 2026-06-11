@@ -571,21 +571,15 @@ tb-html-widget > div,
   max-height: none !important;
 }
 
-/* Charts slot precisa de altura explícita no mobile — Chart.js não renderiza o
-   canvas sem uma altura definida em px (height:auto → body flex:1 → 0px).
-   Usa min-height (não height) para não bloquear o height:auto do collapse CSS. */
-.bas-w-mobile .bas-charts-slot {
-  min-height: 320px !important;
-}
+/* Charts slot no mobile: sem min-height no slot/panel — ambos encolhem livremente
+   quando colapsado (o bas-chart-card vira display:none e não contribui com altura).
+   O min-height fica apenas no bas-chart-card para garantir espaço ao Chart.js. */
 .bas-w-mobile .bas-charts-slot > * {
   flex: 0 0 auto !important;
-  min-height: 320px !important;
   max-height: none !important;
 }
-/* Quando colapsado, zera min-height para o panel encolher ao tamanho do header */
-.bas-w-mobile .bas-charts-slot > *.myio-cgp--collapsed {
-  min-height: 0 !important;
-  height: auto !important;
+.bas-w-mobile .bas-charts-slot .bas-chart-card {
+  min-height: 280px !important;
 }
 
 /* ---- Mobile: root stacks vertically so the SidebarMenu's hamburger top bar
