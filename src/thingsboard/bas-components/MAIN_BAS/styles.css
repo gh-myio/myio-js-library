@@ -576,10 +576,11 @@ tb-html-widget > div,
    O min-height fica apenas no bas-chart-card para garantir espaço ao Chart.js. */
 .bas-w-mobile .bas-charts-slot > * {
   flex: 0 0 auto !important;
+  height: auto !important;      /* cancela .bas-chart-panel{height:100%} — sem isso o panel não encolhe */
   max-height: none !important;
 }
 .bas-w-mobile .bas-charts-slot .bas-chart-card {
-  min-height: 280px !important;
+  min-height: 220px !important;
 }
 
 /* ---- Mobile: root stacks vertically so the SidebarMenu's hamburger top bar
