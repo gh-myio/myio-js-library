@@ -238,6 +238,11 @@ self.onInit = async function () {
   window.MyIOUtils.chartsBaseUrl = CHARTS_BASE_URL;
   LogHelper.log('[MAIN_UNIQUE] chartsBaseUrl:', CHARTS_BASE_URL);
 
+  // RFC-0189: Temperature API fetch for offline detection + modal data source
+  const ENABLE_TEMPERATURE_API = settings.enableTemperatureApiDataFetch ?? false;
+  window.MyIOUtils.enableTemperatureApiDataFetch = ENABLE_TEMPERATURE_API;
+  LogHelper.log('[MAIN_UNIQUE] RFC-0189: enableTemperatureApiDataFetch:', ENABLE_TEMPERATURE_API);
+
   // RFC-0178: Configure AlarmService with the correct base URL and API key from settings
   if (MyIOLibrary?.AlarmService?.configure) {
     MyIOLibrary.AlarmService.configure(ALARMS_API_BASE, undefined, ALARMS_API_KEY);
@@ -1161,6 +1166,7 @@ body.filter-modal-open { overflow: hidden !important; }
     ALARMS_API_KEY,
     GCDR_API_BASE,
     chartsBaseUrl: CHARTS_BASE_URL, // must be re-included here: this full reassignment clobbers the earlier window.MyIOUtils.chartsBaseUrl set (the FOOTER reads it later)
+    enableTemperatureApiDataFetch: ENABLE_TEMPERATURE_API, // must be re-included here: this full reassignment clobbers the earlier window.MyIOUtils.enableTemperatureApiDataFetch set (RFC-0189 gates read it later)
     CLIENT_ID,
     CLIENT_SECRET,
     CUSTOMER_ING_ID,
@@ -2232,6 +2238,113 @@ body.filter-modal-open { overflow: hidden !important; }
     try {
       switch (action) {
         case 'dashboard': {
+          // RFC-0189: When the temperature API gate is on, temperature cards open the dedicated
+          // temperature modal fed by the ingestion API. Gate off (default) keeps the legacy
+          // openDashboardPopupEnergy path below untouched.
+          const effectiveDomain = domain || currentTelemetryDomain;
+          if (
+            effectiveDomain === DOMAIN_TEMPERATURE &&
+            window.MyIOUtils?.enableTemperatureApiDataFetch &&
+            device.ingestionId &&
+            typeof MyIOLibrary.openTemperatureModal === 'function'
+          ) {
+            try {
+              if (!tbToken) {
+                throw new Error('JWT token nao encontrado');
+              }
+
+              const creds = window.MyIOUtils?.getCredentials?.();
+              if (!creds?.clientId || !creds?.clientSecret) {
+                throw new Error('Missing credentials for ingestion API');
+              }
+
+              const ingestionId = device.ingestionId;
+              const dataApiHost = creds.dataApiHost; // includes /api/v1
+              const tempAuth = MyIOLibrary.buildMyioIngestionAuth({
+                dataApiHost: dataApiHost,
+                clientId: creds.clientId,
+                clientSecret: creds.clientSecret,
+              });
+
+              const ingestionDataFetcher = async (fetchStartTs, fetchEndTs) => {
+                const ingestionToken = await tempAuth.getToken();
+                const url = new URL(`${dataApiHost}/telemetry/devices/${ingestionId}/temperature`);
+                url.searchParams.set('startTime', new Date(fetchStartTs).toISOString());
+                url.searchParams.set('endTime', new Date(fetchEndTs).toISOString());
+                url.searchParams.set('granularity', '1h');
+                url.searchParams.set('deep', '0');
+
+                const res = await fetch(url.toString(), {
+                  headers: { Authorization: `Bearer ${ingestionToken}` },
+                });
+                if (!res.ok) throw new Error(`Ingestion API error: ${res.status}`);
+
+                const json = await res.json();
+                const rows = Array.isArray(json) ? json : [];
+                const row = rows.find((r) => r.id === ingestionId) || rows[0] || null;
+                if (!row || !Array.isArray(row.consumption)) return [];
+
+                // Transform to TemperatureTelemetry[] format: { ts: number, value: number }
+                return row.consumption
+                  .filter((e) => e && e.timestamp !== undefined && e.value !== undefined)
+                  .map((e) => ({ ts: new Date(e.timestamp).getTime(), value: Number(e.value) }));
+              };
+
+              // Temperature range/status — priority: device attributes > global customer
+              // limits (window.MyIOUtils.temperatureLimits), mirroring production TELEMETRY v5
+              const tempMinRange =
+                device.temperatureMin ??
+                device.minTemperature ??
+                window.MyIOUtils?.temperatureLimits?.minTemperature ??
+                null;
+              const tempMaxRange =
+                device.temperatureMax ??
+                device.maxTemperature ??
+                window.MyIOUtils?.temperatureLimits?.maxTemperature ??
+                null;
+              const tempStatus = device.temperatureStatus || null;
+
+              // Customer-level clamp range if configured, else library default (production parity)
+              const customerClampRange = window.MyIOUtils?.temperatureClampRange;
+              const clampRange =
+                customerClampRange?.min !== undefined && customerClampRange?.max !== undefined
+                  ? { min: customerClampRange.min, max: customerClampRange.max }
+                  : undefined;
+
+              LogHelper.log(
+                `[MAIN_UNIQUE] RFC-0189: opening temperature modal via ingestion API (ingestionId: ${ingestionId})`,
+                { tempMinRange, tempMaxRange, tempStatus, clampRange }
+              );
+
+              MyIOLibrary.openTemperatureModal({
+                token: tbToken,
+                deviceId: device.entityId,
+                startDate: self.ctx.$scope.startDateISO || new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+                endDate: self.ctx.$scope.endDateISO || new Date().toISOString(),
+                label: device.labelOrName || device.label || 'Sensor de Temperatura',
+                currentTemperature: Number(device.temperature ?? 0),
+                temperatureMin: tempMinRange,
+                temperatureMax: tempMaxRange,
+                temperatureStatus: tempStatus,
+                theme: currentThemeMode,
+                locale: 'pt-BR',
+                granularity: 'hour',
+                ...(clampRange ? { clampRange } : {}),
+                dataFetcher: ingestionDataFetcher,
+                onClose: () => {
+                  LogHelper.log('[MAIN_UNIQUE] Temperature modal closed');
+                },
+              });
+              break; // handled — skip legacy popup
+            } catch (tempErr) {
+              LogHelper.warn(
+                '[MAIN_UNIQUE] RFC-0189: temperature modal via ingestion API failed, falling back to legacy popup:',
+                tempErr.message
+              );
+              // Fall through to legacy openDashboardPopupEnergy path below
+            }
+          }
+
           if (!myIOAuth || typeof myIOAuth.getToken !== 'function') {
             LogHelper.error('[MAIN_UNIQUE] myIOAuth not available');
             window.alert('Autenticacao nao disponivel. Recarregue a pagina.');
@@ -5561,7 +5674,114 @@ async function enrichDevicesWithConsumption(classified) {
     }
   }
 
-  // Note: Temperature does not need API enrichment - it uses real-time ThingsBoard data
+  // RFC-0189: Temperature enrichment — per-device API fetch to derive lastTelemetryTs for
+  // offline detection (RFC-0188). Card value stays ThingsBoard real-time; the API only supplies
+  // the ingestion timestamp and last raw value. Disabled by default (enableTemperatureApiDataFetch).
+  if (window.MyIOUtils?.enableTemperatureApiDataFetch) {
+    try {
+      const temperatureIngestionMap = new Map();
+
+      // Collect all temperature devices
+      Object.values(classified.temperature || {}).forEach((devices) => {
+        devices.forEach((device) => {
+          if (device.ingestionId) {
+            temperatureIngestionMap.set(device.ingestionId, device);
+          }
+        });
+      });
+
+      if (temperatureIngestionMap.size > 0) {
+        LogHelper.log(`Temperature devices with ingestionId: ${temperatureIngestionMap.size}`);
+
+        // Fixed 72-hour window — independent of the dashboard period (we only need the most
+        // recent data point, not the period consumption)
+        const endTime = new Date().toISOString();
+        const startTime = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString();
+        const ingestionIds = [...temperatureIngestionMap.keys()];
+
+        let matchCount = 0;
+
+        // Throttle: head office has ~82 temperature devices — sequential batches of 10
+        const BATCH_SIZE = 10;
+        for (let i = 0; i < ingestionIds.length; i += BATCH_SIZE) {
+          const batch = ingestionIds.slice(i, i + BATCH_SIZE);
+          try {
+            const results = await Promise.allSettled(
+              batch.map(async (ingestionId) => {
+                const url = new URL(`${dataApiBase}/api/v1/telemetry/devices/${ingestionId}/temperature`);
+                url.searchParams.set('startTime', startTime);
+                url.searchParams.set('endTime', endTime);
+                url.searchParams.set('granularity', '1h');
+                url.searchParams.set('deep', '0');
+
+                const res = await fetch(url.toString(), {
+                  headers: { Authorization: `Bearer ${token}` },
+                });
+                if (!res.ok) return null;
+
+                const json = await res.json();
+                const rows = Array.isArray(json) ? json : [];
+                const row = rows.find((r) => r.id === ingestionId) || rows[0] || null;
+
+                if (!row || !Array.isArray(row.consumption) || row.consumption.length === 0) {
+                  return null;
+                }
+
+                // Last entry = most recent data point from ingestion backend
+                const lastEntry = row.consumption[row.consumption.length - 1];
+                const lastTelemetryTs = lastEntry?.timestamp
+                  ? new Date(lastEntry.timestamp).getTime()
+                  : null;
+                const lastValue =
+                  lastEntry?.value !== undefined && lastEntry?.value !== null
+                    ? Number(lastEntry.value)
+                    : null;
+
+                return lastTelemetryTs ? { ingestionId, lastTelemetryTs, lastValue } : null;
+              })
+            );
+
+            for (const result of results) {
+              if (result.status === 'fulfilled' && result.value) {
+                const device = temperatureIngestionMap.get(result.value.ingestionId);
+                if (!device) continue;
+
+                device.lastTelemetryTs = result.value.lastTelemetryTs;
+                if (Number.isFinite(result.value.lastValue)) {
+                  // Do NOT overwrite device.temperature/val — card value stays ThingsBoard real-time
+                  device.lastApiTemperature = result.value.lastValue;
+                }
+                device.apiEnriched = true;
+                matchCount++;
+
+                // RFC-0188: deviceStatus was computed in extractDeviceMetadataFromRows (before
+                // enrichment) using only the ThingsBoard timestamp — recompute here so the
+                // ingestion timestamp takes precedence for offline detection.
+                if (lib.calculateDeviceStatusMasterRules) {
+                  device.telemetryTimestamp = result.value.lastTelemetryTs;
+                  device.deviceStatus = lib.calculateDeviceStatusMasterRules({
+                    connectionStatus: device.connectionStatus,
+                    telemetryTimestamp: device.telemetryTimestamp,
+                    delayMins: 1440, // 24 hours in MINUTES (production v-5.2.0 semantics)
+                    domain: DOMAIN_TEMPERATURE,
+                  });
+                }
+              }
+            }
+          } catch (batchErr) {
+            LogHelper.warn('[MAIN_UNIQUE] Temperature enrichment batch failed (RFC-0189):', batchErr);
+          }
+        }
+
+        LogHelper.log(
+          `Temperature enrichment (RFC-0189): lastTelemetryTs resolved for ${matchCount}/${temperatureIngestionMap.size} devices`
+        );
+      }
+    } catch (err) {
+      // Graceful fallback: temperature devices keep their ThingsBoard timestamps/status
+      LogHelper.warn('[MAIN_UNIQUE] Temperature enrichment failed (RFC-0189):', err);
+    }
+  }
 
   return classified;
 }
