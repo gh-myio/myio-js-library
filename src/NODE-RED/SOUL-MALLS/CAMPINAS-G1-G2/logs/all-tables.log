@@ -1,0 +1,31 @@
+                               List of relations
+ Schema |           Name            | Type  | Owner |    Size    | Description
+--------+---------------------------+-------+-------+------------+-------------
+ public | SequelizeMeta             | table | hubot | 8192 bytes |
+ public | alarms                    | table | hubot | 0 bytes    |
+ public | alert_history             | table | hubot | 8192 bytes |
+ public | ambient_permissions       | table | hubot | 8192 bytes |
+ public | ambients                  | table | hubot | 16 kB      |
+ public | ambients_rfir_devices_rel | table | hubot | 0 bytes    |
+ public | ambients_rfir_slaves_rel  | table | hubot | 56 kB      |
+ public | channel_pulse_log         | table | hubot | 0 bytes    |
+ public | channels                  | table | hubot | 16 kB      |
+ public | consumption               | table | hubot | 0 bytes    |
+ public | consumption_alerts        | table | hubot | 8192 bytes |
+ public | consumption_realtime      | table | hubot | 8192 bytes |
+ public | environment               | table | hubot | 8192 bytes |
+ public | favorites                 | table | hubot | 16 kB      |
+ public | logs                      | table | hubot | 0 bytes    |
+ public | metadata                  | table | hubot | 8192 bytes |
+ public | node_red_persistence      | table | hubot | 8192 bytes |
+ public | raw_energy                | table | hubot | 0 bytes    |
+ public | rfir_buttons              | table | hubot | 0 bytes    |
+ public | rfir_commands             | table | hubot | 0 bytes    |
+ public | rfir_devices              | table | hubot | 0 bytes    |
+ public | rfir_remotes              | table | hubot | 0 bytes    |
+ public | scenes                    | table | hubot | 8192 bytes |
+ public | schedules                 | table | hubot | 8192 bytes |
+ public | slaves                    | table | hubot | 48 kB      |
+ public | temperature_history       | table | hubot | 8192 bytes |
+ public | users                     | table | hubot | 8192 bytes |
+(27 rows)

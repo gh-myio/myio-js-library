@@ -40,69 +40,70 @@ ssh -i id_rsa root@<ipv6-da-central>
 
 #### Holding: SÁ CAVALCANTE
 
-| Central              | IPv6                                     | Gateway ID                             |
-| -------------------- | ---------------------------------------- | -------------------------------------- |
-| Mestre Álvaro — L0L1 | `200:ba5f:dacb:b278:8f85:acf4:f33c:f485` | `45250d44-bad0-4071-aaa0-8091cfb12691` |
-| Mestre Álvaro — L2AC | `200:8b:483c:9008:1184:caec:41b1:fa28`   | `d3202744-05dd-46d1-af33-495e9a2ecd52` |
-| Mestre Álvaro — L3L4 | `200:b0b1:81aa:49a4:c554:4fec:f110:9896` | `fcb3ccd1-4b85-4cef-a1de-0b8a80bec81e` |
-| Rio Poty             | `203:bdfb:8fda:634d:c846:1404:f319:718c` | `c0af8288-7b13-4024-bc11-df5017fef656` |
-| Shopping da Ilha     | `201:3447:911:5955:4018:3960:6838:ee12`  | `cb318f02-1020-4f99-857f-d44d001d939b` |
-| Moxuara              | `202:1567:faee:79ef:486:6d44:d391:fb18`  | `e982edf9-edb1-4aa6-8a14-4782465ae5a3` |
-| Montserrat           | `200:abb2:e99:ec3d:eaf8:2d90:7bd9:42cc`  | `186bbdcb-95bc-4290-bf33-1ce89e48ffb4` |
-| Shopping Ananindeua  | `201:ca6e:c33b:3a06:f4dd:d148:5d85:6315` | `7ac0ac44-e631-4b64-ac1d-e9e93fe61e0a` |
+| Central              | IPv6                                     | Gateway ID                             | Central ID | Frequência |
+| -------------------- | ---------------------------------------- | -------------------------------------- | ---------- | ---------- |
+| Mestre Álvaro — L0L1 | `200:ba5f:dacb:b278:8f85:acf4:f33c:f485` | `45250d44-bad0-4071-aaa0-8091cfb12691` | —          | —          |
+| Mestre Álvaro — L2AC | `200:8b:483c:9008:1184:caec:41b1:fa28`   | `d3202744-05dd-46d1-af33-495e9a2ecd52` | —          | —          |
+| Mestre Álvaro — L3L4 | `200:b0b1:81aa:49a4:c554:4fec:f110:9896` | `fcb3ccd1-4b85-4cef-a1de-0b8a80bec81e` | —          | —          |
+| Rio Poty             | `203:bdfb:8fda:634d:c846:1404:f319:718c` | `c0af8288-7b13-4024-bc11-df5017fef656` | —          | —          |
+| Shopping da Ilha     | `201:3447:911:5955:4018:3960:6838:ee12`  | `cb318f02-1020-4f99-857f-d44d001d939b` | —          | —          |
+| Moxuara              | `202:1567:faee:79ef:486:6d44:d391:fb18`  | `e982edf9-edb1-4aa6-8a14-4782465ae5a3` | —          | —          |
+| Montserrat           | `200:abb2:e99:ec3d:eaf8:2d90:7bd9:42cc`  | `186bbdcb-95bc-4290-bf33-1ce89e48ffb4` | —          | —          |
+| Shopping Ananindeua  | `201:ca6e:c33b:3a06:f4dd:d148:5d85:6315` | `7ac0ac44-e631-4b64-ac1d-e9e93fe61e0a` | —          | —          |
 
 #### Holding: SOUZA AGUIAR
 
-| Central                         | IPv6                                     | Gateway ID                             |
-| ------------------------------- | ---------------------------------------- | -------------------------------------- |
-| Souza Aguiar — CO2              | `201:3941:4753:9232:901b:19fa:4978:51aa` | —                                      |
-| Souza Aguiar — Ar Comprimido    | `200:4dbc:14be:a704:6904:81cd:b62a:ab22` | —                                      |
-| Souza Aguiar — Maternidade Nova | `201:ce30:f047:7f02:a27c:cbac:ffb7:2b67` | —                                      |
-| Souza Aguiar — T&D              | `202:1d97:2112:f9b9:cfcb:e237:5dc:a3f7`  | —                                      |
-| Souza Aguiar — Gerador          | `200:dd4c:53b0:28d5:33dc:fbef:2c98:b23`  | `bb8193d9-a132-44b5-8605-e50c0521ceb9` |
+| Central                         | IPv6                                     | Gateway ID                             | Central ID | Frequência |
+| ------------------------------- | ---------------------------------------- | -------------------------------------- | ---------- | ---------- |
+| Souza Aguiar — CO2              | `201:3941:4753:9232:901b:19fa:4978:51aa` | —                                      | —          | —          |
+| Souza Aguiar — Ar Comprimido    | `200:4dbc:14be:a704:6904:81cd:b62a:ab22` | —                                      | —          | —          |
+| Souza Aguiar — Maternidade Nova | `201:ce30:f047:7f02:a27c:cbac:ffb7:2b67` | —                                      | —          | —          |
+| Souza Aguiar — T&D              | `202:1d97:2112:f9b9:cfcb:e237:5dc:a3f7`  | —                                      | —          | —          |
+| Souza Aguiar — Gerador          | `200:dd4c:53b0:28d5:33dc:fbef:2c98:b23`  | `bb8193d9-a132-44b5-8605-e50c0521ceb9` | —          | —          |
 
 #### Holding: SOUL MALLS
 
-| Central           | IPv6                                     | Gateway ID                             |
-| ----------------- | ---------------------------------------- | -------------------------------------- |
-| Praia da Costa L1 | `200:8e12:1a64:71bc:ff06:5c56:9f09:f4aa` | —                                      |
-| Macaé             | `200:bf4f:c3a0:e697:17ff:28a5:38ae:536b` | `571ff592-8983-43b3-b7f2-96ab688d4f1c` |
-| Ilha Plaza AL1    | `200:dc42:651b:5ae5:338d:2b26:670d:34e6` | `81a60176-222c-4bb9-88f5-bc2b47802d82` |
-| Ilha Plaza AL2    | `200:24a5:8297:cce7:59d2:8126:6d67:7e4d` | `53052549-cc8c-4ca2-a597-58e0577548a2` |
-| Ilha Plaza AL3    | `206:c160:eb69:3ddb:42c7:efce:511e:792a` | `91b719b7-f2d2-4d3f-9fb9-ab3d4edbac0d` |
+| Central                   | IPv6                                     | Gateway ID                             | Central ID     | Frequência |
+| ------------------------- | ---------------------------------------- | -------------------------------------- | -------------- | ---------- |
+| Praia da Costa L1         | `200:8e12:1a64:71bc:ff06:5c56:9f09:f4aa` | —                                      | —              | —          |
+| Macaé                     | `200:bf4f:c3a0:e697:17ff:28a5:38ae:536b` | `571ff592-8983-43b3-b7f2-96ab688d4f1c` | —              | —          |
+| Ilha Plaza AL1            | `200:dc42:651b:5ae5:338d:2b26:670d:34e6` | `81a60176-222c-4bb9-88f5-bc2b47802d82` | —              | —          |
+| Ilha Plaza AL2            | `200:24a5:8297:cce7:59d2:8126:6d67:7e4d` | `53052549-cc8c-4ca2-a597-58e0577548a2` | —              | —          |
+| Ilha Plaza AL3            | `206:c160:eb69:3ddb:42c7:efce:511e:792a` | `91b719b7-f2d2-4d3f-9fb9-ab3d4edbac0d` | —              | —          |
+| Campinas Shopping — G1 G2 | `203:5e50:3e69:89bd:5846:e41f:23b8:fd28` | `1b5d79c4-5fc6-46c4-bd05-89e8b1499920` | `16.2.170.222` | `107`      |
 
 #### Holding: SUPERVIA ESTAÇÕES
 
-| Central | IPv6                                    | Gateway ID                             |
-| ------- | --------------------------------------- | -------------------------------------- |
-| Deodoro | `200:1e6a:69a5:73f1:b18a:e6e:aa68:9229` | `adb43bf6-6107-44fa-b786-6e88c150d779` |
+| Central | IPv6                                    | Gateway ID                             | Central ID | Frequência |
+| ------- | --------------------------------------- | -------------------------------------- | ---------- | ---------- |
+| Deodoro | `200:1e6a:69a5:73f1:b18a:e6e:aa68:9229` | `adb43bf6-6107-44fa-b786-6e88c150d779` | —          | —          |
 
 #### Holding: DIMENSION
 
-| Central           | IPv6                                    | Gateway ID |
-| ----------------- | --------------------------------------- | ---------- |
-| Central Dimension | `203:984:24ef:b578:69a6:7136:b9f2:b5c2` | —          |
+| Central           | IPv6                                    | Gateway ID | Central ID | Frequência |
+| ----------------- | --------------------------------------- | ---------- | ---------- | ---------- |
+| Central Dimension | `203:984:24ef:b578:69a6:7136:b9f2:b5c2` | —          | —          | —          |
 
 #### Holding: RAIZ EDUCAÇÃO
 
-| Central               | IPv6                                  | Gateway ID |
-| --------------------- | ------------------------------------- | ---------- |
-| Central Raiz Educação | `201:3bed:541b:8c61:3e69:9:d453:1bef` | —          |
+| Central               | IPv6                                  | Gateway ID | Central ID | Frequência |
+| --------------------- | ------------------------------------- | ---------- | ---------- | ---------- |
+| Central Raiz Educação | `201:3bed:541b:8c61:3e69:9:d453:1bef` | —          | —          | —          |
 
 #### Holding: HCOR
 
-| Central       | IPv6                                    | Gateway ID                             |
-| ------------- | --------------------------------------- | -------------------------------------- |
-| HCor Q521-527 | `200:a420:9834:fc66:dcf9:f46:4a57:9d09` | `e45e0453-9593-4aaa-9347-a1daa9cf27e3` |
+| Central       | IPv6                                    | Gateway ID                             | Central ID | Frequência |
+| ------------- | --------------------------------------- | -------------------------------------- | ---------- | ---------- |
+| HCor Q521-527 | `200:a420:9834:fc66:dcf9:f46:4a57:9d09` | `e45e0453-9593-4aaa-9347-a1daa9cf27e3` | —          | —          |
 
 #### Holding: OBRAMAX
 
-| Central      | IPv6                                     | Gateway ID                             |
-| ------------ | ---------------------------------------- | -------------------------------------- |
-| Praia Grande | `200:a12e:4703:c680:dfb7:936b:88b9:6f4b` | —                                      |
-| Aricanduva   | `200:bc45:34ee:59da:371a:cfe9:98d3:3805` | `1e0c1d77-1d41-4004-8be7-41328e590111` |
-| Guadalupe    | `202:f573:1e70:22f1:1dae:95bd:eeb9:1157` | `96a7ca86-c291-4d77-aa66-4706641eaa5a` |
-| Benfica      | `200:47f1:8bf6:36da:65fa:4124:bcdb:dbb4` | `1248905a-ed03-414d-bde6-c4410604ae8f` |
+| Central      | IPv6                                     | Gateway ID                             | Central ID | Frequência |
+| ------------ | ---------------------------------------- | -------------------------------------- | ---------- | ---------- |
+| Praia Grande | `200:a12e:4703:c680:dfb7:936b:88b9:6f4b` | —                                      | —          | —          |
+| Aricanduva   | `200:bc45:34ee:59da:371a:cfe9:98d3:3805` | `1e0c1d77-1d41-4004-8be7-41328e590111` | —          | —          |
+| Guadalupe    | `202:f573:1e70:22f1:1dae:95bd:eeb9:1157` | `96a7ca86-c291-4d77-aa66-4706641eaa5a` | —          | —          |
+| Benfica      | `200:47f1:8bf6:36da:65fa:4124:bcdb:dbb4` | `1248905a-ed03-414d-bde6-c4410604ae8f` | —          | —          |
 
 **Exemplos de conexão:**
 
@@ -160,6 +161,9 @@ ssh -i id_rsa root@200:24a5:8297:cce7:59d2:8126:6d67:7e4d
 
 # Ilha Plaza AL3 (Soul Malls)
 ssh -i id_rsa root@206:c160:eb69:3ddb:42c7:efce:511e:792a
+
+# Campinas Shopping — G1 G2 (Soul Malls)
+ssh -i id_rsa root@203:5e50:3e69:89bd:5846:e41f:23b8:fd28
 
 # Deodoro (Supervia Estações)
 ssh -i id_rsa root@200:1e6a:69a5:73f1:b18a:e6e:aa68:9229
@@ -912,4 +916,4 @@ reboot
 
 ---
 
-_Última atualização: 2026-06-02_
+_Última atualização: 2026-06-11_
