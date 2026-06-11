@@ -5376,6 +5376,7 @@ function mountChartPanel(hostEl, settings) {
   var panelWrapper = document.createElement('div');
   panelWrapper.className = 'myio-cgp bas-chart-panel';
   panelWrapper.style.background = '#faf8f1';
+  panelWrapper.style.overflow = 'hidden'; // garante clipping quando height:300px no mobile
 
   // Use HeaderPanelComponent for consistent header
   if (MyIOLibrary.HeaderPanelComponent) {
