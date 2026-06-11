@@ -572,14 +572,20 @@ tb-html-widget > div,
 }
 
 /* Charts slot precisa de altura explícita no mobile — Chart.js não renderiza o
-   canvas sem uma altura definida em px (height:auto → body flex:1 → 0px). */
+   canvas sem uma altura definida em px (height:auto → body flex:1 → 0px).
+   Usa min-height (não height) para não bloquear o height:auto do collapse CSS. */
 .bas-w-mobile .bas-charts-slot {
   min-height: 320px !important;
 }
 .bas-w-mobile .bas-charts-slot > * {
   flex: 0 0 auto !important;
-  height: 320px !important;
+  min-height: 320px !important;
   max-height: none !important;
+}
+/* Quando colapsado, zera min-height para o panel encolher ao tamanho do header */
+.bas-w-mobile .bas-charts-slot > *.myio-cgp--collapsed {
+  min-height: 0 !important;
+  height: auto !important;
 }
 
 /* ---- Mobile: root stacks vertically so the SidebarMenu's hamburger top bar
@@ -615,4 +621,37 @@ tb-html-widget > div,
    Class .card-checkbox rendered by renderCardComponentV6 (template-card-v6.js) when enableSelection=true. */
 .card-checkbox {
   display: none !important;
+}
+
+/* ---- BAS: action-selector proporcional ----------------------------------------
+   O container .card-actions foi projetado para 3 botões piano-key (max-height:72%).
+   Com enableActionSelector:true há apenas 1 botão — compactar para evitar que o
+   container grande sobreponha o identifier (.device-title-row z-index:5 < z-index:10).
+   Overrides BAS-específicos em styles.css — não toca template-card-v6.js.
+   ---------------------------------------------------------------------------------*/
+.bas-water-slot .card-actions,
+.bas-ambientes-slot .card-actions,
+.bas-motors-slot .card-actions {
+  max-height: fit-content !important;
+  padding: 3px 2px !important;
+}
+.bas-water-slot .card-action,
+.bas-ambientes-slot .card-action,
+.bas-motors-slot .card-action {
+  width: 22px !important;
+  height: 22px !important;
+  min-height: 22px !important;
+}
+.bas-water-slot .card-action svg,
+.bas-ambientes-slot .card-action svg,
+.bas-motors-slot .card-action svg {
+  width: 13px !important;
+  height: 13px !important;
+}
+/* Empurra o title-row para depois da coluna do botão — identifier fica visível */
+.bas-water-slot .device-title-row,
+.bas-ambientes-slot .device-title-row,
+.bas-motors-slot .device-title-row {
+  left: 40px !important;
+  max-width: calc(100% - 48px) !important;
 }
