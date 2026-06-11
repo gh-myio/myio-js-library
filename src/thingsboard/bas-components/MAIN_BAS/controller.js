@@ -5397,18 +5397,22 @@ function mountChartPanel(hostEl, settings) {
       },
     });
     var chartHeaderEl = headerComponent.getElement();
+    // cursor:pointer explícito: iOS Safari não dispara click em divs sem isso
+    chartHeaderEl.style.cursor = 'pointer';
     panelWrapper.appendChild(chartHeaderEl);
 
-    // Accordion: clicar no header "Consumo" recolhe (só quando .myio-cgp--collapsible
-    // está ativo = mobile). Usa inline style (não CSS) para display/height — evita
-    // batalha de especificidade contra prefixo .widget-type-... do ThingsBoard.
-    chartHeaderEl.addEventListener('click', function (e) {
+    // Accordion collapse — listener no panelWrapper (não no chartHeaderEl) para
+    // garantir que o iOS propague o click corretamente a partir do elemento raiz.
+    panelWrapper.addEventListener('click', function (e) {
       if (!panelWrapper.classList.contains('myio-cgp--collapsible')) return;
-      if (e.target.closest && e.target.closest('button, a, input, select, svg, [role="button"], [class*="-tab"]')) return;
+      // Só ativa se o click foi DENTRO do header (não nos tabs ou no chartCard)
+      if (!chartHeaderEl.contains(e.target)) return;
+      // Ignora clicks em botões interativos (filtro, maximizar)
+      if (e.target.closest && e.target.closest('button, a, input, select, [role="button"]')) return;
       var isCollapsed = panelWrapper.classList.toggle('myio-cgp--collapsed');
       chartCard.style.display = isCollapsed ? 'none' : '';
       tabsWrapper.style.display = isCollapsed ? 'none' : '';
-      panelWrapper.style.height = isCollapsed ? 'auto' : '300px';
+      panelWrapper.style.height = isCollapsed ? 'auto' : '500px';
     });
   }
   _chartPanelWrapper = panelWrapper;
