@@ -5935,7 +5935,7 @@ function setupResponsiveWidthClasses(root) {
       _chartPanelWrapper.classList.toggle('myio-cgp--collapsible', isMobile);
       if (isMobile) {
         // Altura fixa: resolve fullHeight:true do chart widget sem container definido
-        _chartPanelWrapper.style.height = '300px';
+        _chartPanelWrapper.style.height = '500px';
       } else {
         _chartPanelWrapper.classList.remove('myio-cgp--collapsed');
         _chartPanelWrapper.style.height = '';

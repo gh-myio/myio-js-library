@@ -571,16 +571,46 @@ tb-html-widget > div,
   max-height: none !important;
 }
 
-/* Charts slot no mobile: sem min-height no slot/panel — ambos encolhem livremente
-   quando colapsado (o bas-chart-card vira display:none e não contribui com altura).
-   O min-height fica apenas no bas-chart-card para garantir espaço ao Chart.js. */
+/* Charts slot no mobile: altura fixa testada em DevTools */
 .bas-w-mobile .bas-charts-slot > * {
   flex: 0 0 auto !important;
-  height: auto !important;      /* cancela .bas-chart-panel{height:100%} — sem isso o panel não encolhe */
+  height: 500px !important;
   max-height: none !important;
 }
-/* min-height removido — JS seta panelWrapper.style.height='300px' no mobile,
-   chartCard (flex:1) ocupa o espaço restante sem precisar de min-height. */
+
+/* ---- CONSUMO mobile: altura fixa + colapso — seletores de alta especificidade ----
+   Após prefixo TB (.widget-type-...) os seletores abaixo ficam com 4-6 classes,
+   superando qualquer regra concorrente sem depender de controller.js.
+
+   Problema 1 — gráfico gigante:
+     createConsumptionChartWidget(fullHeight:true) não tem container com altura fixa
+     → Chart.js renderiza na altura intrínseca (400-500px ou mais).
+     Fix: height:300px + overflow:hidden no panelWrapper (.bas-chart-panel).
+
+   Problema 2 — colapso:
+     TB prefixa styles.css → .bas-chart-card{display:flex} vira 0,2,0 e empata com
+     o CardGridPanel collapse (0,2,0 sem prefixo). Usando 4+ classes ganhamos sempre.
+   ---------------------------------------------------------------------------------*/
+
+/* Altura fixa no mobile — overrides .bas-chart-panel{height:100%} e height:auto do > * */
+.bas-w-mobile .bas-charts-slot .bas-chart-panel {
+  height: 500px !important;
+  max-height: 500px !important;
+  overflow: hidden !important;
+}
+
+/* Colapsado: shrink ao header (especif. 0,5,0 após prefixo → bate os 0,4,0 acima) */
+.bas-w-mobile .bas-charts-slot .bas-chart-panel.myio-cgp--collapsed {
+  height: auto !important;
+  max-height: none !important;
+}
+
+/* display:none no conteúdo quando colapsado — especif. 0,6,0 após prefixo,
+   bate qualquer display:flex/block em regras menos específicas */
+.bas-w-mobile .bas-charts-slot .bas-chart-panel.myio-cgp--collapsed .bas-chart-card,
+.bas-w-mobile .bas-charts-slot .bas-chart-panel.myio-cgp--collapsed .myio-cgp__tabs-wrapper {
+  display: none !important;
+}
 
 /* ---- Mobile: root stacks vertically so the SidebarMenu's hamburger top bar
         (rendered by the strong component in its host, the first child) sits on
