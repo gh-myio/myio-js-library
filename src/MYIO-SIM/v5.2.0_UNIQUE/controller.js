@@ -3640,10 +3640,11 @@ body.filter-modal-open { overflow: hidden !important; }
     LogHelper.log('[MAIN_UNIQUE] RFC-0175: Alarms & Notifications Panel rendered');
   }
 
-  // Build a Map<gcdrDeviceId, deviceLabel> from the orchestrator device items
-  // (energy/water/temperature). Used to resolve the friendly device label for
-  // alarms whose backend deviceName is empty (AlarmService falls back to the
-  // raw GCDR deviceId, e.g. "ff00047e-..."). Each device carries gcdrDeviceId.
+  // Build a Map<gcdrDeviceId, {label, customerName}> from the orchestrator device
+  // items (energy/water/temperature). Used to resolve the friendly device label
+  // and shopping name for alarms (AlarmService falls back to the raw GCDR
+  // deviceId, e.g. "ff00047e-...", and the alarms API does not return
+  // customerName). Each device carries gcdrDeviceId.
   function buildGcdrDeviceLabelMap() {
     const map = new Map();
     const orch = window.MyIOOrchestratorData || {};
@@ -3654,31 +3655,52 @@ body.filter-modal-open { overflow: hidden !important; }
         const gid = d.gcdrDeviceId;
         if (!gid) continue;
         const label = d.labelOrName || d.label || d.name || '';
-        if (label) map.set(String(gid), label);
+        const customerName = d.customerName || d.ownerName || '';
+        if (label || customerName) map.set(String(gid), { label, customerName });
       }
     }
     return map;
   }
 
   // Replace each alarm's `source` with the friendly device label when `source`
-  // is actually a GCDR deviceId (match by gcdrDeviceId). Alarms whose source is
-  // already a real device name (not a known gcdrDeviceId) are left untouched.
-  function enrichAlarmsWithDeviceLabels(alarms) {
+  // is actually a GCDR deviceId (match by gcdrDeviceId), and fill in
+  // `customerName` (shopping chip in the alarm card) from the orchestrated
+  // device. Alarms whose source is already a real device name are left untouched.
+  function enrichAlarmsWithDeviceLabels(alarms, deviceByGcdrId) {
     if (!Array.isArray(alarms) || alarms.length === 0) return alarms;
-    const labelByGcdrId = buildGcdrDeviceLabelMap();
-    if (labelByGcdrId.size === 0) return alarms;
+    const map = deviceByGcdrId || buildGcdrDeviceLabelMap();
+    if (map.size === 0) return alarms;
     let resolved = 0;
     const out = alarms.map((a) => {
       const key = String(a.deviceId ?? a.source ?? '');
-      const label = labelByGcdrId.get(key);
-      if (label && label !== a.source) {
+      const dev = map.get(key);
+      if (!dev) return a;
+      const next = { ...a };
+      if (dev.label && dev.label !== a.source) {
+        next.source = dev.label;
         resolved++;
-        return { ...a, source: label };
       }
-      return a;
+      if (!next.customerName && dev.customerName) next.customerName = dev.customerName;
+      return next;
     });
     LogHelper.log(`[MAIN_UNIQUE] RFC-0175: device labels resolved by gcdrDeviceId: ${resolved}/${alarms.length}`);
     return out;
+  }
+
+  // Recompute the panel summary from a filtered alarm list. The API summary
+  // reflects the UNFILTERED dataset (master API key returns every customer),
+  // so after discarding non-orchestrated alarms the counts must be rebuilt.
+  function buildAlarmSummaryFromList(alarms) {
+    const byState = {};
+    const bySeverity = {};
+    const byAlarmType = {};
+    for (const a of alarms) {
+      if (a.state) byState[a.state] = (byState[a.state] || 0) + 1;
+      if (a.severity) bySeverity[a.severity] = (bySeverity[a.severity] || 0) + 1;
+      const t = a.tags?.alarmType || a.alarmType;
+      if (t) byAlarmType[t] = (byAlarmType[t] || 0) + 1;
+    }
+    return { total: alarms.length, byState, bySeverity, byAlarmType };
   }
 
   // RFC-0175: Fetch real alarm data and update the panel
@@ -3704,10 +3726,32 @@ body.filter-modal-open { overflow: hidden !important; }
         tenantId ? alarmService.getAlarmTrend(tenantId, 'week', 'day') : Promise.resolve([]),
       ]);
 
-      const summary = response.summary;
+      const deviceByGcdrId = buildGcdrDeviceLabelMap();
 
-      // Resolve friendly device labels by matching alarm device → gcdrDeviceId
-      const alarms = enrichAlarmsWithDeviceLabels(response.data);
+      // The head office uses a master API key, so the backend returns alarms
+      // from EVERY customer. Keep only alarms whose device is orchestrated in
+      // this dashboard (matched by gcdrDeviceId). Skip the filter while the
+      // orchestrator hasn't produced items yet (empty map) — otherwise a data
+      // race would discard everything.
+      let data = response.data;
+      let summary = response.summary;
+      if (deviceByGcdrId.size > 0) {
+        const before = data.length;
+        data = data.filter((a) => deviceByGcdrId.has(String(a.deviceId ?? a.source ?? '')));
+        if (data.length !== before) {
+          LogHelper.log(
+            `[MAIN_UNIQUE] RFC-0175: alarms filtered to orchestrated devices: ${data.length}/${before}`
+          );
+          summary = buildAlarmSummaryFromList(data);
+        }
+      } else {
+        LogHelper.warn(
+          '[MAIN_UNIQUE] RFC-0175: orchestrator device map empty — alarm list NOT filtered to orchestrated devices'
+        );
+      }
+
+      // Resolve friendly device labels + customerName by matching alarm device → gcdrDeviceId
+      const alarms = enrichAlarmsWithDeviceLabels(data, deviceByGcdrId);
 
       alarmsNotificationsPanelInstance?.updateAlarms?.(alarms);
       if (summary) alarmsNotificationsPanelInstance?.updateStats?.(summary);
