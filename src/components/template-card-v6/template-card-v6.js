@@ -718,6 +718,10 @@ function openCardActionSelector({ title, options }) {
  *   3 piano-key buttons with a single button that opens a selection modal
  *   (Gráfico / Configurações / Relatório). Options shown depend on which
  *   handleAction* handlers are provided.
+ * @param {boolean} [options.actionSelectorOnCardClick] - Requires
+ *   enableActionSelector. When true, the ⋮ button is not rendered and the
+ *   selection modal opens on the card body click instead (handleClickCard is
+ *   then ignored — the modal is the single entry point for actions).
  * @returns {Object} jQuery-like object
  */
 export function renderCardComponentV6({
@@ -737,6 +741,7 @@ export function renderCardComponentV6({
   showTempRangeTooltip = false,
   customStyle, // V6: Per-card style overrides
   enableActionSelector = false, // V6: "step" — single button opens action selection modal
+  actionSelectorOnCardClick = false, // V6: card click opens the selector (suppresses the ⋮ button)
 }) {
   const {
     entityId,
@@ -1705,9 +1710,12 @@ export function renderCardComponentV6({
     },
   });
 
+  // Built in "step" mode; also consumed by the card click handler when
+  // actionSelectorOnCardClick is enabled.
+  const selectorOptions = [];
+
   if (enableActionSelector) {
     // ---- "Step" mode: one button opens a selection modal ----
-    const selectorOptions = [];
     if (typeof handleActionDashboard === 'function') {
       selectorOptions.push({
         id: 'dashboard',
@@ -1736,7 +1744,7 @@ export function renderCardComponentV6({
       });
     }
 
-    if (selectorOptions.length > 0) {
+    if (selectorOptions.length > 0 && !actionSelectorOnCardClick) {
       const selectorBtn = document.createElement('button');
       selectorBtn.className = 'card-action action-selector';
       selectorBtn.title = 'Ações';
@@ -1947,8 +1955,15 @@ export function renderCardComponentV6({
     });
   }
 
-  // Handle card clicks
-  if (typeof handleClickCard === 'function') {
+  // Handle card clicks. With actionSelectorOnCardClick the selection modal is
+  // the single entry point for actions — it takes precedence over handleClickCard.
+  if (enableActionSelector && actionSelectorOnCardClick && selectorOptions.length > 0) {
+    enhancedCardElement.addEventListener('click', (e) => {
+      if (!e.target.closest('.card-action') && !e.target.closest('.card-checkbox')) {
+        openCardActionSelector({ title: cardEntity.name, options: selectorOptions });
+      }
+    });
+  } else if (typeof handleClickCard === 'function') {
     enhancedCardElement.addEventListener('click', (e) => {
       if (!e.target.closest('.card-action') && !e.target.closest('.card-checkbox')) {
         handleClickCard(entityObject);

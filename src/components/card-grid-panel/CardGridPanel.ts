@@ -129,6 +129,12 @@ export interface CardGridPanelOptions {
    * are shown. Applies to cardType='device' only. Default: false.
    */
   enableActionSelector?: boolean;
+  /**
+   * Requires enableActionSelector. When true, device cards render no action
+   * button at all — the selection modal opens on the card body click instead
+   * (handleClickCard is then ignored). Default: false.
+   */
+  actionSelectorOnCardClick?: boolean;
   /** Callback for ambiente card remote toggle (only for cardType='ambiente') */
   handleToggleRemote?: (isOn: boolean, item: CardGridItem) => void;
   /** Empty state message */
@@ -752,6 +758,7 @@ export class CardGridPanel {
       emptyMessage,
       showTempRangeTooltip,
       enableActionSelector,
+      actionSelectorOnCardClick,
       enableSelection,
       enableDragDrop,
       handleSelect,
@@ -843,6 +850,7 @@ export class CardGridPanel {
           showTempRangeTooltip: showTempRangeTooltip || false,
           customStyle: cardCustomStyle || undefined,
           enableActionSelector: enableActionSelector || false,
+          actionSelectorOnCardClick: actionSelectorOnCardClick || false,
         });
       }
 

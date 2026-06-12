@@ -642,43 +642,15 @@ tb-html-widget > div,
 
 /* TODO(RFC-0115): Selection checkbox — hidden until comparison/selection flow is ready.
    Same feature as .bas-footer-slot above. Remove when implemented.
-   Class .card-checkbox rendered by renderCardComponentV6 (template-card-v6.js) when enableSelection=true. */
-.card-checkbox {
+   Class .card-checkbox rendered by renderCardComponentV6 (template-card-v6.js) when enableSelection=true.
+   Scoped to the BAS root: TB injects widget CSS page-wide and .card-checkbox is
+   used by other library components (review PR #86 — global-leak fix). */
+#bas-dashboard-root .card-checkbox {
   display: none !important;
 }
 
-/* ---- BAS: action-selector proporcional ----------------------------------------
-   O container .card-actions foi projetado para 3 botões piano-key (max-height:72%).
-   Com enableActionSelector:true há apenas 1 botão — compactar para evitar que o
-   container grande sobreponha o identifier (.device-title-row z-index:5 < z-index:10).
-   Overrides BAS-específicos em styles.css — não toca template-card-v6.js.
-   ---------------------------------------------------------------------------------*/
-.bas-water-slot .card-actions,
-.bas-ambientes-slot .card-actions,
-.bas-motors-slot .card-actions {
-  max-height: fit-content !important;
-  padding: 3px 2px !important;
-}
-.bas-water-slot .card-action,
-.bas-ambientes-slot .card-action,
-.bas-motors-slot .card-action {
-  width: 22px !important;
-  height: 22px !important;
-  min-height: 22px !important;
-}
-.bas-water-slot .card-action svg,
-.bas-ambientes-slot .card-action svg,
-.bas-motors-slot .card-action svg {
-  width: 13px !important;
-  height: 13px !important;
-}
-/* Empurra o title-row para depois da coluna do botão — identifier fica visível */
-.bas-water-slot .device-title-row,
-.bas-ambientes-slot .device-title-row,
-.bas-motors-slot .device-title-row {
-  left: 40px !important;
-  max-width: calc(100% - 48px) !important;
-}
+/* (Removido) Overrides do botão único ⋮ — com actionSelectorOnCardClick a modal
+   de ações abre no clique do card e nenhum botão de action é renderizado. */
 
 /* ---- CONSUMO: colapso explícito (especificidade alta) ----------------------------
    O ThingsBoard prefixa styles.css com .widget-type-..., elevando para 0,2,0 qualquer

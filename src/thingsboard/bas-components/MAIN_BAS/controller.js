@@ -2751,9 +2751,10 @@ function mountWaterPanel(waterHost, settings, classified) {
         closeMaximizedPanel();
       }
     },
-    // RFC-0158: Action selector "step" — card shows a single ⋮ button that
-    // opens a modal to pick Gráfico / Relatório / Configurações.
+    // RFC-0158: Action selector "step" — the selection modal (Gráfico /
+    // Relatório / Configurações) opens on the card body click; no ⋮ button.
     enableActionSelector: true,
+    actionSelectorOnCardClick: true,
     handleActionDashboard: function (item) {
       basRouteWaterClick(item, settings);
     },
@@ -4029,9 +4030,10 @@ function mountEnergyPanel(host, settings, classified) {
         closeMaximizedPanel();
       }
     },
-    // RFC-0158: Action selector "step" — card shows a single ⋮ button that
-    // opens a modal to pick Gráfico / Relatório / Configurações.
+    // RFC-0158: Action selector "step" — the selection modal (Gráfico /
+    // Relatório / Configurações) opens on the card body click; no ⋮ button.
     enableActionSelector: true,
+    actionSelectorOnCardClick: true,
     handleActionDashboard: function (item) {
       basRouteEnergyClick(item, settings);
     },
