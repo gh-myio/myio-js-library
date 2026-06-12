@@ -2378,7 +2378,7 @@ function switchChartDomainInContainer(domain, container) {
         theme: (_settings && _settings.defaultThemeMode) || 'light',
         showSettingsButton: false,
         showMaximizeButton: false,
-        showVizModeTabs: false, // BAS dashboard is not a shopping mall — "Por Shopping" mode not applicable
+        showVizModeTabs: true, // BAS dashboard is not a shopping mall — "Por Shopping" mode not applicable
         showChartTypeTabs: true,
 
         // Compact header styles for maximized view
@@ -5101,7 +5101,7 @@ function switchChartDomain(domain, chartContainer) {
       theme: (_settings && _settings.defaultThemeMode) || 'light',
       showSettingsButton: false,
       showMaximizeButton: false,
-      showVizModeTabs: false, // BAS dashboard is not a shopping mall — "Por Shopping" mode not applicable
+      showVizModeTabs: true, // BAS dashboard is not a shopping mall — "Por Shopping" mode not applicable
       showChartTypeTabs: true,
 
       // Compact header styles for BAS panel
