@@ -51,6 +51,16 @@ export interface ConsumptionWidgetConfig extends Omit<Consumption7DaysConfig, 'c
   showMaximizeButton?: boolean;
   /** Show viz mode tabs (default: true) */
   showVizModeTabs?: boolean;
+  /**
+   * Display labels for the viz mode tabs. The "separate" mode splits series by
+   * whatever key fetchData puts in shoppingData — shoppings in the mall
+   * dashboards, devices in BAS — so the label must match the caller's domain.
+   * @default { total: 'Consolidado', separate: 'Por Shopping' }
+   */
+  vizModeLabels?: {
+    total?: string;
+    separate?: string;
+  };
   /** Show chart type tabs (default: true) */
   showChartTypeTabs?: boolean;
   /** Chart height in pixels or CSS value (default: 300) */
@@ -763,6 +773,8 @@ export function createConsumptionChartWidget(config: ConsumptionWidgetConfig): C
   const showSettingsButton = config.showSettingsButton ?? true;
   const showMaximizeButton = config.showMaximizeButton ?? true;
   const showVizModeTabs = config.showVizModeTabs ?? true;
+  const vizModeLabelTotal = config.vizModeLabels?.total ?? 'Consolidado';
+  const vizModeLabelSeparate = config.vizModeLabels?.separate ?? 'Por Shopping';
   const showChartTypeTabs = config.showChartTypeTabs ?? true;
   const chartHeight =
     typeof config.chartHeight === 'number' ? `${config.chartHeight}px` : config.chartHeight ?? '300px';
@@ -810,10 +822,10 @@ export function createConsumptionChartWidget(config: ConsumptionWidgetConfig): C
               <div class="myio-chart-widget-tabs" id="${widgetId}-viz-tabs">
                 <button class="myio-chart-widget-tab icon-only ${
                   currentVizMode === 'total' ? 'active' : ''
-                }" data-viz="total" title="Consolidado">${consolidadoIcon}</button>
+                }" data-viz="total" title="${vizModeLabelTotal}">${consolidadoIcon}</button>
                 <button class="myio-chart-widget-tab icon-only ${
                   currentVizMode === 'separate' ? 'active' : ''
-                }" data-viz="separate" title="Por Shopping">${porShoppingIcon}</button>
+                }" data-viz="separate" title="${vizModeLabelSeparate}">${porShoppingIcon}</button>
               </div>
             `
                 : ''
@@ -1052,10 +1064,10 @@ export function createConsumptionChartWidget(config: ConsumptionWidgetConfig): C
                     <div class="myio-settings-tabs" id="${widgetId}-settings-viz-mode">
                       <button class="myio-settings-tab ${
                         tempVizMode === 'total' ? 'active' : ''
-                      }" data-viz="total">${consolidadoIcon} Consolidado</button>
+                      }" data-viz="total">${consolidadoIcon} ${vizModeLabelTotal}</button>
                       <button class="myio-settings-tab ${
                         tempVizMode === 'separate' ? 'active' : ''
-                      }" data-viz="separate">${porShoppingIcon} Por Shopping</button>
+                      }" data-viz="separate">${porShoppingIcon} ${vizModeLabelSeparate}</button>
                     </div>
                   </div>
                   ` : ''}
@@ -1853,7 +1865,7 @@ export function createConsumptionChartWidget(config: ConsumptionWidgetConfig): C
         defaultChartType: currentChartType,
         defaultVizMode: currentVizMode,
         defaultPeriod: currentPeriod,
-        idealRange: currentIdealRange,
+        idealRange: currentIdealRange ?? undefined,
         colors: {
           primary: primaryColor,
           background: `${primaryColor}20`,
