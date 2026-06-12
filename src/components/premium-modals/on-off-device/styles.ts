@@ -721,6 +721,17 @@ export function injectOnOffDeviceModalStyles(): void {
       color: var(--onoff-text-color, #f3f4f6);
     }
 
+    /* ===== Mobile: ocultar solenoide e toolbar no modo agendamento ===== */
+    @media (max-width: 768px) {
+      .${ON_OFF_MODAL_CSS_PREFIX}[data-view="schedule"] .${ON_OFF_MODAL_CSS_PREFIX}__control-container {
+        display: none;
+      }
+
+      .${ON_OFF_MODAL_CSS_PREFIX}[data-view="schedule"] .${ON_OFF_MODAL_CSS_PREFIX}__toolbar {
+        display: none;
+      }
+    }
+
     /* ===== Responsive: tablet / mobile ≤768px ===== */
     @media (max-width: 768px) {
       /* Root: layout em coluna, sem overflow */
