@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Premium Dialog (RFC-0205) - MYIO JS Library Showcase</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 40px 20px;
+      color: #1f2937;
+    }
+    .page {
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+    .hero {
+      text-align: center;
+      color: #fff;
+      margin-bottom: 32px;
+    }
+    .hero h1 { font-size: 2rem; margin-bottom: 8px; text-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+    .hero p { opacity: 0.9; }
+    .hero a { color: #fff; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    }
+    .card h3 { font-size: 15px; margin-bottom: 6px; }
+    .card p { font-size: 13px; color: #4b5563; margin-bottom: 14px; line-height: 1.5; }
+    .card button {
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      background: #7C3AED;
+      color: #fff;
+      margin-right: 6px;
+      margin-bottom: 6px;
+    }
+    .card button:hover { filter: brightness(0.92); }
+    .card button.secondary { background: #fff; color: #374151; border: 1px solid #d1d5db; }
+    .card button.danger { background: #dc2626; }
+    .card button.success { background: #16a34a; }
+    .card button.warning { background: #d97706; }
+    .log {
+      background: #111827;
+      color: #a7f3d0;
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-top: 24px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12.5px;
+      line-height: 1.7;
+      min-height: 120px;
+      max-height: 260px;
+      overflow-y: auto;
+    }
+    .log .title { color: #9ca3af; font-weight: 700; margin-bottom: 6px; }
+    .log .null { color: #fca5a5; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="hero">
+      <h1>🪟 Premium Dialog</h1>
+      <p>
+        RFC-0205 — <code>openConfirmDialog</code> / <code>openMessageDialog</code> ·
+        promise-based, botões parametrizáveis, Nunito, light/dark ·
+        <a href="../src/docs/rfcs/RFC-0205-PremiumDialog-ExportedConfirmMessageModal.md">spec</a>
+      </p>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h3>Confirmação destrutiva</h3>
+        <p><code>buttons: [secondary, danger]</code> — resolve com o <code>value</code> do botão ou <code>null</code> no dismissal (Esc / backdrop / ×).</p>
+        <button class="danger" id="demo-danger">Excluir anotação…</button>
+      </div>
+
+      <div class="card">
+        <h3>Três opções</h3>
+        <p>Qualquer quantidade de botões, em ordem; <code>autoFocus</code> marca o botão que recebe foco e responde Enter.</p>
+        <button id="demo-three">Aplicar setpoint…</button>
+      </div>
+
+      <div class="card">
+        <h3>Não-dismissível</h3>
+        <p><code>dismissible: false</code> — sem ×, Esc e backdrop ignorados. O usuário precisa escolher.</p>
+        <button class="warning" id="demo-blocking">Decisão obrigatória…</button>
+      </div>
+
+      <div class="card">
+        <h3>Tema dark</h3>
+        <p><code>theme: 'dark'</code> — mesma API, paleta escura.</p>
+        <button class="secondary" id="demo-dark">Abrir em dark…</button>
+      </div>
+
+      <div class="card">
+        <h3>Mensagens por severidade</h3>
+        <p><code>openMessageDialog</code> — título e ícone derivados do <code>severity</code>; botão único de OK.</p>
+        <button id="demo-info">info</button>
+        <button class="success" id="demo-success">success</button>
+        <button class="warning" id="demo-warning">warning</button>
+        <button class="danger" id="demo-error">error</button>
+      </div>
+
+      <div class="card">
+        <h3>Auto-close</h3>
+        <p><code>autoCloseMs: 3000</code> — fecha sozinho; a promise resolve do mesmo jeito.</p>
+        <button class="success" id="demo-autoclose">Salvar (toastão 3s)…</button>
+      </div>
+
+      <div class="card">
+        <h3>Conteúdo escapado</h3>
+        <p>Título/mensagem/labels são sempre HTML-escapados; <code>\n</code> vira quebra de linha.</p>
+        <button class="secondary" id="demo-escape">Tentar injetar HTML…</button>
+      </div>
+
+      <div class="card">
+        <h3>Largura custom + stacking</h3>
+        <p><code>width: 560</code>; abrir um diálogo a partir de outro empilha por z-index.</p>
+        <button id="demo-stacked">Abrir empilhados…</button>
+      </div>
+    </div>
+
+    <div class="log" id="log">
+      <div class="title">// resultado das promises</div>
+    </div>
+  </div>
+
+  <!-- Build da lib primeiro: npm run build (gera dist/myio-js-library.umd.js) -->
+  <script src="../dist/myio-js-library.umd.js"></script>
+  <script>
+    const { openConfirmDialog, openMessageDialog } = window.MyIOLibrary;
+    const logEl = document.getElementById('log');
+
+    function log(label, value) {
+      const line = document.createElement('div');
+      const shown = value === null ? '<span class="null">null (dismissal)</span>'
+        : value === undefined ? '<span>void</span>'
+        : `'${value}'`;
+      line.innerHTML = `${label} &rarr; ${shown}`;
+      logEl.appendChild(line);
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    document.getElementById('demo-danger').onclick = async () => {
+      const r = await openConfirmDialog({
+        title: 'Excluir anotação',
+        message: 'Esta ação não pode ser desfeita. Deseja continuar?',
+        buttons: [
+          { label: 'Cancelar', variant: 'secondary', value: 'cancel' },
+          { label: 'Excluir', variant: 'danger', value: 'confirm', autoFocus: true },
+        ],
+      });
+      log('confirm destrutivo', r);
+    };
+
+    document.getElementById('demo-three').onclick = async () => {
+      const r = await openConfirmDialog({
+        title: 'Aplicar para todos?',
+        message: 'O setpoint de 23°C será enviado para os 12 fancoils do andar.',
+        buttons: [
+          { label: 'Cancelar', variant: 'secondary', value: 'cancel' },
+          { label: 'Somente este', variant: 'secondary', value: 'one' },
+          { label: 'Aplicar a todos', variant: 'primary', value: 'all', autoFocus: true },
+        ],
+      });
+      log('três opções', r);
+    };
+
+    document.getElementById('demo-blocking').onclick = async () => {
+      const r = await openConfirmDialog({
+        title: 'Conflito de agendamento',
+        message: 'Já existe um agendamento para este horário.\nO que deseja fazer?',
+        dismissible: false,
+        buttons: [
+          { label: 'Manter existente', variant: 'secondary', value: 'keep' },
+          { label: 'Substituir', variant: 'primary', value: 'replace', autoFocus: true },
+        ],
+      });
+      log('não-dismissível', r);
+    };
+
+    document.getElementById('demo-dark').onclick = async () => {
+      const r = await openConfirmDialog({
+        title: 'Tema escuro',
+        message: 'Mesma API, paleta dark — consistente com os widgets em dark mode.',
+        theme: 'dark',
+        buttons: [
+          { label: 'Fechar', variant: 'secondary', value: 'close' },
+          { label: 'Legal!', variant: 'primary', value: 'nice', autoFocus: true },
+        ],
+      });
+      log('dark', r);
+    };
+
+    const sev = (severity, message) => async () => {
+      await openMessageDialog({ message, severity });
+      log(`message ${severity}`, undefined);
+    };
+    document.getElementById('demo-info').onclick = sev('info', 'A sincronização roda a cada 15 minutos.');
+    document.getElementById('demo-success').onclick = sev('success', 'Configurações salvas com sucesso.');
+    document.getElementById('demo-warning').onclick = sev('warning', '3 dispositivos estão sem telemetria há mais de 24h.');
+    document.getElementById('demo-error').onclick = sev('error', 'Falha ao salvar: a API retornou HTTP 500.');
+
+    document.getElementById('demo-autoclose').onclick = async () => {
+      await openMessageDialog({
+        message: 'Relatório gerado. Este aviso fecha sozinho em 3 segundos.',
+        severity: 'success',
+        autoCloseMs: 3000,
+      });
+      log('auto-close', undefined);
+    };
+
+    document.getElementById('demo-escape').onclick = async () => {
+      const r = await openConfirmDialog({
+        title: '<b>Título com HTML</b>',
+        message: 'Primeira linha\nSegunda linha com <script>alert(1)</' + 'script> escapado.',
+        buttons: [{ label: '<i>label com tag</i>', variant: 'primary', value: 'ok', autoFocus: true }],
+      });
+      log('escapado', r);
+    };
+
+    document.getElementById('demo-stacked').onclick = () => {
+      openConfirmDialog({
+        title: 'Primeiro diálogo (width: 560)',
+        message: 'Um segundo diálogo abre por cima deste em instantes — feche os dois em qualquer ordem.',
+        width: 560,
+        buttons: [{ label: 'Fechar o primeiro', variant: 'secondary', value: 'close-1' }],
+      }).then((r) => log('empilhado #1', r));
+
+      setTimeout(() => {
+        openConfirmDialog({
+          title: 'Segundo diálogo',
+          message: 'Este está acima do primeiro (z-index incremental).',
+          buttons: [{ label: 'Fechar o segundo', variant: 'primary', value: 'close-2', autoFocus: true }],
+        }).then((r) => log('empilhado #2', r));
+      }, 500);
+    };
+  </script>
+</body>
+</html>
