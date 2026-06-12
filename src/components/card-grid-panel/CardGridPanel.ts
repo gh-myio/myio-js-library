@@ -103,12 +103,32 @@ export interface CardGridPanelOptions {
   titleStyle?: CardGridTitleStyle;
   /** Callback when a card is clicked */
   handleClickCard?: (item: CardGridItem) => void;
+  /**
+   * Enable the per-card selection checkbox. Cards register to MyIOSelectionStore
+   * so the comparison footer (createFooterComponent) picks them up. Default: false.
+   * Applies to cardType='device' only.
+   */
+  enableSelection?: boolean;
+  /**
+   * Enable drag-and-drop of cards (e.g. drop onto the comparison footer dock).
+   * Default: false. Applies to cardType='device' only.
+   */
+  enableDragDrop?: boolean;
+  /** Optional callback fired when a card's selection checkbox toggles. */
+  handleSelect?: (item: CardGridItem) => void;
   /** Callback for card's dashboard action button (lateral piano-key) */
   handleActionDashboard?: (item: CardGridItem) => void;
   /** Callback for card's report action button (lateral piano-key) */
   handleActionReport?: (item: CardGridItem) => void;
   /** Callback for card's settings action button (lateral piano-key) */
   handleActionSettings?: (item: CardGridItem) => void;
+  /**
+   * When true, device cards render a single "step" button that opens a
+   * selection modal (Gráfico / Relatório / Configurações) instead of the 3
+   * separate piano-key buttons. Only options whose handleAction* is provided
+   * are shown. Applies to cardType='device' only. Default: false.
+   */
+  enableActionSelector?: boolean;
   /** Callback for ambiente card remote toggle (only for cardType='ambiente') */
   handleToggleRemote?: (isOn: boolean, item: CardGridItem) => void;
   /** Empty state message */
@@ -731,6 +751,10 @@ export class CardGridPanel {
       handleToggleRemote,
       emptyMessage,
       showTempRangeTooltip,
+      enableActionSelector,
+      enableSelection,
+      enableDragDrop,
+      handleSelect,
     } = this.options;
 
     if (!items || items.length === 0) {
@@ -802,16 +826,23 @@ export class CardGridPanel {
           handleActionSettings: handleActionSettings
             ? () => handleActionSettings(item)
             : undefined,
-          handleSelect: undefined,
+          // Render the checkbox when selection is enabled. The card gates the
+          // checkbox on `handleSelect` being a function, so pass a no-op when
+          // the consumer doesn't provide one (the actual add/remove is handled
+          // by the card directly against MyIOSelectionStore).
+          handleSelect: enableSelection
+            ? (handleSelect ? () => handleSelect(item) : () => {})
+            : undefined,
           handInfo: undefined,
           handleClickCard: () => {
             handleClickCard?.(item);
           },
-          enableSelection: false,
-          enableDragDrop: false,
+          enableSelection: enableSelection || false,
+          enableDragDrop: enableDragDrop || false,
           useNewComponents: true,
           showTempRangeTooltip: showTempRangeTooltip || false,
           customStyle: cardCustomStyle || undefined,
+          enableActionSelector: enableActionSelector || false,
         });
       }
 

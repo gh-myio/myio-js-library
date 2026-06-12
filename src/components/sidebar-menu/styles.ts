@@ -211,6 +211,21 @@ export function injectSidebarMenuStyles(): void {
       display: none;
     }
 
+    /* ===== Header slot (host extension below user-info, e.g. date picker) ===== */
+    .${SIDEBAR_MENU_CSS_PREFIX}__header-slot {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255, 255, 255, 0.15);
+    }
+    /* Hidden when the host hasn't mounted anything into it */
+    .${SIDEBAR_MENU_CSS_PREFIX}__header-slot:empty {
+      display: none;
+    }
+    /* Hidden while collapsed (icon-only) and in the off-canvas-closed state is fine */
+    .${SIDEBAR_MENU_CSS_PREFIX}.collapsed .${SIDEBAR_MENU_CSS_PREFIX}__header-slot {
+      display: none;
+    }
+
     /* ===== Search ===== */
     .${SIDEBAR_MENU_CSS_PREFIX}__search {
       padding: 12px 16px;

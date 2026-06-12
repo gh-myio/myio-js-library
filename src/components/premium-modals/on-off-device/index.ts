@@ -61,6 +61,18 @@ export {
 } from './deviceConfig';
 
 export {
+  // Freshness rule (RFC-0167) — 12h status/connection telemetry window
+  STATUS_FRESHNESS_MAX_HOURS,
+  STATUS_FRESHNESS_MAX_MS,
+  evaluateDeviceStatus,
+  normalizeOnOff,
+  isFresh,
+  formatStatusTimestamp,
+  type DeviceStatusInput,
+  type DeviceStatusResult,
+} from './deviceStatusRule';
+
+export {
   // Types
   type OnOffDeviceType,
   type OnOffDeviceThemeMode,

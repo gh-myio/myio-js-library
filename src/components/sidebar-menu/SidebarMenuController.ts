@@ -55,6 +55,11 @@ export class SidebarMenuController implements SidebarMenuInstance {
     return this.view.isMobile();
   }
 
+  /** Host extension slot below the user-info block (e.g. mount a date picker). */
+  getHeaderSlot(): HTMLElement | null {
+    return this.view.getHeaderSlot();
+  }
+
   getState(): SidebarState {
     return this.view.getState();
   }

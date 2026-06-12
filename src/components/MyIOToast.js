@@ -31,6 +31,33 @@
  * @module MyIOToast
  */
 
+import InfoTooltip from '../utils/InfoTooltip';
+
+/**
+ * ============================================================================
+ *   ✂️  TOAST MESSAGE TRUNCATION LIMIT  ✂️
+ * ============================================================================
+ *   Messages longer than this are truncated with "…" and get a "+" button
+ *   that opens the FULL message in the shared InfoTooltip panel (pin/maximize,
+ *   same pattern as src/utils/InfoTooltip.ts). Keeps long warnings/errors from
+ *   blowing up the toast.
+ * ============================================================================
+ */
+const TOAST_MAX_MESSAGE_LENGTH = 100;
+
+const TOAST_TYPE_META = {
+  info:    { icon: 'ℹ️', title: 'Informação' },
+  success: { icon: '✅', title: 'Sucesso' },
+  warning: { icon: '⚠️', title: 'Aviso' },
+  error:   { icon: '🚫', title: 'Erro' },
+};
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text == null ? '' : String(text);
+  return div.innerHTML;
+}
+
 const MyIOToast = (function() {
   let toastContainer = null;
   let toastTimeout = null;
@@ -105,6 +132,35 @@ const MyIOToast = (function() {
       content: '🚫';
     }
 
+    #myio-global-toast-container .myio-toast-msg {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    /* "+" button — opens the full message in the InfoTooltip panel */
+    #myio-global-toast-container .myio-toast-expand {
+      flex-shrink: 0;
+      margin-left: 12px;
+      width: 24px;
+      height: 24px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: none;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.25);
+      color: #ffffff;
+      font-size: 16px;
+      font-weight: 700;
+      line-height: 1;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+
+    #myio-global-toast-container .myio-toast-expand:hover {
+      background: rgba(255, 255, 255, 0.45);
+    }
+
     @media (max-width: 480px) {
       #myio-global-toast-container {
         top: 10px;
@@ -177,10 +233,42 @@ const MyIOToast = (function() {
       type = 'info';
     }
 
-    // Set message and type
-    toastContainer.textContent = message;
+    // Set message and type.
+    // Messages over TOAST_MAX_MESSAGE_LENGTH are truncated with "…" and get a
+    // "+" button that opens the full text in the shared InfoTooltip panel.
+    const fullMessage = message == null ? '' : String(message);
+    const isLong = fullMessage.length > TOAST_MAX_MESSAGE_LENGTH;
+    toastContainer.textContent = ''; // Reset content
     toastContainer.className = ''; // Reset classes
     toastContainer.classList.add(type);
+
+    const msgSpan = document.createElement('span');
+    msgSpan.className = 'myio-toast-msg';
+    msgSpan.textContent = isLong
+      ? fullMessage.slice(0, TOAST_MAX_MESSAGE_LENGTH).trimEnd() + '…'
+      : fullMessage;
+    if (isLong) msgSpan.title = 'Mensagem truncada — clique em + para ver tudo';
+    toastContainer.appendChild(msgSpan);
+
+    if (isLong) {
+      const meta = TOAST_TYPE_META[type] || TOAST_TYPE_META.info;
+      const expandBtn = document.createElement('button');
+      expandBtn.type = 'button';
+      expandBtn.className = 'myio-toast-expand';
+      expandBtn.textContent = '+';
+      expandBtn.setAttribute('aria-label', 'Ver mensagem completa');
+      expandBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        // Keep the toast on screen while the user reads the full message
+        clearTimeout(toastTimeout);
+        InfoTooltip.show(expandBtn, {
+          icon: meta.icon,
+          title: meta.title,
+          content: escapeHtml(fullMessage).replace(/\n/g, '<br>'),
+        });
+      });
+      toastContainer.appendChild(expandBtn);
+    }
 
     // Force browser reflow to ensure animation always works
     setTimeout(() => {

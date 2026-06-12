@@ -444,6 +444,46 @@ customStyle: {
 
 O `cardCustomStyle` e configuravel via `widgetSettings.cardCustomStyle` no ThingsBoard.
 
+### Action Selector Step (modal de selecao) — RFC-0158
+
+Inspirado no padrao do widget MENU (`showSettingsModal` / `.myio-conf-picker`), o `renderCardComponentV6` suporta um **step opcional**: em vez de exibir os 3 botoes piano-key (Grafico, Relatorio, Configuracoes) separadamente, exibe **um unico botao** (icone `⋮`) que abre uma **modal de selecao**. O usuario escolhe entao uma das acoes disponiveis.
+
+```javascript
+renderCardComponentV6({
+  entityObject,
+  handleActionDashboard,  // → opcao "Grafico"   📊
+  handleActionReport,     // → opcao "Relatorio" 📄
+  handleActionSettings,   // → opcao "Configuracoes" ⚙️
+  enableActionSelector: true,  // ativa o step (default: false)
+});
+```
+
+| Comportamento                | `enableActionSelector` |
+| ---------------------------- | ---------------------- |
+| 3 botoes piano-key separados | `false` (default)      |
+| 1 botao → modal de selecao   | `true`                 |
+
+**Regras:**
+
+- A modal so lista as opcoes cujo `handleAction*` correspondente foi fornecido (ex.: sem `handleActionReport` → sem opcao "Relatorio").
+- Se nenhum handler for fornecido, nenhum botao e renderizado (igual ao modo legado).
+- Configuracoes recebe o mesmo payload do botao direto: `{ includeInfo: true, connectionData: { centralName, connectionStatusTime, timeVal, deviceStatus, lastDisconnectTime } }`.
+- Fechamento por: overlay, botao `×` ou tecla `Esc`. Estilos injetados uma unica vez (`#myio-card-action-selector-styles`); modal com id unico `#myio-card-action-picker` (apenas uma instancia por vez).
+
+**Wiring no MAIN_BAS:**
+
+O `controller.js` habilita o step (`enableActionSelector: true`) via `CardGridPanel` nos paineis de **Agua** (`mountWaterPanel`) e **Energia/Motores** (`mountEnergyPanel`). Os tres handlers sao roteados para caminhos ja existentes/provados:
+
+| Opcao            | Handler BAS            | Destino                                                              |
+| ---------------- | ---------------------- | ------------------------------------------------------------------- |
+| Gráfico 📊       | `basRouteWaterClick` / `basRouteEnergyClick` | Mesma rota do clique no card (On/Off, Tank, Hidrometro ou BAS device modal) |
+| Relatório 📄     | `basOpenDeviceReport`  | `MyIOLibrary.openDashboardPopupReport` (token via `buildMyioIngestionAuth`) |
+| Configurações ⚙️ | `basOpenDeviceSettings`| `MyIOLibrary.openDashboardPopupSettings` (mesmo payload do `onSettingsClick`) |
+
+- O painel de **Ambientes** usa `renderCardAmbienteV6` (cardType `ambiente`), que **nao** possui este step.
+- `basOpenDeviceReport`/`basOpenDeviceSettings` sao **guardados**: se a funcao da MyIOLibrary ou as credenciais de ingestion (`MAP_CUSTOMER_CREDENTIALS` / `DATA_API_HOST`) estiverem ausentes, degradam para log em vez de lancar erro.
+- O clique no corpo do card (`handleClickCard`) continua abrindo o Gráfico — coexiste com o botao `⋮` do step.
+
 ---
 
 ## 7. Estrutura de Dados
@@ -808,10 +848,11 @@ controller.js
    - Padrao regex: `/(\d+)|andar\s*(\d+)|floor\s*(\d+)/i`
    - Exemplos: "01o andar" → "01", "Floor 02" → "02"
 
-4. **Cards sem action buttons no BAS**
-   - `handleActionDashboard`, `handleActionReport`, `handleActionSettings` = `undefined`
+4. **Action buttons no BAS — via step selector**
    - Selection e drag-drop desabilitados (`enableSelection: false`, `enableDragDrop: false`)
-   - Apenas `handleClickCard` ativo para emitir `bas:device-clicked`
+   - `handleClickCard` ativo (emite `bas:device-clicked` + abre o Gráfico)
+   - Paineis de **Agua** e **Energia/Motores**: `enableActionSelector: true` → botao `⋮` abre modal de selecao (Gráfico/Relatório/Configurações). Handlers `basRouteWaterClick`/`basRouteEnergyClick`, `basOpenDeviceReport`, `basOpenDeviceSettings` (ver secao 6 "Action Selector Step").
+   - Painel de **Ambientes** (`renderCardAmbienteV6`): sem step.
 
 5. **customStyle tem defaults**
    - Se `cardCustomStyle` nao definido no widget settings, usa default: `{ zoomMultiplier: 0.9, padding: '15px' }`
@@ -1008,5 +1049,5 @@ var panel = new MyIOLibrary.EntityListPanel({
 
 ---
 
-_Documento atualizado em: 2026-02-11_
-_Versao: v8.0.0 (RFC-0171: Filtros de ambiente e energy + validacao no parse)_
+_Documento atualizado em: 2026-06-09_
+_Versao: v8.1.0 (Card v6: Action Selector Step opt-in — modal de selecao Grafico/Relatorio/Configuracoes)_

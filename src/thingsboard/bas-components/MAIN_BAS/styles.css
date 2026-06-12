@@ -99,6 +99,40 @@ tb-html-widget > div,
   display: none;
 }
 
+/* Shared date range picker mounted in the sidebar header slot (below email).
+   This styles ONLY the host-injected content, not the SidebarMenu internals. */
+.bas-sidebar-daterange {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.bas-sidebar-daterange__label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+.bas-sidebar-daterange__input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  color: #1f2937;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 8px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.bas-sidebar-daterange__input:hover,
+.bas-sidebar-daterange__input:focus {
+  border-color: #ffffff;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.25);
+}
+
 /* ========================================
    MAIN CONTENT WRAPPER
    Contains header + content layout
@@ -109,10 +143,20 @@ tb-html-widget > div,
   height: 100%;
   overflow: hidden;
 
-  /* Grid layout: header row (auto) + content row (1fr) */
+  /* Grid layout: header row (auto) + content row (1fr) + footer row (auto) */
   display: grid !important;
-  grid-template-rows: auto 1fr !important;
+  grid-template-rows: auto 1fr auto !important;
   grid-template-columns: 1fr !important;
+}
+
+/* RFC-0115: Comparison footer dock (row 3, auto height) */
+.bas-footer-slot {
+  grid-row: 3;
+  grid-column: 1;
+  min-width: 0;
+}
+.bas-footer-slot:empty {
+  display: none;
 }
 
 /* Transition for sidebar collapse/expand */
@@ -267,7 +311,7 @@ tb-html-widget > div,
   min-height: 0 !important;
   position: relative;
   overflow: hidden;
-  display: flex !important;
+  display: flex;           /* sem !important: CardGridPanel collapse (display:none !important) sempre vence */
   flex-direction: column !important;
 }
 
@@ -369,11 +413,11 @@ tb-html-widget > div,
   min-height: 0 !important;
 }
 
-/* Canvas container - fill available space */
+/* Canvas container - fill available space via flex (height:100% fights flex:1 and causes footer bleed) */
 .bas-charts-slot .myio-chart-widget-canvas-container {
-  height: 100% !important;
-  flex: 1 !important;
+  flex: 1 1 auto !important;
   min-height: 0 !important;
+  overflow: hidden !important;
 }
 
 .bas-charts-slot .myio-chart-widget-canvas-container canvas {
@@ -520,12 +564,52 @@ tb-html-widget > div,
    não referencia classes internas dos componentes. O widget só controla como o
    componente OCUPA o slot; quem é forte/autossuficiente é o componente. */
 .bas-w-mobile .bas-water-slot > *,
-.bas-w-mobile .bas-charts-slot > *,
 .bas-w-mobile .bas-ambientes-slot > *,
 .bas-w-mobile .bas-motors-slot > * {
   flex: 0 0 auto !important;
   height: auto !important;
   max-height: none !important;
+}
+
+/* Charts slot no mobile: altura fixa testada em DevTools */
+.bas-w-mobile .bas-charts-slot > * {
+  flex: 0 0 auto !important;
+  height: 500px !important;
+  max-height: none !important;
+}
+
+/* ---- CONSUMO mobile: altura fixa + colapso — seletores de alta especificidade ----
+   Após prefixo TB (.widget-type-...) os seletores abaixo ficam com 4-6 classes,
+   superando qualquer regra concorrente sem depender de controller.js.
+
+   Problema 1 — gráfico gigante:
+     createConsumptionChartWidget(fullHeight:true) não tem container com altura fixa
+     → Chart.js renderiza na altura intrínseca (400-500px ou mais).
+     Fix: height:300px + overflow:hidden no panelWrapper (.bas-chart-panel).
+
+   Problema 2 — colapso:
+     TB prefixa styles.css → .bas-chart-card{display:flex} vira 0,2,0 e empata com
+     o CardGridPanel collapse (0,2,0 sem prefixo). Usando 4+ classes ganhamos sempre.
+   ---------------------------------------------------------------------------------*/
+
+/* Altura fixa no mobile — overrides .bas-chart-panel{height:100%} e height:auto do > * */
+.bas-w-mobile .bas-charts-slot .bas-chart-panel {
+  height: 500px !important;
+  max-height: 500px !important;
+  overflow: hidden !important;
+}
+
+/* Colapsado: shrink ao header (especif. 0,5,0 após prefixo → bate os 0,4,0 acima) */
+.bas-w-mobile .bas-charts-slot .bas-chart-panel.myio-cgp--collapsed {
+  height: auto !important;
+  max-height: none !important;
+}
+
+/* display:none no conteúdo quando colapsado — especif. 0,6,0 após prefixo,
+   bate qualquer display:flex/block em regras menos específicas */
+.bas-w-mobile .bas-charts-slot .bas-chart-panel.myio-cgp--collapsed .bas-chart-card,
+.bas-w-mobile .bas-charts-slot .bas-chart-panel.myio-cgp--collapsed .myio-cgp__tabs-wrapper {
+  display: none !important;
 }
 
 /* ---- Mobile: root stacks vertically so the SidebarMenu's hamburger top bar
@@ -547,4 +631,67 @@ tb-html-widget > div,
 #bas-dashboard-root.bas-w-mobile #bas-main-content {
   flex: 1 1 auto !important;
   min-height: 0 !important;
+}
+
+/* TODO(RFC-0115): Comparison footer — hidden until feature is fully implemented.
+   Remove this rule when the comparison/selection flow is ready.
+   Ref: .bas-footer-slot is grid-row 3 in #bas-main-content (controller.js ~linha 5410). */
+.bas-footer-slot {
+  display: none !important;
+}
+
+/* TODO(RFC-0115): Selection checkbox — hidden until comparison/selection flow is ready.
+   Same feature as .bas-footer-slot above. Remove when implemented.
+   Class .card-checkbox rendered by renderCardComponentV6 (template-card-v6.js) when enableSelection=true. */
+.card-checkbox {
+  display: none !important;
+}
+
+/* ---- BAS: action-selector proporcional ----------------------------------------
+   O container .card-actions foi projetado para 3 botões piano-key (max-height:72%).
+   Com enableActionSelector:true há apenas 1 botão — compactar para evitar que o
+   container grande sobreponha o identifier (.device-title-row z-index:5 < z-index:10).
+   Overrides BAS-específicos em styles.css — não toca template-card-v6.js.
+   ---------------------------------------------------------------------------------*/
+.bas-water-slot .card-actions,
+.bas-ambientes-slot .card-actions,
+.bas-motors-slot .card-actions {
+  max-height: fit-content !important;
+  padding: 3px 2px !important;
+}
+.bas-water-slot .card-action,
+.bas-ambientes-slot .card-action,
+.bas-motors-slot .card-action {
+  width: 22px !important;
+  height: 22px !important;
+  min-height: 22px !important;
+}
+.bas-water-slot .card-action svg,
+.bas-ambientes-slot .card-action svg,
+.bas-motors-slot .card-action svg {
+  width: 13px !important;
+  height: 13px !important;
+}
+/* Empurra o title-row para depois da coluna do botão — identifier fica visível */
+.bas-water-slot .device-title-row,
+.bas-ambientes-slot .device-title-row,
+.bas-motors-slot .device-title-row {
+  left: 40px !important;
+  max-width: calc(100% - 48px) !important;
+}
+
+/* ---- CONSUMO: colapso explícito (especificidade alta) ----------------------------
+   O ThingsBoard prefixa styles.css com .widget-type-..., elevando para 0,2,0 qualquer
+   seletor de 1 classe. O CardGridPanel injeta CSS sem prefixo (0,2,0). Empate com
+   !important → fonte order decide. Para garantir que display:none vença, usamos
+   .bas-charts-slot .myio-cgp--collapsed → após prefixo TB fica 0,3,0 (3 classes).
+   Cobre: bas-chart-card (.myio-cgp__content) e tabsWrapper (.myio-cgp__tabs-wrapper).
+   ---------------------------------------------------------------------------------*/
+.bas-charts-slot .myio-cgp--collapsed > .myio-cgp__content,
+.bas-charts-slot .myio-cgp--collapsed > .myio-cgp__tabs-wrapper {
+  display: none !important;
+}
+.bas-charts-slot .myio-cgp--collapsed {
+  height: auto !important;
+  flex: 0 0 auto !important;
 }
