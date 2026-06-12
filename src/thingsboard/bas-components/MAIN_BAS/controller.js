@@ -2691,7 +2691,7 @@ function mountWaterPanel(waterHost, settings, classified) {
     items: waterItems,
     tabs: waterTabs,
     panelBackground: settings.waterPanelBackground,
-    cardCustomStyle: settings.cardCustomStyle || { zoomMultiplier: 0.9, padding: '15px' },
+    cardCustomStyle: settings.cardCustomStyle || { zoomMultiplier: 0.9, padding: '10px' },
     titleStyle: waterHeaderStyle,
     gridMinCardWidth: settings.waterCardMinWidth || '160px',
     gridGap: settings.cardGridGap || '8px',
@@ -2755,9 +2755,9 @@ function mountWaterPanel(waterHost, settings, classified) {
     handleActionSettings: function (item) {
       basOpenDeviceSettings(item.source, settings);
     },
-    // Comparison: selectable + draggable cards feed the comparison footer dock.
-    enableSelection: true,
-    enableDragDrop: true,
+    // TODO(RFC-0115): selection/drag hidden until comparison flow is implemented (same as footer).
+    enableSelection: false,
+    enableDragDrop: false,
     handleSelect: function () {},
     handleClickCard: function (item) {
       basRouteWaterClick(item, settings);
@@ -2831,7 +2831,7 @@ function mountAmbientesPanel(host, settings, assetAmbientHierarchy) {
     items: ambienteItems,
     cardType: 'ambiente',
     panelBackground: settings.environmentsPanelBackground,
-    cardCustomStyle: settings.cardCustomStyle || { zoomMultiplier: 0.9, padding: '15px' },
+    cardCustomStyle: settings.cardCustomStyle || { zoomMultiplier: 0.9, padding: '10px' },
     titleStyle: headerStyle,
     gridMinCardWidth: '140px',
     gridGap: settings.cardGridGap || '8px',
@@ -3968,9 +3968,9 @@ function mountEnergyPanel(host, settings, classified) {
     quantity: energyItems.length,
     items: energyItems,
     panelBackground: settings.motorsPanelBackground,
-    cardCustomStyle: settings.cardCustomStyle || { zoomMultiplier: 0.9, padding: '15px' },
+    cardCustomStyle: settings.cardCustomStyle || { zoomMultiplier: 0.9, padding: '10px' },
     titleStyle: energyHeaderStyle,
-    gridMinCardWidth: '140px',
+    gridMinCardWidth: '180px',
     gridGap: settings.cardGridGap || '8px',
     gridRowGap: settings.cardGridRowGap || '6px',
     singleColumn: true,
@@ -4033,9 +4033,9 @@ function mountEnergyPanel(host, settings, classified) {
     handleActionSettings: function (item) {
       basOpenDeviceSettings(item.source, settings);
     },
-    // Comparison: selectable + draggable cards feed the comparison footer dock.
-    enableSelection: true,
-    enableDragDrop: true,
+    // TODO(RFC-0115): selection/drag hidden until comparison flow is implemented (same as footer).
+    enableSelection: false,
+    enableDragDrop: false,
     handleSelect: function () {},
     handleClickCard: function (item) {
       basRouteEnergyClick(item, settings);
@@ -5376,6 +5376,7 @@ function mountChartPanel(hostEl, settings) {
   var panelWrapper = document.createElement('div');
   panelWrapper.className = 'myio-cgp bas-chart-panel';
   panelWrapper.style.background = '#faf8f1';
+  panelWrapper.style.overflow = 'hidden'; // garante clipping quando height:300px no mobile
 
   // Use HeaderPanelComponent for consistent header
   if (MyIOLibrary.HeaderPanelComponent) {
@@ -5396,15 +5397,22 @@ function mountChartPanel(hostEl, settings) {
       },
     });
     var chartHeaderEl = headerComponent.getElement();
+    // cursor:pointer explícito: iOS Safari não dispara click em divs sem isso
+    chartHeaderEl.style.cursor = 'pointer';
     panelWrapper.appendChild(chartHeaderEl);
 
-    // Accordion: clicar no header "Consumo" recolhe (só quando .myio-cgp--collapsible
-    // está ativo = mobile). Reusa o CSS de collapse do CardGridPanel (esconde
-    // .myio-cgp__tabs-wrapper + .myio-cgp__content).
-    chartHeaderEl.addEventListener('click', function (e) {
+    // Accordion collapse — listener no panelWrapper (não no chartHeaderEl) para
+    // garantir que o iOS propague o click corretamente a partir do elemento raiz.
+    panelWrapper.addEventListener('click', function (e) {
       if (!panelWrapper.classList.contains('myio-cgp--collapsible')) return;
-      if (e.target.closest && e.target.closest('button, a, input, select, svg, [role="button"], [class*="-tab"]')) return;
-      panelWrapper.classList.toggle('myio-cgp--collapsed');
+      // Só ativa se o click foi DENTRO do header (não nos tabs ou no chartCard)
+      if (!chartHeaderEl.contains(e.target)) return;
+      // Ignora clicks em botões interativos (filtro, maximizar)
+      if (e.target.closest && e.target.closest('button, a, input, select, [role="button"]')) return;
+      var isCollapsed = panelWrapper.classList.toggle('myio-cgp--collapsed');
+      chartCard.style.display = isCollapsed ? 'none' : '';
+      tabsWrapper.style.display = isCollapsed ? 'none' : '';
+      panelWrapper.style.height = isCollapsed ? 'auto' : '500px';
     });
   }
   _chartPanelWrapper = panelWrapper;
@@ -5926,11 +5934,20 @@ function setupResponsiveWidthClasses(root) {
     [_waterPanel, _ambientesPanel, _motorsPanel].forEach(function (p) {
       if (p && typeof p.setCollapsible === 'function') p.setCollapsible(isMobile);
     });
-    // CONSUMO é um wrapper inline .myio-cgp (não componente): liga/desliga o
-    // accordion via classe — o CSS de collapse do CardGridPanel cuida do resto.
+    // CONSUMO: inline style controla height e collapse — bypassa prefixo TB no CSS.
     if (_chartPanelWrapper) {
       _chartPanelWrapper.classList.toggle('myio-cgp--collapsible', isMobile);
-      if (!isMobile) _chartPanelWrapper.classList.remove('myio-cgp--collapsed');
+      if (isMobile) {
+        // Altura fixa: resolve fullHeight:true do chart widget sem container definido
+        _chartPanelWrapper.style.height = '500px';
+      } else {
+        _chartPanelWrapper.classList.remove('myio-cgp--collapsed');
+        _chartPanelWrapper.style.height = '';
+        var _cc = _chartPanelWrapper.querySelector('.myio-cgp__content');
+        var _tw = _chartPanelWrapper.querySelector('.myio-cgp__tabs-wrapper');
+        if (_cc) _cc.style.display = '';
+        if (_tw) _tw.style.display = '';
+      }
     }
   }
 
