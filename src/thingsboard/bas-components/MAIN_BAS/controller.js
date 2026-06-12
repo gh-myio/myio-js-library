@@ -2378,7 +2378,10 @@ function switchChartDomainInContainer(domain, container) {
         theme: (_settings && _settings.defaultThemeMode) || 'light',
         showSettingsButton: false,
         showMaximizeButton: false,
-        showVizModeTabs: false, // BAS dashboard is not a shopping mall — "Por Shopping" mode not applicable
+        // BAS splits the "separate" series by DEVICE (see fetchIngestionData:
+        // shoppingData is keyed by deviceId), so relabel the tab accordingly.
+        showVizModeTabs: true,
+        vizModeLabels: { total: 'Consolidado', separate: 'Por Dispositivo' },
         showChartTypeTabs: true,
 
         // Compact header styles for maximized view
@@ -2408,9 +2411,14 @@ function switchChartDomainInContainer(domain, container) {
         },
       });
 
-      _maximizedChartInstance.render().catch(function (err) {
-        LogHelper.error('[MAIN_BAS] Failed to render maximized chart widget:', err);
-      });
+      _maximizedChartInstance
+        .render()
+        .then(function () {
+          relabelVizTabsForBas(containerId);
+        })
+        .catch(function (err) {
+          LogHelper.error('[MAIN_BAS] Failed to render maximized chart widget:', err);
+        });
     } else if (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.createConsumption7DaysChart) {
       // Fallback
       LogHelper.warn(
@@ -4681,6 +4689,20 @@ var _chartDataCache = {};
  * @param {number} [options.maxAgeMs=300000] - Cache max age in ms for normal use
  * @returns {function} fetchData function that returns { labels, dailyTotals }
  */
+// Bridge for the currently-published lib: the compiled widget hardcodes the
+// viz-tab tooltip as "Por Shopping", but BAS splits the separate series by
+// DEVICE. The vizModeLabels config param covers this once the lib ships it —
+// until then, relabel the tooltip via DOM after render. Harmless afterwards
+// (the guard only rewrites the stale label).
+function relabelVizTabsForBas(containerId) {
+  var host = document.getElementById(containerId);
+  if (!host) return;
+  var sep = host.querySelector('[data-viz="separate"]');
+  if (sep && sep.getAttribute('title') === 'Por Shopping') {
+    sep.setAttribute('title', 'Por Dispositivo');
+  }
+}
+
 function createRealFetchData(domain, options, explicitDateRange) {
   var opts = options || {};
   var preferCache = !!opts.preferCache;
@@ -5101,7 +5123,10 @@ function switchChartDomain(domain, chartContainer) {
       theme: (_settings && _settings.defaultThemeMode) || 'light',
       showSettingsButton: false,
       showMaximizeButton: false,
-      showVizModeTabs: false, // BAS dashboard is not a shopping mall — "Por Shopping" mode not applicable
+      // BAS splits the "separate" series by DEVICE (see fetchIngestionData:
+      // shoppingData is keyed by deviceId), so relabel the tab accordingly.
+      showVizModeTabs: true,
+      vizModeLabels: { total: 'Consolidado', separate: 'Por Dispositivo' },
       showChartTypeTabs: true,
 
       // Compact header styles for BAS panel
@@ -5126,9 +5151,14 @@ function switchChartDomain(domain, chartContainer) {
     });
 
     // Render the widget
-    _chartInstance.render().catch(function (err) {
-      LogHelper.error('[MAIN_BAS] Failed to render chart widget:', err);
-    });
+    _chartInstance
+      .render()
+      .then(function () {
+        relabelVizTabsForBas('bas-chart-widget-' + domain);
+      })
+      .catch(function (err) {
+        LogHelper.error('[MAIN_BAS] Failed to render chart widget:', err);
+      });
   } else if (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.createConsumption7DaysChart) {
     // Fallback to simple chart if widget not available
     LogHelper.warn('[MAIN_BAS] createConsumptionChartWidget not available, using fallback');
