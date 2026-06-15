@@ -721,8 +721,9 @@ export function injectOnOffDeviceModalStyles(): void {
       color: var(--onoff-text-color, #f3f4f6);
     }
 
-    /* ===== Mobile: ocultar solenoide e toolbar no modo agendamento ===== */
+    /* ===== Responsive: tablet / mobile ≤768px ===== */
     @media (max-width: 768px) {
+      /* Ocultar solenoide e toolbar no modo agendamento */
       .${ON_OFF_MODAL_CSS_PREFIX}[data-view="schedule"] .${ON_OFF_MODAL_CSS_PREFIX}__control-container {
         display: none;
       }
@@ -730,10 +731,7 @@ export function injectOnOffDeviceModalStyles(): void {
       .${ON_OFF_MODAL_CSS_PREFIX}[data-view="schedule"] .${ON_OFF_MODAL_CSS_PREFIX}__toolbar {
         display: none;
       }
-    }
 
-    /* ===== Responsive: tablet / mobile ≤768px ===== */
-    @media (max-width: 768px) {
       /* Root: layout em coluna, sem overflow */
       .${ON_OFF_MODAL_CSS_PREFIX} {
         flex-direction: column;
@@ -900,7 +898,7 @@ export function injectOnOffDeviceModalStyles(): void {
 
     /* Schedule view heights — apenas desktop (≥769px) */
     @media (min-width: 769px) {
-      .myio-onoff-modal__schedule-view {
+      .${ON_OFF_MODAL_CSS_PREFIX}__schedule-view {
         max-height: 704px;
         min-height: 435px;
       }

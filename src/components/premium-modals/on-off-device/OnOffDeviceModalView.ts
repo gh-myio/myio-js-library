@@ -130,6 +130,7 @@ export class OnOffDeviceModalView {
 
     this.root = document.createElement('div');
     this.root.className = this.getRootClassName();
+    this.root.dataset.view = this.state.currentView;
 
     this.render();
     this.container.appendChild(this.root);
