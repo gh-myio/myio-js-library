@@ -135,6 +135,12 @@ export interface CardGridPanelOptions {
    * (handleClickCard is then ignored). Default: false.
    */
   actionSelectorOnCardClick?: boolean;
+  /**
+   * Called after each card element is mounted in the grid. Use it to decorate
+   * cards with overlays the renderer doesn't own (e.g. alarm/ticket badges via
+   * the card-badges helpers). Fires for every card type on every render.
+   */
+  onCardRendered?: (item: CardGridItem, cardElement: HTMLElement) => void;
   /** Callback for ambiente card remote toggle (only for cardType='ambiente') */
   handleToggleRemote?: (isOn: boolean, item: CardGridItem) => void;
   /** Empty state message */
@@ -759,6 +765,7 @@ export class CardGridPanel {
       showTempRangeTooltip,
       enableActionSelector,
       actionSelectorOnCardClick,
+      onCardRendered,
       enableSelection,
       enableDragDrop,
       handleSelect,
@@ -865,6 +872,13 @@ export class CardGridPanel {
         }
         wrapper.appendChild(cardResult[0]);
         grid.appendChild(wrapper);
+        if (onCardRendered) {
+          try {
+            onCardRendered(item, cardResult[0] as HTMLElement);
+          } catch (err) {
+            console.warn('[CardGridPanel] onCardRendered callback failed:', err);
+          }
+        }
       }
     });
   }

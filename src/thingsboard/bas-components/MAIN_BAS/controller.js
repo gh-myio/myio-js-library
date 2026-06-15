@@ -1002,6 +1002,10 @@ function parseDevicesFromData(data) {
       connectionStatusTs: cdTs.connectionStatus != null ? cdTs.connectionStatus : null,
       statusValue: cd.status != null ? cd.status : (cd.state != null ? cd.state : null),
       statusTs: cdTs.status != null ? cdTs.status : (cdTs.state != null ? cdTs.state : null),
+      // RFC-0183/RFC-0198: alarm/ticket badge keys (SERVER_SCOPE datakeys —
+      // null when the dashboard datasource doesn't include them)
+      gcdrDeviceId: cd.gcdrDeviceId || null,
+      ticketsItems: cd.tickets_items || null,
     };
 
     // Add domain-specific properties
@@ -2755,6 +2759,8 @@ function mountWaterPanel(waterHost, settings, classified) {
     // Relatório / Configurações) opens on the card body click; no ⋮ button.
     enableActionSelector: true,
     actionSelectorOnCardClick: true,
+    // RFC-0183/RFC-0198: alarm + ticket badges on each rendered card
+    onCardRendered: basDecorateCardWithBadges,
     handleActionDashboard: function (item) {
       basRouteWaterClick(item, settings);
     },
@@ -4034,6 +4040,8 @@ function mountEnergyPanel(host, settings, classified) {
     // Relatório / Configurações) opens on the card body click; no ⋮ button.
     enableActionSelector: true,
     actionSelectorOnCardClick: true,
+    // RFC-0183/RFC-0198: alarm + ticket badges on each rendered card
+    onCardRendered: basDecorateCardWithBadges,
     handleActionDashboard: function (item) {
       basRouteEnergyClick(item, settings);
     },
@@ -4691,6 +4699,112 @@ var _chartDataCache = {};
  * @param {number} [options.maxAgeMs=300000] - Cache max age in ms for normal use
  * @returns {function} fetchData function that returns { labels, dailyTotals }
  */
+// ============================================================================
+// RFC-0183: Alarm prefetch + AlarmServiceOrchestrator (ported from v-5.2.0
+// MAIN_VIEW). Feeds the card alarm badges (MyIOLibrary.addAlarmBadge).
+// Requires customer SERVER_SCOPE attrs gcdrCustomerId/gcdrTenantId/gcdrApiKey
+// — when absent the orchestrator is simply not built and badges stay hidden.
+// ============================================================================
+
+async function basPrefetchCustomerAlarms(gcdrCustomerId, gcdrTenantId, gcdrApiKey, alarmsBaseUrl) {
+  try {
+    var url =
+      alarmsBaseUrl +
+      '/alarms?state=OPEN,ACK,ESCALATED,SNOOZED&customerId=' +
+      encodeURIComponent(gcdrCustomerId) +
+      '&limit=100';
+    var response = await fetch(url, {
+      headers: {
+        'X-API-Key': gcdrApiKey,
+        'X-Tenant-ID': gcdrTenantId || '',
+        Accept: 'application/json',
+      },
+    });
+    if (!response.ok) {
+      LogHelper.warn('[MAIN_BAS] Alarm prefetch failed:', response.status);
+      return;
+    }
+    var json = await response.json();
+    var alarms = Array.isArray(json.data) ? json.data : json.items || [];
+    basBuildAlarmServiceOrchestrator(alarms, gcdrCustomerId, gcdrTenantId, gcdrApiKey, alarmsBaseUrl);
+    // Cards may have rendered before the prefetch resolved — light the badges up.
+    if (window.MyIOLibrary && typeof window.MyIOLibrary.refreshAlarmBadges === 'function') {
+      window.MyIOLibrary.refreshAlarmBadges();
+    }
+  } catch (err) {
+    LogHelper.warn('[MAIN_BAS] Alarm prefetch error:', err);
+  }
+}
+
+function basBuildAlarmServiceOrchestrator(alarms, gcdrCustomerId, gcdrTenantId, gcdrApiKey, alarmsBaseUrl) {
+  // Normalize: source = deviceId (GCDR UUID) — same contract as v-5.2.0.
+  var normalizedAlarms = (alarms || []).map(function (a) {
+    return Object.assign({}, a, { source: a.source || a.deviceId || '' });
+  });
+
+  var deviceAlarmMap = new Map();
+  normalizedAlarms.forEach(function (alarm) {
+    var did = alarm.deviceId;
+    if (!did) return;
+    if (!deviceAlarmMap.has(did)) deviceAlarmMap.set(did, []);
+    deviceAlarmMap.get(did).push(alarm);
+  });
+
+  var deviceAlarmTypes = new Map();
+  deviceAlarmMap.forEach(function (devAlarms, did) {
+    deviceAlarmTypes.set(
+      did,
+      new Set(
+        devAlarms.map(function (a) {
+          return a.alarmType || a.title || 'unknown';
+        })
+      )
+    );
+  });
+
+  window.AlarmServiceOrchestrator = {
+    alarms: normalizedAlarms,
+    deviceAlarmMap: deviceAlarmMap,
+    deviceAlarmTypes: deviceAlarmTypes,
+    getAlarmCountForDevice: function (gcdrDeviceId) {
+      var list = deviceAlarmMap.get(gcdrDeviceId);
+      return list ? list.length : 0;
+    },
+    getAlarmsForDevice: function (gcdrDeviceId) {
+      return deviceAlarmMap.get(gcdrDeviceId) || [];
+    },
+    getAlarmTypesForDevice: function (gcdrDeviceId) {
+      return deviceAlarmTypes.get(gcdrDeviceId) || new Set();
+    },
+    refresh: function () {
+      return basPrefetchCustomerAlarms(gcdrCustomerId, gcdrTenantId, gcdrApiKey, alarmsBaseUrl);
+    },
+  };
+
+  LogHelper.log(
+    '[MAIN_BAS] AlarmServiceOrchestrator built —',
+    deviceAlarmMap.size,
+    'devices with alarms,',
+    normalizedAlarms.length,
+    'total alarms'
+  );
+}
+
+// RFC-0183/RFC-0198: decorate a freshly rendered device card with alarm and
+// ticket badges. Wired as CardGridPanel.onCardRendered on the Water and
+// Energy/Motors panels. No-ops gracefully on libs older than the helpers.
+function basDecorateCardWithBadges(item, cardEl) {
+  var dev = item && item.source;
+  if (!dev || !cardEl || typeof MyIOLibrary === 'undefined') return;
+  if (typeof MyIOLibrary.addAlarmBadge === 'function') {
+    MyIOLibrary.addAlarmBadge(cardEl, dev.gcdrDeviceId || null);
+  }
+  if (typeof MyIOLibrary.addTicketBadge === 'function') {
+    var identifier = (dev.rawData && dev.rawData.identifier) || null;
+    MyIOLibrary.addTicketBadge(cardEl, identifier, dev.ticketsItems || null);
+  }
+}
+
 // Bridge for the currently-published lib: the compiled widget hardcodes the
 // viz-tab tooltip as "Por Shopping", but BAS splits the separate series by
 // DEVICE. The vizModeLabels config param covers this once the lib ships it —
@@ -5852,6 +5966,26 @@ self.onInit = async function () {
           hasClientSecret: !!MAP_CUSTOMER_CREDENTIALS.customer_Ingestion_Secret,
         });
         LogHelper.log('[MAIN_BAS] Customer telemetry settings loaded:', CUSTOMER_TELEMETRY_SETTINGS);
+
+        // RFC-0183: build the alarm orchestrator for card badges. Fire and
+        // forget — basPrefetchCustomerAlarms refreshes badges when it lands.
+        var gcdrCustomerId = attrs?.gcdrCustomerId || '';
+        var gcdrTenantId = attrs?.gcdrTenantId || '';
+        var gcdrApiKey = attrs?.gcdrApiKey || '';
+        if (gcdrCustomerId && gcdrApiKey) {
+          var alarmsBaseUrl =
+            self.ctx.settings?.alarmsApiBaseUrl || 'https://alarms-api.a.myio-bas.com';
+          basPrefetchCustomerAlarms(gcdrCustomerId, gcdrTenantId, gcdrApiKey, alarmsBaseUrl);
+        } else {
+          LogHelper.warn(
+            '[MAIN_BAS] RFC-0183: gcdrCustomerId/gcdrApiKey ausentes nos attrs do customer — alarm badges desativados'
+          );
+        }
+
+        // RFC-0198: tickets gate for the card ticket badges (count comes from
+        // the per-device tickets_items SERVER_SCOPE attr — no orchestrator in BAS yet)
+        window.MyIOUtils = window.MyIOUtils || {};
+        window.MyIOUtils.ticketsEnabled = self.ctx.settings?.enableTicketsBadge === true;
       } catch (error) {
         LogHelper.error('[MAIN_BAS] Error fetching customer attributes:', error);
       }
