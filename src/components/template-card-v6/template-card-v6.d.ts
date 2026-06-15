@@ -45,6 +45,12 @@ export interface RenderCardV6Options {
    * provided are shown. Default: false (3 separate buttons).
    */
   enableActionSelector?: boolean;
+  /**
+   * Requires enableActionSelector. When true, the single ⋮ button is not
+   * rendered and the selection modal opens on the card body click instead
+   * (handleClickCard is then ignored). Default: false.
+   */
+  actionSelectorOnCardClick?: boolean;
 }
 
 export interface CardResult {
