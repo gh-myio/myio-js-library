@@ -71,6 +71,7 @@ ssh -i id_rsa root@<ipv6-da-central>
 | Ilha Plaza AL2            | `200:24a5:8297:cce7:59d2:8126:6d67:7e4d` | `53052549-cc8c-4ca2-a597-58e0577548a2` | —              | —          |
 | Ilha Plaza AL3            | `206:c160:eb69:3ddb:42c7:efce:511e:792a` | `91b719b7-f2d2-4d3f-9fb9-ab3d4edbac0d` | —              | —          |
 | Campinas Shopping — G1 G2 | `203:5e50:3e69:89bd:5846:e41f:23b8:fd28` | `1b5d79c4-5fc6-46c4-bd05-89e8b1499920` | `16.2.170.222` | `107`      |
+| Melicidade                | `200:43cb:c66:59be:9966:7330:8b9a:224`   | `05148707-6011-42fb-8b78-46f33a5ca988` | —              | —          |
 
 #### Holding: SUPERVIA ESTAÇÕES
 
@@ -164,6 +165,9 @@ ssh -i id_rsa root@206:c160:eb69:3ddb:42c7:efce:511e:792a
 
 # Campinas Shopping — G1 G2 (Soul Malls)
 ssh -i id_rsa root@203:5e50:3e69:89bd:5846:e41f:23b8:fd28
+
+# Melicidade (Soul Malls)
+ssh -i id_rsa root@200:43cb:c66:59be:9966:7330:8b9a:224
 
 # Deodoro (Supervia Estações)
 ssh -i id_rsa root@200:1e6a:69a5:73f1:b18a:e6e:aa68:9229
