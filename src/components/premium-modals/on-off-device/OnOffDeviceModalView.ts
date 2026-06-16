@@ -130,6 +130,7 @@ export class OnOffDeviceModalView {
 
     this.root = document.createElement('div');
     this.root.className = this.getRootClassName();
+    this.root.dataset.view = this.state.currentView;
 
     this.render();
     this.container.appendChild(this.root);
@@ -1049,6 +1050,7 @@ export class OnOffDeviceModalView {
   public toggleView(): void {
     const newView: OnOffModalView = this.state.currentView === 'chart' ? 'schedule' : 'chart';
     this.state.currentView = newView;
+    this.root.dataset.view = newView;
 
     if (newView === 'schedule') {
       // Hide chart completely, show schedule

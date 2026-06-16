@@ -156,6 +156,29 @@ export class OnOffDeviceModalController {
         background: #1f2937;
         color: #f3f4f6;
       }
+
+      /* ===== Mobile: remove min-height fixo e ajusta dimensões ===== */
+      @media (max-width: 768px) {
+        .${ON_OFF_MODAL_CSS_PREFIX}-content {
+          min-height: auto !important;
+          max-height: 92vh !important;
+          width: 98% !important;
+          border-radius: 8px !important;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .${ON_OFF_MODAL_CSS_PREFIX}-overlay {
+          align-items: flex-end !important;
+          padding: 0 !important;
+        }
+        .${ON_OFF_MODAL_CSS_PREFIX}-content {
+          width: 100% !important;
+          max-height: 96dvh !important;
+          border-radius: 12px 12px 0 0 !important;
+          margin: 0 !important;
+        }
+      }
     `;
     document.head.appendChild(style);
   }
