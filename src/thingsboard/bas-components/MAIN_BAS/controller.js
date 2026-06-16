@@ -2059,6 +2059,20 @@ function buildEnergyCardItems(classified, selectedAmbienteId) {
 
 let _maximizeOverlay = null;
 let _maximizedPanel = null;
+// Restore fullscreen after a device modal closes (set in handleClickCard, consumed in modal onClose)
+var _restoreMaximizedPanelFn = null;
+// Ensure the Escape listener is registered only once across multiple showMaximizedPanel calls
+var _escapeListenerActive = false;
+
+function _ensureEscapeListener() {
+  if (_escapeListenerActive) return;
+  _escapeListenerActive = true;
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && _maximizedPanel) {
+      closeMaximizedPanel();
+    }
+  });
+}
 
 function restorePanelElement(snapshot) {
   if (!snapshot || snapshot.isChart || !snapshot.originalParent) return;
@@ -2137,12 +2151,7 @@ function createMaximizeOverlay() {
     }
   });
 
-  // Close on Escape key
-  document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && _maximizedPanel) {
-      closeMaximizedPanel();
-    }
-  });
+  _ensureEscapeListener();
 
   document.body.appendChild(overlay);
   _maximizeOverlay = overlay;
@@ -3129,6 +3138,20 @@ function basRouteWaterClick(item, settings) {
   LogHelper.log('[MAIN_BAS] Water device clicked:', item.source);
   window.dispatchEvent(new CustomEvent('bas:device-clicked', { detail: { device: item.source } }));
 
+  // ED-836: capture fullscreen state before dismissing — modal onClose will restore it
+  if (_maximizedPanel) {
+    var _snap = {
+      panelElement: _maximizedPanel.panelElement,
+      title: _maximizedPanel.title,
+      panelInstance: _maximizedPanel.panelInstance,
+    };
+    _restoreMaximizedPanelFn = function () {
+      showMaximizedPanel(_snap.panelElement, _snap.title, { panelInstance: _snap.panelInstance });
+    };
+  } else {
+    _restoreMaximizedPanelFn = null;
+  }
+
   closeMaximizedPanel(); // dismiss overlay before any modal — prevents pointer-events block
 
   var deviceProfile = (item.source?.deviceProfile || item.source?.deviceType || '').toUpperCase();
@@ -3401,6 +3424,10 @@ function openBASWaterModal(device, _settings) {
         },
         onClose: function () {
           LogHelper.log('[MAIN_BAS] BAS Water modal closed');
+          if (typeof _restoreMaximizedPanelFn === 'function') {
+            _restoreMaximizedPanelFn();
+            _restoreMaximizedPanelFn = null;
+          }
         },
         onError: function (err) {
           LogHelper.error('[MAIN_BAS] BAS Water modal error:', err);
@@ -3762,6 +3789,10 @@ function openOnOffDeviceModal(device, settings) {
     },
     onClose: function () {
       LogHelper.log('[MAIN_BAS] On/Off Device modal closed');
+      if (typeof _restoreMaximizedPanelFn === 'function') {
+        _restoreMaximizedPanelFn();
+        _restoreMaximizedPanelFn = null;
+      }
     },
   });
 }
@@ -3843,6 +3874,10 @@ function openWaterTankModal(device, entityObject, _settings) {
     },
     onClose: function () {
       LogHelper.log('[MAIN_BAS] 🚪 Water tank modal closed');
+      if (typeof _restoreMaximizedPanelFn === 'function') {
+        _restoreMaximizedPanelFn();
+        _restoreMaximizedPanelFn = null;
+      }
     },
     onError: function (error) {
       LogHelper.error('[MAIN_BAS] ❌ Water tank modal error:', error);
@@ -5361,10 +5396,16 @@ function buildDateRangePickerBar(container, defaultStart, defaultEnd, onApply, t
     ? 'color:rgba(255,255,255,0.4);font-size:10px;flex-shrink:0;'
     : 'color:#888;font-size:10px;flex-shrink:0;';
 
+  // Parse 'YYYY-MM-DD' as local midnight (new Date(str) treats date-only as UTC midnight)
+  function parseLocalDate(str) {
+    var p = str.split('-');
+    return new Date(+p[0], +p[1] - 1, +p[2]);
+  }
+
   function tryApply() {
     if (!inputStart.value || !inputEnd.value) return;
-    var s = new Date(inputStart.value); s.setHours(0, 0, 0, 0);
-    var e = new Date(inputEnd.value);   e.setHours(23, 59, 59, 999);
+    var s = parseLocalDate(inputStart.value); s.setHours(0, 0, 0, 0);
+    var e = parseLocalDate(inputEnd.value);   e.setHours(23, 59, 59, 999);
     var invalid = s.getTime() >= e.getTime();
     inputEnd.style.borderColor = invalid ? '#e53e3e' : (isDark ? 'rgba(255,255,255,0.25)' : '#ccc');
     inputEnd.style.outline = invalid ? 'none' : '';
