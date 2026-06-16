@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>MYIO — mqttSyncStatus v2 · Fluxo Node-RED · Ilha Plaza AL1</title>
+<style>
+  :root {
+    --myio-purple: #663ab5;
+    --myio-purple-dark: #4d2a91;
+    --myio-purple-soft: #efe8fb;
+    --myio-green: #04c081;
+    --myio-green-dark: #039b69;
+    --myio-amber: #f5a623;
+    --myio-red: #e03131;
+    --myio-blue: #1864c4;
+    --text: #2a2340;
+    --muted: #6f6787;
+    --border: #e5ddf5;
+    --bg: #f7f4fc;
+    --white: #ffffff;
+    --shadow: 0 10px 30px rgba(102, 58, 181, 0.12);
+    --radius-lg: 16px;
+    --radius-md: 12px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: Inter, 'Segoe UI', Arial, sans-serif;
+    background: #ece8f6;
+    color: var(--text);
+    padding: 24px;
+  }
+  .document { max-width: 1123px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; }
+
+  .page {
+    background: radial-gradient(circle at top right, rgba(4,192,129,0.10), transparent 22%), var(--bg);
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(49, 33, 90, 0.16);
+  }
+
+  .hero {
+    background: linear-gradient(135deg, var(--myio-purple-dark), var(--myio-purple) 62%, #7d52cf);
+    color: var(--white);
+    padding: 30px 36px 26px;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::after {
+    content: ""; position: absolute; right: -70px; top: -45px;
+    width: 230px; height: 230px; background: rgba(4, 192, 129, 0.92); border-radius: 50%;
+  }
+  .brand-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; position: relative; z-index: 1; flex-wrap: wrap; }
+  .brand h1 { margin: 0; font-size: 30px; line-height: 1.05; letter-spacing: -0.03em; }
+  .brand p { margin: 8px 0 0; opacity: 0.92; font-size: 14px; }
+  .version-pill { border: 1px solid rgba(255,255,255,0.55); border-radius: 999px; padding: 9px 18px; font-weight: 700; font-size: 13px; backdrop-filter: blur(6px); white-space: nowrap; }
+  .meta { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 12.5px; position: relative; z-index: 1; opacity: 0.92; }
+  .meta code { background: rgba(255,255,255,0.14); padding: 2px 7px; border-radius: 5px; font-size: 11.5px; }
+
+  .content { padding: 24px 32px 26px; display: flex; flex-direction: column; gap: 20px; }
+  .headline h2 { margin: 0 0 6px; font-size: 21px; letter-spacing: -0.03em; color: #33275f; display: flex; align-items: center; gap: 9px; }
+  .headline .num { background: var(--myio-purple); color: #fff; width: 26px; height: 26px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800; flex: 0 0 auto; }
+  .headline p { margin: 0; color: var(--muted); font-size: 13.5px; line-height: 1.55; }
+
+  .card {
+    background: rgba(255,255,255,0.95);
+    border: 1px solid var(--border);
+    border-left: 5px solid var(--myio-purple);
+    border-radius: var(--radius-lg);
+    padding: 16px 18px;
+    box-shadow: var(--shadow);
+  }
+  .card.green { border-left-color: var(--myio-green); }
+  .card.amber { border-left-color: var(--myio-amber); }
+  .card.blue  { border-left-color: var(--myio-blue); }
+  .card.red   { border-left-color: var(--myio-red); }
+  .card p { font-size: 13.5px; line-height: 1.6; color: #4e4765; margin: 0; }
+
+  .pieces { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+  .piece { background: linear-gradient(180deg, #fff, #faf7ff); border: 2px solid #e0d4f5; border-radius: 12px; padding: 13px 15px; }
+  .piece.green { border-color: #b9ebd2; background: linear-gradient(180deg, #fff, #f0faf4); }
+  .piece.blue  { border-color: #c3d9f6; background: linear-gradient(180deg, #fff, #eff6ff); }
+  .piece code { font-family: 'Consolas', 'Fira Code', monospace; font-size: 12px; font-weight: 800; color: var(--myio-purple-dark); display: block; margin-bottom: 4px; }
+  .piece span { font-size: 12px; color: var(--muted); line-height: 1.45; }
+
+  .mermaid { background: #fff; border: 1px solid var(--border); border-radius: var(--radius-md); padding: 16px; box-shadow: var(--shadow); overflow-x: auto; text-align: center; }
+
+  table { width: 100%; border-collapse: collapse; background: #fff; border-radius: var(--radius-md); overflow: hidden; box-shadow: var(--shadow); font-size: 13px; }
+  th, td { text-align: left; padding: 9px 14px; border-bottom: 1px solid #f0ebf8; }
+  th { background: var(--myio-purple-soft); color: #392d69; font-size: 12px; letter-spacing: 0.02em; text-transform: uppercase; }
+  tr:last-child td { border-bottom: none; }
+  td code, .in-code { font-family: 'Consolas', 'Fira Code', monospace; font-size: 11.5px; font-weight: 700; color: #5b44a0; background: #f6f1ff; padding: 1px 6px; border-radius: 5px; }
+
+  .callout { background: linear-gradient(135deg, #f0faf4, #fff); border: 1px solid #c5f0c1; border-left: 5px solid var(--myio-green); border-radius: var(--radius-md); padding: 14px 18px; font-size: 13px; line-height: 1.6; color: #2a4a38; }
+  .callout strong { color: var(--myio-green-dark); }
+
+  .foot { text-align: center; font-size: 11.5px; color: var(--muted); padding: 4px 0 8px; }
+  .foot code { font-family: 'Consolas', monospace; }
+</style>
+</head>
+<body>
+<div class="document">
+
+  <!-- HERO -->
+  <div class="page">
+    <div class="hero">
+      <div class="brand-row">
+        <div class="brand">
+          <h1>mqttSyncStatus <span style="opacity:.7">v2</span></h1>
+          <p>Pausa/retomada do MQTT com auditoria multi-sistema · holds + TTL + record append-only</p>
+        </div>
+        <div class="version-pill">Node-RED · Ilha Plaza AL1</div>
+      </div>
+      <div class="meta">
+        <span>Holding: <strong>Soul Malls</strong></span>
+        <span>Gateway: <code>81a60176-222c-4bb9-88f5-bc2b47802d82</code></span>
+        <span>Endpoint: <code>POST /api/setMqttSyncStatus</code></span>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- 0 -->
+      <div class="headline"><h2><span class="num">0</span>O que é o Node-RED</h2></div>
+      <div class="card">
+        <p><strong>Node-RED</strong> é um runtime de automação baseado em <strong>fluxos</strong>:
+        a lógica é montada ligando <strong>nós</strong> (caixas) por <strong>fios</strong>, e cada
+        mensagem (<code class="in-code">msg</code>, um objeto JS com <code class="in-code">msg.payload</code>)
+        percorre esses fios de nó em nó. Nas <strong>centrais MyIO</strong> (Orange Pi com Linux) ele roda
+        <strong>embarcado</strong> pelo <code class="in-code">myio-api.service</code> e faz a ponte entre os
+        medidores no campo (Modbus/MQTT) e a nuvem — expondo a REST local em <code class="in-code">/api/*</code>
+        (porta 8080), onde GCDR, Alarmes, ThingsBoard e o App disparam chamadas como
+        <code class="in-code">POST /api/setMqttSyncStatus</code>. Os nós <code class="in-code">function</code>
+        são blocos de JavaScript; o estado entre execuções fica no <strong>contexto</strong>
+        <code class="in-code">global</code> (em memória por padrão). Editor em <code class="in-code">/red</code>.</p>
+      </div>
+
+      <div class="pieces">
+        <div class="piece"><code>v2/01-validate-gate.js</code><span>step 1 — gate de validação · 2 saídas (válido → engine · inválido → http response)</span></div>
+        <div class="piece green"><code>v2/02-engine-holds-ttl-record.js</code><span>step 2 — engine: holds + TTL + record append-only + global derivado</span></div>
+        <div class="piece blue"><code>v2/03-get-status-ttl-sweep.js</code><span>step 3 — leitura GET com TTL sweep (dead-man switch observável)</span></div>
+      </div>
+      <p style="margin:0;font-size:12px;color:var(--muted)">Índice e fiação dos steps: <code class="in-code">v2/README.md</code></p>
+
+      <!-- 1 -->
+      <div class="headline"><h2><span class="num">1</span>Topologia do flow</h2>
+        <p>Como a mensagem trafega: os sistemas externos batem no <code class="in-code">http in</code>, passam pelo gate, pela engine e pela persistência.</p>
+      </div>
+      <div class="mermaid">
+flowchart LR
+    subgraph SYS["Sistemas que disparam"]
+        GCDR[GCDR] & ALM[Alarmes] & TB[ThingsBoard] & APP[App Mobile] & OPS[Ops / Manual]
+    end
+    SYS -->|"POST /api/setMqttSyncStatus"| HIN["http in<br/>/setMqttSyncStatus"]
+    HIN --> VAL["function:<br/>validate (gate)"]
+    VAL -->|"out1: válido<br/>msg.params=[envelope]"| ENG["function:<br/>v2 holds+TTL+record"]
+    VAL -->|"out2: inválido<br/>400 + error"| RESPerr["http response"]
+    ENG -->|"out1: RESPONSE"| RESPok["http response"]
+    ENG -->|"out2: RECORD"| PERSIST["persistência / forward"]
+    PERSIST --> PG[("Postgres<br/>state JSON")]
+    PERSIST --> FWD["HTTP → GCDR"]
+    ENG -.->|"global.set"| G[["global:<br/>mqttHolds · mqttSyncStatus<br/>mqttAuditLog"]]
+    GETN["http in<br/>GET /mqttSyncStatus"] --> GETF["function:<br/>GET v2 (TTL sweep)"] --> GRESP["http response"]
+    GETF -.->|"lê + varre TTL"| G
+      </div>
+
+      <!-- 2 -->
+      <div class="headline"><h2><span class="num">2</span>Decisão do <code class="in-code" style="font-size:16px">effectiveStatus</code></h2>
+        <p>Regra única: <strong>MQTT habilitado ⟺ nenhum hold ativo.</strong> O estado é derivado, nunca enviado pelo cliente.</p>
+      </div>
+      <div class="mermaid">
+flowchart TD
+    START([POST na engine]) --> SWEEP["TTL sweep:<br/>remove holds vencidos"]
+    SWEEP --> IDEM{"requestId já visto?"}
+    IDEM -->|sim| NOOP["decidedBy = NOOP"]
+    IDEM -->|não| INT{intent?}
+    INT -->|DISABLE| ACQ["adquire hold<br/>expiresAt = now+ttl"]
+    INT -->|ENABLE| REL["remove aquele holdId"]
+    INT -->|FORCE_DISABLE| FD["hold sentinela manual:*"]
+    INT -->|FORCE_ENABLE| FE["limpa TODOS os holds"]
+    ACQ & REL & FD & FE & NOOP --> COUNT{"holdCount > 0 ?"}
+    COUNT -->|sim| DIS["effectiveStatus = disable"]
+    COUNT -->|não| ENA["effectiveStatus = enable"]
+    DIS & ENA --> OUT(["global.set + RECORD + RESPONSE"])
+      </div>
+
+      <!-- 3 -->
+      <div class="headline"><h2><span class="num">3</span>Concorrência multi-sistema (o problema resolvido)</h2>
+        <p>GCDR e Alarmes pausam ao mesmo tempo. Com boolean (last-writer-wins) o MQTT voltaria cedo demais; com holds, não.</p>
+      </div>
+      <div class="mermaid">
+sequenceDiagram
+    autonumber
+    participant G as GCDR
+    participant A as Alarmes
+    participant N as Node-RED
+    participant M as MQTT
+    Note over M: enable (0 holds)
+    G->>N: DISABLE hold=gcdr:provisioning (ttl 900s)
+    N->>M: disable (holds=1)
+    A->>N: DISABLE hold=alarms:storm (ttl 300s)
+    N-->>N: holds=2
+    G->>N: ENABLE hold=gcdr:provisioning
+    N-->>N: holds=1
+    Note over N,M: boolean voltaria aqui (errado)<br/>holds: continua disable
+    A->>N: ENABLE hold=alarms:storm
+    N->>M: enable (holds=0)
+      </div>
+
+      <!-- 4 -->
+      <div class="headline"><h2><span class="num">4</span>Dead-man switch (TTL) — auto-recuperação</h2>
+        <p>Um sistema desabilita e cai sem reabilitar. O hold expira pelo TTL e o MQTT volta sozinho.</p>
+      </div>
+      <div class="mermaid">
+sequenceDiagram
+    autonumber
+    participant A as Alarmes
+    participant N as Node-RED
+    participant M as MQTT
+    A->>N: DISABLE hold=alarms:storm (ttl 300s)
+    N->>M: disable (holds=1)
+    Note over A: instância cai (nunca manda ENABLE)
+    Note over N: ...300s depois...
+    N->>N: TTL sweep (próximo GET/POST/timer)
+    N->>M: enable (holds=0) — volta sozinho
+      </div>
+
+      <!-- 5 -->
+      <div class="headline"><h2><span class="num">5</span>Três documentos &amp; <code class="in-code" style="font-size:16px">decidedBy</code></h2>
+        <p>O cliente envia a intenção; o servidor computa o resultado. Cada etapa tem seu documento.</p>
+      </div>
+      <div class="mermaid">
+flowchart LR
+    REQ["REQUEST<br/>(cliente)<br/>intent · hold · actor"] -->|"validate"| ENV["ENVELOPE<br/>+ requestId · ip · receivedAt"]
+    ENV -->|"engine"| REC["RECORD (persistido)<br/>+ outcome: effectiveStatus,<br/>previousStatus, changed,<br/>decidedBy, activeHolds, clockSkew"]
+    ENV -->|"engine"| RES["RESPONSE (eco HTTP)<br/>ok · effectiveStatus · holdCount · expiresAt"]
+      </div>
+
+      <table>
+        <thead><tr><th>decidedBy</th><th>quando</th><th>observabilidade</th></tr></thead>
+        <tbody>
+          <tr><td><code>HOLD_COUNT</code></td><td>fluxo normal (acquire/release)</td><td>estado segue a contagem de holds</td></tr>
+          <tr><td><code>FORCE</code></td><td>FORCE_ENABLE / FORCE_DISABLE (ops)</td><td>sempre auditado: quem forçou e por quê</td></tr>
+          <tr><td><code>TTL_EXPIRED</code></td><td>hold venceu e foi varrido</td><td>auto-recuperação registrada</td></tr>
+          <tr><td><code>NOOP</code></td><td>idempotência / QUERY / hold já liberado</td><td>retry seguro, sem efeito colateral</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout">
+        <strong>Por que mais robusto:</strong> os <strong>holds + reference counting</strong> acabam com o
+        last-writer-wins entre GCDR/Alarmes/TB/App; o <strong>TTL / dead-man switch</strong> garante que o MQTT
+        nunca fique preso desabilitado se um sistema cair; e separar <strong>request × record × response</strong>
+        elimina redundância — o resultado é sempre do servidor. Tudo aditivo e retrocompatível com o boolean atual.
+      </div>
+
+    </div>
+  </div>
+
+  <div class="foot">
+    MYIO · Ilha Plaza AL1 (Soul Malls) · spec em <code>../setMqttSyncStatus-payload-spec.md</code> · fonte dos fluxos em <code>../../bkp-all-flows-ilha-plaza-al1-2026-06-16.json</code>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'base',
+    themeVariables: {
+      primaryColor: '#efe8fb',
+      primaryBorderColor: '#663ab5',
+      primaryTextColor: '#2a2340',
+      lineColor: '#8b6fc7',
+      secondaryColor: '#f0faf4',
+      tertiaryColor: '#fff',
+      fontFamily: "Inter, 'Segoe UI', Arial, sans-serif"
+    },
+    flowchart: { curve: 'basis', htmlLabels: true },
+    sequence: { actorMargin: 40, mirrorActors: false }
+  });
+</script>
+</body>
+</html>

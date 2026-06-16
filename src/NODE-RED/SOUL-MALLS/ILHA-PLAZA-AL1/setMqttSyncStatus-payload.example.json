@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "2.0",
+  "intent": "DISABLE",
+  "hold": {
+    "holdId": "gcdr:provisioning:6f1c2b9a-3d44-4f0e-9a17-2b8e5c0d9f21",
+    "ttlSeconds": 900,
+    "reasonCode": "DEVICE_PROVISIONING",
+    "reason": "Sincronizando 12 novos hidrômetros via PRE_SETUP"
+  },
+  "scope": {
+    "level": "CENTRAL",
+    "targets": []
+  },
+  "actor": {
+    "system": "PRE_SETUP",
+    "instanceId": "presetup-prod-7c9",
+    "version": "2.4.1",
+    "user": {
+      "userId": "784f394c-42b6-435a-983c-b7beff2784f9",
+      "userName": "victor@exemplo.com",
+      "role": "ops"
+    },
+    "onBehalfOf": null,
+    "requestIp": "10.0.0.5"
+  },
+  "request": {
+    "requestId": "a1d3e7f0-9c22-4b58-bf0e-1e2d3c4b5a69",
+    "correlationId": "c0rr3l4t-1on0-uuid-shared-disable-enable",
+    "idempotencyKey": "gcdr:provisioning:batch-2026-06-16T19:00",
+    "requestedAt": "2026-06-16T19:00:00.000Z",
+    "requestedAtMs": 1750100400000
+  }
+}
