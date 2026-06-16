@@ -22,6 +22,7 @@ export function injectOnOffDeviceModalStyles(): void {
       display: flex;
       flex-direction: row;
       width: 100%;
+      max-width: 100%;
       font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
       box-sizing: border-box;
       overflow: hidden;
@@ -117,6 +118,7 @@ export function injectOnOffDeviceModalStyles(): void {
       padding: 12px 8px;
       overflow: hidden;
       box-sizing: border-box;
+      min-width: 0;
     }
 
     /* View container for chart/schedule toggle */
@@ -491,10 +493,12 @@ export function injectOnOffDeviceModalStyles(): void {
     }
 
     .${ON_OFF_MODAL_CSS_PREFIX}__schedule-title {
-      font-size: 15px;
-      font-weight: 600;
+      font-size: 15px !important;
+      font-weight: 600 !important;
       color: var(--onoff-text-color, #1f2937);
-      margin: 0;
+      margin: 0 !important;
+      padding: 0 !important;
+      line-height: 1.3 !important;
     }
 
     .${ON_OFF_MODAL_CSS_PREFIX}__schedule-content {
@@ -717,54 +721,187 @@ export function injectOnOffDeviceModalStyles(): void {
       color: var(--onoff-text-color, #f3f4f6);
     }
 
-    /* ===== Responsive ===== */
+    /* ===== Responsive: tablet / mobile ≤768px ===== */
     @media (max-width: 768px) {
-      .${ON_OFF_MODAL_CSS_PREFIX} {
-        flex-direction: column;
+      /* Ocultar solenoide e toolbar no modo agendamento */
+      .${ON_OFF_MODAL_CSS_PREFIX}[data-view="schedule"] .${ON_OFF_MODAL_CSS_PREFIX}__control-container {
+        display: none;
       }
 
+      .${ON_OFF_MODAL_CSS_PREFIX}[data-view="schedule"] .${ON_OFF_MODAL_CSS_PREFIX}__toolbar {
+        display: none;
+      }
+
+      /* Root: layout em coluna, sem overflow */
+      .${ON_OFF_MODAL_CSS_PREFIX} {
+        flex-direction: column;
+        max-width: 100%;
+        overflow: hidden;
+        box-sizing: border-box;
+      }
+
+      /* Left panel: row horizontal compacto */
       .${ON_OFF_MODAL_CSS_PREFIX}__left-panel {
         width: 100%;
         max-width: none;
+        min-width: 0;
         flex-direction: row;
+        align-items: center;
         border-right: none;
         border-bottom: 1px solid var(--onoff-border-color, #e5e7eb);
-        padding: 12px;
+        padding: 10px 12px;
+        gap: 10px;
+        box-sizing: border-box;
+        overflow: hidden;
       }
 
-      .${ON_OFF_MODAL_CSS_PREFIX}__control-container,
-      .${ON_OFF_MODAL_CSS_PREFIX}__schedule-btn-container {
+      /* Control container: expande, sem overflow */
+      .${ON_OFF_MODAL_CSS_PREFIX}__control-container {
         flex: 1;
+        min-width: 0;
+        overflow: hidden;
+      }
+
+      /* Bottom-buttons: separador vertical (border-left), coluna compacta */
+      .${ON_OFF_MODAL_CSS_PREFIX}__bottom-buttons {
+        flex-direction: column;
+        align-items: center;
+        border-top: none;
+        border-left: 1px solid var(--onoff-border-color, #e5e7eb);
+        padding-top: 0;
+        padding-left: 10px;
+        margin-top: 0;
+        gap: 6px;
+        flex-shrink: 0;
+      }
+
+      .${ON_OFF_MODAL_CSS_PREFIX}__schedule-btn-container {
+        flex: 0 0 auto;
       }
 
       .${ON_OFF_MODAL_CSS_PREFIX}__schedule-btn {
-        padding: 12px 16px;
-      }
-
-      .${ON_OFF_MODAL_CSS_PREFIX}__schedule-btn-icon {
-        font-size: 24px;
-      }
-
-      .${ON_OFF_MODAL_CSS_PREFIX}__toolbar {
-        flex-wrap: wrap;
-      }
-
-      .${ON_OFF_MODAL_CSS_PREFIX}__date-input-wrapper {
+        padding: 8px 10px;
+        gap: 4px;
         max-width: none;
       }
 
-      .${ON_OFF_MODAL_CSS_PREFIX}__refresh-btn {
-        padding: 5px 10px;
+      .${ON_OFF_MODAL_CSS_PREFIX}__schedule-btn-icon {
+        font-size: 20px;
+      }
+
+      .${ON_OFF_MODAL_CSS_PREFIX}__schedule-btn-label {
         font-size: 11px;
+      }
+
+      .${ON_OFF_MODAL_CSS_PREFIX}__refresh-btn {
+        padding: 5px 8px;
+        font-size: 11px;
+        margin-top: 0;
+      }
+
+      /* Right panel: full width, sem overflow */
+      .${ON_OFF_MODAL_CSS_PREFIX}__right-panel {
+        padding: 8px 6px;
+        overflow: hidden;
+        max-width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+      }
+
+      /* Toolbar: wrap, overflow hidden */
+      .${ON_OFF_MODAL_CSS_PREFIX}__toolbar {
+        flex-wrap: wrap;
+        gap: 4px;
+        padding: 6px 8px;
+        overflow: hidden;
+        box-sizing: border-box;
+      }
+
+      .${ON_OFF_MODAL_CSS_PREFIX}__toolbar-label {
+        font-size: 11px;
+        letter-spacing: 0;
+        flex-shrink: 0;
+      }
+
+      /* min-width:0 é CRÍTICO para flex não estourar */
+      .${ON_OFF_MODAL_CSS_PREFIX}__date-input-wrapper {
+        flex: 1;
+        min-width: 0;
+        max-width: none;
+        overflow: hidden;
+      }
+
+      .${ON_OFF_MODAL_CSS_PREFIX}__date-input {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 12px;
+      }
+
+      /* Export buttons: compactos mas visíveis */
+      .${ON_OFF_MODAL_CSS_PREFIX}__export-buttons {
+        flex-shrink: 0;
+        display: flex !important;
+        gap: 4px !important;
+        margin-left: 0 !important;
+      }
+
+      .${ON_OFF_MODAL_CSS_PREFIX}__export-btn {
+        padding: 4px 8px;
+        font-size: 11px;
+        gap: 3px;
+        white-space: nowrap;
+        flex-shrink: 0;
       }
     }
 
-    .myio-onoff-modal__schedule-view {
-      max-height: 704px;
+    /* ===== Responsive: mobile pequeno ≤480px ===== */
+    @media (max-width: 480px) {
+      /* PERÍODO label ocupa linha própria */
+      .${ON_OFF_MODAL_CSS_PREFIX}__toolbar-label {
+        width: 100%;
+        font-size: 10px;
+        margin-bottom: 0;
+      }
+
+      .${ON_OFF_MODAL_CSS_PREFIX}__date-input {
+        font-size: 11px;
+        padding: 5px 8px 5px 26px;
+      }
+
+      /* Export: sem ícone SVG, só texto */
+      .${ON_OFF_MODAL_CSS_PREFIX}__export-btn svg {
+        display: none;
+      }
+
+      .${ON_OFF_MODAL_CSS_PREFIX}__export-btn {
+        padding: 4px 10px;
+        min-width: 36px;
+      }
+
+      /* Schedule view: remove alturas fixas */
+      .${ON_OFF_MODAL_CSS_PREFIX}__schedule-view {
+        min-height: 0 !important;
+        max-height: none !important;
+      }
+
+      /* Schedule header e título compactos */
+      .${ON_OFF_MODAL_CSS_PREFIX}__schedule-header {
+        padding: 6px 10px;
+        margin-bottom: 6px;
+      }
+
+      .${ON_OFF_MODAL_CSS_PREFIX}__schedule-title {
+        font-size: 13px !important;
+      }
     }
 
-    .myio-onoff-modal__schedule-view {
-      min-height: 435px;
+    /* Schedule view heights — apenas desktop (≥769px) */
+    @media (min-width: 769px) {
+      .${ON_OFF_MODAL_CSS_PREFIX}__schedule-view {
+        max-height: 704px;
+        min-height: 435px;
+      }
     }
   `;
 
