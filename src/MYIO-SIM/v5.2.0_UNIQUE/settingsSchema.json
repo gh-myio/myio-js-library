@@ -27,11 +27,23 @@
         "default": "https://alarms-api.a.myio-bas.com",
         "description": "RFC-0178: Base URL for the Alarms Backend REST API (without trailing slash and without /api/v1)."
       },
+      "alarmsApiKey": {
+        "title": "Alarms API Key (X-API-Key header)",
+        "type": "string",
+        "default": "",
+        "description": "RFC-0178: Tenant bundle key sent as the X-API-Key header on every Alarms API request. Without it the backend responds 401 Unauthorized. Example: gcdr_myio_tenant_bundle_key_2026"
+      },
       "gcdrApiBaseUrl": {
         "title": "GCDR API Base URL",
         "type": "string",
         "default": "https://gcdr-api.a.myio-bas.com",
         "description": "RFC-0180: Base URL for the GCDR REST API (without trailing slash)."
+      },
+      "enableTemperatureApiDataFetch": {
+        "title": "Enable Temperature API Fetch (offline detection)",
+        "type": "boolean",
+        "default": false,
+        "description": "RFC-0189: When true, calls the Data Apps API per temperature device over the last 72h to derive lastTelemetryTs for accurate offline detection (RFC-0188). One HTTP call per device at each data load. Enable for customers whose temperature devices are integrated into the Data Apps pipeline."
       },
       "customerTB_ID": {
         "title": "ThingsBoard Customer ID",
@@ -259,7 +271,15 @@
       "type": "text"
     },
     {
+      "key": "enableTemperatureApiDataFetch",
+      "type": "checkbox"
+    },
+    {
       "key": "alarmsApiBaseUrl",
+      "type": "text"
+    },
+    {
+      "key": "alarmsApiKey",
       "type": "text"
     },
     {

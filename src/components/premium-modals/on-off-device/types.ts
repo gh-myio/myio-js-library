@@ -20,6 +20,12 @@ export interface OnOffDeviceData {
   status?: 'online' | 'offline' | 'unknown';
   attributes?: Record<string, any>;
   rawData?: Record<string, any>;
+  /** Epoch ms of the latest `connectionStatus` telemetry (freshness rule). */
+  connectionStatusTs?: number | null;
+  /** Raw `status` telemetry value (on/off in any encoding). */
+  statusValue?: string | number | boolean | null;
+  /** Epoch ms of the latest `status` telemetry (freshness rule). */
+  statusTs?: number | null;
 }
 
 /**
@@ -85,8 +91,14 @@ export interface OnOffDeviceModalParams {
   onStateChange?: (deviceId: string, state: boolean) => void;
   /** Callback when schedules are saved */
   onScheduleSave?: (deviceId: string, schedules: OnOffScheduleEntry[]) => void;
-  /** Central ID for RPC commands */
+  /** Central ID — used to build the On/Off command URL: https://${centralId}.y.myio.com.br/api/OnOff */
   centralId?: string;
+  /** TB entity name sent as `device` in the On/Off command body. Falls back to device.name/label. */
+  entityName?: string;
+  /** Customer/client label — used to compose the exported PDF filename. */
+  customerName?: string;
+  /** Related device names sent as `relatedDevices` in the On/Off command body (default: []). */
+  relatedDevices?: string[];
   /** Enable debug mode */
   enableDebugMode?: boolean;
   /** Callback when refresh is requested */

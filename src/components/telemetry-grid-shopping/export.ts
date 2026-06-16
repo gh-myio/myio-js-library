@@ -5,6 +5,7 @@
 
 import { jsPDF } from 'jspdf';
 import type { TelemetryDevice } from './types';
+import { resolvePercentDecimals } from '../../utils/percentDecimals';
 
 // ─── Column definitions ───────────────────────────────────────────────────────
 
@@ -44,12 +45,14 @@ function buildRow(d: TelemetryDevice, idx: number): RowData {
     if (d.val === null || d.val === undefined) return '—';
     return Number(d.val).toLocaleString('pt-BR', { maximumFractionDigits: 3, useGrouping: false });
   };
+  // Percentage decimals — window.MyIOUtils.percentDecimals > 2 (resolved at run time).
+  const pd = resolvePercentDecimals();
   return {
     idx:           String(idx + 1),
     nome:          d.labelOrName || d.name || '—',
     identificador: d.deviceIdentifier || '—',
     consumo:       fmtVal(),
-    perc:          d.perc !== undefined ? `${d.perc.toFixed(1)}%` : '—',
+    perc:          d.perc !== undefined ? `${d.perc.toFixed(pd).replace('.', ',')}%` : '—',
   };
 }
 

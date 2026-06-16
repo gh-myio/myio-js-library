@@ -37,6 +37,20 @@ export interface RenderCardV6Options {
   showTempComparisonTooltip?: boolean;
   showTempRangeTooltip?: boolean;
   customStyle?: CustomStyle;
+  /**
+   * When true, replaces the 3 piano-key action buttons with a single button
+   * that opens a selection modal ("step"). The user then picks one of:
+   * Gráfico (handleActionDashboard), Relatório (handleActionReport), or
+   * Configurações (handleActionSettings). Only options whose handler is
+   * provided are shown. Default: false (3 separate buttons).
+   */
+  enableActionSelector?: boolean;
+  /**
+   * Requires enableActionSelector. When true, the single ⋮ button is not
+   * rendered and the selection modal opens on the card body click instead
+   * (handleClickCard is then ignored). Default: false.
+   */
+  actionSelectorOnCardClick?: boolean;
 }
 
 export interface CardResult {

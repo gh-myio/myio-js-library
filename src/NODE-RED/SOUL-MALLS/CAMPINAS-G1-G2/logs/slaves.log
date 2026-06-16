@@ -1,0 +1,176 @@
+select * from slaves;
+ id  |        type        | addr_low | addr_high | channels |                    name                     | color |      code       | clamp_type | aggregate | version | temperature_correction |
+                                                                                                                config
+                                     |          created_at           |         updated_at
+-----+--------------------+----------+-----------+----------+---------------------------------------------+-------+-----------------+------------+-----------+---------+------------------------+--------------------------------------------
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-------------------------------------+-------------------------------+----------------------------
+  15 | three_phase_sensor |       45 |       249 |        3 | 3F SCP0D009 Havaianas 1                     |       | 002-002-002-015 |          0 | t         | 6.0.0   |                        |
+
+                                     | 2024-11-19 20:11:12.494754+00 | 2024-12-01 10:43:35.667+00
+  23 | three_phase_sensor |       99 |       249 |        3 | 3F SCP0Qxxx Global7( Global Entretenimento) |       | 002-002-002-015 |          0 | t         | 6.0.0   |                        |
+
+                                     | 2024-11-20 21:27:02.989623+00 | 2024-11-20 21:27:37.134+00
+   1 | three_phase_sensor |       99 |       248 |        3 | 3F SCP0Q044 MBOX                            |       | 002-002-002-015 |          0 | t         | 6.0.0   |                        |
+
+                                     | 2024-11-19 14:59:17.112152+00 | 2024-11-19 15:09:46.013+00
+   3 | three_phase_sensor |      201 |       248 |        3 | 3F SCP0Qxxx KeyMaster                       |       | 002-002-002-015 |          0 | t         | 6.0.0   |                        |
+
+                                     | 2024-11-19 15:16:45.930949+00 | 2025-11-05 16:01:40.479+00
+  10 | three_phase_sensor |      199 |       248 |        3 | 3F SCP0D006 OMatuto                         |       | 002-002-002-015 |          0 | t         | 6.0.0   |                        | {"config_clamp":{"confirmed":true,"value":0
+}}
+                                     | 2024-11-19 18:51:51.98296+00  | 2025-07-14 22:31:01.569+00
+   4 | three_phase_sensor |      215 |       249 |        3 | 3F SCP0Qxxx Global 3                        |       | 002-002-002-015 |          0 | t         | 6.0.0   |                        |
+
+                                     | 2024-11-19 15:53:25.829592+00 | 2024-11-19 15:54:04.774+00
+   5 | three_phase_sensor |      124 |       249 |        3 | 3F SCP0Q241 FunPhotoBooth                   |       | 002-002-002-015 |          0 | t         | 6.0.0   |                        |
+
+                                     | 2024-11-19 16:00:35.96288+00  | 2024-11-19 16:02:40.198+00
+  81 | outlet             |       55 |       249 |        2 | Hidr. Renner x10 0m3                        |       | 002-002-002-012 |            | t         | 6.0.0   |                        | {"channelConfig":{"channel0":{"slaveId":81,
+"channel":0,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"},"channel1":{"slaveId":81,"channel":1,"channel_type":"PULSE_ON_POWER","pulses":1,"output":"HOLDING"}},"config_clamp":{"confirmed":true,"value":null},"config_temperat
+ure":{"confirmed":true,"value":0}}   | 2025-01-21 19:15:29.734957+00 | 2026-04-15 19:49:59.418+00
+   6 | three_phase_sensor |      158 |       249 |        3 | 3F SCP0Qxxx Global 2(M840)                  |       | 002-002-002-015 |          0 | t         | 6.0.0   |                        |
+
+                                     | 2024-11-19 16:17:20.729734+00 | 2024-11-19 16:26:58.487+00
+  24 | three_phase_sensor |      115 |       249 |        3 | 3F SCP0Qxxx KeyMaster G2                    |       | 002-002-002-015 |          0 | t         | 6.0.0   |                        |
+
+                                     | 2024-11-20 21:39:44.995867+00 | 2025-11-05 16:03:25.469+00
+  62 | three_phase_sensor |      198 |       249 |        3 | 3F SCP0Qxxx M840(Entrada)                   |       | 002-002-002-015 |          0 | t         | 6.0.0   |                        |
+
+                                     | 2024-11-27 16:54:10.917975+00 | 2024-12-01 10:50:45.493+00
+  71 | three_phase_sensor |       53 |       249 |        3 | 3F SCP0LXXX Bono Pneu                       |       | 002-002-002-015 |          1 | t         | 6.0.0   |                        |
+
+                                     | 2024-12-02 23:03:13.694837+00 | 2024-12-02 23:03:47.266+00
+   9 | three_phase_sensor |       91 |       248 |        3 | 3F SCP0Q249 Happy Machine                   |       | 002-002-002-015 |          0 | t         | 6.0.0   |                        |
+
+                                     | 2024-11-19 18:21:42.747072+00 | 2024-12-01 10:51:49.817+00
+  68 | three_phase_sensor |        5 |       249 |        3 | 3F SCP0QXXX McDonald's G1                   |       | 002-002-002-015 |          1 | t         | 6.0.0   |                        | {"config_clamp":{"confirmed":true,"value":1
+}}
+                                     | 2024-12-01 15:09:23.211308+00 | 2025-09-18 13:53:46.79+00
+  65 | three_phase_sensor |      101 |       248 |        3 | 3F SCP0Q212 Burguer King                    |       | 002-002-002-015 |          1 | t         | 6.0.0   |                        |
+
+                                     | 2024-11-30 15:50:06.112054+00 | 2024-12-01 10:56:58.172+00
+  64 | three_phase_sensor |       40 |       248 |        3 | 3F SCP0Q005 Bob's G1                        |       | 002-002-002-015 |          1 | t         | 6.0.0   |                        |
+
+                                     | 2024-11-30 14:46:25.053618+00 | 2024-12-01 10:57:22+00
+  59 | three_phase_sensor |       37 |       249 |        3 | 3F SCP0L0261A Burguer King                  |       | 002-002-002-015 |          1 | t         | 6.0.0   |                        |
+
+                                     | 2024-11-27 15:22:25.241536+00 | 2024-11-27 15:23:02.759+00
+  76 | outlet             |      251 |       248 |        2 | Hidr. Dog_Express x1 0m3                    |       | 002-002-002-012 |            | t         | 6.0.0   |                        | {"channelConfig":{"channel0":{"slaveId":76,
+"channel":0,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"},"channel1":{"slaveId":76,"channel":1,"channel_type":"PULSE_ON_POWER","pulses":1,"output":"HOLDING"}}}
+                                     | 2025-01-21 15:41:00.709991+00 | 2025-01-21 15:45:22.245+00
+  61 | three_phase_sensor |      105 |       248 |        3 | 3F SCP0L00243 Like Cell                     |       | 002-002-002-015 |          0 | t         | 6.0.0   |                        |
+
+                                     | 2024-11-27 16:25:29.172817+00 | 2024-11-27 16:26:17.383+00
+  60 | three_phase_sensor |      104 |       248 |        3 | 3F SCP0L0508B Padoca Express                |       | 002-002-002-015 |          0 | t         | 6.0.0   |                        |
+
+                                     | 2024-11-27 15:58:31.0373+00   | 2024-11-27 16:00:01.191+00
+  19 | three_phase_sensor |       16 |       248 |        3 | 3F SCP0D003 Rei Do Mate                     |       | 002-002-002-015 |          0 | t         | 6.0.0   |                        |
+
+                                     | 2024-11-20 19:35:25.448937+00 | 2026-03-10 16:07:28.771+00
+  66 | three_phase_sensor |       65 |       248 |        3 | 3F SCP0QXXX Global 5                        |       | 002-002-002-015 |          0 | t         | 6.0.0   |                        |
+
+                                     | 2024-11-30 16:25:00.429158+00 | 2024-11-30 16:25:33.615+00
+  18 | three_phase_sensor |       91 |       249 |        3 | 3F SCP0DXXX Kopenhagen                      |       | 002-002-002-015 |          0 | t         | 6.0.0   |                        |
+
+                                     | 2024-11-20 19:30:52.871735+00 | 2024-11-20 19:31:25.996+00
+  79 | outlet             |      212 |       249 |        2 | Hidr. OMO x1 0m3                            |       | 002-002-002-012 |            | t         | 6.0.0   |                        | {"channelConfig":{"channel0":{"slaveId":79,
+"channel":0,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"},"channel1":{"slaveId":79,"channel":1,"channel_type":"PULSE_ON_POWER","pulses":1,"output":"HOLDING"}}}
+                                     | 2025-01-21 16:02:20.860191+00 | 2025-01-21 16:05:40.115+00
+  25 | three_phase_sensor |      240 |       248 |        3 | 3F SCP0506B Fast Cash                       |       | 002-002-002-015 |          0 | t         | 6.0.0   |                        |
+
+                                     | 2024-11-21 14:25:53.736639+00 | 2024-12-01 10:33:17.656+00
+  63 | three_phase_sensor |      162 |       248 |        3 | 3F SCP0L00262A OMO                          |       | 002-002-002-015 |          1 | t         | 6.0.0   |                        |
+
+                                     | 2024-11-27 20:12:30.980564+00 | 2024-11-27 20:13:55.859+00
+  22 | three_phase_sensor |      127 |       249 |        3 | 3F SCP0Qxxx Global8( Global Entretenimento) |       | 002-002-002-015 |          0 | t         | 6.0.0   |                        |
+
+                                     | 2024-11-20 21:04:26.062567+00 | 2024-11-20 21:05:22.026+00
+  11 | three_phase_sensor |      244 |       249 |        3 | 3F SCP0D011 JAA AÇAÍ                      |       | 002-002-002-015 |          0 | t         | 6.0.0   |                        |                                              
+
+                                 | 2024-11-19 18:57:26.524198+00 | 2024-12-01 10:33:47.159+00
+  69 | three_phase_sensor |      247 |       248 |        3 | 3F SCP0QXXX Banco 24Hrs                     |       | 002-002-002-015 |          0 | t         | 6.0.0   |                        |
+
+                                     | 2024-12-02 18:48:59.788609+00 | 2024-12-02 18:49:23.699+00
+  20 | three_phase_sensor |      151 |       248 |        3 | 3F SCP0D010 Griletto                        |       | 002-002-002-015 |          0 | t         | 6.0.0   |                        |
+
+                                     | 2024-11-20 19:39:59.001442+00 | 2024-12-01 10:34:11.553+00
+  12 | three_phase_sensor |        2 |       248 |        3 | 3F SCP0D005 Boticário                      |       | 002-002-002-015 |          0 | t         | 6.0.0   |                        |                                             
+
+                                   | 2024-11-19 19:01:41.092959+00 | 2024-12-01 10:34:41.656+00
+  73 | three_phase_sensor |      204 |       248 |        3 | 3F RELOGIO 303055170 - Quadro de madeira G2 |       | 002-002-002-015 |          1 | t         | 6.0.0   |                        | {"config_clamp":{"confirmed":true,"value":1
+}}
+                                     | 2024-12-13 14:13:58.326559+00 | 2026-04-15 22:20:48.18+00
+  16 | three_phase_sensor |       71 |       249 |        3 | 3F SCP0D002 Havaianas 2                     |       | 003-003-003-015 |          0 | t         | 6.0.0   |                        |
+
+                                     | 2024-11-19 20:21:14.356902+00 | 2024-12-01 10:42:09.659+00
+  13 | three_phase_sensor |      113 |       248 |        3 | 3F SCP0D004 KFC                             |       | 002-002-002-015 |          0 | t         | 6.0.0   |                        |
+
+                                     | 2024-11-19 19:14:37.45794+00  | 2024-12-01 10:42:43.535+00
+  14 | three_phase_sensor |       67 |       249 |        3 | 3F SCP0D008 Bobs                            |       | 002-002-002-015 |          0 | t         | 6.0.0   |                        |
+
+                                     | 2024-11-19 19:36:11.844299+00 | 2024-12-01 10:43:13.88+00
+  74 | outlet             |      169 |       248 |        2 | Hidr. Smart_Fit x100 0m3                    |       | 002-002-002-012 |            | t         | 6.0.0   |                        | {"channelConfig":{"channel0":{"slaveId":74,
+"channel":0,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"},"channel1":{"slaveId":74,"channel":1,"channel_type":"PULSE_ON_POWER","pulses":1,"output":"HOLDING"}}}
+                                     | 2025-01-20 19:44:40.99982+00  | 2025-01-20 22:57:02.158+00
+  70 | three_phase_sensor |      152 |       249 |        3 | 3F SCP0LXXX Acqazero                        |       | 002-002-002-015 |          0 | t         | 6.0.0   |                        |
+
+                                     | 2024-12-02 22:47:11.268124+00 | 2024-12-02 22:48:20.737+00
+  80 | outlet             |       46 |       249 |        2 | Hidr. Localiza x1 0m3                       |       | 002-002-002-012 |            | t         | 6.0.0   |                        | {"channelConfig":{"channel0":{"slaveId":80,
+"channel":0,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"},"channel1":{"slaveId":80,"channel":1,"channel_type":"PULSE_ON_POWER","pulses":1,"output":"HOLDING"}}}
+                                     | 2025-01-21 16:18:55.801199+00 | 2025-01-31 22:27:01.319+00
+  92 | outlet             |       47 |       248 |        2 | Hidr. Depósito Doce Mimo x1                |       | 002-002-002-012 |            | t         | 6.0.0   |                        | {"channelConfig":{"channel0":{"slaveId":92,"c
+hannel":0,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"},"channel1":{"slaveId":92,"channel":1,"channel_type":"PULSE_ON_POWER","pulses":1,"output":"HOLDING"}}}
+                                   | 2025-08-28 22:33:14.923255+00 | 2025-09-02 22:32:16.77+00
+  83 | outlet             |       31 |       248 |        2 | Hidr. Bono_Pneu x1 0m3                      |       | 002-002-002-012 |            | t         | 6.0.0   |                      0 | {"channelConfig":{"channel0":{"slaveId":83,
+"channel":0,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"},"channel1":{"slaveId":83,"channel":1,"channel_type":"PULSE_ON_POWER","pulses":1,"output":"HOLDING"}}}
+                                     | 2025-01-27 15:37:47.245043+00 | 2025-04-29 18:41:59.339+00
+  88 | three_phase_sensor |       23 |       248 |        3 | 3F SCP0Q001 BearToyKing                     |       | 002-002-002-015 |          0 | t         | 6.0.0   |                      0 |
+
+                                     | 2025-05-01 13:49:12.351534+00 | 2025-05-01 14:01:14.201+00
+  97 | outlet             |      165 |       248 |        2 | Quiosque Burgue King                        |       | 002-002-002-012 |            | t         | 6.0.0   |                        | {"channelConfig":{"channel0":{"slaveId":97,
+"channel":0,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"},"channel1":{"slaveId":97,"channel":1,"channel_type":"PULSE_ON_POWER","pulses":1,"output":"HOLDING"}}}
+                                     | 2026-03-10 18:17:53.600331+00 | 2026-03-10 18:20:42.744+00
+  84 | outlet             |      175 |       249 |        2 | Hidr. Poupa_Tempo x10 0m3                   |       | 002-002-002-012 |            | t         | 6.0.0   |                        | {"channelConfig":{"channel0":{"slaveId":84,
+"channel":0,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"},"channel1":{"slaveId":84,"channel":1,"channel_type":"PULSE_ON_POWER","pulses":1,"output":"HOLDING"}}}
+                                     | 2025-01-30 15:37:46.58579+00  | 2025-01-30 15:42:26.053+00
+ 101 | outlet             |      242 |       248 |        2 | Hid. Deposito Kopenhagen                    |       | 002-002-002-012 |            | t         | 6.0.0   |                        | {"channelConfig":{"channel1":{"slaveId":101
+,"channel":1,"channel_type":"PULSE_ON_POWER","pulses":1,"output":"HOLDING"},"channel0":{"slaveId":101,"channel":0,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"}},"config_clamp":{"confirmed":true,"value":null},"config_temper
+ature":{"confirmed":true,"value":0}} | 2026-06-09 14:50:33.035053+00 | 2026-06-09 15:05:12.276+00
+  82 | outlet             |       38 |       248 |        2 | Hidr. Aquazero x1 0m3                       |       | 002-002-002-012 |            | t         | 6.0.0   |                        | {"channelConfig":{"channel0":{"slaveId":82,
+"channel":0,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"},"channel1":{"slaveId":82,"channel":1,"channel_type":"PULSE_ON_POWER","pulses":5,"output":"HOLDING"}}}
+                                     | 2025-01-21 20:48:18.828799+00 | 2025-03-12 14:15:17.262+00
+  99 | three_phase_sensor |      104 |       249 |        3 | 3F SCP0Q271                                 |       | 002-002-002-015 |          0 | t         | 6.0.0   |                        |
+
+                                     | 2026-06-08 21:14:51.281663+00 | 2026-06-10 16:59:21.303+00
+  90 | outlet             |       66 |       249 |        2 | Hidr. Drogaria_Sao_Paulo x1 0m3             |       | 002-002-002-012 |            | t         | 6.0.0   |                        | {"channelConfig":{"channel1":{"slaveId":90,
+"channel":1,"channel_type":"PULSE_ON_POWER","pulses":1,"output":"HOLDING"},"channel0":{"slaveId":90,"channel":0,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"}}}
+                                     | 2025-08-05 19:23:59.616346+00 | 2025-08-05 20:00:49.953+00
+  98 | three_phase_sensor |      197 |       249 |        3 | 3F SCPC0Q024                                |       | 002-002-002-015 |          0 | t         | 6.0.0   |                        |
+
+                                     | 2026-06-08 20:36:43.325059+00 | 2026-06-10 17:05:43.879+00
+  91 | outlet             |      118 |       249 |        2 | SW Reborne                                  |       | 002-002-002-012 |            | t         | 6.0.0   |                        |
+
+                                     | 2025-08-28 20:54:18.150228+00 | 2025-08-28 20:54:59.68+00
+  93 | three_phase_sensor |       64 |       249 |        3 | 3F RELOGIO DETRAN Emplacamento              |       | 002-002-002-015 |            | t         | 6.0.0   |                        | {"config_clamp":{"confirmed":true,"value":1
+}}
+                                     | 2025-09-03 20:10:26.877902+00 | 2025-11-05 15:31:58.086+00
+  94 | three_phase_sensor |      200 |       248 |        3 | 3F Depósito Real Vistoria                  |       | 002-002-002-015 |            | t         | 6.0.0   |                        | {"config_clamp":{"confirmed":true,"value":0}}
+
+                                   | 2025-10-30 18:41:45.295067+00 | 2025-11-05 15:48:02.943+00
+  89 | three_phase_sensor |      172 |       249 |        3 | 3F Novo Barbarella G2                       |       | 002-002-002-015 |            | t         | 6.0.0   |                        | {"config_clamp":{"confirmed":true,"value":0
+}}
+                                     | 2025-07-15 13:26:43.103255+00 | 2025-11-05 15:50:22.292+00
+  95 | three_phase_sensor |      189 |       248 |        3 | 3F Q268 Mia_Perfume                         |       | 002-002-002-015 |            | t         | 6.0.0   |                        | {"config_clamp":{"confirmed":true,"value":0
+}}
+                                     | 2025-12-12 19:23:10.491248+00 | 2026-01-12 15:56:55.165+00
+  85 | outlet             |       33 |       249 |        2 | Hidr. Padoca x1 0m3                         |       | 002-002-002-012 |            | t         | 6.0.0   |                        | {"channelConfig":{"channel0":{"slaveId":85,
+"channel":0,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"},"channel1":{"slaveId":85,"channel":1,"channel_type":"PULSE_ON_POWER","pulses":10,"output":"HOLDING"}}}
+                                     | 2025-01-30 16:22:23.071953+00 | 2026-03-09 18:43:25.865+00
+  96 | three_phase_sensor |       50 |       249 |        3 | Rei Do Mate Oficial                         |       | 002-002-002-015 |            | t         | 6.0.0   |                        | {"config_clamp":{"confirmed":true,"value":0
+}}
+                                     | 2026-03-10 16:06:06.28353+00  | 2026-03-10 16:07:07.729+00
+ 100 | outlet             |      224 |       248 |        2 | Mc Donalds G1 Hid                           |       | 002-002-002-012 |            | t         | 6.0.0   |                        | {"channelConfig":{"channel0":{"slaveId":100
+,"channel":0,"channel_type":"REMOTE_INPUT","pulses":1,"output":"HOLDING"},"channel1":{"slaveId":100,"channel":1,"channel_type":"PULSE_ON_POWER","pulses":1,"output":"HOLDING"}}}
+                                     | 2026-06-09 14:06:34.865564+00 | 2026-06-09 14:32:47.512+00
+(56 rows)

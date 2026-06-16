@@ -1,4 +1,4 @@
-/* global self, window, MyIOLibrary, document, localStorage, sessionStorage */
+/* global self, window, MyIOLibrary, document, localStorage, sessionStorage, ResizeObserver */
 /**
  * MAIN_BAS Controller
  * RFC-0158: Building Automation System (BAS) Dashboard Controller
@@ -53,6 +53,34 @@ var LogHelper = {
 };
 
 // ============================================================================
+// Click tracing — instrument every click → modal path to debug which clicks
+// fire and where they stop. Filter the console by "[CLICK-TRACE]".
+// ============================================================================
+function traceClick(where, payload) {
+  try {
+    // Always log (independent of DEBUG_ACTIVE) so tracing works even with debug off.
+    console.log('%c[CLICK-TRACE] ' + where, 'color:#2F5848;font-weight:bold;', payload || '');
+  } catch {
+    /* noop */
+  }
+}
+
+// Summarize a device/source object for tracing (avoids dumping huge objects).
+function clickSummary(src) {
+  if (!src || typeof src !== 'object') return { value: src };
+  return {
+    id: src.id || src.entityId || null,
+    label: src.label || src.name || null,
+    deviceType: src.deviceType || null,
+    deviceProfile: src.deviceProfile || null,
+    type: src.type || null,
+    domain: src.domain || null,
+    context: src.context || null,
+    status: src.status || null,
+  };
+}
+
+// ============================================================================
 // Classification Constants (RFC-0142)
 // Domains: energy | water | temperature (NO motor domain - motors are energy)
 // ============================================================================
@@ -67,22 +95,29 @@ let _ambientesListPanel = null;
 let _waterPanel = null;
 let _ambientesPanel = null;
 let _motorsPanel = null;
+let _footerComponent = null; // RFC-0115: comparison footer (selection dock)
 let _chartInstance = null;
+let _chartPanelWrapper = null; // wrapper .myio-cgp do CONSUMO (para accordion mobile)
 let _currentChartDomain = 'energy';
-// RFC-0152: Date range for the consumption chart
-// { startTs: number|null, endTs: number|null } — null = "last _currentChartPeriod days"
-var _chartDateRange = { startTs: null, endTs: null };
-var _currentChartPeriod = 7; // days (used when _chartDateRange is null/relative)
-// Independent date range for the water panel — defaults to first of current month → today
-var _waterDateRange = (function () {
+// Single shared date range driven by the sidebar's MYIO date range picker.
+// Default: first of current month → today. Both the consumption chart and the
+// water panel read from this (the per-panel "de/até" bars were removed).
+var _defaultDateRange = (function () {
   var _today = new Date();
   var _first = new Date(_today.getFullYear(), _today.getMonth(), 1);
   var _end = new Date(_today);
   _end.setHours(23, 59, 59, 999);
   return { startTs: _first.getTime(), endTs: _end.getTime() };
 })();
-var _chartDatePicker = null;
-var _waterDatePicker = null;
+// RFC-0152: Date range for the consumption chart (now seeded from the shared default)
+var _chartDateRange = { startTs: _defaultDateRange.startTs, endTs: _defaultDateRange.endTs };
+var _currentChartPeriod = Math.max(
+  1,
+  Math.round((_defaultDateRange.endTs - _defaultDateRange.startTs) / (24 * 60 * 60 * 1000))
+); // days
+// Water panel date range — same shared default
+var _waterDateRange = { startTs: _defaultDateRange.startTs, endTs: _defaultDateRange.endTs };
+var _sharedDatePicker = null; // MYIO date range picker mounted in the sidebar slot
 var _activeWaterTabId = 'all'; // tracks the water panel's selected tab
 
 function filterWaterItemsByTab(items, tabId) {
@@ -608,6 +643,24 @@ function getFirstDataValue(rowData) {
 }
 
 /**
+ * Get the timestamp (epoch ms) of the first available reading in row.data.
+ * Same format as getFirstDataValue: row.data['0'] = [timestamp, value, [ts, ts]].
+ * The timestamp is at position [0]. Returns null when unavailable.
+ * Used by the On/Off modal freshness rule (RFC-0167, 12h window).
+ */
+function getFirstDataTs(rowData) {
+  if (!rowData) return null;
+  var keys = Object.keys(rowData);
+  if (keys.length === 0) return null;
+  var entry = rowData[keys[0]];
+  if (Array.isArray(entry) && entry.length >= 1) {
+    var ts = Number(entry[0]);
+    return isFinite(ts) && ts > 0 ? ts : null;
+  }
+  return null;
+}
+
+/**
  * Parse datasource data into classified structure
  *
  * ThingsBoard Data Format:
@@ -643,8 +696,9 @@ function parseDevicesFromData(data) {
     },
     // RFC-0176: Switch domain for LAMP and REMOTE devices
     switch: {
-      lamp: [],   // Lighting control devices
-      remote: [], // Remote control devices
+      lamp: [],    // Lighting control devices
+      remote: [],  // Remote control devices
+      seletor: [], // SELETOR_AUTO_MANUAL devices (read-only Auto/Manual)
     },
     ocultos: [],
   };
@@ -763,10 +817,12 @@ function parseDevicesFromData(data) {
             entityType: entityType,
             aliasName: aliasName,
             collectedData: {},
+            collectedDataTs: {}, // RFC-0167: per-key timestamp (epoch ms) for freshness rule
           };
         }
         if (keyName) {
           devicesMap[entityId].collectedData[keyName] = value;
+          devicesMap[entityId].collectedDataTs[keyName] = getFirstDataTs(rowData);
         }
       }
     }
@@ -857,8 +913,10 @@ function parseDevicesFromData(data) {
     var isSwitchDevice =
       profileUpper === 'LAMP' ||
       profileUpper === 'REMOTE' ||
+      profileUpper === 'SELETOR_AUTO_MANUAL' ||
       typeUpper === 'LAMP' ||
-      typeUpper === 'REMOTE';
+      typeUpper === 'REMOTE' ||
+      typeUpper === 'SELETOR_AUTO_MANUAL';
 
     if (isSwitchDevice) {
       domain = 'switch';
@@ -928,6 +986,8 @@ function parseDevicesFromData(data) {
     );
 
     // Build device object based on domain
+    // RFC-0167: per-key telemetry timestamps for the On/Off modal freshness rule
+    var cdTs = entity.collectedDataTs || {};
     var device = {
       id: entityId,
       name: deviceLabel,
@@ -938,6 +998,14 @@ function parseDevicesFromData(data) {
       status: isOnline ? 'online' : 'offline',
       lastUpdate: Date.now(),
       rawData: cd, // Keep collected data for reference
+      // RFC-0167: timestamps + raw status value drive the 12h freshness rule
+      connectionStatusTs: cdTs.connectionStatus != null ? cdTs.connectionStatus : null,
+      statusValue: cd.status != null ? cd.status : (cd.state != null ? cd.state : null),
+      statusTs: cdTs.status != null ? cdTs.status : (cdTs.state != null ? cdTs.state : null),
+      // RFC-0183/RFC-0198: alarm/ticket badge keys (SERVER_SCOPE datakeys —
+      // null when the dashboard datasource doesn't include them)
+      gcdrDeviceId: cd.gcdrDeviceId || null,
+      ticketsItems: cd.tickets_items || null,
     };
 
     // Add domain-specific properties
@@ -973,15 +1041,16 @@ function parseDevicesFromData(data) {
       // status (timeseries) = on | off | detected | not_detected (switch state)
       var switchStatus = (cd.status || cd.state || '').toLowerCase();
       var isOn = switchStatus === 'on' || switchStatus === 'detected';
+      var isSeletor = profileUpper === 'SELETOR_AUTO_MANUAL' || typeUpper === 'SELETOR_AUTO_MANUAL';
       device.switchStatus = switchStatus; // Raw switch state value (on/off/detected/not_detected)
       device.isOn = isOn;
-      device.type = profileUpper === 'LAMP' ? 'lamp' : 'remote';
+      device.type = isSeletor ? 'seletor' : profileUpper === 'LAMP' ? 'lamp' : 'remote';
       // IMPORTANT: Keep device.status based on connectionStatus (online/offline)
       // This is already set above: device.status = isOnline ? 'online' : 'offline'
       // Do NOT override it with switch state
       device.connectionStatus = connectionStatus; // Store raw connectionStatus
       // Determine context based on device type
-      context = profileUpper === 'LAMP' ? 'lamp' : 'remote';
+      context = device.type;
       device.context = context;
       LogHelper.log(
         '[MAIN_BAS] Switch device:',
@@ -1341,6 +1410,8 @@ function waterDeviceToEntityObject(device) {
     deviceType: deviceType,
     // RFC-0175: Include deviceProfile for SOLENOIDE detection in card component
     deviceProfile: device.deviceProfile,
+    // Comparison footer needs the ingestion id to fetch data from the GCDR API
+    ingestionId: device.ingestionId || (device.rawData && (device.rawData.ingestionId || device.rawData.ingestion_id)) || undefined,
     val: device.value,
     deviceStatus: deviceStatus,
     // RFC-0175: Solenoid status (on=closed, off=open)
@@ -1660,8 +1731,10 @@ function assetAmbientToAmbienteData(hierarchyNode) {
     }
   });
 
-  // RFC-0176: Collect ALL switch devices (LAMP, REMOTE) from switch domain
+  // RFC-0176: Collect switch devices (LAMP, REMOTE) from switch domain.
+  // SELETOR_AUTO_MANUAL devices are collected separately (read-only Auto/Manual selector).
   var switchDevices = [];
+  var seletorDevices = [];
   devices.forEach(function (d) {
     // Check if device is in switch domain (set during parseDevicesFromData)
     var isSwitchDomain = d.domain === 'switch';
@@ -1682,25 +1755,44 @@ function assetAmbientToAmbienteData(hierarchyNode) {
 
       // Determine device type for visual display
       var dp = (d.deviceProfile || '').toUpperCase();
-      var switchType = dp === 'LAMP' ? 'lamp' : 'remote';
+      var dtUpper = (d.deviceType || '').toUpperCase();
+      var isSeletor = dp === 'SELETOR_AUTO_MANUAL' || dtUpper === 'SELETOR_AUTO_MANUAL' || d.type === 'seletor';
 
       // connectionStatus = online/offline (device connection state)
       var connStatus = d.connectionStatus || d.status || 'offline';
       var isConnected = connStatus === 'online';
 
-      switchDevices.push({
-        id: d.id,
-        name: d.name || d.label || (switchType === 'lamp' ? 'Lâmpada' : 'Controle'),
-        label: (d.rawData && d.rawData.label) || d.label || d.name || (switchType === 'lamp' ? 'Lâmpada' : 'Controle'),
-        deviceType: d.deviceType,
-        deviceProfile: d.deviceProfile,
-        type: switchType, // 'lamp' or 'remote'
-        isOn: isDeviceOn,
-        switchStatus: statusLower, // on|off|detected|not_detected (switch state)
-        connectionStatus: connStatus, // online|offline (device connection)
-        isConnected: isConnected, // true if device is connected
-        status: connStatus, // Keep for backwards compatibility
-      });
+      if (isSeletor) {
+        // Read-only selector: detected → Automático, not_detected → Manual
+        seletorDevices.push({
+          id: d.id,
+          name: d.name || d.label || 'Seletor',
+          label: (d.rawData && d.rawData.label) || d.label || d.name || 'Seletor',
+          deviceType: d.deviceType,
+          deviceProfile: d.deviceProfile,
+          type: 'seletor',
+          mode: statusLower === 'detected' ? 'auto' : 'manual', // 'auto' | 'manual'
+          switchStatus: statusLower, // detected | not_detected
+          connectionStatus: connStatus, // online|offline (device connection)
+          isConnected: isConnected,
+          status: connStatus,
+        });
+      } else {
+        var switchType = dp === 'LAMP' ? 'lamp' : 'remote';
+        switchDevices.push({
+          id: d.id,
+          name: d.name || d.label || (switchType === 'lamp' ? 'Lâmpada' : 'Controle'),
+          label: (d.rawData && d.rawData.label) || d.label || d.name || (switchType === 'lamp' ? 'Lâmpada' : 'Controle'),
+          deviceType: d.deviceType,
+          deviceProfile: d.deviceProfile,
+          type: switchType, // 'lamp' or 'remote'
+          isOn: isDeviceOn,
+          switchStatus: statusLower, // on|off|detected|not_detected (switch state)
+          connectionStatus: connStatus, // online|offline (device connection)
+          isConnected: isConnected, // true if device is connected
+          status: connStatus, // Keep for backwards compatibility
+        });
+      }
     }
   });
 
@@ -1787,6 +1879,7 @@ function assetAmbientToAmbienteData(hierarchyNode) {
     consumption: hasConsumption ? consumptionTotal : null,
     energyDevices: energyDevices, // Individual energy devices for card display
     switchDevices: switchDevices, // RFC-0176: LAMP and REMOTE devices with on/off status
+    seletorDevices: seletorDevices, // SELETOR_AUTO_MANUAL devices (read-only Auto/Manual)
     remoteDevices: remoteDevices, // Alias for backwards compatibility
     isOn: isOn,
     hasRemote: hasRemote,
@@ -1871,6 +1964,8 @@ function energyDeviceToEntityObject(device) {
     deviceType: deviceType,
     // RFC-0175: Include deviceProfile for proper device type detection in card
     deviceProfile: device.deviceProfile,
+    // Comparison footer needs the ingestion id to fetch data from the GCDR API
+    ingestionId: device.ingestionId || (device.rawData && (device.rawData.ingestionId || device.rawData.ingestion_id)) || undefined,
     val: device.consumption,
     deviceStatus: deviceStatus,
     perc: 0,
@@ -1888,25 +1983,33 @@ function energyDeviceToEntityObject(device) {
 function buildEnergyCardItems(classified, selectedAmbienteId) {
   var energyDevices = getEnergyEquipmentDevicesFromClassified(classified);
 
-  // RFC-0171: Filter to include only valid energy devices
-  // Use MyIOLibrary.isEnergyDevice to validate deviceProfile (primary) and deviceType (fallback)
+  // RFC-0171: Validate energy devices strictly by deviceProfile (authoritative).
+  // A device WITHOUT deviceProfile cannot be validated → fallback is always false
+  // and the device is flagged as misconfigured (reported via toast at the end).
+  var misconfiguredDevices = [];
   var validEnergyDevices = energyDevices.filter(function (device) {
     var deviceProfile = device.deviceProfile || '';
-    var deviceType = device.deviceType || '';
 
-    // Check deviceProfile first (preferred), then deviceType as fallback
-    var isValid = MyIOLibrary.isEnergyDevice
-      ? MyIOLibrary.isEnergyDevice(deviceProfile) || MyIOLibrary.isEnergyDevice(deviceType)
-      : true;
+    // No deviceProfile → cannot validate → always false + flag as misconfigured
+    if (!deviceProfile) {
+      LogHelper.warn(
+        '[MAIN_BAS] buildEnergyCardItems: device "' +
+          (device.name || device.id) +
+          '" está sem nenhum deviceProfile — fallback é sempre false (device ignorado)'
+      );
+      misconfiguredDevices.push(device.name || device.label || device.id || 'Dispositivo sem nome');
+      return false;
+    }
+
+    // Validate exclusively by deviceProfile
+    var isValid = MyIOLibrary.isEnergyDevice ? MyIOLibrary.isEnergyDevice(deviceProfile) : false;
 
     if (!isValid) {
       LogHelper.log(
         '[MAIN_BAS] buildEnergyCardItems: filtered out non-energy device:',
         device.name,
         'deviceProfile:',
-        deviceProfile,
-        'deviceType:',
-        deviceType
+        deviceProfile
       );
     }
 
@@ -1920,6 +2023,19 @@ function buildEnergyCardItems(classified, selectedAmbienteId) {
     energyDevices.length,
     'devices'
   );
+
+  // Report misconfigured devices (no deviceProfile) once all were processed
+  if (misconfiguredDevices.length > 0) {
+    var misconfigMsg =
+      misconfiguredDevices.length +
+      ' dispositivo(s) de energia sem deviceProfile configurado: ' +
+      misconfiguredDevices.join(', ');
+    if (MyIOLibrary.MyIOToast && typeof MyIOLibrary.MyIOToast.warning === 'function') {
+      MyIOLibrary.MyIOToast.warning(misconfigMsg, 8000);
+    } else {
+      LogHelper.warn('[MAIN_BAS] ' + misconfigMsg);
+    }
+  }
 
   var filtered = validEnergyDevices;
   if (selectedAmbienteId) {
@@ -2275,7 +2391,10 @@ function switchChartDomainInContainer(domain, container) {
         theme: (_settings && _settings.defaultThemeMode) || 'light',
         showSettingsButton: false,
         showMaximizeButton: false,
-        showVizModeTabs: false, // BAS dashboard is not a shopping mall — "Por Shopping" mode not applicable
+        // BAS splits the "separate" series by DEVICE (see fetchIngestionData:
+        // shoppingData is keyed by deviceId), so relabel the tab accordingly.
+        showVizModeTabs: true,
+        vizModeLabels: { total: 'Consolidado', separate: 'Por Dispositivo' },
         showChartTypeTabs: true,
 
         // Compact header styles for maximized view
@@ -2305,9 +2424,14 @@ function switchChartDomainInContainer(domain, container) {
         },
       });
 
-      _maximizedChartInstance.render().catch(function (err) {
-        LogHelper.error('[MAIN_BAS] Failed to render maximized chart widget:', err);
-      });
+      _maximizedChartInstance
+        .render()
+        .then(function () {
+          relabelVizTabsForBas(containerId);
+        })
+        .catch(function (err) {
+          LogHelper.error('[MAIN_BAS] Failed to render maximized chart widget:', err);
+        });
     } else if (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.createConsumption7DaysChart) {
       // Fallback
       LogHelper.warn(
@@ -2525,21 +2649,6 @@ function mountWaterPanel(waterHost, settings, classified) {
   var waterDevices = getWaterDevicesFromClassified(classified);
   var currentFilter = { categories: null, sortId: null };
 
-  // Re-inject date picker after CardGridPanel.renderTabs() rebuilds the tabs wrapper.
-  // handleClick fires AFTER renderTabs(), so the new wrapper already exists here.
-  function reattachWaterDatePicker() {
-    if (_waterDatePicker) { _waterDatePicker.destroy(); _waterDatePicker = null; }
-    var newWrapper = waterPanelEl.querySelector('.myio-cgp__tabs-wrapper');
-    if (!newWrapper) return;
-    _waterDatePicker = buildDateRangePickerBar(
-      newWrapper,
-      new Date(_waterDateRange.startTs),
-      new Date(_waterDateRange.endTs),
-      applyWaterDateRange,
-      'light'
-    );
-  }
-
   function makeWaterTabHandler(tabId) {
     return function () {
       _activeWaterTabId = tabId;
@@ -2547,17 +2656,32 @@ function mountWaterPanel(waterHost, settings, classified) {
       var filtered = filterWaterItemsByTab(freshItems, tabId);
       panel.setItems(filtered);
       panel.setQuantity(filtered.length);
-      reattachWaterDatePicker();
     };
   }
 
-  // Water tab configuration
-  var waterTabs = [
-    { id: 'all',        label: 'Todos',        selected: true,  handleClick: makeWaterTabHandler('all') },
-    { id: 'tank',       label: "Caixa d'Água", selected: false, handleClick: makeWaterTabHandler('tank') },
-    { id: 'hydrometer', label: 'Hidrômetro',   selected: false, handleClick: makeWaterTabHandler('hydrometer') },
-    { id: 'solenoid',   label: 'Solenóide',    selected: false, handleClick: makeWaterTabHandler('solenoid') },
-  ];
+  // Water tab configuration — built with the Builder pattern so data-driven tabs
+  // (Caixa d'Água / Hidrômetro / Solenóide) only appear when there are matching
+  // devices. E.g. with no solenoid device, the "Solenóide" tab is dropped.
+  var waterTabs;
+  if (MyIOLibrary.CardGridTabsBuilder) {
+    waterTabs = MyIOLibrary.CardGridTabsBuilder.create()
+      .withItems(waterItems)
+      .selected(_activeWaterTabId)
+      .onSelect(function (tabId) { makeWaterTabHandler(tabId)(); })
+      .addAllTab('Todos', 'all')
+      .addSourceTypeTab('tank', "Caixa d'Água")
+      .addSourceTypeTab('hydrometer', 'Hidrômetro')
+      .addSourceTypeTab('solenoid', 'Solenóide')
+      .build();
+  } else {
+    // Fallback (older bundle): static tabs, no data-driven pruning.
+    waterTabs = [
+      { id: 'all',        label: 'Todos',        selected: true,  handleClick: makeWaterTabHandler('all') },
+      { id: 'tank',       label: "Caixa d'Água", selected: false, handleClick: makeWaterTabHandler('tank') },
+      { id: 'hydrometer', label: 'Hidrômetro',   selected: false, handleClick: makeWaterTabHandler('hydrometer') },
+      { id: 'solenoid',   label: 'Solenóide',    selected: false, handleClick: makeWaterTabHandler('solenoid') },
+    ];
+  }
 
   // Use premium green header style from library
   var waterHeaderStyle = MyIOLibrary.HEADER_STYLE_PREMIUM_GREEN || {
@@ -2588,7 +2712,7 @@ function mountWaterPanel(waterHost, settings, classified) {
     items: waterItems,
     tabs: waterTabs,
     panelBackground: settings.waterPanelBackground,
-    cardCustomStyle: settings.cardCustomStyle || { zoomMultiplier: 0.9, padding: '15px' },
+    cardCustomStyle: settings.cardCustomStyle || { zoomMultiplier: 0.9, padding: '10px' },
     titleStyle: waterHeaderStyle,
     gridMinCardWidth: settings.waterCardMinWidth || '160px',
     gridGap: settings.cardGridGap || '8px',
@@ -2640,62 +2764,34 @@ function mountWaterPanel(waterHost, settings, classified) {
         closeMaximizedPanel();
       }
     },
+    // RFC-0158: Action selector "step" — the selection modal (Gráfico /
+    // Relatório / Configurações) opens on the card body click; no ⋮ button.
+    enableActionSelector: true,
+    actionSelectorOnCardClick: true,
+    // RFC-0183/RFC-0198: alarm + ticket badges on each rendered card
+    onCardRendered: basDecorateCardWithBadges,
+    handleActionDashboard: function (item) {
+      basRouteWaterClick(item, settings);
+    },
+    handleActionReport: function (item) {
+      basOpenDeviceReport(item.source, settings);
+    },
+    handleActionSettings: function (item) {
+      basOpenDeviceSettings(item.source, settings);
+    },
+    // TODO(RFC-0115): selection/drag hidden until comparison flow is implemented (same as footer).
+    enableSelection: false,
+    enableDragDrop: false,
+    handleSelect: function () {},
     handleClickCard: function (item) {
-      LogHelper.log('[MAIN_BAS] Water device clicked:', item.source);
-      window.dispatchEvent(new CustomEvent('bas:device-clicked', { detail: { device: item.source } }));
-
-      // Capture fullscreen state before dismissing — modal onClose will restore it
-      if (_maximizedPanel) {
-        var _snap = {
-          panelElement: _maximizedPanel.panelElement,
-          title: _maximizedPanel.title,
-          panelInstance: _maximizedPanel.panelInstance,
-        };
-        _restoreMaximizedPanelFn = function () {
-          showMaximizedPanel(_snap.panelElement, _snap.title, { panelInstance: _snap.panelInstance });
-        };
-      } else {
-        _restoreMaximizedPanelFn = null;
-      }
-
-      closeMaximizedPanel(); // dismiss overlay before any modal — prevents pointer-events block
-
-      var deviceProfile = (item.source?.deviceProfile || item.source?.deviceType || '').toUpperCase();
-      var deviceType = (item.source?.type || '').toLowerCase();
-
-      // RFC-0167: Check if this is an On/Off device (solenoid, switch, relay, pump)
-      if (isOnOffDeviceProfile(deviceProfile)) {
-        // RFC-0167: Open On/Off Device modal
-        openOnOffDeviceModal(item.source, settings);
-      } else if (isTankDevice(deviceProfile) || deviceType === 'tank') {
-        // RFC-0174: Open Water Tank modal for TANK/CAIXA_DAGUA devices
-        openWaterTankModal(item.source, item.entityObject, settings);
-      } else if (isHidrometerDevice(deviceProfile)) {
-        // RFC-0172: Open BAS Water modal for HIDROMETRO devices
-        openBASWaterModal(item.source, settings);
-      } else {
-        // Fallback: Log warning for unhandled water device type
-        LogHelper.warn('[MAIN_BAS] Unhandled water device type:', deviceProfile, 'deviceType:', deviceType);
-      }
+      basRouteWaterClick(item, settings);
     },
   });
 
   waterHost.appendChild(panel.getElement());
 
-  // Inject independent date range picker into the panel's tabs row (light theme, default: current month)
-  var waterPanelEl = panel.getElement();
-  var waterTabsWrapper = waterPanelEl.querySelector('.myio-cgp__tabs-wrapper');
-  if (waterTabsWrapper) {
-    _waterDatePicker = buildDateRangePickerBar(
-      waterTabsWrapper,
-      new Date(_waterDateRange.startTs),
-      new Date(_waterDateRange.endTs),
-      applyWaterDateRange,
-      'light'
-    );
-  }
-
-  // RFC-0152 amend: enrichment now uses independent _waterDateRange (not _chartDateRange)
+  // Date range now comes from the shared sidebar MYIO date range picker
+  // (the per-panel "de/até" bar was removed). Enrichment uses _waterDateRange.
   enrichWaterDevicesWithIngestionTotals(classified, panel);
 
   return panel;
@@ -2759,7 +2855,7 @@ function mountAmbientesPanel(host, settings, assetAmbientHierarchy) {
     items: ambienteItems,
     cardType: 'ambiente',
     panelBackground: settings.environmentsPanelBackground,
-    cardCustomStyle: settings.cardCustomStyle || { zoomMultiplier: 0.9, padding: '15px' },
+    cardCustomStyle: settings.cardCustomStyle || { zoomMultiplier: 0.9, padding: '10px' },
     titleStyle: headerStyle,
     gridMinCardWidth: '140px',
     gridGap: settings.cardGridGap || '8px',
@@ -2832,6 +2928,11 @@ function mountAmbientesPanel(host, settings, assetAmbientHierarchy) {
       }
     },
     handleClickCard: function (item) {
+      traceClick('AMBIENTE card click', {
+        ambienteId: item && item.ambienteData && item.ambienteData.id,
+        label: item && item.ambienteData && item.ambienteData.label,
+        hasAmbienteData: !!(item && item.ambienteData),
+      });
       LogHelper.log('[MAIN_BAS] Ambiente clicked:', item.ambienteData);
       window.dispatchEvent(
         new CustomEvent('bas:ambiente-clicked', {
@@ -2862,7 +2963,9 @@ function mountAmbientesPanel(host, settings, assetAmbientHierarchy) {
  * @param {Object} settings - Widget settings
  */
 function openBASDeviceModal(device, _settings) {
+  traceClick('openBASDeviceModal ENTER', { available: !!MyIOLibrary.openDashboardPopupEnergy, device: clickSummary(device) });
   if (!MyIOLibrary.openDashboardPopupEnergy) {
+    traceClick('openBASDeviceModal ABORT — MyIOLibrary.openDashboardPopupEnergy missing');
     LogHelper.warn('[MAIN_BAS] openDashboardPopupEnergy not available');
     return;
   }
@@ -3019,6 +3122,177 @@ function openBASDeviceModal(device, _settings) {
     });
 }
 
+// ============================================================================
+// Card Action Selector "Step" (RFC-0158)
+// The device cards open a selection modal (Gráfico / Relatório / Configurações)
+// via renderCardComponentV6({ enableActionSelector: true }). Each option below
+// routes to an already-proven BAS modal path.
+// ============================================================================
+
+/**
+ * Route a WATER card to its detail/chart modal — shared by the card click and
+ * the "Gráfico" step option so both behave identically.
+ */
+function basRouteWaterClick(item, settings) {
+  traceClick('WATER card click', clickSummary(item && item.source));
+  LogHelper.log('[MAIN_BAS] Water device clicked:', item.source);
+  window.dispatchEvent(new CustomEvent('bas:device-clicked', { detail: { device: item.source } }));
+
+  // ED-836: capture fullscreen state before dismissing — modal onClose will restore it
+  if (_maximizedPanel) {
+    var _snap = {
+      panelElement: _maximizedPanel.panelElement,
+      title: _maximizedPanel.title,
+      panelInstance: _maximizedPanel.panelInstance,
+    };
+    _restoreMaximizedPanelFn = function () {
+      showMaximizedPanel(_snap.panelElement, _snap.title, { panelInstance: _snap.panelInstance });
+    };
+  } else {
+    _restoreMaximizedPanelFn = null;
+  }
+
+  closeMaximizedPanel(); // dismiss overlay before any modal — prevents pointer-events block
+
+  var deviceProfile = (item.source?.deviceProfile || item.source?.deviceType || '').toUpperCase();
+  var deviceType = (item.source?.type || '').toLowerCase();
+
+  if (isOnOffDeviceProfile(deviceProfile)) {
+    traceClick('WATER → route: On/Off modal', { deviceProfile: deviceProfile });
+    openOnOffDeviceModal(item.source, settings);
+  } else if (isTankDevice(deviceProfile) || deviceType === 'tank') {
+    traceClick('WATER → route: Water Tank modal', { deviceProfile: deviceProfile, deviceType: deviceType });
+    openWaterTankModal(item.source, item.entityObject, settings);
+  } else if (isHidrometerDevice(deviceProfile)) {
+    traceClick('WATER → route: BAS Water modal', { deviceProfile: deviceProfile });
+    openBASWaterModal(item.source, settings);
+  } else {
+    traceClick('WATER → NO ROUTE (click does nothing)', { deviceProfile: deviceProfile, deviceType: deviceType });
+    LogHelper.warn('[MAIN_BAS] Unhandled water device type:', deviceProfile, 'deviceType:', deviceType);
+  }
+}
+
+/**
+ * Route an ENERGY card to its detail/chart modal — shared by the card click and
+ * the "Gráfico" step option so both behave identically.
+ */
+function basRouteEnergyClick(item, settings) {
+  traceClick('ENERGY card click', clickSummary(item && item.source));
+  LogHelper.log('[MAIN_BAS] Energy device clicked:', item.source);
+  window.dispatchEvent(new CustomEvent('bas:device-clicked', { detail: { device: item.source } }));
+
+  closeMaximizedPanel();
+
+  var deviceProfile = (item.source?.deviceProfile || '').toUpperCase();
+  if (isOnOffDeviceProfile(deviceProfile)) {
+    traceClick('ENERGY → route: On/Off modal', { deviceProfile: deviceProfile });
+    openOnOffDeviceModal(item.source, settings);
+  } else {
+    traceClick('ENERGY → route: BAS device modal', { deviceProfile: deviceProfile });
+    openBASDeviceModal(item.source, settings);
+  }
+}
+
+/**
+ * "Configurações" step option — opens the device settings modal.
+ * Reuses the exact param shape already used by openBASDeviceModal's
+ * onSettingsClick callback.
+ */
+function basOpenDeviceSettings(device, settings) {
+  traceClick('STEP → Settings', clickSummary(device));
+  if (!device) return;
+  if (!MyIOLibrary.openDashboardPopupSettings) {
+    LogHelper.warn('[MAIN_BAS] openDashboardPopupSettings not available');
+    return;
+  }
+
+  var jwtToken = localStorage.getItem('jwt_token');
+  if (!jwtToken && _ctx && _ctx.http && _ctx.http.token) jwtToken = _ctx.http.token;
+
+  var label = device.name || device.label || 'Dispositivo';
+
+  MyIOLibrary.openDashboardPopupSettings({
+    deviceId: device.entityId || device.id,
+    label: label,
+    jwtToken: jwtToken,
+    domain: device.domain || 'energy',
+    deviceType: device.deviceType,
+    deviceProfile: device.deviceProfile,
+    customerName: (settings && settings.customerName) || '',
+    connectionData: {
+      centralName: (settings && settings.customerName) || '',
+      deviceStatus: device.status === 'online' ? 'power_on' : 'power_off',
+    },
+    ui: { title: 'Configurações - ' + label, width: 900 },
+    onSaved: function (payload) {
+      LogHelper.log('[MAIN_BAS] Settings saved:', payload);
+    },
+    onClose: function () {
+      LogHelper.log('[MAIN_BAS] Settings modal closed');
+    },
+  });
+}
+
+/**
+ * "Relatório" step option — opens the per-device report modal.
+ * Fetches an ingestion token via buildMyioIngestionAuth (same pattern as
+ * openBASDeviceModal) then calls openDashboardPopupReport. Fully guarded so a
+ * missing dependency/credential degrades to a log instead of throwing.
+ */
+function basOpenDeviceReport(device, _settings) {
+  traceClick('STEP → Report', clickSummary(device));
+  if (!device) return;
+  if (!MyIOLibrary.openDashboardPopupReport) {
+    LogHelper.warn('[MAIN_BAS] openDashboardPopupReport not available');
+    return;
+  }
+
+  var clientId = MAP_CUSTOMER_CREDENTIALS.customer_Ingestion_Cliente_Id;
+  var clientSecret = MAP_CUSTOMER_CREDENTIALS.customer_Ingestion_Secret;
+  var ingestionId =
+    device.ingestionId ||
+    (device.rawData && (device.rawData.ingestionId || device.rawData.ingestion_id)) ||
+    device.id;
+  var identifier = (device.rawData && device.rawData.identifier) || device.identifier || '';
+  var label = device.name || device.label || 'Dispositivo';
+  var domain = device.domain || 'energy';
+
+  if (!DATA_API_HOST || !clientId || !clientSecret) {
+    LogHelper.warn('[MAIN_BAS] Relatório indisponível — DATA_API_HOST/credenciais de ingestion ausentes');
+    return;
+  }
+
+  try {
+    var auth = MyIOLibrary.buildMyioIngestionAuth({
+      dataApiHost: DATA_API_HOST,
+      clientId: clientId,
+      clientSecret: clientSecret,
+    });
+
+    auth
+      .getToken()
+      .then(function (ingestionToken) {
+        return MyIOLibrary.openDashboardPopupReport({
+          ingestionId: ingestionId,
+          identifier: identifier,
+          label: label,
+          domain: domain,
+          api: {
+            dataApiBaseUrl: DATA_API_HOST,
+            clientId: clientId,
+            clientSecret: clientSecret,
+            ingestionToken: ingestionToken,
+          },
+        });
+      })
+      .catch(function (err) {
+        LogHelper.error('[MAIN_BAS] Report open failed:', err);
+      });
+  } catch (err) {
+    LogHelper.error('[MAIN_BAS] Report open threw:', err);
+  }
+}
+
 /**
  * RFC-0172: Open BAS Water Modal for HIDROMETRO devices
  * Shows water telemetry (m3, pulses = liters)
@@ -3026,7 +3300,9 @@ function openBASDeviceModal(device, _settings) {
  * @param {Object} settings - Widget settings
  */
 function openBASWaterModal(device, _settings) {
+  traceClick('openBASWaterModal ENTER', { available: !!MyIOLibrary.openDashboardPopupEnergy, device: clickSummary(device) });
   if (!MyIOLibrary.openDashboardPopupEnergy) {
+    traceClick('openBASWaterModal ABORT — MyIOLibrary.openDashboardPopupEnergy missing');
     LogHelper.warn('[MAIN_BAS] openDashboardPopupEnergy not available for water modal');
     return;
   }
@@ -3174,7 +3450,7 @@ function isHidrometerDevice(deviceProfile) {
 /**
  * RFC-0167: On/Off device profiles that use the specialized modal
  */
-var ON_OFF_DEVICE_PROFILES = ['SOLENOIDE', 'INTERRUPTOR', 'RELE', 'BOMBA'];
+var ON_OFF_DEVICE_PROFILES = ['SOLENOIDE', 'INTERRUPTOR', 'RELE', 'BOMBA', 'LAMP', 'PLUG'];
 
 /**
  * RFC-0167: Check if a device profile is an On/Off device
@@ -3283,7 +3559,9 @@ function findSubAmbientesForParent(parentItem) {
  * @param {Object} settings - Widget settings
  */
 function openAmbienteGroupModal(parentItem, settings) {
+  traceClick('openAmbienteGroupModal ENTER', { available: !!MyIOLibrary.openAmbienteGroupModal, id: parentItem && parentItem.id, label: parentItem && parentItem.label });
   if (!MyIOLibrary.openAmbienteGroupModal) {
+    traceClick('openAmbienteGroupModal ABORT — MyIOLibrary.openAmbienteGroupModal missing');
     LogHelper.warn('[MAIN_BAS] openAmbienteGroupModal not available');
     return;
   }
@@ -3377,7 +3655,15 @@ function openAmbienteGroupModal(parentItem, settings) {
  * @param {Object} settings - Widget settings
  */
 function openAmbienteDetailModal(ambienteData, source, _settings) {
+  traceClick('openAmbienteDetailModal ENTER', {
+    available: !!MyIOLibrary.openAmbienteDetailModal,
+    id: ambienteData && ambienteData.id,
+    label: ambienteData && ambienteData.label,
+    seletorDevices: ambienteData && ambienteData.seletorDevices ? ambienteData.seletorDevices.length : 0,
+    switchDevices: ambienteData && ambienteData.switchDevices ? ambienteData.switchDevices.length : 0,
+  });
   if (!MyIOLibrary.openAmbienteDetailModal) {
+    traceClick('openAmbienteDetailModal ABORT — MyIOLibrary.openAmbienteDetailModal missing');
     LogHelper.warn('[MAIN_BAS] openAmbienteDetailModal not available');
     return;
   }
@@ -3404,6 +3690,23 @@ function openAmbienteDetailModal(ambienteData, source, _settings) {
         })
       );
     },
+    // Click on an Interruptor (LAMP/REMOTE) or Seletor → open the On/Off device modal
+    // (liga/desliga control + actuation logs + scheduling).
+    onSwitchClick: function (device) {
+      traceClick('AMBIENTE-MODAL switch click → openOnOffDeviceModal', clickSummary(device));
+      LogHelper.log('[MAIN_BAS] Ambiente switch device clicked → opening On/Off modal:', device);
+      openOnOffDeviceModal(device, _settings);
+    },
+    // Click on an energy device row inside the ambiente modal → open its detail modal.
+    onEnergyDeviceClick: function (device) {
+      traceClick('AMBIENTE-MODAL energy click', clickSummary(device));
+      var profile = ((device && (device.deviceProfile || device.deviceType)) || '').toUpperCase();
+      if (isOnOffDeviceProfile(profile)) {
+        openOnOffDeviceModal(device, _settings);
+      } else {
+        openBASDeviceModal(device, _settings);
+      }
+    },
     onClose: function () {
       LogHelper.log('[MAIN_BAS] Ambiente Detail modal closed');
     },
@@ -3416,7 +3719,9 @@ function openAmbienteDetailModal(ambienteData, source, _settings) {
  * @param {Object} settings - Widget settings
  */
 function openOnOffDeviceModal(device, settings) {
+  traceClick('openOnOffDeviceModal ENTER', { available: !!MyIOLibrary.openOnOffDeviceModal, device: clickSummary(device) });
   if (!MyIOLibrary.openOnOffDeviceModal) {
+    traceClick('openOnOffDeviceModal FALLBACK → openBASDeviceModal (lib fn missing)');
     LogHelper.warn('[MAIN_BAS] openOnOffDeviceModal not available');
     // Fallback to BAS modal
     openBASDeviceModal(device, settings);
@@ -3440,8 +3745,13 @@ function openOnOffDeviceModal(device, settings) {
     deviceProfile: device.deviceProfile || device.deviceType || '',
     // RFC-0175: Use connection status, not valve state
     status: device.connectionStatus || (device.status !== 'online' && device.status !== 'offline' ? 'unknown' : device.status),
+    connectionStatus: device.connectionStatus || device.status,
     attributes: device.attributes || {},
     rawData: mergedRawData,
+    // RFC-0167: freshness rule (12h) — telemetry timestamps + raw status value
+    connectionStatusTs: device.connectionStatusTs != null ? device.connectionStatusTs : (device.rawData && device.rawData.connectionStatusTs) || null,
+    statusValue: device.statusValue != null ? device.statusValue : (device.switchStatus != null ? device.switchStatus : (device.valveState != null ? device.valveState : null)),
+    statusTs: device.statusTs != null ? device.statusTs : (device.rawData && device.rawData.statusTs) || null,
   };
 
   // Get JWT token from localStorage or widget context
@@ -3457,6 +3767,7 @@ function openOnOffDeviceModal(device, settings) {
     themeMode: 'light',
     jwtToken: jwtToken,
     centralId: device.centralId || device.rawData?.centralId,
+    customerName: (settings && settings.customerName) || '',
     enableDebugMode: false,
     onStateChange: function (deviceId, state) {
       LogHelper.log('[MAIN_BAS] On/Off device state changed:', deviceId, state);
@@ -3493,7 +3804,9 @@ function openOnOffDeviceModal(device, settings) {
  * @param {Object} settings - Widget settings
  */
 function openWaterTankModal(device, entityObject, _settings) {
+  traceClick('openWaterTankModal ENTER', { available: !!MyIOLibrary.openDashboardPopupWaterTank, device: clickSummary(device) });
   if (!MyIOLibrary.openDashboardPopupWaterTank) {
+    traceClick('openWaterTankModal ABORT — MyIOLibrary.openDashboardPopupWaterTank missing');
     LogHelper.warn('[MAIN_BAS] openDashboardPopupWaterTank not available');
     return;
   }
@@ -3705,9 +4018,9 @@ function mountEnergyPanel(host, settings, classified) {
     quantity: energyItems.length,
     items: energyItems,
     panelBackground: settings.motorsPanelBackground,
-    cardCustomStyle: settings.cardCustomStyle || { zoomMultiplier: 0.9, padding: '15px' },
+    cardCustomStyle: settings.cardCustomStyle || { zoomMultiplier: 0.9, padding: '10px' },
     titleStyle: energyHeaderStyle,
-    gridMinCardWidth: '140px',
+    gridMinCardWidth: '180px',
     gridGap: settings.cardGridGap || '8px',
     gridRowGap: settings.cardGridRowGap || '6px',
     singleColumn: true,
@@ -3758,24 +4071,98 @@ function mountEnergyPanel(host, settings, classified) {
         closeMaximizedPanel();
       }
     },
+    // RFC-0158: Action selector "step" — the selection modal (Gráfico /
+    // Relatório / Configurações) opens on the card body click; no ⋮ button.
+    enableActionSelector: true,
+    actionSelectorOnCardClick: true,
+    // RFC-0183/RFC-0198: alarm + ticket badges on each rendered card
+    onCardRendered: basDecorateCardWithBadges,
+    handleActionDashboard: function (item) {
+      basRouteEnergyClick(item, settings);
+    },
+    handleActionReport: function (item) {
+      basOpenDeviceReport(item.source, settings);
+    },
+    handleActionSettings: function (item) {
+      basOpenDeviceSettings(item.source, settings);
+    },
+    // TODO(RFC-0115): selection/drag hidden until comparison flow is implemented (same as footer).
+    enableSelection: false,
+    enableDragDrop: false,
+    handleSelect: function () {},
     handleClickCard: function (item) {
-      LogHelper.log('[MAIN_BAS] Energy device clicked:', item.source);
-      window.dispatchEvent(new CustomEvent('bas:device-clicked', { detail: { device: item.source } }));
-
-      // RFC-0167: Check if this is an On/Off device (solenoid, switch, relay, pump)
-      var deviceProfile = (item.source?.deviceProfile || '').toUpperCase();
-      if (isOnOffDeviceProfile(deviceProfile)) {
-        // RFC-0167: Open On/Off Device modal
-        openOnOffDeviceModal(item.source, settings);
-      } else {
-        // RFC-0165: Open BAS modal with device details and chart
-        openBASDeviceModal(item.source, settings);
-      }
+      basRouteEnergyClick(item, settings);
     },
   });
 
   host.appendChild(panel.getElement());
   return panel;
+}
+
+/**
+ * RFC-0115: Mount the comparison footer (createFooterComponent) into a host.
+ * The footer binds to MyIOSelectionStore — the same store the selectable v6
+ * cards register to — so selecting/dragging Water & Energy cards populates the
+ * comparison dock. The built-in compare modal fetches data via the ingestion
+ * API (token from buildMyioIngestionAuth), so it needs the customer credentials.
+ */
+function mountFooter(host, settings) {
+  if (!host) return null;
+  if (!MyIOLibrary.createFooterComponent) {
+    LogHelper.warn('[MAIN_BAS] createFooterComponent not available');
+    return null;
+  }
+
+  var clientId = MAP_CUSTOMER_CREDENTIALS.customer_Ingestion_Cliente_Id;
+  var clientSecret = MAP_CUSTOMER_CREDENTIALS.customer_Ingestion_Secret;
+
+  // Pre-fetch an ingestion token (best-effort) so the compare modal can query data.
+  var _ingestionToken = null;
+  if (DATA_API_HOST && clientId && clientSecret && MyIOLibrary.buildMyioIngestionAuth) {
+    try {
+      MyIOLibrary.buildMyioIngestionAuth({
+        dataApiHost: DATA_API_HOST,
+        clientId: clientId,
+        clientSecret: clientSecret,
+      })
+        .getToken()
+        .then(function (tk) {
+          _ingestionToken = tk;
+        })
+        .catch(function (err) {
+          LogHelper.warn('[MAIN_BAS] Footer ingestion token fetch failed:', err);
+        });
+    } catch (err) {
+      LogHelper.warn('[MAIN_BAS] Footer ingestion auth init failed:', err);
+    }
+  } else {
+    LogHelper.warn('[MAIN_BAS] Footer: ingestion credentials ausentes — compare modal pode não buscar dados');
+  }
+
+  try {
+    return MyIOLibrary.createFooterComponent({
+      container: host,
+      selectionStore: MyIOLibrary.MyIOSelectionStore,
+      theme: settings && settings.defaultThemeMode === 'dark' ? 'dark' : 'light',
+      maxSelections: 20,
+      dataApiHost: DATA_API_HOST || undefined,
+      getIngestionToken: function () {
+        return _ingestionToken || undefined;
+      },
+      getDateRange: function () {
+        return {
+          start: toLocalISODate(new Date(_defaultDateRange.startTs)),
+          end: toLocalISODate(new Date(_defaultDateRange.endTs)),
+        };
+      },
+      onCompareClick: function (entities, unitType) {
+        LogHelper.log('[MAIN_BAS] Footer compare clicked:', entities.length, 'unit:', unitType);
+      },
+    });
+  } catch (err) {
+    LogHelper.error('[MAIN_BAS] Failed to mount footer:', err);
+    return null;
+  }
 }
 
 /**
@@ -3880,6 +4267,7 @@ function mountSidebarPanel(sidebarHost, settings, ambientes, hierarchyAvailable)
       window.dispatchEvent(new CustomEvent('bas:ambiente-changed', { detail: { ambiente: null } }));
     },
     handleClickItem: function (item) {
+      traceClick('SIDEBAR ambiente-list click', { id: item && item.id, label: item && item.label });
       LogHelper.log('[MAIN_BAS] Ambiente selected:', item.id, item.label);
       _selectedAmbiente = item.id;
 
@@ -4092,6 +4480,10 @@ function mountSidebarMenu(host, settings, _classified) {
 
   // Fetch user info and update sidebar menu
   fetchUserInfoForSidebar(sidebarMenu);
+
+  // Mount the shared MYIO date range picker below the user email — it drives
+  // both the water panel and the consumption chart (single source of truth).
+  mountSidebarDatePicker(sidebarMenu);
 
   // Set dashboard as active by default
   sidebarMenu.setActiveItem('dashboard');
@@ -4342,6 +4734,126 @@ var _chartDataCache = {};
  * @param {number} [options.maxAgeMs=300000] - Cache max age in ms for normal use
  * @returns {function} fetchData function that returns { labels, dailyTotals }
  */
+// ============================================================================
+// RFC-0183: Alarm prefetch + AlarmServiceOrchestrator (ported from v-5.2.0
+// MAIN_VIEW). Feeds the card alarm badges (MyIOLibrary.addAlarmBadge).
+// Requires customer SERVER_SCOPE attrs gcdrCustomerId/gcdrTenantId/gcdrApiKey
+// — when absent the orchestrator is simply not built and badges stay hidden.
+// ============================================================================
+
+async function basPrefetchCustomerAlarms(gcdrCustomerId, gcdrTenantId, gcdrApiKey, alarmsBaseUrl) {
+  try {
+    var url =
+      alarmsBaseUrl +
+      '/alarms?state=OPEN,ACK,ESCALATED,SNOOZED&customerId=' +
+      encodeURIComponent(gcdrCustomerId) +
+      '&limit=100';
+    var response = await fetch(url, {
+      headers: {
+        'X-API-Key': gcdrApiKey,
+        'X-Tenant-ID': gcdrTenantId || '',
+        Accept: 'application/json',
+      },
+    });
+    if (!response.ok) {
+      LogHelper.warn('[MAIN_BAS] Alarm prefetch failed:', response.status);
+      return;
+    }
+    var json = await response.json();
+    var alarms = Array.isArray(json.data) ? json.data : json.items || [];
+    basBuildAlarmServiceOrchestrator(alarms, gcdrCustomerId, gcdrTenantId, gcdrApiKey, alarmsBaseUrl);
+    // Cards may have rendered before the prefetch resolved — light the badges up.
+    if (window.MyIOLibrary && typeof window.MyIOLibrary.refreshAlarmBadges === 'function') {
+      window.MyIOLibrary.refreshAlarmBadges();
+    }
+  } catch (err) {
+    LogHelper.warn('[MAIN_BAS] Alarm prefetch error:', err);
+  }
+}
+
+function basBuildAlarmServiceOrchestrator(alarms, gcdrCustomerId, gcdrTenantId, gcdrApiKey, alarmsBaseUrl) {
+  // Normalize: source = deviceId (GCDR UUID) — same contract as v-5.2.0.
+  var normalizedAlarms = (alarms || []).map(function (a) {
+    return Object.assign({}, a, { source: a.source || a.deviceId || '' });
+  });
+
+  var deviceAlarmMap = new Map();
+  normalizedAlarms.forEach(function (alarm) {
+    var did = alarm.deviceId;
+    if (!did) return;
+    if (!deviceAlarmMap.has(did)) deviceAlarmMap.set(did, []);
+    deviceAlarmMap.get(did).push(alarm);
+  });
+
+  var deviceAlarmTypes = new Map();
+  deviceAlarmMap.forEach(function (devAlarms, did) {
+    deviceAlarmTypes.set(
+      did,
+      new Set(
+        devAlarms.map(function (a) {
+          return a.alarmType || a.title || 'unknown';
+        })
+      )
+    );
+  });
+
+  window.AlarmServiceOrchestrator = {
+    alarms: normalizedAlarms,
+    deviceAlarmMap: deviceAlarmMap,
+    deviceAlarmTypes: deviceAlarmTypes,
+    getAlarmCountForDevice: function (gcdrDeviceId) {
+      var list = deviceAlarmMap.get(gcdrDeviceId);
+      return list ? list.length : 0;
+    },
+    getAlarmsForDevice: function (gcdrDeviceId) {
+      return deviceAlarmMap.get(gcdrDeviceId) || [];
+    },
+    getAlarmTypesForDevice: function (gcdrDeviceId) {
+      return deviceAlarmTypes.get(gcdrDeviceId) || new Set();
+    },
+    refresh: function () {
+      return basPrefetchCustomerAlarms(gcdrCustomerId, gcdrTenantId, gcdrApiKey, alarmsBaseUrl);
+    },
+  };
+
+  LogHelper.log(
+    '[MAIN_BAS] AlarmServiceOrchestrator built —',
+    deviceAlarmMap.size,
+    'devices with alarms,',
+    normalizedAlarms.length,
+    'total alarms'
+  );
+}
+
+// RFC-0183/RFC-0198: decorate a freshly rendered device card with alarm and
+// ticket badges. Wired as CardGridPanel.onCardRendered on the Water and
+// Energy/Motors panels. No-ops gracefully on libs older than the helpers.
+function basDecorateCardWithBadges(item, cardEl) {
+  var dev = item && item.source;
+  if (!dev || !cardEl || typeof MyIOLibrary === 'undefined') return;
+  if (typeof MyIOLibrary.addAlarmBadge === 'function') {
+    MyIOLibrary.addAlarmBadge(cardEl, dev.gcdrDeviceId || null);
+  }
+  if (typeof MyIOLibrary.addTicketBadge === 'function') {
+    var identifier = (dev.rawData && dev.rawData.identifier) || null;
+    MyIOLibrary.addTicketBadge(cardEl, identifier, dev.ticketsItems || null);
+  }
+}
+
+// Bridge for the currently-published lib: the compiled widget hardcodes the
+// viz-tab tooltip as "Por Shopping", but BAS splits the separate series by
+// DEVICE. The vizModeLabels config param covers this once the lib ships it —
+// until then, relabel the tooltip via DOM after render. Harmless afterwards
+// (the guard only rewrites the stale label).
+function relabelVizTabsForBas(containerId) {
+  var host = document.getElementById(containerId);
+  if (!host) return;
+  var sep = host.querySelector('[data-viz="separate"]');
+  if (sep && sep.getAttribute('title') === 'Por Shopping') {
+    sep.setAttribute('title', 'Por Dispositivo');
+  }
+}
+
 function createRealFetchData(domain, options, explicitDateRange) {
   var opts = options || {};
   var preferCache = !!opts.preferCache;
@@ -4762,7 +5274,10 @@ function switchChartDomain(domain, chartContainer) {
       theme: (_settings && _settings.defaultThemeMode) || 'light',
       showSettingsButton: false,
       showMaximizeButton: false,
-      showVizModeTabs: false, // BAS dashboard is not a shopping mall — "Por Shopping" mode not applicable
+      // BAS splits the "separate" series by DEVICE (see fetchIngestionData:
+      // shoppingData is keyed by deviceId), so relabel the tab accordingly.
+      showVizModeTabs: true,
+      vizModeLabels: { total: 'Consolidado', separate: 'Por Dispositivo' },
       showChartTypeTabs: true,
 
       // Compact header styles for BAS panel
@@ -4787,9 +5302,14 @@ function switchChartDomain(domain, chartContainer) {
     });
 
     // Render the widget
-    _chartInstance.render().catch(function (err) {
-      LogHelper.error('[MAIN_BAS] Failed to render chart widget:', err);
-    });
+    _chartInstance
+      .render()
+      .then(function () {
+        relabelVizTabsForBas('bas-chart-widget-' + domain);
+      })
+      .catch(function (err) {
+        LogHelper.error('[MAIN_BAS] Failed to render chart widget:', err);
+      });
   } else if (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.createConsumption7DaysChart) {
     // Fallback to simple chart if widget not available
     LogHelper.warn('[MAIN_BAS] createConsumptionChartWidget not available, using fallback');
@@ -4955,6 +5475,63 @@ function applyWaterDateRange(startTs, endTs) {
 }
 
 /**
+ * Apply the shared sidebar date range to BOTH the water panel and the
+ * consumption chart. This is the single source of truth driven by the MYIO
+ * date range picker mounted in the sidebar (the per-panel "de/até" bars were
+ * removed).
+ * @param {number} startTs - UTC ms start of range
+ * @param {number} endTs   - UTC ms end of range
+ */
+function applySharedDateRange(startTs, endTs) {
+  applyChartDateRange(startTs, endTs);
+  applyWaterDateRange(startTs, endTs);
+}
+
+/**
+ * Mount the MYIO date range picker into the sidebar's header slot (below the
+ * user email). Same component used by the lamp/plug acionamentos modal.
+ * onApply drives the shared date range (water + consumption).
+ * @param {Object} sidebarMenu - the SidebarMenu instance
+ */
+async function mountSidebarDatePicker(sidebarMenu) {
+  try {
+    if (!sidebarMenu || typeof sidebarMenu.getHeaderSlot !== 'function') return;
+    if (!MyIOLibrary || typeof MyIOLibrary.createDateRangePicker !== 'function') {
+      LogHelper.warn('[MAIN_BAS] createDateRangePicker not available — skipping sidebar date picker');
+      return;
+    }
+    var slot = sidebarMenu.getHeaderSlot();
+    if (!slot) return;
+
+    // Label + input (the picker attaches to the input)
+    slot.innerHTML =
+      '<div class="bas-sidebar-daterange">' +
+      '<span class="bas-sidebar-daterange__label">Período</span>' +
+      '<input type="text" class="bas-sidebar-daterange__input" readonly placeholder="Selecione o período" />' +
+      '</div>';
+    var input = slot.querySelector('.bas-sidebar-daterange__input');
+    if (!input) return;
+
+    _sharedDatePicker = await MyIOLibrary.createDateRangePicker(input, {
+      presetStart: new Date(_defaultDateRange.startTs).toISOString(),
+      presetEnd: new Date(_defaultDateRange.endTs).toISOString(),
+      maxRangeDays: 31,
+      locale: 'pt-BR',
+      parentEl: document.body,
+      onApply: function (result) {
+        if (!result || !result.startISO || !result.endISO) return;
+        var startTs = new Date(result.startISO).getTime();
+        var endTs = new Date(result.endISO).getTime();
+        LogHelper.log('[MAIN_BAS] sidebar date range applied:', result.startLabel, '→', result.endLabel);
+        applySharedDateRange(startTs, endTs);
+      },
+    });
+  } catch (err) {
+    LogHelper.warn('[MAIN_BAS] mountSidebarDatePicker failed:', err && err.message);
+  }
+}
+
+/**
  * Mount chart panel using CardGridPanel with tabs feature
  * RFC-0174: Uses standardized CardGridPanel tabs for consistency
  */
@@ -4986,6 +5563,7 @@ function mountChartPanel(hostEl, settings) {
   var panelWrapper = document.createElement('div');
   panelWrapper.className = 'myio-cgp bas-chart-panel';
   panelWrapper.style.background = '#faf8f1';
+  panelWrapper.style.overflow = 'hidden'; // garante clipping quando height:300px no mobile
 
   // Use HeaderPanelComponent for consistent header
   if (MyIOLibrary.HeaderPanelComponent) {
@@ -5005,8 +5583,26 @@ function mountChartPanel(hostEl, settings) {
         showMaximizedPanel(panelWrapper, 'Consumo', { isChart: true, chartDomain: _currentChartDomain });
       },
     });
-    panelWrapper.appendChild(headerComponent.getElement());
+    var chartHeaderEl = headerComponent.getElement();
+    // cursor:pointer explícito: iOS Safari não dispara click em divs sem isso
+    chartHeaderEl.style.cursor = 'pointer';
+    panelWrapper.appendChild(chartHeaderEl);
+
+    // Accordion collapse — listener no panelWrapper (não no chartHeaderEl) para
+    // garantir que o iOS propague o click corretamente a partir do elemento raiz.
+    panelWrapper.addEventListener('click', function (e) {
+      if (!panelWrapper.classList.contains('myio-cgp--collapsible')) return;
+      // Só ativa se o click foi DENTRO do header (não nos tabs ou no chartCard)
+      if (!chartHeaderEl.contains(e.target)) return;
+      // Ignora clicks em botões interativos (filtro, maximizar)
+      if (e.target.closest && e.target.closest('button, a, input, select, [role="button"]')) return;
+      var isCollapsed = panelWrapper.classList.toggle('myio-cgp--collapsed');
+      chartCard.style.display = isCollapsed ? 'none' : '';
+      tabsWrapper.style.display = isCollapsed ? 'none' : '';
+      panelWrapper.style.height = isCollapsed ? 'auto' : '500px';
+    });
   }
+  _chartPanelWrapper = panelWrapper;
 
   // Add tabs wrapper using CardGridPanel tab styles
   var tabsWrapper = document.createElement('div');
@@ -5061,10 +5657,8 @@ function mountChartPanel(hostEl, settings) {
   }
   tabsWrapper.appendChild(rightBtn);
 
-  // RFC-0152: Date range picker — right-aligned in the tabs row (dark theme, on green header)
-  var _chartToday = new Date();
-  var _chartStart = new Date(_chartToday); _chartStart.setDate(_chartStart.getDate() - 6);
-  _chartDatePicker = buildDateRangePickerBar(tabsWrapper, _chartStart, _chartToday, applyChartDateRange, 'dark');
+  // Date range now comes from the shared sidebar MYIO date range picker
+  // (the per-panel "de/até" bar was removed).
 
   // Scroll button handlers
   if (chartTabs.length >= 3) {
@@ -5262,6 +5856,21 @@ async function initializeDashboard(
       motorsHost.style.display = 'none';
     }
 
+    // RFC-0115: Comparison footer — binds to MyIOSelectionStore so selecting/
+    // dragging Water & Energy cards shows the comparison dock at the bottom.
+    var footerHost = null;
+    try {
+      footerHost = ctx.$container && ctx.$container[0]
+        ? ctx.$container[0].querySelector('#bas-footer-host')
+        : null;
+    } catch (e) {
+      footerHost = null;
+    }
+    if (footerHost && !_footerComponent) {
+      _footerComponent = mountFooter(footerHost, settings);
+      LogHelper.log('[MAIN_BAS] Footer mounted:', !!_footerComponent);
+    }
+
     var waterDevices = getWaterDevicesFromClassified(_currentClassified);
     var hvacDevices = getHVACDevicesFromClassified(_currentClassified);
     var energyDevices = getEnergyEquipmentDevicesFromClassified(_currentClassified);
@@ -5398,6 +6007,26 @@ self.onInit = async function () {
           hasClientSecret: !!MAP_CUSTOMER_CREDENTIALS.customer_Ingestion_Secret,
         });
         LogHelper.log('[MAIN_BAS] Customer telemetry settings loaded:', CUSTOMER_TELEMETRY_SETTINGS);
+
+        // RFC-0183: build the alarm orchestrator for card badges. Fire and
+        // forget — basPrefetchCustomerAlarms refreshes badges when it lands.
+        var gcdrCustomerId = attrs?.gcdrCustomerId || '';
+        var gcdrTenantId = attrs?.gcdrTenantId || '';
+        var gcdrApiKey = attrs?.gcdrApiKey || '';
+        if (gcdrCustomerId && gcdrApiKey) {
+          var alarmsBaseUrl =
+            self.ctx.settings?.alarmsApiBaseUrl || 'https://alarms-api.a.myio-bas.com';
+          basPrefetchCustomerAlarms(gcdrCustomerId, gcdrTenantId, gcdrApiKey, alarmsBaseUrl);
+        } else {
+          LogHelper.warn(
+            '[MAIN_BAS] RFC-0183: gcdrCustomerId/gcdrApiKey ausentes nos attrs do customer — alarm badges desativados'
+          );
+        }
+
+        // RFC-0198: tickets gate for the card ticket badges (count comes from
+        // the per-device tickets_items SERVER_SCOPE attr — no orchestrator in BAS yet)
+        window.MyIOUtils = window.MyIOUtils || {};
+        window.MyIOUtils.ticketsEnabled = self.ctx.settings?.enableTicketsBadge === true;
       } catch (error) {
         LogHelper.error('[MAIN_BAS] Error fetching customer attributes:', error);
       }
@@ -5469,7 +6098,87 @@ self.onInit = async function () {
     motorsHost,
     _settings
   );
+
+  // Responsividade por LARGURA REAL do widget (ThingsBoard não suporta
+  // @container e a @media do viewport é não-confiável no TB). Mede o widget
+  // e seta .bas-w-tablet / .bas-w-mobile no root; o CSS reage só por classe.
+  setupResponsiveWidthClasses(root);
 };
+
+/**
+ * Measures the widget's real width (immune to TB viewport quirks) and toggles
+ * width classes on the root: .bas-w-mobile (<=620), .bas-w-tablet (621-960),
+ * .bas-w-desktop (>960). Re-evaluates on resize via ResizeObserver.
+ */
+function setupResponsiveWidthClasses(root) {
+  if (!root) return;
+
+  var prevMobile = null;
+
+  // Orquestra a responsividade dos COMPONENTES via API pública (sem sobrescrever
+  // o estilo deles): no mobile, recolhe o menu (barra de ícones) e habilita o
+  // accordion dos painéis; fora do mobile, expande o menu e desabilita o accordion.
+  function applyComponentResponsiveness(isMobile) {
+    if (isMobile === prevMobile) return;
+    prevMobile = isMobile;
+
+    if (_sidebarMenu) {
+      try {
+        // Strong component: it renders a hamburger top bar + off-canvas drawer
+        // (with footer/logout) on mobile, and restores the full sidebar on desktop.
+        if (typeof _sidebarMenu.setMobileMode === 'function') {
+          _sidebarMenu.setMobileMode(isMobile);
+        } else if (isMobile && typeof _sidebarMenu.collapse === 'function') {
+          _sidebarMenu.collapse();
+        } else if (!isMobile && typeof _sidebarMenu.expand === 'function') {
+          _sidebarMenu.expand();
+        }
+      } catch {
+        /* noop */
+      }
+    }
+
+    [_waterPanel, _ambientesPanel, _motorsPanel].forEach(function (p) {
+      if (p && typeof p.setCollapsible === 'function') p.setCollapsible(isMobile);
+    });
+    // CONSUMO: inline style controla height e collapse — bypassa prefixo TB no CSS.
+    if (_chartPanelWrapper) {
+      _chartPanelWrapper.classList.toggle('myio-cgp--collapsible', isMobile);
+      if (isMobile) {
+        // Altura fixa: resolve fullHeight:true do chart widget sem container definido
+        _chartPanelWrapper.style.height = '500px';
+      } else {
+        _chartPanelWrapper.classList.remove('myio-cgp--collapsed');
+        _chartPanelWrapper.style.height = '';
+        var _cc = _chartPanelWrapper.querySelector('.myio-cgp__content');
+        var _tw = _chartPanelWrapper.querySelector('.myio-cgp__tabs-wrapper');
+        if (_cc) _cc.style.display = '';
+        if (_tw) _tw.style.display = '';
+      }
+    }
+  }
+
+  function apply() {
+    var w = root.getBoundingClientRect ? root.getBoundingClientRect().width : root.offsetWidth;
+    if (!w) return;
+    var isMobile = w <= 620;
+    var isTablet = !isMobile && w <= 960;
+    root.classList.toggle('bas-w-mobile', isMobile);
+    root.classList.toggle('bas-w-tablet', isTablet);
+    root.classList.toggle('bas-w-desktop', !isMobile && !isTablet);
+    applyComponentResponsiveness(isMobile);
+    LogHelper.log('[MAIN_BAS] width class:', Math.round(w) + 'px ->', isMobile ? 'mobile' : isTablet ? 'tablet' : 'desktop');
+  }
+
+  apply();
+
+  if (typeof ResizeObserver !== 'undefined') {
+    var ro = new ResizeObserver(function () { apply(); });
+    ro.observe(root);
+  } else {
+    window.addEventListener('resize', apply);
+  }
+}
 
 self.onDataUpdated = function () {
   if (!_ctx) return;
@@ -5583,18 +6292,25 @@ self.onDestroy = function () {
   if (_motorsPanel && _motorsPanel.destroy) {
     _motorsPanel.destroy();
   }
+  // RFC-0115: Clean up comparison footer
+  if (_footerComponent && _footerComponent.destroy) {
+    try { _footerComponent.destroy(); } catch { /* noop */ }
+  }
   // RFC-0173: Clean up sidebar menu
   if (_sidebarMenu && _sidebarMenu.destroy) {
     _sidebarMenu.destroy();
   }
-  if (_chartDatePicker) { _chartDatePicker.destroy(); _chartDatePicker = null; }
-  if (_waterDatePicker) { _waterDatePicker.destroy(); _waterDatePicker = null; }
+  if (_sharedDatePicker) {
+    try { _sharedDatePicker.destroy(); } catch { /* noop */ }
+    _sharedDatePicker = null;
+  }
   _chartInstance = null;
   _currentChartDomain = 'energy';
   _ambientesListPanel = null;
   _waterPanel = null;
   _ambientesPanel = null;
   _motorsPanel = null;
+  _footerComponent = null;
   _sidebarMenu = null;
   _selectedAmbiente = null;
   _ctx = null;

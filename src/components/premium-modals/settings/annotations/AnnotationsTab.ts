@@ -3907,6 +3907,16 @@ export class AnnotationsTab {
       }
 
       this.onAnnotationChange?.(this.annotations);
+
+      // RFC-0203 / AC-52: notify global listeners (HeaderAnnotationsPanel,
+      // AnnotationServiceOrchestrator) that this device's annotations changed.
+      // Local callback above is preserved; this event is the cross-component bus.
+      window.dispatchEvent(
+        new CustomEvent('myio:annotation-changed', {
+          detail: { deviceId: this.deviceId, action: 'save', timestamp: Date.now() },
+        })
+      );
+
       return true;
     } catch (error) {
       console.error('[AnnotationsTab] Error saving annotations:', error);

@@ -95,6 +95,34 @@ export {
   calculateDeviceStatusMasterRules, // RFC-0110: Simplified status calculation with master rules
 } from './utils/deviceStatus.js';
 
+// Device Icons utilities (RFC-0200)
+export {
+  DeviceIconType,
+  deviceIcons,
+  deviceIconLabels,
+  DEFAULT_DEVICE_ICON,
+  getDeviceIcon,
+  isDeviceIconType,
+} from './utils/deviceIcons';
+
+// Device Type Config — single source of truth (RFC-0202)
+export {
+  DEVICE_TYPE_CONFIG,
+  DEFAULT_DEVICE_IMAGE,
+  getDeviceCategory,
+  getStaticDeviceImage,
+  getTypesByCategory,
+} from './utils/deviceTypeConfig';
+export type { DeviceTypeCategory, DeviceTypeConfigEntry } from './utils/deviceTypeConfig';
+
+// Device naming utilities
+export {
+  generateMercosulPlate,
+  DEVICE_TYPE_PREFIX_MAP,
+  DEFAULT_DEVICE_TYPE_PREFIX,
+  getDeviceTypePrefix,
+} from './utils/device';
+
 // RFC-0109: Device Item Factory utilities
 export {
   DomainType,
@@ -266,7 +294,10 @@ export type { EntityListItem, EntityListPanelOptions } from './components/entity
 
 // CardGridPanel — Reusable card grid panel component
 export { CardGridPanel } from './components/card-grid-panel/index';
-export type { CardGridItem, CardGridCustomStyle, CardGridPanelOptions } from './components/card-grid-panel/index';
+export type { CardGridItem, CardGridCustomStyle, CardGridPanelOptions, TabItem } from './components/card-grid-panel/index';
+// CardGridTabsBuilder — Builder pattern for data-driven CardGridPanel tabs
+export { CardGridTabsBuilder } from './components/card-grid-panel/index';
+export type { TabSpec } from './components/card-grid-panel/index';
 
 // MYIO Components - Drag-to-Footer Dock Implementation
 export { MyIOSelectionStore, MyIOSelectionStoreClass } from './components/SelectionStore.js';
@@ -488,6 +519,8 @@ export type {
 export { EnergySummaryTooltip } from './utils/EnergySummaryTooltip';
 export { WaterSummaryTooltip } from './utils/WaterSummaryTooltip';
 export { InfoTooltip } from './utils/InfoTooltip';
+export { ColumnSummaryTooltip } from './utils/ColumnSummaryTooltip';
+export { resolvePercentDecimals } from './utils/percentDecimals';
 export type {
   DashboardEnergySummary,
   CategorySummary,
@@ -495,6 +528,7 @@ export type {
   DeviceInfo,
 } from './utils/EnergySummaryTooltip';
 export type { DashboardWaterSummary, WaterCategorySummary } from './utils/WaterSummaryTooltip';
+export type { ColumnSummaryData, ColumnSummaryDevice } from './utils/ColumnSummaryTooltip';
 
 // RFC-0110: Device Comparison Tooltip (Premium device comparison on percentage hover)
 export { DeviceComparisonTooltip } from './utils/DeviceComparisonTooltip';
@@ -725,6 +759,25 @@ export type { InferredDeviceType } from './classify/deviceType';
 
 // RFC-0109: Upsell Post-Setup Modal
 export { openUpsellModal } from './components/premium-modals/upsell';
+
+// RFC-0183/RFC-0198: shared card alarm/ticket badge decoration helpers
+export {
+  addAlarmBadge,
+  refreshAlarmBadges,
+  addTicketBadge,
+  refreshTicketBadges,
+} from './components/card-badges';
+export type { AlarmBadgeOptions, TicketBadgeOptions } from './components/card-badges';
+
+// RFC-0205: Premium Dialog — exported confirm/message modal
+export { openConfirmDialog, openMessageDialog } from './components/premium-modals/dialog';
+export type {
+  ConfirmDialogParams,
+  MessageDialogParams,
+  MessageDialogSeverity,
+  DialogButton,
+  DialogButtonVariant,
+} from './components/premium-modals/dialog';
 
 // RFC-0190: User Management Modal
 export { openUserManagementModal } from './components/premium-modals/user-management';
@@ -1554,6 +1607,16 @@ export {
   DEFAULT_MODAL_STATE as ON_OFF_DEFAULT_MODAL_STATE,
   ON_OFF_MODAL_CSS_PREFIX,
   injectOnOffDeviceModalStyles,
+  // Freshness rule (RFC-0167) — 12h status/connection telemetry window
+  STATUS_FRESHNESS_MAX_HOURS,
+  STATUS_FRESHNESS_MAX_MS,
+  evaluateDeviceStatus,
+  normalizeOnOff as normalizeOnOffStatus,
+  formatStatusTimestamp,
+} from './components/premium-modals/on-off-device';
+export type {
+  DeviceStatusInput,
+  DeviceStatusResult,
 } from './components/premium-modals/on-off-device';
 
 // RFC-0167: On/Off Timeline Chart (for On/Off Device Modal)
@@ -1749,4 +1812,78 @@ export {
   writeFreshdeskSyncedAtToTB,
   toSummary as toFreshdeskTicketSummary,
 } from './components/premium-modals/settings/tickets/TbTicketSync';
+
+// RFC-0203 M2 — AnnotationServiceOrchestrator (cross-domain annotations)
+export { buildAnnotationServiceOrchestrator } from './services/annotations/AnnotationServiceOrchestrator';
+export { CustomerDeviceService } from './services/annotations/CustomerDeviceService';
+export { parseLogAnnotations } from './services/annotations/parseLogAnnotations';
+export type {
+  AnnotatedDevice,
+  AnnotationDeviceDomain,
+  AnnotationFilter,
+  AnnotationGroup,
+  AnnotationGroupBy,
+  AnnotationServiceOrchestratorShape,
+  BuildAnnotationServiceOrchestratorParams,
+} from './services/annotations/types';
+
+// RFC-0203 M4 — HeaderAnnotationsPanel (3 tabs, static render)
+export {
+  HeaderAnnotationsPanel,
+  getHeaderAnnotationsPanel,
+  injectStylesOnce as injectHeaderAnnotationsStyles,
+} from './components/header-annotations-panel/HeaderAnnotationsPanel';
+export type {
+  HeaderAnnotationsPanelOptions,
+} from './components/header-annotations-panel/HeaderAnnotationsPanel';
+export {
+  renderAnnotationItemCard,
+  escapeHtml as escapeAnnotationHtml,
+  truncate as truncateAnnotationText,
+  formatRelative as formatAnnotationRelativeTime,
+  isOverdue as isAnnotationOverdue,
+} from './components/header-annotations-panel/AnnotationItemCard';
+export {
+  nfdNormalize as nfdNormalizeAnnotationSearch,
+  highlightMatches as highlightAnnotationMatches,
+  sortGroups as sortAnnotationGroups,
+  createDefaultFilter as createDefaultAnnotationFilter,
+  SORT_OPTIONS as ANNOTATION_SORT_OPTIONS,
+  DEFAULT_SORT as DEFAULT_ANNOTATION_SORT,
+} from './components/header-annotations-panel/searchSortFilter';
+export type {
+  AnnotationSortKey,
+} from './services/annotations/types';
+// RFC-0203 M6 — VirtualList helper (used by HeaderAnnotationsPanel when items > 100)
+export {
+  VirtualList,
+  shouldVirtualize as shouldVirtualizeAnnotationList,
+  VIRTUAL_SCROLL_THRESHOLD as ANNOTATION_VIRTUAL_THRESHOLD,
+} from './components/header-annotations-panel/VirtualList';
+export type {
+  VirtualRow,
+  VirtualListOptions,
+} from './components/header-annotations-panel/VirtualList';
+// RFC-0203 M7 — Export helpers (PDF + CSV) and the export modal
+export {
+  exportAnnotationsCsv,
+  buildAnnotationsCsv,
+  buildExportFilename as buildAnnotationsExportFilename,
+  csvEscape as csvEscapeAnnotation,
+  downloadTextFile as downloadAnnotationsTextFile,
+  CSV_COLUMNS as ANNOTATION_CSV_COLUMNS,
+} from './components/header-annotations-panel/ExportCSV';
+export type { CsvColumn as AnnotationCsvColumn } from './components/header-annotations-panel/ExportCSV';
+export {
+  exportAnnotationsPdf,
+} from './components/header-annotations-panel/ExportPDF';
+export type {
+  PdfLevel as AnnotationPdfLevel,
+  ExportPdfOptions as AnnotationExportPdfOptions,
+} from './components/header-annotations-panel/ExportPDF';
+export {
+  openExportModal as openAnnotationsExportModal,
+  closeExportModal as closeAnnotationsExportModal,
+} from './components/header-annotations-panel/ExportModal';
+export type { OpenExportModalOptions as OpenAnnotationsExportModalOptions } from './components/header-annotations-panel/ExportModal';
 

@@ -37,6 +37,12 @@ import { EnergyRangeTooltip } from '../../utils/EnergyRangeTooltip';
 import { DeviceComparisonTooltip } from '../../utils/DeviceComparisonTooltip';
 import { TempComparisonTooltip } from '../../utils/TempComparisonTooltip';
 import { InfoTooltip } from '../../utils/InfoTooltip';
+import {
+  DEVICE_TYPE_CONFIG,
+  getDeviceCategory,
+  getStaticDeviceImage,
+  getTypesByCategory,
+} from '../../utils/deviceTypeConfig';
 
 // ============================================
 // CONSTANTS
@@ -45,122 +51,17 @@ import { InfoTooltip } from '../../utils/InfoTooltip';
 /** Maximum characters for device label display before truncation */
 const LABEL_CHAR_LIMIT = 18;
 
-/**
- * Centralized device type configuration
- * category: 'energy' | 'water' | 'tank' | 'temperature'
- * image: URL or null (for dynamic images like TANK/TERMOSTATO)
- */
-const DEVICE_TYPE_CONFIG = {
-  // Energy devices
-  COMPRESSOR: { category: 'energy', image: null },
-  VENTILADOR: { category: 'energy', image: null },
-  ESCADA_ROLANTE: {
-    category: 'energy',
-    image: 'https://dashboard.myio-bas.com/api/images/public/EJ997iB2HD1AYYUHwIloyQOOszeqb2jp',
-  },
-  ELEVADOR: {
-    category: 'energy',
-    image: 'https://dashboard.myio-bas.com/api/images/public/rAjOvdsYJLGah6w6BABPJSD9znIyrkJX',
-  },
-  MOTOR: {
-    category: 'energy',
-    image: 'https://dashboard.myio-bas.com/api/images/public/Rge8Q3t0CP5PW8XyTn9bBK9aVP6uzSTT',
-  },
-  BOMBA_HIDRAULICA: {
-    category: 'energy',
-    image: 'https://dashboard.myio-bas.com/api/images/public/rbO2wQb6iKBtX0Ec04DFDcO3Qg04EOoD',
-  },
-  BOMBA_CAG: {
-    category: 'energy',
-    image: 'https://dashboard.myio-bas.com/api/images/public/rbO2wQb6iKBtX0Ec04DFDcO3Qg04EOoD',
-  },
-  BOMBA_INCENDIO: {
-    category: 'energy',
-    image: 'https://dashboard.myio-bas.com/api/images/public/YJkELCk9kluQSM6QXaFINX6byQWI7vbB',
-  },
-  BOMBA: {
-    category: 'energy',
-    image: 'https://dashboard.myio-bas.com/api/images/public/Rge8Q3t0CP5PW8XyTn9bBK9aVP6uzSTT',
-  },
-  '3F_MEDIDOR': {
-    category: 'energy',
-    image: 'https://dashboard.myio-bas.com/api/images/public/f9Ce4meybsdaAhAkUlAfy5ei3I4kcN4k',
-  },
-  RELOGIO: {
-    category: 'energy',
-    image: 'https://dashboard.myio-bas.com/api/images/public/ljHZostWg0G5AfKiyM8oZixWRIIGRASB',
-  },
-  ENTRADA: {
-    category: 'energy',
-    image: 'https://dashboard.myio-bas.com/api/images/public/TQHPFqiejMW6lOSVsb8Pi85WtC0QKOLU',
-  },
-  SUBESTACAO: {
-    category: 'energy',
-    image: 'https://dashboard.myio-bas.com/api/images/public/TQHPFqiejMW6lOSVsb8Pi85WtC0QKOLU',
-  },
-  FANCOIL: {
-    category: 'energy',
-    image: 'https://dashboard.myio-bas.com/api/images/public/4BWMuVIFHnsfqatiV86DmTrOB7IF0X8Y',
-  },
-  CHILLER: {
-    category: 'energy',
-    image: 'https://dashboard.myio-bas.com/api/images/public/27Rvy9HbNoPz8KKWPa0SBDwu4kQ827VU',
-  },
-  AR_CONDICIONADO: { category: 'energy', image: null },
-  HVAC: { category: 'energy', image: null },
+// ============================================
+// DEVICE TYPE CONFIG (RFC-0202)
+// Single source of truth: src/utils/deviceTypeConfig.ts
+// DEVICE_TYPE_CONFIG / getDeviceCategory / getStaticDeviceImage imported above.
+// ============================================
 
-  // Water devices
-  HIDROMETRO: {
-    category: 'water',
-    image: 'https://dashboard.myio-bas.com/api/images/public/aMQYFJbGHs9gQbQkMn6XseAlUZHanBR4',
-  },
-  HIDROMETRO_AREA_COMUM: {
-    category: 'water',
-    image: 'https://dashboard.myio-bas.com/api/images/public/IbEhjsvixAxwKg1ntGGZc5xZwwvGKv2t',
-  },
-  HIDROMETRO_SHOPPING: {
-    category: 'water',
-    image: 'https://dashboard.myio-bas.com/api/images/public/OIMmvN4ZTKYDvrpPGYY5agqMRoSaWNTI',
-  },
-  CAIXA_DAGUA: {
-    category: 'water',
-    image: 'https://dashboard.myio-bas.com/api/images/public/3t6WVhMQJFsrKA8bSZmrngDsNPkZV7fq',
-  },
-
-  // Tank devices (dynamic images based on level)
-  TANK: { category: 'tank', image: null },
-
-  // Temperature devices (dynamic images based on status)
-  TERMOSTATO: { category: 'temperature', image: null },
-
-  // Solenoid devices (dynamic images based on on/off state)
-  SOLENOIDE: { category: 'solenoid', image: null },
-};
-
-// Pre-computed sets for fast lookup
-const ENERGY_DEVICE_TYPES = new Set(
-  Object.entries(DEVICE_TYPE_CONFIG)
-    .filter(([_, cfg]) => cfg.category === 'energy')
-    .map(([type]) => type)
-);
-
-const WATER_DEVICE_TYPES = new Set(
-  Object.entries(DEVICE_TYPE_CONFIG)
-    .filter(([_, cfg]) => cfg.category === 'water')
-    .map(([type]) => type)
-);
-
-const TEMPERATURE_DEVICE_TYPES = new Set(
-  Object.entries(DEVICE_TYPE_CONFIG)
-    .filter(([_, cfg]) => cfg.category === 'temperature')
-    .map(([type]) => type)
-);
-
-const SOLENOID_DEVICE_TYPES = new Set(
-  Object.entries(DEVICE_TYPE_CONFIG)
-    .filter(([_, cfg]) => cfg.category === 'solenoid')
-    .map(([type]) => type)
-);
+// Pre-computed sets for fast lookup, derived from the shared config
+const ENERGY_DEVICE_TYPES = getTypesByCategory('energy');
+const WATER_DEVICE_TYPES = getTypesByCategory('water');
+const TEMPERATURE_DEVICE_TYPES = getTypesByCategory('temperature');
+const SOLENOID_DEVICE_TYPES = getTypesByCategory('solenoid');
 
 /** SOLENOIDE image URLs by status */
 const SOLENOID_IMAGES = {
@@ -168,8 +69,6 @@ const SOLENOID_IMAGES = {
   off: 'https://dashboard.myio-bas.com/api/images/public/dzVDTk3IxrOYkJ1sH92nXQFBaW53kVgs',
   offline: 'https://dashboard.myio-bas.com/api/images/public/gkSGqEFP4rgApNArjEoctM0BoLZMiKz6',
 };
-
-const DEFAULT_DEVICE_IMAGE = 'https://cdn-icons-png.flaticon.com/512/1178/1178428.png';
 
 // ============================================
 // ANNOTATION BADGES (RFC-0105)
@@ -420,35 +319,20 @@ function addAnnotationIndicatorToCard(cardElement, entityObject, labelOrName) {
   return container;
 }
 
-// Helper functions derived from config
-const getDeviceCategory = (deviceType) => {
-  const normalizedType = String(deviceType || '').toUpperCase();
-  return DEVICE_TYPE_CONFIG[normalizedType]?.category || 'energy';
-};
+// Helper predicates derived from the shared config (RFC-0202)
+// getDeviceCategory / getStaticDeviceImage are imported from deviceTypeConfig.
+const isEnergyDeviceType = (deviceType) =>
+  ENERGY_DEVICE_TYPES.has(String(deviceType || '').toUpperCase());
 
-const isEnergyDeviceType = (deviceType) => {
-  const normalizedType = String(deviceType || '').toUpperCase();
-  return ENERGY_DEVICE_TYPES.has(normalizedType);
-};
+const isWaterDeviceType = (deviceType) =>
+  WATER_DEVICE_TYPES.has(String(deviceType || '').toUpperCase());
 
-const isWaterDeviceType = (deviceType) => {
-  const normalizedType = String(deviceType || '').toUpperCase();
-  return WATER_DEVICE_TYPES.has(normalizedType);
-};
-
-const isTemperatureDeviceType = (deviceType) => {
-  const normalizedType = String(deviceType || '').toUpperCase();
-  return TEMPERATURE_DEVICE_TYPES.has(normalizedType);
-};
+const isTemperatureDeviceType = (deviceType) =>
+  TEMPERATURE_DEVICE_TYPES.has(String(deviceType || '').toUpperCase());
 
 const isSolenoidDeviceType = (deviceType) => {
   const normalizedType = String(deviceType || '').toUpperCase();
   return SOLENOID_DEVICE_TYPES.has(normalizedType) || normalizedType.includes('SOLENOIDE');
-};
-
-const getStaticDeviceImage = (deviceType) => {
-  const normalizedType = String(deviceType || '').toUpperCase();
-  return DEVICE_TYPE_CONFIG[normalizedType]?.image || DEFAULT_DEVICE_IMAGE;
 };
 
 /**
@@ -690,12 +574,154 @@ function applyCustomStyle(container, customStyle) {
   }
 }
 
+// ============================================
+// ACTION SELECTOR STEP
+// Opt-in single piano-key that opens a selection modal to pick
+// Gráfico / Configurações / Relatório.
+// Inspired by MENU/controller.js showSettingsModal (.myio-conf-picker).
+// ============================================
+
+const CARD_ACTION_SELECTOR_STYLES_ID = 'myio-card-action-selector-styles';
+
+/** Inject the action-selector modal styles once. */
+function injectCardActionSelectorStyles() {
+  if (document.getElementById(CARD_ACTION_SELECTOR_STYLES_ID)) return;
+
+  const style = document.createElement('style');
+  style.id = CARD_ACTION_SELECTOR_STYLES_ID;
+  style.textContent = `
+    .myio-card-action-picker {
+      position: fixed; inset: 0; z-index: 100001;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; transition: opacity .2s ease; pointer-events: none;
+    }
+    .myio-card-action-picker.show { opacity: 1; pointer-events: auto; }
+    .myio-card-action-picker__overlay {
+      position: absolute; inset: 0; background: rgba(0,0,0,.5);
+      backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+    }
+    .myio-card-action-picker__content {
+      position: relative; width: 90%; max-width: 380px;
+      background: #fff; border-radius: 16px; overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0,0,0,.3);
+      font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      transform: translateY(16px) scale(.98); transition: transform .2s ease;
+    }
+    .myio-card-action-picker.show .myio-card-action-picker__content { transform: translateY(0) scale(1); }
+    .myio-card-action-picker__header {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      padding: 14px 16px;
+      background: linear-gradient(135deg, #3E1A7D 0%, #2D1359 100%); color: #fff;
+    }
+    .myio-card-action-picker__title {
+      font-size: 15px; font-weight: 700; margin: 0; flex: 1;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .myio-card-action-picker__close {
+      width: 28px; height: 28px; border: none; border-radius: 6px; flex-shrink: 0;
+      background: rgba(255,255,255,.15); color: #fff; font-size: 18px; cursor: pointer; line-height: 1;
+    }
+    .myio-card-action-picker__close:hover { background: rgba(255,255,255,.3); }
+    .myio-card-action-picker__body { padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+    .myio-card-action-option {
+      display: flex; align-items: center; gap: 12px; width: 100%;
+      padding: 12px 14px; border: 1px solid #E5E7EB; border-radius: 10px;
+      background: #fff; cursor: pointer; text-align: left; transition: all .15s ease;
+    }
+    .myio-card-action-option:hover { background: #F5F3FF; border-color: #7C3AED; transform: translateY(-1px); }
+    .myio-card-action-option__icon { font-size: 22px; flex-shrink: 0; }
+    .myio-card-action-option__text { display: flex; flex-direction: column; }
+    .myio-card-action-option__title { font-size: 14px; font-weight: 600; color: #1F2937; }
+    .myio-card-action-option__desc { font-size: 12px; color: #6B7280; line-height: 1.3; }
+  `;
+  document.head.appendChild(style);
+}
+
+/**
+ * Open the card action-selector modal ("step").
+ * Renders one option per entry; on pick, closes then runs option.onSelect.
+ *
+ * @param {Object} cfg
+ * @param {string} cfg.title - Modal title (e.g. the device label)
+ * @param {Array<{id:string,icon:string,title:string,desc:string,onSelect:Function}>} cfg.options
+ */
+function openCardActionSelector({ title, options }) {
+  injectCardActionSelectorStyles();
+
+  // Only one picker at a time
+  const existing = document.getElementById('myio-card-action-picker');
+  if (existing) existing.remove();
+
+  const safeTitle = String(title || 'Ações');
+  const modal = document.createElement('div');
+  modal.id = 'myio-card-action-picker';
+  modal.className = 'myio-card-action-picker';
+  modal.innerHTML = `
+    <div class="myio-card-action-picker__overlay"></div>
+    <div class="myio-card-action-picker__content" role="dialog" aria-modal="true" aria-label="${safeTitle}">
+      <div class="myio-card-action-picker__header">
+        <span class="myio-card-action-picker__title">${safeTitle}</span>
+        <button class="myio-card-action-picker__close" aria-label="Fechar">&times;</button>
+      </div>
+      <div class="myio-card-action-picker__body">
+        ${options
+          .map(
+            (opt) => `
+          <button class="myio-card-action-option" data-action-id="${opt.id}">
+            <span class="myio-card-action-option__icon">${opt.icon}</span>
+            <span class="myio-card-action-option__text">
+              <span class="myio-card-action-option__title">${opt.title}</span>
+              <span class="myio-card-action-option__desc">${opt.desc}</span>
+            </span>
+          </button>`
+          )
+          .join('')}
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  requestAnimationFrame(() => modal.classList.add('show'));
+
+  const escHandler = (e) => {
+    if (e.key === 'Escape') closeModal();
+  };
+  function closeModal() {
+    modal.classList.remove('show');
+    document.removeEventListener('keydown', escHandler);
+    setTimeout(() => modal.remove(), 200);
+  }
+
+  modal.querySelector('.myio-card-action-picker__overlay').addEventListener('click', closeModal);
+  modal.querySelector('.myio-card-action-picker__close').addEventListener('click', closeModal);
+  document.addEventListener('keydown', escHandler);
+
+  modal.querySelectorAll('.myio-card-action-option').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.actionId;
+      const opt = options.find((o) => o.id === id);
+      closeModal();
+      // Let the close animation finish before opening the next view
+      setTimeout(() => {
+        if (opt && typeof opt.onSelect === 'function') opt.onSelect();
+      }, 220);
+    });
+  });
+}
+
 /**
  * Renders a card component (v6) with optional customStyle overrides.
  * This is a standalone version that does not depend on v5.
  *
  * @param {Object} options - All card options
  * @param {CustomStyle} [options.customStyle] - Per-card style overrides
+ * @param {boolean} [options.enableActionSelector] - When true, replaces the
+ *   3 piano-key buttons with a single button that opens a selection modal
+ *   (Gráfico / Configurações / Relatório). Options shown depend on which
+ *   handleAction* handlers are provided.
+ * @param {boolean} [options.actionSelectorOnCardClick] - Requires
+ *   enableActionSelector. When true, the ⋮ button is not rendered and the
+ *   selection modal opens on the card body click instead (handleClickCard is
+ *   then ignored — the modal is the single entry point for actions).
  * @returns {Object} jQuery-like object
  */
 export function renderCardComponentV6({
@@ -714,6 +740,8 @@ export function renderCardComponentV6({
   showTempComparisonTooltip = false,
   showTempRangeTooltip = false,
   customStyle, // V6: Per-card style overrides
+  enableActionSelector = false, // V6: "step" — single button opens action selection modal
+  actionSelectorOnCardClick = false, // V6: card click opens the selector (suppresses the ⋮ button)
 }) {
   const {
     entityId,
@@ -1670,8 +1698,70 @@ export function renderCardComponentV6({
   const actionsContainer = document.createElement('div');
   actionsContainer.className = 'card-actions';
 
-  // Add action buttons
-  if (typeof handleActionDashboard === 'function') {
+  // Shared settings opts (used by both the direct button and the selector step)
+  const buildSettingsOpts = () => ({
+    includeInfo: true,
+    connectionData: {
+      centralName,
+      connectionStatusTime,
+      timeVal,
+      deviceStatus,
+      lastDisconnectTime,
+    },
+  });
+
+  // Built in "step" mode; also consumed by the card click handler when
+  // actionSelectorOnCardClick is enabled.
+  const selectorOptions = [];
+
+  if (enableActionSelector) {
+    // ---- "Step" mode: one button opens a selection modal ----
+    if (typeof handleActionDashboard === 'function') {
+      selectorOptions.push({
+        id: 'dashboard',
+        icon: '📊',
+        title: 'Gráfico',
+        desc: 'Abrir gráfico do dispositivo',
+        onSelect: () => handleActionDashboard(entityObject),
+      });
+    }
+    if (typeof handleActionReport === 'function') {
+      selectorOptions.push({
+        id: 'report',
+        icon: '📄',
+        title: 'Relatório',
+        desc: 'Abrir relatório do dispositivo',
+        onSelect: () => handleActionReport(entityObject),
+      });
+    }
+    if (typeof handleActionSettings === 'function') {
+      selectorOptions.push({
+        id: 'settings',
+        icon: '⚙️',
+        title: 'Configurações',
+        desc: 'Ajustes e informações do dispositivo',
+        onSelect: () => handleActionSettings(entityObject, buildSettingsOpts()),
+      });
+    }
+
+    if (selectorOptions.length > 0 && !actionSelectorOnCardClick) {
+      const selectorBtn = document.createElement('button');
+      selectorBtn.className = 'card-action action-selector';
+      selectorBtn.title = 'Ações';
+      selectorBtn.setAttribute('aria-label', `Ações de ${cardEntity.name}`);
+      selectorBtn.style.color = '#5B2D8E';
+      selectorBtn.innerHTML =
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>';
+      selectorBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openCardActionSelector({ title: cardEntity.name, options: selectorOptions });
+      });
+      actionsContainer.appendChild(selectorBtn);
+    }
+  } else {
+    // ---- Legacy mode: 3 separate piano-key buttons ----
+    // Add action buttons
+    if (typeof handleActionDashboard === 'function') {
     const dashboardBtn = document.createElement('button');
     dashboardBtn.className = 'card-action action-dashboard';
     dashboardBtn.title = 'Dashboard';
@@ -1705,19 +1795,11 @@ export function renderCardComponentV6({
       '<img src="https://dashboard.myio-bas.com/api/images/public/5n9tze6vED2uwIs5VvJxGzNNZ9eV4yoz"/>';
     settingsBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      handleActionSettings(entityObject, {
-        includeInfo: true,
-        connectionData: {
-          centralName,
-          connectionStatusTime,
-          timeVal,
-          deviceStatus,
-          lastDisconnectTime,
-        },
-      });
+      handleActionSettings(entityObject, buildSettingsOpts());
     });
     actionsContainer.appendChild(settingsBtn);
-  }
+    }
+  } // end enableActionSelector / legacy piano-key actions
 
   // Insert actions container into the card
   if (enhancedCardElement && actionsContainer.children.length > 0) {
@@ -1873,8 +1955,15 @@ export function renderCardComponentV6({
     });
   }
 
-  // Handle card clicks
-  if (typeof handleClickCard === 'function') {
+  // Handle card clicks. With actionSelectorOnCardClick the selection modal is
+  // the single entry point for actions — it takes precedence over handleClickCard.
+  if (enableActionSelector && actionSelectorOnCardClick && selectorOptions.length > 0) {
+    enhancedCardElement.addEventListener('click', (e) => {
+      if (!e.target.closest('.card-action') && !e.target.closest('.card-checkbox')) {
+        openCardActionSelector({ title: cardEntity.name, options: selectorOptions });
+      }
+    });
+  } else if (typeof handleClickCard === 'function') {
     enhancedCardElement.addEventListener('click', (e) => {
       if (!e.target.closest('.card-action') && !e.target.closest('.card-checkbox')) {
         handleClickCard(entityObject);

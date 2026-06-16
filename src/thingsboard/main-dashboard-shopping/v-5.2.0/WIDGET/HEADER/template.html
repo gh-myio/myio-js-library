@@ -3,10 +3,10 @@
     <!-- COL ESQUERDA (50%) -->
     <div class="tbx-col tbx-col-left">
       <!-- RFC-0107: Contract Status Icon (no native title - uses ContractSummaryTooltip) -->
-      <div id="tbx-contract-status" class="tbx-contract-status" style="display: flex">
-        <span class="tbx-contract-icon">📋</span>
-        <span class="tbx-contract-count">--</span>
-      </div>
+      <!--div id="tbx-contract-status" class="tbx-contract-status" style="display: none">
+        <span class="tbx-contract-icon" style="display: none">📋</span>
+        <span class="tbx-contract-count" style="display: none">--</span>
+      </div-->
 
       <!-- compat (ocultos) -->
       <label class="tbx-field" style="display: none"><input id="tbx-date-start" type="date" /></label>
@@ -41,21 +41,27 @@
         <span>Limpar</span>
       </button>
 
-      <!-- alarm notification bell (RFC-0193) -->
-      <button class="tbx-btn tbx-btn-alarm-notif" id="tbx-btn-alarm-notif" title="Notificações de Alarme">
-        <span class="tbx-ico">🔔</span>
+      <!-- alarm notification bell (RFC-0193) — loading state until alarms are fetched -->
+      <button
+        class="tbx-btn tbx-btn-alarm-notif is-loading"
+        id="tbx-btn-alarm-notif"
+        title="Notificações de Alarme (carregando…)"
+        aria-busy="true"
+      >
+        <span class="tbx-ico tbx-alarm-icon" aria-hidden="true">🔔</span>
+        <span class="tbx-loading-spinner" aria-hidden="true"></span>
         <span id="tbx-alarm-notif-badge" class="tbx-alarm-badge" style="display: none"></span>
       </button>
 
-      <!-- ticket / chamados button (RFC-0198) — hidden when freshdeskApiKey not configured -->
+      <!-- ticket / chamados button (RFC-0198) — loading state until freshdesk config arrives -->
       <button
-        class="tbx-btn tbx-btn-ticket-notif"
+        class="tbx-btn tbx-btn-ticket-notif is-loading"
         id="tbx-btn-ticket-notif"
-        title="Chamados (FreshDesk)"
-        style="display: none"
+        title="Chamados (FreshDesk) (carregando…)"
+        aria-busy="true"
       >
         <svg
-          class="tbx-ico-svg"
+          class="tbx-ico-svg tbx-ticket-icon"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -69,7 +75,31 @@
           <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3z" />
           <path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z" />
         </svg>
+        <span class="tbx-loading-spinner" aria-hidden="true"></span>
         <span id="tbx-ticket-notif-badge" class="tbx-ticket-badge" style="display: none"></span>
+      </button>
+
+      <!-- annotations button (RFC-0203) — visible from start with loading spinner;
+           swaps to icon once AnnotationServiceOrchestrator is built -->
+      <button
+        class="tbx-btn tbx-btn-annotation-notif is-loading"
+        id="tbx-btn-annotation-notif"
+        title="Anotações operacionais (carregando…)"
+        aria-label="Anotações operacionais (carregando…)"
+        aria-haspopup="dialog"
+        aria-controls="myio-annotations-panel"
+        aria-busy="true"
+        disabled
+      >
+        <span class="tbx-ico tbx-annotation-icon" aria-hidden="true">✏️</span>
+        <span class="tbx-loading-spinner" aria-hidden="true"></span>
+        <span
+          id="tbx-annotation-notif-badge"
+          class="tbx-annotation-badge"
+          role="status"
+          aria-live="polite"
+          style="display: none"
+        ></span>
       </button>
 
       <button

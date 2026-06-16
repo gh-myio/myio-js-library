@@ -8,7 +8,7 @@ import type { DeviceTypeConfig, OnOffDeviceType } from './types';
 /**
  * Device profiles supported by the On/Off modal
  */
-export const ON_OFF_DEVICE_PROFILES = ['SOLENOIDE', 'INTERRUPTOR', 'RELE', 'BOMBA'] as const;
+export const ON_OFF_DEVICE_PROFILES = ['SOLENOIDE', 'INTERRUPTOR', 'RELE', 'BOMBA', 'LAMP', 'PLUG'] as const;
 
 /**
  * Check if a device profile is an On/Off device
@@ -53,6 +53,22 @@ export const DEVICE_CONFIG: Record<string, DeviceTypeConfig> = {
     chartTitle: 'Tempo de Operação',
     chartUnit: 'h',
     controlColor: '#06b6d4', // cyan
+  },
+  LAMP: {
+    icon: '💡',
+    labelOn: 'Ligado',
+    labelOff: 'Desligado',
+    chartTitle: 'Tempo de Uso',
+    chartUnit: 'h',
+    controlColor: '#eab308', // yellow
+  },
+  PLUG: {
+    icon: '🔌',
+    labelOn: 'Ligado',
+    labelOff: 'Desligado',
+    chartTitle: 'Tempo de Uso',
+    chartUnit: 'h',
+    controlColor: '#0ea5e9', // sky
   },
 };
 

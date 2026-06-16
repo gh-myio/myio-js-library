@@ -25,9 +25,17 @@ export class SidebarMenuView {
   private activeItemId: string | null = null;
   private collapsedSections: Set<string> = new Set();
   private tooltip: HTMLElement | null = null;
+  private container: HTMLElement;
+  // Mobile mode (JS-driven; NOT @media — the host measures its real width)
+  private mobile = false;
+  private drawerOpen = false;
+  private mobileTopbar: HTMLElement | null = null;
+  private backdrop: HTMLElement | null = null;
 
   constructor(container: HTMLElement, config: SidebarMenuConfig) {
     injectSidebarMenuStyles();
+
+    this.container = container;
 
     this.config = { ...DEFAULT_SIDEBAR_CONFIG, ...config };
     this.state = this.config.initialState || 'expanded';
@@ -124,8 +132,19 @@ export class SidebarMenuView {
             <span class="${SIDEBAR_MENU_CSS_PREFIX}__user-email">${userInfo.email || ''}</span>
           </div>
         ` : ''}
+        <div class="${SIDEBAR_MENU_CSS_PREFIX}__header-slot" data-slot="header"></div>
       </div>
     `;
+  }
+
+  /**
+   * Returns the host's extension slot rendered below the user-info block.
+   * The host can mount custom content here (e.g. a date range picker that
+   * drives the dashboard). Hidden automatically while the sidebar is collapsed
+   * or when empty. The menu stays generic — it only provides the slot.
+   */
+  getHeaderSlot(): HTMLElement | null {
+    return this.root.querySelector(`.${SIDEBAR_MENU_CSS_PREFIX}__header-slot`);
   }
 
   private renderSearch(): string {
@@ -302,7 +321,11 @@ export class SidebarMenuView {
       const action = target.closest('[data-action]')?.getAttribute('data-action');
 
       if (action === 'toggle') {
-        this.toggle();
+        if (this.mobile) {
+          this.closeDrawer();
+        } else {
+          this.toggle();
+        }
       } else if (action === 'theme-toggle') {
         this.handleThemeToggle();
       } else if (action === 'logout') {
@@ -322,6 +345,7 @@ export class SidebarMenuView {
           const sectionId = itemEl.getAttribute('data-section-id');
           if (itemId && sectionId) {
             this.handleItemClick(itemId, sectionId);
+            if (this.mobile) this.closeDrawer();
           }
         }
       }
@@ -512,6 +536,80 @@ export class SidebarMenuView {
 
   getState(): SidebarState {
     return this.state;
+  }
+
+  /**
+   * Toggle mobile mode. Driven by the host (it measures its real width),
+   * NOT by @media — the widget element width != viewport in ThingsBoard.
+   * In mobile mode the sidebar becomes an off-canvas drawer and a persistent
+   * top bar (hamburger) is shown to open it; the drawer keeps its footer/logout.
+   */
+  setMobileMode(on: boolean): void {
+    if (this.mobile === on) return;
+    this.mobile = on;
+
+    if (on) {
+      this.ensureMobileChrome();
+      this.root.classList.add(`${SIDEBAR_MENU_CSS_PREFIX}--mobile`);
+      // The drawer always shows full menu (ignore desktop collapsed state)
+      this.root.classList.remove('collapsed');
+      if (this.mobileTopbar) this.mobileTopbar.classList.add('is-mobile');
+      if (this.backdrop) this.backdrop.classList.add('is-mobile');
+      this.closeDrawer();
+    } else {
+      this.closeDrawer();
+      this.root.classList.remove(`${SIDEBAR_MENU_CSS_PREFIX}--mobile`);
+      if (this.mobileTopbar) this.mobileTopbar.classList.remove('is-mobile');
+      if (this.backdrop) this.backdrop.classList.remove('is-mobile');
+      // Restore desktop visual state
+      if (this.state === 'collapsed') this.root.classList.add('collapsed');
+    }
+  }
+
+  /** Lazily create the persistent mobile top bar (hamburger) + backdrop. */
+  private ensureMobileChrome(): void {
+    if (!this.mobileTopbar) {
+      const header = this.config.header || {};
+      const title = header.title || 'Menu';
+      const bar = document.createElement('div');
+      bar.className = `${SIDEBAR_MENU_CSS_PREFIX}__mobile-topbar`;
+      bar.innerHTML = `
+        <button
+          class="${SIDEBAR_MENU_CSS_PREFIX}__mobile-hamburger"
+          data-action="mobile-open"
+          aria-label="Abrir menu"
+        >${SIDEBAR_ICONS.menu}</button>
+        <span class="${SIDEBAR_MENU_CSS_PREFIX}__mobile-topbar-title">${title}</span>
+      `;
+      bar.querySelector('[data-action="mobile-open"]')?.addEventListener('click', () => this.openDrawer());
+      // Topbar sits where the sidebar lived, ahead of the (now fixed) drawer
+      this.container.insertBefore(bar, this.root);
+      this.mobileTopbar = bar;
+    }
+    if (!this.backdrop) {
+      const bd = document.createElement('div');
+      bd.className = `${SIDEBAR_MENU_CSS_PREFIX}__backdrop`;
+      bd.addEventListener('click', () => this.closeDrawer());
+      this.container.insertBefore(bd, this.root.nextSibling);
+      this.backdrop = bd;
+    }
+  }
+
+  openDrawer(): void {
+    if (!this.mobile) return;
+    this.drawerOpen = true;
+    this.root.classList.add('mobile-open');
+    this.backdrop?.classList.add('is-open');
+  }
+
+  closeDrawer(): void {
+    this.drawerOpen = false;
+    this.root.classList.remove('mobile-open');
+    this.backdrop?.classList.remove('is-open');
+  }
+
+  isMobile(): boolean {
+    return this.mobile;
   }
 
   setThemeMode(mode: SidebarThemeMode): void {

@@ -35,9 +35,12 @@ tb-html-widget > div,
   box-sizing: border-box !important;
 }
 
-/* Target any parent of our root container */
-#bas-dashboard-root,
-*:has(> #bas-dashboard-root) {
+/* Root container fill.
+   NOTE: o seletor pai `*:has(> #bas-dashboard-root)` foi removido — o parser de
+   CSS do ThingsBoard NÃO suporta :has() (erro "Expected RPAREN"). A cadeia de
+   containers do TB já é coberta pelos seletores .tb-widget / [class*='widget-content']
+   acima, então não há perda prática. */
+#bas-dashboard-root {
   height: 100% !important;
   width: 100% !important;
   min-height: 0 !important;
@@ -96,6 +99,40 @@ tb-html-widget > div,
   display: none;
 }
 
+/* Shared date range picker mounted in the sidebar header slot (below email).
+   This styles ONLY the host-injected content, not the SidebarMenu internals. */
+.bas-sidebar-daterange {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.bas-sidebar-daterange__label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+.bas-sidebar-daterange__input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  color: #1f2937;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 8px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.bas-sidebar-daterange__input:hover,
+.bas-sidebar-daterange__input:focus {
+  border-color: #ffffff;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.25);
+}
+
 /* ========================================
    MAIN CONTENT WRAPPER
    Contains header + content layout
@@ -106,10 +143,20 @@ tb-html-widget > div,
   height: 100%;
   overflow: hidden;
 
-  /* Grid layout: header row (auto) + content row (1fr) */
+  /* Grid layout: header row (auto) + content row (1fr) + footer row (auto) */
   display: grid !important;
-  grid-template-rows: auto 1fr !important;
+  grid-template-rows: auto 1fr auto !important;
   grid-template-columns: 1fr !important;
+}
+
+/* RFC-0115: Comparison footer dock (row 3, auto height) */
+.bas-footer-slot {
+  grid-row: 3;
+  grid-column: 1;
+  min-width: 0;
+}
+.bas-footer-slot:empty {
+  display: none;
 }
 
 /* Transition for sidebar collapse/expand */
@@ -264,7 +311,7 @@ tb-html-widget > div,
   min-height: 0 !important;
   position: relative;
   overflow: hidden;
-  display: flex !important;
+  display: flex;           /* sem !important: CardGridPanel collapse (display:none !important) sempre vence */
   flex-direction: column !important;
 }
 
@@ -366,11 +413,11 @@ tb-html-widget > div,
   min-height: 0 !important;
 }
 
-/* Canvas container - fill available space */
+/* Canvas container - fill available space via flex (height:100% fights flex:1 and causes footer bleed) */
 .bas-charts-slot .myio-chart-widget-canvas-container {
-  height: 100% !important;
-  flex: 1 !important;
+  flex: 1 1 auto !important;
   min-height: 0 !important;
+  overflow: hidden !important;
 }
 
 .bas-charts-slot .myio-chart-widget-canvas-container canvas {
@@ -451,38 +498,172 @@ tb-html-widget > div,
 }
 
 /* ========================================
-   RESPONSIVE
+   RESPONSIVE — via JS WIDTH CLASSES (NOT @container / NOT viewport @media)
+   The ThingsBoard CSS parser does NOT support @container, and the viewport
+   @media is unreliable in TB (widget=1384px but viewport reads <=768).
+   So controller.js measures the widget width with a ResizeObserver and sets
+   .bas-w-tablet / .bas-w-mobile on #bas-dashboard-root. Here we only use plain
+   class selectors (fully supported by TB).
+
+   4 groups: water=INFRA HIDRICA, charts=CONSUMO, ambientes=AMBIENTES, motors=ENERGIA.
+   Desktop (>960px): base 3-col (54/23/23) -- unchanged (no class).
+   Tablet  (621-960px): .bas-w-tablet -> 2x2 grid.
+   Mobile  (<=620px) : .bas-w-mobile -> stacked flex column + accordion.
    ======================================== */
-@media (max-width: 900px) {
-  .bas-content-layout {
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: auto auto auto;
-    grid-template-areas:
-      'sidebar   water'
-      'charts    charts'
-      'ambientes motors';
-  }
 
-  .bas-sidebar-slot {
-    max-height: 220px;
-  }
+/* ---- Tablet: 2x2 grid ---- */
+.bas-w-tablet .bas-content-layout {
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto;
+  grid-auto-rows: minmax(280px, auto);
+  grid-template-areas:
+    'water    ambientes'
+    'charts   motors';
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
 
-  .bas-water-slot {
-    max-height: 220px;
-    border-right: none;
-  }
+.bas-w-tablet .bas-water-slot,
+.bas-w-tablet .bas-charts-slot,
+.bas-w-tablet .bas-ambientes-slot,
+.bas-w-tablet .bas-motors-slot {
+  min-height: 280px !important;
+  max-height: none !important;
+}
 
-  .bas-charts-slot {
-    max-height: 300px;
-    border-right: none;
-  }
+.bas-w-tablet .bas-charts-slot,
+.bas-w-tablet .bas-ambientes-slot {
+  border-right: none;
+}
 
-  .bas-ambientes-slot {
-    min-height: 280px;
-    border-right: 1px solid rgba(255, 255, 255, 0.08);
-  }
+/* ---- Mobile: 4 groups stacked as ACCORDION (DOM order is already
+        HIDRICA -> CONSUMO -> AMBIENTES -> ENERGIA). Click a panel header to
+        collapse/expand (wired in controller.js via .bas-collapsed). ---- */
+.bas-w-mobile .bas-content-layout {
+  display: flex !important;
+  flex-direction: column !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
 
-  .bas-motors-slot {
-    min-height: 280px;
-  }
+.bas-w-mobile .bas-water-slot,
+.bas-w-mobile .bas-charts-slot,
+.bas-w-mobile .bas-ambientes-slot,
+.bas-w-mobile .bas-motors-slot {
+  flex: 0 0 auto !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  border-right: none !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 8px !important;
+}
+
+/* Desfaz o "fill" do filho do slot (a base força flex:1 / height:100%), para que
+   no empilhamento mobile cada grupo tenha altura natural. Usa `> *` GENÉRICO —
+   não referencia classes internas dos componentes. O widget só controla como o
+   componente OCUPA o slot; quem é forte/autossuficiente é o componente. */
+.bas-w-mobile .bas-water-slot > *,
+.bas-w-mobile .bas-ambientes-slot > *,
+.bas-w-mobile .bas-motors-slot > * {
+  flex: 0 0 auto !important;
+  height: auto !important;
+  max-height: none !important;
+}
+
+/* Charts slot no mobile: altura fixa testada em DevTools */
+.bas-w-mobile .bas-charts-slot > * {
+  flex: 0 0 auto !important;
+  height: 500px !important;
+  max-height: none !important;
+}
+
+/* ---- CONSUMO mobile: altura fixa + colapso — seletores de alta especificidade ----
+   Após prefixo TB (.widget-type-...) os seletores abaixo ficam com 4-6 classes,
+   superando qualquer regra concorrente sem depender de controller.js.
+
+   Problema 1 — gráfico gigante:
+     createConsumptionChartWidget(fullHeight:true) não tem container com altura fixa
+     → Chart.js renderiza na altura intrínseca (400-500px ou mais).
+     Fix: height:300px + overflow:hidden no panelWrapper (.bas-chart-panel).
+
+   Problema 2 — colapso:
+     TB prefixa styles.css → .bas-chart-card{display:flex} vira 0,2,0 e empata com
+     o CardGridPanel collapse (0,2,0 sem prefixo). Usando 4+ classes ganhamos sempre.
+   ---------------------------------------------------------------------------------*/
+
+/* Altura fixa no mobile — overrides .bas-chart-panel{height:100%} e height:auto do > * */
+.bas-w-mobile .bas-charts-slot .bas-chart-panel {
+  height: 500px !important;
+  max-height: 500px !important;
+  overflow: hidden !important;
+}
+
+/* Colapsado: shrink ao header (especif. 0,5,0 após prefixo → bate os 0,4,0 acima) */
+.bas-w-mobile .bas-charts-slot .bas-chart-panel.myio-cgp--collapsed {
+  height: auto !important;
+  max-height: none !important;
+}
+
+/* display:none no conteúdo quando colapsado — especif. 0,6,0 após prefixo,
+   bate qualquer display:flex/block em regras menos específicas */
+.bas-w-mobile .bas-charts-slot .bas-chart-panel.myio-cgp--collapsed .bas-chart-card,
+.bas-w-mobile .bas-charts-slot .bas-chart-panel.myio-cgp--collapsed .myio-cgp__tabs-wrapper {
+  display: none !important;
+}
+
+/* ---- Mobile: root stacks vertically so the SidebarMenu's hamburger top bar
+        (rendered by the strong component in its host, the first child) sits on
+        top as the page header, with the main content below. The drawer itself
+        is position:fixed (off-canvas) and overlays when opened. ---- */
+#bas-dashboard-root.bas-w-mobile {
+  flex-direction: column !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+
+#bas-dashboard-root.bas-w-mobile #bas-sidebar-menu-host {
+  width: 100% !important;
+  height: auto !important;
+  flex: 0 0 auto !important;
+}
+
+#bas-dashboard-root.bas-w-mobile #bas-main-content {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+}
+
+/* TODO(RFC-0115): Comparison footer — hidden until feature is fully implemented.
+   Remove this rule when the comparison/selection flow is ready.
+   Ref: .bas-footer-slot is grid-row 3 in #bas-main-content (controller.js ~linha 5410). */
+.bas-footer-slot {
+  display: none !important;
+}
+
+/* TODO(RFC-0115): Selection checkbox — hidden until comparison/selection flow is ready.
+   Same feature as .bas-footer-slot above. Remove when implemented.
+   Class .card-checkbox rendered by renderCardComponentV6 (template-card-v6.js) when enableSelection=true.
+   Scoped to the BAS root: TB injects widget CSS page-wide and .card-checkbox is
+   used by other library components (review PR #86 — global-leak fix). */
+#bas-dashboard-root .card-checkbox {
+  display: none !important;
+}
+
+/* (Removido) Overrides do botão único ⋮ — com actionSelectorOnCardClick a modal
+   de ações abre no clique do card e nenhum botão de action é renderizado. */
+
+/* ---- CONSUMO: colapso explícito (especificidade alta) ----------------------------
+   O ThingsBoard prefixa styles.css com .widget-type-..., elevando para 0,2,0 qualquer
+   seletor de 1 classe. O CardGridPanel injeta CSS sem prefixo (0,2,0). Empate com
+   !important → fonte order decide. Para garantir que display:none vença, usamos
+   .bas-charts-slot .myio-cgp--collapsed → após prefixo TB fica 0,3,0 (3 classes).
+   Cobre: bas-chart-card (.myio-cgp__content) e tabsWrapper (.myio-cgp__tabs-wrapper).
+   ---------------------------------------------------------------------------------*/
+.bas-charts-slot .myio-cgp--collapsed > .myio-cgp__content,
+.bas-charts-slot .myio-cgp--collapsed > .myio-cgp__tabs-wrapper {
+  display: none !important;
+}
+.bas-charts-slot .myio-cgp--collapsed {
+  height: auto !important;
+  flex: 0 0 auto !important;
 }

@@ -137,8 +137,7 @@ const WATER_SUMMARY_TOOLTIP_CSS = `
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15), 0 2px 10px rgba(0, 0, 0, 0.08);
-  min-width: 380px;
-  width: max-content;
+  width: 450px;
   max-width: 90vw;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: 12px;
@@ -240,7 +239,9 @@ const WATER_SUMMARY_TOOLTIP_CSS = `
 }
 
 .water-summary-tooltip.maximized .water-summary-tooltip__body {
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
   overflow-y: auto;
 }
 
@@ -1125,6 +1126,9 @@ export const WaterSummaryTooltip = {
     const statusMatrix = this.renderStatusMatrix(summary.byStatus);
     const timestamp = formatTimestamp(summary.lastUpdated);
     const titleSuffix = summary.customerName ? ` (${summary.customerName})` : '';
+    // "Por Shopping" only makes sense with ≥2 shoppings (head-office view).
+    // In a single-shopping context the tab + shopping view are hidden.
+    const isMultiShopping = (summary.byShoppingTotal?.length || 0) >= 2;
 
     return `
       <div class="water-summary-tooltip__content">
@@ -1160,10 +1164,14 @@ export const WaterSummaryTooltip = {
 
           <div class="water-summary-tooltip__section-header">
             <span class="water-summary-tooltip__section-title">Distribuição</span>
-            <div class="water-summary-tooltip__grouping-tabs">
+            ${
+              isMultiShopping
+                ? `<div class="water-summary-tooltip__grouping-tabs">
               <button class="water-summary-tooltip__grouping-tab active" data-view="category">Por Categoria</button>
               <button class="water-summary-tooltip__grouping-tab" data-view="shopping">Por ${summary.entityLabel || 'Shopping'}</button>
-            </div>
+            </div>`
+                : ''
+            }
           </div>
 
           <!-- Category View (default) -->
@@ -1178,8 +1186,10 @@ export const WaterSummaryTooltip = {
             </div>
           </div>
 
-          <!-- Shopping View -->
-          <div class="water-summary-tooltip__shopping-view" data-grouping="shopping">
+          <!-- Shopping View (head-office only) -->
+          ${
+            isMultiShopping
+              ? `<div class="water-summary-tooltip__shopping-view" data-grouping="shopping">
             <div class="water-summary-tooltip__category-tree">
               <div class="water-summary-tooltip__category-header">
                 <span>${summary.entityLabel || 'Shopping'}</span>
@@ -1188,7 +1198,9 @@ export const WaterSummaryTooltip = {
               </div>
               ${this.renderShoppingView(summary.byShoppingTotal, summary.unit)}
             </div>
-          </div>
+          </div>`
+              : ''
+          }
 
           <div class="water-summary-tooltip__section-title">Status dos Medidores</div>
           <div class="water-summary-tooltip__status-matrix">
@@ -1717,6 +1729,8 @@ export const WaterSummaryTooltip = {
         left: container.style.left,
         top: container.style.top
       };
+      // Maximizing implies pinning — a full-screen panel must not auto-hide.
+      if (!this._isPinned) this.togglePin();
     }
 
     container.classList.toggle('maximized', this._isMaximized);

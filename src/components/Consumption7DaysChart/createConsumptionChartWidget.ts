@@ -51,6 +51,16 @@ export interface ConsumptionWidgetConfig extends Omit<Consumption7DaysConfig, 'c
   showMaximizeButton?: boolean;
   /** Show viz mode tabs (default: true) */
   showVizModeTabs?: boolean;
+  /**
+   * Display labels for the viz mode tabs. The "separate" mode splits series by
+   * whatever key fetchData puts in shoppingData — shoppings in the mall
+   * dashboards, devices in BAS — so the label must match the caller's domain.
+   * @default { total: 'Consolidado', separate: 'Por Shopping' }
+   */
+  vizModeLabels?: {
+    total?: string;
+    separate?: string;
+  };
   /** Show chart type tabs (default: true) */
   showChartTypeTabs?: boolean;
   /** Chart height in pixels or CSS value (default: 300) */
@@ -63,6 +73,12 @@ export interface ConsumptionWidgetConfig extends Omit<Consumption7DaysConfig, 'c
   onMaximizeClick?: () => void;
   /** Custom CSS class for the widget container */
   className?: string;
+  /**
+   * When true, the widget becomes an accordion item: clicking the header
+   * (except its buttons/tabs) collapses/expands the chart body, leaving only
+   * the header bar. Default: false. Toggle at runtime via setCollapsible().
+   */
+  collapsible?: boolean;
   /**
    * Custom header styles for compact layouts
    * @example { padding: '8px 12px', fontSize: '12px', titleFontSize: '12px', tabPadding: '4px 10px', tabFontSize: '11px' }
@@ -112,6 +128,12 @@ export interface ConsumptionWidgetInstance {
   };
   /** Exports data to CSV */
   exportCSV: (filename?: string) => void;
+  /** Enable/disable collapsible (accordion) behavior at runtime. */
+  setCollapsible: (value: boolean) => void;
+  /** Collapse/expand the chart body, keeping only the header bar. */
+  setCollapsed: (value: boolean) => void;
+  /** Toggle collapsed state. */
+  toggleCollapsed: () => void;
   /** Destroys the widget */
   destroy: () => void;
 }
@@ -343,6 +365,21 @@ function getWidgetStyles(
       border-top: 1px solid ${colors.border};
       gap: 16px;
       flex-wrap: wrap;
+    }
+
+    /* Accordion (opt-in via config.collapsible): header clicavel; recolhido
+       esconde o corpo + footer, deixando so a barra do header. */
+    .myio-chart-widget--collapsible .myio-chart-widget-header {
+      cursor: pointer;
+      user-select: none;
+    }
+    .myio-chart-widget--collapsed .myio-chart-widget-body,
+    .myio-chart-widget--collapsed .myio-chart-widget-footer {
+      display: none !important;
+    }
+    .myio-chart-widget--collapsed {
+      height: auto !important;
+      flex: 0 0 auto !important;
     }
 
     .myio-chart-widget-stat {
@@ -707,6 +744,10 @@ export function createConsumptionChartWidget(config: ConsumptionWidgetConfig): C
   let currentVizMode: VizMode = config.defaultVizMode ?? 'total';
   let currentPeriod = config.defaultPeriod ?? 7;
   let currentIdealRange: IdealRangeConfig | null = config.idealRange ?? null;
+  // Accordion / collapse state (opt-in via config.collapsible)
+  let isCollapsible = !!config.collapsible;
+  let isCollapsed = false;
+  let collapseWired = false;
   let isLoading = false;
 
   // Settings modal temp state
@@ -732,6 +773,8 @@ export function createConsumptionChartWidget(config: ConsumptionWidgetConfig): C
   const showSettingsButton = config.showSettingsButton ?? true;
   const showMaximizeButton = config.showMaximizeButton ?? true;
   const showVizModeTabs = config.showVizModeTabs ?? true;
+  const vizModeLabelTotal = config.vizModeLabels?.total ?? 'Consolidado';
+  const vizModeLabelSeparate = config.vizModeLabels?.separate ?? 'Por Shopping';
   const showChartTypeTabs = config.showChartTypeTabs ?? true;
   const chartHeight =
     typeof config.chartHeight === 'number' ? `${config.chartHeight}px` : config.chartHeight ?? '300px';
@@ -779,10 +822,10 @@ export function createConsumptionChartWidget(config: ConsumptionWidgetConfig): C
               <div class="myio-chart-widget-tabs" id="${widgetId}-viz-tabs">
                 <button class="myio-chart-widget-tab icon-only ${
                   currentVizMode === 'total' ? 'active' : ''
-                }" data-viz="total" title="Consolidado">${consolidadoIcon}</button>
+                }" data-viz="total" title="${vizModeLabelTotal}">${consolidadoIcon}</button>
                 <button class="myio-chart-widget-tab icon-only ${
                   currentVizMode === 'separate' ? 'active' : ''
-                }" data-viz="separate" title="Por Shopping">${porShoppingIcon}</button>
+                }" data-viz="separate" title="${vizModeLabelSeparate}">${porShoppingIcon}</button>
               </div>
             `
                 : ''
@@ -1021,10 +1064,10 @@ export function createConsumptionChartWidget(config: ConsumptionWidgetConfig): C
                     <div class="myio-settings-tabs" id="${widgetId}-settings-viz-mode">
                       <button class="myio-settings-tab ${
                         tempVizMode === 'total' ? 'active' : ''
-                      }" data-viz="total">${consolidadoIcon} Consolidado</button>
+                      }" data-viz="total">${consolidadoIcon} ${vizModeLabelTotal}</button>
                       <button class="myio-settings-tab ${
                         tempVizMode === 'separate' ? 'active' : ''
-                      }" data-viz="separate">${porShoppingIcon} Por Shopping</button>
+                      }" data-viz="separate">${porShoppingIcon} ${vizModeLabelSeparate}</button>
                     </div>
                   </div>
                   ` : ''}
@@ -1761,6 +1804,31 @@ export function createConsumptionChartWidget(config: ConsumptionWidgetConfig): C
     });
   }
 
+  // Accordion: reflect collapsible/collapsed on the widget root and wire the
+  // header click once. Hides body + footer when collapsed (keeps the header bar).
+  function applyCollapseState(): void {
+    const widget = document.getElementById(widgetId);
+    if (!widget) return;
+    widget.classList.toggle('myio-chart-widget--collapsible', isCollapsible);
+    if (!isCollapsible) isCollapsed = false;
+    widget.classList.toggle('myio-chart-widget--collapsed', isCollapsible && isCollapsed);
+
+    if (isCollapsible && !collapseWired) {
+      const header = widget.querySelector('.myio-chart-widget-header') as HTMLElement | null;
+      if (header) {
+        collapseWired = true;
+        header.addEventListener('click', (e) => {
+          if (!isCollapsible) return;
+          const target = e.target as HTMLElement;
+          // Don't collapse when clicking header controls (tabs, settings, maximize)
+          if (target.closest && target.closest('button, a, input, select, svg, [role="button"], [class*="-tab"]')) return;
+          isCollapsed = !isCollapsed;
+          applyCollapseState();
+        });
+      }
+    }
+  }
+
   // ============================================================================
   // Instance
   // ============================================================================
@@ -1783,6 +1851,9 @@ export function createConsumptionChartWidget(config: ConsumptionWidgetConfig): C
       // Setup listeners
       setupListeners();
 
+      // Accordion: reflect current collapsible/collapsed state + wire header click
+      applyCollapseState();
+
       // Show loading
       setLoading(true);
 
@@ -1794,7 +1865,7 @@ export function createConsumptionChartWidget(config: ConsumptionWidgetConfig): C
         defaultChartType: currentChartType,
         defaultVizMode: currentVizMode,
         defaultPeriod: currentPeriod,
-        idealRange: currentIdealRange,
+        idealRange: currentIdealRange ?? undefined,
         colors: {
           primary: primaryColor,
           background: `${primaryColor}20`,
@@ -1891,6 +1962,24 @@ export function createConsumptionChartWidget(config: ConsumptionWidgetConfig): C
 
     exportCSV(filename?: string): void {
       chartInstance?.exportCSV(filename);
+    },
+
+    setCollapsible(value: boolean): void {
+      isCollapsible = value;
+      if (!value) isCollapsed = false;
+      applyCollapseState();
+    },
+
+    setCollapsed(value: boolean): void {
+      if (!isCollapsible) return;
+      isCollapsed = value;
+      applyCollapseState();
+    },
+
+    toggleCollapsed(): void {
+      if (!isCollapsible) return;
+      isCollapsed = !isCollapsed;
+      applyCollapseState();
     },
 
     destroy(): void {

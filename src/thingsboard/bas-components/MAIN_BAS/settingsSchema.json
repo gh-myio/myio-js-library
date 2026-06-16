@@ -41,6 +41,18 @@
         "default": "https://api.data.apps.myio-bas.com/api/v1",
         "description": "Base URL for apps myio"
       },
+      "alarmsApiBaseUrl": {
+        "title": "Alarms API Base URL",
+        "type": "string",
+        "default": "https://alarms-api.a.myio-bas.com",
+        "description": "RFC-0183: GCDR alarms backend. Auth uses the customer SERVER_SCOPE attrs gcdrCustomerId/gcdrTenantId/gcdrApiKey; card alarm badges stay hidden when they are absent."
+      },
+      "enableTicketsBadge": {
+        "title": "Enable Tickets Badge on Cards",
+        "type": "boolean",
+        "default": false,
+        "description": "RFC-0198: shows the ticket badge on device cards. Counts come from each device's tickets_items SERVER_SCOPE attribute."
+      },
       "pumpsMotorsLabel": {
         "title": "Energy Section Label",
         "type": "string",
@@ -172,6 +184,15 @@
       "key": "dataApiHost",
       "type": "text",
       "placeholder": "Base URL for apps myio"
+    },
+    {
+      "key": "alarmsApiBaseUrl",
+      "type": "text",
+      "placeholder": "https://alarms-api.a.myio-bas.com"
+    },
+    {
+      "key": "enableTicketsBadge",
+      "type": "checkbox"
     },
     {
       "key": "defaultThemeMode",

@@ -103,12 +103,44 @@ export interface CardGridPanelOptions {
   titleStyle?: CardGridTitleStyle;
   /** Callback when a card is clicked */
   handleClickCard?: (item: CardGridItem) => void;
+  /**
+   * Enable the per-card selection checkbox. Cards register to MyIOSelectionStore
+   * so the comparison footer (createFooterComponent) picks them up. Default: false.
+   * Applies to cardType='device' only.
+   */
+  enableSelection?: boolean;
+  /**
+   * Enable drag-and-drop of cards (e.g. drop onto the comparison footer dock).
+   * Default: false. Applies to cardType='device' only.
+   */
+  enableDragDrop?: boolean;
+  /** Optional callback fired when a card's selection checkbox toggles. */
+  handleSelect?: (item: CardGridItem) => void;
   /** Callback for card's dashboard action button (lateral piano-key) */
   handleActionDashboard?: (item: CardGridItem) => void;
   /** Callback for card's report action button (lateral piano-key) */
   handleActionReport?: (item: CardGridItem) => void;
   /** Callback for card's settings action button (lateral piano-key) */
   handleActionSettings?: (item: CardGridItem) => void;
+  /**
+   * When true, device cards render a single "step" button that opens a
+   * selection modal (Gráfico / Relatório / Configurações) instead of the 3
+   * separate piano-key buttons. Only options whose handleAction* is provided
+   * are shown. Applies to cardType='device' only. Default: false.
+   */
+  enableActionSelector?: boolean;
+  /**
+   * Requires enableActionSelector. When true, device cards render no action
+   * button at all — the selection modal opens on the card body click instead
+   * (handleClickCard is then ignored). Default: false.
+   */
+  actionSelectorOnCardClick?: boolean;
+  /**
+   * Called after each card element is mounted in the grid. Use it to decorate
+   * cards with overlays the renderer doesn't own (e.g. alarm/ticket badges via
+   * the card-badges helpers). Fires for every card type on every render.
+   */
+  onCardRendered?: (item: CardGridItem, cardElement: HTMLElement) => void;
   /** Callback for ambiente card remote toggle (only for cardType='ambiente') */
   handleToggleRemote?: (isOn: boolean, item: CardGridItem) => void;
   /** Empty state message */
@@ -145,6 +177,13 @@ export interface CardGridPanelOptions {
   tabs?: TabItem[];
   /** Callback when tab selection changes (receives the newly selected tab) */
   onTabChange?: (tab: TabItem) => void;
+  /**
+   * When true, the panel becomes an accordion item: clicking the header
+   * (anywhere except its buttons) collapses/expands the body. A small arrow
+   * indicator is shown before the title. Default: false (fully backward-compatible).
+   * Can be toggled at runtime via setCollapsible().
+   */
+  collapsible?: boolean;
 }
 
 // ────────────────────────────────────────────
@@ -411,6 +450,35 @@ const PANEL_CSS = `
     background: #ffffff;
     color: #2F5848;
   }
+
+  /* ── Accordion (opt-in via options.collapsible) ─────────────────────────
+     The header (.myio-hp, from HeaderPanelComponent) becomes clickable and an
+     arrow is shown before its title. Collapsed hides the body (.myio-cgp__grid)
+     and lets the panel shrink to header height. Arrow uses CSS escapes
+     (ASCII only) to stay safe across strict CSS parsers (e.g. ThingsBoard). */
+  .myio-cgp--collapsible > .myio-hp {
+    cursor: pointer;
+    user-select: none;
+  }
+  .myio-cgp--collapsible > .myio-hp .myio-hp__title::before {
+    content: "\\25BE";
+    display: inline-block;
+    margin-right: 6px;
+    font-size: 0.7em;
+    opacity: 0.65;
+  }
+  .myio-cgp--collapsed > .myio-hp .myio-hp__title::before {
+    content: "\\25B8";
+  }
+  .myio-cgp--collapsed > .myio-cgp__grid,
+  .myio-cgp--collapsed > .myio-cgp__tabs-wrapper,
+  .myio-cgp--collapsed > .myio-cgp__content {
+    display: none !important;
+  }
+  .myio-cgp--collapsed {
+    height: auto !important;
+    flex: 0 0 auto !important;
+  }
 `;
 
 function injectStyles(): void {
@@ -439,10 +507,14 @@ export class CardGridPanel {
   private headerComponent: HeaderPanelComponent | null = null;
   private searchText = '';
   private tabsContainer: HTMLElement | null = null;
+  private collapsible = false;
+  private collapsed = false;
+  private headerClickBound = false;
 
   constructor(options: CardGridPanelOptions) {
     injectStyles();
     this.options = options;
+    this.collapsible = !!options.collapsible;
     this.root = document.createElement('div');
     this.root.className = 'myio-cgp';
     // Apply custom panel background (color or image)
@@ -622,6 +694,56 @@ export class CardGridPanel {
     this.renderTabs();
 
     this.renderGrid();
+
+    // Accordion (opt-in): wire header click + reflect current state
+    this.applyCollapsibleState();
+  }
+
+  // ── Accordion / collapse (opt-in via options.collapsible) ──
+
+  /** Enable/disable collapsible behavior at runtime. */
+  public setCollapsible(value: boolean): void {
+    this.collapsible = value;
+    if (!value) this.collapsed = false;
+    this.applyCollapsibleState();
+  }
+
+  /** Collapse or expand the panel body programmatically. */
+  public setCollapsed(value: boolean): void {
+    if (!this.collapsible) return;
+    this.collapsed = value;
+    this.root.classList.toggle('myio-cgp--collapsed', this.collapsed);
+  }
+
+  /** Toggle collapsed state. */
+  public toggleCollapsed(): void {
+    this.setCollapsed(!this.collapsed);
+  }
+
+  /** Returns whether the panel is currently collapsed. */
+  public isCollapsed(): boolean {
+    return this.collapsed;
+  }
+
+  /** Reflects collapsible/collapsed state on the DOM and wires the header click once. */
+  private applyCollapsibleState(): void {
+    this.root.classList.toggle('myio-cgp--collapsible', this.collapsible);
+    if (!this.collapsible) this.collapsed = false;
+    this.root.classList.toggle('myio-cgp--collapsed', this.collapsible && this.collapsed);
+
+    if (this.collapsible && !this.headerClickBound) {
+      const header = this.headerComponent?.getElement();
+      if (header) {
+        this.headerClickBound = true;
+        header.addEventListener('click', (e) => {
+          if (!this.collapsible) return;
+          const target = e.target as HTMLElement;
+          // Don't collapse when clicking interactive header controls (search/filter/maximize/tabs)
+          if (target.closest && target.closest('button, a, input, select, svg, [role="button"]')) return;
+          this.toggleCollapsed();
+        });
+      }
+    }
   }
 
   private renderGrid(): void {
@@ -641,6 +763,12 @@ export class CardGridPanel {
       handleToggleRemote,
       emptyMessage,
       showTempRangeTooltip,
+      enableActionSelector,
+      actionSelectorOnCardClick,
+      onCardRendered,
+      enableSelection,
+      enableDragDrop,
+      handleSelect,
     } = this.options;
 
     if (!items || items.length === 0) {
@@ -712,16 +840,24 @@ export class CardGridPanel {
           handleActionSettings: handleActionSettings
             ? () => handleActionSettings(item)
             : undefined,
-          handleSelect: undefined,
+          // Render the checkbox when selection is enabled. The card gates the
+          // checkbox on `handleSelect` being a function, so pass a no-op when
+          // the consumer doesn't provide one (the actual add/remove is handled
+          // by the card directly against MyIOSelectionStore).
+          handleSelect: enableSelection
+            ? (handleSelect ? () => handleSelect(item) : () => {})
+            : undefined,
           handInfo: undefined,
           handleClickCard: () => {
             handleClickCard?.(item);
           },
-          enableSelection: false,
-          enableDragDrop: false,
+          enableSelection: enableSelection || false,
+          enableDragDrop: enableDragDrop || false,
           useNewComponents: true,
           showTempRangeTooltip: showTempRangeTooltip || false,
           customStyle: cardCustomStyle || undefined,
+          enableActionSelector: enableActionSelector || false,
+          actionSelectorOnCardClick: actionSelectorOnCardClick || false,
         });
       }
 
@@ -736,6 +872,13 @@ export class CardGridPanel {
         }
         wrapper.appendChild(cardResult[0]);
         grid.appendChild(wrapper);
+        if (onCardRendered) {
+          try {
+            onCardRendered(item, cardResult[0] as HTMLElement);
+          } catch (err) {
+            console.warn('[CardGridPanel] onCardRendered callback failed:', err);
+          }
+        }
       }
     });
   }

@@ -33,6 +33,12 @@ import { TempRangeTooltip } from '../../../../utils/TempRangeTooltip';
 import { EnergyRangeTooltip } from '../../../../utils/EnergyRangeTooltip';
 import { DeviceComparisonTooltip } from '../../../../utils/DeviceComparisonTooltip';
 import { TempComparisonTooltip } from '../../../../utils/TempComparisonTooltip';
+import { resolvePercentDecimals } from '../../../../utils/percentDecimals';
+import {
+  getDeviceCategory,
+  getStaticDeviceImage,
+  getTypesByCategory,
+} from '../../../../utils/deviceTypeConfig';
 
 // ============================================
 // CONSTANTS
@@ -41,141 +47,25 @@ import { TempComparisonTooltip } from '../../../../utils/TempComparisonTooltip';
 /** Maximum characters for device label display before truncation */
 const LABEL_CHAR_LIMIT = 18;
 
-/**
- * Centralized device type configuration
- * category: 'energy' | 'water' | 'tank' | 'temperature'
- * image: URL or null (for dynamic images like TANK/TERMOSTATO)
- */
-const DEVICE_TYPE_CONFIG = {
-  // Energy devices
-  COMPRESSOR: { category: 'energy', image: null },
-  VENTILADOR: { category: 'energy', image: null },
-  ESCADA_ROLANTE: {
-    category: 'energy',
-    image: 'https://dashboard.myio-bas.com/api/images/public/EJ997iB2HD1AYYUHwIloyQOOszeqb2jp',
-  },
-  ELEVADOR: {
-    category: 'energy',
-    image: 'https://dashboard.myio-bas.com/api/images/public/rAjOvdsYJLGah6w6BABPJSD9znIyrkJX',
-  },
-  MOTOR: {
-    category: 'energy',
-    image: 'https://dashboard.myio-bas.com/api/images/public/Rge8Q3t0CP5PW8XyTn9bBK9aVP6uzSTT',
-  },
-  BOMBA_HIDRAULICA: {
-    category: 'energy',
-    image: 'https://dashboard.myio-bas.com/api/images/public/rbO2wQb6iKBtX0Ec04DFDcO3Qg04EOoD',
-  },
-  BOMBA_CAG: {
-    category: 'energy',
-    image: 'https://dashboard.myio-bas.com/api/images/public/rbO2wQb6iKBtX0Ec04DFDcO3Qg04EOoD',
-  },
-  BOMBA_INCENDIO: {
-    category: 'energy',
-    image: 'https://dashboard.myio-bas.com/api/images/public/YJkELCk9kluQSM6QXaFINX6byQWI7vbB',
-  },
-  BOMBA: {
-    category: 'energy',
-    image: 'https://dashboard.myio-bas.com/api/images/public/Rge8Q3t0CP5PW8XyTn9bBK9aVP6uzSTT',
-  },
-  '3F_MEDIDOR': {
-    category: 'energy',
-    image: 'https://dashboard.myio-bas.com/api/images/public/f9Ce4meybsdaAhAkUlAfy5ei3I4kcN4k',
-  },
-  RELOGIO: {
-    category: 'energy',
-    image: 'https://dashboard.myio-bas.com/api/images/public/ljHZostWg0G5AfKiyM8oZixWRIIGRASB',
-  },
-  ENTRADA: {
-    category: 'energy',
-    image: 'https://dashboard.myio-bas.com/api/images/public/TQHPFqiejMW6lOSVsb8Pi85WtC0QKOLU',
-  },
-  SUBESTACAO: {
-    category: 'energy',
-    image: 'https://dashboard.myio-bas.com/api/images/public/TQHPFqiejMW6lOSVsb8Pi85WtC0QKOLU',
-  },
-  FANCOIL: {
-    category: 'energy',
-    image: 'https://dashboard.myio-bas.com/api/images/public/4BWMuVIFHnsfqatiV86DmTrOB7IF0X8Y',
-  },
-  CHILLER: {
-    category: 'energy',
-    image: 'https://dashboard.myio-bas.com/api/images/public/27Rvy9HbNoPz8KKWPa0SBDwu4kQ827VU',
-  },
-  AR_CONDICIONADO: { category: 'energy', image: null },
-  HVAC: { category: 'energy', image: null },
+// ============================================
+// DEVICE TYPE CONFIG (RFC-0202)
+// Single source of truth: src/utils/deviceTypeConfig.ts
+// `getDeviceCategory` / `getStaticDeviceImage` are imported above.
+// ============================================
 
-  // Water devices
-  HIDROMETRO: {
-    category: 'water',
-    image: 'https://dashboard.myio-bas.com/api/images/public/aMQYFJbGHs9gQbQkMn6XseAlUZHanBR4',
-  },
-  HIDROMETRO_AREA_COMUM: {
-    category: 'water',
-    image: 'https://dashboard.myio-bas.com/api/images/public/IbEhjsvixAxwKg1ntGGZc5xZwwvGKv2t',
-  },
-  HIDROMETRO_SHOPPING: {
-    category: 'water',
-    image: 'https://dashboard.myio-bas.com/api/images/public/OIMmvN4ZTKYDvrpPGYY5agqMRoSaWNTI',
-  },
-  CAIXA_DAGUA: {
-    category: 'water',
-    image: 'https://dashboard.myio-bas.com/api/images/public/3t6WVhMQJFsrKA8bSZmrngDsNPkZV7fq',
-  },
+// Pre-computed sets for fast lookup, derived from the shared config
+const ENERGY_DEVICE_TYPES = getTypesByCategory('energy');
+const WATER_DEVICE_TYPES = getTypesByCategory('water');
+const TEMPERATURE_DEVICE_TYPES = getTypesByCategory('temperature');
 
-  // Tank devices (dynamic images based on level)
-  TANK: { category: 'tank', image: null },
+const isEnergyDeviceType = (deviceType) =>
+  ENERGY_DEVICE_TYPES.has(String(deviceType || '').toUpperCase());
 
-  // Temperature devices (dynamic images based on status)
-  TERMOSTATO: { category: 'temperature', image: null },
-};
+const isWaterDeviceType = (deviceType) =>
+  WATER_DEVICE_TYPES.has(String(deviceType || '').toUpperCase());
 
-// Pre-computed sets for fast lookup
-const ENERGY_DEVICE_TYPES = new Set(
-  Object.entries(DEVICE_TYPE_CONFIG)
-    .filter(([_, cfg]) => cfg.category === 'energy')
-    .map(([type]) => type)
-);
-
-const WATER_DEVICE_TYPES = new Set(
-  Object.entries(DEVICE_TYPE_CONFIG)
-    .filter(([_, cfg]) => cfg.category === 'water')
-    .map(([type]) => type)
-);
-
-const TEMPERATURE_DEVICE_TYPES = new Set(
-  Object.entries(DEVICE_TYPE_CONFIG)
-    .filter(([_, cfg]) => cfg.category === 'temperature')
-    .map(([type]) => type)
-);
-
-const DEFAULT_DEVICE_IMAGE = 'https://cdn-icons-png.flaticon.com/512/1178/1178428.png';
-
-// Helper functions derived from config
-const getDeviceCategory = (deviceType) => {
-  const normalizedType = String(deviceType || '').toUpperCase();
-  return DEVICE_TYPE_CONFIG[normalizedType]?.category || 'energy';
-};
-
-const isEnergyDeviceType = (deviceType) => {
-  const normalizedType = String(deviceType || '').toUpperCase();
-  return ENERGY_DEVICE_TYPES.has(normalizedType);
-};
-
-const isWaterDeviceType = (deviceType) => {
-  const normalizedType = String(deviceType || '').toUpperCase();
-  return WATER_DEVICE_TYPES.has(normalizedType);
-};
-
-const isTemperatureDeviceType = (deviceType) => {
-  const normalizedType = String(deviceType || '').toUpperCase();
-  return TEMPERATURE_DEVICE_TYPES.has(normalizedType);
-};
-
-const getStaticDeviceImage = (deviceType) => {
-  const normalizedType = String(deviceType || '').toUpperCase();
-  return DEVICE_TYPE_CONFIG[normalizedType]?.image || DEFAULT_DEVICE_IMAGE;
-};
+const isTemperatureDeviceType = (deviceType) =>
+  TEMPERATURE_DEVICE_TYPES.has(String(deviceType || '').toUpperCase());
 
 export function renderCardComponentV5({
   entityObject,
@@ -193,6 +83,9 @@ export function renderCardComponentV5({
   showPercentageTooltip = false, // Tooltip on percentage badge
   showTempComparisonTooltip = false, // Tooltip on temperature deviation badge
   showTempRangeTooltip = false, // Tooltip on device image for temperature devices
+  // Decimal places for the % badge. Resolved at render time so it can be changed
+  // without rebuilding the lib: this prop > window.MyIOUtils.percentDecimals > 2.
+  percentDecimals,
 }) {
   const {
     entityId,
@@ -219,6 +112,8 @@ export function renderCardComponentV5({
     temperatureMin,
     temperatureMax,
     temperatureStatus, // 'ok' | 'above' | 'below' | undefined
+    // Per-device exclude_groups_totals attribute (SERVER_SCOPE) — drives the orange marker
+    excludeGroupsTotals,
   } = entityObject;
 
   /*********************************************************
@@ -518,6 +413,20 @@ export function renderCardComponentV5({
         height: 100%;
       }
 
+      /* Subtle orange marker — device flagged in exclude_groups_totals */
+      .myio-enhanced-card-container-v5.myio-card-excluded::after {
+        content: '';
+        position: absolute;
+        left: 12px;
+        right: 12px;
+        bottom: 3px;
+        height: 3px;
+        border-radius: 2px;
+        background: linear-gradient(90deg, rgba(245, 158, 11, 0), #f59e0b 50%, rgba(245, 158, 11, 0));
+        pointer-events: none;
+        z-index: 5;
+      }
+
       .myio-enhanced-card-container-v5 .myio-draggable-card {
         width: 100%;
         border-radius: 10px;
@@ -737,6 +646,10 @@ export function renderCardComponentV5({
   const isEnergyDeviceFlag = isEnergyDevice(deviceType);
   const percentageForDisplay = isTankDevice ? (waterPercentage || 0) * 100 : perc;
 
+  // Decimal places for the percentage badge — prop > window.MyIOUtils.percentDecimals > 2.
+  // Runtime-resolved, so it can change without a lib rebuild.
+  const _pctDecimals = resolvePercentDecimals(percentDecimals);
+
   // Calculate temperature status for TERMOSTATO devices
   const calculateTempStatus = () => {
     // If status is explicitly provided, use it
@@ -851,9 +764,7 @@ export function renderCardComponentV5({
               </div>
               ${
                 !isTermostatoDevice
-                  ? `<span class="device-percentage-badge percentage-tooltip-trigger" style="position: absolute; bottom: 12px; right: 12px; z-index: 20; background: none !important; cursor: help;">${percentageForDisplay.toFixed(
-                      1
-                    )}%</span>`
+                  ? `<span class="device-percentage-badge percentage-tooltip-trigger" style="position: absolute; bottom: 12px; right: 12px; z-index: 20; background: none !important; cursor: help;">${percentageForDisplay.toFixed(_pctDecimals).replace('.', ',')}%</span>`
                   : tempDeviationPercent
                   ? `<span class="device-percentage-badge temp-deviation-badge temp-comparison-tooltip-trigger" style="position: absolute; bottom: 12px; right: 12px; z-index: 20; background: none !important; color: ${
                       tempDeviationPercent.isAbove
@@ -877,6 +788,23 @@ export function renderCardComponentV5({
 
   container.innerHTML = cardHTML;
   const enhancedCardElement = container.querySelector('.device-card-centered');
+
+  // Subtle orange bottom line when the device is flagged in exclude_groups_totals.
+  try {
+    const _excl =
+      typeof excludeGroupsTotals === 'string'
+        ? JSON.parse(excludeGroupsTotals)
+        : excludeGroupsTotals;
+    const _isExcluded = !!(
+      _excl &&
+      _excl.enabled === true &&
+      ((_excl.groups && Object.values(_excl.groups).some((v) => v === true)) ||
+        (Array.isArray(_excl.excludedGroups) && _excl.excludedGroups.length > 0))
+    );
+    if (_isExcluded) container.classList.add('myio-card-excluded');
+  } catch (e) {
+    /* malformed exclude_groups_totals — no marker */
+  }
 
   // Add premium enhanced card styles - V5 OPTIMIZED
   if (!document.getElementById('myio-enhanced-card-layout-styles-v5')) {

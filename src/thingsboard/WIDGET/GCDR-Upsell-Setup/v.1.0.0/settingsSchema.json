@@ -9,10 +9,37 @@
         "default": 5000,
         "minimum": 0,
         "description": "Tempo de espera (em milissegundos) entre cada chunk de 10 entidades durante as operações Force Clear (SlavesIDs, Central IDs, Ingestion). Aumente este valor se o ThingsBoard estiver retornando 429/timeout em customers com muitos devices. Default: 5000 (5s)."
+      },
+      "gcdrMasterKey": {
+        "title": "GCDR Master API Key (X-API-Key)",
+        "type": "string",
+        "default": "",
+        "description": "Chave master usada no header X-API-Key de TODAS as chamadas ao GCDR (Initial Setup, Sincronizar GCDR e Raio X). Obrigatório: se vazio, as operações GCDR exibem um toast de erro e abortam. Configure aqui quando a chave do servidor GCDR mudar."
+      },
+      "ingestionClientId": {
+        "title": "Ingestion API — Client ID",
+        "type": "string",
+        "default": "",
+        "description": "client_id usado na autenticação da Ingestion API (buildMyioIngestionAuth → POST /api/v1/auth), no fluxo de Upsell. Obrigatório: se vazio, o Upsell exibe um toast de erro e aborta."
+      },
+      "ingestionClientSecret": {
+        "title": "Ingestion API — Client Secret",
+        "type": "string",
+        "default": "",
+        "description": "client_secret usado na autenticação da Ingestion API (buildMyioIngestionAuth → POST /api/v1/auth), no fluxo de Upsell. Obrigatório: se vazio, o Upsell exibe um toast de erro e aborta."
       }
     }
   },
   "form": [
-    "forceClearChunkDelayMs"
+    "forceClearChunkDelayMs",
+    {
+      "key": "gcdrMasterKey",
+      "type": "password"
+    },
+    "ingestionClientId",
+    {
+      "key": "ingestionClientSecret",
+      "type": "password"
+    }
   ]
 }

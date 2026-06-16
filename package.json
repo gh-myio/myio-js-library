@@ -1,6 +1,6 @@
 {
   "name": "myio-js-library",
-  "version": "0.1.501",
+  "version": "0.1.520",
   "description": "A clean, standalone JS SDK for MYIO projects",
   "license": "MIT",
   "repository": "github:gh-myio/myio-js-library",
@@ -10,10 +10,26 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs",
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      },
       "default": "./dist/index.js"
+    },
+    "./tooltips": {
+      "import": {
+        "types": "./dist/tooltips.d.ts",
+        "default": "./dist/tooltips.js"
+      },
+      "require": {
+        "types": "./dist/tooltips.d.cts",
+        "default": "./dist/tooltips.cjs"
+      },
+      "default": "./dist/tooltips.js"
     }
   },
   "sideEffects": false,
@@ -27,10 +43,10 @@
   ],
   "scripts": {
     "clean": "rimraf dist",
-    "build:tsup": "tsup src/index.ts --format esm,cjs --clean --outDir dist --dts",
+    "build:tsup": "tsup src/index.ts src/tooltips.ts --format esm,cjs --clean --outDir dist --dts",
     "build:umd": "rollup -c",
     "minify:umd": "terser dist/myio-js-library.umd.js -o dist/myio-js-library.umd.min.js --comments=false",
-    "postbuild": "node scripts/copy-dts.js",
+    "postbuild": "node scripts/verify-dts.js",
     "build": "npm run clean && npm run build:tsup && npm run build:umd && npm run minify:umd",
     "lint": "eslint .",
     "test": "vitest run",

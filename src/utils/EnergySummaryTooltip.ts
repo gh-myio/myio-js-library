@@ -143,8 +143,7 @@ const ENERGY_SUMMARY_TOOLTIP_CSS = `
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15), 0 2px 10px rgba(0, 0, 0, 0.08);
-  min-width: 380px;
-  width: max-content;
+  width: 450px;
   max-width: 90vw;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: 12px;
@@ -246,7 +245,9 @@ const ENERGY_SUMMARY_TOOLTIP_CSS = `
 }
 
 .energy-summary-tooltip.maximized .energy-summary-tooltip__body {
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
   overflow-y: auto;
 }
 
@@ -1287,6 +1288,9 @@ export const EnergySummaryTooltip = {
     const timestamp = formatTimestamp(summary.lastUpdated);
     const excludedNotice = this.renderExcludedNotice(summary.excludedFromCAG, summary.unit);
     const titleSuffix = summary.customerName ? ` (${summary.customerName})` : '';
+    // "Por Shopping" only makes sense with ≥2 shoppings (head-office view).
+    // In a single-shopping context the tab + shopping view are hidden.
+    const isMultiShopping = (summary.byShoppingTotal?.length || 0) >= 2;
 
     return `
       <div class="energy-summary-tooltip__content">
@@ -1321,10 +1325,14 @@ export const EnergySummaryTooltip = {
           </div>
           <div class="energy-summary-tooltip__section-header">
             <span class="energy-summary-tooltip__section-title">Distribuição</span>
-            <div class="energy-summary-tooltip__grouping-tabs">
+            ${
+              isMultiShopping
+                ? `<div class="energy-summary-tooltip__grouping-tabs">
               <button class="energy-summary-tooltip__grouping-tab active" data-view="category">Por Categoria</button>
               <button class="energy-summary-tooltip__grouping-tab" data-view="shopping">Por ${summary.entityLabel || 'Shopping'}</button>
-            </div>
+            </div>`
+                : ''
+            }
           </div>
 
           <!-- Category View (default) -->
@@ -1339,8 +1347,10 @@ export const EnergySummaryTooltip = {
             </div>
           </div>
 
-          <!-- Shopping View -->
-          <div class="energy-summary-tooltip__shopping-view" data-grouping="shopping">
+          <!-- Shopping View (head-office only) -->
+          ${
+            isMultiShopping
+              ? `<div class="energy-summary-tooltip__shopping-view" data-grouping="shopping">
             <div class="energy-summary-tooltip__category-tree">
               <div class="energy-summary-tooltip__category-header">
                 <span>${summary.entityLabel || 'Shopping'}</span>
@@ -1349,7 +1359,9 @@ export const EnergySummaryTooltip = {
               </div>
               ${this.renderShoppingView(summary.byShoppingTotal, summary.unit)}
             </div>
-          </div>
+          </div>`
+              : ''
+          }
 
           <div class="energy-summary-tooltip__section-title">Status dos Dispositivos</div>
           <div class="energy-summary-tooltip__status-matrix">
@@ -1866,6 +1878,8 @@ export const EnergySummaryTooltip = {
         left: container.style.left,
         top: container.style.top
       };
+      // Maximizing implies pinning — a full-screen panel must not auto-hide.
+      if (!this._isPinned) this.togglePin();
     }
 
     container.classList.toggle('maximized', this._isMaximized);
@@ -2234,7 +2248,9 @@ export const EnergySummaryTooltip = {
 
     // Calculate totals
     summary.totalDevices = entrada.deviceCount + lojas.deviceCount + areaComumDeviceCount;
-    summary.totalConsumption = state.grandTotal || entrada.consumption;
+    // "Consumo Total" = Entrada (the reference / 100%), matching TELEMETRY_INFO's
+    // "Total Consumidores". Never sum byCategory — that would double-count Entrada.
+    summary.totalConsumption = entrada.consumption || state.grandTotal || 0;
 
     // RFC-0105 Enhancement: Use device status aggregation passed from widget controller
     // Priority: 1. deviceStatusAggregation from receivedData (widget context)

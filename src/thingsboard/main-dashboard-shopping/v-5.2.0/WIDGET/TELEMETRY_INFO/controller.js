@@ -52,22 +52,203 @@ function getWidgetDomain() {
   return self.ctx.settings?.DOMAIN || '';
 }
 
-// RFC-0196: Global toggle for expandable device lists inside tooltips.
-// Registered as capture-phase listener so it fires before InfoTooltip dismiss handlers.
+// Inject button styles into the host document so they reach the InfoTooltip,
+// which is appended to document.body and lives outside the widget's CSS scope.
+// Idempotent (id-guarded) — safe across multiple widget instances and re-inits.
+(function _injectInfoTooltipButtonCss() {
+  if (typeof document === 'undefined') return;
+  const STYLE_ID = 'myio-tinfo-tooltip-buttons-css';
+  if (document.getElementById(STYLE_ID)) return;
+  const css = `
+    /* +/- expand toggle inside (i) tooltip device lists */
+    .rfc196-expand-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 22px; height: 22px; padding: 0; line-height: 1;
+      border-radius: 6px; border: 1px solid #c7d2fe;
+      background: linear-gradient(180deg, #f5f7ff 0%, #e0e7ff 100%);
+      color: #3730a3; font-size: 14px; font-weight: 700;
+      cursor: pointer; margin-left: 8px; vertical-align: middle;
+      box-shadow: 0 1px 2px rgba(67, 56, 202, 0.12);
+      transition: background 0.15s, transform 0.08s, box-shadow 0.15s, border-color 0.15s;
+      user-select: none;
+    }
+    .rfc196-expand-btn:hover {
+      background: linear-gradient(180deg, #e0e7ff 0%, #c7d2fe 100%);
+      border-color: #a5b4fc; box-shadow: 0 2px 5px rgba(67, 56, 202, 0.2);
+    }
+    .rfc196-expand-btn:active { transform: scale(0.94); }
+    .rfc196-expand-btn:focus-visible { outline: 2px solid #6366f1; outline-offset: 1px; }
+    .rfc196-expand-btn[aria-expanded="true"] {
+      background: linear-gradient(180deg, #4338ca 0%, #3730a3 100%);
+      border-color: #312e81; color: #ffffff;
+      box-shadow: 0 2px 6px rgba(55, 48, 163, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    }
+    .rfc196-device-list {
+      margin-top: 6px; padding: 6px 10px;
+      background: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0;
+    }
+    .rfc196-device-item {
+      display: grid; grid-template-columns: 70% 30%; align-items: center;
+      column-gap: 8px;
+      padding: 4px 0; border-bottom: 1px dashed #e2e8f0;
+      font-size: 11px; color: #475569;
+    }
+    .rfc196-device-item:last-child { border-bottom: none; }
+    .rfc196-device-item__name {
+      min-width: 0;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .rfc196-device-item__value {
+      text-align: right; font-variant-numeric: tabular-nums;
+      font-weight: 600; color: #1e293b; font-size: 11px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+
+    /* Export footer (CSV / XLS / PDF) — pinned at the bottom of the (i) modal */
+    .tinfo-export-footer {
+      display: flex; gap: 8px; justify-content: flex-end; align-items: center;
+      margin: 14px -16px -16px -16px;
+      padding: 10px 14px;
+      background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+      border-top: 1px solid #e2e8f0;
+      border-radius: 0 0 11px 11px;
+    }
+    .tinfo-export-btn {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 6px 12px;
+      border-radius: 6px; border: 1px solid #cbd5e1;
+      background: #ffffff; color: #334155;
+      font-size: 11px; font-weight: 600; letter-spacing: 0.2px;
+      cursor: pointer; user-select: none; font-family: inherit; line-height: 1;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+      transition: background 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.08s;
+    }
+    .tinfo-export-btn:hover {
+      background: #f1f5f9; border-color: #94a3b8;
+      box-shadow: 0 2px 4px rgba(15, 23, 42, 0.1);
+    }
+    .tinfo-export-btn:active { transform: scale(0.97); }
+    .tinfo-export-btn:focus-visible { outline: 2px solid #6366f1; outline-offset: 1px; }
+    .tinfo-export-btn--accent {
+      background: linear-gradient(180deg, #4338ca 0%, #3730a3 100%);
+      border-color: #312e81; color: #ffffff;
+      box-shadow: 0 2px 6px rgba(55, 48, 163, 0.25);
+    }
+    .tinfo-export-btn--accent:hover {
+      background: linear-gradient(180deg, #3730a3 0%, #312e81 100%);
+      border-color: #312e81;
+    }
+    .tinfo-export-btn__icon { font-size: 14px; line-height: 1; }
+  `;
+  const style = document.createElement('style');
+  style.id = STYLE_ID;
+  style.textContent = css;
+  document.head.appendChild(style);
+})();
+
+// RFC-0196: Inline toggle for expandable device lists inside (i) tooltips.
+// Switched from capture-phase document listener to inline onclick on each
+// button so the handler fires regardless of portal/clone/stopPropagation
+// scenarios \u2014 see _installRfc196Toggle below for full notes.
+//
+// Original capture-phase listener kept as a SAFETY NET so the toggle still
+// works if some legacy embed re-uses old HTML without the onclick attribute.
+
+// Inline handler installed on `window` so the onclick attribute in the
+// generated button HTML can call it directly. Idempotent across re-inits.
+(function _installRfc196InlineToggle() {
+  if (typeof window === 'undefined') return;
+  if (window.__myioRfc196Toggle) return;
+  window.__myioRfc196Toggle = function (btn, ev) {
+    // Diagnostic trace \u2014 inspect via window.__rfc196LastCall in console.
+    var trace = { stage: 'enter', btn: btn, ev: ev, ts: Date.now() };
+    window.__rfc196LastCall = trace;
+    try {
+      if (ev && typeof ev.stopPropagation === 'function') ev.stopPropagation();
+      if (ev && typeof ev.preventDefault === 'function') ev.preventDefault();
+      if (!btn || !btn.getAttribute) { trace.stage = 'no-btn'; return false; }
+      var id = btn.getAttribute('data-devtoggle');
+      trace.id = id;
+      if (!id) { trace.stage = 'no-id'; return false; }
+      var doc = btn.ownerDocument || document;
+      var el = null;
+      var tooltipRoot =
+        (btn.closest && (btn.closest('.myio-info-tooltip') ||
+          btn.closest('.myio-info-tooltip__content') ||
+          btn.closest('.tnt-tooltip') ||
+          btn.closest('.ant-tooltip'))) ||
+        null;
+      trace.tooltipRoot = tooltipRoot;
+      if (tooltipRoot) {
+        el = tooltipRoot.querySelector('#rfc196-devlist-' + id);
+        trace.viaTooltip = el;
+      }
+      if (!el && btn.parentElement) {
+        el = btn.parentElement.querySelector('#rfc196-devlist-' + id);
+        trace.viaParent = el;
+        trace.parentHTML = btn.parentElement.innerHTML.slice(0, 500);
+      }
+      if (!el) {
+        var all = doc.querySelectorAll('#rfc196-devlist-' + id);
+        trace.queryAllCount = all.length;
+        if (all.length === 1) el = all[0];
+        else if (all.length > 1 && tooltipRoot) {
+          for (var i = 0; i < all.length; i++) {
+            if (tooltipRoot.contains(all[i])) { el = all[i]; break; }
+          }
+          if (!el) el = all[0];
+        } else if (all.length > 0) {
+          el = all[0];
+        } else {
+          el = doc.getElementById('rfc196-devlist-' + id);
+          trace.viaGetById = el;
+        }
+      }
+      trace.el = el;
+      if (!el) {
+        trace.stage = 'list-not-found';
+        // Also dump sibling chain so we can see what IS there.
+        if (btn.parentElement) {
+          trace.siblings = Array.from(btn.parentElement.children).map(function (c) {
+            return c.tagName + '#' + c.id + '.' + (c.className || '');
+          });
+        }
+        console.warn('[rfc196] list not found', trace);
+        return false;
+      }
+      var opening = el.style.display === 'none' || el.style.display === '';
+      trace.displayBefore = el.style.display;
+      trace.opening = opening;
+      el.style.display = opening ? 'block' : 'none';
+      btn.textContent = opening ? '\u2212' : '+';
+      btn.setAttribute('aria-expanded', opening ? 'true' : 'false');
+      trace.displayAfter = el.style.display;
+      trace.stage = 'toggled';
+    } catch (err) {
+      trace.stage = 'error';
+      trace.error = err && err.message;
+      console.warn('[rfc196] toggle error', err);
+    }
+    return false;
+  };
+})();
+
+// When the InfoTooltip is pinned a clone is created \u2014 both original and clone
+// share the same id="rfc196-devlist-${id}". getElementById always returns the
+// first in DOM order, so the clone's button toggled the original's hidden list
+// and the clone's "+" appeared broken. Fix: scope the lookup to the button's
+// closest tooltip container.
+// Capture-phase listener (PRIMARY path). ThingsBoard widget CSP blocks inline
+// onclick attributes, so the document-level listener is the only reliable way
+// to receive clicks on `.rfc196-expand-btn` regardless of how the popup is
+// mounted (portal, pinned clone, etc).
 (function () {
   function _rfc196Toggle(e) {
     const btn = e.target && e.target.closest ? e.target.closest('.rfc196-expand-btn') : null;
     if (!btn) return;
-    e.stopPropagation();
-    const id = btn.getAttribute('data-devtoggle');
-    if (!id) return;
-    // Search in the owner document of the button (works in both iframe and body contexts)
-    const root = btn.ownerDocument || document;
-    const el = root.getElementById('rfc196-devlist-' + id);
-    if (!el) return;
-    const opening = el.style.display === 'none' || el.style.display === '';
-    el.style.display = opening ? 'block' : 'none';
-    btn.textContent = opening ? '\u2212' : '+';
+    if (typeof window.__myioRfc196Toggle === 'function') {
+      window.__myioRfc196Toggle(btn, e);
+    }
   }
   document.addEventListener('click', _rfc196Toggle, true);
 })();
@@ -613,11 +794,11 @@ function aggregateData(items) {
   STATE.grandTotal = grandTotalEffective;
 
   LogHelper.log('RFC-0056: Percentages calculated:', {
-    climatizacao: STATE.consumidores.climatizacao.perc.toFixed(1) + '%',
-    elevadores: STATE.consumidores.elevadores.perc.toFixed(1) + '%',
-    escadasRolantes: STATE.consumidores.escadasRolantes.perc.toFixed(1) + '%',
-    lojas: STATE.consumidores.lojas.perc.toFixed(1) + '%',
-    areaComum: STATE.consumidores.areaComum.perc.toFixed(1) + '%',
+    climatizacao: STATE.consumidores.climatizacao.perc.toFixed(2).replace('.', ',') + '%',
+    elevadores: STATE.consumidores.elevadores.perc.toFixed(2).replace('.', ',') + '%',
+    escadasRolantes: STATE.consumidores.escadasRolantes.perc.toFixed(2).replace('.', ',') + '%',
+    lojas: STATE.consumidores.lojas.perc.toFixed(2).replace('.', ',') + '%',
+    areaComum: STATE.consumidores.areaComum.perc.toFixed(2).replace('.', ',') + '%',
   });
 
   // ========== 5. VALIDATE TOTALS ==========
@@ -716,24 +897,24 @@ function renderStats() {
 
   // ClimatizaÃ§Ã£o
   $$('#climatizacaoTotal').text(formatEnergy(STATE.consumidores.climatizacao.total));
-  $$('#climatizacaoPerc').text(`(${STATE.consumidores.climatizacao.perc.toFixed(1)}%)`);
+  $$('#climatizacaoPerc').text(`(${STATE.consumidores.climatizacao.perc.toFixed(2).replace('.', ',')}%)`);
 
   // Elevadores
   $$('#elevadoresTotal').text(formatEnergy(STATE.consumidores.elevadores.total));
-  $$('#elevadoresPerc').text(`(${STATE.consumidores.elevadores.perc.toFixed(1)}%)`);
+  $$('#elevadoresPerc').text(`(${STATE.consumidores.elevadores.perc.toFixed(2).replace('.', ',')}%)`);
 
   // Escadas Rolantes
   $$('#escadasRolantesTotal').text(formatEnergy(STATE.consumidores.escadasRolantes.total));
-  $$('#escadasRolantesPerc').text(`(${STATE.consumidores.escadasRolantes.perc.toFixed(1)}%)`);
+  $$('#escadasRolantesPerc').text(`(${STATE.consumidores.escadasRolantes.perc.toFixed(2).replace('.', ',')}%)`);
 
   // Lojas
   $$('#lojasTotal').text(formatEnergy(STATE.consumidores.lojas.total));
-  $$('#lojasPerc').text(`(${STATE.consumidores.lojas.perc.toFixed(1)}%)`);
+  $$('#lojasPerc').text(`(${STATE.consumidores.lojas.perc.toFixed(2).replace('.', ',')}%)`);
 
   // Outros Equipamentos (RFC-0056: Defensiva para compatibilidade)
   if (STATE.consumidores.outros) {
     $$('#outrosTotal').text(formatEnergy(STATE.consumidores.outros.total));
-    $$('#outrosPerc').text(`(${STATE.consumidores.outros.perc.toFixed(1)}%)`);
+    $$('#outrosPerc').text(`(${STATE.consumidores.outros.perc.toFixed(2).replace('.', ',')}%)`);
   } else {
     // RFC-0108: Use formatEnergy(0) to respect measurement settings
     $$('#outrosTotal').text(formatEnergy(0));
@@ -742,7 +923,7 @@ function renderStats() {
 
   // Ãrea Comum (residual)
   $$('#areaComumTotal').text(formatEnergy(STATE.consumidores.areaComum.total));
-  $$('#areaComumPerc').text(`(${STATE.consumidores.areaComum.perc.toFixed(1)}%)`);
+  $$('#areaComumPerc').text(`(${STATE.consumidores.areaComum.perc.toFixed(2).replace('.', ',')}%)`);
 
   // RFC-0056: Hide Área Comum card when water domain has bathrooms enabled
   // Consolidate área comum into "Pontos não mapeados" instead
@@ -893,7 +1074,7 @@ function renderPieChart() {
               const label = context.label || '';
               const value = context.parsed || 0;
               const total = context.dataset.data.reduce((a, b) => a + b, 0);
-              const perc = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+              const perc = total > 0 ? ((value / total) * 100).toFixed(2).replace('.', ',') : 0;
               return `${label}: ${formatEnergy(value)} (${perc}%)`;
             },
           },
@@ -964,7 +1145,7 @@ function renderChartLegend() {
       <div class="legend-item">
         <div class="legend-color" style="background: ${item.color};"></div>
         <span class="legend-label">${item.label}:</span>
-        <span class="legend-value">${formatEnergy(item.value)} (${item.perc.toFixed(1)}%)</span>
+        <span class="legend-value">${formatEnergy(item.value)} (${item.perc.toFixed(2).replace('.', ',')}%)</span>
       </div>
     `;
     $legend.append(html);
@@ -1189,7 +1370,7 @@ function renderModalChart() {
               const label = context.label || '';
               const value = context.parsed || 0;
               const total = context.dataset.data.reduce((a, b) => a + b, 0);
-              const perc = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+              const perc = total > 0 ? ((value / total) * 100).toFixed(2).replace('.', ',') : 0;
               return `${label}: ${formatEnergy(value)} (${perc}%)`;
             },
           },
@@ -1496,9 +1677,8 @@ function processStateFromSummaryWater(summary, grandTotal) {
   let banheirosDevices = summary.banheiros?.details?.devices || [];
   let areaComumDevices = summary.areaComum?.details?.devices || [];
 
-  // RFC-0106 FIX: Extract banheiros from areaComum when summary doesn't have them separated
-  // This happens when devices with identifier/label containing bathroom patterns have deviceType = HIDROMETRO_AREA_COMUM
-  const BANHEIRO_PATTERNS = ['banheiro', 'wc', 'sanitario', 'toalete', 'lavabo'];
+  // RFC-0106 FIX: Extract banheiros from areaComum when summary doesn't have them separated.
+  // Bathroom meters have deviceProfile = HIDROMETRO_AREA_COMUM and identifier containing BANHEIRO.
   let banheirosExtracted = false;
   let banheirosTotal = summary.banheiros?.summary?.total || 0;
   let areaComumTotal = summary.areaComum?.summary?.total || 0;
@@ -1508,9 +1688,11 @@ function processStateFromSummaryWater(summary, grandTotal) {
     const remainingAreaComum = [];
 
     areaComumDevices.forEach((device) => {
-      const labelLower = (device.label || '').toLowerCase();
-      const identifierLower = (device.identifier || device.id || '').toLowerCase();
-      const isBanheiro = BANHEIRO_PATTERNS.some((p) => labelLower.includes(p) || identifierLower.includes(p));
+      // A bathroom meter = deviceProfile HIDROMETRO_AREA_COMUM + identifier contains BANHEIRO
+      // (both are SERVER_SCOPE attributes on the TB device).
+      const dp = String(device.deviceProfile || '').toUpperCase();
+      const idf = String(device.identifier || device.id || '').toUpperCase();
+      const isBanheiro = dp === 'HIDROMETRO_AREA_COMUM' && idf.includes('BANHEIRO');
 
       if (isBanheiro) {
         extractedBanheiros.push(device);
@@ -2048,13 +2230,24 @@ function processWaterTelemetryData(eventDetail) {
  * Formula: entrada - (lojas + banheiros + areaComum) when includeBathrooms is true
  * Formula: entrada - (lojas + areaComum) when includeBathrooms is false
  */
+// Effective "Área Comum" value for the card/chart. When the Banheiros card is not
+// broken out (includeBathrooms = false) the whole água-comum group is shown
+// (área comum + banheiros); with bathrooms on, only the non-bathroom part.
+function _waterAreaComumDisplay() {
+  const ac = STATE_WATER.areaComum?.total || 0;
+  const ba = STATE_WATER.banheiros?.total || 0;
+  return STATE_WATER.includeBathrooms ? ac : ac + ba;
+}
+
 function calculateWaterPontosNaoMapeados() {
   const entrada = STATE_WATER.entrada.total;
   const lojas = STATE_WATER.lojas.total;
-  const banheiros = STATE_WATER.includeBathrooms ? STATE_WATER.banheiros.total : 0;
+  // Banheiros is always part of the measured group (a real meter) — count it always,
+  // regardless of whether it gets its own card.
+  const banheiros = STATE_WATER.banheiros.total || 0;
   const areaComum = STATE_WATER.areaComum.total;
 
-  // Sum of measured points (includes banheiros only if enabled)
+  // Measured points: Lojas + (Banheiros + Área Comum) = Lojas + grupo Área Comum inteiro
   const medidosTotal = lojas + banheiros + areaComum;
 
   // Residual (difference)
@@ -2102,10 +2295,10 @@ function calculateWaterPercentages() {
   STATE_WATER.pontosNaoMapeados.perc = (STATE_WATER.pontosNaoMapeados.total / entrada) * 100;
 
   LogHelper.log(`[RFC-0002 Water] Percentages:`, {
-    lojas: STATE_WATER.lojas.perc.toFixed(1) + '%',
-    banheiros: STATE_WATER.banheiros.perc.toFixed(1) + '%',
-    areaComum: STATE_WATER.areaComum.perc.toFixed(1) + '%',
-    naoMapeados: STATE_WATER.pontosNaoMapeados.perc.toFixed(1) + '%',
+    lojas: STATE_WATER.lojas.perc.toFixed(2).replace('.', ',') + '%',
+    banheiros: STATE_WATER.banheiros.perc.toFixed(2).replace('.', ',') + '%',
+    areaComum: STATE_WATER.areaComum.perc.toFixed(2).replace('.', ',') + '%',
+    naoMapeados: STATE_WATER.pontosNaoMapeados.perc.toFixed(2).replace('.', ',') + '%',
   });
 }
 
@@ -2135,17 +2328,20 @@ function renderWaterStats() {
 
   // Update Lojas card
   $$('#lojasTotal').text(formatValue(STATE_WATER.lojas.total, 'water'));
-  $$('#lojasPerc').text(`(${STATE_WATER.lojas.perc.toFixed(1)}%)`);
+  $$('#lojasPerc').text(`(${STATE_WATER.lojas.perc.toFixed(2).replace('.', ',')}%)`);
 
   // Update Banheiros card (only if enabled)
   if (STATE_WATER.includeBathrooms) {
     $$('#banheirosTotal').text(formatValue(STATE_WATER.banheiros.total, 'water'));
-    $$('#banheirosPerc').text(`(${STATE_WATER.banheiros.perc.toFixed(1)}%)`);
+    $$('#banheirosPerc').text(`(${STATE_WATER.banheiros.perc.toFixed(2).replace('.', ',')}%)`);
   }
 
-  // Reuse "área comum" card for water área comum
-  $$('#areaComumTotal').text(formatValue(STATE_WATER.areaComum.total, 'water'));
-  $$('#areaComumPerc').text(`(${STATE_WATER.areaComum.perc.toFixed(1)}%)`);
+  // Reuse "área comum" card for water área comum.
+  // The card-title is static "Pontos Não Mapeados" (its energy-domain role) — relabel it
+  // to "Área Comum" here, otherwise it duplicates the .total-card label below in water.
+  $$('.area-comum-card .card-title').text('Área Comum');
+  $$('#areaComumTotal').text(formatValue(_waterAreaComumDisplay(), 'water'));
+  $$('#areaComumPerc').text(`(${STATE_WATER.areaComum.perc.toFixed(2).replace('.', ',')}%)`);
 
   // RFC-0056: Hide Área Comum card when bathrooms are included
   // Consolidate área comum into "Pontos não mapeados" instead
@@ -2162,8 +2358,10 @@ function renderWaterStats() {
   if ($totalCard.length > 0) {
     $totalCard.text('Pontos Não Mapeados');
   }
+  // Surface the (i) info icon on this card — only meaningful in water (Pontos Não Mapeados)
+  $$('.total-card .info-tooltip').show();
   $$('#consumidoresTotal').text(formatValue(STATE_WATER.pontosNaoMapeados.total, 'water'));
-  $$('#consumidoresPerc').text(`(${STATE_WATER.pontosNaoMapeados.perc.toFixed(1)}%)`);
+  $$('#consumidoresPerc').text(`(${STATE_WATER.pontosNaoMapeados.perc.toFixed(2).replace('.', ',')}%)`);
 
   // Show warning if inconsistency
   if (STATE_WATER.pontosNaoMapeados.hasInconsistency) {
@@ -2229,7 +2427,7 @@ function renderWaterPieChart() {
     {
       label: 'Área Comum',
       color: colors.areaComum,
-      value: STATE_WATER.areaComum.total,
+      value: _waterAreaComumDisplay(),
       perc: STATE_WATER.areaComum.perc,
     },
     {
@@ -2288,7 +2486,7 @@ function renderWaterPieChart() {
               label: function (context) {
                 const label = context.label || '';
                 const value = formatValue(context.parsed, 'water');
-                const perc = validData[context.dataIndex].perc.toFixed(1);
+                const perc = validData[context.dataIndex].perc.toFixed(2).replace('.', ',');
                 return `${label}: ${value} (${perc}%)`;
               },
             },
@@ -2307,7 +2505,7 @@ function renderWaterPieChart() {
         <div class="legend-item">
           <span class="legend-color" style="background-color: ${item.color};"></span>
           <span class="legend-label">${item.label}</span>
-          <span class="legend-value">${formatValue(item.value, 'water')} (${item.perc.toFixed(1)}%)</span>
+          <span class="legend-value">${formatValue(item.value, 'water')} (${item.perc.toFixed(2).replace('.', ',')}%)</span>
         </div>
       `);
     });
@@ -2496,20 +2694,16 @@ function buildAreaComumContentEnergy() {
  * @returns {string} HTML content
  */
 function buildAreaComumContentWater() {
-  const entrada = STATE_WATER.entrada.total || 0;
-  const lojas = STATE_WATER.lojas?.total || 0;
   const banheiros = STATE_WATER.banheiros?.total || 0;
-  const areaComum = STATE_WATER.areaComum?.total || 0;
+  const areaComumSemBanheiros = STATE_WATER.areaComum?.total || 0;
   const includeBathrooms = STATE_WATER.includeBathrooms;
+  const grupoAreaComum = areaComumSemBanheiros + banheiros;
+  const areaComumCard = _waterAreaComumDisplay();
 
   let rows = `
     <div class="myio-info-tooltip__row">
-      <span class="myio-info-tooltip__label">📥 Entrada (Total):</span>
-      <span class="myio-info-tooltip__value">${formatValue(entrada, 'water')}</span>
-    </div>
-    <div class="myio-info-tooltip__row">
-      <span class="myio-info-tooltip__label">➖ Lojas:</span>
-      <span class="myio-info-tooltip__value">${formatValue(lojas, 'water')}</span>
+      <span class="myio-info-tooltip__label">📥 Grupo Área Comum:</span>
+      <span class="myio-info-tooltip__value">${formatValue(grupoAreaComum, 'water')}</span>
     </div>
   `;
 
@@ -2525,13 +2719,13 @@ function buildAreaComumContentWater() {
   rows += `
     <div class="myio-info-tooltip__row" style="border-top: 1px solid #e2e8f0; padding-top: 8px; margin-top: 6px;">
       <span class="myio-info-tooltip__label"><strong>= Área Comum:</strong></span>
-      <span class="myio-info-tooltip__value myio-info-tooltip__value--highlight">${formatValue(areaComum, 'water')}</span>
+      <span class="myio-info-tooltip__value myio-info-tooltip__value--highlight">${formatValue(areaComumCard, 'water')}</span>
     </div>
   `;
 
   const formula = includeBathrooms
-    ? 'Área Comum = Entrada − (Lojas + Banheiros)'
-    : 'Área Comum = Entrada − Lojas';
+    ? 'Área Comum = Grupo Área Comum − Banheiros'
+    : 'Área Comum = Grupo Área Comum (banheiros incluídos)';
 
   return `
     <div class="myio-info-tooltip__section">
@@ -2551,7 +2745,8 @@ function buildAreaComumContentWater() {
     <div class="myio-info-tooltip__notice">
       <span class="myio-info-tooltip__notice-icon">💡</span>
       <div class="myio-info-tooltip__notice-text">
-        <strong>Área Comum</strong> representa o consumo de água residual do shopping que não está associado a lojas${includeBathrooms ? ' ou banheiros' : ''} (jardins, limpeza, etc).
+        <strong>Área Comum</strong> é o consumo dos hidrômetros do grupo área comum
+        (chafariz, bebedouros, lago, jardins, etc.)${includeBathrooms ? ', excluindo os banheiros' : ' — banheiros incluídos'}.
       </div>
     </div>
   `;
@@ -2651,7 +2846,7 @@ function buildClimatizacaoContent() {
       </div>
       <div class="myio-info-tooltip__row">
         <span class="myio-info-tooltip__label">Participação:</span>
-        <span class="myio-info-tooltip__value">${climatizacaoPerc.toFixed(1)}%</span>
+        <span class="myio-info-tooltip__value">${climatizacaoPerc.toFixed(2).replace('.', ',')}%</span>
       </div>
     </div>
 
@@ -2798,7 +2993,7 @@ function buildOutrosContent() {
       </div>
       <div class="myio-info-tooltip__row">
         <span class="myio-info-tooltip__label">Participação:</span>
-        <span class="myio-info-tooltip__value">${outrosPerc.toFixed(1)}%</span>
+        <span class="myio-info-tooltip__value">${outrosPerc.toFixed(2).replace('.', ',')}%</span>
       </div>
     </div>
 
@@ -2883,7 +3078,7 @@ function buildBanheirosContent() {
       </div>
       <div class="myio-info-tooltip__row">
         <span class="myio-info-tooltip__label">Percentual:</span>
-        <span class="myio-info-tooltip__value">${banheirosPerc.toFixed(1)}% da entrada</span>
+        <span class="myio-info-tooltip__value">${banheirosPerc.toFixed(2).replace('.', ',')}% da entrada</span>
       </div>
       <div class="myio-info-tooltip__row">
         <span class="myio-info-tooltip__label">Pontos de medição:</span>
@@ -2963,7 +3158,7 @@ function buildPontosNaoMapeadosContent() {
       </div>
       <div class="myio-info-tooltip__row" style="border-top: 1px solid #e2e8f0; padding-top: 8px; margin-top: 6px;">
         <span class="myio-info-tooltip__label"><strong>= Não Mapeados:</strong></span>
-        <span class="myio-info-tooltip__value myio-info-tooltip__value--highlight">${formatValue(pontosNaoMapeados, 'water')} (${pontosNaoMapeadosPerc.toFixed(1)}%)</span>
+        <span class="myio-info-tooltip__value myio-info-tooltip__value--highlight">${formatValue(pontosNaoMapeados, 'water')} (${pontosNaoMapeadosPerc.toFixed(2).replace('.', ',')}%)</span>
       </div>
     </div>
 
@@ -2998,7 +3193,7 @@ function showAreaComumTooltip(triggerElement) {
   InfoTooltip.show(triggerElement, {
     icon: '🏢',
     title: 'Área Comum - Detalhes',
-    content: buildAreaComumContent(),
+    content: buildAreaComumContent() + buildExportFooter(getWidgetDomain() === 'water' ? 'water' : 'energy', 'areaComum'),
   });
 }
 
@@ -3015,7 +3210,7 @@ function showClimatizacaoTooltip(triggerElement) {
   InfoTooltip.show(triggerElement, {
     icon: '❄️',
     title: 'Climatização - Detalhes',
-    content: buildClimatizacaoContent(),
+    content: buildClimatizacaoContent() + buildExportFooter('energy', 'climatizacao'),
   });
 }
 
@@ -3032,7 +3227,7 @@ function showOutrosTooltip(triggerElement) {
   InfoTooltip.show(triggerElement, {
     icon: '🔌',
     title: 'Outros Equipamentos - Detalhes',
-    content: buildOutrosContent(),
+    content: buildOutrosContent() + buildExportFooter('energy', 'outros'),
   });
 }
 
@@ -3049,7 +3244,7 @@ function showBanheirosTooltip(triggerElement) {
   InfoTooltip.show(triggerElement, {
     icon: '🚿',
     title: 'Banheiros - Detalhes',
-    content: buildBanheirosContent(),
+    content: buildBanheirosContent() + buildExportFooter('water', 'banheiros'),
   });
 }
 
@@ -3066,8 +3261,340 @@ function showPontosNaoMapeadosTooltip(triggerElement) {
   InfoTooltip.show(triggerElement, {
     icon: '❓',
     title: 'Pontos Não Mapeados - Detalhes',
-    content: buildPontosNaoMapeadosContent(),
+    content: buildPontosNaoMapeadosContent() + buildExportFooter('water', 'pontosNaoMapeados'),
   });
+}
+
+// ===================== EXPORT FOOTER (PDF / XLS / CSV) =====================
+// Appended at the bottom of every (i) tooltip content. Each button carries the
+// group + domain in data-* so the global delegated handler can resolve the
+// right device list at click time.
+
+function buildExportFooter(domain, group) {
+  const d = String(domain || 'energy');
+  const g = String(group || '');
+  return `
+    <div class="tinfo-export-footer" role="group" aria-label="Exportar relatório">
+      <button type="button" class="tinfo-export-btn" data-format="csv" data-domain="${d}" data-group="${g}" title="Exportar CSV">
+        <span class="tinfo-export-btn__icon">📄</span><span>CSV</span>
+      </button>
+      <button type="button" class="tinfo-export-btn" data-format="xls" data-domain="${d}" data-group="${g}" title="Exportar XLS">
+        <span class="tinfo-export-btn__icon">📊</span><span>XLS</span>
+      </button>
+      <button type="button" class="tinfo-export-btn tinfo-export-btn--accent" data-format="pdf" data-domain="${d}" data-group="${g}" title="Exportar PDF">
+        <span class="tinfo-export-btn__icon">📕</span><span>PDF</span>
+      </button>
+    </div>
+  `;
+}
+
+// Returns the (sanitized) device list for a group in TelemetryDevice-ish
+// shape, so it can be fed directly to the shared lib exporters.
+function _getExportDevices(domain, group) {
+  const cleanLabel = (raw) => {
+    const s = String(raw || '').trim();
+    const stripped = s.replace(/\s*\([^()]*\)\s*$/, '').trim();
+    return stripped || s;
+  };
+  let raw = [];
+  if (domain === 'water') {
+    const ST = (typeof STATE_WATER !== 'undefined' && STATE_WATER) ? STATE_WATER : null;
+    if (!ST) return [];
+    if (group === 'entrada') raw = ST.entrada?.devices || [];
+    else if (group === 'banheiros') raw = ST.banheiros?.devices || [];
+    else if (group === 'areaComum') raw = ST.areaComum?.devices || [];
+    else if (group === 'lojas') raw = ST.consumidores?.lojas?.devices || ST.lojas?.devices || [];
+    else if (group === 'totalConsumidores') {
+      const c = ST.consumidores || {};
+      raw = [
+        ...(c.lojas?.devices || ST.lojas?.devices || []),
+        ...(c.banheiros?.devices || ST.banheiros?.devices || []),
+        ...(c.areaComum?.devices || ST.areaComum?.devices || []),
+      ];
+    } else if (group === 'pontosNaoMapeados') {
+      raw = []; // synthetic residual — no per-device list
+    }
+  } else {
+    if (!STATE) return [];
+    if (group === 'entrada') raw = STATE.entrada?.devices || [];
+    else if (group === 'climatizacao') raw = STATE.consumidores?.climatizacao?.devices || [];
+    else if (group === 'elevadores') raw = STATE.consumidores?.elevadores?.devices || [];
+    else if (group === 'escadasRolantes') raw = STATE.consumidores?.escadasRolantes?.devices || [];
+    else if (group === 'lojas') raw = STATE.consumidores?.lojas?.devices || [];
+    else if (group === 'outros') raw = STATE.consumidores?.outros?.devices || [];
+    else if (group === 'areaComum') raw = STATE.consumidores?.areaComum?.devices || [];
+    else if (group === 'totalConsumidores') {
+      const c = STATE.consumidores || {};
+      raw = [
+        ...(c.climatizacao?.devices || []),
+        ...(c.elevadores?.devices || []),
+        ...(c.escadasRolantes?.devices || []),
+        ...(c.lojas?.devices || []),
+        ...(c.outros?.devices || []),
+        ...(c.areaComum?.devices || []),
+      ];
+    }
+  }
+  const total = raw.reduce((s, d) => s + (Number(d.value) || 0), 0);
+  return [...raw]
+    .sort((a, b) => (Number(b.value) || 0) - (Number(a.value) || 0))
+    .map((d) => {
+      const display = cleanLabel(d.label || d.name || d.identifier || d.id || '—');
+      const val = Number(d.value) || 0;
+      return {
+        labelOrName: display,
+        name: display,
+        deviceIdentifier: d.identifier || d.id || '',
+        val,
+        perc: total > 0 ? (val / total) * 100 : 0,
+      };
+    });
+}
+
+function _exportGetUnit(domain) {
+  return domain === 'water' ? 'm³' : 'kWh';
+}
+
+function _exportGetLabel(domain, group) {
+  const titles = {
+    entrada: 'Entrada',
+    lojas: 'Lojas',
+    climatizacao: 'Climatização',
+    elevadores: 'Elevadores',
+    escadasRolantes: 'Escadas Rolantes',
+    outros: 'Outros Equipamentos',
+    areaComum: domain === 'water' ? 'Área Comum (água)' : 'Pontos Não Mapeados',
+    banheiros: 'Banheiros',
+    totalConsumidores: 'Total Consumidores',
+    pontosNaoMapeados: 'Pontos Não Mapeados',
+  };
+  return titles[group] || group;
+}
+
+function _exportGetPeriod() {
+  // Best-effort: the orchestrator exposes the current period when available.
+  const ts = window.MyIOOrchestratorData?.[getWidgetDomain() === 'water' ? 'water' : 'energy']?.periodKey;
+  if (!ts) return null;
+  // periodKey shape is "<customerId>:<startISO>:<endISO>" — extract the timestamps.
+  const parts = String(ts).split(':');
+  if (parts.length >= 3) {
+    return { startISO: parts.slice(1, -1).join(':') || null, endISO: parts[parts.length - 1] || null };
+  }
+  return null;
+}
+
+function _exportRunCsv(domain, group) {
+  const devices = _getExportDevices(domain, group);
+  if (!devices.length) {
+    LogHelper.warn('[Export] No devices for', domain, group);
+    return;
+  }
+  const unit = _exportGetUnit(domain);
+  const label = _exportGetLabel(domain, group);
+  const rows = [
+    ['#', 'Nome', 'Identificador', `Consumo (${unit})`, '%'],
+    ...devices.map((d, i) => [
+      String(i + 1),
+      d.labelOrName,
+      d.deviceIdentifier,
+      Number(d.val).toLocaleString('pt-BR', { maximumFractionDigits: 3, useGrouping: false }),
+      `${(d.perc || 0).toFixed(2).replace('.', ',')}%`,
+    ]),
+  ];
+  const escCell = (s) => {
+    const v = String(s ?? '');
+    return /[",;\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+  };
+  const csv = rows.map((r) => r.map(escCell).join(';')).join('\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${label.replace(/[^\w-]+/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 0);
+}
+
+function _exportRunLibrary(format, domain, group) {
+  const lib = window.MyIOLibrary || {};
+  const fn = format === 'pdf' ? lib.exportGridPdf : lib.exportGridXls;
+  if (typeof fn !== 'function') {
+    LogHelper.warn('[Export] MyIOLibrary.exportGrid' + format.toUpperCase() + ' is not available');
+    return;
+  }
+  const devices = _getExportDevices(domain, group);
+  if (!devices.length) {
+    LogHelper.warn('[Export] No devices for', domain, group);
+    return;
+  }
+  try {
+    fn(devices, _exportGetLabel(domain, group), _exportGetUnit(domain), _exportGetPeriod(), null);
+  } catch (err) {
+    LogHelper.error('[Export] Library call failed:', err);
+  }
+}
+
+// Global delegated handler — capture phase so the click runs before the
+// InfoTooltip's auto-dismiss listeners get a chance to close the panel.
+(function () {
+  function _onExportClick(e) {
+    const btn = e.target && e.target.closest ? e.target.closest('.tinfo-export-btn') : null;
+    if (!btn) return;
+    e.stopPropagation();
+    e.preventDefault();
+    const format = btn.getAttribute('data-format');
+    const domain = btn.getAttribute('data-domain') || 'energy';
+    const group = btn.getAttribute('data-group') || '';
+    if (format === 'csv') {
+      _exportRunCsv(domain, group);
+    } else if (format === 'xls' || format === 'pdf') {
+      _exportRunLibrary(format, domain, group);
+    }
+  }
+  document.addEventListener('click', _onExportClick, true);
+})();
+
+// ===================== NEW (i) TOOLTIPS — Energy: Entrada / Lojas / Elevadores / Esc. Rolantes / Total Consumidores =====================
+//
+// All five share the same lightweight layout: KPI summary, expandable device
+// list, then the export footer. They reuse buildDeviceExpandList (with the
+// stripping + 23-char truncation already applied) and formatEnergy.
+
+function _buildSimpleGroupContent(opts) {
+  const { id, icon, total, perc, count, devices, formatFn, footerHtml, noticeText } = opts;
+  const percRow = (perc === undefined || perc === null) ? '' : `
+      <div class="myio-info-tooltip__row">
+        <span class="myio-info-tooltip__label">Participação:</span>
+        <span class="myio-info-tooltip__value">${Number(perc).toFixed(2).replace('.', ',')}%</span>
+      </div>`;
+  const expandHtml = devices && devices.length ? buildDeviceExpandList(id, devices, formatFn) : '';
+  const devicesSection = expandHtml ? `
+    <div class="myio-info-tooltip__section">
+      <div class="myio-info-tooltip__section-title">
+        <span>${icon}</span> Dispositivos ${expandHtml.split('</button>')[0]}</button>
+      </div>
+      ${expandHtml.split('</button>')[1] || ''}
+    </div>` : '';
+  return `
+    <div class="myio-info-tooltip__section">
+      <div class="myio-info-tooltip__section-title"><span>📊</span> Resumo</div>
+      <div class="myio-info-tooltip__row">
+        <span class="myio-info-tooltip__label">Total:</span>
+        <span class="myio-info-tooltip__value">${formatFn(total)}</span>
+      </div>
+      ${percRow}
+      <div class="myio-info-tooltip__row">
+        <span class="myio-info-tooltip__label">Dispositivos:</span>
+        <span class="myio-info-tooltip__value">${count}</span>
+      </div>
+    </div>
+    ${devicesSection}
+    ${noticeText ? `
+    <div class="myio-info-tooltip__notice">
+      <span class="myio-info-tooltip__notice-icon">💡</span>
+      <div class="myio-info-tooltip__notice-text">${noticeText}</div>
+    </div>` : ''}
+    ${footerHtml}
+  `;
+}
+
+function buildEntradaContent() {
+  const devices = STATE?.entrada?.devices || [];
+  return _buildSimpleGroupContent({
+    id: 'entrada',
+    icon: '📥',
+    total: STATE?.entrada?.total || 0,
+    perc: null,
+    count: devices.length,
+    devices,
+    formatFn: formatEnergy,
+    footerHtml: buildExportFooter('energy', 'entrada'),
+    noticeText: 'Soma de todos os medidores de <strong>Entrada</strong> do shopping (transformadores e relógios principais).',
+  });
+}
+
+function buildLojasContent() {
+  const devices = STATE?.consumidores?.lojas?.devices || [];
+  return _buildSimpleGroupContent({
+    id: 'lojas',
+    icon: '🏪',
+    total: STATE?.consumidores?.lojas?.total || 0,
+    perc: STATE?.consumidores?.lojas?.perc || 0,
+    count: devices.length,
+    devices,
+    formatFn: formatEnergy,
+    footerHtml: buildExportFooter('energy', 'lojas'),
+    noticeText: 'Consumo agregado das lojas medidas individualmente.',
+  });
+}
+
+function buildElevadoresContent() {
+  const devices = STATE?.consumidores?.elevadores?.devices || [];
+  return _buildSimpleGroupContent({
+    id: 'elevadores',
+    icon: '🛗',
+    total: STATE?.consumidores?.elevadores?.total || 0,
+    perc: STATE?.consumidores?.elevadores?.perc || 0,
+    count: devices.length,
+    devices,
+    formatFn: formatEnergy,
+    footerHtml: buildExportFooter('energy', 'elevadores'),
+    noticeText: 'Consumo dos elevadores do shopping.',
+  });
+}
+
+function buildEscadasRolantesContent() {
+  const devices = STATE?.consumidores?.escadasRolantes?.devices || [];
+  return _buildSimpleGroupContent({
+    id: 'escadas',
+    icon: '🎢',
+    total: STATE?.consumidores?.escadasRolantes?.total || 0,
+    perc: STATE?.consumidores?.escadasRolantes?.perc || 0,
+    count: devices.length,
+    devices,
+    formatFn: formatEnergy,
+    footerHtml: buildExportFooter('energy', 'escadasRolantes'),
+    noticeText: 'Consumo das escadas rolantes do shopping.',
+  });
+}
+
+function buildTotalConsumidoresContent() {
+  const c = STATE?.consumidores || {};
+  const groups = ['climatizacao', 'elevadores', 'escadasRolantes', 'lojas', 'outros', 'areaComum'];
+  const allDevices = groups.flatMap((g) => c[g]?.devices || []);
+  const total = c.totalGeral || allDevices.reduce((s, d) => s + (Number(d.value) || 0), 0);
+  return _buildSimpleGroupContent({
+    id: 'totalConsumidores',
+    icon: '📊',
+    total,
+    perc: 100,
+    count: allDevices.length,
+    devices: allDevices,
+    formatFn: formatEnergy,
+    footerHtml: buildExportFooter('energy', 'totalConsumidores'),
+    noticeText: 'Soma de todos os consumidores: Lojas + Climatização + Elevadores + Esc. Rolantes + Outros + Área Comum.',
+  });
+}
+
+function showEntradaTooltip(t) {
+  const I = getInfoTooltip(); if (!I) return;
+  I.show(t, { icon: '📥', title: 'Entrada - Detalhes', content: buildEntradaContent() });
+}
+function showLojasTooltip(t) {
+  const I = getInfoTooltip(); if (!I) return;
+  I.show(t, { icon: '🏪', title: 'Lojas - Detalhes', content: buildLojasContent() });
+}
+function showElevadoresTooltip(t) {
+  const I = getInfoTooltip(); if (!I) return;
+  I.show(t, { icon: '🛗', title: 'Elevadores - Detalhes', content: buildElevadoresContent() });
+}
+function showEscadasRolantesTooltip(t) {
+  const I = getInfoTooltip(); if (!I) return;
+  I.show(t, { icon: '🎢', title: 'Escadas Rolantes - Detalhes', content: buildEscadasRolantesContent() });
+}
+function showTotalConsumidoresTooltip(t) {
+  const I = getInfoTooltip(); if (!I) return;
+  I.show(t, { icon: '📊', title: 'Total Consumidores - Detalhes', content: buildTotalConsumidoresContent() });
 }
 
 // ===================== RFC-0196: GROUP FILTER + ERROR INDICATORS =====================
@@ -3083,18 +3610,33 @@ function buildDeviceExpandList(id, devices, formatFn) {
   if (!devices || devices.length === 0) return '';
   const safeId = String(id).replace(/[^a-zA-Z0-9_-]/g, '_');
   const sorted = [...devices].sort((a, b) => (b.value || 0) - (a.value || 0));
+  // Strip a trailing parenthetical from the label (e.g. "Fancoil 25 (Fancoil)" → "Fancoil 25").
+  const cleanLabel = (raw) => {
+    const s = String(raw || '').trim();
+    const stripped = s.replace(/\s*\([^()]*\)\s*$/, '').trim();
+    return stripped || s;
+  };
+  const escAttr = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  // Truncate long names — full name stays in the hover title.
+  const MAX = 23;
+  const truncate = (s) => (s.length > MAX ? s.slice(0, MAX) + '…' : s);
   const rows = sorted
     .map((d) => {
-      const name = d.label || d.identifier || d.name || '—';
+      const full = cleanLabel(d.label || d.identifier || d.name || '—');
+      const display = truncate(full);
       const val = typeof d.value === 'number' ? formatFn(d.value) : '—';
       return `<div class="rfc196-device-item">
-      <span class="rfc196-device-item__name" title="${name}">${name}</span>
+      <span class="rfc196-device-item__name" title="${escAttr(full)}">${escAttr(display)}</span>
       <span class="rfc196-device-item__value">${val}</span>
     </div>`;
     })
     .join('');
+  // No inline onclick — ThingsBoard CSP blocks inline event handlers.
+  // The capture-phase document listener registered at the top of this file
+  // handles all clicks on `.rfc196-expand-btn`.
   return (
-    `<button class="rfc196-expand-btn" data-devtoggle="${safeId}">+</button>` +
+    `<button type="button" class="rfc196-expand-btn" data-devtoggle="${safeId}" ` +
+    `aria-expanded="false" title="Expandir lista">+</button>` +
     `<div id="rfc196-devlist-${safeId}" style="display:none" class="rfc196-device-list">${rows}</div>`
   );
 }
@@ -3171,16 +3713,28 @@ function setupGroupDragCards() {
     const deviceIds = devices.map((d) => d.id).filter(Boolean);
 
     // Register each device's metadata with the SelectionStore so footer
-    // chips render with label/name instead of bare ids.
+    // chips render with label/name + consumption value.
+    // - `value` is the per-device consumption (SelectionStore picks it up as
+    //   lastValue, otherwise the chip shows "Sem dados").
+    // - `domain` lets the store auto-derive the unit (kWh / m³).
+    // - The label is sanitized to drop a trailing parenthetical like
+    //   "Fancoil 25 (Fancoil)" → "Fancoil 25".
     const store = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
     if (store && typeof store.registerEntity === 'function') {
+      const cleanLabel = (raw) => {
+        const s = String(raw || '').trim();
+        const stripped = s.replace(/\s*\([^()]*\)\s*$/, '').trim();
+        return stripped || s;
+      };
       devices.forEach((d) => {
         if (!d.id) return;
         try {
+          const display = cleanLabel(d.label || d.name || d.id);
           store.registerEntity({
             id: d.id,
-            name: d.name || d.label || d.id,
-            label: d.label || d.name || d.id,
+            name: display,
+            label: display,
+            value: Number(d.value) || 0,
             domain: getWidgetDomain() === 'water' ? 'water' : 'energy',
           });
         } catch {
@@ -3277,7 +3831,7 @@ function _applyGroupFilterEnergy(filter, $container) {
   if (allActive) activeTotal += cons.areaComum?.total || 0;
 
   // Update percentage displays for active cards
-  const safePerc = (val) => (activeTotal > 0 ? ((val / activeTotal) * 100).toFixed(1) : '0.0');
+  const safePerc = (val) => (activeTotal > 0 ? ((val / activeTotal) * 100).toFixed(2).replace('.', ',') : '0,00');
   if (filter.lojas) $$('#lojasPerc').text(`(${safePerc(cons.lojas?.total || 0)}%)`);
   else $$('#lojasPerc').text('');
   if (filter.climatizacao) $$('#climatizacaoPerc').text(`(${safePerc(cons.climatizacao?.total || 0)}%)`);
@@ -3307,16 +3861,16 @@ function _applyGroupFilterWater(filter, $container) {
   let activeTotal = 0;
   if (filter.lojas) activeTotal += STATE_WATER.lojas?.total || 0;
   if (filter.banheiros && STATE_WATER.includeBathrooms) activeTotal += STATE_WATER.banheiros?.total || 0;
-  if (filter.areaComum) activeTotal += STATE_WATER.areaComum?.total || 0;
+  if (filter.areaComum) activeTotal += _waterAreaComumDisplay();
   if (allActive) activeTotal += STATE_WATER.pontosNaoMapeados?.total || 0;
 
-  const safePerc = (val) => (activeTotal > 0 ? ((val / activeTotal) * 100).toFixed(1) : '0.0');
+  const safePerc = (val) => (activeTotal > 0 ? ((val / activeTotal) * 100).toFixed(2).replace('.', ',') : '0,00');
   if (filter.lojas) $$('#lojasPerc').text(`(${safePerc(STATE_WATER.lojas?.total || 0)}%)`);
   else $$('#lojasPerc').text('');
   if (filter.banheiros && STATE_WATER.includeBathrooms)
     $$('#banheirosPerc').text(`(${safePerc(STATE_WATER.banheiros?.total || 0)}%)`);
   else $$('#banheirosPerc').text('');
-  if (filter.areaComum) $$('#areaComumPerc').text(`(${safePerc(STATE_WATER.areaComum?.total || 0)}%)`);
+  if (filter.areaComum) $$('#areaComumPerc').text(`(${safePerc(_waterAreaComumDisplay())}%)`);
   else $$('#areaComumPerc').text('');
 
   // Update water Total Consumidores card
@@ -3529,21 +4083,40 @@ function setupInfoTooltips() {
     LogHelper.log('[Tooltip] Banheiros trigger bound');
   }
 
-  // RFC-0106: Pontos Não Mapeados tooltip trigger (water domain)
-  const $pontosNaoMapeadosTrigger = $container.find('.pontos-nao-mapeados-card .info-tooltip');
-  if ($pontosNaoMapeadosTrigger.length) {
-    $pontosNaoMapeadosTrigger
+  // RFC-0106: total-card tooltip trigger — routed by domain.
+  //   - Water: card is reused as "Pontos Não Mapeados" → showPontosNaoMapeadosTooltip
+  //   - Energy: card stays "Total Consumidores" → showTotalConsumidoresTooltip
+  const $totalCardTrigger = $container.find('.total-card .info-tooltip');
+  if ($totalCardTrigger.length) {
+    $totalCardTrigger
       .addClass('info-tooltip-trigger')
       .removeAttr('title')
       .off('mouseenter.infoTooltip mouseleave.infoTooltip')
       .on('mouseenter.infoTooltip', function () {
-        showPontosNaoMapeadosTooltip(this);
+        if (getWidgetDomain() === 'water') showPontosNaoMapeadosTooltip(this);
+        else showTotalConsumidoresTooltip(this);
       })
       .on('mouseleave.infoTooltip', function () {
         InfoTooltip.startDelayedHide();
       });
-    LogHelper.log('[Tooltip] Pontos Não Mapeados trigger bound');
+    LogHelper.log('[Tooltip] total-card trigger bound (routed by domain)');
   }
+
+  // Energy-only triggers — Entrada / Lojas / Elevadores / Esc. Rolantes.
+  const _bindTrigger = (sel, showFn, name) => {
+    const $t = $container.find(sel);
+    if (!$t.length) return;
+    $t.addClass('info-tooltip-trigger')
+      .removeAttr('title')
+      .off('mouseenter.infoTooltip mouseleave.infoTooltip')
+      .on('mouseenter.infoTooltip', function () { showFn(this); })
+      .on('mouseleave.infoTooltip', function () { InfoTooltip.startDelayedHide(); });
+    LogHelper.log('[Tooltip] ' + name + ' trigger bound');
+  };
+  _bindTrigger('.entrada-card .info-tooltip',    showEntradaTooltip,         'Entrada');
+  _bindTrigger('.lojas-card .info-tooltip',      showLojasTooltip,           'Lojas');
+  _bindTrigger('.elevadores-card .info-tooltip', showElevadoresTooltip,      'Elevadores');
+  _bindTrigger('.escadas-card .info-tooltip',    showEscadasRolantesTooltip, 'Esc. Rolantes');
 
   LogHelper.log('[Tooltip] All info tooltips configured');
 }

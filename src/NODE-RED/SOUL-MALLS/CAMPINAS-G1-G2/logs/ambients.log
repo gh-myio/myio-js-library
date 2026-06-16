@@ -1,0 +1,61 @@
+select * from ambients;
+ id |         name          | image | order |                                                                                                         config
+                         |         created_at         |         updated_at
+----+-----------------------+-------+-------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-------------------------+----------------------------+----------------------------
+ 25 | Depósito Doce Mimo   |       |       | {"hide_devices_v1":[{"slave_id":92,"is_slave":true,"energy":true},{"slave_id":92,"is_slave":true,"temperature":true}]}                                                                          
+                       | 2025-08-28 22:32:53.371+00 | 2025-08-28 22:34:49.847+00
+  3 | Depósito             |       |       |                                                                                                                                                                                                 
+                       | 2024-11-19 18:52:47.754+00 | 2024-11-20 21:43:08.628+00
+ 20 | Para Excluir          |       |       |
+                         | 2025-03-11 15:08:09.682+00 | 2025-09-18 13:51:50.592+00
+ 23 | relógio entrada      |       |       |                                                                                                                                                                                                 
+                       | 2025-08-25 19:39:30.564+00 | 2025-09-18 14:01:18.708+00
+  4 | Todos                 |       |       |
+                         | 2024-11-20 00:45:41.181+00 | 2024-12-01 10:25:27.213+00
+  1 | Lojas G1/G2           |       |       |
+                         | 2024-11-19 14:58:21.202+00 | 2024-12-01 10:46:36.532+00
+  2 |  Quiosque G1/G2       |       |       |
+                         | 2024-11-19 14:58:31.228+00 | 2024-12-01 10:48:07.093+00
+  9 | Sem numero            |       |       |
+                         | 2024-12-01 11:51:09.466+00 | 2024-12-01 11:51:09.466+00
+ 10 | Novo                  |       |       |
+                         | 2024-12-13 13:29:03.35+00  | 2024-12-13 13:29:03.35+00
+ 26 | SCP0Q268              |       |       |
+                         | 2025-12-12 19:24:43.437+00 | 2026-01-12 15:55:43.386+00
+ 11 | Hidrometro Smart Fit  |       |       | {"hide_devices_v1":[{"slave_id":74,"is_slave":true,"temperature":true},{"slave_id":75,"is_slave":true,"temperature":true},{"slave_id":75,"is_slave":true,"energy":true},{"slave_id":74,"is_slav
+e":true,"energy":true}]} | 2025-01-20 19:44:26.187+00 | 2025-01-20 22:58:50.264+00
+ 19 | Padoca                |       |       | {"hide_devices_v1":[{"slave_id":85,"is_slave":true,"temperature":true},{"slave_id":85,"is_slave":true,"energy":true}]}
+                         | 2025-01-30 16:23:50.915+00 | 2026-01-21 20:15:09.742+00
+ 13 | OMO                   |       |       | {"hide_devices_v1":[{"slave_id":79,"is_slave":true,"energy":true},{"slave_id":79,"is_slave":true,"temperature":true}]}
+                         | 2025-01-21 15:55:57.547+00 | 2025-01-21 16:05:55.237+00
+ 14 | Localiza              |       |       | {"hide_devices_v1":[{"slave_id":80,"is_slave":true,"temperature":true},{"slave_id":80,"is_slave":true,"energy":true}]}
+                         | 2025-01-21 16:21:06.024+00 | 2025-01-21 16:21:17.778+00
+ 15 | Renner                |       |       | {"hide_devices_v1":[{"slave_id":81,"is_slave":true,"energy":true}]}
+                         | 2025-01-21 19:17:25.707+00 | 2025-01-21 19:17:40.571+00
+ 16 | Acquazero             |       |       | {"hide_devices_v1":[{"slave_id":82,"is_slave":true,"temperature":true},{"slave_id":82,"is_slave":true,"energy":true}]}
+                         | 2025-01-21 20:50:47.588+00 | 2025-01-21 20:51:05.069+00
+ 17 | Bono Pneu             |       |       | {"hide_devices_v1":[{"slave_id":83,"is_slave":true,"temperature":true},{"slave_id":83,"is_slave":true,"energy":true}]}
+                         | 2025-01-27 15:39:14.201+00 | 2025-01-27 15:39:24.319+00
+ 12 | Dog Express           |       |       | {"hide_devices_v1":[{"slave_id":76,"is_slave":true,"temperature":true},{"slave_id":76,"is_slave":true,"energy":true}]}
+                         | 2025-01-21 15:43:22.316+00 | 2025-01-27 21:56:01.53+00
+ 18 | Poupa Tempo           |       |       | {"hide_devices_v1":[{"slave_id":84,"is_slave":true,"temperature":true},{"slave_id":84,"is_slave":true,"energy":true}]}
+                         | 2025-01-30 15:39:11.038+00 | 2025-01-30 15:39:28.326+00
+ 21 | Todos medidores       |       |       | {"hide_devices_v1":[{"slave_id":83,"is_slave":true,"temperature":true},{"slave_id":81,"is_slave":true,"temperature":true},{"slave_id":87,"is_slave":true,"energy":true}]}
+                         | 2025-04-04 18:33:54.312+00 | 2026-04-08 17:13:41.09+00
+ 27 | Renner 2              |       |       | {"hide_devices_v1":[{"slave_id":81,"is_slave":true,"energy":true},{"slave_id":81,"is_slave":true,"temperature":true}]}
+                         | 2026-03-09 20:24:11.989+00 | 2026-06-08 21:34:17.638+00
+ 28 | Rei Do Mate           |       |       | {"hide_devices_v1":[{"slave_id":96,"is_slave":true,"energy":true}]}
+                         | 2026-03-10 16:06:41.122+00 | 2026-06-09 13:47:43.099+00
+ 30 | Quioque Mc Donalds G1 |       |       | {"hide_devices_v1":[{"slave_id":100,"is_slave":true,"temperature":true},{"slave_id":100,"is_slave":true,"energy":true}]}
+                         | 2026-06-09 14:12:03.367+00 | 2026-06-09 14:13:42.008+00
+ 22 | Drogaria São Paulo   |       |       | {"hide_devices_v1":[{"slave_id":90,"is_slave":true,"temperature":true}]}                                                                                                                        
+                       | 2025-08-05 19:24:59.548+00 | 2025-08-05 19:53:45.436+00
+ 24 | SW Reborne            |       |       | {"hide_devices_v1":[{"slave_id":91,"is_slave":true,"temperature":true}]}
+                         | 2025-08-28 20:53:57.702+00 | 2025-08-28 20:55:13.552+00
+ 29 | SCP0Q031              |       |       | {"hide_devices_v1":[{"slave_id":97,"is_slave":true,"energy":true}]}
+                         | 2026-03-10 18:17:41.941+00 | 2026-06-10 18:27:33.353+00
+ 31 | SCP0T255C             |       |       | {"hide_devices_v1":[{"slave_id":101,"is_slave":true,"temperature":true},{"slave_id":101,"is_slave":true,"energy":true}]}
+                         | 2026-06-09 14:52:55.725+00 | 2026-06-10 19:27:28.858+00
+(27 rows)
+

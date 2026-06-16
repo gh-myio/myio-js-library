@@ -76,6 +76,11 @@ export function normalizeToSaoPauloISO(dateLike: string | Date, endOfDay: boolea
     ymd = `${y}-${mo}-${da}`;
   }
 
+  // Guard: fail fast on malformed input instead of sending broken boundaries to the API
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) {
+    throw new Error(`normalizeToSaoPauloISO: formato de data inválido: "${String(dateLike)}"`);
+  }
+
   const time = endOfDay ? 'T23:59:59.000' : 'T00:00:00.000';
   return `${ymd}${time}-03:00`;
 }

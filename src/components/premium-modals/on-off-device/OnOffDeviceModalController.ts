@@ -61,6 +61,9 @@ export class OnOffDeviceModalController {
       onStateChange: params.onStateChange || (() => {}),
       onScheduleSave: params.onScheduleSave || (() => {}),
       centralId: params.centralId || '',
+      entityName: params.entityName || params.device.name || params.device.label || '',
+      customerName: params.customerName || '',
+      relatedDevices: params.relatedDevices || [],
       enableDebugMode: params.enableDebugMode || false,
       onRefresh: params.onRefresh || (() => {}),
       onDateRangeChange: params.onDateRangeChange || (() => {}),
@@ -153,6 +156,29 @@ export class OnOffDeviceModalController {
         background: #1f2937;
         color: #f3f4f6;
       }
+
+      /* ===== Mobile: remove min-height fixo e ajusta dimensões ===== */
+      @media (max-width: 768px) {
+        .${ON_OFF_MODAL_CSS_PREFIX}-content {
+          min-height: auto !important;
+          max-height: 92vh !important;
+          width: 98% !important;
+          border-radius: 8px !important;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .${ON_OFF_MODAL_CSS_PREFIX}-overlay {
+          align-items: flex-end !important;
+          padding: 0 !important;
+        }
+        .${ON_OFF_MODAL_CSS_PREFIX}-content {
+          width: 100% !important;
+          max-height: 96dvh !important;
+          border-radius: 12px 12px 0 0 !important;
+          margin: 0 !important;
+        }
+      }
     `;
     document.head.appendChild(style);
   }
@@ -209,6 +235,7 @@ export class OnOffDeviceModalController {
         onDateRangeChange: (startISO, endISO) => this.handleDateRangeChange(startISO, endISO),
         parentEl: this.modalContainer?.querySelector(`.${ON_OFF_MODAL_CSS_PREFIX}-content`) as HTMLElement || undefined,
         jwtToken: this.params.jwtToken,
+        customerName: this.params.customerName,
       });
     }
   }
@@ -285,44 +312,50 @@ export class OnOffDeviceModalController {
   }
 
   private async sendDeviceCommand(state: boolean): Promise<void> {
-    if (!this.params.jwtToken || !this.params.device.id) {
-      console.warn('[OnOffDeviceModal] Missing jwtToken or deviceId, skipping RPC command');
+    // On/Off is dispatched to the MyIO central API (NOT a ThingsBoard RPC).
+    // Mirrors the production widget acionamento-solenoide-com-on-off:
+    //   POST https://${centralId}.y.myio.com.br/api/OnOff
+    //   body: { device, status: 'on'|'off', relatedDevices }
+    const centralId = this.params.centralId;
+    const entityName =
+      this.params.entityName || this.params.device.name || this.params.device.label;
+
+    if (!centralId || !entityName) {
+      console.warn(
+        '[OnOffDeviceModal] Missing centralId or entityName, skipping On/Off command',
+        { centralId: !!centralId, entityName }
+      );
       return;
     }
 
-    const deviceId = this.params.device.entityId || this.params.device.id;
-
-    // Build RPC command based on device type
-    const rpcMethod = 'setValueOutput';
-    const rpcParams = {
-      value: state ? 1 : 0,
-      output: 1,
+    const body = {
+      device: entityName,
+      status: state ? 'on' : 'off',
+      relatedDevices: this.params.relatedDevices || [],
     };
 
     try {
-      const response = await fetch(`/api/plugins/rpc/twoway/${deviceId}`, {
+      const response = await fetch(`https://${centralId}.y.myio.com.br/api/OnOff`, {
         method: 'POST',
         headers: {
-          'X-Authorization': `Bearer ${this.params.jwtToken}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          method: rpcMethod,
-          params: rpcParams,
-          timeout: 5000,
-        }),
+        body: JSON.stringify(body),
       });
 
       if (!response.ok) {
-        throw new Error(`RPC failed with status ${response.status}`);
+        throw new Error(`On/Off command failed with status ${response.status}`);
       }
 
-      const result = await response.json();
       if (this.params.enableDebugMode) {
-        console.log('[OnOffDeviceModal] RPC response:', result);
+        console.log(
+          '[OnOffDeviceModal] On/Off response:',
+          response.status,
+          response.statusText
+        );
       }
     } catch (error) {
-      console.error('[OnOffDeviceModal] RPC error:', error);
+      console.error('[OnOffDeviceModal] On/Off error:', error);
       throw error;
     }
   }

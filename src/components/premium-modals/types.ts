@@ -66,6 +66,10 @@ export interface StoreItem {
   identifier: string;   // Display identifier (e.g., "SCMAL1230B")
   label: string;        // Display name (e.g., "McDonalds")
   groupLabel?: string;  // RFC-0182: Optional group for "todos" mode — triggers section headers
+  // Per-device `exclude_groups_totals` SERVER_SCOPE attribute (raw JSON string or parsed object).
+  // When a device is flagged for the report's group, it is excluded from the report so the
+  // total reconciles with the dashboard KPIs (which honor it via getValorEfetivo in MAIN_VIEW).
+  excludeGroupsTotals?: string | Record<string, unknown> | null;
 }
 
 export interface OpenAllReportParams {

@@ -88,6 +88,15 @@
       overflow: hidden;
     }
 
+    /* Ocultar o painel lateral (Lifecycle/Mock) para validar o widget em
+       largura cheia — sem o painel de 340px estreitando a área do widget. */
+    .showcase-layout.hide-side {
+      grid-template-columns: 1fr;
+    }
+    .showcase-layout.hide-side .showcase-sidebar {
+      display: none;
+    }
+
     /* ===== SIDEBAR ===== */
     .showcase-sidebar {
       background: #1e293b;
@@ -344,6 +353,9 @@
       </div>
       <div class="header-status">
         <span class="status-badge stopped" id="widgetStatus">STOPPED</span>
+        <button class="ctrl-btn secondary" id="togglePanel" title="Mostrar/ocultar painel lateral (valida o widget em largura cheia)" onclick="document.querySelector('.showcase-layout').classList.toggle('hide-side')">
+          &#x2194;&#xfe0f; Painel
+        </button>
         <button class="ctrl-btn secondary" id="themeToggle" title="Toggle Theme" onclick="toggleTheme()">
           <span id="themeIcon">&#x2600;&#xfe0f;</span>
         </button>
@@ -365,6 +377,8 @@
             <div class="bas-ambientes-slot" id="bas-ambientes-host"></div>
             <div class="bas-motors-slot" id="bas-motors-host"></div>
           </div>
+          <!-- RFC-0115: Comparison footer dock -->
+          <div class="bas-footer-slot" id="bas-footer-host"></div>
         </div>
       </div>
     </main>
@@ -442,6 +456,23 @@
           </button>
         </div>
         <p style="font-size: 10px; color: #64748b; margin-top: 8px;">Test BAS device modal with 30% control panel + 70% chart</p>
+      </div>
+
+      <!-- RFC-0167: On/Off Acionamento Modal + freshness rule (12h) -->
+      <div class="controls-panel">
+        <h3>RFC-0167: Acionamento (On/Off)</h3>
+        <div class="controls-grid">
+          <button class="ctrl-btn primary" onclick="openAcionamentoDemo('LAMP', false)">💡 LAMP (fresco)</button>
+          <button class="ctrl-btn warning" onclick="openAcionamentoDemo('LAMP', true)">💡 LAMP (stale 13h ⚠️)</button>
+          <button class="ctrl-btn primary" onclick="openAcionamentoDemo('PLUG', false)">🔌 PLUG (fresco)</button>
+          <button class="ctrl-btn warning" onclick="openAcionamentoDemo('PLUG', true)">🔌 PLUG (stale 13h ⚠️)</button>
+          <button class="ctrl-btn secondary" onclick="openAcionamentoDemo('SOLENOIDE', false)">🚿 SOLENOIDE (Aberta/Fechada)</button>
+          <button class="ctrl-btn warning" onclick="openAcionamentoDemo('SOLENOIDE', true)">🚿 SOLENOIDE (stale ⚠️)</button>
+        </div>
+        <p style="font-size: 10px; color: #64748b; margin-top: 8px;">
+          Regra de frescor: status ≤ 12h ⇒ on/off interativo; &gt; 12h ⇒ último estado + ⚠️ tooltip.
+          Labels por tipo (Aberta/Fechada vs Ligado/Desligado). Clicar em card de Solenóide também abre.
+        </p>
       </div>
 
       <!-- Settings -->
@@ -867,7 +898,9 @@
     let waterPanel = null;
     let ambientesPanel = null;
     let motorsPanel = null;
+    let footerComponent = null; // RFC-0115: comparison footer (selection dock)
     let chartInstance = null;
+    let _chartPanelWrapper = null; // wrapper .myio-cgp do CONSUMO (para accordion)
     let currentChartDomain = 'energy';
     let maximizedPanel = null; // Track which panel is maximized
     let _waterItems = []; // All water items for tab filtering
@@ -936,6 +969,40 @@
         showPumpsMotors: document.getElementById('settingsShowMotors').checked,
         showCharts: document.getElementById('settingsShowCharts').checked
       };
+    }
+
+    // =========================================================================
+    // FILTER MODAL (mirrors openFilterModal() in controller.js)
+    // Opens the real MyIOLibrary.FilterModalComponent so the panel filter
+    // headers can be validated here (premium-green header — RFC alignment).
+    // =========================================================================
+    let _activeShowcaseFilterModal = null;
+    function openShowcaseFilterModal(opts) {
+      const MyIO = window.MyIOLibrary;
+      if (_activeShowcaseFilterModal) { _activeShowcaseFilterModal.destroy(); _activeShowcaseFilterModal = null; }
+      if (!MyIO || !MyIO.FilterModalComponent) {
+        log('error', 'Filter', 'FilterModalComponent não disponível no bundle');
+        return;
+      }
+      const categories = (opts.categories || []).filter(c => c.count > 0);
+      if (categories.length === 0) { log('warn', 'Filter', 'Sem categorias para filtrar'); return; }
+
+      const modal = new MyIO.FilterModalComponent({
+        title: opts.title,
+        icon: opts.icon,
+        categories: categories,
+        sortOptions: opts.sortOptions || [],
+        devices: opts.devices || [],
+        showDeviceGrid: true,
+        themeMode: document.body.classList.contains('light-mode') ? 'light' : 'dark',
+        onApply: (selCats, sortOpt, selIds) => {
+          log('event', 'Filter', 'Aplicado: [' + (selCats || []).join(', ') + '] · ' + (selIds ? selIds.length : 0) + ' devices');
+          opts.onApply && opts.onApply(selCats || [], sortOpt, selIds);
+        },
+        onClose: () => { _activeShowcaseFilterModal = null; },
+      });
+      modal.show();
+      _activeShowcaseFilterModal = modal;
     }
 
     // =========================================================================
@@ -1040,8 +1107,19 @@
             else closeMaximizeOverlay();
           },
         });
-        panelWrapper.appendChild(headerComp.getElement());
+        const chartHeaderEl = headerComp.getElement();
+        panelWrapper.appendChild(chartHeaderEl);
+
+        // Accordion: clicar no header "Consumo" recolhe o painel (só quando
+        // .myio-cgp--collapsible está ativo = mobile). Reusa o CSS de collapse
+        // do CardGridPanel (.myio-cgp--collapsed esconde tabs + content).
+        chartHeaderEl.addEventListener('click', (e) => {
+          if (!panelWrapper.classList.contains('myio-cgp--collapsible')) return;
+          if (e.target.closest && e.target.closest('button, a, input, select, svg, [role="button"], [class*="-tab"]')) return;
+          panelWrapper.classList.toggle('myio-cgp--collapsed');
+        });
       }
+      _chartPanelWrapper = panelWrapper;
 
       // Tabs using myio-cgp__tabs-* classes (matches controller.js)
       const tabsWrapper = document.createElement('div');
@@ -1334,6 +1412,39 @@
         if (_sidebarMenu && _sidebarMenu.setActiveItem) {
           _sidebarMenu.setActiveItem('dashboard');
         }
+
+        // Shared MYIO date range picker in the sidebar header slot (below email).
+        // Drives the water + consumption groups (per-panel de/até bars removed).
+        (async () => {
+          try {
+            if (_sidebarMenu && _sidebarMenu.getHeaderSlot && MyIO.createDateRangePicker) {
+              const slot = _sidebarMenu.getHeaderSlot();
+              if (slot) {
+                slot.innerHTML =
+                  '<div class="bas-sidebar-daterange">' +
+                  '<span class="bas-sidebar-daterange__label">Período</span>' +
+                  '<input type="text" class="bas-sidebar-daterange__input" readonly placeholder="Selecione o período" />' +
+                  '</div>';
+                const input = slot.querySelector('.bas-sidebar-daterange__input');
+                const today = new Date();
+                const first = new Date(today.getFullYear(), today.getMonth(), 1);
+                await MyIO.createDateRangePicker(input, {
+                  presetStart: first.toISOString(),
+                  presetEnd: today.toISOString(),
+                  maxRangeDays: 31,
+                  locale: 'pt-BR',
+                  parentEl: document.body,
+                  onApply: (r) => {
+                    log('event', 'Date Range', (r.startLabel || '') + ' → ' + (r.endLabel || ''));
+                    if (typeof refreshPanels === 'function') refreshPanels();
+                  },
+                });
+                log('info', 'Date Range', 'Picker montado no sidebar (drives hídrica + consumo)');
+              }
+            }
+          } catch (e) { log('warn', 'Date Range', 'Falha ao montar picker: ' + (e && e.message)); }
+        })();
+
         log('info', 'Sidebar Menu', 'Montado com ' + (ambienteMenuItems.length + 1) + ' itens (RFC-0173)');
       } else if (!MyIO.createSidebarMenu) {
         log('warn', 'Sidebar Menu', 'MyIOLibrary.createSidebarMenu não disponível — verifique a versão do bundle');
@@ -1367,16 +1478,33 @@
         waterHost.innerHTML = '';
         _waterItems = buildWaterItems(mockData.waterDevices, null);
 
-        const waterTabs = [
-          { id: 'all', label: 'Todos', selected: true,
-            handleClick: () => { waterPanel && waterPanel.setItems(_waterItems); waterPanel && waterPanel.setQuantity(_waterItems.length); } },
-          { id: 'tank', label: "Caixa d'Água", selected: false,
-            handleClick: () => { const f = _waterItems.filter(i => i.source?.type === 'tank' || i.source?.type === 'cistern'); waterPanel && waterPanel.setItems(f); waterPanel && waterPanel.setQuantity(f.length); } },
-          { id: 'hydrometer', label: 'Hidrômetro', selected: false,
-            handleClick: () => { const f = _waterItems.filter(i => i.source?.type === 'hydrometer'); waterPanel && waterPanel.setItems(f); waterPanel && waterPanel.setQuantity(f.length); } },
-          { id: 'solenoid', label: 'Solenóide', selected: false,
-            handleClick: () => { const f = _waterItems.filter(i => i.source?.type === 'solenoid'); waterPanel && waterPanel.setItems(f); waterPanel && waterPanel.setQuantity(f.length); } },
-        ];
+        // Filter helper (tank also covers cistern) reused for membership + click.
+        const waterFilterFor = (tabId) => {
+          if (tabId === 'all') return _waterItems;
+          if (tabId === 'tank') return _waterItems.filter(i => i.source?.type === 'tank' || i.source?.type === 'cistern');
+          return _waterItems.filter(i => i.source?.type === tabId);
+        };
+        // Builder pattern: data-driven tabs — a tab is dropped when no item matches
+        // (e.g. no solenoid device => no "Solenóide" tab).
+        const applyWaterTab = (tabId) => {
+          const f = waterFilterFor(tabId);
+          if (waterPanel) { waterPanel.setItems(f); waterPanel.setQuantity(f.length); }
+        };
+        const waterTabs = MyIO.CardGridTabsBuilder
+          ? MyIO.CardGridTabsBuilder.create()
+              .withItems(_waterItems)
+              .onSelect(applyWaterTab)
+              .addAllTab('Todos', 'all')
+              .addTab({ id: 'tank', label: "Caixa d'Água", match: i => i.source?.type === 'tank' || i.source?.type === 'cistern' })
+              .addSourceTypeTab('hydrometer', 'Hidrômetro')
+              .addSourceTypeTab('solenoid', 'Solenóide')
+              .build()
+          : [
+              { id: 'all', label: 'Todos', selected: true, handleClick: () => applyWaterTab('all') },
+              { id: 'tank', label: "Caixa d'Água", selected: false, handleClick: () => applyWaterTab('tank') },
+              { id: 'hydrometer', label: 'Hidrômetro', selected: false, handleClick: () => applyWaterTab('hydrometer') },
+              { id: 'solenoid', label: 'Solenóide', selected: false, handleClick: () => applyWaterTab('solenoid') },
+            ];
 
         waterPanel = new MyIO.CardGridPanel({
           title: 'Infraestrutura Hídrica',
@@ -1395,8 +1523,43 @@
           searchPlaceholder: 'Buscar dispositivo...',
           onSearchChange: (text) => { log('event', 'Search Water', text || '(cleared)'); },
           showFilter: true,
-          handleActionFilter: () => { log('event', 'Filter', 'Water filter clicked'); },
+          handleActionFilter: () => {
+            const catOf = (t) => t === 'hydrometer' ? 'HIDROMETRO' : (t === 'tank' || t === 'cistern') ? 'CAIXA_DAGUA' : t === 'solenoid' ? 'SOLENOIDE' : 'OUTRO';
+            const count = (cid) => _waterItems.filter(i => catOf(i.source?.type) === cid).length;
+            openShowcaseFilterModal({
+              title: 'Filtrar Água', icon: '💧',
+              categories: [
+                { id: 'HIDROMETRO', label: 'Hidrômetros', icon: '💧', count: count('HIDROMETRO'), selected: true },
+                { id: 'CAIXA_DAGUA', label: "Caixas d'Água", icon: '🛢️', count: count('CAIXA_DAGUA'), selected: true },
+                { id: 'SOLENOIDE', label: 'Solenoides', icon: '🚰', count: count('SOLENOIDE'), selected: true },
+              ],
+              devices: _waterItems.map(i => ({ id: i.source?.id || i.id, label: i.source?.name || i.id, type: catOf(i.source?.type), status: i.source?.status, selected: true })),
+              onApply: (selCats, _sort, selIds) => {
+                const set = selIds ? new Set(selIds.map(String)) : null;
+                const f = _waterItems.filter(i => selCats.includes(catOf(i.source?.type)) && (!set || set.has(String(i.source?.id || i.id))));
+                waterPanel.setItems(f); waterPanel.setQuantity(f.length);
+              },
+            });
+          },
+          // RFC-0167: clicking a Solenóide card opens the On/Off acionamento modal
+          handleClickCard: (item) => {
+            const d = (item && item.source) || {};
+            if (d.type !== 'solenoid') { log('event', 'Water Card', `${d.name || item.id} (sem modal de acionamento)`); return; }
+            const now = Date.now();
+            openAcionamentoDeviceModal({
+              id: d.id, entityId: d.id, label: d.name, name: d.name,
+              deviceType: 'SOLENOIDE', deviceProfile: 'SOLENOIDE',
+              status: d.status || 'online', connectionStatus: d.status || 'online',
+              connectionStatusTs: now,
+              statusValue: d.value === 1 ? 'on' : 'off', statusTs: now,
+              rawData: { status: d.value === 1 ? 'on' : 'off', connectionStatus: d.status || 'online' },
+            }, { deviceType: 'solenoid' });
+          },
           showMaximize: true,
+          // Comparison: selectable + draggable cards feed the footer dock
+          enableSelection: true,
+          enableDragDrop: true,
+          handleSelect: () => {},
           onMaximizeToggle: (isMax) => { if (isMax) showMaximizeOverlay(waterPanel.getElement(), 'Infraestrutura Hídrica', waterPanel); else closeMaximizeOverlay(); }
         });
         waterHost.appendChild(waterPanel.getElement());
@@ -1430,7 +1593,24 @@
           searchPlaceholder: 'Buscar ambiente...',
           onSearchChange: (text) => { log('event', 'Search Ambientes', text || '(cleared)'); },
           showFilter: true,
-          handleActionFilter: () => { log('event', 'Filter', 'Ambientes filter clicked'); },
+          handleActionFilter: () => {
+            const catOf = (st) => st === 'online' ? 'online' : st === 'warning' ? 'warning' : 'offline';
+            const count = (cid) => ambienteCardItems.filter(it => catOf(it.ambienteData?.status) === cid).length;
+            openShowcaseFilterModal({
+              title: 'Filtrar Ambientes', icon: '🌡️',
+              categories: [
+                { id: 'online', label: 'Online', icon: '🟢', count: count('online'), selected: true },
+                { id: 'warning', label: 'Atenção', icon: '🟡', count: count('warning'), selected: true },
+                { id: 'offline', label: 'Offline', icon: '⚪', count: count('offline'), selected: true },
+              ],
+              devices: ambienteCardItems.map(it => ({ id: it.id, label: it.ambienteData?.label || it.id, type: catOf(it.ambienteData?.status), status: it.ambienteData?.status === 'online' ? 'online' : 'offline', selected: true })),
+              onApply: (selCats, _sort, selIds) => {
+                const set = selIds ? new Set(selIds.map(String)) : null;
+                const f = ambienteCardItems.filter(it => selCats.includes(catOf(it.ambienteData?.status)) && (!set || set.has(String(it.id))));
+                ambientesPanel.setItems(f); ambientesPanel.setQuantity(f.length);
+              },
+            });
+          },
           showMaximize: true,
           onMaximizeToggle: (isMax) => {
             if (isMax) showMaximizeOverlay(ambientesPanel.getElement(), 'Ambientes', ambientesPanel);
@@ -1466,12 +1646,65 @@
           searchPlaceholder: 'Buscar motor...',
           onSearchChange: (text) => { log('event', 'Search Motors', text || '(cleared)'); },
           showFilter: true,
-          handleActionFilter: () => { log('event', 'Filter', 'Motors filter clicked'); },
+          handleActionFilter: () => {
+            const catOf = (t) => t === 'pump' ? 'BOMBA' : 'MOTOR';
+            const count = (cid) => motorItems.filter(i => catOf(i.source?.type) === cid).length;
+            openShowcaseFilterModal({
+              title: 'Filtrar Bombas e Motores', icon: '⚙️',
+              categories: [
+                { id: 'BOMBA', label: 'Bombas', icon: '💧', count: count('BOMBA'), selected: true },
+                { id: 'MOTOR', label: 'Motores', icon: '🔧', count: count('MOTOR'), selected: true },
+              ],
+              devices: motorItems.map(i => ({ id: i.source?.id || i.id, label: i.source?.name || i.id, type: catOf(i.source?.type), status: i.source?.status === 'running' ? 'online' : 'offline', selected: true })),
+              onApply: (selCats, _sort, selIds) => {
+                const set = selIds ? new Set(selIds.map(String)) : null;
+                const f = motorItems.filter(i => selCats.includes(catOf(i.source?.type)) && (!set || set.has(String(i.source?.id || i.id))));
+                motorsPanel.setItems(f); motorsPanel.setQuantity(f.length);
+              },
+            });
+          },
           showMaximize: true,
+          // Comparison: selectable + draggable cards feed the footer dock
+          enableSelection: true,
+          enableDragDrop: true,
+          handleSelect: () => {},
           onMaximizeToggle: (isMax) => { if (isMax) showMaximizeOverlay(motorsPanel.getElement(), 'Motors', motorsPanel); else closeMaximizeOverlay(); }
         });
         motorsHost.appendChild(motorsPanel.getElement());
       }
+
+      // RFC-0115: Comparison footer — binds to MyIOSelectionStore so selecting/
+      // dragging Water & Motor cards shows the comparison dock at the bottom.
+      const footerHost = document.getElementById('bas-footer-host');
+      if (footerHost && MyIO.createFooterComponent && !footerComponent) {
+        try {
+          footerComponent = MyIO.createFooterComponent({
+            container: footerHost,
+            selectionStore: MyIO.MyIOSelectionStore,
+            theme: 'light',
+            maxSelections: 20,
+            getDateRange: () => {
+              const today = new Date();
+              const first = new Date(today.getFullYear(), today.getMonth(), 1);
+              const fmt = (d) => d.toISOString().slice(0, 10);
+              return { start: fmt(first), end: fmt(today) };
+            },
+            onCompareClick: (entities, unitType) => {
+              log('event', 'Compare', `${entities.length} selecionados (unit: ${unitType})`);
+            },
+            onSelectionChange: (entities) => {
+              log('event', 'Selection', `${entities.length} item(s) no dock`);
+            },
+          });
+          log('info', 'Footer', 'Comparison footer mounted (selection dock)');
+        } catch (err) {
+          log('error', 'Footer', 'Failed to mount footer: ' + (err?.message || err));
+        }
+      }
+
+      // Showcase: responsividade por LARGURA REAL do widget (mirror do MAIN_BAS),
+      // para validar desktop/tablet/mobile + accordion (collapsible) aqui.
+      setupShowcaseResponsive();
 
       currentState.isInitialized = true;
       updateWidgetStatus('running');
@@ -1480,6 +1713,56 @@
       document.getElementById('btnOnDataUpdated').disabled = false;
       document.getElementById('btnOnDestroy').disabled = false;
       updateStateDisplay();
+    }
+
+    // Mirror do setupResponsiveWidthClasses do MAIN_BAS/controller.js:
+    // mede a largura real do #bas-dashboard-root, seta .bas-w-* e orquestra os
+    // componentes via API pública (menu.collapse/expand + panel.setCollapsible).
+    let _prevMobile = null;
+    function setupShowcaseResponsive() {
+      const root = document.getElementById('bas-dashboard-root');
+      if (!root) return;
+
+      function applyComponents(isMobile) {
+        if (isMobile === _prevMobile) return;
+        _prevMobile = isMobile;
+        if (_sidebarMenu) {
+          try {
+            // Strong component: hamburger top bar + off-canvas drawer (with footer/logout)
+            // on mobile; full sidebar on desktop.
+            if (typeof _sidebarMenu.setMobileMode === 'function') _sidebarMenu.setMobileMode(isMobile);
+            else if (isMobile) _sidebarMenu.collapse?.(); else _sidebarMenu.expand?.();
+          } catch {}
+        }
+        [waterPanel, ambientesPanel, motorsPanel].forEach((p) => {
+          if (p && typeof p.setCollapsible === 'function') p.setCollapsible(isMobile);
+        });
+        // CONSUMO é um wrapper inline .myio-cgp (não componente): liga/desliga o
+        // accordion via classe — o CSS de collapse do CardGridPanel cuida do resto.
+        if (_chartPanelWrapper) {
+          _chartPanelWrapper.classList.toggle('myio-cgp--collapsible', isMobile);
+          if (!isMobile) _chartPanelWrapper.classList.remove('myio-cgp--collapsed');
+        }
+      }
+
+      function apply() {
+        const w = root.getBoundingClientRect().width;
+        if (!w) return;
+        const isMobile = w <= 620;
+        const isTablet = !isMobile && w <= 960;
+        root.classList.toggle('bas-w-mobile', isMobile);
+        root.classList.toggle('bas-w-tablet', isTablet);
+        root.classList.toggle('bas-w-desktop', !isMobile && !isTablet);
+        applyComponents(isMobile);
+        log('info', 'Responsive', `${Math.round(w)}px -> ${isMobile ? 'mobile' : isTablet ? 'tablet' : 'desktop'}`);
+      }
+
+      apply();
+      if (typeof ResizeObserver !== 'undefined') {
+        new ResizeObserver(() => apply()).observe(root);
+      } else {
+        window.addEventListener('resize', apply);
+      }
     }
 
     function refreshPanels() {
@@ -1523,10 +1806,12 @@
       if (waterPanel?.destroy) { waterPanel.destroy(); waterPanel = null; }
       if (ambientesPanel?.destroy) { ambientesPanel.destroy(); ambientesPanel = null; }
       if (motorsPanel?.destroy) { motorsPanel.destroy(); motorsPanel = null; }
+      // RFC-0115: destroy comparison footer
+      if (footerComponent?.destroy) { try { footerComponent.destroy(); } catch {} footerComponent = null; }
       // RFC-0173: destroy premium sidebar menu
       if (_sidebarMenu?.destroy) { _sidebarMenu.destroy(); _sidebarMenu = null; }
 
-      ['bas-sidebar-menu-host', 'bas-sidebar-host', 'bas-water-host', 'bas-charts-host', 'bas-ambientes-host', 'bas-motors-host'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = ''; });
+      ['bas-sidebar-menu-host', 'bas-sidebar-host', 'bas-water-host', 'bas-charts-host', 'bas-ambientes-host', 'bas-motors-host', 'bas-footer-host'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = ''; });
 
       currentState = { isInitialized: false, selectedFloor: null, data: null };
       currentChartDomain = 'energy';
@@ -1811,6 +2096,56 @@
     window.toggleStatePanel = toggleStatePanel;
     window.openBASModalTest = openBASModalTest;
     window.openBASModalTestRemote = openBASModalTestRemote;
+
+    // RFC-0167: open the On/Off "detalhe de acionamento" modal.
+    // Demonstrates the 12h freshness rule (stale status => ⚠️ tooltip) and the
+    // per-type labels (SOLENOIDE: Aberta/Fechada, LAMP/PLUG: Ligado/Desligado).
+    function openAcionamentoDeviceModal(device, opts) {
+      const MyIO = window.MyIOLibrary;
+      if (!MyIO || !MyIO.openOnOffDeviceModal) {
+        log('error', 'OnOff', 'openOnOffDeviceModal não disponível no bundle');
+        alert('openOnOffDeviceModal não disponível — verifique a versão do bundle');
+        return;
+      }
+      MyIO.openOnOffDeviceModal(device, Object.assign({
+        themeMode: 'light',
+        centralId: 'demo-central',       // POST de demo (falha de rede esperada na showcase)
+        customerName: 'Shopping Demo',
+        enableDebugMode: true,
+        onStateChange: (id, st) => log('event', 'OnOff', `${id} -> ${st ? 'ON' : 'OFF'}`),
+        onClose: () => log('info', 'OnOff', 'Modal fechado'),
+      }, opts || {}));
+    }
+
+    function openAcionamentoDemo(profileKey, stale) {
+      const now = Date.now();
+      const STALE_MS = 13 * 60 * 60 * 1000; // 13h > janela de 12h => stale
+      const profiles = {
+        LAMP:      { profile: 'LAMP',      type: 'generic',  name: 'Iluminacao DepSubsolo_01_XDN5R48', value: 'on'  },
+        PLUG:      { profile: 'PLUG',      type: 'generic',  name: 'Tomada Sala Tecnica 03',           value: 'off' },
+        SOLENOIDE: { profile: 'SOLENOIDE', type: 'solenoid', name: 'Solenoide Valvula Principal',       value: 'off' },
+      };
+      const p = profiles[profileKey] || profiles.LAMP;
+      const statusTs = stale ? (now - STALE_MS) : now;
+      log('info', 'OnOff', `Abrindo ${p.profile} (${stale ? 'STALE 13h ⚠️' : 'fresco'})`);
+      openAcionamentoDeviceModal({
+        id: 'demo-' + profileKey.toLowerCase(),
+        entityId: 'demo-' + profileKey.toLowerCase(),
+        label: p.name,
+        name: p.name,
+        deviceType: p.profile,
+        deviceProfile: p.profile,
+        status: 'online',
+        connectionStatus: 'online',
+        connectionStatusTs: now,          // conexão sempre fresca neste demo
+        statusValue: p.value,
+        statusTs: statusTs,               // fresco ou stale (controla o ⚠️)
+        rawData: { status: p.value, connectionStatus: 'online' },
+      }, { deviceType: p.type });
+    }
+    window.openAcionamentoDemo = openAcionamentoDemo;
+    window.openAcionamentoDeviceModal = openAcionamentoDeviceModal;
+
     // Ghost auth + real data (defined inside IIFE to share log() context)
     window.loadRealData = loadRealData;
   })(); // End IIFE

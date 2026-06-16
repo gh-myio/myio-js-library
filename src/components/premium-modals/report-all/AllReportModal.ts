@@ -11,6 +11,9 @@ import {
   SortMode,
 } from '../internal/filter-ordering/FilterOrderingModal';
 import { OpenAllReportParams, ModalHandle, StoreItem } from '../types';
+import { InfoTooltip } from '../../../utils/InfoTooltip';
+import { exportGridPdf, exportGridXls } from '../../telemetry-grid-shopping/export';
+import type { TelemetryDevice } from '../../telemetry-grid-shopping/types';
 
 // Domain configuration
 type Domain = 'energy' | 'water' | 'temperature';
@@ -77,6 +80,16 @@ export class AllReportModal {
   // Granularity: '1d' (daily) | '1h' (hourly)
   private granularity: '1d' | '1h' = '1d';
 
+  // When true, devices flagged via `exclude_groups_totals` for this group are dropped
+  // from the report so its total reconciles with the dashboard KPIs. Toggleable in the UI.
+  private considerExclusion = true;
+  // Raw API response kept so the exclusion toggle can re-map without a new fetch.
+  private lastApiResponse: any = null;
+  // Search period of the last load — fed to the PDF/XLS export headers.
+  private exportPeriod: { startISO?: string | null; endISO?: string | null } | null = null;
+  // Cleanup for the InfoTooltip attached to the exclusion-flag info icon.
+  private exclusionTooltipCleanup: (() => void) | null = null;
+
   constructor(private params: OpenAllReportParams) {
     this.authClient = new AuthClient({
       clientId: params.api.clientId,
@@ -118,7 +131,7 @@ export class AllReportModal {
       .normalize('NFKC')
       .toUpperCase()
       .replace(/\s+/g, '')
-      .replace(/[^A-Z0-9]/g, '');
+      .replace(/[0300-036f]/g, '');
   }
 
   // Helper: extract store identifier from API item
@@ -203,6 +216,12 @@ export class AllReportModal {
         this.dateRangePicker = null;
       }
 
+      // Cleanup exclusion-flag InfoTooltip
+      if (this.exclusionTooltipCleanup) {
+        this.exclusionTooltipCleanup();
+        this.exclusionTooltipCleanup = null;
+      }
+
       // Cleanup FilterModal
       if (this.filterModal) {
         this.filterModal.destroy();
@@ -243,9 +262,29 @@ export class AllReportModal {
             <button id="export-btn" class="myio-btn myio-btn-secondary" disabled>
               Exportar CSV
             </button>
+            <button id="export-pdf-btn" class="myio-btn myio-btn-secondary" disabled>
+              Exportar PDF
+            </button>
+            <button id="export-xls-btn" class="myio-btn myio-btn-secondary" disabled>
+              Exportar XLS
+            </button>
             <button id="filter-btn" class="myio-btn myio-btn-secondary" style="background: var(--myio-brand-700); color: white;">
               🔍 Filtros & Ordenação
             </button>
+            <div class="myio-form-group" style="margin-bottom: 0; display: flex; align-items: center; gap: 6px; align-self: flex-end; padding-bottom: 8px;">
+              <label for="consider-exclusion" style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; color: var(--myio-text, #374151); white-space: nowrap;">
+                <input type="checkbox" id="consider-exclusion" checked style="cursor: pointer; width: 15px; height: 15px; accent-color: var(--myio-brand-700, #5b2c9d);">
+                Considerar exclusão de totais
+              </label>
+              <span id="exclusion-info" aria-label="Sobre a exclusão de totais" style="
+                display: inline-flex; align-items: center; justify-content: center;
+                width: 16px; height: 16px; border-radius: 50%;
+                background: var(--myio-brand-700, #5b2c9d); color: #fff;
+                font-size: 11px; font-weight: 700; font-style: italic;
+                font-family: Georgia, 'Times New Roman', serif; cursor: help;
+                user-select: none;
+              ">i</span>
+            </div>
             <div class="myio-form-group" style="margin-bottom: 0; margin-left: auto;">
               <label class="myio-label" for="search-input">Busca rápida</label>
               <input type="text" id="search-input" class="myio-input" placeholder="Digite para filtrar..." style="width: 200px;">
@@ -283,6 +322,8 @@ export class AllReportModal {
 
     loadBtn?.addEventListener('click', () => this.loadData());
     exportBtn?.addEventListener('click', () => this.exportCSV());
+    document.getElementById('export-pdf-btn')?.addEventListener('click', () => this.exportPDF());
+    document.getElementById('export-xls-btn')?.addEventListener('click', () => this.exportXLS());
     filterBtn?.addEventListener('click', () => this.openFilterModal());
 
     // Granularity toggle
@@ -314,6 +355,24 @@ export class AllReportModal {
         this.renderTable();
         // RFC-0060: Removed pagination
       });
+    }
+
+    // Exclusion toggle — re-maps the cached API response without a new fetch.
+    const exclusionCheckbox = document.getElementById('consider-exclusion') as HTMLInputElement | null;
+    exclusionCheckbox?.addEventListener('change', () => {
+      this.considerExclusion = exclusionCheckbox.checked;
+      this.remapAndRender();
+    });
+
+    // Premium tooltip on the (i) icon, reusing the library InfoTooltip.
+    const exclusionInfo = document.getElementById('exclusion-info');
+    if (exclusionInfo) {
+      this.exclusionTooltipCleanup?.();
+      this.exclusionTooltipCleanup = InfoTooltip.attach(exclusionInfo, () => ({
+        icon: 'ℹ️',
+        title: 'Exclusão de totais',
+        content: this.buildExclusionTooltipContent(),
+      }));
     }
 
     // Initialize DateRangePicker with default current month range
@@ -355,6 +414,7 @@ export class AllReportModal {
     try {
       const { startISO, endISO } = this.dateRangePicker.getDates();
       this.debugLog('📅 Date range selected', { startISO, endISO });
+      this.exportPeriod = { startISO, endISO };
 
       if (!startISO || !endISO) {
         this.showError('Selecione um período válido');
@@ -371,6 +431,7 @@ export class AllReportModal {
 
       // Process and map the API response
       this.debugLog('🔄 Processing API response...');
+      this.lastApiResponse = customerTotalsData; // kept for the exclusion toggle re-map
       this.data = this.mapCustomerTotalsResponse(customerTotalsData);
       this.debugLog('✅ Data mapping completed', {
         mappedDataLength: this.data.length,
@@ -392,6 +453,10 @@ export class AllReportModal {
       this.renderTable();
       // RFC-0060: Removed pagination
       exportBtn.disabled = false;
+      const pdfBtn = document.getElementById('export-pdf-btn') as HTMLButtonElement | null;
+      const xlsBtn = document.getElementById('export-xls-btn') as HTMLButtonElement | null;
+      if (pdfBtn) pdfBtn.disabled = false;
+      if (xlsBtn) xlsBtn.disabled = false;
 
       this.debugLog('🎉 Load process completed successfully');
 
@@ -642,58 +707,7 @@ export class AllReportModal {
   }
 
   private renderPagination(): void {
-    // RFC-0060: Pagination removed - this function is now deprecated
-    return;
-    const container = document.getElementById('pagination-container');
-    if (!container) return;
-
-    const filteredData = this.getFilteredData();
-    const totalPages = Math.ceil(filteredData.length / this.itemsPerPage);
-
-    if (totalPages <= 1) {
-      container.style.display = 'none';
-      return;
-    }
-
-    const startItem = (this.currentPage - 1) * this.itemsPerPage + 1;
-    const endItem = Math.min(this.currentPage * this.itemsPerPage, filteredData.length);
-
-    container.innerHTML = `
-      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
-        <div style="color: var(--myio-text-muted);">
-          Mostrando ${startItem}-${endItem} de ${filteredData.length} lojas
-        </div>
-        <div style="display: flex; gap: 8px; align-items: center;">
-          <button id="prev-page" class="myio-btn myio-btn-outline" ${this.currentPage === 1 ? 'disabled' : ''}>
-            Anterior
-          </button>
-          <span style="padding: 0 12px; font-weight: bold;">
-            ${this.currentPage} / ${totalPages}
-          </span>
-          <button id="next-page" class="myio-btn myio-btn-outline" ${this.currentPage === totalPages ? 'disabled' : ''}>
-            Próximo
-          </button>
-        </div>
-      </div>
-    `;
-
-    document.getElementById('prev-page')?.addEventListener('click', () => {
-      if (this.currentPage > 1) {
-        this.currentPage--;
-        this.renderTable();
-        // RFC-0060: Removed pagination
-      }
-    });
-
-    document.getElementById('next-page')?.addEventListener('click', () => {
-      if (this.currentPage < totalPages) {
-        this.currentPage++;
-        this.renderTable();
-        // RFC-0060: Removed pagination
-      }
-    });
-
-    container.style.display = 'block';
+    // RFC-0060: Pagination removed - this function is now a no-op
   }
 
   private calculateTotalConsumption(): number {
@@ -754,7 +768,7 @@ export class AllReportModal {
     return name
       .toLowerCase()
       .replace(/\s+/g, '-')
-      .replace(/[^a-z0-9-]/g, '');
+      .replace(/[0300-036f]/g, '');
   }
 
   private applyFiltersAndSort(selectedIds: string[], sortMode: SortMode): void {
@@ -814,13 +828,53 @@ export class AllReportModal {
     this.downloadCSV(csvContent, `relatorio-geral-lojas-${new Date().toISOString().split('T')[0]}.csv`);
   }
 
+  // Maps the report rows to the TelemetryDevice shape consumed by the shared
+  // TELEMETRY grid exporters (only labelOrName/name/deviceIdentifier/val/perc are read).
+  private buildExportDevices(): TelemetryDevice[] {
+    const sorted = [...this.data].sort((a, b) => b.consumption - a.consumption);
+    const total = sorted.reduce((s, r) => s + (r.consumption || 0), 0);
+    return sorted.map((r) => ({
+      labelOrName: r.name,
+      name: r.name,
+      deviceIdentifier: r.identifier,
+      val: r.consumption,
+      perc: total > 0 ? (r.consumption / total) * 100 : 0,
+    })) as unknown as TelemetryDevice[];
+  }
+
+  // PDF export — same premium layout as the TELEMETRY grid export.
+  private exportPDF(): void {
+    if (!this.data.length) return;
+    exportGridPdf(
+      this.buildExportDevices(),
+      this.resolveTitle(),
+      this.domainConfig.unit,
+      this.exportPeriod,
+      null,
+    );
+  }
+
+  // XLS export (XML Spreadsheet) — same as the TELEMETRY grid export.
+  private exportXLS(): void {
+    if (!this.data.length) return;
+    exportGridXls(
+      this.buildExportDevices(),
+      this.resolveTitle(),
+      this.domainConfig.unit,
+      this.exportPeriod,
+      null,
+    );
+  }
+
   private async fetchCustomerTotals(startISO: string, endISO: string): Promise<any> {
     // Check if custom fetcher is provided (for testing/demo)
     if (this.params.fetcher) {
       // Use ingestionToken for Data API endpoints (data.apps.myio-bas.com)
       const token = this.params.api.ingestionToken || (await this.authClient.getBearer());
+      const baseUrl = this.params.api.dataApiBaseUrl;
+      if (!baseUrl) throw new Error('dataApiBaseUrl não configurado.');
       return await this.params.fetcher({
-        baseUrl: this.params.api.dataApiBaseUrl,
+        baseUrl,
         token: token,
         customerId: this.params.customerId,
         startISO,
@@ -868,6 +922,97 @@ export class AllReportModal {
     this.debugLog('[AllReportModal] Customer totals response:', data);
 
     return data;
+  }
+
+  // Re-map the cached API response under the current exclusion flag and refresh the UI.
+  // No-op until data has been loaded at least once.
+  private remapAndRender(): void {
+    if (!this.lastApiResponse) return;
+    this.data = this.mapCustomerTotalsResponse(this.lastApiResponse);
+    this.selectedStoreIds = new Set(this.data.map((s) => this.generateStoreId(s.identifier)));
+    this.currentPage = 1;
+    this.renderSummary();
+    this.renderTable();
+  }
+
+  // Premium tooltip content for the exclusion-flag info icon. Uses the library
+  // InfoTooltip CSS classes (myio-info-tooltip__*) — injected by InfoTooltip itself.
+  private buildExclusionTooltipContent(): string {
+    // Plain <p> blocks — the library's __row/__label pair uses flex + flex-shrink:0
+    // on the label, so long text won't wrap there. Block paragraphs wrap normally.
+    const p = 'margin:0 0 8px;font-size:11px;line-height:1.5;color:#475569;';
+    const pLast = 'margin:0;font-size:11px;line-height:1.5;color:#475569;';
+    return `
+      <div class="myio-info-tooltip__section" style="max-width:280px;">
+        <p style="${p}">
+          Alguns dispositivos têm o atributo <strong>exclude_groups_totals</strong> e são
+          propositalmente removidos dos totais do dashboard (ex.: medidor de locatário que
+          não é consumo operacional do shopping).
+        </p>
+        <p style="${p}">
+          <strong>Ligado</strong> (padrão): esses dispositivos são omitidos do relatório —
+          o total bate com os cards do dashboard.
+        </p>
+        <p style="${pLast}">
+          <strong>Desligado</strong>: todos os dispositivos do grupo entram — mostra o
+          consumo bruto, inclusive os excluídos.
+        </p>
+      </div>
+      <div class="myio-info-tooltip__notice">
+        <span class="myio-info-tooltip__notice-icon">💡</span>
+        <span>Não altera nenhum dado — apenas o que o relatório soma e lista.</span>
+      </div>
+    `;
+  }
+
+  // Resolve the canonical `exclude_groups_totals.groups` key for the report's current group.
+  // Returns null for groupings that don't map to a single exclusion key (climatizavel, etc.).
+  private resolveExclusionGroupKey(item: StoreItem): string | null {
+    const g = String(this.params.group || '').toLowerCase();
+    if (g === 'entrada' || g === 'lojas' || g === 'area_comum') return g;
+    if (g === 'todos') {
+      const gl = String(item.groupLabel || '')
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')
+        .toLowerCase()
+        .trim();
+      if (gl === 'entrada') return 'entrada';
+      if (gl === 'lojas') return 'lojas';
+      if (gl === 'area comum' || gl === 'areacomum') return 'area_comum';
+      if (gl === 'climatizacao') return 'climatizacao';
+      if (gl === 'elevadores') return 'elevadores';
+      if (gl === 'escadas rolantes' || gl === 'esc. rolantes') return 'escadas_rolantes';
+      if (gl === 'outros' || gl === 'outros equipamentos') return 'outros';
+    }
+    return null;
+  }
+
+  // Mirrors getValorEfetivo (MAIN_VIEW): a device flagged in exclude_groups_totals for the
+  // report's group is dropped, so the report total reconciles with the dashboard KPI card.
+  private isExcludedFromTotals(item: StoreItem): boolean {
+    const raw = item.excludeGroupsTotals;
+    if (!raw) return false;
+
+    let parsed: any;
+    try {
+      parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    } catch {
+      return false;
+    }
+    if (!parsed || parsed.enabled !== true) return false;
+
+    const key = this.resolveExclusionGroupKey(item);
+    if (!key) return false;
+
+    if (parsed.groups && typeof parsed.groups === 'object') {
+      return parsed.groups[key] === true;
+    }
+    // Legacy format: { enabled, excludedGroups: [...] }
+    if (Array.isArray(parsed.excludedGroups)) {
+      const ex = parsed.excludedGroups.map((x: any) => String(x).toLowerCase());
+      return ex.includes(key) || ex.includes('all');
+    }
+    return false;
   }
 
   private mapCustomerTotalsResponse(apiResponse: any): StoreReading[] {
@@ -931,6 +1076,14 @@ export class AllReportModal {
       if (!apiId || !orchIdSet.has(apiId)) continue; // discard: not in this group
 
       const meta        = orchMeta.get(apiId);
+
+      // RFC-0128: drop devices flagged via exclude_groups_totals for this group, so the
+      // report total reconciles with the dashboard KPI card (which honors the same attribute).
+      if (this.considerExclusion && meta && this.isExcludedFromTotals(meta)) {
+        this.debugLog('[AllReportModal] device excluded via exclude_groups_totals:', meta.label);
+        continue;
+      }
+
       const consumption = Math.round(this.pickConsumption(apiItem) * 100) / 100;
 
       const result: StoreReading = {
