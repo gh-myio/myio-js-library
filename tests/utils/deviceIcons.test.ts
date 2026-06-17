@@ -48,10 +48,24 @@ describe('RFC-0200 deviceIcons utility', () => {
       }
     });
 
-    it('the const-as-const enum exposes the expected 18 entries', () => {
-      expect(Object.keys(DeviceIconType).length).toBe(18);
-      expect(Object.keys(deviceIcons).length).toBe(18);
-      expect(Object.keys(deviceIconLabels).length).toBe(18);
+    it('the const-as-const enum exposes the expected 21 entries', () => {
+      expect(Object.keys(DeviceIconType).length).toBe(21);
+      expect(Object.keys(deviceIcons).length).toBe(21);
+      expect(Object.keys(deviceIconLabels).length).toBe(21);
+    });
+
+    it('resolves COMPRESSOR / VENTILADOR / SOLENOIDE (previously default-only)', () => {
+      expect(getDeviceIcon('COMPRESSOR')).toBe(deviceIcons.COMPRESSOR);
+      expect(getDeviceIcon('ventilador')).toBe(deviceIcons.VENTILADOR);
+      expect(getDeviceIcon('Solenoide')).toBe(deviceIcons.SOLENOIDE);
+      // none of the three falls back to the generic default anymore
+      expect(getDeviceIcon('COMPRESSOR')).not.toBe(DEFAULT_DEVICE_ICON);
+      expect(getDeviceIcon('VENTILADOR')).not.toBe(DEFAULT_DEVICE_ICON);
+      expect(getDeviceIcon('SOLENOIDE')).not.toBe(DEFAULT_DEVICE_ICON);
+      // labels present
+      expect(deviceIconLabels.COMPRESSOR).toBe('Compressor');
+      expect(deviceIconLabels.VENTILADOR).toBe('Ventilador');
+      expect(deviceIconLabels.SOLENOIDE).toBe('Solenoide');
     });
   });
 

@@ -41,6 +41,9 @@ export const DeviceIconType = {
   HIDROMETRO_SHOPPING: 'HIDROMETRO_SHOPPING',
   CAIXA_DAGUA: 'CAIXA_DAGUA',
   TERMOSTATO: 'TERMOSTATO',
+  COMPRESSOR: 'COMPRESSOR',
+  VENTILADOR: 'VENTILADOR',
+  SOLENOIDE: 'SOLENOIDE',
 } as const;
 
 export type DeviceIconType =
@@ -66,6 +69,11 @@ export const deviceIcons: Record<DeviceIconType, string> = {
   HIDROMETRO_SHOPPING:   'https://dashboard.myio-bas.com/api/images/public/OIMmvN4ZTKYDvrpPGYY5agqMRoSaWNTI',
   CAIXA_DAGUA:           'https://dashboard.myio-bas.com/api/images/public/3t6WVhMQJFsrKA8bSZmrngDsNPkZV7fq',
   TERMOSTATO:            'https://dashboard.myio-bas.com/api/images/public/rtCcq6kZZVCD7wgJywxEurRZwR8LA7Q7',
+  // COMPRESSOR shares FANCOIL art; VENTILADOR shares MOTOR/BOMBA art (single static icons, no on/off variation).
+  COMPRESSOR:            'https://dashboard.myio-bas.com/api/images/public/4BWMuVIFHnsfqatiV86DmTrOB7IF0X8Y',
+  VENTILADOR:            'https://dashboard.myio-bas.com/api/images/public/Rge8Q3t0CP5PW8XyTn9bBK9aVP6uzSTT',
+  // SOLENOIDE: single representative (on); dynamic on/off/offline lives in solenoid-control SOLENOID_IMAGES.
+  SOLENOIDE:             'https://dashboard.myio-bas.com/api/images/public/Tnq47Vd1TxhhqhYoHvzS73WVh1X84fPa',
 };
 
 /** Friendly Portuguese labels for UI rendering (pickers, tooltips, captions). */
@@ -88,6 +96,9 @@ export const deviceIconLabels: Record<DeviceIconType, string> = {
   HIDROMETRO_SHOPPING:   'Hidrômetro Shopping',
   CAIXA_DAGUA:           "Caixa d'Água",
   TERMOSTATO:            'Termostato',
+  COMPRESSOR:            'Compressor',
+  VENTILADOR:            'Ventilador',
+  SOLENOIDE:             'Solenoide',
 };
 
 /** Default fallback URL when type is unknown or not yet mapped. */
