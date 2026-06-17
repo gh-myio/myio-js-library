@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "2.0",
+  "intent": "DISABLE",
+  "hold": {
+    "holdId": "alarms:storm:9a2f7c10-7b3d-4e21-9f88-2c5d6e7a8b90",
+    "ttlSeconds": 300,
+    "reasonCode": "ALARM_STORM_MITIGATION",
+    "reason": "Suprimindo publish durante reprocesso de fila"
+  },
+  "scope": { "level": "CENTRAL", "targets": [] },
+  "actor": {
+    "system": "ALARMS",
+    "instanceId": "alarms-api-2",
+    "version": "1.9.0",
+    "user": null,
+    "onBehalfOf": null,
+    "requestIp": "10.0.0.7"
+  },
+  "request": {
+    "requestId": "bbbbbbbb-0002-4000-8000-000000000002",
+    "correlationId": "corr-alarms-storm-0002",
+    "idempotencyKey": "alarms:storm:win-0002",
+    "requestedAt": "2026-06-17T19:01:00.000Z",
+    "requestedAtMs": 1750100460000
+  }
+}

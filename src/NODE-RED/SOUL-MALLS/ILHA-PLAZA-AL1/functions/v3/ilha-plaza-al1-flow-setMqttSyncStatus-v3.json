@@ -1,0 +1,368 @@
+[
+    {
+        "id": "da451051.ccdea",
+        "type": "group",
+        "z": "17cc5a03.02ed26",
+        "name": "API /POST /setMqttSyncStatus",
+        "style": {
+            "label": true
+        },
+        "nodes": [
+            "beb606b.973cff8",
+            "19dacfb0.b7d2d",
+            "373c2265.a01f86",
+            "1e590dfe.f1fa22",
+            "57aaff21.8d02f",
+            "7bca2099.751bc8",
+            "bb3bbb55.3287d",
+            "8423c757.d414d8",
+            "bb8a7ab2.2f33a8",
+            "72e1ab77.8be57c",
+            "d81a95b2.8fc4e8",
+            "7c07f053.4910a8",
+            "8db7275e.052578",
+            "23e377ee.4d9a2",
+            "5fc157b5.615608",
+            "229fa3fd.fd0d9c"
+        ],
+        "x": 34,
+        "y": 839,
+        "w": 1472,
+        "h": 402
+    },
+    {
+        "id": "beb606b.973cff8",
+        "type": "http in",
+        "z": "17cc5a03.02ed26",
+        "g": "da451051.ccdea",
+        "name": "/api/setMqttSyncStatus",
+        "url": "/setMqttSyncStatus",
+        "method": "post",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 160,
+        "y": 880,
+        "wires": [
+            [
+                "19dacfb0.b7d2d",
+                "373c2265.a01f86"
+            ]
+        ]
+    },
+    {
+        "id": "19dacfb0.b7d2d",
+        "type": "function",
+        "z": "17cc5a03.02ed26",
+        "g": "da451051.ccdea",
+        "name": "validates payload",
+        "func": "// POST /api/setMqttSyncStatus — valida o envelope e prepara o param $1::jsonb\n// para set_mqtt_sync_status(). Payload de referência: setMqttSyncStatus-payload.example.json\n//\n// Saída ÚNICA (return msg). O roteamento é feito por um nó Switch a jusante,\n// lendo msg.payload.status:\n//   - \"valid\"   → nó Postgres (SQL.sql)  [usa msg.params]\n//   - \"invalid\" → http response (msg.statusCode = 400)\n\nconst body = (msg.payload && typeof msg.payload === 'object') ? msg.payload : {};\n\nconst intent = String(body.intent || '').toUpperCase();\nlet status = String(body.mqttSyncStatus || body.status || '').toLowerCase();\nif (!status) {\n  status = ({\n    DISABLE: 'disable', FORCE_DISABLE: 'disable',\n    ENABLE: 'enable',  FORCE_ENABLE: 'enable',\n  })[intent] || '';\n}\n\n// QUERY é read-only e válido; os demais precisam resolver enable|disable\nconst isValid = (intent === 'QUERY') || status === 'enable' || status === 'disable';\n\nif (!isValid) {\n  msg.statusCode = 400;\n  msg.payload = {\n    status: 'invalid',\n    ok: false,\n    error: 'payload inválido: informe intent (DISABLE|ENABLE|FORCE_*|QUERY) ou mqttSyncStatus (enable|disable)',\n    intent: intent || null,\n  };\n  return msg;\n}\n\n// cache em memória imediato (mantém o GET/global em sincronia). QUERY não altera.\nif (status) global.set('mqttSyncStatus', status);\n\n// param do $1::jsonb (a função deriva status/user/slave do envelope v2)\nmsg.params = [JSON.stringify(body)];\n\n// marcador de roteamento p/ o Switch (o param real vai em msg.params)\nmsg.payload = { status: 'valid', mqttSyncStatus: status || null, intent: intent || null };\n\nreturn msg;\n",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 430,
+        "y": 880,
+        "wires": [
+            [
+                "57aaff21.8d02f",
+                "bb3bbb55.3287d",
+                "8423c757.d414d8"
+            ]
+        ]
+    },
+    {
+        "id": "373c2265.a01f86",
+        "type": "debug",
+        "z": "17cc5a03.02ed26",
+        "g": "da451051.ccdea",
+        "name": "",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 150,
+        "y": 980,
+        "wires": []
+    },
+    {
+        "id": "1e590dfe.f1fa22",
+        "type": "http response",
+        "z": "17cc5a03.02ed26",
+        "g": "da451051.ccdea",
+        "name": "200 / ok",
+        "statusCode": "200",
+        "headers": {},
+        "x": 1380,
+        "y": 960,
+        "wires": []
+    },
+    {
+        "id": "57aaff21.8d02f",
+        "type": "debug",
+        "z": "17cc5a03.02ed26",
+        "g": "da451051.ccdea",
+        "name": "",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 390,
+        "y": 980,
+        "wires": []
+    },
+    {
+        "id": "7bca2099.751bc8",
+        "type": "change",
+        "z": "17cc5a03.02ed26",
+        "g": "da451051.ccdea",
+        "name": "Store to flow.devices",
+        "rules": [
+            {
+                "t": "set",
+                "p": "mqttSyncStatus",
+                "pt": "flow",
+                "to": "mqttSyncStatus",
+                "tot": "global"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 1315,
+        "y": 1180,
+        "wires": [
+            []
+        ],
+        "l": false
+    },
+    {
+        "id": "bb3bbb55.3287d",
+        "type": "switch",
+        "z": "17cc5a03.02ed26",
+        "g": "da451051.ccdea",
+        "name": "",
+        "property": "payload.status",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": "eq",
+                "v": "valid",
+                "vt": "str"
+            },
+            {
+                "t": "eq",
+                "v": "invalid",
+                "vt": "str"
+            }
+        ],
+        "checkall": "true",
+        "repair": false,
+        "outputs": 2,
+        "x": 690,
+        "y": 880,
+        "wires": [
+            [
+                "bb8a7ab2.2f33a8"
+            ],
+            []
+        ]
+    },
+    {
+        "id": "8423c757.d414d8",
+        "type": "http response",
+        "z": "17cc5a03.02ed26",
+        "g": "da451051.ccdea",
+        "name": "response",
+        "statusCode": "400",
+        "headers": {},
+        "x": 620,
+        "y": 980,
+        "wires": []
+    },
+    {
+        "id": "bb8a7ab2.2f33a8",
+        "type": "postgresql",
+        "z": "17cc5a03.02ed26",
+        "g": "da451051.ccdea",
+        "name": "Persist MQTT Status Sync",
+        "query": "SELECT set_mqtt_sync_status($1::jsonb) AS result;",
+        "postgreSQLConfig": "676f4c09.5b8664",
+        "split": false,
+        "rowsPerMsg": 1,
+        "outputs": 1,
+        "x": 1000,
+        "y": 880,
+        "wires": [
+            [
+                "72e1ab77.8be57c",
+                "23e377ee.4d9a2"
+            ]
+        ]
+    },
+    {
+        "id": "72e1ab77.8be57c",
+        "type": "function",
+        "z": "17cc5a03.02ed26",
+        "g": "da451051.ccdea",
+        "name": "Format Return Persist",
+        "func": "// Desempacota o resultado do set_mqtt_sync_status() (node-red-contrib-postgresql\n// devolve msg.payload como array de rows) e monta a resposta HTTP.\n// Mesmo formato do API-POST-provision-format-return-response.js.\n\nvar row = null;\n\nif (msg.payload && msg.payload[0] && msg.payload[0].result) {\n  row = msg.payload[0].result;\n} else if (msg.payload && msg.payload.rows && msg.payload.rows[0]) {\n  row = msg.payload.rows[0].result;\n}\n\nif (!row) {\n  msg.payload = { ok: false, error: 'no result' };\n  msg.statusCode = 500;\n} else {\n  msg.payload = row;\n  msg.statusCode = (row.ok === false) ? 400 : 200;\n  // mantém o cache em memória coerente com o que foi persistido\n  if (row.ok && row.mqttSyncStatus) {\n    global.set('mqttSyncStatus', row.mqttSyncStatus);\n  }\n}\n\nreturn msg;\n",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 960,
+        "y": 980,
+        "wires": [
+            [
+                "5fc157b5.615608",
+                "d81a95b2.8fc4e8"
+            ]
+        ]
+    },
+    {
+        "id": "d81a95b2.8fc4e8",
+        "type": "switch",
+        "z": "17cc5a03.02ed26",
+        "g": "da451051.ccdea",
+        "name": "",
+        "property": "statusCode",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": "eq",
+                "v": "200",
+                "vt": "str"
+            },
+            {
+                "t": "eq",
+                "v": "400",
+                "vt": "str"
+            },
+            {
+                "t": "eq",
+                "v": "500",
+                "vt": "str"
+            }
+        ],
+        "checkall": "true",
+        "repair": false,
+        "outputs": 3,
+        "x": 1190,
+        "y": 1100,
+        "wires": [
+            [
+                "1e590dfe.f1fa22"
+            ],
+            [
+                "7c07f053.4910a8"
+            ],
+            [
+                "8db7275e.052578"
+            ]
+        ]
+    },
+    {
+        "id": "7c07f053.4910a8",
+        "type": "http response",
+        "z": "17cc5a03.02ed26",
+        "g": "da451051.ccdea",
+        "name": "400 / no update",
+        "statusCode": "400",
+        "headers": {},
+        "x": 1400,
+        "y": 1000,
+        "wires": []
+    },
+    {
+        "id": "8db7275e.052578",
+        "type": "http response",
+        "z": "17cc5a03.02ed26",
+        "g": "da451051.ccdea",
+        "name": "500 / no result",
+        "statusCode": "500",
+        "headers": {},
+        "x": 1400,
+        "y": 1040,
+        "wires": []
+    },
+    {
+        "id": "23e377ee.4d9a2",
+        "type": "debug",
+        "z": "17cc5a03.02ed26",
+        "g": "da451051.ccdea",
+        "name": "",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1370,
+        "y": 880,
+        "wires": []
+    },
+    {
+        "id": "5fc157b5.615608",
+        "type": "debug",
+        "z": "17cc5a03.02ed26",
+        "g": "da451051.ccdea",
+        "name": "",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 930,
+        "y": 1080,
+        "wires": []
+    },
+    {
+        "id": "229fa3fd.fd0d9c",
+        "type": "http response",
+        "z": "17cc5a03.02ed26",
+        "g": "da451051.ccdea",
+        "name": "respose result",
+        "statusCode": "",
+        "headers": {},
+        "x": 980,
+        "y": 1200,
+        "wires": []
+    },
+    {
+        "id": "676f4c09.5b8664",
+        "type": "postgreSQLConfig",
+        "name": "Central DB (hubot @ localhost)",
+        "host": "localhost",
+        "hostFieldType": "str",
+        "port": "5432",
+        "portFieldType": "num",
+        "database": "hubot",
+        "databaseFieldType": "str",
+        "ssl": "false",
+        "sslFieldType": "bool",
+        "applicationName": "node-red-state-api",
+        "applicationNameType": "str",
+        "max": "10",
+        "maxFieldType": "num",
+        "idle": "1000",
+        "idleFieldType": "num",
+        "connectionTimeout": "10000",
+        "connectionTimeoutFieldType": "num",
+        "user": "hubot",
+        "userFieldType": "str",
+        "password": "",
+        "passwordFieldType": "str"
+    }
+]

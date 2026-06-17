@@ -98,15 +98,77 @@ Tabela principal de séries temporais. Particionada automaticamente pelo Timesca
 
 | Tabela | Descrição |
 |--------|-----------|
-| `consumption` | Consumo calculado / agregado por período |
-| `consumption_realtime` | Snapshot de consumo em tempo real |
-| `raw_energy` | Leituras brutas de energia antes de processamento |
+| `consumption` | Consumo calculado / agregado por período (tem `type` enum + `ambient_id`) |
+| `consumption_realtime` | Série temporal de energia **por slave** (ativa + reativa) |
+| `raw_energy` | Leituras brutas de energia (`datetime` em epoch int; liga a `rfir_remote`) |
 | `temperature_history` | Histórico de temperatura por sensor |
 
 ```sql
 -- Ver estrutura de qualquer tabela
 \d+ <nome-da-tabela>
 ```
+
+### 3.5 `consumption_realtime` — Hypertable TimescaleDB (energia por slave)
+
+Confirmado em campo (OBRAMAX/Benfica, 2026-06-17). **É por `slave_id` — não tem coluna `channel`.**
+
+| Coluna | Tipo | Descrição |
+|--------|------|-----------|
+| `timestamp` | `TIMESTAMPTZ` (precision 0) | Momento da leitura — default `now()`, NOT NULL |
+| `slave_id` | `INTEGER` | FK → `slaves.id` (NOT NULL) |
+| `value` | `REAL` | Energia/potência **ativa** (NOT NULL) |
+| `value_reactive` | `REAL` | Energia/potência **reativa** (default `0`) |
+
+- Índice: `(slave_id, timestamp)`. Hypertable TimescaleDB (`ts_insert_blocker`; ~120 chunks).
+- Para slaves **sem medição de energia** (ex.: relés/plugs de automação), `value` fica **`0`** — a tabela existe mas não carrega o estado do atuador.
+
+### 3.6 Telemetria de atuador (plug/lamp/relé) → `logs`
+
+O **estado on/off** e os **acionamentos** de um channel atuador (`plug`, `lamp`, …) **não** vão para as tabelas de energia — vão para **`logs`** (hypertable TimescaleDB, particionada por `timestamp`), com `slave_id` + `channel` e `value` **100 = ligado / 0 = desligado**.
+
+Confirmado com o plug `Ventilador Cozinha` (Benfica, `channels.id=110`, `slave_id=47`, `channel=0`):
+
+| `type` | `action_type` | `user` | Significado |
+|--------|---------------|--------|-------------|
+| `binary_sensor` | `binary_sensor` | _(vazio)_ | **Estado real** reportado pelo device (feedback do relé) |
+| `user_action` | `activate_channel` | `<uuid>` | **Comando** de liga/desliga (quem acionou) |
+
+```sql
+-- Estado/histórico de um plug (canal de um slave)
+SELECT timestamp, type, action_type, "user", value
+FROM logs
+WHERE slave_id = <id> AND channel = <ch>
+ORDER BY timestamp DESC LIMIT 50;
+```
+
+> Resumo do roteamento por tipo de device:
+> - **Energia (3F/medidor)** → `consumption_realtime` (por slave) + `raw_energy`.
+> - **Pulso (hidrômetro/energia por pulso)** → `channel_pulse_log` (tem `channel`).
+> - **Atuador (plug/lamp/relé)** → `logs` (estado `binary_sensor` + comando `activate_channel`).
+> - **Temperatura** → `temperature_history`.
+
+### 3.7 `consumption` — consumo agregado (NÃO é hypertable)
+
+| Coluna | Tipo | Descrição |
+|--------|------|-----------|
+| `id` | `INTEGER` PK | `nextval('consumption_id_seq')` |
+| `timestamp` | `TIMESTAMPTZ` | Momento do agregado |
+| `slave_id` | `INTEGER` | FK lógica → `slaves.id` |
+| `ambient_id` | `INTEGER` | FK lógica → `ambients.id` |
+| `value` | `REAL` | Valor agregado |
+| `type` | `enum_consumption_type` | Tipo do agregado (período/categoria) |
+
+- PK por `id` (tabela comum, **sem** `ts_insert_blocker`) — diferente de `consumption_realtime`/`channel_pulse_log`/`logs`, que são hypertables.
+
+### 3.8 `raw_energy` — leituras brutas
+
+| Coluna | Tipo | Descrição |
+|--------|------|-----------|
+| `id` | `INTEGER` PK | `nextval('raw_energy_id_seq')` |
+| `value` | `INTEGER` | Leitura bruta |
+| `datetime` | `INTEGER` | **Epoch** (segundos), não `timestamptz` |
+| `slave_id` | `INTEGER` | FK → `slaves.id` (ON DELETE SET NULL) |
+| `rfir_remote_id` | `INTEGER` | FK → `rfir_remotes.id` (ON DELETE SET NULL) |
 
 ---
 

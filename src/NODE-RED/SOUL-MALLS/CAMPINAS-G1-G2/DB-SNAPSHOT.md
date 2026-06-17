@@ -139,6 +139,27 @@
 
 ---
 
+## Documentos relacionados / comparação entre centrais
+
+Esta central segue o mesmo formato de snapshot da **OBRAMAX — Benfica**
+(`src/NODE-RED/OBRAMAX/BENFICA/DB-SNAPSHOT.md`). Diferenças estruturais úteis para o
+dashboard:
+
+| Aspecto                  | Campinas G1/G2 (Soul Malls)        | Benfica (OBRAMAX)                       |
+| ------------------------ | ---------------------------------- | --------------------------------------- |
+| Perfil                   | central de **medição** de lojas    | central de **automação** predial        |
+| `slaves`                 | 56 (41× 3F + 15× outlet)           | 51 (2× 3F + 49× outlet)                 |
+| `channels`               | 36 (só dos hidrômetros)            | 131 (splits/compressores/iluminação/alarmes) |
+| Nome ↔ função            | confiável (`3F <cód-loja> <nome>`) | **não confiável** (compressores como "Temp.", exaustão como "Lj") |
+| Visão funcional separada | _não há (perfil de medição dispensa)_ | [`slaves-map.md`](../../OBRAMAX/BENFICA/slaves-map.md) |
+
+> **Possível melhoria aqui**: Campinas não tem um `slaves-map.md` (mapa funcional por
+> canais) porque o nome do slave já identifica a loja. Se no futuro surgirem nomes ambíguos,
+> vale criar o equivalente. Falta também capturar `Gateway ID`/`Frequência` no snapshot da
+> Benfica (lá ficaram pendentes) — campos que **este** snapshot já tem.
+
+---
+
 ## Como regenerar o snapshot
 
 Na central (`ssh -i id_rsa root@203:5e50:3e69:89bd:5846:e41f:23b8:fd28`):

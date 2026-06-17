@@ -1,0 +1,90 @@
+{
+  "_meta": {
+    "central": "Ilha Plaza AL1 (Soul Malls)",
+    "endpoint": "POST /api/setMqttSyncStatus",
+    "function": "set_mqtt_sync_status(jsonb)",
+    "note": "Casos de teste para a camada de persistência (slaves.config + logs). 'expect' descreve o resultado esperado do RETURN da função / resposta HTTP.",
+    "baseUrlExample": "http://[200:dc42:651b:5ae5:338d:2b26:670d:34e6]:8080"
+  },
+  "cases": [
+    {
+      "name": "v2 DISABLE (envelope completo, igual ao example)",
+      "request": {
+        "schemaVersion": "2.0",
+        "intent": "DISABLE",
+        "hold": { "holdId": "gcdr:provisioning:6f1c2b9a-3d44-4f0e-9a17-2b8e5c0d9f21", "ttlSeconds": 900, "reasonCode": "DEVICE_PROVISIONING", "reason": "Sincronizando novos medidores" },
+        "scope": { "level": "CENTRAL", "targets": [] },
+        "actor": { "system": "PRE_SETUP", "instanceId": "presetup-prod-7c9", "version": "2.4.1", "user": { "userId": "784f394c-42b6-435a-983c-b7beff2784f9", "userName": "victor@exemplo.com", "role": "ops" }, "onBehalfOf": null, "requestIp": "10.0.0.5" },
+        "request": { "requestId": "a1d3e7f0-9c22-4b58-bf0e-1e2d3c4b5a69", "correlationId": "c0rr3l4t-1on0-uuid-shared", "idempotencyKey": "gcdr:provisioning:batch-1", "requestedAt": "2026-06-17T19:00:00.000Z", "requestedAtMs": 1750100400000 }
+      },
+      "expect": { "httpStatus": 200, "ok": true, "mqttSyncStatus": "disable", "user": "victor@exemplo.com", "intent": "DISABLE", "logged": true }
+    },
+    {
+      "name": "v2 ENABLE (release do hold)",
+      "request": {
+        "schemaVersion": "2.0",
+        "intent": "ENABLE",
+        "hold": { "holdId": "gcdr:provisioning:6f1c2b9a-3d44-4f0e-9a17-2b8e5c0d9f21" },
+        "actor": { "system": "GCDR", "instanceId": "gcdr-worker-1" },
+        "request": { "requestId": "b2e4f8a1-0d33-4c69-cf1f-2f3e4d5c6b7a", "correlationId": "c0rr3l4t-1on0-uuid-shared", "requestedAt": "2026-06-17T19:12:00.000Z", "requestedAtMs": 1750101120000 }
+      },
+      "expect": { "httpStatus": 200, "ok": true, "mqttSyncStatus": "enable", "user": "GCDR", "intent": "ENABLE", "logged": true }
+    },
+    {
+      "name": "v2 FORCE_DISABLE (override manual de ops)",
+      "request": {
+        "schemaVersion": "2.0",
+        "intent": "FORCE_DISABLE",
+        "hold": { "reasonCode": "MANUAL_OPS", "reason": "Bloqueio manual durante manutenção" },
+        "actor": { "system": "MOBILE_APP", "version": "5.2.0", "user": { "userId": "784f394c-42b6-435a-983c-b7beff2784f9", "userName": "victor@exemplo.com", "role": "field_ops" }, "requestIp": "10.20.3.8" },
+        "request": { "requestId": "c3f5a9b2-1e44-4d7a-d020-3a4b5c6d7e8f", "requestedAt": "2026-06-17T19:20:00.000Z", "requestedAtMs": 1750101600000 }
+      },
+      "expect": { "httpStatus": 200, "ok": true, "mqttSyncStatus": "disable", "user": "victor@exemplo.com", "intent": "FORCE_DISABLE", "logged": true }
+    },
+    {
+      "name": "v2 FORCE_ENABLE (libera tudo)",
+      "request": {
+        "schemaVersion": "2.0",
+        "intent": "FORCE_ENABLE",
+        "actor": { "system": "MANUAL", "user": { "userName": "victor@exemplo.com", "role": "ops" } },
+        "request": { "requestId": "d4a6b0c3-2f55-4e8b-e131-4b5c6d7e8f90", "requestedAt": "2026-06-17T19:25:00.000Z", "requestedAtMs": 1750101900000 }
+      },
+      "expect": { "httpStatus": 200, "ok": true, "mqttSyncStatus": "enable", "user": "victor@exemplo.com", "intent": "FORCE_ENABLE", "logged": true }
+    },
+    {
+      "name": "v2 QUERY (read-only, não grava, não loga)",
+      "request": {
+        "schemaVersion": "2.0",
+        "intent": "QUERY",
+        "actor": { "system": "THINGSBOARD" },
+        "request": { "requestId": "e5b7c1d4-3a66-4f9c-f242-5c6d7e8f9012", "requestedAt": "2026-06-17T19:30:00.000Z", "requestedAtMs": 1750102200000 }
+      },
+      "expect": { "httpStatus": 200, "ok": true, "intent": "QUERY", "changed": false, "logged": false, "note": "mqttSyncStatus = valor atual persistido (ou 'enable')" }
+    },
+    {
+      "name": "Forma simples — enable",
+      "request": { "mqttSyncStatus": "enable", "user": "teste@local" },
+      "expect": { "httpStatus": 200, "ok": true, "mqttSyncStatus": "enable", "user": "teste@local", "logged": true }
+    },
+    {
+      "name": "Forma simples — disable",
+      "request": { "status": "disable", "user": "teste@local" },
+      "expect": { "httpStatus": 200, "ok": true, "mqttSyncStatus": "disable", "user": "teste@local", "logged": true }
+    },
+    {
+      "name": "Alvo explícito por slave_id",
+      "request": { "mqttSyncStatus": "disable", "slave_id": 9, "user": "teste@local" },
+      "expect": { "httpStatus": 200, "ok": true, "mqttSyncStatus": "disable", "slaveId": 9, "logged": true }
+    },
+    {
+      "name": "Inválido — sem intent e sem status (deve dar 400 no validate)",
+      "request": { "actor": { "system": "GCDR" } },
+      "expect": { "httpStatus": 400, "status": "invalid", "ok": false }
+    },
+    {
+      "name": "Inválido — valor fora do enum",
+      "request": { "mqttSyncStatus": "pause" },
+      "expect": { "httpStatus": 400, "status": "invalid", "ok": false }
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "2.0",
+  "intent": "QUERY",
+  "scope": { "level": "CENTRAL", "targets": [] },
+  "actor": {
+    "system": "THINGSBOARD",
+    "instanceId": "tb-rule-engine",
+    "version": "3.0.0",
+    "user": null,
+    "onBehalfOf": null,
+    "requestIp": "10.0.0.9"
+  },
+  "request": {
+    "requestId": "aaaaaaaa-0005-4000-8000-000000000005",
+    "correlationId": "corr-v3-query-0005",
+    "requestedAt": "2026-06-17T19:30:00.000Z",
+    "requestedAtMs": 1750102200000
+  }
+}

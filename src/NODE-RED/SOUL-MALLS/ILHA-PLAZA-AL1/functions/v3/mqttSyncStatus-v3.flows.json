@@ -1,0 +1,232 @@
+[
+  {
+    "id": "mqttsync_tab_v3",
+    "type": "tab",
+    "label": "mqttSyncStatus v3 (DB persist)",
+    "disabled": false,
+    "info": "Ilha Plaza AL1 — POST persiste em slaves.config + logs via set_mqtt_sync_status(); GET le via get_mqtt_sync_status() (grava default na 1a vez).\nFuncoes SQL: ../set_mqtt_sync_status.sql · ../get_mqtt_sync_status.sql"
+  },
+  {
+    "id": "v3_title",
+    "type": "comment",
+    "z": "mqttsync_tab_v3",
+    "name": "mqttSyncStatus v3 — POST: http in -> validate -> switch(valid) -> Postgres set -> format -> response | GET: http in -> Postgres get -> fn -> response",
+    "info": "",
+    "x": 430,
+    "y": 40
+  },
+  {
+    "id": "v3_post_in",
+    "type": "http in",
+    "z": "mqttsync_tab_v3",
+    "name": "POST /api/setMqttSyncStatus",
+    "url": "/setMqttSyncStatus",
+    "method": "post",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 160,
+    "y": 120,
+    "wires": [
+      [
+        "v3_validate"
+      ]
+    ]
+  },
+  {
+    "id": "v3_validate",
+    "type": "function",
+    "z": "mqttsync_tab_v3",
+    "name": "validate payload",
+    "func": "// POST /api/setMqttSyncStatus — valida o envelope e prepara o param $1::jsonb\n// para set_mqtt_sync_status(). Payload de referência: setMqttSyncStatus-payload.example.json\n//\n// Saída ÚNICA (return msg). O roteamento é feito por um nó Switch a jusante,\n// lendo msg.payload.status:\n//   - \"valid\"   → nó Postgres (SQL.sql)  [usa msg.params]\n//   - \"invalid\" → http response (msg.statusCode = 400)\n\nconst body = (msg.payload && typeof msg.payload === 'object') ? msg.payload : {};\n\nconst intent = String(body.intent || '').toUpperCase();\nlet status = String(body.mqttSyncStatus || body.status || '').toLowerCase();\nif (!status) {\n  status = ({\n    DISABLE: 'disable', FORCE_DISABLE: 'disable',\n    ENABLE: 'enable',  FORCE_ENABLE: 'enable',\n  })[intent] || '';\n}\n\n// QUERY é read-only e válido; os demais precisam resolver enable|disable\nconst isValid = (intent === 'QUERY') || status === 'enable' || status === 'disable';\n\nif (!isValid) {\n  msg.statusCode = 400;\n  msg.payload = {\n    status: 'invalid',\n    ok: false,\n    error: 'payload inválido: informe intent (DISABLE|ENABLE|FORCE_*|QUERY) ou mqttSyncStatus (enable|disable)',\n    intent: intent || null,\n  };\n  return msg;\n}\n\n// cache em memória imediato (mantém o GET/global em sincronia). QUERY não altera.\nif (status) global.set('mqttSyncStatus', status);\n\n// param do $1::jsonb (a função deriva status/user/slave do envelope v2)\nmsg.params = [JSON.stringify(body)];\n\n// marcador de roteamento p/ o Switch (o param real vai em msg.params)\nmsg.payload = { status: 'valid', mqttSyncStatus: status || null, intent: intent || null };\n\nreturn msg;\n",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 380,
+    "y": 120,
+    "wires": [
+      [
+        "v3_switch"
+      ]
+    ]
+  },
+  {
+    "id": "v3_switch",
+    "type": "switch",
+    "z": "mqttsync_tab_v3",
+    "name": "payload.status",
+    "property": "payload.status",
+    "propertyType": "msg",
+    "rules": [
+      {
+        "t": "eq",
+        "v": "valid",
+        "vt": "str"
+      },
+      {
+        "t": "else"
+      }
+    ],
+    "checkall": "false",
+    "repair": false,
+    "outputs": 2,
+    "x": 560,
+    "y": 120,
+    "wires": [
+      [
+        "v3_pg_set"
+      ],
+      [
+        "v3_post_resp"
+      ]
+    ]
+  },
+  {
+    "id": "v3_pg_set",
+    "type": "postgresql",
+    "z": "mqttsync_tab_v3",
+    "name": "set_mqtt_sync_status($1)",
+    "query": "SELECT set_mqtt_sync_status($1::jsonb) AS result;",
+    "postgreSQLConfig": "pgconfig_hubot_v3",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 770,
+    "y": 100,
+    "wires": [
+      [
+        "v3_format"
+      ]
+    ]
+  },
+  {
+    "id": "v3_format",
+    "type": "function",
+    "z": "mqttsync_tab_v3",
+    "name": "format return response",
+    "func": "// Desempacota o resultado do set_mqtt_sync_status() (node-red-contrib-postgresql\n// devolve msg.payload como array de rows) e monta a resposta HTTP.\n// Mesmo formato do API-POST-provision-format-return-response.js.\n\nvar row = null;\n\nif (msg.payload && msg.payload[0] && msg.payload[0].result) {\n  row = msg.payload[0].result;\n} else if (msg.payload && msg.payload.rows && msg.payload.rows[0]) {\n  row = msg.payload.rows[0].result;\n}\n\nif (!row) {\n  msg.payload = { ok: false, error: 'no result' };\n  msg.statusCode = 500;\n} else {\n  msg.payload = row;\n  msg.statusCode = (row.ok === false) ? 400 : 200;\n  // mantém o cache em memória coerente com o que foi persistido\n  if (row.ok && row.mqttSyncStatus) {\n    global.set('mqttSyncStatus', row.mqttSyncStatus);\n  }\n}\n\nreturn msg;\n",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 980,
+    "y": 100,
+    "wires": [
+      [
+        "v3_post_resp"
+      ]
+    ]
+  },
+  {
+    "id": "v3_post_resp",
+    "type": "http response",
+    "z": "mqttsync_tab_v3",
+    "name": "http response",
+    "statusCode": "",
+    "headers": {},
+    "x": 1180,
+    "y": 120,
+    "wires": []
+  },
+  {
+    "id": "v3_get_in",
+    "type": "http in",
+    "z": "mqttsync_tab_v3",
+    "name": "GET /api/mqttSyncStatus",
+    "url": "/mqttSyncStatus",
+    "method": "get",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 160,
+    "y": 280,
+    "wires": [
+      [
+        "v3_pg_get"
+      ]
+    ]
+  },
+  {
+    "id": "v3_pg_get",
+    "type": "postgresql",
+    "z": "mqttsync_tab_v3",
+    "name": "get_mqtt_sync_status()",
+    "query": "SELECT get_mqtt_sync_status() AS mqtt_sync_status;",
+    "postgreSQLConfig": "pgconfig_hubot_v3",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 420,
+    "y": 280,
+    "wires": [
+      [
+        "v3_get_fn"
+      ]
+    ]
+  },
+  {
+    "id": "v3_get_fn",
+    "type": "function",
+    "z": "mqttsync_tab_v3",
+    "name": "unwrap + set global",
+    "func": "// GET /api/mqttSyncStatus\n// Roda DEPOIS do nó Postgres (API-GET-SYNC-getMqttSyncStatus-SQL.sql), que lê o\n// status persistido em slaves.config do slave virtual \"MQTT Sync\".\n// node-red-contrib-postgresql devolve msg.payload como array de rows.\n//\n// Precedência: valor do banco → cache global → 'enable' (default legado).\n// O valor resolvido é gravado de volta no global (sincroniza o flow).\n\nlet fromDb = null;\nif (Array.isArray(msg.payload) && msg.payload[0]) {\n  fromDb = msg.payload[0].mqtt_sync_status || null;\n} else if (msg.payload && msg.payload.rows && msg.payload.rows[0]) {\n  fromDb = msg.payload.rows[0].mqtt_sync_status || null;\n}\n\nconst mqttSyncStatus = fromDb || global.get('mqttSyncStatus') || 'enable';\n\n// seta no flow (cache em memória)\nglobal.set('mqttSyncStatus', mqttSyncStatus);\n\nmsg.payload = mqttSyncStatus;\nmsg.statusCode = 200;\nreturn msg;\n",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 660,
+    "y": 280,
+    "wires": [
+      [
+        "v3_get_resp"
+      ]
+    ]
+  },
+  {
+    "id": "v3_get_resp",
+    "type": "http response",
+    "z": "mqttsync_tab_v3",
+    "name": "http response",
+    "statusCode": "",
+    "headers": {},
+    "x": 870,
+    "y": 280,
+    "wires": []
+  },
+  {
+    "id": "v3_pg_comment",
+    "type": "comment",
+    "z": "mqttsync_tab_v3",
+    "name": "Ajuste o postgreSQLConfig (hubot) e rode as funcoes: psql -f ../set_mqtt_sync_status.sql && psql -f ../get_mqtt_sync_status.sql",
+    "info": "",
+    "x": 520,
+    "y": 200
+  },
+  {
+    "id": "pgconfig_hubot_v3",
+    "type": "postgreSQLConfig",
+    "name": "hubot (local)",
+    "host": "127.0.0.1",
+    "hostFieldType": "str",
+    "port": 5432,
+    "portFieldType": "num",
+    "database": "hubot",
+    "databaseFieldType": "str",
+    "ssl": "false",
+    "sslFieldType": "bool",
+    "applicationName": "",
+    "applicationNameType": "str",
+    "max": 10,
+    "maxFieldType": "num",
+    "idle": 1000,
+    "idleFieldType": "num",
+    "connectionTimeout": 10000,
+    "connectionTimeoutFieldType": "num",
+    "user": "hubot",
+    "userFieldType": "str",
+    "password": "",
+    "passwordFieldType": "cred"
+  }
+]

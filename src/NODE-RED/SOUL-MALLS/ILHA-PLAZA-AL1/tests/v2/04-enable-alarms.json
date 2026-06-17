@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "2.0",
+  "intent": "ENABLE",
+  "hold": {
+    "holdId": "alarms:storm:9a2f7c10-7b3d-4e21-9f88-2c5d6e7a8b90"
+  },
+  "scope": { "level": "CENTRAL", "targets": [] },
+  "actor": {
+    "system": "ALARMS",
+    "instanceId": "alarms-api-2",
+    "version": "1.9.0",
+    "user": null,
+    "onBehalfOf": null,
+    "requestIp": "10.0.0.7"
+  },
+  "request": {
+    "requestId": "bbbbbbbb-0004-4000-8000-000000000004",
+    "correlationId": "corr-alarms-storm-0002",
+    "idempotencyKey": "alarms:storm:release-0004",
+    "requestedAt": "2026-06-17T19:05:30.000Z",
+    "requestedAtMs": 1750100730000
+  }
+}

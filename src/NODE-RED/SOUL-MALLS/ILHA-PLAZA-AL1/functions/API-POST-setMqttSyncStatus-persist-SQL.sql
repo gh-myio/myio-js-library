@@ -1,0 +1,1 @@
+SELECT set_mqtt_sync_status($1::jsonb) AS result;

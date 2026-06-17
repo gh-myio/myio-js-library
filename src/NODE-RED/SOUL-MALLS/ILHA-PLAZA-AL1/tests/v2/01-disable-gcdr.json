@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "2.0",
+  "intent": "DISABLE",
+  "hold": {
+    "holdId": "gcdr:provisioning:6f1c2b9a-3d44-4f0e-9a17-2b8e5c0d9f21",
+    "ttlSeconds": 900,
+    "reasonCode": "DEVICE_PROVISIONING",
+    "reason": "Sincronizando novos medidores via PRE_SETUP"
+  },
+  "scope": { "level": "CENTRAL", "targets": [] },
+  "actor": {
+    "system": "GCDR",
+    "instanceId": "gcdr-worker-1",
+    "version": "2.4.1",
+    "user": { "userId": "784f394c-42b6-435a-983c-b7beff2784f9", "userName": "victor@exemplo.com", "role": "ops" },
+    "onBehalfOf": null,
+    "requestIp": "10.0.0.5"
+  },
+  "request": {
+    "requestId": "bbbbbbbb-0001-4000-8000-000000000001",
+    "correlationId": "corr-gcdr-prov-0001",
+    "idempotencyKey": "gcdr:provisioning:batch-1",
+    "requestedAt": "2026-06-17T19:00:00.000Z",
+    "requestedAtMs": 1750100400000
+  }
+}

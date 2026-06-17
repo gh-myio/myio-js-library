@@ -2,8 +2,13 @@
 
 > Central: **OBRAMAX — Benfica** (`1248905a-ed03-414d-bde6-c4410604ae8f`)
 > IPv6: `200:47f1:8bf6:36da:65fa:4124:bcdb:dbb4`
-> Total slaves: 52 · Total channels: 131
-> Captura do banco `hubot`
+> Total slaves: **51** · Total channels: **131** · Total ambients: **16**
+> Captura do banco `hubot` (`logMaps.log`, capturado em **2026-06-17**).
+> Dados estruturados: [`slaves.json`](slaves.json) · [`channels.json`](channels.json) · [`ambients.json`](ambients.json).
+> Não-conformidades e visão por tabela: [`DB-SNAPSHOT.md`](DB-SNAPSHOT.md).
+>
+> Este documento dá a visão **funcional** (por canais reais); o `DB-SNAPSHOT.md` dá a
+> visão **de banco** (tipos, padrões, não-conformidades) — são complementares.
 
 > Loja OBRAMAX. Slaves majoritariamente `type = outlet` (`version 6.0.0`,
 > `code 002-002-002-012`), **exceto** 2 medidores trifásicos (`three_phase_sensor`,
@@ -150,9 +155,13 @@ nome não bate com a função; os canais confirmam que são compressores.
 
 | Slave ID | Nome   | addr (low/high) | Obs                          |
 |----------|--------|-----------------|------------------------------|
-| 59       | —      | 191 / 249       | sem nome e sem canais (criado 2026-04-15) |
 | 46       | LJ2    | 92 / 248        | sem canais configurados      |
 | 49       | LJ 5   | 225 / 248       | sem canais configurados      |
+
+> O slave **59** (sem nome / sem canais) que constava em capturas anteriores **não existe
+> mais** no dump atual (`logMaps.log` 2026-06-17) — foi removido. Por isso o total caiu de
+> 52 → 51 slaves. Há lacunas de `id` na tabela (`13, 16, 18, 44, 55, 56, 57, 59` ausentes),
+> resquício de slaves removidos/recriados — ver `DB-SNAPSHOT.md` §não-conformidades.
 
 ---
 
@@ -166,9 +175,15 @@ Diferente da Guadalupe, nesta central **o nome do slave frequentemente não refl
 2. **Ventilação/exaustão nomeada como loja**: slaves `45` (Exaust. Cozinha),
    `47` (Ventilador Cozinha), `48` (Ventilação ADM) têm nome `Lj 1/3/4`.
 3. **Único termostato real** é o slave `50` (`Temperatura Ambiente Central`).
-4. **Sem canais**: `42`, `43` (SCD — info no nome), `46`, `49`, `50`, `59`.
+4. **Sem canais** (7 slaves): `9` e `30` (3F — telemetria vem direto do slave, esperado),
+   `42`, `43` (SCD — info no nome), `46`, `49` (Lj sem config), `50` (temperatura).
 5. **Canais órfãos** (`slave_id` NULL): `119`, `120` (`Spt 7: Comp`), `121` (`Teste`).
-6. Grafias com erro de digitação preservadas como estão no banco: `Hidrmetro`,
+6. **Referências fantasmas em `ambients`**: alguns `hide_devices_v1` apontam para slaves que
+   não existem mais — slave `16` (em `QT-Depósito`), slave `18` (em `QT- Loja Incorporadora`),
+   slave `13` (em `Termostatos`, `Compressores`, `Comandos`); e canais `39`/`63` (em
+   `Termostatos`). Limpar esses JSONs. Há ainda uma entrada duplicada de `slave_id 45` no
+   ambiente `Comandos`.
+7. Grafias com erro de digitação preservadas como estão no banco: `Hidrmetro`,
    `Exasut`, `Cada De Bombas`, `Lale tec`.
 
 ---
@@ -187,5 +202,5 @@ Diferente da Guadalupe, nesta central **o nome do slave frequentemente não refl
 | Geradores                         | 2      |
 | Bombas de Incêndio                | 4      |
 | Temperatura                       | 1      |
-| Sem nome / a identificar          | 3      |
-| **Total**                         | **52** |
+| Sem nome / a identificar          | 2      |
+| **Total**                         | **51** |

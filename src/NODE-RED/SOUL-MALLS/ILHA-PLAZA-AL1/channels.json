@@ -1,0 +1,12 @@
+{
+  "_meta": {
+    "central": "Ilha Plaza AL1 (Soul Malls)",
+    "table": "channels",
+    "rowCount": 1,
+    "capturedAt": "2026-06-17",
+    "source": "psql -U hubot — SELECT * FROM channels; (parseado de logsMaps.log)"
+  },
+  "rows": [
+    { "id": 1, "type": "lamp", "channel": 0, "name": "ignorar", "channel_id": null, "slave_id": 9, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2026-05-25 20:48:08.491+00", "updated_at": "2026-05-25 20:48:08.491+00" }
+  ]
+}

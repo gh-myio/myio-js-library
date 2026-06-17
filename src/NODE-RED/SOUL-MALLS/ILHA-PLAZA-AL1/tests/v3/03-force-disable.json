@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "2.0",
+  "intent": "FORCE_DISABLE",
+  "hold": {
+    "reasonCode": "MANUAL_OPS",
+    "reason": "Bloqueio manual imediato (override de ops)"
+  },
+  "scope": { "level": "CENTRAL", "targets": [] },
+  "actor": {
+    "system": "MOBILE_APP",
+    "instanceId": "app-5.2.0",
+    "version": "5.2.0",
+    "user": { "userId": "784f394c-42b6-435a-983c-b7beff2784f9", "userName": "victor@exemplo.com", "role": "field_ops" },
+    "onBehalfOf": null,
+    "requestIp": "10.20.3.8"
+  },
+  "request": {
+    "requestId": "aaaaaaaa-0003-4000-8000-000000000003",
+    "correlationId": "corr-v3-force-0003",
+    "idempotencyKey": "v3:force-disable:0003",
+    "requestedAt": "2026-06-17T19:20:00.000Z",
+    "requestedAtMs": 1750101600000
+  }
+}

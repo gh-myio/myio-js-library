@@ -1,0 +1,1 @@
+SELECT provision_central($1::jsonb) AS result;

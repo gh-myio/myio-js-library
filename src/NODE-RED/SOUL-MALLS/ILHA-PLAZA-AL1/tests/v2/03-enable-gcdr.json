@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "2.0",
+  "intent": "ENABLE",
+  "hold": {
+    "holdId": "gcdr:provisioning:6f1c2b9a-3d44-4f0e-9a17-2b8e5c0d9f21"
+  },
+  "scope": { "level": "CENTRAL", "targets": [] },
+  "actor": {
+    "system": "GCDR",
+    "instanceId": "gcdr-worker-1",
+    "version": "2.4.1",
+    "user": null,
+    "onBehalfOf": null,
+    "requestIp": "10.0.0.5"
+  },
+  "request": {
+    "requestId": "bbbbbbbb-0003-4000-8000-000000000003",
+    "correlationId": "corr-gcdr-prov-0001",
+    "idempotencyKey": "gcdr:provisioning:release-1",
+    "requestedAt": "2026-06-17T19:12:00.000Z",
+    "requestedAtMs": 1750101120000
+  }
+}

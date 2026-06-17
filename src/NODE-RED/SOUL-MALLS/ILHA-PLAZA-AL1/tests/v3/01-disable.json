@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "2.0",
+  "intent": "DISABLE",
+  "hold": {
+    "holdId": "ops:maintenance:11111111-1111-4111-8111-111111111111",
+    "ttlSeconds": 900,
+    "reasonCode": "MAINTENANCE_WINDOW",
+    "reason": "Pausa de publish para manutenção"
+  },
+  "scope": { "level": "CENTRAL", "targets": [] },
+  "actor": {
+    "system": "MANUAL",
+    "instanceId": "nodered-ilha-al1",
+    "version": "3.0.0",
+    "user": { "userId": "784f394c-42b6-435a-983c-b7beff2784f9", "userName": "victor@exemplo.com", "role": "ops" },
+    "onBehalfOf": null,
+    "requestIp": "10.20.3.8"
+  },
+  "request": {
+    "requestId": "aaaaaaaa-0001-4000-8000-000000000001",
+    "correlationId": "corr-v3-disable-enable-0001",
+    "idempotencyKey": "v3:disable:0001",
+    "requestedAt": "2026-06-17T19:00:00.000Z",
+    "requestedAtMs": 1750100400000
+  }
+}
