@@ -4415,11 +4415,29 @@ async function _handleSyncGCDR() {
     alert(`Erro ao obter credenciais GCDR:\n${err.message}`);
     return;
   }
-  _openSyncJobModal(data, creds);
+  // RFC-0195 fix: devices novos (CREATE) não têm gcdrAssetId → o backend falha
+  // em CONSOLIDATE_CREATES com "no assetId available (set defaultAssetId)".
+  // Derivamos um defaultAssetId a partir do gcdrAssetId mais comum entre os
+  // devices já vinculados deste grupo (todos compartilham o asset do grupo).
+  const _assetFreq = {};
+  for (const d of data) {
+    const a = String(d.gcdrAssetId || '').trim();
+    if (a) _assetFreq[a] = (_assetFreq[a] || 0) + 1;
+  }
+  const defaultAssetId =
+    Object.keys(_assetFreq).sort((x, y) => _assetFreq[y] - _assetFreq[x])[0] || '';
+  if (!defaultAssetId) {
+    LogHelper.warn(
+      '[TELEMETRY] Sync GCDR: nenhum gcdrAssetId vinculado no grupo — ' +
+        'devices novos (CREATE) podem falhar por falta de defaultAssetId.'
+    );
+  }
+
+  _openSyncJobModal(data, creds, defaultAssetId);
 }
 
 /** RFC-0195: Renders sync job modal, creates job, polls status, shows log. */
-function _openSyncJobModal(data, creds) {
+function _openSyncJobModal(data, creds, defaultAssetId) {
   _destroySyncJobModal(); // ensure only one modal at a time
 
   const _groupSlugs = { lojas: 'stores', entrada: 'entry', areacomum: 'commonarea', caixadagua: 'tanks' };
@@ -4655,6 +4673,8 @@ function _openSyncJobModal(data, creds) {
         body: JSON.stringify({
           customerId: creds.gcdrCustomerId,
           dryRun: false,
+          // RFC-0195 fix: asset padrão para devices novos sem gcdrAssetId (orphan CREATE)
+          ...(defaultAssetId ? { defaultAssetId } : {}),
           files: [{ name: fileName, content }],
         }),
       });
