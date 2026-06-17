@@ -185,6 +185,76 @@ export async function detectSuperAdminHolding(
 }
 
 // ============================================
+// HOLDING USER ADMIN (USER entity attrs)
+// ============================================
+
+/**
+ * Detect if the LOGGED USER has both `isHolding` and `isUserAdmin` === true
+ * as SERVER_SCOPE attributes on the USER entity (not the customer).
+ *
+ * Used to gate editing of alarm rules / alarm settings: a holding admin
+ * (isHolding && isUserAdmin) may edit; otherwise read-only.
+ *
+ * @returns Promise<boolean> - true only if BOTH attrs are truthy on the user.
+ */
+export async function detectHoldingUserAdmin(jwtToken?: string, tbBaseUrl?: string): Promise<boolean> {
+  const jwt = jwtToken || localStorage.getItem('jwt_token');
+  if (!jwt) return false;
+  const base = tbBaseUrl || '';
+  const headers = {
+    'Content-Type': 'application/json',
+    'X-Authorization': `Bearer ${jwt}`,
+  };
+  try {
+    // 1. Resolve the logged user's id
+    const userResp = await fetch(`${base}/api/auth/user`, { method: 'GET', headers, credentials: 'include' });
+    if (!userResp.ok) return false;
+    const user = await userResp.json();
+    const userId = user.id?.id || user.id;
+    if (!userId) return false;
+
+    // 2. Read USER SERVER_SCOPE attributes
+    const attrResp = await fetch(
+      `${base}/api/plugins/telemetry/USER/${userId}/values/attributes/SERVER_SCOPE`,
+      { method: 'GET', headers, credentials: 'include' }
+    );
+    if (!attrResp.ok) return false;
+    const attrs = await attrResp.json();
+    const truthy = (key: string) => {
+      const a = Array.isArray(attrs) ? attrs.find((x: { key: string }) => x.key === key) : null;
+      return a?.value === true || a?.value === 'true';
+    };
+    const result = truthy('isHolding') && truthy('isUserAdmin');
+    console.log(`[SuperAdminUtils] detectHoldingUserAdmin: userId=${userId} -> ${result}`);
+    return result;
+  } catch (error) {
+    console.error('[SuperAdminUtils] detectHoldingUserAdmin error:', error);
+    return false;
+  }
+}
+
+/**
+ * Permission gate for editing alarm rules / alarm settings.
+ *
+ * Rule (RFC: alarm-edit gating): the user may EDIT alarm rules/settings only if
+ *   - SuperAdmin MYIO (email @myio.com.br, except alarme@/alarmes@), OR
+ *   - holding admin: USER attrs `isHolding === true` AND `isUserAdmin === true`.
+ *
+ * Otherwise the UI must be read-only (view saved/default values, no toggling/editing).
+ * Fail-closed: any error → false (read-only).
+ *
+ * @returns Promise<boolean> - true if the user may edit alarm rules/settings.
+ */
+export async function canEditAlarmRules(jwtToken?: string, tbBaseUrl?: string): Promise<boolean> {
+  try {
+    if (await detectSuperAdminMyio(jwtToken, tbBaseUrl)) return true;
+    return await detectHoldingUserAdmin(jwtToken, tbBaseUrl);
+  } catch {
+    return false; // fail-closed
+  }
+}
+
+// ============================================
 // COMBINED PERMISSION CHECK
 // ============================================
 

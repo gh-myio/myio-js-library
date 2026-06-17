@@ -234,6 +234,8 @@ export {
   fetchCurrentUserInfo,
   detectSuperAdminMyio,
   detectSuperAdminHolding,
+  detectHoldingUserAdmin,
+  canEditAlarmRules,
   getAnnotationPermissions,
   canModifyAnnotation,
 } from './utils/superAdminUtils';
