@@ -115,13 +115,41 @@ export {
 } from './utils/deviceTypeConfig';
 export type { DeviceTypeCategory, DeviceTypeConfigEntry } from './utils/deviceTypeConfig';
 
-// Device naming utilities
+// Device naming utilities (+ RFC-0206 Phase 3: device code)
 export {
   generateMercosulPlate,
   DEVICE_TYPE_PREFIX_MAP,
   DEFAULT_DEVICE_TYPE_PREFIX,
   getDeviceTypePrefix,
+  DEVICE_TYPE_CODE_TOKEN,
+  DEFAULT_DEVICE_TYPE_TOKEN,
+  deviceTypeToken,
+  generateDeviceCode,
 } from './utils/device';
+
+// Customer utilities (RFC-0206, Phase 1)
+export {
+  generateCustomerCode,
+  CUSTOMER_CODE_RE,
+  isCustomerCode,
+  CUSTOMER_NAME_STOPWORDS,
+  slugifyCustomerName,
+  checkCustomerCodeAvailable,
+  pickUniqueCustomerCode,
+} from './utils/customer';
+export type { CodeCheckConfig } from './utils/customer';
+
+// Asset utilities (RFC-0206, Phase 2)
+export {
+  generateAssetCode,
+  ASSET_CODE_RE,
+  isAssetCode,
+  ASSET_TYPE_CONFIG,
+  getAssetTypeConfig,
+  applyCustomerCodeToAssetName,
+  assetLocalToken,
+} from './utils/asset';
+export type { AssetType, AssetTypeConfigEntry } from './utils/asset';
 
 // RFC-0109: Device Item Factory utilities
 export {

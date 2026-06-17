@@ -84,3 +84,48 @@ export const DEVICE_TYPE_PREFIX_MAP: Record<string, string> = {
 export function getDeviceTypePrefix(deviceType?: string | null): string {
   return DEVICE_TYPE_PREFIX_MAP[deviceType || ''] || DEFAULT_DEVICE_TYPE_PREFIX;
 }
+
+// ─── Device code (RFC-0206, Phase 3) ─────────────────────────────────────────
+
+/** Fallback type token used when a device type is unknown/empty. */
+export const DEFAULT_DEVICE_TYPE_TOKEN = 'DEV';
+
+/**
+ * Short uppercase tokens embedded in a device code, distinct from the human
+ * name prefixes in {@link DEVICE_TYPE_PREFIX_MAP}. Only types whose desired code
+ * token differs from the sanitized identifier need an entry here (e.g.
+ * `3F_MEDIDOR` -> `3F`). Unmapped types fall back to a sanitized uppercase form.
+ *
+ * NOTE: the canonical short-token taxonomy is RFC-0206 Phase 3's open question;
+ * this map is the explicit-override layer and is expected to grow as the device
+ * taxonomy is reconciled with `DEVICE_TYPE_CONFIG`.
+ */
+export const DEVICE_TYPE_CODE_TOKEN: Record<string, string> = {
+  '3F_MEDIDOR': '3F',
+};
+
+/**
+ * Normalizes a device type into a short, uppercase, hyphen-safe token used in a
+ * device code, e.g. `'3F_MEDIDOR'` -> `'3F'`, `'SW_ILUMINACAO'` -> `'SW-ILUMINACAO'`.
+ *
+ * Resolution order:
+ *  1. exact override in {@link DEVICE_TYPE_CODE_TOKEN};
+ *  2. otherwise the uppercased type with non-alphanumerics collapsed to `-`;
+ *  3. {@link DEFAULT_DEVICE_TYPE_TOKEN} (`'DEV'`) for unknown/empty input.
+ */
+export function deviceTypeToken(deviceType?: string | null): string {
+  const raw = String(deviceType || '').trim().toUpperCase();
+  if (!raw) return DEFAULT_DEVICE_TYPE_TOKEN;
+  if (DEVICE_TYPE_CODE_TOKEN[raw]) return DEVICE_TYPE_CODE_TOKEN[raw];
+  const sanitized = raw.replace(/[^A-Z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  return sanitized || DEFAULT_DEVICE_TYPE_TOKEN;
+}
+
+/**
+ * Generates an opaque device code embedding the type token:
+ * `D-<TYPE>-<plate>-<plate>`, e.g. `generateDeviceCode('3F_MEDIDOR')` ->
+ * `'D-3F-XDN5R48-JQE6K43'`. Each `<plate>` is a 7-char Mercosul plate.
+ */
+export function generateDeviceCode(deviceType?: string | null): string {
+  return `D-${deviceTypeToken(deviceType)}-${generateMercosulPlate()}-${generateMercosulPlate()}`;
+}
