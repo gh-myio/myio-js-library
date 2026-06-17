@@ -206,6 +206,9 @@ const STYLES = `
     margin-top: 8px; padding: 10px 12px;
     background: #f4fbf9; border: 1px solid #c3e6e2; border-radius: 8px;
     display: flex; flex-direction: column; gap: 10px;
+    /* O form é injetado dentro de .abm-rule-detail (flex-wrap row); sem isto
+       ele só ocupava a largura do conteúdo. Força ocupar a linha inteira. */
+    flex: 1 1 100%; width: 100%; box-sizing: border-box;
   }
   #${MODAL_ID} .abm-ef-row {
     display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
