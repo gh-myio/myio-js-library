@@ -9,7 +9,8 @@
  *   - Export modal UI scaffold + onExport callback contract
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { readdirSync, unlinkSync } from 'node:fs';
 import { jsPDF } from 'jspdf';
 import {
   buildAnnotationsCsv,
@@ -21,6 +22,29 @@ import {
 import { exportAnnotationsPdf } from '../../../src/components/header-annotations-panel/ExportPDF';
 import { openExportModal, closeExportModal } from '../../../src/components/header-annotations-panel/ExportModal';
 import type { AnnotatedDevice, Annotation } from '../../../src/services/annotations/types';
+
+// ─── Disk-artifact cleanup ───────────────────────────────────────────────────
+// `exportAnnotationsPdf` calls `jsPDF.save()`, which in the Node/jsdom test
+// environment writes the PDF straight to disk (it bypasses the stubbed anchor
+// download path). Remove any `anotacoes_*.pdf` these tests emit so they never
+// leak into the working tree / a commit. Runs once after this file's suite.
+function cleanupGeneratedPdfs(): void {
+  try {
+    for (const f of readdirSync(process.cwd())) {
+      if (/^anotacoes_.*\.pdf$/i.test(f)) {
+        try {
+          unlinkSync(f);
+        } catch {
+          /* best-effort */
+        }
+      }
+    }
+  } catch {
+    /* cwd not readable — nothing to clean */
+  }
+}
+
+afterAll(cleanupGeneratedPdfs);
 
 // ─── Fixtures ──────────────────────────────────────────────────────────────
 
