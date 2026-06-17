@@ -2043,6 +2043,80 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     // RFC-0198: Wire up the ticket / chamados button
     const btnTicketNotif = document.getElementById('tbx-btn-ticket-notif');
 
+    // ── Ticket loading watchdog (RFC-0198 follow-up) ─────────────────────────
+    // O botão nasce em `is-loading` (spinner). Se o estado nunca resolver
+    // (gate de tickets nunca chega, fetch do FreshDesk falha/trava), o spinner
+    // gira para sempre. Watchdog: após 60s ainda carregando → vira X + tooltip
+    // de erro no hover (em vez de spinner infinito).
+    const TICKET_LOAD_TIMEOUT_MS = 60000;
+    let _ticketLoadWatchdog = null;
+    let _ticketErrorReason = '';
+    let _ticketErrTipEl = null;
+
+    function _clearTicketWatchdog() {
+      if (_ticketLoadWatchdog) {
+        clearTimeout(_ticketLoadWatchdog);
+        _ticketLoadWatchdog = null;
+      }
+    }
+
+    function _startTicketWatchdog() {
+      _clearTicketWatchdog();
+      if (!btnTicketNotif || !btnTicketNotif.classList.contains('is-loading')) return;
+      _ticketLoadWatchdog = setTimeout(() => {
+        _ticketLoadWatchdog = null;
+        if (btnTicketNotif && btnTicketNotif.classList.contains('is-loading')) {
+          _setTicketError(
+            'Não foi possível carregar os chamados (tempo esgotado após 60s). ' +
+              'Verifique a conexão com o serviço de chamados (FreshDesk).'
+          );
+        }
+      }, TICKET_LOAD_TIMEOUT_MS);
+    }
+
+    function _showTicketErrorTip() {
+      _hideTicketErrorTip();
+      if (!btnTicketNotif) return;
+      const r = btnTicketNotif.getBoundingClientRect();
+      const el = document.createElement('div');
+      el.className = 'tbx-err-tip';
+      el.innerHTML =
+        '<div class="tbx-err-tip-title">⚠️ Chamados indisponíveis</div>' +
+        '<div class="tbx-err-tip-body"></div>';
+      el.querySelector('.tbx-err-tip-body').textContent = _ticketErrorReason;
+      document.body.appendChild(el);
+      el.style.top = `${r.bottom + 8 + window.scrollY}px`;
+      el.style.left = `${Math.max(8, r.right - 280 + window.scrollX)}px`;
+      _ticketErrTipEl = el;
+    }
+
+    function _hideTicketErrorTip() {
+      if (_ticketErrTipEl) {
+        _ticketErrTipEl.remove();
+        _ticketErrTipEl = null;
+      }
+    }
+
+    /** Coloca o botão de chamados em estado de erro (X + tooltip no hover). */
+    function _setTicketError(reason) {
+      _clearTicketWatchdog();
+      if (!btnTicketNotif) return;
+      _ticketErrorReason = reason || 'Erro ao carregar os chamados.';
+      btnTicketNotif.classList.remove('is-loading');
+      btnTicketNotif.classList.add('is-error');
+      btnTicketNotif.removeAttribute('aria-busy');
+      btnTicketNotif.style.display = '';
+      btnTicketNotif.setAttribute('title', _ticketErrorReason);
+      LogHelper.log('[HEADER] ticket button → estado de erro:', _ticketErrorReason);
+      if (!btnTicketNotif.dataset.errBound) {
+        btnTicketNotif.dataset.errBound = '1';
+        btnTicketNotif.addEventListener('mouseenter', () => {
+          if (btnTicketNotif.classList.contains('is-error')) _showTicketErrorTip();
+        });
+        btnTicketNotif.addEventListener('mouseleave', () => _hideTicketErrorTip());
+      }
+    }
+
     /**
      * Inject the FreshWorks Widget script once and hide their default launcher.
      * After load, `window.FreshworksWidget('open')` opens the widget programmatically.
@@ -2161,7 +2235,10 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
       btnTicketNotif.style.display = '';
       // RFC-0203 follow-up — remove loading spinner now that ticket config is ready
+      _clearTicketWatchdog();
       btnTicketNotif.classList.remove('is-loading');
+      btnTicketNotif.classList.remove('is-error');
+      _hideTicketErrorTip();
       btnTicketNotif.removeAttribute('aria-busy');
       btnTicketNotif.setAttribute('title', 'Chamados (FreshDesk)');
 
@@ -2184,15 +2261,20 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     // been dispatched by MAIN_VIEW BEFORE this listener was registered (HEADER inits
     // after MAIN_VIEW computes the gate), so we must read the current state directly
     // instead of relying solely on the event.
+    // Inicia o watchdog do spinner (será limpo por qualquer caminho que resolva).
+    _startTicketWatchdog();
     if (window.MyIOUtils?.ticketsEnabled === true) {
       _setupTicketButton();
-    } else if (btnTicketNotif) {
-      // Fail-closed: tickets disabled/unknown → remove the default loading spinner
-      // and hide the button (otherwise it spins forever — RFC-0198 follow-up).
+    } else if (window.MyIOUtils?.ticketsEnabled === false && btnTicketNotif) {
+      // Desativado por configuração (não é erro: ex. tickets_only_to_myio, raw=false)
+      // → para o spinner e esconde o botão.
+      _clearTicketWatchdog();
       btnTicketNotif.classList.remove('is-loading');
       btnTicketNotif.removeAttribute('aria-busy');
       btnTicketNotif.style.display = 'none';
     }
+    // else: gate ainda desconhecido → permanece carregando; se o gate nunca chegar,
+    // o watchdog converte o spinner em X (erro) após 60s.
 
     function _updateTicketNotifBadge(count) {
       const badge = document.getElementById('tbx-ticket-notif-badge');
@@ -2209,6 +2291,8 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     window.addEventListener('myio:tickets-ready', (e) => {
       const ticketMap = e.detail?.ticketMap;
       if (!ticketMap) return;
+      // Dados chegaram → encerra o watchdog do spinner.
+      _clearTicketWatchdog();
       let total = 0;
       ticketMap.forEach((tickets) => {
         total += tickets.length;
@@ -2223,6 +2307,10 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       if (!btnTicketNotif) return;
       const enabled = e.detail?.ticketsEnabled === true;
       if (!enabled) {
+        // Desativado por configuração → encerra spinner e esconde (não é erro).
+        _clearTicketWatchdog();
+        btnTicketNotif.classList.remove('is-loading');
+        btnTicketNotif.removeAttribute('aria-busy');
         btnTicketNotif.style.display = 'none';
       } else {
         // Run full setup (idempotent — data-bound guard prevents duplicate event listeners)
