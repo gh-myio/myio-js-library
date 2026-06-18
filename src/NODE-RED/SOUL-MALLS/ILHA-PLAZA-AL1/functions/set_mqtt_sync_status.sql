@@ -39,7 +39,9 @@ DECLARE
   v_prev     TEXT;
   v_reqid    TEXT;
   v_corrid   TEXT;
+  v_now      TIMESTAMPTZ;
 BEGIN
+  v_now    := now();
   v_intent := upper(COALESCE(payload->>'intent', ''));
   v_reqid  := payload#>>'{request,requestId}';
   v_corrid := payload#>>'{request,correlationId}';
@@ -98,16 +100,21 @@ BEGIN
   END IF;
 
   -- 1) persiste em slaves.config (merge — não sobrescreve channelConfig/virtual/etc.)
+  --    lastUpdateChange = timestamp ISO da última mudança; lastUpdateBy = quem alterou.
   UPDATE slaves
   SET config = (COALESCE(config::jsonb, '{}'::jsonb)
-                || jsonb_build_object('mqttSyncStatus', v_status))::json,
-      updated_at = NOW()
+                || jsonb_build_object(
+                     'mqttSyncStatus',   v_status,
+                     'lastUpdateChange', to_jsonb(v_now),
+                     'lastUpdateBy',     v_user
+                   ))::json,
+      updated_at = v_now
   WHERE id = v_slave_id;
 
   -- 2) auditoria em logs (value: enable=1, disable=0; "user" é palavra reservada)
   v_value := CASE WHEN v_status = 'enable' THEN 1 ELSE 0 END;
   INSERT INTO logs (timestamp, type, action_type, "user", slave_id, value)
-  VALUES (NOW(), 'mqtt_sync', COALESCE(NULLIF(v_intent, ''), 'setMqttSyncStatus'),
+  VALUES (v_now, 'mqtt_sync', COALESCE(NULLIF(v_intent, ''), 'setMqttSyncStatus'),
           v_user, v_slave_id, v_value);
 
   RETURN jsonb_build_object(
@@ -115,6 +122,8 @@ BEGIN
     'mqttSyncStatus', v_status,
     'previousStatus', v_prev,
     'changed', (v_prev IS DISTINCT FROM v_status),
+    'lastUpdateChange', to_jsonb(v_now),
+    'lastUpdateBy', v_user,
     'slaveId', v_slave_id,
     'user', v_user,
     'intent', NULLIF(v_intent, ''),
