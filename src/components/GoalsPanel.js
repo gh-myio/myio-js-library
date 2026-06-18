@@ -66,12 +66,26 @@ export function openGoalsPanel(params) {
   // i18n strings (with customizable entity label)
   const i18n = locale === 'en-US' ? getEnglishStrings(entityLabel) : getPortugueseStrings(entityLabel);
 
+  // Granularity labels (Mês | Diária | Hora em breve) — local to keep i18n getters untouched
+  const GLABELS = locale === 'en-US'
+    ? { title: 'Granularity', month: 'Monthly', day: 'Daily', hour: 'Hourly (soon)',
+        template: 'Download template', importBtn: 'Import spreadsheet',
+        hintMonth: '12 values', hintDay: '365 values', hintHour: '8,760 — soon',
+        derived: 'Monthly values derived from imported daily detail (read-only).',
+        imported: 'Spreadsheet imported.', importErr: 'Import error: ', readErr: 'Failed to read file.' }
+    : { title: 'Granularidade', month: 'Mês', day: 'Diária', hour: 'Hora (em breve)',
+        template: 'Baixar template', importBtn: 'Importar planilha',
+        hintMonth: '12 valores', hintDay: '365 valores', hintHour: '8.760 — em breve',
+        derived: 'Valores mensais derivados do detalhe diário importado (somente leitura).',
+        imported: 'Planilha importada.', importErr: 'Erro ao importar: ', readErr: 'Falha ao ler o arquivo.' };
+
   // Modal constants
   const MODAL_ID = 'goals-modal';
 
   // Modal state
   let modalState = {
     currentTab: 'shopping', // 'shopping' | 'assets'
+    granularity: 'month', // 'month' | 'day' ('hour' = em breve)
     currentYear: new Date().getFullYear(),
     selectedShoppingId: shoppingList.length > 0 ? shoppingList[0].value : null,
     goalsData: data || null,
@@ -293,6 +307,32 @@ export function openGoalsPanel(params) {
           </div>
         </div>
 
+        <!-- Granularity selector (Mês | Diária | Hora em breve) + template/import -->
+        <div class="myio-goals-section">
+          <div class="myio-goals-section-header">
+            <h3 class="myio-goals-section-title">${GLABELS.title}</h3>
+            <div>
+              <button class="myio-goals-btn-link" data-action="goals-template">⬇️ ${GLABELS.template}</button>
+              <button class="myio-goals-btn-link" data-action="goals-import">📤 ${GLABELS.importBtn}</button>
+              <input type="file" id="goals-import-file" accept=".csv,text/csv" style="display:none" />
+            </div>
+          </div>
+          <div class="myio-goals-gran-chips" style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
+            ${['month', 'day', 'hour'].map((g) => {
+              const active = modalState.granularity === g;
+              const disabled = g === 'hour';
+              const label = g === 'month' ? GLABELS.month : g === 'day' ? GLABELS.day : GLABELS.hour;
+              const hint = g === 'month' ? GLABELS.hintMonth : g === 'day' ? GLABELS.hintDay : GLABELS.hintHour;
+              return `<button type="button" class="myio-goals-gran-chip" data-gran="${g}" ${disabled ? 'disabled' : ''}
+                style="padding:6px 12px;border:1px solid ${theme.primaryColor};border-radius:16px;cursor:${disabled ? 'not-allowed' : 'pointer'};font-size:12px;${active ? `background:${theme.primaryColor};color:#fff;` : `background:#fff;color:${theme.primaryColor};`}${disabled ? 'opacity:.5;' : ''}"
+                title="${disabled ? GLABELS.hour : label}">${label} <small>(${hint})</small></button>`;
+            }).join('')}
+          </div>
+          ${modalState.granularity === 'day' && Object.keys((getYearData(modalState.currentYear) || {}).daily || {}).length > 0
+            ? `<div class="myio-goals-gran-note" style="margin-top:8px;font-size:12px;color:#666;">${GLABELS.derived}</div>`
+            : ''}
+        </div>
+
         <!-- Monthly Distribution Section -->
         <div class="myio-goals-section">
           <div class="myio-goals-section-header">
@@ -346,6 +386,7 @@ export function openGoalsPanel(params) {
                value="${monthly[month.key] || ''}"
                min="0"
                step="0.01"
+               ${modalState.granularity === 'day' ? 'disabled title="Derivado do detalhe diário — edite via planilha"' : ''}
                placeholder="0">
         <span class="myio-goals-unit">${unit}</span>
       </div>
@@ -586,6 +627,33 @@ export function openGoalsPanel(params) {
     container.querySelector('[data-action="auto-fill"]')?.addEventListener('click', () => {
       autoFillMonthly();
     });
+
+    // Granularity chips (Mês | Diária | Hora em breve)
+    container.querySelectorAll('[data-gran]').forEach((chip) => {
+      chip.addEventListener('click', () => {
+        if (chip.disabled) return;
+        const g = chip.getAttribute('data-gran');
+        if (g === 'hour' || g === modalState.granularity) return;
+        modalState.granularity = g;
+        renderTabContent();
+      });
+    });
+
+    // Template download
+    container.querySelector('[data-action="goals-template"]')?.addEventListener('click', () => {
+      _downloadGoalsTemplate();
+    });
+
+    // Import: open file picker then parse
+    const fileInput = container.querySelector('#goals-import-file');
+    container.querySelector('[data-action="goals-import"]')?.addEventListener('click', () => {
+      fileInput?.click();
+    });
+    fileInput?.addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (file) _handleGoalsImport(file);
+      e.target.value = '';
+    });
   }
 
   function attachAssetsTabListeners() {
@@ -650,6 +718,145 @@ export function openGoalsPanel(params) {
       modalState.goalsData.years = {};
     }
     modalState.goalsData.years[year.toString()] = data;
+  }
+
+  // ============================================================================
+  // GRANULARITY TEMPLATES & IMPORT (Mês | Diária) — CSV, sem dependência externa
+  // ============================================================================
+
+  function _eachDateOfYear(year) {
+    const out = [];
+    const d = new Date(Date.UTC(year, 0, 1));
+    while (d.getUTCFullYear() === year) {
+      out.push(d.toISOString().slice(0, 10)); // YYYY-MM-DD
+      d.setUTCDate(d.getUTCDate() + 1);
+    }
+    return out;
+  }
+
+  function _buildGoalsTemplateCsv(granularity, year) {
+    const yd = getYearData(year) || {};
+    if (granularity === 'day') {
+      const daily = yd.daily || {};
+      const rows = _eachDateOfYear(year).map((iso) => `${iso};${daily[iso] != null ? daily[iso] : 0}`);
+      return 'data;valor\n' + rows.join('\n');
+    }
+    const monthly = yd.monthly || {};
+    const rows = [];
+    for (let i = 1; i <= 12; i++) {
+      const k = String(i).padStart(2, '0');
+      rows.push(`${year}-${k};${monthly[k] != null ? monthly[k] : 0}`);
+    }
+    return 'mes;valor\n' + rows.join('\n');
+  }
+
+  function _downloadGoalsTemplate() {
+    const g = modalState.granularity === 'day' ? 'day' : 'month';
+    const year = modalState.currentYear;
+    const csv = '﻿' + _buildGoalsTemplateCsv(g, year); // BOM p/ Excel-BR
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `metas-${g === 'day' ? 'diaria' : 'mensal'}-${year}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function _parseCsvNumber(s) {
+    let t = String(s == null ? '' : s).trim();
+    if (t.includes(',')) t = t.replace(/\./g, '').replace(',', '.'); // pt-BR: "1.234,56" -> 1234.56
+    const v = parseFloat(t);
+    return Number.isFinite(v) ? v : NaN;
+  }
+
+  function _parseGoalsCsv(text, granularity, year) {
+    const errors = [];
+    const lines = String(text)
+      .replace(/^﻿/, '')
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter((l) => l && !l.startsWith('#'));
+    // drop header row if 2nd column isn't numeric (e.g., "valor")
+    if (lines.length && !Number.isFinite(_parseCsvNumber((lines[0].split(';')[1] || '')))) lines.shift();
+
+    if (granularity === 'day') {
+      const daily = {};
+      const valid = new Set(_eachDateOfYear(year));
+      lines.forEach((line, idx) => {
+        const [d, v] = line.split(';');
+        const iso = (d || '').trim();
+        const num = _parseCsvNumber(v);
+        if (!valid.has(iso)) { errors.push(`Linha ${idx + 1}: data inválida ou fora de ${year}: "${iso}"`); return; }
+        if (!Number.isFinite(num) || num < 0) { errors.push(`Linha ${idx + 1}: valor inválido: "${v}"`); return; }
+        daily[iso] = num;
+      });
+      return { granularity: 'day', daily, errors };
+    }
+
+    const monthly = {};
+    lines.forEach((line, idx) => {
+      const [m, v] = line.split(';');
+      const raw = (m || '').trim();
+      const key = raw.includes('-') ? raw.split('-').pop().padStart(2, '0') : raw.padStart(2, '0');
+      const num = _parseCsvNumber(v);
+      if (!/^(0[1-9]|1[0-2])$/.test(key)) { errors.push(`Linha ${idx + 1}: mês inválido: "${raw}"`); return; }
+      if (!Number.isFinite(num) || num < 0) { errors.push(`Linha ${idx + 1}: valor inválido: "${v}"`); return; }
+      monthly[key] = num;
+    });
+    return { granularity: 'month', monthly, errors };
+  }
+
+  function _aggregateDailyToMonthly(daily) {
+    const monthly = {};
+    Object.entries(daily || {}).forEach(([iso, val]) => {
+      const mk = iso.slice(5, 7);
+      monthly[mk] = (monthly[mk] || 0) + (parseFloat(val) || 0);
+    });
+    Object.keys(monthly).forEach((k) => { monthly[k] = Math.round(monthly[k] * 100) / 100; });
+    return monthly;
+  }
+
+  function _handleGoalsImport(file) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = _parseGoalsCsv(reader.result, modalState.granularity, modalState.currentYear);
+        if (parsed.errors.length) {
+          displayValidationErrors(parsed.errors.slice(0, 8));
+          return;
+        }
+        const yd = getYearData(modalState.currentYear)
+          || { annual: { total: 0, unit: 'kWh' }, monthly: {}, assets: {} };
+        if (parsed.granularity === 'day') {
+          yd.daily = parsed.daily;
+          yd.granularity = 'day';
+          yd.monthly = _aggregateDailyToMonthly(parsed.daily);
+        } else {
+          yd.monthly = parsed.monthly;
+          yd.granularity = 'month';
+          delete yd.daily;
+        }
+        // Sincroniza o total anual com a soma se ainda estiver zerado
+        if (!yd.annual) yd.annual = { total: 0, unit: 'kWh' };
+        if (!yd.annual.total) {
+          const sum = Object.values(yd.monthly).reduce((s, v) => s + (parseFloat(v) || 0), 0);
+          yd.annual.total = Math.round(sum * 100) / 100;
+        }
+        setYearData(modalState.currentYear, yd);
+        modalState.isDirty = true;
+        const errBox = document.getElementById('validation-errors');
+        if (errBox) errBox.style.display = 'none';
+        renderTabContent();
+        showSuccessMessage(GLABELS.imported);
+      } catch (err) {
+        displayValidationErrors([GLABELS.importErr + err.message]);
+      }
+    };
+    reader.onerror = () => displayValidationErrors([GLABELS.readErr]);
+    reader.readAsText(file, 'utf-8');
   }
 
   function loadGoalsData() {
@@ -773,6 +980,9 @@ export function openGoalsPanel(params) {
       annual: { total, unit },
       monthly,
       assets: yearData.assets || {},
+      // Preserva granularidade e detalhe diário importado (CSV) — não some no save.
+      granularity: yearData.granularity || modalState.granularity || 'month',
+      ...(yearData.daily ? { daily: yearData.daily } : {}),
       metaTag: `${new Date().toISOString()}|user`
     };
   }
