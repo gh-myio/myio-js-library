@@ -1134,9 +1134,13 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       }
 
       try {
-        // ✅ Obtém o customerId pai (Holding) do MAIN (exposto via window)
-        // Este é o Customer raiz no ThingsBoard que contém os shoppings filhos
-        const customerId = window.myioHoldingCustomerId;
+        // ✅ Obtém o customerId do MAIN. window.myioHoldingCustomerId NÃO é setado
+        // no SIM (global morto) — usamos a mesma fonte dos outros widgets
+        // (MyIOUtils.customerTB_ID / MyIOOrchestrator), com fallback ao global.
+        const customerId =
+          window.MyIOUtils?.customerTB_ID ||
+          window.MyIOOrchestrator?.customerTB_ID ||
+          window.myioHoldingCustomerId;
 
         if (!customerId) {
           LogHelper.error('[MENU] ❌ customerId não encontrado (MAIN ainda não inicializou?)');
