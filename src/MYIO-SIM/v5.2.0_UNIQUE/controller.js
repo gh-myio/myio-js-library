@@ -3662,6 +3662,31 @@ body.filter-modal-open { overflow: hidden !important; }
     return map;
   }
 
+  // Build the authoritative Set<gcdrDeviceId> of devices orchestrated in THIS
+  // dashboard. Source of truth: the `gcdrDeviceId` dataKey of the "AllDevices"
+  // datasource (ctx.data) — race-proof, available as soon as the widget has data.
+  // Also merges orchestrator items as a secondary source. Used to discard alarms
+  // whose device isn't on this dashboard (master API key returns every customer).
+  function buildOrchestratedGcdrIdSet() {
+    const set = new Set();
+    // Primary: AllDevices datasource gcdrDeviceId dataKey (ctx.data)
+    try {
+      const rows = self.ctx?.data || [];
+      for (const row of rows) {
+        if ((row?.datasource?.aliasName || '') !== 'AllDevices') continue;
+        if ((row?.dataKey?.name || '') !== 'gcdrDeviceId') continue;
+        const val = row?.data?.[0]?.[1];
+        if (val) set.add(String(val));
+      }
+    } catch (e) { /* noop */ }
+    // Secondary: orchestrator items (already carry gcdrDeviceId)
+    const orch = window.MyIOOrchestratorData || {};
+    [orch.energy?.items, orch.water?.items, orch.temperature?.items].forEach((items) => {
+      if (Array.isArray(items)) items.forEach((d) => { if (d.gcdrDeviceId) set.add(String(d.gcdrDeviceId)); });
+    });
+    return set;
+  }
+
   // Replace each alarm's `source` with the friendly device label when `source`
   // is actually a GCDR deviceId (match by gcdrDeviceId), and fill in
   // `customerName` (shopping chip in the alarm card) from the orchestrated
@@ -3729,24 +3754,26 @@ body.filter-modal-open { overflow: hidden !important; }
       const deviceByGcdrId = buildGcdrDeviceLabelMap();
 
       // The head office uses a master API key, so the backend returns alarms
-      // from EVERY customer. Keep only alarms whose device is orchestrated in
-      // this dashboard (matched by gcdrDeviceId). Skip the filter while the
-      // orchestrator hasn't produced items yet (empty map) — otherwise a data
-      // race would discard everything.
+      // from EVERY customer. STRICT MATCH: only keep alarms whose device
+      // (alarm.deviceId === gcdrDeviceId) is orchestrated in THIS dashboard
+      // (AllDevices datasource). Everything else is discarded.
+      const orchestratedIds = buildOrchestratedGcdrIdSet();
       let data = response.data;
       let summary = response.summary;
-      if (deviceByGcdrId.size > 0) {
-        const before = data.length;
-        data = data.filter((a) => deviceByGcdrId.has(String(a.deviceId ?? a.source ?? '')));
-        if (data.length !== before) {
-          LogHelper.log(
-            `[MAIN_UNIQUE] RFC-0175: alarms filtered to orchestrated devices: ${data.length}/${before}`
-          );
-          summary = buildAlarmSummaryFromList(data);
-        }
+      const before = data.length;
+      if (orchestratedIds.size > 0) {
+        data = data.filter((a) => orchestratedIds.has(String(a.deviceId ?? a.source ?? '')));
+        summary = buildAlarmSummaryFromList(data);
+        LogHelper.log(
+          `[MAIN_UNIQUE] RFC-0175: alarms matched by gcdrDeviceId: ${data.length}/${before} (orchestrated=${orchestratedIds.size})`
+        );
       } else {
+        // No orchestrated devices resolved yet → nothing to match. Render empty
+        // instead of leaking every customer's alarms.
+        data = [];
+        summary = buildAlarmSummaryFromList(data);
         LogHelper.warn(
-          '[MAIN_UNIQUE] RFC-0175: orchestrator device map empty — alarm list NOT filtered to orchestrated devices'
+          '[MAIN_UNIQUE] RFC-0175: gcdrDeviceId set vazio (AllDevices ainda não carregou?) — nenhum alarme renderizado'
         );
       }
 
