@@ -395,14 +395,17 @@ function injectTooltipStyles(doc) {
 }
 
 /**
- * Compare semantic versions
+ * Compare semantic versions. Prerelease suffixes (e.g. "-homolog.0") are
+ * stripped before comparing the numeric x.y.z core, so "0.1.515-homolog.0"
+ * parses as 0.1.515 instead of producing NaN.
  * @param {string} a - First version
  * @param {string} b - Second version
  * @returns {number} 1 if a > b, -1 if a < b, 0 if equal
  */
 function compareVersions(a, b) {
-  const partsA = a.split('.').map(Number);
-  const partsB = b.split('.').map(Number);
+  const core = (v) => String(v || '0').split('-')[0].split('.').map(Number);
+  const partsA = core(a);
+  const partsB = core(b);
 
   for (let i = 0; i < Math.max(partsA.length, partsB.length); i++) {
     const numA = partsA[i] || 0;
@@ -411,6 +414,44 @@ function compareVersions(a, b) {
     if (numA < numB) return -1;
   }
   return 0;
+}
+
+/**
+ * Whether a version string is a homolog (pre-release / staging) build that must
+ * never be surfaced as "the latest release".
+ * @param {string} v - Version string
+ * @param {string} [homologTagVersion] - Version the `homolog` dist-tag points to
+ * @returns {boolean}
+ */
+export function isHomologVersion(v, homologTagVersion) {
+  if (!v) return true;
+  if (homologTagVersion && v === homologTagVersion) return true;
+  return /homolog/i.test(v);
+}
+
+/**
+ * Resolve the latest NON-homolog (stable) version from an npm packument.
+ * Prefers the `latest` dist-tag; if that itself points to a homolog build,
+ * falls back to the highest non-homolog version in the registry.
+ * @param {{ 'dist-tags'?: Record<string,string>, versions?: Record<string,unknown> }} data
+ * @returns {string | null}
+ */
+export function resolveLatestStableVersion(data) {
+  const distTags = (data && data['dist-tags']) || {};
+  const homologVer = distTags.homolog;
+  const latestTag = distTags.latest;
+
+  // Normal path: the `latest` dist-tag is the stable release.
+  if (latestTag && !isHomologVersion(latestTag, homologVer)) {
+    return latestTag;
+  }
+
+  // Defensive fallback: pick the highest version that is not a homolog build.
+  const stable = Object.keys((data && data.versions) || {}).filter(
+    (v) => !isHomologVersion(v, homologVer)
+  );
+  stable.sort((a, b) => compareVersions(b, a));
+  return stable[0] || (latestTag && !isHomologVersion(latestTag, homologVer) ? latestTag : null);
 }
 
 /**
@@ -750,7 +791,9 @@ export function createLibraryVersionChecker(container, options) {
    */
   async function checkNpmVersion() {
     const cacheKey = `${CACHE_KEY_PREFIX}${packageName}`;
-    const npmUrl = `${NPM_REGISTRY_BASE}/${packageName}/latest`;
+    // Fetch the full packument (not /latest) so we can read dist-tags and skip
+    // the `homolog` build. The abbreviated metadata keeps the payload small.
+    const npmUrl = `${NPM_REGISTRY_BASE}/${packageName}`;
 
     updateStatus('checking', null);
 
@@ -774,7 +817,7 @@ export function createLibraryVersionChecker(container, options) {
       if (!latest) {
         const response = await fetch(npmUrl, {
           method: 'GET',
-          headers: { Accept: 'application/json' },
+          headers: { Accept: 'application/vnd.npm.install-v1+json' },
         });
 
         if (!response.ok) {
@@ -782,7 +825,15 @@ export function createLibraryVersionChecker(container, options) {
         }
 
         const data = await response.json();
-        latest = data.version;
+        // Resolve the latest NON-homolog (stable) version from dist-tags.
+        latest = resolveLatestStableVersion(data);
+        if (!latest) {
+          throw new Error('no stable (non-homolog) version found in registry');
+        }
+        console.log(
+          `[LibraryVersionChecker] dist-tags resolved stable latest: ${latest}` +
+            (data['dist-tags']?.homolog ? ` (ignoring homolog: ${data['dist-tags'].homolog})` : '')
+        );
 
         // Cache the result
         try {
