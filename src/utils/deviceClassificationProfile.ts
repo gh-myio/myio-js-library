@@ -154,13 +154,15 @@ export const DEFAULT_DEVICE_CLASSIFICATION_PROFILE: DeviceClassificationProfile 
             // CLIMATIZACAO_CONDITIONAL_TYPES_SET + identifier requirement
             conditional: {
               deviceTypes: ['BOMBA', 'MOTOR'],
-              // BUG #1 PRESERVED: EXACT (Set.has) — A1 flips to identifierContains
-              identifierEquals: ['CAG', 'FANCOIL'],
+              // RFC-0207 A1 — BUG #1 FIX: substring (.includes), unifying with
+              // equipmentCategory.js. Catches "CAG 01", "BOMBA CAG 2", etc.
+              // (identifierPrefixes now redundant for CAG/FANCOIL but kept harmless.)
+              identifierContains: ['CAG', 'FANCOIL'],
               identifierPrefixes: ['CAG-', 'FANCOIL-'],
             },
             // classifyDeviceByIdentifier — climatizacao branch
             identifierFallback: {
-              identifierEquals: ['CAG', 'FANCOIL'],
+              identifierContains: ['CAG', 'FANCOIL'],
               identifierPrefixes: ['CAG-', 'FANCOIL-'],
             },
           },
