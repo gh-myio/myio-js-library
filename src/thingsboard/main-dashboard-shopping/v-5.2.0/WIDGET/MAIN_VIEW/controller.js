@@ -3480,11 +3480,32 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
     const isEscadaById = id.startsWith('ESC-');
     const isClimatById = id.startsWith('CAG-') || id.startsWith('FANCOIL-') || id.startsWith('CHILLER-');
 
-    if (ELEVADOR_PATTERNS.some((p) => combined.includes(p)) || isElevadorById) {
-      elevadoresItems.push(item);
+    // RFC-0207 (A1b): the top-level breakdown bucket comes from the single-source
+    // resolver when the library exposes it (unifies with the column path —
+    // closing bug #2; deltas proven by the dual-oracle migration snapshot). The
+    // sub-subcategorization (chiller/fancoil/cag/… ; iluminacao/gerador/…) stays
+    // local. Legacy combined/id conditions remain as the fallback for older bundles.
+    const _resolveCategory =
+      (typeof window !== 'undefined' && window.MyIOLibrary && window.MyIOLibrary.resolveCategory) ||
+      null;
+    let _topCat;
+    if (_resolveCategory) {
+      _topCat = _resolveCategory(item).category; // climatizacao|elevadores|escadas_rolantes|outros|lojas
+    } else if (ELEVADOR_PATTERNS.some((p) => combined.includes(p)) || isElevadorById) {
+      _topCat = 'elevadores';
     } else if (ESCADA_PATTERNS.some((p) => combined.includes(p)) || isEscadaById) {
-      escadasRolantesItems.push(item);
+      _topCat = 'escadas_rolantes';
     } else if (CLIMATIZACAO_PATTERNS.some((p) => combined.includes(p)) || isClimatById) {
+      _topCat = 'climatizacao';
+    } else {
+      _topCat = 'outros';
+    }
+
+    if (_topCat === 'elevadores') {
+      elevadoresItems.push(item);
+    } else if (_topCat === 'escadas_rolantes') {
+      escadasRolantesItems.push(item);
+    } else if (_topCat === 'climatizacao') {
       climatizacaoItems.push(item);
       if (combined.includes('CHILLER') || id.startsWith('CHILLER-')) chillerItems.push(item);
       else if (combined.includes('FANCOIL') || id.startsWith('FANCOIL-')) fancoilItems.push(item);
