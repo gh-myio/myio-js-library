@@ -5,13 +5,19 @@
  * (SERVER_SCOPE attribute) that drives device classification (columns
  * Entrada/Lojas/Área Comum + breakdown Climatização/Elevadores/Escadas/Outros).
  *
- * - Edits the high-impact chip lists per group/category.
+ * - Edits the high-impact chip lists per group/category, per domain tab.
  * - Live preview: classifies the current devices with the working profile.
  * - Saves to the customer's SERVER_SCOPE attribute, applies it via
  *   `setActiveProfile`, and calls `onSaved` so the dashboard re-classifies.
  * - Permission-gated: `canEdit=false` → read-only (view saved/default values).
+ *
+ * Shell: uses the shared `ModalPremiumShell` (createModal) like the other
+ * premium modals (AllReportModal/EnergyModal/DeviceReportModal) — standard
+ * header + close, backdrop, focus trap, ESC, scroll lock. Only the body/footer
+ * are bespoke (the editor + live preview).
  */
 
+import { createModal, type ModalShellHandle } from '../internal/ModalPremiumShell';
 import {
   DEFAULT_DEVICE_CLASSIFICATION_PROFILE,
   resolveGroup,
@@ -30,7 +36,6 @@ const DOMAIN_TABS: { key: ClassificationDomain; label: string; icon: string }[] 
   { key: 'temperature', label: 'Temperatura', icon: '🌡️' },
 ];
 
-const MODAL_ID = 'myio-device-profile-modal';
 const STYLE_ID = 'myio-device-profile-styles';
 const ACCENT = '#7C3AED';
 
@@ -104,43 +109,27 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
   const dom = (): DomainProfile | undefined => working.domains?.[activeDomain];
 
   injectStyles();
-  document.getElementById(MODAL_ID)?.remove();
 
-  const overlay = document.createElement('div');
-  overlay.id = MODAL_ID;
-  overlay.className = 'mdp-overlay';
-  overlay.innerHTML = `<div class="mdp-backdrop"></div>${render()}`;
-  document.body.appendChild(overlay);
+  // Standard premium shell (backdrop, header + ×, focus trap, ESC, scroll lock).
+  const handle: ModalShellHandle = createModal({
+    title: '⚙️ Gestão de Perfil de Dispositivos',
+    width: 'min(960px, 94vw)',
+    theme: 'light',
+  });
+  const body = handle.element;
+  handle.on('close', () => onClose?.());
 
-  const close = () => {
-    overlay.remove();
-    onClose?.();
-  };
-  overlay.querySelector('.mdp-backdrop')?.addEventListener('click', close);
-  overlay.querySelector('#mdp-close')?.addEventListener('click', close);
-  overlay.querySelector('#mdp-cancel')?.addEventListener('click', close);
+  // Footer is stable across re-renders (only the editor body re-renders).
+  handle.setFooter(renderFooter());
+  bindFooter();
 
-  bindTabs();
-  bindChipEditors();
-  bindSave();
-  refreshPreview();
+  rerenderBody();
 
-  return { close };
-
-  function bindTabs() {
-    overlay.querySelectorAll<HTMLButtonElement>('.mdp-tab').forEach((tab) => {
-      tab.addEventListener('click', () => {
-        const next = tab.dataset.domain as ClassificationDomain;
-        if (!next || next === activeDomain) return;
-        activeDomain = next;
-        rerenderBody();
-      });
-    });
-  }
+  return { close: () => handle.close() };
 
   // ---------------------------------------------------------------- rendering
 
-  function render(): string {
+  function renderBody(): string {
     const d = dom();
     const ro = !canEdit;
     const tabs = DOMAIN_TABS.map(
@@ -149,116 +138,107 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
     ).join('');
 
     if (!d) {
-      return `
-        <div class="mdp-card" role="dialog" aria-modal="true">
-          <div class="mdp-header">
-            <span class="mdp-title">⚙️ Gestão de Perfil de Dispositivos</span>
-            <button id="mdp-close" class="mdp-x" aria-label="Fechar">×</button>
-          </div>
-          <div class="mdp-tabs">${tabs}</div>
-          <div class="mdp-body"><p class="mdp-empty">Domínio <code>${escHtml(activeDomain)}</code> ausente no perfil.</p></div>
-          <div class="mdp-footer"><button id="mdp-cancel" class="mdp-btn mdp-btn-secondary">Fechar</button></div>
-        </div>`;
+      return `<div class="mdp-root">
+        <div class="mdp-tabs">${tabs}</div>
+        <p class="mdp-empty">Domínio <code>${escHtml(activeDomain)}</code> ausente no perfil.</p>
+      </div>`;
     }
 
     const groupRules = d.groups.rules.filter((r) => !r.fallback);
     const fallbackName = d.groups.rules.find((r) => r.fallback)?.name || 'área comum';
     const cats = d.categories; // only energy has a breakdown
 
-    return `
-      <div class="mdp-card" role="dialog" aria-modal="true">
-        <div class="mdp-header">
-          <span class="mdp-title">⚙️ Gestão de Perfil de Dispositivos</span>
-          <button id="mdp-close" class="mdp-x" aria-label="Fechar">×</button>
-        </div>
-        <div class="mdp-tabs">${tabs}</div>
-        <div class="mdp-subhead">
-          ${
-            ro
-              ? `<span class="mdp-badge mdp-badge-ro">Somente leitura — sem permissão para editar</span>`
-              : `<span class="mdp-badge mdp-badge-edit">Editável</span>`
-          }
-          <span class="mdp-hint">Define como cada device é classificado ${
-            cats ? 'nas colunas e no breakdown' : 'nas colunas'
-          } (domínio <b>${escHtml(activeDomain)}</b>).</span>
-        </div>
+    return `<div class="mdp-root">
+      <div class="mdp-tabs">${tabs}</div>
+      <div class="mdp-subhead">
+        ${
+          ro
+            ? `<span class="mdp-badge mdp-badge-ro">Somente leitura — sem permissão para editar</span>`
+            : `<span class="mdp-badge mdp-badge-edit">Editável</span>`
+        }
+        <span class="mdp-hint">Define como cada device é classificado ${
+          cats ? 'nas colunas e no breakdown' : 'nas colunas'
+        } (domínio <b>${escHtml(activeDomain)}</b>).</span>
+      </div>
 
-        <div class="mdp-body">
-          <div class="mdp-cols">
-            <div class="mdp-editor">
-              <h3 class="mdp-sec-title">Colunas (grupos)</h3>
-              <div class="mdp-rule">
-                <div class="mdp-rule-name">Ocultos <small>(padrões no deviceProfile, substring)</small></div>
-                ${chipList('grp-ocultos', d.groups.ocultosProfilePatterns, ro)}
-              </div>
-              ${groupRules
-                .map(
-                  (r, i) => `
-              <div class="mdp-rule">
-                <div class="mdp-rule-name">${escHtml(r.name)} <small>(deviceProfile exato)</small></div>
-                ${chipList(`grp-${i}`, r.deviceProfiles || [], ro)}
-              </div>`,
-                )
-                .join('')}
-              <div class="mdp-rule mdp-rule-muted">
-                <div class="mdp-rule-name">${escHtml(fallbackName)} <small>(residual — tudo que não casar acima)</small></div>
-              </div>
-              ${
-                activeDomain === 'water'
-                  ? `<div class="mdp-note">💡 <b>banheiros</b> é preenchido pelo widget TELEMETRY (medidores de banheiro isolados), não por este perfil.</div>`
-                  : ''
-              }
-
-              ${
-                cats
-                  ? `<h3 class="mdp-sec-title">Breakdown (categorias)</h3>
-              <div class="mdp-rule">
-                <div class="mdp-rule-name">Loja (store) <small>(deviceProfile exato)</small></div>
-                ${chipList('cat-store', [cats.storeDeviceProfile], ro, true)}
-              </div>
-              ${cats.rules
-                .map(
-                  (r, i) => `
-              <div class="mdp-rule">
-                <div class="mdp-rule-name">${escHtml(r.name)}</div>
-                <div class="mdp-field"><label>deviceProfile</label>${chipList(`cat-${i}-dp`, r.deviceProfiles || [], ro)}</div>
-                <div class="mdp-field"><label>texto contém</label>${chipList(`cat-${i}-cc`, r.combinedContains || [], ro)}</div>
-                <div class="mdp-field"><label>identifier contém</label>${chipList(`cat-${i}-idc`, r.identifierFallback?.identifierContains || [], ro)}</div>
-                <div class="mdp-field"><label>identifier prefixo</label>${chipList(`cat-${i}-idp`, r.identifierFallback?.identifierPrefixes || [], ro)}</div>
-                ${
-                  r.conditional
-                    ? `<div class="mdp-cond">
-                  <div class="mdp-cond-hint">Condicional: entra só se o <b>deviceType</b> casar <b>E</b> o identifier casar.</div>
-                  <div class="mdp-field"><label>cond · deviceType</label>${chipList(`cat-${i}-cdt`, r.conditional.deviceTypes || [], ro)}</div>
-                  <div class="mdp-field"><label>cond · identifier contém</label>${chipList(`cat-${i}-cidc`, r.conditional.identifierContains || [], ro)}</div>
-                  <div class="mdp-field"><label>cond · identifier prefixo</label>${chipList(`cat-${i}-cidp`, r.conditional.identifierPrefixes || [], ro)}</div>
-                </div>`
-                    : ''
-                }
-              </div>`,
-                )
-                .join('')}
-              <div class="mdp-rule mdp-rule-muted">
-                <div class="mdp-rule-name">${escHtml(cats.fallback?.name || 'outros')} <small>(residual)</small></div>
-              </div>`
-                  : ''
-              }
-            </div>
-
-            <div class="mdp-preview">
-              <h3 class="mdp-sec-title">Preview ao vivo</h3>
-              <div class="mdp-hint mdp-hint-sm">Classificação dos devices atuais com este perfil.</div>
-              <div id="mdp-preview-groups"></div>
-              <div id="mdp-preview-cats"></div>
-              <div id="mdp-errors" class="mdp-errors" style="display:none"></div>
-            </div>
+      <div class="mdp-cols">
+        <div class="mdp-editor">
+          <h3 class="mdp-sec-title">Colunas (grupos)</h3>
+          <div class="mdp-rule">
+            <div class="mdp-rule-name">Ocultos <small>(padrões no deviceProfile, substring)</small></div>
+            ${chipList('grp-ocultos', d.groups.ocultosProfilePatterns, ro)}
           </div>
+          ${groupRules
+            .map(
+              (r, i) => `
+          <div class="mdp-rule">
+            <div class="mdp-rule-name">${escHtml(r.name)} <small>(deviceProfile exato)</small></div>
+            ${chipList(`grp-${i}`, r.deviceProfiles || [], ro)}
+          </div>`,
+            )
+            .join('')}
+          <div class="mdp-rule mdp-rule-muted">
+            <div class="mdp-rule-name">${escHtml(fallbackName)} <small>(residual — tudo que não casar acima)</small></div>
+          </div>
+          ${
+            activeDomain === 'water'
+              ? `<div class="mdp-note">💡 <b>banheiros</b> é preenchido pelo widget TELEMETRY (medidores de banheiro isolados), não por este perfil.</div>`
+              : ''
+          }
+
+          ${
+            cats
+              ? `<h3 class="mdp-sec-title">Breakdown (categorias)</h3>
+          <div class="mdp-rule">
+            <div class="mdp-rule-name">Loja (store) <small>(deviceProfile exato)</small></div>
+            ${chipList('cat-store', [cats.storeDeviceProfile], ro, true)}
+          </div>
+          ${cats.rules
+            .map(
+              (r, i) => `
+          <div class="mdp-rule">
+            <div class="mdp-rule-name">${escHtml(r.name)}</div>
+            <div class="mdp-field"><label>deviceProfile</label>${chipList(`cat-${i}-dp`, r.deviceProfiles || [], ro)}</div>
+            <div class="mdp-field"><label>texto contém</label>${chipList(`cat-${i}-cc`, r.combinedContains || [], ro)}</div>
+            <div class="mdp-field"><label>identifier contém</label>${chipList(`cat-${i}-idc`, r.identifierFallback?.identifierContains || [], ro)}</div>
+            <div class="mdp-field"><label>identifier prefixo</label>${chipList(`cat-${i}-idp`, r.identifierFallback?.identifierPrefixes || [], ro)}</div>
+            ${
+              r.conditional
+                ? `<div class="mdp-cond">
+              <div class="mdp-cond-hint">Condicional: entra só se o <b>deviceType</b> casar <b>E</b> o identifier casar.</div>
+              <div class="mdp-field"><label>cond · deviceType</label>${chipList(`cat-${i}-cdt`, r.conditional.deviceTypes || [], ro)}</div>
+              <div class="mdp-field"><label>cond · identifier contém</label>${chipList(`cat-${i}-cidc`, r.conditional.identifierContains || [], ro)}</div>
+              <div class="mdp-field"><label>cond · identifier prefixo</label>${chipList(`cat-${i}-cidp`, r.conditional.identifierPrefixes || [], ro)}</div>
+            </div>`
+                : ''
+            }
+          </div>`,
+            )
+            .join('')}
+          <div class="mdp-rule mdp-rule-muted">
+            <div class="mdp-rule-name">${escHtml(cats.fallback?.name || 'outros')} <small>(residual)</small></div>
+          </div>`
+              : ''
+          }
         </div>
 
-        <div class="mdp-footer">
-          <button id="mdp-cancel" class="mdp-btn mdp-btn-secondary">${ro ? 'Fechar' : 'Cancelar'}</button>
-          ${ro ? '' : `<button id="mdp-save" class="mdp-btn mdp-btn-primary">Salvar perfil</button>`}
-        </div>`;
+        <div class="mdp-preview">
+          <h3 class="mdp-sec-title">Preview ao vivo</h3>
+          <div class="mdp-hint mdp-hint-sm">Classificação dos devices atuais com este perfil.</div>
+          <div id="mdp-preview-groups"></div>
+          <div id="mdp-preview-cats"></div>
+          <div id="mdp-errors" class="mdp-errors" style="display:none"></div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  function renderFooter(): string {
+    const ro = !canEdit;
+    return `<div class="mdp-root mdp-footer-inner">
+      <button id="mdp-cancel" class="mdp-btn mdp-btn-secondary">${ro ? 'Fechar' : 'Cancelar'}</button>
+      ${ro ? '' : `<button id="mdp-save" class="mdp-btn mdp-btn-primary">Salvar perfil</button>`}
+    </div>`;
   }
 
   function chipList(key: string, values: string[], readOnly: boolean, single = false): string {
@@ -347,20 +327,26 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
   }
 
   function rerenderBody() {
-    const card = overlay.querySelector('.mdp-card');
-    if (!card) return;
-    card.outerHTML = render(); // render() returns the card only (backdrop is separate)
+    handle.setContent(renderBody());
     bindTabs();
     bindChipEditors();
-    bindSave();
     refreshPreview();
-    overlay.querySelector('#mdp-close')?.addEventListener('click', close);
-    overlay.querySelector('#mdp-cancel')?.addEventListener('click', close);
+  }
+
+  function bindTabs() {
+    body.querySelectorAll<HTMLButtonElement>('.mdp-tab').forEach((tab) => {
+      tab.addEventListener('click', () => {
+        const next = tab.dataset.domain as ClassificationDomain;
+        if (!next || next === activeDomain) return;
+        activeDomain = next;
+        rerenderBody();
+      });
+    });
   }
 
   function bindChipEditors() {
     if (!canEdit) return;
-    overlay.querySelectorAll<HTMLInputElement>('.mdp-chip-input').forEach((inp) => {
+    body.querySelectorAll<HTMLInputElement>('.mdp-chip-input').forEach((inp) => {
       inp.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
           e.preventDefault();
@@ -371,7 +357,7 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
         if (inp.value.trim()) addValue(inp.dataset.key!, inp.value);
       });
     });
-    overlay.querySelectorAll<HTMLButtonElement>('.mdp-chip-x').forEach((btn) => {
+    body.querySelectorAll<HTMLButtonElement>('.mdp-chip-x').forEach((btn) => {
       btn.addEventListener('click', () => removeValue(btn.dataset.key!, btn.dataset.val!));
     });
   }
@@ -392,17 +378,16 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
       }
     }
     // residual buckets per domain (highlight what fell through to the fallback)
-    const residual =
-      activeDomain === 'temperature' ? ['climatizavel'] : ['areacomum'];
-    const gEl = overlay.querySelector('#mdp-preview-groups');
-    const cEl = overlay.querySelector('#mdp-preview-cats');
+    const residual = activeDomain === 'temperature' ? ['climatizavel'] : ['areacomum'];
+    const gEl = body.querySelector('#mdp-preview-groups');
+    const cEl = body.querySelector('#mdp-preview-cats');
     if (gEl) gEl.innerHTML = previewBlock('Colunas', groups, devices.length, residual);
     if (cEl)
       cEl.innerHTML = hasCats ? previewBlock('Breakdown', cats, devices.length, ['outros']) : '';
 
     const errors = dom() ? validateProfile(working) : ['profile inválido'];
-    const errEl = overlay.querySelector('#mdp-errors') as HTMLElement | null;
-    const saveBtn = overlay.querySelector('#mdp-save') as HTMLButtonElement | null;
+    const errEl = body.querySelector('#mdp-errors') as HTMLElement | null;
+    const saveBtn = document.getElementById('mdp-save') as HTMLButtonElement | null;
     if (errEl) {
       if (errors.length) {
         errEl.style.display = '';
@@ -435,11 +420,13 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
     </div>`;
   }
 
-  // ---------------------------------------------------------------- save
+  // ---------------------------------------------------------------- footer / save
 
-  function bindSave() {
+  function bindFooter() {
+    document.getElementById('mdp-cancel')?.addEventListener('click', () => handle.close());
+
     if (!canEdit) return;
-    const btn = overlay.querySelector('#mdp-save') as HTMLButtonElement | null;
+    const btn = document.getElementById('mdp-save') as HTMLButtonElement | null;
     if (!btn) return;
     btn.addEventListener('click', async () => {
       const errors = validateProfile(working);
@@ -466,11 +453,11 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
         if (!resp.ok) throw new Error(`TB ${resp.status}`);
         const applied = setActiveProfile(toSave);
         onSaved?.(applied);
-        close();
+        handle.close();
       } catch (err) {
         btn.disabled = false;
         btn.textContent = 'Salvar perfil';
-        const errEl = overlay.querySelector('#mdp-errors') as HTMLElement | null;
+        const errEl = body.querySelector('#mdp-errors') as HTMLElement | null;
         if (errEl) {
           errEl.style.display = '';
           errEl.innerHTML = `<strong>Erro ao salvar:</strong> ${escHtml((err as Error).message)}`;
@@ -484,29 +471,23 @@ function injectStyles() {
   if (document.getElementById(STYLE_ID)) return;
   const s = document.createElement('style');
   s.id = STYLE_ID;
+  // Only the bespoke body/footer content is styled here — the shell
+  // (ModalPremiumShell) provides backdrop, header, body container and footer.
   s.textContent = `
-  #${MODAL_ID}, #${MODAL_ID} * { box-sizing: border-box; font-family: 'Nunito', sans-serif; }
-  .mdp-overlay { position: fixed; inset: 0; z-index: 100000; display: flex; align-items: center; justify-content: center; }
-  .mdp-backdrop { position: absolute; inset: 0; background: rgba(15,23,42,.55); }
-  .mdp-card { position: relative; width: min(960px, 94vw); max-height: 90vh; display: flex; flex-direction: column;
-    background: #fff; border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,.3); overflow: hidden; }
-  .mdp-header { display: flex; align-items: center; gap: 8px; padding: 14px 18px; background: ${ACCENT}; color: #fff; }
-  .mdp-title { font-weight: 800; font-size: 16px; flex: 1; }
-  .mdp-x { background: none; border: none; color: #fff; font-size: 22px; cursor: pointer; line-height: 1; }
-  .mdp-tabs { display: flex; gap: 4px; padding: 8px 18px 0; background: #faf9ff; border-bottom: 1px solid #eee; }
+  .mdp-root, .mdp-root * { box-sizing: border-box; font-family: 'Nunito', sans-serif; }
+  .mdp-tabs { display: flex; gap: 4px; margin-bottom: 10px; border-bottom: 1px solid #eee; }
   .mdp-tab { border: 1px solid transparent; border-bottom: none; background: none; cursor: pointer;
     font-size: 13px; font-weight: 700; color: #64748b; padding: 8px 14px; border-radius: 8px 8px 0 0; }
   .mdp-tab:hover { color: ${ACCENT}; }
-  .mdp-tab.is-active { color: ${ACCENT}; background: #fff; border-color: #ede9fe; border-bottom: 1px solid #fff; margin-bottom: -1px; }
+  .mdp-tab.is-active { color: ${ACCENT}; background: #faf9ff; border-color: #ede9fe; border-bottom: 1px solid #faf9ff; margin-bottom: -1px; }
   .mdp-note { font-size: 11px; color: #6d28d9; background: #faf9ff; border: 1px dashed #ddd6fe;
     border-radius: 8px; padding: 8px 10px; margin: 4px 0 8px; }
-  .mdp-subhead { display: flex; align-items: center; gap: 10px; padding: 10px 18px; border-bottom: 1px solid #eee; }
+  .mdp-subhead { display: flex; align-items: center; gap: 10px; padding-bottom: 10px; margin-bottom: 12px; border-bottom: 1px solid #eee; }
   .mdp-badge { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px; }
   .mdp-badge-ro { background: #fef3c7; color: #92400e; }
   .mdp-badge-edit { background: #ede9fe; color: ${ACCENT}; }
   .mdp-hint { font-size: 12px; color: #64748b; }
   .mdp-hint-sm { font-size: 11px; }
-  .mdp-body { padding: 16px 18px; overflow: auto; }
   .mdp-cols { display: grid; grid-template-columns: 1fr 300px; gap: 18px; }
   @media (max-width: 720px) { .mdp-cols { grid-template-columns: 1fr; } }
   .mdp-sec-title { font-size: 13px; font-weight: 800; color: #1e293b; margin: 6px 0 8px; }
@@ -533,7 +514,7 @@ function injectStyles() {
   .mdp-pv-residual { background: #fff7ed; color: #9a3412; }
   .mdp-errors { background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 8px 10px; font-size: 12px; color: #991b1b; margin-top: 8px; }
   .mdp-errors ul { margin: 4px 0 0 16px; }
-  .mdp-footer { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 18px; border-top: 1px solid #eee; }
+  .mdp-footer-inner { display: flex; justify-content: flex-end; gap: 8px; width: 100%; }
   .mdp-btn { padding: 7px 16px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; border: none; }
   .mdp-btn-secondary { background: #e2e8f0; color: #334155; }
   .mdp-btn-primary { background: ${ACCENT}; color: #fff; }
