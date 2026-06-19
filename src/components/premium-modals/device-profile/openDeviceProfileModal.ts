@@ -120,6 +120,15 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
 
   injectStyles();
 
+  // Defensive: clear any orphaned DivCard maximize backdrop/card left in <body>
+  // by a previous session (so a stale overlay never blanks the screen on open).
+  if (typeof document !== 'undefined') {
+    document.querySelectorAll('.myio-divcard__backdrop').forEach((el) => el.remove());
+    document.querySelectorAll('.myio-divcard.is-maximized').forEach((el) => {
+      if (el.parentElement === document.body) el.remove();
+    });
+  }
+
   // Standard premium shell (backdrop, header + ×, focus trap, ESC, scroll lock).
   const handle: ModalShellHandle = createModal({
     title: '⚙️ Gestão de Perfil de Dispositivos',
@@ -127,7 +136,13 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
     theme: 'light',
   });
   const body = handle.element;
-  handle.on('close', () => onClose?.());
+  // On close, destroy the DivCards so a maximized (portaled-to-body) card and its
+  // backdrop don't leak into document.body and cover the screen on the next open.
+  handle.on('close', () => {
+    cardHandles.forEach((h) => h.destroy());
+    cardHandles = [];
+    onClose?.();
+  });
 
   // Footer is stable across re-renders (only the editor body re-renders).
   handle.setFooter(renderFooter());
