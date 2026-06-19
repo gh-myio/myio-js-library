@@ -193,6 +193,26 @@ export {
   isEntradaDevice,
 } from './utils/equipmentCategory.js';
 
+// RFC-0207 (PR A0): Customer-scoped device classification profile (single source).
+// Pure resolvers + default seed reproducing the legacy hard-coded behavior.
+export {
+  DEFAULT_DEVICE_CLASSIFICATION_PROFILE,
+  resolveGroup,
+  resolveCategory,
+  validateProfile,
+  normalizeProfile,
+  resolveActiveProfile,
+} from './utils/deviceClassificationProfile.js';
+export type {
+  DeviceClassificationProfile,
+  DomainProfile,
+  ClassifiableItem,
+  GroupResolution,
+  CategoryResolution,
+  GroupName,
+  CategoryName,
+} from './utils/deviceClassificationProfile.js';
+
 // RFC-0143: Device Grid Widget Factory
 export {
   DeviceGridWidgetFactory,
