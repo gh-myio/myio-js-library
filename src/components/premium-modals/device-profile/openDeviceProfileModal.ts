@@ -19,6 +19,11 @@
 
 import { createModal, type ModalShellHandle } from '../internal/ModalPremiumShell';
 import {
+  createDivCard,
+  type DivCardAccent,
+  type DivCardHandle,
+} from '../../div-card/DivCard';
+import {
   DEFAULT_DEVICE_CLASSIFICATION_PROFILE,
   resolveGroup,
   resolveCategory,
@@ -108,6 +113,11 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
   let activeDomain: ClassificationDomain = 'energy';
   const dom = (): DomainProfile | undefined => working.domains?.[activeDomain];
 
+  // Collapse state persisted across body re-renders (chip edits rebuild the editor).
+  const collapsedIds = new Set<string>();
+  // Live DivCard instances mounted in the editor — destroyed before each re-mount.
+  let cardHandles: DivCardHandle[] = [];
+
   injectStyles();
 
   // Standard premium shell (backdrop, header + ×, focus trap, ESC, scroll lock).
@@ -144,8 +154,6 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
       </div>`;
     }
 
-    const groupRules = d.groups.rules.filter((r) => !r.fallback);
-    const fallbackName = d.groups.rules.find((r) => r.fallback)?.name || 'área comum';
     const cats = d.categories; // only energy has a breakdown
 
     return `<div class="mdp-root">
@@ -162,42 +170,127 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
       </div>
 
       <div class="mdp-cols">
-        <div class="mdp-editor">
-          <h3 class="mdp-sec-title">Colunas (grupos)</h3>
-          <div class="mdp-rule">
-            <div class="mdp-rule-name">Ocultos <small>(padrões no deviceProfile, substring)</small></div>
-            ${chipList('grp-ocultos', d.groups.ocultosProfilePatterns, ro)}
-          </div>
-          ${groupRules
-            .map(
-              (r, i) => `
-          <div class="mdp-rule">
-            <div class="mdp-rule-name">${escHtml(r.name)} <small>(deviceProfile exato)</small></div>
-            ${chipList(`grp-${i}`, r.deviceProfiles || [], ro)}
-          </div>`,
-            )
-            .join('')}
-          <div class="mdp-rule mdp-rule-muted">
-            <div class="mdp-rule-name">${escHtml(fallbackName)} <small>(residual — tudo que não casar acima)</small></div>
-          </div>
-          ${
-            activeDomain === 'water'
-              ? `<div class="mdp-note">💡 <b>banheiros</b> é preenchido pelo widget TELEMETRY (medidores de banheiro isolados), não por este perfil.</div>`
-              : ''
-          }
+        <div class="mdp-editor"></div>
 
-          ${
-            cats
-              ? `<h3 class="mdp-sec-title">Breakdown (categorias)</h3>
-          <div class="mdp-rule">
-            <div class="mdp-rule-name">Loja (store) <small>(deviceProfile exato)</small></div>
-            ${chipList('cat-store', [cats.storeDeviceProfile], ro, true)}
-          </div>
-          ${cats.rules
-            .map(
-              (r, i) => `
-          <div class="mdp-rule">
-            <div class="mdp-rule-name">${escHtml(r.name)}</div>
+        <div class="mdp-preview">
+          <h3 class="mdp-sec-title">Preview ao vivo</h3>
+          <div class="mdp-hint mdp-hint-sm">Classificação dos devices atuais com este perfil.</div>
+          <div id="mdp-preview-groups"></div>
+          <div id="mdp-preview-cats"></div>
+          <div id="mdp-errors" class="mdp-errors" style="display:none"></div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  /**
+   * Mounts the section DivCards (reusable createDivCard component) into the
+   * string-rendered `.mdp-editor`. Chip/field bodies stay as HTML strings written
+   * into each card's body slot. Collapse state persists via `collapsedIds`.
+   */
+  function mountCards(): void {
+    cardHandles.forEach((h) => h.destroy());
+    cardHandles = [];
+    const d = dom();
+    const editor = body.querySelector('.mdp-editor') as HTMLElement | null;
+    if (!d || !editor) return;
+    const ro = !canEdit;
+    const groupRules = d.groups.rules.filter((r) => !r.fallback);
+    const fallbackName = d.groups.rules.find((r) => r.fallback)?.name || 'área comum';
+    const cats = d.categories;
+
+    const addCard = (
+      id: string,
+      opts: {
+        title: string;
+        accent: DivCardAccent;
+        infoIcon?: string;
+        infoHtml?: string;
+        muted?: boolean;
+      },
+      bodyHtml: string,
+    ) => {
+      const card = createDivCard({
+        ...opts,
+        collapsed: collapsedIds.has(id),
+        onToggle: (c) => (c ? collapsedIds.add(id) : collapsedIds.delete(id)),
+      });
+      card.body.innerHTML = bodyHtml;
+      editor.appendChild(card.element);
+      cardHandles.push(card);
+    };
+    const sep = (text: string) => {
+      const h = document.createElement('h3');
+      h.className = 'mdp-sec-title';
+      h.textContent = text;
+      editor.appendChild(h);
+    };
+
+    sep('Colunas (grupos)');
+    addCard(
+      'grp-ocultos',
+      {
+        title: 'Ocultos',
+        accent: 'rose',
+        infoIcon: '🚫',
+        infoHtml: cardInfoText(
+          'Padrões (<b>substring</b>) no <b>deviceProfile</b> que marcam o device como Oculto (arquivado/inativo). Ex.: ARQUIVADO, SEM_DADOS.',
+        ),
+      },
+      chipList('grp-ocultos', d.groups.ocultosProfilePatterns, ro),
+    );
+    groupRules.forEach((r, i) =>
+      addCard(
+        `grp-${i}`,
+        {
+          title: capitalize(r.name),
+          accent: accentFor(r.name),
+          infoIcon: '🏷️',
+          infoHtml: cardInfoText(
+            `Classificado como <b>${escHtml(r.name)}</b> quando o <b>deviceProfile</b> for exatamente um destes valores.`,
+          ),
+        },
+        chipList(`grp-${i}`, r.deviceProfiles || [], ro),
+      ),
+    );
+    addCard(
+      'grp-fallback',
+      { title: capitalize(fallbackName), accent: 'slate', muted: true },
+      'Residual — tudo que não casar nas regras acima cai aqui.',
+    );
+
+    if (activeDomain === 'water') {
+      const note = document.createElement('div');
+      note.className = 'mdp-note';
+      note.innerHTML =
+        '💡 <b>banheiros</b> é preenchido pelo widget TELEMETRY (medidores de banheiro isolados), não por este perfil.';
+      editor.appendChild(note);
+    }
+
+    if (cats) {
+      sep('Breakdown (categorias)');
+      addCard(
+        'cat-store',
+        {
+          title: 'Loja (store)',
+          accent: 'emerald',
+          infoIcon: '🏪',
+          infoHtml: cardInfoText('Loja: <b>deviceProfile</b> exatamente igual a este valor (atalho de loja).'),
+        },
+        chipList('cat-store', [cats.storeDeviceProfile], ro, true),
+      );
+      cats.rules.forEach((r, i) =>
+        addCard(
+          `cat-${i}`,
+          {
+            title: capitalize(r.name),
+            accent: accentFor(r.name),
+            infoIcon: '🔧',
+            infoHtml: cardInfoText(
+              `Breakdown <b>${escHtml(r.name)}</b> (precedência): 1) deviceProfile exato; 2) texto contém; 3) condicional (deviceType + identifier); 4) identifier contém/prefixo.`,
+            ),
+          },
+          `
             <div class="mdp-field"><label>deviceProfile</label>${chipList(`cat-${i}-dp`, r.deviceProfiles || [], ro)}</div>
             <div class="mdp-field"><label>texto contém</label>${chipList(`cat-${i}-cc`, r.combinedContains || [], ro)}</div>
             <div class="mdp-field"><label>identifier contém</label>${chipList(`cat-${i}-idc`, r.identifierFallback?.identifierContains || [], ro)}</div>
@@ -211,26 +304,15 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
               <div class="mdp-field"><label>cond · identifier prefixo</label>${chipList(`cat-${i}-cidp`, r.conditional.identifierPrefixes || [], ro)}</div>
             </div>`
                 : ''
-            }
-          </div>`,
-            )
-            .join('')}
-          <div class="mdp-rule mdp-rule-muted">
-            <div class="mdp-rule-name">${escHtml(cats.fallback?.name || 'outros')} <small>(residual)</small></div>
-          </div>`
-              : ''
-          }
-        </div>
-
-        <div class="mdp-preview">
-          <h3 class="mdp-sec-title">Preview ao vivo</h3>
-          <div class="mdp-hint mdp-hint-sm">Classificação dos devices atuais com este perfil.</div>
-          <div id="mdp-preview-groups"></div>
-          <div id="mdp-preview-cats"></div>
-          <div id="mdp-errors" class="mdp-errors" style="display:none"></div>
-        </div>
-      </div>
-    </div>`;
+            }`,
+        ),
+      );
+      addCard(
+        'cat-fallback',
+        { title: capitalize(cats.fallback?.name || 'outros'), accent: 'slate', muted: true },
+        'Residual — devices que não casam em nenhuma categoria acima.',
+      );
+    }
   }
 
   function renderFooter(): string {
@@ -239,6 +321,25 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
       <button id="mdp-cancel" class="mdp-btn mdp-btn-secondary">${ro ? 'Fechar' : 'Cancelar'}</button>
       ${ro ? '' : `<button id="mdp-save" class="mdp-btn mdp-btn-primary">Salvar perfil</button>`}
     </div>`;
+  }
+
+  function capitalize(s: string): string {
+    return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+  }
+
+  function cardInfoText(html: string): string {
+    return `<div style="max-width:320px;font-size:13px;line-height:1.5">${html}</div>`;
+  }
+
+  function accentFor(name: string): DivCardAccent {
+    const n = String(name).toLowerCase();
+    if (n === 'ocultos') return 'rose';
+    if (n === 'entrada' || n === 'caixadagua') return 'sky';
+    if (n === 'climatizacao' || n === 'climatizavel') return 'violet';
+    if (n === 'nao_climatizavel') return 'slate';
+    if (n === 'elevadores' || n === 'escadas_rolantes') return 'amber';
+    if (n === 'store' || n === 'loja') return 'emerald';
+    return 'blue'; // lojas + default
   }
 
   function chipList(key: string, values: string[], readOnly: boolean, single = false): string {
@@ -328,6 +429,7 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
 
   function rerenderBody() {
     handle.setContent(renderBody());
+    mountCards(); // build the DivCard sections into .mdp-editor (before chip binding)
     bindTabs();
     bindChipEditors();
     refreshPreview();

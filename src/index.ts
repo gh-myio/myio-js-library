@@ -223,6 +223,16 @@ export type {
   DeviceProfilePreviewDevice,
 } from './components/premium-modals/device-profile/openDeviceProfileModal';
 
+// DivCard — reusable collapsible card (accent header + (i) InfoTooltip + maximize),
+// vanilla port of the gcdr-frontend SectionCard. Used internally by the device
+// profile modal sections; exported for general reuse.
+export { createDivCard } from './components/div-card/DivCard';
+export type {
+  CreateDivCardOptions,
+  DivCardHandle,
+  DivCardAccent,
+} from './components/div-card/DivCard';
+
 // RFC-0143: Device Grid Widget Factory
 export {
   DeviceGridWidgetFactory,
