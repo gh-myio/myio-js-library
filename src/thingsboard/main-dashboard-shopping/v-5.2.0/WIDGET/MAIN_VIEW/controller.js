@@ -83,8 +83,11 @@ window.MyIOUtils = window.MyIOUtils || {};
     'ContractSummaryTooltip',
     // formatting / export
     'formatEnergy',
+    'formatWaterVolumeM3',
+    'formatTankHeadFromCm',
     'exportGridPdf',
     'exportGridXls',
+    'exportGridCsv',
     // auth / ingestion
     'fetchThingsboardCustomerAttrsFromStorage',
     'buildMyioIngestionAuth',
@@ -101,6 +104,8 @@ window.MyIOUtils = window.MyIOUtils || {};
     'openDashboardPopupEnergy',
     'openDashboardPopupWaterTank',
     'openDashboardPopupAllReport',
+    'openDashboardPopupReport',
+    'openDashboardPopupSettings',
     'openTemperatureModal',
     'openTemperatureComparisonModal',
     'openTemperatureSettingsModal',
@@ -122,6 +127,9 @@ window.MyIOUtils = window.MyIOUtils || {};
     'createLogHelper',
     'createLibraryVersionChecker',
     'calculateDeviceStatusWithRanges',
+    'renderCardComponentV5',
+    'TempSensorSummaryTooltip',
+    'createPresetupGateway',
     'version',
   ];
   for (const name of LIB_SYMBOLS) {

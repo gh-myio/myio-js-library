@@ -36,7 +36,9 @@ const LogHelper = window.MyIOUtils?.LogHelper || {
  * @returns {object|null} InfoTooltip component or null if not available
  */
 function getInfoTooltip() {
-  return window.MyIOLibrary?.InfoTooltip || null;
+  const t = window.MyIOUtils?.InfoTooltip;
+  if (!t) console.error('[TELEMETRY] InfoTooltip unavailable via MyIOUtils');
+  return t || null;
 }
 
 LogHelper.log('🚀 [TELEMETRY] Controller loaded - VERSION WITH ORCHESTRATOR SUPPORT');
@@ -1128,14 +1130,14 @@ function _getEnergyGroupKey(it) {
   // resolver. Migration snapshot (deviceProfile-authoritative + A1 CAG substring;
   // 4 reviewed moves): tests/deviceClassificationProfile.energyGroupKey.test.ts.
   // The legacy deviceType-keyed Set body was removed; the canonical source is
-  // window.MyIOLibrary.resolveGroup/resolveCategory.
+  // the resolver, accessed via the MyIOUtils bridge (only MAIN touches the lib).
   //
   // `null` contract preserved: non-energy cards (water/temperature/uncategorized)
   // return null and stay always-shown (see the filter at L~898).
-  const Lib = (typeof window !== 'undefined' && window.MyIOLibrary) || null;
+  const Lib = window.MyIOUtils;
   if (!Lib || typeof Lib.resolveGroup !== 'function' || typeof Lib.resolveCategory !== 'function') {
-    LogHelper.error(
-      '[TELEMETRY] RFC-0207: MyIOLibrary.resolveGroup/resolveCategory unavailable — card-group filter disabled (update the MyIO library bundle)'
+    console.error(
+      '[TELEMETRY] RFC-0207: resolveGroup/resolveCategory unavailable via MyIOUtils — card-group filter disabled'
     );
     return null;
   }
@@ -2819,7 +2821,7 @@ function renderList(visible) {
 
       handleActionDashboard: async () => {
         const jwtToken = localStorage.getItem('jwt_token');
-        const MyIOToast = MyIOLibrary?.MyIOToast || window.MyIOToast;
+        const MyIOToast = window.MyIOUtils?.MyIOToast;
 
         if (!jwtToken) {
           if (MyIOToast) {
@@ -2874,8 +2876,8 @@ function renderList(visible) {
         try {
           if (isTermostato) {
             // Temperature/TERMOSTATO Modal Path - RFC-0085
-            // Uses MyIOLibrary.openTemperatureModal instead of inline implementation
-            LogHelper.log('[TELEMETRY v5] Entering TERMOSTATO device modal path (MyIOLibrary)...');
+            // Uses openTemperatureModal (via MyIOUtils bridge) instead of inline impl
+            LogHelper.log('[TELEMETRY v5] Entering TERMOSTATO device modal path...');
 
             const deviceId = it.tbId || it.id;
 
@@ -2903,10 +2905,10 @@ function renderList(visible) {
               tempMaxRange,
             });
 
-            // Check if MyIOLibrary.openTemperatureModal is available
-            if (typeof MyIOLibrary?.openTemperatureModal !== 'function') {
-              const errorMsg = 'Temperature modal not available. Please update MyIO library.';
-              LogHelper.error('[TELEMETRY v5] ❌', errorMsg);
+            // openTemperatureModal via the MyIOUtils bridge
+            if (typeof window.MyIOUtils?.openTemperatureModal !== 'function') {
+              const errorMsg = 'openTemperatureModal unavailable via MyIOUtils';
+              console.error('[TELEMETRY v5] ❌', errorMsg);
               throw new Error(errorMsg);
             }
 
@@ -2926,7 +2928,7 @@ function renderList(visible) {
                   throw new Error('Missing credentials for ingestion API');
                 }
                 const dataApiHost = window.MyIOUtils?.getDataApiHost?.();
-                const myIOAuth = MyIOLibrary.buildMyioIngestionAuth({
+                const myIOAuth = window.MyIOUtils.buildMyioIngestionAuth({
                   dataApiHost,
                   clientId: creds.CLIENT_ID,
                   clientSecret: creds.CLIENT_SECRET,
@@ -2986,7 +2988,7 @@ function renderList(visible) {
                 ? { min: customerClampRange.min, max: customerClampRange.max }
                 : undefined;
 
-            const modalHandle = MyIOLibrary.openTemperatureModal({
+            const modalHandle = window.MyIOUtils.openTemperatureModal({
               token: jwtToken,
               deviceId: deviceId,
               startDate: startDateISO,
@@ -3002,7 +3004,7 @@ function renderList(visible) {
               ...(clampRange ? { clampRange } : {}),
               ...(ingestionDataFetcher ? { dataFetcher: ingestionDataFetcher } : {}),
               onClose: () => {
-                LogHelper.log('[TELEMETRY v5] Temperature modal closed via MyIOLibrary');
+                LogHelper.log('[TELEMETRY v5] Temperature modal closed');
               },
             });
 
@@ -3015,22 +3017,15 @@ function renderList(visible) {
             }, 50);
             hideBusy();
 
-            LogHelper.log('[TELEMETRY v5] ✅ Temperature modal opened via MyIOLibrary:', modalHandle);
+            LogHelper.log('[TELEMETRY v5] ✅ Temperature modal opened:', modalHandle);
             return; // Exit early - modal is now handling everything
           } else if (isWaterTank) {
             // Water Tank Modal Path
             LogHelper.log('[TELEMETRY v5] Entering TANK device modal path...');
 
-            LogHelper.log(
-              '[TELEMETRY v5] MyIOLibrary available:',
-              typeof MyIOLibrary !== 'undefined',
-              'openDashboardPopupWaterTank exists:',
-              typeof MyIOLibrary?.openDashboardPopupWaterTank
-            );
-
-            if (typeof MyIOLibrary?.openDashboardPopupWaterTank !== 'function') {
-              const errorMsg = 'Water tank modal not available. Please update MyIO library.';
-              LogHelper.error('[TELEMETRY v5] ❌', errorMsg);
+            if (typeof window.MyIOUtils?.openDashboardPopupWaterTank !== 'function') {
+              const errorMsg = 'openDashboardPopupWaterTank unavailable via MyIOUtils';
+              console.error('[TELEMETRY v5] ❌', errorMsg);
               throw new Error(errorMsg);
             }
 
@@ -3076,7 +3071,7 @@ function renderList(visible) {
 
             LogHelper.log('[TELEMETRY v5] ⏳ About to call openDashboardPopupWaterTank...');
 
-            const modalHandle = await MyIOLibrary.openDashboardPopupWaterTank({
+            const modalHandle = await window.MyIOUtils.openDashboardPopupWaterTank({
               deviceId: it.id,
               deviceType: deviceType,
               tbJwtToken: jwtToken,
@@ -3203,7 +3198,7 @@ function renderList(visible) {
 
             if (!tbId) {
               LogHelper.warn('[TELEMETRY v5] No TB device ID for temperature report');
-              const MyIOToast = MyIOLibrary?.MyIOToast || window.MyIOToast;
+              const MyIOToast = window.MyIOUtils?.MyIOToast;
               if (MyIOToast) {
                 MyIOToast.error('Nao foi possivel identificar o dispositivo.');
               }
@@ -3382,7 +3377,7 @@ function renderList(visible) {
             tbId,
           });
           hideBusy();
-          const MyIOToast = window.MyIOLibrary?.MyIOToast;
+          const MyIOToast = window.MyIOUtils?.MyIOToast;
           if (MyIOToast) {
             MyIOToast.error('Não foi possível identificar o deviceId do ThingsBoard para este card.', 5000);
           }
@@ -3621,9 +3616,9 @@ function _getExportCustomerName() {
 }
 
 function _openPresetupModal() {
-  const lib = window.MyIOLibrary;
+  const lib = window.MyIOUtils;
   if (!lib?.createPresetupGateway) {
-    LogHelper.warn('[TELEMETRY] createPresetupGateway não disponível em MyIOLibrary');
+    console.error('[TELEMETRY] createPresetupGateway unavailable via MyIOUtils');
     return;
   }
   const s = self.ctx.settings || {};
@@ -3853,9 +3848,9 @@ function bindHeader() {
 
   // Export buttons
   $root().on('click', '#btnExportPdf', () => {
-    const lib = window.MyIOLibrary;
+    const lib = window.MyIOUtils;
     if (!lib?.exportGridPdf) {
-      LogHelper.warn('[TELEMETRY] exportGridPdf not available in MyIOLibrary');
+      console.error('[TELEMETRY] exportGridPdf unavailable via MyIOUtils');
       return;
     }
     lib.exportGridPdf(
@@ -3868,9 +3863,9 @@ function bindHeader() {
   });
 
   $root().on('click', '#btnExportXls', () => {
-    const lib = window.MyIOLibrary;
+    const lib = window.MyIOUtils;
     if (!lib?.exportGridXls) {
-      LogHelper.warn('[TELEMETRY] exportGridXls not available in MyIOLibrary');
+      console.error('[TELEMETRY] exportGridXls unavailable via MyIOUtils');
       return;
     }
     lib.exportGridXls(
@@ -3883,9 +3878,9 @@ function bindHeader() {
   });
 
   $root().on('click', '#btnExportCsv', () => {
-    const lib = window.MyIOLibrary;
+    const lib = window.MyIOUtils;
     if (!lib?.exportGridCsv) {
-      LogHelper.warn('[TELEMETRY] exportGridCsv not available in MyIOLibrary');
+      console.error('[TELEMETRY] exportGridCsv unavailable via MyIOUtils');
       return;
     }
     lib.exportGridCsv(
@@ -4035,9 +4030,9 @@ function _applyChecklistVisibility($m) {
 
 // Quick filters: device-list tooltip shown by the (+) button on a tab.
 function _showQuickFilterDevices(triggerEl, filterId) {
-  const InfoTooltip = window.MyIOLibrary && window.MyIOLibrary.InfoTooltip;
+  const InfoTooltip = window.MyIOUtils?.InfoTooltip;
   if (!InfoTooltip) {
-    LogHelper.warn('[TELEMETRY] InfoTooltip indisponível para o (+) de filtros');
+    console.error('[TELEMETRY] InfoTooltip unavailable via MyIOUtils (+ de filtros)');
     return;
   }
 
@@ -4172,14 +4167,11 @@ function _buildColumnSummaryData() {
 
 // Attaches the library ColumnSummaryTooltip to the (i) icons — shops-header + filter modal.
 function _attachColumnSummary($m) {
-  const CST =
-    (typeof MyIO !== 'undefined' && MyIO && MyIO.ColumnSummaryTooltip) ||
-    (window.MyIOLibrary && window.MyIOLibrary.ColumnSummaryTooltip) ||
-    null;
+  const CST = window.MyIOUtils?.ColumnSummaryTooltip || null;
   const $headerInfo = $root().find('#shopsColInfo');
   const $modalInfo = $m ? $m.find('#filterColInfo') : null;
   if (!CST) {
-    LogHelper.warn('[TELEMETRY] ColumnSummaryTooltip indisponível na lib — ocultando ícones (i)');
+    console.error('[TELEMETRY] ColumnSummaryTooltip unavailable via MyIOUtils — ocultando ícones (i)');
     $headerInfo.hide();
     if ($modalInfo) $modalInfo.hide();
     return;
@@ -4847,7 +4839,7 @@ function bindModal() {
     _showQuickFilterDevices(this, String($(this).data('expand-filter') || ''));
   });
   $m.on('mouseleave', '.filter-tab-expand', function () {
-    const T = window.MyIOLibrary && window.MyIOLibrary.InfoTooltip;
+    const T = window.MyIOUtils?.InfoTooltip;
     if (T) T.startDelayedHide();
   });
   $m.on('click', '.filter-tab-expand', function (ev) {
@@ -5759,12 +5751,13 @@ self.onInit = async function () {
     position: 'relative',
   });
 
-  MyIO = (typeof MyIOLibrary !== 'undefined' && MyIOLibrary) ||
-    (typeof window !== 'undefined' && window.MyIOLibrary) || {
-      showAlert: function () {
-        alert('A Bliblioteca Myio não foi carregada corretamente!');
-      },
-    };
+  // Lib access goes through the MyIOUtils bridge (MAIN is the only widget that
+  // touches the library object). All `MyIO.<symbol>` reads below resolve via the
+  // bridge getters. No direct library reference here.
+  MyIO = (typeof window !== 'undefined' && window.MyIOUtils) || {};
+  if (!window.MyIOUtils) {
+    console.error('[TELEMETRY] MyIOUtils bridge unavailable (MAIN/lib not ready?)');
+  }
 
   $root().find('#labelWidgetId').text(self.ctx.settings?.labelWidget);
 
