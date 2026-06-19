@@ -21,6 +21,10 @@
 export interface ClassifiableItem {
   deviceProfile?: string | null;
   identifier?: string | null;
+  /** Free-text fields used by the breakdown's combined-substring matching (RFC-0207 A1b). */
+  labelWidget?: string | null;
+  deviceType?: string | null;
+  label?: string | null;
   [key: string]: unknown;
 }
 
@@ -42,7 +46,12 @@ export type CategoryName =
   | 'elevadores'
   | 'escadas_rolantes'
   | 'outros';
-export type CategoryMatchedBy = 'deviceProfile' | 'identifier' | 'conditional' | 'fallback';
+export type CategoryMatchedBy =
+  | 'deviceProfile'
+  | 'combined'
+  | 'identifier'
+  | 'conditional'
+  | 'fallback';
 
 export interface CategoryResolution {
   category: CategoryName;
@@ -75,6 +84,12 @@ export interface CategoryRule {
   name: Exclude<CategoryName, 'lojas'>; // lojas is handled by the store shortcut
   /** Exact deviceProfile matches (the legacy "deviceTypes" Set). */
   deviceProfiles: string[];
+  /**
+   * Substring patterns over the COMBINED text (labelWidget + deviceType +
+   * deviceProfile + label), mirroring buildSummary's loose matching (A1b).
+   * This is what unifies the breakdown subcategorization into one source.
+   */
+  combinedContains?: string[];
   /** climatizacao-only conditional ({BOMBA,MOTOR} + identifier hit). */
   conditional?: ConditionalRule;
   /** Identifier-fallback hit list, mirroring classifyDeviceByIdentifier. */
@@ -146,44 +161,60 @@ export const DEFAULT_DEVICE_CLASSIFICATION_PROFILE: DeviceClassificationProfile 
       categories: {
         // isStoreDevice — deviceProfile === '3F_MEDIDOR' -> 'lojas'
         storeDeviceProfile: '3F_MEDIDOR',
+        // Rule order = buildSummary's LOOSE precedence (elevador -> escada ->
+        // climatizacao). Exact-deviceProfile matching (pass 1) is disjoint so the
+        // order is irrelevant there; the order only governs the loose pass 2.
         rules: [
           {
-            name: 'climatizacao',
-            // CLIMATIZACAO_DEVICE_TYPES_SET
-            deviceProfiles: ['CHILLER', 'AR_CONDICIONADO', 'HVAC', 'FANCOIL'],
-            // CLIMATIZACAO_CONDITIONAL_TYPES_SET + identifier requirement
-            conditional: {
-              deviceTypes: ['BOMBA', 'MOTOR'],
-              // RFC-0207 A1 — BUG #1 FIX: substring (.includes), unifying with
-              // equipmentCategory.js. Catches "CAG 01", "BOMBA CAG 2", etc.
-              // (identifierPrefixes now redundant for CAG/FANCOIL but kept harmless.)
-              identifierContains: ['CAG', 'FANCOIL'],
-              identifierPrefixes: ['CAG-', 'FANCOIL-'],
-            },
-            // classifyDeviceByIdentifier — climatizacao branch
-            identifierFallback: {
-              identifierContains: ['CAG', 'FANCOIL'],
-              identifierPrefixes: ['CAG-', 'FANCOIL-'],
-            },
-          },
-          {
             name: 'elevadores',
-            // ELEVADORES_DEVICE_TYPES_SET
+            // ELEVADORES_DEVICE_TYPES_SET + buildSummary ELEVADOR_PATTERNS
             deviceProfiles: ['ELEVADOR'],
+            combinedContains: ['ELEVADOR'],
             identifierFallback: {
-              // ELEVADORES_IDENTIFIERS_SET
+              // ELEVADORES_IDENTIFIERS_SET + buildSummary id prefix ELV-
               identifierEquals: ['ELV', 'ELEVADOR', 'ELEVADORES'],
               identifierPrefixes: ['ELV-', 'ELEVADOR-'],
             },
           },
           {
             name: 'escadas_rolantes',
-            // ESCADAS_DEVICE_TYPES_SET
+            // ESCADAS_DEVICE_TYPES_SET + buildSummary ESCADA_PATTERNS
             deviceProfiles: ['ESCADA_ROLANTE'],
+            combinedContains: ['ESCADA', 'ROLANTE'],
             identifierFallback: {
-              // ESCADAS_IDENTIFIERS_SET
+              // ESCADAS_IDENTIFIERS_SET + buildSummary id prefix ESC-
               identifierEquals: ['ESC', 'ESCADA', 'ESCADASROLANTES'],
               identifierPrefixes: ['ESC-', 'ESCADA-', 'ESCADA_'],
+            },
+          },
+          {
+            name: 'climatizacao',
+            // CLIMATIZACAO_DEVICE_TYPES_SET
+            deviceProfiles: ['CHILLER', 'AR_CONDICIONADO', 'HVAC', 'FANCOIL'],
+            // buildSummary CLIMATIZACAO_PATTERNS (superset of the deviceProfiles)
+            combinedContains: [
+              'CHILLER',
+              'FANCOIL',
+              'HVAC',
+              'AR_CONDICIONADO',
+              'COMPRESSOR',
+              'VENTILADOR',
+              'CLIMATIZA',
+              'BOMBA_HIDRAULICA',
+              'BOMBASHIDRAULICAS',
+            ],
+            // CLIMATIZACAO_CONDITIONAL_TYPES_SET + identifier requirement
+            conditional: {
+              deviceTypes: ['BOMBA', 'MOTOR'],
+              // RFC-0207 A1 — BUG #1 FIX: substring (.includes), unifying with
+              // equipmentCategory.js. Catches "CAG 01", "BOMBA CAG 2", etc.
+              identifierContains: ['CAG', 'FANCOIL'],
+              identifierPrefixes: ['CAG-', 'FANCOIL-'],
+            },
+            // classifyDeviceByIdentifier + buildSummary id prefixes (CAG-/FANCOIL-/CHILLER-)
+            identifierFallback: {
+              identifierContains: ['CAG', 'FANCOIL'],
+              identifierPrefixes: ['CAG-', 'FANCOIL-', 'CHILLER-'],
             },
           },
         ],
@@ -209,6 +240,17 @@ function profileOf(item: ClassifiableItem | null | undefined): string {
 /** identifier: legacy does String(item.identifier||'').toUpperCase().trim(). */
 function identifierOf(item: ClassifiableItem | null | undefined): string {
   return up(item?.identifier ?? '').trim();
+}
+
+/**
+ * combined: mirrors buildSummary's
+ * `${labelWidget} ${deviceType} ${deviceProfile} ${label}` (upper-cased).
+ * Identifier is intentionally NOT included (buildSummary keeps it separate).
+ */
+function combinedOf(item: ClassifiableItem | null | undefined): string {
+  return `${up(item?.labelWidget ?? '')} ${up(item?.deviceType ?? '')} ${up(
+    item?.deviceProfile ?? '',
+  )} ${up(item?.label ?? '')}`;
 }
 
 /** Mirrors an IdentifierMatch against an already-normalized (trim+upper) id. */
@@ -268,85 +310,23 @@ export function resolveGroup(
 }
 
 // ---------------------------------------------------------------------------
-// resolveCategory — reproduces classifyDevice EXACTLY
-// (deviceType-path first; identifier fallback only when deviceType-path === 'outros'
-//  and item.identifier present)
+// resolveCategory — UNIFIED breakdown classifier (RFC-0207 A1b)
+//
+// Single source for both classifyDevice (column/orchestrator) and buildSummary
+// (TELEMETRY_INFO breakdown), closing bug #2. Two passes:
+//   Pass 1 — exact deviceProfile (authoritative, disjoint): store -> each rule's
+//            deviceProfiles. This keeps precise profile matches winning over the
+//            loose text signals (so e.g. an ELEVADOR with a "CAG" label stays an
+//            elevador, matching legacy classifyDevice).
+//   Pass 2 — loose, in rule order (= buildSummary precedence): combinedContains
+//            (text), then conditional (BOMBA/MOTOR + identifier), then the
+//            identifier fallback (equals/contains/prefixes — now unconditional,
+//            like buildSummary's id-prefix checks).
+//   else  — outros / fallback (the genuine-orphan signal).
+//
+// This is a deliberate behavior change vs BOTH legacy paths; the dual-oracle
+// migration snapshot documents every move.
 // ---------------------------------------------------------------------------
-
-interface CategoryPathResult {
-  category: CategoryName;
-  matchedBy: CategoryMatchedBy;
-}
-
-/** Mirrors classifyDeviceByDeviceType. */
-function classifyByDeviceType(
-  item: ClassifiableItem,
-  dom: DomainProfile,
-): CategoryPathResult {
-  const dp = profileOf(item);
-
-  // isStoreDevice
-  if (dp === up(dom.categories.storeDeviceProfile)) {
-    return { category: 'lojas', matchedBy: 'deviceProfile' };
-  }
-
-  // legacy: if (!deviceProfile || deviceProfile === 'N/D') return 'outros'
-  if (!dp || dp === 'N/D') {
-    return { category: 'outros', matchedBy: 'fallback' };
-  }
-
-  const id = identifierOf(item);
-
-  for (const rule of dom.categories.rules) {
-    // exact deviceProfile -> category
-    for (const candidate of rule.deviceProfiles) {
-      if (dp === up(candidate)) {
-        return { category: rule.name, matchedBy: 'deviceProfile' };
-      }
-    }
-    // conditional ({BOMBA,MOTOR} + identifier hit)
-    if (rule.conditional) {
-      for (const condType of rule.conditional.deviceTypes) {
-        if (dp === up(condType)) {
-          if (matchesIdentifier(id, rule.conditional)) {
-            return { category: rule.name, matchedBy: 'conditional' };
-          }
-          // conditional type matched but identifier missed -> 'outros'
-          return { category: 'outros', matchedBy: 'fallback' };
-        }
-      }
-    }
-  }
-
-  return { category: 'outros', matchedBy: 'fallback' };
-}
-
-/**
- * Mirrors classifyDeviceByIdentifier. Returns null when the identifier is
- * absent/sentinel (legacy returns null -> caller keeps deviceType result).
- */
-function classifyByIdentifier(
-  rawIdentifier: string | null | undefined,
-  dom: DomainProfile,
-): CategoryPathResult | null {
-  if (
-    !rawIdentifier ||
-    rawIdentifier === 'N/A' ||
-    rawIdentifier === 'null' ||
-    rawIdentifier === 'undefined'
-  ) {
-    return null;
-  }
-  const id = up(rawIdentifier).trim();
-  if (id.includes('SEM IDENTIFICADOR')) return null;
-
-  for (const rule of dom.categories.rules) {
-    if (matchesIdentifier(id, rule.identifierFallback)) {
-      return { category: rule.name, matchedBy: 'identifier' };
-    }
-  }
-  return { category: 'outros', matchedBy: 'fallback' };
-}
 
 export function resolveCategory(
   item: ClassifiableItem | null | undefined,
@@ -356,23 +336,48 @@ export function resolveCategory(
   if (!item) return { category: 'outros', matchedBy: 'fallback' };
 
   const dom = getEnergyDomain(profile);
+  const dp = profileOf(item);
 
-  // deviceType-path first
-  const byType = classifyByDeviceType(item, dom);
-  if (byType.category !== 'outros') {
-    return { category: byType.category, matchedBy: byType.matchedBy };
+  // isStoreDevice
+  if (dp === up(dom.categories.storeDeviceProfile)) {
+    return { category: 'lojas', matchedBy: 'deviceProfile' };
   }
 
-  // identifier fallback only when deviceType-path yields 'outros' AND identifier present
-  if (item.identifier != null && String(item.identifier).length > 0) {
-    const byId = classifyByIdentifier(item.identifier, dom);
-    // legacy: use it only if non-null and !== 'outros'
-    if (byId && byId.category !== 'outros') {
-      return { category: byId.category, matchedBy: byId.matchedBy };
+  const rules = dom.categories.rules;
+
+  // Pass 1 — exact deviceProfile (authoritative).
+  for (const rule of rules) {
+    for (const candidate of rule.deviceProfiles) {
+      if (dp && dp === up(candidate)) {
+        return { category: rule.name, matchedBy: 'deviceProfile' };
+      }
     }
   }
 
-  // genuine orphan
+  // Pass 2 — loose, in rule order (buildSummary precedence).
+  const combined = combinedOf(item);
+  const id = identifierOf(item);
+  for (const rule of rules) {
+    // combinedContains (text substring)
+    if (rule.combinedContains) {
+      for (const pattern of rule.combinedContains) {
+        if (combined.includes(up(pattern))) {
+          return { category: rule.name, matchedBy: 'combined' };
+        }
+      }
+    }
+    // conditional ({BOMBA,MOTOR} + identifier hit)
+    if (rule.conditional && rule.conditional.deviceTypes.some((t) => dp === up(t))) {
+      if (matchesIdentifier(id, rule.conditional)) {
+        return { category: rule.name, matchedBy: 'conditional' };
+      }
+    }
+    // identifier fallback (unconditional)
+    if (matchesIdentifier(id, rule.identifierFallback)) {
+      return { category: rule.name, matchedBy: 'identifier' };
+    }
+  }
+
   return { category: 'outros', matchedBy: 'fallback' };
 }
 
@@ -504,6 +509,7 @@ export function normalizeProfile(raw: DeviceClassificationProfile): DeviceClassi
     }
     for (const r of dom.categories.rules ?? []) {
       r.deviceProfiles = upArr(r.deviceProfiles) ?? [];
+      r.combinedContains = upArr(r.combinedContains);
       if (r.conditional) {
         r.conditional.deviceTypes = upArr(r.conditional.deviceTypes) ?? [];
         upIdMatch(r.conditional);
