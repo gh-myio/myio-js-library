@@ -729,7 +729,7 @@ self.onInit = function () {
 
   // RFC-0207 Phase B: open the Device Classification Profile management modal.
   function openDeviceProfileSettings(user) {
-    const Lib = window.MyIOLibrary;
+    const Lib = window.MyIOUtils;
     if (!Lib || typeof Lib.openDeviceProfileModal !== 'function') {
       const msg = 'Componente de Perfil de Dispositivos indisponível. Atualize a biblioteca MyIO.';
       const MyIOToast = Lib?.MyIOToast;
@@ -783,13 +783,13 @@ self.onInit = function () {
 
   // ── RFC-0190: Gestão de Usuários (apenas SuperAdmin MyIO) ───────────────────
   function openUserManagementModal(user) {
-    if (!window.MyIOLibrary?.openUserManagementModal) {
-      LogHelper.warn('[MENU] openUserManagementModal not available in MyIOLibrary');
+    if (!window.MyIOUtils?.openUserManagementModal) {
+      LogHelper.warn('[MENU] openUserManagementModal not available in MyIOBridge');
       return;
     }
     const jwt = localStorage.getItem('jwt_token') || '';
     const orch = window.MyIOOrchestrator;
-    window.MyIOLibrary.openUserManagementModal({
+    window.MyIOUtils.openUserManagementModal({
       customerId: orch?.customerTB_ID || self.ctx.settings?.customerTB_ID || '',
       tenantId: user.tenantId?.id || '',
       customerName:
@@ -937,7 +937,7 @@ self.onInit = function () {
 
     // ── Modal ──────────────────────────────────────────────────────────────────
     const mddHeaderHtml =
-      window.MyIOLibrary?.ModalHeader?.generateInlineHTML({
+      window.MyIOUtils?.ModalHeader?.generateInlineHTML({
         icon: '🏠',
         title: `Dashboard Padrão${customerName ? ` — ${customerName}` : ''}`,
         modalId: 'mdd-modal',
@@ -1061,7 +1061,7 @@ self.onInit = function () {
       saveBtn.disabled = true;
       saveBtn.textContent = 'Salvando...';
       try {
-        const version = window.MyIOLibrary?.version || '0.0.0';
+        const version = window.MyIOUtils?.version || '0.0.0';
         const now = new Date().toISOString();
         const currentUserName =
           [user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.email || '';
@@ -1210,7 +1210,7 @@ self.onInit = function () {
     if (existing) existing.remove();
 
     const isetupHeaderHtml =
-      window.MyIOLibrary?.ModalHeader?.generateInlineHTML({
+      window.MyIOUtils?.ModalHeader?.generateInlineHTML({
         icon: '🔗',
         title: 'Setup de Integração',
         modalId: 'isetup-modal',
@@ -1742,8 +1742,8 @@ self.onInit = function () {
 
   // RFC-0108: Open temperature settings modal
   function openTemperatureSettings(user) {
-    const MyIOLibrary = window.MyIOLibrary;
-    if (!MyIOLibrary?.openTemperatureSettingsModal) {
+    const MyIOBridge = window.MyIOUtils;
+    if (!MyIOBridge?.openTemperatureSettingsModal) {
       LogHelper.error('[MENU] openTemperatureSettingsModal not available');
       window.alert('Componente de configuração de temperatura não disponível.');
       return;
@@ -1763,7 +1763,7 @@ self.onInit = function () {
       return;
     }
 
-    MyIOLibrary.openTemperatureSettingsModal({
+    MyIOBridge.openTemperatureSettingsModal({
       token: jwtToken,
       customerId: customerId,
       customerName: customerName,
@@ -1786,8 +1786,8 @@ self.onInit = function () {
 
   // RFC-0108: Open contract devices modal
   function openContractDevicesSettings(user) {
-    const MyIOLibrary = window.MyIOLibrary;
-    if (!MyIOLibrary?.openContractDevicesModal) {
+    const MyIOBridge = window.MyIOUtils;
+    if (!MyIOBridge?.openContractDevicesModal) {
       LogHelper.error('[MENU] openContractDevicesModal not available');
       window.alert('Componente de dispositivos contratados não disponível.');
       return;
@@ -1807,7 +1807,7 @@ self.onInit = function () {
       return;
     }
 
-    MyIOLibrary.openContractDevicesModal({
+    MyIOBridge.openContractDevicesModal({
       customerId: customerId,
       customerName: customerName,
       jwtToken: jwtToken,
@@ -1829,8 +1829,8 @@ self.onInit = function () {
 
   // RFC-0108: Open measurement setup modal
   function openMeasurementSettings(user) {
-    const MyIOLibrary = window.MyIOLibrary;
-    if (!MyIOLibrary?.openMeasurementSetupModal) {
+    const MyIOBridge = window.MyIOUtils;
+    if (!MyIOBridge?.openMeasurementSetupModal) {
       LogHelper.error('[MENU] openMeasurementSetupModal not available');
       window.alert('Componente de configuração de medidas não disponível.');
       return;
@@ -1858,7 +1858,7 @@ self.onInit = function () {
           }
         : null);
 
-    MyIOLibrary.openMeasurementSetupModal({
+    MyIOBridge.openMeasurementSetupModal({
       token: jwtToken,
       customerId: customerId,
       existingSettings: existingSettings,
@@ -1959,8 +1959,8 @@ self.onInit = function () {
     tempSettingsBtn.addEventListener('click', () => {
       LogHelper.log('[MENU] Temperature settings clicked');
 
-      const MyIOLibrary = window.MyIOLibrary;
-      if (!MyIOLibrary?.openTemperatureSettingsModal) {
+      const MyIOBridge = window.MyIOUtils;
+      if (!MyIOBridge?.openTemperatureSettingsModal) {
         LogHelper.error('[MENU] openTemperatureSettingsModal not available');
         window.alert('Componente de configuração de temperatura não disponível.');
         return;
@@ -1987,7 +1987,7 @@ self.onInit = function () {
 
       LogHelper.log('[MENU] Opening temperature settings for customer:', { customerId, customerName });
 
-      MyIOLibrary.openTemperatureSettingsModal({
+      MyIOBridge.openTemperatureSettingsModal({
         token: jwtToken,
         customerId: customerId,
         customerName: customerName,
@@ -2043,8 +2043,8 @@ self.onInit = function () {
     contractDevicesBtn.addEventListener('click', () => {
       LogHelper.log('[MENU] Contract devices clicked');
 
-      const MyIOLibrary = window.MyIOLibrary;
-      if (!MyIOLibrary?.openContractDevicesModal) {
+      const MyIOBridge = window.MyIOUtils;
+      if (!MyIOBridge?.openContractDevicesModal) {
         LogHelper.error('[MENU] openContractDevicesModal not available');
         window.alert('Componente de dispositivos contratados nao disponivel.');
         return;
@@ -2071,7 +2071,7 @@ self.onInit = function () {
 
       LogHelper.log('[MENU] Opening contract devices modal for customer:', { customerId, customerName });
 
-      MyIOLibrary.openContractDevicesModal({
+      MyIOBridge.openContractDevicesModal({
         customerId: customerId,
         customerName: customerName,
         jwtToken: jwtToken,
@@ -2134,8 +2134,8 @@ self.onInit = function () {
     measurementSetupBtn.addEventListener('click', () => {
       LogHelper.log('[MENU] Measurement setup clicked');
 
-      const MyIOLibrary = window.MyIOLibrary;
-      if (!MyIOLibrary?.openMeasurementSetupModal) {
+      const MyIOBridge = window.MyIOUtils;
+      if (!MyIOBridge?.openMeasurementSetupModal) {
         LogHelper.error('[MENU] openMeasurementSetupModal not available');
         window.alert('Componente de configuração de medidas não disponível.');
         return;
@@ -2173,7 +2173,7 @@ self.onInit = function () {
             }
           : null);
 
-      MyIOLibrary.openMeasurementSetupModal({
+      MyIOBridge.openMeasurementSetupModal({
         token: jwtToken,
         customerId: customerId,
         existingSettings: existingSettings,
@@ -2551,7 +2551,7 @@ self.onInit = function () {
   }
 
   function _openGroupReport(domain, group, baseParams) {
-    const MyIOLib = window.MyIOLibrary;
+    const MyIOLib = window.MyIOUtils;
     if (!MyIOLib?.openDashboardPopupAllReport) {
       LogHelper.error('[MENU RFC-0181] openDashboardPopupAllReport not available');
       return;
@@ -3155,7 +3155,7 @@ self.onInit = function () {
       return;
     }
 
-    const MyIOLib = window.MyIOLibrary;
+    const MyIOLib = window.MyIOUtils;
     if (MyIOLib && typeof MyIOLib.createLibraryVersionChecker === 'function') {
       // Homolog channel toggle from MAIN_VIEW (settingsSchema.homologMode). When
       // ON, validate against the latest -homolog build instead of latest stable.
@@ -3173,7 +3173,7 @@ self.onInit = function () {
         },
       });
     } else {
-      LogHelper.warn('[MENU] RFC-0137: createLibraryVersionChecker not available in MyIOLibrary');
+      LogHelper.warn('[MENU] RFC-0137: createLibraryVersionChecker not available in MyIOBridge');
       // Fallback: show version only
       const version = MyIOLib?.version || 'unknown';
       container.innerHTML = `<span style="font-size:12px;color:#9CA3AF;opacity:0.8;">v${version}</span>`;
