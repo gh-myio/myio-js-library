@@ -731,7 +731,13 @@ self.onInit = function () {
   function openDeviceProfileSettings(user) {
     const Lib = window.MyIOLibrary;
     if (!Lib || typeof Lib.openDeviceProfileModal !== 'function') {
-      window.alert('Componente de Perfil de Dispositivos indisponível. Atualize a biblioteca MyIO.');
+      const msg = 'Componente de Perfil de Dispositivos indisponível. Atualize a biblioteca MyIO.';
+      const MyIOToast = Lib?.MyIOToast;
+      if (MyIOToast?.error) {
+        MyIOToast.error(msg, 6000);
+      } else {
+        LogHelper.error('[MENU] ' + msg);
+      }
       return;
     }
     const customerId = window.MyIOUtils?.customerTB_ID || self.ctx?.settings?.customerTB_ID || '';
