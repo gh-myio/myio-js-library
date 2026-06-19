@@ -3276,7 +3276,24 @@ function categorizeItemsByGroupWater(items) {
 
   const toStr = (val) => String(val || '').toUpperCase();
 
+  // RFC-0207 (follow-up #2): delegate to the single-source resolver's water
+  // domain when the library exposes it. Proven equivalent to the legacy body
+  // below by tests/deviceClassificationProfile.water-temperature.test.ts (zero
+  // diff). Older bundles (no resolver) run the legacy body unchanged.
+  const _resolveGroup =
+    (typeof window !== 'undefined' && window.MyIOLibrary && window.MyIOLibrary.resolveGroup) || null;
+
   for (const item of items) {
+    if (_resolveGroup) {
+      const grp = _resolveGroup(item, undefined, 'water').group;
+      if (grp === 'entrada') entrada.push(item);
+      else if (grp === 'lojas') lojas.push(item);
+      else if (grp === 'caixadagua') caixadagua.push(item);
+      else if (grp === 'ocultos') ocultos.push(item);
+      else areacomum.push(item); // areacomum (banheiros never produced here)
+      continue;
+    }
+
     // RULE 0: ocultos
     if (isOcultosDevice(item)) {
       ocultos.push(item);
@@ -3338,7 +3355,21 @@ function categorizeItemsByGroupTemperature(items) {
 
   const toStr = (val) => String(val || '').toUpperCase();
 
+  // RFC-0207 (follow-up #2): delegate to the single-source resolver's
+  // temperature domain when available. Proven equivalent by
+  // tests/deviceClassificationProfile.water-temperature.test.ts (zero diff).
+  const _resolveGroup =
+    (typeof window !== 'undefined' && window.MyIOLibrary && window.MyIOLibrary.resolveGroup) || null;
+
   for (const item of items) {
+    if (_resolveGroup) {
+      const grp = _resolveGroup(item, undefined, 'temperature').group;
+      if (grp === 'nao_climatizavel') nao_climatizavel.push(item);
+      else if (grp === 'ocultos') ocultos.push(item);
+      else climatizavel.push(item);
+      continue;
+    }
+
     if (isOcultosDevice(item)) {
       ocultos.push(item);
       continue;

@@ -39,9 +39,13 @@ is absent), not the source of truth.
 > breakdown unified through `resolveCategory`). **Phase B** — `setActiveProfile`/`getActiveProfile`,
 > the customer SERVER_SCOPE `deviceClassificationProfile` loaded in `MAIN_VIEW.onInit`, the
 > premium MENU modal `openDeviceProfileModal` (view/edit/preview/save, permission-gated), and
-> the bug #3 dead-key removal in TELEMETRY. Follow-ups remain (see §Unresolved / §Future):
-> editor for `conditional` rules, water/temperature domains, and full delegation of the
-> TELEMETRY card-filter path (`_getEnergyGroupKey`) behind its own equivalence golden.
+> the bug #3 dead-key removal in TELEMETRY. **Follow-up #1** — `conditional`-rule editor in
+> the modal. **Follow-up #2** — water/temperature domains: the resolver is now domain-generic
+> (`resolveGroup(item, profile, domain)`), the DEFAULT seed encodes `water` and `temperature`
+> faithfully (proven equivalent to `categorizeItemsByGroupWater`/`Temperature` by a zero-diff
+> golden), `MAIN_VIEW` delegates both, and the modal gained Energia/Água/Temperatura tabs.
+> Remaining follow-up (see §Unresolved / §Future): full delegation of the TELEMETRY card-filter
+> path (`_getEnergyGroupKey`) behind its own equivalence golden.
 
 ---
 
@@ -300,8 +304,9 @@ Edit is allowed only when the user is a MyIO user (`@myio.com.br`) **or** holdin
    deltas, or always carry a full document? (Head-office dashboards orchestrate many customers.)
 3. **Re-classification trigger** — on save, re-dispatch orchestrator events vs require reload?
    (Design assumes in-place re-dispatch.)
-4. **Water/temperature parity** — ship `energy` first and add `water`/`temperature` groups in
-   the same schema later, or define all three up front?
+4. **Water/temperature parity** — ✅ RESOLVED (follow-up #2): all three domains defined in the
+   same schema; resolver is domain-generic; `water`/`temperature` are optional and fall back to
+   the DEFAULT seed when a customer profile omits them.
 5. **Where the default seed lives** — `src/utils/deviceClassificationProfile.ts` exported, so
    the SIM and non-attribute contexts share it; confirm SIM (`MYIO-SIM`) consumes the same.
 
@@ -407,7 +412,7 @@ Mapping back to the RFC's existing *Unresolved questions* list:
 | Attribute key naming | **Standalone key**, carrying its own `schemaVersion`. |
 | Holding / customer inheritance | **Out of MVP.** |
 | What triggers re-classification | **Best-effort override** — attribute read on load; failure falls back to seed silently + audit log. No live re-classification in MVP. |
-| Water / temperature parity | **Out of MVP** (energy domain only). |
+| Water / temperature parity | ✅ **Implemented** (follow-up #2) — domain-generic resolver + seed + delegation + modal tabs. |
 | Where the default seed lives | **In code, as the operational source of truth.** The customer attribute only *overrides* it. |
 
 ### New open question (John → Sally)

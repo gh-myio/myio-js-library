@@ -19,8 +19,16 @@ import {
   validateProfile,
   setActiveProfile,
   type DeviceClassificationProfile,
+  type DomainProfile,
+  type ClassificationDomain,
   type ClassifiableItem,
 } from '../../../utils/deviceClassificationProfile';
+
+const DOMAIN_TABS: { key: ClassificationDomain; label: string; icon: string }[] = [
+  { key: 'energy', label: 'Energia', icon: '⚡' },
+  { key: 'water', label: 'Água', icon: '💧' },
+  { key: 'temperature', label: 'Temperatura', icon: '🌡️' },
+];
 
 const MODAL_ID = 'myio-device-profile-modal';
 const STYLE_ID = 'myio-device-profile-styles';
@@ -38,8 +46,12 @@ export interface OpenDeviceProfileModalParams {
   profile?: DeviceClassificationProfile | null;
   /** When false the modal is read-only (no save). */
   canEdit?: boolean;
-  /** Returns the current devices for the live preview (energy domain). */
-  getDevices?: () => DeviceProfilePreviewDevice[];
+  /**
+   * Returns the current devices for the live preview, for the given domain.
+   * (Older callers that ignore the argument still work — they just preview the
+   * same device set across tabs.)
+   */
+  getDevices?: (domain: ClassificationDomain) => DeviceProfilePreviewDevice[];
   /** Author recorded in the saved profile (`updatedBy`). */
   userName?: string;
   /** Called after a successful save with the applied profile. */
@@ -73,7 +85,23 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
   const working: DeviceClassificationProfile = deepClone(
     params.profile || DEFAULT_DEVICE_CLASSIFICATION_PROFILE,
   );
-  const energy = working.domains?.energy;
+  working.domains = working.domains || ({} as DeviceClassificationProfile['domains']);
+  // Seed any missing domain from DEFAULT so every tab is editable. A custom
+  // profile that only overrode `energy` still gets editable water/temperature.
+  if (!working.domains.energy) {
+    working.domains.energy = deepClone(DEFAULT_DEVICE_CLASSIFICATION_PROFILE.domains.energy);
+  }
+  if (!working.domains.water) {
+    working.domains.water = deepClone(DEFAULT_DEVICE_CLASSIFICATION_PROFILE.domains.water!);
+  }
+  if (!working.domains.temperature) {
+    working.domains.temperature = deepClone(
+      DEFAULT_DEVICE_CLASSIFICATION_PROFILE.domains.temperature!,
+    );
+  }
+
+  let activeDomain: ClassificationDomain = 'energy';
+  const dom = (): DomainProfile | undefined => working.domains?.[activeDomain];
 
   injectStyles();
   document.getElementById(MODAL_ID)?.remove();
@@ -81,7 +109,7 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
   const overlay = document.createElement('div');
   overlay.id = MODAL_ID;
   overlay.className = 'mdp-overlay';
-  overlay.innerHTML = render();
+  overlay.innerHTML = `<div class="mdp-backdrop"></div>${render()}`;
   document.body.appendChild(overlay);
 
   const close = () => {
@@ -92,39 +120,67 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
   overlay.querySelector('#mdp-close')?.addEventListener('click', close);
   overlay.querySelector('#mdp-cancel')?.addEventListener('click', close);
 
+  bindTabs();
   bindChipEditors();
   bindSave();
   refreshPreview();
 
   return { close };
 
+  function bindTabs() {
+    overlay.querySelectorAll<HTMLButtonElement>('.mdp-tab').forEach((tab) => {
+      tab.addEventListener('click', () => {
+        const next = tab.dataset.domain as ClassificationDomain;
+        if (!next || next === activeDomain) return;
+        activeDomain = next;
+        rerenderBody();
+      });
+    });
+  }
+
   // ---------------------------------------------------------------- rendering
 
   function render(): string {
-    if (!energy) {
-      return `<div class="mdp-backdrop"></div><div class="mdp-card"><div class="mdp-header">
-        <span class="mdp-title">⚙️ Gestão de Perfil de Dispositivos</span>
-        <button id="mdp-close" class="mdp-x">×</button></div>
-        <div class="mdp-body"><p class="mdp-empty">Perfil sem domínio <code>energy</code>.</p></div></div>`;
-    }
+    const d = dom();
     const ro = !canEdit;
-    const groupRules = energy.groups.rules.filter((r) => !r.fallback);
-    const catRules = energy.categories.rules;
+    const tabs = DOMAIN_TABS.map(
+      (t) =>
+        `<button class="mdp-tab ${t.key === activeDomain ? 'is-active' : ''}" data-domain="${t.key}">${t.icon} ${t.label}</button>`,
+    ).join('');
+
+    if (!d) {
+      return `
+        <div class="mdp-card" role="dialog" aria-modal="true">
+          <div class="mdp-header">
+            <span class="mdp-title">⚙️ Gestão de Perfil de Dispositivos</span>
+            <button id="mdp-close" class="mdp-x" aria-label="Fechar">×</button>
+          </div>
+          <div class="mdp-tabs">${tabs}</div>
+          <div class="mdp-body"><p class="mdp-empty">Domínio <code>${escHtml(activeDomain)}</code> ausente no perfil.</p></div>
+          <div class="mdp-footer"><button id="mdp-cancel" class="mdp-btn mdp-btn-secondary">Fechar</button></div>
+        </div>`;
+    }
+
+    const groupRules = d.groups.rules.filter((r) => !r.fallback);
+    const fallbackName = d.groups.rules.find((r) => r.fallback)?.name || 'área comum';
+    const cats = d.categories; // only energy has a breakdown
 
     return `
-      <div class="mdp-backdrop"></div>
       <div class="mdp-card" role="dialog" aria-modal="true">
         <div class="mdp-header">
           <span class="mdp-title">⚙️ Gestão de Perfil de Dispositivos</span>
           <button id="mdp-close" class="mdp-x" aria-label="Fechar">×</button>
         </div>
+        <div class="mdp-tabs">${tabs}</div>
         <div class="mdp-subhead">
           ${
             ro
               ? `<span class="mdp-badge mdp-badge-ro">Somente leitura — sem permissão para editar</span>`
               : `<span class="mdp-badge mdp-badge-edit">Editável</span>`
           }
-          <span class="mdp-hint">Define como cada device é classificado nas colunas e no breakdown.</span>
+          <span class="mdp-hint">Define como cada device é classificado ${
+            cats ? 'nas colunas e no breakdown' : 'nas colunas'
+          } (domínio <b>${escHtml(activeDomain)}</b>).</span>
         </div>
 
         <div class="mdp-body">
@@ -133,7 +189,7 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
               <h3 class="mdp-sec-title">Colunas (grupos)</h3>
               <div class="mdp-rule">
                 <div class="mdp-rule-name">Ocultos <small>(padrões no deviceProfile, substring)</small></div>
-                ${chipList('grp-ocultos', energy.groups.ocultosProfilePatterns, ro)}
+                ${chipList('grp-ocultos', d.groups.ocultosProfilePatterns, ro)}
               </div>
               ${groupRules
                 .map(
@@ -145,15 +201,22 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
                 )
                 .join('')}
               <div class="mdp-rule mdp-rule-muted">
-                <div class="mdp-rule-name">área comum <small>(residual — tudo que não casar acima)</small></div>
+                <div class="mdp-rule-name">${escHtml(fallbackName)} <small>(residual — tudo que não casar acima)</small></div>
               </div>
+              ${
+                activeDomain === 'water'
+                  ? `<div class="mdp-note">💡 <b>banheiros</b> é preenchido pelo widget TELEMETRY (medidores de banheiro isolados), não por este perfil.</div>`
+                  : ''
+              }
 
-              <h3 class="mdp-sec-title">Breakdown (categorias)</h3>
+              ${
+                cats
+                  ? `<h3 class="mdp-sec-title">Breakdown (categorias)</h3>
               <div class="mdp-rule">
                 <div class="mdp-rule-name">Loja (store) <small>(deviceProfile exato)</small></div>
-                ${chipList('cat-store', [energy.categories.storeDeviceProfile], ro, true)}
+                ${chipList('cat-store', [cats.storeDeviceProfile], ro, true)}
               </div>
-              ${catRules
+              ${cats.rules
                 .map(
                   (r, i) => `
               <div class="mdp-rule">
@@ -176,8 +239,10 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
                 )
                 .join('')}
               <div class="mdp-rule mdp-rule-muted">
-                <div class="mdp-rule-name">${escHtml(energy.categories.fallback?.name || 'outros')} <small>(residual)</small></div>
-              </div>
+                <div class="mdp-rule-name">${escHtml(cats.fallback?.name || 'outros')} <small>(residual)</small></div>
+              </div>`
+                  : ''
+              }
             </div>
 
             <div class="mdp-preview">
@@ -193,8 +258,7 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
         <div class="mdp-footer">
           <button id="mdp-cancel" class="mdp-btn mdp-btn-secondary">${ro ? 'Fechar' : 'Cancelar'}</button>
           ${ro ? '' : `<button id="mdp-save" class="mdp-btn mdp-btn-primary">Salvar perfil</button>`}
-        </div>
-      </div>`;
+        </div>`;
   }
 
   function chipList(key: string, values: string[], readOnly: boolean, single = false): string {
@@ -215,20 +279,24 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
   // ---------------------------------------------------------------- editing
 
   function listFor(key: string): string[] | null {
-    if (!energy) return null;
-    if (key === 'grp-ocultos') return energy.groups.ocultosProfilePatterns;
+    const d = dom();
+    if (!d) return null;
+    if (key === 'grp-ocultos') return d.groups.ocultosProfilePatterns;
     if (key === 'cat-store') {
-      // single value modeled as a 1-element list via a getter/setter shim
-      return null; // handled specially
+      // single value modeled specially in add/removeValue
+      return null;
     }
     let m = key.match(/^grp-(\d+)$/);
     if (m) {
-      const rule = energy.groups.rules.filter((r) => !r.fallback)[Number(m[1])];
+      const rule = d.groups.rules.filter((r) => !r.fallback)[Number(m[1])];
       return (rule.deviceProfiles = rule.deviceProfiles || []);
     }
+    // cat-* keys only ever render on the energy tab (only energy has categories)
+    const cats = d.categories;
+    if (!cats) return null;
     m = key.match(/^cat-(\d+)-(dp|cc|idc|idp)$/);
     if (m) {
-      const rule = energy.categories.rules[Number(m[1])];
+      const rule = cats.rules[Number(m[1])];
       if (m[2] === 'dp') return (rule.deviceProfiles = rule.deviceProfiles || []);
       if (m[2] === 'cc') return (rule.combinedContains = rule.combinedContains || []);
       rule.identifierFallback = rule.identifierFallback || {};
@@ -239,7 +307,7 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
     }
     m = key.match(/^cat-(\d+)-(cdt|cidc|cidp)$/);
     if (m) {
-      const rule = energy.categories.rules[Number(m[1])];
+      const rule = cats.rules[Number(m[1])];
       rule.conditional = rule.conditional || { deviceTypes: [] };
       if (m[2] === 'cdt') return (rule.conditional.deviceTypes = rule.conditional.deviceTypes || []);
       if (m[2] === 'cidc')
@@ -252,9 +320,10 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
 
   function addValue(key: string, raw: string) {
     const v = raw.trim().toUpperCase();
-    if (!v || !energy) return;
+    const d = dom();
+    if (!v || !d) return;
     if (key === 'cat-store') {
-      energy.categories.storeDeviceProfile = v;
+      if (d.categories) d.categories.storeDeviceProfile = v;
     } else {
       const list = listFor(key);
       if (!list) return;
@@ -264,9 +333,10 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
   }
 
   function removeValue(key: string, val: string) {
-    if (!energy) return;
+    const d = dom();
+    if (!d) return;
     if (key === 'cat-store') {
-      energy.categories.storeDeviceProfile = '';
+      if (d.categories) d.categories.storeDeviceProfile = '';
     } else {
       const list = listFor(key);
       if (!list) return;
@@ -279,19 +349,13 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
   function rerenderBody() {
     const card = overlay.querySelector('.mdp-card');
     if (!card) return;
-    card.outerHTML = renderCardOnly();
+    card.outerHTML = render(); // render() returns the card only (backdrop is separate)
+    bindTabs();
     bindChipEditors();
     bindSave();
     refreshPreview();
     overlay.querySelector('#mdp-close')?.addEventListener('click', close);
     overlay.querySelector('#mdp-cancel')?.addEventListener('click', close);
-  }
-
-  function renderCardOnly(): string {
-    // render() returns backdrop + card; strip the backdrop wrapper
-    const html = render();
-    const i = html.indexOf('<div class="mdp-card"');
-    return html.slice(i);
   }
 
   function bindChipEditors() {
@@ -315,21 +379,28 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
   // ---------------------------------------------------------------- preview
 
   function refreshPreview() {
-    const devices = (getDevices() || []).filter(Boolean);
+    const hasCats = !!dom()?.categories;
+    const devices = (getDevices(activeDomain) || []).filter(Boolean);
     const groups: Record<string, number> = {};
     const cats: Record<string, number> = {};
     for (const d of devices) {
-      const g = resolveGroup(d, working).group;
+      const g = resolveGroup(d, working, activeDomain).group;
       groups[g] = (groups[g] || 0) + 1;
-      const c = resolveCategory(d, working).category;
-      cats[c] = (cats[c] || 0) + 1;
+      if (hasCats) {
+        const c = resolveCategory(d, working, activeDomain).category;
+        cats[c] = (cats[c] || 0) + 1;
+      }
     }
+    // residual buckets per domain (highlight what fell through to the fallback)
+    const residual =
+      activeDomain === 'temperature' ? ['climatizavel'] : ['areacomum'];
     const gEl = overlay.querySelector('#mdp-preview-groups');
     const cEl = overlay.querySelector('#mdp-preview-cats');
-    if (gEl) gEl.innerHTML = previewBlock('Colunas', groups, devices.length, ['areacomum']);
-    if (cEl) cEl.innerHTML = previewBlock('Breakdown', cats, devices.length, ['outros']);
+    if (gEl) gEl.innerHTML = previewBlock('Colunas', groups, devices.length, residual);
+    if (cEl)
+      cEl.innerHTML = hasCats ? previewBlock('Breakdown', cats, devices.length, ['outros']) : '';
 
-    const errors = energy ? validateProfile(working) : ['profile inválido'];
+    const errors = dom() ? validateProfile(working) : ['profile inválido'];
     const errEl = overlay.querySelector('#mdp-errors') as HTMLElement | null;
     const saveBtn = overlay.querySelector('#mdp-save') as HTMLButtonElement | null;
     if (errEl) {
@@ -422,6 +493,13 @@ function injectStyles() {
   .mdp-header { display: flex; align-items: center; gap: 8px; padding: 14px 18px; background: ${ACCENT}; color: #fff; }
   .mdp-title { font-weight: 800; font-size: 16px; flex: 1; }
   .mdp-x { background: none; border: none; color: #fff; font-size: 22px; cursor: pointer; line-height: 1; }
+  .mdp-tabs { display: flex; gap: 4px; padding: 8px 18px 0; background: #faf9ff; border-bottom: 1px solid #eee; }
+  .mdp-tab { border: 1px solid transparent; border-bottom: none; background: none; cursor: pointer;
+    font-size: 13px; font-weight: 700; color: #64748b; padding: 8px 14px; border-radius: 8px 8px 0 0; }
+  .mdp-tab:hover { color: ${ACCENT}; }
+  .mdp-tab.is-active { color: ${ACCENT}; background: #fff; border-color: #ede9fe; border-bottom: 1px solid #fff; margin-bottom: -1px; }
+  .mdp-note { font-size: 11px; color: #6d28d9; background: #faf9ff; border: 1px dashed #ddd6fe;
+    border-radius: 8px; padding: 8px 10px; margin: 4px 0 8px; }
   .mdp-subhead { display: flex; align-items: center; gap: 10px; padding: 10px 18px; border-bottom: 1px solid #eee; }
   .mdp-badge { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px; }
   .mdp-badge-ro { background: #fef3c7; color: #92400e; }

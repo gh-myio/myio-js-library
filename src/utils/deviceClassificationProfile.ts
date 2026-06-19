@@ -32,7 +32,18 @@ export interface ClassifiableItem {
 // Result types
 // ---------------------------------------------------------------------------
 
-export type GroupName = 'lojas' | 'entrada' | 'areacomum' | 'ocultos';
+export type GroupName =
+  // energy
+  | 'lojas'
+  | 'entrada'
+  | 'areacomum'
+  | 'ocultos'
+  // water (RFC-0207 follow-up #2)
+  | 'banheiros'
+  | 'caixadagua'
+  // temperature (RFC-0207 follow-up #2)
+  | 'climatizavel'
+  | 'nao_climatizavel';
 export type GroupMatchedBy = 'ocultos' | 'deviceProfile' | 'fallback';
 
 export interface GroupResolution {
@@ -58,7 +69,7 @@ export interface CategoryResolution {
   matchedBy: CategoryMatchedBy;
 }
 
-export type ClassificationDomain = 'energy';
+export type ClassificationDomain = 'energy' | 'water' | 'temperature';
 
 // ---------------------------------------------------------------------------
 // Profile schema
@@ -121,13 +132,22 @@ export interface GroupsConfig {
 export interface DomainProfile {
   caseInsensitive?: boolean;
   groups: GroupsConfig;
-  categories: CategoriesConfig;
+  /**
+   * Breakdown subcategorization. Only the `energy` domain has a breakdown
+   * (TELEMETRY_INFO). Water/temperature classify by groups only, so this is
+   * optional (RFC-0207 follow-up #2).
+   */
+  categories?: CategoriesConfig;
 }
 
 export interface DeviceClassificationProfile {
   schemaVersion: number;
   domains: {
     energy: DomainProfile;
+    /** RFC-0207 follow-up #2 — optional; resolver falls back to DEFAULT when absent. */
+    water?: DomainProfile;
+    /** RFC-0207 follow-up #2 — optional; resolver falls back to DEFAULT when absent. */
+    temperature?: DomainProfile;
   };
 }
 
@@ -221,6 +241,62 @@ export const DEFAULT_DEVICE_CLASSIFICATION_PROFILE: DeviceClassificationProfile 
         fallback: { name: 'outros' },
       },
     },
+
+    // -----------------------------------------------------------------------
+    // WATER — faithful encoding of categorizeItemsByGroupWater (RFC-0106/0142).
+    // Groups only (no breakdown). Note: `areacomum` is BOTH the explicit
+    // HIDROMETRO_AREA_COMUM bucket AND the residual fallback in the legacy
+    // function; since the residual already lands in areacomum, encoding it as a
+    // single fallback rule is exactly equivalent. `banheiros` is never produced
+    // here — standalone bathroom meters are extracted by the TELEMETRY widget
+    // for TELEMETRY_INFO, so the bucket stays empty (preserved by MAIN).
+    // -----------------------------------------------------------------------
+    water: {
+      caseInsensitive: true,
+      groups: {
+        ocultosProfilePatterns: [
+          'ARQUIVADO',
+          'SEM_DADOS',
+          'DESATIVADO',
+          'REMOVIDO',
+          'INATIVO',
+        ],
+        rules: [
+          // ENTRADA — deviceProfile = HIDROMETRO_SHOPPING
+          { name: 'entrada', deviceProfiles: ['HIDROMETRO_SHOPPING'] },
+          // LOJAS — deviceProfile = HIDROMETRO
+          { name: 'lojas', deviceProfiles: ['HIDROMETRO'] },
+          // CAIXA D'ÁGUA — deviceProfile = TANK | CAIXA_DAGUA
+          { name: 'caixadagua', deviceProfiles: ['TANK', 'CAIXA_DAGUA'] },
+          // ÁREA COMUM — HIDROMETRO_AREA_COMUM + residual fallback
+          { name: 'areacomum', deviceProfiles: [], fallback: true },
+        ],
+      },
+    },
+
+    // -----------------------------------------------------------------------
+    // TEMPERATURE — faithful encoding of categorizeItemsByGroupTemperature
+    // (RFC-0182). Groups only. TERMOSTATO_EXTERNAL -> nao_climatizavel; every
+    // other (non-ocultos) device -> climatizavel (the residual fallback).
+    // -----------------------------------------------------------------------
+    temperature: {
+      caseInsensitive: true,
+      groups: {
+        ocultosProfilePatterns: [
+          'ARQUIVADO',
+          'SEM_DADOS',
+          'DESATIVADO',
+          'REMOVIDO',
+          'INATIVO',
+        ],
+        rules: [
+          // NÃO CLIMATIZÁVEL — deviceProfile = TERMOSTATO_EXTERNAL
+          { name: 'nao_climatizavel', deviceProfiles: ['TERMOSTATO_EXTERNAL'] },
+          // CLIMATIZÁVEL — TERMOSTATO or any other variant (residual fallback)
+          { name: 'climatizavel', deviceProfiles: [], fallback: true },
+        ],
+      },
+    },
   },
 };
 
@@ -268,8 +344,21 @@ function matchesIdentifier(id: string, m: IdentifierMatch | undefined): boolean 
   return false;
 }
 
-function getEnergyDomain(profile: DeviceClassificationProfile): DomainProfile {
-  return profile.domains.energy;
+/**
+ * Returns the requested domain's config. If the profile does not define the
+ * domain (e.g. a customer profile that overrides only `energy`), falls back to
+ * the DEFAULT seed for that domain so water/temperature still classify. `energy`
+ * is always present (schema-required), so this only matters for water/temp.
+ */
+function getDomain(
+  profile: DeviceClassificationProfile,
+  domain: ClassificationDomain,
+): DomainProfile {
+  return (
+    profile.domains?.[domain] ??
+    DEFAULT_DEVICE_CLASSIFICATION_PROFILE.domains[domain] ??
+    DEFAULT_DEVICE_CLASSIFICATION_PROFILE.domains.energy
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -279,9 +368,9 @@ function getEnergyDomain(profile: DeviceClassificationProfile): DomainProfile {
 export function resolveGroup(
   item: ClassifiableItem | null | undefined,
   profile: DeviceClassificationProfile = getActiveProfile(),
-  _domain: ClassificationDomain = 'energy',
+  domain: ClassificationDomain = 'energy',
 ): GroupResolution {
-  const dom = getEnergyDomain(profile);
+  const dom = getDomain(profile, domain);
   const dp = profileOf(item);
 
   // RULE 0 — ocultos: substring over deviceProfile
@@ -291,8 +380,10 @@ export function resolveGroup(
     }
   }
 
-  // RULE 1/2 — exact deviceProfile rules (lojas, entrada)
-  let fallbackName: GroupName = 'areacomum';
+  // RULE 1/2 — exact deviceProfile rules (energy: lojas/entrada; water:
+  // entrada/lojas/caixadagua; temperature: nao_climatizavel)
+  let fallbackName: GroupName =
+    dom.groups.rules.find((r) => r.fallback)?.name ?? 'areacomum';
   for (const rule of dom.groups.rules) {
     if (rule.fallback) {
       fallbackName = rule.name;
@@ -331,11 +422,15 @@ export function resolveGroup(
 export function resolveCategory(
   item: ClassifiableItem | null | undefined,
   profile: DeviceClassificationProfile = getActiveProfile(),
-  _domain: ClassificationDomain = 'energy',
+  domain: ClassificationDomain = 'energy',
 ): CategoryResolution {
   if (!item) return { category: 'outros', matchedBy: 'fallback' };
 
-  const dom = getEnergyDomain(profile);
+  const dom = getDomain(profile, domain);
+  // Only the energy domain has a breakdown; water/temperature have no
+  // categories, so any item resolves to the genuine-orphan fallback.
+  if (!dom.categories) return { category: 'outros', matchedBy: 'fallback' };
+
   const dp = profileOf(item);
 
   // isStoreDevice
@@ -394,72 +489,80 @@ export function validateProfile(profile: DeviceClassificationProfile): string[] 
   if (typeof profile.schemaVersion !== 'number') {
     errors.push('profile.schemaVersion: missing or not a number');
   }
-  const dom = profile.domains?.energy;
-  if (!dom) {
+  if (!profile.domains?.energy) {
     errors.push('profile.domains.energy: missing');
     return errors;
   }
 
-  // ---- groups family ----
-  const groups = dom.groups;
-  if (!groups) {
-    errors.push('energy.groups: missing');
-  } else {
-    if (!Array.isArray(groups.ocultosProfilePatterns)) {
-      errors.push('energy.groups.ocultosProfilePatterns: must be an array');
-    }
-    const groupRules = groups.rules ?? [];
-    const groupFallbacks = groupRules.filter((r) => r.fallback === true);
-    if (groupFallbacks.length !== 1) {
-      errors.push(
-        `energy.groups: expected exactly one fallback rule, found ${groupFallbacks.length}`,
-      );
-    }
-    // each non-fallback group rule must declare deviceProfiles
-    for (const r of groupRules) {
-      if (!r.fallback && !Array.isArray(r.deviceProfiles)) {
-        errors.push(`energy.groups.rules["${r?.name}"]: missing deviceProfiles array`);
+  // Validate every present domain. `energy` is required and also has a
+  // categories family (the breakdown); water/temperature have groups only.
+  const domains: ClassificationDomain[] = ['energy', 'water', 'temperature'];
+  for (const domain of domains) {
+    const dom = profile.domains[domain];
+    if (!dom) continue; // water/temperature are optional
+
+    // ---- groups family ----
+    const groups = dom.groups;
+    if (!groups) {
+      errors.push(`${domain}.groups: missing`);
+    } else {
+      if (!Array.isArray(groups.ocultosProfilePatterns)) {
+        errors.push(`${domain}.groups.ocultosProfilePatterns: must be an array`);
       }
-    }
-    // duplicate deviceProfile across groups
-    const seen = new Map<string, string>();
-    for (const r of groupRules) {
-      for (const dp of r.deviceProfiles ?? []) {
-        const key = String(dp).toUpperCase();
-        if (seen.has(key)) {
-          errors.push(
-            `energy.groups: duplicate deviceProfile "${key}" in "${seen.get(key)}" and "${r.name}"`,
-          );
-        } else {
-          seen.set(key, r.name);
+      const groupRules = groups.rules ?? [];
+      const groupFallbacks = groupRules.filter((r) => r.fallback === true);
+      if (groupFallbacks.length !== 1) {
+        errors.push(
+          `${domain}.groups: expected exactly one fallback rule, found ${groupFallbacks.length}`,
+        );
+      }
+      // each non-fallback group rule must declare deviceProfiles
+      for (const r of groupRules) {
+        if (!r.fallback && !Array.isArray(r.deviceProfiles)) {
+          errors.push(`${domain}.groups.rules["${r?.name}"]: missing deviceProfiles array`);
+        }
+      }
+      // duplicate deviceProfile across groups
+      const seen = new Map<string, string>();
+      for (const r of groupRules) {
+        for (const dp of r.deviceProfiles ?? []) {
+          const key = String(dp).toUpperCase();
+          if (seen.has(key)) {
+            errors.push(
+              `${domain}.groups: duplicate deviceProfile "${key}" in "${seen.get(key)}" and "${r.name}"`,
+            );
+          } else {
+            seen.set(key, r.name);
+          }
         }
       }
     }
-  }
 
-  // ---- categories family ----
-  const cats = dom.categories;
-  if (!cats) {
-    errors.push('energy.categories: missing');
-  } else {
-    if (!cats.storeDeviceProfile) {
-      errors.push('energy.categories.storeDeviceProfile: missing');
-    }
-    const catRules = cats.rules ?? [];
-    // every category rule MUST declare its deviceProfiles key (closes bug #3)
-    for (const r of catRules) {
-      if (!Array.isArray(r.deviceProfiles)) {
-        errors.push(`energy.categories.rules["${r?.name}"]: missing deviceProfiles array`);
+    // ---- categories family (only domains that declare one) ----
+    const cats = dom.categories;
+    if (!cats) {
+      // energy MUST have a breakdown; water/temperature legitimately have none.
+      if (domain === 'energy') errors.push('energy.categories: missing');
+    } else {
+      if (!cats.storeDeviceProfile) {
+        errors.push(`${domain}.categories.storeDeviceProfile: missing`);
       }
-    }
-    // exactly one fallback across the category family (the 'outros' bucket)
-    const inlineFallbacks = catRules.filter((r) => r.fallback === true).length;
-    const hasOutros = cats.fallback && cats.fallback.name === 'outros' ? 1 : 0;
-    const totalFallbacks = inlineFallbacks + hasOutros;
-    if (totalFallbacks !== 1) {
-      errors.push(
-        `energy.categories: expected exactly one fallback (outros), found ${totalFallbacks}`,
-      );
+      const catRules = cats.rules ?? [];
+      // every category rule MUST declare its deviceProfiles key (closes bug #3)
+      for (const r of catRules) {
+        if (!Array.isArray(r.deviceProfiles)) {
+          errors.push(`${domain}.categories.rules["${r?.name}"]: missing deviceProfiles array`);
+        }
+      }
+      // exactly one fallback across the category family (the 'outros' bucket)
+      const inlineFallbacks = catRules.filter((r) => r.fallback === true).length;
+      const hasOutros = cats.fallback && cats.fallback.name === 'outros' ? 1 : 0;
+      const totalFallbacks = inlineFallbacks + hasOutros;
+      if (totalFallbacks !== 1) {
+        errors.push(
+          `${domain}.categories: expected exactly one fallback (outros), found ${totalFallbacks}`,
+        );
+      }
     }
   }
 
@@ -481,40 +584,44 @@ export interface ProfileLogger {
  */
 export function normalizeProfile(raw: DeviceClassificationProfile): DeviceClassificationProfile {
   const cloned: DeviceClassificationProfile = JSON.parse(JSON.stringify(raw));
-  const dom = cloned.domains?.energy;
-  if (!dom) return cloned;
 
-  const ci = dom.caseInsensitive !== false; // default true
-  dom.caseInsensitive = ci;
+  const domains: ClassificationDomain[] = ['energy', 'water', 'temperature'];
+  for (const domain of domains) {
+    const dom = cloned.domains?.[domain];
+    if (!dom) continue;
 
-  const upArr = (arr?: string[]): string[] | undefined =>
-    ci && Array.isArray(arr) ? arr.map((s) => String(s).toUpperCase()) : arr;
+    const ci = dom.caseInsensitive !== false; // default true
+    dom.caseInsensitive = ci;
 
-  const upIdMatch = (m?: IdentifierMatch): void => {
-    if (!m) return;
-    m.identifierEquals = upArr(m.identifierEquals);
-    m.identifierContains = upArr(m.identifierContains);
-    m.identifierPrefixes = upArr(m.identifierPrefixes);
-  };
+    const upArr = (arr?: string[]): string[] | undefined =>
+      ci && Array.isArray(arr) ? arr.map((s) => String(s).toUpperCase()) : arr;
 
-  if (dom.groups) {
-    dom.groups.ocultosProfilePatterns = upArr(dom.groups.ocultosProfilePatterns) ?? [];
-    for (const r of dom.groups.rules ?? []) {
-      r.deviceProfiles = upArr(r.deviceProfiles) ?? [];
-    }
-  }
-  if (dom.categories) {
-    if (ci && dom.categories.storeDeviceProfile) {
-      dom.categories.storeDeviceProfile = dom.categories.storeDeviceProfile.toUpperCase();
-    }
-    for (const r of dom.categories.rules ?? []) {
-      r.deviceProfiles = upArr(r.deviceProfiles) ?? [];
-      r.combinedContains = upArr(r.combinedContains);
-      if (r.conditional) {
-        r.conditional.deviceTypes = upArr(r.conditional.deviceTypes) ?? [];
-        upIdMatch(r.conditional);
+    const upIdMatch = (m?: IdentifierMatch): void => {
+      if (!m) return;
+      m.identifierEquals = upArr(m.identifierEquals);
+      m.identifierContains = upArr(m.identifierContains);
+      m.identifierPrefixes = upArr(m.identifierPrefixes);
+    };
+
+    if (dom.groups) {
+      dom.groups.ocultosProfilePatterns = upArr(dom.groups.ocultosProfilePatterns) ?? [];
+      for (const r of dom.groups.rules ?? []) {
+        r.deviceProfiles = upArr(r.deviceProfiles) ?? [];
       }
-      upIdMatch(r.identifierFallback);
+    }
+    if (dom.categories) {
+      if (ci && dom.categories.storeDeviceProfile) {
+        dom.categories.storeDeviceProfile = dom.categories.storeDeviceProfile.toUpperCase();
+      }
+      for (const r of dom.categories.rules ?? []) {
+        r.deviceProfiles = upArr(r.deviceProfiles) ?? [];
+        r.combinedContains = upArr(r.combinedContains);
+        if (r.conditional) {
+          r.conditional.deviceTypes = upArr(r.conditional.deviceTypes) ?? [];
+          upIdMatch(r.conditional);
+        }
+        upIdMatch(r.identifierFallback);
+      }
     }
   }
   return cloned;

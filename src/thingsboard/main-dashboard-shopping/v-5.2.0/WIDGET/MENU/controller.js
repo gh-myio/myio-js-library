@@ -741,13 +741,13 @@ self.onInit = function () {
       window.MyIOUtils?.deviceClassificationProfile ||
       (typeof Lib.getActiveProfile === 'function' ? Lib.getActiveProfile() : null);
 
-    const getDevices = () => {
+    // Domain-aware: the modal asks for the device set of the active tab
+    // (energy | water | temperature) so each tab's preview is accurate.
+    const getDevices = (domain) => {
       const d = window.MyIOOrchestratorData || {};
-      return [
-        ...((d.energy && d.energy.items) || []),
-        ...((d.water && d.water.items) || []),
-        ...((d.temperature && d.temperature.items) || []),
-      ];
+      if (domain === 'water') return (d.water && d.water.items) || [];
+      if (domain === 'temperature') return (d.temperature && d.temperature.items) || [];
+      return (d.energy && d.energy.items) || [];
     };
 
     Lib.openDeviceProfileModal({

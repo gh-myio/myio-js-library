@@ -208,6 +208,7 @@ export {
 export type {
   DeviceClassificationProfile,
   DomainProfile,
+  ClassificationDomain,
   ClassifiableItem,
   GroupResolution,
   CategoryResolution,
