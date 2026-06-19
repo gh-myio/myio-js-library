@@ -656,6 +656,18 @@ self.onInit = function () {
           </button>`
               : ''
           }
+          ${
+            isSuperAdmin
+              ? `
+          <button class="myio-settings-option myio-settings-option--myio" data-action="device-profile">
+            <span class="myio-settings-option__icon">🧩</span>
+            <div class="myio-settings-option__text">
+              <span class="myio-settings-option__title">Gestão de Perfil de Dispositivos</span>
+              <span class="myio-settings-option__desc">Regras de classificação (colunas e breakdown) — apenas MyIO</span>
+            </div>
+          </button>`
+              : ''
+          }
         </div>
       </div>
     `;
@@ -705,12 +717,62 @@ self.onInit = function () {
             openDefaultDashboardSettings(user);
           } else if (action === 'client-config') {
             openClientConfigModal(user);
+          } else if (action === 'device-profile') {
+            openDeviceProfileSettings(user);
           }
         }, 250);
       });
     });
 
     LogHelper.log('[MENU] Settings modal opened');
+  }
+
+  // RFC-0207 Phase B: open the Device Classification Profile management modal.
+  function openDeviceProfileSettings(user) {
+    const Lib = window.MyIOLibrary;
+    if (!Lib || typeof Lib.openDeviceProfileModal !== 'function') {
+      window.alert('Componente de Perfil de Dispositivos indisponível. Atualize a biblioteca MyIO.');
+      return;
+    }
+    const customerId = window.MyIOUtils?.customerTB_ID || self.ctx?.settings?.customerTB_ID || '';
+    const token = localStorage.getItem('jwt_token') || '';
+    const tbBaseUrl = self.ctx?.settings?.tbBaseUrl || '';
+    const profile =
+      window.MyIOUtils?.deviceClassificationProfile ||
+      (typeof Lib.getActiveProfile === 'function' ? Lib.getActiveProfile() : null);
+
+    const getDevices = () => {
+      const d = window.MyIOOrchestratorData || {};
+      return [
+        ...((d.energy && d.energy.items) || []),
+        ...((d.water && d.water.items) || []),
+        ...((d.temperature && d.temperature.items) || []),
+      ];
+    };
+
+    Lib.openDeviceProfileModal({
+      customerId,
+      token,
+      tbBaseUrl,
+      profile,
+      canEdit: true, // option only rendered for superadmin (isSuperAdmin gate above)
+      getDevices,
+      userName: (user && (user.email || user.name)) || 'user',
+      onSaved: () => {
+        // Re-classify: invalidate cache + re-hydrate (same path as the refresh button).
+        try {
+          window.MyIOOrchestrator?.invalidateCache?.('*');
+        } catch (e) {
+          /* noop */
+        }
+        try {
+          window.dispatchEvent(new CustomEvent('myio:update-date', { detail: {} }));
+        } catch (e) {
+          /* noop */
+        }
+        LogHelper.log('[MENU] RFC-0207: classification profile saved → re-classify triggered');
+      },
+    });
   }
 
   // ── RFC-0190: Gestão de Usuários (apenas SuperAdmin MyIO) ───────────────────

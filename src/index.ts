@@ -202,6 +202,8 @@ export {
   validateProfile,
   normalizeProfile,
   resolveActiveProfile,
+  getActiveProfile,
+  setActiveProfile,
 } from './utils/deviceClassificationProfile.js';
 export type {
   DeviceClassificationProfile,
@@ -212,6 +214,13 @@ export type {
   GroupName,
   CategoryName,
 } from './utils/deviceClassificationProfile.js';
+
+// RFC-0207 Phase B: device classification profile management modal (premium UI).
+export { openDeviceProfileModal } from './components/premium-modals/device-profile/openDeviceProfileModal';
+export type {
+  OpenDeviceProfileModalParams,
+  DeviceProfilePreviewDevice,
+} from './components/premium-modals/device-profile/openDeviceProfileModal';
 
 // RFC-0143: Device Grid Widget Factory
 export {

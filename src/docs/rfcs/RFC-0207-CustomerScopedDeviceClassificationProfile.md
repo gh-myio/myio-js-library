@@ -2,7 +2,7 @@
 
 - **RFC**: 0207
 - **Title**: Customer-Scoped Device Classification Profile (SERVER_SCOPE JSON + MENU management modal)
-- **Status**: Draft (design only — **no implementation in this RFC**)
+- **Status**: Implemented — A0/A1/A1b (single-source resolver + bug #1/#2 fixes, golden-tested) + Phase B (customer SERVER_SCOPE attribute load in MAIN_VIEW.onInit + premium MENU management modal `openDeviceProfileModal`). Branch `feat/rfc-0207-b-attribute-and-menu` → PR to `desenv`.
 - **Author**: Rodrigo Lago
 - **Created**: 2026-06-18
 - **Target**: `src/thingsboard/main-dashboard-shopping/v-5.2.0/WIDGET/` (MAIN_VIEW, MENU, TELEMETRY, TELEMETRY_INFO) + `src/utils/`
@@ -33,8 +33,15 @@ stored in a **SERVER_SCOPE attribute on the current customer**, loaded **once in
 existing hard-coded values become a **built-in default seed** (fallback when the attribute
 is absent), not the source of truth.
 
-> This RFC is a forward-looking design document. **It does not implement anything.**
-> Implementation is expected to follow phase by phase, each behind its own PR.
+> **Implementation status:** delivered in phases. **A0** — pure single-source resolver
+> (`src/utils/deviceClassificationProfile.ts`) + MAIN_VIEW delegation, proven equivalent by
+> golden tests. **A1/A1b** — bug #1 (CAG `Set.has` → substring) and bug #2 (column vs
+> breakdown unified through `resolveCategory`). **Phase B** — `setActiveProfile`/`getActiveProfile`,
+> the customer SERVER_SCOPE `deviceClassificationProfile` loaded in `MAIN_VIEW.onInit`, the
+> premium MENU modal `openDeviceProfileModal` (view/edit/preview/save, permission-gated), and
+> the bug #3 dead-key removal in TELEMETRY. Follow-ups remain (see §Unresolved / §Future):
+> editor for `conditional` rules, water/temperature domains, and full delegation of the
+> TELEMETRY card-filter path (`_getEnergyGroupKey`) behind its own equivalence golden.
 
 ---
 

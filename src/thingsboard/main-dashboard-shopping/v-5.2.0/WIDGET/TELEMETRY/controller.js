@@ -1129,13 +1129,17 @@ function _getEnergyGroupKey(it) {
   const id = String(it.identifier || '').toUpperCase();
   const entradaTypes = new Set(['ENTRADA', 'RELOGIO', 'TRAFO', 'SUBESTACAO']);
   if (entradaTypes.has(dt) || entradaTypes.has(dp)) return 'entrada';
+  // RFC-0207 (bug #3): removed dead `DEVICE_CLASSIFICATION_CONFIG.climatizacao.deviceProfiles`
+  // clause — that key is undefined in MAIN_VIEW's config, so `(undefined||[]).includes(dp)`
+  // was always false (no-op). Canonical classification is the single-source resolver
+  // (window.MyIOLibrary.resolveGroup/resolveCategory); fully delegating this card-filter
+  // path is a follow-up (needs its own equivalence golden, like A0 did for MAIN_VIEW).
   if (
     CLIMATIZACAO_DEVICE_TYPES_SET.has(dt) ||
     CLIMATIZACAO_CONDITIONAL_TYPES_SET.has(dt) ||
     CLIMATIZACAO_IDENTIFIERS_SET.has(id) ||
     id.startsWith('CAG-') ||
-    id.startsWith('FANCOIL-') ||
-    (DEVICE_CLASSIFICATION_CONFIG.climatizacao.deviceProfiles || []).includes(dp)
+    id.startsWith('FANCOIL-')
   )
     return 'climatizacao';
   if (ELEVADORES_DEVICE_TYPES_SET.has(dt) || ELEVADORES_IDENTIFIERS_SET.has(id) || id.startsWith('ELV-'))

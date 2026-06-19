@@ -1582,6 +1582,28 @@ Object.assign(window.MyIOUtils, {
               LogHelper.log('[MAIN_VIEW] exclude_groups_totals loaded:', _excludeGroupsTotals);
             }
 
+            // RFC-0207 Phase B: customer-scoped device classification profile.
+            // Loaded BEFORE the first classification pass; the no-arg resolvers
+            // (resolveGroup/resolveCategory) the orchestrator delegates to will
+            // pick this up via setActiveProfile. Absent/invalid → DEFAULT seed.
+            try {
+              const _rawProfile = attrs?.deviceClassificationProfile;
+              const _parsedProfile =
+                typeof _rawProfile === 'string' ? JSON.parse(_rawProfile) : _rawProfile;
+              if (typeof MyIO.setActiveProfile === 'function') {
+                const _applied = MyIO.setActiveProfile(_parsedProfile, LogHelper);
+                window.MyIOUtils.deviceClassificationProfile = _applied;
+                window.MyIOUtils.deviceClassificationProfileRaw = _parsedProfile || null;
+                LogHelper.log(
+                  '[MAIN_VIEW] RFC-0207: classification profile ' +
+                    (_rawProfile ? 'loaded from SERVER_SCOPE' : 'absent → DEFAULT seed')
+                );
+              }
+            } catch (e) {
+              LogHelper.warn('[MAIN_VIEW] RFC-0207: invalid deviceClassificationProfile → DEFAULT:', e);
+              if (typeof MyIO.setActiveProfile === 'function') MyIO.setActiveProfile(null, LogHelper);
+            }
+
             LogHelper.log('[MAIN_VIEW] 🔑 Parsed credentials:');
             LogHelper.log('[MAIN_VIEW]   CLIENT_ID:', CLIENT_ID ? '✅ ' + CLIENT_ID : '❌ EMPTY');
             LogHelper.log(

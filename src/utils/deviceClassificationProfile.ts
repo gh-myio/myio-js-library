@@ -278,7 +278,7 @@ function getEnergyDomain(profile: DeviceClassificationProfile): DomainProfile {
 
 export function resolveGroup(
   item: ClassifiableItem | null | undefined,
-  profile: DeviceClassificationProfile = DEFAULT_DEVICE_CLASSIFICATION_PROFILE,
+  profile: DeviceClassificationProfile = getActiveProfile(),
   _domain: ClassificationDomain = 'energy',
 ): GroupResolution {
   const dom = getEnergyDomain(profile);
@@ -330,7 +330,7 @@ export function resolveGroup(
 
 export function resolveCategory(
   item: ClassifiableItem | null | undefined,
-  profile: DeviceClassificationProfile = DEFAULT_DEVICE_CLASSIFICATION_PROFILE,
+  profile: DeviceClassificationProfile = getActiveProfile(),
   _domain: ClassificationDomain = 'energy',
 ): CategoryResolution {
   if (!item) return { category: 'outros', matchedBy: 'fallback' };
@@ -542,4 +542,34 @@ export function resolveActiveProfile(
     return DEFAULT_DEVICE_CLASSIFICATION_PROFILE;
   }
   return normalizeProfile(raw);
+}
+
+// ---------------------------------------------------------------------------
+// Active profile (RFC-0207 Phase B)
+//
+// Module-level "active" profile so the no-argument resolver calls
+// (`resolveGroup(item)` / `resolveCategory(item)`) in the widgets pick up the
+// customer-scoped profile loaded by MAIN_VIEW.onInit. Defaults to DEFAULT, so
+// behavior is unchanged until `setActiveProfile()` is called — keeps the A0
+// equivalence guarantees intact.
+// ---------------------------------------------------------------------------
+
+let _activeProfile: DeviceClassificationProfile = DEFAULT_DEVICE_CLASSIFICATION_PROFILE;
+
+/** Current active profile used as the default by resolveGroup/resolveCategory. */
+export function getActiveProfile(): DeviceClassificationProfile {
+  return _activeProfile;
+}
+
+/**
+ * Sets the active classification profile from a raw (possibly invalid) JSON,
+ * running it through `resolveActiveProfile` (validate → normalize → DEFAULT on
+ * failure). Returns the profile actually applied.
+ */
+export function setActiveProfile(
+  raw?: DeviceClassificationProfile | null,
+  logger: ProfileLogger = console,
+): DeviceClassificationProfile {
+  _activeProfile = resolveActiveProfile(raw, logger);
+  return _activeProfile;
 }
