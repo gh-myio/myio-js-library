@@ -49,10 +49,14 @@ is absent), not the source of truth.
 > `deviceType`; the `null` "always-shown" contract is preserved). **Cleanup** — the legacy
 > parallel classifier bodies were removed from `categorizeItemsByGroup`/`Water`/`Temperature`,
 > `classifyDevice`, `buildSummary`, and `_getEnergyGroupKey`; the resolver is now the sole
-> classifier (graceful degrade + error log if the library bundle is missing). Exported helpers
-> (`isOcultosDevice`, `classifyDeviceByDeviceType/Identifier`) and the not-yet-migrated
-> `inferLabelWidget` are intentionally retained. **Operational gate:** the `dist` must be
-> published so the deployed widgets carry the new resolver exports.
+> classifier (graceful degrade + error log if the library bundle is missing). **`inferLabelWidget`
+> migrated** too (behind its own migration snapshot): the per-category card filter (TELEMETRY
+> `getItemsFromState` filters `areacomum` by `item.labelWidget`) now derives `labelWidget` from
+> the resolver, so the displayed cards match the breakdown counts — closing the count≠cards gap
+> A1/A1b created for identifier-only devices ("CAG 01", "ELV-…"). Exported helpers
+> (`isOcultosDevice`, `classifyDeviceByDeviceType/Identifier`) are intentionally retained.
+> Only `equipmentCategory.js` (public util, not used by this dashboard) remains for parity later.
+> **Operational gate:** the `dist` must be published so the deployed widgets carry the resolver exports.
 
 ---
 

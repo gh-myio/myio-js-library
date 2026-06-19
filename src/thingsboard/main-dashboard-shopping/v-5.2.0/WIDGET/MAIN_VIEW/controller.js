@@ -872,108 +872,59 @@ function inferLabelWidget(row) {
     return groupType;
   }
 
-  // Get deviceType and deviceProfile from ThingsBoard datasource
-  const deviceType = String(row.deviceType || '').toUpperCase();
-  const deviceProfile = String(row.deviceProfile || '').toUpperCase();
+  // RFC-0207 (follow-up): derive the labelWidget from the single-source resolver
+  // so the per-category card filter (TELEMETRY getItemsFromState filters areacomum
+  // items by item.labelWidget) matches the breakdown COUNTS (resolveCategory via
+  // buildSummary, A1b). The legacy deviceType/deviceProfile substring patterns were
+  // removed — they missed identifier-only devices ("CAG 01", "ELV-…") that the
+  // resolver classifies, causing count≠cards mismatches. Migration snapshot:
+  // tests/deviceClassificationProfile.inferLabelWidget.test.ts.
+  const Lib = (typeof window !== 'undefined' && window.MyIOLibrary) || null;
+  if (!Lib || typeof Lib.resolveGroup !== 'function' || typeof Lib.resolveCategory !== 'function') {
+    LogHelper.error(
+      '[MAIN_VIEW] RFC-0207: MyIOLibrary.resolveGroup/resolveCategory unavailable — inferLabelWidget degraded to "Área Comum" (update the MyIO library bundle)'
+    );
+    return 'Área Comum';
+  }
 
-  // ==========================================================================
-  // RULE 1: LOJAS - use centralized isStoreDevice
-  // ==========================================================================
+  // deviceProfile is authoritative for stores (3F_MEDIDOR) regardless of domain.
   if (isStoreDevice(row)) {
     return 'Lojas';
   }
 
-  // ==========================================================================
-  // RULE 2: ENTRADA - deviceType OR deviceProfile contains ENTRADA/TRAFO/SUBESTACAO
-  // ==========================================================================
-  const ENTRADA_PATTERNS = ['ENTRADA', 'TRAFO', 'SUBESTACAO'];
-  const isEntradaByType = ENTRADA_PATTERNS.some((p) => deviceType.includes(p));
-  const isEntradaByProfile = ENTRADA_PATTERNS.some((p) => deviceProfile.includes(p));
-  if (isEntradaByType || isEntradaByProfile) {
-    return 'Entrada';
-  }
+  const dp = String(row.deviceProfile || '').toUpperCase();
+  const dt = String(row.deviceType || '').toUpperCase();
 
-  // ==========================================================================
-  // RULE 3: Check deviceProfile FIRST for other categories, then deviceType
-  // ==========================================================================
-
-  // Climatização: CHILLER, FANCOIL, HVAC, AR_CONDICIONADO, COMPRESSOR, VENTILADOR
-  const CLIMATIZACAO_PATTERNS = [
-    'CHILLER',
-    'FANCOIL',
-    'HVAC',
-    'AR_CONDICIONADO',
-    'COMPRESSOR',
-    'VENTILADOR',
-    'CLIMATIZA',
-  ];
-  if (
-    CLIMATIZACAO_PATTERNS.some((p) => deviceProfile.includes(p)) ||
-    CLIMATIZACAO_PATTERNS.some((p) => deviceType.includes(p))
-  ) {
-    return 'Climatização';
-  }
-
-  // Elevadores: ELEVADOR, ELV
-  const ELEVADOR_PATTERNS = ['ELEVADOR', 'ELV'];
-  if (
-    ELEVADOR_PATTERNS.some((p) => deviceProfile.includes(p)) ||
-    ELEVADOR_PATTERNS.some((p) => deviceType.includes(p))
-  ) {
-    return 'Elevadores';
-  }
-
-  // Escadas Rolantes: ESCADA_ROLANTE, ESCADA
-  const ESCADA_PATTERNS = ['ESCADA_ROLANTE', 'ESCADA'];
-  if (
-    ESCADA_PATTERNS.some((p) => deviceProfile.includes(p)) ||
-    ESCADA_PATTERNS.some((p) => deviceType.includes(p))
-  ) {
-    return 'Escadas Rolantes';
-  }
-
-  // ==========================================================================
-  // RFC-0108 FIX: Water domain - HIDROMETRO_SHOPPING and HIDROMETRO_AREA_COMUM
-  // Must be checked BEFORE generic HIDROMETRO pattern in AREA_COMUM_PATTERNS
-  // ==========================================================================
-  if (deviceType.includes('HIDROMETRO_SHOPPING') || deviceProfile.includes('HIDROMETRO_SHOPPING')) {
-    return 'Entrada';
-  }
-  if (deviceType.includes('HIDROMETRO_AREA_COMUM') || deviceProfile.includes('HIDROMETRO_AREA_COMUM')) {
-    return 'Área Comum';
-  }
-  // Generic HIDROMETRO (without specific profile) → Lojas (for water domain)
-  if (deviceType === 'HIDROMETRO' && (deviceProfile === 'HIDROMETRO' || !deviceProfile)) {
-    return 'Lojas';
-  }
-
-  // Área Comum: BOMBA, MOTOR, RELOGIO, etc (but NOT generic HIDROMETRO)
-  const AREA_COMUM_PATTERNS = [
-    'BOMBA',
-    'MOTOR',
-    'RELOGIO',
-    // 'HIDROMETRO', - REMOVED: Now handled specifically above
-    'CAIXA_DAGUA',
-    'TANK',
-    'ILUMINACAO',
-    'LUZ',
-  ];
-  if (
-    AREA_COMUM_PATTERNS.some((p) => deviceProfile.includes(p)) ||
-    AREA_COMUM_PATTERNS.some((p) => deviceType.includes(p))
-  ) {
-    return 'Área Comum';
-  }
-
-  // Temperature types
-  if (deviceProfile.includes('TERMOSTATO') || deviceType.includes('TERMOSTATO')) {
+  // Temperature domain
+  if (dp.includes('TERMOSTATO') || dt.includes('TERMOSTATO')) {
     return 'Temperatura';
   }
 
-  // ==========================================================================
-  // RULE 4: Default - if nothing matched, default to Área Comum
-  // (deviceType = 3F_MEDIDOR but deviceProfile != 3F_MEDIDOR means it's equipment)
-  // ==========================================================================
+  // Water domain (hidrômetros + caixas d'água)
+  if (
+    dp.includes('HIDROMETRO') ||
+    dt.includes('HIDROMETRO') ||
+    dp === 'TANK' ||
+    dt === 'TANK' ||
+    dp === 'CAIXA_DAGUA' ||
+    dt === 'CAIXA_DAGUA'
+  ) {
+    const wg = Lib.resolveGroup(row, undefined, 'water').group;
+    if (wg === 'ocultos') return 'Ocultos';
+    if (wg === 'entrada') return 'Entrada';
+    if (wg === 'lojas') return 'Lojas';
+    return 'Área Comum'; // areacomum + caixadagua (legacy had no caixadagua label)
+  }
+
+  // Energy domain — group first, then subcategorize areacomum via the breakdown.
+  const g = Lib.resolveGroup(row).group;
+  if (g === 'ocultos') return 'Ocultos';
+  if (g === 'lojas') return 'Lojas';
+  if (g === 'entrada') return 'Entrada';
+  const cat = Lib.resolveCategory(row).category;
+  if (cat === 'climatizacao') return 'Climatização';
+  if (cat === 'elevadores') return 'Elevadores';
+  if (cat === 'escadas_rolantes') return 'Escadas Rolantes';
   return 'Área Comum';
 }
 
