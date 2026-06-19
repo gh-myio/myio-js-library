@@ -59,6 +59,82 @@ function getDataApiBaseUrl() {
 }
 
 window.MyIOUtils = window.MyIOUtils || {};
+
+// ===========================================================================
+// Library access bridge — single source of `window.MyIOLibrary`.
+//
+// ONLY MAIN_VIEW may reference `window.MyIOLibrary` directly. Child widgets
+// (HEADER / FOOTER / MENU / TELEMETRY / TELEMETRY_INFO / ALARM) read every lib
+// symbol they need through `window.MyIOUtils.<symbol>`. These are LIVE getters
+// (read the lib on each access — no stale snapshot, load-order safe) and they
+// never expose the whole library object. A missing symbol returns undefined;
+// the caller is responsible for logging `console.error` (NO functional fallback).
+// ===========================================================================
+(function defineLibBridge() {
+  const LIB_SYMBOLS = [
+    // toasts / selection / tooltips
+    'MyIOToast',
+    'MyIOSelectionStore',
+    'InfoTooltip',
+    'Tooltip',
+    'WaterSummaryTooltip',
+    'EnergySummaryTooltip',
+    'ColumnSummaryTooltip',
+    'ContractSummaryTooltip',
+    // formatting / export
+    'formatEnergy',
+    'exportGridPdf',
+    'exportGridXls',
+    // auth / ingestion
+    'fetchThingsboardCustomerAttrsFromStorage',
+    'buildMyioIngestionAuth',
+    'buildListItemsThingsboardByUniqueDatasource',
+    // date range
+    'createDateRangePicker',
+    'getDefaultPeriodCurrentMonthSoFar',
+    // classification (RFC-0207)
+    'resolveGroup',
+    'resolveCategory',
+    'getActiveProfile',
+    'setActiveProfile',
+    // modals / popups
+    'openDashboardPopupEnergy',
+    'openDashboardPopupWaterTank',
+    'openDashboardPopupAllReport',
+    'openTemperatureModal',
+    'openTemperatureComparisonModal',
+    'openTemperatureSettingsModal',
+    'openContractDevicesModal',
+    'openMeasurementSetupModal',
+    'openUserManagementModal',
+    'openDeviceProfileModal',
+    'openAlarmBundleMapModal',
+    'openAlarmDetailsModal',
+    // alarms / annotations / panels
+    'AlarmService',
+    'createAlarmsNotificationsPanelComponent',
+    'getHeaderAnnotationsPanel',
+    // misc components / helpers
+    'ModalHeader',
+    'createLogHelper',
+    'createLibraryVersionChecker',
+    'calculateDeviceStatusWithRanges',
+    'version',
+  ];
+  for (const name of LIB_SYMBOLS) {
+    if (Object.getOwnPropertyDescriptor(window.MyIOUtils, name)) continue;
+    Object.defineProperty(window.MyIOUtils, name, {
+      configurable: true,
+      enumerable: false,
+      get() {
+        return typeof window !== 'undefined' && window.MyIOLibrary
+          ? window.MyIOLibrary[name]
+          : undefined;
+      },
+    });
+  }
+})();
+
 Object.assign(window.MyIOUtils, {
   LogHelper,
   getDataApiHost,
