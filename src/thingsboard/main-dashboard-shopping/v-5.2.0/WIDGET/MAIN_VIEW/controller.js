@@ -809,6 +809,16 @@ function classifyDevice(item) {
     return 'outros';
   }
 
+  // RFC-0207 (A0): delegate to the single-source resolver when available. Proven
+  // equivalent to the legacy classifyDeviceByDeviceType + classifyDeviceByIdentifier
+  // chain below by tests/deviceClassificationProfile.equivalence.test.ts (zero diff).
+  const _resolveCategory =
+    (typeof window !== 'undefined' && window.MyIOLibrary && window.MyIOLibrary.resolveCategory) ||
+    null;
+  if (_resolveCategory) {
+    return _resolveCategory(item).category;
+  }
+
   // RFC-0097: Primary classification by deviceType (or deviceProfile when deviceType = 3F_MEDIDOR)
   const category = classifyDeviceByDeviceType(item);
 
@@ -3168,7 +3178,23 @@ function categorizeItemsByGroup(items) {
 
   const toStr = (val) => String(val || '').toUpperCase();
 
+  // RFC-0207 (A0): delegate to the single-source resolver when the library
+  // exposes it. The resolver is proven equivalent to the legacy body below by
+  // tests/deviceClassificationProfile.equivalence.test.ts (zero diff). When the
+  // library is absent (older bundle), the legacy body runs unchanged.
+  const _resolveGroup =
+    (typeof window !== 'undefined' && window.MyIOLibrary && window.MyIOLibrary.resolveGroup) || null;
+
   for (const item of items) {
+    if (_resolveGroup) {
+      const grp = _resolveGroup(item).group; // 'lojas'|'entrada'|'areacomum'|'ocultos'
+      if (grp === 'lojas') lojas.push(item);
+      else if (grp === 'entrada') entrada.push(item);
+      else if (grp === 'ocultos') ocultos.push(item);
+      else areacomum.push(item);
+      continue;
+    }
+
     // RULE 0: ocultos
     if (isOcultosDevice(item)) {
       ocultos.push(item);
