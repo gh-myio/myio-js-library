@@ -162,6 +162,16 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
                 <div class="mdp-field"><label>texto contém</label>${chipList(`cat-${i}-cc`, r.combinedContains || [], ro)}</div>
                 <div class="mdp-field"><label>identifier contém</label>${chipList(`cat-${i}-idc`, r.identifierFallback?.identifierContains || [], ro)}</div>
                 <div class="mdp-field"><label>identifier prefixo</label>${chipList(`cat-${i}-idp`, r.identifierFallback?.identifierPrefixes || [], ro)}</div>
+                ${
+                  r.conditional
+                    ? `<div class="mdp-cond">
+                  <div class="mdp-cond-hint">Condicional: entra só se o <b>deviceType</b> casar <b>E</b> o identifier casar.</div>
+                  <div class="mdp-field"><label>cond · deviceType</label>${chipList(`cat-${i}-cdt`, r.conditional.deviceTypes || [], ro)}</div>
+                  <div class="mdp-field"><label>cond · identifier contém</label>${chipList(`cat-${i}-cidc`, r.conditional.identifierContains || [], ro)}</div>
+                  <div class="mdp-field"><label>cond · identifier prefixo</label>${chipList(`cat-${i}-cidp`, r.conditional.identifierPrefixes || [], ro)}</div>
+                </div>`
+                    : ''
+                }
               </div>`,
                 )
                 .join('')}
@@ -226,6 +236,16 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
         return (rule.identifierFallback.identifierContains = rule.identifierFallback.identifierContains || []);
       if (m[2] === 'idp')
         return (rule.identifierFallback.identifierPrefixes = rule.identifierFallback.identifierPrefixes || []);
+    }
+    m = key.match(/^cat-(\d+)-(cdt|cidc|cidp)$/);
+    if (m) {
+      const rule = energy.categories.rules[Number(m[1])];
+      rule.conditional = rule.conditional || { deviceTypes: [] };
+      if (m[2] === 'cdt') return (rule.conditional.deviceTypes = rule.conditional.deviceTypes || []);
+      if (m[2] === 'cidc')
+        return (rule.conditional.identifierContains = rule.conditional.identifierContains || []);
+      if (m[2] === 'cidp')
+        return (rule.conditional.identifierPrefixes = rule.conditional.identifierPrefixes || []);
     }
     return null;
   }
@@ -418,6 +438,8 @@ function injectStyles() {
   .mdp-rule-name small { font-weight: 500; color: #94a3b8; }
   .mdp-field { margin-top: 6px; }
   .mdp-field label { display: block; font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 3px; }
+  .mdp-cond { margin-top: 8px; padding: 8px 10px; border-left: 3px solid #c4b5fd; background: #faf9ff; border-radius: 6px; }
+  .mdp-cond-hint { font-size: 11px; color: #6d28d9; margin-bottom: 6px; }
   .mdp-chips { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
   .mdp-chip { display: inline-flex; align-items: center; gap: 4px; background: #f1f5f9; border: 1px solid #cbd5e1;
     border-radius: 12px; padding: 2px 8px; font-size: 11px; font-weight: 600; color: #334155; }
