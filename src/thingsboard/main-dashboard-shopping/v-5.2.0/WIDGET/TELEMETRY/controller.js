@@ -1124,30 +1124,37 @@ const ESCADAS_IDENTIFIERS_SET = new Set(DEVICE_CLASSIFICATION_CONFIG.escadas_rol
  * @returns {string|null}
  */
 function _getEnergyGroupKey(it) {
+  // RFC-0207 (follow-up #3): single-source classification via the library
+  // resolver. Migration snapshot (deviceProfile-authoritative + A1 CAG substring;
+  // 4 reviewed moves): tests/deviceClassificationProfile.energyGroupKey.test.ts.
+  // The legacy deviceType-keyed Set body was removed; the canonical source is
+  // window.MyIOLibrary.resolveGroup/resolveCategory.
+  //
+  // `null` contract preserved: non-energy cards (water/temperature/uncategorized)
+  // return null and stay always-shown (see the filter at L~898).
+  const Lib = (typeof window !== 'undefined' && window.MyIOLibrary) || null;
+  if (!Lib || typeof Lib.resolveGroup !== 'function' || typeof Lib.resolveCategory !== 'function') {
+    LogHelper.error(
+      '[TELEMETRY] RFC-0207: MyIOLibrary.resolveGroup/resolveCategory unavailable — card-group filter disabled (update the MyIO library bundle)'
+    );
+    return null;
+  }
+
+  // entrada is a GROUP (column) decision
+  if (Lib.resolveGroup(it, undefined, 'energy').group === 'entrada') return 'entrada';
+
+  // breakdown bucket via the unified category resolver
+  const cat = Lib.resolveCategory(it).category; // lojas|climatizacao|elevadores|escadas_rolantes|outros
+  if (cat === 'climatizacao') return 'climatizacao';
+  if (cat === 'elevadores') return 'elevadores';
+  if (cat === 'escadas_rolantes') return 'escadasRolantes';
+  if (cat === 'lojas') return 'lojas';
+
+  // genuine fallback ('outros'): only 3F_MEDIDOR cards are group-filterable as
+  // 'outros'; everything else stays null (always shown).
   const dt = String(it.deviceType || '').toUpperCase();
   const dp = String(it.deviceProfile || '').toUpperCase();
-  const id = String(it.identifier || '').toUpperCase();
-  const entradaTypes = new Set(['ENTRADA', 'RELOGIO', 'TRAFO', 'SUBESTACAO']);
-  if (entradaTypes.has(dt) || entradaTypes.has(dp)) return 'entrada';
-  // RFC-0207 (bug #3): removed dead `DEVICE_CLASSIFICATION_CONFIG.climatizacao.deviceProfiles`
-  // clause — that key is undefined in MAIN_VIEW's config, so `(undefined||[]).includes(dp)`
-  // was always false (no-op). Canonical classification is the single-source resolver
-  // (window.MyIOLibrary.resolveGroup/resolveCategory); fully delegating this card-filter
-  // path is a follow-up (needs its own equivalence golden, like A0 did for MAIN_VIEW).
-  if (
-    CLIMATIZACAO_DEVICE_TYPES_SET.has(dt) ||
-    CLIMATIZACAO_CONDITIONAL_TYPES_SET.has(dt) ||
-    CLIMATIZACAO_IDENTIFIERS_SET.has(id) ||
-    id.startsWith('CAG-') ||
-    id.startsWith('FANCOIL-')
-  )
-    return 'climatizacao';
-  if (ELEVADORES_DEVICE_TYPES_SET.has(dt) || ELEVADORES_IDENTIFIERS_SET.has(id) || id.startsWith('ELV-'))
-    return 'elevadores';
-  if (ESCADAS_DEVICE_TYPES_SET.has(dt) || ESCADAS_IDENTIFIERS_SET.has(id) || id.startsWith('ESC-'))
-    return 'escadasRolantes';
-  if (dt === '3F_MEDIDOR' && (dp === '3F_MEDIDOR' || !dp)) return 'lojas';
-  if (dt === '3F_MEDIDOR') return 'outros';
+  if (dt === '3F_MEDIDOR' || dp === '3F_MEDIDOR') return 'outros';
   return null;
 }
 
