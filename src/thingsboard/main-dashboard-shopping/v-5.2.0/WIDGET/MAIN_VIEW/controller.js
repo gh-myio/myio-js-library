@@ -110,6 +110,9 @@ window.MyIOUtils = window.MyIOUtils || {};
     'openDeviceProfileModal',
     'openAlarmBundleMapModal',
     'openAlarmDetailsModal',
+    // tickets (RFC-0198)
+    'createNewTicketWizard',
+    'createTicketDetailModal',
     // alarms / annotations / panels
     'AlarmService',
     'createAlarmsNotificationsPanelComponent',

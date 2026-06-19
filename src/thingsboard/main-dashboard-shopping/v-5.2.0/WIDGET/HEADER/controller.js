@@ -1,4 +1,4 @@
-/* global self, window, document, localStorage, MyIOLibrary, $ */
+/* global self, window, document, localStorage, $ */
 
 // === Botões premium do popup (reforço por JS, independe da ordem de CSS) ===
 
@@ -219,12 +219,9 @@ function initContractStatusIcon() {
 
     LogHelper.log('[HEADER] Contract status clicked, checking ContractSummaryTooltip...');
 
-    const ContractSummaryTooltip = window.MyIOLibrary?.ContractSummaryTooltip;
+    const ContractSummaryTooltip = window.MyIOUtils?.ContractSummaryTooltip;
     if (!ContractSummaryTooltip) {
-      LogHelper.error(
-        '[HEADER] ContractSummaryTooltip not available in library. Available exports:',
-        Object.keys(window.MyIOLibrary || {})
-      );
+      console.error('[HEADER] ContractSummaryTooltip unavailable via MyIOUtils');
       return;
     }
 
@@ -352,25 +349,35 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   }
   const tbToken = localStorage.getItem('jwt_token');
   let customerCredentials = {};
-  try {
-    customerCredentials = await MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage(CUSTOMER_ID, tbToken);
-  } catch (credErr) {
-    LogHelper.warn('[HEADER] ⚠️ Could not fetch customer credentials from ThingsBoard:', credErr?.message);
-    // Continue without credentials — controls will still be enabled via custom events
+  const _fetchCustomerAttrs = window.MyIOUtils?.fetchThingsboardCustomerAttrsFromStorage;
+  if (typeof _fetchCustomerAttrs !== 'function') {
+    console.error('[HEADER] fetchThingsboardCustomerAttrsFromStorage unavailable via MyIOUtils');
+  } else {
+    try {
+      customerCredentials = await _fetchCustomerAttrs(CUSTOMER_ID, tbToken);
+    } catch (credErr) {
+      LogHelper.warn('[HEADER] ⚠️ Could not fetch customer credentials from ThingsBoard:', credErr?.message);
+      // Continue without credentials — controls will still be enabled via custom events
+    }
   }
   const CLIENT_ID = customerCredentials.client_id || ' ';
   const CLIENT_SECRET = customerCredentials.client_secret || ' ';
   const INGESTION_ID = customerCredentials.ingestionId || ' ';
 
-  try {
-    MyIOAuth = MyIOLibrary.buildMyioIngestionAuth({
-      dataApiHost: window.MyIOUtils?.getDataApiHost?.(),
-      clientId: CLIENT_ID,
-      clientSecret: CLIENT_SECRET,
-    });
-    LogHelper.log('[MyIOAuth] Initialized with extracted component');
-  } catch (err) {
-    LogHelper.error('[HEADER] Auth init FAIL', err);
+  const _buildAuth = window.MyIOUtils?.buildMyioIngestionAuth;
+  if (typeof _buildAuth !== 'function') {
+    console.error('[HEADER] buildMyioIngestionAuth unavailable via MyIOUtils');
+  } else {
+    try {
+      MyIOAuth = _buildAuth({
+        dataApiHost: window.MyIOUtils?.getDataApiHost?.(),
+        clientId: CLIENT_ID,
+        clientSecret: CLIENT_SECRET,
+      });
+      LogHelper.log('[MyIOAuth] Initialized with extracted component');
+    } catch (err) {
+      LogHelper.error('[HEADER] Auth init FAIL', err);
+    }
   }
 
   // RFC-0107: Initialize contract status icon
@@ -394,14 +401,18 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     });
   }
 
-  // Initialize MyIOLibrary DateRangePicker
+  // Initialize the DateRangePicker (lib via MyIOUtils bridge)
   let dateRangePicker = null;
   var $inputStart = $('input[name="startDatetimes"]');
 
-  LogHelper.log('[DateRangePicker] Using MyIOLibrary.createDateRangePicker');
+  const _createDateRangePicker = window.MyIOUtils?.createDateRangePicker;
+  if (typeof _createDateRangePicker !== 'function') {
+    console.error('[HEADER] createDateRangePicker unavailable via MyIOUtils');
+  }
 
-  // Initialize the createDateRangePicker component with guaranteed presets
-  MyIOLibrary.createDateRangePicker($inputStart[0], {
+  // Initialize the createDateRangePicker component with guaranteed presets (only if available)
+  if (typeof _createDateRangePicker === 'function')
+    _createDateRangePicker($inputStart[0], {
     presetStart: presetStart,
     presetEnd: presetEnd,
     maxRangeDays: 90,
@@ -1439,9 +1450,9 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
             LogHelper.warn('[HEADER] open-alarm-map: alarms not configured for this customer');
             return;
           }
-          const MyIOLibrary = window.MyIOLibrary;
-          if (!MyIOLibrary?.openAlarmBundleMapModal) {
-            LogHelper.warn('[HEADER] openAlarmBundleMapModal not available in MyIOLibrary');
+          const _openAlarmBundleMapModal = window.MyIOUtils?.openAlarmBundleMapModal;
+          if (typeof _openAlarmBundleMapModal !== 'function') {
+            console.error('[HEADER] openAlarmBundleMapModal unavailable via MyIOUtils');
             return;
           }
           const customerTB_ID = window.MyIOOrchestrator?.customerTB_ID || '';
@@ -1451,7 +1462,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
             LogHelper.warn('[HEADER] open-alarm-map: customerTB_ID not available');
             return;
           }
-          MyIOLibrary.openAlarmBundleMapModal({ customerTB_ID, gcdrTenantId, gcdrApiBaseUrl });
+          _openAlarmBundleMapModal({ customerTB_ID, gcdrTenantId, gcdrApiBaseUrl });
         });
 
         // Notification toggle
@@ -2167,9 +2178,12 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     let _ticketWizard = null;
     function _getTicketWizard() {
       if (_ticketWizard) return _ticketWizard;
-      const Lib = window.MyIOLibrary;
-      if (!Lib?.createNewTicketWizard) return null;
-      _ticketWizard = Lib.createNewTicketWizard({
+      const _createNewTicketWizard = window.MyIOUtils?.createNewTicketWizard;
+      if (typeof _createNewTicketWizard !== 'function') {
+        console.error('[HEADER] createNewTicketWizard unavailable via MyIOUtils');
+        return null;
+      }
+      _ticketWizard = _createNewTicketWizard({
         freshdeskDomain: window.MyIOUtils?.freshdeskDomain || 'myiocom.freshdesk.com',
         freshdeskApiKey: window.MyIOUtils?.freshdeskApiKey || '',
         requesterEmail: window.MyIOUtils?.freshdeskRequesterEmail || '',
@@ -2207,12 +2221,12 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
      * Each click creates a fresh modal instance (no singleton — multiple tickets can be viewed).
      */
     function _openTicketDetail(ticket) {
-      const Lib = window.MyIOLibrary;
-      if (!Lib?.createTicketDetailModal) {
-        console.warn('[HEADER] createTicketDetailModal not found in MyIOLibrary');
+      const _createTicketDetailModal = window.MyIOUtils?.createTicketDetailModal;
+      if (typeof _createTicketDetailModal !== 'function') {
+        console.error('[HEADER] createTicketDetailModal unavailable via MyIOUtils');
         return;
       }
-      const modal = Lib.createTicketDetailModal({
+      const modal = _createTicketDetailModal({
         freshdeskDomain: window.MyIOUtils?.freshdeskDomain || 'myiocom.freshdesk.com',
         freshdeskApiKey: window.MyIOUtils?.freshdeskApiKey || '',
         ticket,
@@ -2471,13 +2485,15 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       }
 
       // RFC-0203 M4 — mount HeaderAnnotationsPanel (3 tabs, static render).
-      // Singleton acessed lazily via MyIOLibrary; if unavailable, fall back to a soft hint.
+      // Singleton accessed lazily via the MyIOUtils bridge.
       let _annotationsPanel = null;
       function _getAnnotationsPanel() {
         if (_annotationsPanel) return _annotationsPanel;
-        const factory = window.MyIOLibrary?.getHeaderAnnotationsPanel;
+        const factory = window.MyIOUtils?.getHeaderAnnotationsPanel;
         if (typeof factory === 'function') {
           _annotationsPanel = factory();
+        } else {
+          console.error('[HEADER] getHeaderAnnotationsPanel unavailable via MyIOUtils');
         }
         return _annotationsPanel;
       }
@@ -2578,7 +2594,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       );
 
       // RFC-0054: Validate current domain
-      const MyIOToast = window.MyIOLibrary?.MyIOToast;
+      const MyIOToast = window.MyIOUtils?.MyIOToast;
       if (!currentDomain.value) {
         LogHelper.warn('[HEADER] ⚠️ currentDomain is null - attempting to auto-select energy');
 
@@ -2766,7 +2782,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
             btnLoad.click();
           } else {
             // btnLoad disabled (unsupported domain) — just notify the user
-            const MyIOToast = window.MyIOLibrary?.MyIOToast;
+            const MyIOToast = window.MyIOUtils?.MyIOToast;
             if (MyIOToast && !isProgrammatic) {
               MyIOToast.success('Cache limpo com sucesso!', 3000);
             }
@@ -2777,7 +2793,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       } catch (err) {
         LogHelper.error('[HEADER] ❌ Error during Force Refresh:', err);
         if (!isProgrammatic) {
-          const MyIOToast = window.MyIOLibrary?.MyIOToast;
+          const MyIOToast = window.MyIOUtils?.MyIOToast;
           if (MyIOToast) {
             MyIOToast.error('Erro ao limpar cache. Consulte o console para detalhes.', 5000);
           }
@@ -2799,7 +2815,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         // Safety check: button should be disabled if domain is not supported
         if (!domain || (domain !== 'energy' && domain !== 'water')) {
           LogHelper.error(`[HEADER] Invalid domain: ${domain}. Button should be disabled.`);
-          const MyIOToast = window.MyIOLibrary?.MyIOToast;
+          const MyIOToast = window.MyIOUtils?.MyIOToast;
           if (MyIOToast) {
             MyIOToast.error('Domínio inválido. Por favor, selecione Energia ou Água no menu.', 5000);
           }
@@ -2831,10 +2847,12 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
           LogHelper.log('[HEADER] self.ctx.datasources >>>', self.ctx.datasources);
 
           // Build items from ALL datasources (function unifies them)
-          const allItems = MyIOLibrary.buildListItemsThingsboardByUniqueDatasource(
-            self.ctx.datasources,
-            self.ctx.data
-          );
+          const _buildListItems = window.MyIOUtils?.buildListItemsThingsboardByUniqueDatasource;
+          if (typeof _buildListItems !== 'function') {
+            console.error('[HEADER] buildListItemsThingsboardByUniqueDatasource unavailable via MyIOUtils');
+            throw new Error('buildListItemsThingsboardByUniqueDatasource unavailable');
+          }
+          const allItems = _buildListItems(self.ctx.datasources, self.ctx.data);
           LogHelper.log(`[HEADER] Built ${allItems.length} total items from all datasources`);
 
           // Determine which datasource alias to filter by based on domain
@@ -2890,7 +2908,12 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
           }
         }
 
-        MyIOLibrary.openDashboardPopupAllReport({
+        const _openAllReport = window.MyIOUtils?.openDashboardPopupAllReport;
+        if (typeof _openAllReport !== 'function') {
+          console.error('[HEADER] openDashboardPopupAllReport unavailable via MyIOUtils');
+          throw new Error('openDashboardPopupAllReport unavailable');
+        }
+        _openAllReport({
           customerId: INGESTION_ID,
           domain: domain, // ← NEW: pass domain ('energy' or 'water')
           debug: 0,
@@ -2905,7 +2928,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         });
       } catch (err) {
         LogHelper.error('[HEADER] Failed to open All-Report modal:', err);
-        const MyIOToast = window.MyIOLibrary?.MyIOToast;
+        const MyIOToast = window.MyIOUtils?.MyIOToast;
         if (MyIOToast) {
           MyIOToast.error('Erro ao abrir relatório geral. Tente novamente.', 5000);
         }
