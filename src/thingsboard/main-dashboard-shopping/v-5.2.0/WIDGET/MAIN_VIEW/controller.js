@@ -809,34 +809,21 @@ function classifyDevice(item) {
     return 'outros';
   }
 
-  // RFC-0207 (A0): delegate to the single-source resolver when available. Proven
-  // equivalent to the legacy classifyDeviceByDeviceType + classifyDeviceByIdentifier
-  // chain below by tests/deviceClassificationProfile.equivalence.test.ts (zero diff).
+  // RFC-0207 (A0 → cleanup): the single-source resolver is the ONLY classifier.
+  // The legacy classifyDeviceByDeviceType + classifyDeviceByIdentifier fallback
+  // chain was removed (proven equivalent in A0). Those two helpers remain
+  // exported via window.MyIOUtils for external consumers, but classifyDevice no
+  // longer depends on them.
   const _resolveCategory =
     (typeof window !== 'undefined' && window.MyIOLibrary && window.MyIOLibrary.resolveCategory) ||
     null;
-  if (_resolveCategory) {
-    return _resolveCategory(item).category;
+  if (!_resolveCategory) {
+    LogHelper.error(
+      '[MAIN_VIEW] RFC-0207: MyIOLibrary.resolveCategory unavailable — classifyDevice degraded to "outros" (update the MyIO library bundle)'
+    );
+    return 'outros';
   }
-
-  // RFC-0097: Primary classification by deviceType (or deviceProfile when deviceType = 3F_MEDIDOR)
-  const category = classifyDeviceByDeviceType(item);
-
-  // Return if we got a specific category (not 'outros')
-  if (category !== 'outros') {
-    return category;
-  }
-
-  // Fallback: try identifier-based classification for special cases (e.g., ESCADASROLANTES)
-  if (item.identifier) {
-    const categoryByIdentifier = classifyDeviceByIdentifier(item.identifier);
-    if (categoryByIdentifier && categoryByIdentifier !== 'outros') {
-      return categoryByIdentifier;
-    }
-  }
-
-  // Default: outros
-  return 'outros';
+  return _resolveCategory(item).category;
 }
 
 /**
@@ -3191,54 +3178,30 @@ function storeContractState(deviceCounts, validationResult = { isValid: true, di
  * - AREACOMUM: everything else
  */
 function categorizeItemsByGroup(items) {
-  const ENTRADA_PROFILES = new Set(['TRAFO', 'ENTRADA', 'RELOGIO', 'SUBESTACAO']);
-
   const lojas = [];
   const entrada = [];
   const areacomum = [];
   const ocultos = [];
 
-  const toStr = (val) => String(val || '').toUpperCase();
-
-  // RFC-0207 (A0): delegate to the single-source resolver when the library
-  // exposes it. The resolver is proven equivalent to the legacy body below by
-  // tests/deviceClassificationProfile.equivalence.test.ts (zero diff). When the
-  // library is absent (older bundle), the legacy body runs unchanged.
+  // RFC-0207 (A0 → cleanup): the single-source resolver is the ONLY classifier.
+  // The legacy deviceProfile Set body was removed (proven equivalent in A0 by
+  // the equivalence golden). The widget hard-depends on the MyIO library bundle;
+  // if the resolver is missing we degrade safely (all → areacomum) and log.
   const _resolveGroup =
     (typeof window !== 'undefined' && window.MyIOLibrary && window.MyIOLibrary.resolveGroup) || null;
+  if (!_resolveGroup) {
+    LogHelper.error(
+      '[MAIN_VIEW] RFC-0207: MyIOLibrary.resolveGroup unavailable — energy grouping degraded (update the MyIO library bundle)'
+    );
+    return { lojas, entrada, areacomum: items.slice(), ocultos };
+  }
 
   for (const item of items) {
-    if (_resolveGroup) {
-      const grp = _resolveGroup(item).group; // 'lojas'|'entrada'|'areacomum'|'ocultos'
-      if (grp === 'lojas') lojas.push(item);
-      else if (grp === 'entrada') entrada.push(item);
-      else if (grp === 'ocultos') ocultos.push(item);
-      else areacomum.push(item);
-      continue;
-    }
-
-    // RULE 0: ocultos
-    if (isOcultosDevice(item)) {
-      ocultos.push(item);
-      continue;
-    }
-
-    const dp = toStr(item.deviceProfile);
-
-    // Rule 1: LOJAS — deviceProfile = 3F_MEDIDOR
-    if (dp === '3F_MEDIDOR') {
-      lojas.push(item);
-      continue;
-    }
-
-    // Rule 2: ENTRADA — deviceProfile ∈ {TRAFO, ENTRADA, RELOGIO, SUBESTACAO}
-    if (ENTRADA_PROFILES.has(dp)) {
-      entrada.push(item);
-      continue;
-    }
-
-    // Rule 3: AREACOMUM — everything else
-    areacomum.push(item);
+    const grp = _resolveGroup(item).group; // 'lojas'|'entrada'|'areacomum'|'ocultos'
+    if (grp === 'lojas') lojas.push(item);
+    else if (grp === 'entrada') entrada.push(item);
+    else if (grp === 'ocultos') ocultos.push(item);
+    else areacomum.push(item);
   }
 
   if (ocultos.length > 0) {
@@ -3274,60 +3237,26 @@ function categorizeItemsByGroupWater(items) {
   const caixadagua = [];
   const ocultos = [];
 
-  const toStr = (val) => String(val || '').toUpperCase();
-
-  // RFC-0207 (follow-up #2): delegate to the single-source resolver's water
-  // domain when the library exposes it. Proven equivalent to the legacy body
-  // below by tests/deviceClassificationProfile.water-temperature.test.ts (zero
-  // diff). Older bundles (no resolver) run the legacy body unchanged.
+  // RFC-0207 (follow-up #2 → cleanup): the single-source resolver's water domain
+  // is the ONLY classifier. The legacy deviceProfile body was removed (proven
+  // equivalent by tests/deviceClassificationProfile.water-temperature.test.ts).
+  // `banheiros` is never produced here (extracted by the TELEMETRY widget).
   const _resolveGroup =
     (typeof window !== 'undefined' && window.MyIOLibrary && window.MyIOLibrary.resolveGroup) || null;
+  if (!_resolveGroup) {
+    LogHelper.error(
+      '[MAIN_VIEW] RFC-0207: MyIOLibrary.resolveGroup unavailable — water grouping degraded (update the MyIO library bundle)'
+    );
+    return { entrada, lojas, banheiros, areacomum: items.slice(), caixadagua, ocultos };
+  }
 
   for (const item of items) {
-    if (_resolveGroup) {
-      const grp = _resolveGroup(item, undefined, 'water').group;
-      if (grp === 'entrada') entrada.push(item);
-      else if (grp === 'lojas') lojas.push(item);
-      else if (grp === 'caixadagua') caixadagua.push(item);
-      else if (grp === 'ocultos') ocultos.push(item);
-      else areacomum.push(item); // areacomum (banheiros never produced here)
-      continue;
-    }
-
-    // RULE 0: ocultos
-    if (isOcultosDevice(item)) {
-      ocultos.push(item);
-      continue;
-    }
-
-    const dp = toStr(item.deviceProfile);
-
-    // Rule 1: ENTRADA — deviceProfile = HIDROMETRO_SHOPPING
-    if (dp === 'HIDROMETRO_SHOPPING') {
-      entrada.push(item);
-      continue;
-    }
-
-    // Rule 2: ÁREA COMUM — deviceProfile = HIDROMETRO_AREA_COMUM
-    if (dp === 'HIDROMETRO_AREA_COMUM') {
-      areacomum.push(item);
-      continue;
-    }
-
-    // Rule 3: LOJAS — deviceProfile = HIDROMETRO
-    if (dp === 'HIDROMETRO') {
-      lojas.push(item);
-      continue;
-    }
-
-    // Rule 4: CAIXA D'ÁGUA — deviceProfile = TANK or CAIXA_DAGUA
-    if (dp === 'TANK' || dp === 'CAIXA_DAGUA') {
-      caixadagua.push(item);
-      continue;
-    }
-
-    // Fallback: tudo que não encaixou vai para areacomum
-    areacomum.push(item);
+    const grp = _resolveGroup(item, undefined, 'water').group;
+    if (grp === 'entrada') entrada.push(item);
+    else if (grp === 'lojas') lojas.push(item);
+    else if (grp === 'caixadagua') caixadagua.push(item);
+    else if (grp === 'ocultos') ocultos.push(item);
+    else areacomum.push(item); // areacomum (banheiros never produced here)
   }
 
   if (ocultos.length > 0) {
@@ -3353,33 +3282,23 @@ function categorizeItemsByGroupTemperature(items) {
   const nao_climatizavel = [];
   const ocultos = [];
 
-  const toStr = (val) => String(val || '').toUpperCase();
-
-  // RFC-0207 (follow-up #2): delegate to the single-source resolver's
-  // temperature domain when available. Proven equivalent by
-  // tests/deviceClassificationProfile.water-temperature.test.ts (zero diff).
+  // RFC-0207 (follow-up #2 → cleanup): the single-source resolver's temperature
+  // domain is the ONLY classifier. The legacy deviceProfile body was removed
+  // (proven equivalent by tests/deviceClassificationProfile.water-temperature.test.ts).
   const _resolveGroup =
     (typeof window !== 'undefined' && window.MyIOLibrary && window.MyIOLibrary.resolveGroup) || null;
+  if (!_resolveGroup) {
+    LogHelper.error(
+      '[MAIN_VIEW] RFC-0207: MyIOLibrary.resolveGroup unavailable — temperature grouping degraded (update the MyIO library bundle)'
+    );
+    return { climatizavel: items.slice(), nao_climatizavel, ocultos };
+  }
 
   for (const item of items) {
-    if (_resolveGroup) {
-      const grp = _resolveGroup(item, undefined, 'temperature').group;
-      if (grp === 'nao_climatizavel') nao_climatizavel.push(item);
-      else if (grp === 'ocultos') ocultos.push(item);
-      else climatizavel.push(item);
-      continue;
-    }
-
-    if (isOcultosDevice(item)) {
-      ocultos.push(item);
-      continue;
-    }
-    const dp = toStr(item.deviceProfile);
-    if (dp === 'TERMOSTATO_EXTERNAL') {
-      nao_climatizavel.push(item);
-    } else {
-      climatizavel.push(item); // TERMOSTATO or any other termostato variant
-    }
+    const grp = _resolveGroup(item, undefined, 'temperature').group;
+    if (grp === 'nao_climatizavel') nao_climatizavel.push(item);
+    else if (grp === 'ocultos') ocultos.push(item);
+    else climatizavel.push(item);
   }
 
   return { climatizavel, nao_climatizavel, ocultos };
@@ -3482,19 +3401,19 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
   const calcPercStr = (value) => calcPerc(value).toFixed(1);
 
   // ============ SUBCATEGORIZE AREACOMUM ============
-  const CLIMATIZACAO_PATTERNS = [
-    'CHILLER',
-    'FANCOIL',
-    'HVAC',
-    'AR_CONDICIONADO',
-    'COMPRESSOR',
-    'VENTILADOR',
-    'CLIMATIZA',
-    'BOMBA_HIDRAULICA',
-    'BOMBASHIDRAULICAS',
-  ];
-  const ELEVADOR_PATTERNS = ['ELEVADOR'];
-  const ESCADA_PATTERNS = ['ESCADA', 'ROLANTE'];
+  // RFC-0207 (A1b → cleanup): the top-level breakdown bucket comes ONLY from the
+  // single-source resolver (window.MyIOLibrary.resolveCategory), unified with the
+  // column path (closes bug #2). The legacy CLIMATIZACAO/ELEVADOR/ESCADA pattern
+  // lists were removed; sub-subcategorization (chiller/fancoil/cag…; iluminacao/
+  // gerador…) stays local below.
+  const _resolveCategory =
+    (typeof window !== 'undefined' && window.MyIOLibrary && window.MyIOLibrary.resolveCategory) ||
+    null;
+  if (!_resolveCategory) {
+    LogHelper.error(
+      '[MAIN_VIEW] RFC-0207: MyIOLibrary.resolveCategory unavailable — breakdown subcategorization degraded to "outros" (update the MyIO library bundle)'
+    );
+  }
 
   // Outros equipment patterns
   const ILUMINACAO_PATTERNS = ['ILUMINA', 'LUZ', 'LAMPADA', 'LED'];
@@ -3527,32 +3446,10 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
     const id = toStr(item.identifier);
     const combined = `${lw} ${dt} ${dp} ${label}`;
 
-    // Identifier-prefix checks mirror TELEMETRY _getEnergyGroupKey so both widgets
-    // classify devices consistently (identifier is NOT included in `combined`).
-    const isElevadorById = id.startsWith('ELV-');
-    const isEscadaById = id.startsWith('ESC-');
-    const isClimatById = id.startsWith('CAG-') || id.startsWith('FANCOIL-') || id.startsWith('CHILLER-');
-
-    // RFC-0207 (A1b): the top-level breakdown bucket comes from the single-source
-    // resolver when the library exposes it (unifies with the column path —
-    // closing bug #2; deltas proven by the dual-oracle migration snapshot). The
-    // sub-subcategorization (chiller/fancoil/cag/… ; iluminacao/gerador/…) stays
-    // local. Legacy combined/id conditions remain as the fallback for older bundles.
-    const _resolveCategory =
-      (typeof window !== 'undefined' && window.MyIOLibrary && window.MyIOLibrary.resolveCategory) ||
-      null;
-    let _topCat;
-    if (_resolveCategory) {
-      _topCat = _resolveCategory(item).category; // climatizacao|elevadores|escadas_rolantes|outros|lojas
-    } else if (ELEVADOR_PATTERNS.some((p) => combined.includes(p)) || isElevadorById) {
-      _topCat = 'elevadores';
-    } else if (ESCADA_PATTERNS.some((p) => combined.includes(p)) || isEscadaById) {
-      _topCat = 'escadas_rolantes';
-    } else if (CLIMATIZACAO_PATTERNS.some((p) => combined.includes(p)) || isClimatById) {
-      _topCat = 'climatizacao';
-    } else {
-      _topCat = 'outros';
-    }
+    // RFC-0207 (A1b → cleanup): top-level bucket is resolver-only (degrades to
+    // 'outros' when the library is missing — logged once above). Identifier-prefix
+    // and combined-text signals are now encoded in the resolver seed.
+    const _topCat = _resolveCategory ? _resolveCategory(item).category : 'outros';
 
     if (_topCat === 'elevadores') {
       elevadoresItems.push(item);

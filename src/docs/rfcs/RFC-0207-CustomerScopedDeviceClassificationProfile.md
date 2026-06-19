@@ -44,8 +44,15 @@ is absent), not the source of truth.
 > (`resolveGroup(item, profile, domain)`), the DEFAULT seed encodes `water` and `temperature`
 > faithfully (proven equivalent to `categorizeItemsByGroupWater`/`Temperature` by a zero-diff
 > golden), `MAIN_VIEW` delegates both, and the modal gained Energia/Água/Temperatura tabs.
-> Remaining follow-up (see §Unresolved / §Future): full delegation of the TELEMETRY card-filter
-> path (`_getEnergyGroupKey`) behind its own equivalence golden.
+> **Follow-up #3** — the TELEMETRY card-filter path (`_getEnergyGroupKey`) now delegates to the
+> resolver, behind a reviewed *migration snapshot* (it keys off `deviceProfile` now, not
+> `deviceType`; the `null` "always-shown" contract is preserved). **Cleanup** — the legacy
+> parallel classifier bodies were removed from `categorizeItemsByGroup`/`Water`/`Temperature`,
+> `classifyDevice`, `buildSummary`, and `_getEnergyGroupKey`; the resolver is now the sole
+> classifier (graceful degrade + error log if the library bundle is missing). Exported helpers
+> (`isOcultosDevice`, `classifyDeviceByDeviceType/Identifier`) and the not-yet-migrated
+> `inferLabelWidget` are intentionally retained. **Operational gate:** the `dist` must be
+> published so the deployed widgets carry the new resolver exports.
 
 ---
 
