@@ -1153,6 +1153,12 @@ Object.assign(window.MyIOUtils, {
     _dataApiHost = self.ctx.settings?.dataApiHost || '';
     window.MyIOUtils.DATA_API_HOST = _dataApiHost; // backward compat for external consumers
 
+    // Homolog channel toggle (settingsSchema: homologMode). When ON, the MENU's
+    // library-version-checker validates against the latest -homolog build instead
+    // of the latest stable. Exposed on MyIOUtils so the MENU widget can read it.
+    window.MyIOUtils.homologMode = self.ctx.settings?.homologMode === true;
+    LogHelper.log(`[MAIN_VIEW] homologMode = ${window.MyIOUtils.homologMode}`);
+
     if (!_dataApiHost) {
       const msg = 'DATA_API_HOST não configurado. Verifique as configurações do widget.';
       LogHelper.warn('[MAIN_VIEW]', msg);

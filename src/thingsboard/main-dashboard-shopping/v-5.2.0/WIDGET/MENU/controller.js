@@ -3157,14 +3157,18 @@ self.onInit = function () {
 
     const MyIOLib = window.MyIOLibrary;
     if (MyIOLib && typeof MyIOLib.createLibraryVersionChecker === 'function') {
+      // Homolog channel toggle from MAIN_VIEW (settingsSchema.homologMode). When
+      // ON, validate against the latest -homolog build instead of latest stable.
+      const preferHomolog = window.MyIOUtils?.homologMode === true;
       // RFC-0139: Store instance for theme updates
       versionCheckerInstance = MyIOLib.createLibraryVersionChecker(container, {
         packageName: 'myio-js-library',
         currentVersion: MyIOLib.version || 'unknown',
+        preferHomolog,
         theme: currentTheme, // Use current theme state
         onStatusChange: (status, currentVer, latestVer) => {
           LogHelper.log(
-            `[MENU] RFC-0137: Version status: ${status} (current: ${currentVer}, latest: ${latestVer})`
+            `[MENU] RFC-0137: Version status: ${status} (current: ${currentVer}, latest: ${latestVer}, channel: ${preferHomolog ? 'homolog' : 'stable'})`
           );
         },
       });

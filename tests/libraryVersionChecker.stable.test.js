@@ -7,6 +7,7 @@ import { describe, it, expect } from 'vitest';
 import {
   isHomologVersion,
   resolveLatestStableVersion,
+  resolveLatestHomologVersion,
 } from '../src/components/library-version-checker/index.js';
 
 describe('libraryVersionChecker — stable (non-homolog) resolution', () => {
@@ -51,5 +52,44 @@ describe('libraryVersionChecker — stable (non-homolog) resolution', () => {
       versions: { '0.1.0-homolog.0': {} },
     };
     expect(resolveLatestStableVersion(data)).toBeNull();
+  });
+});
+
+describe('libraryVersionChecker — homolog channel resolution (MAIN homologMode)', () => {
+  it('prefers the `homolog` dist-tag when present', () => {
+    const data = {
+      'dist-tags': { homolog: '0.1.524-homolog.2', latest: '0.1.523' },
+      versions: { '0.1.523': {}, '0.1.524-homolog.0': {}, '0.1.524-homolog.2': {} },
+    };
+    expect(resolveLatestHomologVersion(data)).toBe('0.1.524-homolog.2');
+  });
+
+  it('falls back to the highest homolog build (core, then sequence) without a dist-tag', () => {
+    const data = {
+      'dist-tags': { latest: '0.1.523' },
+      versions: {
+        '0.1.523': {},
+        '0.1.524-homolog.0': {},
+        '0.1.524-homolog.5': {},
+        '0.1.525-homolog.1': {},
+      },
+    };
+    expect(resolveLatestHomologVersion(data)).toBe('0.1.525-homolog.1');
+  });
+
+  it('compares homolog.N within the same core (higher sequence wins)', () => {
+    const data = {
+      'dist-tags': { latest: '0.1.523' },
+      versions: { '0.1.524-homolog.2': {}, '0.1.524-homolog.10': {} },
+    };
+    expect(resolveLatestHomologVersion(data)).toBe('0.1.524-homolog.10');
+  });
+
+  it('returns null when there is no homolog build', () => {
+    const data = {
+      'dist-tags': { latest: '0.1.523' },
+      versions: { '0.1.522': {}, '0.1.523': {} },
+    };
+    expect(resolveLatestHomologVersion(data)).toBeNull();
   });
 });
