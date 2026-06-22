@@ -3379,12 +3379,15 @@ function _buildGoalsFetchData(domain) {
       return;
     }
 
-    container.innerHTML = '';
-    if (versionCheckerInstance?.destroy) {
-      try { versionCheckerInstance.destroy(); } catch (_) {}
+    // Idempotent mount: TB re-runs onInit (resize/state change/reconfig) and the
+    // version checker appends to the container — without this, each re-init stacks
+    // another badge. Destroy the prior instance (stops its toast interval) and
+    // clear the container before mounting a fresh one.
+    if (versionCheckerInstance && typeof versionCheckerInstance.destroy === 'function') {
+      versionCheckerInstance.destroy();
       versionCheckerInstance = null;
     }
-
+    container.innerHTML = '';
 
     const MyIOLib = window.MyIOUtils;
     if (MyIOLib && typeof MyIOLib.createLibraryVersionChecker === 'function') {
