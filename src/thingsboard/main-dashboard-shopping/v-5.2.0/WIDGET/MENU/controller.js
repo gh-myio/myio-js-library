@@ -8,6 +8,13 @@ const LogHelper = window.MyIOUtils?.LogHelper || {
 };
 
 self.onInit = function () {
+  // Guard contra re-inicialização (evita footer/listeners duplicados)
+  if (self.ctx.$scope.__menuInitialized) {
+    LogHelper.log('[MENU] Já inicializado, pulando re-init');
+    return;
+  }
+  self.ctx.$scope.__menuInitialized = true;
+
   const settings = self.ctx.settings || {};
   const scope = self.ctx.$scope;
 
@@ -78,6 +85,7 @@ self.onInit = function () {
       water_content: '💧',
       temperature_content: '🌡️',
       alarm_content: '🔔',
+      metas_content: '🎯',
     };
     return icons[stateId] || '📄';
   };
@@ -240,6 +248,12 @@ self.onInit = function () {
     if (clickedLink && /relat/i.test(clickedLink.content || '')) {
       LogHelper.log('[MENU RFC-0181] Relatórios link clicked – opening reports picker');
       openReportsPickerModal();
+      return;
+    }
+
+    if (clickedLink && /metas/i.test(clickedLink.content || '')) {
+      LogHelper.log('[MENU] Metas clicked – abrindo modal de consumo 7 dias');
+      openGoalsModal();
       return;
     }
 
@@ -2204,6 +2218,211 @@ self.onInit = function () {
     LogHelper.log('[MENU] Measurement setup button added successfully');
   }
 
+  // ── Metas: modal de consumo 7 dias (createConsumptionChartWidget) ───────────
+let _goalsChartInstance = null;
+
+function openGoalsModal() {
+  const domain = window.MyIOOrchestrator?.getVisibleTab?.() || 'energy';
+  const customerId =
+    window.MyIOOrchestrator?.customerTB_ID || self.ctx?.settings?.customerTB_ID || '';
+
+  if (typeof MyIOLibrary === 'undefined' || !MyIOLibrary.createConsumptionChartWidget) {
+    LogHelper.error('[MENU] createConsumptionChartWidget indisponível na MyIOLibrary');
+    window.alert('Componente de gráfico de consumo indisponível. Atualize a biblioteca MyIO.');
+    return;
+  }
+
+  const DOMAIN_CFG = {
+    energy:      { label: 'Energia',     unit: 'kWh', unitLarge: 'MWh', threshold: 1000,     chartType: 'bar'  },
+    water:       { label: 'Água',        unit: 'm³',  unitLarge: 'm³',  threshold: Infinity, chartType: 'bar'  },
+    temperature: { label: 'Temperatura', unit: '°C',  unitLarge: '°C',  threshold: Infinity, chartType: 'line' },
+  };
+  const cfg = DOMAIN_CFG[domain] || DOMAIN_CFG.energy;
+
+  const topWin = window.top || window;
+  const topDoc = (() => { try { return topWin.document; } catch { return document; } })();
+
+  const STYLE_ID = 'myio-goals-modal-styles';
+  if (!topDoc.getElementById(STYLE_ID)) {
+    const s = topDoc.createElement('style');
+    s.id = STYLE_ID;
+    s.textContent = `
+      .mgm-overlay{position:fixed;inset:0;z-index:999998;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);opacity:0;transition:opacity .2s ease;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;}
+      .mgm-overlay.show{opacity:1;}
+      .mgm-modal{position:relative;background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.25);width:min(960px,94vw);height:min(620px,88vh);overflow:hidden;display:flex;flex-direction:column;transform:translateY(12px) scale(.98);transition:transform .2s ease;}
+      .mgm-overlay.show .mgm-modal{transform:translateY(0) scale(1);}
+      .mgm-header{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;background:#3e1a7d;color:#fff;flex-shrink:0;}
+      .mgm-header h3{margin:0;font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px;}
+      .mgm-close{background:transparent;border:none;color:#fff;font-size:24px;line-height:1;cursor:pointer;padding:4px;border-radius:4px;}
+      .mgm-close:hover{background:rgba(255,255,255,.15);}
+      .mgm-body{flex:1;min-height:0;padding:14px;}
+      #myio-goals-chart{width:100%;height:100%;}
+    `;
+    topDoc.head.appendChild(s);
+  }
+
+  const existing = topDoc.getElementById('myio-goals-modal');
+  if (existing) existing.remove();
+  if (_goalsChartInstance?.destroy) { try { _goalsChartInstance.destroy(); } catch (_) {} _goalsChartInstance = null; }
+
+  const overlay = topDoc.createElement('div');
+  overlay.id = 'myio-goals-modal';
+  overlay.className = 'mgm-overlay';
+  overlay.innerHTML = `
+    <div class="mgm-modal">
+      <div class="mgm-header">
+        <h3>🎯 Metas — ${cfg.label} (Últimos 7 dias)</h3>
+        <button class="mgm-close" aria-label="Fechar">&times;</button>
+      </div>
+      <div class="mgm-body"><div id="myio-goals-chart"></div></div>
+    </div>`;
+  topDoc.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add('show'));
+
+  const closeModal = () => {
+    overlay.classList.remove('show');
+    if (_goalsChartInstance?.destroy) { try { _goalsChartInstance.destroy(); } catch (_) {} _goalsChartInstance = null; }
+    overlay.addEventListener('transitionend', () => overlay.remove(), { once: true });
+  };
+  overlay.querySelector('.mgm-close').addEventListener('click', closeModal);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
+
+  setTimeout(() => {
+    _goalsChartInstance = MyIOLibrary.createConsumptionChartWidget({
+      domain,
+      containerId: 'myio-goals-chart',
+      title: `${cfg.label} - Últimos 7 dias`,
+      unit: cfg.unit,
+      unitLarge: cfg.unitLarge,
+      thresholdForLargeUnit: cfg.threshold,
+      decimalPlaces: domain === 'temperature' ? 1 : 2,
+      chartHeight: '100%',
+      fullHeight: true,
+      defaultPeriod: 7,
+      defaultChartType: cfg.chartType,
+      defaultVizMode: 'total',   // single shopping → só Consolidado
+      showVizModeTabs: true,
+      vizModeLabels: { total: 'Consolidado', separate: 'Por Dispositivo' },
+      theme: window.MyIOUtils?.getTheme?.() || 'light',
+      showSettingsButton: false,
+      showMaximizeButton: false,
+      fetchData: _buildGoalsFetchData(domain),
+      onDataLoaded: (data) =>
+        LogHelper.log('[MENU] Metas data loaded:', data.labels?.length, 'dias'),
+      onError: (err) => LogHelper.error('[MENU] Metas chart error:', err),
+    });
+
+    _goalsChartInstance.render().catch((err) =>
+      LogHelper.error('[MENU] Falha ao renderizar gráfico Metas:', err)
+    );
+  }, 100);
+}
+
+function _buildGoalsFetchData(domain) {
+  return async function (period) {
+    const numDays = period || 7;
+    const empty = { labels: [], dailyTotals: [], shoppingData: {}, shoppingNames: {}, fetchTimestamp: Date.now() };
+
+    if (domain !== 'energy') {
+      LogHelper.warn(`[MENU] Metas: domínio "${domain}" não implementado (só energy)`);
+      return empty;
+    }
+
+    const parentCustomerId =
+      window.MyIOOrchestrator?.getCredentials?.()?.CUSTOMER_ING_ID ||
+      window.MyIOUtils?.customerTB_ID;
+    if (!parentCustomerId) {
+      LogHelper.error('[MENU] Metas: CUSTOMER_ING_ID indisponível no orchestrator');
+      return empty;
+    }
+    if (!window.MyIOUtils?.fetchEnergyDayConsumption) {
+      LogHelper.error('[MENU] Metas: window.MyIOUtils.fetchEnergyDayConsumption indisponível');
+      return empty;
+    }
+
+    // lista curada (mesma do ENERGY) — exclui medidores de entrada e mortos
+    const orchestratorItems = window.MyIOOrchestratorData?.energy?.items || [];
+    const validIds = new Set();
+    orchestratorItems.forEach((it) => {
+      if (it.ingestionId) validIds.add(it.ingestionId);
+      if (it.id) validIds.add(it.id);
+    });
+    const hasCurated = validIds.size > 0;
+    LogHelper.log(`[MENU] Metas: ${validIds.size} devices curados (hasCurated=${hasCurated})`);
+
+    // limites de dia (00:00 → 23:59), últimos N dias
+    const now = new Date();
+    const periodStart = new Date(now);
+    periodStart.setDate(now.getDate() - (numDays - 1));
+    periodStart.setHours(0, 0, 0, 0);
+
+    const dayBoundaries = [];
+    for (let i = 0; i < numDays; i++) {
+      const d = new Date(periodStart);
+      d.setDate(periodStart.getDate() + i);
+      d.setHours(0, 0, 0, 0);
+      const e = new Date(d); e.setHours(23, 59, 59, 999);
+      dayBoundaries.push({
+        label: d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+        startTs: d.getTime(),
+        endTs: e.getTime(),
+      });
+    }
+
+    const labels = dayBoundaries.map((d) => d.label);
+    const dailyTotals = [];
+    const perDevice = {}; // id -> { name, values: number[] }
+
+    for (let dayIdx = 0; dayIdx < dayBoundaries.length; dayIdx++) {
+      const day = dayBoundaries[dayIdx];
+      const result = await window.MyIOUtils.fetchEnergyDayConsumption(
+        parentCustomerId, day.startTs, day.endTs, '1d'
+      );
+
+      // FIX: a API retorna { data:[...] }; trata também { devices:[...] } e array direto
+      const all = Array.isArray(result)
+        ? result
+        : (result?.devices || result?.data || []);
+
+      if (dayIdx === 0) {
+        LogHelper.log(`[MENU] Metas: shape recebido = ${all.length} devices (chaves: ${result ? Object.keys(result).join(',') : 'null'})`);
+      }
+
+      const devices = all.filter((dv) => {
+        if (hasCurated) return validIds.has(dv.id) || validIds.has(dv.ingestionId);
+        return String(dv.profileName || '').toUpperCase() !== 'ENTRADA';
+      });
+
+      let dayTotal = 0;
+      devices.forEach((dv) => {
+        const v = Number(dv.total_value) || 0;
+        dayTotal += v;
+        if (!perDevice[dv.id]) {
+          perDevice[dv.id] = { name: dv.name || dv.label || dv.id, values: new Array(numDays).fill(0) };
+        }
+        perDevice[dv.id].values[dayIdx] = v;
+      });
+
+      dailyTotals.push(dayTotal);
+      LogHelper.log(`[MENU] Metas ${day.label}: ${dayTotal.toFixed(2)} kWh (${devices.length} devices)`);
+    }
+
+    // por-dispositivo: top-N por consumo (304 séries seria ilegível)
+    const MAX_SERIES = 15;
+    const ranked = Object.entries(perDevice)
+      .map(([id, d]) => ({ id, name: d.name, values: d.values, sum: d.values.reduce((a, b) => a + b, 0) }))
+      .filter((d) => d.sum > 0)
+      .sort((a, b) => b.sum - a.sum)
+      .slice(0, MAX_SERIES);
+
+    const shoppingData = {};
+    const shoppingNames = {};
+    ranked.forEach((d) => { shoppingData[d.id] = d.values; shoppingNames[d.id] = d.name; });
+
+    return { labels, dailyTotals, shoppingData, shoppingNames, fetchTimestamp: Date.now() };
+  };
+}
+
   function openReportsPickerModal() {
     const orch = window.MyIOOrchestrator || {};
     const creds = orch.getCredentials?.() || {};
@@ -2790,6 +3009,11 @@ self.onInit = function () {
       } catch {
         // Ignore cleanup errors (topDoc may no longer be accessible)
       }
+      if (versionCheckerInstance?.destroy) {
+        try { versionCheckerInstance.destroy(); } catch (_) {}
+        versionCheckerInstance = null;
+      }
+      self.ctx.$scope.__menuInitialized = false; 
       if (typeof oldDestroy === 'function') oldDestroy();
     };
   })();
@@ -3154,6 +3378,13 @@ self.onInit = function () {
       LogHelper.warn('[MENU] RFC-0137: lib-version-display container not found');
       return;
     }
+
+    container.innerHTML = '';
+    if (versionCheckerInstance?.destroy) {
+      try { versionCheckerInstance.destroy(); } catch (_) {}
+      versionCheckerInstance = null;
+    }
+
 
     const MyIOLib = window.MyIOUtils;
     if (MyIOLib && typeof MyIOLib.createLibraryVersionChecker === 'function') {
