@@ -799,14 +799,17 @@ export {
 } from './components/card-badges';
 export type { AlarmBadgeOptions, TicketBadgeOptions } from './components/card-badges';
 
-// RFC-0205: Premium Dialog — exported confirm/message modal
-export { openConfirmDialog, openMessageDialog } from './components/premium-modals/dialog';
+// RFC-0205: Premium Dialog — exported confirm/message modal + generic HTML modal
+export { openConfirmDialog, openMessageDialog, openGenericModal } from './components/premium-modals/dialog';
 export type {
   ConfirmDialogParams,
   MessageDialogParams,
   MessageDialogSeverity,
   DialogButton,
   DialogButtonVariant,
+  GenericModalParams,
+  GenericModalButton,
+  GenericModalInstance,
 } from './components/premium-modals/dialog';
 
 // RFC-0190: User Management Modal
