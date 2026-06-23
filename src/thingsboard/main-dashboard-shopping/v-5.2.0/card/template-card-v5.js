@@ -427,14 +427,6 @@ export function renderCardComponentV5({
         z-index: 5;
       }
 
-      /* Light beige background when the device has group-exclusion enabled.
-         Overrides the white .device-card-centered gradient (which uses !important). */
-      .myio-enhanced-card-container-v5.myio-card-excluded .device-card-centered.clickable,
-      .myio-enhanced-card-container-v5.myio-card-excluded .myio-draggable-card {
-        background: linear-gradient(145deg, #faf6ec 0%, #f3ead3 100%) !important;
-        border-color: rgba(214, 196, 152, 0.7) !important;
-      }
-
       .myio-enhanced-card-container-v5 .myio-draggable-card {
         width: 100%;
         border-radius: 10px;
