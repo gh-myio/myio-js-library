@@ -3,7 +3,8 @@
 - **RFC**: 0207
 - **Title**: Customer-Scoped Device Classification Profile (SERVER_SCOPE JSON + MENU management modal)
 - **Status**: Implemented (v1) — A0/A1/A1b (single-source resolver + bug #1/#2 fixes, golden-tested) + Phase B (customer SERVER_SCOPE attribute load in MAIN_VIEW.onInit + premium MENU management modal `openDeviceProfileModal`). Branch `feat/rfc-0207-b-attribute-and-menu` → PR to `desenv`.
-  **+ v2 redesign — PROPOSED (2026-06-23), not yet implemented**: fully configurable group/subcategory **tree** (create groups at will, nest subcategories, config-driven labels, unique allocation, UPPERCASE, predefined deviceProfile catalog, computed residual/total nodes), with persistence ownership moved to MAIN_VIEW and config-driven tooltips. See **§ Addendum — RFC-0207 v2** at the end. The v1 sections below describe what shipped; v2 supersedes the *schema* and *groups/categories model*.
+  **+ v2 redesign — PROPOSED (2026-06-23)**: fully configurable group/subcategory **tree** (create groups at will, nest subcategories, config-driven labels, unique allocation, UPPERCASE, predefined deviceProfile catalog, computed residual/total nodes). See **§ Addendum — RFC-0207 v2**.
+  **+ v3 FINAL — COMPILED (2026-06-23)**: the **engine/tree seam** + **swappable `ProfileSource`** + **locked responsibility split** (lib × MAIN_VIEW × GCDR). Consolidates the full feedback series (GCDR v1→v5 + MyIO-Lib v4) and **absorbs the standalone `RFC-0207-v3` file and the feedback/reconciliation docs (now removed)**. See **§ Addendum — RFC-0207 v3 (FINAL, compiled)** at the end — this is the canonical design to implement. The v1 sections describe what shipped; v2 gives the tree schema; v3 is the final contract.
 - **Author**: Rodrigo Lago
 - **Created**: 2026-06-18
 - **Target**: `src/thingsboard/main-dashboard-shopping/v-5.2.0/WIDGET/` (MAIN_VIEW, MENU, TELEMETRY, TELEMETRY_INFO) + `src/utils/`
@@ -422,7 +423,7 @@ Mapping back to the RFC's existing *Unresolved questions* list:
 | Unresolved question | Resolution |
 |---------------------|------------|
 | Attribute key naming | **Standalone key**, carrying its own `schemaVersion`. |
-| Holding / customer inheritance | **Out of MVP.** |
+| Holding / customer inheritance | **Decided (v2, 2026-06-23): no inheritance.** Per-customer self-contained profile; each entity (head office / holding / shopping) carries its own full document; dashboard uses the active/selected customer's profile (see Addendum v2 § I). |
 | What triggers re-classification | **Best-effort override** — attribute read on load; failure falls back to seed silently + audit log. No live re-classification in MVP. |
 | Water / temperature parity | ✅ **Implemented** (follow-up #2) — domain-generic resolver + seed + delegation + modal tabs. |
 | Where the default seed lives | **In code, as the operational source of truth.** The customer attribute only *overrides* it. |
@@ -654,6 +655,22 @@ labels — **no hard-coded "Bombas Hidráulicas"** anywhere.
 
 ### I. Architecture & ownership
 
+- **Storage scope — per-customer, self-contained, NO inheritance (decided 2026-06-23).**
+  The profile lives as a `deviceClassificationProfile` SERVER_SCOPE attribute on the
+  **customer the dashboard is bound to** (`window.MyIOUtils.customerTB_ID`) — exactly
+  as v1 already does. **Every entity carries its own full document**: the Head Office
+  has its own, each Holding has its own, each Shopping (child customer) has its own.
+  There is **no merge and no template-copy** between parent and child (options "merge
+  deltas" and "template copy" were considered and **rejected** for simplicity — N
+  configs is accepted). When a customer has no attribute yet, the **DEFAULT seed** is
+  used (fail-open to default behavior). *(This supersedes the original addendum's
+  "Holding / customer inheritance — Out of MVP" line: inheritance is not deferred, it
+  is **deliberately not done**.)*
+  - **Active-customer rule (head-office / UNIQUE dashboards):** when the view is the
+    **aggregate** (the head office itself), classify with the **head-office customer's**
+    profile; when a **specific shopping is selected/filtered**, classify with **that
+    shopping's** profile. The resolver always uses the profile of the **active/selected
+    customer**, never a blend of several.
 - **MAIN_VIEW is the sole owner of persistence.** Load (SERVER_SCOPE GET), normalize
   (v1→v2 migration), expose `window.MyIOUtils.deviceClassificationProfile`, **save**
   (SERVER_SCOPE POST), and re-dispatch orchestrator events on save — all here. The
@@ -697,6 +714,201 @@ labels — **no hard-coded "Bombas Hidráulicas"** anywhere.
 3. **Residual semantics** — is "Pontos Não-Mapeados" the *value* residual (`Entrada − Σ`) only, or also the device-level `fallback` bucket? (Design treats them as **two** distinct node roles: `fallback` = unmatched devices; `residual` = computed value.)
 4. **Catalog source of truth** — carry `deviceProfileCatalog` on the profile (editable per customer) vs a shared code constant (lifted from upsell). 
 5. **Identifier rule precedence** when a device matches an `identifierExact` in one node and an `identifierContains` in another — should validation forbid this overlap outright (R5 implies yes)?
+
+---
+
+## Addendum — RFC-0207 v3 (FINAL, compiled 2026-06-23)
+
+> **Status:** FINAL — the canonical design to implement. Compiles the whole feedback
+> series (GCDR v1→v5 + MyIO-Lib v4) and the reconciliation. **Absorbs and replaces**
+> the standalone `RFC-0207-v3-ClassificationEngineSeam-and-GCDRReadiness.md` and the
+> `CLIMATIZACAO-…-FEEDBACK-BY-GCDR-V1/V3`, `…-FEEDBACK-BY-MYIO-LIB-V4`, and
+> `…-FEEDBACK-BY-GCDR-V5`, and `…-RECONCILIATION-…` docs (the entire feedback series,
+> all removed). The only surviving companion is the problem map
+> (`CLIMATIZACAO-SUBCATEGORIES-DUPLICATION-MAP.md`). v3 **keeps** v2's tree, modal,
+> per-customer scope and no-inheritance; it adds the engine/store seam and locks ownership.
+
+### A. The two-tier model + the central thesis
+
+- **Tier-1** (already RFC-0207 v1/v2, golden, **code**): `device → grupo` (energy / água / climatização / …).
+- **Tier-2** (new, golden, **code**, group-generic): inside a group with children → subcategoria (chiller / fancoil / bomba / cag / outros-HVAC; and analogously *Outros* → iluminação / incêndio / geradores). Tier-2 is what was hard-coded/duplicated; it now has a canonical home.
+- **Central thesis — separate the *engine* from the *tree*:** the **engine** (how rules evaluate — `exact`/`contains`/`prefix`, UPPERCASE, deepest-match-wins, fallback-per-level, unique allocation, computed nodes) is **golden-locked code**, keyed by the stable node **`key`**. The **tree** (which nodes exist, labels, icons, nesting, `order`, and membership lists) is **operator-authored data** behind a **swappable store**. The operator authors **membership data**; never the **evaluator**. `node.key` *is* the GCDR `entity_key` — the seam.
+- **`match()` is NEVER data/metadata.** Predicate-as-data = a DSL + golden-at-runtime + an execution door. The bounded rule kinds (R3: `deviceProfiles`/`identifierExact|Contains|Prefixes`) are **value lists**, not expressions — that is data; arbitrary predicates remain forbidden.
+
+### B. `ProfileSource` — swappable store (pure × I/O boundary)
+
+```ts
+interface ResolvedProfile {
+  version: string;                 // etag of the resolved tree for this customer
+  source: 'customer' | 'system' | 'baked';
+  domains: Record<string, { tree: ClassificationNode[] }>; // v2 node shape, each node carrying `order`
+}
+interface ProfileSource { resolve(customerId: string): Promise<ResolvedProfile>; }
+```
+
+- **Lib (pure, zero-dep, golden):** the generic walker (`resolveClassification`/`resolveSubcategory`), `validateProfile`, `normalizeProfile`, the `ProfileSource` **interface**, and the `BakedProfileSource` (in-bundle versioned default, generated from the in-code seed). **The lib never does `fetch`.**
+- **MAIN_VIEW (I/O owner):** `TbAttributeProfileSource` (SERVER_SCOPE GET/POST, today) and, conditionally, `GcdrResolveProfileSource` (`GET /api/v1/entities/resolve?customerId=`, `X-Version-Id`/304). The consumer/walker is identical regardless of source — moving TB→GCDR is a one-line swap behind a flag.
+- **SIM and WIDGET share one `ProfileSource`** (the duplication's root cause is SIM being a copy): both use the **same** source, with `BakedProfileSource` as the common offline floor. No private "test JSON" in SIM.
+
+### B.1 Consumption contract — HARD requirements (not prose)
+
+Four guarantees that protect against bugs that **fail silently**. Each is a build/test gate, not a recommendation:
+
+1. **Deterministic order.** Every node carries an **explicit integer `order`**; siblings are evaluated by `order` ascending. A `ProfileSource` returns nodes **already ordered** and carries the number (never relies on array/row/JSON-key order — Postgres rows/serializers are not stable). **Build assertion:** the `role:'fallback'` node is the highest `order` at its level (else `()=>true` shadows real rules). **Golden:** an order-sensitivity case (a device that matches the fallback *and* would match an earlier sibling if order inverted).
+2. **Versioning / caching.** `/resolve` returns **`X-Version-Id`**; the consumer sends `If-None-Match` → **`304`** with no body when unchanged. Reuses the alarm-bundle pattern (no new mechanism). The baked carries the `version` it was generated at (detects "stale baked").
+3. **Baked default versioned.** Generated in **build-time** from the in-code seed (derived artifact, never hand-edited → never a 5th copy); carries its `version`. **Key-parity test (CI, hermetic/by file):** `keys(engine) === keys(baked)` (== GCDR `is_system` keys in v3.2). Divergence fails the build.
+4. **Degradation — specified AND tested.** Chain: valid cache (304) → `resolve()` 200 → on `resolve()` throw (timeout/5xx/CORS/invalid JSON/validation) **fall back to `BakedProfileSource`**; never throw to render, never blank the dashboard. Logs structured (`source:'baked', reason, customerId, bakedVersion`) + mirrored to telemetry. **Mandatory tests = fault injection** (mock `resolve()` → timeout/500/corrupt JSON ⇒ assert baked used + dashboard renders + log emitted) and stale-baked.
+
+### C. The 6 library constraints (accepted, MyIO-Lib v4 / GCDR v5)
+
+1. **Bundle budget** — UMD-min ≤25 KB (gzip ≤26). The baked default always ships in the UMD (no tree-shaking for widgets). **Measure it; gate it; move to a subpath if over budget.**
+2. **`MyIOUtils` bridge** — every new symbol must be registered in `LIB_SYMBOLS` on MAIN_VIEW (children read via the getter bridge, RFC-0126).
+3. **Pure × I/O** — see §B (lib pure; I/O in MAIN_VIEW).
+4. **Tier-2 group-generic** — `resolveSubcategory(device, groupKey, tree)`; climatização **and** "Outros" are just two groups with children, no special-casing.
+5. **Release-gating** — A / v3.1 / v3.2 are publish events (build passing size-gates → `dist` published → widget reloads UMD via homolog channel/version-checker), not just commits.
+6. **Don't break v1** — `resolveGroup`/`resolveCategory` stay as thin aliases over the generic walker through v3.x; the v1 export surface is preserved.
+
+### D. Responsibility split — LOCKED (the deliverable, from GCDR v5 §7)
+
+| Responsibility | 📦 Lib | 🖥️ MAIN_VIEW | 🗄️ GCDR (RFC-0047) |
+|---|---|---|---|
+| walker `resolveClassification`/`resolveSubcategory` | **owner** (pure, golden) | calls | — |
+| `validateProfile` / `normalizeProfile` | **owner** (pure) | calls | — |
+| `ProfileSource` interface + types | **owner** | implements concretes | — |
+| `BakedProfileSource` (offline default) | **owner** (from in-code seed) | uses as floor | keeps default tree bounded |
+| `match()` / engine semantics | **owner** (golden) | — | **never** |
+| `TbAttributeProfileSource` (TB I/O) | — | **owner** | — |
+| `GcdrResolveProfileSource` (HTTP+304) | — | **owner** | serves `/resolve` |
+| `name`/`icon`/`set` (declarative tree) — **authored by MYIO operator only; NO customer-facing edit, NO "request reclassification" flow** | baked default only | hosts the editor (modal) + persists | **store owner** (v3.2): TB attr → GCDR; the per-customer tree is **MYIO-authored**, not client-authored |
+| canonical `key` list (parity source) | consumes (committed fixture) | — | **publishes** (versioned artifact) |
+| versioning `X-Version-Id`/304 | — | client | server |
+| i18n `metadata.nameKey` + override | translates default via `nameKey` | passes node | stores `nameKey` + override |
+| bundle budget / size-gate | **owner** | — | keeps default small |
+| `MyIOUtils` / `LIB_SYMBOLS` | exports | **registers** | — |
+
+### E. Phasing (Porta 0 = product gate)
+
+| Phase | What | Store | GCDR? | Gate |
+|---|---|---|---|---|
+| **A** — display | TELEMETRY_INFO reads `details.name` **and** `details.icon`; `buildCategorySummary` carries `icon` | — | no | none — do now |
+| **v3.1** — engine seam | walker (group-generic) + `ProfileSource` + `BakedProfileSource` + explicit `order` + degradation + golden (key-parity, order-sensitivity, bomba-not-incêndio); I/O sources in MAIN_VIEW | TB attr + baked | no | none — hardens v2 in place |
+| **v3.2** — GCDR | `GcdrResolveProfileSource` behind a flag; declarative tree authored in GCDR/RFC-0047; key-parity becomes a live cross-store contract; SIM+widget same source | GCDR `/resolve` + baked | **yes** | **Porta 0** |
+
+### F. Golden (engine-level, independent of customer data)
+
+Equivalence (v1) · migration snapshot (A1) · **order-sensitivity** (fallback never shadows a real sibling) · **key-parity** (engine keys == baked keys == GCDR `is_system` keys, reconciled **by committed file, not network**) · **bomba-not-incêndio**. **MYIO-operator** edits change **data** (the tree), not the engine — so the engine is golden once, forever. **A golden-on-save** (snapshot → reclassify → diff → warn/block regression) guards the operator's edits at write time. *(There is no customer-facing edit — see §I.3.)*
+
+### G. Closed questions (resolved across the series)
+
+- I/O of `/resolve` → **MAIN_VIEW**; lib never fetches.
+- Baked from build-time GCDR fetch? → **No** — in-code seed; GCDR reconciled by committed key-list (hermetic CI).
+- i18n → **`metadata.nameKey` (translatable default) + display override**.
+- Tier-2 group-generic → **yes** (GCDR model is generic by construction).
+- Versioning → **`X-Version-Id`/304** (alarm-bundle pattern).
+- Dual-run cache → keyed by **`(customerId, source, version)`**.
+- **Porta 0 ("does a real, named customer diverge?") → ANSWERED YES by the PO** (every customer has 1–3 different categories; the fixed set doesn't fit all). So v3.2/GCDR is *justified* — still sequenced after v3.1.
+
+### H. Open points the PO did NOT answer — **decided by the maintainer** (good-sense defaults, to revisit)
+
+> These were left open by the PO; documented here and **decided** so implementation is not blocked. Each is reversible and flagged for PO review.
+
+1. **"Total Consumidores" / residual formula.** **Decided:** the residual node **"Pontos Não-Mapeados" (Área Comum)** = `Entrada − Σ(grupos consumidores diretos)`; **"Total Consumidores"** = `Σ(grupos consumidores diretos) + residual` — which **reconciles to Entrada** by construction (a sanity invariant). Entrada is the **base**, never a consumer addend. Both are `derived` (computed) nodes, op `subtract`/`sum`. *(Matches the PO's original card structure.)*
+2. **Baked size — core vs subpath.** **Decided:** ship in **core** initially with a dedicated classification size-gate; if it pushes UMD-min over the 25 KB budget, **move to the subpath `myio-js-library/classification-default`** (tooltips precedent). Measure-then-gate.
+3. **`LIB_SYMBOLS` (bridge).** **Decided initial set:** `resolveClassification`, `resolveSubcategory`, `resolveGroup`, `resolveCategory`, `validateProfile`, `normalizeProfile`, `BAKED_DEFAULT_PROFILE`.
+4. **Release plan.** **Decided:** 3 releases (A, v3.1, v3.2), each validated on the **homolog** channel before prod; A and v3.1 carry no GCDR dependency.
+5. **Deprecation of `resolveGroup`/`resolveCategory`.** **Decided:** keep as aliases through all v3.x; remove only in a future **major** with a deprecation note.
+6. **`ProfileSource` selection.** **Decided:** **global flag** during v3.2 rollout; per-customer only if mixed stores are ever needed.
+7. **`deviceProfileCatalog` ownership.** **Decided:** in-code/baked in v3.1; **GCDR data in v3.2**, with the engine validating against it.
+8. **Baked regeneration.** **Decided:** the **in-code DEFAULT seed remains the build seed**; GCDR `is_system` is reconciled to it by the key-parity test (committed file), never by build-time fetch (hermetic build).
+9. **Icon format.** **Decided:** **token + curated SVG picker** (never free emoji) — fixes the emoji used in the showcase.
+
+### I. Final roundtable (2026-06-23) — decisões do mantenedor + pontos para o PO
+
+> Última rodada party-mode sobre este RFC compilado (Winston/Amelia/John/Sally/Paige).
+> Consenso: **sem bloqueador de engenharia para a v3.1**; os bloqueios remanescentes são
+> de **produto** e giram em torno de *"diff intencional × regressão"* e da *visibilidade do residual*.
+
+#### I.1 Decisões do mantenedor (bom senso, adotadas da rodada — reversíveis, p/ revisão do PO)
+
+- **D-a — `ProfileSource` em falha → baked (revisa §H-6).** `GcdrResolveProfileSource` (e qualquer source) **sempre** cai no `BakedProfileSource` em falha de `resolve()`; a flag só escolhe a *fonte primária*, nunca remove o piso (evita deny-all). *(Winston)*
+- **D-b — Rollup hierárquico.** Cada device conta **uma vez**, na sua folha mais profunda; pai = `Σ(filhos) + matches diretos do pai`; o pai **não** re-soma os devices dos filhos. *(confirma a checagem do John)*
+- **D-c — Teste da invariante (§H-1) = não-negatividade com tolerância relativa.** Asserir `residual >= -max(1e-6, |Entrada|*1e-9)`, **nunca** a identidade `Total === Σ + residual` (é tautologia). Somar em precisão plena; arredondar só na renderização. *(Amelia)*
+- **D-d — Escopo do golden-on-save = fixture congelada in-code** (`GOLDEN_DEVICE_FIXTURE`, a mesma do golden de equivalência), síncrono (<2ms), **não** a base real do customer. *(Amelia)*
+- **D-e — Entrega do golden-on-save = warning não-bloqueante** até o PO definir o gesto de "aceitar diff intencional" (loga regressão, não trava o save). *(Amelia)*
+- **D-f — Fallback de ícone.** Token ausente/órfão → ícone **genérico do nó-pai (tier-2)**, nunca quadrado vazio, + badge staff "⚠ ícone órfão". *(Sally/Amelia)*
+- **D-g — Residual é cidadão de 1ª classe.** "Pontos Não-Mapeados" é exibido como **linha de 1ª classe com % sobre a Entrada**; residual negativo → **alerta visível** (staff). *(os rótulos em si são PO-A.)* *(John/Sally)*
+- **D-h — Preview de cobertura por regra = requisito v1.** Cada regra mostra "captura N devices" (clicável) — estende o preview/(i) que o modal já tem; é o antídoto da armadilha "começa com FC- esquece FANCOIL-03". *(Sally)*
+- **D-i — "Pontos Não-Mapeados" clicável = requisito** (drill na lista de quem caiu lá). *(Sally)*
+- **D-j — Reordenar listas/`order`** é edição de membership normal → passa pelo caminho de warning do golden-on-save, **não** é travado. *(Amelia)*
+- **D-k — Regra de bifurcação documental (default).** O RFC fica **compilado enquanto o v3 for proposta**; **no 1º commit de implementação do v3, congela-se o RFC-0207 (Superseded/Implemented-v1) e abre-se o RFC-0208** (tempo verbal único, imperativo) referenciando o 0207 como origem. *(Paige — confirmação em PO-I.)*
+
+#### I.2 Pontos para o PO (produto/processo — **não** decididos; aguardam você)
+
+| # | Ponto | Origem |
+|---|---|---|
+| PO-A | **Rótulos do fechamento** — usar "Entrada (base)", "Consumidores Mapeados", "Não-Mapeados (X%)" em vez de "Total Consumidores"? Residual negativo = alerta visível ou silencioso? | John |
+| PO-B | **Gesto de "aceitar diff intencional"** — quando o golden-on-save virar bloqueante, qual a UX de confirmar um diff que o operador *queria*? (até lá = warning, D-e) | Amelia |
+| ~~PO-C~~ ✅ | **RESOLVIDO (§I.3):** edição é **sempre MYIO**, sem superfície de cliente. O golden-on-save guarda o **operador MYIO**. | Winston/Sally |
+| PO-D | **Dia 1 da v3.1** — entra com **default tree gerado pelo engine** (override opcional) ou exige **árvore curada por customer** antes do deploy? (custo de migração escondido) | John |
+| PO-E | **Janela de divergência no rollout v3.2** — customer sem árvore reconciliada vê **baked silencioso**, **baked + banner**, ou **tela bloqueada**? | Winston |
+| PO-F | **SLA/cadência da reconciliação por arquivo** — quem commita o `entity_key` por customer e quando (onboarding × batch)? | Winston |
+| PO-G | **Dono/SLA do icon set curado** — quem cura o conjunto de ícones e qual o SLA p/ adicionar token? | Sally |
+| ~~PO-H~~ ✅ | **RESOLVIDO (§I.3):** **não existe** fluxo de "solicitar reclassificação" — não há superfície de cliente. Removido do escopo. | Sally |
+| PO-I | **Critério de bifurcação documental** — confirmar a regra D-k (congelar 0207 + abrir 0208 no 1º commit do v3)? | Paige |
+| PO-J | **Device-testemunha do exemplo** — usar **CAG/Climatização** (expõe o bug histórico) ou um device neutro? | Paige |
+
+> **Nota:** PO-B/PO-C/PO-D tinham a **mesma raiz** ("quem edita membership em produção?"). **PO-C foi respondido (§I.3) → PO-B e PO-D ficam mais simples** (não há gesto de cliente; o "diff intencional" e o "dia 1" são fluxos só-MYIO).
+
+#### I.3 Decisões do PO confirmadas (2026-06-23, ao aprovar a poda)
+
+Travadas pelo PO neste fechamento — **substituem** qualquer texto anterior que sugerisse superfície de cliente:
+
+- **Edição é SEMPRE MYIO.** Não há superfície de cliente para editar `name`/`icon`/membership/estrutura, e **não existe** o fluxo "solicitar reclassificação" (removido do escopo). Resolve **PO-C** e **PO-H**. O `openDeviceProfileModal` é ferramenta interna MYIO (gate `@myio.com.br` ∨ holding admin); o cliente apenas **consome** a classificação.
+- **Membership viaja como DADO, avaliado por um motor genérico.** Criar uma subcategoria nova (Estacionamento, Iluminação…) = **inserir um nó na árvore (dado)**, **sem código novo** — confirma a tese motor×árvore (§A) e o group-generic (§C-4).
+- **Alinhamento com RFC-0047 (GCDR):** a árvore declarativa per-customer, quando migrar para o GCDR (v3.2), é **autorada pela MYIO**, não clonada/sobrescrita pelo cliente. O override per-customer do RFC-0047 é usado como *store* da árvore MYIO-autorada, não como editor do cliente. O `match()`/motor permanece em código (nunca no RFC-0047), e a costura é o `key`=`entity_key`.
+
+> Efeito nas decisões anteriores: a linha §D de `name/icon/set` passa a "**MYIO-authored only**"; o "membership read-only + request reclassification" da rodada da Sally **deixa de existir** (não há cliente editando, logo não há o que pedir).
+
+### J. Glossário, diagrama, device-testemunha e diff v1→v3 (Paige)
+
+**Glossário (termos colidentes):**
+- **deviceProfile** = atributo autoritativo de classificação. **deviceType** = legado, sendo **eliminado** (R3). **identifier** = texto livre, comparado em UPPERCASE.
+- **grupo (tier-1)** = coluna (energy/água/climatização…). **subcategoria (tier-2)** = filho de um grupo (chiller/bomba…). **nó (`ClassificationNode`)** = item da árvore. **`key`** = id estável do nó = **`entity_key`** (a costura com o GCDR).
+- **membership** = as listas de match (dado, autorável). **motor/engine** = a semântica de avaliação (código, golden-locked).
+- **`ProfileSource`** = store trocável (TB attr → GCDR `/resolve` → baked). **baked default** = árvore default embutida no bundle (piso offline). **golden** = teste de classificação; **golden-on-save** = golden disparado na edição do operador.
+- **residual / "Pontos Não-Mapeados" / Área Comum** = `Entrada − Σ(consumidores)` (nó computado). **catch-all "Outros"** = folha `role:fallback` que recolhe quem não casou. **customer ativo** = o customer cujo profile o dashboard usa (head office × shopping selecionado).
+
+**Diagrama da árvore (energy):**
+```
+energy
+├─ Entrada               role: entrada  (base; nunca addend)
+├─ Lojas                 consumer
+├─ Climatização          consumer
+│  ├─ Chillers           deviceProfile CHILLER | id prefix "CHILLER-"
+│  ├─ Fancoils           deviceProfile FANCOIL | id prefix "FANCOIL-"
+│  ├─ Bombas Hidráulicas deviceProfile BOMBA_HIDRAULICA | id contains "CAG"
+│  └─ Outros HVAC        role: fallback (maior `order` no nível)
+├─ Elevadores            consumer        [opcional: Social / Carga]
+├─ Esc. Rolantes         consumer
+├─ Outros Equipamentos   consumer/fallback
+├─ Pontos Não-Mapeados   role: residual  (derived: Entrada − Σ consumidores)
+├─ Total Consumidores    role: total     (derived: Σ consumidores + residual ≡ Entrada)
+└─ Ocultos               role: ocultos   (short-circuit)
+```
+
+**Device-testemunha (CAG) — caminho fim-a-fim:**
+`device = { deviceProfile: 'BOMBA_HIDRAULICA', identifier: 'CAG 01' }`
+1. **tier-1:** casa o grupo **Climatização**.
+2. **tier-2** (filhos de Climatização, por `order`): Chillers ✗ · Fancoils ✗ · **Bombas Hidráulicas** ✓ (`identifierContains 'CAG'`, UPPERCASE) → `key = bombas_hidraulicas`.
+3. Conta **uma vez** nessa folha; rola para Climatização → Total. Label/ícone vêm do nó (`name`/`nameKey` + token), nunca hard-coded.
+
+**Diff v1 → v3 (o device-testemunha):**
+| | v1 (hoje) | v3 |
+|---|---|---|
+| Coluna (tier-1) | Área Comum (caía no fallback) | Climatização ✓ |
+| Breakdown (tier-2) | **Outros** — `Set.has` exato em "CAG" falhava (**bug #1**) | **Bombas Hidráulicas** ✓ (`contains`) |
+| Label/ícone | hard-coded em 3 lugares (MAIN_VIEW/SIM/TELEMETRY_INFO) | do nó (dado), via `details.name`/`details.icon` |
+| Regra | `if` inline duplicado | `match` em código golden, key-parity, group-generic |
 
 ---
 

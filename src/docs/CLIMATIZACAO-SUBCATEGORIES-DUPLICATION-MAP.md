@@ -6,6 +6,16 @@
 
 **Última atualização:** 2026-06-23 · **Domínio:** Energy → Climatização (breakdown)
 
+> **STATUS — resolvido por design (2026-06-23).** A solução desta duplicação foi
+> consolidada no **RFC-0207** (ver `rfcs/RFC-0207-CustomerScopedDeviceClassificationProfile.md`,
+> **§ Addendum — RFC-0207 v3 (FINAL)**), após a série de feedback GCDR v1→v5 + MyIO-Lib v4.
+> Em resumo: **motor de classificação em código (golden, group-generic, tier-1+tier-2)**
+> × **árvore declarativa em dado (labels/ícones/membership)** atrás de um `ProfileSource`
+> trocável; a **tabela única `{key,name,icon,match}`** proposta abaixo vira o **baked
+> default versionado** do v3 (com `name`/`icon` migrando para o GCDR/RFC-0047 só na fase
+> condicional v3.2). Este documento permanece como o **mapa do problema**; o **como** está no RFC.
+> A série de feedback (GCDR v1→v5 + MyIO-Lib v4) foi **compilada no RFC e removida**.
+
 ---
 
 ## TL;DR
