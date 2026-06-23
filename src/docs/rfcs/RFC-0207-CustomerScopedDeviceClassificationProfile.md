@@ -2,7 +2,8 @@
 
 - **RFC**: 0207
 - **Title**: Customer-Scoped Device Classification Profile (SERVER_SCOPE JSON + MENU management modal)
-- **Status**: Implemented — A0/A1/A1b (single-source resolver + bug #1/#2 fixes, golden-tested) + Phase B (customer SERVER_SCOPE attribute load in MAIN_VIEW.onInit + premium MENU management modal `openDeviceProfileModal`). Branch `feat/rfc-0207-b-attribute-and-menu` → PR to `desenv`.
+- **Status**: Implemented (v1) — A0/A1/A1b (single-source resolver + bug #1/#2 fixes, golden-tested) + Phase B (customer SERVER_SCOPE attribute load in MAIN_VIEW.onInit + premium MENU management modal `openDeviceProfileModal`). Branch `feat/rfc-0207-b-attribute-and-menu` → PR to `desenv`.
+  **+ v2 redesign — PROPOSED (2026-06-23), not yet implemented**: fully configurable group/subcategory **tree** (create groups at will, nest subcategories, config-driven labels, unique allocation, UPPERCASE, predefined deviceProfile catalog, computed residual/total nodes), with persistence ownership moved to MAIN_VIEW and config-driven tooltips. See **§ Addendum — RFC-0207 v2** at the end. The v1 sections below describe what shipped; v2 supersedes the *schema* and *groups/categories model*.
 - **Author**: Rodrigo Lago
 - **Created**: 2026-06-18
 - **Target**: `src/thingsboard/main-dashboard-shopping/v-5.2.0/WIDGET/` (MAIN_VIEW, MENU, TELEMETRY, TELEMETRY_INFO) + `src/utils/`
@@ -431,6 +432,271 @@ Mapping back to the RFC's existing *Unresolved questions* list:
 | # | Question | Why it matters |
 |---|----------|----------------|
 | Q-new | In Slice 2, do orphans appear **grouped by suggested pattern** ("3 devices containing 'CAG' with no rule") or **device-by-device**? | Grouping plants the seed of *rule-by-demonstration* for Slice 3 — the read-only view's information architecture pre-shapes whether Slice 3 feels natural or bolted-on. Decided by the `suggestedPatterns` distribution (see measurement plan). |
+
+---
+
+## Addendum — RFC-0207 v2: Fully Configurable Group/Subcategory Tree (proposed, 2026-06-23)
+
+> **Status:** PROPOSED — design only, **not implemented**. Authored from operator
+> feedback. This addendum **supersedes the v1 schema and the fixed
+> groups/categories model**; the v1 resolver, seed, modal, and load/save remain
+> the implementation baseline to evolve.
+> **Related:** `src/docs/CLIMATIZACAO-SUBCATEGORIES-DUPLICATION-MAP.md` (the
+> hard-coded subcategory labels this redesign removes).
+
+### A. Why v2 (what v1 still doesn't solve)
+
+v1 unified the *rules' source* and fixed the 3 classification bugs, **but**:
+
+1. **Groups are fixed.** The column buckets are a closed set (`entrada`, `lojas`,
+   `areacomum`, `ocultos`) and the energy breakdown is a closed set
+   (`climatizacao`, `elevadores`, `escadas_rolantes`, `outros`). An operator
+   **cannot create a new group** (e.g. *Estacionamento*) without a code release.
+   *Reflection point raised by the operator:* nothing should cap the set — groups
+   must be **operator-defined**.
+2. **Subcategories are not modeled.** The climatização sub-breakdown
+   (**Chillers / Fancoils / Bombas Hidráulicas / Outros HVAC**) lives as
+   **hard-coded labels + inline rules** in `MAIN_VIEW`, `MYIO-SIM/MAIN` and
+   `TELEMETRY_INFO` (see the duplication map). There is **no nesting** in the
+   profile and the labels are not config-driven.
+3. **No per-customer structural variation.** Customer A may want *Elevadores* split
+   into *Elev. Social* + *Elev. Carga*; customer B may want *Estacionamento* with
+   *Coberto* + *Externo*. v1 can't express either.
+
+### B. New requirements
+
+| # | Requirement |
+|---|-------------|
+| R1 | **Arbitrary groups** — the operator creates group cards at will: each with `key`, `label`, **`description`**, and rules. The 5 current groups become just the *default seed*, not a hard limit. |
+| R2 | **Arbitrary nesting (subcategories)** — any node may have `children`, recursively. Examples: Climatização → {Chillers, Fancoils, Bombas Hidráulicas, Outros HVAC}; Elevadores → {Elev. Social, Elev. Carga}; Estacionamento → {Coberto, Externo}. |
+| R3 | **Three rule kinds, period** — `deviceProfile` **exact match** + `identifier` **contém / exato / prefixo**. **Drop** `deviceType` entirely, drop `combinedContains` ("texto contém"), drop `conditional`. (The modal already removed "texto contém" and the deviceType conditional in v1's UI cleanup.) |
+| R4 | **Config-driven labels/icons** — no hard-coded subcategory label or icon anywhere; everything renders from the node's `label`/`icon`. |
+| R5 | **Unique allocation** — a given `deviceProfile`, or a given identifier rule, may belong to **exactly one node** in the whole domain tree. E.g. `MOTOR` cannot be in both *Climatização* and *Outros Equipamentos*. The modal **blocks** duplicate allocation; `validateProfile` rejects it. |
+| R6 | **UPPERCASE** — `deviceProfile` and `identifier` values are normalized to **UPPERCASE** on input and storage. (Identifiers are otherwise free text.) |
+| R7 | **Predefined deviceProfile catalog** — when adding a `deviceProfile`, the modal shows a **dropdown** from a shared catalog plus **"Outro (digitar)…"** (mirrors `BULK_DEVICE_TYPE_OPTIONS` in `openUpsellModal.ts`). Identifiers remain free-text inputs. |
+| R8 | **Computed nodes (by flag)** — besides classification nodes, the tree carries **derived** cards: a **residual** ("Pontos Não-Mapeados" = `Entrada − Σ(consumers)`) and an **aggregate total** ("Total Consumidores" = `Σ(consumers) [+ Área Comum]`). These have **no rules**; their value is computed from other nodes. |
+| R9 | **Node roles** — `entrada` (supply), `consumer` (counts toward consumption), `fallback` (collects devices that matched no sibling rule), `residual`/`total` (computed), `ocultos` (archived/hidden, short-circuits). |
+
+### C. New JSON schema (v2) — a recursive node tree
+
+`schemaVersion: 2`. Each domain holds an ordered `tree` of **nodes** instead of the
+flat `groups` + `categories` of v1.
+
+```jsonc
+{
+  "schemaVersion": 2,
+  "updatedAt": "2026-06-23T12:00:00.000Z",
+  "updatedBy": "operator@myio.com.br",
+  "matching": { "caseInsensitive": true, "upperCase": true },
+
+  // Catalog powering the modal "Adicionar deviceProfile" dropdown (+ "Outro").
+  // Lifted/shared from openUpsellModal.BULK_DEVICE_TYPE_OPTIONS.
+  "deviceProfileCatalog": [
+    "3F_MEDIDOR","CHILLER","FANCOIL","AR_CONDICIONADO","BOMBA_HIDRAULICA","BOMBA_CAG",
+    "BOMBA_INCENDIO","COMPRESSOR","VENTILADOR","MOTOR","ELEVADOR","ESCADA_ROLANTE",
+    "RELOGIO","ENTRADA","SUBESTACAO","TRAFO"
+  ],
+
+  "domains": {
+    "energy": {
+      "tree": [
+        {
+          "key": "entrada", "label": "Entrada", "role": "entrada",
+          "description": "Medição de fornecimento/entrada.",
+          "rules": { "deviceProfiles": ["TRAFO","ENTRADA","RELOGIO","SUBESTACAO"] }
+        },
+        {
+          "key": "lojas", "label": "Lojas", "role": "consumer",
+          "rules": { "deviceProfiles": ["3F_MEDIDOR"] }
+        },
+        {
+          "key": "climatizacao", "label": "Climatização", "role": "consumer",
+          "icon": "❄️",
+          "rules": { "deviceProfiles": ["HVAC","AR_CONDICIONADO"] },
+          "children": [
+            { "key": "chillers",  "label": "Chillers",  "icon": "❄️", "rules": { "deviceProfiles": ["CHILLER"], "identifierPrefixes": ["CHILLER-"] } },
+            { "key": "fancoils",  "label": "Fancoils",  "icon": "🌀", "rules": { "deviceProfiles": ["FANCOIL"], "identifierPrefixes": ["FANCOIL-"] } },
+            { "key": "bombas_hidraulicas", "label": "Bombas Hidráulicas", "icon": "💧", "rules": { "deviceProfiles": ["BOMBA_HIDRAULICA"], "identifierContains": ["CAG"] } },
+            { "key": "outros_hvac", "label": "Outros HVAC", "role": "fallback" }
+          ]
+        },
+        {
+          "key": "elevadores", "label": "Elevadores", "role": "consumer", "icon": "🛗",
+          "rules": { "deviceProfiles": ["ELEVADOR"], "identifierPrefixes": ["ELV-"] },
+          // OPTIONAL per-customer split into sub-subcategories:
+          "children": [
+            { "key": "elev_social", "label": "Elev. Social", "rules": { "identifierContains": ["SOCIAL"] } },
+            { "key": "elev_carga",  "label": "Elev. Carga",  "rules": { "identifierContains": ["CARGA"] } }
+          ]
+        },
+        { "key": "escadas_rolantes", "label": "Esc. Rolantes", "role": "consumer", "icon": "🎢",
+          "rules": { "deviceProfiles": ["ESCADA_ROLANTE"], "identifierPrefixes": ["ESC-"] } },
+        { "key": "outros", "label": "Outros Equipamentos", "role": "consumer", "icon": "⚙️",
+          "rules": { /* explicit profiles/identifiers */ } },
+
+        // Computed cards (no rules):
+        { "key": "nao_mapeados", "label": "Pontos Não-Mapeados", "role": "residual",
+          "formula": { "op": "subtract", "from": "entrada",
+                       "subtract": ["lojas","climatizacao","elevadores","escadas_rolantes","outros"] } },
+        { "key": "total_consumidores", "label": "Total Consumidores", "role": "total",
+          "formula": { "op": "sum", "of": ["lojas","climatizacao","elevadores","escadas_rolantes","outros","nao_mapeados"] } },
+
+        { "key": "ocultos", "label": "Ocultos", "role": "ocultos",
+          "rules": { "deviceProfiles": ["ARQUIVADO","SEM_DADOS","DESATIVADO","REMOVIDO","INATIVO"] } }
+      ]
+    },
+    "water":       { "tree": [ /* same node shape */ ] },
+    "temperature": { "tree": [ /* same node shape */ ] }
+  }
+}
+```
+
+**Node shape:**
+
+```ts
+interface ClassificationNode {
+  key: string;            // stable id, unique within the domain tree
+  label: string;          // display name (config-driven; no hard-coded labels)
+  description?: string;   // operator note, shown in the modal card
+  icon?: string;          // optional emoji/icon for tooltips/breakdown
+  role?: 'entrada' | 'consumer' | 'fallback' | 'residual' | 'total' | 'ocultos';
+  rules?: NodeRules;      // present on classification nodes (omit on computed)
+  children?: ClassificationNode[];   // subcategories (recursive)
+  formula?: NodeFormula;  // present on computed nodes (residual/total)
+}
+
+interface NodeRules {           // R3 — only these three kinds
+  deviceProfiles?: string[];    // exact match (UPPERCASE) on item.deviceProfile
+  identifierExact?: string[];   // identifier === value (UPPERCASE)
+  identifierContains?: string[];// identifier.includes(value)
+  identifierPrefixes?: string[];// identifier.startsWith(value)
+}
+
+interface NodeFormula {         // R8 — computed cards
+  op: 'subtract' | 'sum';
+  from?: string;                // for subtract: base node key (e.g. 'entrada')
+  subtract?: string[];          // for subtract: node keys to subtract
+  of?: string[];                // for sum: node keys to add
+}
+```
+
+### D. Resolution algorithm (generic tree walk)
+
+Replaces the v1 `resolveGroup`/`resolveCategory` pair with **one** generic walker
+over the node tree (per domain):
+
+1. **Ocultos short-circuit** — if the device matches any `role:'ocultos'` node, it's hidden.
+2. **Depth-first, deepest-match-wins** — walk the tree; a device is allocated to the
+   **deepest** node whose `rules` match. Because allocation is **unique (R5)**, at most
+   one node can claim it, so order is not load-bearing — but the walk is still
+   deterministic (declared order) for ties that validation should have prevented.
+3. **Per-level fallback** — a device that matches no sibling at a level lands in that
+   level's `role:'fallback'` node (e.g. *Outros HVAC* inside Climatização; *Outros
+   Equipamentos* at the top consumer level), if one exists.
+4. **Aggregation** — a parent node's value = Σ(children) + own directly-matched devices.
+5. **Computed nodes last** — after classification, evaluate `formula` nodes
+   (`residual`/`total`) from the already-computed node values.
+
+The resolver returns `{ nodePath: string[], matchedBy }` so the breakdown, the
+`labelWidget` card filter, and the orphan metric (from v1's measurement plan) all
+derive from one call.
+
+### E. Unique-allocation invariant (R5) + validation
+
+`validateProfile(profile)` (extended) must reject:
+
+- the **same `deviceProfile`** present in more than one node of a domain tree;
+- the **same identifier rule** (exact/contains/prefix value) in more than one node;
+- a `formula` referencing an unknown node `key`;
+- more than one `fallback` among **siblings** (one residual bucket per level);
+- empty `label`/`key`, or duplicate `key` within the domain.
+
+The modal enforces R5 **at edit time**: when an operator drags/types a `deviceProfile`
+already allocated elsewhere, it's blocked with a pointer to the owning node.
+
+### F. Predefined deviceProfile catalog (R7)
+
+- Add a shared catalog (lift `BULK_DEVICE_TYPE_OPTIONS` from
+  `src/components/premium-modals/upsell/openUpsellModal.ts` into a shared util, or
+  carry it on the profile as `deviceProfileCatalog`).
+- In `openDeviceProfileModal`, the **"Adicionar"** action for a `deviceProfile` field
+  opens a **`<select>`** (catalog + **"Outro (digitar)…"**) instead of a free text
+  chip input — exactly the upsell pattern. **Identifier** fields stay free-text chips
+  (UPPERCASED on commit).
+
+### G. Modal changes (`openDeviceProfileModal`)
+
+- **Create/rename/describe** group cards and subcategories; **nest** (add child node);
+  reorder; mark a node's `role` (consumer / fallback / residual / total / ocultos).
+- `deviceProfile` add → catalog dropdown + "Outro"; identifier add → free text.
+- All values shown/stored **UPPERCASE**.
+- Live preview already lists devices per node (v1 + the (i)/"+" popover); extend it to
+  the nested tree and flag **unique-allocation conflicts**.
+- (v1 already: standard header, "texto contém"/conditional removed, expand/collapse-all.)
+
+### H. TELEMETRY_INFO cards (energy example, generated from the tree)
+
+The cards are **rendered from the tree**, not hard-coded:
+
+```
+- Entrada                         (role: entrada)
+- Lojas                           (consumer)
+- Climatização                    (consumer)  ├─ Chillers / Fancoils / Bombas Hidráulicas / Outros HVAC
+- Elevadores                      (consumer)  ├─ (opt.) Elev. Social / Elev. Carga
+- Esc. Rolantes                   (consumer)
+- Outros Equipamentos             (consumer / fallback)
+- Pontos Não-Mapeados             (residual = Entrada − Σ(consumers))
+- Total Consumidores              (total = Σ(consumers) [+ Área Comum])
+```
+
+Subcategory breakdown (the (i)/"+" detail) comes from each node's `children` and
+labels — **no hard-coded "Bombas Hidráulicas"** anywhere.
+
+### I. Architecture & ownership
+
+- **MAIN_VIEW is the sole owner of persistence.** Load (SERVER_SCOPE GET), normalize
+  (v1→v2 migration), expose `window.MyIOUtils.deviceClassificationProfile`, **save**
+  (SERVER_SCOPE POST), and re-dispatch orchestrator events on save — all here. The
+  endpoint URL/keys live **only** in MAIN_VIEW.
+- **MENU is endpoint-agnostic.** It only opens `openDeviceProfileModal`, passing
+  **callbacks** (`getProfile()`, `saveProfile(next)`) provided by MAIN_VIEW (or it
+  dispatches an event MAIN_VIEW handles). The MENU must **not** know the attribute key
+  or call the TB API. *(v1 currently fetches/POSTs inside the modal — v2 moves that to
+  MAIN_VIEW.)*
+- **Tooltips are config-driven.** `src/utils/EnergySummaryTooltip.ts`,
+  `WaterSummaryTooltip.ts`, `TempSensorSummaryTooltip.ts` render groups/subcategories,
+  **labels and icons from the profile tree** — no hard-coded category names.
+- **Controllers under `WIDGET/`** adjusted where it makes sense (TELEMETRY /
+  TELEMETRY_INFO consume the tree-shaped summary; `buildCategorySummary` carries
+  `label`/`icon` from the node so consumers stop redefining them — closes the
+  duplication mapped in `CLIMATIZACAO-SUBCATEGORIES-DUPLICATION-MAP.md`).
+
+### J. Migration (v1 → v2)
+
+- `normalizeProfile` gains a **1→2 migration**: a v1 doc (`groups` + `categories`) is
+  lifted into a v2 `tree` reproducing today's structure (Entrada/Lojas/Área Comum +
+  Climatização/Elevadores/Esc.Rolantes/Outros, with Chillers/Fancoils/Bombas as
+  Climatização `children`).
+- The **DEFAULT seed** is re-expressed in v2 and must pass an **equivalence golden**
+  (same device → same leaf as v1) so externalizing structure changes no classification.
+- `schemaVersion: 1` attributes keep working (auto-migrated on load).
+
+### K. Invariants checklist (v2)
+
+- Every visible label/icon comes from a node (no literals in controllers/tooltips).
+- `deviceProfile`/`identifier` are UPPERCASE in storage and matching.
+- No `deviceProfile`/identifier rule is allocated to more than one node (validated).
+- `deviceType` is **not** used by the classifier anywhere.
+- Computed nodes reference only existing node keys; one fallback per sibling level.
+- MENU never references the SERVER_SCOPE endpoint/key.
+
+### L. Open questions (v2)
+
+1. **Depth limit** for nesting (2 levels enough — group → subcategory → sub-sub? or unbounded)?
+2. **"Total Consumidores"** composition — does it include the residual ("Área Comum"/Pontos Não-Mapeados) or only rule-matched consumers? (The operator's note includes Área Comum.)
+3. **Residual semantics** — is "Pontos Não-Mapeados" the *value* residual (`Entrada − Σ`) only, or also the device-level `fallback` bucket? (Design treats them as **two** distinct node roles: `fallback` = unmatched devices; `residual` = computed value.)
+4. **Catalog source of truth** — carry `deviceProfileCatalog` on the profile (editable per customer) vs a shared code constant (lifted from upsell). 
+5. **Identifier rule precedence** when a device matches an `identifierExact` in one node and an `identifierContains` in another — should validation forbid this overlap outright (R5 implies yes)?
 
 ---
 
