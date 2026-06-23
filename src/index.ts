@@ -70,6 +70,12 @@ export {
 // RFC-0122: LogHelper utilities (contextual logging)
 export { createLogHelper, LogHelper } from './utils/logHelper.js';
 
+// HTMLBuilder — dependency-free DOM/HTML construction helper.
+// Namespace export only (HTMLBuilder.h/text/frag/toHtml/fromHtml/mount/escapeHtml)
+// to keep these generic names out of the library's top-level public surface.
+export { HTMLBuilder } from './utils/HTMLBuilder';
+export type { HTMLChild, HTMLAttrs } from './utils/HTMLBuilder';
+
 // Device Status utilities
 export {
   DeviceStatusType,
@@ -811,6 +817,17 @@ export type {
   GenericModalButton,
   GenericModalInstance,
 } from './components/premium-modals/dialog';
+
+// ImgGallery — autonomous filterable image gallery + reusable ScrollableTabs
+export { createImgGallery, createScrollableTabs } from './components/img-gallery';
+export type {
+  GalleryImage,
+  ImgGalleryOptions,
+  ImgGalleryInstance,
+  TabItem as GalleryTabItem,
+  ScrollableTabsOptions,
+  ScrollableTabsInstance,
+} from './components/img-gallery';
 
 // RFC-0190: User Management Modal
 export { openUserManagementModal } from './components/premium-modals/user-management';
