@@ -3631,6 +3631,13 @@ Object.assign(window.MyIOUtils, {
     }
     window.MyIOUtils.DATA_API_HOST = DATA_API_HOST; // update for child widgets
 
+    // GCDR API base URL (RFC-0046 Goals / RFC-0180) — single source of truth on
+    // MAIN, exposed via window state so MENU's Goals panel can consume it.
+    const gcdrApiBaseUrl =
+      self.ctx.settings?.gcdrApiBaseUrl || 'https://gcdr-api.a.myio-bas.com/api/v1';
+    window.MyIOUtils.gcdrApiBaseUrl = gcdrApiBaseUrl;
+    LogHelper.log('[MAIN] gcdrApiBaseUrl:', gcdrApiBaseUrl);
+
     // Charts SDK base URL — consumed by FOOTER (comparison modal iframe) and
     // any child widget that renders @myio/energy-chart-sdk. Fallback to
     // production; the single source of truth lives here on MAIN so FOOTER

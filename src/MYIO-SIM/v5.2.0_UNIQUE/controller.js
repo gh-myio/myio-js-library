@@ -228,6 +228,9 @@ self.onInit = async function () {
   const ALARMS_API_BASE   = settings.alarmsApiBaseUrl || 'https://alarms-api.a.myio-bas.com';
   const ALARMS_API_KEY    = settings.alarmsApiKey    || '';
   const GCDR_API_BASE     = settings.gcdrApiBaseUrl   || 'https://gcdr-api.a.myio-bas.com';
+  // RFC-0046: expose GCDR base URL via window state (analogous to MAIN) for the Goals panel.
+  window.MyIOUtils = window.MyIOUtils || {};
+  window.MyIOUtils.gcdrApiBaseUrl = GCDR_API_BASE;
 
   // Charts SDK base URL — consumed by the FOOTER comparison modal. Single
   // source of truth lives here on MAIN; FOOTER does not hold its own
@@ -2605,40 +2608,36 @@ body.filter-modal-open { overflow: hidden !important; }
         return;
       }
 
-      const token = localStorage.getItem('jwt_token');
-      if (!token) {
-        LogHelper.error('[MAIN_UNIQUE] JWT token not found');
-        window.alert('Token de autenticacao nao encontrado.');
+      // Metas agora vêm do GCDR (RFC-0046): auth via X-API-Key + base URL das settings
+      // (GCDR_API_BASE lido no onInit a partir de settings.gcdrApiBaseUrl).
+      const gcdrBaseUrl =
+        GCDR_API_BASE ||
+        window.MyIOOrchestrator?.gcdrApiBaseUrl ||
+        window.GCDR_API_HOST ||
+        window.DATA_API_HOST;
+      const gcdrApiKey =
+        window.GCDR_CUSTOMER_API_KEY || localStorage.getItem('gcdr_customer_api_key');
+      if (!gcdrBaseUrl || !gcdrApiKey) {
+        LogHelper.error('[MAIN_UNIQUE] GCDR credentials missing (GCDR_API_HOST / GCDR_CUSTOMER_API_KEY)');
+        window.alert(
+          'Configuracao do GCDR ausente.\nDefina window.GCDR_API_HOST e window.GCDR_CUSTOMER_API_KEY (gcdr_cust_*).'
+        );
         return;
       }
 
-      // Build shopping list from cached shoppings
-      const shoppingList = (_cachedShoppings || [])
-        .filter((c) => c.value && c.name && c.name.trim() !== c.value.trim())
-        .map((c) => ({
-          value: c.value,
-          name: c.name,
-        }));
-
-      LogHelper.log('[MAIN_UNIQUE] Opening Goals Panel:', {
-        customerId,
-        shoppingCount: shoppingList.length,
-      });
+      LogHelper.log('[MAIN_UNIQUE] Opening Goals Panel (GCDR):', { customerId });
 
       MyIOLibrary.openGoalsPanel({
         customerId: customerId,
-        token: token,
-        api: {
-          baseUrl: window.location.origin,
-        },
-        shoppingList: shoppingList,
+        apiKey: gcdrApiKey,
+        baseUrl: gcdrBaseUrl,
+        domain: 'ENERGY',
         locale: 'pt-BR',
-        entityLabel: settings.goalsEntityLabel || 'Shopping',
-        onSave: async (goalsData) => {
-          LogHelper.log('[MAIN_UNIQUE] Goals saved:', goalsData?.version);
+        onSaved: async (writeResult) => {
+          LogHelper.log('[MAIN_UNIQUE] Goals saved (GCDR):', writeResult?.version);
           window.dispatchEvent(
             new CustomEvent('myio:goals-updated', {
-              detail: { goalsData, customerId, timestamp: Date.now() },
+              detail: { writeResult, customerId, timestamp: Date.now() },
             })
           );
         },
@@ -2647,8 +2646,6 @@ body.filter-modal-open { overflow: hidden !important; }
         },
         styles: {
           primaryColor: '#6a1b9a',
-          accentColor: '#FFC107',
-          successColor: '#28a745',
           errorColor: '#dc3545',
           borderRadius: '8px',
           zIndex: 10000,

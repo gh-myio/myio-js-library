@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Metas de Consumo (GCDR · RFC-0046) — MYIO JS Library Showcase</title>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #065f46 0%, #064e3b 100%);
+      min-height: 100vh;
+      padding: 40px 20px;
+      color: #1f2937;
+    }
+    .page { max-width: 760px; margin: 0 auto; }
+    .hero { text-align: center; color: #fff; margin-bottom: 28px; }
+    .hero h1 { font-size: 1.9rem; margin-bottom: 8px; text-shadow: 0 2px 4px rgba(0,0,0,.25); }
+    .hero p { opacity: .92; font-size: 14px; }
+    .hero code { background: rgba(255,255,255,.15); padding: 2px 7px; border-radius: 5px; }
+    .card { background: #fff; border-radius: 14px; padding: 24px; box-shadow: 0 12px 32px rgba(0,0,0,.22); }
+    .card h2 { font-size: 16px; margin-bottom: 4px; }
+    .card .sub { font-size: 13px; color: #64748b; margin-bottom: 18px; }
+    .field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
+    .field label { font-size: 12px; font-weight: 700; color: #475569; }
+    .field input, .field select {
+      font-family: inherit; font-size: 14px; padding: 10px 12px;
+      border: 1px solid #cbd5e1; border-radius: 8px; color: #0f172a;
+    }
+    .field input:focus, .field select:focus { outline: none; border-color: #059669; box-shadow: 0 0 0 3px rgba(5,150,105,.12); }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .open-btn {
+      font-family: inherit; font-size: 15px; font-weight: 800; width: 100%;
+      padding: 13px; border: none; border-radius: 10px; cursor: pointer;
+      background: #059669; color: #fff; margin-top: 6px;
+    }
+    .open-btn:hover { filter: brightness(.94); }
+    .note { font-size: 12px; color: #94a3b8; margin-top: 14px; line-height: 1.5; }
+    .log { background: #0f172a; color: #6ee7b7; font-family: ui-monospace, monospace; font-size: 12px;
+      border-radius: 10px; padding: 12px 14px; margin-top: 16px; min-height: 60px; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="hero">
+      <h1>🎯 Metas de Consumo — GCDR</h1>
+      <p>Tela fiel à RFC-0046 (gcdr-frontend). Lê e grava direto nas APIs do GCDR <code>/api/v1/customers/:id/goals</code> via <code>X-API-Key</code>.</p>
+    </div>
+
+    <div class="card">
+      <h2>Abrir painel de Metas</h2>
+      <p class="sub">Preencha as credenciais do GCDR e abra o painel. Os dados vêm do backend GCDR (não do ThingsBoard).</p>
+
+      <div class="field">
+        <label for="baseUrl">Base URL do GCDR <span style="color:#94a3b8;font-weight:400">(— "/api/v1" é anexado automaticamente)</span></label>
+        <input id="baseUrl" type="text" placeholder="http://localhost:3015" value="http://localhost:3015" />
+      </div>
+
+      <div class="field">
+        <label for="apiKey">X-API-Key <span style="color:#94a3b8;font-weight:400">(gcdr_cust_*)</span></label>
+        <input id="apiKey" type="text" placeholder="gcdr_cust_test_bundle_key_myio2026" value="gcdr_cust_test_bundle_key_myio2026" />
+      </div>
+
+      <div class="field">
+        <label for="customerId">Customer ID (UUID)</label>
+        <input id="customerId" type="text" placeholder="33333333-3333-3333-3333-333333333333" value="33333333-3333-3333-3333-333333333333" />
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label for="domain">Domínio inicial</label>
+          <select id="domain">
+            <option value="ENERGY">ENERGY (Energia · kWh · Soma)</option>
+            <option value="WATER">WATER (Água · m³ · Soma)</option>
+            <option value="TEMPERATURE">TEMPERATURE (Temperatura · °C · Média)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="year">Ano inicial</label>
+          <input id="year" type="number" value="2026" />
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="locale">Idioma</label>
+        <select id="locale">
+          <option value="pt-BR">pt-BR</option>
+          <option value="en-US">en-US</option>
+        </select>
+      </div>
+
+      <button class="open-btn" id="open">Abrir Metas →</button>
+
+      <p class="note">
+        Fluxo: <b>resumo</b> (KPIs, top 3 meses/dias, versão) → <b>Habilitar edição</b> → grade drill
+        Mês → Dia → Hora → <b>Salvar</b> (PUT replace no mês, PATCH merge em dia/hora).
+        <b>Importar CSV</b> faz dry-run (preview) e depois persiste. Histórico de versões abaixo.
+      </p>
+
+      <div class="log" id="log">Pronto. Preencha as credenciais e clique em "Abrir Metas".</div>
+    </div>
+  </div>
+
+  <!-- Build da lib primeiro: npm run build (gera dist/myio-js-library.umd.js) -->
+  <script src="../dist/myio-js-library.umd.js"></script>
+  <script>
+    const logEl = document.getElementById('log');
+    const log = (msg, obj) => {
+      const ts = new Date().toLocaleTimeString();
+      logEl.textContent = `[${ts}] ${msg}` + (obj !== undefined ? '\n' + JSON.stringify(obj, null, 2) : '') + '\n' + logEl.textContent;
+    };
+
+    document.getElementById('open').addEventListener('click', () => {
+      const { openGoalsPanel } = window.MyIOLibrary || {};
+      if (!openGoalsPanel) {
+        log('❌ MyIOLibrary.openGoalsPanel indisponível — rode "npm run build" primeiro.');
+        return;
+      }
+      const baseUrl = document.getElementById('baseUrl').value.trim();
+      const apiKey = document.getElementById('apiKey').value.trim();
+      const customerId = document.getElementById('customerId').value.trim();
+      const domain = document.getElementById('domain').value;
+      const year = Number(document.getElementById('year').value);
+      const locale = document.getElementById('locale').value;
+
+      try {
+        openGoalsPanel({
+          customerId,
+          apiKey,
+          baseUrl,
+          domain,
+          year,
+          locale,
+          styles: { primaryColor: '#059669' },
+          onSaved: (res) => log('✅ onSaved', { version: res && res.version, distribution: res && res.distribution }),
+          onClose: () => log('🚪 Painel fechado'),
+        });
+        log('🚀 Painel aberto', { customerId, domain, year });
+      } catch (e) {
+        log('❌ Erro ao abrir: ' + (e && e.message));
+      }
+    });
+  </script>
+</body>
+</html>
