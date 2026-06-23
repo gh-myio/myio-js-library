@@ -43,6 +43,22 @@ function getInfoTooltip() {
 
 LogHelper.log('🚀 [TELEMETRY] Controller loaded - VERSION WITH ORCHESTRATOR SUPPORT');
 
+// ── TLM-DEBUG (render diagnosis) ────────────────────────────────────────────
+// Direct console.* (bypasses LogHelper gating) so render-path tracing is always
+// visible regardless of DEBUG_ACTIVE. Remove once the no-cards issue is solved.
+function TLMDBG(...args) {
+  try {
+    console.log('🟢 [TLM-DEBUG]', ...args);
+  } catch (_) {
+    /* noop */
+  }
+}
+TLMDBG('module evaluated', {
+  hasMyIOUtils: !!window.MyIOUtils,
+  hasMyIOLibrary: !!window.MyIOLibrary,
+  renderCardComponentV5: typeof window.MyIOUtils?.renderCardComponentV5,
+});
+
 // ============================================================================
 // RFC-0106: Device Classification - NOW USES MAIN_VIEW via window.MyIOUtils
 // The classification config and functions have been moved to MAIN_VIEW orchestrator.
@@ -2689,6 +2705,12 @@ function renderHeader(count, groupSum) {
 
 function renderList(visible) {
   const $ul = $list().empty();
+  TLMDBG('renderList ENTER', {
+    domain: WIDGET_DOMAIN,
+    visibleCount: Array.isArray(visible) ? visible.length : '(not array)',
+    $ulFound: $ul && $ul.length,
+    renderCardFn: typeof MyIO?.renderCardComponentV5,
+  });
   // RFC-0152: Reset per-render device data export buffer
   window[_exportKey] = [];
 
@@ -2714,7 +2736,9 @@ function renderList(visible) {
     }
   }
 
-  visible.forEach((it) => {
+  let _tlmAppended = 0;
+  visible.forEach((it, _tlmIdx) => {
+   try {
     // For temperature domain, render all temperature-related devices
     // (deviceType can be TERMOSTATO, SENSOR_TEMP, or other temperature sensor types)
     // No filtering needed - temperature domain items are already filtered by orchestrator
@@ -3523,6 +3547,25 @@ function renderList(visible) {
     }
 
     $ul.append($card);
+    _tlmAppended++;
+   } catch (_cardErr) {
+    console.error(
+      '🔴 [TLM-DEBUG] card render FAILED at idx',
+      _tlmIdx,
+      'label=',
+      it && it.label,
+      'deviceType=',
+      it && it.deviceType,
+      _cardErr
+    );
+   }
+  });
+
+  TLMDBG('renderList DONE', {
+    domain: WIDGET_DOMAIN,
+    appended: _tlmAppended,
+    requested: Array.isArray(visible) ? visible.length : 0,
+    $ulChildren: $ul && $ul.children ? $ul.children().length : '(n/a)',
   });
 
   // RFC-0152: Log device export data if enabled via settings
@@ -5636,6 +5679,14 @@ function emitWaterTelemetry(widgetType, periodKey) {
 
 /** ===================== RECOMPUTE (local only) ===================== **/
 function reflowFromState() {
+  TLMDBG('reflowFromState ENTER', {
+    domain: WIDGET_DOMAIN,
+    itemsEnriched: STATE.itemsEnriched ? STATE.itemsEnriched.length : '(none)',
+    itemsBase: STATE.itemsBase ? STATE.itemsBase.length : '(none)',
+    searchTerm: STATE.searchTerm,
+    selectedIds: STATE.selectedIds ? STATE.selectedIds.size : null,
+    alarmFilter: STATE.alarmFilter,
+  });
   const visible = applyFilters(
     STATE.itemsEnriched,
     STATE.searchTerm,
@@ -5643,6 +5694,9 @@ function reflowFromState() {
     STATE.sortMode,
     STATE.alarmFilter
   );
+  TLMDBG('reflowFromState afterFilters', {
+    visibleAfterFilters: Array.isArray(visible) ? visible.length : '(not array)',
+  });
   const { visible: withPerc, groupSum } = recomputePercentages(visible);
   STATE.lastVisible = withPerc;
   renderHeader(withPerc.length, groupSum);
@@ -5743,6 +5797,11 @@ async function hydrateAndRender() {
 
 /** ===================== TB LIFE CYCLE ===================== **/
 self.onInit = async function () {
+  TLMDBG('onInit START', {
+    labelWidget: self.ctx?.settings?.labelWidget,
+    DOMAIN: self.ctx?.settings?.DOMAIN,
+    widgetId: self.ctx?.widget?.id,
+  });
   $(self.ctx.$container).css({
     height: '100%',
     overflow: 'hidden',
@@ -6107,6 +6166,14 @@ self.onInit = async function () {
   dataProvideHandler = function (ev) {
     const { domain, periodKey } = ev.detail;
 
+    TLMDBG('provide-data RECEIVED', {
+      eventDomain: domain,
+      myDomain: WIDGET_DOMAIN,
+      periodKey,
+      myStart: self.ctx?.scope?.startDateISO,
+      myEnd: self.ctx?.scope?.endDateISO,
+    });
+
     LogHelper.log(
       `[TELEMETRY ${WIDGET_DOMAIN}] 📦 Received provide-data event for domain ${domain}, periodKey: ${periodKey}`
     );
@@ -6140,6 +6207,7 @@ self.onInit = async function () {
 
     // Prevent duplicate processing of the same periodKey
     if (lastProcessedPeriodKey === periodKey) {
+      TLMDBG('provide-data SKIP (duplicate periodKey)', { periodKey });
       LogHelper.log(`[TELEMETRY] ⏭️ Skipping duplicate provide-data for periodKey: ${periodKey}`);
       return;
     }
@@ -6153,6 +6221,7 @@ self.onInit = async function () {
     // If period not set yet, store event for later processing
     // RFC-0106 FIX: Skip period check for temperature domain (uses real-time readings, no period needed)
     if (domain !== 'temperature' && (!myPeriod.startISO || !myPeriod.endISO)) {
+      TLMDBG('provide-data DEFERRED (period not set)', { periodKey, myPeriod });
       LogHelper.warn(`[TELEMETRY] ⏸️ Period not set yet, storing provide-data event...`);
       pendingProvideData = { domain, periodKey, items: ev.detail.items };
 
@@ -6232,6 +6301,12 @@ self.onInit = async function () {
     // RFC-0106: Get items directly from window.STATE
     const myLabelWidget = self.ctx.settings?.labelWidget || '';
     const stateItems = getItemsFromState(domain, myLabelWidget);
+
+    TLMDBG('provide-data getItemsFromState', {
+      domain,
+      labelWidget: myLabelWidget,
+      stateItems: stateItems ? stateItems.length : '(null)',
+    });
 
     if (!stateItems) {
       LogHelper.warn(`[TELEMETRY] ⚠️ No items found in window.STATE for domain ${domain}`);
@@ -6405,6 +6480,7 @@ self.onInit = async function () {
   };
 
   window.addEventListener('myio:telemetry:provide-data', dataProvideHandler);
+  TLMDBG('provide-data listener REGISTERED', { domain: WIDGET_DOMAIN });
 
   // RFC-0130: Register widget with orchestrator
   registerWithOrchestrator();
