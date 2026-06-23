@@ -1150,16 +1150,25 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
         LogHelper.log('[MENU] 📋 Using Holding customerId from MAIN:', customerId);
 
-        // ✅ Obtém o token do localStorage (padrão do ThingsBoard)
-        const token = localStorage.getItem('jwt_token');
+        // ✅ Metas agora vêm do GCDR (RFC-0046), não mais de atributos do ThingsBoard.
+        //    Auth via X-API-Key (gcdr_cust_*) + base URL exposta pela MAIN via window state.
+        const gcdrBaseUrl =
+          window.MyIOUtils?.gcdrApiBaseUrl ||
+          window.MyIOOrchestrator?.gcdrApiBaseUrl ||
+          window.GCDR_API_HOST ||
+          window.DATA_API_HOST;
+        const gcdrApiKey =
+          window.GCDR_CUSTOMER_API_KEY || localStorage.getItem('gcdr_customer_api_key');
 
-        if (!token) {
-          LogHelper.error('[MENU] ❌ Token JWT não encontrado no localStorage');
-          window.alert('Token de autenticação não encontrado. Faça login novamente.');
+        if (!gcdrBaseUrl || !gcdrApiKey) {
+          LogHelper.error('[MENU] ❌ Credenciais GCDR ausentes (GCDR_API_HOST / GCDR_CUSTOMER_API_KEY)');
+          window.alert(
+            'Configuração do GCDR ausente.\nDefina window.GCDR_API_HOST e window.GCDR_CUSTOMER_API_KEY (gcdr_cust_*).'
+          );
           return;
         }
 
-        LogHelper.log('[MENU] 🔑 Token JWT obtido do localStorage');
+        LogHelper.log('[MENU] 🔑 Credenciais GCDR obtidas');
 
         // ✅ Prepara a lista de shoppings filhos (já computada pelo MENU)
         // Esta lista vem do modal de filtro e representa os Customers filhos
@@ -1188,45 +1197,34 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
           selectedShopping: selectedShoppingId,
         });
 
-        // ✅ Abre o painel de metas usando MyIOLibrary
+        // ✅ Abre o painel de metas GCDR (RFC-0046) usando MyIOLibrary
         MyIOLibrary.openGoalsPanel({
-          customerId: customerId, // Customer pai (Holding)
-          token: token, // Token do localStorage
-          api: {
-            baseUrl: window.location.origin,
-          },
-          shoppingList: shoppingList, // Lista de shoppings filhos
+          customerId: customerId, // Customer GCDR (Holding)
+          apiKey: gcdrApiKey, // X-API-Key gcdr_cust_*
+          baseUrl: gcdrBaseUrl, // Host GCDR ("/api/v1" anexado automaticamente)
+          domain: 'ENERGY',
           locale: 'pt-BR',
-          onSave: async (goalsData) => {
-            LogHelper.log('[MENU] ✅ Goals saved successfully:', {
-              version: goalsData.version,
-              yearsCount: Object.keys(goalsData.years || {}).length,
+          onSaved: async (writeResult) => {
+            LogHelper.log('[MENU] ✅ Goals saved (GCDR):', {
+              version: writeResult && writeResult.version,
+              distribution: writeResult && writeResult.distribution,
             });
 
             // Dispara evento global para outros widgets reagirem
             window.dispatchEvent(
               new CustomEvent('myio:goals-updated', {
-                detail: {
-                  goalsData,
-                  customerId,
-                  timestamp: Date.now(),
-                },
+                detail: { writeResult, customerId, timestamp: Date.now() },
               })
             );
 
             LogHelper.log("[MENU] 📊 Event 'myio:goals-updated' dispatched");
-
-            // Feedback visual opcional
-            // alert("✅ Metas salvas com sucesso!");
           },
           onClose: () => {
             LogHelper.log('[MENU] 🚪 Goals Panel closed');
           },
           styles: {
-            primaryColor: '#6a1b9a', // Mesma cor do botão Metas (roxo MYIO)
-            accentColor: '#FFC107', // Amarelo de destaque
-            successColor: '#28a745', // Verde de sucesso
-            errorColor: '#dc3545', // Vermelho de erro
+            primaryColor: '#6a1b9a', // Roxo MYIO (override do accent emerald)
+            errorColor: '#dc3545',
             borderRadius: '8px',
             zIndex: 10000,
           },

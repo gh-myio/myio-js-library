@@ -135,6 +135,13 @@
         <p><code>width: 560</code>; abrir um diálogo a partir de outro empilha por z-index.</p>
         <button id="demo-stacked">Abrir empilhados…</button>
       </div>
+
+      <div class="card">
+        <h3>Modal genérico (bodyHtml)</h3>
+        <p><code>openGenericModal</code> — renderiza <b>HTML arbitrário</b>: fotos, <code>&lt;hr&gt;</code> real, fonte maior, tabelas. Ideal p/ Ficha Técnica.</p>
+        <button id="demo-generic">Abrir Ficha Técnica…</button>
+        <button class="secondary" id="demo-generic-dark">Em dark…</button>
+      </div>
     </div>
 
     <div class="log" id="log">
@@ -145,7 +152,7 @@
   <!-- Build da lib primeiro: npm run build (gera dist/myio-js-library.umd.js) -->
   <script src="../dist/myio-js-library.umd.js"></script>
   <script>
-    const { openConfirmDialog, openMessageDialog } = window.MyIOLibrary;
+    const { openConfirmDialog, openMessageDialog, openGenericModal } = window.MyIOLibrary;
     const logEl = document.getElementById('log');
 
     function log(label, value) {
@@ -251,6 +258,54 @@
           buttons: [{ label: 'Fechar o segundo', variant: 'primary', value: 'close-2', autoFocus: true }],
         }).then((r) => log('empilhado #2', r));
       }, 500);
+    };
+
+    // openGenericModal — HTML arbitrário (fotos, <hr> real, fonte maior, tabela)
+    const fichaTecnicaHtml = `
+      <div style="display:flex;gap:16px;align-items:flex-start;">
+        <img src="https://dummyimage.com/120x120/7C3AED/ffffff&text=FANCOIL" alt="Equipamento" />
+        <div>
+          <h3 style="font-size:18px;">Fancoil FC-204</h3>
+          <p style="margin:0;color:#6b7280;">Climatização · Piso L2 · Praça de Alimentação</p>
+        </div>
+      </div>
+      <hr />
+      <table>
+        <tr><th>Atributo</th><th>Valor</th></tr>
+        <tr><td>Fabricante</td><td>Hitachi</td></tr>
+        <tr><td>Potência nominal</td><td>3.500 W</td></tr>
+        <tr><td>Tensão</td><td>220 V</td></tr>
+        <tr><td>Identificador</td><td><code>CAG-FC-204</code></td></tr>
+      </table>
+      <hr />
+      <p style="font-size:16px;"><b>Observação:</b> conteúdo renderizado como HTML real — imagem, separadores e fonte maior, ao contrário do <code>openConfirmDialog</code>.</p>`;
+
+    document.getElementById('demo-generic').onclick = () => {
+      const m = openGenericModal({
+        title: 'Ficha Técnica',
+        icon: '🛠️',
+        bodyHtml: fichaTecnicaHtml,
+        width: 620,
+        buttons: [
+          { label: 'Fechar', variant: 'secondary', value: 'close' },
+          { label: 'Editar', variant: 'primary', value: 'edit', autoFocus: true },
+        ],
+        onButton: (v) => log('genérico (botão)', v),
+        onClose: () => log('genérico (fechou)', undefined),
+      });
+      log('genérico aberto', 'instance');
+      void m;
+    };
+
+    document.getElementById('demo-generic-dark').onclick = () => {
+      openGenericModal({
+        title: 'Ficha Técnica (dark)',
+        icon: '🛠️',
+        bodyHtml: fichaTecnicaHtml,
+        width: 620,
+        theme: 'dark',
+        onClose: () => log('genérico dark (fechou)', undefined),
+      });
     };
   </script>
 </body>

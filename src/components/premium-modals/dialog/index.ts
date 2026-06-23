@@ -3,6 +3,7 @@
  */
 
 export { openConfirmDialog, openMessageDialog } from './openDialog';
+export { openGenericModal } from './openGenericModal';
 export type {
   ConfirmDialogParams,
   MessageDialogParams,
@@ -10,3 +11,8 @@ export type {
   DialogButton,
   DialogButtonVariant,
 } from './types';
+export type {
+  GenericModalParams,
+  GenericModalButton,
+  GenericModalInstance,
+} from './openGenericModal';
