@@ -117,6 +117,8 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
   const collapsedIds = new Set<string>();
   // Live DivCard instances mounted in the editor — destroyed before each re-mount.
   let cardHandles: DivCardHandle[] = [];
+  // Card ids parallel to cardHandles (for expand-all / collapse-all).
+  let cardIds: string[] = [];
 
   injectStyles();
 
@@ -131,9 +133,13 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
 
   // Standard premium shell (backdrop, header + ×, focus trap, ESC, scroll lock).
   const handle: ModalShellHandle = createModal({
-    title: '⚙️ Gestão de Perfil de Dispositivos',
+    title: 'Gestão de Perfil de Dispositivos',
     width: 'min(960px, 94vw)',
     theme: 'light',
+    // Standard MyIO header (RFC-0121) — same bar as the MENU "Setup de Integração".
+    useStandardHeader: true,
+    icon: '⚙️',
+    showMaximize: true,
   });
   const body = handle.element;
   // On close, destroy the DivCards so a maximized (portaled-to-body) card and its
@@ -206,6 +212,7 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
   function mountCards(): void {
     cardHandles.forEach((h) => h.destroy());
     cardHandles = [];
+    cardIds = [];
     const d = dom();
     const editor = body.querySelector('.mdp-editor') as HTMLElement | null;
     if (!d || !editor) return;
@@ -213,6 +220,20 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
     const groupRules = d.groups.rules.filter((r) => !r.fallback);
     const fallbackName = d.groups.rules.find((r) => r.fallback)?.name || 'área comum';
     const cats = d.categories;
+
+    // Toolbar: expand-all / collapse-all (operates on every mounted card).
+    const toolbar = document.createElement('div');
+    toolbar.className = 'mdp-toolbar';
+    toolbar.innerHTML = `
+      <button type="button" class="mdp-toolbtn" data-act="expand-all" title="Expandir todos os cards">⊕ Expandir tudo</button>
+      <button type="button" class="mdp-toolbtn" data-act="collapse-all" title="Recolher todos os cards">⊖ Recolher tudo</button>`;
+    toolbar
+      .querySelector('[data-act="expand-all"]')
+      ?.addEventListener('click', () => setAllCollapsed(false));
+    toolbar
+      .querySelector('[data-act="collapse-all"]')
+      ?.addEventListener('click', () => setAllCollapsed(true));
+    editor.appendChild(toolbar);
 
     const addCard = (
       id: string,
@@ -233,10 +254,11 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
       card.body.innerHTML = bodyHtml;
       editor.appendChild(card.element);
       cardHandles.push(card);
+      cardIds.push(id);
     };
     const sep = (text: string) => {
       const h = document.createElement('h3');
-      h.className = 'mdp-sec-title';
+      h.className = 'mdp-sep-title';
       h.textContent = text;
       editor.appendChild(h);
     };
@@ -302,24 +324,13 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
             accent: accentFor(r.name),
             infoIcon: '🔧',
             infoHtml: cardInfoText(
-              `Breakdown <b>${escHtml(r.name)}</b> (precedência): 1) deviceProfile exato; 2) texto contém; 3) condicional (deviceType + identifier); 4) identifier contém/prefixo.`,
+              `Breakdown <b>${escHtml(r.name)}</b> (precedência): 1) deviceProfile exato; 2) identifier contém/prefixo.`,
             ),
           },
           `
             <div class="mdp-field"><label>deviceProfile</label>${chipList(`cat-${i}-dp`, r.deviceProfiles || [], ro)}</div>
-            <div class="mdp-field"><label>texto contém</label>${chipList(`cat-${i}-cc`, r.combinedContains || [], ro)}</div>
             <div class="mdp-field"><label>identifier contém</label>${chipList(`cat-${i}-idc`, r.identifierFallback?.identifierContains || [], ro)}</div>
-            <div class="mdp-field"><label>identifier prefixo</label>${chipList(`cat-${i}-idp`, r.identifierFallback?.identifierPrefixes || [], ro)}</div>
-            ${
-              r.conditional
-                ? `<div class="mdp-cond">
-              <div class="mdp-cond-hint">Condicional: entra só se o <b>deviceType</b> casar <b>E</b> o identifier casar.</div>
-              <div class="mdp-field"><label>cond · deviceType</label>${chipList(`cat-${i}-cdt`, r.conditional.deviceTypes || [], ro)}</div>
-              <div class="mdp-field"><label>cond · identifier contém</label>${chipList(`cat-${i}-cidc`, r.conditional.identifierContains || [], ro)}</div>
-              <div class="mdp-field"><label>cond · identifier prefixo</label>${chipList(`cat-${i}-cidp`, r.conditional.identifierPrefixes || [], ro)}</div>
-            </div>`
-                : ''
-            }`,
+            <div class="mdp-field"><label>identifier prefixo</label>${chipList(`cat-${i}-idp`, r.identifierFallback?.identifierPrefixes || [], ro)}</div>`,
         ),
       );
       addCard(
@@ -481,26 +492,39 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
 
   // ---------------------------------------------------------------- preview
 
+  /** Expand (false) or collapse (true) every mounted card; persists the state. */
+  function setAllCollapsed(collapsed: boolean): void {
+    if (collapsed) cardIds.forEach((id) => collapsedIds.add(id));
+    else collapsedIds.clear();
+    cardHandles.forEach((h) => h.setCollapsed(collapsed));
+  }
+
   function refreshPreview() {
     const hasCats = !!dom()?.categories;
     const devices = (getDevices(activeDomain) || []).filter(Boolean);
     const groups: Record<string, number> = {};
     const cats: Record<string, number> = {};
+    const groupDevices: Record<string, string[]> = {};
+    const catDevices: Record<string, string[]> = {};
     for (const d of devices) {
       const g = resolveGroup(d, working, activeDomain).group;
       groups[g] = (groups[g] || 0) + 1;
+      (groupDevices[g] ||= []).push(deviceLabel(d));
       if (hasCats) {
         const c = resolveCategory(d, working, activeDomain).category;
         cats[c] = (cats[c] || 0) + 1;
+        (catDevices[c] ||= []).push(deviceLabel(d));
       }
     }
     // residual buckets per domain (highlight what fell through to the fallback)
     const residual = activeDomain === 'temperature' ? ['climatizavel'] : ['areacomum'];
     const gEl = body.querySelector('#mdp-preview-groups');
     const cEl = body.querySelector('#mdp-preview-cats');
-    if (gEl) gEl.innerHTML = previewBlock('Colunas', groups, devices.length, residual);
+    if (gEl) gEl.innerHTML = previewBlock('Colunas', groups, groupDevices, devices.length, residual);
     if (cEl)
-      cEl.innerHTML = hasCats ? previewBlock('Breakdown', cats, devices.length, ['outros']) : '';
+      cEl.innerHTML = hasCats
+        ? previewBlock('Breakdown', cats, catDevices, devices.length, ['outros'])
+        : '';
 
     const errors = dom() ? validateProfile(working) : ['profile inválido'];
     const errEl = body.querySelector('#mdp-errors') as HTMLElement | null;
@@ -520,21 +544,61 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
   function previewBlock(
     title: string,
     counts: Record<string, number>,
+    deviceMap: Record<string, string[]>,
     total: number,
     residualKeys: string[],
   ): string {
+    const MAX_LIST = 60; // cap the popover list; show "+N mais" beyond this
     const rows = Object.entries(counts)
       .sort((a, b) => b[1] - a[1])
       .map(([k, n]) => {
         const residual = residualKeys.includes(k);
+        const list = deviceMap[k] || [];
+        // (i)/"+" info popover listing the devices inside this group/category —
+        // mirrors the TELEMETRY_INFO (i) breakdown ("produtos dentro").
+        let info = '';
+        if (list.length) {
+          const shown = list
+            .slice(0, MAX_LIST)
+            .map((name) => `<li>${escHtml(name)}</li>`)
+            .join('');
+          const more =
+            list.length > MAX_LIST
+              ? `<li class="mdp-pv-more">+${list.length - MAX_LIST} mais</li>`
+              : '';
+          info = `<span class="mdp-pv-info" tabindex="0" role="button" aria-label="Ver dispositivos de ${escHtml(
+            k,
+          )}">+
+            <span class="mdp-pv-pop">
+              <span class="mdp-pv-pop-title">${escHtml(k)} · ${n}</span>
+              <ul>${shown}${more}</ul>
+            </span>
+          </span>`;
+        }
         return `<div class="mdp-pv-row ${residual ? 'mdp-pv-residual' : ''}">
-          <span>${escHtml(k)}</span><span>${n}</span></div>`;
+          <span class="mdp-pv-name">${escHtml(k)}</span>
+          <span class="mdp-pv-meta"><span class="mdp-pv-count">${n}</span>${info}</span>
+        </div>`;
       })
       .join('');
     return `<div class="mdp-pv">
       <div class="mdp-pv-title">${escHtml(title)} <small>(${total} devices)</small></div>
-      ${rows || '<div class="mdp-pv-row mdp-pv-residual"><span>—</span><span>0</span></div>'}
+      ${
+        rows ||
+        '<div class="mdp-pv-row mdp-pv-residual"><span class="mdp-pv-name">—</span><span class="mdp-pv-meta"><span class="mdp-pv-count">0</span></span></div>'
+      }
     </div>`;
+  }
+
+  /** Best display label for a preview device. */
+  function deviceLabel(d: DeviceProfilePreviewDevice): string {
+    return (
+      d.label ||
+      (d as { name?: string }).name ||
+      (d as { identifier?: string }).identifier ||
+      (d as { id?: string }).id ||
+      '—'
+    );
   }
 
   // ---------------------------------------------------------------- footer / save
@@ -608,6 +672,10 @@ function injectStyles() {
   .mdp-cols { display: grid; grid-template-columns: 1fr 300px; gap: 18px; }
   @media (max-width: 720px) { .mdp-cols { grid-template-columns: 1fr; } }
   .mdp-sec-title { font-size: 13px; font-weight: 800; color: #1e293b; margin: 6px 0 8px; }
+  .mdp-sep-title { font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #94a3b8; margin: 8px 0 6px; }
+  .mdp-toolbar { display: flex; gap: 6px; justify-content: flex-end; margin-bottom: 8px; }
+  .mdp-toolbtn { font-family: inherit; font-size: 11px; font-weight: 700; color: #475569; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 7px; padding: 5px 10px; cursor: pointer; transition: background .15s, color .15s; }
+  .mdp-toolbtn:hover { background: #e2e8f0; color: ${ACCENT}; }
   .mdp-rule { border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; }
   .mdp-rule-muted { background: #f8fafc; color: #94a3b8; }
   .mdp-rule-name { font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 6px; }
@@ -626,9 +694,32 @@ function injectStyles() {
   .mdp-preview { background: #faf9ff; border: 1px solid #ede9fe; border-radius: 10px; padding: 12px; height: fit-content; position: sticky; top: 0; }
   .mdp-pv { margin-bottom: 12px; }
   .mdp-pv-title { font-size: 12px; font-weight: 800; color: #1e293b; margin-bottom: 6px; }
-  .mdp-pv-row { display: flex; justify-content: space-between; font-size: 12px; padding: 3px 6px; border-radius: 5px; }
-  .mdp-pv-row span:last-child { font-weight: 700; }
+  .mdp-pv-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; padding: 3px 6px; border-radius: 5px; }
+  .mdp-pv-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mdp-pv-meta { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; }
+  .mdp-pv-count { font-weight: 700; }
   .mdp-pv-residual { background: #fff7ed; color: #9a3412; }
+  /* (i)/"+" info popover — devices inside this group/category */
+  .mdp-pv-info {
+    position: relative; display: inline-flex; align-items: center; justify-content: center;
+    width: 16px; height: 16px; border-radius: 50%; cursor: pointer;
+    background: ${ACCENT}; color: #fff; font-size: 12px; font-weight: 700; line-height: 1;
+    user-select: none;
+  }
+  .mdp-pv-info:hover, .mdp-pv-info:focus-visible { filter: brightness(.92); outline: none; }
+  .mdp-pv-pop {
+    position: absolute; right: 0; top: 22px; z-index: 50;
+    display: none; width: 240px; max-height: 280px; overflow-y: auto;
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
+    box-shadow: 0 12px 32px rgba(0,0,0,.18); padding: 8px 10px; text-align: left;
+    cursor: default;
+  }
+  .mdp-pv-info:hover .mdp-pv-pop, .mdp-pv-info:focus .mdp-pv-pop, .mdp-pv-info:focus-within .mdp-pv-pop { display: block; }
+  .mdp-pv-pop-title { display: block; font-size: 11px; font-weight: 800; color: #1e293b; margin-bottom: 6px; }
+  .mdp-pv-pop ul { list-style: none; margin: 0; padding: 0; }
+  .mdp-pv-pop li { font-size: 11px; color: #475569; padding: 2px 0; border-bottom: 1px solid #f1f5f9; white-space: normal; word-break: break-word; }
+  .mdp-pv-pop li:last-child { border-bottom: none; }
+  .mdp-pv-pop .mdp-pv-more { color: #94a3b8; font-style: italic; }
   .mdp-errors { background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 8px 10px; font-size: 12px; color: #991b1b; margin-top: 8px; }
   .mdp-errors ul { margin: 4px 0 0 16px; }
   .mdp-footer-inner { display: flex; justify-content: flex-end; gap: 8px; width: 100%; }

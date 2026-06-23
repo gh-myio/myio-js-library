@@ -1,5 +1,6 @@
 // internal/ModalPremiumShell.ts
 import { CSS_TOKENS, MODAL_STYLES } from './styles/tokens';
+import { ModalHeader } from '../../../utils/ModalHeader';
 
 export interface ModalShellOptions {
   title: string;
@@ -8,7 +9,19 @@ export interface ModalShellOptions {
   closeOnBackdrop?: boolean;
   closeOnEscape?: boolean;
   theme?: 'light' | 'dark';
+  /**
+   * Use the standardized MyIO modal header (RFC-0121, the same bar as the MENU's
+   * "Setup de Integração" modal) instead of the plain shell header. Opt-in so
+   * existing modals are unchanged.
+   */
+  useStandardHeader?: boolean;
+  /** Leading icon for the standard header (e.g. '⚙️'). Default: '⚙️'. */
+  icon?: string;
+  /** Show the maximize button in the standard header. Default: true. */
+  showMaximize?: boolean;
 }
+
+let _shellIdSeq = 0;
 
 export interface ModalShellHandle {
   element: HTMLElement;
@@ -24,7 +37,8 @@ export class ModalPremiumShell {
   private header: HTMLElement;
   private body: HTMLElement;
   private footer: HTMLElement;
-  private closeButton: HTMLElement;
+  private closeButton: HTMLElement | null = null;
+  private modalId = `myio-pmshell-${++_shellIdSeq}`;
   private styleElement: HTMLStyleElement;
   private focusTrap: FocusTrap;
   private originalBodyOverflow: string;
@@ -45,8 +59,22 @@ export class ModalPremiumShell {
 
   private injectStyles(): void {
     this.styleElement = document.createElement('style');
-    this.styleElement.textContent = CSS_TOKENS + MODAL_STYLES;
+    this.styleElement.textContent =
+      CSS_TOKENS +
+      MODAL_STYLES +
+      `
+      .myio-modal.myio-modal--maximized {
+        width: 96vw !important;
+        height: 94vh !important;
+        max-width: none !important;
+        max-height: 94vh !important;
+      }
+      `;
     document.head.appendChild(this.styleElement);
+  }
+
+  private toggleMaximize(): void {
+    this.modal.classList.toggle('myio-modal--maximized');
   }
 
   private createElements(): void {
@@ -83,21 +111,39 @@ export class ModalPremiumShell {
 
     // Create header
     this.header = document.createElement('div');
-    this.header.className = 'myio-modal-header';
-    
-    const title = document.createElement('h2');
-    title.id = 'myio-modal-title';
-    title.className = 'myio-modal-title';
-    title.innerHTML = this.options.title;
-    
-    this.closeButton = document.createElement('button');
-    this.closeButton.className = 'myio-modal-close';
-    this.closeButton.innerHTML = '×';
-    this.closeButton.setAttribute('aria-label', 'Fechar modal');
-    (this.closeButton as HTMLButtonElement).type = 'button';
-    
-    this.header.appendChild(title);
-    this.header.appendChild(this.closeButton);
+
+    if (this.options.useStandardHeader) {
+      // Standard MyIO header (RFC-0121) — same bar as "Setup de Integração".
+      // Buttons are wired in show() (after the header is in the DOM).
+      this.backdrop.setAttribute('aria-labelledby', `${this.modalId}-header`);
+      this.header.innerHTML = ModalHeader.generateInlineHTML({
+        icon: this.options.icon || '⚙️',
+        title: this.options.title,
+        modalId: this.modalId,
+        theme: 'dark',
+        showThemeToggle: false,
+        showMaximize: this.options.showMaximize !== false,
+        showClose: true,
+        draggable: false,
+        borderRadius: '0',
+      });
+    } else {
+      this.header.className = 'myio-modal-header';
+
+      const title = document.createElement('h2');
+      title.id = 'myio-modal-title';
+      title.className = 'myio-modal-title';
+      title.innerHTML = this.options.title;
+
+      this.closeButton = document.createElement('button');
+      this.closeButton.className = 'myio-modal-close';
+      this.closeButton.innerHTML = '×';
+      this.closeButton.setAttribute('aria-label', 'Fechar modal');
+      (this.closeButton as HTMLButtonElement).type = 'button';
+
+      this.header.appendChild(title);
+      this.header.appendChild(this.closeButton);
+    }
 
     // Create body
     this.body = document.createElement('div');
@@ -116,8 +162,8 @@ export class ModalPremiumShell {
   }
 
   private setupEventListeners(): void {
-    // Close button
-    this.closeButton.addEventListener('click', () => this.close());
+    // Close button (plain header only; standard header is wired in show()).
+    this.closeButton?.addEventListener('click', () => this.close());
 
     // Backdrop click
     if (this.options.closeOnBackdrop !== false) {
@@ -172,7 +218,18 @@ export class ModalPremiumShell {
 
   public show(): ModalShellHandle {
     document.body.appendChild(this.backdrop);
-    
+
+    // Wire the standard header buttons now that it's in the DOM.
+    if (this.options.useStandardHeader) {
+      ModalHeader.setupHandlers({
+        modalId: this.modalId,
+        onClose: () => this.close(),
+        ...(this.options.showMaximize !== false
+          ? { onMaximize: () => this.toggleMaximize() }
+          : {}),
+      });
+    }
+
     // Trigger animation
     requestAnimationFrame(() => {
       this.modal.classList.add('myio-modal-open');

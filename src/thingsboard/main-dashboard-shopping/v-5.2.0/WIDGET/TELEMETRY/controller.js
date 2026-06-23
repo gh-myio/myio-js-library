@@ -2776,6 +2776,8 @@ function renderList(visible) {
       centralId: it.centralId || 'N/A',
       centralName: it.centralName || '',
       customerName: it.customerName || null,
+      // Per-device exclude_groups_totals → card v5 "excluded" beige bg + marker
+      excludeGroupsTotals: it.excludeGroupsTotals || null,
       updatedIdentifiers: it.updatedIdentifiers || {},
       // Connection timing fields (for Settings modal)
       connectionStatusTime: it.connectionStatusTime || it.lastConnectTime || null,
@@ -6263,6 +6265,8 @@ self.onInit = async function () {
                 connectionStatus: connectionStatus,
                 labelWidget: item.labelWidget || self.ctx.settings?.labelWidget,
                 log_annotations: item.log_annotations || null,
+                // Per-device exclude_groups_totals (drives the v5 "excluded" beige bg + marker)
+                excludeGroupsTotals: item.excludeGroupsTotals || null,
                 // RFC-0183: GCDR device UUID for AlarmServiceOrchestrator badge lookup
                 gcdrDeviceId: item.gcdrDeviceId || null,
                 // RFC-0198: tickets_items SERVER_SCOPE dataKey (fallback badge source)
@@ -6429,6 +6433,8 @@ self.onInit = async function () {
         waterPercentage: item.waterPercentage ?? null,
         _isTankDevice: item._isTankDevice || false,
         _isHidrometerDevice: item._isHidrometerDevice || false,
+        // Per-device exclude_groups_totals (drives the v5 "excluded" beige bg + marker)
+        excludeGroupsTotals: item.excludeGroupsTotals || null,
         // RFC-0183: GCDR device UUID for AlarmServiceOrchestrator badge lookup
         gcdrDeviceId: item.gcdrDeviceId || null,
         // RFC-0198: tickets_items SERVER_SCOPE dataKey (fallback badge source)
