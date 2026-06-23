@@ -2220,6 +2220,9 @@ self.onInit = function () {
 
 // ── Metas: modal de consumo 7 dias com abas de domínio (Energia/Água/Temperatura) ──
 let _goalsChartInstance = null;
+const _goalsCfg = {
+  granularity: (() => { try { return localStorage.getItem('myio-goals-granularity') || '1d'; } catch (_) { return '1d'; } })(),
+};
 
 function openGoalsModal() {
   if (typeof MyIOLibrary === 'undefined' || !MyIOLibrary.createConsumptionChartWidget) {
@@ -2248,18 +2251,24 @@ function openGoalsModal() {
     const s = topDoc.createElement('style');
     s.id = STYLE_ID;
     s.textContent = `
-      .mgm-overlay{position:fixed;inset:0;z-index:999998;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);opacity:0;transition:opacity .2s ease;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;}
+      .mgm-overlay{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);opacity:0;transition:opacity .2s ease;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;}
       .mgm-overlay.show{opacity:1;}
       .mgm-modal{position:relative;background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.25);width:min(960px,94vw);height:min(640px,90vh);overflow:hidden;display:flex;flex-direction:column;transform:translateY(12px) scale(.98);transition:transform .2s ease;}
       .mgm-overlay.show .mgm-modal{transform:translateY(0) scale(1);}
-      .mgm-header{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;background:#3e1a7d;color:#fff;flex-shrink:0;}
-      .mgm-header h3{margin:0;font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px;}
+      .mgm-header{display:flex;align-items:center;gap:12px;padding:12px 18px;background:#3e1a7d;color:#fff;flex-shrink:0;}
+      .mgm-header h3{margin:0;font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px;flex:1;}
+      .mgm-header-right{display:flex;align-items:center;gap:10px;margin-left:auto;}
       .mgm-close{background:transparent;border:none;color:#fff;font-size:24px;line-height:1;cursor:pointer;padding:4px;border-radius:4px;}
       .mgm-close:hover{background:rgba(255,255,255,.15);}
       .mgm-tabs{display:flex;gap:4px;padding:8px 14px 0;background:#3e1a7d;flex-shrink:0;}
       .mgm-tab{flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:8px 16px;border:none;background:rgba(255,255,255,.08);color:#cbb6e8;font-size:13px;font-weight:600;cursor:pointer;border-radius:8px 8px 0 0;transition:all .15s;}
       .mgm-tab:hover{background:rgba(255,255,255,.16);color:#fff;}
       .mgm-tab.active{background:#fff;color:#3e1a7d;}
+      .mgm-gran-label{font-size:11px;font-weight:500;color:rgba(255,255,255,.7);letter-spacing:.4px;text-transform:uppercase;}
+      .mgm-gran-wrap{display:flex;gap:2px;align-items:center;background:rgba(0,0,0,.2);border-radius:8px;padding:3px;}
+      .mgm-gran-btn{border:none;background:transparent;color:rgba(255,255,255,.65);font-size:12px;font-weight:700;padding:5px 14px;border-radius:6px;cursor:pointer;transition:all .15s;}
+      .mgm-gran-btn:hover{background:rgba(255,255,255,.15);color:#fff;}
+      .mgm-gran-btn.active{background:#fff;color:#3e1a7d;box-shadow:0 1px 4px rgba(0,0,0,.2);}
       .mgm-body{flex:1;min-height:0;padding:14px;}
       #myio-goals-chart{width:100%;height:100%;}
     `;
@@ -2280,8 +2289,15 @@ function openGoalsModal() {
   overlay.innerHTML = `
     <div class="mgm-modal">
       <div class="mgm-header">
-        <h3>🎯 Metas (Últimos 7 dias)</h3>
-        <button class="mgm-close" aria-label="Fechar">&times;</button>
+        <h3>🎯 Metas</h3>
+        <div class="mgm-header-right">
+          <span class="mgm-gran-label">Granularidade</span>
+          <div class="mgm-gran-wrap">
+            <button class="mgm-gran-btn${_goalsCfg.granularity === '1d' ? ' active' : ''}" data-gran="1d">1d</button>
+            <button class="mgm-gran-btn${_goalsCfg.granularity === '1h' ? ' active' : ''}" data-gran="1h">1h</button>
+          </div>
+          <button class="mgm-close" aria-label="Fechar">&times;</button>
+        </div>
       </div>
       <div class="mgm-tabs">${tabsHTML}</div>
       <div class="mgm-body"><div id="myio-goals-chart"></div></div>
@@ -2300,7 +2316,7 @@ function openGoalsModal() {
   // (re)instancia o gráfico para um domínio — destrói o anterior e limpa o container
   let _renderingDomain = null;
   function renderChartForDomain(domain) {
-    if (_renderingDomain === domain) return; // evita re-render do mesmo domínio
+    if (_renderingDomain === domain) return;
     _renderingDomain = domain;
     const cfg = DOMAIN_CFG[domain] || DOMAIN_CFG.energy;
 
@@ -2310,14 +2326,14 @@ function openGoalsModal() {
     );
 
     // destrói instância anterior e limpa o container (evita canvas órfão)
-    if (_goalsChartInstance?.destroy) { try { _goalsChartInstance.destroy(); } catch (_) {} _goalsChartInstance = null; }
+    if (_goalsChartInstance?.destroy) { try { _goalsChartInstance.destroy(); } catch (e) { void e; } _goalsChartInstance = null; }
     const chartContainer = overlay.querySelector('#myio-goals-chart');
     if (chartContainer) chartContainer.innerHTML = '';
 
     _goalsChartInstance = MyIOLibrary.createConsumptionChartWidget({
       domain,
       containerId: 'myio-goals-chart',
-      title: `${cfg.label} - Últimos 7 dias`,
+      title: cfg.label,
       unit: cfg.unit,
       unitLarge: cfg.unitLarge,
       thresholdForLargeUnit: cfg.threshold,
@@ -2330,8 +2346,8 @@ function openGoalsModal() {
       showVizModeTabs: true,
       vizModeLabels: { total: 'Consolidado', separate: 'Por Dispositivo' },
       theme: window.MyIOUtils?.getTheme?.() || 'light',
-      showSettingsButton: false,
-      showMaximizeButton: false,
+      showSettingsButton: true,
+      showMaximizeButton: true,
       fetchData: _buildGoalsFetchData(domain),
       onDataLoaded: (data) =>
         LogHelper.log(`[MENU] Metas ${domain} data loaded:`, data.labels?.length, 'dias'),
@@ -2346,6 +2362,19 @@ function openGoalsModal() {
   // clique nas abas de domínio
   overlay.querySelectorAll('.mgm-tab').forEach((tab) => {
     tab.addEventListener('click', () => renderChartForDomain(tab.dataset.domain));
+  });
+
+  // Toggle de granularidade — recria o chart para garantir que o novo valor é usado no fetchData
+  overlay.querySelectorAll('.mgm-gran-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      if (btn.dataset.gran === _goalsCfg.granularity) return;
+      _goalsCfg.granularity = btn.dataset.gran;
+      try { localStorage.setItem('myio-goals-granularity', _goalsCfg.granularity); } catch (e) { void e; }
+      overlay.querySelectorAll('.mgm-gran-btn').forEach((b) => b.classList.toggle('active', b === btn));
+      const domainToRefresh = _renderingDomain;
+      _renderingDomain = null; // permite recriar para o mesmo domínio
+      if (domainToRefresh) renderChartForDomain(domainToRefresh);
+    });
   });
 
   // primeiro render: espera o container pintar (igual ao comportamento atual)
@@ -2381,117 +2410,46 @@ function _buildGoalsFetchData(domain) {
     const labels = dayBoundaries.map((d) => d.label);
 
     if (domain === 'temperature') {
-      return await _fetchGoalsTemperature(dayBoundaries, labels, numDays, empty);
+      return await _fetchGoalsTemperature(dayBoundaries, labels, numDays, empty, _goalsCfg.granularity);
     }
-    return await _fetchGoalsTotals(domain, dayBoundaries, labels, numDays, empty);
+    return await _fetchGoalsTotals(domain, dayBoundaries, labels, numDays, empty, _goalsCfg.granularity);
   };
 }
 
-// ── Energy & Water: soma total_value por dia, top-15 devices ──────────────────
-async function _fetchGoalsTotals(domain, dayBoundaries, labels, numDays, empty) {
-  const fnName = domain === 'energy' ? 'fetchEnergyDayConsumption' : 'fetchWaterDayConsumption';
-  let fetchDay = window.MyIOUtils?.[fnName];
+// ── Energy & Water: 1 request por dia em paralelo (Promise.all), top-15 devices ──────────
+async function _fetchGoalsTotals(domain, dayBoundaries, labels, numDays, empty, granularity = '1d') {
+  const ENTRADA_GROUP_ID = 'f431d17a-ec11-45e0-b92c-83a0d3b6d942';
+  const groupId = domain === 'energy' ? ENTRADA_GROUP_ID : null;
 
-  const parentCustomerId =
+  const custId =
     window.MyIOOrchestrator?.getCredentials?.()?.CUSTOMER_ING_ID ||
     window.MyIOUtils?.customerTB_ID;
-  if (!parentCustomerId) {
-    LogHelper.error('[MENU] Metas: CUSTOMER_ING_ID indisponível');
+  if (!custId) { LogHelper.error('[MENU] Metas: CUSTOMER_ING_ID indisponível'); return empty; }
+
+  const fetchFn = window.MyIOUtils?.fetchGoalsDayTotals;
+  if (typeof fetchFn !== 'function') {
+    LogHelper.error('[MENU] Metas: fetchGoalsDayTotals indisponível — atualize o MAIN_VIEW');
     return empty;
   }
 
-  // Fallback: se o wrapper não existir (MAIN_VIEW antigo), faz fetch direto.
-  // URL montada igual ao padrão de produção: getDataApiHost() + /telemetry/...
-  // (getDataApiHost() já entrega o host com /api/v1 — confirmado no log do wrapper de energia).
-  if (typeof fetchDay !== 'function') {
-    LogHelper.warn(`[MENU] Metas ${domain}: ${fnName} indisponível — usando fetch direto`);
-    const host = window.MyIOUtils?.getDataApiHost?.() || window.MyIOUtils?.DATA_API_HOST;
-    const token = await _getGoalsIngestionToken();
-    if (!host || !token) {
-      LogHelper.error(`[MENU] Metas ${domain}: host/token de ingestion indisponível para fetch direto`);
-      return empty;
-    }
-    const base = host.replace(/\/+$/, ''); // remove só barra(s) final(is) — NÃO mexe no /api/v1
-    fetchDay = async (custId, startTs, endTs, granularity) => {
-      const url = new URL(`${base}/telemetry/customers/${custId}/${domain}/devices/totals`);
-      url.searchParams.set('startTime', new Date(startTs).toISOString());
-      url.searchParams.set('endTime', new Date(endTs).toISOString());
-      url.searchParams.set('deep', '1');
-      if (granularity) url.searchParams.set('granularity', granularity);
-      const res = await fetch(url.toString(), {
-        headers: { Authorization: 'Bearer ' + token },
-        cache: 'no-store',
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return await res.json(); // { data:[...], summary } — tratado adiante
-    };
-  } else {
-    LogHelper.log(`[MENU] Metas ${domain}: usando wrapper ${fnName}`);
-  }
-
-  // lista curada (exclui entrada e mortos). Cache só popula depois que a aba foi ativada.
-  // A hidratação pode COALESCER numa requisição longa do dashboard (vimos ~14s) ou não
-  // resolver — então NÃO a deixamos travar o gráfico: corremos contra um timeout de 4s.
-  // Se estourar, seguimos com hasCurated=false e o filtro de ENTRADA cobre a dedupe.
-  let orchItems = window.MyIOOrchestratorData?.[domain]?.items || [];
-  if (!orchItems.length && window.MyIOOrchestrator?.hydrateDomain) {
-    LogHelper.log(`[MENU] Metas ${domain}: cache vazio, tentando hydrateDomain(${domain}) (timeout 4s)...`);
-    try {
-      const period =
-        window.MyIOOrchestrator?.getCurrentPeriod?.() ||
-        {
-          startISO: new Date(dayBoundaries[0].startTs).toISOString(),
-          endISO: new Date(dayBoundaries[numDays - 1].endTs).toISOString(),
-          granularity: 'HOUR',
-        };
-      const hydrated = await Promise.race([
-        window.MyIOOrchestrator.hydrateDomain(domain, period),
-        new Promise((resolve) => setTimeout(() => resolve('__timeout__'), 4000)),
-      ]);
-      if (hydrated === '__timeout__') {
-        LogHelper.warn(`[MENU] Metas ${domain}: hydrateDomain demorou demais — seguindo sem lista curada (filtro ENTRADA cobre)`);
+  // N requests por dia, todos em paralelo
+  const dayResults = await Promise.all(
+    dayBoundaries.map(async (day, dayIdx) => {
+      try {
+        const result = await fetchFn(custId, domain, day.startTs, day.endTs, granularity, groupId);
+        const devices = Array.isArray(result) ? result : (result?.devices || result?.data || []);
+        return { dayIdx, devices, label: day.label };
+      } catch (err) {
+        LogHelper.warn(`[MENU] Metas ${domain} ${day.label}: fetch falhou — ${err.message}`);
+        return { dayIdx, devices: [], label: day.label };
       }
-      orchItems =
-        (Array.isArray(hydrated) && hydrated.length)
-          ? hydrated
-          : (window.MyIOOrchestratorData?.[domain]?.items || []);
-      LogHelper.log(`[MENU] Metas ${domain}: ${orchItems.length} devices após hidratação`);
-    } catch (err) {
-      LogHelper.warn(`[MENU] Metas ${domain}: hydrateDomain falhou — ${err.message}`);
-    }
-  }
-  const validIds = new Set();
-  orchItems.forEach((it) => { if (it.ingestionId) validIds.add(it.ingestionId); if (it.id) validIds.add(it.id); });
-  const hasCurated = validIds.size > 0;
-  LogHelper.log(`[MENU] Metas ${domain}: ${validIds.size} devices curados (hasCurated=${hasCurated})`);
+    })
+  );
 
-  const dailyTotals = [];
-  const perDevice = {}; // id -> { name, values[] }
+  const dailyTotals = new Array(numDays).fill(0);
+  const perDevice = {};
 
-  for (let dayIdx = 0; dayIdx < dayBoundaries.length; dayIdx++) {
-    const day = dayBoundaries[dayIdx];
-    let result;
-    try {
-      result = await fetchDay(parentCustomerId, day.startTs, day.endTs, '1d');
-    } catch (err) {
-      LogHelper.warn(`[MENU] Metas ${domain} ${day.label}: fetch falhou — ${err.message}`);
-      dailyTotals.push(0);
-      continue;
-    }
-
-    // wrapper RETORNA { devices }; fetch direto RETORNA { data } — trata ambos + array direto
-    const all = Array.isArray(result) ? result : (result?.devices || result?.data || []);
-    if (dayIdx === 0) {
-      LogHelper.log(`[MENU] Metas ${domain}: shape = ${all.length} devices (chaves: ${result ? Object.keys(result).join(',') : 'null'})`);
-    }
-
-    const devices = all.filter((dv) => {
-      const profile = String(dv.profileName || dv.deviceProfile || '').toUpperCase();
-      if (profile === 'ENTRADA') return false;                 // exclui entrada sempre
-      if (hasCurated) return validIds.has(dv.id) || validIds.has(dv.ingestionId);
-      return true;
-    });
-
+  dayResults.forEach(({ dayIdx, devices, label }) => {
     let dayTotal = 0;
     devices.forEach((dv) => {
       const v = Number(dv.total_value) || Number(dv.value) || 0;
@@ -2502,114 +2460,64 @@ async function _fetchGoalsTotals(domain, dayBoundaries, labels, numDays, empty) 
       }
       perDevice[did].values[dayIdx] = v;
     });
+    dailyTotals[dayIdx] = dayTotal;
+    LogHelper.log(`[MENU] Metas ${domain} ${label}: ${dayTotal.toFixed(2)} (${devices.length} devices)`);
+  });
 
-    dailyTotals.push(dayTotal);
-    LogHelper.log(`[MENU] Metas ${domain} ${day.label}: ${dayTotal.toFixed(2)} (${devices.length} devices)`);
-  }
+  const shoppingData = {};
+  const shoppingNames = {};
+  Object.entries(perDevice)
+    .filter(([, d]) => d.values.some((v) => v > 0))
+    .sort(([, a], [, b]) => b.values.reduce((s, v) => s + v, 0) - a.values.reduce((s, v) => s + v, 0))
+    .slice(0, 15)
+    .forEach(([id, d]) => { shoppingData[id] = d.values; shoppingNames[id] = d.name; });
 
-  const { shoppingData, shoppingNames } = _rankTopDevicesBySum(perDevice, 15);
   return { labels, dailyTotals, shoppingData, shoppingNames, fetchTimestamp: Date.now() };
 }
 
-// ── Temperature: MÉDIA diária, um fetch por sensor (portado do BAS fetchTemperatureData) ──
-async function _fetchGoalsTemperature(dayBoundaries, labels, numDays, empty) {
-  const host = window.MyIOUtils?.DATA_API_HOST || window.MyIOUtils?.getDataApiHost?.();
-  const token = await _getGoalsIngestionToken();
-  if (!host || !token) {
-    LogHelper.error('[MENU] Metas temperature: host/token de ingestion indisponível');
-    return empty;
-  }
-
-// sensores curados pelo orchestrator (mesma fonte que fetchTemperatureDayAverages usa)
-  let tempItems =
-    window.MyIOOrchestratorData?.temperature?.items ||
-    window.STATE?.temperature?.items || [];
-
-  // Cache só popula depois que a aba Temperatura foi ativada uma vez.
-  // Se abriram o Metas em Temperatura sem nunca ter passado pela aba, força a hidratação
-  // (mesmo caminho que o clique na aba dispara, mas sem mudar a aba visível do dashboard).
-  if (!tempItems.length && window.MyIOOrchestrator?.hydrateDomain) {
-    LogHelper.log('[MENU] Metas temperature: cache vazio, forçando hydrateDomain(temperature)...');
-    try {
-      const period =
-        window.MyIOOrchestrator?.getCurrentPeriod?.() ||
-        { startISO: startISO, endISO: endISO, granularity: 'HOUR' };
-      const fetched = await window.MyIOOrchestrator.hydrateDomain('temperature', period);
-      tempItems = (Array.isArray(fetched) && fetched.length)
-        ? fetched
-        : (window.MyIOOrchestratorData?.temperature?.items ||
-           window.STATE?.temperature?.items || []);
-      LogHelper.log(`[MENU] Metas temperature: hidratação retornou ${tempItems.length} sensores`);
-    } catch (err) {
-      LogHelper.warn('[MENU] Metas temperature: hydrateDomain falhou —', err.message);
-    }
-  }
-
-  if (!tempItems.length) {
-    LogHelper.warn('[MENU] Metas temperature: nenhum sensor mesmo após hidratação');
+// ── Temperature: delega fetch ao MAIN_VIEW (fetchGoalsTemperature), processa resultado ──
+async function _fetchGoalsTemperature(dayBoundaries, labels, numDays, empty, granularity = '1d') {
+  const fetchFn = window.MyIOUtils?.fetchGoalsTemperature;
+  if (typeof fetchFn !== 'function') {
+    LogHelper.error('[MENU] Metas: fetchGoalsTemperature indisponível — atualize o MAIN_VIEW');
     return empty;
   }
 
   const startTs = dayBoundaries[0].startTs;
   const endTs = dayBoundaries[numDays - 1].endTs;
   const dayMs = 24 * 60 * 60 * 1000;
-  const startISO = new Date(startTs).toISOString().split('.')[0] + '-03:00';
-  const endISO = new Date(endTs).toISOString().split('.')[0] + '-03:00';
+
+  const rawDevices = await fetchFn(startTs, endTs, granularity);
+  if (!rawDevices.length) {
+    LogHelper.warn('[MENU] Metas temperature: nenhum sensor retornado pelo MAIN_VIEW');
+    return empty;
+  }
 
   const dailySums = new Array(numDays).fill(0);
   const dailyCounts = new Array(numDays).fill(0);
-  const perSensor = {}; // ingestionId -> { name, values[], readings }
+  const perSensor = {};
 
-  // top-15 por nº de leituras (temperatura não tem "maior consumo")
-  const sensorsToFetch = tempItems.slice(0, 15);
-  LogHelper.log(`[MENU] Metas temperature: ${sensorsToFetch.length} sensores (de ${tempItems.length})`);
-
-  for (let i = 0; i < sensorsToFetch.length; i++) {
-    const dev = sensorsToFetch[i];
-    const ingestionId = dev.ingestionId || dev.id;
-    if (!ingestionId) continue;
-
-    perSensor[ingestionId] = {
-      name: dev.label || dev.name || ('Sensor ' + (i + 1)),
-      values: new Array(numDays).fill(null),
-      readings: 0,
-    };
-
-    try {
-      const url = host.replace(/\/api\/v1\/?$/, '') +
-        '/api/v1/telemetry/devices/' + ingestionId +
-        '/temperature?startTime=' + encodeURIComponent(startISO) +
-        '&endTime=' + encodeURIComponent(endISO) + '&granularity=1d&deep=0';
-      const resp = await fetch(url, { headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' } });
-      if (!resp.ok) { LogHelper.warn(`[MENU] Metas temp ${ingestionId}: HTTP ${resp.status}`); continue; }
-
-      const data = await resp.json();
-      const deviceData = Array.isArray(data) ? data[0] : data;
-      const readings = deviceData?.consumption || [];
-      if (deviceData?.name) perSensor[ingestionId].name = deviceData.name;
-
-      readings.forEach((r) => {
-        const rTs = new Date(r.timestamp).getTime();
-        const dayIdx = Math.floor((rTs - startTs) / dayMs);
-        if (dayIdx >= 0 && dayIdx < numDays && r.value != null) {
-          const val = Number(r.value);
-          if (!isNaN(val)) {
-            dailySums[dayIdx] += val;
-            dailyCounts[dayIdx]++;
-            perSensor[ingestionId].values[dayIdx] = Number(val.toFixed(1));
-            perSensor[ingestionId].readings++;
-          }
+  rawDevices.forEach((dev) => {
+    perSensor[dev.id] = { name: dev.name, values: new Array(numDays).fill(null), readings: 0 };
+    (dev.consumption || []).forEach((r) => {
+      const rTs = new Date(r.timestamp).getTime();
+      const dayIdx = Math.floor((rTs - startTs) / dayMs);
+      if (dayIdx >= 0 && dayIdx < numDays && r.value != null) {
+        const val = Number(r.value);
+        if (!isNaN(val)) {
+          dailySums[dayIdx] += val;
+          dailyCounts[dayIdx]++;
+          perSensor[dev.id].values[dayIdx] = Number(val.toFixed(1));
+          perSensor[dev.id].readings++;
         }
-      });
-    } catch (err) {
-      LogHelper.warn(`[MENU] Metas temp ${ingestionId}: ${err.message}`);
-    }
-  }
+      }
+    });
+  });
 
-  // Consolidado = MÉDIA diária (não soma!)
-  const dailyTotals = dailySums.map((sum, idx) => dailyCounts[idx] === 0 ? null : Number((sum / dailyCounts[idx]).toFixed(1)));
+  const dailyTotals = dailySums.map((sum, i) =>
+    dailyCounts[i] === 0 ? null : Number((sum / dailyCounts[i]).toFixed(1))
+  );
 
-  // Por Dispositivo: descarta sensores sem leitura
   const shoppingData = {};
   const shoppingNames = {};
   Object.entries(perSensor)
@@ -2618,38 +2526,6 @@ async function _fetchGoalsTemperature(dayBoundaries, labels, numDays, empty) {
 
   LogHelper.log('[MENU] Metas temperature médias:', dailyTotals, `(${Object.keys(shoppingData).length} sensores com dados)`);
   return { labels, dailyTotals, shoppingData, shoppingNames, fetchTimestamp: Date.now() };
-}
-
-// ── Helpers ─────────────────────────────────────────────────────────────────
-
-function _rankTopDevicesBySum(perDevice, maxSeries) {
-  const ranked = Object.entries(perDevice)
-    .map(([id, d]) => ({ id, name: d.name, values: d.values, sum: d.values.reduce((a, b) => a + b, 0) }))
-    .filter((d) => d.sum > 0)
-    .sort((a, b) => b.sum - a.sum)
-    .slice(0, maxSeries);
-  const shoppingData = {};
-  const shoppingNames = {};
-  ranked.forEach((d) => { shoppingData[d.id] = d.values; shoppingNames[d.id] = d.name; });
-  return { shoppingData, shoppingNames };
-}
-
-async function _getGoalsIngestionToken() {
-  try {
-    const existing = await window.MyIOOrchestrator?.tokenManager?.getToken?.('ingestionToken');
-    if (existing) return existing;
-    const creds = window.MyIOOrchestrator?.getCredentials?.() || {};
-    const host = window.MyIOUtils?.DATA_API_HOST || window.MyIOUtils?.getDataApiHost?.();
-    if (host && creds.CLIENT_ID && creds.CLIENT_SECRET && MyIOLibrary?.buildMyioIngestionAuth) {
-      const auth = MyIOLibrary.buildMyioIngestionAuth({
-        dataApiHost: host, clientId: creds.CLIENT_ID, clientSecret: creds.CLIENT_SECRET,
-      });
-      return await auth.getToken();
-    }
-  } catch (err) {
-    LogHelper.error('[MENU] Metas: falha ao obter ingestion token:', err.message);
-  }
-  return null;
 }
 
   function openReportsPickerModal() {
