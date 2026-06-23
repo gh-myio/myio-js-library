@@ -46,6 +46,7 @@
       <h2>⚙️ Configuração</h2>
       <p class="sub">Marque/ajuste e a galeria reconstrói automaticamente.</p>
       <div class="setup">
+        <label class="chk"><input type="checkbox" id="cfg-desc" checked /> enableDescription</label>
         <label class="chk"><input type="checkbox" id="cfg-delete" checked /> enableDeleteButton</label>
         <label class="chk"><input type="checkbox" id="cfg-edit" checked /> enableEditDescription</label>
         <label class="chk"><input type="checkbox" id="cfg-hide" checked /> enableHide</label>
@@ -140,6 +141,7 @@
         theme: $('cfg-theme').value,
         lightbox: $('cfg-lightbox').checked,
         animate: $('cfg-animate').checked,
+        enableDescription: $('cfg-desc').checked,
         enableDeleteButton: $('cfg-delete').checked,
         enableEditDescription: $('cfg-edit').checked,
         enableHide: $('cfg-hide').checked,

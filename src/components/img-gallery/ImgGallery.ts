@@ -78,6 +78,12 @@ export interface ImgGalleryOptions {
   container?: HTMLElement;
 
   // ── Per-item controls ──────────────────────────────────────────────────────
+  /**
+   * Show the description (caption) as fixed read-only text in the card body,
+   * independent of editing/details. Without it (and without edit/details) the
+   * caption only appears as a hover overlay on the image. Default: false.
+   */
+  enableDescription?: boolean;
   /** Show a delete (🗑) button on each item. Default: false. */
   enableDeleteButton?: boolean;
   /** Allow editing the description inline (pencil → input). Default: false. */
@@ -331,13 +337,16 @@ export function createImgGallery(options: ImgGalleryOptions): ImgGalleryInstance
   const showAll = options.showAll ?? true;
 
   // Per-item controls
+  const enableDescriptionText = options.enableDescription ?? false;
   const enableDelete = options.enableDeleteButton ?? false;
   const enableEdit = options.enableEditDescription ?? false;
   const enableHideBtn = options.enableHide ?? false;
   const enableDetails = options.enableDisplayDetails ?? false;
   const hasActions = enableDelete || enableEdit || enableHideBtn;
   // Description + details live in a visible body (vs. the hover overlay caption).
-  const showBody = enableEdit || enableDetails;
+  // enableDescription shows the caption read-only; the edit pencil only appears
+  // when enableEditDescription is set (handled inside renderDescription).
+  const showBody = enableDescriptionText || enableEdit || enableDetails;
 
   let images = options.images.slice();
   let active = options.activeCategory ?? 'all';
