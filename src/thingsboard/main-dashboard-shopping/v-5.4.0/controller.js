@@ -30,7 +30,6 @@ const DOMAIN_TEMPERATURE = 'temperature';
 // ============================================================================
 // LogHelper
 // ============================================================================
-
 const LogHelper = {
   log: (...args) => DEBUG_ACTIVE && console.log('[MAIN]', ...args),
   warn: (...args) => DEBUG_ACTIVE && console.warn('[MAIN]', ...args),
@@ -47,7 +46,6 @@ function toastError(message) {
 // ============================================================================
 // Global State Setup
 // ============================================================================
-
 window.MyIOUtils = window.MyIOUtils || {};
 Object.assign(window.MyIOUtils, {
   LogHelper,
@@ -69,7 +67,6 @@ Object.assign(window.MyIOUtils, {
 // ============================================================================
 // Module State
 // ============================================================================
-
 let _headerInstance = null;
 let _menuInstance = null;
 let _footerInstance = null;
@@ -94,7 +91,6 @@ let _temperatureGridLojas = null;
 // ============================================================================
 // Device Classification (RFC-0111)
 // ============================================================================
-
 /**
  * Extract device metadata from all rows for a single device
  */
@@ -137,8 +133,8 @@ function extractDeviceMetadataFromRows(rows) {
       domain === DOMAIN_ENERGY
         ? dataKeyTimestamps['consumption']
         : domain === DOMAIN_WATER
-        ? dataKeyTimestamps['pulses']
-        : dataKeyTimestamps['temperature'];
+          ? dataKeyTimestamps['pulses']
+          : dataKeyTimestamps['temperature'];
     deviceStatus = window.MyIOLibrary.calculateDeviceStatusMasterRules({
       connectionStatus,
       telemetryTimestamp: telemetryTs,
@@ -427,7 +423,6 @@ function updateTelemetryInfoComponents(classified) {
 // ============================================================================
 // Credentials Fetching
 // ============================================================================
-
 async function fetchCredentials(customerTbId) {
   const jwt = self.ctx?.http?.getServerCredentials?.()?.token;
   if (!jwt) {
@@ -462,7 +457,6 @@ async function fetchCredentials(customerTbId) {
 // ============================================================================
 // Alarms Pre-fetching (RFC-0180)
 // ============================================================================
-
 /**
  * RFC-0180: Pre-fetch all customer alarms so AlarmsTab can filter without a per-device call.
  * Runs non-blocking — result stored in window.MyIOOrchestrator.customerAlarms.
@@ -479,7 +473,7 @@ async function _prefetchCustomerAlarms(gcdrCustomerId, gcdrTenantId, alarmsBaseU
       headers: {
         'X-API-Key': ALARMS_API_KEY,
         'X-Tenant-ID': gcdrTenantId || '',
-        'Accept': 'application/json',
+        Accept: 'application/json',
       },
     });
     if (!response.ok) {
@@ -498,7 +492,6 @@ async function _prefetchCustomerAlarms(gcdrCustomerId, gcdrTenantId, alarmsBaseU
 // ============================================================================
 // User Info Fetching
 // ============================================================================
-
 /**
  * Get user info from ThingsBoard context and update menu component
  */
@@ -575,7 +568,6 @@ async function fetchAndUpdateUserInfo() {
 // ============================================================================
 // Component Creation
 // ============================================================================
-
 /**
  * Handle menu collapse toggle - adds/removes menu-compact class on #myio-root
  */
@@ -805,7 +797,6 @@ function createTemperatureGrids(lib) {
 // ============================================================================
 // Content State Switching
 // ============================================================================
-
 function switchContentState(domain) {
   const stateMap = {
     energy: 'telemetry_content',
@@ -840,7 +831,6 @@ function switchContentState(domain) {
 // ============================================================================
 // Extract Customer Attributes from datasource
 // ============================================================================
-
 function extractCustomerAttributes(data) {
   for (const row of data) {
     const alias = (row.datasource?.aliasName || '').toLowerCase();
@@ -886,9 +876,11 @@ function applyBackgroundToPage(themeMode, settings) {
   } else {
     // Default to a light purple gradient for light mode, dark purple for dark
     if (themeMode === 'dark') {
-      backgroundStyle = themeSettings?.backgroundColor || 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e1b4b 100%)';
+      backgroundStyle =
+        themeSettings?.backgroundColor || 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e1b4b 100%)';
     } else {
-      backgroundStyle = themeSettings?.backgroundColor || 'linear-gradient(135deg, #ede9fe 0%, #ddd6fe 50%, #c4b5fd 100%)';
+      backgroundStyle =
+        themeSettings?.backgroundColor || 'linear-gradient(135deg, #ede9fe 0%, #ddd6fe 50%, #c4b5fd 100%)';
     }
   }
 
@@ -991,16 +983,26 @@ self.onInit = async function () {
   DATA_API_HOST = (settings.dataApiHost || '').replace(/\/api\/v1\/?$/, '');
   window.MyIOUtils.DATA_API_HOST = DATA_API_HOST;
   if (!THINGSBOARD_URL) {
-    toastError('[MAIN_VIEW v5.4.0] thingsboardUrl não configurado nas settings do widget. Configure em Widget Settings → thingsboardUrl.');
+    toastError(
+      '[MAIN_VIEW v5.4.0] thingsboardUrl não configurado nas settings do widget. Configure em Widget Settings → thingsboardUrl.'
+    );
   }
   if (!DATA_API_HOST) {
-    toastError('[MAIN_VIEW v5.4.0] dataApiHost não configurado nas settings do widget. Configure em Widget Settings → dataApiHost.');
+    toastError(
+      '[MAIN_VIEW v5.4.0] dataApiHost não configurado nas settings do widget. Configure em Widget Settings → dataApiHost.'
+    );
   }
 
   // Apply initial theme and background
   _currentThemeMode = settings.defaultThemeMode || 'light';
   window.MyIOUtils.currentTheme = _currentThemeMode;
-  LogHelper.log('Initial theme mode from settings:', _currentThemeMode, '(settings.defaultThemeMode:', settings.defaultThemeMode, ')');
+  LogHelper.log(
+    'Initial theme mode from settings:',
+    _currentThemeMode,
+    '(settings.defaultThemeMode:',
+    settings.defaultThemeMode,
+    ')'
+  );
   applyBackgroundToPage(_currentThemeMode, settings);
 
   // RFC-0144: Load annotations onboarding setting
@@ -1011,19 +1013,25 @@ self.onInit = async function () {
   // RFC-0178: Alarms API config from settings (no hard-coded URLs; toast on misconfiguration)
   const alarmsApiBaseUrl = settings.alarmsApiBaseUrl || '';
   if (!alarmsApiBaseUrl) {
-    toastError('[MAIN_VIEW v5.4.0] alarmsApiBaseUrl não configurado nas settings do widget. Configure em Widget Settings → alarmsApiBaseUrl.');
+    toastError(
+      '[MAIN_VIEW v5.4.0] alarmsApiBaseUrl não configurado nas settings do widget. Configure em Widget Settings → alarmsApiBaseUrl.'
+    );
   }
   const alarmsApiKey = settings.alarmsApiKey || '';
   if (!alarmsApiKey) {
-    toastError('[MAIN_VIEW v5.4.0] alarmsApiKey não configurado nas settings do widget. Configure em Widget Settings → alarmsApiKey.');
+    toastError(
+      '[MAIN_VIEW v5.4.0] alarmsApiKey não configurado nas settings do widget. Configure em Widget Settings → alarmsApiKey.'
+    );
   }
 
   // RFC-0180: GCDR IDs — primary from widget settings, fallback from TB attrs below
   let gcdrCustomerId = settings.gcdrCustomerId || '';
-  let gcdrTenantId   = settings.gcdrTenantId   || '';
+  let gcdrTenantId = settings.gcdrTenantId || '';
   const gcdrApiBaseUrl = settings.gcdrApiBaseUrl || '';
   if (!gcdrApiBaseUrl) {
-    toastError('[MAIN_VIEW v5.4.0] gcdrApiBaseUrl não configurado nas settings do widget. Configure em Widget Settings → gcdrApiBaseUrl.');
+    toastError(
+      '[MAIN_VIEW v5.4.0] gcdrApiBaseUrl não configurado nas settings do widget. Configure em Widget Settings → gcdrApiBaseUrl.'
+    );
   }
 
   // Detect SuperAdmin from context (quick check; currentUserEmail refined later via fetchAndUpdateUserInfo)
@@ -1071,7 +1079,7 @@ self.onInit = async function () {
 
       // RFC-0180: Fallback GCDR IDs from TB attrs when not set in widget settings
       if (!gcdrCustomerId) gcdrCustomerId = _credentials.gcdrCustomerId || '';
-      if (!gcdrTenantId)   gcdrTenantId   = _credentials.gcdrTenantId   || '';
+      if (!gcdrTenantId) gcdrTenantId = _credentials.gcdrTenantId || '';
 
       // Set credentials in orchestrator
       if (window.MyIOOrchestrator?.setCredentials) {
@@ -1087,8 +1095,8 @@ self.onInit = async function () {
   // RFC-0180: Publish final GCDR identifiers to orchestrator
   if (window.MyIOOrchestrator) {
     window.MyIOOrchestrator.gcdrCustomerId = gcdrCustomerId;
-    window.MyIOOrchestrator.gcdrTenantId   = gcdrTenantId;
-    window.MyIOOrchestrator.gcdrApiBaseUrl  = gcdrApiBaseUrl;
+    window.MyIOOrchestrator.gcdrTenantId = gcdrTenantId;
+    window.MyIOOrchestrator.gcdrApiBaseUrl = gcdrApiBaseUrl;
   }
   LogHelper.log('[MAIN] RFC-0180: gcdrCustomerId:', gcdrCustomerId || '(empty)');
 

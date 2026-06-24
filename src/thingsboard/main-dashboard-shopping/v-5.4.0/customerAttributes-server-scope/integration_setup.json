@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0.0",
+  "updated_at": "2026-03-04T14:31:49.031Z",
+  "updated_by": "rodrigo@myio.com.br",
+  "ingestion": {
+    "ingestionId": "e01bdd22-3be6-4b75-9dae-442c8b8c186e",
+    "client_id": "mestreal_mfh4e642_4flnuh",
+    "client_secret": "gv0zfmdekNxYA296OcqFrnBAVU4PhbUBhBwNlMCamk2oXDHeXJqu1K6YtpVOZ5da"
+  },
+  "gcdr": {
+    "gcdrCustomerId": "e04046d4-baa4-44e9-a378-4dfebe4140f1",
+    "gcdrApiKey": "gcdr_cust_mestre_alvaro_tb_2026",
+    "gcdrTenantId": "11111111-1111-1111-1111-111111111111",
+    "gcdrSyncedAt": null
+  },
+  "gateways": {
+    "tb": [],
+    "ingestion": [],
+    "gcdr": [
+      {
+        "uuid": "45250d44-bad0-4071-aaa0-8091cfb12691",
+        "name": "Central Mestre Álvaro L1",
+        "assetParent": "9a540930-1b8e-11f0-9baa-8137e6ac9d72",
+        "bundleVersion": "v1-9a0a06ed0c6b"
+      }
+    ]
+  }
+}

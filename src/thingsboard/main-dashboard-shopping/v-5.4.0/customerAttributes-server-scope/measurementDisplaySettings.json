@@ -1,0 +1,18 @@
+{
+  "version": "1.0.0",
+  "updatedAt": "2026-04-14T17:43:55.758Z",
+  "water": {
+    "unit": "m3",
+    "decimalPlaces": 3,
+    "autoScale": true
+  },
+  "energy": {
+    "unit": "auto",
+    "decimalPlaces": 3,
+    "forceUnit": false
+  },
+  "temperature": {
+    "unit": "celsius",
+    "decimalPlaces": 1
+  }
+}

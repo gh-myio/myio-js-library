@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "domains": {
+    "energy": {
+      "caseInsensitive": true,
+      "groups": {
+        "ocultosProfilePatterns": ["ARQUIVADO", "SEM_DADOS", "DESATIVADO", "REMOVIDO", "INATIVO"],
+        "rules": [
+          { "name": "lojas", "deviceProfiles": ["3F_MEDIDOR"] },
+          { "name": "entrada", "deviceProfiles": ["TRAFO", "ENTRADA", "RELOGIO", "SUBESTACAO", "BRASIL"] },
+          { "name": "areacomum", "deviceProfiles": [], "fallback": true }
+        ]
+      },
+      "categories": {
+        "storeDeviceProfile": "3F_MEDIDOR",
+        "rules": [
+          {
+            "name": "elevadores",
+            "deviceProfiles": [],
+            "combinedContains": [],
+            "identifierFallback": {
+              "identifierEquals": ["ELV", "ELEVADOR", "ELEVADORES"],
+              "identifierPrefixes": []
+            }
+          },
+          {
+            "name": "escadas_rolantes",
+            "deviceProfiles": ["ESCADA_ROLANTE", "ELEVADOR"],
+            "combinedContains": [],
+            "identifierFallback": {
+              "identifierEquals": ["ESC", "ESCADA", "ESCADASROLANTES"],
+              "identifierPrefixes": ["ESC-", "ESCADA-", "ESCADA_"]
+            }
+          },
+          {
+            "name": "climatizacao",
+            "deviceProfiles": ["FANCOIL"],
+            "combinedContains": [],
+            "conditional": { "deviceTypes": [], "identifierContains": [], "identifierPrefixes": [] },
+            "identifierFallback": { "identifierContains": [], "identifierPrefixes": [] }
+          }
+        ],
+        "fallback": { "name": "outros" }
+      }
+    },
+    "water": {
+      "caseInsensitive": true,
+      "groups": {
+        "ocultosProfilePatterns": ["ARQUIVADO", "SEM_DADOS", "DESATIVADO", "REMOVIDO", "INATIVO"],
+        "rules": [
+          { "name": "entrada", "deviceProfiles": ["HIDROMETRO_SHOPPING"] },
+          { "name": "lojas", "deviceProfiles": ["HIDROMETRO"] },
+          { "name": "caixadagua", "deviceProfiles": ["TANK", "CAIXA_DAGUA"] },
+          { "name": "areacomum", "deviceProfiles": [], "fallback": true }
+        ]
+      }
+    },
+    "temperature": {
+      "caseInsensitive": true,
+      "groups": {
+        "ocultosProfilePatterns": ["ARQUIVADO", "SEM_DADOS", "DESATIVADO", "REMOVIDO", "INATIVO"],
+        "rules": [
+          { "name": "nao_climatizavel", "deviceProfiles": ["TERMOSTATO_EXTERNAL"] },
+          { "name": "climatizavel", "deviceProfiles": [], "fallback": true }
+        ]
+      }
+    }
+  },
+  "updatedAt": "2026-06-23T14:01:11.569Z",
+  "updatedBy": "camargo@myio.com.br"
+}
