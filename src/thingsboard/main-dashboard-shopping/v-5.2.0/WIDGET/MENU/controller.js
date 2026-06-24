@@ -792,12 +792,12 @@ self.onInit = function () {
         // Re-classify: invalidate cache + re-hydrate (same path as the refresh button).
         try {
           window.MyIOOrchestrator?.invalidateCache?.('*');
-        } catch (e) {
+        } catch {
           /* noop */
         }
         try {
           window.dispatchEvent(new CustomEvent('myio:update-date', { detail: {} }));
-        } catch (e) {
+        } catch {
           /* noop */
         }
         LogHelper.log('[MENU] RFC-0207: classification profile saved → re-classify triggered');
@@ -1950,6 +1950,7 @@ self.onInit = function () {
   }
 
   // RFC-0085: Add temperature settings button for admin users
+  // eslint-disable-next-line no-unused-vars -- parked: re-enable when temperature settings ship
   function addTemperatureSettingsButton(user) {
     if (document.getElementById('temp-settings-btn')) {
       LogHelper.log('[MENU] Temperature settings button already exists');
@@ -2035,6 +2036,7 @@ self.onInit = function () {
   }
 
   // RFC-0107: Add contract devices button for admin users
+  // eslint-disable-next-line no-unused-vars -- parked: re-enable when contract devices ship
   function addContractDevicesButton(user) {
     if (document.getElementById('contract-devices-btn')) {
       LogHelper.log('[MENU] Contract devices button already exists');
@@ -2126,6 +2128,7 @@ self.onInit = function () {
   }
 
   // RFC-0108: Add measurement setup button for admin users
+  // eslint-disable-next-line no-unused-vars -- parked: re-enable when measurement setup ships
   function addMeasurementSetupButton(user) {
     if (document.getElementById('measurement-setup-btn')) {
       LogHelper.log('[MENU] Measurement setup button already exists');
@@ -2231,11 +2234,11 @@ self.onInit = function () {
 // ── Metas: modal de consumo 7 dias com abas de domínio (Energia/Água/Temperatura) ──
 let _goalsChartInstance = null;
 const _goalsCfg = {
-  granularity: (() => { try { return localStorage.getItem('myio-goals-granularity') || '1d'; } catch (_) { return '1d'; } })(),
+  granularity: (() => { try { return localStorage.getItem('myio-goals-granularity') || '1d'; } catch { return '1d'; } })(),
 };
 
 function openGoalsModal() {
-  if (typeof MyIOLibrary === 'undefined' || !MyIOLibrary.createConsumptionChartWidget) {
+  if (typeof window.MyIOLibrary === 'undefined' || !window.MyIOLibrary.createConsumptionChartWidget) {
     LogHelper.error('[MENU] createConsumptionChartWidget indisponível na MyIOLibrary');
     window.alert('Componente de gráfico de consumo indisponível. Atualize a biblioteca MyIO.');
     return;
@@ -2287,7 +2290,7 @@ function openGoalsModal() {
 
   const existing = topDoc.getElementById('myio-goals-modal');
   if (existing) existing.remove();
-  if (_goalsChartInstance?.destroy) { try { _goalsChartInstance.destroy(); } catch (_) {} _goalsChartInstance = null; }
+  if (_goalsChartInstance?.destroy) { try { _goalsChartInstance.destroy(); } catch { /* ignore */ } _goalsChartInstance = null; }
 
   const tabsHTML = DOMAIN_ORDER
     .map((d) => `<button class="mgm-tab" data-domain="${d}">${DOMAIN_CFG[d].icon} ${DOMAIN_CFG[d].label}</button>`)
@@ -2317,7 +2320,7 @@ function openGoalsModal() {
 
   const closeModal = () => {
     overlay.classList.remove('show');
-    if (_goalsChartInstance?.destroy) { try { _goalsChartInstance.destroy(); } catch (_) {} _goalsChartInstance = null; }
+    if (_goalsChartInstance?.destroy) { try { _goalsChartInstance.destroy(); } catch { /* ignore */ } _goalsChartInstance = null; }
     overlay.addEventListener('transitionend', () => overlay.remove(), { once: true });
   };
   overlay.querySelector('.mgm-close').addEventListener('click', closeModal);
@@ -2340,7 +2343,7 @@ function openGoalsModal() {
     const chartContainer = overlay.querySelector('#myio-goals-chart');
     if (chartContainer) chartContainer.innerHTML = '';
 
-    _goalsChartInstance = MyIOLibrary.createConsumptionChartWidget({
+    _goalsChartInstance = window.MyIOLibrary.createConsumptionChartWidget({
       domain,
       containerId: 'myio-goals-chart',
       title: cfg.label,
@@ -2905,6 +2908,7 @@ async function _fetchGoalsTemperature(dayBoundaries, labels, numDays, empty, gra
   // ─── end RFC-0181 ────────────────────────────────────────────────────────────
 
   // RFC-0055: Show modal with shopping options
+  // eslint-disable-next-line no-unused-vars -- parked: disabled (see TODO in onDestroy); kept for re-enable
   function showShoppingModal() {
     // tenta usar o documento de nível mais alto (dashboard inteiro)
     const topWin = window.top || window;
@@ -3125,7 +3129,7 @@ async function _fetchGoalsTemperature(dayBoundaries, labels, numDays, empty, gra
         // Ignore cleanup errors (topDoc may no longer be accessible)
       }
       if (versionCheckerInstance?.destroy) {
-        try { versionCheckerInstance.destroy(); } catch (_) {}
+        try { versionCheckerInstance.destroy(); } catch { /* ignore */ }
         versionCheckerInstance = null;
       }
       self.ctx.$scope.__menuInitialized = false; 
@@ -3322,7 +3326,6 @@ async function _fetchGoalsTemperature(dayBoundaries, labels, numDays, empty, gra
           });
 
         const currentDemand = attrMap['canShowDemandButtons'] ?? null;
-        const currentPassword = attrMap['master_admin_password'] ?? '';
         const rawTickets = attrMap['tickets_enabled'];
         const currentTickets =
           rawTickets === true || rawTickets === 'true' || rawTickets === 1 || rawTickets === '1';

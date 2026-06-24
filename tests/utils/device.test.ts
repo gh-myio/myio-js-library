@@ -7,7 +7,7 @@ import {
   deviceTypeToken,
   generateDeviceCode,
   DEFAULT_DEVICE_TYPE_TOKEN,
-} from '../../src/utils/device';
+} from '../../src/utils/devices/device';
 
 // Mercosul format used here: LLL D L DD (3 letters, 1 digit, 1 letter, 2 digits).
 // Letters exclude I/O; digits exclude 0/1 (visually ambiguous glyphs).

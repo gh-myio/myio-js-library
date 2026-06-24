@@ -402,7 +402,6 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   }
 
   // Initialize the DateRangePicker (lib via MyIOUtils bridge)
-  let dateRangePicker = null;
   var $inputStart = $('input[name="startDatetimes"]');
 
   const _createDateRangePicker = window.MyIOUtils?.createDateRangePicker;
@@ -439,8 +438,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       // The input display is automatically handled by the component
     },
   })
-    .then(function (picker) {
-      dateRangePicker = picker;
+    .then(function () {
       LogHelper.log('[DateRangePicker] Successfully initialized with period');
     })
     .catch(function (error) {
@@ -481,7 +479,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   // RFC-0042: Utility functions (reuse from MAIN_VIEW if available, otherwise define locally)
   const toISO =
     window.toISO ||
-    function (dt, tz = 'America/Sao_Paulo') {
+    function (dt, _tz = 'America/Sao_Paulo') {
       const d = typeof dt === 'number' ? new Date(dt) : dt instanceof Date ? dt : new Date(String(dt));
       if (Number.isNaN(d.getTime())) throw new Error('Invalid date');
       const offset = -d.getTimezoneOffset();
@@ -638,9 +636,6 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       }
     };
 
-    // RFC-0042: Track if we already emitted initial period
-    let hasEmittedInitialPeriod = false;
-
     // RFC-0042: Listen for dashboard state changes from MENU
     window.addEventListener('myio:dashboard-state', (ev) => {
       const { tab } = ev.detail;
@@ -654,8 +649,6 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       // RFC-0138 FIX: Always re-emit dates on domain switch to ensure sync
       // This ensures orchestrator has currentPeriod set correctly when switching domains
       if (tab === 'energy' || tab === 'water') {
-        hasEmittedInitialPeriod = true;
-
         // Wait for dateRangePicker to be ready
         setTimeout(() => {
           if (self.__range.start && self.__range.end) {
@@ -689,7 +682,6 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         `[HEADER] 🔧 RFC-0096 Race fix: Domain already set to ${raceDomain}, enabling controls and emitting period`
       );
       updateControlsState(raceDomain);
-      hasEmittedInitialPeriod = true;
 
       // Also emit period since we missed the myio:dashboard-state event.
       // Without this the orchestrator waits ~20 s for its 15-attempt retry to exhaust
@@ -735,7 +727,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     });
 
     // RFC-0130: Also listen for generic data-ready event
-    window.addEventListener('myio:data-ready', (ev) => {
+    window.addEventListener('myio:data-ready', () => {
       const domain = currentDomain.value;
       if (domain === 'energy' || domain === 'water') {
         LogHelper.log(
@@ -1762,7 +1754,6 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
       renderHTML() {
         const tso = window.TicketServiceOrchestrator;
-        const domain = window.MyIOUtils?.freshdeskDomain || 'myiocom.freshdesk.com';
 
         if (!tso) {
           return `

@@ -15,7 +15,7 @@
 // specific bucket for a worse one.
 
 import { describe, it, expect } from 'vitest';
-import { resolveCategory, resolveGroup } from '../src/utils/deviceClassificationProfile';
+import { resolveCategory, resolveGroup } from '../src/utils/devices/deviceClassificationProfile';
 
 // ===========================================================================
 // ORACLE 1 — legacy classifyDevice (deviceProfile + identifier).

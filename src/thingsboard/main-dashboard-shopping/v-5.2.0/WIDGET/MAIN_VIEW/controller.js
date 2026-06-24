@@ -811,7 +811,7 @@ let _onDataUpdatedCallCount = 0;
  */
 const DEVICE_CLASSIFICATION_CONFIG = {
   // DeviceTypes que pertencem à categoria Climatização
-  // Baseado em src/MYIO-SIM/v5.2.0/mapPower.json
+  // Baseado em src/thingsboard/MYIO-SIM/v5.2.0/mapPower.json
   climatizacao: {
     // DeviceTypes que são SEMPRE climatização (independente do identifier)
     deviceTypes: ['CHILLER', 'AR_CONDICIONADO', 'HVAC', 'FANCOIL'],
@@ -5278,7 +5278,7 @@ const MyIOOrchestrator = (() => {
 
   // Request management
   function abortAllInflight() {
-    for (const [key, ac] of abortControllers.entries()) {
+    for (const ac of abortControllers.values()) {
       ac.abort();
     }
     abortControllers.clear();
@@ -5786,7 +5786,7 @@ const MyIOOrchestrator = (() => {
       else if (keyName === 'tickets_items') {
         try {
           meta.ticketsItems = typeof val === 'string' ? JSON.parse(val) : val;
-        } catch (_) {
+        } catch {
           meta.ticketsItems = null;
         }
       }
@@ -5881,7 +5881,7 @@ const MyIOOrchestrator = (() => {
     }
 
     // Build map by ingestionId
-    for (const [entityId, meta] of metadataByEntityId.entries()) {
+    for (const meta of metadataByEntityId.values()) {
       const ingestionId = meta.ingestionId;
       if (ingestionId) {
         metadataByIngestion.set(ingestionId, meta);
@@ -6099,7 +6099,7 @@ const MyIOOrchestrator = (() => {
         }
 
         // Build metadata map from AllTempDevices datasource
-        const { byIngestion: metadataMap, byEntityId: metadataByEntityId } =
+        const { byEntityId: metadataByEntityId } =
           buildMetadataMapFromCtxData(domain);
 
         if (metadataByEntityId.size === 0) {
@@ -6962,7 +6962,7 @@ const MyIOOrchestrator = (() => {
     try {
       lastProvide.set(domain, { periodKey: pKey, at: Date.now() });
       hideGlobalBusy(domain);
-    } catch (_e) {
+    } catch {
       // Silently ignore
     }
 
@@ -7113,7 +7113,7 @@ const MyIOOrchestrator = (() => {
    * This solves the race condition where widgets miss the initial provide-data event
    */
   window.addEventListener('myio:widget:ready', (ev) => {
-    const { widgetId, domain, labelWidget, timestamp } = ev.detail;
+    const { widgetId, domain, labelWidget } = ev.detail;
 
     LogHelper.log(
       `[Orchestrator] 📡 RFC-0136: Widget ready - ${widgetId} (domain: ${domain}, labelWidget: ${labelWidget})`
@@ -7244,7 +7244,7 @@ const MyIOOrchestrator = (() => {
 
     try {
       hideGlobalBusy(tab);
-    } catch (_e) {
+    } catch {
       // Silently ignore - busy indicator may not exist yet
     }
 
@@ -7365,7 +7365,7 @@ const MyIOOrchestrator = (() => {
         try {
           lastProvide.set(domain, { periodKey: data.detail.periodKey, at: Date.now() });
           hideGlobalBusy(domain);
-        } catch (_e) {
+        } catch {
           // Silently ignore
         }
       });

@@ -12,8 +12,8 @@ import type {
   HeaderDomainConfig,
 } from './types.js';
 import { injectHeaderDevicesGridStyles } from './styles.js';
-import { formatEnergy } from '../../format/energy.js';
-import { formatWater } from '../../format/water.js';
+import { formatEnergy } from '../../utils/format/energy.js';
+import { formatWater } from '../../utils/format/water.js';
 
 const DOMAIN_CONFIG: Record<HeaderDevicesDomain, HeaderDomainConfig> = {
   energy: {

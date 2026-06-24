@@ -22,7 +22,7 @@ import {
   createCustomerCardV2,
   CustomerCardV2Instance,
   CustomerCardData,
-} from '../../customer-card-v2';
+} from '../../cards/customer/v2.0.0';
 
 type WelcomeEventType = 'cta-click' | 'card-click' | 'logout' | 'close' | 'theme-change';
 type WelcomeEventHandler = (data?: ShoppingCard | WelcomeThemeMode) => void;
@@ -342,7 +342,7 @@ export class WelcomeModalView {
         onTileClick: (type, clickedCard, cardIndex) => {
           // Handle tile click - show tooltip
           const tileEl = this.container.querySelector(
-            `.myio-customer-card-v2__tile--${type}[data-card-index="${cardIndex}"]`
+            `.myio-cards/customer/v2.0.0__tile--${type}[data-card-index="${cardIndex}"]`
           );
           if (tileEl) {
             this.handleTooltipClick(type as any, card, tileEl as HTMLElement);
@@ -961,7 +961,7 @@ export class WelcomeModalView {
   align-self: stretch;
 }
 
-.myio-welcome-cards-grid--v2 .myio-customer-card-v2 {
+.myio-welcome-cards-grid--v2 .myio-cards/customer/v2.0.0 {
   width: 100%;
   min-height: calc(180px * var(--wm-card-scale, 1));
   border-radius: 8px;
@@ -983,7 +983,7 @@ export class WelcomeModalView {
 
 /* Hidden card (filtered out) */
 .myio-welcome-card.hidden,
-.myio-customer-card-v2.hidden {
+.myio-cards/customer/v2.0.0.hidden {
   display: none !important;
 }
 
@@ -1014,7 +1014,7 @@ export class WelcomeModalView {
     grid-auto-columns: calc(240px * var(--wm-card-scale, 1));
   }
 
-  .myio-welcome-cards-grid--v2 .myio-customer-card-v2 {
+  .myio-welcome-cards-grid--v2 .myio-cards/customer/v2.0.0 {
     min-height: calc(150px * var(--wm-card-scale, 1));
   }
 }
@@ -1032,7 +1032,7 @@ export class WelcomeModalView {
     grid-auto-columns: calc(200px * var(--wm-card-scale, 1));
   }
 
-  .myio-welcome-cards-grid--v2 .myio-customer-card-v2 {
+  .myio-welcome-cards-grid--v2 .myio-cards/customer/v2.0.0 {
     min-height: calc(140px * var(--wm-card-scale, 1));
   }
 }
@@ -2272,7 +2272,7 @@ export class WelcomeModalView {
           if (this.cardVersion === 'v2') {
             cardsGrid.style.setProperty('grid-auto-columns', `${280 * scale}px`);
             // Apply min-height to V2 cards
-            const v2Cards = this.container.querySelectorAll('.myio-customer-card-v2') as NodeListOf<HTMLElement>;
+            const v2Cards = this.container.querySelectorAll('.myio-cards/customer/v2.0.0') as NodeListOf<HTMLElement>;
             v2Cards.forEach((card) => {
               card.style.setProperty('min-height', `${180 * scale}px`);
             });
@@ -3167,7 +3167,7 @@ export class WelcomeModalView {
 
     if (this.cardVersion === 'v2') {
       // Filter V2 cards
-      const cardElements = cardsGrid.querySelectorAll('.myio-customer-card-v2');
+      const cardElements = cardsGrid.querySelectorAll('.myio-cards/customer/v2.0.0');
       cardElements.forEach((cardEl, index) => {
         const card = cards[index];
         if (!card) return;

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { detectDeviceType, getAvailableContexts, addDetectionContext } from '../src/utils/deviceType.js';
+import { detectDeviceType, getAvailableContexts, addDetectionContext } from '../src/utils/devices/deviceType.js';
 
 describe('detectDeviceType', () => {
   describe('normalization and accents', () => {

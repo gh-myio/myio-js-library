@@ -18,7 +18,7 @@ import { describe, it, expect } from 'vitest';
 import {
   resolveGroup,
   resolveCategory,
-} from '../src/utils/deviceClassificationProfile';
+} from '../src/utils/devices/deviceClassificationProfile';
 
 // ===========================================================================
 // LEGACY ORACLE — the "before" (pre-A1, with BUG #1: exact CAG match).

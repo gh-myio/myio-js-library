@@ -345,7 +345,7 @@ a integração via iframe MyIO** — o acesso web direto pelo iframe continua fu
 |----------|------------------------------------------------------|
 | RFC-0174 | Integrations Modal — iFrame tabs para integrações externas |
 
-Arquivo: `src/docs/rfcs/RFC-0174-*.md` (se existir)
+Arquivo: `docs/rfcs/RFC-0174-*.md` (se existir)
 
 ---
 

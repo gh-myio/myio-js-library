@@ -852,7 +852,6 @@ function formatEnergy(value) {
     decimalPlaces: 3,
     forceUnit: false,
   };
-  const fallbackUnit = settings.unit === 'mwh' ? 'MWh' : 'kWh';
   const fallbackZero = settings.unit === 'mwh' ? '0,000 MWh' : '0,00 kWh';
 
   if (typeof value !== 'number' || isNaN(value)) return fallbackZero;
@@ -1543,7 +1542,7 @@ function processStateFromSummary(domain, summary) {
 /**
  * RFC-0106: Process energy domain summary into STATE
  */
-function processStateFromSummaryEnergy(summary, grandTotal) {
+function processStateFromSummaryEnergy(summary, _grandTotal) {
   // Store items for device status aggregation (from pre-computed details)
   const entradaDevices = summary.entrada?.details?.devices || [];
   const lojasDevices = summary.lojas?.details?.devices || [];
@@ -3017,7 +3016,6 @@ function buildBanheirosContent() {
   const banheiros = STATE_WATER.banheiros?.total || 0;
   const banheirosPerc = STATE_WATER.banheiros?.perc || 0;
   const banheirosCount = STATE_WATER.banheiros?.devices?.length || 0;
-  const entrada = STATE_WATER.entrada?.total || 0;
 
   // Build device list if available
   let deviceListHtml = '';

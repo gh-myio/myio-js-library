@@ -227,7 +227,7 @@ npx serve . # or any static server
 
 ## Documentation
 
-RFCs in `src/docs/rfcs/`. Recent key RFCs:
+RFCs in `docs/rfcs/`. Recent key RFCs:
 
 | RFC | Subject |
 |-----|---------|
@@ -241,7 +241,7 @@ RFCs in `src/docs/rfcs/`. Recent key RFCs:
 | RFC-0200 | `deviceIcons` shared device-type image map (proposed) |
 | RFC-0201 | MainDashboardShopping v-5.4.0 sync from v-5.2.0 (3-phase plan; party-mode roundtable authored) |
 
-Onboarding guide: `src/docs/ONBOARDING-ECOSYSTEM-GCDR-ALARMS.md`
+Onboarding guide: `docs/ONBOARDING-ECOSYSTEM-GCDR-ALARMS.md`
 
 ## Current Version
 

@@ -1,6 +1,6 @@
 // tests/deviceStatusWithRanges.test.js
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { calculateDeviceStatusWithRanges, DeviceStatusType } from '../src/utils/deviceStatus.js';
+import { calculateDeviceStatusWithRanges, DeviceStatusType } from '../src/utils/devices/deviceStatus.js';
 
 // helper de ranges padrão para vários testes
 const baseRanges = {

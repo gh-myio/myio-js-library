@@ -36,7 +36,7 @@ import {
   type DomainProfile,
   type ClassificationDomain,
   type ClassifiableItem,
-} from '../../../utils/deviceClassificationProfile';
+} from '../../../utils/devices/deviceClassificationProfile';
 
 const DOMAIN_TABS: { key: ClassificationDomain; label: string; icon: string }[] = [
   { key: 'energy', label: 'Energia', icon: '⚡' },

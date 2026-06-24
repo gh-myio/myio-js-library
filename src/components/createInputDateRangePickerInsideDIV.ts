@@ -3,7 +3,7 @@
  * 
  * Creates a beautifully styled date range input inside a target DIV container,
  * combining the functionality of createDateRangePicker with premium MyIO styling
- * from demos/energy.html.
+ * from showcase/energy.html.
  * 
  * @author MyIO UI Platform
  * @version 1.0.0
@@ -12,7 +12,7 @@
 
 import { createDateRangePicker, CreateDateRangePickerOptions, DateRangeControl, DateRangeResult } from './createDateRangePicker';
 
-// Premium MyIO styling extracted and adapted from demos/energy.html
+// Premium MyIO styling extracted and adapted from showcase/energy.html
 const PREMIUM_STYLES = `
   .myio-daterange-wrapper {
     font-family: 'Roboto', Arial, sans-serif;

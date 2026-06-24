@@ -6,7 +6,7 @@
 import type { CardGridItem, CardGridCustomStyle, SortMode, DeviceGridV6Params } from './types';
 import { DeviceGridV6Controller } from './DeviceGridV6Controller';
 import { injectStyles } from './styles';
-import { renderCardComponentV6 } from '../template-card-v6/template-card-v6.js';
+import { renderCardComponentV6 } from '../cards/main-view/v6.0.0/template-card-v6.js';
 
 // jQuery-like card result from renderCardComponentV6
 interface CardInstance {

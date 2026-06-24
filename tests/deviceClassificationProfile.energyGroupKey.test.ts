@@ -19,7 +19,7 @@ import {
   resolveGroup,
   resolveCategory,
   DEFAULT_DEVICE_CLASSIFICATION_PROFILE,
-} from '../src/utils/deviceClassificationProfile';
+} from '../src/utils/devices/deviceClassificationProfile';
 
 interface Item {
   deviceType?: string;

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculateDeviceStatusWithRanges, DeviceStatusType } from '../src/utils/deviceStatus.js';
+import { calculateDeviceStatusWithRanges, DeviceStatusType } from '../src/utils/devices/deviceStatus.js';
 
 describe('calculateDeviceStatusWithRanges - cenário específico', () => {
   it('deve retornar STANDBY quando connectionStatus=online e lastConsumptionValue=0 dentro de standbyRange', () => {

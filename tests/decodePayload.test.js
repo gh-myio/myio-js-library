@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { decodePayload } from '../src/codec/decodePayload.js';
+import { decodePayload } from '../src/components/codec/decodePayload.js';
 
 describe('decodePayload', () => {
   it('should decode a simple base64 XOR encoded payload', () => {

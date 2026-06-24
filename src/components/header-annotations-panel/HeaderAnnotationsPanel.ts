@@ -545,7 +545,7 @@ export class HeaderAnnotationsPanel {
     // RFC-0203: header actions follow the InfoTooltip pattern (pin →
     // maximize → close, 24x24 SVG-icon buttons, white-ish background, slate
     // hover, emerald "pinned" state) for visual consistency with
-    // src/utils/InfoTooltip.ts.
+    // src/utils/tooltips/InfoTooltip.ts.
     return `
 <div class="myio-annotations-panel-header" data-region="header" data-drag-handle>
   <span class="myio-annotations-icon" aria-hidden="true">✏️</span>

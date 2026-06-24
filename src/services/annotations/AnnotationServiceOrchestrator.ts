@@ -268,7 +268,7 @@ function _indexByDomain(
 
 /**
  * Lightweight classification keyed off TB deviceType / deviceProfile. The full
- * RFC-0111 classifier lives in `src/utils/deviceInfo.js` and applies many more
+ * RFC-0111 classifier lives in `src/utils/devices/deviceInfo.js` and applies many more
  * heuristics — here we only need the broad bucket for the "Por Domínio" tab.
  */
 function _classifyDomain(deviceType: string): AnnotationDeviceDomain {

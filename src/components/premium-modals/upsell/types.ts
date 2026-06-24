@@ -2,7 +2,7 @@
  * RFC-0109: Upsell Post-Setup Modal Types
  */
 
-import type { InferredDeviceType } from '../../../classify/deviceType';
+import type { InferredDeviceType } from '../../classify/deviceType';
 
 /** Modal configuration parameters */
 export interface UpsellModalParams {

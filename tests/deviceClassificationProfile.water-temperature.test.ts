@@ -17,7 +17,7 @@ import { describe, it, expect } from 'vitest';
 import {
   resolveGroup,
   DEFAULT_DEVICE_CLASSIFICATION_PROFILE,
-} from '../src/utils/deviceClassificationProfile';
+} from '../src/utils/devices/deviceClassificationProfile';
 
 const OCULTOS_PATTERNS = ['ARQUIVADO', 'SEM_DADOS', 'DESATIVADO', 'REMOVIDO', 'INATIVO'];
 

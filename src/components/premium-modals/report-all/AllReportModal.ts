@@ -11,7 +11,7 @@ import {
   SortMode,
 } from '../internal/filter-ordering/FilterOrderingModal';
 import { OpenAllReportParams, ModalHandle, StoreItem } from '../types';
-import { InfoTooltip } from '../../../utils/InfoTooltip';
+import { InfoTooltip } from '../../../utils/tooltips/InfoTooltip';
 import { exportGridPdf, exportGridXls } from '../../telemetry-grid-shopping/export';
 import type { TelemetryDevice } from '../../telemetry-grid-shopping/types';
 

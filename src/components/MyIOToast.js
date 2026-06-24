@@ -31,7 +31,7 @@
  * @module MyIOToast
  */
 
-import InfoTooltip from '../utils/InfoTooltip';
+import InfoTooltip from '../utils/tooltips/InfoTooltip';
 
 /**
  * ============================================================================
@@ -39,7 +39,7 @@ import InfoTooltip from '../utils/InfoTooltip';
  * ============================================================================
  *   Messages longer than this are truncated with "…" and get a "+" button
  *   that opens the FULL message in the shared InfoTooltip panel (pin/maximize,
- *   same pattern as src/utils/InfoTooltip.ts). Keeps long warnings/errors from
+ *   same pattern as src/utils/tooltips/InfoTooltip.ts). Keeps long warnings/errors from
  *   blowing up the toast.
  * ============================================================================
  */

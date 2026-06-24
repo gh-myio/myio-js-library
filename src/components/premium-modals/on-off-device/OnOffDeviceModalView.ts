@@ -36,7 +36,7 @@ import {
   STATUS_FRESHNESS_MAX_HOURS,
   type DeviceStatusResult,
 } from './deviceStatusRule';
-import InfoTooltip from '../../../utils/InfoTooltip';
+import InfoTooltip from '../../../utils/tooltips/InfoTooltip';
 
 export interface OnOffDeviceModalViewOptions {
   container: HTMLElement;

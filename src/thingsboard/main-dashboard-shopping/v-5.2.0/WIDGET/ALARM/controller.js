@@ -1,4 +1,4 @@
-/* global self, window, document, localStorage */
+/* global self, window, document */
 
 /**
  * RFC-0177: Alarm Widget — Single-Shopping ThingsBoard Widget

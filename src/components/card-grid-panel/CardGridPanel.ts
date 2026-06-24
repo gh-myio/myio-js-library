@@ -14,8 +14,8 @@
  * - 10px border-radius panel
  */
 
-import { renderCardComponentV6 } from '../template-card-v6/template-card-v6.js';
-import { renderCardAmbienteV6 } from '../template-card-ambiente-v6/template-card-ambiente-v6.js';
+import { renderCardComponentV6 } from '../cards/main-view/v6.0.0/template-card-v6.js';
+import { renderCardAmbienteV6 } from '../cards/ambient/v6.0.0/template-card-ambiente-v6.js';
 import { HeaderPanelComponent, HeaderPanelStyle } from '../header-panel/HeaderPanelComponent';
 
 /**

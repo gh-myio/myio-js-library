@@ -12,7 +12,7 @@ import {
   handleDeviceType,
   getSuggestedProfiles,
   type InferredDeviceType,
-} from '../../../classify/deviceType';
+} from '../../classify/deviceType';
 
 import type {
   UpsellModalParams,

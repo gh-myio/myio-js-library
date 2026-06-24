@@ -17,7 +17,7 @@
  *   card.body.innerHTML = '…';
  *   container.appendChild(card.element);
  */
-import { InfoTooltip } from '../../utils/InfoTooltip';
+import { InfoTooltip } from '../../utils/tooltips/InfoTooltip';
 
 export type DivCardAccent =
   | 'rose'

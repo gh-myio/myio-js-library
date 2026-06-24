@@ -6,7 +6,7 @@ import {
   fetchThingsboardCustomerServerScopeAttrs,
   fetchThingsboardCustomerAttrsFromStorage,
   extractMyIOCredentials
-} from '../src/thingsboard/api/fetchThingsboardCustomerServerScopeAttrs.js';
+} from '../src/services/thingsboard/fetchThingsboardCustomerServerScopeAttrs.js';
 import { vi } from 'vitest';
 
 // Mock fetch globally

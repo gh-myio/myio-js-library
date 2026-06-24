@@ -12,7 +12,7 @@ import {
 import type { AlarmCardParams } from './types';
 import type { AlarmAnnotation } from './AlarmAnnotations';
 import { getAlarmAnnotations } from './AlarmAnnotations';
-import { AnnotationTooltip } from '../../utils/AnnotationTooltip';
+import { AnnotationTooltip } from '../../utils/tooltips/AnnotationTooltip';
 
 /**
  * Get initials from customer name for avatar
