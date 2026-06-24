@@ -22,13 +22,9 @@ const DEBUG_ACTIVE = true;
 let THINGSBOARD_URL = '';
 let DATA_API_HOST = '';
 
-// Domain map — bootstrap with stable codes; enriched from the lib
-// (window.MyIOLibrary.exportMapDomain) in onInit. Comparisons use DOMAIN.<x>.code.
-let DOMAIN = {
-  energy: { code: 'energy' },
-  water: { code: 'water' },
-  temperature: { code: 'temperature' },
-};
+// Domain catalog (metadata only) — loaded entirely from the lib in onInit
+// (window.MyIOLibrary.exportMapDomain). Empty until then; never hard-codes a domain.
+let DOMAIN = {};
 
 // ============================================================================
 // LogHelper
@@ -54,7 +50,7 @@ Object.assign(window.MyIOUtils, {
   LogHelper,
   DATA_API_HOST, // resolved from settings in onInit (empty until then)
   isDebugActive: () => DEBUG_ACTIVE,
-  temperatureLimits: { minTemperature: 18, maxTemperature: 26 },
+  customerAttrs: {}, // generic passthrough of customer SERVER_SCOPE attributes
   mapInstantaneousPower: null,
   SuperAdmin: false,
   currentUserEmail: null,
@@ -76,20 +72,13 @@ let _footerInstance = null;
 let _credentials = null;
 let _dataProcessedOnce = false;
 
-// Energy grid instances (3 groups)
-let _energyGridEntrada = null;
-let _energyGridAreaComum = null;
-let _energyGridLojas = null;
-let _energyInfoInstance = null;
-
-// Water grid instances (3 groups)
-let _waterGridEntrada = null;
-let _waterGridAreaComum = null;
-let _waterGridLojas = null;
-let _waterInfoInstance = null;
-
-// Temperature grid instance
-let _temperatureGridLojas = null;
+// Classification tree (domains → columns → deviceProfiles) from the GCDR entities
+// endpoint (RFC-0047). The dashboard derives EVERYTHING from this — no hard-coded domain.
+let _classificationTree = null;
+// Dynamic grid instances, keyed by `${domainCode}::${columnKey}`.
+const _grids = new Map();
+// Dynamic info (breakdown) instances, keyed by domainCode.
+const _infoInstances = new Map();
 
 // ============================================================================
 // Device Classification (RFC-0111)
@@ -124,23 +113,20 @@ function extractDeviceMetadataFromRows(rows) {
   const deviceProfile = dataKeyValues['deviceProfile'] || deviceType;
   const connectionStatus = dataKeyValues['connectionStatus'] || 'no_info';
 
-  // Domain detection
-  const isWater = deviceType.toUpperCase().includes('HIDROMETRO');
-  const isTemperature = deviceType.toUpperCase().includes('TERMOSTATO');
-  const domain = isWater ? DOMAIN.water.code : isTemperature ? DOMAIN.temperature.code : DOMAIN.energy.code;
+  // Domain detection — data-driven via the lib (RFC-0111). No fallback.
+  const domain = window.MyIOLibrary?.getDomainFromDeviceType?.(deviceType) || '';
+
+  // Domain's primary telemetry data-key, from the lib catalog (e.g. 'consumption'/'pulses'/…).
+  const _valueField = DOMAIN[domain]?.valueField || '';
+  const _primaryValue = _valueField ? dataKeyValues[_valueField] ?? null : null;
+  const _primaryTs = _valueField ? dataKeyTimestamps[_valueField] ?? null : null;
 
   // Calculate device status
   let deviceStatus = 'offline';
   if (window.MyIOLibrary?.calculateDeviceStatusMasterRules) {
-    const telemetryTs =
-      domain === DOMAIN.energy.code
-        ? dataKeyTimestamps['consumption']
-        : domain === DOMAIN.water.code
-          ? dataKeyTimestamps['pulses']
-          : dataKeyTimestamps['temperature'];
     deviceStatus = window.MyIOLibrary.calculateDeviceStatusMasterRules({
       connectionStatus,
-      telemetryTimestamp: telemetryTs,
+      telemetryTimestamp: _primaryTs,
       delayMins: 1440,
       domain,
     });
@@ -162,10 +148,13 @@ function extractDeviceMetadataFromRows(rows) {
     ownerName: dataKeyValues['ownerName'] || '',
     ingestionId: dataKeyValues['ingestionId'] || '',
     consumption: dataKeyValues['consumption'] || null,
-    val: dataKeyValues['consumption'] || dataKeyValues['pulses'] || dataKeyValues['temperature'] || null,
-    value: dataKeyValues['consumption'] || dataKeyValues['pulses'] || dataKeyValues['temperature'] || null,
+    val: _primaryValue,
+    value: _primaryValue,
     pulses: dataKeyValues['pulses'],
-    temperature: dataKeyValues['temperature'],
+    // Domain-specific raw field via computed key (e.g. sets the temp field) — no literal.
+    ...(_valueField && _valueField !== 'consumption' && _valueField !== 'pulses'
+      ? { [_valueField]: dataKeyValues[_valueField] ?? null }
+      : {}),
     connectionStatus,
     deviceStatus,
     domain,
@@ -178,11 +167,13 @@ function extractDeviceMetadataFromRows(rows) {
  * Classify all devices from datasource
  */
 function classifyAllDevices(data) {
-  const classified = {
-    energy: { equipments: [], stores: [], entrada: [] },
-    water: { hidrometro_entrada: [], banheiros: [], hidrometro_area_comum: [], hidrometro: [] },
-    temperature: { termostato: [], termostato_external: [] },
-  };
+  // Structure (domain → column → devices[]) comes entirely from the GCDR tree.
+  const classified = {};
+  const tree = _classificationTree;
+  for (const d of tree?.domains || []) {
+    classified[d.code] = {};
+    for (const c of d.columns) classified[d.code][c.key] = [];
+  }
 
   // Group rows by entityId
   const deviceRowsMap = new Map();
@@ -195,16 +186,14 @@ function classifyAllDevices(data) {
 
   LogHelper.log(`Grouped ${data.length} rows → ${deviceRowsMap.size} devices`);
 
-  // Process each device
+  // Route each device by its deviceProfile via the tree's profileIndex.
   for (const rows of deviceRowsMap.values()) {
     const device = extractDeviceMetadataFromRows(rows);
     if (!device) continue;
-
-    const domain = window.MyIOLibrary?.getDomainFromDeviceType?.(device.deviceType) || device.domain;
-    const context = window.MyIOLibrary?.detectContext?.(device, domain) || 'equipments';
-
-    if (classified[domain]?.[context]) {
-      classified[domain][context].push(device);
+    const profileKey = String(device.deviceProfile || '').trim().toUpperCase();
+    const loc = tree?.profileIndex?.[profileKey];
+    if (loc && classified[loc.domain]?.[loc.column]) {
+      classified[loc.domain][loc.column].push(device);
     }
   }
 
@@ -228,7 +217,7 @@ function buildByStatusFromDevices(devices) {
 
   const ONLINE = ['power_on', 'online', 'normal', 'ok', 'running', 'active'];
   const OFFLINE = ['offline', 'no_info'];
-  const WAITING = ['waiting', 'aguardando', 'not_installed', 'pending'];
+  const WAITING = ['waiting', 'not_installed', 'pending'];
 
   for (const d of devices) {
     const status = (d.deviceStatus || d.connectionStatus || '').toLowerCase();
@@ -268,81 +257,46 @@ function processDataAndDispatchEvents() {
   // Classify devices
   const classified = classifyAllDevices(data);
 
-  // Store in global state
+  // Store global state + dispatch one summary per domain — structure from the GCDR tree.
   window.STATE = window.STATE || {};
   window.STATE.classified = classified;
-  window.STATE.energy = {
-    lojas: { items: classified.energy.stores },
-    areacomum: { items: classified.energy.equipments },
-    entrada: { items: classified.energy.entrada },
-  };
-  window.STATE.water = {
-    lojas: { items: classified.water.hidrometro },
-    areacomum: { items: classified.water.hidrometro_area_comum },
-    entrada: { items: classified.water.hidrometro_entrada },
-    banheiros: { items: classified.water.banheiros },
-  };
-  window.STATE.temperature = {
-    lojas: { items: classified.temperature.termostato },
-  };
 
-  // Build flat arrays
-  const allEnergy = [
-    ...classified.energy.equipments,
-    ...classified.energy.stores,
-    ...classified.energy.entrada,
-  ];
-  const allWater = [
-    ...classified.water.hidrometro_entrada,
-    ...classified.water.banheiros,
-    ...classified.water.hidrometro_area_comum,
-    ...classified.water.hidrometro,
-  ];
-  const allTemp = [...classified.temperature.termostato, ...classified.temperature.termostato_external];
+  for (const d of _classificationTree?.domains || []) {
+    const code = d.code;
+    const byColumn = classified[code] || {};
+    const stateForDomain = {};
+    const allDevices = [];
+    for (const c of d.columns) {
+      const items = byColumn[c.key] || [];
+      stateForDomain[c.key] = { items };
+      allDevices.push(...items);
+    }
+    window.STATE[code] = stateForDomain;
 
-  // Calculate totals
-  const energyTotal = allEnergy.reduce((sum, d) => sum + Number(d.value || 0), 0);
-  const waterTotal = allWater.reduce((sum, d) => sum + Number(d.value || 0), 0);
-  const tempValues = allTemp.map((d) => Number(d.temperature || 0)).filter((v) => v > 0);
-  const tempAvg = tempValues.length > 0 ? tempValues.reduce((a, b) => a + b, 0) / tempValues.length : null;
+    const numeric = allDevices.map((x) => Number(x.value || 0));
+    const total = numeric.reduce((s, n) => s + n, 0);
+    const positives = numeric.filter((n) => n > 0);
+    const globalAvg = positives.length
+      ? positives.reduce((a, b) => a + b, 0) / positives.length
+      : null;
 
-  // Dispatch events
-  window.dispatchEvent(
-    new CustomEvent('myio:data-ready', {
-      detail: { classified, timestamp: Date.now() },
-    })
-  );
+    const desc = DOMAIN[code] || {};
+    const evt = desc.summaryEvent || `myio:${code}-summary-ready`;
+    window.dispatchEvent(
+      new CustomEvent(evt, {
+        detail: {
+          domain: code,
+          totalDevices: allDevices.length,
+          totalConsumption: total,
+          globalAvg,
+          byStatus: buildByStatusFromDevices(allDevices),
+        },
+      })
+    );
+  }
 
   window.dispatchEvent(
-    new CustomEvent('myio:energy-summary-ready', {
-      detail: {
-        totalDevices: allEnergy.length,
-        totalConsumption: energyTotal,
-        byStatus: buildByStatusFromDevices(allEnergy),
-      },
-    })
-  );
-
-  window.dispatchEvent(
-    new CustomEvent('myio:water-summary-ready', {
-      detail: {
-        totalDevices: allWater.length,
-        totalConsumption: waterTotal,
-        byStatus: buildByStatusFromDevices(allWater),
-      },
-    })
-  );
-
-  window.dispatchEvent(
-    new CustomEvent('myio:temperature-data-ready', {
-      detail: {
-        totalDevices: allTemp.length,
-        globalAvg: tempAvg,
-        temperatureMin: window.MyIOUtils.temperatureLimits.minTemperature,
-        temperatureMax: window.MyIOUtils.temperatureLimits.maxTemperature,
-        byStatus: buildByStatusFromDevices(allTemp),
-      },
-    })
+    new CustomEvent('myio:data-ready', { detail: { classified, timestamp: Date.now() } })
   );
 
   // Update TelemetryInfo components with category data
@@ -357,69 +311,25 @@ function processDataAndDispatchEvents() {
  * Update TelemetryInfo components with category breakdown data
  */
 function updateTelemetryInfoComponents(classified) {
-  const lib = window.MyIOLibrary;
+  const sumOf = (arr) => arr.reduce((s, d) => s + Number(d.value || d.consumption || 0), 0);
 
-  // Build energy summary for TelemetryInfo
-  if (_energyInfoInstance) {
-    const allEnergyDevices = [
-      ...classified.energy.equipments,
-      ...classified.energy.stores,
-      ...classified.energy.entrada,
-    ];
+  for (const d of _classificationTree?.domains || []) {
+    const inst = _infoInstances.get(d.code);
+    if (!inst) continue;
 
-    // Calculate totals from classified arrays
-    const sumValues = (arr) => arr.reduce((sum, d) => sum + Number(d.value || d.consumption || 0), 0);
-
-    // Use library's buildEquipmentCategorySummary for detailed breakdown
-    let energySummary;
-    if (lib?.buildEquipmentCategorySummary) {
-      const catSummary = lib.buildEquipmentCategorySummary(allEnergyDevices);
-      LogHelper.log('Category summary from library:', catSummary);
-
-      energySummary = {
-        entrada: { total: catSummary.entrada?.consumption || 0 },
-        lojas: { total: catSummary.lojas?.consumption || 0 },
-        climatizacao: { total: catSummary.climatizacao?.consumption || 0 },
-        elevadores: { total: catSummary.elevadores?.consumption || 0 },
-        escadasRolantes: { total: catSummary.escadas_rolantes?.consumption || 0 },
-        outros: { total: catSummary.outros?.consumption || 0 },
-      };
-    } else {
-      // Fallback: use basic classification
-      const entradaTotal = sumValues(classified.energy.entrada);
-      const lojasTotal = sumValues(classified.energy.stores);
-      const equipTotal = sumValues(classified.energy.equipments);
-
-      energySummary = {
-        entrada: { total: entradaTotal },
-        lojas: { total: lojasTotal },
-        climatizacao: { total: 0 },
-        elevadores: { total: 0 },
-        escadasRolantes: { total: 0 },
-        outros: { total: equipTotal },
-      };
+    // Generic per-column summary { [columnKey]: { total } } — keyed by the tree's columns.
+    const summary = {};
+    for (const c of d.columns) {
+      summary[c.key] = { total: sumOf(classified[d.code]?.[c.key] || []) };
     }
 
-    LogHelper.log('Energy summary for TelemetryInfo:', energySummary);
-
-    _energyInfoInstance.setEnergyData(energySummary);
-    LogHelper.log('Energy TelemetryInfo updated');
-  }
-
-  // Build water summary for TelemetryInfo
-  if (_waterInfoInstance) {
-    const sumWaterValues = (arr) => arr.reduce((sum, d) => sum + Number(d.value || d.consumption || 0), 0);
-
-    const waterSummary = {
-      entrada: { total: sumWaterValues(classified.water.hidrometro_entrada || []) },
-      lojas: { total: sumWaterValues(classified.water.hidrometro || []) },
-      banheiros: { total: sumWaterValues(classified.water.banheiros || []) },
-      areaComum: { total: sumWaterValues(classified.water.hidrometro_area_comum || []) },
-    };
-
-    LogHelper.log('Water summary for TelemetryInfo:', waterSummary);
-    _waterInfoInstance.setWaterData(waterSummary);
-    LogHelper.log('Water TelemetryInfo updated');
+    // Computed setter name from the domain code (e.g. set<Code>Data) — no literal; falls back to setData/update.
+    const cap = d.code.charAt(0).toUpperCase() + d.code.slice(1);
+    const setter = inst[`set${cap}Data`] || inst.setData || inst.update;
+    if (typeof setter === 'function') {
+      setter.call(inst, summary);
+      LogHelper.log(`Info component updated for ${d.code}`);
+    }
   }
 }
 
@@ -602,7 +512,7 @@ function createComponents() {
     _menuInstance = lib.createMenuShoppingComponent({
       container: menuContainer,
       themeMode: _currentThemeMode,
-      configTemplate: { initialDomain: 'energy' },
+      configTemplate: { initialDomain: _classificationTree?.domains?.[0]?.code || '' },
       onTabChange: (domain) => {
         LogHelper.log('Tab changed:', domain);
         switchContentState(domain);
@@ -628,14 +538,8 @@ function createComponents() {
     LogHelper.log('Header created with theme:', _currentThemeMode);
   }
 
-  // Create Energy grids (3 groups)
-  createEnergyGrids(lib);
-
-  // Create Water grids (3 groups)
-  createWaterGrids(lib);
-
-  // Create Temperature grid
-  createTemperatureGrids(lib);
+  // Create all domain sections + grids dynamically from the GCDR tree.
+  createDomainSectionsAndGrids(lib);
 
   // Create Footer
   const footerContainer = document.getElementById('footerContainer');
@@ -651,171 +555,79 @@ function createComponents() {
 }
 
 /**
- * Create Energy domain grids: Entrada, Área Comum, Lojas + Info
+ * Create all domain sections + grids dynamically from the GCDR classification tree.
+ * No fixed domains/columns — one <section> per domain, one grid per column.
  */
-function createEnergyGrids(lib) {
-  // Entrada (Entrada de energia)
-  const entradaContainer = document.getElementById('energyEntradaContainer');
-  if (entradaContainer && lib.createTelemetryGridShoppingComponent) {
-    _energyGridEntrada = lib.createTelemetryGridShoppingComponent({
-      container: entradaContainer,
-      domain: 'energy',
-      context: 'entrada',
-      devices: [],
-      themeMode: _currentThemeMode,
-      labelWidget: 'Entrada',
-      debugActive: DEBUG_ACTIVE,
-    });
-    LogHelper.log('Energy Entrada grid created');
-  }
+function createDomainSectionsAndGrids(lib) {
+  const root = document.getElementById('domainContentRoot');
+  if (!root) return;
+  root.innerHTML = '';
+  _grids.clear();
+  _infoInstances.clear();
 
-  // Área Comum (Equipamentos)
-  const areaComumContainer = document.getElementById('energyAreaComumContainer');
-  if (areaComumContainer && lib.createTelemetryGridShoppingComponent) {
-    _energyGridAreaComum = lib.createTelemetryGridShoppingComponent({
-      container: areaComumContainer,
-      domain: 'energy',
-      context: 'equipments',
-      devices: [],
-      themeMode: _currentThemeMode,
-      labelWidget: 'Área Comum',
-      debugActive: DEBUG_ACTIVE,
-    });
-    LogHelper.log('Energy Área Comum grid created');
-  }
+  for (const d of _classificationTree?.domains || []) {
+    const code = d.code;
 
-  // Lojas (Stores)
-  const lojasContainer = document.getElementById('energyLojasContainer');
-  if (lojasContainer && lib.createTelemetryGridShoppingComponent) {
-    _energyGridLojas = lib.createTelemetryGridShoppingComponent({
-      container: lojasContainer,
-      domain: 'energy',
-      context: 'stores',
-      devices: [],
-      themeMode: _currentThemeMode,
-      labelWidget: 'Lojas',
-      debugActive: DEBUG_ACTIVE,
-    });
-    LogHelper.log('Energy Lojas grid created');
-  }
+    const section = document.createElement('div');
+    section.setAttribute('data-content-state', `${code}_content`);
+    section.className = 'myio-content-4col';
+    section.style.display = 'none';
+    root.appendChild(section);
 
-  // Energy Info (pie chart)
-  const infoContainer = document.getElementById('energyInfoContainer');
-  if (infoContainer && lib.createTelemetryInfoShoppingComponent) {
-    _energyInfoInstance = lib.createTelemetryInfoShoppingComponent({
-      container: infoContainer,
-      domain: 'energy',
-      themeMode: _currentThemeMode,
-      showChart: true,
-      showExpandButton: true,
-      debugActive: DEBUG_ACTIVE,
-    });
-    LogHelper.log('Energy Info created');
-  }
-}
+    for (const col of d.columns) {
+      const colEl = document.createElement('section');
+      colEl.className = 'myio-grid-column';
+      colEl.dataset.column = col.key;
+      section.appendChild(colEl);
+      if (lib.createTelemetryGridShoppingComponent) {
+        _grids.set(
+          `${code}::${col.key}`,
+          lib.createTelemetryGridShoppingComponent({
+            container: colEl,
+            domain: code,
+            context: col.key,
+            devices: [],
+            themeMode: _currentThemeMode,
+            labelWidget: col.label,
+            debugActive: DEBUG_ACTIVE,
+          })
+        );
+      }
+    }
 
-/**
- * Create Water domain grids: Entrada, Área Comum, Lojas + Info
- */
-function createWaterGrids(lib) {
-  // Entrada (Hidrômetro de entrada)
-  const entradaContainer = document.getElementById('waterEntradaContainer');
-  if (entradaContainer && lib.createTelemetryGridShoppingComponent) {
-    _waterGridEntrada = lib.createTelemetryGridShoppingComponent({
-      container: entradaContainer,
-      domain: 'water',
-      context: 'hidrometro_entrada',
-      devices: [],
-      themeMode: _currentThemeMode,
-      labelWidget: 'Entrada',
-      debugActive: DEBUG_ACTIVE,
-    });
-    LogHelper.log('Water Entrada grid created');
+    if (lib.createTelemetryInfoShoppingComponent) {
+      const infoEl = document.createElement('section');
+      infoEl.className = 'myio-info-column';
+      section.appendChild(infoEl);
+      _infoInstances.set(
+        code,
+        lib.createTelemetryInfoShoppingComponent({
+          container: infoEl,
+          domain: code,
+          themeMode: _currentThemeMode,
+          showChart: true,
+          showExpandButton: true,
+          debugActive: DEBUG_ACTIVE,
+        })
+      );
+    }
   }
-
-  // Área Comum (Hidrômetro área comum)
-  const areaComumContainer = document.getElementById('waterAreaComumContainer');
-  if (areaComumContainer && lib.createTelemetryGridShoppingComponent) {
-    _waterGridAreaComum = lib.createTelemetryGridShoppingComponent({
-      container: areaComumContainer,
-      domain: 'water',
-      context: 'hidrometro_area_comum',
-      devices: [],
-      themeMode: _currentThemeMode,
-      labelWidget: 'Área Comum',
-      debugActive: DEBUG_ACTIVE,
-    });
-    LogHelper.log('Water Área Comum grid created');
-  }
-
-  // Lojas (Hidrômetro lojas)
-  const lojasContainer = document.getElementById('waterLojasContainer');
-  if (lojasContainer && lib.createTelemetryGridShoppingComponent) {
-    _waterGridLojas = lib.createTelemetryGridShoppingComponent({
-      container: lojasContainer,
-      domain: 'water',
-      context: 'hidrometro',
-      devices: [],
-      themeMode: _currentThemeMode,
-      labelWidget: 'Lojas',
-      debugActive: DEBUG_ACTIVE,
-    });
-    LogHelper.log('Water Lojas grid created');
-  }
-
-  // Water Info (pie chart)
-  const infoContainer = document.getElementById('waterInfoContainer');
-  if (infoContainer && lib.createTelemetryInfoShoppingComponent) {
-    _waterInfoInstance = lib.createTelemetryInfoShoppingComponent({
-      container: infoContainer,
-      domain: 'water',
-      themeMode: _currentThemeMode,
-      showChart: true,
-      showExpandButton: true,
-      debugActive: DEBUG_ACTIVE,
-    });
-    LogHelper.log('Water Info created');
-  }
-}
-
-/**
- * Create Temperature domain grid
- */
-function createTemperatureGrids(lib) {
-  const lojasContainer = document.getElementById('temperatureLojasContainer');
-  if (lojasContainer && lib.createTelemetryGridShoppingComponent) {
-    _temperatureGridLojas = lib.createTelemetryGridShoppingComponent({
-      container: lojasContainer,
-      domain: 'temperature',
-      context: 'termostato',
-      devices: [],
-      themeMode: _currentThemeMode,
-      labelWidget: 'Termostatos',
-      debugActive: DEBUG_ACTIVE,
-    });
-    LogHelper.log('Temperature Lojas grid created');
-  }
+  LogHelper.log('Domain sections + grids created:', _grids.size, 'grids');
 }
 
 // ============================================================================
 // Content State Switching
 // ============================================================================
 function switchContentState(domain) {
-  const stateMap = {
-    energy: 'telemetry_content',
-    water: 'water_content',
-    temperature: 'temperature_content',
-    alarm: 'alarm_content',
-  };
-
-  const targetState = stateMap[domain] || 'telemetry_content';
+  // Content-state id = `${domainCode}_content` (sections generated dynamically) or 'alarm_content'.
+  const targetState = `${domain}_content`;
 
   // Hide all states
   document.querySelectorAll('[data-content-state]').forEach((el) => {
     el.style.display = 'none';
   });
 
-  // Show target state - all use grid display (4col for energy/water, 1col for temp/alarm)
+  // Show target state
   const targetEl = document.querySelector(`[data-content-state="${targetState}"]`);
   if (targetEl) {
     targetEl.style.display = 'grid';
@@ -835,25 +647,25 @@ function switchContentState(domain) {
 // Extract Customer Attributes from datasource
 // ============================================================================
 function extractCustomerAttributes(data) {
+  // Generic passthrough: stash every customer attribute under MyIOUtils.customerAttrs
+  // (domain-specific consumers — e.g. limit ranges — read what they need from here).
+  window.MyIOUtils.customerAttrs = window.MyIOUtils.customerAttrs || {};
   for (const row of data) {
     const alias = (row.datasource?.aliasName || '').toLowerCase();
     if (alias !== 'customer') continue;
 
     const keyName = (row.dataKey?.name || '').toLowerCase();
     const value = row.data?.[0]?.[1];
+    if (value == null) continue;
 
-    if (keyName === 'mintemperature' && value != null) {
-      window.MyIOUtils.temperatureLimits.minTemperature = Number(value);
-    }
-    if (keyName === 'maxtemperature' && value != null) {
-      window.MyIOUtils.temperatureLimits.maxTemperature = Number(value);
-    }
-    if (keyName === 'mapinstantaneouspower' && value != null) {
+    if (keyName === 'mapinstantaneouspower') {
       try {
         window.MyIOUtils.mapInstantaneousPower = typeof value === 'string' ? JSON.parse(value) : value;
       } catch {
         // Ignore parse errors - keep existing value
       }
+    } else {
+      window.MyIOUtils.customerAttrs[keyName] = value;
     }
   }
 }
@@ -960,6 +772,46 @@ window.addEventListener('myio:theme-change', (e) => {
     applyBackgroundToPage(_currentThemeMode, settings);
   }
 });
+
+// ============================================================================
+// Classification Tree (GCDR RFC-0047)
+// ============================================================================
+/**
+ * Load the domain/column/profile tree from the GCDR entities registry and parse
+ * it (via the lib adapter) into _classificationTree. The dashboard derives every
+ * domain/column from this — no fallback, no hard-coded structure.
+ */
+async function fetchClassificationTree(gcdrApiBaseUrl, gcdrCustomerId) {
+  if (!gcdrApiBaseUrl || !gcdrCustomerId) {
+    toastError(
+      '[MAIN_VIEW v5.4.0] gcdrApiBaseUrl/gcdrCustomerId ausentes — árvore de classificação não carregada.'
+    );
+    return;
+  }
+  if (!window.MyIOLibrary?.parseClassificationEntities) {
+    toastError('[MAIN_VIEW v5.4.0] MyIOLibrary.parseClassificationEntities indisponível.');
+    return;
+  }
+  try {
+    const apiKey =
+      window.MyIOOrchestrator?.gcdrApiKey || window.MyIOUtils?.customerAttrs?.gcdrapikey || '';
+    const url = `${gcdrApiBaseUrl}/entities?parentId=null&deep=all&customerId=${encodeURIComponent(gcdrCustomerId)}`;
+    const headers = { Accept: 'application/json' };
+    if (apiKey) headers['X-API-Key'] = apiKey;
+    const resp = await fetch(url, { headers });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const json = await resp.json();
+    _classificationTree = window.MyIOLibrary.parseClassificationEntities(json);
+    if (!_classificationTree?.domains?.length) {
+      toastError('[MAIN_VIEW v5.4.0] Árvore de classificação vazia no GCDR.');
+    } else {
+      LogHelper.log('Classification tree loaded:', _classificationTree.domains.length, 'domains');
+    }
+  } catch (err) {
+    LogHelper.error('Failed to load classification tree:', err);
+    toastError('[MAIN_VIEW v5.4.0] Falha ao carregar a árvore de classificação do GCDR.');
+  }
+}
 
 // ============================================================================
 // ThingsBoard Widget Lifecycle
@@ -1114,17 +966,20 @@ self.onInit = async function () {
     _prefetchCustomerAlarms(gcdrCustomerId, gcdrTenantId, alarmsApiBaseUrl);
   }
 
-  // Create components
+  // Load the classification tree (domains → columns → deviceProfiles) from the GCDR registry.
+  await fetchClassificationTree(gcdrApiBaseUrl, gcdrCustomerId);
+
+  // Create components (sections + grids are generated from the tree)
   createComponents();
 
   // Fetch user info and update menu
   fetchAndUpdateUserInfo();
 
-  // Dispatch initial state
+  // Dispatch initial state (first domain from the tree)
   setTimeout(() => {
     window.dispatchEvent(
       new CustomEvent('myio:dashboard-state', {
-        detail: { tab: 'energy' },
+        detail: { tab: _classificationTree?.domains?.[0]?.code || '' },
       })
     );
   }, 200);
@@ -1136,7 +991,7 @@ self.onDataUpdated = function () {
   const data = self.ctx?.data || [];
   if (data.length === 0) return;
 
-  // Extract customer attributes (temperature limits, etc.)
+  // Extract customer attributes (limit ranges, power map, etc.)
   extractCustomerAttributes(data);
 
   // Process AllDevices datasource (only once per update cycle)
@@ -1157,32 +1012,14 @@ self.onDestroy = function () {
   _menuInstance?.destroy?.();
   _footerInstance?.destroy?.();
 
-  // Destroy energy grids and info
-  _energyGridEntrada?.destroy?.();
-  _energyGridAreaComum?.destroy?.();
-  _energyGridLojas?.destroy?.();
-  _energyInfoInstance?.destroy?.();
-
-  // Destroy water grids and info
-  _waterGridEntrada?.destroy?.();
-  _waterGridAreaComum?.destroy?.();
-  _waterGridLojas?.destroy?.();
-  _waterInfoInstance?.destroy?.();
-
-  // Destroy temperature grid
-  _temperatureGridLojas?.destroy?.();
+  // Destroy all dynamic grids + info instances
+  for (const g of _grids.values()) g?.destroy?.();
+  for (const i of _infoInstances.values()) i?.destroy?.();
+  _grids.clear();
+  _infoInstances.clear();
 
   // Reset references
   _headerInstance = null;
   _menuInstance = null;
   _footerInstance = null;
-  _energyGridEntrada = null;
-  _energyGridAreaComum = null;
-  _energyGridLojas = null;
-  _energyInfoInstance = null;
-  _waterGridEntrada = null;
-  _waterGridAreaComum = null;
-  _waterGridLojas = null;
-  _waterInfoInstance = null;
-  _temperatureGridLojas = null;
 };

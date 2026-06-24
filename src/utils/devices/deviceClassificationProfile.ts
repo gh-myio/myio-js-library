@@ -680,3 +680,39 @@ export function setActiveProfile(
   _activeProfile = resolveActiveProfile(raw, logger);
   return _activeProfile;
 }
+
+// ---------------------------------------------------------------------------
+// Dynamic dashboard engine helpers (domain/group-agnostic)
+// ---------------------------------------------------------------------------
+
+/** Group descriptor — one entry per column/section a domain renders. */
+export interface GroupDescriptor {
+  /** Stable group key = the rule's name (arbitrary, customer-defined). */
+  key: string;
+  /** True for the residual fallback bucket. */
+  fallback: boolean;
+}
+
+/**
+ * Lists the active domain codes present in a profile.
+ * The dashboard iterates THIS instead of any hard-coded domain list — a customer
+ * may have any subset/superset (e.g. only water, or gas).
+ */
+export function listDomains(
+  profile: DeviceClassificationProfile = getActiveProfile(),
+): string[] {
+  return Object.keys(profile?.domains ?? {});
+}
+
+/**
+ * Lists the ordered groups of a domain (one per `groups.rules[]`). Source of truth
+ * for how many columns/sections a domain renders — fully dynamic (1..N, arbitrary names).
+ */
+export function listGroups(
+  profile: DeviceClassificationProfile = getActiveProfile(),
+  domain = '',
+): GroupDescriptor[] {
+  const dom = profile?.domains?.[domain as ClassificationDomain];
+  const rules = dom?.groups?.rules ?? [];
+  return rules.map((r) => ({ key: r.name, fallback: !!r.fallback }));
+}

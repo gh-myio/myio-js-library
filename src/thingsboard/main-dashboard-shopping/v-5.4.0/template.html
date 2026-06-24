@@ -10,26 +10,10 @@
   </header>
 
   <main class="myio-content">
-    <!-- RFC-0053: Content states with show/hide logic -->
-    <!-- Energy content: 4 columns (3 grids + info on right) -->
-    <div data-content-state="telemetry_content" class="myio-content-4col" style="display: grid">
-      <section id="energyEntradaContainer" class="myio-grid-column"></section>
-      <section id="energyAreaComumContainer" class="myio-grid-column"></section>
-      <section id="energyLojasContainer" class="myio-grid-column"></section>
-      <section id="energyInfoContainer" class="myio-info-column"></section>
-    </div>
-    <!-- Water content: 4 columns (3 grids + info on right) -->
-    <div data-content-state="water_content" class="myio-content-4col" style="display: none">
-      <section id="waterEntradaContainer" class="myio-grid-column"></section>
-      <section id="waterAreaComumContainer" class="myio-grid-column"></section>
-      <section id="waterLojasContainer" class="myio-grid-column"></section>
-      <section id="waterInfoContainer" class="myio-info-column"></section>
-    </div>
-    <!-- Temperature content -->
-    <div data-content-state="temperature_content" class="myio-content-grid" style="display: none">
-      <section id="temperatureLojasContainer" class="myio-grid-column myio-grid-full"></section>
-    </div>
-    <!-- Alarm content -->
+    <!-- RFC-0053: Content states. Per-domain sections are generated dynamically by the
+         controller from the GCDR classification tree (no hard-coded domains/columns). -->
+    <div id="domainContentRoot"></div>
+    <!-- Alarm content (non-domain) -->
     <div data-content-state="alarm_content" class="myio-content-grid" style="display: none">
       <section id="alarmContentContainer" class="myio-grid-column myio-grid-full"></section>
     </div>

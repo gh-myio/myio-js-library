@@ -44,6 +44,12 @@ export interface DomainDescriptor {
   color?: string;
   /** Display order (energy < water < temperature). */
   order?: number;
+
+  // --- Engine binding (lets a generic controller stay domain-agnostic) ---
+  /** Raw telemetry data-key holding this domain's primary value (e.g. 'consumption'). */
+  valueField?: string;
+  /** CustomEvent name carrying this domain's summary (e.g. 'myio:energy-summary-ready'). */
+  summaryEvent?: string;
 }
 
 /** Map of every core domain to its descriptor. */

@@ -20,4 +20,6 @@ export const Energy: EnergyType = {
   decimalPlaces: 2,
   chartType: 'bar',
   order: 1,
+  valueField: 'consumption',
+  summaryEvent: 'myio:energy-summary-ready',
 };

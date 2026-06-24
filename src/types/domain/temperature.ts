@@ -17,4 +17,6 @@ export const Temperature: TemperatureType = {
   decimalPlaces: 1,
   chartType: 'line',
   order: 3,
+  valueField: 'temperature',
+  summaryEvent: 'myio:temperature-data-ready',
 };

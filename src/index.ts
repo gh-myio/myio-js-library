@@ -210,7 +210,18 @@ export {
   resolveActiveProfile,
   getActiveProfile,
   setActiveProfile,
+  listDomains,
+  listGroups,
 } from './utils/devices/deviceClassificationProfile.js';
+// RFC-0047: adapter for the GCDR entities classification tree (domain/column/profile)
+export { parseClassificationEntities } from './utils/devices/classificationTree';
+export type {
+  EntityNode,
+  ClassificationColumn,
+  ClassificationDomainNode,
+  ProfileLocation,
+  ParsedClassificationTree,
+} from './utils/devices/classificationTree';
 export type {
   DeviceClassificationProfile,
   DomainProfile,
@@ -220,6 +231,7 @@ export type {
   CategoryResolution,
   GroupName,
   CategoryName,
+  GroupDescriptor,
 } from './utils/devices/deviceClassificationProfile.js';
 
 // RFC-0207 Phase B: device classification profile management modal (premium UI).

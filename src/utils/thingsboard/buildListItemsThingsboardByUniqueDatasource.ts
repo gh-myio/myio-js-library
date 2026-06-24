@@ -75,7 +75,7 @@ function buildEntityMapFromDatasource(datasources: any[]): Map<string, EntityRec
     const keys = Array.isArray(ds?.dataKeys) ? ds.dataKeys : [];
     const rec = map.get(entityId)!;
 
-    keys.forEach((k) => {
+    keys.forEach((k: { name?: unknown }) => {
       if (k?.name) {
         rec.expectedKeys.add(String(k.name).toLowerCase());
       }

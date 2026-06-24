@@ -20,4 +20,6 @@ export const Water: WaterType = {
   decimalPlaces: 2,
   chartType: 'bar',
   order: 2,
+  valueField: 'pulses',
+  summaryEvent: 'myio:water-summary-ready',
 };
