@@ -2,13 +2,16 @@
  * RFC-0207 Phase B — Device Classification Profile management modal.
  *
  * Premium UI to view/edit the customer-scoped `deviceClassificationProfile`
- * (SERVER_SCOPE attribute) that drives device classification (columns
- * Entrada/Lojas/Área Comum + breakdown Climatização/Elevadores/Escadas/Outros).
+ * that drives device classification (columns Entrada/Lojas/Área Comum +
+ * breakdown Climatização/Elevadores/Escadas/Outros).
  *
  * - Edits the high-impact chip lists per group/category, per domain tab.
  * - Live preview: classifies the current devices with the working profile.
- * - Saves to the customer's SERVER_SCOPE attribute, applies it via
- *   `setActiveProfile`, and calls `onSaved` so the dashboard re-classifies.
+ * - **RFC-0207 v3: the lib does NOT touch ThingsBoard.** On save it applies the
+ *   profile in-memory (`setActiveProfile`) and delegates persistence to the
+ *   caller via `onSave` — the profile JSON is stored in the **GCDR endpoint**
+ *   (written by MAIN_VIEW, the persistence owner), then `onSaved` is called so
+ *   the dashboard re-classifies.
  * - Permission-gated: `canEdit=false` → read-only (view saved/default values).
  *
  * Shell: uses the shared `ModalPremiumShell` (createModal) like the other
@@ -50,7 +53,13 @@ export interface DeviceProfilePreviewDevice extends ClassifiableItem {
 
 export interface OpenDeviceProfileModalParams {
   customerId: string;
+  /**
+   * @deprecated RFC-0207 v3: the lib never does ThingsBoard I/O. Persistence is
+   * delegated to the caller via `onSave` (which writes to the GCDR store through
+   * MAIN_VIEW). These are ignored — kept only for call-site backward-compat.
+   */
   token?: string;
+  /** @deprecated see `token`. */
   tbBaseUrl?: string;
   /** Current profile (defaults to the active/DEFAULT one). */
   profile?: DeviceClassificationProfile | null;
@@ -64,6 +73,13 @@ export interface OpenDeviceProfileModalParams {
   getDevices?: (domain: ClassificationDomain) => DeviceProfilePreviewDevice[];
   /** Author recorded in the saved profile (`updatedBy`). */
   userName?: string;
+  /**
+   * Persistence callback — the caller writes the profile to the store (GCDR
+   * endpoint via MAIN_VIEW). The lib does NOT touch ThingsBoard. May be async;
+   * throwing surfaces an error in the modal. When omitted, the modal only applies
+   * the profile in-memory (`setActiveProfile`) and warns (no persistence).
+   */
+  onSave?: (profile: DeviceClassificationProfile) => void | Promise<void>;
   /** Called after a successful save with the applied profile. */
   onSaved?: (profile: DeviceClassificationProfile) => void;
   onClose?: () => void;
@@ -82,14 +98,14 @@ function escHtml(s: unknown): string {
 export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
   const {
     customerId,
-    token = (typeof localStorage !== 'undefined' && localStorage.getItem('jwt_token')) || '',
-    tbBaseUrl = '',
     canEdit = false,
     getDevices = () => [],
     userName = 'user',
+    onSave,
     onSaved,
     onClose,
   } = params;
+  void customerId; // retained in the public params for call-site compat; not used for I/O
 
   // Working copy (never mutate the live profile until save)
   const working: DeviceClassificationProfile = deepClone(
@@ -625,14 +641,16 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
           updatedAt: new Date().toISOString(),
           updatedBy: userName,
         } as DeviceClassificationProfile;
-        const url = `${tbBaseUrl}/api/plugins/telemetry/CUSTOMER/${customerId}/SERVER_SCOPE`;
-        const resp = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Authorization': `Bearer ${token}` },
-          body: JSON.stringify({ deviceClassificationProfile: toSave }),
-        });
-        if (!resp.ok) throw new Error(`TB ${resp.status}`);
-        const applied = setActiveProfile(toSave);
+        // RFC-0207 v3: the lib never writes to ThingsBoard. Persistence is delegated
+        // to the caller (which stores the JSON in the GCDR endpoint via MAIN_VIEW).
+        if (onSave) {
+          await onSave(toSave);
+        } else {
+          console.warn(
+            '[openDeviceProfileModal] no onSave provided — applying in-memory only, NOT persisted',
+          );
+        }
+        const applied = setActiveProfile(toSave); // in-memory only (pure)
         onSaved?.(applied);
         handle.close();
       } catch (err) {

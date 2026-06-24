@@ -741,11 +741,22 @@ self.onInit = function () {
       return;
     }
     const customerId = window.MyIOUtils?.customerTB_ID || self.ctx?.settings?.customerTB_ID || '';
-    const token = localStorage.getItem('jwt_token') || '';
-    const tbBaseUrl = self.ctx?.settings?.tbBaseUrl || '';
     const profile =
       window.MyIOUtils?.deviceClassificationProfile ||
       (typeof Lib.getActiveProfile === 'function' ? Lib.getActiveProfile() : null);
+
+    // RFC-0207 v3: the MENU is endpoint-agnostic. Persistence is owned by MAIN_VIEW
+    // (which stores the profile JSON in the GCDR endpoint). The MENU/lib never write
+    // to ThingsBoard. If MAIN_VIEW hasn't wired the saver yet, fail loud (no TB write).
+    const saveProfile = async (next) => {
+      const saver = window.MyIOOrchestrator?.saveDeviceClassificationProfile;
+      if (typeof saver !== 'function') {
+        throw new Error(
+          'Persistência do perfil indisponível: MAIN_VIEW.saveDeviceClassificationProfile (GCDR) não conectado.',
+        );
+      }
+      await saver(next);
+    };
 
     // Domain-aware: the modal asks for the device set of the active tab
     // (energy | water | temperature) so each tab's preview is accurate.
@@ -758,12 +769,11 @@ self.onInit = function () {
 
     Lib.openDeviceProfileModal({
       customerId,
-      token,
-      tbBaseUrl,
       profile,
       canEdit: true, // option only rendered for superadmin (isSuperAdmin gate above)
       getDevices,
       userName: (user && (user.email || user.name)) || 'user',
+      onSave: saveProfile, // RFC-0207 v3: persistence delegated to MAIN_VIEW (GCDR), not TB
       onSaved: () => {
         // Re-classify: invalidate cache + re-hydrate (same path as the refresh button).
         try {
