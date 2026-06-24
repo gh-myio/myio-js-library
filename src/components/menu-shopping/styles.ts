@@ -305,6 +305,24 @@ export const MENU_SHOPPING_STYLES = `
   font-weight: 500;
 }
 
+.${PREFIX}-footer-btn-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+  text-align: left;
+}
+
+.${PREFIX}-shopping-name {
+  display: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--brand);
+  word-wrap: break-word;
+  max-width: 100%;
+}
+
 /* ===== Version Display ===== */
 .${PREFIX}-version {
   padding: 8px 16px;
@@ -326,6 +344,7 @@ export const MENU_SHOPPING_STYLES = `
 .${PREFIX}-container.collapsed .${PREFIX}-user-info,
 .${PREFIX}-container.collapsed .${PREFIX}-tab-label,
 .${PREFIX}-container.collapsed .${PREFIX}-footer-btn-label,
+.${PREFIX}-container.collapsed .${PREFIX}-shopping-name,
 .${PREFIX}-container.collapsed .${PREFIX}-logo-text {
   display: none;
 }

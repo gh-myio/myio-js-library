@@ -108,6 +108,8 @@ export interface MenuShoppingParams {
   themeMode?: ThemeMode;
   /** User info to display */
   userInfo?: MenuShoppingUserInfo;
+  /** Shopping / customer name to display in the selector sub-label */
+  shoppingName?: string;
   /** Configuration template */
   configTemplate?: MenuShoppingConfigTemplate;
   /** Initial settings */
@@ -136,6 +138,8 @@ export interface MenuShoppingInstance {
   setThemeMode(mode: ThemeMode): void;
   /** Update user info */
   updateUserInfo(userInfo: MenuShoppingUserInfo): void;
+  /** Set the shopping / customer name shown in the selector sub-label */
+  setShoppingName(name: string): void;
   /** Set collapsed state */
   setCollapsed(collapsed: boolean): void;
   /** Get collapsed state */

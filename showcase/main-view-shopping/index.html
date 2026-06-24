@@ -414,7 +414,7 @@
         settings,
         data: buildMockData(),
         datasources: [{ type: 'entity', name: 'AllDevices', aliasName: 'all3fs' }],
-        currentUser: { email: 'showcase@myio.com.br', firstName: 'Showcase', lastName: 'User', authority: 'CUSTOMER_USER' },
+        currentUser: { email: 'showcase@myio.com.br', firstName: 'Showcase', lastName: 'User', authority: 'CUSTOMER_USER', customerTitle: 'Shopping (showcase)' },
         // real JWT from the login modal (localStorage), like the TB widget runtime
         http: { getServerCredentials: () => ({ token: localStorage.getItem('jwt_token') || '' }) },
         $scope: {},

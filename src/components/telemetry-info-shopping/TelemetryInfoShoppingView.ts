@@ -16,6 +16,7 @@ import {
   DEFAULT_CHART_COLORS,
   ENERGY_CATEGORY_CONFIG,
   WATER_CATEGORY_CONFIG,
+  TOTAL_CARD_TOOLTIP,
   formatEnergy,
   formatWater,
   formatPercentage,
@@ -152,6 +153,7 @@ export class TelemetryInfoShoppingView {
         <div class="tis-card-header">
           <span class="tis-card-icon">${config.entrada.icon}</span>
           <h3 class="tis-card-title">${config.entrada.label}</h3>
+          ${this.tooltipSpan(config.entrada.tooltip)}
         </div>
         <div class="tis-card-body">
           <div class="tis-stat-row tis-main-stat">
@@ -164,6 +166,7 @@ export class TelemetryInfoShoppingView {
         <div class="tis-card-header">
           <span class="tis-card-icon">${config.lojas.icon}</span>
           <h3 class="tis-card-title">${config.lojas.label}</h3>
+          ${this.tooltipSpan(config.lojas.tooltip)}
         </div>
         <div class="tis-card-body">
           <div class="tis-stat-row tis-main-stat">
@@ -177,11 +180,7 @@ export class TelemetryInfoShoppingView {
         <div class="tis-card-header">
           <span class="tis-card-icon">${config.climatizacao.icon}</span>
           <h3 class="tis-card-title">${config.climatizacao.label}</h3>
-          ${
-            config.climatizacao.tooltip
-              ? `<span class="tis-tooltip" title="${config.climatizacao.tooltip}">ℹ️</span>`
-              : ''
-          }
+          ${this.tooltipSpan(config.climatizacao.tooltip)}
         </div>
         <div class="tis-card-body">
           <div class="tis-stat-row tis-main-stat">
@@ -195,6 +194,7 @@ export class TelemetryInfoShoppingView {
         <div class="tis-card-header">
           <span class="tis-card-icon">${config.elevadores.icon}</span>
           <h3 class="tis-card-title">${config.elevadores.label}</h3>
+          ${this.tooltipSpan(config.elevadores.tooltip)}
         </div>
         <div class="tis-card-body">
           <div class="tis-stat-row tis-main-stat">
@@ -208,6 +208,7 @@ export class TelemetryInfoShoppingView {
         <div class="tis-card-header">
           <span class="tis-card-icon">${config.escadasRolantes.icon}</span>
           <h3 class="tis-card-title">${config.escadasRolantes.label}</h3>
+          ${this.tooltipSpan(config.escadasRolantes.tooltip)}
         </div>
         <div class="tis-card-body">
           <div class="tis-stat-row tis-main-stat">
@@ -221,11 +222,7 @@ export class TelemetryInfoShoppingView {
         <div class="tis-card-header">
           <span class="tis-card-icon">${config.outros.icon}</span>
           <h3 class="tis-card-title">${config.outros.label}</h3>
-          ${
-            config.outros.tooltip
-              ? `<span class="tis-tooltip" title="${config.outros.tooltip}">ℹ️</span>`
-              : ''
-          }
+          ${this.tooltipSpan(config.outros.tooltip)}
         </div>
         <div class="tis-card-body">
           <div class="tis-stat-row tis-main-stat">
@@ -239,11 +236,7 @@ export class TelemetryInfoShoppingView {
         <div class="tis-card-header">
           <span class="tis-card-icon">${config.areaComum.icon}</span>
           <h3 class="tis-card-title">${config.areaComum.label}</h3>
-          ${
-            config.areaComum.tooltip
-              ? `<span class="tis-tooltip" title="${config.areaComum.tooltip}">ℹ️</span>`
-              : ''
-          }
+          ${this.tooltipSpan(config.areaComum.tooltip)}
         </div>
         <div class="tis-card-body">
           <div class="tis-stat-row tis-main-stat">
@@ -257,6 +250,7 @@ export class TelemetryInfoShoppingView {
         <div class="tis-card-header">
           <span class="tis-card-icon">📊</span>
           <h3 class="tis-card-title">Total Consumidores</h3>
+          ${this.tooltipSpan(TOTAL_CARD_TOOLTIP)}
         </div>
         <div class="tis-card-body">
           <div class="tis-stat-row tis-main-stat">
@@ -268,6 +262,14 @@ export class TelemetryInfoShoppingView {
     `;
   }
 
+  // RFC-0211-info: single helper so every metric card renders the (i) MyIO tooltip
+  // consistently (ported from v-5.2.0 TELEMETRY_INFO where (i) is on practically every metric).
+  private tooltipSpan(tooltip?: string): string {
+    if (!tooltip) return '';
+    const safe = String(tooltip).replace(/"/g, '&quot;');
+    return `<span class="tis-tooltip" title="${safe}">ℹ️</span>`;
+  }
+
   private buildWaterCards(): string {
     const config = WATER_CATEGORY_CONFIG;
 
@@ -276,6 +278,7 @@ export class TelemetryInfoShoppingView {
         <div class="tis-card-header">
           <span class="tis-card-icon">${config.entrada.icon}</span>
           <h3 class="tis-card-title">${config.entrada.label}</h3>
+          ${this.tooltipSpan(config.entrada.tooltip)}
         </div>
         <div class="tis-card-body">
           <div class="tis-stat-row tis-main-stat">
@@ -288,6 +291,7 @@ export class TelemetryInfoShoppingView {
         <div class="tis-card-header">
           <span class="tis-card-icon">${config.lojas.icon}</span>
           <h3 class="tis-card-title">${config.lojas.label}</h3>
+          ${this.tooltipSpan(config.lojas.tooltip)}
         </div>
         <div class="tis-card-body">
           <div class="tis-stat-row tis-main-stat">
@@ -301,11 +305,7 @@ export class TelemetryInfoShoppingView {
         <div class="tis-card-header">
           <span class="tis-card-icon">${config.banheiros.icon}</span>
           <h3 class="tis-card-title">${config.banheiros.label}</h3>
-          ${
-            config.banheiros.tooltip
-              ? `<span class="tis-tooltip" title="${config.banheiros.tooltip}">ℹ️</span>`
-              : ''
-          }
+          ${this.tooltipSpan(config.banheiros.tooltip)}
         </div>
         <div class="tis-card-body">
           <div class="tis-stat-row tis-main-stat">
@@ -319,6 +319,7 @@ export class TelemetryInfoShoppingView {
         <div class="tis-card-header">
           <span class="tis-card-icon">${config.areaComum.icon}</span>
           <h3 class="tis-card-title">${config.areaComum.label}</h3>
+          ${this.tooltipSpan(config.areaComum.tooltip)}
         </div>
         <div class="tis-card-body">
           <div class="tis-stat-row tis-main-stat">
@@ -332,11 +333,7 @@ export class TelemetryInfoShoppingView {
         <div class="tis-card-header">
           <span class="tis-card-icon">${config.pontosNaoMapeados.icon}</span>
           <h3 class="tis-card-title">${config.pontosNaoMapeados.label}</h3>
-          ${
-            config.pontosNaoMapeados.tooltip
-              ? `<span class="tis-tooltip" title="${config.pontosNaoMapeados.tooltip}">ℹ️</span>`
-              : ''
-          }
+          ${this.tooltipSpan(config.pontosNaoMapeados.tooltip)}
         </div>
         <div class="tis-card-body">
           <div class="tis-stat-row tis-main-stat">
@@ -350,6 +347,7 @@ export class TelemetryInfoShoppingView {
         <div class="tis-card-header">
           <span class="tis-card-icon">📊</span>
           <h3 class="tis-card-title">Total</h3>
+          ${this.tooltipSpan(TOTAL_CARD_TOOLTIP)}
         </div>
         <div class="tis-card-body">
           <div class="tis-stat-row tis-main-stat">
@@ -528,6 +526,14 @@ export class TelemetryInfoShoppingView {
           },
         });
         this.log('Main chart created successfully');
+        // RFC-0211-info: chart init is deferred (~300ms + retries) and can finish AFTER
+        // setEnergyData/setWaterData already ran. Those earlier refreshChart() calls were
+        // no-ops because mainChart was null, leaving the chart stuck on the gray
+        // "Sem dados" placeholder. Re-apply any state we already hold now that the chart exists.
+        if (this.energyState || this.waterState) {
+          this.log('Re-applying existing state to freshly created chart');
+          this.refreshChart();
+        }
       } catch (err) {
         console.error('[TelemetryInfoShoppingView] Error creating chart:', err);
       }

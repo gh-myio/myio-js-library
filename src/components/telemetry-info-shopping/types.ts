@@ -106,22 +106,45 @@ export interface CategoryConfig {
   tooltip?: string;
 }
 
+// RFC-0211-info: Ported (i) tooltips from v-5.2.0 TELEMETRY_INFO (template.html + controller)
+// so practically every metric carries the MyIO info tooltip (was only on a few cards).
 export const ENERGY_CATEGORY_CONFIG: Record<EnergyCategoryType, CategoryConfig> = {
-  entrada: { label: 'Entrada', icon: '📥', color: '#607D8B' },
+  entrada: {
+    label: 'Entrada',
+    icon: '📥',
+    color: '#607D8B',
+    tooltip: 'Medição na entrada (relógio / subestação / medidor principal). Referência de 100% do consumo.',
+  },
   climatizacao: {
     label: 'Climatização',
     icon: '❄️',
     color: '#00C896',
-    tooltip: 'CAG + Fancoils + Chillers + Bombas',
+    tooltip:
+      'Climatização = CAG + Fancoils + Chillers + Bombas (Primárias + Secundárias + Condensadoras)',
   },
-  elevadores: { label: 'Elevadores', icon: '🛗', color: '#5B2EBC' },
-  escadasRolantes: { label: 'Esc. Rolantes', icon: '🎢', color: '#FF6B6B' },
-  lojas: { label: 'Lojas', icon: '🏪', color: '#FFC107' },
+  elevadores: {
+    label: 'Elevadores',
+    icon: '🛗',
+    color: '#5B2EBC',
+    tooltip: 'Consumo agregado dos elevadores.',
+  },
+  escadasRolantes: {
+    label: 'Esc. Rolantes',
+    icon: '🎢',
+    color: '#FF6B6B',
+    tooltip: 'Consumo agregado das escadas rolantes.',
+  },
+  lojas: {
+    label: 'Lojas',
+    icon: '🏪',
+    color: '#FFC107',
+    tooltip: 'Consumo agregado das lojas (medidores 3F).',
+  },
   outros: {
     label: 'Outros',
     icon: '⚙️',
     color: '#9C27B0',
-    tooltip: 'Equipamentos não classificados',
+    tooltip: 'Equipamentos não classificados nas categorias principais.',
   },
   areaComum: {
     label: 'Área Comum',
@@ -132,22 +155,41 @@ export const ENERGY_CATEGORY_CONFIG: Record<EnergyCategoryType, CategoryConfig> 
 };
 
 export const WATER_CATEGORY_CONFIG: Record<WaterCategoryType, CategoryConfig> = {
-  entrada: { label: 'Entrada', icon: '💧', color: '#607D8B' },
-  lojas: { label: 'Lojas', icon: '🏪', color: '#FFC107' },
+  entrada: {
+    label: 'Entrada',
+    icon: '💧',
+    color: '#607D8B',
+    tooltip: 'Hidrômetro de entrada. Referência de 100% do consumo.',
+  },
+  lojas: {
+    label: 'Lojas',
+    icon: '🏪',
+    color: '#FFC107',
+    tooltip: 'Consumo de água agregado das lojas.',
+  },
   banheiros: {
     label: 'Banheiros',
     icon: '🚿',
     color: '#2196F3',
-    tooltip: 'Consumo de água em banheiros e áreas sanitárias',
+    tooltip: 'Consumo de água em banheiros e áreas sanitárias.',
   },
-  areaComum: { label: 'Área Comum', icon: '🏢', color: '#4CAF50' },
+  areaComum: {
+    label: 'Área Comum',
+    icon: '🏢',
+    color: '#4CAF50',
+    tooltip: 'Consumo de água das áreas comuns.',
+  },
   pontosNaoMapeados: {
     label: 'Não Mapeados',
     icon: '❓',
     color: '#FF9800',
-    tooltip: 'Diferença entre entrada e consumidores mapeados',
+    tooltip: 'Diferença entre a entrada e os consumidores mapeados.',
   },
 };
+
+// RFC-0211-info: tooltip for the aggregate "Total" card (no category key in the config maps).
+export const TOTAL_CARD_TOOLTIP =
+  'Soma de todos os consumidores. Em condições normais é igual à Entrada (100%).';
 
 // ============================================
 // COMPONENT PARAMS

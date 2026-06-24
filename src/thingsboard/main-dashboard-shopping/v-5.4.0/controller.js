@@ -167,6 +167,198 @@ function classifyGcdrDevices(devices, tree) {
 }
 
 // ============================================================================
+// RFC-0211: behavior restored from the working v-5.2.0 widgets (reuses the
+// existing toastError() helper above — no duplicate definitions).
+// ============================================================================
+
+// --- RFC-0211-footer: ingestion token for the comparison modal ---
+const CHARTS_BASE_URL = 'https://graphs.staging.apps.myio-bas.com';
+let _ingestionToken = null;
+async function buildIngestionToken() {
+  const lib = window.MyIOLibrary;
+  if (!lib?.buildMyioIngestionAuth) {
+    toastError('Não foi possível inicializar a autenticação de ingestão (biblioteca indisponível).');
+    return null;
+  }
+  if (!_credentials?.clientId || !_credentials?.clientSecret) {
+    toastError('Credenciais de ingestão ausentes (clientId/clientSecret). Verifique os atributos do cliente.');
+    return null;
+  }
+  try {
+    const auth = lib.buildMyioIngestionAuth({
+      dataApiHost: DATA_API_HOST,
+      clientId: _credentials.clientId,
+      clientSecret: _credentials.clientSecret,
+    });
+    _ingestionToken = await auth.getToken();
+    if (window.MyIOOrchestrator?.tokenManager?.setToken) {
+      window.MyIOOrchestrator.tokenManager.setToken('ingestionToken', _ingestionToken);
+    }
+    LogHelper.log('[RFC-0211-footer] Ingestion token built');
+    return _ingestionToken;
+  } catch (err) {
+    _ingestionToken = null;
+    toastError('Falha ao obter o token de ingestão. Tente novamente mais tarde.');
+    LogHelper.error('[RFC-0211-footer] buildIngestionToken error:', err);
+    return null;
+  }
+}
+
+// --- RFC-0211-menu: shopping/customer name resolution + settings modal (domain-agnostic) ---
+let _shoppingName = '';
+function resolveShoppingName() {
+  const ctx = self.ctx || {};
+  const title =
+    ctx.dashboard?.title || ctx.dashboard?.dashboard?.title ||
+    ctx.dashboard?.config?.title || ctx.dashboard?.configuration?.title || null;
+  if (title && String(title).trim()) return String(title).trim();
+  try {
+    const ds = ctx.datasources?.[0];
+    if (ds?.entityLabel && String(ds.entityLabel).trim()) return String(ds.entityLabel).trim();
+    if (ds?.name && String(ds.name).trim()) return String(ds.name).trim();
+  } catch (_e) {
+    /* ignore datasource access errors */
+  }
+  const cu = ctx.currentUser || {};
+  if (cu.customerTitle && String(cu.customerTitle).trim()) return String(cu.customerTitle).trim();
+  if (cu.customerName && String(cu.customerName).trim()) return String(cu.customerName).trim();
+  return '';
+}
+function updateMenuShoppingName() {
+  const name = resolveShoppingName();
+  if (name) _shoppingName = name;
+  if (_menuInstance?.setShoppingName) _menuInstance.setShoppingName(_shoppingName || '');
+}
+function openSettings() {
+  const lib = window.MyIOLibrary;
+  if (!lib?.openMeasurementSetupModal) {
+    toastError('Componente de configurações não disponível.');
+    return;
+  }
+  const jwtToken =
+    self.ctx?.http?.getServerCredentials?.()?.token || localStorage.getItem('jwt_token');
+  if (!jwtToken) {
+    toastError('Token de autenticação não encontrado. Faça login novamente.');
+    return;
+  }
+  const customerId = window.MyIOOrchestrator?.customerTB_ID || window.MyIOUtils?.customerTB_ID;
+  if (!customerId) {
+    toastError('ID do cliente não encontrado. Verifique a configuração do dashboard.');
+    return;
+  }
+  const existingSettings = window.MyIOOrchestrator?.measurementDisplaySettings || null;
+  lib
+    .openMeasurementSetupModal({
+      token: jwtToken,
+      customerId,
+      existingSettings,
+      onSave: (newSettings) => {
+        LogHelper.log('Settings saved:', newSettings);
+        if (window.MyIOOrchestrator) window.MyIOOrchestrator.measurementDisplaySettings = newSettings;
+        window.dispatchEvent(
+          new CustomEvent('myio:measurement-settings-updated', { detail: newSettings })
+        );
+      },
+      onClose: () => LogHelper.log('Settings modal closed'),
+    })
+    .catch((err) => toastError('Erro ao abrir configurações: ' + (err?.message || 'desconhecido')));
+}
+
+// --- RFC-0211-grid: card actions (dashboard/report/settings) + selection/drag-to-footer ---
+function _resolveCardDeviceId(device) {
+  return device?.entityId || device?.tbId || device?.id || device?.ingestionId || null;
+}
+function handleGridCardAction(action, device) {
+  const lib = window.MyIOLibrary;
+  if (!lib) {
+    toastError('Biblioteca de componentes indisponível.');
+    return;
+  }
+  const jwtToken = localStorage.getItem('jwt_token');
+  if (!jwtToken) {
+    toastError('Autenticação necessária. Faça login novamente.');
+    return;
+  }
+  const deviceId = _resolveCardDeviceId(device);
+  if (!deviceId) {
+    toastError('Não foi possível identificar o dispositivo.');
+    return;
+  }
+  const startDateISO = self.ctx?.scope?.startDateISO || null;
+  const endDateISO = self.ctx?.scope?.endDateISO || null;
+  const apiConfig = {
+    tbBaseUrl: THINGSBOARD_URL,
+    dataApiBaseUrl: DATA_API_HOST,
+    ingestionToken: _credentials?.ingestionId || undefined,
+    clientId: _credentials?.clientId || undefined,
+    clientSecret: _credentials?.clientSecret || undefined,
+  };
+  try {
+    if (action === 'settings') {
+      if (!lib.openDashboardPopupSettings) {
+        toastError('Configurações indisponíveis nesta versão.');
+        return;
+      }
+      lib.openDashboardPopupSettings({
+        deviceId,
+        jwtToken,
+        api: apiConfig,
+        seed: {
+          label: device?.labelOrName || device?.name || undefined,
+          identifier: device?.deviceIdentifier || device?.identifier || undefined,
+        },
+        onSaved: (result) => {
+          if (result?.ok) LogHelper.log('[RFC-0211-grid] settings saved', deviceId);
+        },
+        onError: (err) => toastError(err?.message || 'Erro ao salvar configurações.'),
+      });
+      return;
+    }
+    if (action === 'report') {
+      if (!lib.openDashboardPopupReport) {
+        toastError('Relatório indisponível nesta versão.');
+        return;
+      }
+      lib.openDashboardPopupReport({
+        deviceId,
+        ingestionId: device?.ingestionId || undefined,
+        label: device?.labelOrName || device?.name || undefined,
+        deviceType: device?.deviceType || device?.deviceProfile || undefined,
+        jwtToken,
+        api: apiConfig,
+        startDate: startDateISO,
+        endDate: endDateISO,
+      });
+      return;
+    }
+    if (action === 'dashboard') {
+      if (!lib.openDashboardPopup) {
+        toastError('Dashboard indisponível nesta versão.');
+        return;
+      }
+      lib.openDashboardPopup({
+        deviceId,
+        ingestionId: device?.ingestionId || undefined,
+        label: device?.labelOrName || device?.name || undefined,
+        deviceType: device?.deviceType || device?.deviceProfile || undefined,
+        jwtToken,
+        api: apiConfig,
+        startDate: startDateISO,
+        endDate: endDateISO,
+      });
+      return;
+    }
+    LogHelper.warn('[RFC-0211-grid] Unknown card action:', action);
+  } catch (err) {
+    LogHelper.error('[RFC-0211-grid] card action failed:', action, err);
+    toastError('Falha ao executar a ação do card.');
+  }
+}
+function gridCardWiring() {
+  return { enableSelection: true, enableDragDrop: true, onCardAction: handleGridCardAction };
+}
+
+// ============================================================================
 // Device Classification (RFC-0209) — moved to the lib (single source).
 // Use window.MyIOLibrary.{extractDeviceMetadataFromRows, classifyAllDevices, buildByStatusFromDevices}.
 // ============================================================================
@@ -385,6 +577,7 @@ async function fetchAndUpdateUserInfo() {
       });
       LogHelper.log('Menu user info updated from context');
     }
+    updateMenuShoppingName(); // RFC-0211-menu: refresh name (customerTitle may now be available)
     return;
   }
 
@@ -427,6 +620,8 @@ async function fetchAndUpdateUserInfo() {
       });
       LogHelper.log('Menu user info updated from API');
     }
+    if (user.customerTitle && !_shoppingName) _shoppingName = String(user.customerTitle).trim();
+    updateMenuShoppingName(); // RFC-0211-menu: refresh name after API user resolve
   } catch (err) {
     LogHelper.error('Failed to fetch user info:', err);
     if (_menuInstance) {
@@ -470,11 +665,19 @@ function createComponents() {
       container: menuContainer,
       themeMode: _currentThemeMode,
       configTemplate: { initialDomain: _classificationTree?.domains?.[0]?.code || '' },
+      // RFC-0211-menu: real shopping name instead of the "Trocar Shopping" placeholder
+      shoppingName: resolveShoppingName(),
       onTabChange: (domain) => {
         LogHelper.log('Tab changed:', domain);
         switchContentState(domain);
       },
       onToggleCollapse: handleMenuCollapse,
+      // RFC-0211-menu: open the settings modal on "Configurações" click
+      onSettingsClick: openSettings,
+      // RFC-0211-menu: shopping selector — emit event so a future picker can react
+      onShoppingSelectorClick: () => {
+        window.dispatchEvent(new CustomEvent('myio:shopping-selector-click'));
+      },
     });
     LogHelper.log('Menu created with theme:', _currentThemeMode);
   }
@@ -506,6 +709,14 @@ function createComponents() {
       themeMode: _currentThemeMode,
       customerTbId,
       credentials: _credentials,
+      // RFC-0211-footer: ingestion token + API hosts the comparison modal needs (mirrors v-5.2.0 FOOTER)
+      dataApiHost: DATA_API_HOST,
+      chartsBaseUrl: CHARTS_BASE_URL,
+      getIngestionToken: () => _ingestionToken || undefined,
+      // RFC-0211-footer: surface failures via toast instead of only console
+      onError: (err) => {
+        toastError(`Não foi possível abrir a comparação: ${err?.message || err}`);
+      },
     });
     LogHelper.log('Footer created with theme:', _currentThemeMode);
   }
@@ -547,6 +758,7 @@ function createDomainSectionsAndGrids(lib) {
             themeMode: _currentThemeMode,
             labelWidget: col.label,
             debugActive: DEBUG_ACTIVE,
+            ...gridCardWiring(), // RFC-0211-grid: card actions + selection + drag-to-footer
           })
         );
       }
@@ -937,6 +1149,17 @@ self.onInit = async function () {
         );
       }
     }
+  }
+
+  // RFC-0211-footer: expose credentials to the lib (ComparisonHandler reads MyIOUtils.getCredentials)
+  // and build the ingestion token used by the footer comparison modal.
+  if (_credentials) {
+    window.MyIOUtils.getCredentials = () => ({
+      clientId: _credentials.clientId,
+      clientSecret: _credentials.clientSecret,
+      ingestionId: _credentials.ingestionId,
+    });
+    await buildIngestionToken();
   }
 
   // RFC-0180: Publish final GCDR identifiers to orchestrator
