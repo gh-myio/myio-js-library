@@ -587,6 +587,160 @@ Object.assign(window.MyIOUtils, {
       return [];
     }
   },
+
+  /**
+   * Fetch energy or water device totals for Metas (goals) chart
+   * Supports optional profileId filter (e.g. energy-entry: f431d17a-ec11-45e0-b92c-83a0d3b6d942)
+   * @param {string} custId - Customer ingestion ID
+   * @param {string} domain - 'energy' | 'water'
+   * @param {number} startTs - Start timestamp in ms
+   * @param {number} endTs - End timestamp in ms
+   * @param {string} granularity - '1d' | '1h' (default '1d')
+   * @param {string|null} profileId - Optional profileId to filter by device group
+   * @returns {Promise<Array>} Array of device totals
+   */
+  fetchGoalsDayTotals: async (custId, domain, startTs, endTs, granularity = '1d', profileId = null) => {
+    try {
+      const creds = window.MyIOOrchestrator?.getCredentials?.();
+      if (!creds?.CLIENT_ID || !creds?.CLIENT_SECRET) {
+        LogHelper.error('[MyIOUtils] fetchGoalsDayTotals: No credentials available');
+        return [];
+      }
+      const MyIOLib = (typeof MyIOLibrary !== 'undefined' && MyIOLibrary) || window.MyIOLibrary;
+      if (!MyIOLib?.buildMyioIngestionAuth) {
+        LogHelper.error('[MyIOUtils] fetchGoalsDayTotals: MyIOLibrary.buildMyioIngestionAuth not available');
+        return [];
+      }
+      const myIOAuth = MyIOLib.buildMyioIngestionAuth({
+        dataApiHost: getDataApiHost(),
+        clientId: creds.CLIENT_ID,
+        clientSecret: creds.CLIENT_SECRET,
+      });
+      const token = await myIOAuth.getToken();
+      if (!token) {
+        LogHelper.error('[MyIOUtils] fetchGoalsDayTotals: Failed to get token');
+        return [];
+      }
+      const url = new URL(`${getDataApiHost()}/telemetry/customers/${custId}/${domain}/devices/totals`);
+      url.searchParams.set('startTime', new Date(startTs).toISOString());
+      url.searchParams.set('endTime', new Date(endTs).toISOString());
+      url.searchParams.set('deep', '1');
+      if (granularity) url.searchParams.set('granularity', granularity);
+      if (profileId) url.searchParams.set('groupIds', profileId);
+      LogHelper.log(`[MyIOUtils] fetchGoalsDayTotals (${domain}): ${url.toString()}`);
+      const res = await fetch(url.toString(), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          window.MyIOUtils?.handleUnauthorizedError?.('fetchGoalsDayTotals');
+        }
+        throw new Error(`API error: ${res.status}`);
+      }
+      const json = await res.json();
+      LogHelper.log(`[MyIOUtils] fetchGoalsDayTotals (${domain}): Got ${json?.length || 0} devices`);
+      // Para água (sem filtro por groupId), curar lista via orchestrator
+      if (!profileId && Array.isArray(json) && json.length > 0) {
+        let orchItems = window.MyIOOrchestratorData?.[domain]?.items || [];
+        if (!orchItems.length && window.MyIOOrchestrator?.hydrateDomain) {
+          try {
+            const fetched = await Promise.race([
+              window.MyIOOrchestrator.hydrateDomain(domain, {
+                startISO: new Date(startTs).toISOString(),
+                endISO: new Date(endTs).toISOString(),
+                granularity: 'HOUR',
+              }),
+              new Promise((r) => setTimeout(() => r([]), 4000)),
+            ]);
+            orchItems = (Array.isArray(fetched) && fetched.length)
+              ? fetched
+              : (window.MyIOOrchestratorData?.[domain]?.items || []);
+          } catch (err) {
+            LogHelper.warn('[MyIOUtils] fetchGoalsDayTotals: hydrate falhou —', err.message);
+          }
+        }
+        if (orchItems.length > 0) {
+          const validIds = new Set(orchItems.flatMap((it) => [it.ingestionId, it.id].filter(Boolean)));
+          const filtered = json.filter((dv) => validIds.has(dv.id) || validIds.has(dv.ingestionId));
+          LogHelper.log(`[MyIOUtils] fetchGoalsDayTotals (${domain}): ${json.length} → ${filtered.length} após curação`);
+          return filtered;
+        }
+      }
+      return json;
+    } catch (error) {
+      LogHelper.error('[MyIOUtils] fetchGoalsDayTotals error:', error);
+      return [];
+    }
+  },
+  fetchGoalsTemperature: async (startTs, endTs, granularity = '1d') => {
+    try {
+      const creds = window.MyIOOrchestrator?.getCredentials?.();
+      if (!creds?.CLIENT_ID || !creds?.CLIENT_SECRET) return [];
+      const MyIOLib = (typeof MyIOLibrary !== 'undefined' && MyIOLibrary) || window.MyIOLibrary;
+      if (!MyIOLib?.buildMyioIngestionAuth) return [];
+      const myIOAuth = MyIOLib.buildMyioIngestionAuth({
+        dataApiHost: getDataApiHost(),
+        clientId: creds.CLIENT_ID,
+        clientSecret: creds.CLIENT_SECRET,
+      });
+      const token = await myIOAuth.getToken();
+      if (!token) return [];
+      let tempItems =
+        window.MyIOOrchestratorData?.temperature?.items ||
+        window.STATE?.temperature?.items || [];
+      if (!tempItems.length && window.MyIOOrchestrator?.hydrateDomain) {
+        try {
+          const fetched = await Promise.race([
+            window.MyIOOrchestrator.hydrateDomain('temperature', {
+              startISO: new Date(startTs).toISOString(),
+              endISO: new Date(endTs).toISOString(),
+              granularity: 'HOUR',
+            }),
+            new Promise((r) => setTimeout(() => r([]), 4000)),
+          ]);
+          tempItems = (Array.isArray(fetched) && fetched.length)
+            ? fetched
+            : (window.MyIOOrchestratorData?.temperature?.items || []);
+        } catch (err) {
+          LogHelper.warn('[MyIOUtils] fetchGoalsTemperature: hydrate falhou —', err.message);
+        }
+      }
+      if (!tempItems.length) return [];
+      const host = getDataApiHost().replace(/\/api\/v1\/?$/, '');
+      const startISO = new Date(startTs).toISOString().split('.')[0] + '-03:00';
+      const endISO = new Date(endTs).toISOString().split('.')[0] + '-03:00';
+      const results = await Promise.all(
+        tempItems.slice(0, 15).map(async (dev) => {
+          const ingestionId = dev.ingestionId || dev.id;
+          if (!ingestionId) return null;
+          try {
+            const url =
+              `${host}/api/v1/telemetry/devices/${ingestionId}/temperature` +
+              `?startTime=${encodeURIComponent(startISO)}&endTime=${encodeURIComponent(endISO)}` +
+              `&granularity=${granularity}&deep=0`;
+            const resp = await fetch(url, {
+              headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            });
+            if (!resp.ok) return null;
+            const data = await resp.json();
+            const deviceData = Array.isArray(data) ? data[0] : data;
+            return {
+              id: ingestionId,
+              name: deviceData?.name || dev.label || dev.name || ingestionId,
+              consumption: deviceData?.consumption || [],
+            };
+          } catch {
+            return null;
+          }
+        })
+      );
+      LogHelper.log(`[MyIOUtils] fetchGoalsTemperature: ${results.filter(Boolean).length} sensores`);
+      return results.filter(Boolean);
+    } catch (error) {
+      LogHelper.error('[MyIOUtils] fetchGoalsTemperature error:', error);
+      return [];
+    }
+  },
 });
 // Expose customerTB_ID via getter (reads from MyIOOrchestrator when available)
 // Check if property already exists to avoid "Cannot redefine property" error
