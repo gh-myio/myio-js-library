@@ -1,4 +1,4 @@
-/* global self, window, document, MyIOLibrary, localStorage */
+/* global self, window, document, localStorage */
 
 /**
  * RFC-0150: Shopping Dashboard - MAIN Controller (Slim Version)
@@ -18,8 +18,9 @@
 // ============================================================================
 
 const DEBUG_ACTIVE = true;
-const THINGSBOARD_URL = 'https://dashboard.myio-bas.com';
-const DATA_API_HOST = 'https://api.data.apps.myio-bas.com';
+// Endpoints resolved from widget settings in onInit (no hard-coded URLs).
+let THINGSBOARD_URL = '';
+let DATA_API_HOST = '';
 
 // Domain constants
 const DOMAIN_ENERGY = 'energy';
@@ -36,6 +37,13 @@ const LogHelper = {
   error: (...args) => console.error('[MAIN]', ...args),
 };
 
+// Error toast helper. The only fallback is window.alert (when MyIOToast is unavailable).
+function toastError(message) {
+  const toast = window.MyIOLibrary?.MyIOToast;
+  if (toast?.error) toast.error(message);
+  else window.alert(message);
+}
+
 // ============================================================================
 // Global State Setup
 // ============================================================================
@@ -43,7 +51,7 @@ const LogHelper = {
 window.MyIOUtils = window.MyIOUtils || {};
 Object.assign(window.MyIOUtils, {
   LogHelper,
-  DATA_API_HOST,
+  DATA_API_HOST, // resolved from settings in onInit (empty until then)
   isDebugActive: () => DEBUG_ACTIVE,
   temperatureLimits: { minTemperature: 18, maxTemperature: 26 },
   mapInstantaneousPower: null,
@@ -65,7 +73,6 @@ Object.assign(window.MyIOUtils, {
 let _headerInstance = null;
 let _menuInstance = null;
 let _footerInstance = null;
-let _currentDomain = DOMAIN_ENERGY;
 let _credentials = null;
 let _dataProcessedOnce = false;
 
@@ -464,7 +471,7 @@ async function _prefetchCustomerAlarms(gcdrCustomerId, gcdrTenantId, alarmsBaseU
   try {
     const ALARMS_API_KEY = window.MyIOOrchestrator?.alarmsApiKey || '';
     if (!ALARMS_API_KEY) {
-      window.MyIOLibrary?.MyIOToast?.error('[v5.4.0] alarmsApiKey não configurado. Configure em Widget Settings → alarmsApiKey.');
+      toastError('[v5.4.0] alarmsApiKey não configurado. Configure em Widget Settings → alarmsApiKey.');
       return;
     }
     const url = `${alarmsBaseUrl}/alarms?state=OPEN,ACK,ESCALATED,SNOOZED&customerId=${encodeURIComponent(gcdrCustomerId)}&limit=100`;
@@ -601,9 +608,8 @@ function createComponents() {
       container: menuContainer,
       themeMode: _currentThemeMode,
       configTemplate: { initialDomain: 'energy' },
-      onTabChange: (domain, tabId) => {
+      onTabChange: (domain) => {
         LogHelper.log('Tab changed:', domain);
-        _currentDomain = domain;
         switchContentState(domain);
       },
       onToggleCollapse: handleMenuCollapse,
@@ -852,7 +858,7 @@ function extractCustomerAttributes(data) {
     if (keyName === 'mapinstantaneouspower' && value != null) {
       try {
         window.MyIOUtils.mapInstantaneousPower = typeof value === 'string' ? JSON.parse(value) : value;
-      } catch (_e) {
+      } catch {
         // Ignore parse errors - keep existing value
       }
     }
@@ -935,6 +941,7 @@ function applyBackgroundToPage(themeMode, settings) {
 /**
  * Toggle theme mode
  */
+// eslint-disable-next-line no-unused-vars -- parked: theme toggler kept for re-enable
 function toggleTheme(settings) {
   _currentThemeMode = _currentThemeMode === 'light' ? 'dark' : 'light';
   applyBackgroundToPage(_currentThemeMode, settings);
@@ -970,6 +977,26 @@ self.onInit = async function () {
   const customerTbId = settings.customerTB_ID || '';
   window.MyIOUtils.customerTB_ID = customerTbId;
 
+  // RFC-0122: upgrade LogHelper to the lib's contextual logger; console LogHelper stays as fallback.
+  if (window.MyIOLibrary?.createLogHelper) {
+    Object.assign(
+      LogHelper,
+      window.MyIOLibrary.createLogHelper({ debugActive: DEBUG_ACTIVE, config: { widget: 'MAIN' } })
+    );
+  }
+  window.MyIOUtils.LogHelper = LogHelper;
+
+  // Endpoints from widget settings (no hard-coded URLs); toast on misconfiguration.
+  THINGSBOARD_URL = settings.thingsboardUrl || '';
+  DATA_API_HOST = (settings.dataApiHost || '').replace(/\/api\/v1\/?$/, '');
+  window.MyIOUtils.DATA_API_HOST = DATA_API_HOST;
+  if (!THINGSBOARD_URL) {
+    toastError('[MAIN_VIEW v5.4.0] thingsboardUrl não configurado nas settings do widget. Configure em Widget Settings → thingsboardUrl.');
+  }
+  if (!DATA_API_HOST) {
+    toastError('[MAIN_VIEW v5.4.0] dataApiHost não configurado nas settings do widget. Configure em Widget Settings → dataApiHost.');
+  }
+
   // Apply initial theme and background
   _currentThemeMode = settings.defaultThemeMode || 'light';
   window.MyIOUtils.currentTheme = _currentThemeMode;
@@ -981,17 +1008,23 @@ self.onInit = async function () {
   window.MyIOUtils.enableAnnotationsOnboarding = enableAnnotationsOnboarding;
   LogHelper.log('RFC-0144: enableAnnotationsOnboarding:', enableAnnotationsOnboarding);
 
-  // RFC-0178: Alarms API config from settings
-  const alarmsApiBaseUrl = settings.alarmsApiBaseUrl || 'https://alarms-api.a.myio-bas.com/api/v1';
+  // RFC-0178: Alarms API config from settings (no hard-coded URLs; toast on misconfiguration)
+  const alarmsApiBaseUrl = settings.alarmsApiBaseUrl || '';
+  if (!alarmsApiBaseUrl) {
+    toastError('[MAIN_VIEW v5.4.0] alarmsApiBaseUrl não configurado nas settings do widget. Configure em Widget Settings → alarmsApiBaseUrl.');
+  }
   const alarmsApiKey = settings.alarmsApiKey || '';
   if (!alarmsApiKey) {
-    window.MyIOLibrary?.MyIOToast?.error('[MAIN_VIEW v5.4.0] alarmsApiKey não configurado nas settings do widget. Configure em Widget Settings → alarmsApiKey.');
+    toastError('[MAIN_VIEW v5.4.0] alarmsApiKey não configurado nas settings do widget. Configure em Widget Settings → alarmsApiKey.');
   }
 
   // RFC-0180: GCDR IDs — primary from widget settings, fallback from TB attrs below
   let gcdrCustomerId = settings.gcdrCustomerId || '';
   let gcdrTenantId   = settings.gcdrTenantId   || '';
-  const gcdrApiBaseUrl = settings.gcdrApiBaseUrl || 'https://gcdr-api.a.myio-bas.com';
+  const gcdrApiBaseUrl = settings.gcdrApiBaseUrl || '';
+  if (!gcdrApiBaseUrl) {
+    toastError('[MAIN_VIEW v5.4.0] gcdrApiBaseUrl não configurado nas settings do widget. Configure em Widget Settings → gcdrApiBaseUrl.');
+  }
 
   // Detect SuperAdmin from context (quick check; currentUserEmail refined later via fetchAndUpdateUserInfo)
   const userEmail = self.ctx?.currentUser?.email || '';
