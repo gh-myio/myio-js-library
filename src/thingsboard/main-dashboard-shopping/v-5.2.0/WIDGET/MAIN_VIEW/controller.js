@@ -672,6 +672,49 @@ Object.assign(window.MyIOUtils, {
       return [];
     }
   },
+  fetchGoalsEnergyPeriod: async (custId, startTs, endTs, granularity, groupId) => {
+    try {
+      const creds = window.MyIOOrchestrator?.getCredentials?.();
+      if (!creds?.CLIENT_ID || !creds?.CLIENT_SECRET) return [];
+      const MyIOLib = (typeof MyIOLibrary !== 'undefined' && MyIOLibrary) || window.MyIOLibrary;
+      if (!MyIOLib?.buildMyioIngestionAuth) return [];
+      const myIOAuth = MyIOLib.buildMyioIngestionAuth({
+        dataApiHost: getDataApiHost(),
+        clientId: creds.CLIENT_ID,
+        clientSecret: creds.CLIENT_SECRET,
+      });
+      const token = await myIOAuth.getToken();
+      if (!token) return [];
+
+      // Converte timestamp para ISO com offset -03:00 (SP, sempre UTC-3 desde 2019)
+      const toSPISO = (ts) =>
+        new Date(ts - 3 * 60 * 60 * 1000).toISOString().replace(/\.\d{3}Z$/, '-03:00');
+
+      const url = new URL(`${getDataApiHost()}/telemetry/customers/${custId}/energy`);
+      url.searchParams.set('startTime', toSPISO(startTs));
+      url.searchParams.set('endTime', toSPISO(endTs));
+      url.searchParams.set('deep', '1');
+      if (granularity) url.searchParams.set('granularity', granularity);
+      if (groupId) url.searchParams.set('groupIds', groupId);
+
+      LogHelper.log(`[MyIOUtils] fetchGoalsEnergyPeriod: ${url.toString()}`);
+      const res = await fetch(url.toString(), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          window.MyIOUtils?.handleUnauthorizedError?.('fetchGoalsEnergyPeriod');
+        }
+        throw new Error(`API error: ${res.status}`);
+      }
+      const json = await res.json();
+      LogHelper.log(`[MyIOUtils] fetchGoalsEnergyPeriod: ${json?.length || 0} entradas`);
+      return Array.isArray(json) ? json : [];
+    } catch (error) {
+      LogHelper.error('[MyIOUtils] fetchGoalsEnergyPeriod error:', error);
+      return [];
+    }
+  },
   fetchGoalsTemperature: async (startTs, endTs, granularity = '1d') => {
     try {
       const creds = window.MyIOOrchestrator?.getCredentials?.();

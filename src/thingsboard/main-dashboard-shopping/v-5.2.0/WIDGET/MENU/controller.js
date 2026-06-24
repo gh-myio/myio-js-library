@@ -2426,31 +2426,87 @@ function _buildGoalsFetchData(domain) {
   };
 }
 
-// ── Energy & Water: 1 request por dia em paralelo (Promise.all), top-15 devices ──────────
+// ── Energy: 1 request para o período completo via /energy; Water: N requests paralelos ──
 async function _fetchGoalsTotals(domain, dayBoundaries, labels, numDays, empty, granularity = '1d') {
-  const ENTRADA_GROUP_ID = 'f431d17a-ec11-45e0-b92c-83a0d3b6d942';
-  const groupId = domain === 'energy' ? ENTRADA_GROUP_ID : null;
+  if (domain === 'energy') {
+    return await _fetchGoalsEnergy(dayBoundaries, labels, numDays, empty, granularity);
+  }
+  return await _fetchGoalsWater(dayBoundaries, labels, numDays, empty, granularity);
+}
 
+async function _fetchGoalsEnergy(dayBoundaries, labels, numDays, empty, granularity) {
+  const ENTRADA_GROUP_ID = 'f431d17a-ec11-45e0-b92c-83a0d3b6d942';
   const custId =
     window.MyIOOrchestrator?.getCredentials?.()?.CUSTOMER_ING_ID ||
     window.MyIOUtils?.customerTB_ID;
-  if (!custId) { LogHelper.error('[MENU] Metas: CUSTOMER_ING_ID indisponível'); return empty; }
+  if (!custId) { LogHelper.error('[MENU] Metas energy: CUSTOMER_ING_ID indisponível'); return empty; }
 
-  const fetchFn = window.MyIOUtils?.fetchGoalsDayTotals;
+  const fetchFn = window.MyIOUtils?.fetchGoalsEnergyPeriod;
   if (typeof fetchFn !== 'function') {
-    LogHelper.error('[MENU] Metas: fetchGoalsDayTotals indisponível — atualize o MAIN_VIEW');
+    LogHelper.error('[MENU] Metas energy: fetchGoalsEnergyPeriod indisponível — atualize o MAIN_VIEW');
     return empty;
   }
 
-  // N requests por dia, todos em paralelo
+  const startTs = dayBoundaries[0].startTs;
+  const endTs = dayBoundaries[numDays - 1].endTs;
+
+  let rawData;
+  try {
+    rawData = await fetchFn(custId, startTs, endTs, granularity, ENTRADA_GROUP_ID);
+  } catch (err) {
+    LogHelper.warn(`[MENU] Metas energy: fetch falhou — ${err.message}`);
+    return empty;
+  }
+
+  if (!rawData || !rawData.length) {
+    LogHelper.warn('[MENU] Metas energy: resposta vazia');
+    return empty;
+  }
+
+  const dayMs = 24 * 60 * 60 * 1000;
+  const dailyTotals = new Array(numDays).fill(0);
+  const shoppingData = {};
+  const shoppingNames = {};
+
+  rawData.forEach((entry) => {
+    const entryValues = new Array(numDays).fill(0);
+    (entry.consumption || []).forEach((r) => {
+      const rTs = new Date(r.timestamp).getTime();
+      const dayIdx = Math.floor((rTs - startTs) / dayMs);
+      if (dayIdx >= 0 && dayIdx < numDays) {
+        const v = Number(r.value) || 0;
+        dailyTotals[dayIdx] += v;
+        entryValues[dayIdx] += v;
+      }
+    });
+    shoppingData[entry.id] = entryValues;
+    shoppingNames[entry.id] = entry.name || entry.id;
+  });
+
+  LogHelper.log(`[MENU] Metas energy: totais=${dailyTotals.map((v) => v.toFixed(0)).join(', ')}`);
+  return { labels, dailyTotals, shoppingData, shoppingNames, fetchTimestamp: Date.now() };
+}
+
+async function _fetchGoalsWater(dayBoundaries, labels, numDays, empty, granularity) {
+  const custId =
+    window.MyIOOrchestrator?.getCredentials?.()?.CUSTOMER_ING_ID ||
+    window.MyIOUtils?.customerTB_ID;
+  if (!custId) { LogHelper.error('[MENU] Metas water: CUSTOMER_ING_ID indisponível'); return empty; }
+
+  const fetchFn = window.MyIOUtils?.fetchGoalsDayTotals;
+  if (typeof fetchFn !== 'function') {
+    LogHelper.error('[MENU] Metas water: fetchGoalsDayTotals indisponível — atualize o MAIN_VIEW');
+    return empty;
+  }
+
   const dayResults = await Promise.all(
     dayBoundaries.map(async (day, dayIdx) => {
       try {
-        const result = await fetchFn(custId, domain, day.startTs, day.endTs, granularity, groupId);
+        const result = await fetchFn(custId, 'water', day.startTs, day.endTs, granularity, null);
         const devices = Array.isArray(result) ? result : (result?.devices || result?.data || []);
         return { dayIdx, devices, label: day.label };
       } catch (err) {
-        LogHelper.warn(`[MENU] Metas ${domain} ${day.label}: fetch falhou — ${err.message}`);
+        LogHelper.warn(`[MENU] Metas water ${day.label}: fetch falhou — ${err.message}`);
         return { dayIdx, devices: [], label: day.label };
       }
     })
@@ -2471,7 +2527,7 @@ async function _fetchGoalsTotals(domain, dayBoundaries, labels, numDays, empty, 
       perDevice[did].values[dayIdx] = v;
     });
     dailyTotals[dayIdx] = dayTotal;
-    LogHelper.log(`[MENU] Metas ${domain} ${label}: ${dayTotal.toFixed(2)} (${devices.length} devices)`);
+    LogHelper.log(`[MENU] Metas water ${label}: ${dayTotal.toFixed(2)} (${devices.length} devices)`);
   });
 
   const shoppingData = {};
