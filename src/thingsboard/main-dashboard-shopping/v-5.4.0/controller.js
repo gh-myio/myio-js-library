@@ -22,10 +22,13 @@ const DEBUG_ACTIVE = true;
 let THINGSBOARD_URL = '';
 let DATA_API_HOST = '';
 
-// Domain constants
-const DOMAIN_ENERGY = 'energy';
-const DOMAIN_WATER = 'water';
-const DOMAIN_TEMPERATURE = 'temperature';
+// Domain map — bootstrap with stable codes; enriched from the lib
+// (window.MyIOLibrary.exportMapDomain) in onInit. Comparisons use DOMAIN.<x>.code.
+let DOMAIN = {
+  energy: { code: 'energy' },
+  water: { code: 'water' },
+  temperature: { code: 'temperature' },
+};
 
 // ============================================================================
 // LogHelper
@@ -124,15 +127,15 @@ function extractDeviceMetadataFromRows(rows) {
   // Domain detection
   const isWater = deviceType.toUpperCase().includes('HIDROMETRO');
   const isTemperature = deviceType.toUpperCase().includes('TERMOSTATO');
-  const domain = isWater ? DOMAIN_WATER : isTemperature ? DOMAIN_TEMPERATURE : DOMAIN_ENERGY;
+  const domain = isWater ? DOMAIN.water.code : isTemperature ? DOMAIN.temperature.code : DOMAIN.energy.code;
 
   // Calculate device status
   let deviceStatus = 'offline';
   if (window.MyIOLibrary?.calculateDeviceStatusMasterRules) {
     const telemetryTs =
-      domain === DOMAIN_ENERGY
+      domain === DOMAIN.energy.code
         ? dataKeyTimestamps['consumption']
-        : domain === DOMAIN_WATER
+        : domain === DOMAIN.water.code
           ? dataKeyTimestamps['pulses']
           : dataKeyTimestamps['temperature'];
     deviceStatus = window.MyIOLibrary.calculateDeviceStatusMasterRules({
@@ -977,6 +980,12 @@ self.onInit = async function () {
     );
   }
   window.MyIOUtils.LogHelper = LogHelper;
+
+  // Domain map from the lib (single source); bootstrap codes stay as fallback.
+  if (window.MyIOLibrary?.exportMapDomain) {
+    DOMAIN = window.MyIOLibrary.exportMapDomain();
+  }
+  window.MyIOUtils.DOMAIN = DOMAIN;
 
   // Endpoints from widget settings (no hard-coded URLs); toast on misconfiguration.
   THINGSBOARD_URL = settings.thingsboardUrl || '';

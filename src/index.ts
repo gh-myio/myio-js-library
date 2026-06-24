@@ -701,6 +701,25 @@ export {
   generateExportFilename,
 } from './components/ExportData';
 
+// Canonical domain map + per-domain descriptors (single source via exportMapDomain)
+export {
+  DOMAIN_MAP,
+  exportMapDomain,
+  getDomainDescriptor,
+  Energy,
+  Water,
+  Temperature,
+  DOMAIN_CODES,
+} from './utils/exportMapDomain';
+export type {
+  DomainCode,
+  DomainDescriptor,
+  DomainMap,
+  EnergyType,
+  WaterType,
+  TemperatureType,
+} from './utils/exportMapDomain';
+
 // RFC-0101: Export Data Types
 export type {
   ExportDomain,
