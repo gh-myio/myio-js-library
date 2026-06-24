@@ -1,0 +1,11 @@
+{
+  "_comment": "Copie este arquivo para config.json (gitignored) e preencha com seus valores reais. O showcase carrega config.json em runtime; se ausente, usa este template.",
+  "customerTB_ID": "",
+  "thingsboardUrl": "https://dashboard.myio-bas.com",
+  "gcdrApiBaseUrl": "http://localhost:3015/api/v1",
+  "gcdrCustomerId": "77777777-7777-7777-7777-777777777777",
+  "gcdrTenantId": "11111111-1111-1111-1111-111111111111",
+  "apiKeys": [
+    { "label": "Cole sua X-API-Key aqui", "value": "COLE-SUA-API-KEY" }
+  ]
+}

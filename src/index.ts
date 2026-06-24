@@ -268,6 +268,20 @@ export {
 
 // ThingsBoard utilities
 export { buildListItemsThingsboardByUniqueDatasource } from './utils/thingsboard/buildListItemsThingsboardByUniqueDatasource';
+// RFC-0209: single-source device classification & status aggregation (pure, DI)
+export {
+  extractDeviceMetadataFromRows,
+  classifyAllDevices,
+  buildByStatusFromDevices,
+} from './utils/thingsboard/deviceClassification';
+export type {
+  DomainCatalog,
+  ProfileIndex,
+  ExtractDeps,
+  ClassifyDeps,
+  ClassifyResult,
+} from './utils/thingsboard/deviceClassification';
+export type { DeviceMeta, ByStatusCounts } from './types/device';
 export {
   buildMyioIngestionAuth,
   clearAllAuthCaches,

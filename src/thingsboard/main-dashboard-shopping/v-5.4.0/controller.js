@@ -81,159 +81,9 @@ const _grids = new Map();
 const _infoInstances = new Map();
 
 // ============================================================================
-// Device Classification (RFC-0111)
+// Device Classification (RFC-0209) — moved to the lib (single source).
+// Use window.MyIOLibrary.{extractDeviceMetadataFromRows, classifyAllDevices, buildByStatusFromDevices}.
 // ============================================================================
-/**
- * Extract device metadata from all rows for a single device
- */
-function extractDeviceMetadataFromRows(rows) {
-  if (!rows || rows.length === 0) return null;
-
-  const firstRow = rows[0];
-  const datasource = firstRow.datasource || {};
-  const entityId = datasource.entityId;
-  const deviceName = datasource.entityName || '';
-  const entityLabel = datasource.entityLabel || '';
-
-  const dataKeyValues = {};
-  const dataKeyTimestamps = {};
-
-  for (const row of rows) {
-    const keyName = row.dataKey?.name;
-    if (keyName && row.data && row.data.length > 0) {
-      const latestData = row.data[row.data.length - 1];
-      if (Array.isArray(latestData) && latestData.length >= 2) {
-        dataKeyTimestamps[keyName] = latestData[0];
-        dataKeyValues[keyName] = latestData[1];
-      }
-    }
-  }
-
-  const deviceType = dataKeyValues['deviceType'] || '';
-  const deviceProfile = dataKeyValues['deviceProfile'] || deviceType;
-  const connectionStatus = dataKeyValues['connectionStatus'] || 'no_info';
-
-  // Domain detection — data-driven via the lib (RFC-0111). No fallback.
-  const domain = window.MyIOLibrary?.getDomainFromDeviceType?.(deviceType) || '';
-
-  // Domain's primary telemetry data-key, from the lib catalog (e.g. 'consumption'/'pulses'/…).
-  const _valueField = DOMAIN[domain]?.valueField || '';
-  const _primaryValue = _valueField ? dataKeyValues[_valueField] ?? null : null;
-  const _primaryTs = _valueField ? dataKeyTimestamps[_valueField] ?? null : null;
-
-  // Calculate device status
-  let deviceStatus = 'offline';
-  if (window.MyIOLibrary?.calculateDeviceStatusMasterRules) {
-    deviceStatus = window.MyIOLibrary.calculateDeviceStatusMasterRules({
-      connectionStatus,
-      telemetryTimestamp: _primaryTs,
-      delayMins: 1440,
-      domain,
-    });
-  }
-
-  return {
-    id: entityId,
-    entityId,
-    name: deviceName,
-    label: dataKeyValues['label'] || entityLabel,
-    labelOrName: dataKeyValues['label'] || entityLabel || deviceName,
-    deviceType,
-    deviceProfile,
-    identifier: dataKeyValues['identifier'] || '',
-    centralName: dataKeyValues['centralName'] || '',
-    slaveId: dataKeyValues['slaveId'] || '',
-    centralId: dataKeyValues['centralId'] || '',
-    customerId: dataKeyValues['customerId'] || '',
-    ownerName: dataKeyValues['ownerName'] || '',
-    ingestionId: dataKeyValues['ingestionId'] || '',
-    consumption: dataKeyValues['consumption'] || null,
-    val: _primaryValue,
-    value: _primaryValue,
-    pulses: dataKeyValues['pulses'],
-    // Domain-specific raw field via computed key (e.g. sets the temp field) — no literal.
-    ...(_valueField && _valueField !== 'consumption' && _valueField !== 'pulses'
-      ? { [_valueField]: dataKeyValues[_valueField] ?? null }
-      : {}),
-    connectionStatus,
-    deviceStatus,
-    domain,
-    lastActivityTime: dataKeyValues['lastActivityTime'],
-    lastConnectTime: dataKeyValues['lastConnectTime'],
-  };
-}
-
-/**
- * Classify all devices from datasource
- */
-function classifyAllDevices(data) {
-  // Structure (domain → column → devices[]) comes entirely from the GCDR tree.
-  const classified = {};
-  const tree = _classificationTree;
-  for (const d of tree?.domains || []) {
-    classified[d.code] = {};
-    for (const c of d.columns) classified[d.code][c.key] = [];
-  }
-
-  // Group rows by entityId
-  const deviceRowsMap = new Map();
-  for (const row of data) {
-    const entityId = row.datasource?.entityId || row.datasource?.entity?.id?.id;
-    if (!entityId) continue;
-    if (!deviceRowsMap.has(entityId)) deviceRowsMap.set(entityId, []);
-    deviceRowsMap.get(entityId).push(row);
-  }
-
-  LogHelper.log(`Grouped ${data.length} rows → ${deviceRowsMap.size} devices`);
-
-  // Route each device by its deviceProfile via the tree's profileIndex.
-  for (const rows of deviceRowsMap.values()) {
-    const device = extractDeviceMetadataFromRows(rows);
-    if (!device) continue;
-    const profileKey = String(device.deviceProfile || '').trim().toUpperCase();
-    const loc = tree?.profileIndex?.[profileKey];
-    if (loc && classified[loc.domain]?.[loc.column]) {
-      classified[loc.domain][loc.column].push(device);
-    }
-  }
-
-  return classified;
-}
-
-/**
- * Build status aggregation from devices
- */
-function buildByStatusFromDevices(devices) {
-  const byStatus = {
-    waiting: 0,
-    offline: 0,
-    normal: 0,
-    alert: 0,
-    failure: 0,
-    weakConnection: 0,
-    standby: 0,
-    noConsumption: 0,
-  };
-
-  const ONLINE = ['power_on', 'online', 'normal', 'ok', 'running', 'active'];
-  const OFFLINE = ['offline', 'no_info'];
-  const WAITING = ['waiting', 'not_installed', 'pending'];
-
-  for (const d of devices) {
-    const status = (d.deviceStatus || d.connectionStatus || '').toLowerCase();
-    const value = Number(d.value || d.val || 0);
-
-    if (WAITING.includes(status)) byStatus.waiting++;
-    else if (OFFLINE.includes(status)) byStatus.offline++;
-    else if (status === 'alert') byStatus.alert++;
-    else if (status === 'failure') byStatus.failure++;
-    else if (ONLINE.includes(status) && value === 0) byStatus.noConsumption++;
-    else if (ONLINE.includes(status)) byStatus.normal++;
-    else byStatus.offline++;
-  }
-
-  return byStatus;
-}
 
 // ============================================================================
 // Data Processing
@@ -254,8 +104,21 @@ function processDataAndDispatchEvents() {
   LogHelper.log(`Processing ${data.length} rows from AllDevices`);
   if (data.length === 0) return false;
 
-  // Classify devices
-  const classified = classifyAllDevices(data);
+  // Classify devices via the lib (single source, RFC-0209). No fallback.
+  if (!window.MyIOLibrary?.classifyAllDevices) {
+    toastError('[MAIN_VIEW v5.4.0] MyIOLibrary.classifyAllDevices indisponível.');
+    return false;
+  }
+  const { byDomainColumn: classified, unknown } = window.MyIOLibrary.classifyAllDevices(data, {
+    profileIndex: _classificationTree?.profileIndex || {},
+    catalog: DOMAIN,
+    domains: _classificationTree?.domains || [],
+  });
+  if (unknown.length) {
+    toastError(
+      `[MAIN_VIEW v5.4.0] ${unknown.length} dispositivo(s) com deviceProfile não mapeado na árvore de classificação.`
+    );
+  }
 
   // Store global state + dispatch one summary per domain — structure from the GCDR tree.
   window.STATE = window.STATE || {};
@@ -289,7 +152,7 @@ function processDataAndDispatchEvents() {
           totalDevices: allDevices.length,
           totalConsumption: total,
           globalAvg,
-          byStatus: buildByStatusFromDevices(allDevices),
+          byStatus: window.MyIOLibrary.buildByStatusFromDevices(allDevices),
         },
       })
     );

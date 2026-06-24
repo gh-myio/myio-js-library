@@ -1,3234 +1,481 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta http-equiv="Pragma" content="no-cache">
-  <meta http-equiv="Expires" content="0">
-  <title>MAIN_VIEW Shopping Dashboard - Showcase</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Showcase — MainView Shopping v-5.4.0 (domain-agnostic engine)</title>
 
-  <!-- CSS Variables (normally from ThingsBoard theme) -->
+  <!-- v-5.4.0 dashboard styles -->
+  <link rel="stylesheet" href="../../src/thingsboard/main-dashboard-shopping/v-5.4.0/styles.css" />
+
   <style>
-    :root {
-      --myio-bg: #0f172a;
-      --myio-panel: #1e293b;
-      --myio-border: #334155;
-      --myio-text: #f1f5f9;
-      --myio-muted: #94a3b8;
-      --myio-primary: #00c896;
-      --myio-accent: #7A2FF7;
-    }
+    /* Flex ROW: dashboard fills the left, cockpit is a vertical sidebar on the RIGHT. */
+    html, body { height: 100%; }
+    body { margin: 0; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:#f4f4f7; display:flex; flex-direction:row; height:100vh; overflow:hidden; }
+    #myio-root { flex: 1 1 auto; min-width: 0; min-height: 0; }
 
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    #sc-cockpit { flex: 0 0 340px; display:flex; flex-direction:column; background:#1f1147; color:#fff; font-size:12px; overflow:hidden; transition: flex-basis .2s ease; }
+    #sc-cockpit .sc-head { flex:0 0 auto; display:flex; align-items:center; gap:8px; padding:10px 12px; border-bottom:1px solid rgba(255,255,255,.15); }
+    #sc-cockpit .sc-title { white-space:nowrap; }
+    #sc-cockpit .sc-body { flex:1 1 auto; min-height:0; display:flex; flex-direction:column; gap:5px; padding:10px 12px; overflow:auto; }
+    #sc-cockpit label { opacity:.8; margin-top:4px; }
+    #sc-cockpit input { font-size:12px; padding:6px; border-radius:6px; border:1px solid #ccc; width:100%; box-sizing:border-box; }
+    #sc-cockpit select { font-size:12px; padding:6px; border-radius:6px; border:1px solid #ccc; width:100%; box-sizing:border-box; color:#111; }
+    #sc-cockpit input[type=color] { height:30px; padding:2px; }
+    #sc-cockpit .sc-checkbox { display:flex; align-items:center; gap:8px; margin-top:6px; }
+    #sc-cockpit .sc-checkbox input { width:auto; }
+    #sc-cockpit fieldset.sc-fieldset { border:1px solid rgba(255,255,255,.22); border-radius:8px; padding:4px 10px 10px; margin-top:10px; }
+    #sc-cockpit fieldset.sc-fieldset > legend { font-weight:600; font-size:11px; opacity:.9; padding:0 4px; }
+    #sc-cockpit fieldset.sc-fieldset > legend.sc-fs-legend { cursor:pointer; user-select:none; }
+    #sc-cockpit fieldset.sc-fieldset.collapsed { padding-bottom:4px; }
+    #sc-cockpit fieldset.sc-fieldset.collapsed > .sc-fs-body { display:none; }
+    #sc-cockpit .sc-fs-ico { display:inline-block; width:12px; font-size:9px; }
+    #sc-cockpit .sc-actions { display:flex; flex-direction:column; gap:6px; margin-top:10px; }
+    #sc-cockpit button { font-size:12px; padding:8px 12px; border:none; border-radius:6px; background:#6c5ce7; color:#fff; cursor:pointer; }
+    #sc-cockpit button:hover { background:#5a4bd6; }
+    #sc-cockpit button.sc-ghost { background:transparent; border:1px solid rgba(255,255,255,.4); padding:4px 9px; }
+    #sc-cockpit button.sc-ghost:hover { background:rgba(255,255,255,.12); }
+    /* collapsed: cockpit shrinks to a thin strip, only the toggle stays visible */
+    body.console-collapsed #sc-cockpit { flex-basis: 46px; }
+    body.console-collapsed #sc-cockpit .sc-body,
+    body.console-collapsed #sc-cockpit .sc-title { display:none; }
 
-    body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #0f172a;
-      min-height: 100vh;
-      color: #e2e8f0;
-    }
+    #sc-log { flex:1 1 auto; min-height:140px; margin-top:10px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size:11px; background:#0b0b14; color:#9ef1c0; overflow:auto; padding:8px; border-radius:6px; }
+    #sc-log .err { color:#ff8080; }
+    #sc-log .warn { color:#ffd479; }
+    #sc-log .info { color:#9ecbff; }
 
-    body.light-mode {
-      --myio-bg: #f8fafc;
-      --myio-panel: #ffffff;
-      --myio-border: #e2e8f0;
-      --myio-text: #1e293b;
-      --myio-muted: #64748b;
-      background: #f1f5f9;
-      color: #1e293b;
-    }
-
-    /* ===== SHOWCASE LAYOUT ===== */
-    .showcase-layout {
-      display: grid;
-      grid-template-columns: 1fr 320px;
-      grid-template-rows: auto 1fr;
-      height: 100vh;
-      gap: 0;
-    }
-
-    .showcase-header {
-      grid-column: 1 / -1;
-      background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-      padding: 10px 20px;
-      border-bottom: 1px solid #334155;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    body.light-mode .showcase-header {
-      background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%);
-      border-color: #e2e8f0;
-    }
-
-    .showcase-header h1 { font-size: 16px; font-weight: 700; }
-    body.light-mode .showcase-header h1 { color: #1e293b; }
-    .showcase-header p { color: #94a3b8; font-size: 11px; margin-top: 2px; }
-
-    .header-status { display: flex; align-items: center; gap: 12px; }
-
-    .status-badge {
-      padding: 5px 10px;
-      border-radius: 12px;
-      font-size: 10px;
-      font-weight: 600;
-      text-transform: uppercase;
-    }
-    .status-badge.ready { background: #166534; color: #86efac; }
-    .status-badge.running { background: #1d4ed8; color: #93c5fd; }
-    .status-badge.error { background: #7f1d1d; color: #fca5a5; }
-    .status-badge.stopped { background: #475569; color: #cbd5e1; }
-
-    /* ===== WIDGET AREA ===== */
-    .widget-area {
-      position: relative;
-      overflow: hidden;
-      background: var(--myio-bg);
-      height: 100%; /* required: grid items need explicit height for children's height:100% to resolve */
-    }
-
-    .widget-mount {
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-    }
-
-    /* ===== SIDEBAR ===== */
-    .showcase-sidebar {
-      background: #1e293b;
-      border-left: 1px solid #334155;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-    body.light-mode .showcase-sidebar { background: #ffffff; border-color: #e2e8f0; }
-
-    .controls-panel {
-      padding: 12px;
-      border-bottom: 1px solid #334155;
-    }
-    body.light-mode .controls-panel { border-color: #e2e8f0; }
-
-    .controls-panel h3 {
-      font-size: 11px;
-      font-weight: 600;
-      color: #94a3b8;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 10px;
-    }
-
-    .controls-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-    .controls-grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
-
-    .ctrl-btn {
-      padding: 7px 10px;
-      border-radius: 6px;
-      font-family: inherit;
-      font-size: 11px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.15s;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 5px;
-      border: 1px solid transparent;
-    }
-    .ctrl-btn.primary { background: #3b82f6; color: white; }
-    .ctrl-btn.primary:hover { background: #2563eb; }
-    .ctrl-btn.success { background: #16a34a; color: white; }
-    .ctrl-btn.success:hover { background: #15803d; }
-    .ctrl-btn.warning { background: #d97706; color: white; }
-    .ctrl-btn.warning:hover { background: #b45309; }
-    .ctrl-btn.danger { background: #dc2626; color: white; }
-    .ctrl-btn.danger:hover { background: #b91c1c; }
-    .ctrl-btn.secondary { background: transparent; color: #e2e8f0; border-color: #475569; }
-    .ctrl-btn.secondary:hover { background: #334155; }
-    .ctrl-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    body.light-mode .ctrl-btn.secondary { color: #475569; border-color: #cbd5e1; }
-
-    .ctrl-select {
-      width: 100%;
-      padding: 7px 8px;
-      border-radius: 6px;
-      border: 1px solid #475569;
-      background: #0f172a;
-      color: #e2e8f0;
-      font-size: 11px;
-      cursor: pointer;
-    }
-    body.light-mode .ctrl-select { background: #f8fafc; border-color: #cbd5e1; color: #1e293b; }
-
-    .ctrl-label { font-size: 10px; color: #94a3b8; margin-bottom: 4px; display: block; }
-    .ctrl-group { margin-bottom: 6px; }
-
-    /* ===== SIDEBAR CONTROLS (scrollable) ===== */
-    .sidebar-controls {
-      overflow-y: auto;
-      flex: 1 1 0;
-      min-height: 0;
-    }
-    .sidebar-controls::-webkit-scrollbar { width: 4px; }
-    .sidebar-controls::-webkit-scrollbar-track { background: transparent; }
-    .sidebar-controls::-webkit-scrollbar-thumb { background: #475569; border-radius: 2px; }
-
-    /* ===== EVENT LOG ===== */
-    .event-log-panel {
-      flex: 0 0 220px;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      padding: 12px;
-      border-top: 1px solid #334155;
-    }
-    body.light-mode .event-log-panel { border-top-color: #e2e8f0; }
-    .event-log-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-    .event-log-header h3 { font-size: 11px; font-weight: 600; color: #94a3b8; text-transform: uppercase; }
-    .event-log-clear { font-size: 10px; color: #64748b; cursor: pointer; padding: 3px 6px; border-radius: 4px; background: transparent; border: none; }
-    .event-log-clear:hover { background: #334155; color: #e2e8f0; }
-
-    .event-log {
-      flex: 1;
-      background: #0f172a;
-      border-radius: 6px;
-      padding: 6px;
-      overflow-y: auto;
-      font-family: 'Fira Code', 'Consolas', monospace;
-      font-size: 10px;
-    }
-    body.light-mode .event-log { background: #f8fafc; border: 1px solid #e2e8f0; }
-
-    .log-entry { padding: 3px 6px; border-radius: 3px; margin-bottom: 2px; display: flex; gap: 6px; align-items: flex-start; }
-    .log-entry:hover { background: #1e293b; }
-    body.light-mode .log-entry:hover { background: #e2e8f0; }
-    .log-time { color: #64748b; min-width: 55px; flex-shrink: 0; }
-    .log-event { color: #22c55e; min-width: 100px; font-weight: 500; flex-shrink: 0; }
-    .log-entry.error .log-event { color: #f87171; }
-    .log-entry.warn .log-event { color: #fbbf24; }
-    .log-entry.info .log-event { color: #60a5fa; }
-    .log-data { color: #94a3b8; word-break: break-all; flex: 1; }
-
-    /* State Panel */
-    .state-panel { border-top: 1px solid #334155; max-height: 160px; overflow: hidden; display: flex; flex-direction: column; }
-    body.light-mode .state-panel { border-color: #e2e8f0; }
-    .state-header { padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; background: #0f172a; }
-    body.light-mode .state-header { background: #f1f5f9; }
-    .state-header h3 { font-size: 11px; font-weight: 600; color: #94a3b8; text-transform: uppercase; }
-    .state-toggle { font-size: 11px; color: #64748b; }
-    .state-content { flex: 1; overflow-y: auto; padding: 0 12px 12px; }
-    .state-content pre { font-family: 'Fira Code', 'Consolas', monospace; font-size: 9px; color: #94a3b8; white-space: pre-wrap; word-break: break-all; }
-
-    @media (max-width: 900px) {
-      .showcase-layout { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; }
-      .showcase-sidebar { border-left: none; border-top: 1px solid #334155; max-height: 280px; }
-    }
-
-    /* ===== PLACEHOLDER COMPONENTS ===== */
-    .placeholder-component {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: rgba(91, 46, 188, 0.05);
-      border: 1px dashed rgba(91, 46, 188, 0.3);
-      border-radius: 8px;
-      color: var(--myio-muted);
-      font-size: 12px;
-      height: 100%;
-      min-height: 60px;
-    }
-    .placeholder-component.active {
-      background: rgba(0, 200, 150, 0.05);
-      border-color: rgba(0, 200, 150, 0.3);
-    }
-
-    /* ===== TELEMETRY SHOPPING LAYOUT (RFC-0145/0148) ===== */
-    /* 4-column layout: 3 grids + 1 info panel */
-    .telemetry-shopping-layout {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr) 380px;
-      gap: 12px;
-      padding: 12px;
-      height: 100%;
-      box-sizing: border-box;
-      overflow-y: auto;
-    }
-
-    .telemetry-grid-wrapper,
-    .telemetry-info-wrapper {
-      background: var(--myio-panel);
-      border: 1px solid var(--myio-border);
-      border-radius: 12px;
-      overflow: hidden;
-      min-height: 400px;
-      height: 100%;
-    }
-
-    .telemetry-info-wrapper {
-      min-width: 350px;
-    }
-
-    @media (max-width: 1400px) {
-      .telemetry-shopping-layout {
-        grid-template-columns: repeat(2, 1fr);
-        grid-template-rows: auto auto;
-      }
-      .telemetry-info-wrapper {
-        grid-column: 2;
-        grid-row: 1 / 3;
-      }
-    }
-
-    @media (max-width: 1000px) {
-      .telemetry-shopping-layout {
-        grid-template-columns: 1fr 1fr;
-      }
-    }
-
-    @media (max-width: 768px) {
-      .telemetry-shopping-layout {
-        grid-template-columns: 1fr;
-      }
-      .telemetry-info-wrapper {
-        grid-column: auto;
-        grid-row: auto;
-      }
-    }
-
-    /* ===== ALARM WIDGET AREA ===== */
-    /* alarm_content [data-content-state] is shown as display:flex → alarm-section flex-fills it */
-    .myio-alarm-section {
-      flex: 1;
-      min-height: 0;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    /* The ALARM widget root fills the section */
-    .myio-alarm-section .alarm-widget-root {
-      flex: 1;
-      min-height: 0;
-    }
+    /* ---- auth status + login modal (inspired by presetup-nextjs LoginForm) ---- */
+    #sc-auth { font-size:11.5px; padding:6px 8px; border-radius:6px; background:rgba(255,255,255,.08); }
+    #sc-auth.ok { color:#9ef1c0; }
+    #sc-auth.no { color:#ffd479; }
+    .sc-modal-overlay { position:fixed; inset:0; background:rgba(15,17,30,.6); display:none; align-items:center; justify-content:center; z-index:10000; }
+    .sc-modal-overlay.open { display:flex; }
+    .sc-login { width:360px; max-width:92vw; background:#fff; color:#1e293b; border-radius:14px; padding:24px; box-shadow:0 20px 60px rgba(0,0,0,.35); }
+    .sc-login .sc-close { float:right; background:none; border:none; font-size:20px; line-height:1; color:#94a3b8; cursor:pointer; }
+    .sc-login .sc-logo { width:46px; height:46px; border-radius:12px; background:#6c5ce7; display:flex; align-items:center; justify-content:center; margin:0 auto; font-size:22px; }
+    .sc-login h2 { margin:14px 0 2px; text-align:center; font-size:18px; }
+    .sc-login p.sub { margin:0 0 8px; text-align:center; color:#64748b; font-size:12.5px; }
+    .sc-login label { display:block; font-size:12px; font-weight:600; color:#334155; margin:12px 0 4px; }
+    .sc-login input { width:100%; box-sizing:border-box; padding:9px 10px; border:1px solid #cbd5e1; border-radius:8px; font-size:13px; }
+    .sc-login .pwd { position:relative; }
+    .sc-login .pwd button { position:absolute; right:4px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; padding:6px; }
+    .sc-login .sc-err { margin-top:12px; background:#fef2f2; border:1px solid #fecaca; color:#b91c1c; padding:8px 10px; border-radius:8px; font-size:12.5px; }
+    .sc-login .sc-submit { width:100%; margin-top:18px; padding:10px; border:none; border-radius:8px; background:#6c5ce7; color:#fff; font-size:14px; font-weight:600; cursor:pointer; }
+    .sc-login .sc-submit:disabled { opacity:.6; cursor:not-allowed; }
+    .sc-spin { display:inline-block; width:14px; height:14px; border:2px solid rgba(255,255,255,.4); border-top-color:#fff; border-radius:50%; animation:sc-rot .7s linear infinite; vertical-align:-2px; margin-right:6px; }
+    @keyframes sc-rot { to { transform:rotate(360deg); } }
+    /* The v-5.4.0 controller generates its DOM into the structure below. */
   </style>
-
-  <!-- Widget Styles from MAIN_VIEW -->
-  <link rel="stylesheet" href="../../src/thingsboard/main-dashboard-shopping/v-5.2.0/WIDGET/MAIN_VIEW/styles.css">
-  <!-- Widget Styles from ALARM widget (served fresh — no bundle cache) -->
-  <link rel="stylesheet" href="../../src/thingsboard/main-dashboard-shopping/v-5.2.0/WIDGET/ALARM/styles.css">
 </head>
-<body class="light-mode">
-  <div class="showcase-layout">
-    <!-- Showcase Header -->
-    <header class="showcase-header">
-      <div>
-        <h1>MAIN_VIEW Shopping Dashboard - Showcase</h1>
-        <p>src/thingsboard/main-dashboard-shopping/v-5.2.0/WIDGET/MAIN_VIEW/controller.js</p>
-      </div>
-      <div class="header-status">
-        <span class="status-badge stopped" id="widgetStatus">STOPPED</span>
-        <button class="ctrl-btn secondary" id="themeToggle" title="Toggle Theme">
-          <span id="themeIcon">&#x2600;&#xfe0f;</span>
-        </button>
-      </div>
+<body>
+  <!-- ===================== v-5.4.0 template (the controller fills these) ===================== -->
+  <section id="myio-root" class="myio-grid">
+    <aside class="myio-sidebar">
+      <section id="menuContainer" class="myio-menu-section"></section>
+    </aside>
+    <header class="myio-header">
+      <section id="headerContainer" class="myio-header-section"></section>
     </header>
-
-    <!-- Widget Mount Area -->
-    <!-- Structure matches MAIN_VIEW/template.html -->
-    <main class="widget-area">
-      <div class="widget-mount" id="widgetMount">
-        <!-- MAIN_VIEW Grid Layout -->
-        <section id="myio-root" class="myio-grid">
-          <aside class="myio-sidebar">
-            <!-- RFC-0147: Menu component container -->
-            <section id="menuContainer" class="myio-menu-section">
-              <div class="placeholder-component" id="menuPlaceholder">Menu Component</div>
-            </section>
-          </aside>
-
-          <header class="myio-header">
-            <!-- RFC-0146: Header component container -->
-            <section id="headerContainer" class="myio-header-section">
-              <div class="placeholder-component" id="headerPlaceholder">Header Component</div>
-            </section>
-          </header>
-
-          <main class="myio-content">
-            <!-- RFC-0053: Content states with show/hide logic -->
-            <div data-content-state="telemetry_content" style="display: block; height: 100%; min-height: 400px">
-              <section id="telemetryContentContainer" class="myio-telemetry-section">
-                <!-- RFC-0145/0148: Energy domain layout - 3 grids + 1 info panel (4 columns) -->
-                <div class="telemetry-shopping-layout">
-                  <!-- Grid 1: Entrada -->
-                  <div id="gridEntradaContainer" class="telemetry-grid-wrapper">
-                    <div class="placeholder-component active">Grid: Entrada</div>
-                  </div>
-                  <!-- Grid 2: Área Comum -->
-                  <div id="gridAreaComumContainer" class="telemetry-grid-wrapper">
-                    <div class="placeholder-component active">Grid: Área Comum</div>
-                  </div>
-                  <!-- Grid 3: Lojas -->
-                  <div id="gridLojasContainer" class="telemetry-grid-wrapper">
-                    <div class="placeholder-component active">Grid: Lojas</div>
-                  </div>
-                  <!-- Info Panel: Categorias -->
-                  <div id="telemetryInfoContainer" class="telemetry-info-wrapper">
-                    <div class="placeholder-component active">Info: Categorias</div>
-                  </div>
-                </div>
-              </section>
-            </div>
-            <div data-content-state="water_content" style="display: none; height: 100%; min-height: 400px">
-              <section id="waterContentContainer" class="myio-water-section">
-                <div class="placeholder-component" id="waterPlaceholder">Telemetry Grid (Water)</div>
-              </section>
-            </div>
-            <div data-content-state="temperature_content" style="display: none; height: 100%; min-height: 400px">
-              <section id="temperatureContentContainer" class="myio-temperature-section">
-                <div class="placeholder-component" id="temperaturePlaceholder">Telemetry Grid (Temperature)</div>
-              </section>
-            </div>
-            <div data-content-state="alarm_content" style="display: none; height: 100%; min-height: 400px">
-              <section id="alarmContentContainer" class="myio-alarm-section">
-                <!-- ALARM widget template (mirrors ALARM/template.html exactly) -->
-                <!-- btnAlarmBundleMap e alarmCountBadge são renderizados pelo componente na tab nav -->
-                <section class="alarm-widget-root" id="alarmWidgetRoot">
-                  <div class="alarm-panel-container" id="alarmPanelContainer"></div>
-                </section>
-              </section>
-            </div>
-          </main>
-
-          <footer class="myio-footer">
-            <!-- RFC-0149: Footer component container -->
-            <section id="footerContainer" class="myio-footer-section">
-              <div class="placeholder-component" id="footerPlaceholder">Footer Component</div>
-            </section>
-          </footer>
-
-          <!-- Modal containers -->
-          <div id="panelModalContainer"></div>
-        </section>
+    <main class="myio-content">
+      <!-- Per-domain sections generated dynamically by the controller from the GCDR tree. -->
+      <div id="domainContentRoot"></div>
+      <div data-content-state="alarm_content" class="myio-content-grid" style="display: none">
+        <section id="alarmContentContainer" class="myio-grid-column myio-grid-full"></section>
       </div>
     </main>
+    <footer class="myio-footer">
+      <section id="footerContainer" class="myio-footer-section"></section>
+    </footer>
+    <div id="panelModalContainer"></div>
+  </section>
 
-    <!-- Sidebar Controls -->
-    <aside class="showcase-sidebar">
-      <div class="sidebar-controls">
-      <!-- Lifecycle Controls -->
-      <div class="controls-panel">
-        <h3>Widget Lifecycle</h3>
-        <div class="controls-grid cols-3">
-          <button class="ctrl-btn primary" id="btnOnInit" onclick="triggerOnInit()">&#x25B6; onInit</button>
-          <button class="ctrl-btn warning" id="btnOnDataUpdated" onclick="triggerOnDataUpdated()" disabled>&#x1F504; Update</button>
-          <button class="ctrl-btn danger" id="btnOnDestroy" onclick="triggerOnDestroy()" disabled>&#x23F9; Destroy</button>
-        </div>
+  <!-- ===================== Showcase cockpit (right sidebar) ===================== -->
+  <aside id="sc-cockpit">
+    <div class="sc-head">
+      <button id="sc-toggle" class="sc-ghost" title="Recolher/expandir cockpit">⟩</button>
+      <strong class="sc-title">v-5.4.0 cockpit</strong>
+      <button id="sc-login" class="sc-ghost sc-title" title="Login no ThingsBoard">🔑 Login TB</button>
+    </div>
+    <div class="sc-body">
+      <div id="sc-auth" class="sc-auth no">🔒 sem JWT</div>
+      <!-- Widget settings — rendered dynamically from settingsSchema.json (mirrors TB "Appearance"). -->
+      <div id="sc-fields"><span style="opacity:.7">carregando settingsSchema.json…</span></div>
+      <!-- Simulated SERVER_SCOPE customer attribute (not a widget setting): used as X-API-Key on GCDR calls. -->
+      <fieldset class="sc-fieldset">
+        <legend>SERVER_SCOPE attrs (simulado)</legend>
+        <label for="sc-gcdrKey">X-API-Key (gcdrApiKey)</label>
+        <select id="sc-gcdrKey"><!-- options loaded from config.json (gitignored) --></select>
+      </fieldset>
+      <div class="sc-actions">
+        <button id="sc-run">▶ Run onInit + onDataUpdated</button>
+        <button id="sc-data">⟳ onDataUpdated</button>
+        <button id="sc-destroy">✖ onDestroy</button>
       </div>
+      <div id="sc-log"></div>
+    </div>
+  </aside>
 
-      <!-- Domain Tabs -->
-      <div class="controls-panel">
-        <h3>Dashboard State (Tab)</h3>
-        <div class="controls-grid">
-          <button class="ctrl-btn primary" onclick="switchTab('energy')">&#9889; Energy</button>
-          <button class="ctrl-btn secondary" onclick="switchTab('water')">&#128167; Water</button>
-          <button class="ctrl-btn secondary" onclick="switchTab('temperature')">&#127777; Temp</button>
-          <button class="ctrl-btn secondary" onclick="switchTab('alarms')">&#128276; Alarms</button>
-        </div>
+  <!-- ===================== Login modal (real ThingsBoard /api/auth/login → localStorage.jwt_token) ===================== -->
+  <div class="sc-modal-overlay" id="sc-login-modal">
+    <form class="sc-login" id="sc-login-form">
+      <button type="button" class="sc-close" id="sc-login-close" title="Fechar">×</button>
+      <div class="sc-logo">⚡</div>
+      <h2>Login ThingsBoard</h2>
+      <p class="sub">Autentica no TB e salva o JWT em <code>localStorage.jwt_token</code></p>
+      <div id="sc-login-err" class="sc-err" style="display:none"></div>
+      <label for="sc-login-user">Usuário ou Email</label>
+      <input id="sc-login-user" type="text" autocomplete="username" placeholder="seu-usuario@myio.com" />
+      <label for="sc-login-pass">Senha</label>
+      <div class="pwd">
+        <input id="sc-login-pass" type="password" autocomplete="current-password" placeholder="••••••••" />
+        <button type="button" id="sc-login-eye" title="Mostrar/ocultar senha">👁</button>
       </div>
-
-      <!-- Real Data Controls -->
-      <div class="controls-panel">
-        <h3>&#x1F4E1; Dados Reais (Moxuara)</h3>
-        <div class="controls-grid">
-          <button class="ctrl-btn success" style="grid-column:1/-1" onclick="loadRealData()">&#x2B07; Load Real Devices</button>
-        </div>
-        <div style="margin-top:6px; font-size:10px; color:#64748b; line-height:1.4">
-          Busca devices reais do TB Moxuara via API e popula ctx.data
-        </div>
-      </div>
-
-      <!-- Mock Data Controls -->
-      <div class="controls-panel">
-        <h3>Mock ctx.data</h3>
-        <div class="ctrl-group">
-          <label class="ctrl-label">Data Preset</label>
-          <select class="ctrl-select" id="dataPreset" onchange="updateMockData()">
-            <option value="full">Full (60 devices)</option>
-            <option value="partial">Partial (30 devices)</option>
-            <option value="empty">Empty</option>
-            <option value="large">Large (120 devices)</option>
-          </select>
-        </div>
-        <div class="controls-grid">
-          <button class="ctrl-btn success" onclick="generateRandomData()">&#x1F3B2; Random</button>
-          <button class="ctrl-btn secondary" onclick="dispatchDataEvent()">&#x1F4E1; Dispatch</button>
-        </div>
-      </div>
-
-      <!-- Settings -->
-      <div class="controls-panel">
-        <h3>ctx.settings</h3>
-        <div class="ctrl-group">
-          <label class="ctrl-label">Theme</label>
-          <select class="ctrl-select" id="settingsTheme" onchange="updateSettings()">
-            <option value="dark">dark</option>
-            <option value="light" selected>light</option>
-          </select>
-        </div>
-        <div class="ctrl-group">
-          <label class="ctrl-label">Debug Mode</label>
-          <select class="ctrl-select" id="settingsDebug" onchange="updateSettings()">
-            <option value="true">true</option>
-            <option value="false">false</option>
-          </select>
-        </div>
-      </div>
-
-      <!-- Authentication -->
-      <div class="controls-panel">
-        <h3>Ghost Auth (ThingsBoard)</h3>
-        <div class="ctrl-group">
-          <label class="ctrl-label">Customer: Moxuara</label>
-        </div>
-        <div class="controls-grid">
-          <button class="ctrl-btn success" onclick="authenticateGhost().then(t => t && logEvent('RE-AUTH', 'Token refreshed'))">
-            &#x1F511; Re-Auth
-          </button>
-          <button class="ctrl-btn secondary" onclick="navigator.clipboard.writeText(localStorage.getItem('jwt_token')); logEvent('COPY', 'JWT copied')">
-            &#x1F4CB; Copy JWT
-          </button>
-        </div>
-      </div>
-
-      <!-- Component Creation -->
-      <div class="controls-panel">
-        <h3>Components</h3>
-        <div class="controls-grid">
-          <button class="ctrl-btn success" onclick="createComponents()">&#x2728; Create All</button>
-          <button class="ctrl-btn secondary" onclick="destroyComponents()">&#x1F5D1; Destroy</button>
-        </div>
-      </div>
-
-      <!-- Alarm Controls (visible when alarm tab is active) -->
-      <div class="controls-panel" id="alarmControls" style="display: none">
-        <h3>&#128276; Alarm Panel</h3>
-        <div class="ctrl-group">
-          <label class="ctrl-label">Qtd. Alarmes (gerados)</label>
-          <select class="ctrl-select" id="alarmCountSelect" onchange="updateAlarmCount()">
-            <option value="5">5 alarmes</option>
-            <option value="10">10 alarmes</option>
-            <option value="20" selected>20 alarmes</option>
-            <option value="50">50 alarmes</option>
-            <option value="100">100 alarmes</option>
-          </select>
-        </div>
-        <div class="ctrl-group">
-          <label class="ctrl-label">showCustomerName</label>
-          <select class="ctrl-select" id="alarmShowCustomer" onchange="updateAlarmPanel()">
-            <option value="false" selected>false (shopping ctx)</option>
-            <option value="true">true (head office)</option>
-          </select>
-        </div>
-        <div class="controls-grid">
-          <button class="ctrl-btn primary" onclick="refreshAlarmPanel()">&#x1F504; Refresh</button>
-          <button class="ctrl-btn secondary" onclick="toggleAlarmLoading()">&#x23F3; Loading</button>
-        </div>
-        <div class="controls-grid">
-          <button class="ctrl-btn success" onclick="reinitAlarmPanel()">&#x2728; Re-init</button>
-          <button class="ctrl-btn danger" onclick="destroyAlarmPanel()">&#x1F5D1; Destroy</button>
-        </div>
-        <div style="margin-top:8px; padding:6px; background:rgba(59,130,246,0.1); border:1px solid rgba(59,130,246,0.3); border-radius:6px; font-size:10px; color:#93c5fd; line-height:1.5">
-          <strong>Funcionalidades:</strong><br>
-          &#x2705; Agrupamento por título (Consolidado)<br>
-          &#x2194; Toggle Consolidado | Separado | Por Disp.<br>
-          &#x2611; Checkbox + Ações em Lote (batch API)<br>
-          &#x2500; Toggle Card | Lista (col. Shopping ocultável)<br>
-          &#x1F3F7; Badge device no card (modo Separado)<br>
-          &#x1F4CB; Coluna Dispositivo na lista (modo Separado)<br>
-          &#x1F50D; Modal de Filtros (sev/estado/tipo/device)<br>
-          &#x1F4E4; Exportar PDF/Excel/CSV<br>
-          &#x1F504; Auto-paginação (hasMore loop, page size 100)<br>
-          &#x26F2; Modal Detalhes: botão Maximizar (fullscreen)<br>
-          &#x1F319; Modal Detalhes: dark mode (segue tema do painel)<br>
-          &#x1F4CD; Enriquecimento 4 camadas RFC-0179 (gcdrMap/stateMap/nameMap)<br>
-          &nbsp;&nbsp;&#x2022; gcdr:shortcode → label<br>
-          &nbsp;&nbsp;&#x2022; 3F_SCMOX... → "Elevador X L2"
-        </div>
-        <div style="margin-top:6px; padding:6px; background:rgba(139,92,246,0.1); border:1px solid rgba(139,92,246,0.3); border-radius:6px; font-size:10px; color:#c4b5fd; line-height:1.6">
-          <strong>&#x1F550; Timeline context-aware (RFC-0152):</strong><br>
-          Abra Detalhes → aba <em>Timeline</em> em cada modo:<br>
-          <strong style="color:#93c5fd">Por Tipo</strong> → device label em toda linha; rotativo se multi-device<br>
-          &nbsp;&nbsp;&#x2022; PINNED-01 (ELV-01/02/03): veja rotação de 3 devices<br>
-          <strong style="color:#6ee7b7">Disp.+Tipo</strong> → sem device; só #N | data | [valor no is-last]<br>
-          &nbsp;&nbsp;&#x2022; PINNED-07 (TERM-SALA-02): 1 ocorrência, is-single<br>
-          <strong style="color:#fcd34d">Por Disp.</strong> → seções por tipo de alarme; valor no is-last de cada grupo<br>
-          &nbsp;&nbsp;&#x2022; ELV-01: 3 grupos (PINNED-01 + 04 + 05)<br>
-          &nbsp;&nbsp;&#x2022; Chiller 1: 2 grupos (PINNED-02 + 06)
-        </div>
-      </div>
-
-      <!-- Settings Modal (RFC-0180) -->
-      <div class="controls-panel" id="settingsRFC180Controls">
-        <h3>&#x2699;&#xFE0F; Settings Modal (RFC-0180)</h3>
-        <div class="ctrl-group">
-          <label class="ctrl-label">Dispositivo de Teste</label>
-          <select class="ctrl-select" id="rfc180DeviceSelect">
-            <option value="0">Loja 101 (com GCDR)</option>
-            <option value="1">Elevador 1 L2 (com GCDR)</option>
-            <option value="2">Chiller Norte (com GCDR)</option>
-            <option value="3">Loja 250 (sem GCDR)</option>
-          </select>
-        </div>
-        <div class="ctrl-group">
-          <label class="ctrl-label">Pre-fetched Bundle</label>
-          <select class="ctrl-select" id="rfc180BundleMode">
-            <option value="mock">Mock Bundle (offline)</option>
-            <option value="null">null (sem bundle)</option>
-          </select>
-        </div>
-        <div class="controls-grid">
-          <button class="ctrl-btn primary" onclick="openSettingsRFC180()">&#x2699; Open Settings</button>
-          <button class="ctrl-btn secondary" onclick="openAlarmBundleMapRFC180()">&#x1F5FA; Bundle Map</button>
-        </div>
-        <div style="margin-top:8px; padding:6px; background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.3); border-radius:6px; font-size:10px; color:#6ee7b7; line-height:1.5">
-          <strong>RFC-0180 — Alarms Tab:</strong><br>
-          &#x2705; Aba Alarmes: regras GCDR ativas (API real)<br>
-          &#x2705; Multiselect: associar/dissociar regras<br>
-          &#x270F;&#xFE0F; Lápis inline: editar alarmConfig.value (PUT /rules/{id})<br>
-          &nbsp;&nbsp;• Mock bundle inclui alarmConfig em todas as regras<br>
-          &nbsp;&nbsp;• API real: pencil aparece se regra tem alarmConfig<br>
-          &#x1F504; Bundle: mock (offline) → regras com alarmConfig pré-definido
-        </div>
-        <div style="margin-top:6px; padding:6px; background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.3); border-radius:6px; font-size:10px; color:#fcd34d; line-height:1.6">
-          <strong>RFC-0191 — Enqueue-Close on Rule Unassign:</strong><br>
-          &#x26A0;&#xFE0F; Desmarcar regra <em>já associada</em> → modal de confirmação<br>
-          &nbsp;&nbsp;• Confirmar: <code style="font-size:8.5px">gcdrEnqueueCloseAlarms(ruleId, deviceId)</code><br>
-          &nbsp;&nbsp;&nbsp;&nbsp;&#x2192; <code style="font-size:8.5px">POST /api/v1/alarms/enqueue-close</code> (mock 202 no showcase)<br>
-          &nbsp;&nbsp;• Cancelar: checkbox restaurado, nenhuma alteração<br>
-          &#x1F4CB; Ver log de eventos: RFC-0191 enqueue-close call + 202 response
-        </div>
-      </div>
-
-
-      <!-- RFC-0183: Alarm Badge (AlarmServiceOrchestrator) -->
-      <div class="controls-panel" id="alarmBadgeControls">
-        <h3>&#x1F514; RFC-0183 Alarm Badge</h3>
-
-        <!-- GCDR / Alarms API credentials -->
-        <div style="font-size:9px; font-weight:700; color:#f87171; text-transform:uppercase;
-                    letter-spacing:0.6px; margin-bottom:4px;">
-          &#x1F6A8; GCDR / Alarms API
-        </div>
-
-        <div class="ctrl-group">
-          <label class="ctrl-label">gcdrCustomerId</label>
-          <input class="ctrl-input" id="gcdrCustomerId" type="text"
-            value="84e0370e-636a-4741-9874-504b5e0b3577"
-            style="font-size:9px; font-family:monospace;">
-          <div style="font-size:9px; color:#94a3b8; margin-top:2px; line-height:1.4;">
-            &#x1F4CC; ID do cliente no GCDR API (<code style="font-size:8.5px; color:#fca5a5;">customerId</code> nos filtros de alarme)<br>
-            <span style="color:#6ee7b7;">&#x2605; Padrão: Moxuara Shopping</span>
-          </div>
-        </div>
-
-        <div class="ctrl-group">
-          <label class="ctrl-label">gcdrTenantId</label>
-          <input class="ctrl-input" id="gcdrTenantId" type="text"
-            value="11111111-1111-1111-1111-111111111111"
-            style="font-size:9px; font-family:monospace;">
-          <div style="font-size:9px; color:#94a3b8; margin-top:2px; line-height:1.4;">
-            &#x1F4CC; Tenant no GCDR API (header <code style="font-size:8.5px; color:#fca5a5;">X-Tenant-ID</code>)<br>
-            <span style="color:#6ee7b7;">&#x2605; Padrão: Moxuara Shopping</span>
-          </div>
-        </div>
-
-        <div class="ctrl-group">
-          <label class="ctrl-label">gcdrApiKey</label>
-          <input class="ctrl-input" id="gcdrApiKey" type="password"
-            value="gcdr_cust_moxuara_tb_2026"
-            style="font-size:9px; font-family:monospace;">
-          <div style="font-size:9px; color:#94a3b8; margin-top:2px; line-height:1.4;">
-            &#x1F4CC; API Key do Alarms API (header <code style="font-size:8.5px; color:#fca5a5;">X-API-Key</code>)<br>
-            <span style="color:#6ee7b7;">&#x2605; Padrão: Moxuara Shopping</span>
-          </div>
-        </div>
-
-        <div style="border-top:1px solid rgba(255,255,255,0.07); margin:8px 0 6px;"></div>
-
-        <div class="ctrl-group">
-          <label class="ctrl-label">Mock alarms mapeados para</label>
-          <select class="ctrl-select" id="alarmBadgePreset">
-            <option value="3">3 devices (dev01, 02, 03)</option>
-            <option value="5" selected>5 devices (dev01 .. 05)</option>
-          </select>
-        </div>
-        <div class="controls-grid">
-          <button class="ctrl-btn success" onclick="injectMockAlarmServiceOrchestrator()">&#x1F489; Inject ASO</button>
-          <button class="ctrl-btn secondary" onclick="inspectAlarmServiceOrchestrator()">&#x1F50D; Inspect ASO</button>
-        </div>
-        <div id="asoStatus" style="margin-top:6px; font-size:10px; color:#64748b; line-height:1.4">
-          AlarmServiceOrchestrator: not injected
-        </div>
-        <div style="margin-top:6px; padding:6px; background:rgba(220,38,38,0.1); border:1px solid rgba(220,38,38,0.3); border-radius:6px; font-size:10px; color:#fca5a5; line-height:1.5">
-          <strong>Como validar:</strong><br>
-          1. Clique <em>onInit</em> (ASO é built pelo controller.js)<br>
-          &nbsp;&nbsp;• alarms terão source=deviceId (fix RFC) → nome correto<br>
-          2. Ou clique <em>&#x1F489; Inject ASO</em> para mock imediato<br>
-          &nbsp;&nbsp;• mock alarms agora têm source=gcdrId (normalizado)<br>
-          3. Cards com gcdrDeviceId 1-5 exibem badge &#x1F534;&#x1F514;<br>
-          &nbsp;&nbsp;• dev01: 2 alarmes (CRITICAL)<br>
-          &nbsp;&nbsp;• dev02..05: 1 alarme (HIGH) cada
-        </div>
-      </div>
-
-      <!-- RFC-0185: PresetupGateway single-device add -->
-      <div class="controls-panel" id="presetupGatewayControls">
-        <h3>&#x2795; RFC-0185 PresetupGateway</h3>
-
-        <!-- Section label -->
-        <div style="font-size:9px; font-weight:700; color:#a78bfa; text-transform:uppercase;
-                    letter-spacing:0.6px; margin-bottom:4px;">
-          &#x1F511; Ingestion API — OAuth2
-        </div>
-
-        <div class="ctrl-group">
-          <label class="ctrl-label">Gateway ID</label>
-          <input class="ctrl-input" id="presetupGatewayId" type="text"
-            placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-            style="font-size:10px;">
-          <div style="font-size:9px; color:#94a3b8; margin-top:2px; line-height:1.4;">
-            &#x1F4CC; UUID do gateway em
-            <code style="font-size:9px; color:#c4b5fd;">management.myio-bas.com/gateways</code>
-          </div>
-        </div>
-
-        <div class="ctrl-group">
-          <label class="ctrl-label">Client ID</label>
-          <input class="ctrl-input" id="presetupClientId" type="text"
-            placeholder="my-oauth-client-id"
-            style="font-size:10px;">
-          <div style="font-size:9px; color:#94a3b8; margin-top:2px; line-height:1.4;">
-            &#x1F4CC; OAuth2 <code style="font-size:9px; color:#c4b5fd;">client_id</code>
-            em <code style="font-size:9px; color:#c4b5fd;">api.myio-bas.com/auth/token</code>
-          </div>
-        </div>
-
-        <div class="ctrl-group">
-          <label class="ctrl-label">Client Secret</label>
-          <input class="ctrl-input" id="presetupClientSecret" type="password"
-            placeholder="••••••••"
-            style="font-size:10px;">
-          <div style="font-size:9px; color:#94a3b8; margin-top:2px; line-height:1.4;">
-            &#x1F4CC; OAuth2 <code style="font-size:9px; color:#c4b5fd;">client_secret</code>
-            (<code style="font-size:9px; color:#c4b5fd;">grant_type: client_credentials</code>)
-          </div>
-        </div>
-
-        <!-- Why GCDR fields are NOT needed here -->
-        <div style="margin-top:8px; padding:7px 8px;
-                    background:rgba(99,102,241,0.08); border:1px solid rgba(99,102,241,0.25);
-                    border-radius:6px; font-size:9px; color:#a5b4fc; line-height:1.6;">
-          <strong style="color:#818cf8;">&#x2139;&#xFE0F; Campos NÃO necessários aqui:</strong><br>
-          <code style="font-size:8.5px;">gcdrCustomerId</code> /
-          <code style="font-size:8.5px;">gcdrTenantId</code> /
-          <code style="font-size:8.5px;">gcdrApiKey</code> /
-          <code style="font-size:8.5px;">ingestionId</code> (Customer)<br>
-          <span style="color:#7dd3fc;">
-            O PresetupGateway usa <strong>apenas a Ingestion API</strong> (OAuth2 acima).<br>
-            O <code style="font-size:8.5px;">customerId</code> e
-            <code style="font-size:8.5px;">assetId</code> do cliente são resolvidos
-            automaticamente do <code style="font-size:8.5px;">GatewayInfo</code>
-            retornado por <code style="font-size:8.5px;">GET /gateways/{id}</code>.<br>
-            Os campos GCDR pertencem ao serviço de <strong>Alarmes (RFC-0183)</strong>,
-            não ao pré-setup.
-          </span>
-        </div>
-
-        <!-- How to use -->
-        <div style="margin-top:6px; padding:6px 8px;
-                    background:rgba(5,150,105,0.1); border:1px solid rgba(5,150,105,0.3);
-                    border-radius:6px; font-size:9px; color:#6ee7b7; line-height:1.6;">
-          <strong>Como usar:</strong><br>
-          1. Preencha Gateway ID + credenciais OAuth2 acima<br>
-          2. Clique <strong>&#x2795;</strong> no header de qualquer grid de telemetria<br>
-          3. Modal abre com o PresetupGateway para aquele gateway<br>
-          &nbsp;&nbsp;&#x2022; Adicione devices, sincronize e exporte PDF/etiquetas
-        </div>
-      </div>
-
-      <!-- RFC-0182: AllReportModal API-driven filter test -->
-      <div class="controls-panel" id="allReportControls">
-        <h3>&#x1F4CA; RFC-0182 AllReportModal</h3>
-        <div class="ctrl-group">
-          <label class="ctrl-label">Dom&#xED;nio / Grupo</label>
-          <select class="ctrl-select" id="reportDomainGroup">
-            <option value="energy|lojas">energy &#x203A; lojas</option>
-            <option value="energy|areacomum">energy &#x203A; area_comum</option>
-            <option value="energy|entrada">energy &#x203A; entrada</option>
-            <option value="temperature|climatizavel">temperature &#x203A; climatizavel</option>
-            <option value="water|lojas">water &#x203A; lojas</option>
-          </select>
-        </div>
-        <div class="ctrl-group">
-          <label class="ctrl-label">Modo itemsList</label>
-          <select class="ctrl-select" id="reportItemsMode">
-            <option value="from_state">From STATE (API-driven filter)</option>
-            <option value="none">Sem itemsList (API completa)</option>
-          </select>
-        </div>
-        <div class="controls-grid">
-          <button class="ctrl-btn primary" onclick="openAllReportShowcase()">&#x1F4CB; Open Report</button>
-        </div>
-        <div style="margin-top:6px; padding:6px; background:rgba(59,130,246,0.1); border:1px solid rgba(59,130,246,0.3); border-radius:6px; font-size:10px; color:#93c5fd; line-height:1.5">
-          <strong>Valida&#xE7;&#xE3;o RFC-0182:</strong><br>
-          1. Carregue dados reais (<em>Load Real Devices</em>)<br>
-          2. Selecione dom&#xED;nio/grupo &#x2192; <em>From STATE</em><br>
-          3. Report mostra apenas o subconjunto:<br>
-          &nbsp;&nbsp;&#x2022; temperature &#x203A; climatizavel &#x2192; 13 sensores (n&#xE3;o 99)<br>
-          &nbsp;&nbsp;&#x2022; energy &#x203A; lojas &#x2192; apenas medidores 3F_MEDIDOR
-        </div>
-      </div>
-
-      <!-- RFC-0190: User Management Modal -->
-      <div class="controls-panel" id="userManagementControls">
-        <h3>&#x1F465; RFC-0190 Gest&#xE3;o de Usu&#xE1;rios</h3>
-        <div class="ctrl-group">
-          <label class="ctrl-label">Tenant ID (ThingsBoard)</label>
-          <input class="ctrl-select" id="umTenantId" type="text"
-            placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-            style="font-family:monospace; font-size:10px;"
-            value="">
-        </div>
-        <div class="controls-grid">
-          <button class="ctrl-btn primary" style="grid-column:1/-1" onclick="openUserManagementShowcase()">&#x1F465; Open Gest&#xE3;o de Usu&#xE1;rios</button>
-        </div>
-        <div style="margin-top:6px; padding:6px; background:rgba(139,92,246,0.1); border:1px solid rgba(139,92,246,0.3); border-radius:6px; font-size:10px; color:#c4b5fd; line-height:1.5">
-          <strong>RFC-0190 — User Management:</strong><br>
-          &#x2705; Requer Re-Auth (JWT token)<br>
-          &#x2705; Tema herdado automaticamente (light/dark)<br>
-          &#x2705; Customer: Moxuara (<code style="font-size:8.5px">_CUSTOMER_TB_ID</code>)
-        </div>
-      </div>
-
-      </div><!-- /.sidebar-controls -->
-
-      <!-- Event Log -->
-      <div class="event-log-panel">
-        <div class="event-log-header">
-          <h3>Event Log</h3>
-          <button class="event-log-clear" onclick="clearLog()">Clear</button>
-        </div>
-        <div class="event-log" id="eventLog">
-          <div class="log-entry info">
-            <span class="log-time">--:--:--</span>
-            <span class="log-event">READY</span>
-            <span class="log-data">Ghost auth on load, click onInit to start</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- State Inspector -->
-      <div class="state-panel">
-        <div class="state-header" onclick="toggleStatePanel()">
-          <h3>ctx State</h3>
-          <span class="state-toggle" id="stateToggle">&#x25BC;</span>
-        </div>
-        <div class="state-content" id="stateContent">
-          <pre id="stateDisplay">{ "status": "not_initialized" }</pre>
-        </div>
-      </div>
-    </aside>
+      <button type="submit" class="sc-submit" id="sc-login-submit">Entrar</button>
+    </form>
   </div>
 
-  <!--
-    Instructions:
-    1. Run: npm run build (generate dist/myio-js-library.umd.js)
-    2. Run: start-server.bat (port 3339)
-    3. Open: http://localhost:3339/showcase/main-view-shopping/
-  -->
-
-  <!-- jQuery (required by controller.js) -->
+  <!-- ===================== Dependencies ===================== -->
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-
-  <!-- Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-
-  <!-- MyIO Library UMD Bundle - with cache-busting -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
   <script>
+    // cache-bust the freshly-built UMD so the new RFC-0209 / agnostic symbols are present
     document.write('<script src="../../dist/myio-js-library.umd.js?v=' + Date.now() + '"><\/script>');
   </script>
 
+  <!-- ===================== Showcase harness ===================== -->
   <script>
-    // =========================================================================
-    // MAIN_VIEW Shopping Dashboard - Showcase
-    // Simulates ThingsBoard widget environment for MAIN_VIEW controller.js
-    // =========================================================================
-
-    // ===== REAL CREDENTIALS (Mestre Alvaro Shopping) =====
-    // Using underscore prefix to avoid conflicts with controller.js constants
-    const _TB_URL = 'https://dashboard.myio-bas.com';
-    const _SERVICE_USER = 'alarmes@myio.com.br';
-    const _SERVICE_PASS = 'hubmyio@2025!';
-
-    // Customer and Ingestion credentials
-    const _CUSTOMER_TB_ID = '5085bf40-b4dd-11f0-be7f-e760d1498268';
-    const _CUSTOMER_ING_ID = '211ae3f9-935d-43f7-8ffe-61801595f2a8';
-    const _CLIENT_ID = 'moxuaraa_mhdlrl92_zzf8pi';
-    const _CLIENT_SECRET = 'B4SzLCzWYaCBJzxY2wwxjmLW67N2IeHltLhZQV7FtXRPEUPb9x8HFhjylENbM23F';
-    const _DATA_API_HOST = 'https://api.data.apps.myio-bas.com';
-
-    // GCDR / Alarms API — service-level URLs (infrastructure, não variam por cliente)
-    const _GCDR_API_BASE_URL = 'https://gcdr-api.a.myio-bas.com/api/v1';
-    const alarmsApiBaseUrl   = 'https://alarms-api.a.myio-bas.com/api/v1';
-
-    // Credenciais GCDR por cliente — lidas do sidebar em tempo de execução
-    // (defaults pré-preenchidos no painel RFC-0183 como "Padrão: Moxuara")
-    function gcdrCid()  { return document.getElementById('gcdrCustomerId')?.value.trim() || ''; }
-    function gcdrTid()  { return document.getElementById('gcdrTenantId')?.value.trim()   || ''; }
-    function gcdrKey()  { return document.getElementById('gcdrApiKey')?.value.trim()      || ''; }
-
-    // RFC-0180: Pre-fetched customer alarms (populated by fetchCustomerAlarms in loadRealData)
-    let _cachedCustomerAlarms = null;
-
-    async function fetchCustomerAlarms() {
-      try {
-        const url = `${alarmsApiBaseUrl}/alarms?state=OPEN,ACK,ESCALATED,SNOOZED&customerId=${encodeURIComponent(gcdrCid())}&limit=100`;
-        const res = await fetch(url, {
-          headers: { 'X-API-Key': gcdrKey(), 'X-Tenant-ID': gcdrTid(), Accept: 'application/json' },
-        });
-        if (!res.ok) { console.warn('[Showcase] fetchCustomerAlarms failed:', res.status); return; }
-        const json = await res.json();
-        _cachedCustomerAlarms = Array.isArray(json.data) ? json.data : (json.items ?? json.data?.items ?? []);
-        logEvent('ALARMS', `Customer alarms pre-fetched: ${_cachedCustomerAlarms.length}`, 'info');
-      } catch (err) {
-        console.warn('[Showcase] fetchCustomerAlarms error:', err);
-      }
+    // ---- tiny event log ----
+    const logEl = document.getElementById('sc-log');
+    function log(kind, msg) {
+      const t = new Date().toISOString().slice(11, 19);
+      const div = document.createElement('div');
+      div.className = kind;
+      div.textContent = `[${t}] ${msg}`;
+      logEl.prepend(div);
     }
+    ['myio:data-ready','myio:dashboard-state','myio:energy-summary-ready','myio:water-summary-ready','myio:temperature-data-ready','myio:update-date']
+      .forEach((ev) => window.addEventListener(ev, (e) => log('info', `event ${ev} ${e.detail ? JSON.stringify(e.detail).slice(0,120) : ''}`)));
 
-    // Mock devices with GCDR IDs for Settings modal RFC-0180 test
-    const _NOW = Date.now();
-    const _RFC180_TEST_DEVICES = [
-      {
-        id: 'device-1', name: '3F_MEDIDOR_001', label: 'Loja 101',
-        floor: '1º Andar', identifier: 'LUC-0101',
-        gcdrDeviceId: 'gcdr-uuid-dev01-0000-000000000001',
-        deviceType: '3F_MEDIDOR', deviceProfile: '3F_MEDIDOR', domain: 'energy',
-        createdTime:      _NOW - 730 * 24 * 3600000,   // ~2 anos atrás
-        lastActivityTime: _NOW - 5 * 60 * 1000,        // 5 min atrás
-      },
-      {
-        id: 'device-2', name: '3F_ELEVADOR_002', label: 'Elevador 1 L2',
-        floor: 'Subsolo', identifier: 'ELV-01-L2',
-        gcdrDeviceId: 'gcdr-uuid-dev02-0000-000000000001',
-        deviceType: 'ELEVADOR', deviceProfile: 'ELEVADOR', domain: 'energy',
-        createdTime:      _NOW - 400 * 24 * 3600000,
-        lastActivityTime: _NOW - 2 * 3600000,
-      },
-      {
-        id: 'device-3', name: '3F_CHILLER_003', label: 'Chiller Norte',
-        floor: 'Cobertura', identifier: 'CHI-NORTE-01',
-        gcdrDeviceId: 'gcdr-uuid-dev03-0000-000000000001',
-        deviceType: 'CHILLER', deviceProfile: 'CHILLER', domain: 'energy',
-        createdTime:      _NOW - 180 * 24 * 3600000,
-        lastActivityTime: _NOW - 30 * 60 * 1000,
-      },
-      {
-        id: 'device-99', name: '3F_MEDIDOR_099', label: 'Loja 250 (sem GCDR)',
-        floor: '2º Andar', identifier: 'LUC-0250',
-        gcdrDeviceId: null,
-        deviceType: '3F_MEDIDOR', deviceProfile: '3F_MEDIDOR', domain: 'energy',
-        createdTime:      _NOW - 60 * 24 * 3600000,
-        lastActivityTime: _NOW - 24 * 3600000,
-      },
-    ];
-
-    // Mock GCDR bundle — simulates what MAIN_VIEW pre-fetches at startup.
-    // rules[] shape matches GCDRCustomerRule: priority (not severity), type, alarmConfig.
-    // alarmConfig enables the pencil-edit inline feature (RFC-0180 AlarmsTab).
-    const _MOCK_GCDR_BUNDLE = {
-      customer: { id: gcdrCid(), name: 'Mestre Alvaro', tenantId: gcdrTid() },
-      assets: [],
-      devices: [
-        { id: 'gcdr-uuid-dev01-0000-000000000001', externalId: 'device-1', metadata: { tbId: 'device-1' }, name: '3F_MEDIDOR_001', ruleIds: ['rule-001', 'rule-003'] },
-        { id: 'gcdr-uuid-dev02-0000-000000000001', externalId: 'device-2', metadata: { tbId: 'device-2' }, name: '3F_ELEVADOR_002', ruleIds: ['rule-002'] },
-        { id: 'gcdr-uuid-dev03-0000-000000000001', externalId: 'device-3', metadata: { tbId: 'device-3' }, name: '3F_CHILLER_003', ruleIds: ['rule-001', 'rule-002'] },
-      ],
-      // rules as array — matches GET /api/v1/customers/{id}/rules response shape
-      rules: [
-        {
-          id: 'rule-001', name: 'Elevador parado (seg-sáb)', type: 'threshold', priority: 'MEDIUM', enabled: true,
-          scope: { type: 'DEVICE', entityIds: ['gcdr-uuid-dev01-0000-000000000001', 'gcdr-uuid-dev03-0000-000000000001'] },
-          scopeProfiles: ['ELEVADOR'],
-          alarmConfig: { metric: 'instantaneous_power', operator: 'LT', value: 300 },
-        },
-        {
-          id: 'rule-002', name: 'Falta de Energia', type: 'threshold', priority: 'CRITICAL', enabled: true,
-          scope: { type: 'DEVICE', entityIds: ['gcdr-uuid-dev02-0000-000000000001', 'gcdr-uuid-dev03-0000-000000000001'] },
-          scopeProfiles: ['CHILLER'],
-          alarmConfig: { metric: 'active_power', operator: 'LT', value: 10 },
-        },
-        {
-          id: 'rule-003', name: 'Consumo Anômalo Noturno', type: 'threshold', priority: 'HIGH', enabled: false,
-          scope: { type: 'DEVICE', entityIds: ['gcdr-uuid-dev01-0000-000000000001'] },
-          scopeProfiles: ['3F_MEDIDOR'],
-          alarmConfig: { metric: 'energy_consumption', operator: 'GT', value: 50, valueHigh: 200 },
-        },
-        {
-          id: 'rule-004', name: 'Pico de Temperatura', type: 'threshold', priority: 'LOW', enabled: true,
-          scope: { type: 'DEVICE', entityIds: [] },
-          // no scopeProfiles — applies to all device profiles (fallback rule)
-          alarmConfig: { metric: 'temperature', operator: 'GT', value: 28 },
-        },
-        {
-          id: 'rule-005', name: 'Escada Rolante parada (seg-sáb)', type: 'threshold', priority: 'MEDIUM', enabled: true,
-          scope: { type: 'DEVICE', entityIds: ['gcdr-uuid-dev02-0000-000000000001'] },
-          scopeProfiles: ['ELEVADOR'],
-          alarmConfig: { metric: 'instantaneous_power', operator: 'LT', value: 1200 },
-        },
-      ],
-    };
-
-    const DEVICE_TYPES = {
-      energy: ['3F_MEDIDOR', 'AC_3F', 'ENTRADA', 'RELOGIO', 'CHILLER', 'ELEVADOR'],
-      water: ['HIDROMETRO', 'HIDROMETRO_ENTRADA', 'HIDROMETRO_AREA_COMUM'],
-      temperature: ['TERMOSTATO', 'TERMOSTATO_EXTERNAL'],
-    };
-    const STATUS_OPTIONS = ['power_on', 'power_on', 'power_on', 'offline', 'waiting'];
-
-    let widgetInitialized = false;
-    let currentTab = 'energy';
-    let ghostAuthToken = null;
-    let componentInstances = {};
-
-    // ===== GHOST AUTHENTICATION =====
-    async function authenticateGhost() {
-      console.log('[Showcase] Authenticating with service account...');
-      try {
-        const response = await fetch(`${_TB_URL}/api/auth/login`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            username: _SERVICE_USER,
-            password: _SERVICE_PASS,
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error(`Auth failed: ${response.status}`);
-        }
-
-        const data = await response.json();
-        if (!data.token) {
-          throw new Error('No token in response');
-        }
-
-        ghostAuthToken = data.token;
-        localStorage.setItem('jwt_token', data.token);
-        if (data.refreshToken) {
-          localStorage.setItem('refresh_token', data.refreshToken);
-        }
-
-        console.log('[Showcase] Ghost authentication successful');
-        logEvent('AUTH', 'Ghost authentication successful', 'info');
-        return data.token;
-      } catch (error) {
-        console.error('[Showcase] Ghost authentication failed:', error);
-        logEvent('AUTH_ERROR', error.message, 'error');
-        return null;
-      }
-    }
-
-    // ===== self.ctx (ThingsBoard widget context with REAL credentials) =====
-    window.self = window.self || {};
-    window.self.ctx = {
-      settings: {
-        customerTB_ID: _CUSTOMER_TB_ID,
-        tbBaseUrl: _TB_URL,
-        dataApiHost: _DATA_API_HOST,
-        gcdrCustomerId: gcdrCid(),
-        gcdrTenantId: gcdrTid(),
-        gcdrApiBaseUrl: _GCDR_API_BASE_URL,
-        debugMode: true,
-        enableDebugMode: true,
-        domainsEnabled: { energy: true, water: true, temperature: true },
-        excludeDevicesAtCountSubtotalCAG: [],
-        delayTimeConnectionInMinsToStore: 86400,
-        delayTimeConnectionInMinsToEquipment: 1440,
-        delayTimeConnectionInMinsToWater: 2880,
-        delayTimeConnectionInMinsToTemperature: 1440,
-      },
-      data: [],
-      datasources: [{
-        type: 'entity',
-        name: 'AllDevices',
-        aliasName: 'all3fs',
-      }],
-      $injector: {
-        get: (serviceName) => {
-          if (serviceName === 'authService') {
-            return {
-              getJwtToken: () => localStorage.getItem('jwt_token') || ghostAuthToken,
-            };
-          }
-          return null;
-        },
-      },
-      $scope: {
-        startDateISO: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-        endDateISO: new Date().toISOString(),
-      },
-      detectChanges: () => {},
-      updateWidgetParams: () => {},
-    };
-
-    // ===== Override MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage =====
-    // Return real credentials instead of fetching from ThingsBoard
-    if (typeof MyIOLibrary !== 'undefined') {
-      MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage = async (customerId, jwt) => {
-        console.log('[Showcase] fetchThingsboardCustomerAttrsFromStorage called - returning real credentials');
-        logEvent('CREDS', 'Returning real credentials', 'info');
-        return {
-          client_id: _CLIENT_ID,
-          client_secret: _CLIENT_SECRET,
-          ingestionId: _CUSTOMER_ING_ID,
-        };
+    // ---- mock AllDevices rows (TB datasource shape) matching the fixture's deviceProfiles ----
+    // domain is derived by the lib (getDomainFromDeviceType): HIDROMETRO*→water, TERMOSTATO→temperature, else energy.
+    function deviceRows({ entityId, name, deviceType, deviceProfile, identifier, valueKey, value, status }) {
+      const kv = {
+        deviceType, deviceProfile, identifier,
+        label: name, connectionStatus: status,
+        [valueKey]: value,
       };
+      return Object.entries(kv).map(([k, v]) => ({
+        datasource: { entityId, entityName: name, entityLabel: name, aliasName: 'all3fs' },
+        dataKey: { name: k },
+        data: [[Date.now(), v]],
+      }));
     }
-
-    // ===== Bridge: myio:telemetry:provide-data → myio:provide-data =====
-    // Orchestrator emits 'myio:telemetry:provide-data' but TelemetryGridShoppingComponent
-    // listens for 'myio:provide-data'. Bridge re-dispatches so components receive enriched data.
-    window.addEventListener('myio:telemetry:provide-data', (e) => {
-      const domain = e.detail?.domain;
-      if (domain) {
-        logEvent('BRIDGE', `myio:telemetry:provide-data → myio:provide-data (${domain})`, 'info');
-        window.dispatchEvent(new CustomEvent('myio:provide-data', { detail: { domain } }));
-      }
-    });
-
-    // ===== Showcase: suppress DATA API retry loop =====
-    // In the showcase, the DATA API (api.data.apps.myio-bas.com) may fail or be slow.
-    // The orchestrator's handleDataLoadError would normally retry → 30s monitor → retry loop.
-    // We override it here to log + suppress retries — STATE is populated by loadRealData instead.
-    window.addEventListener('DOMContentLoaded', () => {
-      setTimeout(() => {
-        if (window.MyIOUtils) {
-          const _origHandleDataLoadError = window.MyIOUtils.handleDataLoadError;
-          window.MyIOUtils.handleDataLoadError = (domain, reason) => {
-            logEvent('DATA-API', `DATA API error for "${domain}" (suppressed in showcase): ${reason}`, 'warn');
-            console.warn(`[Showcase] DATA API error suppressed for ${domain}: ${reason}`);
-            // Do NOT retry — STATE is populated by populateStateFromRows()
-          };
-          logEvent('SHOWCASE', 'handleDataLoadError override active (no DATA API retries)', 'info');
-        }
-      }, 500); // Wait for MyIOUtils to be created by the controller
-    });
-
-    // ===== PRE-CREATE MyIOOrchestrator STUB =====
-    // The controller.js creates MyIOOrchestrator at module load time.
-    // The controller's IIFE looks for window.__myioInitialPeriod to set the period.
-    // We pre-create the period so the controller finds it immediately.
-    const _startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const _endDate = new Date();
-
-    // RFC-0130: Set the initial period that the controller will find
-    // Controller expects startISO/endISO (not startDateISO/endDateISO)
-    window.__myioInitialPeriod = {
-      startISO: _startDate.toISOString(),
-      endISO: _endDate.toISOString(),
-      // Also include these for compatibility
-      startDateISO: _startDate.toISOString(),
-      endDateISO: _endDate.toISOString(),
-      startTs: _startDate.getTime(),
-      endTs: _endDate.getTime(),
-    };
-
-    // Also set isReady=false so controller merges with our stub (RFC-0051.2 at line 5903)
-    // PRE-SET credentials so controller doesn't timeout waiting
-    // CRITICAL: The controller merges this stub into its own orchestrator
-    // We need to set credentials ASAP before data fetch starts
-    window.MyIOOrchestrator = {
-      isReady: false,
-      credentialsSet: true, // Pre-set to true so controller doesn't wait
-      CUSTOMER_ING_ID: _CUSTOMER_ING_ID,
-      CLIENT_ID: _CLIENT_ID,
-      CLIENT_SECRET: _CLIENT_SECRET,
-      getCurrentPeriod: () => window.__myioInitialPeriod,
-      getCredentials: () => ({
-        CUSTOMER_ING_ID: _CUSTOMER_ING_ID,
-        CLIENT_ID: _CLIENT_ID,
-        CLIENT_SECRET: _CLIENT_SECRET,
-      }),
-      setCredentials: (customerId, clientId, clientSecret) => {
-        window.MyIOOrchestrator.CUSTOMER_ING_ID = customerId;
-        window.MyIOOrchestrator.CLIENT_ID = clientId;
-        window.MyIOOrchestrator.CLIENT_SECRET = clientSecret;
-        window.MyIOOrchestrator.credentialsSet = true;
-        console.log('[Showcase] setCredentials called (stub):', { customerId, clientId });
-      },
-      // RFC-0180: GCDR orchestrator fields
-      customerTB_ID: _CUSTOMER_TB_ID,
-      gcdrTenantId: gcdrTid(),
-      gcdrApiBaseUrl: _GCDR_API_BASE_URL,
-      gcdrCustomerId: gcdrCid(),
-      alarmBundle: null,
-      alarmBundleFetchedAt: null,
-      alarmsApiBaseUrl: alarmsApiBaseUrl,
-      alarmsApiKey: gcdrKey(),
-      gcdrApiKey: gcdrKey(),
-      // RFC-0179: Device name enrichment maps (pre-populated with mock data)
-      // gcdrDeviceNameMap: UUID / "gcdr:<first8>" → human-readable label
-      // UUIDs must be unique in first 8 chars for short-code indexing to work
-      gcdrDeviceNameMap: new Map([
-        // Full UUID entries
-        ['a1b2c3d4-0000-0000-0000-000000000001', 'Elevador 1'],
-        ['b2c3d4e5-0000-0000-0000-000000000002', 'Elevador 2'],
-        ['c3d4e5f6-0000-0000-0000-000000000003', 'Chiller Norte'],
-        // Short-code entries (first 8 chars of UUID)
-        ['gcdr:a1b2c3d4', 'Elevador 1'],
-        ['gcdr:b2c3d4e5', 'Elevador 2'],
-        ['gcdr:c3d4e5f6', 'Chiller Norte'],
-        // Real-format short codes matching PINNED_ALARMS (tests real enrichment path)
-        ['gcdr:9264f262', 'Elevador 3 L2'],
-        ['gcdr:e9dce3c5', 'Elevador 7 L2'],
-      ]),
-      // entityNameToLabelMap: TB entityName → entityLabel (raw name → friendly label)
-      entityNameToLabelMap: new Map([
-        ['3F_SCMOXUARAAC_EL1_L2', 'Elevador 1 L2'],
-        ['3F_SCMOXUARAAC_EL2_L2', 'Elevador 2 L2'],
-        ['3F_SCMOXUARAAC_EL7_L2', 'Elevador 7 L2'],
-        ['3F_SCMOXUARAAC_CH1',    'Chiller 1'],
-        ['3F_SCMOXUARAAC_FC1',    'Fancoil 1'],
-      ]),
-    };
-
-    // RFC-0130: Listen for orchestrator:ready and immediately set credentials
-    window.addEventListener('myio:orchestrator:ready', () => {
-      console.log('[Showcase] 🎯 Orchestrator ready event received, setting credentials...');
-      if (window.MyIOOrchestrator && typeof window.MyIOOrchestrator.setCredentials === 'function') {
-        window.MyIOOrchestrator.setCredentials(_CUSTOMER_ING_ID, _CLIENT_ID, _CLIENT_SECRET);
-        console.log('[Showcase] ✅ Credentials set via setCredentials() on orchestrator:ready');
-      }
-
-    });
-
-    console.log('[Showcase] Period set via __myioInitialPeriod:', _startDate.toISOString(), 'to', _endDate.toISOString());
-    console.log('[Showcase] Credentials PRE-SET in MyIOOrchestrator stub');
-
-    // ===== PRE-POPULATE ctx.data BEFORE controller loads =====
-    // The controller auto-starts and waits for ctx.data, so we must have data ready
-    (function prePopulateCtxData() {
-      const DEVICE_TYPES_INIT = {
-        energy: ['3F_MEDIDOR', 'AC_3F', 'ENTRADA', 'RELOGIO', 'CHILLER', 'ELEVADOR'],
-        water: ['HIDROMETRO', 'HIDROMETRO_ENTRADA', 'HIDROMETRO_AREA_COMUM'],
-        temperature: ['TERMOSTATO', 'TERMOSTATO_EXTERNAL'],
-      };
-      const STATUS_INIT = ['power_on', 'power_on', 'power_on', 'offline', 'waiting'];
-      const counts = { energy: 30, water: 15, temperature: 15 };
-      const devices = [];
-      let deviceIndex = 0;
-      const now = Date.now();
-
-      Object.keys(counts).forEach(domain => {
-        const types = DEVICE_TYPES_INIT[domain];
-        for (let i = 0; i < counts[domain]; i++) {
-          deviceIndex++;
-          const deviceType = types[Math.floor(Math.random() * types.length)];
-          const status = STATUS_INIT[Math.floor(Math.random() * STATUS_INIT.length)];
-          const isOnline = status === 'power_on';
-          let consumption = isOnline ? (domain === 'energy' ? Math.random() * 500 : domain === 'water' ? Math.random() * 100 : Math.random() * 10 + 18) : 0;
-
-          const entityName = `${deviceType}_${String(deviceIndex).padStart(3, '0')}`;
-          const entityId = `device-${deviceIndex}`;
-          const ingestionId = `ing-${deviceIndex}-${_CUSTOMER_ING_ID.substring(0, 8)}`;
-          const baseDatasource = { type: 'entity', entityId, entityName, entityLabel: entityName, aliasName: 'all3fs' };
-
-          devices.push({ datasource: { ...baseDatasource }, dataKey: { name: 'consumption', type: 'timeseries' }, data: [[now, consumption]] });
-          devices.push({ datasource: { ...baseDatasource }, dataKey: { name: 'deviceType', type: 'attribute' }, data: [[now, deviceType]] });
-          devices.push({ datasource: { ...baseDatasource }, dataKey: { name: 'deviceProfile', type: 'attribute' }, data: [[now, deviceType]] });
-          devices.push({ datasource: { ...baseDatasource }, dataKey: { name: 'ingestionId', type: 'attribute' }, data: [[now, ingestionId]] });
-          devices.push({ datasource: { ...baseDatasource }, dataKey: { name: 'connectionStatus', type: 'attribute' }, data: [[now, status]] });
-          devices.push({ datasource: { ...baseDatasource }, dataKey: { name: 'lastActivityTime', type: 'attribute' }, data: [[now, now - Math.random() * 3600000]] });
-          devices.push({ datasource: { ...baseDatasource }, dataKey: { name: 'identifier', type: 'attribute' }, data: [[now, entityName]] });
-        }
-      });
-
-      self.ctx.data = devices;
-      console.log(`[Showcase] PRE-POPULATED ctx.data with ${devices.length} rows (${deviceIndex} devices) BEFORE controller loads`);
-    })();
-
-    // ===== REAL DEVICE LOADER (Moxuara / TB API) =====
-    // Fetches real devices from ThingsBoard and maps to ctx.data format
-    async function fetchRealDevices() {
-      const jwt = ghostAuthToken || localStorage.getItem('jwt_token');
-      if (!jwt) { logEvent('ERROR', 'No JWT token — click Re-Auth first', 'error'); return null; }
-
-      const customerId = _CUSTOMER_TB_ID;
-      const tbBase     = _TB_URL;
-      const headers    = { 'Content-Type': 'application/json', 'X-Authorization': `Bearer ${jwt}` };
-
-      logEvent('REAL-DATA', 'Fetching devices from TB...', 'info');
-
-      // --- Step 1: paginated device list ---
-      let rawDevices = [];
-      let page = 0;
-      const pageSize = 100;
-      while (true) {
-        const res = await fetch(
-          `${tbBase}/api/customer/${customerId}/deviceInfos?pageSize=${pageSize}&page=${page}&sortProperty=label&sortOrder=ASC`,
-          { headers }
-        );
-        if (!res.ok) { logEvent('ERROR', `deviceInfos failed: ${res.status}`, 'error'); return null; }
-        const payload = await res.json();
-        rawDevices = rawDevices.concat(payload.data);
-        logEvent('REAL-DATA', `Page ${page}: ${rawDevices.length} devices loaded`, 'info');
-        if (!payload.hasNext) break;
-        page++;
-      }
-
-      logEvent('REAL-DATA', `Total: ${rawDevices.length} devices — fetching attributes...`, 'info');
-
-      // --- Step 2: batch-fetch SERVER_SCOPE attrs (chunks of 20) ---
-      const ATTR_KEYS = 'deviceType,deviceProfile,identifier,floor,gcdrDeviceId,connectionStatus,ingestionId,createdtime,centralId,centralName,slaveId,lastConnectTime,lastDisconnectTime';
-      const attrMap = {};
-      const chunkSize = 20;
-      for (let i = 0; i < rawDevices.length; i += chunkSize) {
-        const chunk = rawDevices.slice(i, i + chunkSize);
-        await Promise.all(chunk.map(async (dev) => {
-          try {
-            const r = await fetch(
-              `${tbBase}/api/plugins/telemetry/DEVICE/${dev.id.id}/values/attributes/SERVER_SCOPE?keys=${ATTR_KEYS}`,
-              { headers }
-            );
-            if (r.ok) {
-              const attrs = await r.json();
-              attrMap[dev.id.id] = {};
-              attrs.forEach(a => { attrMap[dev.id.id][a.key] = a.value; });
-            }
-          } catch (e) { /* ignore single device failure */ }
-        }));
-      }
-
-      // --- Step 3: build ctx.data rows ---
-      const now  = Date.now();
-      const rows = [];
-
-      rawDevices.forEach(dev => {
-        const entityId    = dev.id.id;
-        const entityName  = dev.name;
-        const entityLabel = dev.label || dev.name;
-        const attrs       = attrMap[entityId] || {};
-
-        const deviceType       = attrs.deviceType       || dev.type || dev.deviceProfileName || 'UNKNOWN';
-        const deviceProfile    = attrs.deviceProfile    || deviceType;
-        const identifier       = attrs.identifier       || '';
-        const floor            = attrs.floor            || '';
-        const gcdrDeviceId     = attrs.gcdrDeviceId     || '';
-        const connectionStatus = attrs.connectionStatus || 'offline';
-        const ingestionId      = attrs.ingestionId      || '';
-        const createdTime      = attrs.createdtime      || dev.createdTime || null;
-        const centralId        = attrs.centralId        || '';
-        const centralName      = attrs.centralName      || '';
-        const slaveId          = attrs.slaveId          || '';
-        const lastConnectTime  = attrs.lastConnectTime  || null;
-        const lastDisconnectTime = attrs.lastDisconnectTime || null;
-
-        const aliasName = /TERMOSTATO/i.test(deviceType) ? 'AllTempDevices'
-                        : /HIDROMETRO/i.test(deviceType) ? 'AllHidrosDevices'
-                        : 'All3Fs';
-
-        const ds = { type: 'entity', entityId, entityName, entityLabel, aliasName };
-
-        rows.push({ datasource: { ...ds }, dataKey: { name: 'consumption',       type: 'timeseries' }, data: [[now, 0]] });
-        rows.push({ datasource: { ...ds }, dataKey: { name: 'deviceType',         type: 'attribute'  }, data: [[now, deviceType]] });
-        rows.push({ datasource: { ...ds }, dataKey: { name: 'deviceProfile',      type: 'attribute'  }, data: [[now, deviceProfile]] });
-        rows.push({ datasource: { ...ds }, dataKey: { name: 'ingestionId',        type: 'attribute'  }, data: [[now, ingestionId]] });
-        rows.push({ datasource: { ...ds }, dataKey: { name: 'connectionStatus',   type: 'attribute'  }, data: [[now, connectionStatus]] });
-        rows.push({ datasource: { ...ds }, dataKey: { name: 'lastActivityTime',   type: 'attribute'  }, data: [[now, dev.lastActivityTime || dev.createdTime || now]] });
-        rows.push({ datasource: { ...ds }, dataKey: { name: 'identifier',         type: 'attribute'  }, data: [[now, identifier]] });
-        rows.push({ datasource: { ...ds }, dataKey: { name: 'floor',              type: 'attribute'  }, data: [[now, floor]] });
-        rows.push({ datasource: { ...ds }, dataKey: { name: 'gcdrDeviceId',       type: 'attribute'  }, data: [[now, gcdrDeviceId]] });
-        rows.push({ datasource: { ...ds }, dataKey: { name: 'createdTime',        type: 'attribute'  }, data: [[now, createdTime]] });
-        rows.push({ datasource: { ...ds }, dataKey: { name: 'centralId',          type: 'attribute'  }, data: [[now, centralId]] });
-        rows.push({ datasource: { ...ds }, dataKey: { name: 'centralName',        type: 'attribute'  }, data: [[now, centralName]] });
-        rows.push({ datasource: { ...ds }, dataKey: { name: 'slaveId',            type: 'attribute'  }, data: [[now, slaveId]] });
-        rows.push({ datasource: { ...ds }, dataKey: { name: 'lastConnectTime',    type: 'attribute'  }, data: [[now, lastConnectTime]] });
-        rows.push({ datasource: { ...ds }, dataKey: { name: 'lastDisconnectTime', type: 'attribute'  }, data: [[now, lastDisconnectTime]] });
-      });
-
-      const keysPerDevice = 15;
-      logEvent('REAL-DATA', `ctx.data built: ${rawDevices.length} devices × ${keysPerDevice} keys = ${rows.length} rows`, 'info');
-      return rows;
-    }
-
-    async function loadRealData() {
-      updateStatus('running');
-      const rows = await fetchRealDevices();
-      if (!rows) { updateStatus('error'); return; }
-      self.ctx.data = rows;
-
-      // ---- Populate window.STATE directly from real device metadata ----
-      // This allows TelemetryGridShoppingComponent to render immediately,
-      // without waiting for the async DATA API (fetchAndEnrich). Consumption = 0.
-      populateStateFromRows(rows);
-
-      // ---- Dispatch myio:provide-data for each domain ----
-      // Component listens to 'myio:provide-data' (not 'myio:telemetry:provide-data')
-      ['energy', 'water', 'temperature'].forEach(domain => {
-        window.dispatchEvent(new CustomEvent('myio:provide-data', { detail: { domain } }));
-      });
-
-      if (widgetInitialized) triggerOnDataUpdated();
-      updateStatus('ready');
-      logEvent('REAL-DATA', 'Real Moxuara data loaded and STATE populated!', 'info');
-
-      // RFC-0180: Pre-fetch customer alarms in parallel (non-blocking)
-      // RFC-0183: ASO will be built by controller.js inside _prefetchCustomerAlarms after alarms arrive
-      fetchCustomerAlarms().then(() => setTimeout(updateAsoStatus, 500));
-    }
-
-    // Builds window.STATE from ctx.data rows (device metadata, consumption=0)
-    // Mirrors the orchestrator's populateState() but without DATA API enrichment
-    function populateStateFromRows(rows) {
-      if (!window.STATE) window.STATE = { _lastUpdate: {} };
-      if (!window.STATE._lastUpdate) window.STATE._lastUpdate = {};
-      const now = Date.now();
-
-      // Collapse rows into device map (one object per entityId)
-      const deviceMap = {};
-      rows.forEach(row => {
-        const id = row.datasource?.entityId;
-        if (!id) return;
-        if (!deviceMap[id]) {
-          deviceMap[id] = {
-            entityId: id,
-            labelOrName: row.datasource.entityLabel || row.datasource.entityName || id,
-            name: row.datasource.entityName || id,
-            value: 0,
-            _aliasName: row.datasource.aliasName,
-          };
-        }
-        const key = row.dataKey?.name;
-        const val  = row.data?.[0]?.[1];
-        if (key && val !== undefined) deviceMap[id][key] = val;
-      });
-
-      const allItems = Object.values(deviceMap);
-
-      // Categorise energy items
-      const energyItems = allItems.filter(d => !/TERMOSTATO|HIDROMETRO/i.test(d.deviceType || ''));
-      const ENTRADA_SET = new Set(['TRAFO','ENTRADA','RELOGIO','SUBESTACAO']);
-      const energyEntrada  = energyItems.filter(d => ENTRADA_SET.has((d.deviceType||'').toUpperCase()) || ENTRADA_SET.has((d.deviceProfile||'').toUpperCase()));
-      const energyLojas    = energyItems.filter(d => (d.deviceType||'').toUpperCase() === '3F_MEDIDOR' && (d.deviceProfile||'').toUpperCase() === '3F_MEDIDOR');
-      const energyAreaComum = energyItems.filter(d => !energyEntrada.includes(d) && !energyLojas.includes(d));
-
-      const buildGroup = items => ({ items, total: 0, count: items.length });
-
-      window.STATE.energy = {
-        lojas: buildGroup(energyLojas),
-        entrada: buildGroup(energyEntrada),
-        areacomum: buildGroup(energyAreaComum),
-        _raw: energyItems,
-      };
-      window.STATE._lastUpdate.energy = now;
-
-      // Water
-      const waterItems = allItems.filter(d => /HIDROMETRO/i.test(d.deviceType || ''));
-      const waterEntrada   = waterItems.filter(d => /ENTRADA/i.test(d.deviceType || ''));
-      const waterAreaComum = waterItems.filter(d => /AREA_COMUM/i.test(d.deviceType || ''));
-      const waterLojas     = waterItems.filter(d => !waterEntrada.includes(d) && !waterAreaComum.includes(d));
-      window.STATE.water = {
-        lojas: buildGroup(waterLojas),
-        entrada: buildGroup(waterEntrada),
-        areacomum: buildGroup(waterAreaComum),
-        banheiros: buildGroup([]),
-        caixadagua: buildGroup([]),
-        _raw: waterItems,
-      };
-      window.STATE._lastUpdate.water = now;
-
-      // Temperature
-      const tempItems = allItems.filter(d => /TERMOSTATO/i.test(d.deviceType || ''));
-      window.STATE.temperature = {
-        lojas: buildGroup(tempItems),
-        _raw: tempItems,
-      };
-      window.STATE._lastUpdate.temperature = now;
-
-      logEvent('REAL-DATA', `STATE populated: energy=${energyItems.length} water=${waterItems.length} temp=${tempItems.length}`, 'info');
-    }
-
-    // ===== MOCK DATA GENERATOR =====
-    // ThingsBoard ctx.data structure: each dataKey subscription is a separate row
-    // So a device with N attributes has N rows in ctx.data, all sharing the same entityId
-    // The orchestrator's buildMetadataMapFromCtxData merges these by entityId
-    function generateMockDevices(options = {}) {
-      const { preset = 'full' } = options;
-      const devices = [];
-      let counts = { energy: 30, water: 15, temperature: 15 };
-
-      if (preset === 'partial') counts = { energy: 15, water: 10, temperature: 5 };
-      if (preset === 'empty') return [];
-      if (preset === 'large') counts = { energy: 60, water: 30, temperature: 30 };
-
-      let deviceIndex = 0;
-      const now = Date.now();
-
-      Object.keys(counts).forEach(domain => {
-        const types = DEVICE_TYPES[domain];
-        for (let i = 0; i < counts[domain]; i++) {
-          deviceIndex++;
-          const deviceType = types[Math.floor(Math.random() * types.length)];
-          const status = STATUS_OPTIONS[Math.floor(Math.random() * STATUS_OPTIONS.length)];
-          const isOnline = status === 'power_on';
-
-          let consumption = 0;
-          if (isOnline) {
-            if (domain === 'energy') consumption = Math.random() * 500 + 10;
-            else if (domain === 'water') consumption = Math.random() * 100 + 5;
-            else consumption = Math.random() * 10 + 18;
-          }
-
-          const paddedIndex = String(deviceIndex).padStart(3, '0');
-          const entityName = `${deviceType}_${paddedIndex}`;
-          const entityId = `device-${deviceIndex}`; // MUST be same for all rows of this device
-          const ingestionId = `ing-${deviceIndex}-${_CUSTOMER_ING_ID.substring(0, 8)}`;
-
-          // Base datasource info - SAME object reference for all dataKeys of this device
-          // The entityId is the key used by orchestrator to group rows
-          const baseDatasource = {
-            type: 'entity',
-            entityId: entityId,
-            entityName: entityName,
-            entityLabel: entityName,
-            aliasName: 'all3fs',
-          };
-
-          // Add multiple dataKey rows for each device (like ThingsBoard does)
-          // Each row has the SAME entityId but different dataKey.name
-          // The orchestrator merges all dataKeys with same entityId into one entity
-
-          // 1. consumption (timeseries) - main telemetry value
-          devices.push({
-            datasource: { ...baseDatasource },
-            dataKey: { name: 'consumption', type: 'timeseries', label: 'Consumption' },
-            data: [[now, consumption]],
-          });
-
-          // 2. deviceType (attribute) - CRITICAL for domain classification
-          devices.push({
-            datasource: { ...baseDatasource },
-            dataKey: { name: 'deviceType', type: 'attribute', label: 'Device Type' },
-            data: [[now, deviceType]],
-          });
-
-          // 3. deviceProfile (attribute)
-          devices.push({
-            datasource: { ...baseDatasource },
-            dataKey: { name: 'deviceProfile', type: 'attribute', label: 'Device Profile' },
-            data: [[now, deviceType]],
-          });
-
-          // 4. ingestionId (attribute) - for API enrichment matching
-          devices.push({
-            datasource: { ...baseDatasource },
-            dataKey: { name: 'ingestionId', type: 'attribute', label: 'Ingestion ID' },
-            data: [[now, ingestionId]],
-          });
-
-          // 5. connectionStatus (attribute) - for status display
-          devices.push({
-            datasource: { ...baseDatasource },
-            dataKey: { name: 'connectionStatus', type: 'attribute', label: 'Connection Status' },
-            data: [[now, status]],
-          });
-
-          // 6. lastActivityTime (attribute) - for offline detection
-          devices.push({
-            datasource: { ...baseDatasource },
-            dataKey: { name: 'lastActivityTime', type: 'attribute', label: 'Last Activity' },
-            data: [[now, now - Math.random() * 3600000]],
-          });
-
-          // 6b. createdTime (entity field) - device creation timestamp
-          devices.push({
-            datasource: { ...baseDatasource },
-            dataKey: { name: 'createdTime', type: 'entityField', label: 'Created Time' },
-            data: [[now, now - Math.random() * 365 * 24 * 3600000]],
-          });
-
-          // 7. identifier (attribute) - device identifier/label
-          devices.push({
-            datasource: { ...baseDatasource },
-            dataKey: { name: 'identifier', type: 'attribute', label: 'Identifier' },
-            data: [[now, entityName]],
-          });
-
-          // 8. gcdrDeviceId (attribute) - RFC-0179: for gcdrDeviceNameMap enrichment
-          // Only emit for a few devices to simulate the real GCDR concentrators
-          if (deviceIndex <= 5) {
-            const gcdrUuid = `gcdr-uuid-dev${String(deviceIndex).padStart(2, '0')}-0000-000000000001`;
-            devices.push({
-              datasource: {
-                ...baseDatasource,
-                entityLabel: entityName.replace(/_\d+$/, '').replace(/_/g, ' '), // e.g. "3F MEDIDOR"
-              },
-              dataKey: { name: 'gcdrDeviceId', type: 'attribute', label: 'GCDR Device ID' },
-              data: [[now, gcdrUuid]],
-            });
-          }
-        }
-      });
-
-      console.log(`[Showcase] Generated ${devices.length} rows (${deviceIndex} devices × ~7-8 dataKeys each)`);
-      console.log('[Showcase] Sample row:', devices[0]);
-      console.log('[Showcase] DataKeys per first device:',
-        devices.filter(d => d.datasource.entityId === 'device-1').map(d => d.dataKey.name));
-
-      return devices;
-    }
-
-    // ===== EVENT LOGGING =====
-    function logEvent(eventName, data, type = 'default') {
-      const logEl = document.getElementById('eventLog');
-      const time = new Date().toLocaleTimeString('pt-BR');
-      const dataStr = typeof data === 'object' ? JSON.stringify(data) : String(data);
-
-      const entry = document.createElement('div');
-      entry.className = `log-entry ${type}`;
-      entry.innerHTML = `
-        <span class="log-time">${time}</span>
-        <span class="log-event">${eventName}</span>
-        <span class="log-data">${dataStr.substring(0, 60)}${dataStr.length > 60 ? '...' : ''}</span>
-      `;
-      logEl.insertBefore(entry, logEl.firstChild);
-      while (logEl.children.length > 80) logEl.removeChild(logEl.lastChild);
-      console.log(`[Showcase] ${eventName}:`, data);
-    }
-
-    function clearLog() {
-      document.getElementById('eventLog').innerHTML = '';
-      logEvent('LOG_CLEARED', '-');
-    }
-
-    function updateStatus(status) {
-      const badge = document.getElementById('widgetStatus');
-      badge.textContent = status.toUpperCase();
-      badge.className = 'status-badge ' + status.toLowerCase();
-    }
-
-    function updateStateDisplay() {
-      const rows = self.ctx.data || [];
-      const uniqueDevices = new Set(rows.map(r => r?.datasource?.entityId)).size;
-      const dataKeys = [...new Set(rows.map(r => r?.dataKey?.name).filter(Boolean))];
-
-      document.getElementById('stateDisplay').textContent = JSON.stringify({
-        initialized: widgetInitialized,
-        tab: currentTab,
-        data: {
-          rows: rows.length,
-          devices: uniqueDevices,
-          dataKeys: dataKeys,
-        },
-        orchestrator: !!window.MyIOOrchestrator,
-        orchestratorReady: window.MyIOOrchestrator?.isReady,
-        components: Object.keys(componentInstances),
-        settings: {
-          customerTB_ID: self.ctx.settings.customerTB_ID,
-          debugMode: self.ctx.settings.debugMode,
-        },
-      }, null, 2);
-    }
-
-    function toggleStatePanel() {
-      const content = document.getElementById('stateContent');
-      const toggle = document.getElementById('stateToggle');
-      const isHidden = content.style.display === 'none';
-      content.style.display = isHidden ? 'block' : 'none';
-      toggle.innerHTML = isHidden ? '&#x25BC;' : '&#x25B2;';
-    }
-
-    // ===== TAB SWITCHING =====
-    function switchTab(tab) {
-      currentTab = tab;
-
-      // Map tab names to content-state names
-      const stateMap = {
-        'energy': 'telemetry_content',
-        'water': 'water_content',
-        'temperature': 'temperature_content',
-        'alarms': 'alarm_content',
-      };
-
-      // Hide all, show selected
-      document.querySelectorAll('[data-content-state]').forEach(el => {
-        el.style.display = 'none';
-        el.querySelector('.placeholder-component')?.classList.remove('active');
-      });
-
-      const targetState = stateMap[tab] || 'telemetry_content';
-      const targetEl = document.querySelector(`[data-content-state="${targetState}"]`);
-      if (targetEl) {
-        // alarm_content needs flex to propagate height into the scroll chain
-        targetEl.style.display = tab === 'alarms' ? 'flex' : 'block';
-        if (tab === 'alarms') targetEl.style.flexDirection = 'column';
-        targetEl.querySelector('.placeholder-component')?.classList.add('active');
-      }
-
-      // Show/hide alarm controls in sidebar
-      const alarmControls = document.getElementById('alarmControls');
-      if (alarmControls) alarmControls.style.display = (tab === 'alarms') ? 'block' : 'none';
-
-      // Init alarm panel on first switch to alarms tab
-      if (tab === 'alarms' && !_alarmPanelInstance) {
-        setTimeout(initAlarmPanel, 50); // small delay so display:block takes effect
-      }
-
-      // Dispatch event (controller.js listens to this)
-      window.dispatchEvent(new CustomEvent('myio:dashboard-state', { detail: { tab } }));
-      logEvent('TAB_CHANGED', tab);
-      updateStateDisplay();
-    }
-
-    // =========================================================================
-    // ALARM PANEL — Mock data + component lifecycle
-    // =========================================================================
-
-    let _alarmPanelInstance = null;
-    let _alarmCount = 20;
-    let _alarmLoading = false;
-
-    const ALARM_SEVERITIES = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'];
-    const ALARM_STATES = ['OPEN', 'ACK', 'SNOOZED', 'ESCALATED'];
-    // Fewer unique titles → grouping is clearly visible (20 alarms → ~6 grouped cards)
-    const ALARM_TITLES = [
-      'Elevador energizado e não usado (seg-sáb)',   // same as PINNED-01 → merges
-      'Falha no sistema de refrigeração',            // same as PINNED-02 → merges
-      'Consumo de energia acima do limite',          // same as PINNED-03 → merges
-      'Falha de comunicação com dispositivo',
-      'Temperatura fora da faixa configurada',
-      'Dispositivo offline por mais de 24h',
-    ];
-    // Sources: single device OR multi-device (comma-separated simulates real-world groups)
-    // Also includes raw TB entityNames and gcdr: short-codes to exercise RFC-0179 enrichment
-    const ALARM_SOURCES = [
-      // Single device — already human-readable (no enrichment needed)
-      'CHILLER-01',
-      'FANCOIL-03',
-      'ELV-01',
-      'ESC-01',
-      'MEDIDOR-01',
-      'HIDROMETRO-01',
-      'TERMOSTATO-01',
-      // Raw TB entityNames (enriched via entityNameToLabelMap → friendly label)
-      '3F_SCMOXUARAAC_EL1_L2',
-      '3F_SCMOXUARAAC_EL7_L2',
-      '3F_SCMOXUARAAC_CH1',
-      // GCDR short-code format (enriched via gcdrDeviceNameMap)
-      'gcdr:9264f262',
-      'gcdr:e9dce3c5',
-      // Multi-device (2 devices)
-      'CHILLER-01, CHILLER-02',
-      'ELV-01, ELV-02',
-      'FANCOIL-01, FANCOIL-02',
-      // Multi-device (3–4 devices)
-      'ELV-01, ELV-02, ELV-03',
-      'FANCOIL-01, FANCOIL-02, FANCOIL-03',
-      'CHILLER-01, CHILLER-02, FANCOIL-01, FANCOIL-02',
-    ];
-
-    // Pinned rich alarms to showcase the details modal (multi-device + high occurrences)
-    // centralId: GCDR UUID used for stateMap enrichment (layer 3 of RFC-0179)
-    // triggerValue: measured value that triggered the rule (shown in timeline)
-    // ─────────────────────────────────────────────────────────────────────────
-    // PINNED_ALARMS: alarmes fixos com dados ricos para o modal de Detalhes.
-    //
-    // Estratégia de cobertura por modo de Timeline (RFC-0152):
-    //
-    //  CONSOLIDADO  → PINNED-01 (3 devices: ELV-01/02/03) demonstra rotação de
-    //                 dispositivos por linha; triggerValue=4.2 aparece no is-last.
-    //
-    //  SEPARADO     → PINNED-04 (source='ELV-01', único dispositivo) demonstra
-    //                 ausência de device label nas linhas; só #N | data | [valor].
-    //
-    //  POR DISPOSITIVO → no modo porDispositivo o panel chama groupAlarmsByDevice()
-    //    que computa _alarmTypeGroups automaticamente a partir dos rawAlarms do mesmo
-    //    device. Os alarmes PINNED-01 + PINNED-04 + PINNED-05 compartilham 'ELV-01'
-    //    → produzem 3 grupos na timeline:
-    //      • "Elevador energizado e não usado (seg-sáb)" (50 occ., trigger=4.2)
-    //      • "Comunicação Perdida"  (7 occ., sem trigger)
-    //      • "Corrente de Fuga"     (3 occ., trigger=0.7A)
-    //    PINNED-02 + PINNED-06 compartilham '3F_SCMOXUARAAC_CH1'
-    //      → 2 grupos: "Falha no sistema de refrigeração" + "Temperatura de Condensador Alta"
-    // ─────────────────────────────────────────────────────────────────────────
-    const PINNED_ALARMS = [
-      // ── Consolidado showcase: 3 dispositivos (rotação na timeline) ──────────
-      {
-        id: 'ALM-PINNED-01',
-        customerId: 'cust-1',
-        customerName: 'Shopping Aricanduva',
-        source: 'ELV-01, ELV-02, ELV-03',
-        centralId: 'a1b2c3d4-0000-0000-0000-000000000001',
-        severity: 'HIGH',
-        state: 'OPEN',
-        title: 'Elevador energizado e não usado (seg-sáb)',
-        description: 'Alerta quando o elevador está energizado mas não está sendo usado de segunda a sábado (10:00–22:00). Verificar painel de controle e circuito de acionamento.',
-        tags: { alarmType: 'energy', deviceType: 'ELEVADOR', andar: 'todos' },
-        firstOccurrence: new Date(Date.now() - 45 * 24 * 3600 * 1000).toISOString(),
-        lastOccurrence: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
-        occurrenceCount: 50,
-        triggerValue: 4.2,
-      },
-      // ── Consolidado + Por Dispositivo: source único, com triggerValue ─────
-      {
-        id: 'ALM-PINNED-02',
-        customerId: 'cust-2',
-        customerName: 'Mestre Alvaro',
-        source: '3F_SCMOXUARAAC_CH1',       // enriched → "Chiller 1" via entityNameToLabelMap
-        centralId: 'c3d4e5f6-0000-0000-0000-000000000003',
-        severity: 'CRITICAL',
-        state: 'OPEN',
-        title: 'Falha no sistema de refrigeração',
-        description: 'Sistema de refrigeração central apresentando falha intermitente. Chillers e fancoils desligando fora do horário programado.',
-        tags: { alarmType: 'temperature', deviceType: 'CHILLER', zona: 'ala-norte' },
-        firstOccurrence: new Date(Date.now() - 14 * 24 * 3600 * 1000).toISOString(),
-        lastOccurrence: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-        occurrenceCount: 32,
-        triggerValue: 194,
-      },
-      // ── GCDR short-code enrichment showcase ─────────────────────────────
-      {
-        id: 'ALM-PINNED-03',
-        customerId: 'cust-3',
-        customerName: 'Shopping Eldorado',
-        source: 'gcdr:9264f262',             // enriched via gcdrDeviceNameMap
-        centralId: 'b2c3d4e5-0000-0000-0000-000000000002',
-        severity: 'MEDIUM',
-        state: 'ACK',
-        title: 'Consumo de energia acima do limite',
-        description: 'Consumo acumulado dos fancoils ultrapassa o limite contratual de demanda para o período.',
-        tags: { alarmType: 'energy', deviceType: 'FANCOIL', limite_kw: '250' },
-        firstOccurrence: new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString(),
-        lastOccurrence: new Date(Date.now() - 6 * 3600 * 1000).toISOString(),
-        occurrenceCount: 18,
-        acknowledgedAt: new Date().toISOString(),
-        acknowledgedBy: 'operador@myio.com.br',
-        triggerValue: 287.5,
-      },
-
-      // ── Por Dispositivo showcase: ELV-01 ganha 3 grupos na timeline ──────
-      // (shares source 'ELV-01' with PINNED-01's device list)
-      {
-        id: 'ALM-PINNED-04',
-        customerId: 'cust-1',
-        customerName: 'Shopping Aricanduva',
-        source: 'ELV-01',
-        severity: 'HIGH',
-        state: 'OPEN',
-        title: 'Comunicação Perdida',
-        description: 'Elevador 1 sem resposta por mais de 15 minutos.',
-        tags: { alarmType: 'connectivity', deviceType: 'ELEVADOR' },
-        firstOccurrence: new Date(Date.now() - 10 * 24 * 3600 * 1000).toISOString(),
-        lastOccurrence: new Date(Date.now() - 1 * 3600 * 1000).toISOString(),
-        occurrenceCount: 7,
-        triggerValue: null,
-      },
-      {
-        id: 'ALM-PINNED-05',
-        customerId: 'cust-1',
-        customerName: 'Shopping Aricanduva',
-        source: 'ELV-01',
-        severity: 'MEDIUM',
-        state: 'ACK',
-        title: 'Corrente de Fuga',
-        description: 'Corrente de fuga detectada no circuito do Elevador 1.',
-        tags: { alarmType: 'energy', deviceType: 'ELEVADOR' },
-        firstOccurrence: new Date(Date.now() - 20 * 24 * 3600 * 1000).toISOString(),
-        lastOccurrence: new Date(Date.now() - 5 * 3600 * 1000).toISOString(),
-        occurrenceCount: 3,
-        triggerValue: '0.7A',
-        acknowledgedAt: new Date(Date.now() - 4 * 3600 * 1000).toISOString(),
-        acknowledgedBy: 'manutencao@myio.com.br',
-      },
-
-      // ── Por Dispositivo showcase: 3F_SCMOXUARAAC_CH1 ganha 2 grupos ─────
-      // (shares source with PINNED-02 → "Chiller 1" terá 2 tipos de alarme)
-      {
-        id: 'ALM-PINNED-06',
-        customerId: 'cust-2',
-        customerName: 'Mestre Alvaro',
-        source: '3F_SCMOXUARAAC_CH1',
-        severity: 'MEDIUM',
-        state: 'OPEN',
-        title: 'Temperatura de Condensador Alta',
-        description: 'Temperatura de saída do condensador do Chiller 1 acima de 60°C.',
-        tags: { alarmType: 'temperature', deviceType: 'CHILLER' },
-        firstOccurrence: new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString(),
-        lastOccurrence: new Date(Date.now() - 3 * 3600 * 1000).toISOString(),
-        occurrenceCount: 5,
-        triggerValue: '67°C',
-      },
-
-      // ── Separado showcase: 1 ocorrência única, sem triggerValue ──────────
-      {
-        id: 'ALM-PINNED-07',
-        customerId: 'cust-3',
-        customerName: 'Shopping Eldorado',
-        source: 'TERM-SALA-02',
-        severity: 'LOW',
-        state: 'OPEN',
-        title: 'Temperatura fora da faixa configurada',
-        description: 'Temperatura da sala técnica fora do intervalo 18–28°C.',
-        tags: { alarmType: 'temperature', deviceType: 'TERMOSTATO' },
-        firstOccurrence: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
-        lastOccurrence: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
-        occurrenceCount: 1,
-        triggerValue: '31.5°C',
-      },
-    ];
-
-    function generateFakeAlarms(count) {
-      const now = Date.now();
-      const alarms = [...PINNED_ALARMS];
-      for (let i = 0; i < count; i++) {
-        const severity = ALARM_SEVERITIES[Math.floor(Math.random() * ALARM_SEVERITIES.length)];
-        const state = ALARM_STATES[Math.floor(Math.random() * ALARM_STATES.length)];
-        const firstTs = now - Math.floor(Math.random() * 7 * 24 * 3600 * 1000);
-        const lastTs = firstTs + Math.floor(Math.random() * (now - firstTs));
-        const alarm = {
-          id: `ALM-${String(i + 1).padStart(6, '0')}`,
-          customerId: `cust-${(i % 3) + 1}`,
-          customerName: ['Mestre Alvaro', 'Shopping Aricanduva', 'Shopping Eldorado'][(i % 3)],
-          source: ALARM_SOURCES[i % ALARM_SOURCES.length],
-          centralId: `gcdr-uuid-dev${String((i % 5) + 1).padStart(2, '0')}-0000-000000000001`,
-          severity,
-          state,
-          title: ALARM_TITLES[i % ALARM_TITLES.length],
-          description: 'Descrição detalhada do alarme de equipamento monitorado.',
-          tags: { alarmType: 'energy', deviceType: '3F_MEDIDOR' },
-          firstOccurrence: new Date(firstTs).toISOString(),
-          lastOccurrence: new Date(lastTs).toISOString(),
-          occurrenceCount: Math.floor(Math.random() * 20) + 1,
-          // triggerValue: measured value that triggered the rule (shown in timeline)
-          triggerValue: severity === 'CRITICAL' || severity === 'HIGH'
-            ? Math.round((Math.random() * 300 + 50) * 10) / 10
-            : undefined,
-        };
-        if (state === 'ACK') { alarm.acknowledgedAt = new Date().toISOString(); alarm.acknowledgedBy = 'operador@myio.com.br'; }
-        if (state === 'SNOOZED') { alarm.snoozedUntil = new Date(now + 4 * 3600 * 1000).toISOString(); }
-        alarms.push(alarm);
-      }
-      return alarms;
-    }
-
-    function generateFakeTrend() {
-      const now = new Date();
-      return Array.from({ length: 7 }, (_, i) => {
-        const d = new Date(now);
-        d.setDate(d.getDate() - (6 - i));
-        return {
-          label: d.toLocaleDateString('pt-BR', { weekday: 'short' }),
-          timestamp: d.getTime(),
-          total: Math.floor(Math.random() * 25) + 3,
-          bySeverity: { CRITICAL: Math.floor(Math.random() * 5), HIGH: Math.floor(Math.random() * 8), MEDIUM: Math.floor(Math.random() * 6), LOW: Math.floor(Math.random() * 4), INFO: Math.floor(Math.random() * 3) },
-        };
-      });
-    }
-
-    function _buildAlarmStats(alarms) {
-      const bySeverity = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, INFO: 0 };
-      const byState = { OPEN: 0, ACK: 0, SNOOZED: 0, ESCALATED: 0, CLOSED: 0 };
-      alarms.forEach(a => { bySeverity[a.severity] = (bySeverity[a.severity] || 0) + 1; byState[a.state] = (byState[a.state] || 0) + 1; });
-      return { total: alarms.length, bySeverity, byState, openCritical: bySeverity.CRITICAL, openHigh: bySeverity.HIGH, last24Hours: Math.floor(alarms.length * 0.3) };
-    }
-
-    function initAlarmPanel() {
-      const lib = window.MyIOLibrary;
-      if (!lib?.createAlarmsNotificationsPanelComponent) {
-        logEvent('ALARM', 'createAlarmsNotificationsPanelComponent not available', 'error');
-        return;
-      }
-
-      const container = document.getElementById('alarmPanelContainer');
-      if (!container) { logEvent('ALARM', '#alarmPanelContainer not found', 'error'); return; }
-
-      // Clear previous instance
-      if (_alarmPanelInstance?.destroy) _alarmPanelInstance.destroy();
-      container.innerHTML = '';
-      _alarmPanelInstance = null;
-
-      const showCustomerName = document.getElementById('alarmShowCustomer')?.value === 'true';
-      const themeMode = document.getElementById('settingsTheme')?.value || 'light';
-
-      _alarmPanelInstance = lib.createAlarmsNotificationsPanelComponent({
-        container,
-        themeMode,
-        alarms: generateFakeAlarms(_alarmCount),
-        showCustomerName,
-        enableDebugMode: true,
-        alarmsApiBaseUrl: 'https://alarms-api.a.myio-bas.com/api/v1',
-        alarmsApiKey: gcdrKey(),
-        onAlarmClick: (alarm) => logEvent('ALARM_CLICK', alarm.title || alarm.id, 'info'),
-        onAcknowledge: async (ids) => {
-          logEvent('ALARM_ACK', `batch(${ids.length}): ${ids.join(', ')}`, 'info');
-          setTimeout(() => refreshAlarmPanel(), 300);
-        },
-        onEscalate: async (ids) => {
-          logEvent('ALARM_ESCALATE', `batch(${ids.length}): ${ids.join(', ')}`, 'info');
-          setTimeout(() => refreshAlarmPanel(), 300);
-        },
-        onSnooze: async (ids, until) => {
-          logEvent('ALARM_SNOOZE', `batch(${ids.length}) until ${until}`, 'info');
-          setTimeout(() => refreshAlarmPanel(), 300);
-        },
-        onClose: async (ids, reason) => {
-          logEvent('ALARM_CLOSE', `batch(${ids.length}) reason: ${reason || '-'}`, 'info');
-          setTimeout(() => refreshAlarmPanel(), 300);
-        },
-        onTabChange: (tab) => logEvent('ALARM_TAB', tab, 'info'),
-      });
-
-      // Bind btnAlarmBundleMap
-      const btnMap = document.getElementById('btnAlarmBundleMap');
-      if (btnMap) {
-        btnMap.onclick = () => logEvent('ALARM_MAP', 'Regras de Alarmes clicked', 'info');
-      }
-      // Badge is managed internally by the component via handleStateChange
-
-      // Feed trend data
-      if (_alarmPanelInstance?.updateTrendData) _alarmPanelInstance.updateTrendData(generateFakeTrend());
-
-      logEvent('ALARM', `Panel initialized with ${_alarmCount} alarms`, 'info');
-    }
-
-    function refreshAlarmPanel() {
-      if (!_alarmPanelInstance) return;
-      const alarms = generateFakeAlarms(_alarmCount);
-      _alarmPanelInstance.updateAlarms?.(alarms); // badge auto-updated by component
-      _alarmPanelInstance.updateStats?.(_buildAlarmStats(alarms));
-      _alarmPanelInstance.updateTrendData?.(generateFakeTrend());
-      logEvent('ALARM', `Refreshed: ${alarms.length} alarms`, 'info');
-    }
-
-    function updateAlarmCount() {
-      _alarmCount = parseInt(document.getElementById('alarmCountSelect').value, 10);
-      refreshAlarmPanel();
-    }
-
-    function updateAlarmPanel() {
-      reinitAlarmPanel();
-    }
-
-    function reinitAlarmPanel() {
-      initAlarmPanel();
-    }
-
-    function destroyAlarmPanel() {
-      // badge lives inside the component — hide before destroying
-      const badge = document.getElementById('alarmCountBadge');
-      if (badge) badge.style.display = 'none';
-      if (_alarmPanelInstance?.destroy) _alarmPanelInstance.destroy();
-      _alarmPanelInstance = null;
-      const container = document.getElementById('alarmPanelContainer');
-      if (container) container.innerHTML = '';
-      logEvent('ALARM', 'Panel destroyed', 'warn');
-    }
-
-    function toggleAlarmLoading() {
-      if (!_alarmPanelInstance) return;
-      _alarmLoading = !_alarmLoading;
-      _alarmPanelInstance.setLoading?.(_alarmLoading);
-      logEvent('ALARM', `Loading: ${_alarmLoading}`, 'info');
-    }
-
-    // ===== COMPONENT CREATION (after orchestrator is ready) =====
-    async function createComponents() {
-      if (!window.MyIOLibrary) {
-        logEvent('ERROR', 'MyIOLibrary not loaded', 'error');
-        return;
-      }
-
-      logEvent('COMPONENTS', 'Creating components...', 'info');
-
-      try {
-        // Create MenuShopping Component (RFC-0140)
-        const menuContainer = document.getElementById('menuContainer');
-        if (menuContainer && MyIOLibrary.createMenuShoppingComponent) {
-          const placeholder = menuContainer.querySelector('.placeholder-component');
-          if (placeholder) placeholder.remove();
-
-          componentInstances.menu = MyIOLibrary.createMenuShoppingComponent({
-            container: menuContainer,
-            userInfo: {
-              name: 'Admin User',
-              email: 'admin@myio.com.br',
-              isAdmin: true,
-            },
-            configTemplate: {
-              initialDomain: 'energy',
-              collapsed: false,
-              showUserInfo: true,
-              showSettingsButton: true,
-              showShoppingSelector: true,
-              showLogoutButton: true,
-              showLibraryVersion: true,
-              showHamburgerToggle: true,
-              tabs: [
-                { id: 'tab-energy',      domain: 'energy',      label: 'Energia',     icon: '⚡',  enabled: true },
-                { id: 'tab-water',       domain: 'water',       label: 'Água',        icon: '💧',  enabled: true },
-                { id: 'tab-temperature', domain: 'temperature', label: 'Temperatura', icon: '🌡️', enabled: true },
-                { id: 'tab-alarms',      domain: 'alarms',      label: 'Alarmes',     icon: '🔔',  enabled: true },
-              ],
-            },
-            onTabChange: (domain, tabId) => {
-              logEvent('MENU', `Tab changed: ${domain} (${tabId})`, 'info');
-              switchTab(domain);
-            },
-            onSettingsClick: () => {
-              logEvent('MENU', 'Settings clicked', 'info');
-              alert('Settings modal would open here');
-            },
-            onShoppingSelectorClick: () => {
-              logEvent('MENU', 'Shopping selector clicked', 'info');
-              alert('Shopping selector would open here');
-            },
-            onLogoutClick: () => {
-              logEvent('MENU', 'Logout clicked', 'warn');
-              if (confirm('Deseja sair?')) {
-                logEvent('AUTH', 'User logged out', 'warn');
-              }
-            },
-          });
-          logEvent('MENU', 'MenuShopping created (RFC-0140)', 'info');
-        } else if (menuContainer && MyIOLibrary.createMenuComponent) {
-          // Fallback to legacy menu component
-          const placeholder = menuContainer.querySelector('.placeholder-component');
-          if (placeholder) placeholder.remove();
-          componentInstances.menu = MyIOLibrary.createMenuComponent({
-            container: menuContainer,
-            theme: 'light',
-            shoppings: [],
-          });
-          logEvent('MENU', 'Created (legacy fallback)', 'warn');
-        }
-
-        // Create HeaderShopping Component (RFC-0139)
-        const headerContainer = document.getElementById('headerContainer');
-        if (headerContainer && MyIOLibrary.createHeaderShoppingComponent) {
-          const placeholder = headerContainer.querySelector('.placeholder-component');
-          if (placeholder) placeholder.remove();
-
-          // Initialize with default period
-          const now = new Date();
-          const startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
-          const endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 0);
-
-          componentInstances.header = MyIOLibrary.createHeaderShoppingComponent({
-            container: headerContainer,
-            themeMode: 'light',
-            configTemplate: {
-              showDatePicker: true,
-              showLoadButton: true,
-              showClearButton: true,
-              showReportButton: true,
-              showContractStatus: true,
-              initialDomain: currentTab,
-            },
-            period: {
-              startISO: startDate.toISOString(),
-              endISO: endDate.toISOString(),
-            },
-            onPeriodChange: (period) => {
-              logEvent('HEADER', `Period changed: ${period.startISO} - ${period.endISO}`, 'info');
-              window.dispatchEvent(new CustomEvent('myio:update-date', { detail: { period } }));
-            },
-            onLoadClick: () => {
-              logEvent('HEADER', 'Load button clicked', 'info');
-            },
-            onClearClick: () => {
-              logEvent('HEADER', 'Clear button clicked', 'warn');
-            },
-            onReportClick: (domain) => {
-              logEvent('HEADER', `Report clicked for domain: ${domain}`, 'info');
-              alert(`Opening report for ${domain}...`);
-            },
-          });
-          logEvent('HEADER', 'HeaderShopping created (RFC-0139)', 'info');
-        } else if (headerContainer && MyIOLibrary.createHeaderComponent) {
-          // Fallback to legacy header component
-          const placeholder = headerContainer.querySelector('.placeholder-component');
-          if (placeholder) placeholder.remove();
-          componentInstances.header = MyIOLibrary.createHeaderComponent({
-            container: headerContainer,
-            theme: 'light',
-            showSearch: true,
-            showFilter: true,
-          });
-          logEvent('HEADER', 'Created (legacy fallback)', 'warn');
-        }
-
-        // =====================================================================
-        // RFC-0145: TelemetryGridShopping Components (Energy Domain)
-        // Creates 3 grid components: Entrada, Área Comum, Lojas
-        // =====================================================================
-        const themeMode = document.getElementById('settingsTheme')?.value || 'light';
-
-        // Grid 1: Entrada (entrada context)
-        const gridEntradaContainer = document.getElementById('gridEntradaContainer');
-        if (gridEntradaContainer && MyIOLibrary.createTelemetryGridShoppingComponent) {
-          const placeholder = gridEntradaContainer.querySelector('.placeholder-component');
-          if (placeholder) placeholder.remove();
-
-          componentInstances.gridEntrada = MyIOLibrary.createTelemetryGridShoppingComponent({
-            container: gridEntradaContainer,
-            domain: 'energy',
-            context: 'entrada',
-            labelWidget: 'Entrada de Energia',
-            themeMode: themeMode,
-            onCardAction: (action, device) => {
-              logEvent('GRID_ENTRADA', `${action}: ${device?.labelOrName || device?.entityId || 'unknown'}`, 'info');
-              if (action === 'dashboard') handleCardDashboard(device);
-              if (action === 'settings') handleCardSettings(device);
-            },
-            onPresetupClick: () => openPresetupModal('Entrada de Energia'),
-            onStatsUpdate: (stats) => {
-              logEvent('GRID_ENTRADA_STATS', `online: ${stats.online}, offline: ${stats.offline}`, 'info');
-            },
-          });
-          logEvent('TELEMETRY_GRID', 'Entrada created (RFC-0145)', 'info');
-        }
-
-        // Grid 2: Área Comum (equipments context - non-stores)
-        const gridAreaComumContainer = document.getElementById('gridAreaComumContainer');
-        if (gridAreaComumContainer && MyIOLibrary.createTelemetryGridShoppingComponent) {
-          const placeholder = gridAreaComumContainer.querySelector('.placeholder-component');
-          if (placeholder) placeholder.remove();
-
-          componentInstances.gridAreaComum = MyIOLibrary.createTelemetryGridShoppingComponent({
-            container: gridAreaComumContainer,
-            domain: 'energy',
-            context: 'equipments',
-            labelWidget: 'Área Comum',
-            themeMode: themeMode,
-            onCardAction: (action, device) => {
-              logEvent('GRID_AREA_COMUM', `${action}: ${device?.labelOrName || device?.entityId || 'unknown'}`, 'info');
-              if (action === 'dashboard') handleCardDashboard(device);
-              if (action === 'settings') handleCardSettings(device);
-            },
-            onPresetupClick: () => openPresetupModal('Área Comum'),
-            onStatsUpdate: (stats) => {
-              logEvent('GRID_AREA_COMUM_STATS', `online: ${stats.online}, offline: ${stats.offline}`, 'info');
-            },
-          });
-          logEvent('TELEMETRY_GRID', 'Área Comum created (RFC-0145)', 'info');
-        }
-
-        // Grid 3: Lojas (stores context)
-        const gridLojasContainer = document.getElementById('gridLojasContainer');
-        if (gridLojasContainer && MyIOLibrary.createTelemetryGridShoppingComponent) {
-          const placeholder = gridLojasContainer.querySelector('.placeholder-component');
-          if (placeholder) placeholder.remove();
-
-          componentInstances.gridLojas = MyIOLibrary.createTelemetryGridShoppingComponent({
-            container: gridLojasContainer,
-            domain: 'energy',
-            context: 'stores',
-            labelWidget: 'Lojas',
-            themeMode: themeMode,
-            onCardAction: (action, device) => {
-              logEvent('GRID_LOJAS', `${action}: ${device?.labelOrName || device?.entityId || 'unknown'}`, 'info');
-              if (action === 'dashboard') handleCardDashboard(device);
-              if (action === 'settings') handleCardSettings(device);
-            },
-            onPresetupClick: () => openPresetupModal('Lojas'),
-            onStatsUpdate: (stats) => {
-              logEvent('GRID_LOJAS_STATS', `online: ${stats.online}, offline: ${stats.offline}`, 'info');
-            },
-          });
-          logEvent('TELEMETRY_GRID', 'Lojas created (RFC-0145)', 'info');
-        }
-
-        // =====================================================================
-        // RFC-0148: TelemetryInfoShopping Component (Energy Domain)
-        // Category breakdown panel with pie chart
-        // =====================================================================
-        const telemetryInfoContainer = document.getElementById('telemetryInfoContainer');
-        if (telemetryInfoContainer && MyIOLibrary.createTelemetryInfoShoppingComponent) {
-          const placeholder = telemetryInfoContainer.querySelector('.placeholder-component');
-          if (placeholder) placeholder.remove();
-
-          componentInstances.telemetryInfo = MyIOLibrary.createTelemetryInfoShoppingComponent({
-            container: telemetryInfoContainer,
-            domain: 'energy',
-            themeMode: themeMode,
-            showChart: true,
-            showExpandButton: true,
-            labelWidget: 'Consumo por Categoria',
-            onCategoryClick: (category) => {
-              logEvent('TELEMETRY_INFO', `Category clicked: ${category}`, 'info');
-            },
-          });
-          logEvent('TELEMETRY_INFO', 'Created (RFC-0148)', 'info');
-
-          // Set sample data for the info panel
-          componentInstances.telemetryInfo.setEnergyData({
-            entrada: { total: 15000 },
-            lojas: { total: 5000 },
-            climatizacao: { total: 4500 },
-            elevadores: { total: 1500 },
-            escadasRolantes: { total: 750 },
-            outros: { total: 1250 },
-          });
-          logEvent('TELEMETRY_INFO', 'Sample energy data set', 'info');
-        }
-
-        // Create Footer Component
-        const footerContainer = document.getElementById('footerContainer');
-        if (footerContainer && MyIOLibrary.createFooterComponent) {
-          const placeholder = footerContainer.querySelector('.placeholder-component');
-          if (placeholder) placeholder.remove();
-
-          componentInstances.footer = MyIOLibrary.createFooterComponent({
-            container: footerContainer,
-            theme: 'light',
-          });
-          logEvent('FOOTER', 'Created', 'info');
-        }
-
-        logEvent('COMPONENTS', `Created ${Object.keys(componentInstances).length} components`, 'info');
-        updateStateDisplay();
-
-      } catch (error) {
-        logEvent('ERROR', error.message, 'error');
-        console.error('[Showcase] Component creation error:', error);
-      }
-    }
-
-    function destroyComponents() {
-      Object.keys(componentInstances).forEach(key => {
-        const instance = componentInstances[key];
-        if (instance && typeof instance.destroy === 'function') {
-          instance.destroy();
-        }
-      });
-      componentInstances = {};
-      logEvent('COMPONENTS', 'Destroyed all components', 'warn');
-      updateStateDisplay();
-    }
-
-    // =========================================================================
-    // RFC-0183: AlarmServiceOrchestrator Mock Injection
-    // =========================================================================
-
-    function injectMockAlarmServiceOrchestrator() {
-      const count = parseInt(document.getElementById('alarmBadgePreset')?.value || '5', 10);
-
-      // Build mock alarms using gcdrDeviceIds from generateMockDevices (devices 1..N)
-      const MOCK_TITLES = [
-        'Demanda Alta', 'Falta de Energia', 'Comunicação Perdida',
-        'Temperatura Fora da Faixa', 'Consumo Anômalo Noturno',
+    function buildMockData() {
+      const D = [
+        { entityId:'e-3f-1',   name:'Loja 101',      deviceType:'3F_MEDIDOR',         deviceProfile:'3F_MEDIDOR',         identifier:'LOJA-101', valueKey:'consumption', value:1234.5, status:'online' },
+        { entityId:'e-3f-2',   name:'Loja 102',      deviceType:'3F_MEDIDOR',         deviceProfile:'3F_MEDIDOR',         identifier:'LOJA-102', valueKey:'consumption', value:0,      status:'offline' },
+        { entityId:'e-chil-1', name:'Chiller 01',    deviceType:'CHILLER',            deviceProfile:'CHILLER',            identifier:'CHILLER-01', valueKey:'consumption', value:890.2, status:'online' },
+        { entityId:'e-ent-1',  name:'Entrada Geral', deviceType:'ENTRADA',            deviceProfile:'ENTRADA',            identifier:'ENT-01',   valueKey:'consumption', value:5000,   status:'online' },
+        { entityId:'e-hid-1',  name:'Loja Água 1',   deviceType:'HIDROMETRO',         deviceProfile:'HIDROMETRO',         identifier:'HID-01',   valueKey:'pulses',      value:42.7,   status:'online' },
+        { entityId:'e-hie-1',  name:'Entrada Água',  deviceType:'HIDROMETRO_ENTRADA', deviceProfile:'HIDROMETRO_ENTRADA', identifier:'HIDENT-01',valueKey:'pulses',      value:1200,   status:'online' },
       ];
-      const mockAlarms = [];
-      for (let i = 1; i <= count; i++) {
-        const gcdrId = `gcdr-uuid-dev${String(i).padStart(2, '0')}-0000-000000000001`;
-        const alarmCount = (i === 1) ? 2 : 1; // device-1 gets 2 alarms to test count display
-        for (let j = 0; j < alarmCount; j++) {
-          mockAlarms.push({
-            id: `ALM-MOCK-${String(i * 10 + j).padStart(3, '0')}`,
-            deviceId:   gcdrId,
-            // source = deviceId so _updatePanelFromASO → gcdrDeviceNameMap lookup resolves name
-            // (mirrors the normalization done by _buildAlarmServiceOrchestrator in MAIN_VIEW)
-            source:     gcdrId,
-            deviceName: `Dev Mock ${i}`,
-            alarmType: MOCK_TITLES[(i + j) % MOCK_TITLES.length],
-            title:     MOCK_TITLES[(i + j) % MOCK_TITLES.length],
-            severity:  i === 1 ? 'CRITICAL' : 'HIGH',
-            state:     'OPEN',
-            raisedAt:  new Date(Date.now() - (i * 600000)).toISOString(),
-            lastUpdatedAt: new Date(Date.now() - (i * 300000)).toISOString(),
-            centralId: gcdrId,
-          });
-        }
-      }
+      return D.flatMap(deviceRows);
+    }
 
-      // Build maps — same logic as _buildAlarmServiceOrchestrator in MAIN_VIEW/controller.js
-      const deviceAlarmMap = new Map();
-      for (const alarm of mockAlarms) {
-        const did = alarm.deviceId;
-        if (!did) continue;
-        if (!deviceAlarmMap.has(did)) deviceAlarmMap.set(did, []);
-        deviceAlarmMap.get(did).push(alarm);
-      }
-      const deviceAlarmTypes = new Map();
-      deviceAlarmMap.forEach((devAlarms, did) => {
-        deviceAlarmTypes.set(did, new Set(devAlarms.map(a => a.alarmType || a.title || 'unknown')));
-      });
+    // ---- settingsSchema.json → cockpit form (mirrors the TB widget "Appearance/Settings") ----
+    const SCHEMA_URL = '../../src/thingsboard/main-dashboard-shopping/v-5.4.0/settingsSchema.json?v=' + Date.now();
+    // showcase defaults + secrets come from config.json (gitignored). Never hardcoded here.
+    let DEFAULT_OVERRIDES = {};
+    let _apiKeyOptions = [];
+    let _schema = null;
 
-      window.AlarmServiceOrchestrator = {
-        alarms: mockAlarms,
-        deviceAlarmMap,
-        deviceAlarmTypes,
-        getAlarmCountForDevice(gcdrDeviceId) { return deviceAlarmMap.get(gcdrDeviceId)?.length ?? 0; },
-        getAlarmsForDevice(gcdrDeviceId)     { return deviceAlarmMap.get(gcdrDeviceId) ?? []; },
-        getAlarmTypesForDevice(gcdrDeviceId) { return deviceAlarmTypes.get(gcdrDeviceId) ?? new Set(); },
-        async refresh() { /* showcase mock: no-op */ },
+    // Load local config (gitignored). Falls back to the committed example template.
+    async function loadConfig() {
+      let cfg = null, src = '';
+      for (const url of ['./config.json', './config.example.json']) {
+        try {
+          const r = await fetch(url + '?v=' + Date.now());
+          if (r.ok) { cfg = await r.json(); src = url; break; }
+        } catch {}
+      }
+      if (!cfg) { log('err', 'config.json/config.example.json não encontrados'); return; }
+      DEFAULT_OVERRIDES = {
+        customerTB_ID: cfg.customerTB_ID || '',
+        thingsboardUrl: cfg.thingsboardUrl || undefined,
+        gcdrApiBaseUrl: cfg.gcdrApiBaseUrl || '',
+        gcdrCustomerId: cfg.gcdrCustomerId || '',
+        gcdrTenantId: cfg.gcdrTenantId || '',
       };
-
-      logEvent('ASO', `Mock ASO injetado: ${deviceAlarmMap.size} devices, ${mockAlarms.length} alarms`, 'info');
-      updateAsoStatus();
-
-      // Re-render grids so badges appear immediately
-      ['gridEntrada', 'gridAreaComum', 'gridLojas'].forEach(key => {
-        const inst = componentInstances[key];
-        if (inst && typeof inst.refresh === 'function') inst.refresh();
-        else if (inst && typeof inst.update === 'function') inst.update();
+      // drop undefined so the schema default applies where config omits a key
+      Object.keys(DEFAULT_OVERRIDES).forEach((k) => DEFAULT_OVERRIDES[k] === undefined && delete DEFAULT_OVERRIDES[k]);
+      _apiKeyOptions = Array.isArray(cfg.apiKeys) ? cfg.apiKeys : [];
+      const sel = document.getElementById('sc-gcdrKey');
+      sel.innerHTML = '';
+      _apiKeyOptions.forEach((o, i) => {
+        const opt = document.createElement('option');
+        opt.value = o.value || ''; opt.textContent = o.label || o.value || '(sem label)';
+        if (i === 0) opt.selected = true;
+        sel.appendChild(opt);
       });
-      logEvent('ASO', `Grids refreshed — badges devem aparecer nos cards 1–${count}`, 'info');
+      log('info', `config carregado de ${src} (${_apiKeyOptions.length} API key(s))${src.includes('example') ? ' — ⚠️ usando template; crie config.json com suas keys reais' : ''}`);
     }
 
-    function inspectAlarmServiceOrchestrator() {
-      const aso = window.AlarmServiceOrchestrator;
-      if (!aso) {
-        logEvent('ASO', 'window.AlarmServiceOrchestrator não criado ainda', 'warn');
-        updateAsoStatus();
-        return;
+    function schemaProp(path) {
+      // resolve "darkMode.backgroundType" against schema.properties (nested object props)
+      const parts = path.split('.');
+      let node = _schema.schema.properties[parts[0]];
+      for (let i = 1; i < parts.length && node; i++) node = node.properties?.[parts[i]];
+      return node || {};
+    }
+
+    function renderField(key, typeOverride) {
+      const p = schemaProp(key);
+      const def = key in DEFAULT_OVERRIDES ? DEFAULT_OVERRIDES[key] : (p.default ?? '');
+      const id = 'set__' + key;
+      const title = p.title || key;
+      const wrap = document.createElement('div');
+      if (p.type === 'boolean') {
+        wrap.className = 'sc-checkbox';
+        wrap.innerHTML =
+          `<input type="checkbox" id="${id}" data-setkey="${key}" data-kind="boolean" ${def ? 'checked' : ''}/>` +
+          `<label for="${id}" style="margin:0">${title}</label>`;
+        return wrap;
       }
-      const d = aso.deviceAlarmMap?.size ?? 0;
-      const t = aso.alarms?.length ?? 0;
-      logEvent('ASO', `${d} devices com alarmes, ${t} alarmes totais`, 'info');
-      console.log('[Showcase] AlarmServiceOrchestrator:', {
-        devicesWithAlarms: d,
-        total: t,
-        deviceIds: Array.from(aso.deviceAlarmMap?.keys() ?? []),
-      });
-      updateAsoStatus();
-    }
-
-    function updateAsoStatus() {
-      const el = document.getElementById('asoStatus');
-      if (!el) return;
-      const aso = window.AlarmServiceOrchestrator;
-      if (!aso) {
-        el.textContent = 'AlarmServiceOrchestrator: não criado';
-        el.style.color = '#64748b';
+      const lbl = document.createElement('label');
+      lbl.textContent = title; lbl.setAttribute('for', id);
+      wrap.appendChild(lbl);
+      let field;
+      if (Array.isArray(p.enum) || typeOverride === 'select') {
+        field = document.createElement('select');
+        (p.enum || []).forEach((opt) => {
+          const o = document.createElement('option'); o.value = opt; o.textContent = opt;
+          if (String(opt) === String(def)) o.selected = true;
+          field.appendChild(o);
+        });
+        field.dataset.kind = 'string';
+      } else if (p.type === 'number') {
+        field = document.createElement('input'); field.type = 'number'; field.value = def; field.dataset.kind = 'number';
+      } else if (p.type === 'array') {
+        field = document.createElement('input'); field.type = 'text';
+        field.value = (Array.isArray(def) ? def : []).join(', ');
+        field.placeholder = 'comma-separated'; field.dataset.kind = 'array';
       } else {
-        const d = aso.deviceAlarmMap?.size ?? 0;
-        const t = aso.alarms?.length ?? 0;
-        el.textContent = `ASO pronto: ${d} dispositivos, ${t} alarmes`;
-        el.style.color = '#22c55e';
+        field = document.createElement('input'); field.type = typeOverride === 'color' ? 'color' : 'text';
+        field.value = def; field.dataset.kind = 'string';
       }
+      field.id = id; field.dataset.setkey = key;
+      wrap.appendChild(field);
+      return wrap;
     }
 
-    // =========================================================================
-    // RFC-0182: AllReportModal showcase test (API-driven itemsList filter)
-    // =========================================================================
-
-    function _buildShowcaseItemsList(domain, group) {
-      // Prefer STATE from loadRealData (real ingestionIds from TB)
-      const s = window.STATE;
-      if (s) {
-        const domainState = s[domain] || {};
-        const groupKey = group === 'area_comum' ? 'areacomum'
-                       : group === 'areacomum'   ? 'areacomum'
-                       : group === 'climatizavel' ? 'lojas'
-                       : group;
-        const items = (domainState[groupKey] || domainState.lojas || { items: [] }).items || [];
-        if (items.length > 0) {
-          logEvent('ALL-REPORT', `itemsList from STATE.${domain}.${groupKey}: ${items.length} devices`, 'info');
-          return items.map(d => ({
-            id:         d.ingestionId || d.entityId || '',
-            identifier: d.identifier  || d.entityName || '',
-            label:      d.labelOrName || d.label || d.entityLabel || d.entityName || '',
-          }));
-        }
+    function buildFieldset(item) {
+      const fs = document.createElement('fieldset'); fs.className = 'sc-fieldset collapsed'; // default collapsed
+      const lg = document.createElement('legend'); lg.className = 'sc-fs-legend';
+      lg.innerHTML = `<span class="sc-fs-ico">▸</span> ${item.title || ''}`;
+      const body = document.createElement('div'); body.className = 'sc-fs-body';
+      for (const sub of item.items) {
+        if (typeof sub === 'string') body.appendChild(renderField(sub));
+        else body.appendChild(renderField(sub.key, sub.type));
       }
-
-      // Fallback: build subset from ctx.data mock
-      const rows = self.ctx.data || [];
-      const deviceMap = {};
-      rows.forEach(row => {
-        const id = row.datasource?.entityId;
-        if (!id) return;
-        if (!deviceMap[id]) deviceMap[id] = { ingestionId: null, deviceType: null, entityName: row.datasource?.entityName || id };
-        const key = row.dataKey?.name;
-        const val = row.data?.[0]?.[1];
-        if (key && val !== undefined) deviceMap[id][key] = val;
+      lg.addEventListener('click', () => {
+        const collapsed = fs.classList.toggle('collapsed');
+        lg.querySelector('.sc-fs-ico').textContent = collapsed ? '▸' : '▾';
       });
-      let filtered = Object.values(deviceMap);
-      if (domain === 'temperature') filtered = filtered.filter(d => /TERMOSTATO/i.test(d.deviceType || ''));
-      else if (domain === 'water')  filtered = filtered.filter(d => /HIDROMETRO/i.test(d.deviceType || ''));
-      else {
-        filtered = filtered.filter(d => !/TERMOSTATO|HIDROMETRO/i.test(d.deviceType || ''));
-        if (group === 'lojas')   filtered = filtered.filter(d => /3F_MEDIDOR/i.test(d.deviceType || ''));
-        if (group === 'entrada') filtered = filtered.filter(d => /ENTRADA|RELOGIO|TRAFO|SUBESTACAO/i.test(d.deviceType || ''));
-      }
-      logEvent('ALL-REPORT', `itemsList from ctx.data mock (${domain}>${group}): ${filtered.length} devices`, 'warn');
-      return filtered.slice(0, 30).map(d => ({
-        id: d.ingestionId || d.entityId || '',
-        identifier: d.identifier || d.entityName || '',
-        label: d.labelOrName || d.entityName || '',
-      }));
+      fs.appendChild(lg); fs.appendChild(body);
+      return fs;
     }
 
-    function openAllReportShowcase() {
-      if (typeof MyIOLibrary?.openDashboardPopupAllReport !== 'function') {
-        logEvent('ERROR', 'openDashboardPopupAllReport não disponível — rebuild', 'error');
-        return;
+    function renderForm() {
+      const root = document.getElementById('sc-fields');
+      root.innerHTML = '';
+      const fieldsets = [];
+      // first pass: simple fields in schema order
+      for (const item of _schema.form) {
+        if (typeof item === 'string') { root.appendChild(renderField(item)); continue; }
+        if (item.type === 'fieldset') { fieldsets.push(item); continue; }
+        root.appendChild(renderField(item.key, item.type)); // { key, type }
       }
-      const [domain, group] = (document.getElementById('reportDomainGroup')?.value || 'energy|lojas').split('|');
-      const mode = document.getElementById('reportItemsMode')?.value || 'from_state';
-      const themeMode = document.body.classList.contains('light-mode') ? 'light' : 'dark';
+      // collapsible fieldsets go LAST (bottom of the cockpit)
+      for (const item of fieldsets) root.appendChild(buildFieldset(item));
+    }
 
-      const params = {
-        customerId: _CUSTOMER_ING_ID,
-        domain,
-        group,
-        debug: 1,
-        ui: { theme: themeMode },
-        api: {
-          clientId:       _CLIENT_ID,
-          clientSecret:   _CLIENT_SECRET,
-          dataApiBaseUrl: _DATA_API_HOST,
-          ingestionToken: _CUSTOMER_ING_ID,
-        },
+    function assignPath(obj, path, val) {
+      const parts = path.split('.'); let node = obj;
+      for (let i = 0; i < parts.length - 1; i++) node = (node[parts[i]] ||= {});
+      node[parts[parts.length - 1]] = val;
+    }
+    function readSettings() {
+      const settings = {};
+      document.querySelectorAll('#sc-fields [data-setkey]').forEach((el) => {
+        const key = el.dataset.setkey, kind = el.dataset.kind;
+        let val;
+        if (kind === 'boolean') val = el.checked;
+        else if (kind === 'number') val = Number(el.value);
+        else if (kind === 'array') val = el.value.split(',').map((s) => s.trim()).filter(Boolean);
+        else val = el.value.trim();
+        assignPath(settings, key, val);
+      });
+      return settings;
+    }
+
+    async function loadSchema() {
+      try {
+        const resp = await fetch(SCHEMA_URL);
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        _schema = await resp.json();
+        renderForm();
+        log('info', `settingsSchema.json rendered (${_schema.form.length} form rows)`);
+      } catch (err) {
+        document.getElementById('sc-fields').innerHTML = '<span class="err">falha ao carregar settingsSchema.json</span>';
+        log('err', 'loadSchema failed: ' + (err?.message || err));
+      }
+    }
+
+    // Seed the simulated SERVER_SCOPE attrs. IMPORTANT: the controller resets
+    // MyIOUtils.customerAttrs to {} at load (Object.assign), so this must also be
+    // re-applied AFTER loadController() and BEFORE onInit() — otherwise X-API-Key is lost (401).
+    function seedCustomerAttrs(gcdrTenantId) {
+      window.MyIOUtils = window.MyIOUtils || {};
+      window.MyIOUtils.customerAttrs = window.MyIOUtils.customerAttrs || {};
+      window.MyIOUtils.customerAttrs.gcdrapikey = document.getElementById('sc-gcdrKey').value.trim();
+      window.MyIOUtils.customerAttrs.gcdrtenantid = gcdrTenantId || '';
+    }
+
+    // ---- self.ctx (ThingsBoard widget context simulation) ----
+    function buildCtx() {
+      if (!_schema) { log('err', 'settingsSchema.json ainda não carregado'); return false; }
+      const settings = readSettings();
+      // /entities fetch reads X-API-Key from MyIOUtils.customerAttrs.gcdrapikey (simulated SERVER_SCOPE attr)
+      seedCustomerAttrs(settings.gcdrTenantId);
+      self.ctx = {
+        settings,
+        data: buildMockData(),
+        datasources: [{ type: 'entity', name: 'AllDevices', aliasName: 'all3fs' }],
+        currentUser: { email: 'showcase@myio.com.br', firstName: 'Showcase', lastName: 'User', authority: 'CUSTOMER_USER' },
+        // real JWT from the login modal (localStorage), like the TB widget runtime
+        http: { getServerCredentials: () => ({ token: localStorage.getItem('jwt_token') || '' }) },
+        $scope: {},
+        detectChanges: () => {},
       };
-
-      if (mode === 'from_state') {
-        const itemsList = _buildShowcaseItemsList(domain, group);
-        if (itemsList.length === 0) {
-          logEvent('WARN', 'itemsList vazio — carregue dados reais primeiro (Load Real Devices)', 'warn');
-        }
-        params.itemsList = itemsList;
-        logEvent('ALL-REPORT', `Opening ${domain}>${group} com itemsList[${itemsList.length}] (API-driven filter)`, 'info');
-      } else {
-        logEvent('ALL-REPORT', `Opening ${domain}>${group} sem itemsList (API completa)`, 'info');
-      }
-
-      try {
-        MyIOLibrary.openDashboardPopupAllReport(params);
-      } catch (err) {
-        logEvent('ERROR', err.message, 'error');
-        console.error('[Showcase] openAllReportShowcase error:', err);
-      }
+      log('info', `ctx ready — ${self.ctx.data.length} rows · gcdr ${settings.gcdrApiBaseUrl} · customer ${settings.gcdrCustomerId}`);
+      return true;
     }
 
-    // ===== USER MANAGEMENT RFC-0190 =====
-    function openUserManagementShowcase() {
-      if (typeof MyIOLibrary?.openUserManagementModal !== 'function') {
-        logEvent('ERROR', 'openUserManagementModal not in MyIOLibrary — rebuild', 'error');
-        return;
-      }
-      const token = ghostAuthToken || localStorage.getItem('jwt_token');
-      if (!token) {
-        logEvent('ERROR', 'No JWT token — click Re-Auth first', 'error');
-        return;
-      }
-      // Ensure GCDR credentials are fresh on the orchestrator (user may have changed them after init)
-      if (window.MyIOOrchestrator) {
-        window.MyIOOrchestrator.gcdrApiKey    = gcdrKey();
-        window.MyIOOrchestrator.gcdrTenantId  = gcdrTid();
-        window.MyIOOrchestrator.gcdrCustomerId = gcdrCid();
-      }
-      const tenantId = document.getElementById('umTenantId')?.value.trim() || '';
-      const themeMode = document.body.classList.contains('light-mode') ? 'light' : 'dark';
-      logEvent('USER-MGMT', `Opening (customer=${_CUSTOMER_TB_ID}, tenant=${tenantId || '(empty)'}, theme=${themeMode})`, 'info');
-      try {
-        MyIOLibrary.openUserManagementModal({
-          customerId:   _CUSTOMER_TB_ID,
-          tenantId:     tenantId,
-          customerName: 'Moxuara',
-          jwtToken:     token,
-          tbBaseUrl:    _TB_URL,
-          currentUser:  { id: '', email: _SERVICE_USER },
-          theme:        themeMode,
-        });
-      } catch (err) {
-        logEvent('ERROR', err.message, 'error');
-        console.error('[Showcase] openUserManagementShowcase error:', err);
-      }
-    }
-
-    // ===== LIFECYCLE CONTROLS =====
-    async function triggerOnInit() {
-      if (widgetInitialized) {
-        logEvent('WARN', 'Widget already initialized', 'warn');
-        return;
-      }
-
-      logEvent('onInit', 'Starting...', 'info');
-      updateStatus('running');
-
-      // Pre-populate data
-      updateMockData();
-
-      // RFC-0130: Ensure period is set in $scope (stub was pre-created at script load)
-      const startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-      const endDate = new Date();
-      self.ctx.$scope.startDateISO = startDate.toISOString();
-      self.ctx.$scope.endDateISO = endDate.toISOString();
-      logEvent('PERIOD', `${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]}`, 'info');
-
-      // Ensure orchestrator's getCurrentPeriod returns valid period
-      if (window.MyIOOrchestrator) {
-        const originalGetPeriod = window.MyIOOrchestrator.getCurrentPeriod;
-        window.MyIOOrchestrator.getCurrentPeriod = () => {
-          const result = originalGetPeriod ? originalGetPeriod() : null;
-          if (result && result.startDateISO) return result;
-          // Fallback to $scope
-          return {
-            startDateISO: self.ctx.$scope.startDateISO,
-            endDateISO: self.ctx.$scope.endDateISO,
-          };
-        };
-        logEvent('ORCHESTRATOR', 'getCurrentPeriod patched with fallback', 'info');
-      }
-
-      try {
-        if (typeof self.onInit === 'function') {
-          await self.onInit();
-          logEvent('onInit', 'controller.js onInit() executed', 'info');
-        } else {
-          logEvent('ERROR', 'self.onInit not found. Is controller.js loaded?', 'error');
-          updateStatus('error');
-          return;
-        }
-
-        widgetInitialized = true;
-        document.getElementById('btnOnInit').disabled = true;
-        document.getElementById('btnOnDataUpdated').disabled = false;
-        document.getElementById('btnOnDestroy').disabled = false;
-        updateStatus('ready');
-
-        // Check if orchestrator was created and set up period
-        if (window.MyIOOrchestrator) {
-          logEvent('ORCHESTRATOR', 'MyIOOrchestrator available', 'info');
-
-          // RFC-0130: Set the period in orchestrator so it doesn't wait forever
-          const startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-          const endDate = new Date();
-
-          // Patch getCurrentPeriod if not returning valid data
-          if (typeof MyIOOrchestrator.getCurrentPeriod === 'function') {
-            const existingPeriod = MyIOOrchestrator.getCurrentPeriod();
-            if (!existingPeriod || !existingPeriod.startDateISO) {
-              logEvent('ORCHESTRATOR', 'Patching getCurrentPeriod with showcase dates', 'warn');
-              MyIOOrchestrator.getCurrentPeriod = () => ({
-                startDateISO: startDate.toISOString(),
-                endDateISO: endDate.toISOString(),
-              });
-            }
-          }
-
-          // Also update $scope for any code that reads directly from it
-          self.ctx.$scope.startDateISO = startDate.toISOString();
-          self.ctx.$scope.endDateISO = endDate.toISOString();
-
-          // Showcase-only: restore GCDR credentials if onInit()'s TB attr fetch returned empty.
-          // myio:orchestrator:ready fires at module-load (before onInit), so the restore there
-          // runs too early — onInit overwrites the fields afterward. This is the correct place.
-          const orch = window.MyIOOrchestrator;
-          if (!orch.gcdrCustomerId) {
-            orch.gcdrCustomerId = gcdrCid();
-            logEvent('GCDR', `↩️ gcdrCustomerId restored: ${orch.gcdrCustomerId || '⚠️ STILL EMPTY — fill sidebar'}`, orch.gcdrCustomerId ? 'info' : 'warn');
-          }
-          if (!orch.gcdrTenantId) {
-            orch.gcdrTenantId = gcdrTid();
-            logEvent('GCDR', `↩️ gcdrTenantId restored: ${orch.gcdrTenantId || '⚠️ STILL EMPTY'}`, orch.gcdrTenantId ? 'info' : 'warn');
-          }
-          if (!orch.gcdrApiKey) {
-            orch.gcdrApiKey = gcdrKey();
-            logEvent('GCDR', `↩️ gcdrApiKey restored: ${orch.gcdrApiKey ? '✅ set' : '⚠️ STILL EMPTY'}`, orch.gcdrApiKey ? 'info' : 'warn');
-          }
-          logEvent('GCDR', `gcdrCustomerId = ${orch.gcdrCustomerId || '(empty)'}`, orch.gcdrCustomerId ? 'info' : 'error');
-        }
-
-        updateStateDisplay();
-        // RFC-0183: update ASO status (built by controller.js inside _prefetchCustomerAlarms)
-        setTimeout(updateAsoStatus, 1500);
-
-      } catch (error) {
-        logEvent('ERROR', error.message, 'error');
-        console.error('[Showcase] onInit error:', error);
-        updateStatus('error');
-      }
-    }
-
-    function triggerOnDataUpdated() {
-      if (!widgetInitialized) return;
-      logEvent('onDataUpdated', `${self.ctx.data.length} devices`, 'info');
-      try {
-        if (typeof self.onDataUpdated === 'function') {
-          self.onDataUpdated();
-        }
-        updateStateDisplay();
-      } catch (error) {
-        logEvent('ERROR', error.message, 'error');
-      }
-    }
-
-    function triggerOnDestroy() {
-      if (!widgetInitialized) return;
-      logEvent('onDestroy', 'Destroying...', 'warn');
-      try {
-        if (typeof self.onDestroy === 'function') {
-          self.onDestroy();
-        }
-        destroyComponents();
-        widgetInitialized = false;
-        document.getElementById('btnOnInit').disabled = false;
-        document.getElementById('btnOnDataUpdated').disabled = true;
-        document.getElementById('btnOnDestroy').disabled = true;
-        updateStatus('stopped');
-        updateStateDisplay();
-      } catch (error) {
-        logEvent('ERROR', error.message, 'error');
-      }
-    }
-
-    // ===== DATA CONTROLS =====
-    function updateMockData() {
-      const preset = document.getElementById('dataPreset').value;
-      self.ctx.data = generateMockDevices({ preset });
-
-      // Calculate unique devices from rows
-      const uniqueDevices = new Set(self.ctx.data.map(r => r?.datasource?.entityId)).size;
-
-      // Verify dataKeys are present
-      const dataKeys = new Set(self.ctx.data.map(r => r?.dataKey?.name).filter(Boolean));
-      console.log('[Showcase] DataKeys in ctx.data:', Array.from(dataKeys));
-
-      logEvent('DATA', `Generated ${self.ctx.data.length} rows (${uniqueDevices} devices, ${preset})`);
-      updateStateDisplay();
-    }
-
-    // Fallback: Infer deviceType from entityName if missing
-    // entityName format: ${deviceType}_${index} e.g., "3F_MEDIDOR_001"
-    function inferDeviceTypeFromEntityName(entityName) {
-      if (!entityName) return null;
-      // Split by underscore, take all but last part (the index)
-      const parts = entityName.split('_');
-      if (parts.length >= 2) {
-        // Remove last part (index like "001")
-        parts.pop();
-        return parts.join('_'); // e.g., "3F_MEDIDOR" or "HIDROMETRO_AREA_COMUM"
-      }
-      return entityName;
-    }
-
-    function generateRandomData() {
-      const presets = ['full', 'partial', 'large'];
-      document.getElementById('dataPreset').value = presets[Math.floor(Math.random() * presets.length)];
-      updateMockData();
-      if (widgetInitialized) triggerOnDataUpdated();
-    }
-
-    function dispatchDataEvent() {
-      window.dispatchEvent(new CustomEvent('myio:data-ready', {
-        detail: { devices: self.ctx.data, timestamp: Date.now() }
-      }));
-      logEvent('myio:data-ready', `Dispatched ${self.ctx.data.length} devices`);
-    }
-
-    // ===== SETTINGS =====
-    function updateSettings() {
-      const theme = document.getElementById('settingsTheme').value;
-      const debug = document.getElementById('settingsDebug').value === 'true';
-
-      self.ctx.settings.debugMode = debug;
-      document.body.classList.toggle('light-mode', theme === 'light');
-
-      // Update MyIOUtils theme
-      if (window.MyIOUtils?.setTheme) {
-        window.MyIOUtils.setTheme(theme);
-      }
-
-      // Reinit alarm panel so themeMode propagates to the AlarmDetailsModal
-      if (_alarmPanelInstance && currentTab === 'alarms') {
-        reinitAlarmPanel();
-      }
-
-      logEvent('SETTINGS', { theme, debug });
-      updateStateDisplay();
-    }
-
-    // ===== THEME TOGGLE =====
-    document.getElementById('themeToggle').addEventListener('click', () => {
-      const isLight = document.body.classList.contains('light-mode');
-      const newTheme = isLight ? 'dark' : 'light';
-      document.body.classList.toggle('light-mode', !isLight);
-      document.getElementById('settingsTheme').value = newTheme;
-      document.getElementById('themeIcon').innerHTML = isLight ? '&#x2600;&#xfe0f;' : '&#x1F319;';
-
-      // Update MyIOUtils theme
-      if (window.MyIOUtils?.setTheme) {
-        window.MyIOUtils.setTheme(newTheme);
-      }
-
-      // Reinit alarm panel so AlarmDetailsModal opens with the new themeMode
-      if (_alarmPanelInstance && currentTab === 'alarms') {
-        reinitAlarmPanel();
-      }
-
-      logEvent('THEME', newTheme);
-    });
-
-    // ===== EVENT LISTENERS =====
-    ['myio:dashboard-state', 'myio:data-ready', 'myio:theme-changed', 'myio:energy-summary-ready', 'myio:water-summary-ready'].forEach(evt => {
-      window.addEventListener(evt, (e) => logEvent('EVENT', evt, 'info'));
-    });
-
-    // ===== CARD SETTINGS HANDLER (shared by all grids) =====
-    async function handleCardSettings(device) {
-      // [Orchestrator] 🔍 DEBUG Sample from 'all3fs': log everything if device matches "Elevador 1 L2"
-      const _debugName = (device.labelOrName || device.deviceName || device.name || '').toLowerCase();
-      const _debugLabel = (device.label || device.deviceLabel || '').toLowerCase();
-      if (_debugName.includes('elevador 1 l2') || _debugLabel.includes('elevador 1 l2')) {
-        console.group('%c[Orchestrator] 🔍 DEBUG Sample from \'all3fs\': Elevador 1 L2', 'color:#f59e0b;font-weight:bold');
-        console.log('device (full object):', JSON.parse(JSON.stringify(device)));
-        console.log('device.entityId:', device.entityId);
-        console.log('device.labelOrName:', device.labelOrName);
-        console.log('device.deviceName:', device.deviceName);
-        console.log('device.label:', device.label);
-        console.log('device.deviceLabel:', device.deviceLabel);
-        console.log('device.deviceType:', device.deviceType);
-        console.log('device.deviceProfile:', device.deviceProfile);
-        console.log('device.domain:', device.domain);
-        console.log('device.gcdrDeviceId:', device.gcdrDeviceId);
-        console.log('device.ingestionId:', device.ingestionId);
-        console.log('device.status:', device.status);
-        console.log('device.createdTime:', device.createdTime);
-        console.log('device.lastActivityTime:', device.lastActivityTime);
-        const _mockDeviceDebug = _RFC180_TEST_DEVICES.find(d => d.id === device.entityId);
-        console.log('mockDevice match (_RFC180_TEST_DEVICES):', _mockDeviceDebug || '(no match)');
-        console.log('gcdrDeviceId resolved:', _mockDeviceDebug?.gcdrDeviceId ?? '(null — will block Alarms tab)');
-        console.groupEnd();
-        logEvent('DEBUG', `[Elevador 1 L2] entityId=${device.entityId} gcdrDeviceId=${_mockDeviceDebug?.gcdrDeviceId ?? '(empty)'}`, 'warn');
-      }
-
-      const token = ghostAuthToken || localStorage.getItem('jwt_token');
-      if (!token) {
-        logEvent('ERROR', 'No JWT token — click Re-Auth first', 'error');
-        return;
-      }
-
-      if (typeof MyIOLibrary?.openDashboardPopupSettings !== 'function') {
-        logEvent('ERROR', 'openDashboardPopupSettings not in MyIOLibrary — rebuild', 'error');
-        return;
-      }
-
-      // Look up GCDR + seed data from mock test devices (matched by entityId).
-      // For real devices (Load Real Devices), entityId is a TB UUID and won't match — fall back to device fields.
-      const mockDevice = _RFC180_TEST_DEVICES.find(d => d.id === device.entityId);
-      const gcdrDeviceId = mockDevice?.gcdrDeviceId ?? device.gcdrDeviceId ?? null;
-
-      logEvent('SETTINGS', `Opening for "${mockDevice?.label || device.labelOrName}" (${device.entityId}) gcdrDeviceId=${gcdrDeviceId || '(empty)'}`, 'info');
-
-      try {
-        MyIOLibrary.openDashboardPopupSettings({
-          deviceId: device.entityId,
-          deviceName: device.name || device.deviceIdentifier || device.entityId,
-          label: mockDevice?.label || device.labelOrName,
-          deviceType: device.deviceType,
-          deviceProfile: device.deviceProfile,
-          domain: device.domain || 'energy',
-          jwtToken: token,
-          api: {
-            tbBaseUrl: _TB_URL,
-            dataApiBaseUrl: _DATA_API_HOST,
-            clientId: _CLIENT_ID,
-            clientSecret: _CLIENT_SECRET,
-            ingestionToken: _CUSTOMER_ING_ID,
-          },
-          // Pre-populate form — prefer mock values, fall back to real device attrs
-          seed: {
-            label:      mockDevice?.label      || device.labelOrName || '',
-            floor:      mockDevice?.floor      || device.floor       || '',
-            identifier: mockDevice?.identifier || device.identifier  || '',
-          },
-          // Device timestamps
-          createdTime:      mockDevice?.createdTime      ?? device.createdTime      ?? (_NOW - 180 * 24 * 3600000),
-          lastActivityTime: mockDevice?.lastActivityTime ?? device.lastActivityTime ?? (_NOW - 3600000),
-          // RFC-0180: GCDR params — prefer mock, fall back to real attrs fetched from TB
-          gcdrDeviceId,
-          gcdrCustomerId: gcdrCid(),
-          gcdrTenantId: gcdrTid(),
-          gcdrApiBaseUrl: _GCDR_API_BASE_URL,
-          prefetchedBundle: _MOCK_GCDR_BUNDLE,
-          prefetchedAlarms: _cachedCustomerAlarms,
-          customerName: device.customerName || 'Moxuara',
-          customerId: device.customerId || _CUSTOMER_TB_ID,
-          enableAnnotationsOnboarding: false,
-          onSaved: (result) => logEvent('SETTINGS-SAVED', JSON.stringify(result).substring(0, 80), 'info'),
-          onClose: () => logEvent('SETTINGS-CLOSED', device.labelOrName, 'info'),
-          onError: (err) => logEvent('SETTINGS-ERROR', err.message, 'error'),
-        });
-      } catch (err) {
-        logEvent('ERROR', err.message, 'error');
-        console.error('[Showcase] handleCardSettings error:', err);
-      }
-    }
-
-    // ===== CARD DASHBOARD ACTION (opens energy graph modal) =====
-    async function handleCardDashboard(device) {
-      const token = ghostAuthToken || localStorage.getItem('jwt_token');
-      if (!token) {
-        logEvent('ERROR', 'No JWT token — click Re-Auth first', 'error');
-        return;
-      }
-
-      if (typeof MyIOLibrary?.openDashboardPopupEnergy !== 'function') {
-        logEvent('ERROR', 'openDashboardPopupEnergy not in MyIOLibrary — rebuild', 'error');
-        return;
-      }
-
-      logEvent('CARD_DASHBOARD', `Opening energy modal for "${device.labelOrName || device.entityId}"`, 'info');
-
-      try {
-        await MyIOLibrary.openDashboardPopupEnergy({
-          deviceId: device.entityId,
-          label: device.labelOrName,
-          deviceLabel: device.labelOrName,
-          deviceProfile: device.deviceProfile,
-          tbJwtToken: token,
-          tbBaseUrl: _TB_URL,
-          startDate: _startDate.toISOString(),
-          endDate: _endDate.toISOString(),
-          clientId: _CLIENT_ID,
-          clientSecret: _CLIENT_SECRET,
-          dataApiHost: _DATA_API_HOST,
-          readingType: device.domain === 'water' ? 'water' : 'energy',
-          canShowDemandButtons: window.MyIOOrchestrator?.canShowDemandButtons,
-          customerName: window.MyIOOrchestrator?.customerTitle || 'Moxuara',
-          userEmail: 'rodrigo@myio.com.br',
-          onClose: () => logEvent('CARD_DASHBOARD', `Closed for "${device.labelOrName}"`, 'info'),
-          onError: (err) => logEvent('CARD_DASHBOARD_ERROR', err.message, 'error'),
-        });
-      } catch (err) {
-        logEvent('ERROR', err.message, 'error');
-        console.error('[Showcase] handleCardDashboard error:', err);
-      }
-    }
-
-    // ===== SETTINGS RFC-0180 =====
-    async function openSettingsRFC180() {
-      const token = ghostAuthToken || localStorage.getItem('jwt_token');
-      if (!token) {
-        logEvent('ERROR', 'No JWT token — click Re-Auth first', 'error');
-        return;
-      }
-
-      const deviceIdx = parseInt(document.getElementById('rfc180DeviceSelect').value, 10);
-      const device = _RFC180_TEST_DEVICES[deviceIdx];
-      const bundleMode = document.getElementById('rfc180BundleMode').value;
-      const prefetchedBundle = bundleMode === 'mock' ? _MOCK_GCDR_BUNDLE : null;
-
-      logEvent('SETTINGS-RFC180', `Opening for "${device.label}"`, 'info');
-
-      if (typeof MyIOLibrary?.openDashboardPopupSettings !== 'function') {
-        logEvent('ERROR', 'openDashboardPopupSettings not in MyIOLibrary — rebuild', 'error');
-        return;
-      }
-
-      try {
-        MyIOLibrary.openDashboardPopupSettings({
-          deviceId: device.id,
-          deviceName: device.name,
-          label: device.label,
-          deviceType: device.deviceType,
-          deviceProfile: device.deviceProfile,
-          domain: device.domain,
-          jwtToken: token,
-          api: {
-            tbBaseUrl: _TB_URL,
-            dataApiBaseUrl: _DATA_API_HOST,
-            clientId: _CLIENT_ID,
-            clientSecret: _CLIENT_SECRET,
-            ingestionToken: _CUSTOMER_ING_ID,
-          },
-          // Pre-populate form with mock values (bypasses TB fetch in showcase)
-          seed: {
-            label:      device.label,
-            floor:      device.floor      || '',
-            identifier: device.identifier || '',
-          },
-          // Device timestamps
-          createdTime:      device.createdTime,
-          lastActivityTime: device.lastActivityTime,
-          // RFC-0180: GCDR params for Alarms tab
-          gcdrDeviceId: device.gcdrDeviceId,
-          gcdrCustomerId: gcdrCid(),
-          gcdrTenantId: gcdrTid(),
-          gcdrApiBaseUrl: _GCDR_API_BASE_URL,
-          gcdrApiKey: 'gcdr_cust_mestre_alvaro_tb_2026',
-          alarmsApiKey: 'gcdr_alarm_integration_key_2026',
-          prefetchedBundle,
-          prefetchedRules: bundleMode === 'mock' ? _MOCK_GCDR_BUNDLE.rules : null,
-          prefetchedAlarms: _cachedCustomerAlarms,
-          customerName: 'Mestre Alvaro',
-          customerId: _CUSTOMER_TB_ID,
-          enableAnnotationsOnboarding: false,
-          onSaved: (result) => logEvent('SETTINGS-SAVED', JSON.stringify(result).substring(0, 80), 'info'),
-          onClose: () => logEvent('SETTINGS-CLOSED', device.label, 'info'),
-          onError: (err) => logEvent('SETTINGS-ERROR', err.message, 'error'),
-        });
-      } catch (err) {
-        logEvent('ERROR', err.message, 'error');
-        console.error('[Showcase] openSettingsRFC180 error:', err);
-      }
-    }
-
-    function openAlarmBundleMapRFC180() {
-      if (typeof MyIOLibrary?.openAlarmBundleMapModal !== 'function') {
-        logEvent('ERROR', 'openAlarmBundleMapModal not in MyIOLibrary — rebuild', 'error');
-        return;
-      }
-      const bundleMode = document.getElementById('rfc180BundleMode').value;
-      const themeMode = document.body.classList.contains('light-mode') ? 'light' : 'dark';
-
-      logEvent('ALARM-MAP', `Opening bundle map (bundle=${bundleMode}, theme=${themeMode})`, 'info');
-      MyIOLibrary.openAlarmBundleMapModal({
-        customerTB_ID: _CUSTOMER_TB_ID,
-        gcdrTenantId: gcdrTid(),
-        gcdrApiBaseUrl: _GCDR_API_BASE_URL,
-        prefetchedBundle: bundleMode === 'mock' ? _MOCK_GCDR_BUNDLE : null,
-        themeMode,
-        onClose: () => logEvent('ALARM-MAP-CLOSED', '-', 'info'),
+    // ---- load the v-5.4.0 controller (cache-busted) ----
+    let _controllerLoaded = false;
+    function loadController() {
+      return new Promise((resolve, reject) => {
+        if (_controllerLoaded) return resolve();
+        const s = document.createElement('script');
+        s.src = '../../src/thingsboard/main-dashboard-shopping/v-5.4.0/controller.js?v=' + Date.now();
+        s.onload = () => { _controllerLoaded = true; log('info', 'v-5.4.0/controller.js loaded'); resolve(); };
+        s.onerror = (e) => { log('err', 'failed to load controller.js'); reject(e); };
+        document.body.appendChild(s);
       });
     }
 
-    // ===== INITIALIZE =====
-    window.addEventListener('DOMContentLoaded', async () => {
-      updateStateDisplay();
+    document.getElementById('sc-run').addEventListener('click', async () => {
+      try {
+        if (typeof MyIOLibrary === 'undefined') { log('err', 'MyIOLibrary (UMD) not loaded'); return; }
+        if (!buildCtx()) return;
+        await loadController();
+        // controller wipes MyIOUtils.customerAttrs on load → re-seed so X-API-Key reaches /entities
+        seedCustomerAttrs(self.ctx.settings.gcdrTenantId);
+        if (typeof self.onInit !== 'function') { log('err', 'self.onInit not defined by controller'); return; }
+        log('info', 'calling self.onInit() …');
+        await self.onInit();
+        log('info', 'onInit done — triggering onDataUpdated()');
+        self.onDataUpdated?.();
+      } catch (err) { log('err', 'run failed: ' + (err?.message || err)); }
+    });
+    document.getElementById('sc-data').addEventListener('click', () => {
+      if (!buildCtx()) return; self.onDataUpdated?.(); log('info', 'onDataUpdated() called');
+    });
+    document.getElementById('sc-destroy').addEventListener('click', () => {
+      self.onDestroy?.(); log('info', 'onDestroy() called');
+    });
+    document.getElementById('sc-toggle').addEventListener('click', () => {
+      const collapsed = document.body.classList.toggle('console-collapsed');
+      document.getElementById('sc-toggle').textContent = collapsed ? '⟨' : '⟩';
+      document.getElementById('sc-toggle').title = collapsed ? 'Expandir cockpit' : 'Recolher cockpit';
+    });
 
-      if (typeof MyIOLibrary === 'undefined') {
-        logEvent('ERROR', 'MyIOLibrary not loaded. Run: npm run build', 'error');
-        updateStatus('error');
-        return;
-      }
-
-      logEvent('LIBRARY', `MyIOLibrary loaded (${Object.keys(MyIOLibrary).length} exports)`, 'info');
-
-      // Ghost authentication - get real JWT token
-      logEvent('AUTH', 'Starting ghost authentication...', 'info');
-      updateStatus('running');
-
-      const token = await authenticateGhost();
-      if (token) {
-        logEvent('AUTH', `JWT token saved (${token.substring(0, 20)}...)`, 'info');
-        updateStatus('ready');
-
-        // Update ctx.$injector to return the real token
-        self.ctx.$injector.get = (serviceName) => {
-          if (serviceName === 'authService') {
-            return { getJwtToken: () => token };
-          }
-          return null;
+    // ---- real ThingsBoard login (POST {tbUrl}/api/auth/login → localStorage.jwt_token) ----
+    function decodeJwt(t) { try { return JSON.parse(atob(t.split('.')[1])); } catch { return null; } }
+    function tbBaseUrl() {
+      const fromForm = document.getElementById('set__thingsboardUrl')?.value;
+      return (fromForm || 'https://dashboard.myio-bas.com').trim().replace(/\/$/, '');
+    }
+    function updateAuthStatus() {
+      const el = document.getElementById('sc-auth');
+      const t = localStorage.getItem('jwt_token');
+      const p = t && decodeJwt(t);
+      const valid = p && p.exp > Math.floor(Date.now() / 1000);
+      if (valid) {
+        el.className = 'sc-auth ok';
+        el.innerHTML = `✅ ${p.sub || 'autenticado'} · <a href="#" id="sc-logout" style="color:#9ecbff">logout</a>`;
+        document.getElementById('sc-logout').onclick = (e) => {
+          e.preventDefault();
+          localStorage.removeItem('jwt_token'); localStorage.removeItem('refresh_token');
+          updateAuthStatus(); log('info', 'logout — jwt_token removido');
         };
       } else {
-        logEvent('AUTH_ERROR', 'Failed to authenticate - using mock mode', 'warn');
-        updateStatus('ready');
+        el.className = 'sc-auth no';
+        el.innerHTML = t ? '⚠️ JWT expirado — refaça o login' : '🔒 sem JWT — clique "🔑 Login TB" (o modo mock funciona sem login)';
       }
+    }
+    async function tbLogin(username, password) {
+      const resp = await fetch(`${tbBaseUrl()}/api/auth/login`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+      if (!resp.ok) {
+        let msg = 'Login falhou';
+        try { msg = (await resp.json()).message || msg; } catch {}
+        if (resp.status === 401) msg = 'Usuário ou senha inválidos';
+        throw new Error(msg);
+      }
+      const data = await resp.json();
+      localStorage.setItem('jwt_token', data.token);
+      if (data.refreshToken) localStorage.setItem('refresh_token', data.refreshToken);
+      return data.token;
+    }
+    const loginModal = document.getElementById('sc-login-modal');
+    function openLogin() { document.getElementById('sc-login-err').style.display = 'none'; loginModal.classList.add('open'); document.getElementById('sc-login-user').focus(); }
+    function closeLogin() { loginModal.classList.remove('open'); }
+    document.getElementById('sc-login').addEventListener('click', openLogin);
+    document.getElementById('sc-login-close').addEventListener('click', closeLogin);
+    loginModal.addEventListener('click', (e) => { if (e.target === loginModal) closeLogin(); });
+    document.getElementById('sc-login-eye').addEventListener('click', () => {
+      const i = document.getElementById('sc-login-pass'); i.type = i.type === 'password' ? 'text' : 'password';
     });
-
-    window.addEventListener('error', (e) => logEvent('ERROR', e.message, 'error'));
-
-    console.log('[Showcase] MAIN_VIEW Shopping Dashboard Ready');
-    console.log('[Showcase] Customer:', _CUSTOMER_TB_ID);
-    console.log('[Showcase] Ingestion ID:', _CUSTOMER_ING_ID);
-    console.log('[Showcase] Controller: src/thingsboard/main-dashboard-shopping/v-5.2.0/WIDGET/MAIN_VIEW/controller.js');
-  </script>
-
-  <!-- MAIN_VIEW Controller (Orchestrator) - with cache-busting -->
-  <script>
-    // Cache-busting: dynamically load controller.js
-    const scriptEl = document.createElement('script');
-    scriptEl.src = '../../src/thingsboard/main-dashboard-shopping/v-5.2.0/WIDGET/MAIN_VIEW/controller.js?v=' + Date.now();
-    scriptEl.onload = () => {
-      console.log('[Showcase] controller.js loaded (cache-busted)');
-
-      // RFC-0130: Set credentials AFTER controller loads
-      // The controller creates its own MyIOOrchestrator which needs credentials
-      setTimeout(() => {
-        if (window.MyIOOrchestrator && typeof window.MyIOOrchestrator.setCredentials === 'function') {
-          window.MyIOOrchestrator.setCredentials(_CUSTOMER_ING_ID, _CLIENT_ID, _CLIENT_SECRET);
-          console.log('[Showcase] ✅ Credentials set via setCredentials()');
-          logEvent('CREDENTIALS', 'Set via MyIOOrchestrator.setCredentials()', 'info');
-        } else {
-          // Fallback: set credentials directly on orchestrator
-          if (window.MyIOOrchestrator) {
-            window.MyIOOrchestrator.CUSTOMER_ING_ID = _CUSTOMER_ING_ID;
-            window.MyIOOrchestrator.CLIENT_ID = _CLIENT_ID;
-            window.MyIOOrchestrator.CLIENT_SECRET = _CLIENT_SECRET;
-            window.MyIOOrchestrator.credentialsSet = true;
-            console.log('[Showcase] ✅ Credentials set directly on orchestrator');
-            logEvent('CREDENTIALS', 'Set directly on MyIOOrchestrator', 'info');
-          }
-        }
-      }, 100); // Small delay to let orchestrator initialize
-
-      // RFC-0180: Ensure alarms API credentials are set on orchestrator
-      if (window.MyIOOrchestrator) {
-        window.MyIOOrchestrator.alarmsApiBaseUrl = alarmsApiBaseUrl;
-        window.MyIOOrchestrator.alarmsApiKey     = gcdrKey();
-      }
-
-      // RFC-0191: Mock gcdrEnqueueCloseAlarms for showcase (real API unavailable offline)
-      // Simulates 202 Accepted so the AlarmsTab confirmation flow works end-to-end.
-      // In production, controller.js uses the real POST /api/v1/alarms/enqueue-close.
-      if (window.MyIOOrchestrator) {
-        window.MyIOOrchestrator.gcdrEnqueueCloseAlarms = async (ruleId, deviceId) => {
-          logEvent('RFC-0191', `⚠️ enqueue-close called → ruleId=${ruleId} | deviceId=${deviceId}`, 'warn');
-          console.log('[Showcase] RFC-0191 gcdrEnqueueCloseAlarms (mock):', { ruleId, deviceId });
-          // Simulate network latency + 202 Accepted
-          await new Promise(r => setTimeout(r, 350));
-          logEvent('RFC-0191', '✅ 202 Accepted (mock) — alarm close job enqueued', 'info');
-          return true;
-        };
-        console.log('[Showcase] RFC-0191: gcdrEnqueueCloseAlarms mock installed');
-      }
-    };
-    scriptEl.onerror = (e) => console.error('[Showcase] Failed to load controller.js:', e);
-    document.body.appendChild(scriptEl);
-  </script>
-
-  <!-- =========================================================
-       RFC-0185: PresetupGateway Modal Overlay
-       ========================================================= -->
-  <div id="presetupGatewayModal"
-    style="display:none; position:fixed; inset:0; z-index:9999;
-           background:rgba(0,0,0,0.75); backdrop-filter:blur(2px);
-           align-items:center; justify-content:center;">
-
-    <div style="background:#1e293b; border:1px solid #334155; border-radius:12px;
-                width:92%; max-width:860px; max-height:85vh; display:flex;
-                flex-direction:column; box-shadow:0 24px 80px rgba(0,0,0,0.6);">
-
-      <!-- Modal header -->
-      <div style="display:flex; align-items:center; gap:10px; padding:12px 16px;
-                  border-bottom:1px solid #334155; flex-shrink:0;">
-        <span style="font-size:16px; font-weight:700; color:#f1f5f9;">&#x2795; PresetupGateway</span>
-        <span id="presetupModalDeviceName"
-          style="font-size:12px; color:#94a3b8; background:#0f172a;
-                 padding:2px 8px; border-radius:6px; max-width:260px;
-                 overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></span>
-        <div style="flex:1;"></div>
-        <button onclick="closePresetupModal()"
-          style="background:none; border:none; color:#94a3b8; font-size:20px;
-                 cursor:pointer; padding:0 4px; line-height:1;"
-          title="Fechar">&#x2715;</button>
-      </div>
-
-      <!-- Mount point -->
-      <div id="presetupGatewayMount"
-        style="flex:1; overflow-y:auto; padding:16px; background:#0f172a;
-               border-radius:0 0 12px 12px;"></div>
-    </div>
-  </div>
-
-  <script>
-    // =========================================================================
-    // RFC-0185: PresetupGateway showcase integration
-    // =========================================================================
-
-    let _presetupInstance = null;
-
-    function openPresetupModal(gridLabel) {
-      const gatewayId    = document.getElementById('presetupGatewayId')?.value.trim();
-      const clientId     = document.getElementById('presetupClientId')?.value.trim();
-      const clientSecret = document.getElementById('presetupClientSecret')?.value.trim();
-
-      if (!gatewayId) {
-        alert('Preencha o Gateway ID no painel RFC-0185 PresetupGateway (sidebar).');
-        return;
-      }
-      if (!clientId || !clientSecret) {
-        alert('Preencha Client ID e Client Secret no painel RFC-0185 PresetupGateway (sidebar).');
-        return;
-      }
-
-      // Destroy previous instance if any
-      if (_presetupInstance) {
-        try { _presetupInstance.destroy(); } catch (_) {}
-        _presetupInstance = null;
-      }
-
-      // Show grid label in modal header
-      const nameEl = document.getElementById('presetupModalDeviceName');
-      if (nameEl) nameEl.textContent = gridLabel || '';
-
-      // Show modal
-      const modal = document.getElementById('presetupGatewayModal');
-      if (modal) modal.style.display = 'flex';
-
-      // Mount the component
-      const mount = document.getElementById('presetupGatewayMount');
-      if (!mount) return;
-      mount.innerHTML = '';
-
-      if (!window.MyIOLibrary?.createPresetupGateway) {
-        mount.innerHTML = `
-          <div style="color:#fca5a5; padding:20px; font-size:13px;">
-            &#x274C; <strong>createPresetupGateway</strong> não encontrado em
-            <code>MyIOLibrary</code>.<br>
-            Certifique-se de que a biblioteca foi carregada (build / CDN).
-          </div>`;
-        return;
-      }
-
+    document.getElementById('sc-login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const u = document.getElementById('sc-login-user').value.trim();
+      const p = document.getElementById('sc-login-pass').value;
+      const errEl = document.getElementById('sc-login-err'), btn = document.getElementById('sc-login-submit');
+      errEl.style.display = 'none';
+      if (!u || !p) { errEl.textContent = 'Preencha usuário e senha'; errEl.style.display = 'block'; return; }
+      btn.disabled = true; btn.innerHTML = '<span class="sc-spin"></span>Entrando...';
       try {
-        _presetupInstance = window.MyIOLibrary.createPresetupGateway({
-          mount,
-          gatewayId,
-          clientId,
-          clientSecret,
-          onSyncComplete(result) {
-            console.log('[RFC-0185] Sync completo:', result);
-            if (typeof logEvent === 'function') {
-              logEvent('PRESETUP', `Sync OK — criados: ${result.ingestion.created}, atualizados: ${result.ingestion.updated}`, 'info');
-            }
-          },
-          onError(err) {
-            console.error('[RFC-0185] Erro:', err);
-            if (typeof logEvent === 'function') {
-              logEvent('PRESETUP', `Erro: ${err.message}`, 'error');
-            }
-          },
-        });
-        if (typeof logEvent === 'function') {
-          logEvent('PRESETUP', `Modal aberto: ${gridLabel} | gateway: ${gatewayId.slice(0,8)}...`, 'info');
-        }
+        await tbLogin(u, p);
+        log('info', `login TB OK — jwt salvo (${tbBaseUrl()})`);
+        closeLogin(); updateAuthStatus();
       } catch (err) {
-        console.error('[RFC-0185] createPresetupGateway falhou:', err);
-        mount.innerHTML = `<div style="color:#fca5a5; padding:20px; font-size:13px;">
-          &#x274C; Erro ao criar componente: ${err.message}</div>`;
-      }
-    }
-
-    function closePresetupModal() {
-      const modal = document.getElementById('presetupGatewayModal');
-      if (modal) modal.style.display = 'none';
-      if (_presetupInstance) {
-        try { _presetupInstance.destroy(); } catch (_) {}
-        _presetupInstance = null;
-      }
-      const mount = document.getElementById('presetupGatewayMount');
-      if (mount) mount.innerHTML = '';
-    }
-
-    // Close on backdrop click
-    document.getElementById('presetupGatewayModal')?.addEventListener('click', function(e) {
-      if (e.target === this) closePresetupModal();
+        errEl.textContent = err?.message || 'Login falhou'; errEl.style.display = 'block';
+        log('err', 'login: ' + (err?.message || err));
+      } finally { btn.disabled = false; btn.textContent = 'Entrar'; }
     });
 
-    // Close on Escape
-    document.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape') {
-        const modal = document.getElementById('presetupGatewayModal');
-        if (modal && modal.style.display !== 'none') closePresetupModal();
-      }
+    window.addEventListener('load', async () => {
+      await loadConfig();   // sets DEFAULT_OVERRIDES + API-key options (config.json gitignored)
+      await loadSchema();   // renders the form using those overrides
+      updateAuthStatus();
+      log('info', typeof MyIOLibrary !== 'undefined'
+        ? `MyIOLibrary loaded · parseClassificationEntities=${typeof MyIOLibrary.parseClassificationEntities}`
+        : 'MyIOLibrary NOT loaded');
+      log('warn', 'Click "Run onInit" — fetches the GCDR /entities tree LIVE from the gcdrApiBaseUrl above (needs the GCDR server + CORS).');
     });
   </script>
 </body>
