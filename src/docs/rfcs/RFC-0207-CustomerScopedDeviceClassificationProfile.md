@@ -866,7 +866,7 @@ Travadas pelo PO neste fechamento — **substituem** qualquer texto anterior que
 - **Edição é SEMPRE MYIO.** Não há superfície de cliente para editar `name`/`icon`/membership/estrutura, e **não existe** o fluxo "solicitar reclassificação" (removido do escopo). Resolve **PO-C** e **PO-H**. O `openDeviceProfileModal` é ferramenta interna MYIO (gate `@myio.com.br` ∨ holding admin); o cliente apenas **consome** a classificação.
 - **Membership viaja como DADO, avaliado por um motor genérico.** Criar uma subcategoria nova (Estacionamento, Iluminação…) = **inserir um nó na árvore (dado)**, **sem código novo** — confirma a tese motor×árvore (§A) e o group-generic (§C-4).
 - **Alinhamento com RFC-0047 (GCDR):** a árvore declarativa per-customer, quando migrar para o GCDR (v3.2), é **autorada pela MYIO**, não clonada/sobrescrita pelo cliente. O override per-customer do RFC-0047 é usado como *store* da árvore MYIO-autorada, não como editor do cliente. O `match()`/motor permanece em código (nunca no RFC-0047), e a costura é o `key`=`entity_key`.
-- **Store = endpoint JSON do GCDR (não TB SERVER_SCOPE).** O PO decidiu que o atributo de classificação passa a ser **servido e persistido pelo GCDR**; o **TB SERVER_SCOPE deixa de ser o store** (cai o "store interino no atributo TB" que a §B/§E descreviam para a v3.1). A **lib e o MENU não tocam o ThingsBoard**; o I/O (load + save) é do **MAIN_VIEW como cliente do GCDR** (`GcdrResolveProfileSource` + um `saveDeviceClassificationProfile`). O **baked default** permanece como piso offline. **Reuso do RFC-0047 (sem API dedicada):** load = `GET /entities/resolve?type=CLASSIFICATION_<DOMAIN>` (304); save = `PUT /entities/bulk-replace` **por `(customer, domain)`** (`If-Match` por domínio → 409); revert = `POST /entities/revert`. O `ResolvedProfile` é um **adaptador puro na lib** sobre `entities`. *(Impacto no código já aplicado: o `openDeviceProfileModal` removeu o `fetch`/POST ao SERVER_SCOPE e persiste via callback `onSave`; o MENU delega ao `window.MyIOOrchestrator.saveDeviceClassificationProfile`. Pendente: MAIN_VIEW implementar load (lazy por aba no modal; todos os domínios no boot do dashboard) + save por domínio contra o RFC-0047.)* **O contrato consumidor completo + as perguntas em aberto para o backend do GCDR estão consolidados em [`…-API-PENDING.md`](./RFC-0207-CustomerScopedDeviceClassificationProfile-API-PENDING.md)** (que absorveu e removeu a cadeia de feedback `…-FEEDBACK-FROM-GCDR` v1/v2).
+- **Store = endpoint JSON do GCDR (não TB SERVER_SCOPE).** O PO decidiu que o atributo de classificação passa a ser **servido e persistido pelo GCDR**; o **TB SERVER_SCOPE deixa de ser o store** (cai o "store interino no atributo TB" que a §B/§E descreviam para a v3.1). A **lib e o MENU não tocam o ThingsBoard**; o I/O (load + save) é do **MAIN_VIEW como cliente do GCDR** (`GcdrResolveProfileSource` + um `saveDeviceClassificationProfile`). O **baked default** permanece como piso offline. **Reuso do RFC-0047 (sem API dedicada):** load = `GET /entities/resolve?type=CLASSIFICATION_<DOMAIN>` (304); save = `PUT /entities/bulk-replace` **por `(customer, domain)`** (`If-Match` por domínio → 409); revert = `POST /entities/revert`. O `ResolvedProfile` é um **adaptador puro na lib** sobre `entities`. *(Impacto no código já aplicado: o `openDeviceProfileModal` removeu o `fetch`/POST ao SERVER_SCOPE e persiste via callback `onSave`; o MENU delega ao `window.MyIOOrchestrator.saveDeviceClassificationProfile`. Pendente: MAIN_VIEW implementar load (lazy por aba no modal; todos os domínios no boot do dashboard) + save por domínio contra o RFC-0047.)* **O contrato consumidor completo e as respostas do backend do GCDR estão consolidados no [§ Addendum — RFC-0207 v3.2: contrato GCDR via RFC-0047 (RESOLVIDO)](#addendum--rfc-0207-v32-contrato-gcdr-via-rfc-0047-resolvido-2026-06-23)** abaixo (que absorveu e removeu toda a cadeia de feedback `…-API-PENDING` + `…-FEEDBACK-FROM-GCDR` v1/v2 + `…-FEEDBACK-BY-GCDR-V3`).
 
 > Efeito nas decisões anteriores: a linha §D de `name/icon/set` passa a "**MYIO-authored only**"; o "membership read-only + request reclassification" da rodada da Sally **deixa de existir** (não há cliente editando, logo não há o que pedir).
 
@@ -910,6 +910,123 @@ energy
 | Breakdown (tier-2) | **Outros** — `Set.has` exato em "CAG" falhava (**bug #1**) | **Bombas Hidráulicas** ✓ (`contains`) |
 | Label/ícone | hard-coded em 3 lugares (MAIN_VIEW/SIM/TELEMETRY_INFO) | do nó (dado), via `details.name`/`details.icon` |
 | Regra | `if` inline duplicado | `match` em código golden, key-parity, group-generic |
+
+---
+
+## Addendum — RFC-0207 v3.2: contrato GCDR via RFC-0047 (RESOLVIDO, 2026-06-23)
+
+> **Status:** **Design do consumidor DECIDIDO · respostas do backend RECEBIDAS · LIB desbloqueada.**
+> Compila e **absorve** os documentos `…-API-PENDING.md` e toda a cadeia de feedback
+> (`…-FEEDBACK-FROM-GCDR` v1/v2 e `…-FEEDBACK-BY-GCDR-V3`) — **todos removidos**. Não há mais
+> dúvidas bloqueantes: as 10 perguntas abertas foram respondidas e o **escopo v1 está cravado**.
+> Decidido em round table BMAD (Winston/Amelia/John). **Server side:** GCDR `RFC-0047-Generic-Entity-Registry`.
+
+### v3.2-A. Decisão — reuso do RFC-0047 (sem API dedicada)
+
+A árvore de classificação é armazenada como **`entities`** no registry genérico do GCDR. **Não há
+endpoint `/classification-profile`.** O `ResolvedProfile` que a lib consome é uma **projeção de
+adaptador puro** sobre `entities`, ao lado do motor golden-locked.
+
+| Operação | Endpoint RFC-0047 | Uso na LIB |
+|---|---|---|
+| **LOAD** | `GET /api/v1/entities/resolve?customerId=&type=CLASSIFICATION_<DOMAIN>` | `GcdrResolveProfileSource` — um domínio; `source: customer\|system`, `X-Version-Id`/304. |
+| **SAVE** | `PUT /api/v1/entities/bulk-replace?customerId=&type=CLASSIFICATION_<DOMAIN>` | `saveDomainClassification` — troca a subtree de **um** domínio em **uma TX**; `If-Match: <version do domínio>` → **409**. |
+| **REVERT** | `POST /api/v1/entities/revert` | "restaurar padrão" (volta ao default `system`). |
+
+`entity_type` raiz por domínio: `CLASSIFICATION_ENERGY | CLASSIFICATION_WATER | CLASSIFICATION_TEMPERATURE`;
+descendentes `CLASSIFICATION_NODE` (profundidade via `parent_entity_id`, papel em `metadata.role`).
+**Sem tipos `GROUP/PROFILE/SUBCATEGORY`** (congelariam a topologia).
+
+### v3.2-B. Adaptador `entities ↔ ClassificationNode` (puro, na LIB)
+
+| `ClassificationNode` (LIB) | wire (RFC-0047) | regra do mapper |
+|---|---|---|
+| `key` | `entity_key` | 1:1; a costura com o `match()` golden (key-parity). |
+| `label` | `metadata.label` | tolerar `string \| {locale}` (fallback PT-BR). |
+| `order` | `sort_order` (coluna) | só da coluna; um `metadata.order` legado é descartado. |
+| `icon` | `metadata.icon` | token curado → SVG (render na LIB; **validado no GCDR no write**, mesma fonte que RFC-0200). |
+| `role` | `metadata.role` | enum. |
+| `rules` | `metadata.rules` | `{deviceProfiles,identifierExact,identifierContains,identifierPrefixes}` — **lido pela LIB, avaliado pelo motor; NUNCA um predicado SQL**. |
+| `formula` | `metadata.formula` | nós computados; **key-agnostic**. |
+| `children[]` | linhas via `parent_entity_id` | já ordenadas por `sort_order`. |
+
+> **`match()` nunca trafega no wire** — só listas de valores. O motor é **genérico sobre `node.rules`**
+> (nova subcategoria de customer = dado, **sem código**). key-parity cobre **baked ↔ GCDR-`system`**, nunca dado `customer`.
+
+### v3.2-C. Respostas do backend (10 perguntas → todas fechadas)
+
+A decisão-mãe: **o backend é a barreira de integridade, não a LIB.** `bulk-replace` valida cross-tree
+na **mesma TX** do write → **422 zero-write**. A LIB valida só **espelho, por UX** (feedback antes do PUT).
+
+| # | Pergunta | Resposta | Status |
+|---|---|---|---|
+| Q2/Q8 | `bulk-replace` valida cross-tree (parentage/depth/unique-allocation/1-fallback/formula refs) e é transacional? | **Sim, server-side, mesma TX** (`SELECT … FOR UPDATE` + validação topológica do payload inteiro) → **422 + ROLLBACK, zero linha**. Zod `.strict()` valida *forma* por nó; topologia é checagem separada. | 🟢 |
+| Q3 | `metadata` jsonb: cast explícito × implícito (anti double-serialization / Moxuara)? | **Bind como objeto + `::jsonb` explícito**, serialização única pelo driver; nunca `JSON.stringify` sobre string já-JSON, nunca `sql.raw`. **Teste anti-Moxuara obrigatório.** | 🟢 |
+| Q4 | `If-Match` scope (domain-root × per-node)? O 409 carrega a versão atual? | **domain-root** (concorrência por domínio). **409 carrega `currentVersion`** no body + header `X-Version-Id`. Per-node = gold-plating. | 🟢 |
+| Q5 | `revert` estritamente intra-`(customer,domain)`? | **Sim** — invariante do próprio bulk-replace. | 🟢 |
+| Q6 | Icon catalog: mesma fonte que `deviceIcons` (RFC-0200)? | **Mesma fonte que RFC-0200.** Zod valida `icon` contra ela (duas fontes = picker oferece token que o write rejeita). | 🟢 |
+| Q7 | JWT do operador carrega `entities:write`? | **Sim**, via RBAC (role/policy do perfil "MYIO operator"; seed + assignment). **Nunca** master key no browser. | 🟢 |
+| Q1 | `/resolve` devolve `rules_version`/hash do subtree **system** p/ detectar drift baked↔online? | ⚪ **CUT / YAGNI** — key-parity já cobre *chaves*; divergência de *valores* é governança de release + o backend valida regras no write. Aditivo depois (1 campo no `/resolve`, sem migração) se surgir caso real. | ⚪ CUT |
+| PO-1 | master key (X-API-Key) no contexto do dashboard? | 🔴 **REJEITADO** — qualquer operador com devtools extrai. Usar o **JWT do operador com `entities:write`** (custo = RBAC, não código no save path). | 🟢 |
+| PO-2 | cortar boot-non-lazy (~2,6 jobs/mês)? | 🟢 **SIM** — v1 = lazy no modal; dashboard mantém a classificação de boot atual; GCDR boot-load → Phase 2. | 🟢 |
+
+### v3.2-D. O teste único que destrava a LIB
+
+> **Integração de `PUT /entities/bulk-replace` (PG real), numa só corrida, provando as 3 invariantes:**
+> **(a)** payload cross-tree inválido → **422** e `count(*)` da subtree **inalterado** (atomicidade Q2/Q8);
+> **(b)** `If-Match` stale → **409** com `currentVersion` no body (Q4);
+> **(c)** sucesso → reler via `/resolve` e `pg_typeof(metadata) = jsonb` + **deep-equal sem `"`-trailing** (Q3).
+
+Verde nesse teste = contrato `bulk-replace` honrado → o golden-lib e o adaptador codam contra ele.
+
+### v3.2-E. Escopo v1 (cravado — fim da discussão)
+
+- **v1 É:** modal com **lazy-load de 1 domínio** + **bulk-replace desse 1 domínio** + **detecção de 409**
+  (recarrega), gravando via **JWT do operador com `entities:write`**.
+- **v1 NÃO é (→ Phase 2):** `revert` · **icon picker** (usar ícone default por subcategoria; trocar via JSON) ·
+  **GCDR boot-load eager** · qualquer **smart-merge** no 409.
+- **Linhas vermelhas:** ✅ **subcategory-without-code** (inegociável) · ❌ **master key no browser**.
+
+### v3.2-F. Decisões internas da LIB (não dependem do backend)
+
+1. **Formula key-agnostic** ("soma irmãos que não são `role:derived`") em vez de lista de keys → nova subcategoria entra no roll-up sem editar a fórmula do pai.
+2. **Validar invariantes cross-tree também no READ** (defesa contra writes de terceiros), não só no write.
+3. **Cache key `(customerId, domain, version)`** + invalida no save e na troca de customer (vazamento cross-customer = incidente de segurança).
+4. **Offline (baked) sempre sinalizado como degradado**, nunca apresentado como verdade.
+5. **`rules.op` desconhecido → throw** (não `match=false` silencioso).
+6. **Formula referencia keys do próprio domínio só** (sem cross-domain).
+7. Adaptador: nunca `JSON.stringify(metadata)` no save; rejeitar string-in-jsonb no read; `order` de `sort_order` só; fallback de locale do `label`; `null`/missing → erro/default documentado; tie-break estável p/ `sort_order` nulo (por `entity_key`).
+
+### v3.2-G. Trabalho restante (implementação, não design aberto)
+
+- **GCDR (RFC-0047):** validação cross-tree na TX do `bulk-replace` (Q2/Q8) · cast `::jsonb` + teste anti-Moxuara (Q3) · `If-Match` domain-root + 409 com `currentVersion` (Q4) · `icon` validado contra RFC-0200 (Q6) · seed da role `entities:write` no perfil operador (PO-1) · **o teste de integração do §v3.2-D**.
+- **LIB:** adaptador puro + `validateProfile` **espelho** (UX, não a barreira) + baked + arquivo key-parity + render de ícone (token RFC-0200).
+- **MAIN_VIEW:** `GcdrResolveProfileSource` (lazy 1 domínio + 304 + baked fallback) + `saveDomainClassification` (If-Match por domínio + 409 com reload) + cache `(customerId, domain, version)`.
+
+> **Único ponto de otimização em aberto (não bloqueia):** o 409 carrega `currentVersion`, mas a UX v1 é
+> *recarregar-e-reaplicar* — que precisa **da árvore nova**. Vale confirmar se o body do 409 traz a subtree
+> atual ou se a LIB faz 1 GET a mais no reload (round-trip economizável). A LIB já dá GET no reload de qualquer forma.
+
+### v3.2-H. Checklist de testes (consumidor)
+
+```
+[ ] adapter: reject metadata string-in-jsonb (anti-Moxuara)        ← + backend Q3 (cast)
+[ ] adapter: save never JSON.stringify(metadata)
+[ ] adapter: order from sort_order only; legacy metadata.order discarded
+[ ] adapter: label {locale} fallback + {} + missing locale
+[ ] adapter: null/missing (metadata/entity_key/sort_order) → error or documented default
+[ ] sort: null sort_order tie-break stable (by entity_key)
+[ ] validateProfile: orphan formula ref → error (not NaN)
+[ ] validateProfile: parent_entity_id cycle → error before recursion
+[ ] validateProfile: parent cross-domain/cross-customer → error
+[ ] validateProfile: >1 fallback per level → error
+[ ] validateProfile: device in 2 subtrees (unique allocation) → error
+[ ] validateProfile: depth > max → error
+[ ] engine: unknown rules.op → throw (not silent match=false)
+[ ] cache: key (customerId,domain,version); A→B no leak; save invalidates
+[ ] boot: N parallel domain loads resolve distinct trees; 304 isolated per domain
+[ ] integração §v3.2-D: 422 atômico + 409 com currentVersion + pg_typeof=jsonb
+```
 
 ---
 
