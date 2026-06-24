@@ -17,7 +17,12 @@
     #sc-cockpit { flex: 0 0 340px; display:flex; flex-direction:column; background:#1f1147; color:#fff; font-size:12px; overflow:hidden; transition: flex-basis .2s ease; }
     #sc-cockpit .sc-head { flex:0 0 auto; display:flex; align-items:center; gap:8px; padding:10px 12px; border-bottom:1px solid rgba(255,255,255,.15); }
     #sc-cockpit .sc-title { white-space:nowrap; }
-    #sc-cockpit .sc-body { flex:1 1 auto; min-height:0; display:flex; flex-direction:column; gap:5px; padding:10px 12px; overflow:auto; }
+    /* sc-body = 3 zones: scrollable fields (top) · collapsible console (mid) · fixed buttons (bottom) */
+    #sc-cockpit .sc-body { flex:1 1 auto; min-height:0; display:flex; flex-direction:column; overflow:hidden; }
+    #sc-cockpit .sc-scroll { flex:1 1 auto; min-height:0; overflow-y:auto; display:flex; flex-direction:column; gap:5px; padding:10px 12px; }
+    #sc-cockpit .sc-console { flex:0 0 auto; border-top:1px solid rgba(255,255,255,.15); }
+    #sc-cockpit .sc-console-head { padding:4px 12px; }
+    #sc-cockpit .sc-console.collapsed #sc-log { display:none; }
     #sc-cockpit label { opacity:.8; margin-top:4px; }
     #sc-cockpit input { font-size:12px; padding:6px; border-radius:6px; border:1px solid #ccc; width:100%; box-sizing:border-box; }
     #sc-cockpit select { font-size:12px; padding:6px; border-radius:6px; border:1px solid #ccc; width:100%; box-sizing:border-box; color:#111; }
@@ -30,7 +35,12 @@
     #sc-cockpit fieldset.sc-fieldset.collapsed { padding-bottom:4px; }
     #sc-cockpit fieldset.sc-fieldset.collapsed > .sc-fs-body { display:none; }
     #sc-cockpit .sc-fs-ico { display:inline-block; width:12px; font-size:9px; }
-    #sc-cockpit .sc-actions { display:flex; flex-direction:column; gap:6px; margin-top:10px; }
+    /* environment selector (LOCAL | PROD) */
+    #sc-cockpit .sc-envtab { display:flex; gap:0; margin:10px 0 2px; border:1px solid rgba(255,255,255,.3); border-radius:8px; overflow:hidden; }
+    #sc-cockpit .sc-envtab button { flex:1; background:transparent; color:#fff; border:none; border-radius:0; padding:7px 0; font-size:12px; font-weight:600; cursor:pointer; opacity:.7; }
+    #sc-cockpit .sc-envtab button + button { border-left:1px solid rgba(255,255,255,.3); }
+    #sc-cockpit .sc-envtab button.active { background:#6c5ce7; opacity:1; }
+    #sc-cockpit .sc-actions { flex:0 0 auto; display:flex; flex-direction:column; gap:6px; padding:10px 12px; border-top:1px solid rgba(255,255,255,.15); background:#1f1147; }
     #sc-cockpit button { font-size:12px; padding:8px 12px; border:none; border-radius:6px; background:#6c5ce7; color:#fff; cursor:pointer; }
     #sc-cockpit button:hover { background:#5a4bd6; }
     #sc-cockpit button.sc-ghost { background:transparent; border:1px solid rgba(255,255,255,.4); padding:4px 9px; }
@@ -40,7 +50,7 @@
     body.console-collapsed #sc-cockpit .sc-body,
     body.console-collapsed #sc-cockpit .sc-title { display:none; }
 
-    #sc-log { flex:1 1 auto; min-height:140px; margin-top:10px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size:11px; background:#0b0b14; color:#9ef1c0; overflow:auto; padding:8px; border-radius:6px; }
+    #sc-log { max-height:160px; overflow:auto; margin:0 12px 10px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size:11px; background:#0b0b14; color:#9ef1c0; padding:8px; border-radius:6px; }
     #sc-log .err { color:#ff8080; }
     #sc-log .warn { color:#ffd479; }
     #sc-log .info { color:#9ecbff; }
@@ -98,21 +108,31 @@
       <button id="sc-login" class="sc-ghost sc-title" title="Login no ThingsBoard">🔑 Login TB</button>
     </div>
     <div class="sc-body">
-      <div id="sc-auth" class="sc-auth no">🔒 sem JWT</div>
-      <!-- Widget settings — rendered dynamically from settingsSchema.json (mirrors TB "Appearance"). -->
-      <div id="sc-fields"><span style="opacity:.7">carregando settingsSchema.json…</span></div>
-      <!-- Simulated SERVER_SCOPE customer attribute (not a widget setting): used as X-API-Key on GCDR calls. -->
-      <fieldset class="sc-fieldset">
-        <legend>SERVER_SCOPE attrs (simulado)</legend>
-        <label for="sc-gcdrKey">X-API-Key (gcdrApiKey)</label>
-        <select id="sc-gcdrKey"><!-- options loaded from config.json (gitignored) --></select>
-      </fieldset>
+      <!-- ZONE 1: scrollable fields -->
+      <div class="sc-scroll">
+        <div id="sc-auth" class="sc-auth no">🔒 sem JWT</div>
+        <!-- Widget settings — rendered dynamically from settingsSchema.json (mirrors TB "Appearance"). -->
+        <div id="sc-fields"><span style="opacity:.7">carregando settingsSchema.json…</span></div>
+        <!-- Simulated SERVER_SCOPE customer attribute (not a widget setting): used as X-API-Key on GCDR calls. -->
+        <fieldset class="sc-fieldset">
+          <legend>SERVER_SCOPE attrs (simulado)</legend>
+          <label for="sc-gcdrKey">X-API-Key (gcdrApiKey)</label>
+          <select id="sc-gcdrKey"><!-- options loaded from config.json (gitignored) --></select>
+        </fieldset>
+      </div>
+      <!-- ZONE 2: collapsible console -->
+      <div class="sc-console" id="sc-console">
+        <div class="sc-console-head">
+          <button type="button" id="sc-log-toggle" class="sc-ghost">▾ console</button>
+        </div>
+        <div id="sc-log"></div>
+      </div>
+      <!-- ZONE 3: fixed action buttons (bottom) -->
       <div class="sc-actions">
         <button id="sc-run">▶ Run onInit + onDataUpdated</button>
         <button id="sc-data">⟳ onDataUpdated</button>
         <button id="sc-destroy">✖ onDestroy</button>
       </div>
-      <div id="sc-log"></div>
     </div>
   </aside>
 
@@ -186,8 +206,11 @@
     // ---- settingsSchema.json → cockpit form (mirrors the TB widget "Appearance/Settings") ----
     const SCHEMA_URL = '../../src/thingsboard/main-dashboard-shopping/v-5.4.0/settingsSchema.json?v=' + Date.now();
     // showcase defaults + secrets come from config.json (gitignored). Never hardcoded here.
+    // Config shape: { defaultEnv, environments: { LOCAL: {settings, apiKeys}, PROD: {settings, apiKeys} } }.
     let DEFAULT_OVERRIDES = {};
     let _apiKeyOptions = [];
+    let _config = null;
+    let _currentEnv = '';
     let _schema = null;
 
     // Load local config (gitignored). Falls back to the committed example template.
@@ -200,16 +223,14 @@
         } catch {}
       }
       if (!cfg) { log('err', 'config.json/config.example.json não encontrados'); return; }
-      DEFAULT_OVERRIDES = {
-        customerTB_ID: cfg.customerTB_ID || '',
-        thingsboardUrl: cfg.thingsboardUrl || undefined,
-        gcdrApiBaseUrl: cfg.gcdrApiBaseUrl || '',
-        gcdrCustomerId: cfg.gcdrCustomerId || '',
-        gcdrTenantId: cfg.gcdrTenantId || '',
-      };
-      // drop undefined so the schema default applies where config omits a key
-      Object.keys(DEFAULT_OVERRIDES).forEach((k) => DEFAULT_OVERRIDES[k] === undefined && delete DEFAULT_OVERRIDES[k]);
-      _apiKeyOptions = Array.isArray(cfg.apiKeys) ? cfg.apiKeys : [];
+      _config = cfg;
+      const envNames = Object.keys(cfg.environments || {});
+      const saved = localStorage.getItem('sc-env');
+      _currentEnv = (saved && envNames.includes(saved) && saved) || cfg.defaultEnv || envNames[0] || '';
+      log('info', `config carregado de ${src} (envs: ${envNames.join(' | ') || '—'})${src.includes('example') ? ' — ⚠️ template; crie config.json com seus valores reais' : ''}`);
+    }
+
+    function populateApiKeySelect() {
       const sel = document.getElementById('sc-gcdrKey');
       sel.innerHTML = '';
       _apiKeyOptions.forEach((o, i) => {
@@ -218,7 +239,45 @@
         if (i === 0) opt.selected = true;
         sel.appendChild(opt);
       });
-      log('info', `config carregado de ${src} (${_apiKeyOptions.length} API key(s))${src.includes('example') ? ' — ⚠️ usando template; crie config.json com suas keys reais' : ''}`);
+    }
+
+    // Flatten nested settings ({darkMode:{backgroundColor}} → {"darkMode.backgroundColor"}) so they match
+    // the dotted form keys used by renderField (arrays are kept as values, not flattened).
+    function flattenSettings(obj, prefix, out) {
+      out = out || {};
+      for (const [k, v] of Object.entries(obj || {})) {
+        const key = prefix ? `${prefix}.${k}` : k;
+        if (v && typeof v === 'object' && !Array.isArray(v)) flattenSettings(v, key, out);
+        else out[key] = v;
+      }
+      return out;
+    }
+
+    // Apply an environment: its settings become the form overrides, its apiKeys the X-API-Key options.
+    function applyEnv(env) {
+      if (!_config || !_schema) return;
+      const e = _config.environments?.[env];
+      if (!e) { log('err', `ambiente "${env}" ausente no config`); return; }
+      _currentEnv = env;
+      localStorage.setItem('sc-env', env);
+      DEFAULT_OVERRIDES = flattenSettings(e.settings || {});
+      _apiKeyOptions = Array.isArray(e.apiKeys) ? e.apiKeys : [];
+      renderForm();            // re-render every field seeded with this env's settings + the env tab
+      populateApiKeySelect();  // refresh X-API-Key options for this env
+      log('info', `ambiente ${env} aplicado (${_apiKeyOptions.length} API key(s))`);
+    }
+
+    function buildEnvTab() {
+      const wrap = document.createElement('div');
+      wrap.className = 'sc-envtab'; wrap.id = 'sc-envtab';
+      Object.keys(_config?.environments || {}).forEach((env) => {
+        const b = document.createElement('button');
+        b.type = 'button'; b.textContent = env; b.dataset.env = env;
+        if (env === _currentEnv) b.classList.add('active');
+        b.addEventListener('click', () => applyEnv(env));
+        wrap.appendChild(b);
+      });
+      return wrap;
     }
 
     function schemaProp(path) {
@@ -235,6 +294,7 @@
       const id = 'set__' + key;
       const title = p.title || key;
       const wrap = document.createElement('div');
+      wrap.dataset.fieldkey = key;
       if (p.type === 'boolean') {
         wrap.className = 'sc-checkbox';
         wrap.innerHTML =
@@ -298,6 +358,9 @@
       }
       // collapsible fieldsets go LAST (bottom of the cockpit)
       for (const item of fieldsets) root.appendChild(buildFieldset(item));
+      // env selector (LOCAL | PROD) right below "Enable Annotations Onboarding"
+      const anchor = root.querySelector('[data-fieldkey="enableAnnotationsOnboarding"]');
+      if (anchor && _config?.environments) anchor.insertAdjacentElement('afterend', buildEnvTab());
     }
 
     function assignPath(obj, path, val) {
@@ -324,8 +387,7 @@
         const resp = await fetch(SCHEMA_URL);
         if (!resp.ok) throw new Error('HTTP ' + resp.status);
         _schema = await resp.json();
-        renderForm();
-        log('info', `settingsSchema.json rendered (${_schema.form.length} form rows)`);
+        log('info', `settingsSchema.json carregado (${_schema.form.length} form rows)`);
       } catch (err) {
         document.getElementById('sc-fields').innerHTML = '<span class="err">falha ao carregar settingsSchema.json</span>';
         log('err', 'loadSchema failed: ' + (err?.message || err));
@@ -400,6 +462,10 @@
       document.getElementById('sc-toggle').textContent = collapsed ? '⟨' : '⟩';
       document.getElementById('sc-toggle').title = collapsed ? 'Expandir cockpit' : 'Recolher cockpit';
     });
+    document.getElementById('sc-log-toggle').addEventListener('click', () => {
+      const c = document.getElementById('sc-console').classList.toggle('collapsed');
+      document.getElementById('sc-log-toggle').textContent = c ? '▸ console' : '▾ console';
+    });
 
     // ---- real ThingsBoard login (POST {tbUrl}/api/auth/login → localStorage.jwt_token) ----
     function decodeJwt(t) { try { return JSON.parse(atob(t.split('.')[1])); } catch { return null; } }
@@ -469,8 +535,9 @@
     });
 
     window.addEventListener('load', async () => {
-      await loadConfig();   // sets DEFAULT_OVERRIDES + API-key options (config.json gitignored)
-      await loadSchema();   // renders the form using those overrides
+      await loadConfig();   // loads environments (config.json gitignored)
+      await loadSchema();   // loads the schema (no render yet)
+      applyEnv(_currentEnv); // renders the form for the active env + key options + LOCAL|PROD tab
       updateAuthStatus();
       log('info', typeof MyIOLibrary !== 'undefined'
         ? `MyIOLibrary loaded · parseClassificationEntities=${typeof MyIOLibrary.parseClassificationEntities}`
