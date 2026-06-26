@@ -718,7 +718,9 @@ async function enrichDomainValues(period) {
 // Credentials Fetching
 // ============================================================================
 async function fetchCredentials(customerTbId) {
-  const jwt = self.ctx?.http?.getServerCredentials?.()?.token;
+  // TB stores the JWT in localStorage('jwt_token'); ctx.http.getServerCredentials() is often empty
+  // in the deployed widget runtime (it was missing the fallback here — the only call site that was).
+  const jwt = self.ctx?.http?.getServerCredentials?.()?.token || localStorage.getItem('jwt_token');
   LogHelper.log(
     '[SERVER_SCOPE] fetchCredentials → customerTB_ID:', customerTbId || '(vazio)',
     '· THINGSBOARD_URL:', THINGSBOARD_URL || '(vazio)',
@@ -729,7 +731,7 @@ async function fetchCredentials(customerTbId) {
     return null;
   }
   if (!jwt) {
-    LogHelper.error('[SERVER_SCOPE] JWT ausente (ctx.http.getServerCredentials) — não é possível buscar atributos.');
+    LogHelper.error('[SERVER_SCOPE] JWT ausente (ctx.http.getServerCredentials + localStorage.jwt_token) — não é possível buscar atributos.');
     return null;
   }
 
