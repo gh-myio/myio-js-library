@@ -1,0 +1,99 @@
+{
+  "_comment": "ARQUIVO LOCAL — gitignored. NÃO commitar. Contém segredos reais. 'settings' espelha 100% o settingsSchema.json; a tab LOCAL|PROD do cockpit troca entre os blocos.",
+  "defaultEnv": "LOCAL",
+  "environments": {
+    "LOCAL": {
+      "settings": {
+        "customerTB_ID": "5085bf40-b4dd-11f0-be7f-e760d1498268",
+        "dataApiHost": "https://api.data.apps.myio-bas.com/api/v1",
+        "thingsboardUrl": "https://dashboard.myio-bas.com",
+        "defaultThemeMode": "light",
+        "darkMode": {
+          "backgroundType": "gradient",
+          "backgroundUrl": "",
+          "backgroundColor": "#0f172a",
+          "backgroundGradient": "linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e1b4b 100%)",
+          "panelColor": "#1e293b",
+          "borderColor": "#334155",
+          "textColor": "#f1f5f9"
+        },
+        "lightMode": {
+          "backgroundType": "gradient",
+          "backgroundUrl": "",
+          "backgroundColor": "#f8fafc",
+          "backgroundGradient": "linear-gradient(135deg, #ede9fe 0%, #ddd6fe 50%, #c4b5fd 100%)",
+          "panelColor": "#ffffff",
+          "borderColor": "#e2e8f0",
+          "textColor": "#1e293b"
+        },
+        "enableCache": true,
+        "cacheTtlMinutes": 30,
+        "enableStaleWhileRevalidate": true,
+        "maxCacheSize": 50,
+        "debugMode": true,
+        "domainsEnabled": { "energy": true, "water": true, "temperature": true },
+        "excludeDevicesAtCountSubtotalCAG": [],
+        "enableAnnotationsOnboarding": false,
+        "alarmsApiBaseUrl": "http://localhost:3020/api/v1",
+        "alarmsApiKey": "gcdr_cust_tb_integration_key_2026",
+        "gcdrCustomerId": "84e0370e-636a-4741-9874-504b5e0b3577",
+        "gcdrTenantId": "11111111-1111-1111-1111-111111111111",
+        "gcdrApiBaseUrl": "http://localhost:3015/api/v1"
+      },
+      "apiKeys": [
+        {
+          "label": "Master · APIKEY-1111… (full+admin, ativa)",
+          "value": "APIKEY-11111111-1111-1111-1111-111111111111"
+        },
+        {
+          "label": "Customer · gcdr_eafce… (entities r/w/admin · Dimension)",
+          "value": "gcdr_eafceab024965e14315564f9e57840dd4252b5dc2a84f16a987fbf271efe4641"
+        },
+        {
+          "label": "Master candidata · gcdr_master_test_… (precisa reiniciar)",
+          "value": "gcdr_master_test_18b7f445886c392be544be139ffd54ff45d18f6fc9ec17a2"
+        }
+      ]
+    },
+    "PROD": {
+      "settings": {
+        "customerTB_ID": "5085bf40-b4dd-11f0-be7f-e760d1498268",
+        "dataApiHost": "https://api.data.apps.myio-bas.com/api/v1",
+        "thingsboardUrl": "https://dashboard.myio-bas.com",
+        "defaultThemeMode": "light",
+        "darkMode": {
+          "backgroundType": "gradient",
+          "backgroundUrl": "",
+          "backgroundColor": "#0f172a",
+          "backgroundGradient": "linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e1b4b 100%)",
+          "panelColor": "#1e293b",
+          "borderColor": "#334155",
+          "textColor": "#f1f5f9"
+        },
+        "lightMode": {
+          "backgroundType": "gradient",
+          "backgroundUrl": "",
+          "backgroundColor": "#f8fafc",
+          "backgroundGradient": "linear-gradient(135deg, #ede9fe 0%, #ddd6fe 50%, #c4b5fd 100%)",
+          "panelColor": "#ffffff",
+          "borderColor": "#e2e8f0",
+          "textColor": "#1e293b"
+        },
+        "enableCache": true,
+        "cacheTtlMinutes": 30,
+        "enableStaleWhileRevalidate": true,
+        "maxCacheSize": 50,
+        "debugMode": false,
+        "domainsEnabled": { "energy": true, "water": true, "temperature": true },
+        "excludeDevicesAtCountSubtotalCAG": [],
+        "enableAnnotationsOnboarding": false,
+        "alarmsApiBaseUrl": "https://alarms-api.a.myio-bas.com/api/v1",
+        "alarmsApiKey": "gcdr_cust_tb_integration_key_2026",
+        "gcdrCustomerId": "77777777-7777-7777-7777-777777777777",
+        "gcdrTenantId": "11111111-1111-1111-1111-111111111111",
+        "gcdrApiBaseUrl": "https://gcdr-api.a.myio-bas.com/api/v1"
+      },
+      "apiKeys": [{ "label": "PROD · cole a key real aqui", "value": "COLE-SUA-API-KEY-PROD" }]
+    }
+  }
+}

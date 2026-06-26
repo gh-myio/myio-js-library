@@ -752,6 +752,30 @@ if (!Object.prototype.hasOwnProperty.call(window.MyIOUtils, 'customerTB_ID')) {
   });
 }
 
+// ── Goals JSON cache ─────────────────────────────────────────────────────────
+// Busca os JSONs de metas configurados em goalsJsonUrls e armazena em
+// window.MyIOUtils.goalsData[domain]. Não-bloqueante: falhas são silenciosas.
+// Futuramente substituir o fetch direto por chamada ao endpoint GCDR do customer.
+async function _fetchAndCacheGoalsData(urls) {
+  if (!urls) return;
+  const domains = ['energy', 'water', 'temperature'];
+  for (const domain of domains) {
+    const url = urls[domain];
+    if (!url) continue;
+    try {
+      const res = await fetch(url);
+      if (res.ok) {
+        window.MyIOUtils.goalsData[domain] = await res.json();
+        LogHelper.log(`[MAIN_VIEW] Goals JSON carregado (${domain})`);
+      } else {
+        LogHelper.warn(`[MAIN_VIEW] goalsJson fetch status ${res.status} (${domain})`);
+      }
+    } catch (e) {
+      LogHelper.warn(`[MAIN_VIEW] goalsJson fetch falhou (${domain}):`, e?.message);
+    }
+  }
+}
+
 // RFC-0051.1: Global widget settings (will be populated in onInit)
 // IMPORTANT: customerTB_ID must NEVER be 'default' - it must always be a valid ThingsBoard ID
 let widgetSettings = {
@@ -761,6 +785,7 @@ let widgetSettings = {
   excludeDevicesAtCountSubtotalCAG: [], // Entity IDs to exclude from CAG subtotal calculation
   enableAnnotationsOnboarding: false, // RFC-0144: Enable/disable annotations onboarding in settings modal
   enableReportButton: false, // Enable/disable Report button in HEADER (default: disabled)
+  goalsJsonUrls: { energy: '', water: '', temperature: '' }, // URLs do JSON de metas por domínio
 };
 
 // Exclusão de Grupos: group exclusion config loaded from CUSTOMER SERVER_SCOPE via SettingsModal
@@ -1542,6 +1567,17 @@ Object.assign(window.MyIOUtils, {
       Object.entries(REPORT_ITEM_DEFAULTS).map(([k, def]) => [k, rawItems[k] ?? def])
     );
     LogHelper.log('[Orchestrator] RFC-0182: enabledReportItems:', window.MyIOUtils.enabledReportItems);
+
+    // Goals JSON URLs — carregados via settings, futuramente substituídos por chamada GCDR
+    widgetSettings.goalsJsonUrls = {
+      energy:      self.ctx.settings?.goalsJsonUrls?.energy      || '',
+      water:       self.ctx.settings?.goalsJsonUrls?.water       || '',
+      temperature: self.ctx.settings?.goalsJsonUrls?.temperature || '',
+    };
+    // Inicializa o cache global (não sobrescreve se já existir de run anterior)
+    window.MyIOUtils.goalsData = window.MyIOUtils.goalsData || { energy: null, water: null, temperature: null };
+    _fetchAndCacheGoalsData(widgetSettings.goalsJsonUrls);
+    LogHelper.log('[Orchestrator] goalsJsonUrls configurados:', widgetSettings.goalsJsonUrls);
 
     // RFC-0130: Load delay time settings from widget settings
     const delaySettings = {

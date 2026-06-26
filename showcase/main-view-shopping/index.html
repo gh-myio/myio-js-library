@@ -813,6 +813,59 @@
         </div>
       </div>
 
+      <!-- GoalsModal (Painel de Metas) -->
+      <div class="controls-panel" id="goalsModalControls">
+        <h3>&#x1F3AF; GoalsModal — Painel de Metas</h3>
+
+        <div class="ctrl-group">
+          <label class="ctrl-label">URL do JSON de Metas (energy)</label>
+          <textarea class="ctrl-input" id="goalsEnergyUrl" rows="3"
+            placeholder="Cole aqui a URL assinada do S3 (expira em ~5min)"
+            style="font-size:9px; font-family:monospace; resize:vertical; height:54px; white-space:nowrap; overflow-x:auto;"></textarea>
+        </div>
+
+        <div class="controls-grid">
+          <button class="ctrl-btn primary" onclick="loadGoalsDataFromUrl()">&#x2B07; Fetch URL</button>
+          <button class="ctrl-btn secondary" onclick="injectMockGoalsData()">&#x1F9EA; Mock Data</button>
+        </div>
+
+        <div id="goalsDataStatus" style="margin-top:6px; font-size:10px; color:#64748b; line-height:1.4;">
+          goalsData.energy: não carregado
+        </div>
+
+        <div class="ctrl-group">
+          <label class="ctrl-label">Consumo</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#94a3b8;cursor:pointer;">
+            <input type="checkbox" id="goalsMockConsumption" checked>
+            Mock consumo (offline)
+          </label>
+        </div>
+
+        <div style="border-top:1px solid rgba(255,255,255,0.07); margin:8px 0 6px;"></div>
+
+        <div class="ctrl-group">
+          <label class="ctrl-label">Domínio inicial</label>
+          <select class="ctrl-select" id="goalsInitialDomain">
+            <option value="energy" selected>energy</option>
+            <option value="water">water</option>
+            <option value="temperature">temperature</option>
+          </select>
+        </div>
+
+        <div class="controls-grid">
+          <button class="ctrl-btn success" style="grid-column:1/-1" onclick="openGoalsModalDirect()">&#x1F3AF; Abrir GoalsModal</button>
+        </div>
+
+        <div style="margin-top:8px; padding:6px; background:rgba(99,102,241,0.1); border:1px solid rgba(99,102,241,0.3); border-radius:6px; font-size:10px; color:#c4b5fd; line-height:1.5">
+          <strong>Como testar (offline):</strong><br>
+          1. <em>Mock Data</em> → <em>Abrir GoalsModal</em><br>
+          &nbsp;&nbsp;• "Mock consumo" ativo → barras com valores fictícios<br>
+          &nbsp;&nbsp;• Faixa sombreada = banda de 0 ao valor da meta<br>
+          2. Cole URL S3 → <em>Fetch URL</em> para metas reais<br>
+          3. Desmarque "Mock consumo" para usar API real
+        </div>
+      </div>
+
       </div><!-- /.sidebar-controls -->
 
       <!-- Event Log -->
@@ -3032,6 +3085,137 @@
         updateStatus('ready');
       }
     });
+
+    // =========================================================================
+    // GoalsModal: fetch URL + mock data + abrir direto
+    // =========================================================================
+
+    function _updateGoalsStatus() {
+      const el = document.getElementById('goalsDataStatus');
+      if (!el) return;
+      const g = window.MyIOUtils?.goalsData;
+      if (!g) { el.textContent = 'MyIOUtils.goalsData: ainda não disponível'; el.style.color = '#f87171'; return; }
+      const parts = ['energy', 'water', 'temperature'].map((d) => {
+        const ok = !!g[d];
+        return `<span style="color:${ok ? '#6ee7b7' : '#64748b'}">${ok ? '✅' : '○'} ${d}</span>`;
+      });
+      el.innerHTML = parts.join(' &nbsp;');
+    }
+
+    async function loadGoalsDataFromUrl() {
+      const url = document.getElementById('goalsEnergyUrl')?.value?.trim();
+      if (!url) { logEvent('GOALS', 'URL vazia — cole a URL S3 no campo', 'warn'); return; }
+      const el = document.getElementById('goalsDataStatus');
+      if (el) { el.textContent = 'Carregando…'; el.style.color = '#fcd34d'; }
+      try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = await res.json();
+        window.MyIOUtils = window.MyIOUtils || {};
+        window.MyIOUtils.goalsData = window.MyIOUtils.goalsData || { energy: null, water: null, temperature: null };
+        window.MyIOUtils.goalsData.energy = json;
+        logEvent('GOALS', `Goals JSON energy carregado (${Object.keys(json.data?.tree?.daily || {}).length} dias, ${Object.keys(json.data?.tree?.hourly || {}).length}h)`, 'info');
+        _updateGoalsStatus();
+      } catch (err) {
+        logEvent('GOALS', `Fetch falhou: ${err.message}`, 'error');
+        const el2 = document.getElementById('goalsDataStatus');
+        if (el2) { el2.textContent = `Erro: ${err.message}`; el2.style.color = '#f87171'; }
+      }
+    }
+
+    function injectMockGoalsData() {
+      const now = new Date();
+      const hourly = {};
+      for (let h = 0; h < 24; h++) {
+        const key = String(h).padStart(2, '0');
+        // pico às 9-20h, reduz de madrugada
+        const base = (h >= 9 && h <= 20) ? 1800 : (h >= 6 && h < 9) ? 1200 : 500;
+        hourly[key] = { value: Math.round(base + (Math.random() - 0.5) * 200) };
+      }
+      const daily = {};
+      for (let i = 0; i < 30; i++) {
+        const d = new Date(now);
+        d.setDate(now.getDate() - i);
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        daily[`${mm}-${dd}`] = { value: Math.round(28000 + (Math.random() - 0.5) * 6000) };
+      }
+      const monthly = {};
+      for (let m = 1; m <= 12; m++) {
+        monthly[String(m).padStart(2, '0')] = { value: Math.round(750000 + (Math.random() - 0.5) * 150000) };
+      }
+
+      window.MyIOUtils = window.MyIOUtils || {};
+      window.MyIOUtils.goalsData = window.MyIOUtils.goalsData || { energy: null, water: null, temperature: null };
+      window.MyIOUtils.goalsData.energy = {
+        success: true,
+        data: { domain: 'ENERGY', unit: 'kWh', year: now.getFullYear(), tree: { hourly, daily, monthly } },
+      };
+      logEvent('GOALS', `Mock goals data injetado: ${Object.keys(daily).length} dias, 24h`, 'info');
+      _updateGoalsStatus();
+    }
+
+    // Retorna consumo fictício para um slot (1h / 1d / 1M)
+    // Usa o goal value do slot como referência (65–95% dele)
+    function _mockConsumptionSlot(domain, startTs, endTs, granularity) {
+      const tree = window.MyIOUtils?.goalsData?.[domain]?.data?.tree;
+      let goalValue = null;
+
+      if (tree) {
+        const slotDate = new Date(startTs);
+        if (granularity === '1h') {
+          const hh = String(slotDate.getHours()).padStart(2, '0');
+          goalValue = tree.hourly?.[hh]?.value ?? null;
+        } else if (granularity === '1M') {
+          const mm = String(slotDate.getMonth() + 1).padStart(2, '0');
+          goalValue = tree.monthly?.[mm]?.value ?? null;
+        } else {
+          const mm = String(slotDate.getMonth() + 1).padStart(2, '0');
+          const dd = String(slotDate.getDate()).padStart(2, '0');
+          goalValue = tree.daily?.[`${mm}-${dd}`]?.value ?? null;
+        }
+      }
+
+      // fallbacks por domínio se não tiver goal data
+      const fallbacks = { energy: 28000, water: 120, temperature: 22 };
+      const base = goalValue ?? fallbacks[domain] ?? 1000;
+      const factor = 0.65 + Math.random() * 0.30;
+      return [{ id: 'mock-total', total_value: Math.round(base * factor) }];
+    }
+
+    function openGoalsModalDirect() {
+      const GoalsModal = window.MyIOLibrary?.GoalsModal;
+      if (!GoalsModal) { logEvent('GOALS', 'GoalsModal indisponível — verifique o build', 'error'); return; }
+      const domain = document.getElementById('goalsInitialDomain')?.value || 'energy';
+      const useMockConsumption = document.getElementById('goalsMockConsumption')?.checked ?? true;
+      const ENTRADA_GROUP_ID = 'f431d17a-ec11-45e0-b92c-83a0d3b6d942';
+      GoalsModal.open({
+        initialDomain: domain,
+        defaultPeriodDays: 30,
+        fetchConsumption: async (dom, startTs, endTs, granularity, groupId) => {
+          if (useMockConsumption) {
+            return _mockConsumptionSlot(dom, startTs, endTs, granularity);
+          }
+          const custId = window.MyIOOrchestrator?.getCredentials?.()?.CUSTOMER_ING_ID || _CUSTOMER_ING_ID;
+          const fn = window.MyIOUtils?.fetchGoalsDayTotals;
+          if (!custId || typeof fn !== 'function') {
+            logEvent('GOALS', 'fetchGoalsDayTotals indisponível — retornando array vazio', 'warn');
+            return [];
+          }
+          const gId = dom === 'energy' ? ENTRADA_GROUP_ID : null;
+          try {
+            return await fn(custId, dom, startTs, endTs, granularity, gId);
+          } catch (err) {
+            logEvent('GOALS', `fetchConsumption erro: ${err.message}`, 'error');
+            return [];
+          }
+        },
+        fetchTemperature: window.MyIOUtils?.fetchGoalsTemperature
+          ? (startTs, endTs) => window.MyIOUtils.fetchGoalsTemperature(startTs, endTs, '1d')
+          : undefined,
+      });
+      logEvent('GOALS', `GoalsModal.open() chamado (domínio: ${domain}, mockConsumption: ${useMockConsumption})`, 'info');
+    }
 
     window.addEventListener('error', (e) => logEvent('ERROR', e.message, 'error'));
 
