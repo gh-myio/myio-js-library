@@ -1404,13 +1404,17 @@ self.onInit = async function () {
   // Without it, fetchCredentials never runs → no SERVER_SCOPE → GCDR calls 401.
   const customerTbId = resolveCustomerTbId(settings);
   window.MyIOUtils.customerTB_ID = customerTbId;
+  // HARD STOP: customerTB_ID is the linchpin — without it there is no SERVER_SCOPE, hence no
+  // gcdrApiKey/gcdrCustomerId, hence no tree/devices/consumption. Abort onInit with ONE clear
+  // error instead of letting the flow degrade and emit a cascade of follow-up toasts.
   if (!customerTbId) {
+    LogHelper.error('[MAIN_VIEW v5.4.0] customerTB_ID ausente — abortando onInit.');
     toastError(
-      '[MAIN_VIEW v5.4.0] customerTB_ID não resolvido (settings.customerTB_ID vazio e sem customer no contexto TB). Sem ele não há SERVER_SCOPE → GCDR retornará 401. Configure customerTB_ID nas settings do widget.'
+      '[MAIN_VIEW v5.4.0] customerTB_ID não configurado. Defina o "Customer ThingsBoard ID" nas settings do widget (ou abra o dashboard como usuário do customer). O dashboard não pode carregar sem ele.'
     );
-  } else {
-    LogHelper.log('customerTB_ID resolvido:', customerTbId);
+    return;
   }
+  LogHelper.log('customerTB_ID resolvido:', customerTbId);
 
   // RFC-0122: upgrade LogHelper to the lib's contextual logger; console LogHelper stays as fallback.
   if (window.MyIOLibrary?.createLogHelper) {
@@ -1533,22 +1537,17 @@ self.onInit = async function () {
   // Fetch credentials (TB SERVER_SCOPE) — still the source for the GCDR id/tenant
   // fallback and the ingestion customerId. clientId/clientSecret were MOVED to the
   // GCDR customer metadata (see below); SERVER_SCOPE values, if any, are only a fallback.
-  if (customerTbId) {
-    LogHelper.log('[SERVER_SCOPE] iniciando busca de atributos do customer', customerTbId, '…');
-    _credentials = await fetchCredentials(customerTbId);
-    if (_credentials) {
-      LogHelper.log('Credentials fetched (TB SERVER_SCOPE)');
+  // customerTbId is guaranteed non-empty here (onInit aborts above otherwise).
+  LogHelper.log('[SERVER_SCOPE] iniciando busca de atributos do customer', customerTbId, '…');
+  _credentials = await fetchCredentials(customerTbId);
+  if (_credentials) {
+    LogHelper.log('Credentials fetched (TB SERVER_SCOPE)');
 
-      // RFC-0180: Fallback GCDR IDs from TB attrs when not set in widget settings
-      if (!gcdrCustomerId) gcdrCustomerId = _credentials.gcdrCustomerId || '';
-      if (!gcdrTenantId) gcdrTenantId = _credentials.gcdrTenantId || '';
-    } else {
-      LogHelper.error('[SERVER_SCOPE] fetchCredentials retornou null — atributos do customer NÃO carregados (ver logs acima).');
-    }
+    // RFC-0180: Fallback GCDR IDs from TB attrs when not set in widget settings
+    if (!gcdrCustomerId) gcdrCustomerId = _credentials.gcdrCustomerId || '';
+    if (!gcdrTenantId) gcdrTenantId = _credentials.gcdrTenantId || '';
   } else {
-    LogHelper.error(
-      '[SERVER_SCOPE] customerTB_ID vazio — a chamada de atributos do customer foi PULADA. Configure customerTB_ID nas settings do widget ou abra o dashboard como usuário do customer.'
-    );
+    LogHelper.error('[SERVER_SCOPE] fetchCredentials retornou null — atributos do customer NÃO carregados (ver logs acima).');
   }
 
   // RFC-0047: publish the GCDR X-API-Key BEFORE any GCDR fetch (resolve/devices/customers read

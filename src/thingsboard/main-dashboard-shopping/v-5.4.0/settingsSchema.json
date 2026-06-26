@@ -6,7 +6,8 @@
       "customerTB_ID": {
         "title": "Customer ThingsBoard ID",
         "type": "string",
-        "description": "ID do customer no ThingsBoard para buscar atributos de autenticação (client_id, client_secret, ingestionId)"
+        "default": "5085bf40-b4dd-11f0-be7f-e760d1498268",
+        "description": "ID do customer no ThingsBoard. Chave para buscar os atributos SERVER_SCOPE (gcdrApiKey, gcdrCustomerId, gcdrTenantId, ingestionId). OBRIGATÓRIO — sem ele o dashboard não carrega."
       },
       "dataApiHost": {
         "title": "API Base URL",
