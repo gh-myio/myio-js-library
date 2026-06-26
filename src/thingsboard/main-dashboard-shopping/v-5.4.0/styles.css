@@ -3,6 +3,10 @@
    ============================================================================ */
 
 #myio-root {
+  /* MyIO standard font (Nunito). The <link> is injected by the controller (injectNunitoFont). */
+  --myio-font: 'Nunito', Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--myio-font);
+
   --myio-radius: 16px;
   --sidebar-w: 260px;
   --sidebar-w-compact: 72px;

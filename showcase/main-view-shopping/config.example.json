@@ -1,6 +1,10 @@
 {
   "_comment": "Copie para config.json (gitignored) e preencha. 'settings' espelha 100% o settingsSchema.json — TUDO que aparece no cockpit vem daqui. A tab LOCAL|PROD troca entre os blocos de 'environments'.",
   "defaultEnv": "LOCAL",
+  "general-settings": {
+    "_comment": "Configurações globais da showcase (não por-ambiente).",
+    "bootCountdownSeconds": 6
+  },
   "environments": {
     "LOCAL": {
       "settings": {

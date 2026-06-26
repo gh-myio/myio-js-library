@@ -790,7 +790,7 @@ export function renderCardComponentV6({
         width: 320px;
         padding: 16px;
         border-radius: 8px;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
         font-size: 15px;
         color: #fff;
         transform: translateX(120%);

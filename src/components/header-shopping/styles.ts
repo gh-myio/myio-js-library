@@ -49,7 +49,7 @@ export const HEADER_SHOPPING_STYLES = `
 
 /* ===== Base ===== */
 .tbx-toolbar {
-    font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Helvetica Neue", Helvetica;
+    font-family: 'Nunito', Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Helvetica Neue", Helvetica;
     color: var(--tbx-text);
     background: var(--tbx-bg);
     width: 100%;

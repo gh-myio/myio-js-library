@@ -1,8 +1,9 @@
 /**
  * Adapter for the GCDR Generic Entity Registry (RFC-0047) classification tree.
  *
- * The endpoint `GET /entities?parentId=null&deep=all&customerId=…` returns a
- * hierarchy of GROUP/PROFILE entities:
+ * The endpoint `GET /entities/resolve?customerId=…&deep=all` (RFC-0047) returns the
+ * customer's EFFECTIVE taxonomy (own override if any, else the system default) as
+ * `{ data: { source, version, roots: [...] } }` — a hierarchy of GROUP/PROFILE entities:
  *   - level 0 (parentEntityId=null, GROUP) → DOMAIN        (entityKey 'energy', value 'Energia')
  *   - level 1 (GROUP)                      → COLUMN         (entityKey 'energy-entry', value 'Entrada de Energia')
  *   - deeper GROUPs                        → sub-groups     (entityKey 'climatizacao', value 'Climatização')
@@ -96,11 +97,18 @@ function collectProfiles(node: EntityNode): string[] {
 export function parseClassificationEntities(
   response: unknown,
 ): ParsedClassificationTree {
-  // Accept the full envelope, `data`, or the items array directly.
+  // Accept every GCDR shape:
+  //  - /entities/resolve  → { success, data: { source, version, roots: [...] } }   (the dashboard path)
+  //  - paginated list     → { success, data: { items: [...] } }  or  { data: [...] }
+  //  - bare array / items  → [...]  or  { items: [...] }  or  { roots: [...] }
   const r = response as Record<string, unknown> | undefined;
+  const data = r?.data as Record<string, unknown> | EntityNode[] | undefined;
   const items: EntityNode[] = Array.isArray(response)
     ? (response as EntityNode[])
-    : (((r?.data as Record<string, unknown>)?.items ??
+    : (((data as Record<string, unknown>)?.roots ??
+        (data as Record<string, unknown>)?.items ??
+        (Array.isArray(data) ? data : undefined) ??
+        (r?.roots as unknown) ??
         (r?.items as unknown) ??
         []) as EntityNode[]);
 

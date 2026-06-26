@@ -5,14 +5,37 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Showcase — MainView Shopping v-5.4.0 (domain-agnostic engine)</title>
 
+  <!-- MyIO standard font (Nunito) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap" />
+
   <!-- v-5.4.0 dashboard styles -->
   <link rel="stylesheet" href="../../src/thingsboard/main-dashboard-shopping/v-5.4.0/styles.css" />
 
   <style>
     /* Flex ROW: dashboard fills the left, cockpit is a vertical sidebar on the RIGHT. */
     html, body { height: 100%; }
-    body { margin: 0; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:#f4f4f7; display:flex; flex-direction:row; height:100vh; overflow:hidden; }
+    body { margin: 0; font-family: 'Nunito', Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:#f4f4f7; display:flex; flex-direction:row; height:100vh; overflow:hidden; }
     #myio-root { flex: 1 1 auto; min-width: 0; min-height: 0; }
+    /* #sc-stage: neutral flex wrapper around the dashboard. */
+    #sc-stage { flex: 1 1 auto; min-width: 0; min-height: 0; display: flex; }
+    #sc-stage > #myio-root { flex: 1 1 auto; min-width: 0; min-height: 0; }
+    #sc-cockpit button.sc-ghost.active { background:#6c5ce7; border-color:#6c5ce7; opacity:1; }
+
+    /* Mobile preview: an iframe at a phone width gives a REAL narrow viewport, so the dashboard's
+       own @media (max-width) rules fire (element-resizing alone does NOT trigger media queries). */
+    #sc-mobile-overlay { position:fixed; inset:0; z-index:10001; background:rgba(11,11,20,.78); display:flex; align-items:center; justify-content:center; }
+    #sc-mobile-overlay .sc-phone { display:flex; flex-direction:column; width:390px; max-width:94vw; height:844px; max-height:94vh; background:#14141f; border-radius:28px; padding:10px; box-shadow:0 0 0 2px #2a2a3a, 0 24px 70px rgba(0,0,0,.6); }
+    #sc-mobile-overlay .sc-phone-bar { display:flex; align-items:center; justify-content:space-between; color:#cbd5e1; font-size:11px; padding:4px 6px 8px; }
+    #sc-mobile-overlay .sc-phone-bar button { background:transparent; border:1px solid rgba(255,255,255,.35); color:#fff; border-radius:6px; cursor:pointer; padding:2px 9px; font-size:12px; }
+    #sc-mobile-overlay .sc-phone-screen { flex:1 1 auto; width:100%; border:0; border-radius:20px; background:#fff; }
+
+    /* Embedded mobile mode (?embed=mobile): hide the cockpit, dashboard fills the iframe viewport. */
+    body.embed-mobile { flex-direction:column; }
+    body.embed-mobile #sc-cockpit, body.embed-mobile #sc-login-modal { display:none !important; }
+    body.embed-mobile #sc-stage { flex:1 1 auto; }
+    body.embed-mobile #sc-stage > #myio-root { width:100%; height:100%; border-radius:0; box-shadow:none; }
 
     #sc-cockpit { flex: 0 0 340px; display:flex; flex-direction:column; background:#1f1147; color:#fff; font-size:12px; overflow:hidden; transition: flex-basis .2s ease; }
     #sc-cockpit .sc-head { flex:0 0 auto; display:flex; align-items:center; gap:8px; padding:10px 12px; border-bottom:1px solid rgba(255,255,255,.15); }
@@ -75,11 +98,25 @@
     .sc-login .sc-submit:disabled { opacity:.6; cursor:not-allowed; }
     .sc-spin { display:inline-block; width:14px; height:14px; border:2px solid rgba(255,255,255,.4); border-top-color:#fff; border-radius:50%; animation:sc-rot .7s linear infinite; vertical-align:-2px; margin-right:6px; }
     @keyframes sc-rot { to { transform:rotate(360deg); } }
+
+    /* ---- boot countdown: full-screen blur that auto-runs onInit after 6s (Cancel aborts) ---- */
+    #sc-boot { position:fixed; inset:0; z-index:11000; display:flex; align-items:center; justify-content:center;
+      background:rgba(15,17,30,.55); backdrop-filter:blur(16px) saturate(120%); -webkit-backdrop-filter:blur(16px) saturate(120%); }
+    #sc-boot.hidden { display:none; }
+    #sc-boot .sc-boot-card { text-align:center; color:#fff; padding:32px 44px; }
+    #sc-boot .sc-boot-title { font-size:19px; font-weight:700; opacity:.95; }
+    #sc-boot .sc-boot-count { font-size:128px; font-weight:800; line-height:1; margin:6px 0 2px; color:#a78bfa; text-shadow:0 10px 50px rgba(124,58,237,.65); }
+    #sc-boot .sc-boot-sub { font-size:13px; opacity:.8; margin-bottom:24px; }
+    #sc-boot .sc-boot-cancel { font-size:14px; font-weight:600; padding:11px 30px; border:1px solid rgba(255,255,255,.5);
+      border-radius:10px; background:rgba(255,255,255,.08); color:#fff; cursor:pointer; }
+    #sc-boot .sc-boot-cancel:hover { background:rgba(255,255,255,.18); }
+    body.embed-mobile #sc-boot { display:none !important; }   /* the iframe auto-runs; no countdown */
     /* The v-5.4.0 controller generates its DOM into the structure below. */
   </style>
 </head>
 <body>
   <!-- ===================== v-5.4.0 template (the controller fills these) ===================== -->
+  <div id="sc-stage">
   <section id="myio-root" class="myio-grid">
     <aside class="myio-sidebar">
       <section id="menuContainer" class="myio-menu-section"></section>
@@ -99,6 +136,7 @@
     </footer>
     <div id="panelModalContainer"></div>
   </section>
+  </div><!-- /#sc-stage -->
 
   <!-- ===================== Showcase cockpit (right sidebar) ===================== -->
   <aside id="sc-cockpit">
@@ -132,6 +170,7 @@
         <button id="sc-run">▶ Run onInit + onDataUpdated</button>
         <button id="sc-data">⟳ onDataUpdated</button>
         <button id="sc-destroy">✖ onDestroy</button>
+        <button id="sc-mobile" class="sc-ghost" title="Emular viewport mobile do dashboard/widget">📱 Emular Mobile</button>
       </div>
     </div>
   </aside>
@@ -155,6 +194,16 @@
     </form>
   </div>
 
+  <!-- ===================== Boot countdown (auto-run onInit after 6s) ===================== -->
+  <div id="sc-boot">
+    <div class="sc-boot-card">
+      <div class="sc-boot-title">Carregando dados do dashboard…</div>
+      <div class="sc-boot-count" id="sc-boot-count">6</div>
+      <div class="sc-boot-sub">Iniciando em <span id="sc-boot-secs">6</span>s — árvore GCDR, devices e consumo. (F5 para recarregar)</div>
+      <button type="button" id="sc-boot-cancel" class="sc-boot-cancel">Cancelar</button>
+    </div>
+  </div>
+
   <!-- ===================== Dependencies ===================== -->
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
@@ -165,6 +214,11 @@
 
   <!-- ===================== Showcase harness ===================== -->
   <script>
+    // ---- mobile preview embed mode: this page is loaded inside the phone iframe ----
+    // ?embed=mobile → hide the cockpit, fill the iframe viewport, and auto-run onInit.
+    const EMBED_MOBILE = new URLSearchParams(location.search).get('embed') === 'mobile';
+    if (EMBED_MOBILE) document.body.classList.add('embed-mobile');
+
     // ---- tiny event log ----
     const logEl = document.getElementById('sc-log');
     function log(kind, msg) {
@@ -212,6 +266,7 @@
     let _config = null;
     let _currentEnv = '';
     let _schema = null;
+    let _bootCountdownSecs = 6; // overridable via config.json → "general-settings".bootCountdownSeconds
 
     // Load local config (gitignored). Falls back to the committed example template.
     async function loadConfig() {
@@ -224,6 +279,9 @@
       }
       if (!cfg) { log('err', 'config.json/config.example.json não encontrados'); return; }
       _config = cfg;
+      // Global (non-per-env) showcase settings.
+      const gs = cfg['general-settings'] || cfg.generalSettings || {};
+      if (gs.bootCountdownSeconds != null) _bootCountdownSecs = Math.max(0, Number(gs.bootCountdownSeconds) || 0);
       const envNames = Object.keys(cfg.environments || {});
       const saved = localStorage.getItem('sc-env');
       _currentEnv = (saved && envNames.includes(saved) && saved) || cfg.defaultEnv || envNames[0] || '';
@@ -466,6 +524,30 @@
       const c = document.getElementById('sc-console').classList.toggle('collapsed');
       document.getElementById('sc-log-toggle').textContent = c ? '▸ console' : '▾ console';
     });
+    // Mobile preview: open the showcase in a phone-sized iframe. The iframe gets a REAL 390px
+    // viewport, so the dashboard's @media (max-width) rules fire → true mobile layout
+    // (resizing the element in this same document would NOT trigger media queries).
+    document.getElementById('sc-mobile').addEventListener('click', () => {
+      const btn = document.getElementById('sc-mobile');
+      const close = () => {
+        document.getElementById('sc-mobile-overlay')?.remove();
+        btn.classList.remove('active'); btn.textContent = '📱 Emular Mobile';
+      };
+      if (document.getElementById('sc-mobile-overlay')) { close(); return; }
+      const ov = document.createElement('div');
+      ov.id = 'sc-mobile-overlay';
+      ov.innerHTML =
+        '<div class="sc-phone">' +
+          '<div class="sc-phone-bar"><span>📱 Mobile preview — 390×844 (viewport real)</span>' +
+          '<button id="sc-mobile-close" title="Fechar">✕ fechar</button></div>' +
+          '<iframe class="sc-phone-screen" src="./index.html?embed=mobile&v=' + Date.now() + '"></iframe>' +
+        '</div>';
+      document.body.appendChild(ov);
+      ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
+      document.getElementById('sc-mobile-close').addEventListener('click', close);
+      btn.classList.add('active'); btn.textContent = '📱 Fechar Mobile';
+      log('info', 'Mobile preview aberto (iframe @390px — dispara @media reais).');
+    });
 
     // ---- real ThingsBoard login (POST {tbUrl}/api/auth/login → localStorage.jwt_token) ----
     function decodeJwt(t) { try { return JSON.parse(atob(t.split('.')[1])); } catch { return null; } }
@@ -534,6 +616,38 @@
       } finally { btn.disabled = false; btn.textContent = 'Entrar'; }
     });
 
+    // Full-screen blur countdown → auto-run onInit, then fully collapse the cockpit.
+    // Cancel aborts (keeps the cockpit so you can run manually). One-shot per load — F5 to redo.
+    function startBootCountdown() {
+      const ov = document.getElementById('sc-boot');
+      const countEl = document.getElementById('sc-boot-count');
+      const secsEl = document.getElementById('sc-boot-secs');
+      const cancelBtn = document.getElementById('sc-boot-cancel');
+      if (!ov || !countEl) return;
+      let n = _bootCountdownSecs, timer = null;
+      const hide = () => { if (timer) clearInterval(timer); timer = null; ov.classList.add('hidden'); };
+      const render = (v) => { countEl.textContent = Math.max(v, 0); if (secsEl) secsEl.textContent = Math.max(v, 0); };
+      const runAndCollapse = () => {
+        hide();
+        log('info', 'Run onInit + colapsar cockpit.');
+        document.getElementById('sc-run').click();
+        document.body.classList.add('console-collapsed');         // colapsa o cockpit totalmente
+        const tg = document.getElementById('sc-toggle');
+        if (tg) { tg.textContent = '⟨'; tg.title = 'Expandir cockpit'; }
+      };
+      cancelBtn.addEventListener('click', () => {
+        hide();
+        log('warn', 'Auto-carregamento cancelado — use ▶ Run onInit manualmente.');
+      });
+      render(n);
+      if (n <= 0) { runAndCollapse(); return; }   // countdown disabled (0) → run immediately
+      timer = setInterval(() => {
+        n -= 1;
+        render(n);
+        if (n <= 0) runAndCollapse();
+      }, 1000);
+    }
+
     window.addEventListener('load', async () => {
       await loadConfig();   // loads environments (config.json gitignored)
       await loadSchema();   // loads the schema (no render yet)
@@ -542,7 +656,15 @@
       log('info', typeof MyIOLibrary !== 'undefined'
         ? `MyIOLibrary loaded · parseClassificationEntities=${typeof MyIOLibrary.parseClassificationEntities}`
         : 'MyIOLibrary NOT loaded');
-      log('warn', 'Click "Run onInit" — fetches the GCDR /entities tree LIVE from the gcdrApiBaseUrl above (needs the GCDR server + CORS).');
+      // In the mobile-preview iframe, run the dashboard automatically (no cockpit to click).
+      // Shares the parent's localStorage JWT (same origin); GCDR calls use the X-API-Key.
+      if (EMBED_MOBILE) {
+        log('info', 'embed-mobile: auto-running onInit…');
+        document.getElementById('sc-run').click();
+      } else {
+        log('warn', 'Click "Run onInit" — fetches the GCDR /entities tree LIVE from the gcdrApiBaseUrl above (needs the GCDR server + CORS).');
+        startBootCountdown();   // 6s blur countdown → auto Run onInit → collapse cockpit
+      }
     });
   </script>
 </body>

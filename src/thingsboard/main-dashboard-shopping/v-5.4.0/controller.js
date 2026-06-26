@@ -42,6 +42,20 @@ function toastError(message) {
   else window.alert(message);
 }
 
+// Load the MyIO standard font (Nunito) once. In the ThingsBoard runtime there is no host
+// HTML we control, so the widget injects the Google Fonts <link> itself (idempotent by id).
+// styles.css applies it via #myio-root { font-family: var(--myio-font) }; components default to it.
+function injectNunitoFont() {
+  if (typeof document === 'undefined') return;
+  const id = 'myio-font-nunito';
+  if (document.getElementById(id)) return;
+  const link = document.createElement('link');
+  link.id = id;
+  link.rel = 'stylesheet';
+  link.href = 'https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap';
+  document.head.appendChild(link);
+}
+
 // ============================================================================
 // Global State Setup
 // ============================================================================
@@ -71,6 +85,12 @@ let _menuInstance = null;
 let _footerInstance = null;
 let _credentials = null;
 let _dataProcessedOnce = false;
+// Active consumption period { startISO, endISO }. Default = current month; updated by the
+// header date picker (myio:update-date). Drives the Data Apps consumption/temperature fetch.
+let _currentPeriod = null;
+// Domains whose values come from the per-device temperature time-series endpoint instead of
+// the customer consumption-totals endpoint (the Data Apps totals readingType is energy|water).
+const TEMPERATURE_DOMAIN_CODES = ['temperature'];
 
 // Classification tree (domains → columns → deviceProfiles) from the GCDR entities
 // endpoint (RFC-0047). The dashboard derives EVERYTHING from this — no hard-coded domain.
@@ -172,16 +192,32 @@ function classifyGcdrDevices(devices, tree) {
 // ============================================================================
 
 // --- RFC-0211-footer: ingestion token for the comparison modal ---
-const CHARTS_BASE_URL = 'https://graphs.staging.apps.myio-bas.com';
+// Charts SDK base URL — resolved from widget settings in onInit (parity with v-5.2.0).
+// Default to PRODUCTION; never hard-code a staging URL here (controller ethos: no hard-coded URLs).
+let CHARTS_BASE_URL = '';
 let _ingestionToken = null;
-async function buildIngestionToken() {
+let _ingestionTokenInFlight = null;
+// The ingestion token is only needed lazily, when the user opens the footer
+// comparison modal. Building it eagerly in onInit (and toasting on absent
+// SERVER_SCOPE clientId/clientSecret) produces a spurious error in mock/showcase
+// runs where those attrs aren't seeded. Pass { silent: true } for the best-effort
+// onInit warm-up (logs only); the footer's getIngestionToken triggers a real,
+// toast-on-failure build on demand.
+async function buildIngestionToken({ silent = false } = {}) {
   const lib = window.MyIOLibrary;
   if (!lib?.buildMyioIngestionAuth) {
-    toastError('Não foi possível inicializar a autenticação de ingestão (biblioteca indisponível).');
+    if (!silent)
+      toastError('Não foi possível inicializar a autenticação de ingestão (biblioteca indisponível).');
+    else LogHelper.warn('[RFC-0211-footer] buildMyioIngestionAuth indisponível — token adiado.');
     return null;
   }
   if (!_credentials?.clientId || !_credentials?.clientSecret) {
-    toastError('Credenciais de ingestão ausentes (clientId/clientSecret). Verifique os atributos do cliente.');
+    if (!silent)
+      toastError('Credenciais de ingestão ausentes (clientId/clientSecret). Verifique os atributos do cliente.');
+    else
+      LogHelper.warn(
+        '[RFC-0211-footer] clientId/clientSecret ausentes no SERVER_SCOPE — token de ingestão adiado (será tentado ao abrir a comparação).'
+      );
     return null;
   }
   try {
@@ -403,26 +439,7 @@ function processDataAndDispatchEvents() {
     }
     window.STATE[code] = stateForDomain;
 
-    const numeric = allDevices.map((x) => Number(x.value || 0));
-    const total = numeric.reduce((s, n) => s + n, 0);
-    const positives = numeric.filter((n) => n > 0);
-    const globalAvg = positives.length
-      ? positives.reduce((a, b) => a + b, 0) / positives.length
-      : null;
-
-    const desc = DOMAIN[code] || {};
-    const evt = desc.summaryEvent || `myio:${code}-summary-ready`;
-    window.dispatchEvent(
-      new CustomEvent(evt, {
-        detail: {
-          domain: code,
-          totalDevices: allDevices.length,
-          totalConsumption: total,
-          globalAvg,
-          byStatus: window.MyIOLibrary.buildByStatusFromDevices(allDevices),
-        },
-      })
-    );
+    dispatchDomainSummary(code, allDevices);
   }
 
   window.dispatchEvent(
@@ -435,6 +452,34 @@ function processDataAndDispatchEvents() {
   LogHelper.log('Events dispatched');
   _dataProcessedOnce = true;
   return true;
+}
+
+/**
+ * Dispatch one per-domain summary event (KPIs + status). Reused by the initial
+ * render and by the consumption-enrichment pass so the header/tooltips refresh
+ * once real consumption values arrive.
+ */
+function dispatchDomainSummary(code, allDevices) {
+  const numeric = allDevices.map((x) => Number(x.value || 0));
+  const total = numeric.reduce((s, n) => s + n, 0);
+  const positives = numeric.filter((n) => n > 0);
+  const globalAvg = positives.length
+    ? positives.reduce((a, b) => a + b, 0) / positives.length
+    : null;
+
+  const desc = DOMAIN[code] || {};
+  const evt = desc.summaryEvent || `myio:${code}-summary-ready`;
+  window.dispatchEvent(
+    new CustomEvent(evt, {
+      detail: {
+        domain: code,
+        totalDevices: allDevices.length,
+        totalConsumption: total,
+        globalAvg,
+        byStatus: window.MyIOLibrary.buildByStatusFromDevices(allDevices),
+      },
+    })
+  );
 }
 
 /**
@@ -483,6 +528,193 @@ function ensureInfoInstance(code) {
 }
 
 // ============================================================================
+// Consumption / value enrichment (Data Apps API)
+// ----------------------------------------------------------------------------
+// The GCDR /devices registry carries NO telemetry value (gcdrDeviceToMeta sets value:null).
+// Real consumption is fetched separately from the Data Apps API and joined by ingestionId:
+//   - energy/water  → GET /telemetry/customers/{custId}/{domain}/devices/totals  (one call/domain)
+//   - temperature   → GET /telemetry/devices/{ingestionId}/temperature           (per device, latest)
+// Mirrors the v-5.2.0 fetchEnergyDayConsumption / fetchGoalsTemperature behavior.
+// ============================================================================
+
+/** Current-month period (1st 00:00 → now), parity with the v-5.2.0 default. */
+function defaultMonthPeriod() {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+  return { startISO: start.toISOString(), endISO: now.toISOString() };
+}
+
+/** Get a fresh ingestion bearer token (shares buildMyioIngestionAuth's global cache). */
+async function getIngestionBearer() {
+  const lib = window.MyIOLibrary;
+  if (!lib?.buildMyioIngestionAuth) return null;
+  if (!_credentials?.clientId || !_credentials?.clientSecret) {
+    LogHelper.warn('[consumption] clientId/clientSecret ausentes — consumo não buscado.');
+    return null;
+  }
+  try {
+    const auth = lib.buildMyioIngestionAuth({
+      dataApiHost: DATA_API_HOST, // already carries /api/v1 → token endpoint is /api/v1/auth
+      clientId: _credentials.clientId,
+      clientSecret: _credentials.clientSecret,
+    });
+    return await auth.getToken();
+  } catch (err) {
+    LogHelper.error('[consumption] token error:', err);
+    return null;
+  }
+}
+
+// A value resolver returned by the fetchers: get(deviceMeta) → number|null, plus `size`
+// (how many rows the API returned) for logging. Hides the join strategy from enrichDomainValues.
+
+/**
+ * energy/water: one call per domain → value resolver.
+ * The ingestion totals response keys each device by (slaveId + gatewayId); the GCDR device
+ * carries the same pair as (slaveId + centralId). That composite is the authoritative join —
+ * the bare ingestion `id` is only a fallback. Response envelope is `{ data: [...] }`.
+ */
+async function fetchDomainTotals(domainCode, period, token) {
+  // The Data Apps API keys customers by the INGESTION customer id (GCDR customer.metadata.ingestionId),
+  // NOT the GCDR customer id. fetchGcdrCustomerCredentials captured it into _credentials.ingestionId.
+  const ingestionCustomerId = _credentials?.ingestionId || '';
+  if (!ingestionCustomerId) {
+    throw new Error('ingestionCustomerId ausente (customer.metadata.ingestionId não resolvido)');
+  }
+  const url = new URL(`${DATA_API_HOST}/telemetry/customers/${ingestionCustomerId}/${domainCode}/devices/totals`);
+  url.searchParams.set('startTime', period.startISO);
+  url.searchParams.set('endTime', period.endISO);
+  url.searchParams.set('deep', '1');
+  url.searchParams.set('granularity', '1d');
+  const resp = await fetch(url.toString(), { headers: { Authorization: `Bearer ${token}` } });
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+  const json = await resp.json();
+  // Envelope is `{ data: [...] }`; tolerate `{ devices: [...] }` and a bare array.
+  const rows = Array.isArray(json?.data)
+    ? json.data
+    : Array.isArray(json?.devices)
+      ? json.devices
+      : Array.isArray(json)
+        ? json
+        : [];
+  const byComposite = new Map(); // `${slaveId}::${gatewayId}` → value (authoritative)
+  const byId = new Map(); // ingestion device id → value (fallback)
+  for (const row of rows) {
+    const val = row.total_value ?? row.totalValue ?? row.total ?? null;
+    if (val == null) continue;
+    const num = Number(val);
+    const id = row.id ?? row.deviceId ?? row.ingestionId;
+    if (id != null) byId.set(String(id), num);
+    const slaveId = row.slaveId;
+    const gatewayId = row.gatewayId ?? row.gateway_id ?? row.centralId;
+    if (slaveId != null && gatewayId) byComposite.set(`${slaveId}::${gatewayId}`, num);
+  }
+  return {
+    size: rows.length,
+    get(dev) {
+      // Primary: (slaveId + centralId) ↔ (slaveId + gatewayId).
+      if (dev.slaveId != null && dev.slaveId !== '' && dev.centralId) {
+        const v = byComposite.get(`${dev.slaveId}::${dev.centralId}`);
+        if (v != null) return v;
+      }
+      // Fallback: GCDR ingestionId ↔ ingestion device id.
+      if (dev.ingestionId) {
+        const v = byId.get(String(dev.ingestionId));
+        if (v != null) return v;
+      }
+      return null;
+    },
+  };
+}
+
+/** temperature: per-device latest reading → value resolver keyed by the device's ingestionId. */
+async function fetchDomainTemperature(devices, period, token) {
+  const byId = new Map();
+  const targets = devices.filter((d) => d.ingestionId);
+  await Promise.all(
+    targets.map(async (dev) => {
+      try {
+        const url = new URL(`${DATA_API_HOST}/telemetry/devices/${dev.ingestionId}/temperature`);
+        url.searchParams.set('startTime', period.startISO);
+        url.searchParams.set('endTime', period.endISO);
+        url.searchParams.set('granularity', '1h');
+        url.searchParams.set('deep', '0');
+        const resp = await fetch(url.toString(), { headers: { Authorization: `Bearer ${token}` } });
+        if (!resp.ok) return;
+        const data = await resp.json();
+        const deviceData = Array.isArray(data?.data) ? data.data[0] : Array.isArray(data) ? data[0] : data;
+        const points = deviceData?.consumption || deviceData?.readings || [];
+        const last = points.length ? points[points.length - 1] : null;
+        const v = last?.value ?? last?.consumption ?? null;
+        if (v != null) byId.set(String(dev.ingestionId), Number(v));
+      } catch {
+        /* skip this sensor */
+      }
+    })
+  );
+  return {
+    size: byId.size,
+    get: (dev) => (dev.ingestionId ? byId.get(String(dev.ingestionId)) ?? null : null),
+  };
+}
+
+/**
+ * Fetch real values for every domain for `period`, join them into the classified
+ * device metas (window.STATE.classified), then re-feed grids + info + re-dispatch
+ * the per-domain summaries. Cards render first (value 0) and fill in when this resolves.
+ */
+async function enrichDomainValues(period) {
+  if (!period || !_classificationTree?.domains?.length) return;
+  const token = await getIngestionBearer();
+  if (!token) {
+    LogHelper.warn('[consumption] sem token de ingestão — valores de consumo não carregados.');
+    return;
+  }
+  const classified = window.STATE?.classified || {};
+
+  for (const d of _classificationTree.domains) {
+    const code = d.code;
+    const domainDevices = [];
+    for (const c of d.columns) domainDevices.push(...(classified[code]?.[c.key] || []));
+    if (!domainDevices.length) continue;
+
+    let resolver;
+    try {
+      resolver = TEMPERATURE_DOMAIN_CODES.includes(code)
+        ? await fetchDomainTemperature(domainDevices, period, token)
+        : await fetchDomainTotals(code, period, token);
+    } catch (err) {
+      LogHelper.error(`[consumption] falha ao buscar valores de ${code}:`, err);
+      toastError(`Falha ao carregar consumo de ${DOMAIN[code]?.name || code}.`);
+      continue;
+    }
+
+    // Join into the classified metas (resolver matches by slaveId+centralId, id fallback).
+    let applied = 0;
+    for (const dev of domainDevices) {
+      const v = resolver.get(dev);
+      if (v != null) {
+        dev.value = v;
+        dev.val = v;
+        dev.consumption = v;
+        applied++;
+      }
+    }
+
+    // Re-feed grids + breakdown + KPIs with the enriched values.
+    for (const c of d.columns) {
+      const items = classified[code]?.[c.key] || [];
+      _grids.get(`${code}::${c.key}`)?.updateDevices?.(items.map(toTelemetryDevice));
+    }
+    updateOneInfo(d, classified);
+    dispatchDomainSummary(code, domainDevices);
+    LogHelper.log(
+      `[consumption] ${code}: ${applied}/${domainDevices.length} devices com valor (API retornou ${resolver.size} linhas)`
+    );
+  }
+}
+
+// ============================================================================
 // Credentials Fetching
 // ============================================================================
 async function fetchCredentials(customerTbId) {
@@ -512,6 +744,47 @@ async function fetchCredentials(customerTbId) {
     };
   } catch (err) {
     LogHelper.error('Failed to fetch credentials:', err);
+    return null;
+  }
+}
+
+// Ingestion clientId/clientSecret now live in the GCDR customer's `metadata`
+// (no longer TB SERVER_SCOPE). GET ${gcdrApiBaseUrl}/customers/:id (X-API-Key)
+// and read metadata.client_id / metadata.client_secret. Accepts the common
+// envelope shapes ({...}, {data:{...}}, {items:[{...}]}) and snake/camel keys.
+async function fetchGcdrCustomerCredentials(gcdrApiBaseUrl, gcdrCustomerId) {
+  if (!gcdrApiBaseUrl || !gcdrCustomerId) {
+    LogHelper.warn(
+      '[RFC-0211-footer] gcdrApiBaseUrl/gcdrCustomerId ausentes — credenciais de ingestão não buscadas no GCDR.'
+    );
+    return null;
+  }
+  const apiKey =
+    window.MyIOOrchestrator?.gcdrApiKey || window.MyIOUtils?.customerAttrs?.gcdrapikey || '';
+  try {
+    const headers = { 'Content-Type': 'application/json' };
+    if (apiKey) headers['X-API-Key'] = apiKey;
+    const url = `${gcdrApiBaseUrl}/customers/${encodeURIComponent(gcdrCustomerId)}`;
+    const response = await fetch(url, { headers });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const body = await response.json();
+    const customer =
+      body?.data || (Array.isArray(body?.items) ? body.items[0] : null) || body || {};
+    const md = customer.metadata || {};
+    const creds = {
+      clientId: md.client_id || md.clientId || '',
+      clientSecret: md.client_secret || md.clientSecret || '',
+      ingestionId:
+        md.ingestionId || md.ingestion_id || md.customerId || md.customer_id || '',
+    };
+    LogHelper.log(
+      '[RFC-0211-footer] GCDR customer credentials:',
+      creds.clientId ? 'clientId ok' : 'clientId AUSENTE',
+      creds.clientSecret ? '· clientSecret ok' : '· clientSecret AUSENTE'
+    );
+    return creds;
+  } catch (err) {
+    LogHelper.error('[RFC-0211-footer] Failed to fetch GCDR customer credentials:', err);
     return null;
   }
 }
@@ -664,7 +937,18 @@ function createComponents() {
     _menuInstance = lib.createMenuShoppingComponent({
       container: menuContainer,
       themeMode: _currentThemeMode,
-      configTemplate: { initialDomain: _classificationTree?.domains?.[0]?.code || '' },
+      // RFC-0047: menu tabs driven by the GCDR tree (ACTIVE domains only — the adapter already
+      // dropped isActive:false roots). No hard-coded energy/water/temperature.
+      configTemplate: {
+        initialDomain: _classificationTree?.domains?.[0]?.code || '',
+        tabs: (_classificationTree?.domains || []).map((d) => ({
+          id: `tab-${d.code}`,
+          domain: d.code,
+          label: d.label || DOMAIN[d.code]?.name || d.code,
+          icon: DOMAIN[d.code]?.icon || '•',
+          enabled: true,
+        })),
+      },
       // RFC-0211-menu: real shopping name instead of the "Trocar Shopping" placeholder
       shoppingName: resolveShoppingName(),
       onTabChange: (domain) => {
@@ -712,7 +996,16 @@ function createComponents() {
       // RFC-0211-footer: ingestion token + API hosts the comparison modal needs (mirrors v-5.2.0 FOOTER)
       dataApiHost: DATA_API_HOST,
       chartsBaseUrl: CHARTS_BASE_URL,
-      getIngestionToken: () => _ingestionToken || undefined,
+      // Lazy build on first comparison: if the eager warm-up was skipped (creds
+      // arrived late / absent at init), kick off a real toast-on-failure build now.
+      getIngestionToken: () => {
+        if (!_ingestionToken && !_ingestionTokenInFlight) {
+          _ingestionTokenInFlight = buildIngestionToken().finally(() => {
+            _ingestionTokenInFlight = null;
+          });
+        }
+        return _ingestionToken || undefined;
+      },
       // RFC-0211-footer: surface failures via toast instead of only console
       onError: (err) => {
         toastError(`Não foi possível abrir a comparação: ${err?.message || err}`);
@@ -934,6 +1227,18 @@ window.addEventListener('myio:theme-change', (e) => {
   }
 });
 
+// Header date picker → re-fetch consumption for the chosen period and re-render.
+// The header emits { period: { startISO, endISO, granularity } } (also tolerate a bare period).
+window.addEventListener('myio:update-date', (e) => {
+  const p = e.detail?.period || e.detail || {};
+  if (!p.startISO || !p.endISO) return;
+  _currentPeriod = { startISO: p.startISO, endISO: p.endISO };
+  LogHelper.log('[consumption] período atualizado:', _currentPeriod.startISO, '→', _currentPeriod.endISO);
+  enrichDomainValues(_currentPeriod).catch((err) =>
+    LogHelper.error('[consumption] enrichment por período falhou:', err)
+  );
+});
+
 // ============================================================================
 // Classification Tree (GCDR RFC-0047)
 // ============================================================================
@@ -956,13 +1261,20 @@ async function fetchClassificationTree(gcdrApiBaseUrl, gcdrCustomerId) {
   try {
     const apiKey =
       window.MyIOOrchestrator?.gcdrApiKey || window.MyIOUtils?.customerAttrs?.gcdrapikey || '';
-    const url = `${gcdrApiBaseUrl}/entities?parentId=null&deep=all&customerId=${encodeURIComponent(gcdrCustomerId)}`;
+    // RFC-0047: the EFFECTIVE customer taxonomy comes from /entities/resolve (falls back to the
+    // system default when the customer has no override). GET /entities?parentId=null&customerId=
+    // returns only the customer's OWN raw rows → empty for a customer without a clone.
+    const url = `${gcdrApiBaseUrl}/entities/resolve?customerId=${encodeURIComponent(gcdrCustomerId)}&deep=all`;
     const headers = { Accept: 'application/json' };
     if (apiKey) headers['X-API-Key'] = apiKey;
     const resp = await fetch(url, { headers });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const json = await resp.json();
-    _classificationTree = window.MyIOLibrary.parseClassificationEntities(json);
+    // /resolve envelope: { success, data: { source, version, roots: [...] } }. Normalize to the
+    // shape the adapter consumes (defensive — the adapter also handles roots directly post-build).
+    const treeInput = json?.data?.roots ? { items: json.data.roots } : json;
+    _classificationTree = window.MyIOLibrary.parseClassificationEntities(treeInput);
+    LogHelper.log('[classification] /resolve source:', json?.data?.source || '(n/a)', '· roots:', json?.data?.roots?.length ?? '?');
     if (!_classificationTree?.domains?.length) {
       toastError('[MAIN_VIEW v5.4.0] Árvore de classificação vazia no GCDR.');
     } else {
@@ -1018,6 +1330,9 @@ async function fetchDevices(gcdrApiBaseUrl, gcdrCustomerId) {
 self.onInit = async function () {
   LogHelper.log('onInit starting...');
 
+  // Load the MyIO standard font (Nunito) before anything renders.
+  injectNunitoFont();
+
   const settings = self.ctx?.settings || {};
   const customerTbId = settings.customerTB_ID || '';
   window.MyIOUtils.customerTB_ID = customerTbId;
@@ -1039,7 +1354,13 @@ self.onInit = async function () {
 
   // Endpoints from widget settings (no hard-coded URLs); toast on misconfiguration.
   THINGSBOARD_URL = settings.thingsboardUrl || '';
-  DATA_API_HOST = (settings.dataApiHost || '').replace(/\/api\/v1\/?$/, '');
+  // DATA_API_HOST must carry the /api/v1 suffix (parity with v-5.2.0 getDataApiHost()):
+  // buildMyioIngestionAuth appends '/auth' → '/api/v1/auth', and the footer/popup fetchers
+  // strip /api/v1 themselves when they need the bare base. Normalize so the suffix is always
+  // present whether the setting is entered with or without it (the old code STRIPPED it,
+  // sending the auth call to '.../auth' instead of '.../api/v1/auth').
+  const _rawDataApiHost = (settings.dataApiHost || '').replace(/\/+$/, '');
+  DATA_API_HOST = _rawDataApiHost ? _rawDataApiHost.replace(/\/api\/v1$/, '') + '/api/v1' : '';
   window.MyIOUtils.DATA_API_HOST = DATA_API_HOST;
   if (!THINGSBOARD_URL) {
     toastError(
@@ -1051,6 +1372,10 @@ self.onInit = async function () {
       '[MAIN_VIEW v5.4.0] dataApiHost não configurado nas settings do widget. Configure em Widget Settings → dataApiHost.'
     );
   }
+
+  // RFC-0211-footer: Charts SDK base URL from settings (parity with v-5.2.0); default PRODUCTION.
+  // The footer comparison modal loads the EnergyChartSDK UMD/iframes from here.
+  CHARTS_BASE_URL = settings.chartsBaseUrl || 'https://graphs.apps.myio-bas.com';
 
   // Apply initial theme and background
   _currentThemeMode = settings.defaultThemeMode || 'light';
@@ -1130,25 +1455,43 @@ self.onInit = async function () {
     window.MyIOOrchestrator.alarmsApiKey = alarmsApiKey;
   }
 
-  // Fetch credentials
+  // Fetch credentials (TB SERVER_SCOPE) — still the source for the GCDR id/tenant
+  // fallback and the ingestion customerId. clientId/clientSecret were MOVED to the
+  // GCDR customer metadata (see below); SERVER_SCOPE values, if any, are only a fallback.
   if (customerTbId) {
     _credentials = await fetchCredentials(customerTbId);
     if (_credentials) {
-      LogHelper.log('Credentials fetched');
+      LogHelper.log('Credentials fetched (TB SERVER_SCOPE)');
 
       // RFC-0180: Fallback GCDR IDs from TB attrs when not set in widget settings
       if (!gcdrCustomerId) gcdrCustomerId = _credentials.gcdrCustomerId || '';
       if (!gcdrTenantId) gcdrTenantId = _credentials.gcdrTenantId || '';
-
-      // Set credentials in orchestrator
-      if (window.MyIOOrchestrator?.setCredentials) {
-        window.MyIOOrchestrator.setCredentials(
-          _credentials.ingestionId,
-          _credentials.clientId,
-          _credentials.clientSecret
-        );
-      }
     }
+  }
+
+  // Ingestion clientId/clientSecret now come from the GCDR customer metadata.
+  // Fetch them once gcdrCustomerId is resolved; GCDR values win over any legacy
+  // SERVER_SCOPE values (which migrate away). Merge into _credentials so the rest
+  // of the flow (orchestrator + footer token) is unchanged.
+  if (gcdrCustomerId) {
+    const gcdrCreds = await fetchGcdrCustomerCredentials(gcdrApiBaseUrl, gcdrCustomerId);
+    if (gcdrCreds && (gcdrCreds.clientId || gcdrCreds.clientSecret || gcdrCreds.ingestionId)) {
+      _credentials = {
+        ...(_credentials || {}),
+        clientId: gcdrCreds.clientId || _credentials?.clientId || '',
+        clientSecret: gcdrCreds.clientSecret || _credentials?.clientSecret || '',
+        ingestionId: gcdrCreds.ingestionId || _credentials?.ingestionId || '',
+      };
+    }
+  }
+
+  // Set credentials in orchestrator (after the GCDR merge so it carries the real creds)
+  if (_credentials && window.MyIOOrchestrator?.setCredentials) {
+    window.MyIOOrchestrator.setCredentials(
+      _credentials.ingestionId,
+      _credentials.clientId,
+      _credentials.clientSecret
+    );
   }
 
   // RFC-0211-footer: expose credentials to the lib (ComparisonHandler reads MyIOUtils.getCredentials)
@@ -1159,7 +1502,9 @@ self.onInit = async function () {
       clientSecret: _credentials.clientSecret,
       ingestionId: _credentials.ingestionId,
     });
-    await buildIngestionToken();
+    // Best-effort warm-up only — never toast here (creds may legitimately be
+    // absent in mock/showcase). The footer builds on demand with error surfacing.
+    await buildIngestionToken({ silent: true });
   }
 
   // RFC-0180: Publish final GCDR identifiers to orchestrator
@@ -1186,6 +1531,13 @@ self.onInit = async function () {
 
   // Classify the GCDR devices → feed grids/info + dispatch per-domain summaries.
   processDataAndDispatchEvents();
+
+  // Fetch real consumption (Data Apps API) for the default period (current month) and join
+  // it into the cards. Non-blocking: cards render immediately (value 0), then fill in.
+  _currentPeriod = defaultMonthPeriod();
+  enrichDomainValues(_currentPeriod).catch((err) =>
+    LogHelper.error('[consumption] enrichment inicial falhou:', err)
+  );
 
   // Fetch user info and update menu
   fetchAndUpdateUserInfo();

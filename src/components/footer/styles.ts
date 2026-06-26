@@ -46,7 +46,7 @@ export function getStyles(): string {
    RFC-0115: Footer Component Library
    ========================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap');
 
 .myio-footer-component {
   /* Fallback Design Tokens - Dark Theme */
@@ -71,7 +71,7 @@ export function getStyles(): string {
   --fc-empty-border: rgba(184, 165, 214, 0.4);
 
   /* Static tokens */
-  --fc-font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --fc-font-family: 'Nunito', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --fc-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
   --fc-shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
   --fc-radius-sm: 6px;
