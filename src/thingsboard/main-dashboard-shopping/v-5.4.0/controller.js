@@ -719,31 +719,57 @@ async function enrichDomainValues(period) {
 // ============================================================================
 async function fetchCredentials(customerTbId) {
   const jwt = self.ctx?.http?.getServerCredentials?.()?.token;
+  LogHelper.log(
+    '[SERVER_SCOPE] fetchCredentials → customerTB_ID:', customerTbId || '(vazio)',
+    '· THINGSBOARD_URL:', THINGSBOARD_URL || '(vazio)',
+    '· JWT:', jwt ? '✅ presente' : '❌ ausente'
+  );
+  if (!customerTbId) {
+    LogHelper.error('[SERVER_SCOPE] customerTB_ID ausente — chamada de atributos NÃO será feita.');
+    return null;
+  }
   if (!jwt) {
-    LogHelper.error('No JWT token');
+    LogHelper.error('[SERVER_SCOPE] JWT ausente (ctx.http.getServerCredentials) — não é possível buscar atributos.');
     return null;
   }
 
   try {
     const url = `${THINGSBOARD_URL}/api/plugins/telemetry/CUSTOMER/${customerTbId}/values/attributes/SERVER_SCOPE`;
+    LogHelper.log('[SERVER_SCOPE] GET', url);
     const response = await fetch(url, {
       headers: { 'X-Authorization': `Bearer ${jwt}` },
     });
+    LogHelper.log('[SERVER_SCOPE] resposta:', response.status, response.ok ? 'OK' : 'FALHA');
 
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
     const attrs = await response.json();
     const get = (key) => attrs.find((a) => a.key === key)?.value;
-
-    return {
+    // Log WHICH keys resolved (presence only — never the secret values).
+    const present = (Array.isArray(attrs) ? attrs : []).map((a) => a.key);
+    LogHelper.log(
+      '[SERVER_SCOPE] atributos recebidos:', present.length, '→', present.join(', ') || '(nenhum)'
+    );
+    const creds = {
       clientId: get('clientId') || '',
       clientSecret: get('clientSecret') || '',
       ingestionId: get('customerId') || '',
       gcdrCustomerId: get('gcdrCustomerId') || get('gcdrId') || '',
       gcdrTenantId: get('gcdrTenantId') || '',
+      // RFC-0047: X-API-Key for the GCDR reads (entities/resolve, devices, customers).
+      gcdrApiKey: get('gcdrApiKey') || '',
     };
+    LogHelper.log(
+      '[SERVER_SCOPE] resolvido:',
+      'gcdrApiKey', creds.gcdrApiKey ? '✅' : '❌',
+      '· gcdrCustomerId', creds.gcdrCustomerId ? '✅' : '❌',
+      '· gcdrTenantId', creds.gcdrTenantId ? '✅' : '❌',
+      '· clientId', creds.clientId ? '✅' : '❌',
+      '· clientSecret', creds.clientSecret ? '✅' : '❌'
+    );
+    return creds;
   } catch (err) {
-    LogHelper.error('Failed to fetch credentials:', err);
+    LogHelper.error('[SERVER_SCOPE] Failed to fetch credentials:', err);
     return null;
   }
 }
@@ -929,7 +955,8 @@ function createComponents() {
   }
 
   const settings = self.ctx?.settings || {};
-  const customerTbId = settings.customerTB_ID || '';
+  // Reuse the customerTB_ID resolved in onInit (setting → TB context), not just the raw setting.
+  const customerTbId = window.MyIOUtils?.customerTB_ID || settings.customerTB_ID || '';
 
   // Create Menu with collapse handler
   const menuContainer = document.getElementById('menuContainer');
@@ -1261,20 +1288,33 @@ async function fetchClassificationTree(gcdrApiBaseUrl, gcdrCustomerId) {
   try {
     const apiKey =
       window.MyIOOrchestrator?.gcdrApiKey || window.MyIOUtils?.customerAttrs?.gcdrapikey || '';
-    // RFC-0047: the EFFECTIVE customer taxonomy comes from /entities/resolve (falls back to the
-    // system default when the customer has no override). GET /entities?parentId=null&customerId=
-    // returns only the customer's OWN raw rows → empty for a customer without a clone.
-    const url = `${gcdrApiBaseUrl}/entities/resolve?customerId=${encodeURIComponent(gcdrCustomerId)}&deep=all`;
     const headers = { Accept: 'application/json' };
     if (apiKey) headers['X-API-Key'] = apiKey;
-    const resp = await fetch(url, { headers });
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const enc = encodeURIComponent(gcdrCustomerId);
+    // RFC-0047: prefer /entities/resolve (effective taxonomy — system fallback when the customer
+    // has no override). Some deployments (older prod) don't expose /resolve yet (404) → fall back
+    // to the raw list endpoint, which returns the customer's own rows (works when the customer
+    // already has its own tree). 401/403 are NOT a fallback case (that's the X-API-Key).
+    const resolveUrl = `${gcdrApiBaseUrl}/entities/resolve?customerId=${enc}&deep=all`;
+    const listUrl = `${gcdrApiBaseUrl}/entities?parentId=null&deep=all&customerId=${enc}`;
+    let resp = await fetch(resolveUrl, { headers });
+    let usedFallback = false;
+    if (resp.status === 404) {
+      LogHelper.warn('[classification] /entities/resolve 404 — usando fallback /entities?parentId=null');
+      resp = await fetch(listUrl, { headers });
+      usedFallback = true;
+    }
+    if (!resp.ok) throw new Error(`HTTP ${resp.status} (${usedFallback ? 'list' : 'resolve'})`);
     const json = await resp.json();
-    // /resolve envelope: { success, data: { source, version, roots: [...] } }. Normalize to the
-    // shape the adapter consumes (defensive — the adapter also handles roots directly post-build).
+    // /resolve → { data: { source, version, roots } }; list → { data: [...] } | { data: { items } }.
+    // The adapter handles all of these; normalize roots defensively for the current dist bundle.
     const treeInput = json?.data?.roots ? { items: json.data.roots } : json;
     _classificationTree = window.MyIOLibrary.parseClassificationEntities(treeInput);
-    LogHelper.log('[classification] /resolve source:', json?.data?.source || '(n/a)', '· roots:', json?.data?.roots?.length ?? '?');
+    LogHelper.log(
+      '[classification]', usedFallback ? 'list' : '/resolve',
+      '· source:', json?.data?.source || '(n/a)',
+      '· roots:', json?.data?.roots?.length ?? (Array.isArray(json?.data) ? json.data.length : '?')
+    );
     if (!_classificationTree?.domains?.length) {
       toastError('[MAIN_VIEW v5.4.0] Árvore de classificação vazia no GCDR.');
     } else {
@@ -1327,6 +1367,30 @@ async function fetchDevices(gcdrApiBaseUrl, gcdrCustomerId) {
 // ThingsBoard Widget Lifecycle
 // ============================================================================
 
+// The null-customer placeholder TB uses for tenant scope ("no customer").
+const TB_NULL_CUSTOMER = '13814000-1dd2-11b2-8080-808080808080';
+
+/**
+ * Resolve the customer's ThingsBoard id (key to the SERVER_SCOPE attributes):
+ *   1) widget setting customerTB_ID;
+ *   2) the logged-in user's customerId (customer dashboards);
+ *   3) a CUSTOMER-typed datasource entity bound to the dashboard state.
+ * Returns '' when none applies (e.g. a tenant admin with no selected customer).
+ */
+function resolveCustomerTbId(settings) {
+  const fromSettings = (settings?.customerTB_ID || '').trim();
+  if (fromSettings) return fromSettings;
+
+  const cu = self.ctx?.currentUser || {};
+  const cuId = typeof cu.customerId === 'object' ? cu.customerId?.id : cu.customerId;
+  if (cuId && cuId !== TB_NULL_CUSTOMER) return String(cuId);
+
+  for (const ds of self.ctx?.datasources || []) {
+    if ((ds?.entityType || '').toUpperCase() === 'CUSTOMER' && ds.entityId) return String(ds.entityId);
+  }
+  return '';
+}
+
 self.onInit = async function () {
   LogHelper.log('onInit starting...');
 
@@ -1334,8 +1398,19 @@ self.onInit = async function () {
   injectNunitoFont();
 
   const settings = self.ctx?.settings || {};
-  const customerTbId = settings.customerTB_ID || '';
+  // customerTB_ID is the key to fetch the customer SERVER_SCOPE (gcdrApiKey, gcdrCustomerId, …).
+  // Primary: widget setting. Fallback: the TB context (logged-in customer user, or the bound
+  // datasource entity) — so a customer-facing dashboard works even without the explicit setting.
+  // Without it, fetchCredentials never runs → no SERVER_SCOPE → GCDR calls 401.
+  const customerTbId = resolveCustomerTbId(settings);
   window.MyIOUtils.customerTB_ID = customerTbId;
+  if (!customerTbId) {
+    toastError(
+      '[MAIN_VIEW v5.4.0] customerTB_ID não resolvido (settings.customerTB_ID vazio e sem customer no contexto TB). Sem ele não há SERVER_SCOPE → GCDR retornará 401. Configure customerTB_ID nas settings do widget.'
+    );
+  } else {
+    LogHelper.log('customerTB_ID resolvido:', customerTbId);
+  }
 
   // RFC-0122: upgrade LogHelper to the lib's contextual logger; console LogHelper stays as fallback.
   if (window.MyIOLibrary?.createLogHelper) {
@@ -1459,6 +1534,7 @@ self.onInit = async function () {
   // fallback and the ingestion customerId. clientId/clientSecret were MOVED to the
   // GCDR customer metadata (see below); SERVER_SCOPE values, if any, are only a fallback.
   if (customerTbId) {
+    LogHelper.log('[SERVER_SCOPE] iniciando busca de atributos do customer', customerTbId, '…');
     _credentials = await fetchCredentials(customerTbId);
     if (_credentials) {
       LogHelper.log('Credentials fetched (TB SERVER_SCOPE)');
@@ -1466,7 +1542,27 @@ self.onInit = async function () {
       // RFC-0180: Fallback GCDR IDs from TB attrs when not set in widget settings
       if (!gcdrCustomerId) gcdrCustomerId = _credentials.gcdrCustomerId || '';
       if (!gcdrTenantId) gcdrTenantId = _credentials.gcdrTenantId || '';
+    } else {
+      LogHelper.error('[SERVER_SCOPE] fetchCredentials retornou null — atributos do customer NÃO carregados (ver logs acima).');
     }
+  } else {
+    LogHelper.error(
+      '[SERVER_SCOPE] customerTB_ID vazio — a chamada de atributos do customer foi PULADA. Configure customerTB_ID nas settings do widget ou abra o dashboard como usuário do customer.'
+    );
+  }
+
+  // RFC-0047: publish the GCDR X-API-Key BEFORE any GCDR fetch (resolve/devices/customers read
+  // MyIOOrchestrator.gcdrApiKey first). Source: widget settings → SERVER_SCOPE attr (parity with
+  // v-5.2.0). Without this the onInit fetches run with an empty key → 401. Mirror to customerAttrs
+  // so the secondary fallback in the fetchers also resolves.
+  const _gcdrApiKey = settings.gcdrApiKey || _credentials?.gcdrApiKey || '';
+  if (window.MyIOOrchestrator) window.MyIOOrchestrator.gcdrApiKey = _gcdrApiKey;
+  window.MyIOUtils.customerAttrs = window.MyIOUtils.customerAttrs || {};
+  if (_gcdrApiKey) window.MyIOUtils.customerAttrs.gcdrapikey = _gcdrApiKey;
+  if (!_gcdrApiKey) {
+    toastError(
+      '[MAIN_VIEW v5.4.0] gcdrApiKey ausente (settings + SERVER_SCOPE). As chamadas GCDR retornarão 401.'
+    );
   }
 
   // Ingestion clientId/clientSecret now come from the GCDR customer metadata.
