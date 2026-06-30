@@ -784,6 +784,50 @@ async function _fetchAndCacheGoalsData(urls) {
   }
 }
 
+// ── Goals (metas) via GCDR — RFC-0046 ────────────────────────────────────────
+// As metas vêm do GCDR Goals API (GET /api/v1/customers/:id/goals). Popula
+// window.MyIOUtils.goalsData[domain] com o envelope { success, data:{ tree } } que
+// o GoalsModal lê (data.tree.{annual,monthly,daily}). granularity=day cobre as views
+// 1d e 1M (a view 1h precisa de granularity=hour + chave "MM-DDThh" — pendente).
+// Auth: X-API-Key (customer key gcdr_cust_*, scope goals:read) + X-Tenant-ID (igual às
+// demais chamadas GCDR deste controller — sem o tenant a API responde 401). Falhas silenciosas.
+async function _fetchGoalsFromGCDR(gcdrApiBaseUrl, gcdrCustomerId, gcdrApiKey, gcdrTenantId) {
+  if (!gcdrApiBaseUrl || !gcdrCustomerId || !gcdrApiKey) {
+    LogHelper.warn('[MAIN_VIEW] Goals GCDR: credenciais ausentes (gcdrApiBaseUrl/gcdrCustomerId/gcdrApiKey).');
+    return;
+  }
+  // gcdrApiBaseUrl pode ou não trazer /api/v1 — normaliza e anexa o path do contrato.
+  const root = String(gcdrApiBaseUrl).replace(/\/+$/, '').replace(/\/api\/v1$/, '');
+  const year = new Date().getFullYear();
+  const DOMAIN_MAP = { energy: 'ENERGY', water: 'WATER', temperature: 'TEMPERATURE' };
+  window.MyIOUtils.goalsData = window.MyIOUtils.goalsData || { energy: null, water: null, temperature: null };
+  for (const [domain, gcdrDomain] of Object.entries(DOMAIN_MAP)) {
+    const url =
+      `${root}/api/v1/customers/${encodeURIComponent(gcdrCustomerId)}/goals` +
+      `?domain=${gcdrDomain}&year=${year}&granularity=day`;
+    try {
+      const res = await fetch(url, {
+        headers: { 'X-API-Key': gcdrApiKey, 'X-Tenant-ID': gcdrTenantId || '', Accept: 'application/json' },
+      });
+      if (!res.ok) {
+        LogHelper.warn(`[MAIN_VIEW] Goals GCDR ${gcdrDomain}: HTTP ${res.status}`);
+        continue;
+      }
+      const body = await res.json();
+      // Envelope GCDR: { success, data: { domain, unit, year, version, tree }, meta }.
+      // O GoalsModal lê goalsData[domain].data.tree → guardamos o envelope inteiro.
+      if (body?.success && body?.data?.tree) {
+        window.MyIOUtils.goalsData[domain] = body;
+        LogHelper.log(`[MAIN_VIEW] Goals GCDR carregado (${domain}) v${body.data.version ?? '?'}`);
+      } else {
+        LogHelper.warn(`[MAIN_VIEW] Goals GCDR ${gcdrDomain}: resposta sem tree`, body?.error?.code || '');
+      }
+    } catch (e) {
+      LogHelper.warn(`[MAIN_VIEW] Goals GCDR ${gcdrDomain} fetch falhou:`, e?.message);
+    }
+  }
+}
+
 // RFC-0051.1: Global widget settings (will be populated in onInit)
 // IMPORTANT: customerTB_ID must NEVER be 'default' - it must always be a valid ThingsBoard ID
 let widgetSettings = {
@@ -1929,6 +1973,13 @@ Object.assign(window.MyIOUtils, {
         // RFC-0199: Init GCDR Auth Context (non-blocking) — resolves user assignments/roles/policies
         // and exposes window.MyIOAuthContext for all widgets to check permissions via .can('action')
         _initAuthContext(gcdrCustomerId, gcdrTenantId, gcdrApiKey, gcdrApiBaseUrl);
+
+        // RFC-0046: Goals (metas) vêm do GCDR. Popula window.MyIOUtils.goalsData para a
+        // linha de meta do GoalsModal (MENU → Metas). Non-blocking.
+        window.MyIOUtils.goalsData = window.MyIOUtils.goalsData || { energy: null, water: null, temperature: null };
+        if (gcdrCustomerId && gcdrApiKey) {
+          _fetchGoalsFromGCDR(gcdrApiBaseUrl, gcdrCustomerId, gcdrApiKey, gcdrTenantId);
+        }
 
         // Check if credentials are present
         if (!CLIENT_ID || !CLIENT_SECRET || !CUSTOMER_ING_ID) {
