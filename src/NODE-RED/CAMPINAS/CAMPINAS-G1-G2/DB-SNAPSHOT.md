@@ -1,4 +1,4 @@
-# DB Snapshot — Campinas Shopping G1 G2 (Soul Malls)
+# DB Snapshot — Campinas Shopping G1 G2 (Argo Plan)
 
 > **Snapshot do banco `hubot` (PostgreSQL) da central.**
 > Capturado em **2026-06-11** via `psql -U hubot` na central.
@@ -8,7 +8,7 @@
 | Campo      | Valor                                      |
 | ---------- | ------------------------------------------ |
 | Central    | Campinas Shopping — G1 G2                  |
-| Holding    | Soul Malls                                 |
+| Holding    | Argo Plan                                  |
 | IPv6       | `203:5e50:3e69:89bd:5846:e41f:23b8:fd28`   |
 | Gateway ID | `1b5d79c4-5fc6-46c4-bd05-89e8b1499920`     |
 | Central ID | `16.2.170.222`                             |
@@ -145,7 +145,7 @@ Esta central segue o mesmo formato de snapshot da **OBRAMAX — Benfica**
 (`src/NODE-RED/OBRAMAX/BENFICA/DB-SNAPSHOT.md`). Diferenças estruturais úteis para o
 dashboard:
 
-| Aspecto                  | Campinas G1/G2 (Soul Malls)        | Benfica (OBRAMAX)                       |
+| Aspecto                  | Campinas G1/G2 (Argo Plan)        | Benfica (OBRAMAX)                       |
 | ------------------------ | ---------------------------------- | --------------------------------------- |
 | Perfil                   | central de **medição** de lojas    | central de **automação** predial        |
 | `slaves`                 | 56 (41× 3F + 15× outlet)           | 51 (2× 3F + 49× outlet)                 |

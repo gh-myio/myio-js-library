@@ -70,8 +70,14 @@ ssh -i id_rsa root@<ipv6-da-central>
 | Ilha Plaza AL1            | `200:dc42:651b:5ae5:338d:2b26:670d:34e6` | `81a60176-222c-4bb9-88f5-bc2b47802d82` | —              | —          |
 | Ilha Plaza AL2            | `200:24a5:8297:cce7:59d2:8126:6d67:7e4d` | `53052549-cc8c-4ca2-a597-58e0577548a2` | —              | —          |
 | Ilha Plaza AL3            | `206:c160:eb69:3ddb:42c7:efce:511e:792a` | `91b719b7-f2d2-4d3f-9fb9-ab3d4edbac0d` | —              | —          |
-| Campinas Shopping — G1 G2 | `203:5e50:3e69:89bd:5846:e41f:23b8:fd28` | `1b5d79c4-5fc6-46c4-bd05-89e8b1499920` | `16.2.170.222` | `107`      |
 | Melicidade                | `200:43cb:c66:59be:9966:7330:8b9a:224`   | `05148707-6011-42fb-8b78-46f33a5ca988` | —              | —          |
+
+#### Holding: ARGO PLAN
+
+| Central                     | IPv6                                     | Gateway ID                             | Central ID     | Frequência |
+| --------------------------- | ---------------------------------------- | -------------------------------------- | -------------- | ---------- |
+| Campinas Shopping — G1 G2   | `203:5e50:3e69:89bd:5846:e41f:23b8:fd28` | `1b5d79c4-5fc6-46c4-bd05-89e8b1499920` | `16.2.170.222` | `107`      |
+| Campinas Shopping — G0 Nova | `200:83a1:247a:8c7b:d428:3ed4:21dd:389f` | `401230d1-e7d6-46dd-9bb1-059387683303` | —              | —          |
 
 #### Holding: SUPERVIA ESTAÇÕES
 
@@ -163,8 +169,11 @@ ssh -i id_rsa root@200:24a5:8297:cce7:59d2:8126:6d67:7e4d
 # Ilha Plaza AL3 (Soul Malls)
 ssh -i id_rsa root@206:c160:eb69:3ddb:42c7:efce:511e:792a
 
-# Campinas Shopping — G1 G2 (Soul Malls)
+# Campinas Shopping — G1 G2 (Argo Plan)
 ssh -i id_rsa root@203:5e50:3e69:89bd:5846:e41f:23b8:fd28
+
+# Campinas Shopping — G0 Nova (Argo Plan)
+ssh -i id_rsa root@200:83a1:247a:8c7b:d428:3ed4:21dd:389f
 
 # Melicidade (Soul Malls)
 ssh -i id_rsa root@200:43cb:c66:59be:9966:7330:8b9a:224
@@ -920,4 +929,4 @@ reboot
 
 ---
 
-_Última atualização: 2026-06-11_
+_Última atualização: 2026-06-30_
