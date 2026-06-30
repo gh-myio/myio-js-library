@@ -664,6 +664,17 @@ export type { AlarmsSummaryData, AlarmInfo } from './utils/tooltips/AlarmsSummar
 export { NotificationsSummaryTooltip } from './utils/tooltips/NotificationsSummaryTooltip';
 export type { NotificationsSummaryData, NotificationInfo } from './utils/tooltips/NotificationsSummaryTooltip';
 
+// RFC-0193 / RFC-0214: Alarm Notification Tooltip (rich, draggable/pinnable/maximizable)
+// Ported from v-5.2.0 HEADER inline AlarmNotificationTooltip into a reusable component.
+export { AlarmNotificationTooltip } from './utils/tooltips/AlarmNotificationTooltip';
+export type {
+  AlarmNotificationData,
+  AlarmRecord,
+  AlarmDayMap,
+  AlarmNotificationToggleContext,
+  AlarmNotificationTooltipConfig,
+} from './utils/tooltips/AlarmNotificationTooltip';
+
 // Unified Modal Header Component (RFC-0121)
 export { ModalHeader } from './utils/ModalHeader';
 export type {

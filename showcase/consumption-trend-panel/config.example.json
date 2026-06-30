@@ -27,6 +27,11 @@
           "day": "consumption-2026-Hour-Energy-Moxuara.json",
           "hour": "consumption-2026-Hour-Energy-Moxuara.json"
         },
+        "comparePreviousYear": true,
+        "consumptionFilesPrevYear": {
+          "day": "consumption-2025-Hour-Energy-Moxuara.json",
+          "hour": "consumption-2025-Hour-Energy-Moxuara.json"
+        },
         "windowStart": "",
         "goalOverlay": {
           "enabled": true,
@@ -76,6 +81,8 @@
         },
         "consumptionSource": "synthetic",
         "consumptionFiles": { "day": "", "hour": "" },
+        "comparePreviousYear": false,
+        "consumptionFilesPrevYear": { "day": "", "hour": "" },
         "windowStart": "",
         "goalOverlay": {
           "enabled": true,

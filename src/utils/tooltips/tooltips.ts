@@ -9,3 +9,11 @@ export { InfoTooltip } from './InfoTooltip';
 export type { InfoTooltipOptions } from './InfoTooltip';
 export { ColumnSummaryTooltip } from './ColumnSummaryTooltip';
 export type { ColumnSummaryDevice, ColumnSummaryData } from './ColumnSummaryTooltip';
+export { AlarmNotificationTooltip } from './AlarmNotificationTooltip';
+export type {
+  AlarmNotificationData,
+  AlarmRecord,
+  AlarmDayMap,
+  AlarmNotificationToggleContext,
+  AlarmNotificationTooltipConfig,
+} from './AlarmNotificationTooltip';

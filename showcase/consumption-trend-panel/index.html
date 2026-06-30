@@ -110,7 +110,8 @@
         <p>Painel de tendência construído do zero (Chart.js). <b>Barras</b> = consumo MOCK do
           Shopping Moxuara (horário, 20/06/2026 → agora — <code>./data/consumption-2026-Hour-Energy-Moxuara.json</code>).
           <b>Linha/região laranja</b> = metas exportadas do GCDR (<code>./data/goals-2026-{Month,Day,Hour}-Energy-Moxuara.json</code>).
-          Demonstra: overlay de meta (linha + região), faixa ideal sem clipping, eixo com unidade única e headroom.</p>
+          <b>Barras cinza</b> = mesmo período do <b>ano anterior</b> (YoY, <code>consumption-2025-…</code>) — ligável no cockpit.
+          Demonstra: overlay de meta (linha + região), comparação YoY, faixa ideal sem clipping, eixo com unidade única e headroom.</p>
       </header>
 
       <div class="panel-area">
@@ -132,10 +133,11 @@
           <div class="tp-body">
             <div class="tp-canvas-wrap"><canvas id="trendChart"></canvas></div>
 
+            <!-- Só a Faixa Ideal precisa de dica de legenda: é uma annotation (box),
+                 não um dataset, então não aparece na legenda nativa do Chart.js.
+                 Consumo/Meta já são rotulados pela legenda nativa abaixo do gráfico. -->
             <div class="legend-hint">
-              <span><i class="swatch" style="background:#6c5ce7"></i> Consumo (mock)</span>
-              <span><i class="swatch" style="background:#f97316"></i> Meta (GCDR <code>value</code>)</span>
-              <span><i class="swatch" style="background:rgba(34,197,94,.5)"></i> Faixa Ideal (box)</span>
+              <span id="lg-ideal"><i class="swatch" style="background:rgba(34,197,94,.5)"></i> Faixa Ideal (box)</span>
             </div>
 
             <div class="notebox" id="bandNote" style="display:none;">
@@ -148,6 +150,7 @@
             <div class="tp-stat"><span class="lbl" id="lblAvg">Média</span><span class="val" id="statAvg">—</span></div>
             <div class="tp-stat"><span class="lbl" id="lblPeak">Pico</span><span class="val" id="statPeak">—</span></div>
             <div class="tp-stat"><span class="lbl">Aderência à Meta</span><span class="val goal" id="statAdh">—</span></div>
+            <div class="tp-stat" id="tpStatYoY" style="display:none;"><span class="lbl" id="lblYoY">Consumo 2026 x 2025</span><span class="val" id="statYoY">—</span></div>
           </div>
         </div>
       </div>
@@ -176,6 +179,7 @@
               <option value="file">Arquivo MOXUARA (mock real)</option>
               <option value="synthetic">Sintetizado da meta</option>
             </select>
+            <div class="ck-check"><input type="checkbox" id="ckComparePrev" /><label style="margin:0;">Comparar ano anterior (YoY)</label></div>
             <label>Granularidade</label>
             <select id="ckGran">
               <option value="1d">📆 Por Dia (tree.daily)</option>
@@ -286,6 +290,7 @@
           $('ckCustomer').textContent = s.customerLabel || s.gcdrCustomerId || '—';
           $('ckTheme').value = s.defaultThemeMode || 'dark';
           $('ckSource').value = s.consumptionSource || 'file';
+          $('ckComparePrev').checked = s.comparePreviousYear ?? false;
           $('ckWindowStart').value = s.windowStart || '';
           $('ckGran').value = s.defaultGranularity || '1d';
           $('ckPeriod').value = s.defaultPeriod || 7;
@@ -350,6 +355,27 @@
             log('ok', `consumo carregado: ${url.split('/').pop()} (${json?.data?.customerLabel || json?.data?.customerId})`);
             return tree;
           } catch (e) { log('warn', `consumo do arquivo indisponível (${e.message}) — usando sintético`); return null; }
+        }
+        // previous-year consumption (YoY) — same MM-DD/MM-DDTHH keys, year-1 file
+        const consPrevCache = {};
+        function consPrevFileFor(gran) {
+          const s = settings(); const f = s.consumptionFilesPrevYear || {};
+          const base = (s.goalsBaseUrl || './data').replace(/\/$/, '');
+          const name = gran === '1h' ? f.hour : f.day;
+          return name ? `${base}/${name}` : null;
+        }
+        async function loadConsumptionTreePrev(gran) {
+          const key = gran === '1h' ? 'hour' : 'day';
+          if (consPrevCache[key]) return consPrevCache[key];
+          const url = consPrevFileFor(gran);
+          if (!url) return null;
+          try {
+            const r = await fetch(url); if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const tree = (await r.json())?.data?.tree || {};
+            consPrevCache[key] = tree;
+            log('ok', `consumo ano-1 carregado: ${url.split('/').pop()}`);
+            return tree;
+          } catch (e) { log('warn', `consumo ano-1 indisponível (${e.message})`); return null; }
         }
 
         // RFC-0213 mapping
@@ -416,7 +442,12 @@
           const consSub = consTree ? goalSubtree(consTree, gran) : null;
           let sourceLabel = consSub ? 'arquivo' : 'sintético';
 
-          const labels = [], goalSeries = [], dailyTotals = [];
+          // previous-year (YoY) consumption — same period, year-1 (keys are year-agnostic)
+          const comparePrev = $('ckComparePrev').checked && gran !== '1mo';
+          const prevTree = comparePrev ? await loadConsumptionTreePrev(gran) : null;
+          const prevSub = prevTree ? goalSubtree(prevTree, gran) : null;
+
+          const labels = [], goalSeries = [], dailyTotals = [], prevYearSeries = [];
           const shoppingData = {}, shoppingNames = {};
           for (let i = 0; i < shoppingCount; i++) { const id = `shop-${i+1}`; shoppingData[id] = []; shoppingNames[id] = `Shopping ${i+1}`; }
 
@@ -437,6 +468,10 @@
             }
             dailyTotals.push(v == null ? null : Number(v.toFixed(1)));
 
+            // previous-year value at the same MM-DD / MM-DDTHH key
+            if (prevSub) { const pv = prevSub[goalKeyFor(d, gran)]?.value; prevYearSeries.push(Number.isFinite(pv) ? pv : null); }
+            else { prevYearSeries.push(null); }
+
             // split across shoppings with random-ish weights
             const weights = []; let wsum = 0;
             for (let sIdx = 0; sIdx < shoppingCount; sIdx++) { const w = 0.5 + noise(i, sIdx + 2); weights.push(w); wsum += w; }
@@ -445,7 +480,7 @@
             }
           });
 
-          return { gran, labels, dailyTotals, goalSeries, shoppingData, shoppingNames, sourceLabel };
+          return { gran, labels, dailyTotals, goalSeries, prevYearSeries, shoppingData, shoppingNames, sourceLabel };
         }
 
         // ---------------- unit helpers (Bug A: one unit for the whole axis) ----------------
@@ -513,6 +548,20 @@
                 fill: false, tension: 0.4, borderWidth: 2, pointRadius: chartType === 'line' ? 2 : 0, borderRadius: 4 });
             });
           } else {
+            // previous-year consumption (YoY) — drawn first so it sits behind the current year
+            const showPrev = Array.isArray(data.prevYearSeries) && data.prevYearSeries.some((v) => v != null);
+            // Previous year follows the chart type: a dashed gray LINE in line mode, a gray
+            // BAR grouped to the LEFT of the current-year column in bar mode (pushed first +
+            // lowest order).
+            if (showPrev) {
+              const prevIsLine = chartType === 'line';
+              datasets.push({ label: 'Consumo (ano ant.)', data: data.prevYearSeries, type: chartType,
+                borderColor: '#94a3b8',
+                backgroundColor: prevIsLine ? 'rgba(148,163,184,.12)' : 'rgba(148,163,184,.55)',
+                borderDash: prevIsLine ? [6, 4] : undefined,
+                fill: false, tension: 0.4, borderWidth: 2,
+                pointRadius: prevIsLine ? 2 : 0, borderRadius: 4, order: 4 });
+            }
             datasets.push({ label: `Consumo (${s.unit || 'kWh'})`, data: data.dailyTotals, type: chartType,
               borderColor: '#6c5ce7', backgroundColor: chartType === 'line' ? 'rgba(108,92,231,.15)' : '#6c5ce7',
               fill: chartType === 'line', tension: 0.4, borderWidth: 2, pointRadius: chartType === 'line' ? 3 : 0, borderRadius: 4, order: 5 });
@@ -520,7 +569,9 @@
 
           // goal overlay
           if (goalEnabled) {
-            if (bandMode) {
+            // band only when ± % > 0; at 0% it collapses onto the line, so skip the
+            // mín/máx edge datasets entirely (they would just clutter the tooltip).
+            if (bandMode && bandPct > 0) {
               const lo = data.goalSeries.map((v) => v == null ? null : v * (1 - bandPct));
               const hi = data.goalSeries.map((v) => v == null ? null : v * (1 + bandPct));
               datasets.push({ label: 'Meta (mín)', data: lo, type: 'line', borderColor: goalColor, borderWidth: 1,
@@ -549,7 +600,7 @@
           // Y max: include displayed values + goal tops + ideal max
           const displayed = vizMode === 'separate'
             ? Object.values(data.shoppingData).flat()
-            : data.dailyTotals.slice();
+            : data.dailyTotals.concat(vizMode === 'total' ? (data.prevYearSeries || []) : []);
           const goalTops = goalEnabled ? data.goalSeries.map((v) => goalTop(v, bandPct)) : [];
           const yMax = computeYMax(displayed, goalTops, idealValid ? idealMax : 0, headroomPct);
           const au = axisUnit(yMax);
@@ -561,7 +612,13 @@
               responsive: true, maintainAspectRatio: false, animation: false,
               interaction: { mode: 'index', intersect: false },
               plugins: {
-                legend: { display: vizMode === 'separate' || goalEnabled, position: 'bottom', labels: { color: themeText, boxWidth: 12 } },
+                legend: { display: vizMode === 'separate' || goalEnabled, position: 'bottom', labels: { color: themeText, boxWidth: 12 },
+                  onClick: (e, legendItem, legend) => {
+                    // default toggle, then keep the YoY footer stat in sync with the
+                    // visibility of the "Consumo (ano ant.)" dataset.
+                    Chart.defaults.plugins.legend.onClick(e, legendItem, legend);
+                    syncYoYStat(legend.chart);
+                  } },
                 tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${fmt(ctx.parsed.y)}` } },
                 annotation: Object.keys(annotations).length ? { annotations } : undefined,
               },
@@ -578,6 +635,18 @@
           chart = new Chart($('trendChart').getContext('2d'), cfg);
           updateFooter(data, goalEnabled);
           $('tpTitle').textContent = `Consumo — ${ {'1d':'diário','1h':'horário','1mo':'mensal'}[data.gran] } (${vizMode === 'total' ? 'consolidado' : 'por shopping'})`;
+
+          // Faixa Ideal is the only non-dataset overlay (an annotation), so it is the only
+          // item that needs a manual legend hint — and only when actually drawn.
+          $('lg-ideal').style.display = idealValid ? '' : 'none';
+        }
+
+        // Hide the YoY footer stat when the "Consumo (ano ant.)" dataset is toggled off
+        // via the native legend (and show it again when re-enabled).
+        function syncYoYStat(chartRef) {
+          const idx = chartRef?.data?.datasets?.findIndex((d) => d.label === 'Consumo (ano ant.)') ?? -1;
+          const visible = idx >= 0 && chartRef.isDatasetVisible(idx);
+          $('tpStatYoY').style.display = visible ? '' : 'none';
         }
 
         // ---------------- footer (vizMode-aware) ----------------
@@ -600,6 +669,20 @@
             data.dailyTotals.forEach((c, i) => { const g = data.goalSeries[i]; if (c != null && g != null) { cSum += c; gSum += g; } });
             $('statAdh').textContent = gSum > 0 ? `${((cSum / gSum) * 100).toFixed(0)}%` : '—';
           } else { $('statAdh').textContent = '—'; }
+          // YoY: current vs previous year (consolidated only) — only positions present in both
+          const prev = data.prevYearSeries || [];
+          const hasPrev = vizMode === 'total' && prev.some((v) => v != null);
+          $('tpStatYoY').style.display = hasPrev ? '' : 'none';
+          if (hasPrev) {
+            let cur = 0, pre = 0;
+            data.dailyTotals.forEach((c, i) => { const p = prev[i]; if (c != null && p != null) { cur += c; pre += p; } });
+            const pct = pre > 0 ? ((cur - pre) / pre) * 100 : 0;
+            const y = $('ckAnchor').value ? new Date($('ckAnchor').value).getFullYear() : new Date().getFullYear();
+            $('lblYoY').textContent = `Consumo ${y} x ${y - 1}`;
+            const el = $('statYoY');
+            el.textContent = `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%`;
+            el.style.color = pct >= 0 ? '#22c55e' : '#ef4444';
+          }
         }
 
         // ---------------- CSV ----------------
@@ -634,6 +717,7 @@
             ENV = b.dataset.env;
             Object.keys(goalsCache).forEach((k) => delete goalsCache[k]);
             Object.keys(consCache).forEach((k) => delete consCache[k]);
+            Object.keys(consPrevCache).forEach((k) => delete consPrevCache[k]);
             $('ckEnvTab').querySelectorAll('button').forEach((x) => x.classList.toggle('active', x === b));
             applyEnvToForm(); refresh(); log('info', `env -> ${ENV}`);
           });
@@ -658,7 +742,7 @@
           $('ckType').addEventListener('change', () => setType($('ckType').value));
           $('ckViz').addEventListener('change', () => setViz($('ckViz').value));
           // data-source / window changes reload immediately (ckGran handled by setGran)
-          ['ckSource','ckWindowStart','ckAnchor','ckPeriod','ckShoppings'].forEach((id) => $(id).addEventListener('change', refresh));
+          ['ckSource','ckComparePrev','ckWindowStart','ckAnchor','ckPeriod','ckShoppings'].forEach((id) => $(id).addEventListener('change', refresh));
           // apply / export
           $('ckApply').addEventListener('click', refresh);
           $('ckExport').addEventListener('click', exportCSV);

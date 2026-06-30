@@ -1183,10 +1183,33 @@ function _wireAnnotationHover(btn) {
     else if (p?.hide) p.hide();
   });
 }
+// RFC-0214: rich alarm tooltip — the library AlarmNotificationTooltip component
+// (ported from v-5.2.0 HEADER). Reads window.MyIOOrchestrator (customerAlarms / alarmsConfigured /
+// gcdrDeviceNameMap …) by default — exactly what this controller populates. Falls back to the
+// lightweight _alarmTipHtml when the lib symbol isn't available.
+function _wireAlarmNotifTooltip(btn) {
+  if (!btn) return;
+  const Tip = window.MyIOLibrary?.AlarmNotificationTooltip;
+  if (!Tip) {
+    _attachHoverTip(btn, _alarmTipHtml);
+    return;
+  }
+  btn.addEventListener('mouseenter', () => {
+    if (btn.classList.contains('is-loading')) return;
+    if (Tip._hideTimer) {
+      clearTimeout(Tip._hideTimer);
+      Tip._hideTimer = null;
+    }
+    Tip.show(btn);
+  });
+  btn.addEventListener('mouseleave', () => {
+    if (!Tip._isMouseOver && !Tip._isPinned) Tip.hide();
+  });
+}
 function wireHeaderHoverTooltips() {
   const root = _headerInstance?.element;
   if (!root) return;
-  _attachHoverTip(root.querySelector('#tbx-btn-alarm-notif'), _alarmTipHtml);
+  _wireAlarmNotifTooltip(root.querySelector('#tbx-btn-alarm-notif'));
   _attachHoverTip(root.querySelector('#tbx-btn-ticket-notif'), _ticketTipHtml);
   _wireAnnotationHover(root.querySelector('#tbx-btn-annotation-notif'));
 }
