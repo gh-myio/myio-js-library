@@ -152,3 +152,32 @@ Widgets totalmente portados com dados reais — **não retocar**:
 - **WELCOME** (RFC-0112, linhas 1302-1441) — modal de entrada com shopping cards do datasource.
 - **FOOTER** (RFC-0115, linhas 2091-2135) — dock de seleção (máx 6), granularidade RFC-0097 e modal de comparação.
 - **MAIN** (RFC-0111 + RFC-0127, linhas ~800-3400) — orquestrador: classificação, eventos, ciclo de vida e roteamento (pendências não-bloqueantes listadas acima).
+
+---
+
+## Implementação & Reconciliação (2026-06-30)
+
+Ao implementar o plano, a verificação contra o código real revelou **imprecisões no relatório original** (gerado por auditores Haiku, com referências de linha por vezes alucinadas). O status abaixo reflete o que foi de fato corrigido e o que era falso/inaplicável. Todas as correções ficaram contidas em `controller.js` (JS de widget puro, usa `window.MyIOLibrary` já compilada) — **não exigem rebuild**.
+
+### ✅ Corrigido (itens 1, 2 e 3 do plano)
+
+1. **Painéis de Energia E Água exibiam zeros** — o relatório classificou ENERGY como `fully-ported`, mas a verificação mostrou que **ambos** sofriam do mesmo defeito: `getEnergySummary()`/`getWaterSummary()` eram **chamados mas nunca definidos** no `window.MyIOOrchestrator`, então `initialSummary` era `null` e os cards renderizavam zero. Correções:
+   - Novos builders `buildEnergyPanelSummary()` / `buildWaterPanelSummary()` + helper `summarizePanelStatus()` derivam o summary tipado (`EnergySummaryData` / `WaterSummaryData`) a partir do `MyIOOrchestratorData.classified`, reusando a subcategorização RFC-0128 da lib (`buildEquipmentCategorySummary`) — mesma fonte dos tooltips.
+   - Definidos `MyIOOrchestrator.getEnergySummary()` e `getWaterSummary()`.
+   - O listener `myio:data-ready` agora chama `updateSummary()` nos painéis abertos (auto-refresh após enriquecimento de API / filtro).
+2. **Distribuição de água (lojas × área comum + por shopping)** — wired `fetchDistributionData` real em `createWaterPanelComponent` (modos `groups`/`stores`/`common`) a partir de `classified.water.hidrometro` vs `hidrometro_area_comum + banheiros`, substituindo o mock hardcoded (850/650 + nomes fixos) do `WaterPanelView`.
+3. **Painel de Temperatura abria modal vazio** — `temperature_summary`/`temperature_comparison` chamavam `handlePanelModalRequest()`, que guardava em `MyIOLibrary.createTemperaturePanel` **inexistente** (a lib só expõe modais por-dispositivo, não um painel de agregação). Implementado `switchToTemperaturePanel()` in-page: KPI cards (temp média, sensores, shoppings na faixa, alertas) + lista por shopping com min/méd/máx e pill de status, a partir de `buildShoppingsTemperatureStatus()` + limites reais. Re-renderiza em `data-ready` e em troca de tema.
+
+### ☑️ Já estava correto (relatório impreciso)
+
+4. **Classificação `termostato` vs `termostato_external`** — o relatório alegava que a linha "5100" não distinguia os contextos. **Falso:** `classifyAllDevices` delega a `MyIOLibrary.detectContext(device, domain)`, que já separa os dois contextos (`classified.temperature.{termostato, termostato_external}`, logados em separado). Nenhuma mudança necessária.
+
+### ⏸️ Não implementado (refs alucinadas, library-side, ou parked)
+
+5. **HEADER/MENU "Issue #3" do filter modal** — as refs (`ensureFilterModalHeaderController`, "linha 2527") **não existem** neste controller; 2527 é atribuição de `MyIOOrchestratorData`. O filter modal é interno ao componente `MenuView`/`HeaderComponent` da lib (exigiria rebuild) e não há bug reproduzível a partir da evidência citada. **Requer reprodução real antes de tocar.**
+6. **Paridade de grid de temperatura (chips/stats/busca)** — item "verificar", não "corrigir"; o grid é o componente compartilhado RFC-0121 já usado para temperatura. Sem defeito concreto identificado.
+7. **MENU Issue #2 (shoppings do datasource `customers` + min/maxTemperature)** — concern do `MenuView` da lib (rebuild). Deferido.
+8. **MAIN operacional mock (RFC-0152)** — `generateMockOperationalEquipment`/`switchToOperationalGrid` estão **intencionalmente parked** (eslint-disabled). Fora de escopo.
+9. **MAIN panels modais (RFC-0117/0118/0119)** — o caminho de modal (`handlePanelModalRequest`) está morto (sem dispatcher de `myio:panel-modal-request`); os painéis in-page (energy/water/temperature) agora cobrem a navegação real. Construir os painéis-modal completos seria feature nova.
+
+**Resultado líquido:** os 3 domínios (energia, água, temperatura) agora renderizam dados reais nos painéis de resumo. Pendência conhecida: o gráfico de consumo 7 dias dos painéis de energia/água ainda usa fallback demo do componente (exigiria callback `fetchConsumptionData` ligado à API de ingestão) — não era o defeito de "zeros" reportado.

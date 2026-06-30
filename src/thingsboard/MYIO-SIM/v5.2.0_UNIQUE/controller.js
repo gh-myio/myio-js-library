@@ -1658,8 +1658,8 @@ body.filter-modal-open { overflow: hidden !important; }
   let operationalGridInstance = null; // RFC-0152 Phase 3: Operational equipment grid instance
   let operationalDashboardInstance = null; // RFC-0152 Phase 5: Operational dashboard instance
   let alarmsNotificationsPanelInstance = null; // RFC-0152 Phase 4: Alarms notifications panel instance
-  // eslint-disable-next-line no-unused-vars -- write-only view-state (set on view switches; reader not yet implemented)
-  let currentViewMode = 'telemetry'; // 'telemetry' | 'energy-panel' | 'water-panel' | 'operational-grid' | 'operational-dashboard' | 'alarms-panel'
+  // RFC-0117: now read by the data-ready / theme-change handlers to refresh the DOM-based temperature panel.
+  let currentViewMode = 'telemetry'; // 'telemetry' | 'energy-panel' | 'water-panel' | 'temperature-panel' | 'operational-grid' | 'operational-dashboard' | 'alarms-panel'
   let currentTelemetryDomain = DOMAIN_ENERGY;
   let currentTelemetryContext = 'equipments';
 
@@ -2160,6 +2160,23 @@ body.filter-modal-open { overflow: hidden !important; }
         hideMenuBusy();
       }
     }
+
+    // RFC-0132/0133: Refresh open Energy/Water panels with the freshly classified
+    // summary. Panels capture initialSummary at creation; this keeps them current
+    // when data-ready re-fires (e.g. after API enrichment or a filter change).
+    if (energyPanelInstance) {
+      const es = window.MyIOOrchestrator?.getEnergySummary?.();
+      if (es) energyPanelInstance.updateSummary(es);
+    }
+    if (waterPanelInstance) {
+      const ws = window.MyIOOrchestrator?.getWaterSummary?.();
+      if (ws) waterPanelInstance.updateSummary(ws);
+    }
+    // RFC-0117: Temperature panel is DOM-based — re-render in place when open.
+    if (currentViewMode === 'temperature-panel') {
+      const tc = document.getElementById('telemetryGridContainer');
+      if (tc) switchToTemperaturePanel(tc);
+    }
   });
 
   // === 10. LISTEN FOR PANEL MODAL REQUESTS ===
@@ -2200,6 +2217,11 @@ body.filter-modal-open { overflow: hidden !important; }
     // RFC-0132/RFC-0133: Update panel themes
     if (energyPanelInstance) energyPanelInstance.setTheme?.(themeMode);
     if (waterPanelInstance) waterPanelInstance.setTheme?.(themeMode);
+    // RFC-0117: Temperature panel is DOM-based — re-render in new theme.
+    if (currentViewMode === 'temperature-panel') {
+      const tc = document.getElementById('telemetryGridContainer');
+      if (tc) switchToTemperaturePanel(tc);
+    }
     // RFC-0152: Update operational component themes
     if (operationalDashboardInstance) operationalDashboardInstance.setThemeMode?.(themeMode);
     if (alarmsNotificationsPanelInstance) alarmsNotificationsPanelInstance.setThemeMode?.(themeMode);
@@ -2933,8 +2955,10 @@ body.filter-modal-open { overflow: hidden !important; }
       currentViewMode = 'water-panel';
       hideMenuBusy();
     } else if (contextId === 'temperature_summary' || contextId === 'temperature_comparison') {
-      // Temperature panels still use modal for now
-      handlePanelModalRequest(tabId, 'summary');
+      // RFC-0117: In-page temperature summary panel (replaces the empty-modal path).
+      LogHelper.log('[MAIN_UNIQUE] Switching to Temperature Panel view');
+      switchToTemperaturePanel(telemetryContainer);
+      currentViewMode = 'temperature-panel';
       hideMenuBusy();
     } else {
       // Show Telemetry Grid (default view)
@@ -3062,6 +3086,35 @@ body.filter-modal-open { overflow: hidden !important; }
         showDistributionChart: true,
         enableFullscreen: true,
 
+        // RFC-0133: Real distribution data (replaces the View's hardcoded mock).
+        // groups = Lojas vs Área Comum; stores/common = per-shopping breakdown.
+        fetchDistributionData: async (mode) => {
+          const classified = window.MyIOOrchestratorData?.classified;
+          if (!classified) return null;
+
+          const valueOf = (d) => Number(d.value || d.pulses || d.consumption || 0);
+          const sum = (arr) => (arr || []).reduce((s, d) => s + valueOf(d), 0);
+          const sumByShopping = (arr) => {
+            const m = {};
+            (arr || []).forEach((d) => {
+              const name = d.ownerName || d.customerName || 'Outros';
+              m[name] = (m[name] || 0) + valueOf(d);
+            });
+            return m;
+          };
+
+          const stores = classified.water?.hidrometro || [];
+          const common = [
+            ...(classified.water?.hidrometro_area_comum || []),
+            ...(classified.water?.banheiros || []),
+          ];
+
+          if (mode === 'groups') return { Lojas: sum(stores), 'Área Comum': sum(common) };
+          if (mode === 'stores') return sumByShopping(stores);
+          if (mode === 'common') return sumByShopping(common);
+          return null;
+        },
+
         onMaximizeClick: () => {
           LogHelper.log('[MAIN_UNIQUE] Water Panel maximize clicked');
         },
@@ -3089,6 +3142,92 @@ body.filter-modal-open { overflow: hidden !important; }
         '<div style="padding:20px;text-align:center;color:#94a3b8;">WaterPanel component not available</div>';
       LogHelper.log('[MAIN_UNIQUE] createWaterPanelComponent not found in MyIOLibrary');
     }
+  }
+
+  // RFC-0117: Switch to Temperature summary panel (in-page).
+  // Replaces the dead handlePanelModalRequest() path (which guarded on a non-existent
+  // MyIOLibrary.createTemperaturePanel and only opened an empty modal). Renders the
+  // shopping-level aggregation the legacy TEMPERATURE widget showed — KPI cards plus a
+  // per-shopping list with min/avg/max — from the already-classified temperature data.
+  function switchToTemperaturePanel(container) {
+    if (!container) return;
+
+    // Destroy other views sharing this container
+    if (telemetryGridInstance) { telemetryGridInstance.destroy?.(); telemetryGridInstance = null; }
+    if (energyPanelInstance) { energyPanelInstance.destroy?.(); energyPanelInstance = null; }
+    if (waterPanelInstance) { waterPanelInstance.destroy?.(); waterPanelInstance = null; }
+    if (operationalGridInstance) { operationalGridInstance.destroy?.(); operationalGridInstance = null; }
+
+    const classified = window.MyIOOrchestratorData?.classified;
+    const minTemp = Number(window.MyIOUtils?.temperatureLimits?.minTemperature ?? 18);
+    const maxTemp = Number(window.MyIOUtils?.temperatureLimits?.maxTemperature ?? 26);
+    const { shoppingsInRange, shoppingsOutOfRange } = buildShoppingsTemperatureStatus(
+      classified,
+      minTemp,
+      maxTemp
+    );
+
+    const allShoppings = [...shoppingsInRange, ...shoppingsOutOfRange].sort((a, b) =>
+      a.name.localeCompare(b.name)
+    );
+    const totalSensors = (classified?.temperature?.termostato || []).length +
+      (classified?.temperature?.termostato_external || []).length;
+    const globalAvg = allShoppings.length
+      ? allShoppings.reduce((s, sh) => s + sh.avgTemp, 0) / allShoppings.length
+      : 0;
+
+    const dark = currentThemeMode === 'dark';
+    const cardBg = dark ? '#1e293b' : '#ffffff';
+    const pageBg = dark ? '#0f172a' : '#f8fafc';
+    const txt = dark ? '#e2e8f0' : '#1e293b';
+    const muted = dark ? '#94a3b8' : '#64748b';
+    const border = dark ? '#334155' : '#e2e8f0';
+    const fmt = (n) => Number(n || 0).toFixed(1);
+
+    const kpi = (label, value, color) => `
+      <div style="flex:1;min-width:160px;background:${cardBg};border:1px solid ${border};border-radius:12px;padding:16px;">
+        <div style="font-size:12px;color:${muted};margin-bottom:6px;">${label}</div>
+        <div style="font-size:26px;font-weight:700;color:${color || txt};">${value}</div>
+      </div>`;
+
+    const row = (sh) => {
+      const inRange = sh.avgTemp >= minTemp && sh.avgTemp <= maxTemp;
+      const pillColor = inRange ? '#10b981' : '#ef4444';
+      const pillText = inRange ? 'Dentro da faixa' : 'Fora da faixa';
+      return `
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid ${border};">
+          <div style="flex:2;font-weight:600;color:${txt};">${sh.name}</div>
+          <div style="flex:1;color:${muted};font-size:13px;">${sh.deviceCount} sensores</div>
+          <div style="flex:1;color:${txt};">min ${fmt(sh.minTemp)}°</div>
+          <div style="flex:1;font-weight:700;color:${txt};">méd ${fmt(sh.avgTemp)}°</div>
+          <div style="flex:1;color:${txt};">máx ${fmt(sh.maxTemp)}°</div>
+          <div style="flex:1;text-align:right;">
+            <span style="background:${pillColor}1a;color:${pillColor};border-radius:999px;padding:4px 10px;font-size:12px;font-weight:600;">${pillText}</span>
+          </div>
+        </div>`;
+    };
+
+    const listBody = allShoppings.length
+      ? allShoppings.map(row).join('')
+      : `<div style="padding:24px;text-align:center;color:${muted};">Nenhum sensor de temperatura com leitura válida.</div>`;
+
+    container.innerHTML = `
+      <div style="background:${pageBg};padding:16px;border-radius:12px;">
+        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
+          ${kpi('Temperatura média', `${fmt(globalAvg)}°C`)}
+          ${kpi('Sensores', String(totalSensors))}
+          ${kpi('Shoppings na faixa', String(shoppingsInRange.length), '#10b981')}
+          ${kpi('Alertas (fora da faixa)', String(shoppingsOutOfRange.length), shoppingsOutOfRange.length ? '#ef4444' : undefined)}
+        </div>
+        <div style="background:${cardBg};border:1px solid ${border};border-radius:12px;overflow:hidden;">
+          <div style="padding:12px 16px;font-weight:700;color:${txt};border-bottom:1px solid ${border};">
+            Temperatura por Shopping <span style="color:${muted};font-weight:400;font-size:12px;">(faixa ideal ${minTemp}°–${maxTemp}°C)</span>
+          </div>
+          ${listBody}
+        </div>
+      </div>`;
+
+    LogHelper.log('[MAIN_UNIQUE] Temperature Panel rendered:', allShoppings.length, 'shoppings');
   }
 
   // RFC-0152 Phase 3: Switch to Operational Equipment Grid view
@@ -5511,6 +5650,111 @@ function calculateDeviceCounts(classified) {
 }
 
 // ===================================================================
+// RFC-0132/0133: Panel summary builders (initialSummary contract)
+// Energy/Water panels expect a typed summary object (see energy-panel/types.ts
+// EnergySummaryData and water-panel/types.ts WaterSummaryData). Without it the
+// 3 water cards and the energy category cards render zeros. These builders derive
+// the summary from the already-classified orchestrator data, reusing the same
+// RFC-0128 subcategorization the tooltips use, so panels and tooltips stay in sync.
+// ===================================================================
+
+// Aggregate device connectivity into the {online, offline, waiting} shape the panels expect.
+function summarizePanelStatus(devices) {
+  const acc = { online: 0, offline: 0, waiting: 0 };
+  (devices || []).forEach((d) => {
+    const st = String(d.deviceStatus || d.status || '').toLowerCase();
+    if (['offline', 'no_info'].includes(st)) acc.offline++;
+    else if (['waiting', 'aguardando', 'not_installed', 'pending', 'connecting'].includes(st)) acc.waiting++;
+    else acc.online++;
+  });
+  return acc;
+}
+
+// Build EnergySummaryData from classified energy devices (entrada/equipments/stores).
+function buildEnergyPanelSummary(classified) {
+  if (!classified) return null;
+
+  const allEnergyDevices = [
+    ...(classified.energy?.entrada || []),
+    ...(classified.energy?.equipments || []),
+    ...(classified.energy?.stores || []),
+  ];
+  const sum = (arr) => (arr || []).reduce((s, d) => s + Number(d.value || d.consumption || 0), 0);
+
+  const storesTotal = sum(classified.energy?.stores);
+  const equipmentsTotal = sum(classified.energy?.equipments);
+  const entradaTotal = sum(classified.energy?.entrada);
+
+  // RFC-0128: reuse the library subcategorization (same source as the header tooltip).
+  let cat = null;
+  if (typeof MyIOLibrary?.buildEquipmentCategorySummary === 'function') {
+    cat = MyIOLibrary.buildEquipmentCategorySummary(allEnergyDevices);
+  }
+  const c = (k) =>
+    cat?.[k]
+      ? { total: cat[k].consumption || 0, count: cat[k].count || 0, percentage: cat[k].percentage || 0 }
+      : { total: 0, count: 0, percentage: 0 };
+
+  const byCategory = {
+    entrada: c('entrada'),
+    lojas: c('lojas'),
+    climatizacao: c('climatizacao'),
+    elevadores: c('elevadores'),
+    escadas: c('escadas_rolantes'),
+    outros: c('outros'),
+    areaComum: c('area_comum'),
+  };
+
+  const consumidoresTotal =
+    byCategory.lojas.total +
+    byCategory.climatizacao.total +
+    byCategory.elevadores.total +
+    byCategory.escadas.total +
+    byCategory.outros.total;
+
+  return {
+    storesTotal,
+    equipmentsTotal,
+    entradaTotal,
+    areaComumTotal: byCategory.areaComum.total,
+    consumidoresTotal,
+    total: entradaTotal || consumidoresTotal,
+    deviceCount: allEnergyDevices.length,
+    byCategory,
+    byStatus: summarizePanelStatus(allEnergyDevices),
+  };
+}
+
+// Build WaterSummaryData from classified water devices (lojas vs área comum + banheiros).
+function buildWaterPanelSummary(classified) {
+  if (!classified) return null;
+
+  const sum = (arr) => (arr || []).reduce((s, d) => s + Number(d.value || d.pulses || d.consumption || 0), 0);
+
+  const storeDevices = classified.water?.hidrometro || [];
+  // Área Comum mirrors getDevices('water','hidrometro_area_comum'): area comum + banheiros.
+  const commonDevices = [
+    ...(classified.water?.hidrometro_area_comum || []),
+    ...(classified.water?.banheiros || []),
+  ];
+
+  const storesTotal = sum(storeDevices);
+  const commonAreaTotal = sum(commonDevices);
+  const total = storesTotal + commonAreaTotal;
+  const deviceCount = storeDevices.length + commonDevices.length;
+
+  return {
+    storesTotal,
+    commonAreaTotal,
+    total,
+    deviceCount,
+    storesPercentage: total > 0 ? (storesTotal / total) * 100 : 0,
+    commonAreaPercentage: total > 0 ? (commonAreaTotal / total) * 100 : 0,
+    byStatus: summarizePanelStatus([...storeDevices, ...commonDevices]),
+  };
+}
+
+// ===================================================================
 // MyIOOrchestrator - For TELEMETRY to fetch devices and cache
 // ===================================================================
 window.MyIOOrchestrator = window.MyIOOrchestrator || {};
@@ -5549,6 +5793,20 @@ window.MyIOOrchestrator.getCache = function (cacheKey) {
   });
 
   return cache;
+};
+
+// RFC-0132: Energy panel summary (EnergySummaryData) from classified data.
+// Previously undefined — createEnergyPanelComponent received initialSummary: null,
+// so the energy category cards rendered zeros.
+window.MyIOOrchestrator.getEnergySummary = function () {
+  return buildEnergyPanelSummary(window.MyIOOrchestratorData?.classified);
+};
+
+// RFC-0133: Water panel summary (WaterSummaryData) from classified data.
+// Previously undefined — createWaterPanelComponent received initialSummary: null,
+// so the 3 water cards (lojas/área comum/total) rendered zeros.
+window.MyIOOrchestrator.getWaterSummary = function () {
+  return buildWaterPanelSummary(window.MyIOOrchestratorData?.classified);
 };
 
 /**
