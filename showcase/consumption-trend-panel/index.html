@@ -3,793 +3,143 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>RFC-0213: ConsumptionTrendPanel — Showcase (mock)</title>
+    <title>GoalsModal — Showcase (RFC-0213)</title>
 
-    <!-- Chart.js + annotation plugin (ideal-range box) -->
+    <!-- Chart.js é requerido pelo GoalsModal (Chart global). annotation é opcional. -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
 
     <style>
       * { box-sizing: border-box; margin: 0; padding: 0; }
-      :root {
-        --bg: #0f172a; --fg: #f1f5f9; --muted: #94a3b8; --panel: #1e293b;
-        --border: #334155; --accent: #6c5ce7; --goal: #f97316;
-      }
-      body.light-mode {
-        --bg: #f8fafc; --fg: #1e293b; --muted: #64748b; --panel: #ffffff; --border: #e2e8f0;
-      }
       body {
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        background: var(--bg); color: var(--fg); min-height: 100vh;
-        display: flex; flex-direction: row; overflow: hidden; height: 100vh;
+        font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        background: radial-gradient(1200px 600px at 50% -10%, #2d1360 0%, #0f172a 60%);
+        color: #e7e2f5; min-height: 100vh; display: flex; flex-direction: column;
+        align-items: center; justify-content: center; gap: 22px; padding: 32px; text-align: center;
       }
-
-      /* ============ MAIN (left) ============ */
-      #main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; overflow-y: auto; }
-      .app-header { padding: 18px 24px; border-bottom: 1px solid var(--border);
-        background: linear-gradient(135deg, var(--panel) 0%, var(--bg) 100%); }
-      .app-header h1 { font-size: 20px; font-weight: 600; }
-      .app-header p { color: var(--muted); font-size: 13px; margin-top: 4px; }
-      .app-header .badge { display:inline-block; font-size:11px; padding:2px 8px; border-radius:99px;
-        background: rgba(108,92,231,.18); color:#a78bfa; margin-left:8px; vertical-align:middle; }
-
-      .panel-area { padding: 24px; }
-
-      /* The panel = header + chart + footer */
-      .trend-panel { background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
-        overflow: hidden; box-shadow: 0 4px 14px rgba(0,0,0,.18); }
-      .tp-head { display:flex; justify-content:space-between; align-items:center;
-        padding: 14px 18px; border-bottom: 1px solid var(--border); flex-wrap: wrap; gap: 10px; }
-      .tp-title { font-size: 15px; font-weight: 600; }
-      .tp-actions { display:flex; gap:6px; flex-wrap: wrap; align-items: center; }
-      .tp-sep { width:1px; align-self:stretch; background: var(--border); margin: 2px 4px; }
-      .tp-actions button { padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border);
-        background: transparent; color: var(--muted); font-size: 12px; cursor: pointer; transition: .15s; }
-      .tp-actions button:hover { background: var(--border); color: var(--fg); }
-      .tp-actions button.active { background: var(--accent); color:#fff; border-color: var(--accent); }
-      .tp-body { padding: 16px 18px; }
-      .tp-canvas-wrap { position: relative; height: 360px; }
-      .tp-canvas-wrap canvas { width: 100% !important; height: 100% !important; }
-      .tp-footer { display:flex; justify-content: space-around; gap: 12px; flex-wrap: wrap;
-        padding: 14px 18px; border-top: 1px solid var(--border); }
-      .tp-stat { display:flex; flex-direction: column; align-items: center; min-width: 110px; text-align:center; }
-      .tp-stat .lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing:.4px; }
-      .tp-stat .val { font-size: 19px; font-weight: 700; margin-top: 3px; }
-      .tp-stat .val.primary { color: var(--accent); }
-      .tp-stat .val.goal { color: var(--goal); }
-
-      .legend-hint { margin-top: 14px; font-size: 12px; color: var(--muted); display:flex; gap:18px; flex-wrap:wrap; }
-      .legend-hint span { display:flex; align-items:center; gap:6px; }
-      .swatch { width: 22px; height: 4px; border-radius: 2px; display:inline-block; }
-
-      .notebox { margin-top: 16px; font-size: 12px; color: var(--muted); background: rgba(249,115,22,.08);
-        border: 1px solid rgba(249,115,22,.25); border-radius: 8px; padding: 10px 12px; }
-      .notebox b { color: var(--goal); }
-
-      /* ============ COCKPIT (right sidebar) ============ */
-      #cockpit { flex: 0 0 340px; display:flex; flex-direction:column; background:#1f1147; color:#fff;
-        font-size:12px; overflow:hidden; transition: flex-basis .2s ease; }
-      body.cockpit-collapsed #cockpit { flex-basis: 44px; }
-      body.cockpit-collapsed #cockpit .ck-body, body.cockpit-collapsed #cockpit .ck-title { display:none; }
-      .ck-head { flex:0 0 auto; display:flex; align-items:center; gap:8px; padding:10px 12px;
-        border-bottom:1px solid rgba(255,255,255,.15); }
-      .ck-title { white-space:nowrap; font-weight:600; }
-      .ck-body { flex:1 1 auto; min-height:0; display:flex; flex-direction:column; overflow:hidden; }
-      .ck-scroll { flex:1 1 auto; min-height:0; overflow-y:auto; padding:10px 12px; display:flex; flex-direction:column; gap:6px; }
-      .ck-scroll label { opacity:.85; margin-top:6px; display:block; }
-      .ck-scroll input, .ck-scroll select { font-size:12px; padding:6px; border-radius:6px; border:1px solid #ccc;
-        width:100%; box-sizing:border-box; color:#111; background:#fff; }
-      .ck-scroll input[type=color] { height:30px; padding:2px; }
-      .ck-row { display:flex; gap:8px; }
-      .ck-row > div { flex:1; }
-      .ck-check { display:flex; align-items:center; gap:8px; margin-top:8px; }
-      .ck-check input { width:auto; }
-      fieldset.ck-fs { border:1px solid rgba(255,255,255,.22); border-radius:8px; padding:4px 10px 10px; margin-top:10px; }
-      fieldset.ck-fs > legend { font-weight:600; font-size:11px; opacity:.9; padding:0 4px; cursor:pointer; user-select:none; }
-      fieldset.ck-fs.collapsed > .ck-fs-body { display:none; }
-      .ck-envtab { display:flex; margin:10px 0 2px; border:1px solid rgba(255,255,255,.3); border-radius:8px; overflow:hidden; }
-      .ck-envtab button { flex:1; background:transparent; color:#fff; border:none; padding:7px 0; font-size:12px; font-weight:600; cursor:pointer; opacity:.7; }
-      .ck-envtab button + button { border-left:1px solid rgba(255,255,255,.3); }
-      .ck-envtab button.active { background:var(--accent); opacity:1; }
-      .ck-actions { flex:0 0 auto; display:flex; flex-direction:column; gap:6px; padding:10px 12px;
-        border-top:1px solid rgba(255,255,255,.15); }
-      .ck-actions button { font-size:12px; padding:8px 12px; border:none; border-radius:6px; background:var(--accent); color:#fff; cursor:pointer; }
-      .ck-actions button:hover { background:#5a4bd6; }
-      button.ck-ghost { background:transparent !important; border:1px solid rgba(255,255,255,.4) !important; padding:4px 9px; }
-      .ck-console { flex:0 0 auto; border-top:1px solid rgba(255,255,255,.15); max-height: 160px; display:flex; flex-direction:column; }
-      .ck-console-head { padding:5px 12px; font-weight:600; cursor:pointer; }
-      #ck-log { flex:1 1 auto; overflow-y:auto; padding:0 12px 8px; font-family: ui-monospace, Menlo, monospace; font-size:11px; line-height:1.45; }
-      #ck-log .info { color:#a5b4fc; } #ck-log .ok { color:#86efac; } #ck-log .warn { color:#fcd34d; } #ck-log .err { color:#fca5a5; }
+      .card {
+        background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.12);
+        border-radius: 18px; padding: 30px 34px; max-width: 720px; backdrop-filter: blur(6px);
+        box-shadow: 0 20px 60px rgba(0,0,0,.35);
+      }
+      h1 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+      h1 .chip { font-size: 11px; font-weight: 600; background: rgba(124,58,237,.3); color: #c4b5fd;
+        padding: 2px 9px; border-radius: 99px; vertical-align: middle; margin-left: 8px; }
+      p { color: #b9b1d6; font-size: 13.5px; line-height: 1.6; margin: 10px 0; }
+      code { background: rgba(0,0,0,.35); padding: 1px 6px; border-radius: 5px; font-size: 12px; color: #e9d5ff; }
+      ul { text-align: left; margin: 12px auto 4px; max-width: 560px; color: #b9b1d6; font-size: 13px; line-height: 1.7; }
+      .btn {
+        margin-top: 18px; background: #7c3aed; color: #fff; border: none; border-radius: 10px;
+        font-size: 15px; font-weight: 600; padding: 12px 26px; cursor: pointer; transition: .15s;
+        box-shadow: 0 6px 18px rgba(124,58,237,.4);
+      }
+      .btn:hover { background: #6d28d9; transform: translateY(-1px); }
+      .status { font-size: 12px; color: #94a3b8; margin-top: 12px; }
+      .status b { color: #86efac; }
+      .status.err b { color: #fca5a5; }
     </style>
   </head>
   <body>
-    <!-- ===================== MAIN ===================== -->
-    <div id="main">
-      <header class="app-header">
-        <h1>ConsumptionTrendPanel <span class="badge">RFC-0213 · mock</span></h1>
-        <p>Painel de tendência construído do zero (Chart.js). <b>Barras</b> = consumo MOCK do
-          Shopping Moxuara (horário, 20/06/2026 → agora — <code>./data/consumption-2026-Hour-Energy-Moxuara.json</code>).
-          <b>Linha/região laranja</b> = metas exportadas do GCDR (<code>./data/goals-2026-{Month,Day,Hour}-Energy-Moxuara.json</code>).
-          <b>Barras cinza</b> = mesmo período do <b>ano anterior</b> (YoY, <code>consumption-2025-…</code>) — ligável no cockpit.
-          Demonstra: overlay de meta (linha + região), comparação YoY, faixa ideal sem clipping, eixo com unidade única e headroom.</p>
-      </header>
-
-      <div class="panel-area">
-        <div class="trend-panel">
-          <div class="tp-head">
-            <span class="tp-title" id="tpTitle">Consumo — tendência</span>
-            <div class="tp-actions">
-              <button id="btnGranMo">Mês</button>
-              <button id="btnGranDay" class="active">Dia</button>
-              <button id="btnGranHour">Hora</button>
-              <span class="tp-sep"></span>
-              <button id="btnLine" class="active">Linha</button>
-              <button id="btnBar">Barra</button>
-              <span class="tp-sep"></span>
-              <button id="btnTotal" class="active">Consolidado</button>
-              <button id="btnSeparate">Por Shopping</button>
-            </div>
-          </div>
-          <div class="tp-body">
-            <div class="tp-canvas-wrap"><canvas id="trendChart"></canvas></div>
-
-            <!-- Só a Faixa Ideal precisa de dica de legenda: é uma annotation (box),
-                 não um dataset, então não aparece na legenda nativa do Chart.js.
-                 Consumo/Meta já são rotulados pela legenda nativa abaixo do gráfico. -->
-            <div class="legend-hint">
-              <span id="lg-ideal"><i class="swatch" style="background:rgba(34,197,94,.5)"></i> Faixa Ideal (box)</span>
-            </div>
-
-            <div class="notebox" id="bandNote" style="display:none;">
-              <b>Preview de banda (forward-looking):</b> o backend hoje só emite <code>value</code> escalar.
-              A banda min/max é sintetizada (<code>value ± %</code>) só para visualizar o RFC-0213 Fase 3.
-            </div>
-          </div>
-          <div class="tp-footer" id="tpFooter">
-            <div class="tp-stat"><span class="lbl" id="lblTotal">Total Período</span><span class="val primary" id="statTotal">—</span></div>
-            <div class="tp-stat"><span class="lbl" id="lblAvg">Média</span><span class="val" id="statAvg">—</span></div>
-            <div class="tp-stat"><span class="lbl" id="lblPeak">Pico</span><span class="val" id="statPeak">—</span></div>
-            <div class="tp-stat"><span class="lbl">Aderência à Meta</span><span class="val goal" id="statAdh">—</span></div>
-            <div class="tp-stat" id="tpStatYoY" style="display:none;"><span class="lbl" id="lblYoY">Consumo 2026 x 2025</span><span class="val" id="statYoY">—</span></div>
-          </div>
-        </div>
-      </div>
+    <div class="card">
+      <h1>🎯 GoalsModal <span class="chip">RFC-0213 · componente real</span></h1>
+      <p>
+        Esta showcase <b>não</b> reimplementa o gráfico — ela <b>chama o componente</b>
+        <code>MyIOLibrary.GoalsModal</code> (de <code>src/components/goals-modal/GoalsModal.ts</code>,
+        via <code>dist/…umd.min.js</code>).
+      </p>
+      <ul>
+        <li><b>Metas</b> → <code>window.MyIOUtils.goalsData.energy</code> de <code>./data/goals-2026-Hour-Energy-Moxuara.json</code> (tree mensal/diário/horário).</li>
+        <li><b>Consumo</b> → callback <code>fetchConsumption</code> mock lendo <code>./data/consumption-2026-…json</code>.</li>
+        <li><b>YoY (↔ Ano ant.)</b> → o componente refaz o fetch com timestamps −1 ano; o mock devolve <code>./data/consumption-2025-…json</code>.</li>
+      </ul>
+      <p style="font-size:12px;color:#8b84a6;">
+        No modal: alterne <b>1M / 1d / 1h</b>, clique <b>↔ Ano ant.</b> para a comparação,
+        e veja o stat <b>“Consumo {ano} x {ano-1}”</b>. Apenas o domínio <b>Energia</b> tem mock.
+      </p>
+      <button class="btn" id="openBtn">Abrir GoalsModal</button>
+      <div class="status" id="status">carregando biblioteca…</div>
     </div>
 
-    <!-- ===================== COCKPIT ===================== -->
-    <aside id="cockpit">
-      <div class="ck-head">
-        <button id="ckToggle" class="ck-ghost" title="Recolher/expandir">⟩</button>
-        <strong class="ck-title">trend-panel cockpit</strong>
-      </div>
-      <div class="ck-body">
-        <div class="ck-scroll" id="ckScroll">
-          <div class="ck-envtab" id="ckEnvTab">
-            <button data-env="LOCAL" class="active">LOCAL</button>
-            <button data-env="PROD">PROD</button>
-          </div>
-          <div style="opacity:.75; margin-top:4px;" id="ckCustomer">—</div>
-
-          <label>Tema</label>
-          <select id="ckTheme"><option value="dark">Dark</option><option value="light">Light</option></select>
-
-          <fieldset class="ck-fs"><legend>Dados</legend><div class="ck-fs-body">
-            <label>Fonte de consumo</label>
-            <select id="ckSource">
-              <option value="file">Arquivo MOXUARA (mock real)</option>
-              <option value="synthetic">Sintetizado da meta</option>
-            </select>
-            <div class="ck-check"><input type="checkbox" id="ckComparePrev" /><label style="margin:0;">Comparar ano anterior (YoY)</label></div>
-            <label>Granularidade</label>
-            <select id="ckGran">
-              <option value="1d">📆 Por Dia (tree.daily)</option>
-              <option value="1h">🕐 Por Hora (tree.hourly)</option>
-              <option value="1mo">🗓️ Por Mês (tree.monthly)</option>
-            </select>
-            <label>Período (dias) — só Dia/Hora</label>
-            <input type="number" id="ckPeriod" value="7" min="2" max="31" />
-            <label>Início da janela (vazio = âncora − período)</label>
-            <input type="date" id="ckWindowStart" />
-            <label>Data âncora (fim da janela)</label>
-            <input type="date" id="ckAnchor" />
-            <label>Nº de shoppings (split)</label>
-            <input type="number" id="ckShoppings" value="3" min="1" max="10" />
-          </div></fieldset>
-
-          <fieldset class="ck-fs collapsed"><legend>Consumo sintético (fallback)</legend><div class="ck-fs-body">
-            <small style="opacity:.7;">Usado quando Fonte = "Sintetizado" (ou arquivo ausente).</small>
-            <label>Viés vs meta (%) — negativo = abaixo da meta</label>
-            <input type="number" id="ckBias" value="-20" step="5" />
-            <label>Variância (%)</label>
-            <input type="number" id="ckVar" value="20" step="5" />
-          </div></fieldset>
-
-          <fieldset class="ck-fs"><legend>Overlay de Meta</legend><div class="ck-fs-body">
-            <div class="ck-check"><input type="checkbox" id="ckGoalEnabled" checked /><label style="margin:0;">Mostrar meta</label></div>
-            <label>Modo</label>
-            <select id="ckGoalMode">
-              <option value="line">Linha (escalar — ship)</option>
-              <option value="band">Banda min/max (preview)</option>
-            </select>
-            <div class="ck-row">
-              <div><label>Cor</label><input type="color" id="ckGoalColor" value="#f97316" /></div>
-              <div><label>Espessura</label><input type="number" id="ckGoalWidth" value="3" min="1" max="8" /></div>
-            </div>
-            <label>Headroom Y (%)</label>
-            <input type="number" id="ckHeadroom" value="15" step="5" />
-            <label>Banda ± (%) — só modo banda</label>
-            <input type="number" id="ckBandPct" value="12" step="1" />
-          </div></fieldset>
-
-          <fieldset class="ck-fs collapsed"><legend>Faixa Ideal (box estático)</legend><div class="ck-fs-body">
-            <div class="ck-check"><input type="checkbox" id="ckIdealEnabled" /><label style="margin:0;">Mostrar faixa</label></div>
-            <div class="ck-row">
-              <div><label>Mín (kWh)</label><input type="number" id="ckIdealMin" value="0" /></div>
-              <div><label>Máx (kWh)</label><input type="number" id="ckIdealMax" value="60000" /></div>
-            </div>
-            <small style="opacity:.7;">Bug B: ponha o Máx acima do consumo — a caixa NÃO deve ser cortada (o eixo cresce).</small>
-          </div></fieldset>
-
-          <fieldset class="ck-fs"><legend>Visualização</legend><div class="ck-fs-body">
-            <label>Tipo</label>
-            <select id="ckType"><option value="line">Linha</option><option value="bar">Barra</option></select>
-            <label>Agrupamento</label>
-            <select id="ckViz"><option value="total">Consolidado</option><option value="separate">Por Shopping</option></select>
-          </div></fieldset>
-        </div>
-
-        <div class="ck-actions">
-          <button id="ckApply">Aplicar / Recarregar</button>
-          <button id="ckExport" class="ck-ghost">Exportar CSV</button>
-        </div>
-
-        <div class="ck-console">
-          <div class="ck-console-head" id="ckConsoleHead">▾ console</div>
-          <div id="ck-log"></div>
-        </div>
-      </div>
-    </aside>
-
+    <!-- Componente real (UMD) -->
+    <script src="../../dist/myio-js-library.umd.min.js"></script>
     <script>
-      // =====================================================================
-      // ConsumptionTrendPanel — prototype built from scratch (RFC-0213).
-      // 100% mock: consumption is synthesized; goals come from ./data/*.json.
-      // =====================================================================
       (function () {
         'use strict';
         const $ = (id) => document.getElementById(id);
         const pad = (n) => String(n).padStart(2, '0');
-        const MONTHS = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
 
-        // Register annotation plugin if present (ideal-range box)
-        try { if (window['chartjs-plugin-annotation']) Chart.register(window['chartjs-plugin-annotation']); } catch (e) {}
-
-        function log(level, msg) {
-          const el = $('ck-log'); if (!el) return;
-          const line = document.createElement('div'); line.className = level; line.textContent = msg;
-          el.appendChild(line); el.scrollTop = el.scrollHeight;
-          (console[level === 'err' ? 'error' : level === 'warn' ? 'warn' : 'log'])('[trend-panel]', msg);
+        function setStatus(msg, ok) {
+          const el = $('status');
+          el.className = 'status' + (ok === false ? ' err' : '');
+          el.innerHTML = msg;
         }
 
-        // ---------------- config (cockpit) ----------------
-        let CFG = null, ENV = 'LOCAL';
-        const settings = () => (CFG?.environments?.[ENV]?.settings) || {};
-
-        async function loadConfig() {
-          let src = '';
-          for (const url of ['./config.json', './config.example.json']) {
-            try { const r = await fetch(url); if (r.ok) { CFG = await r.json(); src = url; break; } } catch (e) {}
-          }
-          if (!CFG) { log('err', 'config.json/config.example.json não encontrados'); return; }
-          ENV = CFG.defaultEnv || 'LOCAL';
-          log('ok', `config carregado de ${src} (env: ${ENV})`);
-        }
-
-        function applyEnvToForm() {
-          const s = settings();
-          $('ckCustomer').textContent = s.customerLabel || s.gcdrCustomerId || '—';
-          $('ckTheme').value = s.defaultThemeMode || 'dark';
-          $('ckSource').value = s.consumptionSource || 'file';
-          $('ckComparePrev').checked = s.comparePreviousYear ?? false;
-          $('ckWindowStart').value = s.windowStart || '';
-          $('ckGran').value = s.defaultGranularity || '1d';
-          $('ckPeriod').value = s.defaultPeriod || 7;
-          $('ckShoppings').value = s.mockConsumption?.shoppingCount ?? 3;
-          $('ckBias').value = Math.round((s.mockConsumption?.goalBiasPct ?? -0.3) * 100);
-          $('ckVar').value = Math.round((s.mockConsumption?.variancePct ?? 0.2) * 100);
-          $('ckGoalEnabled').checked = s.goalOverlay?.enabled ?? true;
-          $('ckGoalMode').value = s.goalOverlay?.mode || 'line';
-          $('ckGoalColor').value = s.goalOverlay?.color || '#f97316';
-          $('ckGoalWidth').value = s.goalOverlay?.borderWidth ?? 3;
-          $('ckHeadroom').value = Math.round((s.goalOverlay?.yAxisHeadroomPct ?? 0.15) * 100);
-          $('ckIdealEnabled').checked = s.idealRange?.enabled ?? false;
-          $('ckIdealMin').value = s.idealRange?.min ?? 0;
-          $('ckIdealMax').value = s.idealRange?.max ?? 0;
-          $('ckType').value = s.defaultChartType || 'line';
-          $('ckViz').value = s.defaultVizMode || 'total';
-          applyTheme();
-          // anchor date: default to today (the goals are calendar-2026; today is within range)
-          if (!$('ckAnchor').value) $('ckAnchor').value = new Date().toISOString().slice(0, 10);
-        }
-
-        function applyTheme() { document.body.classList.toggle('light-mode', $('ckTheme').value === 'light'); }
-
-        // ---------------- goals data (the 3 JSON trees) ----------------
-        const goalsCache = {}; // granKey -> tree
-        function goalsFileFor(gran) {
-          const s = settings(); const f = s.goalsFiles || {};
-          const base = (s.goalsBaseUrl || './data').replace(/\/$/, '');
-          const name = gran === '1h' ? f.hour : gran === '1mo' ? f.month : f.day;
-          return name ? `${base}/${name}` : null;
-        }
-        async function loadGoalsTree(gran) {
-          if (goalsCache[gran]) return goalsCache[gran];
-          const url = goalsFileFor(gran);
-          if (!url) { log('warn', `sem arquivo de metas p/ granularidade ${gran}`); return {}; }
-          try {
-            const r = await fetch(url); if (!r.ok) throw new Error(`HTTP ${r.status}`);
-            const json = await r.json();
-            const tree = json?.data?.tree || {};
-            goalsCache[gran] = tree;
-            log('ok', `metas carregadas: ${url.split('/').pop()} (${json?.data?.domain} ${json?.data?.unit}, ano ${json?.data?.year})`);
-            return tree;
-          } catch (e) { log('err', `falha ao carregar metas: ${e.message}`); return {}; }
-        }
-        // consumption "telemetry" file (mock-real MOXUARA) — same tree shape as goals
+        // --- consumption mock files cached by year ---
+        const FILES = {
+          2026: './data/consumption-2026-Hour-Energy-Moxuara.json',
+          2025: './data/consumption-2025-Hour-Energy-Moxuara.json',
+        };
         const consCache = {};
-        function consFileFor(gran) {
-          const s = settings(); const f = s.consumptionFiles || {};
-          const base = (s.goalsBaseUrl || './data').replace(/\/$/, '');
-          const name = gran === '1h' ? f.hour : f.day; // monthly not provided -> synth
-          return name ? `${base}/${name}` : null;
-        }
-        async function loadConsumptionTree(gran) {
-          const key = gran === '1h' ? 'hour' : 'day';
-          if (consCache[key]) return consCache[key];
-          const url = consFileFor(gran);
-          if (!url) return null;
+        async function loadCons(year) {
+          if (consCache[year] !== undefined) return consCache[year];
+          const url = FILES[year];
+          if (!url) { consCache[year] = null; return null; }
           try {
-            const r = await fetch(url); if (!r.ok) throw new Error(`HTTP ${r.status}`);
-            const json = await r.json(); const tree = json?.data?.tree || {};
-            consCache[key] = tree;
-            log('ok', `consumo carregado: ${url.split('/').pop()} (${json?.data?.customerLabel || json?.data?.customerId})`);
-            return tree;
-          } catch (e) { log('warn', `consumo do arquivo indisponível (${e.message}) — usando sintético`); return null; }
-        }
-        // previous-year consumption (YoY) — same MM-DD/MM-DDTHH keys, year-1 file
-        const consPrevCache = {};
-        function consPrevFileFor(gran) {
-          const s = settings(); const f = s.consumptionFilesPrevYear || {};
-          const base = (s.goalsBaseUrl || './data').replace(/\/$/, '');
-          const name = gran === '1h' ? f.hour : f.day;
-          return name ? `${base}/${name}` : null;
-        }
-        async function loadConsumptionTreePrev(gran) {
-          const key = gran === '1h' ? 'hour' : 'day';
-          if (consPrevCache[key]) return consPrevCache[key];
-          const url = consPrevFileFor(gran);
-          if (!url) return null;
-          try {
-            const r = await fetch(url); if (!r.ok) throw new Error(`HTTP ${r.status}`);
-            const tree = (await r.json())?.data?.tree || {};
-            consPrevCache[key] = tree;
-            log('ok', `consumo ano-1 carregado: ${url.split('/').pop()}`);
-            return tree;
-          } catch (e) { log('warn', `consumo ano-1 indisponível (${e.message})`); return null; }
+            const tree = (await (await fetch(url)).json())?.data?.tree || {};
+            consCache[year] = tree; return tree;
+          } catch (e) { consCache[year] = null; return null; }
         }
 
-        // RFC-0213 mapping
-        function goalSubtree(tree, gran) {
-          return (gran === '1h' ? tree?.hourly : gran === '1mo' ? tree?.monthly : tree?.daily) || {};
-        }
-        function goalKeyFor(d, gran) {
-          const mmdd = `${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-          if (gran === '1h') return `${mmdd}T${pad(d.getHours())}`;
-          if (gran === '1mo') return pad(d.getMonth() + 1);
-          return mmdd;
-        }
-
-        // ---------------- window (positions + labels) ----------------
-        function buildPositions(gran, period, anchorStr, startStr) {
-          const anchor = anchorStr ? new Date(anchorStr + 'T23:59:59') : new Date();
-          const out = [];
-          if (gran === '1mo') {
-            for (let m = 0; m < 12; m++) out.push(new Date(anchor.getFullYear(), m, 15));
-            return out;
-          }
+        // --- GoalsModal fetchConsumption callback (mock-real) ---
+        // Returns device totals; GoalsModal sums them. Picks the file by the start year,
+        // so the YoY pass (timestamps shifted -1y) naturally reads the 2025 file.
+        async function fetchConsumption(domain, startTs, endTs, gran) {
+          if (domain !== 'energy') return []; // only energy is mocked
+          const d = new Date(startTs);
+          const tree = await loadCons(d.getFullYear());
+          if (!tree) return [];
+          const mm = pad(d.getMonth() + 1), dd = pad(d.getDate()), hh = pad(d.getHours());
+          let value = 0;
           if (gran === '1h') {
-            const end = new Date(anchor); end.setMinutes(0, 0, 0);
-            // start = explicit windowStart, else anchor - period days
-            let start;
-            if (startStr) { start = new Date(startStr + 'T00:00:00'); }
-            else { start = new Date(end); start.setDate(end.getDate() - (period - 1)); start.setHours(0,0,0,0); }
-            for (let d = new Date(start); d <= end; d.setHours(d.getHours() + 1)) out.push(new Date(d));
-            return out;
-          }
-          // daily
-          let start;
-          if (startStr) { start = new Date(startStr + 'T00:00:00'); }
-          else { start = new Date(anchor); start.setHours(0,0,0,0); start.setDate(anchor.getDate() - (period - 1)); }
-          for (let d = new Date(start); d <= anchor; d.setDate(d.getDate() + 1)) { const x = new Date(d); x.setHours(0,0,0,0); out.push(x); }
-          return out;
-        }
-        function labelFor(d, gran) {
-          if (gran === '1h') return `${pad(d.getDate())}/${pad(d.getMonth()+1)} ${pad(d.getHours())}h`;
-          if (gran === '1mo') return `${MONTHS[d.getMonth()]}/${String(d.getFullYear()).slice(2)}`;
-          return `${pad(d.getDate())}/${pad(d.getMonth()+1)}`;
-        }
-
-        // ---------------- mock consumption from goal ----------------
-        // Deterministic-ish pseudo-random per index so refresh is stable-ish per position.
-        function noise(i, seed) { const x = Math.sin((i + 1) * 12.9898 + seed * 78.233) * 43758.5453; return x - Math.floor(x); }
-
-        // ---------------- build full dataset ----------------
-        async function buildData() {
-          const s = settings();
-          const gran = $('ckGran').value;
-          const period = parseInt($('ckPeriod').value, 10) || 7;
-          const shoppingCount = Math.max(1, parseInt($('ckShoppings').value, 10) || 1);
-          const bias = (parseFloat($('ckBias').value) || 0) / 100;     // e.g. -0.3
-          const variance = (parseFloat($('ckVar').value) || 0) / 100;  // e.g. 0.2
-
-          const tree = await loadGoalsTree(gran);
-          const sub = goalSubtree(tree, gran);
-          const positions = buildPositions(gran, period, $('ckAnchor').value, $('ckWindowStart').value);
-
-          // consumption source: file (mock-real MOXUARA) or synthetic from goal
-          const useFile = $('ckSource').value === 'file' && gran !== '1mo';
-          const consTree = useFile ? await loadConsumptionTree(gran) : null;
-          const consSub = consTree ? goalSubtree(consTree, gran) : null;
-          let sourceLabel = consSub ? 'arquivo' : 'sintético';
-
-          // previous-year (YoY) consumption — same period, year-1 (keys are year-agnostic)
-          const comparePrev = $('ckComparePrev').checked && gran !== '1mo';
-          const prevTree = comparePrev ? await loadConsumptionTreePrev(gran) : null;
-          const prevSub = prevTree ? goalSubtree(prevTree, gran) : null;
-
-          const labels = [], goalSeries = [], dailyTotals = [], prevYearSeries = [];
-          const shoppingData = {}, shoppingNames = {};
-          for (let i = 0; i < shoppingCount; i++) { const id = `shop-${i+1}`; shoppingData[id] = []; shoppingNames[id] = `Shopping ${i+1}`; }
-
-          positions.forEach((d, i) => {
-            labels.push(labelFor(d, gran));
-            const gv = sub[goalKeyFor(d, gran)]?.value;
-            const goal = Number.isFinite(gv) ? gv : null;
-            goalSeries.push(goal);
-
-            // consumption: from file if available, else synthesized from goal
-            let v;
-            if (consSub) {
-              const cv = consSub[goalKeyFor(d, gran)]?.value;
-              v = Number.isFinite(cv) ? cv : null; // gap for hours/days not yet measured
-            } else {
-              const base = goal != null ? goal * (1 + bias) : 30000;
-              v = Math.max(0, base * (1 + (noise(i, 1) - 0.5) * 2 * variance));
-            }
-            dailyTotals.push(v == null ? null : Number(v.toFixed(1)));
-
-            // previous-year value at the same MM-DD / MM-DDTHH key
-            if (prevSub) { const pv = prevSub[goalKeyFor(d, gran)]?.value; prevYearSeries.push(Number.isFinite(pv) ? pv : null); }
-            else { prevYearSeries.push(null); }
-
-            // split across shoppings with random-ish weights
-            const weights = []; let wsum = 0;
-            for (let sIdx = 0; sIdx < shoppingCount; sIdx++) { const w = 0.5 + noise(i, sIdx + 2); weights.push(w); wsum += w; }
-            for (let sIdx = 0; sIdx < shoppingCount; sIdx++) {
-              shoppingData[`shop-${sIdx+1}`].push(v == null ? null : Number((v * weights[sIdx] / wsum).toFixed(1)));
-            }
-          });
-
-          return { gran, labels, dailyTotals, goalSeries, prevYearSeries, shoppingData, shoppingNames, sourceLabel };
-        }
-
-        // ---------------- unit helpers (Bug A: one unit for the whole axis) ----------------
-        function axisUnit(maxVal) {
-          const s = settings();
-          const useLarge = !!(s.unitLarge && s.thresholdForLargeUnit && maxVal >= s.thresholdForLargeUnit);
-          return { useLarge, divisor: useLarge ? s.thresholdForLargeUnit : 1, unit: useLarge ? s.unitLarge : (s.unit || 'kWh') };
-        }
-        function fmt(v) {
-          if (v == null) return '—';
-          const u = axisUnit(Math.abs(v));
-          return `${(v / u.divisor).toFixed(u.useLarge ? 2 : 0)} ${u.unit}`;
-        }
-        function niceCeil(x) {
-          if (x <= 0) return 10;
-          const mag = Math.pow(10, Math.floor(Math.log10(x)));
-          const step = mag / 2;
-          return Math.ceil(x / step) * step;
-        }
-
-        // ---------------- Y max (Bug B + headroom: include ideal range & goal top) ----------------
-        function computeYMax(values, goalTops, idealMax, headroomPct) {
-          const dataMax = Math.max(0, ...values);
-          const goalMax = Math.max(0, ...goalTops.filter((v) => v != null));
-          const overlayTop = Math.max(goalMax, idealMax || 0);
-          let max;
-          if (overlayTop > 0 && overlayTop >= dataMax) max = overlayTop * (1 + headroomPct); // headroom only when overlay drives it
-          else max = dataMax * 1.1; // normal 10% padding
-          return niceCeil(max);
-        }
-
-        // ---------------- render ----------------
-        let chart = null, lastData = null, chartType = 'line', vizMode = 'total';
-
-        function goalTop(p, bandPct) {
-          if (p == null) return null;
-          return $('ckGoalMode').value === 'band' ? p * (1 + bandPct) : p;
-        }
-
-        function render(data) {
-          lastData = data;
-          const s = settings();
-          const themeText = $('ckTheme').value === 'light' ? '#1e293b' : '#f1f5f9';
-          const themeMuted = $('ckTheme').value === 'light' ? '#64748b' : '#94a3b8';
-          const grid = $('ckTheme').value === 'light' ? 'rgba(0,0,0,.08)' : 'rgba(255,255,255,.08)';
-
-          const goalEnabled = $('ckGoalEnabled').checked && vizMode === 'total' && data.goalSeries.some((v) => v != null);
-          const bandMode = $('ckGoalMode').value === 'band';
-          const bandPct = (parseFloat($('ckBandPct').value) || 0) / 100;
-          const headroomPct = (parseFloat($('ckHeadroom').value) || 0) / 100;
-          const goalColor = $('ckGoalColor').value;
-          const goalWidth = parseInt($('ckGoalWidth').value, 10) || 3;
-
-          $('bandNote').style.display = (goalEnabled && bandMode) ? 'block' : 'none';
-
-          // datasets
-          const datasets = [];
-          const shoppingColors = ['#6c5ce7','#16a34a','#0891b2','#db2777','#d97706','#4f46e5','#059669','#dc2626','#9333ea','#0284c7'];
-
-          if (vizMode === 'separate') {
-            Object.entries(data.shoppingData).forEach(([id, vals], idx) => {
-              const c = shoppingColors[idx % shoppingColors.length];
-              datasets.push({ label: data.shoppingNames[id], data: vals, type: chartType,
-                borderColor: c, backgroundColor: chartType === 'line' ? c + '22' : c,
-                fill: false, tension: 0.4, borderWidth: 2, pointRadius: chartType === 'line' ? 2 : 0, borderRadius: 4 });
-            });
+            value = tree.hourly?.[`${mm}-${dd}T${hh}`]?.value ?? 0;
+          } else if (gran === '1M') {
+            const prefix = `${mm}-`;
+            value = Object.entries(tree.daily || {})
+              .filter(([k]) => k.startsWith(prefix))
+              .reduce((s, [, v]) => s + (v.value || 0), 0);
           } else {
-            // previous-year consumption (YoY) — drawn first so it sits behind the current year
-            const showPrev = Array.isArray(data.prevYearSeries) && data.prevYearSeries.some((v) => v != null);
-            // Previous year follows the chart type: a dashed gray LINE in line mode, a gray
-            // BAR grouped to the LEFT of the current-year column in bar mode (pushed first +
-            // lowest order).
-            if (showPrev) {
-              const prevIsLine = chartType === 'line';
-              datasets.push({ label: 'Consumo (ano ant.)', data: data.prevYearSeries, type: chartType,
-                borderColor: '#94a3b8',
-                backgroundColor: prevIsLine ? 'rgba(148,163,184,.12)' : 'rgba(148,163,184,.55)',
-                borderDash: prevIsLine ? [6, 4] : undefined,
-                fill: false, tension: 0.4, borderWidth: 2,
-                pointRadius: prevIsLine ? 2 : 0, borderRadius: 4, order: 4 });
-            }
-            datasets.push({ label: `Consumo (${s.unit || 'kWh'})`, data: data.dailyTotals, type: chartType,
-              borderColor: '#6c5ce7', backgroundColor: chartType === 'line' ? 'rgba(108,92,231,.15)' : '#6c5ce7',
-              fill: chartType === 'line', tension: 0.4, borderWidth: 2, pointRadius: chartType === 'line' ? 3 : 0, borderRadius: 4, order: 5 });
+            value = tree.daily?.[`${mm}-${dd}`]?.value ?? 0;
           }
-
-          // goal overlay
-          if (goalEnabled) {
-            // band only when ± % > 0; at 0% it collapses onto the line, so skip the
-            // mín/máx edge datasets entirely (they would just clutter the tooltip).
-            if (bandMode && bandPct > 0) {
-              const lo = data.goalSeries.map((v) => v == null ? null : v * (1 - bandPct));
-              const hi = data.goalSeries.map((v) => v == null ? null : v * (1 + bandPct));
-              datasets.push({ label: 'Meta (mín)', data: lo, type: 'line', borderColor: goalColor, borderWidth: 1,
-                borderDash: [4,4], pointRadius: 0, fill: false, spanGaps: true, order: 2 });
-              datasets.push({ label: 'Meta (máx)', data: hi, type: 'line', borderColor: goalColor, borderWidth: 1,
-                borderDash: [4,4], pointRadius: 0, spanGaps: true, order: 2, fill: '-1', backgroundColor: s.goalOverlay?.bandColor || 'rgba(249,115,22,.15)' });
-            }
-            datasets.push({ label: `Meta (${s.unit || 'kWh'})`, data: data.goalSeries, type: 'line',
-              borderColor: goalColor, backgroundColor: 'transparent', borderWidth: goalWidth, tension: 0.4,
-              pointRadius: 0, pointHoverRadius: 4, fill: false, spanGaps: true, order: 0 });
-          }
-
-          // ideal range box (only total mode)
-          const idealEnabled = $('ckIdealEnabled').checked && vizMode === 'total';
-          const idealMin = parseFloat($('ckIdealMin').value) || 0;
-          const idealMax = parseFloat($('ckIdealMax').value) || 0;
-          const idealValid = idealEnabled && !(idealMin === 0 && idealMax === 0) && idealMin < idealMax;
-          const annotations = {};
-          if (idealValid) {
-            annotations.idealRangeBox = { type: 'box', yMin: idealMin, yMax: idealMax,
-              backgroundColor: 'rgba(34,197,94,.13)', borderColor: 'rgba(34,197,94,.4)', borderWidth: 1,
-              label: { display: true, content: s.idealRange?.label || 'Faixa Ideal', position: { x: 'start', y: 'center' },
-                color: themeMuted, font: { size: 10, style: 'italic' } } };
-          }
-
-          // Y max: include displayed values + goal tops + ideal max
-          const displayed = vizMode === 'separate'
-            ? Object.values(data.shoppingData).flat()
-            : data.dailyTotals.concat(vizMode === 'total' ? (data.prevYearSeries || []) : []);
-          const goalTops = goalEnabled ? data.goalSeries.map((v) => goalTop(v, bandPct)) : [];
-          const yMax = computeYMax(displayed, goalTops, idealValid ? idealMax : 0, headroomPct);
-          const au = axisUnit(yMax);
-
-          const cfg = {
-            type: chartType,
-            data: { labels: data.labels, datasets },
-            options: {
-              responsive: true, maintainAspectRatio: false, animation: false,
-              interaction: { mode: 'index', intersect: false },
-              plugins: {
-                legend: { display: vizMode === 'separate' || goalEnabled, position: 'bottom', labels: { color: themeText, boxWidth: 12 },
-                  onClick: (e, legendItem, legend) => {
-                    // default toggle, then keep the YoY footer stat in sync with the
-                    // visibility of the "Consumo (ano ant.)" dataset.
-                    Chart.defaults.plugins.legend.onClick(e, legendItem, legend);
-                    syncYoYStat(legend.chart);
-                  } },
-                tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${fmt(ctx.parsed.y)}` } },
-                annotation: Object.keys(annotations).length ? { annotations } : undefined,
-              },
-              scales: {
-                y: { beginAtZero: true, max: yMax, grid: { color: grid },
-                  title: { display: true, text: au.unit, color: themeText, font: { size: 12 } },
-                  ticks: { color: themeMuted, callback: (v) => (v / au.divisor).toFixed(au.useLarge ? 2 : 0) } },
-                x: { grid: { color: grid }, ticks: { color: themeMuted, maxRotation: 0, autoSkip: true } },
-              },
-            },
-          };
-
-          if (chart) chart.destroy();
-          chart = new Chart($('trendChart').getContext('2d'), cfg);
-          updateFooter(data, goalEnabled);
-          $('tpTitle').textContent = `Consumo — ${ {'1d':'diário','1h':'horário','1mo':'mensal'}[data.gran] } (${vizMode === 'total' ? 'consolidado' : 'por shopping'})`;
-
-          // Faixa Ideal is the only non-dataset overlay (an annotation), so it is the only
-          // item that needs a manual legend hint — and only when actually drawn.
-          $('lg-ideal').style.display = idealValid ? '' : 'none';
+          return [{ total_value: value, label: 'Shopping Moxuara (mock)' }];
         }
 
-        // Hide the YoY footer stat when the "Consumo (ano ant.)" dataset is toggled off
-        // via the native legend (and show it again when re-enabled).
-        function syncYoYStat(chartRef) {
-          const idx = chartRef?.data?.datasets?.findIndex((d) => d.label === 'Consumo (ano ant.)') ?? -1;
-          const visible = idx >= 0 && chartRef.isDatasetVisible(idx);
-          $('tpStatYoY').style.display = visible ? '' : 'none';
+        function openModal() {
+          const GM = window.MyIOLibrary && window.MyIOLibrary.GoalsModal;
+          if (!GM) { setStatus('<b>MyIOLibrary.GoalsModal indisponível</b> — rode <code>npm run build</code>.', false); return; }
+          GM.open({ initialDomain: 'energy', fetchConsumption, defaultPeriodDays: 7 });
         }
 
-        // ---------------- footer (vizMode-aware) ----------------
-        function updateFooter(data, goalEnabled) {
-          const sum = (arr) => arr.reduce((a, b) => a + b, 0);
-          if (vizMode === 'separate') {
-            $('lblTotal').textContent = 'Total (todos)'; $('lblAvg').textContent = 'Média por grupo/dia'; $('lblPeak').textContent = 'Pico de um grupo';
-            const allVals = Object.values(data.shoppingData).flat().filter((v) => v != null);
-            const total = sum(allVals); const avg = allVals.length ? total / allVals.length : 0; const peak = Math.max(0, ...allVals);
-            $('statTotal').textContent = fmt(total); $('statAvg').textContent = fmt(avg); $('statPeak').textContent = fmt(peak);
-          } else {
-            $('lblTotal').textContent = 'Total Período'; $('lblAvg').textContent = 'Média Diária'; $('lblPeak').textContent = 'Pico';
-            const t = data.dailyTotals.filter((v) => v != null);
-            const total = sum(t); const avg = t.length ? total / t.length : 0; const peak = Math.max(0, ...t);
-            $('statTotal').textContent = fmt(total); $('statAvg').textContent = fmt(avg); $('statPeak').textContent = fmt(peak);
-          }
-          // adherence vs goal (consolidated only) — only days with BOTH measured consumption and a goal
-          if (goalEnabled && vizMode === 'total') {
-            let cSum = 0, gSum = 0;
-            data.dailyTotals.forEach((c, i) => { const g = data.goalSeries[i]; if (c != null && g != null) { cSum += c; gSum += g; } });
-            $('statAdh').textContent = gSum > 0 ? `${((cSum / gSum) * 100).toFixed(0)}%` : '—';
-          } else { $('statAdh').textContent = '—'; }
-          // YoY: current vs previous year (consolidated only) — only positions present in both
-          const prev = data.prevYearSeries || [];
-          const hasPrev = vizMode === 'total' && prev.some((v) => v != null);
-          $('tpStatYoY').style.display = hasPrev ? '' : 'none';
-          if (hasPrev) {
-            let cur = 0, pre = 0;
-            data.dailyTotals.forEach((c, i) => { const p = prev[i]; if (c != null && p != null) { cur += c; pre += p; } });
-            const pct = pre > 0 ? ((cur - pre) / pre) * 100 : 0;
-            const y = $('ckAnchor').value ? new Date($('ckAnchor').value).getFullYear() : new Date().getFullYear();
-            $('lblYoY').textContent = `Consumo ${y} x ${y - 1}`;
-            const el = $('statYoY');
-            el.textContent = `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%`;
-            el.style.color = pct >= 0 ? '#22c55e' : '#ef4444';
-          }
+        async function boot() {
+          if (typeof Chart === 'undefined') setStatus('Chart.js não carregou (CDN).', false);
+
+          // Goals tree → window.MyIOUtils.goalsData.energy (the Hour file carries monthly+daily+hourly)
+          window.MyIOUtils = window.MyIOUtils || {};
+          window.MyIOUtils.goalsData = window.MyIOUtils.goalsData || {};
+          try {
+            const goals = await (await fetch('./data/goals-2026-Hour-Energy-Moxuara.json')).json();
+            window.MyIOUtils.goalsData.energy = goals;
+          } catch (e) { console.warn('[showcase] metas não carregaram', e); }
+
+          const hasGM = !!(window.MyIOLibrary && window.MyIOLibrary.GoalsModal);
+          setStatus(hasGM
+            ? 'Biblioteca carregada · <b>GoalsModal pronto</b>. Abrindo…'
+            : '<b>GoalsModal não encontrado no UMD</b> — rode <code>npm run build</code>.', hasGM);
+
+          $('openBtn').addEventListener('click', openModal);
+          if (hasGM) setTimeout(openModal, 250); // auto-open
         }
 
-        // ---------------- CSV ----------------
-        function exportCSV() {
-          if (!lastData) return;
-          const d = lastData; const rows = [];
-          if (vizMode === 'separate') {
-            const ids = Object.keys(d.shoppingData);
-            rows.push(['Data', ...ids.map((id) => d.shoppingNames[id]), 'Meta'].join(';'));
-            d.labels.forEach((lbl, i) => rows.push([lbl, ...ids.map((id) => d.shoppingData[id][i]), d.goalSeries[i] ?? ''].join(';')));
-          } else {
-            rows.push(['Data', 'Consumo', 'Meta'].join(';'));
-            d.labels.forEach((lbl, i) => rows.push([lbl, d.dailyTotals[i], d.goalSeries[i] ?? ''].join(';')));
-          }
-          const blob = new Blob(['﻿' + rows.join('\n')], { type: 'text/csv;charset=utf-8' });
-          const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-          a.download = `consumption-trend-${d.gran}.csv`; a.click(); URL.revokeObjectURL(a.href);
-          log('ok', 'CSV exportado');
-        }
-
-        // ---------------- refresh pipeline ----------------
-        async function refresh() {
-          try { const data = await buildData(); render(data); log('info', `render: ${data.labels.length} pontos, gran=${data.gran}, viz=${vizMode}`); }
-          catch (e) { log('err', `render falhou: ${e.message}`); }
-        }
-
-        // ---------------- wiring ----------------
-        function wire() {
-          // env tabs
-          $('ckEnvTab').addEventListener('click', (e) => {
-            const b = e.target.closest('button'); if (!b) return;
-            ENV = b.dataset.env;
-            Object.keys(goalsCache).forEach((k) => delete goalsCache[k]);
-            Object.keys(consCache).forEach((k) => delete consCache[k]);
-            Object.keys(consPrevCache).forEach((k) => delete consPrevCache[k]);
-            $('ckEnvTab').querySelectorAll('button').forEach((x) => x.classList.toggle('active', x === b));
-            applyEnvToForm(); refresh(); log('info', `env -> ${ENV}`);
-          });
-          // collapsible fieldsets
-          document.querySelectorAll('fieldset.ck-fs > legend').forEach((lg) =>
-            lg.addEventListener('click', () => lg.parentElement.classList.toggle('collapsed')));
-          // cockpit toggle
-          $('ckToggle').addEventListener('click', () => document.body.classList.toggle('cockpit-collapsed'));
-          $('ckConsoleHead').addEventListener('click', () => { const l = $('ck-log'); l.style.display = l.style.display === 'none' ? 'block' : 'none'; });
-          // theme
-          $('ckTheme').addEventListener('change', () => { applyTheme(); refresh(); });
-          // header buttons (granularity / chart type / viz mode)
-          $('btnGranMo').addEventListener('click', () => setGran('1mo'));
-          $('btnGranDay').addEventListener('click', () => setGran('1d'));
-          $('btnGranHour').addEventListener('click', () => setGran('1h'));
-          $('btnLine').addEventListener('click', () => setType('line'));
-          $('btnBar').addEventListener('click', () => setType('bar'));
-          $('btnTotal').addEventListener('click', () => setViz('total'));
-          $('btnSeparate').addEventListener('click', () => setViz('separate'));
-          // sync from cockpit selects
-          $('ckGran').addEventListener('change', () => setGran($('ckGran').value));
-          $('ckType').addEventListener('change', () => setType($('ckType').value));
-          $('ckViz').addEventListener('change', () => setViz($('ckViz').value));
-          // data-source / window changes reload immediately (ckGran handled by setGran)
-          ['ckSource','ckComparePrev','ckWindowStart','ckAnchor','ckPeriod','ckShoppings'].forEach((id) => $(id).addEventListener('change', refresh));
-          // apply / export
-          $('ckApply').addEventListener('click', refresh);
-          $('ckExport').addEventListener('click', exportCSV);
-          // re-render live on overlay tweaks
-          ['ckGoalEnabled','ckGoalMode','ckGoalColor','ckGoalWidth','ckHeadroom','ckBandPct','ckIdealEnabled','ckIdealMin','ckIdealMax']
-            .forEach((id) => $(id).addEventListener('change', () => lastData && render(lastData)));
-        }
-        function setGran(g) {
-          $('ckGran').value = g;
-          $('btnGranMo').classList.toggle('active', g === '1mo');
-          $('btnGranDay').classList.toggle('active', g === '1d');
-          $('btnGranHour').classList.toggle('active', g === '1h');
-          refresh(); // granularity changes the dataset/window -> reload
-        }
-        function setType(t) {
-          chartType = t; $('ckType').value = t;
-          $('btnLine').classList.toggle('active', t === 'line'); $('btnBar').classList.toggle('active', t === 'bar');
-          if (lastData) render(lastData);
-        }
-        function setViz(m) {
-          vizMode = m; $('ckViz').value = m;
-          $('btnTotal').classList.toggle('active', m === 'total'); $('btnSeparate').classList.toggle('active', m === 'separate');
-          if (lastData) render(lastData);
-        }
-
-        function syncHeaderTabs() {
-          const g = $('ckGran').value;
-          $('btnGranMo').classList.toggle('active', g === '1mo');
-          $('btnGranDay').classList.toggle('active', g === '1d');
-          $('btnGranHour').classList.toggle('active', g === '1h');
-          $('btnLine').classList.toggle('active', chartType === 'line');
-          $('btnBar').classList.toggle('active', chartType === 'bar');
-          $('btnTotal').classList.toggle('active', vizMode === 'total');
-          $('btnSeparate').classList.toggle('active', vizMode === 'separate');
-        }
-
-        // ---------------- boot ----------------
-        (async function init() {
-          log('info', `Chart.js ${typeof Chart !== 'undefined' ? Chart.version : 'AUSENTE'}`);
-          await loadConfig();
-          applyEnvToForm();
-          chartType = $('ckType').value; vizMode = $('ckViz').value;
-          syncHeaderTabs();
-          wire();
-          await refresh();
-          log('ok', 'ConsumptionTrendPanel showcase pronto.');
-        })();
+        boot();
       })();
     </script>
   </body>
