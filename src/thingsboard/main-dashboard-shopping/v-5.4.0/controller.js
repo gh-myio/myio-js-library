@@ -42,6 +42,13 @@ function toastError(message) {
   else window.alert(message);
 }
 
+// Warning toast (non-fatal). Falls back to a console warn (no alert — it's not an error).
+function toastWarn(message) {
+  const toast = window.MyIOLibrary?.MyIOToast;
+  if (toast?.warning) toast.warning(message);
+  else LogHelper.warn(message);
+}
+
 // Load the MyIO standard font (Nunito) once. In the ThingsBoard runtime there is no host
 // HTML we control, so the widget injects the Google Fonts <link> itself (idempotent by id).
 // styles.css applies it via #myio-root { font-family: var(--myio-font) }; components default to it.
@@ -69,6 +76,7 @@ Object.assign(window.MyIOUtils, {
   SuperAdmin: false,
   currentUserEmail: null,
   enableAnnotationsOnboarding: false,
+  enableReportButton: false, // parity v-5.2.0: report button hidden unless settings enable it
   currentTheme: 'light',
   setTheme: (theme) => {
     window.MyIOUtils.currentTheme = theme;
@@ -172,6 +180,7 @@ function classifyGcdrDevices(devices, tree) {
     for (const c of d.columns) byDomainColumn[d.code][c.key] = [];
   }
   const unknown = [];
+  const unknownProfiles = {}; // deviceProfile (uppercased) → count, for diagnostics
   const pidx = tree?.profileIndex || {};
   for (const dev of devices || []) {
     const meta = gcdrDeviceToMeta(dev);
@@ -181,9 +190,11 @@ function classifyGcdrDevices(devices, tree) {
       (byDomainColumn[loc.domain][loc.column] ||= []).push(meta);
     } else {
       unknown.push(meta);
+      const pk = key || '(vazio)';
+      unknownProfiles[pk] = (unknownProfiles[pk] || 0) + 1;
     }
   }
-  return { byDomainColumn, unknown };
+  return { byDomainColumn, unknown, unknownProfiles };
 }
 
 // ============================================================================
@@ -413,10 +424,22 @@ function processDataAndDispatchEvents() {
   if (devices.length === 0) return false;
 
   // Classify by deviceProfile via the tree's profileIndex (agnostic, no fallback bucket).
-  const { byDomainColumn: classified, unknown } = classifyGcdrDevices(devices, _classificationTree);
+  const { byDomainColumn: classified, unknown, unknownProfiles } = classifyGcdrDevices(
+    devices,
+    _classificationTree
+  );
   if (unknown.length) {
-    toastError(
-      `[MAIN_VIEW v5.4.0] ${unknown.length} dispositivo(s) com deviceProfile não mapeado na árvore de classificação.`
+    // Diagnostics: WHICH deviceProfiles didn't match, and WHAT the tree offers — so the gap
+    // (a profile the devices use but the GCDR taxonomy doesn't cadastrar) is actionable.
+    const dist = Object.entries(unknownProfiles)
+      .sort((a, b) => b[1] - a[1])
+      .map(([p, n]) => `${p}×${n}`)
+      .join(', ');
+    const treeProfiles = Object.keys(_classificationTree?.profileIndex || {}).sort().join(', ');
+    LogHelper.warn(`[classification] ${unknown.length}/${devices.length} devices não-mapeados. Profiles ausentes na árvore: ${dist}`);
+    LogHelper.warn(`[classification] Profiles disponíveis na árvore GCDR: ${treeProfiles || '(nenhum)'}`);
+    toastWarn(
+      `[MAIN_VIEW v5.4.0] ${unknown.length} dispositivo(s) com deviceProfile fora da taxonomia GCDR: ${dist}. Cadastre esses profiles na árvore (/entities) para que apareçam nos cards.`
     );
   }
 
@@ -1002,7 +1025,11 @@ function createComponents() {
       container: headerContainer,
       themeMode: _currentThemeMode,
       credentials: _credentials,
-      configTemplate: { timezone: 'America/Sao_Paulo' },
+      // showReportButton driven by the widget setting (default false, parity with v-5.2.0).
+      configTemplate: {
+        timezone: 'America/Sao_Paulo',
+        showReportButton: window.MyIOUtils?.enableReportButton ?? false,
+      },
       onLoad: (period) => {
         LogHelper.log('Load clicked, period:', period);
         window.dispatchEvent(new CustomEvent('myio:update-date', { detail: { period } }));
@@ -1475,6 +1502,11 @@ self.onInit = async function () {
   window.MyIOUtils.enableAnnotationsOnboarding = enableAnnotationsOnboarding;
   LogHelper.log('RFC-0144: enableAnnotationsOnboarding:', enableAnnotationsOnboarding);
 
+  // Parity v-5.2.0: report button in the header is hidden by default; the setting enables it.
+  const enableReportButton = settings.enableReportButton ?? false;
+  window.MyIOUtils.enableReportButton = enableReportButton;
+  LogHelper.log('enableReportButton:', enableReportButton);
+
   // RFC-0178: Alarms API config from settings (no hard-coded URLs; toast on misconfiguration)
   const alarmsApiBaseUrl = settings.alarmsApiBaseUrl || '';
   if (!alarmsApiBaseUrl) {
@@ -1553,24 +1585,27 @@ self.onInit = async function () {
   }
 
   // RFC-0047: publish the GCDR X-API-Key BEFORE any GCDR fetch (resolve/devices/customers read
-  // MyIOOrchestrator.gcdrApiKey first). Source: widget settings → SERVER_SCOPE attr (parity with
-  // v-5.2.0). Without this the onInit fetches run with an empty key → 401. Mirror to customerAttrs
-  // so the secondary fallback in the fetchers also resolves.
-  const _gcdrApiKey = settings.gcdrApiKey || _credentials?.gcdrApiKey || '';
-  if (window.MyIOOrchestrator) window.MyIOOrchestrator.gcdrApiKey = _gcdrApiKey;
+  // MyIOOrchestrator.gcdrApiKey first). Sources, in order: widget settings → SERVER_SCOPE attr →
+  // customerAttrs.gcdrapikey (set by the showcase seed and by onDataUpdated's customer-attr
+  // extraction). Without this the onInit fetches run with an empty key → 401.
   window.MyIOUtils.customerAttrs = window.MyIOUtils.customerAttrs || {};
+  const _gcdrApiKey =
+    settings.gcdrApiKey || _credentials?.gcdrApiKey || window.MyIOUtils.customerAttrs.gcdrapikey || '';
+  if (window.MyIOOrchestrator) window.MyIOOrchestrator.gcdrApiKey = _gcdrApiKey;
   if (_gcdrApiKey) window.MyIOUtils.customerAttrs.gcdrapikey = _gcdrApiKey;
   if (!_gcdrApiKey) {
     toastError(
-      '[MAIN_VIEW v5.4.0] gcdrApiKey ausente (settings + SERVER_SCOPE). As chamadas GCDR retornarão 401.'
+      '[MAIN_VIEW v5.4.0] gcdrApiKey ausente (settings + SERVER_SCOPE + customerAttrs). As chamadas GCDR retornarão 401.'
     );
   }
 
-  // Ingestion clientId/clientSecret now come from the GCDR customer metadata.
-  // Fetch them once gcdrCustomerId is resolved; GCDR values win over any legacy
-  // SERVER_SCOPE values (which migrate away). Merge into _credentials so the rest
-  // of the flow (orchestrator + footer token) is unchanged.
-  if (gcdrCustomerId) {
+  // Ingestion clientId/clientSecret: SERVER_SCOPE is the working source; GCDR customer metadata
+  // (RFC-0211) is only an override. We hit GCDR /customers ONLY when SERVER_SCOPE didn't already
+  // provide them — the dashboard's customer API key (gcdr_cust_*) is entities-read/resolve-only
+  // and lacks `customers:read`, so calling it unconditionally just produces a noisy 401.
+  const _haveIngestionCreds = !!(_credentials?.clientId && _credentials?.clientSecret);
+  if (gcdrCustomerId && !_haveIngestionCreds) {
+    LogHelper.log('[ingestion] clientId/secret ausentes no SERVER_SCOPE — tentando GCDR /customers metadata…');
     const gcdrCreds = await fetchGcdrCustomerCredentials(gcdrApiBaseUrl, gcdrCustomerId);
     if (gcdrCreds && (gcdrCreds.clientId || gcdrCreds.clientSecret || gcdrCreds.ingestionId)) {
       _credentials = {
@@ -1579,7 +1614,13 @@ self.onInit = async function () {
         clientSecret: gcdrCreds.clientSecret || _credentials?.clientSecret || '',
         ingestionId: gcdrCreds.ingestionId || _credentials?.ingestionId || '',
       };
+    } else {
+      toastError(
+        '[MAIN_VIEW v5.4.0] Credenciais de ingestão (clientId/clientSecret) não encontradas: ausentes no SERVER_SCOPE e o GCDR /customers exige escopo customers:read (a key do customer não tem). Cadastre clientId/clientSecret no SERVER_SCOPE do customer ou use uma API key com customers:read.'
+      );
     }
+  } else if (_haveIngestionCreds) {
+    LogHelper.log('[ingestion] clientId/secret obtidos do SERVER_SCOPE — GCDR /customers não é necessário.');
   }
 
   // Set credentials in orchestrator (after the GCDR merge so it carries the real creds)

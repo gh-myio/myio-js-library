@@ -427,7 +427,11 @@
       node[parts[parts.length - 1]] = val;
     }
     function readSettings() {
-      const settings = {};
+      // Seed from the active env's config settings so keys that are NOT rendered as form fields
+      // (e.g. gcdrCustomerId / gcdrTenantId — removed from settingsSchema, but still needed by the
+      // controller) reach ctx.settings. The editable form values are overlaid on top.
+      const envSettings = _config?.environments?.[_currentEnv]?.settings || {};
+      const settings = JSON.parse(JSON.stringify(envSettings));
       document.querySelectorAll('#sc-fields [data-setkey]').forEach((el) => {
         const key = el.dataset.setkey, kind = el.dataset.kind;
         let val;

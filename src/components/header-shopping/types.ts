@@ -120,6 +120,6 @@ export const DEFAULT_HEADER_SHOPPING_CONFIG: Required<HeaderShoppingConfigTempla
   dataApiHost: '',
   timezone: 'America/Sao_Paulo',
   showContractStatus: true,
-  showReportButton: true,
+  showReportButton: false,
   showForceRefreshButton: true,
 };

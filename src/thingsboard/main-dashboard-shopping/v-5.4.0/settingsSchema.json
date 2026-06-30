@@ -183,6 +183,12 @@
         "default": false,
         "description": "RFC-0144: Habilita o onboarding de Anotações do Dispositivo no modal de Settings. Se false, o onboarding nunca é exibido."
       },
+      "enableReportButton": {
+        "title": "Enable Report Button",
+        "type": "boolean",
+        "default": false,
+        "description": "Habilita o botão Relatório Geral no header. Por padrão desabilitado — ative apenas quando a integração de relatórios estiver configurada para o cliente."
+      },
       "alarmsApiBaseUrl": {
         "title": "Alarms API Base URL",
         "type": "string",
@@ -277,6 +283,7 @@
     },
     "excludeDevicesAtCountSubtotalCAG",
     "enableAnnotationsOnboarding",
+    "enableReportButton",
     "alarmsApiBaseUrl",
     "alarmsApiKey",
     "gcdrApiBaseUrl",
