@@ -96,6 +96,8 @@ let _dataProcessedOnce = false;
 // Active consumption period { startISO, endISO }. Default = current month; updated by the
 // header date picker (myio:update-date). Drives the Data Apps consumption/temperature fetch.
 let _currentPeriod = null;
+// RFC-0214: whether the alarm filter (show only devices with alarms) is currently active.
+let _alarmFilterActive = false;
 // Domains whose values come from the per-device temperature time-series endpoint instead of
 // the customer consumption-totals endpoint (the Data Apps totals readingType is energy|water).
 const TEMPERATURE_DOMAIN_CODES = ['temperature'];
@@ -870,9 +872,318 @@ async function _prefetchCustomerAlarms(gcdrCustomerId, gcdrTenantId, alarmsBaseU
     const alarms = Array.isArray(json.data) ? json.data : (json.items ?? json.data?.items ?? []);
     if (window.MyIOOrchestrator) window.MyIOOrchestrator.customerAlarms = alarms;
     LogHelper.log('[MAIN] RFC-0180: customerAlarms pre-fetched:', alarms.length, 'alarms');
+    // RFC-0214: build the alarm orchestrator over the fresh data + push the header badge.
+    buildAlarmServiceOrchestrator();
+    updateAlarmBadge();
   } catch (err) {
     LogHelper.warn('[MAIN] _prefetchCustomerAlarms error:', err);
+    _headerInstance?.setAlarmBadge?.(0, { loading: false, configured: false });
   }
+}
+
+// ============================================================================
+// RFC-0214: operational orchestrators + header buttons (🔔 alarm / 🎫 ticket / ✏️ annotation).
+// The header-shopping component renders the buttons + badges; this controller builds the three
+// window.*ServiceOrchestrator globals (parity with v-5.2.0's MAIN_VIEW) and pushes badges/filter.
+// ============================================================================
+
+// --- 🔔 Alarm: window.AlarmServiceOrchestrator (built inline — no lib equivalent; RFC-0183) ---
+function buildAlarmServiceOrchestrator() {
+  const alarms = window.MyIOOrchestrator?.customerAlarms || [];
+  const deviceAlarmMap = new Map(); // gcdrDeviceId → alarm[]  (alarm.deviceId is the GCDR device id)
+  for (const a of alarms) {
+    const did = a.deviceId;
+    if (!did) continue;
+    if (!deviceAlarmMap.has(did)) deviceAlarmMap.set(did, []);
+    deviceAlarmMap.get(did).push(a);
+  }
+  window.AlarmServiceOrchestrator = {
+    alarms,
+    deviceAlarmMap,
+    getAlarmCountForDevice: (id) => deviceAlarmMap.get(id)?.length ?? 0,
+    getAlarmsForDevice: (id) => deviceAlarmMap.get(id) ?? [],
+    refresh: async () => {
+      const o = window.MyIOOrchestrator;
+      await _prefetchCustomerAlarms(o?.gcdrCustomerId, o?.gcdrTenantId, o?.alarmsApiBaseUrl || '');
+    },
+  };
+  if (window.MyIOOrchestrator) window.MyIOOrchestrator.alarmsConfigured = true;
+}
+
+// Offline/connectivity alarms are excluded from the badge unless showOfflineAlarms is on.
+function _isOfflineAlarm(a) {
+  const t = String(a?.title || '').toUpperCase();
+  return a?.alarmType === 'connectivity' || t.startsWith('DEVICE OFFLINE') || t.startsWith('DISPOSITIVO OFFLINE');
+}
+function updateAlarmBadge() {
+  const alarms = window.MyIOOrchestrator?.customerAlarms || [];
+  const showOffline = window.MyIOOrchestrator?.showOfflineAlarms === true;
+  const count = showOffline ? alarms.length : alarms.filter((a) => !_isOfflineAlarm(a)).length;
+  _headerInstance?.setAlarmBadge?.(count, { loading: false, configured: true });
+}
+
+// Alarm filter toggle: re-feed each dynamic grid with only devices that have alarms (or restore all).
+function toggleAlarmFilter() {
+  if (!window.MyIOOrchestrator?.alarmsConfigured) return;
+  const alarms = window.MyIOOrchestrator?.customerAlarms || [];
+  if (!_alarmFilterActive && alarms.length === 0) return; // nothing to filter
+  _alarmFilterActive = !_alarmFilterActive;
+  _headerInstance?.setAlarmFilterActive?.(_alarmFilterActive);
+  const alarmIds = new Set(alarms.map((a) => a.deviceId).filter(Boolean));
+  const classified = window.STATE?.classified || {};
+  for (const d of _classificationTree?.domains || []) {
+    for (const c of d.columns) {
+      const items = classified[d.code]?.[c.key] || [];
+      const feed = _alarmFilterActive ? items.filter((x) => alarmIds.has(x.gcdrDeviceId)) : items;
+      _grids.get(`${d.code}::${c.key}`)?.updateDevices?.(feed.map(toTelemetryDevice));
+    }
+  }
+  window.dispatchEvent(
+    new CustomEvent('myio:global-alarm-filter', {
+      detail: { mode: _alarmFilterActive ? 'apenas_ativados' : 'ativado' },
+    })
+  );
+}
+
+// --- ✏️ Annotation: window.AnnotationServiceOrchestrator (lib; RFC-0203) ---
+async function buildAnnotationOrchestrator(customerTbId) {
+  const lib = window.MyIOLibrary;
+  if (!lib?.buildAnnotationServiceOrchestrator) {
+    _headerInstance?.setAnnotationBadge?.(0, { loading: false });
+    return;
+  }
+  const jwt = self.ctx?.http?.getServerCredentials?.()?.token || localStorage.getItem('jwt_token');
+  if (!jwt || !customerTbId) {
+    LogHelper.warn('[RFC-0214] anotações: jwt/customerTB_ID ausentes — orquestrador não construído.');
+    _headerInstance?.setAnnotationBadge?.(0, { loading: false });
+    return;
+  }
+  try {
+    const orch = await lib.buildAnnotationServiceOrchestrator({
+      customerId: customerTbId,
+      tbHost: window.location.origin,
+      jwt,
+      logger: LogHelper,
+    });
+    window.AnnotationServiceOrchestrator = orch;
+    if (window.MyIOOrchestrator) window.MyIOOrchestrator.annotationsConfigured = true;
+    updateAnnotationBadge();
+  } catch (err) {
+    LogHelper.error('[RFC-0214] buildAnnotationServiceOrchestrator falhou:', err);
+    _headerInstance?.setAnnotationBadge?.(0, { loading: false });
+  }
+}
+function updateAnnotationBadge() {
+  const o = window.AnnotationServiceOrchestrator;
+  if (!o) return;
+  _headerInstance?.setAnnotationBadge?.(o.getTotalCount?.() ?? 0, {
+    pending: o.getPendingCount?.() ?? 0,
+    overdue: o.getOverdueCount?.() ?? 0,
+    loading: false,
+  });
+}
+function openAnnotationsPanel() {
+  const panel = window.MyIOLibrary?.getHeaderAnnotationsPanel?.();
+  const btn = _headerInstance?.element?.querySelector?.('#tbx-btn-annotation-notif');
+  if (panel && btn && typeof panel.toggle === 'function') panel.toggle(btn);
+  else if (panel && btn && typeof panel.show === 'function') panel.show(btn);
+  else toastWarn('[RFC-0214] Painel de anotações indisponível.');
+}
+
+// --- 🎫 Ticket: window.TicketServiceOrchestrator (lib, gated; RFC-0198) ---
+async function buildTicketOrchestrator(settings) {
+  const lib = window.MyIOLibrary;
+  const apiKey = settings.freshdeskApiKey || '';
+  const domain = settings.freshdeskDomain || 'myiocom.freshdesk.com';
+  if (window.MyIOUtils) {
+    window.MyIOUtils.freshdeskApiKey = apiKey;
+    window.MyIOUtils.freshdeskDomain = domain;
+  }
+  if (!lib?.buildTicketServiceOrchestrator || !lib?.FreshdeskClient || !apiKey) {
+    _headerInstance?.setTicketBadge?.(0, { loading: false });
+    return;
+  }
+  // Gate: tickets_enabled customer attr (default OFF) + tickets_only_to_myio (default ON).
+  const attrs = window.MyIOUtils?.customerAttrs || {};
+  const rawEnabled = attrs.tickets_enabled === true || String(attrs.tickets_enabled) === 'true';
+  const onlyMyio =
+    attrs.tickets_only_to_myio === undefined ? true : String(attrs.tickets_only_to_myio) !== 'false';
+  const email = (window.MyIOUtils?.currentUserEmail || '').toLowerCase().trim();
+  const userAllowed = !onlyMyio || email.endsWith('@myio.com.br');
+  if (!(rawEnabled && userAllowed)) {
+    LogHelper.log('[RFC-0214] tickets desabilitados (tickets_enabled / tickets_only_to_myio).');
+    _headerInstance?.setTicketBadge?.(0, { loading: false });
+    return;
+  }
+  try {
+    const jwt = localStorage.getItem('jwt_token') || '';
+    window.TicketServiceOrchestrator = await lib.buildTicketServiceOrchestrator(
+      domain,
+      apiKey,
+      lib.FreshdeskClient,
+      jwt ? { tbBaseUrl: window.location.origin, jwtToken: jwt, identifierToTbId: new Map() } : undefined
+    );
+    updateTicketBadge();
+  } catch (err) {
+    LogHelper.error('[RFC-0214] buildTicketServiceOrchestrator falhou:', err);
+    _headerInstance?.setTicketBadge?.(0, { loading: false, error: true });
+  }
+}
+function updateTicketBadge() {
+  const o = window.TicketServiceOrchestrator;
+  if (!o) return;
+  let total = 0;
+  o.deviceTicketMap?.forEach((t) => {
+    total += t.length;
+  });
+  _headerInstance?.setTicketBadge?.(total, { loading: false });
+}
+// Open a specific ticket's detail modal (shared by the button click and the hover-list rows).
+function _openTicket(ticket) {
+  const lib = window.MyIOLibrary;
+  if (!ticket) {
+    toastWarn('[RFC-0214] Nenhum chamado aberto.');
+    return;
+  }
+  if (!lib?.createTicketDetailModal) {
+    toastWarn('[RFC-0214] Detalhe de chamado indisponível nesta versão.');
+    return;
+  }
+  try {
+    lib
+      .createTicketDetailModal({
+        freshdeskDomain: window.MyIOUtils?.freshdeskDomain || 'myiocom.freshdesk.com',
+        freshdeskApiKey: window.MyIOUtils?.freshdeskApiKey || '',
+        ticket,
+        onTicketCancelled: () => window.TicketServiceOrchestrator?.refresh?.().then(updateTicketBadge),
+        onNoteAdded: () => window.TicketServiceOrchestrator?.refresh?.().then(updateTicketBadge),
+      })
+      .open();
+  } catch (err) {
+    LogHelper.error('[RFC-0214] createTicketDetailModal falhou:', err);
+    toastWarn('[RFC-0214] Falha ao abrir o chamado.');
+  }
+}
+function openTicketDetail() {
+  _openTicket((window.TicketServiceOrchestrator?.tickets || [])[0]);
+}
+
+// ----------------------------------------------------------------------------
+// RFC-0214: hover tooltips for the header notif buttons.
+//  - 🔔 alarm / 🎫 ticket → a lightweight controller-built summary panel (count by status +
+//    the 10 most recent; ticket rows open the detail modal on click).
+//  - ✏️ annotation → the lib's HeaderAnnotationsPanel (hover open / delayed hide).
+// The rich draggable/pinnable v-5.2.0 tooltips are a future refinement.
+// ----------------------------------------------------------------------------
+let _hdrTip = null;
+let _hdrTipTimer = null;
+function _escapeHtmlHdr(s) {
+  return String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+function _ensureHdrTip() {
+  if (_hdrTip && document.body.contains(_hdrTip)) return _hdrTip;
+  _hdrTip = document.createElement('div');
+  _hdrTip.id = 'myio-header-hover-tip';
+  Object.assign(_hdrTip.style, {
+    position: 'fixed', zIndex: '100000', minWidth: '260px', maxWidth: '360px', maxHeight: '60vh',
+    overflow: 'auto', background: '#1e293b', color: '#e2e8f0', border: '1px solid #334155',
+    borderRadius: '10px', boxShadow: '0 12px 40px rgba(0,0,0,.45)', padding: '12px 14px',
+    font: "12px 'Nunito', system-ui, -apple-system, sans-serif", display: 'none',
+  });
+  _hdrTip.addEventListener('mouseenter', () => {
+    if (_hdrTipTimer) clearTimeout(_hdrTipTimer);
+  });
+  _hdrTip.addEventListener('mouseleave', () => _hideHdrTip());
+  _hdrTip.addEventListener('click', (e) => {
+    const row = e.target.closest('[data-ticket-id]');
+    if (row) _openTicket((window.TicketServiceOrchestrator?.tickets || []).find((t) => String(t.id) === row.dataset.ticketId));
+  });
+  document.body.appendChild(_hdrTip);
+  return _hdrTip;
+}
+function _showHdrTip(anchorEl, html) {
+  const tip = _ensureHdrTip();
+  if (_hdrTipTimer) clearTimeout(_hdrTipTimer);
+  tip.innerHTML = html;
+  tip.style.display = 'block';
+  const r = anchorEl.getBoundingClientRect();
+  const tw = Math.min(360, window.innerWidth - 16);
+  let left = r.left;
+  if (left + tw > window.innerWidth - 8) left = window.innerWidth - tw - 8;
+  tip.style.left = Math.max(8, left) + 'px';
+  tip.style.top = r.bottom + 8 + 'px';
+}
+function _hideHdrTip() {
+  if (_hdrTipTimer) clearTimeout(_hdrTipTimer);
+  _hdrTipTimer = setTimeout(() => {
+    if (_hdrTip) _hdrTip.style.display = 'none';
+  }, 200);
+}
+function _chip(text) {
+  return `<span style="display:inline-block;padding:2px 8px;margin:0 4px 4px 0;border-radius:10px;background:#334155;font-weight:700">${_escapeHtmlHdr(text)}</span>`;
+}
+function _alarmTipHtml() {
+  const alarms = window.MyIOOrchestrator?.customerAlarms || [];
+  const showOffline = window.MyIOOrchestrator?.showOfflineAlarms === true;
+  const visible = alarms.filter((a) => showOffline || !_isOfflineAlarm(a));
+  const byState = {};
+  for (const a of visible) {
+    const s = a.state || 'OPEN';
+    byState[s] = (byState[s] || 0) + 1;
+  }
+  const chips = Object.entries(byState).map(([s, n]) => _chip(`${s}: ${n}`)).join('') ||
+    '<span style="opacity:.7">Sem alarmes ativos</span>';
+  const rows = visible.slice(0, 10).map((a) =>
+    `<div style="padding:6px 0;border-top:1px solid #334155">
+       <div style="font-weight:600">${_escapeHtmlHdr(a.title || a.alarmType || 'Alarme')}</div>
+       <div style="opacity:.7">${_escapeHtmlHdr(a.severity || '')} · ${_escapeHtmlHdr(a.state || '')}</div>
+     </div>`).join('');
+  return `<div style="font-weight:800;font-size:13px;margin-bottom:8px">🔔 Alarmes (${visible.length})</div>
+    <div style="margin-bottom:6px">${chips}</div>${rows}`;
+}
+function _ticketTipHtml() {
+  const tickets = window.TicketServiceOrchestrator?.tickets || [];
+  const labels = { 2: 'Aberto', 3: 'Pendente', 6: 'Aguardando' };
+  const byStatus = {};
+  for (const t of tickets) byStatus[t.status] = (byStatus[t.status] || 0) + 1;
+  const chips = Object.entries(byStatus).map(([s, n]) => _chip(`${labels[s] || 'Status ' + s}: ${n}`)).join('') ||
+    '<span style="opacity:.7">Sem chamados</span>';
+  const rows = tickets.slice(0, 10).map((t) =>
+    `<div data-ticket-id="${_escapeHtmlHdr(t.id)}" style="padding:6px 0;border-top:1px solid #334155;cursor:pointer">
+       <div style="font-weight:600">#${_escapeHtmlHdr(t.id)} — ${_escapeHtmlHdr(t.subject || '')}</div>
+     </div>`).join('');
+  return `<div style="font-weight:800;font-size:13px;margin-bottom:8px">🎫 Chamados (${tickets.length})</div>
+    <div style="margin-bottom:6px">${chips}</div>${rows}`;
+}
+function _attachHoverTip(btn, buildHtml) {
+  if (!btn) return;
+  btn.addEventListener('mouseenter', () => {
+    if (btn.classList.contains('is-loading')) return;
+    _showHdrTip(btn, buildHtml());
+  });
+  btn.addEventListener('mouseleave', () => _hideHdrTip());
+}
+function _wireAnnotationHover(btn) {
+  if (!btn) return;
+  const panel = () => window.MyIOLibrary?.getHeaderAnnotationsPanel?.();
+  btn.addEventListener('mouseenter', () => {
+    if (btn.classList.contains('is-loading')) return;
+    const p = panel();
+    if (p?.showFromHover) p.showFromHover(btn);
+    else if (p?.show) p.show(btn);
+  });
+  btn.addEventListener('mouseleave', () => {
+    const p = panel();
+    if (p?.startDelayedHide) p.startDelayedHide();
+    else if (p?.hide) p.hide();
+  });
+}
+function wireHeaderHoverTooltips() {
+  const root = _headerInstance?.element;
+  if (!root) return;
+  _attachHoverTip(root.querySelector('#tbx-btn-alarm-notif'), _alarmTipHtml);
+  _attachHoverTip(root.querySelector('#tbx-btn-ticket-notif'), _ticketTipHtml);
+  _wireAnnotationHover(root.querySelector('#tbx-btn-annotation-notif'));
 }
 
 // ============================================================================
@@ -902,10 +1213,13 @@ async function fetchAndUpdateUserInfo() {
       LogHelper.log('Menu user info updated from context');
     }
     updateMenuShoppingName(); // RFC-0211-menu: refresh name (customerTitle may now be available)
-    return;
+    // If the context user carried an email, we're done. Otherwise fall through to the API fetch
+    // below — TB's widget ctx.currentUser frequently omits the email, so the menu showed no email.
+    if (ctxUser.email) return;
+    LogHelper.log('ctxUser sem email — completando via /api/auth/user');
   }
 
-  // Fallback: Fetch from API if context not available
+  // Fallback: Fetch from API if context not available (or context lacked the email)
   const jwt = self.ctx?.http?.getServerCredentials?.()?.token || localStorage.getItem('jwt_token');
   if (!jwt) {
     LogHelper.warn('No JWT token for user info fetch');
@@ -1029,11 +1343,19 @@ function createComponents() {
       configTemplate: {
         timezone: 'America/Sao_Paulo',
         showReportButton: window.MyIOUtils?.enableReportButton ?? false,
+        // RFC-0214: operational buttons — alarm/ticket gated by config; annotation default-on.
+        showAlarmButton: !!settings.alarmsApiKey,
+        showTicketButton: !!settings.freshdeskApiKey,
+        showAnnotationButton: true,
       },
       onLoad: (period) => {
         LogHelper.log('Load clicked, period:', period);
         window.dispatchEvent(new CustomEvent('myio:update-date', { detail: { period } }));
       },
+      // RFC-0214: button callbacks → orchestrators / grid filter.
+      onAlarmClick: () => toggleAlarmFilter(),
+      onTicketClick: () => openTicketDetail(),
+      onAnnotationClick: () => openAnnotationsPanel(),
     });
     LogHelper.log('Header created with theme:', _currentThemeMode);
   }
@@ -1294,6 +1616,16 @@ window.addEventListener('myio:update-date', (e) => {
     LogHelper.error('[consumption] enrichment por período falhou:', err)
   );
 });
+
+// RFC-0214: refresh header badges when the orchestrators emit updates.
+window.addEventListener('myio:alarms-updated', () => {
+  buildAlarmServiceOrchestrator();
+  updateAlarmBadge();
+});
+window.addEventListener('myio:annotations-ready', () => updateAnnotationBadge());
+window.addEventListener('myio:annotations-refreshed', () => updateAnnotationBadge());
+window.addEventListener('myio:annotation-changed', () => updateAnnotationBadge());
+window.addEventListener('myio:tickets-ready', () => updateTicketBadge());
 
 // ============================================================================
 // Classification Tree (GCDR RFC-0047)
@@ -1666,6 +1998,23 @@ self.onInit = async function () {
 
   // Create components (sections + grids are generated from the tree)
   createComponents();
+
+  // RFC-0214: build the annotation + ticket orchestrators (async; push their badges when ready).
+  // The alarm orchestrator builds via _prefetchCustomerAlarms's completion (above).
+  buildAnnotationOrchestrator(customerTbId).catch((err) =>
+    LogHelper.error('[RFC-0214] annotation orchestrator:', err)
+  );
+  buildTicketOrchestrator(settings).catch((err) =>
+    LogHelper.error('[RFC-0214] ticket orchestrator:', err)
+  );
+  // RFC-0214: hover tooltips on the alarm/ticket buttons + the annotation panel.
+  wireHeaderHoverTooltips();
+  // RFC-0214: the alarm prefetch may have finished BEFORE the header existed (race) — its
+  // updateAlarmBadge() was then a no-op and the bell spun forever. Seed the badge now.
+  if (window.MyIOOrchestrator?.customerAlarms) {
+    if (!window.AlarmServiceOrchestrator) buildAlarmServiceOrchestrator();
+    updateAlarmBadge();
+  }
 
   // Classify the GCDR devices → feed grids/info + dispatch per-domain summaries.
   processDataAndDispatchEvents();

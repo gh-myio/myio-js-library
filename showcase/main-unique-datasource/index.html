@@ -445,7 +445,7 @@
     </style>
 
     <!-- Widget Styles from MAIN_UNIQUE_DATASOURCE -->
-    <link rel="stylesheet" href="../../src/thingsboard/MYIO-SIM/v5.2.0/MAIN_UNIQUE_DATASOURCE/styles.css" />
+    <link rel="stylesheet" href="../../src/thingsboard/MYIO-SIM/v5.2.0_UNIQUE/styles.css" />
   </head>
   <body>
     <div class="showcase-layout">
@@ -453,7 +453,7 @@
       <header class="showcase-header">
         <div>
           <h1>RFC-0134: MAIN_UNIQUE_DATASOURCE Simulation</h1>
-          <p>Simulating src/thingsboard/MYIO-SIM/v5.2.0/MAIN_UNIQUE_DATASOURCE/controller.js</p>
+          <p>Simulating src/thingsboard/MYIO-SIM/v5.2.0_UNIQUE/controller.js</p>
         </div>
         <div class="header-status">
           <span class="status-badge stopped" id="widgetStatus">STOPPED</span>
@@ -2306,7 +2306,7 @@
       // This ensures we always get the latest version during development
       (function loadController() {
         const scriptEl = document.createElement('script');
-        scriptEl.src = '../../src/thingsboard/MYIO-SIM/v5.2.0/MAIN_UNIQUE_DATASOURCE/controller.js?v=' + Date.now();
+        scriptEl.src = '../../src/thingsboard/MYIO-SIM/v5.2.0_UNIQUE/controller.js?v=' + Date.now();
         scriptEl.onload = function() {
           console.log('[Showcase] controller.js loaded dynamically');
           logEvent('CONTROLLER', 'controller.js loaded with cache busting', 'info');
