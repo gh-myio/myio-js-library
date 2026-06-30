@@ -21,6 +21,9 @@ import {
   ContractState,
   DEFAULT_HEADER_SHOPPING_CONFIG,
   ThemeMode,
+  AlarmBadgeState,
+  TicketBadgeState,
+  AnnotationBadgeState,
 } from './types';
 
 // Type-safe window access helpers (avoiding global declaration conflicts)
@@ -467,6 +470,25 @@ export function createHeaderShoppingComponent(params: HeaderShoppingParams): Hea
     }
   });
 
+  // RFC-0214: operational buttons → delegate to controller callbacks + re-emit on the bus.
+  view.on('alarm-click', () => {
+    LogHelper.log('Alarm clicked');
+    emit('alarm-click');
+    params.onAlarmClick?.();
+  });
+
+  view.on('ticket-click', () => {
+    LogHelper.log('Ticket clicked');
+    emit('ticket-click');
+    params.onTicketClick?.();
+  });
+
+  view.on('annotation-click', () => {
+    LogHelper.log('Annotation clicked');
+    emit('annotation-click');
+    params.onAnnotationClick?.();
+  });
+
   view.on('contract-click', () => {
     LogHelper.log('Contract status clicked');
 
@@ -657,6 +679,20 @@ export function createHeaderShoppingComponent(params: HeaderShoppingParams): Hea
     }
   }
 
+  // RFC-0214: badge setters (controller pushes counts as orchestrators update).
+  function setAlarmBadge(count: number, state?: AlarmBadgeState): void {
+    view.setAlarmBadge(count, state);
+  }
+  function setTicketBadge(count: number, state?: TicketBadgeState): void {
+    view.setTicketBadge(count, state);
+  }
+  function setAnnotationBadge(total: number, state?: AnnotationBadgeState): void {
+    view.setAnnotationBadge(total, state);
+  }
+  function setAlarmFilterActive(active: boolean): void {
+    view.setAlarmFilterActive(active);
+  }
+
   function destroy(): void {
     LogHelper.log('Destroying component');
     removeEventListeners();
@@ -702,6 +738,10 @@ export function createHeaderShoppingComponent(params: HeaderShoppingParams): Hea
     setControlsEnabled,
     triggerLoad,
     triggerForceRefresh,
+    setAlarmBadge,
+    setTicketBadge,
+    setAnnotationBadge,
+    setAlarmFilterActive,
     destroy,
     element,
     on,

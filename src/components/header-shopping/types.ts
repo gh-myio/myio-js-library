@@ -34,6 +34,27 @@ export interface HeaderShoppingConfigTemplate {
   showReportButton?: boolean;
   /** Enable force refresh button */
   showForceRefreshButton?: boolean;
+  /** RFC-0214: Enable the 🔔 Alarmes button (default false) */
+  showAlarmButton?: boolean;
+  /** RFC-0214: Enable the 🎫 Chamados button (default false) */
+  showTicketButton?: boolean;
+  /** RFC-0214: Enable the ✏️ Anotações button (default false) */
+  showAnnotationButton?: boolean;
+}
+
+/** RFC-0214: badge update payloads pushed by the controller as orchestrators update. */
+export interface AlarmBadgeState {
+  loading?: boolean;
+  configured?: boolean;
+}
+export interface TicketBadgeState {
+  loading?: boolean;
+  error?: boolean;
+}
+export interface AnnotationBadgeState {
+  pending?: number;
+  overdue?: number;
+  loading?: boolean;
 }
 
 export interface HeaderShoppingParams {
@@ -68,6 +89,12 @@ export interface HeaderShoppingParams {
   onReportClick?: (domain: DomainType) => void;
   /** Callback when date range changes */
   onDateChange?: (period: HeaderShoppingPeriod) => void;
+  /** RFC-0214: Callback when the 🔔 Alarmes button is clicked */
+  onAlarmClick?: () => void;
+  /** RFC-0214: Callback when the 🎫 Chamados button is clicked */
+  onTicketClick?: () => void;
+  /** RFC-0214: Callback when the ✏️ Anotações button is clicked */
+  onAnnotationClick?: () => void;
 }
 
 export interface HeaderShoppingInstance {
@@ -93,6 +120,14 @@ export interface HeaderShoppingInstance {
   triggerLoad(): void;
   /** Programmatically click force refresh */
   triggerForceRefresh(skipConfirmation?: boolean): void;
+  /** RFC-0214: Update the 🔔 alarm badge (count + loading/configured state). */
+  setAlarmBadge(count: number, state?: AlarmBadgeState): void;
+  /** RFC-0214: Update the 🎫 ticket badge (count + loading/error state). */
+  setTicketBadge(count: number, state?: TicketBadgeState): void;
+  /** RFC-0214: Update the ✏️ annotation badge (total + pending/overdue/loading). */
+  setAnnotationBadge(total: number, state?: AnnotationBadgeState): void;
+  /** RFC-0214: Toggle the alarm-filter-active highlight on the bell. */
+  setAlarmFilterActive(active: boolean): void;
   /** Destroy the component */
   destroy(): void;
   /** Root element */
@@ -107,7 +142,10 @@ export type HeaderShoppingEventType =
   | 'force-refresh'
   | 'report-click'
   | 'date-change'
-  | 'domain-change';
+  | 'domain-change'
+  | 'alarm-click'
+  | 'ticket-click'
+  | 'annotation-click';
 
 export type HeaderShoppingEventHandler = (...args: unknown[]) => void;
 
@@ -122,4 +160,7 @@ export const DEFAULT_HEADER_SHOPPING_CONFIG: Required<HeaderShoppingConfigTempla
   showContractStatus: true,
   showReportButton: false,
   showForceRefreshButton: true,
+  showAlarmButton: false,
+  showTicketButton: false,
+  showAnnotationButton: false,
 };

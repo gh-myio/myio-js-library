@@ -18,7 +18,10 @@ type ViewEventType =
   | 'report-click'
   | 'date-change'
   | 'contract-click'
-  | 'theme-change';
+  | 'theme-change'
+  | 'alarm-click'
+  | 'ticket-click'
+  | 'annotation-click';
 
 type ViewEventHandler = (...args: unknown[]) => void;
 
@@ -37,6 +40,13 @@ export class HeaderShoppingView {
   private btnForceRefresh: HTMLButtonElement | null = null;
   private btnReport: HTMLButtonElement | null = null;
   private btnReportText: HTMLSpanElement | null = null;
+  // RFC-0214: operational buttons (alarm / ticket / annotation) + their badges
+  private btnAlarm: HTMLButtonElement | null = null;
+  private alarmBadgeEl: HTMLElement | null = null;
+  private btnTicket: HTMLButtonElement | null = null;
+  private ticketBadgeEl: HTMLElement | null = null;
+  private btnAnnotation: HTMLButtonElement | null = null;
+  private annotationBadgeEl: HTMLElement | null = null;
   private themeSelectorEl: HTMLElement | null = null;
   private btnThemeLight: HTMLButtonElement | null = null;
   private btnThemeDark: HTMLButtonElement | null = null;
@@ -105,6 +115,19 @@ export class HeaderShoppingView {
     const showContract = this.config.showContractStatus;
     const showReport = this.config.showReportButton;
     const showForceRefresh = this.config.showForceRefreshButton;
+    const showAlarm = this.config.showAlarmButton;
+    const showTicket = this.config.showTicketButton;
+    const showAnnotation = this.config.showAnnotationButton;
+
+    // RFC-0214: a notif button starts in a loading state (spinner) until the controller pushes
+    // a badge with loading:false. Element ids/classes match v-5.2.0 (tbx-btn-*-notif, tbx-*-badge,
+    // tbx-loading-spinner, alarm-filter-active) so the v-5.2.0 CSS/tooltip code ports cleanly.
+    const notifBtn = (id: string, badgeId: string, emoji: string, label: string) => `
+          <button class="tbx-btn tbx-btn-notif is-loading" id="${id}" title="${label}" aria-label="${label}">
+            <span class="tbx-loading-spinner" aria-hidden="true"></span>
+            <span class="tbx-btn-emoji" aria-hidden="true">${emoji}</span>
+            <span id="${badgeId}" class="tbx-badge" style="display: none">0</span>
+          </button>`;
 
     this.root.innerHTML = `
       <div class="tbx-row">
@@ -167,6 +190,11 @@ export class HeaderShoppingView {
               : ''
           }
 
+          <!-- RFC-0214: operational buttons -->
+          ${showAlarm ? notifBtn('tbx-btn-alarm-notif', 'tbx-alarm-badge', '🔔', 'Alarmes') : ''}
+          ${showTicket ? notifBtn('tbx-btn-ticket-notif', 'tbx-ticket-badge', '🎫', 'Chamados') : ''}
+          ${showAnnotation ? notifBtn('tbx-btn-annotation-notif', 'tbx-annotation-badge', '✏️', 'Anotações') : ''}
+
           ${
             showReport
               ? `
@@ -225,6 +253,12 @@ export class HeaderShoppingView {
     this.btnForceRefresh = this.root.querySelector('#tbx-btn-force-refresh');
     this.btnReport = this.root.querySelector('#tbx-btn-report-general');
     this.btnReportText = this.root.querySelector('#tbx-btn-report-general-text');
+    this.btnAlarm = this.root.querySelector('#tbx-btn-alarm-notif');
+    this.alarmBadgeEl = this.root.querySelector('#tbx-alarm-badge');
+    this.btnTicket = this.root.querySelector('#tbx-btn-ticket-notif');
+    this.ticketBadgeEl = this.root.querySelector('#tbx-ticket-badge');
+    this.btnAnnotation = this.root.querySelector('#tbx-btn-annotation-notif');
+    this.annotationBadgeEl = this.root.querySelector('#tbx-annotation-badge');
     this.themeSelectorEl = this.root.querySelector('#tbx-theme-selector');
     this.btnThemeLight = this.root.querySelector('#tbx-theme-light');
     this.btnThemeDark = this.root.querySelector('#tbx-theme-dark');
@@ -248,6 +282,11 @@ export class HeaderShoppingView {
     this.btnReport?.addEventListener('click', () => {
       this.emit('report-click');
     });
+
+    // RFC-0214: operational buttons
+    this.btnAlarm?.addEventListener('click', () => this.emit('alarm-click'));
+    this.btnTicket?.addEventListener('click', () => this.emit('ticket-click'));
+    this.btnAnnotation?.addEventListener('click', () => this.emit('annotation-click'));
 
     // Contract status click
     this.contractStatusEl?.addEventListener('click', (e) => {
@@ -415,6 +454,65 @@ export class HeaderShoppingView {
     if (this.btnLoad) this.btnLoad.disabled = !enabled;
     if (this.btnForceRefresh) this.btnForceRefresh.disabled = !enabled;
     if (this.btnReport) this.btnReport.disabled = !enabled;
+  }
+
+  // ===========================================================================
+  // RFC-0214: operational badges (alarm / ticket / annotation)
+  // ===========================================================================
+
+  /** Common badge render: toggle loading spinner + show/hide the count. */
+  private applyBadge(
+    btn: HTMLButtonElement | null,
+    badgeEl: HTMLElement | null,
+    count: number,
+    loading?: boolean
+  ): void {
+    if (!btn) return;
+    btn.classList.toggle('is-loading', !!loading);
+    if (badgeEl) {
+      const n = Number(count) || 0;
+      badgeEl.textContent = n > 99 ? '99+' : String(n);
+      badgeEl.style.display = !loading && n > 0 ? 'inline-flex' : 'none';
+    }
+  }
+
+  /** Update the 🔔 alarm badge. */
+  setAlarmBadge(count: number, state: { loading?: boolean; configured?: boolean } = {}): void {
+    this.applyBadge(this.btnAlarm, this.alarmBadgeEl, count, state.loading);
+    if (this.btnAlarm && state.configured === false) {
+      this.btnAlarm.classList.add('is-disabled');
+      this.btnAlarm.title = 'Alarmes não configurados';
+    } else if (this.btnAlarm) {
+      this.btnAlarm.classList.remove('is-disabled');
+    }
+  }
+
+  /** Update the 🎫 ticket badge. */
+  setTicketBadge(count: number, state: { loading?: boolean; error?: boolean } = {}): void {
+    this.applyBadge(this.btnTicket, this.ticketBadgeEl, count, state.loading);
+    this.btnTicket?.classList.toggle('tbx-ticket-error', !!state.error);
+  }
+
+  /** Update the ✏️ annotation badge (total + pending/overdue in the aria-label). */
+  setAnnotationBadge(
+    total: number,
+    state: { pending?: number; overdue?: number; loading?: boolean } = {}
+  ): void {
+    this.applyBadge(this.btnAnnotation, this.annotationBadgeEl, total, state.loading);
+    if (this.btnAnnotation) {
+      const parts: string[] = [];
+      if (state.pending) parts.push(`${state.pending} pendente(s)`);
+      if (state.overdue) parts.push(`${state.overdue} atrasada(s)`);
+      this.btnAnnotation.setAttribute(
+        'aria-label',
+        `Anotações${parts.length ? ' — ' + parts.join(', ') : ''}`
+      );
+    }
+  }
+
+  /** Toggle the alarm-filter-active highlight on the bell. */
+  setAlarmFilterActive(active: boolean): void {
+    this.btnAlarm?.classList.toggle('alarm-filter-active', !!active);
   }
 
   /**
