@@ -36,6 +36,21 @@ const LogHelper = {
   },
 };
 
+// Error toast helper. The only fallback is window.alert (when MyIOToast is unavailable).
+// MAIN_VIEW owns the lib bridge, so it reads window.MyIOLibrary directly.
+function toastError(message) {
+  const toast = window.MyIOLibrary?.MyIOToast;
+  if (toast?.error) toast.error(message);
+  else window.alert(message);
+}
+
+// Warning toast (non-fatal). Falls back to a console warn (no alert — it's not an error).
+function toastWarn(message) {
+  const toast = window.MyIOLibrary?.MyIOToast;
+  if (toast?.warning) toast.warning(message);
+  else LogHelper.warn(message);
+}
+
 // RFC-0091: Expose shared utilities globally for child widgets (TELEMETRY, etc.)
 // RFC-0091: Shared constants across all widgets
 let _dataApiHost = '';
@@ -130,6 +145,7 @@ window.MyIOUtils = window.MyIOUtils || {};
     'renderCardComponentV5',
     'TempSensorSummaryTooltip',
     'createPresetupGateway',
+    'GoalsModal',
     'version',
   ];
   for (const name of LIB_SYMBOLS) {
@@ -496,16 +512,8 @@ Object.assign(window.MyIOUtils, {
     // Lock retries for this domain to avoid looping after error
     window._dataLoadRetryLocked[domain] = true;
 
-    const MyIOToast = window.MyIOLibrary?.MyIOToast;
     const message = `Erro ao carregar dados (${domain}). Recarregue a página...`;
-
-    if (MyIOToast) {
-      MyIOToast.error(message, 8000);
-    } else {
-      console.error(`[MyIOUtils] ${message}`);
-      // Fallback: show alert if toast not available
-      window.alert(message);
-    }
+    toastError(message);
 
     // Reload page after toast displays
     //setTimeout(() => {
@@ -752,6 +760,30 @@ if (!Object.prototype.hasOwnProperty.call(window.MyIOUtils, 'customerTB_ID')) {
   });
 }
 
+// ── Goals JSON cache ─────────────────────────────────────────────────────────
+// Busca os JSONs de metas configurados em goalsJsonUrls e armazena em
+// window.MyIOUtils.goalsData[domain]. Não-bloqueante: falhas são silenciosas.
+// Futuramente substituir o fetch direto por chamada ao endpoint GCDR do customer.
+async function _fetchAndCacheGoalsData(urls) {
+  if (!urls) return;
+  const domains = ['energy', 'water', 'temperature'];
+  for (const domain of domains) {
+    const url = urls[domain];
+    if (!url) continue;
+    try {
+      const res = await fetch(url);
+      if (res.ok) {
+        window.MyIOUtils.goalsData[domain] = await res.json();
+        LogHelper.log(`[MAIN_VIEW] Goals JSON carregado (${domain})`);
+      } else {
+        LogHelper.warn(`[MAIN_VIEW] goalsJson fetch status ${res.status} (${domain})`);
+      }
+    } catch (e) {
+      LogHelper.warn(`[MAIN_VIEW] goalsJson fetch falhou (${domain}):`, e?.message);
+    }
+  }
+}
+
 // RFC-0051.1: Global widget settings (will be populated in onInit)
 // IMPORTANT: customerTB_ID must NEVER be 'default' - it must always be a valid ThingsBoard ID
 let widgetSettings = {
@@ -761,6 +793,7 @@ let widgetSettings = {
   excludeDevicesAtCountSubtotalCAG: [], // Entity IDs to exclude from CAG subtotal calculation
   enableAnnotationsOnboarding: false, // RFC-0144: Enable/disable annotations onboarding in settings modal
   enableReportButton: false, // Enable/disable Report button in HEADER (default: disabled)
+  goalsJsonUrls: { energy: '', water: '', temperature: '' }, // URLs do JSON de metas por domínio
 };
 
 // Exclusão de Grupos: group exclusion config loaded from CUSTOMER SERVER_SCOPE via SettingsModal
@@ -1403,11 +1436,7 @@ Object.assign(window.MyIOUtils, {
     if (!_dataApiHost) {
       const msg = 'DATA_API_HOST não configurado. Verifique as configurações do widget.';
       LogHelper.warn('[MAIN_VIEW]', msg);
-      if (window.MyIOLibrary?.MyIOToast?.error) {
-        window.MyIOLibrary.MyIOToast.error(msg);
-      } else {
-        window.alert(msg);
-      }
+      toastError(msg);
     }
 
     rootEl = $('#myio-root');
@@ -1542,6 +1571,17 @@ Object.assign(window.MyIOUtils, {
       Object.entries(REPORT_ITEM_DEFAULTS).map(([k, def]) => [k, rawItems[k] ?? def])
     );
     LogHelper.log('[Orchestrator] RFC-0182: enabledReportItems:', window.MyIOUtils.enabledReportItems);
+
+    // Goals JSON URLs — carregados via settings, futuramente substituídos por chamada GCDR
+    widgetSettings.goalsJsonUrls = {
+      energy:      self.ctx.settings?.goalsJsonUrls?.energy      || '',
+      water:       self.ctx.settings?.goalsJsonUrls?.water       || '',
+      temperature: self.ctx.settings?.goalsJsonUrls?.temperature || '',
+    };
+    // Inicializa o cache global (não sobrescreve se já existir de run anterior)
+    window.MyIOUtils.goalsData = window.MyIOUtils.goalsData || { energy: null, water: null, temperature: null };
+    _fetchAndCacheGoalsData(widgetSettings.goalsJsonUrls);
+    LogHelper.log('[Orchestrator] goalsJsonUrls configurados:', widgetSettings.goalsJsonUrls);
 
     // RFC-0130: Load delay time settings from widget settings
     const delaySettings = {

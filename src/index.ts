@@ -725,6 +725,15 @@ export type {
   TemperatureReferenceLine as ConsumptionTemperatureReferenceLine,
 } from './components/Consumption7DaysChart';
 
+// Goals Modal — Painel de metas com linha de alvo (PR #101 / RFC-0046-ready)
+export { GoalsModal } from './components/goals-modal';
+export type {
+  GoalsModalOptions,
+  GoalsDeviceTotal,
+  GoalsTemperatureDevice,
+  GoalsModalFetchConsumptionFn,
+} from './components/goals-modal';
+
 // RFC-0101: Export Data Smart Component
 export {
   buildTemplateExport,
