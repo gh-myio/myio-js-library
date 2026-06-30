@@ -21,6 +21,7 @@ import {
   formatWater,
   formatPercentage,
   CategoryType,
+  GenericColumnSummary,
 } from './types';
 import { injectStyles } from './styles';
 
@@ -54,6 +55,11 @@ export class TelemetryInfoShoppingView {
   // State
   private energyState: EnergyState | null = null;
   private waterState: WaterState | null = null;
+  // Agnostic mode: per-column totals (keyed by the tree column key). Set when params.columns is given.
+  private genericSummary: GenericColumnSummary | null = null;
+
+  // Fallback palette for the generic pie chart (when no per-category chartColors apply).
+  private static GENERIC_PALETTE = ['#7c3aed', '#2563eb', '#059669', '#d97706', '#dc2626', '#0891b2', '#9333ea', '#65a30d'];
 
   // Chart instances
   private mainChart: ChartInstance | null = null;
@@ -115,10 +121,27 @@ export class TelemetryInfoShoppingView {
     return root;
   }
 
+  /** Agnostic mode: render one card per tree column instead of the fixed energy/water categories. */
+  private get isGeneric(): boolean {
+    return !!(this.params.columns && this.params.columns.length);
+  }
+  /** Unit for the generic formatter (default per domain). */
+  private get unit(): string {
+    return this.params.unit || (this.domain === 'water' ? 'm³' : this.domain === 'temperature' ? '°C' : 'kWh');
+  }
+  private formatGeneric(value: number): string {
+    const v = Number(value) || 0;
+    return `${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${this.unit}`;
+  }
+
   private buildHTML(): string {
     const title =
       this.params.labelWidget ||
-      (this.domain === 'energy' ? 'Informações de Energia' : 'Informações de Água');
+      (this.isGeneric
+        ? `Informações de ${this.domain.charAt(0).toUpperCase()}${this.domain.slice(1)}`
+        : this.domain === 'energy'
+          ? 'Informações de Energia'
+          : 'Informações de Água');
 
     return `
       <header class="tis-header">
@@ -137,11 +160,51 @@ export class TelemetryInfoShoppingView {
       </header>
 
       <div class="tis-grid" id="infoGrid">
-        ${this.domain === 'energy' ? this.buildEnergyCards() : this.buildWaterCards()}
+        ${this.isGeneric ? this.buildGenericCards() : this.domain === 'energy' ? this.buildEnergyCards() : this.buildWaterCards()}
         ${this.params.showChart !== false ? this.buildChartCard() : ''}
       </div>
 
       ${this.buildModalHTML()}
+    `;
+  }
+
+  /** One card per tree column + a Total card. Values filled by setColumnsData(). */
+  private buildGenericCards(): string {
+    const cols = this.params.columns || [];
+    const colCards = cols
+      .map(
+        (c) => `
+      <div class="tis-card" data-category="${c.key}">
+        <div class="tis-card-header">
+          <span class="tis-card-icon">${c.icon || '📦'}</span>
+          <h3 class="tis-card-title">${c.label}</h3>
+          ${this.tooltipSpan(`Consumo total da coluna "${c.label}".`)}
+        </div>
+        <div class="tis-card-body">
+          <div class="tis-stat-row tis-main-stat">
+            <span class="tis-stat-value" id="gen__${c.key}">${this.formatGeneric(0)}</span>
+            <span class="tis-stat-perc" id="genperc__${c.key}">(0%)</span>
+          </div>
+        </div>
+      </div>`
+      )
+      .join('');
+
+    return `
+      ${colCards}
+      <div class="tis-card tis-total-card" data-category="total">
+        <div class="tis-card-header">
+          <span class="tis-card-icon">📊</span>
+          <h3 class="tis-card-title">Total</h3>
+          ${this.tooltipSpan(TOTAL_CARD_TOOLTIP)}
+        </div>
+        <div class="tis-card-body">
+          <div class="tis-stat-row tis-main-stat">
+            <span class="tis-stat-value" id="gen__total">${this.formatGeneric(0)}</span>
+            <span class="tis-stat-perc" id="genperc__total">(100%)</span>
+          </div>
+        </div>
+      </div>
     `;
   }
 
@@ -627,6 +690,20 @@ export class TelemetryInfoShoppingView {
     const values: number[] = [];
     const colors: string[] = [];
 
+    if (this.isGeneric && this.genericSummary) {
+      const cols = this.params.columns || [];
+      const palette = TelemetryInfoShoppingView.GENERIC_PALETTE;
+      cols.forEach((c, i) => {
+        const t = Number(this.genericSummary?.[c.key]?.total) || 0;
+        if (t > 0) {
+          labels.push(c.label);
+          values.push(t);
+          colors.push(palette[i % palette.length]);
+        }
+      });
+      return { labels, values, colors };
+    }
+
     if (this.domain === 'energy' && this.energyState) {
       const state = this.energyState;
       const categories = [
@@ -725,6 +802,27 @@ export class TelemetryInfoShoppingView {
 
     this.updateEnergyUI();
     this.refreshChart();
+  }
+
+  /** Agnostic mode: per-column totals keyed by the tree column key (params.columns). */
+  setColumnsData(summary: GenericColumnSummary): void {
+    this.log('setColumnsData:', summary);
+    this.genericSummary = summary || {};
+    this.updateGenericUI();
+    this.refreshChart();
+  }
+
+  private updateGenericUI(): void {
+    if (!this.genericSummary) return;
+    const cols = this.params.columns || [];
+    const total = cols.reduce((s, c) => s + (Number(this.genericSummary?.[c.key]?.total) || 0), 0);
+    for (const c of cols) {
+      const t = Number(this.genericSummary?.[c.key]?.total) || 0;
+      this.updateElement(`#gen__${c.key}`, this.formatGeneric(t));
+      const perc = total > 0 ? (t / total) * 100 : 0;
+      this.updateElement(`#genperc__${c.key}`, `(${formatPercentage(perc)})`);
+    }
+    this.updateElement('#gen__total', this.formatGeneric(total));
   }
 
   private updateEnergyUI(): void {

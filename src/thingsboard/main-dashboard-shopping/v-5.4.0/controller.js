@@ -521,9 +521,10 @@ function updateOneInfo(d, classified) {
   // Generic per-column summary { [columnKey]: { total } } — keyed by the tree's columns.
   const summary = {};
   for (const c of d.columns) summary[c.key] = { total: sumOf(classified?.[d.code]?.[c.key] || []) };
-  // Computed setter name from the domain code (e.g. set<Code>Data) — no literal; falls back to setData/update.
+  // RFC-0214/agnostic: prefer setColumnsData (renders one card per tree column). Fall back to the
+  // domain-specific setter (set<Code>Data) / setData / update for non-agnostic info components.
   const cap = d.code.charAt(0).toUpperCase() + d.code.slice(1);
-  const setter = inst[`set${cap}Data`] || inst.setData || inst.update;
+  const setter = inst.setColumnsData || inst[`set${cap}Data`] || inst.setData || inst.update;
   if (typeof setter === 'function') {
     setter.call(inst, summary);
     LogHelper.log(`Info component updated for ${d.code}`);
@@ -537,6 +538,7 @@ function ensureInfoInstance(code) {
   const lib = window.MyIOLibrary;
   const infoEl = _infoEls.get(code);
   if (!lib?.createTelemetryInfoShoppingComponent || !infoEl) return;
+  const d = (_classificationTree?.domains || []).find((x) => x.code === code);
   _infoInstances.set(
     code,
     lib.createTelemetryInfoShoppingComponent({
@@ -546,9 +548,12 @@ function ensureInfoInstance(code) {
       showChart: true,
       showExpandButton: true,
       debugActive: DEBUG_ACTIVE,
+      // RFC-0214/agnostic: render one card per GCDR tree column (label + unit from the tree/DomainMap)
+      // instead of the fixed energy/water categories — so the panel reflects any customer taxonomy.
+      columns: (d?.columns || []).map((c) => ({ key: c.key, label: c.label })),
+      unit: DOMAIN[code]?.unit || 'kWh',
     })
   );
-  const d = (_classificationTree?.domains || []).find((x) => x.code === code);
   if (d) updateOneInfo(d, window.STATE?.classified || {});
 }
 

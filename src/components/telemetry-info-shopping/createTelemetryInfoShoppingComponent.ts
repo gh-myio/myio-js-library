@@ -10,6 +10,7 @@ import {
   ThemeMode,
   EnergySummary,
   WaterSummary,
+  GenericColumnSummary,
   EnergyState,
   WaterState,
 } from './types';
@@ -108,6 +109,11 @@ export function createTelemetryInfoShoppingComponent(
     view.setWaterData(summary);
   }
 
+  function setColumnsData(summary: GenericColumnSummary): void {
+    log('setColumnsData called');
+    view.setColumnsData(summary);
+  }
+
   function clearData(): void {
     log('clearData called');
     view.clearData();
@@ -170,6 +176,7 @@ export function createTelemetryInfoShoppingComponent(
     // Data methods
     setEnergyData,
     setWaterData,
+    setColumnsData,
     clearData,
 
     // State

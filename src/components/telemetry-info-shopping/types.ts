@@ -206,6 +206,12 @@ export interface TelemetryInfoShoppingParams {
   showChart?: boolean;
   showExpandButton?: boolean;
 
+  // RFC-0214/agnostic: when provided, the panel renders ONE card per column (driven by the GCDR
+  // classification tree) instead of the fixed energy/water categories. Fed via setColumnsData().
+  columns?: GenericColumn[];
+  /** Measurement unit for the generic (columns) mode (e.g. 'kWh', 'm³', '°C'). */
+  unit?: string;
+
   // Chart customization
   chartColors?: Partial<ChartColors>;
 
@@ -213,6 +219,19 @@ export interface TelemetryInfoShoppingParams {
   onCategoryClick?: (category: CategoryType) => void;
   onExpandClick?: () => void;
 }
+
+// ============================================
+// GENERIC (agnostic) columns — driven by the GCDR tree
+// ============================================
+
+export interface GenericColumn {
+  key: string;
+  label: string;
+  icon?: string;
+}
+
+/** Per-column totals: { [columnKey]: { total } } — exactly what the controller's updateOneInfo builds. */
+export type GenericColumnSummary = Record<string, { total: number }>;
 
 // ============================================
 // ENERGY SUMMARY (from orchestrator)
@@ -246,6 +265,8 @@ export interface TelemetryInfoShoppingInstance {
   // Data methods
   setEnergyData: (summary: EnergySummary) => void;
   setWaterData: (summary: WaterSummary) => void;
+  /** Agnostic mode: per-column totals keyed by the tree column key (see params.columns). */
+  setColumnsData: (summary: GenericColumnSummary) => void;
   clearData: () => void;
 
   // State
