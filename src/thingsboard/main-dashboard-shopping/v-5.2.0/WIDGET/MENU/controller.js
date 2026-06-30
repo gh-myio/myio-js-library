@@ -2215,7 +2215,7 @@ self.onInit = function () {
       });
     });
 
-    LogHelper.log ('[MENU] Measurement setup button added successfully');
+    LogHelper.log('[MENU] Measurement setup button added successfully');
   }
 
 // ── Metas: GoalsModal (novo componente — sem requisições no MENU) ─────────────

@@ -11,6 +11,9 @@ coverage/
 .claude/settings.local.json
 .claude/worktrees/
 logs/
+# Showcase secrets — local-only config with real API keys/secrets (never commit).
+showcase/main-view-shopping/config.json
+showcase/**/config.json
 # Test artifact: jsPDF.save() writes annotation PDFs to cwd in the Node test env.
 # export.test.ts cleans these up in afterAll; this is a belt-and-suspenders guard.
 anotacoes_*.pdf

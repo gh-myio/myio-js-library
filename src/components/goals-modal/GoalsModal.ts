@@ -131,10 +131,19 @@ let _currentGran: '1h' | '1d' | '1M' = '1d';
 let _selectedDate: string = _todayISO();
 let _selectedYear: number = new Date().getFullYear();
 let _periodDays = 30;
-let _isRendering = false;
+// YoY: compara o consumo do mesmo período com o ano anterior (não disponível p/ temperatura).
+let _compareYoY = false;
+// Monotonic render token: every _loadAndRender bumps it; a run only applies its
+// result/loader if it is still the latest. Prevents rapid tab/granularity switches
+// from being dropped (the old _isRendering early-return swallowed them).
+let _renderSeq = 0;
 
 function _todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
+  // Local date (not UTC) — toISOString() would shift the day in UTC-3 late evening.
+  const d = new Date();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${mm}-${dd}`;
 }
 
 // ============================================================================
@@ -300,6 +309,45 @@ async function _fetchMonthData(domain: string, year: number): Promise<{ labels: 
   return { labels, totals };
 }
 
+/** Boundaries da janela atual conforme a granularidade (mesma base usada nos fetchers acima). */
+function _buildBoundaries(gran: '1h' | '1d' | '1M', dateISO: string): Array<{ label: string; startTs: number; endTs: number }> {
+  if (gran === '1M') return _buildMonthBoundaries(_selectedYear);
+  if (gran === '1h') return _buildHourBoundaries(dateISO);
+  return _buildDayBoundaries(_periodDays);
+}
+
+/**
+ * YoY: para cada boundary da janela atual, busca o consumo do MESMO período um ano antes
+ * (shift de -1 ano via setFullYear, robusto a meses/dias). Alinhado posição-a-posição.
+ */
+async function _fetchPrevYearTotals(
+  domain: string,
+  gran: '1h' | '1d' | '1M',
+  boundaries: Array<{ startTs: number; endTs: number }>
+): Promise<number[]> {
+  const fetchFn = _options!.fetchConsumption;
+  const totals = new Array<number>(boundaries.length).fill(0);
+
+  const results = await Promise.all(
+    boundaries.map(async (b, idx) => {
+      const ps = new Date(b.startTs); ps.setFullYear(ps.getFullYear() - 1);
+      const pe = new Date(b.endTs); pe.setFullYear(pe.getFullYear() - 1);
+      try {
+        const devices = await fetchFn(domain, ps.getTime(), pe.getTime(), gran);
+        const t = (Array.isArray(devices) ? devices : []).reduce(
+          (sum, d) => sum + (Number(d.total_value) || Number(d.value) || 0), 0
+        );
+        return { idx, value: t };
+      } catch {
+        return { idx, value: 0 };
+      }
+    })
+  );
+
+  results.forEach(({ idx, value }) => { totals[idx] = value; });
+  return totals;
+}
+
 async function _fetchTemperatureDayData(): Promise<{ labels: string[]; totals: number[] }> {
   const boundaries = _buildDayBoundaries(_periodDays);
   const labels = boundaries.map((b) => b.label);
@@ -376,25 +424,42 @@ function _renderChart(
   labels: string[],
   totals: number[],
   goalLine: (number | null)[],
-  domain: string
+  domain: string,
+  prevTotals: number[] | null
 ): void {
   _destroyChart();
 
   const cfg = DOMAIN_CFG[domain] || DOMAIN_CFG.energy;
   const hasGoals = goalLine.some((v) => v !== null);
+  const hasPrev = Array.isArray(prevTotals) && prevTotals.some((v) => v > 0);
 
-  const datasets: any[] = [
-    {
+  const datasets: any[] = [];
+
+  // YoY: barra cinza do ano anterior — empurrada PRIMEIRO + mesmo `order` que o consumo,
+  // então agrupa à ESQUERDA da barra do ano atual.
+  if (hasPrev) {
+    datasets.push({
       type: 'bar',
-      label: `Consumo (${cfg.unit})`,
-      data: totals,
-      backgroundColor: cfg.barColor,
-      borderColor: cfg.barColor,
+      label: 'Ano anterior',
+      data: prevTotals,
+      backgroundColor: 'rgba(148, 163, 184, 0.55)',
+      borderColor: 'rgba(148, 163, 184, 0.55)',
       borderWidth: 0,
       borderRadius: 3,
       order: 1,
-    },
-  ];
+    });
+  }
+
+  datasets.push({
+    type: 'bar',
+    label: `Consumo (${cfg.unit})`,
+    data: totals,
+    backgroundColor: cfg.barColor,
+    borderColor: cfg.barColor,
+    borderWidth: 0,
+    borderRadius: 3,
+    order: 1,
+  });
 
   if (hasGoals) {
     datasets.push({
@@ -412,13 +477,20 @@ function _renderChart(
     });
   }
 
-  // Calculate Y max considering both totals and goal values
+  // Calculate Y max considering current totals, previous-year totals and goal values
   const allValues = [
     ...totals,
+    ...(hasPrev ? prevTotals!.filter((v) => v > 0) : []),
     ...(hasGoals ? goalLine.filter((v): v is number => v !== null) : []),
   ].filter((v) => v > 0);
   const maxVal = allValues.length > 0 ? Math.max(...allValues) : 0;
   const yMax = maxVal > 0 ? Math.ceil(maxVal * 1.12) : undefined;
+
+  // Bug-A fix (showcase): one unit/divisor for the WHOLE axis (decided from yMax),
+  // instead of switching unit per tick (which mixed kWh and MWh on the same axis).
+  const useLarge = !!(cfg.unitLarge && cfg.threshold && yMax && yMax >= cfg.threshold);
+  const axisDivisor = useLarge ? cfg.threshold! : 1;
+  const axisUnit = useLarge ? cfg.unitLarge! : cfg.unit;
 
   _chartInstance = new Chart(canvas, {
     type: 'bar',
@@ -429,7 +501,7 @@ function _renderChart(
       animation: false,
       plugins: {
         legend: {
-          display: hasGoals,
+          display: hasGoals || hasPrev,
           position: 'bottom',
           labels: { color: '#374151', font: { size: 11 } },
         },
@@ -450,7 +522,7 @@ function _renderChart(
           grid: { color: 'rgba(0,0,0,0.05)' },
           title: {
             display: true,
-            text: cfg.unitLarge && yMax && yMax >= (cfg.threshold ?? Infinity) ? cfg.unitLarge : cfg.unit,
+            text: axisUnit,
             font: { size: 11 },
             color: '#6b7280',
           },
@@ -458,10 +530,7 @@ function _renderChart(
             color: '#6b7280',
             font: { size: 10 },
             callback(val: number) {
-              if (cfg.threshold && cfg.unitLarge && val >= cfg.threshold) {
-                return `${(val / cfg.threshold).toFixed(1)}`;
-              }
-              return val.toFixed(0);
+              return (val / axisDivisor).toFixed(useLarge ? 1 : 0);
             },
           },
         },
@@ -485,8 +554,8 @@ function _renderChart(
 // ============================================================================
 
 async function _loadAndRender(domain: string, gran: '1h' | '1d' | '1M', dateISO: string): Promise<void> {
-  if (_isRendering) return;
-  _isRendering = true;
+  // Latest-wins: bump the token; only the most recent run touches the DOM/loader.
+  const seq = ++_renderSeq;
 
   const topDoc = _getTopDoc();
   const chartArea = topDoc.getElementById('gm-chart-area');
@@ -510,14 +579,34 @@ async function _loadAndRender(domain: string, gran: '1h' | '1d' | '1M', dateISO:
       ({ labels, totals } = await _fetchDayData(domain));
     }
 
+    // A newer render started while we awaited — discard this stale result.
+    if (seq !== _renderSeq) return;
+
+    // YoY: consumo do mesmo período no ano anterior (energy/water; não p/ temperatura).
+    let prevTotals: number[] | null = null;
+    if (_compareYoY && domain !== 'temperature') {
+      const boundaries = _buildBoundaries(gran, dateISO);
+      prevTotals = await _fetchPrevYearTotals(domain, gran, boundaries);
+      if (seq !== _renderSeq) return; // superada enquanto aguardava o ano anterior
+    }
+
     const goalLine = _buildGoalLine(domain, labels, gran);
+
+    // Chart.js must be loaded by the host page; fail with a visible message instead of a blank modal.
+    if (typeof Chart === 'undefined') {
+      if (chartArea) {
+        chartArea.innerHTML =
+          '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#9ca3af;font-size:13px;text-align:center;padding:20px">Chart.js não está carregado nesta página.<br>Inclua a biblioteca Chart.js para exibir o gráfico de metas.</div>';
+      }
+      return;
+    }
 
     // Canvas
     if (chartArea) chartArea.innerHTML = '<canvas id="gm-canvas"></canvas>';
     const canvas = topDoc.getElementById('gm-canvas') as HTMLCanvasElement | null;
     if (!canvas) return;
 
-    _renderChart(canvas, labels, totals, goalLine, domain);
+    _renderChart(canvas, labels, totals, goalLine, domain, prevTotals);
 
     // Stats footer
     if (statsEl) {
@@ -528,18 +617,29 @@ async function _loadAndRender(domain: string, gran: '1h' | '1d' | '1M', dateISO:
       const goalTotal = goalLine.reduce((a, b) => a + (b ?? 0), 0);
       const pct = goalTotal > 0 ? ((total / goalTotal) * 100).toFixed(1) : null;
 
+      // YoY stat — só quando há dados do ano anterior
+      let yoyHtml = '';
+      if (prevTotals && prevTotals.some((v) => v > 0)) {
+        const curYear = gran === '1M' ? _selectedYear : gran === '1h' ? new Date(dateISO).getFullYear() : new Date().getFullYear();
+        const prevSum = prevTotals.reduce((a, b) => a + b, 0);
+        const yoyPct = prevSum > 0 ? ((total - prevSum) / prevSum) * 100 : 0;
+        const yoyColor = yoyPct >= 0 ? '#10b981' : '#ef4444';
+        yoyHtml = `<div class="gm-stat"><span class="gm-stat-label">Consumo ${curYear} x ${curYear - 1}</span><span class="gm-stat-value gm-stat-pct" style="color:${yoyColor}">${yoyPct >= 0 ? '+' : ''}${yoyPct.toFixed(1)}%</span></div>`;
+      }
+
       statsEl.innerHTML = `
         <div class="gm-stat"><span class="gm-stat-label">Total</span><span class="gm-stat-value">${_formatValue(total, domain)}</span></div>
         <div class="gm-stat"><span class="gm-stat-label">Média</span><span class="gm-stat-value">${_formatValue(avg, domain)}</span></div>
         <div class="gm-stat"><span class="gm-stat-label">Pico</span><span class="gm-stat-value">${_formatValue(peak, domain)}<span class="gm-stat-sub">${peakLabel}</span></span></div>
         ${pct !== null ? `<div class="gm-stat"><span class="gm-stat-label">vs Meta</span><span class="gm-stat-value gm-stat-pct" style="color:${parseFloat(pct) <= 100 ? '#10b981' : '#ef4444'}">${pct}%</span></div>` : ''}
+        ${yoyHtml}
       `;
     }
   } catch (err) {
     console.error('[GoalsModal] Erro ao carregar dados:', err);
   } finally {
-    if (loading) loading.style.display = 'none';
-    _isRendering = false;
+    // Only the latest run owns the loader — a superseded run must not hide it early.
+    if (loading && seq === _renderSeq) loading.style.display = 'none';
   }
 }
 
@@ -565,6 +665,9 @@ function _injectStyles(topDoc: Document): void {
     .gm-gran-btn{border:none;background:transparent;color:rgba(255,255,255,.65);font-size:12px;font-weight:700;padding:4px 12px;border-radius:6px;cursor:pointer;transition:all .15s;}
     .gm-gran-btn:hover{background:rgba(255,255,255,.15);color:#fff;}
     .gm-gran-btn.active{background:#fff;color:#3e1a7d;box-shadow:0 1px 4px rgba(0,0,0,.2);}
+    .gm-yoy-btn{display:inline-flex;align-items:center;gap:4px;border:1px solid rgba(255,255,255,.3);background:rgba(0,0,0,.18);color:rgba(255,255,255,.8);font-size:11px;font-weight:700;padding:5px 10px;border-radius:8px;cursor:pointer;transition:all .15s;}
+    .gm-yoy-btn:hover{background:rgba(255,255,255,.15);color:#fff;}
+    .gm-yoy-btn.active{background:#fff;color:#3e1a7d;border-color:#fff;box-shadow:0 1px 4px rgba(0,0,0,.2);}
     .gm-date-input{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.3);border-radius:6px;color:#fff;font-size:12px;padding:3px 8px;cursor:pointer;outline:none;}
     .gm-date-input::-webkit-calendar-picker-indicator{filter:invert(1);opacity:.8;cursor:pointer;}
     .gm-date-wrap,.gm-year-wrap{display:flex;align-items:center;gap:6px;font-size:11px;color:rgba(255,255,255,.75);}
@@ -616,6 +719,7 @@ function _buildModalHTML(): string {
         <button class="gm-gran-btn${_currentGran === '1d' ? ' active' : ''}" data-gran="1d">1d</button>
         <button class="gm-gran-btn${_currentGran === '1h' ? ' active' : ''}" data-gran="1h">1h</button>
       </div>
+      <button class="gm-yoy-btn${_compareYoY ? ' active' : ''}" id="gm-yoy-btn" title="Comparar com o ano anterior (mesmo período)" style="display:${_currentDomain === 'temperature' ? 'none' : 'inline-flex'}">↔ Ano ant.</button>
       <div class="gm-year-wrap" id="gm-year-wrap" style="display:${_currentGran === '1M' ? 'flex' : 'none'}">
         <span>Ano:</span>
         <input type="number" id="gm-year-input" class="gm-date-input" value="${_selectedYear}" min="${new Date().getFullYear() - 5}" max="${new Date().getFullYear()}" />
@@ -643,8 +747,6 @@ function _buildModalHTML(): string {
 // ============================================================================
 
 function _wireEvents(overlay: HTMLElement, topDoc: Document): void {
-  const modal = overlay.querySelector('.gm-modal') as HTMLElement;
-
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) GoalsModal.close();
   });
@@ -660,9 +762,20 @@ function _wireEvents(overlay: HTMLElement, topDoc: Document): void {
       overlay.querySelectorAll('.gm-tab').forEach((t) =>
         t.classList.toggle('active', (t as HTMLElement).dataset.domain === domain)
       );
+      // YoY não se aplica a temperatura (médias) — esconde o botão nesse domínio.
+      const yoyBtn = topDoc.getElementById('gm-yoy-btn');
+      if (yoyBtn) yoyBtn.style.display = domain === 'temperature' ? 'none' : 'inline-flex';
       _updateGoalsHint(topDoc);
       _loadAndRender(_currentDomain, _currentGran, _selectedDate);
     });
+  });
+
+  // YoY toggle (comparar com o ano anterior)
+  topDoc.getElementById('gm-yoy-btn')?.addEventListener('click', () => {
+    _compareYoY = !_compareYoY;
+    const btn = topDoc.getElementById('gm-yoy-btn');
+    if (btn) btn.classList.toggle('active', _compareYoY);
+    _loadAndRender(_currentDomain, _currentGran, _selectedDate);
   });
 
   // Granularity toggle
@@ -723,6 +836,7 @@ export const GoalsModal = {
     _selectedDate = _todayISO();
     _selectedYear = new Date().getFullYear();
     _currentGran = '1d';
+    _compareYoY = false;
 
     const topDoc = _getTopDoc();
     _injectStyles(topDoc);
