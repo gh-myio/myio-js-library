@@ -289,9 +289,9 @@ function _buildMonthBoundaries(year: number): Array<{ label: string; startTs: nu
 
 // Defaults do throttle das consultas /devices/totals (executadas em SÉRIE p/ não
 // sobrecarregar a API). Sobrescrevíveis por GoalsModal.open({ throttle* }).
-const _THROTTLE_PER_REQ_MS_DEFAULT = 0;
+const _THROTTLE_PER_REQ_MS_DEFAULT = 900;
 const _THROTTLE_BATCH_SIZE_DEFAULT = 5;
-const _THROTTLE_BATCH_PAUSE_MS_DEFAULT = 0;
+const _THROTTLE_BATCH_PAUSE_MS_DEFAULT = 1500;
 
 function _sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -924,7 +924,9 @@ function _defaultDatesForGran(gran: '1h' | '1d' | '1M'): { start: string; end: s
   }
   const s = new Date();
   s.setDate(s.getDate() - (_periodDays - 1));
-  return { start: s.toISOString().slice(0, 10), end: today };
+  const sm = String(s.getMonth() + 1).padStart(2, '0');
+  const sd = String(s.getDate()).padStart(2, '0');
+  return { start: `${s.getFullYear()}-${sm}-${sd}`, end: today };
 }
 
 function _applyDateRange(startISO: string, endISO: string): void {
