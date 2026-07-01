@@ -966,7 +966,9 @@ async function buildAnnotationOrchestrator(customerTbId) {
   try {
     const orch = await lib.buildAnnotationServiceOrchestrator({
       customerId: customerTbId,
-      tbHost: window.location.origin,
+      // Host do ThingsBoard vem das settings (thingsboardUrl); window.location.origin só
+      // como fallback. No showcase o origin é o servidor estático → /api/customer/.../deviceInfos 404.
+      tbHost: THINGSBOARD_URL || window.location.origin,
       jwt,
       logger: LogHelper,
     });
@@ -1026,7 +1028,9 @@ async function buildTicketOrchestrator(settings) {
       domain,
       apiKey,
       lib.FreshdeskClient,
-      jwt ? { tbBaseUrl: window.location.origin, jwtToken: jwt, identifierToTbId: new Map() } : undefined
+      jwt
+        ? { tbBaseUrl: THINGSBOARD_URL || window.location.origin, jwtToken: jwt, identifierToTbId: new Map() }
+        : undefined
     );
     updateTicketBadge();
   } catch (err) {
