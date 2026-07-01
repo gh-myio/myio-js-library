@@ -506,14 +506,19 @@ function _buildGoalLine(domain: string, labels: string[], gran: '1h' | '1d' | '1
   if (!tree) return labels.map(() => null);
 
   if (gran === '1h') {
-    // Keys in tree.hourly use "MM-DDThh" format (e.g. "07-01T09")
     const ref = (dateISO || _selectedDate).split('-');
     const mm = ref[1] ?? '';
     const dd = ref[2] ?? '';
-    return labels.map((lbl) => {
-      const hh = lbl.replace('h', '').padStart(2, '0');
-      return tree.hourly?.[`${mm}-${dd}T${hh}`]?.value ?? null;
-    });
+
+    if (tree.hourly && Object.keys(tree.hourly).length > 0) {
+      // Keys use "MM-DDThh" format (e.g. "07-01T09")
+      return labels.map((lbl) => {
+        const hh = lbl.replace('h', '').padStart(2, '0');
+        return tree.hourly![`${mm}-${dd}T${hh}`]?.value ?? null;
+      });
+    }
+
+    return labels.map(() => null);
   }
 
   if (gran === '1M') {
