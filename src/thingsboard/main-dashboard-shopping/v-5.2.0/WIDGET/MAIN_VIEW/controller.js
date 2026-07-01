@@ -683,6 +683,59 @@ Object.assign(window.MyIOUtils, {
       return [];
     }
   },
+  /**
+   * Série de consumo do range INTEIRO numa única request (endpoint agregado /{domain}/,
+   * não /devices/totals). Evita as N requests por dia do GoalsModal.
+   * @returns {Promise<Array<{timestamp: string, value: number}>>} série agregada por timestamp.
+   */
+  fetchGoalsConsumptionSeries: async (custId, domain, startTs, endTs, granularity = '1d', profileId = null) => {
+    try {
+      const creds = window.MyIOOrchestrator?.getCredentials?.();
+      if (!creds?.CLIENT_ID || !creds?.CLIENT_SECRET) {
+        LogHelper.error('[MyIOUtils] fetchGoalsConsumptionSeries: No credentials available');
+        return [];
+      }
+      const MyIOLib = (typeof MyIOLibrary !== 'undefined' && MyIOLibrary) || window.MyIOLibrary;
+      if (!MyIOLib?.buildMyioIngestionAuth) return [];
+      const myIOAuth = MyIOLib.buildMyioIngestionAuth({
+        dataApiHost: getDataApiHost(),
+        clientId: creds.CLIENT_ID,
+        clientSecret: creds.CLIENT_SECRET,
+      });
+      const token = await myIOAuth.getToken();
+      if (!token) return [];
+      const url = new URL(`${getDataApiHost()}/telemetry/customers/${custId}/${domain}/`);
+      url.searchParams.set('startTime', new Date(startTs).toISOString());
+      url.searchParams.set('endTime', new Date(endTs).toISOString());
+      url.searchParams.set('deep', '1');
+      if (granularity) url.searchParams.set('granularity', granularity);
+      if (profileId) url.searchParams.set('groupIds', profileId);
+      LogHelper.log(`[MyIOUtils] fetchGoalsConsumptionSeries (${domain}): ${url.toString()}`);
+      const res = await fetch(url.toString(), { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          window.MyIOUtils?.handleUnauthorizedError?.('fetchGoalsConsumptionSeries');
+        }
+        throw new Error(`API error: ${res.status}`);
+      }
+      const payload = await res.json();
+      const arr = Array.isArray(payload) ? payload : (payload?.data ?? []);
+      // Agrega por timestamp (normalmente 1 entidade quando filtrado por grupo).
+      const byTs = new Map();
+      for (const ent of arr) {
+        for (const pt of ent?.consumption || []) {
+          if (!pt) continue;
+          byTs.set(pt.timestamp, (byTs.get(pt.timestamp) || 0) + (Number(pt.value) || 0));
+        }
+      }
+      const series = Array.from(byTs, ([timestamp, value]) => ({ timestamp, value }));
+      LogHelper.log(`[MyIOUtils] fetchGoalsConsumptionSeries (${domain}): ${series.length} pontos`);
+      return series;
+    } catch (error) {
+      LogHelper.error('[MyIOUtils] fetchGoalsConsumptionSeries error:', error);
+      return [];
+    }
+  },
   fetchGoalsTemperature: async (startTs, endTs, granularity = '1d') => {
     try {
       const creds = window.MyIOOrchestrator?.getCredentials?.();

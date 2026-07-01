@@ -2261,6 +2261,22 @@ async function _goalsFetchConsumption(domain, startTs, endTs, granularity, group
   }
 }
 
+// Série de consumo em UMA request (endpoint agregado /{domain}/) — preferida pelo GoalsModal.
+// Retorna [{ timestamp, value }] do range inteiro, evitando N requests por dia.
+async function _goalsFetchConsumptionSeries(domain, startTs, endTs, granularity, groupId) {
+  const custId =
+    window.MyIOOrchestrator?.getCredentials?.()?.CUSTOMER_ING_ID || window.MyIOUtils?.customerTB_ID;
+  const fn = window.MyIOUtils?.fetchGoalsConsumptionSeries;
+  if (!custId || typeof fn !== 'function') return [];
+  const gId = domain === 'energy' ? (_GOALS_ENTRADA_GROUP_ID || groupId || null) : null;
+  try {
+    return await fn(custId, domain, startTs, endTs, granularity, gId);
+  } catch (err) {
+    LogHelper.warn('[MENU] GoalsModal fetchConsumptionSeries falhou:', err?.message);
+    return [];
+  }
+}
+
 function openGoalsModal() {
   // RFC bridge: child widgets read lib symbols via window.MyIOUtils (only MAIN_VIEW
   // references window.MyIOLibrary). 'GoalsModal' is wired in MAIN_VIEW LIB_SYMBOLS.
@@ -2284,6 +2300,9 @@ function openGoalsModal() {
     throttlePerReqMs: window.MyIOUtils?.goalsThrottle?.perReqMs,
     throttleBatchSize: window.MyIOUtils?.goalsThrottle?.batchSize,
     throttleBatchPauseMs: window.MyIOUtils?.goalsThrottle?.batchPauseMs,
+    // Preferido: 1 request para o range inteiro (série). O fetchConsumption por-boundary
+    // fica como fallback (throttled) caso a série não esteja disponível.
+    fetchConsumptionSeries: _goalsFetchConsumptionSeries,
     fetchConsumption: _goalsFetchConsumption,
     fetchTemperature: window.MyIOUtils?.fetchGoalsTemperature
       ? (startTs, endTs) => window.MyIOUtils.fetchGoalsTemperature(startTs, endTs, '1d')

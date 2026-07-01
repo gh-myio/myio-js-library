@@ -25,6 +25,27 @@ export interface GoalsModalFetchConsumptionFn {
   ): Promise<GoalsDeviceTotal[]>;
 }
 
+/** Um ponto da série de consumo (endpoint agregado /{domain}/). */
+export interface GoalsConsumptionSeriesPoint {
+  timestamp: string | number;
+  value: number;
+}
+
+/**
+ * Preferido: busca a série de consumo do range INTEIRO em UMA request (vs N por dia).
+ * A granularidade dita a forma: '1d' → 1 ponto/dia; '1h' → 1 ponto/hora. Para a view de
+ * mês, o modal chama com '1d' e agrupa por mês. Retorna [{ timestamp, value }].
+ */
+export interface GoalsModalFetchConsumptionSeriesFn {
+  (
+    domain: string,
+    startTs: number,
+    endTs: number,
+    granularity: '1h' | '1d' | '1M',
+    groupId?: string | null
+  ): Promise<GoalsConsumptionSeriesPoint[]>;
+}
+
 export interface GoalsDeviceTotal {
   id?: string;
   ingestionId?: string;
@@ -45,8 +66,13 @@ export interface GoalsTemperatureDevice {
 export interface GoalsModalOptions {
   /** Domínio inicial ao abrir (default: 'energy') */
   initialDomain?: 'energy' | 'water' | 'temperature';
-  /** Callback que faz as requisições de consumo real */
+  /** Callback que faz as requisições de consumo real (fallback: 1 request por boundary). */
   fetchConsumption: GoalsModalFetchConsumptionFn;
+  /**
+   * Preferido: busca a série de consumo do range inteiro em UMA request. Quando fornecido,
+   * o modal usa isto (1 request por view) em vez do fetchConsumption por-boundary.
+   */
+  fetchConsumptionSeries?: GoalsModalFetchConsumptionSeriesFn;
   /** Callback opcional para temperatura */
   fetchTemperature?: (startTs: number, endTs: number) => Promise<GoalsTemperatureDevice[]>;
   /** Número de dias para view 1d (default: 30) */
@@ -289,24 +315,88 @@ async function _fetchTotalsThrottled(
   return totals;
 }
 
+type _Boundary = { label: string; startTs: number; endTs: number; monthKey?: string };
+
+// Mapeia a série (endpoint agregado) para os boundaries da view. O alinhamento dos timestamps
+// difere pela granularidade da RESPOSTA:
+//  - '1d' (view dia)  → 1 ponto/dia rotulado por data UTC → casa por "MM-DD".
+//  - '1M' (view mês)  → série DIÁRIA agregada por mês → casa por "MM".
+//  - '1h' (view hora) → 1 ponto/hora alinhado ao dia local → casa por contenção em [startTs,endTs].
+function _seriesToTotals(
+  series: GoalsConsumptionSeriesPoint[],
+  boundaries: _Boundary[],
+  viewGran: '1h' | '1d' | '1M'
+): number[] {
+  if (viewGran === '1h') {
+    // por contenção temporal (instantes absolutos → TZ-agnóstico)
+    const totals = new Array<number>(boundaries.length).fill(0);
+    for (const pt of series) {
+      if (!pt) continue;
+      const ts = typeof pt.timestamp === 'number' ? pt.timestamp : new Date(pt.timestamp).getTime();
+      const idx = boundaries.findIndex((b) => ts >= b.startTs && ts <= b.endTs);
+      if (idx >= 0) totals[idx] += Number(pt.value) || 0;
+    }
+    return totals;
+  }
+  // '1d' / '1M': chave de data extraída da string ISO (sem conversão de TZ).
+  const byKey = new Map<string, number>();
+  for (const pt of series) {
+    if (!pt) continue;
+    const iso = typeof pt.timestamp === 'number' ? new Date(pt.timestamp).toISOString() : String(pt.timestamp);
+    const key = viewGran === '1M' ? iso.slice(5, 7) : iso.slice(5, 10);
+    byKey.set(key, (byKey.get(key) || 0) + (Number(pt.value) || 0));
+  }
+  return boundaries.map(
+    (b) => byKey.get(viewGran === '1M' ? b.monthKey ?? '' : _labelToDailyKey(b.label)) ?? 0
+  );
+}
+
+// Busca tudo em UMA request via fetchConsumptionSeries. `fetchGran` é a granularidade enviada à
+// API (a view de mês usa '1d' e agrupa). Retorna null quando não há série (→ fallback throttled).
+async function _fetchSeriesTotals(
+  domain: string,
+  boundaries: _Boundary[],
+  viewGran: '1h' | '1d' | '1M',
+  fetchGran: '1h' | '1d' | '1M'
+): Promise<number[] | null> {
+  const seriesFn = _options!.fetchConsumptionSeries;
+  if (!seriesFn || boundaries.length === 0) return null;
+  const start = boundaries[0].startTs;
+  const end = boundaries[boundaries.length - 1].endTs;
+  try {
+    const series = await seriesFn(domain, start, end, fetchGran);
+    if (!Array.isArray(series)) return null;
+    return _seriesToTotals(series, boundaries, viewGran);
+  } catch {
+    return null;
+  }
+}
+
 async function _fetchDayData(domain: string): Promise<{ labels: string[]; totals: number[] }> {
   const boundaries = _buildDayBoundaries(_periodDays);
   const labels = boundaries.map((b) => b.label);
-  const totals = await _fetchTotalsThrottled(domain, boundaries, '1d');
+  const totals =
+    (await _fetchSeriesTotals(domain, boundaries, '1d', '1d')) ??
+    (await _fetchTotalsThrottled(domain, boundaries, '1d'));
   return { labels, totals };
 }
 
 async function _fetchHourData(domain: string, dateISO: string): Promise<{ labels: string[]; totals: number[] }> {
   const boundaries = _buildHourBoundaries(dateISO);
   const labels = boundaries.map((b) => b.label);
-  const totals = await _fetchTotalsThrottled(domain, boundaries, '1h');
+  const totals =
+    (await _fetchSeriesTotals(domain, boundaries, '1h', '1h')) ??
+    (await _fetchTotalsThrottled(domain, boundaries, '1h'));
   return { labels, totals };
 }
 
 async function _fetchMonthData(domain: string, year: number): Promise<{ labels: string[]; totals: number[] }> {
   const boundaries = _buildMonthBoundaries(year);
   const labels = boundaries.map((b) => b.label);
-  const totals = await _fetchTotalsThrottled(domain, boundaries, '1M');
+  // Mês: série DIÁRIA ('1d') sobre o ano, agrupada por mês (conforme contrato da API).
+  const totals =
+    (await _fetchSeriesTotals(domain, boundaries, '1M', '1d')) ??
+    (await _fetchTotalsThrottled(domain, boundaries, '1M'));
   return { labels, totals };
 }
 

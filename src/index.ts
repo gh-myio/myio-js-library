@@ -732,6 +732,8 @@ export type {
   GoalsDeviceTotal,
   GoalsTemperatureDevice,
   GoalsModalFetchConsumptionFn,
+  GoalsConsumptionSeriesPoint,
+  GoalsModalFetchConsumptionSeriesFn,
 } from './components/goals-modal';
 
 // RFC-0101: Export Data Smart Component
