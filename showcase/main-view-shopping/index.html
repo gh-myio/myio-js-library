@@ -115,28 +115,9 @@
   </style>
 </head>
 <body>
-  <!-- ===================== v-5.4.0 template (the controller fills these) ===================== -->
-  <div id="sc-stage">
-  <section id="myio-root" class="myio-grid">
-    <aside class="myio-sidebar">
-      <section id="menuContainer" class="myio-menu-section"></section>
-    </aside>
-    <header class="myio-header">
-      <section id="headerContainer" class="myio-header-section"></section>
-    </header>
-    <main class="myio-content">
-      <!-- Per-domain sections generated dynamically by the controller from the GCDR tree. -->
-      <div id="domainContentRoot"></div>
-      <div data-content-state="alarm_content" class="myio-content-grid" style="display: none">
-        <section id="alarmContentContainer" class="myio-grid-column myio-grid-full"></section>
-      </div>
-    </main>
-    <footer class="myio-footer">
-      <section id="footerContainer" class="myio-footer-section"></section>
-    </footer>
-    <div id="panelModalContainer"></div>
-  </section>
-  </div><!-- /#sc-stage -->
+  <!-- ===================== v-5.4.0 template ===================== -->
+  <!-- Fetched from the REAL v-5.4.0/template.html at runtime (loadTemplate) — no inline copy → no drift. -->
+  <div id="sc-stage"></div><!-- filled with v-5.4.0/template.html before onInit -->
 
   <!-- ===================== Showcase cockpit (right sidebar) ===================== -->
   <aside id="sc-cockpit">
@@ -486,6 +467,18 @@
       return true;
     }
 
+    // ---- inject the REAL v-5.4.0 template.html into #sc-stage (no inline copy → no drift) ----
+    let _templateLoaded = false;
+    async function loadTemplate() {
+      if (_templateLoaded) return;
+      const url = '../../src/thingsboard/main-dashboard-shopping/v-5.4.0/template.html?v=' + Date.now();
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('template.html HTTP ' + res.status);
+      document.getElementById('sc-stage').innerHTML = await res.text();
+      _templateLoaded = true;
+      log('info', 'v-5.4.0/template.html injected into #sc-stage');
+    }
+
     // ---- load the v-5.4.0 controller (cache-busted) ----
     let _controllerLoaded = false;
     function loadController() {
@@ -503,6 +496,7 @@
       try {
         if (typeof MyIOLibrary === 'undefined') { log('err', 'MyIOLibrary (UMD) not loaded'); return; }
         if (!buildCtx()) return;
+        await loadTemplate(); // inject template.html BEFORE onInit fills the containers
         await loadController();
         // controller wipes MyIOUtils.customerAttrs on load → re-seed so X-API-Key reaches /entities
         seedCustomerAttrs(self.ctx.settings.gcdrTenantId);
