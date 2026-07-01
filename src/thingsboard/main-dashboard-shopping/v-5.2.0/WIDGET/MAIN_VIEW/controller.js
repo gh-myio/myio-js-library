@@ -645,8 +645,11 @@ Object.assign(window.MyIOUtils, {
         }
         throw new Error(`API error: ${res.status}`);
       }
-      const json = await res.json();
-      LogHelper.log(`[MyIOUtils] fetchGoalsDayTotals (${domain}): Got ${json?.length || 0} devices`);
+      const payload = await res.json();
+      // O endpoint /devices/totals retorna { data: [...], summary: {...} } — NÃO um array puro.
+      // Ler payload.length dava undefined → "Got 0 devices" e nada plotava. Aceita ambos os shapes.
+      const json = Array.isArray(payload) ? payload : (payload?.data ?? []);
+      LogHelper.log(`[MyIOUtils] fetchGoalsDayTotals (${domain}): Got ${json.length} devices`);
       // Para água (sem filtro por groupId), curar lista via orchestrator
       if (!profileId && Array.isArray(json) && json.length > 0) {
         let orchItems = window.MyIOOrchestratorData?.[domain]?.items || [];
@@ -1626,6 +1629,22 @@ Object.assign(window.MyIOUtils, {
     window.MyIOUtils.goalsData = window.MyIOUtils.goalsData || { energy: null, water: null, temperature: null };
     _fetchAndCacheGoalsData(widgetSettings.goalsJsonUrls);
     LogHelper.log('[Orchestrator] goalsJsonUrls configurados:', widgetSettings.goalsJsonUrls);
+
+    // Metas (GoalsModal) — config carregada das settings e exposta via MyIOUtils para o MENU
+    // injetar em GoalsModal.open (bridge). Os defaults (fallback) vivem AQUI, na MAIN.
+    window.MyIOUtils.goalsDefaultPeriodDays = Number.isFinite(self.ctx.settings?.goalsDefaultPeriodDays)
+      ? self.ctx.settings.goalsDefaultPeriodDays
+      : 30;
+    const _gt = self.ctx.settings?.goalsThrottle || {};
+    window.MyIOUtils.goalsThrottle = {
+      perReqMs: Number.isFinite(_gt.perReqMs) ? _gt.perReqMs : 900,
+      batchSize: Number.isFinite(_gt.batchSize) ? _gt.batchSize : 5,
+      batchPauseMs: Number.isFinite(_gt.batchPauseMs) ? _gt.batchPauseMs : 1500,
+    };
+    LogHelper.log(
+      '[Orchestrator] goals config:',
+      { defaultPeriodDays: window.MyIOUtils.goalsDefaultPeriodDays, throttle: window.MyIOUtils.goalsThrottle }
+    );
 
     // RFC-0130: Load delay time settings from widget settings
     const delaySettings = {

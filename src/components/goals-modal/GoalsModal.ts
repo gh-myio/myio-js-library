@@ -51,6 +51,15 @@ export interface GoalsModalOptions {
   fetchTemperature?: (startTs: number, endTs: number) => Promise<GoalsTemperatureDevice[]>;
   /** Número de dias para view 1d (default: 30) */
   defaultPeriodDays?: number;
+  /**
+   * Throttle das requisições de consumo (executadas em série p/ não sobrecarregar a API).
+   * ms de espera entre cada request. Default 900. Use 0 para desabilitar o delay.
+   */
+  throttlePerReqMs?: number;
+  /** Número de requests antes da pausa maior. Default 5. */
+  throttleBatchSize?: number;
+  /** Pausa extra (ms) a cada `throttleBatchSize` requests. Default 1500. */
+  throttleBatchPauseMs?: number;
 }
 
 // Estrutura do goals JSON cacheado
@@ -237,75 +246,67 @@ function _buildMonthBoundaries(year: number): Array<{ label: string; startTs: nu
 // Fetch de dados de consumo
 // ============================================================================
 
+// Defaults do throttle das consultas /devices/totals (executadas em SÉRIE p/ não
+// sobrecarregar a API). Sobrescrevíveis por GoalsModal.open({ throttle* }).
+const _THROTTLE_PER_REQ_MS_DEFAULT = 900;
+const _THROTTLE_BATCH_SIZE_DEFAULT = 5;
+const _THROTTLE_BATCH_PAUSE_MS_DEFAULT = 1500;
+
+function _sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function _fetchTotalsThrottled(
+  domain: string,
+  boundaries: Array<{ startTs: number; endTs: number }>,
+  granularity: '1h' | '1d' | '1M'
+): Promise<number[]> {
+  const fetchFn = _options!.fetchConsumption;
+  // Parâmetros do throttle vindos das opções do componente (com defaults).
+  const perReqMs = _options!.throttlePerReqMs ?? _THROTTLE_PER_REQ_MS_DEFAULT;
+  const batchSize = _options!.throttleBatchSize ?? _THROTTLE_BATCH_SIZE_DEFAULT;
+  const batchPauseMs = _options!.throttleBatchPauseMs ?? _THROTTLE_BATCH_PAUSE_MS_DEFAULT;
+  const mySeq = _renderSeq; // este fetch pertence ao render atual
+  const totals = new Array<number>(boundaries.length).fill(0);
+  for (let i = 0; i < boundaries.length; i++) {
+    if (_renderSeq !== mySeq) break; // um render mais novo começou — para de disparar
+    const b = boundaries[i];
+    try {
+      const devices = await fetchFn(domain, b.startTs, b.endTs, granularity);
+      totals[i] = (Array.isArray(devices) ? devices : []).reduce(
+        (sum, d) => sum + (Number(d.total_value) || Number(d.value) || 0),
+        0
+      );
+    } catch {
+      totals[i] = 0;
+    }
+    // delay entre requests (não após a última)
+    if (i < boundaries.length - 1 && perReqMs > 0) {
+      await _sleep(perReqMs);
+      if (batchSize > 0 && (i + 1) % batchSize === 0) await _sleep(batchPauseMs);
+    }
+  }
+  return totals;
+}
+
 async function _fetchDayData(domain: string): Promise<{ labels: string[]; totals: number[] }> {
   const boundaries = _buildDayBoundaries(_periodDays);
   const labels = boundaries.map((b) => b.label);
-  const totals = new Array<number>(boundaries.length).fill(0);
-  const fetchFn = _options!.fetchConsumption;
-
-  const results = await Promise.all(
-    boundaries.map(async (b, idx) => {
-      try {
-        const devices = await fetchFn(domain, b.startTs, b.endTs, '1d');
-        const dayTotal = (Array.isArray(devices) ? devices : []).reduce((sum, d) => {
-          return sum + (Number(d.total_value) || Number(d.value) || 0);
-        }, 0);
-        return { idx, value: dayTotal };
-      } catch {
-        return { idx, value: 0 };
-      }
-    })
-  );
-
-  results.forEach(({ idx, value }) => { totals[idx] = value; });
+  const totals = await _fetchTotalsThrottled(domain, boundaries, '1d');
   return { labels, totals };
 }
 
 async function _fetchHourData(domain: string, dateISO: string): Promise<{ labels: string[]; totals: number[] }> {
   const boundaries = _buildHourBoundaries(dateISO);
   const labels = boundaries.map((b) => b.label);
-  const totals = new Array<number>(24).fill(0);
-  const fetchFn = _options!.fetchConsumption;
-
-  const results = await Promise.all(
-    boundaries.map(async (b, idx) => {
-      try {
-        const devices = await fetchFn(domain, b.startTs, b.endTs, '1h');
-        const hourTotal = (Array.isArray(devices) ? devices : []).reduce((sum, d) => {
-          return sum + (Number(d.total_value) || Number(d.value) || 0);
-        }, 0);
-        return { idx, value: hourTotal };
-      } catch {
-        return { idx, value: 0 };
-      }
-    })
-  );
-
-  results.forEach(({ idx, value }) => { totals[idx] = value; });
+  const totals = await _fetchTotalsThrottled(domain, boundaries, '1h');
   return { labels, totals };
 }
 
 async function _fetchMonthData(domain: string, year: number): Promise<{ labels: string[]; totals: number[] }> {
   const boundaries = _buildMonthBoundaries(year);
   const labels = boundaries.map((b) => b.label);
-  const totals = new Array<number>(boundaries.length).fill(0);
-  const fetchFn = _options!.fetchConsumption;
-
-  const results = await Promise.all(
-    boundaries.map(async (b, idx) => {
-      try {
-        const devices = await fetchFn(domain, b.startTs, b.endTs, '1M');
-        const monthTotal = (Array.isArray(devices) ? devices : []).reduce((sum, d) => {
-          return sum + (Number(d.total_value) || Number(d.value) || 0);
-        }, 0);
-        return { idx, value: monthTotal };
-      } catch {
-        return { idx, value: 0 };
-      }
-    })
-  );
-
-  results.forEach(({ idx, value }) => { totals[idx] = value; });
+  const totals = await _fetchTotalsThrottled(domain, boundaries, '1M');
   return { labels, totals };
 }
 
@@ -731,7 +732,7 @@ function _buildModalHTML(): string {
       <button class="gm-close" id="gm-close" aria-label="Fechar">&times;</button>
     </div>
     <div class="gm-tabs">${tabs}</div>
-    ${hasGoalsHint ? '<div class="gm-no-goals-hint">Linha de meta não disponível para este domínio (configure goalsJsonUrls no MAIN_VIEW)</div>' : ''}
+    ${hasGoalsHint ? '<div class="gm-no-goals-hint">Linha de meta não disponível para este domínio (nenhuma meta cadastrada no GCDR para este ano)</div>' : ''}
     <div class="gm-body">
       <div class="gm-chart-wrap">
         <div id="gm-chart-area"><canvas id="gm-canvas"></canvas></div>
@@ -819,7 +820,7 @@ function _updateGoalsHint(topDoc: Document): void {
     const hint = topDoc.createElement('div');
     hint.id = 'gm-no-goals-hint-el';
     hint.className = 'gm-no-goals-hint';
-    hint.textContent = 'Linha de meta não disponível para este domínio (configure goalsJsonUrls no MAIN_VIEW)';
+    hint.textContent = 'Linha de meta não disponível para este domínio (nenhuma meta cadastrada no GCDR para este ano)';
     tabs.insertAdjacentElement('afterend', hint);
   }
 }

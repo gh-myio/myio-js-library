@@ -2245,6 +2245,22 @@ self.onInit = function () {
 // O MENU apenas abre o modal e injeta os callbacks de consumo.
 const _GOALS_ENTRADA_GROUP_ID = 'f431d17a-ec11-45e0-b92c-83a0d3b6d942';
 
+// Callback de consumo do GoalsModal: totais diários por device via MyIOUtils.fetchGoalsDayTotals.
+// Energy é filtrado pelo grupo de entrada; demais domínios vão sem filtro (curados pelo orchestrator).
+async function _goalsFetchConsumption(domain, startTs, endTs, granularity, groupId) {
+  const custId =
+    window.MyIOOrchestrator?.getCredentials?.()?.CUSTOMER_ING_ID || window.MyIOUtils?.customerTB_ID;
+  const fn = window.MyIOUtils?.fetchGoalsDayTotals;
+  if (!custId || typeof fn !== 'function') return [];
+  const gId = domain === 'energy' ? (_GOALS_ENTRADA_GROUP_ID || groupId || null) : null;
+  try {
+    return await fn(custId, domain, startTs, endTs, granularity, gId);
+  } catch (err) {
+    LogHelper.warn('[MENU] GoalsModal fetchConsumption falhou:', err?.message);
+    return [];
+  }
+}
+
 function openGoalsModal() {
   // RFC bridge: child widgets read lib symbols via window.MyIOUtils (only MAIN_VIEW
   // references window.MyIOLibrary). 'GoalsModal' is wired in MAIN_VIEW LIB_SYMBOLS.
@@ -2261,20 +2277,14 @@ function openGoalsModal() {
 
   GoalsModal.open({
     initialDomain,
-    defaultPeriodDays: 30,
-    fetchConsumption: async (domain, startTs, endTs, granularity, groupId) => {
-      const custId = window.MyIOOrchestrator?.getCredentials?.()?.CUSTOMER_ING_ID
-                  || window.MyIOUtils?.customerTB_ID;
-      const fn = window.MyIOUtils?.fetchGoalsDayTotals;
-      if (!custId || typeof fn !== 'function') return [];
-      const gId = domain === 'energy' ? (_GOALS_ENTRADA_GROUP_ID || groupId || null) : null;
-      try {
-        return await fn(custId, domain, startTs, endTs, granularity, gId);
-      } catch (err) {
-        LogHelper.warn('[MENU] GoalsModal fetchConsumption falhou:', err?.message);
-        return [];
-      }
-    },
+    // Config vinda das settings do MAIN_VIEW via bridge (fallback aplicado na MAIN).
+    defaultPeriodDays: window.MyIOUtils?.goalsDefaultPeriodDays,
+    // Throttle das requisições de consumo — fonte única/fallback nas settings do MAIN_VIEW,
+    // exposto via window.MyIOUtils.goalsThrottle (já com defaults aplicados na MAIN).
+    throttlePerReqMs: window.MyIOUtils?.goalsThrottle?.perReqMs,
+    throttleBatchSize: window.MyIOUtils?.goalsThrottle?.batchSize,
+    throttleBatchPauseMs: window.MyIOUtils?.goalsThrottle?.batchPauseMs,
+    fetchConsumption: _goalsFetchConsumption,
     fetchTemperature: window.MyIOUtils?.fetchGoalsTemperature
       ? (startTs, endTs) => window.MyIOUtils.fetchGoalsTemperature(startTs, endTs, '1d')
       : undefined,

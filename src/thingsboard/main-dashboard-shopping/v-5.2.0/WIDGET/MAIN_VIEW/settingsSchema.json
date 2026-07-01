@@ -224,6 +224,42 @@
             "default": false
           }
         }
+      },
+      "goalsDefaultPeriodDays": {
+        "title": "Metas — Período padrão (dias, view 1d)",
+        "type": "number",
+        "default": 30,
+        "minimum": 1,
+        "maximum": 366,
+        "description": "Número de dias exibidos na view diária (1d) do painel de Metas (GoalsModal). Exposto via window.MyIOUtils.goalsDefaultPeriodDays e injetado no GoalsModal.open pelo MENU."
+      },
+      "goalsThrottle": {
+        "title": "Metas — Throttle das requisições de consumo",
+        "type": "object",
+        "description": "Controla o ritmo das chamadas ao endpoint /devices/totals no painel de Metas (GoalsModal), evitando rajadas. Exposto via window.MyIOUtils.goalsThrottle e injetado no GoalsModal.open pelo MENU.",
+        "properties": {
+          "perReqMs": {
+            "title": "Delay entre requisições (ms)",
+            "type": "number",
+            "default": 900,
+            "minimum": 0,
+            "description": "Espera entre cada request de consumo. 0 desabilita o delay."
+          },
+          "batchSize": {
+            "title": "Requisições por lote",
+            "type": "number",
+            "default": 5,
+            "minimum": 0,
+            "description": "Quantidade de requests antes de uma pausa maior."
+          },
+          "batchPauseMs": {
+            "title": "Pausa a cada lote (ms)",
+            "type": "number",
+            "default": 1500,
+            "minimum": 0,
+            "description": "Pausa extra a cada 'batchSize' requests."
+          }
+        }
       }
     }
   },
@@ -264,6 +300,10 @@
     "enabledReportItems.temperature_todos",
     "enabledReportItems.alarms_por_dispositivo",
     "enabledReportItems.alarms_dispositivo_x_alarme",
-    "enabledReportItems.alarms_por_tipo"
+    "enabledReportItems.alarms_por_tipo",
+    "goalsDefaultPeriodDays",
+    "goalsThrottle.perReqMs",
+    "goalsThrottle.batchSize",
+    "goalsThrottle.batchPauseMs"
   ]
 }
