@@ -11,6 +11,18 @@ import {
   ThingsBoardTelemetryResponse
 } from './types';
 
+// Verbose logs are OPT-IN: silent unless the host dashboard sets
+// window.MyIOUtils.debugModals = true (MAIN_BAS wires it to enableDebugMode).
+// Errors/warnings keep logging unconditionally via console.error/warn.
+const dbg = (...args: unknown[]): void => {
+  try {
+    if ((globalThis as any)?.MyIOUtils?.debugModals) console.log(...args);
+  } catch {
+    /* noop */
+  }
+};
+
+
 /**
  * Main controller class for Water Tank Modal
  *
@@ -97,7 +109,7 @@ export class WaterTankModal {
       limit: this.options.limit
     };
 
-    console.log('[WaterTankModal] Fetching telemetry data:', {
+    dbg('[WaterTankModal] Fetching telemetry data:', {
       deviceId: config.deviceId,
       keys: config.keys,
       timeRange: {
@@ -136,7 +148,7 @@ export class WaterTankModal {
 
       const rawData: ThingsBoardTelemetryResponse = await response.json();
 
-      console.log('[WaterTankModal] Raw telemetry response:', rawData);
+      dbg('[WaterTankModal] Raw telemetry response:', rawData);
 
       // Transform raw data to our format
       const telemetryData = this.transformTelemetryData(rawData, config.keys);
@@ -155,7 +167,7 @@ export class WaterTankModal {
         }
       };
 
-      console.log('[WaterTankModal] Processed telemetry data:', {
+      dbg('[WaterTankModal] Processed telemetry data:', {
         pointCount: result.telemetry.length,
         summary: result.summary
       });
@@ -215,7 +227,7 @@ export class WaterTankModal {
     for (const p of allPoints) {
       keyCounts[p.key || 'unknown'] = (keyCounts[p.key || 'unknown'] || 0) + 1;
     }
-    console.log(`[WaterTankModal] Transformed ${allPoints.length} total points:`, keyCounts);
+    dbg(`[WaterTankModal] Transformed ${allPoints.length} total points:`, keyCounts);
 
     return allPoints;
   }
@@ -296,7 +308,7 @@ export class WaterTankModal {
    */
   public async show(): Promise<{ close: () => void }> {
     try {
-      console.log('[WaterTankModal] Initializing modal...');
+      dbg('[WaterTankModal] Initializing modal...');
 
       // Fetch telemetry data
       this.data = await this.fetchTelemetryData();
@@ -334,7 +346,7 @@ export class WaterTankModal {
         }
       }
 
-      console.log('[WaterTankModal] Modal opened successfully');
+      dbg('[WaterTankModal] Modal opened successfully');
 
       return {
         close: () => this.close()
@@ -351,7 +363,7 @@ export class WaterTankModal {
    * Close the modal
    */
   public close(): void {
-    console.log('[WaterTankModal] Closing modal');
+    dbg('[WaterTankModal] Closing modal');
 
     if (this.view) {
       this.view.destroy();
@@ -365,7 +377,7 @@ export class WaterTankModal {
    * Handle date range change from view
    */
   private async handleDateRangeChange(startTs: number, endTs: number): Promise<void> {
-    console.log('[WaterTankModal] Date range changed:', {
+    dbg('[WaterTankModal] Date range changed:', {
       startTs,
       endTs,
       startDate: new Date(startTs).toISOString(),
@@ -382,7 +394,7 @@ export class WaterTankModal {
 
     try {
       // Show loading state (could add loading indicator here)
-      console.log('[WaterTankModal] Fetching new data for date range...');
+      dbg('[WaterTankModal] Fetching new data for date range...');
 
       // Fetch new data
       this.data = await this.fetchTelemetryData();
@@ -401,7 +413,7 @@ export class WaterTankModal {
         }
       }
 
-      console.log('[WaterTankModal] Data refreshed successfully');
+      dbg('[WaterTankModal] Data refreshed successfully');
 
     } catch (error) {
       console.error('[WaterTankModal] Failed to fetch data for new date range:', error);
@@ -413,7 +425,7 @@ export class WaterTankModal {
    * RFC-0107: Handle params change (date range, aggregation, limit)
    */
   private async handleParamsChange(params: { startTs: number; endTs: number; aggregation: string; limit: number }): Promise<void> {
-    console.log('[WaterTankModal] Params changed:', {
+    dbg('[WaterTankModal] Params changed:', {
       startTs: params.startTs,
       endTs: params.endTs,
       aggregation: params.aggregation,
@@ -433,7 +445,7 @@ export class WaterTankModal {
     this.context.timeRange.endTs = params.endTs;
 
     try {
-      console.log('[WaterTankModal] Fetching data with new params...');
+      dbg('[WaterTankModal] Fetching data with new params...');
 
       // Fetch new data with updated params
       this.data = await this.fetchTelemetryData();
@@ -452,7 +464,7 @@ export class WaterTankModal {
         }
       }
 
-      console.log('[WaterTankModal] Data refreshed with new params successfully');
+      dbg('[WaterTankModal] Data refreshed with new params successfully');
 
     } catch (error) {
       console.error('[WaterTankModal] Failed to fetch data with new params:', error);
@@ -469,7 +481,7 @@ export class WaterTankModal {
       return;
     }
 
-    console.log('[WaterTankModal] Exporting CSV...');
+    dbg('[WaterTankModal] Exporting CSV...');
 
     try {
       // Create CSV content
@@ -504,7 +516,7 @@ export class WaterTankModal {
       link.click();
       document.body.removeChild(link);
 
-      console.log('[WaterTankModal] CSV exported successfully:', filename);
+      dbg('[WaterTankModal] CSV exported successfully:', filename);
 
     } catch (error) {
       console.error('[WaterTankModal] Export failed:', error);

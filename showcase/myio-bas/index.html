@@ -662,20 +662,30 @@
         try { tsData = await tbGet(`/api/plugins/telemetry/DEVICE/${id}/values/timeseries`, jwt); } catch { /* device sem telemetria */ }
         const am = {};
         (Array.isArray(attrs) ? attrs : []).forEach((x) => { am[x.key] = x.value; });
+        const tsLatest = {};
+        for (const k of Object.keys(tsData || {})) {
+          const e0 = Array.isArray(tsData[k]) && tsData[k][0];
+          if (e0) tsLatest[k] = e0.value;
+        }
+        // connectionStatus em produção pode vir como ATRIBUTO ou como TIMESERIES;
+        // último fallback = atributo built-in 'active' do TB (atividade do device).
+        const connectionStatus =
+          am.connectionStatus != null ? am.connectionStatus
+          : tsLatest.connectionStatus != null ? tsLatest.connectionStatus
+          : (am.active === true || am.active === 'true' ? 'online' : 'offline');
         const keys = {
           deviceType: am.deviceType || dev.type || '',
           deviceProfile: am.deviceProfile || dev.type || '',
           identifier: am.identifier || '',
           label: dev.label || dev.name,
-          connectionStatus: am.connectionStatus || 'offline',
+          connectionStatus: connectionStatus,
         };
         if (am.ingestionId) keys.ingestionId = am.ingestionId;
         if (am.gcdrDeviceId) keys.gcdrDeviceId = am.gcdrDeviceId;
         if (am.tickets_items) keys.tickets_items = am.tickets_items;
         // última leitura de cada key de telemetria (consumption/temperature/level/state/status…)
-        for (const k of Object.keys(tsData || {})) {
-          const e0 = Array.isArray(tsData[k]) && tsData[k][0];
-          if (e0 && !(k in keys)) keys[k] = e0.value;
+        for (const k of Object.keys(tsLatest)) {
+          if (!(k in keys)) keys[k] = tsLatest[k];
         }
         return entityRows(
           { aliasName: 'AllDevices', entityType: 'DEVICE', entityId: id, entityName: dev.name, entityLabel: dev.label || dev.name },

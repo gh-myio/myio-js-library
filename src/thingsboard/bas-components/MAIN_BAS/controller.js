@@ -36,10 +36,10 @@
 // Debug Configuration
 // ============================================================================
 
-var DEBUG_ACTIVE = true; // Default true, controlled by settings.enableDebugMode
+var DEBUG_ACTIVE = false; // OPT-IN: silent by default; settings.enableDebugMode === true enables
 
 // LogHelper instance - created in onInit using MyIOLibrary.createLogHelper
-// Fallback for early calls before onInit completes
+// Fallback for early calls before onInit completes (errors ALWAYS log, like the lib helper)
 var LogHelper = {
   log: function (...args) {
     if (DEBUG_ACTIVE) console.log('[MAIN_BAS]', ...args);
@@ -48,17 +48,18 @@ var LogHelper = {
     if (DEBUG_ACTIVE) console.warn('[MAIN_BAS]', ...args);
   },
   error: function (...args) {
-    if (DEBUG_ACTIVE) console.error('[MAIN_BAS]', ...args);
+    console.error('[MAIN_BAS]', ...args);
   },
 };
 
 // ============================================================================
 // Click tracing — instrument every click → modal path to debug which clicks
 // fire and where they stop. Filter the console by "[CLICK-TRACE]".
+// Gated by DEBUG_ACTIVE (enableDebugMode) — silent in production.
 // ============================================================================
 function traceClick(where, payload) {
+  if (!DEBUG_ACTIVE) return;
   try {
-    // Always log (independent of DEBUG_ACTIVE) so tracing works even with debug off.
     console.log('%c[CLICK-TRACE] ' + where, 'color:#2F5848;font-weight:bold;', payload || '');
   } catch {
     /* noop */
@@ -749,13 +750,8 @@ function parseDevicesFromData(data) {
     // Get the value from row.data (usually under '0' or the keyName)
     var value = getFirstDataValue(rowData);
 
-    // DEBUG: Log first few rows with full structure, and also DEVICE rows
-    var isDevice = entityType === 'DEVICE';
-    if (index < 15 || (isDevice && index < 150)) {
-      // Also log raw data structure for devices
-      var rawDataKeys = Object.keys(rowData);
-      var rawFirstEntry = rawDataKeys.length > 0 ? rowData[rawDataKeys[0]] : null;
-
+    // DEBUG: bounded sample — first rows only (full per-row dump flooded prod consoles)
+    if (index < 5) {
       LogHelper.log(
         '[MAIN_BAS] Row ' +
           index +
@@ -764,14 +760,11 @@ function parseDevicesFromData(data) {
             aliasName: aliasName,
             entityType: entityType,
             entityId: entityId.substring(0, 8) + '...',
-            entityName: entityName,
             entityLabel: entityLabel,
             occurrenceIndex: occurrenceIndex,
             dataKeyName: keyName,
             value: value,
             totalDataKeys: dataKeysArray.length,
-            rawDataKeys: rawDataKeys,
-            rawFirstEntry: rawFirstEntry,
           })
       );
     }
@@ -869,25 +862,7 @@ function parseDevicesFromData(data) {
     var connectionStatus = (cd.connectionStatus || '').toLowerCase();
     var isOnline = connectionStatus === 'online';
 
-    LogHelper.log(
-      '[MAIN_BAS] Device "' +
-        deviceLabel +
-        '": ' +
-        JSON.stringify({
-          deviceType: deviceType,
-          deviceProfile: deviceProfile,
-          identifier: identifier,
-          connectionStatus: connectionStatus,
-          isOnline: isOnline,
-          allKeys: Object.keys(cd),
-          labelSources: {
-            cdLabel: cd.label,
-            entityLabel: entity.entityLabel,
-            entityName: entity.entityName,
-            entityId: entityId,
-          },
-        })
-    );
+    // (per-device JSON dump removed — the final "Classification:" summary covers it)
 
     // Check if device is hidden/archived (RFC-0142)
     if (isOcultosDevice(deviceProfile)) {
@@ -1077,7 +1052,6 @@ function parseDevicesFromData(data) {
 
     // Add device to devices list
     devices.push(device);
-    LogHelper.log('[MAIN_BAS] Added:', device.name, '| domain:', domain, '| context:', context);
 
     // Add to classified structure
     if (classified[domain] && classified[domain][context]) {
@@ -5771,22 +5745,9 @@ async function initializeDashboard(
   settings
 ) {
   try {
-    // DEBUG: Log raw data from ThingsBoard
     LogHelper.log('[MAIN_BAS] ============ INIT START ============');
-    LogHelper.log('[MAIN_BAS] ctx.data (raw):', ctx.data);
     LogHelper.log('[MAIN_BAS] ctx.data length:', ctx.data?.length);
-
-    // Log each datasource row
-    if (ctx.data && Array.isArray(ctx.data)) {
-      ctx.data.forEach(function (row, index) {
-        LogHelper.log('[MAIN_BAS] Row ' + index + ':', {
-          aliasName: row?.datasource?.aliasName,
-          entityId: row?.datasource?.entityId,
-          entityLabel: row?.datasource?.entityLabel,
-          dataKeys: Object.keys(row?.data || {}),
-        });
-      });
-    }
+    // (per-row dump removed — parseDevicesFromData already logs a bounded sample)
 
     // Check if MyIOLibrary is available
     if (typeof MyIOLibrary === 'undefined') {
@@ -6003,8 +5964,12 @@ self.onInit = async function () {
 
   console.log('[MAIN_BAS] onInit called, ctx:', _ctx);
 
-  // Enable debug mode from settings (default: true, set false to disable)
-  DEBUG_ACTIVE = self.ctx.settings?.enableDebugMode !== false;
+  // Debug is OPT-IN (default: SILENT in production; set enableDebugMode=true to enable).
+  // Errors keep logging unconditionally via LogHelper.error.
+  DEBUG_ACTIVE = self.ctx.settings?.enableDebugMode === true;
+  // Premium modals (Energy/WaterTank/OnOff…) gate their verbose console.log on this flag.
+  window.MyIOUtils = window.MyIOUtils || {};
+  window.MyIOUtils.debugModals = DEBUG_ACTIVE;
   DATA_API_HOST = self.ctx.settings?.dataApiHost;
   // TB base for direct REST calls. Default '' keeps same-origin behavior inside
   // the real TB runtime; the showcase sets it so /api/* doesn't hit the page origin.

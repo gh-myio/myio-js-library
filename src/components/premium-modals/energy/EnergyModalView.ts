@@ -20,6 +20,18 @@ import {
 } from './utils';
 import { BASControlPanel } from './BASControlPanel';
 
+// Verbose logs are OPT-IN: silent unless the host dashboard sets
+// window.MyIOUtils.debugModals = true (MAIN_BAS wires it to enableDebugMode).
+// Errors/warnings keep logging unconditionally via console.error/warn.
+const dbg = (...args: unknown[]): void => {
+  try {
+    if ((globalThis as any)?.MyIOUtils?.debugModals) console.log(...args);
+  } catch {
+    /* noop */
+  }
+};
+
+
 export class EnergyModalView {
   private modal: any;
   private container: HTMLElement | null = null;
@@ -129,7 +141,7 @@ export class EnergyModalView {
     // Re-render chart with new granularity
     this.reRenderChart();
 
-    console.log('[EnergyModalView] [RFC-0097] Granularity changed to:', granularity);
+    dbg('[EnergyModalView] [RFC-0097] Granularity changed to:', granularity);
   }
 
   /**
@@ -169,7 +181,7 @@ export class EnergyModalView {
     this.currentTheme = this.currentTheme === 'dark' ? 'light' : 'dark';
     localStorage.setItem('myio-modal-theme', this.currentTheme);
     this.applyTheme();
-    console.log('[EnergyModalView] Theme toggled to:', this.currentTheme);
+    dbg('[EnergyModalView] Theme toggled to:', this.currentTheme);
   }
 
   /**
@@ -179,7 +191,7 @@ export class EnergyModalView {
     this.currentBarMode = this.currentBarMode === 'stacked' ? 'grouped' : 'stacked';
     localStorage.setItem('myio-modal-bar-mode', this.currentBarMode);
     this.applyBarMode();
-    console.log('[EnergyModalView] Bar mode toggled to:', this.currentBarMode);
+    dbg('[EnergyModalView] Bar mode toggled to:', this.currentBarMode);
   }
 
 /**
@@ -294,13 +306,13 @@ export class EnergyModalView {
    */
   private reRenderChart(): void {
     const mode = this.config.params.mode || 'single';
-    console.log('[EnergyModalView] reRenderChart called, mode:', mode, 'barMode:', this.currentBarMode, 'theme:', this.currentTheme);
+    dbg('[EnergyModalView] reRenderChart called, mode:', mode, 'barMode:', this.currentBarMode, 'theme:', this.currentTheme);
 
     if (mode === 'comparison') {
       // For comparison mode, re-render comparison chart
-      console.log('[EnergyModalView] Calling renderComparisonChart...');
+      dbg('[EnergyModalView] Calling renderComparisonChart...');
       const result = this.renderComparisonChart();
-      console.log('[EnergyModalView] renderComparisonChart result:', result);
+      dbg('[EnergyModalView] renderComparisonChart result:', result);
     } else {
       // For single mode, re-render with current energy data
       if (this.currentEnergyData) {
@@ -885,7 +897,7 @@ export class EnergyModalView {
       const granularity = this.currentGranularity;
       const ingestionId = this.config.context.resolved.ingestionId;
 
-      console.log(`[EnergyModalView] Initializing v2 chart with: deviceId=${ingestionId}, startDate=${startISO}, endDate=${endISO}, granularity=${granularity}, theme=${this.currentTheme}, timezone=${tzIdentifier}`);
+      dbg(`[EnergyModalView] Initializing v2 chart with: deviceId=${ingestionId}, startDate=${startISO}, endDate=${endISO}, granularity=${granularity}, theme=${this.currentTheme}, timezone=${tzIdentifier}`);
 
       const chartConfig = {
         version: 'v2',
@@ -907,7 +919,7 @@ export class EnergyModalView {
       // Attach event listeners if SDK supports it
       if ((this as any).chartInstance && typeof (this as any).chartInstance.on === 'function') {
         (this as any).chartInstance.on('drilldown', (data: any) => {
-          console.log('[EnergyModalView] v2 SDK Drilldown Event:', data);
+          dbg('[EnergyModalView] v2 SDK Drilldown Event:', data);
         });
         (this as any).chartInstance.on('error', (errorData: any) => {
           console.error('[EnergyModalView] v2 SDK Error Event:', errorData);
@@ -1009,7 +1021,7 @@ export class EnergyModalView {
         deep: this.config.params.deep || false
       };
 
-      console.log('[EnergyModalView] Rendering comparison chart with SDK:', chartConfig);
+      dbg('[EnergyModalView] Rendering comparison chart with SDK:', chartConfig);
 
       (this as any).chartInstance = renderTelemetryStackedChart(this.chartContainer, chartConfig);
 
@@ -1105,7 +1117,7 @@ export class EnergyModalView {
         yAxisTitle: 'Temperatura (°C)',
       }
 
-      console.log('[EnergyModalView] Rendering temperature comparison chart with SDK:', chartConfig);
+      dbg('[EnergyModalView] Rendering temperature comparison chart with SDK:', chartConfig);
 
       (this as any).chartInstance = renderTelemetryLineChart(this.chartContainer, chartConfig);
 
@@ -1321,7 +1333,7 @@ export class EnergyModalView {
       // ⭐ COMPARISON MODE: Skip data fetch, render chart directly
       // SDK handles data fetching internally for multiple devices
       if (mode === 'comparison') {
-        console.log('[EnergyModalView] Comparison mode: rendering chart directly');
+        dbg('[EnergyModalView] Comparison mode: rendering chart directly');
         const success = this.tryRenderWithSDK(null as any);  // energyData not used in comparison
 
         if (success) {
@@ -1389,7 +1401,7 @@ export class EnergyModalView {
     if (viewDemandBtn) {
       viewDemandBtn.addEventListener('click', async () => {
         try {
-          console.log('[EnergyModalView] Opening demand modal (Pico de Demanda)');
+          dbg('[EnergyModalView] Opening demand modal (Pico de Demanda)');
 
           const jwtToken = localStorage.getItem('jwt_token');
           if (!jwtToken) {
@@ -1437,7 +1449,7 @@ export class EnergyModalView {
     if (viewTelemetryBtn) {
       viewTelemetryBtn.addEventListener('click', async () => {
         try {
-          console.log('[EnergyModalView] Opening real-time telemetry modal');
+          dbg('[EnergyModalView] Opening real-time telemetry modal');
 
           const jwtToken = localStorage.getItem('jwt_token');
           if (!jwtToken) {
@@ -1473,7 +1485,7 @@ export class EnergyModalView {
     if (showKpisBtn) {
       showKpisBtn.addEventListener('click', () => {
         // TODO: Open KPI modal here
-        console.log('[EnergyModalView] Show KPIs modal clicked');
+        dbg('[EnergyModalView] Show KPIs modal clicked');
         alert('KPI modal functionality to be implemented');
       });
     }
@@ -1516,7 +1528,7 @@ export class EnergyModalView {
         });
       });
 
-      console.log('[EnergyModalView] [RFC-0097] Granularity selector initialized with:', this.currentGranularity);
+      dbg('[EnergyModalView] [RFC-0097] Granularity selector initialized with:', this.currentGranularity);
     }
 
     // Initialize DateRangePicker with widget dates as defaults
@@ -1573,7 +1585,7 @@ export class EnergyModalView {
         parentEl: this.modal.element,
         onApply: ({ startISO, endISO }) => {
           this.hideError();
-          console.log('Date range selected:', { startISO, endISO });
+          dbg('Date range selected:', { startISO, endISO });
         }
       });
     } catch (error) {

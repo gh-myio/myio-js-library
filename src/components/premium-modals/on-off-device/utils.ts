@@ -6,6 +6,18 @@
 import type { OnOffTimelineData, OnOffTimelineSegment } from '../../on-off-timeline-chart';
 import type { OnOffScheduleEntry } from './types';
 
+// Verbose logs are OPT-IN: silent unless the host dashboard sets
+// window.MyIOUtils.debugModals = true (MAIN_BAS wires it to enableDebugMode).
+// Errors/warnings keep logging unconditionally via console.error/warn.
+const dbg = (...args: unknown[]): void => {
+  try {
+    if ((globalThis as any)?.MyIOUtils?.debugModals) console.log(...args);
+  } catch {
+    /* noop */
+  }
+};
+
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -71,7 +83,7 @@ export async function fetchOnOffStatusData(
       const telemetry = data?.[key] || [];
 
       if (telemetry.length > 0) {
-        console.log(`[fetchOnOffStatusData] Found ${telemetry.length} points for key "${key}"`);
+        dbg(`[fetchOnOffStatusData] Found ${telemetry.length} points for key "${key}"`);
         return telemetry;
       }
     } catch (error) {
