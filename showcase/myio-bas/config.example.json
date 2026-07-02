@@ -1,6 +1,6 @@
 {
   "_comment": "Copie para config.json (gitignored) e preencha. 'settings' espelha o settingsSchema.json do MAIN_BAS — TUDO que aparece no cockpit vem daqui. 'thingsboardUrl' é setting real do widget: vazio dentro do TB (same-origin); fora do TB (showcase) aponte para o servidor TB. 'dataMode' por ambiente: 'mock' = fixture local (funciona sem login); 'real' = a MESMA tela com dados reais — busca assets/devices/attrs/telemetria do customerTB_ID via TB REST (exige 🔑 Login TB). A tab LOCAL|PROD troca entre os blocos de 'environments'.",
-  "defaultEnv": "LOCAL",
+  "defaultEnv": "PROD",
   "general-settings": {
     "_comment": "Configurações globais da showcase (não por-ambiente).",
     "bootCountdownSeconds": 6

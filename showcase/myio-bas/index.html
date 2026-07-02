@@ -218,42 +218,50 @@
     // The device→ambiente containment feeds the ctx.http shim below, so the
     // RFC-0161/0168 hierarchy (Relations API) works fully offline.
     // =========================================================================
+    // Ids mock são UUIDs VÁLIDOS (como em produção), determinísticos e reconhecíveis
+    // pelo bloco inicial: b0a5… = ambiente (asset), d0a5… = device TB, 1a0e5710… =
+    // ingestionId. A interceptação é por PERTENCIMENTO aos mapas mock (nunca por
+    // prefixo de string) — nenhum id inventado vaza para as APIs reais.
+    const ambUuid = (n) => 'b0a50000-0000-4000-8000-0000000000' + String(n).padStart(2, '0');
+    const devUuid = (n) => 'd0a50000-0000-4000-8000-0000000001' + String(n).padStart(2, '0');
+    const ingUuid = (n) => '1a0e5710-0000-4000-8000-0000000002' + String(n).padStart(2, '0');
+
     const MOCK_AMBIENTES = [
-      { id: 'amb-001', label: '(001)-Deck' },
-      { id: 'amb-002', label: '(002)-Sala do Nobreak' },
-      { id: 'amb-003', label: '(003)-Auditório' },
-      { id: 'amb-004', label: '(004)-Staff Rio de Janeiro' },
-      { id: 'amb-005', label: '(005)-Bombas' },
-      { id: 'amb-006', label: '(006)-Água' },
-      { id: 'amb-007', label: '(007)-Configuração' },
-      { id: 'amb-008', label: '(008)-Integrações' },
+      { id: ambUuid(1), label: '(001)-Deck' },
+      { id: ambUuid(2), label: '(002)-Sala do Nobreak' },
+      { id: ambUuid(3), label: '(003)-Auditório' },
+      { id: ambUuid(4), label: '(004)-Staff Rio de Janeiro' },
+      { id: ambUuid(5), label: '(005)-Bombas' },
+      { id: ambUuid(6), label: '(006)-Água' },
+      { id: ambUuid(7), label: '(007)-Configuração' },
+      { id: ambUuid(8), label: '(008)-Integrações' },
     ];
 
     // keys = ordered map dataKeyName → value (deviceType/deviceProfile first, telemetry after)
     const MOCK_DEVICES = [
-      // ── Água (amb-006) ── (ingestionId = device existe no Data API; TANK/SOLENOIDE são TB-only)
-      { id: 'dev-hid-1', label: 'Hidr. Entrada Geral', amb: 'amb-006', keys: { deviceType:'HIDROMETRO', deviceProfile:'HIDROMETRO', identifier:'HID-001', label:'Hidr. Entrada Geral', connectionStatus:'online',  consumption: 342.5, ingestionId: 'ing-hid-1' } },
-      { id: 'dev-hid-2', label: 'Hidr. Torre',         amb: 'amb-006', keys: { deviceType:'HIDROMETRO', deviceProfile:'HIDROMETRO', identifier:'HID-002', label:'Hidr. Torre',         connectionStatus:'online',  consumption: 128.3, ingestionId: 'ing-hid-2' } },
-      { id: 'dev-cx-1',  label: 'Caixa Torre',         amb: 'amb-006', keys: { deviceType:'CAIXA_DAGUA', deviceProfile:'CAIXA_DAGUA', identifier:'CX-001', label:'Caixa Torre',        connectionStatus:'online',  level: 78 } },
-      { id: 'dev-cx-2',  label: 'Cisterna Principal',  amb: 'amb-006', keys: { deviceType:'CAIXA_DAGUA', deviceProfile:'CAIXA_DAGUA', identifier:'CX-002', label:'Cisterna Principal', connectionStatus:'offline', level: 42 } },
-      { id: 'dev-sol-1', label: 'Solenoide Jardim',    amb: 'amb-006', keys: { deviceType:'SOLENOIDE', deviceProfile:'SOLENOIDE', identifier:'SOL-001', label:'Solenoide Jardim',      connectionStatus:'online',  state: 'on' } },
-      { id: 'dev-sol-2', label: 'Solenoide Deck',      amb: 'amb-001', keys: { deviceType:'SOLENOIDE', deviceProfile:'SOLENOIDE', identifier:'SOL-002', label:'Solenoide Deck',        connectionStatus:'online',  state: 'off' } },
+      // ── Água (Água=amb 6) ── (ingestionId = device existe no Data API; TANK/SOLENOIDE são TB-only)
+      { id: devUuid(1),  label: 'Hidr. Entrada Geral', amb: ambUuid(6), keys: { deviceType:'HIDROMETRO', deviceProfile:'HIDROMETRO', identifier:'HID-001', label:'Hidr. Entrada Geral', connectionStatus:'online',  consumption: 342.5, ingestionId: ingUuid(1) } },
+      { id: devUuid(2),  label: 'Hidr. Torre',         amb: ambUuid(6), keys: { deviceType:'HIDROMETRO', deviceProfile:'HIDROMETRO', identifier:'HID-002', label:'Hidr. Torre',         connectionStatus:'online',  consumption: 128.3, ingestionId: ingUuid(2) } },
+      { id: devUuid(3),  label: 'Caixa Torre',         amb: ambUuid(6), keys: { deviceType:'CAIXA_DAGUA', deviceProfile:'CAIXA_DAGUA', identifier:'CX-001', label:'Caixa Torre',        connectionStatus:'online',  level: 78 } },
+      { id: devUuid(4),  label: 'Cisterna Principal',  amb: ambUuid(6), keys: { deviceType:'CAIXA_DAGUA', deviceProfile:'CAIXA_DAGUA', identifier:'CX-002', label:'Cisterna Principal', connectionStatus:'offline', level: 42 } },
+      { id: devUuid(5),  label: 'Solenoide Jardim',    amb: ambUuid(6), keys: { deviceType:'SOLENOIDE', deviceProfile:'SOLENOIDE', identifier:'SOL-001', label:'Solenoide Jardim',      connectionStatus:'online',  state: 'on' } },
+      { id: devUuid(6),  label: 'Solenoide Deck',      amb: ambUuid(1), keys: { deviceType:'SOLENOIDE', deviceProfile:'SOLENOIDE', identifier:'SOL-002', label:'Solenoide Deck',        connectionStatus:'online',  state: 'off' } },
       // ── Ambientes / HVAC (termostatos) ──
-      { id: 'dev-th-1', label: 'Termostato Deck',      amb: 'amb-001', keys: { deviceType:'TERMOSTATO', deviceProfile:'TERMOSTATO', identifier:'TH-001', label:'Termostato Deck',      connectionStatus:'online',  temperature: 22.5, setpoint: 23, consumption: 1.8 } },
-      { id: 'dev-th-2', label: 'Termostato Nobreak',   amb: 'amb-002', keys: { deviceType:'TERMOSTATO', deviceProfile:'TERMOSTATO', identifier:'TH-002', label:'Termostato Nobreak',   connectionStatus:'online',  temperature: 18.2, setpoint: 17, consumption: 2.4 } },
-      { id: 'dev-th-3', label: 'Termostato Auditório', amb: 'amb-003', keys: { deviceType:'TERMOSTATO', deviceProfile:'TERMOSTATO', identifier:'TH-003', label:'Termostato Auditório', connectionStatus:'online',  temperature: 24.1, setpoint: 22, consumption: 3.1 } },
-      { id: 'dev-th-4', label: 'Termostato Staff RJ',  amb: 'amb-004', keys: { deviceType:'TERMOSTATO', deviceProfile:'TERMOSTATO', identifier:'TH-004', label:'Termostato Staff RJ',  connectionStatus:'offline', temperature: 23.0, setpoint: 23, consumption: 0 } },
-      // ── Energia: bombas / motores (amb-005) ──
-      { id: 'dev-bmb-1', label: 'Bomba Água Fria 01',  amb: 'amb-005', keys: { deviceType:'BOMBA_HIDRAULICA', deviceProfile:'BOMBA_HIDRAULICA', identifier:'BMB-001', label:'Bomba Água Fria 01', connectionStatus:'online',  consumption: 12.4, ingestionId: 'ing-bmb-1' } },
-      { id: 'dev-bmb-2', label: 'Bomba CAG 01',        amb: 'amb-005', keys: { deviceType:'BOMBA_HIDRAULICA', deviceProfile:'BOMBA_HIDRAULICA', identifier:'BMB-002', label:'Bomba CAG 01',       connectionStatus:'online',  consumption: 0, ingestionId: 'ing-bmb-2' } },
-      { id: 'dev-mot-1', label: 'Motor Exaustor',      amb: 'amb-005', keys: { deviceType:'MOTOR', deviceProfile:'MOTOR', identifier:'MOT-001', label:'Motor Exaustor',                connectionStatus:'online',  consumption: 3.2, ingestionId: 'ing-mot-1' } },
+      { id: devUuid(7),  label: 'Termostato Deck',      amb: ambUuid(1), keys: { deviceType:'TERMOSTATO', deviceProfile:'TERMOSTATO', identifier:'TH-001', label:'Termostato Deck',      connectionStatus:'online',  temperature: 22.5, setpoint: 23, consumption: 1.8 } },
+      { id: devUuid(8),  label: 'Termostato Nobreak',   amb: ambUuid(2), keys: { deviceType:'TERMOSTATO', deviceProfile:'TERMOSTATO', identifier:'TH-002', label:'Termostato Nobreak',   connectionStatus:'online',  temperature: 18.2, setpoint: 17, consumption: 2.4 } },
+      { id: devUuid(9),  label: 'Termostato Auditório', amb: ambUuid(3), keys: { deviceType:'TERMOSTATO', deviceProfile:'TERMOSTATO', identifier:'TH-003', label:'Termostato Auditório', connectionStatus:'online',  temperature: 24.1, setpoint: 22, consumption: 3.1 } },
+      { id: devUuid(10), label: 'Termostato Staff RJ',  amb: ambUuid(4), keys: { deviceType:'TERMOSTATO', deviceProfile:'TERMOSTATO', identifier:'TH-004', label:'Termostato Staff RJ',  connectionStatus:'offline', temperature: 23.0, setpoint: 23, consumption: 0 } },
+      // ── Energia: bombas / motores (Bombas=amb 5) ──
+      { id: devUuid(11), label: 'Bomba Água Fria 01',  amb: ambUuid(5), keys: { deviceType:'BOMBA_HIDRAULICA', deviceProfile:'BOMBA_HIDRAULICA', identifier:'BMB-001', label:'Bomba Água Fria 01', connectionStatus:'online',  consumption: 12.4, ingestionId: ingUuid(11) } },
+      { id: devUuid(12), label: 'Bomba CAG 01',        amb: ambUuid(5), keys: { deviceType:'BOMBA_HIDRAULICA', deviceProfile:'BOMBA_HIDRAULICA', identifier:'BMB-002', label:'Bomba CAG 01',       connectionStatus:'online',  consumption: 0, ingestionId: ingUuid(12) } },
+      { id: devUuid(13), label: 'Motor Exaustor',      amb: ambUuid(5), keys: { deviceType:'MOTOR', deviceProfile:'MOTOR', identifier:'MOT-001', label:'Motor Exaustor',                connectionStatus:'online',  consumption: 3.2, ingestionId: ingUuid(13) } },
       // ── Energia: medidores ──
-      { id: 'dev-ent-1', label: 'Entrada Geral',       amb: 'amb-008', keys: { deviceType:'ENTRADA', deviceProfile:'ENTRADA', identifier:'ENT-001', label:'Entrada Geral',              connectionStatus:'online',  consumption: 5230.7, ingestionId: 'ing-ent-1' } },
-      { id: 'dev-med-1', label: 'Medidor CPD',         amb: 'amb-002', keys: { deviceType:'3F_MEDIDOR', deviceProfile:'3F_MEDIDOR', identifier:'MED-001', label:'Medidor CPD',          connectionStatus:'online',  consumption: 890.2, ingestionId: 'ing-med-1' } },
+      { id: devUuid(14), label: 'Entrada Geral',       amb: ambUuid(8), keys: { deviceType:'ENTRADA', deviceProfile:'ENTRADA', identifier:'ENT-001', label:'Entrada Geral',              connectionStatus:'online',  consumption: 5230.7, ingestionId: ingUuid(14) } },
+      { id: devUuid(15), label: 'Medidor CPD',         amb: ambUuid(2), keys: { deviceType:'3F_MEDIDOR', deviceProfile:'3F_MEDIDOR', identifier:'MED-001', label:'Medidor CPD',          connectionStatus:'online',  consumption: 890.2, ingestionId: ingUuid(15) } },
       // ── Switch (RFC-0176): LAMP / REMOTE / SELETOR ──
-      { id: 'dev-lmp-1', label: 'Iluminação Deck',     amb: 'amb-001', keys: { deviceType:'LAMP', deviceProfile:'LAMP', identifier:'LMP-001', label:'Iluminação Deck',                  connectionStatus:'online',  status: 'on' } },
-      { id: 'dev-rem-1', label: 'Remote Auditório',    amb: 'amb-003', keys: { deviceType:'REMOTE', deviceProfile:'REMOTE', identifier:'REM-001', label:'Remote Auditório',             connectionStatus:'online',  status: 'off' } },
-      { id: 'dev-sel-1', label: 'Seletora Subsolo',    amb: 'amb-007', keys: { deviceType:'SELETOR_AUTO_MANUAL', deviceProfile:'SELETOR_AUTO_MANUAL', identifier:'SEL-001', label:'Seletora Subsolo', connectionStatus:'online', status: 'detected' } },
+      { id: devUuid(16), label: 'Iluminação Deck',     amb: ambUuid(1), keys: { deviceType:'LAMP', deviceProfile:'LAMP', identifier:'LMP-001', label:'Iluminação Deck',                  connectionStatus:'online',  status: 'on' } },
+      { id: devUuid(17), label: 'Remote Auditório',    amb: ambUuid(3), keys: { deviceType:'REMOTE', deviceProfile:'REMOTE', identifier:'REM-001', label:'Remote Auditório',             connectionStatus:'online',  status: 'off' } },
+      { id: devUuid(18), label: 'Seletora Subsolo',    amb: ambUuid(7), keys: { deviceType:'SELETOR_AUTO_MANUAL', deviceProfile:'SELETOR_AUTO_MANUAL', identifier:'SEL-001', label:'Seletora Subsolo', connectionStatus:'online', status: 'detected' } },
     ];
 
     // Consecutive rows for one entity, sharing ONE datasource with ordered dataKeys.
@@ -337,48 +345,48 @@
 
     // ---- fetch interceptor: plays ThingsBoard for MOCK entities only ----
     // The premium modals (EnergyModal etc.) call TB REST via the GLOBAL fetch —
-    // not ctx.http — so the shim above doesn't cover them. Mock devices (dev-*)
-    // don't exist in the real TB; answer those locally and pass everything else
-    // (real ids, auth, ingestion, alarms) through untouched.
+    // not ctx.http — so the shim above doesn't cover them. Interception is by
+    // MEMBERSHIP in the mock maps (valid UUIDs, never string prefixes): a mock
+    // id answers locally; every other id/call (real devices, auth, ingestion,
+    // alarms) passes through untouched.
     (function installMockTbFetch() {
       const realFetch = window.fetch.bind(window);
       const deviceById = {};
-      MOCK_DEVICES.forEach((d) => { deviceById[d.id] = d; });
+      const deviceByIngestionId = {};
+      MOCK_DEVICES.forEach((d) => {
+        deviceById[d.id] = d;
+        if (d.keys.ingestionId) deviceByIngestionId[d.keys.ingestionId] = d;
+      });
+      const UUID_RE = '([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})';
       const json = (obj) => new Response(JSON.stringify(obj), { status: 200, headers: { 'Content-Type': 'application/json' } });
       window.fetch = function (input, init) {
         const url = typeof input === 'string' ? input : (input && input.url) || '';
-        let m;
-        // GET /api/device/{mockId} — device entity (EnergyModal.fetchEntityInfo)
-        if ((m = url.match(/\/api\/device\/(dev-[\w-]+)/))) {
-          const d = deviceById[m[1]];
-          if (d) {
-            log('info', `mock TB fetch: /api/device/${m[1]}`);
-            return Promise.resolve(json({ id: { id: d.id, entityType: 'DEVICE' }, name: d.label, label: d.label, type: d.keys.deviceType }));
-          }
+        let m, d;
+        // GET /api/device/{id} — device entity (EnergyModal.fetchEntityInfo)
+        if ((m = url.match(new RegExp('/api/device/' + UUID_RE))) && (d = deviceById[m[1]])) {
+          log('info', `mock TB fetch: /api/device/… (${d.label})`);
+          return Promise.resolve(json({ id: { id: d.id, entityType: 'DEVICE' }, name: d.label, label: d.label, type: d.keys.deviceType }));
         }
-        // GET /api/plugins/telemetry/DEVICE/{mockId}/values/attributes… (EnergyModal.fetchEntityAttributes)
-        if ((m = url.match(/\/api\/plugins\/telemetry\/DEVICE\/(dev-[\w-]+)\/values\/attributes/))) {
-          const d = deviceById[m[1]];
-          if (d) {
-            log('info', `mock TB fetch: attributes de ${m[1]}`);
-            const attrs = [
-              { key: 'identifier', value: d.keys.identifier },
-              { key: 'deviceType', value: d.keys.deviceType },
-              { key: 'deviceProfile', value: d.keys.deviceProfile },
-              { key: 'label', value: d.label },
-              { key: 'centralName', value: 'Central Showcase' },
-              { key: 'centralId', value: 'central-showcase' },
-              { key: 'slaveId', value: 1 },
-            ];
-            // ingestion-capable devices expose their (mock) ingestionId — TB-only
-            // devices (TANK/SOLENOIDE/switch) don't, exercising the report gate.
-            if (d.keys.ingestionId) attrs.push({ key: 'ingestionId', value: d.keys.ingestionId });
-            return Promise.resolve(json(attrs));
-          }
+        // GET /api/plugins/telemetry/DEVICE/{id}/values/attributes… (EnergyModal.fetchEntityAttributes)
+        if ((m = url.match(new RegExp('/api/plugins/telemetry/DEVICE/' + UUID_RE + '/values/attributes'))) && (d = deviceById[m[1]])) {
+          log('info', `mock TB fetch: attributes de ${d.label}`);
+          const attrs = [
+            { key: 'identifier', value: d.keys.identifier },
+            { key: 'deviceType', value: d.keys.deviceType },
+            { key: 'deviceProfile', value: d.keys.deviceProfile },
+            { key: 'label', value: d.label },
+            { key: 'centralName', value: 'Central Showcase' },
+            { key: 'centralId', value: 'central-showcase' },
+            { key: 'slaveId', value: 1 },
+          ];
+          // ingestion-capable devices expose their (mock) ingestionId — TB-only
+          // devices (TANK/SOLENOIDE/switch) don't, exercising the report gate.
+          if (d.keys.ingestionId) attrs.push({ key: 'ingestionId', value: d.keys.ingestionId });
+          return Promise.resolve(json(attrs));
         }
-        // GET {dataApiHost}/telemetry/devices/{mockIngestionId}/(energy|water)?startTime=… —
-        // EnergyDataFetcher series for mock ingestion ids (real UUIDs pass through)
-        if ((m = url.match(/\/telemetry\/devices\/(ing-[\w-]+)\/(energy|water)\?/))) {
+        // GET {dataApiHost}/telemetry/devices/{ingestionId}/(energy|water)?… —
+        // EnergyDataFetcher series ONLY for mock ingestion ids (real ones pass through)
+        if ((m = url.match(new RegExp('/telemetry/devices/' + UUID_RE + '/(energy|water)\\?'))) && (d = deviceByIngestionId[m[1]])) {
           const q = new URLSearchParams(url.split('?')[1]);
           const startMs = Date.parse(q.get('startTime')) || Date.now() - 7 * 86400000;
           const endMs = Date.parse(q.get('endTime')) || Date.now();
@@ -387,16 +395,15 @@
           for (let ts = startMs; ts <= endMs; ts += stepMs) {
             consumption.push({ timestamp: new Date(ts).toISOString(), value: +(Math.random() * 40 + 10).toFixed(2) });
           }
-          log('info', `mock Data API fetch: ${m[1]}/${m[2]} → ${consumption.length} pontos`);
+          log('info', `mock Data API fetch: ${d.label}/${m[2]} → ${consumption.length} pontos`);
           return Promise.resolve(json({ data: [{ deviceId: m[1], consumption }] }));
         }
-        // GET /api/plugins/telemetry/DEVICE/{mockId}/values/timeseries?keys=… (telemetry refresh)
-        if ((m = url.match(/\/api\/plugins\/telemetry\/DEVICE\/(dev-[\w-]+)\/values\/timeseries\?[^#]*keys=([^&]+)/))) {
-          const d = deviceById[m[1]];
+        // GET /api/plugins/telemetry/DEVICE/{id}/values/timeseries?keys=… (telemetry refresh)
+        if ((m = url.match(new RegExp('/api/plugins/telemetry/DEVICE/' + UUID_RE + '/values/timeseries\\?[^#]*keys=([^&]+)'))) && (d = deviceById[m[1]])) {
           const now = Date.now();
           const out = {};
           decodeURIComponent(m[2]).split(',').forEach((k) => {
-            const v = d && d.keys[k];
+            const v = d.keys[k];
             out[k] = [{ ts: now, value: String(v != null ? v : (Math.random() * 5).toFixed(2)) }];
           });
           return Promise.resolve(json(out));
@@ -429,8 +436,9 @@
       const gs = cfg['general-settings'] || cfg.generalSettings || {};
       if (gs.bootCountdownSeconds != null) _bootCountdownSecs = Math.max(0, Number(gs.bootCountdownSeconds) || 0);
       const envNames = Object.keys(cfg.environments || {});
-      const saved = localStorage.getItem('sc-bas-env');
-      _currentEnv = (saved && envNames.includes(saved) && saved) || cfg.defaultEnv || envNames[0] || '';
+      // defaultEnv do config SEMPRE decide a tab inicial (esta showcase carrega
+      // pré-selecionada em PROD por padrão — sem memória de última tab).
+      _currentEnv = (envNames.includes(cfg.defaultEnv) && cfg.defaultEnv) || envNames[0] || '';
       log('info', `config carregado de ${src} (envs: ${envNames.join(' | ') || '—'})${src.includes('example') ? ' — ⚠️ template; crie config.json com seus valores reais' : ''}`);
     }
 
@@ -451,7 +459,6 @@
       const e = _config.environments?.[env];
       if (!e) { log('err', `ambiente "${env}" ausente no config`); return; }
       _currentEnv = env;
-      localStorage.setItem('sc-bas-env', env);
       _realDataCache = {}; // env trocou → refaz o fetch de dados reais no próximo Run
       DEFAULT_OVERRIDES = flattenSettings(e.settings || {});
       renderForm();
