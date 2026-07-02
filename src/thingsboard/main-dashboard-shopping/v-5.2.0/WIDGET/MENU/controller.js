@@ -448,6 +448,29 @@ self.onInit = function () {
 
   // RFC-0108: Show centered settings modal with options
   function showSettingsModal(user) {
+    // RFC-0215 Phase 3: prefer the shared lib hub (single source with v-5.4.0).
+    // Falls back to the inline hub below when the deployed lib doesn't export
+    // the symbol yet (older bundle) — zero-regression migration path.
+    const libHub = window.MyIOUtils?.openSettingsHubModal;
+    if (typeof libHub === 'function') {
+      libHub({
+        customerName: user?.customerTitle || user?.customerName || getCurrentDashboardTitle() || '',
+        isSuperAdmin: window.MyIOUtils?.SuperAdmin === true,
+        handlers: {
+          temperature: () => openTemperatureSettings(user),
+          contract: () => openContractDevicesSettings(user),
+          measurement: () => openMeasurementSettings(user),
+          integration: () => openIntegrationSetupModal(user),
+          'user-management': () => openUserManagementModal(user),
+          'default-dashboard': () => openDefaultDashboardSettings(user),
+          'client-config': () => openClientConfigModal(user),
+          'device-profile': () => openDeviceProfileSettings(user),
+        },
+      });
+      LogHelper.log('[MENU] Settings hub opened via lib openSettingsHubModal (RFC-0215)');
+      return;
+    }
+
     // Use top-level document to ensure modal appears above everything
     const topWin = window.top || window;
     const topDoc = (() => {

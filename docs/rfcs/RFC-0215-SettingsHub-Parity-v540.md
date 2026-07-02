@@ -2,7 +2,20 @@
 
 - **RFC**: 0215
 - **Title**: Make the left-sidebar **⚙️ Configurações** entry in `main-dashboard-shopping` **v-5.4.0** open the **consolidated settings hub** (grid of options) faithful to v-5.2.0, instead of jumping straight into a single modal.
-- **Status**: Proposed (2026-07-01) — design only, not implemented.
+- **Status**: Phases 1+2+3 implemented (2026-07-02) on `feat/rfc-0207-consolidated`.
+  - Phases 1+2: full 8-option parity in `v-5.4.0/controller.js` — lib-backed options (1,2,3,5,8)
+    plus the three custom SuperAdmin modals ported from v-5.2.0 MENU (`openIntegrationSetupModal`,
+    `openDefaultDashboardSettings`, `openClientConfigModal`). `isSuperAdmin` source decided:
+    `window.MyIOUtils.SuperAdmin` (set in onInit, refined in `fetchAndUpdateUserInfo` when the
+    email is resolved via `/api/auth/user`).
+  - Phase 3: hub UI extracted to the lib as `openSettingsHubModal` (`src/components/settings-hub/`,
+    exported from `src/index.ts`, 13 unit tests). API: `{ customerName, isSuperAdmin, handlers }` —
+    the hub only renders the grid and routes to caller-provided handlers, so it stays
+    version-agnostic (leaner than the speculative `{ customerId, jwt, tbBaseUrl, … }` signature
+    below). v-5.4.0 `openSettingsHub()` now delegates to the lib (toastError if the deployed lib
+    lacks the symbol); v-5.2.0 MENU `showSettingsModal` prefers the lib via the `MyIOUtils` bridge
+    (symbol added to MAIN_VIEW `LIB_SYMBOLS`) and keeps the inline hub as fallback for older
+    deployed bundles — zero-regression migration.
 - **Author**: Rodrigo Lago
 - **Created**: 2026-07-01
 - **Target**:

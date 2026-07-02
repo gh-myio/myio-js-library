@@ -856,6 +856,15 @@ export type {
   ContractDomain,
 } from './components/premium-modals/contract-devices';
 
+// RFC-0215: Settings hub modal (consolidated "Configurações" picker — RFC-0108 UX)
+export { openSettingsHubModal } from './components/settings-hub';
+export type {
+  OpenSettingsHubModalOptions,
+  SettingsHubAction,
+  SettingsHubHandlers,
+  SettingsHubModalHandle,
+} from './components/settings-hub';
+
 // RFC-0108: Measurement Setup Modal
 export { openMeasurementSetupModal } from './components/premium-modals/measurement-setup';
 

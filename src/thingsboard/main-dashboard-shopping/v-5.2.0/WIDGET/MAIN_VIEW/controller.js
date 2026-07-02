@@ -121,6 +121,7 @@ window.MyIOUtils = window.MyIOUtils || {};
     'openDashboardPopupAllReport',
     'openDashboardPopupReport',
     'openDashboardPopupSettings',
+    'openSettingsHubModal',
     'openTemperatureModal',
     'openTemperatureComparisonModal',
     'openTemperatureSettingsModal',

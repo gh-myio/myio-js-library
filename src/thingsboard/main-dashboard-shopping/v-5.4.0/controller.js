@@ -278,29 +278,103 @@ function updateMenuShoppingName() {
   if (name) _shoppingName = name;
   if (_menuInstance?.setShoppingName) _menuInstance.setShoppingName(_shoppingName || '');
 }
-function openSettings() {
+// ============================================================================
+// RFC-0215: Settings hub — consolidated "⚙️ Configurações" menu, parity with
+// v-5.2.0 MENU showSettingsModal (RFC-0108). Phase 1: hub + lib-backed options
+// (temperature, contract, measurement, user-management, device-profile).
+// Phase 2: the three custom SuperAdmin modals ported from v-5.2.0 MENU
+// (integration, default-dashboard, client-config) — full 8-option parity.
+// ============================================================================
+
+// Shared guards for the lib-backed settings modals: lib + jwt + customerId.
+// Returns null (after toastError) when any prerequisite is missing.
+function _settingsModalGuards() {
   const lib = window.MyIOLibrary;
-  if (!lib?.openMeasurementSetupModal) {
-    toastError('Componente de configurações não disponível.');
-    return;
+  if (!lib) {
+    toastError('Biblioteca de componentes não disponível.');
+    return null;
   }
   const jwtToken =
     self.ctx?.http?.getServerCredentials?.()?.token || localStorage.getItem('jwt_token');
   if (!jwtToken) {
     toastError('Token de autenticação não encontrado. Faça login novamente.');
-    return;
+    return null;
   }
   const customerId = window.MyIOOrchestrator?.customerTB_ID || window.MyIOUtils?.customerTB_ID;
   if (!customerId) {
     toastError('ID do cliente não encontrado. Verifique a configuração do dashboard.');
+    return null;
+  }
+  return { lib, jwtToken, customerId };
+}
+
+function openTemperatureSettings() {
+  const g = _settingsModalGuards();
+  if (!g) return;
+  if (typeof g.lib.openTemperatureSettingsModal !== 'function') {
+    toastError('Componente de configuração de temperatura não disponível.');
+    return;
+  }
+  g.lib.openTemperatureSettingsModal({
+    token: g.jwtToken,
+    customerId: g.customerId,
+    customerName: resolveShoppingName() || 'Cliente',
+    theme: 'light',
+    isSuperAdmin: window.MyIOUtils?.SuperAdmin || false,
+    onSave: (settings) => {
+      LogHelper.log('Temperature settings saved:', settings);
+      // Update in-memory clamp range when superadmin saves new values (parity v-5.2.0)
+      if (settings.temperatureClampMin !== undefined && settings.temperatureClampMax !== undefined) {
+        window.MyIOUtils.temperatureClampRange = {
+          min: settings.temperatureClampMin,
+          max: settings.temperatureClampMax,
+        };
+      }
+      window.dispatchEvent(new CustomEvent('myio:temperature-settings-updated', { detail: settings }));
+    },
+    onClose: () => LogHelper.log('Temperature settings modal closed'),
+  });
+}
+
+function openContractDevicesSettings() {
+  const g = _settingsModalGuards();
+  if (!g) return;
+  if (typeof g.lib.openContractDevicesModal !== 'function') {
+    toastError('Componente de dispositivos contratados não disponível.');
+    return;
+  }
+  g.lib.openContractDevicesModal({
+    customerId: g.customerId,
+    customerName: resolveShoppingName() || 'Cliente',
+    jwtToken: g.jwtToken,
+    userEmail: window.MyIOUtils?.currentUserEmail || self.ctx?.currentUser?.email || '',
+    ui: { width: 1100 },
+    onSaved: (result) => {
+      LogHelper.log('Contract devices saved:', result);
+      window.dispatchEvent(new CustomEvent('myio:contract-devices-updated', { detail: result }));
+    },
+    onClose: () => LogHelper.log('Contract devices modal closed'),
+    onError: (error) => {
+      LogHelper.error('Contract devices error:', error);
+      toastError('Erro ao salvar: ' + (error?.message || 'Erro desconhecido'));
+    },
+  });
+}
+
+function openMeasurementSettings() {
+  const g = _settingsModalGuards();
+  if (!g) return;
+  if (typeof g.lib.openMeasurementSetupModal !== 'function') {
+    toastError('Componente de configurações não disponível.');
     return;
   }
   const existingSettings = window.MyIOOrchestrator?.measurementDisplaySettings || null;
-  lib
+  g.lib
     .openMeasurementSetupModal({
-      token: jwtToken,
-      customerId,
+      token: g.jwtToken,
+      customerId: g.customerId,
       existingSettings,
+      userName: self.ctx?.currentUser?.firstName || window.MyIOUtils?.currentUserEmail || '',
       onSave: (newSettings) => {
         LogHelper.log('Settings saved:', newSettings);
         if (window.MyIOOrchestrator) window.MyIOOrchestrator.measurementDisplaySettings = newSettings;
@@ -311,6 +385,1311 @@ function openSettings() {
       onClose: () => LogHelper.log('Settings modal closed'),
     })
     .catch((err) => toastError('Erro ao abrir configurações: ' + (err?.message || 'desconhecido')));
+}
+
+// RFC-0190 parity: Gestão de Usuários (apenas SuperAdmin MyIO)
+function openUserManagement() {
+  const g = _settingsModalGuards();
+  if (!g) return;
+  if (typeof g.lib.openUserManagementModal !== 'function') {
+    toastError('Componente de gestão de usuários não disponível.');
+    return;
+  }
+  const user = self.ctx?.currentUser || {};
+  g.lib.openUserManagementModal({
+    customerId: g.customerId,
+    tenantId: user.tenantId?.id || '',
+    customerName: resolveShoppingName() || '',
+    jwtToken: g.jwtToken,
+    tbBaseUrl: self.ctx?.settings?.tbBaseUrl || THINGSBOARD_URL || '',
+    currentUser: {
+      id: user.id?.id || user.userId || '',
+      email: user.email || window.MyIOUtils?.currentUserEmail || '',
+      firstName: user.firstName || '',
+      lastName: user.lastName || '',
+    },
+  });
+}
+
+// RFC-0207 Phase B parity: Device Classification Profile management modal.
+function openDeviceProfileSettings() {
+  const lib = window.MyIOLibrary;
+  if (!lib || typeof lib.openDeviceProfileModal !== 'function') {
+    toastError('Componente de Perfil de Dispositivos indisponível. Atualize a biblioteca MyIO.');
+    return;
+  }
+  const customerId = window.MyIOOrchestrator?.customerTB_ID || window.MyIOUtils?.customerTB_ID || '';
+  const profile =
+    window.MyIOUtils?.deviceClassificationProfile ||
+    (typeof lib.getActiveProfile === 'function' ? lib.getActiveProfile() : null);
+
+  // RFC-0207 v3: persistence is owned by the orchestrator (GCDR endpoint). The
+  // controller/lib never write the profile to ThingsBoard — fail loud if the
+  // saver isn't wired yet (no TB write), same contract as v-5.2.0 MENU.
+  const saveProfile = async (next) => {
+    const saver = window.MyIOOrchestrator?.saveDeviceClassificationProfile;
+    if (typeof saver !== 'function') {
+      throw new Error(
+        'Persistência do perfil indisponível: saveDeviceClassificationProfile (GCDR) não conectado.'
+      );
+    }
+    await saver(next);
+  };
+
+  // Domain-aware device sets for the modal preview. v-5.4.0 has no
+  // MyIOOrchestratorData — devices come from the GCDR registry (_gcdrDevices),
+  // classified on demand through the RFC-0047 tree.
+  const getDevices = (domain) => {
+    if (_classificationTree) {
+      const cols = classifyGcdrDevices(_gcdrDevices, _classificationTree).byDomainColumn[domain];
+      if (cols) return Object.values(cols).flat();
+    }
+    return (_gcdrDevices || []).map(gcdrDeviceToMeta);
+  };
+
+  lib.openDeviceProfileModal({
+    customerId,
+    profile,
+    canEdit: true, // option only rendered for SuperAdmin (hub gate below)
+    getDevices,
+    userName: window.MyIOUtils?.currentUserEmail || self.ctx?.currentUser?.email || 'user',
+    onSave: saveProfile,
+    onSaved: () => {
+      // Re-classify: invalidate cache + re-hydrate (same path as the refresh button).
+      try {
+        window.MyIOOrchestrator?.invalidateCache?.('*');
+      } catch {
+        /* noop */
+      }
+      try {
+        window.dispatchEvent(new CustomEvent('myio:update-date', { detail: {} }));
+      } catch {
+        /* noop */
+      }
+      LogHelper.log('RFC-0207: classification profile saved → re-classify triggered');
+    },
+  });
+}
+
+// ── RFC-0215 Phase 2: the three custom SuperAdmin modals ported from v-5.2.0
+// MENU (integration, default-dashboard, client-config). Adaptations: user from
+// self.ctx.currentUser; customerName via resolveShoppingName(); TB fetches
+// prefixed with tbBaseUrl/THINGSBOARD_URL (never page origin); escHtml reuses
+// _escapeHtmlHdr; ModalHeader read from window.MyIOLibrary. ─────────────────
+
+// Shared context for the custom (TB-attribute-backed) modals.
+function _customModalCtx() {
+  const jwtToken =
+    self.ctx?.http?.getServerCredentials?.()?.token || localStorage.getItem('jwt_token');
+  if (!jwtToken) {
+    toastError('Token não encontrado. Faça login novamente.');
+    return null;
+  }
+  const user = self.ctx?.currentUser || {};
+  const customerId =
+    window.MyIOOrchestrator?.customerTB_ID || window.MyIOUtils?.customerTB_ID || user.customerId?.id;
+  if (!customerId) {
+    toastError('ID do cliente não encontrado.');
+    return null;
+  }
+  const topWin = window.top || window;
+  const topDoc = (() => {
+    try {
+      return topWin.document;
+    } catch {
+      return document;
+    }
+  })();
+  return {
+    topDoc,
+    jwtToken,
+    user,
+    customerId,
+    customerName: window.MyIOOrchestrator?.customerName || resolveShoppingName() || '',
+    tbBase: self.ctx?.settings?.tbBaseUrl || THINGSBOARD_URL || '',
+    authHeaders: { 'X-Authorization': `Bearer ${jwtToken}` },
+  };
+}
+
+// ── RFC-0194 parity: Dashboard Padrão (apenas SuperAdmin MyIO) ───────────────
+// Lê/salva customerDefaultDashboard (SERVER_SCOPE) com changelog auditável.
+function openDefaultDashboardSettings() {
+  const c = _customModalCtx();
+  if (!c) return;
+  const { topDoc, jwtToken, user, customerId, customerName, tbBase } = c;
+
+  // ── CSS ──────────────────────────────────────────────────────────────────
+  const STYLE_ID = 'myio-default-dashboard-styles';
+  if (!topDoc.getElementById(STYLE_ID)) {
+    const s = topDoc.createElement('style');
+    s.id = STYLE_ID;
+    s.textContent = `
+      .mdd-overlay{position:fixed;inset:0;z-index:999999;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s ease;font-family:Nunito,Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+      .mdd-overlay.show{opacity:1;pointer-events:auto}
+      .mdd-bg{position:absolute;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(4px)}
+      .mdd-card{position:relative;z-index:2;background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.28);width:min(1080px,95vw);max-height:90vh;display:flex;flex-direction:column;overflow:hidden;transform:translateY(12px) scale(.98);transition:transform .2s ease}
+      .mdd-overlay.show .mdd-card{transform:translateY(0) scale(1)}
+      /* Header: ModalHeader (RFC-0121) */
+      .mdd-card.is-maximized{width:100vw!important;max-width:100vw!important;height:100vh!important;max-height:100vh!important;border-radius:0}
+      .mdd-body{overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:14px;flex:1;min-height:0}
+      .mdd-section{border:1px solid #E9E0FA;border-radius:12px;overflow:hidden}
+      .mdd-section-title{background:#F3ECF9;padding:8px 14px;font-size:11px;font-weight:700;color:#5B2D8E;letter-spacing:.6px;text-transform:uppercase}
+      .mdd-no-config{margin:12px 14px;font-size:13px;color:#6B7280}
+      .mdd-current{padding:12px 14px;display:flex;flex-direction:column;gap:3px}
+      .mdd-current-name{font-size:14px;font-weight:600;color:#111827}
+      .mdd-current-id{font-size:11px;font-family:monospace;color:#6B7280}
+      .mdd-current-meta{font-size:12px;color:#9CA3AF;margin-top:2px}
+      .mdd-search-row{display:flex;gap:8px;padding:12px 14px}
+      .mdd-input{flex:1;border:1px solid #D1D5DB;border-radius:8px;padding:7px 10px;font-size:13px;color:#111827;outline:none;transition:border-color .15s;font-family:inherit}
+      .mdd-input:focus{border-color:#7B2FF7;box-shadow:0 0 0 3px rgba(123,47,247,.12)}
+      .mdd-results{max-height:200px;overflow-y:auto;padding:0 14px 12px}
+      .mdd-result-item{display:flex;flex-direction:column;gap:2px;padding:8px 10px;border-radius:8px;cursor:pointer;transition:background .12s}
+      .mdd-result-item:hover{background:#F5F3FF}
+      .mdd-result-item.selected{background:#EDE9FE;border:1px solid #C4B5FD}
+      .mdd-result-name{font-size:13px;font-weight:500;color:#1F2937}
+      .mdd-result-id{font-size:11px;font-family:monospace;color:#9CA3AF}
+      .mdd-loading,.mdd-empty,.mdd-error{font-size:13px;color:#6B7280;text-align:center;padding:12px 0}
+      .mdd-error{color:#DC2626}
+      .mdd-btn{padding:7px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .15s;font-family:inherit}
+      .mdd-btn-primary{background:#7B2FF7;color:#fff}.mdd-btn-primary:hover:not(:disabled){background:#6320d4}.mdd-btn-primary:disabled{background:#D1D5DB;color:#9CA3AF;cursor:not-allowed}
+      .mdd-btn-secondary{background:#F3F4F6;color:#374151;border:1px solid #E5E7EB}.mdd-btn-secondary:hover{background:#E9EAEC}
+      .mdd-btn-search{background:#6B7280;color:#fff}.mdd-btn-search:hover{background:#4B5563}
+      .mdd-footer{display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:14px 20px;border-top:1px solid #F3F4F6;flex-shrink:0}
+      .mdd-selection-label{flex:1;font-size:12px;color:#5B2D8E;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .mdd-changelog{border:1px solid #E9E0FA;border-radius:12px;overflow:hidden}
+      .mdd-changelog summary{background:#F3ECF9;padding:8px 14px;font-size:11px;font-weight:700;color:#5B2D8E;letter-spacing:.6px;text-transform:uppercase;cursor:pointer;list-style:none;user-select:none}
+      .mdd-changelog summary::after{content:' ▼';font-size:9px}.mdd-changelog[open] summary::after{content:' ▲';font-size:9px}
+      .mdd-changelog-body{padding:12px 14px;display:flex;flex-direction:column;gap:10px;max-height:220px;overflow-y:auto}
+      .mdd-log-entry{padding:8px 10px;background:#FAFAFA;border-radius:8px;border:1px solid #F3F4F6}
+      .mdd-log-header{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+      .mdd-log-actor{font-size:12px;font-weight:600;color:#374151}
+      .mdd-log-ts{font-size:11px;color:#9CA3AF;flex:1}
+      .mdd-log-ver{font-size:10px;color:#7B2FF7;font-weight:600;background:#F5F3FF;padding:1px 6px;border-radius:4px}
+      .mdd-log-change{font-size:12px;color:#4B5563}
+    `;
+    topDoc.head.appendChild(s);
+  }
+
+  // Remove modal existente
+  const existing = topDoc.getElementById('myio-default-dashboard');
+  if (existing) existing.remove();
+
+  const currentCfg = window.MyIOOrchestrator?.defaultDashboardCfg || null;
+
+  function renderCurrentState() {
+    if (!currentCfg) return `<p class="mdd-no-config">Nenhum dashboard padrão configurado.</p>`;
+    const last = currentCfg.changelog?.[0];
+    const ts = last?.changedAt ? new Date(last.changedAt).toLocaleString('pt-BR') : '—';
+    return `
+      <div class="mdd-current">
+        <div class="mdd-current-name">${currentCfg.dashboardName}</div>
+        <div class="mdd-current-id">${currentCfg.dashboardId}</div>
+        <div class="mdd-current-meta">Atualizado em ${ts}${last?.changedBy ? ` por ${last.changedBy.name}` : ''}</div>
+      </div>`;
+  }
+
+  function renderChangelog() {
+    const entries = currentCfg?.changelog;
+    if (!entries?.length) return '';
+    // Filtra entradas válidas (ignorar sentinels ou objetos malformados)
+    const valid = entries.filter((e) => e && e.changedAt && e.next);
+    if (!valid.length) return '';
+    const rows = valid
+      .map((e) => {
+        const d = new Date(e.changedAt);
+        const ts = isNaN(d.getTime()) ? e.changedAt : d.toLocaleString('pt-BR');
+        const prev = e.previous?.dashboardName || '—';
+        const next = e.next?.dashboardName || '—';
+        return `
+        <div class="mdd-log-entry">
+          <div class="mdd-log-header">
+            <span class="mdd-log-actor">${e.changedBy?.name || 'Desconhecido'}</span>
+            <span class="mdd-log-ts">${ts}</span>
+            <span class="mdd-log-ver">v${e.version || '?'}</span>
+          </div>
+          <div class="mdd-log-change">${prev} → ${next}</div>
+        </div>`;
+      })
+      .join('');
+    return `
+      <details class="mdd-changelog">
+        <summary>Histórico de Alterações (${valid.length})</summary>
+        <div class="mdd-changelog-body">${rows}</div>
+      </details>`;
+  }
+
+  // ── Modal ──────────────────────────────────────────────────────────────────
+  const mddHeaderHtml =
+    window.MyIOLibrary?.ModalHeader?.generateInlineHTML({
+      icon: '🏠',
+      title: `Dashboard Padrão${customerName ? ` — ${customerName}` : ''}`,
+      modalId: 'mdd-modal',
+      showThemeToggle: false,
+      showMaximize: true,
+      showClose: true,
+      draggable: false,
+    }) ??
+    `<div style="padding:12px 20px;background:#3e1a7d;color:#fff;font-weight:600">🏠 Dashboard Padrão</div>`;
+
+  const modal = topDoc.createElement('div');
+  modal.id = 'myio-default-dashboard';
+  modal.className = 'mdd-overlay';
+  modal.innerHTML = `
+    <div class="mdd-bg"></div>
+    <div class="mdd-card">
+      ${mddHeaderHtml}
+      <div class="mdd-body">
+        <div class="mdd-section">
+          <div class="mdd-section-title">Configuração Atual</div>
+          ${renderCurrentState()}
+        </div>
+        <div class="mdd-section">
+          <div class="mdd-section-title">Alterar Dashboard</div>
+          <div class="mdd-search-row">
+            <input type="text" class="mdd-input" id="mdd-search-input" placeholder="Buscar por nome..." />
+            <button class="mdd-btn mdd-btn-search" id="mdd-search-btn">Buscar</button>
+          </div>
+          <div id="mdd-results" class="mdd-results"></div>
+        </div>
+        ${renderChangelog()}
+      </div>
+      <div class="mdd-footer">
+        <span id="mdd-selection-label" class="mdd-selection-label"></span>
+        <button class="mdd-btn mdd-btn-secondary mdd-cancel-btn">Cancelar</button>
+        <button class="mdd-btn mdd-btn-primary" id="mdd-save-btn" disabled>Salvar</button>
+      </div>
+    </div>
+  `;
+
+  topDoc.body.appendChild(modal);
+  window.requestAnimationFrame(() => modal.classList.add('show'));
+
+  let selectedDashboard = null;
+
+  const escHandler = (e) => {
+    if (e.key === 'Escape') closeModal();
+  };
+  const closeModal = () => {
+    topDoc.removeEventListener('keydown', escHandler);
+    modal.classList.remove('show');
+    setTimeout(() => modal.remove(), 200);
+  };
+
+  modal.querySelector('.mdd-bg').addEventListener('click', closeModal);
+  modal.querySelector('.mdd-cancel-btn').addEventListener('click', closeModal);
+  modal.querySelector('#mdd-modal-close')?.addEventListener('click', closeModal);
+  modal.querySelector('#mdd-modal-maximize')?.addEventListener('click', () => {
+    modal.querySelector('.mdd-card').classList.toggle('is-maximized');
+  });
+  topDoc.addEventListener('keydown', escHandler);
+
+  // ── Busca de dashboards ───────────────────────────────────────────────────
+  async function searchDashboards(query) {
+    const resultsEl = modal.querySelector('#mdd-results');
+    resultsEl.innerHTML = '<div class="mdd-loading">Buscando...</div>';
+    try {
+      const qs = `pageSize=20&page=0&sortProperty=title&sortOrder=ASC${query ? '&textSearch=' + encodeURIComponent(query) : ''}`;
+      const res = await fetch(`${tbBase}/api/customer/${customerId}/dashboards?${qs}`, {
+        headers: { 'X-Authorization': `Bearer ${jwtToken}` },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      const items = json.data || [];
+      if (!items.length) {
+        resultsEl.innerHTML = '<div class="mdd-empty">Nenhum dashboard encontrado.</div>';
+        return;
+      }
+      resultsEl.innerHTML = items
+        .map(
+          (d) => `
+        <div class="mdd-result-item" data-id="${d.id.id}" data-title="${d.title}">
+          <span class="mdd-result-name">${d.title}</span>
+          <span class="mdd-result-id">${d.id.id}</span>
+        </div>
+      `
+        )
+        .join('');
+      resultsEl.querySelectorAll('.mdd-result-item').forEach((item) => {
+        item.addEventListener('click', () => {
+          resultsEl.querySelectorAll('.mdd-result-item').forEach((i) => i.classList.remove('selected'));
+          item.classList.add('selected');
+          selectedDashboard = { id: item.dataset.id, title: item.dataset.title };
+          modal.querySelector('#mdd-selection-label').textContent =
+            `Selecionado: ${selectedDashboard.title}`;
+          modal.querySelector('#mdd-save-btn').disabled = false;
+        });
+      });
+    } catch (err) {
+      resultsEl.innerHTML = `<div class="mdd-error">Erro ao buscar: ${err.message}</div>`;
+    }
+  }
+
+  modal.querySelector('#mdd-search-btn').addEventListener('click', () => {
+    searchDashboards(modal.querySelector('#mdd-search-input').value.trim());
+  });
+  modal.querySelector('#mdd-search-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      searchDashboards(e.target.value.trim());
+    }
+  });
+
+  // ── Salvar ────────────────────────────────────────────────────────────────
+  modal.querySelector('#mdd-save-btn').addEventListener('click', async () => {
+    if (!selectedDashboard) return;
+    const saveBtn = modal.querySelector('#mdd-save-btn');
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Salvando...';
+    try {
+      const version = window.MyIOLibrary?.version || window.MyIOUtils?.version || '0.0.0';
+      const now = new Date().toISOString();
+      const currentUserName =
+        [user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.email || '';
+      const newEntry = {
+        changedAt: now,
+        version,
+        previous: currentCfg
+          ? { dashboardId: currentCfg.dashboardId, dashboardName: currentCfg.dashboardName }
+          : null,
+        next: { dashboardId: selectedDashboard.id, dashboardName: selectedDashboard.title },
+        changedBy: {
+          userId: user?.id?.id || user?.userId || '',
+          name: currentUserName,
+          email: user?.email || window.MyIOUtils?.currentUserEmail || '',
+        },
+      };
+      const newCfg = {
+        dashboardName: selectedDashboard.title,
+        dashboardId: selectedDashboard.id,
+        updatedAt: now,
+        changelog: [newEntry, ...(currentCfg?.changelog || [])],
+      };
+      const res = await fetch(
+        `${tbBase}/api/plugins/telemetry/CUSTOMER/${customerId}/attributes/SERVER_SCOPE`,
+        {
+          method: 'POST',
+          headers: { 'X-Authorization': `Bearer ${jwtToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ customerDefaultDashboard: newCfg }),
+        }
+      );
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '');
+        throw new Error(`HTTP ${res.status}${errText ? ': ' + errText.slice(0, 120) : ''}`);
+      }
+      // Atualiza orquestrador em memória
+      if (window.MyIOOrchestrator) {
+        window.MyIOOrchestrator.defaultDashboardId = selectedDashboard.id;
+        window.MyIOOrchestrator.defaultDashboardCfg = newCfg;
+      }
+      LogHelper.log('RFC-0194: customerDefaultDashboard salvo:', newCfg.dashboardName);
+      closeModal();
+    } catch (err) {
+      LogHelper.error('RFC-0194: Erro ao salvar customerDefaultDashboard:', err);
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Salvar';
+      toastError('Erro ao salvar: ' + err.message);
+    }
+  });
+
+  // Busca inicial (sem filtro)
+  searchDashboards('');
+
+  LogHelper.log('RFC-0194: Default Dashboard settings modal opened');
+}
+
+// ── Setup de Integração (apenas MyIO) ────────────────────────────────────────
+// Lê/salva integration_setup (SERVER_SCOPE) no customer do ThingsBoard.
+// Schema v1.0.0 — seções: ingestion, gcdr, gateways (tb / ingestion / gcdr).
+function openIntegrationSetupModal() {
+  const c = _customModalCtx();
+  if (!c) return;
+  const { topDoc, user, customerId, tbBase, authHeaders } = c;
+
+  // ── CSS ──────────────────────────────────────────────────────────────────
+  const STYLE_ID = 'myio-integration-setup-styles';
+  if (!topDoc.getElementById(STYLE_ID)) {
+    const s = topDoc.createElement('style');
+    s.id = STYLE_ID;
+    s.textContent = `
+      .myio-isetup{position:fixed;inset:0;z-index:999999;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s ease;font-family:Nunito,Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+      .myio-isetup.show{opacity:1;pointer-events:auto}
+      .myio-isetup__overlay{position:absolute;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(4px)}
+      .myio-isetup__card{position:relative;z-index:2;background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.28);width:min(860px,97vw);max-height:92vh;display:flex;flex-direction:column;overflow:hidden;transform:translateY(12px) scale(.98);transition:transform .2s ease}
+      .myio-isetup.show .myio-isetup__card{transform:translateY(0) scale(1)}
+      /* Header: ModalHeader (RFC-0121) */
+      .myio-isetup__card.is-maximized{width:100vw!important;max-width:100vw!important;height:100vh!important;max-height:100vh!important;border-radius:0}
+      .myio-isetup__body{overflow-y:auto;padding:18px 20px;display:flex;flex-direction:column;gap:16px}
+      .myio-isetup__loading{display:flex;align-items:center;justify-content:center;gap:10px;padding:40px 0;color:#6B7280;font-size:13px}
+      .myio-isetup__spinner{width:20px;height:20px;border:2px solid #E9E0FA;border-top-color:#7B2FF7;border-radius:50%;animation:isetup-spin .7s linear infinite}
+      @keyframes isetup-spin{to{transform:rotate(360deg)}}
+      .myio-isetup__section{border:1px solid #E9E0FA;border-radius:12px;overflow:hidden}
+      .myio-isetup__section-title{background:#F3ECF9;padding:9px 14px;font-size:11px;font-weight:700;color:#5B2D8E;letter-spacing:.6px;text-transform:uppercase}
+      .myio-isetup__fields{padding:14px;display:flex;flex-direction:column;gap:10px}
+      .myio-isetup__row{display:grid;gap:8px}
+      .myio-isetup__row--2{grid-template-columns:1fr 1fr}
+      .myio-isetup__row--3{grid-template-columns:1fr 1fr 1fr}
+      .myio-isetup__row--4{grid-template-columns:1fr 1fr 1fr 1fr}
+      .myio-isetup__field{display:flex;flex-direction:column;gap:4px}
+      .myio-isetup__label{font-size:11px;font-weight:600;color:#4B5563}
+      .myio-isetup__label span{font-weight:400;color:#9CA3AF;margin-left:4px}
+      .myio-isetup__input{border:1px solid #D1D5DB;border-radius:8px;padding:7px 10px;font-size:13px;color:#111827;outline:none;transition:border-color .15s,box-shadow .15s;font-family:inherit;width:100%;box-sizing:border-box}
+      .myio-isetup__input:focus{border-color:#7B2FF7;box-shadow:0 0 0 3px rgba(123,47,247,.12)}
+      .myio-isetup__input[readonly]{background:#F9FAFB;color:#6B7280;cursor:default}
+      .myio-isetup__footer{display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:14px 20px;border-top:1px solid #F3F4F6;flex-shrink:0}
+      .myio-isetup__btn{padding:8px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .15s}
+      .myio-isetup__btn--cancel{background:#F3F4F6;color:#374151}
+      .myio-isetup__btn--cancel:hover{background:#E5E7EB}
+      .myio-isetup__btn--save{background:linear-gradient(135deg,#3E1A7D,#6A2FC0);color:#fff}
+      .myio-isetup__btn--save:hover{opacity:.9;transform:translateY(-1px)}
+      .myio-isetup__btn--save:disabled{opacity:.5;cursor:not-allowed;transform:none}
+      .myio-isetup__status{font-size:12px;margin-right:auto}
+      .myio-isetup__status.ok{color:#059669}
+      .myio-isetup__status.err{color:#DC2626}
+      /* ── Gateway tabs ── */
+      .myio-igw-tabs{display:flex;border-bottom:1px solid #E9E0FA;padding:0 2px}
+      .myio-igw-tab{padding:8px 16px;font-size:11px;font-weight:700;cursor:pointer;border:none;background:none;color:#6B7280;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s;letter-spacing:.3px}
+      .myio-igw-tab.active{color:#5B2D8E;border-bottom-color:#7B2FF7}
+      .myio-igw-tab:hover:not(.active){color:#374151}
+      .myio-igw-panel{display:none;flex-direction:column;gap:8px;padding:14px}
+      .myio-igw-panel.active{display:flex}
+      /* ── Gateway items ── */
+      .myio-igw-item{border:1px solid #E9E0FA;border-radius:10px;overflow:hidden}
+      .myio-igw-item__head{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#FAFAFA;cursor:pointer;user-select:none;gap:8px}
+      .myio-igw-item__head:hover{background:#F3ECF9}
+      .myio-igw-item__title{font-size:12px;font-weight:600;color:#374151;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .myio-igw-item__toggle{font-size:10px;color:#9CA3AF;flex-shrink:0}
+      .myio-igw-item__del{background:none;border:none;color:#9CA3AF;cursor:pointer;font-size:18px;padding:0 2px;line-height:1;flex-shrink:0;transition:color .15s}
+      .myio-igw-item__del:hover{color:#DC2626}
+      .myio-igw-item__body{padding:12px;display:flex;flex-direction:column;gap:8px;background:#fff;border-top:1px solid #F3F4F6}
+      .myio-igw-item__body.collapsed{display:none}
+      .myio-igw-add{display:flex;align-items:center;justify-content:center;gap:6px;padding:9px;border:1.5px dashed #D1D5DB;border-radius:10px;background:none;cursor:pointer;color:#6B7280;font-size:12px;font-weight:600;width:100%;transition:all .15s}
+      .myio-igw-add:hover{border-color:#7B2FF7;color:#5B2D8E;background:#F3ECF9}
+      .myio-igw-pause{display:flex;align-items:center;gap:8px}
+      .myio-igw-pause input[type=checkbox]{width:15px;height:15px;cursor:pointer;accent-color:#7B2FF7}
+    `;
+    topDoc.head.appendChild(s);
+  }
+
+  // ── Render modal imediatamente (loading state) ────────────────────────────
+  const existing = topDoc.getElementById('myio-isetup');
+  if (existing) existing.remove();
+
+  const isetupHeaderHtml =
+    window.MyIOLibrary?.ModalHeader?.generateInlineHTML({
+      icon: '🔗',
+      title: 'Setup de Integração',
+      modalId: 'isetup-modal',
+      showThemeToggle: false,
+      showMaximize: true,
+      showClose: true,
+      draggable: false,
+    }) ??
+    `<div style="padding:8px 12px;background:#3e1a7d;color:#fff;font-weight:600;min-height:32px;display:flex;align-items:center">🔗 Setup de Integração</div>`;
+
+  const modal = topDoc.createElement('div');
+  modal.id = 'myio-isetup';
+  modal.className = 'myio-isetup';
+  modal.innerHTML = `
+    <div class="myio-isetup__overlay"></div>
+    <div class="myio-isetup__card">
+      ${isetupHeaderHtml}
+      <div class="myio-isetup__body">
+
+        <div class="myio-isetup__loading" id="isetup-loading">
+          <div class="myio-isetup__spinner"></div>
+          Carregando configurações…
+        </div>
+
+        <div id="isetup-form" style="display:none">
+
+          <!-- Seção 1: Ingestion -->
+          <div class="myio-isetup__section">
+            <div class="myio-isetup__section-title">1 · Ingestion</div>
+            <div class="myio-isetup__fields">
+              <div class="myio-isetup__row myio-isetup__row--3">
+                <div class="myio-isetup__field">
+                  <label class="myio-isetup__label">1.1 Ingestion ID <span>UUID</span></label>
+                  <input class="myio-isetup__input" id="isetup-ingestionId" type="text" maxlength="36" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+                </div>
+                <div class="myio-isetup__field">
+                  <label class="myio-isetup__label">1.2 Client ID</label>
+                  <input class="myio-isetup__input" id="isetup-clientId" type="text" placeholder="client_id" />
+                </div>
+                <div class="myio-isetup__field">
+                  <label class="myio-isetup__label">1.3 Client Secret <span>máx 256</span></label>
+                  <input class="myio-isetup__input" id="isetup-clientSecret" type="password" maxlength="256" placeholder="••••••••" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Seção 2: GCDR -->
+          <div class="myio-isetup__section">
+            <div class="myio-isetup__section-title">2 · GCDR — Base Única</div>
+            <div class="myio-isetup__fields">
+              <div class="myio-isetup__row myio-isetup__row--2">
+                <div class="myio-isetup__field">
+                  <label class="myio-isetup__label">2.1 GCDR Customer ID <span>UUID</span></label>
+                  <input class="myio-isetup__input" id="isetup-gcdrCustomerId" type="text" maxlength="36" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+                </div>
+                <div class="myio-isetup__field">
+                  <label class="myio-isetup__label">2.2 GCDR API Key <span>máx 256</span></label>
+                  <input class="myio-isetup__input" id="isetup-gcdrApiKey" type="password" maxlength="256" placeholder="••••••••" />
+                </div>
+              </div>
+              <div class="myio-isetup__row myio-isetup__row--2">
+                <div class="myio-isetup__field">
+                  <label class="myio-isetup__label">2.3 GCDR Tenant ID <span>UUID</span></label>
+                  <input class="myio-isetup__input" id="isetup-gcdrTenantId" type="text" maxlength="36" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+                </div>
+                <div class="myio-isetup__field">
+                  <label class="myio-isetup__label">2.4 GCDR Synced At <span>readonly</span></label>
+                  <input class="myio-isetup__input" id="isetup-gcdrSyncedAt" type="text" readonly placeholder="—" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Seção 3: Gateways / Centrais -->
+          <div class="myio-isetup__section">
+            <div class="myio-isetup__section-title">3 · Gateways / Centrais</div>
+            <div class="myio-igw-tabs">
+              <button class="myio-igw-tab active" data-gw-tab="tb">ThingsBoard</button>
+              <button class="myio-igw-tab" data-gw-tab="ingestion">Ingestion</button>
+              <button class="myio-igw-tab" data-gw-tab="gcdr">GCDR</button>
+            </div>
+            <div id="isetup-gw-tb"        class="myio-igw-panel active"></div>
+            <div id="isetup-gw-ingestion"  class="myio-igw-panel"></div>
+            <div id="isetup-gw-gcdr"       class="myio-igw-panel"></div>
+          </div>
+
+        </div><!-- /isetup-form -->
+
+      </div><!-- /body -->
+      <div class="myio-isetup__footer">
+        <span class="myio-isetup__status" id="isetup-status"></span>
+        <button class="myio-isetup__btn myio-isetup__btn--cancel" id="isetup-cancel">Cancelar</button>
+        <button class="myio-isetup__btn myio-isetup__btn--save" id="isetup-save" disabled>Salvar</button>
+      </div>
+    </div>
+  `;
+
+  topDoc.body.appendChild(modal);
+  window.requestAnimationFrame(() => modal.classList.add('show'));
+
+  const escHandler = (ev) => {
+    if (ev.key === 'Escape') closeModal();
+  };
+  const closeModal = () => {
+    topDoc.removeEventListener('keydown', escHandler);
+    modal.classList.remove('show');
+    setTimeout(() => modal.remove(), 200);
+  };
+
+  modal.querySelector('.myio-isetup__overlay').addEventListener('click', closeModal);
+  modal.querySelector('#isetup-modal-close')?.addEventListener('click', closeModal);
+  modal.querySelector('#isetup-modal-maximize')?.addEventListener('click', () => {
+    modal.querySelector('.myio-isetup__card').classList.toggle('is-maximized');
+  });
+  modal.querySelector('#isetup-cancel').addEventListener('click', closeModal);
+  topDoc.addEventListener('keydown', escHandler);
+
+  // ── Tab switching (gateways) ──────────────────────────────────────────────
+  modal.querySelectorAll('.myio-igw-tab').forEach((tab) => {
+    tab.addEventListener('click', () => {
+      modal.querySelectorAll('.myio-igw-tab').forEach((t) => t.classList.remove('active'));
+      modal.querySelectorAll('.myio-igw-panel').forEach((p) => p.classList.remove('active'));
+      tab.classList.add('active');
+      modal.querySelector('#isetup-gw-' + tab.dataset.gwTab).classList.add('active');
+    });
+  });
+
+  // ── Gateway state & helpers ───────────────────────────────────────────────
+  const _gwData = { tb: [], ingestion: [], gcdr: [] };
+
+  const GW_DEFAULTS = {
+    tb: () => ({ uuid: '', name: '', assetParent: '', mqtt: { clientId: '', userName: '', password: '' } }),
+    ingestion: () => ({
+      uuid: '',
+      hardwareId: '',
+      name: '',
+      assetParent: '',
+      legacyFetchInterval: 30000,
+      energyFetchInterval: 300000,
+      waterFetchInterval: 300000,
+      temperatureFetchInterval: 60000,
+      pauseGateway: false,
+      lastEnergyFetch: null,
+      lastWaterFetch: null,
+      lastTemperatureFetch: null,
+    }),
+    gcdr: () => ({ uuid: '', name: '', assetParent: '', bundleVersion: '' }),
+  };
+
+  const fmtDate = (v) => {
+    if (!v) return '';
+    try {
+      return new Date(v).toLocaleString('pt-BR');
+    } catch {
+      return String(v);
+    }
+  };
+  const e = _escapeHtmlHdr;
+
+  function makeGwItem(type, item, idx) {
+    const title = e(item.name) || 'Gateway ' + (idx + 1);
+
+    if (type === 'tb')
+      return `
+      <div class="myio-igw-item" data-gw-idx="${idx}">
+        <div class="myio-igw-item__head">
+          <span class="myio-igw-item__title">${title}</span>
+          <span class="myio-igw-item__toggle">▼</span>
+          <button class="myio-igw-item__del" data-gw-del="${idx}" title="Remover">×</button>
+        </div>
+        <div class="myio-igw-item__body">
+          <div class="myio-isetup__row myio-isetup__row--2">
+            <div class="myio-isetup__field">
+              <label class="myio-isetup__label">UUID</label>
+              <input class="myio-isetup__input" data-gw-idx="${idx}" data-gw-field="uuid" type="text" maxlength="36" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" value="${e(item.uuid)}" />
+            </div>
+            <div class="myio-isetup__field">
+              <label class="myio-isetup__label">Name</label>
+              <input class="myio-isetup__input" data-gw-idx="${idx}" data-gw-field="name" type="text" placeholder="Gateway name" value="${e(item.name)}" />
+            </div>
+          </div>
+          <div class="myio-isetup__field">
+            <label class="myio-isetup__label">Asset Parent</label>
+            <input class="myio-isetup__input" data-gw-idx="${idx}" data-gw-field="assetParent" type="text" placeholder="UUID or name" value="${e(item.assetParent)}" />
+          </div>
+          <div class="myio-isetup__row myio-isetup__row--3">
+            <div class="myio-isetup__field">
+              <label class="myio-isetup__label">MQTT Client ID</label>
+              <input class="myio-isetup__input" data-gw-idx="${idx}" data-gw-field="mqtt.clientId" type="text" placeholder="client_id" value="${e(item.mqtt?.clientId ?? '')}" />
+            </div>
+            <div class="myio-isetup__field">
+              <label class="myio-isetup__label">MQTT User</label>
+              <input class="myio-isetup__input" data-gw-idx="${idx}" data-gw-field="mqtt.userName" type="text" placeholder="username" value="${e(item.mqtt?.userName ?? '')}" />
+            </div>
+            <div class="myio-isetup__field">
+              <label class="myio-isetup__label">MQTT Password</label>
+              <input class="myio-isetup__input" data-gw-idx="${idx}" data-gw-field="mqtt.password" type="password" placeholder="••••••••" value="${e(item.mqtt?.password ?? '')}" />
+            </div>
+          </div>
+        </div>
+      </div>`;
+
+    if (type === 'ingestion')
+      return `
+      <div class="myio-igw-item" data-gw-idx="${idx}">
+        <div class="myio-igw-item__head">
+          <span class="myio-igw-item__title">${title}</span>
+          <span class="myio-igw-item__toggle">▼</span>
+          <button class="myio-igw-item__del" data-gw-del="${idx}" title="Remover">×</button>
+        </div>
+        <div class="myio-igw-item__body">
+          <div class="myio-isetup__row myio-isetup__row--2">
+            <div class="myio-isetup__field">
+              <label class="myio-isetup__label">UUID</label>
+              <input class="myio-isetup__input" data-gw-idx="${idx}" data-gw-field="uuid" type="text" maxlength="36" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" value="${e(item.uuid)}" />
+            </div>
+            <div class="myio-isetup__field">
+              <label class="myio-isetup__label">Hardware ID</label>
+              <input class="myio-isetup__input" data-gw-idx="${idx}" data-gw-field="hardwareId" type="text" placeholder="hardware_id" value="${e(item.hardwareId)}" />
+            </div>
+          </div>
+          <div class="myio-isetup__row myio-isetup__row--2">
+            <div class="myio-isetup__field">
+              <label class="myio-isetup__label">Name</label>
+              <input class="myio-isetup__input" data-gw-idx="${idx}" data-gw-field="name" type="text" placeholder="Gateway name" value="${e(item.name)}" />
+            </div>
+            <div class="myio-isetup__field">
+              <label class="myio-isetup__label">Asset Parent</label>
+              <input class="myio-isetup__input" data-gw-idx="${idx}" data-gw-field="assetParent" type="text" placeholder="UUID or name" value="${e(item.assetParent)}" />
+            </div>
+          </div>
+          <div class="myio-isetup__row myio-isetup__row--4">
+            <div class="myio-isetup__field">
+              <label class="myio-isetup__label">Legacy <span>ms</span></label>
+              <input class="myio-isetup__input" data-gw-idx="${idx}" data-gw-field="legacyFetchInterval" type="number" min="0" step="1000" placeholder="30000" value="${item.legacyFetchInterval ?? 30000}" />
+            </div>
+            <div class="myio-isetup__field">
+              <label class="myio-isetup__label">Energy <span>ms</span></label>
+              <input class="myio-isetup__input" data-gw-idx="${idx}" data-gw-field="energyFetchInterval" type="number" min="0" step="1000" placeholder="300000" value="${item.energyFetchInterval ?? 300000}" />
+            </div>
+            <div class="myio-isetup__field">
+              <label class="myio-isetup__label">Water <span>ms</span></label>
+              <input class="myio-isetup__input" data-gw-idx="${idx}" data-gw-field="waterFetchInterval" type="number" min="0" step="1000" placeholder="300000" value="${item.waterFetchInterval ?? 300000}" />
+            </div>
+            <div class="myio-isetup__field">
+              <label class="myio-isetup__label">Temp <span>ms</span></label>
+              <input class="myio-isetup__input" data-gw-idx="${idx}" data-gw-field="temperatureFetchInterval" type="number" min="0" step="1000" placeholder="60000" value="${item.temperatureFetchInterval ?? 60000}" />
+            </div>
+          </div>
+          <div class="myio-isetup__row myio-isetup__row--3">
+            <div class="myio-isetup__field">
+              <label class="myio-isetup__label">Last Energy Fetch <span>readonly</span></label>
+              <input class="myio-isetup__input" type="text" readonly placeholder="—" value="${fmtDate(item.lastEnergyFetch)}" />
+            </div>
+            <div class="myio-isetup__field">
+              <label class="myio-isetup__label">Last Water Fetch <span>readonly</span></label>
+              <input class="myio-isetup__input" type="text" readonly placeholder="—" value="${fmtDate(item.lastWaterFetch)}" />
+            </div>
+            <div class="myio-isetup__field">
+              <label class="myio-isetup__label">Last Temp Fetch <span>readonly</span></label>
+              <input class="myio-isetup__input" type="text" readonly placeholder="—" value="${fmtDate(item.lastTemperatureFetch)}" />
+            </div>
+          </div>
+          <div class="myio-igw-pause">
+            <input type="checkbox" data-gw-idx="${idx}" data-gw-field="pauseGateway" id="isetup-pause-ing-${idx}" ${item.pauseGateway ? 'checked' : ''} />
+            <label class="myio-isetup__label" for="isetup-pause-ing-${idx}" style="cursor:pointer;margin:0">Pause Gateway</label>
+          </div>
+        </div>
+      </div>`;
+
+    if (type === 'gcdr')
+      return `
+      <div class="myio-igw-item" data-gw-idx="${idx}">
+        <div class="myio-igw-item__head">
+          <span class="myio-igw-item__title">${title}</span>
+          <span class="myio-igw-item__toggle">▼</span>
+          <button class="myio-igw-item__del" data-gw-del="${idx}" title="Remover">×</button>
+        </div>
+        <div class="myio-igw-item__body">
+          <div class="myio-isetup__row myio-isetup__row--2">
+            <div class="myio-isetup__field">
+              <label class="myio-isetup__label">UUID</label>
+              <input class="myio-isetup__input" data-gw-idx="${idx}" data-gw-field="uuid" type="text" maxlength="36" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" value="${e(item.uuid)}" />
+            </div>
+            <div class="myio-isetup__field">
+              <label class="myio-isetup__label">Name</label>
+              <input class="myio-isetup__input" data-gw-idx="${idx}" data-gw-field="name" type="text" placeholder="Gateway name" value="${e(item.name)}" />
+            </div>
+          </div>
+          <div class="myio-isetup__row myio-isetup__row--2">
+            <div class="myio-isetup__field">
+              <label class="myio-isetup__label">Asset Parent</label>
+              <input class="myio-isetup__input" data-gw-idx="${idx}" data-gw-field="assetParent" type="text" placeholder="UUID or name" value="${e(item.assetParent)}" />
+            </div>
+            <div class="myio-isetup__field">
+              <label class="myio-isetup__label">Bundle Version</label>
+              <input class="myio-isetup__input" data-gw-idx="${idx}" data-gw-field="bundleVersion" type="text" placeholder="1.0.0" value="${e(item.bundleVersion)}" />
+            </div>
+          </div>
+        </div>
+      </div>`;
+
+    return '';
+  }
+
+  function setNestedField(obj, path, value) {
+    const parts = path.split('.');
+    let cur = obj;
+    for (let i = 0; i < parts.length - 1; i++) {
+      if (!cur[parts[i]]) cur[parts[i]] = {};
+      cur = cur[parts[i]];
+    }
+    cur[parts[parts.length - 1]] = value;
+  }
+
+  function renderGwList(type) {
+    const panel = modal.querySelector('#isetup-gw-' + type);
+    const items = _gwData[type];
+    panel.innerHTML =
+      items.map((item, idx) => makeGwItem(type, item, idx)).join('') +
+      `<button class="myio-igw-add" data-gw-add="${type}">＋ Adicionar gateway</button>`;
+
+    // Collapse toggle
+    panel.querySelectorAll('.myio-igw-item__head').forEach((head) => {
+      head.addEventListener('click', (ev) => {
+        if (ev.target.closest('[data-gw-del]')) return;
+        const body = head.nextElementSibling;
+        const tog = head.querySelector('.myio-igw-item__toggle');
+        const collapsed = body.classList.toggle('collapsed');
+        if (tog) tog.textContent = collapsed ? '▶' : '▼';
+      });
+    });
+
+    // Field input → update _gwData reactively
+    panel.querySelectorAll('[data-gw-field]').forEach((input) => {
+      input.addEventListener('input', () => {
+        const idx = parseInt(input.dataset.gwIdx);
+        const field = input.dataset.gwField;
+        const val =
+          input.type === 'checkbox'
+            ? input.checked
+            : input.type === 'number'
+              ? Number(input.value)
+              : input.value;
+        setNestedField(_gwData[type][idx], field, val);
+        // Update card title if name changed
+        if (field === 'name') {
+          const titleEl = panel.querySelector(`[data-gw-idx="${idx}"] .myio-igw-item__title`);
+          if (titleEl) titleEl.textContent = input.value || 'Gateway ' + (idx + 1);
+        }
+      });
+      // Checkbox change event
+      if (input.type === 'checkbox') {
+        input.addEventListener('change', () => {
+          const idx = parseInt(input.dataset.gwIdx);
+          const field = input.dataset.gwField;
+          setNestedField(_gwData[type][idx], field, input.checked);
+        });
+      }
+    });
+
+    // Delete
+    panel.querySelectorAll('[data-gw-del]').forEach((btn) => {
+      btn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        const idx = parseInt(btn.dataset.gwDel);
+        _gwData[type].splice(idx, 1);
+        renderGwList(type);
+      });
+    });
+
+    // Add
+    const addBtn = panel.querySelector('[data-gw-add]');
+    if (addBtn)
+      addBtn.addEventListener('click', () => {
+        _gwData[type].push(GW_DEFAULTS[type]());
+        renderGwList(type);
+        // scroll last item into view
+        const last = panel.querySelector('.myio-igw-item:last-of-type');
+        if (last) last.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      });
+  }
+
+  // ── Fetch dados do customer (SERVER_SCOPE) ────────────────────────────────
+  const EMPTY_DATA = {
+    schema_version: '1.0.0',
+    ingestion: { ingestionId: '', client_id: '', client_secret: '' },
+    gcdr: { gcdrCustomerId: '', gcdrApiKey: '', gcdrTenantId: '', gcdrSyncedAt: null },
+    gateways: { tb: [], ingestion: [], gcdr: [] },
+  };
+  let gcdrSyncedAt = null;
+
+  fetch(
+    `${tbBase}/api/plugins/telemetry/CUSTOMER/${customerId}/values/attributes/SERVER_SCOPE?keys=integration_setup`,
+    { headers: authHeaders }
+  )
+    .then((res) => (res.ok ? res.json().catch(() => []) : []))
+    .then((attrs) => {
+      const attr = Array.isArray(attrs) ? attrs.find((a) => a.key === 'integration_setup') : null;
+      const parsed = attr?.value
+        ? typeof attr.value === 'string'
+          ? JSON.parse(attr.value)
+          : attr.value
+        : {};
+
+      const ing = { ...EMPTY_DATA.ingestion, ...(parsed.ingestion || {}) };
+      const gcdr = { ...EMPTY_DATA.gcdr, ...(parsed.gcdr || {}) };
+      const gw = parsed.gateways || EMPTY_DATA.gateways;
+      gcdrSyncedAt = gcdr.gcdrSyncedAt;
+
+      // Seções 1 e 2 — campos simples
+      modal.querySelector('#isetup-ingestionId').value = ing.ingestionId;
+      modal.querySelector('#isetup-clientId').value = ing.client_id;
+      modal.querySelector('#isetup-clientSecret').value = ing.client_secret;
+      modal.querySelector('#isetup-gcdrCustomerId').value = gcdr.gcdrCustomerId;
+      modal.querySelector('#isetup-gcdrApiKey').value = gcdr.gcdrApiKey;
+      modal.querySelector('#isetup-gcdrTenantId').value = gcdr.gcdrTenantId;
+      modal.querySelector('#isetup-gcdrSyncedAt').value = fmtDate(gcdr.gcdrSyncedAt);
+
+      // Seção 3 — gateways
+      _gwData.tb = Array.isArray(gw.tb)
+        ? gw.tb.map((i) => ({
+            ...GW_DEFAULTS.tb(),
+            ...i,
+            mqtt: { ...GW_DEFAULTS.tb().mqtt, ...(i.mqtt || {}) },
+          }))
+        : [];
+      _gwData.ingestion = Array.isArray(gw.ingestion)
+        ? gw.ingestion.map((i) => ({ ...GW_DEFAULTS.ingestion(), ...i }))
+        : [];
+      _gwData.gcdr = Array.isArray(gw.gcdr) ? gw.gcdr.map((i) => ({ ...GW_DEFAULTS.gcdr(), ...i })) : [];
+
+      renderGwList('tb');
+      renderGwList('ingestion');
+      renderGwList('gcdr');
+
+      LogHelper.log('integration_setup loaded', { ing, gcdr, gw });
+    })
+    .catch((err) => {
+      LogHelper.warn('Error loading integration_setup:', err);
+      modal.querySelector('#isetup-status').textContent =
+        'Aviso: não foi possível carregar dados existentes.';
+      modal.querySelector('#isetup-status').className = 'myio-isetup__status err';
+      // render empty lists so user can still add items
+      renderGwList('tb');
+      renderGwList('ingestion');
+      renderGwList('gcdr');
+    })
+    .finally(() => {
+      modal.querySelector('#isetup-loading').style.display = 'none';
+      modal.querySelector('#isetup-form').style.display = 'flex';
+      modal.querySelector('#isetup-form').style.flexDirection = 'column';
+      modal.querySelector('#isetup-form').style.gap = '16px';
+      modal.querySelector('#isetup-save').disabled = false;
+    });
+
+  // ── Save ─────────────────────────────────────────────────────────────────
+  modal.querySelector('#isetup-save').addEventListener('click', async () => {
+    const statusEl = modal.querySelector('#isetup-status');
+    const saveBtn = modal.querySelector('#isetup-save');
+
+    const payload = {
+      schema_version: '1.0.0',
+      updated_at: new Date().toISOString(),
+      updated_by: window.MyIOUtils?.currentUserEmail || user?.email || 'unknown',
+      ingestion: {
+        ingestionId: modal.querySelector('#isetup-ingestionId').value.trim(),
+        client_id: modal.querySelector('#isetup-clientId').value.trim(),
+        client_secret: modal.querySelector('#isetup-clientSecret').value,
+      },
+      gcdr: {
+        gcdrCustomerId: modal.querySelector('#isetup-gcdrCustomerId').value.trim(),
+        gcdrApiKey: modal.querySelector('#isetup-gcdrApiKey').value,
+        gcdrTenantId: modal.querySelector('#isetup-gcdrTenantId').value.trim(),
+        gcdrSyncedAt: gcdrSyncedAt,
+      },
+      gateways: {
+        tb: JSON.parse(JSON.stringify(_gwData.tb)),
+        ingestion: JSON.parse(JSON.stringify(_gwData.ingestion)),
+        gcdr: JSON.parse(JSON.stringify(_gwData.gcdr)),
+      },
+    };
+
+    saveBtn.disabled = true;
+    statusEl.textContent = 'Salvando…';
+    statusEl.className = 'myio-isetup__status';
+
+    try {
+      const res = await fetch(`${tbBase}/api/plugins/telemetry/CUSTOMER/${customerId}/SERVER_SCOPE`, {
+        method: 'POST',
+        headers: { ...authHeaders, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ integration_setup: payload }),
+      });
+
+      if (res.ok) {
+        statusEl.textContent = '✓ Salvo com sucesso';
+        statusEl.className = 'myio-isetup__status ok';
+        window.dispatchEvent(new CustomEvent('myio:integration-setup-updated', { detail: payload }));
+        setTimeout(closeModal, 1200);
+      } else {
+        const body = await res.text().catch(() => '');
+        statusEl.textContent = `Erro ${res.status}${body ? ': ' + body.slice(0, 80) : ''}`;
+        statusEl.className = 'myio-isetup__status err';
+      }
+    } catch (err) {
+      statusEl.textContent = 'Erro de rede: ' + (err.message || err);
+      statusEl.className = 'myio-isetup__status err';
+    } finally {
+      saveBtn.disabled = false;
+    }
+  });
+
+  LogHelper.log('Integration setup modal opened for customer:', customerId);
+}
+
+// ── Configurações Cliente (apenas SuperAdmin MyIO) ───────────────────────────
+// Lê/salva canShowDemandButtons, tickets_enabled, tickets_only_to_myio e
+// master_admin_password (SERVER_SCOPE) no customer do ThingsBoard.
+function openClientConfigModal() {
+  const c = _customModalCtx();
+  if (!c) return;
+  const { topDoc, jwtToken, customerId, customerName, tbBase } = c;
+
+  // ── CSS ──────────────────────────────────────────────────────────────────
+  const STYLE_ID = 'myio-client-config-styles';
+  if (!topDoc.getElementById(STYLE_ID)) {
+    const s = topDoc.createElement('style');
+    s.id = STYLE_ID;
+    s.textContent = `
+      .mcc-overlay{position:fixed;inset:0;z-index:999999;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s ease;font-family:Nunito,Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+      .mcc-overlay.show{opacity:1;pointer-events:auto}
+      .mcc-bg{position:absolute;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(4px)}
+      .mcc-card{position:relative;z-index:2;background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.28);width:min(520px,95vw);display:flex;flex-direction:column;overflow:hidden;transform:translateY(12px) scale(.98);transition:transform .2s ease}
+      .mcc-overlay.show .mcc-card{transform:translateY(0) scale(1)}
+      .mcc-header{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#3e1a7d;color:#fff;min-height:36px}
+      .mcc-header h3{margin:0;font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px}
+      .mcc-close{background:transparent;border:none;color:#fff;font-size:24px;line-height:1;cursor:pointer;padding:4px;border-radius:4px;transition:background .15s}
+      .mcc-close:hover{background:rgba(255,255,255,.15)}
+      .mcc-body{padding:20px;display:flex;flex-direction:column;gap:18px}
+      .mcc-loading{display:flex;align-items:center;justify-content:center;gap:10px;padding:32px 0;color:#6B7280;font-size:13px}
+      .mcc-spinner{width:18px;height:18px;border:2px solid #E9E0FA;border-top-color:#7B2FF7;border-radius:50%;animation:mcc-spin .7s linear infinite;flex-shrink:0}
+      @keyframes mcc-spin{to{transform:rotate(360deg)}}
+      .mcc-section{border:1px solid #E9E0FA;border-radius:12px;overflow:hidden}
+      .mcc-section-title{background:#F3ECF9;padding:8px 14px;font-size:11px;font-weight:700;color:#5B2D8E;letter-spacing:.6px;text-transform:uppercase}
+      .mcc-field{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;gap:12px}
+      .mcc-field + .mcc-field{border-top:1px solid #F3F4F6}
+      .mcc-field-label{display:flex;flex-direction:column;gap:3px;min-width:0}
+      .mcc-field-name{font-size:13px;font-weight:600;color:#1F2937}
+      .mcc-field-desc{font-size:11px;color:#6B7280;line-height:1.3}
+      .mcc-toggle{position:relative;width:42px;height:24px;flex-shrink:0}
+      .mcc-toggle input{opacity:0;width:0;height:0;position:absolute}
+      .mcc-toggle-track{position:absolute;inset:0;background:#D1D5DB;border-radius:24px;cursor:pointer;transition:background .2s}
+      .mcc-toggle input:checked + .mcc-toggle-track{background:#7B2FF7}
+      .mcc-toggle-thumb{position:absolute;top:3px;left:3px;width:18px;height:18px;background:#fff;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,.2);transition:transform .2s;pointer-events:none}
+      .mcc-toggle input:checked ~ .mcc-toggle-thumb{transform:translateX(18px)}
+      .mcc-password-wrap{display:flex;gap:8px;align-items:center}
+      .mcc-input{flex:1;padding:8px 10px;border:1px solid #D1D5DB;border-radius:8px;font-size:13px;color:#1F2937;outline:none;transition:border-color .15s}
+      .mcc-input:focus{border-color:#7B2FF7;box-shadow:0 0 0 3px rgba(123,47,247,.1)}
+      .mcc-footer{display:flex;justify-content:flex-end;gap:10px;padding:14px 20px;border-top:1px solid #F3F4F6}
+      .mcc-btn{padding:8px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;border:none}
+      .mcc-btn-cancel{background:#F3F4F6;color:#374151}
+      .mcc-btn-cancel:hover{background:#E5E7EB}
+      .mcc-btn-save{background:#7B2FF7;color:#fff}
+      .mcc-btn-save:hover:not(:disabled){background:#6a25e0}
+      .mcc-btn-save:disabled{opacity:.5;cursor:not-allowed}
+      .mcc-error{font-size:12px;color:#DC2626;padding:0 20px 12px;text-align:right}
+    `;
+    topDoc.head.appendChild(s);
+  }
+
+  // Remove modal anterior
+  const existing = topDoc.getElementById('myio-client-config-modal');
+  if (existing) existing.remove();
+
+  const modal = topDoc.createElement('div');
+  modal.id = 'myio-client-config-modal';
+  modal.className = 'mcc-overlay';
+  modal.innerHTML = `
+    <div class="mcc-bg"></div>
+    <div class="mcc-card">
+      <div class="mcc-header">
+        <h3>🏢 Configurações Cliente${customerName ? ` — ${customerName}` : ''}</h3>
+        <button class="mcc-close" aria-label="Fechar">&times;</button>
+      </div>
+      <div class="mcc-body">
+        <div class="mcc-loading">
+          <span class="mcc-spinner"></span>
+          Carregando configurações…
+        </div>
+      </div>
+      <div class="mcc-footer" style="display:none">
+        <button class="mcc-btn mcc-btn-cancel">Cancelar</button>
+        <button class="mcc-btn mcc-btn-save" disabled>Salvar</button>
+      </div>
+    </div>
+  `;
+  topDoc.body.appendChild(modal);
+  window.requestAnimationFrame(() => modal.classList.add('show'));
+
+  const escHandler = (e) => {
+    if (e.key === 'Escape') closeModal();
+  };
+  const closeModal = () => {
+    topDoc.removeEventListener('keydown', escHandler);
+    modal.classList.remove('show');
+    setTimeout(() => modal.remove(), 200);
+  };
+  modal.querySelector('.mcc-bg').addEventListener('click', closeModal);
+  modal.querySelector('.mcc-close').addEventListener('click', closeModal);
+  modal.querySelector('.mcc-btn-cancel').addEventListener('click', closeModal);
+  topDoc.addEventListener('keydown', escHandler);
+
+  // ── Carrega atributos atuais ──────────────────────────────────────────────
+  const KEYS = ['canShowDemandButtons', 'tickets_enabled', 'tickets_only_to_myio', 'master_admin_password'];
+  const fetchUrl = `${tbBase}/api/plugins/telemetry/CUSTOMER/${customerId}/values/attributes/SERVER_SCOPE?keys=${KEYS.join(',')}`;
+
+  fetch(fetchUrl, { headers: { 'X-Authorization': `Bearer ${jwtToken}` } })
+    .then((r) => (r.ok ? r.json().catch(() => []) : []))
+    .then((attrs) => {
+      const attrMap = {};
+      if (Array.isArray(attrs))
+        attrs.forEach((a) => {
+          attrMap[a.key] = a.value;
+        });
+
+      const currentDemand = attrMap['canShowDemandButtons'] ?? null;
+      const rawTickets = attrMap['tickets_enabled'];
+      const currentTickets =
+        rawTickets === true || rawTickets === 'true' || rawTickets === 1 || rawTickets === '1';
+      const rawOnlyMyio = attrMap['tickets_only_to_myio'];
+      // Default TRUE — only false when explicitly set to false/0/'false'/'0'
+      const currentOnlyMyio = !(
+        rawOnlyMyio === false ||
+        rawOnlyMyio === 'false' ||
+        rawOnlyMyio === 0 ||
+        rawOnlyMyio === '0'
+      );
+
+      const body = modal.querySelector('.mcc-body');
+      const footer = modal.querySelector('.mcc-footer');
+
+      body.innerHTML = `
+        <div class="mcc-section">
+          <div class="mcc-section-title">Funcionalidades</div>
+          <div class="mcc-field">
+            <div class="mcc-field-label">
+              <span class="mcc-field-name">Pico de Demanda / Telemetrias Instantâneas</span>
+              <span class="mcc-field-desc">
+                Exibe os botões de análise avançada no modal de energia.<br>
+                <em>Atributo:</em> <code>canShowDemandButtons</code>
+                ${currentDemand === null ? ' <span style="color:#F59E0B">(não definido — fallback: deviceProfile)</span>' : ''}
+              </span>
+            </div>
+            <label class="mcc-toggle" title="canShowDemandButtons">
+              <input type="checkbox" id="mcc-demand-toggle" ${currentDemand === true ? 'checked' : ''}>
+              <span class="mcc-toggle-track"></span>
+              <span class="mcc-toggle-thumb"></span>
+            </label>
+          </div>
+          <div class="mcc-field">
+            <div class="mcc-field-label">
+              <span class="mcc-field-name">Módulo de Chamados (FreshDesk)</span>
+              <span class="mcc-field-desc">
+                Habilita a aba Chamados, o botão no HEADER e o badge nos devices.<br>
+                <em>Atributo:</em> <code>tickets_enabled</code>
+                ${rawTickets === undefined || rawTickets === null ? ' <span style="color:#F59E0B">(não definido — padrão: desabilitado)</span>' : ''}
+              </span>
+            </div>
+            <label class="mcc-toggle" title="tickets_enabled">
+              <input type="checkbox" id="mcc-tickets-toggle" ${currentTickets ? 'checked' : ''}>
+              <span class="mcc-toggle-track"></span>
+              <span class="mcc-toggle-thumb"></span>
+            </label>
+          </div>
+          <div class="mcc-field" id="mcc-only-myio-row" style="${currentTickets ? '' : 'opacity:.4;pointer-events:none;'}">
+            <div class="mcc-field-label" style="padding-left:12px;border-left:3px solid #E9E0FA;">
+              <span class="mcc-field-name">Restringir apenas para @myio.com.br</span>
+              <span class="mcc-field-desc">
+                Se ativado, a feature de chamados fica visível apenas para usuários com e-mail <code>@myio.com.br</code>.<br>
+                <em>Atributo:</em> <code>tickets_only_to_myio</code>
+                ${rawOnlyMyio === undefined || rawOnlyMyio === null ? ' <span style="color:#F59E0B">(não definido — padrão: apenas @myio.com.br)</span>' : ''}
+              </span>
+            </div>
+            <label class="mcc-toggle" title="tickets_only_to_myio">
+              <input type="checkbox" id="mcc-only-myio-toggle" ${currentOnlyMyio ? 'checked' : ''} ${currentTickets ? '' : 'disabled'}>
+              <span class="mcc-toggle-track"></span>
+              <span class="mcc-toggle-thumb"></span>
+            </label>
+          </div>
+        </div>
+        <div class="mcc-section">
+          <div class="mcc-section-title">Segurança</div>
+          <div class="mcc-field">
+            <div class="mcc-field-label">
+              <span class="mcc-field-name">Senha Master Admin</span>
+              <span class="mcc-field-desc">
+                Senha exigida para ações administrativas sensíveis.<br>
+                <em>Atributo:</em> <code>master_admin_password</code>
+              </span>
+            </div>
+            <div class="mcc-password-wrap">
+              <input type="password" id="mcc-password-input" class="mcc-input" placeholder="Nova senha…" autocomplete="new-password" style="width:180px">
+            </div>
+          </div>
+        </div>
+        <div class="mcc-error" id="mcc-error-msg" style="display:none"></div>
+      `;
+
+      footer.style.display = '';
+      const saveBtn = footer.querySelector('.mcc-btn-save');
+
+      // Habilita salvar ao detectar qualquer mudança
+      const enableSave = () => {
+        saveBtn.disabled = false;
+      };
+      modal.querySelector('#mcc-demand-toggle').addEventListener('change', enableSave);
+      modal.querySelector('#mcc-tickets-toggle').addEventListener('change', (e) => {
+        enableSave();
+        const onlyMyioRow = modal.querySelector('#mcc-only-myio-row');
+        const onlyMyioToggle = modal.querySelector('#mcc-only-myio-toggle');
+        const on = e.target.checked;
+        if (onlyMyioRow) {
+          onlyMyioRow.style.opacity = on ? '' : '.4';
+          onlyMyioRow.style.pointerEvents = on ? '' : 'none';
+        }
+        if (onlyMyioToggle) onlyMyioToggle.disabled = !on;
+      });
+      modal.querySelector('#mcc-only-myio-toggle').addEventListener('change', enableSave);
+      modal.querySelector('#mcc-password-input').addEventListener('input', enableSave);
+
+      // ── Salvar ────────────────────────────────────────────────────────────
+      saveBtn.addEventListener('click', async () => {
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Salvando…';
+        const errEl = modal.querySelector('#mcc-error-msg');
+        errEl.style.display = 'none';
+
+        const demandValue = modal.querySelector('#mcc-demand-toggle').checked;
+        const ticketsValue = modal.querySelector('#mcc-tickets-toggle').checked;
+        const onlyMyioValue = modal.querySelector('#mcc-only-myio-toggle').checked;
+        const passwordValue = modal.querySelector('#mcc-password-input').value.trim();
+
+        const payload = {
+          canShowDemandButtons: demandValue,
+          tickets_enabled: ticketsValue,
+          tickets_only_to_myio: ticketsValue ? onlyMyioValue : false,
+        };
+        if (passwordValue) payload.master_admin_password = passwordValue;
+
+        try {
+          const res = await fetch(
+            `${tbBase}/api/plugins/telemetry/CUSTOMER/${customerId}/attributes/SERVER_SCOPE`,
+            {
+              method: 'POST',
+              headers: { 'X-Authorization': `Bearer ${jwtToken}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            }
+          );
+          if (!res.ok) {
+            const errText = await res.text().catch(() => '');
+            throw new Error(`HTTP ${res.status}${errText ? ': ' + errText.slice(0, 120) : ''}`);
+          }
+          LogHelper.log('Configurações Cliente salvas:', payload);
+          saveBtn.textContent = '✓ Salvo';
+          saveBtn.style.background = '#16A34A';
+          setTimeout(() => {
+            saveBtn.textContent = 'Salvar';
+            saveBtn.style.background = '';
+            saveBtn.disabled = true;
+          }, 2000);
+        } catch (err) {
+          LogHelper.error('Erro ao salvar Configurações Cliente:', err);
+          errEl.textContent = 'Erro ao salvar: ' + err.message;
+          errEl.style.display = 'block';
+          saveBtn.disabled = false;
+          saveBtn.textContent = 'Salvar';
+        }
+      });
+    })
+    .catch((err) => {
+      LogHelper.error('Erro ao carregar Configurações Cliente:', err);
+      modal.querySelector('.mcc-body').innerHTML =
+        `<div style="padding:24px;text-align:center;color:#DC2626;font-size:13px">Erro ao carregar configurações: ${err.message}</div>`;
+      modal.querySelector('.mcc-footer').style.display = '';
+    });
+
+  LogHelper.log('Configurações Cliente modal aberta para customer:', customerId);
+}
+
+// RFC-0215 Phase 3: the hub UI lives in the lib (openSettingsHubModal — single
+// source shared with v-5.2.0 MENU). The controller only supplies the customer
+// name, the SuperAdmin gate and one handler per option.
+function openSettingsHub() {
+  const lib = window.MyIOLibrary;
+  if (typeof lib?.openSettingsHubModal !== 'function') {
+    toastError('Hub de configurações não disponível. Atualize a biblioteca MyIO.');
+    return;
+  }
+  lib.openSettingsHubModal({
+    customerName: resolveShoppingName(),
+    isSuperAdmin: window.MyIOUtils?.SuperAdmin === true,
+    handlers: {
+      temperature: openTemperatureSettings,
+      contract: openContractDevicesSettings,
+      measurement: openMeasurementSettings,
+      integration: openIntegrationSetupModal,
+      'user-management': openUserManagement,
+      'default-dashboard': openDefaultDashboardSettings,
+      'client-config': openClientConfigModal,
+      'device-profile': openDeviceProfileSettings,
+    },
+  });
+  LogHelper.log('RFC-0215: settings hub opened (lib openSettingsHubModal)');
 }
 
 // --- RFC-0211-grid: card actions (dashboard/report/settings) + selection/drag-to-footer ---
@@ -1277,10 +2656,17 @@ async function fetchAndUpdateUserInfo() {
 
     const user = await response.json();
     const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.name || 'Usuário';
-    const isAdmin = user.authority === 'TENANT_ADMIN' || window.MyIOUtils.SuperAdmin;
 
     // RFC-0171: Store currentUserEmail for use in Settings modal
     window.MyIOUtils.currentUserEmail = (user.email || '').toLowerCase().trim();
+    // RFC-0215: refine SuperAdmin with the API-resolved email (onInit's quick check
+    // saw ctx.currentUser, which frequently omits the email → SuperAdmin stuck false
+    // and the settings hub would hide the MyIO-only options).
+    window.MyIOUtils.SuperAdmin =
+      window.MyIOUtils.currentUserEmail.includes('@myio.com.br') &&
+      !window.MyIOUtils.currentUserEmail.includes('alarme');
+
+    const isAdmin = user.authority === 'TENANT_ADMIN' || window.MyIOUtils.SuperAdmin;
 
     if (_menuInstance) {
       _menuInstance.updateUserInfo({
@@ -1354,8 +2740,8 @@ function createComponents() {
         switchContentState(domain);
       },
       onToggleCollapse: handleMenuCollapse,
-      // RFC-0211-menu: open the settings modal on "Configurações" click
-      onSettingsClick: openSettings,
+      // RFC-0215: open the consolidated settings hub (parity v-5.2.0 RFC-0108)
+      onSettingsClick: openSettingsHub,
       // RFC-0211-menu: shopping selector — emit event so a future picker can react
       onShoppingSelectorClick: () => {
         window.dispatchEvent(new CustomEvent('myio:shopping-selector-click'));
