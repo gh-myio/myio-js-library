@@ -4502,7 +4502,7 @@ async function fetchUserInfoForSidebar(sidebarMenu) {
     var headers = { 'Content-Type': 'application/json' };
     if (token) headers['X-Authorization'] = 'Bearer ' + token;
 
-    var response = await fetch('/api/auth/user', {
+    var response = await fetch(THINGSBOARD_URL + '/api/auth/user', {
       method: 'GET',
       headers: headers,
       credentials: 'include',
@@ -4543,7 +4543,7 @@ async function handleSidebarLogout() {
 
   try {
     var token = localStorage.getItem('jwt_token');
-    var response = await fetch('/api/auth/logout', {
+    var response = await fetch(THINGSBOARD_URL + '/api/auth/logout', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -4558,14 +4558,14 @@ async function handleSidebarLogout() {
     localStorage.removeItem('jwt_token');
     sessionStorage.clear();
 
-    // Redirect to login
-    window.location.href = '/login';
+    // Redirect to login (on the TB host when running outside it)
+    window.location.href = THINGSBOARD_URL + '/login';
   } catch (err) {
     LogHelper.error('[MAIN_BAS] Logout error:', err);
     // Force redirect even on error
     localStorage.removeItem('jwt_token');
     sessionStorage.clear();
-    window.location.href = '/login';
+    window.location.href = THINGSBOARD_URL + '/login';
   }
 }
 
@@ -4721,6 +4721,14 @@ function updateSidebarMenuBadges(classified) {
  * Data API host for ingestion API calls
  */
 var DATA_API_HOST = '';
+
+/**
+ * ThingsBoard base URL for direct REST calls (auth/user, auth/logout, customer attrs).
+ * Empty string = same-origin (the real TB widget runtime). Set settings.thingsboardUrl
+ * when the widget runs OUTSIDE ThingsBoard (e.g. the showcase) so /api/* calls hit the
+ * TB server instead of the page origin (which 404s).
+ */
+var THINGSBOARD_URL = '';
 
 // Chart data cache to avoid unnecessary refetches (e.g., on maximize)
 // Keyed by domain, stores last result per period
@@ -5966,6 +5974,9 @@ self.onInit = async function () {
   // Enable debug mode from settings (default: true, set false to disable)
   DEBUG_ACTIVE = self.ctx.settings?.enableDebugMode !== false;
   DATA_API_HOST = self.ctx.settings?.dataApiHost;
+  // TB base for direct REST calls. Default '' keeps same-origin behavior inside
+  // the real TB runtime; the showcase sets it so /api/* doesn't hit the page origin.
+  THINGSBOARD_URL = String(self.ctx.settings?.thingsboardUrl || '').replace(/\/$/, '');
 
   // Create LogHelper instance using library function
   LogHelper = window.MyIOLibrary.createLogHelper({
@@ -5988,7 +5999,8 @@ self.onInit = async function () {
       try {
         const attrs = await window.MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage(
           MAP_CUSTOMER_CREDENTIALS.customer_TB_Id,
-          jwt
+          jwt,
+          THINGSBOARD_URL // '' inside TB (same-origin); showcase points at the real TB
         );
 
         // Populate customer credentials
