@@ -53,6 +53,8 @@ export interface OnOffDeviceModalViewOptions {
   parentEl?: HTMLElement;
   /** JWT token for ThingsBoard API - enables real data fetching */
   jwtToken?: string;
+  /** TB base URL for the REST calls. Empty = same-origin (real TB runtime). */
+  tbBaseUrl?: string;
   /** Customer/client label — used to compose the exported PDF filename. */
   customerName?: string;
 }
@@ -91,6 +93,7 @@ export class OnOffDeviceModalView {
 
   // Data fetching
   private jwtToken?: string;
+  private tbBaseUrl: string = '';
   private customerName?: string;
   private currentStartISO: string;
   private currentEndISO: string;
@@ -113,6 +116,7 @@ export class OnOffDeviceModalView {
     this.onDateRangeChange = options.onDateRangeChange;
     this.parentEl = options.parentEl;
     this.jwtToken = options.jwtToken;
+    this.tbBaseUrl = options.tbBaseUrl || '';
     this.customerName = options.customerName;
 
     // Initialize date range (default: last 7 days)
@@ -153,7 +157,7 @@ export class OnOffDeviceModalView {
     const deviceId = (this.device as any).entityId || this.device.id;
 
     try {
-      const schedules = await fetchDeviceSchedules(this.jwtToken, deviceId);
+      const schedules = await fetchDeviceSchedules(this.jwtToken, deviceId, this.tbBaseUrl);
       console.log('[OnOffDeviceModalView] Fetched schedules:', schedules.length);
       this.state.schedules = schedules;
 
@@ -460,6 +464,7 @@ export class OnOffDeviceModalView {
         endTs,
         deviceName: this.device.label || this.device.name || 'Dispositivo',
         invertLogic: isSolenoid,
+        tbBaseUrl: this.tbBaseUrl,
       });
 
       console.log('[OnOffDeviceModalView] Received timeline data:', {

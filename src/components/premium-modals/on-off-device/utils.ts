@@ -22,6 +22,8 @@ export interface FetchOnOffDataParams {
   endTs: number;
   /** Telemetry keys to check (in order of priority) */
   telemetryKeys?: string[];
+  /** TB base URL for the REST calls. Empty = same-origin (real TB runtime). */
+  tbBaseUrl?: string;
 }
 
 // ============================================================================
@@ -41,11 +43,11 @@ const DEFAULT_TELEMETRY_KEYS = ['state', 'status', 'acionamento'];
 export async function fetchOnOffStatusData(
   params: FetchOnOffDataParams
 ): Promise<OnOffTelemetryPoint[]> {
-  const { token, deviceId, startTs, endTs, telemetryKeys = DEFAULT_TELEMETRY_KEYS } = params;
+  const { token, deviceId, startTs, endTs, telemetryKeys = DEFAULT_TELEMETRY_KEYS, tbBaseUrl = '' } = params;
 
   // Try each key until we find data
   for (const key of telemetryKeys) {
-    const url = `/api/plugins/telemetry/DEVICE/${deviceId}/values/timeseries` +
+    const url = `${tbBaseUrl}/api/plugins/telemetry/DEVICE/${deviceId}/values/timeseries` +
       `?keys=${key}` +
       `&startTs=${encodeURIComponent(startTs)}` +
       `&endTs=${encodeURIComponent(endTs)}` +
@@ -264,7 +266,7 @@ export async function fetchOnOffTimelineData(
     invertLogic?: boolean;
   }
 ): Promise<OnOffTimelineData> {
-  const { token, deviceId, startTs, endTs, deviceName, invertLogic = false, telemetryKeys } = params;
+  const { token, deviceId, startTs, endTs, deviceName, invertLogic = false, telemetryKeys, tbBaseUrl } = params;
 
   const periodStart = new Date(startTs).toISOString();
   const periodEnd = new Date(endTs).toISOString();
@@ -276,6 +278,7 @@ export async function fetchOnOffTimelineData(
       startTs,
       endTs,
       telemetryKeys,
+      tbBaseUrl,
     });
 
     return convertTelemetryToTimelineData(telemetry, {
@@ -313,10 +316,11 @@ export async function fetchOnOffTimelineData(
  */
 export async function fetchDeviceSchedules(
   token: string,
-  deviceId: string
+  deviceId: string,
+  tbBaseUrl: string = ''
 ): Promise<OnOffScheduleEntry[]> {
   try {
-    const url = `/api/plugins/telemetry/DEVICE/${deviceId}/values/attributes/SERVER_SCOPE`;
+    const url = `${tbBaseUrl}/api/plugins/telemetry/DEVICE/${deviceId}/values/attributes/SERVER_SCOPE`;
 
     const response = await fetch(url, {
       headers: {

@@ -3788,6 +3788,7 @@ function openOnOffDeviceModal(device, settings) {
   MyIOLibrary.openOnOffDeviceModal(deviceData, {
     themeMode: 'light',
     jwtToken: jwtToken,
+    tbBaseUrl: THINGSBOARD_URL, // '' dentro do TB (same-origin); fora do TB usa o host real
     centralId: device.centralId || device.rawData?.centralId,
     customerName: (settings && settings.customerName) || '',
     enableDebugMode: false,
@@ -3880,6 +3881,8 @@ function openWaterTankModal(device, entityObject, _settings) {
     deviceId: device?.id || device?.entityId,
     deviceType: deviceType,
     tbJwtToken: jwtToken,
+    // '' dentro do TB → undefined mantém o default (same-origin); fora do TB usa o host real
+    tbApiHost: THINGSBOARD_URL || undefined,
     startTs: startTs,
     endTs: endTs,
     label: deviceLabel,
@@ -3903,6 +3906,13 @@ function openWaterTankModal(device, entityObject, _settings) {
     },
     onError: function (error) {
       LogHelper.error('[MAIN_BAS] ❌ Water tank modal error:', error);
+      // Surface the failure to the user (was console-only — modal "abria nada" em silêncio)
+      if (MyIOLibrary.MyIOToast && MyIOLibrary.MyIOToast.error) {
+        MyIOLibrary.MyIOToast.error(
+          'Não foi possível abrir o gráfico do reservatório: ' + ((error && error.message) || 'erro desconhecido'),
+          6000
+        );
+      }
     },
   });
 }
