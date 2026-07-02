@@ -8,6 +8,9 @@
  * - Suporta granularidade horária (24h de um dia selecionado) e diária (últimos N dias)
  */
 
+import { createDateRangePicker } from '../createDateRangePicker';
+import type { DateRangeControl } from '../createDateRangePicker';
+
 declare const Chart: any;
 declare const window: any;
 
@@ -183,6 +186,7 @@ let _lastRender:
 // result/loader if it is still the latest. Prevents rapid tab/granularity switches
 // from being dropped (the old _isRendering early-return swallowed them).
 let _renderSeq = 0;
+let _datePickerControl: DateRangeControl | null = null;
 
 function _todayISO(): string {
   // Local date (not UTC) — toISOString() would shift the day in UTC-3 late evening.
@@ -497,15 +501,24 @@ async function _fetchTemperatureDayData(): Promise<{ labels: string[]; totals: n
 // Linha de meta
 // ============================================================================
 
-function _buildGoalLine(domain: string, labels: string[], gran: '1h' | '1d' | '1M'): (number | null)[] {
+function _buildGoalLine(domain: string, labels: string[], gran: '1h' | '1d' | '1M', dateISO?: string): (number | null)[] {
   const tree = _getGoalsTree(domain);
   if (!tree) return labels.map(() => null);
 
   if (gran === '1h') {
-    return labels.map((lbl) => {
-      const hh = lbl.replace('h', '').padStart(2, '0');
-      return tree.hourly?.[hh]?.value ?? tree.hourly?.[String(parseInt(hh, 10))]?.value ?? null;
-    });
+    const ref = (dateISO || _selectedDate).split('-');
+    const mm = ref[1] ?? '';
+    const dd = ref[2] ?? '';
+
+    if (tree.hourly && Object.keys(tree.hourly).length > 0) {
+      // Keys use "MM-DDThh" format (e.g. "07-01T09")
+      return labels.map((lbl) => {
+        const hh = lbl.replace('h', '').padStart(2, '0');
+        return tree.hourly![`${mm}-${dd}T${hh}`]?.value ?? null;
+      });
+    }
+
+    return labels.map(() => null);
   }
 
   if (gran === '1M') {
@@ -739,7 +752,7 @@ async function _loadAndRender(domain: string, gran: '1h' | '1d' | '1M', dateISO:
       if (seq !== _renderSeq) return; // superada enquanto aguardava o ano anterior
     }
 
-    const goalLine = _buildGoalLine(domain, labels, gran);
+    const goalLine = _buildGoalLine(domain, labels, gran, dateISO);
 
     // Chart.js must be loaded by the host page; fail with a visible message instead of a blank modal.
     if (typeof Chart === 'undefined') {
@@ -829,10 +842,8 @@ function _injectStyles(topDoc: Document): void {
     .gm-gran-btn:hover{background:rgba(255,255,255,.15);color:#fff;}
     .gm-gran-btn.active{background:#fff;color:#3e1a7d;box-shadow:0 1px 4px rgba(0,0,0,.2);}
     .gm-date-input{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.3);border-radius:6px;color:#fff;font-size:12px;padding:3px 8px;cursor:pointer;outline:none;}
-    .gm-date-input::-webkit-calendar-picker-indicator{filter:invert(1);opacity:.8;cursor:pointer;}
-    .gm-date-wrap,.gm-year-wrap{display:flex;align-items:center;gap:6px;font-size:11px;color:rgba(255,255,255,.75);}
-    #gm-year-input{width:68px;text-align:center;-moz-appearance:textfield;}
-    #gm-year-input::-webkit-outer-spin-button,#gm-year-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+    .gm-date-picker-wrap{display:flex;align-items:center;}
+    #gm-date-range-input{min-width:155px;}
     .gm-close{background:transparent;border:none;color:#fff;font-size:22px;line-height:1;cursor:pointer;padding:4px;border-radius:4px;flex-shrink:0;}
     .gm-close:hover{background:rgba(255,255,255,.15);}
     .gm-tabs{display:flex;gap:4px;padding:8px 14px 0;background:#3e1a7d;flex-shrink:0;}
@@ -883,13 +894,8 @@ function _buildModalHTML(): string {
         <button class="gm-gran-btn${_currentGran === '1d' ? ' active' : ''}" data-gran="1d">1d</button>
         <button class="gm-gran-btn${_currentGran === '1h' ? ' active' : ''}" data-gran="1h">1h</button>
       </div>
-      <div class="gm-year-wrap" id="gm-year-wrap" style="display:${_currentGran === '1M' ? 'flex' : 'none'}">
-        <span>Ano:</span>
-        <input type="number" id="gm-year-input" class="gm-date-input" value="${_selectedYear}" min="${new Date().getFullYear() - 5}" max="${new Date().getFullYear()}" />
-      </div>
-      <div class="gm-date-wrap" id="gm-date-wrap" style="display:${_currentGran === '1h' ? 'flex' : 'none'}">
-        <span>Dia:</span>
-        <input type="date" id="gm-date-input" class="gm-date-input" value="${_selectedDate}" max="${_todayISO()}" />
+      <div class="gm-date-picker-wrap" id="gm-date-picker-wrap">
+        <input type="text" id="gm-date-range-input" class="gm-date-input" readonly placeholder="Selecione o período…" />
       </div>
       <button class="gm-close" id="gm-close" aria-label="Fechar">&times;</button>
     </div>
@@ -903,6 +909,52 @@ function _buildModalHTML(): string {
     </div>
     <div class="gm-footer"><div id="gm-stats"></div></div>
   `;
+}
+
+// ============================================================================
+// Date picker helpers
+// ============================================================================
+
+function _defaultDatesForGran(gran: '1h' | '1d' | '1M'): { start: string; end: string } {
+  const today = _todayISO();
+  if (gran === '1h') return { start: today, end: today };
+  if (gran === '1M') {
+    const yr = _selectedYear;
+    return { start: `${yr}-01-01`, end: `${yr}-12-31` };
+  }
+  const s = new Date();
+  s.setDate(s.getDate() - (_periodDays - 1));
+  const sm = String(s.getMonth() + 1).padStart(2, '0');
+  const sd = String(s.getDate()).padStart(2, '0');
+  return { start: `${s.getFullYear()}-${sm}-${sd}`, end: today };
+}
+
+function _applyDateRange(startISO: string, endISO: string): void {
+  if (_currentGran === '1h') {
+    _selectedDate = startISO.slice(0, 10);
+  } else if (_currentGran === '1M') {
+    _selectedYear = new Date(startISO).getFullYear();
+  } else {
+    const d0 = new Date(startISO.slice(0, 10));
+    const d1 = new Date(endISO.slice(0, 10));
+    _periodDays = Math.max(1, Math.round((d1.getTime() - d0.getTime()) / 86400000) + 1);
+  }
+  _loadAndRender(_currentDomain, _currentGran, _selectedDate);
+}
+
+async function _initDatePicker(topDoc: Document): Promise<void> {
+  const inputEl = topDoc.getElementById('gm-date-range-input') as HTMLInputElement | null;
+  if (!inputEl) return;
+  _datePickerControl?.destroy();
+  _datePickerControl = null;
+  const { start, end } = _defaultDatesForGran(_currentGran);
+  _datePickerControl = await createDateRangePicker(inputEl, {
+    presetStart: start,
+    presetEnd: end,
+    maxRangeDays: _currentGran === '1h' ? 1 : 366,
+    locale: 'pt-BR',
+    onApply: (result) => _applyDateRange(result.startISO, result.endISO),
+  });
 }
 
 // ============================================================================
@@ -952,25 +1004,10 @@ function _wireEvents(overlay: HTMLElement, topDoc: Document): void {
       overlay
         .querySelectorAll('.gm-gran-btn[data-gran]')
         .forEach((b) => b.classList.toggle('active', b === btn));
-      const dateWrap = topDoc.getElementById('gm-date-wrap');
-      if (dateWrap) dateWrap.style.display = gran === '1h' ? 'flex' : 'none';
-      const yearWrap = topDoc.getElementById('gm-year-wrap');
-      if (yearWrap) yearWrap.style.display = gran === '1M' ? 'flex' : 'none';
+      // Reinicializa o picker com maxRangeDays e datas padrão da nova granularidade
+      _initDatePicker(topDoc).catch(console.error);
       _loadAndRender(_currentDomain, _currentGran, _selectedDate);
     });
-  });
-
-  // Date picker (1h mode)
-  topDoc.getElementById('gm-date-input')?.addEventListener('change', (e) => {
-    _selectedDate = (e.target as HTMLInputElement).value || _todayISO();
-    _loadAndRender(_currentDomain, _currentGran, _selectedDate);
-  });
-
-  // Year picker (1M mode)
-  topDoc.getElementById('gm-year-input')?.addEventListener('change', (e) => {
-    const val = parseInt((e.target as HTMLInputElement).value, 10);
-    if (!isNaN(val)) _selectedYear = val;
-    _loadAndRender(_currentDomain, _currentGran, _selectedDate);
   });
 }
 
@@ -1028,6 +1065,7 @@ export const GoalsModal = {
     requestAnimationFrame(() => overlay.classList.add('show'));
 
     _wireEvents(overlay, topDoc);
+    _initDatePicker(topDoc).catch(console.error);
 
     setTimeout(() => {
       _loadAndRender(_currentDomain, _currentGran, _selectedDate);
@@ -1038,6 +1076,8 @@ export const GoalsModal = {
     if (!_overlay) return;
     _overlay.classList.remove('show');
     _destroyChart();
+    _datePickerControl?.destroy();
+    _datePickerControl = null;
     const overlayRef = _overlay;
     _overlay = null;
     _options = null;

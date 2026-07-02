@@ -843,8 +843,8 @@ async function _fetchAndCacheGoalsData(urls) {
 // ── Goals (metas) via GCDR — RFC-0046 ────────────────────────────────────────
 // As metas vêm do GCDR Goals API (GET /api/v1/customers/:id/goals). Popula
 // window.MyIOUtils.goalsData[domain] com o envelope { success, data:{ tree } } que
-// o GoalsModal lê (data.tree.{annual,monthly,daily}). granularity=day cobre as views
-// 1d e 1M (a view 1h precisa de granularity=hour + chave "MM-DDThh" — pendente).
+// o GoalsModal lê (data.tree.{annual,monthly,daily,hourly}). granularity=hour retorna
+// todos os níveis: annual+monthly+daily+hourly (chave "MM-DDThh").
 // Auth: X-API-Key (customer key gcdr_cust_*, scope goals:read) + X-Tenant-ID (igual às
 // demais chamadas GCDR deste controller — sem o tenant a API responde 401). Falhas silenciosas.
 async function _fetchGoalsFromGCDR(gcdrApiBaseUrl, gcdrCustomerId, gcdrApiKey, gcdrTenantId) {
@@ -860,7 +860,7 @@ async function _fetchGoalsFromGCDR(gcdrApiBaseUrl, gcdrCustomerId, gcdrApiKey, g
   for (const [domain, gcdrDomain] of Object.entries(DOMAIN_MAP)) {
     const url =
       `${root}/api/v1/customers/${encodeURIComponent(gcdrCustomerId)}/goals` +
-      `?domain=${gcdrDomain}&year=${year}&granularity=day`;
+      `?domain=${gcdrDomain}&year=${year}&granularity=hour`;
     try {
       const res = await fetch(url, {
         headers: { 'X-API-Key': gcdrApiKey, 'X-Tenant-ID': gcdrTenantId || '', Accept: 'application/json' },
