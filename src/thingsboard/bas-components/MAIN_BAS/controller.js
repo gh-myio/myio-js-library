@@ -3068,6 +3068,7 @@ function openBASDeviceModal(device, _settings) {
         startDate: startDateStr,
         endDate: endDateStr,
         tbJwtToken: jwtToken,
+        tbBaseUrl: THINGSBOARD_URL, // '' inside TB; showcase points at the real TB
         ingestionToken: ingestionToken,
         clientId: clientId,
         clientSecret: clientSecret,
@@ -3089,6 +3090,7 @@ function openBASDeviceModal(device, _settings) {
               deviceId: dev.entityId || dev.id,
               label: dev.label,
               jwtToken: jwtToken,
+              api: { tbBaseUrl: THINGSBOARD_URL },
               domain: 'energy',
               deviceType: dev.deviceType,
               deviceProfile: dev.deviceProfile,
@@ -3215,6 +3217,7 @@ function basOpenDeviceSettings(device, settings) {
     deviceId: device.entityId || device.id,
     label: label,
     jwtToken: jwtToken,
+    api: { tbBaseUrl: THINGSBOARD_URL },
     domain: device.domain || 'energy',
     deviceType: device.deviceType,
     deviceProfile: device.deviceProfile,
@@ -3249,13 +3252,30 @@ function basOpenDeviceReport(device, _settings) {
 
   var clientId = MAP_CUSTOMER_CREDENTIALS.customer_Ingestion_Cliente_Id;
   var clientSecret = MAP_CUSTOMER_CREDENTIALS.customer_Ingestion_Secret;
+  // Report data comes from the Data API (ingestion) — the device MUST carry a
+  // real ingestionId. NO fallback to the TB entityId: TB-only devices (TANK,
+  // SOLENOIDE, LAMP/REMOTE/SELETOR…) don't exist in the ingestion API and the
+  // fallback only produced a broken/empty report.
   var ingestionId =
     device.ingestionId ||
     (device.rawData && (device.rawData.ingestionId || device.rawData.ingestion_id)) ||
-    device.id;
+    null;
   var identifier = (device.rawData && device.rawData.identifier) || device.identifier || '';
   var label = device.name || device.label || 'Dispositivo';
   var domain = device.domain || 'energy';
+
+  if (!ingestionId) {
+    LogHelper.warn(
+      '[MAIN_BAS] Relatório indisponível para "' + label + '" — sem ingestionId (device não integrado ao Data API)'
+    );
+    if (MyIOLibrary.MyIOToast && MyIOLibrary.MyIOToast.warning) {
+      MyIOLibrary.MyIOToast.warning(
+        'Relatório indisponível para "' + label + '": dispositivo sem integração com o Data API (sem ingestionId).',
+        6000
+      );
+    }
+    return;
+  }
 
   if (!DATA_API_HOST || !clientId || !clientSecret) {
     LogHelper.warn('[MAIN_BAS] Relatório indisponível — DATA_API_HOST/credenciais de ingestion ausentes');
@@ -3382,6 +3402,7 @@ function openBASWaterModal(device, _settings) {
         startDate: startDateStr,
         endDate: endDateStr,
         tbJwtToken: jwtToken,
+        tbBaseUrl: THINGSBOARD_URL, // '' inside TB; showcase points at the real TB
         ingestionToken: ingestionToken,
         clientId: clientId,
         clientSecret: clientSecret,
@@ -3402,6 +3423,7 @@ function openBASWaterModal(device, _settings) {
               deviceId: dev.entityId || dev.id,
               label: dev.label,
               jwtToken: jwtToken,
+              api: { tbBaseUrl: THINGSBOARD_URL },
               domain: 'water',
               deviceType: dev.deviceType,
               deviceProfile: dev.deviceProfile,

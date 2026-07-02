@@ -330,6 +330,58 @@
       };
     }
 
+    // ---- fetch interceptor: plays ThingsBoard for MOCK entities only ----
+    // The premium modals (EnergyModal etc.) call TB REST via the GLOBAL fetch —
+    // not ctx.http — so the shim above doesn't cover them. Mock devices (dev-*)
+    // don't exist in the real TB; answer those locally and pass everything else
+    // (real ids, auth, ingestion, alarms) through untouched.
+    (function installMockTbFetch() {
+      const realFetch = window.fetch.bind(window);
+      const deviceById = {};
+      MOCK_DEVICES.forEach((d) => { deviceById[d.id] = d; });
+      const json = (obj) => new Response(JSON.stringify(obj), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      window.fetch = function (input, init) {
+        const url = typeof input === 'string' ? input : (input && input.url) || '';
+        let m;
+        // GET /api/device/{mockId} — device entity (EnergyModal.fetchEntityInfo)
+        if ((m = url.match(/\/api\/device\/(dev-[\w-]+)/))) {
+          const d = deviceById[m[1]];
+          if (d) {
+            log('info', `mock TB fetch: /api/device/${m[1]}`);
+            return Promise.resolve(json({ id: { id: d.id, entityType: 'DEVICE' }, name: d.label, label: d.label, type: d.keys.deviceType }));
+          }
+        }
+        // GET /api/plugins/telemetry/DEVICE/{mockId}/values/attributes… (EnergyModal.fetchEntityAttributes)
+        if ((m = url.match(/\/api\/plugins\/telemetry\/DEVICE\/(dev-[\w-]+)\/values\/attributes/))) {
+          const d = deviceById[m[1]];
+          if (d) {
+            log('info', `mock TB fetch: attributes de ${m[1]}`);
+            return Promise.resolve(json([
+              { key: 'identifier', value: d.keys.identifier },
+              { key: 'deviceType', value: d.keys.deviceType },
+              { key: 'deviceProfile', value: d.keys.deviceProfile },
+              { key: 'label', value: d.label },
+              { key: 'centralName', value: 'Central Showcase' },
+              { key: 'centralId', value: 'central-showcase' },
+              { key: 'slaveId', value: 1 },
+            ]));
+          }
+        }
+        // GET /api/plugins/telemetry/DEVICE/{mockId}/values/timeseries?keys=… (telemetry refresh)
+        if ((m = url.match(/\/api\/plugins\/telemetry\/DEVICE\/(dev-[\w-]+)\/values\/timeseries\?[^#]*keys=([^&]+)/))) {
+          const d = deviceById[m[1]];
+          const now = Date.now();
+          const out = {};
+          decodeURIComponent(m[2]).split(',').forEach((k) => {
+            const v = d && d.keys[k];
+            out[k] = [{ ts: now, value: String(v != null ? v : (Math.random() * 5).toFixed(2)) }];
+          });
+          return Promise.resolve(json(out));
+        }
+        return realFetch(input, init);
+      };
+    })();
+
     // ---- settingsSchema.json → cockpit form (mirrors the TB widget "Settings") ----
     const SCHEMA_URL = '../../src/thingsboard/bas-components/MAIN_BAS/settingsSchema.json?v=' + Date.now();
     // showcase defaults + per-env values come from config.json (gitignored). Never hardcoded here.
