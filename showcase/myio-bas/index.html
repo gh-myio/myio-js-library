@@ -177,8 +177,13 @@
   </div>
 
   <!-- ===================== Dependencies ===================== -->
+  <!-- Mirrors the TB widget "Resources" of MAIN_BAS: myio-js-library.umd.min.js,
+       chart.js@4.4.1, energy-chart-sdk.umd.js (EnergyModal v2 charts) and
+       chartjs-plugin-annotation@3.0.1. jQuery is provided by TB itself. -->
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+  <script src="https://graphs.apps.myio-bas.com/sdk/energy-chart-sdk.umd.js"></script>
   <script>
     // cache-bust the freshly-built UMD so new library symbols are always present
     document.write('<script src="../../dist/myio-js-library.umd.js?v=' + Date.now() + '"><\/script>');
@@ -226,9 +231,9 @@
 
     // keys = ordered map dataKeyName → value (deviceType/deviceProfile first, telemetry after)
     const MOCK_DEVICES = [
-      // ── Água (amb-006) ──
-      { id: 'dev-hid-1', label: 'Hidr. Entrada Geral', amb: 'amb-006', keys: { deviceType:'HIDROMETRO', deviceProfile:'HIDROMETRO', identifier:'HID-001', label:'Hidr. Entrada Geral', connectionStatus:'online',  consumption: 342.5 } },
-      { id: 'dev-hid-2', label: 'Hidr. Torre',         amb: 'amb-006', keys: { deviceType:'HIDROMETRO', deviceProfile:'HIDROMETRO', identifier:'HID-002', label:'Hidr. Torre',         connectionStatus:'online',  consumption: 128.3 } },
+      // ── Água (amb-006) ── (ingestionId = device existe no Data API; TANK/SOLENOIDE são TB-only)
+      { id: 'dev-hid-1', label: 'Hidr. Entrada Geral', amb: 'amb-006', keys: { deviceType:'HIDROMETRO', deviceProfile:'HIDROMETRO', identifier:'HID-001', label:'Hidr. Entrada Geral', connectionStatus:'online',  consumption: 342.5, ingestionId: 'ing-hid-1' } },
+      { id: 'dev-hid-2', label: 'Hidr. Torre',         amb: 'amb-006', keys: { deviceType:'HIDROMETRO', deviceProfile:'HIDROMETRO', identifier:'HID-002', label:'Hidr. Torre',         connectionStatus:'online',  consumption: 128.3, ingestionId: 'ing-hid-2' } },
       { id: 'dev-cx-1',  label: 'Caixa Torre',         amb: 'amb-006', keys: { deviceType:'CAIXA_DAGUA', deviceProfile:'CAIXA_DAGUA', identifier:'CX-001', label:'Caixa Torre',        connectionStatus:'online',  level: 78 } },
       { id: 'dev-cx-2',  label: 'Cisterna Principal',  amb: 'amb-006', keys: { deviceType:'CAIXA_DAGUA', deviceProfile:'CAIXA_DAGUA', identifier:'CX-002', label:'Cisterna Principal', connectionStatus:'offline', level: 42 } },
       { id: 'dev-sol-1', label: 'Solenoide Jardim',    amb: 'amb-006', keys: { deviceType:'SOLENOIDE', deviceProfile:'SOLENOIDE', identifier:'SOL-001', label:'Solenoide Jardim',      connectionStatus:'online',  state: 'on' } },
@@ -239,12 +244,12 @@
       { id: 'dev-th-3', label: 'Termostato Auditório', amb: 'amb-003', keys: { deviceType:'TERMOSTATO', deviceProfile:'TERMOSTATO', identifier:'TH-003', label:'Termostato Auditório', connectionStatus:'online',  temperature: 24.1, setpoint: 22, consumption: 3.1 } },
       { id: 'dev-th-4', label: 'Termostato Staff RJ',  amb: 'amb-004', keys: { deviceType:'TERMOSTATO', deviceProfile:'TERMOSTATO', identifier:'TH-004', label:'Termostato Staff RJ',  connectionStatus:'offline', temperature: 23.0, setpoint: 23, consumption: 0 } },
       // ── Energia: bombas / motores (amb-005) ──
-      { id: 'dev-bmb-1', label: 'Bomba Água Fria 01',  amb: 'amb-005', keys: { deviceType:'BOMBA_HIDRAULICA', deviceProfile:'BOMBA_HIDRAULICA', identifier:'BMB-001', label:'Bomba Água Fria 01', connectionStatus:'online',  consumption: 12.4 } },
-      { id: 'dev-bmb-2', label: 'Bomba CAG 01',        amb: 'amb-005', keys: { deviceType:'BOMBA_HIDRAULICA', deviceProfile:'BOMBA_HIDRAULICA', identifier:'BMB-002', label:'Bomba CAG 01',       connectionStatus:'online',  consumption: 0 } },
-      { id: 'dev-mot-1', label: 'Motor Exaustor',      amb: 'amb-005', keys: { deviceType:'MOTOR', deviceProfile:'MOTOR', identifier:'MOT-001', label:'Motor Exaustor',                connectionStatus:'online',  consumption: 3.2 } },
+      { id: 'dev-bmb-1', label: 'Bomba Água Fria 01',  amb: 'amb-005', keys: { deviceType:'BOMBA_HIDRAULICA', deviceProfile:'BOMBA_HIDRAULICA', identifier:'BMB-001', label:'Bomba Água Fria 01', connectionStatus:'online',  consumption: 12.4, ingestionId: 'ing-bmb-1' } },
+      { id: 'dev-bmb-2', label: 'Bomba CAG 01',        amb: 'amb-005', keys: { deviceType:'BOMBA_HIDRAULICA', deviceProfile:'BOMBA_HIDRAULICA', identifier:'BMB-002', label:'Bomba CAG 01',       connectionStatus:'online',  consumption: 0, ingestionId: 'ing-bmb-2' } },
+      { id: 'dev-mot-1', label: 'Motor Exaustor',      amb: 'amb-005', keys: { deviceType:'MOTOR', deviceProfile:'MOTOR', identifier:'MOT-001', label:'Motor Exaustor',                connectionStatus:'online',  consumption: 3.2, ingestionId: 'ing-mot-1' } },
       // ── Energia: medidores ──
-      { id: 'dev-ent-1', label: 'Entrada Geral',       amb: 'amb-008', keys: { deviceType:'ENTRADA', deviceProfile:'ENTRADA', identifier:'ENT-001', label:'Entrada Geral',              connectionStatus:'online',  consumption: 5230.7 } },
-      { id: 'dev-med-1', label: 'Medidor CPD',         amb: 'amb-002', keys: { deviceType:'3F_MEDIDOR', deviceProfile:'3F_MEDIDOR', identifier:'MED-001', label:'Medidor CPD',          connectionStatus:'online',  consumption: 890.2 } },
+      { id: 'dev-ent-1', label: 'Entrada Geral',       amb: 'amb-008', keys: { deviceType:'ENTRADA', deviceProfile:'ENTRADA', identifier:'ENT-001', label:'Entrada Geral',              connectionStatus:'online',  consumption: 5230.7, ingestionId: 'ing-ent-1' } },
+      { id: 'dev-med-1', label: 'Medidor CPD',         amb: 'amb-002', keys: { deviceType:'3F_MEDIDOR', deviceProfile:'3F_MEDIDOR', identifier:'MED-001', label:'Medidor CPD',          connectionStatus:'online',  consumption: 890.2, ingestionId: 'ing-med-1' } },
       // ── Switch (RFC-0176): LAMP / REMOTE / SELETOR ──
       { id: 'dev-lmp-1', label: 'Iluminação Deck',     amb: 'amb-001', keys: { deviceType:'LAMP', deviceProfile:'LAMP', identifier:'LMP-001', label:'Iluminação Deck',                  connectionStatus:'online',  status: 'on' } },
       { id: 'dev-rem-1', label: 'Remote Auditório',    amb: 'amb-003', keys: { deviceType:'REMOTE', deviceProfile:'REMOTE', identifier:'REM-001', label:'Remote Auditório',             connectionStatus:'online',  status: 'off' } },
@@ -356,7 +361,7 @@
           const d = deviceById[m[1]];
           if (d) {
             log('info', `mock TB fetch: attributes de ${m[1]}`);
-            return Promise.resolve(json([
+            const attrs = [
               { key: 'identifier', value: d.keys.identifier },
               { key: 'deviceType', value: d.keys.deviceType },
               { key: 'deviceProfile', value: d.keys.deviceProfile },
@@ -364,8 +369,26 @@
               { key: 'centralName', value: 'Central Showcase' },
               { key: 'centralId', value: 'central-showcase' },
               { key: 'slaveId', value: 1 },
-            ]));
+            ];
+            // ingestion-capable devices expose their (mock) ingestionId — TB-only
+            // devices (TANK/SOLENOIDE/switch) don't, exercising the report gate.
+            if (d.keys.ingestionId) attrs.push({ key: 'ingestionId', value: d.keys.ingestionId });
+            return Promise.resolve(json(attrs));
           }
+        }
+        // GET {dataApiHost}/telemetry/devices/{mockIngestionId}/(energy|water)?startTime=… —
+        // EnergyDataFetcher series for mock ingestion ids (real UUIDs pass through)
+        if ((m = url.match(/\/telemetry\/devices\/(ing-[\w-]+)\/(energy|water)\?/))) {
+          const q = new URLSearchParams(url.split('?')[1]);
+          const startMs = Date.parse(q.get('startTime')) || Date.now() - 7 * 86400000;
+          const endMs = Date.parse(q.get('endTime')) || Date.now();
+          const stepMs = q.get('granularity') === '1h' ? 3600000 : 86400000;
+          const consumption = [];
+          for (let ts = startMs; ts <= endMs; ts += stepMs) {
+            consumption.push({ timestamp: new Date(ts).toISOString(), value: +(Math.random() * 40 + 10).toFixed(2) });
+          }
+          log('info', `mock Data API fetch: ${m[1]}/${m[2]} → ${consumption.length} pontos`);
+          return Promise.resolve(json({ data: [{ deviceId: m[1], consumption }] }));
         }
         // GET /api/plugins/telemetry/DEVICE/{mockId}/values/timeseries?keys=… (telemetry refresh)
         if ((m = url.match(/\/api\/plugins\/telemetry\/DEVICE\/(dev-[\w-]+)\/values\/timeseries\?[^#]*keys=([^&]+)/))) {
@@ -429,9 +452,11 @@
       if (!e) { log('err', `ambiente "${env}" ausente no config`); return; }
       _currentEnv = env;
       localStorage.setItem('sc-bas-env', env);
+      _realDataCache = {}; // env trocou → refaz o fetch de dados reais no próximo Run
       DEFAULT_OVERRIDES = flattenSettings(e.settings || {});
       renderForm();
-      log('info', `ambiente ${env} aplicado`);
+      applySdkMode();
+      log('info', `ambiente ${env} aplicado (dataMode: ${envDataMode()})`);
     }
 
     function buildEnvTab() {
@@ -561,13 +586,139 @@
       }
     }
 
+    // =========================================================================
+    // REAL data mode (env com "dataMode": "real" — ex.: tab PROD)
+    // A ideia das tabs LOCAL|PROD é testar a MESMA tela com dados reais: aqui o
+    // ctx.data é montado com ENTIDADES REAIS do TB via REST (JWT do 🔑 Login TB):
+    //   · assets do customer  → datasource "Ambientes" (dataKey type = asset.type)
+    //   · devices do customer → datasource "AllDevices" (attrs + última telemetria)
+    // no MESMO formato de rows que o TB entrega ao widget. O ctx.http vira
+    // passthrough real → hierarquia RFC-0161 (relations) 100% produção.
+    // =========================================================================
+    let _realDataCache = {}; // rows por env (F5 ou troca de env refaz)
+    function envDataMode() {
+      return String(_config?.environments?.[_currentEnv]?.dataMode || 'mock').toLowerCase();
+    }
+    // EnergyChartSDK gating: o chart v2 busca dados via Axios/XHR direto na Data
+    // API (fora do alcance do interceptor de fetch) — com devices mock isso dá
+    // 403 na API real. Em dataMode 'mock' escondemos o SDK para o EnergyModalView
+    // cair no renderer clássico (fetch → interceptado → série mock renderiza);
+    // em 'real' o SDK volta e plota os dados de produção.
+    function applySdkMode() {
+      const w = window;
+      if (w.__RealEnergyChartSDK === undefined && w.EnergyChartSDK) w.__RealEnergyChartSDK = w.EnergyChartSDK;
+      if (envDataMode() === 'real') {
+        if (w.__RealEnergyChartSDK) w.EnergyChartSDK = w.__RealEnergyChartSDK;
+        log('info', 'EnergyChartSDK ATIVO (dataMode real — charts v2 com dados de produção)');
+      } else {
+        w.EnergyChartSDK = undefined;
+        log('info', 'EnergyChartSDK oculto (dataMode mock — renderer clássico com série mockada)');
+      }
+    }
+    async function tbGet(path, jwt) {
+      const r = await fetch(tbBaseUrl() + path, { headers: { 'X-Authorization': 'Bearer ' + jwt } });
+      if (!r.ok) throw new Error('TB GET ' + path + ' → HTTP ' + r.status);
+      return r.json();
+    }
+    async function mapPool(items, limit, fn) {
+      const out = new Array(items.length);
+      let i = 0;
+      async function worker() {
+        while (i < items.length) { const idx = i++; out[idx] = await fn(items[idx], idx); }
+      }
+      await Promise.all(Array.from({ length: Math.min(limit, items.length) || 1 }, worker));
+      return out;
+    }
+    async function buildRealData(settings) {
+      if (_realDataCache[_currentEnv]) return _realDataCache[_currentEnv];
+      const jwt = localStorage.getItem('jwt_token');
+      const customerId = settings.customerTB_ID;
+      if (!jwt) throw new Error('dataMode "real" exige login — clique 🔑 Login TB primeiro');
+      if (!customerId) throw new Error('dataMode "real" exige customerTB_ID no config/cockpit');
+      log('info', `REAL mode: buscando assets/devices do customer ${customerId}…`);
+      const rows = [];
+      // Datasource "Ambientes" — assets reais do customer
+      const assets = (await tbGet(`/api/customer/${customerId}/assets?pageSize=500&page=0`, jwt)).data || [];
+      for (const a of assets) {
+        rows.push(...entityRows(
+          { aliasName: 'Ambientes', entityType: 'ASSET', entityId: a.id.id, entityName: a.name, entityLabel: a.label || a.name },
+          { type: a.type }
+        ));
+      }
+      // Datasource "AllDevices" — devices reais + attrs + última telemetria
+      const devices = (await tbGet(`/api/customer/${customerId}/devices?pageSize=1000&page=0`, jwt)).data || [];
+      log('info', `REAL mode: ${assets.length} assets · ${devices.length} devices — buscando attrs/telemetria (pool 6)…`);
+      const deviceRowChunks = await mapPool(devices, 6, async (dev) => {
+        const id = dev.id.id;
+        let attrs = [], tsData = {};
+        try { attrs = await tbGet(`/api/plugins/telemetry/DEVICE/${id}/values/attributes`, jwt); } catch { /* device sem attrs */ }
+        try { tsData = await tbGet(`/api/plugins/telemetry/DEVICE/${id}/values/timeseries`, jwt); } catch { /* device sem telemetria */ }
+        const am = {};
+        (Array.isArray(attrs) ? attrs : []).forEach((x) => { am[x.key] = x.value; });
+        const keys = {
+          deviceType: am.deviceType || dev.type || '',
+          deviceProfile: am.deviceProfile || dev.type || '',
+          identifier: am.identifier || '',
+          label: dev.label || dev.name,
+          connectionStatus: am.connectionStatus || 'offline',
+        };
+        if (am.ingestionId) keys.ingestionId = am.ingestionId;
+        if (am.gcdrDeviceId) keys.gcdrDeviceId = am.gcdrDeviceId;
+        if (am.tickets_items) keys.tickets_items = am.tickets_items;
+        // última leitura de cada key de telemetria (consumption/temperature/level/state/status…)
+        for (const k of Object.keys(tsData || {})) {
+          const e0 = Array.isArray(tsData[k]) && tsData[k][0];
+          if (e0 && !(k in keys)) keys[k] = e0.value;
+        }
+        return entityRows(
+          { aliasName: 'AllDevices', entityType: 'DEVICE', entityId: id, entityName: dev.name, entityLabel: dev.label || dev.name },
+          keys
+        );
+      });
+      deviceRowChunks.forEach((chunk) => rows.push(...chunk));
+      _realDataCache[_currentEnv] = rows;
+      log('info', `REAL mode: ctx.data pronto com ${rows.length} rows`);
+      return rows;
+    }
+    // ctx.http real: repassa /api/* para o TB com o JWT (Observable-like)
+    function buildRealHttpShim() {
+      const jwt = localStorage.getItem('jwt_token') || '';
+      return {
+        token: jwt,
+        get(url) {
+          return {
+            subscribe(handlers) {
+              fetch(tbBaseUrl() + url, { headers: { 'X-Authorization': 'Bearer ' + jwt } })
+                .then((r) => (r.ok ? r.json() : Promise.reject({ status: r.status, url })))
+                .then((j) => handlers.next?.(j))
+                .catch((e) => handlers.error?.(e));
+            },
+          };
+        },
+      };
+    }
+
     // ---- self.ctx (ThingsBoard widget context simulation) ----
-    function buildCtx() {
+    async function buildCtx() {
       if (!_schema) { log('err', 'settingsSchema.json ainda não carregado'); return false; }
       const settings = readSettings();
+      const real = envDataMode() === 'real';
+      let data, http;
+      if (real) {
+        try {
+          data = await buildRealData(settings);
+          http = buildRealHttpShim();
+        } catch (err) {
+          log('err', 'REAL mode: ' + (err?.message || err));
+          return false;
+        }
+      } else {
+        data = buildMockData();
+        http = buildHttpShim();
+      }
       self.ctx = {
         settings,
-        data: buildMockData(),
+        data,
         datasources: [
           { type: 'entity', name: 'Ambientes', aliasName: 'Ambientes' },
           { type: 'entity', name: 'AllDevices', aliasName: 'AllDevices' },
@@ -575,12 +726,11 @@
         // MAIN_BAS reads ctx.$container[0] (jQuery-like) to find #bas-dashboard-root
         $container: [document.getElementById('sc-stage')],
         currentUser: { email: 'showcase@myio.com.br', firstName: 'Showcase', lastName: 'BAS', authority: 'CUSTOMER_USER' },
-        // Observable-like http shim: serves /api/relations + /api/asset from the mock containment
-        http: buildHttpShim(),
+        http,
         $scope: {},
         detectChanges: () => {},
       };
-      log('info', `ctx ready — ${self.ctx.data.length} rows · ${MOCK_AMBIENTES.length} ambientes · ${MOCK_DEVICES.length} devices · customerTB_ID ${settings.customerTB_ID || '(vazio → attrs TB não buscados)'}`);
+      log('info', `ctx ready [${real ? 'REAL' : 'MOCK'}] — ${self.ctx.data.length} rows · customerTB_ID ${settings.customerTB_ID || '(vazio → attrs TB não buscados)'}`);
       return true;
     }
 
@@ -612,7 +762,7 @@
     document.getElementById('sc-run').addEventListener('click', async () => {
       try {
         if (typeof MyIOLibrary === 'undefined') { log('err', 'MyIOLibrary (UMD) not loaded — rode npm run build'); return; }
-        if (!buildCtx()) return;
+        if (!(await buildCtx())) return;
         await loadTemplate(); // inject template.html BEFORE onInit queries the hosts
         await loadController();
         if (typeof self.onInit !== 'function') { log('err', 'self.onInit not defined by controller'); return; }
@@ -622,9 +772,9 @@
         self.onDataUpdated?.();
       } catch (err) { log('err', 'run failed: ' + (err?.message || err)); }
     });
-    document.getElementById('sc-data').addEventListener('click', () => {
+    document.getElementById('sc-data').addEventListener('click', async () => {
       // Note: MAIN_BAS caps onDataUpdated at 1 execution per load (module counter) — F5 to reset.
-      if (!buildCtx()) return; self.onDataUpdated?.(); log('info', 'onDataUpdated() called (controller limita a 1 execução por load)');
+      if (!(await buildCtx())) return; self.onDataUpdated?.(); log('info', 'onDataUpdated() called (controller limita a 1 execução por load)');
     });
     document.getElementById('sc-destroy').addEventListener('click', () => {
       self.onDestroy?.(); log('info', 'onDestroy() called');
