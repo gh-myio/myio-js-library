@@ -18,7 +18,8 @@
       "enableDebugMode": {
         "title": "Enable Debug Mode",
         "type": "boolean",
-        "default": true
+        "default": false,
+        "description": "Verbose console logs (widget + premium modals). Keep OFF in production; errors always log."
       },
       "defaultThemeMode": {
         "title": "Default Theme Mode",

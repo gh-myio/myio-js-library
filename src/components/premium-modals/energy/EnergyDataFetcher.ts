@@ -9,6 +9,18 @@ import {
 } from './types';
 import { generateDateRange, mapHttpError, createSafeErrorMessage } from './utils';
 
+// Verbose logs are OPT-IN: silent unless the host dashboard sets
+// window.MyIOUtils.debugModals = true (MAIN_BAS wires it to enableDebugMode).
+// Errors/warnings keep logging unconditionally via console.error/warn.
+const dbg = (...args: unknown[]): void => {
+  try {
+    if ((globalThis as any)?.MyIOUtils?.debugModals) console.log(...args);
+  } catch {
+    /* noop */
+  }
+};
+
+
 export class EnergyDataFetcher {
   private config: DataFetcherConfig;
   private authClient: AuthClient | null = null;
@@ -36,7 +48,7 @@ export class EnergyDataFetcher {
       
       const url = this.buildEnergyApiUrl(params);
       
-      console.log('[EnergyDataFetcher] Fetching energy data:', { 
+      dbg('[EnergyDataFetcher] Fetching energy data:', { 
         url: url.replace(/Bearer\s+[^\s&]+/gi, 'Bearer [REDACTED]'),
         ingestionId: params.ingestionId,
         granularity: params.granularity
@@ -62,7 +74,7 @@ export class EnergyDataFetcher {
       }
 
       const apiResponse = await response.json();
-      console.log('[EnergyDataFetcher] API response received:', {
+      dbg('[EnergyDataFetcher] API response received:', {
         hasData: !!apiResponse.data,
         dataLength: Array.isArray(apiResponse.data) ? apiResponse.data.length : 0
       });
@@ -143,7 +155,7 @@ export class EnergyDataFetcher {
     const deviceData = dataArray[0];
     const consumption = deviceData.consumption || [];
 
-    console.log('[EnergyDataFetcher] Processing device data:', {
+    dbg('[EnergyDataFetcher] Processing device data:', {
       deviceId: deviceData.deviceId || params.ingestionId,
       consumptionPoints: consumption.length
     });

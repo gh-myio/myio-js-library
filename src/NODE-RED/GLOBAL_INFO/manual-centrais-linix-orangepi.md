@@ -71,6 +71,7 @@ ssh -i id_rsa root@<ipv6-da-central>
 | Ilha Plaza AL2            | `200:24a5:8297:cce7:59d2:8126:6d67:7e4d` | `53052549-cc8c-4ca2-a597-58e0577548a2` | —              | —          |
 | Ilha Plaza AL3            | `206:c160:eb69:3ddb:42c7:efce:511e:792a` | `91b719b7-f2d2-4d3f-9fb9-ab3d4edbac0d` | —              | —          |
 | Melicidade                | `200:43cb:c66:59be:9966:7330:8b9a:224`   | `05148707-6011-42fb-8b78-46f33a5ca988` | —              | —          |
+| Shopping Contagem         | `200:12b0:b768:7ba0:32b5:1c15:bec7:33aa` | `70b6d878-090f-4326-af18-2695396cbc67` | —              | —          |
 
 #### Holding: ARGO PLAN
 
@@ -111,6 +112,12 @@ ssh -i id_rsa root@<ipv6-da-central>
 | Aricanduva   | `200:bc45:34ee:59da:371a:cfe9:98d3:3805` | `1e0c1d77-1d41-4004-8be7-41328e590111` | —          | —          |
 | Guadalupe    | `202:f573:1e70:22f1:1dae:95bd:eeb9:1157` | `96a7ca86-c291-4d77-aa66-4706641eaa5a` | —          | —          |
 | Benfica      | `200:47f1:8bf6:36da:65fa:4124:bcdb:dbb4` | `1248905a-ed03-414d-bde6-c4410604ae8f` | —          | —          |
+
+#### Holding: PORTO IMBITUBA
+
+| Central                  | IPv6                                      | Gateway ID                             | Central ID | Frequência |
+| ------------------------ | ----------------------------------------- | -------------------------------------- | ---------- | ---------- |
+| Porto Imbituba 4 — NOVA  | `200:c301:a4e7:529a:780c:9230:2142:9dba`  | `014fab8e-ee6d-4349-9866-d73864cbd44b` | —          | —          |
 
 **Exemplos de conexão:**
 
@@ -178,6 +185,9 @@ ssh -i id_rsa root@200:83a1:247a:8c7b:d428:3ed4:21dd:389f
 # Melicidade (Soul Malls)
 ssh -i id_rsa root@200:43cb:c66:59be:9966:7330:8b9a:224
 
+# Shopping Contagem (Soul Malls)
+ssh -i id_rsa root@200:12b0:b768:7ba0:32b5:1c15:bec7:33aa
+
 # Deodoro (Supervia Estações)
 ssh -i id_rsa root@200:1e6a:69a5:73f1:b18a:e6e:aa68:9229
 
@@ -201,6 +211,9 @@ ssh -i id_rsa root@202:f573:1e70:22f1:1dae:95bd:eeb9:1157
 
 # Benfica (Obramax)
 ssh -i id_rsa root@200:47f1:8bf6:36da:65fa:4124:bcdb:dbb4
+
+# Porto Imbituba 4 — NOVA (Porto Imbituba)
+ssh -i id_rsa root@200:c301:a4e7:529a:780c:9230:2142:9dba
 ```
 
 ---

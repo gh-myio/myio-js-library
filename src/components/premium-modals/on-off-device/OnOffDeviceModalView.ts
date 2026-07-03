@@ -38,6 +38,18 @@ import {
 } from './deviceStatusRule';
 import InfoTooltip from '../../../utils/tooltips/InfoTooltip';
 
+// Verbose logs are OPT-IN: silent unless the host dashboard sets
+// window.MyIOUtils.debugModals = true (MAIN_BAS wires it to enableDebugMode).
+// Errors/warnings keep logging unconditionally via console.error/warn.
+const dbg = (...args: unknown[]): void => {
+  try {
+    if ((globalThis as any)?.MyIOUtils?.debugModals) console.log(...args);
+  } catch {
+    /* noop */
+  }
+};
+
+
 export interface OnOffDeviceModalViewOptions {
   container: HTMLElement;
   device: OnOffDeviceData;
@@ -53,6 +65,8 @@ export interface OnOffDeviceModalViewOptions {
   parentEl?: HTMLElement;
   /** JWT token for ThingsBoard API - enables real data fetching */
   jwtToken?: string;
+  /** TB base URL for the REST calls. Empty = same-origin (real TB runtime). */
+  tbBaseUrl?: string;
   /** Customer/client label — used to compose the exported PDF filename. */
   customerName?: string;
 }
@@ -91,6 +105,7 @@ export class OnOffDeviceModalView {
 
   // Data fetching
   private jwtToken?: string;
+  private tbBaseUrl: string = '';
   private customerName?: string;
   private currentStartISO: string;
   private currentEndISO: string;
@@ -113,6 +128,7 @@ export class OnOffDeviceModalView {
     this.onDateRangeChange = options.onDateRangeChange;
     this.parentEl = options.parentEl;
     this.jwtToken = options.jwtToken;
+    this.tbBaseUrl = options.tbBaseUrl || '';
     this.customerName = options.customerName;
 
     // Initialize date range (default: last 7 days)
@@ -153,8 +169,8 @@ export class OnOffDeviceModalView {
     const deviceId = (this.device as any).entityId || this.device.id;
 
     try {
-      const schedules = await fetchDeviceSchedules(this.jwtToken, deviceId);
-      console.log('[OnOffDeviceModalView] Fetched schedules:', schedules.length);
+      const schedules = await fetchDeviceSchedules(this.jwtToken, deviceId, this.tbBaseUrl);
+      dbg('[OnOffDeviceModalView] Fetched schedules:', schedules.length);
       this.state.schedules = schedules;
 
       // Update schedule component if already initialized
@@ -446,7 +462,7 @@ export class OnOffDeviceModalView {
       const startTs = new Date(this.currentStartISO).getTime();
       const endTs = new Date(this.currentEndISO).getTime();
 
-      console.log('[OnOffDeviceModalView] Fetching telemetry data:', {
+      dbg('[OnOffDeviceModalView] Fetching telemetry data:', {
         deviceId,
         startTs,
         endTs,
@@ -460,9 +476,10 @@ export class OnOffDeviceModalView {
         endTs,
         deviceName: this.device.label || this.device.name || 'Dispositivo',
         invertLogic: isSolenoid,
+        tbBaseUrl: this.tbBaseUrl,
       });
 
-      console.log('[OnOffDeviceModalView] Received timeline data:', {
+      dbg('[OnOffDeviceModalView] Received timeline data:', {
         segments: timelineData.segments.length,
         totalOnMinutes: timelineData.totalOnMinutes,
         activationCount: timelineData.activationCount,
@@ -843,7 +860,7 @@ export class OnOffDeviceModalView {
           loading: false,
         },
         onSave: async (schedules: OnOffScheduleEntry[]) => {
-          console.log('[OnOffDeviceModalView] Saving schedules:', schedules);
+          dbg('[OnOffDeviceModalView] Saving schedules:', schedules);
           this.onScheduleSave?.(schedules);
           return true;
         },
