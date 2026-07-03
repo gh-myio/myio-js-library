@@ -1,0 +1,60 @@
+<section class="myio-footer">
+  <div class="myio-dock" id="myioDock" aria-live="polite">
+    <span class="myio-empty">Selecione dispositivos para comparar</span>
+  </div>
+  <div class="myio-right">
+    <div class="myio-dock-scroll" id="myioDockScroll" hidden>
+      <button
+        id="myioDockScrollLeft"
+        class="myio-dock-scroll-btn"
+        type="button"
+        title="Rolar para a esquerda"
+        aria-label="Rolar dock para a esquerda"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+      </button>
+      <button
+        id="myioDockScrollRight"
+        class="myio-dock-scroll-btn"
+        type="button"
+        title="Rolar para a direita"
+        aria-label="Rolar dock para a direita"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <polyline points="9 18 15 12 9 6"></polyline>
+        </svg>
+      </button>
+    </div>
+    <div class="myio-meta">
+      <div class="myio-meta-title">SELEÇÃO</div>
+      <div id="myioTotals">0 itens</div>
+    </div>
+    <button id="myioClear" class="myio-clear-btn" title="Limpar seleção">
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <polyline points="3 6 5 6 21 6"></polyline>
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+      </svg>
+    </button>
+    <button id="myioCompare" class="myio-compare" disabled>Comparar</button>
+  </div>
+</section>

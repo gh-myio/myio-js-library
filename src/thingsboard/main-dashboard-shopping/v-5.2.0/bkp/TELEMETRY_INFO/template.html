@@ -1,0 +1,294 @@
+<!--
+  ThingsBoard Widget: TELEMETRY_INFO (MyIO v-5.2.0)
+  RFC-0056: Grid 2 columns layout with 6 categories
+  - Entrada, Climatização, Elevadores, Esc. Rolantes, Lojas, Área Comum (residual)
+-->
+
+<section class="telemetry-info-root">
+  <!-- HEADER -->
+  <header class="info-header">
+    <!-- RFC-0105: btnInfoSummary é criado dinamicamente pelo controller -->
+    <h2 class="info-title" id="infoTitleHeader">ℹ️ Informações de Energia</h2>
+    <button
+      class="btn-expand"
+      id="btnExpandModal"
+      title="Expandir visualização"
+      style="display: none !important; cursor: pointer !important; z-index: 9999 !important"
+      onclick="
+        console.log('[TELEMETRY_INFO] Button clicked!');
+        if (window.TELEMETRY_INFO_openModal) {
+          window.TELEMETRY_INFO_openModal();
+        } else {
+          alert('Function not loaded yet!');
+        }
+      "
+    >
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+      </svg>
+    </button>
+  </header>
+
+  <!-- Alarm filter active banner -->
+  <div
+    id="tiAlarmFilterBanner"
+    style="
+      display: none;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      background: #fff3e0;
+      border: 1px solid #fb8c00;
+      border-radius: 6px;
+      margin: 4px 0;
+      font-size: 11px;
+      font-weight: 600;
+      color: #e65100;
+    "
+  >
+    <span>🔔</span>
+    <span id="tiAlarmFilterBannerText">Filtro de alarmes ativo</span>
+  </div>
+
+  <!-- GRID 2 COLUNAS -->
+  <div class="info-grid">
+    <!-- ========== ROW 1: ENTRADA + LOJAS ========== -->
+    <div class="info-card entrada-card" data-group="entrada" title="Clique para filtrar">
+      <div class="card-header">
+        <span class="card-icon">📥</span>
+        <h3 class="card-title">Entrada</h3>
+        <span class="info-tooltip" title="Total de entrada do shopping (medidores principais)">ℹ️</span>
+      </div>
+      <div class="card-body">
+        <div class="stat-row main-stat">
+          <span class="stat-value" id="entradaTotal">0,00 kWh</span>
+        </div>
+        <div class="devices-list" id="entradaDevices">
+          <!-- Dispositivos de entrada (opcional) -->
+        </div>
+      </div>
+    </div>
+
+    <div class="info-card lojas-card" data-group="lojas" title="Clique para filtrar">
+      <div class="card-header">
+        <span class="card-icon">🏪</span>
+        <h3 class="card-title">Lojas</h3>
+        <span class="info-tooltip" title="Consumo agregado das lojas medidas individualmente">ℹ️</span>
+      </div>
+      <div class="card-body">
+        <div class="stat-row main-stat">
+          <span class="stat-value" id="lojasTotal">0,00 kWh</span>
+          <span class="stat-perc" id="lojasPerc">(0%)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== WATER DOMAIN: BANHEIROS (hidden by default) ========== -->
+    <div
+      class="info-card banheiros-card"
+      data-group="banheiros"
+      style="display: none"
+      title="Clique para filtrar"
+    >
+      <div class="card-header">
+        <span class="card-icon">🚿</span>
+        <h3 class="card-title">Banheiros</h3>
+        <span class="info-tooltip" title="Consumo de água em banheiros e áreas sanitárias">ℹ️</span>
+      </div>
+      <div class="card-body">
+        <div class="stat-row main-stat">
+          <span class="stat-value" id="banheirosTotal">0,00 m³</span>
+          <span class="stat-perc" id="banheirosPerc">(0%)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== ROW 2: CLIMATIZAÇÃO + ELEVADORES ========== -->
+    <div class="info-card climatizacao-card" data-group="climatizacao" title="Clique para filtrar">
+      <div class="card-header">
+        <span class="card-icon">❄️</span>
+        <h3 class="card-title">Climatização</h3>
+        <span
+          class="info-tooltip"
+          title="Climatização = CAG + Fancoils + Chillers + Bombas (Primárias + Secundárias + Condensadoras)"
+          >ℹ️</span
+        >
+      </div>
+      <div class="card-body">
+        <div class="stat-row main-stat">
+          <span class="stat-value" id="climatizacaoTotal">0,00 kWh</span>
+          <span class="stat-perc" id="climatizacaoPerc">(0%)</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="info-card elevadores-card" data-group="elevadores" title="Clique para filtrar">
+      <div class="card-header">
+        <span class="card-icon">🛗</span>
+        <h3 class="card-title">Elevadores</h3>
+        <span class="info-tooltip" title="Consumo dos elevadores do shopping">ℹ️</span>
+      </div>
+      <div class="card-body">
+        <div class="stat-row main-stat">
+          <span class="stat-value" id="elevadoresTotal">0,00 kWh</span>
+          <span class="stat-perc" id="elevadoresPerc">(0%)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== ROW 3: ESC. ROLANTES + OUTROS EQUIPAMENTOS ========== -->
+    <div class="info-card escadas-card" data-group="escadasRolantes" title="Clique para filtrar">
+      <div class="card-header">
+        <span class="card-icon">🎢</span>
+        <h3 class="card-title">Esc. Rolantes</h3>
+        <span class="info-tooltip" title="Consumo das escadas rolantes do shopping">ℹ️</span>
+      </div>
+      <div class="card-body">
+        <div class="stat-row main-stat">
+          <span class="stat-value" id="escadasRolantesTotal">0,00 kWh</span>
+          <span class="stat-perc" id="escadasRolantesPerc">(0%)</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="info-card outros-card" data-group="outros" title="Clique para filtrar">
+      <div class="card-header">
+        <span class="card-icon">⚙️</span>
+        <h3 class="card-title">Outros Equipamentos</h3>
+        <span class="info-tooltip" title="Equipamentos não classificados nas categorias principais">ℹ️</span>
+      </div>
+      <div class="card-body">
+        <div class="stat-row main-stat">
+          <span class="stat-value" id="outrosTotal">0,00 kWh</span>
+          <span class="stat-perc" id="outrosPerc">(0%)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== ROW 4: ÁREA COMUM + TOTAL (SAME ROW) ========== -->
+    <!-- data-group="areaComum": clickable in water domain (explicitly metered).
+         In energy domain the click is ignored by the guard in setupGroupFilterCards()
+         since GROUP_FILTER.energy has no areaComum key. -->
+    <div class="info-card area-comum-card" data-group="areaComum" title="Clique para filtrar (domínio água)">
+      <div class="card-header">
+        <span class="card-icon">🏢</span>
+        <h3 class="card-title">Pontos Não Mapeados</h3>
+        <span
+          class="info-tooltip"
+          title="Entrada - (Lojas + Climatização + Elevadores + Esc. Rolantes + Outros)"
+          >ℹ️</span
+        >
+      </div>
+      <div class="card-body">
+        <div class="stat-row main-stat">
+          <span class="stat-value" id="areaComumTotal">0,00 kWh</span>
+          <span class="stat-perc" id="areaComumPerc">(0%)</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="info-card total-card">
+      <div class="card-header">
+        <span class="card-icon">📊</span>
+        <h3 class="card-title">Total Consumidores</h3>
+        <!-- Energy domain: always shown as "Total Consumidores"
+             Water domain : water rendering swaps the trigger to "Pontos Não Mapeados" -->
+        <span
+          class="info-tooltip"
+          title="Soma de todos os consumidores (Lojas + Climatização + Elevadores + Esc. Rolantes + Outros + Área Comum)"
+          >ℹ️</span
+        >
+      </div>
+      <div class="card-body">
+        <div class="stat-row main-stat">
+          <span class="stat-value" id="consumidoresTotal">0,00 kWh</span>
+          <span class="stat-perc" id="consumidoresPerc">(100%)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== WATER DOMAIN: TOTAL CONSUMIDORES (hidden by default, RFC-0196) ========== -->
+    <!-- Rendered LAST among data cards so it appears after Pontos Não Mapeados -->
+    <div class="info-card water-total-card" style="display: none">
+      <div class="card-header">
+        <span class="card-icon">📊</span>
+        <h3 class="card-title">Total Consumidores</h3>
+      </div>
+      <div class="card-body">
+        <div class="stat-row main-stat">
+          <span class="stat-value" id="waterTotalConsumidores">0,00 m³</span>
+          <span class="stat-perc" id="waterTotalConsumidoresPerc">(100%)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== ROW 5: GRÁFICO (FULL WIDTH) ========== -->
+    <div class="info-card chart-card">
+      <div class="card-header">
+        <h3 class="card-title">Distribuição de Consumo</h3>
+      </div>
+      <div class="card-body">
+        <div class="chart-container">
+          <canvas id="consumptionPieChart"></canvas>
+        </div>
+        <div class="chart-legend" id="chartLegend">
+          <!-- Legenda gerada dinamicamente -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== MODAL EXPANDIDA (PREMIUM CLEAN) ========== -->
+  <div
+    class="modal-overlay"
+    id="modalExpanded"
+    style="display: none"
+    onclick="
+      if (event.target.id === 'modalExpanded') {
+        window.TELEMETRY_INFO_closeModal && window.TELEMETRY_INFO_closeModal();
+      }
+    "
+  >
+    <div class="modal-container">
+      <!-- Close Button (Floating) -->
+      <button
+        class="btn-close-floating"
+        id="btnCloseModal"
+        title="Fechar"
+        onclick="
+          console.log('[TELEMETRY_INFO] Close button clicked!');
+          window.TELEMETRY_INFO_closeModal && window.TELEMETRY_INFO_closeModal();
+        "
+      >
+        <svg
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+        >
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+
+      <!-- Modal Content: Chart Only -->
+      <div class="modal-body-clean">
+        <h2 class="modal-title-clean" id="modalTitleHeader">Distribuição de Consumo de Energia</h2>
+
+        <!-- Inner White Container for Chart -->
+        <div class="modal-chart-inner-container">
+          <div class="modal-chart-wrapper">
+            <canvas id="modalConsumptionPieChart"></canvas>
+          </div>
+        </div>
+
+        <div class="modal-legend-clean" id="modalChartLegend">
+          <!-- Legenda gerada dinamicamente -->
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
