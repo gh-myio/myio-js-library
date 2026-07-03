@@ -1000,7 +1000,8 @@ function parseDevicesFromData(data) {
       rawData: cd, // Keep collected data for reference
       // RFC-0167: timestamps + raw status value drive the 12h freshness rule
       connectionStatusTs: cdTs.connectionStatus != null ? cdTs.connectionStatus : null,
-      statusValue: cd.status != null ? cd.status : (cd.state != null ? cd.state : null),
+      // acionamento: some LAMP/REMOTE devices publish on/off under this key instead of status/state
+      statusValue: cd.status != null ? cd.status : (cd.state != null ? cd.state : (cd.acionamento != null ? cd.acionamento : null)),
       statusTs: cdTs.status != null ? cdTs.status : (cdTs.state != null ? cdTs.state : null),
       // RFC-0183/RFC-0198: alarm/ticket badge keys (SERVER_SCOPE datakeys —
       // null when the dashboard datasource doesn't include them)
@@ -1039,10 +1040,15 @@ function parseDevicesFromData(data) {
       // RFC-0176: Switch domain for LAMP and REMOTE devices
       // connectionStatus = online | offline (device connection)
       // status (timeseries) = on | off | detected | not_detected (switch state)
-      var switchStatus = (cd.status || cd.state || '').toLowerCase();
-      var isOn = switchStatus === 'on' || switchStatus === 'detected';
+      // acionamento: some LAMP/REMOTE devices publish on/off under this key instead of status/state
+      var rawSwitchValue = cd.status ?? cd.state ?? cd.acionamento ?? null;
+      var switchStatus = rawSwitchValue != null ? String(rawSwitchValue).toLowerCase() : '';
+      var isOn = switchStatus === 'on' || switchStatus === 'detected' || switchStatus === 'true' || switchStatus === '1';
       var isSeletor = profileUpper === 'SELETOR_AUTO_MANUAL' || typeUpper === 'SELETOR_AUTO_MANUAL';
-      device.switchStatus = switchStatus; // Raw switch state value (on/off/detected/not_detected)
+      // Keep null (not '') when unresolved so downstream statusValue fallbacks
+      // (openOnOffDeviceModal, evalDeviceStatus) can still try attrs.acionamento/rawData.acionamento
+      // instead of short-circuiting on an empty string via `??`.
+      device.switchStatus = rawSwitchValue != null ? switchStatus : null;
       device.isOn = isOn;
       device.type = isSeletor ? 'seletor' : profileUpper === 'LAMP' ? 'lamp' : 'remote';
       // IMPORTANT: Keep device.status based on connectionStatus (online/offline)
@@ -1744,7 +1750,12 @@ function assetAmbientToAmbienteData(hierarchyNode) {
     if (isSwitchDomain || isRemote) {
       // Get the state from various possible sources
       // RFC-0176: status can be on|off or detected|not_detected
-      var rawStatus = (d.rawData && (d.rawData.status || d.rawData.state)) || d.switchStatus || d.state || 'off';
+      // acionamento: some LAMP/REMOTE devices publish on/off under this key instead of status/state
+      var rawStatus =
+        (d.rawData && (d.rawData.status || d.rawData.state || d.rawData.acionamento)) ||
+        d.switchStatus ||
+        d.state ||
+        'off';
       var statusLower = String(rawStatus).toLowerCase();
       var isDeviceOn =
         statusLower === 'on' ||
@@ -3620,6 +3631,7 @@ function openAmbienteGroupModal(parentItem, settings) {
   // Open the group modal
   MyIOLibrary.openAmbienteGroupModal(groupData, {
     themeMode: 'light',
+    centralId: CENTRAL_ID,
     onSubAmbienteClick: function (subAmbiente) {
       LogHelper.log('[MAIN_BAS] Sub-ambiente clicked:', subAmbiente);
       // Open detail modal for this sub-ambiente
@@ -3766,7 +3778,7 @@ function openOnOffDeviceModal(device, settings) {
   MyIOLibrary.openOnOffDeviceModal(deviceData, {
     themeMode: 'light',
     jwtToken: jwtToken,
-    centralId: device.centralId || device.rawData?.centralId,
+    centralId: CENTRAL_ID || device.centralId || device.rawData?.centralId,
     customerName: (settings && settings.customerName) || '',
     enableDebugMode: false,
     onStateChange: function (deviceId, state) {
@@ -3866,7 +3878,7 @@ function openWaterTankModal(device, entityObject, _settings) {
     waterLevel: waterLevel,
     waterPercentage: waterPercentage,
     slaveId: device?.slaveId || device?.rawData?.slaveId,
-    centralId: device?.centralId || device?.rawData?.centralId,
+    centralId: CENTRAL_ID || device?.centralId || device?.rawData?.centralId,
     timezone: 'America/Sao_Paulo',
     telemetryKeys: ['water_level', 'water_percentage', 'waterLevel', 'nivel', 'level'],
     onOpen: function (context) {
@@ -4729,6 +4741,13 @@ var DATA_API_HOST = '';
  * TB server instead of the page origin (which 404s).
  */
 var THINGSBOARD_URL = '';
+
+/**
+ * MyIO central UUID used to build https://{centralId}.y.myio.com.br/api/*
+ * (on/off commands, water tank data, etc). Read from settings.centralId.
+ * Without this, on/off buttons cannot dispatch commands (silently skipped).
+ */
+var CENTRAL_ID = '';
 
 // Chart data cache to avoid unnecessary refetches (e.g., on maximize)
 // Keyed by domain, stores last result per period
@@ -5977,6 +5996,9 @@ self.onInit = async function () {
   // TB base for direct REST calls. Default '' keeps same-origin behavior inside
   // the real TB runtime; the showcase sets it so /api/* doesn't hit the page origin.
   THINGSBOARD_URL = String(self.ctx.settings?.thingsboardUrl || '').replace(/\/$/, '');
+  // centralId: widget setting takes priority (per-dashboard override); if empty,
+  // it's resolved below from the customer's SERVER_SCOPE attrs once fetched.
+  CENTRAL_ID = self.ctx.settings?.centralId || '';
 
   // Create LogHelper instance using library function
   LogHelper = window.MyIOLibrary.createLogHelper({
@@ -6007,6 +6029,14 @@ self.onInit = async function () {
         MAP_CUSTOMER_CREDENTIALS.customer_Ingestion_Id = attrs?.ingestionId || null;
         MAP_CUSTOMER_CREDENTIALS.customer_Ingestion_Cliente_Id = attrs?.client_id || null;
         MAP_CUSTOMER_CREDENTIALS.customer_Ingestion_Secret = attrs?.client_secret || null;
+
+        // centralId: prefer the explicit widget setting (per-dashboard override);
+        // fall back to the customer's SERVER_SCOPE attribute so on/off works
+        // without requiring anyone to configure the widget setting manually.
+        if (!CENTRAL_ID && attrs?.centralId) {
+          CENTRAL_ID = attrs.centralId;
+          LogHelper.log('[MAIN_BAS] centralId resolved from customer attributes:', CENTRAL_ID);
+        }
 
         // Populate telemetry settings
         CUSTOMER_TELEMETRY_SETTINGS.mapInstantaneousPower = attrs?.mapInstantaneousPower || null;
@@ -6043,6 +6073,12 @@ self.onInit = async function () {
         LogHelper.error('[MAIN_BAS] Error fetching customer attributes:', error);
       }
     }
+  }
+
+  if (!CENTRAL_ID) {
+    LogHelper.warn(
+      '[MAIN_BAS] centralId not found in widget settings or customer attributes — on/off commands will be skipped'
+    );
   }
 
   _settings = getSettings(_ctx);
