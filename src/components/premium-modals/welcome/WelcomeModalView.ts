@@ -1277,14 +1277,21 @@ export class WelcomeModalView {
   transition: width 0.4s ease;
 }
 
-/* Global enrichment progress bar (below CTA) */
+/* Global enrichment progress bar — absolute overlay at the hero's bottom edge
+   so it takes NO layout space (the grid height math doesn't account for it;
+   in-flow it pushed the cards down and hid row 2's progress bars) */
 .myio-welcome-enrich-progress {
+  position: absolute;
+  left: 50%;
+  bottom: 4px;
+  transform: translateX(-50%);
+  width: min(420px, 70%);
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-top: 14px;
-  max-width: 420px;
   transition: opacity 0.4s ease;
+  z-index: 2;
+  pointer-events: none;
 }
 .myio-welcome-enrich-progress-track {
   flex: 1;

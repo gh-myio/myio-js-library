@@ -210,7 +210,9 @@ self.onInit = async function () {
 
   // RFC-0122: Initialize LogHelper from library
   if (!MyIOLibrary.createLogHelper) {
-    showToast('Erro: biblioteca não carregada (createLogHelper)', 'error');
+    // showToast didn't exist at module scope — this path used to throw a ReferenceError
+    MyIOLibrary.MyIOToast?.error?.('Erro: biblioteca não carregada (createLogHelper)');
+    console.error('[MAIN_UNIQUE] MyIOLibrary.createLogHelper not available');
     return;
   }
 
@@ -236,6 +238,29 @@ self.onInit = async function () {
         'Configure settings/datasource e visualize no dashboard.</div>';
     }
     LogHelper.log('[MAIN_UNIQUE] widgetEditMode detected: skipping full init');
+    return;
+  }
+
+  // === 1.3 REQUIRED SETTINGS GUARD (fail-fast) ===
+  // Without these settings nothing downstream can work; previously the widget kept
+  // initializing anyway (welcome modal, orchestrator, retry chains, toasts) and the
+  // accumulated work froze the tab. Render a config hint and stop.
+  if (!settings.customerTB_ID || !settings.dataApiHost) {
+    const missing = [
+      !settings.customerTB_ID ? 'customerTB_ID' : null,
+      !settings.dataApiHost ? 'dataApiHost' : null,
+    ]
+      .filter(Boolean)
+      .join(', ');
+    const host = self.ctx.$container?.[0];
+    if (host) {
+      host.innerHTML =
+        '<div style="display:flex;align-items:center;justify-content:center;height:100%;' +
+        "font:14px 'Nunito',system-ui,sans-serif;color:#64748b;text-align:center;padding:16px\">" +
+        'MAIN_UNIQUE_DATASOURCE<br>Settings obrigatórios ausentes: <b>' + missing + '</b><br>' +
+        'Configure o widget para inicializar.</div>';
+    }
+    LogHelper.warn(`[MAIN_UNIQUE] Missing required settings (${missing}) - init aborted`);
     return;
   }
 
@@ -285,6 +310,7 @@ self.onInit = async function () {
   let CLIENT_SECRET = '';
   let CUSTOMER_ING_ID = '';
   let GCDR_CUSTOMER_ID = ''; // customer SERVER_SCOPE attr: gcdrCustomerId
+  let GCDR_API_KEY = ''; // customer SERVER_SCOPE attr: gcdrApiKey (X-API-Key p/ Goals/GCDR, como no v-5.2.0)
 
   // Get ThingsBoard customer ID (required from settings)
   const getCustomerTB_ID = () => {
@@ -339,12 +365,16 @@ self.onInit = async function () {
         CLIENT_SECRET = attrs?.client_secret || '';
         CUSTOMER_ING_ID = attrs?.ingestionId || '';
         GCDR_CUSTOMER_ID = attrs?.gcdrCustomerId || '';
+        GCDR_API_KEY = attrs?.gcdrApiKey || '';
 
         // Update MyIOUtils with fetched credentials
         window.MyIOUtils.CLIENT_ID = CLIENT_ID;
         window.MyIOUtils.CLIENT_SECRET = CLIENT_SECRET;
         window.MyIOUtils.CUSTOMER_ING_ID = CUSTOMER_ING_ID;
         window.MyIOUtils.GCDR_CUSTOMER_ID = GCDR_CUSTOMER_ID;
+        window.MyIOUtils.GCDR_API_KEY = GCDR_API_KEY;
+        // Parity with v-5.2.0 MAIN_VIEW: gcdrApiKey exposto no orchestrator (Goals/GCDR auth)
+        if (window.MyIOOrchestrator) window.MyIOOrchestrator.gcdrApiKey = GCDR_API_KEY;
         window.MyIOUtils.getCredentials = () => ({
           clientId: CLIENT_ID,
           clientSecret: CLIENT_SECRET,
@@ -2838,9 +2868,14 @@ body.filter-modal-open { overflow: hidden !important; }
   window.addEventListener('myio:open-goals-panel', () => {
     LogHelper.log('[MAIN_UNIQUE] Goals panel requested');
 
+    const toastError = (msg) => {
+      if (MyIOLibrary?.MyIOToast?.error) MyIOLibrary.MyIOToast.error(msg);
+      else window.alert(msg);
+    };
+
     if (!MyIOLibrary?.openGoalsPanel) {
       LogHelper.error('[MAIN_UNIQUE] MyIOLibrary.openGoalsPanel not available');
-      window.alert('Componente de Metas nao esta disponivel.');
+      toastError('Componente de Metas não está disponível.');
       return;
     }
 
@@ -2848,7 +2883,7 @@ body.filter-modal-open { overflow: hidden !important; }
       const customerId = getCustomerTB_ID();
       if (!customerId) {
         LogHelper.error('[MAIN_UNIQUE] customerId not found');
-        window.alert('Customer ID nao disponivel. Aguarde o carregamento completo.');
+        toastError('Customer ID não disponível. Aguarde o carregamento completo.');
         return;
       }
 
@@ -2859,12 +2894,20 @@ body.filter-modal-open { overflow: hidden !important; }
         window.MyIOOrchestrator?.gcdrApiBaseUrl ||
         window.GCDR_API_HOST ||
         window.DATA_API_HOST;
+      // X-API-Key: mesmo padrão do v-5.2.0 MAIN_VIEW — atributo SERVER_SCOPE gcdrApiKey do
+      // customer (buscado no fetchCredentialsFromThingsBoard); overrides manuais primeiro
       const gcdrApiKey =
-        window.GCDR_CUSTOMER_API_KEY || localStorage.getItem('gcdr_customer_api_key');
+        window.GCDR_CUSTOMER_API_KEY ||
+        localStorage.getItem('gcdr_customer_api_key') ||
+        GCDR_API_KEY ||
+        window.MyIOOrchestrator?.gcdrApiKey ||
+        '';
       if (!gcdrBaseUrl || !gcdrApiKey) {
-        LogHelper.error('[MAIN_UNIQUE] GCDR credentials missing (GCDR_API_HOST / GCDR_CUSTOMER_API_KEY)');
-        window.alert(
-          'Configuracao do GCDR ausente.\nDefina window.GCDR_API_HOST e window.GCDR_CUSTOMER_API_KEY (gcdr_cust_*).'
+        LogHelper.error(
+          '[MAIN_UNIQUE] GCDR credentials missing (customer attr gcdrApiKey / GCDR_CUSTOMER_API_KEY)'
+        );
+        toastError(
+          'Configuração do GCDR ausente: defina o atributo gcdrApiKey no customer (SERVER_SCOPE).'
         );
         return;
       }
@@ -2897,7 +2940,7 @@ body.filter-modal-open { overflow: hidden !important; }
       });
     } catch (err) {
       LogHelper.error('[MAIN_UNIQUE] Error opening Goals Panel:', err);
-      window.alert(`Erro ao abrir metas: ${err?.message || err}`);
+      toastError(`Erro ao abrir metas: ${err?.message || err}`);
     }
   });
 
