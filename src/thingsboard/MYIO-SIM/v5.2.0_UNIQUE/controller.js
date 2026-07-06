@@ -1076,7 +1076,9 @@ body.filter-modal-open { overflow: hidden !important; }
     // Use current shopping cards (from datasource) with fallback to defaults
     const baseCards = _currentShoppingCards || DEFAULT_SHOPPING_CARDS;
 
-    return baseCards.map((card) => {
+    // Persist to _currentShoppingCards so later updates (e.g. metaCounts enrichment)
+    // don't revert deviceCounts back to the loading state
+    _currentShoppingCards = baseCards.map((card) => {
       if (!card.title) {
         LogHelper.log('Card has no title, skipping');
         return card;
@@ -1129,6 +1131,8 @@ body.filter-modal-open { overflow: hidden !important; }
       LogHelper.log(`No counts found for ${card.title}`);
       return card;
     });
+
+    return _currentShoppingCards;
   };
 
   /**
@@ -1424,8 +1428,12 @@ body.filter-modal-open { overflow: hidden !important; }
       const updatedCards = updateShoppingCardsWithRealCounts(classified);
       updateWelcomeModalShoppingCards(welcomeModal, updatedCards);
     } else if (dynamicCards && dynamicCards.length > 0) {
+      _currentShoppingCards = dynamicCards;
       updateWelcomeModalShoppingCards(welcomeModal, dynamicCards);
     }
+
+    // Cards may have arrived/changed: fetch meta counts for any not yet enriched
+    enrichCardsWithMetaCounts();
   };
 
   // Listen for data-ready to update WelcomeModal when data arrives (permanent listener)
@@ -1439,6 +1447,124 @@ body.filter-modal-open { overflow: hidden !important; }
       welcomeModal.open();
     }
   });
+
+  // === WelcomeModal meta counts (users / alarms / annotations) ===
+  // Users: TB GET /api/customer/{id}/users — same source as the MENU user management modal
+  // Alarms: GCDR Alarms API filtered by the customer's gcdrCustomerId — same rule as the v-5.4.0 header badge
+  // Annotations: buildAnnotationServiceOrchestrator over SERVER_SCOPE log_annotations (RFC-0203)
+  const _enrichedMetaIds = new Set();
+  const enrichCardsWithMetaCounts = async () => {
+    const jwt = getJwtToken();
+    const cards = _currentShoppingCards || [];
+    if (!jwt || cards.length === 0) return;
+
+    const tbBase = window.location.origin;
+
+    // Same rule as v-5.4.0: offline/connectivity alarms are excluded from the badge
+    const isOfflineAlarm = (a) => {
+      const t = String(a?.title || '').toUpperCase();
+      return (
+        a?.alarmType === 'connectivity' ||
+        t.startsWith('DEVICE OFFLINE') ||
+        t.startsWith('DISPOSITIVO OFFLINE')
+      );
+    };
+
+    const fetchUsersCount = async (customerTbId) => {
+      try {
+        const res = await fetch(`${tbBase}/api/customer/${customerTbId}/users?pageSize=1&page=0`, {
+          headers: { 'X-Authorization': `Bearer ${jwt}` },
+        });
+        if (!res.ok) return null;
+        const page = await res.json();
+        return Number(page?.totalElements ?? (Array.isArray(page?.data) ? page.data.length : 0));
+      } catch (err) {
+        LogHelper.warn('[MetaCounts] users fetch failed:', err);
+        return null;
+      }
+    };
+
+    const fetchAlarmsCount = async (attrs) => {
+      const gcdrCustomerId = attrs?.gcdrCustomerId || '';
+      if (!ALARMS_API_KEY || !gcdrCustomerId) return null;
+      try {
+        const url = `${ALARMS_API_BASE}/alarms?state=OPEN,ACK,ESCALATED,SNOOZED&customerId=${encodeURIComponent(gcdrCustomerId)}&limit=100`;
+        const res = await fetch(url, {
+          headers: {
+            'X-API-Key': ALARMS_API_KEY,
+            'X-Tenant-ID': attrs?.gcdrTenantId || '',
+            Accept: 'application/json',
+          },
+        });
+        if (!res.ok) return null;
+        const json = await res.json();
+        const alarms = Array.isArray(json?.data)
+          ? json.data
+          : Array.isArray(json?.items)
+            ? json.items
+            : Array.isArray(json?.data?.items)
+              ? json.data.items
+              : [];
+        return alarms.filter((a) => !isOfflineAlarm(a)).length;
+      } catch (err) {
+        LogHelper.warn('[MetaCounts] alarms fetch failed:', err);
+        return null;
+      }
+    };
+
+    const fetchAnnotationsCount = async (customerTbId) => {
+      if (!MyIOLibrary.buildAnnotationServiceOrchestrator) return null;
+      try {
+        const orch = await MyIOLibrary.buildAnnotationServiceOrchestrator({
+          customerId: customerTbId,
+          tbHost: tbBase,
+          jwt,
+        });
+        return orch?.getTotalCount?.() ?? 0;
+      } catch (err) {
+        LogHelper.warn('[MetaCounts] annotations fetch failed:', err);
+        return null;
+      }
+    };
+
+    // Merge counts into the CURRENT cards by entityId (deviceCounts updates replace the
+    // array concurrently, so never mutate a stale snapshot) and re-render the modal
+    const applyMetaCounts = (entityId, meta) => {
+      _currentShoppingCards = (_currentShoppingCards || []).map((c) =>
+        c.entityId === entityId ? { ...c, metaCounts: { ...(c.metaCounts || {}), ...meta } } : c
+      );
+      updateWelcomeModalShoppingCards(welcomeModal, _currentShoppingCards);
+    };
+
+    // Only cards from the 'customers' datasource carry a TB customer id;
+    // DEFAULT fallback cards (ASSET, customerId null) can't be counted
+    const targets = cards
+      .filter((c) => c.entityType === 'CUSTOMER' && (c.customerId || c.entityId) && !_enrichedMetaIds.has(c.entityId))
+      .map((c) => ({ entityId: c.entityId, customerTbId: c.customerId || c.entityId, title: c.title }));
+
+    targets.forEach((t) => _enrichedMetaIds.add(t.entityId));
+
+    for (const target of targets) {
+      const attrs = await fetchCustomerServerScopeAttrs(target.customerTbId).catch(() => ({}));
+      const [users, alarms, annotations] = await Promise.all([
+        fetchUsersCount(target.customerTbId),
+        fetchAlarmsCount(attrs),
+        fetchAnnotationsCount(target.customerTbId),
+      ]);
+
+      applyMetaCounts(target.entityId, {
+        users: users ?? 0,
+        alarms: alarms ?? 0,
+        annotations: annotations ?? 0,
+      });
+      LogHelper.log(
+        `[MetaCounts] ${target.title}: users=${users ?? 0} alarms=${alarms ?? 0} annotations=${annotations ?? 0}`
+      );
+    }
+  };
+
+  // Non-blocking: counts appear progressively as each customer resolves
+  enrichCardsWithMetaCounts();
 
   // === 5. RFC-0113: RENDER HEADER COMPONENT ===
   const headerContainer = document.getElementById('headerContainer');
