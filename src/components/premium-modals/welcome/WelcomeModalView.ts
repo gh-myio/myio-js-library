@@ -2045,8 +2045,23 @@ export class WelcomeModalView {
       ? `<div class="myio-welcome-card-bg" data-src="${card.bgImageUrl}"></div>`
       : '';
 
-    // Meta counts row (Users, Alarms, Notifications) - above title, same style as device counts
-    const { users = 0, alarms = 0, notifications = 0 } = card.metaCounts || {};
+    // Meta counts row (Users, Alarms, Notifications/Annotations) - above title, same style as device counts
+    const { users = 0, alarms = 0, notifications = 0, annotations } = card.metaCounts || {};
+    // When annotations is provided, the third badge shows annotations instead of legacy notifications
+    const thirdBadgeHTML =
+      annotations !== undefined
+        ? `<span class="myio-welcome-card-device-count annotations"
+              data-tooltip-type="annotations"
+              data-card-index="${index}"
+              title="Anotacoes">
+          <span class="icon">📋</span> ${annotations}
+        </span>`
+        : `<span class="myio-welcome-card-device-count notifications"
+              data-tooltip-type="notifications"
+              data-card-index="${index}"
+              title="Notificacoes">
+          <span class="icon">🔔</span> ${notifications}
+        </span>`;
     const metaCountsHTML = `
       <div class="myio-welcome-card-meta-counts">
         <span class="myio-welcome-card-device-count users"
@@ -2061,12 +2076,7 @@ export class WelcomeModalView {
               title="Alarmes">
           <span class="icon">🚨</span> ${alarms}
         </span>
-        <span class="myio-welcome-card-device-count notifications"
-              data-tooltip-type="notifications"
-              data-card-index="${index}"
-              title="Notificacoes">
-          <span class="icon">🔔</span> ${notifications}
-        </span>
+        ${thirdBadgeHTML}
       </div>
     `;
 
@@ -2381,7 +2391,8 @@ export class WelcomeModalView {
         if (MyIOLibrary) {
           const tooltip = tooltipType === 'users' ? MyIOLibrary.UsersSummaryTooltip :
                          tooltipType === 'alarms' ? MyIOLibrary.AlarmsSummaryTooltip :
-                         tooltipType === 'notifications' ? MyIOLibrary.NotificationsSummaryTooltip : null;
+                         tooltipType === 'notifications' ? MyIOLibrary.NotificationsSummaryTooltip :
+                         tooltipType === 'annotations' ? MyIOLibrary.InfoTooltip : null;
 
           if (tooltip?.isVisible?.()) {
             // Tooltip is open - close it immediately
@@ -2413,6 +2424,7 @@ export class WelcomeModalView {
           MyIOLibrary.UsersSummaryTooltip?._startDelayedHide?.();
           MyIOLibrary.AlarmsSummaryTooltip?._startDelayedHide?.();
           MyIOLibrary.NotificationsSummaryTooltip?._startDelayedHide?.();
+          MyIOLibrary.InfoTooltip?.startDelayedHide?.();
         }
       });
     });
@@ -2422,7 +2434,7 @@ export class WelcomeModalView {
    * Handle tooltip icon click - shows the appropriate tooltip
    */
   private handleTooltipClick(
-    type: 'energy' | 'water' | 'temperature' | 'users' | 'alarms' | 'notifications',
+    type: 'energy' | 'water' | 'temperature' | 'users' | 'alarms' | 'notifications' | 'annotations',
     card: ShoppingCard,
     triggerElement: HTMLElement
   ): void {
@@ -2467,6 +2479,20 @@ export class WelcomeModalView {
       case 'notifications':
         if (MyIOLibrary.NotificationsSummaryTooltip) {
           MyIOLibrary.NotificationsSummaryTooltip.show(triggerElement, tooltipData.notifications);
+        }
+        break;
+      case 'annotations':
+        if (MyIOLibrary.InfoTooltip) {
+          const total = card.metaCounts?.annotations ?? 0;
+          MyIOLibrary.InfoTooltip.show(triggerElement, {
+            icon: '📋',
+            title: `Anotações — ${card.title}`,
+            content: `<div style="font-size:13px;">${
+              total > 0
+                ? `<strong>${total}</strong> anotaç${total === 1 ? 'ão ativa' : 'ões ativas'} nos dispositivos deste cliente.`
+                : 'Nenhuma anotação ativa nos dispositivos deste cliente.'
+            }</div>`,
+          });
         }
         break;
     }
@@ -2752,24 +2778,24 @@ export class WelcomeModalView {
         customerName: card.title,
       },
       users: {
-        totalUsers: 0,
-        activeUsers: 0,
+        totalUsers: card.metaCounts?.users ?? 0,
+        activeUsers: card.metaCounts?.users ?? 0,
         inactiveUsers: 0,
         byRole: { admin: 0, operator: 0, viewer: 0 },
         lastUpdated: now,
         customerName: card.title,
       },
       alarms: {
-        totalAlarms: 0,
-        activeAlarms: 0,
+        totalAlarms: card.metaCounts?.alarms ?? 0,
+        activeAlarms: card.metaCounts?.alarms ?? 0,
         acknowledgedAlarms: 0,
         bySeverity: { critical: 0, warning: 0, info: 0 },
         lastUpdated: now,
         customerName: card.title,
       },
       notifications: {
-        totalNotifications: 0,
-        unreadNotifications: 0,
+        totalNotifications: card.metaCounts?.notifications ?? 0,
+        unreadNotifications: card.metaCounts?.notifications ?? 0,
         readNotifications: 0,
         byType: { system: 0, alert: 0, info: 0, success: 0 },
         lastUpdated: now,

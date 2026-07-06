@@ -214,7 +214,7 @@ export interface ShoppingCardDeviceCounts {
 }
 
 /**
- * Meta counts for shopping card (users, alarms, notifications)
+ * Meta counts for shopping card (users, alarms, notifications/annotations)
  */
 export interface ShoppingCardMetaCounts {
   /** Number of users with access */
@@ -223,6 +223,8 @@ export interface ShoppingCardMetaCounts {
   alarms?: number;
   /** Number of unread notifications */
   notifications?: number;
+  /** Number of device annotations; when provided, replaces the notifications badge */
+  annotations?: number;
 }
 
 /**
