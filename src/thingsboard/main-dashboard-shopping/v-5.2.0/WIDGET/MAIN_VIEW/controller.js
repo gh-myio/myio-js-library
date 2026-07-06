@@ -431,6 +431,13 @@ Object.assign(window.MyIOUtils, {
   handleDataLoadError: (domain = 'unknown', reason = 'timeout') => {
     LogHelper.error(`[MyIOUtils] Data load error for ${domain}: ${reason}`);
 
+    // RFC-0152c: never start a retry loop for a DISABLED domain (water-only /
+    // temperature-only dashboards) — no datasource will ever answer it.
+    if (widgetSettings?.domainsEnabled && widgetSettings.domainsEnabled[domain] === false) {
+      LogHelper.log(`[MyIOUtils] ⏭️ Domain ${domain} disabled (domainsEnabled) — skipping retry loop`);
+      return;
+    }
+
     // Stop retry loop after final error for this domain
     window._dataLoadRetryLocked = window._dataLoadRetryLocked || {};
     if (window._dataLoadRetryLocked[domain]) {
@@ -1838,6 +1845,39 @@ Object.assign(window.MyIOUtils, {
             ? 'temperature'
             : 'energy';
     LogHelper.log('[MAIN_VIEW] Initial tab derived from domainsEnabled:', _initialTab);
+
+    // RFC-0152c: Align the state-div visibility with domainsEnabled. The template
+    // ships with telemetry_content (energy) as display:block — the right default
+    // for energy dashboards, but on water-only/temperature-only dashboards the
+    // dashboard has NO telemetry_content state, so the embedded
+    // <tb-dashboard-state> renders "Dashboard state with id ... is not found"
+    // inside the still-visible div (nothing hides it until a MENU click).
+    // Hide the divs of DISABLED domains (display:none — Angular-safe, no DOM
+    // removal) and make the _initialTab div the visible one.
+    try {
+      const STATE_BY_DOMAIN = {
+        energy: 'telemetry_content',
+        water: 'water_content',
+        temperature: 'temperature_content',
+      };
+      const _initialStateId = STATE_BY_DOMAIN[_initialTab] || 'telemetry_content';
+      const _stateDivs = self.ctx.$container[0].querySelectorAll('[data-content-state]');
+      _stateDivs.forEach((div) => {
+        const stId = div.getAttribute('data-content-state');
+        const domainOfState = Object.keys(STATE_BY_DOMAIN).find((d) => STATE_BY_DOMAIN[d] === stId);
+        if (domainOfState && widgetSettings.domainsEnabled?.[domainOfState] === false) {
+          div.style.display = 'none'; // domínio desabilitado — nunca mostrar
+          return;
+        }
+        if (domainOfState) {
+          div.style.display = stId === _initialStateId ? 'block' : 'none';
+        }
+        // alarm_content / integrations: mantém o default do template (none)
+      });
+      LogHelper.log('[MAIN_VIEW] RFC-0152c: state divs aligned — visible:', _initialStateId);
+    } catch (stateErr) {
+      LogHelper.warn('[MAIN_VIEW] RFC-0152c: state-div alignment failed:', stateErr);
+    }
 
     // Initialize MyIO Library and Authentication
     const MyIO =
@@ -5234,7 +5274,11 @@ const MyIOOrchestrator = (() => {
   // Config will be initialized in onInit() after widgetSettings are populated
   let config = null;
 
-  let visibleTab = 'energy';
+  // RFC-0152c: starts as null (NOT 'energy') — the auto-triggers of RFC-0130
+  // ("skip if no tab visible yet") rely on getVisibleTab() returning empty until
+  // MENU/dashboard-state sets it. The old 'energy' default made the 500ms
+  // auto-trigger start an energy retry loop on water-only dashboards.
+  let visibleTab = null;
   let currentPeriod = null;
   let CUSTOMER_ING_ID = '';
   let CLIENT_ID = '';
@@ -5363,6 +5407,12 @@ const MyIOOrchestrator = (() => {
    * @param {object} providedPeriod - Period object (optional)
    */
   async function requestDataWithRetry(domain, providedPeriod = null) {
+    // RFC-0152c: skip disabled domains entirely (same guard as request-data listener)
+    if (widgetSettings?.domainsEnabled && widgetSettings.domainsEnabled[domain] === false) {
+      LogHelper.log(`[Orchestrator] ⏭️ Domain ${domain} disabled (domainsEnabled) — skipping retry`);
+      return;
+    }
+
     // Prevent duplicate retry loops for same domain
     if (pendingRetries.has(domain)) {
       LogHelper.log(`[Orchestrator] ⏭️ Retry already in progress for ${domain}`);
@@ -7333,9 +7383,29 @@ const MyIOOrchestrator = (() => {
     }, 50); // 50ms delay to ensure listener is ready
   });
 
+  // RFC-0152c: first enabled domain (same derivation as _initialTab in onInit).
+  // Used when myio:update-date arrives but myio:dashboard-state was never seen
+  // (listener-registration race) — hydrating the WRONG default domain caused
+  // "Erro ao carregar dados (energy)" on water-only dashboards while the real
+  // domain never loaded.
+  function firstEnabledDomain() {
+    const de = widgetSettings?.domainsEnabled || {};
+    if (de.energy !== false) return 'energy';
+    if (de.water !== false) return 'water';
+    if (de.temperature !== false) return 'temperature';
+    return 'energy';
+  }
+
   // Event listeners
   window.addEventListener('myio:update-date', (ev) => {
     LogHelper.log('[Orchestrator] 📅 Received myio:update-date event', ev.detail);
+
+    // RFC-0152c: if no dashboard-state ever set the tab, derive it from
+    // domainsEnabled so "Carregar" hydrates the right domain instead of skipping.
+    if (!visibleTab) {
+      visibleTab = firstEnabledDomain();
+      LogHelper.log(`[Orchestrator] RFC-0152c: visibleTab was unset — derived from domainsEnabled: ${visibleTab}`);
+    }
 
     // RFC-0130: Check if period changed - if so, clear cache for this domain
     const newPeriod = ev.detail.period;
@@ -7403,6 +7473,14 @@ const MyIOOrchestrator = (() => {
       visibleTab = 'alarm';
       LogHelper.log('[Orchestrator] 🔔 myio:dashboard-state → alarm view activated');
       window.dispatchEvent(new CustomEvent('myio:alarm-content-activated'));
+      return;
+    }
+
+    // RFC-0152c: never accept a DISABLED domain as the visible tab — a stray
+    // dashboard-state (e.g. HEADER's old auto-select 'energy') would poison
+    // visibleTab and every subsequent Carregar would hydrate the wrong domain.
+    if (widgetSettings?.domainsEnabled && widgetSettings.domainsEnabled[tab] === false) {
+      LogHelper.warn(`[Orchestrator] ⏭️ RFC-0152c: dashboard-state ignorado — domínio ${tab} desabilitado`);
       return;
     }
 
@@ -7636,6 +7714,9 @@ const MyIOOrchestrator = (() => {
       visibleTab = tab;
     },
     getVisibleTab: () => visibleTab,
+    // RFC-0152c: exposed so HEADER's auto-select derives the right domain on
+    // water-only/temperature-only dashboards instead of hardcoding 'energy'.
+    getFirstEnabledDomain: firstEnabledDomain,
     getCurrentPeriod: () => currentPeriod,
     getStats: () => ({
       totalRequests: metrics.totalRequests,

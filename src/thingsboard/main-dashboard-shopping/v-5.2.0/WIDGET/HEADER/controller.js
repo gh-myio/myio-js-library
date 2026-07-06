@@ -14,10 +14,10 @@ let MyIOAuth = null;
 
 // RFC-0054 FIX: Use global variable to share state across multiple HEADER instances
 // This prevents race conditions when multiple widgets are loaded
-// VERSION: 2026-03-17-rfc-0152
+// VERSION: 2026-07-06-rfc-0152b
 if (!window.__myioCurrentDomain) {
   window.__myioCurrentDomain = null;
-  console.log('[HEADER] VERSION: 2026-03-17-rfc-0152 - Global currentDomain initialized');
+  console.log('[HEADER] VERSION: 2026-07-06-rfc-0152b - Global currentDomain initialized');
 }
 
 // RFC-0042: Track current domain from MENU widget (use global reference)
@@ -39,7 +39,10 @@ let currentDomain = {
   if (!document.getElementById(styleId)) {
     const s = document.createElement('style');
     s.id = styleId;
-    s.textContent = '.tb-no-data-text, .tb-widget-no-data-text { display: none !important; }';
+    // RFC-0152b: broadened — .tb-widget-no-data is the actual overlay container
+    // in current TB versions (the previous two classes alone didn't match).
+    s.textContent =
+      '.tb-no-data-text, .tb-widget-no-data-text, .tb-widget-no-data, .tb-no-data-available, .tb-no-data-available-text { display: none !important; }';
     document.head.appendChild(s);
     console.log('[HEADER] RFC-0152: No-data overlay suppressed (module scope)');
   }
@@ -50,21 +53,61 @@ let currentDomain = {
 // preventing the orchestrator from waiting 20s before its own fallback kicks in.
 // onInit sets window.__myioHeaderOnInitRan = true to disable this fallback.
 window.__myioHeaderOnInitRan = false;
-(function installHeaderFallbackPeriodEmitter() {
-  // Only install once (guard against multiple HEADER instances)
-  if (window.__myioHeaderFallbackInstalled) return;
-  window.__myioHeaderFallbackInstalled = true;
+// RFC-0152b v2: instala o fallback POR INSTÂNCIA — cada avaliação do controller
+// captura o próprio `self`. O guard global de instalação única (v1) capturava o
+// PRIMEIRO `self` avaliado, que pode ser um HEADER oculto de outro dashboard
+// state (sem ctx inicializado) — deixando o header VISÍVEL sem fallback algum.
+(function installHeaderFallbackBootstrap() {
+  let _handled = false;
 
   function _fallbackHandler(e) {
     // Give onInit 800ms to mark itself as started
     setTimeout(function () {
-      if (window.__myioHeaderOnInitRan) {
+      if (_handled) return;
+      // Per-instance flag (set at the top of onInit). The old window-level flag
+      // is kept for compat but can't distinguish between multiple instances.
+      if (self.__myioHeaderOnInitRan) {
+        _handled = true;
         window.removeEventListener('myio:dashboard-state', _fallbackHandler);
         return;
       }
       const domain = e && e.detail && e.detail.tab;
       if (domain !== 'energy' && domain !== 'water') return;
+      _handled = true;
+      window.removeEventListener('myio:dashboard-state', _fallbackHandler);
 
+      // RFC-0152b: TB skipped the widget lifecycle (datasource resolved to 0
+      // entities — e.g. water-only customer). The widget EXISTS and the template
+      // is mounted, only onInit never fired — which left the whole header dead:
+      // date picker unbound and the alarm/ticket/annotation buttons stuck on
+      // their is-loading spinners (the listeners/watchdogs that strip them are
+      // registered inside onInit). Bootstrap manually: onInit itself emits the
+      // initial period, so on success we skip the manual emission below.
+      const hasOnInit = typeof self.onInit === 'function';
+      const hasContainer = !!(self.ctx && self.ctx.$container && self.ctx.$container[0]);
+      if (hasOnInit && hasContainer) {
+        console.warn(
+          '[HEADER] ⚠️ RFC-0152b FALLBACK: onInit não chamado pelo TB — executando bootstrap manual do header'
+        );
+        try {
+          Promise.resolve(self.onInit()).catch(function (err) {
+            console.error('[HEADER] RFC-0152b: fallback onInit rejected:', err);
+          });
+          return;
+        } catch (err) {
+          console.error('[HEADER] RFC-0152b: fallback onInit threw — falling back to period-only emission:', err);
+        }
+      } else {
+        // Diagnóstico: qual guarda falhou nesta instância
+        console.warn(
+          '[HEADER] RFC-0152b: bootstrap indisponível nesta instância (onInit=' +
+            hasOnInit + ', ctx.$container=' + hasContainer + ') — emitindo apenas o período'
+        );
+      }
+
+      // Plano C: só o período (dedupe global — uma emissão basta para o dashboard)
+      if (window.__myioHeaderFallbackPeriodEmitted) return;
+      window.__myioHeaderFallbackPeriodEmitted = true;
       const now = new Date();
       const startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
       const endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 0);
@@ -81,12 +124,11 @@ window.__myioHeaderOnInitRan = false;
         fallbackPeriod
       );
       window.dispatchEvent(new CustomEvent('myio:update-date', { detail: { period: fallbackPeriod } }));
-      window.removeEventListener('myio:dashboard-state', _fallbackHandler);
     }, 800);
   }
 
   window.addEventListener('myio:dashboard-state', _fallbackHandler);
-  console.log('[HEADER] RFC-0152: Fallback period emitter installed (module scope)');
+  console.log('[HEADER] RFC-0152b: Fallback bootstrap installed (per instance)');
 })();
 
 /* ==== RFC-0107: Contract Status Icon Management ==== */
@@ -322,6 +364,7 @@ function setupTooltipPremium(target, text) {
 self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   // Signal to the module-scope fallback emitter that onInit IS running
   window.__myioHeaderOnInitRan = true;
+  self.__myioHeaderOnInitRan = true; // RFC-0152b v2: per-instance flag
 
   const q = (sel) => self.ctx.$container[0].querySelector(sel);
 
@@ -334,8 +377,9 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     if (!document.getElementById(styleId)) {
       const s = document.createElement('style');
       s.id = styleId;
-      // Target common TB no-data overlay class names across versions
-      s.textContent = '.tb-no-data-text, .tb-widget-no-data-text { display: none !important; }';
+      // Target common TB no-data overlay class names across versions (RFC-0152b list)
+      s.textContent =
+        '.tb-no-data-text, .tb-widget-no-data-text, .tb-widget-no-data, .tb-no-data-available, .tb-no-data-available-text { display: none !important; }';
       document.head.appendChild(s);
     }
   })();
@@ -2587,21 +2631,29 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       // RFC-0054: Validate current domain
       const MyIOToast = window.MyIOUtils?.MyIOToast;
       if (!currentDomain.value) {
-        LogHelper.warn('[HEADER] ⚠️ currentDomain is null - attempting to auto-select energy');
+        // RFC-0152c: derive the domain instead of hardcoding 'energy' — on a
+        // water-only dashboard the old auto-select emitted dashboard-state(energy),
+        // poisoning the orchestrator's visibleTab: every Carregar hydrated energy
+        // (error toast) while water never refetched.
+        const autoDomain =
+          window.MyIOOrchestrator?.getVisibleTab?.() ||
+          window.MyIOOrchestrator?.getFirstEnabledDomain?.() ||
+          'energy';
+        LogHelper.warn(`[HEADER] ⚠️ currentDomain is null - auto-selecting ${autoDomain}`);
 
-        // Try to auto-select energy domain before showing error
+        // Try to auto-select the derived domain before showing error
         try {
           // Set domain directly
-          currentDomain.value = 'energy';
+          currentDomain.value = autoDomain;
 
           // Dispatch event to notify other widgets
           window.dispatchEvent(
             new CustomEvent('myio:dashboard-state', {
-              detail: { tab: 'energy' },
+              detail: { tab: autoDomain },
             })
           );
 
-          LogHelper.log('[HEADER] ✅ Auto-selected energy domain');
+          LogHelper.log(`[HEADER] ✅ Auto-selected ${autoDomain} domain`);
 
           // If still null after setting (edge case), show error
           if (!currentDomain.value) {
