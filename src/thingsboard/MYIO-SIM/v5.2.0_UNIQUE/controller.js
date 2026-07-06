@@ -1452,7 +1452,13 @@ body.filter-modal-open { overflow: hidden !important; }
   // Users: TB GET /api/customer/{id}/users — same source as the MENU user management modal
   // Alarms: GCDR Alarms API filtered by the customer's gcdrCustomerId — same rule as the v-5.4.0 header badge
   // Annotations: buildAnnotationServiceOrchestrator over SERVER_SCOPE log_annotations (RFC-0203)
+  // All customers run in parallel; each of the 3 sources lands on the card as soon as it resolves
+  // (badge spinners → values, per-card progress bar, global progress bar, CTA gated at 100%).
   const _enrichedMetaIds = new Set();
+  const _cardMetaProgress = new Map(); // entityId -> completed sources (0..3)
+  let _metaTasksTotal = 0;
+  let _metaTasksDone = 0;
+
   const enrichCardsWithMetaCounts = async () => {
     const jwt = getJwtToken();
     const cards = _currentShoppingCards || [];
@@ -1470,21 +1476,26 @@ body.filter-modal-open { overflow: hidden !important; }
       );
     };
 
-    const fetchUsersCount = async (customerTbId) => {
+    const fetchUsersMeta = async (customerTbId) => {
       try {
-        const res = await fetch(`${tbBase}/api/customer/${customerTbId}/users?pageSize=1&page=0`, {
+        const res = await fetch(`${tbBase}/api/customer/${customerTbId}/users?pageSize=100&page=0`, {
           headers: { 'X-Authorization': `Bearer ${jwt}` },
         });
         if (!res.ok) return null;
         const page = await res.json();
-        return Number(page?.totalElements ?? (Array.isArray(page?.data) ? page.data.length : 0));
+        const data = Array.isArray(page?.data) ? page.data : [];
+        const list = data.map((u) => ({
+          name: [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email || 'Usuário',
+          email: u.email || '',
+        }));
+        return { count: Number(page?.totalElements ?? list.length), list };
       } catch (err) {
         LogHelper.warn('[MetaCounts] users fetch failed:', err);
         return null;
       }
     };
 
-    const fetchAlarmsCount = async (attrs) => {
+    const fetchAlarmsMeta = async (attrs) => {
       const gcdrCustomerId = attrs?.gcdrCustomerId || '';
       if (!ALARMS_API_KEY || !gcdrCustomerId) return null;
       try {
@@ -1505,14 +1516,23 @@ body.filter-modal-open { overflow: hidden !important; }
             : Array.isArray(json?.data?.items)
               ? json.data.items
               : [];
-        return alarms.filter((a) => !isOfflineAlarm(a)).length;
+        const visible = alarms.filter((a) => !isOfflineAlarm(a));
+        return {
+          count: visible.length,
+          list: visible.slice(0, 20).map((a) => ({
+            title: a.title || a.alarmType || 'Alarme',
+            severity: a.severity || '',
+            state: a.state || '',
+            deviceName: a.deviceName || a.deviceLabel || '',
+          })),
+        };
       } catch (err) {
         LogHelper.warn('[MetaCounts] alarms fetch failed:', err);
         return null;
       }
     };
 
-    const fetchAnnotationsCount = async (customerTbId) => {
+    const fetchAnnotationsMeta = async (customerTbId) => {
       if (!MyIOLibrary.buildAnnotationServiceOrchestrator) return null;
       try {
         const orch = await MyIOLibrary.buildAnnotationServiceOrchestrator({
@@ -1520,20 +1540,51 @@ body.filter-modal-open { overflow: hidden !important; }
           tbHost: tbBase,
           jwt,
         });
-        return orch?.getTotalCount?.() ?? 0;
+        if (!orch) return null;
+        const list = [];
+        (orch.getAll?.() || []).forEach((d) => {
+          (d.annotations || []).forEach((a) => {
+            if (a.status === 'archived') return;
+            list.push({
+              text: a.text || '',
+              type: a.type || '',
+              deviceLabel: d.label || d.name || '',
+              createdAt: a.createdAt || '',
+            });
+          });
+        });
+        list.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+        return { count: orch.getTotalCount?.() ?? list.length, list: list.slice(0, 20) };
       } catch (err) {
         LogHelper.warn('[MetaCounts] annotations fetch failed:', err);
         return null;
       }
     };
 
-    // Merge counts into the CURRENT cards by entityId (deviceCounts updates replace the
-    // array concurrently, so never mutate a stale snapshot) and re-render the modal
-    const applyMetaCounts = (entityId, meta) => {
-      _currentShoppingCards = (_currentShoppingCards || []).map((c) =>
-        c.entityId === entityId ? { ...c, metaCounts: { ...(c.metaCounts || {}), ...meta } } : c
-      );
+    // Merge a partial result into the CURRENT cards by entityId (deviceCounts updates replace
+    // the array concurrently, so never mutate a stale snapshot) and re-render the modal
+    const applyMetaPatch = (entityId, countsPatch, detailsPatch) => {
+      _currentShoppingCards = (_currentShoppingCards || []).map((c) => {
+        if (c.entityId !== entityId) return c;
+        return {
+          ...c,
+          metaCounts: { ...(c.metaCounts || {}), ...countsPatch },
+          metaDetails: { ...(c.metaDetails || {}), ...(detailsPatch || {}) },
+          metaProgress: (_cardMetaProgress.get(entityId) ?? 0) / 3,
+        };
+      });
       updateWelcomeModalShoppingCards(welcomeModal, _currentShoppingCards);
+    };
+
+    // One source finished for one card: bump per-card + global progress; unlock CTA at 100%
+    const completeMetaTask = (entityId) => {
+      _cardMetaProgress.set(entityId, (_cardMetaProgress.get(entityId) ?? 0) + 1);
+      _metaTasksDone++;
+      const pct = _metaTasksTotal > 0 ? (_metaTasksDone / _metaTasksTotal) * 100 : 100;
+      welcomeModal.setEnrichmentProgress?.(pct);
+      if (_metaTasksDone >= _metaTasksTotal) {
+        welcomeModal.setCtaDisabled?.(false);
+      }
     };
 
     // Only cards from the 'customers' datasource carry a TB customer id;
@@ -1542,28 +1593,50 @@ body.filter-modal-open { overflow: hidden !important; }
       .filter((c) => c.entityType === 'CUSTOMER' && (c.customerId || c.entityId) && !_enrichedMetaIds.has(c.entityId))
       .map((c) => ({ entityId: c.entityId, customerTbId: c.customerId || c.entityId, title: c.title }));
 
+    if (targets.length === 0) return;
+
     targets.forEach((t) => _enrichedMetaIds.add(t.entityId));
+    _metaTasksTotal += targets.length * 3;
 
-    for (const target of targets) {
-      const attrs = await fetchCustomerServerScopeAttrs(target.customerTbId).catch(() => ({}));
-      const [users, alarms, annotations] = await Promise.all([
-        fetchUsersCount(target.customerTbId),
-        fetchAlarmsCount(attrs),
-        fetchAnnotationsCount(target.customerTbId),
-      ]);
+    // CTA only enabled once every source of every customer has resolved
+    welcomeModal.setCtaDisabled?.(true);
+    welcomeModal.setEnrichmentProgress?.((_metaTasksDone / _metaTasksTotal) * 100);
 
-      applyMetaCounts(target.entityId, {
-        users: users ?? 0,
-        alarms: alarms ?? 0,
-        annotations: annotations ?? 0,
-      });
-      LogHelper.log(
-        `[MetaCounts] ${target.title}: users=${users ?? 0} alarms=${alarms ?? 0} annotations=${annotations ?? 0}`
+    // Seed loading state: badge spinners + 0% card progress bar
+    targets.forEach((t) => {
+      _cardMetaProgress.set(t.entityId, _cardMetaProgress.get(t.entityId) ?? 0);
+      applyMetaPatch(t.entityId, { users: null, alarms: null, annotations: null }, {});
+    });
+
+    try {
+      await Promise.all(
+        targets.map(async (target) => {
+          const attrs = await fetchCustomerServerScopeAttrs(target.customerTbId).catch(() => ({}));
+          await Promise.all([
+            fetchUsersMeta(target.customerTbId).then((r) => {
+              completeMetaTask(target.entityId);
+              applyMetaPatch(target.entityId, { users: r?.count ?? 0 }, { users: r?.list ?? [] });
+            }),
+            fetchAlarmsMeta(attrs).then((r) => {
+              completeMetaTask(target.entityId);
+              applyMetaPatch(target.entityId, { alarms: r?.count ?? 0 }, { alarms: r?.list ?? [] });
+            }),
+            fetchAnnotationsMeta(target.customerTbId).then((r) => {
+              completeMetaTask(target.entityId);
+              applyMetaPatch(target.entityId, { annotations: r?.count ?? 0 }, { annotations: r?.list ?? [] });
+            }),
+          ]);
+          LogHelper.log(`[MetaCounts] ${target.title}: enrichment complete`);
+        })
       );
+    } catch (err) {
+      LogHelper.error('[MetaCounts] enrichment failed:', err);
+      welcomeModal.setCtaDisabled?.(false);
+      welcomeModal.setEnrichmentProgress?.(100, 'Falha ao carregar indicadores');
     }
   };
 
-  // Non-blocking: counts appear progressively as each customer resolves
+  // Non-blocking: counts appear progressively as each source resolves
   enrichCardsWithMetaCounts();
 
   // === 5. RFC-0113: RENDER HEADER COMPONENT ===
@@ -5668,6 +5741,9 @@ function buildShoppingCardsFromDatasource(data) {
           ingestionId: null,
           clickable: false, // Default false, set to true if dashboardId is found
           deviceCounts: { energy: null, water: null, temperature: null },
+          // null = loading spinner on the meta badges until enrichment resolves
+          metaCounts: { users: null, alarms: null, annotations: null },
+          metaProgress: 0,
         });
       }
 

@@ -234,5 +234,8 @@ export function openWelcomeModal(params: WelcomeModalParams): WelcomeModalInstan
     setCtaLabel: (label: string) => view.setCtaLabel(label),
     /** Set CTA button disabled state */
     setCtaDisabled: (disabled: boolean) => view.setCtaDisabled(disabled),
+    /** Update the global enrichment progress bar (0–100; fades out at 100) */
+    setEnrichmentProgress: (percent: number, label?: string) =>
+      view.setEnrichmentProgress(percent, label),
   };
 }
