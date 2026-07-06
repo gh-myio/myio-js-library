@@ -92,6 +92,19 @@ Object.keys(devices).forEach((key) => {
   };
 });
 
+// Device virtual "MQTT Sync" — forçado (sem slave físico no polling).
+// Nome ESPECIALIZADO por central via env CENTRAL_UUID ("MQTT Sync - <uuid>")
+// para não colidir entre centrais no mesmo tenant. Nesta central o slave no
+// BANCO também usa o nome especializado (mqtt-sync/create-virtual-mqtt-sync.sql);
+// o lookup tenta o especializado e cai para o legado 'MQTT Sync'.
+const MQTT_SYNC_NAME = 'MQTT Sync - ' + (centralId || 'sem-uuid');
+const mqttSyncSlave = devices[MQTT_SYNC_NAME] || devices['MQTT Sync'];
+newDeviceList[MQTT_SYNC_NAME] = {
+  deviceType: 'GLOBAL_MQTT_SYNC_STATUS',
+  centralId: centralId,
+  slaveId: (mqttSyncSlave && mqttSyncSlave.slaveId) || 'undefined',
+};
+
 msg.payload = newDeviceList;
 
 return msg;
