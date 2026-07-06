@@ -86,6 +86,10 @@ let _isRenderingOperationalGrid = false;
 
 // Global counter for credentials retry attempts (max 10 attempts)
 let _credentialsRetryCount = 0;
+// Bound for the classified-data wait in triggerApiEnrichment (was unbounded: with no
+// datasource it retried every 1s forever, piling up when onInit re-runs)
+let _classifiedRetryCount = 0;
+const MAX_CLASSIFIED_RETRIES = 30;
 const MAX_CREDENTIALS_RETRIES = 10;
 
 // RFC-0126: Module-level variables for event handlers
@@ -216,6 +220,24 @@ self.onInit = async function () {
   });
 
   LogHelper.log('[MAIN_UNIQUE] onInit called', self.ctx);
+
+  // === 1.2 WIDGET EDITOR GUARD ===
+  // Inside the ThingsBoard widget editor there are no settings/datasources: the full init
+  // (welcome modal, orchestrator, retry chains, event listeners) spams "not configured"
+  // toasts, re-registers listeners on every editor re-init and the unbounded retry chains
+  // pile up until the tab freezes. Render a lightweight placeholder and stop.
+  if (self.ctx.widgetEditMode) {
+    const host = self.ctx.$container?.[0];
+    if (host) {
+      host.innerHTML =
+        '<div style="display:flex;align-items:center;justify-content:center;height:100%;' +
+        "font:14px 'Nunito',system-ui,sans-serif;color:#64748b;text-align:center;padding:16px\">" +
+        'MAIN_UNIQUE_DATASOURCE<br>Preview desabilitado no editor de widget.<br>' +
+        'Configure settings/datasource e visualize no dashboard.</div>';
+    }
+    LogHelper.log('[MAIN_UNIQUE] widgetEditMode detected: skipping full init');
+    return;
+  }
 
   // === 2. CREDENTIALS AND UTILITIES FOR TELEMETRY WIDGET ===
   // RFC-0111: TELEMETRY widget depends on these utilities from MAIN
@@ -6480,7 +6502,16 @@ async function triggerApiEnrichment() {
   // Get current classified data - must exist before we can enrich
   const classified = window.MyIOOrchestratorData?.classified;
   if (!classified) {
-    LogHelper.log('No classified data available for enrichment, retrying in 1s...');
+    _classifiedRetryCount++;
+    if (_classifiedRetryCount >= MAX_CLASSIFIED_RETRIES) {
+      LogHelper.warn(
+        `Classified data not available after ${MAX_CLASSIFIED_RETRIES} attempts - aborting API enrichment`
+      );
+      return;
+    }
+    LogHelper.log(
+      `No classified data available for enrichment, retrying in 1s... (${_classifiedRetryCount}/${MAX_CLASSIFIED_RETRIES})`
+    );
     // RFC-0140 FIX: Retry if classified data not ready yet
     setTimeout(triggerApiEnrichment, 1000);
     return;

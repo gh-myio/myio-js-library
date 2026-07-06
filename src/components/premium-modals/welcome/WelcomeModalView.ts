@@ -328,7 +328,14 @@ export class WelcomeModalView {
         bgImageUrl: card.bgImageUrl,
         buttonId: card.buttonId,
         deviceCounts: card.deviceCounts,
-        metaCounts: card.metaCounts,
+        // V2 cards don't support the null=loading contract — coerce null to undefined
+        metaCounts: card.metaCounts
+          ? {
+              users: card.metaCounts.users ?? undefined,
+              alarms: card.metaCounts.alarms ?? undefined,
+              notifications: card.metaCounts.notifications ?? undefined,
+            }
+          : undefined,
       };
 
       const instance = createCustomerCardV2({
