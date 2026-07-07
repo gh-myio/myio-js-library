@@ -2868,87 +2868,1334 @@ body.filter-modal-open { overflow: hidden !important; }
   }
 
   // === 14. Issue 1 fix: LISTEN FOR GOALS PANEL REQUESTS ===
-  window.addEventListener('myio:open-goals-panel', () => {
-    LogHelper.log('[MAIN_UNIQUE] Goals panel requested');
+  // Head office (UNIQUE): metas pertencem a cada shopping filho — cada um com seu próprio
+  // gcdrCustomerId/gcdrApiKey no SERVER_SCOPE. O clique abre um seletor de shopping e o
+  // GoalsPanel é aberto com as credenciais GCDR do shopping escolhido.
 
-    const toastError = (msg) => {
-      if (MyIOLibrary?.MyIOToast?.error) MyIOLibrary.MyIOToast.error(msg);
-      else window.alert(msg);
+  const _goalsToastError = (msg) => {
+    if (MyIOLibrary?.MyIOToast?.error) MyIOLibrary.MyIOToast.error(msg);
+    else window.alert(msg);
+  };
+
+  // Abre o GoalsPanel para um customer TB específico (shopping filho ou, em fallback,
+  // o próprio customer do dashboard). Busca os attrs SERVER_SCOPE na hora — a chave
+  // GCDR é per-customer, não pode reutilizar a do head office.
+  const openGoalsForCustomer = async (customerTbId, customerTitle) => {
+    const attrs = await fetchCustomerServerScopeAttrs(customerTbId).catch(() => ({}));
+
+    // openGoalsPanel chama GET/PUT /customers/:id/goals no GCDR — o :id é o UUID do
+    // customer NO GCDR (attr SERVER_SCOPE gcdrCustomerId), não o UUID do ThingsBoard.
+    const gcdrCustomerId = attrs?.gcdrCustomerId || '';
+    if (!gcdrCustomerId) {
+      LogHelper.error('[MAIN_UNIQUE] gcdrCustomerId missing for', customerTitle, customerTbId);
+      _goalsToastError(
+        `"${customerTitle}" não está vinculado ao GCDR: defina o atributo gcdrCustomerId no customer (SERVER_SCOPE) — o GCDR Sync faz esse vínculo.`
+      );
+      return;
+    }
+
+    // Metas vêm do GCDR (RFC-0046): auth via X-API-Key + base URL das settings
+    // (GCDR_API_BASE lido no onInit a partir de settings.gcdrApiBaseUrl).
+    const gcdrBaseUrl =
+      GCDR_API_BASE ||
+      window.MyIOOrchestrator?.gcdrApiBaseUrl ||
+      window.GCDR_API_HOST ||
+      window.DATA_API_HOST;
+    // X-API-Key: overrides manuais (dev) primeiro; depois a chave DO SHOPPING (SERVER_SCOPE
+    // gcdrApiKey — a chave é per-customer); por fim os fallbacks do widget/head office.
+    const gcdrApiKey =
+      window.GCDR_CUSTOMER_API_KEY ||
+      localStorage.getItem('gcdr_customer_api_key') ||
+      attrs?.gcdrApiKey ||
+      GCDR_API_KEY ||
+      window.MyIOOrchestrator?.gcdrApiKey ||
+      settings.gcdrApiKey ||
+      '';
+    if (!gcdrBaseUrl || !gcdrApiKey) {
+      LogHelper.error('[MAIN_UNIQUE] GCDR credentials missing for', customerTitle, customerTbId);
+      _goalsToastError(
+        `Configuração do GCDR ausente para "${customerTitle}": defina o atributo gcdrApiKey no customer (SERVER_SCOPE) ou o setting "GCDR API Key" do widget.`
+      );
+      return;
+    }
+
+    LogHelper.log('[MAIN_UNIQUE] Opening Goals Panel (GCDR):', { customerTitle, gcdrCustomerId });
+
+    MyIOLibrary.openGoalsPanel({
+      customerId: gcdrCustomerId,
+      apiKey: gcdrApiKey,
+      baseUrl: gcdrBaseUrl,
+      domain: 'ENERGY',
+      locale: 'pt-BR',
+      onSaved: async (writeResult) => {
+        LogHelper.log('[MAIN_UNIQUE] Goals saved (GCDR):', writeResult?.version);
+        window.dispatchEvent(
+          new CustomEvent('myio:goals-updated', {
+            detail: { writeResult, customerId: gcdrCustomerId, timestamp: Date.now() },
+          })
+        );
+      },
+      onClose: () => {
+        LogHelper.log('[MAIN_UNIQUE] Goals Panel closed');
+      },
+      styles: {
+        primaryColor: '#6a1b9a',
+        errorColor: '#dc3545',
+        borderRadius: '8px',
+        zIndex: 10000,
+      },
+    });
+  };
+
+  // Seletor de shopping: overlay leve no padrão dos modais premium (Nunito, accent roxo).
+  // Resolve com { tbId, title } ou null (Esc / backdrop / ✕).
+  const pickGoalsShopping = (shoppings) =>
+    new Promise((resolve) => {
+      const prev = document.getElementById('myio-goals-shopping-picker');
+      if (prev) prev.remove();
+
+      const overlay = document.createElement('div');
+      overlay.id = 'myio-goals-shopping-picker';
+      overlay.style.cssText =
+        'position:fixed;inset:0;z-index:10000;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;font-family:Nunito,sans-serif;';
+
+      const items = shoppings
+        .map(
+          (s, i) =>
+            `<button type="button" data-idx="${i}" style="display:flex;align-items:center;gap:10px;width:100%;padding:12px 16px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;cursor:pointer;font:600 14px Nunito,sans-serif;color:#1e293b;text-align:left;">🏢 <span>${String(s.title || 'Shopping').replace(/</g, '&lt;')}</span></button>`
+        )
+        .join('');
+
+      overlay.innerHTML = `
+        <div role="dialog" aria-label="Selecionar shopping" style="background:#fff;border-radius:12px;max-width:420px;width:calc(100% - 32px);max-height:80vh;display:flex;flex-direction:column;box-shadow:0 20px 50px rgba(0,0,0,.25);overflow:hidden;">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:#6a1b9a;color:#fff;">
+            <strong style="font:700 15px Nunito,sans-serif;">🎯 Metas — selecione o shopping</strong>
+            <button type="button" data-close="1" aria-label="Fechar" style="border:0;background:transparent;color:#fff;font-size:18px;cursor:pointer;line-height:1;">✕</button>
+          </div>
+          <div style="padding:16px 18px;display:flex;flex-direction:column;gap:8px;overflow-y:auto;">${items}</div>
+        </div>`;
+
+      const done = (result) => {
+        overlay.remove();
+        document.removeEventListener('keydown', onKey);
+        resolve(result);
+      };
+      const onKey = (e) => {
+        if (e.key === 'Escape') done(null);
+      };
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay || e.target.closest('[data-close]')) return done(null);
+        const btn = e.target.closest('[data-idx]');
+        if (btn) done(shoppings[Number(btn.dataset.idx)]);
+      });
+      document.addEventListener('keydown', onKey);
+      document.body.appendChild(overlay);
+    });
+
+  // ── Metas × Consumo (head office): painel único comparando todos os shoppings ──
+  // Fiel ao fluxo do v-5.2.0 (MENU → Metas → GoalsModal), mas multi-customer: metas
+  // mensais do GCDR (per-shopping gcdrApiKey) × consumo do endpoint agregado do Data
+  // API (/telemetry/customers/{ingestionId}/{domain}/ — mesma fonte do GoalsModal).
+
+  const _gcdrV1 = (base) => {
+    const b = String(base || '').replace(/\/+$/, '');
+    return /\/api\/v1$/.test(b) ? b : `${b}/api/v1`;
+  };
+
+  const _shoppingAttrsCache = new Map(); // customerTbId -> attrs SERVER_SCOPE
+  const getShoppingAttrs = async (tbId) => {
+    if (!_shoppingAttrsCache.has(tbId)) {
+      _shoppingAttrsCache.set(tbId, await fetchCustomerServerScopeAttrs(tbId).catch(() => ({})));
+    }
+    return _shoppingAttrsCache.get(tbId);
+  };
+
+  const _escHtml = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const _fmtNum = (n) =>
+    n == null || Number.isNaN(Number(n)) ? '—' : Number(n).toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+
+  // Árvore de metas do shopping no GCDR. Chaves por granularidade (mesmo formato que o
+  // GoalsModal v-5.2.0 lê): month → tree.monthly["01".."12"]; day → tree.daily["MM-DD"];
+  // hour → tree.hourly["MM-DDThh"]. Cache por (customer, domínio, ano, gran).
+  const _goalsTreeCache = new Map();
+  const fetchShoppingGoalsTree = async (attrs, gcdrDomain, year, gran = 'month') => {
+    const gcdrCustomerId = attrs?.gcdrCustomerId || '';
+    const apiKey = attrs?.gcdrApiKey || GCDR_API_KEY || settings.gcdrApiKey || '';
+    if (!gcdrCustomerId || !apiKey) return null;
+    const cacheKey = `${gcdrCustomerId}|${gcdrDomain}|${year}|${gran}`;
+    if (_goalsTreeCache.has(cacheKey)) return _goalsTreeCache.get(cacheKey);
+    const base = _gcdrV1(GCDR_API_BASE || window.MyIOOrchestrator?.gcdrApiBaseUrl || '');
+    const res = await fetch(
+      `${base}/customers/${encodeURIComponent(gcdrCustomerId)}/goals?domain=${gcdrDomain}&year=${year}&granularity=${gran}`,
+      { headers: { 'X-API-Key': apiKey, Accept: 'application/json' }, signal: AbortSignal.timeout(30000) }
+    );
+    if (!res.ok) {
+      _goalsTreeCache.set(cacheKey, null);
+      return null;
+    }
+    const json = await res.json();
+    const tree = json?.data?.tree || null;
+    _goalsTreeCache.set(cacheKey, tree);
+    return tree;
+  };
+
+  // Consumo de TODOS os shoppings numa ÚNICA chamada: /devices/totals do customer
+  // head-office (deep=1), agrupado pelo customerId (ingestion) que a própria API devolve
+  // por device. Muito mais rápido que 1 chamada por shopping (~17s vs 2min+ cada) e
+  // inclui medidores fora do datasource TB (ex.: trafos de entrada).
+  // Retorna Map<ingestionCustomerId, total>.
+  const fetchAllShoppingsConsumption = async (apiDomain, startISO, endISO) => {
+    const creds = window.MyIOUtils?.getCredentials?.();
+    if (!creds?.clientId || !creds?.customerId || !MyIOLibrary?.buildMyioIngestionAuth) return null;
+    const auth = MyIOLibrary.buildMyioIngestionAuth({
+      dataApiHost: creds.dataApiHost,
+      clientId: creds.clientId,
+      clientSecret: creds.clientSecret,
+    });
+    const token = await auth.getToken();
+    if (!token) return null;
+    const url = new URL(`${creds.dataApiHost}/telemetry/customers/${creds.customerId}/${apiDomain}/devices/totals`);
+    url.searchParams.set('startTime', startISO);
+    url.searchParams.set('endTime', endISO);
+    url.searchParams.set('deep', '1');
+    const res = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(150000),
+    });
+    if (!res.ok) return null;
+    const payload = await res.json();
+    const arr = Array.isArray(payload) ? payload : (payload?.data ?? []);
+    const byCustomer = new Map();
+    for (const d of arr) {
+      const cid = d.customerId || d.customer_id || '';
+      if (!cid) continue;
+      byCustomer.set(cid, (byCustomer.get(cid) || 0) + (Number(d.total_value ?? d.value) || 0));
+    }
+    return byCustomer;
+  };
+
+  // ── ENERGIA: as metas são definidas contra os medidores de ENTRADA (mesma semântica
+  // do grupo Entrada usado pelo GoalsModal do v-5.2.0) — somar todos os devices conta
+  // duplicado (entrada + sub-medidores ≈ 2× a meta). Curadoria dos medidores de entrada:
+  // profile de trafo/agregador + "ENTRADA" no nome, excluindo CAG (trafos de climatização
+  // compartilham o mesmo profile). Se a plataforma expuser curadoria explícita
+  // (grupo/attr por shopping), substituir este heurístico aqui.
+  const ENTRADA_PROFILE_ID = 'afe5c9ba-3ade-4bb8-b703-c53c2c190cf9';
+  const _isEntradaDevice = (d) =>
+    d.profileId === ENTRADA_PROFILE_ID && /ENTRADA/i.test(d.name || '') && !/CAG/i.test(d.name || '');
+
+  let _entradaDevicesPromise = null; // cache da sessão: [{id, customerId, name}]
+  const getEntradaDevices = () => {
+    if (_entradaDevicesPromise) return _entradaDevicesPromise;
+    _entradaDevicesPromise = (async () => {
+      const creds = window.MyIOUtils?.getCredentials?.();
+      if (!creds?.clientId || !creds?.customerId || !MyIOLibrary?.buildMyioIngestionAuth) return [];
+      const auth = MyIOLibrary.buildMyioIngestionAuth({
+        dataApiHost: creds.dataApiHost,
+        clientId: creds.clientId,
+        clientSecret: creds.clientSecret,
+      });
+      const token = await auth.getToken();
+      if (!token) return [];
+      // Range curto — a chamada serve só para LISTAR os devices de entrada
+      const end = new Date();
+      const start = new Date(end.getTime() - 24 * 3600 * 1000);
+      const url = new URL(`${creds.dataApiHost}/telemetry/customers/${creds.customerId}/energy/devices/totals`);
+      url.searchParams.set('startTime', start.toISOString());
+      url.searchParams.set('endTime', end.toISOString());
+      url.searchParams.set('deep', '1');
+      const res = await fetch(url.toString(), {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: AbortSignal.timeout(120000),
+      });
+      if (!res.ok) return [];
+      const payload = await res.json();
+      const arr = Array.isArray(payload) ? payload : (payload?.data ?? []);
+      return arr.filter(_isEntradaDevice).map((d) => ({ id: d.id, customerId: d.customerId, name: d.name }));
+    })().catch(() => {
+      _entradaDevicesPromise = null;
+      return [];
+    });
+    return _entradaDevicesPromise;
+  };
+
+  // Série de UM device (~1s) — base do consumo de entrada. A Data API dá 500
+  // intermitente em ranges longos: 1 retry após 800ms antes de desistir.
+  const fetchDeviceSeries = async (deviceId, apiDomain, startISO, endISO, granularity, _retry = true) => {
+    const creds = window.MyIOUtils?.getCredentials?.();
+    if (!creds?.clientId || !MyIOLibrary?.buildMyioIngestionAuth) return [];
+    const auth = MyIOLibrary.buildMyioIngestionAuth({
+      dataApiHost: creds.dataApiHost,
+      clientId: creds.clientId,
+      clientSecret: creds.clientSecret,
+    });
+    const token = await auth.getToken();
+    if (!token) return [];
+    const url = new URL(`${creds.dataApiHost}/telemetry/devices/${deviceId}/${apiDomain}`);
+    url.searchParams.set('startTime', startISO);
+    url.searchParams.set('endTime', endISO);
+    url.searchParams.set('granularity', granularity);
+    url.searchParams.set('deep', '0');
+    let res;
+    try {
+      res = await fetch(url.toString(), {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: AbortSignal.timeout(60000),
+      });
+    } catch (err) {
+      if (_retry) {
+        await new Promise((r) => setTimeout(r, 800));
+        return fetchDeviceSeries(deviceId, apiDomain, startISO, endISO, granularity, false);
+      }
+      throw err;
+    }
+    if (!res.ok) {
+      if (_retry && res.status >= 500) {
+        await new Promise((r) => setTimeout(r, 800));
+        return fetchDeviceSeries(deviceId, apiDomain, startISO, endISO, granularity, false);
+      }
+      return []; // 4xx (ex.: 403 em ano sem dados do device) → sem pontos
+    }
+    const body = await res.json();
+    const ent = Array.isArray(body) ? body[0] : body;
+    return ent?.consumption || [];
+  };
+
+  // Consumo de ENTRADA por shopping (energia): série 1d de cada medidor de entrada,
+  // somada por customer (~8 devices em paralelo, ~2s). Retorna Map<ingestionCustomerId, total>.
+  const fetchEntradaTotalsByCustomer = async (startISO, endISO) => {
+    const devices = await getEntradaDevices();
+    if (!devices.length) return null;
+    const byCustomer = new Map();
+    await Promise.all(
+      devices.map(async (d) => {
+        const pts = await fetchDeviceSeries(d.id, 'energy', startISO, endISO, '1d').catch(() => []);
+        const total = pts.reduce((s, pt) => s + (Number(pt?.value) || 0), 0);
+        byCustomer.set(d.customerId, (byCustomer.get(d.customerId) || 0) + total);
+      })
+    );
+    return byCustomer;
+  };
+
+  // Séries de entrada POR SHOPPING (energia) — Map<ingestionCustomerId, pontos[]>.
+  // Base do gráfico único (consolidado soma os customers; por shopping usa cada um).
+  const fetchEntradaPointsByCustomer = async (startISO, endISO, granularity) => {
+    const devices = await getEntradaDevices();
+    if (!devices.length) return null;
+    const byCust = new Map();
+    await Promise.all(
+      devices.map(async (d) => {
+        const pts = await fetchDeviceSeries(d.id, 'energy', startISO, endISO, granularity).catch(() => []);
+        const list = byCust.get(d.customerId) || [];
+        list.push(...pts);
+        byCust.set(d.customerId, list);
+      })
+    );
+    return byCust;
+  };
+
+  // Série temporal agregada do head-office (todos os shoppings somados) — endpoint
+  // /{domain}/ com granularity 1d|1h. LENTO em ranges grandes (~1-2min p/ um mês);
+  // usado na Evolução × Meta de ÁGUA (energia usa fetchEntradaPointsByCustomer, rápida).
+  // Retorna [{timestamp, value}] somado por ts.
+  const fetchHeadOfficeSeries = async (apiDomain, startISO, endISO, granularity, customerIngestionId = null) => {
+    const creds = window.MyIOUtils?.getCredentials?.();
+    if (!creds?.clientId || !creds?.customerId || !MyIOLibrary?.buildMyioIngestionAuth) return null;
+    const auth = MyIOLibrary.buildMyioIngestionAuth({
+      dataApiHost: creds.dataApiHost,
+      clientId: creds.clientId,
+      clientSecret: creds.clientSecret,
+    });
+    const token = await auth.getToken();
+    if (!token) return null;
+    const url = new URL(
+      `${creds.dataApiHost}/telemetry/customers/${customerIngestionId || creds.customerId}/${apiDomain}/`
+    );
+    url.searchParams.set('startTime', startISO);
+    url.searchParams.set('endTime', endISO);
+    url.searchParams.set('deep', '1');
+    url.searchParams.set('granularity', granularity);
+    const res = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(180000),
+    });
+    if (!res.ok) return null;
+    const payload = await res.json();
+    const arr = Array.isArray(payload) ? payload : (payload?.data ?? []);
+    const byTs = new Map();
+    for (const ent of arr)
+      for (const pt of ent?.consumption || []) {
+        if (!pt) continue;
+        byTs.set(pt.timestamp, (byTs.get(pt.timestamp) || 0) + (Number(pt.value) || 0));
+      }
+    return Array.from(byTs, ([timestamp, value]) => ({ timestamp, value }));
+  };
+
+  const GOALS_COMPARE_DOMAINS = {
+    energy: { label: '⚡ Energia', gcdr: 'ENERGY', api: 'energy', unit: 'kWh' },
+    water: { label: '💧 Água', gcdr: 'WATER', api: 'water', unit: 'm³' },
+  };
+
+  const openGoalsCompare = (shoppings) => {
+    const prevRoot = document.getElementById('myio-goals-compare-root');
+    if (prevRoot) prevRoot.remove();
+
+    let domainKey = 'energy';
+    // Período selecionado (createDateRangePicker da lib) — default: mês corrente até agora
+    let period = (typeof MyIOLibrary?.getDefaultPeriodCurrentMonthSoFar === 'function'
+      ? MyIOLibrary.getDefaultPeriodCurrentMonthSoFar()
+      : null) || {
+      startISO: `${new Date().toISOString().slice(0, 8)}01T00:00:00-03:00`,
+      endISO: new Date().toISOString(),
     };
+    let reqSeq = 0; // descarta respostas de um load antigo (troca rápida de domínio/período)
+
+    // Dia local (fuso do navegador) de um ISO — endISO pode vir em UTC e "virar" o dia
+    const isoLocalDay = (iso) => {
+      const d = new Date(iso);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    };
+
+    // Dias (com ano) cobertos pelo período — base p/ meta diária somada e labels da view Dia
+    const daysInPeriod = () => {
+      const days = [];
+      const d = new Date(`${isoLocalDay(period.startISO)}T12:00:00`);
+      const end = new Date(`${isoLocalDay(period.endISO)}T12:00:00`);
+      while (d <= end && days.length < 370) {
+        days.push({
+          y: String(d.getFullYear()),
+          key: `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`,
+          label: `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`,
+          iso: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`,
+        });
+        d.setDate(d.getDate() + 1);
+      }
+      return days;
+    };
+    const periodLabel = () => {
+      const s = isoLocalDay(period.startISO);
+      const e = isoLocalDay(period.endISO);
+      return `${s.slice(8, 10)}/${s.slice(5, 7)}–${e.slice(8, 10)}/${e.slice(5, 7)}/${e.slice(0, 4)}`;
+    };
+
+    // Meta do shopping no período = soma das metas diárias (tree.daily) dos dias do range
+    const metaForPeriod = async (attrs, cfgD) => {
+      const days = daysInPeriod();
+      const years = [...new Set(days.map((dd) => dd.y))];
+      const treesByYear = {};
+      for (const y of years) {
+        treesByYear[y] = await fetchShoppingGoalsTree(attrs, cfgD.gcdr, y, 'day').catch(() => null);
+      }
+      let sum = 0;
+      let has = false;
+      for (const dd of days) {
+        const v = treesByYear[dd.y]?.daily?.[dd.key]?.value;
+        if (v != null) {
+          sum += Number(v) || 0;
+          has = true;
+        }
+      }
+      return has ? sum : null;
+    };
+
+    const overlay = document.createElement('div');
+    overlay.id = 'myio-goals-compare-root';
+    overlay.style.cssText =
+      'position:fixed;inset:0;z-index:10000;background:rgba(15,23,42,.5);display:flex;align-items:center;justify-content:center;font-family:Nunito,sans-serif;';
+    // Cores tematizáveis via CSS vars (--gc-*) setadas no overlay por applyModalTheme()
+    const hdrBtn =
+      'border:1px solid rgba(255,255,255,.5);border-radius:8px;background:rgba(255,255,255,.12);color:#fff;padding:6px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;';
+    overlay.innerHTML = `
+      <div role="dialog" data-gc-dialog aria-label="Metas × Consumo" style="background:var(--gc-surface);border-radius:14px;width:min(1200px,calc(100% - 32px));max-height:92vh;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.3);overflow:hidden;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 20px;background:linear-gradient(135deg,#4a148c,#6a1b9a);color:#fff;flex-shrink:0;">
+          <strong style="font:700 16px Nunito,sans-serif;">📊 Metas × Consumo — Todos os Shoppings</strong>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <button type="button" data-thm title="Alternar tema claro/escuro" style="${hdrBtn}">🌙</button>
+            <button type="button" data-max title="Maximizar" style="${hdrBtn}">⛶</button>
+            <button type="button" data-pdf style="${hdrBtn}">⬇️ PDF</button>
+            <button type="button" data-close="1" aria-label="Fechar" style="border:0;background:transparent;color:#fff;font-size:20px;cursor:pointer;line-height:1;">✕</button>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--gc-border);flex-wrap:wrap;flex-shrink:0;">
+          <div data-tabs style="display:flex;gap:6px;">
+            ${Object.entries(GOALS_COMPARE_DOMAINS)
+              .map(
+                ([k, d]) =>
+                  `<button type="button" data-domain="${k}" style="border:1px solid #6a1b9a;border-radius:8px;padding:6px 14px;cursor:pointer;font:700 13px Nunito,sans-serif;">${d.label}</button>`
+              )
+              .join('')}
+          </div>
+          <label style="display:flex;align-items:center;gap:8px;font:600 13px Nunito,sans-serif;color:var(--gc-text2);">Período
+            <input type="text" data-period readonly placeholder="Selecione o período" style="border:1px solid var(--gc-input-border);border-radius:8px;padding:6px 10px;font:600 13px Nunito,sans-serif;color:var(--gc-text);width:210px;cursor:pointer;background:var(--gc-surface);" />
+          </label>
+          <span data-status style="font:600 12px Nunito,sans-serif;color:var(--gc-muted);margin-left:auto;"></span>
+        </div>
+        <div style="padding:16px 20px;overflow-y:auto;display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap;">
+          <div style="flex:1 1 560px;min-width:0;display:flex;flex-direction:column;gap:16px;">
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+              <div data-evo-grans style="display:flex;gap:4px;background:var(--gc-chip);border-radius:8px;padding:3px;">
+                <button type="button" data-gran="1M" style="border:0;border-radius:6px;padding:5px 14px;cursor:pointer;font:700 12px Nunito,sans-serif;">Mês</button>
+                <button type="button" data-gran="1d" style="border:0;border-radius:6px;padding:5px 14px;cursor:pointer;font:700 12px Nunito,sans-serif;">Dia</button>
+                <button type="button" data-gran="1h" style="border:0;border-radius:6px;padding:5px 14px;cursor:pointer;font:700 12px Nunito,sans-serif;">Hora</button>
+              </div>
+              <div data-evo-modes style="display:flex;gap:4px;background:var(--gc-chip);border-radius:8px;padding:3px;">
+                <button type="button" data-mode="cons" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Consolidado</button>
+                <button type="button" data-mode="stack" title="Todos os shoppings empilhados; meta única (soma)" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Shoppings · empilhado</button>
+                <button type="button" data-mode="sep" title="Um par de barras e uma linha de meta por shopping" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Shoppings · separado</button>
+              </div>
+              <span data-evo-status style="font:600 12px Nunito,sans-serif;color:var(--gc-muted);margin-left:auto;"></span>
+            </div>
+            <div style="position:relative;height:340px;"><canvas data-evo-chart></canvas></div>
+            <div style="font:600 11px Nunito,sans-serif;color:var(--gc-muted2);">Barras: consumo do período e do mesmo período no ano anterior · Linha(s): meta GCDR — consolidado/empilhado = soma dos shoppings (linha única); separado = uma linha tracejada por customer · Consumo Energia: medidores de ENTRADA (régua das metas) · Água: hidrômetros · Dia/Hora seguem o intervalo selecionado; Hora disponível para intervalos de até 15 dias · Gestão: 🎯 Metas → Gestão de Metas.</div>
+          </div>
+          <aside style="flex:0 0 330px;max-width:100%;display:flex;flex-direction:column;gap:8px;" data-side>
+            <strong style="font:700 13px Nunito,sans-serif;color:var(--gc-muted);">Resumo por shopping</strong>
+            <div data-table style="display:flex;flex-direction:column;gap:8px;"></div>
+          </aside>
+        </div>
+      </div>`;
+
+    const periodInput = overlay.querySelector('[data-period]');
+    const statusEl = overlay.querySelector('[data-status]');
+    const tableEl = overlay.querySelector('[data-table]');
+    const evoStatusEl = overlay.querySelector('[data-evo-status]');
+    const evoCanvas = overlay.querySelector('[data-evo-chart]');
+    const dialogEl = overlay.querySelector('[data-gc-dialog]');
+
+    // ── Tema (sincronizado com o dashboard via myio:theme-change / RFC-0120) ──
+    const GC_THEMES = {
+      light: {
+        surface: '#ffffff', surface2: '#f8fafc', chip: '#f1f5f9', border: '#e2e8f0',
+        text: '#1e293b', text2: '#334155', muted: '#64748b', muted2: '#94a3b8',
+        inputBorder: '#cbd5e1', pillActiveBg: '#ffffff', pillActiveTx: '#3e1a7d',
+        tabIdleBg: '#ffffff', chartTick: '#475569', chartGrid: 'rgba(100,116,139,.15)',
+      },
+      dark: {
+        surface: '#1e293b', surface2: '#273449', chip: '#0f172a', border: '#334155',
+        text: '#e2e8f0', text2: '#cbd5e1', muted: '#94a3b8', muted2: '#64748b',
+        inputBorder: '#475569', pillActiveBg: '#6a1b9a', pillActiveTx: '#ffffff',
+        tabIdleBg: '#1e293b', chartTick: '#cbd5e1', chartGrid: 'rgba(148,163,184,.15)',
+      },
+    };
+    let modalTheme =
+      (typeof currentThemeMode === 'string' ? currentThemeMode : window.MyIOUtils?.currentThemeMode) === 'dark'
+        ? 'dark'
+        : 'light';
+    let isMax = false;
+    let lastEvo = null; // {labels, datasets, stacked} — re-render no toggle de tema
+
+    // — Gráfico único Metas × Consumo: cores fiéis ao GoalsModal v-5.2.0 (consolidado:
+    // barra do domínio + ano-1 cinza + meta linha laranja; por shopping: paleta por
+    // customer, ano-1 mesma cor translúcida, meta tracejada da cor do shopping) —
+    const EVO_COLORS = {
+      energy: { bar: '#6c5ce7', goal: '#f97316' },
+      water: { bar: '#0891b2', goal: '#f59e0b' },
+    };
+    const SHOP_PALETTE = ['#6c5ce7', '#0ea5e9', '#22c55e', '#eab308', '#ef4444', '#14b8a6', '#d946ef', '#f97316'];
+    const rgba = (hex, a) => {
+      const n = parseInt(hex.slice(1), 16);
+      return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+    };
+    const MONTHS_PT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    // Default 'Dia': o gráfico abre respeitando o intervalo do picker (Mês = visão anual, opt-in)
+    let evoGran = '1d';
+    let evoMode = 'cons'; // 'cons' = consolidado (soma) | 'sep' = por shopping
+    let evoChart = null;
+    let evoSeq = 0;
+    const evoConsCache = new Map(); // consumo por (domínio, gran, range) — troca de aba não refaz fetch
+
+    const paintTabs = () => {
+      const t = GC_THEMES[modalTheme];
+      overlay.querySelectorAll('[data-domain]').forEach((b) => {
+        const active = b.dataset.domain === domainKey;
+        b.style.background = active ? '#6a1b9a' : t.tabIdleBg;
+        b.style.color = active ? '#fff' : modalTheme === 'dark' ? '#b794f6' : '#6a1b9a';
+      });
+    };
+
+    const statusChip = (meta, consumo) => {
+      // undefined = ainda carregando (null = carregou e não há dado)
+      if (meta === undefined || consumo === undefined)
+        return '<span style="background:#ede9fe;color:#6d28d9;border-radius:999px;padding:2px 10px;font:700 11px Nunito,sans-serif;">⏳ Carregando…</span>';
+      if (meta == null || meta <= 0)
+        return '<span style="background:#f1f5f9;color:#64748b;border-radius:999px;padding:2px 10px;font:700 11px Nunito,sans-serif;">Sem meta</span>';
+      if (consumo == null)
+        return '<span style="background:#f1f5f9;color:#64748b;border-radius:999px;padding:2px 10px;font:700 11px Nunito,sans-serif;">Sem consumo</span>';
+      const pct = (consumo / meta) * 100;
+      if (pct <= 90)
+        return `<span style="background:#dcfce7;color:#15803d;border-radius:999px;padding:2px 10px;font:700 11px Nunito,sans-serif;">${pct.toFixed(1)}% · Dentro da meta</span>`;
+      if (pct <= 100)
+        return `<span style="background:#fef9c3;color:#a16207;border-radius:999px;padding:2px 10px;font:700 11px Nunito,sans-serif;">${pct.toFixed(1)}% · Atenção</span>`;
+      return `<span style="background:#fee2e2;color:#b91c1c;border-radius:999px;padding:2px 10px;font:700 11px Nunito,sans-serif;">${pct.toFixed(1)}% · Acima da meta</span>`;
+    };
+
+    // Última renderização — fonte de dados do export PDF
+    let lastRows = null;
+    let lastUnit = '';
+
+    // Sidebar compacta: 1 card por shopping (nome + chip; meta/consumo na 2ª linha)
+    const renderTable = (rows, unit) => {
+      lastRows = rows;
+      lastUnit = unit;
+      const loading = rows.some((r) => r.meta === undefined || r.consumo === undefined);
+      const totalMeta = rows.reduce((s, r) => s + (r.meta || 0), 0);
+      const totalCons = rows.reduce((s, r) => s + (r.consumo || 0), 0);
+      const fmtCell = (v) => (v === undefined ? '⏳' : _fmtNum(v));
+      const item = (title, meta, consumo, bold) => `
+        <div style="border:1px solid var(--gc-border);border-radius:10px;padding:8px 10px;display:flex;flex-direction:column;gap:4px;${bold ? 'background:var(--gc-surface2);' : ''}">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+            <span style="font:${bold ? 800 : 700} 12px Nunito,sans-serif;color:var(--gc-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${bold ? '' : '🏢 '}${_escHtml(title)}</span>
+            ${statusChip(meta, consumo)}
+          </div>
+          <div style="font:600 11px Nunito,sans-serif;color:var(--gc-muted);">Meta <b style="color:var(--gc-text2);">${fmtCell(meta)}</b> · Consumo <b style="color:var(--gc-text2);">${fmtCell(consumo)}</b> ${unit}</div>
+        </div>`;
+      tableEl.innerHTML =
+        rows.map((r) => item(r.title, r.meta, r.consumo, false)).join('') +
+        item(
+          `Total${loading ? ' (parcial)' : ''}`,
+          loading ? undefined : totalMeta || null,
+          loading ? undefined : totalCons || null,
+          true
+        );
+    };
+
+    const load = async () => {
+      const seq = ++reqSeq;
+      const cfg = GOALS_COMPARE_DOMAINS[domainKey];
+      const startISO = period.startISO;
+      const endISO = period.endISO;
+      paintTabs();
+
+      // Render progressivo: sidebar aparece já com todos os shoppings em "carregando".
+      // Metas (GCDR, rápidas) preenchem por card; consumo chega de uma vez.
+      // undefined = carregando; null = sem dado.
+      const rows = shoppings.map((s) => ({ title: s.title, meta: undefined, consumo: undefined, ingestionId: null }));
+      const refresh = () => {
+        const metasPend = rows.filter((r) => r.meta === undefined).length;
+        const consPend = rows.some((r) => r.consumo === undefined);
+        statusEl.textContent =
+          metasPend || consPend
+            ? `Carregando…${metasPend ? ` metas ${rows.length - metasPend}/${rows.length}` : ''}${consPend ? ' · consumo ⏳' : ''}`
+            : `${cfg.label.replace(/^\S+\s/, '')} · ${periodLabel()}`;
+        renderTable(rows, cfg.unit);
+      };
+      refresh();
+
+      // Attrs primeiro (cacheados após a 1ª vez): ingestionId casa consumo↔shopping
+      await Promise.all(
+        shoppings.map(async (s, i) => {
+          const attrs = await getShoppingAttrs(s.tbId);
+          rows[i].ingestionId = attrs?.ingestionId || null;
+          rows[i]._attrs = attrs;
+        })
+      );
+      if (seq !== reqSeq) return;
+
+      // Meta do período = soma das metas diárias do range (createDateRangePicker)
+      const goalsP = Promise.all(
+        rows.map(async (row) => {
+          const meta = await metaForPeriod(row._attrs, cfg).catch(() => null);
+          if (seq !== reqSeq) return;
+          row.meta = meta;
+          refresh();
+        })
+      );
+      // Energia: só medidores de ENTRADA (régua das metas); Água: todos os hidrômetros
+      const consP = (domainKey === 'energy'
+        ? fetchEntradaTotalsByCustomer(startISO, endISO)
+        : fetchAllShoppingsConsumption(cfg.api, startISO, endISO)
+      )
+        .catch(() => null)
+        .then((byCustomer) => {
+          if (seq !== reqSeq) return;
+          rows.forEach((r) => {
+            r.consumo = byCustomer ? (byCustomer.get(r.ingestionId) ?? null) : null;
+          });
+          refresh();
+        });
+      await Promise.all([goalsP, consP]);
+    };
+
+    const paintEvoGrans = () => {
+      const t = GC_THEMES[modalTheme];
+      const rangeDays = daysInPeriod().length;
+      overlay.querySelectorAll('[data-gran]').forEach((b) => {
+        const active = b.dataset.gran === evoGran;
+        // Hora só para intervalos de até 15 dias (senão seriam centenas de buckets)
+        const disabled = b.dataset.gran === '1h' && rangeDays > 15;
+        b.disabled = disabled;
+        b.title = disabled ? 'Hora: disponível para intervalos de até 15 dias' : '';
+        b.style.opacity = disabled ? '.4' : '1';
+        b.style.cursor = disabled ? 'not-allowed' : 'pointer';
+        b.style.background = active ? t.pillActiveBg : 'transparent';
+        b.style.color = active ? t.pillActiveTx : t.muted;
+        b.style.boxShadow = active ? '0 1px 4px rgba(0,0,0,.15)' : 'none';
+      });
+      overlay.querySelectorAll('[data-mode]').forEach((b) => {
+        const active = b.dataset.mode === evoMode;
+        b.style.background = active ? t.pillActiveBg : 'transparent';
+        b.style.color = active ? t.pillActiveTx : t.muted;
+        b.style.boxShadow = active ? '0 1px 4px rgba(0,0,0,.15)' : 'none';
+      });
+    };
+
+    const renderEvoChart = (labels, datasets, stacked = false) => {
+      if (typeof window.Chart !== 'function') return;
+      lastEvo = { labels, datasets, stacked }; // p/ re-render no toggle de tema
+      if (evoChart) {
+        evoChart.destroy();
+        evoChart = null;
+      }
+      const t = GC_THEMES[modalTheme];
+      const axis = { ticks: { color: t.chartTick }, grid: { color: t.chartGrid } };
+      evoChart = new window.Chart(evoCanvas.getContext('2d'), {
+        type: 'bar',
+        data: { labels, datasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { position: 'bottom', labels: { boxWidth: 14, font: { size: 10 }, color: t.chartTick } },
+          },
+          scales: stacked
+            ? { x: { stacked: true, ...axis }, y: { stacked: true, beginAtZero: true, ...axis } }
+            : { x: { ...axis }, y: { beginAtZero: true, ...axis } },
+        },
+      });
+    };
+
+    const loadEvo = async () => {
+      const seq = ++evoSeq;
+      const cfgD = GOALS_COMPARE_DOMAINS[domainKey];
+      const isEnergy = domainKey === 'energy';
+      const yearSel = Number(isoLocalDay(period.startISO).slice(0, 4));
+      const periodDays = daysInPeriod();
+      if (evoGran === '1h' && periodDays.length > 15) evoGran = '1d'; // Hora indisponível p/ ranges longos
+      paintEvoGrans();
+      const nowD = new Date();
+      const yearGoals = yearSel;
+
+      const attrsList = await Promise.all(shoppings.map((s) => getShoppingAttrs(s.tbId)));
+      if (seq !== evoSeq) return;
+      const shops = shoppings.map((s, i) => ({
+        title: s.title,
+        ingestionId: attrsList[i]?.ingestionId || null,
+        attrs: attrsList[i],
+      }));
+
+      const gcdrGran = evoGran === '1M' ? 'month' : evoGran === '1d' ? 'day' : 'hour';
+      const trees = await Promise.all(
+        shops.map((s) => fetchShoppingGoalsTree(s.attrs, cfgD.gcdr, yearGoals, gcdrGran).catch(() => null))
+      );
+      if (seq !== evoSeq) return;
+
+      // Labels, chave de meta por boundary e ranges (ano do período + mesmo período no ano-1)
+      let labels;
+      let idxByKey = null; // 1d: "MM-DD" → índice (alinha ano-1 no mesmo bucket)
+      let goalKeyAt;
+      let ranges;
+      if (evoGran === '1M') {
+        labels = MONTHS_PT;
+        goalKeyAt = (i) => ['monthly', String(i + 1).padStart(2, '0')];
+        const isCurYear = yearSel === nowD.getFullYear();
+        ranges = {
+          cur: [`${yearSel}-01-01T00:00:00-03:00`, isCurYear ? nowD.toISOString() : `${yearSel}-12-31T23:59:59-03:00`],
+          prev: [`${yearSel - 1}-01-01T00:00:00-03:00`, `${yearSel - 1}-12-31T23:59:59-03:00`],
+        };
+      } else {
+        // Dia e Hora seguem o INTERVALO do picker; Hora = horas de cada dia do range
+        const days = periodDays;
+        idxByKey = new Map(days.map((dd, i) => [dd.key, i]));
+        const s0 = isoLocalDay(period.startISO);
+        const e0 = isoLocalDay(period.endISO);
+        ranges = {
+          cur: [period.startISO, period.endISO],
+          prev: [
+            `${Number(s0.slice(0, 4)) - 1}${s0.slice(4)}T00:00:00-03:00`,
+            `${Number(e0.slice(0, 4)) - 1}${e0.slice(4)}T23:59:59-03:00`,
+          ],
+        };
+        if (evoGran === '1d') {
+          labels = days.map((dd) => dd.label);
+          goalKeyAt = (i) => ['daily', days[i].key];
+        } else {
+          labels = days.flatMap((dd) => Array.from({ length: 24 }, (_, h) => `${dd.label} ${h}h`));
+          goalKeyAt = (i) => ['hourly', `${days[Math.floor(i / 24)].key}T${String(i % 24).padStart(2, '0')}`];
+        }
+      }
+      const size = labels.length;
+
+      const bucketize = (points) => {
+        const out = Array(size).fill(null);
+        for (const pt of points || []) {
+          const ts = String(pt.timestamp);
+          let idx;
+          if (evoGran === '1M') idx = Number(ts.slice(5, 7)) - 1;
+          else if (evoGran === '1d') idx = idxByKey.get(ts.slice(5, 10));
+          else {
+            const dIdx = idxByKey.get(ts.slice(5, 10)); // dia do range (alinha ano-1 por MM-DD)
+            idx = dIdx == null ? undefined : dIdx * 24 + Number(ts.slice(11, 13));
+          }
+          if (idx == null || idx < 0 || idx >= size) continue;
+          out[idx] = (out[idx] || 0) + (Number(pt.value) || 0);
+        }
+        return out;
+      };
+      const goalOf = (tree) =>
+        labels.map((_, i) => {
+          const [lv, k] = goalKeyAt(i);
+          const v = tree?.[lv]?.[k]?.value;
+          return v == null ? null : Number(v) || 0;
+        });
+      const goalSum = labels.map((_, i) => {
+        const [lv, k] = goalKeyAt(i);
+        let s = 0;
+        let has = false;
+        for (const t of trees) {
+          const v = t?.[lv]?.[k]?.value;
+          if (v != null) {
+            s += Number(v) || 0;
+            has = true;
+          }
+        }
+        return has ? s : null;
+      });
+
+      // Consumo por customer (ano do período e ano-1). Energia: séries dos medidores de
+      // entrada (~1s/device). Água: série agregada — consolidado 1 chamada; por shopping
+      // 1 por customer (lentas ~2min, em paralelo).
+      evoStatusEl.textContent = isEnergy ? 'Carregando consumo…' : 'Carregando consumo… (água pode levar ~2 min)';
+      const seriesGran = evoGran === '1h' ? '1h' : '1d';
+      const fetchByCustomer = async (range) => {
+        // Água: 'stack' e 'sep' precisam da série POR shopping; consolidado usa 1 chamada head-office
+        const perShopping = evoMode !== 'cons';
+        const ck = `${domainKey}|${evoGran}|${perShopping && !isEnergy ? 'sep' : 'all'}|${range[0]}|${range[1]}`;
+        if (evoConsCache.has(ck)) return evoConsCache.get(ck);
+        let byCust = null;
+        if (isEnergy) {
+          byCust = await fetchEntradaPointsByCustomer(range[0], range[1], seriesGran).catch(() => null);
+        } else if (perShopping) {
+          byCust = new Map();
+          await Promise.all(
+            shops.map(async (s) => {
+              if (!s.ingestionId) return;
+              const pts = await fetchHeadOfficeSeries(cfgD.api, range[0], range[1], seriesGran, s.ingestionId).catch(
+                () => null
+              );
+              if (pts) byCust.set(s.ingestionId, pts);
+            })
+          );
+          if (byCust.size === 0) byCust = null;
+        } else {
+          const pts = await fetchHeadOfficeSeries(cfgD.api, range[0], range[1], seriesGran).catch(() => null);
+          byCust = pts ? new Map([['__ALL__', pts]]) : null;
+        }
+        // cache só quando o range já fechou (não toca o agora)
+        if (byCust && new Date(range[1]) < nowD) evoConsCache.set(ck, byCust);
+        return byCust;
+      };
+      const [curBy, prevBy] = await Promise.all([fetchByCustomer(ranges.cur), fetchByCustomer(ranges.prev)]);
+      if (seq !== evoSeq) return;
+
+      const yearCurLabel = String(yearSel);
+      const yearPrevLabel = String(Number(yearCurLabel) - 1);
+      const datasets = [];
+      if (evoMode === 'stack') {
+        // Empilhado: 2 colunas por bucket (pilha do ano e pilha do ano-1, um segmento por
+        // shopping) + UMA linha de meta = soma das metas de todos os shoppings
+        shops.forEach((s, i) => {
+          const color = SHOP_PALETTE[i % SHOP_PALETTE.length];
+          datasets.push({
+            type: 'bar',
+            label: `${s.title} ${yearCurLabel}`,
+            data: bucketize(curBy?.get(s.ingestionId)),
+            backgroundColor: color,
+            stack: 'cur',
+            order: 5,
+          });
+          datasets.push({
+            type: 'bar',
+            label: `${s.title} ${yearPrevLabel}`,
+            data: bucketize(prevBy?.get(s.ingestionId)),
+            backgroundColor: rgba(color, 0.35),
+            stack: 'prev',
+            order: 6,
+          });
+        });
+        datasets.push({
+          type: 'line',
+          label: `Meta (${cfgD.unit})`,
+          data: goalSum,
+          borderColor: (EVO_COLORS[domainKey] || EVO_COLORS.energy).goal,
+          backgroundColor: 'transparent',
+          borderWidth: 3,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          fill: false,
+          spanGaps: true,
+          tension: 0.4,
+          order: 0,
+        });
+      } else if (evoMode === 'sep') {
+        shops.forEach((s, i) => {
+          const color = SHOP_PALETTE[i % SHOP_PALETTE.length];
+          datasets.push({
+            type: 'bar',
+            label: `${s.title} ${yearCurLabel}`,
+            data: bucketize(curBy?.get(s.ingestionId)),
+            backgroundColor: color,
+            borderRadius: 2,
+            order: 5,
+          });
+          datasets.push({
+            type: 'bar',
+            label: `${s.title} ${yearPrevLabel}`,
+            data: bucketize(prevBy?.get(s.ingestionId)),
+            backgroundColor: rgba(color, 0.35),
+            borderRadius: 2,
+            order: 6,
+          });
+          datasets.push({
+            type: 'line',
+            label: `Meta ${s.title}`,
+            data: goalOf(trees[i]),
+            borderColor: color,
+            backgroundColor: 'transparent',
+            borderDash: [6, 4],
+            borderWidth: 2,
+            pointRadius: 0,
+            pointHoverRadius: 3,
+            fill: false,
+            spanGaps: true,
+            tension: 0.4,
+            order: 0,
+          });
+        });
+      } else {
+        const colors = EVO_COLORS[domainKey] || EVO_COLORS.energy;
+        const sumAll = (byCust) => {
+          if (!byCust) return labels.map(() => null);
+          const all = [];
+          byCust.forEach((pts) => all.push(...(pts || [])));
+          return bucketize(all);
+        };
+        datasets.push({
+          type: 'bar',
+          label: `Consumo ${yearCurLabel} (${cfgD.unit})`,
+          data: sumAll(curBy),
+          backgroundColor: colors.bar,
+          borderRadius: 3,
+          order: 5,
+        });
+        datasets.push({
+          type: 'bar',
+          label: `Consumo ${yearPrevLabel} (${cfgD.unit})`,
+          data: sumAll(prevBy),
+          backgroundColor: 'rgba(148,163,184,0.55)',
+          borderRadius: 3,
+          order: 6,
+        });
+        datasets.push({
+          type: 'line',
+          label: `Meta (${cfgD.unit})`,
+          data: goalSum,
+          borderColor: colors.goal,
+          backgroundColor: 'transparent',
+          borderWidth: 3,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          fill: false,
+          spanGaps: true,
+          tension: 0.4,
+          order: 0,
+        });
+      }
+      renderEvoChart(labels, datasets, evoMode === 'stack');
+      const okData = !!(curBy || prevBy);
+      evoStatusEl.textContent = okData
+        ? evoGran === '1M'
+          ? `Ano ${yearCurLabel} × ${yearPrevLabel}`
+          : `${periodLabel()} × ${yearPrevLabel}${evoGran === '1h' ? ' (por hora)' : ''}`
+        : 'Falha ao carregar o consumo';
+    };
+
+    // ── Export PDF Premium: KPIs do período + tabela por shopping + snapshot do gráfico ──
+    const ensureJsPdf = () =>
+      new Promise((resolve, reject) => {
+        if (window.jspdf?.jsPDF) return resolve(window.jspdf.jsPDF);
+        const s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+        s.onload = () => (window.jspdf?.jsPDF ? resolve(window.jspdf.jsPDF) : reject(new Error('jsPDF indisponível')));
+        s.onerror = () => reject(new Error('falha ao carregar jsPDF'));
+        document.head.appendChild(s);
+      });
+
+    const exportPdf = async () => {
+      const btn = overlay.querySelector('[data-pdf]');
+      try {
+        btn.disabled = true;
+        btn.textContent = '⏳ Gerando…';
+        const JsPDF = await ensureJsPdf();
+        const cfgD = GOALS_COMPARE_DOMAINS[domainKey];
+        const unit = lastUnit || cfgD.unit;
+        const rows = (lastRows || []).filter((r) => r.meta !== undefined || r.consumo !== undefined);
+        const domLabel = cfgD.label.replace(/^\S+\s/, ''); // sem emoji (jsPDF não renderiza)
+        const doc = new JsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+        const W = 210;
+        const MX = 14;
+
+        // Faixa de capa
+        doc.setFillColor(74, 20, 140);
+        doc.rect(0, 0, W, 30, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(17);
+        doc.text('Metas x Consumo — Todos os Shoppings', MX, 13);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.text(
+          `${domLabel} · Período ${periodLabel()} · Gerado em ${new Date().toLocaleString('pt-BR')}`,
+          MX,
+          21
+        );
+        let y = 40;
+
+        // KPIs do período
+        const totalMeta = rows.reduce((s, r) => s + (r.meta || 0), 0);
+        const totalCons = rows.reduce((s, r) => s + (r.consumo || 0), 0);
+        const pctTotal = totalMeta > 0 ? (totalCons / totalMeta) * 100 : null;
+        const kpis = [
+          ['Meta do período', `${_fmtNum(totalMeta)} ${unit}`],
+          ['Consumo do período', `${_fmtNum(totalCons)} ${unit}`],
+          ['Consumo / Meta', pctTotal == null ? '—' : `${pctTotal.toFixed(1)}% da meta`],
+          ['Shoppings', String(rows.length)],
+        ];
+        const boxW = (W - MX * 2 - 9) / 4;
+        kpis.forEach(([label, value], i) => {
+          const x = MX + i * (boxW + 3);
+          doc.setDrawColor(226, 232, 240);
+          doc.setFillColor(248, 250, 252);
+          doc.roundedRect(x, y, boxW, 19, 2, 2, 'FD');
+          doc.setFontSize(8);
+          doc.setTextColor(100, 116, 139);
+          doc.text(label, x + 3, y + 6);
+          doc.setFontSize(11);
+          doc.setTextColor(30, 41, 59);
+          doc.setFont('helvetica', 'bold');
+          doc.text(String(value), x + 3, y + 14);
+          doc.setFont('helvetica', 'normal');
+        });
+        y += 28;
+
+        // Tabela por shopping
+        const situacao = (meta, consumo) => {
+          if (meta == null || meta <= 0) return { txt: 'Sem meta', rgb: [100, 116, 139] };
+          if (consumo == null) return { txt: 'Sem consumo', rgb: [100, 116, 139] };
+          const p = (consumo / meta) * 100;
+          if (p <= 90) return { txt: `${p.toFixed(1)}% - Dentro da meta`, rgb: [21, 128, 61] };
+          if (p <= 100) return { txt: `${p.toFixed(1)}% - Atenção`, rgb: [161, 98, 7] };
+          return { txt: `${p.toFixed(1)}% - Acima da meta`, rgb: [185, 28, 28] };
+        };
+        doc.setFontSize(13);
+        doc.setTextColor(74, 20, 140);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Resumo por shopping', MX, y);
+        y += 7;
+        const colX = [MX, MX + 68, MX + 108, MX + 148];
+        doc.setFontSize(9);
+        doc.setTextColor(100, 116, 139);
+        doc.setFont('helvetica', 'normal');
+        doc.text('Shopping', colX[0], y);
+        doc.text(`Meta (${unit})`, colX[1], y);
+        doc.text(`Consumo (${unit})`, colX[2], y);
+        doc.text('Situação', colX[3], y);
+        y += 2;
+        doc.setDrawColor(226, 232, 240);
+        doc.line(MX, y, W - MX, y);
+        y += 6;
+        doc.setFontSize(10);
+        rows.forEach((r) => {
+          doc.setTextColor(30, 41, 59);
+          doc.text(String(r.title).slice(0, 34), colX[0], y);
+          doc.text(_fmtNum(r.meta), colX[1], y);
+          doc.text(_fmtNum(r.consumo), colX[2], y);
+          const st = situacao(r.meta, r.consumo);
+          doc.setTextColor(st.rgb[0], st.rgb[1], st.rgb[2]);
+          doc.text(st.txt, colX[3], y);
+          y += 6;
+        });
+        doc.setDrawColor(226, 232, 240);
+        doc.line(MX, y - 3, W - MX, y - 3);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(30, 41, 59);
+        doc.text('Total', colX[0], y + 2);
+        doc.text(_fmtNum(totalMeta), colX[1], y + 2);
+        doc.text(_fmtNum(totalCons), colX[2], y + 2);
+        const stT = situacao(totalMeta || null, totalCons || null);
+        doc.setTextColor(stT.rgb[0], stT.rgb[1], stT.rgb[2]);
+        doc.text(stT.txt, colX[3], y + 2);
+        doc.setFont('helvetica', 'normal');
+        y += 12;
+
+        // Snapshot do gráfico (com fundo branco — canvas é transparente)
+        if (evoChart && evoCanvas.width > 0) {
+          const granLbl = evoGran === '1M' ? 'mensal' : evoGran === '1d' ? 'diário' : 'horário';
+          const modeLbl = evoMode === 'sep' ? 'por shopping' : 'consolidado';
+          const img = evoCanvas.toDataURL('image/png', 1.0);
+          const iw = W - MX * 2;
+          const ih = Math.min(iw * (evoCanvas.height / evoCanvas.width), 120);
+          if (y + ih + 10 > 285) {
+            doc.addPage();
+            y = 14;
+          }
+          doc.setFontSize(13);
+          doc.setTextColor(74, 20, 140);
+          doc.setFont('helvetica', 'bold');
+          doc.text(`Gráfico ${granLbl} (${modeLbl}) — ${evoStatusEl.textContent || ''}`, MX, y);
+          doc.setFont('helvetica', 'normal');
+          y += 4;
+          doc.setFillColor(255, 255, 255);
+          doc.rect(MX, y, iw, ih, 'F');
+          doc.addImage(img, 'PNG', MX, y, iw, ih);
+          y += ih + 6;
+        }
+
+        // Rodapé em todas as páginas
+        const pages = doc.getNumberOfPages();
+        for (let p = 1; p <= pages; p++) {
+          doc.setPage(p);
+          doc.setFontSize(8);
+          doc.setTextColor(148, 163, 184);
+          doc.text(`Powered by MYIO Platform · Head Office · pág. ${p}/${pages}`, MX, 291);
+        }
+        doc.save(
+          `metas-consumo-${cfgD.api}-${isoLocalDay(period.startISO)}-a-${isoLocalDay(period.endISO)}.pdf`
+        );
+        MyIOLibrary.MyIOToast?.success?.('PDF gerado com sucesso');
+      } catch (err) {
+        LogHelper.error('[GoalsCompare] export PDF falhou:', err);
+        _goalsToastError(`Falha ao gerar o PDF: ${err?.message || err}`);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '⬇️ PDF';
+      }
+    };
+
+    // Aplica o tema no overlay (CSS vars) + repinta pills/tabs/sidebar/gráfico
+    const applyModalTheme = () => {
+      const t = GC_THEMES[modalTheme];
+      overlay.style.setProperty('--gc-surface', t.surface);
+      overlay.style.setProperty('--gc-surface2', t.surface2);
+      overlay.style.setProperty('--gc-chip', t.chip);
+      overlay.style.setProperty('--gc-border', t.border);
+      overlay.style.setProperty('--gc-text', t.text);
+      overlay.style.setProperty('--gc-text2', t.text2);
+      overlay.style.setProperty('--gc-muted', t.muted);
+      overlay.style.setProperty('--gc-muted2', t.muted2);
+      overlay.style.setProperty('--gc-input-border', t.inputBorder);
+      const thmBtn = overlay.querySelector('[data-thm]');
+      if (thmBtn) thmBtn.textContent = modalTheme === 'dark' ? '☀️' : '🌙';
+      paintTabs();
+      paintEvoGrans();
+      if (lastRows) renderTable(lastRows, lastUnit);
+      if (lastEvo) renderEvoChart(lastEvo.labels, lastEvo.datasets, lastEvo.stacked);
+    };
+
+    const toggleMax = () => {
+      isMax = !isMax;
+      dialogEl.style.width = isMax ? '100vw' : 'min(1200px,calc(100% - 32px))';
+      dialogEl.style.height = isMax ? '100vh' : '';
+      dialogEl.style.maxHeight = isMax ? '100vh' : '92vh';
+      dialogEl.style.borderRadius = isMax ? '0' : '14px';
+      const mx = overlay.querySelector('[data-max]');
+      if (mx) {
+        mx.textContent = isMax ? '🗗' : '⛶';
+        mx.title = isMax ? 'Restaurar' : 'Maximizar';
+      }
+      setTimeout(() => evoChart?.resize?.(), 60);
+    };
+
+    // Tema alterado em outro ponto do dashboard (menu/welcome) → modal acompanha
+    const onGlobalTheme = (e) => {
+      const tm = e.detail?.themeMode;
+      if ((tm === 'dark' || tm === 'light') && tm !== modalTheme) {
+        modalTheme = tm;
+        applyModalTheme();
+      }
+    };
+    window.addEventListener('myio:theme-change', onGlobalTheme);
+
+    let periodPicker = null;
+    const close = () => {
+      if (evoChart) evoChart.destroy();
+      try {
+        periodPicker?.destroy?.();
+      } catch {
+        /* picker já destruído */
+      }
+      overlay.remove();
+      document.removeEventListener('keydown', onKey);
+      window.removeEventListener('myio:theme-change', onGlobalTheme);
+    };
+    const onKey = (e) => {
+      if (e.key === 'Escape') close();
+    };
+    overlay.addEventListener('click', (e) => {
+      if (e.target.closest('[data-pdf]')) return void exportPdf();
+      if (e.target.closest('[data-max]')) return toggleMax();
+      if (e.target.closest('[data-thm]')) {
+        modalTheme = modalTheme === 'dark' ? 'light' : 'dark';
+        applyModalTheme();
+        // Sincroniza o dashboard inteiro (RFC-0120) — o listener global aplica em todos os componentes
+        window.dispatchEvent(new CustomEvent('myio:theme-change', { detail: { themeMode: modalTheme } }));
+        return;
+      }
+      if (e.target === overlay || e.target.closest('[data-close]')) return close();
+      const tab = e.target.closest('[data-domain]');
+      if (tab && tab.dataset.domain !== domainKey) {
+        domainKey = tab.dataset.domain;
+        load();
+        loadEvo();
+        return;
+      }
+      const gran = e.target.closest('[data-gran]');
+      if (gran && gran.dataset.gran !== evoGran) {
+        evoGran = gran.dataset.gran;
+        loadEvo();
+        return;
+      }
+      const mode = e.target.closest('[data-mode]');
+      if (mode && mode.dataset.mode !== evoMode) {
+        evoMode = mode.dataset.mode;
+        loadEvo();
+      }
+    });
+    document.addEventListener('keydown', onKey);
+    document.body.appendChild(overlay);
+    applyModalTheme();
+
+    // Período: createDateRangePicker da lib (mesmo componente do restante do dashboard)
+    periodInput.value = periodLabel();
+    (async () => {
+      try {
+        if (typeof MyIOLibrary?.createDateRangePicker === 'function') {
+          periodPicker = await MyIOLibrary.createDateRangePicker(periodInput, {
+            presetStart: isoLocalDay(period.startISO),
+            presetEnd: isoLocalDay(period.endISO),
+            maxRangeDays: 92,
+            parentEl: overlay.querySelector('[role="dialog"]'),
+            onApply: (result) => {
+              if (result?.startISO && result?.endISO) {
+                period = { startISO: result.startISO, endISO: result.endISO };
+                // Novo período selecionado → gráfico muda p/ visão Dia (respeita o intervalo);
+                // Mês (visão anual) e Hora continuam disponíveis nos botões
+                evoGran = '1d';
+                load();
+                loadEvo();
+              }
+            },
+          });
+        }
+      } catch (err) {
+        LogHelper.warn('[GoalsCompare] createDateRangePicker indisponível:', err?.message || err);
+      }
+    })();
+
+    load();
+    loadEvo();
+  };
+
+  // Escolha da área ao clicar em 🎯 Metas: Gestão (GoalsPanel por shopping) ou
+  // comparação Metas × Consumo de todos os shoppings. Resolve 'manage'|'compare'|null.
+  const pickGoalsArea = () =>
+    new Promise((resolve) => {
+      const prev = document.getElementById('myio-goals-area-picker');
+      if (prev) prev.remove();
+
+      const overlay = document.createElement('div');
+      overlay.id = 'myio-goals-area-picker';
+      overlay.style.cssText =
+        'position:fixed;inset:0;z-index:10000;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;font-family:Nunito,sans-serif;';
+      const cardStyle =
+        'flex:1;display:flex;flex-direction:column;gap:8px;padding:20px 18px;border:1px solid #e2e8f0;border-radius:12px;background:#fff;cursor:pointer;text-align:left;transition:border-color .15s;';
+      overlay.innerHTML = `
+        <div role="dialog" aria-label="Metas" style="background:#fff;border-radius:12px;max-width:560px;width:calc(100% - 32px);box-shadow:0 20px 50px rgba(0,0,0,.25);overflow:hidden;">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:#6a1b9a;color:#fff;">
+            <strong style="font:700 15px Nunito,sans-serif;">🎯 Metas de Consumo</strong>
+            <button type="button" data-close="1" aria-label="Fechar" style="border:0;background:transparent;color:#fff;font-size:18px;cursor:pointer;line-height:1;">✕</button>
+          </div>
+          <div style="display:flex;gap:12px;padding:18px;">
+            <button type="button" data-area="manage" style="${cardStyle}">
+              <span style="font-size:26px;">🛠️</span>
+              <strong style="font:700 14px Nunito,sans-serif;color:#1e293b;">Gestão de Metas</strong>
+              <span style="font:600 12px Nunito,sans-serif;color:#64748b;">Criar, atualizar e importar metas de um shopping (planilha, histórico de versões).</span>
+            </button>
+            <button type="button" data-area="compare" style="${cardStyle}">
+              <span style="font-size:26px;">📊</span>
+              <strong style="font:700 14px Nunito,sans-serif;color:#1e293b;">Metas × Consumo</strong>
+              <span style="font:600 12px Nunito,sans-serif;color:#64748b;">Comparar o consumo real de todos os shoppings com as metas, num único painel.</span>
+            </button>
+          </div>
+        </div>`;
+
+      const done = (result) => {
+        overlay.remove();
+        document.removeEventListener('keydown', onKey);
+        resolve(result);
+      };
+      const onKey = (e) => {
+        if (e.key === 'Escape') done(null);
+      };
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay || e.target.closest('[data-close]')) return done(null);
+        const btn = e.target.closest('[data-area]');
+        if (btn) done(btn.dataset.area);
+      });
+      document.addEventListener('keydown', onKey);
+      document.body.appendChild(overlay);
+    });
+
+  window.addEventListener('myio:open-goals-panel', async () => {
+    LogHelper.log('[MAIN_UNIQUE] Goals panel requested');
 
     if (!MyIOLibrary?.openGoalsPanel) {
       LogHelper.error('[MAIN_UNIQUE] MyIOLibrary.openGoalsPanel not available');
-      toastError('Componente de Metas não está disponível.');
+      _goalsToastError('Componente de Metas não está disponível.');
       return;
     }
 
     try {
-      // openGoalsPanel chama GET/PUT /customers/:id/goals no GCDR — o :id é o UUID do
-      // customer NO GCDR (attr SERVER_SCOPE gcdrCustomerId), não o UUID do ThingsBoard.
-      const gcdrCustomerId = GCDR_CUSTOMER_ID || window.MyIOOrchestrator?.gcdrCustomerId || '';
-      if (!gcdrCustomerId) {
-        LogHelper.error('[MAIN_UNIQUE] gcdrCustomerId missing (customer SERVER_SCOPE attr)');
-        toastError(
-          'Customer não vinculado ao GCDR: defina o atributo gcdrCustomerId no customer (SERVER_SCOPE) — o GCDR Sync faz esse vínculo.'
-        );
+      // Shoppings filhos vindos do datasource 'customers' (mesma fonte do welcome modal);
+      // cards de fallback (ASSET, sem customerId) não têm metas próprias no GCDR.
+      const shoppings = (_currentShoppingCards || [])
+        .filter((c) => c.entityType === 'CUSTOMER' && (c.customerId || c.entityId))
+        .map((c) => ({ tbId: c.customerId || c.entityId, title: c.title || 'Shopping' }));
+
+      if (shoppings.length === 0) {
+        // Dashboard sem shoppings filhos (single-customer): comportamento antigo,
+        // metas do próprio customer do widget.
+        LogHelper.warn('[MAIN_UNIQUE] No child shoppings; opening goals for the dashboard customer');
+        await openGoalsForCustomer(getCustomerTB_ID(), 'este customer');
         return;
       }
 
-      // Metas agora vêm do GCDR (RFC-0046): auth via X-API-Key + base URL das settings
-      // (GCDR_API_BASE lido no onInit a partir de settings.gcdrApiBaseUrl).
-      const gcdrBaseUrl =
-        GCDR_API_BASE ||
-        window.MyIOOrchestrator?.gcdrApiBaseUrl ||
-        window.GCDR_API_HOST ||
-        window.DATA_API_HOST;
-      // X-API-Key: mesmo padrão do v-5.2.0 MAIN_VIEW — atributo SERVER_SCOPE gcdrApiKey do
-      // customer (buscado no fetchCredentialsFromThingsBoard); overrides manuais primeiro
-      const gcdrApiKey =
-        window.GCDR_CUSTOMER_API_KEY ||
-        localStorage.getItem('gcdr_customer_api_key') ||
-        GCDR_API_KEY ||
-        window.MyIOOrchestrator?.gcdrApiKey ||
-        settings.gcdrApiKey ||
-        '';
-      if (!gcdrBaseUrl || !gcdrApiKey) {
-        LogHelper.error(
-          '[MAIN_UNIQUE] GCDR credentials missing (customer attr gcdrApiKey / settings.gcdrApiKey)'
-        );
-        toastError(
-          'Configuração do GCDR ausente: defina o atributo gcdrApiKey no customer (SERVER_SCOPE) ou o setting "GCDR API Key" do widget.'
-        );
+      const area = await pickGoalsArea();
+      if (!area) return; // cancelado
+
+      if (area === 'compare') {
+        openGoalsCompare(shoppings);
         return;
       }
 
-      LogHelper.log('[MAIN_UNIQUE] Opening Goals Panel (GCDR):', { gcdrCustomerId });
+      const selected = shoppings.length === 1 ? shoppings[0] : await pickGoalsShopping(shoppings);
+      if (!selected) return; // seleção cancelada
 
-      MyIOLibrary.openGoalsPanel({
-        customerId: gcdrCustomerId,
-        apiKey: gcdrApiKey,
-        baseUrl: gcdrBaseUrl,
-        domain: 'ENERGY',
-        locale: 'pt-BR',
-        onSaved: async (writeResult) => {
-          LogHelper.log('[MAIN_UNIQUE] Goals saved (GCDR):', writeResult?.version);
-          window.dispatchEvent(
-            new CustomEvent('myio:goals-updated', {
-              detail: { writeResult, customerId: gcdrCustomerId, timestamp: Date.now() },
-            })
-          );
-        },
-        onClose: () => {
-          LogHelper.log('[MAIN_UNIQUE] Goals Panel closed');
-        },
-        styles: {
-          primaryColor: '#6a1b9a',
-          errorColor: '#dc3545',
-          borderRadius: '8px',
-          zIndex: 10000,
-        },
-      });
+      await openGoalsForCustomer(selected.tbId, selected.title);
     } catch (err) {
       LogHelper.error('[MAIN_UNIQUE] Error opening Goals Panel:', err);
-      toastError(`Erro ao abrir metas: ${err?.message || err}`);
+      _goalsToastError(`Erro ao abrir metas: ${err?.message || err}`);
     }
   });
 
