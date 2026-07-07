@@ -3345,11 +3345,14 @@ body.filter-modal-open { overflow: hidden !important; }
               </div>
               <span data-evo-status style="font:600 12px Nunito,sans-serif;color:var(--gc-muted);margin-left:auto;"></span>
             </div>
-            <div style="position:relative;height:340px;"><canvas data-evo-chart></canvas></div>
+            <div data-evo-wrap style="position:relative;height:340px;"><canvas data-evo-chart></canvas></div>
             <div style="font:600 11px Nunito,sans-serif;color:var(--gc-muted2);">Barras: consumo do período e do mesmo período no ano anterior · Linha(s): meta GCDR — consolidado/empilhado = soma dos shoppings (linha única); separado = uma linha tracejada por customer · Consumo Energia: medidores de ENTRADA (régua das metas) · Água: hidrômetros · Dia/Hora seguem o intervalo selecionado; Hora disponível para intervalos de até 15 dias · Gestão: 🎯 Metas → Gestão de Metas.</div>
           </div>
           <aside style="flex:0 0 330px;max-width:100%;display:flex;flex-direction:column;gap:8px;" data-side>
-            <strong style="font:700 13px Nunito,sans-serif;color:var(--gc-muted);">Resumo por shopping</strong>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+              <strong data-side-title style="font:700 13px Nunito,sans-serif;color:var(--gc-muted);">Resumo por shopping</strong>
+              <button type="button" data-side-toggle title="Recolher resumo" style="border:1px solid var(--gc-border);border-radius:6px;background:transparent;color:var(--gc-muted);padding:2px 8px;cursor:pointer;font:700 12px Nunito,sans-serif;line-height:1.4;">▶</button>
+            </div>
             <div data-table style="display:flex;flex-direction:column;gap:8px;"></div>
           </aside>
         </div>
@@ -4009,11 +4012,31 @@ body.filter-modal-open { overflow: hidden !important; }
       dialogEl.style.height = isMax ? '100vh' : '';
       dialogEl.style.maxHeight = isMax ? '100vh' : '92vh';
       dialogEl.style.borderRadius = isMax ? '0' : '14px';
+      // Maximizado: o gráfico cresce e ocupa a altura livre da viewport
+      // (~300px = header + toolbar + pills + nota + paddings), sem buraco abaixo
+      const evoWrap = overlay.querySelector('[data-evo-wrap]');
+      if (evoWrap) evoWrap.style.height = isMax ? 'max(340px, calc(100vh - 300px))' : '340px';
       const mx = overlay.querySelector('[data-max]');
       if (mx) {
         mx.textContent = isMax ? '🗗' : '⛶';
         mx.title = isMax ? 'Restaurar' : 'Maximizar';
       }
+      setTimeout(() => evoChart?.resize?.(), 60);
+    };
+
+    // Sidebar recolhível: recolhida vira só a setinha; o gráfico ganha a largura liberada
+    let sideCollapsed = false;
+    const toggleSide = () => {
+      sideCollapsed = !sideCollapsed;
+      const aside = overlay.querySelector('[data-side]');
+      const title = overlay.querySelector('[data-side-title]');
+      const table = overlay.querySelector('[data-table]');
+      const btn = overlay.querySelector('[data-side-toggle]');
+      aside.style.flex = sideCollapsed ? '0 0 auto' : '0 0 330px';
+      title.style.display = sideCollapsed ? 'none' : '';
+      table.style.display = sideCollapsed ? 'none' : 'flex';
+      btn.textContent = sideCollapsed ? '◀' : '▶';
+      btn.title = sideCollapsed ? 'Expandir resumo' : 'Recolher resumo';
       setTimeout(() => evoChart?.resize?.(), 60);
     };
 
@@ -4045,6 +4068,7 @@ body.filter-modal-open { overflow: hidden !important; }
     overlay.addEventListener('click', (e) => {
       if (e.target.closest('[data-pdf]')) return void exportPdf();
       if (e.target.closest('[data-max]')) return toggleMax();
+      if (e.target.closest('[data-side-toggle]')) return toggleSide();
       if (e.target.closest('[data-thm]')) {
         modalTheme = modalTheme === 'dark' ? 'light' : 'dark';
         applyModalTheme();
