@@ -935,6 +935,44 @@ systemctl restart nodered
 reboot
 ```
 
+### 9.4 Backup do banco Postgres em `/tmp` (ANTES de qualquer DELETE/UPDATE)
+
+> Sempre que for rodar um script SQL de correção (deletar slaves/ambients/channels,
+> updates em massa etc.), gere um backup em `/tmp` primeiro. O banco é `hubot`
+> (o prompt do `psql -U hubot` mostra `hubot=#`), então `pg_dump -U hubot` já
+> dumpa o banco certo sem `-d`.
+
+```bash
+# Backup SÓ das tabelas de cadastro (rápido — cobre slaves/channels/ambients/junction)
+pg_dump -U hubot --clean --if-exists \
+  -t slaves -t channels -t ambients -t ambients_rfir_slaves_rel \
+  > /tmp/backup-cadastro-$(date +%Y%m%d-%H%M%S).sql
+
+# Backup completo do banco (inclui timeseries — pode ser GRANDE e demorar)
+pg_dump -U hubot > /tmp/backup-full-$(date +%Y%m%d-%H%M%S).sql
+
+# Conferir que gerou
+ls -lh /tmp/backup-*.sql
+```
+
+**Restaurar** (o `--clean --if-exists` faz o dump dropar e recriar as tabelas na restauração):
+
+```bash
+psql -U hubot -f /tmp/backup-cadastro-<timestamp>.sql
+```
+
+**⚠️ `/tmp` é perdido no reboot** — antes de reiniciar a central (ou para guardar
+o backup), copie para sua máquina:
+
+```bash
+# Da SUA máquina (não de dentro da central)
+scp root@\[<ipv6-da-central>\]:/tmp/backup-cadastro-*.sql .
+```
+
+> Detalhes do modelo de dados e fluxo padrão de scripts SQL:
+> [`data-model-postgres-timeseries.md`](data-model-postgres-timeseries.md) (§5.5 e §6.1).
+> Lembrete: shell das centrais é BusyBox `ash` — sintaxe POSIX simples.
+
 ---
 
 ## 10. Troubleshooting
@@ -953,4 +991,4 @@ reboot
 
 ---
 
-_Última atualização: 2026-06-30_
+_Última atualização: 2026-07-07_
