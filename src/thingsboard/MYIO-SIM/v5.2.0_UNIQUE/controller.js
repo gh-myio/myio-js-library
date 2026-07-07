@@ -2883,10 +2883,14 @@ body.filter-modal-open { overflow: hidden !important; }
     }
 
     try {
-      const customerId = getCustomerTB_ID();
-      if (!customerId) {
-        LogHelper.error('[MAIN_UNIQUE] customerId not found');
-        toastError('Customer ID não disponível. Aguarde o carregamento completo.');
+      // openGoalsPanel chama GET/PUT /customers/:id/goals no GCDR — o :id é o UUID do
+      // customer NO GCDR (attr SERVER_SCOPE gcdrCustomerId), não o UUID do ThingsBoard.
+      const gcdrCustomerId = GCDR_CUSTOMER_ID || window.MyIOOrchestrator?.gcdrCustomerId || '';
+      if (!gcdrCustomerId) {
+        LogHelper.error('[MAIN_UNIQUE] gcdrCustomerId missing (customer SERVER_SCOPE attr)');
+        toastError(
+          'Customer não vinculado ao GCDR: defina o atributo gcdrCustomerId no customer (SERVER_SCOPE) — o GCDR Sync faz esse vínculo.'
+        );
         return;
       }
 
@@ -2916,10 +2920,10 @@ body.filter-modal-open { overflow: hidden !important; }
         return;
       }
 
-      LogHelper.log('[MAIN_UNIQUE] Opening Goals Panel (GCDR):', { customerId });
+      LogHelper.log('[MAIN_UNIQUE] Opening Goals Panel (GCDR):', { gcdrCustomerId });
 
       MyIOLibrary.openGoalsPanel({
-        customerId: customerId,
+        customerId: gcdrCustomerId,
         apiKey: gcdrApiKey,
         baseUrl: gcdrBaseUrl,
         domain: 'ENERGY',
@@ -2928,7 +2932,7 @@ body.filter-modal-open { overflow: hidden !important; }
           LogHelper.log('[MAIN_UNIQUE] Goals saved (GCDR):', writeResult?.version);
           window.dispatchEvent(
             new CustomEvent('myio:goals-updated', {
-              detail: { writeResult, customerId, timestamp: Date.now() },
+              detail: { writeResult, customerId: gcdrCustomerId, timestamp: Date.now() },
             })
           );
         },

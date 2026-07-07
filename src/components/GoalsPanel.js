@@ -166,8 +166,10 @@ export function openGoalsPanel(params) {
     getState: () => ({ ...state }),
   };
 
-  mount();
-  return instance;
+  // NOTE: mount() + return happen at the END of this function. They used to sit here,
+  // which meant every `const` below (svc, targetQuery, …) never executed — statements
+  // after `return` are dead code — so mount() → reload() hit "Cannot access 'svc'
+  // before initialization" and the modal spun forever.
 
   // ───────────────────────────────────────────────────────────────────────────
   // GCDR API service (fetch + standard envelope)
@@ -1700,4 +1702,7 @@ export function openGoalsPanel(params) {
       },
     };
   }
+
+  mount();
+  return instance;
 }
