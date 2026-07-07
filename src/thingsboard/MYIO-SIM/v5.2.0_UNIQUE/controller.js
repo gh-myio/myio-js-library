@@ -2421,6 +2421,8 @@ body.filter-modal-open { overflow: hidden !important; }
     if (energyPanelInstance) {
       const es = window.MyIOOrchestrator?.getEnergySummary?.();
       if (es) energyPanelInstance.updateSummary(es);
+      // Entrada REAL (medidores canônicos) pode ter mudado de período — recalcula async
+      window.MyIOUtils?.refreshRealEntradaSummary?.();
     }
     if (waterPanelInstance) {
       const ws = window.MyIOOrchestrator?.getWaterSummary?.();
@@ -3088,15 +3090,50 @@ body.filter-modal-open { overflow: hidden !important; }
   const getEntradaDevices = () => {
     if (_entradaDevicesPromise) return _entradaDevicesPromise;
     _entradaDevicesPromise = (async () => {
+      // 1) CURADORIA EXPLÍCITA (auditoria 2026-07-07): attr SERVER_SCOPE
+      //    `entradaIngestionIds` (array de ingestion ids) em cada shopping — mesma
+      //    régua das colunas Entrada dos dashboards próprios. Fonte da verdade.
+      const curated = [];
+      const uncovered = new Set(); // ingestion ids de shoppings SEM o attr → fallback heurístico
+      const cards = (_currentShoppingCards || []).filter(
+        (c) => c.entityType === 'CUSTOMER' && (c.customerId || c.entityId)
+      );
+      await Promise.all(
+        cards.map(async (c) => {
+          const attrs = await getShoppingAttrs(c.customerId || c.entityId).catch(() => ({}));
+          const ing = attrs?.ingestionId;
+          if (!ing) return;
+          let ids = attrs?.entradaIngestionIds;
+          if (typeof ids === 'string') {
+            try {
+              ids = JSON.parse(ids);
+            } catch {
+              ids = null;
+            }
+          }
+          if (Array.isArray(ids) && ids.length) {
+            ids.forEach((id) => curated.push({ id, customerId: ing, name: `entrada:${c.title || ing}` }));
+          } else {
+            uncovered.add(ing);
+          }
+        })
+      );
+      if (curated.length && uncovered.size === 0) {
+        LogHelper.log('[MAIN_UNIQUE] entrada curada:', curated.length, 'medidores (attr entradaIngestionIds)');
+        return curated;
+      }
+
+      // 2) Fallback heurístico (todos os shoppings, ou só os sem attr): profile de
+      //    trafo + "ENTRADA" no nome − CAG, via devices/totals do head-office
       const creds = window.MyIOUtils?.getCredentials?.();
-      if (!creds?.clientId || !creds?.customerId || !MyIOLibrary?.buildMyioIngestionAuth) return [];
+      if (!creds?.clientId || !creds?.customerId || !MyIOLibrary?.buildMyioIngestionAuth) return curated;
       const auth = MyIOLibrary.buildMyioIngestionAuth({
         dataApiHost: creds.dataApiHost,
         clientId: creds.clientId,
         clientSecret: creds.clientSecret,
       });
       const token = await auth.getToken();
-      if (!token) return [];
+      if (!token) return curated;
       // Range curto — a chamada serve só para LISTAR os devices de entrada
       const end = new Date();
       const start = new Date(end.getTime() - 24 * 3600 * 1000);
@@ -3108,10 +3145,14 @@ body.filter-modal-open { overflow: hidden !important; }
         headers: { Authorization: `Bearer ${token}` },
         signal: AbortSignal.timeout(120000),
       });
-      if (!res.ok) return [];
+      if (!res.ok) return curated;
       const payload = await res.json();
       const arr = Array.isArray(payload) ? payload : (payload?.data ?? []);
-      return arr.filter(_isEntradaDevice).map((d) => ({ id: d.id, customerId: d.customerId, name: d.name }));
+      const heuristic = arr
+        .filter(_isEntradaDevice)
+        .filter((d) => (curated.length ? uncovered.has(d.customerId) : true))
+        .map((d) => ({ id: d.id, customerId: d.customerId, name: d.name }));
+      return [...curated, ...heuristic];
     })().catch(() => {
       _entradaDevicesPromise = null;
       return [];
@@ -3175,6 +3216,177 @@ body.filter-modal-open { overflow: hidden !important; }
       })
     );
     return byCustomer;
+  };
+
+  // ── Entrada REAL para o painel Geral (Energia) ──
+  // O datasource TB do head-office só contém parte dos medidores de entrada (3 de 8 na
+  // auditoria 2026-07-07) → o painel mostrava Entrada ~294 MWh vs ~1.000 reais, com
+  // Área Comum 0 e percentuais sem sentido. Aqui buscamos o total dos medidores
+  // CANÔNICOS (curadoria/heurístico acima) no período do dashboard e publicamos em
+  // window.MyIOUtils.realEntrada — buildEnergyPanelSummary usa isso no lugar da soma
+  // parcial do datasource.
+  let _realEntradaKey = '';
+  const refreshRealEntradaSummary = async () => {
+    try {
+      const scopeStart = self.ctx?.$scope?.startDateISO;
+      const scopeEnd = self.ctx?.$scope?.endDateISO;
+      const fallback =
+        typeof MyIOLibrary?.getDefaultPeriodCurrentMonthSoFar === 'function'
+          ? MyIOLibrary.getDefaultPeriodCurrentMonthSoFar()
+          : null;
+      const startISO = scopeStart || fallback?.startISO;
+      const endISO = scopeEnd || fallback?.endISO;
+      if (!startISO || !endISO) return;
+      const key = `${startISO}|${endISO}`;
+      if (_realEntradaKey === key && window.MyIOUtils?.realEntrada?.total > 0) return; // período já calculado
+      const byCust = await fetchEntradaTotalsByCustomer(startISO, endISO);
+      if (!byCust) return;
+      let total = 0;
+      byCust.forEach((v) => {
+        total += Number(v) || 0;
+      });
+      if (!(total > 0)) return;
+      const devices = await getEntradaDevices();
+      _realEntradaKey = key;
+      window.MyIOUtils = window.MyIOUtils || {};
+      window.MyIOUtils.realEntrada = { total, count: devices.length, startISO, endISO };
+      LogHelper.log('[MAIN_UNIQUE] realEntrada:', Math.round(total), 'kWh em', devices.length, 'medidores canônicos');
+      if (energyPanelInstance) {
+        const es = window.MyIOOrchestrator?.getEnergySummary?.();
+        if (es) energyPanelInstance.updateSummary(es);
+      }
+    } catch (err) {
+      LogHelper.warn('[MAIN_UNIQUE] refreshRealEntradaSummary falhou:', err?.message || err);
+    }
+  };
+  // Bridge: handlers registrados antes desta definição chamam via MyIOUtils (evita TDZ)
+  window.MyIOUtils = window.MyIOUtils || {};
+  window.MyIOUtils.refreshRealEntradaSummary = refreshRealEntradaSummary;
+
+  // ── Skin premium dos cards do painel Geral (Energia) ──
+  // Dentro do ThingsBoard, `.tb-default h3 {font-size:2rem}` vence a classe da lib
+  // (especificidade 0,1,1 > 0,1,0) e os cards ficam gigantes. Este override usa o id
+  // do container (especificidade de ID) e de quebra aplica o visual premium compacto:
+  // grid responsivo, ícone em chip tintado por categoria, título uppercase discreto,
+  // valor em destaque e % em pill — com suporte a dark mode.
+  const injectEnergyPanelPremiumStyles = () => {
+    if (document.getElementById('myio-energy-panel-premium')) return;
+    const s = document.createElement('style');
+    s.id = 'myio-energy-panel-premium';
+    s.textContent = `
+#telemetryGridContainer .energy-panel__cards{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:8px;margin-bottom:14px;}
+@media (max-width:1500px){#telemetryGridContainer .energy-panel__cards{grid-template-columns:repeat(4,minmax(0,1fr));}}
+@media (max-width:820px){#telemetryGridContainer .energy-panel__cards{grid-template-columns:repeat(2,minmax(0,1fr));}}
+#telemetryGridContainer .energy-panel__card{position:relative;display:flex;flex-direction:column;gap:3px;padding:8px 10px 8px 13px;border-radius:10px;background:#fff;border:1px solid #e2e8f0;box-shadow:0 1px 2px rgba(15,23,42,.05);transition:box-shadow .2s ease,transform .2s ease,border-color .2s ease;overflow:hidden;min-width:0;will-change:transform;}
+#telemetryGridContainer .energy-panel__card::before{content:'';position:absolute;left:0;top:8px;bottom:8px;width:3px;border-radius:0 3px 3px 0;background:var(--epc,#6a1b9a);}
+#telemetryGridContainer .energy-panel__card:hover{transform:translateY(-3px) scale(1.08);box-shadow:0 10px 26px rgba(15,23,42,.18);border-color:var(--epc,#6a1b9a);z-index:5;}
+#telemetryGridContainer .energy-panel__card[data-type="entrada"]{--epc:#6a1b9a;}
+#telemetryGridContainer .energy-panel__card[data-type="lojas"]{--epc:#eab308;}
+#telemetryGridContainer .energy-panel__card[data-type="climatizacao"]{--epc:#0ea5e9;}
+#telemetryGridContainer .energy-panel__card[data-type="elevadores"]{--epc:#8b5cf6;}
+#telemetryGridContainer .energy-panel__card[data-type="escadas"]{--epc:#ec4899;}
+#telemetryGridContainer .energy-panel__card[data-type="outros"]{--epc:#64748b;}
+#telemetryGridContainer .energy-panel__card[data-type="areaComum"]{--epc:#22c55e;}
+#telemetryGridContainer .energy-panel__card[data-type="total"]{--epc:#3e1a7d;}
+#telemetryGridContainer .energy-panel__card-header{display:flex;align-items:center;gap:5px;margin:0;min-width:0;}
+#telemetryGridContainer .energy-panel__card-icon{font-size:11px;line-height:1;width:20px;height:20px;display:flex;align-items:center;justify-content:center;border-radius:6px;background:color-mix(in srgb,var(--epc,#6a1b9a) 12%,transparent);flex-shrink:0;}
+#telemetryGridContainer h3.energy-panel__card-title{font:700 9.5px/1.2 Nunito,sans-serif !important;letter-spacing:.05em;text-transform:uppercase;color:#7c8aa0;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;}
+#telemetryGridContainer .energy-panel__card-tooltip{font-size:9px;opacity:.5;}
+#telemetryGridContainer .energy-panel__card-body{display:flex;align-items:baseline;gap:5px;margin:0;flex-wrap:wrap;}
+#telemetryGridContainer .energy-panel__card-value{font:800 14px/1.1 Nunito,sans-serif;color:#1e293b;font-variant-numeric:tabular-nums;white-space:nowrap;}
+#telemetryGridContainer .energy-panel__card-perc{font:700 9px Nunito,sans-serif;color:#64748b;background:#f1f5f9;border-radius:999px;padding:1px 6px;white-space:nowrap;}
+#telemetryGridContainer .energy-panel-wrap[data-theme="dark"] .energy-panel__card{background:#1e293b;border-color:#334155;}
+#telemetryGridContainer .energy-panel-wrap[data-theme="dark"] h3.energy-panel__card-title{color:#94a3b8;}
+#telemetryGridContainer .energy-panel-wrap[data-theme="dark"] .energy-panel__card-value{color:#e2e8f0;}
+#telemetryGridContainer .energy-panel-wrap[data-theme="dark"] .energy-panel__card-perc{background:#0f172a;color:#94a3b8;}
+`;
+    document.head.appendChild(s);
+  };
+
+  // ── Fetchers REAIS dos gráficos do painel Geral (Energia) ──
+  // Sem eles o EnergyPanelView cai nos mocks de fábrica (Shopping Aricanduva/Interlagos/
+  // Tucuruvi/Penha). Consumo diário = entrada canônica por shopping; distribuição =
+  // devices classificados (RFC-0128) agrupados por shopping, com o consumo do período
+  // do dashboard já enriquecido.
+  const fetchEnergyPanelConsumption = async (periodDays) => {
+    const days = Math.max(1, Number(periodDays) || 7);
+    const end = new Date();
+    const start = new Date(end.getFullYear(), end.getMonth(), end.getDate() - (days - 1), 0, 0, 0);
+    const byCust = (await fetchEntradaPointsByCustomer(start.toISOString(), end.toISOString(), '1d')) || new Map();
+
+    // ingestionId → título do shopping (cards do datasource)
+    const names = {};
+    const cards = (_currentShoppingCards || []).filter(
+      (c) => c.entityType === 'CUSTOMER' && (c.customerId || c.entityId)
+    );
+    await Promise.all(
+      cards.map(async (c) => {
+        const attrs = await getShoppingAttrs(c.customerId || c.entityId).catch(() => ({}));
+        if (attrs?.ingestionId) names[attrs.ingestionId] = c.title || attrs.ingestionId;
+      })
+    );
+
+    const labels = [];
+    const idxByKey = new Map();
+    for (let i = 0; i < days; i++) {
+      const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i, 12);
+      labels.push(d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }));
+      idxByKey.set(`${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`, i);
+    }
+    const shoppingData = {};
+    const shoppingNames = {};
+    const dailyTotals = Array(days).fill(0);
+    byCust.forEach((pts, cust) => {
+      const arr = Array(days).fill(0);
+      (pts || []).forEach((pt) => {
+        const idx = idxByKey.get(String(pt.timestamp).slice(5, 10));
+        if (idx !== undefined) arr[idx] += Number(pt.value) || 0;
+      });
+      shoppingData[cust] = arr;
+      shoppingNames[cust] = names[cust] || cust;
+      arr.forEach((v, i) => {
+        dailyTotals[i] += v;
+      });
+    });
+    return { labels, dailyTotals, shoppingData, shoppingNames, fetchTimestamp: Date.now() };
+  };
+
+  const fetchEnergyPanelDistribution = async (mode) => {
+    const classified = window.MyIOOrchestratorData?.classified;
+    if (!classified) return {};
+    const val = (d) => Number(d.value ?? d.consumption ?? 0) || 0;
+
+    if (mode === 'groups') {
+      const bc = window.MyIOOrchestrator?.getEnergySummary?.()?.byCategory;
+      if (!bc) return {};
+      return {
+        Lojas: bc.lojas?.total || 0,
+        Climatização: bc.climatizacao?.total || 0,
+        Elevadores: bc.elevadores?.total || 0,
+        'Escadas Rolantes': bc.escadas?.total || 0,
+        Outros: bc.outros?.total || 0,
+      };
+    }
+
+    const sumByShopping = (devices) => {
+      const out = {};
+      (devices || []).forEach((d) => {
+        const s = d.customerName || d.ownerName || '—';
+        out[s] = (out[s] || 0) + val(d);
+      });
+      return Object.fromEntries(
+        Object.entries(out)
+          .filter(([, v]) => v > 0)
+          .sort((a, b) => b[1] - a[1])
+      );
+    };
+    if (mode === 'stores') return sumByShopping(classified.energy?.stores);
+    const catByMode = { hvac: 'climatizacao', elevators: 'elevadores', escalators: 'escadas_rolantes', others: 'outros' };
+    const cat = catByMode[mode];
+    if (!cat) return {};
+    const equipments = classified.energy?.equipments || [];
+    if (typeof MyIOLibrary?.classifyEquipment !== 'function') return {};
+    return sumByShopping(equipments.filter((d) => MyIOLibrary.classifyEquipment(d) === cat));
   };
 
   // Séries de entrada POR SHOPPING (energia) — Map<ingestionCustomerId, pontos[]>.
@@ -4578,9 +4790,19 @@ body.filter-modal-open { overflow: hidden !important; }
         onVizModeChange: (mode) => {
           LogHelper.log('[MAIN_UNIQUE] Energy Panel vizMode changed:', mode);
         },
+
+        // Dados REAIS dos gráficos (sem eles a lib usa mocks Aricanduva/Interlagos/…):
+        // consumo diário = medidores de entrada canônicos por shopping;
+        // distribuição = devices classificados (RFC-0128) por shopping
+        fetchConsumptionData: fetchEnergyPanelConsumption,
+        fetchDistributionData: fetchEnergyPanelDistribution,
       });
 
       LogHelper.log('[MAIN_UNIQUE] Energy Panel created successfully');
+      injectEnergyPanelPremiumStyles(); // corrige o h3 2rem do TB + visual premium compacto
+      // Entrada REAL: busca async o total dos medidores canônicos no período e
+      // re-renderiza o painel quando resolver (corrige Entrada/Área Comum/percentuais)
+      window.MyIOUtils?.refreshRealEntradaSummary?.();
     } else {
       container.innerHTML =
         '<div style="padding:20px;text-align:center;color:#94a3b8;">EnergyPanel component not available</div>';
@@ -7258,13 +7480,42 @@ function buildEnergyPanelSummary(classified) {
     byCategory.escadas.total +
     byCategory.outros.total;
 
+  // Entrada REAL (auditoria 2026-07-07): o datasource TB do head-office só tem parte
+  // dos medidores de entrada (a soma parcial dava ~294 MWh vs ~1.000 reais, Área Comum
+  // 0 e "Total Consumidores 340% da entrada"). Quando o controller publica o total dos
+  // medidores CANÔNICOS (attr entradaIngestionIds por shopping, via Data API) em
+  // window.MyIOUtils.realEntrada, ele substitui a soma parcial e Área Comum +
+  // percentuais são recalculados sobre a entrada verdadeira.
+  let entradaFinal = entradaTotal;
+  const realEntrada = window.MyIOUtils?.realEntrada;
+  if (realEntrada && Number(realEntrada.total) > 0) {
+    entradaFinal = Number(realEntrada.total);
+    byCategory.entrada = {
+      total: entradaFinal,
+      count: Number(realEntrada.count) || byCategory.entrada.count,
+      percentage: 100,
+    };
+    const pct = (v) => (entradaFinal > 0 ? (v / entradaFinal) * 100 : 0);
+    byCategory.lojas.percentage = pct(byCategory.lojas.total);
+    byCategory.climatizacao.percentage = pct(byCategory.climatizacao.total);
+    byCategory.elevadores.percentage = pct(byCategory.elevadores.total);
+    byCategory.escadas.percentage = pct(byCategory.escadas.total);
+    byCategory.outros.percentage = pct(byCategory.outros.total);
+    const areaComumReal = Math.max(0, entradaFinal - consumidoresTotal);
+    byCategory.areaComum = {
+      total: areaComumReal,
+      count: byCategory.areaComum.count,
+      percentage: pct(areaComumReal),
+    };
+  }
+
   return {
     storesTotal,
     equipmentsTotal,
-    entradaTotal,
+    entradaTotal: entradaFinal,
     areaComumTotal: byCategory.areaComum.total,
     consumidoresTotal,
-    total: entradaTotal || consumidoresTotal,
+    total: entradaFinal || consumidoresTotal,
     deviceCount: allEnergyDevices.length,
     byCategory,
     byStatus: summarizePanelStatus(allEnergyDevices),
