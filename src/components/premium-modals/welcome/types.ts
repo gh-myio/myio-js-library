@@ -422,6 +422,8 @@ export interface WelcomeModalInstance {
   setCtaLabel: (label: string) => void;
   /** Set CTA button disabled state */
   setCtaDisabled: (disabled: boolean) => void;
+  /** Show/hide the CTA button (hidden while enrichment is loading) */
+  setCtaHidden: (hidden: boolean) => void;
   /** Update the global enrichment progress bar (0–100; fades out at 100) */
   setEnrichmentProgress: (percent: number, label?: string) => void;
 }

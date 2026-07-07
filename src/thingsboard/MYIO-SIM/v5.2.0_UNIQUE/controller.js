@@ -1635,6 +1635,7 @@ body.filter-modal-open { overflow: hidden !important; }
       const pct = _metaTasksTotal > 0 ? (_metaTasksDone / _metaTasksTotal) * 100 : 100;
       welcomeModal.setEnrichmentProgress?.(pct);
       if (_metaTasksDone >= _metaTasksTotal) {
+        welcomeModal.setCtaHidden?.(false);
         welcomeModal.setCtaDisabled?.(false);
       }
     };
@@ -1650,7 +1651,8 @@ body.filter-modal-open { overflow: hidden !important; }
     targets.forEach((t) => _enrichedMetaIds.add(t.entityId));
     _metaTasksTotal += targets.length * 3;
 
-    // CTA only enabled once every source of every customer has resolved
+    // CTA hidden (and disabled as belt-and-braces) until every source of every customer resolves
+    welcomeModal.setCtaHidden?.(true);
     welcomeModal.setCtaDisabled?.(true);
     welcomeModal.setEnrichmentProgress?.((_metaTasksDone / _metaTasksTotal) * 100);
 
@@ -1683,6 +1685,7 @@ body.filter-modal-open { overflow: hidden !important; }
       );
     } catch (err) {
       LogHelper.error('[MetaCounts] enrichment failed:', err);
+      welcomeModal.setCtaHidden?.(false);
       welcomeModal.setCtaDisabled?.(false);
       welcomeModal.setEnrichmentProgress?.(100, 'Falha ao carregar indicadores');
     }
@@ -2901,13 +2904,14 @@ body.filter-modal-open { overflow: hidden !important; }
         localStorage.getItem('gcdr_customer_api_key') ||
         GCDR_API_KEY ||
         window.MyIOOrchestrator?.gcdrApiKey ||
+        settings.gcdrApiKey ||
         '';
       if (!gcdrBaseUrl || !gcdrApiKey) {
         LogHelper.error(
-          '[MAIN_UNIQUE] GCDR credentials missing (customer attr gcdrApiKey / GCDR_CUSTOMER_API_KEY)'
+          '[MAIN_UNIQUE] GCDR credentials missing (customer attr gcdrApiKey / settings.gcdrApiKey)'
         );
         toastError(
-          'Configuração do GCDR ausente: defina o atributo gcdrApiKey no customer (SERVER_SCOPE).'
+          'Configuração do GCDR ausente: defina o atributo gcdrApiKey no customer (SERVER_SCOPE) ou o setting "GCDR API Key" do widget.'
         );
         return;
       }

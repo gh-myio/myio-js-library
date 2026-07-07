@@ -3490,6 +3490,14 @@ export class WelcomeModalView {
   }
 
   /**
+   * Show/hide the CTA button (e.g. hidden while indicator enrichment is loading)
+   */
+  public setCtaHidden(hidden: boolean): void {
+    const ctaBtn = this.container.querySelector('#welcomeCtaBtn') as HTMLButtonElement;
+    if (ctaBtn) ctaBtn.style.display = hidden ? 'none' : '';
+  }
+
+  /**
    * Update the global enrichment progress bar below the CTA button.
    * percent: 0–100; the bar fades out shortly after reaching 100.
    */
