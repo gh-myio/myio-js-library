@@ -1,0 +1,11 @@
+{
+  "_meta": {
+    "central": "Contagem (Soul Malls)",
+    "table": "ambients_rfir_devices_rel",
+    "rowCount": 0,
+    "capturedAt": "2026-07-07 (pós-revert do import + restauração de nomes)",
+    "source": "/tmp/dump-cadastro.sh na central (psql -U hubot, sem pager) — logMaps-v2-CONTAGEM.log, capturado 2026-07-07 12:33 UTC",
+    "note": "Vazia — central sem RFIR devices."
+  },
+  "rows": []
+}
