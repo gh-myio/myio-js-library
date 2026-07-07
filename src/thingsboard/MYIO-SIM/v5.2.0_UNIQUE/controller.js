@@ -3389,6 +3389,90 @@ body.filter-modal-open { overflow: hidden !important; }
     return sumByShopping(equipments.filter((d) => MyIOLibrary.classifyEquipment(d) === cat));
   };
 
+  // ── Fetchers REAIS dos gráficos do painel Água > Resumo ──
+  // Mesmo problema do painel de energia: sem callbacks o WaterPanelView usa mocks
+  // (Aricanduva/Interlagos — WaterPanelView.ts:192/261). Consumo diário fiel às abas
+  // do HO: só hidrômetros de Lojas + Área Comum + Banheiros (exclui entradas — a
+  // entrada da Ilha subconta), somados por shopping via 1 devices/totals por dia.
+  const _waterDailyCache = new Map(); // 'YYYY-MM-DD' -> Map<custId, {name, total}>
+  const fetchWaterPanelConsumption = async (periodDays) => {
+    const empty = { labels: [], dailyTotals: [], shoppingData: {}, shoppingNames: {}, fetchTimestamp: Date.now() };
+    const days = Math.max(1, Number(periodDays) || 7);
+    const classified = window.MyIOOrchestratorData?.classified;
+    const allowed = new Set();
+    ['hidrometro', 'hidrometro_area_comum', 'banheiros'].forEach((ctx) =>
+      (classified?.water?.[ctx] || []).forEach((d) => d.ingestionId && allowed.add(d.ingestionId))
+    );
+    const creds = window.MyIOUtils?.getCredentials?.();
+    if (!creds?.clientId || !creds?.customerId || !MyIOLibrary?.buildMyioIngestionAuth) return empty;
+    const auth = MyIOLibrary.buildMyioIngestionAuth({
+      dataApiHost: creds.dataApiHost,
+      clientId: creds.clientId,
+      clientSecret: creds.clientSecret,
+    });
+    const token = await auth.getToken();
+    if (!token) return empty;
+
+    const today = new Date();
+    const dayList = [];
+    for (let i = days - 1; i >= 0; i--) {
+      dayList.push(new Date(today.getFullYear(), today.getMonth(), today.getDate() - i, 12));
+    }
+    const labels = dayList.map((d) => d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }));
+    const perDay = Array(days).fill(null);
+
+    const fetchDay = async (d, idx) => {
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      if (_waterDailyCache.has(key)) {
+        perDay[idx] = _waterDailyCache.get(key);
+        return;
+      }
+      const url = new URL(`${creds.dataApiHost}/telemetry/customers/${creds.customerId}/water/devices/totals`);
+      url.searchParams.set('startTime', `${key}T00:00:00-03:00`);
+      url.searchParams.set('endTime', `${key}T23:59:59-03:00`);
+      url.searchParams.set('deep', '1');
+      const res = await fetch(url.toString(), {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: AbortSignal.timeout(120000),
+      }).catch(() => null);
+      if (!res || !res.ok) return;
+      const payload = await res.json();
+      const arr = Array.isArray(payload) ? payload : (payload?.data ?? []);
+      const m = new Map();
+      for (const dev of arr) {
+        if (!dev.customerId) continue;
+        // fiel às abas: só lojas+AC+banheiros (se o classified ainda não chegou, aceita todos)
+        if (allowed.size && !allowed.has(dev.id)) continue;
+        const cur = m.get(dev.customerId) || { name: dev.customerName || dev.customerId, total: 0 };
+        cur.total += Number(dev.total_value ?? dev.value) || 0;
+        m.set(dev.customerId, cur);
+      }
+      perDay[idx] = m;
+      if (d.toDateString() !== today.toDateString()) _waterDailyCache.set(key, m); // hoje ainda cresce
+    };
+    for (let b = 0; b < dayList.length; b += 4) {
+      await Promise.all(dayList.slice(b, b + 4).map((d, j) => fetchDay(d, b + j)));
+    }
+
+    const shoppingData = {};
+    const shoppingNames = {};
+    const dailyTotals = Array(days).fill(0);
+    perDay.forEach((m, i) => {
+      if (!m) return;
+      m.forEach((v, cust) => {
+        if (!shoppingData[cust]) {
+          shoppingData[cust] = Array(days).fill(0);
+          shoppingNames[cust] = v.name;
+        }
+        shoppingData[cust][i] = v.total;
+        dailyTotals[i] += v.total;
+      });
+    });
+    return { labels, dailyTotals, shoppingData, shoppingNames, fetchTimestamp: Date.now() };
+  };
+
+  // (distribuição de água já é injetada inline no createWaterPanelComponent — RFC-0133)
+
   // Séries de entrada POR SHOPPING (energia) — Map<ingestionCustomerId, pontos[]>.
   // Base do gráfico único (consolidado soma os customers; por shopping usa cada um).
   const fetchEntradaPointsByCustomer = async (startISO, endISO, granularity) => {
@@ -4850,6 +4934,11 @@ body.filter-modal-open { overflow: hidden !important; }
         showConsumptionChart: true,
         showDistributionChart: true,
         enableFullscreen: true,
+
+        // Gráfico diário REAL (sem isto o WaterPanelView usa o mock Aricanduva):
+        // hidrômetros de Lojas + Área Comum + Banheiros por shopping, 1 devices/totals
+        // por dia com cache — fiel às abas Água > Lojas/Area Comum (exclui entradas)
+        fetchConsumptionData: fetchWaterPanelConsumption,
 
         // RFC-0133: Real distribution data (replaces the View's hardcoded mock).
         // groups = Lojas vs Área Comum; stores/common = per-shopping breakdown.
