@@ -272,7 +272,13 @@ self.onInit = async function () {
     LogHelper.warn('[MAIN_UNIQUE_DATASOURCE]', msg);
     if (MyIOLibrary?.MyIOToast?.error) { MyIOLibrary.MyIOToast.error(msg); }
   }
-  const ALARMS_API_BASE   = settings.alarmsApiBaseUrl || 'https://alarms-api.a.myio-bas.com';
+  // Rotas reais são /api/v1/alarms… e o AlarmApiClient NÃO acrescenta o prefixo —
+  // normaliza aqui p/ aceitar a base com ou sem /api/v1 (auditoria 2026-07-07: sem
+  // isso todas as chamadas de alarmes davam 404 "Route not found")
+  const ALARMS_API_BASE = (() => {
+    const b = String(settings.alarmsApiBaseUrl || 'https://alarms-api.a.myio-bas.com').replace(/\/+$/, '');
+    return /\/api\/v1$/.test(b) ? b : `${b}/api/v1`;
+  })();
   const ALARMS_API_KEY    = settings.alarmsApiKey    || '';
   const GCDR_API_BASE     = settings.gcdrApiBaseUrl   || 'https://gcdr-api.a.myio-bas.com';
   // RFC-0046: expose GCDR base URL via window state (analogous to MAIN) for the Goals panel.
@@ -375,6 +381,13 @@ self.onInit = async function () {
         window.MyIOUtils.GCDR_API_KEY = GCDR_API_KEY;
         // Parity with v-5.2.0 MAIN_VIEW: gcdrApiKey exposto no orchestrator (Goals/GCDR auth)
         if (window.MyIOOrchestrator) window.MyIOOrchestrator.gcdrApiKey = GCDR_API_KEY;
+        // A gcdrApiKey do HO é MASTER na Alarms API (retorna alarmes de todos os
+        // customers do tenant) — reconfigura o AlarmService com ela; a settings
+        // alarmsApiKey (configure inicial) é rejeitada com 401 no /api/v1
+        if (GCDR_API_KEY && MyIOLibrary?.AlarmService?.configure) {
+          MyIOLibrary.AlarmService.configure(ALARMS_API_BASE, undefined, GCDR_API_KEY);
+          LogHelper.log('[MAIN_UNIQUE] AlarmService reconfigured with customer gcdrApiKey (master)');
+        }
         window.MyIOUtils.getCredentials = () => ({
           clientId: CLIENT_ID,
           clientSecret: CLIENT_SECRET,
@@ -1549,12 +1562,15 @@ body.filter-modal-open { overflow: hidden !important; }
 
     const fetchAlarmsMeta = async (attrs) => {
       const gcdrCustomerId = attrs?.gcdrCustomerId || '';
-      if (!ALARMS_API_KEY || !gcdrCustomerId) return null;
+      // A chave é per-customer (gcdrApiKey do SERVER_SCOPE do shopping) — a
+      // settings.alarmsApiKey é rejeitada com 401 no /api/v1 (auditoria 2026-07-07)
+      const apiKey = attrs?.gcdrApiKey || GCDR_API_KEY || ALARMS_API_KEY;
+      if (!apiKey || !gcdrCustomerId) return null;
       try {
         const url = `${ALARMS_API_BASE}/alarms?state=OPEN,ACK,ESCALATED,SNOOZED&customerId=${encodeURIComponent(gcdrCustomerId)}&limit=100`;
         const res = await fetch(url, {
           headers: {
-            'X-API-Key': ALARMS_API_KEY,
+            'X-API-Key': apiKey,
             'X-Tenant-ID': attrs?.gcdrTenantId || '',
             Accept: 'application/json',
           },
@@ -1698,6 +1714,38 @@ body.filter-modal-open { overflow: hidden !important; }
   const headerContainer = document.getElementById('headerContainer');
   let headerInstance = null;
 
+  // As cores de FONTE do appearance (cardEnergiaFontColor etc.) chegam ao card como
+  // `color` inline, mas o CSS da lib pinta título/kpi/subrow com rgba(255,255,255,.9)
+  // hardcoded — a fonte configurada nunca aparece. Injeta regras por card (id) apenas
+  // quando a cor foi configurada nas settings, com !important para vencer a classe.
+  const applyHeaderFontColorFix = () => {
+    const map = {
+      equip: settings.cardEquipamentosFontColor,
+      energy: settings.cardEnergiaFontColor,
+      temp: settings.cardTemperaturaFontColor,
+      water: settings.cardAguaFontColor,
+    };
+    const rules = Object.entries(map)
+      .filter(([, color]) => !!color)
+      .map(
+        ([k, color]) => `
+#headerContainer #myio-header-card-${k} .myio-header-card__title,
+#headerContainer #myio-header-card-${k} .myio-header-card__kpi,
+#headerContainer #myio-header-card-${k} .myio-header-card__kpi *,
+#headerContainer #myio-header-card-${k} .myio-header-card__subrow,
+#headerContainer #myio-header-card-${k} .myio-header-card__subrow *{color:${color} !important;}`
+      )
+      .join('\n');
+    if (!rules) return;
+    let tag = document.getElementById('myio-header-fontcolor-fix');
+    if (!tag) {
+      tag = document.createElement('style');
+      tag.id = 'myio-header-fontcolor-fix';
+      document.head.appendChild(tag);
+    }
+    tag.textContent = rules;
+  };
+
   if (headerContainer && MyIOLibrary.createHeaderComponent) {
     headerInstance = MyIOLibrary.createHeaderComponent({
       container: headerContainer,
@@ -1740,6 +1788,7 @@ body.filter-modal-open { overflow: hidden !important; }
         }
       },
     });
+    applyHeaderFontColorFix();
 
     // RFC-0126: Update module-level reference for early event handlers
     _headerInstanceRef = headerInstance;
@@ -3314,6 +3363,20 @@ body.filter-modal-open { overflow: hidden !important; }
     const start = new Date(end.getFullYear(), end.getMonth(), end.getDate() - (days - 1), 0, 0, 0);
     const byCust = (await fetchEntradaPointsByCustomer(start.toISOString(), end.toISOString(), '1d')) || new Map();
 
+    // Sem medidores de entrada identificáveis (ex.: Soul Malls — sem attr
+    // entradaIngestionIds e heurístico sem match): fallback para TODOS os devices
+    // de energia do datasource por shopping (mesma régua do header), senão o
+    // gráfico do painel Geral fica vazio.
+    if (byCust.size === 0) {
+      const classified = window.MyIOOrchestratorData?.classified;
+      const allowed = new Set();
+      ['entrada', 'equipments', 'stores'].forEach((ctx) =>
+        (classified?.energy?.[ctx] || []).forEach((d) => d.ingestionId && allowed.add(d.ingestionId))
+      );
+      LogHelper.warn('[MAIN_UNIQUE] Geral(Energia): sem medidores de entrada — fallback p/ todos os devices de energia');
+      return fetchDailyConsumptionByCustomer('energy', days, allowed);
+    }
+
     // ingestionId → título do shopping (cards do datasource)
     const names = {};
     const cards = (_currentShoppingCards || []).filter(
@@ -3389,20 +3452,14 @@ body.filter-modal-open { overflow: hidden !important; }
     return sumByShopping(equipments.filter((d) => MyIOLibrary.classifyEquipment(d) === cat));
   };
 
-  // ── Fetchers REAIS dos gráficos do painel Água > Resumo ──
-  // Mesmo problema do painel de energia: sem callbacks o WaterPanelView usa mocks
-  // (Aricanduva/Interlagos — WaterPanelView.ts:192/261). Consumo diário fiel às abas
-  // do HO: só hidrômetros de Lojas + Área Comum + Banheiros (exclui entradas — a
-  // entrada da Ilha subconta), somados por shopping via 1 devices/totals por dia.
-  const _waterDailyCache = new Map(); // 'YYYY-MM-DD' -> Map<custId, {name, total}>
-  const fetchWaterPanelConsumption = async (periodDays) => {
+  // ── Série diária por shopping (genérica): 1 devices/totals por dia, filtrada a um
+  // conjunto de ingestionIds e agrupada pelo customerId/customerName da própria API.
+  // Usada pelo gráfico do Água > Resumo e como fallback do gráfico de energia quando
+  // não há medidores de entrada identificáveis (ex.: Soul Malls).
+  const _dailyTotalsCache = new Map(); // 'domain|YYYY-MM-DD' -> Map<custId, {name, total}>
+  const fetchDailyConsumptionByCustomer = async (apiDomain, periodDays, allowedIds) => {
     const empty = { labels: [], dailyTotals: [], shoppingData: {}, shoppingNames: {}, fetchTimestamp: Date.now() };
     const days = Math.max(1, Number(periodDays) || 7);
-    const classified = window.MyIOOrchestratorData?.classified;
-    const allowed = new Set();
-    ['hidrometro', 'hidrometro_area_comum', 'banheiros'].forEach((ctx) =>
-      (classified?.water?.[ctx] || []).forEach((d) => d.ingestionId && allowed.add(d.ingestionId))
-    );
     const creds = window.MyIOUtils?.getCredentials?.();
     if (!creds?.clientId || !creds?.customerId || !MyIOLibrary?.buildMyioIngestionAuth) return empty;
     const auth = MyIOLibrary.buildMyioIngestionAuth({
@@ -3422,14 +3479,15 @@ body.filter-modal-open { overflow: hidden !important; }
     const perDay = Array(days).fill(null);
 
     const fetchDay = async (d, idx) => {
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      if (_waterDailyCache.has(key)) {
-        perDay[idx] = _waterDailyCache.get(key);
+      const key = `${apiDomain}|${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      if (_dailyTotalsCache.has(key)) {
+        perDay[idx] = _dailyTotalsCache.get(key);
         return;
       }
-      const url = new URL(`${creds.dataApiHost}/telemetry/customers/${creds.customerId}/water/devices/totals`);
-      url.searchParams.set('startTime', `${key}T00:00:00-03:00`);
-      url.searchParams.set('endTime', `${key}T23:59:59-03:00`);
+      const dateStr = key.split('|')[1];
+      const url = new URL(`${creds.dataApiHost}/telemetry/customers/${creds.customerId}/${apiDomain}/devices/totals`);
+      url.searchParams.set('startTime', `${dateStr}T00:00:00-03:00`);
+      url.searchParams.set('endTime', `${dateStr}T23:59:59-03:00`);
       url.searchParams.set('deep', '1');
       const res = await fetch(url.toString(), {
         headers: { Authorization: `Bearer ${token}` },
@@ -3441,14 +3499,14 @@ body.filter-modal-open { overflow: hidden !important; }
       const m = new Map();
       for (const dev of arr) {
         if (!dev.customerId) continue;
-        // fiel às abas: só lojas+AC+banheiros (se o classified ainda não chegou, aceita todos)
-        if (allowed.size && !allowed.has(dev.id)) continue;
+        // se há filtro, respeita; sem filtro (classified vazio), aceita todos
+        if (allowedIds?.size && !allowedIds.has(dev.id)) continue;
         const cur = m.get(dev.customerId) || { name: dev.customerName || dev.customerId, total: 0 };
         cur.total += Number(dev.total_value ?? dev.value) || 0;
         m.set(dev.customerId, cur);
       }
       perDay[idx] = m;
-      if (d.toDateString() !== today.toDateString()) _waterDailyCache.set(key, m); // hoje ainda cresce
+      if (d.toDateString() !== today.toDateString()) _dailyTotalsCache.set(key, m); // hoje ainda cresce
     };
     for (let b = 0; b < dayList.length; b += 4) {
       await Promise.all(dayList.slice(b, b + 4).map((d, j) => fetchDay(d, b + j)));
@@ -3469,6 +3527,17 @@ body.filter-modal-open { overflow: hidden !important; }
       });
     });
     return { labels, dailyTotals, shoppingData, shoppingNames, fetchTimestamp: Date.now() };
+  };
+
+  // Gráfico do Água > Resumo: só hidrômetros de Lojas + Área Comum + Banheiros
+  // (exclui entradas — a entrada da Ilha subconta), fiel às abas do HO.
+  const fetchWaterPanelConsumption = async (periodDays) => {
+    const classified = window.MyIOOrchestratorData?.classified;
+    const allowed = new Set();
+    ['hidrometro', 'hidrometro_area_comum', 'banheiros'].forEach((ctx) =>
+      (classified?.water?.[ctx] || []).forEach((d) => d.ingestionId && allowed.add(d.ingestionId))
+    );
+    return fetchDailyConsumptionByCustomer('water', periodDays, allowed);
   };
 
   // (distribuição de água já é injetada inline no createWaterPanelComponent — RFC-0133)
@@ -4763,10 +4832,18 @@ body.filter-modal-open { overflow: hidden !important; }
   };
 
   function clearSelectionStore() {
-    const store = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
-    if (store?.getSelectedIds?.().length > 0) {
-      store.clearAll();
-      LogHelper.log('[MAIN_UNIQUE] SelectionStore cleared on context change');
+    // NUNCA pode quebrar a navegação: com devices selecionados no footer, um throw
+    // aqui matava o switch-main-state silenciosamente (menu mudava, view não —
+    // reproduzido na Soul Malls). A API da lib variou: clearAll() (novas) × clear().
+    try {
+      const store = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
+      if (store?.getSelectedIds?.().length > 0) {
+        if (typeof store.clearAll === 'function') store.clearAll();
+        else if (typeof store.clear === 'function') store.clear();
+        LogHelper.log('[MAIN_UNIQUE] SelectionStore cleared on context change');
+      }
+    } catch (err) {
+      LogHelper.warn('[MAIN_UNIQUE] clearSelectionStore falhou (ignorado):', err?.message || err);
     }
   }
 
@@ -5598,7 +5675,7 @@ body.filter-modal-open { overflow: hidden !important; }
       themeMode: currentThemeMode,
       enableDebugMode: settings.enableDebugMode,
       alarmsApiBaseUrl: ALARMS_API_BASE,
-      alarmsApiKey: window.MyIOUtils?.ALARMS_API_KEY || ALARMS_API_KEY,
+      alarmsApiKey: GCDR_API_KEY || window.MyIOUtils?.ALARMS_API_KEY || ALARMS_API_KEY, // master key do HO
       gcdrApiBaseUrl: GCDR_API_BASE,
       alarms: [],
       onAlarmClick: (alarm) => {
@@ -5733,13 +5810,15 @@ body.filter-modal-open { overflow: hidden !important; }
       const tenantId = GCDR_CUSTOMER_ID;
 
       // RFC-0178: getAlarms now returns { data, summary }; summary replaces separate getAlarmStats
+      // HEAD OFFICE: a chave master retorna alarmes de TODOS os customers do tenant —
+      // NÃO passar customerId (o gcdrCustomerId do HO não tem devices → viria vazio);
+      // o recorte é feito adiante pelo match com os gcdrDeviceIds orquestrados
       const [response, trend] = await Promise.all([
         alarmService.getAlarms({
-          state:      ['OPEN', 'ACK', 'ESCALATED', 'SNOOZED'],
-          limit:      100,
-          customerId: tenantId || undefined,
+          state: ['OPEN', 'ACK', 'ESCALATED', 'SNOOZED'],
+          limit: 100,
         }),
-        tenantId ? alarmService.getAlarmTrend(tenantId, 'week', 'day') : Promise.resolve([]),
+        tenantId ? alarmService.getAlarmTrend(tenantId, 'week', 'day').catch(() => []) : Promise.resolve([]),
       ]);
 
       const deviceByGcdrId = buildGcdrDeviceLabelMap();
