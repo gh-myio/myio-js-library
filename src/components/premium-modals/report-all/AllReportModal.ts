@@ -973,7 +973,7 @@ export class AllReportModal {
         })
       );
     }
-    this.debugLog('[AllReportModal] ED-996: temperaturas médias aplicadas a', tempRows.length, 'sensores');
+    this.debugLog(`[AllReportModal] ED-996: temperaturas médias aplicadas a ${tempRows.length} sensores`);
   }
 
   // Re-map the cached API response under the current exclusion flag and refresh the UI.
