@@ -2679,12 +2679,33 @@ function openGoalsModal() {
     return (groups[groupKey] || []).map((d) => toItem(d, null));
   }
 
-  function _openGroupReport(domain, group, baseParams) {
+  // ED-996: if the user opens "Relatórios" for a domain that was never hydrated in this
+  // session (e.g. never switched to the Temperatura tab), window.MyIOOrchestratorData[domain]
+  // is empty, getXGroups() returns {}, and the report opens with an empty device list. Force
+  // a hydration first so _buildItemsList() always has data to work with.
+  async function _ensureDomainHydrated(domain) {
+    if (window.MyIOOrchestratorData?.[domain]?.items?.length) return;
+
+    const orch = window.MyIOOrchestrator;
+    const period = orch?.getCurrentPeriod?.();
+    if (!period) return;
+
+    try {
+      LogHelper.log(`[MENU RFC-0181] Domain ${domain} not hydrated yet — hydrating before report`);
+      await orch.hydrateDomain(domain, period);
+    } catch (err) {
+      LogHelper.error(`[MENU RFC-0181] Failed to hydrate ${domain} before report:`, err);
+    }
+  }
+
+  async function _openGroupReport(domain, group, baseParams) {
     const MyIOLib = window.MyIOUtils;
     if (!MyIOLib?.openDashboardPopupAllReport) {
       LogHelper.error('[MENU RFC-0181] openDashboardPopupAllReport not available');
       return;
     }
+
+    await _ensureDomainHydrated(domain);
 
     const itemsList = _buildItemsList(domain, group);
     LogHelper.log(`[MENU RFC-0181] Opening report domain=${domain} group=${group} items=${itemsList.length}`);

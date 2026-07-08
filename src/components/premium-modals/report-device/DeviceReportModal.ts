@@ -362,18 +362,24 @@ export class DeviceReportModal {
 
     // Daily: build map and zero-fill with date range
     const dailyMap: { [key: string]: number } = {};
+    const dailyCount: { [key: string]: number } = {};
     consumption.forEach((item: any) => {
       if (item.timestamp && item.value != null) {
         const date = item.timestamp.slice(0, 10); // Extract YYYY-MM-DD
         const value = Number(item.value);
         if (!dailyMap[date]) dailyMap[date] = 0;
         dailyMap[date] += value;
+        dailyCount[date] = (dailyCount[date] || 0) + 1;
       }
     });
 
+    // ED-996: temperature isn't additive — a day with multiple intraday readings
+    // must show their average, not the sum (which would be a meaningless, inflated number).
+    const isAverage = this.domainConfig.summaryType === 'average';
+
     return dateRange.map(date => ({
       date,
-      consumption: dailyMap[date] || 0,
+      consumption: dailyMap[date] != null ? (isAverage ? dailyMap[date] / dailyCount[date] : dailyMap[date]) : 0,
     }));
   }
 
