@@ -921,7 +921,59 @@ export class AllReportModal {
     const data = await response.json();
     this.debugLog('[AllReportModal] Customer totals response:', data);
 
+    // ED-996: /temperature/devices/totals retorna total_value=0 para sensores de
+    // temperatura ("total" não é semântica de temperatura) — substitui pelo valor
+    // MÉDIO do período de cada sensor, via o mesmo endpoint por device usado no
+    // modal de histórico do card (que funciona).
+    if ((this.params.domain || 'energy') === 'temperature') {
+      await this.enrichTemperatureAverages(data, startISO, endISO, token, baseUrl);
+    }
+
     return data;
+  }
+
+  // ED-996: busca a série de temperatura de cada sensor e escreve a MÉDIA do período
+  // em total_value (in-place). Sensores sem série ficam com o 0 original.
+  private async enrichTemperatureAverages(
+    data: any,
+    startISO: string,
+    endISO: string,
+    token: string,
+    baseUrl: string
+  ): Promise<void> {
+    const rows: any[] = Array.isArray(data?.data) ? data.data : [];
+    const tempRows = rows.filter((d) => String(d?.deviceType || '').toLowerCase() === 'temperature');
+    if (!tempRows.length) return;
+
+    const gran = this.granularity === '1h' ? '1h' : '1d';
+    const startTime = encodeURIComponent(startISO);
+    const endTime = encodeURIComponent(endISO);
+    const BATCH = 6;
+
+    for (let i = 0; i < tempRows.length; i += BATCH) {
+      await Promise.all(
+        tempRows.slice(i, i + BATCH).map(async (dev) => {
+          try {
+            const url = `${baseUrl}/telemetry/devices/${dev.id}/temperature?startTime=${startTime}&endTime=${endTime}&granularity=${gran}&deep=0`;
+            const res = await fetch(url, {
+              headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            });
+            if (!res.ok) return;
+            const body = await res.json();
+            const ent = Array.isArray(body) ? body[0] : body;
+            const values = ((ent?.consumption || []) as Array<{ value: unknown }>)
+              .map((p) => Number(p?.value))
+              .filter((v) => Number.isFinite(v));
+            if (values.length) {
+              dev.total_value = values.reduce((s, v) => s + v, 0) / values.length;
+            }
+          } catch {
+            /* mantém o 0 original para este sensor */
+          }
+        })
+      );
+    }
+    this.debugLog('[AllReportModal] ED-996: temperaturas médias aplicadas a', tempRows.length, 'sensores');
   }
 
   // Re-map the cached API response under the current exclusion flag and refresh the UI.
