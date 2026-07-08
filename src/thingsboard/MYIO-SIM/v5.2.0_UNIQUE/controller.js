@@ -1428,6 +1428,11 @@ body.filter-modal-open { overflow: hidden !important; }
   // RFC-0126: Update module-level reference for early event handlers
   _welcomeModalRef = welcomeModal;
 
+  // Os datasources dos HOs não expõem dataKey `dashboardId` — sem ele os cards do
+  // welcome nunca ficam clicáveis (não redirecionam ao dashboard do shopping).
+  // Enriquece async com o attr `customerDefaultDashboard` de cada customer.
+  enrichShoppingCardsWithDefaultDashboards(welcomeModal);
+
   // Retry function: wait for data-ready event with retry and toast feedback
   // 10 attempts x 3s = 30s max wait time
   const waitForDataReadyWithRetry = async (
@@ -7442,6 +7447,49 @@ function buildShoppingsListFromAlias(data) {
     LogHelper.log('[buildShoppingsListFromAlias] Built shoppings list:', result.length, 'customers');
   }
   return result;
+}
+
+/**
+ * Preenche card.dashboardId a partir do attr SERVER_SCOPE `customerDefaultDashboard`
+ * (JSON {dashboardId, dashboardName, ...} gravado pelo modal ⚙️ "Dashboard Padrão").
+ * Necessário porque o datasource `customers` dos head offices não tem dataKey
+ * `dashboardId` — sem isso os cards do welcome não redirecionam.
+ */
+async function enrichShoppingCardsWithDefaultDashboards(welcomeModal) {
+  const cards = _currentShoppingCards || [];
+  const pending = cards.filter((c) => !c.dashboardId && c.customerId);
+  if (!pending.length) return;
+  const jwt = localStorage.getItem('jwt_token');
+  if (!jwt) return;
+  let changed = false;
+  await Promise.all(
+    pending.map(async (card) => {
+      try {
+        const res = await fetch(
+          `/api/plugins/telemetry/CUSTOMER/${card.customerId}/values/attributes/SERVER_SCOPE?keys=customerDefaultDashboard`,
+          { headers: { 'X-Authorization': `Bearer ${jwt}` } }
+        );
+        if (!res.ok) return;
+        const attrs = await res.json();
+        let v = (attrs || []).find((a) => a.key === 'customerDefaultDashboard')?.value;
+        if (typeof v === 'string') {
+          try { v = JSON.parse(v); } catch { v = null; }
+        }
+        const dashId = v?.dashboardId;
+        if (dashId && String(dashId) !== 'null') {
+          card.dashboardId = String(dashId);
+          card.clickable = true;
+          changed = true;
+        }
+      } catch (err) {
+        LogHelper.warn('[MAIN_UNIQUE] customerDefaultDashboard falhou p/', card.title, err?.message || err);
+      }
+    })
+  );
+  if (changed && welcomeModal?.updateShoppingCards) {
+    welcomeModal.updateShoppingCards([...cards]);
+    LogHelper.log('[MAIN_UNIQUE] Welcome cards enriquecidos com customerDefaultDashboard');
+  }
 }
 
 /**
