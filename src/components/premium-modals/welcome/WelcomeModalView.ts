@@ -344,7 +344,8 @@ export class WelcomeModalView {
         index,
         themeMode: this.themeMode,
         onClick: (clickedCard) => {
-          this.emit('card-click', card);
+          // card fresco por índice — updateShoppingCards troca o array durante o enrichment
+          this.emit('card-click', this.params.shoppingCards?.[index] ?? card);
         },
         onTileClick: (type, clickedCard, cardIndex) => {
           // Handle tile click - show tooltip
@@ -2308,35 +2309,33 @@ export class WelcomeModalView {
       });
     }
 
-    // Shopping card clicks - only for clickable cards (with dashboardId)
+    // Shopping card clicks — bind em TODOS os cards e resolve o card NO CLIQUE
+    // (this.params.shoppingCards é substituído por updateShoppingCards durante o
+    // enrichment; capturar o objeto no bind emitia dado obsoleto). A validação de
+    // dashboardId fica no handler 'card-click' do openWelcomeModal (toast + modal
+    // aberta quando não configurado).
     const cards = this.container.querySelectorAll('.myio-welcome-card');
     cards.forEach((card, index) => {
-      const shoppingCard = this.params.shoppingCards?.[index];
-      if (!shoppingCard) return;
+      if (!this.params.shoppingCards?.[index]) return;
 
-      // Only add click handlers if card has dashboardId (is clickable)
-      if (shoppingCard.dashboardId) {
-        // Click handler
-        card.addEventListener('click', (e: Event) => {
-          // Don't trigger card click if clicking on device count (tooltip trigger)
-          const target = e.target as HTMLElement;
-          if (target.closest('.myio-welcome-card-device-count')) {
-            return;
-          }
-          // Don't trigger card click if clicking on title (tooltip trigger)
-          this.emit('card-click', shoppingCard);
-        });
+      // Click handler
+      card.addEventListener('click', (e: Event) => {
+        // Don't trigger card click if clicking on device count (tooltip trigger)
+        const target = e.target as HTMLElement;
+        if (target.closest('.myio-welcome-card-device-count')) {
+          return;
+        }
+        this.emit('card-click', this.params.shoppingCards?.[index]);
+      });
 
-        // Keyboard support (Enter and Space)
-        card.addEventListener('keydown', (e: Event) => {
-          const keyEvent = e as KeyboardEvent;
-          if (keyEvent.key === 'Enter' || keyEvent.key === ' ') {
-            e.preventDefault();
-            this.emit('card-click', shoppingCard);
-          }
-        });
-      }
-
+      // Keyboard support (Enter and Space)
+      card.addEventListener('keydown', (e: Event) => {
+        const keyEvent = e as KeyboardEvent;
+        if (keyEvent.key === 'Enter' || keyEvent.key === ' ') {
+          e.preventDefault();
+          this.emit('card-click', this.params.shoppingCards?.[index]);
+        }
+      });
     });
 
     // Font size slider - directly scales card text elements and card dimensions
@@ -3269,10 +3268,11 @@ export class WelcomeModalView {
    * Bind events for shopping cards (used after dynamic update)
    */
   private bindCardEvents(): void {
+    // Resolve o card NO CLIQUE (não no bind) — dados mudam a cada updateShoppingCards.
+    // A validação de dashboardId é do handler 'card-click' (toast quando ausente).
     const cards = this.container.querySelectorAll('.myio-welcome-card');
     cards.forEach((card, index) => {
-      const shoppingCard = this.params.shoppingCards?.[index];
-      if (!shoppingCard) return;
+      if (!this.params.shoppingCards?.[index]) return;
 
       // Click handler
       card.addEventListener('click', (e: Event) => {
@@ -3280,7 +3280,7 @@ export class WelcomeModalView {
         if (target.closest('.myio-welcome-card-device-count')) {
           return;
         }
-        this.emit('card-click', shoppingCard);
+        this.emit('card-click', this.params.shoppingCards?.[index]);
       });
 
       // Keyboard support
@@ -3288,7 +3288,7 @@ export class WelcomeModalView {
         const keyEvent = e as KeyboardEvent;
         if (keyEvent.key === 'Enter' || keyEvent.key === ' ') {
           e.preventDefault();
-          this.emit('card-click', shoppingCard);
+          this.emit('card-click', this.params.shoppingCards?.[index]);
         }
       });
     });

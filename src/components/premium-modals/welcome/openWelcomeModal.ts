@@ -4,6 +4,7 @@
  */
 
 import { WelcomeModalView } from './WelcomeModalView';
+import { MyIOToast } from '../../MyIOToast';
 import {
   WelcomeModalParams,
   WelcomeModalInstance,
@@ -146,6 +147,16 @@ export function openWelcomeModal(params: WelcomeModalParams): WelcomeModalInstan
     if (!card) return;
 
     params.onCardClick?.(card);
+
+    // Sem destino válido, navegar geraria /dashboards/null ("Invalid UUID string:
+    // null" no TB) com a modal já fechada. Avisa e mantém a modal aberta.
+    const dashId = String(card.dashboardId ?? '').trim();
+    if (!dashId || dashId === 'null' || dashId === 'undefined') {
+      MyIOToast?.error?.(
+        `Dashboard de "${card.title}" não configurado (defina o Dashboard Padrão do shopping).`
+      );
+      return;
+    }
 
     if (params.closeOnCardClick !== false) {
       close();
