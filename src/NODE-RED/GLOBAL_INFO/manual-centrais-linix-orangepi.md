@@ -70,14 +70,23 @@ ssh -i id_rsa root@<ipv6-da-central>
 | Ilha Plaza AL1            | `200:dc42:651b:5ae5:338d:2b26:670d:34e6` | `81a60176-222c-4bb9-88f5-bc2b47802d82` | —              | —          |
 | Ilha Plaza AL2            | `200:24a5:8297:cce7:59d2:8126:6d67:7e4d` | `53052549-cc8c-4ca2-a597-58e0577548a2` | —              | —          |
 | Ilha Plaza AL3            | `206:c160:eb69:3ddb:42c7:efce:511e:792a` | `91b719b7-f2d2-4d3f-9fb9-ab3d4edbac0d` | —              | —          |
-| Campinas Shopping — G1 G2 | `203:5e50:3e69:89bd:5846:e41f:23b8:fd28` | `1b5d79c4-5fc6-46c4-bd05-89e8b1499920` | `16.2.170.222` | `107`      |
 | Melicidade                | `200:43cb:c66:59be:9966:7330:8b9a:224`   | `05148707-6011-42fb-8b78-46f33a5ca988` | —              | —          |
+| Shopping Contagem         | `200:12b0:b768:7ba0:32b5:1c15:bec7:33aa` | `70b6d878-090f-4326-af18-2695396cbc67` | —              | —          |
+
+#### Holding: ARGO PLAN
+
+| Central                     | IPv6                                     | Gateway ID                             | Central ID     | Frequência |
+| --------------------------- | ---------------------------------------- | -------------------------------------- | -------------- | ---------- |
+| Campinas Shopping — G1 G2   | `203:5e50:3e69:89bd:5846:e41f:23b8:fd28` | `1b5d79c4-5fc6-46c4-bd05-89e8b1499920` | `16.2.170.222` | `107`      |
+| Campinas Shopping — G0 Nova | `200:83a1:247a:8c7b:d428:3ed4:21dd:389f` | `401230d1-e7d6-46dd-9bb1-059387683303` | —              | —          |
 
 #### Holding: SUPERVIA ESTAÇÕES
 
-| Central | IPv6                                    | Gateway ID                             | Central ID | Frequência |
-| ------- | --------------------------------------- | -------------------------------------- | ---------- | ---------- |
-| Deodoro | `200:1e6a:69a5:73f1:b18a:e6e:aa68:9229` | `adb43bf6-6107-44fa-b786-6e88c150d779` | —          | —          |
+| Central      | IPv6                                      | Gateway ID                             | Central ID | Frequência |
+| ------------ | ----------------------------------------- | -------------------------------------- | ---------- | ---------- |
+| Deodoro      | `200:1e6a:69a5:73f1:b18a:e6e:aa68:9229`  | `adb43bf6-6107-44fa-b786-6e88c150d779` | —          | —          |
+| Supervia CCO | `206:e178:b5ba:16:f028:c0bc:d616:2c5b`   | `af8a4c31-aa30-4417-9421-457496bcfe01` | —          | —          |
+| Supervia CTO | `202:1c94:dab9:af71:f553:616:615:adbc`   | `6dd63004-1009-4585-bd9f-556d4385e292` | —          | —          |
 
 #### Holding: DIMENSION
 
@@ -105,6 +114,20 @@ ssh -i id_rsa root@<ipv6-da-central>
 | Aricanduva   | `200:bc45:34ee:59da:371a:cfe9:98d3:3805` | `1e0c1d77-1d41-4004-8be7-41328e590111` | —          | —          |
 | Guadalupe    | `202:f573:1e70:22f1:1dae:95bd:eeb9:1157` | `96a7ca86-c291-4d77-aa66-4706641eaa5a` | —          | —          |
 | Benfica      | `200:47f1:8bf6:36da:65fa:4124:bcdb:dbb4` | `1248905a-ed03-414d-bde6-c4410604ae8f` | —          | —          |
+
+#### Holding: PORTO IMBITUBA
+
+| Central                  | IPv6                                      | Gateway ID                             | Central ID | Frequência |
+| ------------------------ | ----------------------------------------- | -------------------------------------- | ---------- | ---------- |
+| Porto Imbituba 4 — NOVA  | `200:c301:a4e7:529a:780c:9230:2142:9dba`  | `014fab8e-ee6d-4349-9866-d73864cbd44b` | —          | —          |
+
+#### MYIO — PRÉ-SETUP (bancada / referência)
+
+| Central           | IPv6                                      | Gateway ID                             | Central ID | Frequência |
+| ----------------- | ----------------------------------------- | -------------------------------------- | ---------- | ---------- |
+| Central Pre-Setup | `204:12fb:5518:d04:d9e1:360d:4ab0:125b`   | `a77ac87c-addd-4172-a65f-0f6f6038e98e` | `161.158.107.69` | 121 |
+
+> Referência canônica do Pre-Setup Constructor — ver `src/NODE-RED/CENTRAL_PRE_SETUP/README.md`.
 
 **Exemplos de conexão:**
 
@@ -163,14 +186,26 @@ ssh -i id_rsa root@200:24a5:8297:cce7:59d2:8126:6d67:7e4d
 # Ilha Plaza AL3 (Soul Malls)
 ssh -i id_rsa root@206:c160:eb69:3ddb:42c7:efce:511e:792a
 
-# Campinas Shopping — G1 G2 (Soul Malls)
+# Campinas Shopping — G1 G2 (Argo Plan)
 ssh -i id_rsa root@203:5e50:3e69:89bd:5846:e41f:23b8:fd28
+
+# Campinas Shopping — G0 Nova (Argo Plan)
+ssh -i id_rsa root@200:83a1:247a:8c7b:d428:3ed4:21dd:389f
 
 # Melicidade (Soul Malls)
 ssh -i id_rsa root@200:43cb:c66:59be:9966:7330:8b9a:224
 
+# Shopping Contagem (Soul Malls)
+ssh -i id_rsa root@200:12b0:b768:7ba0:32b5:1c15:bec7:33aa
+
 # Deodoro (Supervia Estações)
 ssh -i id_rsa root@200:1e6a:69a5:73f1:b18a:e6e:aa68:9229
+
+# Supervia CCO (Supervia Estações)
+ssh -i id_rsa root@206:e178:b5ba:16:f028:c0bc:d616:2c5b
+
+# Supervia CTO (Supervia Estações)
+ssh -i id_rsa root@202:1c94:dab9:af71:f553:616:615:adbc
 
 # Central Dimension (Dimension)
 ssh -i id_rsa root@203:984:24ef:b578:69a6:7136:b9f2:b5c2
@@ -192,6 +227,12 @@ ssh -i id_rsa root@202:f573:1e70:22f1:1dae:95bd:eeb9:1157
 
 # Benfica (Obramax)
 ssh -i id_rsa root@200:47f1:8bf6:36da:65fa:4124:bcdb:dbb4
+
+# Porto Imbituba 4 — NOVA (Porto Imbituba)
+ssh -i id_rsa root@200:c301:a4e7:529a:780c:9230:2142:9dba
+
+# Central Pre-Setup (bancada / referência)
+ssh -i id_rsa root@204:12fb:5518:d04:d9e1:360d:4ab0:125b
 ```
 
 ---
@@ -902,6 +943,44 @@ systemctl restart nodered
 reboot
 ```
 
+### 9.4 Backup do banco Postgres em `/tmp` (ANTES de qualquer DELETE/UPDATE)
+
+> Sempre que for rodar um script SQL de correção (deletar slaves/ambients/channels,
+> updates em massa etc.), gere um backup em `/tmp` primeiro. O banco é `hubot`
+> (o prompt do `psql -U hubot` mostra `hubot=#`), então `pg_dump -U hubot` já
+> dumpa o banco certo sem `-d`.
+
+```bash
+# Backup SÓ das tabelas de cadastro (rápido — cobre slaves/channels/ambients/junction)
+pg_dump -U hubot --clean --if-exists \
+  -t slaves -t channels -t ambients -t ambients_rfir_slaves_rel \
+  > /tmp/backup-cadastro-$(date +%Y%m%d-%H%M%S).sql
+
+# Backup completo do banco (inclui timeseries — pode ser GRANDE e demorar)
+pg_dump -U hubot > /tmp/backup-full-$(date +%Y%m%d-%H%M%S).sql
+
+# Conferir que gerou
+ls -lh /tmp/backup-*.sql
+```
+
+**Restaurar** (o `--clean --if-exists` faz o dump dropar e recriar as tabelas na restauração):
+
+```bash
+psql -U hubot -f /tmp/backup-cadastro-<timestamp>.sql
+```
+
+**⚠️ `/tmp` é perdido no reboot** — antes de reiniciar a central (ou para guardar
+o backup), copie para sua máquina:
+
+```bash
+# Da SUA máquina (não de dentro da central)
+scp root@\[<ipv6-da-central>\]:/tmp/backup-cadastro-*.sql .
+```
+
+> Detalhes do modelo de dados e fluxo padrão de scripts SQL:
+> [`data-model-postgres-timeseries.md`](data-model-postgres-timeseries.md) (§5.5 e §6.1).
+> Lembrete: shell das centrais é BusyBox `ash` — sintaxe POSIX simples.
+
 ---
 
 ## 10. Troubleshooting
@@ -920,4 +999,4 @@ reboot
 
 ---
 
-_Última atualização: 2026-06-11_
+_Última atualização: 2026-07-07_

@@ -1,0 +1,10 @@
+# Sensitive customer SERVER_SCOPE attributes — NEVER commit (credentials/keys).
+# If these were ever committed, ROTATE them (they live in git history).
+client_id
+client_secret
+master_admin_password
+ingestionId
+integration_setup.json
+gcdrCustomerId
+gcdrId
+gcdrTenantId

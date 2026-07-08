@@ -8,7 +8,7 @@ Harness do widget **GCDR-Upsell-Setup v1.0.0** com backend real.
 |----------|-------|
 | `_TB_URL` | `https://dashboard.myio-bas.com` |
 | Porta do servidor | `3340` |
-| Controller | `src/thingsboard/WIDGET/GCDR-Upsell-Setup/v.1.0.0/controller.js` |
+| Controller | `src/thingsboard/GCDR-Upsell-Setup/v.1.0.0/controller.js` |
 | Build local (opcional) | `dist/myio-js-library.umd.js` |
 
 ## Autenticação

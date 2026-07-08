@@ -49,7 +49,7 @@ export const HEADER_SHOPPING_STYLES = `
 
 /* ===== Base ===== */
 .tbx-toolbar {
-    font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Helvetica Neue", Helvetica;
+    font-family: 'Nunito', Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Helvetica Neue", Helvetica;
     color: var(--tbx-text);
     background: var(--tbx-bg);
     width: 100%;
@@ -338,6 +338,78 @@ export const HEADER_SHOPPING_STYLES = `
     .tbx-col-right {
         justify-content: flex-start;
     }
+}
+
+/* ===========================================================================
+   RFC-0214: operational notif buttons (🔔 alarm / 🎫 ticket / ✏️ annotation)
+   =========================================================================== */
+.tbx-toolbar .tbx-btn-notif {
+    position: relative;
+    min-width: 40px;
+    padding: 8px 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+}
+.tbx-toolbar .tbx-btn-notif .tbx-btn-emoji {
+    font-size: 16px;
+    line-height: 1;
+}
+.tbx-toolbar .tbx-btn-notif.is-disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+.tbx-toolbar .tbx-btn-notif.tbx-ticket-error {
+    border-color: #ef5350;
+}
+
+/* count badge, top-right corner */
+.tbx-toolbar .tbx-btn-notif .tbx-badge {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 8px;
+    background: #ef5350;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 16px;
+    text-align: center;
+    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.15);
+    align-items: center;
+    justify-content: center;
+}
+
+/* loading spinner — shown only while .is-loading; hides the emoji */
+.tbx-toolbar .tbx-btn-notif .tbx-loading-spinner {
+    display: none;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    border-top-color: currentColor;
+    border-radius: 50%;
+    animation: tbx-notif-spin 0.7s linear infinite;
+}
+.tbx-toolbar .tbx-btn-notif.is-loading .tbx-loading-spinner {
+    display: inline-block;
+}
+.tbx-toolbar .tbx-btn-notif.is-loading .tbx-btn-emoji,
+.tbx-toolbar .tbx-btn-notif.is-loading .tbx-badge {
+    display: none !important;
+}
+@keyframes tbx-notif-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* active alarm filter highlight on the bell */
+.tbx-toolbar .tbx-btn-notif.alarm-filter-active {
+    background: #7c3aed;
+    border-color: #7c3aed;
+    box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.35);
 }
 `;
 

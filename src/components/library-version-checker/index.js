@@ -41,6 +41,7 @@ const TOOLTIP_STYLE_ID = 'myio-lib-version-tooltip-styles';
  * @property {number} [cacheTtlMs] - Cache TTL in milliseconds (default: 5 minutes)
  * @property {number} [toastIntervalMs] - Toast warning interval in milliseconds (default: 60 seconds)
  * @property {Theme} [theme] - Color theme: 'dark' (default) or 'light'
+ * @property {boolean} [preferHomolog] - When true, validate against the latest `-homolog` build (staging channel) instead of the latest stable (default: false)
  * @property {(status: VersionStatus, currentVersion: string, latestVersion: string | null) => void} [onStatusChange] - Callback when status changes
  */
 
@@ -395,14 +396,17 @@ function injectTooltipStyles(doc) {
 }
 
 /**
- * Compare semantic versions
+ * Compare semantic versions. Prerelease suffixes (e.g. "-homolog.0") are
+ * stripped before comparing the numeric x.y.z core, so "0.1.515-homolog.0"
+ * parses as 0.1.515 instead of producing NaN.
  * @param {string} a - First version
  * @param {string} b - Second version
  * @returns {number} 1 if a > b, -1 if a < b, 0 if equal
  */
 function compareVersions(a, b) {
-  const partsA = a.split('.').map(Number);
-  const partsB = b.split('.').map(Number);
+  const core = (v) => String(v || '0').split('-')[0].split('.').map(Number);
+  const partsA = core(a);
+  const partsB = core(b);
 
   for (let i = 0; i < Math.max(partsA.length, partsB.length); i++) {
     const numA = partsA[i] || 0;
@@ -411,6 +415,91 @@ function compareVersions(a, b) {
     if (numA < numB) return -1;
   }
   return 0;
+}
+
+/**
+ * Whether a version string is a homolog (pre-release / staging) build that must
+ * never be surfaced as "the latest release".
+ * @param {string} v - Version string
+ * @param {string} [homologTagVersion] - Version the `homolog` dist-tag points to
+ * @returns {boolean}
+ */
+export function isHomologVersion(v, homologTagVersion) {
+  if (!v) return true;
+  if (homologTagVersion && v === homologTagVersion) return true;
+  return /homolog/i.test(v);
+}
+
+/**
+ * Resolve the latest NON-homolog (stable) version from an npm packument.
+ * Prefers the `latest` dist-tag; if that itself points to a homolog build,
+ * falls back to the highest non-homolog version in the registry.
+ * @param {{ 'dist-tags'?: Record<string,string>, versions?: Record<string,unknown> }} data
+ * @returns {string | null}
+ */
+export function resolveLatestStableVersion(data) {
+  const distTags = (data && data['dist-tags']) || {};
+  const homologVer = distTags.homolog;
+  const latestTag = distTags.latest;
+
+  // Normal path: the `latest` dist-tag is the stable release.
+  if (latestTag && !isHomologVersion(latestTag, homologVer)) {
+    return latestTag;
+  }
+
+  // Defensive fallback: pick the highest version that is not a homolog build.
+  const stable = Object.keys((data && data.versions) || {}).filter(
+    (v) => !isHomologVersion(v, homologVer)
+  );
+  stable.sort((a, b) => compareVersions(b, a));
+  return stable[0] || (latestTag && !isHomologVersion(latestTag, homologVer) ? latestTag : null);
+}
+
+/**
+ * Extract the homolog sequence number from a version (e.g. "0.1.5-homolog.3" → 3).
+ * Non-homolog versions return -1 (older than any homolog of the same x.y.z core).
+ * @param {string} v
+ * @returns {number}
+ */
+function homologSeq(v) {
+  const m = /-homolog\.(\d+)/i.exec(String(v || ''));
+  return m ? Number(m[1]) : -1;
+}
+
+/**
+ * Resolve the latest HOMOLOG (staging) version from an npm packument. Prefers the
+ * `homolog` dist-tag; otherwise picks the highest homolog build (by x.y.z core,
+ * then by homolog sequence). Returns null when no homolog build exists.
+ * @param {{ 'dist-tags'?: Record<string,string>, versions?: Record<string,unknown> }} data
+ * @returns {string | null}
+ */
+export function resolveLatestHomologVersion(data) {
+  const distTags = (data && data['dist-tags']) || {};
+  if (distTags.homolog) return distTags.homolog;
+  const homologs = Object.keys((data && data.versions) || {}).filter((v) => /homolog/i.test(v));
+  homologs.sort((a, b) => {
+    const core = compareVersions(b, a);
+    if (core !== 0) return core;
+    return homologSeq(b) - homologSeq(a);
+  });
+  return homologs[0] || null;
+}
+
+/**
+ * Channel-aware version comparison. For the stable channel it compares the x.y.z
+ * core. For the homolog channel, when the core is equal it additionally compares
+ * the homolog sequence (so 0.1.5-homolog.2 < 0.1.5-homolog.5).
+ * @param {string} a
+ * @param {string} b
+ * @param {boolean} preferHomolog
+ * @returns {number}
+ */
+function compareVersionsChannelAware(a, b, preferHomolog) {
+  const core = compareVersions(a, b);
+  if (core !== 0 || !preferHomolog) return core;
+  const sa = homologSeq(a);
+  const sb = homologSeq(b);
+  return sa > sb ? 1 : sa < sb ? -1 : 0;
 }
 
 /**
@@ -590,6 +679,7 @@ export function createLibraryVersionChecker(container, options) {
     cacheTtlMs = CACHE_TTL_MS,
     toastIntervalMs = DEFAULT_TOAST_INTERVAL_MS,
     theme = 'dark',
+    preferHomolog = false,
     onStatusChange,
   } = options;
 
@@ -749,8 +839,11 @@ export function createLibraryVersionChecker(container, options) {
    * Check npm registry for latest version
    */
   async function checkNpmVersion() {
-    const cacheKey = `${CACHE_KEY_PREFIX}${packageName}`;
-    const npmUrl = `${NPM_REGISTRY_BASE}/${packageName}/latest`;
+    // Channel-scoped cache key so stable & homolog targets don't clobber each other.
+    const cacheKey = `${CACHE_KEY_PREFIX}${packageName}${preferHomolog ? ':homolog' : ''}`;
+    // Fetch the full packument (not /latest) so we can read dist-tags and skip
+    // the `homolog` build. The abbreviated metadata keeps the payload small.
+    const npmUrl = `${NPM_REGISTRY_BASE}/${packageName}`;
 
     updateStatus('checking', null);
 
@@ -774,7 +867,7 @@ export function createLibraryVersionChecker(container, options) {
       if (!latest) {
         const response = await fetch(npmUrl, {
           method: 'GET',
-          headers: { Accept: 'application/json' },
+          headers: { Accept: 'application/vnd.npm.install-v1+json' },
         });
 
         if (!response.ok) {
@@ -782,7 +875,23 @@ export function createLibraryVersionChecker(container, options) {
         }
 
         const data = await response.json();
-        latest = data.version;
+        // Resolve the target version for the active channel.
+        if (preferHomolog) {
+          latest = resolveLatestHomologVersion(data);
+          if (!latest) {
+            throw new Error('no homolog version found in registry');
+          }
+          console.log(`[LibraryVersionChecker] homolog channel resolved latest: ${latest}`);
+        } else {
+          latest = resolveLatestStableVersion(data);
+          if (!latest) {
+            throw new Error('no stable (non-homolog) version found in registry');
+          }
+          console.log(
+            `[LibraryVersionChecker] dist-tags resolved stable latest: ${latest}` +
+              (data['dist-tags']?.homolog ? ` (ignoring homolog: ${data['dist-tags'].homolog})` : '')
+          );
+        }
 
         // Cache the result
         try {
@@ -800,8 +909,8 @@ export function createLibraryVersionChecker(container, options) {
         console.log(`[LibraryVersionChecker] Latest npm version: ${latest}`);
       }
 
-      // Compare versions
-      const isUpToDate = compareVersions(currentVersion, latest) >= 0;
+      // Compare versions (channel-aware: homolog compares the -homolog.N sequence too)
+      const isUpToDate = compareVersionsChannelAware(currentVersion, latest, preferHomolog) >= 0;
 
       if (isUpToDate) {
         updateStatus('up-to-date', latest);

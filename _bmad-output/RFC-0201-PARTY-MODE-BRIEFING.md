@@ -2,7 +2,7 @@
 
 > **Audience**: BMAD party-mode agents (Mary the Analyst, John the PM, Winston the Architect, Sally the UX Designer, Amelia the Senior Developer, Paige the Tech Writer, plus any module-level voices).
 >
-> **What this document is**: The full charter you receive at the opening of the party-mode session. Read it end-to-end before speaking. **Your collective deliverable is `src/docs/rfcs/RFC-0201-MainDashboardShopping-v5.4.0-Sync-from-v5.2.0.md`**, written in English, conforming to the RFC style of `src/docs/rfcs/RFC-0200-DeviceIcons-SharedDeviceTypeImageMap.md`.
+> **What this document is**: The full charter you receive at the opening of the party-mode session. Read it end-to-end before speaking. **Your collective deliverable is `docs/rfcs/RFC-0201-MainDashboardShopping-v5.4.0-Sync-from-v5.2.0.md`**, written in English, conforming to the RFC style of `docs/rfcs/RFC-0200-DeviceIcons-SharedDeviceTypeImageMap.md`.
 >
 > **You — the agents — are the authors of RFC-0201.** The orchestrator is not allowed to draft sections on your behalf.
 
@@ -123,7 +123,7 @@ Each agent below has a *primary* reading list and a *charge* — the question th
 ### 4.1 Mary — Business Analyst
 
 **Primary reading**:
-- `src/docs/rfcs/RFC-0181-*` through `RFC-0200-*` (titles + summaries; full reads for RFC-0182, 0183, 0198, 0199, 0200).
+- `docs/rfcs/RFC-0181-*` through `RFC-0200-*` (titles + summaries; full reads for RFC-0182, 0183, 0198, 0199, 0200).
 - `showcase/main-view-shopping/SHOWCASE-CONFIG.md`.
 
 **Charge**: *"What user-visible capabilities does a v-5.4.0 customer not have today that a v-5.2.0 customer does? Which gaps are tier-1 (block adoption) vs. tier-3 (nice-to-have)?"*
@@ -177,8 +177,8 @@ Deliver to the room: a prioritized work list with file paths and the porting cos
 ### 4.6 Paige — Technical Writer
 
 **Primary reading**:
-- `src/docs/rfcs/RFC-0200-DeviceIcons-SharedDeviceTypeImageMap.md` (style reference).
-- `src/docs/ONBOARDING-ECOSYSTEM-GCDR-ALARMS.md`.
+- `docs/rfcs/RFC-0200-DeviceIcons-SharedDeviceTypeImageMap.md` (style reference).
+- `docs/ONBOARDING-ECOSYSTEM-GCDR-ALARMS.md`.
 - `.claude/CLAUDE.md` (project conventions).
 
 **Charge**: *"How is the RFC-0201 document itself structured, paginated, and indexed? Where in the existing RFC tree does it sit, what does it link to, what acceptance-criteria format follows the house style, and what should the Mermaid / table conventions be?"*
@@ -202,7 +202,7 @@ The orchestrator (party-mode skill) drives the cadence. The expected shape:
 2. **Round 2 — Per-area depth.** For each of the seven RFC families (Reports, OrchestratorGroupClassification, AlarmServiceOrchestrator, UserManagement, FreshDesk Tickets, MyIOAuthContext, deviceIcons), the agents nominate the porting cost and the order. Amelia drives concreteness; Sally checks UX coherence; Winston checks orchestration boundaries.
 3. **Round 3 — Showcase parity.** Sally + Amelia walk through the showcase HTML. What needs to change in showcase to validate each phase?
 4. **Round 4 — Risk + acceptance.** Adversarial reviewer optional. Define the acceptance scenarios and the rollback story.
-5. **Round 5 — Drafting.** Paige proposes the section skeleton. Each agent owns drafting their assigned sections in-line. The orchestrator assembles, Paige edits for voice consistency, and the final file is written to `src/docs/rfcs/RFC-0201-MainDashboardShopping-v5.4.0-Sync-from-v5.2.0.md`.
+5. **Round 5 — Drafting.** Paige proposes the section skeleton. Each agent owns drafting their assigned sections in-line. The orchestrator assembles, Paige edits for voice consistency, and the final file is written to `docs/rfcs/RFC-0201-MainDashboardShopping-v5.4.0-Sync-from-v5.2.0.md`.
 
 The orchestrator is allowed to merge agent text and copyedit for flow. The orchestrator is **not** allowed to invent architectural positions, gap-list entries, or acceptance criteria that no agent stated.
 
@@ -212,7 +212,7 @@ The orchestrator is allowed to merge agent text and copyedit for flow. The orche
 
 The agents must produce **one** file:
 
-- **Path**: `src/docs/rfcs/RFC-0201-MainDashboardShopping-v5.4.0-Sync-from-v5.2.0.md`
+- **Path**: `docs/rfcs/RFC-0201-MainDashboardShopping-v5.4.0-Sync-from-v5.2.0.md`
 - **Language**: English.
 - **Style**: Match `RFC-0200-DeviceIcons-SharedDeviceTypeImageMap.md` — header block (Status, Date, Author, Related), Summary, Motivation, Guide-Level Explanation, Reference-Level Explanation, Drawbacks, Alternatives, Prior Art, Unresolved Questions, Future Work, Appendix.
 - **Length**: Long is fine. Be specific. Tables, diagrams, and code blocks are encouraged. Aim for a document that a senior engineer can execute against without re-asking the room any of its questions.
@@ -251,7 +251,7 @@ The agents must produce **one** file:
 
 The party-mode session is complete when:
 
-1. The file `src/docs/rfcs/RFC-0201-MainDashboardShopping-v5.4.0-Sync-from-v5.2.0.md` exists and matches the output specification in §6.
+1. The file `docs/rfcs/RFC-0201-MainDashboardShopping-v5.4.0-Sync-from-v5.2.0.md` exists and matches the output specification in §6.
 2. The Gap Matrix has a row for every RFC in §2.3 and every bugfix family in §2.4.
 3. The Phased Plan has at least three phases, each with at minimum: scope, exit criteria, showcase validation step, rollback step.
 4. Every agent named in §4 contributed at least one explicit position recorded in the RFC (Paige's role of structural editor counts).

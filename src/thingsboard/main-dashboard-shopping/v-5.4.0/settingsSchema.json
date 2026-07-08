@@ -6,13 +6,26 @@
       "customerTB_ID": {
         "title": "Customer ThingsBoard ID",
         "type": "string",
-        "description": "ID do customer no ThingsBoard para buscar atributos de autenticação (client_id, client_secret, ingestionId)"
+        "default": "5085bf40-b4dd-11f0-be7f-e760d1498268",
+        "description": "ID do customer no ThingsBoard. Chave para buscar os atributos SERVER_SCOPE (gcdrApiKey, gcdrCustomerId, gcdrTenantId, ingestionId). OBRIGATÓRIO — sem ele o dashboard não carrega."
       },
       "dataApiHost": {
         "title": "API Base URL",
         "type": "string",
         "default": "https://api.data.apps.myio-bas.com/api/v1",
         "description": "Base URL for apps myio"
+      },
+      "chartsBaseUrl": {
+        "title": "Charts SDK Base URL",
+        "type": "string",
+        "default": "https://graphs.apps.myio-bas.com",
+        "description": "Base URL usado pelo EnergyChartSDK para iframes e carregar o UMD (.../sdk/energy-chart-sdk.umd.js). Produção: https://graphs.apps.myio-bas.com | Staging: https://graphs.staging.apps.myio-bas.com. Se deixado vazio, o FOOTER usará o default de produção."
+      },
+      "thingsboardUrl": {
+        "title": "ThingsBoard Base URL",
+        "type": "string",
+        "default": "https://dashboard.myio-bas.com",
+        "description": "Base URL do ThingsBoard para chamadas REST (SERVER_SCOPE attributes, auth/user)."
       },
       "defaultThemeMode": {
         "title": "Default Theme Mode",
@@ -170,6 +183,12 @@
         "default": false,
         "description": "RFC-0144: Habilita o onboarding de Anotações do Dispositivo no modal de Settings. Se false, o onboarding nunca é exibido."
       },
+      "enableReportButton": {
+        "title": "Enable Report Button",
+        "type": "boolean",
+        "default": false,
+        "description": "Habilita o botão Relatório Geral no header. Por padrão desabilitado — ative apenas quando a integração de relatórios estiver configurada para o cliente."
+      },
       "alarmsApiBaseUrl": {
         "title": "Alarms API Base URL",
         "type": "string",
@@ -182,17 +201,17 @@
         "default": "gcdr_cust_tb_integration_key_2026",
         "description": "RFC-0178: API key for the Alarms Backend REST API (X-API-Key header)."
       },
-      "gcdrCustomerId": {
-        "title": "GCDR Customer ID",
+      "freshdeskDomain": {
+        "title": "FreshDesk Domain",
         "type": "string",
-        "default": "",
-        "description": "RFC-0180: GCDR customer identifier. If empty, resolved from ThingsBoard SERVER_SCOPE attribute 'gcdrCustomerId' (or 'gcdrId')."
+        "default": "myiocom.freshdesk.com",
+        "description": "RFC-0214: FreshDesk domain for the 🎫 Chamados button. O botão só aparece se freshdeskApiKey estiver preenchido."
       },
-      "gcdrTenantId": {
-        "title": "GCDR Tenant ID",
+      "freshdeskApiKey": {
+        "title": "FreshDesk API Key",
         "type": "string",
         "default": "",
-        "description": "RFC-0180: GCDR tenant identifier. If empty, resolved from ThingsBoard SERVER_SCOPE attribute 'gcdrTenantId'."
+        "description": "RFC-0214: API key do FreshDesk (habilita o botão de Chamados no header). Vazio = botão oculto. Gating fino por atributos SERVER_SCOPE tickets_enabled/tickets_only_to_myio."
       },
       "gcdrApiBaseUrl": {
         "title": "GCDR API Base URL",
@@ -276,11 +295,13 @@
     },
     "excludeDevicesAtCountSubtotalCAG",
     "enableAnnotationsOnboarding",
+    "enableReportButton",
     "alarmsApiBaseUrl",
     "alarmsApiKey",
-    "gcdrCustomerId",
-    "gcdrTenantId",
+    "freshdeskDomain",
+    "freshdeskApiKey",
     "gcdrApiBaseUrl",
-    "dataApiHost"
+    "dataApiHost",
+    "thingsboardUrl"
   ]
 }

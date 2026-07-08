@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ImgGallery + GenericModal + HTMLBuilder — MYIO JS Library Showcase</title>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #4c1d95 0%, #2e1065 100%);
+      min-height: 100vh; padding: 40px 20px; color: #1f2937;
+    }
+    .page { max-width: 920px; margin: 0 auto; }
+    .hero { text-align: center; color: #fff; margin-bottom: 28px; }
+    .hero h1 { font-size: 1.9rem; margin-bottom: 8px; text-shadow: 0 2px 4px rgba(0,0,0,.25); }
+    .hero p { opacity: .92; font-size: 14px; }
+    .hero code { background: rgba(255,255,255,.16); padding: 2px 7px; border-radius: 5px; }
+    .card { background: #fff; border-radius: 14px; padding: 22px; box-shadow: 0 12px 32px rgba(0,0,0,.22); margin-bottom: 22px; }
+    .card h2 { font-size: 16px; margin-bottom: 4px; }
+    .card .sub { font-size: 13px; color: #64748b; margin-bottom: 16px; }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+    .btn { font-family: inherit; font-size: 13px; font-weight: 700; padding: 9px 14px; border-radius: 8px; border: none; cursor: pointer; background: #7C3AED; color: #fff; }
+    .btn.secondary { background: #fff; color: #374151; border: 1px solid #d1d5db; }
+    .btn:hover { filter: brightness(.94); }
+    .log { background: #0f172a; color: #c4b5fd; font-family: ui-monospace, monospace; font-size: 12px; border-radius: 10px; padding: 12px 14px; min-height: 40px; white-space: pre-wrap; max-height: 160px; overflow-y: auto; }
+
+    /* Setup panel */
+    .setup { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px 18px; }
+    .setup label.chk { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: #374151; cursor: pointer; }
+    .setup label.chk input { width: 16px; height: 16px; accent-color: #7C3AED; cursor: pointer; }
+    .setup .num { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 700; color: #475569; }
+    .setup .num input, .setup .num select { font-family: inherit; font-size: 13px; padding: 6px 8px; border: 1px solid #cbd5e1; border-radius: 7px; }
+    .setup .num input:focus, .setup .num select:focus { outline: none; border-color: #7C3AED; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="hero">
+      <h1>🖼️ ImgGallery · GenericModal · HTMLBuilder</h1>
+      <p>Galeria filtrável (inspirada no <code>flip-reveal</code>, FLIP via Web Animations API, sem GSAP). Tabs configuráveis com scroll + setas. Ajuste os configs abaixo e veja ao vivo.</p>
+    </div>
+
+    <div class="card">
+      <h2>⚙️ Configuração</h2>
+      <p class="sub">Marque/ajuste e a galeria reconstrói automaticamente.</p>
+      <div class="setup">
+        <label class="chk"><input type="checkbox" id="cfg-desc" checked /> enableDescription</label>
+        <label class="chk"><input type="checkbox" id="cfg-delete" checked /> enableDeleteButton</label>
+        <label class="chk"><input type="checkbox" id="cfg-edit" checked /> enableEditDescription</label>
+        <label class="chk"><input type="checkbox" id="cfg-hide" checked /> enableHide</label>
+        <label class="chk"><input type="checkbox" id="cfg-details" checked /> enableDisplayDetails</label>
+        <label class="chk"><input type="checkbox" id="cfg-lightbox" checked /> lightbox</label>
+        <label class="chk"><input type="checkbox" id="cfg-animate" checked /> animate (FLIP)</label>
+        <label class="chk"><input type="checkbox" id="cfg-confirm" checked /> confirmar exclusão (openConfirmDialog)</label>
+        <label class="num">columns
+          <input type="number" id="cfg-columns" value="4" min="1" max="8" />
+        </label>
+        <label class="num">tabsMaxVisible <span style="font-weight:400;color:#94a3b8">(0 = sem limite / full width)</span>
+          <input type="number" id="cfg-maxvisible" value="4" min="0" max="12" />
+        </label>
+        <label class="num">tema
+          <select id="cfg-theme"><option value="light">light</option><option value="dark">dark</option></select>
+        </label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>1) Galeria standalone (reflete a configuração)</h2>
+      <p class="sub">Com <code>tabsMaxVisible &gt; 0</code> a faixa de tabs é capada → scroll + ◀▶. Com <code>0</code> ocupa a largura total.</p>
+      <div id="gallery-mount"></div>
+    </div>
+
+    <div class="card">
+      <h2>2) Dentro do GenericModal (HTML com DIV + HTMLBuilder)</h2>
+      <p class="sub"><code>openGenericModal</code> recebe um <code>bodyHtml</code> com um <code>&lt;div&gt;</code> de mount; a galeria é montada nele com a mesma configuração.</p>
+      <div class="toolbar">
+        <button class="btn" id="open-modal">Abrir galeria no modal…</button>
+      </div>
+      <div class="log" id="log">Pronto.</div>
+    </div>
+  </div>
+
+  <!-- Build da lib primeiro: npm run build (gera dist/myio-js-library.umd.js) -->
+  <script src="../dist/myio-js-library.umd.js"></script>
+  <script>
+    const { createImgGallery, openGenericModal, openConfirmDialog, HTMLBuilder } = window.MyIOLibrary;
+    const logEl = document.getElementById('log');
+    const log = (m) => { logEl.textContent = `[${new Date().toLocaleTimeString()}] ${m}\n` + logEl.textContent; };
+
+    const u = (id) => `https://images.unsplash.com/${id}?q=80&w=400&h=400&fit=crop`;
+    const IMAGES = [
+      { src: u('photo-1696086152504-4843b2106ab4'), alt: 'Camisa 1', category: 'shirt', caption: 'Camisa azul', filename: 'camisa-azul.jpg', sizeBytes: 184320 },
+      { src: u('photo-1648688135643-2716ec8f4b24'), alt: 'Óculos 1', category: 'goggles', caption: 'Óculos esportivo', filename: 'oculos-esportivo.jpg', sizeBytes: 256000 },
+      { src: u('photo-1631984564919-1f6b2313a71c'), alt: 'Tênis 1', category: 'shoes', caption: 'Tênis running', filename: 'tenis-running.png', sizeBytes: 1310720 },
+      { src: u('photo-1632168844625-b22d7b1053c0'), alt: 'Óculos 2', category: 'goggles', filename: 'oculos-2.jpg', sizeBytes: 98304 },
+      { src: u('photo-1583656346517-4716a62e27b7'), alt: 'Camisa 2', category: 'shirt', filename: 'camisa-2.jpg', sizeBytes: 210944 },
+      { src: u('photo-1596480370804-cff0eed14888'), alt: 'Tênis 2', category: 'shoes', caption: 'Tênis casual', filename: 'tenis-casual.jpg', sizeBytes: 532480 },
+      { src: u('photo-1740711152088-88a009e877bb'), alt: 'Acessório', category: 'accessory', filename: 'acessorio.webp', sizeBytes: 76800 },
+      { src: u('photo-1696086152508-1711cc7bcc9d'), alt: 'Tênis 3', category: 'shoes', filename: 'tenis-3.jpg', sizeBytes: 645120 },
+      { src: u('photo-1684790369514-f292d2dffc11'), alt: 'Óculos 3', category: 'goggles', filename: 'oculos-3.jpg', sizeBytes: 143360 },
+      { src: u('photo-1551028719-00167b16eac5'), alt: 'Bolsa', category: 'bag', caption: 'Bolsa de couro', filename: 'bolsa-couro.jpg', sizeBytes: 2202009 },
+      { src: u('photo-1542291026-7eec264c27ff'), alt: 'Tênis 4', category: ['shoes', 'sport'], filename: 'tenis-4.png', sizeBytes: 1887436 },
+      { src: u('photo-1521572163474-6864f9cf17ab'), alt: 'Camisa 3', category: 'shirt', filename: 'camisa-3.jpg', sizeBytes: 167936 },
+    ];
+
+    const CATEGORIES = [
+      { key: 'shirt', label: 'Camisas' },
+      { key: 'goggles', label: 'Óculos' },
+      { key: 'shoes', label: 'Tênis' },
+      { key: 'accessory', label: 'Acessórios' },
+      { key: 'bag', label: 'Bolsas' },
+      { key: 'sport', label: 'Esporte' },
+    ];
+
+    const $ = (id) => document.getElementById(id);
+
+    // Confirmation gate using the premium confirm dialog.
+    async function confirmDelete(img) {
+      const r = await openConfirmDialog({
+        title: 'Excluir imagem',
+        message: `Excluir "${img.filename || img.alt}"?\nEsta ação não pode ser desfeita.`,
+        theme: $('cfg-theme').value,
+        buttons: [
+          { label: 'Cancelar', variant: 'secondary', value: 'cancel' },
+          { label: 'Excluir', variant: 'danger', value: 'confirm', autoFocus: true },
+        ],
+      });
+      return r === 'confirm';
+    }
+
+    // Build the options object from the setup panel.
+    function buildConfig(extra) {
+      const maxVisible = Number($('cfg-maxvisible').value) || 0;
+      const cfg = {
+        images: IMAGES.map((i) => ({ ...i })), // fresh copies so delete/hide don't leak across rebuilds
+        categories: CATEGORIES,
+        allLabel: 'Todos',
+        columns: Number($('cfg-columns').value) || 4,
+        theme: $('cfg-theme').value,
+        lightbox: $('cfg-lightbox').checked,
+        animate: $('cfg-animate').checked,
+        enableDescription: $('cfg-desc').checked,
+        enableDeleteButton: $('cfg-delete').checked,
+        enableEditDescription: $('cfg-edit').checked,
+        enableHide: $('cfg-hide').checked,
+        enableDisplayDetails: $('cfg-details').checked,
+        onSelect: (img) => log(`clique: ${img.alt}`),
+        onDelete: (img) => log(`excluído: ${img.filename || img.alt}`),
+        onHide: (img) => log(`ocultado: ${img.filename || img.alt}`),
+        onDescriptionChange: (img, _i, desc) => log(`descrição: ${img.filename || img.alt} → "${desc}"`),
+      };
+      if (maxVisible > 0) cfg.tabsMaxVisible = maxVisible;
+      if ($('cfg-confirm').checked) cfg.onBeforeDelete = (img) => confirmDelete(img);
+      return Object.assign(cfg, extra);
+    }
+
+    // 1) Standalone — rebuilds whenever a config changes.
+    let standalone = null;
+    function renderStandalone() {
+      if (standalone) standalone.destroy();
+      standalone = createImgGallery(buildConfig({ container: $('gallery-mount') }));
+    }
+    document.querySelectorAll('.setup input, .setup select').forEach((el) => {
+      el.addEventListener('change', renderStandalone);
+    });
+    renderStandalone();
+
+    // 2) Inside GenericModal — same config; tabs full width when tabsMaxVisible = 0.
+    document.getElementById('open-modal').onclick = () => {
+      const theme = $('cfg-theme').value;
+      const header = HTMLBuilder.h('div',
+        { style: { marginBottom: '12px', color: theme === 'dark' ? '#cbd5e1' : '#475569', fontSize: '13px' } },
+        HTMLBuilder.h('b', null, 'Catálogo de equipamentos'),
+        ' — filtre por categoria; clique para ampliar (lightbox).'
+      );
+      const bodyHtml = HTMLBuilder.toHtml(header) + '<div id="modal-gallery-mount"></div>';
+      const modal = openGenericModal({
+        title: 'Galeria de Imagens',
+        icon: '🖼️',
+        bodyHtml,
+        width: 760,
+        bodyMaxHeight: '70vh',
+        theme,
+        onClose: () => log('modal fechado'),
+      });
+      const mountEl = modal.getBodyEl().querySelector('#modal-gallery-mount');
+      createImgGallery(buildConfig({ container: mountEl }));
+      log(`modal aberto (${theme})`);
+    };
+  </script>
+</body>
+</html>

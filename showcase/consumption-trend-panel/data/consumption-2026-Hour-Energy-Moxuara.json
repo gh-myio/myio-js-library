@@ -1,0 +1,3104 @@
+{
+  "success": true,
+  "data": {
+    "_kind": "consumption-mock",
+    "_note": "Telemetria MOCK Moxuara — 2026. Diario ano-ate-agora + horario ultimos 14 dias. Gerado p/ showcase RFC-0213 (GoalsModal).",
+    "customerId": "84e0370e-636a-4741-9874-504b5e0b3577",
+    "customerLabel": "Shopping Moxuara",
+    "domain": "ENERGY",
+    "unit": "kWh",
+    "aggregationMethod": "SUM",
+    "year": 2026,
+    "version": 2,
+    "tree": {
+      "daily": {
+        "01-01": {
+          "value": 48994.254,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "01-02": {
+          "value": 20971.837,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "01-03": {
+          "value": 27953.349,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "01-04": {
+          "value": 16666.732,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "01-05": {
+          "value": 32779.964,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "01-06": {
+          "value": 23025.5,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "01-07": {
+          "value": 23913.768,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "01-08": {
+          "value": 21708.695,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "01-09": {
+          "value": 23195.571,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "01-10": {
+          "value": 26969.128,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "01-11": {
+          "value": 24821.999,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "01-12": {
+          "value": 36030.011,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "01-13": {
+          "value": 28930.567,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "01-14": {
+          "value": 22520.157,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "01-15": {
+          "value": 27808.5,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "01-16": {
+          "value": 20825.982,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "01-17": {
+          "value": 24976.122,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "01-18": {
+          "value": 14920.189,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "01-19": {
+          "value": 28535.124,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "01-20": {
+          "value": 24392.292,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "01-21": {
+          "value": 7195.499,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "01-22": {
+          "value": 18822.32,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "01-23": {
+          "value": 5110.001,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "01-24": {
+          "value": 21221.843,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "01-25": {
+          "value": 17630.967,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "01-26": {
+          "value": 39051.554,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "01-27": {
+          "value": 19878.162,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "01-28": {
+          "value": 20820.083,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "01-29": {
+          "value": 20816.682,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "01-30": {
+          "value": 23720.027,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "01-31": {
+          "value": 18367.923,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "02-01": {
+          "value": 18348.386,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "02-02": {
+          "value": 15835.666,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "02-03": {
+          "value": 5095.813,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "02-04": {
+          "value": 19657.908,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "02-05": {
+          "value": 26193.608,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "02-06": {
+          "value": 23585.476,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "02-07": {
+          "value": 23310.685,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "02-08": {
+          "value": 28549.455,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "02-09": {
+          "value": 22361.917,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "02-10": {
+          "value": 20651.824,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "02-11": {
+          "value": 34662.785,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "02-12": {
+          "value": 18296.967,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "02-13": {
+          "value": 30276.16,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "02-14": {
+          "value": 25669.5,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "02-15": {
+          "value": 17070.322,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "02-16": {
+          "value": 17189.214,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "02-17": {
+          "value": 32502.822,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "02-18": {
+          "value": 16601.699,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "02-19": {
+          "value": 27575.849,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "02-20": {
+          "value": 25586.422,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "02-21": {
+          "value": 17249.754,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "02-22": {
+          "value": 19724.537,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "02-23": {
+          "value": 18689.988,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "02-24": {
+          "value": 25020.434,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "02-25": {
+          "value": 32083.733,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "02-26": {
+          "value": 22508.87,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "02-27": {
+          "value": 28995.391,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "02-28": {
+          "value": 27133.241,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "03-01": {
+          "value": 11310.582,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "03-02": {
+          "value": 17250.333,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "03-03": {
+          "value": 21989.004,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "03-04": {
+          "value": 19200.813,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "03-05": {
+          "value": 22072.647,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "03-06": {
+          "value": 19705.622,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "03-07": {
+          "value": 22656.676,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "03-08": {
+          "value": 13540.676,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "03-09": {
+          "value": 15302.304,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "03-10": {
+          "value": 18769.613,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "03-11": {
+          "value": 22666.98,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "03-12": {
+          "value": 17836.381,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "03-13": {
+          "value": 22253.269,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "03-14": {
+          "value": 21930.745,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "03-15": {
+          "value": 11919.834,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "03-16": {
+          "value": 13518.62,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "03-17": {
+          "value": 14016.473,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "03-18": {
+          "value": 19828.71,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "03-19": {
+          "value": 18897.573,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "03-20": {
+          "value": 23208.966,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "03-21": {
+          "value": 26284.195,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "03-22": {
+          "value": 15577.529,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "03-23": {
+          "value": 18754.876,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "03-24": {
+          "value": 22463.09,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "03-25": {
+          "value": 23425.093,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "03-26": {
+          "value": 22212.236,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "03-27": {
+          "value": 26410.187,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "03-28": {
+          "value": 21018.861,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "03-29": {
+          "value": 12848.936,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "03-30": {
+          "value": 21197.99,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "03-31": {
+          "value": 26270.856,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "04-01": {
+          "value": 24437.279,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "04-02": {
+          "value": 24273.816,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "04-03": {
+          "value": 24927.537,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "04-04": {
+          "value": 28059.131,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "04-05": {
+          "value": 14458.023,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "04-06": {
+          "value": 22703.995,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "04-07": {
+          "value": 26731.716,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "04-08": {
+          "value": 21807.52,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "04-09": {
+          "value": 28116.226,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "04-10": {
+          "value": 24613.533,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "04-11": {
+          "value": 24977.432,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "04-12": {
+          "value": 16204.352,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "04-13": {
+          "value": 19181.888,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "04-14": {
+          "value": 22528.17,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "04-15": {
+          "value": 28919.736,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "04-16": {
+          "value": 24255.637,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "04-17": {
+          "value": 25627.797,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "04-18": {
+          "value": 22408.989,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "04-19": {
+          "value": 17907.96,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "04-20": {
+          "value": 18930.914,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "04-21": {
+          "value": 20561.269,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "04-22": {
+          "value": 21569.651,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "04-23": {
+          "value": 27700.16,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "04-24": {
+          "value": 23620.674,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "04-25": {
+          "value": 24508.503,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "04-26": {
+          "value": 17143.065,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "04-27": {
+          "value": 17354.301,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "04-28": {
+          "value": 15593.503,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "04-29": {
+          "value": 31537.723,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "04-30": {
+          "value": 23278.762,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "05-01": {
+          "value": 19991.459,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "05-02": {
+          "value": 24091.968,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "05-03": {
+          "value": 15358.438,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "05-04": {
+          "value": 19443.237,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "05-05": {
+          "value": 24759.532,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "05-06": {
+          "value": 21161.501,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "05-07": {
+          "value": 24119.618,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "05-08": {
+          "value": 22430.586,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "05-09": {
+          "value": 20561.688,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "05-10": {
+          "value": 20249.941,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "05-11": {
+          "value": 16248.883,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "05-12": {
+          "value": 19398.372,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "05-13": {
+          "value": 24014.935,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "05-14": {
+          "value": 22406.46,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "05-15": {
+          "value": 26416.774,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "05-16": {
+          "value": 21285.492,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "05-17": {
+          "value": 16636.895,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "05-18": {
+          "value": 22720.949,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "05-19": {
+          "value": 20900.515,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "05-20": {
+          "value": 23076.248,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "05-21": {
+          "value": 25147.136,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "05-22": {
+          "value": 19421.149,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "05-23": {
+          "value": 23834.4,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "05-24": {
+          "value": 23342.951,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "05-25": {
+          "value": 15479.89,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "05-26": {
+          "value": 16738.146,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "05-27": {
+          "value": 20834.467,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "05-28": {
+          "value": 23742.271,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "05-29": {
+          "value": 24618.631,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "05-30": {
+          "value": 23035.073,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "05-31": {
+          "value": 16436.197,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-01": {
+          "value": 22234.448,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-02": {
+          "value": 23475.127,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-03": {
+          "value": 24894.839,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-04": {
+          "value": 25256.249,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-05": {
+          "value": 24301.152,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-06": {
+          "value": 26108.804,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-07": {
+          "value": 14248.988,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-08": {
+          "value": 17728.248,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-09": {
+          "value": 16339.038,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-10": {
+          "value": 15130.067,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-11": {
+          "value": 23373.314,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-12": {
+          "value": 26423.091,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-13": {
+          "value": 21158.853,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-14": {
+          "value": 18624.211,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-15": {
+          "value": 21065.508,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-16": {
+          "value": 23488.115,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-17": {
+          "value": 26335.802,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-18": {
+          "value": 23196.486,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-19": {
+          "value": 25856.005,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-20": {
+          "value": 18604.585,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-21": {
+          "value": 16283.327,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-22": {
+          "value": 20485.714,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-23": {
+          "value": 22655.044,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-24": {
+          "value": 28303.563,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-25": {
+          "value": 25899.064,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-26": {
+          "value": 23112.081,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-27": {
+          "value": 23536.516,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-28": {
+          "value": 19096.662,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-29": {
+          "value": 19047.155,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-30": {
+          "value": 25364.53,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        }
+      },
+      "hourly": {
+        "06-17T00": {
+          "value": 599.243,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-17T01": {
+          "value": 470.883,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-17T02": {
+          "value": 440.864,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-17T03": {
+          "value": 397.762,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-17T04": {
+          "value": 412.38,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-17T05": {
+          "value": 512.333,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-17T06": {
+          "value": 693.505,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-17T07": {
+          "value": 847.369,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-17T08": {
+          "value": 1174.124,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-17T09": {
+          "value": 1298.965,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-17T10": {
+          "value": 1360.38,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-17T11": {
+          "value": 1430.901,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-17T12": {
+          "value": 1692.754,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-17T13": {
+          "value": 1753.454,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-17T14": {
+          "value": 1716.303,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-17T15": {
+          "value": 1492.975,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-17T16": {
+          "value": 1395.505,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-17T17": {
+          "value": 1511.069,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-17T18": {
+          "value": 1531.327,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-17T19": {
+          "value": 1386.906,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-17T20": {
+          "value": 1435.794,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-17T21": {
+          "value": 1119.533,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-17T22": {
+          "value": 846.25,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-17T23": {
+          "value": 701.606,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-18T00": {
+          "value": 504.5,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-18T01": {
+          "value": 383.447,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-18T02": {
+          "value": 343.11,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-18T03": {
+          "value": 347.351,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-18T04": {
+          "value": 372.364,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-18T05": {
+          "value": 458.19,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-18T06": {
+          "value": 676.166,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-18T07": {
+          "value": 857.211,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-18T08": {
+          "value": 924.964,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-18T09": {
+          "value": 1224.711,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-18T10": {
+          "value": 1204.362,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-18T11": {
+          "value": 1415.563,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-18T12": {
+          "value": 1399.718,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-18T13": {
+          "value": 1391.466,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-18T14": {
+          "value": 1407.235,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-18T15": {
+          "value": 1310.263,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-18T16": {
+          "value": 1232.27,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-18T17": {
+          "value": 1248.417,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-18T18": {
+          "value": 1430.508,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-18T19": {
+          "value": 1371.056,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-18T20": {
+          "value": 1168.771,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-18T21": {
+          "value": 1068.279,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-18T22": {
+          "value": 825.791,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-18T23": {
+          "value": 578.172,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-19T00": {
+          "value": 595.729,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-19T01": {
+          "value": 488.269,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-19T02": {
+          "value": 429.968,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-19T03": {
+          "value": 371.578,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-19T04": {
+          "value": 434.287,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-19T05": {
+          "value": 550.986,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-19T06": {
+          "value": 696.284,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-19T07": {
+          "value": 949.141,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-19T08": {
+          "value": 1036.048,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-19T09": {
+          "value": 1345.545,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-19T10": {
+          "value": 1398.273,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-19T11": {
+          "value": 1369.218,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-19T12": {
+          "value": 1485.241,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-19T13": {
+          "value": 1698.422,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-19T14": {
+          "value": 1465.991,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-19T15": {
+          "value": 1581.784,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-19T16": {
+          "value": 1526.79,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-19T17": {
+          "value": 1570.793,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-19T18": {
+          "value": 1586.478,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-19T19": {
+          "value": 1372.201,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-19T20": {
+          "value": 1437.539,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-19T21": {
+          "value": 1221.919,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-19T22": {
+          "value": 827.764,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-19T23": {
+          "value": 662.937,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-20T00": {
+          "value": 400.264,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-20T01": {
+          "value": 328.281,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-20T02": {
+          "value": 292.808,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-20T03": {
+          "value": 266.524,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-20T04": {
+          "value": 297.396,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-20T05": {
+          "value": 340.577,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-20T06": {
+          "value": 520.455,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-20T07": {
+          "value": 662.522,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-20T08": {
+          "value": 778.058,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-20T09": {
+          "value": 850.281,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-20T10": {
+          "value": 973.641,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-20T11": {
+          "value": 1102.511,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-20T12": {
+          "value": 1189.796,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-20T13": {
+          "value": 1141.103,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-20T14": {
+          "value": 1216.005,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-20T15": {
+          "value": 1074.426,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-20T16": {
+          "value": 1123.272,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-20T17": {
+          "value": 1082.551,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-20T18": {
+          "value": 1127.191,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-20T19": {
+          "value": 1100.76,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-20T20": {
+          "value": 892.86,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-20T21": {
+          "value": 812.08,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-20T22": {
+          "value": 596.088,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-20T23": {
+          "value": 475.275,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-21T00": {
+          "value": 349.007,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-21T01": {
+          "value": 280.908,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-21T02": {
+          "value": 246.829,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-21T03": {
+          "value": 242.079,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-21T04": {
+          "value": 274.883,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-21T05": {
+          "value": 333.799,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-21T06": {
+          "value": 441.11,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-21T07": {
+          "value": 562.557,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-21T08": {
+          "value": 678.846,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-21T09": {
+          "value": 746.417,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-21T10": {
+          "value": 851.184,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-21T11": {
+          "value": 915.05,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-21T12": {
+          "value": 931.214,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-21T13": {
+          "value": 1043.654,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-21T14": {
+          "value": 1054.992,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-21T15": {
+          "value": 990.438,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-21T16": {
+          "value": 932.922,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-21T17": {
+          "value": 987.901,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-21T18": {
+          "value": 984.329,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-21T19": {
+          "value": 988.024,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-21T20": {
+          "value": 831.475,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-21T21": {
+          "value": 685.643,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-21T22": {
+          "value": 541.038,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-21T23": {
+          "value": 425.237,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-22T00": {
+          "value": 419.879,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-22T01": {
+          "value": 384.562,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-22T02": {
+          "value": 301.467,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-22T03": {
+          "value": 305.787,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-22T04": {
+          "value": 349.539,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-22T05": {
+          "value": 422.045,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-22T06": {
+          "value": 552.942,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-22T07": {
+          "value": 736.471,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-22T08": {
+          "value": 833.939,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-22T09": {
+          "value": 1023.683,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-22T10": {
+          "value": 1132.073,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-22T11": {
+          "value": 1197.357,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-22T12": {
+          "value": 1250.779,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-22T13": {
+          "value": 1244.992,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-22T14": {
+          "value": 1293.316,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-22T15": {
+          "value": 1247.355,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-22T16": {
+          "value": 1198.637,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-22T17": {
+          "value": 1245.253,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-22T18": {
+          "value": 1261.711,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-22T19": {
+          "value": 1248.014,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-22T20": {
+          "value": 1055.924,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-22T21": {
+          "value": 858.454,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-22T22": {
+          "value": 706.9,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-22T23": {
+          "value": 547.848,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-23T00": {
+          "value": 494.46,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-23T01": {
+          "value": 387.277,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-23T02": {
+          "value": 380.834,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-23T03": {
+          "value": 344.25,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-23T04": {
+          "value": 368.024,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-23T05": {
+          "value": 455.043,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-23T06": {
+          "value": 673.811,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-23T07": {
+          "value": 814.474,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-23T08": {
+          "value": 902.345,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-23T09": {
+          "value": 1176.336,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-23T10": {
+          "value": 1267.909,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-23T11": {
+          "value": 1306.249,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-23T12": {
+          "value": 1422.541,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-23T13": {
+          "value": 1392.336,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-23T14": {
+          "value": 1448.461,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-23T15": {
+          "value": 1354.116,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-23T16": {
+          "value": 1328.01,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-23T17": {
+          "value": 1294.11,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-23T18": {
+          "value": 1220.333,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-23T19": {
+          "value": 1189.777,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-23T20": {
+          "value": 1081.511,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-23T21": {
+          "value": 952.295,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-23T22": {
+          "value": 812.93,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-23T23": {
+          "value": 572.512,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-24T00": {
+          "value": 601.457,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-24T01": {
+          "value": 510.458,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-24T02": {
+          "value": 470.385,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-24T03": {
+          "value": 447.392,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-24T04": {
+          "value": 436.812,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-24T05": {
+          "value": 552.895,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-24T06": {
+          "value": 770.75,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-24T07": {
+          "value": 924.944,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-24T08": {
+          "value": 1124.29,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-24T09": {
+          "value": 1354.26,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-24T10": {
+          "value": 1584.121,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-24T11": {
+          "value": 1569.279,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-24T12": {
+          "value": 1787.561,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-24T13": {
+          "value": 1689.318,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-24T14": {
+          "value": 1771.534,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-24T15": {
+          "value": 1585.525,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-24T16": {
+          "value": 1555.812,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-24T17": {
+          "value": 1563.822,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-24T18": {
+          "value": 1669.22,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-24T19": {
+          "value": 1488.665,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-24T20": {
+          "value": 1348.663,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-24T21": {
+          "value": 1334.176,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-24T22": {
+          "value": 982.088,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-24T23": {
+          "value": 693.643,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-25T00": {
+          "value": 572.853,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-25T01": {
+          "value": 469.487,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-25T02": {
+          "value": 389.014,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-25T03": {
+          "value": 360.999,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-25T04": {
+          "value": 442.572,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-25T05": {
+          "value": 477.684,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-25T06": {
+          "value": 661.496,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-25T07": {
+          "value": 930.402,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-25T08": {
+          "value": 1151.331,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-25T09": {
+          "value": 1362.592,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-25T10": {
+          "value": 1447.514,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-25T11": {
+          "value": 1578.136,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-25T12": {
+          "value": 1610.971,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-25T13": {
+          "value": 1696.859,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-25T14": {
+          "value": 1609.468,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-25T15": {
+          "value": 1651.708,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-25T16": {
+          "value": 1441.724,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-25T17": {
+          "value": 1402.813,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-25T18": {
+          "value": 1419.019,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-25T19": {
+          "value": 1471.715,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-25T20": {
+          "value": 1263.066,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-25T21": {
+          "value": 1241.385,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-25T22": {
+          "value": 909.193,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-25T23": {
+          "value": 668.174,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-26T00": {
+          "value": 508.368,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-26T01": {
+          "value": 411.521,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-26T02": {
+          "value": 390.564,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-26T03": {
+          "value": 370.196,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-26T04": {
+          "value": 363.264,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-26T05": {
+          "value": 443.716,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-26T06": {
+          "value": 658.783,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-26T07": {
+          "value": 815.991,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-26T08": {
+          "value": 978.564,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-26T09": {
+          "value": 1226.905,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-26T10": {
+          "value": 1198.078,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-26T11": {
+          "value": 1277.907,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-26T12": {
+          "value": 1451.159,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-26T13": {
+          "value": 1410.772,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-26T14": {
+          "value": 1365.184,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-26T15": {
+          "value": 1406.954,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-26T16": {
+          "value": 1317.03,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-26T17": {
+          "value": 1330.274,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-26T18": {
+          "value": 1374.206,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-26T19": {
+          "value": 1224.585,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-26T20": {
+          "value": 1201.445,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-26T21": {
+          "value": 1020.158,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-26T22": {
+          "value": 792.748,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-26T23": {
+          "value": 591.422,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-27T00": {
+          "value": 492.689,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-27T01": {
+          "value": 443.163,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-27T02": {
+          "value": 362.446,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-27T03": {
+          "value": 339.075,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-27T04": {
+          "value": 364.374,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-27T05": {
+          "value": 434.144,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-27T06": {
+          "value": 676.694,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-27T07": {
+          "value": 878.3,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-27T08": {
+          "value": 910.548,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-27T09": {
+          "value": 1076.254,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-27T10": {
+          "value": 1354.73,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-27T11": {
+          "value": 1451.652,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-27T12": {
+          "value": 1486.106,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-27T13": {
+          "value": 1476.619,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-27T14": {
+          "value": 1422.37,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-27T15": {
+          "value": 1407.66,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-27T16": {
+          "value": 1407.043,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-27T17": {
+          "value": 1231.208,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-27T18": {
+          "value": 1299.268,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-27T19": {
+          "value": 1241.47,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-27T20": {
+          "value": 1231.441,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-27T21": {
+          "value": 1094.394,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-27T22": {
+          "value": 767.351,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-27T23": {
+          "value": 564.7,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-28T00": {
+          "value": 388.655,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-28T01": {
+          "value": 356.542,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-28T02": {
+          "value": 313.225,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-28T03": {
+          "value": 279.858,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-28T04": {
+          "value": 309.038,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-28T05": {
+          "value": 369.443,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-28T06": {
+          "value": 553.964,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-28T07": {
+          "value": 648.384,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-28T08": {
+          "value": 741.904,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-28T09": {
+          "value": 928.965,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-28T10": {
+          "value": 996.196,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-28T11": {
+          "value": 1174.315,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-28T12": {
+          "value": 1172.609,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-28T13": {
+          "value": 1123.766,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-28T14": {
+          "value": 1247.858,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-28T15": {
+          "value": 1061.185,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-28T16": {
+          "value": 1011.304,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-28T17": {
+          "value": 1133.854,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-28T18": {
+          "value": 1027.17,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-28T19": {
+          "value": 1109.991,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-28T20": {
+          "value": 1009.352,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-28T21": {
+          "value": 881.851,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-28T22": {
+          "value": 637.695,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-28T23": {
+          "value": 504.533,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-29T00": {
+          "value": 397.514,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-29T01": {
+          "value": 319.587,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-29T02": {
+          "value": 301.072,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-29T03": {
+          "value": 287.28,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-29T04": {
+          "value": 308.212,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-29T05": {
+          "value": 396.49,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-29T06": {
+          "value": 548.869,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-29T07": {
+          "value": 667.601,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-29T08": {
+          "value": 740.198,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-29T09": {
+          "value": 978.383,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-29T10": {
+          "value": 1029.624,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-29T11": {
+          "value": 1093.055,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-29T12": {
+          "value": 1242.064,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-29T13": {
+          "value": 1119.267,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-29T14": {
+          "value": 1169.364,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-29T15": {
+          "value": 1186.602,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-29T16": {
+          "value": 1053.638,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-29T17": {
+          "value": 1124.407,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-29T18": {
+          "value": 1032.393,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-29T19": {
+          "value": 1138.425,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-29T20": {
+          "value": 958.31,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-29T21": {
+          "value": 874.521,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-29T22": {
+          "value": 611.511,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-29T23": {
+          "value": 508.148,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-30T00": {
+          "value": 520.464,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-30T01": {
+          "value": 484.011,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-30T02": {
+          "value": 404.198,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-30T03": {
+          "value": 397.499,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-30T04": {
+          "value": 425.094,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-30T05": {
+          "value": 477.815,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-30T06": {
+          "value": 744.16,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-30T07": {
+          "value": 947.084,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-30T08": {
+          "value": 1004.09,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-30T09": {
+          "value": 1301.644,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-30T10": {
+          "value": 1344.301,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-30T11": {
+          "value": 1445.12,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-30T12": {
+          "value": 1469.765,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-30T13": {
+          "value": 1463.5,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-30T14": {
+          "value": 1618.072,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-30T15": {
+          "value": 1521.582,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-30T16": {
+          "value": 1473.176,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-30T17": {
+          "value": 1362.529,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-30T18": {
+          "value": 1573.97,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-30T19": {
+          "value": 1531.549,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        },
+        "06-30T20": {
+          "value": 1361.683,
+          "method": "SUM",
+          "sourceLevel": "HOUR",
+          "derived": false
+        }
+      }
+    }
+  }
+}

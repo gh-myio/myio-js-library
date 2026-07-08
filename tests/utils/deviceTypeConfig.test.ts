@@ -5,8 +5,8 @@ import {
   getDeviceCategory,
   getStaticDeviceImage,
   getTypesByCategory,
-} from '../../src/utils/deviceTypeConfig';
-import { deviceIcons } from '../../src/utils/deviceIcons';
+} from '../../src/utils/devices/deviceTypeConfig';
+import { deviceIcons } from '../../src/utils/devices/deviceIcons';
 
 describe('RFC-0202 deviceTypeConfig — single source of truth', () => {
   describe('config integrity', () => {

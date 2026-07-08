@@ -39,6 +39,7 @@ export function createMenuShoppingComponent(params: MenuShoppingParams): MenuSho
     container,
     themeMode: initialThemeMode,
     userInfo,
+    shoppingName,
     configTemplate,
     settings: initialSettings,
     onTabChange,
@@ -70,6 +71,11 @@ export function createMenuShoppingComponent(params: MenuShoppingParams): MenuSho
   // Set initial user info if provided
   if (userInfo) {
     view.updateUserInfo(userInfo);
+  }
+
+  // Set initial shopping/customer name if provided
+  if (shoppingName) {
+    view.setShoppingName(shoppingName);
   }
 
   // Version checker instance reference
@@ -271,6 +277,10 @@ export function createMenuShoppingComponent(params: MenuShoppingParams): MenuSho
 
     updateUserInfo(info: MenuShoppingUserInfo): void {
       view.updateUserInfo(info);
+    },
+
+    setShoppingName(name: string): void {
+      view.setShoppingName(name);
     },
 
     setCollapsed(isCollapsed: boolean): void {

@@ -20,6 +20,18 @@ import {
   createModalId,
 } from './utils';
 
+// Verbose logs are OPT-IN: silent unless the host dashboard sets
+// window.MyIOUtils.debugModals = true (MAIN_BAS wires it to enableDebugMode).
+// Errors/warnings keep logging unconditionally via console.error/warn.
+const dbg = (...args: unknown[]): void => {
+  try {
+    if ((globalThis as any)?.MyIOUtils?.debugModals) console.log(...args);
+  } catch {
+    /* noop */
+  }
+};
+
+
 export class EnergyModal {
   private modal: any;
   private view: EnergyModalView | null = null;
@@ -45,7 +57,7 @@ export class EnergyModal {
       clientSecret: this.params.clientSecret,
     });
 
-    console.log('[EnergyModal] Initialized with params:', {
+    dbg('[EnergyModal] Initialized with params:', {
       deviceId: this.params.deviceId,
       hasIngestionToken: !!this.params.ingestionToken,
       hasClientCredentials: !!(this.params.clientId && this.params.clientSecret),
@@ -59,10 +71,10 @@ export class EnergyModal {
    */
   async show(): Promise<{ close: () => void }> {
     try {
-      console.log('[EnergyModal] Starting modal show process');
+      dbg('[EnergyModal] Starting modal show process');
 
       const mode = this.params.mode || 'single';
-      console.log(`[EnergyModal] Mode: ${mode}`);
+      dbg(`[EnergyModal] Mode: ${mode}`);
 
       // ⭐ NEW: Only fetch device context in SINGLE mode
       if (mode === 'single') {
@@ -113,7 +125,7 @@ export class EnergyModal {
         await this.loadEnergyData();
       } else if (mode === 'comparison') {
         // Comparison mode: Directly render comparison chart (SDK handles data fetch)
-        console.log('[EnergyModal] Triggering comparison chart render');
+        dbg('[EnergyModal] Triggering comparison chart render');
         const success = this.view.tryRenderWithSDK(null as any);
 
         if (!success) {
@@ -131,7 +143,7 @@ export class EnergyModal {
         }
       }
 
-      console.log('[EnergyModal] Modal successfully opened');
+      dbg('[EnergyModal] Modal successfully opened');
 
       return {
         close: () => this.close(),
@@ -195,7 +207,7 @@ export class EnergyModal {
    * Fetches device context from ThingsBoard
    */
   private async fetchDeviceContext(): Promise<EnergyModalContext> {
-    console.log('[EnergyModal] Fetching device context for:', this.params.deviceId);
+    dbg('[EnergyModal] Fetching device context for:', this.params.deviceId);
 
     try {
       // Fetch device entity and attributes in parallel
@@ -221,7 +233,7 @@ export class EnergyModal {
         },
       };
 
-      console.log('[EnergyModal] Device context resolved:', {
+      dbg('[EnergyModal] Device context resolved:', {
         deviceLabel: context.device.label,
         hasIngestionId: !!context.resolved.ingestionId,
         attributeCount: Object.keys(attributes).length,
@@ -294,7 +306,7 @@ export class EnergyModal {
 
     // ⭐ SAFETY: Only load data in single mode
     if (mode !== 'single') {
-      console.log('[EnergyModal] Skipping loadEnergyData in comparison mode');
+      dbg('[EnergyModal] Skipping loadEnergyData in comparison mode');
       return;
     }
 
@@ -311,7 +323,7 @@ export class EnergyModal {
     }
 
     try {
-      console.log('[EnergyModal] Loading energy data');
+      dbg('[EnergyModal] Loading energy data');
 
       // Show loading state
       this.view.showLoadingState();
@@ -329,7 +341,7 @@ export class EnergyModal {
         readingType: this.params.readingType,
       });
 
-      console.log('[EnergyModal] Energy data loaded:', {
+      dbg('[EnergyModal] Energy data loaded:', {
         dataPoints: energyData.consumption.length,
         totalConsumption: energyData.consumption.reduce((sum, point) => sum + point.value, 0),
       });
@@ -381,7 +393,7 @@ export class EnergyModal {
 
     // Handle modal close
     this.modal.on('close', () => {
-      console.log('[EnergyModal] Modal closing');
+      dbg('[EnergyModal] Modal closing');
       this.cleanup();
       this.emit('close');
 
@@ -423,11 +435,11 @@ export class EnergyModal {
     }
 
     try {
-      console.log('[EnergyModal] Date range changed:', { startISO, endISO, mode });
+      dbg('[EnergyModal] Date range changed:', { startISO, endISO, mode });
 
       // ⭐ COMPARISON MODE: Let SDK handle data fetch
       if (mode === 'comparison') {
-        console.log('[EnergyModal] Comparison mode: re-rendering chart with new dates');
+        dbg('[EnergyModal] Comparison mode: re-rendering chart with new dates');
 
         // Update params with new dates
         this.params.startDate = startISO;
@@ -472,7 +484,7 @@ export class EnergyModal {
         readingType: this.params.readingType,
       });
 
-      console.log('[EnergyModal] Energy data reloaded:', {
+      dbg('[EnergyModal] Energy data reloaded:', {
         dataPoints: energyData.consumption.length,
         totalConsumption: energyData.consumption.reduce((sum, point) => sum + point.value, 0),
       });
@@ -504,7 +516,7 @@ export class EnergyModal {
       }
 
       this.view.exportToCsv();
-      console.log('[EnergyModal] CSV export completed');
+      dbg('[EnergyModal] CSV export completed');
     } catch (error) {
       console.error('[EnergyModal] Export error:', error);
       this.handleError(new Error('Failed to export data to CSV'));
@@ -616,7 +628,7 @@ export class EnergyModal {
    * Cleanup resources
    */
   private cleanup(): void {
-    console.log('[EnergyModal] Cleaning up resources');
+    dbg('[EnergyModal] Cleaning up resources');
 
     // Clear data fetcher cache
     this.dataFetcher.clearCache();

@@ -71,8 +71,12 @@ Object.keys(devices).forEach((key) => {
 });
 
 // Device virtual "MQTT Sync" — forçado (sem slave físico no polling).
-// slaveId é resolvido do mapa de devices pelo nome (undefined se ainda não provisionado).
-newDeviceList['MQTT Sync'] = {
+// Nome do device no TB é ESPECIALIZADO por central via env CENTRAL_UUID
+// ("MQTT Sync - <uuid>") para não colidir entre centrais no mesmo tenant.
+// O lookup no mapa de devices continua pelo nome do slave no BANCO da central
+// ('MQTT Sync' — só muda quando o rename manual for rodado no Postgres).
+const MQTT_SYNC_NAME = 'MQTT Sync - ' + (env.get('CENTRAL_UUID') || 'sem-uuid');
+newDeviceList[MQTT_SYNC_NAME] = {
   deviceType: 'GLOBAL_MQTT_SYNC_STATUS',
   centralId: centralId,
   slaveId: (devices['MQTT Sync'] && devices['MQTT Sync'].slaveId) || 'undefined',

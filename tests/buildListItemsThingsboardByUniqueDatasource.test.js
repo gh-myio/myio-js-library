@@ -2,7 +2,7 @@
  * Unit tests for buildListItemsThingsboardByUniqueDatasource utility
  */
 
-import { buildListItemsThingsboardByUniqueDatasource } from '../src/thingsboard/utils/buildListItemsThingsboardByUniqueDatasource.js';
+import { buildListItemsThingsboardByUniqueDatasource } from '../src/utils/thingsboard/buildListItemsThingsboardByUniqueDatasource.js';
 
 describe('buildListItemsThingsboardByUniqueDatasource', () => {
   test('should return empty array for empty inputs', () => {

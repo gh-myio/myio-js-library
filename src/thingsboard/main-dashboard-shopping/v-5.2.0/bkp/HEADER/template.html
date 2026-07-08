@@ -1,0 +1,114 @@
+<section aria-label="Filtros e ações" class="tbx-toolbar">
+  <div class="tbx-row">
+    <!-- COL ESQUERDA (50%) -->
+    <div class="tbx-col tbx-col-left">
+      <!-- RFC-0107: Contract Status Icon (no native title - uses ContractSummaryTooltip) -->
+
+      <!-- compat (ocultos) -->
+      <label class="tbx-field" style="display: none"><input id="tbx-date-start" type="date" /></label>
+      <span class="tbx-ate" style="display: none">até</span>
+      <label class="tbx-field" style="display: none"><input id="tbx-date-end" type="date" /></label>
+
+      <!-- range -->
+      <label aria-label="Período" class="tbx-field">
+        <span class="tbx-ico tbx-ico-cal">📅</span>
+        <input
+          type="text"
+          name="startDatetimes"
+          placeholder="Digite a data ou período"
+          readonly
+          title="Clique aqui para alterar o intervalo de datas"
+        />
+      </label>
+
+      <!-- carregar -->
+      <button class="tbx-btn tbx-btn-primary" id="tbx-btn-load" title="Carregar">
+        <span class="tbx-ico rotate">⟲</span>
+        <span>Carregar</span>
+      </button>
+
+      <!-- force refresh -->
+      <button
+        class="tbx-btn tbx-btn-secondary"
+        id="tbx-btn-force-refresh"
+        title="Limpar cache e recarregar (use se os dados ficarem travados)"
+      >
+        <span class="tbx-ico">🔄</span>
+        <span>Limpar</span>
+      </button>
+
+      <!-- alarm notification bell (RFC-0193) — loading state until alarms are fetched -->
+      <button
+        class="tbx-btn tbx-btn-alarm-notif is-loading"
+        id="tbx-btn-alarm-notif"
+        title="Notificações de Alarme (carregando…)"
+        aria-busy="true"
+      >
+        <span class="tbx-ico tbx-alarm-icon" aria-hidden="true">🔔</span>
+        <span class="tbx-loading-spinner" aria-hidden="true"></span>
+        <span id="tbx-alarm-notif-badge" class="tbx-alarm-badge" style="display: none"></span>
+      </button>
+
+      <!-- ticket / chamados button (RFC-0198) — loading state until freshdesk config arrives -->
+      <button
+        class="tbx-btn tbx-btn-ticket-notif is-loading"
+        id="tbx-btn-ticket-notif"
+        title="Chamados (FreshDesk) (carregando…)"
+        aria-busy="true"
+      >
+        <svg
+          class="tbx-ico-svg tbx-ticket-icon"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          width="18"
+          height="18"
+        >
+          <path d="M3 18v-6a9 9 0 0 1 18 0v6" />
+          <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3z" />
+          <path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z" />
+        </svg>
+        <span class="tbx-loading-spinner" aria-hidden="true"></span>
+        <span class="tbx-ticket-error-x" aria-hidden="true">✕</span>
+        <span id="tbx-ticket-notif-badge" class="tbx-ticket-badge" style="display: none"></span>
+      </button>
+
+      <!-- annotations button (RFC-0203) — visible from start with loading spinner;
+           swaps to icon once AnnotationServiceOrchestrator is built -->
+      <button
+        class="tbx-btn tbx-btn-annotation-notif is-loading"
+        id="tbx-btn-annotation-notif"
+        title="Anotações operacionais (carregando…)"
+        aria-label="Anotações operacionais (carregando…)"
+        aria-haspopup="dialog"
+        aria-controls="myio-annotations-panel"
+        aria-busy="true"
+        disabled
+      >
+        <span class="tbx-ico tbx-annotation-icon" aria-hidden="true">✏️</span>
+        <span class="tbx-loading-spinner" aria-hidden="true"></span>
+        <span
+          id="tbx-annotation-notif-badge"
+          class="tbx-annotation-badge"
+          role="status"
+          aria-live="polite"
+          style="display: none"
+        ></span>
+      </button>
+
+      <button
+        class="tbx-btn tbx-btn-primary"
+        id="tbx-btn-report-general"
+        title="Relatório Consumo Geral"
+        disabled
+        style="display: none"
+      >
+        <span class="tbx-ico">🧾</span>
+        <span id="tbx-btn-report-general-text">Relatório Consumo Geral</span>
+      </button>
+    </div>
+  </div>
+</section>

@@ -1,0 +1,442 @@
+/* ===== Base ===== */
+.tbx-toolbar {
+  font-family:
+    Inter,
+    system-ui,
+    -apple-system,
+    Segoe UI,
+    Roboto,
+    Arial,
+    'Helvetica Neue',
+    Helvetica;
+  color: #1f2937;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+}
+
+/* Linha com 2 colunas 50/50 */
+.tbx-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+.tbx-col {
+  flex: 1 1 50%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.tbx-col-right {
+  justify-content: center;
+}
+
+/* Campos */
+.tbx-field {
+  flex-grow: 3;
+  flex-shrink: 2;
+  flex-basis: 0;
+  min-width: 350px;
+  padding: 6px 10px;
+  font-size: 0.9rem;
+  border: 1px solid #dbe2ea;
+  border-radius: 6px;
+  background: #fff;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  cursor: pointer;
+
+  white-space: normal;
+  overflow: auto;
+}
+
+/* Campos & Botões */
+.tbx-field,
+.tbx-btn {
+  display: inline-flex;
+  height: 36px;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
+}
+
+.tbx-field {
+  position: relative;
+  align-items: center;
+  background: #fff;
+  border: 1px solid #dbe2ea;
+  border-radius: 6px;
+  padding: 0 10px;
+}
+
+.tbx-field input[type='date'],
+.tbx-field input[type='text'] {
+  border: none;
+  outline: 0;
+  height: 100%;
+  cursor: pointer;
+  font-size: 14px;
+  min-width: 300px;
+  background: transparent;
+  color: #1f2937;
+  text-align: center;
+}
+
+.tbx-field input::placeholder {
+  color: #7b88a1;
+}
+
+/* Botões */
+.tbx-btn {
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  transition:
+    transform 0.02s,
+    background-color 0.15s,
+    box-shadow 0.15s;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.tbx-btn-primary {
+  background: #1989ff;
+  color: #fff;
+}
+
+.tbx-btn-primary:hover {
+  background: #0f78e6;
+}
+
+.tbx-btn-primary:active {
+  background: #0a67c7;
+  transform: translateY(1px);
+}
+
+.tbx-btn-secondary {
+  background: #3e1a7d;
+  color: #fff;
+}
+
+.tbx-btn-secondary:hover {
+  background: #2d1458;
+}
+
+.tbx-btn-secondary:active {
+  background: #1f0e3d;
+  transform: translateY(1px);
+}
+
+/* Botões disabled */
+.tbx-btn:disabled,
+.tbx-btn[disabled] {
+  background: #e5e7eb !important;
+  color: #9ca3af !important;
+  cursor: not-allowed !important;
+  opacity: 0.6;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.tbx-btn-primary:disabled,
+.tbx-btn-primary[disabled] {
+  background: #d1d5db !important;
+  color: #6b7280 !important;
+}
+
+/* Alarm notification bell button */
+.tbx-btn-alarm-notif {
+  background: rgba(220, 38, 38, 0.12);
+  color: #dc2626;
+  border: 1px solid rgba(220, 38, 38, 0.25);
+  position: relative;
+}
+
+.tbx-btn-alarm-notif:hover {
+  background: rgba(220, 38, 38, 0.22);
+  border-color: rgba(220, 38, 38, 0.45);
+}
+
+.tbx-btn-alarm-notif:active {
+  background: rgba(220, 38, 38, 0.32);
+  transform: translateY(1px);
+}
+
+.tbx-alarm-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: #dc2626;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  pointer-events: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* Ticket / Chamados button (RFC-0198) — teal/support theme */
+.tbx-btn-ticket-notif {
+  background: rgba(8, 145, 178, 0.12);
+  color: #0891b2;
+  border: 1px solid rgba(8, 145, 178, 0.25);
+  position: relative;
+}
+
+.tbx-btn-ticket-notif:hover {
+  background: rgba(8, 145, 178, 0.22);
+  border-color: rgba(8, 145, 178, 0.45);
+}
+
+.tbx-btn-ticket-notif:active {
+  background: rgba(8, 145, 178, 0.32);
+  transform: translateY(1px);
+}
+
+.tbx-ico-svg {
+  display: block;
+  pointer-events: none;
+}
+
+.tbx-ticket-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: #0891b2;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  pointer-events: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* Annotations button (RFC-0203) — amethyst/notes theme */
+.tbx-btn-annotation-notif {
+  background: rgba(108, 92, 231, 0.12);
+  color: #6c5ce7;
+  border: 1px solid rgba(108, 92, 231, 0.25);
+  position: relative;
+}
+
+.tbx-btn-annotation-notif:hover {
+  background: rgba(108, 92, 231, 0.22);
+  border-color: rgba(108, 92, 231, 0.45);
+}
+
+.tbx-btn-annotation-notif:active {
+  background: rgba(108, 92, 231, 0.32);
+  transform: translateY(1px);
+}
+
+.tbx-annotation-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: #6c5ce7;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  pointer-events: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* RFC-0203 follow-up — generic loading spinner applied to any notification
+   button via `.is-loading`. Each button's icon is hidden while loading and
+   the spinner uses the button's own theme color via currentColor. */
+.tbx-btn .tbx-loading-spinner {
+  display: none;
+}
+.tbx-btn.is-loading .tbx-annotation-icon,
+.tbx-btn.is-loading .tbx-alarm-icon,
+.tbx-btn.is-loading .tbx-ticket-icon {
+  display: none;
+}
+.tbx-btn.is-loading .tbx-loading-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: tbx-anno-spin 0.7s linear infinite;
+  opacity: 0.85;
+}
+@keyframes tbx-anno-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Override generic disabled greying for the notification buttons —
+   keep their own theme color while in loading state. */
+.tbx-btn-annotation-notif[disabled],
+.tbx-btn-annotation-notif.is-loading {
+  background: rgba(108, 92, 231, 0.12) !important;
+  color: #6c5ce7 !important;
+  cursor: progress !important;
+  opacity: 1 !important;
+}
+
+/* RFC-0203 follow-up — active filter state mirrors the alarm button
+   (toggle filter: show only devices WITH annotations). */
+.tbx-btn-annotation-notif.annotation-filter-active {
+  background: #ede9fe !important;
+  border: 1px solid #6c5ce7 !important;
+  color: #4c3aac !important;
+  box-shadow: 0 0 0 2px rgba(108, 92, 231, 0.28) !important;
+}
+.tbx-btn-annotation-notif.annotation-filter-active .tbx-ico {
+  filter: none;
+}
+.tbx-btn-alarm-notif[disabled],
+.tbx-btn-alarm-notif.is-loading {
+  background: rgba(220, 38, 38, 0.12) !important;
+  color: #dc2626 !important;
+  cursor: progress !important;
+  opacity: 1 !important;
+}
+.tbx-btn-ticket-notif[disabled],
+.tbx-btn-ticket-notif.is-loading {
+  background: rgba(8, 145, 178, 0.12) !important;
+  color: #0891b2 !important;
+  cursor: progress !important;
+  opacity: 1 !important;
+}
+
+/* RFC-0198 follow-up — estado de ERRO do botão de chamados.
+   Após 60s carregando (ou falha de fetch), o spinner vira um X e o hover
+   mostra um tooltip de erro. */
+.tbx-ticket-error-x {
+  display: none;
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 1;
+}
+.tbx-btn.is-error .tbx-loading-spinner,
+.tbx-btn.is-error .tbx-ticket-icon {
+  display: none;
+}
+.tbx-btn.is-error .tbx-ticket-error-x {
+  display: inline-block;
+}
+.tbx-btn-ticket-notif.is-error {
+  background: rgba(220, 38, 38, 0.12) !important;
+  color: #dc2626 !important;
+  border-color: rgba(220, 38, 38, 0.35) !important;
+  cursor: help !important;
+  opacity: 1 !important;
+}
+
+/* Tooltip de erro (hover) — anexado ao body, posicionado via JS. */
+.tbx-err-tip {
+  position: absolute;
+  z-index: 100000;
+  max-width: 280px;
+  background: #fff;
+  border: 1px solid #fecaca;
+  border-left: 3px solid #dc2626;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  padding: 8px 10px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 12px;
+  color: #1e293b;
+  pointer-events: none;
+}
+.tbx-err-tip-title {
+  font-weight: 700;
+  color: #dc2626;
+  margin-bottom: 2px;
+}
+.tbx-err-tip-body {
+  color: #475569;
+  line-height: 1.35;
+}
+
+/* Ícones */
+.tbx-ico {
+  display: inline-block;
+  transform-origin: center;
+}
+
+.tbx-ico.rotate {
+  transition: transform 0.3s;
+}
+
+.tbx-btn:active .tbx-ico.rotate {
+  transform: rotate(-90deg);
+}
+
+/* ===== Contract Status (RFC-0107) ===== */
+.tbx-contract-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.tbx-contract-status:hover {
+  background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+  border-color: #ced4da;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+.tbx-contract-icon {
+  font-size: 18px;
+}
+
+.tbx-contract-count {
+  font-size: 14px;
+  font-weight: 600;
+  color: #495057;
+}
+
+/* ===== Responsivo ===== */
+@media (max-width: 980px) {
+  .tbx-row {
+    flex-wrap: wrap;
+  }
+
+  .tbx-col {
+    flex: 1 1 100%;
+  }
+
+  .tbx-col-right {
+    justify-content: flex-start;
+  }
+}

@@ -59,7 +59,7 @@ export const TELEMETRY_INFO_SHOPPING_STYLES = `
   padding: 12px !important;
   background: var(--tis-bg) !important;
   color: var(--tis-text) !important;
-  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  font-family: 'Nunito', Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
   box-sizing: border-box !important;
   border-radius: 12px !important;
   overflow: auto !important;

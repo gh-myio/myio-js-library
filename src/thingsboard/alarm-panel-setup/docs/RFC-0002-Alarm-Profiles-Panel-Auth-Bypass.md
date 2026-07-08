@@ -110,7 +110,7 @@ const token = localStorage.getItem('jwt_token');
 #### Fixed Authentication (from Multimeter Widget)
 
 ```javascript
-// src/thingsboard/WIDGET/Multimeter/device_card/controller.js
+// src/thingsboard/Multimeter/device_card/controller.js
 const body = { username: TB_USERNAME, password: TB_PASSWORD };
 ```
 
@@ -285,7 +285,7 @@ Use a dedicated service account per customer with full read access.
 
 ### Existing Implementations in Codebase
 
-1. **Multimeter Widget** (`src/thingsboard/WIDGET/Multimeter/device_card/controller.js`)
+1. **Multimeter Widget** (`src/thingsboard/Multimeter/device_card/controller.js`)
    - Uses fixed credentials for device data access
    - Pattern: Direct authentication with stored username/password
 

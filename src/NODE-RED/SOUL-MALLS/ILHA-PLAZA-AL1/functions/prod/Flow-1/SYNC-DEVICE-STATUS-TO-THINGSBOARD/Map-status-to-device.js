@@ -32,7 +32,10 @@ for (const device in devices) {
 // Device virtual "MQTT Sync" — não tem slave físico no polling, então é
 // adicionado à força: connectionStatus SEMPRE online; o "status" reflete o
 // estado do sync lido de global.mqttSyncStatus (enable|disable, undefined se nunca setado).
-deviceStatusMap['MQTT Sync'] = [
+// Nome do device no TB é ESPECIALIZADO por central via env CENTRAL_UUID
+// ("MQTT Sync - <uuid>") — deve casar com o usado no ATTRIBUTES-SYNC.
+const MQTT_SYNC_NAME = 'MQTT Sync - ' + (env.get('CENTRAL_UUID') || 'sem-uuid');
+deviceStatusMap[MQTT_SYNC_NAME] = [
   {
     ts: new Date().getTime(),
     values: {

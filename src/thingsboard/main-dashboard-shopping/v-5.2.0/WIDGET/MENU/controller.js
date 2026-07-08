@@ -7,7 +7,23 @@ const LogHelper = window.MyIOUtils?.LogHelper || {
   error: (...args) => console.error(...args),
 };
 
+// Error toast helper for the MENU (child widget). Reads MyIOToast via the
+// window.MyIOUtils bridge (only MAIN_VIEW references window.MyIOLibrary). No
+// window.alert fallback — degrade to LogHelper.error when the toast is unavailable.
+function toastError(message) {
+  const MyIOToast = window.MyIOUtils?.MyIOToast;
+  if (MyIOToast?.error) MyIOToast.error(message, 6000);
+  else LogHelper.error('[MENU] ' + message);
+}
+
 self.onInit = function () {
+  // Guard contra re-inicialização (evita footer/listeners duplicados)
+  if (self.ctx.$scope.__menuInitialized) {
+    LogHelper.log('[MENU] Já inicializado, pulando re-init');
+    return;
+  }
+  self.ctx.$scope.__menuInitialized = true;
+
   const settings = self.ctx.settings || {};
   const scope = self.ctx.$scope;
 
@@ -78,6 +94,7 @@ self.onInit = function () {
       water_content: '💧',
       temperature_content: '🌡️',
       alarm_content: '🔔',
+      metas_content: '🎯',
     };
     return icons[stateId] || '📄';
   };
@@ -243,6 +260,12 @@ self.onInit = function () {
       return;
     }
 
+    if (clickedLink && /metas/i.test(clickedLink.content || '')) {
+      LogHelper.log('[MENU] Metas clicked – abrindo modal de consumo 7 dias');
+      openGoalsModal();
+      return;
+    }
+
     // Marca o link selecionado e desmarca os outros
     scope.links.forEach((link, i) => (link.enableLink = i === index));
 
@@ -371,7 +394,7 @@ self.onInit = function () {
       }
     } catch (err) {
       LogHelper.error('[MENU] Logout error:', err);
-      window.alert('Erro ao fazer logout. Você será redirecionado para a tela de login.');
+      toastError('Erro ao fazer logout. Você será redirecionado para a tela de login.');
 
       // Force redirect even on error
       localStorage.removeItem('jwt_token');
@@ -425,6 +448,29 @@ self.onInit = function () {
 
   // RFC-0108: Show centered settings modal with options
   function showSettingsModal(user) {
+    // RFC-0215 Phase 3: prefer the shared lib hub (single source with v-5.4.0).
+    // Falls back to the inline hub below when the deployed lib doesn't export
+    // the symbol yet (older bundle) — zero-regression migration path.
+    const libHub = window.MyIOUtils?.openSettingsHubModal;
+    if (typeof libHub === 'function') {
+      libHub({
+        customerName: user?.customerTitle || user?.customerName || getCurrentDashboardTitle() || '',
+        isSuperAdmin: window.MyIOUtils?.SuperAdmin === true,
+        handlers: {
+          temperature: () => openTemperatureSettings(user),
+          contract: () => openContractDevicesSettings(user),
+          measurement: () => openMeasurementSettings(user),
+          integration: () => openIntegrationSetupModal(user),
+          'user-management': () => openUserManagementModal(user),
+          'default-dashboard': () => openDefaultDashboardSettings(user),
+          'client-config': () => openClientConfigModal(user),
+          'device-profile': () => openDeviceProfileSettings(user),
+        },
+      });
+      LogHelper.log('[MENU] Settings hub opened via lib openSettingsHubModal (RFC-0215)');
+      return;
+    }
+
     // Use top-level document to ensure modal appears above everything
     const topWin = window.top || window;
     const topDoc = (() => {
@@ -656,6 +702,18 @@ self.onInit = function () {
           </button>`
               : ''
           }
+          ${
+            isSuperAdmin
+              ? `
+          <button class="myio-settings-option myio-settings-option--myio" data-action="device-profile">
+            <span class="myio-settings-option__icon">🧩</span>
+            <div class="myio-settings-option__text">
+              <span class="myio-settings-option__title">Gestão de Perfil de Dispositivos</span>
+              <span class="myio-settings-option__desc">Regras de classificação (colunas e breakdown) — apenas MyIO</span>
+            </div>
+          </button>`
+              : ''
+          }
         </div>
       </div>
     `;
@@ -705,6 +763,8 @@ self.onInit = function () {
             openDefaultDashboardSettings(user);
           } else if (action === 'client-config') {
             openClientConfigModal(user);
+          } else if (action === 'device-profile') {
+            openDeviceProfileSettings(user);
           }
         }, 250);
       });
@@ -713,15 +773,79 @@ self.onInit = function () {
     LogHelper.log('[MENU] Settings modal opened');
   }
 
+  // RFC-0207 Phase B: open the Device Classification Profile management modal.
+  function openDeviceProfileSettings(user) {
+    const Lib = window.MyIOUtils;
+    if (!Lib || typeof Lib.openDeviceProfileModal !== 'function') {
+      const msg = 'Componente de Perfil de Dispositivos indisponível. Atualize a biblioteca MyIO.';
+      const MyIOToast = Lib?.MyIOToast;
+      if (MyIOToast?.error) {
+        MyIOToast.error(msg, 6000);
+      } else {
+        LogHelper.error('[MENU] ' + msg);
+      }
+      return;
+    }
+    const customerId = window.MyIOUtils?.customerTB_ID || self.ctx?.settings?.customerTB_ID || '';
+    const profile =
+      window.MyIOUtils?.deviceClassificationProfile ||
+      (typeof Lib.getActiveProfile === 'function' ? Lib.getActiveProfile() : null);
+
+    // RFC-0207 v3: the MENU is endpoint-agnostic. Persistence is owned by MAIN_VIEW
+    // (which stores the profile JSON in the GCDR endpoint). The MENU/lib never write
+    // to ThingsBoard. If MAIN_VIEW hasn't wired the saver yet, fail loud (no TB write).
+    const saveProfile = async (next) => {
+      const saver = window.MyIOOrchestrator?.saveDeviceClassificationProfile;
+      if (typeof saver !== 'function') {
+        throw new Error(
+          'Persistência do perfil indisponível: MAIN_VIEW.saveDeviceClassificationProfile (GCDR) não conectado.',
+        );
+      }
+      await saver(next);
+    };
+
+    // Domain-aware: the modal asks for the device set of the active tab
+    // (energy | water | temperature) so each tab's preview is accurate.
+    const getDevices = (domain) => {
+      const d = window.MyIOOrchestratorData || {};
+      if (domain === 'water') return (d.water && d.water.items) || [];
+      if (domain === 'temperature') return (d.temperature && d.temperature.items) || [];
+      return (d.energy && d.energy.items) || [];
+    };
+
+    Lib.openDeviceProfileModal({
+      customerId,
+      profile,
+      canEdit: true, // option only rendered for superadmin (isSuperAdmin gate above)
+      getDevices,
+      userName: (user && (user.email || user.name)) || 'user',
+      onSave: saveProfile, // RFC-0207 v3: persistence delegated to MAIN_VIEW (GCDR), not TB
+      onSaved: () => {
+        // Re-classify: invalidate cache + re-hydrate (same path as the refresh button).
+        try {
+          window.MyIOOrchestrator?.invalidateCache?.('*');
+        } catch {
+          /* noop */
+        }
+        try {
+          window.dispatchEvent(new CustomEvent('myio:update-date', { detail: {} }));
+        } catch {
+          /* noop */
+        }
+        LogHelper.log('[MENU] RFC-0207: classification profile saved → re-classify triggered');
+      },
+    });
+  }
+
   // ── RFC-0190: Gestão de Usuários (apenas SuperAdmin MyIO) ───────────────────
   function openUserManagementModal(user) {
-    if (!window.MyIOLibrary?.openUserManagementModal) {
-      LogHelper.warn('[MENU] openUserManagementModal not available in MyIOLibrary');
+    if (!window.MyIOUtils?.openUserManagementModal) {
+      LogHelper.warn('[MENU] openUserManagementModal not available in MyIOBridge');
       return;
     }
     const jwt = localStorage.getItem('jwt_token') || '';
     const orch = window.MyIOOrchestrator;
-    window.MyIOLibrary.openUserManagementModal({
+    window.MyIOUtils.openUserManagementModal({
       customerId: orch?.customerTB_ID || self.ctx.settings?.customerTB_ID || '',
       tenantId: user.tenantId?.id || '',
       customerName:
@@ -751,14 +875,14 @@ self.onInit = function () {
 
     const jwtToken = localStorage.getItem('jwt_token');
     if (!jwtToken) {
-      window.alert('Token não encontrado. Faça login novamente.');
+      toastError('Token não encontrado. Faça login novamente.');
       return;
     }
 
     const orch = window.MyIOOrchestrator;
     const customerId = orch?.customerTB_ID || user?.customerId?.id;
     if (!customerId) {
-      window.alert('ID do cliente não encontrado.');
+      toastError('ID do cliente não encontrado.');
       return;
     }
 
@@ -869,7 +993,7 @@ self.onInit = function () {
 
     // ── Modal ──────────────────────────────────────────────────────────────────
     const mddHeaderHtml =
-      window.MyIOLibrary?.ModalHeader?.generateInlineHTML({
+      window.MyIOUtils?.ModalHeader?.generateInlineHTML({
         icon: '🏠',
         title: `Dashboard Padrão${customerName ? ` — ${customerName}` : ''}`,
         modalId: 'mdd-modal',
@@ -993,7 +1117,7 @@ self.onInit = function () {
       saveBtn.disabled = true;
       saveBtn.textContent = 'Salvando...';
       try {
-        const version = window.MyIOLibrary?.version || '0.0.0';
+        const version = window.MyIOUtils?.version || '0.0.0';
         const now = new Date().toISOString();
         const currentUserName =
           [user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.email || '';
@@ -1035,7 +1159,7 @@ self.onInit = function () {
         LogHelper.error('[MENU] RFC-0194: Erro ao salvar customerDefaultDashboard:', err);
         saveBtn.disabled = false;
         saveBtn.textContent = 'Salvar';
-        window.alert('Erro ao salvar: ' + err.message);
+        toastError('Erro ao salvar: ' + err.message);
       }
     });
 
@@ -1060,13 +1184,13 @@ self.onInit = function () {
 
     const jwtToken = localStorage.getItem('jwt_token');
     if (!jwtToken) {
-      window.alert('Token não encontrado. Faça login novamente.');
+      toastError('Token não encontrado. Faça login novamente.');
       return;
     }
 
     const customerId = window.MyIOOrchestrator?.customerTB_ID || user?.customerId?.id;
     if (!customerId) {
-      window.alert('ID do cliente não encontrado.');
+      toastError('ID do cliente não encontrado.');
       return;
     }
 
@@ -1142,7 +1266,7 @@ self.onInit = function () {
     if (existing) existing.remove();
 
     const isetupHeaderHtml =
-      window.MyIOLibrary?.ModalHeader?.generateInlineHTML({
+      window.MyIOUtils?.ModalHeader?.generateInlineHTML({
         icon: '🔗',
         title: 'Setup de Integração',
         modalId: 'isetup-modal',
@@ -1674,16 +1798,16 @@ self.onInit = function () {
 
   // RFC-0108: Open temperature settings modal
   function openTemperatureSettings(user) {
-    const MyIOLibrary = window.MyIOLibrary;
-    if (!MyIOLibrary?.openTemperatureSettingsModal) {
+    const MyIOBridge = window.MyIOUtils;
+    if (!MyIOBridge?.openTemperatureSettingsModal) {
       LogHelper.error('[MENU] openTemperatureSettingsModal not available');
-      window.alert('Componente de configuração de temperatura não disponível.');
+      toastError('Componente de configuração de temperatura não disponível.');
       return;
     }
 
     const jwtToken = localStorage.getItem('jwt_token');
     if (!jwtToken) {
-      window.alert('Token de autenticação não encontrado. Faça login novamente.');
+      toastError('Token de autenticação não encontrado. Faça login novamente.');
       return;
     }
 
@@ -1691,11 +1815,11 @@ self.onInit = function () {
     const customerName = user?.customerTitle || user?.customerName || getCurrentDashboardTitle() || 'Cliente';
 
     if (!customerId) {
-      window.alert('ID do cliente não encontrado. Verifique configuração do dashboard.');
+      toastError('ID do cliente não encontrado. Verifique configuração do dashboard.');
       return;
     }
 
-    MyIOLibrary.openTemperatureSettingsModal({
+    MyIOBridge.openTemperatureSettingsModal({
       token: jwtToken,
       customerId: customerId,
       customerName: customerName,
@@ -1718,16 +1842,16 @@ self.onInit = function () {
 
   // RFC-0108: Open contract devices modal
   function openContractDevicesSettings(user) {
-    const MyIOLibrary = window.MyIOLibrary;
-    if (!MyIOLibrary?.openContractDevicesModal) {
+    const MyIOBridge = window.MyIOUtils;
+    if (!MyIOBridge?.openContractDevicesModal) {
       LogHelper.error('[MENU] openContractDevicesModal not available');
-      window.alert('Componente de dispositivos contratados não disponível.');
+      toastError('Componente de dispositivos contratados não disponível.');
       return;
     }
 
     const jwtToken = localStorage.getItem('jwt_token');
     if (!jwtToken) {
-      window.alert('Token de autenticação não encontrado. Faça login novamente.');
+      toastError('Token de autenticação não encontrado. Faça login novamente.');
       return;
     }
 
@@ -1735,11 +1859,11 @@ self.onInit = function () {
     const customerName = user?.customerTitle || user?.customerName || getCurrentDashboardTitle() || 'Cliente';
 
     if (!customerId) {
-      window.alert('ID do cliente não encontrado. Verifique configuração do dashboard.');
+      toastError('ID do cliente não encontrado. Verifique configuração do dashboard.');
       return;
     }
 
-    MyIOLibrary.openContractDevicesModal({
+    MyIOBridge.openContractDevicesModal({
       customerId: customerId,
       customerName: customerName,
       jwtToken: jwtToken,
@@ -1754,29 +1878,29 @@ self.onInit = function () {
       onClose: () => LogHelper.log('[MENU] Contract devices modal closed'),
       onError: (error) => {
         LogHelper.error('[MENU] Contract devices error:', error);
-        window.alert('Erro ao salvar: ' + (error.message || 'Erro desconhecido'));
+        toastError('Erro ao salvar: ' + (error.message || 'Erro desconhecido'));
       },
     });
   }
 
   // RFC-0108: Open measurement setup modal
   function openMeasurementSettings(user) {
-    const MyIOLibrary = window.MyIOLibrary;
-    if (!MyIOLibrary?.openMeasurementSetupModal) {
+    const MyIOBridge = window.MyIOUtils;
+    if (!MyIOBridge?.openMeasurementSetupModal) {
       LogHelper.error('[MENU] openMeasurementSetupModal not available');
-      window.alert('Componente de configuração de medidas não disponível.');
+      toastError('Componente de configuração de medidas não disponível.');
       return;
     }
 
     const jwtToken = localStorage.getItem('jwt_token');
     if (!jwtToken) {
-      window.alert('Token de autenticação não encontrado. Faça login novamente.');
+      toastError('Token de autenticação não encontrado. Faça login novamente.');
       return;
     }
 
     const customerId = window.MyIOOrchestrator?.customerTB_ID;
     if (!customerId) {
-      window.alert('ID do cliente não encontrado. Verifique configuração do dashboard.');
+      toastError('ID do cliente não encontrado. Verifique configuração do dashboard.');
       return;
     }
 
@@ -1790,7 +1914,7 @@ self.onInit = function () {
           }
         : null);
 
-    MyIOLibrary.openMeasurementSetupModal({
+    MyIOBridge.openMeasurementSetupModal({
       token: jwtToken,
       customerId: customerId,
       existingSettings: existingSettings,
@@ -1858,6 +1982,7 @@ self.onInit = function () {
   }
 
   // RFC-0085: Add temperature settings button for admin users
+  // eslint-disable-next-line no-unused-vars -- parked: re-enable when temperature settings ship
   function addTemperatureSettingsButton(user) {
     if (document.getElementById('temp-settings-btn')) {
       LogHelper.log('[MENU] Temperature settings button already exists');
@@ -1891,16 +2016,16 @@ self.onInit = function () {
     tempSettingsBtn.addEventListener('click', () => {
       LogHelper.log('[MENU] Temperature settings clicked');
 
-      const MyIOLibrary = window.MyIOLibrary;
-      if (!MyIOLibrary?.openTemperatureSettingsModal) {
+      const MyIOBridge = window.MyIOUtils;
+      if (!MyIOBridge?.openTemperatureSettingsModal) {
         LogHelper.error('[MENU] openTemperatureSettingsModal not available');
-        window.alert('Componente de configuração de temperatura não disponível.');
+        toastError('Componente de configuração de temperatura não disponível.');
         return;
       }
 
       const jwtToken = localStorage.getItem('jwt_token');
       if (!jwtToken) {
-        window.alert('Token de autenticação não encontrado. Faça login novamente.');
+        toastError('Token de autenticação não encontrado. Faça login novamente.');
         return;
       }
 
@@ -1913,13 +2038,13 @@ self.onInit = function () {
         LogHelper.error(
           '[MENU] customerTB_ID not found in MyIOOrchestrator - ensure MAIN_VIEW is configured'
         );
-        window.alert('ID do cliente não encontrado. Verifique configuração do dashboard.');
+        toastError('ID do cliente não encontrado. Verifique configuração do dashboard.');
         return;
       }
 
       LogHelper.log('[MENU] Opening temperature settings for customer:', { customerId, customerName });
 
-      MyIOLibrary.openTemperatureSettingsModal({
+      MyIOBridge.openTemperatureSettingsModal({
         token: jwtToken,
         customerId: customerId,
         customerName: customerName,
@@ -1943,6 +2068,7 @@ self.onInit = function () {
   }
 
   // RFC-0107: Add contract devices button for admin users
+  // eslint-disable-next-line no-unused-vars -- parked: re-enable when contract devices ship
   function addContractDevicesButton(user) {
     if (document.getElementById('contract-devices-btn')) {
       LogHelper.log('[MENU] Contract devices button already exists');
@@ -1975,16 +2101,16 @@ self.onInit = function () {
     contractDevicesBtn.addEventListener('click', () => {
       LogHelper.log('[MENU] Contract devices clicked');
 
-      const MyIOLibrary = window.MyIOLibrary;
-      if (!MyIOLibrary?.openContractDevicesModal) {
+      const MyIOBridge = window.MyIOUtils;
+      if (!MyIOBridge?.openContractDevicesModal) {
         LogHelper.error('[MENU] openContractDevicesModal not available');
-        window.alert('Componente de dispositivos contratados nao disponivel.');
+        toastError('Componente de dispositivos contratados nao disponivel.');
         return;
       }
 
       const jwtToken = localStorage.getItem('jwt_token');
       if (!jwtToken) {
-        window.alert('Token de autenticacao nao encontrado. Faca login novamente.');
+        toastError('Token de autenticacao nao encontrado. Faca login novamente.');
         return;
       }
 
@@ -1997,13 +2123,13 @@ self.onInit = function () {
         LogHelper.error(
           '[MENU] customerTB_ID not found in MyIOOrchestrator - ensure MAIN_VIEW is configured'
         );
-        window.alert('ID do cliente nao encontrado. Verifique configuracao do dashboard.');
+        toastError('ID do cliente nao encontrado. Verifique configuracao do dashboard.');
         return;
       }
 
       LogHelper.log('[MENU] Opening contract devices modal for customer:', { customerId, customerName });
 
-      MyIOLibrary.openContractDevicesModal({
+      MyIOBridge.openContractDevicesModal({
         customerId: customerId,
         customerName: customerName,
         jwtToken: jwtToken,
@@ -2025,7 +2151,7 @@ self.onInit = function () {
         },
         onError: (error) => {
           LogHelper.error('[MENU] Contract devices error:', error);
-          window.alert('Erro ao salvar: ' + (error.message || 'Erro desconhecido'));
+          toastError('Erro ao salvar: ' + (error.message || 'Erro desconhecido'));
         },
       });
     });
@@ -2034,6 +2160,7 @@ self.onInit = function () {
   }
 
   // RFC-0108: Add measurement setup button for admin users
+  // eslint-disable-next-line no-unused-vars -- parked: re-enable when measurement setup ships
   function addMeasurementSetupButton(user) {
     if (document.getElementById('measurement-setup-btn')) {
       LogHelper.log('[MENU] Measurement setup button already exists');
@@ -2066,16 +2193,16 @@ self.onInit = function () {
     measurementSetupBtn.addEventListener('click', () => {
       LogHelper.log('[MENU] Measurement setup clicked');
 
-      const MyIOLibrary = window.MyIOLibrary;
-      if (!MyIOLibrary?.openMeasurementSetupModal) {
+      const MyIOBridge = window.MyIOUtils;
+      if (!MyIOBridge?.openMeasurementSetupModal) {
         LogHelper.error('[MENU] openMeasurementSetupModal not available');
-        window.alert('Componente de configuração de medidas não disponível.');
+        toastError('Componente de configuração de medidas não disponível.');
         return;
       }
 
       const jwtToken = localStorage.getItem('jwt_token');
       if (!jwtToken) {
-        window.alert('Token de autenticação não encontrado. Faça login novamente.');
+        toastError('Token de autenticação não encontrado. Faça login novamente.');
         return;
       }
 
@@ -2088,7 +2215,7 @@ self.onInit = function () {
         LogHelper.error(
           '[MENU] customerTB_ID not found in MyIOOrchestrator - ensure MAIN_VIEW is configured'
         );
-        window.alert('ID do cliente não encontrado. Verifique configuração do dashboard.');
+        toastError('ID do cliente não encontrado. Verifique configuração do dashboard.');
         return;
       }
 
@@ -2105,7 +2232,7 @@ self.onInit = function () {
             }
           : null);
 
-      MyIOLibrary.openMeasurementSetupModal({
+      MyIOBridge.openMeasurementSetupModal({
         token: jwtToken,
         customerId: customerId,
         existingSettings: existingSettings,
@@ -2135,6 +2262,76 @@ self.onInit = function () {
 
     LogHelper.log('[MENU] Measurement setup button added successfully');
   }
+
+// ── Metas: GoalsModal (novo componente — sem requisições no MENU) ─────────────
+// Goals JSON é carregado pelo MAIN_VIEW e cacheado em window.MyIOUtils.goalsData.
+// O MENU apenas abre o modal e injeta os callbacks de consumo.
+const _GOALS_ENTRADA_GROUP_ID = 'f431d17a-ec11-45e0-b92c-83a0d3b6d942';
+
+// Callback de consumo do GoalsModal: totais diários por device via MyIOUtils.fetchGoalsDayTotals.
+// Energy é filtrado pelo grupo de entrada; demais domínios vão sem filtro (curados pelo orchestrator).
+async function _goalsFetchConsumption(domain, startTs, endTs, granularity, groupId) {
+  const custId =
+    window.MyIOOrchestrator?.getCredentials?.()?.CUSTOMER_ING_ID || window.MyIOUtils?.customerTB_ID;
+  const fn = window.MyIOUtils?.fetchGoalsDayTotals;
+  if (!custId || typeof fn !== 'function') return [];
+  const gId = domain === 'energy' ? (_GOALS_ENTRADA_GROUP_ID || groupId || null) : null;
+  try {
+    return await fn(custId, domain, startTs, endTs, granularity, gId);
+  } catch (err) {
+    LogHelper.warn('[MENU] GoalsModal fetchConsumption falhou:', err?.message);
+    return [];
+  }
+}
+
+// Série de consumo em UMA request (endpoint agregado /{domain}/) — preferida pelo GoalsModal.
+// Retorna [{ timestamp, value }] do range inteiro, evitando N requests por dia.
+async function _goalsFetchConsumptionSeries(domain, startTs, endTs, granularity, groupId) {
+  const custId =
+    window.MyIOOrchestrator?.getCredentials?.()?.CUSTOMER_ING_ID || window.MyIOUtils?.customerTB_ID;
+  const fn = window.MyIOUtils?.fetchGoalsConsumptionSeries;
+  if (!custId || typeof fn !== 'function') return [];
+  const gId = domain === 'energy' ? (_GOALS_ENTRADA_GROUP_ID || groupId || null) : null;
+  try {
+    return await fn(custId, domain, startTs, endTs, granularity, gId);
+  } catch (err) {
+    LogHelper.warn('[MENU] GoalsModal fetchConsumptionSeries falhou:', err?.message);
+    return [];
+  }
+}
+
+function openGoalsModal() {
+  // RFC bridge: child widgets read lib symbols via window.MyIOUtils (only MAIN_VIEW
+  // references window.MyIOLibrary). 'GoalsModal' is wired in MAIN_VIEW LIB_SYMBOLS.
+  const GoalsModal = window.MyIOUtils?.GoalsModal;
+  if (!GoalsModal) {
+    toastError('Componente GoalsModal indisponível. Atualize a biblioteca MyIO.');
+    return;
+  }
+
+  const initialDomain = (() => {
+    const tab = window.MyIOOrchestrator?.getVisibleTab?.();
+    return ['energy', 'water', 'temperature'].includes(tab) ? tab : 'energy';
+  })();
+
+  GoalsModal.open({
+    initialDomain,
+    // Config vinda das settings do MAIN_VIEW via bridge (fallback aplicado na MAIN).
+    defaultPeriodDays: window.MyIOUtils?.goalsDefaultPeriodDays,
+    // Throttle das requisições de consumo — fonte única/fallback nas settings do MAIN_VIEW,
+    // exposto via window.MyIOUtils.goalsThrottle (já com defaults aplicados na MAIN).
+    throttlePerReqMs: window.MyIOUtils?.goalsThrottle?.perReqMs,
+    throttleBatchSize: window.MyIOUtils?.goalsThrottle?.batchSize,
+    throttleBatchPauseMs: window.MyIOUtils?.goalsThrottle?.batchPauseMs,
+    // Preferido: 1 request para o range inteiro (série). O fetchConsumption por-boundary
+    // fica como fallback (throttled) caso a série não esteja disponível.
+    fetchConsumptionSeries: _goalsFetchConsumptionSeries,
+    fetchConsumption: _goalsFetchConsumption,
+    fetchTemperature: window.MyIOUtils?.fetchGoalsTemperature
+      ? (startTs, endTs) => window.MyIOUtils.fetchGoalsTemperature(startTs, endTs, '1d')
+      : undefined,
+  });
+}
 
   function openReportsPickerModal() {
     const orch = window.MyIOOrchestrator || {};
@@ -2483,7 +2680,7 @@ self.onInit = function () {
   }
 
   function _openGroupReport(domain, group, baseParams) {
-    const MyIOLib = window.MyIOLibrary;
+    const MyIOLib = window.MyIOUtils;
     if (!MyIOLib?.openDashboardPopupAllReport) {
       LogHelper.error('[MENU RFC-0181] openDashboardPopupAllReport not available');
       return;
@@ -2503,6 +2700,7 @@ self.onInit = function () {
   // ─── end RFC-0181 ────────────────────────────────────────────────────────────
 
   // RFC-0055: Show modal with shopping options
+  // eslint-disable-next-line no-unused-vars -- parked: disabled (see TODO in onDestroy); kept for re-enable
   function showShoppingModal() {
     // tenta usar o documento de nível mais alto (dashboard inteiro)
     const topWin = window.top || window;
@@ -2722,6 +2920,11 @@ self.onInit = function () {
       } catch {
         // Ignore cleanup errors (topDoc may no longer be accessible)
       }
+      if (versionCheckerInstance?.destroy) {
+        try { versionCheckerInstance.destroy(); } catch { /* ignore */ }
+        versionCheckerInstance = null;
+      }
+      self.ctx.$scope.__menuInitialized = false; 
       if (typeof oldDestroy === 'function') oldDestroy();
     };
   })();
@@ -2795,14 +2998,14 @@ self.onInit = function () {
 
     const jwtToken = localStorage.getItem('jwt_token');
     if (!jwtToken) {
-      window.alert('Token não encontrado. Faça login novamente.');
+      toastError('Token não encontrado. Faça login novamente.');
       return;
     }
 
     const orch = window.MyIOOrchestrator;
     const customerId = orch?.customerTB_ID || user?.customerId?.id;
     if (!customerId) {
-      window.alert('ID do cliente não encontrado.');
+      toastError('ID do cliente não encontrado.');
       return;
     }
 
@@ -2915,7 +3118,6 @@ self.onInit = function () {
           });
 
         const currentDemand = attrMap['canShowDemandButtons'] ?? null;
-        const currentPassword = attrMap['master_admin_password'] ?? '';
         const rawTickets = attrMap['tickets_enabled'];
         const currentTickets =
           rawTickets === true || rawTickets === 'true' || rawTickets === 1 || rawTickets === '1';
@@ -3087,21 +3289,35 @@ self.onInit = function () {
       return;
     }
 
-    const MyIOLib = window.MyIOLibrary;
+    // Idempotent mount: TB re-runs onInit (resize/state change/reconfig) and the
+    // version checker appends to the container — without this, each re-init stacks
+    // another badge. Destroy the prior instance (stops its toast interval) and
+    // clear the container before mounting a fresh one.
+    if (versionCheckerInstance && typeof versionCheckerInstance.destroy === 'function') {
+      versionCheckerInstance.destroy();
+      versionCheckerInstance = null;
+    }
+    container.innerHTML = '';
+
+    const MyIOLib = window.MyIOUtils;
     if (MyIOLib && typeof MyIOLib.createLibraryVersionChecker === 'function') {
+      // Homolog channel toggle from MAIN_VIEW (settingsSchema.homologMode). When
+      // ON, validate against the latest -homolog build instead of latest stable.
+      const preferHomolog = window.MyIOUtils?.homologMode === true;
       // RFC-0139: Store instance for theme updates
       versionCheckerInstance = MyIOLib.createLibraryVersionChecker(container, {
         packageName: 'myio-js-library',
         currentVersion: MyIOLib.version || 'unknown',
+        preferHomolog,
         theme: currentTheme, // Use current theme state
         onStatusChange: (status, currentVer, latestVer) => {
           LogHelper.log(
-            `[MENU] RFC-0137: Version status: ${status} (current: ${currentVer}, latest: ${latestVer})`
+            `[MENU] RFC-0137: Version status: ${status} (current: ${currentVer}, latest: ${latestVer}, channel: ${preferHomolog ? 'homolog' : 'stable'})`
           );
         },
       });
     } else {
-      LogHelper.warn('[MENU] RFC-0137: createLibraryVersionChecker not available in MyIOLibrary');
+      LogHelper.warn('[MENU] RFC-0137: createLibraryVersionChecker not available in MyIOBridge');
       // Fallback: show version only
       const version = MyIOLib?.version || 'unknown';
       container.innerHTML = `<span style="font-size:12px;color:#9CA3AF;opacity:0.8;">v${version}</span>`;

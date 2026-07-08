@@ -15,7 +15,7 @@
  * @see RFC-0206
  */
 
-import { generateMercosulPlate } from './device';
+import { generateMercosulPlate } from './devices/device';
 import { CUSTOMER_CODE_RE } from './customer';
 
 /**

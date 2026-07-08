@@ -1,0 +1,20 @@
+{
+  "_meta": {
+    "central": "Contagem (Soul Malls)",
+    "table": "channels",
+    "rowCount": 8,
+    "capturedAt": "2026-07-07 (pós-revert do import + restauração de nomes)",
+    "source": "/tmp/dump-cadastro.sh na central (psql -U hubot, sem pager) — logMaps-v2-CONTAGEM.log, capturado 2026-07-07 12:33 UTC",
+    "note": "Somente os 8 channels de teste de 2026-06-17 (bancada; sem slave_id) — descartar no transform. Os 148 channels do import foram deletados no revert. Nomes dos ids 3/5/6 têm espaço à direita real (via pg_dump)."
+  },
+  "rows": [
+    { "id": 2, "type": "presence_sensor", "channel": 1, "name": "Teste Presença 02", "channel_id": null, "slave_id": null, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2026-06-17 19:07:01.695+00", "updated_at": "2026-06-17 19:07:01.695+00" },
+    { "id": 1, "type": "lamp", "channel": 1, "name": "Teste 02", "channel_id": null, "slave_id": null, "scene_up_id": null, "scene_down_id": null, "config": {"confirm":false}, "created_at": "2026-06-17 19:06:42.683+00", "updated_at": "2026-06-17 19:49:36.758+00" },
+    { "id": 3, "type": "presence_sensor", "channel": 0, "name": "Energia 01 ", "channel_id": null, "slave_id": null, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2026-06-17 21:46:29.038+00", "updated_at": "2026-06-17 21:46:29.038+00" },
+    { "id": 4, "type": "presence_sensor", "channel": 1, "name": "Energia 02", "channel_id": null, "slave_id": null, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2026-06-17 21:46:39.881+00", "updated_at": "2026-06-17 21:46:39.881+00" },
+    { "id": 7, "type": "lamp", "channel": 0, "name": "01", "channel_id": null, "slave_id": null, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2026-06-17 23:27:04.108+00", "updated_at": "2026-06-17 23:27:04.108+00" },
+    { "id": 8, "type": "lamp", "channel": 1, "name": "02", "channel_id": null, "slave_id": null, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2026-06-17 23:27:11.559+00", "updated_at": "2026-06-17 23:27:11.559+00" },
+    { "id": 5, "type": "presence_sensor", "channel": 0, "name": "Energia ", "channel_id": null, "slave_id": null, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2026-06-17 23:06:43.253+00", "updated_at": "2026-06-17 23:06:43.253+00" },
+    { "id": 6, "type": "presence_sensor", "channel": 1, "name": "Hidrometro ", "channel_id": null, "slave_id": null, "scene_up_id": null, "scene_down_id": null, "config": {"confirm":false}, "created_at": "2026-06-17 23:07:01.052+00", "updated_at": "2026-06-22 20:32:20.065+00" }
+  ]
+}

@@ -1,4 +1,4 @@
-/* global self, window, document, localStorage, MyIOLibrary, ResizeObserver */
+/* global self, window, document, localStorage, ResizeObserver */
 
 /**
  * NOTA: Este script depende das seguintes bibliotecas:
@@ -555,16 +555,12 @@ const footerController = {
     }
     LogHelper.log('[MyIO Footer] Root container found');
 
-    // Verifica se a biblioteca MyIOLibrary está carregada via Resources
-    if (!window.MyIOLibrary) {
-      LogHelper.error(
-        '[MyIO Footer] MyIOLibrary not found. ' +
-          'Please add the library as a Resource in ThingsBoard widget settings:\n' +
-          'https://unpkg.com/myio-js-library@latest/dist/myio-js-library.umd.min.js'
-      );
+    // The lib is exposed by MAIN via the MyIOUtils bridge (FOOTER never touches
+    // the library object directly). Require the SelectionStore the footer needs.
+    if (!window.MyIOUtils?.MyIOSelectionStore) {
+      console.error('[MyIO Footer] MyIOSelectionStore unavailable via MyIOUtils (MAIN/lib not ready?)');
       return;
     }
-    LogHelper.log('[MyIO Footer] MyIOLibrary found');
 
     // IMPORTANTE: NÃO chamamos mountTemplate() porque o ThingsBoard já renderizou template.html!
     // this.mountTemplate(); // ← REMOVIDO
@@ -681,8 +677,8 @@ const footerController = {
       return;
     }
 
-    // Try both window.MyIOLibrary.MyIOSelectionStore and window.MyIOSelectionStore
-    const MyIOSelectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
+    // SelectionStore via the MyIOUtils bridge (MAIN exposes the lib).
+    const MyIOSelectionStore = window.MyIOUtils?.MyIOSelectionStore;
 
     if (!MyIOSelectionStore) {
       LogHelper.error('[MyIO Footer] MyIOSelectionStore not found.');
@@ -987,7 +983,7 @@ const footerController = {
     const overlay = document.createElement('div');
     overlay.className = 'myio-alert-overlay';
 
-    const store = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
+    const store = window.MyIOUtils?.MyIOSelectionStore;
     const maxAllowed = store?.MAX_SELECTION ?? 20;
 
     overlay.innerHTML = `
@@ -1061,7 +1057,7 @@ const footerController = {
       newTab &&
       (newTab === 'energy' || newTab === 'water' || newTab === 'temperature' || newTab === 'tank')
     ) {
-      const MyIOSelectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
+      const MyIOSelectionStore = window.MyIOUtils?.MyIOSelectionStore;
 
       if (MyIOSelectionStore) {
         const count = MyIOSelectionStore.getSelectionCount();
@@ -1084,28 +1080,9 @@ const footerController = {
   bindEvents() {
     LogHelper.log('[MyIO Footer] bindEvents() called');
 
-    // DEBUG: Check which SelectionStore instance we're using
-    LogHelper.log('[MyIO Footer] window.MyIOLibrary:', !!window.MyIOLibrary);
-    LogHelper.log(
-      '[MyIO Footer] window.MyIOLibrary.MyIOSelectionStore:',
-      !!window.MyIOLibrary?.MyIOSelectionStore
-    );
-    LogHelper.log('[MyIO Footer] window.MyIOSelectionStore:', !!window.MyIOSelectionStore);
-
-    // Try both window.MyIOLibrary.MyIOSelectionStore and window.MyIOSelectionStore
-    const fromMyIOLibrary = window.MyIOLibrary?.MyIOSelectionStore;
-    const fromWindow = window.MyIOSelectionStore;
-    const MyIOSelectionStore = fromMyIOLibrary || fromWindow;
-
-    // DEBUG: Check which reference we're using
-    LogHelper.log(
-      '[MyIO Footer] Using reference from:',
-      fromMyIOLibrary ? 'window.MyIOLibrary.MyIOSelectionStore' : 'window.MyIOSelectionStore'
-    );
-    LogHelper.log('[MyIO Footer] Are they the same instance?', fromMyIOLibrary === fromWindow);
-
+    const MyIOSelectionStore = window.MyIOUtils?.MyIOSelectionStore;
     if (!MyIOSelectionStore) {
-      LogHelper.error('[MyIO Footer] MyIOSelectionStore not available for binding events.');
+      console.error('[MyIO Footer] MyIOSelectionStore unavailable via MyIOUtils for binding events.');
       return;
     }
 
@@ -1218,7 +1195,7 @@ const footerController = {
     // Verifica se o clique foi em um botão de remover
     const removeBtn = e.target.closest('button[data-entity-id]');
     if (removeBtn) {
-      const MyIOSelectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
+      const MyIOSelectionStore = window.MyIOUtils?.MyIOSelectionStore;
       if (MyIOSelectionStore) {
         const id = removeBtn.dataset.entityId;
         MyIOSelectionStore.remove(id);
@@ -1234,7 +1211,7 @@ const footerController = {
   async openComparisonModal() {
     LogHelper.log('[MyIO Footer] Opening comparison modal...');
 
-    const MyIOSelectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
+    const MyIOSelectionStore = window.MyIOUtils?.MyIOSelectionStore;
     if (!MyIOSelectionStore) {
       LogHelper.error('[MyIO Footer] SelectionStore not found');
       return;
@@ -1303,9 +1280,8 @@ const footerController = {
 
       // ⭐ NOVO: Usa openDashboardPopupEnergy em modo comparison
       // Substitui a modal customizada (_createComparisonModalOverlay)
-      if (!window.MyIOLibrary?.openDashboardPopupEnergy) {
-        LogHelper.error('[MyIO Footer] openDashboardPopupEnergy not available');
-        window.alert('Biblioteca MyIO não está carregada. Recarregue a página.');
+      if (typeof window.MyIOUtils?.openDashboardPopupEnergy !== 'function') {
+        console.error('[MyIO Footer] openDashboardPopupEnergy unavailable via MyIOUtils');
         return;
       }
 
@@ -1318,7 +1294,7 @@ const footerController = {
         const msg =
           '[FOOTER] chartsBaseUrl não configurado. Defina em MAIN_VIEW widget settings → "Charts SDK Base URL".';
         LogHelper.error(msg);
-        const MyIOToast = window.MyIOLibrary?.MyIOToast;
+        const MyIOToast = window.MyIOUtils?.MyIOToast;
         if (MyIOToast?.error) {
           MyIOToast.error(msg, 8000);
         } else {
@@ -1328,7 +1304,12 @@ const footerController = {
       }
 
       // ⭐ Usa as variáveis com fallback (já definidas acima)
-      const MyIOAuthFooter = MyIOLibrary.buildMyioIngestionAuth({
+      const _buildAuth = window.MyIOUtils?.buildMyioIngestionAuth;
+      if (typeof _buildAuth !== 'function') {
+        console.error('[MyIO Footer] buildMyioIngestionAuth unavailable via MyIOUtils');
+        return;
+      }
+      const MyIOAuthFooter = _buildAuth({
         dataApiHost: window.MyIOUtils?.getDataApiHost?.(),
         clientId: clientId, // ← Usa a variável com fallback
         clientSecret: clientSecret, // ← Usa a variável com fallback
@@ -1337,7 +1318,7 @@ const footerController = {
       const myTbTokenDashBoardFooter = localStorage.getItem('jwt_token');
       const tokenIngestionDashBoardComparison = await MyIOAuthFooter.getToken();
 
-      const modal = window.MyIOLibrary.openDashboardPopupEnergy({
+      const modal = window.MyIOUtils.openDashboardPopupEnergy({
         mode: 'comparison', // ← MODO COMPARISON
         tbJwtToken: myTbTokenDashBoardFooter,
         ingestionToken: tokenIngestionDashBoardComparison,
@@ -1401,7 +1382,7 @@ const footerController = {
   },
 
   /**
-   * Opens temperature comparison modal using MyIOLibrary
+   * Opens temperature comparison modal (lib via MyIOUtils bridge)
    * RFC-0085: Uses the library component instead of inline implementation
    * @param {Array} selectedEntities - Array of selected entity objects
    */
@@ -1482,16 +1463,15 @@ const footerController = {
       global: { min: globalTemperatureMin, max: globalTemperatureMax },
     });
 
-    // Use MyIOLibrary.openTemperatureComparisonModal
-    const MyIOLibrary = window.MyIOLibrary;
-    if (!MyIOLibrary?.openTemperatureComparisonModal) {
-      LogHelper.error('[MyIO Footer] MyIOLibrary.openTemperatureComparisonModal not available');
-      window.alert('Componente de comparação de temperatura não disponível.');
+    // openTemperatureComparisonModal via the MyIOUtils bridge
+    const _openTemperatureComparisonModal = window.MyIOUtils?.openTemperatureComparisonModal;
+    if (typeof _openTemperatureComparisonModal !== 'function') {
+      console.error('[MyIO Footer] openTemperatureComparisonModal unavailable via MyIOUtils');
       return;
     }
 
     try {
-      MyIOLibrary.openTemperatureComparisonModal({
+      _openTemperatureComparisonModal({
         token: jwtToken,
         devices: devices,
         startDate: startDateISO,
@@ -1504,10 +1484,9 @@ const footerController = {
         temperatureMax: globalTemperatureMax,
       });
 
-      LogHelper.log('[MyIO Footer] Temperature comparison modal opened via MyIOLibrary');
+      LogHelper.log('[MyIO Footer] Temperature comparison modal opened');
     } catch (error) {
-      LogHelper.error('[MyIO Footer] Error opening temperature comparison modal:', error);
-      window.alert('Erro ao abrir modal de comparação de temperatura: ' + error.message);
+      console.error('[MyIO Footer] Error opening temperature comparison modal:', error);
     }
   },
 
@@ -1522,7 +1501,7 @@ const footerController = {
    * Manipulador de clique para o botão "Clear" (limpar tudo)
    */
   onClearClick() {
-    const MyIOSelectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
+    const MyIOSelectionStore = window.MyIOUtils?.MyIOSelectionStore;
     if (MyIOSelectionStore) {
       LogHelper.log('[MyIO Footer] Clearing all selections');
       MyIOSelectionStore.clear();
@@ -1534,7 +1513,7 @@ const footerController = {
    */
   onDrop(e) {
     e.preventDefault();
-    const MyIOSelectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
+    const MyIOSelectionStore = window.MyIOUtils?.MyIOSelectionStore;
     if (!MyIOSelectionStore) return;
 
     // 1. Group payload (TELEMETRY_INFO card drop) — bulk-add all devices
@@ -1593,7 +1572,7 @@ const footerController = {
 
     // 1. Remove listeners da store externa
     try {
-      const MyIOSelectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
+      const MyIOSelectionStore = window.MyIOUtils?.MyIOSelectionStore;
       if (MyIOSelectionStore) {
         MyIOSelectionStore.off('selection:change', this.boundRenderDock);
         MyIOSelectionStore.off('selection:totals', this.boundRenderDock);
@@ -1675,10 +1654,10 @@ self.onInit = function () {
   LogHelper.log('[FOOTER] self.ctx:', self.ctx);
   LogHelper.log('[FOOTER] self.ctx.$container:', self.ctx?.$container);
   LogHelper.log('[FOOTER] self.ctx.$container[0]:', self.ctx?.$container?.[0]);
-  LogHelper.log('[FOOTER] MyIOLibrary disponível:', !!window.MyIOLibrary);
+  LogHelper.log('[FOOTER] MyIOUtils disponível:', !!window.MyIOUtils);
   LogHelper.log(
     '[FOOTER] SelectionStore disponível:',
-    !!(window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore)
+    !!(window.MyIOUtils?.MyIOSelectionStore)
   );
 
   // Passa o contexto do widget (self.ctx) para o controlador

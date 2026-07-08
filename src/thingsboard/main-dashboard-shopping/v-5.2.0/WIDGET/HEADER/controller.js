@@ -1,4 +1,4 @@
-/* global self, window, document, localStorage, MyIOLibrary, $ */
+/* global self, window, document, localStorage, $ */
 
 // === Botões premium do popup (reforço por JS, independe da ordem de CSS) ===
 
@@ -14,10 +14,10 @@ let MyIOAuth = null;
 
 // RFC-0054 FIX: Use global variable to share state across multiple HEADER instances
 // This prevents race conditions when multiple widgets are loaded
-// VERSION: 2026-03-17-rfc-0152
+// VERSION: 2026-07-06-rfc-0152b
 if (!window.__myioCurrentDomain) {
   window.__myioCurrentDomain = null;
-  console.log('[HEADER] VERSION: 2026-03-17-rfc-0152 - Global currentDomain initialized');
+  console.log('[HEADER] VERSION: 2026-07-06-rfc-0152b - Global currentDomain initialized');
 }
 
 // RFC-0042: Track current domain from MENU widget (use global reference)
@@ -39,7 +39,10 @@ let currentDomain = {
   if (!document.getElementById(styleId)) {
     const s = document.createElement('style');
     s.id = styleId;
-    s.textContent = '.tb-no-data-text, .tb-widget-no-data-text { display: none !important; }';
+    // RFC-0152b: broadened — .tb-widget-no-data is the actual overlay container
+    // in current TB versions (the previous two classes alone didn't match).
+    s.textContent =
+      '.tb-no-data-text, .tb-widget-no-data-text, .tb-widget-no-data, .tb-no-data-available, .tb-no-data-available-text { display: none !important; }';
     document.head.appendChild(s);
     console.log('[HEADER] RFC-0152: No-data overlay suppressed (module scope)');
   }
@@ -50,21 +53,61 @@ let currentDomain = {
 // preventing the orchestrator from waiting 20s before its own fallback kicks in.
 // onInit sets window.__myioHeaderOnInitRan = true to disable this fallback.
 window.__myioHeaderOnInitRan = false;
-(function installHeaderFallbackPeriodEmitter() {
-  // Only install once (guard against multiple HEADER instances)
-  if (window.__myioHeaderFallbackInstalled) return;
-  window.__myioHeaderFallbackInstalled = true;
+// RFC-0152b v2: instala o fallback POR INSTÂNCIA — cada avaliação do controller
+// captura o próprio `self`. O guard global de instalação única (v1) capturava o
+// PRIMEIRO `self` avaliado, que pode ser um HEADER oculto de outro dashboard
+// state (sem ctx inicializado) — deixando o header VISÍVEL sem fallback algum.
+(function installHeaderFallbackBootstrap() {
+  let _handled = false;
 
   function _fallbackHandler(e) {
     // Give onInit 800ms to mark itself as started
     setTimeout(function () {
-      if (window.__myioHeaderOnInitRan) {
+      if (_handled) return;
+      // Per-instance flag (set at the top of onInit). The old window-level flag
+      // is kept for compat but can't distinguish between multiple instances.
+      if (self.__myioHeaderOnInitRan) {
+        _handled = true;
         window.removeEventListener('myio:dashboard-state', _fallbackHandler);
         return;
       }
       const domain = e && e.detail && e.detail.tab;
       if (domain !== 'energy' && domain !== 'water') return;
+      _handled = true;
+      window.removeEventListener('myio:dashboard-state', _fallbackHandler);
 
+      // RFC-0152b: TB skipped the widget lifecycle (datasource resolved to 0
+      // entities — e.g. water-only customer). The widget EXISTS and the template
+      // is mounted, only onInit never fired — which left the whole header dead:
+      // date picker unbound and the alarm/ticket/annotation buttons stuck on
+      // their is-loading spinners (the listeners/watchdogs that strip them are
+      // registered inside onInit). Bootstrap manually: onInit itself emits the
+      // initial period, so on success we skip the manual emission below.
+      const hasOnInit = typeof self.onInit === 'function';
+      const hasContainer = !!(self.ctx && self.ctx.$container && self.ctx.$container[0]);
+      if (hasOnInit && hasContainer) {
+        console.warn(
+          '[HEADER] ⚠️ RFC-0152b FALLBACK: onInit não chamado pelo TB — executando bootstrap manual do header'
+        );
+        try {
+          Promise.resolve(self.onInit()).catch(function (err) {
+            console.error('[HEADER] RFC-0152b: fallback onInit rejected:', err);
+          });
+          return;
+        } catch (err) {
+          console.error('[HEADER] RFC-0152b: fallback onInit threw — falling back to period-only emission:', err);
+        }
+      } else {
+        // Diagnóstico: qual guarda falhou nesta instância
+        console.warn(
+          '[HEADER] RFC-0152b: bootstrap indisponível nesta instância (onInit=' +
+            hasOnInit + ', ctx.$container=' + hasContainer + ') — emitindo apenas o período'
+        );
+      }
+
+      // Plano C: só o período (dedupe global — uma emissão basta para o dashboard)
+      if (window.__myioHeaderFallbackPeriodEmitted) return;
+      window.__myioHeaderFallbackPeriodEmitted = true;
       const now = new Date();
       const startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
       const endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 0);
@@ -81,12 +124,11 @@ window.__myioHeaderOnInitRan = false;
         fallbackPeriod
       );
       window.dispatchEvent(new CustomEvent('myio:update-date', { detail: { period: fallbackPeriod } }));
-      window.removeEventListener('myio:dashboard-state', _fallbackHandler);
     }, 800);
   }
 
   window.addEventListener('myio:dashboard-state', _fallbackHandler);
-  console.log('[HEADER] RFC-0152: Fallback period emitter installed (module scope)');
+  console.log('[HEADER] RFC-0152b: Fallback bootstrap installed (per instance)');
 })();
 
 /* ==== RFC-0107: Contract Status Icon Management ==== */
@@ -219,12 +261,9 @@ function initContractStatusIcon() {
 
     LogHelper.log('[HEADER] Contract status clicked, checking ContractSummaryTooltip...');
 
-    const ContractSummaryTooltip = window.MyIOLibrary?.ContractSummaryTooltip;
+    const ContractSummaryTooltip = window.MyIOUtils?.ContractSummaryTooltip;
     if (!ContractSummaryTooltip) {
-      LogHelper.error(
-        '[HEADER] ContractSummaryTooltip not available in library. Available exports:',
-        Object.keys(window.MyIOLibrary || {})
-      );
+      console.error('[HEADER] ContractSummaryTooltip unavailable via MyIOUtils');
       return;
     }
 
@@ -325,6 +364,7 @@ function setupTooltipPremium(target, text) {
 self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   // Signal to the module-scope fallback emitter that onInit IS running
   window.__myioHeaderOnInitRan = true;
+  self.__myioHeaderOnInitRan = true; // RFC-0152b v2: per-instance flag
 
   const q = (sel) => self.ctx.$container[0].querySelector(sel);
 
@@ -337,8 +377,9 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     if (!document.getElementById(styleId)) {
       const s = document.createElement('style');
       s.id = styleId;
-      // Target common TB no-data overlay class names across versions
-      s.textContent = '.tb-no-data-text, .tb-widget-no-data-text { display: none !important; }';
+      // Target common TB no-data overlay class names across versions (RFC-0152b list)
+      s.textContent =
+        '.tb-no-data-text, .tb-widget-no-data-text, .tb-widget-no-data, .tb-no-data-available, .tb-no-data-available-text { display: none !important; }';
       document.head.appendChild(s);
     }
   })();
@@ -352,25 +393,35 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   }
   const tbToken = localStorage.getItem('jwt_token');
   let customerCredentials = {};
-  try {
-    customerCredentials = await MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage(CUSTOMER_ID, tbToken);
-  } catch (credErr) {
-    LogHelper.warn('[HEADER] ⚠️ Could not fetch customer credentials from ThingsBoard:', credErr?.message);
-    // Continue without credentials — controls will still be enabled via custom events
+  const _fetchCustomerAttrs = window.MyIOUtils?.fetchThingsboardCustomerAttrsFromStorage;
+  if (typeof _fetchCustomerAttrs !== 'function') {
+    console.error('[HEADER] fetchThingsboardCustomerAttrsFromStorage unavailable via MyIOUtils');
+  } else {
+    try {
+      customerCredentials = await _fetchCustomerAttrs(CUSTOMER_ID, tbToken);
+    } catch (credErr) {
+      LogHelper.warn('[HEADER] ⚠️ Could not fetch customer credentials from ThingsBoard:', credErr?.message);
+      // Continue without credentials — controls will still be enabled via custom events
+    }
   }
   const CLIENT_ID = customerCredentials.client_id || ' ';
   const CLIENT_SECRET = customerCredentials.client_secret || ' ';
   const INGESTION_ID = customerCredentials.ingestionId || ' ';
 
-  try {
-    MyIOAuth = MyIOLibrary.buildMyioIngestionAuth({
-      dataApiHost: window.MyIOUtils?.getDataApiHost?.(),
-      clientId: CLIENT_ID,
-      clientSecret: CLIENT_SECRET,
-    });
-    LogHelper.log('[MyIOAuth] Initialized with extracted component');
-  } catch (err) {
-    LogHelper.error('[HEADER] Auth init FAIL', err);
+  const _buildAuth = window.MyIOUtils?.buildMyioIngestionAuth;
+  if (typeof _buildAuth !== 'function') {
+    console.error('[HEADER] buildMyioIngestionAuth unavailable via MyIOUtils');
+  } else {
+    try {
+      MyIOAuth = _buildAuth({
+        dataApiHost: window.MyIOUtils?.getDataApiHost?.(),
+        clientId: CLIENT_ID,
+        clientSecret: CLIENT_SECRET,
+      });
+      LogHelper.log('[MyIOAuth] Initialized with extracted component');
+    } catch (err) {
+      LogHelper.error('[HEADER] Auth init FAIL', err);
+    }
   }
 
   // RFC-0107: Initialize contract status icon
@@ -394,14 +445,17 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     });
   }
 
-  // Initialize MyIOLibrary DateRangePicker
-  let dateRangePicker = null;
+  // Initialize the DateRangePicker (lib via MyIOUtils bridge)
   var $inputStart = $('input[name="startDatetimes"]');
 
-  LogHelper.log('[DateRangePicker] Using MyIOLibrary.createDateRangePicker');
+  const _createDateRangePicker = window.MyIOUtils?.createDateRangePicker;
+  if (typeof _createDateRangePicker !== 'function') {
+    console.error('[HEADER] createDateRangePicker unavailable via MyIOUtils');
+  }
 
-  // Initialize the createDateRangePicker component with guaranteed presets
-  MyIOLibrary.createDateRangePicker($inputStart[0], {
+  // Initialize the createDateRangePicker component with guaranteed presets (only if available)
+  if (typeof _createDateRangePicker === 'function')
+    _createDateRangePicker($inputStart[0], {
     presetStart: presetStart,
     presetEnd: presetEnd,
     maxRangeDays: 90,
@@ -428,8 +482,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       // The input display is automatically handled by the component
     },
   })
-    .then(function (picker) {
-      dateRangePicker = picker;
+    .then(function () {
       LogHelper.log('[DateRangePicker] Successfully initialized with period');
     })
     .catch(function (error) {
@@ -470,7 +523,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   // RFC-0042: Utility functions (reuse from MAIN_VIEW if available, otherwise define locally)
   const toISO =
     window.toISO ||
-    function (dt, tz = 'America/Sao_Paulo') {
+    function (dt, _tz = 'America/Sao_Paulo') {
       const d = typeof dt === 'number' ? new Date(dt) : dt instanceof Date ? dt : new Date(String(dt));
       if (Number.isNaN(d.getTime())) throw new Error('Invalid date');
       const offset = -d.getTimezoneOffset();
@@ -627,9 +680,6 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       }
     };
 
-    // RFC-0042: Track if we already emitted initial period
-    let hasEmittedInitialPeriod = false;
-
     // RFC-0042: Listen for dashboard state changes from MENU
     window.addEventListener('myio:dashboard-state', (ev) => {
       const { tab } = ev.detail;
@@ -643,8 +693,6 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       // RFC-0138 FIX: Always re-emit dates on domain switch to ensure sync
       // This ensures orchestrator has currentPeriod set correctly when switching domains
       if (tab === 'energy' || tab === 'water') {
-        hasEmittedInitialPeriod = true;
-
         // Wait for dateRangePicker to be ready
         setTimeout(() => {
           if (self.__range.start && self.__range.end) {
@@ -678,7 +726,6 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         `[HEADER] 🔧 RFC-0096 Race fix: Domain already set to ${raceDomain}, enabling controls and emitting period`
       );
       updateControlsState(raceDomain);
-      hasEmittedInitialPeriod = true;
 
       // Also emit period since we missed the myio:dashboard-state event.
       // Without this the orchestrator waits ~20 s for its 15-attempt retry to exhaust
@@ -724,7 +771,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     });
 
     // RFC-0130: Also listen for generic data-ready event
-    window.addEventListener('myio:data-ready', (ev) => {
+    window.addEventListener('myio:data-ready', () => {
       const domain = currentDomain.value;
       if (domain === 'energy' || domain === 'water') {
         LogHelper.log(
@@ -1439,9 +1486,9 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
             LogHelper.warn('[HEADER] open-alarm-map: alarms not configured for this customer');
             return;
           }
-          const MyIOLibrary = window.MyIOLibrary;
-          if (!MyIOLibrary?.openAlarmBundleMapModal) {
-            LogHelper.warn('[HEADER] openAlarmBundleMapModal not available in MyIOLibrary');
+          const _openAlarmBundleMapModal = window.MyIOUtils?.openAlarmBundleMapModal;
+          if (typeof _openAlarmBundleMapModal !== 'function') {
+            console.error('[HEADER] openAlarmBundleMapModal unavailable via MyIOUtils');
             return;
           }
           const customerTB_ID = window.MyIOOrchestrator?.customerTB_ID || '';
@@ -1451,7 +1498,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
             LogHelper.warn('[HEADER] open-alarm-map: customerTB_ID not available');
             return;
           }
-          MyIOLibrary.openAlarmBundleMapModal({ customerTB_ID, gcdrTenantId, gcdrApiBaseUrl });
+          _openAlarmBundleMapModal({ customerTB_ID, gcdrTenantId, gcdrApiBaseUrl });
         });
 
         // Notification toggle
@@ -1751,7 +1798,6 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
       renderHTML() {
         const tso = window.TicketServiceOrchestrator;
-        const domain = window.MyIOUtils?.freshdeskDomain || 'myiocom.freshdesk.com';
 
         if (!tso) {
           return `
@@ -2167,9 +2213,12 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     let _ticketWizard = null;
     function _getTicketWizard() {
       if (_ticketWizard) return _ticketWizard;
-      const Lib = window.MyIOLibrary;
-      if (!Lib?.createNewTicketWizard) return null;
-      _ticketWizard = Lib.createNewTicketWizard({
+      const _createNewTicketWizard = window.MyIOUtils?.createNewTicketWizard;
+      if (typeof _createNewTicketWizard !== 'function') {
+        console.error('[HEADER] createNewTicketWizard unavailable via MyIOUtils');
+        return null;
+      }
+      _ticketWizard = _createNewTicketWizard({
         freshdeskDomain: window.MyIOUtils?.freshdeskDomain || 'myiocom.freshdesk.com',
         freshdeskApiKey: window.MyIOUtils?.freshdeskApiKey || '',
         requesterEmail: window.MyIOUtils?.freshdeskRequesterEmail || '',
@@ -2207,12 +2256,12 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
      * Each click creates a fresh modal instance (no singleton — multiple tickets can be viewed).
      */
     function _openTicketDetail(ticket) {
-      const Lib = window.MyIOLibrary;
-      if (!Lib?.createTicketDetailModal) {
-        console.warn('[HEADER] createTicketDetailModal not found in MyIOLibrary');
+      const _createTicketDetailModal = window.MyIOUtils?.createTicketDetailModal;
+      if (typeof _createTicketDetailModal !== 'function') {
+        console.error('[HEADER] createTicketDetailModal unavailable via MyIOUtils');
         return;
       }
-      const modal = Lib.createTicketDetailModal({
+      const modal = _createTicketDetailModal({
         freshdeskDomain: window.MyIOUtils?.freshdeskDomain || 'myiocom.freshdesk.com',
         freshdeskApiKey: window.MyIOUtils?.freshdeskApiKey || '',
         ticket,
@@ -2471,13 +2520,15 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       }
 
       // RFC-0203 M4 — mount HeaderAnnotationsPanel (3 tabs, static render).
-      // Singleton acessed lazily via MyIOLibrary; if unavailable, fall back to a soft hint.
+      // Singleton accessed lazily via the MyIOUtils bridge.
       let _annotationsPanel = null;
       function _getAnnotationsPanel() {
         if (_annotationsPanel) return _annotationsPanel;
-        const factory = window.MyIOLibrary?.getHeaderAnnotationsPanel;
+        const factory = window.MyIOUtils?.getHeaderAnnotationsPanel;
         if (typeof factory === 'function') {
           _annotationsPanel = factory();
+        } else {
+          console.error('[HEADER] getHeaderAnnotationsPanel unavailable via MyIOUtils');
         }
         return _annotationsPanel;
       }
@@ -2578,23 +2629,31 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       );
 
       // RFC-0054: Validate current domain
-      const MyIOToast = window.MyIOLibrary?.MyIOToast;
+      const MyIOToast = window.MyIOUtils?.MyIOToast;
       if (!currentDomain.value) {
-        LogHelper.warn('[HEADER] ⚠️ currentDomain is null - attempting to auto-select energy');
+        // RFC-0152c: derive the domain instead of hardcoding 'energy' — on a
+        // water-only dashboard the old auto-select emitted dashboard-state(energy),
+        // poisoning the orchestrator's visibleTab: every Carregar hydrated energy
+        // (error toast) while water never refetched.
+        const autoDomain =
+          window.MyIOOrchestrator?.getVisibleTab?.() ||
+          window.MyIOOrchestrator?.getFirstEnabledDomain?.() ||
+          'energy';
+        LogHelper.warn(`[HEADER] ⚠️ currentDomain is null - auto-selecting ${autoDomain}`);
 
-        // Try to auto-select energy domain before showing error
+        // Try to auto-select the derived domain before showing error
         try {
           // Set domain directly
-          currentDomain.value = 'energy';
+          currentDomain.value = autoDomain;
 
           // Dispatch event to notify other widgets
           window.dispatchEvent(
             new CustomEvent('myio:dashboard-state', {
-              detail: { tab: 'energy' },
+              detail: { tab: autoDomain },
             })
           );
 
-          LogHelper.log('[HEADER] ✅ Auto-selected energy domain');
+          LogHelper.log(`[HEADER] ✅ Auto-selected ${autoDomain} domain`);
 
           // If still null after setting (edge case), show error
           if (!currentDomain.value) {
@@ -2766,7 +2825,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
             btnLoad.click();
           } else {
             // btnLoad disabled (unsupported domain) — just notify the user
-            const MyIOToast = window.MyIOLibrary?.MyIOToast;
+            const MyIOToast = window.MyIOUtils?.MyIOToast;
             if (MyIOToast && !isProgrammatic) {
               MyIOToast.success('Cache limpo com sucesso!', 3000);
             }
@@ -2777,7 +2836,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       } catch (err) {
         LogHelper.error('[HEADER] ❌ Error during Force Refresh:', err);
         if (!isProgrammatic) {
-          const MyIOToast = window.MyIOLibrary?.MyIOToast;
+          const MyIOToast = window.MyIOUtils?.MyIOToast;
           if (MyIOToast) {
             MyIOToast.error('Erro ao limpar cache. Consulte o console para detalhes.', 5000);
           }
@@ -2799,7 +2858,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         // Safety check: button should be disabled if domain is not supported
         if (!domain || (domain !== 'energy' && domain !== 'water')) {
           LogHelper.error(`[HEADER] Invalid domain: ${domain}. Button should be disabled.`);
-          const MyIOToast = window.MyIOLibrary?.MyIOToast;
+          const MyIOToast = window.MyIOUtils?.MyIOToast;
           if (MyIOToast) {
             MyIOToast.error('Domínio inválido. Por favor, selecione Energia ou Água no menu.', 5000);
           }
@@ -2831,10 +2890,12 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
           LogHelper.log('[HEADER] self.ctx.datasources >>>', self.ctx.datasources);
 
           // Build items from ALL datasources (function unifies them)
-          const allItems = MyIOLibrary.buildListItemsThingsboardByUniqueDatasource(
-            self.ctx.datasources,
-            self.ctx.data
-          );
+          const _buildListItems = window.MyIOUtils?.buildListItemsThingsboardByUniqueDatasource;
+          if (typeof _buildListItems !== 'function') {
+            console.error('[HEADER] buildListItemsThingsboardByUniqueDatasource unavailable via MyIOUtils');
+            throw new Error('buildListItemsThingsboardByUniqueDatasource unavailable');
+          }
+          const allItems = _buildListItems(self.ctx.datasources, self.ctx.data);
           LogHelper.log(`[HEADER] Built ${allItems.length} total items from all datasources`);
 
           // Determine which datasource alias to filter by based on domain
@@ -2890,7 +2951,12 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
           }
         }
 
-        MyIOLibrary.openDashboardPopupAllReport({
+        const _openAllReport = window.MyIOUtils?.openDashboardPopupAllReport;
+        if (typeof _openAllReport !== 'function') {
+          console.error('[HEADER] openDashboardPopupAllReport unavailable via MyIOUtils');
+          throw new Error('openDashboardPopupAllReport unavailable');
+        }
+        _openAllReport({
           customerId: INGESTION_ID,
           domain: domain, // ← NEW: pass domain ('energy' or 'water')
           debug: 0,
@@ -2905,7 +2971,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         });
       } catch (err) {
         LogHelper.error('[HEADER] Failed to open All-Report modal:', err);
-        const MyIOToast = window.MyIOLibrary?.MyIOToast;
+        const MyIOToast = window.MyIOUtils?.MyIOToast;
         if (MyIOToast) {
           MyIOToast.error('Erro ao abrir relatório geral. Tente novamente.', 5000);
         }

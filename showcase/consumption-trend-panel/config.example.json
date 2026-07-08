@@ -1,0 +1,114 @@
+{
+  "_comment": "Template do cockpit do consumption-trend-panel (RFC-0213). Showcase 100% MOCKADA: a base de dados de metas vem dos 3 JSONs em ./data/ (Month/Day/Hour Energy Moxuara), exportados do backend GCDR. Copie para config.json e ajuste se quiser. NÃO contém segredos reais. A aba LOCAL|PROD do cockpit troca entre os blocos.",
+  "defaultEnv": "LOCAL",
+  "environments": {
+    "LOCAL": {
+      "settings": {
+        "customerLabel": "Shopping Moxuara (mock)",
+        "gcdrCustomerId": "84e0370e-636a-4741-9874-504b5e0b3577",
+        "gcdrTenantId": "11111111-1111-1111-1111-111111111111",
+        "domain": "energy",
+        "unit": "kWh",
+        "unitLarge": "MWh",
+        "thresholdForLargeUnit": 1000,
+        "defaultThemeMode": "dark",
+        "defaultGranularity": "1d",
+        "defaultPeriod": 7,
+        "defaultChartType": "bar",
+        "defaultVizMode": "total",
+        "goalsBaseUrl": "./data",
+        "goalsFiles": {
+          "month": "goals-2026-Month-Energy-Moxuara.json",
+          "day": "goals-2026-Day-Energy-Moxuara.json",
+          "hour": "goals-2026-Hour-Energy-Moxuara.json"
+        },
+        "consumptionSource": "file",
+        "consumptionFiles": {
+          "day": "consumption-2026-Hour-Energy-Moxuara.json",
+          "hour": "consumption-2026-Hour-Energy-Moxuara.json"
+        },
+        "comparePreviousYear": true,
+        "consumptionFilesPrevYear": {
+          "day": "consumption-2025-Hour-Energy-Moxuara.json",
+          "hour": "consumption-2025-Hour-Energy-Moxuara.json"
+        },
+        "windowStart": "",
+        "goalOverlay": {
+          "enabled": true,
+          "mode": "band",
+          "color": "#f97316",
+          "borderWidth": 3,
+          "tension": 0.4,
+          "yAxisHeadroomPct": 0.15,
+          "bandColor": "rgba(249, 115, 22, 0.15)"
+        },
+        "idealRange": {
+          "enabled": false,
+          "min": 0,
+          "max": 0,
+          "label": "Meta de Consumo"
+        },
+        "mockConsumption": {
+          "variancePct": 0.2,
+          "goalBiasPct": -0.3,
+          "shoppingCount": 3
+        },
+        "debugMode": true
+      },
+      "apiKeys": [
+        { "label": "Mock · sem chamada real (dados em ./data)", "value": "MOCK-NO-NETWORK" }
+      ]
+    },
+    "PROD": {
+      "settings": {
+        "customerLabel": "cole o customer real aqui",
+        "gcdrCustomerId": "00000000-0000-0000-0000-000000000000",
+        "gcdrTenantId": "11111111-1111-1111-1111-111111111111",
+        "domain": "energy",
+        "unit": "kWh",
+        "unitLarge": "MWh",
+        "thresholdForLargeUnit": 1000,
+        "defaultThemeMode": "light",
+        "defaultGranularity": "1d",
+        "defaultPeriod": 7,
+        "defaultChartType": "bar",
+        "defaultVizMode": "total",
+        "goalsBaseUrl": "https://gcdr-api.a.myio-bas.com/api/v1",
+        "goalsFiles": {
+          "month": "",
+          "day": "",
+          "hour": ""
+        },
+        "consumptionSource": "synthetic",
+        "consumptionFiles": { "day": "", "hour": "" },
+        "comparePreviousYear": false,
+        "consumptionFilesPrevYear": { "day": "", "hour": "" },
+        "windowStart": "",
+        "goalOverlay": {
+          "enabled": true,
+          "mode": "band",
+          "color": "#f97316",
+          "borderWidth": 3,
+          "tension": 0.4,
+          "yAxisHeadroomPct": 0.15,
+          "bandColor": "rgba(249, 115, 22, 0.15)"
+        },
+        "idealRange": {
+          "enabled": false,
+          "min": 0,
+          "max": 0,
+          "label": "Meta de Consumo"
+        },
+        "mockConsumption": {
+          "variancePct": 0.2,
+          "goalBiasPct": -0.3,
+          "shoppingCount": 3
+        },
+        "debugMode": false
+      },
+      "apiKeys": [
+        { "label": "PROD · cole a API key real aqui", "value": "COLE-SUA-API-KEY-PROD" }
+      ]
+    }
+  }
+}

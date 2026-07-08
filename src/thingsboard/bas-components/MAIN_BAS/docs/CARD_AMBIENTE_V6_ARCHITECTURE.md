@@ -24,7 +24,7 @@ O `template-card-ambiente-v6` e um componente para renderizacao de cards de **am
 ### Localizacao
 
 ```
-src/components/template-card-ambiente-v6/
+src/components/cards/ambient/v6.0.0/
 ├── template-card-ambiente-v6.js      # Implementacao (~720 linhas)
 ├── template-card-ambiente-v6.d.ts    # Type definitions
 └── index.js                          # Re-export

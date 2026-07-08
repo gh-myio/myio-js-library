@@ -852,7 +852,6 @@ function formatEnergy(value) {
     decimalPlaces: 3,
     forceUnit: false,
   };
-  const fallbackUnit = settings.unit === 'mwh' ? 'MWh' : 'kWh';
   const fallbackZero = settings.unit === 'mwh' ? '0,000 MWh' : '0,00 kWh';
 
   if (typeof value !== 'number' || isNaN(value)) return fallbackZero;
@@ -862,21 +861,15 @@ function formatEnergy(value) {
     return window.MyIOUtils.formatEnergyWithSettings(value);
   }
 
-  // Use MyIOLibrary if available, otherwise fallback
-  if (window.MyIOLibrary && typeof window.MyIOLibrary.formatEnergy === 'function') {
-    return window.MyIOLibrary.formatEnergy(value);
+  // Lib formatting via the MyIOUtils bridge (only MAIN touches the lib directly).
+  const f = window.MyIOUtils?.formatEnergy;
+  if (typeof f === 'function') {
+    return f(value);
   }
 
-  // Fallback formatting - respects settings unit
-  const decimals = settings.decimalPlaces ?? 2;
-  return (
-    value.toLocaleString('pt-BR', {
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals,
-    }) +
-    ' ' +
-    fallbackUnit
-  );
+  // Strict: no functional fallback — log and return the neutral zero/unit string.
+  console.error('[TELEMETRY_INFO] formatEnergy unavailable via MyIOUtils');
+  return fallbackZero;
 }
 
 /**
@@ -1549,7 +1542,7 @@ function processStateFromSummary(domain, summary) {
 /**
  * RFC-0106: Process energy domain summary into STATE
  */
-function processStateFromSummaryEnergy(summary, grandTotal) {
+function processStateFromSummaryEnergy(summary, _grandTotal) {
   // Store items for device status aggregation (from pre-computed details)
   const entradaDevices = summary.entrada?.details?.devices || [];
   const lojasDevices = summary.lojas?.details?.devices || [];
@@ -2620,7 +2613,9 @@ function hideValidationWarning() {
  * @returns {object|null} InfoTooltip component or null if not available
  */
 function getInfoTooltip() {
-  return window.MyIOLibrary?.InfoTooltip || null;
+  const t = window.MyIOUtils?.InfoTooltip;
+  if (!t) console.error('[TELEMETRY_INFO] InfoTooltip unavailable via MyIOUtils (MAIN/lib not ready?)');
+  return t || null;
 }
 
 /**
@@ -3021,7 +3016,6 @@ function buildBanheirosContent() {
   const banheiros = STATE_WATER.banheiros?.total || 0;
   const banheirosPerc = STATE_WATER.banheiros?.perc || 0;
   const banheirosCount = STATE_WATER.banheiros?.devices?.length || 0;
-  const entrada = STATE_WATER.entrada?.total || 0;
 
   // Build device list if available
   let deviceListHtml = '';
@@ -3416,10 +3410,9 @@ function _exportRunCsv(domain, group) {
 }
 
 function _exportRunLibrary(format, domain, group) {
-  const lib = window.MyIOLibrary || {};
-  const fn = format === 'pdf' ? lib.exportGridPdf : lib.exportGridXls;
+  const fn = format === 'pdf' ? window.MyIOUtils?.exportGridPdf : window.MyIOUtils?.exportGridXls;
   if (typeof fn !== 'function') {
-    LogHelper.warn('[Export] MyIOLibrary.exportGrid' + format.toUpperCase() + ' is not available');
+    console.error('[TELEMETRY_INFO][Export] exportGrid' + format.toUpperCase() + ' unavailable via MyIOUtils');
     return;
   }
   const devices = _getExportDevices(domain, group);
@@ -3719,7 +3712,8 @@ function setupGroupDragCards() {
     // - `domain` lets the store auto-derive the unit (kWh / m³).
     // - The label is sanitized to drop a trailing parenthetical like
     //   "Fancoil 25 (Fancoil)" → "Fancoil 25".
-    const store = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
+    const store = window.MyIOUtils?.MyIOSelectionStore;
+    if (!store) console.error('[TELEMETRY_INFO] MyIOSelectionStore unavailable via MyIOUtils');
     if (store && typeof store.registerEntity === 'function') {
       const cleanLabel = (raw) => {
         const s = String(raw || '').trim();
@@ -4160,14 +4154,14 @@ function setupSummaryTooltip() {
     }
   }
 
-  // Get appropriate tooltip from library based on domain
+  // Get appropriate tooltip from the lib via the MyIOUtils bridge, by domain.
   const SummaryTooltip = isWater
-    ? window.MyIOLibrary?.WaterSummaryTooltip
-    : window.MyIOLibrary?.EnergySummaryTooltip;
+    ? window.MyIOUtils?.WaterSummaryTooltip
+    : window.MyIOUtils?.EnergySummaryTooltip;
 
   if (!SummaryTooltip) {
     console.error(
-      `[RFC-0105] ${tooltipType}SummaryTooltip not available in MyIOLibrary. Tooltip will not work.`
+      `[RFC-0105] ${tooltipType}SummaryTooltip unavailable via MyIOUtils. Tooltip will not work.`
     );
     return;
   }

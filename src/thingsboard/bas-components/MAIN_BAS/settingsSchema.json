@@ -12,7 +12,8 @@
       "enableDebugMode": {
         "title": "Enable Debug Mode",
         "type": "boolean",
-        "default": true
+        "default": false,
+        "description": "Verbose console logs (widget + premium modals). Keep OFF in production; errors always log."
       },
       "defaultThemeMode": {
         "title": "Default Theme Mode",
@@ -40,6 +41,12 @@
         "type": "string",
         "default": "https://api.data.apps.myio-bas.com/api/v1",
         "description": "Base URL for apps myio"
+      },
+      "thingsboardUrl": {
+        "title": "ThingsBoard Base URL",
+        "type": "string",
+        "default": "",
+        "description": "Base URL for direct TB REST calls (auth/user, logout, customer attrs). Leave EMPTY inside ThingsBoard (same-origin). Set only when the widget runs outside TB (e.g. showcase)."
       },
       "alarmsApiBaseUrl": {
         "title": "Alarms API Base URL",
@@ -184,6 +191,11 @@
       "key": "dataApiHost",
       "type": "text",
       "placeholder": "Base URL for apps myio"
+    },
+    {
+      "key": "thingsboardUrl",
+      "type": "text",
+      "placeholder": "vazio no TB · https://dashboard.myio-bas.com fora dele"
     },
     {
       "key": "alarmsApiBaseUrl",

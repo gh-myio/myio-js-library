@@ -15,7 +15,7 @@
  * @see RFC-0206
  */
 
-import { generateMercosulPlate } from './device';
+import { generateMercosulPlate } from './devices/device';
 
 /**
  * Generates an opaque, collision-resistant customer code: `C-<plate>-<plate>`

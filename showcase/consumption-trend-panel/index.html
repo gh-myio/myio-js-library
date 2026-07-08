@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GoalsModal — Showcase (RFC-0213)</title>
+
+    <!-- Chart.js é requerido pelo GoalsModal (Chart global). annotation é opcional. -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        background: radial-gradient(1200px 600px at 50% -10%, #2d1360 0%, #0f172a 60%);
+        color: #e7e2f5; min-height: 100vh; display: flex; flex-direction: column;
+        align-items: center; justify-content: center; gap: 22px; padding: 32px; text-align: center;
+      }
+      .card {
+        background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.12);
+        border-radius: 18px; padding: 30px 34px; max-width: 720px; backdrop-filter: blur(6px);
+        box-shadow: 0 20px 60px rgba(0,0,0,.35);
+      }
+      h1 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+      h1 .chip { font-size: 11px; font-weight: 600; background: rgba(124,58,237,.3); color: #c4b5fd;
+        padding: 2px 9px; border-radius: 99px; vertical-align: middle; margin-left: 8px; }
+      p { color: #b9b1d6; font-size: 13.5px; line-height: 1.6; margin: 10px 0; }
+      code { background: rgba(0,0,0,.35); padding: 1px 6px; border-radius: 5px; font-size: 12px; color: #e9d5ff; }
+      ul { text-align: left; margin: 12px auto 4px; max-width: 560px; color: #b9b1d6; font-size: 13px; line-height: 1.7; }
+      .btn {
+        margin-top: 18px; background: #7c3aed; color: #fff; border: none; border-radius: 10px;
+        font-size: 15px; font-weight: 600; padding: 12px 26px; cursor: pointer; transition: .15s;
+        box-shadow: 0 6px 18px rgba(124,58,237,.4);
+      }
+      .btn:hover { background: #6d28d9; transform: translateY(-1px); }
+      .status { font-size: 12px; color: #94a3b8; margin-top: 12px; }
+      .status b { color: #86efac; }
+      .status.err b { color: #fca5a5; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>🎯 GoalsModal <span class="chip">RFC-0213 · componente real</span></h1>
+      <p>
+        Esta showcase <b>não</b> reimplementa o gráfico — ela <b>chama o componente</b>
+        <code>MyIOLibrary.GoalsModal</code> (de <code>src/components/goals-modal/GoalsModal.ts</code>,
+        via <code>dist/…umd.min.js</code>).
+      </p>
+      <ul>
+        <li><b>Metas</b> → <code>window.MyIOUtils.goalsData.energy</code> de <code>./data/goals-2026-Hour-Energy-Moxuara.json</code> (tree mensal/diário/horário).</li>
+        <li><b>Consumo</b> → callback <code>fetchConsumption</code> mock lendo <code>./data/consumption-2026-…json</code>.</li>
+        <li><b>YoY (↔ Ano ant.)</b> → o componente refaz o fetch com timestamps −1 ano; o mock devolve <code>./data/consumption-2025-…json</code>.</li>
+      </ul>
+      <p style="font-size:12px;color:#8b84a6;">
+        No modal: alterne <b>1M / 1d / 1h</b>, clique <b>↔ Ano ant.</b> para a comparação,
+        e veja o stat <b>“Consumo {ano} x {ano-1}”</b>. Apenas o domínio <b>Energia</b> tem mock.
+      </p>
+      <button class="btn" id="openBtn">Abrir GoalsModal</button>
+      <div class="status" id="status">carregando biblioteca…</div>
+    </div>
+
+    <!-- Componente real (UMD) -->
+    <script src="../../dist/myio-js-library.umd.min.js"></script>
+    <script>
+      (function () {
+        'use strict';
+        const $ = (id) => document.getElementById(id);
+        const pad = (n) => String(n).padStart(2, '0');
+
+        function setStatus(msg, ok) {
+          const el = $('status');
+          el.className = 'status' + (ok === false ? ' err' : '');
+          el.innerHTML = msg;
+        }
+
+        // --- consumption mock files cached by year ---
+        const FILES = {
+          2026: './data/consumption-2026-Hour-Energy-Moxuara.json',
+          2025: './data/consumption-2025-Hour-Energy-Moxuara.json',
+        };
+        const consCache = {};
+        async function loadCons(year) {
+          if (consCache[year] !== undefined) return consCache[year];
+          const url = FILES[year];
+          if (!url) { consCache[year] = null; return null; }
+          try {
+            const tree = (await (await fetch(url)).json())?.data?.tree || {};
+            consCache[year] = tree; return tree;
+          } catch (e) { consCache[year] = null; return null; }
+        }
+
+        // --- GoalsModal fetchConsumption callback (mock-real) ---
+        // Returns device totals; GoalsModal sums them. Picks the file by the start year,
+        // so the YoY pass (timestamps shifted -1y) naturally reads the 2025 file.
+        async function fetchConsumption(domain, startTs, endTs, gran) {
+          if (domain !== 'energy') return []; // only energy is mocked
+          const d = new Date(startTs);
+          const tree = await loadCons(d.getFullYear());
+          if (!tree) return [];
+          const mm = pad(d.getMonth() + 1), dd = pad(d.getDate()), hh = pad(d.getHours());
+          let value = 0;
+          if (gran === '1h') {
+            value = tree.hourly?.[`${mm}-${dd}T${hh}`]?.value ?? 0;
+          } else if (gran === '1M') {
+            const prefix = `${mm}-`;
+            value = Object.entries(tree.daily || {})
+              .filter(([k]) => k.startsWith(prefix))
+              .reduce((s, [, v]) => s + (v.value || 0), 0);
+          } else {
+            value = tree.daily?.[`${mm}-${dd}`]?.value ?? 0;
+          }
+          return [{ total_value: value, label: 'Shopping Moxuara (mock)' }];
+        }
+
+        function openModal() {
+          const GM = window.MyIOLibrary && window.MyIOLibrary.GoalsModal;
+          if (!GM) { setStatus('<b>MyIOLibrary.GoalsModal indisponível</b> — rode <code>npm run build</code>.', false); return; }
+          GM.open({ initialDomain: 'energy', fetchConsumption, defaultPeriodDays: 7 });
+        }
+
+        async function boot() {
+          if (typeof Chart === 'undefined') setStatus('Chart.js não carregou (CDN).', false);
+
+          // Goals tree → window.MyIOUtils.goalsData.energy (the Hour file carries monthly+daily+hourly)
+          window.MyIOUtils = window.MyIOUtils || {};
+          window.MyIOUtils.goalsData = window.MyIOUtils.goalsData || {};
+          try {
+            const goals = await (await fetch('./data/goals-2026-Hour-Energy-Moxuara.json')).json();
+            window.MyIOUtils.goalsData.energy = goals;
+          } catch (e) { console.warn('[showcase] metas não carregaram', e); }
+
+          const hasGM = !!(window.MyIOLibrary && window.MyIOLibrary.GoalsModal);
+          setStatus(hasGM
+            ? 'Biblioteca carregada · <b>GoalsModal pronto</b>. Abrindo…'
+            : '<b>GoalsModal não encontrado no UMD</b> — rode <code>npm run build</code>.', hasGM);
+
+          $('openBtn').addEventListener('click', openModal);
+          if (hasGM) setTimeout(openModal, 250); // auto-open
+        }
+
+        boot();
+      })();
+    </script>
+  </body>
+</html>

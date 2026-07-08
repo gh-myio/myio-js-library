@@ -3,6 +3,8 @@ dist/
 .DS_Store
 .env
 tb.env
+# Showcase local config with real GCDR API keys (use config.example.json as template)
+showcase/**/config.json
 *.log
 coverage/
 .nyc_output/

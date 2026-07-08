@@ -6,7 +6,7 @@ import {
   DEFAULT_DEVICE_ICON,
   getDeviceIcon,
   isDeviceIconType,
-} from '../../src/utils/deviceIcons';
+} from '../../src/utils/devices/deviceIcons';
 
 describe('RFC-0200 deviceIcons utility', () => {
   // Test 1: Every DeviceIconType key has a corresponding deviceIcons URL

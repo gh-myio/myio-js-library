@@ -43,7 +43,10 @@ export class MenuShoppingView {
   private hamburgerBtn: HTMLButtonElement | null = null;
   private settingsBtn: HTMLButtonElement | null = null;
   private shoppingSelectorBtn: HTMLButtonElement | null = null;
+  private shoppingNameEl: HTMLElement | null = null;
   private logoutBtn: HTMLButtonElement | null = null;
+  private isAdmin = false;
+  private shoppingName = '';
 
   constructor(configTemplate?: MenuShoppingConfigTemplate, themeMode?: ThemeMode) {
     this.config = { ...DEFAULT_MENU_SHOPPING_CONFIG, ...configTemplate };
@@ -137,7 +140,10 @@ export class MenuShoppingView {
             ? `
         <button class="${PREFIX}-footer-btn shopping-selector" title="Trocar Shopping" style="display: none;">
           <span class="${PREFIX}-footer-btn-icon">🏬</span>
-          <span class="${PREFIX}-footer-btn-label">Trocar Shopping</span>
+          <span class="${PREFIX}-footer-btn-text">
+            <span class="${PREFIX}-footer-btn-label">Trocar Shopping</span>
+            <span class="${PREFIX}-shopping-name"></span>
+          </span>
         </button>
         `
             : ''
@@ -194,6 +200,7 @@ export class MenuShoppingView {
     this.hamburgerBtn = this.root.querySelector(`.${PREFIX}-hamburger`);
     this.settingsBtn = this.root.querySelector(`.${PREFIX}-footer-btn.settings`);
     this.shoppingSelectorBtn = this.root.querySelector(`.${PREFIX}-footer-btn.shopping-selector`);
+    this.shoppingNameEl = this.root.querySelector(`.${PREFIX}-shopping-name`);
     this.logoutBtn = this.root.querySelector(`.${PREFIX}-footer-btn.logout`);
   }
 
@@ -304,8 +311,32 @@ export class MenuShoppingView {
    * Set admin mode (show/hide admin-only controls)
    */
   setAdminMode(isAdmin: boolean): void {
+    this.isAdmin = isAdmin;
+    this.updateShoppingSelectorVisibility();
+  }
+
+  /**
+   * Update the shopping/customer name displayed in the selector sub-label.
+   * The selector row is also revealed when a name is present so the customer
+   * name is visible even before admin status resolves.
+   */
+  setShoppingName(name: string): void {
+    this.shoppingName = (name || '').trim();
+    if (this.shoppingNameEl) {
+      this.shoppingNameEl.textContent = this.shoppingName;
+      this.shoppingNameEl.style.display = this.shoppingName ? 'block' : 'none';
+    }
+    this.updateShoppingSelectorVisibility();
+  }
+
+  /**
+   * Reveal the shopping-selector row when the user is admin OR when there is
+   * a shopping name to show. Hidden otherwise.
+   */
+  private updateShoppingSelectorVisibility(): void {
     if (this.shoppingSelectorBtn) {
-      this.shoppingSelectorBtn.style.display = isAdmin ? 'flex' : 'none';
+      const visible = this.isAdmin || !!this.shoppingName;
+      this.shoppingSelectorBtn.style.display = visible ? 'flex' : 'none';
     }
   }
 

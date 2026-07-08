@@ -94,7 +94,7 @@ export const HEADER_ANNOTATIONS_STYLES = `
   align-items: center;
   gap: 4px;
 }
-/* Header action buttons — mirror src/utils/InfoTooltip.ts pattern
+/* Header action buttons — mirror src/utils/tooltips/InfoTooltip.ts pattern
    (24×24 button with white-ish bg, SVG 14×14, slate hover, emerald
    pinned state). RFC-0203 M7 follow-up: alignment with InfoTooltip. */
 .myio-annotations-panel-action {

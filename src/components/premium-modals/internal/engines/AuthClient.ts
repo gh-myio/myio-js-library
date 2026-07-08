@@ -1,7 +1,7 @@
 // engines/AuthClient.ts
 // Thin wrapper that delegates to buildMyioIngestionAuth for OAuth2 client-credentials.
 
-import { buildMyioIngestionAuth, type MyIOAuthInstance } from '../../../../thingsboard/auth/buildMyioIngestionAuth';
+import { buildMyioIngestionAuth, type MyIOAuthInstance } from '../../../../services/ingestion/buildMyioIngestionAuth';
 
 export class AuthClient {
   private auth: MyIOAuthInstance | null = null;

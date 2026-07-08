@@ -5,36 +5,36 @@ import {
   calcDeltaPercent,
   formatWaterByGroup,
   formatAllInSameWaterUnit
-} from '../src/format/water';
+} from '../src/utils/format/water';
 
 import {
   formatDateForInput,
   parseInputDateToDate
-} from '../src/date/inputDate';
+} from '../src/utils/date/inputDate';
 
 import {
   timeWindowFromInputYMD,
   formatDateWithTimezoneOffset,
   getSaoPauloISOStringFixed
-} from '../src/date/timeWindow';
+} from '../src/utils/date/timeWindow';
 
 import {
   averageByDay,
   groupByDay
-} from '../src/date/averageByDay';
+} from '../src/utils/date/averageByDay';
 
 import {
   buildWaterReportCSV,
   buildWaterStoresCSV,
   toCSV
-} from '../src/csv/waterReports';
+} from '../src/utils/csv/waterReports';
 
 import {
   classifyWaterLabel,
   classifyWaterLabels,
   getWaterCategories,
   isWaterCategory
-} from '../src/classify/waterLabel';
+} from '../src/components/classify/waterLabel';
 
 describe('Water Formatting Functions', () => {
   describe('formatWaterVolumeM3', () => {

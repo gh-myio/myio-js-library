@@ -6,7 +6,7 @@ import {
   buildMyioIngestionAuth, 
   clearAllAuthCaches, 
   getAuthCacheStats 
-} from '../src/thingsboard/auth/buildMyioIngestionAuth.js';
+} from '../src/services/ingestion/buildMyioIngestionAuth.js';
 import { vi } from 'vitest';
 
 // Mock fetch globally

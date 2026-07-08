@@ -1,13 +1,13 @@
-/* global self, window, document, localStorage */
+/* global self, window, document */
 
 /**
  * RFC-0177: Alarm Widget — Single-Shopping ThingsBoard Widget
  *
  * Renders alarms scoped to a single shopping customer.
  * Uses:
- *   - MyIOLibrary.createAlarmsNotificationsPanelComponent  (RFC-0152 Phase 4)
- *   - MyIOLibrary.AlarmService  (RFC-0175)
- *   - MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage
+ *   - MyIOBridge.createAlarmsNotificationsPanelComponent  (RFC-0152 Phase 4)
+ *   - MyIOBridge.AlarmService  (RFC-0175)
+ *   - MyIOBridge.fetchThingsboardCustomerAttrsFromStorage
  *
  * Does NOT make direct API calls.
  * Does NOT depend on MAIN_UNIQUE_DATASOURCE being co-loaded.
@@ -68,9 +68,9 @@ self.onInit = async function () {
   _closedAlarmsMode = false;
 
   // --- Library reference ---
-  const MyIOLibrary = window.MyIOLibrary;
-  if (!MyIOLibrary) {
-    console.error('[ALARM] window.MyIOLibrary not found — widget cannot load');
+  const MyIOBridge = window.MyIOUtils;
+  if (!MyIOBridge) {
+    console.error('[ALARM] window.MyIOUtils not found — widget cannot load');
     return;
   }
 
@@ -87,7 +87,7 @@ self.onInit = async function () {
   const alarmsApiBaseUrl = window.MyIOOrchestrator?.alarmsApiBaseUrl || '';
   const alarmsApiKey = window.MyIOOrchestrator?.gcdrApiKey || '';
   if (!alarmsApiKey) {
-    MyIOLibrary.MyIOToast?.error(
+    MyIOBridge.MyIOToast?.error(
       '[ALARM] gcdrApiKey não encontrado em window.MyIOOrchestrator. Verifique o atributo SERVER_SCOPE gcdrApiKey do customer.'
     );
   }
@@ -103,8 +103,8 @@ self.onInit = async function () {
   _activeTab = defaultTab;
 
   // --- Logger ---
-  if (MyIOLibrary.createLogHelper) {
-    LogHelper = MyIOLibrary.createLogHelper({
+  if (MyIOBridge.createLogHelper) {
+    LogHelper = MyIOBridge.createLogHelper({
       debugActive: enableDebugMode,
       config: { widget: 'ALARM' },
     });
@@ -139,7 +139,7 @@ self.onInit = async function () {
   window.addEventListener('myio:theme-changed', _themeChangeHandler);
 
   // --- Configure AlarmService — credentials + TTL always from settings/orchestrator ---
-  MyIOLibrary.AlarmService?.configure?.(alarmsApiBaseUrl, cacheIntervalSeconds * 1000, alarmsApiKey);
+  MyIOBridge.AlarmService?.configure?.(alarmsApiBaseUrl, cacheIntervalSeconds * 1000, alarmsApiKey);
   LogHelper.log(
     'AlarmService configured — baseUrl:',
     alarmsApiBaseUrl || '(missing!)',
@@ -154,7 +154,7 @@ self.onInit = async function () {
       to: ev.detail?.to || null,
     };
     LogHelper.log('Alarm filter changed:', _activeFilters);
-    MyIOLibrary?.AlarmService?.clearCache?.();
+    MyIOBridge?.AlarmService?.clearCache?.();
     _debouncedFetchAndUpdate(400);
   };
   window.addEventListener('myio:alarm-filter-change', _filterChangeHandler);
@@ -170,7 +170,7 @@ self.onInit = async function () {
   _closedAlarmsHandler = (ev) => {
     _closedAlarmsMode = !!ev.detail?.enabled;
     LogHelper.log('Closed alarms mode:', _closedAlarmsMode ? 'ENABLED' : 'DISABLED');
-    window.MyIOLibrary?.AlarmService?.clearCache?.();
+    window.MyIOUtils?.AlarmService?.clearCache?.();
     _debouncedFetchAndUpdate(200);
   };
   window.addEventListener('myio:closed-alarms-toggle', _closedAlarmsHandler);
@@ -217,15 +217,15 @@ self.onInit = async function () {
     return;
   }
 
-  if (!MyIOLibrary.createAlarmsNotificationsPanelComponent) {
-    LogHelper.error('createAlarmsNotificationsPanelComponent not available in MyIOLibrary');
+  if (!MyIOBridge.createAlarmsNotificationsPanelComponent) {
+    LogHelper.error('createAlarmsNotificationsPanelComponent not available in MyIOBridge');
     _renderError(container, 'Componente de alarmes não disponível.');
     return;
   }
 
   const userEmail = window.MyIOUtils?.currentUserEmail || '';
 
-  _panelInstance = MyIOLibrary.createAlarmsNotificationsPanelComponent({
+  _panelInstance = MyIOBridge.createAlarmsNotificationsPanelComponent({
     container,
     themeMode: _currentTheme,
     enableDebugMode,
@@ -236,7 +236,7 @@ self.onInit = async function () {
 
     onAlarmClick: (alarm) => {
       LogHelper.log('Alarm clicked:', alarm.title || alarm.id);
-      MyIOLibrary.openAlarmDetailsModal?.(alarm);
+      MyIOBridge.openAlarmDetailsModal?.(alarm);
     },
 
     onAcknowledge: async (alarmIds) => {
@@ -451,7 +451,7 @@ function _enrichAlarms(rawAlarms) {
  * @param {string[]} states — alarm states to fetch
  */
 async function _fetchAlarmsAndUpdate(resolvedCustomerId, states) {
-  const AlarmService = window.MyIOLibrary?.AlarmService;
+  const AlarmService = window.MyIOUtils?.AlarmService;
   if (!AlarmService) {
     LogHelper.warn('[ALARM] AlarmService not available');
     return;
@@ -536,7 +536,7 @@ async function _fetchAndUpdate() {
       window.AlarmServiceOrchestrator?.refresh?.().catch(() => {});
 
       // Trend fetch (non-blocking)
-      const AlarmService = window.MyIOLibrary?.AlarmService;
+      const AlarmService = window.MyIOUtils?.AlarmService;
       if (AlarmService) {
         AlarmService.getAlarmTrend(resolvedCustomerId, '7d', 'day')
           .then((trend) => {
@@ -555,7 +555,7 @@ async function _fetchAndUpdate() {
 }
 
 async function _handleBatchAction(action, alarmIds, userEmail, opts) {
-  const AlarmService = window.MyIOLibrary?.AlarmService;
+  const AlarmService = window.MyIOUtils?.AlarmService;
   if (!AlarmService) return;
 
   const email = userEmail || window.MyIOUtils?.currentUserEmail || 'unknown';
@@ -628,9 +628,9 @@ function _bindHeaderButtons() {
   const btnBundleMap = document.getElementById('btnAlarmBundleMap');
   if (btnBundleMap) {
     btnBundleMap.addEventListener('click', () => {
-      const MyIOLibrary = window.MyIOLibrary;
-      if (!MyIOLibrary?.openAlarmBundleMapModal) {
-        LogHelper.warn('openAlarmBundleMapModal not available in MyIOLibrary');
+      const MyIOBridge = window.MyIOUtils;
+      if (!MyIOBridge?.openAlarmBundleMapModal) {
+        LogHelper.warn('openAlarmBundleMapModal not available in MyIOBridge');
         return;
       }
 
@@ -643,7 +643,7 @@ function _bindHeaderButtons() {
         return;
       }
 
-      MyIOLibrary.openAlarmBundleMapModal({
+      MyIOBridge.openAlarmBundleMapModal({
         customerTB_ID,
         gcdrTenantId,
         gcdrApiBaseUrl,
@@ -656,7 +656,7 @@ function _bindHeaderButtons() {
   const btnRefresh = document.getElementById('btnRefresh');
   if (btnRefresh) {
     btnRefresh.addEventListener('click', async () => {
-      window.MyIOLibrary?.AlarmService?.clearCache?.();
+      window.MyIOUtils?.AlarmService?.clearCache?.();
       await _fetchAndUpdate();
     });
   }

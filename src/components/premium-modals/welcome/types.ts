@@ -214,15 +214,31 @@ export interface ShoppingCardDeviceCounts {
 }
 
 /**
- * Meta counts for shopping card (users, alarms, notifications)
+ * Meta counts for shopping card (users, alarms, notifications/annotations)
+ * null = loading (renders a spinner), number = loaded (0 included)
  */
 export interface ShoppingCardMetaCounts {
   /** Number of users with access */
-  users?: number;
+  users?: number | null;
   /** Number of active alarms */
-  alarms?: number;
+  alarms?: number | null;
   /** Number of unread notifications */
-  notifications?: number;
+  notifications?: number | null;
+  /** Number of device annotations; when provided (even null), replaces the notifications badge */
+  annotations?: number | null;
+}
+
+/**
+ * Detail lists backing the meta badges' hover tooltips
+ * (same pattern as the v-5.4.0 header hover panels: chips by state + recent rows)
+ */
+export interface ShoppingCardMetaDetails {
+  /** Users with access to this customer */
+  users?: Array<{ name: string; email?: string }>;
+  /** Active alarms for this customer */
+  alarms?: Array<{ title?: string; severity?: string; state?: string; deviceName?: string }>;
+  /** Non-archived device annotations for this customer */
+  annotations?: Array<{ text: string; type?: string; deviceLabel?: string; createdAt?: string }>;
 }
 
 /**
@@ -245,8 +261,12 @@ export interface ShoppingCard {
   buttonId?: string;
   /** Device counts by domain (replaces subtitle if provided) */
   deviceCounts?: ShoppingCardDeviceCounts;
-  /** Meta counts (users, alarms, notifications) - shown above title */
+  /** Meta counts (users, alarms, notifications/annotations) - shown above title */
   metaCounts?: ShoppingCardMetaCounts;
+  /** Detail lists rendered in the meta badges' hover tooltips */
+  metaDetails?: ShoppingCardMetaDetails;
+  /** Enrichment progress 0–1; renders a bottom progress bar on the card while < 1 */
+  metaProgress?: number;
 }
 
 /**
@@ -402,6 +422,10 @@ export interface WelcomeModalInstance {
   setCtaLabel: (label: string) => void;
   /** Set CTA button disabled state */
   setCtaDisabled: (disabled: boolean) => void;
+  /** Show/hide the CTA button (hidden while enrichment is loading) */
+  setCtaHidden: (hidden: boolean) => void;
+  /** Update the global enrichment progress bar (0–100; fades out at 100) */
+  setEnrichmentProgress: (percent: number, label?: string) => void;
 }
 
 /**

@@ -4,9 +4,9 @@ import pkg from '../package.json';
 export const version: string = pkg.version || '0.0.0';
 
 // Format utilities
-export { formatEnergy, formatPower, formatAllInSameUnit } from './format/energy';
-export { fmtPerc } from './format/percentage';
-export { formatNumberReadable } from './format/numbers';
+export { formatEnergy, formatPower, formatAllInSameUnit } from './utils/format/energy';
+export { fmtPerc } from './utils/format/percentage';
+export { formatNumberReadable } from './utils/format/numbers';
 export {
   formatWater,
   formatWaterVolumeM3,
@@ -14,23 +14,23 @@ export {
   calcDeltaPercent,
   formatWaterByGroup,
   formatAllInSameWaterUnit,
-} from './format/water';
+} from './utils/format/water';
 
 // Time/Duration utilities
-export { formatRelativeTime, formatarDuracao, formatDuration } from './format/time';
+export { formatRelativeTime, formatarDuracao, formatDuration } from './utils/format/time';
 
 // Date utilities
-export { formatDateToYMD } from './date/ymd';
-export { determineInterval } from './date/interval';
-export { getSaoPauloISOString } from './date/saoPauloIso';
-export { getDateRangeArray } from './date/range';
-export { formatDateForInput, parseInputDateToDate } from './date/inputDate';
+export { formatDateToYMD } from './utils/date/ymd';
+export { determineInterval } from './utils/date/interval';
+export { getSaoPauloISOString } from './utils/date/saoPauloIso';
+export { getDateRangeArray } from './utils/date/range';
+export { formatDateForInput, parseInputDateToDate } from './utils/date/inputDate';
 export {
   timeWindowFromInputYMD,
   formatDateWithTimezoneOffset,
   getSaoPauloISOStringFixed,
-} from './date/timeWindow';
-export { averageByDay, groupByDay, type TimedValue } from './date/averageByDay';
+} from './utils/date/timeWindow';
+export { averageByDay, groupByDay, type TimedValue } from './utils/date/averageByDay';
 export {
   getDefaultPeriodCurrentMonthSoFar,
   getDefaultPeriodCurrentDaySoFar,
@@ -40,24 +40,24 @@ export {
 } from './utils/dateUtils.js';
 
 // CSV utilities
-export { exportToCSV } from './csv/singleReport';
-export { exportToCSVAll } from './csv/allStores';
+export { exportToCSV } from './utils/csv/singleReport';
+export { exportToCSVAll } from './utils/csv/allStores';
 export {
   buildWaterReportCSV,
   buildWaterStoresCSV,
   toCSV,
   type WaterRow,
   type StoreRow,
-} from './csv/waterReports';
+} from './utils/csv/waterReports';
 
 // Classification utilities
-export { classify } from './classify/energyEntity';
+export { classify } from './components/classify/energyEntity';
 export {
   classifyWaterLabel,
   classifyWaterLabels,
   getWaterCategories,
   isWaterCategory,
-} from './classify/waterLabel';
+} from './components/classify/waterLabel';
 
 // General utilities
 export {
@@ -69,6 +69,12 @@ export {
 
 // RFC-0122: LogHelper utilities (contextual logging)
 export { createLogHelper, LogHelper } from './utils/logHelper.js';
+
+// HTMLBuilder — dependency-free DOM/HTML construction helper.
+// Namespace export only (HTMLBuilder.h/text/frag/toHtml/fromHtml/mount/escapeHtml)
+// to keep these generic names out of the library's top-level public surface.
+export { HTMLBuilder } from './utils/HTMLBuilder';
+export type { HTMLChild, HTMLAttrs } from './utils/HTMLBuilder';
 
 // Device Status utilities
 export {
@@ -93,7 +99,7 @@ export {
   calculateDeviceStatus, // RFC-0110: Unified device status calculation with telemetry timestamps
   calculateDeviceStatusWithRanges, // @deprecated - use calculateDeviceStatus with ranges parameter
   calculateDeviceStatusMasterRules, // RFC-0110: Simplified status calculation with master rules
-} from './utils/deviceStatus.js';
+} from './utils/devices/deviceStatus.js';
 
 // Device Icons utilities (RFC-0200)
 export {
@@ -103,7 +109,7 @@ export {
   DEFAULT_DEVICE_ICON,
   getDeviceIcon,
   isDeviceIconType,
-} from './utils/deviceIcons';
+} from './utils/devices/deviceIcons';
 
 // Device Type Config — single source of truth (RFC-0202)
 export {
@@ -112,8 +118,8 @@ export {
   getDeviceCategory,
   getStaticDeviceImage,
   getTypesByCategory,
-} from './utils/deviceTypeConfig';
-export type { DeviceTypeCategory, DeviceTypeConfigEntry } from './utils/deviceTypeConfig';
+} from './utils/devices/deviceTypeConfig';
+export type { DeviceTypeCategory, DeviceTypeConfigEntry } from './utils/devices/deviceTypeConfig';
 
 // Device naming utilities (+ RFC-0206 Phase 3: device code)
 export {
@@ -125,7 +131,7 @@ export {
   DEFAULT_DEVICE_TYPE_TOKEN,
   deviceTypeToken,
   generateDeviceCode,
-} from './utils/device';
+} from './utils/devices/device';
 
 // Customer utilities (RFC-0206, Phase 1)
 export {
@@ -165,7 +171,7 @@ export {
   createDeviceItem,
   createDeviceItemsFromMap,
   recalculateDeviceStatus,
-} from './utils/deviceItem.js';
+} from './utils/devices/deviceItem.js';
 
 // RFC-0111: Device Info utilities (domain and context detection)
 export {
@@ -177,7 +183,7 @@ export {
   calculateShoppingDeviceCounts,
   calculateShoppingDeviceStats, // RFC-0112: Includes consumption values
   extractEntityId,
-} from './utils/deviceInfo.js';
+} from './utils/devices/deviceInfo.js';
 
 // RFC-0128: Equipment Category utilities (energy equipment subcategorization)
 export {
@@ -191,7 +197,59 @@ export {
   isStoreDevice,
   isEquipmentDevice,
   isEntradaDevice,
-} from './utils/equipmentCategory.js';
+} from './utils/devices/equipmentCategory.js';
+
+// RFC-0207 (PR A0): Customer-scoped device classification profile (single source).
+// Pure resolvers + default seed reproducing the legacy hard-coded behavior.
+export {
+  DEFAULT_DEVICE_CLASSIFICATION_PROFILE,
+  resolveGroup,
+  resolveCategory,
+  validateProfile,
+  normalizeProfile,
+  resolveActiveProfile,
+  getActiveProfile,
+  setActiveProfile,
+  listDomains,
+  listGroups,
+} from './utils/devices/deviceClassificationProfile.js';
+// RFC-0047: adapter for the GCDR entities classification tree (domain/column/profile)
+export { parseClassificationEntities } from './utils/devices/classificationTree';
+export type {
+  EntityNode,
+  ClassificationColumn,
+  ClassificationDomainNode,
+  ProfileLocation,
+  ParsedClassificationTree,
+} from './utils/devices/classificationTree';
+export type {
+  DeviceClassificationProfile,
+  DomainProfile,
+  ClassificationDomain,
+  ClassifiableItem,
+  GroupResolution,
+  CategoryResolution,
+  GroupName,
+  CategoryName,
+  GroupDescriptor,
+} from './utils/devices/deviceClassificationProfile.js';
+
+// RFC-0207 Phase B: device classification profile management modal (premium UI).
+export { openDeviceProfileModal } from './components/premium-modals/device-profile/openDeviceProfileModal';
+export type {
+  OpenDeviceProfileModalParams,
+  DeviceProfilePreviewDevice,
+} from './components/premium-modals/device-profile/openDeviceProfileModal';
+
+// DivCard — reusable collapsible card (accent header + (i) InfoTooltip + maximize),
+// vanilla port of the gcdr-frontend SectionCard. Used internally by the device
+// profile modal sections; exported for general reuse.
+export { createDivCard } from './components/div-card/DivCard';
+export type {
+  CreateDivCardOptions,
+  DivCardHandle,
+  DivCardAccent,
+} from './components/div-card/DivCard';
 
 // RFC-0143: Device Grid Widget Factory
 export {
@@ -206,23 +264,37 @@ export {
   createBusyModal as createDeviceGridBusyModal,
   getCachedData as getDeviceGridCachedData,
   sortDevices as sortDeviceGridDevices,
-} from './utils/DeviceGridWidgetFactory.js';
+} from './utils/devices/DeviceGridWidgetFactory.js';
 
 // ThingsBoard utilities
-export { buildListItemsThingsboardByUniqueDatasource } from './thingsboard/utils/buildListItemsThingsboardByUniqueDatasource';
+export { buildListItemsThingsboardByUniqueDatasource } from './utils/thingsboard/buildListItemsThingsboardByUniqueDatasource';
+// RFC-0209: single-source device classification & status aggregation (pure, DI)
+export {
+  extractDeviceMetadataFromRows,
+  classifyAllDevices,
+  buildByStatusFromDevices,
+} from './utils/thingsboard/deviceClassification';
+export type {
+  DomainCatalog,
+  ProfileIndex,
+  ExtractDeps,
+  ClassifyDeps,
+  ClassifyResult,
+} from './utils/thingsboard/deviceClassification';
+export type { DeviceMeta, ByStatusCounts } from './types/device';
 export {
   buildMyioIngestionAuth,
   clearAllAuthCaches,
   getAuthCacheStats,
   type MyIOAuthConfig,
   type MyIOAuthInstance,
-} from './thingsboard/auth/buildMyioIngestionAuth';
+} from './services/ingestion/buildMyioIngestionAuth';
 export {
   fetchThingsboardCustomerServerScopeAttrs,
   fetchThingsboardCustomerAttrsFromStorage,
   extractMyIOCredentials,
   type ThingsboardCustomerAttrsConfig,
-} from './thingsboard/api/fetchThingsboardCustomerServerScopeAttrs';
+} from './services/thingsboard/fetchThingsboardCustomerServerScopeAttrs';
 // export {
 //   getEntityInfoAndAttributesTB,
 //   type TBFetchOptions,
@@ -278,7 +350,7 @@ export type {
 } from './utils/AnnotationIndicator';
 
 // Re-export existing utilities
-export { detectDeviceType, getAvailableContexts, addDetectionContext } from './utils/deviceType';
+export { detectDeviceType, getAvailableContexts, addDetectionContext } from './utils/devices/deviceType';
 export { addNamespace } from './utils/namespace';
 export { fmtPerc as fmtPercLegacy, toFixedSafe } from './utils/numbers';
 export { normalizeRecipients } from './utils/strings';
@@ -287,32 +359,28 @@ export { normalizeRecipients } from './utils/strings';
 export { periodKey, type Period } from './utils/periodUtils';
 
 // Codec utilities
-export { decodePayload } from './codec/decodePayload';
+export { decodePayload } from './components/codec/decodePayload';
 
 // Network utilities
-//export { http, fetchWithRetry } from './net/http';
+//export { http, fetchWithRetry } from './utils/net/http';
 
 // Codec utilities (additional exports)
-export { decodePayloadBase64Xor } from './codec/decodePayload';
+export { decodePayloadBase64Xor } from './components/codec/decodePayload';
 
-export { renderCardComponent } from './thingsboard/main-dashboard-shopping/v-4.0.0/card/template-card.js';
-export {
-  renderCardComponent as renderCardComponentEnhanced,
-  renderCardComponentV2,
-  renderCardComponentLegacy,
-} from './thingsboard/main-dashboard-shopping/v-4.0.0/card/template-card-v2.js';
-export { renderCardComponentHeadOffice } from './thingsboard/main-dashboard-shopping/v-4.0.0/card/head-office';
+// Head Office card — moved to components/cards/head-office/v5.2.0 (was v-4.0.0/card/head-office).
+// Still consumed via MyIOLibrary.renderCardComponentHeadOffice. (template-card/v2 retired.)
+export { renderCardComponentHeadOffice } from './components/cards/head-office/v5.2.0';
 export {
   renderCardComponent as renderCardComponentV5,
   renderCardComponentV5 as renderCardV5,
-} from './thingsboard/main-dashboard-shopping/v-5.2.0/card/template-card-v5.js';
+} from './components/cards/main-view/v5.2.0/template-card-v5.js';
 export {
   renderCardComponentV6,
   renderCardComponent as renderCardComponentV6Alias,
-} from './components/template-card-v6/template-card-v6.js';
+} from './components/cards/main-view/v6.0.0/template-card-v6.js';
 
 // Ambiente card component (v6) - for BAS dashboard
-export { renderCardAmbienteV6 } from './components/template-card-ambiente-v6/template-card-ambiente-v6.js';
+export { renderCardAmbienteV6 } from './components/cards/ambient/v6.0.0/template-card-ambiente-v6.js';
 
 // HeaderPanelComponent — Reusable header component for panels
 export { HeaderPanelComponent, HEADER_STYLE_SLIM, HEADER_STYLE_DEFAULT, HEADER_STYLE_DARK, HEADER_STYLE_PREMIUM_GREEN } from './components/header-panel/index';
@@ -532,69 +600,80 @@ export {
 } from './components/operational-comparison-modal';
 
 // Temperature Range Tooltip (Reusable UI component)
-export { TempRangeTooltip } from './utils/TempRangeTooltip';
-export type { TempEntityData, TempStatus, TempStatusResult } from './utils/TempRangeTooltip';
+export { TempRangeTooltip } from './utils/tooltips/TempRangeTooltip';
+export type { TempEntityData, TempStatus, TempStatusResult } from './utils/tooltips/TempRangeTooltip';
 
 // Energy Range Tooltip (Reusable UI component)
-export { EnergyRangeTooltip } from './utils/EnergyRangeTooltip';
+export { EnergyRangeTooltip } from './utils/tooltips/EnergyRangeTooltip';
 export type {
   EnergyEntityData,
   EnergyStatus,
   EnergyStatusResult,
   PowerRange,
   PowerRanges,
-} from './utils/EnergyRangeTooltip';
+} from './utils/tooltips/EnergyRangeTooltip';
 
 // RFC-0105: Energy Summary Tooltip (Dashboard summary on hover)
-export { EnergySummaryTooltip } from './utils/EnergySummaryTooltip';
-export { WaterSummaryTooltip } from './utils/WaterSummaryTooltip';
-export { InfoTooltip } from './utils/InfoTooltip';
-export { ColumnSummaryTooltip } from './utils/ColumnSummaryTooltip';
+export { EnergySummaryTooltip } from './utils/tooltips/EnergySummaryTooltip';
+export { WaterSummaryTooltip } from './utils/tooltips/WaterSummaryTooltip';
+export { InfoTooltip } from './utils/tooltips/InfoTooltip';
+export { ColumnSummaryTooltip } from './utils/tooltips/ColumnSummaryTooltip';
 export { resolvePercentDecimals } from './utils/percentDecimals';
 export type {
   DashboardEnergySummary,
   CategorySummary,
   StatusSummary,
   DeviceInfo,
-} from './utils/EnergySummaryTooltip';
-export type { DashboardWaterSummary, WaterCategorySummary } from './utils/WaterSummaryTooltip';
-export type { ColumnSummaryData, ColumnSummaryDevice } from './utils/ColumnSummaryTooltip';
+} from './utils/tooltips/EnergySummaryTooltip';
+export type { DashboardWaterSummary, WaterCategorySummary } from './utils/tooltips/WaterSummaryTooltip';
+export type { ColumnSummaryData, ColumnSummaryDevice } from './utils/tooltips/ColumnSummaryTooltip';
 
 // RFC-0110: Device Comparison Tooltip (Premium device comparison on percentage hover)
-export { DeviceComparisonTooltip } from './utils/DeviceComparisonTooltip';
-export type { DeviceComparisonData } from './utils/DeviceComparisonTooltip';
+export { DeviceComparisonTooltip } from './utils/tooltips/DeviceComparisonTooltip';
+export type { DeviceComparisonData } from './utils/tooltips/DeviceComparisonTooltip';
 
 // RFC-0110: Temp Comparison Tooltip (Premium temperature comparison with average)
-export { TempComparisonTooltip } from './utils/TempComparisonTooltip';
-export type { TempComparisonData } from './utils/TempComparisonTooltip';
+export { TempComparisonTooltip } from './utils/tooltips/TempComparisonTooltip';
+export type { TempComparisonData } from './utils/tooltips/TempComparisonTooltip';
 
 // Temp Sensor Summary Tooltip (Widget temperature sensors summary)
-export { TempSensorSummaryTooltip } from './utils/TempSensorSummaryTooltip';
-export type { TempSensorSummaryData, TempSensorDevice } from './utils/TempSensorSummaryTooltip';
+export { TempSensorSummaryTooltip } from './utils/tooltips/TempSensorSummaryTooltip';
+export type { TempSensorSummaryData, TempSensorDevice } from './utils/tooltips/TempSensorSummaryTooltip';
 
 // RFC-0107: Contract Summary Tooltip (Shopping Dashboard contract status)
-export { ContractSummaryTooltip } from './utils/ContractSummaryTooltip';
+export { ContractSummaryTooltip } from './utils/tooltips/ContractSummaryTooltip';
 export type {
   ContractSummaryData,
   ContractDomainCounts,
   ContractTemperatureCounts,
-} from './utils/ContractSummaryTooltip';
+} from './utils/tooltips/ContractSummaryTooltip';
 
 // RFC-0112 Rev-001: Users Summary Tooltip (Welcome Modal meta icons)
-export { UsersSummaryTooltip } from './utils/UsersSummaryTooltip';
+export { UsersSummaryTooltip } from './utils/tooltips/UsersSummaryTooltip';
 export type {
   UsersSummaryData,
   UsersByRole,
   UserInfo as UsersTooltipUserInfo,
-} from './utils/UsersSummaryTooltip';
+} from './utils/tooltips/UsersSummaryTooltip';
 
 // RFC-0116: Alarms Summary Tooltip (Not yet released - placeholder)
-export { AlarmsSummaryTooltip } from './utils/AlarmsSummaryTooltip';
-export type { AlarmsSummaryData, AlarmInfo } from './utils/AlarmsSummaryTooltip';
+export { AlarmsSummaryTooltip } from './utils/tooltips/AlarmsSummaryTooltip';
+export type { AlarmsSummaryData, AlarmInfo } from './utils/tooltips/AlarmsSummaryTooltip';
 
 // Notifications Summary Tooltip (Not yet released - placeholder)
-export { NotificationsSummaryTooltip } from './utils/NotificationsSummaryTooltip';
-export type { NotificationsSummaryData, NotificationInfo } from './utils/NotificationsSummaryTooltip';
+export { NotificationsSummaryTooltip } from './utils/tooltips/NotificationsSummaryTooltip';
+export type { NotificationsSummaryData, NotificationInfo } from './utils/tooltips/NotificationsSummaryTooltip';
+
+// RFC-0193 / RFC-0214: Alarm Notification Tooltip (rich, draggable/pinnable/maximizable)
+// Ported from v-5.2.0 HEADER inline AlarmNotificationTooltip into a reusable component.
+export { AlarmNotificationTooltip } from './utils/tooltips/AlarmNotificationTooltip';
+export type {
+  AlarmNotificationData,
+  AlarmRecord,
+  AlarmDayMap,
+  AlarmNotificationToggleContext,
+  AlarmNotificationTooltipConfig,
+} from './utils/tooltips/AlarmNotificationTooltip';
 
 // Unified Modal Header Component (RFC-0121)
 export { ModalHeader } from './utils/ModalHeader';
@@ -646,6 +725,17 @@ export type {
   TemperatureReferenceLine as ConsumptionTemperatureReferenceLine,
 } from './components/Consumption7DaysChart';
 
+// Goals Modal — Painel de metas com linha de alvo (PR #101 / RFC-0046-ready)
+export { GoalsModal } from './components/goals-modal';
+export type {
+  GoalsModalOptions,
+  GoalsDeviceTotal,
+  GoalsTemperatureDevice,
+  GoalsModalFetchConsumptionFn,
+  GoalsConsumptionSeriesPoint,
+  GoalsModalFetchConsumptionSeriesFn,
+} from './components/goals-modal';
+
 // RFC-0101: Export Data Smart Component
 export {
   buildTemplateExport,
@@ -658,6 +748,25 @@ export {
   calculateExportStats,
   generateExportFilename,
 } from './components/ExportData';
+
+// Canonical domain map + per-domain descriptors (single source via exportMapDomain)
+export {
+  DOMAIN_MAP,
+  exportMapDomain,
+  getDomainDescriptor,
+  Energy,
+  Water,
+  Temperature,
+  DOMAIN_CODES,
+} from './utils/exportMapDomain';
+export type {
+  DomainCode,
+  DomainDescriptor,
+  DomainMap,
+  EnergyType,
+  WaterType,
+  TemperatureType,
+} from './utils/exportMapDomain';
 
 // RFC-0101: Export Data Types
 export type {
@@ -747,6 +856,15 @@ export type {
   ContractDomain,
 } from './components/premium-modals/contract-devices';
 
+// RFC-0215: Settings hub modal (consolidated "Configurações" picker — RFC-0108 UX)
+export { openSettingsHubModal } from './components/settings-hub';
+export type {
+  OpenSettingsHubModalOptions,
+  SettingsHubAction,
+  SettingsHubHandlers,
+  SettingsHubModalHandle,
+} from './components/settings-hub';
+
 // RFC-0108: Measurement Setup Modal
 export { openMeasurementSetupModal } from './components/premium-modals/measurement-setup';
 
@@ -783,9 +901,9 @@ export {
   getSuggestedProfiles,
   getSuggestedIdentifier,
   DEVICE_TYPE_DOMAIN,
-} from './classify/deviceType';
+} from './components/classify/deviceType';
 
-export type { InferredDeviceType } from './classify/deviceType';
+export type { InferredDeviceType } from './components/classify/deviceType';
 
 // RFC-0109: Upsell Post-Setup Modal
 export { openUpsellModal } from './components/premium-modals/upsell';
@@ -799,15 +917,29 @@ export {
 } from './components/card-badges';
 export type { AlarmBadgeOptions, TicketBadgeOptions } from './components/card-badges';
 
-// RFC-0205: Premium Dialog — exported confirm/message modal
-export { openConfirmDialog, openMessageDialog } from './components/premium-modals/dialog';
+// RFC-0205: Premium Dialog — exported confirm/message modal + generic HTML modal
+export { openConfirmDialog, openMessageDialog, openGenericModal } from './components/premium-modals/dialog';
 export type {
   ConfirmDialogParams,
   MessageDialogParams,
   MessageDialogSeverity,
   DialogButton,
   DialogButtonVariant,
+  GenericModalParams,
+  GenericModalButton,
+  GenericModalInstance,
 } from './components/premium-modals/dialog';
+
+// ImgGallery — autonomous filterable image gallery + reusable ScrollableTabs
+export { createImgGallery, createScrollableTabs } from './components/img-gallery';
+export type {
+  GalleryImage,
+  ImgGalleryOptions,
+  ImgGalleryInstance,
+  TabItem as GalleryTabItem,
+  ScrollableTabsOptions,
+  ScrollableTabsInstance,
+} from './components/img-gallery';
 
 // RFC-0190: User Management Modal
 export { openUserManagementModal } from './components/premium-modals/user-management';
@@ -939,8 +1071,8 @@ export type {
 } from './components/filter-modal';
 
 // RFC-0127: CustomerCard Components
-export { CustomerCardV1, createCustomerCardV1 } from './components/customer-card-v1';
-export { injectCustomerCardV1Styles } from './components/customer-card-v1';
+export { CustomerCardV1, createCustomerCardV1 } from './components/cards/customer/v1.0.0';
+export { injectCustomerCardV1Styles } from './components/cards/customer/v1.0.0';
 
 export type {
   CustomerCardData,
@@ -949,15 +1081,15 @@ export type {
   CustomerCardDeviceCounts,
   CustomerCardMetaCounts,
   ThemeMode as CustomerCardThemeMode,
-} from './components/customer-card-v1';
+} from './components/cards/customer/v1.0.0';
 
 // RFC-0127: CustomerCardV2 (Metro UI Style)
-export { CustomerCardV2, createCustomerCardV2 } from './components/customer-card-v2';
-export { injectCustomerCardV2Styles } from './components/customer-card-v2';
+export { CustomerCardV2, createCustomerCardV2 } from './components/cards/customer/v2.0.0';
+export { injectCustomerCardV2Styles } from './components/cards/customer/v2.0.0';
 
-export type { CustomerCardV2Params, CustomerCardV2Instance, MetroTile } from './components/customer-card-v2';
+export type { CustomerCardV2Params, CustomerCardV2Instance, MetroTile } from './components/cards/customer/v2.0.0';
 
-export { METRO_TILE_COLORS } from './components/customer-card-v2';
+export { METRO_TILE_COLORS } from './components/cards/customer/v2.0.0';
 
 // RFC-0132: EnergyPanel Component
 export { createEnergyPanelComponent } from './components/energy-panel';
@@ -1169,11 +1301,11 @@ export {
 } from './types/alarm';
 
 // RFC-0152 Phase 4: Device Operational Card Component
-export { createDeviceOperationalCardComponent } from './components/device-operational-card';
+export { createDeviceOperationalCardComponent } from './components/cards/device-operacional/v6.0.0';
 export {
   DeviceOperationalCardView,
   DeviceOperationalCardController,
-} from './components/device-operational-card';
+} from './components/cards/device-operacional/v6.0.0';
 
 export type {
   DeviceOperationalCardParams,
@@ -1191,20 +1323,20 @@ export type {
   DeviceOperationalCardEventHandler,
   AlarmSortOption,
   AlarmFilterTab,
-} from './components/device-operational-card';
+} from './components/cards/device-operacional/v6.0.0';
 
 export {
   ALARM_SORT_OPTIONS,
   SEVERITY_ORDER,
   DEFAULT_DEVICE_OPERATIONAL_CARD_FILTER_STATE,
   DEFAULT_ALARM_FILTER_TABS,
-} from './components/device-operational-card';
+} from './components/cards/device-operacional/v6.0.0';
 
 export {
   DEVICE_OPERATIONAL_CARD_STYLES,
   injectDeviceOperationalCardStyles,
   removeDeviceOperationalCardStyles,
-} from './components/device-operational-card';
+} from './components/cards/device-operacional/v6.0.0';
 
 // RFC-0152 Phase 3: Device Operational Card Grid Component
 export { createDeviceOperationalCardGridComponent } from './components/device-operational-card-grid';
@@ -1314,7 +1446,7 @@ export {
 export type { AlarmAnnotation } from './components/AlarmsNotificationsPanel/AlarmAnnotations';
 
 // RFC-0152 Phase 4: Annotation Tooltip (hover preview on alarm card badge)
-export { AnnotationTooltip } from './utils/AnnotationTooltip';
+export { AnnotationTooltip } from './utils/tooltips/AnnotationTooltip';
 
 // RFC-0152 Phase 5: Operational Dashboard Component
 export { createOperationalDashboardComponent } from './components/operational-dashboard';

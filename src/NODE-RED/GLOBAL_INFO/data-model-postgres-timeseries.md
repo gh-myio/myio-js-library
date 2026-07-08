@@ -278,6 +278,26 @@ WHERE timestamp < NOW() - INTERVAL '<n> days';
 VACUUM ANALYZE <tabela>;
 ```
 
+### 5.5 Backup com `pg_dump` (obrigatório antes de correções)
+
+> O banco é `hubot` — `pg_dump -U hubot` sem `-d` já dumpa o banco correto.
+> Gerar em `/tmp` (⚠️ perdido no reboot — copiar via `scp` se precisar guardar).
+
+```bash
+# Só as tabelas de cadastro (rápido) — use antes de mexer em slaves/ambients/channels
+pg_dump -U hubot --clean --if-exists \
+  -t slaves -t channels -t ambients -t ambients_rfir_slaves_rel \
+  > /tmp/backup-cadastro-$(date +%Y%m%d-%H%M%S).sql
+
+# Banco completo (inclui hypertables de timeseries — pode ser grande)
+pg_dump -U hubot > /tmp/backup-full-$(date +%Y%m%d-%H%M%S).sql
+
+# Restaurar (o --clean --if-exists dropa e recria as tabelas do dump)
+psql -U hubot -f /tmp/backup-cadastro-<timestamp>.sql
+```
+
+Ver também o manual operacional: [`manual-centrais-linix-orangepi.md`](manual-centrais-linix-orangepi.md) §9.4.
+
 ---
 
 ## 6. Scripts SQL de Correção
@@ -322,4 +342,4 @@ rm /tmp/fix-<shopping>.sql
 
 ---
 
-*Última atualização: 2026-04-06*
+*Última atualização: 2026-07-07*

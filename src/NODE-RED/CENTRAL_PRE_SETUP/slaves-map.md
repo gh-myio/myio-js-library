@@ -1,6 +1,6 @@
 # Slaves Map — CENTRAL_PRE_SETUP (referência / pós Pre-Setup Constructor)
 
-> Central de **pré-setup** (saída do Pre-Setup Constructor — ver `src/thingsboard/WIDGET/Pre-Setup-Constructor`).
+> Central de **pré-setup** (saída do Pre-Setup Constructor — ver `src/thingsboard/Pre-Setup-Constructor`).
 > Total slaves: 45 · Total channels: 161
 > Fonte: `logDatabase.log` (re-provisionada — ver nota abaixo)
 

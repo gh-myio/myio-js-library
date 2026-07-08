@@ -793,7 +793,7 @@ O layout utiliza **CSS Grid** com 4 colunas e 2 linhas, conforme especificado em
 | `createBASDashboard()`          | `src/components/bas-dashboard/index.ts`                  | Factory do dashboard (HVAC + Motores)              |
 | `BASDashboardController`        | `src/components/bas-dashboard/BASDashboardController.ts` | Controller MVC                                     |
 | `BASDashboardView`              | `src/components/bas-dashboard/BASDashboardView.ts`       | View — renderiza HVAC + Motores (panels-only mode) |
-| `renderCardComponentV6()`       | `src/components/template-card-v6/template-card-v6.js`    | Renderizacao de cards com customStyle              |
+| `renderCardComponentV6()`       | `src/components/cards/main-view/v6.0.0/template-card-v6.js`    | Renderizacao de cards com customStyle              |
 | `EntityListPanel`               | `src/components/entity-list-panel/`                      | Sidebar de andares com busca e selecao             |
 | `CardGridPanel`                 | `src/components/card-grid-panel/`                        | Grid responsivo de cards para agua                 |
 | `createConsumption7DaysChart()` | `src/components/Consumption7DaysChart/`                  | Grafico de consumo 7 dias (Chart.js)               |

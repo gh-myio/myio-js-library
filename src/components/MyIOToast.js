@@ -1,3 +1,4 @@
+/* global window, document */
 // src/components/MyIOToast.js
 /**
  * MyIO Global Toast Manager
@@ -5,33 +6,28 @@
  * A lightweight, globally accessible toast notification system for MyIO applications.
  *
  * Features:
- * - Singleton pattern: Only one toast container in the DOM
+ * - Singleton CONTAINER, but each toast is its own element → toasts STACK vertically
+ *   (they no longer overwrite each other when several fire in quick succession).
  * - Multiple toast types: info, success, warning, error
- * - Automatic dismissal with customizable duration
- * - Smooth animations
+ * - Per-toast automatic dismissal with customizable duration
+ * - Smooth slide-in/out animations; stack capped at MAX_TOASTS (oldest dropped)
  * - No external dependencies
  *
  * Usage:
  * ```javascript
  * import { MyIOToast } from 'myio-js-library';
  *
- * // Show a simple warning toast
- * MyIOToast.show('Operation completed');
- *
- * // Show an error toast
- * MyIOToast.show('Failed to load data', 'error');
- *
- * // Show toast with custom duration (5 seconds)
- * MyIOToast.show('Processing...', 'info', 5000);
- *
- * // Hide toast immediately
- * MyIOToast.hide();
+ * MyIOToast.show('Operation completed');            // info
+ * MyIOToast.error('Failed to load data');           // stacks below previous toasts
+ * const t = MyIOToast.info('Processing…', 0);        // duration 0 = sticky
+ * t.hide();                                          // dismiss that specific toast
+ * MyIOToast.hide();                                  // dismiss ALL toasts
  * ```
  *
  * @module MyIOToast
  */
 
-import InfoTooltip from '../utils/InfoTooltip';
+import InfoTooltip from '../utils/tooltips/InfoTooltip';
 
 /**
  * ============================================================================
@@ -39,11 +35,14 @@ import InfoTooltip from '../utils/InfoTooltip';
  * ============================================================================
  *   Messages longer than this are truncated with "…" and get a "+" button
  *   that opens the FULL message in the shared InfoTooltip panel (pin/maximize,
- *   same pattern as src/utils/InfoTooltip.ts). Keeps long warnings/errors from
+ *   same pattern as src/utils/tooltips/InfoTooltip.ts). Keeps long warnings/errors from
  *   blowing up the toast.
  * ============================================================================
  */
 const TOAST_MAX_MESSAGE_LENGTH = 100;
+
+/** Maximum number of stacked toasts kept on screen; older ones are dropped. */
+const MAX_TOASTS = 6;
 
 const TOAST_TYPE_META = {
   info:    { icon: 'ℹ️', title: 'Informação' },
@@ -60,77 +59,60 @@ function escapeHtml(text) {
 
 const MyIOToast = (function() {
   let toastContainer = null;
-  let toastTimeout = null;
 
-  // CSS for toast styling
+  // CSS: the container is a fixed, top-right vertical STACK; each `.myio-toast` is a card.
   const TOAST_CSS = `
     #myio-global-toast-container {
       position: fixed;
       top: 25px;
       right: 25px;
       z-index: 99999;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-width: 480px;
+      pointer-events: none; /* let clicks pass through the gaps; each toast re-enables */
+    }
+
+    #myio-global-toast-container .myio-toast {
       min-width: 320px;
       max-width: 480px;
       padding: 16px 20px;
       background-color: #323232;
       color: white;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
       font-size: 14px;
       border-radius: 8px;
-      transform: translateX(400px);
-      transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
-      opacity: 0;
       box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
       border-left: 5px solid transparent;
       display: flex;
       align-items: center;
       word-wrap: break-word;
       pointer-events: auto;
+      transform: translateX(480px);
+      opacity: 0;
+      transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
     }
 
-    #myio-global-toast-container.show {
+    #myio-global-toast-container .myio-toast.show {
       transform: translateX(0);
       opacity: 1;
     }
 
-    #myio-global-toast-container.info {
-      background-color: #2196f3;
-      border-color: #1976d2;
+    #myio-global-toast-container .myio-toast.hiding {
+      transform: translateX(480px);
+      opacity: 0;
     }
 
-    #myio-global-toast-container.success {
-      background-color: #4caf50;
-      border-color: #388e3c;
-    }
+    #myio-global-toast-container .myio-toast.info    { background-color: #2196f3; border-color: #1976d2; }
+    #myio-global-toast-container .myio-toast.success { background-color: #4caf50; border-color: #388e3c; }
+    #myio-global-toast-container .myio-toast.warning { background-color: #ff9800; border-color: #f57c00; }
+    #myio-global-toast-container .myio-toast.error   { background-color: #d32f2f; border-color: #b71c1c; }
 
-    #myio-global-toast-container.warning {
-      background-color: #ff9800;
-      border-color: #f57c00;
-    }
-
-    #myio-global-toast-container.error {
-      background-color: #d32f2f;
-      border-color: #b71c1c;
-    }
-
-    #myio-global-toast-container::before {
-      content: 'ℹ️';
-      margin-right: 12px;
-      font-size: 20px;
-      flex-shrink: 0;
-    }
-
-    #myio-global-toast-container.success::before {
-      content: '✅';
-    }
-
-    #myio-global-toast-container.warning::before {
-      content: '⚠️';
-    }
-
-    #myio-global-toast-container.error::before {
-      content: '🚫';
-    }
+    #myio-global-toast-container .myio-toast::before { content: 'ℹ️'; margin-right: 12px; font-size: 20px; flex-shrink: 0; }
+    #myio-global-toast-container .myio-toast.success::before { content: '✅'; }
+    #myio-global-toast-container .myio-toast.warning::before { content: '⚠️'; }
+    #myio-global-toast-container .myio-toast.error::before   { content: '🚫'; }
 
     #myio-global-toast-container .myio-toast-msg {
       flex: 1 1 auto;
@@ -166,6 +148,9 @@ const MyIOToast = (function() {
         top: 10px;
         right: 10px;
         left: 10px;
+        max-width: none;
+      }
+      #myio-global-toast-container .myio-toast {
         min-width: auto;
         max-width: none;
       }
@@ -173,16 +158,12 @@ const MyIOToast = (function() {
   `;
 
   /**
-   * Create toast element in DOM (runs only once)
+   * Create (once) the stack container in the DOM.
    * @private
    */
-  function createToastElement() {
-    if (document.getElementById('myio-global-toast-container')) {
-      toastContainer = document.getElementById('myio-global-toast-container');
-      return;
-    }
+  function ensureContainer() {
+    if (toastContainer && document.body && document.body.contains(toastContainer)) return;
 
-    // Inject CSS into <head>
     if (!document.getElementById('myio-global-toast-styles')) {
       const style = document.createElement('style');
       style.id = 'myio-global-toast-styles';
@@ -190,57 +171,54 @@ const MyIOToast = (function() {
       document.head.appendChild(style);
     }
 
-    // Create HTML element and append to <body>
-    toastContainer = document.createElement('div');
-    toastContainer.id = 'myio-global-toast-container';
-    document.body.appendChild(toastContainer);
+    toastContainer = document.getElementById('myio-global-toast-container');
+    if (!toastContainer) {
+      toastContainer = document.createElement('div');
+      toastContainer.id = 'myio-global-toast-container';
+      document.body.appendChild(toastContainer);
+    }
   }
 
   /**
-   * Show a toast notification
+   * Animate a toast out and remove it from the DOM.
+   * @private
+   */
+  function removeToast(el) {
+    if (!el) return;
+    el.classList.remove('show');
+    el.classList.add('hiding');
+    setTimeout(() => {
+      if (el.parentNode) el.parentNode.removeChild(el);
+    }, 320);
+  }
+
+  /**
+   * Show a toast notification. Each call appends a NEW toast to the stack.
    *
    * @param {string} message - The message to display
-   * @param {string} [type='info'] - Toast type: 'info', 'success', 'warning', or 'error'
-   * @param {number} [duration=3500] - Duration in milliseconds before auto-hide
-   * @returns {object} Toast instance with hide() method
+   * @param {string} [type='info'] - 'info' | 'success' | 'warning' | 'error'
+   * @param {number} [duration=3500] - ms before auto-hide; 0 = sticky
+   * @returns {{ hide: () => void }} handle to dismiss this specific toast
    *
    * @example
-   * // Simple info toast
-   * MyIOToast.show('Processing your request...');
-   *
-   * @example
-   * // Error toast with custom duration
    * MyIOToast.show('Failed to save changes', 'error', 5000);
-   *
-   * @example
-   * // Manual control
-   * const toast = MyIOToast.show('Loading...', 'info');
-   * // Later...
-   * toast.hide();
    */
   function show(message, type = 'info', duration = 3500) {
-    if (!toastContainer) {
-      createToastElement();
-    }
+    ensureContainer();
 
-    // Clear any existing timeout
-    clearTimeout(toastTimeout);
-
-    // Validate type
     const validTypes = ['info', 'success', 'warning', 'error'];
     if (!validTypes.includes(type)) {
       console.warn(`[MyIOToast] Invalid type "${type}". Using "info" instead.`);
       type = 'info';
     }
 
-    // Set message and type.
+    const toastEl = document.createElement('div');
+    toastEl.className = `myio-toast ${type}`;
+
     // Messages over TOAST_MAX_MESSAGE_LENGTH are truncated with "…" and get a
     // "+" button that opens the full text in the shared InfoTooltip panel.
     const fullMessage = message == null ? '' : String(message);
     const isLong = fullMessage.length > TOAST_MAX_MESSAGE_LENGTH;
-    toastContainer.textContent = ''; // Reset content
-    toastContainer.className = ''; // Reset classes
-    toastContainer.classList.add(type);
 
     const msgSpan = document.createElement('span');
     msgSpan.className = 'myio-toast-msg';
@@ -248,7 +226,14 @@ const MyIOToast = (function() {
       ? fullMessage.slice(0, TOAST_MAX_MESSAGE_LENGTH).trimEnd() + '…'
       : fullMessage;
     if (isLong) msgSpan.title = 'Mensagem truncada — clique em + para ver tudo';
-    toastContainer.appendChild(msgSpan);
+    toastEl.appendChild(msgSpan);
+
+    let toastTimeout = null;
+    const doHide = () => {
+      if (toastTimeout) clearTimeout(toastTimeout);
+      toastTimeout = null;
+      removeToast(toastEl);
+    };
 
     if (isLong) {
       const meta = TOAST_TYPE_META[type] || TOAST_TYPE_META.info;
@@ -259,45 +244,44 @@ const MyIOToast = (function() {
       expandBtn.setAttribute('aria-label', 'Ver mensagem completa');
       expandBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        // Keep the toast on screen while the user reads the full message
-        clearTimeout(toastTimeout);
+        // Keep this toast on screen while the user reads the full message
+        if (toastTimeout) clearTimeout(toastTimeout);
+        toastTimeout = null;
         InfoTooltip.show(expandBtn, {
           icon: meta.icon,
           title: meta.title,
           content: escapeHtml(fullMessage).replace(/\n/g, '<br>'),
         });
       });
-      toastContainer.appendChild(expandBtn);
+      toastEl.appendChild(expandBtn);
     }
 
-    // Force browser reflow to ensure animation always works
-    setTimeout(() => {
-      toastContainer.classList.add('show');
-    }, 10);
+    toastContainer.appendChild(toastEl);
 
-    // Auto-hide after duration
+    // Cap the stack: drop the oldest toasts beyond MAX_TOASTS.
+    while (toastContainer.children.length > MAX_TOASTS) {
+      removeToast(toastContainer.firstElementChild);
+    }
+
+    // Force browser reflow so the slide-in animation always plays.
+    setTimeout(() => toastEl.classList.add('show'), 10);
+
     if (duration > 0) {
-      toastTimeout = setTimeout(() => {
-        hide();
-      }, duration);
+      toastTimeout = setTimeout(doHide, duration);
     }
 
-    // Return object with hide method for manual control
-    return {
-      hide: hide
-    };
+    return { hide: doHide };
   }
 
   /**
-   * Hide the toast immediately
+   * Dismiss ALL toasts currently on screen.
    *
    * @example
    * MyIOToast.hide();
    */
   function hide() {
     if (toastContainer) {
-      toastContainer.classList.remove('show');
-      clearTimeout(toastTimeout);
+      Array.from(toastContainer.children).forEach(removeToast);
     }
   }
 
@@ -341,12 +325,12 @@ const MyIOToast = (function() {
     return show(message, 'error', duration);
   }
 
-  // Initialize toast element when DOM is ready
+  // Initialize the container when the DOM is ready
   if (typeof window !== 'undefined') {
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', createToastElement);
+      document.addEventListener('DOMContentLoaded', ensureContainer);
     } else {
-      createToastElement();
+      ensureContainer();
     }
   }
 
@@ -357,7 +341,7 @@ const MyIOToast = (function() {
     info,
     success,
     warning,
-    error
+    error,
   };
 })();
 

@@ -44,6 +44,8 @@ import type {
 // Re-export types
 export * from './types';
 
+import { DOMAIN_MAP } from '../../utils/exportMapDomain';
+
 // ============================================================================
 // Constants
 // ============================================================================
@@ -58,32 +60,33 @@ const DEFAULT_COLORS: Required<ExportColorsPallet> = {
   chartColors: ['#3e1a7d', '#00bcd4', '#4caf50', '#ff9800', '#e91e63', '#9c27b0'],
 };
 
+// Domain presentation derived from the canonical DOMAIN_MAP (single source).
 /** Domain icons */
 const DOMAIN_ICONS: Record<ExportDomain, string> = {
-  energy: '\u26A1',   // Lightning bolt
-  water: '\uD83D\uDCA7',    // Water drop
-  temperature: '\uD83C\uDF21\uFE0F', // Thermometer
+  energy: DOMAIN_MAP.energy.icon,
+  water: DOMAIN_MAP.water.icon,
+  temperature: DOMAIN_MAP.temperature.icon,
 };
 
 /** Domain labels (Portuguese) */
 const DOMAIN_LABELS: Record<ExportDomain, string> = {
-  energy: 'Energia',
-  water: '\u00C1gua',
-  temperature: 'Temperatura',
+  energy: DOMAIN_MAP.energy.name,
+  water: DOMAIN_MAP.water.name,
+  temperature: DOMAIN_MAP.temperature.name,
 };
 
 /** Domain labels (English) */
 const DOMAIN_LABELS_EN: Record<ExportDomain, string> = {
-  energy: 'Energy',
-  water: 'Water',
-  temperature: 'Temperature',
+  energy: DOMAIN_MAP.energy.nameEn ?? DOMAIN_MAP.energy.name,
+  water: DOMAIN_MAP.water.nameEn ?? DOMAIN_MAP.water.name,
+  temperature: DOMAIN_MAP.temperature.nameEn ?? DOMAIN_MAP.temperature.name,
 };
 
 /** Domain units */
 const DOMAIN_UNITS: Record<ExportDomain, string> = {
-  energy: 'kWh',
-  water: 'm\u00B3',
-  temperature: '\u00B0C',
+  energy: DOMAIN_MAP.energy.unit,
+  water: DOMAIN_MAP.water.unit,
+  temperature: DOMAIN_MAP.temperature.unit,
 };
 
 /** CSV separator by locale */

@@ -36,10 +36,28 @@ const LogHelper = window.MyIOUtils?.LogHelper || {
  * @returns {object|null} InfoTooltip component or null if not available
  */
 function getInfoTooltip() {
-  return window.MyIOLibrary?.InfoTooltip || null;
+  const t = window.MyIOUtils?.InfoTooltip;
+  if (!t) console.error('[TELEMETRY] InfoTooltip unavailable via MyIOUtils');
+  return t || null;
 }
 
 LogHelper.log('🚀 [TELEMETRY] Controller loaded - VERSION WITH ORCHESTRATOR SUPPORT');
+
+// ── TLM-DEBUG (render diagnosis) ────────────────────────────────────────────
+// Direct console.* (bypasses LogHelper gating) so render-path tracing is always
+// visible regardless of DEBUG_ACTIVE. Remove once the no-cards issue is solved.
+function TLMDBG(...args) {
+  try {
+    console.log('🟢 [TLM-DEBUG]', ...args);
+  } catch (_) {
+    /* noop */
+  }
+}
+TLMDBG('module evaluated', {
+  hasMyIOUtils: !!window.MyIOUtils,
+  hasMyIOLibrary: !!window.MyIOLibrary,
+  renderCardComponentV5: typeof window.MyIOUtils?.renderCardComponentV5,
+});
 
 // ============================================================================
 // RFC-0106: Device Classification - NOW USES MAIN_VIEW via window.MyIOUtils
@@ -1124,26 +1142,37 @@ const ESCADAS_IDENTIFIERS_SET = new Set(DEVICE_CLASSIFICATION_CONFIG.escadas_rol
  * @returns {string|null}
  */
 function _getEnergyGroupKey(it) {
+  // RFC-0207 (follow-up #3): single-source classification via the library
+  // resolver. Migration snapshot (deviceProfile-authoritative + A1 CAG substring;
+  // 4 reviewed moves): tests/deviceClassificationProfile.energyGroupKey.test.ts.
+  // The legacy deviceType-keyed Set body was removed; the canonical source is
+  // the resolver, accessed via the MyIOUtils bridge (only MAIN touches the lib).
+  //
+  // `null` contract preserved: non-energy cards (water/temperature/uncategorized)
+  // return null and stay always-shown (see the filter at L~898).
+  const Lib = window.MyIOUtils;
+  if (!Lib || typeof Lib.resolveGroup !== 'function' || typeof Lib.resolveCategory !== 'function') {
+    console.error(
+      '[TELEMETRY] RFC-0207: resolveGroup/resolveCategory unavailable via MyIOUtils — card-group filter disabled'
+    );
+    return null;
+  }
+
+  // entrada is a GROUP (column) decision
+  if (Lib.resolveGroup(it, undefined, 'energy').group === 'entrada') return 'entrada';
+
+  // breakdown bucket via the unified category resolver
+  const cat = Lib.resolveCategory(it).category; // lojas|climatizacao|elevadores|escadas_rolantes|outros
+  if (cat === 'climatizacao') return 'climatizacao';
+  if (cat === 'elevadores') return 'elevadores';
+  if (cat === 'escadas_rolantes') return 'escadasRolantes';
+  if (cat === 'lojas') return 'lojas';
+
+  // genuine fallback ('outros'): only 3F_MEDIDOR cards are group-filterable as
+  // 'outros'; everything else stays null (always shown).
   const dt = String(it.deviceType || '').toUpperCase();
   const dp = String(it.deviceProfile || '').toUpperCase();
-  const id = String(it.identifier || '').toUpperCase();
-  const entradaTypes = new Set(['ENTRADA', 'RELOGIO', 'TRAFO', 'SUBESTACAO']);
-  if (entradaTypes.has(dt) || entradaTypes.has(dp)) return 'entrada';
-  if (
-    CLIMATIZACAO_DEVICE_TYPES_SET.has(dt) ||
-    CLIMATIZACAO_CONDITIONAL_TYPES_SET.has(dt) ||
-    CLIMATIZACAO_IDENTIFIERS_SET.has(id) ||
-    id.startsWith('CAG-') ||
-    id.startsWith('FANCOIL-') ||
-    (DEVICE_CLASSIFICATION_CONFIG.climatizacao.deviceProfiles || []).includes(dp)
-  )
-    return 'climatizacao';
-  if (ELEVADORES_DEVICE_TYPES_SET.has(dt) || ELEVADORES_IDENTIFIERS_SET.has(id) || id.startsWith('ELV-'))
-    return 'elevadores';
-  if (ESCADAS_DEVICE_TYPES_SET.has(dt) || ESCADAS_IDENTIFIERS_SET.has(id) || id.startsWith('ESC-'))
-    return 'escadasRolantes';
-  if (dt === '3F_MEDIDOR' && (dp === '3F_MEDIDOR' || !dp)) return 'lojas';
-  if (dt === '3F_MEDIDOR') return 'outros';
+  if (dt === '3F_MEDIDOR' || dp === '3F_MEDIDOR') return 'outros';
   return null;
 }
 
@@ -2676,6 +2705,12 @@ function renderHeader(count, groupSum) {
 
 function renderList(visible) {
   const $ul = $list().empty();
+  TLMDBG('renderList ENTER', {
+    domain: WIDGET_DOMAIN,
+    visibleCount: Array.isArray(visible) ? visible.length : '(not array)',
+    $ulFound: $ul && $ul.length,
+    renderCardFn: typeof MyIO?.renderCardComponentV5,
+  });
   // RFC-0152: Reset per-render device data export buffer
   window[_exportKey] = [];
 
@@ -2701,7 +2736,9 @@ function renderList(visible) {
     }
   }
 
-  visible.forEach((it) => {
+  let _tlmAppended = 0;
+  visible.forEach((it, _tlmIdx) => {
+   try {
     // For temperature domain, render all temperature-related devices
     // (deviceType can be TERMOSTATO, SENSOR_TEMP, or other temperature sensor types)
     // No filtering needed - temperature domain items are already filtered by orchestrator
@@ -2739,6 +2776,8 @@ function renderList(visible) {
       centralId: it.centralId || 'N/A',
       centralName: it.centralName || '',
       customerName: it.customerName || null,
+      // Per-device exclude_groups_totals → card v5 "excluded" beige bg + marker
+      excludeGroupsTotals: it.excludeGroupsTotals || null,
       updatedIdentifiers: it.updatedIdentifiers || {},
       // Connection timing fields (for Settings modal)
       connectionStatusTime: it.connectionStatusTime || it.lastConnectTime || null,
@@ -2808,7 +2847,7 @@ function renderList(visible) {
 
       handleActionDashboard: async () => {
         const jwtToken = localStorage.getItem('jwt_token');
-        const MyIOToast = MyIOLibrary?.MyIOToast || window.MyIOToast;
+        const MyIOToast = window.MyIOUtils?.MyIOToast;
 
         if (!jwtToken) {
           if (MyIOToast) {
@@ -2863,8 +2902,8 @@ function renderList(visible) {
         try {
           if (isTermostato) {
             // Temperature/TERMOSTATO Modal Path - RFC-0085
-            // Uses MyIOLibrary.openTemperatureModal instead of inline implementation
-            LogHelper.log('[TELEMETRY v5] Entering TERMOSTATO device modal path (MyIOLibrary)...');
+            // Uses openTemperatureModal (via MyIOUtils bridge) instead of inline impl
+            LogHelper.log('[TELEMETRY v5] Entering TERMOSTATO device modal path...');
 
             const deviceId = it.tbId || it.id;
 
@@ -2892,10 +2931,10 @@ function renderList(visible) {
               tempMaxRange,
             });
 
-            // Check if MyIOLibrary.openTemperatureModal is available
-            if (typeof MyIOLibrary?.openTemperatureModal !== 'function') {
-              const errorMsg = 'Temperature modal not available. Please update MyIO library.';
-              LogHelper.error('[TELEMETRY v5] ❌', errorMsg);
+            // openTemperatureModal via the MyIOUtils bridge
+            if (typeof window.MyIOUtils?.openTemperatureModal !== 'function') {
+              const errorMsg = 'openTemperatureModal unavailable via MyIOUtils';
+              console.error('[TELEMETRY v5] ❌', errorMsg);
               throw new Error(errorMsg);
             }
 
@@ -2915,7 +2954,7 @@ function renderList(visible) {
                   throw new Error('Missing credentials for ingestion API');
                 }
                 const dataApiHost = window.MyIOUtils?.getDataApiHost?.();
-                const myIOAuth = MyIOLibrary.buildMyioIngestionAuth({
+                const myIOAuth = window.MyIOUtils.buildMyioIngestionAuth({
                   dataApiHost,
                   clientId: creds.CLIENT_ID,
                   clientSecret: creds.CLIENT_SECRET,
@@ -2975,7 +3014,7 @@ function renderList(visible) {
                 ? { min: customerClampRange.min, max: customerClampRange.max }
                 : undefined;
 
-            const modalHandle = MyIOLibrary.openTemperatureModal({
+            const modalHandle = window.MyIOUtils.openTemperatureModal({
               token: jwtToken,
               deviceId: deviceId,
               startDate: startDateISO,
@@ -2991,7 +3030,7 @@ function renderList(visible) {
               ...(clampRange ? { clampRange } : {}),
               ...(ingestionDataFetcher ? { dataFetcher: ingestionDataFetcher } : {}),
               onClose: () => {
-                LogHelper.log('[TELEMETRY v5] Temperature modal closed via MyIOLibrary');
+                LogHelper.log('[TELEMETRY v5] Temperature modal closed');
               },
             });
 
@@ -3004,22 +3043,15 @@ function renderList(visible) {
             }, 50);
             hideBusy();
 
-            LogHelper.log('[TELEMETRY v5] ✅ Temperature modal opened via MyIOLibrary:', modalHandle);
+            LogHelper.log('[TELEMETRY v5] ✅ Temperature modal opened:', modalHandle);
             return; // Exit early - modal is now handling everything
           } else if (isWaterTank) {
             // Water Tank Modal Path
             LogHelper.log('[TELEMETRY v5] Entering TANK device modal path...');
 
-            LogHelper.log(
-              '[TELEMETRY v5] MyIOLibrary available:',
-              typeof MyIOLibrary !== 'undefined',
-              'openDashboardPopupWaterTank exists:',
-              typeof MyIOLibrary?.openDashboardPopupWaterTank
-            );
-
-            if (typeof MyIOLibrary?.openDashboardPopupWaterTank !== 'function') {
-              const errorMsg = 'Water tank modal not available. Please update MyIO library.';
-              LogHelper.error('[TELEMETRY v5] ❌', errorMsg);
+            if (typeof window.MyIOUtils?.openDashboardPopupWaterTank !== 'function') {
+              const errorMsg = 'openDashboardPopupWaterTank unavailable via MyIOUtils';
+              console.error('[TELEMETRY v5] ❌', errorMsg);
               throw new Error(errorMsg);
             }
 
@@ -3065,7 +3097,7 @@ function renderList(visible) {
 
             LogHelper.log('[TELEMETRY v5] ⏳ About to call openDashboardPopupWaterTank...');
 
-            const modalHandle = await MyIOLibrary.openDashboardPopupWaterTank({
+            const modalHandle = await window.MyIOUtils.openDashboardPopupWaterTank({
               deviceId: it.id,
               deviceType: deviceType,
               tbJwtToken: jwtToken,
@@ -3192,7 +3224,7 @@ function renderList(visible) {
 
             if (!tbId) {
               LogHelper.warn('[TELEMETRY v5] No TB device ID for temperature report');
-              const MyIOToast = MyIOLibrary?.MyIOToast || window.MyIOToast;
+              const MyIOToast = window.MyIOUtils?.MyIOToast;
               if (MyIOToast) {
                 MyIOToast.error('Nao foi possivel identificar o dispositivo.');
               }
@@ -3371,7 +3403,7 @@ function renderList(visible) {
             tbId,
           });
           hideBusy();
-          const MyIOToast = window.MyIOLibrary?.MyIOToast;
+          const MyIOToast = window.MyIOUtils?.MyIOToast;
           if (MyIOToast) {
             MyIOToast.error('Não foi possível identificar o deviceId do ThingsBoard para este card.', 5000);
           }
@@ -3517,6 +3549,25 @@ function renderList(visible) {
     }
 
     $ul.append($card);
+    _tlmAppended++;
+   } catch (_cardErr) {
+    console.error(
+      '🔴 [TLM-DEBUG] card render FAILED at idx',
+      _tlmIdx,
+      'label=',
+      it && it.label,
+      'deviceType=',
+      it && it.deviceType,
+      _cardErr
+    );
+   }
+  });
+
+  TLMDBG('renderList DONE', {
+    domain: WIDGET_DOMAIN,
+    appended: _tlmAppended,
+    requested: Array.isArray(visible) ? visible.length : 0,
+    $ulChildren: $ul && $ul.children ? $ul.children().length : '(n/a)',
   });
 
   // RFC-0152: Log device export data if enabled via settings
@@ -3610,9 +3661,9 @@ function _getExportCustomerName() {
 }
 
 function _openPresetupModal() {
-  const lib = window.MyIOLibrary;
+  const lib = window.MyIOUtils;
   if (!lib?.createPresetupGateway) {
-    LogHelper.warn('[TELEMETRY] createPresetupGateway não disponível em MyIOLibrary');
+    console.error('[TELEMETRY] createPresetupGateway unavailable via MyIOUtils');
     return;
   }
   const s = self.ctx.settings || {};
@@ -3842,9 +3893,9 @@ function bindHeader() {
 
   // Export buttons
   $root().on('click', '#btnExportPdf', () => {
-    const lib = window.MyIOLibrary;
+    const lib = window.MyIOUtils;
     if (!lib?.exportGridPdf) {
-      LogHelper.warn('[TELEMETRY] exportGridPdf not available in MyIOLibrary');
+      console.error('[TELEMETRY] exportGridPdf unavailable via MyIOUtils');
       return;
     }
     lib.exportGridPdf(
@@ -3857,9 +3908,9 @@ function bindHeader() {
   });
 
   $root().on('click', '#btnExportXls', () => {
-    const lib = window.MyIOLibrary;
+    const lib = window.MyIOUtils;
     if (!lib?.exportGridXls) {
-      LogHelper.warn('[TELEMETRY] exportGridXls not available in MyIOLibrary');
+      console.error('[TELEMETRY] exportGridXls unavailable via MyIOUtils');
       return;
     }
     lib.exportGridXls(
@@ -3872,9 +3923,9 @@ function bindHeader() {
   });
 
   $root().on('click', '#btnExportCsv', () => {
-    const lib = window.MyIOLibrary;
+    const lib = window.MyIOUtils;
     if (!lib?.exportGridCsv) {
-      LogHelper.warn('[TELEMETRY] exportGridCsv not available in MyIOLibrary');
+      console.error('[TELEMETRY] exportGridCsv unavailable via MyIOUtils');
       return;
     }
     lib.exportGridCsv(
@@ -4024,9 +4075,9 @@ function _applyChecklistVisibility($m) {
 
 // Quick filters: device-list tooltip shown by the (+) button on a tab.
 function _showQuickFilterDevices(triggerEl, filterId) {
-  const InfoTooltip = window.MyIOLibrary && window.MyIOLibrary.InfoTooltip;
+  const InfoTooltip = window.MyIOUtils?.InfoTooltip;
   if (!InfoTooltip) {
-    LogHelper.warn('[TELEMETRY] InfoTooltip indisponível para o (+) de filtros');
+    console.error('[TELEMETRY] InfoTooltip unavailable via MyIOUtils (+ de filtros)');
     return;
   }
 
@@ -4161,14 +4212,11 @@ function _buildColumnSummaryData() {
 
 // Attaches the library ColumnSummaryTooltip to the (i) icons — shops-header + filter modal.
 function _attachColumnSummary($m) {
-  const CST =
-    (typeof MyIO !== 'undefined' && MyIO && MyIO.ColumnSummaryTooltip) ||
-    (window.MyIOLibrary && window.MyIOLibrary.ColumnSummaryTooltip) ||
-    null;
+  const CST = window.MyIOUtils?.ColumnSummaryTooltip || null;
   const $headerInfo = $root().find('#shopsColInfo');
   const $modalInfo = $m ? $m.find('#filterColInfo') : null;
   if (!CST) {
-    LogHelper.warn('[TELEMETRY] ColumnSummaryTooltip indisponível na lib — ocultando ícones (i)');
+    console.error('[TELEMETRY] ColumnSummaryTooltip unavailable via MyIOUtils — ocultando ícones (i)');
     $headerInfo.hide();
     if ($modalInfo) $modalInfo.hide();
     return;
@@ -4836,7 +4884,7 @@ function bindModal() {
     _showQuickFilterDevices(this, String($(this).data('expand-filter') || ''));
   });
   $m.on('mouseleave', '.filter-tab-expand', function () {
-    const T = window.MyIOLibrary && window.MyIOLibrary.InfoTooltip;
+    const T = window.MyIOUtils?.InfoTooltip;
     if (T) T.startDelayedHide();
   });
   $m.on('click', '.filter-tab-expand', function (ev) {
@@ -5633,6 +5681,14 @@ function emitWaterTelemetry(widgetType, periodKey) {
 
 /** ===================== RECOMPUTE (local only) ===================== **/
 function reflowFromState() {
+  TLMDBG('reflowFromState ENTER', {
+    domain: WIDGET_DOMAIN,
+    itemsEnriched: STATE.itemsEnriched ? STATE.itemsEnriched.length : '(none)',
+    itemsBase: STATE.itemsBase ? STATE.itemsBase.length : '(none)',
+    searchTerm: STATE.searchTerm,
+    selectedIds: STATE.selectedIds ? STATE.selectedIds.size : null,
+    alarmFilter: STATE.alarmFilter,
+  });
   const visible = applyFilters(
     STATE.itemsEnriched,
     STATE.searchTerm,
@@ -5640,6 +5696,9 @@ function reflowFromState() {
     STATE.sortMode,
     STATE.alarmFilter
   );
+  TLMDBG('reflowFromState afterFilters', {
+    visibleAfterFilters: Array.isArray(visible) ? visible.length : '(not array)',
+  });
   const { visible: withPerc, groupSum } = recomputePercentages(visible);
   STATE.lastVisible = withPerc;
   renderHeader(withPerc.length, groupSum);
@@ -5740,6 +5799,11 @@ async function hydrateAndRender() {
 
 /** ===================== TB LIFE CYCLE ===================== **/
 self.onInit = async function () {
+  TLMDBG('onInit START', {
+    labelWidget: self.ctx?.settings?.labelWidget,
+    DOMAIN: self.ctx?.settings?.DOMAIN,
+    widgetId: self.ctx?.widget?.id,
+  });
   $(self.ctx.$container).css({
     height: '100%',
     overflow: 'hidden',
@@ -5748,12 +5812,13 @@ self.onInit = async function () {
     position: 'relative',
   });
 
-  MyIO = (typeof MyIOLibrary !== 'undefined' && MyIOLibrary) ||
-    (typeof window !== 'undefined' && window.MyIOLibrary) || {
-      showAlert: function () {
-        alert('A Bliblioteca Myio não foi carregada corretamente!');
-      },
-    };
+  // Lib access goes through the MyIOUtils bridge (MAIN is the only widget that
+  // touches the library object). All `MyIO.<symbol>` reads below resolve via the
+  // bridge getters. No direct library reference here.
+  MyIO = (typeof window !== 'undefined' && window.MyIOUtils) || {};
+  if (!window.MyIOUtils) {
+    console.error('[TELEMETRY] MyIOUtils bridge unavailable (MAIN/lib not ready?)');
+  }
 
   $root().find('#labelWidgetId').text(self.ctx.settings?.labelWidget);
 
@@ -6103,6 +6168,14 @@ self.onInit = async function () {
   dataProvideHandler = function (ev) {
     const { domain, periodKey } = ev.detail;
 
+    TLMDBG('provide-data RECEIVED', {
+      eventDomain: domain,
+      myDomain: WIDGET_DOMAIN,
+      periodKey,
+      myStart: self.ctx?.scope?.startDateISO,
+      myEnd: self.ctx?.scope?.endDateISO,
+    });
+
     LogHelper.log(
       `[TELEMETRY ${WIDGET_DOMAIN}] 📦 Received provide-data event for domain ${domain}, periodKey: ${periodKey}`
     );
@@ -6136,6 +6209,7 @@ self.onInit = async function () {
 
     // Prevent duplicate processing of the same periodKey
     if (lastProcessedPeriodKey === periodKey) {
+      TLMDBG('provide-data SKIP (duplicate periodKey)', { periodKey });
       LogHelper.log(`[TELEMETRY] ⏭️ Skipping duplicate provide-data for periodKey: ${periodKey}`);
       return;
     }
@@ -6149,6 +6223,7 @@ self.onInit = async function () {
     // If period not set yet, store event for later processing
     // RFC-0106 FIX: Skip period check for temperature domain (uses real-time readings, no period needed)
     if (domain !== 'temperature' && (!myPeriod.startISO || !myPeriod.endISO)) {
+      TLMDBG('provide-data DEFERRED (period not set)', { periodKey, myPeriod });
       LogHelper.warn(`[TELEMETRY] ⏸️ Period not set yet, storing provide-data event...`);
       pendingProvideData = { domain, periodKey, items: ev.detail.items };
 
@@ -6190,6 +6265,8 @@ self.onInit = async function () {
                 connectionStatus: connectionStatus,
                 labelWidget: item.labelWidget || self.ctx.settings?.labelWidget,
                 log_annotations: item.log_annotations || null,
+                // Per-device exclude_groups_totals (drives the v5 "excluded" beige bg + marker)
+                excludeGroupsTotals: item.excludeGroupsTotals || null,
                 // RFC-0183: GCDR device UUID for AlarmServiceOrchestrator badge lookup
                 gcdrDeviceId: item.gcdrDeviceId || null,
                 // RFC-0198: tickets_items SERVER_SCOPE dataKey (fallback badge source)
@@ -6228,6 +6305,12 @@ self.onInit = async function () {
     // RFC-0106: Get items directly from window.STATE
     const myLabelWidget = self.ctx.settings?.labelWidget || '';
     const stateItems = getItemsFromState(domain, myLabelWidget);
+
+    TLMDBG('provide-data getItemsFromState', {
+      domain,
+      labelWidget: myLabelWidget,
+      stateItems: stateItems ? stateItems.length : '(null)',
+    });
 
     if (!stateItems) {
       LogHelper.warn(`[TELEMETRY] ⚠️ No items found in window.STATE for domain ${domain}`);
@@ -6350,6 +6433,8 @@ self.onInit = async function () {
         waterPercentage: item.waterPercentage ?? null,
         _isTankDevice: item._isTankDevice || false,
         _isHidrometerDevice: item._isHidrometerDevice || false,
+        // Per-device exclude_groups_totals (drives the v5 "excluded" beige bg + marker)
+        excludeGroupsTotals: item.excludeGroupsTotals || null,
         // RFC-0183: GCDR device UUID for AlarmServiceOrchestrator badge lookup
         gcdrDeviceId: item.gcdrDeviceId || null,
         // RFC-0198: tickets_items SERVER_SCOPE dataKey (fallback badge source)
@@ -6401,6 +6486,7 @@ self.onInit = async function () {
   };
 
   window.addEventListener('myio:telemetry:provide-data', dataProvideHandler);
+  TLMDBG('provide-data listener REGISTERED', { domain: WIDGET_DOMAIN });
 
   // RFC-0130: Register widget with orchestrator
   registerWithOrchestrator();

@@ -235,6 +235,7 @@ export class OnOffDeviceModalController {
         onDateRangeChange: (startISO, endISO) => this.handleDateRangeChange(startISO, endISO),
         parentEl: this.modalContainer?.querySelector(`.${ON_OFF_MODAL_CSS_PREFIX}-content`) as HTMLElement || undefined,
         jwtToken: this.params.jwtToken,
+        tbBaseUrl: this.params.tbBaseUrl,
         customerName: this.params.customerName,
       });
     }
@@ -389,7 +390,7 @@ export class OnOffDeviceModalController {
       if (this.params.jwtToken && this.params.device.id) {
         const deviceId = this.params.device.entityId || this.params.device.id;
         const response = await fetch(
-          `/api/plugins/telemetry/DEVICE/${deviceId}/values/attributes/CLIENT_SCOPE,SHARED_SCOPE,SERVER_SCOPE`,
+          `${this.params.tbBaseUrl}/api/plugins/telemetry/DEVICE/${deviceId}/values/attributes/CLIENT_SCOPE,SHARED_SCOPE,SERVER_SCOPE`,
           {
             method: 'GET',
             headers: {
@@ -437,7 +438,7 @@ export class OnOffDeviceModalController {
 
     try {
       const response = await fetch(
-        `/api/plugins/telemetry/DEVICE/${deviceId}/attributes/SERVER_SCOPE`,
+        `${this.params.tbBaseUrl}/api/plugins/telemetry/DEVICE/${deviceId}/attributes/SERVER_SCOPE`,
         {
           method: 'POST',
           headers: {

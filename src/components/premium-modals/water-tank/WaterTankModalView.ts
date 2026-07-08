@@ -7,6 +7,19 @@ import {
   OpenDashboardPopupWaterTankOptions,
   WaterTankModalI18n
 } from './types';
+import { createDateRangePicker, type DateRangeControl } from '../../createDateRangePicker';
+
+// Verbose logs are OPT-IN: silent unless the host dashboard sets
+// window.MyIOUtils.debugModals = true (MAIN_BAS wires it to enableDebugMode).
+// Errors/warnings keep logging unconditionally via console.error/warn.
+const dbg = (...args: unknown[]): void => {
+  try {
+    if ((globalThis as any)?.MyIOUtils?.debugModals) console.log(...args);
+  } catch {
+    /* noop */
+  }
+};
+
 
 interface WaterTankModalViewConfig {
   context: WaterTankModalContext;
@@ -35,7 +48,9 @@ export class WaterTankModalView {
   private overlay: HTMLElement | null = null;
   private modal: HTMLElement | null = null;
   private i18n: WaterTankModalI18n;
-  private chartDisplayMode: ChartDisplayMode = 'water_level'; // RFC-0107: Default to water_level (m.c.a)
+  private chartDisplayMode: ChartDisplayMode = 'water_percentage'; // Default: percentual (%) — m.c.a via selector/displayKey
+  // Período via componente padrão da lib (createDateRangePicker, light mode)
+  private dateRangePicker: DateRangeControl | null = null;
 
   constructor(config: WaterTankModalViewConfig) {
     this.config = config;
@@ -146,6 +161,25 @@ export class WaterTankModalView {
   public render(): void {
     const { params } = this.config;
 
+    // Responsive rules (mobile): the modal overlay is viewport-fixed, so a
+    // viewport media query is reliable here. Inline styles need !important.
+    const STYLE_ID = 'myio-water-tank-modal-styles';
+    if (!document.getElementById(STYLE_ID)) {
+      const style = document.createElement('style');
+      style.id = STYLE_ID;
+      style.textContent = `
+        @media (max-width: 640px) {
+          .myio-water-tank-modal { width: 100vw !important; max-width: 100vw !important; max-height: 100vh !important; border-radius: 0 !important; }
+          .myio-water-tank-modal-body { padding: 12px !important; gap: 12px !important; }
+          /* Stack tank above the chart instead of side-by-side */
+          .myio-water-tank-content-row { flex-direction: column !important; min-height: 0 !important; }
+          .myio-water-tank-tank-panel { width: 100% !important; min-width: 0 !important; padding: 16px !important; }
+          #myio-water-tank-chart-panel { min-width: 0 !important; }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
     // Create overlay
     this.overlay = document.createElement('div');
     this.overlay.className = 'myio-water-tank-modal-overlay';
@@ -250,7 +284,7 @@ export class WaterTankModalView {
         gap: 16px;
       ">
         ${this.renderControlsBar()}
-        <div style="
+        <div class="myio-water-tank-content-row" style="
           display: flex;
           gap: 20px;
           flex: 1;
@@ -286,25 +320,18 @@ export class WaterTankModalView {
         flex-wrap: wrap;
       ">
         <div style="display: flex; align-items: center; gap: 8px;">
-          <label style="font-size: 13px; font-weight: 500; color: #2c3e50;">De:</label>
-          <input type="date" id="myio-water-tank-start-date" value="${startDate}" style="
+          <label style="font-size: 13px; font-weight: 500; color: #2c3e50;">${this.i18n.dateRange}:</label>
+          <input type="text" id="myio-water-tank-daterange" readonly
+            value="${startDate} — ${endDate}"
+            style="
             padding: 6px 10px;
             border: 1px solid #ddd;
             border-radius: 6px;
             font-size: 13px;
             color: #2c3e50;
+            background: white;
             cursor: pointer;
-          "/>
-        </div>
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <label style="font-size: 13px; font-weight: 500; color: #2c3e50;">Até:</label>
-          <input type="date" id="myio-water-tank-end-date" value="${endDate}" style="
-            padding: 6px 10px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            font-size: 13px;
-            color: #2c3e50;
-            cursor: pointer;
+            min-width: 220px;
           "/>
         </div>
         <div style="display: flex; align-items: center; gap: 8px;">
@@ -342,6 +369,9 @@ export class WaterTankModalView {
             <option value="1000" ${currentLimit === 1000 ? 'selected' : ''}>1000</option>
             <option value="2000" ${currentLimit === 2000 ? 'selected' : ''}>2000</option>
             <option value="5000" ${currentLimit === 5000 ? 'selected' : ''}>5000</option>
+            <option value="10000" ${currentLimit === 10000 ? 'selected' : ''}>10000</option>
+            <option value="50000" ${currentLimit === 50000 ? 'selected' : ''}>50000</option>
+            <option value="100000" ${currentLimit === 100000 ? 'selected' : ''}>100000</option>
           </select>
         </div>
         <button id="myio-water-tank-apply-dates" style="
@@ -367,17 +397,21 @@ export class WaterTankModalView {
   private renderTankPanel(): string {
     const { data, context } = this.config;
 
-    // Get water_percentage from telemetry or context
+    // "Nível Atual" = LAST TELEMETRY (live value the caller passes from the card),
+    // NOT the last point of the queried period — the tank must not change when the
+    // user browses past date ranges. Falls back to the newest fetched point only
+    // when the caller didn't provide currentLevel.
     let percentage = 0;
 
-    // Try to get the latest water_percentage value
-    const percentagePoints = data.telemetry.filter(p => p.key === 'water_percentage');
-    if (percentagePoints.length > 0) {
-      const latestPercentage = percentagePoints[percentagePoints.length - 1].value;
-      percentage = latestPercentage <= 1.5 ? latestPercentage * 100 : latestPercentage;
-    } else if (context.device.currentLevel !== undefined) {
+    if (context.device.currentLevel !== undefined) {
       const level = context.device.currentLevel;
       percentage = level <= 1.5 ? level * 100 : level;
+    } else {
+      const percentagePoints = data.telemetry.filter(p => p.key === 'water_percentage');
+      if (percentagePoints.length > 0) {
+        const latestPercentage = percentagePoints[percentagePoints.length - 1].value;
+        percentage = latestPercentage <= 1.5 ? latestPercentage * 100 : latestPercentage;
+      }
     }
 
     const levelStatus = this.getLevelStatus(Math.min(percentage, 100));
@@ -385,7 +419,7 @@ export class WaterTankModalView {
     const displayPercentage = percentage.toFixed(1);
 
     return `
-      <div style="
+      <div class="myio-water-tank-tank-panel" style="
         width: 200px;
         min-width: 200px;
         background: linear-gradient(135deg, ${levelStatus.color}10 0%, ${levelStatus.color}05 100%);
@@ -398,7 +432,7 @@ export class WaterTankModalView {
         justify-content: center;
         gap: 16px;
       ">
-        <img src="${tankImageUrl}" alt="Water Tank" style="
+        <img src="${tankImageUrl}" alt="Caixa d'Água" style="
           width: 100px;
           height: auto;
           filter: drop-shadow(0 4px 8px rgba(0,0,0,0.1));
@@ -533,8 +567,83 @@ export class WaterTankModalView {
             ${limitReached ? `<br><span style="color: #e67e22; font-weight: 600;">⚠ limite atingido — exibindo de ${this.formatDate(firstTs, false)} a ${this.formatDate(lastTs, false)}</span>` : ''}
           </div>
         ` : ''}
+        ${this.renderChartKpis()}
       </div>
     `;
+  }
+
+  /**
+   * KPIs of the PLOTTED series (follows the display mode and the queried
+   * period): period average, TOP 3 peak readings and TOP 3 lowest days
+   * (by daily average). Always returns the #myio-water-tank-kpis wrapper
+   * so refreshChart() can swap it in place when the mode changes.
+   */
+  private renderChartKpis(): string {
+    const points = this.getChartDataPoints();
+    if (points.length === 0) {
+      return '<div id="myio-water-tank-kpis"></div>';
+    }
+
+    const isPct = this.chartDisplayMode === 'water_percentage';
+    const unit = isPct ? '%' : 'm.c.a';
+    const dec = isPct ? 1 : 2;
+    const fmtVal = (v: number) => `${v.toFixed(dec)}${isPct ? '' : ' '}${unit}`;
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const fmtTs = (ts: number) => {
+      const d = new Date(ts);
+      return `${pad(d.getDate())}/${pad(d.getMonth() + 1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    };
+    const fmtDay = (ts: number) => {
+      const d = new Date(ts);
+      return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}`;
+    };
+
+    // Média do período (série exibida)
+    const avg = points.reduce((s, p) => s + p.value, 0) / points.length;
+
+    // TOP 3 picos — maiores leituras individuais
+    const peaks = [...points].sort((a, b) => b.value - a.value).slice(0, 3);
+
+    // TOP 3 dias mais baixos — menor MÉDIA diária
+    const byDay = new Map<string, { ts: number; sum: number; count: number }>();
+    for (const p of points) {
+      const d = new Date(p.ts);
+      const key = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      const e = byDay.get(key) || { ts: p.ts, sum: 0, count: 0 };
+      e.sum += p.value;
+      e.count++;
+      byDay.set(key, e);
+    }
+    const lowestDays = [...byDay.values()]
+      .map(e => ({ ts: e.ts, avg: e.sum / e.count }))
+      .sort((a, b) => a.avg - b.avg)
+      .slice(0, 3);
+
+    const listRow = (label: string, value: string) => `
+      <div style="display: flex; justify-content: space-between; gap: 8px; font-size: 12px; line-height: 1.7;">
+        <span style="color: #7f8c8d;">${label}</span>
+        <span style="color: #2c3e50; font-weight: 600; white-space: nowrap;">${value}</span>
+      </div>`;
+
+    const kpiCard = (title: string, body: string) => `
+      <div style="
+        flex: 1;
+        min-width: 150px;
+        background: #f8f9fa;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 10px 12px;
+      ">
+        <div style="font-size: 11px; font-weight: 700; color: #7f8c8d; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px;">${title}</div>
+        ${body}
+      </div>`;
+
+    return `
+      <div id="myio-water-tank-kpis" style="display: flex; gap: 12px; margin-top: 12px; flex-wrap: wrap;">
+        ${kpiCard('Média do período', `<div style="font-size: 22px; font-weight: 700; color: #2c3e50;">${fmtVal(avg)}</div>`)}
+        ${kpiCard('Top 3 picos', peaks.map(p => listRow(fmtTs(p.ts), fmtVal(p.value))).join(''))}
+        ${kpiCard('Top 3 dias mais baixos', lowestDays.map(d => listRow(fmtDay(d.ts), fmtVal(d.avg))).join(''))}
+      </div>`;
   }
 
   /**
@@ -602,20 +711,19 @@ export class WaterTankModalView {
   private renderTankVisualization(): string {
     const { data, context } = this.config;
 
-    // Get water_percentage from telemetry or context
+    // "Nível Atual" = LAST TELEMETRY from the caller (card), not the queried period.
     // water_percentage is 0-1, so multiply by 100 for display
     let percentage = 0;
 
-    // Try to get the latest water_percentage value
-    const percentagePoints = data.telemetry.filter(p => p.key === 'water_percentage');
-    if (percentagePoints.length > 0) {
-      const latestPercentage = percentagePoints[percentagePoints.length - 1].value;
-      // If value is <= 1, it's in 0-1 format, multiply by 100
-      percentage = latestPercentage <= 1 ? latestPercentage * 100 : latestPercentage;
-    } else if (context.device.currentLevel !== undefined) {
-      // Fallback to currentLevel from context
+    if (context.device.currentLevel !== undefined) {
       const level = context.device.currentLevel;
       percentage = level <= 1 ? level * 100 : level;
+    } else {
+      const percentagePoints = data.telemetry.filter(p => p.key === 'water_percentage');
+      if (percentagePoints.length > 0) {
+        const latestPercentage = percentagePoints[percentagePoints.length - 1].value;
+        percentage = latestPercentage <= 1 ? latestPercentage * 100 : latestPercentage;
+      }
     }
 
     const levelStatus = this.getLevelStatus(percentage);
@@ -639,7 +747,7 @@ export class WaterTankModalView {
           align-items: center;
           gap: 12px;
         ">
-          <img src="${tankImageUrl}" alt="Water Tank" style="
+          <img src="${tankImageUrl}" alt="Caixa d'Água" style="
             width: 120px;
             height: auto;
             filter: drop-shadow(0 4px 8px rgba(0,0,0,0.1));
@@ -880,10 +988,45 @@ export class WaterTankModalView {
       document.addEventListener('keydown', this.handleEscapeKey);
     }
 
+    // Período: componente padrão da lib (light mode)
+    this.initDateRangePicker();
+
     // Render chart after DOM is ready
     requestAnimationFrame(() => {
       this.renderCanvasChart();
     });
+  }
+
+  /**
+   * Attach the lib's standard date-range picker (createDateRangePicker,
+   * default light styling) to the Período input. Replaces the old raw
+   * De/Até date inputs.
+   */
+  private async initDateRangePicker(): Promise<void> {
+    if (!this.modal) return;
+    const input = this.modal.querySelector('#myio-water-tank-daterange') as HTMLInputElement | null;
+    if (!input) return;
+
+    if (this.dateRangePicker) {
+      try { this.dateRangePicker.destroy(); } catch { /* noop */ }
+      this.dateRangePicker = null;
+    }
+
+    const { params } = this.config;
+    // Full-day boundaries in São Paulo (same convention as EnergyModalView)
+    const presetStart = `${this.formatDateForInput(params.startTs)}T00:00:00-03:00`;
+    const presetEnd = `${this.formatDateForInput(params.endTs)}T23:59:59-03:00`;
+
+    try {
+      this.dateRangePicker = await createDateRangePicker(input, {
+        presetStart,
+        presetEnd,
+        maxRangeDays: 366,
+        parentEl: this.modal,
+      });
+    } catch (error) {
+      console.warn('[WaterTankModalView] DateRangePicker init failed, keeping plain input:', error);
+    }
   }
 
   /**
@@ -899,24 +1042,26 @@ export class WaterTankModalView {
   private handleApplyParams(): void {
     if (!this.modal) return;
 
-    const startInput = this.modal.querySelector('#myio-water-tank-start-date') as HTMLInputElement;
-    const endInput = this.modal.querySelector('#myio-water-tank-end-date') as HTMLInputElement;
     const aggregationSelect = this.modal.querySelector('#myio-water-tank-aggregation') as HTMLSelectElement;
     const limitSelect = this.modal.querySelector('#myio-water-tank-limit') as HTMLSelectElement;
 
-    if (startInput && endInput) {
-      const startTs = new Date(startInput.value + 'T00:00:00').getTime();
-      const endTs = new Date(endInput.value + 'T23:59:59.999').getTime();
+    if (this.dateRangePicker) {
+      const { startISO, endISO } = this.dateRangePicker.getDates();
+      const startTs = new Date(startISO).getTime();
+      const endTs = new Date(endISO).getTime();
 
       if (startTs >= endTs) {
-        alert('Start date must be before end date');
+        const msg = 'A data inicial deve ser anterior à data final';
+        const toast = (window as any)?.MyIOLibrary?.MyIOToast;
+        if (toast?.warning) toast.warning(msg);
+        else alert(msg);
         return;
       }
 
       const aggregation = aggregationSelect?.value || 'NONE';
       const limit = parseInt(limitSelect?.value || '1000', 10);
 
-      console.log('[WaterTankModalView] Params changed:', {
+      dbg('[WaterTankModalView] Params changed:', {
         startTs,
         endTs,
         aggregation,
@@ -1013,12 +1158,18 @@ export class WaterTankModalView {
 
     // Update chart title
     const chartTitle = this.chartDisplayMode === 'water_percentage'
-      ? 'Water Level History (%)'
+      ? 'Histórico de Nível (%)'
       : this.i18n.levelChart;
 
     const titleEl = this.modal.querySelector('.myio-water-tank-modal-body h3:last-of-type');
     if (titleEl) {
       titleEl.textContent = chartTitle;
+    }
+
+    // KPIs follow the displayed series (unit/values change with the mode)
+    const kpisEl = this.modal.querySelector('#myio-water-tank-kpis');
+    if (kpisEl) {
+      kpisEl.outerHTML = this.renderChartKpis();
     }
 
     // Re-render canvas chart with new data
@@ -1210,7 +1361,7 @@ export class WaterTankModalView {
       if (bodyEl) {
         bodyEl.innerHTML = `
           ${this.renderControlsBar()}
-          <div style="
+          <div class="myio-water-tank-content-row" style="
             display: flex;
             gap: 20px;
             flex: 1;
@@ -1226,6 +1377,9 @@ export class WaterTankModalView {
         if (applyDatesBtn) {
           applyDatesBtn.addEventListener('click', () => this.handleApplyParams());
         }
+
+        // Re-attach the lib date-range picker (controls bar was re-rendered)
+        this.initDateRangePicker();
 
         // Re-attach display mode selector event
         const displayModeSelect = this.modal.querySelector('#myio-water-tank-display-mode') as HTMLSelectElement;
@@ -1271,6 +1425,12 @@ export class WaterTankModalView {
     // Remove event listeners
     if (this.config.params.closeOnEsc) {
       document.removeEventListener('keydown', this.handleEscapeKey);
+    }
+
+    // Destroy the lib date-range picker instance
+    if (this.dateRangePicker) {
+      try { this.dateRangePicker.destroy(); } catch { /* noop */ }
+      this.dateRangePicker = null;
     }
 
     // Animate out

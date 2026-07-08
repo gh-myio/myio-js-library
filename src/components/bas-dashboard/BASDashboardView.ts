@@ -10,7 +10,7 @@ import type {
 } from './types';
 import { DEFAULT_BAS_SETTINGS } from './types';
 import { BAS_DASHBOARD_CSS_PREFIX, injectBASDashboardStyles } from './styles';
-import { renderCardComponentV6 } from '../../components/template-card-v6/template-card-v6.js';
+import { renderCardComponentV6 } from '../../components/cards/main-view/v6.0.0/template-card-v6.js';
 
 const MOTOR_TYPE_MAP: Record<string, string> = {
   pump: 'BOMBA_HIDRAULICA',

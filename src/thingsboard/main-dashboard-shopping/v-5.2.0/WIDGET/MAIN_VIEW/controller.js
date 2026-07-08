@@ -36,6 +36,21 @@ const LogHelper = {
   },
 };
 
+// Error toast helper. The only fallback is window.alert (when MyIOToast is unavailable).
+// MAIN_VIEW owns the lib bridge, so it reads window.MyIOLibrary directly.
+function toastError(message) {
+  const toast = window.MyIOLibrary?.MyIOToast;
+  if (toast?.error) toast.error(message);
+  else window.alert(message);
+}
+
+// Warning toast (non-fatal). Falls back to a console warn (no alert — it's not an error).
+function toastWarn(message) {
+  const toast = window.MyIOLibrary?.MyIOToast;
+  if (toast?.warning) toast.warning(message);
+  else LogHelper.warn(message);
+}
+
 // RFC-0091: Expose shared utilities globally for child widgets (TELEMETRY, etc.)
 // RFC-0091: Shared constants across all widgets
 let _dataApiHost = '';
@@ -59,6 +74,95 @@ function getDataApiBaseUrl() {
 }
 
 window.MyIOUtils = window.MyIOUtils || {};
+
+// ===========================================================================
+// Library access bridge — single source of `window.MyIOLibrary`.
+//
+// ONLY MAIN_VIEW may reference `window.MyIOLibrary` directly. Child widgets
+// (HEADER / FOOTER / MENU / TELEMETRY / TELEMETRY_INFO / ALARM) read every lib
+// symbol they need through `window.MyIOUtils.<symbol>`. These are LIVE getters
+// (read the lib on each access — no stale snapshot, load-order safe) and they
+// never expose the whole library object. A missing symbol returns undefined;
+// the caller is responsible for logging `console.error` (NO functional fallback).
+// ===========================================================================
+(function defineLibBridge() {
+  const LIB_SYMBOLS = [
+    // toasts / selection / tooltips
+    'MyIOToast',
+    'MyIOSelectionStore',
+    'InfoTooltip',
+    'Tooltip',
+    'WaterSummaryTooltip',
+    'EnergySummaryTooltip',
+    'ColumnSummaryTooltip',
+    'ContractSummaryTooltip',
+    // formatting / export
+    'formatEnergy',
+    'formatWaterVolumeM3',
+    'formatTankHeadFromCm',
+    'exportGridPdf',
+    'exportGridXls',
+    'exportGridCsv',
+    // auth / ingestion
+    'fetchThingsboardCustomerAttrsFromStorage',
+    'buildMyioIngestionAuth',
+    'buildListItemsThingsboardByUniqueDatasource',
+    // date range
+    'createDateRangePicker',
+    'getDefaultPeriodCurrentMonthSoFar',
+    // classification (RFC-0207)
+    'resolveGroup',
+    'resolveCategory',
+    'getActiveProfile',
+    'setActiveProfile',
+    // modals / popups
+    'openDashboardPopupEnergy',
+    'openDashboardPopupWaterTank',
+    'openDashboardPopupAllReport',
+    'openDashboardPopupReport',
+    'openDashboardPopupSettings',
+    'openSettingsHubModal',
+    'openTemperatureModal',
+    'openTemperatureComparisonModal',
+    'openTemperatureSettingsModal',
+    'openContractDevicesModal',
+    'openMeasurementSetupModal',
+    'openUserManagementModal',
+    'openDeviceProfileModal',
+    'openAlarmBundleMapModal',
+    'openAlarmDetailsModal',
+    // tickets (RFC-0198)
+    'createNewTicketWizard',
+    'createTicketDetailModal',
+    // alarms / annotations / panels
+    'AlarmService',
+    'createAlarmsNotificationsPanelComponent',
+    'getHeaderAnnotationsPanel',
+    // misc components / helpers
+    'ModalHeader',
+    'createLogHelper',
+    'createLibraryVersionChecker',
+    'calculateDeviceStatusWithRanges',
+    'renderCardComponentV5',
+    'TempSensorSummaryTooltip',
+    'createPresetupGateway',
+    'GoalsModal',
+    'version',
+  ];
+  for (const name of LIB_SYMBOLS) {
+    if (Object.getOwnPropertyDescriptor(window.MyIOUtils, name)) continue;
+    Object.defineProperty(window.MyIOUtils, name, {
+      configurable: true,
+      enumerable: false,
+      get() {
+        return typeof window !== 'undefined' && window.MyIOLibrary
+          ? window.MyIOLibrary[name]
+          : undefined;
+      },
+    });
+  }
+})();
+
 Object.assign(window.MyIOUtils, {
   LogHelper,
   getDataApiHost,
@@ -327,6 +431,13 @@ Object.assign(window.MyIOUtils, {
   handleDataLoadError: (domain = 'unknown', reason = 'timeout') => {
     LogHelper.error(`[MyIOUtils] Data load error for ${domain}: ${reason}`);
 
+    // RFC-0152c: never start a retry loop for a DISABLED domain (water-only /
+    // temperature-only dashboards) — no datasource will ever answer it.
+    if (widgetSettings?.domainsEnabled && widgetSettings.domainsEnabled[domain] === false) {
+      LogHelper.log(`[MyIOUtils] ⏭️ Domain ${domain} disabled (domainsEnabled) — skipping retry loop`);
+      return;
+    }
+
     // Stop retry loop after final error for this domain
     window._dataLoadRetryLocked = window._dataLoadRetryLocked || {};
     if (window._dataLoadRetryLocked[domain]) {
@@ -409,16 +520,8 @@ Object.assign(window.MyIOUtils, {
     // Lock retries for this domain to avoid looping after error
     window._dataLoadRetryLocked[domain] = true;
 
-    const MyIOToast = window.MyIOLibrary?.MyIOToast;
     const message = `Erro ao carregar dados (${domain}). Recarregue a página...`;
-
-    if (MyIOToast) {
-      MyIOToast.error(message, 8000);
-    } else {
-      console.error(`[MyIOUtils] ${message}`);
-      // Fallback: show alert if toast not available
-      window.alert(message);
-    }
+    toastError(message);
 
     // Reload page after toast displays
     //setTimeout(() => {
@@ -500,6 +603,216 @@ Object.assign(window.MyIOUtils, {
       return [];
     }
   },
+
+  /**
+   * Fetch energy or water device totals for Metas (goals) chart
+   * Supports optional profileId filter (e.g. energy-entry: f431d17a-ec11-45e0-b92c-83a0d3b6d942)
+   * @param {string} custId - Customer ingestion ID
+   * @param {string} domain - 'energy' | 'water'
+   * @param {number} startTs - Start timestamp in ms
+   * @param {number} endTs - End timestamp in ms
+   * @param {string} granularity - '1d' | '1h' (default '1d')
+   * @param {string|null} profileId - Optional profileId to filter by device group
+   * @returns {Promise<Array>} Array of device totals
+   */
+  fetchGoalsDayTotals: async (custId, domain, startTs, endTs, granularity = '1d', profileId = null) => {
+    try {
+      const creds = window.MyIOOrchestrator?.getCredentials?.();
+      if (!creds?.CLIENT_ID || !creds?.CLIENT_SECRET) {
+        LogHelper.error('[MyIOUtils] fetchGoalsDayTotals: No credentials available');
+        return [];
+      }
+      const MyIOLib = (typeof MyIOLibrary !== 'undefined' && MyIOLibrary) || window.MyIOLibrary;
+      if (!MyIOLib?.buildMyioIngestionAuth) {
+        LogHelper.error('[MyIOUtils] fetchGoalsDayTotals: MyIOLibrary.buildMyioIngestionAuth not available');
+        return [];
+      }
+      const myIOAuth = MyIOLib.buildMyioIngestionAuth({
+        dataApiHost: getDataApiHost(),
+        clientId: creds.CLIENT_ID,
+        clientSecret: creds.CLIENT_SECRET,
+      });
+      const token = await myIOAuth.getToken();
+      if (!token) {
+        LogHelper.error('[MyIOUtils] fetchGoalsDayTotals: Failed to get token');
+        return [];
+      }
+      const url = new URL(`${getDataApiHost()}/telemetry/customers/${custId}/${domain}/devices/totals`);
+      url.searchParams.set('startTime', new Date(startTs).toISOString());
+      url.searchParams.set('endTime', new Date(endTs).toISOString());
+      url.searchParams.set('deep', '1');
+      if (granularity) url.searchParams.set('granularity', granularity);
+      if (profileId) url.searchParams.set('groupIds', profileId);
+      LogHelper.log(`[MyIOUtils] fetchGoalsDayTotals (${domain}): ${url.toString()}`);
+      const res = await fetch(url.toString(), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          window.MyIOUtils?.handleUnauthorizedError?.('fetchGoalsDayTotals');
+        }
+        throw new Error(`API error: ${res.status}`);
+      }
+      const payload = await res.json();
+      // O endpoint /devices/totals retorna { data: [...], summary: {...} } — NÃO um array puro.
+      // Ler payload.length dava undefined → "Got 0 devices" e nada plotava. Aceita ambos os shapes.
+      const json = Array.isArray(payload) ? payload : (payload?.data ?? []);
+      LogHelper.log(`[MyIOUtils] fetchGoalsDayTotals (${domain}): Got ${json.length} devices`);
+      // Para água (sem filtro por groupId), curar lista via orchestrator
+      if (!profileId && Array.isArray(json) && json.length > 0) {
+        let orchItems = window.MyIOOrchestratorData?.[domain]?.items || [];
+        if (!orchItems.length && window.MyIOOrchestrator?.hydrateDomain) {
+          try {
+            const fetched = await Promise.race([
+              window.MyIOOrchestrator.hydrateDomain(domain, {
+                startISO: new Date(startTs).toISOString(),
+                endISO: new Date(endTs).toISOString(),
+                granularity: 'HOUR',
+              }),
+              new Promise((r) => setTimeout(() => r([]), 4000)),
+            ]);
+            orchItems = (Array.isArray(fetched) && fetched.length)
+              ? fetched
+              : (window.MyIOOrchestratorData?.[domain]?.items || []);
+          } catch (err) {
+            LogHelper.warn('[MyIOUtils] fetchGoalsDayTotals: hydrate falhou —', err.message);
+          }
+        }
+        if (orchItems.length > 0) {
+          const validIds = new Set(orchItems.flatMap((it) => [it.ingestionId, it.id].filter(Boolean)));
+          const filtered = json.filter((dv) => validIds.has(dv.id) || validIds.has(dv.ingestionId));
+          LogHelper.log(`[MyIOUtils] fetchGoalsDayTotals (${domain}): ${json.length} → ${filtered.length} após curação`);
+          return filtered;
+        }
+      }
+      return json;
+    } catch (error) {
+      LogHelper.error('[MyIOUtils] fetchGoalsDayTotals error:', error);
+      return [];
+    }
+  },
+  /**
+   * Série de consumo do range INTEIRO numa única request (endpoint agregado /{domain}/,
+   * não /devices/totals). Evita as N requests por dia do GoalsModal.
+   * @returns {Promise<Array<{timestamp: string, value: number}>>} série agregada por timestamp.
+   */
+  fetchGoalsConsumptionSeries: async (custId, domain, startTs, endTs, granularity = '1d', profileId = null) => {
+    try {
+      const creds = window.MyIOOrchestrator?.getCredentials?.();
+      if (!creds?.CLIENT_ID || !creds?.CLIENT_SECRET) {
+        LogHelper.error('[MyIOUtils] fetchGoalsConsumptionSeries: No credentials available');
+        return [];
+      }
+      const MyIOLib = (typeof MyIOLibrary !== 'undefined' && MyIOLibrary) || window.MyIOLibrary;
+      if (!MyIOLib?.buildMyioIngestionAuth) return [];
+      const myIOAuth = MyIOLib.buildMyioIngestionAuth({
+        dataApiHost: getDataApiHost(),
+        clientId: creds.CLIENT_ID,
+        clientSecret: creds.CLIENT_SECRET,
+      });
+      const token = await myIOAuth.getToken();
+      if (!token) return [];
+      const url = new URL(`${getDataApiHost()}/telemetry/customers/${custId}/${domain}/`);
+      url.searchParams.set('startTime', new Date(startTs).toISOString());
+      url.searchParams.set('endTime', new Date(endTs).toISOString());
+      url.searchParams.set('deep', '1');
+      if (granularity) url.searchParams.set('granularity', granularity);
+      if (profileId) url.searchParams.set('groupIds', profileId);
+      LogHelper.log(`[MyIOUtils] fetchGoalsConsumptionSeries (${domain}): ${url.toString()}`);
+      const res = await fetch(url.toString(), { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          window.MyIOUtils?.handleUnauthorizedError?.('fetchGoalsConsumptionSeries');
+        }
+        throw new Error(`API error: ${res.status}`);
+      }
+      const payload = await res.json();
+      const arr = Array.isArray(payload) ? payload : (payload?.data ?? []);
+      // Agrega por timestamp (normalmente 1 entidade quando filtrado por grupo).
+      const byTs = new Map();
+      for (const ent of arr) {
+        for (const pt of ent?.consumption || []) {
+          if (!pt) continue;
+          byTs.set(pt.timestamp, (byTs.get(pt.timestamp) || 0) + (Number(pt.value) || 0));
+        }
+      }
+      const series = Array.from(byTs, ([timestamp, value]) => ({ timestamp, value }));
+      LogHelper.log(`[MyIOUtils] fetchGoalsConsumptionSeries (${domain}): ${series.length} pontos`);
+      return series;
+    } catch (error) {
+      LogHelper.error('[MyIOUtils] fetchGoalsConsumptionSeries error:', error);
+      return [];
+    }
+  },
+  fetchGoalsTemperature: async (startTs, endTs, granularity = '1d') => {
+    try {
+      const creds = window.MyIOOrchestrator?.getCredentials?.();
+      if (!creds?.CLIENT_ID || !creds?.CLIENT_SECRET) return [];
+      const MyIOLib = (typeof MyIOLibrary !== 'undefined' && MyIOLibrary) || window.MyIOLibrary;
+      if (!MyIOLib?.buildMyioIngestionAuth) return [];
+      const myIOAuth = MyIOLib.buildMyioIngestionAuth({
+        dataApiHost: getDataApiHost(),
+        clientId: creds.CLIENT_ID,
+        clientSecret: creds.CLIENT_SECRET,
+      });
+      const token = await myIOAuth.getToken();
+      if (!token) return [];
+      let tempItems =
+        window.MyIOOrchestratorData?.temperature?.items ||
+        window.STATE?.temperature?.items || [];
+      if (!tempItems.length && window.MyIOOrchestrator?.hydrateDomain) {
+        try {
+          const fetched = await Promise.race([
+            window.MyIOOrchestrator.hydrateDomain('temperature', {
+              startISO: new Date(startTs).toISOString(),
+              endISO: new Date(endTs).toISOString(),
+              granularity: 'HOUR',
+            }),
+            new Promise((r) => setTimeout(() => r([]), 4000)),
+          ]);
+          tempItems = (Array.isArray(fetched) && fetched.length)
+            ? fetched
+            : (window.MyIOOrchestratorData?.temperature?.items || []);
+        } catch (err) {
+          LogHelper.warn('[MyIOUtils] fetchGoalsTemperature: hydrate falhou —', err.message);
+        }
+      }
+      if (!tempItems.length) return [];
+      const host = getDataApiHost().replace(/\/api\/v1\/?$/, '');
+      const startISO = new Date(startTs).toISOString().split('.')[0] + '-03:00';
+      const endISO = new Date(endTs).toISOString().split('.')[0] + '-03:00';
+      const results = await Promise.all(
+        tempItems.slice(0, 15).map(async (dev) => {
+          const ingestionId = dev.ingestionId || dev.id;
+          if (!ingestionId) return null;
+          try {
+            const url =
+              `${host}/api/v1/telemetry/devices/${ingestionId}/temperature` +
+              `?startTime=${encodeURIComponent(startISO)}&endTime=${encodeURIComponent(endISO)}` +
+              `&granularity=${granularity}&deep=0`;
+            const resp = await fetch(url, {
+              headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            });
+            if (!resp.ok) return null;
+            const data = await resp.json();
+            const deviceData = Array.isArray(data) ? data[0] : data;
+            return {
+              id: ingestionId,
+              name: deviceData?.name || dev.label || dev.name || ingestionId,
+              consumption: deviceData?.consumption || [],
+            };
+          } catch {
+            return null;
+          }
+        })
+      );
+      LogHelper.log(`[MyIOUtils] fetchGoalsTemperature: ${results.filter(Boolean).length} sensores`);
+      return results.filter(Boolean);
+    } catch (error) {
+      LogHelper.error('[MyIOUtils] fetchGoalsTemperature error:', error);
+      return [];
+    }
+  },
 });
 // Expose customerTB_ID via getter (reads from MyIOOrchestrator when available)
 // Check if property already exists to avoid "Cannot redefine property" error
@@ -511,6 +824,74 @@ if (!Object.prototype.hasOwnProperty.call(window.MyIOUtils, 'customerTB_ID')) {
   });
 }
 
+// ── Goals JSON cache ─────────────────────────────────────────────────────────
+// Busca os JSONs de metas configurados em goalsJsonUrls e armazena em
+// window.MyIOUtils.goalsData[domain]. Não-bloqueante: falhas são silenciosas.
+// Futuramente substituir o fetch direto por chamada ao endpoint GCDR do customer.
+async function _fetchAndCacheGoalsData(urls) {
+  if (!urls) return;
+  const domains = ['energy', 'water', 'temperature'];
+  for (const domain of domains) {
+    const url = urls[domain];
+    if (!url) continue;
+    try {
+      const res = await fetch(url);
+      if (res.ok) {
+        window.MyIOUtils.goalsData[domain] = await res.json();
+        LogHelper.log(`[MAIN_VIEW] Goals JSON carregado (${domain})`);
+      } else {
+        LogHelper.warn(`[MAIN_VIEW] goalsJson fetch status ${res.status} (${domain})`);
+      }
+    } catch (e) {
+      LogHelper.warn(`[MAIN_VIEW] goalsJson fetch falhou (${domain}):`, e?.message);
+    }
+  }
+}
+
+// ── Goals (metas) via GCDR — RFC-0046 ────────────────────────────────────────
+// As metas vêm do GCDR Goals API (GET /api/v1/customers/:id/goals). Popula
+// window.MyIOUtils.goalsData[domain] com o envelope { success, data:{ tree } } que
+// o GoalsModal lê (data.tree.{annual,monthly,daily,hourly}). granularity=hour retorna
+// todos os níveis: annual+monthly+daily+hourly (chave "MM-DDThh").
+// Auth: X-API-Key (customer key gcdr_cust_*, scope goals:read) + X-Tenant-ID (igual às
+// demais chamadas GCDR deste controller — sem o tenant a API responde 401). Falhas silenciosas.
+async function _fetchGoalsFromGCDR(gcdrApiBaseUrl, gcdrCustomerId, gcdrApiKey, gcdrTenantId) {
+  if (!gcdrApiBaseUrl || !gcdrCustomerId || !gcdrApiKey) {
+    LogHelper.warn('[MAIN_VIEW] Goals GCDR: credenciais ausentes (gcdrApiBaseUrl/gcdrCustomerId/gcdrApiKey).');
+    return;
+  }
+  // gcdrApiBaseUrl pode ou não trazer /api/v1 — normaliza e anexa o path do contrato.
+  const root = String(gcdrApiBaseUrl).replace(/\/+$/, '').replace(/\/api\/v1$/, '');
+  const year = new Date().getFullYear();
+  const DOMAIN_MAP = { energy: 'ENERGY', water: 'WATER', temperature: 'TEMPERATURE' };
+  window.MyIOUtils.goalsData = window.MyIOUtils.goalsData || { energy: null, water: null, temperature: null };
+  for (const [domain, gcdrDomain] of Object.entries(DOMAIN_MAP)) {
+    const url =
+      `${root}/api/v1/customers/${encodeURIComponent(gcdrCustomerId)}/goals` +
+      `?domain=${gcdrDomain}&year=${year}&granularity=hour`;
+    try {
+      const res = await fetch(url, {
+        headers: { 'X-API-Key': gcdrApiKey, 'X-Tenant-ID': gcdrTenantId || '', Accept: 'application/json' },
+      });
+      if (!res.ok) {
+        LogHelper.warn(`[MAIN_VIEW] Goals GCDR ${gcdrDomain}: HTTP ${res.status}`);
+        continue;
+      }
+      const body = await res.json();
+      // Envelope GCDR: { success, data: { domain, unit, year, version, tree }, meta }.
+      // O GoalsModal lê goalsData[domain].data.tree → guardamos o envelope inteiro.
+      if (body?.success && body?.data?.tree) {
+        window.MyIOUtils.goalsData[domain] = body;
+        LogHelper.log(`[MAIN_VIEW] Goals GCDR carregado (${domain}) v${body.data.version ?? '?'}`);
+      } else {
+        LogHelper.warn(`[MAIN_VIEW] Goals GCDR ${gcdrDomain}: resposta sem tree`, body?.error?.code || '');
+      }
+    } catch (e) {
+      LogHelper.warn(`[MAIN_VIEW] Goals GCDR ${gcdrDomain} fetch falhou:`, e?.message);
+    }
+  }
+}
+
 // RFC-0051.1: Global widget settings (will be populated in onInit)
 // IMPORTANT: customerTB_ID must NEVER be 'default' - it must always be a valid ThingsBoard ID
 let widgetSettings = {
@@ -520,6 +901,7 @@ let widgetSettings = {
   excludeDevicesAtCountSubtotalCAG: [], // Entity IDs to exclude from CAG subtotal calculation
   enableAnnotationsOnboarding: false, // RFC-0144: Enable/disable annotations onboarding in settings modal
   enableReportButton: false, // Enable/disable Report button in HEADER (default: disabled)
+  goalsJsonUrls: { energy: '', water: '', temperature: '' }, // URLs do JSON de metas por domínio
 };
 
 // Exclusão de Grupos: group exclusion config loaded from CUSTOMER SERVER_SCOPE via SettingsModal
@@ -570,7 +952,7 @@ let _onDataUpdatedCallCount = 0;
  */
 const DEVICE_CLASSIFICATION_CONFIG = {
   // DeviceTypes que pertencem à categoria Climatização
-  // Baseado em src/MYIO-SIM/v5.2.0/mapPower.json
+  // Baseado em src/thingsboard/MYIO-SIM/v5.2.0/mapPower.json
   climatizacao: {
     // DeviceTypes que são SEMPRE climatização (independente do identifier)
     deviceTypes: ['CHILLER', 'AR_CONDICIONADO', 'HVAC', 'FANCOIL'],
@@ -809,24 +1191,21 @@ function classifyDevice(item) {
     return 'outros';
   }
 
-  // RFC-0097: Primary classification by deviceType (or deviceProfile when deviceType = 3F_MEDIDOR)
-  const category = classifyDeviceByDeviceType(item);
-
-  // Return if we got a specific category (not 'outros')
-  if (category !== 'outros') {
-    return category;
+  // RFC-0207 (A0 → cleanup): the single-source resolver is the ONLY classifier.
+  // The legacy classifyDeviceByDeviceType + classifyDeviceByIdentifier fallback
+  // chain was removed (proven equivalent in A0). Those two helpers remain
+  // exported via window.MyIOUtils for external consumers, but classifyDevice no
+  // longer depends on them.
+  const _resolveCategory =
+    (typeof window !== 'undefined' && window.MyIOLibrary && window.MyIOLibrary.resolveCategory) ||
+    null;
+  if (!_resolveCategory) {
+    LogHelper.error(
+      '[MAIN_VIEW] RFC-0207: MyIOLibrary.resolveCategory unavailable — classifyDevice degraded to "outros" (update the MyIO library bundle)'
+    );
+    return 'outros';
   }
-
-  // Fallback: try identifier-based classification for special cases (e.g., ESCADASROLANTES)
-  if (item.identifier) {
-    const categoryByIdentifier = classifyDeviceByIdentifier(item.identifier);
-    if (categoryByIdentifier && categoryByIdentifier !== 'outros') {
-      return categoryByIdentifier;
-    }
-  }
-
-  // Default: outros
-  return 'outros';
+  return _resolveCategory(item).category;
 }
 
 /**
@@ -875,108 +1254,59 @@ function inferLabelWidget(row) {
     return groupType;
   }
 
-  // Get deviceType and deviceProfile from ThingsBoard datasource
-  const deviceType = String(row.deviceType || '').toUpperCase();
-  const deviceProfile = String(row.deviceProfile || '').toUpperCase();
+  // RFC-0207 (follow-up): derive the labelWidget from the single-source resolver
+  // so the per-category card filter (TELEMETRY getItemsFromState filters areacomum
+  // items by item.labelWidget) matches the breakdown COUNTS (resolveCategory via
+  // buildSummary, A1b). The legacy deviceType/deviceProfile substring patterns were
+  // removed — they missed identifier-only devices ("CAG 01", "ELV-…") that the
+  // resolver classifies, causing count≠cards mismatches. Migration snapshot:
+  // tests/deviceClassificationProfile.inferLabelWidget.test.ts.
+  const Lib = (typeof window !== 'undefined' && window.MyIOLibrary) || null;
+  if (!Lib || typeof Lib.resolveGroup !== 'function' || typeof Lib.resolveCategory !== 'function') {
+    LogHelper.error(
+      '[MAIN_VIEW] RFC-0207: MyIOLibrary.resolveGroup/resolveCategory unavailable — inferLabelWidget degraded to "Área Comum" (update the MyIO library bundle)'
+    );
+    return 'Área Comum';
+  }
 
-  // ==========================================================================
-  // RULE 1: LOJAS - use centralized isStoreDevice
-  // ==========================================================================
+  // deviceProfile is authoritative for stores (3F_MEDIDOR) regardless of domain.
   if (isStoreDevice(row)) {
     return 'Lojas';
   }
 
-  // ==========================================================================
-  // RULE 2: ENTRADA - deviceType OR deviceProfile contains ENTRADA/TRAFO/SUBESTACAO
-  // ==========================================================================
-  const ENTRADA_PATTERNS = ['ENTRADA', 'TRAFO', 'SUBESTACAO'];
-  const isEntradaByType = ENTRADA_PATTERNS.some((p) => deviceType.includes(p));
-  const isEntradaByProfile = ENTRADA_PATTERNS.some((p) => deviceProfile.includes(p));
-  if (isEntradaByType || isEntradaByProfile) {
-    return 'Entrada';
-  }
+  const dp = String(row.deviceProfile || '').toUpperCase();
+  const dt = String(row.deviceType || '').toUpperCase();
 
-  // ==========================================================================
-  // RULE 3: Check deviceProfile FIRST for other categories, then deviceType
-  // ==========================================================================
-
-  // Climatização: CHILLER, FANCOIL, HVAC, AR_CONDICIONADO, COMPRESSOR, VENTILADOR
-  const CLIMATIZACAO_PATTERNS = [
-    'CHILLER',
-    'FANCOIL',
-    'HVAC',
-    'AR_CONDICIONADO',
-    'COMPRESSOR',
-    'VENTILADOR',
-    'CLIMATIZA',
-  ];
-  if (
-    CLIMATIZACAO_PATTERNS.some((p) => deviceProfile.includes(p)) ||
-    CLIMATIZACAO_PATTERNS.some((p) => deviceType.includes(p))
-  ) {
-    return 'Climatização';
-  }
-
-  // Elevadores: ELEVADOR, ELV
-  const ELEVADOR_PATTERNS = ['ELEVADOR', 'ELV'];
-  if (
-    ELEVADOR_PATTERNS.some((p) => deviceProfile.includes(p)) ||
-    ELEVADOR_PATTERNS.some((p) => deviceType.includes(p))
-  ) {
-    return 'Elevadores';
-  }
-
-  // Escadas Rolantes: ESCADA_ROLANTE, ESCADA
-  const ESCADA_PATTERNS = ['ESCADA_ROLANTE', 'ESCADA'];
-  if (
-    ESCADA_PATTERNS.some((p) => deviceProfile.includes(p)) ||
-    ESCADA_PATTERNS.some((p) => deviceType.includes(p))
-  ) {
-    return 'Escadas Rolantes';
-  }
-
-  // ==========================================================================
-  // RFC-0108 FIX: Water domain - HIDROMETRO_SHOPPING and HIDROMETRO_AREA_COMUM
-  // Must be checked BEFORE generic HIDROMETRO pattern in AREA_COMUM_PATTERNS
-  // ==========================================================================
-  if (deviceType.includes('HIDROMETRO_SHOPPING') || deviceProfile.includes('HIDROMETRO_SHOPPING')) {
-    return 'Entrada';
-  }
-  if (deviceType.includes('HIDROMETRO_AREA_COMUM') || deviceProfile.includes('HIDROMETRO_AREA_COMUM')) {
-    return 'Área Comum';
-  }
-  // Generic HIDROMETRO (without specific profile) → Lojas (for water domain)
-  if (deviceType === 'HIDROMETRO' && (deviceProfile === 'HIDROMETRO' || !deviceProfile)) {
-    return 'Lojas';
-  }
-
-  // Área Comum: BOMBA, MOTOR, RELOGIO, etc (but NOT generic HIDROMETRO)
-  const AREA_COMUM_PATTERNS = [
-    'BOMBA',
-    'MOTOR',
-    'RELOGIO',
-    // 'HIDROMETRO', - REMOVED: Now handled specifically above
-    'CAIXA_DAGUA',
-    'TANK',
-    'ILUMINACAO',
-    'LUZ',
-  ];
-  if (
-    AREA_COMUM_PATTERNS.some((p) => deviceProfile.includes(p)) ||
-    AREA_COMUM_PATTERNS.some((p) => deviceType.includes(p))
-  ) {
-    return 'Área Comum';
-  }
-
-  // Temperature types
-  if (deviceProfile.includes('TERMOSTATO') || deviceType.includes('TERMOSTATO')) {
+  // Temperature domain
+  if (dp.includes('TERMOSTATO') || dt.includes('TERMOSTATO')) {
     return 'Temperatura';
   }
 
-  // ==========================================================================
-  // RULE 4: Default - if nothing matched, default to Área Comum
-  // (deviceType = 3F_MEDIDOR but deviceProfile != 3F_MEDIDOR means it's equipment)
-  // ==========================================================================
+  // Water domain (hidrômetros + caixas d'água)
+  if (
+    dp.includes('HIDROMETRO') ||
+    dt.includes('HIDROMETRO') ||
+    dp === 'TANK' ||
+    dt === 'TANK' ||
+    dp === 'CAIXA_DAGUA' ||
+    dt === 'CAIXA_DAGUA'
+  ) {
+    const wg = Lib.resolveGroup(row, undefined, 'water').group;
+    if (wg === 'ocultos') return 'Ocultos';
+    if (wg === 'entrada') return 'Entrada';
+    if (wg === 'lojas') return 'Lojas';
+    return 'Área Comum'; // areacomum + caixadagua (legacy had no caixadagua label)
+  }
+
+  // Energy domain — group first, then subcategorize areacomum via the breakdown.
+  const g = Lib.resolveGroup(row).group;
+  if (g === 'ocultos') return 'Ocultos';
+  if (g === 'lojas') return 'Lojas';
+  if (g === 'entrada') return 'Entrada';
+  const cat = Lib.resolveCategory(row).category;
+  if (cat === 'climatizacao') return 'Climatização';
+  if (cat === 'elevadores') return 'Elevadores';
+  if (cat === 'escadas_rolantes') return 'Escadas Rolantes';
   return 'Área Comum';
 }
 
@@ -1205,14 +1535,16 @@ Object.assign(window.MyIOUtils, {
     _dataApiHost = self.ctx.settings?.dataApiHost || '';
     window.MyIOUtils.DATA_API_HOST = _dataApiHost; // backward compat for external consumers
 
+    // Homolog channel toggle (settingsSchema: homologMode). When ON, the MENU's
+    // library-version-checker validates against the latest -homolog build instead
+    // of the latest stable. Exposed on MyIOUtils so the MENU widget can read it.
+    window.MyIOUtils.homologMode = self.ctx.settings?.homologMode === true;
+    LogHelper.log(`[MAIN_VIEW] homologMode = ${window.MyIOUtils.homologMode}`);
+
     if (!_dataApiHost) {
       const msg = 'DATA_API_HOST não configurado. Verifique as configurações do widget.';
       LogHelper.warn('[MAIN_VIEW]', msg);
-      if (window.MyIOLibrary?.MyIOToast?.error) {
-        window.MyIOLibrary.MyIOToast.error(msg);
-      } else {
-        window.alert(msg);
-      }
+      toastError(msg);
     }
 
     rootEl = $('#myio-root');
@@ -1347,6 +1679,33 @@ Object.assign(window.MyIOUtils, {
       Object.entries(REPORT_ITEM_DEFAULTS).map(([k, def]) => [k, rawItems[k] ?? def])
     );
     LogHelper.log('[Orchestrator] RFC-0182: enabledReportItems:', window.MyIOUtils.enabledReportItems);
+
+    // Goals JSON URLs — carregados via settings, futuramente substituídos por chamada GCDR
+    widgetSettings.goalsJsonUrls = {
+      energy:      self.ctx.settings?.goalsJsonUrls?.energy      || '',
+      water:       self.ctx.settings?.goalsJsonUrls?.water       || '',
+      temperature: self.ctx.settings?.goalsJsonUrls?.temperature || '',
+    };
+    // Inicializa o cache global (não sobrescreve se já existir de run anterior)
+    window.MyIOUtils.goalsData = window.MyIOUtils.goalsData || { energy: null, water: null, temperature: null };
+    _fetchAndCacheGoalsData(widgetSettings.goalsJsonUrls);
+    LogHelper.log('[Orchestrator] goalsJsonUrls configurados:', widgetSettings.goalsJsonUrls);
+
+    // Metas (GoalsModal) — config carregada das settings e exposta via MyIOUtils para o MENU
+    // injetar em GoalsModal.open (bridge). Os defaults (fallback) vivem AQUI, na MAIN.
+    window.MyIOUtils.goalsDefaultPeriodDays = Number.isFinite(self.ctx.settings?.goalsDefaultPeriodDays)
+      ? self.ctx.settings.goalsDefaultPeriodDays
+      : 30;
+    const _gt = self.ctx.settings?.goalsThrottle || {};
+    window.MyIOUtils.goalsThrottle = {
+      perReqMs: Number.isFinite(_gt.perReqMs) ? _gt.perReqMs : 900,
+      batchSize: Number.isFinite(_gt.batchSize) ? _gt.batchSize : 5,
+      batchPauseMs: Number.isFinite(_gt.batchPauseMs) ? _gt.batchPauseMs : 1500,
+    };
+    LogHelper.log(
+      '[Orchestrator] goals config:',
+      { defaultPeriodDays: window.MyIOUtils.goalsDefaultPeriodDays, throttle: window.MyIOUtils.goalsThrottle }
+    );
 
     // RFC-0130: Load delay time settings from widget settings
     const delaySettings = {
@@ -1487,6 +1846,39 @@ Object.assign(window.MyIOUtils, {
             : 'energy';
     LogHelper.log('[MAIN_VIEW] Initial tab derived from domainsEnabled:', _initialTab);
 
+    // RFC-0152c: Align the state-div visibility with domainsEnabled. The template
+    // ships with telemetry_content (energy) as display:block — the right default
+    // for energy dashboards, but on water-only/temperature-only dashboards the
+    // dashboard has NO telemetry_content state, so the embedded
+    // <tb-dashboard-state> renders "Dashboard state with id ... is not found"
+    // inside the still-visible div (nothing hides it until a MENU click).
+    // Hide the divs of DISABLED domains (display:none — Angular-safe, no DOM
+    // removal) and make the _initialTab div the visible one.
+    try {
+      const STATE_BY_DOMAIN = {
+        energy: 'telemetry_content',
+        water: 'water_content',
+        temperature: 'temperature_content',
+      };
+      const _initialStateId = STATE_BY_DOMAIN[_initialTab] || 'telemetry_content';
+      const _stateDivs = self.ctx.$container[0].querySelectorAll('[data-content-state]');
+      _stateDivs.forEach((div) => {
+        const stId = div.getAttribute('data-content-state');
+        const domainOfState = Object.keys(STATE_BY_DOMAIN).find((d) => STATE_BY_DOMAIN[d] === stId);
+        if (domainOfState && widgetSettings.domainsEnabled?.[domainOfState] === false) {
+          div.style.display = 'none'; // domínio desabilitado — nunca mostrar
+          return;
+        }
+        if (domainOfState) {
+          div.style.display = stId === _initialStateId ? 'block' : 'none';
+        }
+        // alarm_content / integrations: mantém o default do template (none)
+      });
+      LogHelper.log('[MAIN_VIEW] RFC-0152c: state divs aligned — visible:', _initialStateId);
+    } catch (stateErr) {
+      LogHelper.warn('[MAIN_VIEW] RFC-0152c: state-div alignment failed:', stateErr);
+    }
+
     // Initialize MyIO Library and Authentication
     const MyIO =
       (typeof MyIOLibrary !== 'undefined' && MyIOLibrary) ||
@@ -1570,6 +1962,28 @@ Object.assign(window.MyIOUtils, {
                 typeof _rawExcludeGroups === 'string' ? JSON.parse(_rawExcludeGroups) : _rawExcludeGroups;
               _excludeGroupsTotals = normalizeExcludeGroupsTotals(_parsed);
               LogHelper.log('[MAIN_VIEW] exclude_groups_totals loaded:', _excludeGroupsTotals);
+            }
+
+            // RFC-0207 Phase B: customer-scoped device classification profile.
+            // Loaded BEFORE the first classification pass; the no-arg resolvers
+            // (resolveGroup/resolveCategory) the orchestrator delegates to will
+            // pick this up via setActiveProfile. Absent/invalid → DEFAULT seed.
+            try {
+              const _rawProfile = attrs?.deviceClassificationProfile;
+              const _parsedProfile =
+                typeof _rawProfile === 'string' ? JSON.parse(_rawProfile) : _rawProfile;
+              if (typeof MyIO.setActiveProfile === 'function') {
+                const _applied = MyIO.setActiveProfile(_parsedProfile, LogHelper);
+                window.MyIOUtils.deviceClassificationProfile = _applied;
+                window.MyIOUtils.deviceClassificationProfileRaw = _parsedProfile || null;
+                LogHelper.log(
+                  '[MAIN_VIEW] RFC-0207: classification profile ' +
+                    (_rawProfile ? 'loaded from SERVER_SCOPE' : 'absent → DEFAULT seed')
+                );
+              }
+            } catch (e) {
+              LogHelper.warn('[MAIN_VIEW] RFC-0207: invalid deviceClassificationProfile → DEFAULT:', e);
+              if (typeof MyIO.setActiveProfile === 'function') MyIO.setActiveProfile(null, LogHelper);
             }
 
             LogHelper.log('[MAIN_VIEW] 🔑 Parsed credentials:');
@@ -1672,6 +2086,13 @@ Object.assign(window.MyIOUtils, {
         // RFC-0199: Init GCDR Auth Context (non-blocking) — resolves user assignments/roles/policies
         // and exposes window.MyIOAuthContext for all widgets to check permissions via .can('action')
         _initAuthContext(gcdrCustomerId, gcdrTenantId, gcdrApiKey, gcdrApiBaseUrl);
+
+        // RFC-0046: Goals (metas) vêm do GCDR. Popula window.MyIOUtils.goalsData para a
+        // linha de meta do GoalsModal (MENU → Metas). Non-blocking.
+        window.MyIOUtils.goalsData = window.MyIOUtils.goalsData || { energy: null, water: null, temperature: null };
+        if (gcdrCustomerId && gcdrApiKey) {
+          _fetchGoalsFromGCDR(gcdrApiBaseUrl, gcdrCustomerId, gcdrApiKey, gcdrTenantId);
+        }
 
         // Check if credentials are present
         if (!CLIENT_ID || !CLIENT_SECRET || !CUSTOMER_ING_ID) {
@@ -3159,38 +3580,30 @@ function storeContractState(deviceCounts, validationResult = { isValid: true, di
  * - AREACOMUM: everything else
  */
 function categorizeItemsByGroup(items) {
-  const ENTRADA_PROFILES = new Set(['TRAFO', 'ENTRADA', 'RELOGIO', 'SUBESTACAO']);
-
   const lojas = [];
   const entrada = [];
   const areacomum = [];
   const ocultos = [];
 
-  const toStr = (val) => String(val || '').toUpperCase();
+  // RFC-0207 (A0 → cleanup): the single-source resolver is the ONLY classifier.
+  // The legacy deviceProfile Set body was removed (proven equivalent in A0 by
+  // the equivalence golden). The widget hard-depends on the MyIO library bundle;
+  // if the resolver is missing we degrade safely (all → areacomum) and log.
+  const _resolveGroup =
+    (typeof window !== 'undefined' && window.MyIOLibrary && window.MyIOLibrary.resolveGroup) || null;
+  if (!_resolveGroup) {
+    LogHelper.error(
+      '[MAIN_VIEW] RFC-0207: MyIOLibrary.resolveGroup unavailable — energy grouping degraded (update the MyIO library bundle)'
+    );
+    return { lojas, entrada, areacomum: items.slice(), ocultos };
+  }
 
   for (const item of items) {
-    // RULE 0: ocultos
-    if (isOcultosDevice(item)) {
-      ocultos.push(item);
-      continue;
-    }
-
-    const dp = toStr(item.deviceProfile);
-
-    // Rule 1: LOJAS — deviceProfile = 3F_MEDIDOR
-    if (dp === '3F_MEDIDOR') {
-      lojas.push(item);
-      continue;
-    }
-
-    // Rule 2: ENTRADA — deviceProfile ∈ {TRAFO, ENTRADA, RELOGIO, SUBESTACAO}
-    if (ENTRADA_PROFILES.has(dp)) {
-      entrada.push(item);
-      continue;
-    }
-
-    // Rule 3: AREACOMUM — everything else
-    areacomum.push(item);
+    const grp = _resolveGroup(item).group; // 'lojas'|'entrada'|'areacomum'|'ocultos'
+    if (grp === 'lojas') lojas.push(item);
+    else if (grp === 'entrada') entrada.push(item);
+    else if (grp === 'ocultos') ocultos.push(item);
+    else areacomum.push(item);
   }
 
   if (ocultos.length > 0) {
@@ -3226,43 +3639,26 @@ function categorizeItemsByGroupWater(items) {
   const caixadagua = [];
   const ocultos = [];
 
-  const toStr = (val) => String(val || '').toUpperCase();
+  // RFC-0207 (follow-up #2 → cleanup): the single-source resolver's water domain
+  // is the ONLY classifier. The legacy deviceProfile body was removed (proven
+  // equivalent by tests/deviceClassificationProfile.water-temperature.test.ts).
+  // `banheiros` is never produced here (extracted by the TELEMETRY widget).
+  const _resolveGroup =
+    (typeof window !== 'undefined' && window.MyIOLibrary && window.MyIOLibrary.resolveGroup) || null;
+  if (!_resolveGroup) {
+    LogHelper.error(
+      '[MAIN_VIEW] RFC-0207: MyIOLibrary.resolveGroup unavailable — water grouping degraded (update the MyIO library bundle)'
+    );
+    return { entrada, lojas, banheiros, areacomum: items.slice(), caixadagua, ocultos };
+  }
 
   for (const item of items) {
-    // RULE 0: ocultos
-    if (isOcultosDevice(item)) {
-      ocultos.push(item);
-      continue;
-    }
-
-    const dp = toStr(item.deviceProfile);
-
-    // Rule 1: ENTRADA — deviceProfile = HIDROMETRO_SHOPPING
-    if (dp === 'HIDROMETRO_SHOPPING') {
-      entrada.push(item);
-      continue;
-    }
-
-    // Rule 2: ÁREA COMUM — deviceProfile = HIDROMETRO_AREA_COMUM
-    if (dp === 'HIDROMETRO_AREA_COMUM') {
-      areacomum.push(item);
-      continue;
-    }
-
-    // Rule 3: LOJAS — deviceProfile = HIDROMETRO
-    if (dp === 'HIDROMETRO') {
-      lojas.push(item);
-      continue;
-    }
-
-    // Rule 4: CAIXA D'ÁGUA — deviceProfile = TANK or CAIXA_DAGUA
-    if (dp === 'TANK' || dp === 'CAIXA_DAGUA') {
-      caixadagua.push(item);
-      continue;
-    }
-
-    // Fallback: tudo que não encaixou vai para areacomum
-    areacomum.push(item);
+    const grp = _resolveGroup(item, undefined, 'water').group;
+    if (grp === 'entrada') entrada.push(item);
+    else if (grp === 'lojas') lojas.push(item);
+    else if (grp === 'caixadagua') caixadagua.push(item);
+    else if (grp === 'ocultos') ocultos.push(item);
+    else areacomum.push(item); // areacomum (banheiros never produced here)
   }
 
   if (ocultos.length > 0) {
@@ -3288,19 +3684,23 @@ function categorizeItemsByGroupTemperature(items) {
   const nao_climatizavel = [];
   const ocultos = [];
 
-  const toStr = (val) => String(val || '').toUpperCase();
+  // RFC-0207 (follow-up #2 → cleanup): the single-source resolver's temperature
+  // domain is the ONLY classifier. The legacy deviceProfile body was removed
+  // (proven equivalent by tests/deviceClassificationProfile.water-temperature.test.ts).
+  const _resolveGroup =
+    (typeof window !== 'undefined' && window.MyIOLibrary && window.MyIOLibrary.resolveGroup) || null;
+  if (!_resolveGroup) {
+    LogHelper.error(
+      '[MAIN_VIEW] RFC-0207: MyIOLibrary.resolveGroup unavailable — temperature grouping degraded (update the MyIO library bundle)'
+    );
+    return { climatizavel: items.slice(), nao_climatizavel, ocultos };
+  }
 
   for (const item of items) {
-    if (isOcultosDevice(item)) {
-      ocultos.push(item);
-      continue;
-    }
-    const dp = toStr(item.deviceProfile);
-    if (dp === 'TERMOSTATO_EXTERNAL') {
-      nao_climatizavel.push(item);
-    } else {
-      climatizavel.push(item); // TERMOSTATO or any other termostato variant
-    }
+    const grp = _resolveGroup(item, undefined, 'temperature').group;
+    if (grp === 'nao_climatizavel') nao_climatizavel.push(item);
+    else if (grp === 'ocultos') ocultos.push(item);
+    else climatizavel.push(item);
   }
 
   return { climatizavel, nao_climatizavel, ocultos };
@@ -3403,19 +3803,19 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
   const calcPercStr = (value) => calcPerc(value).toFixed(1);
 
   // ============ SUBCATEGORIZE AREACOMUM ============
-  const CLIMATIZACAO_PATTERNS = [
-    'CHILLER',
-    'FANCOIL',
-    'HVAC',
-    'AR_CONDICIONADO',
-    'COMPRESSOR',
-    'VENTILADOR',
-    'CLIMATIZA',
-    'BOMBA_HIDRAULICA',
-    'BOMBASHIDRAULICAS',
-  ];
-  const ELEVADOR_PATTERNS = ['ELEVADOR'];
-  const ESCADA_PATTERNS = ['ESCADA', 'ROLANTE'];
+  // RFC-0207 (A1b → cleanup): the top-level breakdown bucket comes ONLY from the
+  // single-source resolver (window.MyIOLibrary.resolveCategory), unified with the
+  // column path (closes bug #2). The legacy CLIMATIZACAO/ELEVADOR/ESCADA pattern
+  // lists were removed; sub-subcategorization (chiller/fancoil/cag…; iluminacao/
+  // gerador…) stays local below.
+  const _resolveCategory =
+    (typeof window !== 'undefined' && window.MyIOLibrary && window.MyIOLibrary.resolveCategory) ||
+    null;
+  if (!_resolveCategory) {
+    LogHelper.error(
+      '[MAIN_VIEW] RFC-0207: MyIOLibrary.resolveCategory unavailable — breakdown subcategorization degraded to "outros" (update the MyIO library bundle)'
+    );
+  }
 
   // Outros equipment patterns
   const ILUMINACAO_PATTERNS = ['ILUMINA', 'LUZ', 'LAMPADA', 'LED'];
@@ -3448,17 +3848,16 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
     const id = toStr(item.identifier);
     const combined = `${lw} ${dt} ${dp} ${label}`;
 
-    // Identifier-prefix checks mirror TELEMETRY _getEnergyGroupKey so both widgets
-    // classify devices consistently (identifier is NOT included in `combined`).
-    const isElevadorById = id.startsWith('ELV-');
-    const isEscadaById = id.startsWith('ESC-');
-    const isClimatById = id.startsWith('CAG-') || id.startsWith('FANCOIL-') || id.startsWith('CHILLER-');
+    // RFC-0207 (A1b → cleanup): top-level bucket is resolver-only (degrades to
+    // 'outros' when the library is missing — logged once above). Identifier-prefix
+    // and combined-text signals are now encoded in the resolver seed.
+    const _topCat = _resolveCategory ? _resolveCategory(item).category : 'outros';
 
-    if (ELEVADOR_PATTERNS.some((p) => combined.includes(p)) || isElevadorById) {
+    if (_topCat === 'elevadores') {
       elevadoresItems.push(item);
-    } else if (ESCADA_PATTERNS.some((p) => combined.includes(p)) || isEscadaById) {
+    } else if (_topCat === 'escadas_rolantes') {
       escadasRolantesItems.push(item);
-    } else if (CLIMATIZACAO_PATTERNS.some((p) => combined.includes(p)) || isClimatById) {
+    } else if (_topCat === 'climatizacao') {
       climatizacaoItems.push(item);
       if (combined.includes('CHILLER') || id.startsWith('CHILLER-')) chillerItems.push(item);
       else if (combined.includes('FANCOIL') || id.startsWith('FANCOIL-')) fancoilItems.push(item);
@@ -4875,7 +5274,11 @@ const MyIOOrchestrator = (() => {
   // Config will be initialized in onInit() after widgetSettings are populated
   let config = null;
 
-  let visibleTab = 'energy';
+  // RFC-0152c: starts as null (NOT 'energy') — the auto-triggers of RFC-0130
+  // ("skip if no tab visible yet") rely on getVisibleTab() returning empty until
+  // MENU/dashboard-state sets it. The old 'energy' default made the 500ms
+  // auto-trigger start an energy retry loop on water-only dashboards.
+  let visibleTab = null;
   let currentPeriod = null;
   let CUSTOMER_ING_ID = '';
   let CLIENT_ID = '';
@@ -5004,6 +5407,12 @@ const MyIOOrchestrator = (() => {
    * @param {object} providedPeriod - Period object (optional)
    */
   async function requestDataWithRetry(domain, providedPeriod = null) {
+    // RFC-0152c: skip disabled domains entirely (same guard as request-data listener)
+    if (widgetSettings?.domainsEnabled && widgetSettings.domainsEnabled[domain] === false) {
+      LogHelper.log(`[Orchestrator] ⏭️ Domain ${domain} disabled (domainsEnabled) — skipping retry`);
+      return;
+    }
+
     // Prevent duplicate retry loops for same domain
     if (pendingRetries.has(domain)) {
       LogHelper.log(`[Orchestrator] ⏭️ Retry already in progress for ${domain}`);
@@ -5083,7 +5492,7 @@ const MyIOOrchestrator = (() => {
 
   // Request management
   function abortAllInflight() {
-    for (const [key, ac] of abortControllers.entries()) {
+    for (const ac of abortControllers.values()) {
       ac.abort();
     }
     abortControllers.clear();
@@ -5591,7 +6000,7 @@ const MyIOOrchestrator = (() => {
       else if (keyName === 'tickets_items') {
         try {
           meta.ticketsItems = typeof val === 'string' ? JSON.parse(val) : val;
-        } catch (_) {
+        } catch {
           meta.ticketsItems = null;
         }
       }
@@ -5686,7 +6095,7 @@ const MyIOOrchestrator = (() => {
     }
 
     // Build map by ingestionId
-    for (const [entityId, meta] of metadataByEntityId.entries()) {
+    for (const meta of metadataByEntityId.values()) {
       const ingestionId = meta.ingestionId;
       if (ingestionId) {
         metadataByIngestion.set(ingestionId, meta);
@@ -5904,7 +6313,7 @@ const MyIOOrchestrator = (() => {
         }
 
         // Build metadata map from AllTempDevices datasource
-        const { byIngestion: metadataMap, byEntityId: metadataByEntityId } =
+        const { byEntityId: metadataByEntityId } =
           buildMetadataMapFromCtxData(domain);
 
         if (metadataByEntityId.size === 0) {
@@ -6767,7 +7176,7 @@ const MyIOOrchestrator = (() => {
     try {
       lastProvide.set(domain, { periodKey: pKey, at: Date.now() });
       hideGlobalBusy(domain);
-    } catch (_e) {
+    } catch {
       // Silently ignore
     }
 
@@ -6918,7 +7327,7 @@ const MyIOOrchestrator = (() => {
    * This solves the race condition where widgets miss the initial provide-data event
    */
   window.addEventListener('myio:widget:ready', (ev) => {
-    const { widgetId, domain, labelWidget, timestamp } = ev.detail;
+    const { widgetId, domain, labelWidget } = ev.detail;
 
     LogHelper.log(
       `[Orchestrator] 📡 RFC-0136: Widget ready - ${widgetId} (domain: ${domain}, labelWidget: ${labelWidget})`
@@ -6974,9 +7383,29 @@ const MyIOOrchestrator = (() => {
     }, 50); // 50ms delay to ensure listener is ready
   });
 
+  // RFC-0152c: first enabled domain (same derivation as _initialTab in onInit).
+  // Used when myio:update-date arrives but myio:dashboard-state was never seen
+  // (listener-registration race) — hydrating the WRONG default domain caused
+  // "Erro ao carregar dados (energy)" on water-only dashboards while the real
+  // domain never loaded.
+  function firstEnabledDomain() {
+    const de = widgetSettings?.domainsEnabled || {};
+    if (de.energy !== false) return 'energy';
+    if (de.water !== false) return 'water';
+    if (de.temperature !== false) return 'temperature';
+    return 'energy';
+  }
+
   // Event listeners
   window.addEventListener('myio:update-date', (ev) => {
     LogHelper.log('[Orchestrator] 📅 Received myio:update-date event', ev.detail);
+
+    // RFC-0152c: if no dashboard-state ever set the tab, derive it from
+    // domainsEnabled so "Carregar" hydrates the right domain instead of skipping.
+    if (!visibleTab) {
+      visibleTab = firstEnabledDomain();
+      LogHelper.log(`[Orchestrator] RFC-0152c: visibleTab was unset — derived from domainsEnabled: ${visibleTab}`);
+    }
 
     // RFC-0130: Check if period changed - if so, clear cache for this domain
     const newPeriod = ev.detail.period;
@@ -7047,9 +7476,17 @@ const MyIOOrchestrator = (() => {
       return;
     }
 
+    // RFC-0152c: never accept a DISABLED domain as the visible tab — a stray
+    // dashboard-state (e.g. HEADER's old auto-select 'energy') would poison
+    // visibleTab and every subsequent Carregar would hydrate the wrong domain.
+    if (widgetSettings?.domainsEnabled && widgetSettings.domainsEnabled[tab] === false) {
+      LogHelper.warn(`[Orchestrator] ⏭️ RFC-0152c: dashboard-state ignorado — domínio ${tab} desabilitado`);
+      return;
+    }
+
     try {
       hideGlobalBusy(tab);
-    } catch (_e) {
+    } catch {
       // Silently ignore - busy indicator may not exist yet
     }
 
@@ -7170,7 +7607,7 @@ const MyIOOrchestrator = (() => {
         try {
           lastProvide.set(domain, { periodKey: data.detail.periodKey, at: Date.now() });
           hideGlobalBusy(domain);
-        } catch (_e) {
+        } catch {
           // Silently ignore
         }
       });
@@ -7277,6 +7714,9 @@ const MyIOOrchestrator = (() => {
       visibleTab = tab;
     },
     getVisibleTab: () => visibleTab,
+    // RFC-0152c: exposed so HEADER's auto-select derives the right domain on
+    // water-only/temperature-only dashboards instead of hardcoding 'energy'.
+    getFirstEnabledDomain: firstEnabledDomain,
     getCurrentPeriod: () => currentPeriod,
     getStats: () => ({
       totalRequests: metrics.totalRequests,

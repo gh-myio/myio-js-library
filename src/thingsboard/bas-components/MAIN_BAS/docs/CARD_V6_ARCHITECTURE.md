@@ -16,7 +16,7 @@ O `template-card-v6` e um componente standalone para renderizacao de cards de di
 ### Localizacao
 
 ```
-src/components/template-card-v6/
+src/components/cards/main-view/v6.0.0/
 ├── template-card-v6.js      # Implementacao principal (~1200 linhas)
 └── template-card-v6.d.ts    # Type definitions
 ```

@@ -885,7 +885,7 @@ console.log(offlineStatus); // "no_info"
 ```
 
 **Interactive Demo:**
-See [demos/calculate-device-status.html](demos/calculate-device-status.html) for an interactive demonstration with multiple scenarios.
+See [showcase/calculate-device-status.html](showcase/calculate-device-status.html) for an interactive demonstration with multiple scenarios.
 
 **Complete Documentation:**
 See [docs/calculateDeviceStatus.md](docs/calculateDeviceStatus.md) for comprehensive documentation with advanced examples.
@@ -1229,7 +1229,7 @@ Creates a complete, beautifully styled date range input inside a target DIV cont
 
 **Key Features:**
 - **Automatic HTML Creation**: Creates complete styled input structure inside target DIV
-- **Premium MyIO Styling**: Beautiful styling matching demos/energy.html with purple brand colors
+- **Premium MyIO Styling**: Beautiful styling matching showcase/energy.html with purple brand colors
 - **Container-Based**: Works with any DIV container, perfect for ThingsBoard widgets
 - **Accessibility Built-in**: ARIA labels, keyboard navigation, screen reader support
 - **Responsive Design**: Mobile-friendly with proper touch targets
@@ -2344,7 +2344,7 @@ card.destroy();
 }
 ```
 
-For complete technical documentation and implementation details, see: [RFC-0007-renderCardCompenteHeadOffice](src/docs/rfcs/RFC-0007-renderCardCompenteHeadOffice.md)
+For complete technical documentation and implementation details, see: [RFC-0007-renderCardCompenteHeadOffice](docs/rfcs/RFC-0007-renderCardCompenteHeadOffice.md)
 
 ### Demand Modal Component
 
@@ -2512,7 +2512,7 @@ const modal = await openDemandModal({
 - Debounced resize handling
 - Efficient data processing pipeline
 
-For complete technical specifications, see: [RFC-0015-MyIO-DemandModal-Component](src/docs/rfcs/RFC-0015-MyIO-DemandModal-Component.md)
+For complete technical specifications, see: [RFC-0015-MyIO-DemandModal-Component](docs/rfcs/RFC-0015-MyIO-DemandModal-Component.md)
 
 ---
 
@@ -2692,7 +2692,7 @@ const daily = aggregateByDay(data);
 // [{ date: '2025-01-25', avg: 23.5, min: 18.2, max: 28.7, count: 48 }, ...]
 ```
 
-For complete technical specifications, see: [RFC-0085-Temperature-Modal-Component](src/docs/rfcs/RFC-0085-Temperature-Modal-Component.md)
+For complete technical specifications, see: [RFC-0085-Temperature-Modal-Component](docs/rfcs/RFC-0085-Temperature-Modal-Component.md)
 
 ---
 
@@ -3025,7 +3025,7 @@ displayGoalComparison(monthlyGoal, actualConsumption, achievementPercent);
 - Uses modern DOM APIs
 - Responsive design for mobile/tablet
 
-For complete technical specifications and implementation details, see: [RFC-0075-GoalsPanel](src/docs/rfcs/RFC-0075-GoalsPanel.md)
+For complete technical specifications and implementation details, see: [RFC-0075-GoalsPanel](docs/rfcs/RFC-0075-GoalsPanel.md)
 
 ---
 

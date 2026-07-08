@@ -1,0 +1,27 @@
+{
+  "_meta": {
+    "central": "Campinas Shopping — G0 Nova (Argo Plan)",
+    "table": "channels",
+    "rowCount": 15,
+    "capturedAt": "2026-06-30",
+    "source": "psql -U hubot — SELECT * FROM channels; (parseado do dump da sessão)",
+    "note": "Os hidrômetros são materializados como pares (presence_sensor `Energia/Fonte` ch0 + flow_sensor `Hidr.` ch1) sobre slaves outlet (133, 156, 160). Os channels 1 e 2 têm slave_id NULL — órfãos do slave RiHappy (referido como slave 131 no config do ambient 14, mas já removido de `slaves`). Os 7 channels `lamp` Check A–E/(C)/Terraço pertencem aos outlets SCD do grupo Níveis."
+  },
+  "rows": [
+    { "id": 3, "type": "presence_sensor", "channel": 0, "name": "Energia", "channel_id": null, "slave_id": 133, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2025-02-01 14:05:03.713+00", "updated_at": "2025-02-01 14:05:03.713+00" },
+    { "id": 4, "type": "flow_sensor", "channel": 1, "name": "Hidr. Outback x1 0m3", "channel_id": null, "slave_id": 133, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2025-02-01 14:05:33.071+00", "updated_at": "2025-02-01 14:05:33.071+00" },
+    { "id": 5, "type": "lamp", "channel": 0, "name": "Check C'", "channel_id": null, "slave_id": 140, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2025-02-10 17:24:22.005+00", "updated_at": "2025-02-10 17:24:22.005+00" },
+    { "id": 6, "type": "lamp", "channel": 0, "name": "Check A", "channel_id": null, "slave_id": 135, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2025-02-10 17:25:22.867+00", "updated_at": "2025-02-10 17:25:22.867+00" },
+    { "id": 7, "type": "lamp", "channel": 0, "name": "Check B", "channel_id": null, "slave_id": 134, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2025-02-10 17:25:59.636+00", "updated_at": "2025-02-10 17:25:59.636+00" },
+    { "id": 8, "type": "lamp", "channel": 0, "name": "Check D", "channel_id": null, "slave_id": 136, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2025-02-10 17:26:36.62+00", "updated_at": "2025-02-10 17:26:36.62+00" },
+    { "id": 9, "type": "lamp", "channel": 0, "name": "Check E", "channel_id": null, "slave_id": 137, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2025-02-10 17:27:09.209+00", "updated_at": "2025-02-10 17:27:09.209+00" },
+    { "id": 10, "type": "lamp", "channel": 0, "name": "Check (C)", "channel_id": null, "slave_id": 139, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2025-02-10 18:19:46.883+00", "updated_at": "2025-02-10 18:19:46.883+00" },
+    { "id": 11, "type": "lamp", "channel": 0, "name": "Chek Terraço", "channel_id": null, "slave_id": 142, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2025-02-10 20:53:38.287+00", "updated_at": "2025-02-10 20:53:38.287+00" },
+    { "id": 1, "type": "presence_sensor", "channel": 0, "name": "Energia", "channel_id": null, "slave_id": null, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2025-01-26 20:05:31.481+00", "updated_at": "2025-01-26 20:05:31.481+00" },
+    { "id": 2, "type": "flow_sensor", "channel": 1, "name": "Hidr. RiHappy x1 0m3", "channel_id": null, "slave_id": null, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2025-01-26 20:05:44.024+00", "updated_at": "2025-01-26 20:05:44.024+00" },
+    { "id": 12, "type": "presence_sensor", "channel": 0, "name": "Fonte", "channel_id": null, "slave_id": 156, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2025-10-30 16:38:36.928+00", "updated_at": "2025-10-30 16:38:36.928+00" },
+    { "id": 13, "type": "flow_sensor", "channel": 1, "name": "Hidr. Entrada_Sanasa x100", "channel_id": null, "slave_id": 156, "scene_up_id": null, "scene_down_id": null, "config": { "confirm": false }, "created_at": "2025-10-30 16:38:51.16+00", "updated_at": "2025-11-03 21:17:09.407+00" },
+    { "id": 14, "type": "presence_sensor", "channel": 0, "name": "Energia", "channel_id": null, "slave_id": 160, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2026-06-09 18:56:53.086+00", "updated_at": "2026-06-09 18:56:53.086+00" },
+    { "id": 15, "type": "flow_sensor", "channel": 1, "name": "HIDR. SCP00023 x100", "channel_id": null, "slave_id": 160, "scene_up_id": null, "scene_down_id": null, "config": { "confirm": false }, "created_at": "2026-06-09 18:57:14.748+00", "updated_at": "2026-06-24 19:20:14.762+00" }
+  ]
+}

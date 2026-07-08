@@ -1,0 +1,59 @@
+{
+  "dashboardName": "Dashboard - Mestre Álvaro - v.5.2.0",
+  "dashboardId": "6c188a90-b0cc-11f0-9722-210aa9448abc",
+  "updatedAt": "2026-03-15T10:30:00.000Z",
+  "changelog": [
+    {
+      "changedAt": "2026-03-15T10:30:00.000Z",
+      "version": "0.1.413",
+      "previous": {
+        "dashboardId": "a3f5c210-b0cc-11f0-9722-210aa9448abc",
+        "dashboardName": "Dashboard - Mestre Álvaro - v.5.1.2"
+      },
+      "next": {
+        "dashboardId": "6c188a90-b0cc-11f0-9722-210aa9448abc",
+        "dashboardName": "Dashboard - Mestre Álvaro - v.5.2.0"
+      },
+      "changedBy": {
+        "userId": "d1a2b3c4-1111-2222-3333-444455556666",
+        "name": "Rodrigo Lago",
+        "email": "rodrigo@myio.com.br"
+      }
+    },
+    {
+      "changedAt": "2026-02-10T14:20:00.000Z",
+      "version": "0.1.398",
+      "previous": {
+        "dashboardId": "88d1e430-9fa1-11f0-8811-bb0cc1234567",
+        "dashboardName": "Dashboard - Mestre Álvaro - v.5.1.0"
+      },
+      "next": {
+        "dashboardId": "a3f5c210-b0cc-11f0-9722-210aa9448abc",
+        "dashboardName": "Dashboard - Mestre Álvaro - v.5.1.2"
+      },
+      "changedBy": {
+        "userId": "f9081234-5678-90ab-cdef-123456789012",
+        "name": "Victor Hugo Da Silva",
+        "email": "victorhjoe@gmail.com"
+      }
+    },
+    {
+      "changedAt": "2025-12-05T09:15:00.000Z",
+      "version": "0.1.385",
+      "previous": {
+        "dashboardId": "71bc5900-8e22-11ef-a100-aabbcc001122",
+        "dashboardName": "Dashboard - Mestre Álvaro - v.5.0.1"
+      },
+      "next": {
+        "dashboardId": "88d1e430-9fa1-11f0-8811-bb0cc1234567",
+        "dashboardName": "Dashboard - Mestre Álvaro - v.5.1.0"
+      },
+      "changedBy": {
+        "userId": "e5f6a7b8-aaaa-bbbb-cccc-ddddeeeeffff",
+        "name": "Leandro Gadioli",
+        "email": "gadioli@myio.com.br"
+      }
+    },
+    { "...": "— 3 entradas anteriores omitidas para brevidade —" }
+  ]
+}

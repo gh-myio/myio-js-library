@@ -1,0 +1,94 @@
+{
+  "_comment": "Copie para config.json (gitignored) e preencha. 'settings' espelha 100% o settingsSchema.json — TUDO que aparece no cockpit vem daqui. A tab LOCAL|PROD troca entre os blocos de 'environments'.",
+  "defaultEnv": "LOCAL",
+  "general-settings": {
+    "_comment": "Configurações globais da showcase (não por-ambiente).",
+    "bootCountdownSeconds": 6
+  },
+  "environments": {
+    "LOCAL": {
+      "settings": {
+        "customerTB_ID": "",
+        "dataApiHost": "https://api.data.apps.myio-bas.com/api/v1",
+        "thingsboardUrl": "https://dashboard.myio-bas.com",
+        "defaultThemeMode": "light",
+        "darkMode": {
+          "backgroundType": "gradient",
+          "backgroundUrl": "",
+          "backgroundColor": "#0f172a",
+          "backgroundGradient": "linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e1b4b 100%)",
+          "panelColor": "#1e293b",
+          "borderColor": "#334155",
+          "textColor": "#f1f5f9"
+        },
+        "lightMode": {
+          "backgroundType": "gradient",
+          "backgroundUrl": "",
+          "backgroundColor": "#f8fafc",
+          "backgroundGradient": "linear-gradient(135deg, #ede9fe 0%, #ddd6fe 50%, #c4b5fd 100%)",
+          "panelColor": "#ffffff",
+          "borderColor": "#e2e8f0",
+          "textColor": "#1e293b"
+        },
+        "enableCache": true,
+        "cacheTtlMinutes": 30,
+        "enableStaleWhileRevalidate": true,
+        "maxCacheSize": 50,
+        "debugMode": true,
+        "domainsEnabled": { "energy": true, "water": true, "temperature": true },
+        "excludeDevicesAtCountSubtotalCAG": [],
+        "enableAnnotationsOnboarding": false,
+        "alarmsApiBaseUrl": "https://alarms-api.a.myio-bas.com/api/v1",
+        "alarmsApiKey": "",
+        "gcdrCustomerId": "77777777-7777-7777-7777-777777777777",
+        "gcdrTenantId": "11111111-1111-1111-1111-111111111111",
+        "gcdrApiBaseUrl": "http://localhost:3015/api/v1"
+      },
+      "apiKeys": [
+        { "label": "Cole sua X-API-Key LOCAL aqui", "value": "COLE-SUA-API-KEY-LOCAL" }
+      ]
+    },
+    "PROD": {
+      "settings": {
+        "customerTB_ID": "",
+        "dataApiHost": "https://api.data.apps.myio-bas.com/api/v1",
+        "thingsboardUrl": "https://dashboard.myio-bas.com",
+        "defaultThemeMode": "light",
+        "darkMode": {
+          "backgroundType": "gradient",
+          "backgroundUrl": "",
+          "backgroundColor": "#0f172a",
+          "backgroundGradient": "linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e1b4b 100%)",
+          "panelColor": "#1e293b",
+          "borderColor": "#334155",
+          "textColor": "#f1f5f9"
+        },
+        "lightMode": {
+          "backgroundType": "gradient",
+          "backgroundUrl": "",
+          "backgroundColor": "#f8fafc",
+          "backgroundGradient": "linear-gradient(135deg, #ede9fe 0%, #ddd6fe 50%, #c4b5fd 100%)",
+          "panelColor": "#ffffff",
+          "borderColor": "#e2e8f0",
+          "textColor": "#1e293b"
+        },
+        "enableCache": true,
+        "cacheTtlMinutes": 30,
+        "enableStaleWhileRevalidate": true,
+        "maxCacheSize": 50,
+        "debugMode": false,
+        "domainsEnabled": { "energy": true, "water": true, "temperature": true },
+        "excludeDevicesAtCountSubtotalCAG": [],
+        "enableAnnotationsOnboarding": false,
+        "alarmsApiBaseUrl": "https://alarms-api.a.myio-bas.com/api/v1",
+        "alarmsApiKey": "",
+        "gcdrCustomerId": "",
+        "gcdrTenantId": "",
+        "gcdrApiBaseUrl": "https://gcdr-api.a.myio-bas.com/api/v1"
+      },
+      "apiKeys": [
+        { "label": "Cole sua X-API-Key PROD aqui", "value": "COLE-SUA-API-KEY-PROD" }
+      ]
+    }
+  }
+}

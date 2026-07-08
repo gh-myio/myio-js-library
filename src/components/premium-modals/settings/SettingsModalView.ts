@@ -1,6 +1,6 @@
 import { ModalConfig } from './types';
-import { mapDeviceStatusToCardStatus } from '../../../utils/deviceStatus';
-import { deviceIcons } from '../../../utils/deviceIcons';
+import { mapDeviceStatusToCardStatus } from '../../../utils/devices/deviceStatus';
+import { deviceIcons } from '../../../utils/devices/deviceIcons';
 import { ModalHeader } from '../../../utils/ModalHeader';
 import { AnnotationsTab } from './annotations/AnnotationsTab';
 import { AlarmsTab } from './alarms/AlarmsTab';

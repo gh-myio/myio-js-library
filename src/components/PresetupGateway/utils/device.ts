@@ -1,6 +1,6 @@
 import type { PresetupDevice, DeviceType } from '../types';
 // RFC-0202: device-type prefixes come from the shared lib util (single source).
-import { getDeviceTypePrefix } from '../../../utils/device';
+import { getDeviceTypePrefix } from '../../../utils/devices/device';
 
 // ─── Type mappings ────────────────────────────────────────────────────────────
 

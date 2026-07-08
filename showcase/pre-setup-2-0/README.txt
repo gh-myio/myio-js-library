@@ -2,7 +2,7 @@ Pre-Setup 2.0 — GCDR Upsell Setup Showcase
 ============================================
 
 Harness simulado para o widget ThingsBoard GCDR-Upsell-Setup v1.0.0
-(src/thingsboard/WIDGET/GCDR-Upsell-Setup/v.1.0.0/controller.js).
+(src/thingsboard/GCDR-Upsell-Setup/v.1.0.0/controller.js).
 
 Inspirado em showcase/main-view-shopping — usa backend REAL (auto-auth no
 ThingsBoard de produção). O "simulado" é apenas o harness que dá boot no

@@ -1,8 +1,24 @@
 /**
- * MYIO Goals Panel Component (RFC-0075)
- * Consumption Goals Setup Panel with annual and monthly goal management
+ * MYIO Goals Panel Component — GCDR Customer Consumption Goals (RFC-0046)
  *
- * @version 1.0.0
+ * A vanilla-JS modal faithful to the GCDR frontend `CustomerGoalsTab.tsx`:
+ *   - read-only summary dashboard (default view)
+ *   - drill editor MONTH → DAY → HOUR (breadcrumb navigation)
+ *   - CSV import modal (stateless dry-run preview → persist)
+ *   - version-history timeline (one node per operation)
+ *
+ * Metas now live in GCDR (not ThingsBoard attributes). This component talks to
+ * the GCDR API (`/api/v1/customers/:id/goals`) for both reads and writes.
+ *
+ * Wire contract: gcdr.git/docs/rfcs/RFC-0046-Goals-API.md
+ * UI reference:  gcdr-frontend.git/docs/RFC-0046-Goals-Frontend.md
+ *
+ * Domain rules (fixed per domain, never an operator choice):
+ *   ENERGY  → kWh · SUM     · negatives rejected
+ *   WATER   → m³  · SUM     · negatives rejected
+ *   TEMPERATURE → °C · AVERAGE · negatives allowed
+ *
+ * @version 2.0.0  (GCDR-backed; supersedes the RFC-0075 mock/ThingsBoard panel)
  * @author MYIO Frontend Guild
  */
 
@@ -10,153 +26,775 @@
 
 import { ModalHeader } from '../utils/ModalHeader';
 
+// =============================================================================
+// Domain config (mirrors GOAL_DOMAIN_CONFIG in gcdr-frontend src/types/goals.ts)
+// =============================================================================
+
+const DOMAINS = ['ENERGY', 'WATER', 'TEMPERATURE'];
+
+const GOAL_DOMAIN_CONFIG = {
+  ENERGY: { unit: 'kWh', aggregationMethod: 'SUM', allowsNegative: false },
+  WATER: { unit: 'm3', aggregationMethod: 'SUM', allowsNegative: false },
+  TEMPERATURE: { unit: 'C', aggregationMethod: 'AVERAGE', allowsNegative: true },
+};
+
+/** Zero-padded month keys "01".."12". */
+const MONTH_KEYS = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'));
+
+/** Zero-padded hour keys "00".."23". */
+const HOUR_KEYS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
+
+const pad2 = (n) => String(n).padStart(2, '0');
+
+/** Days in a (year, 1-based month), leap-year aware (matches the backend). */
+function daysInMonth(year, month) {
+  if (month === 2) {
+    const leap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+    return leap ? 29 : 28;
+  }
+  return [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1];
+}
+
+/** Current year ± 2, newest-first. */
+function buildYearOptions() {
+  const now = new Date().getFullYear();
+  const out = [];
+  for (let y = now + 2; y >= now - 2; y--) out.push(y);
+  return out;
+}
+
+/** Small HTML escaper for any operator/server-provided text. */
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// =============================================================================
+// Public entry point
+// =============================================================================
+
 /**
- * Opens the Goals Setup Panel modal
+ * Opens the GCDR Consumption Goals panel modal.
  *
- * @param {Object} params - Configuration parameters
- * @param {string} params.customerId - ThingsBoard Customer ID (Holding)
- * @param {string} params.token - JWT token for ThingsBoard API
- * @param {Object} params.api - API configuration
- * @param {string} params.api.baseUrl - ThingsBoard API base URL
- * @param {Object} [params.data] - Initial goals data (for testing with mock data)
- * @param {Function} [params.onSave] - Callback when goals are saved
- * @param {Function} [params.onClose] - Callback when modal is closed
- * @param {Object} [params.styles] - Custom styling overrides
- * @param {string} [params.locale='pt-BR'] - Locale for i18n
- * @returns {Object} Modal instance with control methods
+ * @param {Object} params
+ * @param {string} params.customerId          - GCDR customer UUID (required).
+ * @param {string} params.apiKey              - X-API-Key (gcdr_cust_*) (required).
+ * @param {string} params.baseUrl             - GCDR host, e.g. "https://api.gcdr" — "/api/v1" is appended if absent.
+ * @param {('ENERGY'|'WATER'|'TEMPERATURE')} [params.domain='ENERGY'] - initial domain.
+ * @param {number} [params.year]              - initial year (default current year).
+ * @param {string} [params.locale='pt-BR']    - 'pt-BR' | 'en-US'.
+ * @param {Object} [params.styles]            - theme overrides (accent/primaryColor/zIndex/...).
+ * @param {Function} [params.onSaved]         - called after a successful write (WriteGoalsResponse).
+ * @param {Function} [params.onClose]         - called when the modal closes.
+ * @param {HTMLElement} [params.container]    - mount node (default document.body).
+ * @returns {Object} instance with { close, refresh, getState }.
  */
 export function openGoalsPanel(params) {
   if (typeof window === 'undefined' || typeof document === 'undefined') {
-    throw new Error('GoalsPanel requires browser environment');
+    throw new Error('GoalsPanel requires a browser environment');
   }
 
-  const {
-    customerId,
-    token,
-    api = {},
-    data = null,
-    shoppingList = [], // List of shopping centers
-    onSave = null,
-    onClose = null,
-    styles = {},
-    locale = 'pt-BR',
-    entityLabel = 'Shopping' // Customizable entity label (e.g., "Loja", "Escola", "Filial")
-  } = params;
+  const p = params || {};
+  const customerId = p.customerId;
+  // Accept apiKey from params or legacy `api.apiKey`.
+  const apiKey = p.apiKey || (p.api && p.api.apiKey) || null;
+  // Accept baseUrl from params, `dataApiHost`, or legacy `api.baseUrl`.
+  const rawBaseUrl = p.baseUrl || p.dataApiHost || (p.api && p.api.baseUrl) || '';
+  const onSaved = typeof p.onSaved === 'function' ? p.onSaved : (typeof p.onSave === 'function' ? p.onSave : null);
+  const onClose = typeof p.onClose === 'function' ? p.onClose : null;
+  const container = p.container || document.body;
+  const locale = p.locale === 'en-US' ? 'en-US' : 'pt-BR';
+  const styles = p.styles || {};
 
-  if (!customerId) {
-    throw new Error('customerId is required');
-  }
+  if (!customerId) throw new Error('customerId is required');
+  if (!apiKey) throw new Error('apiKey (X-API-Key gcdr_cust_*) is required');
+  if (!rawBaseUrl) throw new Error('baseUrl (GCDR host) is required');
 
-  if (!token && !data) {
-    throw new Error('token is required when not using mock data');
-  }
+  const i18n = getStrings(locale);
 
-  // Merge custom styles with defaults
+  // Emerald is the GCDR Goals identity; honor styles.primaryColor when provided.
   const theme = {
-    primaryColor: styles.primaryColor || '#4A148C',
-    accentColor: styles.accentColor || '#FFC107',
-    successColor: styles.successColor || '#28a745',
-    errorColor: styles.errorColor || '#dc3545',
-    warningColor: styles.warningColor || '#fd7e14',
-    borderRadius: styles.borderRadius || '8px',
-    fontFamily: styles.fontFamily || "'Roboto', Arial, sans-serif",
-    zIndex: styles.zIndex || 10000
+    accent: styles.accent || styles.primaryColor || '#059669',
+    accentSoft: styles.accentSoft || 'rgba(5,150,105,0.10)',
+    primary: styles.primaryColor || styles.accent || '#059669',
+    violet: styles.violet || '#6c5ce7',
+    danger: styles.errorColor || '#dc2626',
+    amber: styles.warningColor || '#d97706',
+    borderRadius: styles.borderRadius || '10px',
+    fontFamily: styles.fontFamily || "'Nunito', 'Roboto', Arial, sans-serif",
+    zIndex: styles.zIndex || 10000,
   };
 
-  // i18n strings (with customizable entity label)
-  const i18n = locale === 'en-US' ? getEnglishStrings(entityLabel) : getPortugueseStrings(entityLabel);
+  const MODAL_ID = 'goals-gcdr-modal';
+  const ROOT_ID = 'myio-goals-gcdr-root';
 
-  // Granularity labels (Mês | Diária | Hora em breve) — local to keep i18n getters untouched
-  const GLABELS = locale === 'en-US'
-    ? { title: 'Granularity', month: 'Monthly', day: 'Daily', hour: 'Hourly (soon)',
-        template: 'Download template', importBtn: 'Import spreadsheet',
-        hintMonth: '12 values', hintDay: '365 values', hintHour: '8,760 — soon',
-        derived: 'Monthly values derived from imported daily detail (read-only).',
-        imported: 'Spreadsheet imported.', importErr: 'Import error: ', readErr: 'Failed to read file.' }
-    : { title: 'Granularidade', month: 'Mês', day: 'Diária', hour: 'Hora (em breve)',
-        template: 'Baixar template', importBtn: 'Importar planilha',
-        hintMonth: '12 valores', hintDay: '365 valores', hintHour: '8.760 — em breve',
-        derived: 'Valores mensais derivados do detalhe diário importado (somente leitura).',
-        imported: 'Planilha importada.', importErr: 'Erro ao importar: ', readErr: 'Falha ao ler o arquivo.' };
+  // ───────────────────────────────────────────────────────────────────────────
+  // State
+  // ───────────────────────────────────────────────────────────────────────────
 
-  // Modal constants
-  const MODAL_ID = 'goals-modal';
-
-  // Modal state
-  let modalState = {
-    currentTab: 'shopping', // 'shopping' | 'assets'
-    granularity: 'month', // 'month' | 'day' ('hour' = em breve)
-    currentYear: new Date().getFullYear(),
-    selectedShoppingId: shoppingList.length > 0 ? shoppingList[0].value : null,
-    goalsData: data || null,
-    isDirty: false,
-    isSaving: false,
-    validationErrors: [],
-    headerController: null
+  const state = {
+    domain: DOMAINS.includes(p.domain) ? p.domain : 'ENERGY',
+    year: Number.isFinite(p.year) ? p.year : new Date().getFullYear(),
+    level: 'month', // 'month' | 'day' | 'hour'
+    selectedMonth: null, // "01".."12"
+    selectedDay: null, // "01".."31"
+    editing: false,
+    goals: null, // GoalTreeResponse
+    loading: false,
+    error: null,
+    saving: false,
+    saveError: null,
+    conflictVersion: null,
+    draft: {}, // current view editable map
+    saved: false,
+    conflict: false,
+    // CSV import modal
+    importOpen: false,
+    csv: '',
+    importPreview: null, // ImportGoalsResponse (dryRun=true)
+    importApplied: null, // ImportGoalsResponse (dryRun=false)
   };
 
-  // Create modal instance
+  let rootEl = null;
+
   const instance = {
     close: () => closeModal(),
-    getState: () => ({ ...modalState }),
-    setYear: (year) => setCurrentYear(year),
-    refresh: () => loadGoalsData()
+    refresh: () => reload(),
+    getState: () => ({ ...state }),
   };
 
-  // Initialize modal
-  initializeModal();
+  // NOTE: mount() + return happen at the END of this function. They used to sit here,
+  // which meant every `const` below (svc, targetQuery, …) never executed — statements
+  // after `return` are dead code — so mount() → reload() hit "Cannot access 'svc'
+  // before initialization" and the modal spun forever.
 
-  return instance;
+  // ───────────────────────────────────────────────────────────────────────────
+  // GCDR API service (fetch + standard envelope)
+  // ───────────────────────────────────────────────────────────────────────────
 
-  // ============================================================================
-  // INITIALIZATION
-  // ============================================================================
+  function apiBase() {
+    let b = String(rawBaseUrl).replace(/\/+$/, '');
+    if (!/\/api\/v1$/.test(b)) b += '/api/v1';
+    return b;
+  }
 
-  function initializeModal() {
-    // If mock data provided, use it directly
-    if (data) {
-      modalState.goalsData = data;
-      renderModal();
+  async function request(method, path, opts) {
+    const o = opts || {};
+    let url = apiBase() + path;
+    if (o.query) {
+      const qs = new URLSearchParams();
+      Object.entries(o.query).forEach(([k, v]) => {
+        if (v !== undefined && v !== null) qs.append(k, String(v));
+      });
+      const s = qs.toString();
+      if (s) url += (url.includes('?') ? '&' : '?') + s;
+    }
+    let res;
+    try {
+      res = await fetch(url, {
+        method,
+        headers: {
+          'X-API-Key': apiKey,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: o.body !== undefined ? JSON.stringify(o.body) : undefined,
+      });
+    } catch (e) {
+      return { success: false, error: { message: (e && e.message) || 'Network error', code: 'NETWORK' } };
+    }
+    if (res.status === 204) return { success: true, data: undefined };
+    let json = null;
+    try {
+      json = await res.json();
+    } catch (_) {
+      json = null;
+    }
+    if (!res.ok) {
+      const err = (json && json.error) || { message: `HTTP ${res.status}`, code: `HTTP_${res.status}` };
+      return { success: false, error: err };
+    }
+    if (json && typeof json.success === 'boolean') return json;
+    return { success: true, data: json };
+  }
+
+  const targetQuery = () => ({ domain: state.domain, year: state.year });
+
+  const svc = {
+    getTree: (granularity, fetchHistory) =>
+      request('GET', `/customers/${customerId}/goals`, {
+        query: { domain: state.domain, year: state.year, granularity, fetchHistory },
+      }),
+    replace: (body) =>
+      request('PUT', `/customers/${customerId}/goals`, { query: targetQuery(), body }),
+    merge: (body) =>
+      request('PATCH', `/customers/${customerId}/goals`, { query: targetQuery(), body }),
+    importCsv: (body, dryRun) =>
+      request('POST', `/customers/${customerId}/goals/import`, {
+        query: { domain: state.domain, year: state.year, dryRun: !!dryRun },
+        body,
+      }),
+  };
+
+  /** Pull `currentVersion` out of a 409 VERSION_CONFLICT envelope, if present. */
+  function readVersionConflict(res) {
+    if (!res || res.success || !res.error) return null;
+    if (res.error.code !== 'VERSION_CONFLICT') return null;
+    const fromTop = typeof res.error.currentVersion === 'number' ? res.error.currentVersion : undefined;
+    const fromDetails =
+      res.error.details && typeof res.error.details.currentVersion === 'number'
+        ? res.error.details.currentVersion
+        : undefined;
+    return fromTop != null ? fromTop : fromDetails != null ? fromDetails : null;
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // Data loading
+  // ───────────────────────────────────────────────────────────────────────────
+
+  async function reload() {
+    // In the summary we want the whole-year daily roll-up (annual+monthly+daily)
+    // → fetch at 'day'. While editing, GET granularity follows the drill level.
+    const granularity = state.editing ? state.level : 'day';
+    state.loading = true;
+    state.error = null;
+    render();
+    const res = await svc.getTree(granularity, true);
+    state.loading = false;
+    if (!res.success) {
+      state.error = (res.error && res.error.message) || 'Failed to fetch goals';
+      state.goals = null;
     } else {
-      // Load data from ThingsBoard
-      renderModal();
-      loadGoalsData();
+      state.goals = res.data || null;
+      reseedDraft();
+    }
+    state.saved = false;
+    state.conflict = false;
+    render();
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // Tree → editable draft helpers
+  // ───────────────────────────────────────────────────────────────────────────
+
+  function monthlyFromTree(tree) {
+    const out = {};
+    for (const k of MONTH_KEYS) {
+      const node = tree && tree.monthly && tree.monthly[k];
+      out[k] = node && typeof node.value === 'number' ? String(node.value) : '';
+    }
+    return out;
+  }
+
+  function dailyFromTree(tree, monthKey, dayCount) {
+    const out = {};
+    for (let d = 1; d <= dayCount; d++) {
+      const dd = pad2(d);
+      const node = tree && tree.daily && tree.daily[`${monthKey}-${dd}`];
+      out[dd] = node && typeof node.value === 'number' ? String(node.value) : '';
+    }
+    return out;
+  }
+
+  function hourlyFromTree(tree, monthKey, dayKey) {
+    const out = {};
+    for (const hh of HOUR_KEYS) {
+      const node = tree && tree.hourly && tree.hourly[`${monthKey}-${dayKey}T${hh}`];
+      out[hh] = node && typeof node.value === 'number' ? String(node.value) : '';
+    }
+    return out;
+  }
+
+  function reseedDraft() {
+    const tree = state.goals && state.goals.tree;
+    if (state.level === 'month') {
+      state.draft = monthlyFromTree(tree);
+    } else if (state.level === 'day' && state.selectedMonth) {
+      state.draft = dailyFromTree(tree, state.selectedMonth, daysInMonth(state.year, Number(state.selectedMonth)));
+    } else if (state.level === 'hour' && state.selectedMonth && state.selectedDay) {
+      state.draft = hourlyFromTree(tree, state.selectedMonth, state.selectedDay);
+    } else {
+      state.draft = {};
     }
   }
 
-  // ============================================================================
-  // MODAL RENDERING
-  // ============================================================================
+  // ───────────────────────────────────────────────────────────────────────────
+  // Derived views
+  // ───────────────────────────────────────────────────────────────────────────
 
-  function renderModal() {
-    // Remove existing modal if any
-    const existing = document.getElementById('myio-goals-panel-modal');
-    if (existing) {
-      existing.remove();
+  function config() {
+    return GOAL_DOMAIN_CONFIG[state.domain];
+  }
+  function isAverage() {
+    return config().aggregationMethod === 'AVERAGE';
+  }
+  function unitLabel() {
+    const u = config().unit;
+    return u === 'm3' ? 'm³' : u === 'C' ? '°C' : u;
+  }
+  function fmt(n) {
+    if (n === null || n === undefined || Number.isNaN(n)) return '—';
+    return `${Number(n).toLocaleString(locale, { maximumFractionDigits: 2 })} ${unitLabel()}`;
+  }
+
+  function viewKeys() {
+    if (state.level === 'month') return MONTH_KEYS;
+    if (state.level === 'day') {
+      const c = state.selectedMonth ? daysInMonth(state.year, Number(state.selectedMonth)) : 0;
+      return Array.from({ length: c }, (_, i) => pad2(i + 1));
+    }
+    return HOUR_KEYS;
+  }
+
+  function monthlyFilledCount() {
+    const tree = state.goals && state.goals.tree;
+    return MONTH_KEYS.filter((k) => tree && tree.monthly && tree.monthly[k] && tree.monthly[k].value !== undefined).length;
+  }
+
+  function buildSummary() {
+    const tree = (state.goals && state.goals.tree) || {};
+    const monthlyEntries = MONTH_KEYS.map((k) => ({ key: k, value: tree.monthly && tree.monthly[k] && tree.monthly[k].value }))
+      .filter((e) => typeof e.value === 'number');
+    const dailyEntries = Object.entries(tree.daily || {})
+      .map(([key, node]) => ({ key, value: node.value }))
+      .filter((e) => typeof e.value === 'number');
+
+    const monthsWithGoal = monthlyEntries.length;
+    const daysWithGoal = dailyEntries.length;
+    const monthlySum = monthlyEntries.reduce((a, e) => a + e.value, 0);
+    const dailySum = dailyEntries.reduce((a, e) => a + e.value, 0);
+
+    const yearValue =
+      tree.annual && typeof tree.annual.value === 'number'
+        ? tree.annual.value
+        : isAverage()
+        ? monthsWithGoal
+          ? monthlySum / monthsWithGoal
+          : null
+        : monthlySum;
+
+    return {
+      hasData: monthsWithGoal > 0 || daysWithGoal > 0,
+      monthsWithGoal,
+      daysWithGoal,
+      yearValue,
+      avgPerMonth: monthsWithGoal ? monthlySum / monthsWithGoal : null,
+      avgPerDay: daysWithGoal ? dailySum / daysWithGoal : null,
+      topMonths: [...monthlyEntries].sort((a, b) => b.value - a.value).slice(0, 3),
+      topDays: [...dailyEntries].sort((a, b) => b.value - a.value).slice(0, 3),
+    };
+  }
+
+  function computedTotal() {
+    const keys = viewKeys();
+    const nums = [];
+    for (const k of keys) {
+      const raw = state.draft[k];
+      if (raw === undefined || String(raw).trim() === '') continue;
+      const n = Number(raw);
+      if (!Number.isNaN(n)) nums.push(n);
+    }
+    if (nums.length === 0) return null;
+    const sum = nums.reduce((a, b) => a + b, 0);
+    return isAverage() ? sum / nums.length : sum;
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // Drill navigation
+  // ───────────────────────────────────────────────────────────────────────────
+
+  function openMonth(monthKey) {
+    state.selectedMonth = monthKey;
+    state.selectedDay = null;
+    state.level = 'day';
+    reload();
+  }
+  function openDay(dayKey) {
+    state.selectedDay = dayKey;
+    state.level = 'hour';
+    reload();
+  }
+  function goToMonths() {
+    state.level = 'month';
+    state.selectedMonth = null;
+    state.selectedDay = null;
+    reload();
+  }
+  function goToDays() {
+    state.level = 'day';
+    state.selectedDay = null;
+    reload();
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // Save
+  // ───────────────────────────────────────────────────────────────────────────
+
+  async function handleSave() {
+    state.saved = false;
+    state.conflict = false;
+    state.saveError = null;
+    state.conflictVersion = null;
+    state.saving = true;
+    render();
+
+    const ver = state.goals && state.goals.version > 0 ? state.goals.version : null;
+
+    let res;
+    if (state.level === 'month') {
+      const monthly = {};
+      for (const k of MONTH_KEYS) {
+        const raw = state.draft[k];
+        if (raw === undefined || String(raw).trim() === '') continue;
+        const num = Number(raw);
+        if (Number.isNaN(num)) continue;
+        monthly[k] = { value: num, sourceLevel: 'MONTH' };
+      }
+      const body = { monthly };
+      if (ver) body.expectedVersion = ver;
+      res = await svc.replace(body);
+    } else {
+      const buckets = [];
+      if (state.level === 'day' && state.selectedMonth) {
+        const dc = daysInMonth(state.year, Number(state.selectedMonth));
+        for (let d = 1; d <= dc; d++) {
+          const dd = pad2(d);
+          const raw = state.draft[dd];
+          if (raw === undefined || String(raw).trim() === '') continue;
+          const num = Number(raw);
+          if (Number.isNaN(num)) continue;
+          buckets.push({ level: 'DAY', ref: `${state.year}-${state.selectedMonth}-${dd}`, value: num });
+        }
+      } else if (state.level === 'hour' && state.selectedMonth && state.selectedDay) {
+        for (const hh of HOUR_KEYS) {
+          const raw = state.draft[hh];
+          if (raw === undefined || String(raw).trim() === '') continue;
+          const num = Number(raw);
+          if (Number.isNaN(num)) continue;
+          buckets.push({ level: 'HOUR', ref: `${state.year}-${state.selectedMonth}-${state.selectedDay}T${hh}`, value: num });
+        }
+      }
+      if (buckets.length === 0) {
+        state.saving = false;
+        render();
+        return;
+      }
+      const body = { buckets };
+      if (ver) body.expectedVersion = ver;
+      res = await svc.merge(body);
     }
 
-    const modal = document.createElement('div');
-    modal.id = 'myio-goals-panel-modal';
-    modal.className = 'myio-goals-modal-overlay';
-    modal.setAttribute('role', 'dialog');
-    modal.setAttribute('aria-modal', 'true');
-    modal.setAttribute('aria-labelledby', 'goals-modal-title');
+    state.saving = false;
 
-    modal.innerHTML = generateModalHTML();
+    if (res.success) {
+      state.saved = true;
+      if (onSaved) {
+        try {
+          await onSaved(res.data);
+        } catch (_) {}
+      }
+      // Re-GET so the tree/version/history reflect the write.
+      reload();
+      return;
+    }
 
-    document.body.appendChild(modal);
+    const conflict = readVersionConflict(res);
+    if (conflict !== null) {
+      state.conflictVersion = conflict;
+      state.conflict = true;
+      // Reload-and-reapply: re-GET against the new version; operator re-saves.
+      reload();
+    } else {
+      state.saveError = (res.error && res.error.message) || 'Failed to save goals';
+      render();
+    }
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // CSV import
+  // ───────────────────────────────────────────────────────────────────────────
+
+  function sampleHourValue() {
+    return isAverage() ? 22 : 150;
+  }
+
+  function buildTemplateCsv() {
+    const avg = isAverage();
+    const monthlyValue = avg ? 22 : 100000;
+    const dayValue = avg ? 22 : 3200;
+    const hourValue = avg ? 22 : 150;
+    const lines = ['bucket,value'];
+    for (let m = 1; m <= 12; m++) lines.push(`${state.year}-${pad2(m)},${monthlyValue}`);
+    lines.push(`${state.year}-03-15,${dayValue}`);
+    lines.push(`${state.year}-03-15T08,${hourValue}`);
+    return lines.join('\n');
+  }
+
+  function buildHourlyExampleCsv() {
+    const value = sampleHourValue();
+    const day = `${state.year}-03-15`;
+    const lines = ['bucket,value'];
+    for (let h = 0; h < 24; h++) lines.push(`${day}T${pad2(h)},${value}`);
+    return lines.join('\n');
+  }
+
+  function downloadCsv(csv, suffix) {
+    const blob = new Blob(['﻿', csv, '\n'], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `goals-${state.domain.toLowerCase()}-${state.year}-${suffix}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function levelCountsFromPreview(preview) {
+    const counts = { YEAR: 0, MONTH: 0, DAY: 0, HOUR: 0 };
+    if (!preview) return counts;
+    const bump = (node) => {
+      if (node && node.sourceLevel && counts[node.sourceLevel] !== undefined) counts[node.sourceLevel] += 1;
+    };
+    bump(preview.annual);
+    Object.values(preview.monthly || {}).forEach(bump);
+    Object.values(preview.daily || {}).forEach(bump);
+    Object.values(preview.hourly || {}).forEach(bump);
+    return counts;
+  }
+
+  async function handleImportPreview() {
+    state.importApplied = null;
+    state.saveError = null;
+    state.conflictVersion = null;
+    state.saving = true;
+    renderImportBody();
+    const res = await svc.importCsv({ csv: state.csv }, true);
+    state.saving = false;
+    if (res.success) {
+      state.importPreview = res.data;
+    } else {
+      state.saveError = (res.error && res.error.message) || 'Failed to preview import';
+    }
+    renderImportBody();
+  }
+
+  async function handleImportConfirm() {
+    state.saveError = null;
+    state.conflictVersion = null;
+    state.saving = true;
+    renderImportBody();
+    const ver = state.goals && state.goals.version > 0 ? state.goals.version : null;
+    const body = ver ? { csv: state.csv, expectedVersion: ver } : { csv: state.csv };
+    const res = await svc.importCsv(body, false);
+    state.saving = false;
+    if (res.success) {
+      state.importApplied = res.data;
+      reload(); // refresh tree/version/history under the modal
+    } else {
+      const conflict = readVersionConflict(res);
+      if (conflict !== null) state.conflictVersion = conflict;
+      else state.saveError = (res.error && res.error.message) || 'Failed to apply import';
+    }
+    renderImportBody();
+  }
+
+  function openImport() {
+    state.importOpen = true;
+    state.csv = '';
+    state.importPreview = null;
+    state.importApplied = null;
+    state.saveError = null;
+    state.conflictVersion = null;
+    render();
+  }
+  function closeImport() {
+    state.importOpen = false;
+    state.csv = '';
+    state.importPreview = null;
+    state.importApplied = null;
+    state.saveError = null;
+    state.conflictVersion = null;
+    render();
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // Mount / lifecycle
+  // ───────────────────────────────────────────────────────────────────────────
+
+  function mount() {
+    const existing = document.getElementById(ROOT_ID);
+    if (existing) existing.remove();
+
+    rootEl = document.createElement('div');
+    rootEl.id = ROOT_ID;
+    rootEl.className = 'myio-goals-overlay';
+    rootEl.setAttribute('role', 'dialog');
+    rootEl.setAttribute('aria-modal', 'true');
+    container.appendChild(rootEl);
+
     injectStyles();
-    attachEventListeners();
-    trapFocus(modal);
 
-    // Render current tab content
-    renderTabContent();
+    // Persistent delegated listeners (survive innerHTML rebuilds).
+    rootEl.addEventListener('click', onClick);
+    rootEl.addEventListener('change', onChange);
+    rootEl.addEventListener('input', onInput);
+
+    const escHandler = (e) => {
+      if (e.key === 'Escape') {
+        if (state.importOpen) closeImport();
+        else closeModal();
+      }
+    };
+    document.addEventListener('keydown', escHandler);
+    rootEl._escHandler = escHandler;
+
+    render();
+    reload();
   }
 
-  function generateModalHTML() {
-    // Generate standardized modal header using ModalHeader component
+  function closeModal() {
+    if (!rootEl) return;
+    if (rootEl._escHandler) document.removeEventListener('keydown', rootEl._escHandler);
+    rootEl.remove();
+    rootEl = null;
+    if (onClose) onClose();
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // Event delegation
+  // ───────────────────────────────────────────────────────────────────────────
+
+  function onClick(e) {
+    const actionEl = e.target.closest('[data-action]');
+    if (!actionEl) {
+      // backdrop click
+      if (e.target.classList && e.target.classList.contains('myio-goals-backdrop')) {
+        if (state.importOpen) closeImport();
+        else closeModal();
+      }
+      return;
+    }
+    const action = actionEl.dataset.action;
+    switch (action) {
+      case 'close':
+        if (state.importOpen) closeImport();
+        else closeModal();
+        break;
+      case 'enable-edit':
+        state.editing = true;
+        goToMonths();
+        break;
+      case 'view-summary':
+        state.editing = false;
+        goToMonths();
+        break;
+      case 'save':
+        handleSave();
+        break;
+      case 'retry':
+        reload();
+        break;
+      case 'open-import':
+        openImport();
+        break;
+      case 'download-template':
+        downloadCsv(buildTemplateCsv(), 'template');
+        break;
+      case 'download-hourly':
+        downloadCsv(buildHourlyExampleCsv(), 'hourly-example');
+        break;
+      case 'crumb-months':
+        goToMonths();
+        break;
+      case 'crumb-days':
+        goToDays();
+        break;
+      case 'open-month':
+        openMonth(actionEl.dataset.key);
+        break;
+      case 'open-day':
+        openDay(actionEl.dataset.key);
+        break;
+      case 'import-close':
+        closeImport();
+        break;
+      case 'import-preview':
+        handleImportPreview();
+        break;
+      case 'import-confirm':
+        handleImportConfirm();
+        break;
+      case 'import-upload':
+        {
+          const fi = rootEl.querySelector('#myio-goals-csv-file');
+          if (fi) fi.click();
+        }
+        break;
+      default:
+        break;
+    }
+  }
+
+  function onChange(e) {
+    const t = e.target;
+    if (t.id === 'myio-goals-domain') {
+      state.domain = t.value;
+      state.editing = state.editing; // unchanged
+      goToMonths();
+    } else if (t.id === 'myio-goals-year') {
+      state.year = Number(t.value);
+      goToMonths();
+    } else if (t.id === 'myio-goals-csv-file') {
+      const file = t.files && t.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          state.csv = typeof reader.result === 'string' ? reader.result : '';
+          state.importPreview = null;
+          state.importApplied = null;
+          renderImportBody();
+        };
+        reader.readAsText(file);
+      }
+      t.value = '';
+    }
+  }
+
+  function onInput(e) {
+    const t = e.target;
+    if (t.matches && t.matches('[data-cell]')) {
+      const key = t.dataset.cell;
+      state.draft[key] = t.value;
+      state.saved = false;
+      updateComputedTotalDisplay();
+    } else if (t.id === 'myio-goals-csv-textarea') {
+      state.csv = t.value;
+      state.importPreview = null;
+      // toggle preview button disabled state live
+      const btn = rootEl.querySelector('[data-action="import-preview"]');
+      if (btn) btn.disabled = !(state.csv.trim().length > 0) || state.saving;
+    }
+  }
+
+  function updateComputedTotalDisplay() {
+    const span = rootEl && rootEl.querySelector('#myio-goals-computed-total');
+    if (!span) return;
+    const total = computedTotal();
+    span.textContent = total === null ? '—' : fmt(total);
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // Render
+  // ───────────────────────────────────────────────────────────────────────────
+
+  function render() {
+    if (!rootEl) return;
     const headerHTML = ModalHeader.generateInlineHTML({
-      icon: '⭐',
+      icon: '🎯',
       title: i18n.modalTitle,
       modalId: MODAL_ID,
       theme: 'dark',
@@ -164,1701 +802,907 @@ export function openGoalsPanel(params) {
       showThemeToggle: false,
       showMaximize: false,
       showClose: true,
-      primaryColor: theme.primaryColor,
-      borderRadius: `${theme.borderRadius} ${theme.borderRadius} 0 0`
+      primaryColor: theme.primary,
+      borderRadius: `${theme.borderRadius} ${theme.borderRadius} 0 0`,
     });
 
-    return `
-      <div class="myio-goals-modal-backdrop" aria-hidden="true"></div>
-      <div class="myio-goals-modal-container">
-        <div class="myio-goals-modal-card">
-          <!-- Header (ModalHeader RFC-0121) -->
+    rootEl.innerHTML = `
+      <div class="myio-goals-backdrop" aria-hidden="true"></div>
+      <div class="myio-goals-dialog">
+        <div class="myio-goals-card">
           ${headerHTML}
-
-          <!-- Year Selector -->
-          <div class="myio-goals-year-selector">
-            <button class="myio-goals-year-btn" data-action="prev-year" aria-label="${i18n.previousYear}">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M15 18l-6-6 6-6"/>
-              </svg>
-            </button>
-            <div class="myio-goals-year-display">${modalState.currentYear}</div>
-            <button class="myio-goals-year-btn" data-action="next-year" aria-label="${i18n.nextYear}">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M9 18l6-6-6-6"/>
-              </svg>
-            </button>
-          </div>
-
-          <!-- Tabs -->
-          <div class="myio-goals-tabs" role="tablist">
-            <button class="myio-goals-tab ${modalState.currentTab === 'shopping' ? 'active' : ''}"
-                    role="tab"
-                    aria-selected="${modalState.currentTab === 'shopping'}"
-                    aria-controls="shopping-panel"
-                    data-tab="shopping">
-              ${i18n.shoppingTab}
-            </button>
-            <button class="myio-goals-tab ${modalState.currentTab === 'assets' ? 'active' : ''}"
-                    role="tab"
-                    aria-selected="${modalState.currentTab === 'assets'}"
-                    aria-controls="assets-panel"
-                    data-tab="assets">
-              ${i18n.assetsTab}
-            </button>
-          </div>
-
-          <!-- Tab Content -->
-          <div class="myio-goals-content">
-            <div id="tab-content-area"></div>
-          </div>
-
-          <!-- Validation Errors -->
-          <div id="validation-errors" class="myio-goals-errors" style="display: none;"></div>
-
-          <!-- Footer -->
-          <div class="myio-goals-modal-footer">
-            <div class="myio-goals-meta-info">
-              <small id="last-update-info"></small>
-            </div>
-            <div class="myio-goals-footer-actions">
-              <button class="myio-goals-btn myio-goals-btn-secondary" data-action="cancel">
-                ${i18n.cancel}
-              </button>
-              <button class="myio-goals-btn myio-goals-btn-primary" data-action="save" ${modalState.isSaving ? 'disabled' : ''}>
-                ${modalState.isSaving ? i18n.saving : i18n.save}
-              </button>
-            </div>
+          <div class="myio-goals-body">
+            ${renderToolbar()}
+            ${renderMessages()}
+            ${renderMain()}
+            ${renderHistory()}
           </div>
         </div>
+      </div>
+      ${state.importOpen ? renderImportModal() : ''}
+    `;
+
+    // ModalHeader close handler (its close button uses its own id wiring).
+    ModalHeader.setupHandlers({ modalId: MODAL_ID, onClose: () => closeModal() });
+  }
+
+  function renderToolbar() {
+    const cfg = config();
+    const version = state.goals ? state.goals.version : 0;
+    const yearOptions = buildYearOptions();
+    if (!yearOptions.includes(state.year)) yearOptions.unshift(state.year);
+
+    const actions = state.editing
+      ? `
+        <button class="myio-goals-btn myio-goals-btn-outline" data-action="open-import" ${state.loading || state.error ? 'disabled' : ''}>
+          ${icon('upload')} ${i18n.importBtn}
+        </button>
+        <button class="myio-goals-btn myio-goals-btn-outline" data-action="view-summary" ${state.loading ? 'disabled' : ''}>
+          ${icon('eye')} ${i18n.viewSummary}
+        </button>
+        <button class="myio-goals-btn myio-goals-btn-primary" data-action="save" ${state.loading || state.error || state.saving ? 'disabled' : ''}>
+          ${icon('save')} ${state.saving ? i18n.saving : i18n.save}
+        </button>`
+      : `
+        <button class="myio-goals-btn myio-goals-btn-outline" data-action="download-hourly" ${state.loading ? 'disabled' : ''}>
+          ${icon('download')} ${i18n.downloadHourlyExample}
+        </button>
+        <button class="myio-goals-btn myio-goals-btn-primary" data-action="enable-edit" ${state.loading || state.error ? 'disabled' : ''}>
+          ${icon('pencil')} ${i18n.enableEditing}
+        </button>`;
+
+    return `
+      <div class="myio-goals-toolbar">
+        <div class="myio-goals-selects">
+          <label class="myio-goals-field">
+            <span>${i18n.domainLabel}</span>
+            <select id="myio-goals-domain">
+              ${DOMAINS.map((d) => `<option value="${d}" ${d === state.domain ? 'selected' : ''}>${i18n.domains[d]}</option>`).join('')}
+            </select>
+          </label>
+          <label class="myio-goals-field">
+            <span>${i18n.yearLabel}</span>
+            <select id="myio-goals-year">
+              ${yearOptions.map((y) => `<option value="${y}" ${y === state.year ? 'selected' : ''}>${y}</option>`).join('')}
+            </select>
+          </label>
+          <div class="myio-goals-chips">
+            <span class="myio-goals-chip myio-goals-chip-accent">${icon('target')} ${i18n.domains[state.domain]} · ${i18n.aggregation[cfg.aggregationMethod]}</span>
+            <span class="myio-goals-chip myio-goals-chip-mono">${unitLabel()}</span>
+            <span class="myio-goals-chip myio-goals-chip-violet">${icon('history')} ${i18n.currentVersion.replace('{n}', version)}</span>
+          </div>
+        </div>
+        <div class="myio-goals-actions">${actions}</div>
       </div>
     `;
   }
 
-  function renderTabContent() {
-    const container = document.getElementById('tab-content-area');
-    if (!container) return;
-
-    if (modalState.currentTab === 'shopping') {
-      container.innerHTML = generateShoppingTabHTML();
-      attachShoppingTabListeners();
-    } else {
-      container.innerHTML = generateAssetsTabHTML();
-      attachAssetsTabListeners();
+  function renderMessages() {
+    let html = '';
+    if (state.conflict) {
+      html += `<div class="myio-goals-alert myio-goals-alert-amber">${icon('alert')} ${i18n.versionConflict}</div>`;
     }
-
-    updateLastUpdateInfo();
+    if (state.saveError && !state.conflict) {
+      html += `<div class="myio-goals-alert myio-goals-alert-red">${icon('alert')} ${esc(state.saveError)}</div>`;
+    }
+    if (state.saved && !state.saveError) {
+      html += `<div class="myio-goals-alert myio-goals-alert-green">${icon('check')} ${i18n.saveSuccess}</div>`;
+    }
+    return html;
   }
 
-  function generateShoppingTabHTML() {
-    const yearData = getYearData(modalState.currentYear);
-    const annual = yearData?.annual || { total: 0, unit: 'kWh' };
-    const monthly = yearData?.monthly || {};
+  function renderMain() {
+    if (state.loading) {
+      return `<div class="myio-goals-center">${icon('spinner')} <span>${i18n.loading}</span></div>`;
+    }
+    if (state.error) {
+      return `
+        <div class="myio-goals-center myio-goals-center-col">
+          ${icon('alert-lg')}
+          <p>${esc(state.error)}</p>
+          <button class="myio-goals-btn myio-goals-btn-outline" data-action="retry">${i18n.retry}</button>
+        </div>`;
+    }
+    if (!state.editing) return renderSummary();
+    return renderEditor();
+  }
 
-    // Calculate monthly sum
-    const monthlySum = Object.values(monthly).reduce((sum, val) => sum + parseFloat(val || 0), 0);
-    const progress = annual.total > 0 ? (monthlySum / annual.total) * 100 : 0;
+  function renderSummary() {
+    const s = buildSummary();
+    if (!s.hasData) {
+      return `
+        <div class="myio-goals-center myio-goals-center-col">
+          ${icon('target-lg')}
+          <p>${i18n.noData.replace('{year}', state.year)}</p>
+          <button class="myio-goals-btn myio-goals-btn-primary" data-action="enable-edit">${icon('pencil')} ${i18n.enableEditing}</button>
+        </div>`;
+    }
+    const avg = isAverage();
+    const glyph = avg ? `<span class="myio-goals-glyph">x̄</span>` : icon('sigma');
+    const kpis = [
+      { ic: icon('calendar'), label: i18n.summary.year, value: String(state.year) },
+      { ic: glyph, label: avg ? i18n.summary.yearAverage : i18n.summary.yearTotal, value: fmt(s.yearValue) },
+      { ic: icon('calendar-range'), label: i18n.summary.monthsWithGoal, value: `${s.monthsWithGoal} / 12` },
+      { ic: icon('calendar-days'), label: i18n.summary.daysWithGoal, value: String(s.daysWithGoal) },
+      { ic: icon('trend'), label: i18n.summary.avgPerMonth, value: fmt(s.avgPerMonth) },
+      { ic: icon('trend'), label: i18n.summary.avgPerDay, value: fmt(s.avgPerDay) },
+    ];
+
+    const topCol = (title, items, labeler) => `
+      <div class="myio-goals-topcard">
+        <h4>${icon('trend')} ${title}</h4>
+        ${
+          items.length === 0
+            ? `<p class="myio-goals-muted">—</p>`
+            : `<ol>${items
+                .map(
+                  (e, i) => `
+            <li>
+              <span class="myio-goals-rank"><span class="myio-goals-rank-num">${i + 1}</span>${labeler(e.key)}</span>
+              <span class="myio-goals-rank-val">${fmt(e.value)}</span>
+            </li>`
+                )
+                .join('')}</ol>`
+        }
+      </div>`;
 
     return `
-      <div class="myio-goals-shopping-panel" role="tabpanel" id="shopping-panel">
-        <!-- Shopping Selector -->
-        ${shoppingList.length > 0 ? `
-        <div class="myio-goals-section">
-          <div class="myio-goals-shopping-selector">
-            <label for="shopping-select" class="myio-goals-shopping-label">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
-                <path d="M9 22V12h6v10"/>
-              </svg>
-              ${i18n.selectShopping}
-            </label>
-            <select id="shopping-select" class="myio-goals-input myio-goals-shopping-select">
-              ${shoppingList.map(shopping => `
-                <option value="${shopping.value}" ${modalState.selectedShoppingId === shopping.value ? 'selected' : ''}>
-                  ${shopping.name}
-                </option>
-              `).join('')}
-            </select>
-          </div>
+      <div class="myio-goals-summary">
+        <div class="myio-goals-kpis">
+          ${kpis
+            .map(
+              (k) => `
+            <div class="myio-goals-kpi">
+              <div class="myio-goals-kpi-label">${k.ic} ${k.label}</div>
+              <div class="myio-goals-kpi-value">${k.value}</div>
+            </div>`
+            )
+            .join('')}
         </div>
-        ` : ''}
-
-        <!-- Annual Goal Section -->
-        <div class="myio-goals-section">
-          <h3 class="myio-goals-section-title">${i18n.annualGoal}</h3>
-          <div class="myio-goals-form-row">
-            <div class="myio-goals-form-group">
-              <label for="unit-select">${i18n.unit}</label>
-              <select id="unit-select" class="myio-goals-input">
-                <option value="kWh" ${annual.unit === 'kWh' ? 'selected' : ''}>kWh</option>
-                <option value="m3" ${annual.unit === 'm3' ? 'selected' : ''}>m³</option>
-              </select>
-            </div>
-            <div class="myio-goals-form-group myio-goals-form-group-large">
-              <label for="annual-total">${i18n.annualTotal}</label>
-              <input type="number"
-                     id="annual-total"
-                     class="myio-goals-input"
-                     value="${annual.total}"
-                     min="0"
-                     step="0.01"
-                     placeholder="0.00">
-            </div>
-          </div>
+        <div class="myio-goals-topgrid">
+          ${topCol(i18n.summary.topMonths, s.topMonths, (k) => i18n.months[k])}
+          ${topCol(i18n.summary.topDays, s.topDays, (k) => dayLabel(k))}
         </div>
+        <p class="myio-goals-hint">${i18n.summary.hint}</p>
+      </div>`;
+  }
 
-        <!-- Granularity selector (Mês | Diária | Hora em breve) + template/import -->
-        <div class="myio-goals-section">
-          <div class="myio-goals-section-header">
-            <h3 class="myio-goals-section-title">${GLABELS.title}</h3>
+  function dayLabel(key) {
+    const [mm, dd] = key.split('-');
+    return `${Number(dd)} ${i18n.months[mm]}`;
+  }
+
+  function renderEditor() {
+    const cfg = config();
+    const avg = isAverage();
+    const keys = viewKeys();
+    const tree = (state.goals && state.goals.tree) || {};
+    const version = state.goals ? state.goals.version : 0;
+
+    // Breadcrumb
+    const crumb = `
+      <nav class="myio-goals-crumb">
+        <button data-action="crumb-months" class="${state.level === 'month' ? 'active' : ''}">${icon('home')} ${i18n.breadcrumbYear.replace('{year}', state.year)}</button>
+        ${
+          state.selectedMonth
+            ? `${icon('chevron')}<button data-action="crumb-days" class="${state.level === 'day' ? 'active' : ''}">${i18n.months[state.selectedMonth]}</button>`
+            : ''
+        }
+        ${
+          state.selectedMonth && state.selectedDay && state.level === 'hour'
+            ? `${icon('chevron')}<span class="active">${i18n.breadcrumbDay.replace('{day}', Number(state.selectedDay))}</span>`
+            : ''
+        }
+      </nav>`;
+
+    const emptyHint =
+      state.level === 'month' && monthlyFilledCount() === 0 && version === 0
+        ? `<p class="myio-goals-muted">${i18n.empty}</p>`
+        : '';
+
+    const drillHint =
+      state.level !== 'hour'
+        ? `<p class="myio-goals-microhint">${state.level === 'month' ? i18n.drill.openMonthHint : i18n.drill.openDayHint}</p>`
+        : '';
+
+    const gridClass =
+      state.level === 'hour'
+        ? 'myio-goals-grid-hour'
+        : state.level === 'day'
+        ? 'myio-goals-grid-day'
+        : 'myio-goals-grid-month';
+
+    const cells = keys
+      .map((key) => {
+        const node =
+          state.level === 'month'
+            ? tree.monthly && tree.monthly[key]
+            : state.level === 'day' && state.selectedMonth
+            ? tree.daily && tree.daily[`${state.selectedMonth}-${key}`]
+            : state.selectedMonth && state.selectedDay
+            ? tree.hourly && tree.hourly[`${state.selectedMonth}-${state.selectedDay}T${key}`]
+            : undefined;
+        const confirmed = node && node.derived === false;
+        const cellLabel =
+          state.level === 'month'
+            ? i18n.months[key]
+            : state.level === 'day'
+            ? i18n.dayCell.replace('{day}', Number(key))
+            : `${key}:00`;
+        const canDrill = state.level !== 'hour';
+        const labelEl = canDrill
+          ? `<button class="myio-goals-cell-drill" data-action="${state.level === 'month' ? 'open-month' : 'open-day'}" data-key="${key}" title="${i18n.drill.openTitle}">${cellLabel} ${icon('chevron-sm')}</button>`
+          : `<span class="myio-goals-cell-label">${cellLabel}</span>`;
+        const val = state.draft[key] !== undefined ? esc(state.draft[key]) : '';
+        const minAttr = cfg.allowsNegative ? '' : 'min="0"';
+        return `
+          <div class="myio-goals-cell">
+            <div class="myio-goals-cell-head">
+              ${labelEl}
+              ${icon('pencil-sm')}
+            </div>
+            <div class="myio-goals-cell-input">
+              <input type="number" step="any" ${minAttr} data-cell="${key}" value="${val}" placeholder="—" />
+              <span class="myio-goals-cell-unit">${unitLabel()}</span>
+            </div>
+            ${confirmed ? `<p class="myio-goals-confirmed">${i18n.confirmedBadge}</p>` : ''}
+          </div>`;
+      })
+      .join('');
+
+    const totalLabel =
+      state.level === 'month'
+        ? avg
+          ? i18n.summary.yearAverage
+          : i18n.summary.yearTotal
+        : state.level === 'day'
+        ? avg
+          ? i18n.monthAverage
+          : i18n.monthTotal
+        : avg
+        ? i18n.dayAverage
+        : i18n.dayTotal;
+    const glyph = avg ? `<span class="myio-goals-glyph">x̄</span>` : icon('sigma');
+    const total = computedTotal();
+
+    return `
+      <div class="myio-goals-editor">
+        ${crumb}
+        ${emptyHint}
+        ${drillHint}
+        <div class="myio-goals-grid ${gridClass}">${cells}</div>
+        <div class="myio-goals-total">
+          <span class="myio-goals-total-label">${glyph} ${totalLabel}</span>
+          <span class="myio-goals-total-val" id="myio-goals-computed-total">${total === null ? '—' : fmt(total)}</span>
+        </div>
+        <div class="myio-goals-legend">
+          <span>${icon('pencil-sm')} ${i18n.legendEditable}</span>
+          <span>${glyph} ${i18n.legendComputed}</span>
+        </div>
+      </div>`;
+  }
+
+  // ─── History timeline ───────────────────────────────────────────────────────
+
+  function formatRef(ref) {
+    if (/^\d{4}$/.test(ref)) return ref;
+    let m = ref.match(/^(\d{4})-(\d{2})$/);
+    if (m) return `${m[2]}/${m[1]}`;
+    m = ref.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+    m = ref.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2})$/);
+    if (m) return `${m[3]}/${m[2]}/${m[1]} ${m[4]}:00`;
+    return ref;
+  }
+
+  function timeAgo(iso) {
+    const then = new Date(iso).getTime();
+    if (Number.isNaN(then)) return '';
+    const diff = Math.max(0, Date.now() - then);
+    const s = Math.floor(diff / 1000);
+    const m = Math.floor(s / 60);
+    const h = Math.floor(m / 60);
+    const d = Math.floor(h / 24);
+    const T = i18n.time;
+    if (s < 60) return T.now;
+    if (m < 60) return T.min.replace('{n}', m);
+    if (h < 24) return T.hour.replace('{n}', h);
+    if (d < 30) return T.day.replace('{n}', d);
+    return new Date(iso).toLocaleDateString(locale);
+  }
+
+  function renderHistory() {
+    if (state.loading || state.error) return '';
+    const history = (state.goals && state.goals.history) || [];
+    const version = state.goals ? state.goals.version : 0;
+    const DETAIL_PREVIEW = 8;
+
+    const items =
+      history.length === 0
+        ? `<div class="myio-goals-center myio-goals-center-col myio-goals-hist-empty">${icon('clock')}<p>${i18n.history.empty}</p></div>`
+        : `<ol class="myio-goals-timeline">${history
+            .map((ev, idx) => {
+              const actor = ev.actor ? `${String(ev.actor).slice(0, 8)}…` : i18n.history.system;
+              const extra = ev.bucketCount - (ev.details ? ev.details.length : 0);
+              const chips = (ev.details || [])
+                .slice(0, DETAIL_PREVIEW)
+                .map(
+                  (d) =>
+                    `<span class="myio-goals-tl-chip"><span class="myio-goals-tl-ref">${esc(formatRef(d.ref))}</span>${d.value === null ? '—' : fmt(d.value)}</span>`
+                )
+                .join('');
+              const more = extra > 0 ? `<span class="myio-goals-tl-more">${i18n.history.moreDetails.replace('{n}', extra)}</span>` : '';
+              return `
+                <li class="myio-goals-tl-item">
+                  <span class="myio-goals-tl-dot">${icon(ev.source === 'IMPORT' ? 'upload-sm' : ev.source === 'DELETE' ? 'trash-sm' : 'pencil-sm')}</span>
+                  <div class="myio-goals-tl-head">
+                    <span class="myio-goals-tl-title">${i18n.history.source[ev.source] || i18n.history.source.EDIT}</span>
+                    <span class="myio-goals-tl-ver">v${ev.version}</span>
+                  </div>
+                  <p class="myio-goals-tl-meta" title="${esc(new Date(ev.changedAt).toLocaleString(locale))}">${esc(actor)} · ${esc(timeAgo(ev.changedAt))}</p>
+                  <p class="myio-goals-tl-records">${i18n.history.records.replace('{n}', ev.bucketCount)} · ${i18n.levels[ev.actionLevel] || ev.actionLevel}</p>
+                  ${chips || more ? `<div class="myio-goals-tl-chips">${chips}${more}</div>` : ''}
+                </li>`;
+            })
+            .join('')}</ol>`;
+
+    return `
+      <div class="myio-goals-history">
+        <div class="myio-goals-history-head">
+          <h3>${icon('clock')} ${i18n.history.title}</h3>
+          <span class="myio-goals-history-meta">${i18n.domains[state.domain]} · ${state.year} · ${i18n.currentVersion.replace('{n}', version)}</span>
+        </div>
+        ${items}
+      </div>`;
+  }
+
+  // ─── CSV import modal ────────────────────────────────────────────────────────
+
+  function renderImportModal() {
+    return `
+      <div class="myio-goals-backdrop myio-goals-backdrop-2" aria-hidden="true"></div>
+      <div class="myio-goals-import-dialog">
+        <div class="myio-goals-import-card">
+          <div class="myio-goals-import-header">
+            <span class="myio-goals-import-icon">${icon('upload')}</span>
             <div>
-              <button class="myio-goals-btn-link" data-action="goals-template">⬇️ ${GLABELS.template}</button>
-              <button class="myio-goals-btn-link" data-action="goals-import">📤 ${GLABELS.importBtn}</button>
-              <input type="file" id="goals-import-file" accept=".csv,text/csv" style="display:none" />
+              <h3>${i18n.import.title}</h3>
+              <p>${i18n.import.subtitle.replace('{domain}', i18n.domains[state.domain]).replace('{year}', state.year)}</p>
+            </div>
+            <button class="myio-goals-import-x" data-action="import-close" aria-label="${i18n.import.cancel}">×</button>
+          </div>
+          <div class="myio-goals-import-body" id="myio-goals-import-body">
+            ${renderImportInner()}
+          </div>
+          <div class="myio-goals-import-footer" id="myio-goals-import-footer">
+            ${renderImportFooter()}
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function renderImportInner() {
+    const applied = state.importApplied;
+    const result = applied || state.importPreview;
+    const counts = state.importPreview ? levelCountsFromPreview(state.importPreview.preview) : null;
+    const sample = `bucket,value\n${state.year}-03,9000\n${state.year}-03-15,310\n${state.year}-03-15T08,15`;
+
+    let html = `
+      <div class="myio-goals-import-hint">
+        <p>${i18n.import.formatHint}</p>
+        <code>${esc(sample)}</code>
+      </div>`;
+
+    if (!applied) {
+      html += `
+        <div class="myio-goals-import-input">
+          <div class="myio-goals-import-inputhead">
+            <label>${i18n.import.csvLabel}</label>
+            <div class="myio-goals-import-links">
+              <button data-action="download-template">${icon('download')} ${i18n.import.downloadTemplate}</button>
+              <button data-action="download-hourly">${icon('download')} ${i18n.import.downloadHourlyExample}</button>
+              <button data-action="import-upload">${icon('upload')} ${i18n.import.uploadFile}</button>
+              <input type="file" id="myio-goals-csv-file" accept=".csv,.txt,text/csv,text/plain" style="display:none" />
             </div>
           </div>
-          <div class="myio-goals-gran-chips" style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
-            ${['month', 'day', 'hour'].map((g) => {
-              const active = modalState.granularity === g;
-              const disabled = g === 'hour';
-              const label = g === 'month' ? GLABELS.month : g === 'day' ? GLABELS.day : GLABELS.hour;
-              const hint = g === 'month' ? GLABELS.hintMonth : g === 'day' ? GLABELS.hintDay : GLABELS.hintHour;
-              return `<button type="button" class="myio-goals-gran-chip" data-gran="${g}" ${disabled ? 'disabled' : ''}
-                style="padding:6px 12px;border:1px solid ${theme.primaryColor};border-radius:16px;cursor:${disabled ? 'not-allowed' : 'pointer'};font-size:12px;${active ? `background:${theme.primaryColor};color:#fff;` : `background:#fff;color:${theme.primaryColor};`}${disabled ? 'opacity:.5;' : ''}"
-                title="${disabled ? GLABELS.hour : label}">${label} <small>(${hint})</small></button>`;
-            }).join('')}
-          </div>
-          ${modalState.granularity === 'day' && Object.keys((getYearData(modalState.currentYear) || {}).daily || {}).length > 0
-            ? `<div class="myio-goals-gran-note" style="margin-top:8px;font-size:12px;color:#666;">${GLABELS.derived}</div>`
-            : ''}
-        </div>
+          <textarea id="myio-goals-csv-textarea" rows="8" spellcheck="false" placeholder="${esc(`bucket,value\n${state.year},100000\n${state.year}-03,9000\n${state.year}-03-15,310\n${state.year}-03-15T08,15`)}">${esc(state.csv)}</textarea>
+          <p class="myio-goals-microhint">${i18n.import.unitNote.replace('{unit}', unitLabel())}</p>
+        </div>`;
+    }
 
-        <!-- Monthly Distribution Section -->
-        <div class="myio-goals-section">
-          <div class="myio-goals-section-header">
-            <h3 class="myio-goals-section-title">${i18n.monthlyDistribution}</h3>
-            <button class="myio-goals-btn-link" data-action="auto-fill">
-              ${i18n.autoFill}
-            </button>
-          </div>
+    if (state.saveError && state.conflictVersion === null) {
+      html += `<div class="myio-goals-alert myio-goals-alert-red">${icon('alert')} ${esc(state.saveError)}</div>`;
+    }
+    if (state.conflictVersion !== null) {
+      html += `<div class="myio-goals-alert myio-goals-alert-amber">${icon('alert')} ${i18n.import.conflict}</div>`;
+    }
 
-          <!-- Progress Bar -->
-          <div class="myio-goals-progress-bar">
-            <div class="myio-goals-progress-fill" style="width: ${Math.min(progress, 100)}%"></div>
-          </div>
-          <div class="myio-goals-progress-text">
-            <span>${formatNumber(monthlySum, locale)} ${annual.unit}</span>
-            <span>${formatNumber(annual.total, locale)} ${annual.unit}</span>
-          </div>
-
-          <!-- Monthly Grid -->
-          <div class="myio-goals-monthly-grid">
-            ${generateMonthlyInputsHTML(monthly, annual.unit)}
-          </div>
-        </div>
-      </div>
-    `;
+    if (result) html += renderImportSummary(result, counts);
+    return html;
   }
 
-  function generateMonthlyInputsHTML(monthly, unit) {
-    const months = [
-      { key: '01', label: i18n.jan },
-      { key: '02', label: i18n.feb },
-      { key: '03', label: i18n.mar },
-      { key: '04', label: i18n.apr },
-      { key: '05', label: i18n.may },
-      { key: '06', label: i18n.jun },
-      { key: '07', label: i18n.jul },
-      { key: '08', label: i18n.aug },
-      { key: '09', label: i18n.sep },
-      { key: '10', label: i18n.oct },
-      { key: '11', label: i18n.nov },
-      { key: '12', label: i18n.dec }
-    ];
+  function renderImportSummary(result, counts) {
+    const persisted = result.dryRun === false;
+    const badge = persisted
+      ? `<span class="myio-goals-chip myio-goals-chip-accent">${icon('check')} ${i18n.import.appliedBadge.replace('{version}', result.version || 0)}</span>`
+      : `<span class="myio-goals-chip myio-goals-chip-mono">${i18n.import.previewBadge}</span>`;
 
-    return months.map(month => `
-      <div class="myio-goals-month-input">
-        <label for="month-${month.key}">${month.label}</label>
-        <input type="number"
-               id="month-${month.key}"
-               class="myio-goals-input myio-goals-input-small"
-               data-month="${month.key}"
-               value="${monthly[month.key] || ''}"
-               min="0"
-               step="0.01"
-               ${modalState.granularity === 'day' ? 'disabled title="Derivado do detalhe diário — edite via planilha"' : ''}
-               placeholder="0">
-        <span class="myio-goals-unit">${unit}</span>
-      </div>
-    `).join('');
+    let html = `
+      <div class="myio-goals-import-summary">
+        <div class="myio-goals-import-counts">
+          <span class="myio-goals-chip myio-goals-chip-accent">${icon('check')} ${i18n.import.okCount.replace('{n}', result.okCount)}</span>
+          ${result.errorCount > 0 ? `<span class="myio-goals-chip myio-goals-chip-red">${icon('alert')} ${i18n.import.errorCount.replace('{n}', result.errorCount)}</span>` : ''}
+          ${badge}
+        </div>`;
+
+    if (!persisted && counts && result.okCount > 0) {
+      const chips = ['YEAR', 'MONTH', 'DAY', 'HOUR']
+        .filter((l) => counts[l] > 0)
+        .map((l) => `<span class="myio-goals-chip myio-goals-chip-mono">${i18n.levels[l]}: ${counts[l]}</span>`)
+        .join('');
+      if (chips) {
+        html += `<div class="myio-goals-import-willapply"><p>${i18n.import.willApply}</p><div>${chips}</div></div>`;
+      }
+    }
+
+    if (result.diagnostics && result.diagnostics.length > 0) {
+      html += `
+        <div class="myio-goals-import-diags">
+          <p class="myio-goals-import-diags-title">${i18n.import.diagnosticsTitle}</p>
+          <ul>${result.diagnostics
+            .map(
+              (d) =>
+                `<li>${icon('alert-sm')} <span><span class="myio-goals-diag-line">${i18n.import.line.replace('{line}', d.line)}</span>${d.bucket ? ` <span class="myio-goals-diag-bucket">[${esc(d.bucket)}]</span>` : ''} ${esc(d.reason)}</span></li>`
+            )
+            .join('')}</ul>
+        </div>`;
+    }
+
+    if (persisted && result.log && result.log.length > 0) {
+      html += `
+        <div class="myio-goals-import-log">
+          <p class="myio-goals-import-log-title">${i18n.import.logTitle}</p>
+          <ul>${result.log.map((line) => `<li>${esc(line)}</li>`).join('')}</ul>
+        </div>`;
+    }
+
+    html += `</div>`;
+    return html;
   }
 
-  function generateAssetsTabHTML() {
-    const yearData = getYearData(modalState.currentYear);
-    const assets = yearData?.assets || {};
-
+  function renderImportFooter() {
+    if (state.importApplied) {
+      return `<button class="myio-goals-btn myio-goals-btn-primary" data-action="import-close">${i18n.import.done}</button>`;
+    }
+    const canPreview = state.csv.trim().length > 0 && !state.saving;
+    const canConfirm = !!state.importPreview && state.importPreview.okCount > 0 && !state.saving && !state.importApplied;
+    const right = state.importPreview
+      ? `<button class="myio-goals-btn myio-goals-btn-primary" data-action="import-confirm" ${canConfirm ? '' : 'disabled'}>${icon('upload')} ${i18n.import.confirm.replace('{n}', state.importPreview.okCount)}</button>`
+      : `<button class="myio-goals-btn myio-goals-btn-primary" data-action="import-preview" ${canPreview ? '' : 'disabled'}>${icon('upload')} ${i18n.import.preview}</button>`;
     return `
-      <div class="myio-goals-assets-panel" role="tabpanel" id="assets-panel">
-        <div class="myio-goals-assets-header">
-          <input type="text"
-                 id="asset-search"
-                 class="myio-goals-input"
-                 placeholder="${i18n.searchAssets}"
-                 aria-label="${i18n.searchAssets}">
-          <button class="myio-goals-btn myio-goals-btn-primary" data-action="add-asset">
-            + ${i18n.addAsset}
-          </button>
-        </div>
-
-        <div class="myio-goals-assets-list">
-          ${Object.keys(assets).length > 0
-            ? generateAssetItemsHTML(assets)
-            : `<div class="myio-goals-empty-state">${i18n.noAssets}</div>`
-          }
-        </div>
-      </div>
-    `;
+      <button class="myio-goals-btn myio-goals-btn-outline" data-action="import-close" ${state.saving ? 'disabled' : ''}>${i18n.import.cancel}</button>
+      ${right}`;
   }
 
-  function generateAssetItemsHTML(assets) {
-    return Object.entries(assets).map(([assetId, assetData]) => `
-      <div class="myio-goals-asset-item" data-asset-id="${assetId}">
-        <div class="myio-goals-asset-header" data-action="toggle-asset">
-          <div class="myio-goals-asset-title">
-            <svg class="myio-goals-asset-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M9 18l6-6-6-6"/>
-            </svg>
-            <span>${assetData.label || assetId}</span>
-          </div>
-          <div class="myio-goals-asset-total">
-            ${formatNumber(assetData.annual?.total || 0, locale)} ${assetData.annual?.unit || 'kWh'}
-          </div>
-          <button class="myio-goals-btn-icon" data-action="delete-asset" data-asset-id="${assetId}" aria-label="${i18n.deleteAsset}">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
-            </svg>
-          </button>
-        </div>
-        <div class="myio-goals-asset-content" style="display: none;">
-          ${generateAssetDetailHTML(assetId, assetData)}
-        </div>
-      </div>
-    `).join('');
+  function renderImportBody() {
+    if (!rootEl) return;
+    const body = rootEl.querySelector('#myio-goals-import-body');
+    const footer = rootEl.querySelector('#myio-goals-import-footer');
+    if (body) body.innerHTML = renderImportInner();
+    if (footer) footer.innerHTML = renderImportFooter();
   }
 
-  function generateAssetDetailHTML(assetId, assetData) {
-    const annual = assetData.annual || { total: 0, unit: 'kWh' };
-    const monthly = assetData.monthly || {};
+  // ───────────────────────────────────────────────────────────────────────────
+  // Tiny inline icon set (SVG) — keyed names used above
+  // ───────────────────────────────────────────────────────────────────────────
 
-    return `
-      <div class="myio-goals-asset-detail">
-        <div class="myio-goals-form-row">
-          <div class="myio-goals-form-group">
-            <label for="asset-${assetId}-unit">${i18n.unit}</label>
-            <select id="asset-${assetId}-unit" class="myio-goals-input" data-asset-id="${assetId}">
-              <option value="kWh" ${annual.unit === 'kWh' ? 'selected' : ''}>kWh</option>
-              <option value="m3" ${annual.unit === 'm3' ? 'selected' : ''}>m³</option>
-            </select>
-          </div>
-          <div class="myio-goals-form-group myio-goals-form-group-large">
-            <label for="asset-${assetId}-total">${i18n.annualTotal}</label>
-            <input type="number"
-                   id="asset-${assetId}-total"
-                   class="myio-goals-input"
-                   data-asset-id="${assetId}"
-                   value="${annual.total}"
-                   min="0"
-                   step="0.01">
-          </div>
-        </div>
-
-        <div class="myio-goals-monthly-grid">
-          ${generateAssetMonthlyInputsHTML(assetId, monthly, annual.unit)}
-        </div>
-      </div>
-    `;
-  }
-
-  function generateAssetMonthlyInputsHTML(assetId, monthly, unit) {
-    const months = [
-      { key: '01', label: i18n.jan },
-      { key: '02', label: i18n.feb },
-      { key: '03', label: i18n.mar },
-      { key: '04', label: i18n.apr },
-      { key: '05', label: i18n.may },
-      { key: '06', label: i18n.jun },
-      { key: '07', label: i18n.jul },
-      { key: '08', label: i18n.aug },
-      { key: '09', label: i18n.sep },
-      { key: '10', label: i18n.oct },
-      { key: '11', label: i18n.nov },
-      { key: '12', label: i18n.dec }
-    ];
-
-    return months.map(month => `
-      <div class="myio-goals-month-input">
-        <label for="asset-${assetId}-month-${month.key}">${month.label}</label>
-        <input type="number"
-               id="asset-${assetId}-month-${month.key}"
-               class="myio-goals-input myio-goals-input-small"
-               data-asset-id="${assetId}"
-               data-month="${month.key}"
-               value="${monthly[month.key] || ''}"
-               min="0"
-               step="0.01"
-               placeholder="0">
-        <span class="myio-goals-unit">${unit}</span>
-      </div>
-    `).join('');
-  }
-
-  // ============================================================================
-  // EVENT LISTENERS
-  // ============================================================================
-
-  function attachEventListeners() {
-    const modal = document.getElementById('myio-goals-panel-modal');
-    if (!modal) return;
-
-    // Setup ModalHeader handlers (RFC-0121)
-    ModalHeader.setupHandlers({
-      modalId: MODAL_ID,
-      onClose: () => {
-        if (modalState.isDirty) {
-          if (confirm(i18n.unsavedChanges)) {
-            closeModal();
-          }
-        } else {
-          closeModal();
-        }
-      }
-    });
-
-    // Action buttons (save, cancel, year navigation)
-    modal.addEventListener('click', (e) => {
-      const action = e.target.closest('[data-action]')?.dataset.action;
-
-      if (action === 'cancel') {
-        if (modalState.isDirty) {
-          if (confirm(i18n.unsavedChanges)) {
-            closeModal();
-          }
-        } else {
-          closeModal();
-        }
-      } else if (action === 'save') {
-        handleSave();
-      } else if (action === 'prev-year') {
-        setCurrentYear(modalState.currentYear - 1);
-      } else if (action === 'next-year') {
-        setCurrentYear(modalState.currentYear + 1);
-      }
-    });
-
-    // Tab switching
-    modal.addEventListener('click', (e) => {
-      const tab = e.target.closest('[data-tab]');
-      if (tab) {
-        switchTab(tab.dataset.tab);
-      }
-    });
-
-    // Close on backdrop click
-    modal.querySelector('.myio-goals-modal-backdrop')?.addEventListener('click', () => {
-      if (modalState.isDirty) {
-        if (confirm(i18n.unsavedChanges)) {
-          closeModal();
-        }
-      } else {
-        closeModal();
-      }
-    });
-
-    // ESC key to close
-    const handleEscape = (e) => {
-      if (e.key === 'Escape') {
-        if (modalState.isDirty) {
-          if (confirm(i18n.unsavedChanges)) {
-            closeModal();
-          }
-        } else {
-          closeModal();
-        }
-      }
-    };
-    document.addEventListener('keydown', handleEscape);
-    modal._escapeHandler = handleEscape;
-  }
-
-  function attachShoppingTabListeners() {
-    const container = document.getElementById('tab-content-area');
-    if (!container) return;
-
-    // Shopping selector
-    container.querySelector('#shopping-select')?.addEventListener('change', (e) => {
-      modalState.selectedShoppingId = e.target.value;
-      modalState.isDirty = true;
-
-      // Reload goals data for selected shopping
-      loadGoalsDataForShopping(e.target.value);
-    });
-
-    // Annual total input
-    container.querySelector('#annual-total')?.addEventListener('input', (e) => {
-      modalState.isDirty = true;
-      updateProgressBar();
-    });
-
-    // Unit select
-    container.querySelector('#unit-select')?.addEventListener('change', (e) => {
-      modalState.isDirty = true;
-      updateMonthlyUnits(e.target.value);
-    });
-
-    // Monthly inputs
-    container.querySelectorAll('[data-month]').forEach(input => {
-      input.addEventListener('input', () => {
-        modalState.isDirty = true;
-        updateProgressBar();
-      });
-    });
-
-    // Auto-fill button
-    container.querySelector('[data-action="auto-fill"]')?.addEventListener('click', () => {
-      autoFillMonthly();
-    });
-
-    // Granularity chips (Mês | Diária | Hora em breve)
-    container.querySelectorAll('[data-gran]').forEach((chip) => {
-      chip.addEventListener('click', () => {
-        if (chip.disabled) return;
-        const g = chip.getAttribute('data-gran');
-        if (g === 'hour' || g === modalState.granularity) return;
-        modalState.granularity = g;
-        renderTabContent();
-      });
-    });
-
-    // Template download
-    container.querySelector('[data-action="goals-template"]')?.addEventListener('click', () => {
-      _downloadGoalsTemplate();
-    });
-
-    // Import: open file picker then parse
-    const fileInput = container.querySelector('#goals-import-file');
-    container.querySelector('[data-action="goals-import"]')?.addEventListener('click', () => {
-      fileInput?.click();
-    });
-    fileInput?.addEventListener('change', (e) => {
-      const file = e.target.files && e.target.files[0];
-      if (file) _handleGoalsImport(file);
-      e.target.value = '';
-    });
-  }
-
-  function attachAssetsTabListeners() {
-    const container = document.getElementById('tab-content-area');
-    if (!container) return;
-
-    // Toggle asset expansion
-    container.addEventListener('click', (e) => {
-      const toggleBtn = e.target.closest('[data-action="toggle-asset"]');
-      if (toggleBtn) {
-        const assetItem = toggleBtn.closest('.myio-goals-asset-item');
-        const content = assetItem?.querySelector('.myio-goals-asset-content');
-        const icon = assetItem?.querySelector('.myio-goals-asset-icon');
-
-        if (content) {
-          const isHidden = content.style.display === 'none';
-          content.style.display = isHidden ? 'block' : 'none';
-          if (icon) {
-            icon.style.transform = isHidden ? 'rotate(90deg)' : 'rotate(0deg)';
-          }
-        }
-      }
-
-      // Delete asset
-      const deleteBtn = e.target.closest('[data-action="delete-asset"]');
-      if (deleteBtn) {
-        const assetId = deleteBtn.dataset.assetId;
-        if (confirm(i18n.confirmDeleteAsset)) {
-          deleteAsset(assetId);
-        }
-      }
-
-      // Add asset
-      const addBtn = e.target.closest('[data-action="add-asset"]');
-      if (addBtn) {
-        showAddAssetDialog();
-      }
-    });
-
-    // Asset inputs
-    container.addEventListener('input', (e) => {
-      if (e.target.dataset.assetId) {
-        modalState.isDirty = true;
-      }
-    });
-  }
-
-  // ============================================================================
-  // DATA MANAGEMENT
-  // ============================================================================
-
-  function getYearData(year) {
-    if (!modalState.goalsData?.years) return null;
-    return modalState.goalsData.years[year.toString()];
-  }
-
-  function setYearData(year, data) {
-    if (!modalState.goalsData) {
-      modalState.goalsData = { version: 1, history: [], years: {} };
-    }
-    if (!modalState.goalsData.years) {
-      modalState.goalsData.years = {};
-    }
-    modalState.goalsData.years[year.toString()] = data;
-  }
-
-  // ============================================================================
-  // GRANULARITY TEMPLATES & IMPORT (Mês | Diária) — CSV, sem dependência externa
-  // ============================================================================
-
-  function _eachDateOfYear(year) {
-    const out = [];
-    const d = new Date(Date.UTC(year, 0, 1));
-    while (d.getUTCFullYear() === year) {
-      out.push(d.toISOString().slice(0, 10)); // YYYY-MM-DD
-      d.setUTCDate(d.getUTCDate() + 1);
-    }
-    return out;
-  }
-
-  function _buildGoalsTemplateCsv(granularity, year) {
-    const yd = getYearData(year) || {};
-    if (granularity === 'day') {
-      const daily = yd.daily || {};
-      const rows = _eachDateOfYear(year).map((iso) => `${iso};${daily[iso] != null ? daily[iso] : 0}`);
-      return 'data;valor\n' + rows.join('\n');
-    }
-    const monthly = yd.monthly || {};
-    const rows = [];
-    for (let i = 1; i <= 12; i++) {
-      const k = String(i).padStart(2, '0');
-      rows.push(`${year}-${k};${monthly[k] != null ? monthly[k] : 0}`);
-    }
-    return 'mes;valor\n' + rows.join('\n');
-  }
-
-  function _downloadGoalsTemplate() {
-    const g = modalState.granularity === 'day' ? 'day' : 'month';
-    const year = modalState.currentYear;
-    const csv = '﻿' + _buildGoalsTemplateCsv(g, year); // BOM p/ Excel-BR
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `metas-${g === 'day' ? 'diaria' : 'mensal'}-${year}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }
-
-  function _parseCsvNumber(s) {
-    let t = String(s == null ? '' : s).trim();
-    if (t.includes(',')) t = t.replace(/\./g, '').replace(',', '.'); // pt-BR: "1.234,56" -> 1234.56
-    const v = parseFloat(t);
-    return Number.isFinite(v) ? v : NaN;
-  }
-
-  function _parseGoalsCsv(text, granularity, year) {
-    const errors = [];
-    const lines = String(text)
-      .replace(/^﻿/, '')
-      .split(/\r?\n/)
-      .map((l) => l.trim())
-      .filter((l) => l && !l.startsWith('#'));
-    // drop header row if 2nd column isn't numeric (e.g., "valor")
-    if (lines.length && !Number.isFinite(_parseCsvNumber((lines[0].split(';')[1] || '')))) lines.shift();
-
-    if (granularity === 'day') {
-      const daily = {};
-      const valid = new Set(_eachDateOfYear(year));
-      lines.forEach((line, idx) => {
-        const [d, v] = line.split(';');
-        const iso = (d || '').trim();
-        const num = _parseCsvNumber(v);
-        if (!valid.has(iso)) { errors.push(`Linha ${idx + 1}: data inválida ou fora de ${year}: "${iso}"`); return; }
-        if (!Number.isFinite(num) || num < 0) { errors.push(`Linha ${idx + 1}: valor inválido: "${v}"`); return; }
-        daily[iso] = num;
-      });
-      return { granularity: 'day', daily, errors };
-    }
-
-    const monthly = {};
-    lines.forEach((line, idx) => {
-      const [m, v] = line.split(';');
-      const raw = (m || '').trim();
-      const key = raw.includes('-') ? raw.split('-').pop().padStart(2, '0') : raw.padStart(2, '0');
-      const num = _parseCsvNumber(v);
-      if (!/^(0[1-9]|1[0-2])$/.test(key)) { errors.push(`Linha ${idx + 1}: mês inválido: "${raw}"`); return; }
-      if (!Number.isFinite(num) || num < 0) { errors.push(`Linha ${idx + 1}: valor inválido: "${v}"`); return; }
-      monthly[key] = num;
-    });
-    return { granularity: 'month', monthly, errors };
-  }
-
-  function _aggregateDailyToMonthly(daily) {
-    const monthly = {};
-    Object.entries(daily || {}).forEach(([iso, val]) => {
-      const mk = iso.slice(5, 7);
-      monthly[mk] = (monthly[mk] || 0) + (parseFloat(val) || 0);
-    });
-    Object.keys(monthly).forEach((k) => { monthly[k] = Math.round(monthly[k] * 100) / 100; });
-    return monthly;
-  }
-
-  function _handleGoalsImport(file) {
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const parsed = _parseGoalsCsv(reader.result, modalState.granularity, modalState.currentYear);
-        if (parsed.errors.length) {
-          displayValidationErrors(parsed.errors.slice(0, 8));
-          return;
-        }
-        const yd = getYearData(modalState.currentYear)
-          || { annual: { total: 0, unit: 'kWh' }, monthly: {}, assets: {} };
-        if (parsed.granularity === 'day') {
-          yd.daily = parsed.daily;
-          yd.granularity = 'day';
-          yd.monthly = _aggregateDailyToMonthly(parsed.daily);
-        } else {
-          yd.monthly = parsed.monthly;
-          yd.granularity = 'month';
-          delete yd.daily;
-        }
-        // Sincroniza o total anual com a soma se ainda estiver zerado
-        if (!yd.annual) yd.annual = { total: 0, unit: 'kWh' };
-        if (!yd.annual.total) {
-          const sum = Object.values(yd.monthly).reduce((s, v) => s + (parseFloat(v) || 0), 0);
-          yd.annual.total = Math.round(sum * 100) / 100;
-        }
-        setYearData(modalState.currentYear, yd);
-        modalState.isDirty = true;
-        const errBox = document.getElementById('validation-errors');
-        if (errBox) errBox.style.display = 'none';
-        renderTabContent();
-        showSuccessMessage(GLABELS.imported);
-      } catch (err) {
-        displayValidationErrors([GLABELS.importErr + err.message]);
-      }
-    };
-    reader.onerror = () => displayValidationErrors([GLABELS.readErr]);
-    reader.readAsText(file, 'utf-8');
-  }
-
-  function loadGoalsData() {
-    // In production, this would fetch from ThingsBoard API
-    // For now, initialize empty structure if no data
-    if (!modalState.goalsData) {
-      modalState.goalsData = {
-        version: 1,
-        history: [],
-        years: {}
-      };
-
-      // Initialize current year with empty data
-      setYearData(modalState.currentYear, {
-        annual: { total: 0, unit: 'kWh' },
-        monthly: {},
-        assets: {},
-        metaTag: `${new Date().toISOString()}|user`
-      });
-    }
-
-    renderTabContent();
-  }
-
-  function loadGoalsDataForShopping(shoppingId) {
-    // In production, this would fetch goals for specific shopping from ThingsBoard
-    console.log('[GoalsPanel] Loading goals for shopping:', shoppingId);
-
-    // For now, just re-render with current data
-    // In production, fetch data from API and update modalState.goalsData
-    renderTabContent();
-  }
-
-  async function handleSave() {
-    // Validate data
-    const errors = validateGoalsData();
-    if (errors.length > 0) {
-      displayValidationErrors(errors);
-      return;
-    }
-
-    modalState.isSaving = true;
-    updateSaveButton();
-
-    try {
-      // Collect current data from inputs
-      const goalsData = collectGoalsDataFromInputs();
-
-      // Update version and history
-      if (!modalState.goalsData.version) {
-        modalState.goalsData.version = 1;
-      } else {
-        modalState.goalsData.version++;
-      }
-
-      // Add history entry
-      if (!modalState.goalsData.history) {
-        modalState.goalsData.history = [];
-      }
-      modalState.goalsData.history.unshift({
-        tag: `${new Date().toISOString()}|user`,
-        reason: 'Manual update from Goals Panel',
-        diff: { year: modalState.currentYear, changed: ['manual_update'] }
-      });
-
-      // In production, save to ThingsBoard API
-      // await saveToThingsBoard(customerId, modalState.goalsData);
-
-      // For mock mode, just update local state
-      setYearData(modalState.currentYear, goalsData);
-
-      // Call onSave callback if provided
-      if (onSave) {
-        await onSave(modalState.goalsData);
-      }
-
-      modalState.isDirty = false;
-      showSuccessMessage(i18n.saveSuccess);
-
-      // Close modal after brief delay
-      setTimeout(() => {
-        closeModal();
-      }, 1500);
-
-    } catch (error) {
-      console.error('Error saving goals:', error);
-      displayValidationErrors([i18n.saveError + ': ' + error.message]);
-    } finally {
-      modalState.isSaving = false;
-      updateSaveButton();
+  function icon(name) {
+    const S = (p) => `<svg class="myio-goals-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+    switch (name) {
+      case 'target':
+      case 'target-lg':
+        return `<svg class="myio-goals-ic ${name === 'target-lg' ? 'myio-goals-ic-lg' : ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>`;
+      case 'history':
+      case 'clock':
+        return S('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>');
+      case 'pencil':
+      case 'pencil-sm':
+        return `<svg class="myio-goals-ic ${name === 'pencil-sm' ? 'myio-goals-ic-sm' : ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`;
+      case 'save':
+        return S('<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8M7 3v5h8"/>');
+      case 'eye':
+        return S('<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>');
+      case 'upload':
+      case 'upload-sm':
+        return `<svg class="myio-goals-ic ${name === 'upload-sm' ? 'myio-goals-ic-sm' : ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>`;
+      case 'download':
+        return S('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/>');
+      case 'calendar':
+        return S('<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>');
+      case 'calendar-range':
+        return S('<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M17 14h-6M9 18H8"/>');
+      case 'calendar-days':
+        return S('<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/>');
+      case 'trend':
+        return S('<path d="M22 7l-8.5 8.5-5-5L2 17"/><path d="M16 7h6v6"/>');
+      case 'sigma':
+        return S('<path d="M18 7V4H6l6 8-6 8h12v-3"/>');
+      case 'home':
+        return S('<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="M9 22V12h6v10"/>');
+      case 'chevron':
+      case 'chevron-sm':
+        return `<svg class="myio-goals-ic ${name === 'chevron-sm' ? 'myio-goals-ic-sm' : 'myio-goals-ic-sm'}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>`;
+      case 'alert':
+      case 'alert-sm':
+      case 'alert-lg':
+        return `<svg class="myio-goals-ic ${name === 'alert-lg' ? 'myio-goals-ic-lg' : name === 'alert-sm' ? 'myio-goals-ic-sm' : ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>`;
+      case 'check':
+        return S('<path d="M20 6L9 17l-5-5"/>');
+      case 'trash-sm':
+        return `<svg class="myio-goals-ic myio-goals-ic-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`;
+      case 'spinner':
+        return `<svg class="myio-goals-ic myio-goals-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.2-8.5"/></svg>`;
+      default:
+        return '';
     }
   }
 
-  function collectGoalsDataFromInputs() {
-    if (modalState.currentTab === 'shopping') {
-      return collectShoppingData();
-    } else {
-      return collectAssetsData();
-    }
-  }
-
-  function collectShoppingData() {
-    const unitSelect = document.getElementById('unit-select');
-    const annualTotal = document.getElementById('annual-total');
-
-    const unit = unitSelect?.value || 'kWh';
-    const total = parseFloat(annualTotal?.value || 0);
-
-    const monthly = {};
-    for (let i = 1; i <= 12; i++) {
-      const monthKey = i.toString().padStart(2, '0');
-      const input = document.getElementById(`month-${monthKey}`);
-      if (input && input.value) {
-        monthly[monthKey] = parseFloat(input.value);
-      }
-    }
-
-    const yearData = getYearData(modalState.currentYear) || { assets: {} };
-
-    return {
-      annual: { total, unit },
-      monthly,
-      assets: yearData.assets || {},
-      // Preserva granularidade e detalhe diário importado (CSV) — não some no save.
-      granularity: yearData.granularity || modalState.granularity || 'month',
-      ...(yearData.daily ? { daily: yearData.daily } : {}),
-      metaTag: `${new Date().toISOString()}|user`
-    };
-  }
-
-  function collectAssetsData() {
-    const yearData = getYearData(modalState.currentYear);
-    return yearData || {
-      annual: { total: 0, unit: 'kWh' },
-      monthly: {},
-      assets: {},
-      metaTag: `${new Date().toISOString()}|user`
-    };
-  }
-
-  function validateGoalsData() {
-    const errors = [];
-
-    if (modalState.currentTab === 'shopping') {
-      const annualTotal = parseFloat(document.getElementById('annual-total')?.value || 0);
-
-      if (annualTotal < 0) {
-        errors.push(i18n.errorNegativeAnnual);
-      }
-
-      // Check monthly sum
-      let monthlySum = 0;
-      for (let i = 1; i <= 12; i++) {
-        const monthKey = i.toString().padStart(2, '0');
-        const input = document.getElementById(`month-${monthKey}`);
-        const value = parseFloat(input?.value || 0);
-
-        if (value < 0) {
-          errors.push(`${i18n.errorNegativeMonth} ${monthKey}`);
-        }
-
-        monthlySum += value;
-      }
-
-      if (monthlySum > annualTotal && annualTotal > 0) {
-        errors.push(`${i18n.errorMonthlyExceedsAnnual} (${formatNumber(monthlySum, locale)} > ${formatNumber(annualTotal, locale)})`);
-      }
-    }
-
-    return errors;
-  }
-
-  function displayValidationErrors(errors) {
-    const container = document.getElementById('validation-errors');
-    if (!container) return;
-
-    if (errors.length === 0) {
-      container.style.display = 'none';
-      return;
-    }
-
-    container.innerHTML = `
-      <div class="myio-goals-error-header">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="10"/>
-          <line x1="12" y1="8" x2="12" y2="12"/>
-          <line x1="12" y1="16" x2="12.01" y2="16"/>
-        </svg>
-        ${i18n.validationErrors}
-      </div>
-      <ul class="myio-goals-error-list">
-        ${errors.map(err => `<li>${err}</li>`).join('')}
-      </ul>
-    `;
-    container.style.display = 'block';
-
-    // Scroll to errors
-    container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }
-
-  function showSuccessMessage(message) {
-    const container = document.getElementById('validation-errors');
-    if (!container) return;
-
-    container.innerHTML = `
-      <div class="myio-goals-success-message">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M20 6L9 17l-5-5"/>
-        </svg>
-        ${message}
-      </div>
-    `;
-    container.style.display = 'block';
-  }
-
-  // ============================================================================
-  // UTILITY FUNCTIONS
-  // ============================================================================
-
-  function switchTab(tab) {
-    if (modalState.currentTab === tab) return;
-
-    modalState.currentTab = tab;
-
-    // Update tab buttons
-    const modal = document.getElementById('myio-goals-panel-modal');
-    modal.querySelectorAll('.myio-goals-tab').forEach(btn => {
-      const isActive = btn.dataset.tab === tab;
-      btn.classList.toggle('active', isActive);
-      btn.setAttribute('aria-selected', isActive.toString());
-    });
-
-    renderTabContent();
-  }
-
-  function setCurrentYear(year) {
-    modalState.currentYear = year;
-
-    // Update year display
-    const yearDisplay = document.querySelector('.myio-goals-year-display');
-    if (yearDisplay) {
-      yearDisplay.textContent = year;
-    }
-
-    // Ensure year data exists
-    if (!getYearData(year)) {
-      setYearData(year, {
-        annual: { total: 0, unit: 'kWh' },
-        monthly: {},
-        assets: {},
-        metaTag: `${new Date().toISOString()}|user`
-      });
-    }
-
-    renderTabContent();
-  }
-
-  function updateProgressBar() {
-    const annualTotal = parseFloat(document.getElementById('annual-total')?.value || 0);
-    let monthlySum = 0;
-
-    for (let i = 1; i <= 12; i++) {
-      const monthKey = i.toString().padStart(2, '0');
-      const input = document.getElementById(`month-${monthKey}`);
-      monthlySum += parseFloat(input?.value || 0);
-    }
-
-    const progress = annualTotal > 0 ? (monthlySum / annualTotal) * 100 : 0;
-    const progressFill = document.querySelector('.myio-goals-progress-fill');
-    const progressTexts = document.querySelectorAll('.myio-goals-progress-text span');
-
-    if (progressFill) {
-      progressFill.style.width = Math.min(progress, 100) + '%';
-
-      // Color based on progress
-      if (progress > 100) {
-        progressFill.style.background = theme.errorColor;
-      } else if (progress > 95) {
-        progressFill.style.background = theme.warningColor;
-      } else {
-        progressFill.style.background = theme.successColor;
-      }
-    }
-
-    if (progressTexts.length === 2) {
-      const unit = document.getElementById('unit-select')?.value || 'kWh';
-      progressTexts[0].textContent = `${formatNumber(monthlySum, locale)} ${unit}`;
-      progressTexts[1].textContent = `${formatNumber(annualTotal, locale)} ${unit}`;
-    }
-  }
-
-  function updateMonthlyUnits(unit) {
-    document.querySelectorAll('.myio-goals-unit').forEach(span => {
-      span.textContent = unit;
-    });
-  }
-
-  function autoFillMonthly() {
-    const annualTotal = parseFloat(document.getElementById('annual-total')?.value || 0);
-    if (annualTotal <= 0) return;
-
-    const monthlyValue = Math.round((annualTotal / 12) * 100) / 100;
-
-    for (let i = 1; i <= 12; i++) {
-      const monthKey = i.toString().padStart(2, '0');
-      const input = document.getElementById(`month-${monthKey}`);
-      if (input) {
-        input.value = monthlyValue;
-      }
-    }
-
-    modalState.isDirty = true;
-    updateProgressBar();
-  }
-
-  function deleteAsset(assetId) {
-    const yearData = getYearData(modalState.currentYear);
-    if (yearData?.assets?.[assetId]) {
-      delete yearData.assets[assetId];
-      modalState.isDirty = true;
-      renderTabContent();
-    }
-  }
-
-  function showAddAssetDialog() {
-    const assetLabel = prompt(i18n.enterAssetName);
-    if (!assetLabel) return;
-
-    const yearData = getYearData(modalState.currentYear);
-    if (!yearData.assets) yearData.assets = {};
-
-    const assetId = `asset-${Date.now()}`;
-    yearData.assets[assetId] = {
-      label: assetLabel,
-      annual: { total: 0, unit: 'kWh' },
-      monthly: {}
-    };
-
-    modalState.isDirty = true;
-    renderTabContent();
-  }
-
-  function updateLastUpdateInfo() {
-    const infoElement = document.getElementById('last-update-info');
-    if (!infoElement) return;
-
-    const yearData = getYearData(modalState.currentYear);
-    if (yearData?.metaTag) {
-      const [timestamp, author] = yearData.metaTag.split('|');
-      const date = new Date(timestamp);
-      infoElement.textContent = `${i18n.lastUpdate}: ${date.toLocaleString(locale)} - ${author}`;
-    } else {
-      infoElement.textContent = '';
-    }
-  }
-
-  function updateSaveButton() {
-    const saveBtn = document.querySelector('[data-action="save"]');
-    if (saveBtn) {
-      saveBtn.disabled = modalState.isSaving;
-      saveBtn.textContent = modalState.isSaving ? i18n.saving : i18n.save;
-    }
-  }
-
-  function closeModal() {
-    const modal = document.getElementById('myio-goals-panel-modal');
-    if (!modal) return;
-
-    // Remove escape handler
-    if (modal._escapeHandler) {
-      document.removeEventListener('keydown', modal._escapeHandler);
-    }
-
-    modal.remove();
-
-    if (onClose) {
-      onClose();
-    }
-  }
-
-  function trapFocus(modal) {
-    const focusableElements = modal.querySelectorAll(
-      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-    );
-
-    if (focusableElements.length === 0) return;
-
-    const firstElement = focusableElements[0];
-    const lastElement = focusableElements[focusableElements.length - 1];
-
-    const handleTab = (e) => {
-      if (e.key !== 'Tab') return;
-
-      if (e.shiftKey) {
-        if (document.activeElement === firstElement) {
-          e.preventDefault();
-          lastElement.focus();
-        }
-      } else {
-        if (document.activeElement === lastElement) {
-          e.preventDefault();
-          firstElement.focus();
-        }
-      }
-    };
-
-    modal.addEventListener('keydown', handleTab);
-    firstElement.focus();
-  }
-
-  function formatNumber(value, locale) {
-    return new Intl.NumberFormat(locale, {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 2
-    }).format(value);
-  }
-
-  // ============================================================================
-  // STYLES
-  // ============================================================================
+  // ───────────────────────────────────────────────────────────────────────────
+  // Styles
+  // ───────────────────────────────────────────────────────────────────────────
 
   function injectStyles() {
-    const styleId = 'myio-goals-panel-styles';
-    if (document.getElementById(styleId)) return;
-
+    const id = 'myio-goals-gcdr-styles';
+    const prev = document.getElementById(id);
+    if (prev) prev.remove();
     const style = document.createElement('style');
-    style.id = styleId;
+    style.id = id;
     style.textContent = `
-      .myio-goals-modal-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        z-index: ${theme.zIndex};
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-family: ${theme.fontFamily};
-      }
-
-      .myio-goals-modal-backdrop {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.5);
-        backdrop-filter: blur(4px);
-      }
-
-      .myio-goals-modal-container {
-        position: relative;
-        width: 90%;
-        max-width: 1000px;
-        max-height: 90vh;
-        display: flex;
-        flex-direction: column;
-      }
-
-      .myio-goals-modal-card {
-        background: white;
-        border-radius: ${theme.borderRadius};
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-        display: flex;
-        flex-direction: column;
-        max-height: 90vh;
-        overflow: hidden;
-      }
-
-      /* Header styles are now managed by ModalHeader component (RFC-0121) */
-
-      .myio-goals-year-selector {
-        padding: 16px 24px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 24px;
-        background: #f8f9fa;
-        border-bottom: 1px solid #dee2e6;
-      }
-
-      .myio-goals-year-btn {
-        background: white;
-        border: 1px solid #dee2e6;
-        border-radius: 50%;
-        width: 36px;
-        height: 36px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        transition: all 0.2s;
-      }
-
-      .myio-goals-year-btn:hover {
-        background: ${theme.primaryColor};
-        color: white;
-        border-color: ${theme.primaryColor};
-      }
-
-      .myio-goals-year-display {
-        font-size: 24px;
-        font-weight: 700;
-        color: ${theme.primaryColor};
-        min-width: 80px;
-        text-align: center;
-      }
-
-      .myio-goals-tabs {
-        display: flex;
-        border-bottom: 1px solid #dee2e6;
-        background: white;
-        flex-shrink: 0;
-      }
-
-      .myio-goals-tab {
-        flex: 1;
-        padding: 16px 24px;
-        background: transparent;
-        border: none;
-        border-bottom: 3px solid transparent;
-        cursor: pointer;
-        font-size: 15px;
-        font-weight: 500;
-        color: #6c757d;
-        transition: all 0.2s;
-      }
-
-      .myio-goals-tab:hover {
-        background: #f8f9fa;
-        color: ${theme.primaryColor};
-      }
-
-      .myio-goals-tab.active {
-        color: ${theme.primaryColor};
-        border-bottom-color: ${theme.primaryColor};
-      }
-
-      .myio-goals-content {
-        flex: 1;
-        overflow-y: auto;
-        padding: 24px;
-      }
-
-      .myio-goals-section {
-        margin-bottom: 32px;
-      }
-
-      .myio-goals-section-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 16px;
-      }
-
-      .myio-goals-section-title {
-        font-size: 16px;
-        font-weight: 600;
-        color: #212529;
-        margin: 0 0 16px 0;
-      }
-
-      .myio-goals-shopping-selector {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-        padding: 20px;
-        background: linear-gradient(135deg, ${theme.primaryColor}15 0%, ${theme.primaryColor}05 100%);
-        border: 2px solid ${theme.primaryColor}30;
-        border-radius: ${theme.borderRadius};
-        margin-bottom: 24px;
-      }
-
-      .myio-goals-shopping-label {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-size: 15px;
-        font-weight: 600;
-        color: ${theme.primaryColor};
-        margin: 0;
-      }
-
-      .myio-goals-shopping-label svg {
-        flex-shrink: 0;
-      }
-
-      .myio-goals-shopping-select {
-        font-size: 15px;
-        font-weight: 500;
-        padding: 12px 16px;
-        border: 2px solid ${theme.primaryColor};
-        background: white;
-        color: ${theme.primaryColor};
-        cursor: pointer;
-      }
-
-      .myio-goals-shopping-select:hover {
-        background: ${theme.primaryColor}10;
-      }
-
-      .myio-goals-shopping-select:focus {
-        border-color: ${theme.primaryColor};
-        box-shadow: 0 0 0 4px ${theme.primaryColor}20;
-      }
-
-      .myio-goals-btn-link {
-        background: transparent;
-        border: none;
-        color: ${theme.primaryColor};
-        cursor: pointer;
-        font-size: 14px;
-        font-weight: 500;
-        padding: 4px 8px;
-        border-radius: 4px;
-        transition: background 0.2s;
-      }
-
-      .myio-goals-btn-link:hover {
-        background: rgba(74, 20, 140, 0.1);
-      }
-
-      .myio-goals-form-row {
-        display: flex;
-        gap: 16px;
-        margin-bottom: 16px;
-      }
-
-      .myio-goals-form-group {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-      }
-
-      .myio-goals-form-group-large {
-        flex: 2;
-      }
-
-      .myio-goals-form-group label {
-        font-size: 14px;
-        font-weight: 500;
-        color: #495057;
-      }
-
-      .myio-goals-input {
-        padding: 10px 12px;
-        border: 1px solid #ced4da;
-        border-radius: 6px;
-        font-size: 14px;
-        transition: border-color 0.2s;
-      }
-
-      .myio-goals-input:focus {
-        outline: none;
-        border-color: ${theme.primaryColor};
-        box-shadow: 0 0 0 3px rgba(74, 20, 140, 0.1);
-      }
-
-      .myio-goals-progress-bar {
-        width: 100%;
-        height: 8px;
-        background: #e9ecef;
-        border-radius: 4px;
-        overflow: hidden;
-        margin-bottom: 8px;
-      }
-
-      .myio-goals-progress-fill {
-        height: 100%;
-        background: ${theme.successColor};
-        transition: width 0.3s, background 0.3s;
-      }
-
-      .myio-goals-progress-text {
-        display: flex;
-        justify-content: space-between;
-        font-size: 14px;
-        color: #6c757d;
-        margin-bottom: 16px;
-      }
-
-      .myio-goals-monthly-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-        gap: 16px;
-      }
-
-      .myio-goals-month-input {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-      }
-
-      .myio-goals-month-input label {
-        font-size: 13px;
-        font-weight: 500;
-        color: #495057;
-      }
-
-      .myio-goals-input-small {
-        padding: 8px 10px;
-        font-size: 13px;
-      }
-
-      .myio-goals-unit {
-        font-size: 12px;
-        color: #6c757d;
-        margin-top: -4px;
-      }
-
-      .myio-goals-assets-header {
-        display: flex;
-        gap: 16px;
-        margin-bottom: 24px;
-      }
-
-      .myio-goals-assets-header .myio-goals-input {
-        flex: 1;
-      }
-
-      .myio-goals-assets-list {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-      }
-
-      .myio-goals-asset-item {
-        border: 1px solid #dee2e6;
-        border-radius: ${theme.borderRadius};
-        overflow: hidden;
-      }
-
-      .myio-goals-asset-header {
-        padding: 16px;
-        background: #f8f9fa;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        cursor: pointer;
-        transition: background 0.2s;
-      }
-
-      .myio-goals-asset-header:hover {
-        background: #e9ecef;
-      }
-
-      .myio-goals-asset-title {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-weight: 500;
-        color: #212529;
-      }
-
-      .myio-goals-asset-icon {
-        transition: transform 0.3s;
-      }
-
-      .myio-goals-asset-total {
-        font-size: 14px;
-        color: #6c757d;
-      }
-
-      .myio-goals-btn-icon {
-        background: transparent;
-        border: none;
-        color: ${theme.errorColor};
-        cursor: pointer;
-        padding: 6px;
-        border-radius: 4px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: background 0.2s;
-      }
-
-      .myio-goals-btn-icon:hover {
-        background: rgba(220, 53, 69, 0.1);
-      }
-
-      .myio-goals-asset-content {
-        padding: 16px;
-        border-top: 1px solid #dee2e6;
-      }
-
-      .myio-goals-asset-detail {
-        /* Inherits styles from shopping tab */
-      }
-
-      .myio-goals-empty-state {
-        text-align: center;
-        padding: 48px 24px;
-        color: #6c757d;
-        font-size: 15px;
-      }
-
-      .myio-goals-errors {
-        margin: 0 24px;
-        padding: 16px;
-        background: #fff3cd;
-        border: 1px solid #ffc107;
-        border-radius: ${theme.borderRadius};
-        margin-bottom: 16px;
-      }
-
-      .myio-goals-error-header {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-weight: 600;
-        color: #856404;
-        margin-bottom: 12px;
-      }
-
-      .myio-goals-error-list {
-        margin: 0;
-        padding-left: 24px;
-        color: #856404;
-      }
-
-      .myio-goals-error-list li {
-        margin-bottom: 4px;
-      }
-
-      .myio-goals-success-message {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        color: ${theme.successColor};
-        font-weight: 500;
-      }
-
-      .myio-goals-modal-footer {
-        padding: 16px 24px;
-        background: #f8f9fa;
-        border-top: 1px solid #dee2e6;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        flex-shrink: 0;
-      }
-
-      .myio-goals-meta-info {
-        font-size: 12px;
-        color: #6c757d;
-      }
-
-      .myio-goals-footer-actions {
-        display: flex;
-        gap: 12px;
-      }
-
-      .myio-goals-btn {
-        padding: 10px 20px;
-        border: none;
-        border-radius: 6px;
-        font-size: 14px;
-        font-weight: 500;
-        cursor: pointer;
-        transition: all 0.2s;
-      }
-
-      .myio-goals-btn-primary {
-        background: ${theme.primaryColor};
-        color: white;
-      }
-
-      .myio-goals-btn-primary:hover:not(:disabled) {
-        background: #5c1ba1;
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(74, 20, 140, 0.3);
-      }
-
-      .myio-goals-btn-primary:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
-      }
-
-      .myio-goals-btn-secondary {
-        background: white;
-        color: #495057;
-        border: 1px solid #ced4da;
-      }
-
-      .myio-goals-btn-secondary:hover {
-        background: #f8f9fa;
-      }
-
-      @media (max-width: 768px) {
-        .myio-goals-modal-container {
-          width: 95%;
-          max-height: 95vh;
-        }
-
-        .myio-goals-monthly-grid {
-          grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-          gap: 12px;
-        }
-
-        .myio-goals-form-row {
-          flex-direction: column;
-        }
-      }
+      .myio-goals-overlay { position: fixed; inset: 0; z-index: ${theme.zIndex}; font-family: ${theme.fontFamily}; }
+      .myio-goals-backdrop { position: absolute; inset: 0; background: rgba(15,23,42,0.55); backdrop-filter: blur(3px); }
+      .myio-goals-backdrop-2 { z-index: 1; }
+      .myio-goals-dialog { position: relative; z-index: 2; width: 94%; max-width: 1080px; margin: 3vh auto; max-height: 94vh; display: flex; }
+      .myio-goals-card { background: #fff; border-radius: ${theme.borderRadius}; box-shadow: 0 24px 70px rgba(0,0,0,.35); display: flex; flex-direction: column; width: 100%; max-height: 94vh; overflow: hidden; }
+      .myio-goals-body { padding: 18px 22px 24px; overflow-y: auto; }
+
+      .myio-goals-ic { width: 16px; height: 16px; vertical-align: -3px; }
+      .myio-goals-ic-sm { width: 13px; height: 13px; vertical-align: -2px; }
+      .myio-goals-ic-lg { width: 40px; height: 40px; }
+      .myio-goals-spin { animation: myio-goals-spin 0.9s linear infinite; }
+      @keyframes myio-goals-spin { to { transform: rotate(360deg); } }
+      .myio-goals-glyph { font-style: italic; font-family: Georgia, serif; font-size: 15px; }
+
+      .myio-goals-toolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; justify-content: space-between; margin-bottom: 14px; }
+      .myio-goals-selects { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+      .myio-goals-field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #64748b; font-weight: 600; }
+      .myio-goals-field select { padding: 8px 10px; font-size: 14px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; color: #0f172a; }
+      .myio-goals-field select:focus { outline: none; border-color: ${theme.accent}; box-shadow: 0 0 0 3px ${theme.accentSoft}; }
+      .myio-goals-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+      .myio-goals-chip { display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; padding: 5px 11px; font-size: 12px; font-weight: 600; border: 1px solid #e2e8f0; background: #f8fafc; color: #475569; }
+      .myio-goals-chip-accent { color: ${theme.accent}; background: ${theme.accentSoft}; border-color: ${theme.accentSoft}; }
+      .myio-goals-chip-violet { color: ${theme.violet}; background: rgba(108,92,231,0.10); border-color: rgba(108,92,231,0.18); }
+      .myio-goals-chip-mono { font-family: ui-monospace, Menlo, monospace; }
+      .myio-goals-chip-red { color: ${theme.danger}; background: rgba(220,38,38,0.08); border-color: rgba(220,38,38,0.18); }
+      .myio-goals-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+      .myio-goals-btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 14px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; border: 1px solid transparent; transition: all .15s; font-family: inherit; }
+      .myio-goals-btn:disabled { opacity: .55; cursor: not-allowed; }
+      .myio-goals-btn-primary { background: ${theme.accent}; color: #fff; }
+      .myio-goals-btn-primary:hover:not(:disabled) { filter: brightness(.94); }
+      .myio-goals-btn-outline { background: #fff; color: #334155; border-color: #cbd5e1; }
+      .myio-goals-btn-outline:hover:not(:disabled) { background: #f1f5f9; }
+
+      .myio-goals-alert { display: flex; align-items: flex-start; gap: 8px; padding: 11px 14px; border-radius: 10px; font-size: 13px; margin-bottom: 12px; border: 1px solid; }
+      .myio-goals-alert-amber { background: #fffbeb; border-color: #fcd34d; color: #92400e; }
+      .myio-goals-alert-red { background: #fef2f2; border-color: #fca5a5; color: #991b1b; }
+      .myio-goals-alert-green { background: #ecfdf5; border-color: #6ee7b7; color: #065f46; }
+
+      .myio-goals-center { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 50px 20px; color: #94a3b8; font-size: 14px; }
+      .myio-goals-center-col { flex-direction: column; text-align: center; }
+      .myio-goals-center-col p { margin: 6px 0 12px; color: #64748b; }
+
+      .myio-goals-kpis { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; }
+      @media (min-width: 640px) { .myio-goals-kpis { grid-template-columns: repeat(3,1fr); } }
+      @media (min-width: 1000px) { .myio-goals-kpis { grid-template-columns: repeat(6,1fr); } }
+      .myio-goals-kpi { border: 1px solid #e2e8f0; border-radius: 10px; padding: 11px; background: #fff; }
+      .myio-goals-kpi-label { display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 5px; }
+      .myio-goals-kpi-label .myio-goals-ic { color: ${theme.accent}; }
+      .myio-goals-kpi-value { font-size: 16px; font-weight: 800; color: #0f172a; font-variant-numeric: tabular-nums; }
+
+      .myio-goals-topgrid { display: grid; gap: 14px; margin-top: 18px; }
+      @media (min-width: 768px) { .myio-goals-topgrid { grid-template-columns: 1fr 1fr; } }
+      .myio-goals-topcard { border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; }
+      .myio-goals-topcard h4 { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 800; color: #334155; margin: 0 0 10px; }
+      .myio-goals-topcard h4 .myio-goals-ic { color: ${theme.accent}; }
+      .myio-goals-topcard ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+      .myio-goals-topcard li { display: flex; align-items: center; justify-content: space-between; font-size: 13px; }
+      .myio-goals-rank { display: flex; align-items: center; gap: 8px; color: #334155; }
+      .myio-goals-rank-num { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 999px; background: ${theme.accentSoft}; color: ${theme.accent}; font-size: 11px; font-weight: 800; }
+      .myio-goals-rank-val { font-weight: 800; color: #0f172a; font-variant-numeric: tabular-nums; }
+      .myio-goals-hint { font-size: 11px; color: #94a3b8; margin: 16px 0 0; }
+      .myio-goals-muted { color: #94a3b8; font-size: 13px; }
+
+      .myio-goals-crumb { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: 13px; margin-bottom: 12px; }
+      .myio-goals-crumb button, .myio-goals-crumb span.active { display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 6px; border: none; background: transparent; cursor: pointer; color: #64748b; font-family: inherit; font-size: 13px; }
+      .myio-goals-crumb button:hover { background: #f1f5f9; color: #334155; }
+      .myio-goals-crumb .active { color: ${theme.accent}; font-weight: 800; }
+      .myio-goals-crumb .myio-goals-ic { color: #cbd5e1; }
+      .myio-goals-microhint { font-size: 11px; color: #94a3b8; margin: 0 0 8px; }
+
+      .myio-goals-grid { display: grid; gap: 10px; }
+      .myio-goals-grid-month { grid-template-columns: repeat(2,1fr); }
+      .myio-goals-grid-day { grid-template-columns: repeat(3,1fr); }
+      .myio-goals-grid-hour { grid-template-columns: repeat(3,1fr); }
+      @media (min-width: 640px) { .myio-goals-grid-month { grid-template-columns: repeat(3,1fr); } .myio-goals-grid-day { grid-template-columns: repeat(5,1fr); } .myio-goals-grid-hour { grid-template-columns: repeat(4,1fr); } }
+      @media (min-width: 1000px) { .myio-goals-grid-month { grid-template-columns: repeat(4,1fr); } .myio-goals-grid-day { grid-template-columns: repeat(7,1fr); } .myio-goals-grid-hour { grid-template-columns: repeat(6,1fr); } }
+      .myio-goals-cell { border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; padding: 10px; }
+      .myio-goals-cell-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+      .myio-goals-cell-drill { display: inline-flex; align-items: center; gap: 2px; border: none; background: transparent; cursor: pointer; color: ${theme.accent}; font-size: 12px; font-weight: 700; padding: 0; font-family: inherit; }
+      .myio-goals-cell-drill:hover { text-decoration: underline; }
+      .myio-goals-cell-label { font-size: 12px; font-weight: 700; color: #64748b; }
+      .myio-goals-cell-head .myio-goals-ic { color: ${theme.accent}; opacity: .6; }
+      .myio-goals-cell-input { display: flex; align-items: center; gap: 6px; }
+      .myio-goals-cell-input input { width: 100%; padding: 6px 8px; font-size: 13px; text-align: right; border: 1px solid #cbd5e1; border-radius: 7px; color: #0f172a; }
+      .myio-goals-cell-input input:focus { outline: none; border-color: ${theme.accent}; box-shadow: 0 0 0 3px ${theme.accentSoft}; }
+      .myio-goals-cell-unit { font-size: 11px; font-family: ui-monospace, monospace; color: #94a3b8; flex-shrink: 0; }
+      .myio-goals-confirmed { margin: 5px 0 0; font-size: 10px; color: ${theme.accent}; font-weight: 700; }
+
+      .myio-goals-total { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; padding: 11px 16px; border-radius: 10px; border: 1px solid ${theme.accentSoft}; background: ${theme.accentSoft}; }
+      .myio-goals-total-label { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 700; color: ${theme.accent}; }
+      .myio-goals-total-val { font-size: 14px; font-weight: 800; color: #064e3b; font-variant-numeric: tabular-nums; }
+      .myio-goals-legend { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 10px; font-size: 11px; color: #94a3b8; }
+      .myio-goals-legend span { display: inline-flex; align-items: center; gap: 5px; }
+
+      .myio-goals-history { margin-top: 22px; border-top: 1px solid #e2e8f0; padding-top: 16px; }
+      .myio-goals-history-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 14px; }
+      .myio-goals-history-head h3 { display: flex; align-items: center; gap: 7px; font-size: 14px; font-weight: 800; color: ${theme.violet}; margin: 0; }
+      .myio-goals-history-meta { font-size: 12px; color: #94a3b8; }
+      .myio-goals-hist-empty { padding: 28px 10px; }
+      .myio-goals-timeline { list-style: none; margin: 0; padding: 0 0 0 14px; border-left: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 20px; }
+      .myio-goals-tl-item { position: relative; padding-left: 16px; }
+      .myio-goals-tl-dot { position: absolute; left: -27px; top: -2px; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 999px; background: rgba(108,92,231,0.14); color: ${theme.violet}; box-shadow: 0 0 0 4px #fff; }
+      .myio-goals-tl-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+      .myio-goals-tl-title { font-size: 13px; font-weight: 800; color: #0f172a; }
+      .myio-goals-tl-ver { font-family: ui-monospace, monospace; font-size: 11px; font-weight: 700; color: #64748b; background: #f1f5f9; border-radius: 999px; padding: 1px 8px; }
+      .myio-goals-tl-meta { font-size: 11px; color: #94a3b8; margin: 2px 0 0; }
+      .myio-goals-tl-records { font-size: 13px; color: #475569; margin: 4px 0 0; }
+      .myio-goals-tl-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+      .myio-goals-tl-chip { display: inline-flex; align-items: center; gap: 5px; border: 1px solid #e2e8f0; background: #f8fafc; border-radius: 6px; padding: 2px 7px; font-size: 11px; font-family: ui-monospace, monospace; color: #475569; }
+      .myio-goals-tl-ref { color: #94a3b8; }
+      .myio-goals-tl-more { font-size: 11px; color: #94a3b8; padding: 2px 4px; }
+
+      /* CSV import modal */
+      .myio-goals-import-dialog { position: fixed; inset: 0; z-index: 3; display: flex; align-items: flex-start; justify-content: center; padding: 4vh 16px; pointer-events: none; }
+      .myio-goals-import-card { pointer-events: auto; background: #fff; border-radius: ${theme.borderRadius}; box-shadow: 0 24px 70px rgba(0,0,0,.4); width: 100%; max-width: 680px; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; }
+      .myio-goals-import-header { display: flex; align-items: center; gap: 12px; padding: 16px 18px; border-bottom: 1px solid #e2e8f0; }
+      .myio-goals-import-icon { display: inline-flex; align-items: center; justify-content: center; width: 42px; height: 42px; border-radius: 999px; background: ${theme.accentSoft}; color: ${theme.accent}; flex-shrink: 0; }
+      .myio-goals-import-header h3 { margin: 0; font-size: 15px; font-weight: 800; color: #0f172a; }
+      .myio-goals-import-header p { margin: 2px 0 0; font-size: 13px; color: #64748b; }
+      .myio-goals-import-x { margin-left: auto; border: none; background: transparent; font-size: 24px; line-height: 1; cursor: pointer; color: #94a3b8; }
+      .myio-goals-import-x:hover { color: #334155; }
+      .myio-goals-import-body { padding: 16px 18px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
+      .myio-goals-import-footer { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 18px; border-top: 1px solid #e2e8f0; }
+      .myio-goals-import-hint { border: 1px solid ${theme.accentSoft}; background: ${theme.accentSoft}; border-radius: 10px; padding: 11px 13px; }
+      .myio-goals-import-hint p { margin: 0 0 6px; font-size: 12px; color: ${theme.accent}; }
+      .myio-goals-import-hint code { display: block; white-space: pre; background: rgba(255,255,255,.7); border-radius: 6px; padding: 7px 9px; font-size: 11px; font-family: ui-monospace, monospace; color: #064e3b; }
+      .myio-goals-import-inputhead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+      .myio-goals-import-inputhead label { font-size: 13px; font-weight: 700; color: #334155; }
+      .myio-goals-import-links { display: flex; flex-wrap: wrap; gap: 12px; }
+      .myio-goals-import-links button { display: inline-flex; align-items: center; gap: 5px; border: none; background: transparent; cursor: pointer; color: ${theme.accent}; font-size: 12px; font-weight: 700; font-family: inherit; padding: 0; }
+      .myio-goals-import-links button:hover { text-decoration: underline; }
+      .myio-goals-import-input textarea { width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 8px; padding: 9px 11px; font-family: ui-monospace, monospace; font-size: 12px; color: #0f172a; resize: vertical; }
+      .myio-goals-import-input textarea:focus { outline: none; border-color: ${theme.accent}; box-shadow: 0 0 0 3px ${theme.accentSoft}; }
+      .myio-goals-import-summary { display: flex; flex-direction: column; gap: 12px; }
+      .myio-goals-import-counts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+      .myio-goals-import-willapply { border: 1px solid #e2e8f0; background: #f8fafc; border-radius: 10px; padding: 11px 13px; }
+      .myio-goals-import-willapply p { margin: 0 0 7px; font-size: 12px; font-weight: 700; color: #475569; }
+      .myio-goals-import-willapply div { display: flex; flex-wrap: wrap; gap: 6px; }
+      .myio-goals-import-diags { border: 1px solid #fca5a5; border-radius: 10px; overflow: hidden; }
+      .myio-goals-import-diags-title { margin: 0; padding: 8px 12px; background: #fef2f2; border-bottom: 1px solid #fecaca; font-size: 12px; font-weight: 700; color: #991b1b; }
+      .myio-goals-import-diags ul { list-style: none; margin: 0; padding: 0; max-height: 190px; overflow-y: auto; }
+      .myio-goals-import-diags li { display: flex; align-items: flex-start; gap: 7px; padding: 7px 12px; font-size: 12px; color: #475569; border-bottom: 1px solid #fee2e2; }
+      .myio-goals-import-diags li .myio-goals-ic { color: ${theme.danger}; flex-shrink: 0; margin-top: 1px; }
+      .myio-goals-diag-line { font-family: ui-monospace, monospace; font-weight: 700; color: ${theme.danger}; }
+      .myio-goals-diag-bucket { font-family: ui-monospace, monospace; color: #94a3b8; }
+      .myio-goals-import-log { border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; }
+      .myio-goals-import-log-title { margin: 0; padding: 8px 12px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; font-size: 12px; font-weight: 700; color: #475569; }
+      .myio-goals-import-log ul { list-style: none; margin: 0; padding: 8px 12px; max-height: 190px; overflow-y: auto; }
+      .myio-goals-import-log li { font-family: ui-monospace, monospace; font-size: 11px; color: #64748b; padding: 2px 0; }
     `;
     document.head.appendChild(style);
   }
 
-  // ============================================================================
-  // i18n STRINGS
-  // ============================================================================
+  // ───────────────────────────────────────────────────────────────────────────
+  // i18n
+  // ───────────────────────────────────────────────────────────────────────────
 
-  function getPortugueseStrings(entityLabel = 'Shopping') {
+  function getStrings(loc) {
+    if (loc === 'en-US') {
+      return {
+        modalTitle: 'Consumption Goals',
+        domainLabel: 'Domain',
+        yearLabel: 'Year',
+        domains: { ENERGY: 'Energy', WATER: 'Water', TEMPERATURE: 'Temperature' },
+        aggregation: { SUM: 'Sum', AVERAGE: 'Average' },
+        currentVersion: 'Current version: v{n}',
+        enableEditing: 'Enable editing',
+        viewSummary: 'View summary',
+        save: 'Save',
+        saving: 'Saving…',
+        importBtn: 'Import CSV',
+        downloadHourlyExample: 'Download hourly example',
+        loading: 'Loading…',
+        retry: 'Retry',
+        noData: 'No goals set for {year}.',
+        empty: 'No goals set yet. Fill in the months below.',
+        saveSuccess: 'Goals saved successfully!',
+        versionConflict:
+          'The goal was modified by another change. We reloaded the latest version — review and save again.',
+        confirmedBadge: 'Confirmed',
+        legendEditable: 'Editable',
+        legendComputed: 'Computed (read-only)',
+        breadcrumbYear: 'Year {year}',
+        breadcrumbDay: 'Day {day}',
+        dayCell: 'Day {day}',
+        monthTotal: 'Month total',
+        monthAverage: 'Month average',
+        dayTotal: 'Day total',
+        dayAverage: 'Day average',
+        drill: {
+          openMonthHint: 'Click a month to break it down by day.',
+          openDayHint: 'Click a day to break it down by hour.',
+          openTitle: 'Drill down',
+        },
+        summary: {
+          year: 'Year',
+          yearTotal: 'Annual total',
+          yearAverage: 'Annual average',
+          monthsWithGoal: 'Months with a goal',
+          daysWithGoal: 'Days with a goal',
+          avgPerMonth: 'Average per month',
+          avgPerDay: 'Average per day',
+          topMonths: 'Top 3 months',
+          topDays: 'Top 3 days',
+          hint: 'Read-only summary. Click “Enable editing” to change the goals.',
+        },
+        levels: { YEAR: 'Year', MONTH: 'Month', DAY: 'Day', HOUR: 'Hour' },
+        months: {
+          '01': 'Jan', '02': 'Feb', '03': 'Mar', '04': 'Apr', '05': 'May', '06': 'Jun',
+          '07': 'Jul', '08': 'Aug', '09': 'Sep', '10': 'Oct', '11': 'Nov', '12': 'Dec',
+        },
+        time: { now: 'just now', min: '{n}m ago', hour: '{n}h ago', day: '{n}d ago' },
+        history: {
+          title: 'Version history',
+          empty: 'No changes recorded.',
+          system: 'System',
+          records: '{n} records',
+          moreDetails: '+{n} more',
+          source: {
+            IMPORT: 'Spreadsheet import',
+            REPLACE: 'Goals edit',
+            MERGE: 'Goals edit',
+            EDIT: 'Goals edit',
+            DELETE: 'Goal removal',
+          },
+        },
+        import: {
+          title: 'Import goals (CSV)',
+          subtitle: '{domain} · {year}',
+          formatHint: 'Header bucket,value. Refs: 2026 / 2026-03 / 2026-03-15 / 2026-03-15T08.',
+          csvLabel: 'CSV',
+          downloadTemplate: 'Download template',
+          downloadHourlyExample: 'Hourly example',
+          uploadFile: 'Upload file',
+          unitNote: 'Values in {unit}.',
+          preview: 'Preview',
+          confirm: 'Apply {n}',
+          cancel: 'Cancel',
+          done: 'Done',
+          okCount: '{n} valid',
+          errorCount: '{n} with error',
+          appliedBadge: 'Applied (v{version})',
+          previewBadge: 'Preview',
+          willApply: 'Will apply by level:',
+          diagnosticsTitle: 'Rejected lines',
+          logTitle: 'Apply log',
+          line: 'Line {line}:',
+          conflict: 'Version conflict — reload and try again.',
+        },
+      };
+    }
     return {
-      modalTitle: 'Setup de Metas de Consumo',
-      close: 'Fechar',
-      previousYear: 'Ano anterior',
-      nextYear: 'Próximo ano',
-      shoppingTab: `${entityLabel} (Anual/Mensal)`,
-      assetsTab: 'Por Asset',
-      selectShopping: `Selecione o ${entityLabel}`,
-      annualGoal: 'Meta Anual',
-      unit: 'Unidade',
-      annualTotal: 'Total Anual',
-      monthlyDistribution: 'Distribuição Mensal',
-      autoFill: 'Preencher Proporcionalmente',
-      searchAssets: 'Buscar assets...',
-      addAsset: 'Adicionar Asset',
-      noAssets: 'Nenhum asset configurado. Clique em "Adicionar Asset" para começar.',
-      deleteAsset: 'Remover asset',
+      modalTitle: 'Metas de Consumo',
+      domainLabel: 'Domínio',
+      yearLabel: 'Ano',
+      domains: { ENERGY: 'Energia', WATER: 'Água', TEMPERATURE: 'Temperatura' },
+      aggregation: { SUM: 'Soma', AVERAGE: 'Média' },
+      currentVersion: 'Versão atual: v{n}',
+      enableEditing: 'Habilitar edição',
+      viewSummary: 'Ver resumo',
       save: 'Salvar',
-      saving: 'Salvando...',
-      cancel: 'Cancelar',
-      lastUpdate: 'Última atualização',
-      jan: 'Jan',
-      feb: 'Fev',
-      mar: 'Mar',
-      apr: 'Abr',
-      may: 'Mai',
-      jun: 'Jun',
-      jul: 'Jul',
-      aug: 'Ago',
-      sep: 'Set',
-      oct: 'Out',
-      nov: 'Nov',
-      dec: 'Dez',
-      unsavedChanges: 'Você tem alterações não salvas. Deseja sair mesmo assim?',
-      confirmDeleteAsset: 'Deseja realmente remover este asset?',
-      enterAssetName: 'Digite o nome do asset:',
-      validationErrors: 'Erros de validação',
-      errorNegativeAnnual: 'A meta anual não pode ser negativa',
-      errorNegativeMonth: 'O valor mensal não pode ser negativo para o mês',
-      errorMonthlyExceedsAnnual: 'A soma das metas mensais excede a meta anual',
+      saving: 'Salvando…',
+      importBtn: 'Importar CSV',
+      downloadHourlyExample: 'Baixar exemplo horário',
+      loading: 'Carregando…',
+      retry: 'Tentar novamente',
+      noData: 'Nenhuma meta definida para {year}.',
+      empty: 'Nenhuma meta definida ainda. Preencha os meses abaixo.',
       saveSuccess: 'Metas salvas com sucesso!',
-      saveError: 'Erro ao salvar metas'
+      versionConflict:
+        'A meta foi alterada por outra operação. Recarregamos a versão mais recente — revise e salve novamente.',
+      confirmedBadge: 'Confirmado',
+      legendEditable: 'Editável',
+      legendComputed: 'Calculado (somente leitura)',
+      breadcrumbYear: 'Ano {year}',
+      breadcrumbDay: 'Dia {day}',
+      dayCell: 'Dia {day}',
+      monthTotal: 'Total do mês',
+      monthAverage: 'Média do mês',
+      dayTotal: 'Total do dia',
+      dayAverage: 'Média do dia',
+      drill: {
+        openMonthHint: 'Clique em um mês para detalhar por dia.',
+        openDayHint: 'Clique em um dia para detalhar por hora.',
+        openTitle: 'Detalhar',
+      },
+      summary: {
+        year: 'Ano',
+        yearTotal: 'Total anual',
+        yearAverage: 'Média anual',
+        monthsWithGoal: 'Meses com meta',
+        daysWithGoal: 'Total de registros',
+        avgPerMonth: 'Média por mês',
+        avgPerDay: 'Média por dia',
+        topMonths: 'Top 3 meses',
+        topDays: 'Top 3 dias',
+        hint: 'Resumo somente leitura. Clique em “Habilitar edição” para alterar as metas.',
+      },
+      levels: { YEAR: 'Ano', MONTH: 'Mês', DAY: 'Dia', HOUR: 'Hora' },
+      months: {
+        '01': 'Jan', '02': 'Fev', '03': 'Mar', '04': 'Abr', '05': 'Mai', '06': 'Jun',
+        '07': 'Jul', '08': 'Ago', '09': 'Set', '10': 'Out', '11': 'Nov', '12': 'Dez',
+      },
+      time: { now: 'agora', min: 'há {n}min', hour: 'há {n}h', day: 'há {n}d' },
+      history: {
+        title: 'Histórico de versões',
+        empty: 'Nenhuma alteração registrada.',
+        system: 'Sistema',
+        records: '{n} registros',
+        moreDetails: '+{n} mais',
+        source: {
+          IMPORT: 'Importação de planilha',
+          REPLACE: 'Edição de metas',
+          MERGE: 'Edição de metas',
+          EDIT: 'Edição de metas',
+          DELETE: 'Remoção de meta',
+        },
+      },
+      import: {
+        title: 'Importar metas (CSV)',
+        subtitle: '{domain} · {year}',
+        formatHint: 'Cabeçalho bucket,value. Refs: 2026 / 2026-03 / 2026-03-15 / 2026-03-15T08.',
+        csvLabel: 'CSV',
+        downloadTemplate: 'Baixar modelo',
+        downloadHourlyExample: 'Exemplo horário',
+        uploadFile: 'Enviar arquivo',
+        unitNote: 'Valores em {unit}.',
+        preview: 'Pré-visualizar',
+        confirm: 'Aplicar {n}',
+        cancel: 'Cancelar',
+        done: 'Concluir',
+        okCount: '{n} válidas',
+        errorCount: '{n} com erro',
+        appliedBadge: 'Aplicado (v{version})',
+        previewBadge: 'Pré-visualização',
+        willApply: 'Será aplicado por nível:',
+        diagnosticsTitle: 'Linhas rejeitadas',
+        logTitle: 'Log de aplicação',
+        line: 'Linha {line}:',
+        conflict: 'Conflito de versão — recarregue e tente novamente.',
+      },
     };
   }
 
-  function getEnglishStrings(entityLabel = 'Shopping') {
-    return {
-      modalTitle: 'Consumption Goals Setup',
-      close: 'Close',
-      previousYear: 'Previous year',
-      nextYear: 'Next year',
-      shoppingTab: `${entityLabel} (Annual/Monthly)`,
-      assetsTab: 'By Asset',
-      selectShopping: `Select ${entityLabel}`,
-      annualGoal: 'Annual Goal',
-      unit: 'Unit',
-      annualTotal: 'Annual Total',
-      monthlyDistribution: 'Monthly Distribution',
-      autoFill: 'Auto Fill Proportionally',
-      searchAssets: 'Search assets...',
-      addAsset: 'Add Asset',
-      noAssets: 'No assets configured. Click "Add Asset" to get started.',
-      deleteAsset: 'Remove asset',
-      save: 'Save',
-      saving: 'Saving...',
-      cancel: 'Cancel',
-      lastUpdate: 'Last update',
-      jan: 'Jan',
-      feb: 'Feb',
-      mar: 'Mar',
-      apr: 'Apr',
-      may: 'May',
-      jun: 'Jun',
-      jul: 'Jul',
-      aug: 'Aug',
-      sep: 'Sep',
-      oct: 'Oct',
-      nov: 'Nov',
-      dec: 'Dec',
-      unsavedChanges: 'You have unsaved changes. Do you want to exit anyway?',
-      confirmDeleteAsset: 'Do you really want to remove this asset?',
-      enterAssetName: 'Enter asset name:',
-      validationErrors: 'Validation errors',
-      errorNegativeAnnual: 'Annual goal cannot be negative',
-      errorNegativeMonth: 'Monthly value cannot be negative for month',
-      errorMonthlyExceedsAnnual: 'Monthly sum exceeds annual goal',
-      saveSuccess: 'Goals saved successfully!',
-      saveError: 'Error saving goals'
-    };
-  }
+  mount();
+  return instance;
 }
