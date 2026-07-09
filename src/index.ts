@@ -1091,6 +1091,18 @@ export type { CustomerCardV2Params, CustomerCardV2Instance, MetroTile } from './
 
 export { METRO_TILE_COLORS } from './components/cards/customer/v2.0.0';
 
+// RFC-0217: CustomerGoalsCard (per-shopping small multiples — Realizado × A-1 × Orçado)
+export { CustomerGoalsCard, createCustomerGoalsCard } from './components/cards/customer-goals/v1.0.0';
+export type {
+  CustomerGoalsCardParams,
+  CustomerGoalsCardInstance,
+  CustomerGoalsCardOptions,
+  CustomerGoalsChartType,
+  CustomerGoalsSeries,
+  CustomerGoalsTotals,
+  CustomerGoalsThemeMode,
+} from './components/cards/customer-goals/v1.0.0';
+
 // RFC-0132: EnergyPanel Component
 export { createEnergyPanelComponent } from './components/energy-panel';
 export type {

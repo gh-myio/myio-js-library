@@ -3725,10 +3725,13 @@ body.filter-modal-open { overflow: hidden !important; }
                 <button type="button" data-mode="cons" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Consolidado</button>
                 <button type="button" data-mode="stack" title="Todos os shoppings empilhados; meta única (soma)" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Shoppings · empilhado</button>
                 <button type="button" data-mode="sep" title="Um par de barras e uma linha de meta por shopping" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Shoppings · separado</button>
+                <button type="button" data-mode="cards" title="Um card por shopping: Realizado × A-1 × Orçado (RFC-0217)" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Cards</button>
               </div>
               <span data-evo-status style="font:600 12px Nunito,sans-serif;color:var(--gc-muted);margin-left:auto;"></span>
             </div>
             <div data-evo-wrap style="position:relative;height:340px;"><canvas data-evo-chart></canvas></div>
+            <div data-cards-grid style="display:none;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;"></div>
+            <div data-cards-legend style="display:none;align-items:center;justify-content:center;gap:18px;flex-wrap:wrap;font:600 11px Nunito,sans-serif;color:var(--gc-muted);padding:4px 2px 0;"></div>
             <div style="font:600 11px Nunito,sans-serif;color:var(--gc-muted2);">Barras: consumo do período e do mesmo período no ano anterior · Linha(s): meta GCDR — consolidado/empilhado = soma dos shoppings (linha única); separado = uma linha tracejada por customer · Consumo Energia: medidores de ENTRADA (régua das metas) · Água: hidrômetros · Dia/Hora seguem o intervalo selecionado; Hora disponível para intervalos de até 15 dias · Gestão: 🎯 Metas → Gestão de Metas.</div>
           </div>
           <aside style="flex:0 0 330px;max-width:100%;display:flex;flex-direction:column;gap:8px;" data-side>
@@ -3925,7 +3928,69 @@ body.filter-modal-open { overflow: hidden !important; }
       });
     };
 
+    // ── RFC-0217: modo Cards — small multiples por shopping (createCustomerGoalsCard) ──
+    let goalsCards = [];
+    const destroyGoalsCards = () => {
+      goalsCards.forEach((c) => {
+        try { c.destroy(); } catch { /* já destruído */ }
+      });
+      goalsCards = [];
+    };
+    const showCardsGrid = (on) => {
+      const grid = overlay.querySelector('[data-cards-grid]');
+      const legend = overlay.querySelector('[data-cards-legend]');
+      const wrap = overlay.querySelector('[data-evo-wrap]');
+      if (grid) grid.style.display = on ? 'grid' : 'none';
+      if (legend) legend.style.display = on ? 'flex' : 'none';
+      if (wrap) wrap.style.display = on ? 'none' : '';
+      if (!on) destroyGoalsCards();
+    };
+    const renderGoalsCardsGrid = ({ labels, shops, curBy, prevBy, goalOf, trees, bucketize, yearCurLabel, yearPrevLabel, unit }) => {
+      const grid = overlay.querySelector('[data-cards-grid]');
+      const legend = overlay.querySelector('[data-cards-legend]');
+      if (!grid) return;
+      showCardsGrid(true);
+      grid.innerHTML = '';
+      if (!MyIOLibrary?.createCustomerGoalsCard) {
+        grid.innerHTML =
+          '<div style="font:600 12px Nunito,sans-serif;color:var(--gc-muted);padding:12px;">Modo Cards indisponível — atualize a myio-js-library (createCustomerGoalsCard).</div>';
+        if (legend) legend.innerHTML = '';
+        return;
+      }
+      shops.forEach((s, i) => {
+        goalsCards.push(
+          MyIOLibrary.createCustomerGoalsCard({
+            container: grid,
+            title: s.title,
+            unit,
+            yearLabels: { current: yearCurLabel, previous: yearPrevLabel },
+            themeMode: modalTheme,
+            series: {
+              labels,
+              realized: bucketize(curBy?.get(s.ingestionId)),
+              previousYear: bucketize(prevBy?.get(s.ingestionId)),
+              budget: goalOf(trees[i]),
+            },
+          })
+        );
+      });
+      // Legenda compartilhada (uma só, como no painel de referência)
+      if (legend) {
+        const item = (swatch, label) =>
+          `<span style="display:inline-flex;align-items:center;gap:6px;">${swatch}<span>${label}</span></span>`;
+        const dot = (color) =>
+          `<span style="width:22px;height:0;border-top:3px solid ${color};border-radius:2px;display:inline-block;"></span>`;
+        const dash = (color) =>
+          `<span style="width:22px;height:0;border-top:3px dashed ${color};display:inline-block;"></span>`;
+        legend.innerHTML =
+          item(dot('#3b82f6'), `A-1 (${yearPrevLabel})`) +
+          item(dot('#22c55e'), `Realizado (${yearCurLabel})`) +
+          item(dash('#f59e0b'), `Orçado (${yearCurLabel})`);
+      }
+    };
+
     const renderEvoChart = (labels, datasets, stacked = false) => {
+      showCardsGrid(false);
       if (typeof window.Chart !== 'function') return;
       lastEvo = { labels, datasets, stacked }; // p/ re-render no toggle de tema
       if (evoChart) {
@@ -4096,6 +4161,30 @@ body.filter-modal-open { overflow: hidden !important; }
 
       const yearCurLabel = String(yearSel);
       const yearPrevLabel = String(Number(yearCurLabel) - 1);
+
+      // RFC-0217: modo Cards — um small-multiple por shopping em vez do canvas único
+      if (evoMode === 'cards') {
+        renderGoalsCardsGrid({
+          labels,
+          shops,
+          curBy,
+          prevBy,
+          goalOf,
+          trees,
+          bucketize,
+          yearCurLabel,
+          yearPrevLabel,
+          unit: cfgD.unit,
+        });
+        const okCards = !!(curBy || prevBy);
+        evoStatusEl.textContent = okCards
+          ? evoGran === '1M'
+            ? `Ano ${yearCurLabel} × ${yearPrevLabel}`
+            : `${periodLabel()} × ${yearPrevLabel}${evoGran === '1h' ? ' (por hora)' : ''}`
+          : 'Falha ao carregar o consumo';
+        return;
+      }
+
       const datasets = [];
       if (evoMode === 'stack') {
         // Empilhado: 2 colunas por bucket (pilha do ano e pilha do ano-1, um segmento por
@@ -4335,7 +4424,8 @@ body.filter-modal-open { overflow: hidden !important; }
         y += 12;
 
         // Snapshot do gráfico (com fundo branco — canvas é transparente)
-        if (evoChart && evoCanvas.width > 0) {
+        // Modo Cards não tem canvas único — PDF sai com KPIs + tabela (RFC-0217 v1)
+        if (evoMode !== 'cards' && evoChart && evoCanvas.width > 0) {
           const granLbl = evoGran === '1M' ? 'mensal' : evoGran === '1d' ? 'diário' : 'horário';
           const modeLbl = evoMode === 'sep' ? 'por shopping' : 'consolidado';
           const img = evoCanvas.toDataURL('image/png', 1.0);
@@ -4395,7 +4485,12 @@ body.filter-modal-open { overflow: hidden !important; }
       paintTabs();
       paintEvoGrans();
       if (lastRows) renderTable(lastRows, lastUnit);
-      if (lastEvo) renderEvoChart(lastEvo.labels, lastEvo.datasets, lastEvo.stacked);
+      if (evoMode === 'cards' && goalsCards.length) {
+        // RFC-0217: retema os cards in-place (não re-renderiza o canvas único)
+        goalsCards.forEach((c) => c.setThemeMode?.(modalTheme));
+      } else if (lastEvo) {
+        renderEvoChart(lastEvo.labels, lastEvo.datasets, lastEvo.stacked);
+      }
     };
 
     const toggleMax = () => {
@@ -4446,6 +4541,7 @@ body.filter-modal-open { overflow: hidden !important; }
     let periodPicker = null;
     const close = () => {
       if (evoChart) evoChart.destroy();
+      destroyGoalsCards(); // RFC-0217
       try {
         periodPicker?.destroy?.();
       } catch {
