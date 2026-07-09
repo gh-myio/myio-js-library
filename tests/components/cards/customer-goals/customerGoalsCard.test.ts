@@ -43,7 +43,7 @@ afterEach(() => {
 });
 
 describe('CustomerGoalsCard (RFC-0217)', () => {
-  it('renders title, totals strip (pt-BR) and both delta badges', () => {
+  it('renders title, totals strip (kWh auto-scaled to GWh) and both delta badges', () => {
     const card = createCustomerGoalsCard({
       container,
       title: 'Shopping Alpha',
@@ -51,14 +51,30 @@ describe('CustomerGoalsCard (RFC-0217)', () => {
         labels: ['Jan'],
         realized: [1486520],
         previousYear: [1512300],
-        budget: [1505000],
+        budget: [1500000],
       },
     });
     expect(card.el.querySelector('.myio-cgc__title')?.textContent).toBe('Shopping Alpha');
-    expect(card.el.querySelector('[data-total="realized"]')?.textContent).toBe('1.486.520');
-    expect(card.el.querySelector('[data-total="prev"]')?.textContent).toBe('1.512.300');
-    expect(card.el.querySelector('[data-total="budget"]')?.textContent).toBe('1.505.000');
+    expect(card.el.querySelector('[data-total="realized"]')?.textContent).toBe('1,49 GWh');
+    expect(card.el.querySelector('[data-total="prev"]')?.textContent).toBe('1,51 GWh');
+    expect(card.el.querySelector('[data-total="budget"]')?.textContent).toBe('1,5 GWh');
     expect(card.el.querySelectorAll('.myio-cgc__delta').length).toBe(2);
+  });
+
+  it('scales kWh to MWh from 1.000 and keeps m³ untouched', () => {
+    const mwh = createCustomerGoalsCard({
+      container,
+      title: 'M',
+      series: { labels: ['a'], realized: [45250] },
+    });
+    expect(mwh.el.querySelector('[data-total="realized"]')?.textContent).toBe('45,25 MWh');
+    const agua = createCustomerGoalsCard({
+      container,
+      title: 'W',
+      unit: 'm³',
+      series: { labels: ['a'], realized: [4344] },
+    });
+    expect(agua.el.querySelector('[data-total="realized"]')?.textContent).toBe('4.344 m³');
   });
 
   it('delta math: above reference = up/bad, below = down/good', () => {
@@ -91,14 +107,14 @@ describe('CustomerGoalsCard (RFC-0217)', () => {
 
   it('totals default to the sum of non-null points; explicit totals override wins', () => {
     const auto = createCustomerGoalsCard({ container, title: 'A', series: baseSeries() });
-    expect(auto.el.querySelector('[data-total="realized"]')?.textContent).toBe('600'); // 100+200+300
+    expect(auto.el.querySelector('[data-total="realized"]')?.textContent).toBe('600 kWh'); // 100+200+300
     const overridden = createCustomerGoalsCard({
       container,
       title: 'B',
       series: baseSeries(),
       totals: { realized: 999999 },
     });
-    expect(overridden.el.querySelector('[data-total="realized"]')?.textContent).toBe('999.999');
+    expect(overridden.el.querySelector('[data-total="realized"]')?.textContent).toBe('1.000 MWh');
   });
 
   it('omits strip cells and badges for absent optional series', () => {
@@ -117,7 +133,7 @@ describe('CustomerGoalsCard (RFC-0217)', () => {
     card.update({ title: 'Novo', series: { labels: ['a'], realized: [42] } });
     expect(card.el).toBe(el);
     expect(el.querySelector('.myio-cgc__title')?.textContent).toBe('Novo');
-    expect(el.querySelector('[data-total="realized"]')?.textContent).toBe('42');
+    expect(el.querySelector('[data-total="realized"]')?.textContent).toBe('42 kWh');
   });
 
   it('setThemeMode swaps the data-theme attribute and rebuilds the chart', () => {

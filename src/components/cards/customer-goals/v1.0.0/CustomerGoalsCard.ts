@@ -140,11 +140,25 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
     };
   }
 
-  /** Full pt-BR grouping, no decimals for large values (matches the reference: "1.486.520") */
-  private fmtTotal(v: number | null): string {
+  /**
+   * Quantity with automatic unit scaling: kWh ≥ 1.000 renders as MWh
+   * (≥ 1.000.000 as GWh). Other units (m³) pass through with the unit suffix.
+   */
+  private fmtQty(v: number | null): string {
     if (v == null || Number.isNaN(Number(v))) return '—';
-    const n = Number(v);
-    return n.toLocaleString(this.locale, { maximumFractionDigits: Math.abs(n) >= 1000 ? 0 : 2 });
+    let n = Number(v);
+    let u = this.params.unit || 'kWh';
+    if (u === 'kWh') {
+      if (Math.abs(n) >= 1e6) {
+        n = n / 1e6;
+        u = 'GWh';
+      } else if (Math.abs(n) >= 1e3) {
+        n = n / 1e3;
+        u = 'MWh';
+      }
+    }
+    const txt = n.toLocaleString(this.locale, { maximumFractionDigits: Math.abs(n) >= 100 ? 0 : 2 });
+    return `${txt} ${u}`;
   }
 
   /** Compact axis ticks like the reference ("1M", "2M", "500k") */
@@ -192,19 +206,19 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
     const totalCells: string[] = [
       `<div class="myio-cgc__total">
          <span class="myio-cgc__total-label myio-cgc__total-label--realized">Realizado</span>
-         <span class="myio-cgc__total-value" data-total="realized">${this.fmtTotal(totals.realized)}</span>
+         <span class="myio-cgc__total-value" data-total="realized">${this.fmtQty(totals.realized)}</span>
        </div>`,
     ];
     if (hasPrev) {
       totalCells.push(`<div class="myio-cgc__total">
         <span class="myio-cgc__total-label myio-cgc__total-label--prev">A-1</span>
-        <span class="myio-cgc__total-value" data-total="prev">${this.fmtTotal(totals.previousYear)}</span>
+        <span class="myio-cgc__total-value" data-total="prev">${this.fmtQty(totals.previousYear)}</span>
       </div>`);
     }
     if (hasBudget) {
       totalCells.push(`<div class="myio-cgc__total">
         <span class="myio-cgc__total-label myio-cgc__total-label--budget">Or&ccedil;ado</span>
-        <span class="myio-cgc__total-value" data-total="budget">${this.fmtTotal(totals.budget)}</span>
+        <span class="myio-cgc__total-value" data-total="budget">${this.fmtQty(totals.budget)}</span>
       </div>`);
     }
     const totalsMod =

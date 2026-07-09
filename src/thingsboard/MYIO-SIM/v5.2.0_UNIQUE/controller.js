@@ -3713,34 +3713,53 @@ body.filter-modal-open { overflow: hidden !important; }
           </label>
           <span data-status style="font:600 12px Nunito,sans-serif;color:var(--gc-muted);margin-left:auto;"></span>
         </div>
-        <div style="padding:16px 20px;overflow-y:auto;display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap;">
-          <div style="flex:1 1 560px;min-width:0;display:flex;flex-direction:column;gap:16px;">
-            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-              <div data-evo-grans style="display:flex;gap:4px;background:var(--gc-chip);border-radius:8px;padding:3px;">
-                <button type="button" data-gran="1M" style="border:0;border-radius:6px;padding:5px 14px;cursor:pointer;font:700 12px Nunito,sans-serif;">Mês</button>
-                <button type="button" data-gran="1d" style="border:0;border-radius:6px;padding:5px 14px;cursor:pointer;font:700 12px Nunito,sans-serif;">Dia</button>
-                <button type="button" data-gran="1h" style="border:0;border-radius:6px;padding:5px 14px;cursor:pointer;font:700 12px Nunito,sans-serif;">Hora</button>
-              </div>
-              <div data-evo-modes style="display:flex;gap:4px;background:var(--gc-chip);border-radius:8px;padding:3px;">
-                <button type="button" data-mode="cons" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Consolidado</button>
-                <button type="button" data-mode="stack" title="Todos os shoppings empilhados; meta única (soma)" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Shoppings · empilhado</button>
-                <button type="button" data-mode="sep" title="Um par de barras e uma linha de meta por shopping" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Shoppings · separado</button>
-                <button type="button" data-mode="cards" title="Um card por shopping: Realizado × A-1 × Orçado (RFC-0217)" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Cards</button>
-              </div>
-              <span data-evo-status style="font:600 12px Nunito,sans-serif;color:var(--gc-muted);margin-left:auto;"></span>
+        <div style="padding:16px 20px;overflow-y:auto;display:flex;flex-direction:column;gap:12px;">
+          <div data-controls style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <div data-evo-grans style="display:flex;gap:4px;background:var(--gc-chip);border-radius:8px;padding:3px;">
+              <button type="button" data-gran="1y" title="Ajusta o período para o ano corrente (01/01 até hoje) e mostra a visão mensal" style="border:0;border-radius:6px;padding:5px 14px;cursor:pointer;font:700 12px Nunito,sans-serif;">Ano ${new Date().getFullYear()}</button>
+              <button type="button" data-gran="1M" title="Meses dentro do período selecionado" style="border:0;border-radius:6px;padding:5px 14px;cursor:pointer;font:700 12px Nunito,sans-serif;">Mês</button>
+              <button type="button" data-gran="1d" style="border:0;border-radius:6px;padding:5px 14px;cursor:pointer;font:700 12px Nunito,sans-serif;">Dia</button>
+              <button type="button" data-gran="1h" style="border:0;border-radius:6px;padding:5px 14px;cursor:pointer;font:700 12px Nunito,sans-serif;">Hora</button>
             </div>
-            <div data-evo-wrap style="position:relative;height:340px;"><canvas data-evo-chart></canvas></div>
-            <div data-cards-grid style="display:none;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;"></div>
-            <div data-cards-legend style="display:none;align-items:center;justify-content:center;gap:18px;flex-wrap:wrap;font:600 11px Nunito,sans-serif;color:var(--gc-muted);padding:4px 2px 0;"></div>
-            <div style="font:600 11px Nunito,sans-serif;color:var(--gc-muted2);">Barras: consumo do período e do mesmo período no ano anterior · Linha(s): meta GCDR — consolidado/empilhado = soma dos shoppings (linha única); separado = uma linha tracejada por customer · Consumo Energia: medidores de ENTRADA (régua das metas) · Água: hidrômetros · Dia/Hora seguem o intervalo selecionado; Hora disponível para intervalos de até 15 dias · Gestão: 🎯 Metas → Gestão de Metas.</div>
+            <div data-evo-modes style="display:flex;gap:4px;background:var(--gc-chip);border-radius:8px;padding:3px;">
+              <button type="button" data-mode="cons" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Consolidado</button>
+              <button type="button" data-modegroup="sep" title="Separados" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Separados</button>
+              <button type="button" data-mode="analytics" title="Tabela analítica do portfólio: Realizado, A-1, Orçado, variações e performance" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Resumo Analítico</button>
+            </div>
+            <div data-sep-submodes style="display:none;gap:4px;background:var(--gc-chip);border-radius:8px;padding:3px;">
+              <button type="button" data-submode="stack" title="Todos os shoppings empilhados; meta única (soma)" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Empilhados</button>
+              <button type="button" data-submode="sep" title="Um par de barras e uma linha de meta por shopping" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Separados</button>
+              <button type="button" data-submode="cards" title="Um card por shopping: Realizado × A-1 × Orçado (RFC-0217)" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Cards</button>
+            </div>
+            <button type="button" data-cards-settings title="Configurações dos cards (linha/barra, pontos)" style="display:none;border:1px solid rgba(124,58,237,.45);border-radius:8px;background:transparent;color:#7C3AED;padding:4px 9px;cursor:pointer;font:700 13px Nunito,sans-serif;">⚙️</button>
+            <span style="margin-left:auto;display:inline-flex;align-items:center;gap:8px;">
+              <span data-year-toggles style="display:none;align-items:center;gap:6px;font:700 12px Nunito,sans-serif;color:var(--gc-text2);"></span>
+              <span data-evo-status style="font:600 12px Nunito,sans-serif;color:var(--gc-muted);"></span>
+            </span>
           </div>
-          <aside style="flex:0 0 330px;max-width:100%;display:flex;flex-direction:column;gap:8px;" data-side>
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-              <strong data-side-title style="font:700 13px Nunito,sans-serif;color:var(--gc-muted);white-space:nowrap;">Resumo por ${_escHtml(_goalsEntityLabel.toLowerCase())}</strong>
-              <button type="button" data-side-toggle title="Recolher resumo" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;border:1px solid rgba(124,58,237,.45);border-radius:8px;background:transparent;color:#7C3AED;padding:4px 10px;cursor:pointer;font:700 11px Nunito,sans-serif;line-height:1.4;transition:background .15s, border-color .15s;" onmouseover="this.style.background='rgba(124,58,237,.08)';this.style.borderColor='#7C3AED'" onmouseout="this.style.background='transparent';this.style.borderColor='rgba(124,58,237,.45)'">Recolher ▶</button>
+          <div style="display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap;">
+            <div style="flex:1 1 560px;min-width:0;display:flex;flex-direction:column;gap:14px;position:relative;">
+              <div data-evo-loading style="display:none;position:absolute;inset:0;z-index:6;background:rgba(148,163,184,.08);align-items:center;justify-content:center;border-radius:8px;">
+                <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+                  <div style="width:34px;height:34px;border-radius:50%;border:3px solid rgba(124,58,237,.25);border-top-color:#7C3AED;animation:gcSpin .8s linear infinite;"></div>
+                  <span style="font:700 12px Nunito,sans-serif;color:var(--gc-muted);">Carregando dados…</span>
+                </div>
+              </div>
+              <style>@keyframes gcSpin{to{transform:rotate(360deg)}}</style>
+              <div data-evo-wrap style="position:relative;height:340px;"><canvas data-evo-chart></canvas></div>
+              <div data-cards-grid style="display:none;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;"></div>
+              <div data-cards-legend style="display:none;align-items:center;justify-content:center;gap:18px;flex-wrap:wrap;font:600 11px Nunito,sans-serif;color:var(--gc-muted);padding:4px 2px 0;"></div>
+              <div data-analytics style="display:none;overflow-x:auto;"></div>
+              <div data-caption style="font:600 11px Nunito,sans-serif;color:var(--gc-muted2);">Barras: consumo do período e do mesmo período no ano anterior · Linha(s): meta GCDR — consolidado/empilhado = soma dos shoppings (linha única); separado = uma linha tracejada por customer · Consumo Energia: medidores de ENTRADA (régua das metas) · Água: hidrômetros · Dia/Hora seguem o intervalo selecionado; Hora disponível para intervalos de até 15 dias · Gestão: 🎯 Metas → Gestão de Metas.</div>
             </div>
-            <div data-table style="display:flex;flex-direction:column;gap:8px;"></div>
-          </aside>
+            <aside style="flex:0 0 330px;max-width:100%;display:flex;flex-direction:column;gap:8px;" data-side>
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                <strong data-side-title style="font:700 13px Nunito,sans-serif;color:var(--gc-muted);white-space:nowrap;">Resumo por ${_escHtml(_goalsEntityLabel.toLowerCase())}</strong>
+                <button type="button" data-side-toggle title="Recolher resumo" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;border:1px solid rgba(124,58,237,.45);border-radius:8px;background:transparent;color:#7C3AED;padding:4px 10px;cursor:pointer;font:700 11px Nunito,sans-serif;line-height:1.4;transition:background .15s, border-color .15s;" onmouseover="this.style.background='rgba(124,58,237,.08)';this.style.borderColor='#7C3AED'" onmouseout="this.style.background='transparent';this.style.borderColor='rgba(124,58,237,.45)'">Recolher ▶</button>
+              </div>
+              <div data-table style="display:flex;flex-direction:column;gap:8px;"></div>
+            </aside>
+          </div>
         </div>
       </div>`;
 
@@ -3788,7 +3807,13 @@ body.filter-modal-open { overflow: hidden !important; }
     const MONTHS_PT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
     // Default 'Dia': o gráfico abre respeitando o intervalo do picker (Mês = visão anual, opt-in)
     let evoGran = '1d';
-    let evoMode = 'cons'; // 'cons' = consolidado (soma) | 'sep' = por shopping
+    // Modos: 'cons' | 'stack' | 'sep' | 'cards' (subcategorias de "Separados") | 'analytics'
+    let evoMode = 'cons';
+    let lastSepSubmode = 'stack'; // subcategoria lembrada ao reabrir o grupo Separados
+    let showCurYear = true; // 👁 ano corrente
+    let showPrevYear = true; // 👁 ano anterior (A-1)
+    let cardsShowPoints = true; // ⚙️ dos cards
+    let cardsChartType = 'line'; // ⚙️ dos cards
     let evoChart = null;
     let evoSeq = 0;
     const evoConsCache = new Map(); // consumo por (domínio, gran, range) — troca de aba não refaz fetch
@@ -3865,7 +3890,7 @@ body.filter-modal-open { overflow: hidden !important; }
         statusEl.textContent =
           metasPend || consPend
             ? `Carregando…${metasPend ? ` metas ${rows.length - metasPend}/${rows.length}` : ''}${consPend ? ' · consumo ⏳' : ''}`
-            : `${cfg.label.replace(/^\S+\s/, '')} · ${periodLabel()}`;
+            : cfg.label.replace(/^\S+\s/, ''); // período já aparece no calendário — não repetir
         renderTable(rows, cfg.unit);
       };
       refresh();
@@ -3920,12 +3945,33 @@ body.filter-modal-open { overflow: hidden !important; }
         b.style.color = active ? t.pillActiveTx : t.muted;
         b.style.boxShadow = active ? '0 1px 4px rgba(0,0,0,.15)' : 'none';
       });
-      overlay.querySelectorAll('[data-mode]').forEach((b) => {
-        const active = b.dataset.mode === evoMode;
+      const isSepGroup = evoMode === 'stack' || evoMode === 'sep' || evoMode === 'cards';
+      const paintPill = (b, active) => {
         b.style.background = active ? t.pillActiveBg : 'transparent';
         b.style.color = active ? t.pillActiveTx : t.muted;
         b.style.boxShadow = active ? '0 1px 4px rgba(0,0,0,.15)' : 'none';
-      });
+      };
+      overlay.querySelectorAll('[data-mode]').forEach((b) => paintPill(b, b.dataset.mode === evoMode));
+      overlay.querySelectorAll('[data-modegroup]').forEach((b) => paintPill(b, isSepGroup));
+      overlay.querySelectorAll('[data-submode]').forEach((b) => paintPill(b, b.dataset.submode === evoMode));
+      const sub = overlay.querySelector('[data-sep-submodes]');
+      if (sub) sub.style.display = isSepGroup ? 'flex' : 'none';
+      const gear = overlay.querySelector('[data-cards-settings]');
+      if (gear) gear.style.display = evoMode === 'cards' ? '' : 'none';
+      // Granularidade não afeta a tabela analítica (totais do período)
+      const grans = overlay.querySelector('[data-evo-grans]');
+      if (grans) grans.style.display = evoMode === 'analytics' ? 'none' : 'flex';
+    };
+
+    // 👁 Toggles de visibilidade por ano (2026 × 2025) — filtram gráfico, cards e analítico
+    const paintYearToggles = (yearCur, yearPrev) => {
+      const box = overlay.querySelector('[data-year-toggles]');
+      if (!box) return;
+      box.style.display = 'inline-flex';
+      const eye = (on) => (on ? '👁️' : '<span style="opacity:.55;">👁️</span>');
+      const yearSpan = (label, on, key) =>
+        `<button type="button" data-eye="${key}" title="${on ? 'Ocultar' : 'Exibir'} ${label}" style="border:0;background:transparent;cursor:pointer;display:inline-flex;align-items:center;gap:4px;font:700 12px Nunito,sans-serif;color:var(--gc-text2);${on ? '' : 'opacity:.4;text-decoration:line-through;'}">${label} ${eye(on)}</button>`;
+      box.innerHTML = `${yearSpan(yearCur, showCurYear, 'cur')}<span style="color:var(--gc-muted);">×</span>${yearSpan(yearPrev, showPrevYear, 'prev')}`;
     };
 
     // ── RFC-0217: modo Cards — small multiples por shopping (createCustomerGoalsCard) ──
@@ -3936,14 +3982,29 @@ body.filter-modal-open { overflow: hidden !important; }
       });
       goalsCards = [];
     };
-    const showCardsGrid = (on) => {
+    // Controla qual superfície aparece: 'chart' (canvas único) | 'cards' | 'analytics'.
+    // No analítico o aside (Resumo por shopping) some — a tabela já traz tudo.
+    const showEvoSurface = (surface) => {
       const grid = overlay.querySelector('[data-cards-grid]');
       const legend = overlay.querySelector('[data-cards-legend]');
       const wrap = overlay.querySelector('[data-evo-wrap]');
-      if (grid) grid.style.display = on ? 'grid' : 'none';
-      if (legend) legend.style.display = on ? 'flex' : 'none';
-      if (wrap) wrap.style.display = on ? 'none' : '';
-      if (!on) destroyGoalsCards();
+      const analytics = overlay.querySelector('[data-analytics]');
+      const aside = overlay.querySelector('[data-side]');
+      const caption = overlay.querySelector('[data-caption]');
+      if (grid) grid.style.display = surface === 'cards' ? 'grid' : 'none';
+      if (legend) legend.style.display = surface === 'cards' ? 'flex' : 'none';
+      if (wrap) wrap.style.display = surface === 'chart' ? '' : 'none';
+      if (analytics) analytics.style.display = surface === 'analytics' ? '' : 'none';
+      if (aside) aside.style.display = surface === 'analytics' ? 'none' : '';
+      if (caption) caption.style.display = surface === 'analytics' ? 'none' : '';
+      if (surface !== 'cards') destroyGoalsCards();
+    };
+    const showCardsGrid = (on) => showEvoSurface(on ? 'cards' : 'chart');
+
+    // Spinner de carregamento sobre a área do gráfico/cards/analítico
+    const setEvoLoading = (on) => {
+      const l = overlay.querySelector('[data-evo-loading]');
+      if (l) l.style.display = on ? 'flex' : 'none';
     };
     const renderGoalsCardsGrid = ({ labels, shops, curBy, prevBy, goalOf, trees, bucketize, yearCurLabel, yearPrevLabel, unit }) => {
       const grid = overlay.querySelector('[data-cards-grid]');
@@ -3965,16 +4026,18 @@ body.filter-modal-open { overflow: hidden !important; }
             unit,
             yearLabels: { current: yearCurLabel, previous: yearPrevLabel },
             themeMode: modalTheme,
+            options: { chartType: cardsChartType, showPoints: cardsShowPoints },
             series: {
               labels,
-              realized: bucketize(curBy?.get(s.ingestionId)),
-              previousYear: bucketize(prevBy?.get(s.ingestionId)),
+              // 👁: ano oculto some dos dados (realized vira gaps; A-1 é omitida por completo)
+              realized: showCurYear ? bucketize(curBy?.get(s.ingestionId)) : labels.map(() => null),
+              previousYear: showPrevYear ? bucketize(prevBy?.get(s.ingestionId)) : undefined,
               budget: goalOf(trees[i]),
             },
           })
         );
       });
-      // Legenda compartilhada (uma só, como no painel de referência)
+      // Legenda compartilhada (uma só, como no painel de referência) — respeita os 👁
       if (legend) {
         const item = (swatch, label) =>
           `<span style="display:inline-flex;align-items:center;gap:6px;">${swatch}<span>${label}</span></span>`;
@@ -3983,10 +4046,151 @@ body.filter-modal-open { overflow: hidden !important; }
         const dash = (color) =>
           `<span style="width:22px;height:0;border-top:3px dashed ${color};display:inline-block;"></span>`;
         legend.innerHTML =
-          item(dot('#3b82f6'), `A-1 (${yearPrevLabel})`) +
-          item(dot('#22c55e'), `Realizado (${yearCurLabel})`) +
+          (showPrevYear ? item(dot('#3b82f6'), `A-1 (${yearPrevLabel})`) : '') +
+          (showCurYear ? item(dot('#22c55e'), `Realizado (${yearCurLabel})`) : '') +
           item(dash('#f59e0b'), `Orçado (${yearCurLabel})`);
       }
+    };
+
+    // ── Resumo Analítico — tabela do portfólio fiel a logs/026-GolsAnalitcs.png ──
+    // Colunas: Realizado / A-1 / Orçado (valor + % participação), Var. vs A-1 e vs
+    // Orçado (valor + %) e Performance (vs Orçado). Linha TOTAL no rodapé.
+    const renderAnalyticsTable = ({ shops, curBy, prevBy, trees, goalOf, bucketize, yearCurLabel, yearPrevLabel, unit }) => {
+      const host = overlay.querySelector('[data-analytics]');
+      if (!host) return;
+      showEvoSurface('analytics');
+
+      const sumArr = (arr) => {
+        let s = 0;
+        let has = false;
+        for (const v of arr || []) {
+          if (v == null) continue;
+          s += Number(v) || 0;
+          has = true;
+        }
+        return has ? s : null;
+      };
+      const rows = shops.map((s, i) => ({
+        title: s.title,
+        realized: sumArr(bucketize(curBy?.get(s.ingestionId))),
+        prev: sumArr(bucketize(prevBy?.get(s.ingestionId))),
+        budget: sumArr(goalOf(trees[i])),
+      }));
+      const tot = {
+        realized: rows.some((r) => r.realized != null) ? rows.reduce((a, r) => a + (r.realized || 0), 0) : null,
+        prev: rows.some((r) => r.prev != null) ? rows.reduce((a, r) => a + (r.prev || 0), 0) : null,
+        budget: rows.some((r) => r.budget != null) ? rows.reduce((a, r) => a + (r.budget || 0), 0) : null,
+      };
+
+      const pctPart = (v, total) =>
+        v == null || !total ? '—' : `${((v / total) * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`;
+      const varCells = (realized, ref) => {
+        if (realized == null || ref == null || ref === 0)
+          return `<td style="${tdR}color:var(--gc-muted);">—</td><td style="${tdR}color:var(--gc-muted);">—</td>`;
+        const diff = realized - ref;
+        const pct = (diff / ref) * 100;
+        const color = diff > 0 ? '#ef4444' : '#16a34a';
+        const arrow = diff > 0 ? '&#8593;' : '&#8595;';
+        const pctTxt = `${Math.abs(pct).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
+        return `<td style="${tdR}color:${color};font-weight:700;">${diff > 0 ? '+' : '−'}${_fmtQtyStr(Math.abs(diff), unit)}</td><td style="${tdR}color:${color};font-weight:700;">${arrow} ${pctTxt}</td>`;
+      };
+      const perfCell = (realized, budget) => {
+        if (realized == null || budget == null || budget === 0) return `<td style="${tdR}color:var(--gc-muted);">—</td>`;
+        const pct = (realized / budget) * 100;
+        const color = pct <= 100 ? '#16a34a' : pct <= 105 ? '#f59e0b' : '#ef4444';
+        return `<td style="${tdR}color:${color};font-weight:800;">${pct.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%</td>`;
+      };
+
+      const th = 'padding:7px 10px;font:700 11px Nunito,sans-serif;color:var(--gc-muted);text-align:right;white-space:nowrap;border-bottom:1px solid var(--gc-border);';
+      const thL = th.replace('text-align:right', 'text-align:left');
+      const tdR = 'padding:7px 10px;font:600 12px Nunito,sans-serif;color:var(--gc-text);text-align:right;white-space:nowrap;border-bottom:1px solid var(--gc-border);';
+      const tdL = tdR.replace('text-align:right', 'text-align:left');
+
+      const groupHead = (label, span) =>
+        `<th colspan="${span}" style="${th}text-align:center;border-left:1px solid var(--gc-border);">${label}</th>`;
+      const bodyRow = (r, bold) => {
+        const w = bold ? 'font-weight:800;' : '';
+        let cells = `<td style="${tdL}${w}">${bold ? '' : '🏢 '}${_escHtml(r.title)}</td>`;
+        if (showCurYear) cells += `<td style="${tdR}${w}">${_fmtQtyStr(r.realized, unit)}</td><td style="${tdR}${w}color:var(--gc-muted);">${pctPart(r.realized, tot.realized)}</td>`;
+        if (showPrevYear) cells += `<td style="${tdR}${w}">${_fmtQtyStr(r.prev, unit)}</td><td style="${tdR}${w}color:var(--gc-muted);">${pctPart(r.prev, tot.prev)}</td>`;
+        cells += `<td style="${tdR}${w}">${_fmtQtyStr(r.budget, unit)}</td><td style="${tdR}${w}color:var(--gc-muted);">${pctPart(r.budget, tot.budget)}</td>`;
+        if (showCurYear && showPrevYear) cells += varCells(r.realized, r.prev);
+        if (showCurYear) cells += varCells(r.realized, r.budget) + perfCell(r.realized, r.budget);
+        return `<tr${bold ? ' style="background:var(--gc-surface2);"' : ''}>${cells}</tr>`;
+      };
+
+      let head2 = `<th style="${thL}">Unidade</th>`;
+      let head1 = '<th style="border-bottom:0;"></th>';
+      if (showCurYear) {
+        head1 += groupHead(`Realizado (${yearCurLabel})`, 2);
+        head2 += `<th style="${th}">Valor</th><th style="${th}">% Part.</th>`;
+      }
+      if (showPrevYear) {
+        head1 += groupHead(`A-1 (${yearPrevLabel})`, 2);
+        head2 += `<th style="${th}">Valor</th><th style="${th}">% Part.</th>`;
+      }
+      head1 += groupHead(`Orçado (${yearCurLabel})`, 2);
+      head2 += `<th style="${th}">Valor</th><th style="${th}">% Part.</th>`;
+      if (showCurYear && showPrevYear) {
+        head1 += groupHead('Var. vs A-1', 2);
+        head2 += `<th style="${th}">Valor</th><th style="${th}">%</th>`;
+      }
+      if (showCurYear) {
+        head1 += groupHead('Var. vs Orçado', 2) + groupHead('Performance<br>(vs Orçado)', 1);
+        head2 += `<th style="${th}">Valor</th><th style="${th}">%</th><th style="${th}"></th>`;
+      }
+
+      host.innerHTML = `
+        <div style="border:1px solid var(--gc-border);border-radius:12px;overflow:auto;background:var(--gc-surface);">
+          <div style="padding:10px 12px 4px;font:800 13px Nunito,sans-serif;color:var(--gc-text);">Resumo do Portfólio <span style="font:600 11px Nunito,sans-serif;color:var(--gc-muted);">| Realizado, A-1 e Orçado</span></div>
+          <table style="border-collapse:collapse;width:100%;min-width:760px;">
+            <thead><tr>${head1}</tr><tr>${head2}</tr></thead>
+            <tbody>
+              ${rows.map((r) => bodyRow(r, false)).join('')}
+              ${bodyRow({ title: `TOTAL PORTFÓLIO`, realized: tot.realized, prev: tot.prev, budget: tot.budget }, true)}
+            </tbody>
+          </table>
+        </div>`;
+    };
+
+    // ⚙️ dos cards: pontos on/off e linha|barra (aplica em todos os cards abertos)
+    const openCardsSettings = () => {
+      const prev = overlay.querySelector('[data-cards-settings-pop]');
+      if (prev) return void prev.remove(); // toggle
+      const gear = overlay.querySelector('[data-cards-settings]');
+      const pop = document.createElement('div');
+      pop.setAttribute('data-cards-settings-pop', '1');
+      pop.style.cssText =
+        'position:absolute;z-index:60;background:var(--gc-surface);border:1px solid var(--gc-border);border-radius:12px;padding:12px 14px;box-shadow:0 12px 32px rgba(2,6,23,.25);display:flex;flex-direction:column;gap:10px;font:600 12px Nunito,sans-serif;color:var(--gc-text2);min-width:210px;';
+      pop.innerHTML = `
+        <strong style="font:800 12px Nunito,sans-serif;color:var(--gc-text);">⚙️ Configurações dos cards</strong>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+          <input type="checkbox" data-opt-points ${cardsShowPoints ? 'checked' : ''} style="accent-color:#7C3AED;width:15px;height:15px;">
+          Mostrar pontos na linha
+        </label>
+        <span style="display:flex;align-items:center;gap:12px;">Tipo:
+          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="gcCgcType" value="line" ${cardsChartType === 'line' ? 'checked' : ''} style="accent-color:#7C3AED;"> Linha</label>
+          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="gcCgcType" value="bar" ${cardsChartType === 'bar' ? 'checked' : ''} style="accent-color:#7C3AED;"> Barra</label>
+        </span>`;
+      const controls = overlay.querySelector('[data-controls]');
+      controls.style.position = 'relative';
+      pop.style.top = `${gear.offsetTop + gear.offsetHeight + 6}px`;
+      pop.style.left = `${gear.offsetLeft}px`;
+      controls.appendChild(pop);
+      const apply = () => {
+        cardsShowPoints = pop.querySelector('[data-opt-points]').checked;
+        cardsChartType = pop.querySelector('input[name="gcCgcType"]:checked').value;
+        goalsCards.forEach((c) => c.setOptions?.({ chartType: cardsChartType, showPoints: cardsShowPoints }));
+      };
+      pop.addEventListener('change', apply);
+      // Fecha ao clicar fora
+      const closer = (ev) => {
+        if (!pop.contains(ev.target) && !ev.target.closest('[data-cards-settings]')) {
+          pop.remove();
+          document.removeEventListener('click', closer, true);
+        }
+      };
+      setTimeout(() => document.addEventListener('click', closer, true), 0);
     };
 
     const renderEvoChart = (labels, datasets, stacked = false) => {
@@ -4034,6 +4238,8 @@ body.filter-modal-open { overflow: hidden !important; }
       const periodDays = daysInPeriod();
       if (evoGran === '1h' && periodDays.length > 15) evoGran = '1d'; // Hora indisponível p/ ranges longos
       paintEvoGrans();
+      paintYearToggles(String(yearSel), String(yearSel - 1));
+      setEvoLoading(true);
       const nowD = new Date();
       const yearGoals = yearSel;
 
@@ -4045,7 +4251,7 @@ body.filter-modal-open { overflow: hidden !important; }
         attrs: attrsList[i],
       }));
 
-      const gcdrGran = evoGran === '1M' ? 'month' : evoGran === '1d' ? 'day' : 'hour';
+      const gcdrGran = evoGran === '1y' || evoGran === '1M' ? 'month' : evoGran === '1d' ? 'day' : 'hour';
       const trees = await Promise.all(
         shops.map((s) => fetchShoppingGoalsTree(s.attrs, cfgD.gcdr, yearGoals, gcdrGran).catch(() => null))
       );
@@ -4054,15 +4260,35 @@ body.filter-modal-open { overflow: hidden !important; }
       // Labels, chave de meta por boundary e ranges (ano do período + mesmo período no ano-1)
       let labels;
       let idxByKey = null; // 1d: "MM-DD" → índice (alinha ano-1 no mesmo bucket)
+      let monthIdxMap = null; // 1M: mês (1-12) → índice do bucket (meses do período)
       let goalKeyAt;
       let ranges;
-      if (evoGran === '1M') {
+      if (evoGran === '1y') {
+        // Ano corrente inteiro, visão mensal Jan–Dez
         labels = MONTHS_PT;
         goalKeyAt = (i) => ['monthly', String(i + 1).padStart(2, '0')];
         const isCurYear = yearSel === nowD.getFullYear();
         ranges = {
           cur: [`${yearSel}-01-01T00:00:00-03:00`, isCurYear ? nowD.toISOString() : `${yearSel}-12-31T23:59:59-03:00`],
           prev: [`${yearSel - 1}-01-01T00:00:00-03:00`, `${yearSel - 1}-12-31T23:59:59-03:00`],
+        };
+      } else if (evoGran === '1M') {
+        // Meses DENTRO do período do picker (ex.: 01–09/07 → só Julho)
+        const s0 = isoLocalDay(period.startISO);
+        const e0 = isoLocalDay(period.endISO);
+        const mStart = Number(s0.slice(5, 7));
+        const mEnd = Math.max(mStart, Number(e0.slice(5, 7)));
+        const months = [];
+        for (let m = mStart; m <= mEnd; m++) months.push(m);
+        monthIdxMap = new Map(months.map((m, i) => [m, i]));
+        labels = months.map((m) => MONTHS_PT[m - 1]);
+        goalKeyAt = (i) => ['monthly', String(months[i]).padStart(2, '0')];
+        ranges = {
+          cur: [period.startISO, period.endISO],
+          prev: [
+            `${Number(s0.slice(0, 4)) - 1}${s0.slice(4)}T00:00:00-03:00`,
+            `${Number(e0.slice(0, 4)) - 1}${e0.slice(4)}T23:59:59-03:00`,
+          ],
         };
       } else {
         // Dia e Hora seguem o INTERVALO do picker; Hora = horas de cada dia do range
@@ -4092,7 +4318,8 @@ body.filter-modal-open { overflow: hidden !important; }
         for (const pt of points || []) {
           const ts = String(pt.timestamp);
           let idx;
-          if (evoGran === '1M') idx = Number(ts.slice(5, 7)) - 1;
+          if (evoGran === '1y') idx = Number(ts.slice(5, 7)) - 1;
+          else if (evoGran === '1M') idx = monthIdxMap.get(Number(ts.slice(5, 7)));
           else if (evoGran === '1d') idx = idxByKey.get(ts.slice(5, 10));
           else {
             const dIdx = idxByKey.get(ts.slice(5, 10)); // dia do range (alinha ano-1 por MM-DD)
@@ -4176,12 +4403,26 @@ body.filter-modal-open { overflow: hidden !important; }
           yearPrevLabel,
           unit: cfgD.unit,
         });
-        const okCards = !!(curBy || prevBy);
-        evoStatusEl.textContent = okCards
-          ? evoGran === '1M'
-            ? `Ano ${yearCurLabel} × ${yearPrevLabel}`
-            : `${periodLabel()} × ${yearPrevLabel}${evoGran === '1h' ? ' (por hora)' : ''}`
-          : 'Falha ao carregar o consumo';
+        evoStatusEl.textContent = curBy || prevBy ? '' : 'Falha ao carregar o consumo';
+        setEvoLoading(false);
+        return;
+      }
+
+      // Resumo Analítico — tabela do portfólio (sem gráfico e sem sidebar)
+      if (evoMode === 'analytics') {
+        renderAnalyticsTable({
+          shops,
+          curBy,
+          prevBy,
+          trees,
+          goalOf,
+          bucketize,
+          yearCurLabel,
+          yearPrevLabel,
+          unit: cfgD.unit,
+        });
+        evoStatusEl.textContent = curBy || prevBy ? '' : 'Falha ao carregar o consumo';
+        setEvoLoading(false);
         return;
       }
 
@@ -4191,22 +4432,24 @@ body.filter-modal-open { overflow: hidden !important; }
         // shopping) + UMA linha de meta = soma das metas de todos os shoppings
         shops.forEach((s, i) => {
           const color = SHOP_PALETTE[i % SHOP_PALETTE.length];
-          datasets.push({
-            type: 'bar',
-            label: `${s.title} ${yearCurLabel}`,
-            data: bucketize(curBy?.get(s.ingestionId)),
-            backgroundColor: color,
-            stack: 'cur',
-            order: 5,
-          });
-          datasets.push({
-            type: 'bar',
-            label: `${s.title} ${yearPrevLabel}`,
-            data: bucketize(prevBy?.get(s.ingestionId)),
-            backgroundColor: rgba(color, 0.35),
-            stack: 'prev',
-            order: 6,
-          });
+          if (showCurYear)
+            datasets.push({
+              type: 'bar',
+              label: `${s.title} ${yearCurLabel}`,
+              data: bucketize(curBy?.get(s.ingestionId)),
+              backgroundColor: color,
+              stack: 'cur',
+              order: 5,
+            });
+          if (showPrevYear)
+            datasets.push({
+              type: 'bar',
+              label: `${s.title} ${yearPrevLabel}`,
+              data: bucketize(prevBy?.get(s.ingestionId)),
+              backgroundColor: rgba(color, 0.35),
+              stack: 'prev',
+              order: 6,
+            });
         });
         datasets.push({
           type: 'line',
@@ -4225,22 +4468,24 @@ body.filter-modal-open { overflow: hidden !important; }
       } else if (evoMode === 'sep') {
         shops.forEach((s, i) => {
           const color = SHOP_PALETTE[i % SHOP_PALETTE.length];
-          datasets.push({
-            type: 'bar',
-            label: `${s.title} ${yearCurLabel}`,
-            data: bucketize(curBy?.get(s.ingestionId)),
-            backgroundColor: color,
-            borderRadius: 2,
-            order: 5,
-          });
-          datasets.push({
-            type: 'bar',
-            label: `${s.title} ${yearPrevLabel}`,
-            data: bucketize(prevBy?.get(s.ingestionId)),
-            backgroundColor: rgba(color, 0.35),
-            borderRadius: 2,
-            order: 6,
-          });
+          if (showCurYear)
+            datasets.push({
+              type: 'bar',
+              label: `${s.title} ${yearCurLabel}`,
+              data: bucketize(curBy?.get(s.ingestionId)),
+              backgroundColor: color,
+              borderRadius: 2,
+              order: 5,
+            });
+          if (showPrevYear)
+            datasets.push({
+              type: 'bar',
+              label: `${s.title} ${yearPrevLabel}`,
+              data: bucketize(prevBy?.get(s.ingestionId)),
+              backgroundColor: rgba(color, 0.35),
+              borderRadius: 2,
+              order: 6,
+            });
           datasets.push({
             type: 'line',
             label: `Meta ${s.title}`,
@@ -4265,22 +4510,24 @@ body.filter-modal-open { overflow: hidden !important; }
           byCust.forEach((pts) => all.push(...(pts || [])));
           return bucketize(all);
         };
-        datasets.push({
-          type: 'bar',
-          label: `Consumo ${yearCurLabel}`,
-          data: sumAll(curBy),
-          backgroundColor: colors.bar,
-          borderRadius: 3,
-          order: 5,
-        });
-        datasets.push({
-          type: 'bar',
-          label: `Consumo ${yearPrevLabel}`,
-          data: sumAll(prevBy),
-          backgroundColor: 'rgba(148,163,184,0.55)',
-          borderRadius: 3,
-          order: 6,
-        });
+        if (showCurYear)
+          datasets.push({
+            type: 'bar',
+            label: `Consumo ${yearCurLabel}`,
+            data: sumAll(curBy),
+            backgroundColor: colors.bar,
+            borderRadius: 3,
+            order: 5,
+          });
+        if (showPrevYear)
+          datasets.push({
+            type: 'bar',
+            label: `Consumo ${yearPrevLabel}`,
+            data: sumAll(prevBy),
+            backgroundColor: 'rgba(148,163,184,0.55)',
+            borderRadius: 3,
+            order: 6,
+          });
         datasets.push({
           type: 'line',
           label: 'Meta',
@@ -4297,12 +4544,9 @@ body.filter-modal-open { overflow: hidden !important; }
         });
       }
       renderEvoChart(labels, datasets, evoMode === 'stack');
-      const okData = !!(curBy || prevBy);
-      evoStatusEl.textContent = okData
-        ? evoGran === '1M'
-          ? `Ano ${yearCurLabel} × ${yearPrevLabel}`
-          : `${periodLabel()} × ${yearPrevLabel}${evoGran === '1h' ? ' (por hora)' : ''}`
-        : 'Falha ao carregar o consumo';
+      // Período/anos já aparecem no calendário e nos toggles 👁 — status só sinaliza falha
+      evoStatusEl.textContent = curBy || prevBy ? '' : 'Falha ao carregar o consumo';
+      setEvoLoading(false);
     };
 
     // ── Export PDF Premium: KPIs do período + tabela por shopping + snapshot do gráfico ──
@@ -4424,9 +4668,10 @@ body.filter-modal-open { overflow: hidden !important; }
         y += 12;
 
         // Snapshot do gráfico (com fundo branco — canvas é transparente)
-        // Modo Cards não tem canvas único — PDF sai com KPIs + tabela (RFC-0217 v1)
-        if (evoMode !== 'cards' && evoChart && evoCanvas.width > 0) {
-          const granLbl = evoGran === '1M' ? 'mensal' : evoGran === '1d' ? 'diário' : 'horário';
+        // Cards/Analítico não têm canvas único — PDF sai com KPIs + tabela (RFC-0217 v1)
+        if (evoMode !== 'cards' && evoMode !== 'analytics' && evoChart && evoCanvas.width > 0) {
+          const granLbl =
+            evoGran === '1y' ? 'anual (mensal)' : evoGran === '1M' ? 'mensal' : evoGran === '1d' ? 'diário' : 'horário';
           const modeLbl = evoMode === 'sep' ? 'por shopping' : 'consolidado';
           const img = evoCanvas.toDataURL('image/png', 1.0);
           const iw = W - MX * 2;
@@ -4488,6 +4733,8 @@ body.filter-modal-open { overflow: hidden !important; }
       if (evoMode === 'cards' && goalsCards.length) {
         // RFC-0217: retema os cards in-place (não re-renderiza o canvas único)
         goalsCards.forEach((c) => c.setThemeMode?.(modalTheme));
+      } else if (evoMode === 'analytics') {
+        // Tabela usa CSS vars (--gc-*) — o tema aplica sozinho; não trocar de superfície
       } else if (lastEvo) {
         renderEvoChart(lastEvo.labels, lastEvo.datasets, lastEvo.stacked);
       }
@@ -4574,8 +4821,49 @@ body.filter-modal-open { overflow: hidden !important; }
         return;
       }
       const gran = e.target.closest('[data-gran]');
-      if (gran && gran.dataset.gran !== evoGran) {
-        evoGran = gran.dataset.gran;
+      if (gran && !gran.disabled) {
+        if (gran.dataset.gran === '1y') {
+          // Ano corrente: ajusta o PERÍODO para 01/01 até agora e mostra a visão mensal
+          const Y = new Date().getFullYear();
+          period = { startISO: `${Y}-01-01T00:00:00-03:00`, endISO: new Date().toISOString() };
+          periodInput.value = periodLabel();
+          evoGran = '1y';
+          load();
+          loadEvo();
+          return;
+        }
+        if (gran.dataset.gran !== evoGran) {
+          evoGran = gran.dataset.gran;
+          loadEvo();
+          return;
+        }
+        return;
+      }
+      const eye = e.target.closest('[data-eye]');
+      if (eye) {
+        if (eye.dataset.eye === 'cur') showCurYear = !showCurYear;
+        else showPrevYear = !showPrevYear;
+        // Nunca deixa os dois ocultos
+        if (!showCurYear && !showPrevYear) {
+          if (eye.dataset.eye === 'cur') showPrevYear = true;
+          else showCurYear = true;
+        }
+        loadEvo();
+        return;
+      }
+      if (e.target.closest('[data-cards-settings]')) return void openCardsSettings();
+      const group = e.target.closest('[data-modegroup]');
+      if (group) {
+        if (evoMode !== 'stack' && evoMode !== 'sep' && evoMode !== 'cards') {
+          evoMode = lastSepSubmode;
+          loadEvo();
+        }
+        return;
+      }
+      const submode = e.target.closest('[data-submode]');
+      if (submode && submode.dataset.submode !== evoMode) {
+        evoMode = submode.dataset.submode;
+        lastSepSubmode = evoMode;
         loadEvo();
         return;
       }
