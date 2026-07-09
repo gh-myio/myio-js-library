@@ -3733,8 +3733,8 @@ body.filter-modal-open { overflow: hidden !important; }
           </div>
           <aside style="flex:0 0 330px;max-width:100%;display:flex;flex-direction:column;gap:8px;" data-side>
             <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-              <strong data-side-title style="font:700 13px Nunito,sans-serif;color:var(--gc-muted);white-space:nowrap;">Resumo por shopping</strong>
-              <button type="button" data-side-toggle title="Recolher resumo" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;border:none;border-radius:8px;background:linear-gradient(135deg,#7C3AED,#5B21B6);color:#fff;padding:6px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;line-height:1.4;box-shadow:0 2px 6px rgba(124,58,237,.35);transition:filter .15s, box-shadow .15s;" onmouseover="this.style.filter='brightness(1.12)'" onmouseout="this.style.filter=''">Recolher ▶</button>
+              <strong data-side-title style="font:700 13px Nunito,sans-serif;color:var(--gc-muted);white-space:nowrap;">Resumo por ${_escHtml(_goalsEntityLabel.toLowerCase())}</strong>
+              <button type="button" data-side-toggle title="Recolher resumo" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;border:1px solid rgba(124,58,237,.45);border-radius:8px;background:transparent;color:#7C3AED;padding:4px 10px;cursor:pointer;font:700 11px Nunito,sans-serif;line-height:1.4;transition:background .15s, border-color .15s;" onmouseover="this.style.background='rgba(124,58,237,.08)';this.style.borderColor='#7C3AED'" onmouseout="this.style.background='transparent';this.style.borderColor='rgba(124,58,237,.45)'">Recolher ▶</button>
             </div>
             <div data-table style="display:flex;flex-direction:column;gap:8px;"></div>
           </aside>
@@ -4296,7 +4296,7 @@ body.filter-modal-open { overflow: hidden !important; }
         doc.setFontSize(13);
         doc.setTextColor(74, 20, 140);
         doc.setFont('helvetica', 'bold');
-        doc.text('Resumo por shopping', MX, y);
+        doc.text(`Resumo por ${_goalsEntityLabel.toLowerCase()}`, MX, y);
         y += 7;
         const colX = [MX, MX + 68, MX + 108, MX + 148];
         doc.setFontSize(9);
