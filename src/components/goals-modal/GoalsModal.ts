@@ -89,6 +89,12 @@ export interface GoalsModalOptions {
   throttleBatchSize?: number;
   /** Pausa extra (ms) a cada `throttleBatchSize` requests. Default 1500. */
   throttleBatchPauseMs?: number;
+  /**
+   * Delta percentual aplicado a CADA ponto da linha de Metas (settings do MAIN_VIEW,
+   * ex.: "-5%" → cada ponto renderiza 5% abaixo do valor cadastrado). Aceita número
+   * (-5) ou string ("-5%", "-5", "−5,5%"). Default 0 (sem ajuste).
+   */
+  goalDeltaPercent?: number | string;
 }
 
 // Estrutura do goals JSON cacheado
@@ -501,6 +507,23 @@ async function _fetchTemperatureDayData(): Promise<{ labels: string[]; totals: n
 // Linha de meta
 // ============================================================================
 
+// Delta percentual (settings do MAIN_VIEW, ex.: -5) aplicado a cada ponto da meta
+let _goalDeltaPercent = 0;
+
+function _parseGoalDelta(raw: number | string | undefined | null): number {
+  if (raw == null) return 0;
+  const n = typeof raw === 'number' ? raw : parseFloat(String(raw).replace('%', '').replace(',', '.').replace('−', '-').trim());
+  if (!Number.isFinite(n) || Math.abs(n) >= 100) return 0; // fora da faixa sã → sem ajuste
+  return n;
+}
+
+/** Aplica o delta configurado a um ponto da meta (ex.: -5 → 95% do cadastrado). */
+function _applyGoalDelta(v: number | null | undefined): number | null {
+  if (v == null) return null;
+  if (!_goalDeltaPercent) return v;
+  return v * (1 + _goalDeltaPercent / 100);
+}
+
 function _buildGoalLine(domain: string, labels: string[], gran: '1h' | '1d' | '1M', dateISO?: string): (number | null)[] {
   const tree = _getGoalsTree(domain);
   if (!tree) return labels.map(() => null);
@@ -514,7 +537,7 @@ function _buildGoalLine(domain: string, labels: string[], gran: '1h' | '1d' | '1
       // Keys use "MM-DDThh" format (e.g. "07-01T09")
       return labels.map((lbl) => {
         const hh = lbl.replace('h', '').padStart(2, '0');
-        return tree.hourly![`${mm}-${dd}T${hh}`]?.value ?? null;
+        return _applyGoalDelta(tree.hourly![`${mm}-${dd}T${hh}`]?.value);
       });
     }
 
@@ -526,14 +549,14 @@ function _buildGoalLine(domain: string, labels: string[], gran: '1h' | '1d' | '1
       const m = MONTH_LABELS_PT.indexOf(lbl);
       if (m < 0) return null;
       const key = String(m + 1).padStart(2, '0');
-      return tree.monthly?.[key]?.value ?? null;
+      return _applyGoalDelta(tree.monthly?.[key]?.value);
     });
   }
 
   // 1d: label = "DD/MM" → daily key = "MM-DD"
   return labels.map((lbl) => {
     const key = _labelToDailyKey(lbl);
-    return tree.daily?.[key]?.value ?? null;
+    return _applyGoalDelta(tree.daily?.[key]?.value);
   });
 }
 
@@ -602,9 +625,12 @@ function _renderChart(
 
   // Meta — SEMPRE linha (laranja), sobre as barras/linhas (order 0).
   if (hasGoals) {
+    const deltaSuffix = _goalDeltaPercent
+      ? ` ${_goalDeltaPercent > 0 ? '+' : ''}${_goalDeltaPercent.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}%`
+      : '';
     datasets.push({
       type: 'line',
-      label: `Meta (${cfg.unit})`,
+      label: `Meta (${cfg.unit})${deltaSuffix}`,
       data: goalLine,
       borderColor: cfg.goalColor,
       backgroundColor: 'transparent',
@@ -1035,6 +1061,7 @@ export const GoalsModal = {
     _options = options;
     _currentDomain = options.initialDomain ?? 'energy';
     _periodDays = options.defaultPeriodDays ?? 30;
+    _goalDeltaPercent = _parseGoalDelta(options.goalDeltaPercent);
     _selectedDate = _todayISO();
     _selectedYear = new Date().getFullYear();
     _currentGran = '1d';

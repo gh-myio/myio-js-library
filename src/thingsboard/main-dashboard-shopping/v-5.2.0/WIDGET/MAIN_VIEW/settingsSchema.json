@@ -233,6 +233,12 @@
         "maximum": 366,
         "description": "Número de dias exibidos na view diária (1d) do painel de Metas (GoalsModal). Exposto via window.MyIOUtils.goalsDefaultPeriodDays e injetado no GoalsModal.open pelo MENU."
       },
+      "goalsDelta": {
+        "title": "Metas — Delta (%)",
+        "type": "string",
+        "default": "0%",
+        "description": "Ajuste percentual aplicado a CADA ponto da linha de Metas ao renderizar (ex.: -5% renderiza a meta 5% abaixo do valor cadastrado; +3% acima). Aceita '-5', '-5%' ou '-5,5%'. Exposto via window.MyIOUtils.goalsDelta e injetado no GoalsModal.open pelo MENU."
+      },
       "goalsThrottle": {
         "title": "Metas — Throttle das requisições de consumo",
         "type": "object",
@@ -302,6 +308,7 @@
     "enabledReportItems.alarms_dispositivo_x_alarme",
     "enabledReportItems.alarms_por_tipo",
     "goalsDefaultPeriodDays",
+    "goalsDelta",
     "goalsThrottle.perReqMs",
     "goalsThrottle.batchSize",
     "goalsThrottle.batchPauseMs"
