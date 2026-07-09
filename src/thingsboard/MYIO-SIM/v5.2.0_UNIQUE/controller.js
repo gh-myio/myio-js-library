@@ -1144,6 +1144,8 @@ body.filter-modal-open { overflow: hidden !important; }
     // Persist to _currentShoppingCards so later updates (e.g. metaCounts enrichment)
     // don't revert deviceCounts back to the loading state
     _currentShoppingCards = baseCards.map((card) => {
+      // Reaplica o dashboardId resolvido — a reconstrução não pode descartá-lo
+      card = applyDefaultDashboardToCard(card);
       if (!card.title) {
         LogHelper.log('Card has no title, skipping');
         return card;
@@ -3070,6 +3072,17 @@ body.filter-modal-open { overflow: hidden !important; }
   const _fmtNum = (n) =>
     n == null || Number.isNaN(Number(n)) ? '—' : Number(n).toLocaleString('pt-BR', { maximumFractionDigits: 2 });
 
+  // Energia: >= 1.000 kWh exibe em MWh (>= 1.000.000 em GWh). Demais unidades (m³) passam direto.
+  const _fmtQtyStr = (v, unit) => {
+    const n = Number(v);
+    if (v == null || Number.isNaN(n)) return '—';
+    if (unit === 'kWh') {
+      if (Math.abs(n) >= 1e6) return `${_fmtNum(n / 1e6)} GWh`;
+      if (Math.abs(n) >= 1000) return `${_fmtNum(n / 1000)} MWh`;
+    }
+    return `${_fmtNum(n)} ${unit}`;
+  };
+
   // Árvore de metas do shopping no GCDR. Chaves por granularidade (mesmo formato que o
   // GoalsModal v-5.2.0 lê): month → tree.monthly["01".."12"]; day → tree.daily["MM-DD"];
   // hour → tree.hourly["MM-DDThh"]. Cache por (customer, domínio, ano, gran).
@@ -3720,8 +3733,8 @@ body.filter-modal-open { overflow: hidden !important; }
           </div>
           <aside style="flex:0 0 330px;max-width:100%;display:flex;flex-direction:column;gap:8px;" data-side>
             <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-              <strong data-side-title style="font:700 13px Nunito,sans-serif;color:var(--gc-muted);">Resumo por shopping</strong>
-              <button type="button" data-side-toggle title="Recolher resumo" style="border:1px solid var(--gc-border);border-radius:6px;background:transparent;color:var(--gc-muted);padding:2px 8px;cursor:pointer;font:700 12px Nunito,sans-serif;line-height:1.4;">▶</button>
+              <strong data-side-title style="font:700 13px Nunito,sans-serif;color:var(--gc-muted);white-space:nowrap;">Resumo por shopping</strong>
+              <button type="button" data-side-toggle title="Recolher resumo" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;border:none;border-radius:8px;background:linear-gradient(135deg,#7C3AED,#5B21B6);color:#fff;padding:6px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;line-height:1.4;box-shadow:0 2px 6px rgba(124,58,237,.35);transition:filter .15s, box-shadow .15s;" onmouseover="this.style.filter='brightness(1.12)'" onmouseout="this.style.filter=''">Recolher ▶</button>
             </div>
             <div data-table style="display:flex;flex-direction:column;gap:8px;"></div>
           </aside>
@@ -3813,14 +3826,14 @@ body.filter-modal-open { overflow: hidden !important; }
       const loading = rows.some((r) => r.meta === undefined || r.consumo === undefined);
       const totalMeta = rows.reduce((s, r) => s + (r.meta || 0), 0);
       const totalCons = rows.reduce((s, r) => s + (r.consumo || 0), 0);
-      const fmtCell = (v) => (v === undefined ? '⏳' : _fmtNum(v));
+      const fmtCell = (v) => (v === undefined ? '⏳' : _fmtQtyStr(v, unit));
       const item = (title, meta, consumo, bold) => `
         <div style="border:1px solid var(--gc-border);border-radius:10px;padding:8px 10px;display:flex;flex-direction:column;gap:4px;${bold ? 'background:var(--gc-surface2);' : ''}">
           <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
             <span style="font:${bold ? 800 : 700} 12px Nunito,sans-serif;color:var(--gc-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${bold ? '' : '🏢 '}${_escHtml(title)}</span>
             ${statusChip(meta, consumo)}
           </div>
-          <div style="font:600 11px Nunito,sans-serif;color:var(--gc-muted);">Meta <b style="color:var(--gc-text2);">${fmtCell(meta)}</b> · Consumo <b style="color:var(--gc-text2);">${fmtCell(consumo)}</b> ${unit}</div>
+          <div style="font:600 11px Nunito,sans-serif;color:var(--gc-muted);">Meta <b style="color:var(--gc-text2);">${fmtCell(meta)}</b> · Consumo <b style="color:var(--gc-text2);">${fmtCell(consumo)}</b></div>
         </div>`;
       tableEl.innerHTML =
         rows.map((r) => item(r.title, r.meta, r.consumo, false)).join('') +
@@ -3921,6 +3934,14 @@ body.filter-modal-open { overflow: hidden !important; }
       }
       const t = GC_THEMES[modalTheme];
       const axis = { ticks: { color: t.chartTick }, grid: { color: t.chartGrid } };
+      // Eixo Y e tooltips com conversão de unidade (kWh -> MWh/GWh quando grande)
+      const chartUnit = GOALS_COMPARE_DOMAINS[domainKey].unit;
+      const yTicks = { ...axis.ticks, callback: (val) => _fmtQtyStr(val, chartUnit) };
+      const tooltipCb = {
+        callbacks: {
+          label: (c) => `${c.dataset.label}: ${c.parsed.y == null ? '—' : _fmtQtyStr(c.parsed.y, chartUnit)}`,
+        },
+      };
       evoChart = new window.Chart(evoCanvas.getContext('2d'), {
         type: 'bar',
         data: { labels, datasets },
@@ -3931,10 +3952,11 @@ body.filter-modal-open { overflow: hidden !important; }
           interaction: { mode: 'index', intersect: false },
           plugins: {
             legend: { position: 'bottom', labels: { boxWidth: 14, font: { size: 10 }, color: t.chartTick } },
+            tooltip: tooltipCb,
           },
           scales: stacked
-            ? { x: { stacked: true, ...axis }, y: { stacked: true, beginAtZero: true, ...axis } }
-            : { x: { ...axis }, y: { beginAtZero: true, ...axis } },
+            ? { x: { stacked: true, ...axis }, y: { stacked: true, beginAtZero: true, grid: axis.grid, ticks: yTicks } }
+            : { x: { ...axis }, y: { beginAtZero: true, grid: axis.grid, ticks: yTicks } },
         },
       });
     };
@@ -4099,7 +4121,7 @@ body.filter-modal-open { overflow: hidden !important; }
         });
         datasets.push({
           type: 'line',
-          label: `Meta (${cfgD.unit})`,
+          label: 'Meta',
           data: goalSum,
           borderColor: (EVO_COLORS[domainKey] || EVO_COLORS.energy).goal,
           backgroundColor: 'transparent',
@@ -4156,7 +4178,7 @@ body.filter-modal-open { overflow: hidden !important; }
         };
         datasets.push({
           type: 'bar',
-          label: `Consumo ${yearCurLabel} (${cfgD.unit})`,
+          label: `Consumo ${yearCurLabel}`,
           data: sumAll(curBy),
           backgroundColor: colors.bar,
           borderRadius: 3,
@@ -4164,7 +4186,7 @@ body.filter-modal-open { overflow: hidden !important; }
         });
         datasets.push({
           type: 'bar',
-          label: `Consumo ${yearPrevLabel} (${cfgD.unit})`,
+          label: `Consumo ${yearPrevLabel}`,
           data: sumAll(prevBy),
           backgroundColor: 'rgba(148,163,184,0.55)',
           borderRadius: 3,
@@ -4172,7 +4194,7 @@ body.filter-modal-open { overflow: hidden !important; }
         });
         datasets.push({
           type: 'line',
-          label: `Meta (${cfgD.unit})`,
+          label: 'Meta',
           data: goalSum,
           borderColor: colors.goal,
           backgroundColor: 'transparent',
@@ -4240,8 +4262,8 @@ body.filter-modal-open { overflow: hidden !important; }
         const totalCons = rows.reduce((s, r) => s + (r.consumo || 0), 0);
         const pctTotal = totalMeta > 0 ? (totalCons / totalMeta) * 100 : null;
         const kpis = [
-          ['Meta do período', `${_fmtNum(totalMeta)} ${unit}`],
-          ['Consumo do período', `${_fmtNum(totalCons)} ${unit}`],
+          ['Meta do período', _fmtQtyStr(totalMeta, unit)],
+          ['Consumo do período', _fmtQtyStr(totalCons, unit)],
           ['Consumo / Meta', pctTotal == null ? '—' : `${pctTotal.toFixed(1)}% da meta`],
           ['Shoppings', String(rows.length)],
         ];
@@ -4281,8 +4303,8 @@ body.filter-modal-open { overflow: hidden !important; }
         doc.setTextColor(100, 116, 139);
         doc.setFont('helvetica', 'normal');
         doc.text('Shopping', colX[0], y);
-        doc.text(`Meta (${unit})`, colX[1], y);
-        doc.text(`Consumo (${unit})`, colX[2], y);
+        doc.text('Meta', colX[1], y);
+        doc.text('Consumo', colX[2], y);
         doc.text('Situação', colX[3], y);
         y += 2;
         doc.setDrawColor(226, 232, 240);
@@ -4292,8 +4314,8 @@ body.filter-modal-open { overflow: hidden !important; }
         rows.forEach((r) => {
           doc.setTextColor(30, 41, 59);
           doc.text(String(r.title).slice(0, 34), colX[0], y);
-          doc.text(_fmtNum(r.meta), colX[1], y);
-          doc.text(_fmtNum(r.consumo), colX[2], y);
+          doc.text(_fmtQtyStr(r.meta, unit), colX[1], y);
+          doc.text(_fmtQtyStr(r.consumo, unit), colX[2], y);
           const st = situacao(r.meta, r.consumo);
           doc.setTextColor(st.rgb[0], st.rgb[1], st.rgb[2]);
           doc.text(st.txt, colX[3], y);
@@ -4304,8 +4326,8 @@ body.filter-modal-open { overflow: hidden !important; }
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(30, 41, 59);
         doc.text('Total', colX[0], y + 2);
-        doc.text(_fmtNum(totalMeta), colX[1], y + 2);
-        doc.text(_fmtNum(totalCons), colX[2], y + 2);
+        doc.text(_fmtQtyStr(totalMeta, unit), colX[1], y + 2);
+        doc.text(_fmtQtyStr(totalCons, unit), colX[2], y + 2);
         const stT = situacao(totalMeta || null, totalCons || null);
         doc.setTextColor(stT.rgb[0], stT.rgb[1], stT.rgb[2]);
         doc.text(stT.txt, colX[3], y + 2);
@@ -4405,7 +4427,8 @@ body.filter-modal-open { overflow: hidden !important; }
       aside.style.flex = sideCollapsed ? '0 0 auto' : '0 0 330px';
       title.style.display = sideCollapsed ? 'none' : '';
       table.style.display = sideCollapsed ? 'none' : 'flex';
-      btn.textContent = sideCollapsed ? '◀' : '▶';
+      btn.textContent = sideCollapsed ? '◀ Resumo' : 'Recolher ▶';
+      btn.style.flex = sideCollapsed ? '0 0 auto' : '1';
       btn.title = sideCollapsed ? 'Expandir resumo' : 'Recolher resumo';
       setTimeout(() => evoChart?.resize?.(), 60);
     };
@@ -7455,13 +7478,26 @@ function buildShoppingsListFromAlias(data) {
  * Necessário porque o datasource `customers` dos head offices não tem dataKey
  * `dashboardId` — sem isso os cards do welcome não redirecionam.
  */
+// customerId -> dashboardId resolvido do attr customerDefaultDashboard. Fica em
+// escopo de módulo porque updateShoppingCardsWithRealCounts RECONSTRÓI os cards a
+// cada myio:data-ready — sem esta memória o patch do enrichment era descartado
+// pela reconstrução seguinte (corrida observada na Soul Malls).
+const _defaultDashboardByCustomer = new Map();
+
+function applyDefaultDashboardToCard(card) {
+  if (card?.dashboardId || !card?.customerId) return card;
+  const dashId = _defaultDashboardByCustomer.get(card.customerId);
+  if (!dashId) return card;
+  return { ...card, dashboardId: dashId, clickable: true };
+}
+
 async function enrichShoppingCardsWithDefaultDashboards(welcomeModal) {
   const cards = _currentShoppingCards || [];
-  const pending = cards.filter((c) => !c.dashboardId && c.customerId);
-  if (!pending.length) return;
+  const pending = cards.filter(
+    (c) => !c.dashboardId && c.customerId && !_defaultDashboardByCustomer.has(c.customerId)
+  );
   const jwt = localStorage.getItem('jwt_token');
   if (!jwt) return;
-  let changed = false;
   await Promise.all(
     pending.map(async (card) => {
       try {
@@ -7477,18 +7513,22 @@ async function enrichShoppingCardsWithDefaultDashboards(welcomeModal) {
         }
         const dashId = v?.dashboardId;
         if (dashId && String(dashId) !== 'null') {
-          card.dashboardId = String(dashId);
-          card.clickable = true;
-          changed = true;
+          _defaultDashboardByCustomer.set(card.customerId, String(dashId));
         }
       } catch (err) {
         LogHelper.warn('[MAIN_UNIQUE] customerDefaultDashboard falhou p/', card.title, err?.message || err);
       }
     })
   );
-  if (changed && welcomeModal?.updateShoppingCards) {
-    welcomeModal.updateShoppingCards([...cards]);
-    LogHelper.log('[MAIN_UNIQUE] Welcome cards enriquecidos com customerDefaultDashboard');
+  if (!_defaultDashboardByCustomer.size) return;
+  // Aplica sobre o array CORRENTE (pode ter sido reconstruído durante os fetches)
+  _currentShoppingCards = (_currentShoppingCards || []).map(applyDefaultDashboardToCard);
+  if (welcomeModal?.updateShoppingCards) {
+    welcomeModal.updateShoppingCards([..._currentShoppingCards]);
+    LogHelper.log(
+      '[MAIN_UNIQUE] Welcome cards enriquecidos com customerDefaultDashboard:',
+      _defaultDashboardByCustomer.size
+    );
   }
 }
 
@@ -7546,7 +7586,7 @@ function buildShoppingCardsFromDatasource(data) {
     }
   });
 
-  const cards = Array.from(customerMap.values());
+  const cards = Array.from(customerMap.values()).map(applyDefaultDashboardToCard);
 
   if (cards.length > 0) {
     LogHelper.log(
