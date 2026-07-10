@@ -195,7 +195,7 @@ describe('CustomerGoalsCard (RFC-0217)', () => {
     expect(card.el.querySelector('.myio-cgc__expand')).toBeNull();
   });
 
-  it('builds datasets in order budget(dashed)/realized/previous with legend hidden', () => {
+  it('builds datasets in order budget(dashed)/A-1/realized with legend hidden (shopping bar order)', () => {
     createCustomerGoalsCard({
       container,
       title: 'A',
@@ -205,7 +205,11 @@ describe('CustomerGoalsCard (RFC-0217)', () => {
     const cfg = ChartStub.instances.at(-1)!.config;
     expect(cfg.options.plugins.legend.display).toBe(false);
     const labels = cfg.data.datasets.map((d: any) => d.label);
-    expect(labels).toEqual(['Orçado (2026)', 'Realizado (2026)', 'A-1 (2025)']);
+    // A-1 antes do Realizado — no modo barra a barrinha do ano anterior fica à esquerda
+    expect(labels).toEqual(['Orçado (2026)', 'A-1 (2025)', 'Realizado (2026)']);
     expect(cfg.data.datasets[0].borderDash).toEqual([6, 4]);
+    // Padrão de cores do GoalsModal dos shoppings: A-1 grafite, Realizado azul
+    expect(cfg.data.datasets[1].borderColor).toBe('#94a3b8');
+    expect(cfg.data.datasets[2].borderColor).toBe('#6c5ce7');
   });
 });

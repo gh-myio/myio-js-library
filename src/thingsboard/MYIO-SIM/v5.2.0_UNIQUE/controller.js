@@ -4047,8 +4047,8 @@ body.filter-modal-open { overflow: hidden !important; }
         const dash = (color) =>
           `<span style="width:22px;height:0;border-top:3px dashed ${color};display:inline-block;"></span>`;
         legend.innerHTML =
-          (showPrevYear ? item(dot('#3b82f6'), `A-1 (${yearPrevLabel})`) : '') +
-          (showCurYear ? item(dot('#22c55e'), `Realizado (${yearCurLabel})`) : '') +
+          (showPrevYear ? item(dot('#94a3b8'), `A-1 (${yearPrevLabel})`) : '') +
+          (showCurYear ? item(dot('#6c5ce7'), `Realizado (${yearCurLabel})`) : '') +
           item(dash('#f59e0b'), `Orçado (${yearCurLabel})`);
       }
     };
@@ -4139,8 +4139,8 @@ body.filter-modal-open { overflow: hidden !important; }
         const dot = (color) =>
           `<span style="width:22px;height:0;border-top:3px solid ${color};border-radius:2px;display:inline-block;"></span>`;
         legend.innerHTML =
-          (showPrevYear ? item(dot('#3b82f6'), `A-1 (${yearPrevLabel})`) : '') +
-          (showCurYear ? item(dot('#22c55e'), `Realizado (${yearCurLabel})`) : '') +
+          (showPrevYear ? item(dot('#94a3b8'), `A-1 (${yearPrevLabel})`) : '') +
+          (showCurYear ? item(dot('#6c5ce7'), `Realizado (${yearCurLabel})`) : '') +
           `<span style="font-style:italic;">sem linha de Orçado — metas são por ${_escHtml(_goalsEntityLabel.toLowerCase())}</span>`;
       }
     };
