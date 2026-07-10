@@ -681,7 +681,7 @@ function _renderChart(
               if (v == null) return '';
               return `${ctx.dataset.label}: ${_formatValue(v, domain)}`;
             },
-            // Resumo do ponto: aderência à meta e variação vs ano anterior.
+            // Resumo do ponto: desvio percentual vs meta e variação vs ano anterior.
             afterBody(items: any[]): string[] {
               const idx = items?.[0]?.dataIndex;
               if (idx == null) return [];
@@ -689,7 +689,13 @@ function _renderChart(
               const cons = totals[idx];
               const goal = goalLine[idx];
               if (goal != null && goal > 0) {
-                lines.push(`Aderência à meta: ${((cons / goal) * 100).toFixed(1)}%`);
+                // Ex.: consumo 23,10 × meta 29,04 → "20,5% abaixo da Meta"
+                const dev = ((cons - goal) / goal) * 100;
+                if (Math.abs(dev) < 0.05) lines.push('Na Meta (0,0%)');
+                else
+                  lines.push(
+                    `${Math.abs(dev).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}% ${dev < 0 ? 'abaixo' : 'acima'} da Meta`
+                  );
               }
               if (hasPrev && prevTotals) {
                 const prev = prevTotals[idx];
