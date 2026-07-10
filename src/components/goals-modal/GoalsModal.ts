@@ -89,6 +89,12 @@ export interface GoalsModalOptions {
   throttleBatchSize?: number;
   /** Pausa extra (ms) a cada `throttleBatchSize` requests. Default 1500. */
   throttleBatchPauseMs?: number;
+  /**
+   * Delta percentual aplicado a CADA ponto da linha de Metas (settings do MAIN_VIEW,
+   * ex.: "-5%" → cada ponto renderiza 5% abaixo do valor cadastrado). Aceita número
+   * (-5) ou string ("-5%", "-5", "−5,5%"). Default 0 (sem ajuste).
+   */
+  goalDeltaPercent?: number | string;
 }
 
 // Estrutura do goals JSON cacheado
@@ -501,6 +507,23 @@ async function _fetchTemperatureDayData(): Promise<{ labels: string[]; totals: n
 // Linha de meta
 // ============================================================================
 
+// Delta percentual (settings do MAIN_VIEW, ex.: -5) aplicado a cada ponto da meta
+let _goalDeltaPercent = 0;
+
+function _parseGoalDelta(raw: number | string | undefined | null): number {
+  if (raw == null) return 0;
+  const n = typeof raw === 'number' ? raw : parseFloat(String(raw).replace('%', '').replace(',', '.').replace('−', '-').trim());
+  if (!Number.isFinite(n) || Math.abs(n) >= 100) return 0; // fora da faixa sã → sem ajuste
+  return n;
+}
+
+/** Aplica o delta configurado a um ponto da meta (ex.: -5 → 95% do cadastrado). */
+function _applyGoalDelta(v: number | null | undefined): number | null {
+  if (v == null) return null;
+  if (!_goalDeltaPercent) return v;
+  return v * (1 + _goalDeltaPercent / 100);
+}
+
 function _buildGoalLine(domain: string, labels: string[], gran: '1h' | '1d' | '1M', dateISO?: string): (number | null)[] {
   const tree = _getGoalsTree(domain);
   if (!tree) return labels.map(() => null);
@@ -514,7 +537,7 @@ function _buildGoalLine(domain: string, labels: string[], gran: '1h' | '1d' | '1
       // Keys use "MM-DDThh" format (e.g. "07-01T09")
       return labels.map((lbl) => {
         const hh = lbl.replace('h', '').padStart(2, '0');
-        return tree.hourly![`${mm}-${dd}T${hh}`]?.value ?? null;
+        return _applyGoalDelta(tree.hourly![`${mm}-${dd}T${hh}`]?.value);
       });
     }
 
@@ -526,14 +549,14 @@ function _buildGoalLine(domain: string, labels: string[], gran: '1h' | '1d' | '1
       const m = MONTH_LABELS_PT.indexOf(lbl);
       if (m < 0) return null;
       const key = String(m + 1).padStart(2, '0');
-      return tree.monthly?.[key]?.value ?? null;
+      return _applyGoalDelta(tree.monthly?.[key]?.value);
     });
   }
 
   // 1d: label = "DD/MM" → daily key = "MM-DD"
   return labels.map((lbl) => {
     const key = _labelToDailyKey(lbl);
-    return tree.daily?.[key]?.value ?? null;
+    return _applyGoalDelta(tree.daily?.[key]?.value);
   });
 }
 
@@ -601,6 +624,7 @@ function _renderChart(
   });
 
   // Meta — SEMPRE linha (laranja), sobre as barras/linhas (order 0).
+  // O delta (goalsDelta) é aplicado silenciosamente nos pontos — NÃO aparece na legenda.
   if (hasGoals) {
     datasets.push({
       type: 'line',
@@ -655,7 +679,7 @@ function _renderChart(
               if (v == null) return '';
               return `${ctx.dataset.label}: ${_formatValue(v, domain)}`;
             },
-            // Resumo do ponto: aderência à meta e variação vs ano anterior.
+            // Resumo do ponto: desvio percentual vs meta e variação vs ano anterior.
             afterBody(items: any[]): string[] {
               const idx = items?.[0]?.dataIndex;
               if (idx == null) return [];
@@ -663,7 +687,13 @@ function _renderChart(
               const cons = totals[idx];
               const goal = goalLine[idx];
               if (goal != null && goal > 0) {
-                lines.push(`Aderência à meta: ${((cons / goal) * 100).toFixed(1)}%`);
+                // Ex.: consumo 23,10 × meta 29,04 → "20,5% abaixo da Meta"
+                const dev = ((cons - goal) / goal) * 100;
+                if (Math.abs(dev) < 0.05) lines.push('Na Meta (0,0%)');
+                else
+                  lines.push(
+                    `${Math.abs(dev).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}% ${dev < 0 ? 'abaixo' : 'acima'} da Meta`
+                  );
               }
               if (hasPrev && prevTotals) {
                 const prev = prevTotals[idx];
@@ -779,7 +809,20 @@ async function _loadAndRender(domain: string, gran: '1h' | '1d' | '1M', dateISO:
       const peak = Math.max(...totals);
       const peakLabel = labels[totals.indexOf(peak)] ?? '';
       const goalTotal = goalLine.reduce<number>((a, b) => a + (b ?? 0), 0);
-      const pct = goalTotal > 0 ? ((total / goalTotal) * 100).toFixed(1) : null;
+      // Mesmo formato do tooltip: desvio percentual em relação à meta do período
+      // (ex.: consumo 77,4% da meta → "22,6% abaixo da Meta")
+      let vsMetaHtml = '';
+      if (goalTotal > 0) {
+        const dev = ((total - goalTotal) / goalTotal) * 100;
+        const devTxt = Math.abs(dev).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+        const [txt, color] =
+          Math.abs(dev) < 0.05
+            ? ['Na Meta (0,0%)', '#10b981']
+            : dev < 0
+              ? [`${devTxt}% abaixo`, '#10b981']
+              : [`${devTxt}% acima`, '#ef4444'];
+        vsMetaHtml = `<div class="gm-stat"><span class="gm-stat-label">vs Meta</span><span class="gm-stat-value gm-stat-pct" style="color:${color}">${txt}</span></div>`;
+      }
 
       // YoY stat — só quando há dados do ano anterior
       let yoyHtml = '';
@@ -795,7 +838,7 @@ async function _loadAndRender(domain: string, gran: '1h' | '1d' | '1M', dateISO:
         <div class="gm-stat"><span class="gm-stat-label">Total</span><span class="gm-stat-value">${_formatValue(total, domain)}</span></div>
         <div class="gm-stat"><span class="gm-stat-label">Média</span><span class="gm-stat-value">${_formatValue(avg, domain)}</span></div>
         <div class="gm-stat"><span class="gm-stat-label">Pico</span><span class="gm-stat-value">${_formatValue(peak, domain)}<span class="gm-stat-sub">${peakLabel}</span></span></div>
-        ${pct !== null ? `<div class="gm-stat"><span class="gm-stat-label">vs Meta</span><span class="gm-stat-value gm-stat-pct" style="color:${parseFloat(pct) <= 100 ? '#10b981' : '#ef4444'}">${pct}%</span></div>` : ''}
+        ${vsMetaHtml}
         ${yoyHtml}
       `;
     }
@@ -1035,6 +1078,7 @@ export const GoalsModal = {
     _options = options;
     _currentDomain = options.initialDomain ?? 'energy';
     _periodDays = options.defaultPeriodDays ?? 30;
+    _goalDeltaPercent = _parseGoalDelta(options.goalDeltaPercent);
     _selectedDate = _todayISO();
     _selectedYear = new Date().getFullYear();
     _currentGran = '1d';

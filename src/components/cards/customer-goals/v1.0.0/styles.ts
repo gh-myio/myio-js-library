@@ -12,8 +12,8 @@ const CSS = `
   --cgc-text:#1e293b;
   --cgc-muted:#64748b;
   --cgc-grid:rgba(100,116,139,.18);
-  --cgc-realized:#22c55e;
-  --cgc-prev:#3b82f6;
+  --cgc-realized:#6c5ce7;
+  --cgc-prev:#94a3b8;
   --cgc-budget:#f59e0b;
   --cgc-good:#16a34a;
   --cgc-bad:#ef4444;

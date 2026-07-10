@@ -19,9 +19,11 @@ import {
 } from './types';
 import { injectCustomerGoalsCardStyles } from './styles';
 
+// Padrão visual do GoalsModal dos shoppings v-5.2.0 (DOMAIN_CFG energy):
+// Realizado azul #6c5ce7, Ano anterior grafite rgba(148,163,184), Orçado âmbar.
 const COLORS = {
-  realized: '#22c55e',
-  prev: '#3b82f6',
+  realized: '#6c5ce7',
+  prev: '#94a3b8',
   budget: '#f59e0b',
 };
 
@@ -342,16 +344,17 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
         order: 0,
       });
     }
-    datasets.push({
-      ...mainSeries(yl ? `Realizado (${yl.current})` : 'Realizado', s.realized, COLORS.realized),
-      order: 1,
-    });
+    // Ordem padrão dos shoppings: barra do A-1 primeiro (à esquerda), depois o ano corrente
     if (s.previousYear) {
       datasets.push({
         ...mainSeries(yl ? `A-1 (${yl.previous})` : 'A-1', s.previousYear, COLORS.prev),
         order: 2,
       });
     }
+    datasets.push({
+      ...mainSeries(yl ? `Realizado (${yl.current})` : 'Realizado', s.realized, COLORS.realized),
+      order: 1,
+    });
 
     this.chart = new ChartCtor((canvas as HTMLCanvasElement).getContext('2d'), {
       type: this.chartType,

@@ -1702,9 +1702,23 @@ Object.assign(window.MyIOUtils, {
       batchSize: Number.isFinite(_gt.batchSize) ? _gt.batchSize : 5,
       batchPauseMs: Number.isFinite(_gt.batchPauseMs) ? _gt.batchPauseMs : 1500,
     };
+    // Delta da linha de Metas (settings, ex.: "-5%") — cada ponto da meta renderiza
+    // ajustado por esse percentual no GoalsModal. Parse tolerante ("-5", "-5%",
+    // "-5,5%"); fora da faixa sã (|x| >= 100) vira 0 (sem ajuste).
+    const _gdRaw = String(self.ctx.settings?.goalsDelta ?? '0')
+      .replace('%', '')
+      .replace(',', '.')
+      .replace('−', '-')
+      .trim();
+    const _gd = parseFloat(_gdRaw);
+    window.MyIOUtils.goalsDelta = Number.isFinite(_gd) && Math.abs(_gd) < 100 ? _gd : 0;
     LogHelper.log(
       '[Orchestrator] goals config:',
-      { defaultPeriodDays: window.MyIOUtils.goalsDefaultPeriodDays, throttle: window.MyIOUtils.goalsThrottle }
+      {
+        defaultPeriodDays: window.MyIOUtils.goalsDefaultPeriodDays,
+        delta: window.MyIOUtils.goalsDelta,
+        throttle: window.MyIOUtils.goalsThrottle,
+      }
     );
 
     // RFC-0130: Load delay time settings from widget settings
@@ -4253,6 +4267,11 @@ function buildSummaryWater(entrada, lojas, banheiros, areacomum, periodKey) {
         label: i.label || i.name,
         value: i.value,
         deviceStatus: i.deviceStatus,
+        // RFC-0106: o TELEMETRY_INFO extrai banheiros da área comum por
+        // deviceProfile + identifier — sem estes campos a extração nunca dispara
+        // e o KPI "Banheiros" fica 0 (bug observado no Moxuara, 2026-07-09)
+        identifier: i.identifier || '',
+        deviceProfile: i.deviceProfile || '',
       })),
       name: name,
     },

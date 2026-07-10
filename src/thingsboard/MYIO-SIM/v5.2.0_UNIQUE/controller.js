@@ -3814,6 +3814,7 @@ body.filter-modal-open { overflow: hidden !important; }
     let showPrevYear = true; // 👁 ano anterior (A-1)
     let cardsShowPoints = true; // ⚙️ dos cards
     let cardsChartType = 'line'; // ⚙️ dos cards
+    let cardsGroupBy = 'shopping'; // ⚙️ dos cards: 'shopping' (default) | 'device' (explode por medidor)
     let evoChart = null;
     let evoSeq = 0;
     const evoConsCache = new Map(); // consumo por (domínio, gran, range) — troca de aba não refaz fetch
@@ -4046,9 +4047,101 @@ body.filter-modal-open { overflow: hidden !important; }
         const dash = (color) =>
           `<span style="width:22px;height:0;border-top:3px dashed ${color};display:inline-block;"></span>`;
         legend.innerHTML =
-          (showPrevYear ? item(dot('#3b82f6'), `A-1 (${yearPrevLabel})`) : '') +
-          (showCurYear ? item(dot('#22c55e'), `Realizado (${yearCurLabel})`) : '') +
+          (showPrevYear ? item(dot('#94a3b8'), `A-1 (${yearPrevLabel})`) : '') +
+          (showCurYear ? item(dot('#6c5ce7'), `Realizado (${yearCurLabel})`) : '') +
           item(dash('#f59e0b'), `Orçado (${yearCurLabel})`);
+      }
+    };
+
+    // ── Cards agrupados por DISPOSITIVO (⚙️ Agrupado por: Dispositivos) ──────────
+    // Explode a entrada por medidor: 1 card por device (energia: medidores curados
+    // de entrada; água: hidrômetros de entrada do datasource). SEM linha de Orçado —
+    // metas são por shopping, não por medidor (o card omite a faixa graciosamente).
+    const listCardDevices = async () => {
+      if (domainKey === 'energy') {
+        const devs = await getEntradaDevices();
+        // Nome real quando o datasource TB conhece o medidor; senão o rótulo curado
+        const nameByIng = new Map();
+        (window.MyIOOrchestratorData?.classified?.energy?.entrada || []).forEach((d) => {
+          if (d.ingestionId) nameByIng.set(d.ingestionId, d.labelOrName || d.label || d.name);
+        });
+        return devs.map((d, i) => ({
+          id: d.id,
+          customerId: d.customerId || null,
+          name: nameByIng.get(d.id) || d.name || `Entrada ${i + 1}`,
+        }));
+      }
+      // Água: hidrômetros de entrada classificados (RFC-0111)
+      return (window.MyIOOrchestratorData?.classified?.water?.hidrometro_entrada || [])
+        .filter((d) => d.ingestionId)
+        .map((d) => ({
+          id: d.ingestionId,
+          customerId: d.customerIngestionId || null,
+          name: d.labelOrName || d.label || d.name || 'Hidrômetro',
+        }));
+    };
+
+    const renderGoalsDeviceCardsGrid = ({ labels, devices, curDev, prevDev, bucketize, yearCurLabel, yearPrevLabel, unit, shops }) => {
+      const grid = overlay.querySelector('[data-cards-grid]');
+      const legend = overlay.querySelector('[data-cards-legend]');
+      if (!grid) return;
+      showCardsGrid(true);
+      grid.innerHTML = '';
+      if (!MyIOLibrary?.createCustomerGoalsCard) {
+        grid.innerHTML =
+          '<div style="font:600 12px Nunito,sans-serif;color:var(--gc-muted);padding:12px;">Modo Cards indisponível — atualize a myio-js-library (createCustomerGoalsCard).</div>';
+        if (legend) legend.innerHTML = '';
+        return;
+      }
+      if (!devices.length) {
+        grid.innerHTML =
+          '<div style="font:600 12px Nunito,sans-serif;color:var(--gc-muted);padding:12px;">Sem dispositivos de entrada identificáveis neste domínio — use o agrupamento por shopping.</div>';
+        if (legend) legend.innerHTML = '';
+        return;
+      }
+      const shopTitleByIng = new Map((shops || []).map((s) => [s.ingestionId, s.title]));
+      // Título legível: "entrada:<Shopping>" (curadoria) vira "Entrada · <Shopping>";
+      // medidores duplicados do mesmo shopping ganham #1/#2 para distinguir os cards.
+      const baseTitles = devices.map((d) => {
+        const m = String(d.name || '').match(/^entrada:(.+)$/i);
+        return m ? `Entrada · ${m[1]}` : String(d.name || 'Medidor');
+      });
+      const titleCount = baseTitles.reduce((acc, t) => acc.set(t, (acc.get(t) || 0) + 1), new Map());
+      const titleSeen = new Map();
+      devices.forEach((d, i) => {
+        const shopTitle = shopTitleByIng.get(d.customerId);
+        let title = baseTitles[i];
+        if (titleCount.get(title) > 1) {
+          const n = (titleSeen.get(title) || 0) + 1;
+          titleSeen.set(title, n);
+          title = `${title} #${n}`;
+        }
+        goalsCards.push(
+          MyIOLibrary.createCustomerGoalsCard({
+            container: grid,
+            title: shopTitle && !title.includes(shopTitle) ? `${title} · ${shopTitle}` : title,
+            unit,
+            yearLabels: { current: yearCurLabel, previous: yearPrevLabel },
+            themeMode: modalTheme,
+            options: { chartType: cardsChartType, showPoints: cardsShowPoints },
+            series: {
+              labels,
+              realized: showCurYear ? bucketize(curDev?.get(d.id)) : labels.map(() => null),
+              previousYear: showPrevYear ? bucketize(prevDev?.get(d.id)) : undefined,
+              // budget omitido de propósito: meta é por shopping, não por medidor
+            },
+          })
+        );
+      });
+      if (legend) {
+        const item = (swatch, label) =>
+          `<span style="display:inline-flex;align-items:center;gap:6px;">${swatch}<span>${label}</span></span>`;
+        const dot = (color) =>
+          `<span style="width:22px;height:0;border-top:3px solid ${color};border-radius:2px;display:inline-block;"></span>`;
+        legend.innerHTML =
+          (showPrevYear ? item(dot('#94a3b8'), `A-1 (${yearPrevLabel})`) : '') +
+          (showCurYear ? item(dot('#6c5ce7'), `Realizado (${yearCurLabel})`) : '') +
+          `<span style="font-style:italic;">sem linha de Orçado — metas são por ${_escHtml(_goalsEntityLabel.toLowerCase())}</span>`;
       }
     };
 
@@ -4164,6 +4257,10 @@ body.filter-modal-open { overflow: hidden !important; }
         'position:absolute;z-index:60;background:var(--gc-surface);border:1px solid var(--gc-border);border-radius:12px;padding:12px 14px;box-shadow:0 12px 32px rgba(2,6,23,.25);display:flex;flex-direction:column;gap:10px;font:600 12px Nunito,sans-serif;color:var(--gc-text2);min-width:210px;';
       pop.innerHTML = `
         <strong style="font:800 12px Nunito,sans-serif;color:var(--gc-text);">⚙️ Configurações dos cards</strong>
+        <span style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">Agrupado por:
+          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="gcCgcGroupBy" value="shopping" ${cardsGroupBy === 'shopping' ? 'checked' : ''} style="accent-color:#7C3AED;"> ${_escHtml(_goalsEntityLabel)}</label>
+          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;" title="Um card por medidor de entrada (sem linha de meta — metas são por ${_escHtml(_goalsEntityLabel.toLowerCase())})"><input type="radio" name="gcCgcGroupBy" value="device" ${cardsGroupBy === 'device' ? 'checked' : ''} style="accent-color:#7C3AED;"> Dispositivos</label>
+        </span>
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
           <input type="checkbox" data-opt-points ${cardsShowPoints ? 'checked' : ''} style="accent-color:#7C3AED;width:15px;height:15px;">
           Mostrar pontos na linha
@@ -4180,6 +4277,13 @@ body.filter-modal-open { overflow: hidden !important; }
       const apply = () => {
         cardsShowPoints = pop.querySelector('[data-opt-points]').checked;
         cardsChartType = pop.querySelector('input[name="gcCgcType"]:checked').value;
+        const gb = pop.querySelector('input[name="gcCgcGroupBy"]:checked')?.value || 'shopping';
+        if (gb !== cardsGroupBy) {
+          // Agrupamento muda a FONTE dos dados (por shopping × por medidor) — refaz o load
+          cardsGroupBy = gb;
+          loadEvo();
+          return;
+        }
         goalsCards.forEach((c) => c.setOptions?.({ chartType: cardsChartType, showPoints: cardsShowPoints }));
       };
       pop.addEventListener('change', apply);
@@ -4349,6 +4453,44 @@ body.filter-modal-open { overflow: hidden !important; }
         }
         return has ? s : null;
       });
+
+      // Cards agrupados por DISPOSITIVO: séries por medidor (não por customer) —
+      // busca própria + render próprio; não passa pelo fetch por shopping abaixo.
+      if (evoMode === 'cards' && cardsGroupBy === 'device') {
+        evoStatusEl.textContent = 'Carregando medidores…';
+        const seriesGranDev = evoGran === '1h' ? '1h' : '1d';
+        const devices = await listCardDevices();
+        if (seq !== evoSeq) return;
+        const fetchDevRange = async (range) => {
+          const ck = `dev|${domainKey}|${evoGran}|${range[0]}|${range[1]}`;
+          if (evoConsCache.has(ck)) return evoConsCache.get(ck);
+          const out = new Map();
+          await Promise.all(
+            devices.map(async (d) => {
+              const pts = await fetchDeviceSeries(d.id, cfgD.api, range[0], range[1], seriesGranDev).catch(() => []);
+              out.set(d.id, pts);
+            })
+          );
+          if (new Date(range[1]) < nowD) evoConsCache.set(ck, out);
+          return out;
+        };
+        const [curDev, prevDev] = await Promise.all([fetchDevRange(ranges.cur), fetchDevRange(ranges.prev)]);
+        if (seq !== evoSeq) return;
+        renderGoalsDeviceCardsGrid({
+          labels,
+          devices,
+          curDev,
+          prevDev,
+          bucketize,
+          yearCurLabel: String(yearSel),
+          yearPrevLabel: String(yearSel - 1),
+          unit: cfgD.unit,
+          shops,
+        });
+        evoStatusEl.textContent = devices.length ? '' : 'Sem medidores de entrada';
+        setEvoLoading(false);
+        return;
+      }
 
       // Consumo por customer (ano do período e ano-1). Energia: séries dos medidores de
       // entrada (~1s/device). Água: série agregada — consolidado 1 chamada; por shopping
