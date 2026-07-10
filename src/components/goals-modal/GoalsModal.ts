@@ -811,7 +811,20 @@ async function _loadAndRender(domain: string, gran: '1h' | '1d' | '1M', dateISO:
       const peak = Math.max(...totals);
       const peakLabel = labels[totals.indexOf(peak)] ?? '';
       const goalTotal = goalLine.reduce<number>((a, b) => a + (b ?? 0), 0);
-      const pct = goalTotal > 0 ? ((total / goalTotal) * 100).toFixed(1) : null;
+      // Mesmo formato do tooltip: desvio percentual em relação à meta do período
+      // (ex.: consumo 77,4% da meta → "22,6% abaixo da Meta")
+      let vsMetaHtml = '';
+      if (goalTotal > 0) {
+        const dev = ((total - goalTotal) / goalTotal) * 100;
+        const devTxt = Math.abs(dev).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+        const [txt, color] =
+          Math.abs(dev) < 0.05
+            ? ['Na Meta (0,0%)', '#10b981']
+            : dev < 0
+              ? [`${devTxt}% abaixo`, '#10b981']
+              : [`${devTxt}% acima`, '#ef4444'];
+        vsMetaHtml = `<div class="gm-stat"><span class="gm-stat-label">vs Meta</span><span class="gm-stat-value gm-stat-pct" style="color:${color}">${txt}</span></div>`;
+      }
 
       // YoY stat — só quando há dados do ano anterior
       let yoyHtml = '';
@@ -827,7 +840,7 @@ async function _loadAndRender(domain: string, gran: '1h' | '1d' | '1M', dateISO:
         <div class="gm-stat"><span class="gm-stat-label">Total</span><span class="gm-stat-value">${_formatValue(total, domain)}</span></div>
         <div class="gm-stat"><span class="gm-stat-label">Média</span><span class="gm-stat-value">${_formatValue(avg, domain)}</span></div>
         <div class="gm-stat"><span class="gm-stat-label">Pico</span><span class="gm-stat-value">${_formatValue(peak, domain)}<span class="gm-stat-sub">${peakLabel}</span></span></div>
-        ${pct !== null ? `<div class="gm-stat"><span class="gm-stat-label">vs Meta</span><span class="gm-stat-value gm-stat-pct" style="color:${parseFloat(pct) <= 100 ? '#10b981' : '#ef4444'}">${pct}%</span></div>` : ''}
+        ${vsMetaHtml}
         ${yoyHtml}
       `;
     }
