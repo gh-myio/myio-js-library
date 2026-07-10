@@ -2317,9 +2317,9 @@ function openGoalsModal() {
   GoalsModal.open({
     initialDomain,
     // Config vinda das settings do MAIN_VIEW via bridge (fallback aplicado na MAIN).
+    // Ajuste da meta: RFC-0052 (GCDR) — o adjustedValue já vem da API por
+    // customer × domínio × ano; nenhum delta client-side é injetado aqui.
     defaultPeriodDays: window.MyIOUtils?.goalsDefaultPeriodDays,
-    // Delta (%) aplicado a cada ponto da linha de Metas (settings.goalsDelta, ex.: "-5%")
-    goalDeltaPercent: window.MyIOUtils?.goalsDelta,
     // Throttle das requisições de consumo — fonte única/fallback nas settings do MAIN_VIEW,
     // exposto via window.MyIOUtils.goalsThrottle (já com defaults aplicados na MAIN).
     throttlePerReqMs: window.MyIOUtils?.goalsThrottle?.perReqMs,

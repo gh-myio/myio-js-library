@@ -1702,23 +1702,12 @@ Object.assign(window.MyIOUtils, {
       batchSize: Number.isFinite(_gt.batchSize) ? _gt.batchSize : 5,
       batchPauseMs: Number.isFinite(_gt.batchPauseMs) ? _gt.batchPauseMs : 1500,
     };
-    // Delta da linha de Metas (settings, ex.: "-5%") — cada ponto da meta renderiza
-    // ajustado por esse percentual no GoalsModal. Parse tolerante ("-5", "-5%",
-    // "-5,5%"); fora da faixa sã (|x| >= 100) vira 0 (sem ajuste).
-    const _gdRaw = String(self.ctx.settings?.goalsDelta ?? '0')
-      .replace('%', '')
-      .replace(',', '.')
-      .replace('−', '-')
-      .trim();
-    const _gd = parseFloat(_gdRaw);
-    window.MyIOUtils.goalsDelta = Number.isFinite(_gd) && Math.abs(_gd) < 100 ? _gd : 0;
+    // Ajuste da meta (RFC-0052 GCDR): a margem é gerida no servidor por
+    // customer × domínio × ano — a API entrega adjustedValue em cada nó e o
+    // GoalsModal o consome direto. O antigo goalsDelta (client-side) foi removido.
     LogHelper.log(
       '[Orchestrator] goals config:',
-      {
-        defaultPeriodDays: window.MyIOUtils.goalsDefaultPeriodDays,
-        delta: window.MyIOUtils.goalsDelta,
-        throttle: window.MyIOUtils.goalsThrottle,
-      }
+      { defaultPeriodDays: window.MyIOUtils.goalsDefaultPeriodDays, throttle: window.MyIOUtils.goalsThrottle }
     );
 
     // RFC-0130: Load delay time settings from widget settings

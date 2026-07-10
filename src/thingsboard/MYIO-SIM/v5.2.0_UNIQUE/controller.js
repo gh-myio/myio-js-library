@@ -3722,9 +3722,9 @@ body.filter-modal-open { overflow: hidden !important; }
               <button type="button" data-gran="1h" style="border:0;border-radius:6px;padding:5px 14px;cursor:pointer;font:700 12px Nunito,sans-serif;">Hora</button>
             </div>
             <div data-evo-modes style="display:flex;gap:4px;background:var(--gc-chip);border-radius:8px;padding:3px;">
-              <button type="button" data-mode="cons" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Consolidado</button>
-              <button type="button" data-modegroup="sep" title="Separados" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Separados</button>
               <button type="button" data-mode="analytics" title="Tabela analítica do portfólio: Realizado, A-1, Orçado, variações e performance" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Resumo Analítico</button>
+              <button type="button" data-mode="cons" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Consolidado</button>
+              <button type="button" data-modegroup="sep" title="Um gráfico/card por ${_escHtml(_goalsEntityLabel.toLowerCase())}" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Por ${_escHtml(_goalsEntityLabel)}</button>
             </div>
             <div data-sep-submodes style="display:none;gap:4px;background:var(--gc-chip);border-radius:8px;padding:3px;">
               <button type="button" data-submode="stack" title="Todos os shoppings empilhados; meta única (soma)" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Empilhados</button>
@@ -3756,6 +3756,12 @@ body.filter-modal-open { overflow: hidden !important; }
               <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
                 <strong data-side-title style="font:700 13px Nunito,sans-serif;color:var(--gc-muted);white-space:nowrap;">Resumo por ${_escHtml(_goalsEntityLabel.toLowerCase())}</strong>
                 <button type="button" data-side-toggle title="Recolher resumo" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;border:1px solid rgba(124,58,237,.45);border-radius:8px;background:transparent;color:#7C3AED;padding:4px 10px;cursor:pointer;font:700 11px Nunito,sans-serif;line-height:1.4;transition:background .15s, border-color .15s;" onmouseover="this.style.background='rgba(124,58,237,.08)';this.style.borderColor='#7C3AED'" onmouseout="this.style.background='transparent';this.style.borderColor='rgba(124,58,237,.45)'">Recolher ▶</button>
+              </div>
+              <div data-side-sort style="display:flex;align-items:center;gap:4px;">
+                <span style="font:600 10.5px Nunito,sans-serif;color:var(--gc-muted);">Ordenar:</span>
+                <button type="button" data-side-sort-key="title" style="border:1px solid var(--gc-border);border-radius:999px;background:transparent;color:var(--gc-muted);padding:2px 10px;cursor:pointer;font:700 10.5px Nunito,sans-serif;">Nome</button>
+                <button type="button" data-side-sort-key="consumo" style="border:1px solid var(--gc-border);border-radius:999px;background:transparent;color:var(--gc-muted);padding:2px 10px;cursor:pointer;font:700 10.5px Nunito,sans-serif;">Consumo</button>
+                <button type="button" data-side-sort-key="meta" style="border:1px solid var(--gc-border);border-radius:999px;background:transparent;color:var(--gc-muted);padding:2px 10px;cursor:pointer;font:700 10.5px Nunito,sans-serif;">Orçado</button>
               </div>
               <div data-table style="display:flex;flex-direction:column;gap:8px;"></div>
             </aside>
@@ -3833,20 +3839,46 @@ body.filter-modal-open { overflow: hidden !important; }
       if (meta === undefined || consumo === undefined)
         return '<span style="background:#ede9fe;color:#6d28d9;border-radius:999px;padding:2px 10px;font:700 11px Nunito,sans-serif;">⏳ Carregando…</span>';
       if (meta == null || meta <= 0)
-        return '<span style="background:#f1f5f9;color:#64748b;border-radius:999px;padding:2px 10px;font:700 11px Nunito,sans-serif;">Sem meta</span>';
+        return '<span style="background:#f1f5f9;color:#64748b;border-radius:999px;padding:2px 10px;font:700 11px Nunito,sans-serif;">Sem Orçado</span>';
       if (consumo == null)
         return '<span style="background:#f1f5f9;color:#64748b;border-radius:999px;padding:2px 10px;font:700 11px Nunito,sans-serif;">Sem consumo</span>';
+      // Desvio percentual em relação ao Orçado (ex.: consumo a 69,8% → "30,2% · Abaixo do Orçado")
       const pct = (consumo / meta) * 100;
+      const devTxt = Math.abs(100 - pct).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
       if (pct <= 90)
-        return `<span style="background:#dcfce7;color:#15803d;border-radius:999px;padding:2px 10px;font:700 11px Nunito,sans-serif;">${pct.toFixed(1)}% · Dentro da meta</span>`;
+        return `<span style="background:#dcfce7;color:#15803d;border-radius:999px;padding:2px 10px;font:700 11px Nunito,sans-serif;">${devTxt}% · Abaixo do Orçado</span>`;
       if (pct <= 100)
-        return `<span style="background:#fef9c3;color:#a16207;border-radius:999px;padding:2px 10px;font:700 11px Nunito,sans-serif;">${pct.toFixed(1)}% · Atenção</span>`;
-      return `<span style="background:#fee2e2;color:#b91c1c;border-radius:999px;padding:2px 10px;font:700 11px Nunito,sans-serif;">${pct.toFixed(1)}% · Acima da meta</span>`;
+        return `<span style="background:#fef9c3;color:#a16207;border-radius:999px;padding:2px 10px;font:700 11px Nunito,sans-serif;">${devTxt}% · Abaixo do Orçado</span>`;
+      return `<span style="background:#fee2e2;color:#b91c1c;border-radius:999px;padding:2px 10px;font:700 11px Nunito,sans-serif;">${devTxt}% · Acima do Orçado</span>`;
     };
 
     // Última renderização — fonte de dados do export PDF
     let lastRows = null;
     let lastUnit = '';
+
+    // Ordenação do Resumo por shopping: null = ordem original; dir 1 asc / -1 desc
+    let sideSortKey = null; // 'title' | 'consumo' | 'meta'
+    let sideSortDir = 1;
+    const paintSideSort = () => {
+      overlay.querySelectorAll('[data-side-sort-key]').forEach((b) => {
+        const active = b.dataset.sideSortKey === sideSortKey;
+        const base = b.dataset.sideSortKey === 'title' ? 'Nome' : b.dataset.sideSortKey === 'consumo' ? 'Consumo' : 'Orçado';
+        b.textContent = active ? `${base} ${sideSortDir === 1 ? '↑' : '↓'}` : base;
+        b.style.background = active ? 'rgba(124,58,237,.10)' : 'transparent';
+        b.style.color = active ? '#7C3AED' : 'var(--gc-muted)';
+        b.style.borderColor = active ? 'rgba(124,58,237,.45)' : 'var(--gc-border)';
+      });
+    };
+    const sortSideRows = (rows) => {
+      if (!sideSortKey) return rows;
+      const val = (r) => (sideSortKey === 'title' ? String(r.title || '') : r[sideSortKey]);
+      return [...rows].sort((a, b) => {
+        if (sideSortKey === 'title') return String(a.title).localeCompare(String(b.title), 'pt-BR') * sideSortDir;
+        const va = Number.isFinite(Number(val(a))) && val(a) != null ? Number(val(a)) : -Infinity;
+        const vb = Number.isFinite(Number(val(b))) && val(b) != null ? Number(val(b)) : -Infinity;
+        return (va - vb) * sideSortDir;
+      });
+    };
 
     // Sidebar compacta: 1 card por shopping (nome + chip; meta/consumo na 2ª linha)
     const renderTable = (rows, unit) => {
@@ -3862,16 +3894,17 @@ body.filter-modal-open { overflow: hidden !important; }
             <span style="font:${bold ? 800 : 700} 12px Nunito,sans-serif;color:var(--gc-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${bold ? '' : '🏢 '}${_escHtml(title)}</span>
             ${statusChip(meta, consumo)}
           </div>
-          <div style="font:600 11px Nunito,sans-serif;color:var(--gc-muted);">Meta <b style="color:var(--gc-text2);">${fmtCell(meta)}</b> · Consumo <b style="color:var(--gc-text2);">${fmtCell(consumo)}</b></div>
+          <div style="font:600 11px Nunito,sans-serif;color:var(--gc-muted);">Orçado <b style="color:var(--gc-text2);">${fmtCell(meta)}</b> · Consumo <b style="color:var(--gc-text2);">${fmtCell(consumo)}</b></div>
         </div>`;
       tableEl.innerHTML =
-        rows.map((r) => item(r.title, r.meta, r.consumo, false)).join('') +
+        sortSideRows(rows).map((r) => item(r.title, r.meta, r.consumo, false)).join('') +
         item(
           `Total${loading ? ' (parcial)' : ''}`,
           loading ? undefined : totalMeta || null,
           loading ? undefined : totalCons || null,
           true
         );
+      paintSideSort();
     };
 
     const load = async () => {
@@ -4434,7 +4467,21 @@ body.filter-modal-open { overflow: hidden !important; }
         }
         return out;
       };
+      // RFC-0052 (GCDR): Meta = Orçado ajustado pela margem — a API entrega
+      // adjustedValue em cada nó (igual a value quando a margem é 0/ausente).
+      // Linha(s) "Meta" do gráfico e dos cards usam o AJUSTADO; o Resumo
+      // Analítico e a sidebar seguem no Orçado cru (value).
+      const goalNodeMeta = (n) => {
+        const v = n?.adjustedValue ?? n?.value;
+        return v == null ? null : Number(v) || 0;
+      };
       const goalOf = (tree) =>
+        labels.map((_, i) => {
+          const [lv, k] = goalKeyAt(i);
+          return goalNodeMeta(tree?.[lv]?.[k]);
+        });
+      // Orçado cru (value) — usado pelo Resumo Analítico
+      const goalRawOf = (tree) =>
         labels.map((_, i) => {
           const [lv, k] = goalKeyAt(i);
           const v = tree?.[lv]?.[k]?.value;
@@ -4445,9 +4492,9 @@ body.filter-modal-open { overflow: hidden !important; }
         let s = 0;
         let has = false;
         for (const t of trees) {
-          const v = t?.[lv]?.[k]?.value;
+          const v = goalNodeMeta(t?.[lv]?.[k]);
           if (v != null) {
-            s += Number(v) || 0;
+            s += v;
             has = true;
           }
         }
@@ -4557,7 +4604,7 @@ body.filter-modal-open { overflow: hidden !important; }
           curBy,
           prevBy,
           trees,
-          goalOf,
+          goalOf: goalRawOf, // colunas "Orçado" da tabela usam o valor CRU (sem margem)
           bucketize,
           yearCurLabel,
           yearPrevLabel,
@@ -4590,7 +4637,7 @@ body.filter-modal-open { overflow: hidden !important; }
               data: bucketize(prevBy?.get(s.ingestionId)),
               backgroundColor: rgba(color, 0.35),
               stack: 'prev',
-              order: 6,
+              order: 4, // A-1 à ESQUERDA do ano corrente (padrão dos shoppings)
             });
         });
         datasets.push({
@@ -4626,7 +4673,7 @@ body.filter-modal-open { overflow: hidden !important; }
               data: bucketize(prevBy?.get(s.ingestionId)),
               backgroundColor: rgba(color, 0.35),
               borderRadius: 2,
-              order: 6,
+              order: 4, // A-1 à ESQUERDA do ano corrente (padrão dos shoppings)
             });
           datasets.push({
             type: 'line',
@@ -4668,7 +4715,7 @@ body.filter-modal-open { overflow: hidden !important; }
             data: sumAll(prevBy),
             backgroundColor: 'rgba(148,163,184,0.55)',
             borderRadius: 3,
-            order: 6,
+            order: 4, // A-1 à ESQUERDA do ano corrente (padrão dos shoppings)
           });
         datasets.push({
           type: 'line',
@@ -4737,9 +4784,14 @@ body.filter-modal-open { overflow: hidden !important; }
         const totalCons = rows.reduce((s, r) => s + (r.consumo || 0), 0);
         const pctTotal = totalMeta > 0 ? (totalCons / totalMeta) * 100 : null;
         const kpis = [
-          ['Meta do período', _fmtQtyStr(totalMeta, unit)],
+          ['Orçado do período', _fmtQtyStr(totalMeta, unit)],
           ['Consumo do período', _fmtQtyStr(totalCons, unit)],
-          ['Consumo / Meta', pctTotal == null ? '—' : `${pctTotal.toFixed(1)}% da meta`],
+          [
+            'vs Orçado',
+            pctTotal == null
+              ? '—'
+              : `${Math.abs(100 - pctTotal).toFixed(1)}% ${pctTotal <= 100 ? 'abaixo' : 'acima'} do Orçado`,
+          ],
           ['Shoppings', String(rows.length)],
         ];
         const boxW = (W - MX * 2 - 9) / 4;
@@ -4761,12 +4813,13 @@ body.filter-modal-open { overflow: hidden !important; }
 
         // Tabela por shopping
         const situacao = (meta, consumo) => {
-          if (meta == null || meta <= 0) return { txt: 'Sem meta', rgb: [100, 116, 139] };
+          if (meta == null || meta <= 0) return { txt: 'Sem Orçado', rgb: [100, 116, 139] };
           if (consumo == null) return { txt: 'Sem consumo', rgb: [100, 116, 139] };
           const p = (consumo / meta) * 100;
-          if (p <= 90) return { txt: `${p.toFixed(1)}% - Dentro da meta`, rgb: [21, 128, 61] };
-          if (p <= 100) return { txt: `${p.toFixed(1)}% - Atenção`, rgb: [161, 98, 7] };
-          return { txt: `${p.toFixed(1)}% - Acima da meta`, rgb: [185, 28, 28] };
+          const dev = Math.abs(100 - p).toFixed(1);
+          if (p <= 90) return { txt: `${dev}% abaixo do Orçado`, rgb: [21, 128, 61] };
+          if (p <= 100) return { txt: `${dev}% abaixo do Orçado`, rgb: [161, 98, 7] };
+          return { txt: `${dev}% acima do Orçado`, rgb: [185, 28, 28] };
         };
         doc.setFontSize(13);
         doc.setTextColor(74, 20, 140);
@@ -4778,7 +4831,7 @@ body.filter-modal-open { overflow: hidden !important; }
         doc.setTextColor(100, 116, 139);
         doc.setFont('helvetica', 'normal');
         doc.text('Shopping', colX[0], y);
-        doc.text('Meta', colX[1], y);
+        doc.text('Orçado', colX[1], y);
         doc.text('Consumo', colX[2], y);
         doc.text('Situação', colX[3], y);
         y += 2;
@@ -4911,6 +4964,8 @@ body.filter-modal-open { overflow: hidden !important; }
       aside.style.flex = sideCollapsed ? '0 0 auto' : '0 0 330px';
       title.style.display = sideCollapsed ? 'none' : '';
       table.style.display = sideCollapsed ? 'none' : 'flex';
+      const sortRow = overlay.querySelector('[data-side-sort]');
+      if (sortRow) sortRow.style.display = sideCollapsed ? 'none' : 'flex';
       btn.textContent = sideCollapsed ? '◀ Resumo' : 'Recolher ▶';
       btn.style.flex = sideCollapsed ? '0 0 auto' : '1';
       btn.title = sideCollapsed ? 'Expandir resumo' : 'Recolher resumo';
@@ -4946,6 +5001,24 @@ body.filter-modal-open { overflow: hidden !important; }
     overlay.addEventListener('click', (e) => {
       if (e.target.closest('[data-pdf]')) return void exportPdf();
       if (e.target.closest('[data-max]')) return toggleMax();
+      const sortBtn = e.target.closest('[data-side-sort-key]');
+      if (sortBtn) {
+        const key = sortBtn.dataset.sideSortKey;
+        if (sideSortKey === key) {
+          // 2º clique inverte; 3º volta à ordem original
+          if ((key === 'title' && sideSortDir === 1) || (key !== 'title' && sideSortDir === -1)) {
+            sideSortDir = -sideSortDir;
+          } else {
+            sideSortKey = null;
+          }
+        } else {
+          sideSortKey = key;
+          sideSortDir = key === 'title' ? 1 : -1; // nome A→Z; números maiores primeiro
+        }
+        if (lastRows) renderTable(lastRows, lastUnit);
+        else paintSideSort();
+        return;
+      }
       if (e.target.closest('[data-side-toggle]')) return toggleSide();
       if (e.target.closest('[data-thm]')) {
         modalTheme = modalTheme === 'dark' ? 'light' : 'dark';

@@ -237,6 +237,18 @@ export function openGoalsPanel(params) {
         query: { domain: state.domain, year: state.year, dryRun: !!dryRun },
         body,
       }),
+    // RFC-0052: margem da meta (goalMarginPct) por customer × domínio × ano.
+    // Mesmo stream de versão dos buckets — 409 VERSION_CONFLICT no lock otimista.
+    setMargin: (pct, version) =>
+      request('PUT', `/customers/${customerId}/goals/margin`, {
+        query: targetQuery(),
+        body: version ? { goalMarginPct: pct, version } : { goalMarginPct: pct },
+      }),
+    clearMargin: (version) =>
+      request('DELETE', `/customers/${customerId}/goals/margin`, {
+        query: targetQuery(),
+        body: version ? { version } : undefined,
+      }),
   };
 
   /** Pull `currentVersion` out of a 409 VERSION_CONFLICT envelope, if present. */
@@ -514,6 +526,77 @@ export function openGoalsPanel(params) {
   }
 
   // ───────────────────────────────────────────────────────────────────────────
+  // RFC-0052: Margem da meta (goalMarginPct)
+  // ───────────────────────────────────────────────────────────────────────────
+
+  /** Margem atual do aggregate (null quando nunca definida). */
+  function currentMarginPct() {
+    const gm = state.goals && state.goals.goalMargin;
+    const v = gm && gm.goalMarginPct != null ? Number(gm.goalMarginPct) : null;
+    return Number.isFinite(v) ? v : null;
+  }
+
+  async function handleSaveMargin() {
+    const input = rootEl && rootEl.querySelector('#myio-goals-margin');
+    if (!input) return;
+    const raw = String(input.value || '').replace(',', '.').trim();
+    const pct = parseFloat(raw);
+    if (!Number.isFinite(pct) || pct < -100 || pct > 100) {
+      state.saveError = i18n.margin.invalid;
+      state.saved = false;
+      render();
+      return;
+    }
+    state.saving = true;
+    state.saveError = null;
+    state.saved = false;
+    state.conflict = false;
+    render();
+    const ver = state.goals && state.goals.version > 0 ? state.goals.version : null;
+    const res = await svc.setMargin(Math.round(pct * 100) / 100, ver);
+    state.saving = false;
+    if (res.success) {
+      state.saved = true;
+      reload(); // margem bumpa a versão e entra no histórico (source MARGIN)
+      return;
+    }
+    const conflict = readVersionConflict(res);
+    if (conflict !== null) {
+      state.conflictVersion = conflict;
+      state.conflict = true;
+      reload();
+    } else {
+      state.saveError = (res.error && res.error.message) || i18n.margin.saveFailed;
+      render();
+    }
+  }
+
+  async function handleClearMargin() {
+    state.saving = true;
+    state.saveError = null;
+    state.saved = false;
+    state.conflict = false;
+    render();
+    const ver = state.goals && state.goals.version > 0 ? state.goals.version : null;
+    const res = await svc.clearMargin(ver);
+    state.saving = false;
+    if (res.success) {
+      state.saved = true;
+      reload();
+      return;
+    }
+    const conflict = readVersionConflict(res);
+    if (conflict !== null) {
+      state.conflictVersion = conflict;
+      state.conflict = true;
+      reload();
+    } else {
+      state.saveError = (res.error && res.error.message) || i18n.margin.saveFailed;
+      render();
+    }
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
   // CSV import
   // ───────────────────────────────────────────────────────────────────────────
 
@@ -695,6 +778,12 @@ export function openGoalsPanel(params) {
       case 'save':
         handleSave();
         break;
+      case 'save-margin':
+        handleSaveMargin();
+        break;
+      case 'clear-margin':
+        handleClearMargin();
+        break;
       case 'retry':
         reload();
         break;
@@ -870,11 +959,45 @@ export function openGoalsPanel(params) {
             <span class="myio-goals-chip myio-goals-chip-accent">${icon('target')} ${i18n.domains[state.domain]} · ${i18n.aggregation[cfg.aggregationMethod]}</span>
             <span class="myio-goals-chip myio-goals-chip-mono">${unitLabel()}</span>
             <span class="myio-goals-chip myio-goals-chip-violet">${icon('history')} ${i18n.currentVersion.replace('{n}', version)}</span>
+            ${renderMarginChip()}
           </div>
         </div>
         <div class="myio-goals-actions">${actions}</div>
       </div>
+      ${state.editing ? renderMarginEditor() : ''}
     `;
+  }
+
+  // RFC-0052: chip "Margem: −5%" (leitura) — oculto quando margem 0/ausente
+  function renderMarginChip() {
+    const pct = currentMarginPct();
+    if (pct == null || pct === 0) return '';
+    const cls = pct < 0 ? 'myio-goals-chip-red' : 'myio-goals-chip-green';
+    const txt = `${pct > 0 ? '+' : ''}${pct.toLocaleString(locale, { maximumFractionDigits: 2 })}%`;
+    return `<span class="myio-goals-chip ${cls}" title="${i18n.margin.chipTitle}">${i18n.margin.chip.replace('{v}', txt)}</span>`;
+  }
+
+  // RFC-0052: editor da margem (só em modo edição; salvar é independente do "Salvar"
+  // dos buckets — endpoint próprio, mesmo stream de versão)
+  function renderMarginEditor() {
+    const pct = currentMarginPct();
+    return `
+      <div class="myio-goals-margin-row">
+        <span class="myio-goals-margin-label">${i18n.margin.label}</span>
+        <input id="myio-goals-margin" type="number" step="0.01" min="-100" max="100"
+               placeholder="0,00" value="${pct == null ? '' : pct}"
+               ${state.saving ? 'disabled' : ''} />
+        <span class="myio-goals-margin-pct">%</span>
+        <button class="myio-goals-btn myio-goals-btn-outline myio-goals-btn-sm" data-action="save-margin" ${state.saving ? 'disabled' : ''}>
+          ${icon('save')} ${i18n.margin.save}
+        </button>
+        ${
+          pct != null
+            ? `<button class="myio-goals-btn myio-goals-btn-outline myio-goals-btn-sm" data-action="clear-margin" ${state.saving ? 'disabled' : ''}>${i18n.margin.clear}</button>`
+            : ''
+        }
+        <span class="myio-goals-margin-hint">${i18n.margin.hint}</span>
+      </div>`;
   }
 
   function renderMessages() {
@@ -927,6 +1050,19 @@ export function openGoalsPanel(params) {
       { ic: icon('trend'), label: i18n.summary.avgPerMonth, value: fmt(s.avgPerMonth) },
       { ic: icon('trend'), label: i18n.summary.avgPerDay, value: fmt(s.avgPerDay) },
     ];
+    // RFC-0052: com margem ativa, mostra o total anual AJUSTADO ao lado do cru
+    const marginPct = currentMarginPct();
+    const adjAnnual =
+      state.goals && state.goals.tree && state.goals.tree.annual
+        ? state.goals.tree.annual.adjustedValue
+        : null;
+    if (marginPct != null && marginPct !== 0 && adjAnnual != null) {
+      kpis.splice(2, 0, {
+        ic: glyph,
+        label: `${i18n.summary.yearAdjusted} (${marginPct > 0 ? '+' : ''}${marginPct}%)`,
+        value: fmt(adjAnnual),
+      });
+    }
 
     const topCol = (title, items, labeler) => `
       <div class="myio-goals-topcard">
@@ -1383,7 +1519,15 @@ export function openGoalsPanel(params) {
       .myio-goals-chip-violet { color: ${theme.violet}; background: rgba(108,92,231,0.10); border-color: rgba(108,92,231,0.18); }
       .myio-goals-chip-mono { font-family: ui-monospace, Menlo, monospace; }
       .myio-goals-chip-red { color: ${theme.danger}; background: rgba(220,38,38,0.08); border-color: rgba(220,38,38,0.18); }
+      .myio-goals-chip-green { color: #15803d; background: rgba(21,128,61,0.08); border-color: rgba(21,128,61,0.18); }
       .myio-goals-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+      /* RFC-0052: linha de edição da margem da meta */
+      .myio-goals-margin-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 10px; padding: 10px 12px; border: 1px dashed rgba(108,92,231,0.35); border-radius: 10px; background: rgba(108,92,231,0.04); }
+      .myio-goals-margin-label { font-size: 12px; font-weight: 800; color: ${theme.violet}; }
+      .myio-goals-margin-row input { width: 90px; padding: 6px 8px; border: 1px solid #cbd5e1; border-radius: 8px; font: 700 13px ${theme.fontFamily}; color: #1e293b; }
+      .myio-goals-margin-pct { font-size: 12px; font-weight: 700; color: #64748b; }
+      .myio-goals-btn-sm { padding: 6px 10px; font-size: 12px; }
+      .myio-goals-margin-hint { font-size: 11px; color: #94a3b8; }
 
       .myio-goals-btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 14px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; border: 1px solid transparent; transition: all .15s; font-family: inherit; }
       .myio-goals-btn:disabled { opacity: .55; cursor: not-allowed; }
@@ -1564,6 +1708,17 @@ export function openGoalsPanel(params) {
           topMonths: 'Top 3 months',
           topDays: 'Top 3 days',
           hint: 'Read-only summary. Click “Enable editing” to change the goals.',
+          yearAdjusted: 'Adjusted annual total',
+        },
+        margin: {
+          label: 'Goal margin',
+          chip: 'Margin: {v}',
+          chipTitle: 'Management margin applied on top of the imported curve (RFC-0052)',
+          save: 'Save margin',
+          clear: 'Clear',
+          hint: 'Signed % applied to every point of the curve (e.g. −5 → targets at 95%).',
+          invalid: 'Margin must be between −100 and +100.',
+          saveFailed: 'Failed to save the margin.',
         },
         levels: { YEAR: 'Year', MONTH: 'Month', DAY: 'Day', HOUR: 'Hour' },
         months: {
@@ -1583,6 +1738,7 @@ export function openGoalsPanel(params) {
             MERGE: 'Goals edit',
             EDIT: 'Goals edit',
             DELETE: 'Goal removal',
+            MARGIN: 'Goal margin',
           },
         },
         import: {
@@ -1656,6 +1812,17 @@ export function openGoalsPanel(params) {
         topMonths: 'Top 3 meses',
         topDays: 'Top 3 dias',
         hint: 'Resumo somente leitura. Clique em “Habilitar edição” para alterar as metas.',
+        yearAdjusted: 'Total anual ajustado',
+      },
+      margin: {
+        label: 'Margem da meta',
+        chip: 'Margem: {v}',
+        chipTitle: 'Margem de gestão aplicada sobre a curva importada (RFC-0052)',
+        save: 'Salvar margem',
+        clear: 'Limpar',
+        hint: '% com sinal aplicada a todos os pontos da curva (ex.: −5 → metas a 95%).',
+        invalid: 'A margem deve estar entre −100 e +100.',
+        saveFailed: 'Falha ao salvar a margem.',
       },
       levels: { YEAR: 'Ano', MONTH: 'Mês', DAY: 'Dia', HOUR: 'Hora' },
       months: {
@@ -1675,6 +1842,7 @@ export function openGoalsPanel(params) {
           MERGE: 'Edição de metas',
           EDIT: 'Edição de metas',
           DELETE: 'Remoção de meta',
+          MARGIN: 'Margem da meta',
         },
       },
       import: {

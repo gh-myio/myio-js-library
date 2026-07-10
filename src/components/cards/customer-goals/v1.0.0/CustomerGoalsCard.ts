@@ -344,16 +344,18 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
         order: 0,
       });
     }
-    // Ordem padrão dos shoppings: barra do A-1 primeiro (à esquerda), depois o ano corrente
+    // Ordem padrão dos shoppings: barra do A-1 à ESQUERDA, ano corrente à direita.
+    // Chart.js posiciona os grupos de barra pelo `order` (ascendente = esquerda→direita),
+    // não pelo índice do array — por isso A-1 recebe order menor que o Realizado.
     if (s.previousYear) {
       datasets.push({
         ...mainSeries(yl ? `A-1 (${yl.previous})` : 'A-1', s.previousYear, COLORS.prev),
-        order: 2,
+        order: 1,
       });
     }
     datasets.push({
       ...mainSeries(yl ? `Realizado (${yl.current})` : 'Realizado', s.realized, COLORS.realized),
-      order: 1,
+      order: 2,
     });
 
     this.chart = new ChartCtor((canvas as HTMLCanvasElement).getContext('2d'), {
