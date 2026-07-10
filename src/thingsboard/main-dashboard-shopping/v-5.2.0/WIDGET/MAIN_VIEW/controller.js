@@ -4267,6 +4267,11 @@ function buildSummaryWater(entrada, lojas, banheiros, areacomum, periodKey) {
         label: i.label || i.name,
         value: i.value,
         deviceStatus: i.deviceStatus,
+        // RFC-0106: o TELEMETRY_INFO extrai banheiros da área comum por
+        // deviceProfile + identifier — sem estes campos a extração nunca dispara
+        // e o KPI "Banheiros" fica 0 (bug observado no Moxuara, 2026-07-09)
+        identifier: i.identifier || '',
+        deviceProfile: i.deviceProfile || '',
       })),
       name: name,
     },
