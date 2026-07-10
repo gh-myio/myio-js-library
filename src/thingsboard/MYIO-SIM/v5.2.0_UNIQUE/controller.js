@@ -4100,12 +4100,26 @@ body.filter-modal-open { overflow: hidden !important; }
         return;
       }
       const shopTitleByIng = new Map((shops || []).map((s) => [s.ingestionId, s.title]));
-      devices.forEach((d) => {
+      // Título legível: "entrada:<Shopping>" (curadoria) vira "Entrada · <Shopping>";
+      // medidores duplicados do mesmo shopping ganham #1/#2 para distinguir os cards.
+      const baseTitles = devices.map((d) => {
+        const m = String(d.name || '').match(/^entrada:(.+)$/i);
+        return m ? `Entrada · ${m[1]}` : String(d.name || 'Medidor');
+      });
+      const titleCount = baseTitles.reduce((acc, t) => acc.set(t, (acc.get(t) || 0) + 1), new Map());
+      const titleSeen = new Map();
+      devices.forEach((d, i) => {
         const shopTitle = shopTitleByIng.get(d.customerId);
+        let title = baseTitles[i];
+        if (titleCount.get(title) > 1) {
+          const n = (titleSeen.get(title) || 0) + 1;
+          titleSeen.set(title, n);
+          title = `${title} #${n}`;
+        }
         goalsCards.push(
           MyIOLibrary.createCustomerGoalsCard({
             container: grid,
-            title: shopTitle && !String(d.name).includes(shopTitle) ? `${d.name} · ${shopTitle}` : d.name,
+            title: shopTitle && !title.includes(shopTitle) ? `${title} · ${shopTitle}` : title,
             unit,
             yearLabels: { current: yearCurLabel, previous: yearPrevLabel },
             themeMode: modalTheme,
