@@ -624,13 +624,11 @@ function _renderChart(
   });
 
   // Meta — SEMPRE linha (laranja), sobre as barras/linhas (order 0).
+  // O delta (goalsDelta) é aplicado silenciosamente nos pontos — NÃO aparece na legenda.
   if (hasGoals) {
-    const deltaSuffix = _goalDeltaPercent
-      ? ` ${_goalDeltaPercent > 0 ? '+' : ''}${_goalDeltaPercent.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}%`
-      : '';
     datasets.push({
       type: 'line',
-      label: `Meta (${cfg.unit})${deltaSuffix}`,
+      label: `Meta (${cfg.unit})`,
       data: goalLine,
       borderColor: cfg.goalColor,
       backgroundColor: 'transparent',
