@@ -7053,6 +7053,15 @@ const MyIOOrchestrator = (() => {
     }
   }
 
+  // Seq-guard por domínio: hidrações concorrentes com períodos diferentes não
+  // são coalescidas (keys distintas) e a que TERMINA por último vencia a UI,
+  // mesmo sendo a requisição mais antiga (ex.: Aplicar junho durante a
+  // hidração inicial de julho → julho terminava depois e sobrescrevia junho).
+  // Só a hidração mais recentemente SOLICITADA pode emitir provide-data.
+  const hydrateLatestSeq = new Map(); // domain -> seq da hidração mais recente
+  const hydrateSeqByKey = new Map(); // periodKey -> seq da run em andamento
+  let hydrateSeqCounter = 0;
+
   // Fetch data for a domain and period
   // RFC-0138: Added options.force to bypass cooldown when switching domains via MENU
   async function hydrateDomain(domain, period, options = {}) {
@@ -7069,8 +7078,16 @@ const MyIOOrchestrator = (() => {
     // Coalesce duplicate requests
     if (inFlight.has(key)) {
       LogHelper.log(`[Orchestrator] ⏭️ Coalescing duplicate request for ${key}`);
+      // Re-solicitar o período em andamento torna essa run a mais recente de
+      // novo (o usuário voltou para ela) — ela recupera o direito de emitir.
+      const runSeq = hydrateSeqByKey.get(key);
+      if (runSeq) hydrateLatestSeq.set(domain, runSeq);
       return inFlight.get(key);
     }
+
+    const mySeq = ++hydrateSeqCounter;
+    hydrateLatestSeq.set(domain, mySeq);
+    hydrateSeqByKey.set(key, mySeq);
 
     // Show busy overlay - pass force flag to bypass cooldown
     showGlobalBusy(domain, 'Carregando dados...', 25000, { force });
@@ -7082,6 +7099,16 @@ const MyIOOrchestrator = (() => {
     const fetchPromise = (async () => {
       try {
         const items = await fetchAndEnrich(domain, period);
+
+        // Seq-guard: se outra hidração (período mais novo) foi solicitada
+        // enquanto esta rodava, o resultado é obsoleto — não emitir para não
+        // sobrescrever a UI com o período antigo.
+        if (hydrateLatestSeq.get(domain) !== mySeq) {
+          LogHelper.warn(
+            `[Orchestrator] ⏭️ Stale hydration for ${domain} (${key}) — newer period requested; skipping emit`
+          );
+          return items;
+        }
 
         emitHydrated(domain, key, items.length);
 
@@ -7127,6 +7154,7 @@ const MyIOOrchestrator = (() => {
       }
     })().finally(() => {
       inFlight.delete(key);
+      if (hydrateSeqByKey.get(key) === mySeq) hydrateSeqByKey.delete(key);
       LogHelper.log(`[Orchestrator] 🧹 Cleaned up inFlight for ${key}`);
     });
 

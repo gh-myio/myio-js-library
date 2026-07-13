@@ -479,6 +479,14 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         });
       }
 
+      // Aplicar do picker dispara o carregamento: antes só atualizava o range
+      // interno e os cards ficavam no período anterior até o usuário clicar
+      // Carregar (input mostrava junho, cards mostravam julho).
+      if (btnLoad && !btnLoad.disabled) {
+        LogHelper.log('[DateRangePicker] Auto-triggering Carregar after Apply');
+        btnLoad.click();
+      }
+
       // The input display is automatically handled by the component
     },
   })
