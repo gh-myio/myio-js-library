@@ -51,6 +51,7 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
   private chart: ChartLike | null = null;
   private chartType: CustomerGoalsChartType;
   private showPoints: boolean;
+  private breakdownStacked: boolean;
   private expanded = false;
   private onEscKey: ((e: KeyboardEvent) => void) | null = null;
 
@@ -60,6 +61,7 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
     this.locale = params.locale || 'pt-BR';
     this.chartType = params.options?.chartType || 'line';
     this.showPoints = params.options?.showPoints !== false;
+    this.breakdownStacked = params.options?.breakdownStacked === true;
 
     injectCustomerGoalsCardStyles();
 
@@ -94,6 +96,7 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
   public setOptions(options: CustomerGoalsCardOptions): void {
     if (options.chartType !== undefined) this.chartType = options.chartType;
     if (options.showPoints !== undefined) this.showPoints = options.showPoints;
+    if (options.breakdownStacked !== undefined) this.breakdownStacked = options.breakdownStacked;
     this.renderChart();
   }
 
@@ -349,6 +352,10 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
           };
 
     const datasets: any[] = [];
+    const breakdownPre = s.breakdown?.filter((b) => Array.isArray(b?.values)) || [];
+    // Empilhado só faz sentido com breakdown; cada grupo (realized/prev/goal)
+    // tem seu próprio `stack` para os devices somarem SEM engolir A-1/Orçado.
+    const stacked = this.breakdownStacked && breakdownPre.length > 0;
     if (s.budget) {
       // Orçado é SEMPRE linha tracejada (overlay), mesmo no modo barra
       datasets.push({
@@ -366,6 +373,7 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
         spanGaps: true,
         fill: false,
         order: 0,
+        ...(stacked ? { stack: 'goal' } : {}),
       });
     }
     // Ordem padrão dos shoppings: barra do A-1 à ESQUERDA, ano corrente à direita.
@@ -375,17 +383,28 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
       datasets.push({
         ...mainSeries(yl ? `A-1 (${yl.previous})` : 'A-1', s.previousYear, COLORS.prev),
         order: 1,
+        ...(stacked ? { stack: 'prev' } : {}),
       });
     }
-    const breakdown = s.breakdown?.filter((b) => Array.isArray(b?.values)) || [];
+    const breakdown = breakdownPre;
     if (breakdown.length) {
       // Quebra por device: uma série por medidor NO LUGAR do consolidado — o
       // card continua sendo um por shopping; só o gráfico muda.
       breakdown.forEach((b, i) => {
-        datasets.push({
-          ...mainSeries(b.name || `Medidor ${i + 1}`, b.values, BREAKDOWN_PALETTE[i % BREAKDOWN_PALETTE.length]),
+        const color = BREAKDOWN_PALETTE[i % BREAKDOWN_PALETTE.length];
+        const ds: any = {
+          ...mainSeries(b.name || `Medidor ${i + 1}`, b.values, color),
           order: 2 + i,
-        });
+        };
+        if (stacked) {
+          ds.stack = 'realized';
+          if (!asBar) {
+            // Linha empilhada = área acumulada: preenche até o item de baixo do stack
+            ds.fill = 'stack';
+            ds.backgroundColor = `${color}40`;
+          }
+        }
+        datasets.push(ds);
       });
     } else {
       datasets.push({
@@ -433,10 +452,12 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
         },
         scales: {
           x: {
+            stacked: stacked && asBar,
             ticks: { color: tickColor, font: { size: 9 }, maxTicksLimit: 4, maxRotation: 0, autoSkip: true },
             grid: { display: false },
           },
           y: {
+            stacked,
             beginAtZero: true,
             ticks: {
               color: tickColor,

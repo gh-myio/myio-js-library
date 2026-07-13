@@ -14,6 +14,12 @@ export interface CustomerGoalsCardOptions {
   chartType?: CustomerGoalsChartType;
   /** Draw point markers on line series (default true). false = smooth line only. */
   showPoints?: boolean;
+  /**
+   * Stack the breakdown series (default false = side-by-side). Only applies
+   * when series.breakdown is present: bar → stacked bars (A-1 keeps its own
+   * bar); line → stacked area. Orçado stays an independent dashed line.
+   */
+  breakdownStacked?: boolean;
 }
 
 export interface CustomerGoalsSeries {

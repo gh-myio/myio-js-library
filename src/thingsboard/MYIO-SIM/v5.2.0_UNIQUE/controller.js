@@ -3947,9 +3947,9 @@ body.filter-modal-open { overflow: hidden !important; }
     let lastSepSubmode = 'stack'; // subcategoria lembrada ao reabrir o grupo Separados
     let showCurYear = true; // 👁 ano corrente
     let showPrevYear = true; // 👁 ano anterior (A-1)
-    let cardsShowPoints = true; // ⚙️ dos cards
+    let cardsShowPoints = false; // ⚙️ dos cards — pontos na linha desligados por default
     let cardsChartType = 'bar'; // ⚙️ dos cards — barra é o default
-    let cardsGroupBy = 'shopping'; // ⚙️ dos cards: 'shopping' (default) | 'device' (explode por medidor)
+    let cardsGroupBy = 'shopping'; // ⚙️ dos cards: 'shopping' (default) | 'device' (medidores lado a lado) | 'device-stack' (medidores empilhados)
     let evoChart = null;
     let evoSeq = 0;
     const evoConsCache = new Map(); // consumo por (domínio, gran, range) — troca de aba não refaz fetch
@@ -4373,7 +4373,11 @@ body.filter-modal-open { overflow: hidden !important; }
             unit,
             yearLabels: { current: yearCurLabel, previous: yearPrevLabel },
             themeMode: modalTheme,
-            options: { chartType: cardsChartType, showPoints: cardsShowPoints },
+            options: {
+              chartType: cardsChartType,
+              showPoints: cardsShowPoints,
+              breakdownStacked: cardsGroupBy === 'device-stack',
+            },
             series: {
               labels,
               realized: showCurYear ? sumSeries(buckets) : nullSeries(),
@@ -4547,7 +4551,8 @@ body.filter-modal-open { overflow: hidden !important; }
         <strong style="font:800 12px Nunito,sans-serif;color:var(--gc-text);">⚙️ Configurações dos cards</strong>
         <span style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">Agrupado por:
           <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="gcCgcGroupBy" value="shopping" ${cardsGroupBy === 'shopping' ? 'checked' : ''} style="accent-color:#7C3AED;"> ${_escHtml(_goalsEntityLabel)}</label>
-          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;" title="Mantém um card por ${_escHtml(_goalsEntityLabel.toLowerCase())}, com o gráfico quebrado por medidor de entrada (uma linha por dispositivo)"><input type="radio" name="gcCgcGroupBy" value="device" ${cardsGroupBy === 'device' ? 'checked' : ''} style="accent-color:#7C3AED;"> Dispositivos</label>
+          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;" title="Um card por ${_escHtml(_goalsEntityLabel.toLowerCase())}, gráfico quebrado por medidor de entrada — séries lado a lado"><input type="radio" name="gcCgcGroupBy" value="device" ${cardsGroupBy === 'device' ? 'checked' : ''} style="accent-color:#7C3AED;"> Dispositivos separados</label>
+          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;" title="Um card por ${_escHtml(_goalsEntityLabel.toLowerCase())}, gráfico quebrado por medidor de entrada — séries empilhadas (stack)"><input type="radio" name="gcCgcGroupBy" value="device-stack" ${cardsGroupBy === 'device-stack' ? 'checked' : ''} style="accent-color:#7C3AED;"> Dispositivos empilhados</label>
         </span>
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
           <input type="checkbox" data-opt-points ${cardsShowPoints ? 'checked' : ''} style="accent-color:#7C3AED;width:15px;height:15px;">
@@ -4567,12 +4572,23 @@ body.filter-modal-open { overflow: hidden !important; }
         cardsChartType = pop.querySelector('input[name="gcCgcType"]:checked').value;
         const gb = pop.querySelector('input[name="gcCgcGroupBy"]:checked')?.value || 'shopping';
         if (gb !== cardsGroupBy) {
-          // Agrupamento muda a FONTE dos dados (por shopping × por medidor) — refaz o load
+          // shopping ↔ device* muda a FONTE dos dados — refaz o load. Entre os
+          // dois modos device (separados ↔ empilhados) a fonte é a mesma: só o
+          // layout do stack muda, resolvido via setOptions abaixo (sem refetch).
+          const sameSource = gb !== 'shopping' && cardsGroupBy !== 'shopping';
           cardsGroupBy = gb;
-          loadEvo();
-          return;
+          if (!sameSource) {
+            loadEvo();
+            return;
+          }
         }
-        goalsCards.forEach((c) => c.setOptions?.({ chartType: cardsChartType, showPoints: cardsShowPoints }));
+        goalsCards.forEach((c) =>
+          c.setOptions?.({
+            chartType: cardsChartType,
+            showPoints: cardsShowPoints,
+            breakdownStacked: cardsGroupBy === 'device-stack',
+          })
+        );
       };
       pop.addEventListener('change', apply);
       // Fecha ao clicar fora
@@ -4764,7 +4780,7 @@ body.filter-modal-open { overflow: hidden !important; }
 
       // Cards agrupados por DISPOSITIVO: séries por medidor (não por customer) —
       // busca própria + render próprio; não passa pelo fetch por shopping abaixo.
-      if (evoMode === 'cards' && cardsGroupBy === 'device') {
+      if (evoMode === 'cards' && cardsGroupBy !== 'shopping') {
         evoStatusEl.textContent = 'Carregando medidores…';
         const seriesGranDev = evoGran === '1h' ? '1h' : '1d';
         const devices = await listCardDevices();

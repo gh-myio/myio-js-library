@@ -236,6 +236,32 @@ describe('CustomerGoalsCard (RFC-0217)', () => {
     expect(cfg.data.datasets[1].borderColor).not.toBe(cfg.data.datasets[2].borderColor);
   });
 
+  it('breakdownStacked: devices share stack "realized", A-1/Orçado isolated, axes stacked', () => {
+    createCustomerGoalsCard({
+      container,
+      title: 'A',
+      options: { chartType: 'bar', breakdownStacked: true },
+      series: {
+        labels: ['Jan', 'Fev'],
+        realized: [30, 50],
+        previousYear: [28, 45],
+        budget: [40, 40],
+        breakdown: [
+          { name: 'M1', values: [10, 20] },
+          { name: 'M2', values: [20, 30] },
+        ],
+      },
+    });
+    const cfg = ChartStub.instances.at(-1)!.config;
+    const byLabel = Object.fromEntries(cfg.data.datasets.map((d: any) => [d.label, d]));
+    expect(byLabel['M1'].stack).toBe('realized');
+    expect(byLabel['M2'].stack).toBe('realized');
+    expect(byLabel['A-1'].stack).toBe('prev');
+    expect(byLabel['Orçado'].stack).toBe('goal');
+    expect(cfg.options.scales.x.stacked).toBe(true);
+    expect(cfg.options.scales.y.stacked).toBe(true);
+  });
+
   it('breakdown: totals strip falls back to the element-wise sum when realized is empty', () => {
     const card = createCustomerGoalsCard({
       container,
