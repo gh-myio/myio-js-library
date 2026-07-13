@@ -103,9 +103,16 @@ let _menuInstanceRef = null;
 let _welcomeModalRef = null;
 let _headerInstanceRef = null;
 /* eslint-enable no-unused-vars */
-let _currentShoppingCards = null; // Shopping cards from datasource or DEFAULT_SHOPPING_CARDS
+let _currentCustomersCards = null; // Shopping cards from datasource or DEFAULT_SHOPPING_CARDS
 let _forceRemovePartialOwnerName = ''; // Prefix to remove from ownerName
 let _goalsEntityLabel = 'Shopping'; // Set from settings.goalsEntityLabel in onInit
+let _goalsEntityLabelPlural = 'Shoppings'; // Set from settings.goalsEntityLabelPlural in onInit
+// Variações do label da entidade (Shopping, Estação, Hospital, Escola…) para os
+// textos da UI — NUNCA hardcodar "shopping" em string visível; usar estas helpers.
+const _entS = () => _goalsEntityLabel; // singular ("Shopping")
+const _entSLow = () => _goalsEntityLabel.toLowerCase(); // "shopping"
+const _entP = () => _goalsEntityLabelPlural; // plural ("Shoppings")
+const _entPLow = () => _goalsEntityLabelPlural.toLowerCase(); // "shoppings"
 
 // Helper to clean ownerName by removing configured prefix (module-level for use in buildMetadataMapFromCtxData)
 function cleanOwnerName(name) {
@@ -207,6 +214,8 @@ self.onInit = async function () {
   // Set module-level variables for functions outside onInit scope
   _forceRemovePartialOwnerName = (settings.forceRemovePartialOwnerName || '').trim();
   _goalsEntityLabel = settings.goalsEntityLabel || 'Shopping';
+  // Plural configurável ("Estações", "Hospitais"…); fallback ingênuo +s
+  _goalsEntityLabelPlural = settings.goalsEntityLabelPlural || `${_goalsEntityLabel}s`;
 
   // RFC-0122: Initialize LogHelper from library
   if (!MyIOLibrary.createLogHelper) {
@@ -257,7 +266,9 @@ self.onInit = async function () {
       host.innerHTML =
         '<div style="display:flex;align-items:center;justify-content:center;height:100%;' +
         "font:14px 'Nunito',system-ui,sans-serif;color:#64748b;text-align:center;padding:16px\">" +
-        'MAIN_UNIQUE_DATASOURCE<br>Settings obrigatórios ausentes: <b>' + missing + '</b><br>' +
+        'MAIN_UNIQUE_DATASOURCE<br>Settings obrigatórios ausentes: <b>' +
+        missing +
+        '</b><br>' +
         'Configure o widget para inicializar.</div>';
     }
     LogHelper.warn(`[MAIN_UNIQUE] Missing required settings (${missing}) - init aborted`);
@@ -266,11 +277,13 @@ self.onInit = async function () {
 
   // === 2. CREDENTIALS AND UTILITIES FOR TELEMETRY WIDGET ===
   // RFC-0111: TELEMETRY widget depends on these utilities from MAIN
-  const DATA_API_HOST     = settings.dataApiHost     || '';
+  const DATA_API_HOST = settings.dataApiHost || '';
   if (!DATA_API_HOST) {
     const msg = 'dataApiHost não configurado. Verifique as configurações do widget.';
     LogHelper.warn('[MAIN_UNIQUE_DATASOURCE]', msg);
-    if (MyIOLibrary?.MyIOToast?.error) { MyIOLibrary.MyIOToast.error(msg); }
+    if (MyIOLibrary?.MyIOToast?.error) {
+      MyIOLibrary.MyIOToast.error(msg);
+    }
   }
   // Rotas reais são /api/v1/alarms… e o AlarmApiClient NÃO acrescenta o prefixo —
   // normaliza aqui p/ aceitar a base com ou sem /api/v1 (auditoria 2026-07-07: sem
@@ -279,8 +292,8 @@ self.onInit = async function () {
     const b = String(settings.alarmsApiBaseUrl || 'https://alarms-api.a.myio-bas.com').replace(/\/+$/, '');
     return /\/api\/v1$/.test(b) ? b : `${b}/api/v1`;
   })();
-  const ALARMS_API_KEY    = settings.alarmsApiKey    || '';
-  const GCDR_API_BASE     = settings.gcdrApiBaseUrl   || 'https://gcdr-api.a.myio-bas.com';
+  const ALARMS_API_KEY = settings.alarmsApiKey || '';
+  const GCDR_API_BASE = settings.gcdrApiBaseUrl || 'https://gcdr-api.a.myio-bas.com';
   // RFC-0046: expose GCDR base URL via window state (analogous to MAIN) for the Goals panel.
   window.MyIOUtils = window.MyIOUtils || {};
   window.MyIOUtils.gcdrApiBaseUrl = GCDR_API_BASE;
@@ -308,7 +321,7 @@ self.onInit = async function () {
   // RFC-0178/RFC-0180: Expose API base URLs on MyIOOrchestrator for components (e.g. btnAlarmBundleMap)
   if (window.MyIOOrchestrator) {
     window.MyIOOrchestrator.alarmsApiBaseUrl = ALARMS_API_BASE;
-    window.MyIOOrchestrator.gcdrApiBaseUrl   = GCDR_API_BASE;
+    window.MyIOOrchestrator.gcdrApiBaseUrl = GCDR_API_BASE;
   }
 
   // Credentials will be fetched from ThingsBoard customer attributes
@@ -412,7 +425,11 @@ self.onInit = async function () {
           }
         }
 
-        LogHelper.log('Credentials updated:', { CLIENT_ID: CLIENT_ID ? '***' : '', CUSTOMER_ING_ID, GCDR_CUSTOMER_ID });
+        LogHelper.log('Credentials updated:', {
+          CLIENT_ID: CLIENT_ID ? '***' : '',
+          CUSTOMER_ING_ID,
+          GCDR_CUSTOMER_ID,
+        });
       } else {
         LogHelper.error('fetchThingsboardCustomerAttrsFromStorage not available in MyIOLibrary');
       }
@@ -448,8 +465,20 @@ self.onInit = async function () {
     if (!customerTB_ID || !jwt) {
       LogHelper.warn('RFC-0152: Missing customerTB_ID or JWT token for feature flags check');
       // Dispatch defaults: all domain tabs visible, operational hidden
-      window.dispatchEvent(new CustomEvent('myio:operational-indicators-access', { detail: { enabled: false } }));
-      window.dispatchEvent(new CustomEvent('myio:domains-access', { detail: { energy: true, water: true, temperature: true, showGoalsButton: true, energySubTabs: { equipments: true, stores: true, dashboard: true } } }));
+      window.dispatchEvent(
+        new CustomEvent('myio:operational-indicators-access', { detail: { enabled: false } })
+      );
+      window.dispatchEvent(
+        new CustomEvent('myio:domains-access', {
+          detail: {
+            energy: true,
+            water: true,
+            temperature: true,
+            showGoalsButton: true,
+            energySubTabs: { equipments: true, stores: true, dashboard: true },
+          },
+        })
+      );
       return { showOperationalPanels: false };
     }
 
@@ -457,19 +486,25 @@ self.onInit = async function () {
       if (MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage) {
         const attrs = await MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage(customerTB_ID, jwt);
 
-        const showOperationalPanels  = attrs?.['show-indicators-operational-panels'] === 'true';
-        const showEnergyTab          = attrs?.['show-energy-tab']              !== 'false'; // default true
-        const showWaterTab           = attrs?.['show-water-tab']               !== 'false'; // default true
-        const showTemperatureTab     = attrs?.['show-temperature-tab']         !== 'false'; // default true
-        const showGoalsButton        = attrs?.['show-goals-button']            !== 'false'; // default true
-        const showEnergyEquipments   = attrs?.['show-energy-tab.equipments']   !== 'false'; // default true
-        const showEnergyStores       = attrs?.['show-energy-tab.stores']       !== 'false'; // default true
-        const showEnergyDashboard    = attrs?.['show-energy-tab.dashboard']    !== 'false'; // default true
-        const apiKeyGcdr             = attrs?.['apiKeyGcdr']                   || '';
+        const showOperationalPanels = attrs?.['show-indicators-operational-panels'] === 'true';
+        const showEnergyTab = attrs?.['show-energy-tab'] !== 'false'; // default true
+        const showWaterTab = attrs?.['show-water-tab'] !== 'false'; // default true
+        const showTemperatureTab = attrs?.['show-temperature-tab'] !== 'false'; // default true
+        const showGoalsButton = attrs?.['show-goals-button'] !== 'false'; // default true
+        const showEnergyEquipments = attrs?.['show-energy-tab.equipments'] !== 'false'; // default true
+        const showEnergyStores = attrs?.['show-energy-tab.stores'] !== 'false'; // default true
+        const showEnergyDashboard = attrs?.['show-energy-tab.dashboard'] !== 'false'; // default true
+        const apiKeyGcdr = attrs?.['apiKeyGcdr'] || '';
 
         LogHelper.log('RFC-0152: Feature flags:', {
-          showOperationalPanels, showEnergyTab, showWaterTab, showTemperatureTab, showGoalsButton,
-          showEnergyEquipments, showEnergyStores, showEnergyDashboard,
+          showOperationalPanels,
+          showEnergyTab,
+          showWaterTab,
+          showTemperatureTab,
+          showGoalsButton,
+          showEnergyEquipments,
+          showEnergyStores,
+          showEnergyDashboard,
         });
 
         const domainsAccess = {
@@ -498,7 +533,11 @@ self.onInit = async function () {
         }
 
         // Dispatch events for Menu component to react
-        window.dispatchEvent(new CustomEvent('myio:operational-indicators-access', { detail: { enabled: showOperationalPanels } }));
+        window.dispatchEvent(
+          new CustomEvent('myio:operational-indicators-access', {
+            detail: { enabled: showOperationalPanels },
+          })
+        );
         window.dispatchEvent(new CustomEvent('myio:domains-access', { detail: domainsAccess }));
 
         return { showOperationalPanels };
@@ -508,8 +547,20 @@ self.onInit = async function () {
     }
 
     // Fallback defaults on error
-    window.dispatchEvent(new CustomEvent('myio:operational-indicators-access', { detail: { enabled: false } }));
-    window.dispatchEvent(new CustomEvent('myio:domains-access', { detail: { energy: true, water: true, temperature: true, showGoalsButton: true, energySubTabs: { equipments: true, stores: true, dashboard: true } } }));
+    window.dispatchEvent(
+      new CustomEvent('myio:operational-indicators-access', { detail: { enabled: false } })
+    );
+    window.dispatchEvent(
+      new CustomEvent('myio:domains-access', {
+        detail: {
+          energy: true,
+          water: true,
+          temperature: true,
+          showGoalsButton: true,
+          energySubTabs: { equipments: true, stores: true, dashboard: true },
+        },
+      })
+    );
     return { showOperationalPanels: false };
   };
 
@@ -1127,23 +1178,24 @@ body.filter-modal-open { overflow: hidden !important; }
   // window.MyIOUtils.createFilterModal = (config) => {
 
   /**
-   * RFC-0111/RFC-0112: Update DEFAULT_SHOPPING_CARDS with real counts and consumption from classified data
-   * Matches by shopping card title to device ownerName
+   * RFC-0111/RFC-0112: Update customer cards (datasource; fallback DEFAULT_SHOPPING_CARDS)
+   * with real counts and consumption from classified data.
+   * Matches by customer card title to device ownerName
    * @param {Object} classified - Classified device data
-   * @returns {Array} Updated shopping cards with real device counts and consumption values
+   * @returns {Array} Updated customer cards with real device counts and consumption values
    */
-  const updateShoppingCardsWithRealCounts = (classified) => {
+  const updateCustomerCardsWithRealCounts = (classified) => {
     // RFC-0112: Use calculateShoppingDeviceStats to get counts AND consumption values
     const statsByOwnerName = MyIOLibrary.calculateShoppingDeviceStats(DOMAIN_ALL_LIST, classified);
 
     LogHelper.log('Device stats by ownerName:', Object.fromEntries(statsByOwnerName));
 
     // Use current shopping cards (from datasource) with fallback to defaults
-    const baseCards = _currentShoppingCards || DEFAULT_SHOPPING_CARDS;
+    const baseCards = _currentCustomersCards || DEFAULT_SHOPPING_CARDS;
 
-    // Persist to _currentShoppingCards so later updates (e.g. metaCounts enrichment)
+    // Persist to _currentCustomersCards so later updates (e.g. metaCounts enrichment)
     // don't revert deviceCounts back to the loading state
-    _currentShoppingCards = baseCards.map((card) => {
+    _currentCustomersCards = baseCards.map((card) => {
       // Reaplica o dashboardId resolvido — a reconstrução não pode descartá-lo
       card = applyDefaultDashboardToCard(card);
       if (!card.title) {
@@ -1199,15 +1251,16 @@ body.filter-modal-open { overflow: hidden !important; }
       return card;
     });
 
-    return _currentShoppingCards;
+    return _currentCustomersCards;
   };
 
   /**
-   * RFC-0111: Update shopping cards in welcome modal with real device counts
+   * RFC-0111: Update customer cards in welcome modal with real device counts
    * @param {Object} welcomeModal - Welcome modal instance
-   * @param {Array} updatedCards - Shopping cards with real device counts
+   * @param {Array} updatedCards - Customer cards with real device counts
    */
-  const updateWelcomeModalShoppingCards = (welcomeModal, updatedCards) => {
+  const updateWelcomeModalCustomersCards = (welcomeModal, updatedCards) => {
+    // updateShoppingCards é a API pública do WelcomeModal na lib — não renomear aqui
     if (welcomeModal && welcomeModal.updateShoppingCards) {
       welcomeModal.updateShoppingCards(updatedCards);
       LogHelper.log('Welcome modal updated with real device counts');
@@ -1215,7 +1268,7 @@ body.filter-modal-open { overflow: hidden !important; }
     }
 
     // Fallback: Update DOM directly
-    LogHelper.log('Updating shopping cards DOM directly');
+    LogHelper.log('Updating customer cards DOM directly');
     updatedCards.forEach((card) => {
       const cardEl = document.querySelector(
         `[data-shopping-id="${card.entityId}"], [data-button-id="${card.buttonId}"]`
@@ -1386,8 +1439,8 @@ body.filter-modal-open { overflow: hidden !important; }
   LogHelper.log('User info fetched:', userInfo);
 
   // Build shopping cards from datasource with fallback to DEFAULT_SHOPPING_CARDS
-  _currentShoppingCards = buildShoppingCardsFromDatasource(self.ctx.data || []);
-  LogHelper.log('Initial shopping cards:', _currentShoppingCards.length, 'cards');
+  _currentCustomersCards = buildCustomerCardsFromDatasource(self.ctx.data || []);
+  LogHelper.log('Initial shopping cards:', _currentCustomersCards.length, 'cards');
 
   const welcomeModal = MyIOLibrary.openWelcomeModal({
     ctx: self.ctx,
@@ -1395,7 +1448,7 @@ body.filter-modal-open { overflow: hidden !important; }
     showThemeToggle: true,
     showUserMenu: true, // Explicitly enable user menu
     configTemplate: welcomeConfig,
-    shoppingCards: _currentShoppingCards, // From datasource or fallback to defaults
+    shoppingCards: _currentCustomersCards, // From datasource or fallback to defaults
     cardVersion: 'v1', // Use original card style (not Metro UI v2)
     userInfo: userInfo, // Pass user info for display
     ctaLabel: welcomeConfig.defaultPrimaryLabel || 'ACESSAR PAINEL',
@@ -1487,8 +1540,8 @@ body.filter-modal-open { overflow: hidden !important; }
 
   // Start retry for WelcomeModal data (non-blocking)
   waitForDataReadyWithRetry('Shopping Cards', (classified) => {
-    const updatedCards = updateShoppingCardsWithRealCounts(classified);
-    updateWelcomeModalShoppingCards(welcomeModal, updatedCards);
+    const updatedCards = updateCustomerCardsWithRealCounts(classified);
+    updateWelcomeModalCustomersCards(welcomeModal, updatedCards);
   });
 
   // RFC-0126: Listen for update event from early handler (handles future updates)
@@ -1497,11 +1550,11 @@ body.filter-modal-open { overflow: hidden !important; }
     LogHelper.log('Update welcome modal event received');
 
     if (classified) {
-      const updatedCards = updateShoppingCardsWithRealCounts(classified);
-      updateWelcomeModalShoppingCards(welcomeModal, updatedCards);
+      const updatedCards = updateCustomerCardsWithRealCounts(classified);
+      updateWelcomeModalCustomersCards(welcomeModal, updatedCards);
     } else if (dynamicCards && dynamicCards.length > 0) {
-      _currentShoppingCards = dynamicCards;
-      updateWelcomeModalShoppingCards(welcomeModal, dynamicCards);
+      _currentCustomersCards = dynamicCards;
+      updateWelcomeModalCustomersCards(welcomeModal, dynamicCards);
     }
 
     // Cards may have arrived/changed: fetch meta counts for any not yet enriched
@@ -1533,7 +1586,7 @@ body.filter-modal-open { overflow: hidden !important; }
 
   const enrichCardsWithMetaCounts = async () => {
     const jwt = getJwtToken();
-    const cards = _currentShoppingCards || [];
+    const cards = _currentCustomersCards || [];
     if (!jwt || cards.length === 0) return;
 
     const tbBase = window.location.origin;
@@ -1639,7 +1692,7 @@ body.filter-modal-open { overflow: hidden !important; }
     // Merge a partial result into the CURRENT cards by entityId (deviceCounts updates replace
     // the array concurrently, so never mutate a stale snapshot) and re-render the modal
     const applyMetaPatch = (entityId, countsPatch, detailsPatch) => {
-      _currentShoppingCards = (_currentShoppingCards || []).map((c) => {
+      _currentCustomersCards = (_currentCustomersCards || []).map((c) => {
         if (c.entityId !== entityId) return c;
         return {
           ...c,
@@ -1648,7 +1701,7 @@ body.filter-modal-open { overflow: hidden !important; }
           metaProgress: (_cardMetaProgress.get(entityId) ?? 0) / 3,
         };
       });
-      updateWelcomeModalShoppingCards(welcomeModal, _currentShoppingCards);
+      updateWelcomeModalCustomersCards(welcomeModal, _currentCustomersCards);
     };
 
     // One source finished for one card: bump per-card + global progress; unlock CTA at 100%
@@ -1666,7 +1719,10 @@ body.filter-modal-open { overflow: hidden !important; }
     // Only cards from the 'customers' datasource carry a TB customer id;
     // DEFAULT fallback cards (ASSET, customerId null) can't be counted
     const targets = cards
-      .filter((c) => c.entityType === 'CUSTOMER' && (c.customerId || c.entityId) && !_enrichedMetaIds.has(c.entityId))
+      .filter(
+        (c) =>
+          c.entityType === 'CUSTOMER' && (c.customerId || c.entityId) && !_enrichedMetaIds.has(c.entityId)
+      )
       .map((c) => ({ entityId: c.entityId, customerTbId: c.customerId || c.entityId, title: c.title }));
 
     if (targets.length === 0) return;
@@ -1874,7 +1930,7 @@ body.filter-modal-open { overflow: hidden !important; }
             byStatus: energyByStatus,
             byCategory: buildEnergyCategoryData(classifiedData),
             byShoppingTotal: buildEnergyCategoryDataByShopping(classifiedData),
-            shoppingsEnergy: buildShoppingsEnergyBreakdown(classifiedData),
+            shoppingsEnergy: buildCustomersEnergyBreakdown(classifiedData),
             entityLabel: settings.goalsEntityLabel || 'Shopping',
             lastUpdated: new Date().toISOString(),
           },
@@ -1893,7 +1949,7 @@ body.filter-modal-open { overflow: hidden !important; }
             byStatus: waterByStatus,
             byCategory: buildWaterCategoryData(classifiedData),
             byShoppingTotal: buildWaterCategoryDataByShopping(classifiedData),
-            shoppingsWater: buildShoppingsWaterBreakdown(classifiedData),
+            shoppingsWater: buildCustomersWaterBreakdown(classifiedData),
             entityLabel: settings.goalsEntityLabel || 'Shopping',
             lastUpdated: new Date().toISOString(),
           },
@@ -1915,7 +1971,7 @@ body.filter-modal-open { overflow: hidden !important; }
       });
 
       // Calculate shoppings temperature status (in range vs out of range)
-      const tempShoppingsStatus = buildShoppingsTemperatureStatus(classifiedData, minTemp, maxTemp);
+      const tempShoppingsStatus = buildCustomersTemperatureStatus(classifiedData, minTemp, maxTemp);
 
       window.dispatchEvent(
         new CustomEvent('myio:temperature-data-ready', {
@@ -2315,7 +2371,7 @@ body.filter-modal-open { overflow: hidden !important; }
             byStatus: energyByStatus,
             byCategory: buildEnergyCategoryData(filteredClassified),
             byShoppingTotal: buildEnergyCategoryDataByShopping(filteredClassified),
-            shoppingsEnergy: buildShoppingsEnergyBreakdown(filteredClassified),
+            shoppingsEnergy: buildCustomersEnergyBreakdown(filteredClassified),
             entityLabel: settings.goalsEntityLabel || 'Shopping',
             lastUpdated: new Date().toISOString(),
           },
@@ -2333,7 +2389,7 @@ body.filter-modal-open { overflow: hidden !important; }
             byStatus: waterByStatus,
             byCategory: buildWaterCategoryData(filteredClassified),
             byShoppingTotal: buildWaterCategoryDataByShopping(filteredClassified),
-            shoppingsWater: buildShoppingsWaterBreakdown(filteredClassified),
+            shoppingsWater: buildCustomersWaterBreakdown(filteredClassified),
             entityLabel: settings.goalsEntityLabel || 'Shopping',
             lastUpdated: new Date().toISOString(),
           },
@@ -2341,7 +2397,7 @@ body.filter-modal-open { overflow: hidden !important; }
       );
 
       // Calculate shoppings temperature status for filtered data
-      const filteredTempShoppingsStatus = buildShoppingsTemperatureStatus(
+      const filteredTempShoppingsStatus = buildCustomersTemperatureStatus(
         filteredClassified,
         minTemp,
         maxTemp
@@ -2393,8 +2449,8 @@ body.filter-modal-open { overflow: hidden !important; }
 
     // 3. Update Welcome modal cards if visible
     if (welcomeModal && classified) {
-      const updatedCards = updateShoppingCardsWithRealCounts(classified);
-      updateWelcomeModalShoppingCards(welcomeModal, updatedCards);
+      const updatedCards = updateCustomerCardsWithRealCounts(classified);
+      updateWelcomeModalCustomersCards(welcomeModal, updatedCards);
     }
   });
 
@@ -2657,7 +2713,8 @@ body.filter-modal-open { overflow: hidden !important; }
               MyIOLibrary.openTemperatureModal({
                 token: tbToken,
                 deviceId: device.entityId,
-                startDate: self.ctx.$scope.startDateISO || new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+                startDate:
+                  self.ctx.$scope.startDateISO || new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
                 endDate: self.ctx.$scope.endDateISO || new Date().toISOString(),
                 label: device.labelOrName || device.label || 'Sensor de Temperatura',
                 currentTemperature: Number(device.temperature ?? 0),
@@ -3007,7 +3064,7 @@ body.filter-modal-open { overflow: hidden !important; }
 
   // Seletor de shopping: overlay leve no padrão dos modais premium (Nunito, accent roxo).
   // Resolve com { tbId, title } ou null (Esc / backdrop / ✕).
-  const pickGoalsShopping = (shoppings) =>
+  const pickGoalsCustomer = (shoppings) =>
     new Promise((resolve) => {
       const prev = document.getElementById('myio-goals-shopping-picker');
       if (prev) prev.remove();
@@ -3020,14 +3077,14 @@ body.filter-modal-open { overflow: hidden !important; }
       const items = shoppings
         .map(
           (s, i) =>
-            `<button type="button" data-idx="${i}" style="display:flex;align-items:center;gap:10px;width:100%;padding:12px 16px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;cursor:pointer;font:600 14px Nunito,sans-serif;color:#1e293b;text-align:left;">🏢 <span>${String(s.title || 'Shopping').replace(/</g, '&lt;')}</span></button>`
+            `<button type="button" data-idx="${i}" style="display:flex;align-items:center;gap:10px;width:100%;padding:12px 16px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;cursor:pointer;font:600 14px Nunito,sans-serif;color:#1e293b;text-align:left;">🏢 <span>${String(s.title || _entS()).replace(/</g, '&lt;')}</span></button>`
         )
         .join('');
 
       overlay.innerHTML = `
-        <div role="dialog" aria-label="Selecionar shopping" style="background:#fff;border-radius:12px;max-width:420px;width:calc(100% - 32px);max-height:80vh;display:flex;flex-direction:column;box-shadow:0 20px 50px rgba(0,0,0,.25);overflow:hidden;">
+        <div role="dialog" aria-label="Selecionar ${_escHtml(_entSLow())}" style="background:#fff;border-radius:12px;max-width:420px;width:calc(100% - 32px);max-height:80vh;display:flex;flex-direction:column;box-shadow:0 20px 50px rgba(0,0,0,.25);overflow:hidden;">
           <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:#6a1b9a;color:#fff;">
-            <strong style="font:700 15px Nunito,sans-serif;">🎯 Metas — selecione o shopping</strong>
+            <strong style="font:700 15px Nunito,sans-serif;">🎯 Metas — selecione: ${_escHtml(_entS())}</strong>
             <button type="button" data-close="1" aria-label="Fechar" style="border:0;background:transparent;color:#fff;font-size:18px;cursor:pointer;line-height:1;">✕</button>
           </div>
           <div style="padding:16px 18px;display:flex;flex-direction:column;gap:8px;overflow-y:auto;">${items}</div>
@@ -3061,16 +3118,22 @@ body.filter-modal-open { overflow: hidden !important; }
   };
 
   const _shoppingAttrsCache = new Map(); // customerTbId -> attrs SERVER_SCOPE
-  const getShoppingAttrs = async (tbId) => {
+  const getCustomerAttrs = async (tbId) => {
     if (!_shoppingAttrsCache.has(tbId)) {
       _shoppingAttrsCache.set(tbId, await fetchCustomerServerScopeAttrs(tbId).catch(() => ({})));
     }
     return _shoppingAttrsCache.get(tbId);
   };
 
-  const _escHtml = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const _escHtml = (s) =>
+    String(s ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
   const _fmtNum = (n) =>
-    n == null || Number.isNaN(Number(n)) ? '—' : Number(n).toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+    n == null || Number.isNaN(Number(n))
+      ? '—'
+      : Number(n).toLocaleString('pt-BR', { maximumFractionDigits: 2 });
 
   // Energia: >= 1.000 kWh exibe em MWh (>= 1.000.000 em GWh). Demais unidades (m³) passam direto.
   const _fmtQtyStr = (v, unit) => {
@@ -3087,7 +3150,7 @@ body.filter-modal-open { overflow: hidden !important; }
   // GoalsModal v-5.2.0 lê): month → tree.monthly["01".."12"]; day → tree.daily["MM-DD"];
   // hour → tree.hourly["MM-DDThh"]. Cache por (customer, domínio, ano, gran).
   const _goalsTreeCache = new Map();
-  const fetchShoppingGoalsTree = async (attrs, gcdrDomain, year, gran = 'month') => {
+  const fetchCustomerGoalsTree = async (attrs, gcdrDomain, year, gran = 'month') => {
     const gcdrCustomerId = attrs?.gcdrCustomerId || '';
     const apiKey = attrs?.gcdrApiKey || GCDR_API_KEY || settings.gcdrApiKey || '';
     if (!gcdrCustomerId || !apiKey) return null;
@@ -3113,7 +3176,7 @@ body.filter-modal-open { overflow: hidden !important; }
   // por device. Muito mais rápido que 1 chamada por shopping (~17s vs 2min+ cada) e
   // inclui medidores fora do datasource TB (ex.: trafos de entrada).
   // Retorna Map<ingestionCustomerId, total>.
-  const fetchAllShoppingsConsumption = async (apiDomain, startISO, endISO) => {
+  const fetchAllCustomersConsumption = async (apiDomain, startISO, endISO) => {
     const creds = window.MyIOUtils?.getCredentials?.();
     if (!creds?.clientId || !creds?.customerId || !MyIOLibrary?.buildMyioIngestionAuth) return null;
     const auth = MyIOLibrary.buildMyioIngestionAuth({
@@ -3123,7 +3186,9 @@ body.filter-modal-open { overflow: hidden !important; }
     });
     const token = await auth.getToken();
     if (!token) return null;
-    const url = new URL(`${creds.dataApiHost}/telemetry/customers/${creds.customerId}/${apiDomain}/devices/totals`);
+    const url = new URL(
+      `${creds.dataApiHost}/telemetry/customers/${creds.customerId}/${apiDomain}/devices/totals`
+    );
     url.searchParams.set('startTime', startISO);
     url.searchParams.set('endTime', endISO);
     url.searchParams.set('deep', '1');
@@ -3162,12 +3227,12 @@ body.filter-modal-open { overflow: hidden !important; }
       //    régua das colunas Entrada dos dashboards próprios. Fonte da verdade.
       const curated = [];
       const uncovered = new Set(); // ingestion ids de shoppings SEM o attr → fallback heurístico
-      const cards = (_currentShoppingCards || []).filter(
+      const cards = (_currentCustomersCards || []).filter(
         (c) => c.entityType === 'CUSTOMER' && (c.customerId || c.entityId)
       );
       await Promise.all(
         cards.map(async (c) => {
-          const attrs = await getShoppingAttrs(c.customerId || c.entityId).catch(() => ({}));
+          const attrs = await getCustomerAttrs(c.customerId || c.entityId).catch(() => ({}));
           const ing = attrs?.ingestionId;
           if (!ing) return;
           let ids = attrs?.entradaIngestionIds;
@@ -3186,7 +3251,11 @@ body.filter-modal-open { overflow: hidden !important; }
         })
       );
       if (curated.length && uncovered.size === 0) {
-        LogHelper.log('[MAIN_UNIQUE] entrada curada:', curated.length, 'medidores (attr entradaIngestionIds)');
+        LogHelper.log(
+          '[MAIN_UNIQUE] entrada curada:',
+          curated.length,
+          'medidores (attr entradaIngestionIds)'
+        );
         return curated;
       }
 
@@ -3204,7 +3273,9 @@ body.filter-modal-open { overflow: hidden !important; }
       // Range curto — a chamada serve só para LISTAR os devices de entrada
       const end = new Date();
       const start = new Date(end.getTime() - 24 * 3600 * 1000);
-      const url = new URL(`${creds.dataApiHost}/telemetry/customers/${creds.customerId}/energy/devices/totals`);
+      const url = new URL(
+        `${creds.dataApiHost}/telemetry/customers/${creds.customerId}/energy/devices/totals`
+      );
       url.searchParams.set('startTime', start.toISOString());
       url.searchParams.set('endTime', end.toISOString());
       url.searchParams.set('deep', '1');
@@ -3317,7 +3388,13 @@ body.filter-modal-open { overflow: hidden !important; }
       _realEntradaKey = key;
       window.MyIOUtils = window.MyIOUtils || {};
       window.MyIOUtils.realEntrada = { total, count: devices.length, startISO, endISO };
-      LogHelper.log('[MAIN_UNIQUE] realEntrada:', Math.round(total), 'kWh em', devices.length, 'medidores canônicos');
+      LogHelper.log(
+        '[MAIN_UNIQUE] realEntrada:',
+        Math.round(total),
+        'kWh em',
+        devices.length,
+        'medidores canônicos'
+      );
       if (energyPanelInstance) {
         const es = window.MyIOOrchestrator?.getEnergySummary?.();
         if (es) energyPanelInstance.updateSummary(es);
@@ -3379,7 +3456,8 @@ body.filter-modal-open { overflow: hidden !important; }
     const days = Math.max(1, Number(periodDays) || 7);
     const end = new Date();
     const start = new Date(end.getFullYear(), end.getMonth(), end.getDate() - (days - 1), 0, 0, 0);
-    const byCust = (await fetchEntradaPointsByCustomer(start.toISOString(), end.toISOString(), '1d')) || new Map();
+    const byCust =
+      (await fetchEntradaPointsByCustomer(start.toISOString(), end.toISOString(), '1d')) || new Map();
 
     // Sem medidores de entrada identificáveis (ex.: Soul Malls — sem attr
     // entradaIngestionIds e heurístico sem match): fallback para TODOS os devices
@@ -3391,18 +3469,20 @@ body.filter-modal-open { overflow: hidden !important; }
       ['entrada', 'equipments', 'stores'].forEach((ctx) =>
         (classified?.energy?.[ctx] || []).forEach((d) => d.ingestionId && allowed.add(d.ingestionId))
       );
-      LogHelper.warn('[MAIN_UNIQUE] Geral(Energia): sem medidores de entrada — fallback p/ todos os devices de energia');
+      LogHelper.warn(
+        '[MAIN_UNIQUE] Geral(Energia): sem medidores de entrada — fallback p/ todos os devices de energia'
+      );
       return fetchDailyConsumptionByCustomer('energy', days, allowed);
     }
 
     // ingestionId → título do shopping (cards do datasource)
     const names = {};
-    const cards = (_currentShoppingCards || []).filter(
+    const cards = (_currentCustomersCards || []).filter(
       (c) => c.entityType === 'CUSTOMER' && (c.customerId || c.entityId)
     );
     await Promise.all(
       cards.map(async (c) => {
-        const attrs = await getShoppingAttrs(c.customerId || c.entityId).catch(() => ({}));
+        const attrs = await getCustomerAttrs(c.customerId || c.entityId).catch(() => ({}));
         if (attrs?.ingestionId) names[attrs.ingestionId] = c.title || attrs.ingestionId;
       })
     );
@@ -3462,7 +3542,12 @@ body.filter-modal-open { overflow: hidden !important; }
       );
     };
     if (mode === 'stores') return sumByShopping(classified.energy?.stores);
-    const catByMode = { hvac: 'climatizacao', elevators: 'elevadores', escalators: 'escadas_rolantes', others: 'outros' };
+    const catByMode = {
+      hvac: 'climatizacao',
+      elevators: 'elevadores',
+      escalators: 'escadas_rolantes',
+      others: 'outros',
+    };
     const cat = catByMode[mode];
     if (!cat) return {};
     const equipments = classified.energy?.equipments || [];
@@ -3476,7 +3561,13 @@ body.filter-modal-open { overflow: hidden !important; }
   // não há medidores de entrada identificáveis (ex.: Soul Malls).
   const _dailyTotalsCache = new Map(); // 'domain|YYYY-MM-DD' -> Map<custId, {name, total}>
   const fetchDailyConsumptionByCustomer = async (apiDomain, periodDays, allowedIds) => {
-    const empty = { labels: [], dailyTotals: [], shoppingData: {}, shoppingNames: {}, fetchTimestamp: Date.now() };
+    const empty = {
+      labels: [],
+      dailyTotals: [],
+      shoppingData: {},
+      shoppingNames: {},
+      fetchTimestamp: Date.now(),
+    };
     const days = Math.max(1, Number(periodDays) || 7);
     const creds = window.MyIOUtils?.getCredentials?.();
     if (!creds?.clientId || !creds?.customerId || !MyIOLibrary?.buildMyioIngestionAuth) return empty;
@@ -3503,7 +3594,9 @@ body.filter-modal-open { overflow: hidden !important; }
         return;
       }
       const dateStr = key.split('|')[1];
-      const url = new URL(`${creds.dataApiHost}/telemetry/customers/${creds.customerId}/${apiDomain}/devices/totals`);
+      const url = new URL(
+        `${creds.dataApiHost}/telemetry/customers/${creds.customerId}/${apiDomain}/devices/totals`
+      );
       url.searchParams.set('startTime', `${dateStr}T00:00:00-03:00`);
       url.searchParams.set('endTime', `${dateStr}T23:59:59-03:00`);
       url.searchParams.set('deep', '1');
@@ -3581,7 +3674,13 @@ body.filter-modal-open { overflow: hidden !important; }
   // /{domain}/ com granularity 1d|1h. LENTO em ranges grandes (~1-2min p/ um mês);
   // usado na Evolução × Meta de ÁGUA (energia usa fetchEntradaPointsByCustomer, rápida).
   // Retorna [{timestamp, value}] somado por ts.
-  const fetchHeadOfficeSeries = async (apiDomain, startISO, endISO, granularity, customerIngestionId = null) => {
+  const fetchHeadOfficeSeries = async (
+    apiDomain,
+    startISO,
+    endISO,
+    granularity,
+    customerIngestionId = null
+  ) => {
     const creds = window.MyIOUtils?.getCredentials?.();
     if (!creds?.clientId || !creds?.customerId || !MyIOLibrary?.buildMyioIngestionAuth) return null;
     const auth = MyIOLibrary.buildMyioIngestionAuth({
@@ -3667,7 +3766,7 @@ body.filter-modal-open { overflow: hidden !important; }
       const years = [...new Set(days.map((dd) => dd.y))];
       const treesByYear = {};
       for (const y of years) {
-        treesByYear[y] = await fetchShoppingGoalsTree(attrs, cfgD.gcdr, y, 'day').catch(() => null);
+        treesByYear[y] = await fetchCustomerGoalsTree(attrs, cfgD.gcdr, y, 'day').catch(() => null);
       }
       let sum = 0;
       let has = false;
@@ -3691,7 +3790,7 @@ body.filter-modal-open { overflow: hidden !important; }
     overlay.innerHTML = `
       <div role="dialog" data-gc-dialog aria-label="Metas × Consumo" style="background:var(--gc-surface);border-radius:14px;width:min(1200px,calc(100% - 32px));max-height:92vh;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.3);overflow:hidden;">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 20px;background:linear-gradient(135deg,#4a148c,#6a1b9a);color:#fff;flex-shrink:0;">
-          <strong style="font:700 16px Nunito,sans-serif;">📊 Metas × Consumo — Todos os Shoppings</strong>
+          <strong style="font:700 16px Nunito,sans-serif;">📊 Metas × Consumo — ${_escHtml(_entP())}</strong>
           <div style="display:flex;align-items:center;gap:10px;">
             <button type="button" data-thm title="Alternar tema claro/escuro" style="${hdrBtn}">🌙</button>
             <button type="button" data-max title="Maximizar" style="${hdrBtn}">⛶</button>
@@ -3727,9 +3826,9 @@ body.filter-modal-open { overflow: hidden !important; }
               <button type="button" data-modegroup="sep" title="Um gráfico/card por ${_escHtml(_goalsEntityLabel.toLowerCase())}" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Por ${_escHtml(_goalsEntityLabel)}</button>
             </div>
             <div data-sep-submodes style="display:none;gap:4px;background:var(--gc-chip);border-radius:8px;padding:3px;">
-              <button type="button" data-submode="stack" title="Todos os shoppings empilhados; meta única (soma)" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Empilhados</button>
-              <button type="button" data-submode="sep" title="Um par de barras e uma linha de meta por shopping" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Separados</button>
-              <button type="button" data-submode="cards" title="Um card por shopping: Realizado × A-1 × Orçado (RFC-0217)" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Cards</button>
+              <button type="button" data-submode="stack" title="Séries empilhadas (${_escHtml(_entPLow())}); meta única (soma)" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Empilhados</button>
+              <button type="button" data-submode="sep" title="Um par de barras e uma linha de meta por ${_escHtml(_entSLow())}" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Separados</button>
+              <button type="button" data-submode="cards" title="Um card por ${_escHtml(_entSLow())}: Realizado × A-1 × Orçado (RFC-0217)" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Cards</button>
             </div>
             <button type="button" data-cards-settings title="Configurações dos cards (linha/barra, pontos)" style="display:none;border:1px solid rgba(124,58,237,.45);border-radius:8px;background:transparent;color:#7C3AED;padding:4px 9px;cursor:pointer;font:700 13px Nunito,sans-serif;">⚙️</button>
             <span style="margin-left:auto;display:inline-flex;align-items:center;gap:8px;">
@@ -3750,7 +3849,7 @@ body.filter-modal-open { overflow: hidden !important; }
               <div data-cards-grid style="display:none;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;"></div>
               <div data-cards-legend style="display:none;align-items:center;justify-content:center;gap:18px;flex-wrap:wrap;font:600 11px Nunito,sans-serif;color:var(--gc-muted);padding:4px 2px 0;"></div>
               <div data-analytics style="display:none;overflow-x:auto;"></div>
-              <div data-caption style="font:600 11px Nunito,sans-serif;color:var(--gc-muted2);">Barras: consumo do período e do mesmo período no ano anterior · Linha(s): meta GCDR — consolidado/empilhado = soma dos shoppings (linha única); separado = uma linha tracejada por customer · Consumo Energia: medidores de ENTRADA (régua das metas) · Água: hidrômetros · Dia/Hora seguem o intervalo selecionado; Hora disponível para intervalos de até 15 dias · Gestão: 🎯 Metas → Gestão de Metas.</div>
+              <div data-caption style="font:600 11px Nunito,sans-serif;color:var(--gc-muted2);">Barras: consumo do período e do mesmo período no ano anterior · Linha(s): meta — consolidado/empilhado = soma (${_escHtml(_entPLow())}, linha única); separado = uma linha tracejada por ${_escHtml(_entSLow())} · Consumo Energia: medidores de ENTRADA (régua das metas) · Água: hidrômetros · Dia/Hora seguem o intervalo selecionado; Hora disponível para intervalos de até 15 dias · Gestão: 🎯 Metas → Gestão de Metas.</div>
             </div>
             <aside style="flex:0 0 330px;max-width:100%;display:flex;flex-direction:column;gap:8px;" data-side>
               <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
@@ -3779,20 +3878,41 @@ body.filter-modal-open { overflow: hidden !important; }
     // ── Tema (sincronizado com o dashboard via myio:theme-change / RFC-0120) ──
     const GC_THEMES = {
       light: {
-        surface: '#ffffff', surface2: '#f8fafc', chip: '#f1f5f9', border: '#e2e8f0',
-        text: '#1e293b', text2: '#334155', muted: '#64748b', muted2: '#94a3b8',
-        inputBorder: '#cbd5e1', pillActiveBg: '#ffffff', pillActiveTx: '#3e1a7d',
-        tabIdleBg: '#ffffff', chartTick: '#475569', chartGrid: 'rgba(100,116,139,.15)',
+        surface: '#ffffff',
+        surface2: '#f8fafc',
+        chip: '#f1f5f9',
+        border: '#e2e8f0',
+        text: '#1e293b',
+        text2: '#334155',
+        muted: '#64748b',
+        muted2: '#94a3b8',
+        inputBorder: '#cbd5e1',
+        pillActiveBg: '#ffffff',
+        pillActiveTx: '#3e1a7d',
+        tabIdleBg: '#ffffff',
+        chartTick: '#475569',
+        chartGrid: 'rgba(100,116,139,.15)',
       },
       dark: {
-        surface: '#1e293b', surface2: '#273449', chip: '#0f172a', border: '#334155',
-        text: '#e2e8f0', text2: '#cbd5e1', muted: '#94a3b8', muted2: '#64748b',
-        inputBorder: '#475569', pillActiveBg: '#6a1b9a', pillActiveTx: '#ffffff',
-        tabIdleBg: '#1e293b', chartTick: '#cbd5e1', chartGrid: 'rgba(148,163,184,.15)',
+        surface: '#1e293b',
+        surface2: '#273449',
+        chip: '#0f172a',
+        border: '#334155',
+        text: '#e2e8f0',
+        text2: '#cbd5e1',
+        muted: '#94a3b8',
+        muted2: '#64748b',
+        inputBorder: '#475569',
+        pillActiveBg: '#6a1b9a',
+        pillActiveTx: '#ffffff',
+        tabIdleBg: '#1e293b',
+        chartTick: '#cbd5e1',
+        chartGrid: 'rgba(148,163,184,.15)',
       },
     };
     let modalTheme =
-      (typeof currentThemeMode === 'string' ? currentThemeMode : window.MyIOUtils?.currentThemeMode) === 'dark'
+      (typeof currentThemeMode === 'string' ? currentThemeMode : window.MyIOUtils?.currentThemeMode) ===
+      'dark'
         ? 'dark'
         : 'light';
     let isMax = false;
@@ -3805,7 +3925,16 @@ body.filter-modal-open { overflow: hidden !important; }
       energy: { bar: '#6c5ce7', goal: '#f97316' },
       water: { bar: '#0891b2', goal: '#f59e0b' },
     };
-    const SHOP_PALETTE = ['#6c5ce7', '#0ea5e9', '#22c55e', '#eab308', '#ef4444', '#14b8a6', '#d946ef', '#f97316'];
+    const SHOP_PALETTE = [
+      '#6c5ce7',
+      '#0ea5e9',
+      '#22c55e',
+      '#eab308',
+      '#ef4444',
+      '#14b8a6',
+      '#d946ef',
+      '#f97316',
+    ];
     const rgba = (hex, a) => {
       const n = parseInt(hex.slice(1), 16);
       return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
@@ -3819,7 +3948,7 @@ body.filter-modal-open { overflow: hidden !important; }
     let showCurYear = true; // 👁 ano corrente
     let showPrevYear = true; // 👁 ano anterior (A-1)
     let cardsShowPoints = true; // ⚙️ dos cards
-    let cardsChartType = 'line'; // ⚙️ dos cards
+    let cardsChartType = 'bar'; // ⚙️ dos cards — barra é o default
     let cardsGroupBy = 'shopping'; // ⚙️ dos cards: 'shopping' (default) | 'device' (explode por medidor)
     let evoChart = null;
     let evoSeq = 0;
@@ -3844,7 +3973,10 @@ body.filter-modal-open { overflow: hidden !important; }
         return '<span style="background:#f1f5f9;color:#64748b;border-radius:999px;padding:2px 10px;font:700 11px Nunito,sans-serif;">Sem consumo</span>';
       // Desvio percentual em relação ao Orçado (ex.: consumo a 69,8% → "30,2% · Abaixo do Orçado")
       const pct = (consumo / meta) * 100;
-      const devTxt = Math.abs(100 - pct).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+      const devTxt = Math.abs(100 - pct).toLocaleString('pt-BR', {
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 1,
+      });
       if (pct <= 90)
         return `<span style="background:#dcfce7;color:#15803d;border-radius:999px;padding:2px 10px;font:700 11px Nunito,sans-serif;">${devTxt}% · Abaixo do Orçado</span>`;
       if (pct <= 100)
@@ -3862,7 +3994,12 @@ body.filter-modal-open { overflow: hidden !important; }
     const paintSideSort = () => {
       overlay.querySelectorAll('[data-side-sort-key]').forEach((b) => {
         const active = b.dataset.sideSortKey === sideSortKey;
-        const base = b.dataset.sideSortKey === 'title' ? 'Nome' : b.dataset.sideSortKey === 'consumo' ? 'Consumo' : 'Orçado';
+        const base =
+          b.dataset.sideSortKey === 'title'
+            ? 'Nome'
+            : b.dataset.sideSortKey === 'consumo'
+              ? 'Consumo'
+              : 'Orçado';
         b.textContent = active ? `${base} ${sideSortDir === 1 ? '↑' : '↓'}` : base;
         b.style.background = active ? 'rgba(124,58,237,.10)' : 'transparent';
         b.style.color = active ? '#7C3AED' : 'var(--gc-muted)';
@@ -3873,7 +4010,8 @@ body.filter-modal-open { overflow: hidden !important; }
       if (!sideSortKey) return rows;
       const val = (r) => (sideSortKey === 'title' ? String(r.title || '') : r[sideSortKey]);
       return [...rows].sort((a, b) => {
-        if (sideSortKey === 'title') return String(a.title).localeCompare(String(b.title), 'pt-BR') * sideSortDir;
+        if (sideSortKey === 'title')
+          return String(a.title).localeCompare(String(b.title), 'pt-BR') * sideSortDir;
         const va = Number.isFinite(Number(val(a))) && val(a) != null ? Number(val(a)) : -Infinity;
         const vb = Number.isFinite(Number(val(b))) && val(b) != null ? Number(val(b)) : -Infinity;
         return (va - vb) * sideSortDir;
@@ -3897,7 +4035,9 @@ body.filter-modal-open { overflow: hidden !important; }
           <div style="font:600 11px Nunito,sans-serif;color:var(--gc-muted);">Orçado <b style="color:var(--gc-text2);">${fmtCell(meta)}</b> · Consumo <b style="color:var(--gc-text2);">${fmtCell(consumo)}</b></div>
         </div>`;
       tableEl.innerHTML =
-        sortSideRows(rows).map((r) => item(r.title, r.meta, r.consumo, false)).join('') +
+        sortSideRows(rows)
+          .map((r) => item(r.title, r.meta, r.consumo, false))
+          .join('') +
         item(
           `Total${loading ? ' (parcial)' : ''}`,
           loading ? undefined : totalMeta || null,
@@ -3917,7 +4057,12 @@ body.filter-modal-open { overflow: hidden !important; }
       // Render progressivo: sidebar aparece já com todos os shoppings em "carregando".
       // Metas (GCDR, rápidas) preenchem por card; consumo chega de uma vez.
       // undefined = carregando; null = sem dado.
-      const rows = shoppings.map((s) => ({ title: s.title, meta: undefined, consumo: undefined, ingestionId: null }));
+      const rows = shoppings.map((s) => ({
+        title: s.title,
+        meta: undefined,
+        consumo: undefined,
+        ingestionId: null,
+      }));
       const refresh = () => {
         const metasPend = rows.filter((r) => r.meta === undefined).length;
         const consPend = rows.some((r) => r.consumo === undefined);
@@ -3932,11 +4077,12 @@ body.filter-modal-open { overflow: hidden !important; }
       // Attrs primeiro (cacheados após a 1ª vez): ingestionId casa consumo↔shopping
       await Promise.all(
         shoppings.map(async (s, i) => {
-          const attrs = await getShoppingAttrs(s.tbId);
+          const attrs = await getCustomerAttrs(s.tbId);
           rows[i].ingestionId = attrs?.ingestionId || null;
           rows[i]._attrs = attrs;
         })
       );
+
       if (seq !== reqSeq) return;
 
       // Meta do período = soma das metas diárias do range (createDateRangePicker)
@@ -3949,9 +4095,10 @@ body.filter-modal-open { overflow: hidden !important; }
         })
       );
       // Energia: só medidores de ENTRADA (régua das metas); Água: todos os hidrômetros
-      const consP = (domainKey === 'energy'
-        ? fetchEntradaTotalsByCustomer(startISO, endISO)
-        : fetchAllShoppingsConsumption(cfg.api, startISO, endISO)
+      const consP = (
+        domainKey === 'energy'
+          ? fetchEntradaTotalsByCustomer(startISO, endISO)
+          : fetchAllCustomersConsumption(cfg.api, startISO, endISO)
       )
         .catch(() => null)
         .then((byCustomer) => {
@@ -4012,7 +4159,11 @@ body.filter-modal-open { overflow: hidden !important; }
     let goalsCards = [];
     const destroyGoalsCards = () => {
       goalsCards.forEach((c) => {
-        try { c.destroy(); } catch { /* já destruído */ }
+        try {
+          c.destroy();
+        } catch {
+          /* já destruído */
+        }
       });
       goalsCards = [];
     };
@@ -4040,7 +4191,18 @@ body.filter-modal-open { overflow: hidden !important; }
       const l = overlay.querySelector('[data-evo-loading]');
       if (l) l.style.display = on ? 'flex' : 'none';
     };
-    const renderGoalsCardsGrid = ({ labels, shops, curBy, prevBy, goalOf, trees, bucketize, yearCurLabel, yearPrevLabel, unit }) => {
+    const renderGoalsCardsGrid = ({
+      labels,
+      shops,
+      curBy,
+      prevBy,
+      goalOf,
+      trees,
+      bucketize,
+      yearCurLabel,
+      yearPrevLabel,
+      unit,
+    }) => {
       const grid = overlay.querySelector('[data-cards-grid]');
       const legend = overlay.querySelector('[data-cards-legend]');
       if (!grid) return;
@@ -4087,9 +4249,10 @@ body.filter-modal-open { overflow: hidden !important; }
     };
 
     // ── Cards agrupados por DISPOSITIVO (⚙️ Agrupado por: Dispositivos) ──────────
-    // Explode a entrada por medidor: 1 card por device (energia: medidores curados
-    // de entrada; água: hidrômetros de entrada do datasource). SEM linha de Orçado —
-    // metas são por shopping, não por medidor (o card omite a faixa graciosamente).
+    // SEMPRE 1 card por shopping (nunca 1 por medidor): a opção só quebra o
+    // GRÁFICO por medidor de entrada (series.breakdown do CustomerGoalsCard —
+    // energia: medidores curados; água: hidrômetros de entrada). A linha de
+    // Orçado permanece — meta é do shopping, que continua sendo o card.
     const listCardDevices = async () => {
       if (domainKey === 'energy') {
         const devs = await getEntradaDevices();
@@ -4114,7 +4277,19 @@ body.filter-modal-open { overflow: hidden !important; }
         }));
     };
 
-    const renderGoalsDeviceCardsGrid = ({ labels, devices, curDev, prevDev, bucketize, yearCurLabel, yearPrevLabel, unit, shops }) => {
+    const renderGoalsDeviceCardsGrid = ({
+      labels,
+      devices,
+      curDev,
+      prevDev,
+      bucketize,
+      yearCurLabel,
+      yearPrevLabel,
+      unit,
+      shops,
+      trees,
+      goalOf,
+    }) => {
       const grid = overlay.querySelector('[data-cards-grid]');
       const legend = overlay.querySelector('[data-cards-legend]');
       if (!grid) return;
@@ -4127,61 +4302,132 @@ body.filter-modal-open { overflow: hidden !important; }
         return;
       }
       if (!devices.length) {
-        grid.innerHTML =
-          '<div style="font:600 12px Nunito,sans-serif;color:var(--gc-muted);padding:12px;">Sem dispositivos de entrada identificáveis neste domínio — use o agrupamento por shopping.</div>';
+        grid.innerHTML = `<div style="font:600 12px Nunito,sans-serif;color:var(--gc-muted);padding:12px;">Sem dispositivos de entrada identificáveis neste domínio — use o agrupamento por ${_escHtml(_entSLow())}.</div>`;
         if (legend) legend.innerHTML = '';
         return;
       }
-      const shopTitleByIng = new Map((shops || []).map((s) => [s.ingestionId, s.title]));
-      // Título legível: "entrada:<Shopping>" (curadoria) vira "Entrada · <Shopping>";
-      // medidores duplicados do mesmo shopping ganham #1/#2 para distinguir os cards.
-      const baseTitles = devices.map((d) => {
+      // SEMPRE um card por shopping (paridade com o agrupamento por shopping);
+      // "Dispositivos" muda só o GRÁFICO: uma série por medidor (breakdown) em
+      // vez da consolidada. Meta (Orçado) volta ao card — ela é por shopping.
+      const shopIdxByIng = new Map((shops || []).map((s, i) => [s.ingestionId, i]));
+      const shopIdxByTitle = new Map(
+        (shops || []).map((s, i) => [
+          String(s.title || '')
+            .trim()
+            .toLowerCase(),
+          i,
+        ])
+      );
+      // Nome legível do medidor: curadoria "entrada:<Shopping>" vira "Entrada".
+      const deviceLabel = (d) => {
         const m = String(d.name || '').match(/^entrada:(.+)$/i);
-        return m ? `Entrada · ${m[1]}` : String(d.name || 'Medidor');
-      });
-      const titleCount = baseTitles.reduce((acc, t) => acc.set(t, (acc.get(t) || 0) + 1), new Map());
-      const titleSeen = new Map();
-      devices.forEach((d, i) => {
-        const shopTitle = shopTitleByIng.get(d.customerId);
-        let title = baseTitles[i];
-        if (titleCount.get(title) > 1) {
-          const n = (titleSeen.get(title) || 0) + 1;
-          titleSeen.set(title, n);
-          title = `${title} #${n}`;
+        return m ? 'Entrada' : String(d.name || 'Medidor');
+      };
+      // device → shopping: customerId; fallback pela curadoria "entrada:<título>"
+      const shopIdxOf = (d) => {
+        if (d.customerId != null && shopIdxByIng.has(d.customerId)) return shopIdxByIng.get(d.customerId);
+        const m = String(d.name || '').match(/^entrada:(.+)$/i);
+        if (m) {
+          const idx = shopIdxByTitle.get(m[1].trim().toLowerCase());
+          if (idx != null) return idx;
         }
+        return null;
+      };
+      const byShop = new Map(); // shopIdx -> devices[]
+      const orphans = [];
+      devices.forEach((d) => {
+        const idx = shopIdxOf(d);
+        if (idx == null) orphans.push(d);
+        else (byShop.get(idx) || byShop.set(idx, []).get(idx)).push(d);
+      });
+
+      const nullSeries = () => labels.map(() => null);
+      const sumSeries = (arrs) =>
+        arrs.reduce((acc, arr) => {
+          (arr || []).forEach((v, i) => {
+            if (v == null || Number.isNaN(Number(v))) return;
+            acc[i] = (acc[i] || 0) + Number(v);
+          });
+          return acc;
+        }, nullSeries());
+
+      const makeCard = ({ title, devs, budget }) => {
+        // Nomes deduplicados dentro do card (#1/#2 quando o shopping tem 2 medidores iguais)
+        const names = devs.map(deviceLabel);
+        const count = names.reduce((acc, n) => acc.set(n, (acc.get(n) || 0) + 1), new Map());
+        const seen = new Map();
+        const buckets = devs.map((d) => bucketize(curDev?.get(d.id)));
+        const breakdown = devs.map((d, i) => {
+          let name = names[i];
+          if (count.get(name) > 1) {
+            const n = (seen.get(name) || 0) + 1;
+            seen.set(name, n);
+            name = `${name} #${n}`;
+          }
+          return { name, values: buckets[i] };
+        });
         goalsCards.push(
           MyIOLibrary.createCustomerGoalsCard({
             container: grid,
-            title: shopTitle && !title.includes(shopTitle) ? `${title} · ${shopTitle}` : title,
+            title,
             unit,
             yearLabels: { current: yearCurLabel, previous: yearPrevLabel },
             themeMode: modalTheme,
             options: { chartType: cardsChartType, showPoints: cardsShowPoints },
             series: {
               labels,
-              realized: showCurYear ? bucketize(curDev?.get(d.id)) : labels.map(() => null),
-              previousYear: showPrevYear ? bucketize(prevDev?.get(d.id)) : undefined,
-              // budget omitido de propósito: meta é por shopping, não por medidor
+              realized: showCurYear ? sumSeries(buckets) : nullSeries(),
+              // >1 medidor → gráfico quebrado por device; 1 medidor → consolidado clássico
+              breakdown: showCurYear && breakdown.length > 1 ? breakdown : undefined,
+              previousYear: showPrevYear
+                ? sumSeries(devs.map((d) => bucketize(prevDev?.get(d.id))))
+                : undefined,
+              budget,
             },
           })
         );
+      };
+
+      (shops || []).forEach((s, i) => {
+        const devs = byShop.get(i);
+        if (!devs?.length) return; // shopping sem medidor identificável neste domínio
+        makeCard({ title: s.title, devs, budget: goalOf ? goalOf(trees?.[i]) : undefined });
       });
+      // Medidores sem shopping identificável: um card residual (não perder dado)
+      if (orphans.length) {
+        makeCard({ title: `Sem ${_entSLow()} identificado`, devs: orphans, budget: undefined });
+      }
+
       if (legend) {
         const item = (swatch, label) =>
           `<span style="display:inline-flex;align-items:center;gap:6px;">${swatch}<span>${label}</span></span>`;
         const dot = (color) =>
           `<span style="width:22px;height:0;border-top:3px solid ${color};border-radius:2px;display:inline-block;"></span>`;
+        const dash = (color) =>
+          `<span style="width:22px;height:0;border-top:3px dashed ${color};display:inline-block;"></span>`;
         legend.innerHTML =
           (showPrevYear ? item(dot('#94a3b8'), `A-1 (${yearPrevLabel})`) : '') +
-          (showCurYear ? item(dot('#6c5ce7'), `Realizado (${yearCurLabel})`) : '') +
-          `<span style="font-style:italic;">sem linha de Orçado — metas são por ${_escHtml(_goalsEntityLabel.toLowerCase())}</span>`;
+          item(dash('#f59e0b'), `Orçado (${yearCurLabel})`) +
+          (showCurYear
+            ? `<span style="font-style:italic;">Realizado (${yearCurLabel}) quebrado por medidor — cores na legenda de cada card</span>`
+            : '');
       }
     };
 
     // ── Resumo Analítico — tabela do portfólio fiel a logs/026-GolsAnalitcs.png ──
     // Colunas: Realizado / A-1 / Orçado (valor + % participação), Var. vs A-1 e vs
     // Orçado (valor + %) e Performance (vs Orçado). Linha TOTAL no rodapé.
-    const renderAnalyticsTable = ({ shops, curBy, prevBy, trees, goalOf, bucketize, yearCurLabel, yearPrevLabel, unit }) => {
+    const renderAnalyticsTable = ({
+      shops,
+      curBy,
+      prevBy,
+      trees,
+      goalOf,
+      bucketize,
+      yearCurLabel,
+      yearPrevLabel,
+      unit,
+    }) => {
       const host = overlay.querySelector('[data-analytics]');
       if (!host) return;
       showEvoSurface('analytics');
@@ -4203,13 +4449,17 @@ body.filter-modal-open { overflow: hidden !important; }
         budget: sumArr(goalOf(trees[i])),
       }));
       const tot = {
-        realized: rows.some((r) => r.realized != null) ? rows.reduce((a, r) => a + (r.realized || 0), 0) : null,
+        realized: rows.some((r) => r.realized != null)
+          ? rows.reduce((a, r) => a + (r.realized || 0), 0)
+          : null,
         prev: rows.some((r) => r.prev != null) ? rows.reduce((a, r) => a + (r.prev || 0), 0) : null,
         budget: rows.some((r) => r.budget != null) ? rows.reduce((a, r) => a + (r.budget || 0), 0) : null,
       };
 
       const pctPart = (v, total) =>
-        v == null || !total ? '—' : `${((v / total) * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`;
+        v == null || !total
+          ? '—'
+          : `${((v / total) * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`;
       const varCells = (realized, ref) => {
         if (realized == null || ref == null || ref === 0)
           return `<td style="${tdR}color:var(--gc-muted);">—</td><td style="${tdR}color:var(--gc-muted);">—</td>`;
@@ -4221,15 +4471,18 @@ body.filter-modal-open { overflow: hidden !important; }
         return `<td style="${tdR}color:${color};font-weight:700;">${diff > 0 ? '+' : '−'}${_fmtQtyStr(Math.abs(diff), unit)}</td><td style="${tdR}color:${color};font-weight:700;">${arrow} ${pctTxt}</td>`;
       };
       const perfCell = (realized, budget) => {
-        if (realized == null || budget == null || budget === 0) return `<td style="${tdR}color:var(--gc-muted);">—</td>`;
+        if (realized == null || budget == null || budget === 0)
+          return `<td style="${tdR}color:var(--gc-muted);">—</td>`;
         const pct = (realized / budget) * 100;
         const color = pct <= 100 ? '#16a34a' : pct <= 105 ? '#f59e0b' : '#ef4444';
         return `<td style="${tdR}color:${color};font-weight:800;">${pct.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%</td>`;
       };
 
-      const th = 'padding:7px 10px;font:700 11px Nunito,sans-serif;color:var(--gc-muted);text-align:right;white-space:nowrap;border-bottom:1px solid var(--gc-border);';
+      const th =
+        'padding:7px 10px;font:700 11px Nunito,sans-serif;color:var(--gc-muted);text-align:right;white-space:nowrap;border-bottom:1px solid var(--gc-border);';
       const thL = th.replace('text-align:right', 'text-align:left');
-      const tdR = 'padding:7px 10px;font:600 12px Nunito,sans-serif;color:var(--gc-text);text-align:right;white-space:nowrap;border-bottom:1px solid var(--gc-border);';
+      const tdR =
+        'padding:7px 10px;font:600 12px Nunito,sans-serif;color:var(--gc-text);text-align:right;white-space:nowrap;border-bottom:1px solid var(--gc-border);';
       const tdL = tdR.replace('text-align:right', 'text-align:left');
 
       const groupHead = (label, span) =>
@@ -4237,8 +4490,10 @@ body.filter-modal-open { overflow: hidden !important; }
       const bodyRow = (r, bold) => {
         const w = bold ? 'font-weight:800;' : '';
         let cells = `<td style="${tdL}${w}">${bold ? '' : '🏢 '}${_escHtml(r.title)}</td>`;
-        if (showCurYear) cells += `<td style="${tdR}${w}">${_fmtQtyStr(r.realized, unit)}</td><td style="${tdR}${w}color:var(--gc-muted);">${pctPart(r.realized, tot.realized)}</td>`;
-        if (showPrevYear) cells += `<td style="${tdR}${w}">${_fmtQtyStr(r.prev, unit)}</td><td style="${tdR}${w}color:var(--gc-muted);">${pctPart(r.prev, tot.prev)}</td>`;
+        if (showCurYear)
+          cells += `<td style="${tdR}${w}">${_fmtQtyStr(r.realized, unit)}</td><td style="${tdR}${w}color:var(--gc-muted);">${pctPart(r.realized, tot.realized)}</td>`;
+        if (showPrevYear)
+          cells += `<td style="${tdR}${w}">${_fmtQtyStr(r.prev, unit)}</td><td style="${tdR}${w}color:var(--gc-muted);">${pctPart(r.prev, tot.prev)}</td>`;
         cells += `<td style="${tdR}${w}">${_fmtQtyStr(r.budget, unit)}</td><td style="${tdR}${w}color:var(--gc-muted);">${pctPart(r.budget, tot.budget)}</td>`;
         if (showCurYear && showPrevYear) cells += varCells(r.realized, r.prev);
         if (showCurYear) cells += varCells(r.realized, r.budget) + perfCell(r.realized, r.budget);
@@ -4292,7 +4547,7 @@ body.filter-modal-open { overflow: hidden !important; }
         <strong style="font:800 12px Nunito,sans-serif;color:var(--gc-text);">⚙️ Configurações dos cards</strong>
         <span style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">Agrupado por:
           <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="gcCgcGroupBy" value="shopping" ${cardsGroupBy === 'shopping' ? 'checked' : ''} style="accent-color:#7C3AED;"> ${_escHtml(_goalsEntityLabel)}</label>
-          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;" title="Um card por medidor de entrada (sem linha de meta — metas são por ${_escHtml(_goalsEntityLabel.toLowerCase())})"><input type="radio" name="gcCgcGroupBy" value="device" ${cardsGroupBy === 'device' ? 'checked' : ''} style="accent-color:#7C3AED;"> Dispositivos</label>
+          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;" title="Mantém um card por ${_escHtml(_goalsEntityLabel.toLowerCase())}, com o gráfico quebrado por medidor de entrada (uma linha por dispositivo)"><input type="radio" name="gcCgcGroupBy" value="device" ${cardsGroupBy === 'device' ? 'checked' : ''} style="accent-color:#7C3AED;"> Dispositivos</label>
         </span>
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
           <input type="checkbox" data-opt-points ${cardsShowPoints ? 'checked' : ''} style="accent-color:#7C3AED;width:15px;height:15px;">
@@ -4361,7 +4616,10 @@ body.filter-modal-open { overflow: hidden !important; }
             tooltip: tooltipCb,
           },
           scales: stacked
-            ? { x: { stacked: true, ...axis }, y: { stacked: true, beginAtZero: true, grid: axis.grid, ticks: yTicks } }
+            ? {
+                x: { stacked: true, ...axis },
+                y: { stacked: true, beginAtZero: true, grid: axis.grid, ticks: yTicks },
+              }
             : { x: { ...axis }, y: { beginAtZero: true, grid: axis.grid, ticks: yTicks } },
         },
       });
@@ -4380,7 +4638,7 @@ body.filter-modal-open { overflow: hidden !important; }
       const nowD = new Date();
       const yearGoals = yearSel;
 
-      const attrsList = await Promise.all(shoppings.map((s) => getShoppingAttrs(s.tbId)));
+      const attrsList = await Promise.all(shoppings.map((s) => getCustomerAttrs(s.tbId)));
       if (seq !== evoSeq) return;
       const shops = shoppings.map((s, i) => ({
         title: s.title,
@@ -4390,7 +4648,7 @@ body.filter-modal-open { overflow: hidden !important; }
 
       const gcdrGran = evoGran === '1y' || evoGran === '1M' ? 'month' : evoGran === '1d' ? 'day' : 'hour';
       const trees = await Promise.all(
-        shops.map((s) => fetchShoppingGoalsTree(s.attrs, cfgD.gcdr, yearGoals, gcdrGran).catch(() => null))
+        shops.map((s) => fetchCustomerGoalsTree(s.attrs, cfgD.gcdr, yearGoals, gcdrGran).catch(() => null))
       );
       if (seq !== evoSeq) return;
 
@@ -4406,7 +4664,10 @@ body.filter-modal-open { overflow: hidden !important; }
         goalKeyAt = (i) => ['monthly', String(i + 1).padStart(2, '0')];
         const isCurYear = yearSel === nowD.getFullYear();
         ranges = {
-          cur: [`${yearSel}-01-01T00:00:00-03:00`, isCurYear ? nowD.toISOString() : `${yearSel}-12-31T23:59:59-03:00`],
+          cur: [
+            `${yearSel}-01-01T00:00:00-03:00`,
+            isCurYear ? nowD.toISOString() : `${yearSel}-12-31T23:59:59-03:00`,
+          ],
           prev: [`${yearSel - 1}-01-01T00:00:00-03:00`, `${yearSel - 1}-12-31T23:59:59-03:00`],
         };
       } else if (evoGran === '1M') {
@@ -4514,7 +4775,9 @@ body.filter-modal-open { overflow: hidden !important; }
           const out = new Map();
           await Promise.all(
             devices.map(async (d) => {
-              const pts = await fetchDeviceSeries(d.id, cfgD.api, range[0], range[1], seriesGranDev).catch(() => []);
+              const pts = await fetchDeviceSeries(d.id, cfgD.api, range[0], range[1], seriesGranDev).catch(
+                () => []
+              );
               out.set(d.id, pts);
             })
           );
@@ -4533,6 +4796,8 @@ body.filter-modal-open { overflow: hidden !important; }
           yearPrevLabel: String(yearSel - 1),
           unit: cfgD.unit,
           shops,
+          trees,
+          goalOf,
         });
         evoStatusEl.textContent = devices.length ? '' : 'Sem medidores de entrada';
         setEvoLoading(false);
@@ -4542,7 +4807,9 @@ body.filter-modal-open { overflow: hidden !important; }
       // Consumo por customer (ano do período e ano-1). Energia: séries dos medidores de
       // entrada (~1s/device). Água: série agregada — consolidado 1 chamada; por shopping
       // 1 por customer (lentas ~2min, em paralelo).
-      evoStatusEl.textContent = isEnergy ? 'Carregando consumo…' : 'Carregando consumo… (água pode levar ~2 min)';
+      evoStatusEl.textContent = isEnergy
+        ? 'Carregando consumo…'
+        : 'Carregando consumo… (água pode levar ~2 min)';
       const seriesGran = evoGran === '1h' ? '1h' : '1d';
       const fetchByCustomer = async (range) => {
         // Água: 'stack' e 'sep' precisam da série POR shopping; consolidado usa 1 chamada head-office
@@ -4557,9 +4824,13 @@ body.filter-modal-open { overflow: hidden !important; }
           await Promise.all(
             shops.map(async (s) => {
               if (!s.ingestionId) return;
-              const pts = await fetchHeadOfficeSeries(cfgD.api, range[0], range[1], seriesGran, s.ingestionId).catch(
-                () => null
-              );
+              const pts = await fetchHeadOfficeSeries(
+                cfgD.api,
+                range[0],
+                range[1],
+                seriesGran,
+                s.ingestionId
+              ).catch(() => null);
               if (pts) byCust.set(s.ingestionId, pts);
             })
           );
@@ -4744,7 +5015,8 @@ body.filter-modal-open { overflow: hidden !important; }
         if (window.jspdf?.jsPDF) return resolve(window.jspdf.jsPDF);
         const s = document.createElement('script');
         s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
-        s.onload = () => (window.jspdf?.jsPDF ? resolve(window.jspdf.jsPDF) : reject(new Error('jsPDF indisponível')));
+        s.onload = () =>
+          window.jspdf?.jsPDF ? resolve(window.jspdf.jsPDF) : reject(new Error('jsPDF indisponível'));
         s.onerror = () => reject(new Error('falha ao carregar jsPDF'));
         document.head.appendChild(s);
       });
@@ -4769,7 +5041,7 @@ body.filter-modal-open { overflow: hidden !important; }
         doc.setTextColor(255, 255, 255);
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(17);
-        doc.text('Metas x Consumo — Todos os Shoppings', MX, 13);
+        doc.text(`Metas x Consumo — ${_entP()}`, MX, 13);
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(10);
         doc.text(
@@ -4792,7 +5064,7 @@ body.filter-modal-open { overflow: hidden !important; }
               ? '—'
               : `${Math.abs(100 - pctTotal).toFixed(1)}% ${pctTotal <= 100 ? 'abaixo' : 'acima'} do Orçado`,
           ],
-          ['Shoppings', String(rows.length)],
+          [_entP(), String(rows.length)],
         ];
         const boxW = (W - MX * 2 - 9) / 4;
         kpis.forEach(([label, value], i) => {
@@ -4830,7 +5102,7 @@ body.filter-modal-open { overflow: hidden !important; }
         doc.setFontSize(9);
         doc.setTextColor(100, 116, 139);
         doc.setFont('helvetica', 'normal');
-        doc.text('Shopping', colX[0], y);
+        doc.text(_entS(), colX[0], y);
         doc.text('Orçado', colX[1], y);
         doc.text('Consumo', colX[2], y);
         doc.text('Situação', colX[3], y);
@@ -4866,8 +5138,14 @@ body.filter-modal-open { overflow: hidden !important; }
         // Cards/Analítico não têm canvas único — PDF sai com KPIs + tabela (RFC-0217 v1)
         if (evoMode !== 'cards' && evoMode !== 'analytics' && evoChart && evoCanvas.width > 0) {
           const granLbl =
-            evoGran === '1y' ? 'anual (mensal)' : evoGran === '1M' ? 'mensal' : evoGran === '1d' ? 'diário' : 'horário';
-          const modeLbl = evoMode === 'sep' ? 'por shopping' : 'consolidado';
+            evoGran === '1y'
+              ? 'anual (mensal)'
+              : evoGran === '1M'
+                ? 'mensal'
+                : evoGran === '1d'
+                  ? 'diário'
+                  : 'horário';
+          const modeLbl = evoMode === 'sep' ? `por ${_entSLow()}` : 'consolidado';
           const img = evoCanvas.toDataURL('image/png', 1.0);
           const iw = W - MX * 2;
           const ih = Math.min(iw * (evoCanvas.height / evoCanvas.width), 120);
@@ -5146,12 +5424,12 @@ body.filter-modal-open { overflow: hidden !important; }
             <button type="button" data-area="manage" style="${cardStyle}">
               <span style="font-size:26px;">🛠️</span>
               <strong style="font:700 14px Nunito,sans-serif;color:#1e293b;">Gestão de Metas</strong>
-              <span style="font:600 12px Nunito,sans-serif;color:#64748b;">Criar, atualizar e importar metas de um shopping (planilha, histórico de versões).</span>
+              <span style="font:600 12px Nunito,sans-serif;color:#64748b;">Criar, atualizar e importar metas por ${_escHtml(_entSLow())} (planilha, histórico de versões).</span>
             </button>
             <button type="button" data-area="compare" style="${cardStyle}">
               <span style="font-size:26px;">📊</span>
               <strong style="font:700 14px Nunito,sans-serif;color:#1e293b;">Metas × Consumo</strong>
-              <span style="font:600 12px Nunito,sans-serif;color:#64748b;">Comparar o consumo real de todos os shoppings com as metas, num único painel.</span>
+              <span style="font:600 12px Nunito,sans-serif;color:#64748b;">Comparar o consumo real (${_escHtml(_entPLow())}) com as metas, num único painel.</span>
             </button>
           </div>
         </div>`;
@@ -5185,9 +5463,9 @@ body.filter-modal-open { overflow: hidden !important; }
     try {
       // Shoppings filhos vindos do datasource 'customers' (mesma fonte do welcome modal);
       // cards de fallback (ASSET, sem customerId) não têm metas próprias no GCDR.
-      const shoppings = (_currentShoppingCards || [])
+      const shoppings = (_currentCustomersCards || [])
         .filter((c) => c.entityType === 'CUSTOMER' && (c.customerId || c.entityId))
-        .map((c) => ({ tbId: c.customerId || c.entityId, title: c.title || 'Shopping' }));
+        .map((c) => ({ tbId: c.customerId || c.entityId, title: c.title || _entS() }));
 
       if (shoppings.length === 0) {
         // Dashboard sem shoppings filhos (single-customer): comportamento antigo,
@@ -5205,7 +5483,7 @@ body.filter-modal-open { overflow: hidden !important; }
         return;
       }
 
-      const selected = shoppings.length === 1 ? shoppings[0] : await pickGoalsShopping(shoppings);
+      const selected = shoppings.length === 1 ? shoppings[0] : await pickGoalsCustomer(shoppings);
       if (!selected) return; // seleção cancelada
 
       await openGoalsForCustomer(selected.tbId, selected.title);
@@ -5711,15 +5989,27 @@ body.filter-modal-open { overflow: hidden !important; }
     if (!container) return;
 
     // Destroy other views sharing this container
-    if (telemetryGridInstance) { telemetryGridInstance.destroy?.(); telemetryGridInstance = null; }
-    if (energyPanelInstance) { energyPanelInstance.destroy?.(); energyPanelInstance = null; }
-    if (waterPanelInstance) { waterPanelInstance.destroy?.(); waterPanelInstance = null; }
-    if (operationalGridInstance) { operationalGridInstance.destroy?.(); operationalGridInstance = null; }
+    if (telemetryGridInstance) {
+      telemetryGridInstance.destroy?.();
+      telemetryGridInstance = null;
+    }
+    if (energyPanelInstance) {
+      energyPanelInstance.destroy?.();
+      energyPanelInstance = null;
+    }
+    if (waterPanelInstance) {
+      waterPanelInstance.destroy?.();
+      waterPanelInstance = null;
+    }
+    if (operationalGridInstance) {
+      operationalGridInstance.destroy?.();
+      operationalGridInstance = null;
+    }
 
     const classified = window.MyIOOrchestratorData?.classified;
     const minTemp = Number(window.MyIOUtils?.temperatureLimits?.minTemperature ?? 18);
     const maxTemp = Number(window.MyIOUtils?.temperatureLimits?.maxTemperature ?? 26);
-    const { shoppingsInRange, shoppingsOutOfRange } = buildShoppingsTemperatureStatus(
+    const { shoppingsInRange, shoppingsOutOfRange } = buildCustomersTemperatureStatus(
       classified,
       minTemp,
       maxTemp
@@ -5728,7 +6018,8 @@ body.filter-modal-open { overflow: hidden !important; }
     const allShoppings = [...shoppingsInRange, ...shoppingsOutOfRange].sort((a, b) =>
       a.name.localeCompare(b.name)
     );
-    const totalSensors = (classified?.temperature?.termostato || []).length +
+    const totalSensors =
+      (classified?.temperature?.termostato || []).length +
       (classified?.temperature?.termostato_external || []).length;
     const globalAvg = allShoppings.length
       ? allShoppings.reduce((s, sh) => s + sh.avgTemp, 0) / allShoppings.length
@@ -5774,12 +6065,12 @@ body.filter-modal-open { overflow: hidden !important; }
         <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
           ${kpi('Temperatura média', `${fmt(globalAvg)}°C`)}
           ${kpi('Sensores', String(totalSensors))}
-          ${kpi('Shoppings na faixa', String(shoppingsInRange.length), '#10b981')}
+          ${kpi(`${_entP()} na faixa`, String(shoppingsInRange.length), '#10b981')}
           ${kpi('Alertas (fora da faixa)', String(shoppingsOutOfRange.length), shoppingsOutOfRange.length ? '#ef4444' : undefined)}
         </div>
         <div style="background:${cardBg};border:1px solid ${border};border-radius:12px;overflow:hidden;">
           <div style="padding:12px 16px;font-weight:700;color:${txt};border-bottom:1px solid ${border};">
-            Temperatura por Shopping <span style="color:${muted};font-weight:400;font-size:12px;">(faixa ideal ${minTemp}°–${maxTemp}°C)</span>
+            Temperatura por ${_escHtml(_entS())} <span style="color:${muted};font-weight:400;font-size:12px;">(faixa ideal ${minTemp}°–${maxTemp}°C)</span>
           </div>
           ${listBody}
         </div>
@@ -5889,11 +6180,15 @@ body.filter-modal-open { overflow: hidden !important; }
       // Infer equipment type from deviceType field or fallback to device name
       const nameLower = (d.deviceName || '').toLowerCase();
       const type =
-        d.deviceType === 'ESCADA_ROLANTE' ? 'escada'
-        : d.deviceType === 'ELEVADOR' ? 'elevador'
-        : nameLower.includes('escada') ? 'escada'
-        : nameLower.includes('elevad') ? 'elevador'
-        : 'other';
+        d.deviceType === 'ESCADA_ROLANTE'
+          ? 'escada'
+          : d.deviceType === 'ELEVADOR'
+            ? 'elevador'
+            : nameLower.includes('escada')
+              ? 'escada'
+              : nameLower.includes('elevad')
+                ? 'elevador'
+                : 'other';
 
       // Map API status ('healthy'|'degraded'|'critical') → EquipmentStatus
       const statusMap = { healthy: 'online', degraded: 'warning', critical: 'offline' };
@@ -5910,7 +6205,7 @@ body.filter-modal-open { overflow: hidden !important; }
       // Strip parenthesized customer suffix from device name for cleaner display
       const cleanDeviceName = customerNameFromDeviceName
         ? (d.deviceName || '').replace(/\s*\([^)]+\)\s*$/, '').trim()
-        : (d.deviceName || '');
+        : d.deviceName || '';
 
       const mapped = {
         id: d.deviceId,
@@ -5931,7 +6226,9 @@ body.filter-modal-open { overflow: hidden !important; }
         lastMaintenanceTime: d.lastMaintenanceAt ? new Date(d.lastMaintenanceAt).getTime() : undefined,
       };
 
-      LogHelper.log(`[RFC-0175][mapAvailability] ${d.deviceName}: availability=${mapped.availability} mtbf=${mapped.mtbf} mttr=${mapped.mttr} status=${mapped.status}`);
+      LogHelper.log(
+        `[RFC-0175][mapAvailability] ${d.deviceName}: availability=${mapped.availability} mtbf=${mapped.mtbf} mttr=${mapped.mttr} status=${mapped.status}`
+      );
       return mapped;
     });
   }
@@ -6158,7 +6455,9 @@ body.filter-modal-open { overflow: hidden !important; }
 
     // Guard: prevent concurrent async renders triggered by duplicate myio:switch-main-state events
     if (_isRenderingOperationalGrid) {
-      LogHelper.log('[MAIN_UNIQUE] RFC-0175: renderOperationalGeneralList already in progress, skipping duplicate call');
+      LogHelper.log(
+        '[MAIN_UNIQUE] RFC-0175: renderOperationalGeneralList already in progress, skipping duplicate call'
+      );
       return;
     }
     _isRenderingOperationalGrid = true;
@@ -6172,7 +6471,9 @@ body.filter-modal-open { overflow: hidden !important; }
       if (!MyIOLibrary?.createDeviceOperationalCardGridComponent) {
         container.innerHTML =
           '<div style="padding:20px;text-align:center;color:#94a3b8;">DeviceOperationalCardGrid component not available</div>';
-        LogHelper.warn('[MAIN_UNIQUE] RFC-0175: createDeviceOperationalCardGridComponent not found in MyIOLibrary');
+        LogHelper.warn(
+          '[MAIN_UNIQUE] RFC-0175: createDeviceOperationalCardGridComponent not found in MyIOLibrary'
+        );
         return;
       }
 
@@ -6210,7 +6511,19 @@ body.filter-modal-open { overflow: hidden !important; }
       LogHelper.log('[MAIN_UNIQUE] RFC-0175: Received', response.byDevice?.length ?? 0, 'devices');
 
       const equipment = mapAvailabilityToEquipment(response.byDevice);
-      LogHelper.log('[RFC-0175] Equipment mapped count:', equipment.length, '— first item sample:', equipment[0] ? { id: equipment[0].id, availability: equipment[0].availability, mtbf: equipment[0].mtbf, mttr: equipment[0].mttr } : 'none');
+      LogHelper.log(
+        '[RFC-0175] Equipment mapped count:',
+        equipment.length,
+        '— first item sample:',
+        equipment[0]
+          ? {
+              id: equipment[0].id,
+              availability: equipment[0].availability,
+              mtbf: equipment[0].mtbf,
+              mttr: equipment[0].mttr,
+            }
+          : 'none'
+      );
 
       // Enrich customerName from classified devices (API doesn't return customerName)
       const classified = window.MyIOOrchestratorData?.classified;
@@ -6233,7 +6546,11 @@ body.filter-modal-open { overflow: hidden !important; }
             eq.customerName = deviceCustomerMap.get(eq.id) || '';
           }
         }
-        LogHelper.log('[RFC-0175] customerName enriched from classified:', deviceCustomerMap.size, 'devices in map');
+        LogHelper.log(
+          '[RFC-0175] customerName enriched from classified:',
+          deviceCustomerMap.size,
+          'devices in map'
+        );
       }
 
       const customers = Array.from(
@@ -6265,7 +6582,11 @@ body.filter-modal-open { overflow: hidden !important; }
         },
       });
 
-      LogHelper.log('[MAIN_UNIQUE] RFC-0175: Operational General List rendered with', equipment.length, 'devices');
+      LogHelper.log(
+        '[MAIN_UNIQUE] RFC-0175: Operational General List rendered with',
+        equipment.length,
+        'devices'
+      );
     } catch (err) {
       LogHelper.error('[MAIN_UNIQUE] RFC-0175: Failed to fetch availability data:', err);
       container.innerHTML =
@@ -6287,7 +6608,9 @@ body.filter-modal-open { overflow: hidden !important; }
     if (!MyIOLibrary?.createAlarmsNotificationsPanelComponent) {
       container.innerHTML =
         '<div style="padding:20px;text-align:center;color:#94a3b8;">AlarmsNotificationsPanel component not available</div>';
-      LogHelper.warn('[MAIN_UNIQUE] RFC-0175: createAlarmsNotificationsPanelComponent not found in MyIOLibrary');
+      LogHelper.warn(
+        '[MAIN_UNIQUE] RFC-0175: createAlarmsNotificationsPanelComponent not found in MyIOLibrary'
+      );
       return;
     }
 
@@ -6373,11 +6696,16 @@ body.filter-modal-open { overflow: hidden !important; }
         const val = row?.data?.[0]?.[1];
         if (val) set.add(String(val));
       }
-    } catch { /* noop */ }
+    } catch {
+      /* noop */
+    }
     // Secondary: orchestrator items (already carry gcdrDeviceId)
     const orch = window.MyIOOrchestratorData || {};
     [orch.energy?.items, orch.water?.items, orch.temperature?.items].forEach((items) => {
-      if (Array.isArray(items)) items.forEach((d) => { if (d.gcdrDeviceId) set.add(String(d.gcdrDeviceId)); });
+      if (Array.isArray(items))
+        items.forEach((d) => {
+          if (d.gcdrDeviceId) set.add(String(d.gcdrDeviceId));
+        });
     });
     return set;
   }
@@ -6403,7 +6731,9 @@ body.filter-modal-open { overflow: hidden !important; }
       if (!next.customerName && dev.customerName) next.customerName = dev.customerName;
       return next;
     });
-    LogHelper.log(`[MAIN_UNIQUE] RFC-0175: device labels resolved by gcdrDeviceId: ${resolved}/${alarms.length}`);
+    LogHelper.log(
+      `[MAIN_UNIQUE] RFC-0175: device labels resolved by gcdrDeviceId: ${resolved}/${alarms.length}`
+    );
     return out;
   }
 
@@ -6782,7 +7112,7 @@ function processDataAndDispatchEvents() {
   const classified = classifyAllDevices(data);
 
   // Build shopping cards for welcome modal
-  const shoppingCards = buildShoppingCards(classified);
+  const shoppingCards = buildCustomerCards(classified);
 
   // Calculate device counts
   const deviceCounts = calculateDeviceCounts(classified);
@@ -6790,7 +7120,7 @@ function processDataAndDispatchEvents() {
   // Update module-level cache
   _cachedClassified = classified;
   _cachedDeviceCounts = deviceCounts;
-  _cachedShoppings = buildShoppingsList(allData);
+  _cachedShoppings = buildCustomersList(allData);
 
   // Dispatch data ready event
   window.dispatchEvent(
@@ -6855,7 +7185,7 @@ function processDataAndDispatchEvents() {
         byStatus: energyByStatus,
         byCategory: buildEnergyCategoryData(classified),
         byShoppingTotal: buildEnergyCategoryDataByShopping(classified),
-        shoppingsEnergy: buildShoppingsEnergyBreakdown(classified),
+        shoppingsEnergy: buildCustomersEnergyBreakdown(classified),
         entityLabel: _goalsEntityLabel,
         lastUpdated: new Date().toISOString(),
       },
@@ -6874,7 +7204,7 @@ function processDataAndDispatchEvents() {
         byStatus: waterByStatus,
         byCategory: buildWaterCategoryData(classified),
         byShoppingTotal: buildWaterCategoryDataByShopping(classified),
-        shoppingsWater: buildShoppingsWaterBreakdown(classified),
+        shoppingsWater: buildCustomersWaterBreakdown(classified),
         entityLabel: _goalsEntityLabel,
         lastUpdated: new Date().toISOString(),
       },
@@ -6896,7 +7226,7 @@ function processDataAndDispatchEvents() {
   });
 
   // Calculate shoppings temperature status
-  const tempShoppingsStatus = buildShoppingsTemperatureStatus(classified, minTemp, maxTemp);
+  const tempShoppingsStatus = buildCustomersTemperatureStatus(classified, minTemp, maxTemp);
 
   // Temperature summary event
   window.dispatchEvent(
@@ -7411,7 +7741,7 @@ function buildWaterCategoryDataByShopping(classified) {
  * RFC-0126: Build shoppings energy breakdown for tooltip
  * Groups consumption by shopping (ownerName/customerName)
  */
-function buildShoppingsEnergyBreakdown(classified) {
+function buildCustomersEnergyBreakdown(classified) {
   const shoppingMap = new Map();
 
   const allDevices = [...(classified?.energy?.equipments || []), ...(classified?.energy?.stores || [])];
@@ -7456,7 +7786,7 @@ function buildShoppingsEnergyBreakdown(classified) {
  * RFC-0111: Updated categories: Entrada, Banheiros, Área Comum, Pontos Não Mapeados, Lojas
  * Groups consumption by shopping (ownerName/customerName)
  */
-function buildShoppingsWaterBreakdown(classified) {
+function buildCustomersWaterBreakdown(classified) {
   const shoppingMap = new Map();
 
   const entradaDevices = classified?.water?.hidrometro_entrada || [];
@@ -7517,7 +7847,7 @@ function buildShoppingsWaterBreakdown(classified) {
  * @param {number} maxTemp - Maximum acceptable temperature
  * @returns {{ shoppingsInRange: Array, shoppingsOutOfRange: Array }}
  */
-function buildShoppingsTemperatureStatus(classified, minTemp, maxTemp) {
+function buildCustomersTemperatureStatus(classified, minTemp, maxTemp) {
   const termostatoDevices = classified?.temperature?.termostato || [];
   const termostatoExternalDevices = classified?.temperature?.termostato_external || [];
   const allDevices = [...termostatoDevices, ...termostatoExternalDevices];
@@ -7708,7 +8038,7 @@ function classifyAllDevices(data) {
 
 /**
  * Extract device metadata from a single row
- * Used by buildShoppingsList where we iterate row by row
+ * Used by buildCustomersList where we iterate row by row
  */
 function extractDeviceMetadataToBuildShoppingsList(row) {
   const datasource = row?.datasource || {};
@@ -7916,7 +8246,7 @@ function extractDeviceMetadataFromRows(rows) {
   };
 }
 
-function buildShoppingCards(classified) {
+function buildCustomerCards(classified) {
   // Group by customer and build shopping cards
   const customerMap = new Map();
 
@@ -7959,10 +8289,10 @@ function buildShoppingCards(classified) {
   return Array.from(customerMap.values());
 }
 
-function buildShoppingsList(data) {
-  // RFC-0126: Priority 1 - Extract from aliasName='Shopping' or 'customers' datasource
+function buildCustomersList(data) {
+  // RFC-0126: Priority 1 - Extract from the aliasName='customers' datasource
   // This datasource contains customer entities directly with label, id, minTemperature, maxTemperature
-  const fromAlias = buildShoppingsListFromAlias(data);
+  const fromAlias = buildCustomersListFromAlias(data);
   if (fromAlias.length > 0) {
     // RFC-0126: Expose temperature limits globally (like old MAIN controller)
     // Use the first customer with valid temperature limits
@@ -7977,7 +8307,7 @@ function buildShoppingsList(data) {
       ) {
         window.MyIOUtils.temperatureLimits.minTemperature = customerWithLimits.minTemperature;
         LogHelper.log(
-          `[buildShoppingsList] Exposed global minTemperature: ${customerWithLimits.minTemperature}`
+          `[buildCustomersList] Exposed global minTemperature: ${customerWithLimits.minTemperature}`
         );
       }
       if (
@@ -7986,7 +8316,7 @@ function buildShoppingsList(data) {
       ) {
         window.MyIOUtils.temperatureLimits.maxTemperature = customerWithLimits.maxTemperature;
         LogHelper.log(
-          `[buildShoppingsList] Exposed global maxTemperature: ${customerWithLimits.maxTemperature}`
+          `[buildCustomersList] Exposed global maxTemperature: ${customerWithLimits.maxTemperature}`
         );
       }
     }
@@ -7996,7 +8326,7 @@ function buildShoppingsList(data) {
   // RFC-0126: Priority 2 - Use classified data from MyIOOrchestratorData
   const classified = window.MyIOOrchestratorData?.classified;
   if (classified) {
-    return buildShoppingsListFromClassified(classified);
+    return buildCustomersListFromClassified(classified);
   }
 
   // Fallback: try to extract from raw rows (less reliable)
@@ -8020,16 +8350,17 @@ function buildShoppingsList(data) {
 }
 
 /**
- * RFC-0126: Build shoppings list from aliasName='Shopping' or 'customers' datasource
+ * RFC-0126: Build customers list from the aliasName='customers' datasource
  * This is the preferred method as it contains customer entities directly
  */
-function buildShoppingsListFromAlias(data) {
+function buildCustomersListFromAlias(data) {
   const customerMap = new Map();
 
   data.forEach((row) => {
     const aliasName = row?.datasource?.aliasName || '';
-    // Check for 'Shopping' or 'customers' alias
-    if (aliasName === 'Shopping' || aliasName === 'customers') {
+    // Contrato do dashboard: o alias dos customers filhos chama-se 'customers'
+    // (neutro — vale para shoppings, estações, hospitais…)
+    if (aliasName === 'customers') {
       const entityId = row?.datasource?.entityId || '';
       const entityLabel = row?.datasource?.entityLabel || '';
       const dataKey = row?.dataKey?.name || '';
@@ -8066,7 +8397,7 @@ function buildShoppingsListFromAlias(data) {
 
   const result = Array.from(customerMap.values());
   if (result.length > 0) {
-    LogHelper.log('[buildShoppingsListFromAlias] Built shoppings list:', result.length, 'customers');
+    LogHelper.log('[buildCustomersListFromAlias] Built customers list:', result.length, 'customers');
   }
   return result;
 }
@@ -8078,7 +8409,7 @@ function buildShoppingsListFromAlias(data) {
  * `dashboardId` — sem isso os cards do welcome não redirecionam.
  */
 // customerId -> dashboardId resolvido do attr customerDefaultDashboard. Fica em
-// escopo de módulo porque updateShoppingCardsWithRealCounts RECONSTRÓI os cards a
+// escopo de módulo porque updateCustomerCardsWithRealCounts RECONSTRÓI os cards a
 // cada myio:data-ready — sem esta memória o patch do enrichment era descartado
 // pela reconstrução seguinte (corrida observada na Soul Malls).
 const _defaultDashboardByCustomer = new Map();
@@ -8091,7 +8422,7 @@ function applyDefaultDashboardToCard(card) {
 }
 
 async function enrichShoppingCardsWithDefaultDashboards(welcomeModal) {
-  const cards = _currentShoppingCards || [];
+  const cards = _currentCustomersCards || [];
   const pending = cards.filter(
     (c) => !c.dashboardId && c.customerId && !_defaultDashboardByCustomer.has(c.customerId)
   );
@@ -8108,7 +8439,11 @@ async function enrichShoppingCardsWithDefaultDashboards(welcomeModal) {
         const attrs = await res.json();
         let v = (attrs || []).find((a) => a.key === 'customerDefaultDashboard')?.value;
         if (typeof v === 'string') {
-          try { v = JSON.parse(v); } catch { v = null; }
+          try {
+            v = JSON.parse(v);
+          } catch {
+            v = null;
+          }
         }
         const dashId = v?.dashboardId;
         if (dashId && String(dashId) !== 'null') {
@@ -8121,9 +8456,9 @@ async function enrichShoppingCardsWithDefaultDashboards(welcomeModal) {
   );
   if (!_defaultDashboardByCustomer.size) return;
   // Aplica sobre o array CORRENTE (pode ter sido reconstruído durante os fetches)
-  _currentShoppingCards = (_currentShoppingCards || []).map(applyDefaultDashboardToCard);
+  _currentCustomersCards = (_currentCustomersCards || []).map(applyDefaultDashboardToCard);
   if (welcomeModal?.updateShoppingCards) {
-    welcomeModal.updateShoppingCards([..._currentShoppingCards]);
+    welcomeModal.updateShoppingCards([..._currentCustomersCards]);
     LogHelper.log(
       '[MAIN_UNIQUE] Welcome cards enriquecidos com customerDefaultDashboard:',
       _defaultDashboardByCustomer.size
@@ -8136,13 +8471,13 @@ async function enrichShoppingCardsWithDefaultDashboards(welcomeModal) {
  * Extracts: title, dashboardId, entityId, entityType, subtitle
  * Cards without dashboardId are not clickable
  */
-function buildShoppingCardsFromDatasource(data) {
+function buildCustomerCardsFromDatasource(data) {
   const customerMap = new Map();
 
   data.forEach((row) => {
     const aliasName = row?.datasource?.aliasName || '';
-    // Check for 'Shopping' or 'customers' alias
-    if (aliasName === 'Shopping' || aliasName === 'customers') {
+    // Contrato do dashboard: alias 'customers' (neutro; não existe alias 'Shopping')
+    if (aliasName === 'customers') {
       const entityId = row?.datasource?.entityId || '';
       const entityLabel = row?.datasource?.entityLabel || '';
       const entityType = row?.datasource?.entityType || 'CUSTOMER';
@@ -8189,7 +8524,7 @@ function buildShoppingCardsFromDatasource(data) {
 
   if (cards.length > 0) {
     LogHelper.log(
-      '[buildShoppingCardsFromDatasource] Built shopping cards from datasource:',
+      '[buildCustomerCardsFromDatasource] Built shopping cards from datasource:',
       cards.length,
       'cards'
     );
@@ -8198,7 +8533,7 @@ function buildShoppingCardsFromDatasource(data) {
 
   // Fallback to DEFAULT_SHOPPING_CARDS
   LogHelper.log(
-    '[buildShoppingCardsFromDatasource] No customers in datasource, using DEFAULT_SHOPPING_CARDS'
+    '[buildCustomerCardsFromDatasource] No customers in datasource, using DEFAULT_SHOPPING_CARDS'
   );
   return DEFAULT_SHOPPING_CARDS;
 }
@@ -8207,7 +8542,7 @@ function buildShoppingCardsFromDatasource(data) {
  * RFC-0126: Build shoppings list from classified device data
  * Uses the merged device objects which have complete metadata
  */
-function buildShoppingsListFromClassified(classified) {
+function buildCustomersListFromClassified(classified) {
   const customerMap = new Map();
 
   // Iterate through all domains and contexts
@@ -8235,7 +8570,7 @@ function buildShoppingsListFromClassified(classified) {
   });
 
   const result = Array.from(customerMap.values());
-  LogHelper.log('[buildShoppingsListFromClassified] Built shoppings list:', result.length, 'customers');
+  LogHelper.log('[buildCustomersListFromClassified] Built shoppings list:', result.length, 'customers');
   return result;
 }
 
@@ -8708,9 +9043,7 @@ async function enrichDevicesWithConsumption(classified) {
 
                 // Last entry = most recent data point from ingestion backend
                 const lastEntry = row.consumption[row.consumption.length - 1];
-                const lastTelemetryTs = lastEntry?.timestamp
-                  ? new Date(lastEntry.timestamp).getTime()
-                  : null;
+                const lastTelemetryTs = lastEntry?.timestamp ? new Date(lastEntry.timestamp).getTime() : null;
                 const lastValue =
                   lastEntry?.value !== undefined && lastEntry?.value !== null
                     ? Number(lastEntry.value)
@@ -8834,7 +9167,7 @@ function useCachedEnrichedData(enriched) {
         byStatus: energyByStatus,
         byCategory: buildEnergyCategoryData(enriched),
         byShoppingTotal: buildEnergyCategoryDataByShopping(enriched),
-        shoppingsEnergy: buildShoppingsEnergyBreakdown(enriched),
+        shoppingsEnergy: buildCustomersEnergyBreakdown(enriched),
         lastUpdated: new Date().toISOString(),
         fromCache: true,
       },
@@ -9112,7 +9445,7 @@ async function triggerApiEnrichment() {
           byStatus: energyByStatusAfterEnrich,
           byCategory: buildEnergyCategoryData(enriched),
           byShoppingTotal: buildEnergyCategoryDataByShopping(enriched),
-          shoppingsEnergy: buildShoppingsEnergyBreakdown(enriched),
+          shoppingsEnergy: buildCustomersEnergyBreakdown(enriched),
           lastUpdated: new Date().toISOString(),
         },
       })
@@ -9130,14 +9463,14 @@ async function triggerApiEnrichment() {
           byStatus: waterByStatusAfterEnrich,
           byCategory: buildWaterCategoryData(enriched),
           byShoppingTotal: buildWaterCategoryDataByShopping(enriched),
-          shoppingsWater: buildShoppingsWaterBreakdown(enriched),
+          shoppingsWater: buildCustomersWaterBreakdown(enriched),
           lastUpdated: new Date().toISOString(),
         },
       })
     );
 
     // Calculate shoppings temperature status after enrichment
-    const tempShoppingsStatusAfterEnrich = buildShoppingsTemperatureStatus(enriched, minTemp, maxTemp);
+    const tempShoppingsStatusAfterEnrich = buildCustomersTemperatureStatus(enriched, minTemp, maxTemp);
 
     // Temperature summary event (include tooltip fields)
     window.dispatchEvent(

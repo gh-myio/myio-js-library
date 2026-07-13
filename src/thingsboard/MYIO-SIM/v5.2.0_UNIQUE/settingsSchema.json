@@ -259,6 +259,12 @@
         "default": "Shopping",
         "description": "Label for entity in Goals Panel (e.g., Shopping, Loja, Escola, Filial)"
       },
+      "goalsEntityLabelPlural": {
+        "title": "Goals Panel Entity Label (plural)",
+        "type": "string",
+        "default": "Shoppings",
+        "description": "Plural do label da entidade (e.g., Shoppings, Estações, Hospitais). Vazio = label + 's'"
+      },
       "forceRemovePartialOwnerName": {
         "title": "Remove Prefix from Owner Name",
         "type": "string",
@@ -436,7 +442,7 @@
     {
       "type": "fieldset",
       "title": "Menu Labels",
-      "items": ["shoppingFilterLabel", "goalsEntityLabel"]
+      "items": ["shoppingFilterLabel", "goalsEntityLabel", "goalsEntityLabelPlural"]
     },
     {
       "type": "fieldset",

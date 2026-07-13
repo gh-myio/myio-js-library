@@ -958,7 +958,7 @@
       }
 
       // ===== GENERATE MOCK SHOPPING DATASOURCE =====
-      // This creates entries with aliasName='Shopping' that buildShoppingsListFromAlias expects
+      // This creates entries with aliasName='customers' that buildCustomersListFromAlias expects
       function generateMockShoppingDatasource() {
         const shoppingRows = [];
 
@@ -971,7 +971,7 @@
               entityId: shopping.entityId,
               entityName: shopping.name,
               entityLabel: shopping.name,
-              aliasName: 'Shopping', // This is what buildShoppingsListFromAlias looks for
+              aliasName: 'customers', // contrato do controller (buildCustomersListFromAlias)
             },
             dataKey: { name: 'ingestionId', type: 'attribute' },
             data: [[Date.now(), shopping.id]], // Use shopping.id as ingestionId
@@ -985,7 +985,7 @@
               entityId: shopping.entityId,
               entityName: shopping.name,
               entityLabel: shopping.name,
-              aliasName: 'Shopping',
+              aliasName: 'customers',
             },
             dataKey: { name: 'minTemperature', type: 'attribute' },
             data: [[Date.now(), 18]],
@@ -999,7 +999,7 @@
               entityId: shopping.entityId,
               entityName: shopping.name,
               entityLabel: shopping.name,
-              aliasName: 'Shopping',
+              aliasName: 'customers',
             },
             dataKey: { name: 'maxTemperature', type: 'attribute' },
             data: [[Date.now(), 26]],
@@ -1711,7 +1711,7 @@
         updateMockData();
 
         // IMPORTANT: Pre-populate MyIOOrchestratorData BEFORE onInit
-        // so that buildShoppingsListFromClassified() can find the data
+        // so that buildCustomersListFromClassified() can find the data
         prepareOrchestratorData();
 
         try {
