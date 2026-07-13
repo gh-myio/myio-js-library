@@ -42,6 +42,7 @@ type SimpleLogger = {
 const DEFAULT_MAX_RETRIES = 3;
 const DEFAULT_MAX_PAGES = 50;
 const DEFAULT_LIST_LIMIT = 100;
+const DEFAULT_REQUEST_TIMEOUT_MS = 60_000;
 
 function normalizeLogger(raw?: Partial<SimpleLogger>): SimpleLogger {
   const noop = (): void => {
@@ -54,11 +55,23 @@ function normalizeLogger(raw?: Partial<SimpleLogger>): SimpleLogger {
   };
 }
 
+/**
+ * Also matches `AbortSignal.timeout()` expiry (`DOMException` named
+ * `TimeoutError`) and manual aborts (`AbortError`) — a per-attempt timeout is
+ * a transient transport failure just like a dropped connection, and should
+ * retry through the same backoff path.
+ */
 function isNetworkError(err: unknown): boolean {
   if (!err || typeof err !== 'object') return false;
   const name = (err as { name?: string }).name ?? '';
   const message = String((err as { message?: string }).message ?? '').toLowerCase();
-  return name === 'TypeError' || message.includes('network') || message.includes('failed to fetch');
+  return (
+    name === 'TypeError' ||
+    name === 'TimeoutError' ||
+    name === 'AbortError' ||
+    message.includes('network') ||
+    message.includes('failed to fetch')
+  );
 }
 
 function sleep(ms: number): Promise<void> {
@@ -79,6 +92,7 @@ export class GcdrAnnotationsClient {
   private readonly logger: SimpleLogger;
   private readonly maxRetries: number;
   private readonly maxPages: number;
+  private readonly requestTimeoutMs: number;
   private readonly cache = new Map<string, CacheEntry>();
 
   constructor(params: GcdrAnnotationsClientParams) {
@@ -97,6 +111,7 @@ export class GcdrAnnotationsClient {
     this.logger = normalizeLogger(params.logger);
     this.maxRetries = params.maxRetries ?? DEFAULT_MAX_RETRIES;
     this.maxPages = params.maxPages ?? DEFAULT_MAX_PAGES;
+    this.requestTimeoutMs = params.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
   }
 
   // ── Reads ──────────────────────────────────────────────────────────────
@@ -304,7 +319,12 @@ export class GcdrAnnotationsClient {
     while (true) {
       let res: Response;
       try {
-        res = await this.fetchImpl(url, { ...options, method, headers });
+        res = await this.fetchImpl(url, {
+          ...options,
+          method,
+          headers,
+          signal: AbortSignal.timeout(this.requestTimeoutMs),
+        });
       } catch (err) {
         if (attempt < this.maxRetries && isNetworkError(err)) {
           const backoffMs = 2 ** attempt * 1000;

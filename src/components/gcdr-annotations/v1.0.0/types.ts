@@ -209,6 +209,13 @@ export interface GcdrAnnotationsClientParams {
   maxRetries?: number;
   /** Hard cap on pagination loop iterations for listByCustomer/listByEntity. Default 50. */
   maxPages?: number;
+  /**
+   * Per-attempt fetch timeout via `AbortSignal.timeout()`. A hung connection
+   * would otherwise stall the retry loop forever (no error is ever thrown).
+   * Default 60_000 — same value as `fetchDeviceSeries`
+   * (src/thingsboard/MYIO-SIM/v5.2.0_UNIQUE/controller.js).
+   */
+  requestTimeoutMs?: number;
 }
 
 // ============================================================================

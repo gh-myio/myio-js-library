@@ -9,7 +9,8 @@
  *   9. TTL cache hit/expiry + invalidation after create/patch/archive/respond
  *  10. respond({type:'rejected'}) without text → local validation error
  * Plus: required `x-tenant-id` header (real API requirement, not in the
- * RFC's guide-level snippet) and the pagination hard-cap warning.
+ * RFC's guide-level snippet), the pagination hard-cap warning, and the
+ * per-attempt request timeout (code review follow-up on RFC-0218).
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -281,6 +282,92 @@ describe('GcdrAnnotationsClient — writes', () => {
     const fetchImpl = vi.fn(async () => jsonResponse(204, undefined));
     const client = new GcdrAnnotationsClient(baseParams(fetchImpl));
     await expect(client.detach('ann-1', 'att-1')).resolves.toBeUndefined();
+  });
+});
+
+describe('GcdrAnnotationsClient — per-attempt request timeout (code review follow-up)', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('passes an AbortSignal on every attempt', async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse(200, { success: true, data: { items: [], pagination: { hasMore: false } } }));
+    const client = new GcdrAnnotationsClient(baseParams(fetchImpl));
+    await client.list();
+
+    const [, init] = fetchImpl.mock.calls[0] as [string, RequestInit];
+    expect(init.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it('defaults requestTimeoutMs to 60_000', async () => {
+    const spy = vi.spyOn(AbortSignal, 'timeout');
+    const fetchImpl = vi.fn(async () => jsonResponse(200, { success: true, data: { items: [], pagination: { hasMore: false } } }));
+    const client = new GcdrAnnotationsClient(baseParams(fetchImpl));
+    await client.list();
+
+    expect(spy).toHaveBeenCalledWith(60_000);
+  });
+
+  it('honors a custom requestTimeoutMs', async () => {
+    const spy = vi.spyOn(AbortSignal, 'timeout');
+    const fetchImpl = vi.fn(async () => jsonResponse(200, { success: true, data: { items: [], pagination: { hasMore: false } } }));
+    const client = new GcdrAnnotationsClient(baseParams(fetchImpl, { requestTimeoutMs: 15_000 }));
+    await client.list();
+
+    expect(spy).toHaveBeenCalledWith(15_000);
+  });
+
+  it('a TimeoutError (AbortSignal.timeout expiry) retries through the network-error path', async () => {
+    vi.useFakeTimers();
+    let calls = 0;
+    const fetchImpl = vi.fn(async () => {
+      calls++;
+      if (calls < 2) throw new DOMException('The operation was aborted due to timeout', 'TimeoutError');
+      return jsonResponse(200, { success: true, data: { items: [], pagination: { hasMore: false } } });
+    });
+    const client = new GcdrAnnotationsClient(baseParams(fetchImpl, { maxRetries: 3 }));
+
+    const promise = client.list();
+    await vi.runAllTimersAsync();
+    await promise;
+
+    expect(calls).toBe(2);
+    vi.useRealTimers();
+  });
+
+  it('an AbortError also retries through the network-error path', async () => {
+    vi.useFakeTimers();
+    let calls = 0;
+    const fetchImpl = vi.fn(async () => {
+      calls++;
+      if (calls < 2) throw new DOMException('The operation was aborted', 'AbortError');
+      return jsonResponse(200, { success: true, data: { items: [], pagination: { hasMore: false } } });
+    });
+    const client = new GcdrAnnotationsClient(baseParams(fetchImpl, { maxRetries: 3 }));
+
+    const promise = client.list();
+    await vi.runAllTimersAsync();
+    await promise;
+
+    expect(calls).toBe(2);
+    vi.useRealTimers();
+  });
+
+  it('gives up after maxRetries on a persistent TimeoutError', async () => {
+    vi.useFakeTimers();
+    const fetchImpl = vi.fn(async () => {
+      throw new DOMException('The operation was aborted due to timeout', 'TimeoutError');
+    });
+    const client = new GcdrAnnotationsClient(baseParams(fetchImpl, { maxRetries: 2 }));
+
+    const promise = client.list();
+    const assertion = expect(promise).rejects.toBeInstanceOf(DOMException);
+    await vi.runAllTimersAsync();
+    await assertion;
+
+    // 1 initial attempt + 2 retries = 3 calls
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    vi.useRealTimers();
   });
 });
 
