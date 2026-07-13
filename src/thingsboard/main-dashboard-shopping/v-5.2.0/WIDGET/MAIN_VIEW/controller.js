@@ -7053,14 +7053,16 @@ const MyIOOrchestrator = (() => {
     }
   }
 
-  // Seq-guard por domínio: hidrações concorrentes com períodos diferentes não
-  // são coalescidas (keys distintas) e a que TERMINA por último vencia a UI,
-  // mesmo sendo a requisição mais antiga (ex.: Aplicar junho durante a
-  // hidração inicial de julho → julho terminava depois e sobrescrevia junho).
-  // Só a hidração mais recentemente SOLICITADA pode emitir provide-data.
-  const hydrateLatestSeq = new Map(); // domain -> seq da hidração mais recente
-  const hydrateSeqByKey = new Map(); // periodKey -> seq da run em andamento
-  let hydrateSeqCounter = 0;
+  // Guard por domínio: hidrações concorrentes com períodos diferentes não são
+  // coalescidas (keys distintas) e a que TERMINA por último vencia a UI, mesmo
+  // sendo a requisição mais antiga (ex.: Aplicar junho durante a hidração
+  // inicial de julho → julho terminava depois e sobrescrevia junho). Um
+  // resultado só é emitido se o SEU período ainda for o último solicitado.
+  // A comparação é por periodKey (não por seq): o handler de myio:update-date
+  // limpa o inFlight e redispara o MESMO período no boot, e uma run idêntica
+  // re-solicitada não pode invalidar a anterior (emitir 2× é inócuo — o
+  // emitProvide já suprime duplicatas).
+  const hydrateLatestKey = new Map(); // domain -> periodKey da hidração mais recente solicitada
 
   // Fetch data for a domain and period
   // RFC-0138: Added options.force to bypass cooldown when switching domains via MENU
@@ -7075,19 +7077,15 @@ const MyIOOrchestrator = (() => {
       force,
     });
 
+    // Toda solicitação (coalescida ou não) marca seu período como o mais
+    // recente do domínio — runs de períodos anteriores perdem o direito de emitir.
+    hydrateLatestKey.set(domain, key);
+
     // Coalesce duplicate requests
     if (inFlight.has(key)) {
       LogHelper.log(`[Orchestrator] ⏭️ Coalescing duplicate request for ${key}`);
-      // Re-solicitar o período em andamento torna essa run a mais recente de
-      // novo (o usuário voltou para ela) — ela recupera o direito de emitir.
-      const runSeq = hydrateSeqByKey.get(key);
-      if (runSeq) hydrateLatestSeq.set(domain, runSeq);
       return inFlight.get(key);
     }
-
-    const mySeq = ++hydrateSeqCounter;
-    hydrateLatestSeq.set(domain, mySeq);
-    hydrateSeqByKey.set(key, mySeq);
 
     // Show busy overlay - pass force flag to bypass cooldown
     showGlobalBusy(domain, 'Carregando dados...', 25000, { force });
@@ -7100,10 +7098,10 @@ const MyIOOrchestrator = (() => {
       try {
         const items = await fetchAndEnrich(domain, period);
 
-        // Seq-guard: se outra hidração (período mais novo) foi solicitada
-        // enquanto esta rodava, o resultado é obsoleto — não emitir para não
-        // sobrescrever a UI com o período antigo.
-        if (hydrateLatestSeq.get(domain) !== mySeq) {
+        // Guard: se um período DIFERENTE foi solicitado enquanto esta run
+        // rodava, o resultado é obsoleto — não emitir para não sobrescrever a
+        // UI com o período antigo. Mesmo período re-solicitado → pode emitir.
+        if (hydrateLatestKey.get(domain) !== key) {
           LogHelper.warn(
             `[Orchestrator] ⏭️ Stale hydration for ${domain} (${key}) — newer period requested; skipping emit`
           );
@@ -7154,7 +7152,6 @@ const MyIOOrchestrator = (() => {
       }
     })().finally(() => {
       inFlight.delete(key);
-      if (hydrateSeqByKey.get(key) === mySeq) hydrateSeqByKey.delete(key);
       LogHelper.log(`[Orchestrator] 🧹 Cleaned up inFlight for ${key}`);
     });
 

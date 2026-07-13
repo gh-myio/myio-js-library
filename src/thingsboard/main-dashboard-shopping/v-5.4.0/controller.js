@@ -2074,9 +2074,22 @@ async function fetchDomainTemperature(devices, period, token) {
  */
 async function enrichDomainValues(period) {
   if (!period || !_classificationTree?.domains?.length) return;
+  // Guard de corrida: runs concorrentes (Aplicar A seguido de Aplicar B) escrevem
+  // nas MESMAS metas classified e re-alimentam os grids — a que terminasse por
+  // último vencia, mesmo sendo o período antigo, e podia deixar domínios com
+  // períodos misturados. Um run só aplica/renderiza se o seu período ainda for
+  // o vigente (_currentPeriod) após cada await.
+  const stale = () =>
+    !_currentPeriod ||
+    _currentPeriod.startISO !== period.startISO ||
+    _currentPeriod.endISO !== period.endISO;
   const token = await getIngestionBearer();
   if (!token) {
     LogHelper.warn('[consumption] sem token de ingestão — valores de consumo não carregados.');
+    return;
+  }
+  if (stale()) {
+    LogHelper.warn('[consumption] período mudou durante o fetch — abortando run obsoleta.');
     return;
   }
   const classified = window.STATE?.classified || {};
@@ -2096,6 +2109,10 @@ async function enrichDomainValues(period) {
       LogHelper.error(`[consumption] falha ao buscar valores de ${code}:`, err);
       toastError(`Falha ao carregar consumo de ${DOMAIN[code]?.name || code}.`);
       continue;
+    }
+    if (stale()) {
+      LogHelper.warn(`[consumption] período mudou durante o fetch de ${code} — abortando run obsoleta.`);
+      return;
     }
 
     // Join into the classified metas (resolver matches by slaveId+centralId, id fallback).
