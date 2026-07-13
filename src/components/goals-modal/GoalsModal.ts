@@ -5,7 +5,7 @@
  * - Lê dados de meta de `window.MyIOUtils.goalsData[domain]` (cache populado pelo MAIN_VIEW)
  * - Busca consumo real via callback `fetchConsumption` (injeção de dependência)
  * - Renderiza Chart.js diretamente (sem depender de createConsumptionChartWidget)
- * - Suporta granularidade horária (24h de um dia selecionado) e diária (últimos N dias)
+ * - Suporta granularidade horária (24h de um dia selecionado) e diária (range de datas do picker)
  */
 
 import { createDateRangePicker } from '../createDateRangePicker';
@@ -175,7 +175,11 @@ let _currentDomain: string = 'energy';
 let _currentGran: '1h' | '1d' | '1M' = '1d';
 let _selectedDate: string = _todayISO();
 let _selectedYear: number = new Date().getFullYear();
-let _periodDays = 30;
+// Janela da granularidade diária (datas ISO locais, inclusive). Antes era só um
+// comprimento (_periodDays) ancorado em "hoje" — o start escolhido no picker era
+// descartado e qualquer range passado virava "últimos N dias".
+let _periodStart: string = _isoNDaysAgo(29);
+let _periodEnd: string = _todayISO();
 // YoY: o consumo do ano anterior (mesmo período) é SEMPRE buscado/plotado (exceto temperatura).
 // Sem toggle — vira 3ª linha (view linha) / barra pareada (view barra) + linha de meta.
 // Tipo do gráfico: barras (default) ou linhas.
@@ -193,6 +197,14 @@ let _datePickerControl: DateRangeControl | null = null;
 function _todayISO(): string {
   // Local date (not UTC) — toISOString() would shift the day in UTC-3 late evening.
   const d = new Date();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
+function _isoNDaysAgo(n: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
   const mm = String(d.getMonth() + 1).padStart(2, '0');
   const dd = String(d.getDate()).padStart(2, '0');
   return `${d.getFullYear()}-${mm}-${dd}`;
@@ -229,19 +241,19 @@ function _labelToDailyKey(label: string): string {
   return `${mm}-${dd}`;
 }
 
-/** Retorna lista de N últimos dias como { label, startTs, endTs } */
-function _buildDayBoundaries(n: number): Array<{ label: string; startTs: number; endTs: number }> {
-  const now = new Date();
+/** Retorna um slot por dia do range [startISO..endISO] (inclusive) como { label, startTs, endTs } */
+function _buildDayBoundaries(startISO: string, endISO: string): Array<{ label: string; startTs: number; endTs: number }> {
   const result = [];
-  for (let i = n - 1; i >= 0; i--) {
-    const d = new Date(now);
-    d.setDate(now.getDate() - i);
-    d.setHours(0, 0, 0, 0);
+  const d = new Date(`${startISO}T00:00:00`);
+  const last = new Date(`${endISO}T00:00:00`);
+  // Guarda contra ranges invertidos/absurdos (picker já limita a 366 dias).
+  for (let i = 0; d <= last && i < 400; i++, d.setDate(d.getDate() + 1)) {
+    const s = new Date(d);
     const e = new Date(d);
     e.setHours(23, 59, 59, 999);
     result.push({
-      label: d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
-      startTs: d.getTime(),
+      label: s.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+      startTs: s.getTime(),
       endTs: e.getTime(),
     });
   }
@@ -390,7 +402,7 @@ async function _fetchSeriesTotals(
 }
 
 async function _fetchDayData(domain: string): Promise<{ labels: string[]; totals: number[] }> {
-  const boundaries = _buildDayBoundaries(_periodDays);
+  const boundaries = _buildDayBoundaries(_periodStart, _periodEnd);
   const labels = boundaries.map((b) => b.label);
   const totals =
     (await _fetchSeriesTotals(domain, boundaries, '1d', '1d')) ??
@@ -421,7 +433,7 @@ async function _fetchMonthData(domain: string, year: number): Promise<{ labels: 
 function _buildBoundaries(gran: '1h' | '1d' | '1M', dateISO: string): Array<{ label: string; startTs: number; endTs: number }> {
   if (gran === '1M') return _buildMonthBoundaries(_selectedYear);
   if (gran === '1h') return _buildHourBoundaries(dateISO);
-  return _buildDayBoundaries(_periodDays);
+  return _buildDayBoundaries(_periodStart, _periodEnd);
 }
 
 /**
@@ -471,7 +483,7 @@ async function _fetchPrevYearTotals(
 }
 
 async function _fetchTemperatureDayData(): Promise<{ labels: string[]; totals: number[] }> {
-  const boundaries = _buildDayBoundaries(_periodDays);
+  const boundaries = _buildDayBoundaries(_periodStart, _periodEnd);
   const labels = boundaries.map((b) => b.label);
   const totals = new Array<number>(boundaries.length).fill(0);
   const fetchFn = _options!.fetchTemperature;
@@ -956,11 +968,7 @@ function _defaultDatesForGran(gran: '1h' | '1d' | '1M'): { start: string; end: s
     const yr = _selectedYear;
     return { start: `${yr}-01-01`, end: `${yr}-12-31` };
   }
-  const s = new Date();
-  s.setDate(s.getDate() - (_periodDays - 1));
-  const sm = String(s.getMonth() + 1).padStart(2, '0');
-  const sd = String(s.getDate()).padStart(2, '0');
-  return { start: `${s.getFullYear()}-${sm}-${sd}`, end: today };
+  return { start: _periodStart, end: _periodEnd };
 }
 
 function _applyDateRange(startISO: string, endISO: string): void {
@@ -969,9 +977,8 @@ function _applyDateRange(startISO: string, endISO: string): void {
   } else if (_currentGran === '1M') {
     _selectedYear = new Date(startISO).getFullYear();
   } else {
-    const d0 = new Date(startISO.slice(0, 10));
-    const d1 = new Date(endISO.slice(0, 10));
-    _periodDays = Math.max(1, Math.round((d1.getTime() - d0.getTime()) / 86400000) + 1);
+    _periodStart = startISO.slice(0, 10);
+    _periodEnd = endISO.slice(0, 10);
   }
   _loadAndRender(_currentDomain, _currentGran, _selectedDate);
 }
@@ -1068,7 +1075,8 @@ export const GoalsModal = {
   open(options: GoalsModalOptions): void {
     _options = options;
     _currentDomain = options.initialDomain ?? 'energy';
-    _periodDays = options.defaultPeriodDays ?? 30;
+    _periodEnd = _todayISO();
+    _periodStart = _isoNDaysAgo((options.defaultPeriodDays ?? 30) - 1);
     _selectedDate = _todayISO();
     _selectedYear = new Date().getFullYear();
     _currentGran = '1d';
