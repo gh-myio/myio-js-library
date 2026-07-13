@@ -69,6 +69,16 @@ export interface CardGridCustomStyle {
   fontColor?: string;
   width?: string;
   height?: string;
+  padding?: string;
+  /** Scale multiplier for all card dimensions (default: 1.0). */
+  zoomMultiplier?: number;
+  /**
+   * CSS height for the ⋮ piano-key actions column of each card.
+   * Default stretches with the card; 'auto' yields a compact pill.
+   */
+  actionsHeight?: string;
+  /** CSS height for each action button inside the column (e.g. '32px'). */
+  actionButtonHeight?: string;
 }
 
 /** @deprecated Use HeaderPanelStyle from header-panel component */

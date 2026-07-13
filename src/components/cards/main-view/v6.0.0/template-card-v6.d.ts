@@ -19,6 +19,14 @@ export interface CustomStyle {
    * Example: 1.1 = 110% scale (everything 10% larger)
    */
   zoomMultiplier?: number;
+  /**
+   * CSS height for the ⋮ piano-key actions column.
+   * Default stretches with the card (height: 100%, max-height: 72%);
+   * 'auto' yields a compact pill hugging its buttons.
+   */
+  actionsHeight?: string;
+  /** CSS height for each action button inside the column (e.g. '32px'). */
+  actionButtonHeight?: string;
 }
 
 export interface RenderCardV6Options {
