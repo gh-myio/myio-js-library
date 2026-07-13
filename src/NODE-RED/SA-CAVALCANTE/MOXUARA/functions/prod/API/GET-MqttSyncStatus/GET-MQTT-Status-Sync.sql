@@ -1,0 +1,15 @@
+-- GET /api/mqttSyncStatus — lê (e grava o default 'enable' na PRIMEIRA vez) o
+-- status persistido em slaves.config do slave virtual "MQTT Sync", via função.
+-- Sempre devolve 1 row com a coluna mqtt_sync_status (enable|disable).
+--
+-- Ajuste 2026-07-13 (Moxuara): a query inline antiga usava
+-- `WHERE name = 'MQTT Sync'` (match EXATO) e NÃO encontrava o slave
+-- especializado 'MQTT Sync - 6d7cd66a-c6dd-40df-b40b-e1bad295e424'
+-- (slave id 3, criado em 2026-07-13) → 0 rows → o JS caía no default 'enable'
+-- silenciosamente. A função get_mqtt_sync_status() resolve o slave com
+-- LIKE 'MQTT Sync%' (cobre o nome legado E o especializado) e faz o
+-- write-on-miss do default de forma atômica.
+--
+-- Pré-requisito no banco: ../../../mqtt-sync/get_mqtt_sync_status.sql aplicado
+-- (conferir com: \df *mqtt*).
+SELECT get_mqtt_sync_status() AS mqtt_sync_status;

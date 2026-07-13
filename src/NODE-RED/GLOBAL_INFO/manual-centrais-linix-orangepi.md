@@ -47,7 +47,9 @@ ssh -i id_rsa root@<ipv6-da-central>
 | Mestre Álvaro — L3L4 | `200:b0b1:81aa:49a4:c554:4fec:f110:9896` | `fcb3ccd1-4b85-4cef-a1de-0b8a80bec81e` | —          | —          |
 | Rio Poty             | `203:bdfb:8fda:634d:c846:1404:f319:718c` | `c0af8288-7b13-4024-bc11-df5017fef656` | —          | —          |
 | Shopping da Ilha     | `201:3447:911:5955:4018:3960:6838:ee12`  | `cb318f02-1020-4f99-857f-d44d001d939b` | —          | —          |
-| Moxuara              | `202:1567:faee:79ef:486:6d44:d391:fb18`  | `e982edf9-edb1-4aa6-8a14-4782465ae5a3` | —          | —          |
+| ~~Moxuara~~ ⚠️ **INATIVADA 2026-07-13** — substituída pela Moxuara 2.0 (banco restaurado do backup desta) | ~~`202:1567:faee:79ef:486:6d44:d391:fb18`~~ | ~~`e982edf9-edb1-4aa6-8a14-4782465ae5a3`~~ | —          | —          |
+| Central Moxuara 2.0 - 2026-07-13 | `201:bc00:2a0e:6e36:a50f:9ef6:9b23:d097` | `6e88d9be-e351-4a8a-aa02-2a2222fcb22b` | —          | —          |
+| Central Moxuara 2.0 - ENTRADA - TRAFO - 2026-07-13 | `200:b2d6:a485:7a30:364b:424c:cafa:141c` | `6d7cd66a-c6dd-40df-b40b-e1bad295e424` | —          | —          |
 | Montserrat           | `200:abb2:e99:ec3d:eaf8:2d90:7bd9:42cc`  | `186bbdcb-95bc-4290-bf33-1ce89e48ffb4` | —          | —          |
 | Shopping Ananindeua  | `201:ca6e:c33b:3a06:f4dd:d148:5d85:6315` | `7ac0ac44-e631-4b64-ac1d-e9e93fe61e0a` | —          | —          |
 
@@ -147,8 +149,14 @@ ssh -i id_rsa root@203:bdfb:8fda:634d:c846:1404:f319:718c
 # Shopping da Ilha (Sá Cavalcante)
 ssh -i id_rsa root@201:3447:911:5955:4018:3960:6838:ee12
 
-# Moxuara (Sá Cavalcante)
-ssh -i id_rsa root@202:1567:faee:79ef:486:6d44:d391:fb18
+# Moxuara (Sá Cavalcante) — ⚠️ INATIVADA 2026-07-13 (substituída pela 2.0 abaixo)
+# ssh -i id_rsa root@202:1567:faee:79ef:486:6d44:d391:fb18
+
+# Central Moxuara 2.0 - 2026-07-13 (Sá Cavalcante)
+ssh -i id_rsa root@201:bc00:2a0e:6e36:a50f:9ef6:9b23:d097
+
+# Central Moxuara 2.0 - ENTRADA - TRAFO - 2026-07-13 (Sá Cavalcante)
+ssh -i id_rsa root@200:b2d6:a485:7a30:364b:424c:cafa:141c
 
 # Montserrat (Sá Cavalcante)
 ssh -i id_rsa root@200:abb2:e99:ec3d:eaf8:2d90:7bd9:42cc
