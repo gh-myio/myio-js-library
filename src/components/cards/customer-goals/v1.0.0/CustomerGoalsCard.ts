@@ -27,6 +27,19 @@ const COLORS = {
   budget: '#f59e0b',
 };
 
+// Paleta das séries do breakdown por device (evita o grafite do A-1 e o âmbar
+// do Orçado, reservados). Repete ciclicamente quando há mais devices que cores.
+const BREAKDOWN_PALETTE = [
+  '#6c5ce7',
+  '#10b981',
+  '#0ea5e9',
+  '#f43f5e',
+  '#a855f7',
+  '#14b8a6',
+  '#f97316',
+  '#eab308',
+];
+
 type ChartLike = { destroy(): void; resize?(): void };
 
 export class CustomerGoalsCard implements CustomerGoalsCardInstance {
@@ -134,9 +147,20 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
       }
       return seen ? total : null;
     };
+    // Consolidado do card: `realized`; sem ele, soma do breakdown por device.
+    const realizedArr =
+      sum(s.realized) != null || !s.breakdown?.length
+        ? s.realized
+        : s.breakdown.reduce<Array<number | null>>((acc, b) => {
+            (b.values || []).forEach((v, i) => {
+              if (v == null || Number.isNaN(Number(v))) return;
+              acc[i] = (acc[i] || 0) + Number(v);
+            });
+            return acc;
+          }, s.labels.map(() => null));
     const o = this.params.totals || {};
     return {
-      realized: o.realized !== undefined ? o.realized : sum(s.realized),
+      realized: o.realized !== undefined ? o.realized : sum(realizedArr),
       previousYear: o.previousYear !== undefined ? o.previousYear : sum(s.previousYear),
       budget: o.budget !== undefined ? o.budget : sum(s.budget),
     };
@@ -353,10 +377,22 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
         order: 1,
       });
     }
-    datasets.push({
-      ...mainSeries(yl ? `Realizado (${yl.current})` : 'Realizado', s.realized, COLORS.realized),
-      order: 2,
-    });
+    const breakdown = s.breakdown?.filter((b) => Array.isArray(b?.values)) || [];
+    if (breakdown.length) {
+      // Quebra por device: uma série por medidor NO LUGAR do consolidado — o
+      // card continua sendo um por shopping; só o gráfico muda.
+      breakdown.forEach((b, i) => {
+        datasets.push({
+          ...mainSeries(b.name || `Medidor ${i + 1}`, b.values, BREAKDOWN_PALETTE[i % BREAKDOWN_PALETTE.length]),
+          order: 2 + i,
+        });
+      });
+    } else {
+      datasets.push({
+        ...mainSeries(yl ? `Realizado (${yl.current})` : 'Realizado', s.realized, COLORS.realized),
+        order: 2,
+      });
+    }
 
     this.chart = new ChartCtor((canvas as HTMLCanvasElement).getContext('2d'), {
       type: this.chartType,
@@ -367,7 +403,23 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
         animation: false,
         interaction: { mode: 'index', intersect: false },
         plugins: {
-          legend: { display: false }, // shared legend is rendered once by the host grid
+          // Legenda compartilhada é do grid host; com breakdown os nomes/cores
+          // variam por card, então cada card mostra a própria legenda.
+          legend: breakdown.length
+            ? {
+                display: true,
+                position: 'bottom',
+                labels: {
+                  color: tickColor,
+                  font: { size: 8 },
+                  boxWidth: 10,
+                  boxHeight: 2,
+                  // só as séries de medidor — A-1/Orçado já estão na legenda compartilhada
+                  filter: (item: any) =>
+                    !/^A-1\b|^Or[çc]ado\b/.test(String(item?.text || '')),
+                },
+              }
+            : { display: false },
           tooltip: {
             callbacks: {
               label: (c: any) =>

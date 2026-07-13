@@ -25,6 +25,14 @@ export interface CustomerGoalsSeries {
   previousYear?: Array<number | null>;
   /** Goal per bucket (optional — strip cell/badge omitted when absent) */
   budget?: Array<number | null>;
+  /**
+   * Realized broken down per device/meter (optional). When present, the CHART
+   * plots one series per entry (palette colors + per-card legend) INSTEAD of
+   * the consolidated `realized` line — the card stays one-per-shopping and
+   * only the chart changes. Totals/badges keep reading `realized` (falling
+   * back to the element-wise sum of the breakdown when `realized` is empty).
+   */
+  breakdown?: Array<{ name: string; values: Array<number | null> }>;
 }
 
 export interface CustomerGoalsTotals {

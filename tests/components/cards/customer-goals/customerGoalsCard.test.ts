@@ -212,4 +212,43 @@ describe('CustomerGoalsCard (RFC-0217)', () => {
     expect(cfg.data.datasets[1].borderColor).toBe('#94a3b8');
     expect(cfg.data.datasets[2].borderColor).toBe('#6c5ce7');
   });
+
+  it('breakdown: one chart series per device (replacing consolidated realized) + per-card legend', () => {
+    createCustomerGoalsCard({
+      container,
+      title: 'Shopping Alpha',
+      series: {
+        labels: ['Jan', 'Fev'],
+        realized: [30, 50],
+        budget: [40, 40],
+        breakdown: [
+          { name: 'Entrada #1', values: [10, 20] },
+          { name: 'Entrada #2', values: [20, 30] },
+        ],
+      },
+    });
+    const cfg = ChartStub.instances.at(-1)!.config;
+    const labels = cfg.data.datasets.map((d: any) => d.label);
+    expect(labels).toEqual(['Orçado', 'Entrada #1', 'Entrada #2']);
+    // legenda do card aparece no modo breakdown (nomes/cores variam por card)
+    expect(cfg.options.plugins.legend.display).toBe(true);
+    // cores distintas da paleta para cada medidor
+    expect(cfg.data.datasets[1].borderColor).not.toBe(cfg.data.datasets[2].borderColor);
+  });
+
+  it('breakdown: totals strip falls back to the element-wise sum when realized is empty', () => {
+    const card = createCustomerGoalsCard({
+      container,
+      title: 'Shopping Alpha',
+      series: {
+        labels: ['Jan', 'Fev'],
+        realized: [null, null],
+        breakdown: [
+          { name: 'A', values: [100, null] },
+          { name: 'B', values: [200, 300] },
+        ],
+      },
+    });
+    expect(card.el.querySelector('[data-total="realized"]')?.textContent).toBe('600 kWh');
+  });
 });
