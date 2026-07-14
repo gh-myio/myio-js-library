@@ -4261,19 +4261,96 @@ body.filter-modal-open { overflow: hidden !important; }
     // GRÁFICO por medidor de entrada (series.breakdown do CustomerGoalsCard —
     // energia: medidores curados; água: hidrômetros de entrada). A linha de
     // Orçado permanece — meta é do shopping, que continua sendo o card.
+    // Labels de device do TB por customer (name → label), 1 REST por shopping,
+    // cacheado na sessão. A API do INGESTION não tem conceito de label (só o
+    // name técnico "3F SC..._Trafo_Entrada_L2 x1650 ..."), e o datasource do HO
+    // não contém todos os medidores de entrada — o label amigável ("Medição
+    // Geral") vive no device do ThingsBoard (ou no GCDR) do shopping filho.
+    const _tbDeviceLabelCache = new Map(); // tbCustomerId -> Promise<Map<name, label>>
+    const getTbDeviceLabelMap = (tbId) => {
+      if (!tbId) return Promise.resolve(new Map());
+      if (_tbDeviceLabelCache.has(tbId)) return _tbDeviceLabelCache.get(tbId);
+      const p = (async () => {
+        const jwt = localStorage.getItem('jwt_token') || '';
+        const map = new Map();
+        try {
+          for (let page = 0; page < 3; page++) {
+            const res = await fetch(`/api/customer/${tbId}/devices?pageSize=1000&page=${page}`, {
+              headers: { 'X-Authorization': `Bearer ${jwt}` },
+            });
+            if (!res.ok) break;
+            const pg = await res.json();
+            (pg?.data || []).forEach((d) => {
+              if (d?.name && d?.label) map.set(d.name, d.label);
+            });
+            if (!pg?.hasNext) break;
+          }
+        } catch {
+          /* segue sem labels TB */
+        }
+        return map;
+      })();
+      _tbDeviceLabelCache.set(tbId, p);
+      return p;
+    };
+    // Fallback: limpa o name técnico da API do Ingestion ("... x1650 x20A x90.5V" → sem sufixos)
+    const cleanIngestionName = (n) =>
+      String(n || '')
+        .replace(/(\s+x[\d.,]+[A-Za-z.%]*)+$/i, '')
+        .trim();
+    // Convenção de troca de central: o device antigo vira "3.F.OLD <resto>" na
+    // ingestion (e "<name>.old" no TB) — normaliza para casar com o device TB
+    // atual e herdar o label amigável ("Medição Geral").
+    const normOldName = (n) =>
+      cleanIngestionName(n)
+        .replace(/^3\.?F\.?OLD\s+/i, '3F ')
+        .replace(/\.old$/i, '')
+        .trim();
+
     const listCardDevices = async () => {
       if (domainKey === 'energy') {
         const devs = await getEntradaDevices();
-        // Nome real quando o datasource TB conhece o medidor; senão o rótulo curado
+        // 1) Label do datasource TB do HO — TODOS os domínios/grupos (o medidor
+        //    pode estar classificado fora de energy.entrada)
         const nameByIng = new Map();
-        (window.MyIOOrchestratorData?.classified?.energy?.entrada || []).forEach((d) => {
-          if (d.ingestionId) nameByIng.set(d.ingestionId, d.labelOrName || d.label || d.name);
+        const classified = window.MyIOOrchestratorData?.classified || {};
+        for (const dom of Object.values(classified)) {
+          for (const arr of Object.values(dom || {})) {
+            (arr || []).forEach((d) => {
+              if (d?.ingestionId && !nameByIng.has(d.ingestionId)) {
+                nameByIng.set(d.ingestionId, d.labelOrName || d.label || d.name);
+              }
+            });
+          }
+        }
+        // 2) Label do device no TB do shopping filho (REST por customer, cacheado)
+        const tbIdByIng = new Map();
+        const cards = (_currentCustomersCards || []).filter(
+          (c) => c.entityType === 'CUSTOMER' && (c.customerId || c.entityId)
+        );
+        await Promise.all(
+          cards.map(async (c) => {
+            const attrs = await getCustomerAttrs(c.customerId || c.entityId).catch(() => ({}));
+            if (attrs?.ingestionId) tbIdByIng.set(attrs.ingestionId, c.customerId || c.entityId);
+          })
+        );
+        const labelMaps = new Map(); // tbId -> Map<name, label>
+        await Promise.all(
+          [...new Set(devs.map((d) => tbIdByIng.get(d.customerId)).filter(Boolean))].map(async (tbId) => {
+            labelMaps.set(tbId, await getTbDeviceLabelMap(tbId));
+          })
+        );
+        return devs.map((d, i) => {
+          const tbMap = labelMaps.get(tbIdByIng.get(d.customerId));
+          const name =
+            nameByIng.get(d.id) ||
+            tbMap?.get(d.name) ||
+            tbMap?.get(cleanIngestionName(d.name)) ||
+            tbMap?.get(normOldName(d.name)) ||
+            cleanIngestionName(d.name) ||
+            `Entrada ${i + 1}`;
+          return { id: d.id, customerId: d.customerId || null, name };
         });
-        return devs.map((d, i) => ({
-          id: d.id,
-          customerId: d.customerId || null,
-          name: nameByIng.get(d.id) || d.name || `Entrada ${i + 1}`,
-        }));
       }
       // Água: hidrômetros de entrada classificados (RFC-0111)
       return (window.MyIOOrchestratorData?.classified?.water?.hidrometro_entrada || [])
