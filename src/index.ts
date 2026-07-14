@@ -248,11 +248,7 @@ export type {
 // vanilla port of the gcdr-frontend SectionCard. Used internally by the device
 // profile modal sections; exported for general reuse.
 export { createDivCard } from './components/div-card/DivCard';
-export type {
-  CreateDivCardOptions,
-  DivCardHandle,
-  DivCardAccent,
-} from './components/div-card/DivCard';
+export type { CreateDivCardOptions, DivCardHandle, DivCardAccent } from './components/div-card/DivCard';
 
 // RFC-0143: Device Grid Widget Factory
 export {
@@ -386,7 +382,13 @@ export {
 export { renderCardAmbienteV6 } from './components/cards/ambient/v6.0.0/template-card-ambiente-v6.js';
 
 // HeaderPanelComponent — Reusable header component for panels
-export { HeaderPanelComponent, HEADER_STYLE_SLIM, HEADER_STYLE_DEFAULT, HEADER_STYLE_DARK, HEADER_STYLE_PREMIUM_GREEN } from './components/header-panel/index';
+export {
+  HeaderPanelComponent,
+  HEADER_STYLE_SLIM,
+  HEADER_STYLE_DEFAULT,
+  HEADER_STYLE_DARK,
+  HEADER_STYLE_PREMIUM_GREEN,
+} from './components/header-panel/index';
 export type { HeaderPanelStyle, HeaderPanelOptions } from './components/header-panel/index';
 
 // EntityListPanel — Reusable sidebar list component
@@ -395,7 +397,12 @@ export type { EntityListItem, EntityListPanelOptions } from './components/entity
 
 // CardGridPanel — Reusable card grid panel component
 export { CardGridPanel } from './components/card-grid-panel/index';
-export type { CardGridItem, CardGridCustomStyle, CardGridPanelOptions, TabItem } from './components/card-grid-panel/index';
+export type {
+  CardGridItem,
+  CardGridCustomStyle,
+  CardGridPanelOptions,
+  TabItem,
+} from './components/card-grid-panel/index';
 // CardGridTabsBuilder — Builder pattern for data-driven CardGridPanel tabs
 export { CardGridTabsBuilder } from './components/card-grid-panel/index';
 export type { TabSpec } from './components/card-grid-panel/index';
@@ -665,7 +672,10 @@ export type { AlarmsSummaryData, AlarmInfo } from './utils/tooltips/AlarmsSummar
 
 // Notifications Summary Tooltip (Not yet released - placeholder)
 export { NotificationsSummaryTooltip } from './utils/tooltips/NotificationsSummaryTooltip';
-export type { NotificationsSummaryData, NotificationInfo } from './utils/tooltips/NotificationsSummaryTooltip';
+export type {
+  NotificationsSummaryData,
+  NotificationInfo,
+} from './utils/tooltips/NotificationsSummaryTooltip';
 
 // RFC-0193 / RFC-0214: Alarm Notification Tooltip (rich, draggable/pinnable/maximizable)
 // Ported from v-5.2.0 HEADER inline AlarmNotificationTooltip into a reusable component.
@@ -1090,7 +1100,11 @@ export type {
 export { CustomerCardV2, createCustomerCardV2 } from './components/cards/customer/v2.0.0';
 export { injectCustomerCardV2Styles } from './components/cards/customer/v2.0.0';
 
-export type { CustomerCardV2Params, CustomerCardV2Instance, MetroTile } from './components/cards/customer/v2.0.0';
+export type {
+  CustomerCardV2Params,
+  CustomerCardV2Instance,
+  MetroTile,
+} from './components/cards/customer/v2.0.0';
 
 export { METRO_TILE_COLORS } from './components/cards/customer/v2.0.0';
 
@@ -1196,7 +1210,12 @@ export type {
 export { MENU_SHOPPING_CSS_PREFIX, DEFAULT_MENU_SHOPPING_CONFIG } from './components/menu-shopping';
 
 // RFC-0145: TelemetryGridShopping Component (Shopping Dashboard device grid)
-export { createTelemetryGridShoppingComponent, exportGridCsv, exportGridXls, exportGridPdf } from './components/telemetry-grid-shopping';
+export {
+  createTelemetryGridShoppingComponent,
+  exportGridCsv,
+  exportGridXls,
+  exportGridPdf,
+} from './components/telemetry-grid-shopping';
 
 export type {
   TelemetryGridShoppingParams,
@@ -1563,7 +1582,11 @@ export {
 } from './components/fancoil-remote';
 
 // RFC-0158: Solenoid Control Component
-export { createSolenoidControl, SolenoidControlController, SolenoidControlView } from './components/solenoid-control';
+export {
+  createSolenoidControl,
+  SolenoidControlController,
+  SolenoidControlView,
+} from './components/solenoid-control';
 
 export type {
   SolenoidStatus,
@@ -1660,7 +1683,11 @@ export type {
 } from './components/scheduling-shared';
 
 // Schedule On/Off Component
-export { createScheduleOnOff, ScheduleOnOffController, ScheduleOnOffView } from './components/schedule-on-off';
+export {
+  createScheduleOnOff,
+  ScheduleOnOffController,
+  ScheduleOnOffView,
+} from './components/schedule-on-off';
 
 export type {
   OnOffScheduleEntry,
@@ -1701,7 +1728,11 @@ export {
 } from './components/schedule-ir';
 
 // Schedule Setpoint Component
-export { createScheduleSetpoint, ScheduleSetpointController, ScheduleSetpointView } from './components/schedule-setpoint';
+export {
+  createScheduleSetpoint,
+  ScheduleSetpointController,
+  ScheduleSetpointView,
+} from './components/schedule-setpoint';
 
 export type {
   SetpointScheduleEntry,
@@ -1735,7 +1766,11 @@ export type {
 } from './components/device-grid-v6';
 
 // Schedule Holiday Component
-export { createScheduleHoliday, ScheduleHolidayController, ScheduleHolidayView } from './components/schedule-holiday';
+export {
+  createScheduleHoliday,
+  ScheduleHolidayController,
+  ScheduleHolidayView,
+} from './components/schedule-holiday';
 
 export type {
   HolidayEntry,
@@ -1791,10 +1826,7 @@ export {
   normalizeOnOff as normalizeOnOffStatus,
   formatStatusTimestamp,
 } from './components/premium-modals/on-off-device';
-export type {
-  DeviceStatusInput,
-  DeviceStatusResult,
-} from './components/premium-modals/on-off-device';
+export type { DeviceStatusInput, DeviceStatusResult } from './components/premium-modals/on-off-device';
 
 // RFC-0167: On/Off Timeline Chart (for On/Off Device Modal)
 export {
@@ -1954,7 +1986,12 @@ export type {
 
 // RFC-0198: FreshDesk API — reusable service client
 // Generic types (FreshDeskTicket, TicketTypeId, TicketMotivo) live in the service layer
-export type { FreshDeskTicket, FreshDeskConversation, TicketTypeId, TicketMotivo } from './services/freshdesk/types';
+export type {
+  FreshDeskTicket,
+  FreshDeskConversation,
+  TicketTypeId,
+  TicketMotivo,
+} from './services/freshdesk/types';
 // Named function exports (also available as FreshdeskClient namespace below)
 export {
   fetchOpenTickets,
@@ -1972,9 +2009,15 @@ export * as FreshdeskClient from './services/freshdesk/FreshdeskClient';
 // RFC-0198: FreshDesk / Tickets — dashboard integration
 export { createTicketsTab } from './components/premium-modals/settings/tickets/TicketsTab';
 export { NewTicketWizard, createNewTicketWizard } from './components/premium-modals/tickets/NewTicketWizard';
-export type { NewTicketWizardConfig, WizardDevice } from './components/premium-modals/tickets/NewTicketWizard';
+export type {
+  NewTicketWizardConfig,
+  WizardDevice,
+} from './components/premium-modals/tickets/NewTicketWizard';
 export { createTicketDetailModal } from './components/premium-modals/tickets/TicketDetailModal';
-export type { TicketDetailModalConfig, TicketDetailModalHandle } from './components/premium-modals/tickets/TicketDetailModal';
+export type {
+  TicketDetailModalConfig,
+  TicketDetailModalHandle,
+} from './components/premium-modals/tickets/TicketDetailModal';
 export type {
   TicketsTabConfig,
   TicketServiceOrchestratorShape,
@@ -2010,9 +2053,7 @@ export {
   getHeaderAnnotationsPanel,
   injectStylesOnce as injectHeaderAnnotationsStyles,
 } from './components/header-annotations-panel/HeaderAnnotationsPanel';
-export type {
-  HeaderAnnotationsPanelOptions,
-} from './components/header-annotations-panel/HeaderAnnotationsPanel';
+export type { HeaderAnnotationsPanelOptions } from './components/header-annotations-panel/HeaderAnnotationsPanel';
 export {
   renderAnnotationItemCard,
   escapeHtml as escapeAnnotationHtml,
@@ -2028,19 +2069,14 @@ export {
   SORT_OPTIONS as ANNOTATION_SORT_OPTIONS,
   DEFAULT_SORT as DEFAULT_ANNOTATION_SORT,
 } from './components/header-annotations-panel/searchSortFilter';
-export type {
-  AnnotationSortKey,
-} from './services/annotations/types';
+export type { AnnotationSortKey } from './services/annotations/types';
 // RFC-0203 M6 — VirtualList helper (used by HeaderAnnotationsPanel when items > 100)
 export {
   VirtualList,
   shouldVirtualize as shouldVirtualizeAnnotationList,
   VIRTUAL_SCROLL_THRESHOLD as ANNOTATION_VIRTUAL_THRESHOLD,
 } from './components/header-annotations-panel/VirtualList';
-export type {
-  VirtualRow,
-  VirtualListOptions,
-} from './components/header-annotations-panel/VirtualList';
+export type { VirtualRow, VirtualListOptions } from './components/header-annotations-panel/VirtualList';
 // RFC-0203 M7 — Export helpers (PDF + CSV) and the export modal
 export {
   exportAnnotationsCsv,
@@ -2051,9 +2087,7 @@ export {
   CSV_COLUMNS as ANNOTATION_CSV_COLUMNS,
 } from './components/header-annotations-panel/ExportCSV';
 export type { CsvColumn as AnnotationCsvColumn } from './components/header-annotations-panel/ExportCSV';
-export {
-  exportAnnotationsPdf,
-} from './components/header-annotations-panel/ExportPDF';
+export { exportAnnotationsPdf } from './components/header-annotations-panel/ExportPDF';
 export type {
   PdfLevel as AnnotationPdfLevel,
   ExportPdfOptions as AnnotationExportPdfOptions,
@@ -2063,4 +2097,3 @@ export {
   closeExportModal as closeAnnotationsExportModal,
 } from './components/header-annotations-panel/ExportModal';
 export type { OpenExportModalOptions as OpenAnnotationsExportModalOptions } from './components/header-annotations-panel/ExportModal';
-
