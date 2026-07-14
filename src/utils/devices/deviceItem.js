@@ -81,7 +81,8 @@ export function isSolenoidDevice(deviceType) {
  */
 export function isTemperatureDevice(deviceType) {
   const dt = String(deviceType || '').toUpperCase();
-  return dt === 'TERMOSTATO' || dt === 'SENSOR_TEMP' || dt.includes('TEMP');
+  // startsWith cobre TERMOSTATO_EXTERNAL ("TERMOSTATO" não contém a substring "TEMP")
+  return dt === 'TERMOSTATO' || dt === 'SENSOR_TEMP' || dt.includes('TEMP') || dt.startsWith('TERMOSTATO');
 }
 
 /**

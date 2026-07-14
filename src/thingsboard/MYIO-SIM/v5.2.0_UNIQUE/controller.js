@@ -8050,7 +8050,11 @@ function classifyAllDevices(data) {
   // Process each device with all its rows
   for (const rows of deviceRowsMap.values()) {
     const device = extractDeviceMetadataFromRows(rows);
-    const domain = window.MyIOLibrary.getDomainFromDeviceType(device.deviceType);
+    // deviceProfile é a autoridade (deviceType só quando não há profile) — um
+    // hidrômetro com deviceType=MOTOR errado tem que cair em water, não energy.
+    const domain = window.MyIOLibrary.getDomainFromDeviceType(
+      device.deviceProfile || device.deviceType
+    );
     const context = window.MyIOLibrary.detectContext(device, domain);
 
     if (classified[domain]?.[context] !== undefined) {
