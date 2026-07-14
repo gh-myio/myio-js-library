@@ -48,7 +48,10 @@ const DOMAIN_CONFIG: Record<Domain, DomainConfig> = {
 
 interface DailyReading {
   date: string; // YYYY-MM-DD
-  consumption: number;
+  // null = gap (no reading that day). Only produced for summaryType 'average'
+  // domains (temperature) — a 0°C reading would misleadingly look real and
+  // drag down the chart/table scale. Energy/water keep zero-filling.
+  consumption: number | null;
 }
 
 // Default energy fetcher implementation
@@ -344,7 +347,8 @@ export class DeviceReportModal {
     if (!Array.isArray(dataArray) || dataArray.length === 0) {
       console.warn("[DeviceReportModal] API returned empty or invalid response, zero-filling date range");
       if (isHourly) return [];
-      return dateRange.map(date => ({ date, consumption: 0 }));
+      const emptyFill = this.domainConfig.summaryType === 'average' ? null : 0;
+      return dateRange.map(date => ({ date, consumption: emptyFill }));
     }
 
     const deviceData = dataArray[0]; // First (and likely only) device
@@ -362,18 +366,27 @@ export class DeviceReportModal {
 
     // Daily: build map and zero-fill with date range
     const dailyMap: { [key: string]: number } = {};
+    const dailyCount: { [key: string]: number } = {};
     consumption.forEach((item: any) => {
       if (item.timestamp && item.value != null) {
         const date = item.timestamp.slice(0, 10); // Extract YYYY-MM-DD
         const value = Number(item.value);
         if (!dailyMap[date]) dailyMap[date] = 0;
         dailyMap[date] += value;
+        dailyCount[date] = (dailyCount[date] || 0) + 1;
       }
     });
 
+    // ED-996: temperature isn't additive — a day with multiple intraday readings
+    // must show their average, not the sum (which would be a meaningless, inflated number).
+    const isAverage = this.domainConfig.summaryType === 'average';
+
     return dateRange.map(date => ({
       date,
-      consumption: dailyMap[date] || 0,
+      consumption:
+        dailyMap[date] != null
+          ? (isAverage ? dailyMap[date] / dailyCount[date] : dailyMap[date])
+          : (isAverage ? null : 0), // gap (no reading) vs. zero-consumption, per domain
     }));
   }
 
@@ -391,8 +404,9 @@ export class DeviceReportModal {
 
     // Calculate summary value based on domain type
     const total = this.calculateTotal();
+    const validCount = this.countValidReadings();
     const summaryValue = this.domainConfig.summaryType === 'average'
-      ? (this.data.length > 0 ? total / this.data.length : 0)
+      ? (validCount > 0 ? total / validCount : 0)
       : total;
 
     // Helper function to get sort indicator
@@ -426,7 +440,7 @@ export class DeviceReportModal {
             ${this.data.map(row => `
               <tr>
                 <td>${this.formatDate(row.date)}</td>
-                <td style="text-align: right;">${this.domainConfig.formatter(row.consumption)}</td>
+                <td style="text-align: right;">${row.consumption == null ? '—' : this.domainConfig.formatter(row.consumption)}</td>
               </tr>
             `).join('')}
           </tbody>
@@ -461,21 +475,35 @@ export class DeviceReportModal {
 
     // Sort the data
     this.data.sort((a, b) => {
+      // Gap rows (no reading) always sort last, regardless of asc/desc.
+      if (key === 'consumption') {
+        if (a.consumption == null && b.consumption == null) return 0;
+        if (a.consumption == null) return 1;
+        if (b.consumption == null) return -1;
+      }
+
       let comparison = 0;
-      
+
       if (key === 'date') {
         comparison = new Date(a.date).getTime() - new Date(b.date).getTime();
       } else {
-        comparison = a.consumption - b.consumption;
+        comparison = (a.consumption as number) - (b.consumption as number);
       }
-      
+
       // Apply sort direction
       return this.sortState.direction === 'desc' ? -comparison : comparison;
     });
   }
 
   private calculateTotal(): number {
-    return this.data.reduce((sum, row) => sum + row.consumption, 0);
+    return this.data.reduce((sum, row) => sum + (row.consumption ?? 0), 0);
+  }
+
+  // Number of rows with an actual reading (excludes gap days). The 'average'
+  // summary must divide by this, not this.data.length — otherwise gap days
+  // (null) would silently dilute the average, the same class of bug as ED-996.
+  private countValidReadings(): number {
+    return this.data.filter((row) => row.consumption != null).length;
   }
 
   private formatDate(dateStr: string): string {
@@ -495,8 +523,9 @@ export class DeviceReportModal {
 
   private exportCSV(): void {
     const total = this.calculateTotal();
+    const validCount = this.countValidReadings();
     const summaryValue = this.domainConfig.summaryType === 'average'
-      ? (this.data.length > 0 ? total / this.data.length : 0)
+      ? (validCount > 0 ? total / validCount : 0)
       : total;
     const now = new Date();
     const timestamp = now.toLocaleDateString('pt-BR') + ' - ' + now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
@@ -506,7 +535,7 @@ export class DeviceReportModal {
       ['DATA EMISSÃO', timestamp, ''],
       [this.domainConfig.summaryLabel, this.domainConfig.formatter(summaryValue), this.domainConfig.unit],
       ['Data', this.domainConfig.label, ''],
-      ...this.data.map(row => [this.formatDate(row.date), this.domainConfig.formatter(row.consumption)])
+      ...this.data.map(row => [this.formatDate(row.date), row.consumption == null ? '—' : this.domainConfig.formatter(row.consumption)])
     ];
 
     const csvContent = toCsv(csvData);

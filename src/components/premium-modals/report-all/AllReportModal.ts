@@ -23,6 +23,7 @@ interface DomainConfig {
   unit: string; // Display unit (kWh, m³)
   label: string; // Column label
   totalLabel: string; // Total section label
+  summaryType: 'total' | 'average'; // ED-996: how to summarize the data (temperature isn't additive)
 }
 
 const DOMAIN_CONFIG: Record<Domain, DomainConfig> = {
@@ -31,18 +32,21 @@ const DOMAIN_CONFIG: Record<Domain, DomainConfig> = {
     unit: 'kWh',
     label: 'Consumption (kWh)',
     totalLabel: 'Total kWh',
+    summaryType: 'total',
   },
   water: {
     endpoint: 'water',
     unit: 'm³',
     label: 'Consumo (m³)',
     totalLabel: 'Total m³',
+    summaryType: 'total',
   },
   temperature: {
     endpoint: 'temperature',
     unit: '°C',
     label: 'Temperatura (°C)',
     totalLabel: 'Média °C',
+    summaryType: 'average',
   },
 };
 
@@ -522,6 +526,10 @@ export class AllReportModal {
 
     const totalConsumption = this.calculateTotalConsumption();
     const storeCount = Math.max(1, this.data.length);
+    // ED-996: temperature isn't additive — the "Média °C" card must show the
+    // average across devices, not the raw sum (calculateTotalConsumption()).
+    const summaryValue =
+      this.domainConfig.summaryType === 'average' ? totalConsumption / storeCount : totalConsumption;
 
     container.innerHTML = `
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; padding: 16px; background: var(--myio-bg); border-radius: 6px;">
@@ -530,7 +538,7 @@ export class AllReportModal {
           <div style="color: var(--myio-text-muted);">Dispositivos</div>
         </div>
         <div style="text-align: center;">
-          <div style="font-size: 24px; font-weight: bold; color: var(--myio-primary);">${fmtPt(totalConsumption)}</div>
+          <div style="font-size: 24px; font-weight: bold; color: var(--myio-primary);">${fmtPt(summaryValue)}</div>
           <div style="color: var(--myio-text-muted);">${this.domainConfig.totalLabel}</div>
         </div>
         <div style="text-align: center;">
