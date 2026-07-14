@@ -1,6 +1,6 @@
 /**
  * RFC-0111 (endurecido 2026-07-14): deviceProfile é a ÚNICA autoridade de
- * classificação — deviceType só quando não há profile; name/label nunca.
+ * classificação — deviceType está EM DESUSO e nunca é lido; name/label nunca.
  * Casos de regressão vindos da auditoria HO Soul Malls × dashboards próprios
  * (Praia da Costa, West Plaza, Ilha Plaza, Plaza Macaé) de 2026-07-14.
  */
@@ -67,14 +67,16 @@ describe('detectContext / detectDomainAndContext — deviceProfile é a autorida
     });
   });
 
-  it('fallback: sem deviceProfile, deviceType ainda classifica (último recurso)', () => {
+  it('deviceType em desuso: NUNCA é lido — sem deviceProfile o device cai no default', () => {
+    // Mesmo com deviceType "perfeito", sem profile o device é inclassificável
+    // e cai no default (energy/equipments) — deviceType não é fallback.
     expect(detectDomainAndContext({ deviceType: 'HIDROMETRO', deviceProfile: '' })).toEqual({
-      domain: 'water',
-      context: 'hidrometro',
+      domain: 'energy',
+      context: 'equipments',
     });
     expect(detectDomainAndContext({ deviceType: '3F_MEDIDOR' })).toEqual({
       domain: 'energy',
-      context: 'stores',
+      context: 'equipments',
     });
   });
 });

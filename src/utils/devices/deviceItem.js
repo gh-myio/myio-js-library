@@ -340,21 +340,24 @@ export function createDeviceItem(entityId, meta, options = {}) {
     delayTimeConnectionInMins = 1440,
   } = options;
 
-  // Normalize values
-  const deviceType = meta.deviceType || meta.deviceProfile || '';
-  const deviceProfile = meta.deviceProfile || deviceType || '';
-  const effectiveDeviceType = deviceProfile || deviceType || null;
+  // Normalize values — deviceProfile é a ÚNICA autoridade de classificação;
+  // deviceType está EM DESUSO e não é lido (os campos legados deviceType/
+  // effectiveDeviceType do item continuam existindo por compat, mas são
+  // preenchidos a partir do profile).
+  const deviceProfile = meta.deviceProfile || '';
+  const deviceType = deviceProfile;
+  const effectiveDeviceType = deviceProfile || null;
   const identifier = meta.identifier || '';
   const label = meta.label || identifier || entityId;
 
-  // Detect device categories
-  const _isTankDevice = isTankDevice(deviceType);
-  const _isHidrometerDevice = isHydrometerDevice(deviceType);
-  const _isTemperatureDevice = isTemperatureDevice(deviceType);
+  // Detect device categories (pelo deviceProfile)
+  const _isTankDevice = isTankDevice(deviceProfile);
+  const _isHidrometerDevice = isHydrometerDevice(deviceProfile);
+  const _isTemperatureDevice = isTemperatureDevice(deviceProfile);
   const _isEnergyDevice = !_isTankDevice && !_isHidrometerDevice && !_isTemperatureDevice;
 
-  // Determine domain if not provided
-  const effectiveDomain = domain || getDomainFromDeviceType(deviceType);
+  // Determine domain if not provided (pelo deviceProfile)
+  const effectiveDomain = domain || getDomainFromDeviceType(deviceProfile);
 
   // Normalize connection status
   const rawConnectionStatus = meta.connectionStatus;
@@ -612,7 +615,8 @@ export function recalculateDeviceStatus(item, newData = {}, options = {}) {
   };
 
   const updatedOptions = {
-    domain: options.domain ?? getDomainFromDeviceType(item.deviceType),
+    // deviceProfile é a autoridade (deviceType em desuso)
+    domain: options.domain ?? getDomainFromDeviceType(item.deviceProfile),
     labelWidget: item.labelWidget,
     globalMapInstantaneousPower: options.globalMapInstantaneousPower ?? item.mapInstantaneousPower,
     temperatureLimits: options.temperatureLimits ?? {

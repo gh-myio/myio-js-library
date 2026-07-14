@@ -7570,17 +7570,18 @@ function buildEnergyCategoryDataByShopping(classified) {
   return shoppings.map((s) => {
     const total = s.totalConsumption;
 
-    // Subcategories within Equipamentos (counts only; consumption not split at this level)
+    // Subcategories within Equipamentos (counts only; consumption not split at
+    // this level) — pelo deviceProfile (deviceType em desuso)
     const elevatorsCount = s.equipDevices.filter((d) =>
-      (d.deviceType || '').toLowerCase().includes('elevador')
+      (d.deviceProfile || '').toLowerCase().includes('elevador')
     ).length;
     const escalatorsCount = s.equipDevices.filter((d) =>
-      (d.deviceType || '').toLowerCase().includes('escada')
+      (d.deviceProfile || '').toLowerCase().includes('escada')
     ).length;
     const hvacCount = s.equipDevices.filter(
       (d) =>
-        (d.deviceType || '').toLowerCase().includes('ar_condicionado') ||
-        (d.deviceType || '').toLowerCase().includes('hvac')
+        (d.deviceProfile || '').toLowerCase().includes('ar_condicionado') ||
+        (d.deviceProfile || '').toLowerCase().includes('hvac')
     ).length;
     const othersCount = s.equipDevices.length - elevatorsCount - escalatorsCount - hvacCount;
 
@@ -7863,11 +7864,9 @@ function buildCustomersEnergyBreakdown(classified) {
     const entry = shoppingMap.get(normalizedName);
     const value = Number(device.value || device.consumption || 0);
 
-    // Check if it's a store device (3F_MEDIDOR)
-    const deviceType = (device.deviceType || '').toUpperCase();
-    // RFC-0140: If deviceProfile is null/empty, assume it equals deviceType
-    const deviceProfile = (device.deviceProfile || device.deviceType || '').toUpperCase();
-    const isStore = deviceProfile === '3F_MEDIDOR' && deviceType === '3F_MEDIDOR';
+    // Check if it's a store device — deviceProfile apenas (deviceType em desuso)
+    const deviceProfile = (device.deviceProfile || '').toUpperCase();
+    const isStore = deviceProfile.startsWith('3F_MEDIDOR');
 
     if (isStore) {
       entry.lojas += value;
@@ -8050,11 +8049,9 @@ function classifyAllDevices(data) {
   // Process each device with all its rows
   for (const rows of deviceRowsMap.values()) {
     const device = extractDeviceMetadataFromRows(rows);
-    // deviceProfile é a autoridade (deviceType só quando não há profile) — um
-    // hidrômetro com deviceType=MOTOR errado tem que cair em water, não energy.
-    const domain = window.MyIOLibrary.getDomainFromDeviceType(
-      device.deviceProfile || device.deviceType
-    );
+    // deviceProfile é a ÚNICA autoridade (deviceType em desuso) — um hidrômetro
+    // com deviceType=MOTOR errado tem que cair em water, não energy.
+    const domain = window.MyIOLibrary.getDomainFromDeviceType(device.deviceProfile);
     const context = window.MyIOLibrary.detectContext(device, domain);
 
     if (classified[domain]?.[context] !== undefined) {
@@ -8210,10 +8207,11 @@ function extractDeviceMetadataFromRows(rows) {
     }
   }
 
-  // RFC-0111: Classification is based ONLY on deviceType from ThingsBoard
-  // No name-based inference - deviceType must be properly configured in ThingsBoard
-  const deviceType = dataKeyValues['deviceType'] || 'SEM_DEVICE_TYPE';
-  const deviceProfile = dataKeyValues['deviceProfile'] || deviceType;
+  // RFC-0111 (2026-07-14): classification is based ONLY on deviceProfile —
+  // deviceType está EM DESUSO (chegava errado do provisionamento) e não entra
+  // em NENHUMA decisão; o campo continua no item apenas por compat de payload.
+  const deviceType = dataKeyValues['deviceType'] || '';
+  const deviceProfile = dataKeyValues['deviceProfile'] || '';
 
   // RFC-0140 FIX: ThingsBoard 'consumption' is INSTANTANEOUS POWER (kW), NOT accumulated consumption (kWh)
   // consumption/val/value for cards should ONLY come from ingestion API enrichment
@@ -8230,8 +8228,8 @@ function extractDeviceMetadataFromRows(rows) {
   const pulsesTs = dataKeyTimestamps['pulses'] || null;
   const temperatureTs = dataKeyTimestamps[DOMAIN_TEMPERATURE] || null;
   const waterLevelTs = dataKeyTimestamps['water_level'] || null;
-  const isWater = deviceType.includes('HIDROMETRO');
-  const isTemperature = deviceType.includes('TERMOSTATO');
+  const isWater = deviceProfile.includes('HIDROMETRO');
+  const isTemperature = deviceProfile.includes('TERMOSTATO');
   const domain = isWater ? DOMAIN_WATER : isTemperature ? DOMAIN_TEMPERATURE : DOMAIN_ENERGY;
 
   // RFC-0110: Get domain-specific telemetry timestamp

@@ -23,6 +23,7 @@ export interface ClassifiableItem {
   identifier?: string | null;
   /** Free-text fields used by the breakdown's combined-substring matching (RFC-0207 A1b). */
   labelWidget?: string | null;
+  /** @deprecated EM DESUSO (2026-07-14) — nunca é lido; classificação usa só deviceProfile/identifier. */
   deviceType?: string | null;
   label?: string | null;
   [key: string]: unknown;
@@ -87,7 +88,10 @@ export interface IdentifierMatch {
 
 /** Conditional rule: when deviceProfile is one of these, require an identifier hit. */
 export interface ConditionalRule extends IdentifierMatch {
-  deviceTypes: string[];
+  /** Perfis (deviceProfile) que exigem hit de identifier. */
+  deviceProfiles: string[];
+  /** @deprecated Nome legado do campo (sempre comparou contra o deviceProfile) — normalizado para deviceProfiles. */
+  deviceTypes?: string[];
 }
 
 /** A single (non-fallback) category rule. */
@@ -96,9 +100,10 @@ export interface CategoryRule {
   /** Exact deviceProfile matches (the legacy "deviceTypes" Set). */
   deviceProfiles: string[];
   /**
-   * Substring patterns over the COMBINED text (labelWidget + deviceType +
-   * deviceProfile + label), mirroring buildSummary's loose matching (A1b).
-   * This is what unifies the breakdown subcategorization into one source.
+   * Substring patterns over the COMBINED text (labelWidget + deviceProfile +
+   * label — deviceType em desuso, removido 2026-07-14), mirroring
+   * buildSummary's loose matching (A1b). This is what unifies the breakdown
+   * subcategorization into one source.
    */
   combinedContains?: string[];
   /** climatizacao-only conditional ({BOMBA,MOTOR} + identifier hit). */
@@ -223,9 +228,9 @@ export const DEFAULT_DEVICE_CLASSIFICATION_PROFILE: DeviceClassificationProfile 
               'BOMBA_HIDRAULICA',
               'BOMBASHIDRAULICAS',
             ],
-            // CLIMATIZACAO_CONDITIONAL_TYPES_SET + identifier requirement
+            // CLIMATIZACAO conditional (perfis BOMBA/MOTOR) + identifier requirement
             conditional: {
-              deviceTypes: ['BOMBA', 'MOTOR'],
+              deviceProfiles: ['BOMBA', 'MOTOR'],
               // RFC-0207 A1 — BUG #1 FIX: substring (.includes), unifying with
               // equipmentCategory.js. Catches "CAG 01", "BOMBA CAG 2", etc.
               identifierContains: ['CAG', 'FANCOIL'],
@@ -319,14 +324,12 @@ function identifierOf(item: ClassifiableItem | null | undefined): string {
 }
 
 /**
- * combined: mirrors buildSummary's
- * `${labelWidget} ${deviceType} ${deviceProfile} ${label}` (upper-cased).
+ * combined: `${labelWidget} ${deviceProfile} ${label}` (upper-cased).
+ * deviceType está EM DESUSO e foi removido do texto combinado (2026-07-14).
  * Identifier is intentionally NOT included (buildSummary keeps it separate).
  */
 function combinedOf(item: ClassifiableItem | null | undefined): string {
-  return `${up(item?.labelWidget ?? '')} ${up(item?.deviceType ?? '')} ${up(
-    item?.deviceProfile ?? '',
-  )} ${up(item?.label ?? '')}`;
+  return `${up(item?.labelWidget ?? '')} ${up(item?.deviceProfile ?? '')} ${up(item?.label ?? '')}`;
 }
 
 /** Mirrors an IdentifierMatch against an already-normalized (trim+upper) id. */
@@ -461,8 +464,8 @@ export function resolveCategory(
         }
       }
     }
-    // conditional ({BOMBA,MOTOR} + identifier hit)
-    if (rule.conditional && rule.conditional.deviceTypes.some((t) => dp === up(t))) {
+    // conditional ({BOMBA,MOTOR} no PROFILE + identifier hit)
+    if (rule.conditional && rule.conditional.deviceProfiles.some((t) => dp === up(t))) {
       if (matchesIdentifier(id, rule.conditional)) {
         return { category: rule.name, matchedBy: 'conditional' };
       }
@@ -617,7 +620,11 @@ export function normalizeProfile(raw: DeviceClassificationProfile): DeviceClassi
         r.deviceProfiles = upArr(r.deviceProfiles) ?? [];
         r.combinedContains = upArr(r.combinedContains);
         if (r.conditional) {
-          r.conditional.deviceTypes = upArr(r.conditional.deviceTypes) ?? [];
+          // Compat: perfis JSON legados usavam a chave "deviceTypes" (que sempre
+          // comparou contra o deviceProfile) — normaliza para deviceProfiles.
+          r.conditional.deviceProfiles =
+            upArr(r.conditional.deviceProfiles) ?? upArr(r.conditional.deviceTypes) ?? [];
+          delete r.conditional.deviceTypes;
           upIdMatch(r.conditional);
         }
         upIdMatch(r.identifierFallback);

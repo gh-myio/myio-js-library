@@ -46,8 +46,8 @@ export const ContextType = {
 /**
  * RFC-0111: Detect device context based on deviceProfile (+identifier).
  *
- * ⚠️ AUTORIDADE: deviceProfile decide TUDO. deviceType só é consultado quando o
- * device não tem deviceProfile (último recurso); name/label nunca entram.
+ * ⚠️ AUTORIDADE: deviceProfile decide TUDO. deviceType está EM DESUSO e não é
+ * lido nunca (nem como fallback); name/label também nunca entram.
  *
  * WATER Rules (priority order, sobre o deviceProfile):
  * 1. profile contém HIDROMETRO_SHOPPING → ENTRADA (main water meter)
@@ -62,39 +62,35 @@ export const ContextType = {
  * - profile começa com 3F_MEDIDOR → STORES (mesmo com deviceType errado)
  * - default → EQUIPMENTS
  *
- * TEMPERATURE Rules:
- * - deviceType = deviceProfile = TERMOSTATO → termostato (climatized)
- * - deviceType = TERMOSTATO AND deviceProfile = TERMOSTATO_EXTERNAL → termostato_external
- * - deviceType = TERMOSTATO_EXTERNAL → termostato_external
+ * TEMPERATURE Rules (sobre o deviceProfile):
+ * - profile contém EXTERNAL (TERMOSTATO_EXTERNAL) → termostato_external
+ * - default → termostato (climatized)
  *
- * @param {Object} device - Device object with deviceType, deviceProfile, and identifier properties
- * @param {string} [device.deviceType] - The device type string
- * @param {string} [device.deviceProfile] - The device profile string
+ * @param {Object} device - Device object with deviceProfile and identifier properties
+ * @param {string} [device.deviceProfile] - The device profile string (única autoridade)
  * @param {string} [device.identifier] - The device identifier (server_scope attribute)
  * @param {'energy' | 'water' | 'temperature'} domain - The device domain
  * @returns {string} The detected context
  *
  * @example
- * detectContext({ deviceType: 'HIDROMETRO', deviceProfile: 'HIDROMETRO' }, 'water');
+ * detectContext({ deviceProfile: 'HIDROMETRO' }, 'water');
  * // Returns 'hidrometro'
  *
  * @example
- * detectContext({ deviceType: 'HIDROMETRO', deviceProfile: 'HIDROMETRO_AREA_COMUM', identifier: 'BANHEIROS' }, 'water');
+ * detectContext({ deviceProfile: 'HIDROMETRO_AREA_COMUM', identifier: 'BANHEIROS' }, 'water');
  * // Returns 'banheiros'
  *
  * @example
- * detectContext({ deviceType: '3F_MEDIDOR', deviceProfile: '3F_MEDIDOR' }, 'energy');
+ * detectContext({ deviceProfile: '3F_MEDIDOR' }, 'energy');
  * // Returns 'stores'
  */
 export function detectContext(device, domain) {
   // 2026-07-14 (endurecimento do RFC-0111): deviceProfile é a ÚNICA autoridade
-  // de classificação. deviceType chega errado do provisionamento com frequência
-  // (hidrômetro com deviceType=MOTOR, loja 3F com deviceType=ELEVADOR, subestação
-  // com deviceType=SUBESTACAO mas profile=MOTOR) e name/label NUNCA entram na
-  // decisão. deviceType só é lido como último recurso quando o device NÃO tem
-  // deviceProfile — sem isso ele ficaria inclassificável.
-  const deviceProfile = String(device?.deviceProfile || '').toUpperCase().trim();
-  const basis = deviceProfile || String(device?.deviceType || '').toUpperCase().trim();
+  // de classificação. deviceType está EM DESUSO (chegava errado do
+  // provisionamento: hidrômetro com deviceType=MOTOR, loja 3F com
+  // deviceType=ELEVADOR, subestação com deviceType=SUBESTACAO mas
+  // profile=MOTOR) e não é lido NUNCA — nem como fallback. name/label idem.
+  const basis = String(device?.deviceProfile || '').toUpperCase().trim();
   const identifier = String(device?.identifier || '').toUpperCase();
 
   if (domain === DomainType.WATER) {
@@ -177,18 +173,17 @@ export function detectContext(device, domain) {
 /**
  * Detect both domain and context for a device in a single call.
  *
- * @param {Object} device - Device object with deviceType and deviceProfile properties
+ * @param {Object} device - Device object with deviceProfile (única autoridade) and identifier
  * @returns {{ domain: string, context: string }} Object with domain and context
  *
  * @example
- * detectDomainAndContext({ deviceType: 'HIDROMETRO', deviceProfile: 'HIDROMETRO_AREA_COMUM' });
+ * detectDomainAndContext({ deviceProfile: 'HIDROMETRO_AREA_COMUM' });
  * // Returns { domain: 'water', context: 'hidrometro_area_comum' }
  */
 export function detectDomainAndContext(device) {
-  // Domínio também é decidido pelo deviceProfile (deviceType só quando não há
-  // profile) — um hidrômetro com deviceType=MOTOR errado continua sendo água.
-  const basis = String(device?.deviceProfile || '').trim() || String(device?.deviceType || '');
-  const domain = getDomainFromDeviceType(basis);
+  // Domínio também é decidido exclusivamente pelo deviceProfile (deviceType em
+  // desuso) — um hidrômetro com deviceType=MOTOR errado continua sendo água.
+  const domain = getDomainFromDeviceType(String(device?.deviceProfile || ''));
   const context = detectContext(device, domain);
 
   return { domain, context };
