@@ -257,7 +257,7 @@ function initializeSensorCards(sensors) {
               label: sensor.label || sensor.name,
               jwtToken: jwt,
               domain: WIDGET_DOMAIN,
-              deviceType: sensor.deviceType || 'TERMOSTATO',
+              deviceType: sensor.deviceProfile || 'TERMOSTATO', // campo legado (deviceType em desuso) — preenchido do profile
               deviceProfile: sensor.deviceProfile || 'TERMOSTATO',
               customerId: sensor.customerId,
               customerName: sensor.customerName,

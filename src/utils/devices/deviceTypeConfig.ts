@@ -86,18 +86,19 @@ export const DEVICE_TYPE_CONFIG: Record<string, DeviceTypeConfigEntry> = {
 export const DEFAULT_DEVICE_IMAGE =
   'https://cdn-icons-png.flaticon.com/512/1178/1178428.png';
 
-/** Resolves the domain category for a device type (default `'energy'`). */
-export function getDeviceCategory(deviceType?: string | null): DeviceTypeCategory {
-  const normalizedType = String(deviceType || '').toUpperCase();
+/** Resolves the domain category for a device PROFILE (default `'energy'`). deviceType em desuso. */
+export function getDeviceCategory(deviceProfile?: string | null): DeviceTypeCategory {
+  const normalizedType = String(deviceProfile || '').toUpperCase();
   return DEVICE_TYPE_CONFIG[normalizedType]?.category || 'energy';
 }
 
 /**
- * Resolves the STATIC image URL for a device type, falling back to the generic
- * flaticon default. Returns the default for dynamic-image types (image `null`).
+ * Resolves the STATIC image URL for a device PROFILE (deviceType em desuso),
+ * falling back to the generic flaticon default. Returns the default for
+ * dynamic-image types (image `null`).
  */
-export function getStaticDeviceImage(deviceType?: string | null): string {
-  const normalizedType = String(deviceType || '').toUpperCase();
+export function getStaticDeviceImage(deviceProfile?: string | null): string {
+  const normalizedType = String(deviceProfile || '').toUpperCase();
   return DEVICE_TYPE_CONFIG[normalizedType]?.image || DEFAULT_DEVICE_IMAGE;
 }
 

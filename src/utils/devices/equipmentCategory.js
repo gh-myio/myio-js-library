@@ -24,29 +24,29 @@ export const EquipmentCategory = {
 /**
  * Equipment classification configuration
  * Ported from MAIN_VIEW/controller.js DEVICE_CLASSIFICATION_CONFIG
+ *
+ * 2026-07-14: deviceType está EM DESUSO — classificação usa APENAS
+ * deviceProfile + identifier (attr curado). As chaves deviceTypes/
+ * conditionalDeviceTypes foram removidas.
  */
 export const EQUIPMENT_CLASSIFICATION_CONFIG = {
   climatizacao: {
-    deviceTypes: ['CHILLER', 'AR_CONDICIONADO', 'HVAC', 'FANCOIL'],
     deviceProfiles: ['CHILLER', 'FANCOIL', 'HVAC', 'AR_CONDICIONADO', 'BOMBA_CAG'],
-    conditionalDeviceTypes: ['BOMBA', 'MOTOR'],
+    conditionalDeviceProfiles: ['BOMBA', 'MOTOR'], // + identifier CAG/FANCOIL
     identifiers: ['CAG', 'FANCOIL', 'HVAC'],
     identifierPrefixes: ['CAG-', 'FANCOIL-'],
   },
   elevadores: {
-    deviceTypes: ['ELEVADOR'],
     deviceProfiles: ['ELEVADOR'],
     identifiers: ['ELV', 'ELEVADOR', 'ELEVADORES'],
     identifierPrefixes: ['ELV-', 'ELEVADOR-'],
   },
   escadas_rolantes: {
-    deviceTypes: ['ESCADA_ROLANTE'],
     deviceProfiles: ['ESCADA_ROLANTE'],
     identifiers: ['ESC', 'ESCADA', 'ESCADASROLANTES'],
     identifierPrefixes: ['ESC-', 'ESCADA-', 'ESCADA_'],
   },
   entrada: {
-    deviceTypes: ['ENTRADA', 'RELOGIO', 'TRAFO', 'SUBESTACAO'],
     deviceProfiles: ['ENTRADA', 'RELOGIO', 'TRAFO', 'SUBESTACAO'],
   },
 };
@@ -67,54 +67,55 @@ const CATEGORY_DISPLAY_MAP = {
 /**
  * Classify an energy device into its equipment category.
  *
- * Priority order:
- * 1. ENTRADA (main meters): ENTRADA, RELOGIO, TRAFO, SUBESTACAO
- * 2. LOJAS (stores): deviceType = deviceProfile = '3F_MEDIDOR' (exact match)
- * 3. CLIMATIZACAO: CHILLER, FANCOIL, HVAC, AR_CONDICIONADO, BOMBA_CAG, or CAG identifier
- * 4. ELEVADORES: ELEVADOR or ELV- identifier prefix
- * 5. ESCADAS_ROLANTES: ESCADA_ROLANTE or ESC- identifier prefix
- * 6. OUTROS: Remaining 3F_MEDIDOR equipment
+ * ⚠️ AUTORIDADE: deviceProfile decide (deviceType está EM DESUSO e não é lido);
+ * identifier (attr SERVER_SCOPE curado) complementa; name/label nunca entram.
+ *
+ * Priority order (sobre o deviceProfile):
+ * 1. ENTRADA (main meters): profile contém ENTRADA, RELOGIO, TRAFO, SUBESTACAO
+ * 2. LOJAS (stores): profile começa com '3F_MEDIDOR'
+ * 3. CLIMATIZACAO: profile CHILLER/FANCOIL/HVAC/AR_CONDICIONADO/BOMBA_CAG, ou identifier CAG
+ * 4. ELEVADORES: profile ELEVADOR or ELV- identifier prefix
+ * 5. ESCADAS_ROLANTES: profile ESCADA_ROLANTE or ESC- identifier prefix
+ * 6. OUTROS: remaining equipment
  *
  * @param {Object} device - Device object
- * @param {string} [device.deviceType] - Device type
- * @param {string} [device.deviceProfile] - Device profile
+ * @param {string} [device.deviceProfile] - Device profile (única autoridade)
  * @param {string} [device.identifier] - Device identifier (server_scope attribute)
  * @returns {string} Equipment category from EquipmentCategory enum
  *
  * @example
- * classifyEquipment({ deviceType: '3F_MEDIDOR', deviceProfile: 'CHILLER' }); // 'climatizacao'
- * classifyEquipment({ deviceType: '3F_MEDIDOR', deviceProfile: '3F_MEDIDOR' }); // 'lojas'
- * classifyEquipment({ deviceType: 'ENTRADA', deviceProfile: 'ENTRADA' }); // 'entrada'
+ * classifyEquipment({ deviceProfile: 'CHILLER' }); // 'climatizacao'
+ * classifyEquipment({ deviceProfile: '3F_MEDIDOR' }); // 'lojas'
+ * classifyEquipment({ deviceProfile: 'ENTRADA' }); // 'entrada'
  */
 export function classifyEquipment(device) {
-  const deviceType = String(device?.deviceType || '').toUpperCase();
-  const deviceProfile = String(device?.deviceProfile || '').toUpperCase();
+  const deviceProfile = String(device?.deviceProfile || '').toUpperCase().trim();
   const identifier = String(device?.identifier || '').toUpperCase();
 
-  // Priority 1: ENTRADA (main meters)
-  const entradaTypes = ['ENTRADA', 'RELOGIO', 'TRAFO', 'SUBESTACAO'];
-  if (entradaTypes.some((t) => deviceType.includes(t) || deviceProfile.includes(t))) {
+  // Priority 1: ENTRADA (main meters) — pelo PROFILE apenas
+  const entradaProfiles = ['ENTRADA', 'RELOGIO', 'TRAFO', 'SUBESTACAO'];
+  if (entradaProfiles.some((t) => deviceProfile.includes(t))) {
     return EquipmentCategory.ENTRADA;
   }
 
-  // Priority 2: LOJAS (stores) - exact match required
-  if (deviceType === '3F_MEDIDOR' && deviceProfile === '3F_MEDIDOR') {
+  // Priority 2: LOJAS (stores) — inclui variantes (3F_MEDIDOR_ARQUIVADO_...)
+  if (deviceProfile.startsWith('3F_MEDIDOR')) {
     return EquipmentCategory.LOJAS;
   }
 
-  // Priority 3: CLIMATIZACAO
-  const hvacTypes = ['CHILLER', 'FANCOIL', 'HVAC', 'AR_CONDICIONADO', 'BOMBA_CAG'];
+  // Priority 3: CLIMATIZACAO (BOMBA_CAG incluso — é climatização, não bomba BAS)
+  const hvacProfiles = ['CHILLER', 'FANCOIL', 'HVAC', 'AR_CONDICIONADO', 'BOMBA_CAG'];
   const hvacIdentifiers = ['CAG', 'HVAC', 'AR_CONDICIONADO'];
   if (
-    hvacTypes.some((t) => deviceType.includes(t) || deviceProfile.includes(t)) ||
+    hvacProfiles.some((t) => deviceProfile.includes(t)) ||
     hvacIdentifiers.some((id) => identifier.includes(id))
   ) {
     return EquipmentCategory.CLIMATIZACAO;
   }
 
-  // Conditional: BOMBA/MOTOR with CAG identifier → climatizacao
+  // Conditional: profile BOMBA/MOTOR com identifier CAG/FANCOIL → climatizacao
   if (
-    ['BOMBA', 'MOTOR'].some((t) => deviceType.includes(t)) &&
+    ['BOMBA', 'MOTOR'].some((t) => deviceProfile.includes(t)) &&
     ['CAG', 'FANCOIL'].some((id) => identifier.includes(id))
   ) {
     return EquipmentCategory.CLIMATIZACAO;
@@ -122,7 +123,6 @@ export function classifyEquipment(device) {
 
   // Priority 4: ELEVADORES
   if (
-    deviceType.includes('ELEVADOR') ||
     deviceProfile.includes('ELEVADOR') ||
     identifier.startsWith('ELV-') ||
     identifier.startsWith('ELEVADOR-')
@@ -132,17 +132,11 @@ export function classifyEquipment(device) {
 
   // Priority 5: ESCADAS ROLANTES
   if (
-    deviceType.includes('ESCADA') ||
     deviceProfile.includes('ESCADA') ||
     identifier.startsWith('ESC-') ||
     identifier.startsWith('ESCADA')
   ) {
     return EquipmentCategory.ESCADAS_ROLANTES;
-  }
-
-  // Priority 6: OUTROS (remaining 3F_MEDIDOR equipment)
-  if (deviceType === '3F_MEDIDOR' || deviceType.includes('MEDIDOR')) {
-    return EquipmentCategory.OUTROS;
   }
 
   // Default: OUTROS
@@ -157,26 +151,26 @@ export function classifyEquipment(device) {
  * @returns {string|null} Subcategory name or null if no subcategory applies
  *
  * @example
- * classifyEquipmentSubcategory({ deviceType: 'CHILLER' }, 'climatizacao'); // 'Chillers'
- * classifyEquipmentSubcategory({ deviceType: 'BOMBA_INCENDIO' }, 'outros'); // 'Bombas de Incêndio'
+ * classifyEquipmentSubcategory({ deviceProfile: 'CHILLER' }, 'climatizacao'); // 'Chillers'
+ * classifyEquipmentSubcategory({ deviceProfile: 'BOMBA_INCENDIO' }, 'outros'); // 'Bombas de Incêndio'
  */
 export function classifyEquipmentSubcategory(device, category) {
-  const deviceType = String(device?.deviceType || '').toUpperCase();
-  const deviceProfile = String(device?.deviceProfile || '').toUpperCase();
+  // deviceProfile + identifier apenas (deviceType em desuso)
+  const deviceProfile = String(device?.deviceProfile || '').toUpperCase().trim();
   const identifier = String(device?.identifier || '').toUpperCase();
 
   if (category === EquipmentCategory.CLIMATIZACAO) {
-    if (deviceType.includes('CHILLER') || deviceProfile.includes('CHILLER')) return 'Chillers';
-    if (deviceType.includes('FANCOIL') || deviceProfile.includes('FANCOIL')) return 'Fancoils';
-    if (identifier.includes('CAG') || deviceType.includes('CENTRAL')) return 'CAG';
-    if (deviceType.includes('BOMBA') && !deviceType.includes('INCENDIO')) return 'Bombas Hidráulicas';
+    if (deviceProfile.includes('CHILLER')) return 'Chillers';
+    if (deviceProfile.includes('FANCOIL')) return 'Fancoils';
+    if (identifier.includes('CAG') || deviceProfile.includes('CENTRAL')) return 'CAG';
+    if (deviceProfile.includes('BOMBA') && !deviceProfile.includes('INCENDIO')) return 'Bombas Hidráulicas';
     return 'Outros HVAC';
   }
 
   if (category === EquipmentCategory.OUTROS) {
-    if (/ILUMINA|LUZ|LAMPADA|LED/.test(deviceType) || /ILUMINA|LUZ/.test(identifier)) return 'Iluminação';
-    if (/INCENDIO|INCÊNDIO/.test(deviceType) || /INCENDIO/.test(identifier)) return 'Bombas de Incêndio';
-    if (/GERADOR|NOBREAK|UPS/.test(deviceType)) return 'Geradores/Nobreaks';
+    if (/ILUMINA|LUZ|LAMPADA|LED/.test(deviceProfile) || /ILUMINA|LUZ/.test(identifier)) return 'Iluminação';
+    if (/INCENDIO|INCÊNDIO/.test(deviceProfile) || /INCENDIO/.test(identifier)) return 'Bombas de Incêndio';
+    if (/GERADOR|NOBREAK|UPS/.test(deviceProfile)) return 'Geradores/Nobreaks';
     return 'Geral';
   }
 
@@ -331,36 +325,34 @@ export function buildEquipmentCategoryDataForTooltip(devices) {
 
 /**
  * Check if a device is a store (Loja) device.
- * Store devices have deviceType = deviceProfile = '3F_MEDIDOR' (exact match).
+ * Store devices have deviceProfile starting with '3F_MEDIDOR' (deviceType em desuso).
  *
  * @param {Object} device - Device object
  * @returns {boolean} True if device is a store device
  *
  * @example
- * isStoreDevice({ deviceType: '3F_MEDIDOR', deviceProfile: '3F_MEDIDOR' }); // true
- * isStoreDevice({ deviceType: '3F_MEDIDOR', deviceProfile: 'CHILLER' }); // false
+ * isStoreDevice({ deviceProfile: '3F_MEDIDOR' }); // true
+ * isStoreDevice({ deviceProfile: 'CHILLER' }); // false
  */
 export function isStoreDevice(device) {
-  const deviceType = String(device?.deviceType || '').toUpperCase();
-  const deviceProfile = String(device?.deviceProfile || '').toUpperCase();
-  return deviceType === '3F_MEDIDOR' && deviceProfile === '3F_MEDIDOR';
+  const deviceProfile = String(device?.deviceProfile || '').toUpperCase().trim();
+  return deviceProfile.startsWith('3F_MEDIDOR');
 }
 
 /**
  * Check if a device is an equipment (Área Comum) device.
- * Equipment devices are 3F_MEDIDOR with deviceProfile != '3F_MEDIDOR'.
+ * Equipment = energia que NÃO é loja nem entrada (pelo deviceProfile).
  *
  * @param {Object} device - Device object
  * @returns {boolean} True if device is an equipment device
  *
  * @example
- * isEquipmentDevice({ deviceType: '3F_MEDIDOR', deviceProfile: 'CHILLER' }); // true
- * isEquipmentDevice({ deviceType: '3F_MEDIDOR', deviceProfile: '3F_MEDIDOR' }); // false
+ * isEquipmentDevice({ deviceProfile: 'CHILLER' }); // true
+ * isEquipmentDevice({ deviceProfile: '3F_MEDIDOR' }); // false
  */
 export function isEquipmentDevice(device) {
-  const deviceType = String(device?.deviceType || '').toUpperCase();
-  const deviceProfile = String(device?.deviceProfile || '').toUpperCase();
-  return deviceType === '3F_MEDIDOR' && deviceProfile !== '3F_MEDIDOR';
+  const cat = classifyEquipment(device);
+  return cat !== EquipmentCategory.LOJAS && cat !== EquipmentCategory.ENTRADA;
 }
 
 /**

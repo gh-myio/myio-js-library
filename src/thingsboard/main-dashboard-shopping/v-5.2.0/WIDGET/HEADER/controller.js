@@ -2236,7 +2236,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
             identifier: d.identifier || '',
             label: d.label || d.identifier || '',
             domain,
-            deviceProfile: d.deviceProfile || d.deviceType || '',
+            deviceProfile: d.deviceProfile || '', // deviceType em desuso
           });
           return [
             ...(data.energy?.items || []).map((d) => toW(d, 'energy')),

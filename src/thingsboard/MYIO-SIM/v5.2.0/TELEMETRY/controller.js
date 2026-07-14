@@ -505,7 +505,7 @@ function initializeCards(devices) {
             label: device.labelOrName,
             jwtToken: jwt,
             domain: WIDGET_DOMAIN,
-            deviceType: device.deviceType,
+            deviceType: device.deviceProfile, // campo legado (deviceType em desuso) — preenchido do profile
             deviceProfile: device.deviceProfile,
             customerName: device.customerName,
             connectionData: {
@@ -770,7 +770,7 @@ async function processAndRenderDevices(cache) {
       labelOrName: item.label || item.name || 'Unknown',
       deviceIdentifier: item.identifier || 'Sem identificador',
       val: displayValue,
-      deviceType: item.deviceType || '',
+      deviceType: item.deviceProfile || '', // campo legado (deviceType em desuso) — preenchido do profile
       deviceProfile: item.deviceProfile || '',
       deviceStatus: deviceStatus,
       connectionStatus: item.connectionStatus || 'offline',

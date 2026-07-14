@@ -45,53 +45,56 @@ export const DeviceCategory = {
 };
 
 /**
- * Checks if device type is a water tank
- * @param {string} deviceType - Device type string
+ * Checks if a device PROFILE is a water tank.
+ * (deviceType está em desuso — alimente sempre com o deviceProfile.)
+ * @param {string} deviceProfile - Device profile string
  * @returns {boolean}
  */
-export function isTankDevice(deviceType) {
-  const dt = String(deviceType || '').toUpperCase();
+export function isTankDevice(deviceProfile) {
+  const dt = String(deviceProfile || '').toUpperCase();
   return dt === 'TANK' || dt === 'CAIXA_DAGUA';
 }
 
 /**
- * Checks if device type is a hydrometer
- * @param {string} deviceType - Device type string
+ * Checks if a device PROFILE is a hydrometer.
+ * (deviceType está em desuso — alimente sempre com o deviceProfile.)
+ * @param {string} deviceProfile - Device profile string
  * @returns {boolean}
  */
-export function isHydrometerDevice(deviceType) {
-  const dt = String(deviceType || '').toUpperCase();
+export function isHydrometerDevice(deviceProfile) {
+  const dt = String(deviceProfile || '').toUpperCase();
   return dt.startsWith('HIDROMETRO');
 }
 
 /**
- * Checks if device type is a solenoid valve (water infrastructure)
- * @param {string} deviceType - Device type string
+ * Checks if a device PROFILE is a solenoid valve (water infrastructure)
+ * @param {string} deviceProfile - Device profile string
  * @returns {boolean}
  */
-export function isSolenoidDevice(deviceType) {
-  const dt = String(deviceType || '').toUpperCase();
+export function isSolenoidDevice(deviceProfile) {
+  const dt = String(deviceProfile || '').toUpperCase();
   return dt.includes('SOLENOIDE');
 }
 
 /**
- * Checks if device type is a temperature sensor
- * @param {string} deviceType - Device type string
+ * Checks if a device PROFILE is a temperature sensor
+ * @param {string} deviceProfile - Device profile string
  * @returns {boolean}
  */
-export function isTemperatureDevice(deviceType) {
-  const dt = String(deviceType || '').toUpperCase();
-  return dt === 'TERMOSTATO' || dt === 'SENSOR_TEMP' || dt.includes('TEMP');
+export function isTemperatureDevice(deviceProfile) {
+  const dt = String(deviceProfile || '').toUpperCase();
+  // startsWith cobre TERMOSTATO_EXTERNAL ("TERMOSTATO" não contém a substring "TEMP")
+  return dt === 'TERMOSTATO' || dt === 'SENSOR_TEMP' || dt.includes('TEMP') || dt.startsWith('TERMOSTATO');
 }
 
 /**
- * Checks if device type is an energy device
+ * Checks if a device PROFILE is an energy device
  * RFC-0128: Includes all energy equipment categories
- * @param {string} deviceType - Device type or profile string
+ * @param {string} deviceProfile - Device profile string
  * @returns {boolean}
  */
-export function isEnergyDevice(deviceType) {
-  const dt = String(deviceType || '').toUpperCase();
+export function isEnergyDevice(deviceProfile) {
+  const dt = String(deviceProfile || '').toUpperCase();
 
   // Explicitly exclude non-energy devices (lighting, remotes, solenoids)
   // RFC-0175: SOLENOIDE is a control device, not an energy meter
@@ -138,19 +141,25 @@ export function isEnergyDevice(deviceType) {
 }
 
 /**
- * Determines the domain for a device based on its type
- * @param {string} deviceType - Device type string
+ * Determines the domain for a device based on its PROFILE.
+ * @param {string} deviceProfile - Device profile string (única autoridade)
  * @returns {string} Domain: 'energy', 'water', or 'temperature'
  */
-export function getDomainFromDeviceType(deviceType) {
-  if (isTankDevice(deviceType) || isHydrometerDevice(deviceType) || isSolenoidDevice(deviceType)) {
+export function getDomainFromProfile(deviceProfile) {
+  if (isTankDevice(deviceProfile) || isHydrometerDevice(deviceProfile) || isSolenoidDevice(deviceProfile)) {
     return DomainType.WATER;
   }
-  if (isTemperatureDevice(deviceType)) {
+  if (isTemperatureDevice(deviceProfile)) {
     return DomainType.TEMPERATURE;
   }
   return DomainType.ENERGY;
 }
+
+/**
+ * @deprecated deviceType está EM DESUSO (2026-07-14). Use getDomainFromProfile
+ * e alimente com o deviceProfile. Alias mantido só para widgets já publicados.
+ */
+export const getDomainFromDeviceType = getDomainFromProfile;
 
 /**
  * Extracts power limits from mapInstantaneousPower JSON for a specific device type
@@ -339,21 +348,24 @@ export function createDeviceItem(entityId, meta, options = {}) {
     delayTimeConnectionInMins = 1440,
   } = options;
 
-  // Normalize values
-  const deviceType = meta.deviceType || meta.deviceProfile || '';
-  const deviceProfile = meta.deviceProfile || deviceType || '';
-  const effectiveDeviceType = deviceProfile || deviceType || null;
+  // Normalize values — deviceProfile é a ÚNICA autoridade de classificação;
+  // deviceType está EM DESUSO e não é lido (os campos legados deviceType/
+  // effectiveDeviceType do item continuam existindo por compat, mas são
+  // preenchidos a partir do profile).
+  const deviceProfile = meta.deviceProfile || '';
+  const deviceType = deviceProfile;
+  const effectiveDeviceType = deviceProfile || null;
   const identifier = meta.identifier || '';
   const label = meta.label || identifier || entityId;
 
-  // Detect device categories
-  const _isTankDevice = isTankDevice(deviceType);
-  const _isHidrometerDevice = isHydrometerDevice(deviceType);
-  const _isTemperatureDevice = isTemperatureDevice(deviceType);
+  // Detect device categories (pelo deviceProfile)
+  const _isTankDevice = isTankDevice(deviceProfile);
+  const _isHidrometerDevice = isHydrometerDevice(deviceProfile);
+  const _isTemperatureDevice = isTemperatureDevice(deviceProfile);
   const _isEnergyDevice = !_isTankDevice && !_isHidrometerDevice && !_isTemperatureDevice;
 
-  // Determine domain if not provided
-  const effectiveDomain = domain || getDomainFromDeviceType(deviceType);
+  // Determine domain if not provided (pelo deviceProfile)
+  const effectiveDomain = domain || getDomainFromProfile(deviceProfile);
 
   // Normalize connection status
   const rawConnectionStatus = meta.connectionStatus;
@@ -611,7 +623,8 @@ export function recalculateDeviceStatus(item, newData = {}, options = {}) {
   };
 
   const updatedOptions = {
-    domain: options.domain ?? getDomainFromDeviceType(item.deviceType),
+    // deviceProfile é a autoridade (deviceType em desuso)
+    domain: options.domain ?? getDomainFromProfile(item.deviceProfile),
     labelWidget: item.labelWidget,
     globalMapInstantaneousPower: options.globalMapInstantaneousPower ?? item.mapInstantaneousPower,
     temperatureLimits: options.temperatureLimits ?? {

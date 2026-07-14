@@ -797,8 +797,8 @@ export function renderCardComponentV6({
     solenoidStatus,
   } = entityObject;
 
-  // RFC-0175: Use deviceProfile (preferred) or deviceType (fallback) for device classification
-  // This fixes SOLENOIDE devices which have deviceType=3F_MEDIDOR but deviceProfile=SOLENOIDE
+  // deviceProfile é a ÚNICA autoridade (deviceType em desuso, 2026-07-14) — o
+  // campo legado do payload fica só como último recurso de exibição.
   const effectiveDeviceType = deviceProfile || deviceType;
 
   // MyIO Global Toast Manager

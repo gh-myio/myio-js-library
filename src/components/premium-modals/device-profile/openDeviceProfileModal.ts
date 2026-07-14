@@ -431,8 +431,9 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
     m = key.match(/^cat-(\d+)-(cdt|cidc|cidp)$/);
     if (m) {
       const rule = cats.rules[Number(m[1])];
-      rule.conditional = rule.conditional || { deviceTypes: [] };
-      if (m[2] === 'cdt') return (rule.conditional.deviceTypes = rule.conditional.deviceTypes || []);
+      // deviceProfiles (a chave legada "deviceTypes" foi aposentada — sempre casou contra o profile)
+      rule.conditional = rule.conditional || { deviceProfiles: [] };
+      if (m[2] === 'cdt') return (rule.conditional.deviceProfiles = rule.conditional.deviceProfiles || []);
       if (m[2] === 'cidc')
         return (rule.conditional.identifierContains = rule.conditional.identifierContains || []);
       if (m[2] === 'cidp')
