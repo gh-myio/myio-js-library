@@ -6,17 +6,14 @@
  * @version 1.0.0
  */
 
-import { getDomainFromDeviceType, DomainType as DeviceItemDomainType } from './deviceItem.js';
+import { getDomainFromProfile, DomainType as DeviceItemDomainType } from './deviceItem.js';
 
 /**
  * Domain types for device classification
+ * (re-export do deviceItem.js — antes havia DOIS enums idênticos em paralelo)
  * @enum {string}
  */
-export const DomainType = {
-  ENERGY: 'energy',
-  WATER: 'water',
-  TEMPERATURE: 'temperature',
-};
+export const DomainType = DeviceItemDomainType;
 
 /**
  * Context types for device classification
@@ -183,7 +180,7 @@ export function detectContext(device, domain) {
 export function detectDomainAndContext(device) {
   // Domínio também é decidido exclusivamente pelo deviceProfile (deviceType em
   // desuso) — um hidrômetro com deviceType=MOTOR errado continua sendo água.
-  const domain = getDomainFromDeviceType(String(device?.deviceProfile || ''));
+  const domain = getDomainFromProfile(String(device?.deviceProfile || ''));
   const context = detectContext(device, domain);
 
   return { domain, context };

@@ -158,6 +158,8 @@ export {
 export type { AssetType, AssetTypeConfigEntry } from './utils/asset';
 
 // RFC-0109: Device Item Factory utilities
+// 2026-07-14: deviceType está EM DESUSO — classificação usa só o deviceProfile.
+// getDomainFromProfile é o nome canônico; getDomainFromDeviceType é alias @deprecated.
 export {
   DomainType,
   DeviceCategory,
@@ -166,6 +168,7 @@ export {
   isSolenoidDevice,
   isTemperatureDevice,
   isEnergyDevice,
+  getDomainFromProfile,
   getDomainFromDeviceType,
   extractPowerLimitsForDevice,
   createDeviceItem,

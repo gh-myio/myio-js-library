@@ -92,7 +92,10 @@ export function renderCardComponentV5({
     labelOrName,
     deviceIdentifier,
     entityType,
-    deviceType,
+    // deviceType (campo do payload) está em desuso — preferir deviceProfile;
+    // o alias abaixo mantém o resto do template funcionando com o profile.
+    deviceType: legacyDeviceType,
+    deviceProfile,
     slaveId,
     ingestionId,
     val,
@@ -115,6 +118,10 @@ export function renderCardComponentV5({
     // Per-device exclude_groups_totals attribute (SERVER_SCOPE) — drives the orange marker
     excludeGroupsTotals,
   } = entityObject;
+
+  // deviceProfile é a autoridade; o campo legado deviceType (quando presente em
+  // payloads antigos) serve só de último recurso de exibição.
+  const deviceType = deviceProfile || legacyDeviceType || '';
 
   /*********************************************************
    * MyIO Global Toast Manager

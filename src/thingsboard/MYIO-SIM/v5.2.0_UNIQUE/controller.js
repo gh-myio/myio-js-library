@@ -8051,7 +8051,10 @@ function classifyAllDevices(data) {
     const device = extractDeviceMetadataFromRows(rows);
     // deviceProfile é a ÚNICA autoridade (deviceType em desuso) — um hidrômetro
     // com deviceType=MOTOR errado tem que cair em water, não energy.
-    const domain = window.MyIOLibrary.getDomainFromDeviceType(device.deviceProfile);
+    // getDomainFromProfile é o nome canônico; fallback para o alias em libs antigas.
+    const domain = (window.MyIOLibrary.getDomainFromProfile || window.MyIOLibrary.getDomainFromDeviceType)(
+      device.deviceProfile
+    );
     const context = window.MyIOLibrary.detectContext(device, domain);
 
     if (classified[domain]?.[context] !== undefined) {

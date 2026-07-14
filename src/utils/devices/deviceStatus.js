@@ -280,12 +280,13 @@ export function isDeviceOffline(deviceStatus) {
  * Gets the appropriate icon for a device status
  *
  * @param {string} deviceStatus - The device status
- * @param {string} deviceType - The device type (optional, for water/temperature/solenoid devices)
+ * @param {string} deviceProfile - O deviceProfile do device (deviceType está em desuso —
+ *   alimente com o profile; opcional, para água/temperatura/solenoide)
  * @returns {string} The icon emoji/character
  */
-export function getDeviceStatusIcon(deviceStatus, deviceType = null) {
-  // Normalize device type for comparison
-  const normalizedType = deviceType?.toUpperCase() || '';
+export function getDeviceStatusIcon(deviceStatus, deviceProfile = null) {
+  // Normalize device profile for comparison
+  const normalizedType = deviceProfile?.toUpperCase() || '';
 
   // Use water icons for TANK/CAIXA_DAGUA/HIDROMETRO devices (including subtypes)
   const isWaterDevice =
