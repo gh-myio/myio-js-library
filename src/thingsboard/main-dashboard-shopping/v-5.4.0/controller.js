@@ -158,8 +158,9 @@ function gcdrDeviceToMeta(dev) {
     name: dev.name || '',
     label: dev.label || dev.displayName || dev.name || '',
     labelOrName: dev.label || dev.displayName || dev.name || '',
-    deviceType: dev.deviceType || '',
-    deviceProfile: dev.deviceProfile || dev.deviceType || '',
+    // deviceType em desuso (2026-07-14) — campo legado preenchido do profile; sem fallback profile←type
+    deviceType: dev.deviceProfile || '',
+    deviceProfile: dev.deviceProfile || '',
     identifier: dev.identifier || '',
     slaveId: dev.slaveId != null ? String(dev.slaveId) : '',
     centralId: dev.centralId || '',
@@ -1751,7 +1752,7 @@ function handleGridCardAction(action, device) {
         deviceId,
         ingestionId: device?.ingestionId || undefined,
         label: device?.labelOrName || device?.name || undefined,
-        deviceType: device?.deviceType || device?.deviceProfile || undefined,
+        deviceType: device?.deviceProfile || undefined, // campo legado (deviceType em desuso)
         jwtToken,
         api: apiConfig,
         startDate: startDateISO,
@@ -1768,7 +1769,7 @@ function handleGridCardAction(action, device) {
         deviceId,
         ingestionId: device?.ingestionId || undefined,
         label: device?.labelOrName || device?.name || undefined,
-        deviceType: device?.deviceType || device?.deviceProfile || undefined,
+        deviceType: device?.deviceProfile || undefined, // campo legado (deviceType em desuso)
         jwtToken,
         api: apiConfig,
         startDate: startDateISO,

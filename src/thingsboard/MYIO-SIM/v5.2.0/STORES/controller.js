@@ -678,7 +678,8 @@ async function renderList(visible) {
     // RFC-0102: Simplified tbId resolution - orchestrator already provides valid tbId
     const resolvedTbId = it.tbId || it.id || it.ingestionId;
 
-    const deviceType = it.label.includes('dministra') ? '3F_MEDIDOR' : it.deviceType;
+    // deviceProfile é a única autoridade de classificação (deviceType em desuso; label não classifica)
+    const deviceType = it.deviceProfile;
 
     // RFC-0140: STORES represents store allocation, not physical meters
     // All stores should show as "normal" - status calculation doesn't make sense for store meters
@@ -771,7 +772,7 @@ async function renderList(visible) {
       domain: 'energy',
 
       // Metadados
-      deviceType: deviceType,
+      deviceType: deviceType, // campo legado (deviceType em desuso) — preenchido do profile
       deviceProfile: it.deviceProfile || 'N/D', // RFC-0091: Added for Settings
       deviceStatus: deviceStatus, // RFC-0091: Now properly calculated
       perc: it.perc ?? 0,
@@ -932,7 +933,7 @@ async function renderList(visible) {
             label: it.label,
             jwtToken: jwt,
             domain: WIDGET_DOMAIN, // Same as EQUIPMENTS
-            deviceType: entityObject.deviceType, // RFC-0091: Pass deviceType for Power Limits feature
+            deviceType: entityObject.deviceProfile, // campo legado (deviceType em desuso) — preenchido do profile
             deviceProfile: entityObject.deviceProfile, // RFC-0091: Pass deviceProfile for 3F_MEDIDOR fallback
             customerName: entityObject.customerName, // RFC-0091: Pass shopping name
             connectionData: {
@@ -1671,7 +1672,7 @@ function emitWaterTelemetry(widgetType, periodKey) {
       id: item.id || item.entityId || '',
       label: item.label || item.name || '',
       value: item.value || 0,
-      deviceType: item.deviceType || 'HIDROMETRO',
+      deviceType: item.deviceProfile || 'HIDROMETRO', // campo legado (deviceType em desuso) — preenchido do profile
     }));
 
     const payload = {
@@ -1793,7 +1794,7 @@ async function hydrateAndRender() {
             label: name,
             value: Number(device.total_value || 0),
             perc: 0,
-            deviceType: device.deviceType || '3F_MEDIDOR',
+            deviceType: device.deviceProfile || '3F_MEDIDOR', // campo legado (deviceType em desuso) — preenchido do profile
             slaveId: device.slaveId || null,
             centralId: device.centralId || device.gatewayId || null,
             centralName: device.centralName || device.ownerName || null,
@@ -1831,13 +1832,12 @@ async function hydrateAndRender() {
       const energyCache = orchestrator.getCache(WIDGET_DOMAIN);
       LogHelper.log(`[STORES] RFC-0102 Fallback: using energyCache with isStoreDevice filter`);
 
-      // RFC-0106: Filter for lojas only - BOTH deviceType AND deviceProfile must be '3F_MEDIDOR'
+      // RFC-0106: Filter for lojas only - deviceProfile é a única autoridade (deviceType em desuso)
       const isStoreDeviceFallback =
         window.MyIOUtils?.isStoreDevice ||
         ((item) => {
           const deviceProfile = String(item?.deviceProfile || '').toUpperCase();
-          const deviceType = String(item?.deviceType || '').toUpperCase();
-          return deviceProfile === '3F_MEDIDOR' && deviceType === '3F_MEDIDOR';
+          return deviceProfile.startsWith('3F_MEDIDOR');
         });
 
       if (energyCache && energyCache.size > 0) {
@@ -1846,7 +1846,7 @@ async function hydrateAndRender() {
         const processedTbIds = new Set();
 
         energyCache.forEach((item, _key) => {
-          // Filter for lojas only - BOTH deviceType AND deviceProfile must be '3F_MEDIDOR'
+          // Filter for lojas only - deviceProfile é a única autoridade (deviceType em desuso)
           if (!isStoreDeviceFallback(item)) return;
 
           // RFC-0108: Skip duplicates - cache may have same item under tbId and ingestionId keys
@@ -1870,7 +1870,7 @@ async function hydrateAndRender() {
             label: displayLabel,
             value: Number(item.total_value || item.value || 0),
             perc: 0,
-            deviceType: item.deviceType || '3F_MEDIDOR',
+            deviceType: item.deviceProfile || '3F_MEDIDOR', // campo legado (deviceType em desuso) — preenchido do profile
             connectionStatus: item.connectionStatus || 'online',
             deviceProfile: item.deviceProfile || '3F_MEDIDOR',
             updatedIdentifiers: {},
@@ -2248,14 +2248,13 @@ self.onInit = async function () {
     LogHelper.log(`[TELEMETRY] 🔄 Processing data from orchestrator...`);
     LogHelper.log(`[TELEMETRY] Received ${items.length} items from orchestrator for domain ${domain}`);
 
-    // RFC-0106: Filter for lojas only - BOTH deviceType AND deviceProfile must be '3F_MEDIDOR'
+    // RFC-0106: Filter for lojas only - deviceProfile é a única autoridade (deviceType em desuso)
     // Use isStoreDevice from MyIOUtils or inline check
     const isStoreDevice =
       window.MyIOUtils?.isStoreDevice ||
       ((item) => {
         const deviceProfile = String(item?.deviceProfile || '').toUpperCase();
-        const deviceType = String(item?.deviceType || '').toUpperCase();
-        return deviceProfile === '3F_MEDIDOR' && deviceType === '3F_MEDIDOR';
+        return deviceProfile.startsWith('3F_MEDIDOR');
       });
 
     // RFC-0102: Filter and map items from orchestrator
@@ -2263,12 +2262,10 @@ self.onInit = async function () {
     items.forEach((item) => {
       const ingestionId = item.ingestionId || item.id;
 
-      // Filter for lojas only - BOTH deviceType AND deviceProfile must be '3F_MEDIDOR'
+      // Filter for lojas only - deviceProfile é a única autoridade (deviceType em desuso)
       if (!isStoreDevice(item)) {
         LogHelper.log(
-          `[TELEMETRY] Skipping non-loja device: ${item.label || item.name} (deviceType=${
-            item.deviceType
-          }, deviceProfile=${item.deviceProfile})`
+          `[TELEMETRY] Skipping non-loja device: ${item.label || item.name} (deviceProfile=${item.deviceProfile})`
         );
         return; // Skip non-lojas devices
       }
@@ -2291,7 +2288,7 @@ self.onInit = async function () {
         label: displayLabel, // Use label (human-readable) first, fallback to name
         value: Number(item.value || item.total_value || 0),
         perc: 0,
-        deviceType: item.deviceType || '3F_MEDIDOR',
+        deviceType: item.deviceProfile || '3F_MEDIDOR', // campo legado (deviceType em desuso) — preenchido do profile
         slaveId: item.slaveId || null,
         centralId: item.centralId || item.gatewayId || null,
         centralName: item.assetName || item.centralName || null,

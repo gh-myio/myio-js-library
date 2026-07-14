@@ -1274,23 +1274,16 @@ function inferLabelWidget(row) {
     return 'Lojas';
   }
 
+  // deviceType está EM DESUSO (2026-07-14) — domínio/labelWidget saem SÓ do profile
   const dp = String(row.deviceProfile || '').toUpperCase();
-  const dt = String(row.deviceType || '').toUpperCase();
 
   // Temperature domain
-  if (dp.includes('TERMOSTATO') || dt.includes('TERMOSTATO')) {
+  if (dp.includes('TERMOSTATO')) {
     return 'Temperatura';
   }
 
   // Water domain (hidrômetros + caixas d'água)
-  if (
-    dp.includes('HIDROMETRO') ||
-    dt.includes('HIDROMETRO') ||
-    dp === 'TANK' ||
-    dt === 'TANK' ||
-    dp === 'CAIXA_DAGUA' ||
-    dt === 'CAIXA_DAGUA'
-  ) {
+  if (dp.includes('HIDROMETRO') || dp === 'TANK' || dp === 'CAIXA_DAGUA') {
     const wg = Lib.resolveGroup(row, undefined, 'water').group;
     if (wg === 'ocultos') return 'Ocultos';
     if (wg === 'entrada') return 'Entrada';
@@ -3845,11 +3838,11 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
 
   for (const item of areacomum) {
     const lw = toStr(item.labelWidget);
-    const dt = toStr(item.deviceType);
     const dp = toStr(item.deviceProfile);
     const label = toStr(item.label);
     const id = toStr(item.identifier);
-    const combined = `${lw} ${dt} ${dp} ${label}`;
+    // deviceType em desuso (2026-07-14) — fora do texto combinado
+    const combined = `${lw} ${dp} ${label}`;
 
     // RFC-0207 (A1b → cleanup): top-level bucket is resolver-only (degrades to
     // 'outros' when the library is missing — logged once above). Identifier-prefix
@@ -5530,7 +5523,8 @@ const MyIOOrchestrator = (() => {
     // RFC-0110 v5: Use library's calculateDeviceStatus if available
     if (lib?.calculateDeviceStatus) {
       // RFC-0130: Get delay based on device profile (stores=60d, equipment=24h, water=48h, temp=24h)
-      const deviceProfile = options.deviceProfile || options.deviceType || '';
+      // deviceType em desuso — profile apenas
+      const deviceProfile = options.deviceProfile || '';
       const delayMins = window.MyIOUtils?.getDelayTimeConnectionInMins?.(deviceProfile);
       const shortDelayMins = SHORT_DELAY_IN_MINS_TO_BYPASS_OFFLINE_STATUS;
       const isDebugDevice = deviceName.includes('HIDR. SCMP110A') || deviceName.includes('HIDR. SCMP110A');
@@ -5693,7 +5687,8 @@ const MyIOOrchestrator = (() => {
     let debugLabel = meta.label || meta.identifier || overrides.label || '';
 
     // RFC-0110 v5: Determine domain and telemetry timestamp for device status calculation
-    const effectiveDeviceType = (meta.deviceProfile || meta.deviceType || '').toLowerCase();
+    // deviceType em desuso (2026-07-14) — domínio sai SÓ do deviceProfile
+    const effectiveDeviceType = (meta.deviceProfile || '').toLowerCase();
     const isWaterDevice =
       effectiveDeviceType.includes('hidrometro') ||
       effectiveDeviceType.includes('water') ||
@@ -5714,8 +5709,8 @@ const MyIOOrchestrator = (() => {
           : meta.consumptionTs);
 
     // RFC-0109 + RFC-0110 v5: Calculate deviceStatus with telemetry timestamp and lastActivityTime fallback
-    // RFC-0130: Pass deviceProfile for delay time calculation
-    const deviceProfile = meta.deviceProfile || meta.deviceType || '';
+    // RFC-0130: Pass deviceProfile for delay time calculation (deviceType em desuso)
+    const deviceProfile = meta.deviceProfile || '';
     let deviceStatus = convertConnectionStatusToDeviceStatus(meta.connectionStatus, debugLabel, {
       domain: domain,
       deviceProfile: deviceProfile,
@@ -5754,8 +5749,9 @@ const MyIOOrchestrator = (() => {
       const limitsToUse = deviceMapLimits || customerLimits;
 
       if (limitsToUse) {
-        const deviceTypeForRanges = meta.deviceProfile || meta.deviceType || '3F_MEDIDOR';
-        const ranges = extractLimitsFromJSON(limitsToUse, deviceTypeForRanges, 'consumption');
+        // deviceType em desuso — a chave do mapInstantaneousPower é o profile
+        const profileForRanges = meta.deviceProfile || '3F_MEDIDOR';
+        const ranges = extractLimitsFromJSON(limitsToUse, profileForRanges, 'consumption');
 
         if (ranges && typeof window.MyIOLibrary?.calculateDeviceStatusWithRanges === 'function') {
           const delayMins = window.MyIOUtils?.getDelayTimeConnectionInMins?.(deviceProfile) ?? 1440;
@@ -5812,10 +5808,10 @@ const MyIOOrchestrator = (() => {
       entityLabel: meta.label || meta.identifier || '',
       name: meta.label || meta.identifier || '',
 
-      // Device classification
-      deviceType: meta.deviceType || '',
+      // Device classification — deviceType em desuso; campos legados preenchidos do profile
+      deviceType: meta.deviceProfile || '',
       deviceProfile: meta.deviceProfile || '',
-      effectiveDeviceType: meta.deviceProfile || meta.deviceType || null,
+      effectiveDeviceType: meta.deviceProfile || null,
 
       // Status (RFC-0109 + RFC-0110)
       deviceStatus: deviceStatus,
@@ -6447,7 +6443,8 @@ const MyIOOrchestrator = (() => {
                 name: meta.label || meta.identifier || 'Sensor',
                 value: temperatureValue, // RFC-0189: API last value when enabled, else ctx.data
                 temperature: temperatureValue,
-                deviceType: meta.deviceType || 'TERMOSTATO',
+                // deviceType em desuso — campo legado preenchido do profile
+                deviceType: meta.deviceProfile || 'TERMOSTATO',
                 offSetTemperature: tempOffset,
                 lastTelemetryTs, // RFC-0189 + RFC-0188: null when API disabled/unavailable (graceful fallback)
               },
@@ -6514,52 +6511,43 @@ const MyIOOrchestrator = (() => {
       let tankItems = [];
       let hidrometroItems = [];
       if (domain === 'water' && metadataByEntityId.size > 0) {
-        // DEBUG: Log all water device types
-        const waterDeviceTypes = [];
+        // DEBUG: Log all water device profiles (deviceType em desuso)
+        const waterDeviceProfiles = [];
         for (const [, meta] of metadataByEntityId.entries()) {
-          waterDeviceTypes.push(meta.deviceType || 'N/A');
+          waterDeviceProfiles.push(meta.deviceProfile || 'N/A');
         }
-        LogHelper.log(`[Orchestrator] 🔍 DEBUG Water device types: ${waterDeviceTypes.join(', ')}`);
+        LogHelper.log(`[Orchestrator] 🔍 DEBUG Water device profiles: ${waterDeviceProfiles.join(', ')}`);
 
         for (const [entityId, meta] of metadataByEntityId.entries()) {
-          const deviceType = String(meta.deviceType || '').toUpperCase();
+          // deviceType está EM DESUSO (2026-07-14) — deviceProfile é a única
+          // autoridade (ex.: "Entrada Sanasa" tinha deviceType=ENTRADA mas
+          // deviceProfile=HIDROMETRO_SHOPPING — é hidrômetro, não tank).
           const deviceProfile = String(meta.deviceProfile || '').toUpperCase();
-          // RFC-0107: Detect tank devices by:
-          // 1. deviceType = TANK or CAIXA_DAGUA
-          // 2. OR has water_level/water_percentage data (even without deviceType)
-          // BUT EXCLUDE hidrometers (devices with pulses data or HIDROMETRO deviceType)
+          // RFC-0107: Detect tank devices by profile TANK/CAIXA_DAGUA
+          // OR water_level/water_percentage data; hidrometers by profile.
           const hasWaterLevelData = meta.waterLevel !== undefined || meta.waterPercentage !== undefined;
-          // deviceProfile is authoritative when present; deviceType is only a fallback.
-          // (e.g. "Entrada Sanasa" has deviceType=ENTRADA but deviceProfile=HIDROMETRO_SHOPPING —
-          //  it is a water meter, not a tank.)
-          const isTankByType = deviceProfile
-            ? deviceProfile === 'TANK' || deviceProfile === 'CAIXA_DAGUA'
-            : deviceType === 'TANK' || deviceType === 'CAIXA_DAGUA';
-          const isHidrometer = deviceProfile
-            ? deviceProfile.includes('HIDROMETRO')
-            : deviceType.includes('HIDROMETRO');
+          const isTankByType = deviceProfile === 'TANK' || deviceProfile === 'CAIXA_DAGUA';
+          const isHidrometer = deviceProfile.includes('HIDROMETRO');
 
           // RFC-0107: Build HIDROMETRO items from ctx.data
-          // Categorization based on deviceType AND deviceProfile:
+          // Categorization based on deviceProfile:
           // - HIDROMETRO_SHOPPING → Entrada (main water meter)
           // - HIDROMETRO_AREA_COMUM → Área Comum (common area meters)
-          // - HIDROMETRO with profile = HIDROMETRO or empty → Lojas (store meters)
+          // - HIDROMETRO (or empty) → Lojas (store meters)
           if (isHidrometer) {
             const pulses = Number(meta.pulses || 0);
-            const dp = (deviceProfile || '').toUpperCase();
-            const dt = deviceType.toUpperCase();
 
-            // Determine labelWidget based on deviceType and deviceProfile
+            // Determine labelWidget based on deviceProfile
             let labelWidget = 'Lojas'; // Default: store meters
             let isEntradaDevice = false;
 
-            if (dt === 'HIDROMETRO_SHOPPING' || dp === 'HIDROMETRO_SHOPPING') {
+            if (deviceProfile === 'HIDROMETRO_SHOPPING') {
               labelWidget = 'Entrada';
               isEntradaDevice = true;
-            } else if (dt === 'HIDROMETRO_AREA_COMUM' || dp === 'HIDROMETRO_AREA_COMUM') {
+            } else if (deviceProfile === 'HIDROMETRO_AREA_COMUM') {
               labelWidget = 'Área Comum';
             }
-            // else: HIDROMETRO with profile = HIDROMETRO or empty → Lojas
+            // else: profile HIDROMETRO → Lojas
 
             // RFC-0111: Use centralized factory
             hidrometroItems.push(
@@ -6572,9 +6560,9 @@ const MyIOOrchestrator = (() => {
                   name: meta.label || meta.identifier || 'Hidrômetro',
                   value: 0, // RFC-0108 FIX: Use 0 as placeholder - real value comes from API enrichment
                   pulses: pulses,
-                  deviceType: deviceType,
-                  deviceProfile: deviceProfile || deviceType,
-                  effectiveDeviceType: deviceProfile || deviceType,
+                  deviceType: deviceProfile, // campo legado (em desuso) — preenchido do profile
+                  deviceProfile: deviceProfile,
+                  effectiveDeviceType: deviceProfile,
                   labelWidget: labelWidget,
                   groupLabel: labelWidget,
                   _isHidrometerDevice: isEntradaDevice,
@@ -6600,9 +6588,9 @@ const MyIOOrchestrator = (() => {
                   value: waterLevel,
                   waterLevel: waterLevel,
                   waterPercentage: waterPercentage,
-                  deviceType: deviceType || 'TANK',
-                  deviceProfile: meta.deviceProfile || deviceType || 'TANK',
-                  effectiveDeviceType: meta.deviceProfile || deviceType || 'TANK',
+                  deviceType: deviceProfile || 'TANK', // campo legado (em desuso)
+                  deviceProfile: deviceProfile || 'TANK',
+                  effectiveDeviceType: deviceProfile || 'TANK',
                   labelWidget: "Caixa D'Água",
                   groupLabel: "Caixa D'Água",
                   _isTankDevice: true,
@@ -6882,21 +6870,15 @@ const MyIOOrchestrator = (() => {
           unmatchedCount++;
         }
 
-        // Use metadata from ThingsBoard datasource (ctx.data) - NO FALLBACKS for deviceType
-        const rawDeviceType = meta.deviceType || null;
+        // deviceType está EM DESUSO (2026-07-14) — deviceProfile é a única
+        // autoridade; a antiga "MASTER RULE" de coerção deviceType→profile morreu.
         const deviceProfile = meta.deviceProfile || null;
 
-        // MASTER RULE for deviceType:
-        // - If deviceType = deviceProfile = '3F_MEDIDOR' → keep as '3F_MEDIDOR' (it's a loja)
-        // - If deviceType = '3F_MEDIDOR' AND deviceProfile != '3F_MEDIDOR' → force deviceType = deviceProfile
-        let deviceType = rawDeviceType;
-        if (rawDeviceType === '3F_MEDIDOR' && deviceProfile && deviceProfile !== '3F_MEDIDOR') {
-          deviceType = deviceProfile;
-        }
-
-        // Skip items with deviceType = domain (placeholder)
-        const dt = (deviceType || '').toLowerCase();
-        if (dt === domainLower) {
+        // Skip placeholder rows do datasource (profile — ou, em rows legadas sem
+        // profile, o deviceType bruto — igual ao nome do domínio). Filtro de lixo
+        // de datasource, não classificação.
+        const placeholderBasis = (deviceProfile || meta.deviceType || '').toLowerCase();
+        if (placeholderBasis === domainLower) {
           continue;
         }
 
@@ -6915,9 +6897,8 @@ const MyIOOrchestrator = (() => {
         const label = labelClean || entityNameClean || 'SEM ETIQUETA';
         const name = apiRow?.name || entityNameClean || '';
 
-        // Infer labelWidget from deviceType/deviceProfile
+        // Infer labelWidget from deviceProfile (deviceType em desuso)
         const labelWidget = inferLabelWidget({
-          deviceType: deviceType,
           deviceProfile: deviceProfile,
           identifier: identifier,
           name: name,
@@ -6938,9 +6919,9 @@ const MyIOOrchestrator = (() => {
               name: name,
               value: getValueFromRow(apiRow),
               perc: 0,
-              deviceType: deviceType,
+              deviceType: deviceProfile || '', // campo legado (em desuso) — preenchido do profile
               deviceProfile: deviceProfile,
-              effectiveDeviceType: deviceProfile || deviceType || null,
+              effectiveDeviceType: deviceProfile || null,
               // API-specific fields
               gatewayId: apiRow?.gatewayId || null,
               customerId: apiRow?.customerId || null,
@@ -7859,10 +7840,9 @@ const MyIOOrchestrator = (() => {
         const value = Number(item.value) || Number(item.consumption) || 0;
         customerTotal += value;
 
-        // Check if it's a store device (both deviceType AND deviceProfile are '3F_MEDIDOR')
+        // Check if it's a store device — deviceProfile apenas (deviceType em desuso)
         const deviceProfile = String(item.deviceProfile || '').toUpperCase();
-        const deviceType = String(item.deviceType || '').toUpperCase();
-        const isStore = deviceProfile === '3F_MEDIDOR' && deviceType === '3F_MEDIDOR';
+        const isStore = deviceProfile.startsWith('3F_MEDIDOR');
 
         if (isStore) {
           lojasTotal += value;

@@ -69,11 +69,13 @@ export function extractDeviceMetadataFromRows(
     }
   }
 
-  const deviceType = dataKeyValues['deviceType'] || '';
-  const deviceProfile = dataKeyValues['deviceProfile'] || deviceType;
+  // deviceProfile é a ÚNICA autoridade (deviceType em desuso, 2026-07-14) — o
+  // campo legado é preenchido do profile e o domínio sai do profile.
+  const deviceProfile = dataKeyValues['deviceProfile'] || '';
+  const deviceType = deviceProfile;
   const connectionStatus = dataKeyValues['connectionStatus'] || 'no_info';
 
-  const domain = getDomain(deviceType) || '';
+  const domain = getDomain(deviceProfile) || '';
   const valueField = catalog[domain]?.valueField || '';
   const primaryValue = valueField ? dataKeyValues[valueField] ?? null : null;
   const primaryTs = valueField ? dataKeyTimestamps[valueField] ?? null : null;
