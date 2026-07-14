@@ -3250,27 +3250,33 @@ body.filter-modal-open { overflow: hidden !important; }
           }
         })
       );
-      if (curated.length && uncovered.size === 0) {
-        LogHelper.log(
-          '[MAIN_UNIQUE] entrada curada:',
-          curated.length,
-          'medidores (attr entradaIngestionIds)'
-        );
-        return curated;
-      }
-
-      // 2) Fallback heurístico (todos os shoppings, ou só os sem attr): profile de
-      //    trafo + "ENTRADA" no nome − CAG, via devices/totals do head-office
+      // 2) Listagem via devices/totals do head-office (range de 24h — serve só
+      //    para LISTAR): (a) enriquece a CURADORIA com o label/nome REAL de cada
+      //    medidor (o attr entradaIngestionIds só tem ids — sem isso os cards
+      //    por dispositivo mostravam "Entrada #1/#2"); (b) fallback heurístico
+      //    (profile de trafo + "ENTRADA" no nome − CAG) para shoppings sem attr.
+      const finish = (apiById) => {
+        if (curated.length) {
+          LogHelper.log(
+            '[MAIN_UNIQUE] entrada curada:',
+            curated.length,
+            'medidores (attr entradaIngestionIds)'
+          );
+        }
+        return curated.map((d) => {
+          const api = apiById?.get(d.id);
+          return api ? { ...d, name: api.label || api.name || d.name } : d;
+        });
+      };
       const creds = window.MyIOUtils?.getCredentials?.();
-      if (!creds?.clientId || !creds?.customerId || !MyIOLibrary?.buildMyioIngestionAuth) return curated;
+      if (!creds?.clientId || !creds?.customerId || !MyIOLibrary?.buildMyioIngestionAuth) return finish(null);
       const auth = MyIOLibrary.buildMyioIngestionAuth({
         dataApiHost: creds.dataApiHost,
         clientId: creds.clientId,
         clientSecret: creds.clientSecret,
       });
       const token = await auth.getToken();
-      if (!token) return curated;
-      // Range curto — a chamada serve só para LISTAR os devices de entrada
+      if (!token) return finish(null);
       const end = new Date();
       const start = new Date(end.getTime() - 24 * 3600 * 1000);
       const url = new URL(
@@ -3282,15 +3288,17 @@ body.filter-modal-open { overflow: hidden !important; }
       const res = await fetch(url.toString(), {
         headers: { Authorization: `Bearer ${token}` },
         signal: AbortSignal.timeout(120000),
-      });
-      if (!res.ok) return curated;
+      }).catch(() => null);
+      if (!res?.ok) return finish(null);
       const payload = await res.json();
       const arr = Array.isArray(payload) ? payload : (payload?.data ?? []);
+      const apiById = new Map(arr.filter((d) => d?.id).map((d) => [d.id, d]));
+      if (curated.length && uncovered.size === 0) return finish(apiById);
       const heuristic = arr
         .filter(_isEntradaDevice)
         .filter((d) => (curated.length ? uncovered.has(d.customerId) : true))
-        .map((d) => ({ id: d.id, customerId: d.customerId, name: d.name }));
-      return [...curated, ...heuristic];
+        .map((d) => ({ id: d.id, customerId: d.customerId, name: d.label || d.name }));
+      return [...finish(apiById), ...heuristic];
     })().catch(() => {
       _entradaDevicesPromise = null;
       return [];

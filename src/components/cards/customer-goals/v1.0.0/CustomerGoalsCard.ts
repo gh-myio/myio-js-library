@@ -390,10 +390,20 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
     if (breakdown.length) {
       // Quebra por device: uma série por medidor NO LUGAR do consolidado — o
       // card continua sendo um por shopping; só o gráfico muda.
+      // Participação: % do device sobre a SOMA dos devices no período — vai no
+      // label da série, então aparece na legenda do card e em todo tooltip.
+      const sumVals = (arr: Array<number | null>) =>
+        (arr || []).reduce<number>((t, v) => t + (v == null || Number.isNaN(Number(v)) ? 0 : Number(v)), 0);
+      const bdTotal = breakdown.reduce((t, b) => t + sumVals(b.values), 0);
+      const shareOf = (b: { values: Array<number | null> }) => {
+        if (!(bdTotal > 0)) return '';
+        const pct = (sumVals(b.values) / bdTotal) * 100;
+        return ` · ${pct.toLocaleString(this.locale, { maximumFractionDigits: 1 })}%`;
+      };
       breakdown.forEach((b, i) => {
         const color = BREAKDOWN_PALETTE[i % BREAKDOWN_PALETTE.length];
         const ds: any = {
-          ...mainSeries(b.name || `Medidor ${i + 1}`, b.values, color),
+          ...mainSeries(`${b.name || `Medidor ${i + 1}`}${shareOf(b)}`, b.values, color),
           order: 2 + i,
         };
         if (stacked) {

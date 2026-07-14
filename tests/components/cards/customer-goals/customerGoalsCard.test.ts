@@ -229,7 +229,8 @@ describe('CustomerGoalsCard (RFC-0217)', () => {
     });
     const cfg = ChartStub.instances.at(-1)!.config;
     const labels = cfg.data.datasets.map((d: any) => d.label);
-    expect(labels).toEqual(['Orçado', 'Entrada #1', 'Entrada #2']);
+    // Participação: % do device sobre a soma do breakdown (30/80 e 50/80)
+    expect(labels).toEqual(['Orçado', 'Entrada #1 · 37,5%', 'Entrada #2 · 62,5%']);
     // legenda do card aparece no modo breakdown (nomes/cores variam por card)
     expect(cfg.options.plugins.legend.display).toBe(true);
     // cores distintas da paleta para cada medidor
@@ -253,7 +254,9 @@ describe('CustomerGoalsCard (RFC-0217)', () => {
       },
     });
     const cfg = ChartStub.instances.at(-1)!.config;
-    const byLabel = Object.fromEntries(cfg.data.datasets.map((d: any) => [d.label, d]));
+    const byLabel = Object.fromEntries(
+      cfg.data.datasets.map((d: any) => [String(d.label).split(' · ')[0], d])
+    );
     expect(byLabel['M1'].stack).toBe('realized');
     expect(byLabel['M2'].stack).toBe('realized');
     expect(byLabel['A-1'].stack).toBe('prev');
