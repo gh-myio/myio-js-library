@@ -2382,20 +2382,20 @@ function openGoalsModal() {
         .rp-overlay.show{opacity:1;}
         .rp-modal{position:relative;background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.25);width:min(640px,92vw);max-height:90vh;overflow:hidden;display:flex;flex-direction:column;transform:translateY(12px) scale(.98);transition:transform .2s ease;}
         .rp-overlay.show .rp-modal{transform:translateY(0) scale(1);}
-        .rp-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;background:linear-gradient(135deg,#1565c0,#1976d2);color:#fff;flex-shrink:0;}
+        .rp-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;background:linear-gradient(135deg,var(--rp-accent,#1565c0),var(--rp-accent-2,#1976d2));color:#fff;flex-shrink:0;}
         .rp-header h3{margin:0;font-size:16px;font-weight:600;display:flex;align-items:center;gap:8px;}
         .rp-close{background:transparent;border:none;color:#fff;font-size:24px;line-height:1;cursor:pointer;padding:4px;border-radius:4px;transition:background .15s;}
         .rp-close:hover{background:rgba(255,255,255,.15);}
         .rp-tabs{display:flex;border-bottom:1px solid #e5e7eb;background:#f9fafb;flex-shrink:0;overflow-x:auto;}
         .rp-tab{flex:1 1 auto;padding:12px 8px;border:none;background:transparent;cursor:pointer;font-size:13px;font-weight:500;color:#6b7280;border-bottom:3px solid transparent;transition:all .15s;white-space:nowrap;}
-        .rp-tab:hover{color:#1565c0;background:#eff6ff;}
-        .rp-tab.active{color:#1565c0;border-bottom-color:#1565c0;background:#fff;}
+        .rp-tab:hover{color:var(--rp-accent,#1565c0);background:var(--rp-accent-soft,#eff6ff);}
+        .rp-tab.active{color:var(--rp-accent,#1565c0);border-bottom-color:var(--rp-accent,#1565c0);background:#fff;}
         .rp-body{padding:20px;overflow-y:auto;}
         .rp-panel{display:none;flex-direction:column;gap:12px;}
         .rp-panel.active{display:flex;}
         .rp-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px;}
         .rp-card{display:flex;align-items:center;gap:12px;padding:14px 16px;border:1.5px solid #e5e7eb;border-radius:12px;background:#fafafa;cursor:pointer;transition:all .15s;position:relative;text-align:left;width:100%;}
-        .rp-card[data-enabled="true"]:hover{background:#eff6ff;border-color:#90caf9;box-shadow:0 4px 12px rgba(21,101,192,.1);transform:translateY(-1px);}
+        .rp-card[data-enabled="true"]:hover{background:var(--rp-accent-soft,#eff6ff);border-color:var(--rp-accent-border,#90caf9);box-shadow:0 4px 12px rgba(0,0,0,.10);transform:translateY(-1px);}
         .rp-card[data-enabled="false"]{opacity:.55;cursor:not-allowed;}
         .rp-card__icon{width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:10px;font-size:20px;flex-shrink:0;}
         .rp-card__text{display:flex;flex-direction:column;gap:2px;min-width:0;}
@@ -2605,6 +2605,18 @@ function openGoalsModal() {
       </div>
     `;
 
+    // Paleta do dashboard (createMyIOTheme via MAIN) — header/tabs/hover do picker
+    // seguem o accent; sem tema configurado, mantém o azul padrão.
+    const rpTheme = window.MyIOUtils?.theme;
+    if (rpTheme?.accent) {
+      overlay.style.setProperty('--rp-accent', rpTheme.accent);
+      overlay.style.setProperty('--rp-accent-2', rpTheme.accentDark || rpTheme.accent);
+      if (typeof rpTheme.lighten === 'function') {
+        overlay.style.setProperty('--rp-accent-soft', rpTheme.lighten(92));
+        overlay.style.setProperty('--rp-accent-border', rpTheme.lighten(55));
+      }
+    }
+
     topDoc.body.appendChild(overlay);
     requestAnimationFrame(() => overlay.classList.add('show'));
 
@@ -2696,6 +2708,12 @@ function openGoalsModal() {
       domain,
       group,
       itemsList,
+      // Paleta do dashboard (createMyIOTheme, exposta pela MAIN em MyIOUtils.theme):
+      // a modal aplica as CSS vars --myio-* no próprio root.
+      theme: window.MyIOUtils?.theme || undefined,
+      // Nome do customer para o footer premium da modal
+      customerName:
+        window.MyIOOrchestrator?.customerName || getCurrentDashboardTitle() || '',
     });
   }
 

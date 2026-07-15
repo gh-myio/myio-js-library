@@ -140,6 +140,7 @@ window.MyIOUtils = window.MyIOUtils || {};
     'getHeaderAnnotationsPanel',
     // misc components / helpers
     'ModalHeader',
+    'createMyIOTheme',
     'createLogHelper',
     'createLibraryVersionChecker',
     'calculateDeviceStatusWithRanges',
@@ -1672,6 +1673,55 @@ Object.assign(window.MyIOUtils, {
       Object.entries(REPORT_ITEM_DEFAULTS).map(([k, def]) => [k, rawItems[k] ?? def])
     );
     LogHelper.log('[Orchestrator] RFC-0182: enabledReportItems:', window.MyIOUtils.enabledReportItems);
+
+    // Theme palette (dark/light) — padrão MYIO-SIM UNIQUE trazido para o shopping:
+    // settings (defaultThemeMode/darkMode/lightMode) → createMyIOTheme → CSS vars
+    // --myio-* + window.MyIOUtils.theme. Filhos (MENU/HEADER) repassam a paleta às
+    // modais premium (ex.: AllReportModal via param theme). Defaults do componente
+    // espelham os tokens atuais — sem configuração, nada muda visualmente.
+    try {
+      const themeSettings = {
+        defaultThemeMode: self.ctx.settings?.defaultThemeMode,
+        darkMode: self.ctx.settings?.darkMode,
+        lightMode: self.ctx.settings?.lightMode,
+      };
+      const theme = window.MyIOLibrary?.createMyIOTheme?.(themeSettings);
+      if (theme) {
+        window.MyIOUtils.theme = theme;
+        window.MyIOUtils.getTheme = (mode) =>
+          window.MyIOLibrary.createMyIOTheme(themeSettings, mode);
+        theme.applyTo(document.documentElement);
+        LogHelper.log('[Orchestrator] theme palette:', { mode: theme.mode, accent: theme.accent });
+      } else {
+        LogHelper.warn('[Orchestrator] createMyIOTheme indisponível na lib — tema não aplicado');
+      }
+    } catch (themeErr) {
+      LogHelper.error('[Orchestrator] theme palette failed:', themeErr);
+    }
+
+    // Nome do customer (title no TB) — consumido pelo footer premium das modais
+    // (createModalFooter) via MyIOOrchestrator.customerName / MyIOUtils.customerName.
+    // Não bloqueia o onInit (fire-and-forget).
+    (async () => {
+      try {
+        const custId = self.ctx.settings?.customerTB_ID;
+        if (!custId) return;
+        const jwt = localStorage.getItem('jwt_token');
+        const res = await fetch(`/api/customer/${custId}`, {
+          headers: { 'X-Authorization': `Bearer ${jwt}` },
+        });
+        if (!res.ok) return;
+        const customer = await res.json();
+        const custName = customer?.title || customer?.name || '';
+        if (custName) {
+          window.MyIOUtils.customerName = custName;
+          if (window.MyIOOrchestrator) window.MyIOOrchestrator.customerName = custName;
+          LogHelper.log('[Orchestrator] customerName:', custName);
+        }
+      } catch (custErr) {
+        LogHelper.warn('[Orchestrator] customerName fetch failed:', custErr);
+      }
+    })();
 
     // Goals JSON URLs — carregados via settings, futuramente substituídos por chamada GCDR
     widgetSettings.goalsJsonUrls = {
@@ -4551,22 +4601,42 @@ const MyIOOrchestrator = (() => {
   // RFC-0137: Using LoadingSpinner component instead of custom busy overlay
   const BUSY_OVERLAY_ID = 'myio-orchestrator-busy-overlay'; // Kept for backwards compatibility
 
-  // RFC-0137: LoadingSpinner instance (lazy initialized)
-  let _loadingSpinnerInstance = null;
+  // BUGFIX BUSY-RACE: o estado do busy é um SINGLETON em window. Este módulo pode
+  // ser avaliado mais de uma vez (widget duplicado entre estados TB) e cada avaliação
+  // tinha seu próprio contador activeRequests + instância de spinner sobre o MESMO
+  // DOM compartilhado — o hideGlobalBusy de uma instância (contador zerado) matava o
+  // overlay da outra com fetch em voo, deixando a tela em branco até o provide-data.
+  const _busyCtl = (window.__myioBusyCtl = window.__myioBusyCtl || {
+    spinner: null,
+    state: {
+      isVisible: false,
+      timeoutId: null,
+      startTime: null,
+      currentDomain: null,
+      requestCount: 0,
+    },
+    activeRequests: new Map(),
+    lastProvide: new Map(),
+    pendingHideId: null,
+  });
 
   /**
    * RFC-0137: Get or create LoadingSpinner instance
    * Uses MyIOLibrary.createLoadingSpinner if available, falls back to legacy overlay
    */
   function getLoadingSpinner() {
-    if (_loadingSpinnerInstance) return _loadingSpinnerInstance;
+    if (_busyCtl.spinner) return _busyCtl.spinner;
 
     // Try to use new LoadingSpinner from myio-js-library
     const MyIOLibrary = window.MyIOLibrary;
     if (MyIOLibrary && typeof MyIOLibrary.createLoadingSpinner === 'function') {
-      _loadingSpinnerInstance = MyIOLibrary.createLoadingSpinner({
+      _busyCtl.spinner = MyIOLibrary.createLoadingSpinner({
         minDisplayTime: 800, // Minimum 800ms to avoid flash
-        maxTimeout: 25000, // 25 seconds max (matches existing timeout)
+        // BUGFIX BUSY-RACE: 60s de teto (era 25s). É rede de segurança contra estado
+        // travado, não o esconderijo normal — cargas reais (Moxuara ~35s) estouravam
+        // os 25s e o spinner sumia com a tela ainda em branco. showGlobalBusy re-arma
+        // este timer a cada novo request via spinner.show().
+        maxTimeout: 60000,
         message: 'Carregando dados...',
         spinnerType: 'double',
         theme: 'dark',
@@ -4592,20 +4662,16 @@ const MyIOOrchestrator = (() => {
       );
     }
 
-    return _loadingSpinnerInstance;
+    return _busyCtl.spinner;
   }
 
-  let globalBusyState = {
-    isVisible: false,
-    timeoutId: null,
-    startTime: null,
-    currentDomain: null,
-    requestCount: 0,
-  };
+  // BUGFIX BUSY-RACE: aliases do singleton — todas as avaliações do módulo
+  // enxergam e mutam o MESMO estado (contadores, cooldown, hide pendente).
+  const globalBusyState = _busyCtl.state;
 
   // RFC-0054: contador por domínio e cooldown pós-provide
-  const activeRequests = new Map(); // domain -> count
-  const lastProvide = new Map(); // domain -> { periodKey, at }
+  const activeRequests = _busyCtl.activeRequests; // domain -> count
+  const lastProvide = _busyCtl.lastProvide; // domain -> { periodKey, at }
 
   function getActiveTotal() {
     let total = 0;
@@ -5058,12 +5124,22 @@ const MyIOOrchestrator = (() => {
       `[Orchestrator] 📊 Active requests for ${domain}: ${prev + 1} (totalBefore=${totalBefore})`
     );
 
+    // BUGFIX BUSY-RACE: um request novo invalida qualquer hide atrasado agendado.
+    // Sem isso, o performHide de 2s (RFC-0137 "Dados carregados!") de um hide anterior
+    // disparava DEPOIS deste show e matava o overlay com o fetch em pleno voo —
+    // tela em branco até o provide-data chegar (bug relatado no Moxuara).
+    if (_busyCtl.pendingHideId) {
+      clearTimeout(_busyCtl.pendingHideId);
+      _busyCtl.pendingHideId = null;
+      LogHelper.log(`[Orchestrator] ⏹️ Pending delayed hide cancelled by new request (${domain})`);
+    }
+
     // RFC-0137: Try to use new LoadingSpinner component
     const spinner = getLoadingSpinner();
 
     if (spinner) {
       // Use new LoadingSpinner component
-      if (totalBefore === 0) {
+      if (totalBefore === 0 && !spinner.isShowing()) {
         globalBusyState.isVisible = true;
         globalBusyState.currentDomain = domain;
         globalBusyState.startTime = Date.now();
@@ -5072,10 +5148,16 @@ const MyIOOrchestrator = (() => {
         // Show spinner with Portuguese message
         spinner.show(message || 'Carregando dados...');
         LogHelper.log(`[Orchestrator] 🔄 RFC-0137: LoadingSpinner shown for ${domain}`);
-      } else if (!options.silent) {
-        // Update message if already showing (skip if silent — used for pre-registration)
-        spinner.updateMessage(message || 'Carregando dados...');
-        LogHelper.log(`[Orchestrator] 🔄 RFC-0137: LoadingSpinner message updated (already showing)`);
+      } else {
+        // BUGFIX BUSY-RACE: spinner.show() num spinner já visível NÃO pisca — só
+        // re-arma o maxTimeout (atividade nova = mais tempo de rede de segurança)
+        // e atualiza a mensagem. updateMessage sozinho deixava o timer do primeiro
+        // show() estourar no meio de cargas longas.
+        globalBusyState.isVisible = true;
+        spinner.show(options.silent ? undefined : message || 'Carregando dados...');
+        if (!options.silent) {
+          LogHelper.log(`[Orchestrator] 🔄 RFC-0137: LoadingSpinner refreshed (already showing)`);
+        }
       }
     } else {
       // Fallback to legacy busy overlay
@@ -5140,8 +5222,7 @@ const MyIOOrchestrator = (() => {
     }
   }
 
-  // RFC-0137: Track pending hide timeout for delayed hide
-  let _pendingHideTimeoutId = null;
+  // RFC-0137: Pending hide timeout for delayed hide — vive no singleton (_busyCtl.pendingHideId)
 
   function hideGlobalBusy(domain = null, options = {}) {
     // RFC-0137: Options for controlling hide behavior
@@ -5150,6 +5231,13 @@ const MyIOOrchestrator = (() => {
     // RFC-0054: decremento por domínio; se domain for nulo, força limpeza
     if (domain) {
       const prev = activeRequests.get(domain) || 0;
+      // BUGFIX BUSY-RACE: hide sem show correspondente (contador já em 0) com o
+      // overlay fechado é no-op — antes ele agendava um performHide atrasado que
+      // matava o overlay de um show subsequente (ex.: myio:dashboard-state inicial).
+      if (prev === 0 && !globalBusyState.isVisible && getActiveTotal() === 0) {
+        LogHelper.log(`[Orchestrator] ⏭️ hideGlobalBusy(${domain}) ignorado — nada ativo/visível`);
+        return;
+      }
       const next = Math.max(0, prev - 1);
       activeRequests.set(domain, next);
       LogHelper.log(
@@ -5179,9 +5267,9 @@ const MyIOOrchestrator = (() => {
     }
 
     // Clear any pending hide timeout
-    if (_pendingHideTimeoutId) {
-      clearTimeout(_pendingHideTimeoutId);
-      _pendingHideTimeoutId = null;
+    if (_busyCtl.pendingHideId) {
+      clearTimeout(_busyCtl.pendingHideId);
+      _busyCtl.pendingHideId = null;
     }
 
     // RFC-0137: Use LoadingSpinner if available
@@ -5226,9 +5314,15 @@ const MyIOOrchestrator = (() => {
         );
       }
 
-      _pendingHideTimeoutId = setTimeout(() => {
+      _busyCtl.pendingHideId = setTimeout(() => {
+        // BUGFIX BUSY-RACE: se um request novo chegou durante o delay, aborta o hide
+        if (getActiveTotal() > 0) {
+          LogHelper.log('[Orchestrator] ⏹️ Delayed hide abortado — requests ativos novamente');
+          _busyCtl.pendingHideId = null;
+          return;
+        }
         performHide();
-        _pendingHideTimeoutId = null;
+        _busyCtl.pendingHideId = null;
       }, SPINNER_HIDE_DELAY_MS);
     }
   }
@@ -7999,6 +8093,23 @@ const MyIOOrchestrator = (() => {
       if (busyEl && busyEl.parentNode) {
         busyEl.parentNode.removeChild(busyEl);
       }
+      // BUGFIX BUSY-RACE: o LoadingSpinner da lib tem DOM próprio compartilhado —
+      // destrói e solta a instância do singleton para o próximo dashboard recriar
+      // (senão o spinner cacheado aponta para um container removido e nunca aparece).
+      if (_busyCtl.spinner) {
+        try {
+          _busyCtl.spinner.destroy();
+        } catch (e) {
+          /* já destruído */
+        }
+        _busyCtl.spinner = null;
+      }
+      _busyCtl.activeRequests.clear();
+      if (_busyCtl.pendingHideId) {
+        clearTimeout(_busyCtl.pendingHideId);
+        _busyCtl.pendingHideId = null;
+      }
+      _busyCtl.state.isVisible = false;
     },
   };
 })();

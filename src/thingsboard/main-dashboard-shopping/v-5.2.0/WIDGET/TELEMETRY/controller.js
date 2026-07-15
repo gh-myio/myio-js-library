@@ -3345,6 +3345,10 @@ function renderList(visible) {
               identifier: it.identifier,
               label: it.label,
               domain: 'temperature',
+              // Paleta do dashboard (createMyIOTheme, exposta pela MAIN em MyIOUtils.theme)
+              theme: window.MyIOUtils?.theme || undefined,
+              // Nome do customer/shopping — exibido no footer premium da modal
+              customerName: it.customerName || window.MyIOOrchestrator?.customerName || '',
               fetcher: temperatureFetcher, // Custom fetcher for ThingsBoard data
               api: {
                 // These are not used when custom fetcher is provided, but required by interface
@@ -3369,6 +3373,10 @@ function renderList(visible) {
             identifier: it.identifier,
             label: it.label,
             domain: WIDGET_DOMAIN, // 'energy', 'water', or 'temperature'
+            // Paleta do dashboard (createMyIOTheme, exposta pela MAIN em MyIOUtils.theme)
+            theme: window.MyIOUtils?.theme || undefined,
+            // Nome do customer/shopping — exibido no footer premium da modal
+            customerName: it.customerName || window.MyIOOrchestrator?.customerName || '',
             api: {
               dataApiBaseUrl: window.MyIOUtils?.getDataApiHost?.(),
               clientId: CLIENT_ID,
