@@ -20,6 +20,19 @@ export interface CustomerGoalsCardOptions {
    * bar); line → stacked area. Orçado stays an independent dashed line.
    */
   breakdownStacked?: boolean;
+  /**
+   * Series color overrides — lets the host propagate its dashboard palette
+   * (e.g. green head office accent) into the card. Applies to the chart AND
+   * the totals-strip labels. Defaults: realized #6c5ce7, previousYear #94a3b8,
+   * budget #f59e0b. `breakdownPalette` replaces the built-in multicolor
+   * palette used for per-device breakdown series (cycled when devices > colors).
+   */
+  colors?: {
+    realized?: string;
+    previousYear?: string;
+    budget?: string;
+    breakdownPalette?: string[];
+  };
 }
 
 export interface CustomerGoalsSeries {

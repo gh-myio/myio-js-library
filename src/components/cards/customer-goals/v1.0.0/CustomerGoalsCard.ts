@@ -52,6 +52,8 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
   private chartType: CustomerGoalsChartType;
   private showPoints: boolean;
   private breakdownStacked: boolean;
+  private colors: { realized: string; prev: string; budget: string };
+  private breakdownPalette: string[] | null = null;
   private expanded = false;
   private onEscKey: ((e: KeyboardEvent) => void) | null = null;
 
@@ -62,12 +64,21 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
     this.chartType = params.options?.chartType || 'line';
     this.showPoints = params.options?.showPoints !== false;
     this.breakdownStacked = params.options?.breakdownStacked === true;
+    this.colors = {
+      realized: params.options?.colors?.realized || COLORS.realized,
+      prev: params.options?.colors?.previousYear || COLORS.prev,
+      budget: params.options?.colors?.budget || COLORS.budget,
+    };
+    this.breakdownPalette = params.options?.colors?.breakdownPalette?.length
+      ? [...params.options.colors.breakdownPalette]
+      : null;
 
     injectCustomerGoalsCardStyles();
 
     this.el = document.createElement('div');
     this.el.className = 'myio-cgc';
     this.el.dataset.theme = this.themeMode;
+    this.applySeriesColorVars();
     this.renderInner();
     params.container.appendChild(this.el);
     this.renderChart();
@@ -97,7 +108,25 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
     if (options.chartType !== undefined) this.chartType = options.chartType;
     if (options.showPoints !== undefined) this.showPoints = options.showPoints;
     if (options.breakdownStacked !== undefined) this.breakdownStacked = options.breakdownStacked;
+    if (options.colors !== undefined) {
+      if (options.colors.realized) this.colors.realized = options.colors.realized;
+      if (options.colors.previousYear) this.colors.prev = options.colors.previousYear;
+      if (options.colors.budget) this.colors.budget = options.colors.budget;
+      if (options.colors.breakdownPalette !== undefined) {
+        this.breakdownPalette = options.colors.breakdownPalette?.length
+          ? [...options.colors.breakdownPalette]
+          : null;
+      }
+      this.applySeriesColorVars();
+    }
     this.renderChart();
+  }
+
+  /** Series colors drive the totals-strip labels via the --cgc-* CSS vars. */
+  private applySeriesColorVars(): void {
+    this.el.style.setProperty('--cgc-realized', this.colors.realized);
+    this.el.style.setProperty('--cgc-prev', this.colors.prev);
+    this.el.style.setProperty('--cgc-budget', this.colors.budget);
   }
 
   public toggleExpand(force?: boolean): void {
@@ -362,8 +391,8 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
         type: 'line',
         label: yl ? `Orçado (${yl.current})` : 'Orçado',
         data: s.budget,
-        borderColor: COLORS.budget,
-        backgroundColor: COLORS.budget,
+        borderColor: this.colors.budget,
+        backgroundColor: this.colors.budget,
         borderDash: [6, 4],
         pointStyle: 'rect',
         pointRadius: pointR,
@@ -381,7 +410,7 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
     // não pelo índice do array — por isso A-1 recebe order menor que o Realizado.
     if (s.previousYear) {
       datasets.push({
-        ...mainSeries(yl ? `A-1 (${yl.previous})` : 'A-1', s.previousYear, COLORS.prev),
+        ...mainSeries(yl ? `A-1 (${yl.previous})` : 'A-1', s.previousYear, this.colors.prev),
         order: 1,
         ...(stacked ? { stack: 'prev' } : {}),
       });
@@ -400,8 +429,9 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
         const pct = (sumVals(b.values) / bdTotal) * 100;
         return ` · ${pct.toLocaleString(this.locale, { maximumFractionDigits: 1 })}%`;
       };
+      const palette = this.breakdownPalette || BREAKDOWN_PALETTE;
       breakdown.forEach((b, i) => {
-        const color = BREAKDOWN_PALETTE[i % BREAKDOWN_PALETTE.length];
+        const color = palette[i % palette.length];
         const ds: any = {
           ...mainSeries(`${b.name || `Medidor ${i + 1}`}${shareOf(b)}`, b.values, color),
           order: 2 + i,
@@ -418,7 +448,7 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
       });
     } else {
       datasets.push({
-        ...mainSeries(yl ? `Realizado (${yl.current})` : 'Realizado', s.realized, COLORS.realized),
+        ...mainSeries(yl ? `Realizado (${yl.current})` : 'Realizado', s.realized, this.colors.realized),
         order: 2,
       });
     }
