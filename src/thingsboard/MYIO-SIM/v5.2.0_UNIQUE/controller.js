@@ -3770,6 +3770,27 @@ body.filter-modal-open { overflow: hidden !important; }
     const prevRoot = document.getElementById('myio-goals-compare-root');
     if (prevRoot) prevRoot.remove();
 
+    // Dt. Inauguração ('YYYY-MM-DD') → timestamp; ausente/inválida → null (vai pro fim)
+    const parseInaugDate = (s) => {
+      const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(s || '').trim());
+      if (!m) return null;
+      const t = Date.parse(`${m[1]}-${m[2]}-${m[3]}T00:00:00`);
+      return Number.isFinite(t) ? t : null;
+    };
+    // Comparador Dt. Inauguração: data asc (mais antiga primeiro) × dir; SEM data
+    // sempre por último (independe da direção), ordenados por nome entre si.
+    const cmpInauguration = (a, b, dir = 1) => {
+      const da = parseInaugDate(a.inaugurationDate);
+      const db = parseInaugDate(b.inaugurationDate);
+      if (da != null && db != null) return (da - db) * dir;
+      if (da != null) return -1;
+      if (db != null) return 1;
+      return String(a.title || '').localeCompare(String(b.title || ''), 'pt-BR');
+    };
+    // Ordem BASE do modal = Dt. Inauguração (default do controle "Ordenar:") —
+    // vale para a sidebar (ordem original), gráficos por shopping e o modo Cards.
+    shoppings = [...(shoppings || [])].sort((a, b) => cmpInauguration(a, b, 1));
+
     let domainKey = 'energy';
     // Período selecionado (createDateRangePicker da lib) — default: mês corrente até agora
     let period = (typeof MyIOLibrary?.getDefaultPeriodCurrentMonthSoFar === 'function'
@@ -3909,6 +3930,7 @@ body.filter-modal-open { overflow: hidden !important; }
               </div>
               <div data-side-sort style="display:flex;align-items:center;gap:4px;">
                 <span style="font:600 10.5px Nunito,sans-serif;color:var(--gc-muted);">Ordenar:</span>
+                <button type="button" data-side-sort-key="inauguration" title="Data de inauguração (mais antiga primeiro; sem data por último)" style="border:1px solid var(--gc-border);border-radius:999px;background:transparent;color:var(--gc-muted);padding:2px 10px;cursor:pointer;font:700 10.5px Nunito,sans-serif;">Dt. Inauguração</button>
                 <button type="button" data-side-sort-key="title" style="border:1px solid var(--gc-border);border-radius:999px;background:transparent;color:var(--gc-muted);padding:2px 10px;cursor:pointer;font:700 10.5px Nunito,sans-serif;">Nome</button>
                 <button type="button" data-side-sort-key="consumo" style="border:1px solid var(--gc-border);border-radius:999px;background:transparent;color:var(--gc-muted);padding:2px 10px;cursor:pointer;font:700 10.5px Nunito,sans-serif;">Consumo</button>
                 <button type="button" data-side-sort-key="meta" style="border:1px solid var(--gc-border);border-radius:999px;background:transparent;color:var(--gc-muted);padding:2px 10px;cursor:pointer;font:700 10.5px Nunito,sans-serif;">Orçado</button>
@@ -4047,17 +4069,20 @@ body.filter-modal-open { overflow: hidden !important; }
     let lastUnit = '';
 
     // Ordenação do Resumo por shopping: null = ordem original; dir 1 asc / -1 desc
-    let sideSortKey = null; // 'title' | 'consumo' | 'meta'
+    // DEFAULT: Dt. Inauguração asc (mais antiga primeiro; sem data por último)
+    let sideSortKey = 'inauguration'; // 'inauguration' | 'title' | 'consumo' | 'meta'
     let sideSortDir = 1;
     const paintSideSort = () => {
       overlay.querySelectorAll('[data-side-sort-key]').forEach((b) => {
         const active = b.dataset.sideSortKey === sideSortKey;
         const base =
-          b.dataset.sideSortKey === 'title'
-            ? 'Nome'
-            : b.dataset.sideSortKey === 'consumo'
-              ? 'Consumo'
-              : 'Orçado';
+          b.dataset.sideSortKey === 'inauguration'
+            ? 'Dt. Inauguração'
+            : b.dataset.sideSortKey === 'title'
+              ? 'Nome'
+              : b.dataset.sideSortKey === 'consumo'
+                ? 'Consumo'
+                : 'Orçado';
         b.textContent = active ? `${base} ${sideSortDir === 1 ? '↑' : '↓'}` : base;
         b.style.background = active ? GP.tint(10) : 'transparent';
         b.style.color = active ? GP.accent : 'var(--gc-muted)';
@@ -4066,6 +4091,8 @@ body.filter-modal-open { overflow: hidden !important; }
     };
     const sortSideRows = (rows) => {
       if (!sideSortKey) return rows;
+      if (sideSortKey === 'inauguration')
+        return [...rows].sort((a, b) => cmpInauguration(a, b, sideSortDir));
       const val = (r) => (sideSortKey === 'title' ? String(r.title || '') : r[sideSortKey]);
       return [...rows].sort((a, b) => {
         if (sideSortKey === 'title')
@@ -4120,6 +4147,7 @@ body.filter-modal-open { overflow: hidden !important; }
         meta: undefined,
         consumo: undefined,
         ingestionId: null,
+        inaugurationDate: s.inaugurationDate || null, // ordenação default (Dt. Inauguração)
       }));
       const refresh = () => {
         const metasPend = rows.filter((r) => r.meta === undefined).length;
@@ -5510,16 +5538,17 @@ body.filter-modal-open { overflow: hidden !important; }
       const sortBtn = e.target.closest('[data-side-sort-key]');
       if (sortBtn) {
         const key = sortBtn.dataset.sideSortKey;
+        const ascDefault = key === 'title' || key === 'inauguration'; // nome A→Z; data antiga→recente
         if (sideSortKey === key) {
           // 2º clique inverte; 3º volta à ordem original
-          if ((key === 'title' && sideSortDir === 1) || (key !== 'title' && sideSortDir === -1)) {
+          if ((ascDefault && sideSortDir === 1) || (!ascDefault && sideSortDir === -1)) {
             sideSortDir = -sideSortDir;
           } else {
             sideSortKey = null;
           }
         } else {
           sideSortKey = key;
-          sideSortDir = key === 'title' ? 1 : -1; // nome A→Z; números maiores primeiro
+          sideSortDir = ascDefault ? 1 : -1; // nome A→Z / data asc; números maiores primeiro
         }
         if (lastRows) renderTable(lastRows, lastUnit);
         else paintSideSort();
@@ -5693,7 +5722,11 @@ body.filter-modal-open { overflow: hidden !important; }
       // cards de fallback (ASSET, sem customerId) não têm metas próprias no GCDR.
       const shoppings = (_currentCustomersCards || [])
         .filter((c) => c.entityType === 'CUSTOMER' && (c.customerId || c.entityId))
-        .map((c) => ({ tbId: c.customerId || c.entityId, title: c.title || _entS() }));
+        .map((c) => ({
+          tbId: c.customerId || c.entityId,
+          title: c.title || _entS(),
+          inaugurationDate: c.inaugurationDate || null, // 'YYYY-MM-DD' — ordenação default do Metas × Consumo
+        }));
 
       if (shoppings.length === 0) {
         // Dashboard sem shoppings filhos (single-customer): comportamento antigo,
@@ -8728,6 +8761,7 @@ function buildCustomerCardsFromDatasource(data) {
           entityType: entityType,
           customerId: entityId,
           ingestionId: null,
+          inaugurationDate: null, // dataKey 'inauguration_date' ('YYYY-MM-DD') — ordenação do Metas × Consumo
           clickable: false, // Default false, set to true if dashboardId is found
           deviceCounts: { energy: null, water: null, temperature: null },
           // null = loading spinner on the meta badges until enrichment resolves
@@ -8748,6 +8782,10 @@ function buildCustomerCardsFromDatasource(data) {
         }
         if (dataKey === 'subtitle' && latestValue) {
           card.subtitle = latestValue;
+        }
+        if (dataKey === 'inauguration_date' && latestValue) {
+          // String 'YYYY-MM-DD' (pode faltar p/ alguns customers) — validada no consumo
+          card.inaugurationDate = String(latestValue);
         }
       }
     }
