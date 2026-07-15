@@ -3186,30 +3186,69 @@ body.filter-modal-open { overflow: hidden !important; }
     return `${_fmtNum(n)} ${unit}`;
   };
 
-  // Árvore de metas do shopping no GCDR. Chaves por granularidade (mesmo formato que o
-  // GoalsModal v-5.2.0 lê): month → tree.monthly["01".."12"]; day → tree.daily["MM-DD"];
-  // hour → tree.hourly["MM-DDThh"]. Cache por (customer, domínio, ano, gran).
+  // Metas do shopping no GCDR — devolve o `data` COMPLETO do GET /goals:
+  //   { tree, version, granularity, devices[], hoursCovered, coverageGaps, ... }
+  // (Addendum A 2026-07: granularity 'CUSTOMER'|'DEVICE', devices[] por medidor de
+  // entrada e coverageGaps quando a cobertura < 100% — parsing tolerante, anos
+  // CUSTOMER legados seguem idênticos). Chaves da tree por granularidade (mesmo
+  // formato que o GoalsModal v-5.2.0 lê): month → tree.monthly["01".."12"];
+  // day → tree.daily["MM-DD"]; hour → tree.hourly["MM-DDThh"].
+  // `deviceId` (opcional) estreita a tree para UM medidor de um ano DEVICE (?deviceId=).
+  // Cache por (customer, domínio, ano, gran, deviceId) e guarda a PROMISE (não o
+  // resultado): chamadores concorrentes — gráfico e sidebar carregam em paralelo —
+  // compartilham o mesmo fetch em voo em vez de disparar requests GCDR duplicados.
   const _goalsTreeCache = new Map();
-  const fetchCustomerGoalsTree = async (attrs, gcdrDomain, year, gran = 'month') => {
+  const fetchCustomerGoalsTree = (attrs, gcdrDomain, year, gran = 'month', deviceId = null) => {
     const gcdrCustomerId = attrs?.gcdrCustomerId || '';
     const apiKey = attrs?.gcdrApiKey || GCDR_API_KEY || settings.gcdrApiKey || '';
-    if (!gcdrCustomerId || !apiKey) return null;
-    const cacheKey = `${gcdrCustomerId}|${gcdrDomain}|${year}|${gran}`;
+    if (!gcdrCustomerId || !apiKey) return Promise.resolve(null);
+    const cacheKey = `${gcdrCustomerId}|${gcdrDomain}|${year}|${gran}|${deviceId || ''}`;
     if (_goalsTreeCache.has(cacheKey)) return _goalsTreeCache.get(cacheKey);
-    const base = _gcdrV1(GCDR_API_BASE || window.MyIOOrchestrator?.gcdrApiBaseUrl || '');
-    const res = await fetch(
-      `${base}/customers/${encodeURIComponent(gcdrCustomerId)}/goals?domain=${gcdrDomain}&year=${year}&granularity=${gran}`,
-      { headers: { 'X-API-Key': apiKey, Accept: 'application/json' }, signal: AbortSignal.timeout(30000) }
-    );
-    if (!res.ok) {
-      _goalsTreeCache.set(cacheKey, null);
+    const promise = (async () => {
+      const base = _gcdrV1(GCDR_API_BASE || window.MyIOOrchestrator?.gcdrApiBaseUrl || '');
+      const res = await fetch(
+        `${base}/customers/${encodeURIComponent(gcdrCustomerId)}/goals?domain=${gcdrDomain}&year=${year}&granularity=${gran}` +
+          (deviceId ? `&deviceId=${encodeURIComponent(deviceId)}` : ''),
+        { headers: { 'X-API-Key': apiKey, Accept: 'application/json' }, signal: AbortSignal.timeout(30000) }
+      );
+      // !ok (ex.: 404 sem meta) fica cacheado como null — mesmo comportamento anterior.
+      if (!res.ok) return null;
+      const json = await res.json();
+      return json?.data?.tree ? json.data : null;
+    })().catch((err) => {
+      // Falha transitória (timeout/rede) NÃO pode ficar cacheada — remove para
+      // permitir retry na próxima abertura; resolve null p/ não quebrar chamadores.
+      _goalsTreeCache.delete(cacheKey);
+      LogHelper?.warn?.('[MAIN_UNIQUE] fetchCustomerGoalsTree falhou:', err);
       return null;
-    }
-    const json = await res.json();
-    const tree = json?.data?.tree || null;
-    _goalsTreeCache.set(cacheKey, tree);
-    return tree;
+    });
+    _goalsTreeCache.set(cacheKey, promise);
+    return promise;
   };
+
+  // ── Coverage gaps (Addendum A) → texto pt-BR do warning ⚠ ──────────────────
+  // Refs compactos do GET: mês "YYYY-MM" → "Fev"; dia "YYYY-MM-DD" → "15 Abr";
+  // hora "YYYY-MM-DDThh" → "15 Abr 08h". `truncated` vira reticências.
+  const GOALS_MONTHS_PT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+  const _gapRefPt = (ref) => {
+    const s = String(ref || '');
+    let m = /^(\d{4})-(\d{2})$/.exec(s);
+    if (m) return GOALS_MONTHS_PT[Number(m[2]) - 1] || s;
+    m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+    if (m) return `${Number(m[3])} ${GOALS_MONTHS_PT[Number(m[2]) - 1] || m[2]}`;
+    m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2})$/.exec(s);
+    if (m) return `${Number(m[3])} ${GOALS_MONTHS_PT[Number(m[2]) - 1] || m[2]} ${m[4]}h`;
+    return s;
+  };
+  const _gapsTextPt = (gaps) => {
+    const refs = (gaps?.missing || []).map(_gapRefPt);
+    const hours = Number(gaps?.missingHours) || 0;
+    const list = refs.join(', ') + (gaps?.truncated ? '…' : '');
+    const hoursTxt = hours > 0 ? ` (~${hours.toLocaleString('pt-BR')}h)` : '';
+    const missTxt = list ? ` Faltam: ${list}${hoursTxt}` : hoursTxt ? ` Faltam${hoursTxt}` : '';
+    return `A meta GERAL deste domínio/ano não cobre 100% dos dias e horas.${missTxt}`;
+  };
+  const _hasGaps = (g) => !!(g && ((g.missing && g.missing.length) || Number(g.missingHours) > 0));
 
   // Consumo de TODOS os shoppings numa ÚNICA chamada: /devices/totals do customer
   // head-office (deep=1), agrupado pelo customerId (ingestion) que a própria API devolve
@@ -3829,24 +3868,49 @@ body.filter-modal-open { overflow: hidden !important; }
       return `${s.slice(8, 10)}/${s.slice(5, 7)}–${e.slice(8, 10)}/${e.slice(5, 7)}/${e.slice(0, 4)}`;
     };
 
-    // Meta do shopping no período = soma das metas diárias (tree.daily) dos dias do range
+    // Meta do shopping no período = soma das metas diárias (tree.daily) dos dias do
+    // range. Também devolve os metadados Addendum A do(s) ano(s) carregado(s):
+    // coverageGaps agregado (⚠ da sidebar), granularity DEVICE e nº de medidores.
     const metaForPeriod = async (attrs, cfgD) => {
       const days = daysInPeriod();
       const years = [...new Set(days.map((dd) => dd.y))];
-      const treesByYear = {};
+      const goalsByYear = {};
       for (const y of years) {
-        treesByYear[y] = await fetchCustomerGoalsTree(attrs, cfgD.gcdr, y, 'day').catch(() => null);
+        goalsByYear[y] = await fetchCustomerGoalsTree(attrs, cfgD.gcdr, y, 'day').catch(() => null);
       }
       let sum = 0;
       let has = false;
       for (const dd of days) {
-        const v = treesByYear[dd.y]?.daily?.[dd.key]?.value;
+        const v = goalsByYear[dd.y]?.tree?.daily?.[dd.key]?.value;
         if (v != null) {
           sum += Number(v) || 0;
           has = true;
         }
       }
-      return has ? sum : null;
+      // Agregação dos metadados por ano (o range pode cruzar a virada do ano)
+      const gaps = { missing: [], truncated: false, missingHours: 0 };
+      let granularity = null;
+      let devicesCount = 0;
+      for (const y of years) {
+        const g = goalsByYear[y];
+        if (!g) continue;
+        if (g.granularity === 'DEVICE') {
+          granularity = 'DEVICE';
+          devicesCount = Math.max(devicesCount, Array.isArray(g.devices) ? g.devices.length : 0);
+        }
+        const cg = g.coverageGaps;
+        if (_hasGaps(cg)) {
+          gaps.missing.push(...(cg.missing || []));
+          gaps.missingHours += Number(cg.missingHours) || 0;
+          gaps.truncated = gaps.truncated || !!cg.truncated;
+        }
+      }
+      return {
+        value: has ? sum : null,
+        gaps: _hasGaps(gaps) ? gaps : null,
+        granularity,
+        devicesCount,
+      };
     };
 
     // Paleta do dashboard propagada para o chrome do painel (header, tabs, pills…)
@@ -4103,7 +4167,9 @@ body.filter-modal-open { overflow: hidden !important; }
       });
     };
 
-    // Sidebar compacta: 1 card por shopping (nome + chip; meta/consumo na 2ª linha)
+    // Sidebar compacta: 1 card por shopping (nome + chip; meta/consumo na 2ª linha).
+    // Addendum A: ⚠ (InfoTooltip com os buracos de cobertura) e chip "Por medidor (N)"
+    // junto do Orçado quando o ano do shopping é DEVICE-granular.
     const renderTable = (rows, unit) => {
       lastRows = rows;
       lastUnit = unit;
@@ -4111,24 +4177,49 @@ body.filter-modal-open { overflow: hidden !important; }
       const totalMeta = rows.reduce((s, r) => s + (r.meta || 0), 0);
       const totalCons = rows.reduce((s, r) => s + (r.consumo || 0), 0);
       const fmtCell = (v) => (v === undefined ? '⏳' : _fmtQtyStr(v, unit));
-      const item = (title, meta, consumo, bold) => `
+      const gapWarn = (r, i) =>
+        r && r.metaGaps
+          ? `<span data-gap-row="${i}" title="Meta incompleta" style="cursor:help;font-size:11px;line-height:1;">⚠️</span>`
+          : '';
+      const devChip = (r) =>
+        r && r.metaGranularity === 'DEVICE'
+          ? `<span title="Metas por medidor de entrada (granularidade DEVICE)" style="background:${GP.tint(12)};color:${GP.accent};border-radius:999px;padding:1px 8px;font:700 10px Nunito,sans-serif;white-space:nowrap;">Por medidor (${r.metaDevices || 0})</span>`
+          : '';
+      const item = (title, meta, consumo, bold, extras = '') => `
         <div style="border:1px solid var(--gc-border);border-radius:10px;padding:8px 10px;display:flex;flex-direction:column;gap:4px;${bold ? 'background:var(--gc-surface2);' : ''}">
           <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
             <span style="font:${bold ? 800 : 700} 12px Nunito,sans-serif;color:var(--gc-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${bold ? '' : '🏢 '}${_escHtml(title)}</span>
             ${statusChip(meta, consumo)}
           </div>
-          <div style="font:600 11px Nunito,sans-serif;color:var(--gc-muted);">Orçado <b style="color:var(--gc-text2);">${fmtCell(meta)}</b> · Consumo <b style="color:var(--gc-text2);">${fmtCell(consumo)}</b></div>
+          <div style="font:600 11px Nunito,sans-serif;color:var(--gc-muted);display:flex;align-items:center;gap:5px;flex-wrap:wrap;">Orçado <b style="color:var(--gc-text2);">${fmtCell(meta)}</b>${extras} · Consumo <b style="color:var(--gc-text2);">${fmtCell(consumo)}</b></div>
         </div>`;
+      const sorted = sortSideRows(rows);
       tableEl.innerHTML =
-        sortSideRows(rows)
-          .map((r) => item(r.title, r.meta, r.consumo, false))
-          .join('') +
+        sorted.map((r, i) => item(r.title, r.meta, r.consumo, false, gapWarn(r, i) + devChip(r))).join('') +
         item(
           `Total${loading ? ' (parcial)' : ''}`,
           loading ? undefined : totalMeta || null,
           loading ? undefined : totalCons || null,
           true
         );
+      // ⚠ → InfoTooltip da lib com os refs faltantes (re-bind a cada render: o
+      // innerHTML acima descarta o DOM anterior junto com os listeners).
+      const IT = MyIOLibrary?.InfoTooltip;
+      if (IT?.attach) {
+        tableEl.querySelectorAll('[data-gap-row]').forEach((el) => {
+          const r = sorted[Number(el.dataset.gapRow)];
+          if (!r?.metaGaps) return;
+          try {
+            IT.attach(el, () => ({
+              icon: '⚠️',
+              title: `Meta incompleta — ${r.title || ''}`,
+              content: `<div style="font-size:12px;line-height:1.55;color:#334155;">${_escHtml(_gapsTextPt(r.metaGaps))}</div>`,
+            }));
+          } catch {
+            /* tooltip é enfeite — nunca pode quebrar a sidebar */
+          }
+        });
+      }
       paintSideSort();
     };
 
@@ -4174,9 +4265,13 @@ body.filter-modal-open { overflow: hidden !important; }
       // Meta do período = soma das metas diárias do range (createDateRangePicker)
       const goalsP = Promise.all(
         rows.map(async (row) => {
-          const meta = await metaForPeriod(row._attrs, cfg).catch(() => null);
+          const res = await metaForPeriod(row._attrs, cfg).catch(() => null);
           if (seq !== reqSeq) return;
-          row.meta = meta;
+          row.meta = res ? res.value : null;
+          // Addendum A: ⚠ cobertura incompleta + chip "Por medidor (N)" na sidebar
+          row.metaGaps = res?.gaps || null;
+          row.metaGranularity = res?.granularity || null;
+          row.metaDevices = res?.devicesCount || 0;
           refresh();
         })
       );
@@ -4489,6 +4584,10 @@ body.filter-modal-open { overflow: hidden !important; }
         shops,
         trees,
         goalOf,
+        // Addendum A (anos DEVICE): GET /goals completo por shopping e trees por
+        // medidor (?deviceId=) buscadas lazy no modo "Dispositivos separados".
+        goalsAll,
+        goalDevTrees,
       } = args;
       lastCardsRender = { fn: renderGoalsDeviceCardsGrid, args };
       const grid = overlay.querySelector('[data-cards-grid]');
@@ -4552,7 +4651,7 @@ body.filter-modal-open { overflow: hidden !important; }
           return acc;
         }, nullSeries());
 
-      const makeCard = ({ title, devs, budget }) => {
+      const makeCard = ({ title, devs, budget, shopIdx }) => {
         // Nomes deduplicados dentro do card (#1/#2 quando o shopping tem 2 medidores iguais)
         const names = devs.map(deviceLabel);
         const count = names.reduce((acc, n) => acc.set(n, (acc.get(n) || 0) + 1), new Map());
@@ -4567,6 +4666,25 @@ body.filter-modal-open { overflow: hidden !important; }
           }
           return { name, values: buckets[i] };
         });
+        // ── Addendum A: metas por medidor quando o ano do shopping é DEVICE ──
+        // "Dispositivos separados" → uma linha de meta POR medidor (trees ?deviceId=);
+        // "Dispositivos empilhados" → meta única + tooltip com o detalhamento por
+        // medidor (anual ajustado de devices[], nota "(anual)"). Ano CUSTOMER (sem
+        // devices[]) → comportamento atual inalterado nas duas opções.
+        let budgetBreakdown;
+        let budgetDetail;
+        const g = shopIdx != null ? goalsAll?.[shopIdx] : null;
+        if (g?.granularity === 'DEVICE' && Array.isArray(g.devices) && g.devices.length) {
+          const devTrees = goalDevTrees?.get(shopIdx);
+          if (cardsGroupBy === 'device' && devTrees?.length && goalOf) {
+            budgetBreakdown = devTrees.map((e) => ({ name: e.name, values: goalOf(e.tree) }));
+          } else if (cardsGroupBy === 'device-stack') {
+            budgetDetail = g.devices.map((gd) => ({
+              name: gd.label || gd.code || 'Medidor',
+              annual: gd.annualAdjusted != null ? gd.annualAdjusted : gd.annual != null ? gd.annual : null,
+            }));
+          }
+        }
         goalsCards.push(
           MyIOLibrary.createCustomerGoalsCard({
             container: grid,
@@ -4588,7 +4706,11 @@ body.filter-modal-open { overflow: hidden !important; }
               previousYear: showPrevYear
                 ? sumSeries(devs.map((d) => bucketize(prevDev?.get(d.id))))
                 : undefined,
+              // budget consolidado segue alimentando a faixa de totais mesmo com
+              // budgetBreakdown (o componente troca só a(s) linha(s) do gráfico)
               budget,
+              budgetBreakdown,
+              budgetDetail,
             },
           })
         );
@@ -4597,7 +4719,7 @@ body.filter-modal-open { overflow: hidden !important; }
       (shops || []).forEach((s, i) => {
         const devs = byShop.get(i);
         if (!devs?.length) return; // shopping sem medidor identificável neste domínio
-        makeCard({ title: s.title, devs, budget: goalOf ? goalOf(trees?.[i]) : undefined });
+        makeCard({ title: s.title, devs, budget: goalOf ? goalOf(trees?.[i]) : undefined, shopIdx: i });
       });
       // Medidores sem shopping identificável: um card residual (não perder dado)
       if (orphans.length) {
@@ -4815,6 +4937,17 @@ body.filter-modal-open { overflow: hidden !important; }
             loadEvo();
             return;
           }
+          // Addendum A: com algum shopping em ano DEVICE, separados ↔ empilhados
+          // também muda a FORMA da meta (linhas por medidor ↔ única + tooltip) e
+          // "separados" precisa das trees por medidor (fetch lazy do loadEvo, com
+          // cache de promise — a troca de volta não refaz requests já resolvidos).
+          const hasDeviceGoals = (lastCardsRender?.args?.goalsAll || []).some(
+            (g) => g?.granularity === 'DEVICE'
+          );
+          if (hasDeviceGoals) {
+            loadEvo();
+            return;
+          }
         }
         if (consChanged && lastCardsRender) {
           // adiciona/remove o card Consolidado — re-render local com os mesmos dados
@@ -4903,10 +5036,13 @@ body.filter-modal-open { overflow: hidden !important; }
       }));
 
       const gcdrGran = evoGran === '1y' || evoGran === '1M' ? 'month' : evoGran === '1d' ? 'day' : 'hour';
-      const trees = await Promise.all(
+      // GET /goals completo por shopping (Addendum A: granularity/devices junto da tree)
+      const goalsAll = await Promise.all(
         shops.map((s) => fetchCustomerGoalsTree(s.attrs, cfgD.gcdr, yearGoals, gcdrGran).catch(() => null))
       );
       if (seq !== evoSeq) return;
+      // A matemática do painel segue 100% na árvore CONSOLIDADA (inalterada).
+      const trees = goalsAll.map((g) => g?.tree || null);
 
       // Labels, chave de meta por boundary e ranges (ano do período + mesmo período no ano-1)
       let labels;
@@ -5042,6 +5178,42 @@ body.filter-modal-open { overflow: hidden !important; }
         };
         const [curDev, prevDev] = await Promise.all([fetchDevRange(ranges.cur), fetchDevRange(ranges.prev)]);
         if (seq !== evoSeq) return;
+
+        // ── Addendum A: metas POR MEDIDOR nos cards (anos com granularity DEVICE) ──
+        // "Dispositivos separados": busca LAZY a tree de cada medidor de entrada via
+        // ?deviceId= (só aqui — cards + separados + ano DEVICE), com o mesmo cache de
+        // promise do fetchCustomerGoalsTree. Uma linha de meta por medidor no card.
+        // "Dispositivos empilhados": mantém a linha de meta única (tree somada); o
+        // detalhamento por medidor vai no tooltip via devices[] (anual ajustado).
+        let goalDevTrees = null; // Map<shopIdx, [{ name, tree }]>
+        if (cardsGroupBy === 'device') {
+          const entries = await Promise.all(
+            shops.map(async (s, i) => {
+              const g = goalsAll[i];
+              if (g?.granularity !== 'DEVICE' || !Array.isArray(g.devices) || !g.devices.length) return null;
+              const perDev = await Promise.all(
+                g.devices.map(async (gd) => {
+                  const devKey = gd.deviceId || gd.id || gd.code;
+                  if (!devKey) return null;
+                  const dg = await fetchCustomerGoalsTree(
+                    s.attrs,
+                    cfgD.gcdr,
+                    yearGoals,
+                    gcdrGran,
+                    devKey
+                  ).catch(() => null);
+                  if (!dg?.tree) return null;
+                  return { name: gd.label || gd.code || 'Medidor', tree: dg.tree };
+                })
+              );
+              const ok = perDev.filter(Boolean);
+              return ok.length ? [i, ok] : null;
+            })
+          );
+          if (seq !== evoSeq) return;
+          goalDevTrees = new Map(entries.filter(Boolean));
+        }
+
         renderGoalsDeviceCardsGrid({
           labels,
           devices,
@@ -5054,6 +5226,8 @@ body.filter-modal-open { overflow: hidden !important; }
           shops,
           trees,
           goalOf,
+          goalsAll,
+          goalDevTrees,
         });
         evoStatusEl.textContent = devices.length ? '' : 'Sem medidores de entrada';
         setEvoLoading(false);
