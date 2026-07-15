@@ -889,7 +889,8 @@ function _injectStyles(topDoc: Document): void {
     .gm-gran-btn.active{background:#fff;color:#3e1a7d;box-shadow:0 1px 4px rgba(0,0,0,.2);}
     .gm-date-input{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.3);border-radius:6px;color:#fff;font-size:12px;padding:3px 8px;cursor:pointer;outline:none;}
     .gm-date-picker-wrap{display:flex;align-items:center;}
-    #gm-date-range-input{min-width:155px;}
+    /* "DD/MM/YYYY até DD/MM/YYYY" precisa de ~170px em 12px Roboto — 155px cortava o final */
+    #gm-date-range-input{min-width:195px;}
     .gm-close{background:transparent;border:none;color:#fff;font-size:22px;line-height:1;cursor:pointer;padding:4px;border-radius:4px;flex-shrink:0;}
     .gm-close:hover{background:rgba(255,255,255,.15);}
     .gm-tabs{display:flex;gap:4px;padding:8px 14px 0;background:#3e1a7d;flex-shrink:0;}
