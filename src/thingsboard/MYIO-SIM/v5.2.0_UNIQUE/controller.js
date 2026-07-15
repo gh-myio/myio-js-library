@@ -2987,6 +2987,46 @@ body.filter-modal-open { overflow: hidden !important; }
   // gcdrCustomerId/gcdrApiKey no SERVER_SCOPE. O clique abre um seletor de shopping e o
   // GoalsPanel é aberto com as credenciais GCDR do shopping escolhido.
 
+  // ── Paleta do painel de Metas ──────────────────────────────────────────────
+  // Propaga as cores do dashboard (settingsSchema: Menu Tab Colors / Header Card
+  // Colors / tema) para o painel Metas × Consumo, GoalsPanel e pickers — mantém a
+  // identidade visual do head office (ex.: verde Sá Cavalcante) em vez do roxo
+  // fixo MyIO. Fallbacks preservam o visual atual quando nada está configurado.
+  const goalsPalette = () => {
+    const mode =
+      (window.MyIOUtils?.currentThemeMode || currentThemeMode) === 'dark' ? 'darkMode' : 'lightMode';
+    const themeCfg = settings?.[mode] || {};
+    const accent = settings?.tabSelecionadoBackgroundColor || themeCfg.primaryColor || '#6a1b9a';
+    const accentDark = settings?.cardEnergiaBackgroundColor || themeCfg.secondaryColor || '#4a148c';
+    const accentText = settings?.tabSelecionadoFontColor || '#ffffff';
+    // Tons translúcidos/claros p/ bordas, hovers e chips (color-mix: Chrome 111+)
+    const tint = (pct) => `color-mix(in srgb, ${accent} ${pct}%, transparent)`;
+    const lighten = (pct) => `color-mix(in srgb, ${accent} ${100 - pct}%, #fff)`;
+    // Tons SÓLIDOS derivados do accent (hex, p/ séries de gráfico — canvas não
+    // aceita color-mix): alterna clareamentos e escurecimentos progressivos.
+    // Mantém a identidade monocromática da paleta do dashboard em séries múltiplas.
+    const mixHex = (hexA, hexB, pctB) => {
+      const n = (h) => parseInt(h.slice(1), 16);
+      const a = n(hexA);
+      const b = n(hexB);
+      const ch = (sa, sb) => Math.round(sa + (sb - sa) * pctB);
+      const r = ch((a >> 16) & 255, (b >> 16) & 255);
+      const g = ch((a >> 8) & 255, (b >> 8) & 255);
+      const bl = ch(a & 255, b & 255);
+      return `#${((1 << 24) + (r << 16) + (g << 8) + bl).toString(16).slice(1)}`;
+    };
+    const tones = (count) => {
+      if (!/^#[0-9a-f]{6}$/i.test(accent)) return null; // accent fora do padrão hex → paleta default
+      return Array.from({ length: count }, (_, i) => {
+        if (i === 0) return accent;
+        const step = Math.ceil(i / 2);
+        const pct = Math.min(0.72, 0.08 + 0.21 * step);
+        return i % 2 === 1 ? mixHex(accent, '#ffffff', pct) : mixHex(accent, '#0f172a', pct);
+      });
+    };
+    return { accent, accentDark, accentText, tint, lighten, tones };
+  };
+
   const _goalsToastError = (msg) => {
     if (MyIOLibrary?.MyIOToast?.error) MyIOLibrary.MyIOToast.error(msg);
     else window.alert(msg);
@@ -3054,7 +3094,7 @@ body.filter-modal-open { overflow: hidden !important; }
         LogHelper.log('[MAIN_UNIQUE] Goals Panel closed');
       },
       styles: {
-        primaryColor: '#6a1b9a',
+        primaryColor: goalsPalette().accent,
         errorColor: '#dc3545',
         borderRadius: '8px',
         zIndex: 10000,
@@ -3083,7 +3123,7 @@ body.filter-modal-open { overflow: hidden !important; }
 
       overlay.innerHTML = `
         <div role="dialog" aria-label="Selecionar ${_escHtml(_entSLow())}" style="background:#fff;border-radius:12px;max-width:420px;width:calc(100% - 32px);max-height:80vh;display:flex;flex-direction:column;box-shadow:0 20px 50px rgba(0,0,0,.25);overflow:hidden;">
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:#6a1b9a;color:#fff;">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:${goalsPalette().accent};color:${goalsPalette().accentText};">
             <strong style="font:700 15px Nunito,sans-serif;">🎯 Metas — selecione: ${_escHtml(_entS())}</strong>
             <button type="button" data-close="1" aria-label="Fechar" style="border:0;background:transparent;color:#fff;font-size:18px;cursor:pointer;line-height:1;">✕</button>
           </div>
@@ -3788,6 +3828,9 @@ body.filter-modal-open { overflow: hidden !important; }
       return has ? sum : null;
     };
 
+    // Paleta do dashboard propagada para o chrome do painel (header, tabs, pills…)
+    const GP = goalsPalette();
+
     const overlay = document.createElement('div');
     overlay.id = 'myio-goals-compare-root';
     overlay.style.cssText =
@@ -3797,7 +3840,7 @@ body.filter-modal-open { overflow: hidden !important; }
       'border:1px solid rgba(255,255,255,.5);border-radius:8px;background:rgba(255,255,255,.12);color:#fff;padding:6px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;';
     overlay.innerHTML = `
       <div role="dialog" data-gc-dialog aria-label="Metas × Consumo" style="background:var(--gc-surface);border-radius:14px;width:min(1200px,calc(100% - 32px));max-height:92vh;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.3);overflow:hidden;">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 20px;background:linear-gradient(135deg,#4a148c,#6a1b9a);color:#fff;flex-shrink:0;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 20px;background:linear-gradient(135deg,${GP.accentDark},${GP.accent});color:${GP.accentText};flex-shrink:0;">
           <strong style="font:700 16px Nunito,sans-serif;">📊 Metas × Consumo — ${_escHtml(_entP())}</strong>
           <div style="display:flex;align-items:center;gap:10px;">
             <button type="button" data-thm title="Alternar tema claro/escuro" style="${hdrBtn}">🌙</button>
@@ -3811,7 +3854,7 @@ body.filter-modal-open { overflow: hidden !important; }
             ${Object.entries(GOALS_COMPARE_DOMAINS)
               .map(
                 ([k, d]) =>
-                  `<button type="button" data-domain="${k}" style="border:1px solid #6a1b9a;border-radius:8px;padding:6px 14px;cursor:pointer;font:700 13px Nunito,sans-serif;">${d.label}</button>`
+                  `<button type="button" data-domain="${k}" style="border:1px solid ${GP.accent};border-radius:8px;padding:6px 14px;cursor:pointer;font:700 13px Nunito,sans-serif;">${d.label}</button>`
               )
               .join('')}
           </div>
@@ -3838,7 +3881,7 @@ body.filter-modal-open { overflow: hidden !important; }
               <button type="button" data-submode="sep" title="Um par de barras e uma linha de meta por ${_escHtml(_entSLow())}" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Separados</button>
               <button type="button" data-submode="cards" title="Um card por ${_escHtml(_entSLow())}: Realizado × A-1 × Orçado (RFC-0217)" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Cards</button>
             </div>
-            <button type="button" data-cards-settings title="Configurações dos cards (linha/barra, pontos)" style="display:none;border:1px solid rgba(124,58,237,.45);border-radius:8px;background:transparent;color:#7C3AED;padding:4px 9px;cursor:pointer;font:700 13px Nunito,sans-serif;">⚙️</button>
+            <button type="button" data-cards-settings title="Configurações dos cards (linha/barra, pontos)" style="display:none;border:1px solid ${GP.tint(45)};border-radius:8px;background:transparent;color:${GP.accent};padding:4px 9px;cursor:pointer;font:700 13px Nunito,sans-serif;">⚙️</button>
             <span style="margin-left:auto;display:inline-flex;align-items:center;gap:8px;">
               <span data-year-toggles style="display:none;align-items:center;gap:6px;font:700 12px Nunito,sans-serif;color:var(--gc-text2);"></span>
               <span data-evo-status style="font:600 12px Nunito,sans-serif;color:var(--gc-muted);"></span>
@@ -3848,7 +3891,7 @@ body.filter-modal-open { overflow: hidden !important; }
             <div style="flex:1 1 560px;min-width:0;display:flex;flex-direction:column;gap:14px;position:relative;">
               <div data-evo-loading style="display:none;position:absolute;inset:0;z-index:6;background:rgba(148,163,184,.08);align-items:center;justify-content:center;border-radius:8px;">
                 <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
-                  <div style="width:34px;height:34px;border-radius:50%;border:3px solid rgba(124,58,237,.25);border-top-color:#7C3AED;animation:gcSpin .8s linear infinite;"></div>
+                  <div style="width:34px;height:34px;border-radius:50%;border:3px solid ${GP.tint(25)};border-top-color:${GP.accent};animation:gcSpin .8s linear infinite;"></div>
                   <span style="font:700 12px Nunito,sans-serif;color:var(--gc-muted);">Carregando dados…</span>
                 </div>
               </div>
@@ -3862,7 +3905,7 @@ body.filter-modal-open { overflow: hidden !important; }
             <aside style="flex:0 0 330px;max-width:100%;display:flex;flex-direction:column;gap:8px;" data-side>
               <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
                 <strong data-side-title style="font:700 13px Nunito,sans-serif;color:var(--gc-muted);white-space:nowrap;">Resumo por ${_escHtml(_goalsEntityLabel.toLowerCase())}</strong>
-                <button type="button" data-side-toggle title="Recolher resumo" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;border:1px solid rgba(124,58,237,.45);border-radius:8px;background:transparent;color:#7C3AED;padding:4px 10px;cursor:pointer;font:700 11px Nunito,sans-serif;line-height:1.4;transition:background .15s, border-color .15s;" onmouseover="this.style.background='rgba(124,58,237,.08)';this.style.borderColor='#7C3AED'" onmouseout="this.style.background='transparent';this.style.borderColor='rgba(124,58,237,.45)'">Recolher ▶</button>
+                <button type="button" data-side-toggle title="Recolher resumo" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;border:1px solid ${GP.tint(45)};border-radius:8px;background:transparent;color:${GP.accent};padding:4px 10px;cursor:pointer;font:700 11px Nunito,sans-serif;line-height:1.4;transition:background .15s, border-color .15s;" onmouseover="this.style.background='${GP.tint(8)}';this.style.borderColor='${GP.accent}'" onmouseout="this.style.background='transparent';this.style.borderColor='${GP.tint(45)}'">Recolher ▶</button>
               </div>
               <div data-side-sort style="display:flex;align-items:center;gap:4px;">
                 <span style="font:600 10.5px Nunito,sans-serif;color:var(--gc-muted);">Ordenar:</span>
@@ -3896,7 +3939,7 @@ body.filter-modal-open { overflow: hidden !important; }
         muted2: '#94a3b8',
         inputBorder: '#cbd5e1',
         pillActiveBg: '#ffffff',
-        pillActiveTx: '#3e1a7d',
+        pillActiveTx: GP.accent,
         tabIdleBg: '#ffffff',
         chartTick: '#475569',
         chartGrid: 'rgba(100,116,139,.15)',
@@ -3911,8 +3954,8 @@ body.filter-modal-open { overflow: hidden !important; }
         muted: '#94a3b8',
         muted2: '#64748b',
         inputBorder: '#475569',
-        pillActiveBg: '#6a1b9a',
-        pillActiveTx: '#ffffff',
+        pillActiveBg: GP.accent,
+        pillActiveTx: GP.accentText,
         tabIdleBg: '#1e293b',
         chartTick: '#cbd5e1',
         chartGrid: 'rgba(148,163,184,.15)',
@@ -3929,11 +3972,17 @@ body.filter-modal-open { overflow: hidden !important; }
     // — Gráfico único Metas × Consumo: cores fiéis ao GoalsModal v-5.2.0 (consolidado:
     // barra do domínio + ano-1 cinza + meta linha laranja; por shopping: paleta por
     // customer, ano-1 mesma cor translúcida, meta tracejada da cor do shopping) —
+    // Realizado (consolidado) segue o accent do dashboard (GP); A-1 continua
+    // cinza translúcido e a meta laranja — contraste garantido em ambos os temas.
     const EVO_COLORS = {
-      energy: { bar: '#6c5ce7', goal: '#f97316' },
-      water: { bar: '#0891b2', goal: '#f59e0b' },
+      energy: { bar: GP.accent, goal: '#f97316' },
+      water: { bar: GP.accent, goal: '#f59e0b' },
     };
-    const SHOP_PALETTE = [
+    // Séries múltiplas (por shopping / por medidor): TONS do accent do dashboard
+    // (settingsSchema) — monocromático segue a paleta do customer; fallback na
+    // paleta multicolor MyIO quando o accent não é um hex válido.
+    const GP_TONES = GP.tones(8);
+    const SHOP_PALETTE = GP_TONES || [
       '#6c5ce7',
       '#0ea5e9',
       '#22c55e',
@@ -3958,6 +4007,7 @@ body.filter-modal-open { overflow: hidden !important; }
     let cardsShowPoints = false; // ⚙️ dos cards — pontos na linha desligados por default
     let cardsChartType = 'bar'; // ⚙️ dos cards — barra é o default
     let cardsGroupBy = 'shopping'; // ⚙️ dos cards: 'shopping' (default) | 'device' (medidores lado a lado) | 'device-stack' (medidores empilhados)
+    let cardsShowConsolidated = false; // ⚙️ dos cards — card "Consolidado" (todos os shoppings somados) como último card
     let evoChart = null;
     let evoSeq = 0;
     const evoConsCache = new Map(); // consumo por (domínio, gran, range) — troca de aba não refaz fetch
@@ -3966,15 +4016,15 @@ body.filter-modal-open { overflow: hidden !important; }
       const t = GC_THEMES[modalTheme];
       overlay.querySelectorAll('[data-domain]').forEach((b) => {
         const active = b.dataset.domain === domainKey;
-        b.style.background = active ? '#6a1b9a' : t.tabIdleBg;
-        b.style.color = active ? '#fff' : modalTheme === 'dark' ? '#b794f6' : '#6a1b9a';
+        b.style.background = active ? GP.accent : t.tabIdleBg;
+        b.style.color = active ? GP.accentText : modalTheme === 'dark' ? GP.lighten(55) : GP.accent;
       });
     };
 
     const statusChip = (meta, consumo) => {
       // undefined = ainda carregando (null = carregou e não há dado)
       if (meta === undefined || consumo === undefined)
-        return '<span style="background:#ede9fe;color:#6d28d9;border-radius:999px;padding:2px 10px;font:700 11px Nunito,sans-serif;">⏳ Carregando…</span>';
+        return `<span style="background:${GP.tint(14)};color:${GP.accent};border-radius:999px;padding:2px 10px;font:700 11px Nunito,sans-serif;">⏳ Carregando…</span>`;
       if (meta == null || meta <= 0)
         return '<span style="background:#f1f5f9;color:#64748b;border-radius:999px;padding:2px 10px;font:700 11px Nunito,sans-serif;">Sem Orçado</span>';
       if (consumo == null)
@@ -4009,9 +4059,9 @@ body.filter-modal-open { overflow: hidden !important; }
               ? 'Consumo'
               : 'Orçado';
         b.textContent = active ? `${base} ${sideSortDir === 1 ? '↑' : '↓'}` : base;
-        b.style.background = active ? 'rgba(124,58,237,.10)' : 'transparent';
-        b.style.color = active ? '#7C3AED' : 'var(--gc-muted)';
-        b.style.borderColor = active ? 'rgba(124,58,237,.45)' : 'var(--gc-border)';
+        b.style.background = active ? GP.tint(10) : 'transparent';
+        b.style.color = active ? GP.accent : 'var(--gc-muted)';
+        b.style.borderColor = active ? GP.tint(45) : 'var(--gc-border)';
       });
     };
     const sortSideRows = (rows) => {
@@ -4165,6 +4215,7 @@ body.filter-modal-open { overflow: hidden !important; }
 
     // ── RFC-0217: modo Cards — small multiples por shopping (createCustomerGoalsCard) ──
     let goalsCards = [];
+    let lastCardsRender = null; // { fn, args } — re-render dos cards sem refetch (⚙️ Exibir card Consolidado)
     const destroyGoalsCards = () => {
       goalsCards.forEach((c) => {
         try {
@@ -4199,18 +4250,20 @@ body.filter-modal-open { overflow: hidden !important; }
       const l = overlay.querySelector('[data-evo-loading]');
       if (l) l.style.display = on ? 'flex' : 'none';
     };
-    const renderGoalsCardsGrid = ({
-      labels,
-      shops,
-      curBy,
-      prevBy,
-      goalOf,
-      trees,
-      bucketize,
-      yearCurLabel,
-      yearPrevLabel,
-      unit,
-    }) => {
+    const renderGoalsCardsGrid = (args) => {
+      const {
+        labels,
+        shops,
+        curBy,
+        prevBy,
+        goalOf,
+        trees,
+        bucketize,
+        yearCurLabel,
+        yearPrevLabel,
+        unit,
+      } = args;
+      lastCardsRender = { fn: renderGoalsCardsGrid, args };
       const grid = overlay.querySelector('[data-cards-grid]');
       const legend = overlay.querySelector('[data-cards-legend]');
       if (!grid) return;
@@ -4222,6 +4275,15 @@ body.filter-modal-open { overflow: hidden !important; }
         if (legend) legend.innerHTML = '';
         return;
       }
+      const nullSeries = () => labels.map(() => null);
+      const sumSeries = (arrs) =>
+        arrs.reduce((acc, arr) => {
+          (arr || []).forEach((v, i) => {
+            if (v == null || Number.isNaN(Number(v))) return;
+            acc[i] = (acc[i] || 0) + Number(v);
+          });
+          return acc;
+        }, nullSeries());
       shops.forEach((s, i) => {
         goalsCards.push(
           MyIOLibrary.createCustomerGoalsCard({
@@ -4230,7 +4292,7 @@ body.filter-modal-open { overflow: hidden !important; }
             unit,
             yearLabels: { current: yearCurLabel, previous: yearPrevLabel },
             themeMode: modalTheme,
-            options: { chartType: cardsChartType, showPoints: cardsShowPoints },
+            options: { chartType: cardsChartType, showPoints: cardsShowPoints, colors: { realized: GP.accent, breakdownPalette: GP_TONES || undefined } },
             series: {
               labels,
               // 👁: ano oculto some dos dados (realized vira gaps; A-1 é omitida por completo)
@@ -4241,6 +4303,30 @@ body.filter-modal-open { overflow: hidden !important; }
           })
         );
       });
+      // ⚙️ Exibir card Consolidado: soma de todos os shoppings como se fosse um
+      // shopping — sempre o ÚLTIMO card da grid. Meta = soma das metas.
+      if (cardsShowConsolidated) {
+        goalsCards.push(
+          MyIOLibrary.createCustomerGoalsCard({
+            container: grid,
+            title: 'Consolidado',
+            unit,
+            yearLabels: { current: yearCurLabel, previous: yearPrevLabel },
+            themeMode: modalTheme,
+            options: { chartType: cardsChartType, showPoints: cardsShowPoints, colors: { realized: GP.accent, breakdownPalette: GP_TONES || undefined } },
+            series: {
+              labels,
+              realized: showCurYear
+                ? sumSeries(shops.map((s) => bucketize(curBy?.get(s.ingestionId))))
+                : nullSeries(),
+              previousYear: showPrevYear
+                ? sumSeries(shops.map((s) => bucketize(prevBy?.get(s.ingestionId))))
+                : undefined,
+              budget: sumSeries((trees || []).map((t) => goalOf(t))),
+            },
+          })
+        );
+      }
       // Legenda compartilhada (uma só, como no painel de referência) — respeita os 👁
       if (legend) {
         const item = (swatch, label) =>
@@ -4251,7 +4337,7 @@ body.filter-modal-open { overflow: hidden !important; }
           `<span style="width:22px;height:0;border-top:3px dashed ${color};display:inline-block;"></span>`;
         legend.innerHTML =
           (showPrevYear ? item(dot('#94a3b8'), `A-1 (${yearPrevLabel})`) : '') +
-          (showCurYear ? item(dot('#6c5ce7'), `Realizado (${yearCurLabel})`) : '') +
+          (showCurYear ? item(dot(GP.accent), `Realizado (${yearCurLabel})`) : '') +
           item(dash('#f59e0b'), `Orçado (${yearCurLabel})`);
       }
     };
@@ -4362,19 +4448,21 @@ body.filter-modal-open { overflow: hidden !important; }
         }));
     };
 
-    const renderGoalsDeviceCardsGrid = ({
-      labels,
-      devices,
-      curDev,
-      prevDev,
-      bucketize,
-      yearCurLabel,
-      yearPrevLabel,
-      unit,
-      shops,
-      trees,
-      goalOf,
-    }) => {
+    const renderGoalsDeviceCardsGrid = (args) => {
+      const {
+        labels,
+        devices,
+        curDev,
+        prevDev,
+        bucketize,
+        yearCurLabel,
+        yearPrevLabel,
+        unit,
+        shops,
+        trees,
+        goalOf,
+      } = args;
+      lastCardsRender = { fn: renderGoalsDeviceCardsGrid, args };
       const grid = overlay.querySelector('[data-cards-grid]');
       const legend = overlay.querySelector('[data-cards-legend]');
       if (!grid) return;
@@ -4462,6 +4550,7 @@ body.filter-modal-open { overflow: hidden !important; }
               chartType: cardsChartType,
               showPoints: cardsShowPoints,
               breakdownStacked: cardsGroupBy === 'device-stack',
+              colors: { realized: GP.accent, breakdownPalette: GP_TONES || undefined },
             },
             series: {
               labels,
@@ -4485,6 +4574,31 @@ body.filter-modal-open { overflow: hidden !important; }
       // Medidores sem shopping identificável: um card residual (não perder dado)
       if (orphans.length) {
         makeCard({ title: `Sem ${_entSLow()} identificado`, devs: orphans, budget: undefined });
+      }
+      // ⚙️ Exibir card Consolidado: todos os medidores somados (sem breakdown),
+      // como se a visão consolidada fosse um shopping — sempre o ÚLTIMO card.
+      if (cardsShowConsolidated) {
+        const budgetArrs = (trees || []).map((t) => (goalOf ? goalOf(t) : null));
+        goalsCards.push(
+          MyIOLibrary.createCustomerGoalsCard({
+            container: grid,
+            title: 'Consolidado',
+            unit,
+            yearLabels: { current: yearCurLabel, previous: yearPrevLabel },
+            themeMode: modalTheme,
+            options: { chartType: cardsChartType, showPoints: cardsShowPoints, colors: { realized: GP.accent, breakdownPalette: GP_TONES || undefined } },
+            series: {
+              labels,
+              realized: showCurYear
+                ? sumSeries(devices.map((d) => bucketize(curDev?.get(d.id))))
+                : nullSeries(),
+              previousYear: showPrevYear
+                ? sumSeries(devices.map((d) => bucketize(prevDev?.get(d.id))))
+                : undefined,
+              budget: sumSeries(budgetArrs),
+            },
+          })
+        );
       }
 
       if (legend) {
@@ -4631,22 +4745,26 @@ body.filter-modal-open { overflow: hidden !important; }
       const pop = document.createElement('div');
       pop.setAttribute('data-cards-settings-pop', '1');
       pop.style.cssText =
-        'position:absolute;z-index:60;background:var(--gc-surface);border:1px solid var(--gc-border);border-radius:12px;padding:12px 14px;box-shadow:0 12px 32px rgba(2,6,23,.25);display:flex;flex-direction:column;gap:10px;font:600 12px Nunito,sans-serif;color:var(--gc-text2);min-width:210px;';
+        'position:absolute;z-index:60;background:var(--gc-surface);border:1px solid var(--gc-border);border-radius:12px;padding:12px 14px;box-shadow:0 12px 32px rgba(2,6,23,.25);display:flex;flex-direction:column;gap:10px;font:600 12px Nunito,sans-serif;color:var(--gc-text2);min-width:320px;';
       pop.innerHTML = `
         <strong style="font:800 12px Nunito,sans-serif;color:var(--gc-text);">⚙️ Configurações dos cards</strong>
         <span style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">Agrupado por:
-          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="gcCgcGroupBy" value="shopping" ${cardsGroupBy === 'shopping' ? 'checked' : ''} style="accent-color:#7C3AED;"> ${_escHtml(_goalsEntityLabel)}</label>
-          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;" title="Um card por ${_escHtml(_goalsEntityLabel.toLowerCase())}, gráfico quebrado por medidor de entrada — séries lado a lado"><input type="radio" name="gcCgcGroupBy" value="device" ${cardsGroupBy === 'device' ? 'checked' : ''} style="accent-color:#7C3AED;"> Dispositivos separados</label>
-          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;" title="Um card por ${_escHtml(_goalsEntityLabel.toLowerCase())}, gráfico quebrado por medidor de entrada — séries empilhadas (stack)"><input type="radio" name="gcCgcGroupBy" value="device-stack" ${cardsGroupBy === 'device-stack' ? 'checked' : ''} style="accent-color:#7C3AED;"> Dispositivos empilhados</label>
+          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="gcCgcGroupBy" value="shopping" ${cardsGroupBy === 'shopping' ? 'checked' : ''} style="accent-color:${GP.accent};"> ${_escHtml(_goalsEntityLabel)}</label>
+          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;" title="Um card por ${_escHtml(_goalsEntityLabel.toLowerCase())}, gráfico quebrado por medidor de entrada — séries lado a lado"><input type="radio" name="gcCgcGroupBy" value="device" ${cardsGroupBy === 'device' ? 'checked' : ''} style="accent-color:${GP.accent};"> Dispositivos separados</label>
+          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;" title="Um card por ${_escHtml(_goalsEntityLabel.toLowerCase())}, gráfico quebrado por medidor de entrada — séries empilhadas (stack)"><input type="radio" name="gcCgcGroupBy" value="device-stack" ${cardsGroupBy === 'device-stack' ? 'checked' : ''} style="accent-color:${GP.accent};"> Dispositivos empilhados</label>
         </span>
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-          <input type="checkbox" data-opt-points ${cardsShowPoints ? 'checked' : ''} style="accent-color:#7C3AED;width:15px;height:15px;">
+          <input type="checkbox" data-opt-points ${cardsShowPoints ? 'checked' : ''} style="accent-color:${GP.accent};width:15px;height:15px;">
           Mostrar pontos na linha
         </label>
         <span style="display:flex;align-items:center;gap:12px;">Tipo:
-          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="gcCgcType" value="line" ${cardsChartType === 'line' ? 'checked' : ''} style="accent-color:#7C3AED;"> Linha</label>
-          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="gcCgcType" value="bar" ${cardsChartType === 'bar' ? 'checked' : ''} style="accent-color:#7C3AED;"> Barra</label>
-        </span>`;
+          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="gcCgcType" value="bar" ${cardsChartType === 'bar' ? 'checked' : ''} style="accent-color:${GP.accent};"> Barra</label>
+          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="gcCgcType" value="line" ${cardsChartType === 'line' ? 'checked' : ''} style="accent-color:${GP.accent};"> Linha</label>
+        </span>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;" title="Renderiza como último card a visão consolidada de todos os ${_escHtml(_entPLow())}, como se fosse um ${_escHtml(_entSLow())}">
+          <input type="checkbox" data-opt-consolidated ${cardsShowConsolidated ? 'checked' : ''} style="accent-color:${GP.accent};width:15px;height:15px;">
+          Exibir card Consolidado
+        </label>`;
       const controls = overlay.querySelector('[data-controls]');
       controls.style.position = 'relative';
       pop.style.top = `${gear.offsetTop + gear.offsetHeight + 6}px`;
@@ -4655,6 +4773,9 @@ body.filter-modal-open { overflow: hidden !important; }
       const apply = () => {
         cardsShowPoints = pop.querySelector('[data-opt-points]').checked;
         cardsChartType = pop.querySelector('input[name="gcCgcType"]:checked').value;
+        const cons = pop.querySelector('[data-opt-consolidated]')?.checked || false;
+        const consChanged = cons !== cardsShowConsolidated;
+        cardsShowConsolidated = cons;
         const gb = pop.querySelector('input[name="gcCgcGroupBy"]:checked')?.value || 'shopping';
         if (gb !== cardsGroupBy) {
           // shopping ↔ device* muda a FONTE dos dados — refaz o load. Entre os
@@ -4666,6 +4787,12 @@ body.filter-modal-open { overflow: hidden !important; }
             loadEvo();
             return;
           }
+        }
+        if (consChanged && lastCardsRender) {
+          // adiciona/remove o card Consolidado — re-render local com os mesmos dados
+          destroyGoalsCards();
+          lastCardsRender.fn(lastCardsRender.args);
+          return;
         }
         goalsCards.forEach((c) =>
           c.setOptions?.({
@@ -5517,7 +5644,7 @@ body.filter-modal-open { overflow: hidden !important; }
         'flex:1;display:flex;flex-direction:column;gap:8px;padding:20px 18px;border:1px solid #e2e8f0;border-radius:12px;background:#fff;cursor:pointer;text-align:left;transition:border-color .15s;';
       overlay.innerHTML = `
         <div role="dialog" aria-label="Metas" style="background:#fff;border-radius:12px;max-width:560px;width:calc(100% - 32px);box-shadow:0 20px 50px rgba(0,0,0,.25);overflow:hidden;">
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:#6a1b9a;color:#fff;">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:${goalsPalette().accent};color:${goalsPalette().accentText};">
             <strong style="font:700 15px Nunito,sans-serif;">🎯 Metas de Consumo</strong>
             <button type="button" data-close="1" aria-label="Fechar" style="border:0;background:transparent;color:#fff;font-size:18px;cursor:pointer;line-height:1;">✕</button>
           </div>
