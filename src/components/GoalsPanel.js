@@ -25,6 +25,8 @@
 /* eslint-disable */
 
 import { ModalHeader } from '../utils/ModalHeader';
+import { InfoTooltip } from '../utils/tooltips/InfoTooltip';
+import { buildCoverageWarningTextPtBR, hasCoverageGaps } from '../utils/goalsCoverage';
 
 // =============================================================================
 // Domain config (mirrors GOAL_DOMAIN_CONFIG in gcdr-frontend src/types/goals.ts)
@@ -149,6 +151,10 @@ export function openGoalsPanel(params) {
     saveError: null,
     conflictVersion: null,
     draft: {}, // current view editable map
+    baseline: {}, // draft snapshot straight from the fetched tree (dirty-cell detection)
+    // 409 reload-and-reapply (P1.3): the operator's dirty cells survive the refetch —
+    // { level, month, day, cells } reapplied over the fresh baseline for review.
+    pendingReapply: null,
     saved: false,
     conflict: false,
     // CSV import modal
@@ -232,6 +238,10 @@ export function openGoalsPanel(params) {
       request('PUT', `/customers/${customerId}/goals`, { query: targetQuery(), body }),
     merge: (body) =>
       request('PATCH', `/customers/${customerId}/goals`, { query: targetQuery(), body }),
+    // Scoped bucket DELETE (RFC-0046 §3.6): body { bucket: { level, ref }, expectedVersion? }.
+    // Used for cells the operator CLEARED — never a whole-year delete from this panel.
+    removeBucket: (body) =>
+      request('DELETE', `/customers/${customerId}/goals`, { query: targetQuery(), body }),
     importCsv: (body, dryRun) =>
       request('POST', `/customers/${customerId}/goals/import`, {
         query: { domain: state.domain, year: state.year, dryRun: !!dryRun },
@@ -271,6 +281,9 @@ export function openGoalsPanel(params) {
     // In the summary we want the whole-year daily roll-up (annual+monthly+daily)
     // → fetch at 'day'. While editing, GET granularity follows the drill level.
     const granularity = state.editing ? state.level : 'day';
+    // 409 reload-and-reapply: keep the conflict banner up AFTER the refetch so the
+    // operator sees why their (reapplied) dirty cells need review before re-saving.
+    const keepConflict = !!state.pendingReapply;
     state.loading = true;
     state.error = null;
     render();
@@ -280,11 +293,13 @@ export function openGoalsPanel(params) {
       state.error = (res.error && res.error.message) || 'Failed to fetch goals';
       state.goals = null;
     } else {
+      // Full GET payload — the 2026-07 release adds `granularity` ('CUSTOMER'|'DEVICE'),
+      // `devices[]`, `hoursCovered` and `coverageGaps` alongside tree/version/history.
       state.goals = res.data || null;
       reseedDraft();
     }
     state.saved = false;
-    state.conflict = false;
+    if (!keepConflict) state.conflict = false;
     render();
   }
 
@@ -331,6 +346,20 @@ export function openGoalsPanel(params) {
     } else {
       state.draft = {};
     }
+    // Baseline = the server truth this draft started from (dirty-cell detection).
+    state.baseline = { ...state.draft };
+    // 409 reload-and-reapply: put the operator's dirty cells back ON TOP of the
+    // fresh values so nothing typed is discarded — the operator reviews and re-saves.
+    const p = state.pendingReapply;
+    if (
+      p &&
+      p.level === state.level &&
+      p.month === state.selectedMonth &&
+      p.day === state.selectedDay
+    ) {
+      Object.assign(state.draft, p.cells);
+    }
+    state.pendingReapply = null;
   }
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -445,84 +474,124 @@ export function openGoalsPanel(params) {
   // Save
   // ───────────────────────────────────────────────────────────────────────────
 
+  /** Bucket level of the current drill view. */
+  function viewBucketLevel() {
+    return state.level === 'month' ? 'MONTH' : state.level === 'day' ? 'DAY' : 'HOUR';
+  }
+
+  /** Full bucket ref (YYYY-MM / YYYY-MM-DD / YYYY-MM-DDThh) for a view cell key. */
+  function refForKey(key) {
+    if (state.level === 'month') return `${state.year}-${key}`;
+    if (state.level === 'day') return `${state.year}-${state.selectedMonth}-${key}`;
+    return `${state.year}-${state.selectedMonth}-${state.selectedDay}T${key}`;
+  }
+
+  /** A cell is dirty when the operator changed it vs the fetched baseline. */
+  function isDirtyCell(key) {
+    const cur = String(state.draft[key] === undefined ? '' : state.draft[key]).trim();
+    const base = String(state.baseline[key] === undefined ? '' : state.baseline[key]).trim();
+    if (cur === base) return false;
+    // Numeric identity ("100" retyped as "100.0") is not a change.
+    if (cur !== '' && base !== '' && !Number.isNaN(Number(cur)) && Number(cur) === Number(base)) return false;
+    return true;
+  }
+
+  // Sparse dirty-only save (GCDR Goals 2026-07 / feedback-v1 P0.2/P2.1):
+  //   - changed cells   → ONE PATCH with buckets at the grid's level (merge — never a
+  //     full-year PUT, so daily/hourly detail outside the edited cells is preserved);
+  //   - cleared cells   → scoped bucket DELETEs (one per bucket, RFC-0046 §3.6);
+  //   - expectedVersion → optimistic lock; first write of a NEW year sends none
+  //     (expectedVersion > 0 on a non-existent year now answers 409);
+  //   - 409             → refetch tree + reapply the operator's dirty cells (P1.3).
   async function handleSave() {
     state.saved = false;
     state.conflict = false;
     state.saveError = null;
     state.conflictVersion = null;
-    state.saving = true;
-    render();
 
-    const ver = state.goals && state.goals.version > 0 ? state.goals.version : null;
-
-    let res;
-    if (state.level === 'month') {
-      const monthly = {};
-      for (const k of MONTH_KEYS) {
-        const raw = state.draft[k];
-        if (raw === undefined || String(raw).trim() === '') continue;
-        const num = Number(raw);
-        if (Number.isNaN(num)) continue;
-        monthly[k] = { value: num, sourceLevel: 'MONTH' };
-      }
-      const body = { monthly };
-      if (ver) body.expectedVersion = ver;
-      res = await svc.replace(body);
-    } else {
-      const buckets = [];
-      if (state.level === 'day' && state.selectedMonth) {
-        const dc = daysInMonth(state.year, Number(state.selectedMonth));
-        for (let d = 1; d <= dc; d++) {
-          const dd = pad2(d);
-          const raw = state.draft[dd];
-          if (raw === undefined || String(raw).trim() === '') continue;
-          const num = Number(raw);
-          if (Number.isNaN(num)) continue;
-          buckets.push({ level: 'DAY', ref: `${state.year}-${state.selectedMonth}-${dd}`, value: num });
+    const level = viewBucketLevel();
+    const buckets = [];
+    const removals = [];
+    const dirtyCells = {};
+    for (const k of viewKeys()) {
+      if (!isDirtyCell(k)) continue;
+      const raw = String(state.draft[k] === undefined ? '' : state.draft[k]).trim();
+      dirtyCells[k] = state.draft[k];
+      if (raw === '') {
+        // Cleared a cell that had a value on the server → scoped bucket delete.
+        if (String(state.baseline[k] === undefined ? '' : state.baseline[k]).trim() !== '') {
+          removals.push({ level, ref: refForKey(k) });
         }
-      } else if (state.level === 'hour' && state.selectedMonth && state.selectedDay) {
-        for (const hh of HOUR_KEYS) {
-          const raw = state.draft[hh];
-          if (raw === undefined || String(raw).trim() === '') continue;
-          const num = Number(raw);
-          if (Number.isNaN(num)) continue;
-          buckets.push({ level: 'HOUR', ref: `${state.year}-${state.selectedMonth}-${state.selectedDay}T${hh}`, value: num });
-        }
+        continue;
       }
-      if (buckets.length === 0) {
-        state.saving = false;
-        render();
-        return;
-      }
-      const body = { buckets };
-      if (ver) body.expectedVersion = ver;
-      res = await svc.merge(body);
+      const num = Number(raw);
+      if (Number.isNaN(num)) continue;
+      buckets.push({ level, ref: refForKey(k), value: num });
     }
 
-    state.saving = false;
-
-    if (res.success) {
-      state.saved = true;
-      if (onSaved) {
-        try {
-          await onSaved(res.data);
-        } catch (_) {}
-      }
-      // Re-GET so the tree/version/history reflect the write.
-      reload();
+    if (buckets.length === 0 && removals.length === 0) {
+      // Nothing dirty — no request to make.
+      render();
       return;
     }
 
-    const conflict = readVersionConflict(res);
-    if (conflict !== null) {
-      state.conflictVersion = conflict;
-      state.conflict = true;
-      // Reload-and-reapply: re-GET against the new version; operator re-saves.
-      reload();
-    } else {
-      state.saveError = (res.error && res.error.message) || 'Failed to save goals';
-      render();
+    state.saving = true;
+    render();
+
+    const dirtySnapshot = {
+      level: state.level,
+      month: state.selectedMonth,
+      day: state.selectedDay,
+      cells: dirtyCells,
+    };
+
+    const onWriteFailure = (res) => {
+      state.saving = false;
+      const conflict = readVersionConflict(res);
+      if (conflict !== null) {
+        state.conflictVersion = conflict;
+        state.conflict = true;
+        // Reload-and-reapply: refetch against the new version and put the
+        // operator's dirty cells back for review (never discard them).
+        state.pendingReapply = dirtySnapshot;
+        reload();
+      } else {
+        state.saveError = (res.error && res.error.message) || 'Failed to save goals';
+        render();
+      }
+    };
+
+    // First write of a new year MUST NOT send expectedVersion (409 otherwise).
+    let ver = state.goals && state.goals.version > 0 ? state.goals.version : null;
+    let lastRes = null;
+
+    if (buckets.length > 0) {
+      const body = { buckets };
+      if (ver) body.expectedVersion = ver;
+      const res = await svc.merge(body);
+      if (!res.success) return onWriteFailure(res);
+      lastRes = res;
+      if (res.data && typeof res.data.version === 'number') ver = res.data.version;
     }
+
+    for (const bucket of removals) {
+      const body = { bucket };
+      if (ver) body.expectedVersion = ver;
+      const res = await svc.removeBucket(body);
+      if (!res.success) return onWriteFailure(res);
+      lastRes = res;
+      if (res.data && typeof res.data.version === 'number') ver = res.data.version;
+    }
+
+    state.saving = false;
+    state.saved = true;
+    if (onSaved && lastRes) {
+      try {
+        await onSaved(lastRes.data);
+      } catch (_) {}
+    }
+    // Re-GET so the tree/version/history reflect the write.
+    reload();
   }
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -913,6 +982,10 @@ export function openGoalsPanel(params) {
 
     // ModalHeader close handler (its close button uses its own id wiring).
     ModalHeader.setupHandlers({ modalId: MODAL_ID, onClose: () => closeModal() });
+
+    // Coverage-gap chip (⚠) → InfoTooltip com os buracos da meta (re-bind a cada
+    // render: o innerHTML acima descarta os listeners anteriores junto com o DOM).
+    attachCoverageTooltip();
   }
 
   function renderToolbar() {
@@ -960,6 +1033,8 @@ export function openGoalsPanel(params) {
             <span class="myio-goals-chip myio-goals-chip-mono">${unitLabel()}</span>
             <span class="myio-goals-chip myio-goals-chip-violet">${icon('history')} ${i18n.currentVersion.replace('{n}', version)}</span>
             ${renderMarginChip()}
+            ${renderDeviceGranularityChip()}
+            ${renderCoverageChip()}
           </div>
         </div>
         <div class="myio-goals-actions">${actions}</div>
@@ -975,6 +1050,55 @@ export function openGoalsPanel(params) {
     const cls = pct < 0 ? 'myio-goals-chip-red' : 'myio-goals-chip-green';
     const txt = `${pct > 0 ? '+' : ''}${pct.toLocaleString(locale, { maximumFractionDigits: 2 })}%`;
     return `<span class="myio-goals-chip ${cls}" title="${i18n.margin.chipTitle}">${i18n.margin.chip.replace('{v}', txt)}</span>`;
+  }
+
+  // Addendum A: ano com metas POR MEDIDOR (granularity DEVICE) — chip "Por medidor (N)".
+  // A árvore consolidada segue alimentando grid/resumo (matemática inalterada).
+  function renderDeviceGranularityChip() {
+    const g = state.goals;
+    if (!g || g.granularity !== 'DEVICE') return '';
+    const n = Array.isArray(g.devices) ? g.devices.length : 0;
+    return `<span class="myio-goals-chip myio-goals-chip-accent" title="${i18n.deviceChipTitle}">${i18n.deviceChip.replace('{n}', n)}</span>`;
+  }
+
+  // Cobertura incompleta (coverageGaps no GET): chip ⚠ com InfoTooltip listando os
+  // buracos (refs compactos → pt-BR) — presente apenas quando cobertura < 100%.
+  function renderCoverageChip() {
+    const g = state.goals;
+    if (!g || !hasCoverageGaps(g.coverageGaps)) return '';
+    return `<span class="myio-goals-chip myio-goals-chip-amber" id="myio-goals-coverage-warn" style="cursor:help;">⚠ ${i18n.coverage.chip}</span>`;
+  }
+
+  /** Tooltip content: consolidated (GERAL) gaps + per-meter gaps when present. */
+  function coverageTooltipContent() {
+    const g = state.goals || {};
+    const parts = [];
+    if (hasCoverageGaps(g.coverageGaps)) {
+      parts.push(`<p style="margin:0 0 8px;">${esc(buildCoverageWarningTextPtBR(g.coverageGaps, 'GERAL'))}</p>`);
+    }
+    (Array.isArray(g.devices) ? g.devices : []).forEach((d) => {
+      if (!hasCoverageGaps(d && d.coverageGaps)) return;
+      const label = (d.label || d.code || 'medidor');
+      parts.push(
+        `<p style="margin:0 0 8px;">${esc(buildCoverageWarningTextPtBR(d.coverageGaps, `do medidor ${label}`))}</p>`
+      );
+    });
+    return `<div style="font-size:12px;line-height:1.55;color:#334155;">${parts.join('')}</div>`;
+  }
+
+  function attachCoverageTooltip() {
+    if (!rootEl) return;
+    const el = rootEl.querySelector('#myio-goals-coverage-warn');
+    if (!el) return;
+    try {
+      InfoTooltip.attach(el, () => ({
+        icon: '⚠️',
+        title: i18n.coverage.title,
+        content: coverageTooltipContent(),
+      }));
+    } catch (_) {
+      /* tooltip é enfeite — nunca pode quebrar o painel */
+    }
   }
 
   // RFC-0052: editor da margem (só em modo edição; salvar é independente do "Salvar"
@@ -1520,6 +1644,7 @@ export function openGoalsPanel(params) {
       .myio-goals-chip-mono { font-family: ui-monospace, Menlo, monospace; }
       .myio-goals-chip-red { color: ${theme.danger}; background: rgba(220,38,38,0.08); border-color: rgba(220,38,38,0.18); }
       .myio-goals-chip-green { color: #15803d; background: rgba(21,128,61,0.08); border-color: rgba(21,128,61,0.18); }
+      .myio-goals-chip-amber { color: ${theme.amber}; background: rgba(217,119,6,0.10); border-color: rgba(217,119,6,0.22); }
       .myio-goals-actions { display: flex; flex-wrap: wrap; gap: 8px; }
       /* RFC-0052: linha de edição da margem da meta */
       .myio-goals-margin-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 10px; padding: 10px 12px; border: 1px dashed rgba(108,92,231,0.35); border-radius: 10px; background: rgba(108,92,231,0.04); }
@@ -1720,6 +1845,12 @@ export function openGoalsPanel(params) {
           invalid: 'Margin must be between −100 and +100.',
           saveFailed: 'Failed to save the margin.',
         },
+        deviceChip: 'Per meter ({n})',
+        deviceChipTitle: 'DEVICE-granular year: one goal per entry meter (consolidated tree shown here)',
+        coverage: {
+          chip: 'Incomplete goal',
+          title: 'Incomplete goal',
+        },
         levels: { YEAR: 'Year', MONTH: 'Month', DAY: 'Day', HOUR: 'Hour' },
         months: {
           '01': 'Jan', '02': 'Feb', '03': 'Mar', '04': 'Apr', '05': 'May', '06': 'Jun',
@@ -1739,6 +1870,7 @@ export function openGoalsPanel(params) {
             EDIT: 'Goals edit',
             DELETE: 'Goal removal',
             MARGIN: 'Goal margin',
+            REBALANCE: 'Meter rebalance',
           },
         },
         import: {
@@ -1824,6 +1956,12 @@ export function openGoalsPanel(params) {
         invalid: 'A margem deve estar entre −100 e +100.',
         saveFailed: 'Falha ao salvar a margem.',
       },
+      deviceChip: 'Por medidor ({n})',
+      deviceChipTitle: 'Ano com metas por medidor de entrada (granularidade DEVICE) — a árvore consolidada segue exibida aqui',
+      coverage: {
+        chip: 'Meta incompleta',
+        title: 'Meta incompleta',
+      },
       levels: { YEAR: 'Ano', MONTH: 'Mês', DAY: 'Dia', HOUR: 'Hora' },
       months: {
         '01': 'Jan', '02': 'Fev', '03': 'Mar', '04': 'Abr', '05': 'Mai', '06': 'Jun',
@@ -1843,6 +1981,7 @@ export function openGoalsPanel(params) {
           EDIT: 'Edição de metas',
           DELETE: 'Remoção de meta',
           MARGIN: 'Margem da meta',
+          REBALANCE: 'Rebalanceamento de medidores',
         },
       },
       import: {

@@ -10,6 +10,9 @@
 
 import { createDateRangePicker } from '../createDateRangePicker';
 import type { DateRangeControl } from '../createDateRangePicker';
+import { InfoTooltip } from '../../utils/tooltips/InfoTooltip';
+import { buildCoverageWarningTextPtBR, hasCoverageGaps } from '../../utils/goalsCoverage';
+import type { GoalsCoverageGaps } from '../../utils/goalsCoverage';
 
 declare const Chart: any;
 declare const window: any;
@@ -101,6 +104,18 @@ interface GoalsTree {
   hourly?: Record<string, { value: number; adjustedValue?: number; method?: string }>;
 }
 
+/** Meta por medidor de entrada (Addendum A — anos com granularity DEVICE). */
+interface GoalsDeviceEntry {
+  deviceId?: string;
+  code?: string;
+  label?: string;
+  allocation?: 'EXPLICIT' | 'RESIDUAL';
+  annual?: number;
+  annualAdjusted?: number;
+  hoursCovered?: number;
+  coverageGaps?: GoalsCoverageGaps;
+}
+
 interface GoalsJsonData {
   success: boolean;
   data?: {
@@ -108,6 +123,13 @@ interface GoalsJsonData {
     unit?: string;
     year?: number;
     tree?: GoalsTree;
+    // GCDR Goals 2026-07 (Addendum A) — presentes só em leituras novas; anos
+    // CUSTOMER legados seguem byte-idênticos (parsing tolerante, sem mudança
+    // de comportamento quando ausentes).
+    granularity?: 'CUSTOMER' | 'DEVICE';
+    devices?: GoalsDeviceEntry[];
+    hoursCovered?: number;
+    coverageGaps?: GoalsCoverageGaps;
   };
 }
 
@@ -230,9 +252,13 @@ function _formatValue(value: number, domain: string): string {
   return `${value.toFixed(domain === 'temperature' ? 1 : 2)} ${cfg.unit}`;
 }
 
-function _getGoalsTree(domain: string): GoalsTree | null {
+function _getGoalsData(domain: string): GoalsJsonData['data'] | null {
   const cached: GoalsJsonData | null = window.MyIOUtils?.goalsData?.[domain] ?? null;
-  return cached?.data?.tree ?? null;
+  return cached?.data ?? null;
+}
+
+function _getGoalsTree(domain: string): GoalsTree | null {
+  return _getGoalsData(domain)?.tree ?? null;
 }
 
 /** Converte label "DD/MM" → chave daily "MM-DD" */
@@ -926,8 +952,6 @@ function _buildModalHTML(): string {
     return `<button class="gm-tab${d === _currentDomain ? ' active' : ''}" data-domain="${d}">${cfg.icon} ${cfg.label}</button>`;
   }).join('');
 
-  const hasGoalsHint = !_getGoalsTree(_currentDomain);
-
   return `
     <div class="gm-header">
       <h3>🎯 Metas</h3>
@@ -947,7 +971,6 @@ function _buildModalHTML(): string {
       <button class="gm-close" id="gm-close" aria-label="Fechar">&times;</button>
     </div>
     <div class="gm-tabs">${tabs}</div>
-    ${hasGoalsHint ? '<div class="gm-no-goals-hint">Linha de meta não disponível para este domínio (nenhuma meta cadastrada no GCDR para este ano)</div>' : ''}
     <div class="gm-body">
       <div class="gm-chart-wrap">
         <div id="gm-chart-area"><canvas id="gm-canvas"></canvas></div>
@@ -1066,6 +1089,63 @@ function _updateGoalsHint(topDoc: Document): void {
     hint.textContent = 'Linha de meta não disponível para este domínio (nenhuma meta cadastrada no GCDR para este ano)';
     tabs.insertAdjacentElement('afterend', hint);
   }
+  _updateCoverageHint(topDoc);
+}
+
+// Cobertura incompleta (GCDR Goals 2026-07): quando o GET do domínio traz
+// coverageGaps, mostra um hint ⚠ discreto sob as tabs com InfoTooltip listando
+// os buracos (meses/dias/horas sem meta). Ausente = cobertura completa.
+let _coverageDetach: (() => void) | null = null;
+
+function _updateCoverageHint(topDoc: Document): void {
+  const existing = topDoc.getElementById('gm-coverage-hint-el');
+  if (existing) {
+    existing.remove();
+  }
+  if (_coverageDetach) {
+    try { _coverageDetach(); } catch { /* já removido */ }
+    _coverageDetach = null;
+  }
+  const data = _getGoalsData(_currentDomain);
+  if (!data?.tree || !hasCoverageGaps(data.coverageGaps)) return;
+  const tabs = topDoc.querySelector('.gm-tabs');
+  if (!tabs) return;
+
+  const hint = topDoc.createElement('div');
+  hint.id = 'gm-coverage-hint-el';
+  hint.className = 'gm-no-goals-hint';
+  hint.style.cursor = 'help';
+  const deviceCount = data.granularity === 'DEVICE' ? (data.devices?.length ?? 0) : 0;
+  hint.textContent =
+    `⚠ Meta incompleta para este domínio/ano` +
+    (deviceCount > 0 ? ` · Por medidor (${deviceCount})` : '') +
+    ` — passe o mouse para detalhes`;
+  tabs.insertAdjacentElement('afterend', hint);
+
+  const esc = (s: string) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  try {
+    _coverageDetach = InfoTooltip.attach(hint, () => {
+      const d = _getGoalsData(_currentDomain);
+      const parts: string[] = [];
+      if (hasCoverageGaps(d?.coverageGaps)) {
+        parts.push(`<p style="margin:0 0 8px;">${esc(buildCoverageWarningTextPtBR(d?.coverageGaps, 'GERAL'))}</p>`);
+      }
+      (d?.devices || []).forEach((dev) => {
+        if (!hasCoverageGaps(dev?.coverageGaps)) return;
+        const label = dev.label || dev.code || 'medidor';
+        parts.push(
+          `<p style="margin:0 0 8px;">${esc(buildCoverageWarningTextPtBR(dev.coverageGaps, `do medidor ${label}`))}</p>`
+        );
+      });
+      return {
+        icon: '⚠️',
+        title: 'Meta incompleta',
+        content: `<div style="font-size:12px;line-height:1.55;color:#334155;">${parts.join('')}</div>`,
+      };
+    });
+  } catch {
+    /* tooltip é enfeite — nunca pode quebrar o modal */
+  }
 }
 
 // ============================================================================
@@ -1108,6 +1188,9 @@ export const GoalsModal = {
     requestAnimationFrame(() => overlay.classList.add('show'));
 
     _wireEvents(overlay, topDoc);
+    // Hints (sem meta / meta incompleta) do domínio inicial — antes eram inline
+    // no HTML do modal; agora o mesmo caminho da troca de aba cuida da abertura.
+    _updateGoalsHint(topDoc);
     _initDatePicker(topDoc).catch(console.error);
 
     setTimeout(() => {
@@ -1121,6 +1204,10 @@ export const GoalsModal = {
     _destroyChart();
     _datePickerControl?.destroy();
     _datePickerControl = null;
+    if (_coverageDetach) {
+      try { _coverageDetach(); } catch { /* já removido */ }
+      _coverageDetach = null;
+    }
     const overlayRef = _overlay;
     _overlay = null;
     _options = null;

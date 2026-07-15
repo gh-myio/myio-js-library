@@ -265,6 +265,153 @@ describe('CustomerGoalsCard (RFC-0217)', () => {
     expect(cfg.options.scales.y.stacked).toBe(true);
   });
 
+  // ── RFC-0046 Addendum A: metas por medidor (anos DEVICE) ────────────────────
+
+  it('budgetBreakdown: one DASHED goal line per meter replacing the consolidated Orçado line', () => {
+    createCustomerGoalsCard({
+      container,
+      title: 'Moxuara',
+      yearLabels: { current: '2026', previous: '2025' },
+      series: {
+        labels: ['Jan', 'Fev'],
+        realized: [30, 50],
+        budget: [40, 40], // consolidado — só alimenta a faixa de totais
+        budgetBreakdown: [
+          { name: 'Geral Entrada', values: [30, 30] },
+          { name: 'Medição Geral CAG', values: [10, 10] },
+        ],
+      },
+    });
+    const cfg = ChartStub.instances.at(-1)!.config;
+    const labels = cfg.data.datasets.map((d: any) => d.label);
+    // Sem a linha consolidada "Orçado (2026)": uma linha de meta POR medidor
+    expect(labels).toEqual([
+      'Orçado · Geral Entrada',
+      'Orçado · Medição Geral CAG',
+      'Realizado (2026)',
+    ]);
+    const goals = cfg.data.datasets.filter((d: any) => String(d.label).startsWith('Orçado ·'));
+    goals.forEach((d: any) => {
+      expect(d.type).toBe('line');
+      expect(d.borderDash).toEqual([6, 4]);
+    });
+    // cores distintas por medidor + legenda do card visível (nomes variam por card)
+    expect(goals[0].borderColor).not.toBe(goals[1].borderColor);
+    expect(cfg.options.plugins.legend.display).toBe(true);
+    // o filter da legenda mantém as metas por medidor e esconde A-1/Orçado consolidados
+    const filter = cfg.options.plugins.legend.labels.filter;
+    expect(filter({ text: 'Orçado · Geral Entrada' })).toBe(true);
+    expect(filter({ text: 'Orçado (2026)' })).toBe(false);
+    expect(filter({ text: 'Orçado' })).toBe(false);
+    expect(filter({ text: 'A-1 (2025)' })).toBe(false);
+  });
+
+  it('budgetBreakdown: Orçado total falls back to the element-wise sum when budget is absent', () => {
+    const card = createCustomerGoalsCard({
+      container,
+      title: 'M',
+      series: {
+        labels: ['Jan', 'Fev'],
+        realized: [10, 10],
+        budgetBreakdown: [
+          { name: 'A', values: [100, null] },
+          { name: 'B', values: [200, 300] },
+        ],
+      },
+    });
+    expect(card.el.querySelector('[data-total="budget"]')?.textContent).toBe('600 kWh');
+    // e o badge "vs Orçado" existe (hasBudget considera o breakdown)
+    const deltaLabels = [...card.el.querySelectorAll('.myio-cgc__delta-label')].map((n) => n.textContent);
+    expect(deltaLabels).toContain('vs Orçado');
+  });
+
+  it('budgetDetail: consolidated Orçado line keeps a per-meter tooltip breakdown (afterLabel)', () => {
+    createCustomerGoalsCard({
+      container,
+      title: 'Moxuara',
+      yearLabels: { current: '2026', previous: '2025' },
+      series: {
+        labels: ['Jan', 'Fev'],
+        realized: [30, 50],
+        budget: [40, 42],
+        budgetDetail: [
+          { name: 'Geral Entrada', values: [30, 31] },
+          { name: 'Medição Geral CAG', annual: 3519194.31 },
+        ],
+      },
+    });
+    const cfg = ChartStub.instances.at(-1)!.config;
+    const budgetDs = cfg.data.datasets.find((d: any) => String(d.label).startsWith('Orçado'));
+    expect(budgetDs._cgcBudgetDetail).toBe(true);
+    const afterLabel = cfg.options.plugins.tooltip.callbacks.afterLabel;
+    // hover num bucket da linha de Orçado → detalhamento por medidor
+    const lines = afterLabel({ dataset: budgetDs, dataIndex: 1 });
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toContain('Geral Entrada: 31 kWh');
+    expect(lines[1]).toContain('Medição Geral CAG: 3.519.194,31 kWh (anual)');
+    // hover em outra série (Realizado) NÃO ganha o detalhamento
+    const realizedDs = cfg.data.datasets.find((d: any) => String(d.label).startsWith('Realizado'));
+    expect(afterLabel({ dataset: realizedDs, dataIndex: 1 })).toBeUndefined();
+  });
+
+  it('budgetDetail is ignored when budgetBreakdown is plotted (no consolidated line to detail)', () => {
+    createCustomerGoalsCard({
+      container,
+      title: 'M',
+      series: {
+        labels: ['Jan'],
+        realized: [10],
+        budget: [20],
+        budgetBreakdown: [{ name: 'A', values: [20] }],
+        budgetDetail: [{ name: 'A', annual: 240 }],
+      },
+    });
+    const cfg = ChartStub.instances.at(-1)!.config;
+    expect(cfg.data.datasets.some((d: any) => d._cgcBudgetDetail)).toBe(false);
+  });
+
+  it('breakdownStacked + budgetBreakdown: each goal line gets its own stack (never summed)', () => {
+    createCustomerGoalsCard({
+      container,
+      title: 'M',
+      options: { chartType: 'bar', breakdownStacked: true },
+      series: {
+        labels: ['Jan'],
+        realized: [30],
+        breakdown: [
+          { name: 'M1', values: [10] },
+          { name: 'M2', values: [20] },
+        ],
+        budgetBreakdown: [
+          { name: 'M1', values: [15] },
+          { name: 'M2', values: [25] },
+        ],
+      },
+    });
+    const cfg = ChartStub.instances.at(-1)!.config;
+    const goals = cfg.data.datasets.filter((d: any) => String(d.label).startsWith('Orçado ·'));
+    expect(goals[0].stack).toBe('goal-0');
+    expect(goals[1].stack).toBe('goal-1');
+    expect(goals[0].stack).not.toBe(goals[1].stack);
+  });
+
+  it('without the new options the card behaves exactly as before (compat)', () => {
+    createCustomerGoalsCard({
+      container,
+      title: 'A',
+      series: baseSeries(),
+      yearLabels: { current: '2026', previous: '2025' },
+    });
+    const cfg = ChartStub.instances.at(-1)!.config;
+    expect(cfg.data.datasets.map((d: any) => d.label)).toEqual([
+      'Orçado (2026)',
+      'A-1 (2025)',
+      'Realizado (2026)',
+    ]);
+    expect(cfg.options.plugins.legend.display).toBe(false);
+    expect(cfg.data.datasets.some((d: any) => d._cgcBudgetDetail)).toBe(false);
+  });
+
   it('breakdown: totals strip falls back to the element-wise sum when realized is empty', () => {
     const card = createCustomerGoalsCard({
       container,

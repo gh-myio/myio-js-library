@@ -52,6 +52,22 @@ export interface CustomerGoalsSeries {
    * back to the element-wise sum of the breakdown when `realized` is empty).
    */
   breakdown?: Array<{ name: string; values: Array<number | null> }>;
+  /**
+   * Goal (Orçado) broken down per entry meter (optional — RFC-0046 Addendum A
+   * DEVICE-granular years). When present, the chart plots one DASHED goal line
+   * per entry (palette colors, labeled "Orçado · <name>") INSTEAD of the
+   * consolidated `budget` line. Totals/badges keep reading `budget` (falling
+   * back to the element-wise sum of this breakdown when `budget` is absent).
+   */
+  budgetBreakdown?: Array<{ name: string; values: Array<number | null> }>;
+  /**
+   * Per-meter goal detail for the CONSOLIDATED budget line tooltip (optional).
+   * Only used when the consolidated `budget` line is plotted (i.e. no
+   * `budgetBreakdown`): hovering the Orçado point appends one line per meter —
+   * per-bucket `values` when available, otherwise the `annual` total with an
+   * "(anual)" note. Ignored when `budgetBreakdown` is present.
+   */
+  budgetDetail?: Array<{ name: string; values?: Array<number | null>; annual?: number | null }>;
 }
 
 export interface CustomerGoalsTotals {

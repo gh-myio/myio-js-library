@@ -179,22 +179,26 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
       }
       return seen ? total : null;
     };
+    // Soma elemento-a-elemento de um breakdown (realized ou budget por device).
+    const elemSum = (entries?: Array<{ values: Array<number | null> }>): Array<number | null> =>
+      (entries || []).reduce<Array<number | null>>((acc, b) => {
+        (b.values || []).forEach((v, i) => {
+          if (v == null || Number.isNaN(Number(v))) return;
+          acc[i] = (acc[i] || 0) + Number(v);
+        });
+        return acc;
+      }, s.labels.map(() => null));
     // Consolidado do card: `realized`; sem ele, soma do breakdown por device.
     const realizedArr =
-      sum(s.realized) != null || !s.breakdown?.length
-        ? s.realized
-        : s.breakdown.reduce<Array<number | null>>((acc, b) => {
-            (b.values || []).forEach((v, i) => {
-              if (v == null || Number.isNaN(Number(v))) return;
-              acc[i] = (acc[i] || 0) + Number(v);
-            });
-            return acc;
-          }, s.labels.map(() => null));
+      sum(s.realized) != null || !s.breakdown?.length ? s.realized : elemSum(s.breakdown);
+    // Orçado consolidado: `budget`; sem ele, soma do budgetBreakdown (Addendum A).
+    const budgetArr =
+      sum(s.budget) != null || !s.budgetBreakdown?.length ? s.budget : elemSum(s.budgetBreakdown);
     const o = this.params.totals || {};
     return {
       realized: o.realized !== undefined ? o.realized : sum(realizedArr),
       previousYear: o.previousYear !== undefined ? o.previousYear : sum(s.previousYear),
-      budget: o.budget !== undefined ? o.budget : sum(s.budget),
+      budget: o.budget !== undefined ? o.budget : sum(budgetArr),
     };
   }
 
@@ -259,7 +263,7 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
     const s = this.params.series;
     const totals = this.resolvedTotals();
     const hasPrev = !!s.previousYear;
-    const hasBudget = !!s.budget;
+    const hasBudget = !!s.budget || !!(s.budgetBreakdown && s.budgetBreakdown.length);
 
     const totalCells: string[] = [
       `<div class="myio-cgc__total">
@@ -382,28 +386,55 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
 
     const datasets: any[] = [];
     const breakdownPre = s.breakdown?.filter((b) => Array.isArray(b?.values)) || [];
+    const budgetBreakdown = s.budgetBreakdown?.filter((b) => Array.isArray(b?.values)) || [];
     // Empilhado só faz sentido com breakdown; cada grupo (realized/prev/goal)
     // tem seu próprio `stack` para os devices somarem SEM engolir A-1/Orçado.
     const stacked = this.breakdownStacked && breakdownPre.length > 0;
-    if (s.budget) {
-      // Orçado é SEMPRE linha tracejada (overlay), mesmo no modo barra
-      datasets.push({
-        type: 'line',
-        label: yl ? `Orçado (${yl.current})` : 'Orçado',
-        data: s.budget,
-        borderColor: this.colors.budget,
-        backgroundColor: this.colors.budget,
-        borderDash: [6, 4],
-        pointStyle: 'rect',
-        pointRadius: pointR,
-        pointHoverRadius: 4,
-        borderWidth: 2,
-        tension: 0.3,
-        spanGaps: true,
-        fill: false,
-        order: 0,
-        ...(stacked ? { stack: 'goal' } : {}),
+    const palette = this.breakdownPalette || BREAKDOWN_PALETTE;
+    // Orçado é SEMPRE linha tracejada (overlay), mesmo no modo barra
+    const goalLine = (label: string, data: Array<number | null>, color: string, extra: any = {}): any => ({
+      type: 'line',
+      label,
+      data,
+      borderColor: color,
+      backgroundColor: color,
+      borderDash: [6, 4],
+      pointStyle: 'rect',
+      pointRadius: pointR,
+      pointHoverRadius: 4,
+      borderWidth: 2,
+      tension: 0.3,
+      spanGaps: true,
+      fill: false,
+      order: 0,
+      ...extra,
+    });
+    if (budgetBreakdown.length) {
+      // Addendum A (ano DEVICE + "Dispositivos separados"): UMA linha de meta POR
+      // medidor de entrada NO LUGAR da consolidada — mesma paleta das séries de
+      // device (índices alinhados quando o host passa os medidores na mesma ordem).
+      // Linhas de meta nunca empilham: cada uma ganha um stack próprio.
+      budgetBreakdown.forEach((b, i) => {
+        const color = palette[i % palette.length];
+        datasets.push(
+          goalLine(
+            `Orçado · ${b.name || `Medidor ${i + 1}`}`,
+            b.values,
+            color,
+            stacked ? { stack: `goal-${i}` } : {}
+          )
+        );
       });
+    } else if (s.budget) {
+      // `_cgcBudgetDetail` marca a linha consolidada para o afterLabel do tooltip
+      // (detalhamento da meta por medidor — Addendum A "Dispositivos empilhados").
+      const hasDetail = !!(s.budgetDetail && s.budgetDetail.length);
+      datasets.push(
+        goalLine(yl ? `Orçado (${yl.current})` : 'Orçado', s.budget, this.colors.budget, {
+          ...(stacked ? { stack: 'goal' } : {}),
+          ...(hasDetail ? { _cgcBudgetDetail: true } : {}),
+        })
+      );
     }
     // Ordem padrão dos shoppings: barra do A-1 à ESQUERDA, ano corrente à direita.
     // Chart.js posiciona os grupos de barra pelo `order` (ascendente = esquerda→direita),
@@ -429,7 +460,6 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
         const pct = (sumVals(b.values) / bdTotal) * 100;
         return ` · ${pct.toLocaleString(this.locale, { maximumFractionDigits: 1 })}%`;
       };
-      const palette = this.breakdownPalette || BREAKDOWN_PALETTE;
       breakdown.forEach((b, i) => {
         const color = palette[i % palette.length];
         const ds: any = {
@@ -462,9 +492,10 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
         animation: false,
         interaction: { mode: 'index', intersect: false },
         plugins: {
-          // Legenda compartilhada é do grid host; com breakdown os nomes/cores
-          // variam por card, então cada card mostra a própria legenda.
-          legend: breakdown.length
+          // Legenda compartilhada é do grid host; com breakdown (realized e/ou
+          // Orçado por medidor) os nomes/cores variam por card, então cada card
+          // mostra a própria legenda.
+          legend: breakdown.length || budgetBreakdown.length
             ? {
                 display: true,
                 position: 'bottom',
@@ -473,9 +504,10 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
                   font: { size: 8 },
                   boxWidth: 10,
                   boxHeight: 2,
-                  // só as séries de medidor — A-1/Orçado já estão na legenda compartilhada
+                  // só as séries POR MEDIDOR — o A-1 e o Orçado consolidados já
+                  // estão na legenda compartilhada ("Orçado · X" por device passa).
                   filter: (item: any) =>
-                    !/^A-1\b|^Or[çc]ado\b/.test(String(item?.text || '')),
+                    !/^A-1\b|^Or[çc]ado(\s*\(|$)/.test(String(item?.text || '')),
                 },
               }
             : { display: false },
@@ -487,6 +519,28 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
                     ? '—'
                     : `${Number(c.parsed.y).toLocaleString(this.locale, { maximumFractionDigits: 2 })} ${unit}`
                 }`,
+              // Addendum A: detalhamento da meta por medidor sob a linha de Orçado
+              // consolidada (budgetDetail) — valores por bucket quando o host os
+              // buscou; senão o anual (margem aplicada) com a nota "(anual)".
+              afterLabel: (c: any): string[] | undefined => {
+                if (!c?.dataset?._cgcBudgetDetail) return undefined;
+                const det = this.params.series.budgetDetail || [];
+                const lines: string[] = [];
+                for (const d of det) {
+                  const name = (d && d.name) || 'Medidor';
+                  const v = Array.isArray(d?.values) ? d.values[c.dataIndex] : undefined;
+                  if (v != null && !Number.isNaN(Number(v))) {
+                    lines.push(
+                      `  ${name}: ${Number(v).toLocaleString(this.locale, { maximumFractionDigits: 2 })} ${unit}`
+                    );
+                  } else if (d?.annual != null && !Number.isNaN(Number(d.annual))) {
+                    lines.push(
+                      `  ${name}: ${Number(d.annual).toLocaleString(this.locale, { maximumFractionDigits: 2 })} ${unit} (anual)`
+                    );
+                  }
+                }
+                return lines.length ? lines : undefined;
+              },
             },
           },
         },

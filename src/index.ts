@@ -629,6 +629,13 @@ export { WaterSummaryTooltip } from './utils/tooltips/WaterSummaryTooltip';
 export { InfoTooltip } from './utils/tooltips/InfoTooltip';
 export { ColumnSummaryTooltip } from './utils/tooltips/ColumnSummaryTooltip';
 export { resolvePercentDecimals } from './utils/percentDecimals';
+// RFC-0046 Addendum A: goals coverage-gap warning helpers (GCDR Goals API 2026-07)
+export {
+  formatCoverageRefPtBR,
+  buildCoverageWarningTextPtBR,
+  hasCoverageGaps,
+} from './utils/goalsCoverage';
+export type { GoalsCoverageGaps } from './utils/goalsCoverage';
 export type {
   DashboardEnergySummary,
   CategorySummary,
