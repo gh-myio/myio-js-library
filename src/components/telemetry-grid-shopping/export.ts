@@ -28,14 +28,23 @@ export interface ExportPeriod {
   endISO?: string | null;
 }
 
-function makeCols(unit: string): Col[] {
-  return [
+/** Ajustes de colunas — permite relatórios single-device (Data | Consumo | %). */
+export interface GridColumnsOptions {
+  /** Rótulo da coluna "Nome" (ex.: 'Data' no relatório por device). */
+  nameLabel?: string;
+  /** Omite a coluna Identificador (redundante em relatórios single-device). */
+  hideIdentifier?: boolean;
+}
+
+function makeCols(unit: string, colOpts?: GridColumnsOptions | null): Col[] {
+  const cols: Col[] = [
     { key: 'idx',          label: '#',                                    pdfW: 10  },
-    { key: 'nome',         label: 'Nome',                                 pdfW: 100 },
+    { key: 'nome',         label: colOpts?.nameLabel || 'Nome',           pdfW: 100 },
     { key: 'identificador',label: 'Identificador',                        pdfW: 60  },
     { key: 'consumo',      label: unit ? `Consumo (${unit})` : 'Consumo', pdfW: 50  },
     { key: 'perc',         label: '%',                                    pdfW: 20  },
   ];
+  return colOpts?.hideIdentifier ? cols.filter((c) => c.key !== 'identificador') : cols;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -150,9 +159,13 @@ export function exportGridXls(
   unit: string,
   period?: ExportPeriod | null,
   customerName?: string | null,
+  options?: { accentColor?: string; columns?: GridColumnsOptions | null } | null,
 ): void {
   const periodLabel = fmtPeriod(period);
-  const cols = makeCols(unit);
+  const cols = makeCols(unit, options?.columns);
+  const accentHex = /^#[0-9a-f]{6}$/i.test(options?.accentColor || '')
+    ? (options!.accentColor as string).toUpperCase()
+    : '#3E1A7D';
   const span = cols.length - 1; // MergeAcross = span cols - 1
 
   const metaRow = (key: string, val: string) =>
@@ -180,7 +193,7 @@ export function exportGridXls(
   <Styles>
     <Style ss:ID="h">
       <Font ss:Bold="1" ss:Color="#FFFFFF"/>
-      <Interior ss:Color="#3E1A7D" ss:Pattern="Solid"/>
+      <Interior ss:Color="${accentHex}" ss:Pattern="Solid"/>
     </Style>
     <Style ss:ID="m">
       <Font ss:Bold="1"/>
@@ -208,12 +221,46 @@ export function exportGridXls(
 
 // ─── PDF (jsPDF) ──────────────────────────────────────────────────────────────
 
+/** KPI exibido na faixa abaixo do header da primeira página. */
+export interface GridPdfKpi {
+  label: string;
+  value: string;
+  sub?: string;
+}
+
+/** Extensões opcionais do PDF — paleta do dashboard, KPIs e seção de gráfico. */
+export interface GridPdfOptions {
+  /** Cor de destaque (hex #rrggbb) — banda do header, títulos de coluna. Default: roxo MYIO. */
+  accentColor?: string;
+  /** Faixa de KPIs na primeira página (mesmos cards do summary da modal). */
+  kpis?: GridPdfKpi[];
+  /** Gráfico (PNG dataUrl) renderizado em página dedicada ao final. */
+  chartImage?: { dataUrl: string; width?: number; height?: number; title?: string } | null;
+  /** Ajustes de colunas (relatórios single-device). */
+  columns?: GridColumnsOptions | null;
+}
+
+type Rgb = [number, number, number];
+
+function hexToRgb(hex: string | undefined, fallback: Rgb): Rgb {
+  if (!hex || !/^#[0-9a-f]{6}$/i.test(hex)) return fallback;
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+/** Mistura a cor com branco (pct 0..1 = quanto de branco). */
+function tintRgb([r, g, b]: Rgb, pct: number): Rgb {
+  const t = (c: number) => Math.round(c + (255 - c) * pct);
+  return [t(r), t(g), t(b)];
+}
+
 export function exportGridPdf(
   devices: TelemetryDevice[],
   label: string,
   unit: string,
   period?: ExportPeriod | null,
   customerName?: string | null,
+  options?: GridPdfOptions | null,
 ): void {
   // Computed once so every page header shows the same timestamp.
   const generatedAt = new Date().toLocaleString('pt-BR');
@@ -229,8 +276,14 @@ export function exportGridPdf(
   const TABLE_Y  = HDR_H + MARGIN;
   const MAX_Y    = PH - FTR_H - MARGIN;
   const TABLE_W  = PW - MARGIN * 2;
+  const KPI_H    = 16;  // KPI band height (first page, when options.kpis present)
 
-  const cols = makeCols(unit);
+  // Paleta: accent do dashboard (createMyIOTheme) ou roxo MYIO default.
+  const ACCENT: Rgb       = hexToRgb(options?.accentColor, [62, 26, 125]);
+  const ACCENT_SOFT: Rgb  = tintRgb(ACCENT, 0.88); // fundo dos títulos de coluna
+  const ACCENT_FAINT: Rgb = tintRgb(ACCENT, 0.96); // zebra das linhas pares
+
+  const cols = makeCols(unit, options?.columns);
 
   // Scale column widths to fill TABLE_W exactly
   const rawTotal = cols.reduce((s, c) => s + c.pdfW, 0);
@@ -244,7 +297,7 @@ export function exportGridPdf(
 
   function drawPageHeader(pageNo: number): void {
     // Top band
-    doc.setFillColor(62, 26, 125);
+    doc.setFillColor(...ACCENT);
     doc.rect(0, 0, PW, HDR_H, 'F');
 
     doc.setTextColor(255, 255, 255);
@@ -263,10 +316,10 @@ export function exportGridPdf(
   }
 
   function drawColumnHeaders(y: number): void {
-    doc.setFillColor(240, 237, 250);
+    doc.setFillColor(...ACCENT_SOFT);
     doc.rect(MARGIN, y, TABLE_W, HEAD_H, 'F');
 
-    doc.setTextColor(62, 26, 125);
+    doc.setTextColor(...ACCENT);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7);
 
@@ -282,7 +335,7 @@ export function exportGridPdf(
 
   function drawDataRow(r: RowData, y: number, even: boolean): void {
     if (even) {
-      doc.setFillColor(250, 249, 255);
+      doc.setFillColor(...ACCENT_FAINT);
       doc.rect(MARGIN, y, TABLE_W, ROW_H, 'F');
     }
 
@@ -318,12 +371,42 @@ export function exportGridPdf(
     );
   }
 
+  // Faixa de KPIs (primeira página): cards lado a lado — valor em destaque no
+  // accent, label e sub em cinza (mesma leitura do summary da modal).
+  function drawKpiBand(y: number, kpis: GridPdfKpi[]): void {
+    doc.setFillColor(...ACCENT_FAINT);
+    doc.setDrawColor(...ACCENT_SOFT);
+    doc.setLineWidth(0.2);
+    doc.roundedRect(MARGIN, y, TABLE_W, KPI_H, 1.5, 1.5, 'FD');
+
+    const slot = TABLE_W / kpis.length;
+    kpis.forEach((kpi, i) => {
+      const cx = MARGIN + slot * i + slot / 2;
+      doc.setTextColor(...ACCENT);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.text(truncate(kpi.value, 24), cx, y + 6.5, { align: 'center' });
+      doc.setTextColor(110, 110, 120);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.5);
+      doc.text(truncate(kpi.label, 34), cx, y + 10.5, { align: 'center' });
+      if (kpi.sub) {
+        doc.setFontSize(5.5);
+        doc.text(truncate(kpi.sub, 40), cx, y + 13.5, { align: 'center' });
+      }
+    });
+  }
+
   // ── Render ─────────────────────────────────────────────────────────────────
 
   let pageNo  = 1;
   let currentY = TABLE_Y;
 
   drawPageHeader(pageNo);
+  if (options?.kpis?.length) {
+    drawKpiBand(currentY, options.kpis);
+    currentY += KPI_H + 4;
+  }
   drawColumnHeaders(currentY);
   currentY += HEAD_H;
 
@@ -344,6 +427,35 @@ export function exportGridPdf(
   });
 
   drawFooter();
+
+  // Seção do gráfico (página dedicada ao final) — imagem PNG do gráfico da modal.
+  const chart = options?.chartImage;
+  if (chart?.dataUrl) {
+    doc.addPage();
+    pageNo++;
+    drawPageHeader(pageNo);
+
+    const titleY = TABLE_Y + 2;
+    doc.setTextColor(...ACCENT);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.text(chart.title || 'Participação por Dispositivo', MARGIN, titleY);
+
+    const imgTop = titleY + 4;
+    const availW = TABLE_W;
+    const availH = MAX_Y - imgTop;
+    const srcW = chart.width || 1200;
+    const srcH = chart.height || 900;
+    const ratio = Math.min(availW / srcW, availH / srcH);
+    const imgW = srcW * ratio;
+    const imgH = srcH * ratio;
+    try {
+      doc.addImage(chart.dataUrl, 'PNG', (PW - imgW) / 2, imgTop + (availH - imgH) / 2, imgW, imgH);
+    } catch (err) {
+      console.warn('[exportGridPdf] Falha ao embutir o gráfico no PDF:', err);
+    }
+    drawFooter();
+  }
 
   doc.save(`${buildFilenameBase(label, customerName)}.pdf`);
 }

@@ -25,6 +25,8 @@ export interface FilterModalProps {
   onApply: (payload: { selected: StoreId[]; sort: SortMode }) => void;
   onClose?: () => void;
   i18n?: Partial<I18nDict>;
+  /** Unidade exibida junto ao consumo de cada item (ex.: 'kWh', 'm³'). */
+  unit?: string;
 }
 
 export interface I18nDict {
@@ -54,9 +56,9 @@ export interface FilterModalHandle {
 }
 
 const defaultI18n: I18nDict = {
-  selectAll: 'Selecionar todas',
+  selectAll: 'Selecionar todos',
   clear: 'Limpar',
-  searchPlaceholder: 'Buscar lojas...',
+  searchPlaceholder: 'Buscar dispositivos...',
   sortingTitle: 'Ordenação',
   consumptionDesc: 'Consumo ↓ (padrão)',
   consumptionAsc: 'Consumo ↑',
@@ -65,8 +67,8 @@ const defaultI18n: I18nDict = {
   tieNote: 'Caso o consumo seja o mesmo é considerada a ordem alfabética.',
   apply: 'Aplicar',
   reset: 'Resetar',
-  totalLabel: 'Lojas',
-  selectedLabel: 'Selecionadas',
+  totalLabel: 'Dispositivos',
+  selectedLabel: 'Selecionados',
   closeLabel: 'Fechar'
 };
 
@@ -569,17 +571,11 @@ export class FilterOrderingModal {
 
       .myio-list {
         display: grid;
-        grid-template-columns: repeat(2, minmax(0,1fr));
-        gap: 12px;
+        grid-template-columns: 1fr;
+        gap: 10px;
         padding: 16px 20px;
         max-height: 300px;
         overflow-y: auto;
-      }
-
-      @media (max-width: 768px) {
-        .myio-list {
-          grid-template-columns: 1fr;
-        }
       }
 
       .chip {
@@ -594,6 +590,37 @@ export class FilterOrderingModal {
         cursor: pointer;
         font-size: 14px;
         transition: all 0.2s ease;
+        width: 100%;
+      }
+
+      .chip .label {
+        flex: 1;
+        min-width: 0;
+        text-align: left;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .chip .metrics {
+        margin-left: auto;
+        margin-right: 8px;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        line-height: 1.25;
+        white-space: nowrap;
+      }
+
+      .chip .metrics-value {
+        font-size: 12px;
+        font-weight: 700;
+        color: #4A148C;
+      }
+
+      .chip .metrics-perc {
+        font-size: 11px;
+        color: #6b7280;
       }
 
       .chip:hover {
@@ -923,7 +950,7 @@ export class FilterOrderingModal {
     if (visibleIds.length === 0) {
       this.dom.listContainer.innerHTML = `
         <div class="empty-state">
-          ${this.state.query ? 'Nenhuma loja encontrada com o filtro aplicado.' : 'Nenhuma loja disponível.'}
+          ${this.state.query ? 'Nenhum dispositivo encontrado com o filtro aplicado.' : 'Nenhum dispositivo disponível.'}
         </div>
       `;
       return;
@@ -946,14 +973,40 @@ export class FilterOrderingModal {
     const item = this.itemsById.get(id)!;
     const isSelected = this.state.selected.has(id);
 
+    // Consumo + participação % do item (sobre o total de TODOS os itens da lista).
+    const value = typeof item.consumption === 'number' && Number.isFinite(item.consumption)
+      ? item.consumption
+      : null;
+    const total = this.totalConsumption();
+    const fmt = (v: number) =>
+      v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const metrics = value !== null
+      ? `<span class="metrics">
+           <span class="metrics-value">${fmt(value)}${this.props.unit ? ` ${this.props.unit}` : ''}</span>
+           <span class="metrics-perc">${total > 0 ? fmt((value / total) * 100) : '0,00'}%</span>
+         </span>`
+      : '';
+
     return `
       <button role="option" aria-selected="${isSelected}"
               class="chip ${isSelected ? 'selected' : ''}"
               data-id="${id}">
         <span class="checkbox" aria-hidden="true">${isSelected ? '✓' : ''}</span>
         <span class="label" title="${item.label}">${item.label}</span>
+        ${metrics}
       </button>
     `;
+  }
+
+  // Soma dos consumos de todos os itens (base do percentual de participação).
+  private totalConsumption(): number {
+    let sum = 0;
+    for (const item of this.itemsById.values()) {
+      if (typeof item.consumption === 'number' && Number.isFinite(item.consumption)) {
+        sum += item.consumption;
+      }
+    }
+    return sum;
   }
 
   private toggleItem(id: StoreId): void {

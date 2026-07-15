@@ -1,8 +1,10 @@
 // report-device/openDashboardPopupReport.ts
-import { OpenDeviceReportParams, ModalHandle } from '../types';
-import { DeviceReportModal } from './DeviceReportModal';
+import { ModalHandle } from '../types';
+import { DeviceReportModal, DeviceReportModalParams } from './DeviceReportModal';
 
-export function openDashboardPopupReport(params: OpenDeviceReportParams): ModalHandle {
+// DeviceReportModalParams = OpenDeviceReportParams + { customerName?, theme? }
+// (campos opcionais estendidos localmente — ver DeviceReportModal.ts).
+export function openDashboardPopupReport(params: DeviceReportModalParams): ModalHandle {
   const modal = new DeviceReportModal(params);
   return modal.show();
 }

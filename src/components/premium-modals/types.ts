@@ -82,6 +82,13 @@ export interface OpenAllReportParams {
   itemsList?: StoreItem[]; // RFC-0182: Optional — if absent, maps directly from API response
   fetcher?: CustomerTotalsFetcher; // Optional dependency injection for testing
   debug?: 1 | 0; // Optional debug logging flag (1 = enabled, 0 = disabled)
+  /**
+   * Dashboard theme palette (createMyIOTheme) OU um mapa plano de CSS vars
+   * (--myio-*). Aplicado no root da modal para herdar as cores do dashboard.
+   */
+  theme?: { cssVars(): Record<string, string> } | Record<string, string>;
+  /** Nome do customer/shopping exibido no footer premium da modal. */
+  customerName?: string;
 }
 
 export interface OpenSettingsParams {

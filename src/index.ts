@@ -869,6 +869,16 @@ export type {
   ContractDomain,
 } from './components/premium-modals/contract-devices';
 
+// Theme palette (dark/light) dirigida pelas settings do dashboard — padrão
+// extraído do MYIO-SIM/v5.2.0_UNIQUE (darkMode/lightMode + goalsPalette).
+export { createMyIOTheme } from './components/theme';
+export type {
+  MyIOThemeMode,
+  MyIOThemeModeSettings,
+  MyIOThemeSettings,
+  MyIOThemePalette,
+} from './components/theme';
+
 // RFC-0215: Settings hub modal (consolidated "Configurações" picker — RFC-0108 UX)
 export { openSettingsHubModal } from './components/settings-hub';
 export type {
@@ -1625,7 +1635,7 @@ export {
 } from './components/switch-control';
 
 // RFC-0158: Action Button Component
-export { createActionButton, ActionButtonController, ActionButtonView } from './components/action-button';
+export { createActionButton, ActionButtonController, ActionButtonView } from './components/buttons/action-button';
 
 export type {
   ActionButtonThemeMode,
@@ -1634,13 +1644,96 @@ export type {
   ActionButtonSettings,
   ActionButtonParams,
   ActionButtonInstance,
-} from './components/action-button';
+} from './components/buttons/action-button';
 
 export {
   DEFAULT_ACTION_BUTTON_SETTINGS,
   ACTION_BUTTON_CSS_PREFIX,
   injectActionButtonStyles,
-} from './components/action-button';
+} from './components/buttons/action-button';
+
+// Buttons factory — export buttons PDF/CSV/XLS (padrão MAN4) com temas
+// light/dark, estado locked (cadeado) e tooltip via InfoTooltip.
+export {
+  createExportButton,
+  createPdfButton,
+  createCsvButton,
+  createXlsButton,
+  EXPORT_BUTTON_CSS_PREFIX,
+  injectExportButtonStyles,
+  EXPORT_BUTTON_KIND_DEFAULTS,
+  EXPORT_BUTTON_CUSTOM_COLORS,
+} from './components/buttons';
+export type {
+  ExportButtonKind,
+  ExportButtonThemeMode,
+  ExportButtonColors,
+  ExportButtonTooltip,
+  ExportButtonSettings,
+  ExportButtonParams,
+  ExportButtonInstance,
+} from './components/buttons';
+
+// Granularity Selector — tabs 1h / 1d extraídas do EnergyModal (RFC-0097):
+// pill container com fundo sutil, botão ativo na cor primária (respeita
+// --myio-energy-primary / --myio-brand-700), temas light/dark e tooltip
+// premium opcional via InfoTooltip. Usado pelo EnergyModalView.
+export {
+  createGranularitySelector,
+  GRANULARITY_SELECTOR_CSS_PREFIX,
+  injectGranularitySelectorStyles,
+  DEFAULT_GRANULARITY_OPTIONS,
+} from './components/granularity-selector';
+export type {
+  Granularity,
+  GranularitySelectorThemeMode,
+  GranularitySelectorOption,
+  GranularitySelectorTooltip,
+  GranularitySelectorSettings,
+  GranularitySelectorParams,
+  GranularitySelectorInstance,
+} from './components/granularity-selector';
+
+// Graphs — ParticipationChart (SVG puro, sem Chart.js): pizza/barras com
+// participação por item, legenda selecionável, tooltip InfoTooltip, temas
+// light/dark, export PNG/PDF e expand fullscreen. Usado no AllReportModal.
+export {
+  createParticipationChart,
+  PARTICIPATION_CHART_CSS_PREFIX,
+  injectParticipationChartStyles,
+  MYIO_CHART_PALETTE,
+  MYIO_CHART_PALETTE_DARK,
+  DEFAULT_PARTICIPATION_CHART_SETTINGS,
+} from './components/graphs';
+export type {
+  ParticipationChartType,
+  ParticipationChartThemeMode,
+  ParticipationChartLegendPosition,
+  ParticipationChartPaletteMode,
+  ParticipationChartItem,
+  ParticipationChartThemeColors,
+  ParticipationChartLegendSettings,
+  ParticipationChartExportSettings,
+  ParticipationChartSettings,
+  ParticipationChartParams,
+  ParticipationChartInstance,
+} from './components/graphs';
+
+// Real-time clock component (footer premium)
+export { createRealTimeClock } from './components/clock';
+export type {
+  RealTimeClockOptions,
+  RealTimeClockInstance,
+  RealTimeClockThemeMode,
+} from './components/clock';
+
+// Premium modal footer — Customer · relógio · versão | Powered by MYIO | PDF/CSV/XLSX
+export { createModalFooter } from './components/premium-modals/footer-modal';
+export type {
+  ModalFooterParams,
+  ModalFooterExportConfig,
+  ModalFooterInstance,
+} from './components/premium-modals/footer-modal';
 
 // Scheduling Shared Module
 export {
