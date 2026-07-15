@@ -91,17 +91,14 @@ export class EnergyModalView {
   }
 
   /**
-   * RFC-0097: Initializes granularity from config or localStorage
+   * RFC-0097: Initializes granularity — SEMPRE '1d' na abertura.
+   * O localStorage deixou de ser lido: persistir a última escolha fazia a
+   * modal abrir em 1h para sempre depois de um único uso. config.params
+   * .granularity também é ignorado de propósito (FOOTER auto-computa '1h'
+   * para ranges ≤1 dia e não queremos isso como estado inicial do seletor).
    */
   private initializeGranularity(): void {
-    // Priority: localStorage (user's last choice) > default '1d'.
-    // We intentionally ignore config.params.granularity here so the modal
-    // always opens on '1d' unless the user explicitly selected otherwise.
-    // Callers like FOOTER auto-compute '1h' for ≤1-day ranges, which we
-    // don't want to silently apply as the modal's initial selector state.
-    const savedGranularity = localStorage.getItem('myio-modal-granularity') as '1h' | '1d' | null;
-    const candidate = savedGranularity || '1d';
-    this.currentGranularity = (candidate === '1h' || candidate === '1d') ? candidate : '1d';
+    this.currentGranularity = '1d';
   }
 
   /**
@@ -123,8 +120,7 @@ export class EnergyModalView {
       }
     });
 
-    // Save preference to localStorage
-    localStorage.setItem('myio-modal-granularity', granularity);
+    // (localStorage não é mais persistido — a modal SEMPRE abre em 1d)
 
     // Rebuild DateRangePicker so the time picker appears only for '1h'.
     // Await so the picker is ready before the chart re-renders (avoids falling
@@ -140,6 +136,16 @@ export class EnergyModalView {
 
     // Re-render chart with new granularity
     this.reRenderChart();
+
+    // Refaz o fetch de energyData no modal — sem isso o Exportar CSV/KPIs
+    // continuavam com os buckets DIÁRIOS mesmo com 1h selecionado.
+    if (this.config.onGranularityChange) {
+      try {
+        await this.config.onGranularityChange(granularity);
+      } catch (err) {
+        console.warn('[EnergyModalView] onGranularityChange failed:', err);
+      }
+    }
 
     dbg('[EnergyModalView] [RFC-0097] Granularity changed to:', granularity);
   }
@@ -1251,7 +1257,10 @@ export class EnergyModalView {
       ['', '', ''],
       ['Date', `Consumption (${unit})`, ''],
       ...this.currentEnergyData.consumption.map(row => [
-        formatDate(row.timestamp),
+        // 1h: sem a hora as 24 linhas do dia sairiam com a mesma data
+        this.currentGranularity === '1h'
+          ? `${formatDate(row.timestamp)} ${new Date(row.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+          : formatDate(row.timestamp),
         formatNumber(row.value),
         ''
       ])

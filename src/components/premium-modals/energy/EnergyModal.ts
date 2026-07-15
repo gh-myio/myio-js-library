@@ -41,6 +41,13 @@ export class EnergyModal {
   private modalId: string;
   private eventHandlers: { [key: string]: (() => void)[] } = {};
   private _dataLoadError = false;
+  // Granularidade CORRENTE do seletor da view (a modal sempre abre em 1d —
+  // espelha initializeGranularity da view). Todos os fetches de energyData
+  // usam este valor para KPIs/CSV acompanharem o seletor 1h/1d.
+  private currentGranularity: '1h' | '1d' = '1d';
+  // Range corrente do picker (init dos params; atualizado em handleDateRangeChange)
+  private currentStartISO: string | null = null;
+  private currentEndISO: string | null = null;
 
   constructor(params: OpenDashboardPopupEnergyOptions) {
     // Validate parameters first
@@ -114,6 +121,7 @@ export class EnergyModal {
         onExport: () => this.handleExport(),
         onError: (error) => this.handleEnergyModalError(error),
         onDateRangeChange: (startISO, endISO) => this.handleDateRangeChange(startISO, endISO),
+        onGranularityChange: (granularity) => this.handleGranularityChange(granularity),
       });
 
       // 4. Setup modal event handlers
@@ -331,13 +339,15 @@ export class EnergyModal {
       // Normalize dates
       const startISO = normalizeToSaoPauloISO(this.params.startDate, false);
       const endISO = normalizeToSaoPauloISO(this.params.endDate, true);
+      this.currentStartISO = startISO;
+      this.currentEndISO = endISO;
 
       // Fetch energy data
       const energyData = await this.dataFetcher.fetchEnergyData({
         ingestionId: this.context.resolved.ingestionId,
         startISO,
         endISO,
-        granularity: this.params.granularity || '1d',
+        granularity: this.currentGranularity,
         readingType: this.params.readingType,
       });
 
@@ -474,13 +484,15 @@ export class EnergyModal {
       // which would send wrong boundaries and return zero — same normalization as loadEnergyData.
       const normalizedStart = normalizeToSaoPauloISO(startISO, false);
       const normalizedEnd = normalizeToSaoPauloISO(endISO, true);
+      this.currentStartISO = normalizedStart;
+      this.currentEndISO = normalizedEnd;
 
       // Fetch energy data with new date range
       const energyData = await this.dataFetcher.fetchEnergyData({
         ingestionId: this.context.resolved.ingestionId,
         startISO: normalizedStart,
         endISO: normalizedEnd,
-        granularity: this.params.granularity || '1d',
+        granularity: this.currentGranularity,
         readingType: this.params.readingType,
       });
 
@@ -493,6 +505,44 @@ export class EnergyModal {
       this.view.renderEnergyData(energyData);
     } catch (error) {
       console.error('[EnergyModal] Error reloading energy data:', error);
+      this.handleError(error as Error);
+    }
+  }
+
+  /**
+   * Handles granularity changes (1h/1d) from the view's selector.
+   * Refetches energyData with the new granularity so KPIs and CSV export
+   * follow the selector (the chart itself re-renders inside the view).
+   */
+  private async handleGranularityChange(granularity: '1h' | '1d'): Promise<void> {
+    this.currentGranularity = granularity;
+
+    const mode = this.params.mode || 'single';
+    // Comparison mode: the chart SDK refetches on its own and there's no
+    // energyData backing KPIs/CSV — nothing else to do here.
+    if (mode !== 'single' || !this.view || !this.context?.resolved.ingestionId) {
+      return;
+    }
+
+    try {
+      dbg('[EnergyModal] Granularity changed, refetching energy data:', granularity);
+
+      const startISO = this.currentStartISO ?? normalizeToSaoPauloISO(this.params.startDate, false);
+      const endISO = this.currentEndISO ?? normalizeToSaoPauloISO(this.params.endDate, true);
+
+      this.view.showLoadingState();
+
+      const energyData = await this.dataFetcher.fetchEnergyData({
+        ingestionId: this.context.resolved.ingestionId,
+        startISO,
+        endISO,
+        granularity,
+        readingType: this.params.readingType,
+      });
+
+      this.view.renderEnergyData(energyData);
+    } catch (error) {
+      console.error('[EnergyModal] Error reloading energy data after granularity change:', error);
       this.handleError(error as Error);
     }
   }
