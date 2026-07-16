@@ -1437,6 +1437,11 @@ body.filter-modal-open { overflow: hidden !important; }
   const userInfoRaw = await MyIOLibrary.fetchCurrentUserInfo();
   const userInfo = userInfoRaw ? { fullName: userInfoRaw.name, email: userInfoRaw.email } : null;
   LogHelper.log('User info fetched:', userInfo);
+  // Expõe o email do usuário logado para gates de UI (ex.: botão "$" do Metas × Consumo).
+  // No HO o TB retorna algo como rodrigo@myio.com.br; SuperAdmin = domínio @myio.com.br.
+  window.MyIOUtils = window.MyIOUtils || {};
+  window.MyIOUtils.currentUserEmail = userInfo?.email || '';
+  window.MyIOUtils.SuperAdmin = /@myio\.com\.br$/i.test(userInfo?.email || '');
 
   // Build shopping cards from datasource with fallback to DEFAULT_SHOPPING_CARDS
   _currentCustomersCards = buildCustomerCardsFromDatasource(self.ctx.data || []);
@@ -3958,7 +3963,8 @@ body.filter-modal-open { overflow: hidden !important; }
           <label style="display:flex;align-items:center;gap:8px;font:600 13px Nunito,sans-serif;color:var(--gc-text2);">Período
             <input type="text" data-period readonly placeholder="Selecione o período" style="border:1px solid var(--gc-input-border);border-radius:8px;padding:6px 10px;font:600 13px Nunito,sans-serif;color:var(--gc-text);width:210px;cursor:pointer;background:var(--gc-surface);" />
           </label>
-          <span data-status style="font:600 12px Nunito,sans-serif;color:var(--gc-muted);margin-left:auto;"></span>
+          <span data-status hidden style="display:none;"></span>
+          <strong data-side-title style="margin-left:auto;font:700 13px Nunito,sans-serif;color:var(--gc-muted);white-space:nowrap;">Resumo por ${_escHtml(_goalsEntityLabel.toLowerCase())}</strong>
         </div>
         <div style="padding:16px 20px;overflow-y:auto;display:flex;flex-direction:column;gap:12px;">
           <div data-controls style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
@@ -3979,12 +3985,9 @@ body.filter-modal-open { overflow: hidden !important; }
               <button type="button" data-submode="cards" title="Um card por ${_escHtml(_entSLow())}: Realizado × A-1 × Orçado (RFC-0217)" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Cards</button>
             </div>
             <button type="button" data-cards-settings title="Configurações dos cards (linha/barra, pontos)" style="display:none;border:1px solid ${GP.tint(45)};border-radius:8px;background:transparent;color:${GP.accent};padding:4px 9px;cursor:pointer;font:700 13px Nunito,sans-serif;">⚙️</button>
-            <span style="margin-left:auto;display:inline-flex;align-items:center;gap:8px;">
-              <span data-year-toggles style="display:none;align-items:center;gap:6px;font:700 12px Nunito,sans-serif;color:var(--gc-text2);"></span>
-              <span data-evo-status style="font:600 12px Nunito,sans-serif;color:var(--gc-muted);"></span>
-            </span>
+            <span data-evo-status style="margin-left:auto;font:600 12px Nunito,sans-serif;color:var(--gc-muted);"></span>
           </div>
-          <div style="display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap;">
+          <div style="display:flex;gap:18px;align-items:stretch;flex-wrap:wrap;">
             <div style="flex:1 1 560px;min-width:0;display:flex;flex-direction:column;gap:14px;position:relative;">
               <div data-evo-loading style="display:none;position:absolute;inset:0;z-index:6;background:rgba(148,163,184,.08);align-items:center;justify-content:center;border-radius:8px;">
                 <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
@@ -3997,16 +4000,19 @@ body.filter-modal-open { overflow: hidden !important; }
                 #myio-goals-compare-root .gc-side-item{cursor:pointer;transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;}
                 #myio-goals-compare-root .gc-side-item:hover{transform:translateY(-2px) scale(1.02);box-shadow:0 6px 18px rgba(15,23,42,.18);border-color:${GP.tint(45)};}
               </style>
-              <div data-evo-wrap style="position:relative;height:340px;"><canvas data-evo-chart></canvas></div>
+              <div data-evo-wrap style="position:relative;flex:1 1 auto;min-height:340px;"><canvas data-evo-chart></canvas></div>
               <div data-cards-grid style="display:none;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;"></div>
               <div data-cards-legend style="display:none;align-items:center;justify-content:center;gap:18px;flex-wrap:wrap;font:600 11px Nunito,sans-serif;color:var(--gc-muted);padding:4px 2px 0;"></div>
               <div data-analytics style="display:none;overflow-x:auto;"></div>
-              <div data-caption style="font:600 11px Nunito,sans-serif;color:var(--gc-muted2);">Barras: consumo do período e do mesmo período no ano anterior · Linha(s): meta — consolidado/empilhado = soma (${_escHtml(_entPLow())}, linha única); separado = uma linha tracejada por ${_escHtml(_entSLow())} · Consumo Energia: medidores de ENTRADA (régua das metas) · Água: hidrômetros · Dia/Hora seguem o intervalo selecionado; Hora disponível para intervalos de até 15 dias · Gestão: 🎯 Metas → Gestão de Metas.</div>
+              <div data-evo-legend style="display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;border-top:1px solid var(--gc-border);margin-top:2px;padding-top:8px;flex:0 0 auto;">
+                <span data-year-toggles style="display:none;align-items:center;gap:10px;"></span>
+              </div>
+              <div data-caption style="font:600 11px Nunito,sans-serif;color:var(--gc-muted2);flex:0 0 auto;">Barras: consumo do período e do mesmo período no ano anterior · Linha(s): meta — consolidado/empilhado = soma (${_escHtml(_entPLow())}, linha única); separado = uma linha tracejada por ${_escHtml(_entSLow())} · Consumo Energia: medidores de ENTRADA (régua das metas) · Água: hidrômetros · Dia/Hora seguem o intervalo selecionado; Hora disponível para intervalos de até 15 dias · Gestão: 🎯 Metas → Gestão de Metas.</div>
             </div>
             <aside style="flex:0 0 330px;max-width:100%;display:flex;flex-direction:column;gap:8px;" data-side>
-              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-                <strong data-side-title style="font:700 13px Nunito,sans-serif;color:var(--gc-muted);white-space:nowrap;">Resumo por ${_escHtml(_goalsEntityLabel.toLowerCase())}</strong>
-                <button type="button" data-side-toggle title="Recolher resumo" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;border:1px solid ${GP.tint(45)};border-radius:8px;background:transparent;color:${GP.accent};padding:4px 10px;cursor:pointer;font:700 11px Nunito,sans-serif;line-height:1.4;transition:background .15s, border-color .15s;" onmouseover="this.style.background='${GP.tint(8)}';this.style.borderColor='${GP.accent}'" onmouseout="this.style.background='transparent';this.style.borderColor='${GP.tint(45)}'">Recolher ▶</button>
+              <div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;">
+                <button type="button" data-pricing title="Precificação — R$/kWh por ${_escHtml(_entSLow())} × período" style="flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;border:1px solid ${GP.tint(45)};border-radius:8px;background:transparent;color:${GP.accent};padding:4px 10px;cursor:pointer;font:800 14px Nunito,sans-serif;line-height:1.4;transition:background .15s, border-color .15s;" onmouseover="this.style.background='${GP.tint(8)}';this.style.borderColor='${GP.accent}'" onmouseout="this.style.background='transparent';this.style.borderColor='${GP.tint(45)}'">$</button>
+                <button type="button" data-side-toggle title="Recolher resumo" style="flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;gap:5px;border:1px solid ${GP.tint(45)};border-radius:8px;background:transparent;color:${GP.accent};padding:4px 10px;cursor:pointer;font:700 11px Nunito,sans-serif;line-height:1.4;white-space:nowrap;transition:background .15s, border-color .15s;" onmouseover="this.style.background='${GP.tint(8)}';this.style.borderColor='${GP.accent}'" onmouseout="this.style.background='transparent';this.style.borderColor='${GP.tint(45)}'">Recolher ▶</button>
               </div>
               <div data-side-sort style="display:flex;align-items:center;gap:4px;">
                 <span style="font:600 10.5px Nunito,sans-serif;color:var(--gc-muted);">Ordenar:</span>
@@ -4106,6 +4112,10 @@ body.filter-modal-open { overflow: hidden !important; }
     let lastSepSubmode = 'stack'; // subcategoria lembrada ao reabrir o grupo Separados
     let showCurYear = true; // 👁 ano corrente
     let showPrevYear = true; // 👁 ano anterior (A-1)
+    // 👁 por customer: tbIds ocultos → expurgados dos TOTAIS (sidebar) e de TODA a
+    // agregação do gráfico/analítico/cards (loadEvo re-agrega sem eles). Default: todos visíveis.
+    const hiddenCustomers = new Set(); // Set<tbId>
+    const isCustHidden = (tbId) => hiddenCustomers.has(String(tbId));
     let cardsShowPoints = false; // ⚙️ dos cards — pontos na linha desligados por default
     let cardsChartType = 'bar'; // ⚙️ dos cards — barra é o default
     let cardsGroupBy = 'shopping'; // ⚙️ dos cards: 'shopping' (default) | 'device' (medidores lado a lado) | 'device-stack' (medidores empilhados)
@@ -4198,10 +4208,13 @@ body.filter-modal-open { overflow: hidden !important; }
       const loading = rows.some(
         (r) => r.meta === undefined || r.consumo === undefined || r.consumoPrev === undefined
       );
-      const totalOrcado = rows.reduce((s, r) => s + (r.meta || 0), 0);
-      const totalMetaAdj = rows.reduce((s, r) => s + (r.metaAdj || 0), 0);
-      const totalCons = rows.reduce((s, r) => s + (r.consumo || 0), 0);
-      const totalConsPrev = rows.reduce((s, r) => s + (r.consumoPrev || 0), 0);
+      // Total só soma os customers VISÍVEIS (👁 da sidebar) — ocultos ficam na lista
+      // (esmaecidos), mas fora dos totais e do gráfico.
+      const visRows = rows.filter((r) => !isCustHidden(r.tbId));
+      const totalOrcado = visRows.reduce((s, r) => s + (r.meta || 0), 0);
+      const totalMetaAdj = visRows.reduce((s, r) => s + (r.metaAdj || 0), 0);
+      const totalCons = visRows.reduce((s, r) => s + (r.consumo || 0), 0);
+      const totalConsPrev = visRows.reduce((s, r) => s + (r.consumoPrev || 0), 0);
       const fmtCell = (v) => (v === undefined ? '⏳' : _fmtQtyStr(v, unit));
       // Linha 1 = <ícone> <ano-1> <cons> · <ano> <cons> (2025 primeiro, 2026 depois;
       // UM ícone do domínio no começo — ⚡ energia / 💧 água). Linhas 2/3 idem ícone.
@@ -4228,15 +4241,24 @@ body.filter-modal-open { overflow: hidden !important; }
             <div style="font:600 11px Nunito,sans-serif;color:var(--gc-muted);display:flex;align-items:center;gap:5px;flex-wrap:wrap;min-width:0;">${leftHtml}</div>
             ${chipHtml}
           </div>`;
+      // 👁 por customer: botão show/hide no canto superior direito, na linha do título.
+      // Default = show (👁️). Oculto (🙈) → row esmaecida e fora dos totais/gráfico.
+      const custEye = (r, bold) => {
+        if (bold || r.tbId == null) return '';
+        const hidden = isCustHidden(r.tbId);
+        return `<button type="button" data-cust-eye="${_escHtml(String(r.tbId))}" title="${hidden ? 'Exibir' : 'Ocultar'} nos totais e no gráfico" style="margin-left:auto;flex:0 0 auto;border:0;background:transparent;cursor:pointer;padding:0 0 0 6px;font-size:13px;line-height:1;${hidden ? 'opacity:.55;' : ''}">${hidden ? '🙈' : '👁️'}</button>`;
+      };
       const item = (title, r, bold, extras = '') => {
         const showMeta = metaDiffers(r.meta, r.metaAdj);
+        const hidden = !bold && isCustHidden(r.tbId);
         // Linhas de shopping viram "card" com hover/zoom (classe gc-side-item);
         // a linha Total (bold) fica estática.
         return `
-        <div class="${bold ? '' : 'gc-side-item'}" style="border:1px solid var(--gc-border);border-radius:10px;padding:8px 10px;display:flex;flex-direction:column;gap:5px;${bold ? 'background:var(--gc-surface2);' : ''}">
-          <div style="display:flex;align-items:baseline;gap:4px;min-width:0;font:${bold ? 800 : 700} 12px Nunito,sans-serif;color:var(--gc-text);">
+        <div class="${bold ? '' : 'gc-side-item'}" style="border:1px solid var(--gc-border);border-radius:10px;padding:8px 10px;display:flex;flex-direction:column;gap:5px;${bold ? 'background:var(--gc-surface2);' : ''}${hidden ? 'opacity:.5;' : ''}">
+          <div style="display:flex;align-items:center;gap:4px;min-width:0;font:${bold ? 800 : 700} 12px Nunito,sans-serif;color:var(--gc-text);">
             <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">${bold ? '' : '🏢 '}${_escHtml(title)}</span>
             ${devCountBadge(r)}
+            ${custEye(r, bold)}
           </div>
           ${line(`${domIcon} <span>${yPrev} ${bval(r.consumoPrev)}</span><span style="margin-left:8px;">${yCur} ${bval(r.consumo)}</span>`, devChip(r.consumo, r.consumoPrev))}
           ${line(`${domIcon} Orçado ${bval(r.meta)}${extras}`, devChip(r.consumo, r.meta))}
@@ -4291,6 +4313,7 @@ body.filter-modal-open { overflow: hidden !important; }
       // undefined = carregando; null = sem dado.
       const rows = shoppings.map((s) => ({
         title: s.title,
+        tbId: s.tbId != null ? String(s.tbId) : null, // chave do 👁 show/hide por customer
         meta: undefined, // Orçado (value cru)
         metaAdj: undefined, // Meta (adjustedValue)
         consumo: undefined, // Consumo do ano corrente
@@ -4400,6 +4423,8 @@ body.filter-modal-open { overflow: hidden !important; }
     };
 
     // 👁 Toggles de visibilidade por ano (2026 × 2025) — filtram gráfico, cards e analítico
+    // 👁 Toggles de ano dentro da LEGENDA do gráfico (linha de baixo). Formato:
+    // 2025 <ícone> | 2026 <ícone> | <hint>. Divisória sutil = border-top do [data-evo-legend].
     const paintYearToggles = (yearCur, yearPrev) => {
       const box = overlay.querySelector('[data-year-toggles]');
       if (!box) return;
@@ -4407,7 +4432,10 @@ body.filter-modal-open { overflow: hidden !important; }
       const eye = (on) => (on ? '👁️' : '<span style="opacity:.55;">👁️</span>');
       const yearSpan = (label, on, key) =>
         `<button type="button" data-eye="${key}" title="${on ? 'Ocultar' : 'Exibir'} ${label}" style="border:0;background:transparent;cursor:pointer;display:inline-flex;align-items:center;gap:4px;font:700 12px Nunito,sans-serif;color:var(--gc-text2);${on ? '' : 'opacity:.4;text-decoration:line-through;'}">${label} ${eye(on)}</button>`;
-      box.innerHTML = `${yearSpan(yearCur, showCurYear, 'cur')}<span style="color:var(--gc-muted);">×</span>${yearSpan(yearPrev, showPrevYear, 'prev')}`;
+      const sep = `<span style="color:var(--gc-border);font-weight:400;">|</span>`;
+      box.innerHTML =
+        `${yearSpan(yearPrev, showPrevYear, 'prev')}${sep}${yearSpan(yearCur, showCurYear, 'cur')}${sep}` +
+        `<span style="font:italic 600 10.5px Nunito,sans-serif;color:var(--gc-muted2);">clique no ano para exibir/ocultar</span>`;
     };
 
     // ── RFC-0217: modo Cards — small multiples por shopping (createCustomerGoalsCard) ──
@@ -4436,7 +4464,9 @@ body.filter-modal-open { overflow: hidden !important; }
       if (legend) legend.style.display = surface === 'cards' ? 'flex' : 'none';
       if (wrap) wrap.style.display = surface === 'chart' ? '' : 'none';
       if (analytics) analytics.style.display = surface === 'analytics' ? '' : 'none';
-      if (aside) aside.style.display = surface === 'analytics' ? 'none' : '';
+      // Sidebar "Resumo por shopping" SEMPRE visível (inclusive no Resumo Analítico) —
+      // é de lá que se comanda o 👁 show/hide por customer.
+      if (aside) aside.style.display = '';
       if (caption) caption.style.display = surface === 'analytics' ? 'none' : '';
       if (surface !== 'cards') destroyGoalsCards();
     };
@@ -4483,6 +4513,7 @@ body.filter-modal-open { overflow: hidden !important; }
           return acc;
         }, nullSeries());
       shops.forEach((s, i) => {
+        if (isCustHidden(s.tbId)) return; // 👁 customer oculto → sem card
         goalsCards.push(
           MyIOLibrary.createCustomerGoalsCard({
             container: grid,
@@ -4502,6 +4533,9 @@ body.filter-modal-open { overflow: hidden !important; }
           })
         );
       });
+      // Consolidado respeita o 👁 por customer: só soma os shoppings visíveis
+      const visShops = shops.filter((s) => !isCustHidden(s.tbId));
+      const visTrees = trees.filter((_, i) => !isCustHidden(shops[i].tbId));
       // ⚙️ Exibir card Consolidado: soma de todos os shoppings como se fosse um
       // shopping — sempre o ÚLTIMO card da grid. Meta = soma das metas.
       if (cardsShowConsolidated) {
@@ -4516,14 +4550,14 @@ body.filter-modal-open { overflow: hidden !important; }
             series: {
               labels,
               realized: showCurYear
-                ? sumSeries(shops.map((s) => bucketize(curBy?.get(s.ingestionId))))
+                ? sumSeries(visShops.map((s) => bucketize(curBy?.get(s.ingestionId))))
                 : nullSeries(),
               previousYear: showPrevYear
-                ? sumSeries(shops.map((s) => bucketize(prevBy?.get(s.ingestionId))))
+                ? sumSeries(visShops.map((s) => bucketize(prevBy?.get(s.ingestionId))))
                 : undefined,
-              budget: sumSeries((trees || []).map((t) => goalOf(t))), // Meta
+              budget: sumSeries((visTrees || []).map((t) => goalOf(t))), // Meta
               orcado: goalRawOf
-                ? sumSeries((trees || []).map((t) => goalRawOf(t)))
+                ? sumSeries((visTrees || []).map((t) => goalRawOf(t)))
                 : undefined, // Orçado (value cru)
             },
           })
@@ -4801,6 +4835,7 @@ body.filter-modal-open { overflow: hidden !important; }
       };
 
       (shops || []).forEach((s, i) => {
+        if (isCustHidden(s.tbId)) return; // 👁 customer oculto → sem card/medidores
         const devs = byShop.get(i);
         if (!devs?.length) return; // shopping sem medidor identificável neste domínio
         makeCard({
@@ -4818,8 +4853,14 @@ body.filter-modal-open { overflow: hidden !important; }
       // ⚙️ Exibir card Consolidado: todos os medidores somados (sem breakdown),
       // como se a visão consolidada fosse um shopping — sempre o ÚLTIMO card.
       if (cardsShowConsolidated) {
-        const budgetArrs = (trees || []).map((t) => (goalOf ? goalOf(t) : null));
-        const orcadoArrs = (trees || []).map((t) => (goalRawOf ? goalRawOf(t) : null));
+        // Consolidado respeita o 👁: só trees/medidores de shoppings visíveis
+        const visTreesD = (trees || []).filter((_, i) => !isCustHidden(shops?.[i]?.tbId));
+        const visDevicesD = devices.filter((d) => {
+          const idx = shopIdxOf(d);
+          return idx == null || !isCustHidden(shops?.[idx]?.tbId);
+        });
+        const budgetArrs = visTreesD.map((t) => (goalOf ? goalOf(t) : null));
+        const orcadoArrs = visTreesD.map((t) => (goalRawOf ? goalRawOf(t) : null));
         goalsCards.push(
           MyIOLibrary.createCustomerGoalsCard({
             container: grid,
@@ -4831,10 +4872,10 @@ body.filter-modal-open { overflow: hidden !important; }
             series: {
               labels,
               realized: showCurYear
-                ? sumSeries(devices.map((d) => bucketize(curDev?.get(d.id))))
+                ? sumSeries(visDevicesD.map((d) => bucketize(curDev?.get(d.id))))
                 : nullSeries(),
               previousYear: showPrevYear
-                ? sumSeries(devices.map((d) => bucketize(prevDev?.get(d.id))))
+                ? sumSeries(visDevicesD.map((d) => bucketize(prevDev?.get(d.id))))
                 : undefined,
               budget: sumSeries(budgetArrs), // Meta
               orcado: goalRawOf ? sumSeries(orcadoArrs) : undefined, // Orçado (value cru)
@@ -4888,12 +4929,17 @@ body.filter-modal-open { overflow: hidden !important; }
         }
         return has ? s : null;
       };
-      const rows = shops.map((s, i) => ({
-        title: s.title,
-        realized: sumArr(bucketize(curBy?.get(s.ingestionId))),
-        prev: sumArr(bucketize(prevBy?.get(s.ingestionId))),
-        budget: sumArr(goalOf(trees[i])),
-      }));
+      // 👁 por customer: linhas ocultas saem da tabela E dos totais do portfólio
+      const rows = [];
+      shops.forEach((s, i) => {
+        if (isCustHidden(s.tbId)) return;
+        rows.push({
+          title: s.title,
+          realized: sumArr(bucketize(curBy?.get(s.ingestionId))),
+          prev: sumArr(bucketize(prevBy?.get(s.ingestionId))),
+          budget: sumArr(goalOf(trees[i])),
+        });
+      });
       const tot = {
         realized: rows.some((r) => r.realized != null)
           ? rows.reduce((a, r) => a + (r.realized || 0), 0)
@@ -5124,9 +5170,13 @@ body.filter-modal-open { overflow: hidden !important; }
       if (seq !== evoSeq) return;
       const shops = shoppings.map((s, i) => ({
         title: s.title,
+        tbId: s.tbId != null ? String(s.tbId) : null, // chave do 👁 show/hide por customer
         ingestionId: attrsList[i]?.ingestionId || null,
         attrs: attrsList[i],
       }));
+      // 👁: ingestionIds visíveis — usado pela agregação consolidada (energia é por
+      // customer; água consolidada '__ALL__' é uma série única e passa direto).
+      const visIngSet = new Set(shops.filter((s) => !isCustHidden(s.tbId)).map((s) => s.ingestionId));
 
       const gcdrGran = evoGran === '1y' || evoGran === '1M' ? 'month' : evoGran === '1d' ? 'day' : 'hour';
       // GET /goals completo por shopping (Addendum A: granularity/devices junto da tree)
@@ -5237,13 +5287,14 @@ body.filter-modal-open { overflow: hidden !important; }
         const [lv, k] = goalKeyAt(i);
         let s = 0;
         let has = false;
-        for (const t of trees) {
+        trees.forEach((t, si) => {
+          if (isCustHidden(shops[si]?.tbId)) return; // 👁 customer oculto fora da meta somada
           const v = goalNodeMeta(t?.[lv]?.[k]);
           if (v != null) {
             s += v;
             has = true;
           }
-        }
+        });
         return has ? s : null;
       });
 
@@ -5416,6 +5467,7 @@ body.filter-modal-open { overflow: hidden !important; }
         // Empilhado: 2 colunas por bucket (pilha do ano e pilha do ano-1, um segmento por
         // shopping) + UMA linha de meta = soma das metas de todos os shoppings
         shops.forEach((s, i) => {
+          if (isCustHidden(s.tbId)) return; // 👁 customer oculto fora do empilhado
           const color = SHOP_PALETTE[i % SHOP_PALETTE.length];
           if (showCurYear)
             datasets.push({
@@ -5452,6 +5504,7 @@ body.filter-modal-open { overflow: hidden !important; }
         });
       } else if (evoMode === 'sep') {
         shops.forEach((s, i) => {
+          if (isCustHidden(s.tbId)) return; // 👁 customer oculto fora do gráfico separado
           const color = SHOP_PALETTE[i % SHOP_PALETTE.length];
           if (showCurYear)
             datasets.push({
@@ -5492,7 +5545,11 @@ body.filter-modal-open { overflow: hidden !important; }
         const sumAll = (byCust) => {
           if (!byCust) return labels.map(() => null);
           const all = [];
-          byCust.forEach((pts) => all.push(...(pts || [])));
+          // 👁: energia é por customer → soma só os visíveis; água consolidada usa a
+          // série única '__ALL__' (não separável por customer) e entra sempre.
+          byCust.forEach((pts, key) => {
+            if (key === '__ALL__' || visIngSet.has(key)) all.push(...(pts || []));
+          });
           return bucketize(all);
         };
         if (showCurYear)
@@ -5745,9 +5802,10 @@ body.filter-modal-open { overflow: hidden !important; }
       dialogEl.style.maxHeight = isMax ? '100vh' : '92vh';
       dialogEl.style.borderRadius = isMax ? '0' : '14px';
       // Maximizado: o gráfico cresce e ocupa a altura livre da viewport
-      // (~300px = header + toolbar + pills + nota + paddings), sem buraco abaixo
+      // (~320px = header + toolbar + pills + legenda + nota + paddings). Usa minHeight
+      // para não anular o flex:1 (o wrap já preenche a altura da coluna esquerda).
       const evoWrap = overlay.querySelector('[data-evo-wrap]');
-      if (evoWrap) evoWrap.style.height = isMax ? 'max(340px, calc(100vh - 300px))' : '340px';
+      if (evoWrap) evoWrap.style.minHeight = isMax ? 'max(340px, calc(100vh - 320px))' : '340px';
       const mx = overlay.querySelector('[data-max]');
       if (mx) {
         mx.textContent = isMax ? '🗗' : '⛶';
@@ -5761,18 +5819,71 @@ body.filter-modal-open { overflow: hidden !important; }
     const toggleSide = () => {
       sideCollapsed = !sideCollapsed;
       const aside = overlay.querySelector('[data-side]');
-      const title = overlay.querySelector('[data-side-title]');
       const table = overlay.querySelector('[data-table]');
       const btn = overlay.querySelector('[data-side-toggle]');
+      const pricing = overlay.querySelector('[data-pricing]');
       aside.style.flex = sideCollapsed ? '0 0 auto' : '0 0 330px';
-      title.style.display = sideCollapsed ? 'none' : '';
       table.style.display = sideCollapsed ? 'none' : 'flex';
       const sortRow = overlay.querySelector('[data-side-sort]');
       if (sortRow) sortRow.style.display = sideCollapsed ? 'none' : 'flex';
-      btn.textContent = sideCollapsed ? '◀ Resumo' : 'Recolher ▶';
-      btn.style.flex = sideCollapsed ? '0 0 auto' : '1';
+      if (pricing) pricing.style.display = sideCollapsed ? 'none' : '';
+      btn.textContent = sideCollapsed ? '◀' : 'Recolher ▶'; // recolhido = só a seta (largura mínima)
       btn.title = sideCollapsed ? 'Expandir resumo' : 'Recolher resumo';
       setTimeout(() => evoChart?.resize?.(), 60);
+    };
+
+    // Botão "$" — painel de precificação (R$/kWh por customer × período). O painel é
+    // criado pela lib (window.MyIOLibrary.openPricingPanel, função nova). Aqui só
+    // gate por usuário MyIO + guard de disponibilidade da lib.
+    const openPricing = async () => {
+      // Email do usuário logado: 1º window.MyIOUtils.currentUserEmail (setado no onInit
+      // a partir de fetchCurrentUserInfo); fallback GET /api/auth/user (TB) quando vazio.
+      let email = String(window.MyIOUtils?.currentUserEmail || '');
+      if (!email) {
+        try {
+          const jwt = localStorage.getItem('jwt_token') || '';
+          const res = await fetch('/api/auth/user', {
+            headers: { 'X-Authorization': `Bearer ${jwt}` },
+          });
+          if (res.ok) {
+            const u = await res.json();
+            email = String(u?.email || '');
+            if (email) {
+              window.MyIOUtils = window.MyIOUtils || {};
+              window.MyIOUtils.currentUserEmail = email;
+              window.MyIOUtils.SuperAdmin = /@myio\.com\.br$/i.test(email);
+            }
+          }
+        } catch (err) {
+          LogHelper.warn('[GoalsCompare] fallback /api/auth/user falhou:', err?.message || err);
+        }
+      }
+      const isMyio = /@myio\.com\.br$/i.test(email) || !!window.MyIOUtils?.SuperAdmin;
+      if (!isMyio) {
+        const msg = 'Funcionalidade disponível apenas para usuários MyIO.';
+        if (MyIOLibrary?.MyIOToast?.warning) MyIOLibrary.MyIOToast.warning(msg);
+        else _goalsToastError(msg);
+        return;
+      }
+      if (typeof MyIOLibrary?.openPricingPanel !== 'function') {
+        _goalsToastError('Painel de precificação indisponível — atualize a myio-js-library.');
+        return;
+      }
+      try {
+        MyIOLibrary.openPricingPanel({
+          customers: (shoppings || []).map((s) => ({
+            tbId: s.tbId,
+            title: s.title,
+            gcdrCustomerId: s.gcdrCustomerId,
+          })),
+          currentUserEmail: email,
+          domain: domainKey,
+          theme: window.MyIOUtils?.theme,
+        });
+      } catch (err) {
+        LogHelper.error('[GoalsCompare] openPricingPanel falhou:', err);
+        _goalsToastError(`Falha ao abrir precificação: ${err?.message || err}`);
+      }
     };
 
     // Tema alterado em outro ponto do dashboard (menu/welcome) → modal acompanha
@@ -5824,6 +5935,17 @@ body.filter-modal-open { overflow: hidden !important; }
         return;
       }
       if (e.target.closest('[data-side-toggle]')) return toggleSide();
+      if (e.target.closest('[data-pricing]')) return void openPricing();
+      // 👁 show/hide por customer: expurga/reintegra o customer dos TOTAIS e do GRÁFICO.
+      const custEyeBtn = e.target.closest('[data-cust-eye]');
+      if (custEyeBtn) {
+        const id = String(custEyeBtn.dataset.custEye);
+        if (hiddenCustomers.has(id)) hiddenCustomers.delete(id);
+        else hiddenCustomers.add(id);
+        if (lastRows) renderTable(lastRows, lastUnit); // Total da sidebar
+        loadEvo(); // re-agrega gráfico/analítico/cards sem os ocultos
+        return;
+      }
       if (e.target.closest('[data-thm]')) {
         modalTheme = modalTheme === 'dark' ? 'light' : 'dark';
         applyModalTheme();
