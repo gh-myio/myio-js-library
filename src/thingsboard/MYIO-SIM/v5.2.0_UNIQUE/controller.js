@@ -9,6 +9,11 @@
 // Debug configuration - set from settings.enableDebugMode in onInit
 let DEBUG_ACTIVE = false;
 
+// Feature flag (HO): pré-carga de anotações no WelcomeModal (meta counts). Enquanto
+// a funcionalidade não é liberada, mantenha FALSE — evita dezenas/centenas de
+// requests por customer no load da modal e mostra um cadeado 🔒 no badge 📋.
+const ENABLE_ANNOTATIONS_META = false;
+
 // RFC-0122: LogHelper - initialized inside onInit after library check
 // @see src/utils/logHelper.js - createLogHelper
 let LogHelper = null;
@@ -1743,7 +1748,13 @@ body.filter-modal-open { overflow: hidden !important; }
     // Seed loading state: badge spinners + 0% card progress bar
     targets.forEach((t) => {
       _cardMetaProgress.set(t.entityId, _cardMetaProgress.get(t.entityId) ?? 0);
-      applyMetaPatch(t.entityId, { users: null, alarms: null, annotations: null }, {});
+      applyMetaPatch(
+        t.entityId,
+        ENABLE_ANNOTATIONS_META
+          ? { users: null, alarms: null, annotations: null }
+          : { users: null, alarms: null, annotationsLocked: true },
+        {}
+      );
     });
 
     try {
@@ -1759,10 +1770,20 @@ body.filter-modal-open { overflow: hidden !important; }
               completeMetaTask(target.entityId);
               applyMetaPatch(target.entityId, { alarms: r?.count ?? 0 }, { alarms: r?.list ?? [] });
             }),
-            fetchAnnotationsMeta(target.customerTbId).then((r) => {
-              completeMetaTask(target.entityId);
-              applyMetaPatch(target.entityId, { annotations: r?.count ?? 0 }, { annotations: r?.list ?? [] });
-            }),
+            ENABLE_ANNOTATIONS_META
+              ? fetchAnnotationsMeta(target.customerTbId).then((r) => {
+                  completeMetaTask(target.entityId);
+                  applyMetaPatch(
+                    target.entityId,
+                    { annotations: r?.count ?? 0 },
+                    { annotations: r?.list ?? [] }
+                  );
+                })
+              : Promise.resolve().then(() => {
+                  // Funcionalidade não liberada: sem request, badge fica com cadeado.
+                  completeMetaTask(target.entityId);
+                  applyMetaPatch(target.entityId, { annotationsLocked: true }, {});
+                }),
           ]);
           LogHelper.log(`[MetaCounts] ${target.title}: enrichment complete`);
         })
@@ -3941,7 +3962,7 @@ body.filter-modal-open { overflow: hidden !important; }
     const hdrBtn =
       'border:1px solid rgba(255,255,255,.5);border-radius:8px;background:rgba(255,255,255,.12);color:#fff;padding:6px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;';
     overlay.innerHTML = `
-      <div role="dialog" data-gc-dialog aria-label="Metas × Consumo" style="background:var(--gc-surface);border-radius:14px;width:min(1320px,calc(100% - 32px));height:88vh;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.3);overflow:hidden;">
+      <div role="dialog" data-gc-dialog aria-label="Metas × Consumo" style="background:var(--gc-surface);border-radius:14px;width:min(1520px,calc(100% - 32px));height:88vh;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.3);overflow:hidden;">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 20px;background:linear-gradient(135deg,${GP.accentDark},${GP.accent});color:${GP.accentText};flex-shrink:0;">
           <strong style="font:700 16px Nunito,sans-serif;">📊 Metas × Consumo — ${_escHtml(_entP())}</strong>
           <div style="display:flex;align-items:center;gap:10px;">
@@ -4009,7 +4030,7 @@ body.filter-modal-open { overflow: hidden !important; }
               <div data-caption style="font:600 11px Nunito,sans-serif;color:var(--gc-muted2);flex:0 0 auto;">Barras: consumo do período e do mesmo período no ano anterior · Linha(s): meta — consolidado/empilhado = soma (${_escHtml(_entPLow())}, linha única); separado = uma linha tracejada por ${_escHtml(_entSLow())} · Consumo Energia: medidores de ENTRADA (régua das metas) · Água: hidrômetros · Dia/Hora seguem o intervalo selecionado; Hora disponível para intervalos de até 15 dias · Gestão: 🎯 Metas → Gestão de Metas.</div>
             </div>
           </div>
-          <aside style="flex:0 0 330px;min-height:0;max-width:100%;display:flex;flex-direction:column;gap:8px;border-left:1px solid var(--gc-border);padding:12px 20px 14px 16px;overflow:hidden;" data-side>
+          <aside style="flex:0 0 372px;min-height:0;max-width:100%;display:flex;flex-direction:column;gap:8px;border-left:1px solid var(--gc-border);padding:12px 20px 14px 16px;overflow:hidden;" data-side>
             <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
               <strong data-side-title style="margin-right:auto;font:700 13px Nunito,sans-serif;color:var(--gc-muted);white-space:nowrap;">Resumo por ${_escHtml(_goalsEntityLabel.toLowerCase())}</strong>
               <button type="button" data-pricing title="Precificação — R$/kWh por ${_escHtml(_entSLow())} × período" style="flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;border:1px solid ${GP.tint(45)};border-radius:8px;background:transparent;color:${GP.accent};padding:4px 10px;cursor:pointer;font:800 14px Nunito,sans-serif;line-height:1.4;transition:background .15s, border-color .15s;" onmouseover="this.style.background='${GP.tint(8)}';this.style.borderColor='${GP.accent}'" onmouseout="this.style.background='transparent';this.style.borderColor='${GP.tint(45)}'">$</button>
@@ -4023,6 +4044,7 @@ body.filter-modal-open { overflow: hidden !important; }
               <button type="button" data-side-sort-key="meta" style="border:1px solid var(--gc-border);border-radius:999px;background:transparent;color:var(--gc-muted);padding:2px 10px;cursor:pointer;font:700 10.5px Nunito,sans-serif;">Orçado</button>
             </div>
             <div data-table style="display:flex;flex-direction:column;gap:8px;flex:1 1 auto;min-height:0;overflow-y:auto;"></div>
+            <div data-side-total style="flex:0 0 auto;"></div>
           </aside>
         </div>
       </div>`;
@@ -4030,6 +4052,7 @@ body.filter-modal-open { overflow: hidden !important; }
     const periodInput = overlay.querySelector('[data-period]');
     const statusEl = overlay.querySelector('[data-status]');
     const tableEl = overlay.querySelector('[data-table]');
+    const totalEl = overlay.querySelector('[data-side-total]');
     const evoStatusEl = overlay.querySelector('[data-evo-status]');
     const evoCanvas = overlay.querySelector('[data-evo-chart]');
     const dialogEl = overlay.querySelector('[data-gc-dialog]');
@@ -4238,7 +4261,7 @@ body.filter-modal-open { overflow: hidden !important; }
       const bval = (v) => `<b style="color:var(--gc-text2);">${fmtCell(v)}</b>`;
       const line = (leftHtml, chipHtml) => `
           <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-            <div style="font:600 11px Nunito,sans-serif;color:var(--gc-muted);display:flex;align-items:center;gap:5px;flex-wrap:wrap;min-width:0;">${leftHtml}</div>
+            <div style="font:600 11px Nunito,sans-serif;color:var(--gc-muted);display:flex;align-items:center;gap:5px;flex-wrap:nowrap;white-space:nowrap;overflow:hidden;min-width:0;">${leftHtml}</div>
             ${chipHtml}
           </div>`;
       // 👁 por customer: botão show/hide no canto superior direito, na linha do título.
@@ -4248,13 +4271,15 @@ body.filter-modal-open { overflow: hidden !important; }
         const hidden = isCustHidden(r.tbId);
         return `<button type="button" data-cust-eye="${_escHtml(String(r.tbId))}" title="${hidden ? 'Exibir' : 'Ocultar'} nos totais e no gráfico" style="margin-left:auto;flex:0 0 auto;border:0;background:transparent;cursor:pointer;padding:0 0 0 6px;font-size:13px;line-height:1;${hidden ? 'opacity:.55;' : ''}">${hidden ? '🙈' : '👁️'}</button>`;
       };
-      const item = (title, r, bold, extras = '') => {
+      const item = (title, r, bold, extras = '', bgStyle = '') => {
         const showMeta = metaDiffers(r.meta, r.metaAdj);
         const hidden = !bold && isCustHidden(r.tbId);
         // Linhas de shopping viram "card" com hover/zoom (classe gc-side-item);
-        // a linha Total (bold) fica estática.
+        // a linha Total (bold) fica estática. bgStyle sobrepõe o fundo (Total usa
+        // leve destaque do theme via GP.tint).
+        const bg = bgStyle || (bold ? 'background:var(--gc-surface2);' : '');
         return `
-        <div class="${bold ? '' : 'gc-side-item'}" style="border:1px solid var(--gc-border);border-radius:10px;padding:8px 10px;display:flex;flex-direction:column;gap:5px;${bold ? 'background:var(--gc-surface2);' : ''}${hidden ? 'opacity:.5;' : ''}">
+        <div class="${bold ? '' : 'gc-side-item'}" style="border:1px solid var(--gc-border);border-radius:10px;padding:8px 10px;display:flex;flex-direction:column;gap:5px;${bg}${hidden ? 'opacity:.5;' : ''}">
           <div style="display:flex;align-items:center;gap:4px;min-width:0;font:${bold ? 800 : 700} 12px Nunito,sans-serif;color:var(--gc-text);">
             <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">${bold ? '' : '🏢 '}${_escHtml(title)}</span>
             ${devCountBadge(r)}
@@ -4266,9 +4291,11 @@ body.filter-modal-open { overflow: hidden !important; }
         </div>`;
       };
       const sorted = sortSideRows(rows);
-      tableEl.innerHTML =
-        sorted.map((r, i) => item(r.title, r, false, gapWarn(r, i))).join('') +
-        item(
+      tableEl.innerHTML = sorted.map((r, i) => item(r.title, r, false, gapWarn(r, i))).join('');
+      // Total fixo no rodapé da sidebar (fora da lista rolável), com leve destaque
+      // do theme (GP.tint) — não some quando a lista rola.
+      if (totalEl)
+        totalEl.innerHTML = item(
           `Total${loading ? ' (parcial)' : ''}`,
           loading
             ? { consumo: undefined, consumoPrev: undefined, meta: undefined, metaAdj: undefined }
@@ -4278,7 +4305,9 @@ body.filter-modal-open { overflow: hidden !important; }
                 meta: totalOrcado || null,
                 metaAdj: totalMetaAdj || null,
               },
-          true
+          true,
+          '',
+          `background:${GP.tint(14)};border-color:${GP.tint(45)};`
         );
       // ⚠ → InfoTooltip da lib com os refs faltantes (re-bind a cada render: o
       // innerHTML acima descarta o DOM anterior junto com os listeners).
@@ -5822,8 +5851,10 @@ body.filter-modal-open { overflow: hidden !important; }
       const table = overlay.querySelector('[data-table]');
       const btn = overlay.querySelector('[data-side-toggle]');
       const pricing = overlay.querySelector('[data-pricing]');
-      aside.style.flex = sideCollapsed ? '0 0 auto' : '0 0 330px';
+      aside.style.flex = sideCollapsed ? '0 0 auto' : '0 0 372px';
       table.style.display = sideCollapsed ? 'none' : 'flex';
+      const totalRow = overlay.querySelector('[data-side-total]');
+      if (totalRow) totalRow.style.display = sideCollapsed ? 'none' : '';
       const sortRow = overlay.querySelector('[data-side-sort]');
       if (sortRow) sortRow.style.display = sideCollapsed ? 'none' : 'flex';
       if (pricing) pricing.style.display = sideCollapsed ? 'none' : '';

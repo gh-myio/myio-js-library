@@ -329,6 +329,9 @@ export class WelcomeModalView {
         buttonId: card.buttonId,
         deviceCounts: card.deviceCounts,
         // V2 cards don't support the null=loading contract — coerce null to undefined
+        // NB: the V2 card type (CustomerCardMetaCounts) has no annotations field;
+        // the annotations/lock badge lives on the PRIMARY welcome-card render, which
+        // reads card.metaCounts directly — so nothing to forward here.
         metaCounts: card.metaCounts
           ? {
               users: card.metaCounts.users ?? undefined,
@@ -2137,8 +2140,15 @@ export class WelcomeModalView {
     const renderMetaCount = (count: number | null | undefined): string =>
       count === null ? '<span class="count-spinner"></span>' : String(count ?? 0);
     // When annotations is provided (even null = loading), the third badge replaces legacy notifications
-    const thirdBadgeHTML =
-      'annotations' in meta
+    const thirdBadgeHTML = meta.annotationsLocked
+      ? `<span class="myio-welcome-card-device-count annotations locked"
+              data-tooltip-type="annotations-locked"
+              data-card-index="${index}"
+              title="Anotações — funcionalidade não liberada ainda (em breve)"
+              style="opacity:.6;cursor:not-allowed;">
+          <span class="icon">📋</span> <span class="icon" style="font-size:.85em;">🔒</span>
+        </span>`
+      : 'annotations' in meta
         ? `<span class="myio-welcome-card-device-count annotations"
               data-tooltip-type="annotations"
               data-card-index="${index}"
@@ -2613,6 +2623,13 @@ export class WelcomeModalView {
         )
         .join('');
       return `${header('🚨', 'Alarmes', meta.alarms ?? alarms.length)}<div style="margin-bottom:6px">${chips}</div>${rows}`;
+    }
+
+    if (type === 'annotations-locked') {
+      return (
+        header('📋', 'Anotações') +
+        '<div style="opacity:.85;padding:6px 0">🔒 Funcionalidade não liberada ainda — em breve.</div>'
+      );
     }
 
     if (type === 'annotations') {

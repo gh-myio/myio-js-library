@@ -226,6 +226,12 @@ export interface ShoppingCardMetaCounts {
   notifications?: number | null;
   /** Number of device annotations; when provided (even null), replaces the notifications badge */
   annotations?: number | null;
+  /**
+   * When true, the annotations badge renders as a 🔒 lock ("funcionalidade não
+   * liberada ainda") and no annotations request is made by the host. Takes
+   * precedence over `annotations`.
+   */
+  annotationsLocked?: boolean;
 }
 
 /**
