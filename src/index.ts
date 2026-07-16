@@ -895,6 +895,26 @@ export type {
   SettingsHubModalHandle,
 } from './components/settings-hub';
 
+// RFC-0222: Customer Energy/Water Pricing Panel (prototype — R$/kWh & R$/m³ per
+// customer × domain × category × period, with audit trail + KPI dashboard).
+// Prototype persistence (memory + localStorage + onSave); real GCDR persistence
+// documented in docs/rfcs/RFC-0222-Customer-Energy-Pricing-Panel.md.
+export { openPricingPanel } from './components/pricing-panel';
+export type {
+  OpenPricingPanelParams,
+  PricingCustomerRef,
+  PricingDomain,
+  PricingCategory,
+  PricingEntry,
+  PricingPeriodType,
+  PricingAuditAction,
+  PricingAuditRecord,
+  PricingKpis,
+  PricingPanelEvent,
+  PricingPanelHandle,
+  PricingPanelThemeSource,
+} from './components/pricing-panel';
+
 // RFC-0108: Measurement Setup Modal
 export { openMeasurementSetupModal } from './components/premium-modals/measurement-setup';
 
