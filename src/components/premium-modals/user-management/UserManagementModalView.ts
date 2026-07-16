@@ -52,6 +52,39 @@ export class UserManagementModalView {
       onThemeChange: (theme) => { this.backdrop.setAttribute('data-theme', theme); },
       onClose: () => this.close(),
     });
+    // Propaga a paleta do dashboard (createMyIOTheme via window.MyIOUtils.theme)
+    // sobre os tokens --um-* e o cabeçalho — segue o accent do host, sem mexer
+    // no modo light/dark.
+    this.applyThemePalette();
+  }
+
+  // Aplica a paleta do dashboard (window.MyIOUtils.theme: createMyIOTheme OU
+  // mapa plano de --myio-*) no root do modal, sobrepondo --um-accent e o
+  // --modal-header-bg do cabeçalho.
+  private applyThemePalette(): void {
+    const theme =
+      typeof window !== 'undefined'
+        ? (window as { MyIOUtils?: { theme?: { cssVars?(): Record<string, string> } | Record<string, string> } })
+            .MyIOUtils?.theme
+        : undefined;
+    if (!theme) return;
+    const vars =
+      typeof (theme as { cssVars?: () => Record<string, string> }).cssVars === 'function'
+        ? (theme as { cssVars(): Record<string, string> }).cssVars()
+        : (theme as Record<string, string>);
+    if (!vars || typeof vars !== 'object') return;
+
+    const accent = vars['--myio-brand-700'] || vars['--myio-primary'];
+    const accentDark = vars['--myio-brand-600'] || accent;
+    if (accent) {
+      this.backdrop.style.setProperty('--um-accent', accent);
+      this.backdrop.style.setProperty('--um-accent-hover', accentDark);
+      const header = this.modalEl.querySelector('.myio-modal-header') as HTMLElement | null;
+      header?.style.setProperty('--modal-header-bg', accent);
+    }
+    Object.entries(vars).forEach(([k, v]) => {
+      if (k.startsWith('--') && typeof v === 'string') this.backdrop.style.setProperty(k, v);
+    });
   }
 
   destroy(): void {

@@ -42,6 +42,8 @@ export class SettingsController {
       jwtToken: params.jwtToken, // RFC-0077: Pass jwtToken for API calls
       tbBaseUrl: params.api?.tbBaseUrl, // Pass tbBaseUrl for superAdmin API calls
       themeTokens: params.ui?.themeTokens,
+      // Host dashboard palette (createMyIOTheme); falls back to window.MyIOUtils.theme in the view.
+      themePalette: params.theme,
       i18n: params.ui?.i18n,
       deviceLabel: params.label, // Pass the device label for dynamic section titles
       connectionData: params.connectionData, // Pass connection info for display

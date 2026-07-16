@@ -384,6 +384,38 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     }
   })();
 
+  // Theme palette (window.MyIOUtils.theme, from createMyIOTheme in MAIN_VIEW):
+  // apply the dashboard accent to the HEADER chrome (alarm-notification tooltip,
+  // header buttons, KPI numbers). Sets the shared --myio-brand-* vars plus a few
+  // header-only derived tints on the widget root AND on documentElement (the alarm
+  // tooltip is appended to <body>, so it inherits from documentElement).
+  // FALLBACK: when no theme is configured nothing is set, and the CSS var()
+  // fallbacks keep today's green — the header looks identical to before.
+  (function applyHeaderTheme() {
+    try {
+      const theme = window.MyIOUtils?.theme;
+      if (!theme) return; // no theme → CSS var() fallbacks preserve current green
+      const setVars = (el) => {
+        if (!el) return;
+        const vars = typeof theme.cssVars === 'function' ? theme.cssVars() : null;
+        if (vars) Object.entries(vars).forEach(([k, v]) => el.style.setProperty(k, v));
+        // Header-only derived tints for the light header-band gradient + dark title.
+        // Only set when a theme exists → no-theme path keeps the exact green literals.
+        if (typeof theme.lighten === 'function') {
+          el.style.setProperty('--myio-hdr-head-bg1', theme.lighten(90));
+          el.style.setProperty('--myio-hdr-head-bg2', theme.lighten(80));
+          el.style.setProperty('--myio-hdr-head-border', theme.lighten(50));
+        }
+        el.style.setProperty('--myio-hdr-title', theme.accentDark || theme.accent);
+      };
+      setVars(self.ctx?.$container?.[0]);
+      if (typeof document !== 'undefined') setVars(document.documentElement);
+      LogHelper.log('[HEADER] theme palette applied to header chrome:', { accent: theme.accent });
+    } catch (themeErr) {
+      LogHelper.warn('[HEADER] theme palette apply failed (keeping default green):', themeErr?.message);
+    }
+  })();
+
   // RFC-0091: DATA_API_HOST is read at call time via window.MyIOUtils.getDataApiHost()
   // No local snapshot — always gets the live value set by MAIN widget onInit.
   // RFC-0091: Use shared customerTB_ID from MAIN widget via window.MyIOUtils
@@ -857,7 +889,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 .ant-tooltip.maximized .ant-alarm-time   { font-size: 11px; }
 .ant-tooltip.maximized .ant-footer-label { font-size: 13px; }
 .ant-tooltip.maximized .ant-footer-value { font-size: 20px; }
-.ant-tooltip.pinned { box-shadow: 0 0 0 2px #0a6d5e, 0 10px 40px rgba(0,0,0,0.2); }
+.ant-tooltip.pinned { box-shadow: 0 0 0 2px var(--myio-brand-700, #0a6d5e), 0 10px 40px rgba(0,0,0,0.2); }
 .ant-content {
   background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
   box-shadow: 0 10px 40px rgba(0,0,0,0.15), 0 2px 10px rgba(0,0,0,0.08);
@@ -868,12 +900,12 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 }
 .ant-header {
   display: flex; align-items: center; gap: 8px; padding: 10px 14px;
-  background: linear-gradient(90deg, #e6f4f1 0%, #c3e6e2 100%);
-  border-bottom: 1px solid #7ecfc8; border-radius: 12px 12px 0 0;
+  background: linear-gradient(90deg, var(--myio-hdr-head-bg1, #e6f4f1) 0%, var(--myio-hdr-head-bg2, #c3e6e2) 100%);
+  border-bottom: 1px solid var(--myio-hdr-head-border, #7ecfc8); border-radius: 12px 12px 0 0;
   cursor: move; user-select: none;
 }
 .ant-header-icon  { font-size: 18px; }
-.ant-header-title { font-weight: 700; font-size: 14px; color: #0a4f45; flex: 1; }
+.ant-header-title { font-weight: 700; font-size: 14px; color: var(--myio-hdr-title, #0a4f45); flex: 1; }
 .ant-header-ts    { font-size: 10px; color: #6b7280; margin-right: 8px; }
 .ant-header-actions { display: flex; align-items: center; gap: 4px; }
 .ant-hbtn {
@@ -882,8 +914,8 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   justify-content: center; transition: all 0.15s; color: #64748b;
 }
 .ant-hbtn:hover { background: rgba(255,255,255,0.9); color: #1e293b; }
-.ant-hbtn.pinned { background: #0a6d5e; color: #fff; }
-.ant-hbtn.pinned:hover { background: #084f44; color: #fff; }
+.ant-hbtn.pinned { background: var(--myio-brand-700, #0a6d5e); color: #fff; }
+.ant-hbtn.pinned:hover { background: var(--myio-brand-600, #084f44); color: #fff; }
 .ant-hbtn svg { width: 14px; height: 14px; }
 .ant-body { padding: 14px; overflow-y: auto; flex: 1; min-height: 0; }
 
@@ -906,7 +938,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   position: absolute; inset: 0; background: #cbd5e1; border-radius: 20px;
   transition: background 0.2s;
 }
-.ant-switch input:checked + .ant-switch-track { background: #0a6d5e; }
+.ant-switch input:checked + .ant-switch-track { background: var(--myio-brand-700, #0a6d5e); }
 .ant-switch-thumb {
   position: absolute; top: 3px; left: 3px; width: 14px; height: 14px;
   background: #fff; border-radius: 50%; transition: transform 0.2s;
@@ -922,7 +954,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   flex: 1; text-align: center; padding: 8px 4px;
   background: #f8faf9; border: 1px solid #e0eceb; border-radius: 8px;
 }
-.ant-summary-num   { font-size: 20px; font-weight: 700; color: #0a6d5e; line-height: 1; }
+.ant-summary-num   { font-size: 20px; font-weight: 700; color: var(--myio-brand-700, #0a6d5e); line-height: 1; }
 .ant-summary-label { font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 2px; }
 
 /* Section headers */
@@ -1031,11 +1063,11 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   content: '▸'; font-size: 12px; color: #94a3b8; transition: transform 0.2s;
 }
 .ant-collapse[open] summary::after { transform: rotate(90deg); }
-.ant-collapse summary:hover { color: #0a4f45; }
+.ant-collapse summary:hover { color: var(--myio-hdr-title, #0a4f45); }
 .ant-collapse-body { padding-top: 8px; }
 .ant-footer {
   padding: 10px 14px; border-top: 1px solid #e8ecef;
-  background: linear-gradient(135deg, #0a6d5e 0%, #0d8570 100%);
+  background: linear-gradient(135deg, var(--myio-brand-700, #0a6d5e) 0%, var(--myio-brand-600, #0d8570) 100%);
   border-radius: 0 0 11px 11px;
   display: flex; align-items: center; justify-content: space-between;
 }

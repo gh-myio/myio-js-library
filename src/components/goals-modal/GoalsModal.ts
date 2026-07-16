@@ -92,6 +92,13 @@ export interface GoalsModalOptions {
   throttleBatchSize?: number;
   /** Pausa extra (ms) a cada `throttleBatchSize` requests. Default 1500. */
   throttleBatchPauseMs?: number;
+  /**
+   * Paleta do dashboard (createMyIOTheme OU mapa plano de CSS vars) — igual ao
+   * `theme` do AllReportModal. Quando presente, o modal aplica as CSS vars
+   * `--myio-*` no root (overlay) e o chrome (header/tabs/botões/spinner) passa a
+   * seguir o accent do host. Sem este param, o modal lê `window.MyIOUtils.theme`.
+   */
+  theme?: { cssVars(): Record<string, string> } | Record<string, string>;
 }
 
 // Estrutura do goals JSON cacheado
@@ -242,6 +249,30 @@ function _getTopDoc(): Document {
   } catch {
     return document;
   }
+}
+
+// Tema efetivo: param explícito OU o global do dashboard (MyIOUtils.theme) —
+// o MENU pode não passar o param, mas a MAIN expõe o global (createMyIOTheme).
+function _resolveThemeSource(): GoalsModalOptions['theme'] | undefined {
+  if (_options?.theme) return _options.theme;
+  if (typeof window === 'undefined') return undefined;
+  return window.MyIOUtils?.theme;
+}
+
+// Aplica a paleta do dashboard (createMyIOTheme OU mapa plano de CSS vars) no
+// root da modal: os estilos internos já leem var(--myio-brand-700). Idêntico ao
+// applyTheme do AllReportModal.
+function _applyTheme(root: HTMLElement): void {
+  const theme = _resolveThemeSource();
+  if (!theme) return;
+  const vars: Record<string, string> | null =
+    typeof (theme as { cssVars?: () => Record<string, string> }).cssVars === 'function'
+      ? (theme as { cssVars(): Record<string, string> }).cssVars()
+      : (theme as Record<string, string>);
+  if (!vars) return;
+  Object.entries(vars).forEach(([k, v]) => {
+    if (k.startsWith('--') && typeof v === 'string') root.style.setProperty(k, v);
+  });
 }
 
 function _formatValue(value: number, domain: string): string {
@@ -906,29 +937,29 @@ function _injectStyles(topDoc: Document): void {
     .gm-overlay.show{opacity:1;}
     .gm-modal{position:relative;background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.25);width:min(1000px,95vw);height:min(660px,90vh);overflow:hidden;display:flex;flex-direction:column;transform:translateY(12px) scale(.98);transition:transform .2s ease;}
     .gm-overlay.show .gm-modal{transform:translateY(0) scale(1);}
-    .gm-header{display:flex;align-items:center;gap:10px;padding:10px 16px;background:#3e1a7d;color:#fff;flex-shrink:0;flex-wrap:wrap;row-gap:6px;}
+    .gm-header{display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--myio-brand-700, #3e1a7d);color:#fff;flex-shrink:0;flex-wrap:wrap;row-gap:6px;}
     .gm-header h3{margin:0;font-size:14px;font-weight:600;display:flex;align-items:center;gap:6px;}
     .gm-header-spacer{flex:1;}
     .gm-gran-wrap{display:flex;gap:2px;align-items:center;background:rgba(0,0,0,.2);border-radius:8px;padding:3px;}
     .gm-gran-btn{border:none;background:transparent;color:rgba(255,255,255,.65);font-size:12px;font-weight:700;padding:4px 12px;border-radius:6px;cursor:pointer;transition:all .15s;}
     .gm-gran-btn:hover{background:rgba(255,255,255,.15);color:#fff;}
-    .gm-gran-btn.active{background:#fff;color:#3e1a7d;box-shadow:0 1px 4px rgba(0,0,0,.2);}
+    .gm-gran-btn.active{background:#fff;color:var(--myio-brand-700, #3e1a7d);box-shadow:0 1px 4px rgba(0,0,0,.2);}
     .gm-date-input{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.3);border-radius:6px;color:#fff;font-size:12px;padding:3px 8px;cursor:pointer;outline:none;}
     .gm-date-picker-wrap{display:flex;align-items:center;}
     /* "DD/MM/YYYY até DD/MM/YYYY" precisa de ~170px em 12px Roboto — 155px cortava o final */
     #gm-date-range-input{min-width:195px;}
     .gm-close{background:transparent;border:none;color:#fff;font-size:22px;line-height:1;cursor:pointer;padding:4px;border-radius:4px;flex-shrink:0;}
     .gm-close:hover{background:rgba(255,255,255,.15);}
-    .gm-tabs{display:flex;gap:4px;padding:8px 14px 0;background:#3e1a7d;flex-shrink:0;}
+    .gm-tabs{display:flex;gap:4px;padding:8px 14px 0;background:var(--myio-brand-700, #3e1a7d);flex-shrink:0;}
     .gm-tab{flex:0 0 auto;display:flex;align-items:center;gap:5px;padding:7px 14px;border:none;background:rgba(255,255,255,.08);color:#cbb6e8;font-size:12px;font-weight:600;cursor:pointer;border-radius:8px 8px 0 0;transition:all .15s;}
     .gm-tab:hover{background:rgba(255,255,255,.16);color:#fff;}
-    .gm-tab.active{background:#fff;color:#3e1a7d;}
+    .gm-tab.active{background:#fff;color:var(--myio-brand-700, #3e1a7d);}
     .gm-body{flex:1;min-height:0;display:flex;flex-direction:column;padding:12px 14px 0;}
     .gm-chart-wrap{position:relative;flex:1;min-height:0;}
     #gm-chart-area{width:100%;height:100%;}
     #gm-canvas{width:100%!important;height:100%!important;}
     .gm-loading{position:absolute;inset:0;background:rgba(255,255,255,.85);display:flex;align-items:center;justify-content:center;z-index:10;border-radius:8px;}
-    .gm-spinner{width:28px;height:28px;border:3px solid #e5e7eb;border-top-color:#3e1a7d;border-radius:50%;animation:gm-spin 1s linear infinite;}
+    .gm-spinner{width:28px;height:28px;border:3px solid #e5e7eb;border-top-color:var(--myio-brand-700, #3e1a7d);border-radius:50%;animation:gm-spin 1s linear infinite;}
     @keyframes gm-spin{to{transform:rotate(360deg);}}
     .gm-footer{display:flex;align-items:flex-start;padding:10px 14px;border-top:1px solid #f3f4f6;flex-shrink:0;}
     #gm-stats{display:flex;justify-content:space-around;align-items:flex-start;width:100%;flex-wrap:wrap;gap:8px;}
@@ -1185,6 +1216,9 @@ export const GoalsModal = {
     topDoc.body.appendChild(overlay);
 
     _overlay = overlay;
+    // Paleta do dashboard (param OU window.MyIOUtils.theme): CSS vars --myio-* no
+    // root do overlay → header/tabs/botões/spinner herdam o accent do host.
+    _applyTheme(overlay);
     requestAnimationFrame(() => overlay.classList.add('show'));
 
     _wireEvents(overlay, topDoc);

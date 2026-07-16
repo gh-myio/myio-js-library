@@ -47,10 +47,10 @@ function injectCSS() {
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 .myio-footer {
-  /* Design Tokens - Purple Theme */
-  --color-primary: #9E8CBE;
-  --color-primary-hover: #B8A5D6;
-  --color-primary-dark: #8472A8;
+  /* Design Tokens - Purple Theme (accent segue a paleta do dashboard; fallback = cor atual) */
+  --color-primary: var(--myio-brand-700, #9E8CBE);
+  --color-primary-hover: var(--myio-brand-700, #B8A5D6);
+  --color-primary-dark: var(--myio-brand-600, #8472A8);
   --color-background: #0f1419;
   --color-surface: #1a1f28;
   --color-surface-elevated: #242b36;
@@ -85,13 +85,13 @@ function injectCSS() {
   color: var(--color-text-primary);
   background: linear-gradient(
     180deg,
-    rgba(158, 140, 190, 0.95) 0%,
-    rgba(132, 114, 168, 0.98) 100%
+    color-mix(in srgb, var(--myio-brand-700, #9E8CBE) 95%, transparent) 0%,
+    color-mix(in srgb, var(--myio-brand-600, #8472A8) 98%, transparent) 100%
   );
-  border-top: 2px solid rgba(184, 165, 214, 0.5);
+  border-top: 2px solid color-mix(in srgb, var(--myio-brand-700, #B8A5D6) 50%, transparent);
   box-shadow:
     var(--shadow-lg),
-    0 -2px 24px rgba(158, 140, 190, 0.3);
+    0 -2px 24px color-mix(in srgb, var(--myio-brand-700, #9E8CBE) 30%, transparent);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
 }
@@ -108,7 +108,7 @@ function injectCSS() {
   padding-left: 8px;
   padding-right: 8px;
   scrollbar-width: thin;
-  scrollbar-color: rgba(158, 140, 190, 0.6) transparent;
+  scrollbar-color: color-mix(in srgb, var(--myio-brand-700, #9E8CBE) 60%, transparent) transparent;
 }
 
 .myio-dock::-webkit-scrollbar {
@@ -116,14 +116,14 @@ function injectCSS() {
 }
 
 .myio-dock::-webkit-scrollbar-track {
-  background: rgba(158, 140, 190, 0.08);
+  background: color-mix(in srgb, var(--myio-brand-700, #9E8CBE) 8%, transparent);
   border-radius: 3px;
 }
 
 .myio-dock::-webkit-scrollbar-thumb {
   background: linear-gradient(90deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
   border-radius: 3px;
-  box-shadow: 0 0 8px rgba(158, 140, 190, 0.4);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--myio-brand-700, #9E8CBE) 40%, transparent);
 }
 
 .myio-chip {
@@ -133,8 +133,8 @@ function injectCSS() {
   padding: 5px 10px;
   height: 34px;
   flex-shrink: 0;
-  background: linear-gradient(135deg, rgba(158, 140, 190, 0.25) 0%, rgba(158, 140, 190, 0.15) 100%);
-  border: 1px solid rgba(184, 165, 214, 0.4);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--myio-brand-700, #9E8CBE) 25%, transparent) 0%, color-mix(in srgb, var(--myio-brand-700, #9E8CBE) 15%, transparent) 100%);
+  border: 1px solid color-mix(in srgb, var(--myio-brand-700, #B8A5D6) 40%, transparent);
   border-radius: var(--radius-md);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
   white-space: nowrap;
@@ -151,9 +151,9 @@ function injectCSS() {
 }
 
 .myio-chip:hover {
-  background: linear-gradient(135deg, rgba(158, 140, 190, 0.35) 0%, rgba(158, 140, 190, 0.25) 100%);
-  border-color: rgba(184, 165, 214, 0.6);
-  box-shadow: 0 6px 16px rgba(158, 140, 190, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--myio-brand-700, #9E8CBE) 35%, transparent) 0%, color-mix(in srgb, var(--myio-brand-700, #9E8CBE) 25%, transparent) 100%);
+  border-color: color-mix(in srgb, var(--myio-brand-700, #B8A5D6) 60%, transparent);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--myio-brand-700, #9E8CBE) 40%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.15);
   transform: translateY(-3px);
 }
 
@@ -226,16 +226,16 @@ function injectCSS() {
   font-weight: 600;
   padding: 12px 24px;
   opacity: 0.9;
-  background: linear-gradient(135deg, rgba(158, 140, 190, 0.15) 0%, transparent 100%);
-  border: 1px dashed rgba(184, 165, 214, 0.4);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--myio-brand-700, #9E8CBE) 15%, transparent) 0%, transparent 100%);
+  border: 1px dashed color-mix(in srgb, var(--myio-brand-700, #B8A5D6) 40%, transparent);
   border-radius: var(--radius-md);
-  text-shadow: 0 0 8px rgba(158, 140, 190, 0.3);
+  text-shadow: 0 0 8px color-mix(in srgb, var(--myio-brand-700, #9E8CBE) 30%, transparent);
   animation: pulseGlow 2s ease-in-out infinite;
 }
 
 @keyframes pulseGlow {
-  0%, 100% { opacity: 0.7; box-shadow: 0 0 0 rgba(158, 140, 190, 0.3); }
-  50% { opacity: 1; box-shadow: 0 0 16px rgba(158, 140, 190, 0.3); }
+  0%, 100% { opacity: 0.7; box-shadow: 0 0 0 color-mix(in srgb, var(--myio-brand-700, #9E8CBE) 30%, transparent); }
+  50% { opacity: 1; box-shadow: 0 0 16px color-mix(in srgb, var(--myio-brand-700, #9E8CBE) 30%, transparent); }
 }
 
 .myio-right {
@@ -262,8 +262,8 @@ function injectCSS() {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, rgba(158, 140, 190, 0.18) 0%, rgba(158, 140, 190, 0.10) 100%);
-  border: 1px solid rgba(184, 165, 214, 0.4);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--myio-brand-700, #9E8CBE) 18%, transparent) 0%, color-mix(in srgb, var(--myio-brand-700, #9E8CBE) 10%, transparent) 100%);
+  border: 1px solid color-mix(in srgb, var(--myio-brand-700, #B8A5D6) 40%, transparent);
   border-radius: var(--radius-md);
   color: var(--color-text-primary);
   cursor: pointer;
@@ -277,8 +277,8 @@ function injectCSS() {
 }
 
 .myio-dock-scroll-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, rgba(158, 140, 190, 0.32) 0%, rgba(158, 140, 190, 0.20) 100%);
-  border-color: rgba(184, 165, 214, 0.6);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--myio-brand-700, #9E8CBE) 32%, transparent) 0%, color-mix(in srgb, var(--myio-brand-700, #9E8CBE) 20%, transparent) 100%);
+  border-color: color-mix(in srgb, var(--myio-brand-700, #B8A5D6) 60%, transparent);
   transform: translateY(-1px);
 }
 
@@ -295,8 +295,8 @@ function injectCSS() {
   gap: 0px;
   padding: 4px 9px;
   min-width: 100px;
-  background: linear-gradient(135deg, rgba(158, 140, 190, 0.15) 0%, rgba(158, 140, 190, 0.08) 100%);
-  border: 1px solid rgba(184, 165, 214, 0.3);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--myio-brand-700, #9E8CBE) 15%, transparent) 0%, color-mix(in srgb, var(--myio-brand-700, #9E8CBE) 8%, transparent) 100%);
+  border: 1px solid color-mix(in srgb, var(--myio-brand-700, #B8A5D6) 30%, transparent);
   border-radius: var(--radius-md);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
@@ -307,7 +307,7 @@ function injectCSS() {
   color: var(--color-text-primary);
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  text-shadow: 0 0 8px rgba(158, 140, 190, 0.4);
+  text-shadow: 0 0 8px color-mix(in srgb, var(--myio-brand-700, #9E8CBE) 40%, transparent);
 }
 
 #myioTotals {
@@ -373,19 +373,19 @@ function injectCSS() {
   font-weight: 700;
   letter-spacing: -0.01em;
   text-transform: uppercase;
-  background: #3E1A7D;
+  background: var(--myio-brand-700, #3E1A7D);
   border: none;
   border-radius: var(--radius-md);
   color: var(--color-text-primary);
   cursor: pointer;
   overflow: hidden;
-  box-shadow: 0 0 0 1px rgba(62, 26, 125, 0.5), 0 4px 16px rgba(62, 26, 125, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--myio-brand-700, #3E1A7D) 50%, transparent), 0 4px 16px color-mix(in srgb, var(--myio-brand-700, #3E1A7D) 40%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.2);
   transition: var(--transition);
 }
 
 .myio-compare:hover {
-  background: linear-gradient(135deg, #5A2CB8 0%, #3E1A7D 100%);
-  box-shadow: 0 0 0 1px rgba(62, 26, 125, 0.7), 0 6px 24px rgba(62, 26, 125, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  background: linear-gradient(135deg, #5A2CB8 0%, var(--myio-brand-700, #3E1A7D) 100%);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--myio-brand-700, #3E1A7D) 70%, transparent), 0 6px 24px color-mix(in srgb, var(--myio-brand-700, #3E1A7D) 60%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.3);
   transform: translateY(-2px);
 }
 
@@ -458,8 +458,8 @@ function injectCSS() {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #3E1A7D 0%, #2D1359 100%);
-  border: 2px solid #3E1A7D;
+  background: linear-gradient(135deg, var(--myio-brand-700, #3E1A7D) 0%, #2D1359 100%);
+  border: 2px solid var(--myio-brand-700, #3E1A7D);
   border-radius: 50%;
   color: #ffffff;
   font-size: 32px;
@@ -490,18 +490,18 @@ function injectCSS() {
   font-size: 15px;
   font-weight: 700;
   text-transform: uppercase;
-  background: linear-gradient(135deg, #3E1A7D 0%, #2D1359 100%);
+  background: linear-gradient(135deg, var(--myio-brand-700, #3E1A7D) 0%, #2D1359 100%);
   border: none;
   border-radius: 12px;
   color: #ffffff;
   cursor: pointer;
-  box-shadow: 0 4px 16px rgba(62, 26, 125, 0.4);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--myio-brand-700, #3E1A7D) 40%, transparent);
   transition: var(--transition);
 }
 
 .myio-alert-button:hover {
-  background: linear-gradient(135deg, #4E2A9D 0%, #3E1A7D 100%);
-  box-shadow: 0 6px 24px rgba(62, 26, 125, 0.5);
+  background: linear-gradient(135deg, #4E2A9D 0%, var(--myio-brand-700, #3E1A7D) 100%);
+  box-shadow: 0 6px 24px color-mix(in srgb, var(--myio-brand-700, #3E1A7D) 50%, transparent);
   transform: translateY(-2px);
 }
     `;
@@ -567,6 +567,7 @@ const footerController = {
     LogHelper.log('[MyIO Footer] Using ThingsBoard template.html (not mounting manually)');
 
     this.queryDOMElements(); // Consultar elementos do template.html
+    this.applyThemeVars(); // Paleta do dashboard (window.MyIOUtils.theme) → CSS vars
     LogHelper.log('[MyIO Footer] DOM elements queried:', {
       dock: !!this.$dock,
       totals: !!this.$totals,
@@ -641,6 +642,41 @@ const footerController = {
       $compareBtn: this.$compareBtn,
       $dockScroll: !!this.$dockScroll,
     });
+  },
+
+  /**
+   * Aplica a paleta do dashboard ao chrome do FOOTER.
+   *
+   * Lê `window.MyIOUtils.theme` (produzido por `createMyIOTheme` na MAIN_VIEW) e
+   * seta as CSS vars `--myio-*` (via `theme.cssVars()`) no root do widget. Os
+   * literais de accent do CSS usam `var(--myio-brand-*, <cor atual>)`, então sem
+   * theme (lib/createMyIOTheme indisponível) o footer permanece IGUAL a hoje.
+   * Não interfere no `theme: 'light'` (modo claro/escuro) passado às modais.
+   */
+  applyThemeVars() {
+    try {
+      const theme = window.MyIOUtils?.theme;
+      if (!theme || typeof theme.cssVars !== 'function') return;
+      const vars = theme.cssVars();
+      if (!vars) return;
+      // Seta nas raízes do footer (o container do widget e a section .myio-footer).
+      // O overlay de alerta é anexado ao document.body e herda as vars que a
+      // MAIN_VIEW já aplica em document.documentElement.
+      const targets = [this.$root, this.$footerEl].filter(Boolean);
+      targets.forEach((el) => {
+        Object.entries(vars).forEach(([k, v]) => {
+          if (k && k.startsWith('--') && typeof v === 'string') {
+            el.style.setProperty(k, v);
+          }
+        });
+      });
+      LogHelper.log('[MyIO Footer] Theme palette applied:', {
+        accent: theme.accent,
+        mode: theme.mode,
+      });
+    } catch (err) {
+      LogHelper.warn('[MyIO Footer] applyThemeVars failed:', err);
+    }
   },
 
   /**

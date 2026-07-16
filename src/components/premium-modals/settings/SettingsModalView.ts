@@ -1530,8 +1530,8 @@ export class SettingsModalView {
         }
 
         .modal-tab.active {
-          color: #3e1a7d;
-          border-bottom-color: #3e1a7d;
+          color: var(--myio-brand-700, #3e1a7d);
+          border-bottom-color: var(--myio-brand-700, #3e1a7d);
           background: #fff;
         }
 
@@ -1576,7 +1576,7 @@ export class SettingsModalView {
           width: 32px;
           height: 32px;
           border: 3px solid #e9ecef;
-          border-top-color: #3e1a7d;
+          border-top-color: var(--myio-brand-700, #3e1a7d);
           border-radius: 50%;
           animation: spin 0.8s linear infinite;
           margin: 0 auto 12px;
@@ -1749,7 +1749,7 @@ export class SettingsModalView {
         .identity-name-text {
           font-size: 15px;
           font-weight: 600;
-          color: #3e1a7d;
+          color: var(--myio-brand-700, #3e1a7d);
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
@@ -1793,7 +1793,7 @@ export class SettingsModalView {
 
         .identity-input:focus {
           outline: none;
-          border-color: #3e1a7d;
+          border-color: var(--myio-brand-700, #3e1a7d);
           box-shadow: 0 0 0 2px rgba(62,26,125,0.1);
         }
 
@@ -1857,7 +1857,7 @@ export class SettingsModalView {
           margin: 0 0 20px 0;
           font-size: 16px;
           font-weight: 600;
-          color: #3e1a7d;
+          color: var(--myio-brand-700, #3e1a7d);
         }
         
         .form-group {
@@ -1889,7 +1889,7 @@ export class SettingsModalView {
         
         .form-group input:focus {
           outline: none;
-          border-color: #3e1a7d;
+          border-color: var(--myio-brand-700, #3e1a7d);
           box-shadow: 0 0 0 2px rgba(62, 26, 125, 0.25);
         }
         
@@ -1932,12 +1932,12 @@ export class SettingsModalView {
         }
         
         .btn-primary {
-          background: #3e1a7d;
+          background: var(--myio-brand-700, #3e1a7d);
           color: white;
         }
         
         .btn-primary:hover:not(:disabled) {
-          background: #2d1458;
+          background: var(--myio-brand-600, #2d1458);
         }
         
         .modal-footer button:disabled {
@@ -1994,7 +1994,7 @@ export class SettingsModalView {
         font-family: 'Courier New', monospace;
         font-size: 13px;
         font-weight: 700;
-        color: #3e1a7d;
+        color: var(--myio-brand-700, #3e1a7d);
       }
 
       /* Responsividade para telas pequenas */
@@ -2134,7 +2134,7 @@ export class SettingsModalView {
 
         .consumption-value-display {
           font-weight: 600;
-          color: #3e1a7d;
+          color: var(--myio-brand-700, #3e1a7d);
         }
 
         .consumption-date {
@@ -2193,12 +2193,12 @@ export class SettingsModalView {
 
         .form-select:focus {
           outline: none;
-          border-color: #3e1a7d;
+          border-color: var(--myio-brand-700, #3e1a7d);
           box-shadow: 0 0 0 2px rgba(62, 26, 125, 0.25);
         }
 
         .form-select:hover {
-          border-color: #3e1a7d;
+          border-color: var(--myio-brand-700, #3e1a7d);
         }
 
         .power-limits-table-wrapper {
@@ -2255,7 +2255,7 @@ export class SettingsModalView {
 
         .limit-input:focus {
           outline: none;
-          border-color: #3e1a7d;
+          border-color: var(--myio-brand-700, #3e1a7d);
           box-shadow: 0 0 0 2px rgba(62, 26, 125, 0.15);
         }
 
@@ -2287,7 +2287,7 @@ export class SettingsModalView {
         }
 
         .source-badge.global-source {
-          background: #3e1a7d;
+          background: var(--myio-brand-700, #3e1a7d);
           color: #fff;
           padding: 6px 14px;
           font-size: 13px;
@@ -2409,7 +2409,7 @@ export class SettingsModalView {
           padding: 12px;
           background: #f8f9fa;
           border-radius: 6px;
-          border-left: 3px solid #3e1a7d;
+          border-left: 3px solid var(--myio-brand-700, #3e1a7d);
         }
 
         .legend-item {
@@ -2628,7 +2628,7 @@ export class SettingsModalView {
         .eg-toggle-label input[type="checkbox"] {
           width: 16px;
           height: 16px;
-          accent-color: #3e1a7d;
+          accent-color: var(--myio-brand-700, #3e1a7d);
           cursor: pointer;
         }
 
@@ -2665,7 +2665,7 @@ export class SettingsModalView {
         }
 
         .eg-rule-row--checked {
-          border-color: #3e1a7d;
+          border-color: var(--myio-brand-700, #3e1a7d);
           background: #f5f0ff;
         }
 
@@ -2680,7 +2680,7 @@ export class SettingsModalView {
         .eg-rule-label input[type="checkbox"] {
           width: 15px;
           height: 15px;
-          accent-color: #3e1a7d;
+          accent-color: var(--myio-brand-700, #3e1a7d);
           cursor: pointer;
           flex-shrink: 0;
         }
@@ -2692,7 +2692,7 @@ export class SettingsModalView {
         }
 
         .eg-rule-row--checked .eg-rule-name {
-          color: #3e1a7d;
+          color: var(--myio-brand-700, #3e1a7d);
         }
 
         .eg-footer {
@@ -2713,7 +2713,7 @@ export class SettingsModalView {
           padding: 8px 20px;
           font-size: 13px;
           font-weight: 600;
-          background: #3e1a7d;
+          background: var(--myio-brand-700, #3e1a7d);
           color: #fff;
           border: none;
           border-radius: 6px;
@@ -2721,7 +2721,7 @@ export class SettingsModalView {
           transition: background 0.2s;
         }
 
-        .eg-btn-save:hover { background: #5a2da8; }
+        .eg-btn-save:hover { background: var(--myio-brand-600, #5a2da8); }
         .eg-btn-save:disabled { opacity: 0.6; cursor: not-allowed; }
 
         /* ================================================================
@@ -3203,17 +3203,57 @@ export class SettingsModalView {
     }
   }
 
+  // Tema efetivo: paleta explícita (config.themePalette) OU o global do
+  // dashboard (window.MyIOUtils.theme) — controllers antigos não passam o param,
+  // mas a MAIN expõe o global (createMyIOTheme).
+  private resolveThemeSource(): { cssVars(): Record<string, string> } | Record<string, string> | undefined {
+    if (this.config.themePalette) return this.config.themePalette;
+    if (typeof window === 'undefined') return undefined;
+    return (
+      window as { MyIOUtils?: { theme?: { cssVars(): Record<string, string> } | Record<string, string> } }
+    ).MyIOUtils?.theme;
+  }
+
+  // Extrai o mapa de CSS vars (--myio-*) da paleta: createMyIOTheme expõe
+  // cssVars(); um host pode também passar um mapa plano já pronto.
+  private themePaletteVars(): Record<string, string> | null {
+    const theme = this.resolveThemeSource();
+    if (!theme) return null;
+    const vars =
+      typeof (theme as { cssVars?: () => Record<string, string> }).cssVars === 'function'
+        ? (theme as { cssVars(): Record<string, string> }).cssVars()
+        : (theme as Record<string, string>);
+    return vars && typeof vars === 'object' ? vars : null;
+  }
+
   private applyTheme(): void {
-    if (this.config.themeTokens) {
-      const style = document.createElement('style');
-      let css = '';
+    const root = this.modal || this.container;
+    if (!root) return;
 
-      for (const [property, value] of Object.entries(this.config.themeTokens)) {
-        css += `--myio-${property}: ${value};\n`;
+    // 1) Paleta do dashboard (createMyIOTheme OU mapa plano de --myio-*).
+    //    Os estilos internos já leem var(--myio-brand-700)/var(--myio-*) — ao
+    //    setar as vars no root, header/tabs/botões seguem a paleta. Não mexe no
+    //    toggle light/dark (as regras .theme-dark continuam por classe).
+    const paletteVars = this.themePaletteVars();
+    if (paletteVars) {
+      Object.entries(paletteVars).forEach(([k, v]) => {
+        if (k.startsWith('--') && typeof v === 'string') root.style.setProperty(k, v);
+      });
+      // O header (RFC-0121 ModalHeader) lê --modal-header-bg via style inline no
+      // próprio elemento; alinha ao accent p/ o cabeçalho também herdar a paleta.
+      const accent = paletteVars['--myio-brand-700'] || paletteVars['--myio-primary'];
+      if (accent) {
+        const header = this.modal?.querySelector('.myio-modal-header') as HTMLElement | null;
+        header?.style.setProperty('--modal-header-bg', accent);
       }
+    }
 
-      style.textContent = `.myio-device-settings-modal { ${css} }`;
-      this.container.appendChild(style);
+    // 2) themeTokens explícito (override do host) — aplicado por último, inline
+    //    no root, p/ vencer a paleta quando o caller define tokens específicos.
+    if (this.config.themeTokens) {
+      for (const [property, value] of Object.entries(this.config.themeTokens)) {
+        root.style.setProperty(`--myio-${property}`, String(value));
+      }
     }
   }
 

@@ -456,6 +456,9 @@ self.onInit = function () {
       libHub({
         customerName: user?.customerTitle || user?.customerName || getCurrentDashboardTitle() || '',
         isSuperAdmin: window.MyIOUtils?.SuperAdmin === true,
+        // Paleta do dashboard (MyIOUtils.theme) — o hub aplica as CSS vars --myio-*
+        // no próprio root (lado que aplica: componente settings-hub da lib).
+        theme: window.MyIOUtils?.theme || undefined,
         handlers: {
           temperature: () => openTemperatureSettings(user),
           contract: () => openContractDevicesSettings(user),
@@ -816,6 +819,8 @@ self.onInit = function () {
     Lib.openDeviceProfileModal({
       customerId,
       profile,
+      // Paleta do dashboard (MyIOUtils.theme) — lado que aplica no componente da lib.
+      theme: window.MyIOUtils?.theme || undefined,
       canEdit: true, // option only rendered for superadmin (isSuperAdmin gate above)
       getDevices,
       userName: (user && (user.email || user.name)) || 'user',
@@ -846,6 +851,8 @@ self.onInit = function () {
     const jwt = localStorage.getItem('jwt_token') || '';
     const orch = window.MyIOOrchestrator;
     window.MyIOUtils.openUserManagementModal({
+      // Paleta do dashboard (MyIOUtils.theme) — lado que aplica no componente da lib.
+      theme: window.MyIOUtils?.theme || undefined,
       customerId: orch?.customerTB_ID || self.ctx.settings?.customerTB_ID || '',
       tenantId: user.tenantId?.id || '',
       customerName:
@@ -2316,6 +2323,9 @@ function openGoalsModal() {
 
   GoalsModal.open({
     initialDomain,
+    // Paleta do dashboard (createMyIOTheme, exposta pela MAIN em MyIOUtils.theme):
+    // a modal aplica as CSS vars --myio-* no próprio root (header/tabs/spinner).
+    theme: window.MyIOUtils?.theme || undefined,
     // Config vinda das settings do MAIN_VIEW via bridge (fallback aplicado na MAIN).
     // Ajuste da meta: RFC-0052 (GCDR) — o adjustedValue já vem da API por
     // customer × domínio × ano; nenhum delta client-side é injetado aqui.
