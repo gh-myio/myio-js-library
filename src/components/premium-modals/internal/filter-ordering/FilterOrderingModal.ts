@@ -9,11 +9,20 @@ export interface StoreItem {
 
 export type SortMode = 'CONSUMPTION_DESC' | 'CONSUMPTION_ASC' | 'ALPHA_ASC' | 'ALPHA_DESC';
 
+/** Filtro rápido por consumo (separado da ordenação). */
+export type ConsumptionFilter = 'all' | 'with' | 'without';
+
+/** Tema efetivo do dashboard: objeto de createMyIOTheme (com .cssVars()) ou mapa plano. */
+export type FilterModalTheme =
+  | { cssVars: () => Record<string, string> }
+  | Record<string, string>;
+
 export interface FilterState {
   allIds: StoreId[];
   selected: Set<StoreId>;
   query: string;
   sort: SortMode;
+  consumptionFilter: ConsumptionFilter;
 }
 
 export interface FilterModalProps {
@@ -27,6 +36,8 @@ export interface FilterModalProps {
   i18n?: Partial<I18nDict>;
   /** Unidade exibida junto ao consumo de cada item (ex.: 'kWh', 'm³'). */
   unit?: string;
+  /** Tema opcional (paleta do dashboard). Se ausente, usa window.MyIOUtils?.theme. */
+  theme?: FilterModalTheme;
 }
 
 export interface I18nDict {
@@ -44,6 +55,10 @@ export interface I18nDict {
   totalLabel: string;
   selectedLabel: string;
   closeLabel: string;
+  filterTitle: string;
+  filterAll: string;
+  filterWith: string;
+  filterWithout: string;
 }
 
 export interface FilterModalHandle {
@@ -69,7 +84,11 @@ const defaultI18n: I18nDict = {
   reset: 'Resetar',
   totalLabel: 'Dispositivos',
   selectedLabel: 'Selecionados',
-  closeLabel: 'Fechar'
+  closeLabel: 'Fechar',
+  filterTitle: 'Consumo',
+  filterAll: 'Todos',
+  filterWith: 'Apenas Com Consumo',
+  filterWithout: 'Apenas Sem Consumo'
 };
 
 export class FilterOrderingModal {
@@ -85,6 +104,7 @@ export class FilterOrderingModal {
     searchInput: HTMLInputElement;
     listContainer: HTMLElement;
     sortRadios: NodeListOf<HTMLInputElement>;
+    filterRadios: NodeListOf<HTMLInputElement>;
     clearSearchBtn: HTMLButtonElement;
   } | null = null;
 
@@ -106,7 +126,8 @@ export class FilterOrderingModal {
       allIds: props.items.map(item => item.id),
       selected: new Set(initialSelected),
       query: '',
-      sort: initialSort
+      sort: initialSort,
+      consumptionFilter: 'all'
     };
 
     this.initialState = {
@@ -244,6 +265,34 @@ export class FilterOrderingModal {
     }
   }
 
+  // Tema efetivo: prop explícita OU o global do dashboard (MyIOUtils.theme).
+  // Controllers antigos não passam o param; a MAIN expõe o global.
+  private resolveThemeSource(): FilterModalTheme | undefined {
+    if (this.props.theme) return this.props.theme;
+    if (typeof window === 'undefined') return undefined;
+    return (window as { MyIOUtils?: { theme?: FilterModalTheme } }).MyIOUtils?.theme;
+  }
+
+  // Aplica a paleta do dashboard (createMyIOTheme OU mapa plano de CSS vars)
+  // no root da modal: os estilos internos já leem var(--myio-*).
+  // Sem tema -> nada muda (fallbacks roxos permanecem).
+  private applyTheme(): void {
+    const theme = this.resolveThemeSource();
+    if (!theme || !this.dom) return;
+    const vars: Record<string, string> | null =
+      typeof (theme as { cssVars?: () => Record<string, string> }).cssVars === 'function'
+        ? (theme as { cssVars(): Record<string, string> }).cssVars()
+        : (theme as Record<string, string>);
+    if (!vars) return;
+    // root contém o card (header/chips/botões); overlay recebe também por herança.
+    const targets = [this.dom.root, this.dom.overlay];
+    targets.forEach(el => {
+      Object.entries(vars).forEach(([k, v]) => {
+        if (k.startsWith('--') && typeof v === 'string') el.style.setProperty(k, v);
+      });
+    });
+  }
+
   private createDOM(): void {
     // Guard against multiple instances (single instance policy)
     const existing = document.querySelector('.myio-modal-root');
@@ -302,6 +351,15 @@ export class FilterOrderingModal {
         </div>
       </section>
 
+      <section class="myio-filtering">
+        <h3>${this.i18n.filterTitle}</h3>
+        <div class="radio-group">
+          <label><input type="radio" name="consumptionFilter" value="all" checked /> ${this.i18n.filterAll}</label>
+          <label><input type="radio" name="consumptionFilter" value="with" /> ${this.i18n.filterWith}</label>
+          <label><input type="radio" name="consumptionFilter" value="without" /> ${this.i18n.filterWithout}</label>
+        </div>
+      </section>
+
       <section class="myio-list" role="listbox" aria-multiselectable="true" data-virtualized>
         <!-- Items will be rendered here -->
       </section>
@@ -335,6 +393,7 @@ export class FilterOrderingModal {
     const searchInput = card.querySelector('[data-search]') as HTMLInputElement;
     const listContainer = card.querySelector('.myio-list') as HTMLElement;
     const sortRadios = card.querySelectorAll('input[name="sort"]') as NodeListOf<HTMLInputElement>;
+    const filterRadios = card.querySelectorAll('input[name="consumptionFilter"]') as NodeListOf<HTMLInputElement>;
     const clearSearchBtn = card.querySelector('[data-clear-search]') as HTMLButtonElement;
 
     this.dom = {
@@ -346,8 +405,12 @@ export class FilterOrderingModal {
       searchInput,
       listContainer,
       sortRadios,
+      filterRadios,
       clearSearchBtn
     };
+
+    // Aplica a paleta do dashboard (CSS vars --myio-*) no root do overlay/modal.
+    this.applyTheme();
 
     this.attachEventListeners();
   }
@@ -440,7 +503,7 @@ export class FilterOrderingModal {
         top: 0;
         z-index: 1;
         padding: 16px 20px;
-        background: var(--myio-purple-600, #4A148C);
+        background: var(--myio-brand-700, #4A148C);
         color: #fff;
         border-radius: 16px 16px 0 0;
         display: flex;
@@ -478,7 +541,7 @@ export class FilterOrderingModal {
         gap: 12px;
         padding: 16px 20px;
         color: #fff;
-        background: #4A148C;
+        background: var(--myio-brand-700, #4A148C);
         position: sticky;
         top: 0;
         z-index: 1;
@@ -584,7 +647,7 @@ export class FilterOrderingModal {
         gap: 10px;
         height: 44px;
         border-radius: 12px;
-        border: 2px solid #4A148C;
+        border: 2px solid var(--myio-brand-700, #4A148C);
         background: #fff;
         padding: 0 14px;
         cursor: pointer;
@@ -615,7 +678,7 @@ export class FilterOrderingModal {
       .chip .metrics-value {
         font-size: 12px;
         font-weight: 700;
-        color: #4A148C;
+        color: var(--myio-brand-700, #4A148C);
       }
 
       .chip .metrics-perc {
@@ -625,37 +688,41 @@ export class FilterOrderingModal {
 
       .chip:hover {
         background: #EDE7F3;
+        background: color-mix(in srgb, var(--myio-brand-700, #4A148C) 10%, #fff);
       }
 
       .chip.selected {
         background: #EDE7F3;
-        border-color: #4A148C;
+        background: color-mix(in srgb, var(--myio-brand-700, #4A148C) 10%, #fff);
+        border-color: var(--myio-brand-700, #4A148C);
       }
 
       .chip .checkbox {
         width: 22px;
         height: 22px;
         border-radius: 6px;
-        border: 2px solid #4A148C;
+        border: 2px solid var(--myio-brand-700, #4A148C);
         display: flex;
         align-items: center;
         justify-content: center;
         font-size: 14px;
         font-weight: bold;
-        color: #4A148C;
+        color: var(--myio-brand-700, #4A148C);
       }
 
       .chip.selected .checkbox {
-        background: #4A148C;
+        background: var(--myio-brand-700, #4A148C);
         color: white;
       }
 
-      .myio-sorting {
+      .myio-sorting,
+      .myio-filtering {
         padding: 16px 20px;
         border-top: 1px solid #E5E7EB;
       }
 
-      .myio-sorting h3 {
+      .myio-sorting h3,
+      .myio-filtering h3 {
         margin: 0 0 12px 0;
         font-size: 16px;
         font-weight: 600;
@@ -669,7 +736,8 @@ export class FilterOrderingModal {
         margin-bottom: 8px;
       }
 
-      .myio-sorting label {
+      .myio-sorting label,
+      .myio-filtering label {
         display: flex;
         gap: 8px;
         align-items: center;
@@ -677,8 +745,10 @@ export class FilterOrderingModal {
         font-size: 14px;
       }
 
-      .myio-sorting input[type="radio"] {
+      .myio-sorting input[type="radio"],
+      .myio-filtering input[type="radio"] {
         margin: 0;
+        accent-color: var(--myio-brand-700, #4A148C);
       }
 
       .hint {
@@ -711,12 +781,12 @@ export class FilterOrderingModal {
       }
 
       .btn.primary {
-        background: #4A148C;
+        background: var(--myio-brand-700, #4A148C);
         color: #fff;
       }
 
       .btn.primary:hover {
-        background: #3A0E5C;
+        background: var(--myio-brand-600, #3A0E5C);
       }
 
       .btn.secondary {
@@ -754,7 +824,7 @@ export class FilterOrderingModal {
   private attachEventListeners(): void {
     if (!this.dom) return;
 
-    const { overlay, root, searchInput, clearSearchBtn, sortRadios } = this.dom;
+    const { overlay, root, searchInput, clearSearchBtn, sortRadios, filterRadios } = this.dom;
 
     // Close handlers
     overlay.addEventListener('click', () => this.close());
@@ -804,6 +874,17 @@ export class FilterOrderingModal {
       });
     });
 
+    // Consumption filter radios (separado da ordenação)
+    filterRadios.forEach(radio => {
+      radio.addEventListener('change', () => {
+        if (radio.checked) {
+          this.state.consumptionFilter = radio.value as ConsumptionFilter;
+          this.updateCounters();
+          this.renderList();
+        }
+      });
+    });
+
     // Footer actions
     root.querySelector('[data-apply]')?.addEventListener('click', () => {
       this.apply();
@@ -841,20 +922,32 @@ export class FilterOrderingModal {
   }
 
   private clearSelection(): void {
-    const visibleIds = this.getVisibleItems();
-    const queryActive = this.state.query.length > 0;
+    // "Limpar" = reset da visão: limpa a busca, seleciona todos,
+    // reseta o filtro de consumo para 'Todos' e a ordenação para o default.
+    const defaultSort: SortMode = 'CONSUMPTION_DESC';
 
-    if (queryActive) {
-      visibleIds.forEach(id => this.state.selected.delete(id));
-    } else {
-      this.state.selected.clear();
+    this.state.query = '';
+    this.state.consumptionFilter = 'all';
+    this.state.sort = defaultSort;
+    this.state.selected = new Set(this.state.allIds);
+
+    if (this.dom) {
+      this.dom.searchInput.value = '';
+      this.dom.clearSearchBtn.hidden = true;
+
+      this.dom.sortRadios.forEach(radio => {
+        radio.checked = radio.value === defaultSort;
+      });
+      this.dom.filterRadios.forEach(radio => {
+        radio.checked = radio.value === 'all';
+      });
     }
 
     this.updateCounters();
     this.renderList();
 
     this.emit('myio:filter:clear', {
-      scope: queryActive ? 'visible' : 'all'
+      scope: 'all'
     });
   }
 
@@ -882,6 +975,7 @@ export class FilterOrderingModal {
     this.state.selected = new Set(this.initialState.selected);
     this.state.sort = this.initialState.sort;
     this.state.query = '';
+    this.state.consumptionFilter = 'all';
 
     if (this.dom) {
       this.dom.searchInput.value = '';
@@ -889,6 +983,9 @@ export class FilterOrderingModal {
 
       this.dom.sortRadios.forEach(radio => {
         radio.checked = radio.value === this.state.sort;
+      });
+      this.dom.filterRadios.forEach(radio => {
+        radio.checked = radio.value === 'all';
       });
     }
 
@@ -899,12 +996,25 @@ export class FilterOrderingModal {
   private getVisibleItems(): StoreId[] {
     const sorted = this.sortItems([...this.itemsById.values()], this.state.sort);
 
+    // num(): null/undefined -> -Infinity (mesma semântica do sortItems).
+    // Para o filtro "with" usamos num(c) > 0; "without" é o complemento,
+    // logo inclui null/0/≤0 (num(null) = -Infinity, que NÃO é > 0).
+    const num = (x?: number | null) => (x == null ? Number.NEGATIVE_INFINITY : x);
+    const filter = this.state.consumptionFilter;
+
+    let filtered = sorted;
+    if (filter === 'with') {
+      filtered = filtered.filter(x => num(x.consumption) > 0);
+    } else if (filter === 'without') {
+      filtered = filtered.filter(x => !(num(x.consumption) > 0));
+    }
+
     if (!this.state.query) {
-      return sorted.map(x => x.id);
+      return filtered.map(x => x.id);
     }
 
     const query = this.normalize(this.state.query);
-    return sorted
+    return filtered
       .filter(x => this.normalize(x.label).includes(query))
       .map(x => x.id);
   }
