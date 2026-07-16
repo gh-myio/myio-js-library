@@ -3941,7 +3941,7 @@ body.filter-modal-open { overflow: hidden !important; }
     const hdrBtn =
       'border:1px solid rgba(255,255,255,.5);border-radius:8px;background:rgba(255,255,255,.12);color:#fff;padding:6px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;';
     overlay.innerHTML = `
-      <div role="dialog" data-gc-dialog aria-label="Metas × Consumo" style="background:var(--gc-surface);border-radius:14px;width:min(1320px,calc(100% - 32px));max-height:92vh;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.3);overflow:hidden;">
+      <div role="dialog" data-gc-dialog aria-label="Metas × Consumo" style="background:var(--gc-surface);border-radius:14px;width:min(1320px,calc(100% - 32px));height:88vh;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.3);overflow:hidden;">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 20px;background:linear-gradient(135deg,${GP.accentDark},${GP.accent});color:${GP.accentText};flex-shrink:0;">
           <strong style="font:700 16px Nunito,sans-serif;">📊 Metas × Consumo — ${_escHtml(_entP())}</strong>
           <div style="display:flex;align-items:center;gap:10px;">
@@ -3951,44 +3951,43 @@ body.filter-modal-open { overflow: hidden !important; }
             <button type="button" data-close="1" aria-label="Fechar" style="border:0;background:transparent;color:#fff;font-size:20px;cursor:pointer;line-height:1;">✕</button>
           </div>
         </div>
-        <div style="display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--gc-border);flex-wrap:wrap;flex-shrink:0;">
-          <div data-tabs style="display:flex;gap:6px;">
-            ${Object.entries(GOALS_COMPARE_DOMAINS)
-              .map(
-                ([k, d]) =>
-                  `<button type="button" data-domain="${k}" style="border:1px solid ${GP.accent};border-radius:8px;padding:6px 14px;cursor:pointer;font:700 13px Nunito,sans-serif;">${d.label}</button>`
-              )
-              .join('')}
-          </div>
-          <label style="display:flex;align-items:center;gap:8px;font:600 13px Nunito,sans-serif;color:var(--gc-text2);">Período
-            <input type="text" data-period readonly placeholder="Selecione o período" style="border:1px solid var(--gc-input-border);border-radius:8px;padding:6px 10px;font:600 13px Nunito,sans-serif;color:var(--gc-text);width:210px;cursor:pointer;background:var(--gc-surface);" />
-          </label>
-          <span data-status hidden style="display:none;"></span>
-          <strong data-side-title style="margin-left:auto;font:700 13px Nunito,sans-serif;color:var(--gc-muted);white-space:nowrap;">Resumo por ${_escHtml(_goalsEntityLabel.toLowerCase())}</strong>
-        </div>
-        <div style="padding:16px 20px;overflow-y:auto;display:flex;flex-direction:column;gap:12px;">
-          <div data-controls style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-            <div data-evo-grans style="display:flex;gap:4px;background:var(--gc-chip);border-radius:8px;padding:3px;">
-              <button type="button" data-gran="1y" title="Ajusta o período para o ano corrente (01/01 até hoje) e mostra a visão mensal" style="border:0;border-radius:6px;padding:5px 14px;cursor:pointer;font:700 12px Nunito,sans-serif;">Ano ${new Date().getFullYear()}</button>
-              <button type="button" data-gran="1M" title="Meses dentro do período selecionado" style="border:0;border-radius:6px;padding:5px 14px;cursor:pointer;font:700 12px Nunito,sans-serif;">Mês</button>
-              <button type="button" data-gran="1d" style="border:0;border-radius:6px;padding:5px 14px;cursor:pointer;font:700 12px Nunito,sans-serif;">Dia</button>
-              <button type="button" data-gran="1h" style="border:0;border-radius:6px;padding:5px 14px;cursor:pointer;font:700 12px Nunito,sans-serif;">Hora</button>
+        <div data-gc-body style="flex:1 1 auto;min-height:0;display:flex;overflow:hidden;">
+          <div data-gc-col1 style="flex:1 1 560px;min-width:0;min-height:0;display:flex;flex-direction:column;padding:12px 20px 14px;overflow:hidden;">
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;flex-shrink:0;padding-bottom:10px;">
+              <div data-tabs style="display:flex;gap:6px;">
+                ${Object.entries(GOALS_COMPARE_DOMAINS)
+                  .map(
+                    ([k, d]) =>
+                      `<button type="button" data-domain="${k}" style="border:1px solid ${GP.accent};border-radius:8px;padding:6px 14px;cursor:pointer;font:700 13px Nunito,sans-serif;">${d.label}</button>`
+                  )
+                  .join('')}
+              </div>
+              <label style="display:flex;align-items:center;gap:8px;font:600 13px Nunito,sans-serif;color:var(--gc-text2);">Período
+                <input type="text" data-period readonly placeholder="Selecione o período" style="border:1px solid var(--gc-input-border);border-radius:8px;padding:6px 10px;font:600 13px Nunito,sans-serif;color:var(--gc-text);width:210px;cursor:pointer;background:var(--gc-surface);" />
+              </label>
+              <span data-status hidden style="display:none;"></span>
             </div>
-            <div data-evo-modes style="display:flex;gap:4px;background:var(--gc-chip);border-radius:8px;padding:3px;">
-              <button type="button" data-mode="analytics" title="Tabela analítica do portfólio: Realizado, A-1, Orçado, variações e performance" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Resumo Analítico</button>
-              <button type="button" data-mode="cons" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Consolidado</button>
-              <button type="button" data-modegroup="sep" title="Um gráfico/card por ${_escHtml(_goalsEntityLabel.toLowerCase())}" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Por ${_escHtml(_goalsEntityLabel)}</button>
+            <div data-controls style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;flex-shrink:0;padding-bottom:10px;">
+              <div data-evo-grans style="display:flex;gap:4px;background:var(--gc-chip);border-radius:8px;padding:3px;">
+                <button type="button" data-gran="1y" title="Ajusta o período para o ano corrente (01/01 até hoje) e mostra a visão mensal" style="border:0;border-radius:6px;padding:5px 14px;cursor:pointer;font:700 12px Nunito,sans-serif;">Ano ${new Date().getFullYear()}</button>
+                <button type="button" data-gran="1M" title="Meses dentro do período selecionado" style="border:0;border-radius:6px;padding:5px 14px;cursor:pointer;font:700 12px Nunito,sans-serif;">Mês</button>
+                <button type="button" data-gran="1d" style="border:0;border-radius:6px;padding:5px 14px;cursor:pointer;font:700 12px Nunito,sans-serif;">Dia</button>
+                <button type="button" data-gran="1h" style="border:0;border-radius:6px;padding:5px 14px;cursor:pointer;font:700 12px Nunito,sans-serif;">Hora</button>
+              </div>
+              <div data-evo-modes style="display:flex;gap:4px;background:var(--gc-chip);border-radius:8px;padding:3px;">
+                <button type="button" data-mode="analytics" title="Tabela analítica do portfólio: Realizado, A-1, Orçado, variações e performance" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Resumo Analítico</button>
+                <button type="button" data-mode="cons" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Consolidado</button>
+                <button type="button" data-modegroup="sep" title="Um gráfico/card por ${_escHtml(_goalsEntityLabel.toLowerCase())}" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Por ${_escHtml(_goalsEntityLabel)}</button>
+              </div>
+              <div data-sep-submodes style="display:none;gap:4px;background:var(--gc-chip);border-radius:8px;padding:3px;">
+                <button type="button" data-submode="stack" title="Séries empilhadas (${_escHtml(_entPLow())}); meta única (soma)" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Empilhados</button>
+                <button type="button" data-submode="sep" title="Um par de barras e uma linha de meta por ${_escHtml(_entSLow())}" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Separados</button>
+                <button type="button" data-submode="cards" title="Um card por ${_escHtml(_entSLow())}: Realizado × A-1 × Orçado (RFC-0217)" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Cards</button>
+              </div>
+              <button type="button" data-cards-settings title="Configurações dos cards (linha/barra, pontos)" style="display:none;border:1px solid ${GP.tint(45)};border-radius:8px;background:transparent;color:${GP.accent};padding:4px 9px;cursor:pointer;font:700 13px Nunito,sans-serif;">⚙️</button>
+              <span data-evo-status style="margin-left:auto;font:600 12px Nunito,sans-serif;color:var(--gc-muted);"></span>
             </div>
-            <div data-sep-submodes style="display:none;gap:4px;background:var(--gc-chip);border-radius:8px;padding:3px;">
-              <button type="button" data-submode="stack" title="Séries empilhadas (${_escHtml(_entPLow())}); meta única (soma)" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Empilhados</button>
-              <button type="button" data-submode="sep" title="Um par de barras e uma linha de meta por ${_escHtml(_entSLow())}" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Separados</button>
-              <button type="button" data-submode="cards" title="Um card por ${_escHtml(_entSLow())}: Realizado × A-1 × Orçado (RFC-0217)" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Cards</button>
-            </div>
-            <button type="button" data-cards-settings title="Configurações dos cards (linha/barra, pontos)" style="display:none;border:1px solid ${GP.tint(45)};border-radius:8px;background:transparent;color:${GP.accent};padding:4px 9px;cursor:pointer;font:700 13px Nunito,sans-serif;">⚙️</button>
-            <span data-evo-status style="margin-left:auto;font:600 12px Nunito,sans-serif;color:var(--gc-muted);"></span>
-          </div>
-          <div style="display:flex;gap:18px;align-items:stretch;flex-wrap:wrap;">
-            <div style="flex:1 1 560px;min-width:0;display:flex;flex-direction:column;gap:14px;position:relative;">
+            <div style="flex:1 1 auto;min-height:0;display:flex;flex-direction:column;gap:10px;position:relative;">
               <div data-evo-loading style="display:none;position:absolute;inset:0;z-index:6;background:rgba(148,163,184,.08);align-items:center;justify-content:center;border-radius:8px;">
                 <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
                   <div style="width:34px;height:34px;border-radius:50%;border:3px solid ${GP.tint(25)};border-top-color:${GP.accent};animation:gcSpin .8s linear infinite;"></div>
@@ -4000,30 +3999,31 @@ body.filter-modal-open { overflow: hidden !important; }
                 #myio-goals-compare-root .gc-side-item{cursor:pointer;transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;}
                 #myio-goals-compare-root .gc-side-item:hover{transform:translateY(-2px) scale(1.02);box-shadow:0 6px 18px rgba(15,23,42,.18);border-color:${GP.tint(45)};}
               </style>
-              <div data-evo-wrap style="position:relative;flex:1 1 auto;min-height:340px;"><canvas data-evo-chart></canvas></div>
-              <div data-cards-grid style="display:none;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;"></div>
-              <div data-cards-legend style="display:none;align-items:center;justify-content:center;gap:18px;flex-wrap:wrap;font:600 11px Nunito,sans-serif;color:var(--gc-muted);padding:4px 2px 0;"></div>
-              <div data-analytics style="display:none;overflow-x:auto;"></div>
+              <div data-evo-wrap style="position:relative;flex:1 1 auto;min-height:150px;"><canvas data-evo-chart></canvas></div>
+              <div data-cards-grid style="display:none;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;flex:1 1 auto;min-height:0;overflow-y:auto;align-content:start;"></div>
+              <div data-cards-legend style="display:none;align-items:center;justify-content:center;gap:18px;flex-wrap:wrap;font:600 11px Nunito,sans-serif;color:var(--gc-muted);padding:4px 2px 0;flex:0 0 auto;"></div>
+              <div data-analytics style="display:none;overflow:auto;flex:1 1 auto;min-height:0;"></div>
               <div data-evo-legend style="display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;border-top:1px solid var(--gc-border);margin-top:2px;padding-top:8px;flex:0 0 auto;">
                 <span data-year-toggles style="display:none;align-items:center;gap:10px;"></span>
               </div>
               <div data-caption style="font:600 11px Nunito,sans-serif;color:var(--gc-muted2);flex:0 0 auto;">Barras: consumo do período e do mesmo período no ano anterior · Linha(s): meta — consolidado/empilhado = soma (${_escHtml(_entPLow())}, linha única); separado = uma linha tracejada por ${_escHtml(_entSLow())} · Consumo Energia: medidores de ENTRADA (régua das metas) · Água: hidrômetros · Dia/Hora seguem o intervalo selecionado; Hora disponível para intervalos de até 15 dias · Gestão: 🎯 Metas → Gestão de Metas.</div>
             </div>
-            <aside style="flex:0 0 330px;max-width:100%;display:flex;flex-direction:column;gap:8px;" data-side>
-              <div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;">
-                <button type="button" data-pricing title="Precificação — R$/kWh por ${_escHtml(_entSLow())} × período" style="flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;border:1px solid ${GP.tint(45)};border-radius:8px;background:transparent;color:${GP.accent};padding:4px 10px;cursor:pointer;font:800 14px Nunito,sans-serif;line-height:1.4;transition:background .15s, border-color .15s;" onmouseover="this.style.background='${GP.tint(8)}';this.style.borderColor='${GP.accent}'" onmouseout="this.style.background='transparent';this.style.borderColor='${GP.tint(45)}'">$</button>
-                <button type="button" data-side-toggle title="Recolher resumo" style="flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;gap:5px;border:1px solid ${GP.tint(45)};border-radius:8px;background:transparent;color:${GP.accent};padding:4px 10px;cursor:pointer;font:700 11px Nunito,sans-serif;line-height:1.4;white-space:nowrap;transition:background .15s, border-color .15s;" onmouseover="this.style.background='${GP.tint(8)}';this.style.borderColor='${GP.accent}'" onmouseout="this.style.background='transparent';this.style.borderColor='${GP.tint(45)}'">Recolher ▶</button>
-              </div>
-              <div data-side-sort style="display:flex;align-items:center;gap:4px;">
-                <span style="font:600 10.5px Nunito,sans-serif;color:var(--gc-muted);">Ordenar:</span>
-                <button type="button" data-side-sort-key="inauguration" title="Data de inauguração (mais antiga primeiro; sem data por último)" style="border:1px solid var(--gc-border);border-radius:999px;background:transparent;color:var(--gc-muted);padding:2px 10px;cursor:pointer;font:700 10.5px Nunito,sans-serif;">Dt. Inaug.</button>
-                <button type="button" data-side-sort-key="title" style="border:1px solid var(--gc-border);border-radius:999px;background:transparent;color:var(--gc-muted);padding:2px 10px;cursor:pointer;font:700 10.5px Nunito,sans-serif;">Nome</button>
-                <button type="button" data-side-sort-key="consumo" style="border:1px solid var(--gc-border);border-radius:999px;background:transparent;color:var(--gc-muted);padding:2px 10px;cursor:pointer;font:700 10.5px Nunito,sans-serif;">Consumo</button>
-                <button type="button" data-side-sort-key="meta" style="border:1px solid var(--gc-border);border-radius:999px;background:transparent;color:var(--gc-muted);padding:2px 10px;cursor:pointer;font:700 10.5px Nunito,sans-serif;">Orçado</button>
-              </div>
-              <div data-table style="display:flex;flex-direction:column;gap:8px;"></div>
-            </aside>
           </div>
+          <aside style="flex:0 0 330px;min-height:0;max-width:100%;display:flex;flex-direction:column;gap:8px;border-left:1px solid var(--gc-border);padding:12px 20px 14px 16px;overflow:hidden;" data-side>
+            <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+              <strong data-side-title style="margin-right:auto;font:700 13px Nunito,sans-serif;color:var(--gc-muted);white-space:nowrap;">Resumo por ${_escHtml(_goalsEntityLabel.toLowerCase())}</strong>
+              <button type="button" data-pricing title="Precificação — R$/kWh por ${_escHtml(_entSLow())} × período" style="flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;border:1px solid ${GP.tint(45)};border-radius:8px;background:transparent;color:${GP.accent};padding:4px 10px;cursor:pointer;font:800 14px Nunito,sans-serif;line-height:1.4;transition:background .15s, border-color .15s;" onmouseover="this.style.background='${GP.tint(8)}';this.style.borderColor='${GP.accent}'" onmouseout="this.style.background='transparent';this.style.borderColor='${GP.tint(45)}'">$</button>
+              <button type="button" data-side-toggle title="Recolher resumo" style="flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;gap:5px;border:1px solid ${GP.tint(45)};border-radius:8px;background:transparent;color:${GP.accent};padding:4px 10px;cursor:pointer;font:700 11px Nunito,sans-serif;line-height:1.4;white-space:nowrap;transition:background .15s, border-color .15s;" onmouseover="this.style.background='${GP.tint(8)}';this.style.borderColor='${GP.accent}'" onmouseout="this.style.background='transparent';this.style.borderColor='${GP.tint(45)}'">Recolher ▶</button>
+            </div>
+            <div data-side-sort style="display:flex;align-items:center;gap:4px;flex-shrink:0;flex-wrap:wrap;">
+              <span style="font:600 10.5px Nunito,sans-serif;color:var(--gc-muted);">Ordenar:</span>
+              <button type="button" data-side-sort-key="inauguration" title="Data de inauguração (mais antiga primeiro; sem data por último)" style="border:1px solid var(--gc-border);border-radius:999px;background:transparent;color:var(--gc-muted);padding:2px 10px;cursor:pointer;font:700 10.5px Nunito,sans-serif;">Dt. Inaug.</button>
+              <button type="button" data-side-sort-key="title" style="border:1px solid var(--gc-border);border-radius:999px;background:transparent;color:var(--gc-muted);padding:2px 10px;cursor:pointer;font:700 10.5px Nunito,sans-serif;">Nome</button>
+              <button type="button" data-side-sort-key="consumo" style="border:1px solid var(--gc-border);border-radius:999px;background:transparent;color:var(--gc-muted);padding:2px 10px;cursor:pointer;font:700 10.5px Nunito,sans-serif;">Consumo</button>
+              <button type="button" data-side-sort-key="meta" style="border:1px solid var(--gc-border);border-radius:999px;background:transparent;color:var(--gc-muted);padding:2px 10px;cursor:pointer;font:700 10.5px Nunito,sans-serif;">Orçado</button>
+            </div>
+            <div data-table style="display:flex;flex-direction:column;gap:8px;flex:1 1 auto;min-height:0;overflow-y:auto;"></div>
+          </aside>
         </div>
       </div>`;
 
@@ -5827,6 +5827,9 @@ body.filter-modal-open { overflow: hidden !important; }
       const sortRow = overlay.querySelector('[data-side-sort]');
       if (sortRow) sortRow.style.display = sideCollapsed ? 'none' : 'flex';
       if (pricing) pricing.style.display = sideCollapsed ? 'none' : '';
+      const sideTitle = overlay.querySelector('[data-side-title]');
+      if (sideTitle) sideTitle.style.display = sideCollapsed ? 'none' : '';
+      aside.style.borderLeftColor = sideCollapsed ? 'transparent' : 'var(--gc-border)';
       btn.textContent = sideCollapsed ? '◀' : 'Recolher ▶'; // recolhido = só a seta (largura mínima)
       btn.title = sideCollapsed ? 'Expandir resumo' : 'Recolher resumo';
       setTimeout(() => evoChart?.resize?.(), 60);
@@ -5870,6 +5873,26 @@ body.filter-modal-open { overflow: hidden !important; }
         return;
       }
       try {
+        // Theme do pricing panel derivado da paleta do próprio painel de Metas
+        // (goalsPalette/GP) — não de window.MyIOUtils.theme (ausente na HO). Mapa
+        // --myio-* plano que o openPricingPanel aplica no root .myio-pricing.
+        const gp = goalsPalette();
+        const isDark = (window.MyIOUtils?.currentThemeMode || currentThemeMode) === 'dark';
+        const pricingTheme = {
+          '--myio-brand-700': gp.accent,
+          '--myio-brand-600': gp.accent,
+          '--myio-brand-100': gp.lighten(85),
+          '--myio-accent-text': gp.accentText,
+          ...(isDark
+            ? {
+                '--myio-card': '#1e293b',
+                '--myio-bg': '#0f172a',
+                '--myio-text': '#e2e8f0',
+                '--myio-text-muted': '#94a3b8',
+                '--myio-border': '#334155',
+              }
+            : {}),
+        };
         MyIOLibrary.openPricingPanel({
           customers: (shoppings || []).map((s) => ({
             tbId: s.tbId,
@@ -5878,7 +5901,7 @@ body.filter-modal-open { overflow: hidden !important; }
           })),
           currentUserEmail: email,
           domain: domainKey,
-          theme: window.MyIOUtils?.theme,
+          theme: pricingTheme,
         });
       } catch (err) {
         LogHelper.error('[GoalsCompare] openPricingPanel falhou:', err);
