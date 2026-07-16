@@ -1,6 +1,6 @@
 // report-all/AllReportModal.ts
 import { createModal } from '../internal/ModalPremiumShell';
-import { toISOWithOffset, rangeDaysInclusive } from '../internal/engines/DateEngine';
+import { toISOWithOffset, rangeDaysInclusive, toDayKey, toHourKey } from '../internal/engines/DateEngine';
 import { toCsv } from '../internal/engines/CsvExporter';
 import { fmtPt } from '../internal/engines/NumberFmt';
 import { AuthClient } from '../internal/engines/AuthClient';
@@ -16,8 +16,9 @@ import { exportGridPdf, exportGridXls } from '../../telemetry-grid-shopping/expo
 import type { TelemetryDevice } from '../../telemetry-grid-shopping/types';
 import { createParticipationChart } from '../../graphs';
 import type { ParticipationChartInstance } from '../../graphs';
-import { createGranularitySelector } from '../../granularity-selector';
-import type { GranularitySelectorInstance } from '../../granularity-selector';
+import { createReportModeSelector } from '../internal/report-mode-selector';
+import type { ReportModeSelectorInstance } from '../internal/report-mode-selector';
+import { renderCollapsibleSectionHeader, renderCollapsibleLeafRow, injectCollapsibleSectionStyles, escapeHtml } from '../internal/collapsible-section';
 import { createModalFooter } from '../footer-modal';
 import type { ModalFooterInstance } from '../footer-modal';
 
@@ -60,6 +61,43 @@ interface StoreReading {
   id?: string; // Data API item id (ingestionId) — needed for per-device series fetch (1h export)
 }
 
+// RFC-0223: per-device/day/hour section tree — the single source every
+// consumer (sectioned grid, KPIs, participation chart) reads from, so totals
+// reconcile with the visible rows by construction instead of by independent
+// implementations happening to agree (AC18).
+interface ReportSectionHourNode {
+  key: string; // 'YYYY-MM-DDTHH'
+  label: string; // 'HH:00'
+  value: number | null; // null only for temperature with no reading that hour
+  excluded: boolean; // Períodos filter (P4) — false until then
+}
+
+interface ReportSectionDayNode {
+  key: string; // 'YYYY-MM-DD'
+  label: string; // 'DD/MM'
+  value: number | null;
+  hours?: ReportSectionHourNode[]; // present only when granularity === '1h'
+  excluded: boolean;
+}
+
+interface ReportSectionDeviceNode {
+  row: StoreReading;
+  days: ReportSectionDayNode[]; // [] when coverage !== 'ok' or the device has zero readings
+  total: number | null;
+  dayCount: number; // AC16: 0 for a genuinely-empty or failed device
+  coverage: 'ok' | 'partial' | 'failed';
+}
+
+interface ReportSectionGroupNode {
+  groupLabel: string; // '—' when ungrouped (mirrors renderGroupedRows' own convention)
+  devices: ReportSectionDeviceNode[];
+  total: number | null;
+}
+
+interface ReportSectionModel {
+  groups: ReportSectionGroupNode[];
+}
+
 export class AllReportModal {
   private modal: any;
   private authClient: AuthClient;
@@ -84,16 +122,69 @@ export class AllReportModal {
   // Domain configuration
   private domainConfig: DomainConfig;
 
-  // Granularity: '1d' (daily) | '1h' (hourly)
-  private granularity: '1d' | '1h' = '1d';
+  // RFC-0223: legacy 2-way granularity, now DERIVED from reportMode (never
+  // assigned directly — the old onChange write site was removed when
+  // ReportModeSelector replaced the bare granularity toggle). Kept as a
+  // read-only getter, not deleted, so existing internal readers (exportCSV's
+  // 1h branch, enrichTemperatureAverages) keep compiling and behaving exactly
+  // as before for any reportMode other than 'consolidado'.
+  private get granularity(): '1d' | '1h' {
+    return this.reportMode === '1h' ? '1h' : '1d';
+  }
 
-  // Hourly series fetched device-by-device for the 1h CSV export (the /totals endpoint
-  // has no hourly granularity). Keyed by StoreReading.id; cache key = period, so a new
-  // load or granularity switch invalidates it.
-  private hourlySeriesCache: {
+  // RFC-0223: tz used for day/hour bucket keys — params.api.timezone override,
+  // default América/São_Paulo (matches BaseApiCfg's documented default).
+  private get timezone(): string {
+    return this.params.api.timezone || 'America/Sao_Paulo';
+  }
+
+  // RFC-0223: report temporal resolution. 'consolidado' (default) preserves today's
+  // behavior byte-for-byte — no per-device series fetch, single aggregate row per device.
+  private reportMode: 'consolidado' | '1d' | '1h' = 'consolidado';
+
+  // RFC-0223: per-device raw point series for 1d/1h sections (grid + PDF + CSV).
+  // Absorbs the old hourlySeriesCache/ensureHourlySeries (single-purpose, 1h-only,
+  // CSV-export-only) — this is the same batched-fetch mechanism generalized to
+  // also drive the on-screen sectioned grid at either granularity. Raw points are
+  // cached (NOT pre-bucketed into day/hour trees) so exportHourlyCSV's existing
+  // per-point consumer stays valid and day/hour buckets stay a single derived
+  // view (bucketByDay), never a second stored representation that could drift
+  // from the raw series.
+  // Cache key: `${startISO}|${endISO}|${granularity}|${idsKey}` (idsKey mirrors
+  // the old hourlySeriesCache's sorted-device-id-list convention).
+  // Invalidated only by a full load, a mode switch, or a device-set change — an
+  // excludedDays/excludedHours change is a pure client-side recompute and never
+  // invalidates it.
+  private deviceSeriesCache: {
     key: string;
-    series: Map<string, Array<{ timestamp: number; value: number }>>;
+    granularity: '1d' | '1h';
+    raw: Map<string, Array<{ timestamp: number; value: number }>>;
+    // Per-device fetch outcome so a swallowed failure never reads as "0 consumo".
+    coverage: Map<string, 'ok' | 'partial' | 'failed'>;
   } | null = null;
+
+  // RFC-0223: temporal (day/hour) Períodos filter. Empty set means "all included".
+  // Keys are derived via the shared tz-aware toDayKey/toHourKey formatter so they
+  // line up with both the visible day labels and the 1d server buckets.
+  private excludedDays: Set<string> = new Set(); // 'YYYY-MM-DD'
+  private excludedHours: Set<string> = new Set(); // 'YYYY-MM-DDTHH'
+
+  // RFC-0223: collapse state for group/device/day sections, namespaced by id
+  // (never by label) so a label containing the separator can't alias another
+  // section: `grp:<id>` | `dev:<id>` | `dev:<id>#day:<YYYY-MM-DD>`.
+  private collapsedSections: Set<string> = new Set();
+  // Identifies the period+mode this collapse state belongs to
+  // (`${startISO}|${endISO}|${reportMode}`) — a loadData()/mode change compares
+  // against this and resets collapsedSections to the AC6 defaults on mismatch; a
+  // Períodos filter apply re-renders without touching it, so carets persist.
+  private collapsedSectionsEpoch: string | null = null;
+
+  // RFC-0223: memoizes buildReportSectionModel() for the current render pass —
+  // every 1d/1h consumer (renderSectionedRows, computeKpis,
+  // updateParticipationChart, getEffectiveDeviceTotal) calls getReportSectionModel()
+  // instead of rebuilding the O(devices × days × hours) tree once per row.
+  // buildReportSectionModel() itself stays a pure, directly-testable function.
+  private sectionModelCache: { key: string; model: ReportSectionModel } | null = null;
 
   // When true, devices flagged via `exclude_groups_totals` for this group are dropped
   // from the report so its total reconciles with the dashboard KPIs. Toggleable in the UI.
@@ -107,8 +198,8 @@ export class AllReportModal {
   // Participation chart (right column) — created lazily on the first data load;
   // fed with the same rows the table shows (exclusion toggle + search respected).
   private participationChart: ParticipationChartInstance | null = null;
-  // Granularity selector (shared component — same pattern as EnergyModal).
-  private granularitySelector: GranularitySelectorInstance | null = null;
+  // RFC-0223: Consolidado | Diário | Horário selector (wraps granularity-selector).
+  private reportModeSelector: ReportModeSelectorInstance | null = null;
   // Footer premium: Customer · relógio · versão | Powered by MYIO | PDF/CSV/XLSX.
   // Os botões de export vivem AQUI (removidos da toolbar).
   private modalFooter: ModalFooterInstance | null = null;
@@ -275,10 +366,13 @@ export class AllReportModal {
         this.participationChart = null;
       }
 
-      // Cleanup granularity selector (tooltip + listeners)
-      if (this.granularitySelector) {
-        this.granularitySelector.destroy();
-        this.granularitySelector = null;
+      // Cleanup report-mode selector (RFC-0223: also destroys the nested
+      // granularity-selector + its tooltip). Reopening always starts at
+      // Consolidado (reportMode is reset in the constructor's field initializer,
+      // and a fresh AllReportModal instance is created per openDashboardPopupAllReport call).
+      if (this.reportModeSelector) {
+        this.reportModeSelector.destroy();
+        this.reportModeSelector = null;
       }
 
       this.authClient.clearCache();
@@ -304,8 +398,7 @@ export class AllReportModal {
               <input type="text" id="date-range" class="myio-input" readonly placeholder="Selecione o período" style="width: 300px;">
             </div>
             <div class="myio-form-group" style="margin-bottom: 0;">
-              <label class="myio-label">Granularidade</label>
-              <div id="granularity-toggle" style="display: flex; align-items: center;"></div>
+              <div id="report-mode-toggle" style="display: flex; align-items: center;"></div>
             </div>
             <button id="load-btn" class="myio-btn myio-btn-primary">
               <span class="myio-spinner" id="load-spinner" style="display: none;"></span>
@@ -314,6 +407,13 @@ export class AllReportModal {
             <!-- Exports CSV/PDF/XLS vivem no footer premium (createModalFooter) -->
             <button id="filter-btn" class="myio-btn myio-btn-secondary" style="background: var(--myio-brand-700); color: white;">
               🔍 Filtros & Ordenação
+            </button>
+            <!-- RFC-0223: Períodos filter + collapse-all — hidden until reportMode !== 'consolidado' -->
+            <button id="periods-filter-btn" class="myio-btn myio-btn-secondary" style="display: none; background: var(--myio-brand-700); color: white;">
+              📅 Períodos
+            </button>
+            <button id="collapse-all-btn" class="myio-btn myio-btn-secondary" style="display: none;">
+              Recolher tudo
             </button>
             <div class="myio-form-group" style="margin-bottom: 0; display: flex; align-items: center; gap: 6px; align-self: flex-end; padding-bottom: 8px;">
               <label for="consider-exclusion" style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; color: var(--myio-text, #374151); white-space: nowrap;">
@@ -462,26 +562,39 @@ export class AllReportModal {
     loadBtn?.addEventListener('click', () => this.loadData());
     filterBtn?.addEventListener('click', () => this.openFilterModal());
 
-    // Granularity selector — mesmo componente da EnergyModal (createGranularitySelector).
-    // 1h só muda o CSV export (série horária por device); a tabela segue com totais.
-    const granToggle = document.getElementById('granularity-toggle');
-    if (granToggle) {
-      this.granularitySelector?.destroy();
-      this.granularitySelector = createGranularitySelector(granToggle, {
+    // RFC-0223: collapse-all/expand-all — next-action-driven label (AC7).
+    const collapseAllBtn = document.getElementById('collapse-all-btn') as HTMLButtonElement | null;
+    collapseAllBtn?.addEventListener('click', () => {
+      if (this.collapsedSections.size > 0) this.expandAllSections();
+      else this.collapseAllSections();
+    });
+
+    // RFC-0223: Consolidado | Diário | Horário selector, replacing the bare
+    // 2-way granularity toggle. Consolidado keeps today's aggregate path
+    // (byte-for-byte, no per-device series fetch); Diário/Horário drive the
+    // sectioned grid built out in later stages. onChange only resets the
+    // series cache and re-renders — the actual fetch/branch happens in
+    // loadData()/renderTable() once reportMode !== 'consolidado' is handled there.
+    const modeToggle = document.getElementById('report-mode-toggle');
+    if (modeToggle) {
+      this.reportModeSelector?.destroy();
+      this.reportModeSelector = createReportModeSelector(modeToggle, {
         settings: {
-          value: this.granularity,
-          // Padrão FIEL ao EnergyModal: pill "1h | 1d" (opções default do componente),
-          // sem label interno (o form group acima já tem "Granularidade").
-          label: '',
-          tooltip: {
-            enabled: true,
-            title: 'Granularidade',
-            text: 'Em <b>Hora</b>, o CSV exportado traz uma linha por dispositivo × hora (busca device a device). A tabela sempre mostra os totais do período.',
-          },
+          value: this.reportMode,
+          themeMode: this.params.ui?.theme === 'dark' ? 'dark' : 'light',
+          // RFC-0223 delivery phases: this PR ships P1 (Diário) only — Horário
+          // stays hidden until its own PR (P3, hourly drill-down) lands.
+          horarioEnabled: false,
         },
-        onChange: (value) => {
-          this.granularity = value;
-          this.hourlySeriesCache = null;
+        onChange: async (value) => {
+          this.reportMode = value;
+          this.deviceSeriesCache = null;
+          this.sectionModelCache = null;
+          if (!this.data.length) return;
+          await this.ensureDeviceSeriesForCurrentMode();
+          this.resetCollapsedSectionsIfEpochChanged();
+          this.renderSummary();
+          this.renderTable();
         },
       });
     }
@@ -508,7 +621,7 @@ export class AllReportModal {
     const exclusionCheckbox = document.getElementById('consider-exclusion') as HTMLInputElement | null;
     exclusionCheckbox?.addEventListener('change', () => {
       this.considerExclusion = exclusionCheckbox.checked;
-      this.remapAndRender();
+      void this.remapAndRender();
     });
 
     // Premium tooltip on the (i) icon, reusing the library InfoTooltip.
@@ -562,7 +675,13 @@ export class AllReportModal {
       const { startISO, endISO } = this.dateRangePicker.getDates();
       this.debugLog('📅 Date range selected', { startISO, endISO });
       this.exportPeriod = { startISO, endISO };
-      this.hourlySeriesCache = null;
+      // RFC-0223: a full load always invalidates the per-device series cache
+      // and the Períodos filter, even if the period/mode happens to be
+      // unchanged — "Carregar" is an explicit refresh action.
+      this.deviceSeriesCache = null;
+      this.sectionModelCache = null;
+      this.excludedDays = new Set();
+      this.excludedHours = new Set();
 
       if (!startISO || !endISO) {
         this.showError('Selecione um período válido');
@@ -595,6 +714,13 @@ export class AllReportModal {
       });
 
       this.currentPage = 1;
+
+      // RFC-0223: fetch the per-device day/hour series before the first paint
+      // when a sectioned mode is already active, so loadData() never flashes
+      // a "0 dias / dados incompletos" state for a mode the operator already
+      // had selected before clicking "Carregar".
+      await this.ensureDeviceSeriesForCurrentMode();
+      this.resetCollapsedSectionsIfEpochChanged();
 
       this.debugLog('🎨 Rendering UI components...');
       this.renderSummary();
@@ -646,6 +772,15 @@ export class AllReportModal {
     }
 
     return filtered.sort((a, b) => {
+      // RFC-0223 AC25: in 1d/1h, a value sort orders DEVICE SECTIONS by their
+      // effective (section-model) total, not the raw Consolidado consumption
+      // field — day/hour rows within a section stay chronological regardless.
+      if (this.sortField === 'consumption' && this.reportMode !== 'consolidado') {
+        const aVal = this.getEffectiveDeviceTotal(a) ?? 0;
+        const bVal = this.getEffectiveDeviceTotal(b) ?? 0;
+        return this.sortDirection === 'asc' ? aVal - bVal : bVal - aVal;
+      }
+
       const aVal = a[this.sortField];
       const bVal = b[this.sortField];
 
@@ -690,34 +825,53 @@ export class AllReportModal {
   private computeKpis(): Array<{ value: string; label: string; sub?: string }> {
     const totalConsumption = this.calculateTotalConsumption();
     const storeCount = Math.max(1, this.data.length);
-    const maxRow = this.data.reduce(
-      (best: StoreReading | null, r) => (!best || r.consumption > best.consumption ? r : best),
+    const isTemperature = (this.params.domain || 'energy') === 'temperature';
+
+    // RFC-0223: routes through getEffectiveDeviceTotal so 1d/1h KPIs reflect
+    // the section model (and, from Stage 5 on, the Périodos filter) instead of
+    // the raw Consolidado `row.consumption` — a no-op for 'consolidado' itself,
+    // since getEffectiveDeviceTotal returns row.consumption unchanged there.
+    const withTotals = this.data.map((row) => ({ row, value: this.getEffectiveDeviceTotal(row) }));
+
+    const maxEntry = withTotals.reduce(
+      (best: { row: StoreReading; value: number | null } | null, e) =>
+        e.value != null && (!best || best.value == null || e.value > best.value) ? e : best,
       null
     );
-    const minRow = this.data
-      .filter((r) => r.consumption > 0)
+    const minEntry = withTotals
+      .filter((e) => e.value != null && e.value > 0)
       .reduce(
-        (best: StoreReading | null, r) => (!best || r.consumption < best.consumption ? r : best),
+        (best: { row: StoreReading; value: number | null } | null, e) =>
+          !best || (best.value != null && e.value! < best.value) ? e : best,
         null
       );
-    const zeroCount = this.data.filter((r) => r.consumption <= 0).length;
-    const isTemperature = (this.params.domain || 'energy') === 'temperature';
+    const zeroCount = withTotals.filter((e) => (e.value ?? 0) <= 0).length;
 
     const kpis: Array<{ value: string; label: string; sub?: string }> = [
       { value: String(this.data.length), label: 'Dispositivos' },
       { value: fmtPt(totalConsumption), label: this.domainConfig.totalLabel },
-      { value: fmtPt(totalConsumption / storeCount), label: 'Média por Dispositivo' },
-      {
-        value: maxRow ? fmtPt(maxRow.consumption) : '—',
-        label: `Máximo (${this.domainConfig.unit})`,
-        ...(maxRow?.name ? { sub: maxRow.name } : {}),
-      },
-      {
-        value: minRow ? fmtPt(minRow.consumption) : '—',
-        label: `Mínimo (${this.domainConfig.unit})`,
-        ...(minRow?.name ? { sub: minRow.name } : {}),
-      },
     ];
+    // RFC-0223: in 1d/1h, calculateTotalConsumption() for temperature is
+    // ALREADY a flat mean (not a sum — see its own doc comment), so dividing it
+    // again by storeCount would silently shrink it into a meaningless number.
+    // "Média por Dispositivo" only makes sense when totalConsumption is a sum
+    // (Consolidado, and energy/water always), so it's omitted in that one
+    // combination rather than computed wrong.
+    if (!(isTemperature && this.reportMode !== 'consolidado')) {
+      kpis.push({ value: fmtPt(totalConsumption / storeCount), label: 'Média por Dispositivo' });
+    }
+    kpis.push(
+      {
+        value: maxEntry?.value != null ? fmtPt(maxEntry.value) : '—',
+        label: `Máximo (${this.domainConfig.unit})`,
+        ...(maxEntry?.row.name ? { sub: maxEntry.row.name } : {}),
+      },
+      {
+        value: minEntry?.value != null ? fmtPt(minEntry.value) : '—',
+        label: `Mínimo (${this.domainConfig.unit})`,
+        ...(minEntry?.row.name ? { sub: minEntry.row.name } : {}),
+      }
+    );
     if (!isTemperature) kpis.push({ value: String(zeroCount), label: 'Sem Consumo' });
     return kpis;
   }
@@ -725,6 +879,16 @@ export class AllReportModal {
   private renderTable(): void {
     const container = document.getElementById('table-container');
     if (!container) return;
+
+    this.updateSectionToolbarVisibility();
+
+    // RFC-0223: Diário/Horário bypass the flat/grouped Consolidado path
+    // entirely and render collapsible per-device sections instead. Consolidado
+    // falls through to the code below, unchanged (AC1/AC3).
+    if (this.reportMode !== 'consolidado') {
+      this.renderSectionedTable(container);
+      return;
+    }
 
     const paginatedData = this.getPaginatedData();
     const filteredData = this.getFilteredData();
@@ -843,7 +1007,7 @@ export class AllReportModal {
     const items = this.getFilteredData().map((row) => ({
       id: row.id || this.generateStoreId(row.identifier),
       label: row.name,
-      value: row.consumption,
+      value: this.getEffectiveDeviceTotal(row) ?? 0,
     }));
 
     if (!this.participationChart) {
@@ -869,6 +1033,434 @@ export class AllReportModal {
     if (palette) this.participationChart.updateSettings({ palette });
     this.participationChart.updateData(items);
   }
+
+  // ===== RFC-0223: Diário/Horário sectioned grid ============================
+
+  // Above this many devices, 1d/1h sections open COLLAPSED by default (AC6) so
+  // a many-device customer doesn't face a wall of expanded rows on first open.
+  private static readonly DEFAULT_COLLAPSE_DEVICE_THRESHOLD = 25;
+
+  // Sum for energy/water, null-aware mean for temperature. Missing leaves
+  // (null) are excluded entirely; an all-missing input still resolves to 0
+  // here — callers needing temperature's "no reading at all" -> "—" rule use
+  // aggregateOrNull instead (this 0-fallback would otherwise read as a
+  // fabricated 0°C average).
+  private aggregate(values: Array<number | null>): number {
+    const domain = this.params.domain || 'energy';
+    const present = values.filter((v): v is number => v != null);
+    if (!present.length) return 0;
+    return domain === 'temperature'
+      ? present.reduce((s, v) => s + v, 0) / present.length
+      : present.reduce((s, v) => s + v, 0);
+  }
+
+  // Domain-aware wrapper: energy/water still resolve an all-missing input to a
+  // real 0; temperature resolves to null ("—") instead of aggregate()'s
+  // unconditional 0-fallback, per the RFC's missing-bucket materialization rule.
+  private aggregateOrNull(values: Array<number | null>): number | null {
+    const isTemperature = (this.params.domain || 'energy') === 'temperature';
+    if (isTemperature && values.every((v) => v == null)) return null;
+    return this.aggregate(values);
+  }
+
+  // A day/device/group's leaf values for aggregation: hour values when hours
+  // exist (for energy/water sum(hours)===sum(days) by associativity; for
+  // temperature this is the REQUIRED flat mean over all included hours, not a
+  // mean-of-day-means — AC18), else the day values themselves (1d mode, where
+  // days ARE the leaves).
+  private flattenLeafValues(days: ReportSectionDayNode[]): Array<number | null> {
+    const included = days.filter((d) => !d.excluded);
+    const hasHours = included.some((d) => d.hours);
+    if (hasHours) {
+      return included.flatMap((d) => (d.hours || []).filter((h) => !h.excluded).map((h) => h.value));
+    }
+    return included.map((d) => d.value);
+  }
+
+  // A missing raw bucket (bucketByDay's `null` = "no point found") materializes
+  // per domain: energy/water -> 0 (a zero reading is meaningful, keeps the
+  // time axis continuous); temperature -> stays null ("—"), excluded from the mean.
+  private materializeMissing(value: number | null): number | null {
+    if (value != null) return value;
+    return (this.params.domain || 'energy') === 'temperature' ? null : 0;
+  }
+
+  // Buckets one device's raw points into every day of the period (continuous —
+  // a day with no matching point still gets an entry, materialized per-domain
+  // by the caller). 1d: one point per day already. 1h: points are grouped into
+  // per-day hour maps, and each day's own value is the aggregate of its hours.
+  private bucketByDay(
+    points: Array<{ timestamp: number; value: number }>,
+    days: string[],
+    granularity: '1d' | '1h'
+  ): Map<string, { value: number | null; hours?: Map<string, number | null> }> {
+    const tz = this.timezone;
+    const result = new Map<string, { value: number | null; hours?: Map<string, number | null> }>();
+    for (const day of days) {
+      result.set(day, { value: null, hours: granularity === '1h' ? new Map() : undefined });
+    }
+    if (granularity === '1d') {
+      for (const p of points) {
+        const bucket = result.get(toDayKey(p.timestamp, tz));
+        if (bucket) bucket.value = p.value;
+      }
+    } else {
+      for (const p of points) {
+        const bucket = result.get(toDayKey(p.timestamp, tz));
+        if (bucket) bucket.hours!.set(toHourKey(p.timestamp, tz), p.value);
+      }
+      for (const bucket of result.values()) {
+        bucket.value = this.aggregateOrNull(Array.from(bucket.hours!.values()));
+      }
+    }
+    return result;
+  }
+
+  // Stable collapsedSections/model-lookup key for a device — ingestionId when
+  // present, else the display identifier (still unique within one report).
+  private sectionDeviceKey(row: StoreReading): string {
+    return row.id || row.identifier;
+  }
+
+  // The single pure tree builder every 1d/1h render/KPI/chart/export path
+  // reads from — directly unit-testable via (modal as any).buildReportSectionModel().
+  private buildReportSectionModel(): ReportSectionModel {
+    const startISO = this.exportPeriod?.startISO;
+    const endISO = this.exportPeriod?.endISO;
+    const periodDays =
+      startISO && endISO ? rangeDaysInclusive(startISO.slice(0, 10), endISO.slice(0, 10)) : [];
+    const cache = this.deviceSeriesCache;
+    const isTemperature = (this.params.domain || 'energy') === 'temperature';
+
+    const buildDayNode = (
+      day: string,
+      rawValue: number | null,
+      hours?: Array<{ key: string; value: number | null }>
+    ): ReportSectionDayNode => {
+      const excluded = this.excludedDays.has(day);
+      let hourNodes: ReportSectionHourNode[] | undefined;
+      let value = this.materializeMissing(rawValue);
+      if (hours) {
+        hourNodes = hours.map((h) => ({
+          key: h.key,
+          label: `${h.key.slice(-2)}:00`,
+          value: this.materializeMissing(h.value),
+          excluded: this.excludedHours.has(h.key),
+        }));
+        value = this.aggregateOrNull(hourNodes.filter((h) => !h.excluded).map((h) => h.value));
+      }
+      return { key: day, label: `${day.slice(8, 10)}/${day.slice(5, 7)}`, value, hours: hourNodes, excluded };
+    };
+
+    const buildDevice = (row: StoreReading): ReportSectionDeviceNode => {
+      const coverage: 'ok' | 'partial' | 'failed' = row.id
+        ? cache?.coverage.get(row.id) || 'failed'
+        : 'failed';
+      const points = row.id ? cache?.raw.get(row.id) : undefined;
+
+      if (coverage === 'failed' || !points) {
+        return { row, days: [], total: null, dayCount: 0, coverage: 'failed' };
+      }
+      if (!points.length) {
+        // AC16: genuinely no readings — 0 dias, zero/dash total, no error.
+        return { row, days: [], total: isTemperature ? null : 0, dayCount: 0, coverage: 'ok' };
+      }
+
+      const buckets = this.bucketByDay(points, periodDays, cache!.granularity);
+      const days = periodDays.map((day) => {
+        const bucket = buckets.get(day)!;
+        const hours = bucket.hours
+          ? Array.from(bucket.hours.entries()).map(([key, value]) => ({ key, value }))
+          : undefined;
+        return buildDayNode(day, bucket.value, hours);
+      });
+
+      const total = this.aggregateOrNull(this.flattenLeafValues(days));
+      return { row, days, total, dayCount: periodDays.length, coverage: 'ok' };
+    };
+
+    // RFC-0182: group by groupLabel, preserving first-occurrence order — same
+    // rule as the existing renderGroupedRows(), so 1d/1h sections nest inside
+    // the same groups the Consolidado view already shows.
+    const groupOrder: string[] = [];
+    const byGroup = new Map<string, StoreReading[]>();
+    for (const row of this.data) {
+      const g = row.groupLabel || '—';
+      if (!byGroup.has(g)) {
+        byGroup.set(g, []);
+        groupOrder.push(g);
+      }
+      byGroup.get(g)!.push(row);
+    }
+
+    const groups: ReportSectionGroupNode[] = groupOrder.map((groupLabel) => {
+      const devices = byGroup.get(groupLabel)!.map(buildDevice);
+      const total = this.aggregateOrNull(devices.flatMap((d) => this.flattenLeafValues(d.days)));
+      return { groupLabel, devices, total };
+    });
+
+    return { groups };
+  }
+
+  // Memoized accessor — buildReportSectionModel() is O(devices × days × hours);
+  // this avoids rebuilding it once per row inside computeKpis/updateParticipationChart loops.
+  private getReportSectionModel(): ReportSectionModel {
+    const key = [
+      this.exportPeriod?.startISO,
+      this.exportPeriod?.endISO,
+      this.reportMode,
+      this.deviceSeriesCache?.key,
+      Array.from(this.excludedDays).sort().join(','),
+      Array.from(this.excludedHours).sort().join(','),
+      this.data.length,
+    ].join('|');
+    if (this.sectionModelCache?.key === key) return this.sectionModelCache.model;
+    const model = this.buildReportSectionModel();
+    this.sectionModelCache = { key, model };
+    return model;
+  }
+
+  // Single dispatch point: 'consolidado' is byte-for-byte row.consumption;
+  // 1d/1h reads the section model's device total instead, so every consumer
+  // (KPIs, chart, sort, PDF/CSV builders) has only ONE place to change when
+  // the Períodos filter (Stage 5) starts excluding days/hours.
+  private getEffectiveDeviceTotal(row: StoreReading): number | null {
+    if (this.reportMode === 'consolidado') return row.consumption;
+    const device = this.getReportSectionModel()
+      .groups.flatMap((g) => g.devices)
+      .find((d) => d.row === row);
+    return device ? device.total : row.consumption;
+  }
+
+  private computeDefaultCollapsedSections(model: ReportSectionModel): Set<string> {
+    const collapsed = new Set<string>();
+    const totalDevices = model.groups.reduce((n, g) => n + g.devices.length, 0);
+    if (totalDevices > AllReportModal.DEFAULT_COLLAPSE_DEVICE_THRESHOLD) {
+      for (const g of model.groups) {
+        for (const d of g.devices) collapsed.add(`dev:${this.sectionDeviceKey(d.row)}`);
+      }
+    }
+    return collapsed;
+  }
+
+  // AC21: reset collapse state to the AC6 defaults on a fresh load or a
+  // reportMode change (period+mode epoch mismatch); a Períodos filter apply
+  // (Stage 5) re-renders WITHOUT calling this, so carets persist across it.
+  private resetCollapsedSectionsIfEpochChanged(): void {
+    const epoch = `${this.exportPeriod?.startISO || ''}|${this.exportPeriod?.endISO || ''}|${this.reportMode}`;
+    if (this.collapsedSectionsEpoch === epoch) return;
+    this.collapsedSectionsEpoch = epoch;
+    this.collapsedSections =
+      this.reportMode === 'consolidado' ? new Set() : this.computeDefaultCollapsedSections(this.getReportSectionModel());
+  }
+
+  // Orchestrates the per-device series fetch for whatever mode is currently
+  // active — called from loadData() (full load) and the mode-selector's
+  // onChange (mode switch); exportHourlyCSV/exportCSV call ensureDeviceSeries
+  // directly since they already have their own error handling/UI state.
+  private async ensureDeviceSeriesForCurrentMode(): Promise<void> {
+    if (this.reportMode === 'consolidado' || !this.data.length) return;
+    try {
+      await this.ensureDeviceSeries(this.data, this.reportMode);
+      this.sectionModelCache = null;
+    } catch (err) {
+      this.debugLog('❌ Error fetching device series for sectioned report', err);
+      this.showError('Erro ao buscar séries por dispositivo para o relatório seccionado. Tente novamente.');
+    }
+  }
+
+  // Shows/hides the RFC-0223 toolbar controls. The Períodos button stays
+  // hidden until Stage 5 gives it a click handler — a visible-but-inert button
+  // would be a dead end for the operator.
+  private updateSectionToolbarVisibility(): void {
+    const sectioned = this.reportMode !== 'consolidado';
+    const collapseBtn = document.getElementById('collapse-all-btn') as HTMLButtonElement | null;
+    const periodsBtn = document.getElementById('periods-filter-btn') as HTMLButtonElement | null;
+    if (collapseBtn) collapseBtn.style.display = sectioned ? '' : 'none';
+    if (periodsBtn) periodsBtn.style.display = 'none';
+    if (sectioned) this.updateCollapseAllButtonLabel();
+  }
+
+  private updateCollapseAllButtonLabel(): void {
+    const btn = document.getElementById('collapse-all-btn') as HTMLButtonElement | null;
+    if (!btn) return;
+    btn.textContent = this.collapsedSections.size > 0 ? 'Expandir tudo' : 'Recolher tudo';
+  }
+
+  // Pure DOM show/hide — a caret click NEVER re-invokes renderTable()/renderSectionedRows().
+  // A row is hidden if ANY of its ancestor section keys are collapsed; a header
+  // row's OWN key is never in its own ancestor list, so collapsing a section
+  // never hides its own header, only its descendants.
+  private applySectionVisibility(container: HTMLElement): void {
+    container.querySelectorAll<HTMLElement>('[data-ancestors]').forEach((row) => {
+      const ancestors = (row.dataset.ancestors || '').split(' ').filter(Boolean);
+      row.style.display = ancestors.some((k) => this.collapsedSections.has(k)) ? 'none' : '';
+    });
+    container.querySelectorAll<HTMLElement>('[data-section-toggle]').forEach((header) => {
+      const key = header.dataset.sectionToggle!;
+      const collapsed = this.collapsedSections.has(key);
+      header.setAttribute('aria-expanded', String(!collapsed));
+      const caret = header.querySelector('.rp-section-caret');
+      if (caret) caret.textContent = collapsed ? '▶' : '▼';
+    });
+  }
+
+  private toggleSection(key: string): void {
+    if (this.collapsedSections.has(key)) this.collapsedSections.delete(key);
+    else this.collapsedSections.add(key);
+    const container = document.getElementById('table-container');
+    if (container) this.applySectionVisibility(container);
+    this.updateCollapseAllButtonLabel();
+  }
+
+  private collapseAllSections(): void {
+    const model = this.getReportSectionModel();
+    for (const g of model.groups) {
+      this.collapsedSections.add(`grp:${g.groupLabel}`);
+      for (const d of g.devices) this.collapsedSections.add(`dev:${this.sectionDeviceKey(d.row)}`);
+    }
+    const container = document.getElementById('table-container');
+    if (container) this.applySectionVisibility(container);
+    this.updateCollapseAllButtonLabel();
+  }
+
+  private expandAllSections(): void {
+    this.collapsedSections.clear();
+    const container = document.getElementById('table-container');
+    if (container) this.applySectionVisibility(container);
+    this.updateCollapseAllButtonLabel();
+  }
+
+  // Event delegation on the (stable, never-replaced) #table-container element —
+  // a `data-bound`-style guard prevents double-binding across re-renders, since
+  // only its innerHTML (not the element itself) is replaced on each render.
+  private setupSectionToggling(container: HTMLElement): void {
+    if (container.dataset.sectionTogglingBound === 'true') return;
+    container.dataset.sectionTogglingBound = 'true';
+
+    const activate = (target: EventTarget | null): void => {
+      const header = (target as HTMLElement | null)?.closest<HTMLElement>('[data-section-toggle]');
+      if (!header) return;
+      this.toggleSection(header.dataset.sectionToggle!);
+    };
+    container.addEventListener('click', (e) => activate(e.target));
+    container.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      const header = (e.target as HTMLElement | null)?.closest<HTMLElement>('[data-section-toggle]');
+      if (!header) return;
+      e.preventDefault();
+      activate(e.target);
+    });
+  }
+
+  // Renders the group -> device -> day row tree. Day rows carry NO further
+  // collapse in 1d/1h yet (Stage 4 adds the day -> hour second level for 1h);
+  // for now a 1h day row simply shows its (already hour-aggregated) total,
+  // matching 1d's day row exactly.
+  private renderSectionedRows(model: ReportSectionModel): string {
+    const visibleIds = new Set(this.getFilteredData().map((r) => this.sectionDeviceKey(r)));
+    const isGrouped = this.getFilteredData().some((r) => r.groupLabel);
+    const fmtValue = (v: number | null) => (v == null ? '—' : fmtPt(v));
+    const pctOfDevice = (v: number | null, deviceTotal: number | null) =>
+      v != null && deviceTotal != null && deviceTotal > 0 ? `${fmtPt((v / deviceTotal) * 100)}%` : '—';
+
+    let html = '';
+    for (const group of model.groups) {
+      const visibleDevices = group.devices.filter((d) => visibleIds.has(this.sectionDeviceKey(d.row)));
+      if (!visibleDevices.length) continue;
+
+      const groupKey = `grp:${group.groupLabel}`;
+      if (isGrouped) {
+        html += renderCollapsibleSectionHeader({
+          sectionKey: groupKey,
+          ancestorKeys: [],
+          level: 0,
+          title: group.groupLabel,
+          meta: `${visibleDevices.length} dispositivo${visibleDevices.length === 1 ? '' : 's'}`,
+          totalLabel: `${fmtValue(group.total)} ${this.domainConfig.unit}`,
+          collapsed: this.collapsedSections.has(groupKey),
+          colSpan: 3,
+        });
+      }
+      const groupAncestors = isGrouped ? [groupKey] : [];
+
+      for (const device of visibleDevices) {
+        const deviceKey = `dev:${this.sectionDeviceKey(device.row)}`;
+        html += renderCollapsibleSectionHeader({
+          sectionKey: deviceKey,
+          ancestorKeys: groupAncestors,
+          level: 1,
+          title: `${device.row.name} (${device.row.identifier})`,
+          meta: `${device.dayCount} dia${device.dayCount === 1 ? '' : 's'}`,
+          totalLabel: `${fmtValue(device.total)} ${this.domainConfig.unit}`,
+          collapsed: this.collapsedSections.has(deviceKey),
+          colSpan: 3,
+          incomplete: device.coverage === 'failed',
+        });
+
+        const dayAncestors = [...groupAncestors, deviceKey];
+        for (const day of device.days) {
+          html += renderCollapsibleLeafRow({
+            ancestorKeys: dayAncestors,
+            level: 2,
+            cells: [
+              `<td data-label="Dia">${escapeHtml(day.label)}</td>`,
+              `<td data-label="${escapeHtml(this.domainConfig.label)}" style="text-align:right;">${fmtValue(day.value)}</td>`,
+              `<td data-label="%" style="text-align:right;color:var(--myio-text-muted);">${pctOfDevice(day.value, device.total)}</td>`,
+            ],
+          });
+        }
+      }
+    }
+    return html;
+  }
+
+  private renderSectionedTable(container: HTMLElement): void {
+    injectCollapsibleSectionStyles();
+    const model = this.getReportSectionModel();
+    const visibleIds = new Set(this.getFilteredData().map((r) => this.sectionDeviceKey(r)));
+    const anyVisible = model.groups.some((g) => g.devices.some((d) => visibleIds.has(this.sectionDeviceKey(d.row))));
+
+    if (!anyVisible) {
+      // AC24: name which filter is hiding rows instead of a generic empty state.
+      const deviceFiltered = this.selectedStoreIds.size > 0 && this.selectedStoreIds.size < this.data.length;
+      container.innerHTML = `
+        <div style="text-align: center; padding: 40px; color: var(--myio-text-muted);">
+          ${
+            this.searchFilter
+              ? 'Nenhum dispositivo encontrado com o filtro aplicado.'
+              : deviceFiltered
+                ? 'Nenhum dispositivo — ajuste Filtros & Ordenação.'
+                : 'Nenhum dado encontrado.'
+          }
+        </div>
+      `;
+      this.updateParticipationChart();
+      return;
+    }
+
+    const rowsHtml = this.renderSectionedRows(model);
+    container.innerHTML = `
+      <div style="max-height: 500px; overflow-y: auto; border: 1px solid var(--myio-border); border-radius: 6px;">
+        <table class="myio-table myio-table-mobile" style="table-layout: fixed; width: 100%;">
+          <thead style="position: sticky; top: 0; background: var(--myio-bg); z-index: 1;">
+            <tr>
+              <th style="width: 62%;">Dispositivo / Dia</th>
+              <th style="text-align: right; width: 24%;">${this.domainConfig.label}</th>
+              <th style="text-align: right; width: 14%;">%</th>
+            </tr>
+          </thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      </div>
+    `;
+
+    this.applySectionVisibility(container);
+    this.setupSectionToggling(container);
+    this.updateParticipationChart();
+  }
+
+  // ===== end RFC-0223 sectioned grid =========================================
 
   // RFC-0182: Render rows grouped by groupLabel with section headers (Option B)
   private renderGroupedRows(rows: StoreReading[], grandTotal: number): string {
@@ -951,7 +1543,17 @@ export class AllReportModal {
   }
 
   private calculateTotalConsumption(): number {
-    return this.data.reduce((sum, row) => sum + row.consumption, 0);
+    if (this.reportMode === 'consolidado') {
+      return this.data.reduce((sum, row) => sum + row.consumption, 0);
+    }
+    // RFC-0223: pooled flat aggregate over every included leaf bucket across
+    // ALL devices — for energy/water this equals summing device totals
+    // (associative); for temperature this is a TRUE flat mean unbiased by
+    // per-device coverage disparities (same rationale as AC18's device-level
+    // flat-mean rule, one level up).
+    const allDevices = this.getReportSectionModel().groups.flatMap((g) => g.devices);
+    const pooledLeafValues = allDevices.flatMap((d) => this.flattenLeafValues(d.days));
+    return this.aggregate(pooledLeafValues);
   }
 
   private openFilterModal(): void {
@@ -1063,11 +1665,21 @@ export class AllReportModal {
       return;
     }
 
+    // RFC-0223 P1: the per-device × day sectioned CSV for Diário is P2 scope —
+    // this stays the flat per-device CSV for Consolidado AND Diário alike, but
+    // routes through getEffectiveDeviceTotal() (not raw row.consumption) so a
+    // Diário + temperature export doesn't regress to all-zero rows (the
+    // temperature enrichment fetch is intentionally skipped outside
+    // 'consolidado' — see fetchCustomerTotals). A no-op for 'consolidado'.
     const csvData = [
       // Header row only
       ['Identificador', 'Nome', `Consumo (${this.domainConfig.unit})`],
       // Data rows
-      ...sortedData.map((row) => [row.identifier, row.name, row.consumption.toFixed(2)]),
+      ...sortedData.map((row) => [
+        row.identifier,
+        row.name,
+        (this.getEffectiveDeviceTotal(row) ?? 0).toFixed(2),
+      ]),
     ];
 
     const csvContent = toCsv(csvData);
@@ -1086,7 +1698,7 @@ export class AllReportModal {
     }
 
     try {
-      const series = await this.ensureHourlySeries(sortedData);
+      const series = await this.ensureDeviceSeries(sortedData, '1h');
 
       const fmtTs = (ts: number) => {
         const d = new Date(ts);
@@ -1128,10 +1740,14 @@ export class AllReportModal {
     }
   }
 
-  // Fetches (or reuses) the per-device hourly series for the current export period.
-  // Same batching pattern as enrichTemperatureAverages (6 concurrent requests).
-  private async ensureHourlySeries(
-    rows: StoreReading[]
+  // Fetches (or reuses) the per-device series for the given granularity and
+  // the current export period. Generalizes the old ensureHourlySeries
+  // (1h-only, CSV-export-only) to also drive the on-screen sectioned grid at
+  // either granularity, with per-device coverage tracking (AC19) replacing
+  // the old silent swallow of a failed/empty device ("fica de fora do CSV").
+  private async ensureDeviceSeries(
+    rows: StoreReading[],
+    granularity: '1d' | '1h'
   ): Promise<Map<string, Array<{ timestamp: number; value: number }>>> {
     const startISO = this.exportPeriod?.startISO;
     const endISO = this.exportPeriod?.endISO;
@@ -1143,8 +1759,8 @@ export class AllReportModal {
       .filter(Boolean)
       .sort()
       .join(',');
-    const cacheKey = `${startISO}|${endISO}|${idsKey}`;
-    if (this.hourlySeriesCache?.key === cacheKey) return this.hourlySeriesCache.series;
+    const cacheKey = `${startISO}|${endISO}|${granularity}|${idsKey}`;
+    if (this.deviceSeriesCache?.key === cacheKey) return this.deviceSeriesCache.raw;
 
     const token = this.params.api.ingestionToken;
     const baseUrl = this.params.api.dataApiBaseUrl;
@@ -1153,48 +1769,67 @@ export class AllReportModal {
     const endpoint = this.domainConfig.endpoint;
     const startTime = encodeURIComponent(startISO);
     const endTime = encodeURIComponent(endISO);
-    const series = new Map<string, Array<{ timestamp: number; value: number }>>();
+    const raw = new Map<string, Array<{ timestamp: number; value: number }>>();
+    const coverage = new Map<string, 'ok' | 'partial' | 'failed'>();
 
     const targets = rows.filter((r) => r.id);
     const BATCH = 6;
     for (let i = 0; i < targets.length; i += BATCH) {
       await Promise.all(
         targets.slice(i, i + BATCH).map(async (row) => {
+          const id = row.id!;
           try {
-            const url = `${baseUrl}/telemetry/devices/${row.id}/${endpoint}?startTime=${startTime}&endTime=${endTime}&granularity=1h&deep=0`;
+            const url = `${baseUrl}/telemetry/devices/${id}/${endpoint}?startTime=${startTime}&endTime=${endTime}&granularity=${granularity}&deep=0`;
             const res = await fetch(url, {
               headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
             });
-            if (!res.ok) return;
+            if (!res.ok) {
+              coverage.set(id, 'failed');
+              return;
+            }
             const body = await res.json();
             const ent = Array.isArray(body) ? body[0] : body;
             const points = ((ent?.consumption || []) as Array<{ timestamp: unknown; value: unknown }>)
               .map((p) => ({ timestamp: new Date(p?.timestamp as string | number).getTime(), value: Number(p?.value) }))
               .filter((p) => Number.isFinite(p.timestamp) && Number.isFinite(p.value));
-            if (points.length) series.set(row.id!, points);
+            raw.set(id, points);
+            coverage.set(id, 'ok');
           } catch {
-            /* device sem série no período — fica de fora do CSV */
+            coverage.set(id, 'failed');
           }
         })
       );
     }
 
-    this.debugLog(`[AllReportModal] 1h series fetched for ${series.size}/${targets.length} devices`);
-    this.hourlySeriesCache = { key: cacheKey, series };
-    return series;
+    const okCount = Array.from(coverage.values()).filter((c) => c === 'ok').length;
+    this.debugLog(`[AllReportModal] ${granularity} series fetched for ${okCount}/${targets.length} devices`);
+
+    // RFC-0223: discard a stale in-flight result if the mode changed to a
+    // DIFFERENT granularity while this fetch was awaiting — never let it
+    // clobber a newer mode's cache (the caller still gets its data either way).
+    if (this.granularity !== granularity) return raw;
+
+    this.deviceSeriesCache = { key: cacheKey, granularity, raw, coverage };
+    return raw;
   }
 
   // Maps the report rows to the TelemetryDevice shape consumed by the shared
   // TELEMETRY grid exporters (only labelOrName/name/deviceIdentifier/val/perc are read).
   private buildExportDevices(): TelemetryDevice[] {
-    const sorted = [...this.data].sort((a, b) => b.consumption - a.consumption);
-    const total = sorted.reduce((s, r) => s + (r.consumption || 0), 0);
-    return sorted.map((r) => ({
-      labelOrName: r.name,
-      name: r.name,
-      deviceIdentifier: r.identifier,
-      val: r.consumption,
-      perc: total > 0 ? (r.consumption / total) * 100 : 0,
+    // RFC-0223: routes through getEffectiveDeviceTotal so XLS export (which has
+    // no dedicated sectioned builder — only the grid/PDF/CSV do) still reports
+    // correct 1d/1h totals instead of the raw (possibly stale/zeroed, see
+    // fetchCustomerTotals' temperature skip) Consolidado `row.consumption`. A
+    // no-op for 'consolidado' itself.
+    const withTotals = this.data.map((r) => ({ row: r, val: this.getEffectiveDeviceTotal(r) ?? 0 }));
+    const sorted = [...withTotals].sort((a, b) => b.val - a.val);
+    const total = sorted.reduce((s, e) => s + e.val, 0);
+    return sorted.map((e) => ({
+      labelOrName: e.row.name,
+      name: e.row.name,
+      deviceIdentifier: e.row.identifier,
+      val: e.val,
+      perc: total > 0 ? (e.val / total) * 100 : 0,
     })) as unknown as TelemetryDevice[];
   }
 
@@ -1222,7 +1857,13 @@ export class AllReportModal {
     if (!this.data.length) return;
 
     const chartPng = await this.participationChart?.toPngDataUrl?.().catch(() => null);
+    const chartImage = chartPng ? { ...chartPng, title: 'Participação por Dispositivo' } : null;
 
+    // RFC-0223 P1: PDF export stays on the shared exportGridPdf for every mode
+    // (byte-for-byte for Consolidado, AC1/AC3). Diário's per-device × day
+    // sectioned PDF is P2 scope — buildExportDevices() already routes through
+    // getEffectiveDeviceTotal() so the numbers here are correct for Diário
+    // too, just not yet broken down by day (that lands with the P2 PR).
     exportGridPdf(
       this.buildExportDevices(),
       this.resolveTitle(),
@@ -1232,9 +1873,7 @@ export class AllReportModal {
       {
         accentColor: this.resolveAccentHex(),
         kpis: this.computeKpis(),
-        chartImage: chartPng
-          ? { ...chartPng, title: 'Participação por Dispositivo' }
-          : null,
+        chartImage,
       },
     );
   }
@@ -1313,7 +1952,12 @@ export class AllReportModal {
     // temperatura ("total" não é semântica de temperatura) — substitui pelo valor
     // MÉDIO do período de cada sensor, via o mesmo endpoint por device usado no
     // modal de histórico do card (que funciona).
-    if ((this.params.domain || 'energy') === 'temperature') {
+    // RFC-0223: skipped outside 'consolidado' — ensureDeviceSeries() already
+    // fetches this same per-device endpoint for 1d/1h sections, and
+    // getEffectiveDeviceTotal() reads from that single source of truth
+    // instead. Doing both would double the network cost for temperature
+    // customers and risk the two fetches disagreeing at the margins (AC18).
+    if ((this.params.domain || 'energy') === 'temperature' && this.reportMode === 'consolidado') {
       await this.enrichTemperatureAverages(data, startISO, endISO, token, baseUrl);
     }
 
@@ -1366,11 +2010,20 @@ export class AllReportModal {
 
   // Re-map the cached API response under the current exclusion flag and refresh the UI.
   // No-op until data has been loaded at least once.
-  private remapAndRender(): void {
+  private async remapAndRender(): Promise<void> {
     if (!this.lastApiResponse) return;
     this.data = this.mapCustomerTotalsResponse(this.lastApiResponse);
     this.selectedStoreIds = new Set(this.data.map((s) => this.generateStoreId(s.identifier)));
     this.currentPage = 1;
+    this.sectionModelCache = null;
+    if (this.reportMode !== 'consolidado') {
+      // RFC-0223: the exclusion toggle changes the device set, which changes
+      // deviceSeriesCache's idsKey — force a refetch rather than serving a
+      // cache keyed to the previous (pre-toggle) device list.
+      this.deviceSeriesCache = null;
+      await this.ensureDeviceSeriesForCurrentMode();
+      this.resetCollapsedSectionsIfEpochChanged();
+    }
     this.renderSummary();
     this.renderTable();
   }
