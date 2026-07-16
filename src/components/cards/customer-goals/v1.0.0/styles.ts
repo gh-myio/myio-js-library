@@ -82,6 +82,7 @@ const CSS = `
   border-top:1px solid var(--cgc-border);
 }
 .myio-cgc__deltas--one{grid-template-columns:1fr;}
+.myio-cgc__deltas--three{grid-template-columns:repeat(3,1fr);}
 .myio-cgc__delta{padding:6px 4px 8px;text-align:center;border-right:1px solid var(--cgc-border);}
 .myio-cgc__delta:last-child{border-right:none;}
 .myio-cgc__delta-label{display:block;font:600 10.5px 'Nunito',sans-serif;color:var(--cgc-muted);line-height:1.5;}

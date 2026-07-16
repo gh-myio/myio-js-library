@@ -412,6 +412,132 @@ describe('CustomerGoalsCard (RFC-0217)', () => {
     expect(cfg.data.datasets.some((d: any) => d._cgcBudgetDetail)).toBe(false);
   });
 
+  // ── Orçado (value cru) × Meta (adjustedValue) — 3 colunas / 2 linhas ────────
+
+  it('orcado + budget: grade 3×2 — linha 1 valores (Orçado, sem Meta empilhada); linha 2 col3 = Meta', () => {
+    const card = createCustomerGoalsCard({
+      container,
+      title: 'Shopping da Ilha',
+      series: {
+        labels: ['Jan'],
+        realized: [586000],
+        previousYear: [600000],
+        budget: [663000], // Meta (adjustedValue)
+        orcado: [697790], // Orçado (value cru)
+      },
+    });
+    // Linha 1 (valores): Realizado | A-1 | Orçado — 3 colunas, SEM Meta empilhada
+    // (fmtQty do card arredonda ≥100 p/ inteiro — comportamento existente)
+    expect(card.el.querySelector('[data-total="orcado"]')?.textContent).toBe('698 MWh');
+    expect(card.el.querySelectorAll('.myio-cgc__total').length).toBe(3); // realized + A-1 + orçado
+    expect(card.el.querySelector('.myio-cgc__total-sub')).toBeNull(); // Meta saiu da linha 1
+    // Linha 2: 3 colunas alinhadas → vs A-1 | vs Orçado | Meta <valor> (+ chip vs Meta)
+    expect(card.el.querySelector('.myio-cgc__deltas')?.className).toContain('myio-cgc__deltas--three');
+    const deltaLabels = [...card.el.querySelectorAll('.myio-cgc__delta-label')].map((n) => n.textContent);
+    expect(deltaLabels).toEqual(['vs A-1', 'vs Orçado', 'Meta 663 MWh']);
+    // Meta agora na col3 da linha 2 (data-total="budget")
+    expect(card.el.querySelector('[data-total="budget"]')?.textContent).toBe('Meta 663 MWh');
+    // 3 badges de desvio (vs A-1, vs Orçado, vs Meta)
+    expect(card.el.querySelectorAll('.myio-cgc__delta').length).toBe(3);
+  });
+
+  it('orcado + budget: chart plots BOTH a Meta line and a distinct Orçado overlay line', () => {
+    createCustomerGoalsCard({
+      container,
+      title: 'Ilha',
+      yearLabels: { current: '2026', previous: '2025' },
+      series: {
+        labels: ['Jan', 'Fev'],
+        realized: [30, 50],
+        previousYear: [28, 45],
+        budget: [40, 40], // Meta
+        orcado: [42, 42], // Orçado
+      },
+    });
+    const cfg = ChartStub.instances.at(-1)!.config;
+    const byLabel = (frag: string) => cfg.data.datasets.find((d: any) => d.label === frag);
+    const meta = byLabel('Meta (2026)');
+    const orcado = byLabel('Orçado (2026)');
+    expect(meta).toBeTruthy();
+    expect(orcado).toBeTruthy();
+    // Ambas linhas tracejadas, mas cores/estilos distintos: Orçado LARANJA, Meta AZUL
+    expect(orcado.borderColor).toBe('#f59e0b'); // laranja
+    expect(meta.borderColor).toBe('#0ea5e9'); // azul
+    expect(meta.borderColor).not.toBe(orcado.borderColor);
+    // A série de meta foi relabelada para "Meta" (não "Orçado") quando há orcado cru
+    expect(cfg.data.datasets.some((d: any) => d.label === 'Orçado (2026)')).toBe(true);
+    expect(cfg.data.datasets.some((d: any) => d.label === 'Meta (2026)')).toBe(true);
+  });
+
+  it('orcado: totals default to the element-wise sum of the raw series', () => {
+    const card = createCustomerGoalsCard({
+      container,
+      title: 'M',
+      series: {
+        labels: ['Jan', 'Fev'],
+        realized: [10, 10],
+        budget: [300, 300],
+        orcado: [400, null],
+      },
+    });
+    // Orçado (value cru) na linha 1; Meta (soma do budget) na col3 da linha 2
+    expect(card.el.querySelector('[data-total="orcado"]')?.textContent).toBe('400 kWh');
+    expect(card.el.querySelector('[data-total="budget"]')?.textContent).toBe('Meta 600 kWh');
+  });
+
+  it('budgetBreakdown + orcado: per-meter goal lines relabel to "Meta ·" + one consolidated Orçado line', () => {
+    createCustomerGoalsCard({
+      container,
+      title: 'Ilha',
+      yearLabels: { current: '2026', previous: '2025' },
+      series: {
+        labels: ['Jan', 'Fev'],
+        realized: [30, 50],
+        budget: [40, 40],
+        orcado: [45, 45],
+        budgetBreakdown: [
+          { name: 'Geral Entrada', values: [30, 30] },
+          { name: 'Medição CAG', values: [10, 10] },
+        ],
+      },
+    });
+    const cfg = ChartStub.instances.at(-1)!.config;
+    const labels = cfg.data.datasets.map((d: any) => d.label);
+    // metas por medidor relabeladas p/ "Meta · X" + linha consolidada de Orçado
+    expect(labels).toContain('Meta · Geral Entrada');
+    expect(labels).toContain('Meta · Medição CAG');
+    expect(labels).toContain('Orçado (2026)');
+    // filtro da legenda: mantém "Meta · X", esconde "Meta"/"Orçado" consolidados
+    const filter = cfg.options.plugins.legend.labels.filter;
+    expect(filter({ text: 'Meta · Geral Entrada' })).toBe(true);
+    expect(filter({ text: 'Orçado (2026)' })).toBe(false);
+    expect(filter({ text: 'Meta (2026)' })).toBe(false);
+  });
+
+  it('retrocompat: WITHOUT orcado the card is identical to before (single "Orçado" line, no sub-line)', () => {
+    const card = createCustomerGoalsCard({
+      container,
+      title: 'A',
+      series: baseSeries(),
+      yearLabels: { current: '2026', previous: '2025' },
+    });
+    // Sem orcado → coluna Orçado com UMA linha (data-total="budget"), sem sub-linha
+    expect(card.el.querySelector('[data-total="budget"]')?.textContent).toBe('800 kWh'); // 200*4
+    expect(card.el.querySelector('[data-total="orcado"]')).toBeNull();
+    expect(card.el.querySelector('.myio-cgc__total-sub')).toBeNull();
+    // Delta permanece "vs Orçado" e o gráfico mantém a linha "Orçado (2026)"
+    const deltaLabels = [...card.el.querySelectorAll('.myio-cgc__delta-label')].map((n) => n.textContent);
+    expect(deltaLabels).toContain('vs Orçado');
+    const cfg = ChartStub.instances.at(-1)!.config;
+    expect(cfg.data.datasets.map((d: any) => d.label)).toEqual([
+      'Orçado (2026)',
+      'A-1 (2025)',
+      'Realizado (2026)',
+    ]);
+    // nenhuma linha extra de Orçado/Meta foi adicionada
+    expect(cfg.data.datasets.filter((d: any) => /Orçado|Meta/.test(d.label)).length).toBe(1);
+  });
+
   it('breakdown: totals strip falls back to the element-wise sum when realized is empty', () => {
     const card = createCustomerGoalsCard({
       container,

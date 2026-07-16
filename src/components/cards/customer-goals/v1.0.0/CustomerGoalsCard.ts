@@ -24,7 +24,8 @@ import { injectCustomerGoalsCardStyles } from './styles';
 const COLORS = {
   realized: '#6c5ce7',
   prev: '#94a3b8',
-  budget: '#f59e0b',
+  budget: '#0ea5e9', // Meta (adjustedValue) — AZUL tracejado
+  orcado: '#f59e0b', // Orçado (value cru) — LARANJA tracejado (também a linha "Orçado" legada)
 };
 
 // Paleta das séries do breakdown por device (evita o grafite do A-1 e o âmbar
@@ -52,7 +53,7 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
   private chartType: CustomerGoalsChartType;
   private showPoints: boolean;
   private breakdownStacked: boolean;
-  private colors: { realized: string; prev: string; budget: string };
+  private colors: { realized: string; prev: string; budget: string; orcado: string };
   private breakdownPalette: string[] | null = null;
   private expanded = false;
   private onEscKey: ((e: KeyboardEvent) => void) | null = null;
@@ -68,6 +69,7 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
       realized: params.options?.colors?.realized || COLORS.realized,
       prev: params.options?.colors?.previousYear || COLORS.prev,
       budget: params.options?.colors?.budget || COLORS.budget,
+      orcado: params.options?.colors?.orcado || COLORS.orcado,
     };
     this.breakdownPalette = params.options?.colors?.breakdownPalette?.length
       ? [...params.options.colors.breakdownPalette]
@@ -112,6 +114,7 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
       if (options.colors.realized) this.colors.realized = options.colors.realized;
       if (options.colors.previousYear) this.colors.prev = options.colors.previousYear;
       if (options.colors.budget) this.colors.budget = options.colors.budget;
+      if (options.colors.orcado) this.colors.orcado = options.colors.orcado;
       if (options.colors.breakdownPalette !== undefined) {
         this.breakdownPalette = options.colors.breakdownPalette?.length
           ? [...options.colors.breakdownPalette]
@@ -166,6 +169,15 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
 
   // ── Derived values ────────────────────────────────────────────────────────
 
+  private hasRawOrcado(): boolean {
+    const s = this.params.series;
+    const o = this.params.totals || {};
+    return (
+      o.orcado != null ||
+      (Array.isArray(s.orcado) && s.orcado.some((v) => v != null && !Number.isNaN(Number(v))))
+    );
+  }
+
   private resolvedTotals(): Required<CustomerGoalsTotals> {
     const s = this.params.series;
     const sum = (arr?: Array<number | null>): number | null => {
@@ -199,6 +211,7 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
       realized: o.realized !== undefined ? o.realized : sum(realizedArr),
       previousYear: o.previousYear !== undefined ? o.previousYear : sum(s.previousYear),
       budget: o.budget !== undefined ? o.budget : sum(budgetArr),
+      orcado: o.orcado !== undefined ? o.orcado : sum(s.orcado),
     };
   }
 
@@ -264,7 +277,12 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
     const totals = this.resolvedTotals();
     const hasPrev = !!s.previousYear;
     const hasBudget = !!s.budget || !!(s.budgetBreakdown && s.budgetBreakdown.length);
+    // Orçado cru presente → grade 3×2 alinhada: linha 1 = Realizado | A-1 | Orçado
+    // (valores); linha 2 = chips alinhados sob cada coluna, sendo a col3 a Meta
+    // (valor + chip vs Meta). Ausente → comportamento legado (budget = "Orçado").
+    const hasOrcado = this.hasRawOrcado();
 
+    // ── Linha 1: valores (Realizado | A-1 | Orçado) — sem Meta empilhada ──
     const totalCells: string[] = [
       `<div class="myio-cgc__total">
          <span class="myio-cgc__total-label myio-cgc__total-label--realized">Realizado</span>
@@ -277,7 +295,12 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
         <span class="myio-cgc__total-value" data-total="prev">${this.fmtQty(totals.previousYear)}</span>
       </div>`);
     }
-    if (hasBudget) {
+    if (hasOrcado) {
+      totalCells.push(`<div class="myio-cgc__total">
+        <span class="myio-cgc__total-label myio-cgc__total-label--budget">Or&ccedil;ado</span>
+        <span class="myio-cgc__total-value" data-total="orcado">${this.fmtQty(totals.orcado)}</span>
+      </div>`);
+    } else if (hasBudget) {
       totalCells.push(`<div class="myio-cgc__total">
         <span class="myio-cgc__total-label myio-cgc__total-label--budget">Or&ccedil;ado</span>
         <span class="myio-cgc__total-value" data-total="budget">${this.fmtQty(totals.budget)}</span>
@@ -286,22 +309,43 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
     const totalsMod =
       totalCells.length === 1 ? ' myio-cgc__totals--one' : totalCells.length === 2 ? ' myio-cgc__totals--two' : '';
 
-    const deltaCells: string[] = [];
-    if (hasPrev) {
-      deltaCells.push(`<div class="myio-cgc__delta">
-        <span class="myio-cgc__delta-label">vs A-1</span>
-        ${this.deltaBadge(totals.realized, totals.previousYear)}
-      </div>`);
+    // ── Linha 2: chips de desvio ──
+    let deltasHtml = '';
+    const dcell = (labelHtml: string, badgeHtml: string): string =>
+      `<div class="myio-cgc__delta"><span class="myio-cgc__delta-label">${labelHtml}</span>${badgeHtml}</div>`;
+    if (hasOrcado) {
+      // Grade alinhada com a linha 1: cada célula fica SOB a coluna correspondente.
+      // col1 (sob Realizado) = vs A-1; col2 (sob A-1) = vs Orçado; col3 (sob
+      // Orçado) = Meta <valor> + chip vs Meta. Sem A-1 → col1 recebe vs Orçado.
+      const cells: string[] = [];
+      if (hasPrev) {
+        cells.push(dcell('vs A-1', this.deltaBadge(totals.realized, totals.previousYear)));
+        cells.push(dcell('vs Or&ccedil;ado', this.deltaBadge(totals.realized, totals.orcado)));
+      } else {
+        cells.push(dcell('vs Or&ccedil;ado', this.deltaBadge(totals.realized, totals.orcado)));
+      }
+      // col3 = Meta (adjustedValue) — valor + chip vs Meta
+      cells.push(
+        `<div class="myio-cgc__delta"><span class="myio-cgc__delta-label" data-total="budget">${
+          hasBudget ? `Meta ${this.fmtQty(totals.budget)}` : 'Meta'
+        }</span>${hasBudget ? this.deltaBadge(totals.realized, totals.budget) : ''}</div>`
+      );
+      const mod =
+        cells.length === 3 ? ' myio-cgc__deltas--three' : cells.length === 1 ? ' myio-cgc__deltas--one' : '';
+      deltasHtml = `<div class="myio-cgc__deltas${mod}">${cells.join('')}</div>`;
+    } else {
+      // Legado (sem Orçado cru): budget é o próprio "Orçado".
+      const deltaCells: string[] = [];
+      if (hasPrev) {
+        deltaCells.push(dcell('vs A-1', this.deltaBadge(totals.realized, totals.previousYear)));
+      }
+      if (hasBudget) {
+        deltaCells.push(dcell('vs Or&ccedil;ado', this.deltaBadge(totals.realized, totals.budget)));
+      }
+      deltasHtml = deltaCells.length
+        ? `<div class="myio-cgc__deltas${deltaCells.length === 1 ? ' myio-cgc__deltas--one' : ''}">${deltaCells.join('')}</div>`
+        : '';
     }
-    if (hasBudget) {
-      deltaCells.push(`<div class="myio-cgc__delta">
-        <span class="myio-cgc__delta-label">vs Or&ccedil;ado</span>
-        ${this.deltaBadge(totals.realized, totals.budget)}
-      </div>`);
-    }
-    const deltasHtml = deltaCells.length
-      ? `<div class="myio-cgc__deltas${deltaCells.length === 1 ? ' myio-cgc__deltas--one' : ''}">${deltaCells.join('')}</div>`
-      : '';
 
     const clickable = typeof this.params.onClick === 'function';
     const expandable = this.params.expandable !== false;
@@ -387,6 +431,13 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
     const datasets: any[] = [];
     const breakdownPre = s.breakdown?.filter((b) => Array.isArray(b?.values)) || [];
     const budgetBreakdown = s.budgetBreakdown?.filter((b) => Array.isArray(b?.values)) || [];
+    // Orçado cru presente → a série de meta (budget/budgetBreakdown) é relabelada
+    // "Meta" e uma linha "Orçado" própria é sobreposta. Ausente = legado ("Orçado").
+    const hasOrcado = this.hasRawOrcado();
+    const goalNoun = hasOrcado ? 'Meta' : 'Orçado';
+    // Linha de meta consolidada: com Orçado cru é a "Meta" (AZUL); no legado é o
+    // próprio "Orçado" (LARANJA). budgetBreakdown por medidor mantém a paleta.
+    const goalColor = hasOrcado ? this.colors.budget : this.colors.orcado;
     // Empilhado só faz sentido com breakdown; cada grupo (realized/prev/goal)
     // tem seu próprio `stack` para os devices somarem SEM engolir A-1/Orçado.
     const stacked = this.breakdownStacked && breakdownPre.length > 0;
@@ -418,7 +469,7 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
         const color = palette[i % palette.length];
         datasets.push(
           goalLine(
-            `Orçado · ${b.name || `Medidor ${i + 1}`}`,
+            `${goalNoun} · ${b.name || `Medidor ${i + 1}`}`,
             b.values,
             color,
             stacked ? { stack: `goal-${i}` } : {}
@@ -430,11 +481,31 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
       // (detalhamento da meta por medidor — Addendum A "Dispositivos empilhados").
       const hasDetail = !!(s.budgetDetail && s.budgetDetail.length);
       datasets.push(
-        goalLine(yl ? `Orçado (${yl.current})` : 'Orçado', s.budget, this.colors.budget, {
+        goalLine(yl ? `${goalNoun} (${yl.current})` : goalNoun, s.budget, goalColor, {
           ...(stacked ? { stack: 'goal' } : {}),
           ...(hasDetail ? { _cgcBudgetDetail: true } : {}),
         })
       );
+    }
+    // Orçado (value cru) — UMA linha sobreposta, distinta da Meta (cor/estilo
+    // próprios). Em anos DEVICE fica consolidada (não por medidor) p/ não poluir.
+    if (s.orcado) {
+      datasets.push({
+        type: 'line',
+        label: yl ? `Orçado (${yl.current})` : 'Orçado',
+        data: s.orcado,
+        borderColor: this.colors.orcado,
+        backgroundColor: this.colors.orcado,
+        borderDash: [2, 3],
+        pointStyle: 'triangle',
+        pointRadius: pointR,
+        pointHoverRadius: 4,
+        borderWidth: 2,
+        tension: 0.3,
+        spanGaps: true,
+        fill: false,
+        order: 0,
+      });
     }
     // Ordem padrão dos shoppings: barra do A-1 à ESQUERDA, ano corrente à direita.
     // Chart.js posiciona os grupos de barra pelo `order` (ascendente = esquerda→direita),
@@ -504,10 +575,10 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
                   font: { size: 8 },
                   boxWidth: 10,
                   boxHeight: 2,
-                  // só as séries POR MEDIDOR — o A-1 e o Orçado consolidados já
-                  // estão na legenda compartilhada ("Orçado · X" por device passa).
+                  // só as séries POR MEDIDOR — A-1, Orçado e Meta consolidados já
+                  // estão na legenda compartilhada ("Orçado/Meta · X" por device passam).
                   filter: (item: any) =>
-                    !/^A-1\b|^Or[çc]ado(\s*\(|$)/.test(String(item?.text || '')),
+                    !/^A-1\b|^(?:Or[çc]ado|Meta)(?:\s*\(|$)/.test(String(item?.text || '')),
                 },
               }
             : { display: false },

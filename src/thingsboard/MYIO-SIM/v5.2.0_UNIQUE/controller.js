@@ -3878,12 +3878,18 @@ body.filter-modal-open { overflow: hidden !important; }
       for (const y of years) {
         goalsByYear[y] = await fetchCustomerGoalsTree(attrs, cfgD.gcdr, y, 'day').catch(() => null);
       }
-      let sum = 0;
+      // Dois totais por período: Orçado (value cru) e Meta (adjustedValue, margem
+      // RFC-0052 — cai no value quando margem 0/ausente). Somados dia-a-dia.
+      let sumOrcado = 0;
+      let sumMeta = 0;
       let has = false;
       for (const dd of days) {
-        const v = goalsByYear[dd.y]?.tree?.daily?.[dd.key]?.value;
+        const node = goalsByYear[dd.y]?.tree?.daily?.[dd.key];
+        const v = node?.value;
         if (v != null) {
-          sum += Number(v) || 0;
+          sumOrcado += Number(v) || 0;
+          const adj = node?.adjustedValue ?? node?.value;
+          sumMeta += Number(adj) || 0;
           has = true;
         }
       }
@@ -3906,7 +3912,9 @@ body.filter-modal-open { overflow: hidden !important; }
         }
       }
       return {
-        value: has ? sum : null,
+        orcado: has ? sumOrcado : null, // value cru
+        meta: has ? sumMeta : null, // adjustedValue (Meta)
+        value: has ? sumOrcado : null, // alias retrocompat (chamadores antigos)
         gaps: _hasGaps(gaps) ? gaps : null,
         granularity,
         devicesCount,
@@ -3915,6 +3923,10 @@ body.filter-modal-open { overflow: hidden !important; }
 
     // Paleta do dashboard propagada para o chrome do painel (header, tabs, pills…)
     const GP = goalsPalette();
+    // Cor da linha de Orçado (value cru) nos cards — igual ao default do
+    // CustomerGoalsCard: Orçado LARANJA tracejado; Meta AZUL tracejada.
+    const CGC_ORCADO_COLOR = '#f59e0b';
+    const CGC_META_COLOR = '#0ea5e9';
 
     const overlay = document.createElement('div');
     overlay.id = 'myio-goals-compare-root';
@@ -3924,7 +3936,7 @@ body.filter-modal-open { overflow: hidden !important; }
     const hdrBtn =
       'border:1px solid rgba(255,255,255,.5);border-radius:8px;background:rgba(255,255,255,.12);color:#fff;padding:6px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;';
     overlay.innerHTML = `
-      <div role="dialog" data-gc-dialog aria-label="Metas × Consumo" style="background:var(--gc-surface);border-radius:14px;width:min(1200px,calc(100% - 32px));max-height:92vh;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.3);overflow:hidden;">
+      <div role="dialog" data-gc-dialog aria-label="Metas × Consumo" style="background:var(--gc-surface);border-radius:14px;width:min(1320px,calc(100% - 32px));max-height:92vh;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.3);overflow:hidden;">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 20px;background:linear-gradient(135deg,${GP.accentDark},${GP.accent});color:${GP.accentText};flex-shrink:0;">
           <strong style="font:700 16px Nunito,sans-serif;">📊 Metas × Consumo — ${_escHtml(_entP())}</strong>
           <div style="display:flex;align-items:center;gap:10px;">
@@ -3980,7 +3992,11 @@ body.filter-modal-open { overflow: hidden !important; }
                   <span style="font:700 12px Nunito,sans-serif;color:var(--gc-muted);">Carregando dados…</span>
                 </div>
               </div>
-              <style>@keyframes gcSpin{to{transform:rotate(360deg)}}</style>
+              <style>@keyframes gcSpin{to{transform:rotate(360deg)}}
+                /* Mesmo hover/zoom dos cards RFC-0217 (.myio-cgc) nas linhas da sidebar */
+                #myio-goals-compare-root .gc-side-item{cursor:pointer;transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;}
+                #myio-goals-compare-root .gc-side-item:hover{transform:translateY(-2px) scale(1.02);box-shadow:0 6px 18px rgba(15,23,42,.18);border-color:${GP.tint(45)};}
+              </style>
               <div data-evo-wrap style="position:relative;height:340px;"><canvas data-evo-chart></canvas></div>
               <div data-cards-grid style="display:none;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;"></div>
               <div data-cards-legend style="display:none;align-items:center;justify-content:center;gap:18px;flex-wrap:wrap;font:600 11px Nunito,sans-serif;color:var(--gc-muted);padding:4px 2px 0;"></div>
@@ -3994,7 +4010,7 @@ body.filter-modal-open { overflow: hidden !important; }
               </div>
               <div data-side-sort style="display:flex;align-items:center;gap:4px;">
                 <span style="font:600 10.5px Nunito,sans-serif;color:var(--gc-muted);">Ordenar:</span>
-                <button type="button" data-side-sort-key="inauguration" title="Data de inauguração (mais antiga primeiro; sem data por último)" style="border:1px solid var(--gc-border);border-radius:999px;background:transparent;color:var(--gc-muted);padding:2px 10px;cursor:pointer;font:700 10.5px Nunito,sans-serif;">Dt. Inauguração</button>
+                <button type="button" data-side-sort-key="inauguration" title="Data de inauguração (mais antiga primeiro; sem data por último)" style="border:1px solid var(--gc-border);border-radius:999px;background:transparent;color:var(--gc-muted);padding:2px 10px;cursor:pointer;font:700 10.5px Nunito,sans-serif;">Dt. Inaug.</button>
                 <button type="button" data-side-sort-key="title" style="border:1px solid var(--gc-border);border-radius:999px;background:transparent;color:var(--gc-muted);padding:2px 10px;cursor:pointer;font:700 10.5px Nunito,sans-serif;">Nome</button>
                 <button type="button" data-side-sort-key="consumo" style="border:1px solid var(--gc-border);border-radius:999px;background:transparent;color:var(--gc-muted);padding:2px 10px;cursor:pointer;font:700 10.5px Nunito,sans-serif;">Consumo</button>
                 <button type="button" data-side-sort-key="meta" style="border:1px solid var(--gc-border);border-radius:999px;background:transparent;color:var(--gc-muted);padding:2px 10px;cursor:pointer;font:700 10.5px Nunito,sans-serif;">Orçado</button>
@@ -4107,25 +4123,29 @@ body.filter-modal-open { overflow: hidden !important; }
       });
     };
 
-    const statusChip = (meta, consumo) => {
+    const CHIP_BASE =
+      'border-radius:999px;padding:2px 10px;font:700 11px Nunito,sans-serif;white-space:nowrap;';
+    // Limiar de "aprox. igual": |desvio| < 1% → ≈ (neutro/cinza)
+    const APPROX_PCT = 1;
+    // Chip de desvio unificado: `value` × `reference` → só SETA + %, sem palavras.
+    // ↑ (value maior/pior, vermelho) · ↓ (value menor/melhor, verde) · ≈ (~igual,
+    // cinza). Usado nas 3 linhas: 2026×2025, consumo×Orçado, consumo×Meta.
+    const devChip = (value, reference) => {
       // undefined = ainda carregando (null = carregou e não há dado)
-      if (meta === undefined || consumo === undefined)
-        return `<span style="background:${GP.tint(14)};color:${GP.accent};border-radius:999px;padding:2px 10px;font:700 11px Nunito,sans-serif;">⏳ Carregando…</span>`;
-      if (meta == null || meta <= 0)
-        return '<span style="background:#f1f5f9;color:#64748b;border-radius:999px;padding:2px 10px;font:700 11px Nunito,sans-serif;">Sem Orçado</span>';
-      if (consumo == null)
-        return '<span style="background:#f1f5f9;color:#64748b;border-radius:999px;padding:2px 10px;font:700 11px Nunito,sans-serif;">Sem consumo</span>';
-      // Desvio percentual em relação ao Orçado (ex.: consumo a 69,8% → "30,2% · Abaixo do Orçado")
-      const pct = (consumo / meta) * 100;
-      const devTxt = Math.abs(100 - pct).toLocaleString('pt-BR', {
+      if (value === undefined || reference === undefined)
+        return `<span style="background:${GP.tint(14)};color:${GP.accent};${CHIP_BASE}">⏳</span>`;
+      if (reference == null || reference <= 0 || value == null)
+        return `<span style="background:#f1f5f9;color:#64748b;${CHIP_BASE}">—</span>`;
+      const pct = ((value - reference) / reference) * 100;
+      const txt = Math.abs(pct).toLocaleString('pt-BR', {
         minimumFractionDigits: 1,
         maximumFractionDigits: 1,
       });
-      if (pct <= 90)
-        return `<span style="background:#dcfce7;color:#15803d;border-radius:999px;padding:2px 10px;font:700 11px Nunito,sans-serif;">${devTxt}% · Abaixo do Orçado</span>`;
-      if (pct <= 100)
-        return `<span style="background:#fef9c3;color:#a16207;border-radius:999px;padding:2px 10px;font:700 11px Nunito,sans-serif;">${devTxt}% · Abaixo do Orçado</span>`;
-      return `<span style="background:#fee2e2;color:#b91c1c;border-radius:999px;padding:2px 10px;font:700 11px Nunito,sans-serif;">${devTxt}% · Acima do Orçado</span>`;
+      if (Math.abs(pct) < APPROX_PCT)
+        return `<span style="background:#f1f5f9;color:#64748b;${CHIP_BASE}">&#8776; ${txt}%</span>`; // ≈
+      if (pct > 0)
+        return `<span style="background:#fee2e2;color:#b91c1c;${CHIP_BASE}">&#8593; ${txt}%</span>`; // ↑
+      return `<span style="background:#dcfce7;color:#15803d;${CHIP_BASE}">&#8595; ${txt}%</span>`; // ↓
     };
 
     // Última renderização — fonte de dados do export PDF
@@ -4141,7 +4161,7 @@ body.filter-modal-open { overflow: hidden !important; }
         const active = b.dataset.sideSortKey === sideSortKey;
         const base =
           b.dataset.sideSortKey === 'inauguration'
-            ? 'Dt. Inauguração'
+            ? 'Dt. Inaug.'
             : b.dataset.sideSortKey === 'title'
               ? 'Nome'
               : b.dataset.sideSortKey === 'consumo'
@@ -4167,39 +4187,75 @@ body.filter-modal-open { overflow: hidden !important; }
       });
     };
 
-    // Sidebar compacta: 1 card por shopping (nome + chip; meta/consumo na 2ª linha).
-    // Addendum A: ⚠ (InfoTooltip com os buracos de cobertura) e chip "Por medidor (N)"
-    // junto do Orçado quando o ano do shopping é DEVICE-granular.
+    // Sidebar compacta: 1 card por shopping em 3 linhas, cada uma iniciada pelo ícone
+    // do domínio + chip de desvio (só seta ↑/↓/≈ + %): L1 = ano-1×ano (consumo);
+    // L2 = Orçado (r.meta = value cru); L3 = Meta (r.metaAdj = adjustedValue, omitida
+    // quando == Orçado). Addendum A: ⚠ (InfoTooltip com os buracos de cobertura) na
+    // linha do Orçado e badge "(N)" junto ao título quando DEVICE.
     const renderTable = (rows, unit) => {
       lastRows = rows;
       lastUnit = unit;
-      const loading = rows.some((r) => r.meta === undefined || r.consumo === undefined);
-      const totalMeta = rows.reduce((s, r) => s + (r.meta || 0), 0);
+      const loading = rows.some(
+        (r) => r.meta === undefined || r.consumo === undefined || r.consumoPrev === undefined
+      );
+      const totalOrcado = rows.reduce((s, r) => s + (r.meta || 0), 0);
+      const totalMetaAdj = rows.reduce((s, r) => s + (r.metaAdj || 0), 0);
       const totalCons = rows.reduce((s, r) => s + (r.consumo || 0), 0);
+      const totalConsPrev = rows.reduce((s, r) => s + (r.consumoPrev || 0), 0);
       const fmtCell = (v) => (v === undefined ? '⏳' : _fmtQtyStr(v, unit));
+      // Linha 1 = <ícone> <ano-1> <cons> · <ano> <cons> (2025 primeiro, 2026 depois;
+      // UM ícone do domínio no começo — ⚡ energia / 💧 água). Linhas 2/3 idem ícone.
+      const yCur = isoLocalDay(period.startISO).slice(0, 4);
+      const yPrev = String(Number(yCur) - 1);
+      const domIcon = domainKey === 'water' ? '💧' : '⚡';
       const gapWarn = (r, i) =>
         r && r.metaGaps
           ? `<span data-gap-row="${i}" title="Meta incompleta" style="cursor:help;font-size:11px;line-height:1;">⚠️</span>`
           : '';
-      const devChip = (r) =>
-        r && r.metaGranularity === 'DEVICE'
-          ? `<span title="Metas por medidor de entrada (granularidade DEVICE)" style="background:${GP.tint(12)};color:${GP.accent};border-radius:999px;padding:1px 8px;font:700 10px Nunito,sans-serif;white-space:nowrap;">Por medidor (${r.metaDevices || 0})</span>`
+      // Anos DEVICE-granular: "(N)" pequeno junto ao TÍTULO (N = medidores de
+      // entrada) — substitui o antigo chip "Por medidor (N)" da linha do Orçado.
+      const devCountBadge = (r) =>
+        r && r.metaGranularity === 'DEVICE' && r.metaDevices > 0
+          ? `<span title="Metas por medidor de entrada (granularidade DEVICE)" style="font:700 10px Nunito,sans-serif;color:var(--gc-muted);flex:0 0 auto;">(${r.metaDevices})</span>`
           : '';
-      const item = (title, meta, consumo, bold, extras = '') => `
-        <div style="border:1px solid var(--gc-border);border-radius:10px;padding:8px 10px;display:flex;flex-direction:column;gap:4px;${bold ? 'background:var(--gc-surface2);' : ''}">
+      // Meta só ganha a 3ª linha/chip quando difere do Orçado (margem RFC-0052);
+      // sem margem elas coincidem → linha omitida para não repetir o mesmo número.
+      const metaDiffers = (orcado, metaAdj) =>
+        metaAdj != null && orcado != null && Math.abs(Number(metaAdj) - Number(orcado)) > 0.5;
+      const bval = (v) => `<b style="color:var(--gc-text2);">${fmtCell(v)}</b>`;
+      const line = (leftHtml, chipHtml) => `
           <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-            <span style="font:${bold ? 800 : 700} 12px Nunito,sans-serif;color:var(--gc-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${bold ? '' : '🏢 '}${_escHtml(title)}</span>
-            ${statusChip(meta, consumo)}
+            <div style="font:600 11px Nunito,sans-serif;color:var(--gc-muted);display:flex;align-items:center;gap:5px;flex-wrap:wrap;min-width:0;">${leftHtml}</div>
+            ${chipHtml}
+          </div>`;
+      const item = (title, r, bold, extras = '') => {
+        const showMeta = metaDiffers(r.meta, r.metaAdj);
+        // Linhas de shopping viram "card" com hover/zoom (classe gc-side-item);
+        // a linha Total (bold) fica estática.
+        return `
+        <div class="${bold ? '' : 'gc-side-item'}" style="border:1px solid var(--gc-border);border-radius:10px;padding:8px 10px;display:flex;flex-direction:column;gap:5px;${bold ? 'background:var(--gc-surface2);' : ''}">
+          <div style="display:flex;align-items:baseline;gap:4px;min-width:0;font:${bold ? 800 : 700} 12px Nunito,sans-serif;color:var(--gc-text);">
+            <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">${bold ? '' : '🏢 '}${_escHtml(title)}</span>
+            ${devCountBadge(r)}
           </div>
-          <div style="font:600 11px Nunito,sans-serif;color:var(--gc-muted);display:flex;align-items:center;gap:5px;flex-wrap:wrap;">Orçado <b style="color:var(--gc-text2);">${fmtCell(meta)}</b>${extras} · Consumo <b style="color:var(--gc-text2);">${fmtCell(consumo)}</b></div>
+          ${line(`${domIcon} <span>${yPrev} ${bval(r.consumoPrev)}</span><span style="margin-left:8px;">${yCur} ${bval(r.consumo)}</span>`, devChip(r.consumo, r.consumoPrev))}
+          ${line(`${domIcon} Orçado ${bval(r.meta)}${extras}`, devChip(r.consumo, r.meta))}
+          ${showMeta ? line(`${domIcon} Meta ${bval(r.metaAdj)}`, devChip(r.consumo, r.metaAdj)) : ''}
         </div>`;
+      };
       const sorted = sortSideRows(rows);
       tableEl.innerHTML =
-        sorted.map((r, i) => item(r.title, r.meta, r.consumo, false, gapWarn(r, i) + devChip(r))).join('') +
+        sorted.map((r, i) => item(r.title, r, false, gapWarn(r, i))).join('') +
         item(
           `Total${loading ? ' (parcial)' : ''}`,
-          loading ? undefined : totalMeta || null,
-          loading ? undefined : totalCons || null,
+          loading
+            ? { consumo: undefined, consumoPrev: undefined, meta: undefined, metaAdj: undefined }
+            : {
+                consumo: totalCons || null,
+                consumoPrev: totalConsPrev || null,
+                meta: totalOrcado || null,
+                metaAdj: totalMetaAdj || null,
+              },
           true
         );
       // ⚠ → InfoTooltip da lib com os refs faltantes (re-bind a cada render: o
@@ -4235,11 +4291,18 @@ body.filter-modal-open { overflow: hidden !important; }
       // undefined = carregando; null = sem dado.
       const rows = shoppings.map((s) => ({
         title: s.title,
-        meta: undefined,
-        consumo: undefined,
+        meta: undefined, // Orçado (value cru)
+        metaAdj: undefined, // Meta (adjustedValue)
+        consumo: undefined, // Consumo do ano corrente
+        consumoPrev: undefined, // Consumo A-1 (mesmo período, ano anterior)
         ingestionId: null,
         inaugurationDate: s.inaugurationDate || null, // ordenação default (Dt. Inauguração)
       }));
+      // Mesmo período no ano-1 (A-1): desloca o ano de start/end (fiel ao loadEvo)
+      const s0 = isoLocalDay(startISO);
+      const e0 = isoLocalDay(endISO);
+      const prevStartISO = `${Number(s0.slice(0, 4)) - 1}${s0.slice(4)}T00:00:00-03:00`;
+      const prevEndISO = `${Number(e0.slice(0, 4)) - 1}${e0.slice(4)}T23:59:59-03:00`;
       const refresh = () => {
         const metasPend = rows.filter((r) => r.meta === undefined).length;
         const consPend = rows.some((r) => r.consumo === undefined);
@@ -4267,8 +4330,9 @@ body.filter-modal-open { overflow: hidden !important; }
         rows.map(async (row) => {
           const res = await metaForPeriod(row._attrs, cfg).catch(() => null);
           if (seq !== reqSeq) return;
-          row.meta = res ? res.value : null;
-          // Addendum A: ⚠ cobertura incompleta + chip "Por medidor (N)" na sidebar
+          row.meta = res ? res.orcado : null; // Orçado (value cru)
+          row.metaAdj = res ? res.meta : null; // Meta (adjustedValue, margem RFC-0052)
+          // Addendum A: ⚠ cobertura incompleta + badge "(N)" no título da sidebar
           row.metaGaps = res?.gaps || null;
           row.metaGranularity = res?.granularity || null;
           row.metaDevices = res?.devicesCount || 0;
@@ -4276,11 +4340,11 @@ body.filter-modal-open { overflow: hidden !important; }
         })
       );
       // Energia: só medidores de ENTRADA (régua das metas); Água: todos os hidrômetros
-      const consP = (
+      const consFetch = (a, b) =>
         domainKey === 'energy'
-          ? fetchEntradaTotalsByCustomer(startISO, endISO)
-          : fetchAllCustomersConsumption(cfg.api, startISO, endISO)
-      )
+          ? fetchEntradaTotalsByCustomer(a, b)
+          : fetchAllCustomersConsumption(cfg.api, a, b);
+      const consP = consFetch(startISO, endISO)
         .catch(() => null)
         .then((byCustomer) => {
           if (seq !== reqSeq) return;
@@ -4289,7 +4353,17 @@ body.filter-modal-open { overflow: hidden !important; }
           });
           refresh();
         });
-      await Promise.all([goalsP, consP]);
+      // A-1: mesmo período no ano anterior (chip "<ano> ↑/↓ %" da 1ª linha)
+      const consPrevP = consFetch(prevStartISO, prevEndISO)
+        .catch(() => null)
+        .then((byCustomer) => {
+          if (seq !== reqSeq) return;
+          rows.forEach((r) => {
+            r.consumoPrev = byCustomer ? (byCustomer.get(r.ingestionId) ?? null) : null;
+          });
+          refresh();
+        });
+      await Promise.all([goalsP, consP, consPrevP]);
     };
 
     const paintEvoGrans = () => {
@@ -4380,6 +4454,7 @@ body.filter-modal-open { overflow: hidden !important; }
         curBy,
         prevBy,
         goalOf,
+        goalRawOf,
         trees,
         bucketize,
         yearCurLabel,
@@ -4421,7 +4496,8 @@ body.filter-modal-open { overflow: hidden !important; }
               // 👁: ano oculto some dos dados (realized vira gaps; A-1 é omitida por completo)
               realized: showCurYear ? bucketize(curBy?.get(s.ingestionId)) : labels.map(() => null),
               previousYear: showPrevYear ? bucketize(prevBy?.get(s.ingestionId)) : undefined,
-              budget: goalOf(trees[i]),
+              budget: goalOf(trees[i]), // Meta (adjustedValue)
+              orcado: goalRawOf ? goalRawOf(trees[i]) : undefined, // Orçado (value cru)
             },
           })
         );
@@ -4445,7 +4521,10 @@ body.filter-modal-open { overflow: hidden !important; }
               previousYear: showPrevYear
                 ? sumSeries(shops.map((s) => bucketize(prevBy?.get(s.ingestionId))))
                 : undefined,
-              budget: sumSeries((trees || []).map((t) => goalOf(t))),
+              budget: sumSeries((trees || []).map((t) => goalOf(t))), // Meta
+              orcado: goalRawOf
+                ? sumSeries((trees || []).map((t) => goalRawOf(t)))
+                : undefined, // Orçado (value cru)
             },
           })
         );
@@ -4461,7 +4540,8 @@ body.filter-modal-open { overflow: hidden !important; }
         legend.innerHTML =
           (showPrevYear ? item(dot('#94a3b8'), `A-1 (${yearPrevLabel})`) : '') +
           (showCurYear ? item(dot(GP.accent), `Realizado (${yearCurLabel})`) : '') +
-          item(dash('#f59e0b'), `Orçado (${yearCurLabel})`);
+          item(dash(CGC_META_COLOR), `Meta (${yearCurLabel})`) +
+          (goalRawOf ? item(dash(CGC_ORCADO_COLOR), `Orçado (${yearCurLabel})`) : '');
       }
     };
 
@@ -4584,6 +4664,7 @@ body.filter-modal-open { overflow: hidden !important; }
         shops,
         trees,
         goalOf,
+        goalRawOf,
         // Addendum A (anos DEVICE): GET /goals completo por shopping e trees por
         // medidor (?deviceId=) buscadas lazy no modo "Dispositivos separados".
         goalsAll,
@@ -4651,7 +4732,7 @@ body.filter-modal-open { overflow: hidden !important; }
           return acc;
         }, nullSeries());
 
-      const makeCard = ({ title, devs, budget, shopIdx }) => {
+      const makeCard = ({ title, devs, budget, orcado, shopIdx }) => {
         // Nomes deduplicados dentro do card (#1/#2 quando o shopping tem 2 medidores iguais)
         const names = devs.map(deviceLabel);
         const count = names.reduce((acc, n) => acc.set(n, (acc.get(n) || 0) + 1), new Map());
@@ -4706,9 +4787,12 @@ body.filter-modal-open { overflow: hidden !important; }
               previousYear: showPrevYear
                 ? sumSeries(devs.map((d) => bucketize(prevDev?.get(d.id))))
                 : undefined,
-              // budget consolidado segue alimentando a faixa de totais mesmo com
-              // budgetBreakdown (o componente troca só a(s) linha(s) do gráfico)
+              // budget (Meta) consolidado segue alimentando a faixa de totais mesmo
+              // com budgetBreakdown (o componente troca só a(s) linha(s) do gráfico)
               budget,
+              // Orçado (value cru): UMA linha consolidada — em anos DEVICE o
+              // breakdown por medidor continua sendo só a Meta (Addendum A)
+              orcado,
               budgetBreakdown,
               budgetDetail,
             },
@@ -4719,7 +4803,13 @@ body.filter-modal-open { overflow: hidden !important; }
       (shops || []).forEach((s, i) => {
         const devs = byShop.get(i);
         if (!devs?.length) return; // shopping sem medidor identificável neste domínio
-        makeCard({ title: s.title, devs, budget: goalOf ? goalOf(trees?.[i]) : undefined, shopIdx: i });
+        makeCard({
+          title: s.title,
+          devs,
+          budget: goalOf ? goalOf(trees?.[i]) : undefined,
+          orcado: goalRawOf ? goalRawOf(trees?.[i]) : undefined,
+          shopIdx: i,
+        });
       });
       // Medidores sem shopping identificável: um card residual (não perder dado)
       if (orphans.length) {
@@ -4729,6 +4819,7 @@ body.filter-modal-open { overflow: hidden !important; }
       // como se a visão consolidada fosse um shopping — sempre o ÚLTIMO card.
       if (cardsShowConsolidated) {
         const budgetArrs = (trees || []).map((t) => (goalOf ? goalOf(t) : null));
+        const orcadoArrs = (trees || []).map((t) => (goalRawOf ? goalRawOf(t) : null));
         goalsCards.push(
           MyIOLibrary.createCustomerGoalsCard({
             container: grid,
@@ -4745,7 +4836,8 @@ body.filter-modal-open { overflow: hidden !important; }
               previousYear: showPrevYear
                 ? sumSeries(devices.map((d) => bucketize(prevDev?.get(d.id))))
                 : undefined,
-              budget: sumSeries(budgetArrs),
+              budget: sumSeries(budgetArrs), // Meta
+              orcado: goalRawOf ? sumSeries(orcadoArrs) : undefined, // Orçado (value cru)
             },
           })
         );
@@ -4760,7 +4852,8 @@ body.filter-modal-open { overflow: hidden !important; }
           `<span style="width:22px;height:0;border-top:3px dashed ${color};display:inline-block;"></span>`;
         legend.innerHTML =
           (showPrevYear ? item(dot('#94a3b8'), `A-1 (${yearPrevLabel})`) : '') +
-          item(dash('#f59e0b'), `Orçado (${yearCurLabel})`) +
+          item(dash(CGC_META_COLOR), `Meta (${yearCurLabel})`) +
+          (goalRawOf ? item(dash(CGC_ORCADO_COLOR), `Orçado (${yearCurLabel})`) : '') +
           (showCurYear
             ? `<span style="font-style:italic;">Realizado (${yearCurLabel}) quebrado por medidor — cores na legenda de cada card</span>`
             : '');
@@ -5226,6 +5319,7 @@ body.filter-modal-open { overflow: hidden !important; }
           shops,
           trees,
           goalOf,
+          goalRawOf,
           goalsAll,
           goalDevTrees,
         });
@@ -5287,6 +5381,7 @@ body.filter-modal-open { overflow: hidden !important; }
           curBy,
           prevBy,
           goalOf,
+          goalRawOf,
           trees,
           bucketize,
           yearCurLabel,
@@ -5645,7 +5740,7 @@ body.filter-modal-open { overflow: hidden !important; }
 
     const toggleMax = () => {
       isMax = !isMax;
-      dialogEl.style.width = isMax ? '100vw' : 'min(1200px,calc(100% - 32px))';
+      dialogEl.style.width = isMax ? '100vw' : 'min(1320px,calc(100% - 32px))';
       dialogEl.style.height = isMax ? '100vh' : '';
       dialogEl.style.maxHeight = isMax ? '100vh' : '92vh';
       dialogEl.style.borderRadius = isMax ? '0' : '14px';

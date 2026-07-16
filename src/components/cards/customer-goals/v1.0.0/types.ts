@@ -30,7 +30,10 @@ export interface CustomerGoalsCardOptions {
   colors?: {
     realized?: string;
     previousYear?: string;
+    /** Meta line (adjustedValue). Default #f59e0b (amber, dashed). */
     budget?: string;
+    /** Orçado line (raw value, when `series.orcado` present). Default #0ea5e9 (sky, dashed). */
+    orcado?: string;
     breakdownPalette?: string[];
   };
 }
@@ -42,8 +45,25 @@ export interface CustomerGoalsSeries {
   realized: Array<number | null>;
   /** Same buckets, previous year (optional — strip cell/badge omitted when absent) */
   previousYear?: Array<number | null>;
-  /** Goal per bucket (optional — strip cell/badge omitted when absent) */
+  /**
+   * Goal per bucket = **Meta** (RFC-0052 adjustedValue, budget × margin).
+   * Optional — strip cell/badge omitted when absent. When `orcado` (raw budget)
+   * is ALSO provided this series is relabeled "Meta" in the chart/legend and the
+   * totals-strip Orçado column shows a discrete "Meta <value>" sub-line under the
+   * raw Orçado. When `orcado` is absent the card behaves exactly as before (this
+   * single series is the dashed amber "Orçado" line — full backward-compat).
+   */
   budget?: Array<number | null>;
+  /**
+   * Raw **Orçado** per bucket = GCDR `value` BEFORE the RFC-0052 margin
+   * (optional). When present ALONGSIDE `budget` (= Meta) the chart plots a SECOND
+   * overlay line for Orçado (own color/legend entry), `budget` is relabeled
+   * "Meta", and the totals-strip Orçado column shows Orçado on top with a discrete
+   * "Meta <value>" underneath (3 columns, 2 rows). Absent = legacy single-goal
+   * behavior. For DEVICE-granular years (`budgetBreakdown`, per-meter Meta lines)
+   * this stays a single CONSOLIDATED Orçado line so the chart is not crowded.
+   */
+  orcado?: Array<number | null>;
   /**
    * Realized broken down per device/meter (optional). When present, the CHART
    * plots one series per entry (palette colors + per-card legend) INSTEAD of
@@ -73,7 +93,10 @@ export interface CustomerGoalsSeries {
 export interface CustomerGoalsTotals {
   realized?: number | null;
   previousYear?: number | null;
+  /** Meta total (adjustedValue). */
   budget?: number | null;
+  /** Orçado total (raw value). Shown as a sub-line under Orçado when present. */
+  orcado?: number | null;
 }
 
 export interface CustomerGoalsCardParams {
