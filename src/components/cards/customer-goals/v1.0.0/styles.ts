@@ -48,9 +48,11 @@ const CSS = `
   padding:3px 5px;border-radius:6px;opacity:.55;transition:opacity .15s, background .15s;
 }
 .myio-cgc__expand:hover{opacity:1;background:rgba(124,58,237,.12);color:#7C3AED;}
-.myio-cgc__title{
-  margin:0;padding:10px 26px 4px;
-  font:800 13px 'Nunito',sans-serif;color:var(--cgc-text);
+/* Especificidade + !important para vencer o CSS global de h4 do host (TB injeta
+   font-size/margin grandes em h4, cortando o título dentro do card). */
+.myio-cgc h4.myio-cgc__title{
+  margin:0!important;padding:10px 26px 4px;
+  font:800 14px/1.4 'Nunito',sans-serif!important;color:var(--cgc-text);
   text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 .myio-cgc__title--clickable{cursor:pointer;}
@@ -73,6 +75,7 @@ const CSS = `
 .myio-cgc__total-label--realized{color:var(--cgc-realized);}
 .myio-cgc__total-label--prev{color:var(--cgc-prev);}
 .myio-cgc__total-label--budget{color:var(--cgc-budget);}
+.myio-cgc__total-label--orcado{color:var(--cgc-orcado);}
 .myio-cgc__total-value{
   display:block;font:700 12px 'Nunito',sans-serif;color:var(--cgc-text);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
@@ -86,6 +89,8 @@ const CSS = `
 .myio-cgc__delta{padding:6px 4px 8px;text-align:center;border-right:1px solid var(--cgc-border);}
 .myio-cgc__delta:last-child{border-right:none;}
 .myio-cgc__delta-label{display:block;font:600 10.5px 'Nunito',sans-serif;color:var(--cgc-muted);line-height:1.5;}
+/* "Meta <valor>" na coluna 3 dos deltas segue o azul da série de Meta. */
+.myio-cgc__delta-label[data-total="budget"]{color:var(--cgc-budget);font-weight:700;}
 .myio-cgc__delta-value{display:block;font:800 13px 'Nunito',sans-serif;}
 .myio-cgc__delta-value--good{color:var(--cgc-good);}
 .myio-cgc__delta-value--bad{color:var(--cgc-bad);}

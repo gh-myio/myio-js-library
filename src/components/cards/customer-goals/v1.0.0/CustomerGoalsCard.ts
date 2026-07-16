@@ -130,6 +130,7 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
     this.el.style.setProperty('--cgc-realized', this.colors.realized);
     this.el.style.setProperty('--cgc-prev', this.colors.prev);
     this.el.style.setProperty('--cgc-budget', this.colors.budget);
+    this.el.style.setProperty('--cgc-orcado', this.colors.orcado);
   }
 
   public toggleExpand(force?: boolean): void {
@@ -297,7 +298,7 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
     }
     if (hasOrcado) {
       totalCells.push(`<div class="myio-cgc__total">
-        <span class="myio-cgc__total-label myio-cgc__total-label--budget">Or&ccedil;ado</span>
+        <span class="myio-cgc__total-label myio-cgc__total-label--orcado">Or&ccedil;ado</span>
         <span class="myio-cgc__total-value" data-total="orcado">${this.fmtQty(totals.orcado)}</span>
       </div>`);
     } else if (hasBudget) {
@@ -583,6 +584,13 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
               }
             : { display: false },
           tooltip: {
+            // Ordem fixa no tooltip das barras: Orçado, Meta, A-1, Realizado
+            // (demais séries por medidor mantêm a ordem natural depois).
+            itemSort: (a: any, b: any) => {
+              const rank = (t: string) =>
+                /Or[çc]ado/.test(t) ? 0 : /Meta/.test(t) ? 1 : /A-1/.test(t) ? 2 : /Realizado/.test(t) ? 3 : 4;
+              return rank(String(a?.dataset?.label || '')) - rank(String(b?.dataset?.label || ''));
+            },
             callbacks: {
               label: (c: any) =>
                 `${c.dataset.label}: ${
