@@ -3177,7 +3177,7 @@ body.filter-modal-open { overflow: hidden !important; }
       const overlay = document.createElement('div');
       overlay.id = 'myio-goals-shopping-picker';
       overlay.style.cssText =
-        'position:fixed;inset:0;z-index:10000;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;font-family:Nunito,sans-serif;';
+        'position:fixed;inset:0;z-index:10000;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;font-family:Nunito,system-ui,sans-serif;';
 
       const items = shoppings
         .map(
@@ -4001,7 +4001,7 @@ body.filter-modal-open { overflow: hidden !important; }
     const overlay = document.createElement('div');
     overlay.id = 'myio-goals-compare-root';
     overlay.style.cssText =
-      'position:fixed;inset:0;z-index:10000;background:rgba(15,23,42,.5);display:flex;align-items:center;justify-content:center;font-family:Nunito,sans-serif;';
+      'position:fixed;inset:0;z-index:10000;background:rgba(15,23,42,.5);display:flex;align-items:center;justify-content:center;font-family:Nunito,system-ui,sans-serif;';
     // Cores tematizáveis via CSS vars (--gc-*) setadas no overlay por applyModalTheme()
     const hdrBtn =
       'border:1px solid rgba(255,255,255,.5);border-radius:8px;background:rgba(255,255,255,.12);color:#fff;padding:6px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;';
@@ -4030,39 +4030,34 @@ body.filter-modal-open { overflow: hidden !important; }
               <label style="display:flex;align-items:center;gap:8px;font:600 13px Nunito,sans-serif;color:var(--gc-text2);">Período
                 <input type="text" data-period readonly placeholder="Selecione o período" style="border:1px solid var(--gc-input-border);border-radius:8px;padding:6px 10px;font:600 13px Nunito,sans-serif;color:var(--gc-text);width:210px;cursor:pointer;background:var(--gc-surface);" />
               </label>
+              <div data-period-presets style="display:flex;gap:4px;background:var(--gc-chip);border-radius:8px;padding:3px;">
+                <button type="button" data-period-preset="prevYear" title="Ano anterior — 01/01 a 31/12 de ${new Date().getFullYear() - 1}" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;color:var(--gc-muted);background:transparent;">Ano ${new Date().getFullYear() - 1}</button>
+                <button type="button" data-period-preset="curYear" title="Ano atual — 01/01 de ${new Date().getFullYear()} até hoje" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;color:var(--gc-muted);background:transparent;">Ano ${new Date().getFullYear()}</button>
+              </div>
               <span data-status hidden style="display:none;"></span>
             </div>
             <div data-controls style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;flex-shrink:0;padding-bottom:10px;">
-              <div data-evo-grans style="display:flex;gap:4px;background:var(--gc-chip);border-radius:8px;padding:3px;">
-                <button type="button" data-gran="1y" title="Ajusta o período para o ano corrente (01/01 até hoje) e mostra a visão mensal" style="border:0;border-radius:6px;padding:5px 14px;cursor:pointer;font:700 12px Nunito,sans-serif;">Ano ${new Date().getFullYear()}</button>
-                <button type="button" data-gran="1M" title="Meses dentro do período selecionado" style="border:0;border-radius:6px;padding:5px 14px;cursor:pointer;font:700 12px Nunito,sans-serif;">Mês</button>
-                <button type="button" data-gran="1d" style="border:0;border-radius:6px;padding:5px 14px;cursor:pointer;font:700 12px Nunito,sans-serif;">Dia</button>
-                <button type="button" data-gran="1h" style="border:0;border-radius:6px;padding:5px 14px;cursor:pointer;font:700 12px Nunito,sans-serif;">Hora</button>
+              <div data-view-tabs style="display:flex;gap:4px;background:var(--gc-chip);border-radius:8px;padding:3px;">
+                <button type="button" data-view="dashboards" title="Gráficos e cards — dirigido pela configuração do Engine" style="border:0;border-radius:6px;padding:6px 16px;cursor:pointer;font:700 13px Nunito,sans-serif;">📊 Dashboards</button>
+                <button type="button" data-view="analitico" title="Tabela do portfólio (Resumo Analítico) da mesma seleção do Engine" style="border:0;border-radius:6px;padding:6px 16px;cursor:pointer;font:700 13px Nunito,sans-serif;">📋 Analítico</button>
               </div>
-              <div data-evo-modes style="display:flex;gap:4px;background:var(--gc-chip);border-radius:8px;padding:3px;">
-                <button type="button" data-mode="analytics" title="Tabela analítica do portfólio: Realizado, A-1, Orçado, variações e performance" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Resumo Analítico</button>
-                <button type="button" data-mode="cons" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Consolidado</button>
-                <button type="button" data-modegroup="sep" title="Um gráfico/card por ${_escHtml(_goalsEntityLabel.toLowerCase())}" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Por ${_escHtml(_goalsEntityLabel)}</button>
-              </div>
-              <div data-sep-submodes style="display:none;gap:4px;background:var(--gc-chip);border-radius:8px;padding:3px;">
-                <button type="button" data-submode="stack" title="Séries empilhadas (${_escHtml(_entPLow())}); meta única (soma)" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Empilhados</button>
-                <button type="button" data-submode="sep" title="Um par de barras e uma linha de meta por ${_escHtml(_entSLow())}" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Separados</button>
-                <button type="button" data-submode="cards" title="Um card por ${_escHtml(_entSLow())}: Realizado × A-1 × Orçado (RFC-0217)" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;">Cards</button>
-              </div>
-              <button type="button" data-cards-settings title="Configurações dos cards (linha/barra, pontos)" style="display:none;border:1px solid ${GP.tint(45)};border-radius:8px;background:transparent;color:${GP.accent};padding:4px 9px;cursor:pointer;font:700 13px Nunito,sans-serif;">⚙️</button>
+              <button type="button" data-engine title="Engine — granularidade, visão, tipo e ordenação" style="border:1px solid ${GP.tint(45)};border-radius:8px;background:transparent;color:${GP.accent};padding:6px 14px;cursor:pointer;font:700 13px Nunito,sans-serif;">⚙️ Engine</button>
               <span data-evo-status style="margin-left:auto;font:600 12px Nunito,sans-serif;color:var(--gc-muted);"></span>
             </div>
             <div style="flex:1 1 auto;min-height:0;display:flex;flex-direction:column;gap:10px;position:relative;">
               <div data-evo-loading style="display:none;position:absolute;inset:0;z-index:6;background:rgba(148,163,184,.08);align-items:center;justify-content:center;border-radius:8px;">
                 <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
                   <div style="width:34px;height:34px;border-radius:50%;border:3px solid ${GP.tint(25)};border-top-color:${GP.accent};animation:gcSpin .8s linear infinite;"></div>
-                  <span style="font:700 12px Nunito,sans-serif;color:var(--gc-muted);">Carregando dados…</span>
+                  <span data-evo-loading-msg style="font:700 12px Nunito,sans-serif;color:var(--gc-muted);">Carregando dados…</span>
                 </div>
               </div>
               <style>@keyframes gcSpin{to{transform:rotate(360deg)}}
                 /* Mesmo hover/zoom dos cards RFC-0217 (.myio-cgc) nas linhas da sidebar */
                 #myio-goals-compare-root .gc-side-item{cursor:pointer;transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;}
                 #myio-goals-compare-root .gc-side-item:hover{transform:translateY(-2px) scale(1.02);box-shadow:0 6px 18px rgba(15,23,42,.18);border-color:${GP.tint(45)};}
+                /* Cards (RFC-0217): garante altura suficiente p/ título + gráfico + totais/deltas (4×2) sem clipe */
+                #myio-goals-compare-root [data-cards-grid]{grid-auto-rows:minmax(320px,auto);}
+                #myio-goals-compare-root .myio-cgc{min-height:320px;}
               </style>
               <div data-evo-wrap style="position:relative;flex:1 1 auto;min-height:150px;"><canvas data-evo-chart></canvas></div>
               <div data-cards-grid style="display:none;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:10px;flex:1 1 auto;min-height:0;overflow-y:auto;align-content:start;"></div>
@@ -4168,11 +4163,20 @@ body.filter-modal-open { overflow: hidden !important; }
       return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
     };
     const MONTHS_PT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-    // Default 'Dia': o gráfico abre respeitando o intervalo do picker (Mês = visão anual, opt-in)
-    let evoGran = '1d';
-    // Modos: 'cons' | 'stack' | 'sep' | 'cards' (subcategorias de "Separados") | 'analytics'
+    // Granularidade default: Mês (Engine). 'Ano' virou preset de PERÍODO (data-period-preset).
+    let evoGran = '1M';
+    // Modos internos de render: 'cons' | 'stack' | 'sep' | 'cards' | 'analytics'.
+    // Derivados de (engView, engSplit, engSubmode) por syncEvoMode() — o Engine e a
+    // aba superior (Dashboards | Analítico) comandam qual deles fica ativo.
     let evoMode = 'cons';
-    let lastSepSubmode = 'stack'; // subcategoria lembrada ao reabrir o grupo Separados
+    // Aba superior: 'dashboards' (gráfico/cards) | 'analitico' (Resumo Analítico).
+    let engView = 'dashboards';
+    // Engine — visão: 'consolidado' (1 série somada) | 'shopping' (por shopping).
+    let engSplit = 'consolidado';
+    // Engine — submodo (só sob 'shopping'): 'cards' | 'stack' | 'sep'. Default Cards.
+    let engSubmode = 'cards';
+    // Attribute key (SERVER_SCOPE, entidade USER) das preferências por usuário.
+    const PREFS_KEY = 'goalsCompareViewPrefs';
     let showCurYear = true; // 👁 ano corrente
     let showPrevYear = true; // 👁 ano anterior (A-1)
     // 👁 por customer: tbIds ocultos → expurgados dos TOTAIS (sidebar) e de TODA a
@@ -4183,8 +4187,26 @@ body.filter-modal-open { overflow: hidden !important; }
     let cardsChartType = 'bar'; // ⚙️ dos cards — barra é o default
     let cardsGroupBy = 'shopping'; // ⚙️ dos cards: 'shopping' (default) | 'device' (medidores lado a lado) | 'device-stack' (medidores empilhados)
     let cardsShowConsolidated = false; // ⚙️ dos cards — card "Consolidado" (todos os shoppings somados) como último card
+    // (engView, engSplit, engSubmode) → evoMode. Analítico ganha a tabela; Dashboards
+    // resolve consolidado × por-shopping (cards/empilhados/separados) do Engine.
+    const syncEvoMode = () => {
+      if (engView === 'analitico') evoMode = 'analytics';
+      else if (engSplit === 'consolidado') evoMode = 'cons';
+      else evoMode = engSubmode; // 'cards' | 'stack' | 'sep'
+    };
     let evoChart = null;
     let evoTip = null; // tooltip premium tree-driven das barras (lib createGoalsBarTooltip)
+    // Última posição do cursor sobre o canvas — o contexto `external` do Chart.js não
+    // carrega o mouse, então guardamos aqui p/ abrir o tooltip PERTO do ponteiro (e
+    // não no caret da barra), tornando o 📌 alcançável.
+    let evoLastMouse = null;
+    try {
+      if (evoCanvas) {
+        evoCanvas.addEventListener('mousemove', (e) => {
+          evoLastMouse = { x: e.clientX, y: e.clientY };
+        });
+      }
+    } catch (_) { /* ignore */ }
     let evoSeq = 0;
     const evoConsCache = new Map(); // consumo por (domínio, gran, range) — troca de aba não refaz fetch
 
@@ -4321,7 +4343,7 @@ body.filter-modal-open { overflow: hidden !important; }
       const lHidden = new Set(hiddenCustomers);
       const ov = document.createElement('div');
       ov.style.cssText =
-        'position:fixed;inset:0;z-index:10001;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;font-family:Nunito,sans-serif;';
+        'position:fixed;inset:0;z-index:10001;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;font-family:Nunito,system-ui,sans-serif;';
       // As CSS vars --gc-* são setadas no overlay do goals (applyModalTheme); como
       // este modal é anexado ao document.body, replicamos as vars aqui para que
       // background:var(--gc-surface) etc. resolvam (senão o modal fica invisível).
@@ -4656,37 +4678,15 @@ body.filter-modal-open { overflow: hidden !important; }
       await Promise.all([goalsP, consP, consPrevP]);
     };
 
-    const paintEvoGrans = () => {
+    // Abas superiores Dashboards | Analítico (pills) — o resto da config vive no Engine.
+    const paintViewTabs = () => {
       const t = GC_THEMES[modalTheme];
-      const rangeDays = daysInPeriod().length;
-      overlay.querySelectorAll('[data-gran]').forEach((b) => {
-        const active = b.dataset.gran === evoGran;
-        // Hora só para intervalos de até 15 dias (senão seriam centenas de buckets)
-        const disabled = b.dataset.gran === '1h' && rangeDays > 15;
-        b.disabled = disabled;
-        b.title = disabled ? 'Hora: disponível para intervalos de até 15 dias' : '';
-        b.style.opacity = disabled ? '.4' : '1';
-        b.style.cursor = disabled ? 'not-allowed' : 'pointer';
+      overlay.querySelectorAll('[data-view]').forEach((b) => {
+        const active = b.dataset.view === engView;
         b.style.background = active ? t.pillActiveBg : 'transparent';
         b.style.color = active ? t.pillActiveTx : t.muted;
         b.style.boxShadow = active ? '0 1px 4px rgba(0,0,0,.15)' : 'none';
       });
-      const isSepGroup = evoMode === 'stack' || evoMode === 'sep' || evoMode === 'cards';
-      const paintPill = (b, active) => {
-        b.style.background = active ? t.pillActiveBg : 'transparent';
-        b.style.color = active ? t.pillActiveTx : t.muted;
-        b.style.boxShadow = active ? '0 1px 4px rgba(0,0,0,.15)' : 'none';
-      };
-      overlay.querySelectorAll('[data-mode]').forEach((b) => paintPill(b, b.dataset.mode === evoMode));
-      overlay.querySelectorAll('[data-modegroup]').forEach((b) => paintPill(b, isSepGroup));
-      overlay.querySelectorAll('[data-submode]').forEach((b) => paintPill(b, b.dataset.submode === evoMode));
-      const sub = overlay.querySelector('[data-sep-submodes]');
-      if (sub) sub.style.display = isSepGroup ? 'flex' : 'none';
-      const gear = overlay.querySelector('[data-cards-settings]');
-      if (gear) gear.style.display = evoMode === 'cards' ? '' : 'none';
-      // Granularidade não afeta a tabela analítica (totais do período)
-      const grans = overlay.querySelector('[data-evo-grans]');
-      if (grans) grans.style.display = evoMode === 'analytics' ? 'none' : 'flex';
     };
 
     // 👁 Toggles de visibilidade por ano (2026 × 2025) — filtram gráfico, cards e analítico
@@ -4739,10 +4739,15 @@ body.filter-modal-open { overflow: hidden !important; }
     };
     const showCardsGrid = (on) => showEvoSurface(on ? 'cards' : 'chart');
 
-    // Spinner de carregamento sobre a área do gráfico/cards/analítico
-    const setEvoLoading = (on) => {
+    // Spinner de carregamento sobre a área do gráfico/cards/analítico. `msg` opcional
+    // troca o texto do overlay (ex.: "Carregando preferências…" na abertura).
+    const setEvoLoading = (on, msg) => {
       const l = overlay.querySelector('[data-evo-loading]');
       if (l) l.style.display = on ? 'flex' : 'none';
+      if (on && msg) {
+        const m = overlay.querySelector('[data-evo-loading-msg]');
+        if (m) m.textContent = msg;
+      }
     };
     const renderGoalsCardsGrid = (args) => {
       const {
@@ -5293,74 +5298,107 @@ body.filter-modal-open { overflow: hidden !important; }
         </div>`;
     };
 
-    // ⚙️ dos cards: pontos on/off e linha|barra (aplica em todos os cards abertos)
-    const openCardsSettings = () => {
-      const prev = overlay.querySelector('[data-cards-settings-pop]');
-      if (prev) return void prev.remove(); // toggle
-      const gear = overlay.querySelector('[data-cards-settings]');
-      const pop = document.createElement('div');
-      pop.setAttribute('data-cards-settings-pop', '1');
-      pop.style.cssText =
-        'position:absolute;z-index:60;background:var(--gc-surface);border:1px solid var(--gc-border);border-radius:12px;padding:12px 14px;box-shadow:0 12px 32px rgba(2,6,23,.25);display:flex;flex-direction:column;gap:10px;font:600 12px Nunito,sans-serif;color:var(--gc-text2);min-width:320px;';
-      pop.innerHTML = `
-        <strong style="font:800 12px Nunito,sans-serif;color:var(--gc-text);">⚙️ Configurações dos cards</strong>
-        <span style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">Agrupado por:
-          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="gcCgcGroupBy" value="shopping" ${cardsGroupBy === 'shopping' ? 'checked' : ''} style="accent-color:${GP.accent};"> ${_escHtml(_goalsEntityLabel)}</label>
-          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;" title="Um card por ${_escHtml(_goalsEntityLabel.toLowerCase())}, gráfico quebrado por medidor de entrada — séries lado a lado"><input type="radio" name="gcCgcGroupBy" value="device" ${cardsGroupBy === 'device' ? 'checked' : ''} style="accent-color:${GP.accent};"> Dispositivos separados</label>
-          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;" title="Um card por ${_escHtml(_goalsEntityLabel.toLowerCase())}, gráfico quebrado por medidor de entrada — séries empilhadas (stack)"><input type="radio" name="gcCgcGroupBy" value="device-stack" ${cardsGroupBy === 'device-stack' ? 'checked' : ''} style="accent-color:${GP.accent};"> Dispositivos empilhados</label>
-        </span>
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-          <input type="checkbox" data-opt-points ${cardsShowPoints ? 'checked' : ''} style="accent-color:${GP.accent};width:15px;height:15px;">
-          Mostrar pontos na linha
-        </label>
-        <span style="display:flex;align-items:center;gap:12px;">Tipo:
-          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="gcCgcType" value="bar" ${cardsChartType === 'bar' ? 'checked' : ''} style="accent-color:${GP.accent};"> Barra</label>
-          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="gcCgcType" value="line" ${cardsChartType === 'line' ? 'checked' : ''} style="accent-color:${GP.accent};"> Linha</label>
-        </span>
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;" title="Renderiza como último card a visão consolidada de todos os ${_escHtml(_entPLow())}, como se fosse um ${_escHtml(_entSLow())}">
-          <input type="checkbox" data-opt-consolidated ${cardsShowConsolidated ? 'checked' : ''} style="accent-color:${GP.accent};width:15px;height:15px;">
-          Exibir card Consolidado
-        </label>`;
-      const controls = overlay.querySelector('[data-controls]');
-      controls.style.position = 'relative';
-      pop.style.top = `${gear.offsetTop + gear.offsetHeight + 6}px`;
-      pop.style.left = `${gear.offsetLeft}px`;
-      controls.appendChild(pop);
-      const apply = () => {
-        cardsShowPoints = pop.querySelector('[data-opt-points]').checked;
-        cardsChartType = pop.querySelector('input[name="gcCgcType"]:checked').value;
-        const cons = pop.querySelector('[data-opt-consolidated]')?.checked || false;
-        const consChanged = cons !== cardsShowConsolidated;
-        cardsShowConsolidated = cons;
-        const gb = pop.querySelector('input[name="gcCgcGroupBy"]:checked')?.value || 'shopping';
-        if (gb !== cardsGroupBy) {
-          // shopping ↔ device* muda a FONTE dos dados — refaz o load. Entre os
-          // dois modos device (separados ↔ empilhados) a fonte é a mesma: só o
-          // layout do stack muda, resolvido via setOptions abaixo (sem refetch).
-          const sameSource = gb !== 'shopping' && cardsGroupBy !== 'shopping';
-          cardsGroupBy = gb;
-          if (!sameSource) {
-            loadEvo();
-            return;
-          }
-          // Addendum A: com algum shopping em ano DEVICE, separados ↔ empilhados
-          // também muda a FORMA da meta (linhas por medidor ↔ única + tooltip) e
-          // "separados" precisa das trees por medidor (fetch lazy do loadEvo, com
-          // cache de promise — a troca de volta não refaz requests já resolvidos).
-          const hasDeviceGoals = (lastCardsRender?.args?.goalsAll || []).some(
-            (g) => g?.granularity === 'DEVICE'
-          );
-          if (hasDeviceGoals) {
-            loadEvo();
-            return;
-          }
+    // ── Preferências por usuário (SERVER_SCOPE na entidade USER do TB) ──────────
+    // JSON persistido sob a chave PREFS_KEY; aplicado ANTES do 1º render (abertura)
+    // e salvo via 💾 do Engine. Falha nunca bloqueia o modal (fallback nos defaults).
+    const currentPrefs = () => ({
+      view: engView,
+      granularity: evoGran,
+      split: engSplit,
+      submode: engSubmode,
+      chartType: cardsChartType,
+      showPoints: cardsShowPoints,
+      showConsolidatedCard: cardsShowConsolidated,
+      groupBy: cardsGroupBy,
+      sortKey: sideSortKey,
+      sortDir: sideSortDir,
+    });
+    const applyPrefs = (p) => {
+      if (!p || typeof p !== 'object') return;
+      if (p.view === 'analitico' || p.view === 'dashboards') engView = p.view;
+      if (p.granularity === '1M' || p.granularity === '1d' || p.granularity === '1h') evoGran = p.granularity;
+      if (p.split === 'consolidado' || p.split === 'shopping') engSplit = p.split;
+      if (p.submode === 'cards' || p.submode === 'stack' || p.submode === 'sep') engSubmode = p.submode;
+      if (p.chartType === 'bar' || p.chartType === 'line') cardsChartType = p.chartType;
+      if (typeof p.showPoints === 'boolean') cardsShowPoints = p.showPoints;
+      if (typeof p.showConsolidatedCard === 'boolean') cardsShowConsolidated = p.showConsolidatedCard;
+      if (p.groupBy === 'shopping' || p.groupBy === 'device' || p.groupBy === 'device-stack') cardsGroupBy = p.groupBy;
+      if (['inauguration', 'title', 'consumo', 'meta'].includes(p.sortKey)) sideSortKey = p.sortKey;
+      if (p.sortDir === 1 || p.sortDir === -1) sideSortDir = p.sortDir;
+      syncEvoMode();
+    };
+    // id do usuário TB logado (GET /api/auth/user → id.id) — chave da entidade USER.
+    const _tbUserId = async () => {
+      const jwt = localStorage.getItem('jwt_token') || '';
+      const res = await fetch('/api/auth/user', { headers: { 'X-Authorization': `Bearer ${jwt}` } });
+      if (!res.ok) throw new Error(`auth/user ${res.status}`);
+      const u = await res.json();
+      const id = u?.id?.id;
+      if (!id) throw new Error('user id ausente');
+      return id;
+    };
+    const loadPrefs = async () => {
+      try {
+        const jwt = localStorage.getItem('jwt_token') || '';
+        const userId = await _tbUserId();
+        const res = await fetch(
+          `/api/plugins/telemetry/USER/${userId}/values/attributes/SERVER_SCOPE?keys=${PREFS_KEY}`,
+          { headers: { 'X-Authorization': `Bearer ${jwt}` } }
+        );
+        if (!res.ok) return null;
+        const arr = await res.json();
+        const it = Array.isArray(arr) ? arr.find((a) => a && a.key === PREFS_KEY) : null;
+        if (!it) return null;
+        let v = it.value;
+        if (typeof v === 'string') {
+          try { v = JSON.parse(v); } catch { return null; }
         }
-        if (consChanged && lastCardsRender) {
-          // adiciona/remove o card Consolidado — re-render local com os mesmos dados
-          destroyGoalsCards();
-          lastCardsRender.fn(lastCardsRender.args);
-          return;
-        }
+        return v && typeof v === 'object' ? v : null;
+      } catch (err) {
+        LogHelper.warn('[GoalsCompare] loadPrefs falhou:', err?.message || err);
+        return null;
+      }
+    };
+    const savePrefs = async () => {
+      try {
+        const jwt = localStorage.getItem('jwt_token') || '';
+        const userId = await _tbUserId();
+        const res = await fetch(`/api/plugins/telemetry/USER/${userId}/attributes/SERVER_SCOPE`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Authorization': `Bearer ${jwt}` },
+          body: JSON.stringify({ [PREFS_KEY]: currentPrefs() }),
+        });
+        if (!res.ok) throw new Error(`attributes ${res.status}`);
+        if (MyIOLibrary?.MyIOToast?.success) MyIOLibrary.MyIOToast.success('Preferência salva');
+        return true;
+      } catch (err) {
+        LogHelper.error('[GoalsCompare] savePrefs falhou:', err);
+        _goalsToastError(`Falha ao salvar preferência: ${err?.message || err}`);
+        return false;
+      }
+    };
+
+    // ── Helpers de aplicação live das opções de Cards (herdados do antigo ⚙️) ──
+    // Troca de "Agrupado por": shopping↔device muda a FONTE (loadEvo); device↔device-stack
+    // é só layout (setOptions), salvo anos DEVICE que precisam refetch das trees por medidor.
+    const applyCardsGroupBy = (gb) => {
+      if (!gb || gb === cardsGroupBy) return;
+      const sameSource = gb !== 'shopping' && cardsGroupBy !== 'shopping';
+      cardsGroupBy = gb;
+      if (!sameSource) return void loadEvo();
+      const hasDeviceGoals = (lastCardsRender?.args?.goalsAll || []).some((g) => g?.granularity === 'DEVICE');
+      if (hasDeviceGoals) return void loadEvo();
+      goalsCards.forEach((c) =>
+        c.setOptions?.({
+          chartType: cardsChartType,
+          showPoints: cardsShowPoints,
+          breakdownStacked: cardsGroupBy === 'device-stack',
+        })
+      );
+    };
+    // Tipo (barra/linha) + pontos — só afetam os Cards; aplica in-place sem refetch.
+    const applyCardsVisual = () => {
+      if (evoMode === 'cards' && goalsCards.length) {
         goalsCards.forEach((c) =>
           c.setOptions?.({
             chartType: cardsChartType,
@@ -5368,16 +5406,146 @@ body.filter-modal-open { overflow: hidden !important; }
             breakdownStacked: cardsGroupBy === 'device-stack',
           })
         );
+      }
+    };
+    // Card Consolidado on/off — re-render local dos cards (mesmos dados, sem refetch).
+    const applyCardsConsolidated = () => {
+      if (evoMode === 'cards' && lastCardsRender) {
+        destroyGoalsCards();
+        lastCardsRender.fn(lastCardsRender.args);
+      }
+    };
+
+    // ── Engine: modal premium (tema --gc-*/GP) que concentra granularidade, visão,
+    // apresentação, tipo, ordenação e o 💾 Salvar preferência. Aplica live (on change).
+    const openEngineModal = () => {
+      const prevOv = document.getElementById('myio-goals-engine');
+      if (prevOv) return void prevOv.remove(); // toggle
+      const ov = document.createElement('div');
+      ov.id = 'myio-goals-engine';
+      ov.style.cssText =
+        'position:fixed;inset:0;z-index:10001;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;font-family:Nunito,system-ui,sans-serif;';
+      // As CSS vars --gc-* estão no overlay do Metas; replica aqui (modal no body).
+      for (let i = 0; i < overlay.style.length; i++) {
+        const prop = overlay.style[i];
+        if (prop.indexOf('--gc-') === 0) ov.style.setProperty(prop, overlay.style.getPropertyValue(prop));
+      }
+      const pill = (active) =>
+        `border:1px solid ${active ? GP.tint(45) : 'var(--gc-border)'};border-radius:999px;background:${active ? GP.tint(12) : 'transparent'};color:${active ? GP.accent : 'var(--gc-muted)'};padding:5px 14px;cursor:pointer;font:700 12px Nunito,sans-serif;`;
+      const render = () => {
+        const hourDisabled = daysInPeriod().length > 15;
+        const isShopping = engSplit === 'shopping';
+        const isCards = isShopping && engSubmode === 'cards';
+        const GRANS = [['1M', 'Mês'], ['1d', 'Dia'], ['1h', 'Hora']];
+        const SUBS = [['cards', 'Cards'], ['stack', 'Empilhados'], ['sep', 'Separados']];
+        const GROUPBY = [
+          ['shopping', _goalsEntityLabel],
+          ['device', 'Dispositivos separados'],
+          ['device-stack', 'Dispositivos empilhados'],
+        ];
+        ov.innerHTML = `
+          <div style="background:var(--gc-surface);color:var(--gc-text);border-radius:14px;width:min(480px,calc(100% - 32px));max-height:88vh;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.3);overflow:hidden;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;background:linear-gradient(135deg,${GP.accentDark},${GP.accent});color:${GP.accentText};">
+              <strong style="font:700 14px Nunito,sans-serif;">⚙️ Engine — Metas × Consumo</strong>
+              <button type="button" data-x aria-label="Fechar" style="border:0;background:transparent;color:#fff;font-size:18px;cursor:pointer;line-height:1;">✕</button>
+            </div>
+            <div style="padding:14px 16px;overflow-y:auto;display:flex;flex-direction:column;gap:14px;">
+              <div>
+                <div style="font:700 11px Nunito,sans-serif;color:var(--gc-muted);margin-bottom:6px;">Granularidade</div>
+                <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                  ${GRANS.map(
+                    ([k, l]) =>
+                      `<button type="button" data-eng-gran="${k}" ${k === '1h' && hourDisabled ? 'disabled' : ''} style="${pill(evoGran === k)}${k === '1h' && hourDisabled ? 'opacity:.4;cursor:not-allowed;' : ''}" ${k === '1h' && hourDisabled ? 'title="Hora: disponível para intervalos de até 15 dias"' : ''}>${l}</button>`
+                  ).join('')}
+                </div>
+              </div>
+              <div>
+                <div style="font:700 11px Nunito,sans-serif;color:var(--gc-muted);margin-bottom:6px;">Visão</div>
+                <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                  <button type="button" data-eng-split="consolidado" style="${pill(engSplit === 'consolidado')}">Consolidado</button>
+                  <button type="button" data-eng-split="shopping" style="${pill(engSplit === 'shopping')}">Por ${_escHtml(_goalsEntityLabel)}</button>
+                </div>
+              </div>
+              ${isShopping
+                ? `<div>
+                <div style="font:700 11px Nunito,sans-serif;color:var(--gc-muted);margin-bottom:6px;">Apresentação</div>
+                <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                  ${SUBS.map(([k, l]) => `<button type="button" data-eng-submode="${k}" style="${pill(engSubmode === k)}">${l}</button>`).join('')}
+                </div>
+              </div>`
+                : ''}
+              ${isCards
+                ? `<div>
+                <div style="font:700 11px Nunito,sans-serif;color:var(--gc-muted);margin-bottom:6px;">Agrupado por</div>
+                <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                  ${GROUPBY.map(([k, l]) => `<button type="button" data-eng-groupby="${k}" style="${pill(cardsGroupBy === k)}">${_escHtml(l)}</button>`).join('')}
+                </div>
+              </div>`
+                : ''}
+              <div>
+                <div style="font:700 11px Nunito,sans-serif;color:var(--gc-muted);margin-bottom:6px;">Tipo <span style="font-weight:600;">— aplica aos Cards</span></div>
+                <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;">
+                  <button type="button" data-eng-type="bar" style="${pill(cardsChartType === 'bar')}">Barra</button>
+                  <button type="button" data-eng-type="line" style="${pill(cardsChartType === 'line')}">Linha</button>
+                </div>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:8px;font:600 12px Nunito,sans-serif;color:var(--gc-text2);">
+                  <input type="checkbox" data-eng-points ${cardsShowPoints ? 'checked' : ''} style="accent-color:${GP.accent};width:15px;height:15px;"> Mostrar pontos na linha
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:6px;font:600 12px Nunito,sans-serif;color:var(--gc-text2);">
+                  <input type="checkbox" data-eng-cons ${cardsShowConsolidated ? 'checked' : ''} style="accent-color:${GP.accent};width:15px;height:15px;"> Exibir card Consolidado
+                </label>
+              </div>
+              <div>
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                  <span style="font:700 11px Nunito,sans-serif;color:var(--gc-muted);">Ordenação</span>
+                  <button type="button" data-eng-order style="border:1px solid ${GP.tint(45)};border-radius:999px;background:transparent;color:${GP.accent};padding:5px 12px;cursor:pointer;font:700 11px Nunito,sans-serif;">${SIDE_ORDER_LABELS[sideSortKey || 'inauguration']} ${sideSortDir === 1 ? '↑' : '↓'} · ⚙️</button>
+                </div>
+                <div style="font:600 10.5px Nunito,sans-serif;color:var(--gc-muted2);margin-top:4px;">Mesma ordem do "Resumo por ${_escHtml(_goalsEntityLabel.toLowerCase())}" (cards e sidebar).</div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:12px 16px;border-top:1px solid var(--gc-border);">
+              <button type="button" data-eng-save title="Salva estas escolhas no seu usuário (reabre já configurado)" style="border:0;border-radius:8px;background:${GP.accent};color:${GP.accentText};padding:8px 18px;cursor:pointer;font:800 12px Nunito,sans-serif;">💾 Salvar preferência</button>
+            </div>
+          </div>`;
       };
-      pop.addEventListener('change', apply);
-      // Fecha ao clicar fora
-      const closer = (ev) => {
-        if (!pop.contains(ev.target) && !ev.target.closest('[data-cards-settings]')) {
-          pop.remove();
-          document.removeEventListener('click', closer, true);
+      render();
+      document.body.appendChild(ov);
+      const closeOv = () => ov.remove();
+      ov.addEventListener('click', (e) => {
+        if (e.target === ov || e.target.closest('[data-x]')) return closeOv();
+        const g = e.target.closest('[data-eng-gran]');
+        if (g && !g.disabled) {
+          const v = g.dataset.engGran;
+          if (v !== evoGran) { evoGran = v; render(); loadEvo(); }
+          return;
         }
-      };
-      setTimeout(() => document.addEventListener('click', closer, true), 0);
+        const sp = e.target.closest('[data-eng-split]');
+        if (sp) {
+          const v = sp.dataset.engSplit;
+          if (v !== engSplit) { engSplit = v; syncEvoMode(); render(); loadEvo(); }
+          return;
+        }
+        const sm = e.target.closest('[data-eng-submode]');
+        if (sm) {
+          const v = sm.dataset.engSubmode;
+          if (v !== engSubmode) { engSubmode = v; syncEvoMode(); render(); loadEvo(); }
+          return;
+        }
+        const gb = e.target.closest('[data-eng-groupby]');
+        if (gb) { applyCardsGroupBy(gb.dataset.engGroupby); render(); return; }
+        const tp = e.target.closest('[data-eng-type]');
+        if (tp) {
+          const v = tp.dataset.engType;
+          if (v !== cardsChartType) { cardsChartType = v; render(); applyCardsVisual(); }
+          return;
+        }
+        if (e.target.closest('[data-eng-order]')) { openSideFilterModal(); return; }
+        if (e.target.closest('[data-eng-save]')) { savePrefs(); return; }
+      });
+      ov.addEventListener('change', (e) => {
+        if (e.target.matches('[data-eng-points]')) { cardsShowPoints = e.target.checked; applyCardsVisual(); return; }
+        if (e.target.matches('[data-eng-cons]')) { cardsShowConsolidated = e.target.checked; applyCardsConsolidated(); return; }
+      });
     };
 
     const renderEvoChart = (labels, datasets, stacked = false, tipModel = null) => {
@@ -5413,9 +5581,10 @@ body.filter-modal-open { overflow: hidden !important; }
               if (!dp) return;
               const idx = dp.dataIndex;
               const rect = context.chart.canvas.getBoundingClientRect();
+              const pos = evoLastMouse || { x: rect.left + tt.caretX, y: rect.top + tt.caretY };
               evoTip.show(
                 { title: tipModel.title(idx), rows: tipModel.rows(idx, datasets), accentColor: tipModel.accent },
-                { clientX: rect.left + tt.caretX, clientY: rect.top + tt.caretY }
+                { clientX: pos.x, clientY: pos.y }
               );
             } catch (_) { /* tooltip é enfeite — nunca quebra o chart */ }
           }
@@ -5449,9 +5618,9 @@ body.filter-modal-open { overflow: hidden !important; }
       const yearSel = Number(isoLocalDay(period.startISO).slice(0, 4));
       const periodDays = daysInPeriod();
       if (evoGran === '1h' && periodDays.length > 15) evoGran = '1d'; // Hora indisponível p/ ranges longos
-      paintEvoGrans();
+      paintViewTabs();
       paintYearToggles(String(yearSel), String(yearSel - 1));
-      setEvoLoading(true);
+      setEvoLoading(true, 'Carregando dados…');
       const nowD = new Date();
       const yearGoals = yearSel;
 
@@ -5921,10 +6090,85 @@ body.filter-modal-open { overflow: hidden !important; }
           return { icon: cfgD.icon || '⚡', label: d.label, valueText: _fmtQtyStr(metaVal * w, tipUnit), pct: w * 100 };
         });
       };
+      // Chips de desvio (pt-BR) — mesma semântica do GoalsModal do shopping.
+      const evoNeutralDelta = (a, b) => {
+        if (a == null || b == null || !(b > 0) || !isFinite(a)) return undefined;
+        const d = ((a - b) / b) * 100;
+        return { pct: Math.abs(d), tone: 'neutral', arrow: d > 0.05 ? 'up' : d < -0.05 ? 'down' : 'flat' };
+      };
+      const evoBandDelta = (real, ref, midText) => {
+        if (real == null || ref == null || !(ref > 0) || !isFinite(real)) return undefined;
+        const d = ((real - ref) / ref) * 100;
+        const abs = Math.abs(d);
+        if (d < -3) return { pct: abs, tone: 'good', arrow: 'down', text: 'abaixo' };
+        if (d > 3) return { pct: abs, tone: 'bad', arrow: 'up', text: 'ultrapassou' };
+        return { pct: abs, tone: 'neutral', arrow: 'flat', text: midText };
+      };
       const tipModel = {
         accent: GP.accent,
         title: (idx) => labels[idx] || '',
         rows: (idx, dss) => {
+          const findDs = (lbl) => dss.find((d) => (d.label || '') === lbl);
+          const curDs = findDs(`Consumo ${yearCurLabel}`);
+          const prevDs = findDs(`Consumo ${yearPrevLabel}`);
+          const metaDs = dss.find((d) => /^Meta$/.test(d.label || ''));
+          // Vista CONSOLIDADA = há as séries "Consumo <ano>" (só o branch consolidado
+          // as cria; sep/stack usam labels por-shopping → caem no fallback genérico).
+          const consolidated = !!(curDs || prevDs);
+
+          if (consolidated) {
+            // Ordem: A-1, Realizado, Orçado, Meta (Orçado ACIMA da Meta).
+            const realizado = curDs && curDs.data ? Number(curDs.data[idx]) : null;
+            const prev = prevDs && prevDs.data ? Number(prevDs.data[idx]) : null;
+            const meta = goalSum[idx] != null ? Number(goalSum[idx]) : null;
+            const budget = budgetSum[idx] != null ? Number(budgetSum[idx]) : null;
+            const rows = [];
+            // A-1 (ano anterior) — chip A-1 vs Meta (neutro).
+            if (prev != null && isFinite(prev)) {
+              const r = {
+                icon: '🕓', label: `Consumo ${yearPrevLabel}`,
+                valueText: _fmtQtyStr(prev, tipUnit),
+                color: (prevDs && (prevDs.backgroundColor || prevDs.borderColor)) || undefined,
+                delta: (meta != null && meta > 0) ? evoNeutralDelta(prev, meta) : undefined,
+              };
+              if (visShopIdx.length > 1) { const k = perShopChildren(shopPrevBk, idx, prev); if (k.length) r.children = k; }
+              rows.push(r);
+            }
+            // Realizado — chip Realizado vs A-1 (neutro); expande por shopping.
+            if (realizado != null && isFinite(realizado)) {
+              const r = {
+                icon: '📊', label: `Consumo ${yearCurLabel}`,
+                valueText: _fmtQtyStr(realizado, tipUnit),
+                color: (curDs && (curDs.backgroundColor || curDs.borderColor)) || undefined,
+                delta: (prev != null && prev > 0) ? evoNeutralDelta(realizado, prev) : undefined,
+              };
+              if (visShopIdx.length > 1) { const k = perShopChildren(shopCurBk, idx, realizado); if (k.length) r.children = k; }
+              rows.push(r);
+            }
+            // Orçado (cru) — ACIMA da Meta, quando difere dela (margem aplicada).
+            if (budget != null && meta != null && Math.abs(budget - meta) > 1e-6) {
+              rows.push({
+                icon: '📋', label: 'Orçado', color: CGC_ORCADO_COLOR,
+                valueText: _fmtQtyStr(budget, tipUnit),
+                delta: evoBandDelta(realizado, budget, 'no orçado'),
+              });
+            }
+            // Meta — chip Realizado vs Meta (banda); expande por medidor.
+            if (meta != null) {
+              const m = {
+                icon: '🎯', label: 'Meta',
+                color: (metaDs && metaDs.borderColor) || undefined,
+                valueText: _fmtQtyStr(meta, tipUnit),
+                delta: evoBandDelta(realizado, meta, 'na meta'),
+              };
+              const kids = metaDeviceChildren(idx, meta);
+              if (kids.length) m.children = kids;
+              rows.push(m);
+            }
+            return rows;
+          }
+
+          // Fallback (sep/stack): mapeamento genérico dos datasets (sem chips).
           const metaRef = goalSum[idx] != null && goalSum[idx] > 0 ? goalSum[idx] : null;
           let denom = metaRef;
           if (denom == null) {
@@ -5936,10 +6180,8 @@ body.filter-modal-open { overflow: hidden !important; }
             const v = ds.data ? ds.data[idx] : null;
             const lbl = ds.label || '';
             const isMeta = /^Meta/.test(lbl);
-            const isConsCur = lbl === `Consumo ${yearCurLabel}`;
-            const isConsPrev = lbl === `Consumo ${yearPrevLabel}`;
             const row = {
-              icon: isMeta ? '🎯' : isConsPrev ? '🕓' : lbl.includes(yearPrevLabel) ? '🕓' : '📊',
+              icon: isMeta ? '🎯' : lbl.includes(yearPrevLabel) ? '🕓' : '📊',
               label: lbl,
               valueText: v == null ? '—' : _fmtQtyStr(v, tipUnit),
               color: ds.borderColor || ds.backgroundColor,
@@ -5948,16 +6190,9 @@ body.filter-modal-open { overflow: hidden !important; }
             if (isMeta && v != null) {
               const kids = metaDeviceChildren(idx, Number(v));
               if (kids.length) row.children = kids;
-            } else if (isConsCur && v != null && visShopIdx.length > 1) {
-              const kids = perShopChildren(shopCurBk, idx, Number(v));
-              if (kids.length) row.children = kids;
-            } else if (isConsPrev && v != null && visShopIdx.length > 1) {
-              const kids = perShopChildren(shopPrevBk, idx, Number(v));
-              if (kids.length) row.children = kids;
             }
             return row;
           });
-          // Orçado (cru) — só quando há Meta e difere dela (margem aplicada).
           if (budgetSum[idx] != null && goalSum[idx] != null && Math.abs(budgetSum[idx] - goalSum[idx]) > 1e-6) {
             rows.push({
               icon: '📋', label: 'Orçado', color: CGC_ORCADO_COLOR,
@@ -6169,7 +6404,7 @@ body.filter-modal-open { overflow: hidden !important; }
       const thmBtn = overlay.querySelector('[data-thm]');
       if (thmBtn) thmBtn.textContent = modalTheme === 'dark' ? '☀️' : '🌙';
       paintTabs();
-      paintEvoGrans();
+      paintViewTabs();
       if (lastRows) renderTable(lastRows, lastUnit);
       if (evoMode === 'cards' && goalsCards.length) {
         // RFC-0217: retema os cards in-place (não re-renderiza o canvas único)
@@ -6368,23 +6603,21 @@ body.filter-modal-open { overflow: hidden !important; }
         loadEvo();
         return;
       }
-      const gran = e.target.closest('[data-gran]');
-      if (gran && !gran.disabled) {
-        if (gran.dataset.gran === '1y') {
-          // Ano corrente: ajusta o PERÍODO para 01/01 até agora e mostra a visão mensal
-          const Y = new Date().getFullYear();
+      // Presets de período: Ano anterior (ano cheio) e Ano atual (01/01 → hoje).
+      const preset = e.target.closest('[data-period-preset]');
+      if (preset) {
+        const Y = new Date().getFullYear();
+        if (preset.dataset.periodPreset === 'prevYear') {
+          period = { startISO: `${Y - 1}-01-01T00:00:00-03:00`, endISO: `${Y - 1}-12-31T23:59:59-03:00` };
+        } else {
           period = { startISO: `${Y}-01-01T00:00:00-03:00`, endISO: new Date().toISOString() };
-          periodInput.value = periodLabel();
-          evoGran = '1y';
-          load();
-          loadEvo();
-          return;
         }
-        if (gran.dataset.gran !== evoGran) {
-          evoGran = gran.dataset.gran;
-          loadEvo();
-          return;
-        }
+        // Presets de ano → visão mensal; mantém o picker de range custom em sincronia.
+        evoGran = '1M';
+        periodInput.value = periodLabel();
+        try { periodPicker?.setDates?.(period.startISO, period.endISO); } catch (_) { /* picker opcional */ }
+        load();
+        loadEvo();
         return;
       }
       const eye = e.target.closest('[data-eye]');
@@ -6399,26 +6632,16 @@ body.filter-modal-open { overflow: hidden !important; }
         loadEvo();
         return;
       }
-      if (e.target.closest('[data-cards-settings]')) return void openCardsSettings();
-      const group = e.target.closest('[data-modegroup]');
-      if (group) {
-        if (evoMode !== 'stack' && evoMode !== 'sep' && evoMode !== 'cards') {
-          evoMode = lastSepSubmode;
-          loadEvo();
-        }
-        return;
-      }
-      const submode = e.target.closest('[data-submode]');
-      if (submode && submode.dataset.submode !== evoMode) {
-        evoMode = submode.dataset.submode;
-        lastSepSubmode = evoMode;
+      // ⚙️ Engine: abre o modal de configuração (granularidade/visão/tipo/ordenação/salvar).
+      if (e.target.closest('[data-engine]')) return void openEngineModal();
+      // Abas superiores Dashboards | Analítico — ambas dirigidas pela config do Engine.
+      const viewBtn = e.target.closest('[data-view]');
+      if (viewBtn && viewBtn.dataset.view !== engView) {
+        engView = viewBtn.dataset.view;
+        syncEvoMode();
+        paintViewTabs();
         loadEvo();
         return;
-      }
-      const mode = e.target.closest('[data-mode]');
-      if (mode && mode.dataset.mode !== evoMode) {
-        evoMode = mode.dataset.mode;
-        loadEvo();
       }
     });
     document.addEventListener('keydown', onKey);
@@ -6452,8 +6675,22 @@ body.filter-modal-open { overflow: hidden !important; }
       }
     })();
 
-    load();
-    loadEvo();
+    // Abertura: carrega as preferências do usuário (SERVER_SCOPE/USER) ANTES do 1º
+    // render, para o modal abrir já na visão configurada. Falha/ausência → defaults
+    // (Mês / Consolidado / Cards / Barra). O overlay de loading anuncia a busca.
+    syncEvoMode();
+    paintViewTabs();
+    setEvoLoading(true, 'Carregando preferências…');
+    (async () => {
+      try {
+        applyPrefs(await loadPrefs());
+      } catch (err) {
+        LogHelper.warn('[GoalsCompare] prefs indisponíveis, usando defaults:', err?.message || err);
+      }
+      paintViewTabs();
+      load();
+      loadEvo(); // reseta a mensagem do overlay p/ "Carregando dados…" e o oculta ao fim
+    })();
   };
 
   // Escolha da área ao clicar em 🎯 Metas: Gestão (GoalsPanel por shopping) ou
@@ -6466,7 +6703,7 @@ body.filter-modal-open { overflow: hidden !important; }
       const overlay = document.createElement('div');
       overlay.id = 'myio-goals-area-picker';
       overlay.style.cssText =
-        'position:fixed;inset:0;z-index:10000;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;font-family:Nunito,sans-serif;';
+        'position:fixed;inset:0;z-index:10000;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;font-family:Nunito,system-ui,sans-serif;';
       const cardStyle =
         'flex:1;display:flex;flex-direction:column;gap:8px;padding:20px 18px;border:1px solid #e2e8f0;border-radius:12px;background:#fff;cursor:pointer;text-align:left;transition:border-color .15s;';
       overlay.innerHTML = `
@@ -6636,7 +6873,7 @@ body.filter-modal-open { overflow: hidden !important; }
         padding:18px 22px;
         min-width:260px;
         box-shadow:0 18px 50px rgba(0,0,0,0.45);
-        font-family:system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, sans-serif;">
+        font-family:'Nunito', system-ui, sans-serif;">
         <div style="display:flex; align-items:center; gap:12px;">
           <div class="myio-menu-busy-spinner" style="
             width:20px;height:20px;border-radius:50%;
