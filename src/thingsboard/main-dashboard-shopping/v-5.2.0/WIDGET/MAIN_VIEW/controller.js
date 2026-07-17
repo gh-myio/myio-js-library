@@ -4640,6 +4640,10 @@ const MyIOOrchestrator = (() => {
         message: 'Carregando dados...',
         spinnerType: 'double',
         theme: 'dark',
+        // accent segue a paleta do dashboard (o componente lê --myio-brand-700,
+        // setado no documentElement pelo MAIN_VIEW). showProgress = barra sob a
+        // mensagem (indeterminada; setProgress p/ % quando houver etapas).
+        showProgress: true,
         showTimer: false, // Set to true for debugging
         onTimeout: () => {
           LogHelper.warn('[Orchestrator] RFC-0137: LoadingSpinner max timeout reached');
