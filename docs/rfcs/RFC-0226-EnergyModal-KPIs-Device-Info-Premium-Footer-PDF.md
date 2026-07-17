@@ -4,245 +4,246 @@
 - Start Date: 2026-07-17
 - RFC PR: (leave this empty)
 - Tracking Issue: (leave this empty)
+- Status: **Accept with changes — consolidated (incorporates Revisão v1, 2026-07-17)**
+
+> **Nota de consolidação.** Versão canônica. Mantém a investigação/grounding e
+> **substitui o design ingênuo** pelas correções aprovadas na Revisão v1:
+> comparação exige um **dataset MyIO de primeira classe** (não UI pequena);
+> `exportGridPdf` **não** é reutilizável direto (modelo `TelemetryDevice[]` ≠
+> time-series); KPI **unit-aware** (temperatura = média/min/max, não soma);
+> **lifecycle do footer** owned/destroyed; "(i)" com escaping/ids/foco; limites de
+> **fetch/auth** na comparação; **fronteira estrita** de preservação do CSV;
+> **escopo Shopping v5.2.0** primeiro (parity SIM/UNIQUE/v5.4.0 verificada); e
+> **rollout faseado por risco de dados**.
 
 ## Summary
 
-Upgrade the shared **EnergyModal** (`src/components/premium-modals/energy/`,
-opened via `window.MyIOUtils.openDashboardPopupEnergy`) — used for both the
-**single-device** energy dashboard and the **comparison** modal reached from the
-FOOTER "Comparar" button (Shopping v-5.2.0, Head Office and SIM) — so that:
+Evoluir o **EnergyModal** compartilhado (`src/components/premium-modals/energy/`,
+aberto via `window.MyIOUtils.openDashboardPopupEnergy`) — usado no dashboard
+**single-device** e na modal de **comparação** (botão "Comparar" do FOOTER,
+Shopping v5.2.0 / HO / SIM) — para:
 
-- **(a)** the **comparison** modal gains a **KPIs section** and an **"(i)" info**
-  affordance listing **which devices are being compared** (design language from
-  `EnergySummaryTooltip`);
-- **(b)** the **single-device** dashboard gains the same **"(i)"** (in the header)
-  identifying the device/customer;
-- **(c)** the **redundant "FECHAR" button** is removed (the shell header already
-  has an **×**);
-- **(d)** both modes get the **premium footer** already used by `AllReportModal`
-  (`createModalFooter`);
-- **(e)** the standalone **"Exportar CSV" button** is removed from the toolbar and
-  its trigger moves into the footer — **but the CSV-generating code
-  (`exportToCsv`) is preserved byte-for-byte** because clients depend on the exact
-  template;
-- **(f)** a **new PDF export** is added with **KPIs**, reusing AllReportModal's
-  `exportGridPdf` (KPI band + chart image);
-- **(g)** optionally, the new KPIs render as a **right-side sidebar** (BAS
-  split-layout precedent) rather than a top band.
+- **(a)** comparação ganha **KPIs** (unit-aware) + **"(i)"** listando **quais
+  devices** estão sendo comparados;
+- **(b)** single ganha o **"(i)"** no header (device/customer/período);
+- **(c)** remover o botão **"FECHAR"** redundante (o shell já tem **×**), e
+  **remover o stub de KPI** (`#show-kpis-btn` → `alert('… to be implemented')`);
+- **(d)** ambos os modos ganham o **footer premium** do `AllReportModal`
+  (`createModalFooter`), com **lifecycle owned/destroyed**;
+- **(e)** remover o botão **"Exportar CSV"** da toolbar e mover o gatilho para o
+  footer — **preservando `exportToCsv()` byte-for-byte** (clientes dependem);
+- **(f)** **novo PDF** com KPIs — mas com **estratégia de tabela definida** (o
+  `exportGridPdf` atual não serve direto);
+- **(g)** opcional: KPIs como **sidebar direita** (precedente BAS).
 
-EnergyModal is a **library component** — one change lands in `src/` and every TB
-dashboard picks it up via the published bundle (caveat: the comparison "(i)"
-depends on callers passing device labels, which the FOOTER already does).
+EnergyModal é **componente de lib** — a mudança land uma vez em `src/` e todo
+dashboard consome via bundle publicado; **mas** a comparação depende de o caller
+passar labels/ids (o FOOTER v5.2.0 já passa `dataSources`).
 
-## Motivation
+## Grounding (verificado em código)
 
-- The comparison modal shows a stacked chart but **never says which devices** are
-  in it and shows **no KPIs** — the operator can't read totals/averages or confirm
-  the selection.
-- The single-device dashboard has **no "(i)"** to confirm device/customer context.
-- There are **two close buttons** (toolbar "Fechar" + shell "×") — redundant.
-- Export is inconsistent: **CSV only** (single mode), **no PDF**, and the KPI button
-  is a stub (`alert('KPI modal functionality to be implemented')`,
-  `EnergyModalView.ts:1481`). AllReportModal already solved footer + KPI + PDF; we
-  should reuse it.
+- **Modos:** `params.mode: 'single' | 'comparison'` (`types.ts:29`). `show()`
+  branch em `EnergyModal.ts:83`. **Single** faz fetch TB + série →
+  `currentEnergyData` populado (`EnergyModalView.renderEnergyData` `:788`).
+  **Comparison** pula o fetch (`createComparisonContext` `:196`) e chama
+  `view.tryRenderWithSDK(null)` — **sem dataset MyIO**. `loadEnergyData()`,
+  `handleGranularityChange()` retornam cedo se não-single; `handleExport()` bloqueia
+  export em comparação (`alert('Export não disponível no modo de comparação')`).
+- **Chart = Energy Chart SDK em `<iframe>`** (`window.EnergyChartSDK.renderTelemetry*Chart`,
+  `iframeBaseUrl` default `https://graphs.apps.myio-bas.com`, `EnergyModalView.ts:866/962/1046`).
+  MyIO só possui o chrome (header via `ModalPremiumShell`, toolbar, footer). **KPIs
+  que o SDK desenhe ficam dentro do iframe — não legíveis.**
+- **Header + ×:** `ModalPremiumShell` (`:133-145`); título single = `buildModalTitle()`
+  (`EnergyModal.ts:370-396`); título comparação = string `Comparação de N Dispositivos` (`:112`).
+- **"FECHAR":** `#close-btn` em `EnergyModalView.ts:524-526` (normal) **e** `:630-632`
+  (BAS), wired `:1385-1389`. (Error-panel "Fechar" `:770` — manter.)
+- **"Exportar CSV":** `#export-csv-btn` `:418-420` (normal) **e** `:587-589` (BAS),
+  wired `:1370-1383`. **CSV a preservar:** `exportToCsv()` `:1224-1258` + `downloadCSV()` `:1263-1276`.
+- **KPI stub:** `#energy-kpi-btn`/`#show-kpis-btn` `:543-549`, handler `:1481` (alert).
+- **FOOTER "Comparar":** `openComparisonModal()` (`v-5.2.0/WIDGET/FOOTER/controller.js:1296`)
+  → `dataSources` com `label` por device (`:1330-1334`) →
+  `openDashboardPopupEnergy({ mode:'comparison', dataSources, … })` (`:1406-1432`).
+- **Footer reutilizável:** `createModalFooter` (`../footer-modal/ModalFooter.ts:75`),
+  `ModalFooterInstance` (`setThemeMode`/`setCustomerName`/`setExportDisabled`/`destroy`).
+  Mount em `AllReportModal.mountFooter()` (`:389-427`).
+- **PDF:** `AllReportModal.computeKpis()` (`:690-723`) + `exportGridPdf(...)`
+  (`telemetry-grid-shopping/export.ts:257`, `drawKpiBand()` `:376-398`,
+  **rows = `TelemetryDevice[]`** via `buildRow` — name/identifier/val/perc).
 
-## Grounding (verified in code)
+## Correções obrigatórias (Revisão v1)
 
-- **Modes:** `params.mode: 'single' | 'comparison'` (`types.ts:29`). `show()`
-  branches at `EnergyModal.ts:83`. **Single** fetches TB device context + series →
-  `currentEnergyData` is populated (`EnergyModalView.renderEnergyData` `:788`).
-  **Comparison** skips the fetch, builds a minimal context
-  (`createComparisonContext` `:196`) and calls `view.tryRenderWithSDK(null)` —
-  **there is no MyIO-side dataset in comparison mode.**
-- **Chart is the external Energy Chart SDK inside an `<iframe>`**
-  (`window.EnergyChartSDK.renderTelemetry*Chart`, `iframeBaseUrl` default
-  `https://graphs.apps.myio-bas.com`, `EnergyModalView.ts:866/962/1046`). MyIO owns
-  only the chrome (header, controls toolbar, footer). **Any KPIs the SDK draws live
-  inside the iframe and are not readable by MyIO** → new KPIs must be computed
-  MyIO-side.
-- **Header + ×:** owned by `ModalPremiumShell` (`:133-145`); single title HTML =
-  `buildModalTitle()` (`EnergyModal.ts:370-396`); comparison title = the plain
-  string `` `Comparação de ${n} Dispositivos` `` (`EnergyModal.ts:112`).
-- **"FECHAR":** `#close-btn` at `EnergyModalView.ts:524-526` (normal) **and**
-  `:630-632` (BAS), wired `:1385-1389`. (Error-panel "Fechar" `:770` is separate —
-  keep.)
-- **"Exportar CSV":** `#export-csv-btn` at `:418-420` (normal) **and** `:587-589`
-  (BAS), wired `:1370-1383`.
-- **CSV logic to preserve:** `exportToCsv()` `:1224-1258` + `downloadCSV()`
-  `:1263-1276` (see §"CSV").
-- **No PDF today.** KPI section is a stub (`#energy-kpi-btn`/`#show-kpis-btn`
-  `:543-549`, handler `:1481`).
-- **FOOTER "Comparar":** `openComparisonModal()`
-  (`v-5.2.0/WIDGET/FOOTER/controller.js:1296`) → `dataSources` with **per-device
-  `label`** (`:1330-1334`) → `openDashboardPopupEnergy({ mode:'comparison',
-  dataSources, readingType, granularity, … })` (`:1406-1432`). **The device names
-  for the "(i)" are already passed in `dataSources`.**
-- **Reusable footer:** `createModalFooter` (`../footer-modal/ModalFooter.ts:75`) —
-  3-column (customerName + real-time clock + lib-version checker / "Powered by
-  MYIO" / export buttons), theme wiring, class `myio-modal-footer-premium`.
-  AllReportModal mounts it via `mountFooter()` (`AllReportModal.ts:389-427`) with
-  `exports.{pdf,csv,xls}`.
-- **Reusable PDF:** AllReportModal `computeKpis()` (`:690-723`) →
-  `Array<{value,label,sub?}>`; `exportPDF()` (`:1221-1240`) → `exportGridPdf(...)`
-  (`telemetry-grid-shopping/export.ts:257`) with KPI band `drawKpiBand()`
-  (`:376-398`) and optional `chartImage`.
-- **"(i)" design language:** `EnergySummaryTooltip` (`src/utils/tooltips/…`) —
-  `DeviceInfo = { id, label, name? }`, per-status device lists, expand "(i)" →
-  `showDeviceListPopup`, pin/drag/maximize panel. `DeviceComparisonTooltip.ts` is a
-  closer analog for the comparison device list.
+### P0 — Comparação exige um dataset MyIO de primeira classe
+Comparação hoje não carrega dados locais. KPIs/PDF/CSV de comparação são **um novo
+pipeline**, não UI pequena. **Requisitos:**
+- estado `comparisonStats: ComparisonDeviceStats[]` + `partialErrors[]`, independente
+  do iframe;
+- fetch por-device **após** o chart do SDK começar a renderizar (não bloquear o
+  chart);
+- recomputar KPIs em mudança de **range** e **granularidade**;
+- **desabilitar** export PDF/KPI até o agregado estar pronto;
+- **falha parcial** por device (mostrar quais falharam);
+- **guards de staleness/cancelamento** — fetch antigo não pode atualizar a modal
+  após mudar período/gran/modo.
 
-## Guide-level explanation
+### P0 — `exportGridPdf` NÃO é reutilizável direto
+Ele recebe `TelemetryDevice[]` e renderiza `labelOrName`/`deviceIdentifier`/`val`/`perc`.
+O single exporta `EnergyData.consumption[]` por **timestamp**. Passar device sintético
+perderia o time-series ou produziria linhas que não são devices. **Escolher uma:**
+1. novo `exportTimeSeriesPdf()` (mesmo header/footer/KPI-band/chart-image, rows
+   `timestamp/value/unit`);
+2. estender `exportGridPdf` com **row-adapter** (`{ columns, rows, buildRow }`) sem
+   quebrar os callers do telemetry-grid;
+3. PDF de comparação = rows por-device (totais); **PDF single = time-series
+   separado**.
+Reutilizar só header/footer/KPI-band/document-shell. Definir o mapeamento **antes**
+de codar; testar KPI band **e** rows.
 
-### (c) Remove redundant "FECHAR"
-Delete `#close-btn` from **both** toolbars (normal + BAS) and its wiring. The shell
-**×** remains the single close. Keep the error-panel "Fechar".
+### P0 — Agregação de KPI é unit-aware
+O componente suporta `readingType: energy | water | tank | temperature`. **Regras no
+contrato (não open question):**
+- `energy`/`water`/`tank`: totais e por-device **aditivos**;
+- `temperature`: **não somar** (tempo/devices) → **média, min, max, contagem/cobertura**;
+- KPI "sem consumo" só para domínios aditivos;
+- unidades/labels seguem o mapeamento existente: `kWh`, `m³`, `°C`.
 
-### (b) Single-device "(i)"
-Add a small **(i)** next to the title showing device name, id/ingestionId, customer,
-period and granularity. Since `buildModalTitle()` returns an HTML string rendered
-into the shell header, the interactive popup is wired **post-render in the view**
-(the header string carries a `data-myio-info` anchor; the view attaches the popup).
+### P1 — Fronteira estrita do CSV (single)
+Manter o gerador; mover só o gatilho. Riscos: id `#export-csv-btn` sumir enquanto
+código faz `getElementById`; botão habilitado antes de `currentEnergyData`;
+comparação roteando p/ `exportToCsv()` (throw / guard de comparação). **Requisitos:**
+- gerador **inalterado** (single);
+- reatribuir o id `export-csv-btn` ao botão do footer **ou** atualizar todos os
+  paths de enable/disable num passo só;
+- **snapshot test** (BOM, linhas de metadata, célula de hora `1h`, filename);
+- **CSV de comparação é feature separada** — **não** reusar o template single.
 
-### (a) Comparison KPIs + "(i)"
-- **"(i)"**: a device-list popup (mirroring `EnergySummaryTooltip`'s expand popup)
-  built from the `dataSources` labels already passed in — **no new data needed for
-  the list**.
-- **KPIs**: total, average per device, max/min device, device count, period. In
-  comparison mode **MyIO has no dataset today**, so KPIs require **per-device
-  fetches via `EnergyDataFetcher`** (the same fetcher single mode uses), aggregated
-  client-side. This is the main new data work (see Open Questions).
+### P1 — Lifecycle do footer owned/destroyed
+`private modalFooter: ModalFooterInstance | null`; mount uma vez por render, destroy
+no close; tema via `setThemeMode`; enable/disable via `setExportDisabled` (**não**
+`getElementById` espalhado); append no **root** da modal (como AllReportModal), não
+dentro do flex do chart.
 
-### (d) Premium footer (both modes)
-Mount `createModalFooter` into the modal root (as AllReportModal does), replacing
-the ad-hoc toolbar export area. Footer carries: customerName + clock + lib-version,
-"Powered by MYIO", and export buttons **CSV / PDF** (XLS optional).
+### P1 — "(i)" não pode depender só do HTML de `buildModalTitle()`
+- definir dono (`EnergyModal` após `createModal` **ou** `EnergyModalView`);
+- **botão real** com `aria-label`, não `(i)` texto;
+- **escapar** labels/ids/customer antes de injetar no título;
+- comparação usa `dataSources[]` com **ids** (não só labels);
+- definir foco/close do popup.
 
-### (e) CSV — move the button, preserve the code
-Remove `#export-csv-btn` from the toolbar; route the footer's **CSV** button to the
-**unchanged** `exportToCsv()`. **`exportToCsv()` and `downloadCSV()` are kept
-verbatim** (columns, metadata block, granularity `HH:MM`, BOM, filename). Only the
-trigger moves.
+### P1 — Custo/auth do fetch de comparação
+N chamadas extras num path que já renderiza o iframe. **Requisitos:**
+- max concorrência, retry, timeout;
+- **um** `AuthClient`/token (não um token por device);
+- comportamento acima de um threshold de devices;
+- **não logar** credenciais/token (o FOOTER v5.2.0 ainda tem fallback de client
+  credentials — não normalizar isso);
+- confirmar paginação além de `pageSize=1000` (o `EnergyDataFetcher` não pagina).
 
-### (f) New PDF with KPIs
-Add a **PDF** export mirroring AllReportModal: compute a `computeKpis()`-style array
-and call the existing `exportGridPdf(devices, title, unit, period, null, {
-accentColor, kpis, chartImage })`. The KPI band + jsPDF worker already exist.
-`chartImage`: single mode can capture the iframe only if the SDK exposes a PNG hook;
-otherwise render the KPI band + data table without the chart image (Open Question).
+### P1 — Parity de caller não é automática
+Shopping v5.2.0 passa `dataSources[].label`. SIM v5.2.0 tem `openComparisonModal()`
+próprio + fonte de creds própria; v5.4.0 resolve creds de SERVER_SCOPE/GCDR; UNIQUE
+tem fluxos próprios. **Escopo de aceite = Shopping v5.2.0**; tasks explícitas de
+verificação p/ SIM/UNIQUE/v5.4.0; **não** reivindicar HO parity sem verificar
+labels/creds/dataApiHost/chartsBaseUrl/customerName por caller.
 
-### (g) KPIs as right sidebar (optional)
-Instead of a top band, render KPIs in a **right-side sidebar** using the BAS
-split-layout precedent (`getBASModeStyles` `:682-737`, 30/70), or an
-`EnergySummaryTooltip`-style pinnable panel. Decide during design.
+### P2 — Remoção do FECHAR (verificar)
+Remover `#close-btn` (normal + BAS) e o listener. Aceite: shell **×** fecha; **Esc**
+segue `closeOnEsc`; error-panel "Fechar" permanece.
 
-## Reference-level explanation
+### P2 — Substituir o stub de KPI (não coexistir)
+Deletar o handler alert de `#show-kpis-btn` e não deixar `#energy-kpi-btn` morto;
+substituir pela superfície escolhida (band inline / sidebar / painel pinado).
 
-### CSV — the exact template to preserve (`EnergyModalView.ts:1224-1258`)
-Metadata block + data section, `readingType`-driven unit (ENERGY/kWh, WATER/m³,
-TEMPERATURE/°C), granularity-aware date cell (`1h` appends `HH:MM`), filename
-`<readingType>-report-<deviceId>-<YYYY-MM-DD>.csv`, UTF-8 BOM via `downloadCSV`.
-**Guarantee:** no change to `exportToCsv`/`downloadCSV`/`CsvExporter.toCsv` output;
-a regression test should snapshot a known device's CSV bytes before/after.
+## Contrato de implementação (revisado)
 
-### Footer factory (`ModalFooter.ts:75`)
-`ModalFooterInstance`: `setThemeMode`, `setCustomerName`, `setExportDisabled`,
-`buttons`, `destroy`. EnergyModal mounts it after the chart container, passing
-`exports.csv = { onClick: () => view.exportToCsv() }` and `exports.pdf = { onClick:
-() => this.exportPDF() }`. Legacy export ids can be re-assigned (as AllReportModal
-does) so any external hooks survive.
+### 1. Fases por risco de dados
+1. **Footer + remoção do FECHAR + move do gatilho CSV** (single) — baixo risco.
+2. **KPIs single + PDF single**.
+3. **"(i)" single**.
+4. **"(i)" comparação** (de `dataSources`).
+5. **Fetch agregado de comparação + KPIs + política PDF/CSV**.
+6. **Sidebar (opcional)**.
 
-### PDF (`AllReportModal.ts:690-723`, `export.ts:257-408`)
-`GridPdfKpi = { label, value, sub? }`; `drawKpiBand()` draws rounded cards, value in
-accent, label + `sub` in gray. EnergyModal's `computeKpis()`:
-- **single**: from `currentEnergyData.consumption` (total, average, peak+timestamp,
-  min, "sem consumo" if applicable).
-- **comparison**: from the aggregated per-device fetch (total across devices, avg
-  per device, top/bottom device, device count).
+### 2. Estado de export explícito
+```ts
+type EnergyModalExportState =
+  | { mode: 'single'; data: EnergyData }
+  | { mode: 'comparison'; devices: ComparisonDeviceStats[]; partialErrors: ComparisonFetchError[] };
+```
+Single usa `currentEnergyData`; comparação preenche `ComparisonDeviceStats[]`.
 
-### Callers
-`openDashboardPopupEnergy` params are unchanged for existing callers; the comparison
-"(i)" consumes `dataSources[].label` already sent by the FOOTER
-(`controller.js:1330`). **Head Office / SIM FOOTER copies must pass the same
-`dataSources` labels** — verify `src/thingsboard/MYIO-SIM/v5.2.0/FOOTER/controller.js`.
+### 3. Calculadoras unit-aware
+```ts
+computeSingleKpis(data: EnergyData, readingType): GridPdfKpi[]
+computeComparisonKpis(stats: ComparisonDeviceStats[], readingType): GridPdfKpi[]
+```
+energy/water/tank → soma; temperature → média + min/max + contagem; "sem consumo" só
+aditivo; formatação pt-BR existente.
 
-## Drawbacks
+### 4. Estratégia de PDF (escolher antes de codar)
+generic time-series helper **ou** row-adapter em `exportGridPdf` **ou**
+device-summary (comparação) + time-series (single). Com testes de KPI band + rows.
 
-- Comparison KPIs add **N per-device fetches** (latency + API load) that don't exist
-  today; must be throttled/cached and must never block the SDK chart.
-- Editing **two toolbars** (normal + BAS) increases surface for regressions.
-- The chart lives in an iframe, so PDF "chart image" may be unavailable without an
-  SDK hook.
+### 5. Footer via instância modal-owned
+Espelhar `AllReportModal.mountFooter()`: customerName com fallback; ids legados;
+habilitar CSV/PDF só com dado pronto; destroy no close; tema no toggle.
 
-## Rationale and alternatives
+### 6. CSV de comparação separado
+Single = byte-idêntico. Comparação (se entrar) = template novo (metadata + rows por
+device: label/ingestionId/total/avg/min/max ou por-timestamp + seção de erro
+parcial). **Nunca** chamar o `exportToCsv()` single em comparação.
 
-- **Reuse AllReportModal's footer/PDF** vs bespoke: reuse — the infra
-  (`createModalFooter`, `exportGridPdf`, `drawKpiBand`) is already battle-tested and
-  themed.
-- **KPIs top-band vs right-sidebar (g):** sidebar reads better for a chart-first
-  modal and matches BAS; band is simpler. Proposed: pick sidebar for comparison
-  (more devices) and evaluate for single.
-- **Keep CSV button** vs move to footer: move — consolidates exports and removes
-  toolbar clutter, without touching the CSV output.
+## Test requirements
+- CSV single snapshot **byte-idêntico** (BOM, `1h`).
+- Footer renderiza CSV/PDF e roteia CSV ao gerador inalterado.
+- `#close-btn` ausente (normal + BAS); error-close permanece.
+- PDF single com KPIs e rows corretos.
+- Row-adapter (se houver) não regride os exports do telemetry-grid.
+- "(i)" single escapa labels e mostra device/customer/período.
+- "(i)" comparação lista todos labels **+ ids** de `dataSources`.
+- Agregado de comparação: sucesso multi-device; falha de 1 device degrada parcial;
+  resultado stale ignorado após mudar range/gran; temperatura usa média/min/max.
+- Botões do footer desabilitados até haver dado.
 
-## Risks & mitigations
-
-- **CSV regression (client-critical):** snapshot test on `exportToCsv` output;
-  change only the button, never the generator. **Hard requirement.**
-- **Comparison data absent:** wire `EnergyDataFetcher` per device with the existing
-  throttle; render KPIs progressively; failures degrade to "(i)"-only.
-- **Double toolbars / BAS mode:** cover both `#close-btn`/`#export-csv-btn`
-  occurrences; keep the error-panel "Fechar".
-- **iframe PDF image:** if no SDK PNG hook, ship PDF with KPI band + table first;
-  add the chart image when the SDK exposes it.
-
-## Adoption plan
-
-1. **Footer + FECHAR + CSV-move** (low risk, no data work): mount `createModalFooter`
-   in both modes, remove `#close-btn` and `#export-csv-btn`, route CSV to the footer.
-   Ship with the CSV snapshot test.
-2. **Single "(i)"** in `buildModalTitle` + view wiring.
-3. **New PDF** (`computeKpis` + `exportGridPdf`) for single mode.
-4. **Comparison KPIs + "(i)"** (per-device fetch via `EnergyDataFetcher`), PDF for
-   comparison.
-5. **Sidebar layout (g)** if approved.
-
-## Acceptance criteria
-
-- **AC-01:** No "FECHAR" in the toolbar (both layouts); the shell × still closes;
-  error-panel "Fechar" intact.
-- **AC-02:** Premium footer present in single **and** comparison, themed, with CSV +
-  PDF buttons (XLS optional), clock + lib-version.
-- **AC-03:** CSV output is **byte-identical** to today for the same device/period/
-  granularity (snapshot test passes); filename/BOM/columns unchanged.
-- **AC-04:** PDF exports with a KPI band; single mode KPIs match the on-screen
-  values.
-- **AC-05:** Comparison modal shows an **"(i)"** listing every compared device
-  (name/id), sourced from `dataSources`.
-- **AC-06:** Comparison modal shows KPIs (total, avg/device, max/min device, count)
-  computed MyIO-side; missing data degrades gracefully.
-- **AC-07:** Single-device modal shows an **"(i)"** with device/customer/period.
-- **AC-08:** No regression to the SDK chart in either mode; KPI fetches never block
-  or break the chart.
+**Aceite manual:** single v5.2.0 (footer, CSV inalterado, PDF baixa, shell fecha,
+sem "Fechar" na toolbar); comparação (chart imediato, popup lista devices, KPIs após
+agregado, falhas visíveis sem quebrar o chart); BAS cabe com footer; tema consistente.
 
 ## Open questions
+1. PDF single = time-series ou summary de um device?
+2. PDF comparação = totais por device ou por-timestamp?
+3. Máximo de devices para o fetch de KPI de comparação?
+4. `15m` em períodos longos precisa paginação além de `pageSize=1000`?
+5. CSV de comparação entra no 0226 ou é adiado?
+6. O Energy Chart SDK expõe chart image/data por `postMessage`? Se não, PDF sem
+   imagem do chart (documentar).
+7. Superfícies em escopo de aceite: só Shopping v5.2.0, ou também SIM/UNIQUE/v5.4.0?
 
-1. **SDK vs MyIO KPIs:** confirm the Energy Chart SDK doesn't already expose
-   totals/KPIs we could read (postMessage?) before adding per-device fetches. If the
-   SDK offers a data/KPI callback, prefer it over N fetches.
-2. **Chart image in PDF:** does the SDK expose a PNG/`toDataURL` hook for the iframe?
-   If not, PDF ships without the chart image initially.
-3. **Comparison fetch cost:** acceptable N and throttle for per-device aggregation
-   (reuse `goalsThrottle`-style settings?).
-4. **Sidebar vs band (g):** final layout decision.
-5. **XLS in the footer:** include now or CSV+PDF only?
-6. **Which readingTypes:** comparison KPIs for water/temperature (temperature
-   **averages**, not sums — mirror AllReportModal's unit-aware aggregation).
+## Drawbacks
+Comparação adiciona N fetches (latência/carga) inexistentes hoje — throttle/cache,
+nunca bloquear o chart. Editar **duas toolbars** (normal + BAS). Chart em iframe →
+imagem no PDF pode não existir sem hook do SDK.
 
-## Prior art / references
+## Rationale e alternativas
+Reusar footer/PDF-infra do AllReportModal (temado, testado) vs bespoke → reusar (mas
+com adapter de tabela). KPIs top-band vs sidebar (g): sidebar lê melhor num modal
+chart-first (comparação com mais devices); band é mais simples. Mover CSV p/ footer
+vs manter botão → mover, sem tocar o output.
 
-- `AllReportModal` (RFC-0182) — footer + KPIs + PDF template reused here.
-- `EnergySummaryTooltip` (RFC-0105) — KPI/"(i)"/device-list design language.
-- `ModalFooter` (`footer-modal`), `exportGridPdf` (`telemetry-grid-shopping/export.ts`).
-- Consumers: `openDashboardPopupEnergy` (`src/index.ts:428`), FOOTER comparison
-  (`v-5.2.0/WIDGET/FOOTER/controller.js:1406`); Head Office / SIM FOOTER copies to
-  verify.
+## Prior art / referências
+`AllReportModal` (RFC-0182) — footer/KPIs/PDF. `EnergySummaryTooltip` (RFC-0105) —
+KPI/"(i)"/device-list. `ModalFooter`, `exportGridPdf`. Consumers:
+`openDashboardPopupEnergy` (`src/index.ts:428`), FOOTER comparação
+(`v-5.2.0/WIDGET/FOOTER/controller.js:1406`); SIM/UNIQUE/v5.4.0 a verificar.
+
+## Recomendação
+Aceitar com mudanças. Implementar **faseado por risco de dados** (§1): a limpeza de
+UI baixo-risco (footer, FECHAR, move do CSV) separada do pipeline alto-risco da
+comparação. A 1ª PR = footer + FECHAR + move do gatilho CSV (single) **com o snapshot
+test do CSV**.
+
+## Histórico
+- **v0 (2026-07-17):** rascunho (chamava `exportGridPdf` direto; comparação como UI
+  pequena).
+- **Revisão v1 (2026-07-17):** accept with changes — dataset de comparação,
+  estratégia de PDF, KPI unit-aware, lifecycle do footer, fronteira do CSV, parity
+  de caller, rollout faseado. **Consolidada aqui.**
