@@ -745,6 +745,14 @@ export type {
   TemperatureReferenceLine as ConsumptionTemperatureReferenceLine,
 } from './components/Consumption7DaysChart';
 
+// Goals bar tooltip — premium tree-driven tooltip for the Metas bar charts
+export { createGoalsBarTooltip } from './components/tooltips/goals-bar-tooltip';
+export type {
+  TipRow as GoalsBarTipRow,
+  GoalsBarTooltipData,
+  GoalsBarTooltipInstance,
+} from './components/tooltips/goals-bar-tooltip';
+
 // Goals Modal — Painel de metas com linha de alvo (PR #101 / RFC-0046-ready)
 export { GoalsModal } from './components/goals-modal';
 export type {
