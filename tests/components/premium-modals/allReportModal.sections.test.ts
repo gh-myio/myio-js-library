@@ -61,6 +61,45 @@ describe('AllReportModal.bucketByDay', () => {
     expect(day.hours.get('2026-07-01T08')).toBe(2);
     expect(day.hours.get('2026-07-01T09')).toBe(3);
   });
+
+  it('L4 (code review): two readings colliding on the SAME hour key are summed (energy), never overwritten', () => {
+    // Two distinct real readings that map to the same hourKey — the DST
+    // fall-back scenario (two UTC instants both landing on local "...T01")
+    // is one way this happens, but the aggregation must be correct for ANY
+    // collision, not just that specific mechanism.
+    const modal = new AllReportModal(baseParams({ domain: 'energy' }));
+    const sameHour = ts('2026-07-01', 8);
+    const points = [
+      { timestamp: sameHour, value: 4 },
+      { timestamp: sameHour + 15 * 60 * 1000, value: 6 }, // 15 min later, same hour key
+    ];
+    const buckets = (modal as any).bucketByDay(points, ['2026-07-01'], '1h');
+    const day = buckets.get('2026-07-01');
+    expect(day.hours.get('2026-07-01T08')).toBe(10); // 4 + 6, NOT 6 (last-write-wins)
+    expect(day.value).toBe(10);
+  });
+
+  it('L4: a colliding hour is averaged (not summed) for temperature', () => {
+    const modal = new AllReportModal(baseParams({ domain: 'temperature' }));
+    const sameHour = ts('2026-07-01', 8);
+    const points = [
+      { timestamp: sameHour, value: 20 },
+      { timestamp: sameHour + 15 * 60 * 1000, value: 30 },
+    ];
+    const buckets = (modal as any).bucketByDay(points, ['2026-07-01'], '1h');
+    expect(buckets.get('2026-07-01').hours.get('2026-07-01T08')).toBe(25);
+  });
+
+  it('a day with zero readings still resolves value/hours consistently (no regression from the L4 refactor)', () => {
+    const modalEnergy = new AllReportModal(baseParams({ domain: 'energy' }));
+    const emptyBuckets = (modalEnergy as any).bucketByDay([], ['2026-07-01'], '1h');
+    expect(emptyBuckets.get('2026-07-01').value).toBe(0); // aggregateOrNull([]) for energy
+    expect(emptyBuckets.get('2026-07-01').hours.size).toBe(0);
+
+    const modalTemp = new AllReportModal(baseParams({ domain: 'temperature' }));
+    const emptyTempBuckets = (modalTemp as any).bucketByDay([], ['2026-07-01'], '1h');
+    expect(emptyTempBuckets.get('2026-07-01').value).toBeNull(); // aggregateOrNull([]) for temperature
+  });
 });
 
 describe('AllReportModal.buildReportSectionModel', () => {
@@ -394,6 +433,88 @@ describe('AllReportModal.renderSectionedRows (model -> HTML)', () => {
     expect(deviceHeader?.dataset.ancestors).toBe('grp:Lojas');
     const dayRow = rows.find((r) => r.classList.contains('rp-section-row--level-2'));
     expect(dayRow?.dataset.ancestors).toBe('grp:Lojas dev:a');
+  });
+
+  it('H1 (code review): group collapse works when the group label contains a space (e.g. "Área Comum")', () => {
+    const modal = new AllReportModal(baseParams());
+    (modal as any).reportMode = '1d';
+    (modal as any).exportPeriod = PERIOD;
+    (modal as any).data = [
+      { identifier: 'A', name: 'Device A', consumption: 0, id: 'a', groupLabel: 'Área Comum' },
+    ];
+    (modal as any).selectedStoreIds = new Set();
+    (modal as any).deviceSeriesCache = {
+      key: 'k',
+      granularity: '1d',
+      raw: new Map([['a', [{ timestamp: ts('2026-07-01'), value: 10 }]]]),
+      coverage: new Map([['a', 'ok']]),
+    };
+    const model = (modal as any).getReportSectionModel();
+    const rows = parseRows((modal as any).renderSectionedRows(model));
+
+    const expectedGroupKey = `grp:${encodeURIComponent('Área Comum')}`;
+    const groupHeader = rows.find((r) => r.classList.contains('rp-section-header--level-0'));
+    expect(groupHeader?.dataset.sectionToggle).toBe(expectedGroupKey);
+
+    // The bug: splitting a non-encoded "grp:Área Comum" by space yields TWO
+    // tokens, neither matching the real collapse key. Fixed: exactly one
+    // token, equal to the group's own section key.
+    const deviceHeader = rows.find((r) => r.classList.contains('rp-section-header--level-1'));
+    const ancestorTokens = (deviceHeader?.dataset.ancestors || '').split(' ').filter(Boolean);
+    expect(ancestorTokens).toEqual([expectedGroupKey]);
+
+    // Full round trip through the DOM: collapseAllSections() must actually
+    // hide this group's device header + day row via applySectionVisibility —
+    // this is exactly what H1 broke (clicking the group header, or
+    // "Recolher tudo", never hid an "Área Comum"-style group).
+    document.body.innerHTML = '<div id="table-container"><table><tbody></tbody></table></div>';
+    const tbody = document.querySelector('#table-container tbody')!;
+    tbody.innerHTML = (modal as any).renderSectionedRows(model);
+    const container = document.getElementById('table-container')!;
+
+    (modal as any).collapseAllSections();
+    const liveDeviceHeader = container.querySelector('.rp-section-header--level-1') as HTMLElement;
+    const liveDayRow = container.querySelector('.rp-section-row--level-2') as HTMLElement;
+    expect(liveDeviceHeader.style.display).toBe('none');
+    expect(liveDayRow.style.display).toBe('none');
+
+    (modal as any).expandAllSections();
+    expect(liveDeviceHeader.style.display).toBe('');
+    expect(liveDayRow.style.display).toBe('');
+  });
+
+  it('M2 (code review): group header total reconciles with visible (device-filtered) rows, not the whole group', () => {
+    const modal = new AllReportModal(baseParams({ domain: 'energy' }));
+    (modal as any).reportMode = '1d';
+    (modal as any).exportPeriod = PERIOD;
+    (modal as any).data = [
+      { identifier: 'A', name: 'Device A', consumption: 0, id: 'a', groupLabel: 'Lojas' },
+      { identifier: 'B', name: 'Device B', consumption: 0, id: 'b', groupLabel: 'Lojas' },
+    ];
+    // Device filter (Filtros & Ordenação) keeps only device A.
+    (modal as any).selectedStoreIds = new Set([(modal as any).generateStoreId('A')]);
+    (modal as any).deviceSeriesCache = {
+      key: 'k',
+      granularity: '1d',
+      raw: new Map([
+        ['a', [{ timestamp: ts('2026-07-01'), value: 10 }]],
+        ['b', [{ timestamp: ts('2026-07-01'), value: 90 }]],
+      ]),
+      coverage: new Map([['a', 'ok'], ['b', 'ok']]),
+    };
+    const model = (modal as any).getReportSectionModel();
+    // The unfiltered model total includes BOTH devices (100) — confirms the
+    // filter is genuinely active and the two totals would differ if the bug
+    // were still present.
+    expect(model.groups[0].total).toBe(100);
+
+    const rows = parseRows((modal as any).renderSectionedRows(model));
+    const deviceHeaders = rows.filter((r) => r.classList.contains('rp-section-header--level-1'));
+    expect(deviceHeaders.length).toBe(1); // only device A renders
+
+    const groupHeader = rows.find((r) => r.classList.contains('rp-section-header--level-0'));
+    expect(groupHeader?.querySelector('.rp-section-total')?.textContent).toBe('10,00 kWh'); // NOT 100,00
+    expect(groupHeader?.querySelector('.rp-section-meta')?.textContent).toBe('1 dispositivo');
   });
 
   it('a device excluded by the device filter (Filtros & Ordenação) is omitted from the sectioned rows', () => {

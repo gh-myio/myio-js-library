@@ -169,9 +169,14 @@ export class AllReportModal {
   private excludedDays: Set<string> = new Set(); // 'YYYY-MM-DD'
   private excludedHours: Set<string> = new Set(); // 'YYYY-MM-DDTHH'
 
-  // RFC-0223: collapse state for group/device/day sections, namespaced by id
-  // (never by label) so a label containing the separator can't alias another
-  // section: `grp:<id>` | `dev:<id>` | `dev:<id>#day:<YYYY-MM-DD>`.
+  // RFC-0223: collapse state for group/device/day sections:
+  // `grp:<uri-encoded groupLabel>` | `dev:<uri-encoded id-or-identifier>` |
+  // `dev:<...>#day:<YYYY-MM-DD>`. Group keys are necessarily label-based (a
+  // group has no separate stable id) — see sectionGroupKey/
+  // sectionDeviceCollapseKey — URI-encoded specifically so a label/identifier
+  // containing a literal space (e.g. "Área Comum") can't split into more than
+  // one token when applySectionVisibility parses `data-ancestors` back with
+  // `.split(' ')` (code review H1).
   private collapsedSections: Set<string> = new Set();
   // Identifies the period+mode this collapse state belongs to
   // (`${startISO}|${endISO}|${reportMode}`) — a loadData()/mode change compares
@@ -1105,11 +1110,28 @@ export class AllReportModal {
         if (bucket) bucket.value = p.value;
       }
     } else {
+      // RFC-0223 review (L4): accumulate ALL readings per hour key first,
+      // rather than overwriting on `.set()` — on a DST fall-back day two
+      // distinct real UTC instants map onto the SAME local hour key (e.g.
+      // "...T01"), and both must contribute to that hour's value (aggregate()
+      // sums for energy, means for temperature) instead of the second
+      // reading silently discarding the first.
+      const rawHoursByDay = new Map<string, Map<string, number[]>>();
       for (const p of points) {
-        const bucket = result.get(toDayKey(p.timestamp, tz));
-        if (bucket) bucket.hours!.set(toHourKey(p.timestamp, tz), p.value);
+        const day = toDayKey(p.timestamp, tz);
+        if (!result.has(day)) continue;
+        const hourKey = toHourKey(p.timestamp, tz);
+        let rawHours = rawHoursByDay.get(day);
+        if (!rawHours) rawHoursByDay.set(day, (rawHours = new Map()));
+        const list = rawHours.get(hourKey) || [];
+        list.push(p.value);
+        rawHours.set(hourKey, list);
       }
-      for (const bucket of result.values()) {
+      for (const [day, bucket] of result) {
+        const rawHours = rawHoursByDay.get(day);
+        if (rawHours) {
+          for (const [hourKey, values] of rawHours) bucket.hours!.set(hourKey, this.aggregate(values));
+        }
         bucket.value = this.aggregateOrNull(Array.from(bucket.hours!.values()));
       }
     }
@@ -1120,6 +1142,19 @@ export class AllReportModal {
   // present, else the display identifier (still unique within one report).
   private sectionDeviceKey(row: StoreReading): string {
     return row.id || row.identifier;
+  }
+
+  // Collapse-set keys for group/device sections — URI-encoded so a label or
+  // identifier containing the data-ancestors separator (a literal space,
+  // e.g. group label "Área Comum") can never split into more than one token
+  // when applySectionVisibility parses `data-ancestors` back with .split(' ').
+  // encodeURIComponent is the identity function for plain alphanumeric
+  // strings, so existing single-word labels/ids are unaffected.
+  private sectionGroupKey(groupLabel: string): string {
+    return `grp:${encodeURIComponent(groupLabel)}`;
+  }
+  private sectionDeviceCollapseKey(row: StoreReading): string {
+    return `dev:${encodeURIComponent(this.sectionDeviceKey(row))}`;
   }
 
   // The single pure tree builder every 1d/1h render/KPI/chart/export path
@@ -1237,7 +1272,7 @@ export class AllReportModal {
     const totalDevices = model.groups.reduce((n, g) => n + g.devices.length, 0);
     if (totalDevices > AllReportModal.DEFAULT_COLLAPSE_DEVICE_THRESHOLD) {
       for (const g of model.groups) {
-        for (const d of g.devices) collapsed.add(`dev:${this.sectionDeviceKey(d.row)}`);
+        for (const d of g.devices) collapsed.add(this.sectionDeviceCollapseKey(d.row));
       }
     }
     return collapsed;
@@ -1316,8 +1351,8 @@ export class AllReportModal {
   private collapseAllSections(): void {
     const model = this.getReportSectionModel();
     for (const g of model.groups) {
-      this.collapsedSections.add(`grp:${g.groupLabel}`);
-      for (const d of g.devices) this.collapsedSections.add(`dev:${this.sectionDeviceKey(d.row)}`);
+      this.collapsedSections.add(this.sectionGroupKey(g.groupLabel));
+      for (const d of g.devices) this.collapsedSections.add(this.sectionDeviceCollapseKey(d.row));
     }
     const container = document.getElementById('table-container');
     if (container) this.applySectionVisibility(container);
@@ -1369,15 +1404,23 @@ export class AllReportModal {
       const visibleDevices = group.devices.filter((d) => visibleIds.has(this.sectionDeviceKey(d.row)));
       if (!visibleDevices.length) continue;
 
-      const groupKey = `grp:${group.groupLabel}`;
+      const groupKey = this.sectionGroupKey(group.groupLabel);
       if (isGrouped) {
+        // RFC-0223 review (M2): recomputed from visibleDevices, not
+        // group.total (the whole group's total regardless of the device
+        // filter) — so the header always reconciles with the device
+        // sections actually rendered beneath it when Filtros & Ordenação /
+        // search narrows what's visible.
+        const visibleGroupTotal = this.aggregateOrNull(
+          visibleDevices.flatMap((d) => this.flattenLeafValues(d.days))
+        );
         html += renderCollapsibleSectionHeader({
           sectionKey: groupKey,
           ancestorKeys: [],
           level: 0,
           title: group.groupLabel,
           meta: `${visibleDevices.length} dispositivo${visibleDevices.length === 1 ? '' : 's'}`,
-          totalLabel: `${fmtValue(group.total)} ${this.domainConfig.unit}`,
+          totalLabel: `${fmtValue(visibleGroupTotal)} ${this.domainConfig.unit}`,
           collapsed: this.collapsedSections.has(groupKey),
           colSpan: 3,
         });
@@ -1385,7 +1428,7 @@ export class AllReportModal {
       const groupAncestors = isGrouped ? [groupKey] : [];
 
       for (const device of visibleDevices) {
-        const deviceKey = `dev:${this.sectionDeviceKey(device.row)}`;
+        const deviceKey = this.sectionDeviceCollapseKey(device.row);
         html += renderCollapsibleSectionHeader({
           sectionKey: deviceKey,
           ancestorKeys: groupAncestors,
