@@ -4034,15 +4034,14 @@ body.filter-modal-open { overflow: hidden !important; }
                 <button type="button" data-period-preset="prevYear" title="Ano anterior — 01/01 a 31/12 de ${new Date().getFullYear() - 1}" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;color:var(--gc-muted);background:transparent;">Ano ${new Date().getFullYear() - 1}</button>
                 <button type="button" data-period-preset="curYear" title="Ano atual — 01/01 de ${new Date().getFullYear()} até hoje" style="border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font:700 12px Nunito,sans-serif;color:var(--gc-muted);background:transparent;">Ano ${new Date().getFullYear()}</button>
               </div>
-              <span data-status hidden style="display:none;"></span>
-            </div>
-            <div data-controls style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;flex-shrink:0;padding-bottom:10px;">
+              <!-- Item 2 — sub-tabs (Dashboards | Analítico | Engine) realocadas para a 1ª linha, à direita do Período -->
               <div data-view-tabs style="display:flex;gap:4px;background:var(--gc-chip);border-radius:8px;padding:3px;">
                 <button type="button" data-view="dashboards" title="Gráficos e cards — dirigido pela configuração do Engine" style="border:0;border-radius:6px;padding:6px 16px;cursor:pointer;font:700 13px Nunito,sans-serif;">📊 Dashboards</button>
                 <button type="button" data-view="analitico" title="Tabela do portfólio (Resumo Analítico) da mesma seleção do Engine" style="border:0;border-radius:6px;padding:6px 16px;cursor:pointer;font:700 13px Nunito,sans-serif;">📋 Analítico</button>
               </div>
-              <button type="button" data-engine title="Engine — granularidade, visão, tipo e ordenação" style="border:1px solid ${GP.tint(45)};border-radius:8px;background:transparent;color:${GP.accent};padding:6px 14px;cursor:pointer;font:700 13px Nunito,sans-serif;">⚙️ Engine</button>
+              <button type="button" data-engine title="Engine — granularidade, visão, tipo e ordenação" aria-label="Engine" style="border:1px solid ${GP.tint(45)};border-radius:8px;background:transparent;color:${GP.accent};padding:6px 12px;cursor:pointer;font:700 15px Nunito,sans-serif;line-height:1;">⚙️</button>
               <span data-evo-status style="margin-left:auto;font:600 12px Nunito,sans-serif;color:var(--gc-muted);"></span>
+              <span data-status hidden style="display:none;"></span>
             </div>
             <div style="flex:1 1 auto;min-height:0;display:flex;flex-direction:column;gap:10px;position:relative;">
               <div data-evo-loading style="display:none;position:absolute;inset:0;z-index:6;background:rgba(148,163,184,.08);align-items:center;justify-content:center;border-radius:8px;">
@@ -4056,8 +4055,27 @@ body.filter-modal-open { overflow: hidden !important; }
                 #myio-goals-compare-root .gc-side-item{cursor:pointer;transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;}
                 #myio-goals-compare-root .gc-side-item:hover{transform:translateY(-2px) scale(1.02);box-shadow:0 6px 18px rgba(15,23,42,.18);border-color:${GP.tint(45)};}
                 /* Cards (RFC-0217): garante altura suficiente p/ título + gráfico + totais/deltas (4×2) sem clipe */
-                #myio-goals-compare-root [data-cards-grid]{grid-auto-rows:minmax(320px,auto);}
+                /* Item 4 — linhas por demanda: nunca fixa 3 linhas de 320px (evita 3ª linha vazia). grid-template-rows:none !important protege contra drift de deploy que injeta "320px 320px 320px". */
+                #myio-goals-compare-root [data-cards-grid]{grid-template-rows:none !important;grid-auto-rows:minmax(320px,auto);}
+                /* Itens 6/8 — respiro do scroller dos cards: não colar na barra de rolagem (dir.) nem cortar o último card (baixo) */
+                #myio-goals-compare-root [data-cards-grid]{padding-right:10px;padding-bottom:12px;}
                 #myio-goals-compare-root .myio-cgc{min-height:320px;}
+                /* Item 7 — hover zoom premium nos cards (transform-based, sem layout shift; card sobe no stacking p/ não ser coberto) */
+                #myio-goals-compare-root .myio-cgc{will-change:transform;}
+                #myio-goals-compare-root .myio-cgc:hover{transform:translateY(-2px) scale(1.02);box-shadow:0 8px 24px rgba(15,23,42,.16);z-index:1;}
+                /* Item 1 — hardening: aside "Resumo" continua flex-column mesmo se o inline display:flex sofrer drift; lista rola, Total fica fixo (aside nunca vira overflow-y:auto) */
+                #myio-goals-compare-root [data-side]{display:flex !important;flex-direction:column;min-height:0;}
+                #myio-goals-compare-root [data-side] [data-table]{flex:1 1 auto;min-height:0;overflow-y:auto;}
+                /* Item 5 — KPIs maiores quando o modal está maximizado (classe .gc-maximized adicionada ao root em toggleMax) */
+                #myio-goals-compare-root.gc-maximized .myio-cgc__total-value{font-size:17px;}
+                #myio-goals-compare-root.gc-maximized .myio-cgc__total-label{font-size:13px;}
+                #myio-goals-compare-root.gc-maximized .myio-cgc__delta-value{font-size:15px;}
+                #myio-goals-compare-root.gc-maximized .myio-cgc__delta-label{font-size:12px;}
+                #myio-goals-compare-root.gc-maximized .myio-cgc__vsline{font-size:11px;}
+                #myio-goals-compare-root.gc-maximized .myio-cgc__vsline .myio-cgc__delta-value{font-size:12px;}
+                #myio-goals-compare-root.gc-maximized .myio-cgc__delta-mini-label{font-size:10px;}
+                #myio-goals-compare-root.gc-maximized .myio-cgc__delta-mini .myio-cgc__delta-value{font-size:12px;}
+                #myio-goals-compare-root.gc-maximized .myio-cgc h4.myio-cgc__title{font-size:17px !important;}
               </style>
               <div data-evo-wrap style="position:relative;flex:1 1 auto;min-height:150px;"><canvas data-evo-chart></canvas></div>
               <div data-cards-grid style="display:none;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:10px;flex:1 1 auto;min-height:0;overflow-y:auto;align-content:start;"></div>
@@ -4078,7 +4096,7 @@ body.filter-modal-open { overflow: hidden !important; }
             <div data-side-sort style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
               <span style="font:600 10.5px Nunito,sans-serif;color:var(--gc-muted);flex:0 0 auto;">Ordem:</span>
               <button type="button" data-side-order title="Clique para inverter (crescente/decrescente)" style="flex:1 1 auto;min-width:0;text-align:left;border:1px solid var(--gc-border);border-radius:999px;background:transparent;color:var(--gc-muted);padding:3px 12px;cursor:pointer;font:700 10.5px Nunito,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Data de Inauguração ↑</button>
-              <button type="button" data-side-filter title="Filtros & ordenação — buscar, excluir, filtros rápidos" style="flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;border:1px solid ${GP.tint(45)};border-radius:8px;background:transparent;color:${GP.accent};padding:3px 9px;cursor:pointer;font:700 13px Nunito,sans-serif;">⚙️</button>
+              <button type="button" data-side-filter aria-label="Filtrar e ordenar" title="Filtros & ordenação — buscar, excluir, filtros rápidos" style="flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;border:1px solid ${GP.tint(45)};border-radius:8px;background:transparent;color:${GP.accent};padding:3px 9px;cursor:pointer;font:700 13px Nunito,sans-serif;"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="3 4 21 4 14 12.5 14 19 10 21 10 12.5 3 4"></polygon></svg></button>
             </div>
             <div data-table style="display:flex;flex-direction:column;gap:8px;flex:1 1 auto;min-height:0;overflow-y:auto;"></div>
             <div data-side-total style="flex:0 0 auto;"></div>
@@ -6418,6 +6436,8 @@ body.filter-modal-open { overflow: hidden !important; }
 
     const toggleMax = () => {
       isMax = !isMax;
+      // Item 5 — classe no root escala a tipografia dos KPIs dos cards no estado maximizado (CSS injetado)
+      overlay.classList.toggle('gc-maximized', isMax);
       dialogEl.style.width = isMax ? '100vw' : 'min(1320px,calc(100% - 32px))';
       dialogEl.style.height = isMax ? '100vh' : '';
       dialogEl.style.maxHeight = isMax ? '100vh' : '92vh';
