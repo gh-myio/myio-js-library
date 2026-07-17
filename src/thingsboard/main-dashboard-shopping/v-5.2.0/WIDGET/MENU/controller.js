@@ -104,6 +104,29 @@ self.onInit = function () {
   const menuRoot = document.querySelector('.shops-menu-root');
   let isMenuCollapsed = false;
 
+  // Theme palette (window.MyIOUtils.theme, from createMyIOTheme in MAIN_VIEW):
+  // aplica as CSS vars --myio-brand-* no root do MENU para que o item ativo/
+  // selecionado (.menu-item.active → var(--brand) = var(--myio-brand-700)) siga
+  // o accent do dashboard em vez do roxo MYIO fixo. Sem tema configurado, os
+  // fallbacks var(..., #3e1a7d) do styles.css preservam o visual atual.
+  (function applyMenuTheme() {
+    try {
+      const theme = window.MyIOUtils?.theme;
+      if (!theme || typeof theme.cssVars !== 'function') return; // fallbacks preservam o roxo atual
+      const vars = theme.cssVars();
+      if (!vars) return;
+      const targets = [menuRoot, self.ctx?.$container?.[0]].filter(Boolean);
+      targets.forEach((el) => {
+        Object.entries(vars).forEach(([k, v]) => {
+          if (k && k.startsWith('--') && typeof v === 'string') el.style.setProperty(k, v);
+        });
+      });
+      LogHelper.log('[MENU] theme palette applied to menu root:', { accent: theme.accent });
+    } catch (themeErr) {
+      LogHelper.warn('[MENU] theme palette apply failed (keeping default purple):', themeErr?.message);
+    }
+  })();
+
   if (hamburgerBtn && menuRoot) {
     hamburgerBtn.addEventListener('click', function (e) {
       e.preventDefault();

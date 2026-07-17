@@ -384,7 +384,7 @@ function injectCSS() {
 }
 
 .myio-compare:hover {
-  background: linear-gradient(135deg, #5A2CB8 0%, var(--myio-brand-700, #3E1A7D) 100%);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--myio-brand-700, #3E1A7D) 82%, #fff) 0%, var(--myio-brand-700, #3E1A7D) 100%);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--myio-brand-700, #3E1A7D) 70%, transparent), 0 6px 24px color-mix(in srgb, var(--myio-brand-700, #3E1A7D) 60%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.3);
   transform: translateY(-2px);
 }
@@ -458,7 +458,7 @@ function injectCSS() {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--myio-brand-700, #3E1A7D) 0%, #2D1359 100%);
+  background: linear-gradient(135deg, var(--myio-brand-700, #3E1A7D) 0%, color-mix(in srgb, var(--myio-brand-700, #3E1A7D) 82%, #000) 100%);
   border: 2px solid var(--myio-brand-700, #3E1A7D);
   border-radius: 50%;
   color: #ffffff;
@@ -490,7 +490,7 @@ function injectCSS() {
   font-size: 15px;
   font-weight: 700;
   text-transform: uppercase;
-  background: linear-gradient(135deg, var(--myio-brand-700, #3E1A7D) 0%, #2D1359 100%);
+  background: linear-gradient(135deg, var(--myio-brand-700, #3E1A7D) 0%, color-mix(in srgb, var(--myio-brand-700, #3E1A7D) 82%, #000) 100%);
   border: none;
   border-radius: 12px;
   color: #ffffff;
@@ -500,7 +500,7 @@ function injectCSS() {
 }
 
 .myio-alert-button:hover {
-  background: linear-gradient(135deg, #4E2A9D 0%, var(--myio-brand-700, #3E1A7D) 100%);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--myio-brand-700, #3E1A7D) 88%, #fff) 0%, var(--myio-brand-700, #3E1A7D) 100%);
   box-shadow: 0 6px 24px color-mix(in srgb, var(--myio-brand-700, #3E1A7D) 50%, transparent);
   transform: translateY(-2px);
 }
