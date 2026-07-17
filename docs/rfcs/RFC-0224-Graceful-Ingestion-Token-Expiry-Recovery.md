@@ -3,402 +3,459 @@
 - Feature Name: `graceful_ingestion_token_expiry_recovery`
 - Start Date: 2026-07-17
 - RFC PR: (leave this empty)
-- Tracking Issue: (leave this empty)
+- Tracking Issue: ED-1028
+- Status: **Approved with mandatory changes — consolidated (incorporates Revisão v1, 2026-07-17)**
+
+> **Nota de consolidação.** Este documento é a versão canônica. Ele mantém a
+> investigação/evidências do rascunho inicial (§1–§5) e **substitui o sketch
+> original de implementação** pela arquitetura aprovada na Revisão v1 (§6 em
+> diante): distinção `401`/`403`, single-flight por escopo, invalidação por
+> geração, validação no endpoint de dados, atualização atômica de credenciais,
+> eventos versionados sem segredos e sem reload automático como padrão.
 
 ## Summary
 
-When a user stays on the **Shopping v-5.2.0** panel or on the **Head Office**
-dashboards and keeps calling the ingestion (data-api) endpoints, the ingestion
-**access token eventually expires** and requests start failing with an auth
-error. Today this is handled inconsistently and badly: some call sites do a
-**hard `window.location.reload()`**, others fail **completely silently**, and the
-one event that was meant to coordinate a refresh (`myio:token-expired`) is
-**dispatched but has no listener anywhere** — it is dead scaffolding.
+Quando o usuário permanece no painel **Shopping v-5.2.0** ou nos dashboards de
+**Head Office** e continua chamando os endpoints da Ingestion API, o **token de
+acesso expira** e as chamadas passam a falhar. Hoje isso é tratado de forma
+inconsistente: alguns call sites fazem **`window.location.reload()`**, outros
+falham **silenciosamente**, e o evento que deveria coordenar a renovação
+(`myio:token-expired`) é **disparado mas não tem consumidor** — é andaime morto.
 
-This RFC proposes a **single, shared library helper**
-`handleIngestionAuthFailure(...)` that, on any ingestion `401/403`, runs a
-consistent, debounced, single-flight recovery:
+Este RFC define uma recuperação **centralizada, coordenada por escopo de
+autenticação, com no máximo uma repetição por operação lógica**, que:
 
-1. **MyIOToast ERROR** — "Token de acesso expirado."
-2. **MyIOToast WARNING** — "Atualizando a sessão no banco de dados por validade de
-   token de acesso expirado…"
-3. **dispatch `myio:token-expired`** (reusing the already-dispatched event name)
-   plus two new lifecycle events `myio:session-refreshed` /
-   `myio:session-refresh-failed`.
-4. **Refresh the session in place** — `auth.clearCache()` + re-auth (common case),
-   or re-read the credentials from ThingsBoard `SERVER_SCOPE` when the stored
-   `client_id`/`client_secret` were rotated in the DB.
-5. Optionally **retry the failed request once**, and only fall back to a full
-   reload if the refresh itself fails.
+1. classifica corretamente a falha (`401` = candidato a token inválido; `403`
+   só entra no fluxo com evidência explícita de token expirado);
+2. coordena a recuperação por `authScopeId` (host + clientId via hash **opaco**),
+   não globalmente;
+3. invalida o token com **contador de geração** (uma promise antiga de `/auth`
+   nunca sobrescreve um token novo);
+4. **valida a recuperação repetindo o request de DADOS** — `session-refreshed` só
+   é emitido depois que a chamada de dados autenticada tem sucesso;
+5. relê credenciais do ThingsBoard `SERVER_SCOPE` **apenas** se o re-auth/retry
+   falhar (modo b), substituindo a instância de auth **atomicamente**;
+6. informa o usuário via **toasts no adaptador de UI** e emite **eventos
+   versionados, sem segredos**;
+7. **nunca recarrega a página automaticamente** por padrão — na falha final,
+   mantém os dados renderizados e oferece ação manual.
 
-No more silent failures, no more jarring full-page reloads. `window.location`
-reload becomes the **last resort**, not the first response.
+Toasts e `CustomEvent` pertencem ao **adaptador do dashboard**, não à primitiva da
+biblioteca (que permanece testável em Node/jsdom).
 
-## Motivation
+## 1. Como a primitiva de autenticação funciona
 
-The reported symptom (verbatim): *"se ficarmos no painel 5.2.0 e também no dash
-head office e chamamos endpoints do ingestion a api expira e dá um erro de token
-api. Deveria ter um erro myio toast error, e depois um myio toast warning dizendo
-que vai atualizar a sessão no banco de dados por validade de token de acesso
-expirado. E tentar disparar um evento."*
+**Arquivo:** `src/services/ingestion/buildMyioIngestionAuth.ts` (fonte TS, entrada
+da build; existe um twin `.js` mantido à mão; `AuthClient.ts` a encapsula).
 
-The user also raised the concern that the ingestion auth is built with **`const`
-credentials**, so it is unclear how a refresh could even work:
+- **Token é cacheado** num `Map` de **escopo de módulo**, indexado hoje por
+  `dataApiHost:clientId:clientSecret`. Instâncias com a mesma config compartilham
+  `token`, `expiresAt`, `inFlight`.
+- **Auto-refresh é só por tempo de relógio local** (`getToken()` re-autentica
+  quando `now() >= expiresAt - renewSkew`). A primitiva **não recebe a resposta da
+  chamada de dados**, então não sabe que o bearer foi revogado/recusado antes de
+  `expiresAt`.
+- **Single-flight** existe via `cache.inFlight`.
+- `requestNewToken()` faz POST `{ client_id, client_secret }` em `/auth` com
+  retry exponencial.
+- **Lacuna central:** a primitiva **não reage a um `401/403` downstream** — segue
+  servindo o token cacheado. O único lever atual é `clearCache()` + `getToken()`.
 
-```js
-// MAIN_VIEW/controller.js
-const myIOAuth = MyIO.buildMyioIngestionAuth({
-  dataApiHost: getDataApiHost(),
-  clientId: latestCreds.CLIENT_ID,
-  clientSecret: latestCreds.CLIENT_SECRET,
-});
-```
-```js
-// MYIO-SIM/v5.2.0_UNIQUE/controller.js
-const myIOAuth = MyIOLibrary.buildMyioIngestionAuth({
-  dataApiHost: DATA_API_HOST,
-  clientId: CLIENT_ID,
-  clientSecret: CLIENT_SECRET,
-});
-```
+### Sutilezas verificadas (a corrigir na primitiva)
 
-This RFC resolves that concern (§3) and unifies the scattered, inconsistent
-handling into one contract shared by v-5.2.0, Head Office v5.2.0_UNIQUE, v-5.4.0
-and the premium modals.
+- `clearCache()` faz `inFlight = null` mas **não cancela** o `fetch('/auth')` já
+  iniciado — a promise antiga ainda resolve e pode **sobrescrever** token novo.
+- `clearAllAuthCaches()` faz `globalCache.clear()`; instâncias existentes ficam
+  ligadas a **entradas órfãs** e não passam a compartilhar uma nova entrada.
+- `getAuthCacheStats()` retorna as **chaves do cache** — e a chave contém
+  `clientSecret` → **risco de vazamento de segredo** em diagnóstico/log.
+- O twin `.js` exige **decisão explícita de compatibilidade** (não assumir
+  manutenção manual dupla).
 
-## 1. How the auth primitive actually works
+### A questão do `const` — resolvida
 
-**File:** `src/services/ingestion/buildMyioIngestionAuth.ts` (TS source; a
-hand-kept twin exists at `buildMyioIngestionAuth.js`; `AuthClient.ts` wraps it).
+Os `const` de credenciais **não** são o bloqueio: o closure re-posta
+`client_id`/`client_secret` no `/auth` quando precisa de token novo.
 
-- **Token IS cached**, in a **module-global `Map`** keyed by
-  `dataApiHost:clientId:clientSecret`. All instances built with the same creds
-  share one cache entry (`token`, `expiresAt`, `inFlight`).
-- **Auto-refresh is time-based only.** `getToken()` re-auths only when
-  `now() >= expiresAt - renewSkewSeconds*1000` (default skew 60s); `expiresAt`
-  comes from the server's `expires_in`.
-- **Single-flight** is built in via `cache.inFlight` (concurrent refreshes for the
-  same creds are deduped).
-- **`requestNewToken()`** POSTs `{ client_id, client_secret }` to
-  `${dataApiHost}/auth` with exponential-backoff retry.
-- **`clearCache()`** nulls `token`/`expiresAt`/`inFlight`; `clearAllAuthCaches()`
-  wipes every entry.
-- **Critical gap:** the auth object **does not react to a downstream 401/403**. If
-  the server rejects a token the client's clock still considers valid
-  (server-side revocation, early expiry, clock skew, creds rotated in the DB),
-  `getToken()` keeps returning the **same stale cached token**. There is no
-  `onAuthError`, no forced-refresh flag. **The only lever is `clearCache()` then
-  `getToken()`.**
+- **Modo (a)** — token expirado, creds válidas server-side: recuperável com
+  invalidação + re-auth. **Caso comum.**
+- **Modo (b)** — `client_id`/`client_secret` rotacionados/revogados no banco: o
+  re-auth com os `const` velhos também falha em `/auth`; exige **reler creds do
+  `SERVER_SCOPE`** (§5) e reconstruir a instância.
 
-### The `const` credentials question — resolved
+## 2. Handling atual — dois mecanismos inconsistentes e incompletos
 
-The `const` creds are **not** the blocker. The auth closure re-POSTs
-`client_id`/`client_secret` to `/auth` whenever it needs a fresh token:
+**Arquivo:** `.../v-5.2.0/WIDGET/MAIN_VIEW/controller.js`
 
-- **Failure mode (a) — access token expired, creds still valid server-side:**
-  fully recoverable with `auth.clearCache(); await auth.getToken();`. No new creds
-  needed. **This is the common case.**
-- **Failure mode (b) — the stored `client_id`/`client_secret` were rotated/revoked
-  in the DB:** re-auth with the stale `const` creds will *also* `401` at `/auth`.
-  Recovery requires **re-reading creds from ThingsBoard `SERVER_SCOPE`** (§5) and
-  rebuilding the auth. The current code never does this — `getCredentials()`
-  always returns the closure values captured once at `onInit`.
+**Mecanismo A — `MyIOUtils.handleUnauthorizedError(context)` (~407-422):** toast +
+**`window.location.reload()`** após 6s. Chamado por `fetchEnergyDayConsumption`
+(~594), `fetchGoalsDayTotals` (~653), `fetchGoalsConsumptionSeries` (~726).
 
-## 2. Existing 401/403 handling — two inconsistent, incomplete mechanisms
+**Mecanismo B — `emitTokenExpired()` (~7338-7345):** debounce de 60s, dispara
+`myio:token-expired`. Chamado só no hydrate do orquestrador (~6866). **`myio:token-expired`
+não tem NENHUM listener** (grep em `src/`: zero). Andaime morto. Idem
+`myio:orchestrator:error` e `myio:token-rotated`.
 
-**File:** `src/thingsboard/main-dashboard-shopping/v-5.2.0/WIDGET/MAIN_VIEW/controller.js`
+Resultado: o hydrate falha **em silêncio** (B é no-op); os três helpers Goals/Energy
+fazem **reload** (A). Nenhum renova a sessão in-place. **É a causa raiz da UX
+reportada.**
 
-**Mechanism A — `MyIOUtils.handleUnauthorizedError(context)` (~lines 407-422):**
+> `MYIO-SIM/v5.2.0/MAIN/controller.js` é um twin quase idêntico do MAIN_VIEW e
+> carrega o mesmo `emitTokenExpired`. Cópias em `bkp/` fora de escopo.
 
-```js
-handleUnauthorizedError: (context = 'API') => {
-  LogHelper.error(`[MyIOUtils] 401 Unauthorized in ${context} - session expired`);
-  const MyIOToast = window.MyIOLibrary?.MyIOToast;
-  if (MyIOToast) MyIOToast.error('Sessão expirada. Recarregando página...', 6000);
-  else console.error('[MyIOUtils] Sessão expirada. Recarregando página...');
-  setTimeout(() => { window.location.reload(); }, 6000);   // <-- FULL PAGE RELOAD
-}
-```
+### 2.1 `tokenManager` — correção factual
 
-Called from three `MyIOUtils.fetch*` helpers: `fetchEnergyDayConsumption` (~594),
-`fetchGoalsDayTotals` (~653), `fetchGoalsConsumptionSeries` (~726). One error
-toast, then a hard reload — no warning toast, no in-place refresh, no event.
+`tokenManager` tem **dois caminhos distintos**:
 
-**Mechanism B — `emitTokenExpired()` (~lines 7338-7345):**
+- `updateTokens(...)` atualiza tokens, **aborta requests em voo e emite
+  `myio:token-rotated`**;
+- `setToken(type, value)` **apenas grava o valor**.
 
-```js
-let tokenExpiredDebounce = 0;
-function emitTokenExpired() {
-  const now = Date.now();
-  if (now - tokenExpiredDebounce < 60_000) return;   // 60s debounce (good)
-  tokenExpiredDebounce = now;
-  window.dispatchEvent(new CustomEvent('myio:token-expired', { detail: {} }));
-}
-```
+Portanto a afirmação do rascunho inicial de que `setToken('ingestionToken', …)`
+aciona a rotação está **incorreta**. A integração deve chamar uma operação com
+semântica de rotação (`updateTokens`), ou unificar o contrato do `tokenManager`.
 
-Called from exactly one place: the orchestrator hydrate fetch (~6866). **`myio:token-expired`
-has NO listener anywhere** (grep across `src/`: zero `addEventListener('myio:token-expired', …)`).
-It fires and nothing happens. Same for `myio:orchestrator:error` and
-`myio:token-rotated`.
+## 3. Toast + eventos disponíveis
 
-So today the orchestrator's own data fetch fails **silently** (B is a no-op),
-while the three Goals/Energy helper fetches do a **jarring full page reload** (A).
-Neither refreshes the session in place. **This is the root cause of the reported
-UX.**
+- **`MyIOToast`** — `src/components/MyIOToast.js`, exportado em `src/index.ts:414`
+  (`window.MyIOLibrary.MyIOToast`). `.error(msg, 5000)`, `.warning(msg, 3500)`,
+  `.info`, `.success`; toasts **empilham** (até 6). Error `#d32f2f`, warning
+  `#ff9800`. **Os toasts pertencem ao adaptador de UI, não à primitiva.**
+- **Eventos** — `window.dispatchEvent(new CustomEvent('myio:…', { detail }))` com
+  listeners de escopo de módulo. Reusar `myio:token-expired` (com payload
+  versionado) e **adicionar** os eventos de lifecycle (§7).
 
-> `src/thingsboard/MYIO-SIM/v5.2.0/MAIN/controller.js` is a near-exact twin of
-> MAIN_VIEW and carries the same `emitTokenExpired`. The `bkp/` copies mirror it
-> and are out of scope.
+## 4. Mapa de call-sites da Ingestion (handling atual)
 
-## 3. Toast + event system available
-
-- **`MyIOToast`** — `src/components/MyIOToast.js`, exported at `src/index.ts:414`
-  (reachable as `window.MyIOLibrary.MyIOToast`). API: `.error(msg, 5000)`,
-  `.warning(msg, 3500)`, `.info`, `.success`, `.show(msg, type, duration)`; each
-  returns `{ hide() }`. Toasts **stack** (up to 6), so an error toast followed by a
-  warning toast render one above the other — exactly the requested sequence. Error
-  `#d32f2f` 🚫, warning `#ff9800` ⚠️.
-- **Event pattern** — `window.dispatchEvent(new CustomEvent('myio:…', { detail }))`
-  with module-scope listeners. Existing token-related names already coined:
-  `myio:token-expired`, `myio:token-rotated`. This RFC **reuses**
-  `myio:token-expired` and **adds** `myio:session-refreshed` /
-  `myio:session-refresh-failed`.
-
-## 4. Ingestion call-site map (auth-failure handling today)
-
-| File | Function / area | Endpoint | Current 401/403 handling |
+| Arquivo | Função / área | Endpoint | Handling 401/403 hoje |
 |---|---|---|---|
-| MAIN_VIEW `v-5.2.0` ~6862 | orchestrator hydrate (fetchAndEnrich) | `/telemetry/customers/{id}/{domain}/devices/totals` | `emitTokenExpired()` → **no listener (silent)** + throw |
-| MAIN_VIEW ~588 | `MyIOUtils.fetchEnergyDayConsumption` | `/energy/devices/totals` | `handleUnauthorizedError` → **toast + full reload** |
-| MAIN_VIEW ~648 | `MyIOUtils.fetchGoalsDayTotals` | `/{domain}/devices/totals` | `handleUnauthorizedError` → toast + reload |
-| MAIN_VIEW ~723 | `MyIOUtils.fetchGoalsConsumptionSeries` | `/{domain}/` | `handleUnauthorizedError` → toast + reload |
-| MAIN_VIEW ~748 | `MyIOUtils.fetchGoalsTemperature` | `/{domain}/` | none (returns `[]`) |
-| TELEMETRY `v-5.2.0` | delegates to orchestrator (no direct calls) | — | inherits orchestrator behavior |
-| HEADER / MENU `v-5.2.0` | KPI/summary via orchestrator events | — | none of their own |
-| **HO SIM `v5.2.0_UNIQUE`** ~10233 | energy enrichment | `/…/energy/devices/totals` | `console.warn('Energy API error')` — **fully silent** |
-| HO SIM `v5.2.0_UNIQUE` ~10256 | water enrichment | `/water/devices/totals` | `console.warn('Water API error')` — silent |
-| HO SIM `v5.2.0_UNIQUE` (10 `buildMyioIngestionAuth` sites) | goals, temperature, trends, welcome counts | various | mostly `if(!res.ok) return null/[]` — silent |
-| `v-5.4.0/controller.js` | all ingestion | various | **no 401/403 handling at all** (grep: 0 hits) |
-| AllReportModal / premium modals via `AuthClient` | report totals | data-api | `AuthClient.clearCache()` exists but **no caller invokes it on 401**; no retry |
+| MAIN_VIEW `v-5.2.0` ~6862 | hydrate (fetchAndEnrich) | `/…/{domain}/devices/totals` | `emitTokenExpired()` → **sem listener (silencioso)** + throw |
+| MAIN_VIEW ~588 | `fetchEnergyDayConsumption` | `/energy/devices/totals` | `handleUnauthorizedError` → **toast + reload** |
+| MAIN_VIEW ~648 | `fetchGoalsDayTotals` | `/{domain}/devices/totals` | idem reload |
+| MAIN_VIEW ~723 | `fetchGoalsConsumptionSeries` | `/{domain}/` | idem reload |
+| MAIN_VIEW ~748 | `fetchGoalsTemperature` | `/{domain}/` | nenhum (retorna `[]`) |
+| TELEMETRY `v-5.2.0` | delega ao orquestrador | — | herda |
+| **HO SIM `v5.2.0_UNIQUE`** ~10233 | enriquecimento energia | `/…/energy/devices/totals` | `console.warn` — **silencioso** |
+| HO SIM `v5.2.0_UNIQUE` ~10256 | enriquecimento água | `/water/devices/totals` | `console.warn` — silencioso |
+| HO SIM `v5.2.0_UNIQUE` (10 sites `buildMyioIngestionAuth`) | goals, temperatura, trends, welcome | vários | maioria `return null/[]` — silencioso |
+| `v-5.4.0/controller.js` | toda ingestion | vários | **nenhum handling de 401/403** |
+| Premium modals via `AuthClient` | totais de report | data-api | tem `clearCache()` mas **nenhum caller invoca no 401**; sem retry |
 
-**Conclusion:** there is no single choke-point today; handling is scattered,
-inconsistent, and mostly silent. The natural choke-points are (1) the library
-auth object and (2) a shared `MyIOUtils`/orchestrator fetch helper.
+**Não há choke-point único hoje.** Os choke-points naturais são (1) a primitiva de
+auth e (2) um executor de request autenticado compartilhado.
 
-## 5. Where credentials come from ("refresh session in the database")
+## 5. De onde vêm as credenciais ("reler do banco")
 
-**File:** MAIN_VIEW ~1962:
+**MAIN_VIEW ~1962:**
 
 ```js
 const attrs = await MyIO.fetchThingsboardCustomerAttrsFromStorage(customerTB_ID, jwt, tbBase);
-CLIENT_ID       = attrs?.client_id || '';
-CLIENT_SECRET   = attrs?.client_secret || '';
-CUSTOMER_ING_ID = attrs?.ingestionId || '';
+CLIENT_ID = attrs?.client_id || ''; CLIENT_SECRET = attrs?.client_secret || ''; CUSTOMER_ING_ID = attrs?.ingestionId || '';
 ```
 
-Creds live in ThingsBoard **CUSTOMER `SERVER_SCOPE`** attributes (`client_id`,
-`client_secret`, `ingestionId`), fetched once at `onInit`, stored via
-`MyIOOrchestrator.setCredentials(...)`, read back via `getCredentials()`. HO
-UNIQUE has an equivalent bootstrap.
+Creds vivem em atributos **CUSTOMER `SERVER_SCOPE`** do ThingsBoard, lidos uma vez
+no `onInit`, guardados via `MyIOOrchestrator.setCredentials(...)`. **Reler é
+leitura do banco para a memória — NÃO grava/renova sessão no banco.** A cópia dos
+toasts (§6) reflete isso.
 
-**"Refresh session in the DB" therefore means:** re-invoke
-`fetchThingsboardCustomerAttrsFromStorage(...)`, re-`setCredentials(...)`,
-`clearAllAuthCaches()`, and rebuild the ingestion auth — recovering failure mode
-(b). For mode (a), no DB read is needed.
+## 6. Correções obrigatórias sobre a abordagem ingênua
 
-## 6. Guide-level explanation (proposed behavior)
+### 6.1 `401` e `403` não são equivalentes
+- **`401`** de endpoint de dados → candidato a bearer ausente/inválido/revogado/
+  expirado → **recupera**.
+- **`403`** → normalmente autenticado mas **sem autorização** → **não** recupera
+  por padrão; só entra no fluxo se o backend fornecer **código/header documentado**
+  de token inválido/expirado. Demais `403` = erro de permissão (sem clear cache,
+  sem toast de token).
+- **Nunca** aplicar a respostas de ThingsBoard/GCDR só pelo status — o erro tem que
+  ser classificado como **pertencente à Ingestion API**.
 
-On any ingestion `401/403`:
+### 6.2 Single-flight por escopo
+Estado de recuperação por **`authScopeId`** (host + clientId via **hash opaco** — o
+secret nunca entra em payload/log/evento/chave de diagnóstico). Recuperação do
+cliente A não bloqueia nem contamina o cliente B.
 
-```
-┌─ toast ───────────────────────────────────────────────┐
-│ 🚫  Token de acesso expirado.                          │   (error, 6s)
-├───────────────────────────────────────────────────────┤
-│ ⚠️  Atualizando a sessão no banco de dados por         │   (warning, 6s)
-│     validade de token de acesso expirado…              │
-└───────────────────────────────────────────────────────┘
-        │
-        ├─ dispatch  myio:token-expired  { context, status, at }
-        │
-        ├─ auth.clearCache();  await auth.getToken()      ── mode (a) OK ──┐
-        │        └─ if /auth also 401 → refreshCredentialsFromTB()          │
-        │                              → clearAllAuthCaches() → getToken()  │  mode (b)
-        │
-        ├─ success → dispatch myio:session-refreshed { at }  → (optional) retry request once
-        └─ failure → dispatch myio:session-refresh-failed { error }
-                    → toast error "Não foi possível renovar a sessão. Recarregue a página."
-                    → (last resort) reload
-```
+### 6.3 Debounce ≠ resultado técnico
+No sketch ingênuo, uma segunda falha em 60s retornava `false`, que um call site
+poderia ler como "recuperação falhou" e recarregar. **Debounce controla só
+notificação/toasts**; o coordenador guarda `generation` e o último resultado por
+escopo — requests de geração antiga **reusam** a recuperação atual/último sucesso e
+repetem uma vez.
 
-The whole sequence is **debounced (60s)** and **single-flight**: many parallel
-domain fetches that all 401 at once produce **exactly one** toast pair and **one**
-refresh, not N.
+### 6.4 Limpar `inFlight` não cancela `/auth` em curso
+Invalidação por **contador de geração**: toda autenticação captura a geração
+inicial e **só publica o resultado se ainda for a atual**. `AbortController`
+opcional; a proteção por geração é **obrigatória**.
 
-## 7. Reference-level explanation (proposed design)
+### 6.5 `clearAllAuthCaches()` fora do fluxo normal
+Invalidar **apenas o escopo afetado**. Em mudança de credenciais, construir **nova
+instância** e substituir atomicamente a referência. `clearAllAuthCaches()` fica
+para logout/testes.
 
-### 7.1 Shared library helper
+### 6.6 Cópia dos toasts
+Tecnicamente, reler `SERVER_SCOPE` **não** é "atualizar a sessão no banco".
 
-New: `src/services/ingestion/handleIngestionAuthFailure.(ts|js)`, exported from
-`src/index.ts` (near `MyIOToast`, ~414), reachable as
-`MyIOLibrary.handleIngestionAuthFailure` and bridged via `MyIOUtils` (per the
-project's LIB_SYMBOLS bridge convention — MAIN_VIEW must add the new symbol to
-`LIB_SYMBOLS`).
+**Cópia técnica aprovada (default):**
+- erro: `Token de acesso expirado ou inválido.`
+- warning: `Renovando o acesso aos dados. Aguarde...`
+- falha: `Não foi possível renovar o acesso aos dados. Tente novamente.`
 
-```js
-// src/services/ingestion/handleIngestionAuthFailure.js  (SKETCH — not applied)
-let _inflight = null;              // single-flight across concurrent 401s (module-global!)
-let _lastAt = 0;                   // debounce
-const MIN_INTERVAL_MS = 60_000;
+> **DECISÃO DE PRODUTO EM ABERTO.** A cópia originalmente ditada
+> ("Token de acesso expirado." + "Atualizando a sessão no banco de dados por
+> validade de token de acesso expirado…") pode ser preservada **se aprovada
+> conscientemente como copy de produto**, não como descrição técnica. Pendente de
+> confirmação do Rodrigo.
 
-export function handleIngestionAuthFailure({ context, status, getAuth, refreshCredentialsFromTB }) {
-  const Toast = window.MyIOLibrary?.MyIOToast;
-  const now = Date.now();
-  if (_inflight) return _inflight;                       // concurrent 401s coalesce
-  if (now - _lastAt < MIN_INTERVAL_MS) return Promise.resolve(false);
-  _lastAt = now;
+### 6.7 Reload automático não é fallback seguro
+**Nenhuma recarga automática no default.** Na falha final: manter dados
+renderizados, abrir cooldown (circuit breaker), oferecer ação manual `Recarregar
+página` / `Tentar novamente`. Reload automático só via opção legada temporária com
+trava de 1 tentativa por carregamento.
 
-  Toast?.error('Token de acesso expirado.', 6000);
-  Toast?.warning('Atualizando a sessão no banco de dados por validade de token de acesso expirado…', 6000);
-  window.dispatchEvent(new CustomEvent('myio:token-expired', { detail: { context, status, at: now } }));
+## 7. Arquitetura revisada
 
-  _inflight = (async () => {
-    try {
-      const auth = getAuth?.();
-      auth?.clearCache?.();                              // mode (a): drop stale token
-      try {
-        await auth?.getToken?.();                        // re-auth with same creds
-      } catch {
-        if (refreshCredentialsFromTB) {                  // mode (b): creds rotated in DB
-          await refreshCredentialsFromTB();              // re-read SERVER_SCOPE + setCredentials
-          window.MyIOLibrary?.clearAllAuthCaches?.();
-          await getAuth?.()?.getToken?.();
-        } else { throw new Error('cred refresh unavailable'); }
-      }
-      window.dispatchEvent(new CustomEvent('myio:session-refreshed', { detail: { at: Date.now() } }));
-      return true;
-    } catch (e) {
-      window.dispatchEvent(new CustomEvent('myio:session-refresh-failed', { detail: { error: String(e) } }));
-      Toast?.error('Não foi possível renovar a sessão. Recarregue a página.', 8000);
-      return false;
-    } finally { _inflight = null; }
-  })();
-  return _inflight;
+### 7.1 Três camadas
+
+| Camada | Responsabilidade |
+|---|---|
+| `buildMyioIngestionAuth` | cache, autenticação, invalidação segura, geração do token |
+| `ingestionFetch` | executar request, **classificar** resposta e repetir **exatamente uma vez** |
+| adaptador do dashboard | reler credenciais, atualizar orquestrador, mostrar toast, reagir a eventos |
+
+O helper **não** depende de `window.MyIOLibrary` internamente — recebe callbacks
+opcionais (`onLifecycleEvent`, `refreshCredentials`) e permanece testável em
+Node/jsdom. O adaptador do ThingsBoard converte lifecycle em `CustomEvent` +
+`MyIOToast`.
+
+### 7.2 Evolução do contrato de auth
+
+```ts
+export interface MyIOAuthInstance {
+  getToken(): Promise<string>;
+  forceRefresh(): Promise<string>;
+  invalidate(reason?: string): void;
+  getGeneration(): number;
+  getExpiryInfo(): { expiresAt: number; expiresInSeconds: number };
+  isTokenValid(): boolean;
 }
 ```
+- `invalidate()` incrementa `generation`, limpa token/expiração e impede publish de
+  gerações antigas;
+- `forceRefresh()` invalida e obtém token novo com single-flight por escopo;
+- erros de `/auth` preservam status + categoria estruturada (`invalid_client`,
+  `network`, `server`, `malformed_response`), sem corpo sensível em eventos;
+- cache keys internas **sem segredo em texto claro** (id opaco/estrutura não
+  enumerável); `getAuthCacheStats()` retorna só contagens e ids redigidos.
 
-### 7.2 Wiring at each choke-point
+### 7.3 Executor autenticado
 
-Redefine `handleUnauthorizedError` to **delegate** to the helper (reload becomes
-the `session-refresh-failed` fallback), and route the orchestrator hydrate 401
-through the same helper:
-
-```js
-// MAIN_VIEW ~6866 (SKETCH)
-if (!res.ok) {
-  if (res.status === 401 || res.status === 403) {
-    const ok = await window.MyIOUtils.handleIngestionAuthFailure({
-      context: 'orchestrator.hydrate', status: res.status,
-      getAuth: () => myIOAuth,
-      refreshCredentialsFromTB: window.MyIOUtils.refreshCredentialsFromTB,
-    });
-    if (ok) { /* optional single retry with fresh token */ }
-  }
-  throw new Error(`API error: ${res.status}`);
-}
+```ts
+type IngestionFetchOptions = {
+  authScopeId: string;
+  getAuth: () => MyIOAuthInstance;
+  refreshCredentials?: () => Promise<MyIOAuthInstance | void>;
+  onLifecycleEvent?: (event: IngestionAuthLifecycleEvent) => void;
+};
+async function ingestionFetch(input: RequestInfo | URL, init: RequestInit, options: IngestionFetchOptions): Promise<Response>;
 ```
 
-`refreshCredentialsFromTB` is a small new `MyIOUtils` function wrapping
-`fetchThingsboardCustomerAttrsFromStorage(...)` + `setCredentials(...)`.
+**Fluxo normativo:**
+1. obter bearer e executar a chamada;
+2. se a resposta **não** for erro autenticável, retorná-la sem intervenção;
+3. coordenar recuperação pelo `authScopeId`;
+4. emitir `expired` **uma vez** para a tentativa lógica;
+5. `forceRefresh()` com as mesmas credenciais;
+6. **repetir a chamada de dados exatamente uma vez** com o token novo;
+7. se ainda indicar auth inválida, reler credenciais (lazy);
+8. se as credenciais **mudaram**, substituir a instância e repetir **uma última
+   vez** (estágio de rotação);
+9. emitir `refreshed` **só após uma chamada de dados autenticada ter sucesso** (não
+   após `/auth` só responder);
+10. em falha, emitir `failed`, abrir o circuit breaker temporário e devolver/lançar
+    erro estruturado.
 
-### 7.3 New/reused events
+**Limite: no máximo 3 chamadas ao endpoint de dados** por operação lógica
+(original, após force refresh, após rotação **comprovada** de credenciais). Sem
+mudança real de `clientId`/secret, **não** há terceira chamada — falha imediata.
 
-| Event | When | Payload |
+### 7.4 Por que validar no endpoint de dados
+Token novo de `/auth` não prova acesso ao recurso. `myio:session-refreshed` só
+representa sucesso após a **repetição do request de dados** não retornar erro de
+auth — o que também detecta credenciais válidas porém **sem permissão**.
+
+### 7.5 Atualização atômica de credenciais (modo b)
+O callback do dashboard: (1) relê `client_id`/`client_secret`/`ingestionId` da
+fonte daquele dashboard; (2) valida campos; (3) compara **fingerprint não
+reversível** com a config vigente; (4) cria nova instância; (5) substitui a
+referência de `getAuth()`; (6) atualiza o orquestrador **sem logar o secret**; (7)
+publica o token pelo caminho de rotação. **Não** chamar `clearAllAuthCaches()`.
+
+### 7.6 Integração com `tokenManager`
+Escolher e aplicar consistentemente:
+- **preferida:** `setToken()` passa a delegar a `updateTokens({ [type]: value })`
+  quando o valor muda;
+- **alternativa:** o adaptador chama `updateTokens({ ingestionToken: freshToken })`
+  diretamente.
+
+O evento de rotação inclui só `{ type, at, generation }` — nunca bearer/clientId
+completo/secret.
+
+## 8. Contrato de eventos
+
+Eventos de browser são do **adaptador**, via `CustomEvent` quando `window` existir.
+
+| Evento | Momento | Detail mínimo |
 |---|---|---|
-| `myio:token-expired` (reused) | on the first 401/403 in a window | `{ context, status, at }` |
-| `myio:session-refreshed` (new) | refresh succeeded | `{ at }` |
-| `myio:session-refresh-failed` (new) | refresh failed after mode (a)+(b) | `{ error }` |
+| `myio:token-expired` | 1ª resposta autenticável da operação | `{ version:1, scopeId, context, status, at, generation }` |
+| `myio:session-refresh-started` | início da recuperação coordenada | `{ version:1, scopeId, at, generation }` |
+| `myio:session-refreshed` | request de dados validado após recuperação | `{ version:1, scopeId, at, generation, credentialsRotated }` |
+| `myio:session-refresh-failed` | recuperação final falhou | `{ version:1, scopeId, at, generation, category, retryable }` |
+| `myio:token-rotated` | token publicado no orquestrador | `{ version:1, type, at, generation }` |
 
-On the success path the helper should also call
-`tokenManager.setToken('ingestionToken', freshToken)` so the **existing**
-`myio:token-rotated` machinery (which already aborts/retries in-flight requests)
-fires — downstream widgets that listen for it refresh without a page reload.
+`error.message`, response body, bearer e credenciais **não** entram no payload —
+ficam só no logger com redação de segredos.
 
-## 8. Adoption plan (files that would change)
+## 9. UX revisada
 
-- `src/services/ingestion/handleIngestionAuthFailure.(ts|js)` — **new** helper.
-- `src/index.ts` — export `handleIngestionAuthFailure`.
-- `.../v-5.2.0/WIDGET/MAIN_VIEW/controller.js` — add symbol to `LIB_SYMBOLS`;
-  rewrite `handleUnauthorizedError` to delegate; add `refreshCredentialsFromTB`;
-  route the hydrate 401 (~6866) and the 3 helper 401s (~594/653/726) through the
-  helper; add a `myio:token-expired` listener (optional UX hook).
-- `.../MYIO-SIM/v5.2.0/MAIN/controller.js` — twin changes.
-- `.../MYIO-SIM/v5.2.0_UNIQUE/controller.js` (Head Office) — replace the silent
-  `console.warn` energy/water branches (~10248/10296) and other `!res.ok` returns
-  with the helper.
-- `.../main-dashboard-shopping/v-5.4.0/controller.js` — add 401/403 detection
-  (currently none) routed to the helper.
-- Optionally `src/components/premium-modals/internal/engines/AuthClient.ts` /
-  AllReportModal — invoke helper on 401.
+Para uma rajada concorrente do mesmo escopo: um toast de **erro** ao detectar a
+perda; um **warning** ao começar a recuperação; substituir por **sucesso curto**
+quando o request de dados for validado; na falha, **um único** erro com ação
+manual. **Não** apagar dados antigos nem bloquear navegação; não repetir toasts
+durante o cooldown. Debounce visual ~60s por escopo; circuit breaker técnico
+configurável (inicial 30s para falhas não-retryable) — **mecanismos distintos**.
 
-## 9. Drawbacks
+## 10. Plano de adoção
 
-- Adds a public library symbol and two new events to maintain.
-- Replaces the "predictable" full reload with an in-place refresh; if a downstream
-  widget doesn't listen for `myio:session-refreshed`/`myio:token-rotated` it may
-  keep showing stale data until its next natural refresh (mitigated by the token
-  rotation hook, §7.3).
+**Fase 1 — primitiva e testes:** evoluir `buildMyioIngestionAuth.ts` com
+geração/invalidação segura; remover segredos das estatísticas; criar
+`src/services/ingestion/ingestionFetch.ts` + export em `src/index.ts`; decidir o
+destino do twin `.js`; **testes unitários antes** de mexer em dashboards.
 
-## 10. Rationale and alternatives
+**Fase 2 — Shopping 5.2.0:** migrar hydrate + helpers Energy/Goals/Temperature para
+`ingestionFetch`; substituir `handleUnauthorizedError()` pelo adaptador de
+lifecycle; **remover reload automático**; atualizar `tokenManager` pelo caminho de
+rotação; aplicar ao twin `MYIO-SIM/v5.2.0/MAIN` só se seguir mantido/testado.
 
-- **Per-widget handling (status quo):** rejected — that is exactly the drift this
-  RFC removes; the two-toast UX, debounce, single-flight and event names must be
-  identical everywhere.
-- **Interceptor inside `buildMyioIngestionAuth` (auto-`clearCache` on 401):**
-  attractive but the auth object never sees the downstream response (callers
-  `fetch()` with `Authorization: Bearer <token>` themselves). Wiring a response
-  interceptor would require every caller to route fetches through the auth object
-  — a larger change. The helper approach keeps the auth primitive unchanged and
-  only asks call sites to invoke one function on 401.
-- **Keep the full reload:** rejected — the user explicitly asked for in-place
-  session refresh with toasts + event; reload loses UI state and is jarring.
+**Fase 3 — Head Office e v-5.4.0:** inventariar chamadas diretas; migrar
+choke-points compartilhados primeiro; **não** converter `403` de GCDR/TB em
+expiração de ingestion; remover retornos silenciosos.
 
-## 11. Risks & mitigations
+**Fase 4 — premium modals:** `AuthClient` consome a nova primitiva ou recebe
+`ingestionFetch` por composição; preservar `getBearer()` na migração; migrar por
+domínio medindo falhas antes de remover o legado.
 
-- **Double/triple toasts** from concurrent 401s (many parallel domain fetches) →
-  the `_inflight` single-flight + 60s debounce guarantees one toast pair + one
-  refresh per window. Must be **module-level global** to actually coalesce.
-- **Retry loops** when refresh "succeeds" but the server keeps 401ing (mode b with
-  truly dead creds) → cap to a **single** retry per request; after
-  `myio:session-refresh-failed`, stop and fall back to the reload path. No
-  auto-retry inside the helper.
-- **`clearCache` racing the auth's own `inFlight`** → call `clearCache()` (which
-  nulls `inFlight`) **before** the recovery `getToken()`; the auth's single-flight
-  then rebuilds cleanly.
-- **`clearAllAuthCaches()` nukes every credential's cache** → acceptable on
-  rotation (mode b) only; use per-instance `clearCache()` in mode (a).
-- **Event-name compatibility** → keep `myio:token-expired`; only *add* the two new
-  events.
+## 11. Critérios de aceite
 
-## 12. Prior art / references
+- **AC-01:** um `401` de endpoint de dados causa **uma única** recuperação por
+  escopo, mesmo com 20 chamadas concorrentes.
+- **AC-02:** clientes/hosts diferentes recuperam de forma independente.
+- **AC-03:** uma promise antiga de `/auth` **não** sobrescreve token de geração
+  nova.
+- **AC-04:** o request original é repetido com bearer novo e o resultado volta ao
+  chamador.
+- **AC-05:** `myio:session-refreshed` só é emitido após resposta de dados
+  autenticada com sucesso.
+- **AC-06:** `403` sem código explícito de token expirado **não** limpa cache nem
+  inicia recuperação.
+- **AC-07:** rotação de credenciais substitui atomicamente a instância; nenhuma
+  chamada usa secret novo com cache antigo.
+- **AC-08:** sem mudança nas credenciais, não há 3ª tentativa — encerra com erro
+  classificado.
+- **AC-09:** nenhum evento/toast/log/estatística expõe bearer ou client secret.
+- **AC-10:** falha persistente **não** causa loop nem reload automático.
+- **AC-11:** rajada concorrente mostra no máximo **um** conjunto de toasts por
+  escopo/janela.
+- **AC-12:** sucesso atualiza o `tokenManager` por caminho que aborta requests
+  obsoletos e emite `myio:token-rotated`.
+- **AC-13:** dados já renderizados permanecem visíveis durante e após falha.
+- **AC-14:** erro de rede/`5xx` em `/auth` é distinguível de `invalid_client` e
+  respeita a política de retry.
 
-- Completes the dormant `emitTokenExpired` / `myio:token-expired` scaffolding in
-  MAIN_VIEW (~7338).
-- Related: **RFC-0199** (GCDR auth context / `MyIOAuthContext`), **RFC-0183**
-  (AlarmServiceOrchestrator), **RFC-0198** (Tickets orchestrator) — all consume
-  ingestion auth and would benefit from the shared recovery.
+## 12. Matriz mínima de testes
 
-## 13. Unresolved questions
+| Cenário | Resultado esperado |
+|---|---|
+| token válido | 1 chamada de dados, nenhum evento de recovery |
+| `401`, credenciais válidas | force refresh, 1 repetição, sucesso |
+| 20 `401` simultâneos no mesmo escopo | 1 autenticação, resultado compartilhado |
+| `401` simultâneo em dois shoppers | 2 recuperações independentes |
+| auth antiga termina após invalidação | resultado antigo descartado por geração |
+| `/auth` `invalid_client`, creds rotacionadas no TB | nova instância, validação no endpoint, sucesso |
+| `/auth` `invalid_client`, creds inalteradas | falha final sem loop |
+| novo token ainda recebe `401` | releitura 1×, depois falha controlada |
+| `403` de permissão | resposta preservada, sem recovery |
+| `403` com código de token expirado | mesmo fluxo do `401` |
+| ThingsBoard retorna `401` | fluxo de sessão TB, não ingestion recovery |
+| `/auth` `500`/timeout | retry limitado, categoria retryable, circuit breaker |
+| listener de evento lança exceção | recuperação técnica continua |
+| ambiente sem `window` | biblioteca funciona sem toast/evento de browser |
 
-- Should the success path **auto-retry** the failed request, or just refresh and
-  let the next natural fetch succeed? (Proposed: single opt-in retry per call
-  site.)
-- Should `v-5.4.0` adopt the helper in the same PR or as a follow-up (it currently
-  has **zero** 401 handling)?
-- Exact copy for the toasts (pt-BR) — this RFC proposes the strings the user
-  dictated; confirm final wording.
+## 13. Observabilidade
 
-## 14. Tracking
+Métricas agregadas, **sem segredos** (`scope` = id opaco/redigido):
+`ingestion_auth_recovery_started_total{scope,status}`,
+`…_succeeded_total{scope,rotated}`, `…_failed_total{scope,category}`, duração da
+recuperação, requests coalescidos, circuit breakers abertos. Logs carregam
+`context`/`generation`/estágio/status HTTP — **nunca** URL com parâmetros
+sensíveis, body de `/auth`, bearer ou secret.
 
-- Suggested Jira (project **ED**): one story for the library helper + MAIN_VIEW
-  wiring; follow-up sub-tasks for HO `v5.2.0_UNIQUE`, `v-5.4.0`, and
-  premium-modals adoption.
+> **Confirmar antes de implementar:** esta é uma lib de widget de browser — validar
+> se existe um **sink de métricas** (Prometheus/telemetria). Sem sink, tratar §13
+> como aspiracional/opcional na Fase 1.
+
+## 14. Compatibilidade e rollout
+
+- manter `myio:token-expired` (payload versionado); eventos novos são **aditivos**;
+- **feature flag por dashboard** durante o rollout;
+- iniciar em Shopping 5.2.0 com telemetria de sucesso/falha;
+- expandir para HO/5.4.0 após observar ≥1 ciclo real de expiração;
+- rollback para o comportamento **sem** auto-retry, mas **não** restaurar reload
+  automático como padrão.
+
+## 15. Decisões finais
+
+- **Auto-retry:** sim, obrigatório e encapsulado; exatamente 1 repetição após
+  refresh normal e 1 adicional **só** após rotação comprovada.
+- **`403`:** não é tratado genericamente como expiração.
+- **Reload:** manual por padrão; automático só como compat temporária explícita.
+- **Eventos:** mantêm `myio:token-expired` + lifecycle versionado.
+- **Credenciais:** releitura **lazy**, só depois de refresh/retry falhar;
+  substituição atômica da instância.
+- **Single-flight:** por escopo de autenticação.
+- **Toasts:** no adaptador de UI, não na primitiva.
+- **Adoção:** incremental (primitiva → Shopping 5.2.0 → HO/5.4.0 → premium modals),
+  como fases do mesmo épico.
+
+## 16. Fora de escopo
+
+Alterar o protocolo de auth do backend; renovar a sessão do ThingsBoard; gravar
+credenciais no `SERVER_SCOPE`; corrigir permissões de um cliente autenticado;
+migrar todos os fetches numa única entrega; usar service worker ou persistência de
+bearer no browser.
+
+## 17. Recomendação
+
+Avançar após substituir qualquer sketch ingênuo por esta arquitetura e transformar
+os AC-01…AC-14 em testes automatizados. **A 1ª PR deve conter apenas a primitiva
+segura, o executor `ingestionFetch`, os testes e a integração do Shopping 5.2.0** —
+reduzindo o risco de propagar um contrato incorreto para os vários controllers
+duplicados antes de validar concorrência, rotação e classificação de erros.
+
+## 18. Prior art / referências
+
+- Completa o andaime dormente `emitTokenExpired` / `myio:token-expired`
+  (MAIN_VIEW ~7338).
+- Relacionados: **RFC-0199** (auth context GCDR / `MyIOAuthContext`), **RFC-0183**
+  (AlarmServiceOrchestrator), **RFC-0198** (Tickets orchestrator).
+- **Jira:** ED-1028 (story principal) — atualizar critérios de aceite para
+  AC-01…AC-14; subtasks de adoção para HO `v5.2.0_UNIQUE`, `v-5.4.0` e
+  premium-modals.
+
+## 19. Histórico
+
+- **v0 (rascunho, 2026-07-17):** investigação + sketch inicial (single helper,
+  toast→toast→evento→clearCache/re-auth).
+- **Revisão v1 (2026-07-17):** aprovado com mudanças obrigatórias — 401/403,
+  single-flight por escopo, invalidação por geração, validação no endpoint de
+  dados, atualização atômica de credenciais, sem reload automático, eventos
+  versionados sem segredos. **Consolidada neste documento.**
