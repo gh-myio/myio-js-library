@@ -1552,6 +1552,7 @@ body.filter-modal-open { overflow: hidden !important; }
   waitForDataReadyWithRetry('Shopping Cards', (classified) => {
     const updatedCards = updateCustomerCardsWithRealCounts(classified);
     updateWelcomeModalCustomersCards(welcomeModal, updatedCards);
+    maybeReleaseCta(); // telemetria chegou → libera o CTA se os meta-counts já terminaram
   });
 
   // RFC-0126: Listen for update event from early handler (handles future updates)
@@ -1566,6 +1567,7 @@ body.filter-modal-open { overflow: hidden !important; }
       _currentCustomersCards = dynamicCards;
       updateWelcomeModalCustomersCards(welcomeModal, dynamicCards);
     }
+    maybeReleaseCta(); // telemetria pode ter chegado → reavalia o gate do CTA
 
     // Cards may have arrived/changed: fetch meta counts for any not yet enriched
     enrichCardsWithMetaCounts();
@@ -1593,6 +1595,43 @@ body.filter-modal-open { overflow: hidden !important; }
   const _cardMetaProgress = new Map(); // entityId -> completed sources (0..3)
   let _metaTasksTotal = 0;
   let _metaTasksDone = 0;
+
+  // Gate do CTA "Acessar painel": só libera quando os meta-counts E a telemetria
+  // (deviceCounts) terminarem. Fallback timer evita travar eternamente se a
+  // telemetria não resolver (card sem match / dado vazio).
+  let _metaTasksAllDone = false;
+  let _ctaFallbackFired = false;
+  let _ctaFallbackTimer = null;
+  const _telemetryReady = () => {
+    const targets = (_currentCustomersCards || []).filter(
+      (c) => c && c.entityType === 'CUSTOMER' && (c.customerId || c.entityId)
+    );
+    if (!targets.length) return true;
+    return targets.every((c) => {
+      const d = c.deviceCounts || {};
+      return d.energy != null || d.water != null || d.temperature != null;
+    });
+  };
+  const _releaseCta = () => {
+    welcomeModal.setCtaHidden?.(false);
+    welcomeModal.setCtaDisabled?.(false);
+  };
+  const maybeReleaseCta = () => {
+    if (!_metaTasksAllDone) return;
+    if (_telemetryReady() || _ctaFallbackFired) {
+      if (_ctaFallbackTimer) {
+        clearTimeout(_ctaFallbackTimer);
+        _ctaFallbackTimer = null;
+      }
+      _releaseCta();
+    } else if (!_ctaFallbackTimer) {
+      _ctaFallbackTimer = setTimeout(() => {
+        _ctaFallbackFired = true;
+        _ctaFallbackTimer = null;
+        _releaseCta();
+      }, 15000);
+    }
+  };
 
   const enrichCardsWithMetaCounts = async () => {
     const jwt = getJwtToken();
@@ -1721,8 +1760,8 @@ body.filter-modal-open { overflow: hidden !important; }
       const pct = _metaTasksTotal > 0 ? (_metaTasksDone / _metaTasksTotal) * 100 : 100;
       welcomeModal.setEnrichmentProgress?.(pct);
       if (_metaTasksDone >= _metaTasksTotal) {
-        welcomeModal.setCtaHidden?.(false);
-        welcomeModal.setCtaDisabled?.(false);
+        _metaTasksAllDone = true;
+        maybeReleaseCta(); // só libera se a telemetria também estiver pronta (ou fallback)
       }
     };
 
@@ -4036,12 +4075,10 @@ body.filter-modal-open { overflow: hidden !important; }
               <button type="button" data-pricing title="Precificação — R$/kWh por ${_escHtml(_entSLow())} × período" style="flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;border:1px solid ${GP.tint(45)};border-radius:8px;background:transparent;color:${GP.accent};padding:4px 10px;cursor:pointer;font:800 14px Nunito,sans-serif;line-height:1.4;transition:background .15s, border-color .15s;" onmouseover="this.style.background='${GP.tint(8)}';this.style.borderColor='${GP.accent}'" onmouseout="this.style.background='transparent';this.style.borderColor='${GP.tint(45)}'">$</button>
               <button type="button" data-side-toggle title="Recolher resumo" style="flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;gap:5px;border:1px solid ${GP.tint(45)};border-radius:8px;background:transparent;color:${GP.accent};padding:4px 10px;cursor:pointer;font:700 11px Nunito,sans-serif;line-height:1.4;white-space:nowrap;transition:background .15s, border-color .15s;" onmouseover="this.style.background='${GP.tint(8)}';this.style.borderColor='${GP.accent}'" onmouseout="this.style.background='transparent';this.style.borderColor='${GP.tint(45)}'">Recolher ▶</button>
             </div>
-            <div data-side-sort style="display:flex;align-items:center;gap:4px;flex-shrink:0;flex-wrap:wrap;">
-              <span style="font:600 10.5px Nunito,sans-serif;color:var(--gc-muted);">Ordenar:</span>
-              <button type="button" data-side-sort-key="inauguration" title="Data de inauguração (mais antiga primeiro; sem data por último)" style="border:1px solid var(--gc-border);border-radius:999px;background:transparent;color:var(--gc-muted);padding:2px 10px;cursor:pointer;font:700 10.5px Nunito,sans-serif;">Dt. Inaug.</button>
-              <button type="button" data-side-sort-key="title" style="border:1px solid var(--gc-border);border-radius:999px;background:transparent;color:var(--gc-muted);padding:2px 10px;cursor:pointer;font:700 10.5px Nunito,sans-serif;">Nome</button>
-              <button type="button" data-side-sort-key="consumo" style="border:1px solid var(--gc-border);border-radius:999px;background:transparent;color:var(--gc-muted);padding:2px 10px;cursor:pointer;font:700 10.5px Nunito,sans-serif;">Consumo</button>
-              <button type="button" data-side-sort-key="meta" style="border:1px solid var(--gc-border);border-radius:999px;background:transparent;color:var(--gc-muted);padding:2px 10px;cursor:pointer;font:700 10.5px Nunito,sans-serif;">Orçado</button>
+            <div data-side-sort style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+              <span style="font:600 10.5px Nunito,sans-serif;color:var(--gc-muted);flex:0 0 auto;">Ordem:</span>
+              <button type="button" data-side-order title="Clique para inverter (crescente/decrescente)" style="flex:1 1 auto;min-width:0;text-align:left;border:1px solid var(--gc-border);border-radius:999px;background:transparent;color:var(--gc-muted);padding:3px 12px;cursor:pointer;font:700 10.5px Nunito,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Data de Inauguração ↑</button>
+              <button type="button" data-side-filter title="Filtros & ordenação — buscar, excluir, filtros rápidos" style="flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;border:1px solid ${GP.tint(45)};border-radius:8px;background:transparent;color:${GP.accent};padding:3px 9px;cursor:pointer;font:700 13px Nunito,sans-serif;">⚙️</button>
             </div>
             <div data-table style="display:flex;flex-direction:column;gap:8px;flex:1 1 auto;min-height:0;overflow-y:auto;"></div>
             <div data-side-total style="flex:0 0 auto;"></div>
@@ -4189,21 +4226,37 @@ body.filter-modal-open { overflow: hidden !important; }
     // DEFAULT: Dt. Inauguração asc (mais antiga primeiro; sem data por último)
     let sideSortKey = 'inauguration'; // 'inauguration' | 'title' | 'consumo' | 'meta'
     let sideSortDir = 1;
+    const SIDE_ORDER_LABELS = {
+      inauguration: 'Data de Inauguração',
+      title: 'Nome',
+      consumo: 'Consumo',
+      meta: 'Orçado',
+    };
     const paintSideSort = () => {
-      overlay.querySelectorAll('[data-side-sort-key]').forEach((b) => {
-        const active = b.dataset.sideSortKey === sideSortKey;
-        const base =
-          b.dataset.sideSortKey === 'inauguration'
-            ? 'Dt. Inaug.'
-            : b.dataset.sideSortKey === 'title'
-              ? 'Nome'
-              : b.dataset.sideSortKey === 'consumo'
-                ? 'Consumo'
-                : 'Orçado';
-        b.textContent = active ? `${base} ${sideSortDir === 1 ? '↑' : '↓'}` : base;
-        b.style.background = active ? GP.tint(10) : 'transparent';
-        b.style.color = active ? GP.accent : 'var(--gc-muted)';
-        b.style.borderColor = active ? GP.tint(45) : 'var(--gc-border)';
+      const btn = overlay.querySelector('[data-side-order]');
+      if (!btn) return;
+      const key = sideSortKey || 'inauguration';
+      const arrow = sideSortDir === 1 ? '↑' : '↓';
+      const quickTag =
+        sideQuickFilter === 'over' ? ' · ↑ meta' : sideQuickFilter === 'under' ? ' · ↓ meta' : '';
+      btn.textContent = `${SIDE_ORDER_LABELS[key]} ${arrow}${quickTag}`;
+      const filtered = !!sideSortKey || sideQuickFilter !== 'all' || hiddenCustomers.size > 0;
+      btn.style.color = filtered ? GP.accent : 'var(--gc-muted)';
+      btn.style.borderColor = filtered ? GP.tint(45) : 'var(--gc-border)';
+      const fbtn = overlay.querySelector('[data-side-filter]');
+      if (fbtn)
+        fbtn.style.background = sideQuickFilter !== 'all' || hiddenCustomers.size > 0 ? GP.tint(14) : 'transparent';
+      // Enquanto os dados carregam, ordenar/filtrar não fazem sentido → desabilita.
+      [btn, fbtn].forEach((b) => {
+        if (!b) return;
+        b.disabled = sideDataLoading;
+        b.style.opacity = sideDataLoading ? '.45' : '';
+        b.style.cursor = sideDataLoading ? 'not-allowed' : 'pointer';
+        b.title = sideDataLoading
+          ? 'Aguardando o carregamento dos dados…'
+          : b.dataset.sideFilter != null
+            ? 'Filtros & ordenação — buscar, excluir, filtros rápidos'
+            : 'Clique para inverter (crescente/decrescente)';
       });
     };
     const sortSideRows = (rows) => {
@@ -4220,6 +4273,184 @@ body.filter-modal-open { overflow: hidden !important; }
       });
     };
 
+    // Filtro rápido do Resumo por shopping (display da lista): 'all' | 'over' (consumo
+    // acima da meta) | 'under' (abaixo). Meta efetiva = Meta (adjustedValue) quando
+    // há margem RFC-0052, senão Orçado (value cru).
+    let sideQuickFilter = 'all';
+    let sideDataLoading = true; // enquanto os dados carregam, ordem/filtro ficam desabilitados
+    const _refMetaOf = (r) => (r && r.metaAdj != null ? r.metaAdj : r && r.meta != null ? r.meta : null);
+    const applySideQuickFilter = (rows) => {
+      if (sideQuickFilter === 'all') return rows;
+      return rows.filter((r) => {
+        const ref = _refMetaOf(r);
+        if (ref == null || r.consumo == null) return false;
+        return sideQuickFilter === 'over' ? r.consumo > ref : r.consumo < ref;
+      });
+    };
+
+    // Modal de filtros do Resumo por shopping: ordenar, filtro rápido, busca +
+    // marcar/desmarcar customers (👁 = totais/gráfico). Theme via GP/--gc-*.
+    const openSideFilterModal = () => {
+      const rows = lastRows || [];
+      const ORDERS = [
+        ['inauguration', 'Data de Inauguração'],
+        ['title', 'Nome'],
+        ['consumo', 'Consumo'],
+        ['meta', 'Orçado'],
+      ];
+      const _isOver = (r) => {
+        const ref = _refMetaOf(r);
+        return ref != null && r.consumo != null && r.consumo > ref;
+      };
+      const _isUnder = (r) => {
+        const ref = _refMetaOf(r);
+        return ref != null && r.consumo != null && r.consumo < ref;
+      };
+      const QUICK = [
+        ['all', `Todos (${rows.length})`],
+        ['over', `Estouraram a meta (${rows.filter(_isOver).length})`],
+        ['under', `Abaixo da meta (${rows.filter(_isUnder).length})`],
+      ];
+      let lKey = sideSortKey || 'inauguration';
+      let lDir = sideSortDir;
+      let lQuick = hiddenCustomers.size ? '' : 'all';
+      const lHidden = new Set(hiddenCustomers);
+      const ov = document.createElement('div');
+      ov.style.cssText =
+        'position:fixed;inset:0;z-index:10001;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;font-family:Nunito,sans-serif;';
+      // As CSS vars --gc-* são setadas no overlay do goals (applyModalTheme); como
+      // este modal é anexado ao document.body, replicamos as vars aqui para que
+      // background:var(--gc-surface) etc. resolvam (senão o modal fica invisível).
+      for (let i = 0; i < overlay.style.length; i++) {
+        const prop = overlay.style[i];
+        if (prop.indexOf('--gc-') === 0) ov.style.setProperty(prop, overlay.style.getPropertyValue(prop));
+      }
+      const pill = (active) =>
+        `border:1px solid ${active ? GP.tint(45) : 'var(--gc-border)'};border-radius:999px;background:${active ? GP.tint(12) : 'transparent'};color:${active ? GP.accent : 'var(--gc-muted)'};padding:4px 12px;cursor:pointer;font:700 11px Nunito,sans-serif;`;
+      const render = () => {
+        ov.innerHTML = `
+          <div style="background:var(--gc-surface);color:var(--gc-text);border-radius:14px;width:min(460px,calc(100% - 32px));max-height:86vh;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.3);overflow:hidden;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;background:linear-gradient(135deg,${GP.accentDark},${GP.accent});color:${GP.accentText};">
+              <strong style="font:700 14px Nunito,sans-serif;">⚙️ Filtros & Ordenação</strong>
+              <button type="button" data-x aria-label="Fechar" style="border:0;background:transparent;color:#fff;font-size:18px;cursor:pointer;line-height:1;">✕</button>
+            </div>
+            <div style="padding:14px 16px;overflow-y:auto;display:flex;flex-direction:column;gap:14px;">
+              <div>
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;">
+                  <span style="font:700 11px Nunito,sans-serif;color:var(--gc-muted);">Ordenar por</span>
+                  <button type="button" data-dir style="${pill(false)}">${lDir === 1 ? '↑ Crescente' : '↓ Decrescente'}</button>
+                </div>
+                <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                  ${ORDERS.map(([k, l]) => `<button type="button" data-ord="${k}" style="${pill(lKey === k)}">${l}</button>`).join('')}
+                </div>
+              </div>
+              <div>
+                <div style="font:700 11px Nunito,sans-serif;color:var(--gc-muted);margin-bottom:6px;">Filtro rápido <span style="font-weight:600;">— seleciona os ${_escHtml(_entPLow())} do grupo</span></div>
+                <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                  ${QUICK.map(([k, l]) => `<button type="button" data-quick="${k}" style="${pill(lQuick === k)}">${l}</button>`).join('')}
+                </div>
+              </div>
+              <div>
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                  <span style="font:700 11px Nunito,sans-serif;color:var(--gc-muted);">Na visão (totais e gráfico)</span>
+                  <button type="button" data-all style="border:0;background:transparent;color:${GP.accent};cursor:pointer;font:700 10.5px Nunito,sans-serif;">Marcar/desmarcar todos</button>
+                </div>
+                <input type="text" data-search placeholder="Buscar ${_escHtml(_entSLow())}…" style="width:100%;box-sizing:border-box;border:1px solid var(--gc-input-border);border-radius:8px;padding:6px 10px;font:600 12px Nunito,sans-serif;color:var(--gc-text);background:var(--gc-surface);margin-bottom:8px;" />
+                <div data-cust-list style="display:flex;flex-direction:column;gap:4px;max-height:220px;overflow-y:auto;">
+                  ${rows
+                    .map(
+                      (r) =>
+                        `<label data-cust-row="${_escHtml(String(r.tbId))}" style="display:flex;align-items:center;gap:8px;padding:5px 8px;border:1px solid var(--gc-border);border-radius:8px;cursor:pointer;font:600 12px Nunito,sans-serif;color:var(--gc-text);">
+                          <input type="checkbox" data-cust-cb="${_escHtml(String(r.tbId))}" ${lHidden.has(String(r.tbId)) ? '' : 'checked'} />
+                          <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🏢 ${_escHtml(r.title || '')}</span>
+                        </label>`
+                    )
+                    .join('')}
+                </div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;border-top:1px solid var(--gc-border);">
+              <button type="button" data-clear style="border:1px solid var(--gc-border);border-radius:8px;background:transparent;color:var(--gc-muted);padding:7px 14px;cursor:pointer;font:700 12px Nunito,sans-serif;">Limpar</button>
+              <div style="display:flex;gap:8px;">
+                <button type="button" data-cancel style="border:1px solid var(--gc-border);border-radius:8px;background:transparent;color:var(--gc-text);padding:7px 14px;cursor:pointer;font:700 12px Nunito,sans-serif;">Cancelar</button>
+                <button type="button" data-apply style="border:0;border-radius:8px;background:${GP.accent};color:${GP.accentText};padding:7px 18px;cursor:pointer;font:800 12px Nunito,sans-serif;">Aplicar</button>
+              </div>
+            </div>
+          </div>`;
+      };
+      render();
+      document.body.appendChild(ov);
+      const closeOv = () => ov.remove();
+      ov.addEventListener('input', (e) => {
+        const t = e.target;
+        if (t.dataset && t.dataset.search != null && t.tagName === 'INPUT' && t.type === 'text') {
+          const q = t.value.toLowerCase();
+          ov.querySelectorAll('[data-cust-row]').forEach((el) => {
+            el.style.display = el.textContent.toLowerCase().includes(q) ? '' : 'none';
+          });
+        }
+        if (t.dataset && t.dataset.custCb != null) {
+          const id = t.dataset.custCb;
+          if (t.checked) lHidden.delete(id);
+          else lHidden.add(id);
+          lQuick = ''; // seleção manual desmarca o realce do filtro rápido
+          ov.querySelectorAll('[data-quick]').forEach((b) => b.setAttribute('style', pill(false)));
+        }
+      });
+      ov.addEventListener('click', (e) => {
+        const ord = e.target.closest('[data-ord]');
+        if (ord) {
+          lKey = ord.dataset.ord;
+          render();
+          return;
+        }
+        if (e.target.closest('[data-dir]')) {
+          lDir = -lDir;
+          render();
+          return;
+        }
+        const q = e.target.closest('[data-quick]');
+        if (q) {
+          lQuick = q.dataset.quick;
+          // Filtro rápido = marca só os customers do grupo (estouraram/abaixo), desmarca o resto.
+          lHidden.clear();
+          if (lQuick === 'over') rows.forEach((r) => !_isOver(r) && lHidden.add(String(r.tbId)));
+          else if (lQuick === 'under') rows.forEach((r) => !_isUnder(r) && lHidden.add(String(r.tbId)));
+          render();
+          return;
+        }
+        if (e.target.closest('[data-all]')) {
+          const anyVisible = rows.some((r) => !lHidden.has(String(r.tbId)));
+          rows.forEach((r) => {
+            if (anyVisible) lHidden.add(String(r.tbId));
+            else lHidden.delete(String(r.tbId));
+          });
+          lQuick = anyVisible ? '' : 'all';
+          render();
+          return;
+        }
+        if (e.target.closest('[data-clear]')) {
+          lKey = 'inauguration';
+          lDir = 1;
+          lQuick = 'all';
+          lHidden.clear();
+          render();
+          return;
+        }
+        if (e.target.closest('[data-cancel]') || e.target.closest('[data-x]') || e.target === ov) return closeOv();
+        if (e.target.closest('[data-apply]')) {
+          sideSortKey = lKey;
+          sideSortDir = lDir;
+          hiddenCustomers.clear();
+          lHidden.forEach((id) => hiddenCustomers.add(id));
+          if (lastRows) renderTable(lastRows, lastUnit);
+          loadEvo();
+          closeOv();
+          return;
+        }
+      });
+    };
+
     // Sidebar compacta: 1 card por shopping em 3 linhas, cada uma iniciada pelo ícone
     // do domínio + chip de desvio (só seta ↑/↓/≈ + %): L1 = ano-1×ano (consumo);
     // L2 = Orçado (r.meta = value cru); L3 = Meta (r.metaAdj = adjustedValue, omitida
@@ -4231,6 +4462,7 @@ body.filter-modal-open { overflow: hidden !important; }
       const loading = rows.some(
         (r) => r.meta === undefined || r.consumo === undefined || r.consumoPrev === undefined
       );
+      sideDataLoading = loading;
       // Total só soma os customers VISÍVEIS (👁 da sidebar) — ocultos ficam na lista
       // (esmaecidos), mas fora dos totais e do gráfico.
       const visRows = rows.filter((r) => !isCustHidden(r.tbId));
@@ -4290,8 +4522,10 @@ body.filter-modal-open { overflow: hidden !important; }
           ${showMeta ? line(`${domIcon} Meta ${bval(r.metaAdj)}`, devChip(r.consumo, r.metaAdj)) : ''}
         </div>`;
       };
-      const sorted = sortSideRows(rows);
-      tableEl.innerHTML = sorted.map((r, i) => item(r.title, r, false, gapWarn(r, i))).join('');
+      const sorted = sortSideRows(applySideQuickFilter(rows));
+      tableEl.innerHTML = sorted.length
+        ? sorted.map((r, i) => item(r.title, r, false, gapWarn(r, i))).join('')
+        : `<div style="padding:14px 8px;text-align:center;font:600 11px Nunito,sans-serif;color:var(--gc-muted);">Nenhum ${_escHtml(_entSLow())} no filtro selecionado.</div>`;
       // Total fixo no rodapé da sidebar (fora da lista rolável), com leve destaque
       // do theme (GP.tint) — não some quando a lista rola.
       if (totalEl)
@@ -5969,24 +6203,19 @@ body.filter-modal-open { overflow: hidden !important; }
     overlay.addEventListener('click', (e) => {
       if (e.target.closest('[data-pdf]')) return void exportPdf();
       if (e.target.closest('[data-max]')) return toggleMax();
-      const sortBtn = e.target.closest('[data-side-sort-key]');
-      if (sortBtn) {
-        const key = sortBtn.dataset.sideSortKey;
-        const ascDefault = key === 'title' || key === 'inauguration'; // nome A→Z; data antiga→recente
-        if (sideSortKey === key) {
-          // 2º clique inverte; 3º volta à ordem original
-          if ((ascDefault && sideSortDir === 1) || (!ascDefault && sideSortDir === -1)) {
-            sideSortDir = -sideSortDir;
-          } else {
-            sideSortKey = null;
-          }
-        } else {
-          sideSortKey = key;
-          sideSortDir = ascDefault ? 1 : -1; // nome A→Z / data asc; números maiores primeiro
-        }
+      // Pill de ordem: clique só inverte crescente/decrescente (mantém a chave atual).
+      if (e.target.closest('[data-side-order]')) {
+        if (sideDataLoading) return;
+        if (!sideSortKey) sideSortKey = 'inauguration';
+        sideSortDir = -sideSortDir;
         if (lastRows) renderTable(lastRows, lastUnit);
         else paintSideSort();
         return;
+      }
+      // Botão de filtro: abre a modal (ordenar, filtro rápido, busca, excluir customer).
+      if (e.target.closest('[data-side-filter]')) {
+        if (sideDataLoading) return;
+        return void openSideFilterModal();
       }
       if (e.target.closest('[data-side-toggle]')) return toggleSide();
       if (e.target.closest('[data-pricing]')) return void openPricing();
