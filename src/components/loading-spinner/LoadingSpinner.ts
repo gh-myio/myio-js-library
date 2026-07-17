@@ -14,6 +14,9 @@ export class LoadingSpinner implements LoadingSpinnerInstance {
   private minDisplayTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private hidePending: boolean = false;
   private theme: LoadingTheme;
+  private progressElement: HTMLElement | null = null;
+  private progressFillElement: HTMLElement | null = null;
+  private progressLabelElement: HTMLElement | null = null;
 
   private styleElement: HTMLStyleElement | null = null;
 
@@ -22,6 +25,7 @@ export class LoadingSpinner implements LoadingSpinnerInstance {
     this.theme = this.config.theme || 'dark';
 
     this.container = this.ensureDOM();
+    this.applyAccent();
     this.updateTheme(this.theme);
     this.injectStyles();
 
@@ -32,6 +36,10 @@ export class LoadingSpinner implements LoadingSpinnerInstance {
     if (this.config.message) {
       this.updateMessage(this.config.message);
     }
+
+    if (this.config.showProgress || this.config.progress != null) {
+      this.setProgress(this.config.progress ?? null);
+    }
   }
 
   /**
@@ -41,34 +49,66 @@ export class LoadingSpinner implements LoadingSpinnerInstance {
     const BUSY_OVERLAY_ID = 'myio-loading-spinner-overlay';
     let el = document.getElementById(BUSY_OVERLAY_ID);
 
-    if (el) {
-      // Re-use existing DOM container if possible
-      return el;
+    if (!el) {
+      el = document.createElement('div');
+      el.id = BUSY_OVERLAY_ID;
+      el.className = 'myio-loading-spinner-overlay';
+      el.style.display = 'none';
+
+      const contentContainer = document.createElement('div');
+      contentContainer.className = 'myio-loading-spinner-content';
+
+      // Spinner + Message + Progress bar
+      contentContainer.innerHTML = `
+        <div class="myio-spinner-box">
+          <div class="myio-spinner-outer"></div>
+          <div class="myio-spinner-inner"></div>
+        </div>
+        <div class="myio-spinner-message">${this.config.message}</div>
+        <div class="myio-spinner-progress" style="display:none;">
+          <div class="myio-spinner-progress-track"><div class="myio-spinner-progress-fill"></div></div>
+          <div class="myio-spinner-progress-label"></div>
+        </div>
+      `;
+
+      el.appendChild(contentContainer);
+      document.body.appendChild(el);
     }
 
-    el = document.createElement('div');
-    el.id = BUSY_OVERLAY_ID;
-    el.className = 'myio-loading-spinner-overlay';
-    el.style.display = 'none';
-
-    const contentContainer = document.createElement('div');
-    contentContainer.className = 'myio-loading-spinner-content';
-
-    // Spinner & Message
-    contentContainer.innerHTML = `
-      <div class="myio-spinner-box">
-        <div class="myio-spinner-outer"></div>
-        <div class="myio-spinner-inner"></div>
-      </div>
-      <div class="myio-spinner-message">${this.config.message}</div>
-    `;
-
-    el.appendChild(contentContainer);
-    document.body.appendChild(el);
-
+    // (Re)resolve child refs — works for a freshly-created OR a reused shared DOM.
     this.messageElement = el.querySelector('.myio-spinner-message');
+    let progress = el.querySelector('.myio-spinner-progress') as HTMLElement | null;
+    if (!progress) {
+      // Older shared overlay (created before the progress bar existed) → inject it.
+      const content = el.querySelector('.myio-loading-spinner-content');
+      if (content) {
+        progress = document.createElement('div');
+        progress.className = 'myio-spinner-progress';
+        progress.style.display = 'none';
+        progress.innerHTML =
+          '<div class="myio-spinner-progress-track"><div class="myio-spinner-progress-fill"></div></div><div class="myio-spinner-progress-label"></div>';
+        content.appendChild(progress);
+      }
+    }
+    this.progressElement = progress;
+    this.progressFillElement = el.querySelector('.myio-spinner-progress-fill');
+    this.progressLabelElement = el.querySelector('.myio-spinner-progress-label');
 
     return el;
+  }
+
+  /**
+   * Resolves the accent color (config.accentColor → inherited `--myio-brand-700`
+   * → default purple) and stashes it on the overlay as `--myio-ls-accent`, which
+   * the spinner ring, progress fill and dark panel tint read from.
+   */
+  private applyAccent(): void {
+    let accent = (this.config.accentColor || '').trim();
+    if (!accent && typeof document !== 'undefined') {
+      accent = getComputedStyle(document.documentElement).getPropertyValue('--myio-brand-700').trim();
+    }
+    if (!accent) accent = '#7a2ff7';
+    this.container.style.setProperty('--myio-ls-accent', accent);
   }
 
   /**
@@ -100,7 +140,7 @@ export class LoadingSpinner implements LoadingSpinnerInstance {
               .myio-spinner-inner {
                 width: 32px; height: 32px; border-width: 3px;
                 border-style: solid; border-radius: 50%;
-                border-color: rgba(122, 47, 247, 1) transparent rgba(122, 47, 247, 1) transparent;
+                border-color: var(--myio-ls-accent, #7a2ff7) transparent var(--myio-ls-accent, #7a2ff7) transparent;
                 position: absolute; top: 8px; left: 8px; /* Position inside outer */
                 animation: myio-spin-reverse 1.8s linear infinite;
               }
@@ -200,7 +240,7 @@ export class LoadingSpinner implements LoadingSpinnerInstance {
           border-color: rgba(45, 20, 88, 0.2) transparent rgba(45, 20, 88, 0.2) transparent;
       }
       .myio-loading-spinner-overlay.light .myio-spinner-inner {
-          border-color: rgba(122, 47, 247, 1) transparent rgba(122, 47, 247, 1) transparent;
+          border-color: var(--myio-ls-accent, #7a2ff7) transparent var(--myio-ls-accent, #7a2ff7) transparent;
       }
 
       /* Timer element styling */
@@ -211,6 +251,29 @@ export class LoadingSpinner implements LoadingSpinnerInstance {
           text-align: center;
       }
       .myio-loading-spinner-overlay.light .myio-spinner-timer { color: #6b7280; }
+
+      /* Progress bar (determinate via setProgress(pct) / indeterminate when null) */
+      .myio-spinner-progress { width: 100%; min-width: 200px; margin-top: 16px; }
+      .myio-spinner-progress-track {
+        width: 100%; height: 6px; border-radius: 999px;
+        background: rgba(255, 255, 255, 0.18); overflow: hidden;
+      }
+      .myio-loading-spinner-overlay.light .myio-spinner-progress-track { background: rgba(0, 0, 0, 0.10); }
+      .myio-spinner-progress-fill {
+        height: 100%; width: 0%; border-radius: 999px;
+        background: var(--myio-ls-accent, #7a2ff7);
+        transition: width 0.3s ease;
+      }
+      .myio-spinner-progress.indeterminate .myio-spinner-progress-fill {
+        width: 40% !important; animation: myio-ls-indeterminate 1.2s ease-in-out infinite;
+      }
+      @keyframes myio-ls-indeterminate {
+        0% { margin-left: -40%; }
+        100% { margin-left: 100%; }
+      }
+      .myio-spinner-progress-label {
+        margin-top: 6px; font-size: 11px; font-weight: 600; opacity: 0.85; text-align: center;
+      }
     `;
   }
 
@@ -296,7 +359,9 @@ export class LoadingSpinner implements LoadingSpinnerInstance {
     // Update background of content manually for theme-specific look
     const content = this.container.querySelector('.myio-loading-spinner-content') as HTMLElement;
     if (content) {
-      content.style.background = theme === 'dark' ? '#2d1458' : '#ffffff';
+      // Dark panel is tinted with the accent so it visibly follows the theme.
+      content.style.background =
+        theme === 'dark' ? 'color-mix(in srgb, var(--myio-ls-accent, #7a2ff7) 22%, #14121c)' : '#ffffff';
       content.style.color = theme === 'dark' ? '#ffffff' : '#1a1a2e';
     }
   }
@@ -337,6 +402,9 @@ export class LoadingSpinner implements LoadingSpinnerInstance {
     this.isCurrentlyShowing = true;
     this.hidePending = false;
     this.startTime = Date.now();
+
+    // Re-resolve the accent in case the host theme changed since construction.
+    this.applyAccent();
 
     this.container.style.display = 'flex';
     // Force initial opacity to 0 for transition
@@ -429,6 +497,27 @@ export class LoadingSpinner implements LoadingSpinnerInstance {
   }
 
   /**
+   * Updates the progress bar. `pct` 0–100 → determinate fill; `null` →
+   * indeterminate (animated) bar. `label` overrides the percentage text.
+   */
+  public setProgress(pct: number | null, label?: string): void {
+    if (!this.progressElement || !this.progressFillElement) return;
+    this.progressElement.style.display = 'block';
+    if (pct == null || Number.isNaN(Number(pct))) {
+      this.progressElement.classList.add('indeterminate');
+      this.progressFillElement.style.width = '';
+      if (this.progressLabelElement) this.progressLabelElement.textContent = label || '';
+    } else {
+      const clamped = Math.max(0, Math.min(100, Number(pct)));
+      this.progressElement.classList.remove('indeterminate');
+      this.progressFillElement.style.width = `${clamped}%`;
+      if (this.progressLabelElement) {
+        this.progressLabelElement.textContent = label != null ? label : `${Math.round(clamped)}%`;
+      }
+    }
+  }
+
+  /**
    * Checks if spinner is currently visible
    * @returns true if spinner is showing
    */
@@ -448,6 +537,12 @@ export class LoadingSpinner implements LoadingSpinnerInstance {
     this.isCurrentlyShowing = false;
     this.hidePending = false;
     this.startTime = 0;
+
+    if (this.progressElement) {
+      this.progressElement.style.display = 'none';
+      this.progressElement.classList.remove('indeterminate');
+    }
+    if (this.progressFillElement) this.progressFillElement.style.width = '0%';
 
     console.log('[LoadingSpinner] Instance destroyed (DOM kept for re-use)');
   }
