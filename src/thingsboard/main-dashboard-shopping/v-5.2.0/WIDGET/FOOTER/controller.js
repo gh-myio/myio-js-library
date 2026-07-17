@@ -46,18 +46,20 @@ function injectCSS() {
 
 
 .myio-footer {
-  /* Design Tokens - Purple Theme (accent segue a paleta do dashboard; fallback = cor atual) */
+  /* Design Tokens — fundo VERDE SÓLIDO do primary do dashboard, idêntico ao
+     header/tabs da modal de Metas (.gm-header/.gm-tabs = var(--myio-brand-700)),
+     orquestrado pela MAIN via createMyIOTheme. Conteúdo branco. Fallback = roxo. */
   --color-primary: var(--myio-brand-700, #9E8CBE);
   --color-primary-hover: var(--myio-brand-700, #B8A5D6);
   --color-primary-dark: var(--myio-brand-600, #8472A8);
-  --color-background: #0f1419;
-  --color-surface: #1a1f28;
-  --color-surface-elevated: #242b36;
-  --color-text-primary: #ffffff;
-  --color-text-secondary: rgba(255, 255, 255, 0.7);
+  --color-background: var(--myio-brand-700, #3e1a7d);
+  --color-surface: rgba(255, 255, 255, 0.1);
+  --color-surface-elevated: rgba(255, 255, 255, 0.16);
+  --color-text-primary: var(--myio-accent-text, #ffffff);
+  --color-text-secondary: rgba(255, 255, 255, 0.75);
   --color-text-tertiary: rgba(255, 255, 255, 0.5);
-  --color-border: rgba(255, 255, 255, 0.08);
-  --color-error: #ff4444;
+  --color-border: rgba(255, 255, 255, 0.18);
+  --color-error: #ff6b6b;
 
   --font-family: 'Nunito', system-ui, sans-serif;
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
@@ -79,24 +81,27 @@ function injectCSS() {
   padding: 0 18px;
   box-sizing: border-box;
 
-  /* Visual */
+  /* Visual — VERDE SÓLIDO do primary (mesmo do header/tabs da modal de Metas).
+     !important + backdrop-filter:none vencem a folha "Style" deployada (gradiente
+     escuro rgba(26,31,40,.98) de maior especificidade) — era isso que causava os
+     "dois fundos interlaçados". */
   font-family: var(--font-family);
   color: var(--color-text-primary);
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--myio-brand-700, #9E8CBE) 95%, transparent) 0%,
-    color-mix(in srgb, var(--myio-brand-600, #8472A8) 98%, transparent) 100%
-  );
-  border-top: 2px solid color-mix(in srgb, var(--myio-brand-700, #B8A5D6) 50%, transparent);
-  box-shadow:
-    var(--shadow-lg),
-    0 -2px 24px color-mix(in srgb, var(--myio-brand-700, #9E8CBE) 30%, transparent);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  background: var(--myio-brand-700, #3e1a7d) !important;
+  border-top: none !important;
+  box-shadow: 0 -4px 18px rgba(15, 23, 42, 0.14);
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 .myio-dock {
-  flex: 1;
+  /* !important vence uma folha "Style" antiga deployada no TB que setava
+     .myio-dock/.myio-right { width:100% }, o que colapsava o dock (chips) para
+     ~16px e escondia os labels dos devices selecionados. min-width:0 é o que
+     permite o overflow-x:auto funcionar dentro do flex. */
+  flex: 1 1 auto !important;
+  width: auto !important;
+  min-width: 0 !important;
   display: flex;
   align-items: center;
   gap: 16px;
@@ -128,14 +133,14 @@ function injectCSS() {
 .myio-chip {
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 5px 10px;
-  height: 34px;
+  gap: 6px;
+  padding: 2px 8px;
+  height: 28px;
   flex-shrink: 0;
-  background: linear-gradient(135deg, color-mix(in srgb, var(--myio-brand-700, #9E8CBE) 25%, transparent) 0%, color-mix(in srgb, var(--myio-brand-700, #9E8CBE) 15%, transparent) 100%);
-  border: 1px solid color-mix(in srgb, var(--myio-brand-700, #B8A5D6) 40%, transparent);
-  border-radius: var(--radius-md);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--radius-sm);
+  box-shadow: none;
   white-space: nowrap;
   cursor: default;
   transition: var(--transition);
@@ -150,37 +155,39 @@ function injectCSS() {
 }
 
 .myio-chip:hover {
-  background: linear-gradient(135deg, color-mix(in srgb, var(--myio-brand-700, #9E8CBE) 35%, transparent) 0%, color-mix(in srgb, var(--myio-brand-700, #9E8CBE) 25%, transparent) 100%);
-  border-color: color-mix(in srgb, var(--myio-brand-700, #B8A5D6) 60%, transparent);
-  box-shadow: 0 6px 16px color-mix(in srgb, var(--myio-brand-700, #9E8CBE) 40%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.15);
-  transform: translateY(-3px);
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.32);
+  box-shadow: none;
+  transform: translateY(-2px);
 }
 
 .myio-chip-content {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 0;
+  line-height: 1.15;
   min-width: 0;
   flex-shrink: 0;
 }
 
 .myio-chip-name {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 600;
-  color: #ffffff;
-  letter-spacing: -0.02em;
+  color: rgba(255, 255, 255, 0.92);
+  letter-spacing: 0;
+  text-transform: uppercase;
   overflow: hidden;
   text-overflow: ellipsis;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  text-shadow: none;
 }
 
 .myio-chip-value {
-  font-size: 12px;
-  font-weight: 700;
-  color: #ffffff;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--color-text-primary);
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  letter-spacing: -0.01em;
+  text-shadow: none;
 }
 
 .myio-chip-remove {
@@ -188,13 +195,13 @@ function injectCSS() {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 16px;
+  height: 16px;
   padding: 0;
-  margin-left: 5px;
+  margin-left: 3px;
   flex-shrink: 0;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.04) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: transparent;
+  border: none;
   border-radius: 4px;
   color: rgba(255, 255, 255, 0.6);
   cursor: pointer;
@@ -203,18 +210,16 @@ function injectCSS() {
 }
 
 .myio-chip-remove:hover {
-  background: linear-gradient(135deg, rgba(255, 68, 68, 0.25) 0%, rgba(255, 68, 68, 0.15) 100%);
-  border-color: rgba(255, 68, 68, 0.5);
-  color: #ff4444;
-  transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(255, 68, 68, 0.3);
+  background: rgba(255, 107, 107, 0.22);
+  color: #ffffff;
+  transform: scale(1.1);
 }
 
 .myio-chip-remove svg {
   position: relative;
   z-index: 1;
-  width: 16px;
-  height: 16px;
+  width: 12px;
+  height: 12px;
   stroke-width: 2.5;
   stroke-linecap: round;
 }
@@ -238,6 +243,10 @@ function injectCSS() {
 }
 
 .myio-right {
+  /* Bloco direito (seleção + comparar) sizes-to-content. width:auto !important
+     neutraliza o width:100% da folha "Style" antiga, devolvendo o espaço ao dock. */
+  width: auto !important;
+  flex: 0 0 auto !important;
   display: flex;
   align-items: center;
   gap: 20px;
@@ -294,26 +303,26 @@ function injectCSS() {
   gap: 0px;
   padding: 4px 9px;
   min-width: 100px;
-  background: linear-gradient(135deg, color-mix(in srgb, var(--myio-brand-700, #9E8CBE) 15%, transparent) 0%, color-mix(in srgb, var(--myio-brand-700, #9E8CBE) 8%, transparent) 100%);
-  border: 1px solid color-mix(in srgb, var(--myio-brand-700, #B8A5D6) 30%, transparent);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: var(--radius-md);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .myio-meta-title {
   font-size: 10px;
-  font-weight: 700;
-  color: var(--color-text-primary);
+  font-weight: 800;
+  color: var(--color-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  text-shadow: 0 0 8px color-mix(in srgb, var(--myio-brand-700, #9E8CBE) 40%, transparent);
+  text-shadow: none;
 }
 
 #myioTotals {
   font-size: 11px;
   font-weight: 700;
   color: var(--color-text-primary);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  text-shadow: none;
 }
 
 .myio-clear-btn {
@@ -323,19 +332,19 @@ function injectCSS() {
   width: 32px;
   height: 32px;
   padding: 0;
-  background: linear-gradient(135deg, rgba(200, 200, 200, 0.2) 0%, rgba(200, 200, 200, 0.1) 100%);
-  border: 1px solid rgba(200, 200, 200, 0.3);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: var(--radius-md);
-  color: #cccccc;
+  color: rgba(255, 255, 255, 0.75);
   cursor: pointer;
   transition: var(--transition);
 }
 
 .myio-clear-btn:hover {
-  background: linear-gradient(135deg, rgba(200, 200, 200, 0.3) 0%, rgba(200, 200, 200, 0.2) 100%);
-  border-color: rgba(200, 200, 200, 0.5);
+  background: rgba(255, 107, 107, 0.22);
+  border-color: rgba(255, 107, 107, 0.45);
+  color: #ffffff;
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(200, 200, 200, 0.3);
 }
 
 .myio-clear-btn:disabled {
@@ -372,13 +381,13 @@ function injectCSS() {
   font-weight: 700;
   letter-spacing: -0.01em;
   text-transform: uppercase;
-  background: var(--myio-brand-700, #3E1A7D);
+  background: #ffffff;
   border: none;
   border-radius: var(--radius-md);
-  color: var(--color-text-primary);
+  color: var(--myio-brand-700, #3E1A7D);
   cursor: pointer;
   overflow: hidden;
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--myio-brand-700, #3E1A7D) 50%, transparent), 0 4px 16px color-mix(in srgb, var(--myio-brand-700, #3E1A7D) 40%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.18);
   transition: var(--transition);
 }
 
