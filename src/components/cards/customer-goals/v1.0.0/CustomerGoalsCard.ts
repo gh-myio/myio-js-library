@@ -317,63 +317,67 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
     // Semântica: A-1/Realizado = crescimento vs ano anterior (subir = verde);
     // Or&ccedil;ado/Meta = Realizado vs alvo (abaixo do alvo = verde ↓, acima = vermelho ↑).
     const t = totals;
-    const yl = this.params.yearLabels;
-    const curLbl = yl?.current || 'Atual';
-    const prevLbl = yl?.previous || 'A-1';
     // Alvo "Or&ccedil;ado": com or&ccedil;ado cru é o pr&oacute;prio orcado (laranja); no legado é o budget.
     const orcadoVal = hasOrcado ? t.orcado : hasBudget ? t.budget : null;
     const hasMetaCol = hasOrcado && hasBudget; // coluna Meta separada só quando há orçado cru + meta
 
     const valueCell = (cls: string, label: string, total: string, val: number | null): string =>
       `<div class="myio-cgc__total"><span class="myio-cgc__total-label myio-cgc__total-label--${cls}">${label}</span><span class="myio-cgc__total-value" data-total="${total}">${this.fmtQty(val)}</span></div>`;
-    const deltaCell = (header: string, chipsHtml: string): string =>
-      `<div class="myio-cgc__delta">${header ? `<span class="myio-cgc__delta-label">${header}</span>` : ''}${chipsHtml}</div>`;
-    const miniChip = (label: string, badgeHtml: string): string =>
-      `<span class="myio-cgc__delta-mini"><span class="myio-cgc__delta-mini-label">${label}</span>${badgeHtml}</span>`;
+    // "vs <ref>" numa linha: "vs" na cor da COLUNA + a palavra de referência na
+    // sua cor (Realizado azul / A-1 cinza) + o chip (seta+%). Col1 = "SEM DADOS"
+    // (A-1 vs o próprio Orçado/Meta de 2025, que ainda não temos).
+    const vsLine = (vsVar: string, refLabel: string, refVar: string, badge: string): string =>
+      `<span class="myio-cgc__vsline"><span class="myio-cgc__vs" style="color:var(${vsVar})">vs</span> <span class="myio-cgc__vsref" style="color:var(${refVar})">${refLabel}</span>${badge}</span>`;
+    const noDataLine = (refVar: string, refLabel: string): string =>
+      `<span class="myio-cgc__vsline"><span class="myio-cgc__vsref" style="color:var(${refVar})">${refLabel}</span> <span class="myio-cgc__nodata">SEM DADOS</span></span>`;
+    const deltaLines = (lines: string[]): string =>
+      `<div class="myio-cgc__delta"><div class="myio-cgc__delta-lines">${lines.join('')}</div></div>`;
 
     const valueCells: string[] = [];
     const deltaCells: string[] = [];
     let anyDelta = false;
 
-    // Col 1 — A-1 (cinza): valor + chips de crescimento dos alvos vs ano anterior.
+    // Col 1 — A-1 (cinza): A-1 vs o próprio Orçado/Meta de 2025 → SEM DADOS por ora.
     if (hasPrev) {
       valueCells.push(valueCell('prev', 'A-1', 'prev', t.previousYear));
-      const grow: string[] = [];
-      if (hasOrcado) grow.push(miniChip('Or&ccedil;.', this.growthBadge(t.orcado, t.previousYear)));
-      if (hasMetaCol) grow.push(miniChip('Meta', this.growthBadge(t.budget, t.previousYear)));
-      if (!hasOrcado && hasBudget) grow.push(miniChip('Or&ccedil;.', this.growthBadge(t.budget, t.previousYear)));
-      if (grow.length) {
-        anyDelta = true;
-        const header = grow.length > 1 ? 'vs Or&ccedil;ado &amp; vs Meta' : 'vs Or&ccedil;ado';
-        deltaCells.push(deltaCell(header, `<div class="myio-cgc__delta-dual">${grow.join('')}</div>`));
-      } else {
-        deltaCells.push(deltaCell('', ''));
-      }
+      const lines: string[] = [];
+      if (hasOrcado || hasBudget) lines.push(noDataLine('--cgc-orcado', 'Or&ccedil;.'));
+      if (hasMetaCol) lines.push(noDataLine('--cgc-budget', 'Meta'));
+      if (lines.length) anyDelta = true;
+      deltaCells.push(deltaLines(lines));
     }
 
-    // Col 2 — Realizado (azul): valor + crescimento vs ano anterior (subir = verde).
+    // Col 2 — Realizado (azul): vs A-1 (crescimento, ↑ verde). Uma linha só.
     valueCells.push(valueCell('realized', 'Realizado', 'realized', t.realized));
     if (hasPrev) {
       anyDelta = true;
       deltaCells.push(
-        deltaCell(`${this.esc(curLbl)} &times; ${this.esc(prevLbl)}`, this.growthBadge(t.realized, t.previousYear))
+        deltaLines([vsLine('--cgc-realized', 'A-1', '--cgc-prev', this.growthBadge(t.realized, t.previousYear))])
       );
     } else {
-      deltaCells.push(deltaCell('', ''));
+      deltaCells.push(deltaLines([]));
     }
 
-    // Col 3 — Or&ccedil;ado (laranja): valor + Realizado vs Or&ccedil;ado (abaixo = verde ↓).
+    // Col 3 — Or&ccedil;ado (laranja): vs Realizado (Real vs Or&ccedil;ado, abaixo=verde↓) + vs A-1 (Or&ccedil;ado cresceu, ↑verde).
     if (hasOrcado || hasBudget) {
       anyDelta = true;
       valueCells.push(valueCell('orcado', 'Or&ccedil;ado', hasOrcado ? 'orcado' : 'budget', orcadoVal));
-      deltaCells.push(deltaCell('vs Or&ccedil;ado', this.deltaBadge(t.realized, orcadoVal)));
+      const lines: string[] = [
+        vsLine('--cgc-orcado', 'Realizado', '--cgc-realized', this.deltaBadge(t.realized, orcadoVal)),
+      ];
+      if (hasPrev) lines.push(vsLine('--cgc-orcado', 'A-1', '--cgc-prev', this.growthBadge(orcadoVal, t.previousYear)));
+      deltaCells.push(deltaLines(lines));
     }
 
-    // Col 4 — Meta (roxo): valor + Realizado vs Meta (abaixo = verde ↓). Só com orçado cru.
+    // Col 4 — Meta (roxo): vs Realizado + vs A-1. Só com or&ccedil;ado cru.
     if (hasMetaCol) {
       anyDelta = true;
       valueCells.push(valueCell('budget', 'Meta', 'budget', t.budget));
-      deltaCells.push(deltaCell('vs Meta', this.deltaBadge(t.realized, t.budget)));
+      const lines: string[] = [
+        vsLine('--cgc-budget', 'Realizado', '--cgc-realized', this.deltaBadge(t.realized, t.budget)),
+      ];
+      if (hasPrev) lines.push(vsLine('--cgc-budget', 'A-1', '--cgc-prev', this.growthBadge(t.budget, t.previousYear)));
+      deltaCells.push(deltaLines(lines));
     }
 
     const nCols = valueCells.length;

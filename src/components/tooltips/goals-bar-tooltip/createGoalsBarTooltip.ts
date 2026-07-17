@@ -28,8 +28,21 @@ export interface TipRow {
   label: string;
   /** Preformatted value string, e.g. "295,35 MWh" (caller formats — pt-BR). */
   valueText: string;
-  /** Relative percentage (0–100) shown as e.g. "42,3%". null/undefined → hidden. */
+  /** Relative percentage (0–100) shown as e.g. "42,3%". null/undefined → hidden.
+   *  Used for CHILD rows (device breakdown = % of parent). Top-level rows prefer `delta`. */
   pct?: number | null;
+  /**
+   * Deviation CHIP (a small colored pill) shown at the right of the row, instead of
+   * the plain `pct`. good = green, bad = red, neutral = gray; arrow ↑/↓/≈ + `X,X%`
+   * (pt-BR) + optional `text` (e.g. "abaixo", "ultrapassou"). When present it wins
+   * over `pct`.
+   */
+  delta?: {
+    pct: number;
+    tone: 'good' | 'bad' | 'neutral';
+    arrow: 'up' | 'down' | 'flat';
+    text?: string;
+  };
   /** Small swatch (series/device color). */
   color?: string;
   /** Expandable children; carets appear when present. */
@@ -75,7 +88,7 @@ function injectStyles(doc: Document): void {
   opacity: 0;
   pointer-events: none; /* unpinned: never blocks the chart hover */
   transition: opacity .15s ease;
-  font-family: Nunito, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Nunito', system-ui, sans-serif;
 }
 .myio-gbt.myio-gbt--visible { opacity: 1; }
 /* Header stays clickable even while unpinned, so the 📌 pin is reachable as the
@@ -215,6 +228,26 @@ function injectStyles(doc: Document): void {
   font-variant-numeric: tabular-nums;
   flex-shrink: 0;
 }
+/* Deviation chip (pill) — good/bad/neutral. Right-aligned, roughly fixed width so
+   the value column above lines up cleanly. */
+.myio-gbt__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  justify-content: flex-end;
+  min-width: 66px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 800;
+  line-height: 1.5;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+.myio-gbt__chip--good { background: rgba(22,163,74,.12); color: #16a34a; }
+.myio-gbt__chip--bad { background: rgba(239,68,68,.12); color: #ef4444; }
+.myio-gbt__chip--neutral { background: rgba(100,116,139,.12); color: #64748b; }
 .myio-gbt__children {
   display: none;
   margin-left: 10px;
@@ -266,6 +299,15 @@ function resolveAccent(explicit: string | undefined, doc: Document): string {
 
 let _rowSeq = 0;
 
+/** Render a deviation chip (pill): arrow + pt-BR pct + optional text. */
+function renderDeltaChip(delta: NonNullable<TipRow['delta']>): string {
+  const tone = delta.tone === 'good' ? 'good' : delta.tone === 'bad' ? 'bad' : 'neutral';
+  const arrow = delta.arrow === 'up' ? '↑' : delta.arrow === 'down' ? '↓' : '≈';
+  const pctTxt = fmtPct(Math.abs(Number(delta.pct)));
+  const txt = delta.text ? ` ${esc(delta.text)}` : '';
+  return `<span class="myio-gbt__chip myio-gbt__chip--${tone}">${arrow} ${esc(pctTxt)}${txt}</span>`;
+}
+
 function renderRow(row: TipRow, level: number): string {
   const hasChildren = Array.isArray(row.children) && row.children.length > 0;
   const open = !!row.defaultExpanded;
@@ -282,7 +324,10 @@ function renderRow(row: TipRow, level: number): string {
     ? `<span class="myio-gbt__swatch" style="background:${esc(row.color)}"></span>`
     : '';
   const icon = row.icon ? `<span class="myio-gbt__icon">${esc(row.icon)}</span>` : '';
-  const pctHtml = pct != null && isFinite(pct)
+  // Deviation chip wins over the plain pct; the plain pct path stays for CHILD rows
+  // (device breakdown = % of parent), which never carry a `delta`.
+  const chipHtml = row.delta ? renderDeltaChip(row.delta) : '';
+  const pctHtml = !row.delta && pct != null && isFinite(pct)
     ? `<span class="myio-gbt__pct">${esc(fmtPct(pct))}</span>`
     : '';
 
@@ -294,6 +339,7 @@ function renderRow(row: TipRow, level: number): string {
     + icon
     + `<span class="myio-gbt__label">${esc(row.label)}</span>`
     + `<span class="myio-gbt__value">${esc(row.valueText)}</span>`
+    + chipHtml
     + pctHtml
     + `</div>`;
 
@@ -447,7 +493,7 @@ export function createGoalsBarTooltip(
     hideTimer = setTimeout(() => {
       if (!pinned) el.classList.remove('myio-gbt--visible');
       hideTimer = null;
-    }, 260);
+    }, 450);
   }
 
   function destroy(): void {

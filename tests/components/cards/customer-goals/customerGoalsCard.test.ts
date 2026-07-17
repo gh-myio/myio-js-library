@@ -335,9 +335,9 @@ describe('CustomerGoalsCard (RFC-0217)', () => {
       },
     });
     expect(card.el.querySelector('[data-total="budget"]')?.textContent).toBe('600,00 kWh');
-    // e o badge "vs Orçado" existe (hasBudget considera o breakdown)
-    const deltaLabels = [...card.el.querySelectorAll('.myio-cgc__delta-label')].map((n) => n.textContent);
-    expect(deltaLabels).toContain('vs Orçado');
+    // a célula de desvio do Orçado mostra "vs Realizado" (hasBudget via breakdown)
+    const vslines = [...card.el.querySelectorAll('.myio-cgc__vsline')].map((n) => n.textContent || '');
+    expect(vslines.some((tx) => tx.includes('Realizado'))).toBe(true);
   });
 
   it('budgetDetail: consolidated Orçado line keeps a per-meter tooltip breakdown (afterLabel)', () => {
@@ -449,12 +449,16 @@ describe('CustomerGoalsCard (RFC-0217)', () => {
     expect(card.el.querySelector('[data-total="orcado"]')?.textContent).toBe('697,79 MWh');
     expect(card.el.querySelector('[data-total="budget"]')?.textContent).toBe('663,00 MWh');
     // Linha 2: 4 células de desvio, um contexto por coluna, alinhadas sob a linha 1
-    const deltaLabels = [...card.el.querySelectorAll('.myio-cgc__delta-label')].map((n) => n.textContent);
-    expect(deltaLabels).toEqual(['vs Orçado & vs Meta', '2026 × 2025', 'vs Orçado', 'vs Meta']);
     expect(card.el.querySelectorAll('.myio-cgc__delta').length).toBe(4);
-    // col1 (A-1) traz DOIS mini-chips de crescimento (Orçado vs A-1, Meta vs A-1)
-    const col1 = card.el.querySelectorAll('.myio-cgc__delta')[0];
-    expect(col1.querySelectorAll('.myio-cgc__delta-mini').length).toBe(2);
+    const deltas = [...card.el.querySelectorAll('.myio-cgc__delta')];
+    // col1 (A-1): SEM DADOS (Orçado/Meta de 2025 ainda não disponíveis) — 2 linhas
+    expect(deltas[0].querySelectorAll('.myio-cgc__nodata').length).toBe(2);
+    // col2 (Realizado): 1 linha "vs A-1"
+    expect(deltas[1].querySelectorAll('.myio-cgc__vsline').length).toBe(1);
+    // col3 (Orçado) e col4 (Meta): 2 linhas cada (vs Realizado + vs A-1)
+    expect(deltas[2].querySelectorAll('.myio-cgc__vsline').length).toBe(2);
+    expect(deltas[2].textContent).toContain('Realizado');
+    expect(deltas[3].querySelectorAll('.myio-cgc__vsline').length).toBe(2);
   });
 
   it('orcado + budget: chart plots BOTH a Meta line and a distinct Orçado overlay line', () => {
@@ -541,9 +545,9 @@ describe('CustomerGoalsCard (RFC-0217)', () => {
     expect(card.el.querySelector('[data-total="budget"]')?.textContent).toBe('800,00 kWh'); // 200*4
     expect(card.el.querySelector('[data-total="orcado"]')).toBeNull();
     expect(card.el.querySelector('.myio-cgc__total-sub')).toBeNull();
-    // Delta permanece "vs Orçado" e o gráfico mantém a linha "Orçado (2026)"
-    const deltaLabels = [...card.el.querySelectorAll('.myio-cgc__delta-label')].map((n) => n.textContent);
-    expect(deltaLabels).toContain('vs Orçado');
+    // Delta do Orçado agora mostra "vs Realizado"; o gráfico mantém a linha "Orçado (2026)"
+    const vslines2 = [...card.el.querySelectorAll('.myio-cgc__vsline')].map((n) => n.textContent || '');
+    expect(vslines2.some((tx) => tx.includes('Realizado'))).toBe(true);
     const cfg = ChartStub.instances.at(-1)!.config;
     expect(cfg.data.datasets.map((d: any) => d.label)).toEqual([
       'Orçado (2026)',

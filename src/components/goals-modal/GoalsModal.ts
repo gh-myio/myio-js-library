@@ -211,7 +211,7 @@ let _selectedYear: number = new Date().getFullYear();
 // Janela da granularidade diária (datas ISO locais, inclusive). Antes era só um
 // comprimento (_periodDays) ancorado em "hoje" — o start escolhido no picker era
 // descartado e qualquer range passado virava "últimos N dias".
-let _periodStart: string = _isoNDaysAgo(29);
+let _periodStart: string = _firstOfMonthISO();
 let _periodEnd: string = _todayISO();
 // YoY: o consumo do ano anterior (mesmo período) é SEMPRE buscado/plotado (exceto temperatura).
 // Sem toggle — vira 3ª linha (view linha) / barra pareada (view barra) + linha de meta.
@@ -226,9 +226,33 @@ let _lastRender:
 // from being dropped (the old _isRendering early-return swallowed them).
 let _renderSeq = 0;
 let _datePickerControl: DateRangeControl | null = null;
-// Premium tree-driven tooltip for the bars (Realizado/A-1/Meta/Orçado, Meta
-// expandable into per-device goals). Lazily created; destroyed on close.
+// Premium tree-driven tooltip for the bars (A-1/Realizado/Meta, Realizado and Meta
+// expandable into per-medidor breakdowns). Lazily created; destroyed on close.
 let _barTip: GoalsBarTooltipInstance | null = null;
+// Per-entrada-device consumption breakdown for the CURRENT window (period-total,
+// fetched once per _loadAndRender). Used as weights to split each bar's Realizado
+// into its entry devices in the tooltip. Null when unavailable (guarded).
+let _periodDeviceBreakdown: { list: Array<{ label: string; value: number }>; sum: number } | null = null;
+
+// ── Deviation chip helpers (pt-BR) — shared by the bar tooltip rows. ──────────
+/** Neutral (informational) chip: (a−b)/b·100, arrow up/down/flat. */
+function _neutralDelta(a: number | null, b: number | null): TipRow['delta'] | undefined {
+  if (a == null || b == null || !(b > 0) || !isFinite(a)) return undefined;
+  const d = ((a - b) / b) * 100;
+  return { pct: Math.abs(d), tone: 'neutral', arrow: d > 0.05 ? 'up' : d < -0.05 ? 'down' : 'flat' };
+}
+/**
+ * Band chip vs a reference (Meta/Orçado): d = (real−ref)/ref·100.
+ *  d < −3 → "abaixo" (down, good)  |  −3..+3 → midText (flat, neutral)  |  d > +3 → "ultrapassou" (up, bad).
+ */
+function _bandDelta(real: number | null, ref: number | null, midText: string): TipRow['delta'] | undefined {
+  if (real == null || ref == null || !(ref > 0) || !isFinite(real)) return undefined;
+  const d = ((real - ref) / ref) * 100;
+  const abs = Math.abs(d);
+  if (d < -3) return { pct: abs, tone: 'good', arrow: 'down', text: 'abaixo' };
+  if (d > 3) return { pct: abs, tone: 'bad', arrow: 'up', text: 'ultrapassou' };
+  return { pct: abs, tone: 'neutral', arrow: 'flat', text: midText };
+}
 
 function _todayISO(): string {
   // Local date (not UTC) — toISOString() would shift the day in UTC-3 late evening.
@@ -244,6 +268,13 @@ function _isoNDaysAgo(n: number): string {
   const mm = String(d.getMonth() + 1).padStart(2, '0');
   const dd = String(d.getDate()).padStart(2, '0');
   return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
+// Primeiro dia do mês corrente (ISO local) — período default do modal (mês atual → hoje).
+function _firstOfMonthISO(): string {
+  const d = new Date();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  return `${d.getFullYear()}-${mm}-01`;
 }
 
 // ============================================================================
@@ -504,6 +535,41 @@ async function _fetchMonthData(domain: string, year: number): Promise<{ labels: 
   return { labels, totals };
 }
 
+/**
+ * Breakdown por MEDIDOR DE ENTRADA do consumo do PERÍODO inteiro (uma request via
+ * fetchConsumption — endpoint /{domain}/devices/totals, que já retorna por device).
+ * Usado só no tooltip: os totais por device viram PESOS (share do período) e são
+ * aplicados ao Realizado de CADA barra (não é per-barra — é o total do período
+ * distribuído), de forma consistente e que sempre soma 100%. Retorna null quando
+ * indisponível (guardado — enfeite, nunca quebra o chart).
+ */
+async function _fetchPeriodDeviceBreakdown(
+  domain: string,
+  boundaries: Array<{ startTs: number; endTs: number }>,
+  gran: '1h' | '1d' | '1M'
+): Promise<{ list: Array<{ label: string; value: number }>; sum: number } | null> {
+  try {
+    const fn = _options?.fetchConsumption;
+    if (!fn || !boundaries.length) return null;
+    const start = boundaries[0].startTs;
+    const end = boundaries[boundaries.length - 1].endTs;
+    const devices = await fn(domain, start, end, gran);
+    if (!Array.isArray(devices) || devices.length === 0) return null;
+    const list = devices
+      .map((d) => ({
+        label: String(d.name || d.label || d.deviceName || 'Medidor'),
+        value: Number(d.total_value) || Number(d.value) || 0,
+      }))
+      .filter((d) => d.value > 0);
+    if (list.length === 0) return null;
+    const sum = list.reduce((a, d) => a + d.value, 0);
+    if (!(sum > 0)) return null;
+    return { list, sum };
+  } catch {
+    return null;
+  }
+}
+
 /** Boundaries da janela atual conforme a granularidade (mesma base usada nos fetchers acima). */
 function _buildBoundaries(gran: '1h' | '1d' | '1M', dateISO: string): Array<{ label: string; startTs: number; endTs: number }> {
   if (gran === '1M') return _buildMonthBoundaries(_selectedYear);
@@ -602,38 +668,6 @@ function _goalNodeValue(node?: { value: number; adjustedValue?: number }): numbe
   return v == null ? null : v;
 }
 
-/** Valor ORÇADO (bruto, sem a margem de gestão) — usado só no tooltip premium. */
-function _budgetNodeValue(node?: { value: number; adjustedValue?: number }): number | null {
-  if (!node) return null;
-  return node.value == null ? null : node.value;
-}
-
-/** Linha de Orçado (raw value) alinhada a labels — espelha _buildGoalLine. */
-function _buildBudgetLine(domain: string, labels: string[], gran: '1h' | '1d' | '1M', dateISO?: string): (number | null)[] {
-  const tree = _getGoalsTree(domain);
-  if (!tree) return labels.map(() => null);
-  if (gran === '1h') {
-    const ref = (dateISO || _selectedDate).split('-');
-    const mm = ref[1] ?? '';
-    const dd = ref[2] ?? '';
-    if (tree.hourly && Object.keys(tree.hourly).length > 0) {
-      return labels.map((lbl) => {
-        const hh = lbl.replace('h', '').padStart(2, '0');
-        return _budgetNodeValue(tree.hourly![`${mm}-${dd}T${hh}`]);
-      });
-    }
-    return labels.map(() => null);
-  }
-  if (gran === '1M') {
-    return labels.map((lbl) => {
-      const m = MONTH_LABELS_PT.indexOf(lbl);
-      if (m < 0) return null;
-      return _budgetNodeValue(tree.monthly?.[String(m + 1).padStart(2, '0')]);
-    });
-  }
-  return labels.map((lbl) => _budgetNodeValue(tree.daily?.[_labelToDailyKey(lbl)]));
-}
-
 function _buildGoalLine(domain: string, labels: string[], gran: '1h' | '1d' | '1M', dateISO?: string): (number | null)[] {
   const tree = _getGoalsTree(domain);
   if (!tree) return labels.map(() => null);
@@ -713,14 +747,16 @@ function _renderChart(
       fill: false,
       tension: 0.4,
       pointRadius: isLine ? 2 : 0,
+      // Legenda: barra → quadradinho (usePointStyle + 'rect').
+      pointStyle: 'rect',
       order: 4,
     });
   }
 
-  // Consumo (ano atual) — order 5 (na frente do ano anterior).
+  // Realizado (consumo do ano atual) — order 5 (na frente do ano anterior).
   datasets.push({
     type: _chartType,
-    label: `Consumo (${cfg.unit})`,
+    label: `Realizado (${cfg.unit})`,
     data: totals,
     borderColor: cfg.barColor,
     backgroundColor: isLine ? cfg.barColorAlpha : cfg.barColor,
@@ -730,6 +766,8 @@ function _renderChart(
     tension: 0.4,
     pointRadius: isLine ? 3 : 0,
     pointHoverRadius: 4,
+    // Legenda: barra → quadradinho (usePointStyle + 'rect').
+    pointStyle: 'rect',
     order: 5,
   });
 
@@ -748,6 +786,8 @@ function _renderChart(
       fill: false,
       spanGaps: true,
       tension: 0.4,
+      // Meta é LINHA — legenda deve mostrar um traço, não um quadradinho.
+      pointStyle: 'line',
       order: 0,
     });
   }
@@ -767,13 +807,13 @@ function _renderChart(
   const axisDivisor = useLarge ? cfg.threshold! : 1;
   const axisUnit = useLarge ? cfg.unitLarge! : cfg.unit;
 
-  // ── Premium tree-driven tooltip (Realizado/A-1/Meta/Orçado; Meta expandable
-  // into per-medidor goals). Orçado = value bruto; Meta = adjustedValue (margem).
-  // Realizado NÃO tem breakdown por device aqui (o modal busca a série agregada da
-  // entrada) — por isso Realizado é linha simples; a expansão só existe na Meta,
-  // e os pesos por medidor vêm do ANUAL do GCDR (distribuídos proporcionalmente
-  // sobre a meta do bucket, já que não há meta por-medidor por-período).
-  const budgetLine = _buildBudgetLine(domain, labels, _currentGran, _selectedDate);
+  // ── Premium tree-driven tooltip. Ordem: A-1, Realizado, Meta (SEM Orçado — o
+  // shopping mostra só a Meta = adjustedValue). Cada linha ganha um CHIP de desvio:
+  //  · A-1 → vs Meta (neutro, informativo)
+  //  · Realizado → vs A-1 (neutro, contexto YoY)
+  //  · Meta → Realizado vs Meta com banda (abaixo=verde / na meta=cinza / ultrapassou=vermelho).
+  // Realizado expande por medidor de entrada (share do período — _periodDeviceBreakdown);
+  // Meta expande por medidor (pesos ANUAIS do GCDR distribuídos sobre a meta do bucket).
   let accent = cfg.primaryColor;
   try {
     const root = _overlay || _getTopDoc().documentElement;
@@ -785,27 +825,45 @@ function _renderChart(
     const realizado = totals[idx];
     const meta = goalLine[idx];
     const prev = prevTotals ? prevTotals[idx] : null;
-    const budget = budgetLine[idx];
-    const ref = meta != null && meta > 0 ? meta : (realizado || null);
-    const pctOf = (v: number | null): number | null =>
-      v != null && ref ? (v / ref) * 100 : null;
 
     const rows: TipRow[] = [];
-    rows.push({
-      icon: '📊', label: 'Realizado', color: cfg.barColor,
-      valueText: _formatValue(realizado, domain),
-      pct: meta != null && meta > 0 ? pctOf(realizado) : null,
-    });
+
+    // A-1 (ano anterior) — informativo; chip = A-1 vs Meta.
     if (prev != null && prev > 0) {
       rows.push({
         icon: '🕓', label: 'A-1 (ano anterior)', color: '#94a3b8',
-        valueText: _formatValue(prev, domain), pct: pctOf(prev),
+        valueText: _formatValue(prev, domain),
+        delta: (meta != null && meta > 0) ? _neutralDelta(prev, meta) : undefined,
       });
     }
+
+    // Realizado — chip = Realizado vs A-1; expande por medidor de entrada.
+    const realizadoRow: TipRow = {
+      icon: '📊', label: 'Realizado', color: cfg.barColor,
+      valueText: _formatValue(realizado, domain),
+      delta: (prev != null && prev > 0) ? _neutralDelta(realizado, prev) : undefined,
+    };
+    try {
+      const bd = _periodDeviceBreakdown;
+      if (bd && bd.sum > 0 && realizado > 0 && bd.list.length > 0) {
+        realizadoRow.children = bd.list.map((d) => {
+          const w = d.value / bd.sum;
+          return {
+            icon: cfg.icon, label: d.label,
+            valueText: _formatValue(realizado * w, domain), pct: w * 100,
+          } as TipRow;
+        });
+        realizadoRow.defaultExpanded = false;
+      }
+    } catch { /* breakdown é enfeite */ }
+    rows.push(realizadoRow);
+
+    // Meta — chip = Realizado vs Meta (banda); expande por medidor (metas anuais).
     if (meta != null) {
       const metaRow: TipRow = {
         icon: '🎯', label: 'Meta', color: cfg.goalColor,
         valueText: _formatValue(meta, domain),
+        delta: _bandDelta(realizado, meta, 'na meta'),
       };
       const gdata = _getGoalsData(domain);
       if (gdata?.granularity === 'DEVICE' && Array.isArray(gdata.devices) && gdata.devices.length && meta > 0) {
@@ -827,12 +885,6 @@ function _renderChart(
       }
       rows.push(metaRow);
     }
-    if (budget != null && (meta == null || Math.abs(budget - meta) > 1e-6)) {
-      rows.push({
-        icon: '📋', label: 'Orçado', color: '#f59e0b',
-        valueText: _formatValue(budget, domain), pct: pctOf(budget),
-      });
-    }
 
     let subtitle: string | undefined;
     if (meta != null && meta > 0) {
@@ -844,6 +896,16 @@ function _renderChart(
     return { title: labels[idx] ?? '', subtitle, rows, accentColor: accent };
   };
 
+  // Posiciona o tooltip PERTO DO CURSOR (não no caret da barra) — assim dá pra
+  // arrastar o mouse até ele e clicar no 📌. O contexto `external` do Chart.js não
+  // carrega o mouse, então guardamos a última posição via mousemove no canvas.
+  let _lastMouse: { x: number; y: number } | null = null;
+  try {
+    canvas.addEventListener('mousemove', (e: MouseEvent) => {
+      _lastMouse = { x: e.clientX, y: e.clientY };
+    });
+  } catch { /* ignore */ }
+
   const externalTip = _barTip
     ? (context: any) => {
         try {
@@ -853,10 +915,11 @@ function _renderChart(
           if (!dp) return;
           const idx = dp.dataIndex;
           const rect = context.chart.canvas.getBoundingClientRect();
-          _barTip!.show(buildBarTipData(idx), {
-            clientX: rect.left + tt.caretX,
-            clientY: rect.top + tt.caretY,
-          });
+          const pos = _lastMouse ?? {
+            x: rect.left + tt.caretX,
+            y: rect.top + tt.caretY,
+          };
+          _barTip!.show(buildBarTipData(idx), { clientX: pos.x, clientY: pos.y });
         } catch { /* tooltip é enfeite — nunca quebra o chart */ }
       }
     : undefined;
@@ -874,7 +937,9 @@ function _renderChart(
         legend: {
           display: hasGoals || hasPrev,
           position: 'bottom',
-          labels: { color: '#374151', font: { size: 11 } },
+          // usePointStyle + pointStyle por dataset: barras (Realizado/Ano anterior)
+          // ficam quadradinhos ('rect'), Meta fica um traço ('line').
+          labels: { color: '#374151', font: { size: 11 }, usePointStyle: true },
         },
         tooltip: {
           // Premium tooltip via external handler; se indisponível, cai no built-in.
@@ -1009,6 +1074,17 @@ async function _loadAndRender(domain: string, gran: '1h' | '1d' | '1M', dateISO:
     // Cache p/ os toggles (barra/linha) re-renderizarem sem refazer o fetch.
     _lastRender = { labels, totals, goalLine, prevTotals, domain };
 
+    // Breakdown por medidor de entrada (enfeite do tooltip: Realizado ⤵ por device).
+    // Detached — não bloqueia o render nem o loader; popula a var lida no hover.
+    _periodDeviceBreakdown = null;
+    if (domain !== 'temperature') {
+      const mySeq = seq;
+      const bnds = _buildBoundaries(gran, dateISO);
+      _fetchPeriodDeviceBreakdown(domain, bnds, gran)
+        .then((bd) => { if (mySeq === _renderSeq) _periodDeviceBreakdown = bd; })
+        .catch(() => { /* enfeite — nunca quebra o chart */ });
+    }
+
     // Stats footer
     if (statsEl) {
       const total = totals.reduce((a, b) => a + b, 0);
@@ -1080,7 +1156,7 @@ function _injectStyles(topDoc: Document): void {
   const s = topDoc.createElement('style');
   s.id = STYLE_ID;
   s.textContent = `
-    .gm-overlay{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);opacity:0;transition:opacity .2s ease;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;}
+    .gm-overlay{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);opacity:0;transition:opacity .2s ease;font-family:'Nunito', system-ui, sans-serif;}
     .gm-overlay.show{opacity:1;}
     .gm-modal{position:relative;background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.25);width:min(1000px,95vw);height:min(660px,90vh);overflow:hidden;display:flex;flex-direction:column;transform:translateY(12px) scale(.98);transition:transform .2s ease;}
     .gm-overlay.show .gm-modal{transform:translateY(0) scale(1);}
@@ -1142,6 +1218,10 @@ function _buildModalHTML(): string {
         <button class="gm-gran-btn${_currentGran === '1M' ? ' active' : ''}" data-gran="1M">1M</button>
         <button class="gm-gran-btn${_currentGran === '1d' ? ' active' : ''}" data-gran="1d">1d</button>
         <button class="gm-gran-btn${_currentGran === '1h' ? ' active' : ''}" data-gran="1h">1h</button>
+      </div>
+      <div class="gm-gran-wrap" title="Atalhos de período">
+        <button class="gm-gran-btn" data-preset="prevYear">Ano ${new Date().getFullYear() - 1}</button>
+        <button class="gm-gran-btn" data-preset="curYear">Ano ${new Date().getFullYear()}</button>
       </div>
       <div class="gm-date-picker-wrap" id="gm-date-picker-wrap">
         <input type="text" id="gm-date-range-input" class="gm-date-input" readonly placeholder="Selecione o período…" />
@@ -1252,6 +1332,25 @@ function _wireEvents(overlay: HTMLElement, topDoc: Document): void {
       _loadAndRender(_currentDomain, _currentGran, _selectedDate);
     });
   });
+
+  // Presets de período (Ano anterior / Ano atual) — visão mensal do ano escolhido.
+  overlay.querySelectorAll('.gm-gran-btn[data-preset]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const which = (btn as HTMLElement).dataset.preset;
+      const Y = new Date().getFullYear();
+      const year = which === 'prevYear' ? Y - 1 : Y;
+      _selectedYear = year;
+      _currentGran = '1M';
+      _periodStart = `${year}-01-01`;
+      _periodEnd = which === 'prevYear' ? `${year}-12-31` : _todayISO();
+      // Reflete no seletor de granularidade (1M ativo) e re-inicializa o picker.
+      overlay
+        .querySelectorAll('.gm-gran-btn[data-gran]')
+        .forEach((b) => b.classList.toggle('active', (b as HTMLElement).dataset.gran === '1M'));
+      _initDatePicker(topDoc).catch(console.error);
+      _loadAndRender(_currentDomain, _currentGran, _selectedDate);
+    });
+  });
 }
 
 function _updateGoalsHint(topDoc: Document): void {
@@ -1335,7 +1434,12 @@ export const GoalsModal = {
     _options = options;
     _currentDomain = options.initialDomain ?? 'energy';
     _periodEnd = _todayISO();
-    _periodStart = _isoNDaysAgo((options.defaultPeriodDays ?? 30) - 1);
+    // Default = mês corrente (01/mm/aaaa → hoje). `defaultPeriodDays` explícito ainda
+    // é honrado (retrocompat); ausente → mês corrente (antes: últimos 30 dias).
+    _periodStart =
+      options.defaultPeriodDays != null
+        ? _isoNDaysAgo(options.defaultPeriodDays - 1)
+        : _firstOfMonthISO();
     _selectedDate = _todayISO();
     _selectedYear = new Date().getFullYear();
     _currentGran = '1d';

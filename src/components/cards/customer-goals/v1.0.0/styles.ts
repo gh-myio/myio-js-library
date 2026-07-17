@@ -23,7 +23,7 @@ const CSS = `
   border:1px solid var(--cgc-border);
   border-radius:12px;
   overflow:hidden;
-  font-family:'Nunito',sans-serif;
+  font-family:'Nunito', system-ui, sans-serif;
   transition:transform .15s ease, box-shadow .15s ease;
 }
 .myio-cgc[data-theme="dark"]{
@@ -45,7 +45,7 @@ const CSS = `
 .myio-cgc__expand{
   position:absolute;top:6px;right:8px;z-index:2;
   border:none;background:transparent;cursor:pointer;
-  color:var(--cgc-muted);font:700 13px 'Nunito',sans-serif;line-height:1;
+  color:var(--cgc-muted);font:700 13px 'Nunito', system-ui, sans-serif;line-height:1;
   padding:3px 5px;border-radius:6px;opacity:.55;transition:opacity .15s, background .15s;
 }
 .myio-cgc__expand:hover{opacity:1;background:rgba(124,58,237,.12);color:#7C3AED;}
@@ -53,7 +53,7 @@ const CSS = `
    font-size/margin grandes em h4, cortando o título dentro do card). */
 .myio-cgc h4.myio-cgc__title{
   margin:0!important;padding:10px 26px 4px;
-  font:800 14px/1.4 'Nunito',sans-serif!important;color:var(--cgc-text);
+  font:800 14px/1.4 'Nunito', system-ui, sans-serif!important;color:var(--cgc-text);
   text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 .myio-cgc__title--clickable{cursor:pointer;}
@@ -62,7 +62,7 @@ const CSS = `
 .myio-cgc__chart canvas{width:100%!important;height:100%!important;}
 .myio-cgc__chart-empty{
   display:flex;align-items:center;justify-content:center;height:100%;
-  font:600 11px 'Nunito',sans-serif;color:var(--cgc-muted);
+  font:600 11px 'Nunito', system-ui, sans-serif;color:var(--cgc-muted);
 }
 .myio-cgc__totals{
   display:grid;grid-template-columns:repeat(4,1fr);
@@ -70,13 +70,13 @@ const CSS = `
 }
 .myio-cgc__total{padding:6px 3px;text-align:center;border-right:1px solid var(--cgc-border);min-width:0;}
 .myio-cgc__total:last-child{border-right:none;}
-.myio-cgc__total-label{display:block;font:700 9.5px 'Nunito',sans-serif;line-height:1.35;white-space:nowrap;}
+.myio-cgc__total-label{display:block;font:700 9.5px 'Nunito', system-ui, sans-serif;line-height:1.35;white-space:nowrap;}
 .myio-cgc__total-label--realized{color:var(--cgc-realized);}
 .myio-cgc__total-label--prev{color:var(--cgc-prev);}
 .myio-cgc__total-label--budget{color:var(--cgc-budget);}
 .myio-cgc__total-label--orcado{color:var(--cgc-orcado);}
 .myio-cgc__total-value{
-  display:block;font:700 11px 'Nunito',sans-serif;color:var(--cgc-text);
+  display:block;font:700 11px 'Nunito', system-ui, sans-serif;color:var(--cgc-text);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 .myio-cgc__deltas{
@@ -85,16 +85,23 @@ const CSS = `
 }
 .myio-cgc__delta{padding:5px 3px 8px;text-align:center;border-right:1px solid var(--cgc-border);min-width:0;}
 .myio-cgc__delta:last-child{border-right:none;}
-.myio-cgc__delta-label{display:block;font:600 9px 'Nunito',sans-serif;color:var(--cgc-muted);line-height:1.4;margin-bottom:2px;}
-.myio-cgc__delta-value{display:block;font:800 11.5px 'Nunito',sans-serif;}
+.myio-cgc__delta-label{display:block;font:600 9px 'Nunito', system-ui, sans-serif;color:var(--cgc-muted);line-height:1.4;margin-bottom:2px;}
+.myio-cgc__delta-value{display:block;font:800 11.5px 'Nunito', system-ui, sans-serif;}
 /* Coluna A-1: dois chips pequenos empilhados (Orçado vs A-1, Meta vs A-1). */
 .myio-cgc__delta-dual{display:flex;flex-direction:column;gap:2px;align-items:center;}
 .myio-cgc__delta-mini{display:inline-flex;align-items:center;gap:3px;line-height:1.2;}
-.myio-cgc__delta-mini-label{font:700 8px 'Nunito',sans-serif;color:var(--cgc-muted);}
+.myio-cgc__delta-mini-label{font:700 8px 'Nunito', system-ui, sans-serif;color:var(--cgc-muted);}
 .myio-cgc__delta-mini .myio-cgc__delta-value{display:inline;font-size:9.5px;}
 .myio-cgc__delta-value--good{color:var(--cgc-good);}
 .myio-cgc__delta-value--bad{color:var(--cgc-bad);}
 .myio-cgc__delta-value--neutral{color:var(--cgc-muted);}
+/* Linhas "vs <ref>" (col2/3/4): "vs" na cor da coluna, ref na sua cor, + chip.
+   col1 mostra "<ref> SEM DADOS". */
+.myio-cgc__delta-lines{display:flex;flex-direction:column;gap:2px;align-items:center;}
+.myio-cgc__vsline{display:inline-flex;align-items:center;gap:3px;line-height:1.25;font:800 8.5px 'Nunito',sans-serif;white-space:nowrap;}
+.myio-cgc__vs,.myio-cgc__vsref{font-weight:800;}
+.myio-cgc__vsline .myio-cgc__delta-value{font-size:9.5px;}
+.myio-cgc__nodata{color:var(--cgc-muted);font-weight:600;font-size:8px;letter-spacing:.3px;}
 `;
 
 export function injectCustomerGoalsCardStyles(): void {
