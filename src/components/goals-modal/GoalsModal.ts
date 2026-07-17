@@ -315,13 +315,28 @@ function _applyTheme(root: HTMLElement): void {
 
 function _formatValue(value: number, domain: string): string {
   const cfg = DOMAIN_CFG[domain] || DOMAIN_CFG.energy;
-  // Formatação pt-BR (vírgula) — antes usava toFixed (ponto en-US), destoando
+
+  // RFC-0108: preferir o formatador de preferências do usuário exposto pelo host
+  // (window.MyIOUtils.*WithSettings) — idêntico ao TELEMETRY/FOOTER. Ele respeita
+  // a unidade escolhida pelo usuário, as casas decimais e o "≥ 1000 kWh → MWh".
+  // A lib NÃO pode depender de window: se indisponível (ex.: showcase/testes),
+  // cai no cálculo local baseado em DOMAIN_CFG abaixo.
+  const U = typeof window !== 'undefined' ? window.MyIOUtils : undefined;
+  if (domain === 'energy' && typeof U?.formatEnergyWithSettings === 'function') {
+    return U.formatEnergyWithSettings(value);
+  }
+  if (domain === 'water' && typeof U?.formatWaterWithSettings === 'function') {
+    return U.formatWaterWithSettings(value);
+  }
+
+  // Fallback pt-BR (vírgula) — antes usava toFixed (ponto en-US), destoando
   // das demais fontes (Resumo por shopping/HO usam pt-BR).
-  const dec = domain === 'temperature' ? 1 : 2;
+  // Convenção Metas: 3 casas decimais para energia/água (1 para temperatura).
+  const dec = domain === 'temperature' ? 1 : 3;
   const ptBR = (v: number, d: number) =>
     v.toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d });
   if (cfg.threshold && cfg.unitLarge && Math.abs(value) >= cfg.threshold) {
-    return `${ptBR(value / cfg.threshold, 2)} ${cfg.unitLarge}`;
+    return `${ptBR(value / cfg.threshold, 3)} ${cfg.unitLarge}`;
   }
   return `${ptBR(value, dec)} ${cfg.unit}`;
 }
@@ -510,8 +525,14 @@ async function _fetchSeriesTotals(
 async function _fetchDayData(domain: string): Promise<{ labels: string[]; totals: number[] }> {
   const boundaries = _buildDayBoundaries(_periodStart, _periodEnd);
   const labels = boundaries.map((b) => b.label);
+  // Série em '1h' e binagem por CONTENÇÃO no boundary do dia local ('1h' viewGran).
+  // Antes usava '1d': a API retorna buckets de dia UTC timestampados em T00:00Z e a
+  // chave por data local jogava o bucket UTC-(N+1) no dia local N; no ÚLTIMO dia do
+  // range o endTime (…T02:59Z) cobria só ~3h desse bucket → o último dia vinha
+  // truncado (ex.: 4.693 em vez de 58.978). Horário + contenção é TZ-agnóstico:
+  // cada ponto cai no dia local certo, sem truncar e sem perder pontos.
   const totals =
-    (await _fetchSeriesTotals(domain, boundaries, '1d', '1d')) ??
+    (await _fetchSeriesTotals(domain, boundaries, '1h', '1h')) ??
     (await _fetchTotalsThrottled(domain, boundaries, '1d'));
   return { labels, totals };
 }
@@ -595,8 +616,12 @@ async function _fetchPrevYearTotals(
     return { ...b, startTs: ps.getTime(), endTs: pe.getTime() };
   });
 
-  // 1 request via série (a view de mês usa '1d' e agrupa por mês).
-  const viaSeries = await _fetchSeriesTotals(domain, prevBoundaries, gran, gran === '1M' ? '1d' : gran);
+  // 1 request via série. A view de mês usa '1d' e agrupa por mês; a view de DIA usa
+  // '1h' + contenção (mesmo motivo TZ do _fetchDayData — senão o último dia do YoY
+  // trunca igual ao ano atual). A view de hora já é '1h'.
+  const seriesViewGran = gran === '1d' ? '1h' : gran;
+  const seriesFetchGran = gran === '1M' ? '1d' : gran === '1d' ? '1h' : gran;
+  const viaSeries = await _fetchSeriesTotals(domain, prevBoundaries, seriesViewGran, seriesFetchGran);
   if (viaSeries) return viaSeries;
 
   // Fallback: N requests por-boundary via fetchConsumption (throttle não se aplica aqui —

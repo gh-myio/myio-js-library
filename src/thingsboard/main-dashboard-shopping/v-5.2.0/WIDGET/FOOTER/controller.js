@@ -775,8 +775,10 @@ const footerController = {
       displayValue = totalValue / validValuesCount;
     }
 
-    // Formata o valor usando formatação brasileira
-    const totals = this._formatValue(displayValue);
+    // RFC-0108: formata o total/média respeitando as preferências de medida do
+    // usuário (kWh→MWh, m³→L, °C→°F), igual ao TELEMETRY. Já retorna com unidade.
+    const totalsUnit = selected.find((e) => e && e.unit)?.unit;
+    const totals = this._formatValueWithUnit(displayValue, detectedType, totalsUnit);
 
     LogHelper.log('[MyIO Footer] Rendering dock:', {
       count,
@@ -823,9 +825,11 @@ const footerController = {
 
           const value = document.createElement('span');
           value.className = 'myio-chip-value';
-          // Formata o valor com unidade
-          const formattedValue = ent.lastValue
-            ? `${this._formatValue(ent.lastValue)} ${ent.unit || ''}`.trim()
+          // RFC-0108: formata respeitando as preferências de medida do usuário
+          // (kWh→MWh, m³→L, °C→°F) via _formatValueWithUnit — já vem com unidade.
+          const chipUnitType = ent.icon || this.currentUnitType;
+          const formattedValue = typeof ent.lastValue === 'number'
+            ? this._formatValueWithUnit(ent.lastValue, chipUnitType, ent.unit)
             : 'Sem dados';
           value.textContent = formattedValue;
 
@@ -948,7 +952,7 @@ const footerController = {
   },
 
   /**
-   * Formata valores numéricos para exibição
+   * Formata valores numéricos para exibição (fallback pt-BR, SEM unidade)
    */
   _formatValue(value) {
     if (typeof value !== 'number' || isNaN(value)) return '0';
@@ -963,6 +967,38 @@ const footerController = {
 
     // Para valores pequenos, mostra até 2 casas decimais
     return value.toFixed(2).replace(/\.?0+$/, '');
+  },
+
+  /**
+   * RFC-0108: Formata um valor JÁ COM UNIDADE, respeitando as preferências de
+   * medida do usuário (window.MyIOUtils.*WithSettings), exatamente como o widget
+   * TELEMETRY. O formatador de preferências já converte ≥ 1000 kWh → MWh, m³→L,
+   * °C→°F conforme a configuração, e já anexa a unidade — por isso NÃO se deve
+   * concatenar `ent.unit` novamente ao usar este caminho.
+   *
+   * @param {number} value    Valor numérico bruto (kWh, m³, °C, ...)
+   * @param {string} unitType Tipo detectado do footer: 'energy' | 'water' | 'temperature' | 'tank' | ...
+   * @param {string} rawUnit  Unidade crua da entidade (usada só no fallback)
+   * @returns {string} Valor formatado com unidade (ex.: "172,335 MWh")
+   */
+  _formatValueWithUnit(value, unitType, rawUnit) {
+    if (typeof value !== 'number' || isNaN(value)) {
+      return `${this._formatValue(value)} ${rawUnit || ''}`.trim();
+    }
+
+    const U = window.MyIOUtils;
+    if (unitType === 'energy' && typeof U?.formatEnergyWithSettings === 'function') {
+      return U.formatEnergyWithSettings(value);
+    }
+    if (unitType === 'water' && typeof U?.formatWaterWithSettings === 'function') {
+      return U.formatWaterWithSettings(value);
+    }
+    if (unitType === 'temperature' && typeof U?.formatTemperatureWithSettings === 'function') {
+      return U.formatTemperatureWithSettings(value);
+    }
+
+    // Fallback (tank/desconhecido, ou MyIOUtils indisponível): número pt-BR + unidade crua.
+    return `${this._formatValue(value)} ${rawUnit || ''}`.trim();
   },
 
   /**
@@ -1230,6 +1266,11 @@ const footerController = {
     // 6. Evento de mudança de aba no MENU (limpa seleção ao trocar entre energy/water/tank)
     window.addEventListener('myio:dashboard-state', this.boundDashboardStateChange);
     LogHelper.log('[MyIO Footer] Registered listener for myio:dashboard-state (tab change from MENU)');
+
+    // 7. RFC-0108: re-renderiza chips/totais quando o usuário altera as
+    // preferências de medida no MENU (mesmo comportamento do TELEMETRY).
+    window.addEventListener('myio:measurement-settings-updated', this.boundRenderDock);
+    LogHelper.log('[MyIO Footer] Registered listener for myio:measurement-settings-updated (RFC-0108)');
   },
 
   /**
@@ -1666,6 +1707,11 @@ const footerController = {
     // 3. Remove listener do evento de mudança de aba do MENU
     if (this.boundDashboardStateChange) {
       window.removeEventListener('myio:dashboard-state', this.boundDashboardStateChange);
+    }
+
+    // 3b. RFC-0108: remove listener de alteração de preferências de medida
+    if (this.boundRenderDock) {
+      window.removeEventListener('myio:measurement-settings-updated', this.boundRenderDock);
     }
 
     // 3. Limpa conteúdo (mas não remove elementos, pois são do template.html do ThingsBoard)
