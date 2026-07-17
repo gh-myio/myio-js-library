@@ -2,7 +2,7 @@ import { ThemeMode } from './types';
 
 export const ENERGY_PANEL_STYLES = `
   .energy-panel-wrap {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: 'Nunito', system-ui, sans-serif;
     color: #1e293b;
     background-color: #f8fafc;
     padding: 16px;

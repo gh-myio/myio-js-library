@@ -308,7 +308,7 @@ function renderModal(
         max-height: ${contentMaxHeight}; height: ${isMaximized ? '100%' : 'auto'};
         overflow: hidden; display: flex; flex-direction: column;
         box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        font-family: 'Roboto', Arial, sans-serif;
+        font-family: 'Nunito', system-ui, sans-serif;
       ">
         <!-- Header - MyIO Premium Style -->
         <div style="
@@ -432,7 +432,7 @@ function renderModal(
             padding: 8px 16px; border-radius: 6px; cursor: pointer;
             font-size: 14px; font-weight: 500; height: 38px;
             display: flex; align-items: center; gap: 8px;
-            font-family: 'Roboto', Arial, sans-serif;
+            font-family: 'Nunito', system-ui, sans-serif;
           " ${state.isLoading ? 'disabled' : ''}>
             ${state.isLoading ? '<span style="animation: spin 1s linear infinite; display: inline-block;">↻</span> Carregando...' : 'Carregar'}
           </button>
@@ -484,7 +484,7 @@ function renderModal(
             color: ${colors.text}; border: 1px solid ${colors.border};
             padding: 8px 16px; border-radius: 6px; cursor: pointer;
             font-size: 14px; display: flex; align-items: center; gap: 8px;
-            font-family: 'Roboto', Arial, sans-serif;
+            font-family: 'Nunito', system-ui, sans-serif;
           " ${state.deviceData.every(dd => dd.data.length === 0) ? 'disabled' : ''}>
             📥 Exportar CSV
           </button>
@@ -492,7 +492,7 @@ function renderModal(
             background: #3e1a7d; color: white; border: none;
             padding: 8px 16px; border-radius: 6px; cursor: pointer;
             font-size: 14px; font-weight: 500;
-            font-family: 'Roboto', Arial, sans-serif;
+            font-family: 'Nunito', system-ui, sans-serif;
           ">
             Fechar
           </button>

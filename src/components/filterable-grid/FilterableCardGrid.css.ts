@@ -6,7 +6,7 @@ export const FILTERABLE_GRID_CSS = `
   display: flex;
   flex-direction: column;
   gap: 16px;
-  font-family: 'Roboto', Arial, sans-serif;
+  font-family: 'Nunito', system-ui, sans-serif;
 }
 
 .myio-filter-bar {

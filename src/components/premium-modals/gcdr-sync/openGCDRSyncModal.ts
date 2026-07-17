@@ -38,7 +38,7 @@ const STYLES = `
     display: flex;
     align-items: center;
     justify-content: center;
-    font-family: 'Roboto', Inter, system-ui, -apple-system, sans-serif;
+    font-family: 'Nunito', system-ui, sans-serif;
   }
   #${MODAL_ID} .gcdr-card {
     background: #fff;

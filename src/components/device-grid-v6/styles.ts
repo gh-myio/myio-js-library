@@ -14,7 +14,7 @@ const STYLES = `
   --dgv6-card: #0f1d30;
   --dgv6-bg: rgba(11, 18, 32, 0.65);
   --dgv6-accent: #38bdf8;
-  --dgv6-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --dgv6-font: 'Nunito', system-ui, sans-serif;
 
   display: flex;
   flex-direction: column;

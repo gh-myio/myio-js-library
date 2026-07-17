@@ -524,7 +524,7 @@ export function exportTimelineToPDF(
       <style>
         @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap');
         * { box-sizing: border-box; }
-        body { font-family: 'Nunito', 'Segoe UI', Arial, sans-serif; margin: 0; padding: 32px 40px; color: #1f2937; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        body { font-family: 'Nunito', system-ui, sans-serif; margin: 0; padding: 32px 40px; color: #1f2937; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
         .report-header { background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%); color: #fff; border-radius: 14px; padding: 24px 28px; display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; }
         .report-header .brand { font-size: 12px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; opacity: .85; }
@@ -671,7 +671,7 @@ export function exportSchedulesToPDF(
       <meta charset="UTF-8">
       <title>Agendamentos - ${deviceName}</title>
       <style>
-        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 40px; color: #1f2937; }
+        body { font-family: 'Nunito', system-ui, sans-serif; margin: 40px; color: #1f2937; }
         h1 { color: #3b82f6; font-size: 24px; margin-bottom: 8px; }
         .subtitle { color: #6b7280; font-size: 14px; margin-bottom: 24px; }
         .schedule-card { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin-bottom: 12px; }

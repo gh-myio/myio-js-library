@@ -203,7 +203,7 @@ export class LoadingSpinner implements LoadingSpinnerInstance {
         align-items: center;
         text-align: center;
         color: #ffffff;
-        font-family: Inter, system-ui, sans-serif;
+        font-family: 'Nunito', system-ui, sans-serif;
         font-size: 14px;
         line-height: 1.5;
         padding: 24px 32px;

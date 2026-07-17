@@ -71,7 +71,7 @@ export function getStyles(): string {
   --fc-empty-border: rgba(184, 165, 214, 0.4);
 
   /* Static tokens */
-  --fc-font-family: 'Nunito', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --fc-font-family: 'Nunito', system-ui, sans-serif;
   --fc-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
   --fc-shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
   --fc-radius-sm: 6px;

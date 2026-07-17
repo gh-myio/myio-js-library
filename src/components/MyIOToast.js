@@ -80,7 +80,7 @@ const MyIOToast = (function() {
       padding: 16px 20px;
       background-color: #323232;
       color: white;
-      font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      font-family: 'Nunito', system-ui, sans-serif;
       font-size: 14px;
       border-radius: 8px;
       box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);

@@ -260,7 +260,7 @@ function renderModal(
         font-size: 14px;
         font-weight: 600;
         color: #fff;
-        font-family: 'Roboto', sans-serif;
+        font-family: 'Nunito', system-ui, sans-serif;
         display: flex;
         align-items: center;
         gap: 8px;

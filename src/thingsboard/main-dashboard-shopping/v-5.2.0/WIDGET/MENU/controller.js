@@ -523,7 +523,7 @@ self.onInit = function () {
           opacity: 0;
           pointer-events: none;
           transition: opacity 0.2s ease;
-          font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+          font-family: 'Nunito', system-ui, sans-serif;
         }
         .myio-conf-picker.show {
           opacity: 1;
@@ -927,7 +927,7 @@ self.onInit = function () {
       const s = topDoc.createElement('style');
       s.id = STYLE_ID;
       s.textContent = `
-        .mdd-overlay{position:fixed;inset:0;z-index:999999;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s ease;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+        .mdd-overlay{position:fixed;inset:0;z-index:999999;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s ease;font-family:'Nunito',system-ui,sans-serif}
         .mdd-overlay.show{opacity:1;pointer-events:auto}
         .mdd-bg{position:absolute;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(4px)}
         .mdd-card{position:relative;z-index:2;background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.28);width:min(1080px,95vw);max-height:90vh;display:flex;flex-direction:column;overflow:hidden;transform:translateY(12px) scale(.98);transition:transform .2s ease}
@@ -1230,7 +1230,7 @@ self.onInit = function () {
       const s = topDoc.createElement('style');
       s.id = STYLE_ID;
       s.textContent = `
-        .myio-isetup{position:fixed;inset:0;z-index:999999;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s ease;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+        .myio-isetup{position:fixed;inset:0;z-index:999999;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s ease;font-family:'Nunito',system-ui,sans-serif}
         .myio-isetup.show{opacity:1;pointer-events:auto}
         .myio-isetup__overlay{position:absolute;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(4px)}
         .myio-isetup__card{position:relative;z-index:2;background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.28);width:min(860px,97vw);max-height:92vh;display:flex;flex-direction:column;overflow:hidden;transform:translateY(12px) scale(.98);transition:transform .2s ease}
@@ -2411,7 +2411,7 @@ function openGoalsModal() {
       const s = topDoc.createElement('style');
       s.id = STYLE_ID;
       s.textContent = `
-        .rp-overlay{position:fixed;inset:0;z-index:999998;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);opacity:0;transition:opacity .2s ease;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;}
+        .rp-overlay{position:fixed;inset:0;z-index:999998;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);opacity:0;transition:opacity .2s ease;font-family:'Nunito',system-ui,sans-serif;}
         .rp-overlay.show{opacity:1;}
         .rp-modal{position:relative;background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.25);width:min(640px,92vw);max-height:90vh;overflow:hidden;display:flex;flex-direction:column;transform:translateY(12px) scale(.98);transition:transform .2s ease;}
         .rp-overlay.show .rp-modal{transform:translateY(0) scale(1);}
@@ -2790,7 +2790,7 @@ function openGoalsModal() {
         opacity: 0;
         pointer-events: none;
         transition: opacity .2s ease;
-        font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        font-family: 'Nunito', system-ui, sans-serif;
       }
       .myio-modal.show { opacity: 1; pointer-events: auto; }
       .myio-modal__overlay {
@@ -3072,7 +3072,7 @@ function openGoalsModal() {
       const s = topDoc.createElement('style');
       s.id = STYLE_ID;
       s.textContent = `
-        .mcc-overlay{position:fixed;inset:0;z-index:999999;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s ease;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+        .mcc-overlay{position:fixed;inset:0;z-index:999999;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s ease;font-family:'Nunito',system-ui,sans-serif}
         .mcc-overlay.show{opacity:1;pointer-events:auto}
         .mcc-bg{position:absolute;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(4px)}
         .mcc-card{position:relative;z-index:2;background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.28);width:min(520px,95vw);display:flex;flex-direction:column;overflow:hidden;transform:translateY(12px) scale(.98);transition:transform .2s ease}

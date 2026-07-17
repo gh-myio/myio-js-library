@@ -38,7 +38,7 @@ export const MENU_SHOPPING_STYLES = `
   height: 100%;
   padding: 16px 0;
   box-sizing: border-box;
-  font-family: 'Nunito', "Inter", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  font-family: 'Nunito', system-ui, sans-serif;
   position: relative;
   background: var(--bg);
   color: var(--text);

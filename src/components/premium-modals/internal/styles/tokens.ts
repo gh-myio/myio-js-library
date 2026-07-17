@@ -28,7 +28,7 @@ export const CSS_TOKENS = `
   --myio-spacing-lg: 24px;
   
   /* Typography */
-  --myio-font: 'Roboto', Arial, sans-serif;
+  --myio-font: 'Nunito', system-ui, sans-serif;
   --myio-font-size: 14px;
   --myio-font-size-sm: 12px;
   --myio-font-size-lg: 16px;
@@ -358,7 +358,7 @@ export const DATERANGEPICKER_STYLES = `
    ========================================== */
 
 .daterangepicker {
-  font-family: 'Inter', 'Roboto', Arial, sans-serif;
+  font-family: 'Nunito', system-ui, sans-serif;
   border: 1px solid #e0e0e0;
   border-radius: 10px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);

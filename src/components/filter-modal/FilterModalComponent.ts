@@ -143,7 +143,7 @@ const MODAL_CSS = `
     overflow: hidden;
     transform: scale(0.95) translateY(10px);
     transition: transform 0.2s ease;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    font-family: 'Nunito', system-ui, sans-serif;
   }
 
   /* Two-column layout when device grid is shown */

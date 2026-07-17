@@ -59,7 +59,7 @@ export const OPERATIONAL_GENERAL_LIST_STYLES = `
   display: flex;
   flex-direction: column;
   background: transparent;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Nunito', system-ui, sans-serif;
 }
 
 /* ====== LIGHT/DARK THEME MODE ====== */

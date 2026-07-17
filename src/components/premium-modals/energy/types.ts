@@ -236,7 +236,7 @@ export const DEFAULT_STYLES: EnergyModalStyleOverrides = {
   textColor: '#1f2937',
   borderColor: '#e5e7eb',
   borderRadius: '8px',
-  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+  fontFamily: 'Nunito, system-ui, sans-serif',
   modalWidth: '90vw',
   modalHeight: '90vh'
 };

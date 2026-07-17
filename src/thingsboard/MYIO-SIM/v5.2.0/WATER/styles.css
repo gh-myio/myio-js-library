@@ -1,10 +1,11 @@
+
 /* ============================================ */
 /* WATER WIDGET - RFC-0087                     */
 /* Based on ENERGY widget structure            */
 /* ============================================ */
 
 .water-dashboard {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Nunito', system-ui, sans-serif;
   color: #0c4a6e;
 
   /* Layout */

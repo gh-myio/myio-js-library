@@ -28,7 +28,7 @@ export function injectSolenoidControlStyles(): void {
       justify-content: center;
       gap: 5%;
       margin: 0;
-      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: 'Nunito', system-ui, sans-serif;
       color: #18446C;
       box-sizing: border-box;
       overflow: hidden;
@@ -149,7 +149,7 @@ export function injectSolenoidControlStyles(): void {
       text-align: center;
       max-width: 90%;
       width: 300px;
-      font-family: 'Segoe UI', Arial, sans-serif;
+      font-family: 'Nunito', system-ui, sans-serif;
       z-index: 2147483647;
       color: #222;
     }

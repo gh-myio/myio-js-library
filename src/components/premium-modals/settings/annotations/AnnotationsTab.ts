@@ -60,7 +60,7 @@ const ANNOTATIONS_STYLES = `
   display: flex;
   flex-direction: column;
   height: 100%;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Nunito', system-ui, sans-serif;
   color: #1a1a2e;
   padding: 4px;
 }
@@ -2517,7 +2517,7 @@ const ANNOTATIONS_STYLES = `
   max-width: 340px;
   min-width: 280px;
   animation: annotationTourSlideIn 0.3s ease;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Nunito', system-ui, sans-serif;
 }
 
 @keyframes annotationTourSlideIn {

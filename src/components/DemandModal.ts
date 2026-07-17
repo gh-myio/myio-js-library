@@ -203,7 +203,7 @@ const DEFAULT_STYLES: DemandModalStyles = {
   spacingMd: '16px',
   spacingLg: '24px',
   spacingXl: '32px',
-  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+  fontFamily: 'Nunito, system-ui, sans-serif',
   fontSizeXs: '12px',
   fontSizeSm: '14px',
   fontSizeMd: '16px',

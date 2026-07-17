@@ -26,7 +26,7 @@ const DEFAULT_PROVISIONING_API = 'https://provisioning.apps.myio-bas.com';
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const S = {
-  root: 'font-family:system-ui,sans-serif;font-size:14px;color:#111;background:#fff;border:1px solid #e0e0e0;border-radius:8px;overflow:hidden;',
+  root: 'font-family:Nunito, system-ui, sans-serif;font-size:14px;color:#111;background:#fff;border:1px solid #e0e0e0;border-radius:8px;overflow:hidden;',
   header: 'padding:12px 16px;background:#f5f6fa;border-bottom:1px solid #e0e0e0;display:flex;align-items:center;gap:12px;',
   badge: (bg: string, fg: string) => `font-size:12px;padding:2px 8px;border-radius:9999px;background:${bg};color:${fg};`,
   tableWrap: 'overflow-x:auto;border-bottom:1px solid #e0e0e0;',

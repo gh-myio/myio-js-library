@@ -1547,7 +1547,7 @@ export async function openRealTimeTelemetryModal(
         border:1px solid #e2e8f0;
         box-shadow:0 10px 40px rgba(0,0,0,0.15),0 2px 10px rgba(0,0,0,0.08);
         min-width:240px;max-width:320px;overflow:hidden;
-        font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+        font-family:Nunito, system-ui, sans-serif;
         font-size:12px;color:#1e293b;
         user-select:none;
       }
@@ -1575,7 +1575,7 @@ export async function openRealTimeTelemetryModal(
         padding:4px 14px;font-size:12px;border-bottom:1px solid #f5f5f5;}
       .rtt-tt-history-row{display:flex;align-items:center;gap:6px;
         padding:5px 14px;font-size:12px;color:#374151;border-bottom:1px solid #f8fafc;
-        font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;}
+        font-family:Nunito, system-ui, sans-serif;}
       .rtt-tt-history-row:last-child{border-bottom:none;}
       .rtt-tt-row-ts{color:#bbb;}
       .rtt-tt-row-val{font-weight:600;}

@@ -161,7 +161,7 @@ function ensureBusyModalDOM() {
       background: rgba(150,132,181,0.45); /* #9684B5 com transparência */
       backdrop-filter: blur(5px);
       z-index:9999; align-items:center; justify-content:center;
-      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;">
+      font-family: 'Nunito', system-ui, sans-serif;">
     <div style="
         background:#2d1458; color:#fff;
         border:1px solid rgba(255,255,255,0.10);
@@ -323,7 +323,7 @@ function ensureGlobalSuccessModalDOM() {
     border-radius: 20px; padding: 26px 30px; min-width: 360px;
     border: 1px solid rgba(255,255,255,0.12);
     box-shadow: 0 14px 44px rgba(0,0,0,.35);
-    font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;
+    font-family: 'Nunito', system-ui, sans-serif;
     text-align: center;
   `
   );

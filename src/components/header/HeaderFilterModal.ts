@@ -129,7 +129,7 @@ export class HeaderFilterModal implements HeaderFilterModalInstance {
   justify-content: center;
   align-items: center;
   z-index: 10000;
-  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  font-family: 'Nunito', system-ui, sans-serif;
 }
 
 .${HEADER_CSS_PREFIX}-filter-backdrop {

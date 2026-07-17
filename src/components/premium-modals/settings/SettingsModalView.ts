@@ -1462,7 +1462,7 @@ export class SettingsModalView {
           align-items: center;
           justify-content: center;
           z-index: 9999999;
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          font-family: 'Nunito', system-ui, sans-serif;
         }
         
         .myio-device-settings-modal {

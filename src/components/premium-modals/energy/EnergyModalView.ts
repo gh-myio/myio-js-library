@@ -1627,7 +1627,7 @@ export class EnergyModalView {
   private getModalStyles(): string {
     const styles = this.config.params.styles || {};
     const defaultPrimary = styles.primaryColor || '#4A148C';
-    const defaultFont = styles.fontFamily || '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    const defaultFont = styles.fontFamily || 'Nunito, system-ui, sans-serif';
 
     return `
       /* --- VARIÁVEIS DE TEMA (LIGHT MODE - PADRÃO) --- */

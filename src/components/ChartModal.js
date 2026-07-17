@@ -175,7 +175,7 @@ class MyIOChartModalClass {
         max-width: 900px;
         margin: auto;
         color: #fff;
-        font-family: Arial, sans-serif;
+        font-family: 'Nunito', system-ui, sans-serif;
         box-shadow: 0 8px 30px rgba(0,0,0,0.5);
       ">
       

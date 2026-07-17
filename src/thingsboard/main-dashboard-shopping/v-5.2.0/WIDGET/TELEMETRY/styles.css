@@ -1,3 +1,4 @@
+
 /* ============ Vars & base ============ */
 .shops-root {
   --ink-1: #1c2743;
@@ -10,9 +11,7 @@
   --brand: #1f6fb5;
   --brand-ghost: rgba(31, 111, 181, 0.08);
   --bg-soft: #f7fbff;
-  --font-ui:
-    Inter, 'Inter var', 'Plus Jakarta Sans', 'SF Pro Text', system-ui, -apple-system, Segoe UI, Roboto,
-    'Helvetica Neue', Arial, sans-serif;
+  --font-ui: 'Nunito', system-ui, sans-serif;
 }
 
 .shops-root,

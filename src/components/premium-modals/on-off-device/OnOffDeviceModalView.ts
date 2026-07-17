@@ -897,7 +897,7 @@ export class OnOffDeviceModalView {
       position: relative; background: #1f2937; color: #f9fafb;
       border-radius: 12px; padding: 24px 28px; min-width: 280px; max-width: 380px;
       box-shadow: 0 20px 60px rgba(0,0,0,0.5); text-align: center;
-      font-family: sans-serif;
+      font-family: 'Nunito', system-ui, sans-serif;
     `;
 
     const msg = document.createElement('p');

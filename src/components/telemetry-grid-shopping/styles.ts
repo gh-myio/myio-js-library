@@ -17,8 +17,7 @@ export const TELEMETRY_GRID_SHOPPING_STYLES = `
   --brand: #5B2EBC;
   --brand-ghost: rgba(91, 46, 188, 0.08);
   --bg-soft: #f7fbff;
-  --font-ui: 'Nunito', Inter, 'Inter var', 'Plus Jakarta Sans', 'SF Pro Text', system-ui, -apple-system, Segoe UI,
-    Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-ui: 'Nunito', system-ui, sans-serif;
 }
 
 /* Light mode explicit */
@@ -372,8 +371,7 @@ export const TELEMETRY_GRID_SHOPPING_STYLES = `
   --brand: #5B2EBC;
   --brand-ghost: rgba(91, 46, 188, 0.08);
   --bg-soft: #f7fbff;
-  --font-ui: 'Nunito', Inter, 'Inter var', 'Plus Jakarta Sans', 'SF Pro Text', system-ui, -apple-system, Segoe UI,
-    Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-ui: 'Nunito', system-ui, sans-serif;
 
   position: fixed;
   inset: 0;

@@ -171,7 +171,7 @@ export function createDistributionChartWidget(
     return `
       <style>
         #${widgetId} {
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          font-family: 'Nunito', system-ui, sans-serif;
         }
         #${widgetId} .myio-dist-header {
           display: flex;

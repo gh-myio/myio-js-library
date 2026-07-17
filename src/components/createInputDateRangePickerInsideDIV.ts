@@ -15,7 +15,7 @@ import { createDateRangePicker, CreateDateRangePickerOptions, DateRangeControl, 
 // Premium MyIO styling extracted and adapted from showcase/energy.html
 const PREMIUM_STYLES = `
   .myio-daterange-wrapper {
-    font-family: 'Roboto', Arial, sans-serif;
+    font-family: 'Nunito', system-ui, sans-serif;
     background: #f9f9f9;
     padding: 20px;
     border-radius: 8px;

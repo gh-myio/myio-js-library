@@ -527,7 +527,7 @@ function openFullscreenChart() {
         font-size: 20px;
         font-weight: 600;
         color: #166534;
-        font-family: 'Inter', sans-serif;
+        font-family: 'Nunito', system-ui, sans-serif;
       }
       #energyChartFullscreenGlobal .fullscreen-config-btn {
         background: #fff;

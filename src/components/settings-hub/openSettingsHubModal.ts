@@ -138,7 +138,7 @@ const HUB_CSS = `
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.2s ease;
-    font-family: Nunito, Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    font-family: 'Nunito', system-ui, sans-serif;
   }
   .myio-conf-picker.show {
     opacity: 1;

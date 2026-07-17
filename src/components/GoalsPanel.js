@@ -126,7 +126,7 @@ export function openGoalsPanel(params) {
     danger: styles.errorColor || '#dc2626',
     amber: styles.warningColor || '#d97706',
     borderRadius: styles.borderRadius || '10px',
-    fontFamily: styles.fontFamily || "'Nunito', 'Roboto', Arial, sans-serif",
+    fontFamily: styles.fontFamily || "'Nunito', system-ui, sans-serif",
     zIndex: styles.zIndex || 10000,
   };
 

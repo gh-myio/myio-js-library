@@ -5240,7 +5240,7 @@ const MyIOOrchestrator = (() => {
     align-items: center;
     justify-content: center;
     z-index: 99999;
-    font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;
+    font-family: 'Nunito', system-ui, sans-serif;
   `;
 
     const container = document.createElement('div');
@@ -5822,7 +5822,7 @@ const MyIOOrchestrator = (() => {
     font-weight: 500;
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     z-index: 999999;
-    font-family: Inter, system-ui, sans-serif;
+    font-family: 'Nunito', system-ui, sans-serif;
   `;
     notification.textContent = 'Dados recarregados automaticamente';
     document.body.appendChild(notification);

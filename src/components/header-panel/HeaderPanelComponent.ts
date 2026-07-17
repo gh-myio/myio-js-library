@@ -122,7 +122,7 @@ const HEADER_CSS = `
     flex-direction: column;
     flex-shrink: 0;
     box-sizing: border-box;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    font-family: 'Nunito', system-ui, sans-serif;
   }
 
   .myio-hp--top-border {

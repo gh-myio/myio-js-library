@@ -190,7 +190,7 @@ function getWidgetStyles(
 
   return `
     .myio-chart-widget {
-      font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+      font-family: 'Nunito', system-ui, sans-serif;
       background: ${colors.chartBackground};
       border: 1px solid ${colors.border};
       border-radius: 16px;

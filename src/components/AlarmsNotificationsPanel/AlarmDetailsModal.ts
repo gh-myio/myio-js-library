@@ -1133,7 +1133,7 @@ export function openAlarmDetailsModal(
       const sumTbl = grid.querySelector('.adm-rpt-table-wrap--summary')?.outerHTML ?? '';
       win.document.write(`<!DOCTYPE html><html><head><title>Relatório — ${escHtml(alarm.title)}</title>
         <style>
-          body{font-family:Arial,sans-serif;padding:24px;font-size:12px;color:#111;}
+          body{font-family:Nunito, system-ui, sans-serif;padding:24px;font-size:12px;color:#111;}
           h2{font-size:15px;margin:0 0 4px;}p{color:#6b7280;font-size:11px;margin:0 0 16px;}
           h3{font-size:12px;font-weight:700;margin:20px 0 8px;text-transform:uppercase;letter-spacing:.5px;color:#7c3aed;}
           table{border-collapse:collapse;width:100%;margin-bottom:16px;}

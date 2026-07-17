@@ -509,7 +509,7 @@ export class WelcomeModalView {
    RFC-0112: Welcome Modal Head Office
    ========================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap');
 
 /* CSS Reset to isolate modal from parent styles */
 .myio-welcome-modal,
@@ -544,7 +544,7 @@ export class WelcomeModalView {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  font-family: 'Nunito', system-ui, sans-serif !important;
   font-size: 16px !important;
   line-height: 1.5 !important;
   font-weight: 400 !important;

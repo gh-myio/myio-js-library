@@ -655,7 +655,7 @@ export class PowerLimitsModalView {
         opacity: 0;
         visibility: hidden;
         transition: all 0.3s ease;
-        font-family: ${styles.fontFamily || "'Roboto', Arial, sans-serif"};
+        font-family: ${styles.fontFamily || "'Nunito', system-ui, sans-serif"};
       }
 
       .myio-power-limits-overlay.active {

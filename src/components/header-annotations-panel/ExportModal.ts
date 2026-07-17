@@ -37,7 +37,7 @@ const STYLES = `
   border-radius: 12px;
   box-shadow: 0 20px 50px rgba(15, 23, 42, 0.3);
   padding: 18px 20px;
-  font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Nunito', system-ui, sans-serif;
   color: #1e293b;
 }
 .${MODAL_DOM_ID} .${MODAL_DOM_ID}__title {

@@ -306,7 +306,7 @@ function injectFilterModalStyles() {
     .telemetry-filter-overlay {
       --ink-1: #1c2743; --ink-2: #6b7a90; --bd: #e8eef4; --bd-2: #d6e1ec;
       --brand: #1f6fb5; --bg-soft: #f7fbff;
-      --font-ui: Inter,'Inter var','Plus Jakarta Sans',system-ui,-apple-system,sans-serif;
+      --font-ui: 'Nunito', system-ui, sans-serif;
       position: fixed; inset: 0;
       background: rgba(17,24,39,0.35);
       z-index: 99999;
@@ -594,7 +594,7 @@ function injectFilterModalStyles() {
       background: #fff; border-radius: 12px; width: 1280px; max-width: 96vw;
       max-height: 98vh; display: flex; flex-direction: column;
       box-shadow: 0 20px 60px rgba(0,0,0,0.25);
-      font-family: system-ui,sans-serif; font-size: 13px;
+      font-family: 'Nunito', system-ui, sans-serif; font-size: 13px;
       transition: width 0.2s ease, max-height 0.2s ease, border-radius 0.2s ease;
     }
     .telemetry-sync-gcdr-card.sgj-expanded {
@@ -1812,7 +1812,7 @@ function ensureBusyModalDOM() {
       background: rgba(150,132,181,0.45); /* #9684B5 com transparência */
       backdrop-filter: blur(5px);
       z-index:9999; align-items:center; justify-content:center;
-      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;">
+      font-family: 'Nunito', system-ui, sans-serif;">
     <div style="
         background:#2d1458; color:#fff;
         border:1px solid rgba(255,255,255,0.10);
@@ -2026,7 +2026,7 @@ function ensureGlobalSuccessModalDOM() {
     border-radius: 20px; padding: 26px 30px; min-width: 360px;
     border: 1px solid rgba(255,255,255,0.12);
     box-shadow: 0 14px 44px rgba(0,0,0,.35);
-    font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;
+    font-family: 'Nunito', system-ui, sans-serif;
     text-align: center;
   `
   );
@@ -2354,7 +2354,7 @@ const TEMP_INFO_TOOLTIP_CSS_LEGACY = `
     font-size: 12px;
     color: #1e293b;
     overflow: hidden;
-    font-family: Inter, system-ui, -apple-system, sans-serif;
+    font-family: 'Nunito', system-ui, sans-serif;
   }
   .temp-info-tooltip__header {
     display: flex;

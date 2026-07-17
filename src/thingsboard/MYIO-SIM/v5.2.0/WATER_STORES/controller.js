@@ -116,7 +116,7 @@ function ensureBusyModalDOM() {
       background: rgba(150,132,181,0.45); /* #9684B5 com transparência */
       backdrop-filter: blur(5px);
       z-index:9999; align-items:center; justify-content:center;
-      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;">
+      font-family: 'Nunito', system-ui, sans-serif;">
     <div style="
         background:#2d1458; color:#fff;
         border:1px solid rgba(255,255,255,0.10);
@@ -204,7 +204,7 @@ function showGlobalSuccessModal(countdown = 5) {
         position:fixed; inset:0; display:flex;
         background:rgba(0,0,0,.5); backdrop-filter:blur(6px);
         z-index:999999; align-items:center; justify-content:center;
-        font-family:Inter, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, sans-serif;">
+        font-family:'Nunito', system-ui, sans-serif;">
       <div style="background:#fff;border-radius:18px;padding:28px 36px;
           min-width:420px;box-shadow:0 15px 50px rgba(0,0,0,.3);text-align:center;">
         <div style="font-size:48px; margin-bottom:14px;">✅</div>

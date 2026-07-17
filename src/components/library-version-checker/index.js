@@ -60,7 +60,7 @@ function injectStyles(doc) {
       justify-content: center;
       align-items: center;
       gap: 6px;
-      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      font-family: 'Nunito', system-ui, sans-serif;
     }
 
     /* Dark theme (default) */
@@ -163,7 +163,7 @@ function injectTooltipStyles(doc) {
     .myio-ver-tooltip-container {
       position: fixed;
       z-index: 999999;
-      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      font-family: 'Nunito', system-ui, sans-serif;
     }
 
     /* Light theme tooltip (default) */

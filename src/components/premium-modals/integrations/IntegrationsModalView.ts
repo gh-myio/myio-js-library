@@ -30,7 +30,7 @@ const MODAL_CSS = `
     display: flex;
     align-items: center;
     justify-content: center;
-    font-family: 'Roboto', Arial, sans-serif;
+    font-family: 'Nunito', system-ui, sans-serif;
   }
 
   .myio-integrations-modal {

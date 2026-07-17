@@ -166,7 +166,7 @@ export class MenuView {
    ========================================== */
 
 .myio-menu-root {
-  font-family: 'Inter', 'Roboto', 'Segoe UI', sans-serif;
+  font-family: 'Nunito', system-ui, sans-serif;
   width: 100%;
   box-sizing: border-box;
 }

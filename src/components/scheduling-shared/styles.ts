@@ -14,7 +14,7 @@ export const SCHEDULING_SHARED_STYLES = `
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Nunito', system-ui, sans-serif;
   color: #e0e0e0;
   box-sizing: border-box;
 }
@@ -536,7 +536,7 @@ export const SCHEDULING_SHARED_STYLES = `
   text-align: center;
   max-width: 360px;
   width: 100%;
-  font-family: sans-serif;
+  font-family: 'Nunito', system-ui, sans-serif;
   color: #222 !important;
 }
 

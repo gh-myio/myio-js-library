@@ -38,7 +38,7 @@ export function injectParticipationChartStyles(): void {
       border-radius: 10px;
       background: var(--mpc-bg, var(--mpc-bg-default));
       color: var(--mpc-text, var(--mpc-text-default));
-      font-family: Inter, 'Segoe UI', system-ui, -apple-system, sans-serif;
+      font-family: 'Nunito', system-ui, sans-serif;
       font-size: 13px;
     }
     .${P} * { box-sizing: border-box; }

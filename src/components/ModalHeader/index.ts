@@ -272,7 +272,7 @@ export function createModalHeader(config: ModalHeaderConfig): ModalHeaderInstanc
           color: ${textColor};
           border-radius: ${borderRadius};
           min-height: 20px;
-          font-family: 'Roboto', Arial, sans-serif;
+          font-family: 'Nunito', system-ui, sans-serif;
         ">
           <h2 id="${config.id}-header-title" style="
             margin: 6px;

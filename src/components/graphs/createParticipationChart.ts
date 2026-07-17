@@ -416,7 +416,7 @@ export function createParticipationChart(
         text.setAttribute('fill', '#ffffff');
         text.setAttribute('font-size', '12');
         text.setAttribute('font-weight', '700');
-        text.setAttribute('font-family', "Inter, 'Segoe UI', system-ui, sans-serif");
+        text.setAttribute('font-family', "'Nunito', system-ui, sans-serif");
         text.setAttribute('pointer-events', 'none');
         text.textContent = fmtPct(pct);
         svg.appendChild(text);
@@ -453,7 +453,7 @@ export function createParticipationChart(
       label.setAttribute('text-anchor', 'end');
       label.setAttribute('fill', textColor);
       label.setAttribute('font-size', '11');
-      label.setAttribute('font-family', "Inter, 'Segoe UI', system-ui, sans-serif");
+      label.setAttribute('font-family', "'Nunito', system-ui, sans-serif");
       const raw = item.label || '';
       label.textContent = raw.length > 18 ? `${raw.slice(0, 17)}…` : raw;
       svg.appendChild(label);
@@ -476,7 +476,7 @@ export function createParticipationChart(
       value.setAttribute('text-anchor', 'start');
       value.setAttribute('fill', mutedColor);
       value.setAttribute('font-size', '10.5');
-      value.setAttribute('font-family', "Inter, 'Segoe UI', system-ui, sans-serif");
+      value.setAttribute('font-family', "'Nunito', system-ui, sans-serif");
       value.textContent = `${settings.formatValue(item.value)}${settings.unit ? ` ${settings.unit}` : ''} · ${fmtPct(pct)}`;
       svg.appendChild(value);
     });

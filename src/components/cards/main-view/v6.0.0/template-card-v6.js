@@ -629,7 +629,7 @@ function injectCardActionSelectorStyles() {
       position: relative; width: 90%; max-width: 380px;
       background: #fff; border-radius: 16px; overflow: hidden;
       box-shadow: 0 20px 60px rgba(0,0,0,.3);
-      font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-family: 'Nunito', system-ui, sans-serif;
       transform: translateY(16px) scale(.98); transition: transform .2s ease;
     }
     .myio-card-action-picker.show .myio-card-action-picker__content { transform: translateY(0) scale(1); }
@@ -815,7 +815,7 @@ export function renderCardComponentV6({
         width: 320px;
         padding: 16px;
         border-radius: 8px;
-        font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        font-family: 'Nunito', system-ui, sans-serif;
         font-size: 15px;
         color: #fff;
         transform: translateX(120%);

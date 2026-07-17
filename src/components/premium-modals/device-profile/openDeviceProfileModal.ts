@@ -674,7 +674,7 @@ function injectStyles() {
   // Only the bespoke body/footer content is styled here — the shell
   // (ModalPremiumShell) provides backdrop, header, body container and footer.
   s.textContent = `
-  .mdp-root, .mdp-root * { box-sizing: border-box; font-family: 'Nunito', sans-serif; }
+  .mdp-root, .mdp-root * { box-sizing: border-box; font-family: 'Nunito', system-ui, sans-serif; }
   .mdp-tabs { display: flex; gap: 4px; margin-bottom: 10px; border-bottom: 1px solid #eee; }
   .mdp-tab { border: 1px solid transparent; border-bottom: none; background: none; cursor: pointer;
     font-size: 13px; font-weight: 700; color: #64748b; padding: 8px 14px; border-radius: 8px 8px 0 0; }
