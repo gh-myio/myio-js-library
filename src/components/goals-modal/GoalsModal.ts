@@ -11,6 +11,8 @@
 import { createDateRangePicker } from '../createDateRangePicker';
 import type { DateRangeControl } from '../createDateRangePicker';
 import { InfoTooltip } from '../../utils/tooltips/InfoTooltip';
+import { createGoalsBarTooltip } from '../tooltips/goals-bar-tooltip';
+import type { GoalsBarTooltipInstance, TipRow } from '../tooltips/goals-bar-tooltip';
 import { buildCoverageWarningTextPtBR, hasCoverageGaps } from '../../utils/goalsCoverage';
 import type { GoalsCoverageGaps } from '../../utils/goalsCoverage';
 
@@ -164,20 +166,22 @@ const DOMAIN_CFG: Record<string, {
     unitLarge: 'MWh',
     threshold: 1000,
     primaryColor: '#3e1a7d',
-    barColor: '#6c5ce7',
-    barColorAlpha: 'rgba(108,92,231,0.15)',
-    goalColor: '#f97316',
-    goalColorAlpha: 'rgba(249,115,22,0.12)',
+    // Esquema padrão das Metas: Realizado AZUL fixo #2563eb, Meta ROXO #7c3aed.
+    barColor: '#2563eb',
+    barColorAlpha: 'rgba(37,99,235,0.15)',
+    goalColor: '#7c3aed',
+    goalColorAlpha: 'rgba(124,58,237,0.12)',
   },
   water: {
     label: 'Água',
     icon: '💧',
     unit: 'm³',
     primaryColor: '#0288d1',
-    barColor: '#0891b2',
-    barColorAlpha: 'rgba(8,145,178,0.15)',
-    goalColor: '#f59e0b',
-    goalColorAlpha: 'rgba(245,158,11,0.12)',
+    // Esquema padrão das Metas: Realizado AZUL fixo #2563eb, Meta ROXO #7c3aed.
+    barColor: '#2563eb',
+    barColorAlpha: 'rgba(37,99,235,0.15)',
+    goalColor: '#7c3aed',
+    goalColorAlpha: 'rgba(124,58,237,0.12)',
   },
   temperature: {
     label: 'Temperatura',
@@ -222,6 +226,9 @@ let _lastRender:
 // from being dropped (the old _isRendering early-return swallowed them).
 let _renderSeq = 0;
 let _datePickerControl: DateRangeControl | null = null;
+// Premium tree-driven tooltip for the bars (Realizado/A-1/Meta/Orçado, Meta
+// expandable into per-device goals). Lazily created; destroyed on close.
+let _barTip: GoalsBarTooltipInstance | null = null;
 
 function _todayISO(): string {
   // Local date (not UTC) — toISOString() would shift the day in UTC-3 late evening.
@@ -277,10 +284,15 @@ function _applyTheme(root: HTMLElement): void {
 
 function _formatValue(value: number, domain: string): string {
   const cfg = DOMAIN_CFG[domain] || DOMAIN_CFG.energy;
+  // Formatação pt-BR (vírgula) — antes usava toFixed (ponto en-US), destoando
+  // das demais fontes (Resumo por shopping/HO usam pt-BR).
+  const dec = domain === 'temperature' ? 1 : 2;
+  const ptBR = (v: number, d: number) =>
+    v.toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d });
   if (cfg.threshold && cfg.unitLarge && Math.abs(value) >= cfg.threshold) {
-    return `${(value / cfg.threshold).toFixed(2)} ${cfg.unitLarge}`;
+    return `${ptBR(value / cfg.threshold, 2)} ${cfg.unitLarge}`;
   }
-  return `${value.toFixed(domain === 'temperature' ? 1 : 2)} ${cfg.unit}`;
+  return `${ptBR(value, dec)} ${cfg.unit}`;
 }
 
 function _getGoalsData(domain: string): GoalsJsonData['data'] | null {
@@ -424,12 +436,18 @@ function _seriesToTotals(
     }
     return totals;
   }
-  // '1d' / '1M': chave de data extraída da string ISO (sem conversão de TZ).
+  // '1d' / '1M': chave de data em HORÁRIO LOCAL (getMonth/getDate) para casar com
+  // os boundaries (dias locais). Antes usava iso.slice(...) em UTC, o que em UTC-3
+  // jogava o bucket do fim do último dia local no "dia seguinte" (sem boundary) e o
+  // descartava → subcontagem de ~3h/dia. Com a chave local, a soma passa a bater
+  // com o Resumo por shopping / HO (buckets no range local).
   const byKey = new Map<string, number>();
   for (const pt of series) {
     if (!pt) continue;
-    const iso = typeof pt.timestamp === 'number' ? new Date(pt.timestamp).toISOString() : String(pt.timestamp);
-    const key = viewGran === '1M' ? iso.slice(5, 7) : iso.slice(5, 10);
+    const dt = new Date(pt.timestamp as string | number);
+    const mm = String(dt.getMonth() + 1).padStart(2, '0');
+    const dd = String(dt.getDate()).padStart(2, '0');
+    const key = viewGran === '1M' ? mm : `${mm}-${dd}`;
     byKey.set(key, (byKey.get(key) || 0) + (Number(pt.value) || 0));
   }
   return boundaries.map(
@@ -584,6 +602,38 @@ function _goalNodeValue(node?: { value: number; adjustedValue?: number }): numbe
   return v == null ? null : v;
 }
 
+/** Valor ORÇADO (bruto, sem a margem de gestão) — usado só no tooltip premium. */
+function _budgetNodeValue(node?: { value: number; adjustedValue?: number }): number | null {
+  if (!node) return null;
+  return node.value == null ? null : node.value;
+}
+
+/** Linha de Orçado (raw value) alinhada a labels — espelha _buildGoalLine. */
+function _buildBudgetLine(domain: string, labels: string[], gran: '1h' | '1d' | '1M', dateISO?: string): (number | null)[] {
+  const tree = _getGoalsTree(domain);
+  if (!tree) return labels.map(() => null);
+  if (gran === '1h') {
+    const ref = (dateISO || _selectedDate).split('-');
+    const mm = ref[1] ?? '';
+    const dd = ref[2] ?? '';
+    if (tree.hourly && Object.keys(tree.hourly).length > 0) {
+      return labels.map((lbl) => {
+        const hh = lbl.replace('h', '').padStart(2, '0');
+        return _budgetNodeValue(tree.hourly![`${mm}-${dd}T${hh}`]);
+      });
+    }
+    return labels.map(() => null);
+  }
+  if (gran === '1M') {
+    return labels.map((lbl) => {
+      const m = MONTH_LABELS_PT.indexOf(lbl);
+      if (m < 0) return null;
+      return _budgetNodeValue(tree.monthly?.[String(m + 1).padStart(2, '0')]);
+    });
+  }
+  return labels.map((lbl) => _budgetNodeValue(tree.daily?.[_labelToDailyKey(lbl)]));
+}
+
 function _buildGoalLine(domain: string, labels: string[], gran: '1h' | '1d' | '1M', dateISO?: string): (number | null)[] {
   const tree = _getGoalsTree(domain);
   if (!tree) return labels.map(() => null);
@@ -717,6 +767,100 @@ function _renderChart(
   const axisDivisor = useLarge ? cfg.threshold! : 1;
   const axisUnit = useLarge ? cfg.unitLarge! : cfg.unit;
 
+  // ── Premium tree-driven tooltip (Realizado/A-1/Meta/Orçado; Meta expandable
+  // into per-medidor goals). Orçado = value bruto; Meta = adjustedValue (margem).
+  // Realizado NÃO tem breakdown por device aqui (o modal busca a série agregada da
+  // entrada) — por isso Realizado é linha simples; a expansão só existe na Meta,
+  // e os pesos por medidor vêm do ANUAL do GCDR (distribuídos proporcionalmente
+  // sobre a meta do bucket, já que não há meta por-medidor por-período).
+  const budgetLine = _buildBudgetLine(domain, labels, _currentGran, _selectedDate);
+  let accent = cfg.primaryColor;
+  try {
+    const root = _overlay || _getTopDoc().documentElement;
+    const v = getComputedStyle(root).getPropertyValue('--myio-brand-700').trim();
+    if (v) accent = v;
+  } catch { /* keep domain default */ }
+
+  const buildBarTipData = (idx: number): any => {
+    const realizado = totals[idx];
+    const meta = goalLine[idx];
+    const prev = prevTotals ? prevTotals[idx] : null;
+    const budget = budgetLine[idx];
+    const ref = meta != null && meta > 0 ? meta : (realizado || null);
+    const pctOf = (v: number | null): number | null =>
+      v != null && ref ? (v / ref) * 100 : null;
+
+    const rows: TipRow[] = [];
+    rows.push({
+      icon: '📊', label: 'Realizado', color: cfg.barColor,
+      valueText: _formatValue(realizado, domain),
+      pct: meta != null && meta > 0 ? pctOf(realizado) : null,
+    });
+    if (prev != null && prev > 0) {
+      rows.push({
+        icon: '🕓', label: 'A-1 (ano anterior)', color: '#94a3b8',
+        valueText: _formatValue(prev, domain), pct: pctOf(prev),
+      });
+    }
+    if (meta != null) {
+      const metaRow: TipRow = {
+        icon: '🎯', label: 'Meta', color: cfg.goalColor,
+        valueText: _formatValue(meta, domain),
+      };
+      const gdata = _getGoalsData(domain);
+      if (gdata?.granularity === 'DEVICE' && Array.isArray(gdata.devices) && gdata.devices.length && meta > 0) {
+        const devs = gdata.devices.map((d) => ({
+          label: d.label || d.code || 'Medidor',
+          annual: Number(d.annualAdjusted ?? d.annual ?? 0) || 0,
+        }));
+        const totalAnnual = devs.reduce((s, d) => s + d.annual, 0);
+        if (totalAnnual > 0) {
+          metaRow.children = devs.map((d) => {
+            const w = d.annual / totalAnnual;
+            return {
+              icon: cfg.icon, label: d.label,
+              valueText: _formatValue(meta * w, domain), pct: w * 100,
+            } as TipRow;
+          });
+          metaRow.defaultExpanded = false;
+        }
+      }
+      rows.push(metaRow);
+    }
+    if (budget != null && (meta == null || Math.abs(budget - meta) > 1e-6)) {
+      rows.push({
+        icon: '📋', label: 'Orçado', color: '#f59e0b',
+        valueText: _formatValue(budget, domain), pct: pctOf(budget),
+      });
+    }
+
+    let subtitle: string | undefined;
+    if (meta != null && meta > 0) {
+      const dev = ((realizado - meta) / meta) * 100;
+      subtitle = Math.abs(dev) < 0.05
+        ? 'Na Meta (0,0%)'
+        : `${Math.abs(dev).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}% ${dev < 0 ? 'abaixo' : 'acima'} da Meta`;
+    }
+    return { title: labels[idx] ?? '', subtitle, rows, accentColor: accent };
+  };
+
+  const externalTip = _barTip
+    ? (context: any) => {
+        try {
+          const tt = context?.tooltip;
+          if (!tt || tt.opacity === 0) { _barTip!.hide(); return; }
+          const dp = tt.dataPoints && tt.dataPoints[0];
+          if (!dp) return;
+          const idx = dp.dataIndex;
+          const rect = context.chart.canvas.getBoundingClientRect();
+          _barTip!.show(buildBarTipData(idx), {
+            clientX: rect.left + tt.caretX,
+            clientY: rect.top + tt.caretY,
+          });
+        } catch { /* tooltip é enfeite — nunca quebra o chart */ }
+      }
+    : undefined;
+
   _chartInstance = new Chart(canvas, {
     type: 'bar',
     data: { labels, datasets },
@@ -733,6 +877,9 @@ function _renderChart(
           labels: { color: '#374151', font: { size: 11 } },
         },
         tooltip: {
+          // Premium tooltip via external handler; se indisponível, cai no built-in.
+          enabled: !externalTip,
+          external: externalTip,
           callbacks: {
             label(ctx: any) {
               const v = ctx.parsed.y;
@@ -1216,6 +1363,10 @@ export const GoalsModal = {
     topDoc.body.appendChild(overlay);
 
     _overlay = overlay;
+    // Tooltip premium das barras (criado uma vez por abertura; destruído no close).
+    try { _barTip?.destroy(); } catch { /* ignore */ }
+    _barTip = null;
+    try { _barTip = createGoalsBarTooltip(); } catch { _barTip = null; }
     // Paleta do dashboard (param OU window.MyIOUtils.theme): CSS vars --myio-* no
     // root do overlay → header/tabs/botões/spinner herdam o accent do host.
     _applyTheme(overlay);
@@ -1236,6 +1387,8 @@ export const GoalsModal = {
     if (!_overlay) return;
     _overlay.classList.remove('show');
     _destroyChart();
+    try { _barTip?.destroy(); } catch { /* ignore */ }
+    _barTip = null;
     _datePickerControl?.destroy();
     _datePickerControl = null;
     if (_coverageDetach) {

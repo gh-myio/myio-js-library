@@ -28,11 +28,13 @@ export interface CustomerGoalsCardOptions {
    * palette used for per-device breakdown series (cycled when devices > colors).
    */
   colors?: {
+    /** Realizado (current year). Default #2563eb (fixed blue). */
     realized?: string;
+    /** A-1 (previous year). Default #94a3b8 (gray). */
     previousYear?: string;
-    /** Meta line (adjustedValue). Default #f59e0b (amber, dashed). */
+    /** Meta line (adjustedValue). Default #7c3aed (purple, dashed). */
     budget?: string;
-    /** Orçado line (raw value, when `series.orcado` present). Default #0ea5e9 (sky, dashed). */
+    /** Orçado line (raw value, when `series.orcado` present). Default #f59e0b (amber, dashed). */
     orcado?: string;
     breakdownPalette?: string[];
   };

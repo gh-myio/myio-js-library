@@ -19,12 +19,12 @@ import {
 } from './types';
 import { injectCustomerGoalsCardStyles } from './styles';
 
-// Padrão visual do GoalsModal dos shoppings v-5.2.0 (DOMAIN_CFG energy):
-// Realizado azul #6c5ce7, Ano anterior grafite rgba(148,163,184), Orçado âmbar.
+// Esquema de cores padrão das Metas (fonte única — igual em card/gráfico/legenda):
+// A-1 cinza, Realizado AZUL fixo, Orçado LARANJA, Meta ROXO.
 const COLORS = {
-  realized: '#6c5ce7',
-  prev: '#94a3b8',
-  budget: '#0ea5e9', // Meta (adjustedValue) — AZUL tracejado
+  realized: '#2563eb', // Realizado (ano corrente) — AZUL fixo (não segue mais o accent do host)
+  prev: '#94a3b8', // A-1 (ano anterior) — CINZA
+  budget: '#7c3aed', // Meta (adjustedValue) — ROXO tracejado
   orcado: '#f59e0b', // Orçado (value cru) — LARANJA tracejado (também a linha "Orçado" legada)
 };
 
@@ -233,7 +233,9 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
         u = 'MWh';
       }
     }
-    const txt = n.toLocaleString(this.locale, { maximumFractionDigits: Math.abs(n) >= 100 ? 0 : 2 });
+    // Sempre 2 casas (antes era 0 para |n|>=100), padronizando com o Resumo por
+    // shopping / demais fontes (ex.: "295,35 MWh" em vez de "295 MWh").
+    const txt = n.toLocaleString(this.locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     return `${txt} ${u}`;
   }
 
@@ -248,21 +250,48 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
     return num(v);
   }
 
-  /** Variance badge: consumption ABOVE the reference is bad (↑ red); below is good (↓ green). */
+  private fmtPct(pct: number): string {
+    return `${Math.abs(pct).toLocaleString(this.locale, {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1,
+    })}%`;
+  }
+
+  /**
+   * Variance vs TARGET (Orçado/Meta): consumption BELOW the reference is GOOD
+   * (↓ green — under budget); ABOVE is bad (↑ red — over budget).
+   */
   private deltaBadge(realized: number | null, reference: number | null): string {
     if (realized == null || reference == null || reference === 0) {
       return '<span class="myio-cgc__delta-value myio-cgc__delta-value--neutral">—</span>';
     }
     const pct = ((realized - reference) / reference) * 100;
-    const txt = `${Math.abs(pct).toLocaleString(this.locale, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}%`;
+    const txt = this.fmtPct(pct);
     if (pct > 0) {
       return `<span class="myio-cgc__delta-value myio-cgc__delta-value--bad">&#8593; ${txt}</span>`;
     }
     if (pct < 0) {
       return `<span class="myio-cgc__delta-value myio-cgc__delta-value--good">&#8595; ${txt}</span>`;
+    }
+    return `<span class="myio-cgc__delta-value myio-cgc__delta-value--neutral">${txt}</span>`;
+  }
+
+  /**
+   * Growth vs LAST YEAR (A-1): a value ABOVE the reference GREW (↑ green — bom);
+   * below SHRANK (↓ red). Inverted semantics of deltaBadge — used pelas colunas
+   * A-1/Realizado onde "subir vs ano anterior" é positivo.
+   */
+  private growthBadge(current: number | null, reference: number | null): string {
+    if (current == null || reference == null || reference === 0) {
+      return '<span class="myio-cgc__delta-value myio-cgc__delta-value--neutral">—</span>';
+    }
+    const pct = ((current - reference) / reference) * 100;
+    const txt = this.fmtPct(pct);
+    if (pct > 0) {
+      return `<span class="myio-cgc__delta-value myio-cgc__delta-value--good">&#8593; ${txt}</span>`;
+    }
+    if (pct < 0) {
+      return `<span class="myio-cgc__delta-value myio-cgc__delta-value--bad">&#8595; ${txt}</span>`;
     }
     return `<span class="myio-cgc__delta-value myio-cgc__delta-value--neutral">${txt}</span>`;
   }
@@ -278,75 +307,81 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
     const totals = this.resolvedTotals();
     const hasPrev = !!s.previousYear;
     const hasBudget = !!s.budget || !!(s.budgetBreakdown && s.budgetBreakdown.length);
-    // Orçado cru presente → grade 3×2 alinhada: linha 1 = Realizado | A-1 | Orçado
-    // (valores); linha 2 = chips alinhados sob cada coluna, sendo a col3 a Meta
-    // (valor + chip vs Meta). Ausente → comportamento legado (budget = "Orçado").
+    // Orçado cru presente → grade 4×2 (A-1 | Realizado | Orçado | Meta): Orçado e
+    // Meta ganham colunas de valor próprias. Ausente → legado (budget = "Orçado",
+    // sem coluna Meta separada).
     const hasOrcado = this.hasRawOrcado();
 
-    // ── Linha 1: valores (Realizado | A-1 | Orçado) — sem Meta empilhada ──
-    const totalCells: string[] = [
-      `<div class="myio-cgc__total">
-         <span class="myio-cgc__total-label myio-cgc__total-label--realized">Realizado</span>
-         <span class="myio-cgc__total-value" data-total="realized">${this.fmtQty(totals.realized)}</span>
-       </div>`,
-    ];
-    if (hasPrev) {
-      totalCells.push(`<div class="myio-cgc__total">
-        <span class="myio-cgc__total-label myio-cgc__total-label--prev">A-1</span>
-        <span class="myio-cgc__total-value" data-total="prev">${this.fmtQty(totals.previousYear)}</span>
-      </div>`);
-    }
-    if (hasOrcado) {
-      totalCells.push(`<div class="myio-cgc__total">
-        <span class="myio-cgc__total-label myio-cgc__total-label--orcado">Or&ccedil;ado</span>
-        <span class="myio-cgc__total-value" data-total="orcado">${this.fmtQty(totals.orcado)}</span>
-      </div>`);
-    } else if (hasBudget) {
-      totalCells.push(`<div class="myio-cgc__total">
-        <span class="myio-cgc__total-label myio-cgc__total-label--budget">Or&ccedil;ado</span>
-        <span class="myio-cgc__total-value" data-total="budget">${this.fmtQty(totals.budget)}</span>
-      </div>`);
-    }
-    const totalsMod =
-      totalCells.length === 1 ? ' myio-cgc__totals--one' : totalCells.length === 2 ? ' myio-cgc__totals--two' : '';
+    // ── Rodapé 4×2: A-1 | Realizado | Or&ccedil;ado | Meta ──
+    // Linha 1 = valores; linha 2 = um contexto de desvio por coluna, alinhado.
+    // Semântica: A-1/Realizado = crescimento vs ano anterior (subir = verde);
+    // Or&ccedil;ado/Meta = Realizado vs alvo (abaixo do alvo = verde ↓, acima = vermelho ↑).
+    const t = totals;
+    const yl = this.params.yearLabels;
+    const curLbl = yl?.current || 'Atual';
+    const prevLbl = yl?.previous || 'A-1';
+    // Alvo "Or&ccedil;ado": com or&ccedil;ado cru é o pr&oacute;prio orcado (laranja); no legado é o budget.
+    const orcadoVal = hasOrcado ? t.orcado : hasBudget ? t.budget : null;
+    const hasMetaCol = hasOrcado && hasBudget; // coluna Meta separada só quando há orçado cru + meta
 
-    // ── Linha 2: chips de desvio ──
-    let deltasHtml = '';
-    const dcell = (labelHtml: string, badgeHtml: string): string =>
-      `<div class="myio-cgc__delta"><span class="myio-cgc__delta-label">${labelHtml}</span>${badgeHtml}</div>`;
-    if (hasOrcado) {
-      // Grade alinhada com a linha 1: cada célula fica SOB a coluna correspondente.
-      // col1 (sob Realizado) = vs A-1; col2 (sob A-1) = vs Orçado; col3 (sob
-      // Orçado) = Meta <valor> + chip vs Meta. Sem A-1 → col1 recebe vs Orçado.
-      const cells: string[] = [];
-      if (hasPrev) {
-        cells.push(dcell('vs A-1', this.deltaBadge(totals.realized, totals.previousYear)));
-        cells.push(dcell('vs Or&ccedil;ado', this.deltaBadge(totals.realized, totals.orcado)));
+    const valueCell = (cls: string, label: string, total: string, val: number | null): string =>
+      `<div class="myio-cgc__total"><span class="myio-cgc__total-label myio-cgc__total-label--${cls}">${label}</span><span class="myio-cgc__total-value" data-total="${total}">${this.fmtQty(val)}</span></div>`;
+    const deltaCell = (header: string, chipsHtml: string): string =>
+      `<div class="myio-cgc__delta">${header ? `<span class="myio-cgc__delta-label">${header}</span>` : ''}${chipsHtml}</div>`;
+    const miniChip = (label: string, badgeHtml: string): string =>
+      `<span class="myio-cgc__delta-mini"><span class="myio-cgc__delta-mini-label">${label}</span>${badgeHtml}</span>`;
+
+    const valueCells: string[] = [];
+    const deltaCells: string[] = [];
+    let anyDelta = false;
+
+    // Col 1 — A-1 (cinza): valor + chips de crescimento dos alvos vs ano anterior.
+    if (hasPrev) {
+      valueCells.push(valueCell('prev', 'A-1', 'prev', t.previousYear));
+      const grow: string[] = [];
+      if (hasOrcado) grow.push(miniChip('Or&ccedil;.', this.growthBadge(t.orcado, t.previousYear)));
+      if (hasMetaCol) grow.push(miniChip('Meta', this.growthBadge(t.budget, t.previousYear)));
+      if (!hasOrcado && hasBudget) grow.push(miniChip('Or&ccedil;.', this.growthBadge(t.budget, t.previousYear)));
+      if (grow.length) {
+        anyDelta = true;
+        const header = grow.length > 1 ? 'vs Or&ccedil;ado &amp; vs Meta' : 'vs Or&ccedil;ado';
+        deltaCells.push(deltaCell(header, `<div class="myio-cgc__delta-dual">${grow.join('')}</div>`));
       } else {
-        cells.push(dcell('vs Or&ccedil;ado', this.deltaBadge(totals.realized, totals.orcado)));
+        deltaCells.push(deltaCell('', ''));
       }
-      // col3 = Meta (adjustedValue) — valor + chip vs Meta
-      cells.push(
-        `<div class="myio-cgc__delta"><span class="myio-cgc__delta-label" data-total="budget">${
-          hasBudget ? `Meta ${this.fmtQty(totals.budget)}` : 'Meta'
-        }</span>${hasBudget ? this.deltaBadge(totals.realized, totals.budget) : ''}</div>`
-      );
-      const mod =
-        cells.length === 3 ? ' myio-cgc__deltas--three' : cells.length === 1 ? ' myio-cgc__deltas--one' : '';
-      deltasHtml = `<div class="myio-cgc__deltas${mod}">${cells.join('')}</div>`;
-    } else {
-      // Legado (sem Orçado cru): budget é o próprio "Orçado".
-      const deltaCells: string[] = [];
-      if (hasPrev) {
-        deltaCells.push(dcell('vs A-1', this.deltaBadge(totals.realized, totals.previousYear)));
-      }
-      if (hasBudget) {
-        deltaCells.push(dcell('vs Or&ccedil;ado', this.deltaBadge(totals.realized, totals.budget)));
-      }
-      deltasHtml = deltaCells.length
-        ? `<div class="myio-cgc__deltas${deltaCells.length === 1 ? ' myio-cgc__deltas--one' : ''}">${deltaCells.join('')}</div>`
-        : '';
     }
+
+    // Col 2 — Realizado (azul): valor + crescimento vs ano anterior (subir = verde).
+    valueCells.push(valueCell('realized', 'Realizado', 'realized', t.realized));
+    if (hasPrev) {
+      anyDelta = true;
+      deltaCells.push(
+        deltaCell(`${this.esc(curLbl)} &times; ${this.esc(prevLbl)}`, this.growthBadge(t.realized, t.previousYear))
+      );
+    } else {
+      deltaCells.push(deltaCell('', ''));
+    }
+
+    // Col 3 — Or&ccedil;ado (laranja): valor + Realizado vs Or&ccedil;ado (abaixo = verde ↓).
+    if (hasOrcado || hasBudget) {
+      anyDelta = true;
+      valueCells.push(valueCell('orcado', 'Or&ccedil;ado', hasOrcado ? 'orcado' : 'budget', orcadoVal));
+      deltaCells.push(deltaCell('vs Or&ccedil;ado', this.deltaBadge(t.realized, orcadoVal)));
+    }
+
+    // Col 4 — Meta (roxo): valor + Realizado vs Meta (abaixo = verde ↓). Só com orçado cru.
+    if (hasMetaCol) {
+      anyDelta = true;
+      valueCells.push(valueCell('budget', 'Meta', 'budget', t.budget));
+      deltaCells.push(deltaCell('vs Meta', this.deltaBadge(t.realized, t.budget)));
+    }
+
+    const nCols = valueCells.length;
+    const gridStyle = `grid-template-columns:repeat(${nCols},1fr);`;
+    const totalsHtml = `<div class="myio-cgc__totals" style="${gridStyle}">${valueCells.join('')}</div>`;
+    const deltasHtml = anyDelta
+      ? `<div class="myio-cgc__deltas" style="${gridStyle}">${deltaCells.join('')}</div>`
+      : '';
 
     const clickable = typeof this.params.onClick === 'function';
     const expandable = this.params.expandable !== false;
@@ -354,7 +389,7 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
       ${expandable ? `<button type="button" class="myio-cgc__expand" title="${this.expanded ? 'Recolher' : 'Expandir'}">${this.expanded ? '✕' : '⛶'}</button>` : ''}
       <h4 class="myio-cgc__title${clickable ? ' myio-cgc__title--clickable' : ''}" title="${this.esc(this.params.title)}">${this.esc(this.params.title)}</h4>
       <div class="myio-cgc__chart"><canvas></canvas></div>
-      <div class="myio-cgc__totals${totalsMod}">${totalCells.join('')}</div>
+      ${totalsHtml}
       ${deltasHtml}
     `;
 

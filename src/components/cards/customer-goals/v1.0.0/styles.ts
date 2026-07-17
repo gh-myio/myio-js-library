@@ -12,9 +12,10 @@ const CSS = `
   --cgc-text:#1e293b;
   --cgc-muted:#64748b;
   --cgc-grid:rgba(100,116,139,.18);
-  --cgc-realized:#6c5ce7;
+  --cgc-realized:#2563eb;
   --cgc-prev:#94a3b8;
-  --cgc-budget:#f59e0b;
+  --cgc-budget:#7c3aed;
+  --cgc-orcado:#f59e0b;
   --cgc-good:#16a34a;
   --cgc-bad:#ef4444;
   display:flex;flex-direction:column;
@@ -64,34 +65,33 @@ const CSS = `
   font:600 11px 'Nunito',sans-serif;color:var(--cgc-muted);
 }
 .myio-cgc__totals{
-  display:grid;grid-template-columns:repeat(3,1fr);
+  display:grid;grid-template-columns:repeat(4,1fr);
   border-top:1px solid var(--cgc-border);margin-top:6px;
 }
-.myio-cgc__totals--two{grid-template-columns:repeat(2,1fr);}
-.myio-cgc__totals--one{grid-template-columns:1fr;}
-.myio-cgc__total{padding:6px 4px;text-align:center;border-right:1px solid var(--cgc-border);min-width:0;}
+.myio-cgc__total{padding:6px 3px;text-align:center;border-right:1px solid var(--cgc-border);min-width:0;}
 .myio-cgc__total:last-child{border-right:none;}
-.myio-cgc__total-label{display:block;font:700 10.5px 'Nunito',sans-serif;line-height:1.4;}
+.myio-cgc__total-label{display:block;font:700 9.5px 'Nunito',sans-serif;line-height:1.35;white-space:nowrap;}
 .myio-cgc__total-label--realized{color:var(--cgc-realized);}
 .myio-cgc__total-label--prev{color:var(--cgc-prev);}
 .myio-cgc__total-label--budget{color:var(--cgc-budget);}
 .myio-cgc__total-label--orcado{color:var(--cgc-orcado);}
 .myio-cgc__total-value{
-  display:block;font:700 12px 'Nunito',sans-serif;color:var(--cgc-text);
+  display:block;font:700 11px 'Nunito',sans-serif;color:var(--cgc-text);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 .myio-cgc__deltas{
-  display:grid;grid-template-columns:repeat(2,1fr);
+  display:grid;grid-template-columns:repeat(4,1fr);
   border-top:1px solid var(--cgc-border);
 }
-.myio-cgc__deltas--one{grid-template-columns:1fr;}
-.myio-cgc__deltas--three{grid-template-columns:repeat(3,1fr);}
-.myio-cgc__delta{padding:6px 4px 8px;text-align:center;border-right:1px solid var(--cgc-border);}
+.myio-cgc__delta{padding:5px 3px 8px;text-align:center;border-right:1px solid var(--cgc-border);min-width:0;}
 .myio-cgc__delta:last-child{border-right:none;}
-.myio-cgc__delta-label{display:block;font:600 10.5px 'Nunito',sans-serif;color:var(--cgc-muted);line-height:1.5;}
-/* "Meta <valor>" na coluna 3 dos deltas segue o azul da série de Meta. */
-.myio-cgc__delta-label[data-total="budget"]{color:var(--cgc-budget);font-weight:700;}
-.myio-cgc__delta-value{display:block;font:800 13px 'Nunito',sans-serif;}
+.myio-cgc__delta-label{display:block;font:600 9px 'Nunito',sans-serif;color:var(--cgc-muted);line-height:1.4;margin-bottom:2px;}
+.myio-cgc__delta-value{display:block;font:800 11.5px 'Nunito',sans-serif;}
+/* Coluna A-1: dois chips pequenos empilhados (Orçado vs A-1, Meta vs A-1). */
+.myio-cgc__delta-dual{display:flex;flex-direction:column;gap:2px;align-items:center;}
+.myio-cgc__delta-mini{display:inline-flex;align-items:center;gap:3px;line-height:1.2;}
+.myio-cgc__delta-mini-label{font:700 8px 'Nunito',sans-serif;color:var(--cgc-muted);}
+.myio-cgc__delta-mini .myio-cgc__delta-value{display:inline;font-size:9.5px;}
 .myio-cgc__delta-value--good{color:var(--cgc-good);}
 .myio-cgc__delta-value--bad{color:var(--cgc-bad);}
 .myio-cgc__delta-value--neutral{color:var(--cgc-muted);}

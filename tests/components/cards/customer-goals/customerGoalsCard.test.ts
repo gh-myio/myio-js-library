@@ -57,8 +57,9 @@ describe('CustomerGoalsCard (RFC-0217)', () => {
     expect(card.el.querySelector('.myio-cgc__title')?.textContent).toBe('Shopping Alpha');
     expect(card.el.querySelector('[data-total="realized"]')?.textContent).toBe('1,49 GWh');
     expect(card.el.querySelector('[data-total="prev"]')?.textContent).toBe('1,51 GWh');
-    expect(card.el.querySelector('[data-total="budget"]')?.textContent).toBe('1,5 GWh');
-    expect(card.el.querySelectorAll('.myio-cgc__delta').length).toBe(2);
+    expect(card.el.querySelector('[data-total="budget"]')?.textContent).toBe('1,50 GWh');
+    // 3 colunas (A-1 | Realizado | Orçado=budget) → 3 células de desvio
+    expect(card.el.querySelectorAll('.myio-cgc__delta').length).toBe(3);
   });
 
   it('scales kWh to MWh from 1.000 and keeps m³ untouched', () => {
@@ -74,24 +75,38 @@ describe('CustomerGoalsCard (RFC-0217)', () => {
       unit: 'm³',
       series: { labels: ['a'], realized: [4344] },
     });
-    expect(agua.el.querySelector('[data-total="realized"]')?.textContent).toBe('4.344 m³');
+    expect(agua.el.querySelector('[data-total="realized"]')?.textContent).toBe('4.344,00 m³');
   });
 
-  it('delta math: above reference = up/bad, below = down/good', () => {
-    const card = createCustomerGoalsCard({
+  it('delta semantics: growth vs A-1 up=green; vs target above=red, below=green', () => {
+    // realized ACIMA da meta → coluna Orçado vermelha (acima do alvo é ruim)
+    const over = createCustomerGoalsCard({
       container,
       title: 'X',
+      series: { labels: ['a'], realized: [130], previousYear: [100], budget: [120] },
+    });
+    const overCells = over.el.querySelectorAll('.myio-cgc__delta');
+    // col2 (Realizado) cresceu vs ano anterior: 130 vs 100 → +30% → verde ↑
+    const c2 = overCells[1].querySelector('.myio-cgc__delta-value')!;
+    expect(c2.className).toContain('--good');
+    expect(c2.textContent).toContain('↑');
+    expect(c2.textContent).toContain('30,0%');
+    // col3 (Orçado) realizado acima do alvo: 130 vs 120 → +8,3% → vermelho ↑
+    const c3 = overCells[2].querySelector('.myio-cgc__delta-value')!;
+    expect(c3.className).toContain('--bad');
+    expect(c3.textContent).toContain('↑');
+    expect(c3.textContent).toContain('8,3%');
+
+    // realized ABAIXO da meta → coluna Orçado verde (abaixo do alvo é bom)
+    const under = createCustomerGoalsCard({
+      container,
+      title: 'Y',
       series: { labels: ['a'], realized: [110], previousYear: [100], budget: [120] },
     });
-    const deltas = card.el.querySelectorAll('.myio-cgc__delta-value');
-    // vs A-1: 110 vs 100 → +10% → bad (↑)
-    expect(deltas[0].className).toContain('--bad');
-    expect(deltas[0].textContent).toContain('↑');
-    expect(deltas[0].textContent).toContain('10,00%');
-    // vs Orçado: 110 vs 120 → -8,33% → good (↓)
-    expect(deltas[1].className).toContain('--good');
-    expect(deltas[1].textContent).toContain('↓');
-    expect(deltas[1].textContent).toContain('8,33%');
+    const u3 = under.el.querySelectorAll('.myio-cgc__delta')[2].querySelector('.myio-cgc__delta-value')!;
+    expect(u3.className).toContain('--good');
+    expect(u3.textContent).toContain('↓');
+    expect(u3.textContent).toContain('8,3%');
   });
 
   it('null/zero reference renders a neutral em-dash badge', () => {
@@ -107,14 +122,14 @@ describe('CustomerGoalsCard (RFC-0217)', () => {
 
   it('totals default to the sum of non-null points; explicit totals override wins', () => {
     const auto = createCustomerGoalsCard({ container, title: 'A', series: baseSeries() });
-    expect(auto.el.querySelector('[data-total="realized"]')?.textContent).toBe('600 kWh'); // 100+200+300
+    expect(auto.el.querySelector('[data-total="realized"]')?.textContent).toBe('600,00 kWh'); // 100+200+300
     const overridden = createCustomerGoalsCard({
       container,
       title: 'B',
       series: baseSeries(),
       totals: { realized: 999999 },
     });
-    expect(overridden.el.querySelector('[data-total="realized"]')?.textContent).toBe('1.000 MWh');
+    expect(overridden.el.querySelector('[data-total="realized"]')?.textContent).toBe('1.000,00 MWh');
   });
 
   it('omits strip cells and badges for absent optional series', () => {
@@ -133,7 +148,7 @@ describe('CustomerGoalsCard (RFC-0217)', () => {
     card.update({ title: 'Novo', series: { labels: ['a'], realized: [42] } });
     expect(card.el).toBe(el);
     expect(el.querySelector('.myio-cgc__title')?.textContent).toBe('Novo');
-    expect(el.querySelector('[data-total="realized"]')?.textContent).toBe('42 kWh');
+    expect(el.querySelector('[data-total="realized"]')?.textContent).toBe('42,00 kWh');
   });
 
   it('setThemeMode swaps the data-theme attribute and rebuilds the chart', () => {
@@ -208,9 +223,9 @@ describe('CustomerGoalsCard (RFC-0217)', () => {
     // A-1 antes do Realizado — no modo barra a barrinha do ano anterior fica à esquerda
     expect(labels).toEqual(['Orçado (2026)', 'A-1 (2025)', 'Realizado (2026)']);
     expect(cfg.data.datasets[0].borderDash).toEqual([6, 4]);
-    // Padrão de cores do GoalsModal dos shoppings: A-1 grafite, Realizado azul
+    // Esquema padrão das Metas: A-1 cinza, Realizado AZUL fixo #2563eb
     expect(cfg.data.datasets[1].borderColor).toBe('#94a3b8');
-    expect(cfg.data.datasets[2].borderColor).toBe('#6c5ce7');
+    expect(cfg.data.datasets[2].borderColor).toBe('#2563eb');
   });
 
   it('breakdown: one chart series per device (replacing consolidated realized) + per-card legend', () => {
@@ -319,7 +334,7 @@ describe('CustomerGoalsCard (RFC-0217)', () => {
         ],
       },
     });
-    expect(card.el.querySelector('[data-total="budget"]')?.textContent).toBe('600 kWh');
+    expect(card.el.querySelector('[data-total="budget"]')?.textContent).toBe('600,00 kWh');
     // e o badge "vs Orçado" existe (hasBudget considera o breakdown)
     const deltaLabels = [...card.el.querySelectorAll('.myio-cgc__delta-label')].map((n) => n.textContent);
     expect(deltaLabels).toContain('vs Orçado');
@@ -414,10 +429,11 @@ describe('CustomerGoalsCard (RFC-0217)', () => {
 
   // ── Orçado (value cru) × Meta (adjustedValue) — 3 colunas / 2 linhas ────────
 
-  it('orcado + budget: grade 3×2 — linha 1 valores (Orçado, sem Meta empilhada); linha 2 col3 = Meta', () => {
+  it('orcado + budget: 4×2 grid — A-1 | Realizado | Orçado | Meta with per-column delta context', () => {
     const card = createCustomerGoalsCard({
       container,
       title: 'Shopping da Ilha',
+      yearLabels: { current: '2026', previous: '2025' },
       series: {
         labels: ['Jan'],
         realized: [586000],
@@ -426,19 +442,19 @@ describe('CustomerGoalsCard (RFC-0217)', () => {
         orcado: [697790], // Orçado (value cru)
       },
     });
-    // Linha 1 (valores): Realizado | A-1 | Orçado — 3 colunas, SEM Meta empilhada
-    // (fmtQty do card arredonda ≥100 p/ inteiro — comportamento existente)
-    expect(card.el.querySelector('[data-total="orcado"]')?.textContent).toBe('698 MWh');
-    expect(card.el.querySelectorAll('.myio-cgc__total').length).toBe(3); // realized + A-1 + orçado
-    expect(card.el.querySelector('.myio-cgc__total-sub')).toBeNull(); // Meta saiu da linha 1
-    // Linha 2: 3 colunas alinhadas → vs A-1 | vs Orçado | Meta <valor> (+ chip vs Meta)
-    expect(card.el.querySelector('.myio-cgc__deltas')?.className).toContain('myio-cgc__deltas--three');
+    // Linha 1: 4 colunas de valor — A-1 | Realizado | Orçado | Meta
+    expect(card.el.querySelectorAll('.myio-cgc__total').length).toBe(4);
+    expect(card.el.querySelector('[data-total="prev"]')?.textContent).toBe('600,00 MWh');
+    expect(card.el.querySelector('[data-total="realized"]')?.textContent).toBe('586,00 MWh');
+    expect(card.el.querySelector('[data-total="orcado"]')?.textContent).toBe('697,79 MWh');
+    expect(card.el.querySelector('[data-total="budget"]')?.textContent).toBe('663,00 MWh');
+    // Linha 2: 4 células de desvio, um contexto por coluna, alinhadas sob a linha 1
     const deltaLabels = [...card.el.querySelectorAll('.myio-cgc__delta-label')].map((n) => n.textContent);
-    expect(deltaLabels).toEqual(['vs A-1', 'vs Orçado', 'Meta 663 MWh']);
-    // Meta agora na col3 da linha 2 (data-total="budget")
-    expect(card.el.querySelector('[data-total="budget"]')?.textContent).toBe('Meta 663 MWh');
-    // 3 badges de desvio (vs A-1, vs Orçado, vs Meta)
-    expect(card.el.querySelectorAll('.myio-cgc__delta').length).toBe(3);
+    expect(deltaLabels).toEqual(['vs Orçado & vs Meta', '2026 × 2025', 'vs Orçado', 'vs Meta']);
+    expect(card.el.querySelectorAll('.myio-cgc__delta').length).toBe(4);
+    // col1 (A-1) traz DOIS mini-chips de crescimento (Orçado vs A-1, Meta vs A-1)
+    const col1 = card.el.querySelectorAll('.myio-cgc__delta')[0];
+    expect(col1.querySelectorAll('.myio-cgc__delta-mini').length).toBe(2);
   });
 
   it('orcado + budget: chart plots BOTH a Meta line and a distinct Orçado overlay line', () => {
@@ -460,9 +476,9 @@ describe('CustomerGoalsCard (RFC-0217)', () => {
     const orcado = byLabel('Orçado (2026)');
     expect(meta).toBeTruthy();
     expect(orcado).toBeTruthy();
-    // Ambas linhas tracejadas, mas cores/estilos distintos: Orçado LARANJA, Meta AZUL
+    // Ambas linhas tracejadas, mas cores/estilos distintos: Orçado LARANJA, Meta ROXO
     expect(orcado.borderColor).toBe('#f59e0b'); // laranja
-    expect(meta.borderColor).toBe('#0ea5e9'); // azul
+    expect(meta.borderColor).toBe('#7c3aed'); // roxo
     expect(meta.borderColor).not.toBe(orcado.borderColor);
     // A série de meta foi relabelada para "Meta" (não "Orçado") quando há orcado cru
     expect(cfg.data.datasets.some((d: any) => d.label === 'Orçado (2026)')).toBe(true);
@@ -480,9 +496,9 @@ describe('CustomerGoalsCard (RFC-0217)', () => {
         orcado: [400, null],
       },
     });
-    // Orçado (value cru) na linha 1; Meta (soma do budget) na col3 da linha 2
-    expect(card.el.querySelector('[data-total="orcado"]')?.textContent).toBe('400 kWh');
-    expect(card.el.querySelector('[data-total="budget"]')?.textContent).toBe('Meta 600 kWh');
+    // Orçado (value cru) e Meta (soma do budget) cada um na sua coluna de valor
+    expect(card.el.querySelector('[data-total="orcado"]')?.textContent).toBe('400,00 kWh');
+    expect(card.el.querySelector('[data-total="budget"]')?.textContent).toBe('600,00 kWh');
   });
 
   it('budgetBreakdown + orcado: per-meter goal lines relabel to "Meta ·" + one consolidated Orçado line', () => {
@@ -521,8 +537,8 @@ describe('CustomerGoalsCard (RFC-0217)', () => {
       series: baseSeries(),
       yearLabels: { current: '2026', previous: '2025' },
     });
-    // Sem orcado → coluna Orçado com UMA linha (data-total="budget"), sem sub-linha
-    expect(card.el.querySelector('[data-total="budget"]')?.textContent).toBe('800 kWh'); // 200*4
+    // Sem orcado → coluna Orçado (data-total="budget"), sem coluna Meta separada
+    expect(card.el.querySelector('[data-total="budget"]')?.textContent).toBe('800,00 kWh'); // 200*4
     expect(card.el.querySelector('[data-total="orcado"]')).toBeNull();
     expect(card.el.querySelector('.myio-cgc__total-sub')).toBeNull();
     // Delta permanece "vs Orçado" e o gráfico mantém a linha "Orçado (2026)"
@@ -551,6 +567,6 @@ describe('CustomerGoalsCard (RFC-0217)', () => {
         ],
       },
     });
-    expect(card.el.querySelector('[data-total="realized"]')?.textContent).toBe('600 kWh');
+    expect(card.el.querySelector('[data-total="realized"]')?.textContent).toBe('600,00 kWh');
   });
 });
