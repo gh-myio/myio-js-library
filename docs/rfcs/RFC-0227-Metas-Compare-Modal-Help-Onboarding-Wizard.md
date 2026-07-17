@@ -4,7 +4,14 @@
 - Start Date: 2026-07-17
 - RFC PR: (leave this empty)
 - Tracking Issue: (leave this empty — suggest Jira **ED**, e.g. ED-1030 epic + per-phase children)
-- Status: **Draft (design only — no feature code)**
+- Status: **Accept with changes — consolidated (incorporates Revisão v1, 2026-07-17)**
+
+> **Nota de consolidação.** Versão canônica. Mantém o intento e o design, e
+> **incorpora as correções obrigatórias da Revisão v1** (§"Revisão v1"): o markup
+> atual da toolbar (Engine **já** é icon-only, **não** existe `data-controls`), o
+> hardening do onboard shell (não é um wizard seguro hoje), o contrato **no-network
+> testável**, o bridge **`MyIOLibrary` direto** para o UNIQUE, anos **dinâmicos**
+> ("Ano anterior/atual"), e a **consistência do fixture/adapter**.
 
 > **Escopo.** Este RFC é **design only**. Nenhum arquivo de código é alterado. Ele
 > especifica um botão **"?"** (ajuda) ao lado do botão **Engine** (que passa a ser
@@ -59,28 +66,107 @@ realistas e sem risco de expor/alterar metas de um cliente. É também documenta
 
 ---
 
+## Revisão v1 — correções obrigatórias (consolidadas)
+
+### P0 — `openOnboardModal` NÃO é um shell de wizard seguro hoje
+Além de ser single-content, o shell tem lacunas que precisam ser tratadas como
+**mudança real de componente** (não só um tipo novo) **com testes de regressão**
+antes de virar base de wizard:
+- **listener do `Esc` vaza** — só é removido quando `Esc` é pressionado; fechar por
+  **backdrop** ou **botão de fechar** deixa o listener no `document`;
+- **`content` como `HTMLElement` não é anexado no 1º render** (`renderContent()`
+  retorna `''`; só `setContent(HTMLElement)` funciona depois do render) — corrigir
+  antes de usar corpos ricos por passo;
+- **sem focus-trap / restauração de foco** e sem navegação de teclado além de `Esc`;
+- **`title`/`content` (string)/`footerLinks[].url|label|icon` são interpolados como
+  HTML sem escaping** → sanitizar tudo que o `OnboardModalView` renderiza.
+**Antes de adicionar `steps`:** corrigir listeners/HTMLElement/escaping e adicionar
+testes de regressão do `content`/`iframeUrl` atuais. Alternativa: manter o
+`openMetasGuide` **totalmente autocontido** (não depender do foco/lifecycle do shell).
+
+### P0 — "sem rede" tem que ser CONTRATO DE TESTE
+Fase 1 = **snapshots estáticos determinísticos**. **Não** instanciar `openGoalsCompare`,
+fetchers GCDR, handlers de fetch do DateRangePicker, nem qualquer path de SDK/Chart
+dentro do tour. **Teste** que stuba `global.fetch`/`XMLHttpRequest` (e image-loading se
+preciso) e **falha** se abrir/navegar o guia disparar qualquer request. Links do footer
+"MYIO Academy", se visíveis, são **inertes** até clique do usuário (não fazem parte da
+execução automática do tour).
+
+### P1 — Markup atual da toolbar (o RFC estava desatualizado)
+O controller **atual** (após o fix `d3048456`) **já** tem o **Engine icon-only** e os
+controles na **1ª linha**; **não existe `data-controls`**. Os wrappers reais, todos no
+mesmo flex-row sob **`data-gc-col1`**, são: `data-tabs`, `data-period`,
+`data-period-presets`, `data-view-tabs`, **`data-engine`** (`<button data-engine>⚙️</button>`).
+→ O botão **`data-help`** entra **imediatamente após `data-engine`** nessa linha, **sem**
+depender de `data-controls`, e **sem** perturbar o `margin-left:auto` do `data-evo-status`
+(mantendo `data-evo-status`/`data-status` funcionando).
+
+### P1 — Bridge é target-specific: UNIQUE usa `MyIOLibrary` direto
+O padrão `window.MyIOUtils`/`LIB_SYMBOLS` é do **Shopping v5.2.0** (filhos do MAIN_VIEW).
+O alvo aqui é o **HO UNIQUE**, que **já chama `MyIOLibrary` diretamente** (ex.:
+`createCustomerGoalsCard`, `createGoalsBarTooltip`). → No UNIQUE, chamar
+**`MyIOLibrary.openMetasGuide(...)`**. `LIB_SYMBOLS` só entra **se/quando** o Shopping
+v5.2.0 reusar (Fase 3). Não exigir `window.MyIOUtils.openMetasGuide` para o UNIQUE.
+
+### P1 — Anos são DINÂMICOS (não hardcode 2025/2026)
+O código renderiza ano atual/anterior via `new Date().getFullYear()`. A **copy do tour**
+deve dizer **"Ano anterior" / "Ano atual"** (não "Ano 2025/2026"); os **fixtures** podem
+usar 2025/2026, mas o tour tem de **distinguir anos de fixture** de rótulos de controle
+ao vivo (senão fica errado em 2027).
+
+### P1 — Fixture/adapter inconsistentes
+O `MetasGuideFixtures` define `shoppings`/`total`, mas o `makeMockGoalsAdapter` cita
+`fx.goalsByShopping`/`fx.realizedByShopping` (não existem na interface). → **Remover o
+adapter da Fase 1** (snapshots estáticos não precisam) **ou** definir um shape de
+adapter completo. Manter fixtures simples (`domains.energy`/`domains.water`,
+`shoppings[]`, séries, totais) e **derivar chips/totais dos fixtures nos testes** (sem
+números pré-computados divergentes).
+
+### P1 — `createCustomerGoalsCard` exige checagem de compatibilidade
+Antes de reusar (Fase 2): verificar que o card aceita as 4 séries mock **sem** exigir
+globals do dashboard, Chart.js global, ResizeObservers ou efeitos colaterais de DOM que
+tornem o tour pesado; garantir `destroy`/cleanup se montado dentro de passos. Se exigir
+Chart.js/observers, **manter Fase 1 em HTML/CSS estático**.
+
+### P2 — `openMetasGuide` é dona de todo o comportamento; annotations = princípios, não cópia
+`openMetasGuide` é a **única** API consumida pelo widget: escolhe o shell internamente
+(`steps` nativo se disponível, navegação inline como fallback) e **não** expõe internals
+de fixture/adapter ao controller (widget passa só tema/anchor de retorno de foco/
+`persistKey`/callbacks). Do annotations, reusar **princípios visuais e lições de
+persistência** — **não** a implementação inteira (é grande, tab-specific, coach-marks
+DOM-targeted) nem seus padrões de interpolação de string. `localStorage`: **chave
+versionada + mecanismo de reset** para QA/suporte.
+
+### P2 — Auto-open: fonte de settings no UNIQUE
+Definir de onde o UNIQUE lê `enableGoalsGuideOnboarding` (`self.ctx.settings` /
+atributos de customer / de usuário / constante local) — os exemplos existentes de flag
+de onboarding estão no **Shopping MAIN_VIEW**, não no UNIQUE. **Default OFF**; não
+auto-abrir enquanto o caminho manual (`data-help`) não estiver estável.
+
+---
+
 ## Guide-level explanation
 
 ### Onde fica o "?" (colocação)
 
-O toolbar da modal tem **duas linhas** no `data-gc-col1`:
+A toolbar atual (após o fix `d3048456`) tem **uma linha** de controles em
+`data-gc-col1`, contendo (mesmo flex-row): `data-tabs` (abas de domínio
+`data-domain`), `data-period` (input **Período**), `data-period-presets` (presets de
+**Ano** — rótulos dinâmicos, ver abaixo), `data-view-tabs` (pills **Dashboards /
+Analítico**, `data-view`) e **`data-engine`** — que **já é icon-only**
+(`<button data-engine>⚙️</button>`). **Não existe** `data-controls`.
 
-- **Linha 1 (`data-tabs` + período):** abas de domínio (`data-domain`), input
-  **Período** (`data-period`), presets **Ano 2025 / Ano 2026** (`data-period-preset`).
-- **Linha 2 (`data-controls`):** pills **Dashboards / Analítico** (`data-view`) e o
-  botão **Engine** (`data-engine`, hoje `⚙️ Engine`).
+**Proposta:** **imediatamente após `data-engine`**, adicionar:
 
-**Proposta:** na **linha 2**, ao lado do **Engine**:
+- **Novo botão `data-help`** — rótulo **`?`** (ou `❓`), mesmo estilo *outline* do
+  Engine (borda `GP.tint(45)`, cor `GP.accent`, `title="Como usar este painel — guia
+  passo a passo"`, `aria-label` idem), como `<button type="button" data-help>`. Deve
+  **não perturbar** o `margin-left:auto` do `data-evo-status` (manter
+  `data-evo-status`/`data-status` funcionando).
 
-1. **Engine vira icon-only** — `⚙️` sem o texto "Engine" (mantém `title="Engine —
-   granularidade, visão, tipo e ordenação"` para acessibilidade e hover).
-2. **Novo botão `data-help`** — rótulo **`?`** (ou `❓`), mesmo estilo *outline* do
-   Engine (borda `GP.tint(45)`, cor `GP.accent`, `title="Como usar este painel — guia
-   passo a passo"`, `aria-label` idem). Fica **imediatamente à direita** do `⚙️`.
-
-Isso alinha com a **relocação de abas já planejada** (as pills Dashboards/Analítico e
-o Engine convivem na linha de controles). O "?" é um **par visual** do Engine: um
-configura, o outro explica.
+> O Engine **já** é icon-only (feito no fix `d3048456`) — este RFC **não** precisa
+> mais alterá-lo; só acrescenta o "?" ao lado. O "?" é o **par visual** do Engine: um
+> configura, o outro explica.
 
 > Nota: o header superior (`🌙` tema · `⛶` maximizar · `⬇️ PDF` · `✕`) **não** recebe o
 > "?" — o guia é sobre o *conteúdo* do painel, então mora junto dos controles do
@@ -95,7 +181,7 @@ Cada seção mapeia **1:1** para uma área concreta da modal. Ordem = fluxo de l
 |---|----------------------|---------------|-----------------|
 | 1 | **Bem-vindo ao Metas × Consumo** | O que o painel compara (Realizado vs Meta/Orçado vs A-1) e para quem serve | header `📊 Metas × Consumo` |
 | 2 | **Domínio: Energia e Água** | As abas de domínio; unidade (MWh / m³); que a régua da meta é ENTRADA (energia) / hidrômetros (água) | `data-tabs` / `data-domain` |
-| 3 | **Período e presets de Ano** | O input **Período** (intervalo livre) e os presets **Ano 2025 / Ano 2026**; efeito na granularidade (Dia/Hora até 15 dias) | `data-period`, `data-period-preset` |
+| 3 | **Período e presets de Ano** | O input **Período** (intervalo livre) e os presets **Ano anterior / Ano atual (rótulos dinâmicos via getFullYear; fixtures podem ilustrar 2025/2026)**; efeito na granularidade (Dia/Hora até 15 dias) | `data-period`, `data-period-preset` |
 | 4 | **Dashboards × Analítico** | As duas sub-abas: gráficos/cards vs tabela do portfólio (Resumo Analítico) | `data-view` |
 | 5 | **O card do shopping — gráfico** | As 4 séries: **A-1 (2025)** cinza, **Realizado (2026)** azul, **Meta** roxa, **Orçado** laranja; barras = consumo, linhas = meta/orçado | `data-cards-grid` / `.myio-cgc` |
 | 6 | **O card do shopping — KPIs e chips** | A linha de KPIs (**A-1 · Realizado · Orçado · Meta**) e os chips de desvio (**vs A-1 · vs Realizado · vs Meta**), com leitura de sinal (acima/abaixo) | KPIs + chips do card |
@@ -239,15 +325,16 @@ reusável, não inline no controller:
 - **Novo componente** `src/components/metas-guide/` exportando
   `openMetasGuide(options)` (+ fixtures + tipos). Ele **usa** `openOnboardModal`
   (shell estendido) internamente.
-- Exportado em `src/index.ts` e adicionado a **`LIB_SYMBOLS`** para o controller
-  acessá-lo via `window.MyIOUtils.openMetasGuide` (bridge). Fallback inline mínimo
-  (um `openOnboardModal` com conteúdo estático) caso o símbolo não exista, seguindo o
-  padrão "prefere lib, fallback inline".
-- No controller, o único código novo é: **(a)** tornar o Engine icon-only, **(b)**
-  adicionar o botão `data-help`, e **(c)** no handler de clique
+- Exportado em `src/index.ts`. **Bridge target-specific (Revisão v1):** o alvo é o
+  **HO UNIQUE**, que **já chama `MyIOLibrary` diretamente** (ex.:
+  `createCustomerGoalsCard`) — então o controller chama **`MyIOLibrary.openMetasGuide(...)`**,
+  **não** `window.MyIOUtils`. O `LIB_SYMBOLS`/`MyIOUtils` só entra **se/quando** o
+  Shopping v5.2.0 reusar (Fase 3). Fallback inline mínimo (um `openOnboardModal` com
+  conteúdo estático) caso o símbolo não exista.
+- No controller, o único código novo é: **(a)** adicionar o botão `data-help` (o Engine
+  **já** é icon-only via `d3048456`), e **(b)** no handler de clique
   (`if (e.target.closest('[data-help]')) return void openGuide();`) chamar
-  `window.MyIOUtils.openMetasGuide?.({...})`. **Nada** da lógica do tour vive no
-  controller.
+  `MyIOLibrary.openMetasGuide?.({...})`. **Nada** da lógica do tour vive no controller.
 
 Assinatura proposta do componente:
 
@@ -427,11 +514,12 @@ quando o tour mudar materialmente, para reexibir). A escrita é opcional e só o
 
 ## Adoption / rollout
 
-- **Fase 1 — botão "?" + tour estático (mock).** Engine icon-only + botão `data-help`
-  no `data-controls`; `openMetasGuide` como componente de lib (via bridge `LIB_SYMBOLS`)
-  com as 11 seções e **snapshots ilustrativos** populados por fixtures embutidas.
-  Extensão `steps` no `openOnboardModal` **ou** navegação inline (B) — o que couber no
-  sprint. **HO UNIQUE primeiro.**
+- **Fase 1 — botão "?" + tour estático (mock).** Botão `data-help` **após `data-engine`**
+  (Engine já icon-only); `openMetasGuide` como componente de lib chamado via
+  **`MyIOLibrary`** no UNIQUE, com as 11 seções e **snapshots ilustrativos estáticos**
+  populados por fixtures embutidas — **zero rede** (contrato de teste). Antes de usar
+  `steps`, **endurecer o onboard shell** (listeners, HTMLElement inicial, escaping,
+  focus) ou manter o guia autocontido (navegação inline, B). **HO UNIQUE primeiro.**
 - **Fase 2 — snapshot "vivo".** Opcional: renderizar o card via
   `createCustomerGoalsCard` (RFC-0217) com dados mock e/ou um mini-painel dirigido pelo
   **adapter de fetch falso** (fidelidade 1:1, ainda sem rede). "Não mostrar novamente"
@@ -471,3 +559,9 @@ quando o tour mudar materialmente, para reexibir). A escrita é opcional e só o
 - **v0 (2026-07-17):** rascunho inicial (design only). Botão "?" + wizard mock;
   recomenda extensão `steps` do onboard + componente de lib `metas-guide` via bridge;
   snapshots ilustrativos em fixtures co-locadas; 8 open questions para o PO.
+- **Revisão v1 (2026-07-17):** accept with changes — hardening do onboard shell
+  (listeners/HTMLElement/escaping/focus), no-network como contrato de teste, markup
+  atual da toolbar (Engine já icon-only, sem `data-controls`, `data-help` após
+  `data-engine`), bridge `MyIOLibrary` direto no UNIQUE, anos dinâmicos ("Ano
+  anterior/atual"), fixture/adapter consistentes, `openMetasGuide` dona do
+  comportamento, fonte de settings do auto-open no UNIQUE. **Consolidada aqui.**
