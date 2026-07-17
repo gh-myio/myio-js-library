@@ -2746,7 +2746,7 @@ function _showNewAlarmNotification(newAlarms) {
     border-radius: 13px;
     box-shadow: 0 8px 32px rgba(0,0,0,0.45);
     border-left: 5px solid ${accentColor};
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: 'Nunito', system-ui, sans-serif;
     overflow: hidden;
     animation: myio-notif-in 0.28s cubic-bezier(0.34,1.56,0.64,1) both;
   `;
@@ -2865,7 +2865,7 @@ function _showClosedAlarmNotification(closedAlarms) {
     border-radius: 13px;
     box-shadow: 0 8px 32px rgba(0,0,0,0.45);
     border-left: 5px solid ${GREEN};
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: 'Nunito', system-ui, sans-serif;
     overflow: hidden;
     animation: myio-notif-in 0.28s cubic-bezier(0.34,1.56,0.64,1) both;
   `;
@@ -4705,7 +4705,7 @@ const MyIOOrchestrator = (() => {
     align-items: center;
     justify-content: center;
     z-index: 99999;
-    font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;
+    font-family: 'Nunito', system-ui, sans-serif;
   `;
 
     const container = document.createElement('div');
@@ -5346,7 +5346,7 @@ const MyIOOrchestrator = (() => {
     font-weight: 500;
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     z-index: 999999;
-    font-family: Inter, system-ui, sans-serif;
+    font-family: 'Nunito', system-ui, sans-serif;
   `;
     notification.textContent = 'Dados recarregados automaticamente';
     document.body.appendChild(notification);
