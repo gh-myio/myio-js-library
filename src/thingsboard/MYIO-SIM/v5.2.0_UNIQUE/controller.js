@@ -3359,8 +3359,11 @@ body.filter-modal-open { overflow: hidden !important; }
   // compartilham o mesmo profile). Se a plataforma expuser curadoria explícita
   // (grupo/attr por shopping), substituir este heurístico aqui.
   const ENTRADA_PROFILE_ID = 'afe5c9ba-3ade-4bb8-b703-c53c2c190cf9';
-  const _isEntradaDevice = (d) =>
-    d.profileId === ENTRADA_PROFILE_ID && /ENTRADA/i.test(d.name || '') && !/CAG/i.test(d.name || '');
+  // Medidor de ENTRADA = APENAS o deviceProfile ENTRADA (autoridade única).
+  // O nome NÃO é mais testado: engana — há trafos de entrada válidos como
+  // TRAFO_ENTRADA_CAG (tem "CAG") e MEDICAO_GERAL (não tem "ENTRADA" nem "CAG").
+  // deviceProfile é a fonte de verdade da classificação.
+  const _isEntradaDevice = (d) => d.profileId === ENTRADA_PROFILE_ID;
 
   let _entradaDevicesPromise = null; // cache da sessão: [{id, customerId, name}]
   const getEntradaDevices = () => {
@@ -3990,8 +3993,10 @@ body.filter-modal-open { overflow: hidden !important; }
     const GP = goalsPalette();
     // Cor da linha de Orçado (value cru) nos cards — igual ao default do
     // CustomerGoalsCard: Orçado LARANJA tracejado; Meta AZUL tracejada.
-    const CGC_ORCADO_COLOR = '#f59e0b';
-    const CGC_META_COLOR = '#0ea5e9';
+    const CGC_REALIZADO_COLOR = '#2563eb'; // Realizado — AZUL fixo (não segue o accent do dashboard)
+    const CGC_PREV_COLOR = '#94a3b8'; // A-1 (ano anterior) — CINZA
+    const CGC_ORCADO_COLOR = '#f59e0b'; // Orçado (value cru) — LARANJA
+    const CGC_META_COLOR = '#7c3aed'; // Meta (adjustedValue) — ROXO
 
     const overlay = document.createElement('div');
     overlay.id = 'myio-goals-compare-root';
@@ -4060,7 +4065,7 @@ body.filter-modal-open { overflow: hidden !important; }
                 #myio-goals-compare-root .gc-side-item:hover{transform:translateY(-2px) scale(1.02);box-shadow:0 6px 18px rgba(15,23,42,.18);border-color:${GP.tint(45)};}
               </style>
               <div data-evo-wrap style="position:relative;flex:1 1 auto;min-height:150px;"><canvas data-evo-chart></canvas></div>
-              <div data-cards-grid style="display:none;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;flex:1 1 auto;min-height:0;overflow-y:auto;align-content:start;"></div>
+              <div data-cards-grid style="display:none;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:10px;flex:1 1 auto;min-height:0;overflow-y:auto;align-content:start;"></div>
               <div data-cards-legend style="display:none;align-items:center;justify-content:center;gap:18px;flex-wrap:wrap;font:600 11px Nunito,sans-serif;color:var(--gc-muted);padding:4px 2px 0;flex:0 0 auto;"></div>
               <div data-analytics style="display:none;overflow:auto;flex:1 1 auto;min-height:0;"></div>
               <div data-evo-legend style="display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;border-top:1px solid var(--gc-border);margin-top:2px;padding-top:8px;flex:0 0 auto;">
@@ -4137,14 +4142,12 @@ body.filter-modal-open { overflow: hidden !important; }
     let isMax = false;
     let lastEvo = null; // {labels, datasets, stacked} — re-render no toggle de tema
 
-    // — Gráfico único Metas × Consumo: cores fiéis ao GoalsModal v-5.2.0 (consolidado:
-    // barra do domínio + ano-1 cinza + meta linha laranja; por shopping: paleta por
-    // customer, ano-1 mesma cor translúcida, meta tracejada da cor do shopping) —
-    // Realizado (consolidado) segue o accent do dashboard (GP); A-1 continua
-    // cinza translúcido e a meta laranja — contraste garantido em ambos os temas.
+    // — Gráfico único Metas × Consumo: esquema de cores padrão das Metas —
+    // Realizado (consolidado) AZUL fixo #2563eb; A-1 cinza translúcido; Meta ROXO
+    // #7c3aed; Orçado (cru) laranja. Contraste garantido em ambos os temas.
     const EVO_COLORS = {
-      energy: { bar: GP.accent, goal: '#f97316' },
-      water: { bar: GP.accent, goal: '#f59e0b' },
+      energy: { bar: CGC_REALIZADO_COLOR, goal: CGC_META_COLOR },
+      water: { bar: CGC_REALIZADO_COLOR, goal: CGC_META_COLOR },
     };
     // Séries múltiplas (por shopping / por medidor): TONS do accent do dashboard
     // (settingsSchema) — monocromático segue a paleta do customer; fallback na
@@ -4181,6 +4184,7 @@ body.filter-modal-open { overflow: hidden !important; }
     let cardsGroupBy = 'shopping'; // ⚙️ dos cards: 'shopping' (default) | 'device' (medidores lado a lado) | 'device-stack' (medidores empilhados)
     let cardsShowConsolidated = false; // ⚙️ dos cards — card "Consolidado" (todos os shoppings somados) como último card
     let evoChart = null;
+    let evoTip = null; // tooltip premium tree-driven das barras (lib createGoalsBarTooltip)
     let evoSeq = 0;
     const evoConsCache = new Map(); // consumo por (domínio, gran, range) — troca de aba não refaz fetch
 
@@ -4517,9 +4521,9 @@ body.filter-modal-open { overflow: hidden !important; }
             ${devCountBadge(r)}
             ${custEye(r, bold)}
           </div>
-          ${line(`${domIcon} <span>${yPrev} ${bval(r.consumoPrev)}</span><span style="margin-left:8px;">${yCur} ${bval(r.consumo)}</span>`, devChip(r.consumo, r.consumoPrev))}
-          ${line(`${domIcon} Orçado ${bval(r.meta)}${extras}`, devChip(r.consumo, r.meta))}
-          ${showMeta ? line(`${domIcon} Meta ${bval(r.metaAdj)}`, devChip(r.consumo, r.metaAdj)) : ''}
+          ${line(`${domIcon} <span style="color:${CGC_PREV_COLOR};font-weight:700;">${yPrev}</span> ${bval(r.consumoPrev)}<span style="margin-left:8px;color:${CGC_REALIZADO_COLOR};font-weight:700;">${yCur}</span> ${bval(r.consumo)}`, devChip(r.consumo, r.consumoPrev))}
+          ${line(`${domIcon} <span style="color:${CGC_ORCADO_COLOR};font-weight:700;">Orçado</span> ${bval(r.meta)}${extras}`, devChip(r.consumo, r.meta))}
+          ${showMeta ? line(`${domIcon} <span style="color:${CGC_META_COLOR};font-weight:700;">Meta</span> ${bval(r.metaAdj)}`, devChip(r.consumo, r.metaAdj)) : ''}
         </div>`;
       };
       const sorted = sortSideRows(applySideQuickFilter(rows));
@@ -4784,7 +4788,7 @@ body.filter-modal-open { overflow: hidden !important; }
             unit,
             yearLabels: { current: yearCurLabel, previous: yearPrevLabel },
             themeMode: modalTheme,
-            options: { chartType: cardsChartType, showPoints: cardsShowPoints, colors: { realized: GP.accent, breakdownPalette: GP_TONES || undefined } },
+            options: { chartType: cardsChartType, showPoints: cardsShowPoints, colors: { breakdownPalette: GP_TONES || undefined } },
             series: {
               labels,
               // 👁: ano oculto some dos dados (realized vira gaps; A-1 é omitida por completo)
@@ -4809,7 +4813,7 @@ body.filter-modal-open { overflow: hidden !important; }
             unit,
             yearLabels: { current: yearCurLabel, previous: yearPrevLabel },
             themeMode: modalTheme,
-            options: { chartType: cardsChartType, showPoints: cardsShowPoints, colors: { realized: GP.accent, breakdownPalette: GP_TONES || undefined } },
+            options: { chartType: cardsChartType, showPoints: cardsShowPoints, colors: { breakdownPalette: GP_TONES || undefined } },
             series: {
               labels,
               realized: showCurYear
@@ -4836,7 +4840,7 @@ body.filter-modal-open { overflow: hidden !important; }
           `<span style="width:22px;height:0;border-top:3px dashed ${color};display:inline-block;"></span>`;
         legend.innerHTML =
           (showPrevYear ? item(dot('#94a3b8'), `A-1 (${yearPrevLabel})`) : '') +
-          (showCurYear ? item(dot(GP.accent), `Realizado (${yearCurLabel})`) : '') +
+          (showCurYear ? item(dot(CGC_REALIZADO_COLOR), `Realizado (${yearCurLabel})`) : '') +
           item(dash(CGC_META_COLOR), `Meta (${yearCurLabel})`) +
           (goalRawOf ? item(dash(CGC_ORCADO_COLOR), `Orçado (${yearCurLabel})`) : '');
       }
@@ -5074,7 +5078,7 @@ body.filter-modal-open { overflow: hidden !important; }
               chartType: cardsChartType,
               showPoints: cardsShowPoints,
               breakdownStacked: cardsGroupBy === 'device-stack',
-              colors: { realized: GP.accent, breakdownPalette: GP_TONES || undefined },
+              colors: { breakdownPalette: GP_TONES || undefined },
             },
             series: {
               labels,
@@ -5131,7 +5135,7 @@ body.filter-modal-open { overflow: hidden !important; }
             unit,
             yearLabels: { current: yearCurLabel, previous: yearPrevLabel },
             themeMode: modalTheme,
-            options: { chartType: cardsChartType, showPoints: cardsShowPoints, colors: { realized: GP.accent, breakdownPalette: GP_TONES || undefined } },
+            options: { chartType: cardsChartType, showPoints: cardsShowPoints, colors: { breakdownPalette: GP_TONES || undefined } },
             series: {
               labels,
               realized: showCurYear
@@ -5240,8 +5244,8 @@ body.filter-modal-open { overflow: hidden !important; }
         'padding:7px 10px;font:600 12px Nunito,sans-serif;color:var(--gc-text);text-align:right;white-space:nowrap;border-bottom:1px solid var(--gc-border);';
       const tdL = tdR.replace('text-align:right', 'text-align:left');
 
-      const groupHead = (label, span) =>
-        `<th colspan="${span}" style="${th}text-align:center;border-left:1px solid var(--gc-border);">${label}</th>`;
+      const groupHead = (label, span, color) =>
+        `<th colspan="${span}" style="${th}text-align:center;border-left:1px solid var(--gc-border);${color ? `color:${color};` : ''}">${label}</th>`;
       const bodyRow = (r, bold) => {
         const w = bold ? 'font-weight:800;' : '';
         let cells = `<td style="${tdL}${w}">${bold ? '' : '🏢 '}${_escHtml(r.title)}</td>`;
@@ -5258,14 +5262,14 @@ body.filter-modal-open { overflow: hidden !important; }
       let head2 = `<th style="${thL}">Unidade</th>`;
       let head1 = '<th style="border-bottom:0;"></th>';
       if (showCurYear) {
-        head1 += groupHead(`Realizado (${yearCurLabel})`, 2);
+        head1 += groupHead(`Realizado (${yearCurLabel})`, 2, CGC_REALIZADO_COLOR);
         head2 += `<th style="${th}">Valor</th><th style="${th}">% Part.</th>`;
       }
       if (showPrevYear) {
-        head1 += groupHead(`A-1 (${yearPrevLabel})`, 2);
+        head1 += groupHead(`A-1 (${yearPrevLabel})`, 2, CGC_PREV_COLOR);
         head2 += `<th style="${th}">Valor</th><th style="${th}">% Part.</th>`;
       }
-      head1 += groupHead(`Orçado (${yearCurLabel})`, 2);
+      head1 += groupHead(`Orçado (${yearCurLabel})`, 2, CGC_ORCADO_COLOR);
       head2 += `<th style="${th}">Valor</th><th style="${th}">% Part.</th>`;
       if (showCurYear && showPrevYear) {
         head1 += groupHead('Var. vs A-1', 2);
@@ -5376,10 +5380,10 @@ body.filter-modal-open { overflow: hidden !important; }
       setTimeout(() => document.addEventListener('click', closer, true), 0);
     };
 
-    const renderEvoChart = (labels, datasets, stacked = false) => {
+    const renderEvoChart = (labels, datasets, stacked = false, tipModel = null) => {
       showCardsGrid(false);
       if (typeof window.Chart !== 'function') return;
-      lastEvo = { labels, datasets, stacked }; // p/ re-render no toggle de tema
+      lastEvo = { labels, datasets, stacked, tipModel }; // p/ re-render no toggle de tema
       if (evoChart) {
         evoChart.destroy();
         evoChart = null;
@@ -5394,6 +5398,28 @@ body.filter-modal-open { overflow: hidden !important; }
           label: (c) => `${c.dataset.label}: ${c.parsed.y == null ? '—' : _fmtQtyStr(c.parsed.y, chartUnit)}`,
         },
       };
+      // Tooltip premium (tree-driven) — criado uma vez, sob demanda. Fail-open: se a
+      // lib não expõe createGoalsBarTooltip, cai no tooltip built-in do Chart.js.
+      if (!evoTip && MyIOLibrary && typeof MyIOLibrary.createGoalsBarTooltip === 'function') {
+        try { evoTip = MyIOLibrary.createGoalsBarTooltip({ accentColor: GP.accent }); }
+        catch { evoTip = null; }
+      }
+      const externalTip = evoTip && tipModel
+        ? (context) => {
+            try {
+              const tt = context && context.tooltip;
+              if (!tt || tt.opacity === 0) { evoTip.hide(); return; }
+              const dp = tt.dataPoints && tt.dataPoints[0];
+              if (!dp) return;
+              const idx = dp.dataIndex;
+              const rect = context.chart.canvas.getBoundingClientRect();
+              evoTip.show(
+                { title: tipModel.title(idx), rows: tipModel.rows(idx, datasets), accentColor: tipModel.accent },
+                { clientX: rect.left + tt.caretX, clientY: rect.top + tt.caretY }
+              );
+            } catch (_) { /* tooltip é enfeite — nunca quebra o chart */ }
+          }
+        : null;
       evoChart = new window.Chart(evoCanvas.getContext('2d'), {
         type: 'bar',
         data: { labels, datasets },
@@ -5404,7 +5430,7 @@ body.filter-modal-open { overflow: hidden !important; }
           interaction: { mode: 'index', intersect: false },
           plugins: {
             legend: { position: 'bottom', labels: { boxWidth: 14, font: { size: 10 }, color: t.chartTick } },
-            tooltip: tooltipCb,
+            tooltip: externalTip ? { enabled: false, external: externalTip } : tooltipCb,
           },
           scales: stacked
             ? {
@@ -5848,7 +5874,101 @@ body.filter-modal-open { overflow: hidden !important; }
           order: 0,
         });
       }
-      renderEvoChart(labels, datasets, evoMode === 'stack');
+      // ── Modelo do tooltip premium (tree-driven). Rows geradas a partir dos
+      // datasets do gráfico; Realizado/A-1 consolidados expandem por shopping
+      // (série por customer) e Meta expande por medidor quando há 1 shopping
+      // visível com granularity DEVICE (pesos ANUAIS distribuídos sobre a meta do
+      // bucket — não há meta por-medidor por-período). Orçado (cru) entra como
+      // linha extra quando difere da Meta (margem de gestão aplicada).
+      const tipUnit = cfgD.unit;
+      const budgetSum = labels.map((_, i) => {
+        const [lv, k] = goalKeyAt(i);
+        let s = 0, has = false;
+        trees.forEach((tr, si) => {
+          if (isCustHidden(shops[si]?.tbId)) return;
+          const v = tr?.[lv]?.[k]?.value;
+          if (v != null) { s += Number(v) || 0; has = true; }
+        });
+        return has ? s : null;
+      });
+      const shopCurBk = shops.map((s) => bucketize(curBy?.get(s.ingestionId)));
+      const shopPrevBk = shops.map((s) => bucketize(prevBy?.get(s.ingestionId)));
+      const visShopIdx = shops.map((_, i) => i).filter((i) => !isCustHidden(shops[i].tbId));
+      const perShopChildren = (buckets, idx, total) =>
+        visShopIdx
+          .map((i) => ({ i, v: buckets[i] ? buckets[i][idx] : null }))
+          .filter((x) => x.v != null && x.v > 0)
+          .map((x) => ({
+            icon: '🏬',
+            label: shops[x.i].title,
+            valueText: _fmtQtyStr(x.v, tipUnit),
+            pct: total ? (x.v / total) * 100 : null,
+            color: SHOP_PALETTE ? SHOP_PALETTE[x.i % SHOP_PALETTE.length] : undefined,
+          }));
+      const metaDeviceChildren = (idx, metaVal) => {
+        if (visShopIdx.length !== 1 || !(metaVal > 0)) return [];
+        const g = goalsAll[visShopIdx[0]];
+        const devs = g?.granularity === 'DEVICE' && Array.isArray(g.devices) ? g.devices : [];
+        if (!devs.length) return [];
+        const norm = devs.map((d) => ({
+          label: d.label || d.code || 'Medidor',
+          annual: Number(d.annualAdjusted ?? d.annual ?? 0) || 0,
+        }));
+        const tot = norm.reduce((a, d) => a + d.annual, 0);
+        if (!(tot > 0)) return [];
+        return norm.map((d) => {
+          const w = d.annual / tot;
+          return { icon: cfgD.icon || '⚡', label: d.label, valueText: _fmtQtyStr(metaVal * w, tipUnit), pct: w * 100 };
+        });
+      };
+      const tipModel = {
+        accent: GP.accent,
+        title: (idx) => labels[idx] || '',
+        rows: (idx, dss) => {
+          const metaRef = goalSum[idx] != null && goalSum[idx] > 0 ? goalSum[idx] : null;
+          let denom = metaRef;
+          if (denom == null) {
+            const vals = dss.map((d) => Number(d.data && d.data[idx])).filter((v) => isFinite(v) && v > 0);
+            denom = vals.length ? Math.max(...vals) : null;
+          }
+          const pctOf = (v) => (v != null && denom ? (v / denom) * 100 : null);
+          const rows = dss.map((ds) => {
+            const v = ds.data ? ds.data[idx] : null;
+            const lbl = ds.label || '';
+            const isMeta = /^Meta/.test(lbl);
+            const isConsCur = lbl === `Consumo ${yearCurLabel}`;
+            const isConsPrev = lbl === `Consumo ${yearPrevLabel}`;
+            const row = {
+              icon: isMeta ? '🎯' : isConsPrev ? '🕓' : lbl.includes(yearPrevLabel) ? '🕓' : '📊',
+              label: lbl,
+              valueText: v == null ? '—' : _fmtQtyStr(v, tipUnit),
+              color: ds.borderColor || ds.backgroundColor,
+              pct: isMeta ? null : pctOf(Number(v)),
+            };
+            if (isMeta && v != null) {
+              const kids = metaDeviceChildren(idx, Number(v));
+              if (kids.length) row.children = kids;
+            } else if (isConsCur && v != null && visShopIdx.length > 1) {
+              const kids = perShopChildren(shopCurBk, idx, Number(v));
+              if (kids.length) row.children = kids;
+            } else if (isConsPrev && v != null && visShopIdx.length > 1) {
+              const kids = perShopChildren(shopPrevBk, idx, Number(v));
+              if (kids.length) row.children = kids;
+            }
+            return row;
+          });
+          // Orçado (cru) — só quando há Meta e difere dela (margem aplicada).
+          if (budgetSum[idx] != null && goalSum[idx] != null && Math.abs(budgetSum[idx] - goalSum[idx]) > 1e-6) {
+            rows.push({
+              icon: '📋', label: 'Orçado', color: CGC_ORCADO_COLOR,
+              valueText: _fmtQtyStr(budgetSum[idx], tipUnit), pct: pctOf(budgetSum[idx]),
+            });
+          }
+          return rows;
+        },
+      };
+
+      renderEvoChart(labels, datasets, evoMode === 'stack', tipModel);
       // Período/anos já aparecem no calendário e nos toggles 👁 — status só sinaliza falha
       evoStatusEl.textContent = curBy || prevBy ? '' : 'Falha ao carregar o consumo';
       setEvoLoading(false);
@@ -5945,11 +6065,14 @@ body.filter-modal-open { overflow: hidden !important; }
         y += 7;
         const colX = [MX, MX + 68, MX + 108, MX + 148];
         doc.setFontSize(9);
-        doc.setTextColor(100, 116, 139);
         doc.setFont('helvetica', 'normal');
+        doc.setTextColor(100, 116, 139);
         doc.text(_entS(), colX[0], y);
+        doc.setTextColor(245, 158, 11); // Orçado — LARANJA
         doc.text('Orçado', colX[1], y);
+        doc.setTextColor(37, 99, 235); // Consumo (Realizado) — AZUL
         doc.text('Consumo', colX[2], y);
+        doc.setTextColor(100, 116, 139);
         doc.text('Situação', colX[3], y);
         y += 2;
         doc.setDrawColor(226, 232, 240);
@@ -6054,7 +6177,7 @@ body.filter-modal-open { overflow: hidden !important; }
       } else if (evoMode === 'analytics') {
         // Tabela usa CSS vars (--gc-*) — o tema aplica sozinho; não trocar de superfície
       } else if (lastEvo) {
-        renderEvoChart(lastEvo.labels, lastEvo.datasets, lastEvo.stacked);
+        renderEvoChart(lastEvo.labels, lastEvo.datasets, lastEvo.stacked, lastEvo.tipModel);
       }
     };
 
@@ -6187,6 +6310,7 @@ body.filter-modal-open { overflow: hidden !important; }
     let periodPicker = null;
     const close = () => {
       if (evoChart) evoChart.destroy();
+      if (evoTip) { try { evoTip.destroy(); } catch (_) { /* ignore */ } evoTip = null; }
       destroyGoalsCards(); // RFC-0217
       try {
         periodPicker?.destroy?.();
@@ -6453,12 +6577,18 @@ body.filter-modal-open { overflow: hidden !important; }
     // Try to use new LoadingSpinner from myio-js-library
     const MyIOLibrary = window.MyIOLibrary;
     if (MyIOLibrary && typeof MyIOLibrary.createLoadingSpinner === 'function') {
+      const _busyMode =
+        (window.MyIOUtils?.currentThemeMode || currentThemeMode) === 'dark' ? 'darkMode' : 'lightMode';
+      const _busyAccent =
+        settings?.tabSelecionadoBackgroundColor || settings?.[_busyMode]?.primaryColor || undefined;
       _loadingSpinnerInstance = MyIOLibrary.createLoadingSpinner({
         minDisplayTime: 800, // Minimum 800ms to avoid flash
         maxTimeout: 25000, // 25 seconds max
         message: 'Carregando dados...',
         spinnerType: 'double',
         theme: 'dark',
+        accentColor: _busyAccent, // segue a paleta do dashboard (fallback = roxo padrão)
+        showProgress: true, // barra de progresso (indeterminada; setProgress p/ %)
         showTimer: false, // Set to true for debugging
         onTimeout: () => {
           console.warn('[MAIN_UNIQUE] RFC-0137: LoadingSpinner max timeout reached');
