@@ -3369,9 +3369,24 @@ body.filter-modal-open { overflow: hidden !important; }
   const getEntradaDevices = () => {
     if (_entradaDevicesPromise) return _entradaDevicesPromise;
     _entradaDevicesPromise = (async () => {
-      // 1) CURADORIA EXPLÍCITA (auditoria 2026-07-07): attr SERVER_SCOPE
-      //    `entradaIngestionIds` (array de ingestion ids) em cada shopping — mesma
-      //    régua das colunas Entrada dos dashboards próprios. Fonte da verdade.
+      // 1) @deprecated CURADORIA EXPLÍCITA via attr SERVER_SCOPE `entradaIngestionIds`
+      //    (array de ingestion ids por shopping) — auditoria 2026-07-07.
+      //
+      //    DESCONTINUADO em 2026-07-21. NÃO usar em novas implementações e não
+      //    recriar o atributo: nenhum customer em produção o possui hoje, então
+      //    `curated` sai sempre vazio, `uncovered` recebe todos os shoppings e a
+      //    classificação cai 100% no caminho (2) — profile ENTRADA da Data API.
+      //
+      //    Autoridade única = profileId ENTRADA (afe5c9ba-...) na API de ingestion,
+      //    conforme `_isEntradaDevice` acima. O bloco abaixo é mantido apenas como
+      //    override manual legado e deve ser removido quando não houver mais
+      //    ambiente dependendo dele.
+      //
+      //    Armadilha da curadoria (motivo da descontinuação): a lista funcionava
+      //    como ALLOWLIST ABSOLUTA — ver `if (curated.length && uncovered.size === 0)`
+      //    mais abaixo. Um shopping curado com ids faltando perdia medidores de
+      //    entrada silenciosamente, sem cair no heurístico. Corrigir a classificação
+      //    passa a ser trocar o profile do device no ingestion, não editar attr no TB.
       const curated = [];
       const uncovered = new Set(); // ingestion ids de shoppings SEM o attr → fallback heurístico
       const cards = (_currentCustomersCards || []).filter(
@@ -3398,10 +3413,13 @@ body.filter-modal-open { overflow: hidden !important; }
         })
       );
       // 2) Listagem via devices/totals do head-office (range de 24h — serve só
-      //    para LISTAR): (a) enriquece a CURADORIA com o label/nome REAL de cada
-      //    medidor (o attr entradaIngestionIds só tem ids — sem isso os cards
-      //    por dispositivo mostravam "Entrada #1/#2"); (b) fallback heurístico
-      //    (profile de trafo + "ENTRADA" no nome − CAG) para shoppings sem attr.
+      //    para LISTAR): (a) enriquece a curadoria @deprecated com o label/nome
+      //    REAL de cada medidor; (b) CAMINHO ATIVO E ÚNICO em produção — filtra
+      //    por profileId ENTRADA (afe5c9ba-...) via `_isEntradaDevice`.
+      //
+      //    Consequência operacional: incluir/excluir um medidor da régua de
+      //    entrada = trocar o profile do device no ingestion. Não há mais
+      //    override por atributo no ThingsBoard.
       const finish = (apiById) => {
         if (curated.length) {
           LogHelper.log(
@@ -5654,7 +5672,12 @@ body.filter-modal-open { overflow: hidden !important; }
       // customer; água consolidada '__ALL__' é uma série única e passa direto).
       const visIngSet = new Set(shops.filter((s) => !isCustHidden(s.tbId)).map((s) => s.ingestionId));
 
-      const gcdrGran = evoGran === '1y' || evoGran === '1M' ? 'month' : evoGran === '1d' ? 'day' : 'hour';
+      // Meta de bucket mensal/anual é somada DIA A DIA (ver goalKeysAt abaixo), então
+      // 1y/1M também precisam da camada `daily` — `granularity=month` NÃO a retorna
+      // (traz só annual + monthly). 'day' é superset: annual + monthly + daily(365).
+      // Custo: mesmo nº de requisições, e normalmente cache HIT — o resumo lateral
+      // já busca 'day' para o mesmo (customer, ano, domínio).
+      const gcdrGran = evoGran === '1h' ? 'hour' : 'day';
       // GET /goals completo por shopping (Addendum A: granularity/devices junto da tree)
       const goalsAll = await Promise.all(
         shops.map((s) => fetchCustomerGoalsTree(s.attrs, cfgD.gcdr, yearGoals, gcdrGran).catch(() => null))
@@ -5667,12 +5690,41 @@ body.filter-modal-open { overflow: hidden !important; }
       let labels;
       let idxByKey = null; // 1d: "MM-DD" → índice (alinha ano-1 no mesmo bucket)
       let monthIdxMap = null; // 1M: mês (1-12) → índice do bucket (meses do período)
-      let goalKeyAt;
+      let goalKeysAt; // (i) → [[level, key], …] — a meta do bucket é a SOMA desses nós
       let ranges;
+
+      // Dias "MM-DD" de um mês, RECORTADOS pela janela efetivamente exibida.
+      // É o que corrige o mês em andamento: buckets mensais/anuais passam a somar
+      // apenas os dias cobertos, em vez de ler o nó `monthly` do mês cheio — que
+      // comparava realizado parcial (01→hoje) contra meta de 31 dias.
+      const dayKeysInMonth = (year, m, fromDay, toDay) => {
+        const total = new Date(year, m, 0).getDate(); // m é 1-based → último dia do mês
+        const ymNum = year * 12 + m;
+        let d0 = 1;
+        let d1 = total;
+        if (fromDay) {
+          const fy = Number(fromDay.slice(0, 4));
+          const fm = Number(fromDay.slice(5, 7));
+          const fNum = fy * 12 + fm;
+          if (fNum > ymNum) return []; // mês inteiro antes do início
+          if (fNum === ymNum) d0 = Math.max(d0, Number(fromDay.slice(8, 10)));
+        }
+        if (toDay) {
+          const ty = Number(toDay.slice(0, 4));
+          const tm = Number(toDay.slice(5, 7));
+          const tNum = ty * 12 + tm;
+          if (tNum < ymNum) return []; // mês inteiro após o fim
+          if (tNum === ymNum) d1 = Math.min(d1, Number(toDay.slice(8, 10)));
+        }
+        const out = [];
+        const mm = String(m).padStart(2, '0');
+        for (let d = d0; d <= d1; d++) out.push(`${mm}-${String(d).padStart(2, '0')}`);
+        return out;
+      };
+
       if (evoGran === '1y') {
         // Ano corrente inteiro, visão mensal Jan–Dez
         labels = MONTHS_PT;
-        goalKeyAt = (i) => ['monthly', String(i + 1).padStart(2, '0')];
         const isCurYear = yearSel === nowD.getFullYear();
         ranges = {
           cur: [
@@ -5681,6 +5733,10 @@ body.filter-modal-open { overflow: hidden !important; }
           ],
           prev: [`${yearSel - 1}-01-01T00:00:00-03:00`, `${yearSel - 1}-12-31T23:59:59-03:00`],
         };
+        // Ano corrente: o mês em curso é parcial (01 → hoje) — a meta acompanha.
+        const covEnd = isoLocalDay(ranges.cur[1]);
+        goalKeysAt = (i) =>
+          dayKeysInMonth(yearSel, i + 1, `${yearSel}-01-01`, covEnd).map((k) => ['daily', k]);
       } else if (evoGran === '1M') {
         // Meses DENTRO do período do picker (ex.: 01–09/07 → só Julho)
         const s0 = isoLocalDay(period.startISO);
@@ -5691,7 +5747,9 @@ body.filter-modal-open { overflow: hidden !important; }
         for (let m = mStart; m <= mEnd; m++) months.push(m);
         monthIdxMap = new Map(months.map((m, i) => [m, i]));
         labels = months.map((m) => MONTHS_PT[m - 1]);
-        goalKeyAt = (i) => ['monthly', String(months[i]).padStart(2, '0')];
+        // Mês parcial nas pontas do range (ex.: 10–15/07 soma só esses 6 dias).
+        const yBucket = Number(s0.slice(0, 4));
+        goalKeysAt = (i) => dayKeysInMonth(yBucket, months[i], s0, e0).map((k) => ['daily', k]);
         ranges = {
           cur: [period.startISO, period.endISO],
           prev: [
@@ -5714,10 +5772,12 @@ body.filter-modal-open { overflow: hidden !important; }
         };
         if (evoGran === '1d') {
           labels = days.map((dd) => dd.label);
-          goalKeyAt = (i) => ['daily', days[i].key];
+          goalKeysAt = (i) => [['daily', days[i].key]];
         } else {
           labels = days.flatMap((dd) => Array.from({ length: 24 }, (_, h) => `${dd.label} ${h}h`));
-          goalKeyAt = (i) => ['hourly', `${days[Math.floor(i / 24)].key}T${String(i % 24).padStart(2, '0')}`];
+          goalKeysAt = (i) => [
+            ['hourly', `${days[Math.floor(i / 24)].key}T${String(i % 24).padStart(2, '0')}`],
+          ];
         }
       }
       const size = labels.length;
@@ -5747,25 +5807,35 @@ body.filter-modal-open { overflow: hidden !important; }
         const v = n?.adjustedValue ?? n?.value;
         return v == null ? null : Number(v) || 0;
       };
-      const goalOf = (tree) =>
-        labels.map((_, i) => {
-          const [lv, k] = goalKeyAt(i);
-          return goalNodeMeta(tree?.[lv]?.[k]);
-        });
+      const goalNodeRaw = (n) => {
+        const v = n?.value;
+        return v == null ? null : Number(v) || 0;
+      };
+      // Meta do bucket = SOMA dos nós cobertos por ele. Bucket sem nenhum nó
+      // presente continua null (série interrompida), e não 0 — zero seria lido
+      // como "meta zerada" no gráfico e nos cards.
+      const sumNodes = (tree, keys, pick) => {
+        let s = 0;
+        let has = false;
+        for (const [lv, k] of keys) {
+          const v = pick(tree?.[lv]?.[k]);
+          if (v != null) {
+            s += v;
+            has = true;
+          }
+        }
+        return has ? s : null;
+      };
+      const goalOf = (tree) => labels.map((_, i) => sumNodes(tree, goalKeysAt(i), goalNodeMeta));
       // Orçado cru (value) — usado pelo Resumo Analítico
-      const goalRawOf = (tree) =>
-        labels.map((_, i) => {
-          const [lv, k] = goalKeyAt(i);
-          const v = tree?.[lv]?.[k]?.value;
-          return v == null ? null : Number(v) || 0;
-        });
+      const goalRawOf = (tree) => labels.map((_, i) => sumNodes(tree, goalKeysAt(i), goalNodeRaw));
       const goalSum = labels.map((_, i) => {
-        const [lv, k] = goalKeyAt(i);
+        const keys = goalKeysAt(i);
         let s = 0;
         let has = false;
         trees.forEach((t, si) => {
           if (isCustHidden(shops[si]?.tbId)) return; // 👁 customer oculto fora da meta somada
-          const v = goalNodeMeta(t?.[lv]?.[k]);
+          const v = sumNodes(t, keys, goalNodeMeta);
           if (v != null) {
             s += v;
             has = true;
@@ -6069,12 +6139,12 @@ body.filter-modal-open { overflow: hidden !important; }
       // linha extra quando difere da Meta (margem de gestão aplicada).
       const tipUnit = cfgD.unit;
       const budgetSum = labels.map((_, i) => {
-        const [lv, k] = goalKeyAt(i);
+        const keys = goalKeysAt(i);
         let s = 0, has = false;
         trees.forEach((tr, si) => {
           if (isCustHidden(shops[si]?.tbId)) return;
-          const v = tr?.[lv]?.[k]?.value;
-          if (v != null) { s += Number(v) || 0; has = true; }
+          const v = sumNodes(tr, keys, goalNodeRaw);
+          if (v != null) { s += v; has = true; }
         });
         return has ? s : null;
       });
@@ -10005,7 +10075,8 @@ function buildEnergyPanelSummary(classified) {
   // Entrada REAL (auditoria 2026-07-07): o datasource TB do head-office só tem parte
   // dos medidores de entrada (a soma parcial dava ~294 MWh vs ~1.000 reais, Área Comum
   // 0 e "Total Consumidores 340% da entrada"). Quando o controller publica o total dos
-  // medidores CANÔNICOS (attr entradaIngestionIds por shopping, via Data API) em
+  // medidores CANÔNICOS (profile ENTRADA via Data API; o attr entradaIngestionIds
+  // citado originalmente aqui está @deprecated — ver getEntradaDevices) em
   // window.MyIOUtils.realEntrada, ele substitui a soma parcial e Área Comum +
   // percentuais são recalculados sobre a entrada verdadeira.
   let entradaFinal = entradaTotal;
