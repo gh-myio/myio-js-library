@@ -1,7 +1,21 @@
 import { describe, it, expect } from 'vitest';
 import { toDayKey, toHourKey } from '../../../../../src/components/premium-modals/internal/engines/DateEngine';
+import { AllReportModal } from '../../../../../src/components/premium-modals/report-all/AllReportModal';
+import type { OpenAllReportParams } from '../../../../../src/components/premium-modals/types';
 
 const HOUR_MS = 60 * 60 * 1000;
+
+function baseParams(overrides: Partial<OpenAllReportParams> = {}): OpenAllReportParams {
+  return {
+    customerId: 'customer-1',
+    domain: 'energy',
+    api: {
+      dataApiBaseUrl: 'https://api.example.com',
+      ingestionToken: 'token',
+    },
+    ...overrides,
+  };
+}
 
 describe('DateEngine.toDayKey / toHourKey (RFC-0223 tz-pinned bucket keys)', () => {
   it('toDayKey is tz-pinned, not UTC-naive (a naive toISOString().slice(0,10) would be wrong here)', () => {
@@ -53,6 +67,36 @@ describe('DateEngine.toDayKey / toHourKey (RFC-0223 tz-pinned bucket keys)', () 
     expect(new Set(hourKeysForDay).size).toBe(24); // but only 24 distinct hour buckets
     const occurrences = hourKeysForDay.filter((k) => k === '2024-11-03T01').length;
     expect(occurrences).toBe(2); // the repeated local hour maps twice into the same key
+  });
+
+  it('L4 (code review): bucketByDay sums a REAL DST fall-back collision, not just a synthetic same-hour-key pair', () => {
+    // allReportModal.sections.test.ts's L4 tests prove the aggregation logic
+    // with two timestamps 15 minutes apart (same hour key by construction).
+    // This test drives the actual mechanism the reviewer described: two
+    // real UTC instants that only collide because of the America/New_York
+    // 2024-11-03 fall-back transition (the same transition as the test
+    // above), fed straight into bucketByDay.
+    const start = new Date('2024-11-03T00:00:00Z').getTime();
+    const collidingTimestamps: number[] = [];
+    for (let i = 0; i < 48; i++) {
+      const t = start + i * HOUR_MS;
+      if (
+        toDayKey(t, 'America/New_York') === '2024-11-03' &&
+        toHourKey(t, 'America/New_York') === '2024-11-03T01'
+      ) {
+        collidingTimestamps.push(t);
+      }
+    }
+    expect(collidingTimestamps.length).toBe(2);
+
+    const modal = new AllReportModal(
+      baseParams({ domain: 'energy', api: { dataApiBaseUrl: 'x', ingestionToken: 'y', timezone: 'America/New_York' } })
+    ) as any;
+    const points = collidingTimestamps.map((timestamp, i) => ({ timestamp, value: i === 0 ? 4 : 6 }));
+    const buckets = modal.bucketByDay(points, ['2024-11-03'], '1h');
+    const day = buckets.get('2024-11-03');
+    expect(day.hours.get('2024-11-03T01')).toBe(10); // 4 + 6, NOT 6 (last-write-wins)
+    expect(day.value).toBe(10);
   });
 
   it('accepts a Date object as well as a numeric timestamp', () => {

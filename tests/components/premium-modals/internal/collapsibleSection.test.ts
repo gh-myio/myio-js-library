@@ -87,6 +87,27 @@ describe('CollapsibleSection leaf row renderer', () => {
     expect(row.children.length).toBe(2);
     expect(row.children[0].textContent).toBe('15/07');
   });
+
+  it('H1 (code review): an encoded ancestor key round-trips through the space-joined data-ancestors serialization even when the source label contains a space', () => {
+    // The renderer itself just joins ancestorKeys with ' ' — callers (e.g.
+    // AllReportModal.sectionGroupKey) are responsible for encoding any key
+    // built from a label. A group label like "Área Comum" must be passed in
+    // pre-encoded (grp:%C3%81rea%20Comum), never as the raw "grp:Área Comum"
+    // — the latter would split into ['grp:Área', 'Comum'], two tokens that
+    // match nothing.
+    const groupLabel = 'Área Comum';
+    const encodedGroupKey = `grp:${encodeURIComponent(groupLabel)}`;
+    const row = parseRow(
+      renderCollapsibleLeafRow({
+        ancestorKeys: [encodedGroupKey, 'dev:123'],
+        level: 2,
+        cells: ['<td>15/07</td>', '<td>10,00</td>'],
+      })
+    );
+    const tokens = (row.dataset.ancestors || '').split(' ').filter(Boolean);
+    expect(tokens).toEqual([encodedGroupKey, 'dev:123']);
+    expect(tokens.length).toBe(2);
+  });
 });
 
 describe('escapeHtml', () => {
