@@ -216,7 +216,13 @@ export const DEFAULT_DEVICE_CLASSIFICATION_PROFILE: DeviceClassificationProfile 
             name: 'climatizacao',
             // CLIMATIZACAO_DEVICE_TYPES_SET
             deviceProfiles: ['CHILLER', 'AR_CONDICIONADO', 'HVAC', 'FANCOIL'],
-            // buildSummary CLIMATIZACAO_PATTERNS (superset of the deviceProfiles)
+            // buildSummary CLIMATIZACAO_PATTERNS (superset of the deviceProfiles).
+            // NB: BOMBA_HIDRAULICA/BOMBASHIDRAULICAS foram REMOVIDOS (2026-07-23):
+            // bomba hidráulica é recalque de água, não climatização — deve cair em
+            // 'outros' (igual a BOMBA_INCENDIO). BOMBA_CAG continua em climatização
+            // via `conditional`/`identifierFallback` (CAG), sem depender destas
+            // strings. Alinhado a equipmentCategory.js (hvacProfiles NÃO inclui bomba
+            // hidráulica) e a openUpsellModal (BOMBA_HIDRAULICA = energy_common_area).
             combinedContains: [
               'CHILLER',
               'FANCOIL',
@@ -225,8 +231,6 @@ export const DEFAULT_DEVICE_CLASSIFICATION_PROFILE: DeviceClassificationProfile 
               'COMPRESSOR',
               'VENTILADOR',
               'CLIMATIZA',
-              'BOMBA_HIDRAULICA',
-              'BOMBASHIDRAULICAS',
             ],
             // CLIMATIZACAO conditional (perfis BOMBA/MOTOR) + identifier requirement
             conditional: {

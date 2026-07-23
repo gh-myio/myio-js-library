@@ -10,9 +10,20 @@
 // human can review (mirror EXPECTED_* in the PR description).
 //
 // Reviewed deltas are surgical: every move is outros -> climatizacao, caused by
-// the combined-text patterns (CLIMATIZA/COMPRESSOR/VENTILADOR/BOMBA_HIDRAULICA),
-// the CHILLER- id prefix, or the conditional CAG fix. No device leaves a
-// specific bucket for a worse one.
+// the combined-text patterns (CLIMATIZA), the CHILLER- id prefix, or the
+// conditional CAG fix. No device leaves a specific bucket for a worse one.
+//
+// TWO intentional divergences from the ORIGINAL (pre-A1b) legacy behavior are
+// now baked into the source and therefore into ORACLE 2 below, so the dual-oracle
+// equivalence holds again:
+//   1) deviceType EM DESUSO (2026-07-14): `combinedOf` no longer reads deviceType,
+//      so a device whose ONLY climatização signal was deviceType (COMPRESSOR /
+//      VENTILADOR) now stays 'outros'. Oracle 2's combined drops deviceType too.
+//   2) BOMBA_HIDRAULICA fix (2026-07-23): hydraulic pumps are water recalque, not
+//      HVAC — the 'BOMBA_HIDRAULICA'/'BOMBASHIDRAULICAS' combined patterns were
+//      removed. A device that only matched via those now stays 'outros' (like
+//      BOMBA_INCENDIO). BOMBA_CAG is unaffected (matches via conditional/identifier
+//      CAG). Oracle 2's CLIMATIZACAO_PATTERNS drops the two bomba patterns.
 
 import { describe, it, expect } from 'vitest';
 import { resolveCategory, resolveGroup } from '../src/utils/devices/deviceClassificationProfile';
@@ -79,16 +90,20 @@ function legacyClassifyCategory(item: Item): string {
 // Only ever runs on the areacomum set; returns one of the 4 breakdown buckets.
 // ===========================================================================
 
+// Mirrors the CURRENT source combinedContains for climatizacao (bomba patterns
+// removed 2026-07-23 — hydraulic pumps are not HVAC).
 const CLIMATIZACAO_PATTERNS = [
   'CHILLER', 'FANCOIL', 'HVAC', 'AR_CONDICIONADO', 'COMPRESSOR',
-  'VENTILADOR', 'CLIMATIZA', 'BOMBA_HIDRAULICA', 'BOMBASHIDRAULICAS',
+  'VENTILADOR', 'CLIMATIZA',
 ];
 const ELEVADOR_PATTERNS = ['ELEVADOR'];
 const ESCADA_PATTERNS = ['ESCADA', 'ROLANTE'];
 
 function legacyBuildSummaryTop(item: Item): string {
   const toStr = (v: unknown) => String(v || '').toUpperCase();
-  const combined = `${toStr(item.labelWidget)} ${toStr(item.deviceType)} ${toStr(item.deviceProfile)} ${toStr(item.label)}`;
+  // deviceType EM DESUSO (2026-07-14): removed from combined to mirror the source
+  // `combinedOf` (labelWidget + deviceProfile + label).
+  const combined = `${toStr(item.labelWidget)} ${toStr(item.deviceProfile)} ${toStr(item.label)}`;
   const id = toStr(item.identifier);
   const isElevadorById = id.startsWith('ELV-');
   const isEscadaById = id.startsWith('ESC-');
@@ -136,11 +151,11 @@ function keyOf(d: Item): string {
 // substring) + A1b (combined-text + CHILLER- prefix) moves:
 const EXPECTED_VS_CLASSIFYDEVICE = new Set([
   'BOMBA|BOMBA CAG 2||',          // A1: conditional CAG substring
-  'BOMBA|X||Climatizador Central', // A1b: combined CLIMATIZA
-  'MOTOR|Y|COMPRESSOR|',           // A1b: combined COMPRESSOR
-  'BOMBA|Z||BOMBA_HIDRAULICA',     // A1b: combined BOMBA_HIDRAULICA
-  '|W|VENTILADOR|',                // A1b: combined VENTILADOR
+  'BOMBA|X||Climatizador Central', // A1b: combined CLIMATIZA (label)
   'BOMBA|CHILLER-1||',             // A1b: CHILLER- id prefix
+  // NB: COMPRESSOR/VENTILADOR (deviceType-only) e BOMBA_HIDRAULICA (label) NÃO
+  // constam mais — deviceType saiu do combined (2026-07-14) e as strings de bomba
+  // saíram do combinedContains (2026-07-23); todos permanecem 'outros'.
 ]);
 // vs buildSummary (only catches CAG-/FANCOIL-/CHILLER- prefixes, never bare CAG):
 const EXPECTED_VS_BUILDSUMMARY = new Set([
@@ -215,5 +230,19 @@ describe('deviceClassificationProfile — A1b buildSummary unification (dual-ora
       category: 'climatizacao',
       matchedBy: 'combined',
     });
+  });
+
+  // 2026-07-23 — bomba hidráulica NÃO é climatização (recalque de água).
+  it('BOMBA_HIDRAULICA deviceProfile classifica como outros (não climatização)', () => {
+    expect(resolveCategory({ deviceProfile: 'BOMBA_HIDRAULICA', identifier: 'BAG-01' }).category).toBe('outros');
+    // idem quando só o texto combinado carrega a string (label/labelWidget)
+    expect(resolveCategory({ deviceProfile: 'BOMBA', identifier: 'Z', label: 'BOMBA_HIDRAULICA' }).category).toBe('outros');
+    // paralelo com BOMBA_INCENDIO (que sempre foi 'outros')
+    expect(resolveCategory({ deviceProfile: 'BOMBA_INCENDIO', identifier: 'BI-01' }).category).toBe('outros');
+  });
+
+  it('BOMBA_CAG continua em climatização via identifier CAG (intocado pelo fix da bomba)', () => {
+    expect(resolveCategory({ deviceProfile: 'BOMBA_CAG', identifier: 'CAG-01' }).category).toBe('climatizacao');
+    expect(resolveCategory({ deviceProfile: 'BOMBA', identifier: 'CAG' }).category).toBe('climatizacao');
   });
 });
