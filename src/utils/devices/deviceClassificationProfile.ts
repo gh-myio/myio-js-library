@@ -21,10 +21,17 @@
 export interface ClassifiableItem {
   deviceProfile?: string | null;
   identifier?: string | null;
-  /** Free-text fields used by the breakdown's combined-substring matching (RFC-0207 A1b). */
+  /**
+   * @deprecated NÃO é lido pelo classificador (RFC-0207, 2026-07-23).
+   * `labelWidget` é a SAÍDA ANTERIOR do próprio classificador (inferLabelWidget);
+   * lê-lo criava um laço circular auto-sustentado (um item carimbado
+   * "Climatização" voltava a casar com o padrão `CLIMATIZA` independentemente do
+   * `deviceProfile`). Mantido no tipo só porque os itens do dashboard o carregam.
+   */
   labelWidget?: string | null;
   /** @deprecated EM DESUSO (2026-07-14) — nunca é lido; classificação usa só deviceProfile/identifier. */
   deviceType?: string | null;
+  /** @deprecated NÃO é lido pelo classificador — classificar por nome/label é proibido (RFC-0207 §J). */
   label?: string | null;
   [key: string]: unknown;
 }
@@ -60,6 +67,14 @@ export type CategoryName =
   | 'outros';
 export type CategoryMatchedBy =
   | 'deviceProfile'
+  /** Substring hit on `deviceProfile` (rule `profileContains`). */
+  | 'profileContains'
+  /**
+   * @deprecated RFC-0207 (2026-07-23) — nunca mais emitido. Era o hit sobre o
+   * texto combinado (labelWidget + deviceProfile + label); o texto combinado foi
+   * eliminado (laço circular do `labelWidget` + proibição de casar por nome).
+   * Mantido na união só para não quebrar narrowing de consumidores antigos.
+   */
   | 'combined'
   | 'identifier'
   | 'conditional'
@@ -97,13 +112,24 @@ export interface ConditionalRule extends IdentifierMatch {
 /** A single (non-fallback) category rule. */
 export interface CategoryRule {
   name: Exclude<CategoryName, 'lojas'>; // lojas is handled by the store shortcut
-  /** Exact deviceProfile matches (the legacy "deviceTypes" Set). */
+  /** Exact deviceProfile matches (a legacy "deviceTypes" Set). */
   deviceProfiles: string[];
   /**
-   * Substring patterns over the COMBINED text (labelWidget + deviceProfile +
-   * label — deviceType em desuso, removido 2026-07-14), mirroring
-   * buildSummary's loose matching (A1b). This is what unifies the breakdown
-   * subcategorization into one source.
+   * Substring patterns over `deviceProfile` (ex.: `CHILLER` casa
+   * `CHILLER_SECUNDARIO`). Value list limitada — nunca um predicado.
+   *
+   * RFC-0207 (2026-07-23): substitui `combinedContains`, que casava sobre o
+   * texto COMBINADO `labelWidget + deviceProfile + label`. Duas coisas estavam
+   * erradas ali: (a) `labelWidget` é a saída anterior do próprio classificador →
+   * laço circular; (b) `label` é nome livre, e classificar por nome é proibido.
+   * `normalizeProfile` migra `combinedContains` → `profileContains` (perfis já
+   * salvos continuam válidos).
+   */
+  profileContains?: string[];
+  /**
+   * @deprecated RFC-0207 (2026-07-23) — renomeado para `profileContains` e o
+   * texto combinado deixou de existir. Perfis persistidos com esta chave são
+   * migrados por `normalizeProfile`; o motor NÃO lê este campo.
    */
   combinedContains?: string[];
   /** climatizacao-only conditional ({BOMBA,MOTOR} + identifier hit). */
@@ -194,7 +220,7 @@ export const DEFAULT_DEVICE_CLASSIFICATION_PROFILE: DeviceClassificationProfile 
             name: 'elevadores',
             // ELEVADORES_DEVICE_TYPES_SET + buildSummary ELEVADOR_PATTERNS
             deviceProfiles: ['ELEVADOR'],
-            combinedContains: ['ELEVADOR'],
+            profileContains: ['ELEVADOR'],
             identifierFallback: {
               // ELEVADORES_IDENTIFIERS_SET + buildSummary id prefix ELV-
               identifierEquals: ['ELV', 'ELEVADOR', 'ELEVADORES'],
@@ -205,7 +231,7 @@ export const DEFAULT_DEVICE_CLASSIFICATION_PROFILE: DeviceClassificationProfile 
             name: 'escadas_rolantes',
             // ESCADAS_DEVICE_TYPES_SET + buildSummary ESCADA_PATTERNS
             deviceProfiles: ['ESCADA_ROLANTE'],
-            combinedContains: ['ESCADA', 'ROLANTE'],
+            profileContains: ['ESCADA', 'ROLANTE'],
             identifierFallback: {
               // ESCADAS_IDENTIFIERS_SET + buildSummary id prefix ESC-
               identifierEquals: ['ESC', 'ESCADA', 'ESCADASROLANTES'],
@@ -223,7 +249,7 @@ export const DEFAULT_DEVICE_CLASSIFICATION_PROFILE: DeviceClassificationProfile 
             // via `conditional`/`identifierFallback` (CAG), sem depender destas
             // strings. Alinhado a equipmentCategory.js (hvacProfiles NÃO inclui bomba
             // hidráulica) e a openUpsellModal (BOMBA_HIDRAULICA = energy_common_area).
-            combinedContains: [
+            profileContains: [
               'CHILLER',
               'FANCOIL',
               'HVAC',
@@ -328,13 +354,22 @@ function identifierOf(item: ClassifiableItem | null | undefined): string {
 }
 
 /**
- * combined: `${labelWidget} ${deviceProfile} ${label}` (upper-cased).
- * deviceType está EM DESUSO e foi removido do texto combinado (2026-07-14).
- * Identifier is intentionally NOT included (buildSummary keeps it separate).
+ * RFC-0207 (2026-07-23) — o texto COMBINADO foi eliminado.
+ *
+ * Antes: `combinedOf(item) = labelWidget + deviceProfile + label`, avaliado
+ * contra `rule.combinedContains`. Dois defeitos estruturais:
+ *
+ *  1. **Laço circular** — `labelWidget` é a SAÍDA ANTERIOR do classificador
+ *     (`inferLabelWidget`). Um item carimbado "Climatização" voltava a casar
+ *     com o padrão `CLIMATIZA` e se auto-sustentava, independentemente do
+ *     `deviceProfile`. Foi assim que uma bomba hidráulica ficou presa em
+ *     climatização no Moxuara mesmo depois do fix do seed.
+ *  2. **Classificação por nome** — `label` é texto livre do cadastro;
+ *     classificar por nome é proibido (`deviceProfile` é a autoridade).
+ *
+ * O que sobrou é substring sobre `deviceProfile` — hoje a regra
+ * `profileContains`, avaliada direto em `profileOf(item)`.
  */
-function combinedOf(item: ClassifiableItem | null | undefined): string {
-  return `${up(item?.labelWidget ?? '')} ${up(item?.deviceProfile ?? '')} ${up(item?.label ?? '')}`;
-}
 
 /** Mirrors an IdentifierMatch against an already-normalized (trim+upper) id. */
 function matchesIdentifier(id: string, m: IdentifierMatch | undefined): boolean {
@@ -416,10 +451,10 @@ export function resolveGroup(
 //            deviceProfiles. This keeps precise profile matches winning over the
 //            loose text signals (so e.g. an ELEVADOR with a "CAG" label stays an
 //            elevador, matching legacy classifyDevice).
-//   Pass 2 — loose, in rule order (= buildSummary precedence): combinedContains
-//            (text), then conditional (BOMBA/MOTOR + identifier), then the
-//            identifier fallback (equals/contains/prefixes — now unconditional,
-//            like buildSummary's id-prefix checks).
+//   Pass 2 — loose, in rule order (= buildSummary precedence): profileContains
+//            (substring sobre deviceProfile), then conditional (BOMBA/MOTOR +
+//            identifier), then the identifier fallback (equals/contains/prefixes
+//            — now unconditional, like buildSummary's id-prefix checks).
 //   else  — outros / fallback (the genuine-orphan signal).
 //
 // This is a deliberate behavior change vs BOTH legacy paths; the dual-oracle
@@ -457,14 +492,14 @@ export function resolveCategory(
   }
 
   // Pass 2 — loose, in rule order (buildSummary precedence).
-  const combined = combinedOf(item);
   const id = identifierOf(item);
   for (const rule of rules) {
-    // combinedContains (text substring)
-    if (rule.combinedContains) {
-      for (const pattern of rule.combinedContains) {
-        if (combined.includes(up(pattern))) {
-          return { category: rule.name, matchedBy: 'combined' };
+    // profileContains — substring sobre deviceProfile APENAS.
+    // (Nunca sobre labelWidget/label: ver a nota do laço circular acima.)
+    if (dp && rule.profileContains) {
+      for (const pattern of rule.profileContains) {
+        if (dp.includes(up(pattern))) {
+          return { category: rule.name, matchedBy: 'profileContains' };
         }
       }
     }
@@ -560,6 +595,17 @@ export function validateProfile(profile: DeviceClassificationProfile): string[] 
         if (!Array.isArray(r.deviceProfiles)) {
           errors.push(`${domain}.categories.rules["${r?.name}"]: missing deviceProfiles array`);
         }
+        // RFC-0207 (2026-07-23) — `profileContains` passou a ser contrato vivo E
+        // renderizado pelo editor; valida a forma. A chave legada
+        // `combinedContains` é TOLERADA aqui (migrada por normalizeProfile) para
+        // não invalidar perfis já persistidos — resolveActiveProfile valida ANTES
+        // de normalizar.
+        if (r.profileContains !== undefined && !Array.isArray(r.profileContains)) {
+          errors.push(`${domain}.categories.rules["${r?.name}"].profileContains: must be an array`);
+        }
+        if (r.combinedContains !== undefined && !Array.isArray(r.combinedContains)) {
+          errors.push(`${domain}.categories.rules["${r?.name}"].combinedContains: must be an array`);
+        }
       }
       // exactly one fallback across the category family (the 'outros' bucket)
       const inlineFallbacks = catRules.filter((r) => r.fallback === true).length;
@@ -622,7 +668,17 @@ export function normalizeProfile(raw: DeviceClassificationProfile): DeviceClassi
       }
       for (const r of dom.categories.rules ?? []) {
         r.deviceProfiles = upArr(r.deviceProfiles) ?? [];
-        r.combinedContains = upArr(r.combinedContains);
+        // RFC-0207 (2026-07-23): migração de chave `combinedContains` →
+        // `profileContains`. Os VALORES são preservados 1:1; o que muda é o
+        // texto sobre o qual eles são avaliados (só `deviceProfile` agora, sem
+        // `labelWidget`/`label`). Perfis já persistidos continuam válidos.
+        const _pc = upArr(r.profileContains);
+        const _legacy = upArr(r.combinedContains);
+        if (_pc || _legacy) {
+          const merged = [..._pc ?? [], ..._legacy ?? []];
+          r.profileContains = merged.filter((v, i) => merged.indexOf(v) === i);
+        }
+        delete r.combinedContains;
         if (r.conditional) {
           // Compat: perfis JSON legados usavam a chave "deviceTypes" (que sempre
           // comparou contra o deviceProfile) — normaliza para deviceProfiles.

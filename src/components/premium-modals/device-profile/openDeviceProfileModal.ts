@@ -31,6 +31,7 @@ import {
   resolveGroup,
   resolveCategory,
   validateProfile,
+  normalizeProfile,
   setActiveProfile,
   type DeviceClassificationProfile,
   type DomainProfile,
@@ -107,9 +108,12 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
   } = params;
   void customerId; // retained in the public params for call-site compat; not used for I/O
 
-  // Working copy (never mutate the live profile until save)
-  const working: DeviceClassificationProfile = deepClone(
-    params.profile || DEFAULT_DEVICE_CLASSIFICATION_PROFILE,
+  // Working copy (never mutate the live profile until save).
+  // `normalizeProfile` também aplica a migração de chaves RFC-0207
+  // (`combinedContains` → `profileContains`), de modo que um perfil salvo antes
+  // de 2026-07-23 abre no editor já no vocabulário renderizável.
+  const working: DeviceClassificationProfile = normalizeProfile(
+    deepClone(params.profile || DEFAULT_DEVICE_CLASSIFICATION_PROFILE),
   );
   working.domains = working.domains || ({} as DeviceClassificationProfile['domains']);
   // Seed any missing domain from DEFAULT so every tab is editable. A custom
@@ -340,11 +344,13 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
             accent: accentFor(r.name),
             infoIcon: '🔧',
             infoHtml: cardInfoText(
-              `Breakdown <b>${escHtml(r.name)}</b> (precedência): 1) deviceProfile exato; 2) identifier contém/prefixo.`,
+              `Breakdown <b>${escHtml(r.name)}</b> (precedência): 1) <b>deviceProfile</b> exato; 2) <b>deviceProfile contém</b> (substring); 3) identifier contém/prefixo.<br><br>
+               Só o <b>deviceProfile</b> e o <b>identifier</b> são avaliados — nunca o nome/label do device.`,
             ),
           },
           `
             <div class="mdp-field"><label>deviceProfile</label>${chipList(`cat-${i}-dp`, r.deviceProfiles || [], ro)}</div>
+            <div class="mdp-field"><label>deviceProfile contém</label>${chipList(`cat-${i}-pc`, r.profileContains || [], ro)}</div>
             <div class="mdp-field"><label>identifier contém</label>${chipList(`cat-${i}-idc`, r.identifierFallback?.identifierContains || [], ro)}</div>
             <div class="mdp-field"><label>identifier prefixo</label>${chipList(`cat-${i}-idp`, r.identifierFallback?.identifierPrefixes || [], ro)}</div>`,
         ),
@@ -417,11 +423,15 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
     // cat-* keys only ever render on the energy tab (only energy has categories)
     const cats = d.categories;
     if (!cats) return null;
-    m = key.match(/^cat-(\d+)-(dp|cc|idc|idp)$/);
+    m = key.match(/^cat-(\d+)-(dp|pc|idc|idp)$/);
     if (m) {
       const rule = cats.rules[Number(m[1])];
       if (m[2] === 'dp') return (rule.deviceProfiles = rule.deviceProfiles || []);
-      if (m[2] === 'cc') return (rule.combinedContains = rule.combinedContains || []);
+      // RFC-0207 (2026-07-23): `profileContains` (substring sobre deviceProfile)
+      // agora é RENDERIZADO (campo "deviceProfile contém"), fechando o achado 3 da
+      // auditoria — o motor avaliava um campo que nenhum editor alcançava. A chave
+      // legada `cc`/`combinedContains` deixou de existir (migrada em normalizeProfile).
+      if (m[2] === 'pc') return (rule.profileContains = rule.profileContains || []);
       rule.identifierFallback = rule.identifierFallback || {};
       if (m[2] === 'idc')
         return (rule.identifierFallback.identifierContains = rule.identifierFallback.identifierContains || []);

@@ -216,6 +216,47 @@ export {
   listDomains,
   listGroups,
 } from './utils/devices/deviceClassificationProfile.js';
+// RFC-0207 v2/v3.1: árvore recursiva de nós + walker genérico (group-generic).
+// ADITIVO: `resolveGroup`/`resolveCategory` (v1) continuam sendo o caminho que o
+// dashboard executa; o walker é provado equivalente sobre a árvore levantada do
+// seed (tests/deviceClassificationProfile.treeWalker.test.ts) e é a base do tier-2.
+export {
+  resolveClassification,
+  resolveSubcategory,
+  liftProfileToTree,
+  validateTree,
+  findNode,
+  flattenTree,
+} from './utils/devices/classificationNodeTree';
+export type {
+  ClassificationNode,
+  NodeRules,
+  NodeFormula,
+  NodeRole,
+  NodeMatchedBy,
+  ClassificationResolution,
+} from './utils/devices/classificationNodeTree';
+
+// RFC-0207 v3.1: engine × store seam. A lib é dona da INTERFACE `ProfileSource`,
+// do `BakedProfileSource` (piso offline versionado) e da cadeia de degradação;
+// as fontes CONCRETAS de I/O (TB attribute / GCDR resolve) vivem no MAIN_VIEW —
+// **a lib nunca faz fetch e nunca escreve no ThingsBoard** (§B/§D).
+export {
+  createBakedProfileSource,
+  resolveWithFallback,
+  isBakedStale,
+} from './utils/devices/profileSource';
+export type {
+  ProfileSource,
+  ResolvedProfile,
+  ProfileSourceKind,
+  ResolveWithFallbackOptions,
+} from './utils/devices/profileSource';
+export {
+  BAKED_PROFILE_VERSION,
+  BAKED_PROFILE_KEYS,
+} from './utils/devices/bakedProfile.generated';
+
 // RFC-0047: adapter for the GCDR entities classification tree (domain/column/profile)
 export { parseClassificationEntities } from './utils/devices/classificationTree';
 export type {

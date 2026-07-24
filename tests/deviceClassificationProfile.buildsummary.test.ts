@@ -24,6 +24,12 @@
 //      removed. A device that only matched via those now stays 'outros' (like
 //      BOMBA_INCENDIO). BOMBA_CAG is unaffected (matches via conditional/identifier
 //      CAG). Oracle 2's CLIMATIZACAO_PATTERNS drops the two bomba patterns.
+//   3) TEXTO COMBINADO ELIMINADO (2026-07-23, RFC-0207): `combinedContains` virou
+//      `profileContains` — substring sobre `deviceProfile` APENAS. `labelWidget`
+//      (saída anterior do próprio classificador → laço circular) e `label` (nome
+//      livre; classificar por nome é proibido) saíram do match. O oráculo 2 abaixo
+//      passa a casar seus padrões sobre o deviceProfile. A migração device-a-device
+//      está em tests/deviceClassificationProfile.profileContains.test.ts.
 
 import { describe, it, expect } from 'vitest';
 import { resolveCategory, resolveGroup } from '../src/utils/devices/deviceClassificationProfile';
@@ -90,7 +96,7 @@ function legacyClassifyCategory(item: Item): string {
 // Only ever runs on the areacomum set; returns one of the 4 breakdown buckets.
 // ===========================================================================
 
-// Mirrors the CURRENT source combinedContains for climatizacao (bomba patterns
+// Mirrors the CURRENT source profileContains for climatizacao (bomba patterns
 // removed 2026-07-23 — hydraulic pumps are not HVAC).
 const CLIMATIZACAO_PATTERNS = [
   'CHILLER', 'FANCOIL', 'HVAC', 'AR_CONDICIONADO', 'COMPRESSOR',
@@ -101,9 +107,9 @@ const ESCADA_PATTERNS = ['ESCADA', 'ROLANTE'];
 
 function legacyBuildSummaryTop(item: Item): string {
   const toStr = (v: unknown) => String(v || '').toUpperCase();
-  // deviceType EM DESUSO (2026-07-14): removed from combined to mirror the source
-  // `combinedOf` (labelWidget + deviceProfile + label).
-  const combined = `${toStr(item.labelWidget)} ${toStr(item.deviceProfile)} ${toStr(item.label)}`;
+  // RFC-0207 (2026-07-23): o alvo do match é o `deviceProfile`, não mais o texto
+  // combinado (labelWidget + deviceProfile + label). Ver o cabeçalho, ponto 3.
+  const combined = toStr(item.deviceProfile);
   const id = toStr(item.identifier);
   const isElevadorById = id.startsWith('ELV-');
   const isEscadaById = id.startsWith('ESC-');
@@ -151,11 +157,13 @@ function keyOf(d: Item): string {
 // substring) + A1b (combined-text + CHILLER- prefix) moves:
 const EXPECTED_VS_CLASSIFYDEVICE = new Set([
   'BOMBA|BOMBA CAG 2||',          // A1: conditional CAG substring
-  'BOMBA|X||Climatizador Central', // A1b: combined CLIMATIZA (label)
   'BOMBA|CHILLER-1||',             // A1b: CHILLER- id prefix
   // NB: COMPRESSOR/VENTILADOR (deviceType-only) e BOMBA_HIDRAULICA (label) NÃO
   // constam mais — deviceType saiu do combined (2026-07-14) e as strings de bomba
-  // saíram do combinedContains (2026-07-23); todos permanecem 'outros'.
+  // saíram do seed (2026-07-23); todos permanecem 'outros'.
+  // NB2: 'BOMBA|X||Climatizador Central' saiu (2026-07-23): o sinal era o `label`,
+  // e classificar por nome deixou de ser permitido — ver
+  // tests/deviceClassificationProfile.profileContains.test.ts.
 ]);
 // vs buildSummary (only catches CAG-/FANCOIL-/CHILLER- prefixes, never bare CAG):
 const EXPECTED_VS_BUILDSUMMARY = new Set([
@@ -225,10 +233,16 @@ describe('deviceClassificationProfile — A1b buildSummary unification (dual-ora
     });
   });
 
-  it('combined-text match reports matchedBy: combined', () => {
-    expect(resolveCategory({ deviceProfile: 'BOMBA', identifier: 'X', label: 'Climatizador' })).toEqual({
+  it('profileContains match reports matchedBy: profileContains (e o label é ignorado)', () => {
+    // substring sobre o deviceProfile → casa
+    expect(resolveCategory({ deviceProfile: 'CLIMATIZACAO_CENTRAL', identifier: 'X' })).toEqual({
       category: 'climatizacao',
-      matchedBy: 'combined',
+      matchedBy: 'profileContains',
+    });
+    // o mesmo texto no `label` NÃO casa mais (RFC-0207, 2026-07-23)
+    expect(resolveCategory({ deviceProfile: 'BOMBA', identifier: 'X', label: 'Climatizador' })).toEqual({
+      category: 'outros',
+      matchedBy: 'fallback',
     });
   });
 

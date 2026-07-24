@@ -2,11 +2,12 @@
 
 - **RFC**: 0207
 - **Title**: Customer-Scoped Device Classification Profile (SERVER_SCOPE JSON + MENU management modal)
-- **Status** *(revisado contra o código em 2026-07-23 — ver § Estado verificado)*:
+- **Status** *(revisado contra o código em 2026-07-23 — ver § Estado verificado e § Implementação 2026-07-23)*:
   - **v1 — Implemented.** A0/A1/A1b: resolver único (`resolveGroup`/`resolveCategory`), correções dos bugs #1/#2, golden-tested.
-  - **Phase B — PARTIAL.** O **load** do atributo customer `deviceClassificationProfile` (TB SERVER_SCOPE) em `MAIN_VIEW.onInit` está implementado, e o modal premium do MENU `openDeviceProfileModal` faz **view/edit/preview**. **A persistência NÃO está operacional**: o MENU delega a `window.MyIOOrchestrator.saveDeviceClassificationProfile`, que **não existe em nenhum lugar do repositório** — salvar pelo modal lança erro. Branch `feat/rfc-0207-b-attribute-and-menu` → PR to `desenv`.
-  - **v2 — DESIGN ONLY (2026-06-23).** Árvore configurável de grupos/subcategorias (criar grupos à vontade, aninhar subcategorias, labels por config, alocação única, UPPERCASE, catálogo de deviceProfile, nós computados). **Não implementado** — o motor ainda roda `schemaVersion: 1` com regras planas. See **§ Addendum — RFC-0207 v2**.
-  - **v3 / v3.2 — DESIGN ONLY, canonical-to-implement (2026-06-23).** Engine/tree seam + `ProfileSource` swappable + divisão de responsabilidades travada (lib × MAIN_VIEW × GCDR) + store GCDR via RFC-0047. Consolida a série de feedback (GCDR v1→v5 + MyIO-Lib v4) e **absorve o arquivo `RFC-0207-v3` e os docs de feedback/reconciliação (removidos)**. **Nenhum artefato v3 existe no código** (`ProfileSource`, `BakedProfileSource`, `TbAttributeProfileSource`, `GcdrResolveProfileSource`, `resolveClassification`, `resolveSubcategory`: zero ocorrências). See **§ Addendum — RFC-0207 v3 (FINAL, compiled)** — é o contrato final a implementar, não o estado atual.
+  - **Phase B — Implemented (store = TB SERVER_SCOPE).** Load **e** save operacionais, ambos no MAIN_VIEW e contra a mesma chave (`deviceClassificationProfile`, SERVER_SCOPE do customer). `window.MyIOOrchestrator.saveDeviceClassificationProfile` existe. Ver § Implementação 2026-07-23 → D-1.
+  - **v2 — PARCIALMENTE implementado (motor pronto, produção ainda no v1).** A árvore recursiva, o walker genérico group-generic, a migração v1→v2 e a validação de invariantes existem e são golden-tested (`src/utils/devices/classificationNodeTree.ts`). O caminho que o dashboard **executa** continua sendo o par `resolveGroup`/`resolveCategory` (`schemaVersion: 1`) — a troca é um passo separado, com sua própria fronteira de reversão, porque **não é equivalente** (ver D-4). O editor do modal ainda edita o modelo plano.
+  - **v3.1 — Implemented.** `ProfileSource` + `BakedProfileSource` versionado + cadeia de degradação testada por fault injection + `TbAttributeProfileSource`/`GcdrResolveProfileSource` no MAIN_VIEW + goldens key-parity e order-sensitivity.
+  - **v3.2 — DESIGN ONLY.** A mecânica HTTP do `GcdrResolveProfileSource` (304/versionamento/cache) está implementada atrás de flag **desligada**; o **adaptador `entities ↔ ClassificationNode`** e o save via `/entities/bulk-replace` **não estão** — dependem do trabalho de backend que o próprio §v3.2-G lista. Ver D-2.
 - **Author**: Rodrigo Lago
 - **Created**: 2026-06-18
 - **Target**: `src/thingsboard/main-dashboard-shopping/v-5.2.0/WIDGET/` (MAIN_VIEW, MENU, TELEMETRY, TELEMETRY_INFO) + `src/utils/`
@@ -122,11 +123,16 @@ existia. Foi escrito em `14ad6257` (2026-07-23), junto com a correção:
 - `BOMBA_INCENDIO` → `outros` — mesmo teste
 - `BOMBA_CAG` → `climatizacao` — `tests/deviceClassificationProfile.buildsummary.test.ts:244`
 
-Ainda ausentes, e **não testáveis hoje** porque dependem de artefatos v3 inexistentes:
+Os outros dois foram escritos junto com os artefatos v3 de que dependiam
+(§ Implementação 2026-07-23):
 
-- **key-parity** (`keys(engine) === keys(baked) === GCDR is_system keys`) — exige `BakedProfileSource`.
-- **order-sensitivity** (o fallback nunca sombreia um irmão real) — exige `order` explícito por nó,
-  ausente no `schemaVersion: 1`.
+- ✅ **key-parity** (`keys(engine) === keys(baked)`) — `tests/deviceClassificationProfile.keyParity.test.ts`,
+  reconciliado pelo arquivo commitado `src/utils/devices/bakedProfile.generated.ts`, **nunca por rede**.
+  A terceira perna (`=== GCDR is_system keys`) entra na v3.2, pelo mesmo mecanismo de arquivo.
+- ✅ **order-sensitivity** (o fallback nunca sombreia um irmão real) —
+  `tests/deviceClassificationProfile.treeWalker.test.ts`, sobre a árvore v2 com `order` inteiro
+  explícito por nó. Cobre também "a ordem do array não decide nada" e a rejeição, por
+  `validateTree`, de um fallback que não seja o maior `order` do nível.
 
 O mesmo commit trouxe os oráculos legados do `buildsummary.test.ts` de volta à realidade da fonte
 (o `deviceType` saiu do `combinedOf` em 2026-07-14 e o teste nunca acompanhou, ficando vermelho em
@@ -134,19 +140,107 @@ O mesmo commit trouxe os oráculos legados do `buildsummary.test.ts` de volta à
 
 ### Backlog
 
-1. **Fechar a Phase B de verdade:** implementar `window.MyIOOrchestrator.saveDeviceClassificationProfile`
-   em `MAIN_VIEW` (a §D o coloca lá como dono), **ou** rebaixar explicitamente o modal para
-   read/edit/preview sem save. Hoje o botão promete o que não entrega.
-2. **Escolher e documentar o store de transição:** manter TB `SERVER_SCOPE` até a v3.2, ou migrar
-   direto para GCDR. O RFC hoje mistura as duas leituras.
-3. **Resolver o contrato de regras:** enquanto `combinedContains` for avaliado pelo motor, ou o
-   editor o expõe/valida/testa, ou ele sai do motor e do seed numa migração coordenada com teste de
-   equivalência. Manter vivo e invisível é a pior das três opções. Tratar o laço circular do
-   `labelWidget` no mesmo lote.
-4. **Separar RFC implementado de RFC futuro:** congelar o RFC-0207 como v1 implementado/parcial e
-   abrir um RFC sucessor para v3/v3.2. **Esta é a correção de causa raiz** — enquanto um único
-   arquivo tentar ser registro de entrega e especificação de futuro ao mesmo tempo, o campo `Status`
-   vai voltar a divergir do código.
+1. ✅ **Fechar a Phase B de verdade** — feito. `saveDeviceClassificationProfile` implementado no
+   `MAIN_VIEW`. Ver § Implementação 2026-07-23 → **D-1**.
+2. ✅ **Escolher e documentar o store de transição** — **TB `SERVER_SCOPE` até a v3.2**, com load e
+   save simétricos. Ver **D-1**.
+3. ✅ **Resolver o contrato de regras** — `combinedContains` foi **exposto** (renomeado
+   `profileContains`, campo renderizado no modal), e o laço circular do `labelWidget` morreu no mesmo
+   lote com a eliminação do texto combinado. Migração device-a-device em
+   `tests/deviceClassificationProfile.profileContains.test.ts`. Ver **D-3**.
+4. ⬜ **Separar RFC implementado de RFC futuro** — **não feito** (decisão de governança do
+   mantenedor; PO-I em aberto). Segue sendo a correção de causa raiz: enquanto um único arquivo
+   tentar ser registro de entrega e especificação de futuro ao mesmo tempo, o campo `Status` vai
+   voltar a divergir do código. Ver **D-5**.
+
+---
+
+## Implementação 2026-07-23 — decisões travadas
+
+> Fechamento do backlog acima. Cada decisão registra o que foi escolhido, contra
+> o que, e onde está a evidência. O que **não** foi feito está em D-4 e D-5, dito
+> com todas as letras.
+
+### D-1 — Store da v3.1: **ThingsBoard SERVER_SCOPE**, load e save simétricos
+
+Fecha o **achado 1** (persistência inexistente) e o **achado 2** (store ambíguo).
+
+- `window.MyIOOrchestrator.saveDeviceClassificationProfile` **existe**, implementado
+  no MAIN_VIEW (§D o coloca lá como dono). O botão "Salvar perfil" persiste.
+- **Por que TB e não GCDR.** O §E deste RFC define, para a v3.1, `Store: TB attr +
+  baked`; só a v3.2 troca para o GCDR. O código já **lia** do SERVER_SCOPE. Escolher
+  o GCDR agora produziria exatamente o par assimétrico que o achado 2 condena — ou
+  pior: um save contra um contrato (`/entities/bulk-replace`, adaptador
+  `entities ↔ ClassificationNode`) que o §v3.2-G lista como **trabalho restante do
+  backend**. Quem lê e quem escreve usam a mesma chave, o mesmo escopo, a mesma
+  entidade.
+- Ordem do save: **validar → persistir → só então aplicar em memória**. Um save que
+  falha não pode deixar o dashboard classificando por um perfil que o store não tem
+  (o próximo F5 desfaria a classificação sem aviso).
+- O MENU continua **endpoint-agnóstico**: não conhece chave nem URL.
+
+### D-2 — `GcdrResolveProfileSource`: mecânica pronta, adaptador pendente
+
+Atrás da flag **desligada** `window.MyIOUtils.rfc0207UseGcdrStore`.
+
+- **Implementado:** `GET /api/v1/entities/resolve?customerId=&type=CLASSIFICATION_<DOMAIN>`,
+  `X-Version-Id` → `If-None-Match` → **304 sem corpo**, cache por
+  `(customerId, domain, version)` (§v3.2-F.3).
+- **Não implementado, e falha com erro rotulado:** o adaptador
+  `entities → ClassificationNode` (§v3.2-B) e o save via `/entities/bulk-replace`.
+  Chutar a topologia aqui produziria classificação errada **silenciosa** — o pior
+  modo de falha desta feature. A cadeia de degradação converte a falha em baked,
+  então ligar a flag nunca apaga o dashboard.
+
+### D-3 — Contrato de regra: `combinedContains` foi **exposto**, não removido; e o laço circular morreu junto
+
+Fecha o **achado 3** (as duas metades).
+
+- Das três opções ("expor / remover do motor / manter vivo e invisível"), escolhida
+  **expor**. Remover levaria `COMPRESSOR`/`VENTILADOR`/`CLIMATIZA` para `outros` sem
+  substituto; expor preserva o poder de expressão e o torna auditável pela UI.
+- A regra foi renomeada para **`profileContains`** e ganhou o campo
+  **"deviceProfile contém"** no `openDeviceProfileModal`. O handler órfão `cc` (sem
+  emissor) deixou de existir.
+- **O texto combinado foi eliminado.** `combinedOf` era
+  `labelWidget + deviceProfile + label`; agora o match é sobre `deviceProfile`
+  **apenas**. Dois defeitos morreram com ele:
+  1. o **laço circular** — `labelWidget` é a saída anterior do próprio classificador,
+     de modo que um item carimbado "Climatização" se auto-sustentava;
+  2. a **classificação por nome** — `label` é texto livre do cadastro.
+- `normalizeProfile` **migra** `combinedContains` → `profileContains` (com dedupe), e
+  `validateProfile` **tolera** a chave legada, porque `resolveActiveProfile` valida
+  **antes** de normalizar — perfis de customer já persistidos (ex.: Mestre Álvaro)
+  continuam válidos e não caem para o DEFAULT.
+- **Evidência da mudança de comportamento** (é behavior-changing de propósito):
+  `tests/deviceClassificationProfile.profileContains.test.ts` traz o oráculo com a
+  semântica antiga e enumera device-a-device os **5 moves** — todos "categoria
+  específica → outros", todos causados por `label` ou `labelWidget`, incluindo o
+  caso exato observado em runtime no Moxuara.
+
+### D-4 — v2: motor pronto, produção **não** trocada (e por quê)
+
+`src/utils/devices/classificationNodeTree.ts` traz a árvore recursiva, o walker
+group-generic, `liftProfileToTree` (migração v1→v2) e `validateTree`. O golden de
+equivalência dá **diff zero** nos três domínios.
+
+**O caminho de produção continua no v1** — deliberadamente. O modelo v2 **funde**
+colunas e breakdown numa árvore só, e essa fusão **não é** uma reexpressão neutra:
+um device cujo grupo é `entrada` mas cuja categoria v1 seria `climatizacao` (ex.:
+`RELOGIO` com identifier `CAG-1`) é reportado hoje como `climatizacao` no breakdown
+e passaria a ser `entrada` no walker. O golden de equivalência **define esse caso
+pela regra de merge** — ele prova que o walker é fiel ao modelo v2, não que trocar
+o motor seja invisível. Trocar exige a sua própria *migration snapshot*, revisada
+por humano, como manda o §"Por que A0's golden e A1's snapshot são testes
+diferentes". O editor do modal também segue editando o modelo plano.
+
+### D-5 — Bifurcação documental (D-k) **não** executada
+
+O §I.1 D-k manda congelar o RFC-0207 e abrir o RFC-0208 no primeiro commit de
+implementação do v3. **Não foi feito**: é decisão de governança do mantenedor
+(PO-I ainda em aberto) e cindir o documento no meio de uma entrega tornaria a
+revisão desta mesma entrega mais difícil, não menos. Segue como o item de causa
+raiz do backlog.
 
 ### Nota de método
 
