@@ -4058,6 +4058,7 @@ body.filter-modal-open { overflow: hidden !important; }
                 <button type="button" data-view="analitico" title="Tabela do portfólio (Resumo Analítico) da mesma seleção do Engine" style="border:0;border-radius:6px;padding:6px 16px;cursor:pointer;font:700 13px Nunito,sans-serif;">📋 Analítico</button>
               </div>
               <button type="button" data-engine title="Engine — granularidade, visão, tipo e ordenação" aria-label="Engine" style="border:1px solid ${GP.tint(45)};border-radius:8px;background:transparent;color:${GP.accent};padding:6px 12px;cursor:pointer;font:700 15px Nunito,sans-serif;line-height:1;">⚙️</button>
+              <button type="button" data-help title="Como usar este painel — guia passo a passo" aria-label="Como usar este painel — guia passo a passo" style="border:1px solid ${GP.tint(45)};border-radius:8px;background:transparent;color:${GP.accent};padding:6px 12px;cursor:pointer;font:700 15px Nunito,sans-serif;line-height:1;">?</button>
               <span data-evo-status style="margin-left:auto;font:600 12px Nunito,sans-serif;color:var(--gc-muted);"></span>
               <span data-status hidden style="display:none;"></span>
             </div>
@@ -7164,6 +7165,20 @@ body.myio-gbt-dark .myio-gbt__empty{color:#64748b;}
       }
       // ⚙️ Engine: abre o modal de configuração (granularidade/visão/tipo/ordenação/salvar).
       if (e.target.closest('[data-engine]')) return void openEngineModal();
+      // ❓ Ajuda (RFC-0227): tour guiado em dados MOCK. Toda a lógica vive na lib
+      // (MyIOLibrary.openMetasGuide); aqui só disparamos com tema/persistKey.
+      if (e.target.closest('[data-help]')) {
+        const helpTheme = { accent: GP.accent, accentDark: GP.accentDark, accentText: GP.accentText, mode: modalTheme };
+        if (MyIOLibrary?.openMetasGuide) {
+          return void MyIOLibrary.openMetasGuide({ theme: helpTheme, persistKey: 'myio:metas-guide:seen:v1' });
+        }
+        // Fallback mínimo caso o símbolo não exista na lib carregada.
+        return void MyIOLibrary?.openOnboardModal?.({
+          title: 'Guia — Metas × Consumo',
+          content: '<p style="font:600 14px Nunito,sans-serif;">O guia interativo não está disponível nesta versão da biblioteca. Atualize o MyIOLibrary para ver o passo a passo do painel.</p>',
+          width: 520,
+        });
+      }
       // Abas superiores Dashboards | Analítico — ambas dirigidas pela config do Engine.
       const viewBtn = e.target.closest('[data-view]');
       if (viewBtn && viewBtn.dataset.view !== engView) {
