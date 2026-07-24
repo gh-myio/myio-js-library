@@ -266,7 +266,30 @@ describe('RFC-0207 deviceOverrides — selectBreakdownItems', () => {
     const anon = { label: 'sem id', deviceProfile: 'ILUMINACAO', value: 5 } as unknown as Device;
     const p = profileWithOverrides([{ id: TRAFO_CAG_ID, mode: 'include' }]);
     const entries = selectBreakdownItems<Device>({ areacomum: [anon], entrada: [] }, p);
-    expect(entries).toEqual([{ item: anon, forcedCategory: null }]);
+    expect(entries).toEqual([
+      { item: anon, forcedCategory: null, sourceGroup: 'areacomum', fromBaseGroup: true },
+    ]);
+  });
+
+  it('marca a origem de cada entrada (fromBaseGroup / sourceGroup)', () => {
+    const p = profileWithOverrides([{ id: TRAFO_CAG_ID, mode: 'include' }]);
+    const groups = groupAll(ALL_DEVICES, p);
+    const entries = selectBreakdownItems<Device>(groups, p);
+
+    const pulled = entries.find((e) => e.item.id === TRAFO_CAG_ID)!;
+    expect(pulled.fromBaseGroup).toBe(false);
+    expect(pulled.sourceGroup).toBe('entrada');
+
+    const native = entries.find((e) => e.item.id === OUTRO_AREACOMUM.id)!;
+    expect(native.fromBaseGroup).toBe(true);
+    expect(native.sourceGroup).toBe('areacomum');
+  });
+
+  it('sem overrides, TODA entrada vem do grupo base', () => {
+    const groups = groupAll(ALL_DEVICES, DEFAULT_DEVICE_CLASSIFICATION_PROFILE);
+    const entries = selectBreakdownItems<Device>(groups, DEFAULT_DEVICE_CLASSIFICATION_PROFILE);
+    expect(entries.every((e) => e.fromBaseGroup === true)).toBe(true);
+    expect(entries.every((e) => e.sourceGroup === 'areacomum')).toBe(true);
   });
 
   it('baseGroup é configurável', () => {

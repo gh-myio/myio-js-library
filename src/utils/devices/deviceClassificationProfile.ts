@@ -626,6 +626,18 @@ export interface BreakdownEntry<T> {
    * normalmente com `resolveCategory`.
    */
   forcedCategory: CategoryName | null;
+  /** Grupo de onde o item veio (chave de `groups`). */
+  sourceGroup: string;
+  /**
+   * `true` quando o item veio do grupo BASE (e portanto já está dentro do total
+   * daquele grupo); `false` quando foi PUXADO de outro grupo por um `include`.
+   *
+   * O consumidor **precisa** dessa distinção para o residual: o total do grupo
+   * base não contém os itens cross-group, então subtrair o subtotal cheio dele
+   * produz um residual negativo pelo valor exato do item puxado.
+   * Ver `computeBaseGroupResidual`.
+   */
+  fromBaseGroup: boolean;
 }
 
 export interface SelectBreakdownItemsOptions {
@@ -659,7 +671,12 @@ export function selectBreakdownItems<T extends ClassifiableItem>(
 
   // Fast-path: perfil sem Dispositivos Específicos ⇒ o breakdown de sempre.
   if (includes.size === 0 && excludes.size === 0) {
-    return base.map((item) => ({ item, forcedCategory: null }));
+    return base.map((item) => ({
+      item,
+      forcedCategory: null,
+      sourceGroup: baseGroup,
+      fromBaseGroup: true,
+    }));
   }
 
   const out: BreakdownEntry<T>[] = [];
@@ -672,15 +689,21 @@ export function selectBreakdownItems<T extends ClassifiableItem>(
       if (seen.has(key)) continue;
       seen.add(key);
       const forced = includes.get(key);
-      out.push({ item, forcedCategory: forced ?? null });
+      out.push({
+        item,
+        forcedCategory: forced ?? null,
+        sourceGroup: baseGroup,
+        fromBaseGroup: true,
+      });
       continue;
     }
-    out.push({ item, forcedCategory: null });
+    out.push({ item, forcedCategory: null, sourceGroup: baseGroup, fromBaseGroup: true });
   }
 
   if (includes.size === 0) return out;
 
   // Puxa os `include` que vivem FORA do grupo base (tipicamente `entrada`).
+  // Estes NÃO estão dentro do total do grupo base — daí `fromBaseGroup: false`.
   for (const groupKey of Object.keys(groups || {})) {
     if (groupKey === baseGroup) continue;
     for (const item of (groups[groupKey] ?? []) as T[]) {
@@ -689,11 +712,73 @@ export function selectBreakdownItems<T extends ClassifiableItem>(
       const forced = includes.get(key);
       if (!forced) continue;
       seen.add(key);
-      out.push({ item, forcedCategory: forced });
+      out.push({ item, forcedCategory: forced, sourceGroup: groupKey, fromBaseGroup: false });
     }
   }
 
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// Residual do grupo base × includes cross-group
+// ---------------------------------------------------------------------------
+
+/** Um subtotal do breakdown, decomposto por origem. */
+export interface BreakdownSubtotalInput {
+  /** Nome da categoria — só diagnóstico. */
+  category: string;
+  /** Total EXIBIDO no card (inclui a parcela cross-group). */
+  total: number;
+  /** Parcela de `total` que veio de devices FORA do grupo base. */
+  crossGroupTotal: number;
+}
+
+export interface BaseGroupResidual {
+  /** Soma das parcelas que estão de fato dentro de `baseGroupTotal`. */
+  subtotalFromBaseGroup: number;
+  /** Soma das parcelas cross-group (informativo). */
+  subtotalCrossGroup: number;
+  /** Residual ANTES do clamp. Negativo aqui = problema real de dado/config. */
+  residualRaw: number;
+  /** Residual publicável (clamp em 0). */
+  residual: number;
+  /** `true` quando `residualRaw < 0`. */
+  negative: boolean;
+}
+
+/**
+ * Residual do grupo base (Área Comum) na presença de includes cross-group.
+ *
+ * O bug que esta função existe para impedir: `residual = baseGroupTotal −
+ * Σ subtotais` assume que TODO subtotal é composto de devices que estão dentro
+ * de `baseGroupTotal`. Um `include` cross-group quebra a premissa — o trafo da
+ * Ilha (637.560) entra no subtotal de climatização mas vive no grupo `entrada`
+ * e nunca fez parte do `areacomumTotal`. O residual ia negativo pelo valor
+ * exato do device puxado, e o `Math.max(0, …)` mascarava.
+ *
+ * A correção: o **card** continua mostrando o total cheio (é o objetivo do
+ * recurso), mas o **residual** desconta apenas a parcela de origem-base.
+ */
+export function computeBaseGroupResidual(
+  baseGroupTotal: number,
+  subtotals: BreakdownSubtotalInput[],
+): BaseGroupResidual {
+  let subtotalFromBaseGroup = 0;
+  let subtotalCrossGroup = 0;
+  for (const s of subtotals ?? []) {
+    const total = Number(s?.total) || 0;
+    const cross = Number(s?.crossGroupTotal) || 0;
+    subtotalFromBaseGroup += total - cross;
+    subtotalCrossGroup += cross;
+  }
+  const residualRaw = (Number(baseGroupTotal) || 0) - subtotalFromBaseGroup;
+  return {
+    subtotalFromBaseGroup,
+    subtotalCrossGroup,
+    residualRaw,
+    residual: Math.max(0, residualRaw),
+    negative: residualRaw < 0,
+  };
 }
 
 // ---------------------------------------------------------------------------
