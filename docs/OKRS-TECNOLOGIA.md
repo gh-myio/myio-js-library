@@ -20,7 +20,7 @@
 
 ## 🔔 Alarmes & Notificações
 
-### O2 — Fechar brechas de segurança conhecidas 🔴
+### O2 — Zerar vulnerabilidades de segurança conhecidas 🔴
 
 - Remover `terraform.tfstate` do git e rotacionar segredos expostos
 - Autenticar `/ws` e validar `tenantId` (vazamento cross-tenant)
