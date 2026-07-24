@@ -1259,6 +1259,25 @@ export { openOnboardModal, openTutorialModal, openHelpModal, OnboardModalView } 
 
 export type { OnboardModalConfig, OnboardModalHandle, OnboardFooterLink } from './components/onboard';
 
+// RFC-0227: Metas × Consumo — "?" Help Button + Mock-Data Guided Tour (Wizard)
+export {
+  openMetasGuide,
+  DEFAULT_FIXTURES as MetasGuideDefaultFixtures,
+  WATER_FIXTURES as MetasGuideWaterFixtures,
+  SERIES_COLORS as MetasGuideSeriesColors,
+  deriveTotal as metasGuideDeriveTotal,
+  computeChips as metasGuideComputeChips,
+} from './components/metas-guide';
+
+export type {
+  MetasGuideOptions,
+  MetasGuideHandle,
+  MetasGuideTheme,
+  MetasGuideFixtures,
+  MetasGuideShoppingFixture,
+  MetasGuideSeries,
+} from './components/metas-guide';
+
 // RFC-0139: HeaderShopping Component (Shopping Dashboard toolbar)
 export { createHeaderShoppingComponent } from './components/header-shopping';
 export { HeaderShoppingView, injectHeaderShoppingStyles } from './components/header-shopping';
