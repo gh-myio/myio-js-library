@@ -1327,17 +1327,22 @@ bug que o mecanismo existe para evitar.
 
 - `exclude` **vence** `include` se um device aparecer nos dois (o `exclude` é global ao
   breakdown; o `include` é por categoria).
-- A **fórmula do residual não muda**:
-  `Área Comum = Entrada − (Lojas + Climatização + Elevadores + Escadas + Outros)`.
-  Com o trafo dentro de Climatização, Área Comum encolhe corretamente naquele valor.
+- Sobre o residual de Área Comum, ver **§DE-E** — um `include` cross-group exige separar a
+  origem de cada subtotal, senão o residual vai negativo pelo valor exato do device puxado.
 
-**Aceitação (números reais da Ilha)** — `include` no trafo + `exclude` nas 9 bombas:
+**Aceitação A — o rollout real da Ilha é INCLUDE-ONLY**: um único `include` no trafo
+"Medição Geral CAG", sem nenhum `exclude`. Números medidos em produção:
 
 | | valor |
 | --- | --- |
-| Climatização | **637.560** (e **não** 793.231 — esse seria o bug de dupla contagem) |
+| Card Climatização | **1.790.163** (1.152.603 internos + 637.560 do trafo) |
 | Entrada | **1.390.237**, inalterada |
-| As 9 bombas | em **nenhum** bucket do breakdown (nem em `outros`) |
+| Residual Área Comum | **0**, e **antes** do clamp (ver §DE-E) |
+
+**Aceitação B — semântica do `exclude`** (não usada na Ilha; trava o contrato do modo):
+`include` no trafo + `exclude` nas 9 bombas ⇒ Climatização **637.560** (e não 793.231, que
+seria a dupla contagem), Entrada **1.390.237** inalterada, e as 9 bombas em **nenhum** bucket
+do breakdown — nem em `outros`.
 
 ### DE-D. Implementação
 
@@ -1385,7 +1390,52 @@ em Climatização** (`DEVICE_OVERRIDE_CATEGORIES`) — ampliar = acrescentar nom
 Persistência: nada novo. O modal continua delegando ao `onSave` →
 `window.MyIOOrchestrator.saveDeviceClassificationProfile`; o campo apenas faz round-trip.
 
-### DE-E. Ressalva — isto é um escape hatch, não um método
+### DE-E. O residual de Área Comum × includes cross-group (correção)
+
+A primeira versão desta implementação tinha um defeito aritmético, medido sobre dados reais
+da Ilha antes de ir a produção.
+
+`buildSummary` calculava
+`_areacomumResidual = Math.max(0, areacomumTotal − Σ subtotais)`. A fórmula assume que **todo
+subtotal é composto de devices que estão dentro de `areacomumTotal`**. Um `include`
+cross-group viola a premissa: os 637.560 do trafo entram no subtotal de climatização mas o
+device vive no grupo `entrada` e **nunca fez parte** do `areacomumTotal`.
+
+Medição em produção (Ilha, hoje, sem override):
+
+```
+areacomumTotal                    = 1.240.503
+climatizacao (origem areacomum)   = 1.152.603
+elevadores / escadas / outros     =    25.559 / 51.942 / 10.399
+                                    ------------------------------
+Σ subtotais                       = 1.240.503   ->  residual = 0
+```
+
+Com o `include` aplicado, `Σ subtotais` viraria 1.878.063 e
+`residual = max(0, 1.240.503 − 1.878.063) = max(0, −637.560) = 0`. Na Ilha o residual já é 0,
+então **nada pareceria errado** — mas a conta está quebrada por construção, e qualquer cliente
+com Área Comum positiva veria o número encolher pelo valor do device incluído, sem motivo
+legítimo. O `Math.max(0, …)` mascarava exatamente isso.
+
+**A correção.** Cada subtotal é decomposto em parcela de **origem-base** e parcela
+**cross-group**:
+
+- O **card mantém o total cheio** (1.790.163 em Climatização) — é o objetivo do recurso.
+- O **residual desconta apenas a parcela de origem-base**:
+  `1.240.503 − (1.152.603 + 25.559 + 51.942 + 10.399) = 0` — correto, e sem depender do clamp.
+
+Mecânica: `selectBreakdownItems` passou a devolver `sourceGroup` e `fromBaseGroup` em cada
+entrada; o `buildSummary` acumula, em paralelo aos totais cheios, a parcela cross-group de cada
+categoria; e `computeBaseGroupResidual(baseGroupTotal, subtotals[])` (pura, na lib) faz a
+conta e devolve `{ subtotalFromBaseGroup, subtotalCrossGroup, residualRaw, residual, negative }`.
+Sem overrides a parcela cross-group é 0 em todas as categorias e a aritmética é idêntica à
+anterior.
+
+O clamp em 0 **fica** — mas um `residualRaw` negativo agora significa problema real de
+dado/configuração (soma dos subtotais maior que o total do grupo), não artefato deste recurso.
+Por isso ele é logado uma vez por sessão (`LogHelper.warn`) com os números, em vez de sumir.
+
+### DE-F. Ressalva — isto é um escape hatch, não um método
 
 **Overrides por device-id escalam mal e quebram em re-provisionamento**: o `id` é o TB entity
 id, e um device recriado ganha id novo — o override vira órfão silencioso (o modal sinaliza
