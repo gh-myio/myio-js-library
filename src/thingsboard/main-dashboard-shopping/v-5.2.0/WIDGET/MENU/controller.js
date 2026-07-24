@@ -817,14 +817,15 @@ self.onInit = function () {
       window.MyIOUtils?.deviceClassificationProfile ||
       (typeof Lib.getActiveProfile === 'function' ? Lib.getActiveProfile() : null);
 
-    // RFC-0207 v3: the MENU is endpoint-agnostic. Persistence is owned by MAIN_VIEW
-    // (which stores the profile JSON in the GCDR endpoint). The MENU/lib never write
-    // to ThingsBoard. If MAIN_VIEW hasn't wired the saver yet, fail loud (no TB write).
+    // RFC-0207 §D: o MENU é endpoint-agnóstico. A persistência pertence ao
+    // MAIN_VIEW — só ele conhece a chave e a URL do store (SERVER_SCOPE na v3.1,
+    // GCDR na v3.2). O MENU e a lib nunca escrevem no ThingsBoard. Se o saver não
+    // estiver conectado, falha alto em vez de fingir que salvou.
     const saveProfile = async (next) => {
       const saver = window.MyIOOrchestrator?.saveDeviceClassificationProfile;
       if (typeof saver !== 'function') {
         throw new Error(
-          'Persistência do perfil indisponível: MAIN_VIEW.saveDeviceClassificationProfile (GCDR) não conectado.',
+          'Persistência do perfil indisponível: MAIN_VIEW.saveDeviceClassificationProfile não conectado (atualize o widget MAIN_VIEW).',
         );
       }
       await saver(next);

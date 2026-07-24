@@ -115,6 +115,19 @@ window.MyIOUtils = window.MyIOUtils || {};
     'resolveCategory',
     'getActiveProfile',
     'setActiveProfile',
+    // RFC-0207 v3.1 — motor genérico + costura engine × store (§H-3).
+    // Sem registrar aqui, os widgets filhos não enxergam o símbolo (§C2).
+    'resolveClassification',
+    'resolveSubcategory',
+    'validateProfile',
+    'normalizeProfile',
+    'liftProfileToTree',
+    'DEFAULT_DEVICE_CLASSIFICATION_PROFILE',
+    'createBakedProfileSource',
+    'resolveWithFallback',
+    'isBakedStale',
+    'BAKED_PROFILE_VERSION',
+    'BAKED_PROFILE_KEYS',
     // modals / popups
     'openDashboardPopupEnergy',
     'openDashboardPopupWaterTank',
@@ -1180,6 +1193,295 @@ function classifyDeviceByIdentifier(identifier = '') {
   return 'outros';
 }
 
+// ===========================================================================
+// RFC-0207 v3.1 — STORE do perfil de classificação (load + save).
+//
+// §D TRAVADO: o MAIN_VIEW é o ÚNICO dono da persistência. A lib é pura (nunca
+// faz fetch, nunca escreve no ThingsBoard) e o MENU é endpoint-agnóstico (só
+// chama `window.MyIOOrchestrator.saveDeviceClassificationProfile`). A URL e a
+// chave do atributo existem APENAS aqui.
+//
+// DECISÃO DE STORE (v3.1) — ThingsBoard SERVER_SCOPE, load e save simétricos.
+//   O §E do RFC define, para a v3.1, "Store: TB attr + baked"; só a v3.2 troca
+//   para o GCDR. A auditoria (achado 2) registrou que o código LIA do
+//   SERVER_SCOPE enquanto nada escrevia em lugar nenhum. Fechamos a assimetria
+//   pelo lado que já funcionava: quem lê e quem escreve são a MESMA chave, o
+//   MESMO escopo, a MESMA entidade. `GcdrResolveProfileSource` existe abaixo,
+//   atrás de flag DESLIGADA, para que a troca de store (v3.2) seja trocar a
+//   fonte primária — não reescrever o consumidor.
+// ===========================================================================
+
+/** Chave do atributo de customer (SERVER_SCOPE). Existe só aqui. */
+const RFC0207_PROFILE_ATTR_KEY = 'deviceClassificationProfile';
+
+/**
+ * Flag de rollout do store (§H-6: flag GLOBAL durante a v3.2). DESLIGADA:
+ * o adaptador `entities → ClassificationNode` do RFC-0047 ainda não existe
+ * (§v3.2-G lista o trabalho restante), então ligar isto hoje só exercitaria a
+ * cadeia de degradação. Setável em runtime para teste:
+ *   window.MyIOUtils.rfc0207UseGcdrStore = true
+ */
+function _rfc0207UseGcdrStore() {
+  return window.MyIOUtils?.rfc0207UseGcdrStore === true;
+}
+
+function _rfc0207Jwt() {
+  return localStorage.getItem('jwt_token') || '';
+}
+
+function _rfc0207TbBase() {
+  return self.ctx?.settings?.tbBaseUrl || '';
+}
+
+/**
+ * `ProfileSource` concreto — atributo de customer no ThingsBoard (SERVER_SCOPE).
+ *
+ * `prefetched`: o `onInit` já busca TODOS os atributos do customer numa chamada
+ * só (`fetchThingsboardCustomerAttrsFromStorage`). Passar o valor já lido evita
+ * um segundo round-trip no boot; sem ele, a fonte busca sozinha (usada pelo
+ * reload pós-save e por qualquer chamada avulsa).
+ */
+function createTbAttributeProfileSource(prefetched) {
+  return {
+    name: 'tb-attribute',
+    async resolve(customerId) {
+      const MyIO = window.MyIOLibrary;
+      let raw = prefetched;
+      if (raw === undefined) {
+        const url = `${_rfc0207TbBase()}/api/plugins/telemetry/CUSTOMER/${encodeURIComponent(
+          customerId
+        )}/values/attributes/SERVER_SCOPE?keys=${RFC0207_PROFILE_ATTR_KEY}`;
+        const res = await fetch(url, {
+          headers: { 'X-Authorization': `Bearer ${_rfc0207Jwt()}` },
+        });
+        if (!res.ok) throw new Error(`TB attribute HTTP ${res.status}`);
+        const rows = await res.json();
+        raw = Array.isArray(rows)
+          ? rows.find((r) => r.key === RFC0207_PROFILE_ATTR_KEY)?.value
+          : undefined;
+      }
+      // Atributo ausente NÃO é falha: é o caminho documentado do seed default
+      // (fail-open para o comportamento default, nunca para "sem classificação").
+      if (raw === undefined || raw === null || raw === '') {
+        return {
+          version: MyIO?.BAKED_PROFILE_VERSION || 'baked',
+          source: 'baked',
+          degraded: true,
+          reason: 'tb-attribute:absent',
+          profile: MyIO?.DEFAULT_DEVICE_CLASSIFICATION_PROFILE,
+        };
+      }
+      const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      return {
+        // O TB não versiona atributos; `updatedAt` é o melhor etag disponível.
+        version: String(parsed?.updatedAt || 'tb-attr'),
+        source: 'customer',
+        degraded: false,
+        profile: parsed,
+      };
+    },
+    /** Escreve o mesmo atributo que `resolve` lê — load e save simétricos. */
+    async save(customerId, profile) {
+      const url = `${_rfc0207TbBase()}/api/plugins/telemetry/CUSTOMER/${encodeURIComponent(
+        customerId
+      )}/attributes/SERVER_SCOPE`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'X-Authorization': `Bearer ${_rfc0207Jwt()}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ [RFC0207_PROFILE_ATTR_KEY]: profile }),
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(`HTTP ${res.status}${text ? ': ' + text.slice(0, 160) : ''}`);
+      }
+    },
+  };
+}
+
+/** Cache do 304 por `(customerId, domain, version)` — §v3.2-F.3. */
+const _rfc0207GcdrCache = new Map();
+
+/**
+ * `ProfileSource` concreto — GCDR / RFC-0047 (`GET /entities/resolve`), atrás da
+ * flag. A MECÂNICA especificada está implementada e é a que importa para a
+ * costura: `X-Version-Id` → `If-None-Match` → **304 sem corpo**, cache por
+ * `(customerId, domain, version)`.
+ *
+ * O que NÃO está implementado, e por isso lança um erro rotulado: o adaptador
+ * `entities → ClassificationNode` (§v3.2-B). Ele depende de contrato de backend
+ * que o próprio RFC lista como trabalho restante (§v3.2-G) — chutar a topologia
+ * aqui produziria classificação errada silenciosa. Enquanto isso, a cadeia de
+ * degradação (§B.1-4) converte a falha em `BakedProfileSource`, então ligar a
+ * flag nunca apaga o dashboard.
+ */
+function createGcdrResolveProfileSource(domain = 'energy') {
+  const entityType = `CLASSIFICATION_${String(domain).toUpperCase()}`;
+  return {
+    name: 'gcdr-resolve',
+    async resolve(customerId) {
+      const orch = window.MyIOOrchestrator || {};
+      const cacheKey = `${customerId}|${domain}`;
+      const cached = _rfc0207GcdrCache.get(cacheKey);
+      const url =
+        `${orch.gcdrApiBaseUrl}/api/v1/entities/resolve` +
+        `?customerId=${encodeURIComponent(customerId)}&type=${encodeURIComponent(entityType)}`;
+      const headers = {
+        'X-API-Key': orch.gcdrApiKey || '',
+        'X-Tenant-ID': orch.gcdrTenantId || '',
+        Accept: 'application/json',
+      };
+      if (cached?.version) headers['If-None-Match'] = cached.version;
+
+      const res = await fetch(url, { headers });
+      if (res.status === 304) {
+        if (!cached) throw new Error('gcdr 304 sem cache local');
+        return cached.resolved;
+      }
+      if (!res.ok) throw new Error(`GCDR entities/resolve HTTP ${res.status}`);
+      const json = await res.json();
+      const version = res.headers.get('X-Version-Id') || String(json?.data?.version || '');
+      const payload = json?.data ?? json;
+
+      // Caminho suportado: o registry devolve o documento de perfil diretamente.
+      const doc = payload?.deviceClassificationProfile || payload?.profile;
+      if (!doc) {
+        throw new Error(
+          'adaptador entities→ClassificationNode não implementado (RFC-0207 §v3.2-B/G)'
+        );
+      }
+      const resolved = {
+        version: version || 'gcdr',
+        source: payload?.source === 'system' ? 'system' : 'customer',
+        degraded: false,
+        profile: typeof doc === 'string' ? JSON.parse(doc) : doc,
+      };
+      _rfc0207GcdrCache.set(cacheKey, { version: resolved.version, resolved });
+      return resolved;
+    },
+  };
+}
+
+/** Fonte primária ativa, segundo a flag de store. */
+function rfc0207PrimaryProfileSource(prefetched) {
+  return _rfc0207UseGcdrStore()
+    ? createGcdrResolveProfileSource('energy')
+    : createTbAttributeProfileSource(prefetched);
+}
+
+/**
+ * Carrega o perfil ativo e aplica no motor. NUNCA lança: a cadeia de degradação
+ * da lib (§B.1-4) garante o piso `baked`.
+ *
+ * @param {string} customerId
+ * @param {*} prefetched valor já lido do atributo (ou `undefined` para buscar)
+ */
+async function rfc0207LoadActiveProfile(customerId, prefetched) {
+  const MyIO = window.MyIOLibrary;
+  if (!MyIO || typeof MyIO.resolveWithFallback !== 'function') {
+    // Bundle antigo sem a costura: preserva o caminho legado (setActiveProfile
+    // direto), para não regredir dashboards que ainda não recarregaram a lib.
+    if (typeof MyIO?.setActiveProfile === 'function') {
+      let parsed = null;
+      try {
+        parsed = typeof prefetched === 'string' ? JSON.parse(prefetched) : prefetched;
+      } catch (e) {
+        LogHelper.warn('[MAIN_VIEW] RFC-0207: atributo com JSON inválido → DEFAULT:', e);
+      }
+      const applied = MyIO.setActiveProfile(parsed || null, LogHelper);
+      window.MyIOUtils.deviceClassificationProfile = applied;
+      window.MyIOUtils.deviceClassificationProfileRaw = parsed || null;
+      return applied;
+    }
+    LogHelper.error(
+      '[MAIN_VIEW] RFC-0207: MyIOLibrary sem resolveWithFallback/setActiveProfile — perfil não aplicado'
+    );
+    return null;
+  }
+
+  const resolved = await MyIO.resolveWithFallback(rfc0207PrimaryProfileSource(prefetched), {
+    customerId,
+    logger: LogHelper,
+    timeoutMs: 8000,
+    onDegraded: (info) => {
+      // Espelha em estado observável (o piso NUNCA é apresentado como verdade).
+      window.MyIOUtils.deviceClassificationProfileDegraded = info;
+    },
+  });
+
+  if (!resolved.degraded) window.MyIOUtils.deviceClassificationProfileDegraded = null;
+  const applied = MyIO.setActiveProfile(resolved.profile, LogHelper);
+  window.MyIOUtils.deviceClassificationProfile = applied;
+  window.MyIOUtils.deviceClassificationProfileRaw = resolved.profile || null;
+  window.MyIOUtils.deviceClassificationProfileSource = {
+    source: resolved.source,
+    version: resolved.version,
+    degraded: resolved.degraded,
+    reason: resolved.reason || null,
+  };
+  LogHelper.log(
+    `[MAIN_VIEW] RFC-0207: perfil aplicado (source=${resolved.source} version=${resolved.version}` +
+      `${resolved.degraded ? ' DEGRADADO: ' + resolved.reason : ''})`
+  );
+  return applied;
+}
+
+/**
+ * RFC-0207 Phase B — PERSISTÊNCIA. Exposta como
+ * `window.MyIOOrchestrator.saveDeviceClassificationProfile` (é exatamente o
+ * método que o `MENU/controller.js` chamava e que não existia em lugar nenhum,
+ * fazendo o botão "Salvar perfil" lançar).
+ *
+ * Ordem deliberada: validar → persistir → só então aplicar em memória. Um save
+ * que falha NÃO pode deixar o dashboard classificando por um perfil que o store
+ * não tem (o próximo F5 desfaria a classificação sem aviso).
+ */
+async function rfc0207SaveActiveProfile(nextProfile) {
+  const MyIO = window.MyIOLibrary;
+  if (!MyIO || typeof MyIO.validateProfile !== 'function') {
+    throw new Error('MyIOLibrary indisponível — atualize o bundle da biblioteca MyIO.');
+  }
+  const customerId =
+    window.MyIOOrchestrator?.customerTB_ID ||
+    window.MyIOUtils?.customerTB_ID ||
+    self.ctx?.settings?.customerTB_ID ||
+    '';
+  if (!customerId) throw new Error('customerTB_ID indisponível — não é possível salvar o perfil.');
+
+  const errors = MyIO.validateProfile(nextProfile);
+  if (errors.length) {
+    throw new Error(`Perfil inválido: ${errors.slice(0, 3).join('; ')}`);
+  }
+
+  if (_rfc0207UseGcdrStore()) {
+    // §v3.2-A: save = PUT /entities/bulk-replace por (customer, domain), com
+    // If-Match por domínio → 409. Não implementado enquanto o adaptador
+    // entities↔ClassificationNode não existir — falhar ALTO é melhor que
+    // gravar num store cujo formato ainda não está fechado.
+    throw new Error(
+      'Store GCDR ligado, mas o save via /entities/bulk-replace ainda não está implementado (RFC-0207 §v3.2-G). Desligue window.MyIOUtils.rfc0207UseGcdrStore para salvar no SERVER_SCOPE.'
+    );
+  }
+
+  await createTbAttributeProfileSource().save(customerId, nextProfile);
+  LogHelper.log('[MAIN_VIEW] RFC-0207: perfil persistido no SERVER_SCOPE do customer', customerId);
+
+  // Aplica no motor só depois do store confirmar.
+  const applied = MyIO.setActiveProfile(nextProfile, LogHelper);
+  window.MyIOUtils.deviceClassificationProfile = applied;
+  window.MyIOUtils.deviceClassificationProfileRaw = nextProfile;
+  window.MyIOUtils.deviceClassificationProfileDegraded = null;
+  window.MyIOUtils.deviceClassificationProfileSource = {
+    source: 'customer',
+    version: String(nextProfile?.updatedAt || 'tb-attr'),
+    degraded: false,
+    reason: null,
+  };
+  return applied;
+}
+
 /**
  * RFC-0097/RFC-0106: Classify device using deviceType as primary method
  * @param {Object} item - Device item with deviceType, deviceProfile, identifier, and label
@@ -1841,6 +2143,15 @@ Object.assign(window.MyIOUtils, {
           },
         },
 
+        // RFC-0207 Phase B: persistência do perfil de classificação. Stub que
+        // falha ALTO — o MENU chama este método e, se ele não existir, o botão
+        // "Salvar perfil" quebra silenciosamente (foi o achado 1 da auditoria).
+        saveDeviceClassificationProfile: async () => {
+          throw new Error(
+            '[Orchestrator] saveDeviceClassificationProfile chamado antes do orquestrador estar pronto.'
+          );
+        },
+
         // RFC-0180: GCDR API method stubs (replaced by real impl after merge)
         gcdrFetchCustomerRules: async () => {
           LogHelper.warn('[Orchestrator] ⚠️ gcdrFetchCustomerRules called before orchestrator is ready');
@@ -2010,27 +2321,13 @@ Object.assign(window.MyIOUtils, {
               LogHelper.log('[MAIN_VIEW] exclude_groups_totals loaded:', _excludeGroupsTotals);
             }
 
-            // RFC-0207 Phase B: customer-scoped device classification profile.
-            // Loaded BEFORE the first classification pass; the no-arg resolvers
-            // (resolveGroup/resolveCategory) the orchestrator delegates to will
-            // pick this up via setActiveProfile. Absent/invalid → DEFAULT seed.
-            try {
-              const _rawProfile = attrs?.deviceClassificationProfile;
-              const _parsedProfile =
-                typeof _rawProfile === 'string' ? JSON.parse(_rawProfile) : _rawProfile;
-              if (typeof MyIO.setActiveProfile === 'function') {
-                const _applied = MyIO.setActiveProfile(_parsedProfile, LogHelper);
-                window.MyIOUtils.deviceClassificationProfile = _applied;
-                window.MyIOUtils.deviceClassificationProfileRaw = _parsedProfile || null;
-                LogHelper.log(
-                  '[MAIN_VIEW] RFC-0207: classification profile ' +
-                    (_rawProfile ? 'loaded from SERVER_SCOPE' : 'absent → DEFAULT seed')
-                );
-              }
-            } catch (e) {
-              LogHelper.warn('[MAIN_VIEW] RFC-0207: invalid deviceClassificationProfile → DEFAULT:', e);
-              if (typeof MyIO.setActiveProfile === 'function') MyIO.setActiveProfile(null, LogHelper);
-            }
+            // RFC-0207 Phase B / v3.1: customer-scoped device classification profile.
+            // Carregado ANTES da primeira passada de classificação, através do
+            // `ProfileSource` (store = TB SERVER_SCOPE na v3.1, ver o bloco
+            // "RFC-0207 v3.1 — STORE"). `attrs` já traz o atributo desta mesma
+            // chave, então passamos o valor lido e não há round-trip extra.
+            // A cadeia de degradação garante o piso `baked` — nunca lança.
+            await rfc0207LoadActiveProfile(customerTB_ID, attrs?.[RFC0207_PROFILE_ATTR_KEY]);
 
             LogHelper.log('[MAIN_VIEW] 🔑 Parsed credentials:');
             LogHelper.log('[MAIN_VIEW]   CLIENT_ID:', CLIENT_ID ? '✅ ' + CLIENT_ID : '❌ EMPTY');
@@ -7973,6 +8270,18 @@ const MyIOOrchestrator = (() => {
         })
       );
     },
+
+    // ── RFC-0207 Phase B: persistência do perfil de classificação ────────────
+    // O MENU é endpoint-agnóstico (§D) e delega aqui; a chave/URL do store vivem
+    // só no bloco "RFC-0207 v3.1 — STORE" deste arquivo.
+    saveDeviceClassificationProfile: (nextProfile) => rfc0207SaveActiveProfile(nextProfile),
+
+    /** Recarrega o perfil do store (usado após save externo / troca de customer). */
+    reloadDeviceClassificationProfile: (customerId) =>
+      rfc0207LoadActiveProfile(
+        customerId || window.MyIOOrchestrator?.customerTB_ID || '',
+        undefined
+      ),
 
     // ── RFC-0180: GCDR API methods ───────────────────────────────────────────
     // Owned by the orchestrator so widgets (AlarmsTab, etc.) don't carry
