@@ -4180,11 +4180,12 @@ body.filter-modal-open { overflow: hidden !important; }
       energy: { bar: CGC_REALIZADO_COLOR, goal: CGC_META_COLOR },
       water: { bar: CGC_REALIZADO_COLOR, goal: CGC_META_COLOR },
     };
-    // Séries múltiplas (por shopping / por medidor): TONS do accent do dashboard
-    // (settingsSchema) — monocromático segue a paleta do customer; fallback na
-    // paleta multicolor MyIO quando o accent não é um hex válido.
-    const GP_TONES = GP.tones(8);
-    const SHOP_PALETTE = GP_TONES || [
+    // Séries múltiplas (por shopping / por medidor): paleta MULTICOLOR FIXA da MyIO —
+    // NÃO segue mais os tons do accent do dashboard (GP.tones). Os tons monocromáticos
+    // do accent podiam resolver para cores quase brancas/translúcidas em accents claros,
+    // deixando barras invisíveis no gráfico (mesmo com valor no tooltip). A paleta fixa
+    // garante contraste e identidade estável entre gráfico, cards e legendas.
+    const SHOP_PALETTE = [
       '#6c5ce7',
       '#0ea5e9',
       '#22c55e',
@@ -4243,6 +4244,398 @@ body.filter-modal-open { overflow: hidden !important; }
         });
       }
     } catch (_) { /* ignore */ }
+
+    // ── Tooltip premium dos CARDS (modo Cards) ──────────────────────────────
+    // Os cards do modo "Cards" são montados pela lib (createCustomerGoalsCard) e
+    // nascem com o tooltip PRETO padrão do Chart.js — só o canvas único (Consolidado/
+    // Empilhado/Separado) usava o tooltip branco. Aqui reaproveitamos o MESMO
+    // `evoTip` (lib createGoalsBarTooltip: card branco, Nunito, 📌 e carets de
+    // expandir) também nos cards: depois que a lib monta cada card, pegamos a
+    // instância do Chart pelo canvas (Chart.getChart — API pública v3+) e trocamos
+    // `plugins.tooltip` por { enabled:false, external }.
+    //
+    // Por que pós-processar em vez de registrar um plugin global no Chart.js: um
+    // plugin registrado afeta TODOS os gráficos do dashboard e depende da ordem/
+    // cache de resolução de opções (`_descriptors`). `getChart(canvas)` +
+    // `update('none')` fica escopado ao nosso grid e reavalia as opções na hora.
+    const ensureEvoTip = () => {
+      if (!evoTip && MyIOLibrary && typeof MyIOLibrary.createGoalsBarTooltip === 'function') {
+        try {
+          evoTip = MyIOLibrary.createGoalsBarTooltip({ accentColor: GP.accent });
+        } catch (_) {
+          evoTip = null;
+        }
+      }
+      if (evoTip) bindTipHover(); // o card já existe no DOM: liga o anti-fechamento
+      return evoTip;
+    };
+
+    // O tooltip vive no <body> (position:fixed), FORA do overlay — tema e ajustes
+    // de interação vão por classe no body + CSS escopado, injetado uma única vez.
+    const GBT_SKIN_ID = 'myio-gbt-gc-skin';
+    const tipDoc = () => {
+      try {
+        return (window.top || window).document;
+      } catch (_) {
+        return document;
+      }
+    };
+    const ensureTipSkin = () => {
+      const d = tipDoc();
+      if (d.getElementById(GBT_SKIN_ID)) return;
+      const st = d.createElement('style');
+      st.id = GBT_SKIN_ID;
+      st.textContent = `
+/* (+) / (−) no lugar do caret ▸ — o requisito é um botão de expandir explícito. */
+.myio-gbt__caret{font-size:0;border:1px solid color-mix(in srgb,var(--myio-gbt-accent) 35%,#fff);border-radius:5px;background:color-mix(in srgb,var(--myio-gbt-accent) 8%,#fff);}
+.myio-gbt__caret::after{content:'+';font-size:12px;font-weight:900;line-height:1;}
+.myio-gbt__caret.is-open{transform:none;}
+.myio-gbt__caret.is-open::after{content:'−';}
+.myio-gbt__caret:hover{background:color-mix(in srgb,var(--myio-gbt-accent) 20%,#fff);}
+/* Corpo clicável mesmo SEM 📌: sem isso o (+) só funcionaria depois de fixar.
+   O card abre a 16px do cursor, então o ponteiro nunca nasce dentro dele; ao
+   entrar, o mouseenter da lib cancela o hide e o tooltip persiste. */
+.myio-gbt .myio-gbt__body{pointer-events:auto;}
+
+/* Tema escuro (toggle 🌙 da modal) */
+body.myio-gbt-dark .myio-gbt__card{background:#0f172a;border-color:#1e293b;color:#e2e8f0;box-shadow:0 12px 40px rgba(0,0,0,.55),0 2px 8px rgba(0,0,0,.35);}
+body.myio-gbt-dark .myio-gbt__header{background:linear-gradient(90deg,color-mix(in srgb,var(--myio-gbt-accent) 34%,#0f172a) 0%,color-mix(in srgb,var(--myio-gbt-accent) 16%,#0f172a) 100%);border-bottom-color:color-mix(in srgb,var(--myio-gbt-accent) 45%,#0f172a);}
+body.myio-gbt-dark .myio-gbt__title{color:#f8fafc;}
+body.myio-gbt-dark .myio-gbt__subtitle{color:#94a3b8;}
+body.myio-gbt-dark .myio-gbt__btn{background:rgba(15,23,42,.55);color:#cbd5e1;}
+body.myio-gbt-dark .myio-gbt__btn:hover{background:rgba(30,41,59,.95);color:#f8fafc;}
+body.myio-gbt-dark .myio-gbt__row:hover{background:#1e293b;}
+body.myio-gbt-dark .myio-gbt__row--child .myio-gbt__label{color:#cbd5e1;}
+body.myio-gbt-dark .myio-gbt__value{color:#f8fafc;}
+body.myio-gbt-dark .myio-gbt__caret{border-color:color-mix(in srgb,var(--myio-gbt-accent) 50%,#0f172a);background:color-mix(in srgb,var(--myio-gbt-accent) 22%,#0f172a);color:#e2e8f0;}
+body.myio-gbt-dark .myio-gbt__pct{color:color-mix(in srgb,var(--myio-gbt-accent) 55%,#e2e8f0);}
+body.myio-gbt-dark .myio-gbt__children{border-left-color:color-mix(in srgb,var(--myio-gbt-accent) 40%,#0f172a);}
+body.myio-gbt-dark .myio-gbt__empty{color:#64748b;}
+`;
+      (d.head || d.documentElement).appendChild(st);
+    };
+    const applyTipTheme = () => {
+      try {
+        ensureTipSkin();
+        tipDoc().body.classList.toggle('myio-gbt-dark', modalTheme === 'dark');
+      } catch (_) {
+        /* tooltip é enfeite — nunca quebra a modal */
+      }
+    };
+
+    // Chips de desvio (pt-BR) — mesma semântica do GoalsModal do shopping.
+    // Compartilhados pelo canvas único (loadEvo) e pelos cards.
+    const evoNeutralDelta = (a, b) => {
+      if (a == null || b == null || !(b > 0) || !isFinite(a)) return undefined;
+      const d = ((a - b) / b) * 100;
+      return { pct: Math.abs(d), tone: 'neutral', arrow: d > 0.05 ? 'up' : d < -0.05 ? 'down' : 'flat' };
+    };
+    const evoBandDelta = (real, ref, midText) => {
+      if (real == null || ref == null || !(ref > 0) || !isFinite(real)) return undefined;
+      const d = ((real - ref) / ref) * 100;
+      const abs = Math.abs(d);
+      if (d < -3) return { pct: abs, tone: 'good', arrow: 'down', text: 'abaixo' };
+      if (d > 3) return { pct: abs, tone: 'bad', arrow: 'up', text: 'ultrapassou' };
+      return { pct: abs, tone: 'neutral', arrow: 'flat', text: midText };
+    };
+
+    // Rótulos que a lib gera nos datasets do card (CustomerGoalsCard):
+    //   "Meta (2026)" | "Orçado (2026)" | "Meta · <medidor>" (metas por device)
+    //   "A-1 (2025)"  | "Realizado (2026)" | "<medidor> · 12,3%" (quebra do Realizado)
+    const CARD_DS_DEVICE_GOAL = /^(?:Meta|Or[çc]ado)\s*·\s*/;
+    const CARD_DS_META = /^Meta(?:\s*\(|\s*$)/;
+    const CARD_DS_ORCADO = /^Or[çc]ado(?:\s*\(|\s*$)/;
+    const CARD_DS_PREV = /^A-1(?:\s*\(|\s*$)/;
+    const CARD_DS_REALIZED = /^Realizado(?:\s*\(|\s*$)/;
+    // A lib já cola a participação ANUAL no label da série ("Medidor · 12,3%");
+    // no tooltip a participação é a DO BUCKET, então o sufixo sai do nome.
+    const stripShare = (s) => String(s || '').replace(/\s*·\s*[\d.,]+\s*%\s*$/, '').trim();
+
+    // Nome do shopping do card (subtítulo do tooltip — em Cards há vários gráficos)
+    const cardTitleOf = (chart) => {
+      try {
+        const card = chart.canvas.closest('.myio-cgc');
+        const h = card && card.querySelector('.myio-cgc__title');
+        return (h && h.textContent.trim()) || '';
+      } catch (_) {
+        return '';
+      }
+    };
+
+    // Modelo de linhas do tooltip de UM card, no bucket `idx`. Cobre os 3 modos de
+    // Cards: por shopping (séries consolidadas), por dispositivos separados e
+    // dispositivos empilhados (séries por medidor → viram filhos do (+)).
+    const cardTipRows = (chart, idx) => {
+      const cfg = GOALS_COMPARE_DOMAINS[domainKey] || {};
+      const unit = cfg.unit || 'kWh';
+      const devIcon = domainKey === 'water' ? '💧' : '⚡';
+      const dss = (chart && chart.data && chart.data.datasets) || [];
+      const lbl = (ds) => String((ds && ds.label) || '');
+      const col = (ds) => (ds && (ds.borderColor || ds.backgroundColor)) || undefined;
+      const at = (ds) => {
+        const v = ds && ds.data ? ds.data[idx] : null;
+        return v == null || Number.isNaN(Number(v)) ? null : Number(v);
+      };
+
+      const goalDevDs = dss.filter((d) => CARD_DS_DEVICE_GOAL.test(lbl(d)));
+      const rest = dss.filter((d) => !CARD_DS_DEVICE_GOAL.test(lbl(d)));
+      const metaDs = rest.find((d) => CARD_DS_META.test(lbl(d)));
+      const orcadoDs = rest.find((d) => CARD_DS_ORCADO.test(lbl(d)));
+      const prevDs = rest.find((d) => CARD_DS_PREV.test(lbl(d)));
+      const realDs = rest.find((d) => CARD_DS_REALIZED.test(lbl(d)));
+      // Sobrou = quebra do Realizado por medidor (modo Dispositivos)
+      const realDevDs = rest.filter((d) => d !== metaDs && d !== orcadoDs && d !== prevDs && d !== realDs);
+      // Legado (sem Orçado cru): a própria linha "Orçado" É a meta.
+      const goalDs = metaDs || orcadoDs;
+      const budgetDs = metaDs ? orcadoDs : null;
+
+      const sumAt = (list) => {
+        let s = 0;
+        let has = false;
+        list.forEach((d) => {
+          const v = at(d);
+          if (v != null) {
+            s += v;
+            has = true;
+          }
+        });
+        return has ? s : null;
+      };
+      // Filhos do (+): um por medidor, com a participação % no valor da barra.
+      const devChildren = (list, total, stripPrefix) =>
+        list
+          .map((d) => ({ d, v: at(d) }))
+          .filter((x) => x.v != null && x.v > 0)
+          .map((x) => ({
+            icon: devIcon,
+            label: stripPrefix
+              ? stripShare(lbl(x.d).replace(CARD_DS_DEVICE_GOAL, ''))
+              : stripShare(lbl(x.d)),
+            valueText: _fmtQtyStr(x.v, unit),
+            pct: total ? (x.v / total) * 100 : null,
+            color: col(x.d),
+          }));
+
+      const realized = realDs ? at(realDs) : sumAt(realDevDs);
+      const prev = prevDs ? at(prevDs) : null;
+      const meta = goalDs ? at(goalDs) : goalDevDs.length ? sumAt(goalDevDs) : null;
+      const budget = budgetDs ? at(budgetDs) : null;
+
+      const rows = [];
+      // A-1 — chip A-1 vs Meta (neutro)
+      if (prev != null) {
+        rows.push({
+          icon: '🕓',
+          label: stripShare(lbl(prevDs)),
+          valueText: _fmtQtyStr(prev, unit),
+          color: col(prevDs),
+          delta: meta != null && meta > 0 ? evoNeutralDelta(prev, meta) : undefined,
+        });
+      }
+      // Realizado — chip vs A-1; (+) expande os medidores e suas participações
+      if (realized != null) {
+        const r = {
+          icon: '📊',
+          label: realDs ? stripShare(lbl(realDs)) : 'Realizado',
+          valueText: _fmtQtyStr(realized, unit),
+          color: realDs ? col(realDs) : undefined,
+          delta: prev != null && prev > 0 ? evoNeutralDelta(realized, prev) : undefined,
+        };
+        const kids = devChildren(realDevDs, realized, false);
+        if (kids.length) r.children = kids;
+        rows.push(r);
+      }
+      // Orçado (cru) — ACIMA da Meta, só quando difere dela (margem RFC-0052)
+      if (budget != null && meta != null && Math.abs(budget - meta) > 1e-6) {
+        rows.push({
+          icon: '📋',
+          label: 'Orçado',
+          color: col(budgetDs) || CGC_ORCADO_COLOR,
+          valueText: _fmtQtyStr(budget, unit),
+          delta: evoBandDelta(realized, budget, 'no orçado'),
+        });
+      }
+      // Meta — chip Realizado vs Meta (banda); (+) expande metas por medidor
+      if (meta != null) {
+        const m = {
+          icon: '🎯',
+          label: 'Meta',
+          color: (goalDs && col(goalDs)) || CGC_META_COLOR,
+          valueText: _fmtQtyStr(meta, unit),
+          delta: evoBandDelta(realized, meta, 'na meta'),
+        };
+        const kids = devChildren(goalDevDs, meta, true);
+        if (kids.length) m.children = kids;
+        rows.push(m);
+      }
+      return rows;
+    };
+
+    // Handler `external` compartilhado por todos os cards.
+    // ── Fixar por CLIQUE NA BARRA ────────────────────────────────────────────
+    // O 📌 e o (+) vivem DENTRO do card, mas o trajeto do ponteiro até lá cruza
+    // outras barras — cada uma dispara um novo hover e troca o conteúdo, então
+    // os controles eram inalcançáveis na prática. Clicar na barra congela o
+    // tooltip: enquanto fixado, o handler externo ignora hover. Sai com novo
+    // clique na mesma barra, clique fora do card ou Esc.
+    let evoTipPin = null; // { chart, idx } — barra fixada
+
+    const tipIsPinned = () => evoTipPin != null;
+
+    // ── Grace period para alcançar o card ────────────────────────────────────
+    // A lib usa 450ms fixos (createGoalsBarTooltip: hideTimer), curto demais
+    // para sair da barra e chegar no 📌/(+) — ainda mais porque o trajeto cruza
+    // outras barras. Como quem chama hide() é este controller, atrasamos a
+    // chamada e os tempos SOMAM (900 + 450 ≈ 1,35s). Cancelado se um novo hover
+    // reabrir o card ou se o ponteiro entrar nele.
+    const TIP_HIDE_GRACE_MS = 900;
+    let tipHideTimer = null;
+    const cancelTipHide = () => {
+      if (tipHideTimer) {
+        clearTimeout(tipHideTimer);
+        tipHideTimer = null;
+      }
+    };
+    const scheduleTipHide = () => {
+      cancelTipHide();
+      tipHideTimer = setTimeout(() => {
+        tipHideTimer = null;
+        if (tipIsPinned()) return;
+        try {
+          evoTip?.hide();
+        } catch (_) {
+          /* ignore */
+        }
+      }, TIP_HIDE_GRACE_MS);
+    };
+    // Entrar no card cancela o fechamento pendente (a lib só cancela o timer
+    // dela; o nosso é independente e precisa do próprio listener).
+    let tipHoverBound = false;
+    const bindTipHover = () => {
+      if (tipHoverBound) return;
+      const card = document.querySelector('.myio-gbt');
+      if (!card) return;
+      tipHoverBound = true;
+      card.addEventListener('mouseenter', cancelTipHide);
+      card.addEventListener('mouseleave', () => {
+        if (!tipIsPinned()) scheduleTipHide();
+      });
+    };
+
+    const unpinTip = (alsoHide) => {
+      evoTipPin = null;
+      cancelTipHide();
+      if (alsoHide && evoTip) {
+        try {
+          evoTip.hide();
+        } catch (_) {
+          /* ignore */
+        }
+      }
+    };
+    // Enquanto fixado, só a própria barra fixada pode repintar o card.
+    const tipBlockedBy = (context) => {
+      if (!evoTipPin) return false;
+      const dp = context?.tooltip?.dataPoints?.[0];
+      return !(context.chart === evoTipPin.chart && dp && dp.dataIndex === evoTipPin.idx);
+    };
+    // Um clique no canvas fixa/desfixa a barra sob o cursor.
+    const attachTipPin = (cv, ch) => {
+      if (!cv || cv.dataset.tipPin) return;
+      cv.dataset.tipPin = '1';
+      cv.style.cursor = 'pointer';
+      cv.addEventListener('click', (ev) => {
+        try {
+          const hit = ch.getElementsAtEventForMode(ev, 'index', { intersect: false }, true);
+          if (!hit || !hit.length) return void unpinTip(true);
+          const idx = hit[0].index;
+          if (evoTipPin && evoTipPin.chart === ch && evoTipPin.idx === idx) {
+            unpinTip(true); // clicar de novo na mesma barra solta
+            return;
+          }
+          evoTipPin = null; // repinta com a nova barra antes de fixar
+          ch.tooltip.setActiveElements([{ datasetIndex: hit[0].datasetIndex, index: idx }], {
+            x: hit[0].element.x,
+            y: hit[0].element.y,
+          });
+          ch.update('none');
+          evoTipPin = { chart: ch, idx };
+        } catch (_) {
+          /* pin é conveniência — nunca quebra o gráfico */
+        }
+      });
+    };
+
+    const cardExternalTip = (context) => {
+      try {
+        const tip = ensureEvoTip();
+        if (!tip) return;
+        const tt = context && context.tooltip;
+        if (tipBlockedBy(context)) return; // fixado noutra barra: ignora hover
+        if (!tt || tt.opacity === 0) {
+          if (tipIsPinned()) return; // fixado: não some ao sair da barra
+          scheduleTipHide(); // grace period p/ alcançar 📌 e (+)
+          return;
+        }
+        cancelTipHide(); // hover novo: cancela fechamento pendente
+        const dp = tt.dataPoints && tt.dataPoints[0];
+        if (!dp) return;
+        const chart = context.chart;
+        const idx = dp.dataIndex;
+        const rect = chart.canvas.getBoundingClientRect();
+        const pos = evoLastMouse || { x: rect.left + tt.caretX, y: rect.top + tt.caretY };
+        tip.show(
+          {
+            title: (chart.data.labels && chart.data.labels[idx]) || '',
+            subtitle: cardTitleOf(chart),
+            rows: cardTipRows(chart, idx),
+            accentColor: GP.accent,
+          },
+          { clientX: pos.x, clientY: pos.y }
+        );
+      } catch (_) {
+        /* tooltip é enfeite — nunca quebra o card */
+      }
+    };
+
+    // Troca o tooltip preto pelo premium em TODOS os canvases do grid de cards.
+    // A lib RECRIA o Chart a cada setOptions/setThemeMode, então isto precisa
+    // rodar depois de cada render/reconfiguração — `__myioTipPatched` deixa a
+    // chamada idempotente (instância nova nasce sem a marca).
+    const attachCardTooltips = () => {
+      const grid = overlay.querySelector('[data-cards-grid]');
+      if (!grid || typeof window.Chart !== 'function' || typeof window.Chart.getChart !== 'function') return;
+      if (!ensureEvoTip()) return; // lib antiga sem createGoalsBarTooltip → tooltip padrão
+      applyTipTheme();
+      // O contexto `external` do Chart.js não carrega o mouse — guardamos a última
+      // posição sobre o grid p/ abrir o card PERTO do ponteiro (📌 e (+) alcançáveis).
+      if (!grid.dataset.tipMouse) {
+        grid.dataset.tipMouse = '1';
+        grid.addEventListener('mousemove', (e) => {
+          evoLastMouse = { x: e.clientX, y: e.clientY };
+        });
+      }
+      grid.querySelectorAll('canvas').forEach((cv) => {
+        let ch = null;
+        try {
+          ch = window.Chart.getChart(cv);
+        } catch (_) {
+          ch = null;
+        }
+        if (!ch || ch.__myioTipPatched) return;
+        try {
+          const p = ch.options && ch.options.plugins;
+          if (!p) return;
+          p.tooltip = Object.assign({}, p.tooltip || {}, { enabled: false, external: cardExternalTip });
+          ch.__myioTipPatched = true;
+          attachTipPin(cv, ch); // clique na barra fixa o card (📌 e (+) alcançáveis)
+          ch.update('none'); // reavalia as opções do plugin de tooltip
+        } catch (_) {
+          /* card segue com o tooltip padrão */
+        }
+      });
+    };
+
     let evoSeq = 0;
     const evoConsCache = new Map(); // consumo por (domínio, gran, range) — troca de aba não refaz fetch
 
@@ -4745,6 +5138,8 @@ body.filter-modal-open { overflow: hidden !important; }
     let goalsCards = [];
     let lastCardsRender = null; // { fn, args } — re-render dos cards sem refetch (⚙️ Exibir card Consolidado)
     const destroyGoalsCards = () => {
+      // Evita tooltip órfão (inclusive 📌 fixado) sobre um Chart já destruído
+      try { evoTip?.hide(true); } catch (_) { /* ignore */ }
       goalsCards.forEach((c) => {
         try {
           c.destroy();
@@ -4829,7 +5224,7 @@ body.filter-modal-open { overflow: hidden !important; }
             unit,
             yearLabels: { current: yearCurLabel, previous: yearPrevLabel },
             themeMode: modalTheme,
-            options: { chartType: cardsChartType, showPoints: cardsShowPoints, colors: { breakdownPalette: GP_TONES || undefined } },
+            options: { chartType: cardsChartType, showPoints: cardsShowPoints, colors: { breakdownPalette: SHOP_PALETTE } },
             series: {
               labels,
               // 👁: ano oculto some dos dados (realized vira gaps; A-1 é omitida por completo)
@@ -4854,7 +5249,7 @@ body.filter-modal-open { overflow: hidden !important; }
             unit,
             yearLabels: { current: yearCurLabel, previous: yearPrevLabel },
             themeMode: modalTheme,
-            options: { chartType: cardsChartType, showPoints: cardsShowPoints, colors: { breakdownPalette: GP_TONES || undefined } },
+            options: { chartType: cardsChartType, showPoints: cardsShowPoints, colors: { breakdownPalette: SHOP_PALETTE } },
             series: {
               labels,
               realized: showCurYear
@@ -4885,6 +5280,7 @@ body.filter-modal-open { overflow: hidden !important; }
           item(dash(CGC_META_COLOR), `Meta (${yearCurLabel})`) +
           (goalRawOf ? item(dash(CGC_ORCADO_COLOR), `Orçado (${yearCurLabel})`) : '');
       }
+      attachCardTooltips(); // tooltip branco premium no lugar do preto do Chart.js
     };
 
     // ── Cards agrupados por DISPOSITIVO (⚙️ Agrupado por: Dispositivos) ──────────
@@ -4944,12 +5340,14 @@ body.filter-modal-open { overflow: hidden !important; }
         // 1) Label do datasource TB do HO — TODOS os domínios/grupos (o medidor
         //    pode estar classificado fora de energy.entrada)
         const nameByIng = new Map();
+        const profByIng = new Map(); // ingestionId → deviceProfile TB (p/ detectar CAG)
         const classified = window.MyIOOrchestratorData?.classified || {};
         for (const dom of Object.values(classified)) {
           for (const arr of Object.values(dom || {})) {
             (arr || []).forEach((d) => {
               if (d?.ingestionId && !nameByIng.has(d.ingestionId)) {
                 nameByIng.set(d.ingestionId, d.labelOrName || d.label || d.name);
+                profByIng.set(d.ingestionId, d.deviceProfile || '');
               }
             });
           }
@@ -4980,7 +5378,7 @@ body.filter-modal-open { overflow: hidden !important; }
             tbMap?.get(normOldName(d.name)) ||
             cleanIngestionName(d.name) ||
             `Entrada ${i + 1}`;
-          return { id: d.id, customerId: d.customerId || null, name };
+          return { id: d.id, customerId: d.customerId || null, name, deviceProfile: profByIng.get(d.id) || '' };
         });
       }
       // Água: hidrômetros de entrada classificados (RFC-0111)
@@ -4990,6 +5388,7 @@ body.filter-modal-open { overflow: hidden !important; }
           id: d.ingestionId,
           customerId: d.customerIngestionId || null,
           name: d.labelOrName || d.label || d.name || 'Hidrômetro',
+          deviceProfile: d.deviceProfile || '',
         }));
     };
 
@@ -5074,7 +5473,20 @@ body.filter-modal-open { overflow: hidden !important; }
           return acc;
         }, nullSeries());
 
+      // CAG (climatização) SEMPRE no TOPO da pilha "Dispositivos empilhados": o
+      // Chart.js empilha na ordem do array (1º = base, último = topo), então os
+      // medidores CAG vão para o FIM do array. Detecção por deviceProfile TB
+      // (BOMBA_CAG/TRAFO_ENTRADA_CAG… — todos contêm "CAG"), NUNCA por nome/label.
+      // Os medidores CAG dividem o profileId ENTRADA de ingestion com os demais, por
+      // isso o deviceProfile do TB é a única forma de distingui-los.
+      const _isCagDevice = (d) => (d?.deviceProfile || '').toUpperCase().includes('CAG');
+      const orderCagTop = (arr) =>
+        cardsGroupBy === 'device-stack'
+          ? [...arr].sort((a, b) => (_isCagDevice(a) ? 1 : 0) - (_isCagDevice(b) ? 1 : 0)) // estável (V8): CAG por último
+          : arr;
+
       const makeCard = ({ title, devs, budget, orcado, shopIdx }) => {
+        devs = orderCagTop(devs);
         // Nomes deduplicados dentro do card (#1/#2 quando o shopping tem 2 medidores iguais)
         const names = devs.map(deviceLabel);
         const count = names.reduce((acc, n) => acc.set(n, (acc.get(n) || 0) + 1), new Map());
@@ -5119,7 +5531,7 @@ body.filter-modal-open { overflow: hidden !important; }
               chartType: cardsChartType,
               showPoints: cardsShowPoints,
               breakdownStacked: cardsGroupBy === 'device-stack',
-              colors: { breakdownPalette: GP_TONES || undefined },
+              colors: { breakdownPalette: SHOP_PALETTE },
             },
             series: {
               labels,
@@ -5176,7 +5588,7 @@ body.filter-modal-open { overflow: hidden !important; }
             unit,
             yearLabels: { current: yearCurLabel, previous: yearPrevLabel },
             themeMode: modalTheme,
-            options: { chartType: cardsChartType, showPoints: cardsShowPoints, colors: { breakdownPalette: GP_TONES || undefined } },
+            options: { chartType: cardsChartType, showPoints: cardsShowPoints, colors: { breakdownPalette: SHOP_PALETTE } },
             series: {
               labels,
               realized: showCurYear
@@ -5207,6 +5619,7 @@ body.filter-modal-open { overflow: hidden !important; }
             ? `<span style="font-style:italic;">Realizado (${yearCurLabel}) quebrado por medidor — cores na legenda de cada card</span>`
             : '');
       }
+      attachCardTooltips(); // tooltip branco premium no lugar do preto do Chart.js
     };
 
     // ── Resumo Analítico — tabela do portfólio fiel a logs/026-GolsAnalitcs.png ──
@@ -5431,6 +5844,7 @@ body.filter-modal-open { overflow: hidden !important; }
           breakdownStacked: cardsGroupBy === 'device-stack',
         })
       );
+      attachCardTooltips(); // setOptions recria o Chart → re-aplica o tooltip premium
     };
     // Tipo (barra/linha) + pontos — só afetam os Cards; aplica in-place sem refetch.
     const applyCardsVisual = () => {
@@ -5442,6 +5856,7 @@ body.filter-modal-open { overflow: hidden !important; }
             breakdownStacked: cardsGroupBy === 'device-stack',
           })
         );
+        attachCardTooltips(); // setOptions recria o Chart → re-aplica o tooltip premium
       }
     };
     // Card Consolidado on/off — re-render local dos cards (mesmos dados, sem refetch).
@@ -5604,15 +6019,19 @@ body.filter-modal-open { overflow: hidden !important; }
       };
       // Tooltip premium (tree-driven) — criado uma vez, sob demanda. Fail-open: se a
       // lib não expõe createGoalsBarTooltip, cai no tooltip built-in do Chart.js.
-      if (!evoTip && MyIOLibrary && typeof MyIOLibrary.createGoalsBarTooltip === 'function') {
-        try { evoTip = MyIOLibrary.createGoalsBarTooltip({ accentColor: GP.accent }); }
-        catch { evoTip = null; }
-      }
+      ensureEvoTip();
+      applyTipTheme();
       const externalTip = evoTip && tipModel
         ? (context) => {
             try {
               const tt = context && context.tooltip;
-              if (!tt || tt.opacity === 0) { evoTip.hide(); return; }
+              if (tipBlockedBy(context)) return; // fixado noutra barra: ignora hover
+              if (!tt || tt.opacity === 0) {
+                if (tipIsPinned()) return; // fixado: não some ao sair da barra
+                scheduleTipHide(); // grace period p/ alcançar 📌 e (+)
+                return;
+              }
+              cancelTipHide(); // hover novo: cancela fechamento pendente
               const dp = tt.dataPoints && tt.dataPoints[0];
               if (!dp) return;
               const idx = dp.dataIndex;
@@ -5645,6 +6064,8 @@ body.filter-modal-open { overflow: hidden !important; }
             : { x: { ...axis }, y: { beginAtZero: true, grid: axis.grid, ticks: yTicks } },
         },
       });
+      // Canvas único do gráfico principal: mesmo pin por clique dos cards.
+      if (externalTip) attachTipPin(evoCanvas, evoChart);
     };
 
     const loadEvo = async () => {
@@ -5738,18 +6159,40 @@ body.filter-modal-open { overflow: hidden !important; }
         goalKeysAt = (i) =>
           dayKeysInMonth(yearSel, i + 1, `${yearSel}-01-01`, covEnd).map((k) => ['daily', k]);
       } else if (evoGran === '1M') {
-        // Meses DENTRO do período do picker (ex.: 01–09/07 → só Julho)
+        // Meses DENTRO do período do picker — ATRAVESSANDO a virada do ano (ex.:
+        // 11/2025–02/2026 = Nov,Dez,Jan,Fev). O clamp antigo `Math.max(mStart,mEnd)`
+        // colapsava ranges cross-year num único mês; agora iteramos por (ano,mês)
+        // ABSOLUTO, com teto de 24 buckets (janela máxima do picker).
         const s0 = isoLocalDay(period.startISO);
         const e0 = isoLocalDay(period.endISO);
-        const mStart = Number(s0.slice(5, 7));
-        const mEnd = Math.max(mStart, Number(e0.slice(5, 7)));
-        const months = [];
-        for (let m = mStart; m <= mEnd; m++) months.push(m);
-        monthIdxMap = new Map(months.map((m, i) => [m, i]));
-        labels = months.map((m) => MONTHS_PT[m - 1]);
+        const y0 = Number(s0.slice(0, 4));
+        const m0 = Number(s0.slice(5, 7));
+        const a0 = y0 * 12 + (m0 - 1); // índice absoluto do 1º mês
+        const a1 = Number(e0.slice(0, 4)) * 12 + (Number(e0.slice(5, 7)) - 1);
+        const span = Math.min(23, Math.max(0, a1 - a0)); // até 24 meses
+        const monthsAbs = Array.from({ length: span + 1 }, (_, k) => {
+          const a = a0 + k;
+          return { y: Math.floor(a / 12), m: (a % 12) + 1 };
+        });
+        const spanYears = monthsAbs.some((o) => o.y !== y0);
+        // bucketize por (ano,mês) ABSOLUTO — sem colisão entre meses homônimos de anos
+        // distintos. A-1 (ano anterior, mesmo mês) mapeia para o MESMO bucket: registra
+        // o ano-1 primeiro e deixa o ano corrente vencer em eventual sobreposição (>12m).
+        monthIdxMap = new Map();
+        monthsAbs.forEach((o, i) => monthIdxMap.set((o.y - 1) * 100 + o.m, i));
+        monthsAbs.forEach((o, i) => monthIdxMap.set(o.y * 100 + o.m, i));
+        labels = monthsAbs.map((o) =>
+          spanYears ? `${MONTHS_PT[o.m - 1]}/${String(o.y).slice(2)}` : MONTHS_PT[o.m - 1]
+        );
         // Mês parcial nas pontas do range (ex.: 10–15/07 soma só esses 6 dias).
-        const yBucket = Number(s0.slice(0, 4));
-        goalKeysAt = (i) => dayKeysInMonth(yBucket, months[i], s0, e0).map((k) => ['daily', k]);
+        // Meta é somada DIA A DIA da camada `daily` do ANO carregado (yearGoals = ano
+        // de início). Buckets fora desse ano ficam SEM meta (linha interrompida) até o
+        // fetch multi-ano — evita exibir meta do ano errado no mesmo "MM-DD".
+        goalKeysAt = (i) => {
+          const o = monthsAbs[i];
+          if (o.y !== yearGoals) return [];
+          return dayKeysInMonth(o.y, o.m, s0, e0).map((k) => ['daily', k]);
+        };
         ranges = {
           cur: [period.startISO, period.endISO],
           prev: [
@@ -5788,7 +6231,7 @@ body.filter-modal-open { overflow: hidden !important; }
           const ts = String(pt.timestamp);
           let idx;
           if (evoGran === '1y') idx = Number(ts.slice(5, 7)) - 1;
-          else if (evoGran === '1M') idx = monthIdxMap.get(Number(ts.slice(5, 7)));
+          else if (evoGran === '1M') idx = monthIdxMap.get(Number(ts.slice(0, 4)) * 100 + Number(ts.slice(5, 7)));
           else if (evoGran === '1d') idx = idxByKey.get(ts.slice(5, 10));
           else {
             const dIdx = idxByKey.get(ts.slice(5, 10)); // dia do range (alinha ano-1 por MM-DD)
@@ -6178,20 +6621,8 @@ body.filter-modal-open { overflow: hidden !important; }
           return { icon: cfgD.icon || '⚡', label: d.label, valueText: _fmtQtyStr(metaVal * w, tipUnit), pct: w * 100 };
         });
       };
-      // Chips de desvio (pt-BR) — mesma semântica do GoalsModal do shopping.
-      const evoNeutralDelta = (a, b) => {
-        if (a == null || b == null || !(b > 0) || !isFinite(a)) return undefined;
-        const d = ((a - b) / b) * 100;
-        return { pct: Math.abs(d), tone: 'neutral', arrow: d > 0.05 ? 'up' : d < -0.05 ? 'down' : 'flat' };
-      };
-      const evoBandDelta = (real, ref, midText) => {
-        if (real == null || ref == null || !(ref > 0) || !isFinite(real)) return undefined;
-        const d = ((real - ref) / ref) * 100;
-        const abs = Math.abs(d);
-        if (d < -3) return { pct: abs, tone: 'good', arrow: 'down', text: 'abaixo' };
-        if (d > 3) return { pct: abs, tone: 'bad', arrow: 'up', text: 'ultrapassou' };
-        return { pct: abs, tone: 'neutral', arrow: 'flat', text: midText };
-      };
+      // Chips de desvio (evoNeutralDelta/evoBandDelta) são compartilhados com os
+      // Cards e ficam no escopo da modal (perto de cardTipRows).
       const tipModel = {
         accent: GP.accent,
         title: (idx) => labels[idx] || '',
@@ -6494,9 +6925,11 @@ body.filter-modal-open { overflow: hidden !important; }
       paintTabs();
       paintViewTabs();
       if (lastRows) renderTable(lastRows, lastUnit);
+      applyTipTheme(); // tooltip premium vive no <body> — tema por classe
       if (evoMode === 'cards' && goalsCards.length) {
         // RFC-0217: retema os cards in-place (não re-renderiza o canvas único)
         goalsCards.forEach((c) => c.setThemeMode?.(modalTheme));
+        attachCardTooltips(); // setThemeMode recria o Chart → re-aplica o tooltip premium
       } else if (evoMode === 'analytics') {
         // Tabela usa CSS vars (--gc-*) — o tema aplica sozinho; não trocar de superfície
       } else if (lastEvo) {
@@ -6634,9 +7067,12 @@ body.filter-modal-open { overflow: hidden !important; }
 
     let periodPicker = null;
     const close = () => {
+      unpinTip(false); // solta o pin antes de destruir o tooltip
       if (evoChart) evoChart.destroy();
+      destroyGoalsCards(); // RFC-0217 (esconde o tooltip antes de destruí-lo)
       if (evoTip) { try { evoTip.destroy(); } catch (_) { /* ignore */ } evoTip = null; }
-      destroyGoalsCards(); // RFC-0217
+      // classe de tema do tooltip vive no <body>, fora do overlay — limpar aqui
+      try { tipDoc().body.classList.remove('myio-gbt-dark'); } catch (_) { /* ignore */ }
       try {
         periodPicker?.destroy?.();
       } catch {
@@ -6647,7 +7083,11 @@ body.filter-modal-open { overflow: hidden !important; }
       window.removeEventListener('myio:theme-change', onGlobalTheme);
     };
     const onKey = (e) => {
-      if (e.key === 'Escape') close();
+      if (e.key !== 'Escape') return;
+      // Esc solta o tooltip fixado antes de fechar a modal — senão o usuário
+      // perde a modal inteira só para dispensar um card fixado.
+      if (tipIsPinned()) return void unpinTip(true);
+      close();
     };
     overlay.addEventListener('click', (e) => {
       if (e.target.closest('[data-pdf]')) return void exportPdf();
@@ -6746,7 +7186,9 @@ body.filter-modal-open { overflow: hidden !important; }
           periodPicker = await MyIOLibrary.createDateRangePicker(periodInput, {
             presetStart: isoLocalDay(period.startISO),
             presetEnd: isoLocalDay(period.endISO),
-            maxRangeDays: 92,
+            // Janela de até 24 meses: um ano cheio (Jan–Dez) e ranges que cruzam a
+            // virada do ano precisam caber. Antes 92 dias recortavam "Ano 2026" em Abr.
+            maxRangeDays: 732,
             parentEl: overlay.querySelector('[role="dialog"]'),
             onApply: (result) => {
               if (result?.startISO && result?.endISO) {
