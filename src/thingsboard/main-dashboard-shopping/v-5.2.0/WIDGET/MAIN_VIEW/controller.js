@@ -4183,7 +4183,36 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
 
   const toStr = (val) => String(val || '').toUpperCase();
 
-  for (const item of areacomum) {
+  // ============ RFC-0207 "DISPOSITIVOS ESPECÍFICOS" ============
+  // O breakdown historicamente só percorria `areacomum`, o que torna um device de
+  // ENTRADA estruturalmente invisível ao card de Climatização — mesmo quando ele
+  // é, fisicamente, climatização (Shopping da Ilha: o trafo "Medição Geral CAG"
+  // mede TODA a alimentação da CAG). `selectBreakdownItems` resolve isso sem
+  // mexer em `resolveGroup` (alocação única preservada, total de Entrada intacto):
+  //   - `include` → puxa o device de QUALQUER grupo e força a categoria dele;
+  //   - `exclude` → tira o device do breakdown INTEIRO (nunca cai em `outros`,
+  //     porque o motivo do exclude é dupla-medição — recontá-lo em outros seria
+  //     exatamente o bug que ele existe para evitar).
+  //
+  // Relação com `widgetSettings.excludeDevicesAtCountSubtotalCAG` (abaixo, na
+  // seção "FILTER EXCLUDED DEVICES FROM CAG"): são mecanismos DISTINTOS e ambos
+  // continuam valendo. Aquele é setting de WIDGET e atua tarde, só no SUBTOTAL da
+  // sub-subcategoria CAG (o device continua contando em `climatizacaoTotal`).
+  // Este é perfil de CLIENTE (persistido no JSON) e atua cedo, decidindo quais
+  // devices sequer entram no breakdown. Um device pode estar nos dois; o
+  // `exclude` do perfil vence por chegar primeiro.
+  const _selectBreakdownItems =
+    (typeof window !== 'undefined' &&
+      window.MyIOLibrary &&
+      window.MyIOLibrary.selectBreakdownItems) ||
+    null;
+  const _breakdownEntries = _selectBreakdownItems
+    ? _selectBreakdownItems({ areacomum, entrada, lojas }, undefined, 'energy', {
+        baseGroup: 'areacomum',
+      })
+    : areacomum.map((item) => ({ item, forcedCategory: null }));
+
+  for (const { item, forcedCategory } of _breakdownEntries) {
     const lw = toStr(item.labelWidget);
     const dp = toStr(item.deviceProfile);
     const label = toStr(item.label);
@@ -4194,7 +4223,10 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
     // RFC-0207 (A1b → cleanup): top-level bucket is resolver-only (degrades to
     // 'outros' when the library is missing — logged once above). Identifier-prefix
     // and combined-text signals are now encoded in the resolver seed.
-    const _topCat = _resolveCategory ? _resolveCategory(item).category : 'outros';
+    // `forcedCategory` (Dispositivos Específicos) tem precedência: o operador
+    // declarou explicitamente onde o device agrega. A sub-subcategorização abaixo
+    // segue pelas regras de texto normais.
+    const _topCat = forcedCategory || (_resolveCategory ? _resolveCategory(item).category : 'outros');
 
     if (_topCat === 'elevadores') {
       elevadoresItems.push(item);
@@ -4228,6 +4260,13 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
   }
 
   // ============ FILTER EXCLUDED DEVICES FROM CAG ============
+  // NÃO confundir com os "Dispositivos Específicos" do perfil (RFC-0207, acima):
+  //   - AQUI: setting de WIDGET, escopo estreito — retira o device apenas do
+  //     SUBTOTAL da sub-subcategoria CAG. Ele continua dentro de
+  //     `climatizacaoItems`/`climatizacaoTotal` e dentro do breakdown.
+  //   - LÁ: perfil do CLIENTE (JSON persistido), escopo largo — `exclude` retira
+  //     o device do breakdown INTEIRO (não chega aqui) e `include` traz devices de
+  //     outros grupos. Os dois convivem; o do perfil age antes.
   const excludeIds = widgetSettings.excludeDevicesAtCountSubtotalCAG || [];
   const excludeIdsSet = new Set(excludeIds.map((id) => String(id).trim().toLowerCase()));
 
