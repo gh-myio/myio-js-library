@@ -451,6 +451,9 @@ A new MENU entry opens a premium modal that:
   - `identifierContains` → `identifier.includes(s)` (**this is the unified rule** that fixes
     the CAG `Set.has` bug — substring everywhere).
   - `conditional[]` → `{ deviceTypes, whenIdentifierContains }` for BOMBA/MOTOR-style devices.
+  - `deviceOverrides?[]` → `{ id, label?, mode }` — **Dispositivos Específicos**, escape hatch
+    topológico por dispositivo. Opcional; ausência = comportamento anterior. Ver o addendum
+    homônimo no fim deste RFC (semântica `include`/`exclude` e a ressalva de escala).
   - exactly one category per domain has `fallback: true` ("outros").
 
 ### Resolution order (deterministic)
@@ -1263,6 +1266,136 @@ Verde nesse teste = contrato `bulk-replace` honrado → o golden-lib e o adaptad
 [ ] boot: N parallel domain loads resolve distinct trees; 304 isolated per domain
 [ ] integração §v3.2-D: 422 atômico + 409 com currentVersion + pg_typeof=jsonb
 ```
+
+---
+
+## Addendum — "Dispositivos Específicos": overrides por dispositivo no breakdown (2026-07-24)
+
+### DE-A. O problema, com o caso que o produziu
+
+No **Shopping da Ilha**, o device **"Medição Geral CAG"** (`deviceProfile: ENTRADA`,
+`identifier: CAG`) é um **trafo de entrada** que mede toda a alimentação da CAG (central de
+água gelada): **637.560**. Ele cai no grupo `entrada` e conta no total de entrada — isso está
+**certo**. Só que aquela energia *é* climatização, e o operador quer vê-la no card
+**Climatização** do TELEMETRY_INFO.
+
+Hoje isso é impossível, por duas razões estruturais — nenhuma das quais deve ser abolida:
+
+1. **Alocação única.** `resolveGroup(item)` devolve **um** grupo. É o que mantém os totais
+   coerentes (nenhum device conta duas vezes numa coluna). Fica.
+2. **O breakdown só lê `areacomum`.** `buildSummary` (MAIN_VIEW) percorre o grupo residual.
+   Devices de entrada são, portanto, **estruturalmente invisíveis** ao card de climatização.
+
+A complicação que decidiu o desenho: na Ilha o **mesmo `identifier` "CAG"** é usado pelo trafo
+de entrada **e** por 9 submedidores `BOMBA_CAG` (155.671 no total) que **já** caem em
+climatização pela regra de identifier. As 9 bombas estão **fisicamente dentro** dos 637.560 que
+o trafo mede. Uma regra por identifier pegaria os dois e dobraria a conta (793.231). Daí:
+**override explícito por dispositivo, não regra.**
+
+### DE-B. Schema (aditivo, retrocompatível)
+
+Cada regra de categoria (`domains.<domain>.categories.rules[]`) ganha um campo **opcional**:
+
+```ts
+/** Overrides explícitos por dispositivo (escape hatch topológico). */
+deviceOverrides?: Array<{
+  id: string;              // TB entity id — mesma chave de `excludeDevicesAtCountSubtotalCAG`
+  label?: string;          // guardado só para exibição/resiliência na UI
+  mode: 'include' | 'exclude';
+}>;
+```
+
+É uma **lista de valores**, nunca um predicado (§A segue valendo). `label` é guardado junto do
+`id` para que o modal consiga renderizar um nome humano mesmo quando o device sumiu do
+dashboard — nesse caso a chip aparece marcada como "não encontrado" (⚠). O motor **nunca**
+classifica por `label`; ele é texto de exibição.
+
+Ausência do campo ⇒ **comportamento idêntico ao de antes** (`selectBreakdownItems` tem
+fast-path para "zero overrides"; `normalizeProfile` preserva ausência como ausência e o modal
+apaga a chave quando a lista esvazia).
+
+### DE-C. Semântica (decidida)
+
+| modo | efeito |
+| --- | --- |
+| `include` | O device **agrega nesta categoria mantendo o seu grupo**. `resolveGroup` não muda: o total da coluna Entrada fica **idêntico**. Ele é apenas somado a mais nos itens/total da categoria do breakdown. |
+| `exclude` | O device sai do breakdown **inteiro**. **Não** cai em `outros` nem em bucket nenhum. |
+
+Por que `exclude` não cai em `outros`: o `exclude` existe para **dupla medição** — a bomba já
+está dentro da leitura do trafo. Roteá-la para `outros` seria recontá-la, que é exatamente o
+bug que o mecanismo existe para evitar.
+
+- `exclude` **vence** `include` se um device aparecer nos dois (o `exclude` é global ao
+  breakdown; o `include` é por categoria).
+- A **fórmula do residual não muda**:
+  `Área Comum = Entrada − (Lojas + Climatização + Elevadores + Escadas + Outros)`.
+  Com o trafo dentro de Climatização, Área Comum encolhe corretamente naquele valor.
+
+**Aceitação (números reais da Ilha)** — `include` no trafo + `exclude` nas 9 bombas:
+
+| | valor |
+| --- | --- |
+| Climatização | **637.560** (e **não** 793.231 — esse seria o bug de dupla contagem) |
+| Entrada | **1.390.237**, inalterada |
+| As 9 bombas | em **nenhum** bucket do breakdown (nem em `outros`) |
+
+### DE-D. Implementação
+
+**LIB** (`src/utils/devices/deviceClassificationProfile.ts`, pura — sem DOM, sem fetch):
+
+- `collectDeviceOverrides(profile, domain)` → achata os `deviceOverrides` de todas as
+  categorias em `{ includes: Map<id, categoria>, excludes: Set<id>, labels: Map<id, label> }`,
+  já aplicando a precedência do §DE-C.
+- `selectBreakdownItems(groups, profile, domain, { baseGroup })` → monta a lista que o
+  breakdown deve percorrer: base = `groups[baseGroup]` (hoje `areacomum`), menos os `exclude`,
+  mais os `include` **puxados de qualquer grupo**, cada um carimbado com `forcedCategory`.
+- `normalizeDeviceOverrideId(id)` → `String(id).trim().toLowerCase()`, a **mesma** chave que
+  `excludeDevicesAtCountSubtotalCAG` usa. IDs e labels **nunca** são upper-cased (ao contrário
+  dos demais comparandos): `id` é UUID do TB e `label` é texto humano.
+- `validateProfile` acusa `deviceOverrides` não-array, entrada não-objeto, `id` vazio, `mode`
+  fora de `include|exclude` e `label` não-string. Campo ausente **não** gera erro.
+
+**MAIN_VIEW** (`buildSummary`): o laço `for (const item of areacomum)` virou
+`for (const { item, forcedCategory } of _breakdownEntries)`, alimentado por
+`window.MyIOLibrary.selectBreakdownItems({ areacomum, entrada, lojas }, …)`. `forcedCategory`
+tem precedência sobre `resolveCategory`; a **sub-subcategorização** (chiller/fancoil/CAG/…)
+segue pelas regras de texto locais de sempre — o trafo da Ilha cai em `cag` porque o texto
+combinado contém "CAG" e não contém CHILLER/FANCOIL/BOMBA.
+
+**Relação com `excludeDevicesAtCountSubtotalCAG`** (setting de widget, preservado intacto):
+são mecanismos **distintos** e ambos continuam valendo.
+
+| | `excludeDevicesAtCountSubtotalCAG` | `deviceOverrides` |
+| --- | --- | --- |
+| onde vive | setting do **widget** | perfil do **cliente** (JSON persistido) |
+| quando age | tarde | cedo |
+| escopo | só o **subtotal** da sub-subcategoria CAG; o device segue em `climatizacaoTotal` e no breakdown | o breakdown **inteiro** (entra/sai) |
+
+Um device pode estar nos dois; o `exclude` do perfil vence por chegar primeiro.
+
+**Modal** (`openDeviceProfileModal.ts`): seção **"Dispositivos Específicos"** com botão **+**,
+picker com busca (🔍) sobre `device.label`, devices já adicionados **removidos da lista** (não
+dá para adicionar o mesmo duas vezes), marcação incluir/excluir na seleção e chips removíveis.
+Os devices vêm do callback `getDevices(domain)` que o modal **já recebia** para o preview
+(sem novo I/O); lista vazia ou callback que lança degradam para uma dica, sem quebrar. O
+**"Preview ao vivo"** reflete os overrides antes de salvar. Respeita `canEdit` (read-only não
+renderiza "+" nem "×"). O schema é genérico por categoria, mas a seção é **renderizada apenas
+em Climatização** (`DEVICE_OVERRIDE_CATEGORIES`) — ampliar = acrescentar nomes ali.
+
+Persistência: nada novo. O modal continua delegando ao `onSave` →
+`window.MyIOOrchestrator.saveDeviceClassificationProfile`; o campo apenas faz round-trip.
+
+### DE-E. Ressalva — isto é um escape hatch, não um método
+
+**Overrides por device-id escalam mal e quebram em re-provisionamento**: o `id` é o TB entity
+id, e um device recriado ganha id novo — o override vira órfão silencioso (o modal sinaliza
+com ⚠, mas o número já mudou). Também não sobrevivem a export/import entre ambientes.
+
+Portanto: **regras por atributo continuam sendo o caminho padrão**
+(`deviceProfiles` / `profileContains` / `identifier*`). Os `deviceOverrides` são para o que
+regra nenhuma alcança — topologia física, como um trafo que mede um subsistema inteiro. Se a
+lista de um cliente começar a crescer, isso é sinal de que falta uma **regra** (ou um
+`deviceProfile` novo), não de que faltam mais overrides.
 
 ---
 
