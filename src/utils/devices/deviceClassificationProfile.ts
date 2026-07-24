@@ -109,6 +109,38 @@ export interface ConditionalRule extends IdentifierMatch {
   deviceTypes?: string[];
 }
 
+/**
+ * RFC-0207 "Dispositivos Específicos" — modo de um override por dispositivo.
+ *
+ * - `include` — o device AGREGA nesta categoria do breakdown **mantendo o seu
+ *   grupo**. `resolveGroup` não muda: o total da coluna (ex.: Entrada) fica
+ *   idêntico. O device é apenas somado a mais na categoria.
+ * - `exclude` — o device sai do breakdown **inteiro**. Não cai em `outros` nem em
+ *   nenhum outro bucket. Existe para dupla-medição (o submedidor já está dentro
+ *   da leitura do trafo); mandá-lo para `outros` seria recontá-lo.
+ */
+export type DeviceOverrideMode = 'include' | 'exclude';
+
+/**
+ * Override explícito por dispositivo (escape hatch topológico).
+ *
+ * É uma LISTA DE VALORES, nunca um predicado (RFC-0207 §A proíbe
+ * predicates-as-data). `id` é o TB entity id — a MESMA chave usada por
+ * `excludeDevicesAtCountSubtotalCAG` (`String(item.id)`, comparada
+ * trim+lowercase).
+ *
+ * ⚠️ Escala mal e quebra em re-provisionamento (o entity id do TB muda). Regras
+ * por atributo (`deviceProfiles`/`profileContains`/`identifier*`) continuam sendo
+ * o caminho padrão; overrides são exceção topológica.
+ */
+export interface DeviceOverride {
+  /** TB entity id do dispositivo. */
+  id: string;
+  /** Guardado só para exibição/resiliência na UI (o motor NUNCA classifica por nome). */
+  label?: string;
+  mode: DeviceOverrideMode;
+}
+
 /** A single (non-fallback) category rule. */
 export interface CategoryRule {
   name: Exclude<CategoryName, 'lojas'>; // lojas is handled by the store shortcut
@@ -136,6 +168,13 @@ export interface CategoryRule {
   conditional?: ConditionalRule;
   /** Identifier-fallback hit list, mirroring classifyDeviceByIdentifier. */
   identifierFallback?: IdentifierMatch;
+  /**
+   * RFC-0207 "Dispositivos Específicos" — overrides explícitos por dispositivo.
+   *
+   * OPCIONAL e retrocompatível: ausente ⇒ comportamento idêntico ao de antes
+   * (`selectBreakdownItems` tem fast-path para "zero overrides").
+   */
+  deviceOverrides?: DeviceOverride[];
   fallback?: boolean;
 }
 
@@ -519,6 +558,145 @@ export function resolveCategory(
 }
 
 // ---------------------------------------------------------------------------
+// Dispositivos Específicos — device-level overrides for the BREAKDOWN
+//
+// Por que existem, em uma frase: `resolveGroup` aloca cada device em UM grupo só
+// (invariante de coerência dos totais — não é para ser abolida) e o breakdown do
+// TELEMETRY_INFO só percorre o grupo residual (`areacomum`). Um trafo de entrada
+// que mede TODA a carga da CAG fica, portanto, estruturalmente invisível ao card
+// de Climatização — mesmo sendo, fisicamente, climatização.
+//
+// Os overrides são o escape hatch: por dispositivo, explícito, sem tocar em
+// `resolveGroup` e sem inventar predicados novos no JSON.
+// ---------------------------------------------------------------------------
+
+/** Chave de comparação de device id — mesma normalização de `excludeDevicesAtCountSubtotalCAG`. */
+export function normalizeDeviceOverrideId(id: unknown): string {
+  return String(id ?? '').trim().toLowerCase();
+}
+
+export interface CollectedDeviceOverrides {
+  /** device id normalizado → categoria na qual ele deve ser AGREGADO. */
+  includes: Map<string, CategoryName>;
+  /** device ids normalizados removidos do breakdown por inteiro. */
+  excludes: Set<string>;
+  /** device id normalizado → label capturado na edição (exibição/diagnóstico). */
+  labels: Map<string, string>;
+}
+
+/**
+ * Achata os `deviceOverrides` de TODAS as categorias de um domínio.
+ *
+ * Regras de precedência (decididas, não negociáveis aqui):
+ *  - `exclude` vence `include` — se o mesmo device aparecer nos dois, ele sai do
+ *    breakdown. `exclude` é global (vale para o breakdown inteiro), `include` é
+ *    por categoria.
+ *  - Primeiro `include` na ordem das regras vence, caso o device apareça como
+ *    `include` em mais de uma categoria (alocação única também no breakdown).
+ */
+export function collectDeviceOverrides(
+  profile: DeviceClassificationProfile = getActiveProfile(),
+  domain: ClassificationDomain = 'energy',
+): CollectedDeviceOverrides {
+  const includes = new Map<string, CategoryName>();
+  const excludes = new Set<string>();
+  const labels = new Map<string, string>();
+
+  const rules = getDomain(profile, domain).categories?.rules ?? [];
+  for (const rule of rules) {
+    for (const ov of rule.deviceOverrides ?? []) {
+      const key = normalizeDeviceOverrideId(ov?.id);
+      if (!key) continue;
+      if (ov.label) labels.set(key, String(ov.label));
+      if (ov.mode === 'exclude') excludes.add(key);
+      else if (!includes.has(key)) includes.set(key, rule.name);
+    }
+  }
+  // exclude vence include
+  for (const key of excludes) includes.delete(key);
+
+  return { includes, excludes, labels };
+}
+
+/** Um item elegível ao breakdown + a categoria forçada por override (ou `null`). */
+export interface BreakdownEntry<T> {
+  item: T;
+  /**
+   * Categoria imposta por um override `include`. `null` ⇒ classificar
+   * normalmente com `resolveCategory`.
+   */
+  forcedCategory: CategoryName | null;
+}
+
+export interface SelectBreakdownItemsOptions {
+  /** Grupo que alimenta o breakdown (default `areacomum`, o residual do energy). */
+  baseGroup?: string;
+}
+
+/**
+ * Monta a lista de itens que o breakdown (TELEMETRY_INFO) deve percorrer,
+ * aplicando os Dispositivos Específicos.
+ *
+ *  - base = `groups[baseGroup]` (hoje `areacomum`), na ordem original;
+ *  - itens `exclude` são REMOVIDOS (não caem em `outros`);
+ *  - itens `include` são PUXADOS de qualquer grupo (tipicamente `entrada`) e
+ *    marcados com `forcedCategory` — o grupo deles NÃO muda, então o total da
+ *    coluna Entrada continua idêntico.
+ *
+ * Função pura: sem DOM, sem fetch. Quando não há nenhum override, devolve
+ * exatamente `groups[baseGroup]` (zero mudança de comportamento).
+ */
+export function selectBreakdownItems<T extends ClassifiableItem>(
+  groups: Record<string, T[] | undefined | null>,
+  profile: DeviceClassificationProfile = getActiveProfile(),
+  domain: ClassificationDomain = 'energy',
+  options: SelectBreakdownItemsOptions = {},
+): BreakdownEntry<T>[] {
+  const baseGroup = options.baseGroup || 'areacomum';
+  const base = (groups?.[baseGroup] ?? []) as T[];
+
+  const { includes, excludes } = collectDeviceOverrides(profile, domain);
+
+  // Fast-path: perfil sem Dispositivos Específicos ⇒ o breakdown de sempre.
+  if (includes.size === 0 && excludes.size === 0) {
+    return base.map((item) => ({ item, forcedCategory: null }));
+  }
+
+  const out: BreakdownEntry<T>[] = [];
+  const seen = new Set<string>();
+
+  for (const item of base) {
+    const key = normalizeDeviceOverrideId((item as { id?: unknown })?.id);
+    if (key) {
+      if (excludes.has(key)) continue;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const forced = includes.get(key);
+      out.push({ item, forcedCategory: forced ?? null });
+      continue;
+    }
+    out.push({ item, forcedCategory: null });
+  }
+
+  if (includes.size === 0) return out;
+
+  // Puxa os `include` que vivem FORA do grupo base (tipicamente `entrada`).
+  for (const groupKey of Object.keys(groups || {})) {
+    if (groupKey === baseGroup) continue;
+    for (const item of (groups[groupKey] ?? []) as T[]) {
+      const key = normalizeDeviceOverrideId((item as { id?: unknown })?.id);
+      if (!key || excludes.has(key) || seen.has(key)) continue;
+      const forced = includes.get(key);
+      if (!forced) continue;
+      seen.add(key);
+      out.push({ item, forcedCategory: forced });
+    }
+  }
+
+  return out;
+}
+
+// ---------------------------------------------------------------------------
 // validateProfile — structural integrity (closes bug #3)
 // ---------------------------------------------------------------------------
 
@@ -606,6 +784,32 @@ export function validateProfile(profile: DeviceClassificationProfile): string[] 
         if (r.combinedContains !== undefined && !Array.isArray(r.combinedContains)) {
           errors.push(`${domain}.categories.rules["${r?.name}"].combinedContains: must be an array`);
         }
+        // RFC-0207 "Dispositivos Específicos" — lista de valores por dispositivo.
+        // Campo OPCIONAL: ausente não gera erro (retrocompat total).
+        if (r.deviceOverrides !== undefined) {
+          if (!Array.isArray(r.deviceOverrides)) {
+            errors.push(
+              `${domain}.categories.rules["${r?.name}"].deviceOverrides: must be an array`,
+            );
+          } else {
+            r.deviceOverrides.forEach((ov, i) => {
+              const where = `${domain}.categories.rules["${r?.name}"].deviceOverrides[${i}]`;
+              if (!ov || typeof ov !== 'object') {
+                errors.push(`${where}: must be an object`);
+                return;
+              }
+              if (!ov.id || typeof ov.id !== 'string' || !ov.id.trim()) {
+                errors.push(`${where}.id: missing device id`);
+              }
+              if (ov.mode !== 'include' && ov.mode !== 'exclude') {
+                errors.push(`${where}.mode: must be "include" or "exclude"`);
+              }
+              if (ov.label !== undefined && typeof ov.label !== 'string') {
+                errors.push(`${where}.label: must be a string`);
+              }
+            });
+          }
+        }
       }
       // exactly one fallback across the category family (the 'outros' bucket)
       const inlineFallbacks = catRules.filter((r) => r.fallback === true).length;
@@ -688,6 +892,25 @@ export function normalizeProfile(raw: DeviceClassificationProfile): DeviceClassi
           upIdMatch(r.conditional);
         }
         upIdMatch(r.identifierFallback);
+        // RFC-0207 "Dispositivos Específicos": IDs e labels NUNCA são
+        // upper-cased. `id` é um UUID do TB (comparado trim+lowercase, igual a
+        // `excludeDevicesAtCountSubtotalCAG`) e `label` é texto de exibição.
+        // Só entradas estruturalmente sãs sobrevivem; ausência do campo é
+        // preservada como ausência (retrocompat).
+        if (r.deviceOverrides !== undefined) {
+          r.deviceOverrides = (Array.isArray(r.deviceOverrides) ? r.deviceOverrides : [])
+            .filter((ov) => ov && typeof ov === 'object' && String(ov.id ?? '').trim())
+            .map((ov) => {
+              const out: DeviceOverride = {
+                id: String(ov.id).trim(),
+                mode: ov.mode === 'exclude' ? 'exclude' : 'include',
+              };
+              if (ov.label !== undefined && ov.label !== null) out.label = String(ov.label);
+              return out;
+            })
+            // dedupe por (id, mode) mantendo a primeira ocorrência
+            .filter((ov, i, arr) => arr.findIndex((o) => o.id === ov.id && o.mode === ov.mode) === i);
+        }
       }
     }
   }

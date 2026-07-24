@@ -215,6 +215,10 @@ export {
   setActiveProfile,
   listDomains,
   listGroups,
+  // RFC-0207 "Dispositivos Específicos" — overrides por dispositivo no breakdown.
+  collectDeviceOverrides,
+  selectBreakdownItems,
+  normalizeDeviceOverrideId,
 } from './utils/devices/deviceClassificationProfile.js';
 // RFC-0207 v2/v3.1: árvore recursiva de nós + walker genérico (group-generic).
 // ADITIVO: `resolveGroup`/`resolveCategory` (v1) continuam sendo o caminho que o
@@ -276,6 +280,11 @@ export type {
   GroupName,
   CategoryName,
   GroupDescriptor,
+  DeviceOverride,
+  DeviceOverrideMode,
+  CollectedDeviceOverrides,
+  BreakdownEntry,
+  SelectBreakdownItemsOptions,
 } from './utils/devices/deviceClassificationProfile.js';
 
 // RFC-0207 Phase B: device classification profile management modal (premium UI).
