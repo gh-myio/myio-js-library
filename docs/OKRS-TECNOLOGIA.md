@@ -2,12 +2,13 @@
 
 > Extraídos das auditorias de 5 repositórios MYIO (2.093 linhas) · 2026-07-24
 > Fonte: [Auditoria Consolidada](AUDITORIA-RFCS-CONSOLIDADA-MYIO.html)
+> Organizados por **categoria** (sistema/produto). 🔴 = risco de produção · 🟢 = capacidade nova a construir.
 
 ---
 
-# Parte A — Corrigir (derivado das auditorias)
+## 🏭 Ingestion
 
-## O1 — Zerar risco de perda de dado em produção
+### O1 — Zerar risco de perda de dado em produção 🔴
 
 - Confirmar índice único de `energy_readings` e idempotência de backfill/replay
 - Eliminar perda silenciosa de batch na ingestão (QoS 1 auto-ack)
@@ -15,40 +16,57 @@
 - Ajustar orçamento de conexões (120 > `max_connections` 100)
 - Confirmar shared-subscription do poller (fan-out 6×)
 
-## O2 — Fechar brechas de segurança conhecidas
+---
+
+## 🔔 Alarmes & Notificações
+
+### O2 — Fechar brechas de segurança conhecidas 🔴
 
 - Remover `terraform.tfstate` do git e rotacionar segredos expostos
 - Autenticar `/ws` e validar `tenantId` (vazamento cross-tenant)
 
-## O3 — Tornar o status da documentação confiável
-
-- Verificar `Status:` contra código em todos os RFCs que alegam entrega
-- Corrigir `FRENTES-FUTURAS.md` (~10 entregas em produção marcadas como pendentes)
-- Corrigir `FRONTEND-INTEGRATION.md` (5 contratos de rota errados)
-- Atualizar os 9 RFCs implementados que ainda se declaram pendentes
-- Classificar os 157 arquivos sem campo `Status` (57% do corpus)
-
-## O4 — Ligar o que já está construído e inalcançável
+### O3 — Ligar o que já está construído e inalcançável
 
 - Conectar `broadcastAlarmCreated` (tempo real hoje é código morto)
-- Definir `saveDeviceClassificationProfile` no v-5.4.0
 - Persistir `closedBy`/`acknowledgedBy` → destravar MTTR
 - Aplicar filtro `actorType` no handler (aceito e ignorado)
 - Expor UI do RFC-0018 (backend entregue e inacessível)
 
-## O5 — Fazer os portões de qualidade executarem
+### O4 — Central de notificações multicanal 🟢
 
-- Ligar `size-check` no pipeline de build
-- Trazer bundle para dentro do limite (hoje ~218× acima)
-- Mergear CI de qualidade nas branches de frontend
+- Plano único de dispatch para e-mail, Telegram e WhatsApp
+- Adicionar canal WhatsApp
+- Concluir templates GCDR do Telegram (RFC-0026 — 0/6 hoje)
+- Criar templates de e-mail faltantes (`alarm.closed`, `alarm.escalated`)
+- Corrigir fallback global de token que fura o kill switch por customer
+- Ativar dispatch por grupo (RFC-0020 fase 2, hoje inativa)
+- Motor de escalação por tempo sem ACK (RFC-0026 v2)
+- Preferência de canal por customer, regra e severidade
 
-## O6 — Destravar valor pronto e parado
+---
 
-- Mergear os 4 PRs de feature revisados
-- Reconciliar `main` × `desenv` (543 commits de divergência)
-- Versionar os 3 documentos `untracked` da RFC-0004
+## 📊 Dashboard & Head Office
 
-## O7 — Conectar o app a backend real
+### O5 — Reduzir dívida estrutural de classificação
+
+- Consolidar classificação de dispositivos em fonte única
+- Definir `saveDeviceClassificationProfile` no v-5.4.0
+- Eliminar o laço circular de `labelWidget` no texto combinado
+- Concluir a persistência de perfil (Phase B) nos dois controllers
+
+### O6 — Metas financeiras e indicadores no painel do Head Office 🟢
+
+- Destravar RFC-0054 — metas monetárias e tarifas (*APPROVED & FROZEN*, fora do `desenv`)
+- Tarifa por customer e por período no cálculo da meta
+- Indicadores financeiros no Metas × Consumo (R$ realizado × orçado × meta)
+- Desvio financeiro por shopping e consolidado
+- Exportação financeira no relatório de metas (PDF/CSV)
+
+---
+
+## 📱 Novo APP MYIO
+
+### O7 — Conectar o app a backend real
 
 - Trocar `DEMO_MODE` hard-coded por env var, default `false`
 - Definir `EXPO_PUBLIC_GCDR_BASE_URL` em ambiente real
@@ -56,24 +74,11 @@
 - Eliminar as duas cópias divergentes de estado falso
 - Substituir fixtures nos 8 módulos da home
 
-## O8 — Eliminar falhas silenciosas
-
-- Instrumentar alertas onde hoje falha sem erro
-- Remover ações de UI que confirmam sucesso sem persistir
-- Unir intervalos de downtime sobrepostos (MTTR/disponibilidade distorcidos)
-- Remover stub `alert()` de KPI da biblioteca publicada
-
-## O9 — Reduzir dívida estrutural de classificação
-
-- Consolidar classificação de dispositivos em fonte única
-- Eliminar o laço circular de `labelWidget` no texto combinado
-- Concluir a persistência de perfil (Phase B) nos dois controllers
-
 ---
 
-# Parte B — Construir (capacidades de ecossistema)
+## 🔗 Pré-Setup, GCDR & Devices
 
-## O10 — Pré-Setup totalmente migrado para o GCDR
+### O8 — Pré-Setup totalmente migrado para o GCDR 🟢
 
 - Concluir `@myio/presetup-sdk` — componente embutível de 1 gateway (RFC-0001)
 - GCDR como âncora única do estado de sync (RFC-0002)
@@ -82,15 +87,7 @@
 - Fechar próximos passos de `device-types-mapping` e `presetup-import-schema-comparison`
 - Remover pin de pré-release da `myio-js-library` no presetup
 
-## O11 — Cockpit de auditoria de logs das aplicações
-
-- Implementar o Log Cockpit / on-call (RFC-0048 — hoje só runbook)
-- Centralizar logs de ingestão, alarmes, dashboards e presetup em painel único
-- Particionamento e retenção de `audit_logs` (90d, pg_partman)
-- Alertas de freshness e de falha silenciosa por aplicação
-- Rastro de auditoria por ator, device e customer
-
-## O12 — Auto-construtor e auto-sync de devices no ecossistema
+### O9 — Auto-construtor e auto-sync de devices no ecossistema 🟢
 
 - Implementar conformidade ThingsBoard ↔ GCDR (RFC-0022)
 - Completar mapeamento de entidades TB ↔ GCDR (RFC-0016)
@@ -99,7 +96,11 @@
 - Detecção e correção automática de divergência de cadastro
 - Auto-construção de device a partir do perfil e do canal da placa
 
-## O13 — Ordens de Serviço integradas a todo o ecossistema
+---
+
+## 🛠 Ordens de Serviço
+
+### O10 — Ordens de Serviço integradas a todo o ecossistema 🟢
 
 - Implementar WO Groups (RFC-0051)
 - Motor de regras de ciclo de vida de OS (RFC-0041)
@@ -107,6 +108,55 @@
 - Persistir atores do workflow (RFC-0028) → MTTR real
 - OS disparada por alarme, com rastro até o device
 - OS refletida no app móvel e no dashboard
+
+---
+
+## 🖥 Centrais
+
+### O11 — Backup e restore das centrais 🟢
+
+- Backup automático e versionado dos flows Node-RED por central
+- Restore verificado (dry-run) antes de aplicar em campo
+- Runbook único de backup/restore para OrangePi/Mender
+- Inventário de centrais com data do último backup válido
+- Alerta de central sem backup recente
+- Restore de nomes e mapa de slaves sem perda de identidade
+
+### O12 — Monitoramento de centrais dentro do GCDR 🟢
+
+- Central como entidade de primeira classe no GCDR
+- Telemetria de saúde por central (uptime, versão, conectividade)
+- Destravar `signal-topology` e `central-wifi-command` (PRs parados)
+- Alerta de central offline ou com flow divergente do versionado
+- Painel de centrais integrado ao cockpit de logs (O15)
+
+### O13 — Gestão de Node-RED por central 🟢
+
+- Inventário de versão de runtime e contribs por central
+- Padronizar runtime (hoje há pré-release `1.2.0-beta.1` em produção)
+- Detectar drift entre flow em campo e flow versionado
+- Pipeline de update com fix e rollback versionado
+- Rollout controlado por central/grupo (canary)
+- Rollback de um clique para estado conhecido-bom
+- Concluir integração Node-RED do RFC-NodeRed (2/7 hoje)
+
+---
+
+## ⚙️ Plataforma & Observabilidade
+
+### O14 — Fazer os portões de qualidade executarem
+
+- Ligar `size-check` no pipeline de build
+- Trazer bundle para dentro do limite (hoje ~218× acima)
+- Mergear CI de qualidade nas branches de frontend
+
+### O15 — Cockpit de auditoria de logs das aplicações 🟢
+
+- Implementar o Log Cockpit / on-call (RFC-0048 — hoje só runbook)
+- Centralizar logs de ingestão, alarmes, dashboards e presetup em painel único
+- Particionamento e retenção de `audit_logs` (90d, pg_partman)
+- Alertas de freshness e de falha silenciosa por aplicação
+- Rastro de auditoria por ator, device e customer
 
 ---
 

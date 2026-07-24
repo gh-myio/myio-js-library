@@ -22,7 +22,7 @@
   }
   .hero .brand { font-size: 12px; letter-spacing: .16em; text-transform: uppercase; opacity: .8; }
   .hero h1 { margin: 8px 0 6px; font-size: 30px; letter-spacing: -0.02em; }
-  .hero p { margin: 0; opacity: .88; font-size: 14px; max-width: 70ch; }
+  .hero p { margin: 0; opacity: .88; font-size: 14px; max-width: 72ch; }
   .hero .src { margin-top: 14px; font-size: 12.5px; opacity: .8; }
   .hero .src a { color: #ede6fa; }
 
@@ -40,21 +40,22 @@
   .okr.hot { border-color: #f3c9c9; background: #fffafa; }
   .okr.build { border-color: #cfe3d8; background: #fbfffd; }
 
-  .part {
+  .cat {
     grid-column: 1 / -1;
     display: flex; align-items: center; gap: 12px;
-    margin: 10px 0 2px;
+    margin: 14px 0 2px;
   }
-  .part:first-child { margin-top: 0; }
-  .part h2 {
-    margin: 0; font-size: 12.5px; font-weight: 700;
-    letter-spacing: .12em; text-transform: uppercase; color: #5b44a0;
+  .cat:first-child { margin-top: 0; }
+  .cat h2 {
+    margin: 0; font-size: 14px; font-weight: 800;
+    letter-spacing: .02em; color: #392d69;
     flex: none;
   }
-  .part .rule { flex: 1; height: 1px; background: #ede6fa; }
-  .part .tag {
+  .cat .rule { flex: 1; height: 1px; background: #ded1f2; }
+  .cat .tag {
     flex: none; font-size: 11.5px; color: #4e4765;
     background: #f3eeff; border-radius: 20px; padding: 3px 10px;
+    font-family: 'Consolas', 'Fira Code', monospace;
   }
   .okr h2 {
     margin: 0 0 4px;
@@ -69,6 +70,7 @@
     font-size: 12px; font-weight: 700; flex: none;
   }
   .okr.hot h2 .o { background: #fdeaea; color: #b0332f; }
+  .okr.build h2 .o { background: #e6f4ec; color: #2f7d51; }
   .okr ul { margin: 10px 0 0; padding-left: 0; list-style: none; }
   .okr li {
     position: relative;
@@ -84,6 +86,7 @@
     background: #bca7ea;
   }
   .okr.hot li::before { background: #e08a86; }
+  .okr.build li::before { background: #8fc6a8; }
   .okr code {
     font-family: 'Consolas', 'Fira Code', monospace;
     background: #f5f2fc; border-radius: 4px;
@@ -124,7 +127,7 @@
 <header class="hero">
   <div class="brand">MYIO · 2026-07-24</div>
   <h1>OKRs — Tecnologia</h1>
-  <p>Extraídos das auditorias de RFCs e gap analysis de 5 repositórios (2.093 linhas de relatório).</p>
+  <p>Extraídos das auditorias de RFCs e gap analysis de 5 repositórios (2.093 linhas). Organizados por categoria (sistema/produto). <strong style="color:#f0b5b2;">🔴</strong> risco de produção · <strong style="color:#a9e0c1;">🟢</strong> capacidade nova a construir.</p>
   <div class="src">
     Fonte: <a href="AUDITORIA-RFCS-CONSOLIDADA-MYIO.html">Auditoria Consolidada</a>
     · <span class="mono">gcdr</span>
@@ -138,10 +141,10 @@
 <div class="wrap">
   <div class="grid">
 
-    <div class="part">
-      <h2>Parte A — Corrigir</h2>
+    <div class="cat">
+      <h2>🏭 Ingestion</h2>
       <span class="rule"></span>
-      <span class="tag">derivado das auditorias</span>
+      <span class="tag">data-ingestion-prod</span>
     </div>
 
     <section class="okr hot">
@@ -155,6 +158,12 @@
       </ul>
     </section>
 
+    <div class="cat">
+      <h2>🔔 Alarmes &amp; Notificações</h2>
+      <span class="rule"></span>
+      <span class="tag">alarms-backend</span>
+    </div>
+
     <section class="okr hot">
       <h2><span class="o">O2</span> Fechar brechas de segurança conhecidas</h2>
       <ul>
@@ -164,44 +173,61 @@
     </section>
 
     <section class="okr">
-      <h2><span class="o">O3</span> Tornar o status da documentação confiável</h2>
-      <ul>
-        <li>Verificar <code>Status:</code> contra código em todos os RFCs que alegam entrega</li>
-        <li>Corrigir <code>FRENTES-FUTURAS.md</code> (~10 entregas em produção marcadas como pendentes)</li>
-        <li>Corrigir <code>FRONTEND-INTEGRATION.md</code> (5 contratos de rota errados)</li>
-        <li>Atualizar os 9 RFCs implementados que ainda se declaram pendentes</li>
-        <li>Classificar os 157 arquivos sem campo <code>Status</code> (57% do corpus)</li>
-      </ul>
-    </section>
-
-    <section class="okr">
-      <h2><span class="o">O4</span> Ligar o que já está construído e inalcançável</h2>
+      <h2><span class="o">O3</span> Ligar o que já está construído e inalcançável</h2>
       <ul>
         <li>Conectar <code>broadcastAlarmCreated</code> (tempo real hoje é código morto)</li>
-        <li>Definir <code>saveDeviceClassificationProfile</code> no v-5.4.0</li>
         <li>Persistir <code>closedBy</code>/<code>acknowledgedBy</code> → destravar MTTR</li>
         <li>Aplicar filtro <code>actorType</code> no handler (aceito e ignorado)</li>
         <li>Expor UI do RFC-0018 (backend entregue e inacessível)</li>
       </ul>
     </section>
 
-    <section class="okr">
-      <h2><span class="o">O5</span> Fazer os portões de qualidade executarem</h2>
+    <section class="okr build">
+      <h2><span class="o">O4</span> Central de notificações multicanal</h2>
       <ul>
-        <li>Ligar <code>size-check</code> no pipeline de build</li>
-        <li>Trazer bundle para dentro do limite (hoje ~218× acima)</li>
-        <li>Mergear CI de qualidade nas branches de frontend</li>
+        <li>Plano único de dispatch para e-mail, Telegram e WhatsApp</li>
+        <li>Adicionar canal WhatsApp</li>
+        <li>Concluir templates GCDR do Telegram (RFC-0026 — 0/6 hoje)</li>
+        <li>Criar templates de e-mail faltantes (<code>alarm.closed</code>, <code>alarm.escalated</code>)</li>
+        <li>Corrigir fallback global de token que fura o kill switch por customer</li>
+        <li>Ativar dispatch por grupo (RFC-0020 fase 2, hoje inativa)</li>
+        <li>Motor de escalação por tempo sem ACK (RFC-0026 v2)</li>
+        <li>Preferência de canal por customer, regra e severidade</li>
       </ul>
     </section>
 
+    <div class="cat">
+      <h2>📊 Dashboard &amp; Head Office</h2>
+      <span class="rule"></span>
+      <span class="tag">myio-js-library</span>
+    </div>
+
     <section class="okr">
-      <h2><span class="o">O6</span> Destravar valor pronto e parado</h2>
+      <h2><span class="o">O5</span> Reduzir dívida estrutural de classificação</h2>
       <ul>
-        <li>Mergear os 4 PRs de feature revisados</li>
-        <li>Reconciliar <code>main</code> × <code>desenv</code> (543 commits de divergência)</li>
-        <li>Versionar os 3 documentos <code>untracked</code> da RFC-0004</li>
+        <li>Consolidar classificação de dispositivos em fonte única</li>
+        <li>Definir <code>saveDeviceClassificationProfile</code> no v-5.4.0</li>
+        <li>Eliminar o laço circular de <code>labelWidget</code> no texto combinado</li>
+        <li>Concluir a persistência de perfil (Phase B) nos dois controllers</li>
       </ul>
     </section>
+
+    <section class="okr build">
+      <h2><span class="o">O6</span> Metas financeiras e indicadores no painel do Head Office</h2>
+      <ul>
+        <li>Destravar RFC-0054 — metas monetárias e tarifas (<em>APPROVED &amp; FROZEN</em>, fora do <code>desenv</code>)</li>
+        <li>Tarifa por customer e por período no cálculo da meta</li>
+        <li>Indicadores financeiros no Metas × Consumo (R$ realizado × orçado × meta)</li>
+        <li>Desvio financeiro por shopping e consolidado</li>
+        <li>Exportação financeira no relatório de metas (PDF/CSV)</li>
+      </ul>
+    </section>
+
+    <div class="cat">
+      <h2>📱 Novo APP MYIO</h2>
+      <span class="rule"></span>
+      <span class="tag">myio-app-5.2.0</span>
+    </div>
 
     <section class="okr">
       <h2><span class="o">O7</span> Conectar o app a backend real</h2>
@@ -214,33 +240,14 @@
       </ul>
     </section>
 
-    <section class="okr hot">
-      <h2><span class="o">O8</span> Eliminar falhas silenciosas</h2>
-      <ul>
-        <li>Instrumentar alertas onde hoje falha sem erro</li>
-        <li>Remover ações de UI que confirmam sucesso sem persistir</li>
-        <li>Unir intervalos de downtime sobrepostos (MTTR/disponibilidade distorcidos)</li>
-        <li>Remover stub <code>alert()</code> de KPI da biblioteca publicada</li>
-      </ul>
-    </section>
-
-    <section class="okr">
-      <h2><span class="o">O9</span> Reduzir dívida estrutural de classificação</h2>
-      <ul>
-        <li>Consolidar classificação de dispositivos em fonte única</li>
-        <li>Eliminar o laço circular de <code>labelWidget</code> no texto combinado</li>
-        <li>Concluir a persistência de perfil (Phase B) nos dois controllers</li>
-      </ul>
-    </section>
-
-    <div class="part">
-      <h2>Parte B — Construir</h2>
+    <div class="cat">
+      <h2>🔗 Pré-Setup, GCDR &amp; Devices</h2>
       <span class="rule"></span>
-      <span class="tag">capacidades de ecossistema</span>
+      <span class="tag">gcdr · data-ingestion</span>
     </div>
 
     <section class="okr build">
-      <h2><span class="o">O10</span> Pré-Setup totalmente migrado para o GCDR</h2>
+      <h2><span class="o">O8</span> Pré-Setup totalmente migrado para o GCDR</h2>
       <ul>
         <li>Concluir <code>@myio/presetup-sdk</code> — componente embutível de 1 gateway (RFC-0001)</li>
         <li>GCDR como âncora única do estado de sync (RFC-0002)</li>
@@ -252,18 +259,7 @@
     </section>
 
     <section class="okr build">
-      <h2><span class="o">O11</span> Cockpit de auditoria de logs das aplicações</h2>
-      <ul>
-        <li>Implementar o Log Cockpit / on-call (RFC-0048 — hoje só runbook)</li>
-        <li>Centralizar logs de ingestão, alarmes, dashboards e presetup em painel único</li>
-        <li>Particionamento e retenção de <code>audit_logs</code> (90d, pg_partman)</li>
-        <li>Alertas de freshness e de falha silenciosa por aplicação</li>
-        <li>Rastro de auditoria por ator, device e customer</li>
-      </ul>
-    </section>
-
-    <section class="okr build">
-      <h2><span class="o">O12</span> Auto-construtor e auto-sync de devices no ecossistema</h2>
+      <h2><span class="o">O9</span> Auto-construtor e auto-sync de devices no ecossistema</h2>
       <ul>
         <li>Implementar conformidade ThingsBoard ↔ GCDR (RFC-0022)</li>
         <li>Completar mapeamento de entidades TB ↔ GCDR (RFC-0016)</li>
@@ -274,8 +270,14 @@
       </ul>
     </section>
 
+    <div class="cat">
+      <h2>🛠 Ordens de Serviço</h2>
+      <span class="rule"></span>
+      <span class="tag">gcdr · alarms-backend</span>
+    </div>
+
     <section class="okr build">
-      <h2><span class="o">O13</span> Ordens de Serviço integradas a todo o ecossistema</h2>
+      <h2><span class="o">O10</span> Ordens de Serviço integradas a todo o ecossistema</h2>
       <ul>
         <li>Implementar WO Groups (RFC-0051)</li>
         <li>Motor de regras de ciclo de vida de OS (RFC-0041)</li>
@@ -283,6 +285,74 @@
         <li>Persistir atores do workflow (RFC-0028) → MTTR real</li>
         <li>OS disparada por alarme, com rastro até o device</li>
         <li>OS refletida no app móvel e no dashboard</li>
+      </ul>
+    </section>
+
+    <div class="cat">
+      <h2>🖥 Centrais</h2>
+      <span class="rule"></span>
+      <span class="tag">node-red · orangepi</span>
+    </div>
+
+    <section class="okr build">
+      <h2><span class="o">O11</span> Backup e restore das centrais</h2>
+      <ul>
+        <li>Backup automático e versionado dos flows Node-RED por central</li>
+        <li>Restore verificado (dry-run) antes de aplicar em campo</li>
+        <li>Runbook único de backup/restore para OrangePi/Mender</li>
+        <li>Inventário de centrais com data do último backup válido</li>
+        <li>Alerta de central sem backup recente</li>
+        <li>Restore de nomes e mapa de slaves sem perda de identidade</li>
+      </ul>
+    </section>
+
+    <section class="okr build">
+      <h2><span class="o">O12</span> Monitoramento de centrais dentro do GCDR</h2>
+      <ul>
+        <li>Central como entidade de primeira classe no GCDR</li>
+        <li>Telemetria de saúde por central (uptime, versão, conectividade)</li>
+        <li>Destravar <code>signal-topology</code> e <code>central-wifi-command</code> (PRs parados)</li>
+        <li>Alerta de central offline ou com flow divergente do versionado</li>
+        <li>Painel de centrais integrado ao cockpit de logs (O15)</li>
+      </ul>
+    </section>
+
+    <section class="okr build">
+      <h2><span class="o">O13</span> Gestão de Node-RED por central</h2>
+      <ul>
+        <li>Inventário de versão de runtime e contribs por central</li>
+        <li>Padronizar runtime (hoje há pré-release <code>1.2.0-beta.1</code> em produção)</li>
+        <li>Detectar drift entre flow em campo e flow versionado</li>
+        <li>Pipeline de update com fix e rollback versionado</li>
+        <li>Rollout controlado por central/grupo (canary)</li>
+        <li>Rollback de um clique para estado conhecido-bom</li>
+        <li>Concluir integração Node-RED do RFC-NodeRed (2/7 hoje)</li>
+      </ul>
+    </section>
+
+    <div class="cat">
+      <h2>⚙️ Plataforma &amp; Observabilidade</h2>
+      <span class="rule"></span>
+      <span class="tag">transversal</span>
+    </div>
+
+    <section class="okr">
+      <h2><span class="o">O14</span> Fazer os portões de qualidade executarem</h2>
+      <ul>
+        <li>Ligar <code>size-check</code> no pipeline de build</li>
+        <li>Trazer bundle para dentro do limite (hoje ~218× acima)</li>
+        <li>Mergear CI de qualidade nas branches de frontend</li>
+      </ul>
+    </section>
+
+    <section class="okr build">
+      <h2><span class="o">O15</span> Cockpit de auditoria de logs das aplicações</h2>
+      <ul>
+        <li>Implementar o Log Cockpit / on-call (RFC-0048 — hoje só runbook)</li>
+        <li>Centralizar logs de ingestão, alarmes, dashboards e presetup em painel único</li>
+        <li>Particionamento e retenção de <code>audit_logs</code> (90d, pg_partman)</li>
+        <li>Alertas de freshness e de falha silenciosa por aplicação</li>
+        <li>Rastro de auditoria por ator, device e customer</li>
       </ul>
     </section>
 
@@ -299,7 +369,7 @@
 
   <footer>
     <strong>MYIO</strong>
-    <span>OKRs Tecnologia · derivados de 5 auditorias / 2.093 linhas</span>
+    <span>OKRs Tecnologia · 15 objetivos em 8 categorias · derivados de 5 auditorias / 2.093 linhas</span>
     <span style="opacity:.75;">2026-07-24</span>
   </footer>
 </div>
