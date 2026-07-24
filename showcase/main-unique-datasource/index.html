@@ -166,6 +166,78 @@
         border-color: #e2e8f0;
       }
 
+      /* ===== COCKPIT COLLAPSE (recolher) ===== */
+      .showcase-layout.cockpit-collapsed {
+        grid-template-columns: 1fr;
+      }
+      .showcase-layout.cockpit-collapsed .showcase-sidebar {
+        display: none;
+      }
+      .cockpit-toggle {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 8px 12px;
+        background: inherit;
+        border-bottom: 1px solid #334155;
+      }
+      .cockpit-toggle .cockpit-title {
+        font: 700 11px/1 'Nunito', system-ui, sans-serif;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: #94a3b8;
+      }
+      .cockpit-toggle button,
+      .cockpit-reopen {
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid #334155;
+        border-radius: 6px;
+        background: transparent;
+        color: #94a3b8;
+        font-size: 16px;
+        line-height: 1;
+        cursor: pointer;
+      }
+      .cockpit-toggle button:hover,
+      .cockpit-reopen:hover {
+        background: #334155;
+        color: #e2e8f0;
+      }
+      .cockpit-reopen {
+        position: fixed;
+        top: 62px;
+        right: 8px;
+        z-index: 50;
+        width: 34px;
+        height: 34px;
+        background: #1e293b;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+      }
+      body.light-mode .cockpit-toggle .cockpit-title {
+        color: #64748b;
+      }
+      body.light-mode .cockpit-toggle button,
+      body.light-mode .cockpit-reopen {
+        border-color: #e2e8f0;
+        color: #64748b;
+      }
+      body.light-mode .cockpit-toggle button:hover,
+      body.light-mode .cockpit-reopen:hover {
+        background: #f1f5f9;
+        color: #1e293b;
+      }
+      body.light-mode .cockpit-reopen {
+        background: #ffffff;
+      }
+
       /* ===== CONTROLS PANEL ===== */
       .controls-panel {
         padding: 12px;
@@ -466,7 +538,7 @@
       <!-- Widget Mount Area (same structure as template.html) -->
       <main class="widget-area">
         <div class="widget-mount" id="widgetMount">
-          <div class="main-unique-wrap" id="mainUniqueWrap" data-theme="dark">
+          <div class="main-unique-wrap" id="mainUniqueWrap" data-theme="light">
             <section
               id="headerContainer"
               class="myio-header-section"
@@ -494,6 +566,17 @@
 
       <!-- Sidebar -->
       <aside class="showcase-sidebar">
+        <!-- Recolher cockpit -->
+        <div class="cockpit-toggle">
+          <span class="cockpit-title">🛠️ Cockpit</span>
+          <button
+            type="button"
+            id="cockpitCollapse"
+            title="Recolher cockpit"
+            aria-label="Recolher cockpit"
+            onclick="toggleCockpit(true)"
+          >&raquo;</button>
+        </div>
         <!-- Lifecycle Controls -->
         <div class="controls-panel">
           <h3>Widget Lifecycle</h3>
@@ -544,8 +627,8 @@
           <div class="ctrl-group">
             <label class="ctrl-label">defaultThemeMode</label>
             <select class="ctrl-select" id="settingsTheme" onchange="updateSettings()">
-              <option value="dark">dark</option>
               <option value="light">light</option>
+              <option value="dark">dark</option>
             </select>
           </div>
           <div class="ctrl-group">
@@ -613,6 +696,47 @@
           </div>
         </div>
       </aside>
+
+      <!-- Botão flutuante para reabrir o cockpit (visível só quando recolhido) -->
+      <button
+        type="button"
+        id="cockpitReopen"
+        class="cockpit-reopen"
+        title="Expandir cockpit"
+        aria-label="Expandir cockpit"
+        onclick="toggleCockpit(false)"
+        style="display: none"
+      >&laquo;</button>
+
+      <script>
+        // Recolher/expandir o cockpit (sidebar direita). Persiste em localStorage.
+        function toggleCockpit(collapse) {
+          var layout = document.querySelector('.showcase-layout');
+          var reopen = document.getElementById('cockpitReopen');
+          if (!layout) return;
+          var isCollapsed =
+            typeof collapse === 'boolean'
+              ? collapse
+              : !layout.classList.contains('cockpit-collapsed');
+          layout.classList.toggle('cockpit-collapsed', isCollapsed);
+          if (reopen) reopen.style.display = isCollapsed ? 'flex' : 'none';
+          try {
+            localStorage.setItem('showcase:cockpit:collapsed', isCollapsed ? '1' : '0');
+          } catch (e) {
+            /* noop */
+          }
+        }
+        // Restaura o estado salvo no load.
+        (function () {
+          var saved = null;
+          try {
+            saved = localStorage.getItem('showcase:cockpit:collapsed');
+          } catch (e) {
+            /* noop */
+          }
+          if (saved === '1') toggleCockpit(true);
+        })();
+      </script>
     </div>
 
     <!-- ===== RFC-0217: CustomerGoalsCard demo (small multiples) ===== -->
@@ -739,7 +863,7 @@
           enableDebugMode: true,
           dataApiHost: 'https://api.data.apps.myio-bas.com',
           customerTB_ID: 'mock-customer-tb-id-12345',
-          defaultThemeMode: 'dark',
+          defaultThemeMode: 'light',
           darkMode: {
             backgroundType: 'color',
             backgroundColor: '#0f172a',
