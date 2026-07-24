@@ -451,6 +451,9 @@ A new MENU entry opens a premium modal that:
   - `identifierContains` → `identifier.includes(s)` (**this is the unified rule** that fixes
     the CAG `Set.has` bug — substring everywhere).
   - `conditional[]` → `{ deviceTypes, whenIdentifierContains }` for BOMBA/MOTOR-style devices.
+  - `deviceOverrides?[]` → `{ id, label?, mode }` — **Dispositivos Específicos**, escape hatch
+    topológico por dispositivo. Opcional; ausência = comportamento anterior. Ver o addendum
+    homônimo no fim deste RFC (semântica `include`/`exclude` e a ressalva de escala).
   - exactly one category per domain has `fallback: true` ("outros").
 
 ### Resolution order (deterministic)
@@ -1263,6 +1266,274 @@ Verde nesse teste = contrato `bulk-replace` honrado → o golden-lib e o adaptad
 [ ] boot: N parallel domain loads resolve distinct trees; 304 isolated per domain
 [ ] integração §v3.2-D: 422 atômico + 409 com currentVersion + pg_typeof=jsonb
 ```
+
+---
+
+## Addendum — "Dispositivos Específicos": overrides por dispositivo no breakdown (2026-07-24)
+
+### DE-A. O problema, com o caso que o produziu
+
+No **Shopping da Ilha**, o device **"Medição Geral CAG"** (`deviceProfile: ENTRADA`,
+`identifier: CAG`) é um **trafo de entrada** que mede toda a alimentação da CAG (central de
+água gelada): **637.560**. Ele cai no grupo `entrada` e conta no total de entrada — isso está
+**certo**. Só que aquela energia *é* climatização, e o operador quer vê-la no card
+**Climatização** do TELEMETRY_INFO.
+
+Hoje isso é impossível, por duas razões estruturais — nenhuma das quais deve ser abolida:
+
+1. **Alocação única.** `resolveGroup(item)` devolve **um** grupo. É o que mantém os totais
+   coerentes (nenhum device conta duas vezes numa coluna). Fica.
+2. **O breakdown só lê `areacomum`.** `buildSummary` (MAIN_VIEW) percorre o grupo residual.
+   Devices de entrada são, portanto, **estruturalmente invisíveis** ao card de climatização.
+
+A complicação que decidiu o desenho: na Ilha o **mesmo `identifier` "CAG"** é usado pelo trafo
+de entrada **e** por 9 submedidores `BOMBA_CAG` (155.671 no total) que **já** caem em
+climatização pela regra de identifier. As 9 bombas estão **fisicamente dentro** dos 637.560 que
+o trafo mede. Uma regra por identifier pegaria os dois e dobraria a conta (793.231). Daí:
+**override explícito por dispositivo, não regra.**
+
+### DE-B. Schema (aditivo, retrocompatível)
+
+Cada regra de categoria (`domains.<domain>.categories.rules[]`) ganha um campo **opcional**:
+
+```ts
+/** Overrides explícitos por dispositivo (escape hatch topológico). */
+deviceOverrides?: Array<{
+  id: string;              // TB entity id — mesma chave de `excludeDevicesAtCountSubtotalCAG`
+  label?: string;          // guardado só para exibição/resiliência na UI
+  mode: 'include' | 'exclude' | 'parent';  // `parent` adicionado em 2026-07-24 — ver §DE-G
+}>;
+```
+
+É uma **lista de valores**, nunca um predicado (§A segue valendo). `label` é guardado junto do
+`id` para que o modal consiga renderizar um nome humano mesmo quando o device sumiu do
+dashboard — nesse caso a chip aparece marcada como "não encontrado" (⚠). O motor **nunca**
+classifica por `label`; ele é texto de exibição.
+
+Ausência do campo ⇒ **comportamento idêntico ao de antes** (`selectBreakdownItems` tem
+fast-path para "zero overrides"; `normalizeProfile` preserva ausência como ausência e o modal
+apaga a chave quando a lista esvazia).
+
+### DE-C. Semântica (decidida)
+
+| modo | efeito |
+| --- | --- |
+| `include` | O device **agrega nesta categoria mantendo o seu grupo** (feed **paralelo**). `resolveGroup` não muda: o total da coluna Entrada fica **idêntico**. Ele é apenas somado a mais nos itens/total da categoria do breakdown. |
+| `exclude` | O device sai do breakdown **inteiro**. **Não** cai em `outros` nem em bucket nenhum. |
+| `parent` | O device **contém** a composição da categoria (ver **§DE-G**): o valor DELE vira o total da categoria e a composição auto-classificada é o **breakdown aninhado**, **não somado por cima** (evita a dupla contagem). Grupo inalterado (Entrada intacta), como no `include`. |
+
+Por que `exclude` não cai em `outros`: o `exclude` existe para **dupla medição** — a bomba já
+está dentro da leitura do trafo. Roteá-la para `outros` seria recontá-la, que é exatamente o
+bug que o mecanismo existe para evitar.
+
+- `exclude` **vence** `include` se um device aparecer nos dois (o `exclude` é global ao
+  breakdown; o `include` é por categoria).
+- Sobre o residual de Área Comum, ver **§DE-E** — um `include` cross-group exige separar a
+  origem de cada subtotal, senão o residual vai negativo pelo valor exato do device puxado.
+
+**Aceitação A — o rollout real da Ilha é INCLUDE-ONLY**: um único `include` no trafo
+"Medição Geral CAG", sem nenhum `exclude`. Números medidos em produção:
+
+| | valor |
+| --- | --- |
+| Card Climatização | **1.790.163** (1.152.603 internos + 637.560 do trafo) |
+| Entrada | **1.390.237**, inalterada |
+| Residual Área Comum | **0**, e **antes** do clamp (ver §DE-E) |
+
+**Aceitação B — semântica do `exclude`** (não usada na Ilha; trava o contrato do modo):
+`include` no trafo + `exclude` nas 9 bombas ⇒ Climatização **637.560** (e não 793.231, que
+seria a dupla contagem), Entrada **1.390.237** inalterada, e as 9 bombas em **nenhum** bucket
+do breakdown — nem em `outros`.
+
+### DE-D. Implementação
+
+**LIB** (`src/utils/devices/deviceClassificationProfile.ts`, pura — sem DOM, sem fetch):
+
+- `collectDeviceOverrides(profile, domain)` → achata os `deviceOverrides` de todas as
+  categorias em `{ includes: Map<id, categoria>, excludes: Set<id>, labels: Map<id, label> }`,
+  já aplicando a precedência do §DE-C.
+- `selectBreakdownItems(groups, profile, domain, { baseGroup })` → monta a lista que o
+  breakdown deve percorrer: base = `groups[baseGroup]` (hoje `areacomum`), menos os `exclude`,
+  mais os `include` **puxados de qualquer grupo**, cada um carimbado com `forcedCategory`.
+- `normalizeDeviceOverrideId(id)` → `String(id).trim().toLowerCase()`, a **mesma** chave que
+  `excludeDevicesAtCountSubtotalCAG` usa. IDs e labels **nunca** são upper-cased (ao contrário
+  dos demais comparandos): `id` é UUID do TB e `label` é texto humano.
+- `validateProfile` acusa `deviceOverrides` não-array, entrada não-objeto, `id` vazio, `mode`
+  fora de `include|exclude` e `label` não-string. Campo ausente **não** gera erro.
+
+**MAIN_VIEW** (`buildSummary`): o laço `for (const item of areacomum)` virou
+`for (const { item, forcedCategory } of _breakdownEntries)`, alimentado por
+`window.MyIOLibrary.selectBreakdownItems({ areacomum, entrada, lojas }, …)`. `forcedCategory`
+tem precedência sobre `resolveCategory`; a **sub-subcategorização** (chiller/fancoil/CAG/…)
+segue pelas regras de texto locais de sempre — o trafo da Ilha cai em `cag` porque o texto
+combinado contém "CAG" e não contém CHILLER/FANCOIL/BOMBA.
+
+**Relação com `excludeDevicesAtCountSubtotalCAG`** (setting de widget, preservado intacto):
+são mecanismos **distintos** e ambos continuam valendo.
+
+| | `excludeDevicesAtCountSubtotalCAG` | `deviceOverrides` |
+| --- | --- | --- |
+| onde vive | setting do **widget** | perfil do **cliente** (JSON persistido) |
+| quando age | tarde | cedo |
+| escopo | só o **subtotal** da sub-subcategoria CAG; o device segue em `climatizacaoTotal` e no breakdown | o breakdown **inteiro** (entra/sai) |
+
+Um device pode estar nos dois; o `exclude` do perfil vence por chegar primeiro.
+
+**Modal** (`openDeviceProfileModal.ts`): seção **"Dispositivos Específicos"** com botão **+**,
+picker com busca (🔍) sobre `device.label`, devices já adicionados **removidos da lista** (não
+dá para adicionar o mesmo duas vezes), marcação incluir/excluir na seleção e chips removíveis.
+Os devices vêm do callback `getDevices(domain)` que o modal **já recebia** para o preview
+(sem novo I/O); lista vazia ou callback que lança degradam para uma dica, sem quebrar. O
+**"Preview ao vivo"** reflete os overrides antes de salvar. Respeita `canEdit` (read-only não
+renderiza "+" nem "×"). O schema é genérico por categoria, mas a seção é **renderizada apenas
+em Climatização** (`DEVICE_OVERRIDE_CATEGORIES`) — ampliar = acrescentar nomes ali.
+
+Persistência: nada novo. O modal continua delegando ao `onSave` →
+`window.MyIOOrchestrator.saveDeviceClassificationProfile`; o campo apenas faz round-trip.
+
+### DE-E. O residual de Área Comum × includes cross-group (correção)
+
+A primeira versão desta implementação tinha um defeito aritmético, medido sobre dados reais
+da Ilha antes de ir a produção.
+
+`buildSummary` calculava
+`_areacomumResidual = Math.max(0, areacomumTotal − Σ subtotais)`. A fórmula assume que **todo
+subtotal é composto de devices que estão dentro de `areacomumTotal`**. Um `include`
+cross-group viola a premissa: os 637.560 do trafo entram no subtotal de climatização mas o
+device vive no grupo `entrada` e **nunca fez parte** do `areacomumTotal`.
+
+Medição em produção (Ilha, hoje, sem override):
+
+```
+areacomumTotal                    = 1.240.503
+climatizacao (origem areacomum)   = 1.152.603
+elevadores / escadas / outros     =    25.559 / 51.942 / 10.399
+                                    ------------------------------
+Σ subtotais                       = 1.240.503   ->  residual = 0
+```
+
+Com o `include` aplicado, `Σ subtotais` viraria 1.878.063 e
+`residual = max(0, 1.240.503 − 1.878.063) = max(0, −637.560) = 0`. Na Ilha o residual já é 0,
+então **nada pareceria errado** — mas a conta está quebrada por construção, e qualquer cliente
+com Área Comum positiva veria o número encolher pelo valor do device incluído, sem motivo
+legítimo. O `Math.max(0, …)` mascarava exatamente isso.
+
+**A correção.** Cada subtotal é decomposto em parcela de **origem-base** e parcela
+**cross-group**:
+
+- O **card mantém o total cheio** (1.790.163 em Climatização) — é o objetivo do recurso.
+- O **residual desconta apenas a parcela de origem-base**:
+  `1.240.503 − (1.152.603 + 25.559 + 51.942 + 10.399) = 0` — correto, e sem depender do clamp.
+
+Mecânica: `selectBreakdownItems` passou a devolver `sourceGroup` e `fromBaseGroup` em cada
+entrada; o `buildSummary` acumula, em paralelo aos totais cheios, a parcela cross-group de cada
+categoria; e `computeBaseGroupResidual(baseGroupTotal, subtotals[])` (pura, na lib) faz a
+conta e devolve `{ subtotalFromBaseGroup, subtotalCrossGroup, residualRaw, residual, negative }`.
+Sem overrides a parcela cross-group é 0 em todas as categorias e a aritmética é idêntica à
+anterior.
+
+O clamp em 0 **fica** — mas um `residualRaw` negativo agora significa problema real de
+dado/configuração (soma dos subtotais maior que o total do grupo), não artefato deste recurso.
+Por isso ele é logado uma vez por sessão (`LogHelper.warn`) com os números, em vez de sumir.
+
+### DE-G. Modo `parent` — o device CONTÉM a composição (2026-07-24)
+
+`include` resolve o caso da **Ilha** (feed **paralelo**: o trafo da CAG é energia *adicional*, some
+com os submedidores). Mas há o caso oposto, medido ao vivo no **Moxuara**:
+
+```
+CAG-Entrada  (deviceProfile ENTRADA, identifier CAG, grupo entrada)  = 336.600   ← PAI
+  ├─ Chillers 3                                                        = 184.661
+  ├─ Fancoils 14                                                       =  96.046   } composição
+  └─ Bombas  13                                                        =  46.266   } (grupo areacomum)
+                                                                        ---------
+                                                         Σ filhos      = 326.973
+```
+
+`CAG-Entrada` é o medidor de **entrada** da Central de Água Gelada: mede TODA a alimentação da
+CAG. Os submedidores internos (Chillers/Fancoils/Bombas) estão **a jusante** dele — 336.600 ≳
+326.973 (~3% de perda de linha). Não são feeds paralelos: o pai **contém** os filhos.
+
+Com `include` o card mostraria `336.600 + 326.973 = 663.573` — **dupla contagem**. Com a
+composição pura (sem override) mostraria 326.973 e o pai ficaria invisível. O correto é
+**336.600** (o pai), com a composição como **detalhamento aninhado**.
+
+**Schema.** `mode` passa a ser `'include' | 'exclude' | 'parent'` (valor puro, §A respeitada;
+ausente/bundles antigos ⇒ comportamento de antes — a lib antiga coage `parent` → `include`).
+
+**Semântica de `parent` para a Climatização:**
+
+| | `include` (Ilha) | `parent` (Moxuara) |
+|---|---|---|
+| Relação com a composição | **paralelo** | **contém** |
+| Total do card | composição **+** device | **valor do device** (a composição não soma por cima) |
+| Composição | some no total | vira **breakdown aninhado** sob o pai |
+| Grupo do device | inalterado (Entrada intacta) | inalterado (Entrada intacta) |
+
+Mesmo gesto de UI, matemática de total **oposta** — só o operador sabe qual é o caso, por isso é
+escolha **explícita** ("como pai" no picker), nunca inferida.
+
+**Fórmula do total** (MAIN_VIEW `buildSummary`):
+`climatizacaoTotal = hasParent ? Σ(pais) : Σ(filhos)`. Os pais vão para um balde à parte
+(`climatizacaoParentItems`) e **não** entram nem em `climatizacaoItems` nem nas subcategorias;
+`climatizacaoItems` continua sendo só a composição (os filhos). Moxuara: `climatizacaoTotal =
+336.600` (≠ 663.573, ≠ 326.973). Entrada continua `783.750 + 336.600 = 1.120.350` — o pai não
+muda de grupo.
+
+**Fórmula do residual** e a **prevenção da dupla subtração** (o ponto delicado). O modo `parent`
+quebra a premissa `base = total − cross` do §DE-E: quando o card mostra o valor do pai
+(cross-group), `total` **não** é mais a soma dos filhos. Se descontássemos `total − cross` do
+residual daria `336.600 − 336.600 = 0` — e os filhos (326.973), que ESTÃO em `areacomumTotal`,
+ficariam sem desconto. Se descontássemos os dois, o residual cairia por `−336.600`.
+
+A solução: `computeBaseGroupResidual` ganhou `baseGroupContribution` (opcional). Para a
+climatização com pai o `buildSummary` passa:
+
+```
+{ category:'climatizacao',
+  total: 336.600,                         // = card (o pai, cross-group)
+  crossGroupTotal: 336.600,               // o pai — informativo, NUNCA descontado
+  baseGroupContribution: 326.973 }        // os FILHOS de origem-base — o único desconto
+```
+
+`computeBaseGroupResidual` então faz `subtotalFromBaseGroup += baseGroupContribution` em vez de
+`total − cross`. Resultado: **só os filhos (326.973) são descontados, uma vez**; o pai (336.600),
+por ser cross-group, entra apenas em `subtotalCrossGroup` (informativo) e **nunca** toca o
+residual. É exatamente isso que impede o pai E os filhos de baterem no residual cada um:
+`residual = areacomumTotal − 326.973`. No Moxuara `areacomumTotal = 326.973` (só a composição)
+⇒ `residual = 0`, **de verdade** (pré-clamp 0, não negativo mascarado). `baseGroupContribution`
+ausente ⇒ cai em `total − cross` (byte-idêntico ao §DE-E; `include`/sem-override intocados).
+
+Na reconstrução da Área Comum efetiva (quando `excludeGroupsTotals` está ligado), a parcela de
+climatização usada é a dos **filhos** (`Math.max(0, Σfilhos − crossFilhos)`), não a do pai — o pai
+mora em Entrada e somá-lo ali dobraria com `_entradaEff`.
+
+**Tooltip** (TELEMETRY_INFO `buildClimatizacaoContent`). `STATE.consumidores.climatizacao` ganhou
+`parents: [{id,label,total}]` (threaded pelo MAIN_VIEW). Com pai, a **Composição** renderiza uma
+linha `🔌 <label> … <total>` no topo (classe `myio-info-tooltip__category--parent`, "Medidor pai
+da composição") e as subcategorias existentes vão num wrapper `myio-info-tooltip__nested`
+indentado abaixo. Campo ausente/vazio ⇒ composição plana, **byte-idêntica** à de antes.
+
+**Limitação assumida — N pais.** O modelo trata **todos** os pais de uma categoria como cobrindo
+**coletivamente** a composição inteira dela (a composição não é atribuída pai-a-pai). Para o caso
+de **um** pai que cobre toda a Climatização — que é o Moxuara — isso é exato. Com dois ou mais
+pais na mesma categoria, a partição "qual filho está sob qual pai" não é derivável dos dados
+disponíveis; o comportamento resultante (todos os pais somam no total da categoria; toda a
+composição vira o breakdown coletivo) é uma simplificação **documentada**, não um palpite. Se
+esse caso surgir de verdade, é sinal de que falta modelar a topologia com mais estrutura (ex.:
+um pai por sub-árvore), não de forçar heurística.
+
+### DE-F. Ressalva — isto é um escape hatch, não um método
+
+**Overrides por device-id escalam mal e quebram em re-provisionamento**: o `id` é o TB entity
+id, e um device recriado ganha id novo — o override vira órfão silencioso (o modal sinaliza
+com ⚠, mas o número já mudou). Também não sobrevivem a export/import entre ambientes.
+
+Portanto: **regras por atributo continuam sendo o caminho padrão**
+(`deviceProfiles` / `profileContains` / `identifier*`). Os `deviceOverrides` são para o que
+regra nenhuma alcança — topologia física, como um trafo que mede um subsistema inteiro. Se a
+lista de um cliente começar a crescer, isso é sinal de que falta uma **regra** (ou um
+`deviceProfile` novo), não de que faltam mais overrides.
 
 ---
 

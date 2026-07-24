@@ -4061,6 +4061,10 @@ function buildGroupData(items) {
   };
 }
 
+// RFC-0207 — o aviso de residual negativo sai UMA vez por sessão (buildSummary
+// roda a cada troca de período; sem o flag, o log viraria ruído).
+let _warnedNegativeAreacomumResidual = false;
+
 /**
  * Build summary for TELEMETRY_INFO (pie chart, cards, tooltips)
  * RFC-0106: Pre-compute ALL tooltip data so TELEMETRY_INFO just reads it
@@ -4166,6 +4170,11 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
   const GERADOR_PATTERNS = ['GERADOR', 'NOBREAK', 'UPS'];
 
   const climatizacaoItems = [];
+  // RFC-0207 "parent" — devices marcados como PAI da composição de Climatização.
+  // O valor deles VIRA o total do card; a composição (chillers/fancoils/bombas)
+  // é o breakdown aninhado, NÃO somado por cima (evita a dupla contagem). Ficam
+  // FORA de `climatizacaoItems` e das subcategorias por isso.
+  const climatizacaoParentItems = [];
   const elevadoresItems = [];
   const escadasRolantesItems = [];
   const outrosItems = [];
@@ -4183,7 +4192,52 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
 
   const toStr = (val) => String(val || '').toUpperCase();
 
-  for (const item of areacomum) {
+  // ============ RFC-0207 "DISPOSITIVOS ESPECÍFICOS" ============
+  // O breakdown historicamente só percorria `areacomum`, o que torna um device de
+  // ENTRADA estruturalmente invisível ao card de Climatização — mesmo quando ele
+  // é, fisicamente, climatização (Shopping da Ilha: o trafo "Medição Geral CAG"
+  // mede TODA a alimentação da CAG). `selectBreakdownItems` resolve isso sem
+  // mexer em `resolveGroup` (alocação única preservada, total de Entrada intacto):
+  //   - `include` → puxa o device de QUALQUER grupo e força a categoria dele;
+  //   - `exclude` → tira o device do breakdown INTEIRO (nunca cai em `outros`,
+  //     porque o motivo do exclude é dupla-medição — recontá-lo em outros seria
+  //     exatamente o bug que ele existe para evitar).
+  //
+  // Relação com `widgetSettings.excludeDevicesAtCountSubtotalCAG` (abaixo, na
+  // seção "FILTER EXCLUDED DEVICES FROM CAG"): são mecanismos DISTINTOS e ambos
+  // continuam valendo. Aquele é setting de WIDGET e atua tarde, só no SUBTOTAL da
+  // sub-subcategoria CAG (o device continua contando em `climatizacaoTotal`).
+  // Este é perfil de CLIENTE (persistido no JSON) e atua cedo, decidindo quais
+  // devices sequer entram no breakdown. Um device pode estar nos dois; o
+  // `exclude` do perfil vence por chegar primeiro.
+  const _selectBreakdownItems =
+    (typeof window !== 'undefined' &&
+      window.MyIOLibrary &&
+      window.MyIOLibrary.selectBreakdownItems) ||
+    null;
+  const _computeBaseGroupResidual =
+    (typeof window !== 'undefined' &&
+      window.MyIOLibrary &&
+      window.MyIOLibrary.computeBaseGroupResidual) ||
+    null;
+  const _breakdownEntries = _selectBreakdownItems
+    ? _selectBreakdownItems({ areacomum, entrada, lojas }, undefined, 'energy', {
+        baseGroup: 'areacomum',
+      })
+    : areacomum.map((item) => ({ item, forcedCategory: null, fromBaseGroup: true }));
+
+  // Itens que entraram no breakdown vindos de OUTRO grupo (include cross-group).
+  // Guardados por identidade porque `areacomumTotal` NÃO os contém: sem separar a
+  // origem, o residual de Área Comum (mais abaixo) ficaria negativo pelo valor
+  // exato do device puxado — e o clamp em 0 esconderia o erro. Ver
+  // `computeBaseGroupResidual`. Fica vazio quando não há override nenhum.
+  const _crossOriginItems = new Set();
+
+  for (const { item, forcedCategory, fromBaseGroup, isParent } of _breakdownEntries) {
+    // `=== false` de propósito: bundles antigos da lib não emitem o campo, e
+    // `undefined` deve significar "veio do grupo base" (comportamento de antes).
+    if (fromBaseGroup === false) _crossOriginItems.add(item);
+
     const lw = toStr(item.labelWidget);
     const dp = toStr(item.deviceProfile);
     const label = toStr(item.label);
@@ -4194,13 +4248,23 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
     // RFC-0207 (A1b → cleanup): top-level bucket is resolver-only (degrades to
     // 'outros' when the library is missing — logged once above). Identifier-prefix
     // and combined-text signals are now encoded in the resolver seed.
-    const _topCat = _resolveCategory ? _resolveCategory(item).category : 'outros';
+    // `forcedCategory` (Dispositivos Específicos) tem precedência: o operador
+    // declarou explicitamente onde o device agrega. A sub-subcategorização abaixo
+    // segue pelas regras de texto normais.
+    const _topCat = forcedCategory || (_resolveCategory ? _resolveCategory(item).category : 'outros');
 
     if (_topCat === 'elevadores') {
       elevadoresItems.push(item);
     } else if (_topCat === 'escadas_rolantes') {
       escadasRolantesItems.push(item);
     } else if (_topCat === 'climatizacao') {
+      // RFC-0207 "parent": o PAI da composição CONTÉM os filhos — o valor dele
+      // é o total do card e os filhos são só o breakdown aninhado. Não entra em
+      // climatizacaoItems (não infla o total) nem nas subcategorias.
+      if (isParent === true) {
+        climatizacaoParentItems.push(item);
+        continue;
+      }
       climatizacaoItems.push(item);
       if (combined.includes('CHILLER') || id.startsWith('CHILLER-')) chillerItems.push(item);
       else if (combined.includes('FANCOIL') || id.startsWith('FANCOIL-')) fancoilItems.push(item);
@@ -4228,6 +4292,13 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
   }
 
   // ============ FILTER EXCLUDED DEVICES FROM CAG ============
+  // NÃO confundir com os "Dispositivos Específicos" do perfil (RFC-0207, acima):
+  //   - AQUI: setting de WIDGET, escopo estreito — retira o device apenas do
+  //     SUBTOTAL da sub-subcategoria CAG. Ele continua dentro de
+  //     `climatizacaoItems`/`climatizacaoTotal` e dentro do breakdown.
+  //   - LÁ: perfil do CLIENTE (JSON persistido), escopo largo — `exclude` retira
+  //     o device do breakdown INTEIRO (não chega aqui) e `include` traz devices de
+  //     outros grupos. Os dois convivem; o do perfil age antes.
   const excludeIds = widgetSettings.excludeDevicesAtCountSubtotalCAG || [];
   const excludeIdsSet = new Set(excludeIds.map((id) => String(id).trim().toLowerCase()));
 
@@ -4246,13 +4317,43 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
   }
 
   // ============ CALCULATE SUB-TOTAIS (Usando o Helper) ============
-  const climatizacaoTotal = climatizacaoItems.reduce((sum, i) => sum + getValorEfetivo(i, 'climatizacao'), 0);
+  // RFC-0207 "parent": `climatizacaoItems` é a COMPOSIÇÃO (filhos auto-classificados,
+  // sempre no grupo base). Quando há um PAI declarado, o total do card passa a ser
+  // o valor do pai (ele CONTÉM os filhos), e os filhos viram só o breakdown aninhado
+  // — nunca somados por cima (a dupla contagem que o modo existe para evitar).
+  const _climatizacaoChildrenTotal = climatizacaoItems.reduce(
+    (sum, i) => sum + getValorEfetivo(i, 'climatizacao'),
+    0
+  );
+  const _climatizacaoParentTotal = climatizacaoParentItems.reduce(
+    (sum, i) => sum + getValorEfetivo(i, 'climatizacao'),
+    0
+  );
+  const _hasClimatizacaoParent = climatizacaoParentItems.length > 0;
+  const climatizacaoTotal = _hasClimatizacaoParent
+    ? _climatizacaoParentTotal
+    : _climatizacaoChildrenTotal;
   const elevadoresTotal = elevadoresItems.reduce((sum, i) => sum + getValorEfetivo(i, 'elevadores'), 0);
   const escadasRolantesTotal = escadasRolantesItems.reduce(
     (sum, i) => sum + getValorEfetivo(i, 'escadas_rolantes'),
     0
   );
   const outrosTotal = outrosItems.reduce((sum, i) => sum + getValorEfetivo(i, 'outros'), 0);
+
+  // RFC-0207 — parcela CROSS-GROUP de cada subtotal (devices puxados por um
+  // `include` de fora do grupo `areacomum`). Os totais acima seguem CHEIOS: é o
+  // que os cards exibem, e é o objetivo do recurso. Estas parcelas servem só para
+  // o cálculo do residual logo abaixo, que não pode descontar de `areacomumTotal`
+  // um valor que nunca esteve nele. Sem overrides, o Set é vazio e tudo dá 0 —
+  // aritmética byte-idêntica à de antes.
+  const _crossTotalOf = (items, grupo) =>
+    _crossOriginItems.size === 0
+      ? 0
+      : items.reduce((sum, i) => sum + (_crossOriginItems.has(i) ? getValorEfetivo(i, grupo) : 0), 0);
+  const climatizacaoCrossTotal = _crossTotalOf(climatizacaoItems, 'climatizacao');
+  const elevadoresCrossTotal = _crossTotalOf(elevadoresItems, 'elevadores');
+  const escadasRolantesCrossTotal = _crossTotalOf(escadasRolantesItems, 'escadas_rolantes');
+  const outrosCrossTotal = _crossTotalOf(outrosItems, 'outros');
 
   // Climatizacao subcategories totals (O Helper usa 'climatizacao' para herdar a regra do pai)
   const chillerTotal = chillerItems.reduce((sum, i) => sum + getValorEfetivo(i, 'climatizacao'), 0);
@@ -4277,12 +4378,77 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
     const _exclGroups = _excludeGroupsTotals.groups || {};
     const _lojasEff = _exclGroups.lojas ? 0 : lojasTotal;
     const _entradaEff = _exclGroups.entrada ? 0 : entradaTotal;
-    const _climatizacaoEff = _exclGroups.climatizacao ? 0 : climatizacaoTotal;
+    // RFC-0207 "parent": ao reconstruir a Área Comum efetiva, a parcela de
+    // climatização que REALMENTE mora em `areacomum` é a dos FILHOS (a composição),
+    // não a do pai — o pai é cross-group (mora em Entrada) e somá-lo aqui dobraria
+    // com `_entradaEff`. Sem pai, usa `climatizacaoTotal` cheio (include/normal
+    // seguem byte-idênticos: o quirk cross-group do include é pré-existente).
+    const _climatizacaoAreacomumPortion = _hasClimatizacaoParent
+      ? Math.max(0, _climatizacaoChildrenTotal - climatizacaoCrossTotal)
+      : climatizacaoTotal;
+    const _climatizacaoEff = _exclGroups.climatizacao ? 0 : _climatizacaoAreacomumPortion;
     const _elevadoresEff = _exclGroups.elevadores ? 0 : elevadoresTotal;
     const _escadasEff = _exclGroups.escadas_rolantes ? 0 : escadasRolantesTotal;
     const _outrosEff = _exclGroups.outros ? 0 : outrosTotal;
-    const _areacomumSubtot = climatizacaoTotal + elevadoresTotal + escadasRolantesTotal + outrosTotal;
-    const _areacomumResidual = Math.max(0, areacomumTotal - _areacomumSubtot);
+    // RFC-0207 — o residual desconta APENAS a parcela de cada subtotal que veio
+    // do próprio grupo `areacomum`. Descontar o subtotal cheio jogaria o residual
+    // negativo pelo valor exato de cada device puxado por um `include`
+    // cross-group (que vive em outro grupo e nunca esteve em `areacomumTotal`),
+    // e o clamp em 0 mascararia. Sem overrides, cross = 0 e a conta é a de antes.
+    const _residualCalc = _computeBaseGroupResidual
+      ? _computeBaseGroupResidual(areacomumTotal, [
+          // RFC-0207 "parent": o card mostra o valor do PAI (cross-group), mas o
+          // residual só pode descontar de `areacomumTotal` os FILHOS que de fato
+          // estão nele. `baseGroupContribution` = soma dos filhos de origem-base;
+          // o pai entra em crossGroupTotal (informativo, nunca descontado). Assim
+          // nem o pai (336.600) nem os filhos (326.973) são descontados duas vezes:
+          // só os filhos, uma vez. Sem pai, o campo fica ausente e a conta é a de
+          // antes (total − crossGroupTotal).
+          _hasClimatizacaoParent
+            ? {
+                category: 'climatizacao',
+                total: climatizacaoTotal,
+                crossGroupTotal: _climatizacaoParentTotal,
+                baseGroupContribution: Math.max(0, _climatizacaoChildrenTotal - climatizacaoCrossTotal),
+              }
+            : { category: 'climatizacao', total: climatizacaoTotal, crossGroupTotal: climatizacaoCrossTotal },
+          { category: 'elevadores', total: elevadoresTotal, crossGroupTotal: elevadoresCrossTotal },
+          {
+            category: 'escadas_rolantes',
+            total: escadasRolantesTotal,
+            crossGroupTotal: escadasRolantesCrossTotal,
+          },
+          { category: 'outros', total: outrosTotal, crossGroupTotal: outrosCrossTotal },
+        ])
+      : (() => {
+          // Sem a lib no bundle não existe `selectBreakdownItems`, logo não existe
+          // include cross-group — as duas fórmulas coincidem.
+          const raw =
+            areacomumTotal -
+            (climatizacaoTotal + elevadoresTotal + escadasRolantesTotal + outrosTotal);
+          return { residualRaw: raw, residual: Math.max(0, raw), negative: raw < 0 };
+        })();
+    const _areacomumResidual = _residualCalc.residual;
+
+    // Um residual negativo AGORA significa problema real de dado/configuração
+    // (soma dos subtotais maior que o total do grupo), não artefato do recurso.
+    // Não pode ficar invisível atrás do clamp. Uma vez por sessão.
+    if (_residualCalc.negative && !_warnedNegativeAreacomumResidual) {
+      _warnedNegativeAreacomumResidual = true;
+      LogHelper.warn(
+        '[RFC-0207] Residual de Área Comum NEGATIVO (clampado em 0) — soma dos subtotais excede o total do grupo areacomum:',
+        {
+          areacomumTotal,
+          residualRaw: _residualCalc.residualRaw,
+          subtotalFromBaseGroup: _residualCalc.subtotalFromBaseGroup,
+          subtotalCrossGroup: _residualCalc.subtotalCrossGroup,
+          climatizacaoTotal,
+          elevadoresTotal,
+          escadasRolantesTotal,
+          outrosTotal,
+        }
+      );
+    }
     const _residualEff = _exclGroups.area_comum ? 0 : _areacomumResidual;
     const _areacomumEff = _climatizacaoEff + _elevadoresEff + _escadasEff + _outrosEff + _residualEff;
 
@@ -4345,6 +4511,14 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
     lojas: buildCategorySummary(lojas, lojasTotal, 'Lojas'),
     climatizacao: {
       ...buildCategorySummary(climatizacaoItems, climatizacaoTotal, 'Climatização'),
+      // RFC-0207 "parent": devices que HEADAM a composição (o total do card é o
+      // valor deles; a composição abaixo é o breakdown aninhado). Vazio quando não
+      // há pai — nesse caso o TELEMETRY_INFO renderiza a composição plana, como antes.
+      parents: climatizacaoParentItems.map((i) => ({
+        id: i.id,
+        label: i.label || i.name || i.identifier || i.id,
+        total: getValorEfetivo(i, 'climatizacao'),
+      })),
       subcategories: {
         chillers: buildCategorySummary(chillerItems, chillerTotal, 'Chillers'),
         fancoils: buildCategorySummary(fancoilItems, fancoilTotal, 'Fancoils'),

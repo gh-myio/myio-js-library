@@ -109,6 +109,52 @@ export interface ConditionalRule extends IdentifierMatch {
   deviceTypes?: string[];
 }
 
+/**
+ * RFC-0207 "Dispositivos Específicos" — modo de um override por dispositivo.
+ *
+ * - `include` — o device AGREGA nesta categoria do breakdown **mantendo o seu
+ *   grupo**. `resolveGroup` não muda: o total da coluna (ex.: Entrada) fica
+ *   idêntico. O device é apenas somado a mais na categoria (feed PARALELO — o
+ *   caso do Shopping da Ilha, onde o trafo da CAG é energia ADICIONAL).
+ * - `exclude` — o device sai do breakdown **inteiro**. Não cai em `outros` nem em
+ *   nenhum outro bucket. Existe para dupla-medição (o submedidor já está dentro
+ *   da leitura do trafo); mandá-lo para `outros` seria recontá-lo.
+ * - `parent` — o device é o **PAI** da composição da categoria: o valor DELE vira
+ *   o total da categoria e a composição auto-classificada (Chillers/Fancoils/…)
+ *   é o BREAKDOWN dele — mostrada aninhada, mas **NÃO somada por cima** do pai
+ *   (evita a dupla contagem). É o caso do Moxuara: o medidor de ENTRADA da CAG
+ *   (`CAG-Entrada`, 336.600) CONTÉM os submedidores internos (326.973); os filhos
+ *   estão a jusante do pai. Contraste com `include`: `include` SOMA (feed
+ *   paralelo), `parent` CONTÉM (a composição). Mesmo gesto de UI, matemática de
+ *   total OPOSTA — só o operador sabe qual dos dois é, por isso é escolha
+ *   explícita, nunca inferida. Como `include`, o device é PUXADO do grupo dele
+ *   (o grupo NÃO muda; o total da coluna de origem continua igual).
+ *
+ * Retrocompat: ausência do campo = comportamento de sempre; bundles antigos da
+ * lib coagem `parent` → `include` (degradação documentada — vira feed paralelo).
+ */
+export type DeviceOverrideMode = 'include' | 'exclude' | 'parent';
+
+/**
+ * Override explícito por dispositivo (escape hatch topológico).
+ *
+ * É uma LISTA DE VALORES, nunca um predicado (RFC-0207 §A proíbe
+ * predicates-as-data). `id` é o TB entity id — a MESMA chave usada por
+ * `excludeDevicesAtCountSubtotalCAG` (`String(item.id)`, comparada
+ * trim+lowercase).
+ *
+ * ⚠️ Escala mal e quebra em re-provisionamento (o entity id do TB muda). Regras
+ * por atributo (`deviceProfiles`/`profileContains`/`identifier*`) continuam sendo
+ * o caminho padrão; overrides são exceção topológica.
+ */
+export interface DeviceOverride {
+  /** TB entity id do dispositivo. */
+  id: string;
+  /** Guardado só para exibição/resiliência na UI (o motor NUNCA classifica por nome). */
+  label?: string;
+  mode: DeviceOverrideMode;
+}
+
 /** A single (non-fallback) category rule. */
 export interface CategoryRule {
   name: Exclude<CategoryName, 'lojas'>; // lojas is handled by the store shortcut
@@ -136,6 +182,13 @@ export interface CategoryRule {
   conditional?: ConditionalRule;
   /** Identifier-fallback hit list, mirroring classifyDeviceByIdentifier. */
   identifierFallback?: IdentifierMatch;
+  /**
+   * RFC-0207 "Dispositivos Específicos" — overrides explícitos por dispositivo.
+   *
+   * OPCIONAL e retrocompatível: ausente ⇒ comportamento idêntico ao de antes
+   * (`selectBreakdownItems` tem fast-path para "zero overrides").
+   */
+  deviceOverrides?: DeviceOverride[];
   fallback?: boolean;
 }
 
@@ -519,6 +572,298 @@ export function resolveCategory(
 }
 
 // ---------------------------------------------------------------------------
+// Dispositivos Específicos — device-level overrides for the BREAKDOWN
+//
+// Por que existem, em uma frase: `resolveGroup` aloca cada device em UM grupo só
+// (invariante de coerência dos totais — não é para ser abolida) e o breakdown do
+// TELEMETRY_INFO só percorre o grupo residual (`areacomum`). Um trafo de entrada
+// que mede TODA a carga da CAG fica, portanto, estruturalmente invisível ao card
+// de Climatização — mesmo sendo, fisicamente, climatização.
+//
+// Os overrides são o escape hatch: por dispositivo, explícito, sem tocar em
+// `resolveGroup` e sem inventar predicados novos no JSON.
+// ---------------------------------------------------------------------------
+
+/** Chave de comparação de device id — mesma normalização de `excludeDevicesAtCountSubtotalCAG`. */
+export function normalizeDeviceOverrideId(id: unknown): string {
+  return String(id ?? '').trim().toLowerCase();
+}
+
+export interface CollectedDeviceOverrides {
+  /**
+   * device id normalizado → categoria na qual ele deve ser PUXADO ao breakdown.
+   * Contém tanto os `include` quanto os `parent` (ambos são puxados do grupo de
+   * origem e recebem `forcedCategory`); o que distingue os dois é o mapa
+   * `parents` abaixo, que só a matemática do total lê.
+   */
+  includes: Map<string, CategoryName>;
+  /**
+   * device id normalizado → categoria da qual ele é PAI. Subconjunto de
+   * `includes`. Um pai CONTÉM a composição da categoria (o total da categoria
+   * passa a ser o valor do pai; a composição vira breakdown aninhado, não somado
+   * por cima). Vazio quando não há nenhum `parent`.
+   */
+  parents: Map<string, CategoryName>;
+  /** device ids normalizados removidos do breakdown por inteiro. */
+  excludes: Set<string>;
+  /** device id normalizado → label capturado na edição (exibição/diagnóstico). */
+  labels: Map<string, string>;
+}
+
+/**
+ * Achata os `deviceOverrides` de TODAS as categorias de um domínio.
+ *
+ * Regras de precedência (decididas, não negociáveis aqui):
+ *  - `exclude` vence `include` — se o mesmo device aparecer nos dois, ele sai do
+ *    breakdown. `exclude` é global (vale para o breakdown inteiro), `include` é
+ *    por categoria.
+ *  - Primeiro `include` na ordem das regras vence, caso o device apareça como
+ *    `include` em mais de uma categoria (alocação única também no breakdown).
+ */
+export function collectDeviceOverrides(
+  profile: DeviceClassificationProfile = getActiveProfile(),
+  domain: ClassificationDomain = 'energy',
+): CollectedDeviceOverrides {
+  const includes = new Map<string, CategoryName>();
+  const parents = new Map<string, CategoryName>();
+  const excludes = new Set<string>();
+  const labels = new Map<string, string>();
+
+  const rules = getDomain(profile, domain).categories?.rules ?? [];
+  for (const rule of rules) {
+    for (const ov of rule.deviceOverrides ?? []) {
+      const key = normalizeDeviceOverrideId(ov?.id);
+      if (!key) continue;
+      if (ov.label) labels.set(key, String(ov.label));
+      if (ov.mode === 'exclude') {
+        excludes.add(key);
+      } else if (!includes.has(key)) {
+        // `parent` e `include` ambos entram em `includes` (ambos são puxados +
+        // recebem forcedCategory); `parent` é adicionalmente marcado em `parents`
+        // para que só a matemática do total troque SOMAR por CONTER.
+        includes.set(key, rule.name);
+        if (ov.mode === 'parent') parents.set(key, rule.name);
+      }
+    }
+  }
+  // exclude vence include (e vence parent — parent é uma variante de include)
+  for (const key of excludes) {
+    includes.delete(key);
+    parents.delete(key);
+  }
+
+  return { includes, parents, excludes, labels };
+}
+
+/** Um item elegível ao breakdown + a categoria forçada por override (ou `null`). */
+export interface BreakdownEntry<T> {
+  item: T;
+  /**
+   * Categoria imposta por um override `include`. `null` ⇒ classificar
+   * normalmente com `resolveCategory`.
+   */
+  forcedCategory: CategoryName | null;
+  /** Grupo de onde o item veio (chave de `groups`). */
+  sourceGroup: string;
+  /**
+   * `true` quando o item veio do grupo BASE (e portanto já está dentro do total
+   * daquele grupo); `false` quando foi PUXADO de outro grupo por um `include`.
+   *
+   * O consumidor **precisa** dessa distinção para o residual: o total do grupo
+   * base não contém os itens cross-group, então subtrair o subtotal cheio dele
+   * produz um residual negativo pelo valor exato do item puxado.
+   * Ver `computeBaseGroupResidual`.
+   */
+  fromBaseGroup: boolean;
+  /**
+   * `true` quando o item é PAI da composição da sua categoria (override `parent`).
+   * O consumidor usa isto para trocar a matemática do total: o valor do pai
+   * VIRA o total da categoria, e a composição auto-classificada é o breakdown
+   * aninhado (não somado por cima).
+   *
+   * OPCIONAL e emitido SÓ quando `true` (nunca `false`): mantém as entradas de
+   * `include`/base/fast-path byte-idênticas às de antes do modo `parent`
+   * (retrocompat — perfis sem pai não ganham chave nova). Leia como
+   * `entry.isParent === true`; ausência ⇒ não é pai.
+   */
+  isParent?: boolean;
+}
+
+export interface SelectBreakdownItemsOptions {
+  /** Grupo que alimenta o breakdown (default `areacomum`, o residual do energy). */
+  baseGroup?: string;
+}
+
+/**
+ * Monta a lista de itens que o breakdown (TELEMETRY_INFO) deve percorrer,
+ * aplicando os Dispositivos Específicos.
+ *
+ *  - base = `groups[baseGroup]` (hoje `areacomum`), na ordem original;
+ *  - itens `exclude` são REMOVIDOS (não caem em `outros`);
+ *  - itens `include` são PUXADOS de qualquer grupo (tipicamente `entrada`) e
+ *    marcados com `forcedCategory` — o grupo deles NÃO muda, então o total da
+ *    coluna Entrada continua idêntico.
+ *
+ * Função pura: sem DOM, sem fetch. Quando não há nenhum override, devolve
+ * exatamente `groups[baseGroup]` (zero mudança de comportamento).
+ */
+export function selectBreakdownItems<T extends ClassifiableItem>(
+  groups: Record<string, T[] | undefined | null>,
+  profile: DeviceClassificationProfile = getActiveProfile(),
+  domain: ClassificationDomain = 'energy',
+  options: SelectBreakdownItemsOptions = {},
+): BreakdownEntry<T>[] {
+  const baseGroup = options.baseGroup || 'areacomum';
+  const base = (groups?.[baseGroup] ?? []) as T[];
+
+  const { includes, parents, excludes } = collectDeviceOverrides(profile, domain);
+
+  // Fast-path: perfil sem Dispositivos Específicos ⇒ o breakdown de sempre.
+  if (includes.size === 0 && excludes.size === 0) {
+    return base.map((item) => ({
+      item,
+      forcedCategory: null,
+      sourceGroup: baseGroup,
+      fromBaseGroup: true,
+    }));
+  }
+
+  const out: BreakdownEntry<T>[] = [];
+  const seen = new Set<string>();
+  // `isParent` só é emitido quando true (ver BreakdownEntry) — mantém entradas
+  // de include/base byte-idênticas.
+  const parentFlag = (key: string): { isParent: true } | Record<string, never> =>
+    parents.has(key) ? { isParent: true } : {};
+
+  for (const item of base) {
+    const key = normalizeDeviceOverrideId((item as { id?: unknown })?.id);
+    if (key) {
+      if (excludes.has(key)) continue;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const forced = includes.get(key);
+      out.push({
+        item,
+        forcedCategory: forced ?? null,
+        sourceGroup: baseGroup,
+        fromBaseGroup: true,
+        ...parentFlag(key),
+      });
+      continue;
+    }
+    out.push({ item, forcedCategory: null, sourceGroup: baseGroup, fromBaseGroup: true });
+  }
+
+  if (includes.size === 0) return out;
+
+  // Puxa os `include`/`parent` que vivem FORA do grupo base (tipicamente `entrada`).
+  // Estes NÃO estão dentro do total do grupo base — daí `fromBaseGroup: false`.
+  for (const groupKey of Object.keys(groups || {})) {
+    if (groupKey === baseGroup) continue;
+    for (const item of (groups[groupKey] ?? []) as T[]) {
+      const key = normalizeDeviceOverrideId((item as { id?: unknown })?.id);
+      if (!key || excludes.has(key) || seen.has(key)) continue;
+      const forced = includes.get(key);
+      if (!forced) continue;
+      seen.add(key);
+      out.push({
+        item,
+        forcedCategory: forced,
+        sourceGroup: groupKey,
+        fromBaseGroup: false,
+        ...parentFlag(key),
+      });
+    }
+  }
+
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// Residual do grupo base × includes cross-group
+// ---------------------------------------------------------------------------
+
+/** Um subtotal do breakdown, decomposto por origem. */
+export interface BreakdownSubtotalInput {
+  /** Nome da categoria — só diagnóstico. */
+  category: string;
+  /** Total EXIBIDO no card (inclui a parcela cross-group). */
+  total: number;
+  /** Parcela de `total` que veio de devices FORA do grupo base. */
+  crossGroupTotal: number;
+  /**
+   * RFC-0207 "parent" — parcela EXPLÍCITA que está de fato dentro do
+   * `baseGroupTotal` e deve ser descontada no residual.
+   *
+   * Existe porque o modo `parent` QUEBRA a premissa `base = total − cross`: quando
+   * o pai (ex.: CAG-Entrada, 336.600, cross-group) SUBSTITUI a composição no card,
+   * `total` passa a ser o valor do pai — não mais a soma dos filhos. Os FILHOS
+   * (326.973), que continuam fisicamente no grupo base, é que precisam ser
+   * descontados do residual; o pai, nunca (é cross-group, jamais esteve em
+   * `baseGroupTotal`). Passe aqui a soma dos filhos de origem-base.
+   *
+   * Ausente/`undefined` ⇒ cai no cálculo de sempre `total − crossGroupTotal`
+   * (byte-idêntico ao de antes; `include`/sem-override não usam este campo).
+   */
+  baseGroupContribution?: number;
+}
+
+export interface BaseGroupResidual {
+  /** Soma das parcelas que estão de fato dentro de `baseGroupTotal`. */
+  subtotalFromBaseGroup: number;
+  /** Soma das parcelas cross-group (informativo). */
+  subtotalCrossGroup: number;
+  /** Residual ANTES do clamp. Negativo aqui = problema real de dado/config. */
+  residualRaw: number;
+  /** Residual publicável (clamp em 0). */
+  residual: number;
+  /** `true` quando `residualRaw < 0`. */
+  negative: boolean;
+}
+
+/**
+ * Residual do grupo base (Área Comum) na presença de includes cross-group.
+ *
+ * O bug que esta função existe para impedir: `residual = baseGroupTotal −
+ * Σ subtotais` assume que TODO subtotal é composto de devices que estão dentro
+ * de `baseGroupTotal`. Um `include` cross-group quebra a premissa — o trafo da
+ * Ilha (637.560) entra no subtotal de climatização mas vive no grupo `entrada`
+ * e nunca fez parte do `areacomumTotal`. O residual ia negativo pelo valor
+ * exato do device puxado, e o `Math.max(0, …)` mascarava.
+ *
+ * A correção: o **card** continua mostrando o total cheio (é o objetivo do
+ * recurso), mas o **residual** desconta apenas a parcela de origem-base.
+ */
+export function computeBaseGroupResidual(
+  baseGroupTotal: number,
+  subtotals: BreakdownSubtotalInput[],
+): BaseGroupResidual {
+  let subtotalFromBaseGroup = 0;
+  let subtotalCrossGroup = 0;
+  for (const s of subtotals ?? []) {
+    const total = Number(s?.total) || 0;
+    const cross = Number(s?.crossGroupTotal) || 0;
+    // `parent`: quando o card mostra o valor do PAI (cross-group) no lugar da
+    // composição, a parcela de origem-base é a soma dos FILHOS, não `total−cross`
+    // (que daria ~0 porque total==cross). O caller passa essa parcela explícita.
+    const base =
+      s?.baseGroupContribution !== undefined && s?.baseGroupContribution !== null
+        ? Number(s.baseGroupContribution) || 0
+        : total - cross;
+    subtotalFromBaseGroup += base;
+    subtotalCrossGroup += cross;
+  }
+  const residualRaw = (Number(baseGroupTotal) || 0) - subtotalFromBaseGroup;
+  return {
+    subtotalFromBaseGroup,
+    subtotalCrossGroup,
+    residualRaw,
+    residual: Math.max(0, residualRaw),
+    negative: residualRaw < 0,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // validateProfile — structural integrity (closes bug #3)
 // ---------------------------------------------------------------------------
 
@@ -606,6 +951,32 @@ export function validateProfile(profile: DeviceClassificationProfile): string[] 
         if (r.combinedContains !== undefined && !Array.isArray(r.combinedContains)) {
           errors.push(`${domain}.categories.rules["${r?.name}"].combinedContains: must be an array`);
         }
+        // RFC-0207 "Dispositivos Específicos" — lista de valores por dispositivo.
+        // Campo OPCIONAL: ausente não gera erro (retrocompat total).
+        if (r.deviceOverrides !== undefined) {
+          if (!Array.isArray(r.deviceOverrides)) {
+            errors.push(
+              `${domain}.categories.rules["${r?.name}"].deviceOverrides: must be an array`,
+            );
+          } else {
+            r.deviceOverrides.forEach((ov, i) => {
+              const where = `${domain}.categories.rules["${r?.name}"].deviceOverrides[${i}]`;
+              if (!ov || typeof ov !== 'object') {
+                errors.push(`${where}: must be an object`);
+                return;
+              }
+              if (!ov.id || typeof ov.id !== 'string' || !ov.id.trim()) {
+                errors.push(`${where}.id: missing device id`);
+              }
+              if (ov.mode !== 'include' && ov.mode !== 'exclude' && ov.mode !== 'parent') {
+                errors.push(`${where}.mode: must be "include", "exclude" or "parent"`);
+              }
+              if (ov.label !== undefined && typeof ov.label !== 'string') {
+                errors.push(`${where}.label: must be a string`);
+              }
+            });
+          }
+        }
       }
       // exactly one fallback across the category family (the 'outros' bucket)
       const inlineFallbacks = catRules.filter((r) => r.fallback === true).length;
@@ -688,6 +1059,26 @@ export function normalizeProfile(raw: DeviceClassificationProfile): DeviceClassi
           upIdMatch(r.conditional);
         }
         upIdMatch(r.identifierFallback);
+        // RFC-0207 "Dispositivos Específicos": IDs e labels NUNCA são
+        // upper-cased. `id` é um UUID do TB (comparado trim+lowercase, igual a
+        // `excludeDevicesAtCountSubtotalCAG`) e `label` é texto de exibição.
+        // Só entradas estruturalmente sãs sobrevivem; ausência do campo é
+        // preservada como ausência (retrocompat).
+        if (r.deviceOverrides !== undefined) {
+          r.deviceOverrides = (Array.isArray(r.deviceOverrides) ? r.deviceOverrides : [])
+            .filter((ov) => ov && typeof ov === 'object' && String(ov.id ?? '').trim())
+            .map((ov) => {
+              const out: DeviceOverride = {
+                id: String(ov.id).trim(),
+                mode:
+                  ov.mode === 'exclude' ? 'exclude' : ov.mode === 'parent' ? 'parent' : 'include',
+              };
+              if (ov.label !== undefined && ov.label !== null) out.label = String(ov.label);
+              return out;
+            })
+            // dedupe por (id, mode) mantendo a primeira ocorrência
+            .filter((ov, i, arr) => arr.findIndex((o) => o.id === ov.id && o.mode === ov.mode) === i);
+        }
       }
     }
   }
