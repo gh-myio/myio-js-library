@@ -2,9 +2,11 @@
 
 - **RFC**: 0207
 - **Title**: Customer-Scoped Device Classification Profile (SERVER_SCOPE JSON + MENU management modal)
-- **Status**: Implemented (v1) — A0/A1/A1b (single-source resolver + bug #1/#2 fixes, golden-tested) + Phase B (customer SERVER_SCOPE attribute load in MAIN_VIEW.onInit + premium MENU management modal `openDeviceProfileModal`). Branch `feat/rfc-0207-b-attribute-and-menu` → PR to `desenv`.
-  **+ v2 redesign — PROPOSED (2026-06-23)**: fully configurable group/subcategory **tree** (create groups at will, nest subcategories, config-driven labels, unique allocation, UPPERCASE, predefined deviceProfile catalog, computed residual/total nodes). See **§ Addendum — RFC-0207 v2**.
-  **+ v3 FINAL — COMPILED (2026-06-23)**: the **engine/tree seam** + **swappable `ProfileSource`** + **locked responsibility split** (lib × MAIN_VIEW × GCDR). Consolidates the full feedback series (GCDR v1→v5 + MyIO-Lib v4) and **absorbs the standalone `RFC-0207-v3` file and the feedback/reconciliation docs (now removed)**. See **§ Addendum — RFC-0207 v3 (FINAL, compiled)** at the end — this is the canonical design to implement. The v1 sections describe what shipped; v2 gives the tree schema; v3 is the final contract.
+- **Status** *(revisado contra o código em 2026-07-23 — ver § Estado verificado)*:
+  - **v1 — Implemented.** A0/A1/A1b: resolver único (`resolveGroup`/`resolveCategory`), correções dos bugs #1/#2, golden-tested.
+  - **Phase B — PARTIAL.** O **load** do atributo customer `deviceClassificationProfile` (TB SERVER_SCOPE) em `MAIN_VIEW.onInit` está implementado, e o modal premium do MENU `openDeviceProfileModal` faz **view/edit/preview**. **A persistência NÃO está operacional**: o MENU delega a `window.MyIOOrchestrator.saveDeviceClassificationProfile`, que **não existe em nenhum lugar do repositório** — salvar pelo modal lança erro. Branch `feat/rfc-0207-b-attribute-and-menu` → PR to `desenv`.
+  - **v2 — DESIGN ONLY (2026-06-23).** Árvore configurável de grupos/subcategorias (criar grupos à vontade, aninhar subcategorias, labels por config, alocação única, UPPERCASE, catálogo de deviceProfile, nós computados). **Não implementado** — o motor ainda roda `schemaVersion: 1` com regras planas. See **§ Addendum — RFC-0207 v2**.
+  - **v3 / v3.2 — DESIGN ONLY, canonical-to-implement (2026-06-23).** Engine/tree seam + `ProfileSource` swappable + divisão de responsabilidades travada (lib × MAIN_VIEW × GCDR) + store GCDR via RFC-0047. Consolida a série de feedback (GCDR v1→v5 + MyIO-Lib v4) e **absorve o arquivo `RFC-0207-v3` e os docs de feedback/reconciliação (removidos)**. **Nenhum artefato v3 existe no código** (`ProfileSource`, `BakedProfileSource`, `TbAttributeProfileSource`, `GcdrResolveProfileSource`, `resolveClassification`, `resolveSubcategory`: zero ocorrências). See **§ Addendum — RFC-0207 v3 (FINAL, compiled)** — é o contrato final a implementar, não o estado atual.
 - **Author**: Rodrigo Lago
 - **Created**: 2026-06-18
 - **Target**: `src/thingsboard/main-dashboard-shopping/v-5.2.0/WIDGET/` (MAIN_VIEW, MENU, TELEMETRY, TELEMETRY_INFO) + `src/utils/`
@@ -14,6 +16,145 @@
   - RFC-0128 — energy equipment subcategorization (`src/utils/equipmentCategory.js`).
   - RFC-0200 — `deviceIcons` shared device-type map (precedent for "shared config map").
   - `integration_setup` customer SERVER_SCOPE attribute (precedent for customer-scoped JSON config; see `MENU`/`GCDR-Upsell-Setup`).
+
+---
+
+## Estado verificado (auditoria 2026-07-23)
+
+> Auditoria do documento contra o código, disparada por um bug real em produção (bomba
+> hidráulica classificada como climatização no Moxuara). **Absorve e substitui** os arquivos
+> `…-feedback-v1.md` e `…-feedback-v2.md`, ambos removidos — seguindo a convenção deste RFC
+> de consolidar a série de feedback no documento canônico.
+>
+> **Tese:** o RFC mistura três estados no mesmo arquivo — o que foi entregue (v1), o que está
+> pela metade (Phase B) e o que é projeto (v2/v3/v3.2). O campo `Status` do topo induzia o
+> leitor a crer que a gestão de perfil já operava ponta a ponta. O `Status` foi corrigido acima;
+> os quatro achados abaixo registram as evidências.
+
+### Achado 1 — a persistência não existe (Phase B está pela metade) · **Alta**
+
+O `Status` declarava a Phase B entregue, e o bloco de *implementation status* descrevia o modal
+como `view/edit/preview/save`. O **load** existe; o **save** não está conectado.
+
+- `MAIN_VIEW` carrega `attrs.deviceClassificationProfile`, normaliza via `setActiveProfile`,
+  publica em `window.MyIOUtils.deviceClassificationProfile` e degrada para o DEFAULT em erro.
+  — `src/thingsboard/main-dashboard-shopping/v-5.2.0/WIDGET/MAIN_VIEW/controller.js:2017`
+- O `MENU` delega o save a `window.MyIOOrchestrator?.saveDeviceClassificationProfile`.
+  — `src/thingsboard/main-dashboard-shopping/v-5.2.0/WIDGET/MENU/controller.js:824`
+- Esse método **não é definido em lugar nenhum** do repositório — só consumido (MENU v-5.2.0 e
+  controller v-5.4.0). Verificado em runtime no dashboard do Moxuara:
+  `typeof window.MyIOOrchestrator.saveDeviceClassificationProfile === 'undefined'`, e zero
+  métodos do orchestrator casando `/save|profile|classif/i`.
+- Consequência: clicar em "Salvar perfil" lança
+  `Persistência do perfil indisponível: MAIN_VIEW.saveDeviceClassificationProfile (GCDR) não conectado.`
+  (`MENU/controller.js:826`). **A tela é, na prática, um visualizador com preview ao vivo.**
+
+O próprio RFC já reconhecia a pendência, enterrada no addendum v3.2:
+
+> `Pendente: MAIN_VIEW implementar load (lazy por aba no modal; todos os domínios no boot do dashboard) + save por domínio contra o RFC-0047.`
+
+### Achado 2 — store ambíguo: o código lê TB SERVER_SCOPE; a decisão final é GCDR · **Alta**
+
+O addendum v3.2 decide que o store passa a ser o GCDR/RFC-0047, não TB `SERVER_SCOPE`. O código
+atual ainda carrega de `attrs.deviceClassificationProfile` (atributo de customer no ThingsBoard).
+
+- **Estado implementado:** load por TB `SERVER_SCOPE`, sem persistência conectada.
+- **Decisão futura (v3.2):** GCDR `/entities/resolve` como store canônico.
+- **Trabalho restante:** `GcdrResolveProfileSource` + `saveDeviceClassificationProfile` em
+  `MAIN_VIEW`, com 304/cache/versionamento/409 conforme RFC-0047.
+
+Evidência de campo de que o load por SERVER_SCOPE está ativo e é **exclusivo** (não faz merge com
+o DEFAULT — `resolveActiveProfile` **substitui**, `deviceClassificationProfile.ts:647`):
+
+| Customer | `deviceClassificationProfile` no SERVER_SCOPE | Perfil efetivo |
+|---|---|---|
+| Moxuara | ausente | DEFAULT do `.ts` |
+| Mestre Álvaro | presente | JSON próprio (`climatizacao: deviceProfiles ["FANCOIL"]`) |
+
+Consequência operacional: corrigir o DEFAULT no código **não alcança** clientes que já têm JSON.
+
+### Achado 3 — `combinedContains` é contrato vivo no motor, mas inalcançável por qualquer editor · **Alta**
+
+O modal renderiza **exatamente três** campos por regra de categoria, e nenhum é `combinedContains`:
+
+- `openDeviceProfileModal.ts:347` — `cat-${i}-dp` (deviceProfile)
+- `openDeviceProfileModal.ts:348` — `cat-${i}-idc` (identifier contém)
+- `openDeviceProfileModal.ts:349` — `cat-${i}-idp` (identifier prefixo)
+
+Existe um handler de mutação para a chave `cc` (`openDeviceProfileModal.ts:424`), mas **nenhum
+elemento com essa chave é renderizado** — é código inalcançável. O texto de ajuda do próprio card
+confirma o desenho: *"(precedência): 1) deviceProfile exato; 2) identifier contém/prefixo."*
+(`:343`).
+
+Enquanto isso o motor declara, semeia e **avalia** o campo normalmente:
+tipo em `deviceClassificationProfile.ts:108`; seed em `:197` (elevadores), `:208` (escadas),
+`:226` (climatização); avaliação no Pass 2 em `:463-465`.
+
+**Isso corrobora — não refuta — a tese do vocabulário v3:** os três campos renderizados coincidem
+exatamente com as *bounded rule kinds* da §A (`deviceProfiles` / `identifierExact|Contains|Prefixes`),
+que **excluem** `combinedContains`. O editor foi escrito para o contrato futuro enquanto o motor
+executa o contrato atual.
+
+**Por que é Alta.** Foi precisamente nessa fresta que ficaram `BOMBA_HIDRAULICA` e
+`BOMBASHIDRAULICAS` no `combinedContains` de climatização, classificando bomba hidráulica como
+climatização **sem nenhum caminho pela UI** para diagnosticar ou corrigir — só lendo o fonte da lib.
+Corrigido em `14ad6257` (removidas as duas strings do seed).
+
+Agrava o quadro um **laço circular** descoberto na mesma auditoria: `combinedOf` inclui
+`labelWidget` (`:331-333`), que é a **saída anterior do próprio classificador**. Um item carimbado
+"Climatização" volta a casar com o padrão `CLIMATIZA` e se auto-sustenta, independentemente do
+`deviceProfile`. Verificado em runtime no Moxuara:
+
+```
+combined = "CLIMATIZAÇÃO BOMBA_HIDRAULICA BOMBA HIDRÁULICA 5 L2"
+           ^^^^^^^^^^^^ labelWidget do próprio item
+matchedBy: "combined"   patternsQueBatem: ["CLIMATIZA"]
+```
+
+**Resolver o campo sem resolver o laço não fecha a classe de bug.**
+
+### Achado 4 — goldens da §F: caso da bomba fechado no motor v1; key-parity e order-sensitivity seguem ausentes · **Baixa**
+
+A §F lista como obrigatório um golden chamado literalmente **`bomba-not-incêndio`**. Ele não
+existia. Foi escrito em `14ad6257` (2026-07-23), junto com a correção:
+
+- `BOMBA_HIDRAULICA` → `outros` — `tests/deviceClassificationProfile.buildsummary.test.ts:236`
+- `BOMBA_INCENDIO` → `outros` — mesmo teste
+- `BOMBA_CAG` → `climatizacao` — `tests/deviceClassificationProfile.buildsummary.test.ts:244`
+
+Ainda ausentes, e **não testáveis hoje** porque dependem de artefatos v3 inexistentes:
+
+- **key-parity** (`keys(engine) === keys(baked) === GCDR is_system keys`) — exige `BakedProfileSource`.
+- **order-sensitivity** (o fallback nunca sombreia um irmão real) — exige `order` explícito por nó,
+  ausente no `schemaVersion: 1`.
+
+O mesmo commit trouxe os oráculos legados do `buildsummary.test.ts` de volta à realidade da fonte
+(o `deviceType` saiu do `combinedOf` em 2026-07-14 e o teste nunca acompanhou, ficando vermelho em
+2 asserções desde então).
+
+### Backlog
+
+1. **Fechar a Phase B de verdade:** implementar `window.MyIOOrchestrator.saveDeviceClassificationProfile`
+   em `MAIN_VIEW` (a §D o coloca lá como dono), **ou** rebaixar explicitamente o modal para
+   read/edit/preview sem save. Hoje o botão promete o que não entrega.
+2. **Escolher e documentar o store de transição:** manter TB `SERVER_SCOPE` até a v3.2, ou migrar
+   direto para GCDR. O RFC hoje mistura as duas leituras.
+3. **Resolver o contrato de regras:** enquanto `combinedContains` for avaliado pelo motor, ou o
+   editor o expõe/valida/testa, ou ele sai do motor e do seed numa migração coordenada com teste de
+   equivalência. Manter vivo e invisível é a pior das três opções. Tratar o laço circular do
+   `labelWidget` no mesmo lote.
+4. **Separar RFC implementado de RFC futuro:** congelar o RFC-0207 como v1 implementado/parcial e
+   abrir um RFC sucessor para v3/v3.2. **Esta é a correção de causa raiz** — enquanto um único
+   arquivo tentar ser registro de entrega e especificação de futuro ao mesmo tempo, o campo `Status`
+   vai voltar a divergir do código.
+
+### Nota de método
+
+Uma evidência de que algo "existe" só vale com **alcançabilidade** (quem chama ou renderiza) e
+**proveniência** (desde quando, por qual commit). Localizar um símbolo por busca textual e concluir
+que a funcionalidade existe produz exatamente os dois falsos negativos que esta auditoria precisou
+corrigir na sua primeira rodada: um handler sem emissor (achado 3) e um teste escrito na própria
+sessão da revisão (achado 4).
 
 ---
 
@@ -38,9 +179,10 @@ is absent), not the source of truth.
 > **Implementation status:** delivered in phases. **A0** — pure single-source resolver
 > (`src/utils/deviceClassificationProfile.ts`) + MAIN_VIEW delegation, proven equivalent by
 > golden tests. **A1/A1b** — bug #1 (CAG `Set.has` → substring) and bug #2 (column vs
-> breakdown unified through `resolveCategory`). **Phase B** — `setActiveProfile`/`getActiveProfile`,
+> breakdown unified through `resolveCategory`). **Phase B (PARCIAL)** — `setActiveProfile`/`getActiveProfile`,
 > the customer SERVER_SCOPE `deviceClassificationProfile` loaded in `MAIN_VIEW.onInit`, the
-> premium MENU modal `openDeviceProfileModal` (view/edit/preview/save, permission-gated), and
+> premium MENU modal `openDeviceProfileModal` (view/edit/preview, permission-gated — **o `save`
+> NÃO está operacional; ver § Estado verificado, achado 1**), and
 > the bug #3 dead-key removal in TELEMETRY. **Follow-up #1** — `conditional`-rule editor in
 > the modal. **Follow-up #2** — water/temperature domains: the resolver is now domain-generic
 > (`resolveGroup(item, profile, domain)`), the DEFAULT seed encodes `water` and `temperature`
