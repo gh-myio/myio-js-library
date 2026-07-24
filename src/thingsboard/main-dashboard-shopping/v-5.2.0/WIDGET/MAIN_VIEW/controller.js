@@ -4348,10 +4348,15 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
       subcategories: {
         chillers: buildCategorySummary(chillerItems, chillerTotal, 'Chillers'),
         fancoils: buildCategorySummary(fancoilItems, fancoilTotal, 'Fancoils'),
-        bombasHidraulicas: buildCategorySummary(
+        // Rótulo genérico "Bombas": após o fix da classificação (bomba hidráulica de
+        // recalque saiu de climatização → 'outros'), este balde só recebe bombas de
+        // climatização de fato (BOMBA_CAG/secundária/primária, que casam por 'BOMBA'
+        // no texto e ficam em climatização via identifier CAG). Chamar de "Bombas
+        // Hidráulicas" ficou enganoso — são bombas do sistema de água gelada.
+        bombasClimatizacao: buildCategorySummary(
           bombaHidraulicaItems,
           bombaHidraulicaTotal,
-          'Bombas Hidráulicas'
+          'Bombas'
         ),
         cag: buildCategorySummary(cagItemsFiltered, cagTotal, 'CAG'),
         hvacOutros: buildCategorySummary(hvacOutrosItems, hvacOutrosTotal, 'Outros HVAC'),

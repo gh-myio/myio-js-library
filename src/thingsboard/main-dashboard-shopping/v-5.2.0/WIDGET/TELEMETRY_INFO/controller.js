@@ -2773,7 +2773,7 @@ function buildClimatizacaoContent() {
   const subcatIcons = {
     chillers: '🧊',
     fancoils: '💨',
-    bombasHidraulicas: '💧',
+    bombasClimatizacao: '💧',
     cag: '🌡️',
     hvacOutros: '❄️',
   };
@@ -4250,15 +4250,17 @@ function setupSummaryTooltip() {
                         percentage: byCategory.climatizacao.subcategories.fancoils?.summary?.perc || 0,
                       },
                       {
-                        id: 'bombasHidraulicas',
-                        name: 'Bombas Hidráulicas',
+                        id: 'bombasClimatizacao',
+                        // "Bombas" genérico: pós-fix, este balde só tem bombas de
+                        // climatização (CAG/secundária), não recalque hidráulico.
+                        name: 'Bombas',
                         icon: '💧',
                         deviceCount:
-                          byCategory.climatizacao.subcategories.bombasHidraulicas?.summary?.count || 0,
+                          byCategory.climatizacao.subcategories.bombasClimatizacao?.summary?.count || 0,
                         consumption:
-                          byCategory.climatizacao.subcategories.bombasHidraulicas?.summary?.total || 0,
+                          byCategory.climatizacao.subcategories.bombasClimatizacao?.summary?.total || 0,
                         percentage:
-                          byCategory.climatizacao.subcategories.bombasHidraulicas?.summary?.perc || 0,
+                          byCategory.climatizacao.subcategories.bombasClimatizacao?.summary?.perc || 0,
                       },
                       {
                         id: 'cag',
