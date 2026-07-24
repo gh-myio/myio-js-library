@@ -41,6 +41,16 @@ existem, e código entregue que ainda se declara pendente).
 
 Fonte deste repositório: [`docs/rfcs/RFC-AUDIT-nao-implementados.md`](docs/rfcs/RFC-AUDIT-nao-implementados.md)
 
+### 🎯 OKRs de Tecnologia
+
+Objetivos derivados dessas auditorias, em formato de bullets:
+
+**[Abrir OKRs →](docs/OKRS-TECNOLOGIA.html)** · [versão Markdown](docs/OKRS-TECNOLOGIA.md)
+
+13 objetivos em duas partes — **Parte A · Corrigir** (O1–O9, derivados dos achados)
+e **Parte B · Construir** (O10–O13: Pré-Setup no GCDR, cockpit de logs, auto-sync de
+devices e OS integrada ao ecossistema).
+
 ---
 
 ## 🚀 Features
