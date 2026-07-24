@@ -4170,6 +4170,11 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
   const GERADOR_PATTERNS = ['GERADOR', 'NOBREAK', 'UPS'];
 
   const climatizacaoItems = [];
+  // RFC-0207 "parent" — devices marcados como PAI da composição de Climatização.
+  // O valor deles VIRA o total do card; a composição (chillers/fancoils/bombas)
+  // é o breakdown aninhado, NÃO somado por cima (evita a dupla contagem). Ficam
+  // FORA de `climatizacaoItems` e das subcategorias por isso.
+  const climatizacaoParentItems = [];
   const elevadoresItems = [];
   const escadasRolantesItems = [];
   const outrosItems = [];
@@ -4228,7 +4233,7 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
   // `computeBaseGroupResidual`. Fica vazio quando não há override nenhum.
   const _crossOriginItems = new Set();
 
-  for (const { item, forcedCategory, fromBaseGroup } of _breakdownEntries) {
+  for (const { item, forcedCategory, fromBaseGroup, isParent } of _breakdownEntries) {
     // `=== false` de propósito: bundles antigos da lib não emitem o campo, e
     // `undefined` deve significar "veio do grupo base" (comportamento de antes).
     if (fromBaseGroup === false) _crossOriginItems.add(item);
@@ -4253,6 +4258,13 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
     } else if (_topCat === 'escadas_rolantes') {
       escadasRolantesItems.push(item);
     } else if (_topCat === 'climatizacao') {
+      // RFC-0207 "parent": o PAI da composição CONTÉM os filhos — o valor dele
+      // é o total do card e os filhos são só o breakdown aninhado. Não entra em
+      // climatizacaoItems (não infla o total) nem nas subcategorias.
+      if (isParent === true) {
+        climatizacaoParentItems.push(item);
+        continue;
+      }
       climatizacaoItems.push(item);
       if (combined.includes('CHILLER') || id.startsWith('CHILLER-')) chillerItems.push(item);
       else if (combined.includes('FANCOIL') || id.startsWith('FANCOIL-')) fancoilItems.push(item);
@@ -4305,7 +4317,22 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
   }
 
   // ============ CALCULATE SUB-TOTAIS (Usando o Helper) ============
-  const climatizacaoTotal = climatizacaoItems.reduce((sum, i) => sum + getValorEfetivo(i, 'climatizacao'), 0);
+  // RFC-0207 "parent": `climatizacaoItems` é a COMPOSIÇÃO (filhos auto-classificados,
+  // sempre no grupo base). Quando há um PAI declarado, o total do card passa a ser
+  // o valor do pai (ele CONTÉM os filhos), e os filhos viram só o breakdown aninhado
+  // — nunca somados por cima (a dupla contagem que o modo existe para evitar).
+  const _climatizacaoChildrenTotal = climatizacaoItems.reduce(
+    (sum, i) => sum + getValorEfetivo(i, 'climatizacao'),
+    0
+  );
+  const _climatizacaoParentTotal = climatizacaoParentItems.reduce(
+    (sum, i) => sum + getValorEfetivo(i, 'climatizacao'),
+    0
+  );
+  const _hasClimatizacaoParent = climatizacaoParentItems.length > 0;
+  const climatizacaoTotal = _hasClimatizacaoParent
+    ? _climatizacaoParentTotal
+    : _climatizacaoChildrenTotal;
   const elevadoresTotal = elevadoresItems.reduce((sum, i) => sum + getValorEfetivo(i, 'elevadores'), 0);
   const escadasRolantesTotal = escadasRolantesItems.reduce(
     (sum, i) => sum + getValorEfetivo(i, 'escadas_rolantes'),
@@ -4351,7 +4378,15 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
     const _exclGroups = _excludeGroupsTotals.groups || {};
     const _lojasEff = _exclGroups.lojas ? 0 : lojasTotal;
     const _entradaEff = _exclGroups.entrada ? 0 : entradaTotal;
-    const _climatizacaoEff = _exclGroups.climatizacao ? 0 : climatizacaoTotal;
+    // RFC-0207 "parent": ao reconstruir a Área Comum efetiva, a parcela de
+    // climatização que REALMENTE mora em `areacomum` é a dos FILHOS (a composição),
+    // não a do pai — o pai é cross-group (mora em Entrada) e somá-lo aqui dobraria
+    // com `_entradaEff`. Sem pai, usa `climatizacaoTotal` cheio (include/normal
+    // seguem byte-idênticos: o quirk cross-group do include é pré-existente).
+    const _climatizacaoAreacomumPortion = _hasClimatizacaoParent
+      ? Math.max(0, _climatizacaoChildrenTotal - climatizacaoCrossTotal)
+      : climatizacaoTotal;
+    const _climatizacaoEff = _exclGroups.climatizacao ? 0 : _climatizacaoAreacomumPortion;
     const _elevadoresEff = _exclGroups.elevadores ? 0 : elevadoresTotal;
     const _escadasEff = _exclGroups.escadas_rolantes ? 0 : escadasRolantesTotal;
     const _outrosEff = _exclGroups.outros ? 0 : outrosTotal;
@@ -4362,7 +4397,21 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
     // e o clamp em 0 mascararia. Sem overrides, cross = 0 e a conta é a de antes.
     const _residualCalc = _computeBaseGroupResidual
       ? _computeBaseGroupResidual(areacomumTotal, [
-          { category: 'climatizacao', total: climatizacaoTotal, crossGroupTotal: climatizacaoCrossTotal },
+          // RFC-0207 "parent": o card mostra o valor do PAI (cross-group), mas o
+          // residual só pode descontar de `areacomumTotal` os FILHOS que de fato
+          // estão nele. `baseGroupContribution` = soma dos filhos de origem-base;
+          // o pai entra em crossGroupTotal (informativo, nunca descontado). Assim
+          // nem o pai (336.600) nem os filhos (326.973) são descontados duas vezes:
+          // só os filhos, uma vez. Sem pai, o campo fica ausente e a conta é a de
+          // antes (total − crossGroupTotal).
+          _hasClimatizacaoParent
+            ? {
+                category: 'climatizacao',
+                total: climatizacaoTotal,
+                crossGroupTotal: _climatizacaoParentTotal,
+                baseGroupContribution: Math.max(0, _climatizacaoChildrenTotal - climatizacaoCrossTotal),
+              }
+            : { category: 'climatizacao', total: climatizacaoTotal, crossGroupTotal: climatizacaoCrossTotal },
           { category: 'elevadores', total: elevadoresTotal, crossGroupTotal: elevadoresCrossTotal },
           {
             category: 'escadas_rolantes',
@@ -4462,6 +4511,14 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
     lojas: buildCategorySummary(lojas, lojasTotal, 'Lojas'),
     climatizacao: {
       ...buildCategorySummary(climatizacaoItems, climatizacaoTotal, 'Climatização'),
+      // RFC-0207 "parent": devices que HEADAM a composição (o total do card é o
+      // valor deles; a composição abaixo é o breakdown aninhado). Vazio quando não
+      // há pai — nesse caso o TELEMETRY_INFO renderiza a composição plana, como antes.
+      parents: climatizacaoParentItems.map((i) => ({
+        id: i.id,
+        label: i.label || i.name || i.identifier || i.id,
+        total: getValorEfetivo(i, 'climatizacao'),
+      })),
       subcategories: {
         chillers: buildCategorySummary(chillerItems, chillerTotal, 'Chillers'),
         fancoils: buildCategorySummary(fancoilItems, fancoilTotal, 'Fancoils'),

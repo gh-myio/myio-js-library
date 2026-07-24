@@ -469,11 +469,14 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
         // label guardado no perfil e sinalizamos.
         const name = found?.label || ov.label || ov.id;
         const missing = !found;
-        const isExc = ov.mode === 'exclude';
-        return `<span class="mdp-ovr-chip ${isExc ? 'is-exclude' : 'is-include'} ${
+        const modeClass =
+          ov.mode === 'exclude' ? 'is-exclude' : ov.mode === 'parent' ? 'is-parent' : 'is-include';
+        const modeLabel =
+          ov.mode === 'exclude' ? 'excluir' : ov.mode === 'parent' ? 'como pai' : 'incluir';
+        return `<span class="mdp-ovr-chip ${modeClass} ${
           missing ? 'is-missing' : ''
         }" title="${escHtml(ov.id)}">
-          <span class="mdp-ovr-mode">${isExc ? 'excluir' : 'incluir'}</span>
+          <span class="mdp-ovr-mode">${modeLabel}</span>
           <span class="mdp-ovr-name">${escHtml(name)}</span>
           ${missing ? '<span class="mdp-ovr-warn" title="Dispositivo não encontrado na lista atual">⚠</span>' : ''}
           ${
@@ -498,9 +501,11 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
     return `<div class="mdp-field mdp-ovr">
       <label>Dispositivos Específicos</label>
       <div class="mdp-ovr-hint">
-        <b>incluir</b>: soma o device nesta categoria <i>sem</i> mudar o grupo dele (o total da coluna
-        de origem continua igual). <b>excluir</b>: tira o device do breakdown por completo (não cai em
-        “outros”) — use para dupla-medição.
+        <b>incluir</b>: <i>soma</i> o device nesta categoria sem mudar o grupo dele (feed paralelo — o
+        total da coluna de origem continua igual). <b>como pai</b>: o device <i>contém</i> a composição —
+        o valor DELE vira o total da categoria e as subcategorias viram o detalhamento aninhado (não
+        somam por cima). <b>excluir</b>: tira o device do breakdown por completo (não cai em “outros”)
+        — use para dupla-medição.
       </div>
       <div class="mdp-ovr-row">
         <div class="mdp-ovr-list">${rows}${empty}</div>
@@ -552,6 +557,8 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
           <span class="mdp-picker-actions">
             <button type="button" class="mdp-picker-pick is-include" data-id="${escHtml(d.id)}"
                     data-label="${escHtml(d.label)}" data-mode="include">incluir</button>
+            <button type="button" class="mdp-picker-pick is-parent" data-id="${escHtml(d.id)}"
+                    data-label="${escHtml(d.label)}" data-mode="parent">como pai</button>
             <button type="button" class="mdp-picker-pick is-exclude" data-id="${escHtml(d.id)}"
                     data-label="${escHtml(d.label)}" data-mode="exclude">excluir</button>
           </span>
@@ -1003,6 +1010,7 @@ function injectStyles() {
   .mdp-ovr-chip { display: inline-flex; align-items: center; gap: 5px; border-radius: 12px;
     padding: 2px 8px; font-size: 11px; font-weight: 600; border: 1px solid; max-width: 100%; }
   .mdp-ovr-chip.is-include { background: #ede9fe; border-color: #c4b5fd; color: #5b21b6; }
+  .mdp-ovr-chip.is-parent { background: #ccfbf1; border-color: #5eead4; color: #0f766e; }
   .mdp-ovr-chip.is-exclude { background: #fee2e2; border-color: #fca5a5; color: #991b1b; }
   .mdp-ovr-chip.is-missing { opacity: .75; border-style: dashed; }
   .mdp-ovr-mode { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; opacity: .8; }
@@ -1036,6 +1044,8 @@ function injectStyles() {
     padding: 3px 8px; cursor: pointer; border: 1px solid; }
   .mdp-picker-pick.is-include { background: #ede9fe; border-color: #c4b5fd; color: #5b21b6; }
   .mdp-picker-pick.is-include:hover { background: #ddd6fe; }
+  .mdp-picker-pick.is-parent { background: #ccfbf1; border-color: #5eead4; color: #0f766e; }
+  .mdp-picker-pick.is-parent:hover { background: #99f6e4; }
   .mdp-picker-pick.is-exclude { background: #fee2e2; border-color: #fca5a5; color: #991b1b; }
   .mdp-picker-pick.is-exclude:hover { background: #fecaca; }
   .mdp-picker-empty { font-size: 11px; color: #94a3b8; padding: 10px 8px; text-align: center; font-style: italic; }

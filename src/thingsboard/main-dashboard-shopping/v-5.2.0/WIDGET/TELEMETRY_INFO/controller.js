@@ -1591,6 +1591,10 @@ function processStateFromSummaryEnergy(summary, _grandTotal) {
       perc: _pct(_climatTot),
       // Subcategories available for detailed tooltips
       subcategories: summary.climatizacao?.subcategories || null,
+      // RFC-0207 "parent": device(s) que headam a composição. Quando presente e
+      // não-vazio, o tooltip renderiza o pai no topo e a composição aninhada
+      // abaixo dele. Ausente/vazio ⇒ composição plana (comportamento de antes).
+      parents: summary.climatizacao?.parents || [],
     },
     elevadores: {
       devices: elevadoresDevices,
@@ -2824,6 +2828,41 @@ function buildClimatizacaoContent() {
     `;
   }
 
+  // RFC-0207 "parent": quando um device foi declarado PAI da composição, ele
+  // aparece como uma linha no TOPO da Composição (com o valor dele = total do
+  // card) e as subcategorias existentes ficam ANINHADAS (indentadas) abaixo. O
+  // pai NÃO é somado por cima da composição — o total já é o valor dele. Campo
+  // ausente/vazio ⇒ composição plana, exatamente como antes.
+  const _escClim = (s) =>
+    String(s == null ? '' : s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  const climParents = STATE.consumidores.climatizacao?.parents || [];
+  const _hasClimParents = Array.isArray(climParents) && climParents.length > 0;
+  let composicaoHtml = subcatHtml;
+  if (_hasClimParents) {
+    const parentLines = climParents
+      .map(
+        (p) => `
+          <div class="myio-info-tooltip__category myio-info-tooltip__category--climatizacao myio-info-tooltip__category--parent">
+            <span class="myio-info-tooltip__category-icon">🔌</span>
+            <div class="myio-info-tooltip__category-info">
+              <div class="myio-info-tooltip__category-name">${_escClim(p.label)}</div>
+              <div class="myio-info-tooltip__category-desc">Medidor pai da composição</div>
+            </div>
+            <span class="myio-info-tooltip__category-value">${formatEnergy(p.total || 0)}</span>
+          </div>
+        `
+      )
+      .join('');
+    composicaoHtml = `${parentLines}
+      <div class="myio-info-tooltip__nested" style="margin-left:16px; padding-left:10px; border-left:2px solid rgba(0,200,150,0.28);">
+        ${subcatHtml}
+      </div>`;
+  }
+
   return `
     <div class="myio-info-tooltip__section">
       <div class="myio-info-tooltip__section-title">
@@ -2849,13 +2888,17 @@ function buildClimatizacaoContent() {
       <div class="myio-info-tooltip__section-title">
         <span>📋</span> Composição
       </div>
-      ${subcatHtml}
+      ${composicaoHtml}
     </div>
 
     <div class="myio-info-tooltip__notice">
       <span class="myio-info-tooltip__notice-icon">💡</span>
       <div class="myio-info-tooltip__notice-text">
-        O valor de <strong>Climatização</strong> é calculado pela soma do consumo de todos os equipamentos classificados nestas categorias.
+        ${
+          _hasClimParents
+            ? 'O valor de <strong>Climatização</strong> é o do <strong>medidor pai</strong> da composição; as subcategorias abaixo dele são o detalhamento (não somam por cima).'
+            : 'O valor de <strong>Climatização</strong> é calculado pela soma do consumo de todos os equipamentos classificados nestas categorias.'
+        }
       </div>
     </div>
     ${buildExcludedFromCAGNotice()}
