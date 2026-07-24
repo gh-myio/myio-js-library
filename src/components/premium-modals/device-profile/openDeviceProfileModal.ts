@@ -33,10 +33,14 @@ import {
   validateProfile,
   normalizeProfile,
   setActiveProfile,
+  collectDeviceOverrides,
+  normalizeDeviceOverrideId,
   type DeviceClassificationProfile,
   type DomainProfile,
   type ClassificationDomain,
   type ClassifiableItem,
+  type DeviceOverride,
+  type DeviceOverrideMode,
 } from '../../../utils/devices/deviceClassificationProfile';
 
 const DOMAIN_TABS: { key: ClassificationDomain; label: string; icon: string }[] = [
@@ -47,6 +51,14 @@ const DOMAIN_TABS: { key: ClassificationDomain; label: string; icon: string }[] 
 
 const STYLE_ID = 'myio-device-profile-styles';
 const ACCENT = '#7C3AED';
+
+/**
+ * RFC-0207 "Dispositivos Específicos": o schema é genérico (qualquer regra de
+ * categoria aceita `deviceOverrides`), mas por ora a seção só é RENDERIZADA na
+ * categoria abaixo — o caso de uso que a motivou (trafo de entrada da CAG) é
+ * exclusivamente de climatização. Ampliar = acrescentar nomes aqui.
+ */
+const DEVICE_OVERRIDE_CATEGORIES = new Set<string>(['climatizacao']);
 
 export interface DeviceProfilePreviewDevice extends ClassifiableItem {
   label?: string;
@@ -139,6 +151,11 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
   let cardHandles: DivCardHandle[] = [];
   // Card ids parallel to cardHandles (for expand-all / collapse-all).
   let cardIds: string[] = [];
+  // "Dispositivos Específicos": índice da regra de categoria cujo picker está
+  // aberto (null = fechado) + termo de busca. Vive fora do render porque cada
+  // edição de chip reconstrói o body inteiro.
+  let pickerOpenForRule: number | null = null;
+  let pickerQuery = '';
 
   injectStyles();
 
@@ -352,7 +369,8 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
             <div class="mdp-field"><label>deviceProfile</label>${chipList(`cat-${i}-dp`, r.deviceProfiles || [], ro)}</div>
             <div class="mdp-field"><label>deviceProfile contém</label>${chipList(`cat-${i}-pc`, r.profileContains || [], ro)}</div>
             <div class="mdp-field"><label>identifier contém</label>${chipList(`cat-${i}-idc`, r.identifierFallback?.identifierContains || [], ro)}</div>
-            <div class="mdp-field"><label>identifier prefixo</label>${chipList(`cat-${i}-idp`, r.identifierFallback?.identifierPrefixes || [], ro)}</div>`,
+            <div class="mdp-field"><label>identifier prefixo</label>${chipList(`cat-${i}-idp`, r.identifierFallback?.identifierPrefixes || [], ro)}</div>
+            ${overrideSection(i, r.name, r.deviceOverrides || [], ro)}`,
         ),
       );
       addCard(
@@ -403,6 +421,241 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
       ? ''
       : `<input class="mdp-chip-input" data-key="${key}" type="text" placeholder="+ adicionar" />`;
     return `<div class="mdp-chips" data-key="${key}">${chips}${adder}</div>`;
+  }
+
+  // ------------------------------------------- Dispositivos Específicos (RFC-0207)
+
+  /** Devices do domínio ativo, com id normalizado — fonte do picker e dos labels. */
+  function overrideDevicePool(): { key: string; id: string; label: string }[] {
+    let raw: DeviceProfilePreviewDevice[] = [];
+    try {
+      raw = getDevices(activeDomain) || [];
+    } catch {
+      raw = [];
+    }
+    const seen = new Set<string>();
+    const pool: { key: string; id: string; label: string }[] = [];
+    for (const d of raw) {
+      if (!d) continue;
+      const id = String((d as { id?: unknown }).id ?? '').trim();
+      const key = normalizeDeviceOverrideId(id);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      pool.push({ key, id, label: deviceLabel(d) });
+    }
+    return pool;
+  }
+
+  /**
+   * Seção "Dispositivos Específicos" — escape hatch topológico por device.
+   * Renderizada só nas categorias de `DEVICE_OVERRIDE_CATEGORIES`.
+   */
+  function overrideSection(
+    ruleIdx: number,
+    ruleName: string,
+    overrides: DeviceOverride[],
+    readOnly: boolean,
+  ): string {
+    if (!DEVICE_OVERRIDE_CATEGORIES.has(String(ruleName).toLowerCase())) return '';
+
+    const pool = overrideDevicePool();
+    const byKey = new Map(pool.map((d) => [d.key, d]));
+
+    const rows = overrides
+      .map((ov, i) => {
+        const key = normalizeDeviceOverrideId(ov.id);
+        const found = byKey.get(key);
+        // Resiliência: se o device sumiu (re-provisionado/removido), usamos o
+        // label guardado no perfil e sinalizamos.
+        const name = found?.label || ov.label || ov.id;
+        const missing = !found;
+        const isExc = ov.mode === 'exclude';
+        return `<span class="mdp-ovr-chip ${isExc ? 'is-exclude' : 'is-include'} ${
+          missing ? 'is-missing' : ''
+        }" title="${escHtml(ov.id)}">
+          <span class="mdp-ovr-mode">${isExc ? 'excluir' : 'incluir'}</span>
+          <span class="mdp-ovr-name">${escHtml(name)}</span>
+          ${missing ? '<span class="mdp-ovr-warn" title="Dispositivo não encontrado na lista atual">⚠</span>' : ''}
+          ${
+            readOnly
+              ? ''
+              : `<button class="mdp-ovr-x" data-cat="${ruleIdx}" data-idx="${i}" aria-label="remover">×</button>`
+          }
+        </span>`;
+      })
+      .join('');
+
+    const empty = overrides.length
+      ? ''
+      : '<span class="mdp-ovr-empty">Nenhum dispositivo específico.</span>';
+
+    const addBtn = readOnly
+      ? ''
+      : `<button type="button" class="mdp-ovr-add" data-cat="${ruleIdx}" title="Adicionar dispositivo específico">+</button>`;
+
+    const picker = pickerOpenForRule === ruleIdx && !readOnly ? overridePicker(ruleIdx, pool, overrides) : '';
+
+    return `<div class="mdp-field mdp-ovr">
+      <label>Dispositivos Específicos</label>
+      <div class="mdp-ovr-hint">
+        <b>incluir</b>: soma o device nesta categoria <i>sem</i> mudar o grupo dele (o total da coluna
+        de origem continua igual). <b>excluir</b>: tira o device do breakdown por completo (não cai em
+        “outros”) — use para dupla-medição.
+      </div>
+      <div class="mdp-ovr-row">
+        <div class="mdp-ovr-list">${rows}${empty}</div>
+        ${addBtn}
+      </div>
+      ${picker}
+    </div>`;
+  }
+
+  /** Picker de dispositivos: busca por label + já-adicionados removidos da lista. */
+  function overridePicker(
+    ruleIdx: number,
+    pool: { key: string; id: string; label: string }[],
+    overrides: DeviceOverride[],
+  ): string {
+    // Regra do spec: o operador não pode adicionar o mesmo device duas vezes —
+    // tudo que já está na lista sai do picker.
+    const taken = new Set(overrides.map((o) => normalizeDeviceOverrideId(o.id)));
+    const available = pool.filter((d) => !taken.has(d.key));
+
+    return `<div class="mdp-picker" data-cat="${ruleIdx}">
+      <div class="mdp-picker-search">
+        <span class="mdp-picker-mag" aria-hidden="true">🔍</span>
+        <input class="mdp-picker-input" type="text" placeholder="Buscar dispositivo…"
+               value="${escHtml(pickerQuery)}" data-cat="${ruleIdx}" />
+        <button type="button" class="mdp-picker-close" data-cat="${ruleIdx}" aria-label="fechar">×</button>
+      </div>
+      <div class="mdp-picker-list">${overridePickerRows(available)}</div>
+    </div>`;
+  }
+
+  function overridePickerRows(available: { key: string; id: string; label: string }[]): string {
+    if (!available.length) {
+      return `<div class="mdp-picker-empty">Nenhum dispositivo disponível. ${
+        pickerQuery ? 'Ajuste a busca.' : 'A lista de devices do dashboard está vazia.'
+      }</div>`;
+    }
+    const q = pickerQuery.trim().toLowerCase();
+    const filtered = q ? available.filter((d) => d.label.toLowerCase().includes(q)) : available;
+    if (!filtered.length) {
+      return '<div class="mdp-picker-empty">Nenhum dispositivo casa com a busca.</div>';
+    }
+    const MAX = 200;
+    const rows = filtered
+      .slice(0, MAX)
+      .map(
+        (d) => `<div class="mdp-picker-row">
+          <span class="mdp-picker-name" title="${escHtml(d.id)}">${escHtml(d.label)}</span>
+          <span class="mdp-picker-actions">
+            <button type="button" class="mdp-picker-pick is-include" data-id="${escHtml(d.id)}"
+                    data-label="${escHtml(d.label)}" data-mode="include">incluir</button>
+            <button type="button" class="mdp-picker-pick is-exclude" data-id="${escHtml(d.id)}"
+                    data-label="${escHtml(d.label)}" data-mode="exclude">excluir</button>
+          </span>
+        </div>`,
+      )
+      .join('');
+    const more =
+      filtered.length > MAX
+        ? `<div class="mdp-picker-empty">+${filtered.length - MAX} dispositivos — refine a busca.</div>`
+        : '';
+    return rows + more;
+  }
+
+  function overrideListFor(ruleIdx: number): DeviceOverride[] | null {
+    const cats = dom()?.categories;
+    const rule = cats?.rules?.[ruleIdx];
+    if (!rule) return null;
+    return (rule.deviceOverrides = rule.deviceOverrides || []);
+  }
+
+  function addOverride(ruleIdx: number, id: string, label: string, mode: DeviceOverrideMode) {
+    const list = overrideListFor(ruleIdx);
+    if (!list) return;
+    const key = normalizeDeviceOverrideId(id);
+    if (!key) return;
+    if (list.some((o) => normalizeDeviceOverrideId(o.id) === key)) return; // sem duplicatas
+    list.push(label ? { id: String(id).trim(), label, mode } : { id: String(id).trim(), mode });
+    pickerOpenForRule = null;
+    pickerQuery = '';
+    rerenderBody();
+  }
+
+  function removeOverride(ruleIdx: number, idx: number) {
+    const list = overrideListFor(ruleIdx);
+    if (!list || idx < 0 || idx >= list.length) return;
+    list.splice(idx, 1);
+    // Campo opcional: some do JSON quando esvazia (retrocompat — perfil sem
+    // overrides volta a ser byte-idêntico ao de antes).
+    if (!list.length) {
+      const rule = dom()?.categories?.rules?.[ruleIdx];
+      if (rule) delete rule.deviceOverrides;
+    }
+    rerenderBody();
+  }
+
+  function bindOverrides() {
+    if (!canEdit) return;
+
+    body.querySelectorAll<HTMLButtonElement>('.mdp-ovr-add').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const idx = Number(btn.dataset.cat);
+        pickerOpenForRule = pickerOpenForRule === idx ? null : idx;
+        pickerQuery = '';
+        rerenderBody();
+      });
+    });
+
+    body.querySelectorAll<HTMLButtonElement>('.mdp-ovr-x').forEach((btn) => {
+      btn.addEventListener('click', () => removeOverride(Number(btn.dataset.cat), Number(btn.dataset.idx)));
+    });
+
+    body.querySelectorAll<HTMLButtonElement>('.mdp-picker-close').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        pickerOpenForRule = null;
+        pickerQuery = '';
+        rerenderBody();
+      });
+    });
+
+    body.querySelectorAll<HTMLButtonElement>('.mdp-picker-pick').forEach((btn) => {
+      btn.addEventListener('click', () =>
+        addOverride(
+          Number((btn.closest('.mdp-picker') as HTMLElement | null)?.dataset.cat),
+          btn.dataset.id || '',
+          btn.dataset.label || '',
+          (btn.dataset.mode as DeviceOverrideMode) || 'include',
+        ),
+      );
+    });
+
+    // A busca re-renderiza SÓ a lista, para não perder o foco do input.
+    const input = body.querySelector<HTMLInputElement>('.mdp-picker-input');
+    if (input) {
+      input.addEventListener('input', () => {
+        pickerQuery = input.value;
+        const ruleIdx = Number(input.dataset.cat);
+        const list = body.querySelector('.mdp-picker-list');
+        if (!list) return;
+        const taken = new Set((overrideListFor(ruleIdx) || []).map((o) => normalizeDeviceOverrideId(o.id)));
+        list.innerHTML = overridePickerRows(overrideDevicePool().filter((d) => !taken.has(d.key)));
+        list.querySelectorAll<HTMLButtonElement>('.mdp-picker-pick').forEach((btn) => {
+          btn.addEventListener('click', () =>
+            addOverride(
+              ruleIdx,
+              btn.dataset.id || '',
+              btn.dataset.label || '',
+              (btn.dataset.mode as DeviceOverrideMode) || 'include',
+            ),
+          );
+        });
+      });
+      // O picker acabou de abrir → foco na busca.
+      input.focus();
+    }
   }
 
   // ---------------------------------------------------------------- editing
@@ -485,6 +738,7 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
     mountCards(); // build the DivCard sections into .mdp-editor (before chip binding)
     bindTabs();
     bindChipEditors();
+    bindOverrides();
     refreshPreview();
   }
 
@@ -494,6 +748,8 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
         const next = tab.dataset.domain as ClassificationDomain;
         if (!next || next === activeDomain) return;
         activeDomain = next;
+        pickerOpenForRule = null;
+        pickerQuery = '';
         rerenderBody();
       });
     });
@@ -528,17 +784,34 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
 
   function refreshPreview() {
     const hasCats = !!dom()?.categories;
-    const devices = (getDevices(activeDomain) || []).filter(Boolean);
+    // `getDevices` é um callback do chamador (o dashboard). Um throw dele não
+    // pode derrubar o editor — degrada para preview vazio.
+    let devices: DeviceProfilePreviewDevice[] = [];
+    try {
+      devices = (getDevices(activeDomain) || []).filter(Boolean);
+    } catch (err) {
+      console.warn('[openDeviceProfileModal] getDevices falhou — preview vazio', err);
+    }
     const groups: Record<string, number> = {};
     const cats: Record<string, number> = {};
     const groupDevices: Record<string, string[]> = {};
     const catDevices: Record<string, string[]> = {};
+    // RFC-0207 "Dispositivos Específicos" — o preview reflete os overrides para
+    // que o operador veja o efeito ANTES de salvar. Os overrides atuam só no
+    // breakdown; as COLUNAS (grupos) não mudam, por construção.
+    const ov = hasCats
+      ? collectDeviceOverrides(working, activeDomain)
+      : { includes: new Map<string, string>(), excludes: new Set<string>() };
+
     for (const d of devices) {
       const g = resolveGroup(d, working, activeDomain).group;
       groups[g] = (groups[g] || 0) + 1;
       (groupDevices[g] ||= []).push(deviceLabel(d));
       if (hasCats) {
-        const c = resolveCategory(d, working, activeDomain).category;
+        const key = normalizeDeviceOverrideId((d as { id?: unknown }).id);
+        if (key && ov.excludes.has(key)) continue; // fora do breakdown inteiro
+        const c =
+          (key && ov.includes.get(key)) || resolveCategory(d, working, activeDomain).category;
         cats[c] = (cats[c] || 0) + 1;
         (catDevices[c] ||= []).push(deviceLabel(d));
       }
@@ -720,6 +993,52 @@ function injectStyles() {
   .mdp-chip-x:hover { color: #dc2626; }
   .mdp-chip-input { border: 1px dashed #cbd5e1; border-radius: 12px; padding: 2px 8px; font-size: 11px; width: 110px; outline: none; }
   .mdp-chip-input:focus { border-color: ${ACCENT}; }
+  /* Dispositivos Específicos (RFC-0207) — escape hatch por dispositivo */
+  .mdp-ovr { margin-top: 10px; padding-top: 8px; border-top: 1px dashed #e2e8f0; }
+  .mdp-ovr-hint { font-size: 10.5px; line-height: 1.45; color: #64748b; margin: 0 0 6px; }
+  .mdp-ovr-hint b { color: #475569; }
+  .mdp-ovr-row { display: flex; align-items: flex-start; gap: 6px; }
+  .mdp-ovr-list { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; flex: 1; min-width: 0; }
+  .mdp-ovr-empty { font-size: 11px; color: #94a3b8; font-style: italic; }
+  .mdp-ovr-chip { display: inline-flex; align-items: center; gap: 5px; border-radius: 12px;
+    padding: 2px 8px; font-size: 11px; font-weight: 600; border: 1px solid; max-width: 100%; }
+  .mdp-ovr-chip.is-include { background: #ede9fe; border-color: #c4b5fd; color: #5b21b6; }
+  .mdp-ovr-chip.is-exclude { background: #fee2e2; border-color: #fca5a5; color: #991b1b; }
+  .mdp-ovr-chip.is-missing { opacity: .75; border-style: dashed; }
+  .mdp-ovr-mode { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; opacity: .8; }
+  .mdp-ovr-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px; }
+  .mdp-ovr-warn { font-size: 11px; }
+  .mdp-ovr-x { background: none; border: none; cursor: pointer; color: inherit; opacity: .55;
+    font-size: 13px; line-height: 1; padding: 0; }
+  .mdp-ovr-x:hover { opacity: 1; }
+  .mdp-ovr-add { flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%; border: 1px solid ${ACCENT};
+    background: #fff; color: ${ACCENT}; font-size: 15px; font-weight: 700; line-height: 1; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; font-family: inherit; }
+  .mdp-ovr-add:hover { background: ${ACCENT}; color: #fff; }
+  /* picker */
+  .mdp-picker { margin-top: 8px; border: 1px solid #ddd6fe; border-radius: 9px; background: #fff; overflow: hidden; }
+  .mdp-picker-search { display: flex; align-items: center; gap: 6px; padding: 6px 8px;
+    background: #faf9ff; border-bottom: 1px solid #ede9fe; }
+  .mdp-picker-mag { font-size: 12px; }
+  .mdp-picker-input { flex: 1; min-width: 0; border: 1px solid #e2e8f0; border-radius: 7px;
+    padding: 4px 8px; font-size: 11px; font-family: inherit; outline: none; }
+  .mdp-picker-input:focus { border-color: ${ACCENT}; }
+  .mdp-picker-close { background: none; border: none; cursor: pointer; color: #94a3b8; font-size: 15px; line-height: 1; padding: 0 2px; }
+  .mdp-picker-close:hover { color: #dc2626; }
+  .mdp-picker-list { max-height: 200px; overflow-y: auto; }
+  .mdp-picker-row { display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 5px 8px; border-bottom: 1px solid #f1f5f9; }
+  .mdp-picker-row:last-child { border-bottom: none; }
+  .mdp-picker-row:hover { background: #faf9ff; }
+  .mdp-picker-name { font-size: 11.5px; color: #334155; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mdp-picker-actions { display: inline-flex; gap: 4px; flex-shrink: 0; }
+  .mdp-picker-pick { font-family: inherit; font-size: 10px; font-weight: 700; border-radius: 6px;
+    padding: 3px 8px; cursor: pointer; border: 1px solid; }
+  .mdp-picker-pick.is-include { background: #ede9fe; border-color: #c4b5fd; color: #5b21b6; }
+  .mdp-picker-pick.is-include:hover { background: #ddd6fe; }
+  .mdp-picker-pick.is-exclude { background: #fee2e2; border-color: #fca5a5; color: #991b1b; }
+  .mdp-picker-pick.is-exclude:hover { background: #fecaca; }
+  .mdp-picker-empty { font-size: 11px; color: #94a3b8; padding: 10px 8px; text-align: center; font-style: italic; }
   .mdp-preview { background: #faf9ff; border: 1px solid #ede9fe; border-radius: 10px; padding: 12px; height: fit-content; position: sticky; top: 0; }
   .mdp-pv { margin-bottom: 12px; }
   .mdp-pv-title { font-size: 12px; font-weight: 800; color: #1e293b; margin-bottom: 6px; }
