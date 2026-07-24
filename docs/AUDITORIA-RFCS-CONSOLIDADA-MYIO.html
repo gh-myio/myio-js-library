@@ -1,0 +1,1362 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MYIO — Auditoria Consolidada de RFCs e Pendências · 5 Repositórios</title>
+  <style>
+    :root {
+      --myio-purple: #5b44a0;
+      --myio-purple-dark: #392d69;
+      --myio-purple-soft: #f3eeff;
+      --myio-purple-light: #bca7ea;
+      --myio-green: #04c081;
+      --myio-green-dark: #0a7a4a;
+      --myio-amber: #f5a623;
+      --myio-amber-dark: #92600a;
+      --myio-red: #c92a2a;
+      --myio-red-soft: #ffeded;
+      --myio-blue: #1864c4;
+      --myio-gray: #6f6787;
+      --text: #2a2340;
+      --muted: #4e4765;
+      --border: #e5ddf5;
+      --bg: #faf8ff;
+      --bg-2: #f3eeff;
+      --bg-3: #ede6fa;
+      --white: #ffffff;
+      --shadow: 0 10px 30px rgba(91, 68, 160, 0.12);
+      --radius-xl: 22px;
+      --radius-lg: 16px;
+      --radius-md: 12px;
+      --page-width: 1180px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 88px; }
+    body {
+      margin: 0;
+      font-family: Inter, 'Segoe UI', Arial, sans-serif;
+      background: #ece8f6;
+      color: var(--text);
+      padding: 0 24px 40px;
+      overflow-x: hidden;
+    }
+
+    .document { display: grid; gap: 22px; justify-content: center; padding-top: 22px; }
+
+    .page {
+      width: var(--page-width);
+      max-width: 100%;
+      background: radial-gradient(circle at top right, rgba(91,68,160,0.07), transparent 22%), var(--bg);
+      border-radius: 24px;
+      overflow: hidden;
+      box-shadow: 0 18px 50px rgba(49, 33, 90, 0.14);
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      page-break-after: always;
+    }
+    .page:last-child { page-break-after: auto; }
+
+    /* ── Sticky nav ── */
+    .topnav {
+      position: sticky; top: 0; z-index: 50;
+      background: linear-gradient(135deg, var(--myio-purple-dark), var(--myio-purple) 68%, #7d52cf);
+      box-shadow: 0 4px 18px rgba(49,33,90,0.28);
+      padding: 8px 18px;
+      display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+      margin: 0 -24px;
+    }
+    .topnav .nv-brand { color: #fff; font-weight: 800; font-size: 14px; letter-spacing: -0.02em; white-space: nowrap; }
+    .topnav .nv-brand small { display: block; font-weight: 500; font-size: 10px; opacity: 0.72; letter-spacing: 0; }
+    .topnav nav { display: flex; gap: 5px; flex-wrap: wrap; flex: 1; min-width: 0; }
+    .topnav a {
+      color: rgba(255,255,255,0.86); text-decoration: none; font-size: 11.5px; font-weight: 700;
+      padding: 6px 11px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.20);
+      white-space: nowrap; transition: background .15s, color .15s;
+    }
+    .topnav a:hover { background: rgba(255,255,255,0.16); color: #fff; }
+    .topnav a.active { background: #fff; color: var(--myio-purple-dark); border-color: #fff; }
+    .topnav .nv-tools { display: flex; gap: 6px; }
+    .topnav button {
+      font-family: inherit; font-size: 11px; font-weight: 700; cursor: pointer;
+      background: rgba(255,255,255,0.12); color: #fff; border: 1px solid rgba(255,255,255,0.32);
+      border-radius: 999px; padding: 6px 12px;
+    }
+    .topnav button:hover { background: rgba(255,255,255,0.26); }
+
+    /* ── Hero ── */
+    .hero {
+      background: linear-gradient(135deg, var(--myio-purple-dark), var(--myio-purple) 62%, #7d52cf);
+      color: var(--white);
+      padding: 34px 36px 28px;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::after {
+      content: ""; position: absolute; right: -70px; top: -55px;
+      width: 250px; height: 250px; background: rgba(188,167,234,0.35); border-radius: 50%;
+    }
+    .hero-sm {
+      background: linear-gradient(135deg, var(--myio-purple-dark), var(--myio-purple) 62%, #7d52cf);
+      color: var(--white);
+      padding: 16px 34px;
+      position: relative; overflow: hidden;
+      display: flex; align-items: center; justify-content: space-between; gap: 14px;
+    }
+    .hero-sm::after {
+      content: ""; position: absolute; right: -50px; top: -34px;
+      width: 130px; height: 130px; background: rgba(188,167,234,0.30); border-radius: 50%;
+    }
+    .hero-sm .hs-brand { font-size: 19px; font-weight: 800; letter-spacing: -0.02em; position: relative; z-index: 1; }
+    .hero-sm .hs-title { font-size: 12.5px; opacity: 0.88; position: relative; z-index: 1; margin-top: 3px; }
+    .hero-sm .hs-right { display: flex; align-items: center; gap: 10px; position: relative; z-index: 1; flex-wrap: wrap; justify-content: flex-end; }
+    .hero-sm .hs-pill, .hero .version-pill {
+      border: 1px solid rgba(255,255,255,0.55); border-radius: 999px;
+      padding: 7px 15px; font-weight: 700; font-size: 12.5px; white-space: nowrap;
+    }
+    .hero .version-pill { padding: 10px 20px; font-size: 14px; }
+    .brand-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; position: relative; z-index: 1; flex-wrap: wrap; }
+    .brand h1 { margin: 0; font-size: 34px; line-height: 1; letter-spacing: -0.03em; }
+    .brand p  { margin: 8px 0 0; opacity: 0.92; font-size: 14px; max-width: 640px; line-height: 1.5; }
+    .meta { margin-top: 18px; display: flex; justify-content: flex-end; gap: 10px; font-size: 13px; position: relative; z-index: 1; flex-wrap: wrap; }
+    .meta span:last-child { color: #ded2ff; font-weight: 600; }
+
+    /* ── Content ── */
+    .content { padding: 22px 30px 20px; display: flex; flex-direction: column; gap: 16px; flex: 1; }
+    .headline h2 { margin: 0 0 6px; font-size: 27px; line-height: 1.08; letter-spacing: -0.035em; color: #33275f; }
+    .headline p  { margin: 0; color: var(--muted); font-size: 13.5px; line-height: 1.6; }
+    .col-stack { display: flex; flex-direction: column; gap: 14px; flex: 1; min-width: 0; }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+    .two-col > * { min-width: 0; }
+    .three-col { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; align-items: start; }
+    .three-col > * { min-width: 0; }
+
+    /* ── Cards ── */
+    .card {
+      background: rgba(255,255,255,0.94);
+      border: 1px solid var(--border);
+      border-left: 5px solid var(--myio-purple);
+      border-radius: var(--radius-lg);
+      padding: 15px 18px;
+      box-shadow: var(--shadow);
+      min-width: 0;
+    }
+    .card.green { border-left-color: var(--myio-green); }
+    .card.amber { border-left-color: var(--myio-amber); }
+    .card.blue  { border-left-color: var(--myio-blue); }
+    .card.red   { border-left-color: var(--myio-red); }
+    .card.gray  { border-left-color: var(--myio-gray); }
+    .card h3 { margin: 0 0 10px; font-size: 15.5px; letter-spacing: -0.02em; color: #392d69; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .card h4 { margin: 14px 0 7px; font-size: 13px; color: #392d69; letter-spacing: -0.01em; }
+    .card h4:first-child { margin-top: 0; }
+    .card p, .card li, .card div.text { font-size: 12.8px; line-height: 1.58; color: var(--muted); }
+    .card ul, .card ol { margin: 6px 0 0; padding-left: 19px; }
+    .card li { margin-bottom: 5px; }
+    .card p { margin: 0 0 8px; }
+    .card p:last-child { margin-bottom: 0; }
+
+    /* ── Limits card (declared coverage / blind spots) ── */
+    .limits {
+      background: repeating-linear-gradient(135deg, #fffaf0, #fffaf0 12px, #fff6e4 12px, #fff6e4 24px);
+      border: 2px dashed var(--myio-amber);
+      border-left: 6px solid var(--myio-amber);
+      border-radius: var(--radius-lg);
+      padding: 15px 18px;
+      box-shadow: var(--shadow);
+    }
+    .limits h3 { margin: 0 0 4px; font-size: 15px; color: #6b4405; display: flex; align-items: center; gap: 8px; }
+    .limits .lim-sub { font-size: 11px; color: #92600a; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 9px; }
+    .limits p, .limits li { font-size: 12.7px; line-height: 1.58; color: #4a3a12; }
+    .limits ul { margin: 6px 0 0; padding-left: 19px; }
+    .limits li { margin-bottom: 6px; }
+    .limits strong { color: #6b4405; }
+    .limits.none { background: repeating-linear-gradient(135deg, #f7f5fb, #f7f5fb 12px, #f1eef8 12px, #f1eef8 24px); border-color: var(--myio-gray); border-left-color: var(--myio-gray); }
+    .limits.none h3, .limits.none .lim-sub, .limits.none strong { color: #4a4360; }
+    .limits.none p, .limits.none li { color: #443d59; }
+
+    /* ── Severity chips (unified encoding) ── */
+    .sev {
+      display: inline-block; border-radius: 6px; padding: 2px 8px;
+      font-weight: 800; font-size: 10px; letter-spacing: 0.02em; white-space: nowrap;
+      border: 1px solid transparent;
+    }
+    .sev.crit { background: var(--myio-red-soft); color: #a51111; border-color: #f3b0b0; }
+    .sev.warn { background: #fff8e6; color: var(--myio-amber-dark); border-color: #f3d79a; }
+    .sev.low  { background: var(--myio-purple-soft); color: var(--myio-purple); border-color: var(--myio-purple-light); }
+    .sev.ok   { background: #edfff7; color: var(--myio-green-dark); border-color: #8de8c5; }
+    .sev.unk  { background: #f2f0f7; color: #55506b; border: 1px dashed #a49dbd; }
+    .sev.part { background: #fff4ea; color: #9c4a08; border-color: #f0c096; }
+    .sev.blocked { background: #eef2ff; color: #2b3f9e; border-color: #b3c0f5; }
+
+    .effort { display: inline-block; border-radius: 5px; padding: 1px 7px; font-size: 9.5px; font-weight: 800; background: #efeaf9; color: #4b3d7d; border: 1px solid #ddd2f3; }
+
+    /* ── Legend ── */
+    .legend-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); gap: 10px; }
+    .legend-item { background: #fff; border: 1px solid var(--border); border-radius: 11px; padding: 10px 12px; }
+    .legend-item .li-head { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+    .legend-item .li-desc { font-size: 11.8px; color: var(--muted); line-height: 1.5; }
+
+    /* ── Tables ── */
+    .map-wrap { border-radius: 12px; overflow: hidden; border: 1px solid var(--border); box-shadow: var(--shadow); width: 100%; }
+    .map-scroll { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    table.map-table { width: 100%; min-width: 640px; border-collapse: collapse; font-size: 12px; background: #fff; }
+    table.map-table thead tr { background: linear-gradient(135deg, #2a2a4a, #3a2d6e); color: #fff; }
+    table.map-table th { padding: 9px 12px; text-align: left; font-size: 9.8px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+    table.map-table td { padding: 8px 12px; border-bottom: 1px solid #f0ebf8; color: #3d3464; vertical-align: top; line-height: 1.5; }
+    table.map-table tbody tr:last-child td { border-bottom: none; }
+    table.map-table tbody tr:hover { background: #faf8ff; }
+    table.map-table td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    table.map-table .mono { font-family: 'Consolas', 'Fira Code', monospace; font-size: 10.5px; color: var(--myio-purple); }
+    table.map-table tbody tr.row-crit td:first-child { box-shadow: inset 3px 0 0 var(--myio-red); }
+    table.map-table tbody tr.row-warn td:first-child { box-shadow: inset 3px 0 0 var(--myio-amber); }
+    table.map-table tbody tr.row-ok   td:first-child { box-shadow: inset 3px 0 0 var(--myio-green); }
+    table.map-table tbody tr.row-unk  td:first-child { box-shadow: inset 3px 0 0 #a49dbd; }
+    .tbl-cap { font-size: 11px; color: var(--myio-gray); margin: 6px 2px 0; line-height: 1.5; }
+
+    code, .mono {
+      font-family: 'Consolas', 'Fira Code', monospace;
+      font-size: 10.8px; background: var(--bg-2); color: var(--myio-purple);
+      padding: 2px 6px; border-radius: 5px; word-break: break-word;
+    }
+    .path { font-family: 'Consolas', 'Fira Code', monospace; font-size: 10.5px; color: #5b44a0; background: #f0ebff; border-radius: 5px; padding: 1px 6px; word-break: break-all; }
+
+    /* ── Evidence rows ── */
+    .ev-row { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border-radius: 10px; background: #faf8ff; border: 1px solid var(--bg-3); margin-bottom: 6px; }
+    .ev-row:last-child { margin-bottom: 0; }
+    .ev-row .ev-body { font-size: 12.5px; color: var(--muted); line-height: 1.55; min-width: 0; }
+    .ev-row .ev-body strong { color: #392d69; }
+
+    /* ── Stat tiles ── */
+    .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+    .stat {
+      background: #fff; border: 1px solid var(--border); border-radius: 12px;
+      padding: 12px 14px; border-top: 4px solid var(--myio-purple);
+    }
+    .stat.crit { border-top-color: var(--myio-red); }
+    .stat.warn { border-top-color: var(--myio-amber); }
+    .stat.ok   { border-top-color: var(--myio-green); }
+    .stat.unk  { border-top-color: #a49dbd; }
+    .stat .st-num { font-size: 26px; font-weight: 800; color: #392d69; letter-spacing: -0.03em; line-height: 1; }
+    .stat .st-num small { font-size: 13px; font-weight: 700; color: var(--myio-gray); }
+    .stat .st-lbl { font-size: 11.5px; color: var(--muted); margin-top: 5px; line-height: 1.4; }
+
+    /* ── Collapsibles ── */
+    details.det {
+      background: #fff; border: 1px solid var(--border); border-radius: 12px;
+      margin-bottom: 9px; overflow: hidden;
+    }
+    details.det > summary {
+      cursor: pointer; padding: 10px 14px; font-size: 13px; font-weight: 700; color: #392d69;
+      background: linear-gradient(90deg, #faf8ff, #fff); list-style: none;
+      display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
+    }
+    details.det > summary::-webkit-details-marker { display: none; }
+    details.det > summary::before { content: "▸"; color: var(--myio-purple); font-size: 12px; flex: 0 0 auto; }
+    details.det[open] > summary::before { content: "▾"; }
+    details.det[open] > summary { border-bottom: 1px solid var(--border); }
+    details.det .det-body { padding: 12px 15px; }
+    details.det .det-body p, details.det .det-body li { font-size: 12.5px; line-height: 1.58; color: var(--muted); }
+    details.det .det-body ul { margin: 6px 0 0; padding-left: 19px; }
+    details.det .det-body li { margin-bottom: 6px; }
+    details.det .det-body > p:first-child { margin-top: 0; }
+    .sum-tag { margin-left: auto; font-size: 10px; font-weight: 700; color: var(--myio-gray); }
+
+    /* ── Theme blocks (cross-cutting) ── */
+    .theme {
+      background: #fff; border: 1px solid var(--border); border-left: 5px solid var(--myio-purple);
+      border-radius: 14px; padding: 14px 17px; box-shadow: var(--shadow);
+    }
+    .theme h4 { margin: 0 0 4px; font-size: 14.5px; color: #392d69; letter-spacing: -0.02em; }
+    .theme .th-repos { display: flex; gap: 5px; flex-wrap: wrap; margin: 7px 0 9px; }
+    .repo-chip {
+      display: inline-block; border-radius: 999px; padding: 2px 9px; font-size: 10px; font-weight: 800;
+      background: var(--bg-2); color: var(--myio-purple); border: 1px solid var(--myio-purple-light);
+    }
+    .theme p, .theme li { font-size: 12.5px; line-height: 1.58; color: var(--muted); }
+    .theme ul { margin: 6px 0 0; padding-left: 19px; }
+    .theme li { margin-bottom: 5px; }
+
+    .callout {
+      background: var(--myio-red-soft); border: 1px solid #f3b0b0; border-left: 5px solid var(--myio-red);
+      border-radius: 12px; padding: 12px 15px;
+    }
+    .callout.warn { background: #fff8e6; border-color: #f3d79a; border-left-color: var(--myio-amber); }
+    .callout.info { background: var(--myio-purple-soft); border-color: var(--myio-purple-light); border-left-color: var(--myio-purple); }
+    .callout.ok { background: #edfff7; border-color: #8de8c5; border-left-color: var(--myio-green); }
+    .callout h4 { margin: 0 0 6px; font-size: 13.5px; color: #392d69; }
+    .callout p, .callout li { font-size: 12.5px; line-height: 1.58; color: var(--muted); margin: 0 0 6px; }
+    .callout p:last-child, .callout li:last-child { margin-bottom: 0; }
+    .callout ul { margin: 6px 0 0; padding-left: 19px; }
+
+    .footer {
+      margin-top: auto;
+      background: linear-gradient(180deg, var(--myio-purple), var(--myio-purple-dark));
+      color: rgba(255,255,255,0.95);
+      padding: 12px 28px; display: flex; justify-content: space-between; gap: 14px;
+      align-items: center; font-size: 12.5px; font-weight: 600; flex-wrap: wrap;
+    }
+    .footer strong { color: #fff; }
+
+    .backtop {
+      position: fixed; right: 18px; bottom: 18px; z-index: 60;
+      background: var(--myio-purple-dark); color: #fff; border: none; border-radius: 50%;
+      width: 42px; height: 42px; font-size: 17px; cursor: pointer; box-shadow: 0 6px 18px rgba(49,33,90,0.35);
+      opacity: 0; pointer-events: none; transition: opacity .2s;
+    }
+    .backtop.show { opacity: 0.92; pointer-events: auto; }
+
+    /* ── Responsive ── */
+    @media screen and (max-width: 960px) {
+      body { padding: 0 0 30px; background: #fff; }
+      .topnav { margin: 0; }
+      .document { gap: 0; padding-top: 0; }
+      .page { width: 100%; border-radius: 0; box-shadow: none; }
+      .hero { padding: 24px 18px 20px; }
+      .hero::after { width: 150px; height: 150px; right: -40px; top: -34px; }
+      .brand h1 { font-size: 26px; }
+      .hero-sm { padding: 14px 18px; flex-wrap: wrap; }
+      .content { padding: 16px 15px 14px; gap: 13px; }
+      .two-col, .three-col { grid-template-columns: 1fr; }
+      .footer { flex-direction: column; align-items: flex-start; gap: 4px; padding: 12px 16px; font-size: 11.5px; }
+      table.map-table { font-size: 11px; }
+      table.map-table th, table.map-table td { padding: 6px 8px; }
+    }
+
+    @media print {
+      body { background: #fff; padding: 0; }
+      .topnav, .backtop { display: none; }
+      .document { gap: 0; padding-top: 0; }
+      .page { width: 100%; border-radius: 0; box-shadow: none; margin: 0; }
+      details.det { break-inside: avoid; }
+      details.det > .det-body { display: block !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="topnav">
+    <div class="nv-brand">MYIO · Auditoria Consolidada<small>5 repositórios · 2026-07-24</small></div>
+    <nav id="nv">
+      <a href="#resumo">Resumo</a>
+      <a href="#legenda">Legenda</a>
+      <a href="#gcdr">1 · gcdr</a>
+      <a href="#alarms">2 · alarms-backend</a>
+      <a href="#app">3 · myio-app 5.2.0</a>
+      <a href="#ingestion">4 · data-ingestion</a>
+      <a href="#jslib">5 · myio-js-library</a>
+      <a href="#transversais">Temas transversais</a>
+      <a href="#fontes">Fontes</a>
+    </nav>
+    <div class="nv-tools">
+      <button type="button" id="btn-expand">Expandir tudo</button>
+      <button type="button" id="btn-collapse">Recolher</button>
+    </div>
+  </div>
+
+  <div class="document">
+
+    <!-- ══════════════════ CAPA + RESUMO EXECUTIVO ══════════════════ -->
+    <section class="page" id="topo">
+      <header class="hero">
+        <div class="brand-row">
+          <div class="brand">
+            <h1>MYIO</h1>
+            <p>Auditoria consolidada de RFCs, lacunas e pendências — cinco repositórios do ecossistema, cinco relatórios independentes, um único documento navegável.</p>
+          </div>
+          <div class="version-pill">CONSOLIDADO &nbsp; 2026-07-24</div>
+        </div>
+        <div class="meta">
+          <span>gcdr · alarms-backend · myio-app-5.2.0 · data-ingestion-prod · myio-js-library</span>
+          <span>Gerado em 24/07/2026</span>
+        </div>
+      </header>
+
+      <main class="content" id="resumo">
+        <div class="col-stack">
+
+          <section class="headline">
+            <h2>Resumo executivo cross-repo</h2>
+            <p>Esta página consolida cinco auditorias produzidas separadamente, por autores diferentes, com esquemas de classificação diferentes. O objetivo é permitir a um tech lead decidir <strong>o que corrigir primeiro</strong> sem precisar abrir os cinco arquivos — preservando, por repositório, o que cada relatório <strong>afirma ter verificado</strong> e o que <strong>declara não ter verificado</strong>.</p>
+          </section>
+
+          <div class="callout info">
+            <h4>⚠️ O que esta página não faz: inventar um denominador comum</h4>
+            <p>Os cinco relatórios contam coisas diferentes. Um conta RFCs; outro conta arquivos <code>.md</code> (277 arquivos para 171 números de RFC); outro conta pendências individuais em checkbox; outro conta ADRs, módulos e endpoints na mesma tabela; outro não conta RFCs de forma alguma, só pendências por severidade. <strong>Somar esses totais produziria um número falso</strong>, então eles aparecem lado a lado, rotulados pela unidade que cada autor efetivamente contou.</p>
+          </div>
+
+          <article class="card">
+            <h3>📊 O que cada relatório conta — e por que os totais não somam</h3>
+            <div class="map-wrap"><div class="map-scroll">
+              <table class="map-table">
+                <thead><tr>
+                  <th style="width:16%">Repositório</th>
+                  <th style="width:19%">Unidade contada</th>
+                  <th style="width:40%">Totais declarados pelo próprio relatório</th>
+                  <th style="width:25%">Por que não é comparável</th>
+                </tr></thead>
+                <tbody>
+                  <tr class="row-warn">
+                    <td><strong>gcdr</strong><br><span class="sev low">backend + frontend</span></td>
+                    <td>RFC (arquivo em <code>docs/rfcs/</code>)</td>
+                    <td>~60 RFCs backend catalogados · <strong>11</strong> nunca implementados · <strong>6 backend + 5 frontend</strong> prontos e não mergeados (a tabela do §3 lista <strong>6</strong> branches de frontend — divergência interna do próprio relatório) · <strong>7</strong> parciais · <strong>4</strong> gaps de paridade</td>
+                    <td>A taxonomia é <strong>estado de branch</strong> (mergeado / não mergeado / parcial), não severidade. As cores 🔴🟠🟡🔵 do relatório significam <em>onde está o código</em>, não <em>quão grave é</em>.</td>
+                  </tr>
+                  <tr class="row-crit">
+                    <td><strong>alarms-backend</strong><br><span class="sev low">backend + UI</span></td>
+                    <td>RFC/doc <em>e</em> pendência individual (checkbox)</td>
+                    <td>Backend <strong>8 ✅ / 15 🟡 / 3 ❌</strong> (~120 pendências) · Frontend <strong>5 ✅ / 8 🟡 / 2 ❌</strong> (+3 fora do repo, ~94 pendências) · <strong>Total 13 / 23 / 5 · ~214 pendências</strong></td>
+                    <td>Único que enumera pendências uma a uma. O <code>~</code> é do próprio autor. Usa dois eixos (<strong>esforço</strong> P/M/G e <strong>risco</strong> Alta/Média/Baixa) que nenhum outro relatório usa.</td>
+                  </tr>
+                  <tr class="row-crit">
+                    <td><strong>myio-app-5.2.0</strong><br><span class="sev low">mobile</span></td>
+                    <td>ADR, RFC, módulo, endpoint e item de backlog — na mesma tabela</td>
+                    <td>8 ADRs aprovados (<strong>4</strong> impl. / <strong>3</strong> parciais / <strong>1</strong> zero código) · 4 ADRs nunca formalmente aprovados · 1 RFC (checklist 100% desmarcado) · 6 itens de backlog (<strong>1</strong> feito) · 11 módulos (<strong>2</strong> reais, <strong>8</strong> 100% fixture) · <strong>15 endpoints, 0 contra backend real</strong></td>
+                    <td>Mistura artefatos heterogêneos no mesmo placar. "Não implementado" aqui às vezes significa "roda com mock", que não tem equivalente nos outros quatro.</td>
+                  </tr>
+                  <tr class="row-crit">
+                    <td><strong>data-ingestion-prod</strong><br><span class="sev low">ingestão + presetup</span></td>
+                    <td>Pendência classificada por <strong>severidade operacional</strong></td>
+                    <td><strong>7</strong> pendências no sumário executivo (5 🔴 risco de perda de dado, 2 🟠 bloqueio) · sem total geral · 5 fases de RFC-0004 (1 parcial, 4 não iniciadas) · 4 clientes SCDE (3 concluídos, 1 não iniciado)</td>
+                    <td>Não conta RFCs. É o único cujo eixo primário é <strong>risco de incidente em produção</strong>, e não estado de implementação.</td>
+                  </tr>
+                  <tr class="row-unk">
+                    <td><strong>myio-js-library</strong><br><span class="sev low">biblioteca + widgets</span></td>
+                    <td><strong>Arquivo <code>.md</code></strong> — explicitamente ≠ RFC</td>
+                    <td><strong>277</strong> arquivos para <strong>171</strong> números de RFC · balde A (auto-declaram não construído) <strong>~88</strong> · balde B (alegam entrega) <strong>~32</strong> · balde C (sem <code>Status</code> utilizável) <strong>~157</strong> · <strong>~16 erros de <code>Status</code> em ~41 casos examinados</strong></td>
+                    <td>O denominador é <strong>arquivo, não RFC</strong>, e o próprio autor marca os totais como aproximados de propósito (há falso-positivo de <code>status:</code> dentro de bloco de código). Somar com contagens de RFC de outros repos é erro de unidade.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div></div>
+            <p class="tbl-cap">Regra aplicada nesta consolidação: <strong>nenhum número foi derivado por soma entre relatórios</strong>. Todo valor acima é citação direta do relatório de origem.</p>
+          </article>
+
+          <div class="two-col">
+            <article class="card red">
+              <h3>🔴 O que é agregável com honestidade</h3>
+              <ul>
+                <li><strong>5 de 5</strong> relatórios foram gerados em <strong>2026-07-24</strong> (o da js-library declara 2026-07-23/24), então a foto é simultânea.</li>
+                <li><strong>4 de 5</strong> declaram explicitamente que o campo <code>Status</code> / o texto do doc <strong>não é evidência confiável</strong> e cruzam com o código: gcdr ("não confia no campo <code>Status:</code>"), alarms-backend ("nada aqui é suposição"), data-ingestion ("onde doc e código divergem, o código manda"), js-library ("o <code>Status</code> é uma alegação a ser testada"). O quinto (myio-app) chega ao mesmo diagnóstico pela via de 7 inconsistências documentais.</li>
+                <li><strong>3 de 5</strong> apontam credencial ou segredo exposto: <code>terraform.tfstate</code> commitado (alarms), senha WiFi via <code>argv</code>/<code>ps</code> + credencial a verificar fora do histórico (gcdr), senhas em texto plano no bundle JS (myio-app).</li>
+                <li><strong>4 de 5</strong> registram gate de qualidade documentado e <strong>não executado</strong> (ver Tema T6).</li>
+                <li><strong>3 de 5</strong> registram divergência entre migrations e schema real (ver Tema T7).</li>
+              </ul>
+            </article>
+
+            <article class="card amber">
+              <h3>🟠 Os riscos de maior impacto, por repositório</h3>
+              <ul>
+                <li><strong>gcdr</strong> — <code>main</code> congelada desde jan/2026, <strong>543 commits</strong> de diferença para <code>desenv</code> nos dois repos. "O que está em produção" é ambíguo, e isso contamina toda avaliação de risco de deploy.</li>
+                <li><strong>alarms-backend</strong> — <code>alarm.created</code> nunca é emitido no WebSocket: todo o "tempo real" prometido em 3 documentos depende de um <code>broadcastAlarmCreated</code> sem chamador. Somado a isso, <code>/ws</code> não valida JWT (vazamento cross-tenant).</li>
+                <li><strong>myio-app-5.2.0</strong> — <strong>não existe caminho de código que chegue a um backend real</strong>, nem por env var, nem por flag. <code>DEMO_MODE = __DEV__</code> é hard-coded; é preciso editar o fonte.</li>
+                <li><strong>data-ingestion-prod</strong> — ingestão perde batches silenciosamente (QoS 1 auto-ack + handler que só loga) e há jobs zumbis de <strong>96 e 358 dias</strong>: uma continuous aggregate pode estar meses obsoleta sem nenhum alerta.</li>
+                <li><strong>myio-js-library</strong> — gate de tamanho de bundle documentado como <em>enforced</em> nunca é invocado, e o orçamento está estourado <strong>~218×</strong> (5.459 KB contra 25 KB).</li>
+              </ul>
+            </article>
+          </div>
+
+          <article class="card gray">
+            <h3>🧭 Escopo e branch de referência de cada auditoria</h3>
+            <div class="map-wrap"><div class="map-scroll">
+              <table class="map-table">
+                <thead><tr>
+                  <th style="width:18%">Repositório</th><th style="width:22%">Branch de referência</th>
+                  <th style="width:36%">Escopo declarado</th><th style="width:24%">Método declarado</th>
+                </tr></thead>
+                <tbody>
+                  <tr><td><strong>gcdr</strong></td><td class="mono">origin/desenv (back + front)</td><td>~60 RFCs backend + docs do frontend</td><td>Cruza 3 evidências: <code>Status</code> do doc, código em <code>desenv</code>, estado da branch</td></tr>
+                  <tr><td><strong>alarms-backend</strong></td><td class="mono">feat/gcdr-device-label-rotation</td><td><strong>53 arquivos</strong> em <code>docs/</code> (backend + frontend/UI)</td><td>Leitura integral + verificação de cada entregável contra <code>src/ drizzle/ scripts/ test/ .github/</code></td></tr>
+                  <tr><td><strong>myio-app-5.2.0</strong></td><td class="mono">não declarada</td><td>12 ADRs, 1 RFC, 4 backlogs, SETUP.md, ARCHITECTURE.md + auditoria de <code>src/</code></td><td>Spec × implementação × dados reais (o que roda com mock)</td></tr>
+                  <tr><td><strong>data-ingestion-prod</strong></td><td class="mono">ed-812-workflow-fixs-presetup</td><td>Todos os <code>.md</code>/RFCs do monorepo</td><td>Varredura de docs + conferência contra código; <strong>onde divergem, o código manda</strong></td></tr>
+                  <tr><td><strong>myio-js-library</strong></td><td class="mono">desenv</td><td><strong>277 arquivos</strong> <code>.md</code> em <code>docs/rfcs/</code> (exclui <code>.claude/worktrees/**</code> e <code>node_modules</code>)</td><td>Inventário barato nos 277 → verificação profunda só nos que alegam entrega → mineração de pendências internas</td></tr>
+                </tbody>
+              </table>
+            </div></div>
+          </article>
+
+          <div class="callout warn">
+            <h4>📌 Instrução de leitura</h4>
+            <p>Cada seção de repositório abre com um bloco tarjado <strong>"Limites declarados pelo relatório"</strong>. Esse bloco é parte do achado, não rodapé: quatro dos cinco relatórios declaram explicitamente o que <em>não</em> conseguiram verificar, e um deles quantifica seu próprio viés. Ler os achados sem ler os limites transforma cinco relatórios honestos em um documento mais confiante do que qualquer um deles se propôs a ser.</p>
+          </div>
+
+        </div>
+      </main>
+
+      <footer class="footer">
+        <strong>MYIO</strong>
+        <span>Auditoria Consolidada de RFCs e Pendências — 5 repositórios</span>
+        <span style="opacity:0.75;">2026-07-24 · Resumo executivo</span>
+      </footer>
+    </section>
+
+    <!-- ══════════════════ LEGENDA ══════════════════ -->
+    <section class="page" id="legenda">
+      <header class="hero-sm">
+        <div>
+          <div class="hs-brand">MYIO · Auditoria Consolidada</div>
+          <div class="hs-title">Codificação de severidade e status — a mesma em todas as seções</div>
+        </div>
+        <div class="hs-right"><span class="hs-pill">Legenda</span></div>
+      </header>
+
+      <main class="content">
+        <div class="col-stack">
+          <section class="headline">
+            <h2>Legenda unificada</h2>
+            <p>Os cinco relatórios usam escalas diferentes e <strong>incompatíveis entre si</strong>. A codificação abaixo é <strong>desta consolidação</strong>, não dos relatórios originais; a tabela de conversão registra como cada escala original foi mapeada, para que qualquer afirmação possa ser reconferida na fonte.</p>
+          </section>
+
+          <article class="card">
+            <h3>🎨 Chips de severidade / estado</h3>
+            <div class="legend-grid">
+              <div class="legend-item">
+                <div class="li-head"><span class="sev crit">CRÍTICO</span></div>
+                <div class="li-desc">Risco de segurança, perda de dado, métrica errada em produção, ou feature vendida como pronta que quebra em runtime.</div>
+              </div>
+              <div class="legend-item">
+                <div class="li-head"><span class="sev warn">ATENÇÃO</span></div>
+                <div class="li-desc">Bloqueia entrega ou decisão; dívida com prazo. Corresponde ao âmbar <code>#f5a623</code> do template MYIO.</div>
+              </div>
+              <div class="legend-item">
+                <div class="li-head"><span class="sev part">PARCIAL</span></div>
+                <div class="li-desc">Parte entregue, parte pendente — inclusive quando o <code>Status</code> declarado diz "completo".</div>
+              </div>
+              <div class="legend-item">
+                <div class="li-head"><span class="sev low">BAIXA / HIGIENE</span></div>
+                <div class="li-desc">Melhoria relevante sem urgência, dívida menor, correção de documentação.</div>
+              </div>
+              <div class="legend-item">
+                <div class="li-head"><span class="sev ok">RESOLVIDO</span></div>
+                <div class="li-desc">Verificado como implementado e alcançável. Inclui casos em que o doc ainda diz o contrário.</div>
+              </div>
+              <div class="legend-item">
+                <div class="li-head"><span class="sev unk">NÃO VERIFICADO</span></div>
+                <div class="li-desc">O relatório de origem <strong>declara</strong> que não confirmou. Nunca inferido por esta consolidação — sempre citado.</div>
+              </div>
+              <div class="legend-item">
+                <div class="li-head"><span class="sev blocked">BLOQUEADO</span></div>
+                <div class="li-desc">Depende de decisão humana, de outro time ou de outro repositório. Não é questão de esforço de código.</div>
+              </div>
+              <div class="legend-item">
+                <div class="li-head"><span class="effort P">P</span> <span class="effort">M</span> <span class="effort">G</span></div>
+                <div class="li-desc">Esforço, só onde o relatório de origem o declara (alarms-backend): <strong>P</strong> ≤ 4h · <strong>M</strong> 1–3 dias · <strong>G</strong> &gt; 3 dias.</div>
+              </div>
+            </div>
+          </article>
+
+          <article class="card amber">
+            <h3>🔁 Conversão das escalas originais → escala desta página</h3>
+            <div class="map-wrap"><div class="map-scroll">
+              <table class="map-table">
+                <thead><tr>
+                  <th style="width:18%">Repositório</th><th style="width:44%">Escala original</th><th style="width:38%">Como foi mapeada aqui</th>
+                </tr></thead>
+                <tbody>
+                  <tr class="row-warn">
+                    <td><strong>gcdr</strong></td>
+                    <td>🔴 nunca implementado · 🟠 pronto não mergeado · 🟡 parcial · 🔵 gap de paridade · ⚠️ evidência indireta</td>
+                    <td><strong>Não é severidade — é estado de branch.</strong> Mantive os símbolos originais nas tabelas e só usei chips de severidade onde o próprio texto qualifica o risco. ⚠️ → <span class="sev unk">NÃO VERIFICADO</span>.</td>
+                  </tr>
+                  <tr>
+                    <td><strong>alarms-backend</strong></td>
+                    <td>Dois eixos independentes: risco (Alta/Média/Baixa, com "Segurança"/"Bug"/"Métrica errada") × esforço (P/M/G)</td>
+                    <td>Risco Alta → <span class="sev crit">CRÍTICO</span> · Média → <span class="sev warn">ATENÇÃO</span> · Baixa → <span class="sev low">BAIXA</span>. O esforço P/M/G foi <strong>preservado literal</strong>, não convertido.</td>
+                  </tr>
+                  <tr>
+                    <td><strong>myio-app-5.2.0</strong></td>
+                    <td>P0 (bloqueador) · ✅ / ⚠️ (verificar) / ❌ por item</td>
+                    <td>P0 → <span class="sev crit">CRÍTICO</span> · ❌ → <span class="sev warn">ATENÇÃO</span> ou <span class="sev low">BAIXA</span> conforme o texto · ⚠️ "verificar" → <span class="sev unk">NÃO VERIFICADO</span> (o próprio relatório manda validar antes de planejar).</td>
+                  </tr>
+                  <tr>
+                    <td><strong>data-ingestion-prod</strong></td>
+                    <td>🔴 risco de perda de dado/incidente · 🟠 bloqueia entrega ou decisão · 🟡 melhoria relevante · ⚪ higiene · ✅ feito</td>
+                    <td>Mapeamento direto: 🔴 → <span class="sev crit">CRÍTICO</span>, 🟠 → <span class="sev warn">ATENÇÃO</span>, 🟡/⚪ → <span class="sev low">BAIXA</span>, ✅ → <span class="sev ok">RESOLVIDO</span>. É a escala mais próxima da desta página.</td>
+                  </tr>
+                  <tr>
+                    <td><strong>myio-js-library</strong></td>
+                    <td>Alta / Média-Alta / Média / Baixa por divergência (D-1…D-7)</td>
+                    <td>Alta e Média-Alta → <span class="sev crit">CRÍTICO</span> · Média → <span class="sev warn">ATENÇÃO</span> · Baixa → <span class="sev low">BAIXA</span>. "Não verificado" do §5 foi preservado literal.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div></div>
+            <p class="tbl-cap">Onde a conversão exigiu julgamento, o texto original aparece ao lado do chip, para que o leitor possa discordar do mapeamento sem perder o dado.</p>
+          </article>
+
+        </div>
+      </main>
+
+      <footer class="footer">
+        <strong>MYIO</strong>
+        <span>Legenda e conversão de escalas</span>
+        <span style="opacity:0.75;">2026-07-24</span>
+      </footer>
+    </section>
+
+    <!-- ══════════════════ 1 · GCDR ══════════════════ -->
+    <section class="page" id="gcdr">
+      <header class="hero-sm">
+        <div>
+          <div class="hs-brand">1 · gcdr.git + gcdr-frontend.git</div>
+          <div class="hs-title">RFC-STATUS-GAP-ANALYSIS.md — lacunas de RFCs e melhorias não implementadas</div>
+        </div>
+        <div class="hs-right">
+          <span class="hs-pill">43 achados</span>
+          <span class="hs-pill">origin/desenv</span>
+        </div>
+      </header>
+
+      <main class="content">
+        <div class="col-stack">
+
+          <section class="headline">
+            <h2>GCDR — backend e frontend</h2>
+            <p>Levantamento sobre <code>origin/desenv</code> nos dois repositórios (é a branch de integração real; <code>main</code> está congelada desde janeiro/2026). A tese do relatório: <strong>o campo <code>Status:</code> do cabeçalho dos RFCs está desatualizado em vários casos</strong> — há docs em <code>Draft</code> cujo código já está em <code>desenv</code>, e docs em <code>Implemented</code> que nunca foram mergeados.</p>
+          </section>
+
+          <div class="limits">
+            <h3>⚠️ Limites declarados pelo relatório</h3>
+            <div class="lim-sub">Cobertura e pontos cegos — declarados pelo autor, preservados literalmente</div>
+            <ul>
+              <li><strong>Não confia no campo <code>Status:</code>.</strong> Cada item foi classificado cruzando três evidências: (1) status declarado no <code>.md</code>; (2) código presente em <code>origin/desenv</code> — controllers, tabelas do schema Drizzle, greps por símbolos da feature; (3) estado da branch via <code>git merge-base --is-ancestor</code>.</li>
+              <li><strong>"Onde a evidência é indireta, o item está marcado com ⚠️ e a incerteza está explicitada."</strong> São <strong>6 itens</strong> que o autor declara não ter conseguido fechar — listados na íntegra abaixo, em "Itens que precisam de confirmação".</li>
+              <li><strong>Nota de fechamento do documento:</strong> <em>"As classificações de 'implementado' se baseiam na <strong>presença de código, não em validação funcional</strong>."</em> Nenhuma verificação de runtime foi feita.</li>
+              <li><strong>Alerta do próprio autor contra inflação de backlog:</strong> RFC-0002, RFC-0013, RFC-0014 e RFC-0016 <em>"parecem ser dívida de documentação (código existe, doc não foi atualizado)"</em> — tratá-los como backlog real <strong>inflaria o backlog artificialmente</strong>.</li>
+              <li><strong>Divergência interna não resolvida (observação desta consolidação):</strong> o panorama executivo do §1 diz "6 (backend) + <strong>5</strong> (frontend)" não mergeados, mas a tabela do §3 lista <strong>6</strong> branches de frontend. Duas delas (<code>docs/rfc-0022-ci-quality-gates</code> e <code>fix/modal-scroll-overflow</code>) não são features de RFC, o que pode explicar a diferença — mas o relatório não reconcilia. Mantive as 6 linhas da tabela.</li>
+            </ul>
+          </div>
+
+          <article class="card red">
+            <h3>🚨 Os três riscos maiores, na leitura do autor</h3>
+            <div class="ev-row"><div class="ev-body"><span class="sev crit">CRÍTICO</span> <strong>1 · <code>main</code> congelada desde 28–29/01/2026 nos dois repos</strong>, com <strong>543 commits</strong> de diferença para <code>desenv</code> em cada. Seja qual for a branch que prod deploya, existe divergência enorme e não rastreada entre o que está versionado como "principal" e o que está em uso. Precisa de decisão explícita: promover <code>desenv</code>, ou assumir <code>desenv</code> como default branch.</div></div>
+            <div class="ev-row"><div class="ev-body"><span class="sev warn">ATENÇÃO</span> <strong>2 · Quatro PRs de feature parados</strong> — <code>central-wifi-command</code>, <code>signal-topology</code>, <code>rfc-0045-email-ingestion</code>, <code>rfc-0050-presetup</code> — todos com trabalho pronto e revisado. <em>"É estoque de valor parado."</em></div></div>
+            <div class="ev-row"><div class="ev-body"><span class="sev warn">ATENÇÃO</span> <strong>3 · RFC-0054 (metas monetárias/tarifas) está APPROVED &amp; FROZEN mas fora de <code>desenv</code></strong> — é a feature em curso e a mais exposta a conflito quanto mais tempo ficar na branch.</div></div>
+          </article>
+
+          <article class="card">
+            <h3>🔴 RFCs nunca implementados <span class="sev crit">11 itens</span></h3>
+            <p>Nenhum código correspondente em <code>origin/desenv</code>, e nenhuma branch aberta.</p>
+            <div class="map-wrap"><div class="map-scroll">
+              <table class="map-table">
+                <thead><tr>
+                  <th style="width:11%">RFC</th><th style="width:24%">Título</th><th style="width:17%">Status no doc</th><th style="width:48%">Evidência da ausência</th>
+                </tr></thead>
+                <tbody>
+                  <tr><td><strong>RFC-0012</strong></td><td>Features Registry</td><td>Draft</td><td><code>featureRegistry</code> / <code>features_registry</code>: 0 arquivos; sem tabela no schema</td></tr>
+                  <tr><td><strong>RFC-0022</strong></td><td>ThingsBoard–GCDR Device Conformity</td><td>Draft</td><td><code>conformity</code>: 0 arquivos em <code>src</code></td></tr>
+                  <tr><td><strong>RFC-0031</strong></td><td>Wiki Engagement Export and Admin</td><td>Draft</td><td><code>engagement</code>: 0 arquivos (a wiki base do RFC-0030 <strong>existe</strong>; só o módulo de engajamento/export não)</td></tr>
+                  <tr><td><strong>RFC-0049</strong></td><td>Dashboard Governance</td><td>Draft</td><td><code>dashboard_governance</code>: 0 arquivos</td></tr>
+                  <tr><td><strong>RFC-0048</strong></td><td>Dokploy Log Cockpit / On-call</td><td>Draft (proposta, infra)</td><td>Sem contrapartida no código — é runbook de infraestrutura</td></tr>
+                  <tr><td><strong>RFC-0040</strong></td><td>Device Label Only (remover <code>displayName</code>)</td><td>DRAFT — não aprovado</td><td>Deliberadamente não implementado; estudo de impacto em 5 repos, <code>alarms-backend</code> é o consumidor crítico</td></tr>
+                  <tr class="row-unk"><td><strong>RFC-0014</strong></td><td>Device–Rules Association</td><td>Draft</td><td>Superado na prática por <code>scope_entity_ids uuid[]</code> nas rules <span class="sev unk">⚠️ evidência indireta</span></td></tr>
+                  <tr class="row-unk"><td><strong>RFC-0016</strong></td><td>ThingsBoard Entity Mapping</td><td>Draft</td><td>Parcialmente absorvido: <code>external_id</code> em customers existe, mas o mapeamento completo do RFC não <span class="sev unk">⚠️</span></td></tr>
+                  <tr class="row-unk"><td><strong>RFC-0002</strong></td><td>GCDR Authorization Model</td><td>Draft</td><td>O RBAC operante existe (<code>authorization.controller.ts</code>, <code>policies</code>, <code>roles</code>), mas o doc nunca foi promovido a Implemented — <strong>provável dívida de documentação, não de código</strong> <span class="sev unk">⚠️</span></td></tr>
+                  <tr class="row-unk"><td><strong>RFC-0013</strong></td><td>User Access Profile Bundle (backend)</td><td>Draft</td><td><code>access-bundle.controller.ts</code> existe em <code>desenv</code> → provável dívida de doc <span class="sev unk">⚠️</span> (o RFC do frontend já está <code>Implemented</code>)</td></tr>
+                  <tr class="row-warn"><td><strong>RFC-0032 Fase 5</strong></td><td>QR Checker — Fase 5</td><td>Pendente (Fases 1–4 ✅)</td><td>Fases 5–8 marcadas RETIRED no RFC principal; a Fase 5 tem doc próprio ainda "Pendente" — <strong>conflito entre os dois docs, precisa decisão</strong></td></tr>
+                </tbody>
+              </table>
+            </div></div>
+            <p class="tbl-cap"><strong>Ação sugerida pelo relatório:</strong> RFC-0002, 0013, 0014 e 0016 parecem ser dívida de documentação. Vale uma passada de curadoria fechando esses status antes de tratá-los como backlog real.</p>
+          </article>
+
+          <article class="card amber">
+            <h3>🟠 Implementados mas NÃO mergeados em <code>desenv</code> <span class="sev warn">12 branches</span></h3>
+            <p>Trabalho pronto — em alguns casos já revisado — parado fora da branch de integração. <em>"É aqui que está o valor imediato."</em></p>
+            <h4>Backend (<code>gcdr.git</code>)</h4>
+            <div class="map-wrap"><div class="map-scroll">
+              <table class="map-table">
+                <thead><tr><th style="width:24%">Branch</th><th style="width:22%">RFC / feature</th><th style="width:10%">Commits à frente</th><th style="width:44%">Situação</th></tr></thead>
+                <tbody>
+                  <tr class="row-warn"><td class="mono">feat/rfc-0054-tariffs-p1</td><td><strong>RFC-0054</strong> Metas monetárias + tarifas</td><td class="num">+5</td><td>APPROVED &amp; FROZEN. <code>customer_tariffs</code> <strong>não existe</strong> em <code>desenv</code> (grep <code>tariff</code> = 0 arquivos). É a branch de trabalho atual</td></tr>
+                  <tr class="row-warn"><td class="mono">feat/signal-topology</td><td>Topologia de sinal (device-topology)</td><td class="num">+11</td><td><strong>PR #19</strong> — em <code>CHANGES_REQUESTED</code>: conflito de merge + CodeQL SSRF em aberto</td></tr>
+                  <tr class="row-warn"><td class="mono">feat/central-wifi-command</td><td>SET_WIFI para centrais CM4</td><td class="num">+6</td><td><strong>PR #20</strong> — em <code>CHANGES_REQUESTED</code>: verificar credencial fora do histórico, numeração 0056/0057, agent monorepo#31</td></tr>
+                  <tr><td class="mono">feature/rfc-0028-device-calibration-offsets</td><td><strong>RFC-0028</strong> Offsets de calibração</td><td class="num">+6</td><td>Confirmado ausente de <code>desenv</code>: as 4 ocorrências de <code>calibration</code> em <code>desenv</code> são de <code>AlarmBundle</code>/<code>Rule</code> (calibração de regra), <strong>não</strong> dos offsets por device do RFC-0028</td></tr>
+                  <tr class="row-unk"><td class="mono">feat/rfc-0045-email-ingestion</td><td><strong>RFC-0045</strong> Email → Ticket</td><td class="num">+1</td><td><code>work_orders_ticket_meta</code> já existe em <code>desenv</code>, então parte do alicerce entrou; o ingestor em si não <span class="sev unk">⚠️</span></td></tr>
+                  <tr class="row-unk"><td class="mono">feat/rfc-0050-presetup-backend</td><td><strong>RFC-0050</strong> Migração presetup → GCDR</td><td class="num">+1</td><td>Aguardando aprovação do RFC antes de portar o código <span class="sev blocked">BLOQUEADO</span></td></tr>
+                </tbody>
+              </table>
+            </div></div>
+            <h4>Frontend (<code>gcdr-frontend.git</code>)</h4>
+            <div class="map-wrap"><div class="map-scroll">
+              <table class="map-table">
+                <thead><tr><th style="width:24%">Branch</th><th style="width:22%">Feature</th><th style="width:10%">Commits à frente</th><th style="width:44%">Situação</th></tr></thead>
+                <tbody>
+                  <tr class="row-warn"><td class="mono">feat/signal-topology</td><td>View SVG da topologia</td><td class="num">+4</td><td><strong>PR #16</strong> — <code>CHANGES_REQUESTED</code>; depende do backend #19</td></tr>
+                  <tr class="row-warn"><td class="mono">feat/central-wifi-command</td><td>UI Configurar WiFi</td><td class="num">+3</td><td><strong>PR #17</strong> — <code>CHANGES_REQUESTED</code>; depende do backend #20 + agent</td></tr>
+                  <tr><td class="mono">feat/rfc-0020-presetup-migration</td><td><strong>RFC-0020</strong> Presetup (frontend)</td><td class="num">+1</td><td>Par do RFC-0050 backend</td></tr>
+                  <tr><td class="mono">feat/rfc-0045-email-ingestion</td><td>Email → Ticket (UI)</td><td class="num">+1</td><td>Par do backend</td></tr>
+                  <tr class="row-warn"><td class="mono">docs/rfc-0022-ci-quality-gates</td><td>CI / quality gates</td><td class="num">+2</td><td>Relevante: <strong>as branches de PR não reportam checks de CI</strong> (levantado nas reviews de #16 e #17)</td></tr>
+                  <tr><td class="mono">fix/modal-scroll-overflow</td><td>Fix de scroll em modal</td><td class="num">+1</td><td>Fix isolado parado</td></tr>
+                </tbody>
+              </table>
+            </div></div>
+          </article>
+
+          <div class="two-col">
+            <article class="card">
+              <h3>🟡 Parciais / com pontas soltas <span class="sev part">7 itens</span></h3>
+              <div class="map-wrap"><div class="map-scroll">
+                <table class="map-table" style="min-width:520px">
+                  <thead><tr><th style="width:20%">RFC</th><th style="width:40%">Já está em <code>desenv</code></th><th style="width:40%">O que falta</th></tr></thead>
+                  <tbody>
+                    <tr class="row-unk"><td><strong>RFC-0051</strong><br>Work Order Groups</td><td><code>work_orders.parent_id</code> + índice parcial já existem no schema (linha ~1886)</td><td>O tipo <code>GRUPO</code> e a lógica de agrupamento não aparecem (<code>wo_group</code>: 0 arquivos). Status "Draft — urgent" <span class="sev unk">⚠️</span></td></tr>
+                    <tr class="row-unk"><td><strong>RFC-0041</strong><br>WO Rules Engine</td><td>Tabela <code>work_orders_lifecycle_rules</code> existe</td><td>Motor de regras propriamente dito não confirmado (<code>wo_rules</code>/<code>woRules</code>: 0 arquivos) <span class="sev unk">⚠️</span></td></tr>
+                    <tr class="row-warn"><td><strong>RFC-0001</strong><br>Integration Marketplace</td><td>Tabelas <code>integration_packages</code>, <code>package_subscriptions</code></td><td>Doc declara "In Progress — Phase 1 MVP ~60%". <strong>Os 40% restantes não estão especificados em lugar nenhum</strong></td></tr>
+                    <tr><td><strong>BACKEND-RFC-0021-v2</strong><br>HTML Templates</td><td>Engine implementada (<code>templates.controller.ts</code>, <code>template_types</code>)</td><td>Doc declara literalmente "novos endpoints pendentes + frontend pendente"</td></tr>
+                    <tr><td><strong>RFC-0046 Addendum A</strong><br>Metas por device</td><td>Branch <strong>mergeada</strong> em <code>desenv</code> (back + front)</td><td>Migrations 0060/0061 pendentes; curadoria Moxuara; coluna <code>device</code> no CSV</td></tr>
+                    <tr><td><strong>RFC-0033</strong><br>Customer Integration Sync State</td><td>Implementado</td><td>Parcialmente superseded pelo RFC-0035 — vale marcar formalmente o que foi substituído</td></tr>
+                    <tr class="row-ok"><td><strong>RFC-0026</strong><br>Device Availability Tracking</td><td>—</td><td><strong>SUPERSEDED</strong> — pode sair do backlog ativo</td></tr>
+                  </tbody>
+                </table>
+              </div></div>
+            </article>
+
+            <article class="card blue">
+              <h3>🔵 Gaps de paridade backend ↔ frontend <span class="sev warn">4 itens</span></h3>
+              <p>Backend pronto em <code>desenv</code>, frontend ausente. São features <strong>já pagas</strong> que o usuário final não alcança.</p>
+              <div class="map-wrap"><div class="map-scroll">
+                <table class="map-table" style="min-width:520px">
+                  <thead><tr><th style="width:26%">Feature</th><th style="width:24%">Backend</th><th style="width:24%">Frontend</th><th style="width:26%">Lacuna</th></tr></thead>
+                  <tbody>
+                    <tr class="row-warn"><td><strong>RFC-0018</strong> Overrides de valor por device</td><td>✅ <code>valueOverride</code>/<code>deviceOverride</code>: 5 arquivos</td><td>❌ <code>valueOverride</code>: 0 arquivos</td><td><strong>Sem UI.</strong> Backend entregue, inacessível pelo operador</td></tr>
+                    <tr class="row-warn"><td><strong>RFC-0054</strong> Tarifas</td><td>🟠 só na branch</td><td>❌ <code>tariff</code>: 0 arquivos</td><td>Frontend nem começou</td></tr>
+                    <tr class="row-warn"><td>Topologia de dispositivos</td><td>🟠 só na branch (#19)</td><td>🟠 só na branch (#16)</td><td>Nenhum dos dois em <code>desenv</code></td></tr>
+                    <tr class="row-unk"><td><strong>RFC-0028</strong> Offsets de calibração</td><td>🟠 só na branch</td><td><span class="sev unk">⚠️</span> <code>calibration</code>: 3 arquivos (verificar se é da feature ou de rules)</td><td>Verificar</td></tr>
+                  </tbody>
+                </table>
+              </div></div>
+              <p class="tbl-cap"><strong>Observação do relatório:</strong> <code>deviceOverride</code> aparece em 2 arquivos do frontend contra 5 do backend — sugere UI apenas parcial, não ausente. Confirmar antes de planejar.</p>
+            </article>
+          </div>
+
+          <article class="card">
+            <h3>🔧 Melhorias técnicas pendentes <span class="sev warn">9 itens</span></h3>
+            <p>Não são RFCs, mas são débitos registrados nas reviews dos PRs em aberto e ainda não resolvidos.</p>
+
+            <details class="det" open>
+              <summary>Arquitetura <span class="sum-tag">2 itens</span></summary>
+              <div class="det-body">
+                <div class="ev-row"><div class="ev-body"><span class="sev crit">CRÍTICO</span> <strong>GET que muta o banco</strong> — origem PR #19. <code>GET /centrals/:id/device-topology</code> reconcilia <code>connection_status</code> e <code>connectivity_status</code> como efeito colateral da leitura. Quebra a idempotência de GET (cache/retry/replica viram escrita) e faz as contagens da lista só ficarem frescas depois que alguém abre a topologia. <em>Deveria ser um reconciler agendado ou push do cloud-server.</em> <strong>Sem issue de rastreio até agora.</strong></div></div>
+                <div class="ev-row"><div class="ev-body"><span class="sev warn">ATENÇÃO</span> <strong>Poll de 8 s amplifica o item acima</strong> — origem PR #16. O hook do frontend chama esse GET a cada 8 s enquanto a tela estiver aberta → uma escrita no banco a cada 8 s por central + devices. <strong>A cadência do frontend dirige writes do backend.</strong></div></div>
+              </div>
+            </details>
+
+            <details class="det" open>
+              <summary>Segurança <span class="sum-tag">2 itens</span></summary>
+              <div class="det-body">
+                <div class="ev-row"><div class="ev-body"><span class="sev crit">CRÍTICO</span> <strong>Senha WiFi via <code>argv</code> / <code>ps</code></strong> — origem PR #20 / #17. A senha passada como argumento para <code>myio-wifi-set</code> fica visível no <code>ps</code> da central. Mitigações de transporte e persistência já entraram (strip/null/redact); <strong>este vetor segue diferido</strong> e depende de mudança no próprio <code>myio-wifi-set</code>. <strong>Sem issue de rastreio.</strong></div></div>
+                <div class="ev-row"><div class="ev-body"><span class="sev warn">ATENÇÃO</span> <strong>CodeQL SSRF #184</strong> — origem PR #19. Mitigação (allowlist UUID + <code>encodeURIComponent</code>) já está no código; o alerta segue aberto — falta dismissar ou subir a validação para a camada de rota/DTO.</div></div>
+              </div>
+            </details>
+
+            <details class="det" open>
+              <summary>Processo / infraestrutura <span class="sum-tag">5 itens</span></summary>
+              <div class="det-body">
+                <div class="ev-row"><div class="ev-body"><span class="sev warn">ATENÇÃO</span> <strong>CI ausente nas branches do frontend</strong> — PRs #16 e #17 não reportam checks; a validação é <code>tsc --noEmit</code> + eslint local colados no PR. Existe branch <code>docs/rfc-0022-ci-quality-gates</code> parada, não mergeada.</div></div>
+                <div class="ev-row"><div class="ev-body"><span class="sev warn">ATENÇÃO</span> <strong>Cobertura de testes ~12%</strong> — reportado pelo CI do backend: 12,02% linhas / 10,79% statements / 11,19% branches.</div></div>
+                <div class="ev-row"><div class="ev-body"><span class="sev warn">ATENÇÃO</span> <strong>Colisão de numeração de migrations</strong> — migrations numeradas manualmente com runner custom; PRs paralelos disputam número (ex.: PR #20 usa 0056/0057 sendo que a árvore já passou de 0063). <strong>Sem mecanismo de reserva.</strong></div></div>
+                <div class="ev-row"><div class="ev-body"><span class="sev crit">CRÍTICO</span> <strong>Journal do Drizzle congelado no 0012</strong> — a cadeia não reconstrói o schema do zero (quebra em 0017/templates). Runner custom <code>schema_migrations</code>.</div></div>
+                <div class="ev-row"><div class="ev-body"><span class="sev crit">CRÍTICO</span> <strong><code>main</code> congelada desde jan/2026</strong> — 543 commits de diferença para <code>desenv</code> nos <strong>dois</strong> repos. Precisa de decisão explícita.</div></div>
+              </div>
+            </details>
+          </article>
+
+          <div class="two-col">
+            <article class="card green">
+              <h3>🎯 Priorização sugerida pelo relatório</h3>
+              <p>Ordenado por (valor destravado) ÷ (esforço), na leitura do autor.</p>
+              <h4>Faixa 1 — destravar estoque parado (dias)</h4>
+              <ul>
+                <li><strong>Fechar PRs #19/#16 e #20/#17.</strong> 4 PRs revisados com o trabalho feito; falta rebase, CodeQL e coordenação de ordem de merge. <em>Maior retorno imediato do backlog inteiro.</em></li>
+                <li><strong>Mergear RFC-0054 (tarifas)</strong> — APPROVED &amp; FROZEN, acumulando risco de conflito.</li>
+                <li><strong>Mergear <code>fix/modal-scroll-overflow</code></strong> — fix isolado, custo ~zero.</li>
+              </ul>
+              <h4>Faixa 2 — decisões que destravam o resto (horas de decisão)</h4>
+              <ul>
+                <li><strong>Resolver <code>main</code> vs <code>desenv</code>.</strong> Enquanto não houver decisão, "o que está em produção" é ambíguo.</li>
+                <li><strong>Curadoria de status dos RFCs.</strong> Fechar 0002, 0013, 0014, 0016 como implementados/superseded; resolver o conflito RFC-0032 Fase 5 (RETIRED × Pendente). <em>Backlog encolhe sem escrever uma linha de código.</em></li>
+                <li><strong>Aprovar ou arquivar RFC-0050/RFC-0020 (presetup)</strong> — duas branches paradas esperando decisão desde 03/07.</li>
+              </ul>
+              <h4>Faixa 3 — dívida com prazo (semanas)</h4>
+              <ul>
+                <li>Issue para o "GET que muta" e migrar o reconcile para fora do read path.</li>
+                <li>Issue para o vetor <code>argv</code>/<code>ps</code> da senha WiFi.</li>
+                <li>Mergear <code>docs/rfc-0022-ci-quality-gates</code> — CI de verdade nas branches do frontend.</li>
+                <li>UI do RFC-0018 (overrides por device) — backend entregue e inacessível.</li>
+              </ul>
+              <h4>Faixa 4 — backlog real de produto</h4>
+              <ul>
+                <li>RFC-0051 (WO Groups — marcado urgente, alicerce parcialmente pronto)</li>
+                <li>RFC-0045 (email→ticket, +1 commit de distância)</li>
+                <li>RFC-0028 (offsets de calibração, +6 commits)</li>
+                <li>RFC-0001 (completar os 40% do marketplace — <strong>precisa ser especificado antes</strong>)</li>
+                <li>RFC-0012, 0022, 0031, 0049 (nunca iniciados — revalidar se ainda fazem sentido)</li>
+              </ul>
+            </article>
+
+            <article class="card gray">
+              <h3><span class="sev unk">NÃO VERIFICADO</span> Itens que precisam de confirmação</h3>
+              <p><em>"Não consegui fechar com a evidência disponível. Recomendo confirmar antes de planejar em cima."</em> — 6 itens, na íntegra:</p>
+              <ul>
+                <li><strong>RFC-0041</strong> — <code>work_orders_lifecycle_rules</code> existe, mas o motor de regras não foi localizado. Pode estar sob outro nome.</li>
+                <li><strong>RFC-0051</strong> — <code>parent_id</code> existe em <code>work_orders</code>; falta saber se o tipo <code>GRUPO</code> foi implementado sob outra nomenclatura.</li>
+                <li><strong>RFC-0028</strong> — os 3 arquivos de <code>calibration</code> no frontend precisam ser inspecionados (feature × calibração de rules).</li>
+                <li><strong>RFC-0045</strong> — <code>work_orders_ticket_meta</code> em <code>desenv</code> sugere que parte entrou; a branch tem só +1 commit.</li>
+                <li><strong>RFC-0032 Fase 5</strong> — o RFC principal diz Fases 5–8 RETIRED; o doc da Fase 5 diz "Pendente". <strong>Conflito documental que precisa de decisão humana.</strong></li>
+                <li><strong>RFC-0002 / 0013 / 0014 / 0016</strong> — classificados como provável dívida de documentação; confirmar antes de fechar.</li>
+              </ul>
+            </article>
+          </div>
+
+        </div>
+      </main>
+
+      <footer class="footer">
+        <strong>MYIO</strong>
+        <span>1 · gcdr.git + gcdr-frontend.git — <span class="mono" style="background:transparent;color:#fff;">docs/RFC-STATUS-GAP-ANALYSIS.md</span></span>
+        <span style="opacity:0.75;">2026-07-24 · 200 linhas de origem</span>
+      </footer>
+    </section>
+
+    <!-- ══════════════════ 2 · ALARMS-BACKEND ══════════════════ -->
+    <section class="page" id="alarms">
+      <header class="hero-sm">
+        <div>
+          <div class="hs-brand">2 · alarms-backend.git</div>
+          <div class="hs-title">AUDITORIA-RFCS-PENDENCIAS.md — o maior dos cinco relatórios</div>
+        </div>
+        <div class="hs-right">
+          <span class="hs-pill">~214 pendências</span>
+          <span class="hs-pill">728 linhas</span>
+        </div>
+      </header>
+
+      <main class="content">
+        <div class="col-stack">
+
+          <section class="headline">
+            <h2>alarms-backend — RFCs e melhorias não implementados</h2>
+            <p>O relatório mais extenso do conjunto. Cobre backend (RFCs + docs de arquitetura) e frontend/UI, com tabela-resumo por RFC e um ranking de impacto × esforço. Sua tese não é sobre um <code>Status:</code> desatualizado, e sim mais grave: <strong>dois documentos de referência do repositório estão ativamente errados</strong> e induzem a decisões e a código quebrado.</p>
+          </section>
+
+          <div class="limits">
+            <h3>⚠️ Limites declarados pelo relatório</h3>
+            <div class="lim-sub">Observação desta consolidação: leitura honesta do que o documento declara — e do que não declara</div>
+            <ul>
+              <li><strong>Este relatório NÃO declara a própria cobertura nem método de verificação.</strong> Diferente do GCDR (que explicita evidência indireta com ⚠️) e do js-library (que quantifica quanto verificou a fundo), aqui não há seção dizendo quantos RFCs foram checados contra código, nem se houve validação de runtime. As afirmações vêm com <code>arquivo:linha</code> em boa parte dos casos, mas a <strong>completude do levantamento não é auto-declarada</strong> — registre isso ao planejar em cima dele.</li>
+              <li><strong>A seção "⚠️ Leia primeiro" é um alerta sobre OUTROS documentos, não sobre si.</strong> Ela existe para invalidar dois docs do próprio repo (ver card vermelho abaixo) — é achado, não ressalva de cobertura.</li>
+              <li><strong>O contador "~214 pendências" é uma soma de itens granulares</strong> (~120 backend + ~94 frontend), de natureza diferente dos "43 achados" do GCDR ou dos "171 RFCs" do js-library. <strong>Não é comparável entre relatórios</strong> — nenhum total cross-repo foi derivado a partir dele nesta consolidação.</li>
+            </ul>
+          </div>
+
+          <article class="card red">
+            <h3>🚨 "Leia primeiro" — três avisos que invalidam documentação do próprio repo</h3>
+            <div class="ev-row"><div class="ev-body"><span class="sev crit">CRÍTICO</span> <strong>1 · <code>docs/FRENTES-FUTURAS.md</code> está incorreto e não deve ser usado para planejamento.</strong> Classifica como "Não implementado" <strong>~10 entregas que já estão em produção</strong> — WebSocket, Dispatches, Availability, painel <code>/admin/verify</code>, <code>/admin/worker</code>, Ingest Logs, Email SMTP/Relay, fingerprint dedup. Planejar por ele gera retrabalho puro.</div></div>
+            <div class="ev-row"><div class="ev-body"><span class="sev crit">CRÍTICO</span> <strong>2 · <code>docs/FRONTEND-INTEGRATION.md</code> é ativamente enganoso.</strong> Cinco contratos de mutação de alarme estão errados — <code>/acknowledge</code> e <code>/snooze</code> <strong>não existem</strong>. Qualquer frontend escrito a partir dele nasce com botões quebrados (404/400).</div></div>
+            <div class="ev-row"><div class="ev-body"><span class="sev crit">CRÍTICO</span> <strong>3 · <code>alarm.created</code> nunca é emitido no WebSocket.</strong> Todo o valor de "tempo real" prometido em RFC-0006, RFC-0002-FE e FRONTEND-INTEGRATION depende desse evento. O <code>broadcastAlarmCreated</code> existe <strong>sem chamador</strong> — a feature está morta na prática.</div></div>
+          </article>
+
+          <article class="card">
+            <h3>📊 Panorama geral</h3>
+            <div class="map-wrap"><div class="map-scroll">
+              <table class="map-table">
+                <thead><tr>
+                  <th style="width:34%">Categoria</th><th style="width:15%">✅ Implementado</th><th style="width:13%">🟡 Parcial</th><th style="width:19%">❌ Não implementado</th><th style="width:19%">Pendências</th>
+                </tr></thead>
+                <tbody>
+                  <tr><td>Backend (RFCs + arquitetura)</td><td>8</td><td>15</td><td>3</td><td>~120</td></tr>
+                  <tr><td>Frontend / UI</td><td>5</td><td>8</td><td>2 (+3 fora do repo)</td><td>~94</td></tr>
+                  <tr class="row-warn"><td><strong>Total</strong></td><td><strong>13</strong></td><td><strong>23</strong></td><td><strong>5</strong></td><td><strong>~214</strong></td></tr>
+                </tbody>
+              </table>
+            </div></div>
+            <p class="tbl-cap">A maior massa não está no "nunca implementado" (5), e sim nos <strong>23 parciais</strong> — features entregues pela metade, que aparentam estar prontas.</p>
+          </article>
+
+          <article class="card">
+            <h3>🔴 RFCs inteiros NÃO implementados <span class="sev crit">3 itens</span></h3>
+            <div class="map-wrap"><div class="map-scroll">
+              <table class="map-table">
+                <thead><tr>
+                  <th style="width:16%">RFC</th><th style="width:24%">Título</th><th style="width:52%">Situação</th><th style="width:8%">Esforço</th>
+                </tr></thead>
+                <tbody>
+                  <tr><td><strong>RFC-0027</strong></td><td>Verify Service Configuration Plane</td><td>Draft — <strong>zero linhas de código</strong>. Previa 5 tabelas, 6 checkers, ~15 endpoints, criptografia AES-256-GCM e 11 EventTypes. Grep por <code>verify_config</code>/<code>VerifyContextChecker</code> → <strong>0 ocorrências</strong>.</td><td><strong>G</strong></td></tr>
+                  <tr><td><strong>RFC-0028</strong></td><td>Persist Alarm Workflow Actors</td><td>Draft — bug <strong>confirmado ainda ativo</strong>: <code>closedBy</code>, <code>closedReason</code>, <code>acknowledgedBy</code> e <code>resolutionTimeMinutes</code> nunca são persistidos. <strong>MTTR sempre <code>null</code></strong>.</td><td><strong>M</strong></td></tr>
+                  <tr><td><strong>RFC-0026</strong><br><span class="mono">Telegram Templates</span></td><td>GCDR Telegram Templates</td><td>0/6 do checklist. <code>template.service.ts:116</code> lê apenas <code>.hbs</code> local; nenhuma referência a GCDR ou <code>SLUG_MAP</code>.</td><td><strong>M</strong></td></tr>
+                </tbody>
+              </table>
+            </div></div>
+          </article>
+
+          <article class="card amber">
+            <h3>🧱 Docs de frontend inimplementáveis hoje <span class="sev warn">2 itens</span></h3>
+            <p>Especificações de tela que não podem ser construídas porque o endpoint de que dependem responde 404 <strong>sempre</strong> — a config migrou para o GCDR e a tabela local ficou morta.</p>
+            <div class="ev-row"><div class="ev-body"><code>frontend-email-relay-config-page.md</code> → <code>GET /email-relay/config/:id</code> retorna <strong>404 sempre</strong> (tabela <code>email_relay_config</code> morta)</div></div>
+            <div class="ev-row"><div class="ev-body"><code>frontend-email-relay-test-page.md</code> → <code>POST /email-relay/test/:id/alarm</code> retorna <strong>404 sempre</strong> (<code>email-relay.routes.ts:159-162</code>)</div></div>
+          </article>
+
+          <article class="card">
+            <h3>🎯 Top 15 por impacto × esforço</h3>
+            <p>Ranking do próprio relatório. Note que <strong>as duas primeiras posições e quatro das cinco primeiras são esforço P (pequeno)</strong> — há valor alto e barato parado aqui.</p>
+            <div class="map-wrap"><div class="map-scroll">
+              <table class="map-table">
+                <thead><tr>
+                  <th style="width:5%">#</th><th style="width:52%">Pendência</th><th style="width:17%">Origem</th><th style="width:8%">Esforço</th><th style="width:18%">Risco</th>
+                </tr></thead>
+                <tbody>
+                  <tr><td>1</td><td>Persistir <code>closedBy</code>/<code>closedReason</code>/<code>acknowledgedBy</code>/<code>resolutionTimeMinutes</code> — desbloqueia MTTR</td><td>RFC-0028</td><td>P</td><td>Métrica errada</td></tr>
+                  <tr class="row-warn"><td>2</td><td>Remover <code>terraform.tfstate</code> do git + <strong>rotacionar segredos expostos</strong></td><td>RFC-0001</td><td>P</td><td><span class="sev crit">Segurança</span></td></tr>
+                  <tr><td>3</td><td>Corrigir contratos de <code>FRONTEND-INTEGRATION.md</code> (5 rotas erradas)</td><td>FE Integration</td><td>P</td><td>Frontend quebrado</td></tr>
+                  <tr><td>4</td><td>Reescrever <code>FRENTES-FUTURAS.md</code> (10 itens falsos)</td><td>—</td><td>P</td><td>Retrabalho</td></tr>
+                  <tr><td>5</td><td>Reconciliar <code>drizzle/</code> com <code>schema.ts</code> — ambiente novo não sobe</td><td>RFC-0001</td><td>M</td><td><strong>Alto</strong></td></tr>
+                  <tr><td>6</td><td>Wire <code>broadcastAlarmCreated</code> no orchestrator</td><td>RFC-0006/0009</td><td>P</td><td>Feature morta</td></tr>
+                  <tr><td>7</td><td>Fallback global <code>TELEGRAM_BOT_TOKEN</code> fura kill switch por customer</td><td>RFC-0026</td><td>P</td><td><strong>Bug</strong></td></tr>
+                  <tr class="row-warn"><td>8</td><td>Autenticação no endpoint <code>/ws</code> (<code>tenantId</code> não validado)</td><td>RFC-0006</td><td>M</td><td><span class="sev crit">Segurança</span></td></tr>
+                  <tr><td>9</td><td>Templates <code>email/alarm.closed.hbs</code> e <code>alarm.escalated.hbs</code> (não existem)</td><td>RFC-0018</td><td>P</td><td>Funcional</td></tr>
+                  <tr><td>10</td><td>Filtro <code>actorType</code> aceito no Zod/Swagger e <strong>ignorado no handler</strong></td><td>RFC-0002</td><td>P</td><td><strong>Bug</strong></td></tr>
+                  <tr><td>11</td><td>União de intervalos de downtime sobrepostos (MTTR/disponibilidade distorcidos)</td><td>RFC-0009</td><td>M</td><td>Métrica errada</td></tr>
+                  <tr><td>12</td><td>Particionamento + retenção 90d de <code>audit_logs</code> (pg_partman)</td><td>RFC-0002</td><td>M</td><td>Bloat em prod</td></tr>
+                  <tr><td>13</td><td><code>group_dispatch_configs</code> (Fase 2 do kill switch) inativa</td><td>RFC-0020</td><td>M</td><td>Funcional</td></tr>
+                  <tr><td>14</td><td>Motor de escalação por tempo sem ACK (<code>escalationDelayMs</code> só é repassado)</td><td>RFC-0026 v2</td><td>G</td><td>Funcional</td></tr>
+                  <tr><td>15</td><td>Multi-réplica inseguro (histerese, WS clients e caches in-process)</td><td>Transversal</td><td>G</td><td><strong>Alto</strong></td></tr>
+                </tbody>
+              </table>
+            </div></div>
+            <p class="tbl-cap">Dois itens de <strong>segurança</strong> no ranking: segredos de infraestrutura versionados no git (#2) e WebSocket sem validação de <code>tenantId</code> (#8) — este último implica <strong>vazamento cross-tenant</strong>.</p>
+          </article>
+
+          <article class="card gray">
+            <h3>📁 Estrutura do relatório de origem</h3>
+            <p>Além do que está consolidado acima, o documento traz uma tabela-resumo por RFC (~30 RFCs com status ✅/🟡/❌ individual), fichas detalhadas de cada RFC de backend, uma <strong>PARTE 2 dedicada a frontend/UI</strong>, uma seção de <em>contratos de API que o frontend espera e o backend não expõe</em>, um <em>backlog transversal</em> e as <em>correções ao FRENTES-FUTURAS</em>. Consulte o arquivo de origem para o detalhe por RFC.</p>
+          </article>
+
+        </div>
+      </main>
+
+      <footer class="footer">
+        <strong>MYIO</strong>
+        <span>2 · alarms-backend.git — <span class="mono" style="background:transparent;color:#fff;">docs/AUDITORIA-RFCS-PENDENCIAS.md</span></span>
+        <span style="opacity:0.75;">2026-07-24 · 728 linhas de origem</span>
+      </footer>
+    </section>
+
+    <!-- ══════════════════ 3 · MYIO-APP 5.2.0 ══════════════════ -->
+    <section class="page" id="app">
+      <header class="hero-sm">
+        <div>
+          <div class="hs-brand">3 · myio-app-5.2.0.git</div>
+          <div class="hs-title">GAP-ANALYSIS.md — spec × implementação × dados reais</div>
+        </div>
+        <div class="hs-right">
+          <span class="hs-pill">0/15 endpoints reais</span>
+          <span class="hs-pill">367 linhas</span>
+        </div>
+      </header>
+
+      <main class="content">
+        <div class="col-stack">
+
+          <section class="headline">
+            <h2>myio-app 5.2.0 — o app não alcança backend nenhum</h2>
+            <p>Diferente dos outros quatro, este relatório não pergunta "o RFC foi implementado?", e sim <strong>"o que roda com dado falso?"</strong>. A conclusão é categórica e o próprio autor a resume em uma linha: <em>"a arquitetura está construída e testada, mas <strong>não existe nenhum caminho de código que chegue a um backend real hoje</strong> — nem por variável de ambiente, nem por flag de runtime. É preciso editar o fonte."</em></p>
+          </section>
+
+          <div class="limits">
+            <h3>⚠️ Limites declarados pelo relatório</h3>
+            <div class="lim-sub">Escopo e método — declarados no cabeçalho do documento</div>
+            <ul>
+              <li><strong>Escopo declarado:</strong> <em>"todos os <code>.md</code> em <code>docs/</code> (12 ADRs, 1 RFC, 4 backlogs, SETUP.md) + <code>ARCHITECTURE.md</code>, cruzados com auditoria de código em <code>src/</code>"</em>. É o único dos cinco relatórios que declara escopo e método já na abertura.</li>
+              <li><strong>Objetivo declarado, em duas partes:</strong> (a) tudo que está especificado e não implementado; (b) tudo que roda com mock/dado falso e precisa de dado real. A segunda metade não tem equivalente nos outros quatro relatórios.</li>
+              <li><strong>Marcação explícita de verificação item a item.</strong> O autor anota <code>✅ verificado</code> em achados específicos (ex.: §1.2 sobre o <code>.env</code>) — sinalizando, por contraste, que os demais <strong>não</strong> receberam a mesma checagem individual. Não há, porém, uma contagem de quantos foram verificados a fundo.</li>
+              <li><strong>Divergência documental que o próprio relatório aponta:</strong> o ADR-002 está <em>"Pending Approval"</em> no documento, <strong>mas marcado "Implementado" no <code>CLAUDE.md</code></strong>. Mesmo padrão de status-que-mente visto nos outros repos.</li>
+            </ul>
+          </div>
+
+          <article class="card">
+            <h3>📊 Placar</h3>
+            <div class="map-wrap"><div class="map-scroll">
+              <table class="map-table">
+                <thead><tr>
+                  <th style="width:37%">Categoria</th><th style="width:9%">Total</th><th style="width:18%">Implementado</th><th style="width:12%">Parcial</th><th style="width:24%">Não implementado</th>
+                </tr></thead>
+                <tbody>
+                  <tr><td>ADRs aprovados</td><td>8</td><td>4</td><td>3</td><td>1 (ADR-007 SSH — zero código)</td></tr>
+                  <tr class="row-unk"><td>ADRs "Pending Approval" (nunca formalmente aprovados)</td><td>4</td><td>—</td><td>—</td><td>status do doc nunca atualizado</td></tr>
+                  <tr><td>RFCs</td><td>1</td><td>0</td><td>1</td><td>checklist <strong>100% desmarcado</strong></td></tr>
+                  <tr><td>Itens de backlog v1.1/v1.2</td><td>6</td><td>1 (WO-002)</td><td>1 (WO-001)</td><td>4</td></tr>
+                  <tr class="row-warn"><td>Módulos da home</td><td>11</td><td>2 reais</td><td>1</td><td><strong>8 rodam 100% de fixture</strong></td></tr>
+                  <tr class="row-warn"><td>Endpoints REST chamados pelo app</td><td>15</td><td><strong>0 contra backend real</strong></td><td>—</td><td>15 (todos interceptados)</td></tr>
+                </tbody>
+              </table>
+            </div></div>
+          </article>
+
+          <article class="card red">
+            <h3>🚨 Bloqueadores críticos (P0) — impedem qualquer integração real</h3>
+            <div class="ev-row"><div class="ev-body"><span class="sev crit">CRÍTICO</span> <strong>1.1 · <code>DEMO_MODE</code> é hard-coded e não tem chave de saída.</strong> <code>src/core/api/client.ts:14</code> → <code>const DEMO_MODE = __DEV__</code> — sem env var, sem flag, sem override. Em <code>:31-38</code>, quando ativo, <code>fetch()</code> <strong>nunca é chamado</strong>: tudo é respondido em processo por <code>demoApi.ts</code> (371 linhas de backend falso). <code>refreshToken.ts:8,18-27</code> duplica o mesmo bypass de forma independente.</div></div>
+            <div class="ev-row"><div class="ev-body"><span class="sev crit">CRÍTICO</span> <strong>Dois efeitos colaterais do item acima:</strong> o MSW nativo é <strong>código morto</strong> para as chamadas do próprio app (o <code>demoApi</code> intercepta antes do <code>fetch</code>, então o MSW nunca vê a requisição); e existem <strong>duas cópias independentes de estado falso</strong> — o banco <code>@mswjs/data</code> e os arrays em memória do <code>demoApi</code> — que <strong>divergem em runtime</strong>.</div></div>
+            <div class="ev-row"><div class="ev-body"><span class="sev crit">CRÍTICO</span> <strong>1.2 · <code>EXPO_PUBLIC_GCDR_BASE_URL</code> não existe em nenhum <code>.env</code> real</strong> <span class="sev unk">✅ verificado pelo autor</span> — <code>app.config.ts:33</code> cai no default <code>http://localhost:3001</code>.</div></div>
+            <div class="ev-row"><div class="ev-body"><span class="sev warn">ATENÇÃO</span> <strong>1.3 · Endpoints de anexos quebrados em dev</strong> · <strong>1.4 · WatermelonDB ainda no adapter provisório</strong></div></div>
+          </article>
+
+          <article class="card amber">
+            <h3>🎭 Onde está mockado hoje → o que precisa de dado real</h3>
+            <p>O relatório dedica uma parte inteira ao inventário do que é falso. Categorias levantadas:</p>
+            <div class="ev-row"><div class="ev-body"><strong>8 dos 11 módulos da home rodam 100% de fixture</strong> — sem repository, sem hook, sem API.</div></div>
+            <div class="ev-row"><div class="ev-body"><strong>Ações de módulo que fingem sucesso</strong> — a UI confirma operações que nunca saíram do dispositivo.</div></div>
+            <div class="ev-row"><div class="ev-body"><strong>Stubs de UI</strong> que renderizam e não fazem nada; <strong>fallbacks de persistência para memória</strong>; métricas de cliente e bordas de Work Orders falsas (a camada é real, as bordas não).</div></div>
+            <div class="ev-row"><div class="ev-body"><span class="sev ok">ÚNICA REAL</span> O relatório identifica <strong>uma única integração genuinamente real</strong> em todo o app.</div></div>
+          </article>
+
+          <article class="card">
+            <h3>🔌 Inventário de endpoints</h3>
+            <div class="ev-row"><div class="ev-body"><strong>15 endpoints chamados pelo app</strong> — <strong>todos interceptados</strong>, nenhum chega a backend.</div></div>
+            <div class="ev-row"><div class="ev-body"><strong>Endpoints especificados em ADR e nunca implementados em lugar nenhum</strong> — nem mock, nem cliente. Não existem nem na ficção.</div></div>
+          </article>
+
+          <article class="card gray">
+            <h3>📁 Estrutura do relatório de origem</h3>
+            <p>Além do consolidado acima, o documento traz a análise ADR a ADR (ADR-001 a ADR-012, com status individual e o que de cada um ficou por fazer), o detalhamento dos 15 endpoints e o backlog v1.1/v1.2 item a item. Consulte o arquivo de origem para o detalhe por ADR.</p>
+          </article>
+
+        </div>
+      </main>
+
+      <footer class="footer">
+        <strong>MYIO</strong>
+        <span>3 · myio-app-5.2.0.git — <span class="mono" style="background:transparent;color:#fff;">docs/GAP-ANALYSIS.md</span></span>
+        <span style="opacity:0.75;">2026-07-24 · 367 linhas de origem</span>
+      </footer>
+    </section>
+
+    <!-- ══════════════════ 4 · DATA-INGESTION-PROD ══════════════════ -->
+    <section class="page" id="ingestion">
+      <header class="hero-sm">
+        <div>
+          <div class="hs-brand">4 · data-ingestion-prod.git</div>
+          <div class="hs-title">PENDENCIAS-E-MELHORIAS.md — risco de perda de dado em produção</div>
+        </div>
+        <div class="hs-right">
+          <span class="hs-pill">5 de 7 críticas</span>
+          <span class="hs-pill">268 linhas</span>
+        </div>
+      </header>
+
+      <main class="content">
+        <div class="col-stack">
+
+          <section class="headline">
+            <h2>data-ingestion-prod — a frente de maior risco operacional</h2>
+            <p>É o único dos cinco relatórios cuja severidade máxima é definida como <strong>"risco de perda de dado / incidente em produção"</strong> — e <strong>cinco das sete pendências do sumário executivo estão nesse nível</strong>. Não é dívida de documentação: é ingestão que pode estar perdendo batches silenciosamente agora.</p>
+          </section>
+
+          <div class="limits">
+            <h3>⚠️ Limites declarados pelo relatório</h3>
+            <div class="lim-sub">Método declarado no cabeçalho — o mais explícito dos cinco quanto a como resolve conflitos</div>
+            <ul>
+              <li><strong>Método declarado:</strong> <em>"varredura de todos os <code>.md</code>/RFCs do monorepo + conferência contra o código (marcadores <code>TODO</code>, arquivos citados, flags e configs)"</em>.</li>
+              <li><strong>Regra de desempate explícita — a mais rigorosa do conjunto:</strong> <em>"Onde o doc e o código divergem, o <strong>código manda</strong> — essas divergências estão marcadas com ⚠️ <em>doc desatualizado</em>."</em> É exatamente a postura que as auditorias do GCDR e do js-library tiveram que descobrir na marra.</li>
+              <li><strong>Branch de referência declarada:</strong> <code>ed-812-workflow-fixs-presetup</code> — não é <code>main</code> nem <code>desenv</code>. Os achados valem para essa branch.</li>
+              <li><strong>Incerteza embutida no próprio vocabulário dos achados.</strong> Quatro das sete pendências críticas usam linguagem hipotética — <em>"possivelmente replicado 6×"</em>, <em>"índice único não confirmado"</em>, <em>"CAgg possivelmente desatualizada"</em>, <em>"pode não conflitar"</em>. O autor está sinalizando que <strong>faltou acesso a produção para confirmar</strong>; §1.3 chega a exigir "medição que precisa existir antes de qualquer 'resolvido'". Trate-as como <strong>hipóteses de alto risco a verificar</strong>, não como fatos estabelecidos.</li>
+              <li><strong>Três documentos da RFC-0004 estão <code>untracked</code> hoje</strong> (RFC principal, dois feedbacks e o runbook <code>0004-phase0-runbook.sql</code>) — ou seja, não versionados.</li>
+            </ul>
+          </div>
+
+          <article class="card red">
+            <h3>🚨 Sumário executivo — as 7 pendências que importam</h3>
+            <div class="map-wrap"><div class="map-scroll">
+              <table class="map-table">
+                <thead><tr>
+                  <th style="width:5%">#</th><th style="width:63%">Pendência</th><th style="width:12%">Sev</th><th style="width:20%">Onde</th>
+                </tr></thead>
+                <tbody>
+                  <tr class="row-warn"><td>1</td><td><strong>Ingestão perde batches silenciosamente</strong> — QoS 1 com auto-ack + handler que só loga</td><td><span class="sev crit">🔴</span></td><td>RFC-0004 §3.8</td></tr>
+                  <tr class="row-warn"><td>2</td><td><strong>Pool <code>max:20</code> × ~6 réplicas = 120 &gt; <code>max_connections</code> 100</strong> — orçamento de conexões estourado no papel</td><td><span class="sev crit">🔴</span></td><td>RFC-0004 §2.3</td></tr>
+                  <tr class="row-warn"><td>3</td><td><strong>Poller/subscriber possivelmente replicado 6×</strong> sem shared-subscription → fan-out de 6×</td><td><span class="sev crit">🔴</span></td><td>RFC-0004 §2.1</td></tr>
+                  <tr class="row-warn"><td>4</td><td><strong>Índice único de <code>energy_readings</code> não confirmado</strong> → <code>ON CONFLICT DO NOTHING</code> pode não conflitar; idempotência de backfill/replay em risco</td><td><span class="sev crit">🔴</span></td><td>RFC-0004 §2.2</td></tr>
+                  <tr class="row-warn"><td>5</td><td><strong>CAgg possivelmente meses desatualizada</strong> — jobs zumbis de 96 e 358 dias, sem nenhum alerta de freshness</td><td><span class="sev crit">🔴</span></td><td>RFC-0004 §3.9/§9</td></tr>
+                  <tr><td>6</td><td><strong>RFC-0003 fase 5 travada na Ingestion</strong> — o presetup já envia <code>channels</code>, o backend não tem schema</td><td><span class="sev warn">🟠</span></td><td>RFC-0003 §5</td></tr>
+                  <tr><td>7</td><td><strong><code>myio-js-library</code> pinada em pré-release <code>0.1.521-homolog.0</code></strong> sem fallback local para os geradores de código</td><td><span class="sev warn">🟠</span></td><td>PRESETUP-OVERVIEW §13.4</td></tr>
+                </tbody>
+              </table>
+            </div></div>
+            <p class="tbl-cap">Os itens 1 e 4 são os mais insidiosos: ambos falham <strong>em silêncio</strong>. Perda de batch sem erro e deduplicação que não deduplica não produzem alarme — só dado errado meses depois.</p>
+          </article>
+
+          <article class="card amber">
+            <h3>🟠 Pré-Setup / GCDR — RFCs parados</h3>
+            <div class="ev-row"><div class="ev-body"><strong>RFC-0001</strong> — <code>@myio/presetup-sdk</code>, o componente embutível de 1 gateway.</div></div>
+            <div class="ev-row"><div class="ev-body"><strong>RFC-0002</strong> — GCDR como âncora do estado de sync.</div></div>
+            <div class="ev-row"><div class="ev-body"><strong>RFC-0003</strong> — modelo de canais por placa; a <strong>fase 5 está travada</strong> (item 6 do sumário).</div></div>
+            <div class="ev-row"><div class="ev-body"><span class="sev warn">PADRÃO</span> Dois documentos declaram "próximos passos" e têm <strong>nenhum concluído</strong>: <code>device-types-mapping.md</code> (§2.4) e <code>presetup-import-schema-comparison.md</code> (§2.6). Somado à migração para o <code>gcdr-frontend</code> (§2.5), a frente de Pré-Setup está parada em bloco.</div></div>
+          </article>
+
+          <article class="card">
+            <h3>🟡 Backend &amp; Dashboard</h3>
+            <div class="ev-row"><div class="ev-body"><strong><code>docs/analytics-design.md</code> — design de 6 semanas, <strong>0 implementado</strong></strong> (§3.4). É o maior bloco de especificação sem contrapartida em código deste repo.</div></div>
+            <div class="ev-row"><div class="ev-body"><strong>Profiles &amp; Groups</strong> (§3.1) · <strong><code>TODO</code>s reais no código do backend</strong> (§3.2) · <strong><code>presetup-store.ts:1787–1797</code></strong> (§3.3) · <strong><code>packages/goals-backend</code></strong> (§3.5).</div></div>
+          </article>
+
+          <article class="card gray">
+            <h3>📁 Estrutura do relatório de origem</h3>
+            <p>Além do consolidado acima, o documento traz a investigação independente sobre <em>jobs zumbis</em> (§1.4), o estado fase a fase da RFC-0004 (§1.2), a frente de <strong>dados &amp; reconciliação SCDE</strong> com suas pendências transversais (§4), a higiene do repositório (§5) e uma <strong>ordem de ataque sugerida</strong> (§6). Consulte o arquivo de origem para o detalhe operacional.</p>
+          </article>
+
+        </div>
+      </main>
+
+      <footer class="footer">
+        <strong>MYIO</strong>
+        <span>4 · data-ingestion-prod.git — <span class="mono" style="background:transparent;color:#fff;">docs/PENDENCIAS-E-MELHORIAS.md</span></span>
+        <span style="opacity:0.75;">2026-07-24 · 268 linhas de origem · branch <span class="mono" style="background:transparent;color:#fff;">ed-812-workflow-fixs-presetup</span></span>
+      </footer>
+    </section>
+
+    <!-- ══════════════════ 5 · MYIO-JS-LIBRARY ══════════════════ -->
+    <section class="page" id="jslib">
+      <header class="hero-sm">
+        <div>
+          <div class="hs-brand">5 · myio-js-library-PROD.git</div>
+          <div class="hs-title">RFC-AUDIT-nao-implementados.md — 277 arquivos, 171 RFCs distintos</div>
+        </div>
+        <div class="hs-right">
+          <span class="hs-pill">57% sem Status</span>
+          <span class="hs-pill">530 linhas</span>
+        </div>
+      </header>
+
+      <main class="content">
+        <div class="col-stack">
+
+          <section class="headline">
+            <h2>myio-js-library — o campo <code>Status</code> erra nas duas direções</h2>
+            <p>Auditoria do maior corpus documental do grupo: <strong>277 arquivos <code>.md</code></strong> em <code>docs/rfcs/</code>, correspondendo a <strong>171 RFCs distintos</strong> (o número é inflado por companions <code>.draft</code>/<code>.rev</code>/<code>-feedback</code>/<code>-plan</code>). Sua tese: <strong>o campo <code>Status:</code> não é evidência — é uma alegação a ser testada</strong>. E erra nos dois sentidos: há RFCs que declaram entrega e não entregaram, e RFCs entregues que ainda se declaram não-construídos.</p>
+          </section>
+
+          <div class="limits">
+            <h3>⚠️ Limites declarados pelo relatório</h3>
+            <div class="lim-sub">É o mais quantificado dos cinco quanto à própria cobertura — e o único que declara o próprio viés</div>
+            <ul>
+              <li><strong>Cobertura, em números:</strong> <strong>~32 RFCs verificados a fundo</strong> (definição + consumidor + <code>arquivo:linha</code>); <strong>~88 aceitos pelo valor de face</strong> (os que se auto-declaram não construídos); <strong>~14 que alegam entrega e nunca foram testados</strong>.</li>
+              <li><strong>~157 arquivos (57% do corpus) não têm campo <code>Status</code> utilizável</strong> e ficaram fora da triagem — incluindo documentos canônicos (0128, 0180-0182, 0186, 0196). <strong>Mais da metade do corpus não foi classificada.</strong></li>
+              <li><strong>Proveniência não pôde ser estabelecida</strong> — <code>git</code> ficou fora de escopo. Isso significa que a falha exata que motivou o padrão de evidência (testes escritos minutos antes sendo citados como prova de que a lacuna já estava fechada) <strong>é indetectável por esta auditoria</strong>.</li>
+              <li><strong>Verificação apenas estática</strong>, sem runtime; varredura de consumidores restrita a <code>src/</code>.</li>
+              <li><strong>Viés autodeclarado:</strong> como <strong>9 dos RFCs do bucket "declarado não implementado" que ele tocou estavam, na verdade, implementados</strong>, o relatório afirma que <strong>quase certamente há mais entre os ~88 que não examinou</strong> — e registra isso como sua maior limitação conhecida, em vez de deixar o bucket parecer limpo.</li>
+            </ul>
+          </div>
+
+          <article class="card red">
+            <h3>🚨 Divergências Status × código <span class="sev crit">verificadas com <code>arquivo:linha</code></span></h3>
+            <div class="ev-row"><div class="ev-body"><span class="sev crit">ALTA</span> <strong>1 · RFC-0207 no v-5.4.0 — o mesmo bug, realocado.</strong> O caso que originou todo o padrão de evidência: o cabeçalho declarava a Phase B entregue e o modal como <code>view/edit/preview/save</code>, mas <code>saveDeviceClassificationProfile</code> era <strong>só consumido, nunca definido</strong> — o botão "Salvar" lançava em runtime. O v-5.2.0 <strong>foi corrigido</strong> (<code>MAIN_VIEW/controller.js:8282</code> define via <code>rfc0207SaveActiveProfile</code>). Mas <code>v-5.4.0/controller.js:431</code> <strong>consome e ninguém define</strong> — e o v-5.4.0 é single-controller, não herda o MAIN_VIEW. <strong>O bug não foi eliminado; mudou de lugar.</strong></div></div>
+            <div class="ev-row"><div class="ev-body"><span class="sev crit">ALTA</span> <strong>2 · O gate de bundle é ficção.</strong> <code>dist/myio-js-library.umd.min.js</code> = <strong>5.459 KB</strong> contra um limite documentado de <strong>25 KB</strong> — <strong>~218× estourado</strong>. A causa de passar despercebido: <code>size-check</code> existe como script mas <strong>nunca é chamado</strong> por <code>build</code>/<code>prebuild</code>/<code>postbuild</code>/<code>test</code>/<code>release</code>. O <code>CLAUDE.md</code> afirma que o limite é <em>"enforced"</em>.</div></div>
+            <div class="ev-row"><div class="ev-body"><span class="sev warn">ATENÇÃO</span> <strong>3 · RFC-0226 — stub em produção.</strong> <code>alert('KPI modal functionality to be implemented')</code> intacto em <code>EnergyModalView.ts:1485</code>, exatamente nas linhas que o RFC manda remover, <strong>dentro do código da biblioteca publicada</strong>.</div></div>
+            <div class="ev-row"><div class="ev-body"><span class="sev warn">ATENÇÃO</span> <strong>4 · RFC-0224 — evento no vácuo.</strong> <code>myio:token-expired</code> é disparado em <strong>3 lugares</strong> e escutado em <strong>zero</strong>. Nenhum <code>authScopeId</code>, <code>session-refreshed</code> ou single-flight existe. O RFC diagnosticou exatamente isso e foi aprovado; nada se moveu.</div></div>
+            <div class="ev-row"><div class="ev-body"><span class="sev warn">ATENÇÃO</span> <strong>5 · RFC-0223 meio-construído</strong> (código tem <code>granularity: '1d'|'1h'</code>; o RFC exige <code>ReportMode = 'consolidado'|'1d'|'1h'</code> + seções colapsáveis) e <strong>RFC-0225 inteiramente ausente</strong>.</div></div>
+          </article>
+
+          <article class="card amber">
+            <h3>🔄 Obsoletos na direção OPOSTA — implementados, mas declarando não-construído</h3>
+            <p>Nove RFCs entregaram e o documento nunca foi atualizado. É a face menos óbvia do mesmo problema: gera <strong>retrabalho</strong> (alguém "implementa" o que já existe) e <strong>infla o backlog artificialmente</strong>.</p>
+            <div class="ev-row"><div class="ev-body"><strong>RFC-0200</strong> — <code>deviceIcons</code> está publicado em <code>src/utils/devices/deviceIcons.ts</code> e é consumido em produção; as 4 cópias de <code>DEVICE_TYPE_CONFIG</code> que ele vinha consolidar já não existem.</div></div>
+            <div class="ev-row"><div class="ev-body"><strong>RFC-0214</strong> — os três botões do header estão em <code>HeaderShoppingView.ts:194-196</code> e os três orquestradores foram construídos no v-5.4.0.</div></div>
+            <div class="ev-row"><div class="ev-body">Mais: <strong>RFC-0227</strong> (implementado e mergeado, mas o texto ainda diz <em>"design only"</em>), <strong>0222, 0217, 0203, 0205, 0116</strong> e <strong>0152-Fase 4</strong>.</div></div>
+          </article>
+
+          <article class="card">
+            <h3>📊 Distribuição do corpus</h3>
+            <div class="map-wrap"><div class="map-scroll">
+              <table class="map-table">
+                <thead><tr><th style="width:58%">Bucket</th><th style="width:20%">Arquivos</th><th style="width:22%">Tratamento</th></tr></thead>
+                <tbody>
+                  <tr><td><strong>A</strong> — auto-declaram NÃO construído (Draft / Proposed / Ready-for-Implementation / design-only)</td><td>~88</td><td>Valor de face</td></tr>
+                  <tr><td><strong>B</strong> — alegam entrega (Implemented / PRODUCTION READY / SHIP READY)</td><td>~32</td><td>Verificação profunda</td></tr>
+                  <tr class="row-unk"><td><strong>C</strong> — <strong>sem campo <code>Status</code> utilizável</strong></td><td><strong>~157 (57%)</strong></td><td><span class="sev unk">Não coberto</span></td></tr>
+                </tbody>
+              </table>
+            </div></div>
+            <p class="tbl-cap">A verificação profunda foi deliberadamente concentrada no bucket B — é onde a superdeclaração se esconde. O bucket C, maioria absoluta do corpus, permanece inexplorado.</p>
+          </article>
+
+        </div>
+      </main>
+
+      <footer class="footer">
+        <strong>MYIO</strong>
+        <span>5 · myio-js-library-PROD.git — <span class="mono" style="background:transparent;color:#fff;">docs/rfcs/RFC-AUDIT-nao-implementados.md</span></span>
+        <span style="opacity:0.75;">2026-07-24 · 530 linhas de origem</span>
+      </footer>
+    </section>
+
+    <!-- ══════════════════ 6 · TEMAS TRANSVERSAIS ══════════════════ -->
+    <section class="page" id="transversais">
+      <header class="hero-sm">
+        <div>
+          <div class="hs-brand">6 · Síntese</div>
+          <div class="hs-title">Temas transversais — padrões com evidência em ≥2 repositórios</div>
+        </div>
+        <div class="hs-right">
+          <span class="hs-pill">5 padrões</span>
+        </div>
+      </header>
+
+      <main class="content">
+        <div class="col-stack">
+
+          <section class="headline">
+            <h2>O que se repete entre repositórios</h2>
+            <p>Regra aplicada nesta síntese: <strong>um tema só é afirmado quando pelo menos dois repositórios o evidenciam</strong>, e os repositórios que o sustentam são nomeados. Observações válidas para um único repo ficaram na seção dele.</p>
+          </section>
+
+          <article class="card red">
+            <h3>1 · A documentação de status mente — e nas duas direções <span class="sev crit">4 de 5 repos</span></h3>
+            <p>O padrão mais disseminado do conjunto. Não é um repo desleixado: é uma falha sistêmica de processo.</p>
+            <div class="ev-row"><div class="ev-body"><strong>gcdr</strong> — <em>"há docs em <code>Draft</code> cujo código já está em <code>desenv</code>, e docs em <code>Implemented</code> que nunca foram mergeados"</em>. O autor chega a alertar que tratar RFC-0002/0013/0014/0016 como backlog real <strong>inflaria o backlog artificialmente</strong>.</div></div>
+            <div class="ev-row"><div class="ev-body"><strong>myio-js-library</strong> — RFC-0207 declarava Phase B entregue com um método que não existia; e <strong>9 RFCs</strong> estão implementados enquanto ainda se declaram não-construídos.</div></div>
+            <div class="ev-row"><div class="ev-body"><strong>myio-app-5.2.0</strong> — ADR-002 está <em>"Pending Approval"</em> no documento e <strong>"Implementado" no <code>CLAUDE.md</code></strong>; quatro ADRs têm o status nunca atualizado.</div></div>
+            <div class="ev-row"><div class="ev-body"><strong>alarms-backend</strong> — a forma mais grave: <code>FRENTES-FUTURAS.md</code> classifica como não implementadas <strong>~10 entregas que estão em produção</strong>.</div></div>
+            <p class="tbl-cap"><strong>Consequência prática:</strong> nenhum planejamento pode partir do campo <code>Status</code> sem conferir código. Os dois relatórios que já nascem com essa regra explícita — <strong>data-ingestion</strong> (<em>"onde doc e código divergem, o código manda"</em>) e <strong>gcdr</strong> (evidência tripla) — são os que menos sofreram com isso.</p>
+          </article>
+
+          <article class="card amber">
+            <h3>2 · Código escrito, entregue pela metade, e inalcançável <span class="sev warn">3 repos</span></h3>
+            <p>Não é trabalho que falta: é trabalho <strong>feito</strong> que nunca foi conectado. Falha silenciosamente — a função existe, então uma busca por símbolo dá "presente".</p>
+            <div class="ev-row"><div class="ev-body"><strong>alarms-backend</strong> — <code>broadcastAlarmCreated</code> existe <strong>sem chamador</strong>: todo o "tempo real" prometido em três documentos está morto. E o filtro <code>actorType</code> é aceito no Zod/Swagger e <strong>ignorado no handler</strong>.</div></div>
+            <div class="ev-row"><div class="ev-body"><strong>myio-js-library</strong> — <code>saveDeviceClassificationProfile</code> consumido e nunca definido (v-5.4.0, ainda hoje); <code>myio:token-expired</code> disparado 3× e escutado 0×; o handler do campo <code>combinedContains</code> existe no modal <strong>sem nenhum elemento que o emita</strong>.</div></div>
+            <div class="ev-row"><div class="ev-body"><strong>data-ingestion</strong> — RFC-0003 fase 5: o presetup <strong>já envia</strong> <code>channels</code>, o backend não tem schema para recebê-los. Meia ponte construída dos dois lados.</div></div>
+            <p class="tbl-cap"><strong>Lição de método:</strong> por isso a auditoria do js-library adotou <em>alcançabilidade</em> como critério — um símbolo definido só conta se algo o alcança. Um <code>grep</code> que encontra a função não prova que a feature funciona.</p>
+          </article>
+
+          <article class="card amber">
+            <h3>3 · Portões de qualidade que existem e não rodam <span class="sev warn">2 repos</span></h3>
+            <div class="ev-row"><div class="ev-body"><strong>myio-js-library</strong> — <code>size-check</code> existe, está documentado como <em>"enforced"</em> no <code>CLAUDE.md</code>, e <strong>nenhum script do <code>package.json</code> o chama</strong>. Resultado: o bundle está <strong>~218× acima</strong> do limite sem que ninguém percebesse.</div></div>
+            <div class="ev-row"><div class="ev-body"><strong>gcdr</strong> — <code>docs/rfc-0022-ci-quality-gates</code> está pronta e <strong>parada em branch</strong>: <em>"CI de verdade nas branches do frontend"</em> continua não existindo.</div></div>
+            <p class="tbl-cap">Um portão que não executa é pior que portão nenhum: cria a <strong>ilusão</strong> de controle e desloca a atenção.</p>
+          </article>
+
+          <article class="card">
+            <h3>4 · Valor pronto, parado em branch <span class="sev warn">2 repos</span></h3>
+            <div class="ev-row"><div class="ev-body"><strong>gcdr</strong> — <strong>quatro PRs de feature</strong> revisados e parados (<code>central-wifi-command</code>, <code>signal-topology</code>, <code>rfc-0045-email-ingestion</code>, <code>rfc-0050-presetup</code>). O autor: <em>"É estoque de valor parado."</em> Some-se a <code>main</code> congelada desde janeiro/2026, <strong>543 commits</strong> atrás de <code>desenv</code> nos dois repos.</div></div>
+            <div class="ev-row"><div class="ev-body"><strong>data-ingestion</strong> — os três documentos da RFC-0004 (RFC, dois feedbacks e o runbook) estão <strong><code>untracked</code></strong>: trabalho de diagnóstico aprovado em duas rodadas de review que sequer está versionado.</div></div>
+          </article>
+
+          <article class="card red">
+            <h3>5 · As falhas mais caras são as silenciosas <span class="sev crit">3 repos</span></h3>
+            <p>Um recorte por <em>modo de falha</em>, não por origem. O que estes achados têm em comum é que <strong>não produzem erro</strong> — produzem número errado, meses depois.</p>
+            <div class="ev-row"><div class="ev-body"><strong>data-ingestion</strong> — ingestão perde batches <strong>sem erro</strong> (QoS 1 auto-ack + handler que só loga); <code>ON CONFLICT DO NOTHING</code> que <strong>pode não conflitar</strong>; CAgg possivelmente meses desatualizada <strong>sem alerta de freshness</strong>.</div></div>
+            <div class="ev-row"><div class="ev-body"><strong>alarms-backend</strong> — <code>closedBy</code>/<code>acknowledgedBy</code>/<code>resolutionTimeMinutes</code> nunca persistidos: <strong>MTTR sempre <code>null</code></strong>, uma métrica que parece existir e nunca existiu.</div></div>
+            <div class="ev-row"><div class="ev-body"><strong>myio-app-5.2.0</strong> — ações de módulo que <strong>fingem sucesso</strong>: a UI confirma operações que nunca saíram do dispositivo. E duas cópias de estado falso que <strong>divergem em runtime</strong>.</div></div>
+            <p class="tbl-cap">Priorizar por severidade declarada tende a subestimar esta classe. Nenhum destes gera incidente hoje — todos corrompem decisão amanhã.</p>
+          </article>
+
+          <article class="card gray">
+            <h3>⚖️ Sobre somar os cinco relatórios</h3>
+            <p><strong>Nenhum total cross-repo foi derivado nesta consolidação</strong>, e isso é deliberado. As unidades não são comparáveis: "43 achados" (gcdr) conta itens de RFC; "~214 pendências" (alarms-backend) soma tarefas granulares; "171 RFCs" (js-library) conta documentos, dos quais 57% sequer foram classificados; "7 pendências" (data-ingestion) é um sumário executivo sobre um corpo maior; e myio-app conta módulos e endpoints, não RFCs. Somá-los produziria um número com aparência de precisão e <strong>nenhum significado</strong>. Todo valor exibido nesta página é <strong>citação direta do relatório de origem</strong>.</p>
+          </article>
+
+        </div>
+      </main>
+
+      <footer class="footer">
+        <strong>MYIO</strong>
+        <span>6 · Síntese cross-repo — padrões com evidência em ≥2 repositórios</span>
+        <span style="opacity:0.75;">2026-07-24</span>
+      </footer>
+    </section>
+
+    <!-- ══════════════════ 7 · FONTES ══════════════════ -->
+    <section class="page" id="fontes">
+      <header class="hero-sm">
+        <div>
+          <div class="hs-brand">7 · Rastreabilidade</div>
+          <div class="hs-title">Fontes — de onde vem cada afirmação desta página</div>
+        </div>
+        <div class="hs-right">
+          <span class="hs-pill">5 relatórios</span>
+          <span class="hs-pill">2.093 linhas</span>
+        </div>
+      </header>
+
+      <main class="content">
+        <div class="col-stack">
+
+          <article class="card">
+            <h3>📚 Os cinco relatórios de origem</h3>
+            <div class="map-wrap"><div class="map-scroll">
+              <table class="map-table">
+                <thead><tr>
+                  <th style="width:6%">#</th><th style="width:24%">Repositório</th><th style="width:44%">Caminho</th><th style="width:12%">Linhas</th><th style="width:14%">Seção</th>
+                </tr></thead>
+                <tbody>
+                  <tr><td>1</td><td><strong>gcdr.git</strong><br>+ gcdr-frontend.git</td><td class="mono">docs/RFC-STATUS-GAP-ANALYSIS.md</td><td>200</td><td><a href="#gcdr">→ GCDR</a></td></tr>
+                  <tr><td>2</td><td><strong>alarms-backend.git</strong></td><td class="mono">docs/AUDITORIA-RFCS-PENDENCIAS.md</td><td><strong>728</strong></td><td><a href="#alarms">→ alarms</a></td></tr>
+                  <tr><td>3</td><td><strong>myio-app-5.2.0.git</strong></td><td class="mono">docs/GAP-ANALYSIS.md</td><td>367</td><td><a href="#app">→ app</a></td></tr>
+                  <tr><td>4</td><td><strong>data-ingestion-prod.git</strong></td><td class="mono">docs/PENDENCIAS-E-MELHORIAS.md</td><td>268</td><td><a href="#ingestion">→ ingestion</a></td></tr>
+                  <tr><td>5</td><td><strong>myio-js-library-PROD.git</strong></td><td class="mono">docs/rfcs/RFC-AUDIT-nao-implementados.md</td><td>530</td><td><a href="#jslib">→ js-library</a></td></tr>
+                  <tr class="row-warn"><td colspan="3"><strong>Total consolidado</strong></td><td><strong>2.093</strong></td><td>—</td></tr>
+                </tbody>
+              </table>
+            </div></div>
+          </article>
+
+          <article class="card gray">
+            <h3>🧭 Como ler esta consolidação</h3>
+            <ul>
+              <li><strong>Nada aqui substitui a leitura do original quando a decisão for cara.</strong> Cada seção preserva os achados principais e as evidências <code>arquivo:linha</code>, mas os relatórios trazem detalhe por RFC/ADR que não cabe numa página só — os cards cinzas "Estrutura do relatório de origem" indicam o que ficou de fora.</li>
+              <li><strong>Os limites declarados por cada relatório estão preservados</strong>, em bloco próprio, no topo de cada seção. Onde um relatório <strong>não</strong> declara a própria cobertura (caso do alarms-backend), isso está dito explicitamente — a ausência da ressalva é, ela mesma, informação.</li>
+              <li><strong>As severidades não são intercambiáveis entre repos.</strong> Cada relatório usa a própria escala; a legenda unificada desta página aproxima, não converte.</li>
+              <li><strong>Data de geração:</strong> 2026-07-24. Os cinco relatórios foram gerados entre 2026-07-23 e 2026-07-24 e refletem o estado das branches declaradas em cada seção — não necessariamente <code>main</code>.</li>
+            </ul>
+          </article>
+
+        </div>
+      </main>
+
+      <footer class="footer">
+        <strong>MYIO</strong>
+        <span>7 · Fontes e rastreabilidade</span>
+        <span style="opacity:0.75;">2026-07-24 · consolidação de 5 relatórios / 2.093 linhas</span>
+      </footer>
+    </section>
+
+  </div>
+
+  <button class="backtop" id="backtop" type="button" title="Voltar ao topo">↑</button>
+
+  <script>
+    (function () {
+      var nav = document.getElementById('nv');
+      var links = nav ? Array.prototype.slice.call(nav.querySelectorAll('a')) : [];
+      var targets = links.map(function (a) { return document.querySelector(a.getAttribute('href')); });
+
+      function onScroll() {
+        var best = -1, bestTop = -Infinity;
+        for (var i = 0; i < targets.length; i++) {
+          if (!targets[i]) continue;
+          var top = targets[i].getBoundingClientRect().top - 110;
+          if (top <= 0 && top > bestTop) { bestTop = top; best = i; }
+        }
+        links.forEach(function (a, i) { a.classList.toggle('active', i === best); });
+        var bt = document.getElementById('backtop');
+        if (bt) bt.classList.toggle('show', window.scrollY > 500);
+      }
+      window.addEventListener('scroll', onScroll, { passive: true });
+      window.addEventListener('resize', onScroll);
+      onScroll();
+
+      var bt = document.getElementById('backtop');
+      if (bt) bt.addEventListener('click', function () { window.scrollTo({ top: 0, behavior: 'smooth' }); });
+
+      function setAll(open) {
+        Array.prototype.forEach.call(document.querySelectorAll('details.det'), function (d) { d.open = open; });
+      }
+      var be = document.getElementById('btn-expand');
+      var bc = document.getElementById('btn-collapse');
+      if (be) be.addEventListener('click', function () { setAll(true); });
+      if (bc) bc.addEventListener('click', function () { setAll(false); });
+    })();
+  </script>
+</body>
+</html>
