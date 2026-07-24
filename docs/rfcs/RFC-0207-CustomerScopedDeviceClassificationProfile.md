@@ -1301,7 +1301,7 @@ Cada regra de categoria (`domains.<domain>.categories.rules[]`) ganha um campo *
 deviceOverrides?: Array<{
   id: string;              // TB entity id — mesma chave de `excludeDevicesAtCountSubtotalCAG`
   label?: string;          // guardado só para exibição/resiliência na UI
-  mode: 'include' | 'exclude';
+  mode: 'include' | 'exclude' | 'parent';  // `parent` adicionado em 2026-07-24 — ver §DE-G
 }>;
 ```
 
@@ -1318,8 +1318,9 @@ apaga a chave quando a lista esvazia).
 
 | modo | efeito |
 | --- | --- |
-| `include` | O device **agrega nesta categoria mantendo o seu grupo**. `resolveGroup` não muda: o total da coluna Entrada fica **idêntico**. Ele é apenas somado a mais nos itens/total da categoria do breakdown. |
+| `include` | O device **agrega nesta categoria mantendo o seu grupo** (feed **paralelo**). `resolveGroup` não muda: o total da coluna Entrada fica **idêntico**. Ele é apenas somado a mais nos itens/total da categoria do breakdown. |
 | `exclude` | O device sai do breakdown **inteiro**. **Não** cai em `outros` nem em bucket nenhum. |
+| `parent` | O device **contém** a composição da categoria (ver **§DE-G**): o valor DELE vira o total da categoria e a composição auto-classificada é o **breakdown aninhado**, **não somado por cima** (evita a dupla contagem). Grupo inalterado (Entrada intacta), como no `include`. |
 
 Por que `exclude` não cai em `outros`: o `exclude` existe para **dupla medição** — a bomba já
 está dentro da leitura do trafo. Roteá-la para `outros` seria recontá-la, que é exatamente o
@@ -1434,6 +1435,93 @@ anterior.
 O clamp em 0 **fica** — mas um `residualRaw` negativo agora significa problema real de
 dado/configuração (soma dos subtotais maior que o total do grupo), não artefato deste recurso.
 Por isso ele é logado uma vez por sessão (`LogHelper.warn`) com os números, em vez de sumir.
+
+### DE-G. Modo `parent` — o device CONTÉM a composição (2026-07-24)
+
+`include` resolve o caso da **Ilha** (feed **paralelo**: o trafo da CAG é energia *adicional*, some
+com os submedidores). Mas há o caso oposto, medido ao vivo no **Moxuara**:
+
+```
+CAG-Entrada  (deviceProfile ENTRADA, identifier CAG, grupo entrada)  = 336.600   ← PAI
+  ├─ Chillers 3                                                        = 184.661
+  ├─ Fancoils 14                                                       =  96.046   } composição
+  └─ Bombas  13                                                        =  46.266   } (grupo areacomum)
+                                                                        ---------
+                                                         Σ filhos      = 326.973
+```
+
+`CAG-Entrada` é o medidor de **entrada** da Central de Água Gelada: mede TODA a alimentação da
+CAG. Os submedidores internos (Chillers/Fancoils/Bombas) estão **a jusante** dele — 336.600 ≳
+326.973 (~3% de perda de linha). Não são feeds paralelos: o pai **contém** os filhos.
+
+Com `include` o card mostraria `336.600 + 326.973 = 663.573` — **dupla contagem**. Com a
+composição pura (sem override) mostraria 326.973 e o pai ficaria invisível. O correto é
+**336.600** (o pai), com a composição como **detalhamento aninhado**.
+
+**Schema.** `mode` passa a ser `'include' | 'exclude' | 'parent'` (valor puro, §A respeitada;
+ausente/bundles antigos ⇒ comportamento de antes — a lib antiga coage `parent` → `include`).
+
+**Semântica de `parent` para a Climatização:**
+
+| | `include` (Ilha) | `parent` (Moxuara) |
+|---|---|---|
+| Relação com a composição | **paralelo** | **contém** |
+| Total do card | composição **+** device | **valor do device** (a composição não soma por cima) |
+| Composição | some no total | vira **breakdown aninhado** sob o pai |
+| Grupo do device | inalterado (Entrada intacta) | inalterado (Entrada intacta) |
+
+Mesmo gesto de UI, matemática de total **oposta** — só o operador sabe qual é o caso, por isso é
+escolha **explícita** ("como pai" no picker), nunca inferida.
+
+**Fórmula do total** (MAIN_VIEW `buildSummary`):
+`climatizacaoTotal = hasParent ? Σ(pais) : Σ(filhos)`. Os pais vão para um balde à parte
+(`climatizacaoParentItems`) e **não** entram nem em `climatizacaoItems` nem nas subcategorias;
+`climatizacaoItems` continua sendo só a composição (os filhos). Moxuara: `climatizacaoTotal =
+336.600` (≠ 663.573, ≠ 326.973). Entrada continua `783.750 + 336.600 = 1.120.350` — o pai não
+muda de grupo.
+
+**Fórmula do residual** e a **prevenção da dupla subtração** (o ponto delicado). O modo `parent`
+quebra a premissa `base = total − cross` do §DE-E: quando o card mostra o valor do pai
+(cross-group), `total` **não** é mais a soma dos filhos. Se descontássemos `total − cross` do
+residual daria `336.600 − 336.600 = 0` — e os filhos (326.973), que ESTÃO em `areacomumTotal`,
+ficariam sem desconto. Se descontássemos os dois, o residual cairia por `−336.600`.
+
+A solução: `computeBaseGroupResidual` ganhou `baseGroupContribution` (opcional). Para a
+climatização com pai o `buildSummary` passa:
+
+```
+{ category:'climatizacao',
+  total: 336.600,                         // = card (o pai, cross-group)
+  crossGroupTotal: 336.600,               // o pai — informativo, NUNCA descontado
+  baseGroupContribution: 326.973 }        // os FILHOS de origem-base — o único desconto
+```
+
+`computeBaseGroupResidual` então faz `subtotalFromBaseGroup += baseGroupContribution` em vez de
+`total − cross`. Resultado: **só os filhos (326.973) são descontados, uma vez**; o pai (336.600),
+por ser cross-group, entra apenas em `subtotalCrossGroup` (informativo) e **nunca** toca o
+residual. É exatamente isso que impede o pai E os filhos de baterem no residual cada um:
+`residual = areacomumTotal − 326.973`. No Moxuara `areacomumTotal = 326.973` (só a composição)
+⇒ `residual = 0`, **de verdade** (pré-clamp 0, não negativo mascarado). `baseGroupContribution`
+ausente ⇒ cai em `total − cross` (byte-idêntico ao §DE-E; `include`/sem-override intocados).
+
+Na reconstrução da Área Comum efetiva (quando `excludeGroupsTotals` está ligado), a parcela de
+climatização usada é a dos **filhos** (`Math.max(0, Σfilhos − crossFilhos)`), não a do pai — o pai
+mora em Entrada e somá-lo ali dobraria com `_entradaEff`.
+
+**Tooltip** (TELEMETRY_INFO `buildClimatizacaoContent`). `STATE.consumidores.climatizacao` ganhou
+`parents: [{id,label,total}]` (threaded pelo MAIN_VIEW). Com pai, a **Composição** renderiza uma
+linha `🔌 <label> … <total>` no topo (classe `myio-info-tooltip__category--parent`, "Medidor pai
+da composição") e as subcategorias existentes vão num wrapper `myio-info-tooltip__nested`
+indentado abaixo. Campo ausente/vazio ⇒ composição plana, **byte-idêntica** à de antes.
+
+**Limitação assumida — N pais.** O modelo trata **todos** os pais de uma categoria como cobrindo
+**coletivamente** a composição inteira dela (a composição não é atribuída pai-a-pai). Para o caso
+de **um** pai que cobre toda a Climatização — que é o Moxuara — isso é exato. Com dois ou mais
+pais na mesma categoria, a partição "qual filho está sob qual pai" não é derivável dos dados
+disponíveis; o comportamento resultante (todos os pais somam no total da categoria; toda a
+composição vira o breakdown coletivo) é uma simplificação **documentada**, não um palpite. Se
+esse caso surgir de verdade, é sinal de que falta modelar a topologia com mais estrutura (ex.:
+um pai por sub-árvore), não de forçar heurística.
 
 ### DE-F. Ressalva — isto é um escape hatch, não um método
 
