@@ -1168,11 +1168,22 @@ function _getEnergyGroupKey(it) {
   if (cat === 'escadas_rolantes') return 'escadasRolantes';
   if (cat === 'lojas') return 'lojas';
 
-  // genuine fallback ('outros'): only 3F_MEDIDOR cards are group-filterable as
-  // 'outros'; everything else stays null (always shown).
-  // deviceType em desuso (2026-07-14) — profile apenas
+  // Categoria 'outros' (residual do breakdown): device de ENERGIA desta categoria
+  // — não só 3F_MEDIDOR — é filtrável pelo card "Outros Equipamentos".
+  // BUG histórico (corrigido 2026-07-24): antes só 3F_MEDIDOR retornava 'outros';
+  // bombas hidráulicas, motores, iluminação, incêndio e gerador ficavam null
+  // ("sempre visível", ver filtro em _groupFilterChangedHandler), e o card sequer
+  // recebia data-energy-group (setado só quando a chave é truthy). Resultado:
+  // clicar em "Outros Equipamentos" não filtrava nada. O card conta TODOS eles
+  // (STATE.consumidores.outros), então o filtro precisa casar com essa categoria.
+  //
+  // CONTRATO null preservado: água (HIDROMETRO/TANK/CAIXA) e temperatura
+  // (TERMOSTATO) também resolvem para 'outros' no domínio energy, mas NÃO são
+  // consumidores de energia — mantêm null (sempre visíveis, não filtráveis pelo
+  // grupo de energia). deviceType em desuso (2026-07-14) — profile apenas.
   const dp = String(it.deviceProfile || '').toUpperCase();
-  if (dp === '3F_MEDIDOR') return 'outros';
+  const isWaterOrTemp = /HIDROMETRO|TANK|CAIXA|TERMOSTATO/.test(dp);
+  if (!isWaterOrTemp) return 'outros';
   return null;
 }
 
