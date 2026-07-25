@@ -130,7 +130,7 @@ beforeEach(() => {
 describe('buildClimatizacaoContent — modo parent', () => {
   it('COM pai: renderiza a linha do pai com label e valor', () => {
     expect(htmlWithParent).toContain('CAG-Entrada');
-    expect(htmlWithParent).toContain('Medidor pai da composição');
+    expect(htmlWithParent).toContain('Valor master — composição abaixo');
     expect(htmlWithParent).toContain('336,600 MWh');
     expect(htmlWithParent).toContain('myio-info-tooltip__category--parent');
   });
@@ -162,7 +162,7 @@ describe('buildClimatizacaoContent — modo parent', () => {
 
   it('SEM pai (lista vazia): composição PLANA, sem linha de pai nem wrapper', () => {
     expect(htmlNoParent).not.toContain('myio-info-tooltip__nested');
-    expect(htmlNoParent).not.toContain('Medidor pai da composição');
+    expect(htmlNoParent).not.toContain('Valor master — composição abaixo');
     expect(htmlNoParent).not.toContain('myio-info-tooltip__category--parent');
     expect(htmlNoParent).toContain('Chillers');
   });
@@ -318,7 +318,7 @@ describe('buildClimatizacaoContent — aditividade (estrutura/totais intactos)',
     // esqueleto do modo parent + totais preservados
     expect(stripped).toContain('myio-info-tooltip__category--parent');
     expect(stripped).toContain('CAG-Entrada');
-    expect(stripped).toContain('Medidor pai da composição');
+    expect(stripped).toContain('Valor master — composição abaixo');
     expect(stripped).toContain('myio-info-tooltip__nested');
     expect(stripped).toContain('104,961 MWh'); // pai + header
     expect(stripped).toContain('73,345 MWh');

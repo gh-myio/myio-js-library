@@ -2881,8 +2881,8 @@ function buildClimatizacaoContent() {
           <div class="myio-info-tooltip__category myio-info-tooltip__category--climatizacao myio-info-tooltip__category--parent">
             <span class="myio-info-tooltip__category-icon">🔌</span>
             <div class="myio-info-tooltip__category-info">
-              <div class="myio-info-tooltip__category-name">${_escClim(p.label)}</div>
-              <div class="myio-info-tooltip__category-desc">Medidor pai da composição</div>
+              <div class="myio-info-tooltip__category-name">Grupo ${_escClim(p.label)}</div>
+              <div class="myio-info-tooltip__category-desc">Valor master — composição abaixo</div>
             </div>
             <span class="myio-info-tooltip__category-value">${formatEnergy(p.total || 0)}</span>
           </div>
