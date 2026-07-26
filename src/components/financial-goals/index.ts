@@ -130,3 +130,30 @@ export type {
   ReportMoneyColumn,
   ReportMoneyTotal,
 } from './reportMoneyColumn';
+
+// A7 — per-consumer realized-vs-goal variance in R$ (RFC-0182 rows / RFC-0217 card).
+// Reuses A2a's `subtractDecimals` + A6's `decimalStringToCents`; honors DEC-6
+// withholding (indeterminate/incomplete → "Variação indisponível", never green/red).
+// Naming bridge: `monetaryProjection` (realized R$) vs `currencyBudget` (goal R$) —
+// never the quantity `budget` prop.
+export {
+  computeMoneyVariance,
+  buildMoneyVarianceHTML,
+  renderMoneyVariance,
+  createMoneyVarianceColumn,
+  resolveGoalAmount,
+  overlayWithholdsVerdict,
+  VARIANCE_LABEL_ABOVE,
+  VARIANCE_LABEL_BELOW,
+  VARIANCE_LABEL_ONTARGET,
+  VARIANCE_LABEL_WITHHELD,
+  MONEY_VARIANCE_HEADER,
+} from './moneyVariance';
+export type {
+  MoneyVarianceInput,
+  MoneyVarianceResult,
+  MoneyVarianceVerdict,
+  MoneyVarianceOptions,
+  MoneyVarianceColumn,
+  MoneyVarianceColumnConfig,
+} from './moneyVariance';

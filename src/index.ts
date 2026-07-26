@@ -1065,6 +1065,18 @@ export {
   decimalStringToCents,
   centsToDecimalString,
   REPORT_MONEY_HEADER,
+  // RFC-0228 A7 — per-consumer realized-vs-goal variance in R$ (DEC-6 withholding).
+  computeMoneyVariance,
+  buildMoneyVarianceHTML,
+  renderMoneyVariance,
+  createMoneyVarianceColumn,
+  resolveGoalAmount,
+  overlayWithholdsVerdict,
+  VARIANCE_LABEL_ABOVE,
+  VARIANCE_LABEL_BELOW,
+  VARIANCE_LABEL_ONTARGET,
+  VARIANCE_LABEL_WITHHELD,
+  MONEY_VARIANCE_HEADER,
 } from './components/financial-goals';
 export type {
   MoneyDomain,
@@ -1107,6 +1119,13 @@ export type {
   ReportMoneyColumnConfig,
   ReportMoneyColumn,
   ReportMoneyTotal,
+  // RFC-0228 A7 — per-consumer R$ variance types.
+  MoneyVarianceInput,
+  MoneyVarianceResult,
+  MoneyVarianceVerdict,
+  MoneyVarianceOptions,
+  MoneyVarianceColumn,
+  MoneyVarianceColumnConfig,
 } from './components/financial-goals';
 
 // RFC-0108: Measurement Setup Modal
@@ -1349,6 +1368,8 @@ export type {
   CustomerGoalsSeries,
   CustomerGoalsTotals,
   CustomerGoalsThemeMode,
+  // RFC-0228 A7 — optional R$ variance readout on the card (money naming bridge).
+  CustomerGoalsMoneyVariance,
 } from './components/cards/customer-goals/v1.0.0';
 
 // RFC-0132: EnergyPanel Component
