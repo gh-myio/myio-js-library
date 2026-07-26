@@ -1013,6 +1013,44 @@ export type {
   TariffBandPeriod,
 } from './components/pricing-panel';
 
+// RFC-0228 F0 — Financial Goals money foundation: naming bridge (resolves the
+// 3-way `budget` collision), goals-money API client, and pt-BR BRL formatters.
+// Pure types/client/formatters — no UI (A4/A2a/A3 consume this spine).
+// `formatBRL` is re-exported as `formatMoneyBRL` (takes a decimal STRING) to
+// avoid colliding with the pricing-panel numeric `formatBRL`.
+export {
+  MONEY_REQUIRES_DEVICE_GRANULARITY,
+  normalizeMoneyBlock,
+  normalizeBudgetBlock,
+  GoalsMoneyClient,
+  GoalsMoneyApiError,
+  createGoalsMoneyClient,
+  DASH as MONEY_DASH,
+  formatMoneyBRL,
+  formatBRLDelta,
+  formatDeltaPct,
+  computeDeltaPct,
+  signOf,
+} from './components/financial-goals';
+export type {
+  MoneyDomain,
+  QuantityGoal,
+  GoalTreeNode,
+  MonetaryProjection,
+  CurrencyBudget,
+  BudgetVerdict,
+  BudgetOverlay,
+  MoneyOverlay,
+  UncategorizedDevice,
+  TariffCoverageGaps,
+  RawMoneyBlock,
+  RawBudgetBlock,
+  GoalsMoneyClientConfig,
+  GoalSelector,
+  GoalGranularity,
+  CurrencyBudgetResponse,
+} from './components/financial-goals';
+
 // RFC-0108: Measurement Setup Modal
 export { openMeasurementSetupModal } from './components/premium-modals/measurement-setup';
 
