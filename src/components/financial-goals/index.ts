@@ -40,3 +40,12 @@ export {
   computeDeltaPct,
   signOf,
 } from './moneyFormat';
+
+// A4 — Honest coverage UI (reusable renderer consumed by A2a/A3).
+export {
+  renderCoverageView,
+  buildCoverageHTML,
+  coveragePercentLabel,
+} from './coverageView';
+export type { CoverageViewOptions } from './coverageView';
+export { injectCoverageStyles, COVERAGE_STYLE_ID } from './coverageStyles';

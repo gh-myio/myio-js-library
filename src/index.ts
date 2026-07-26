@@ -1031,6 +1031,12 @@ export {
   formatDeltaPct,
   computeDeltaPct,
   signOf,
+  // RFC-0228 A4 — honest coverage UI (reusable renderer for A2a/A3).
+  renderCoverageView,
+  buildCoverageHTML,
+  coveragePercentLabel,
+  injectCoverageStyles,
+  COVERAGE_STYLE_ID,
 } from './components/financial-goals';
 export type {
   MoneyDomain,
@@ -1049,6 +1055,7 @@ export type {
   GoalSelector,
   GoalGranularity,
   CurrencyBudgetResponse,
+  CoverageViewOptions,
 } from './components/financial-goals';
 
 // RFC-0108: Measurement Setup Modal
