@@ -1,5 +1,39 @@
 // src/components/premium-modals/types.ts
+import type { MoneyOverlay } from '../financial-goals/moneyTypes';
+
 export type ISODate = `${number}-${number}-${number}`; // YYYY-MM-DD
+
+/**
+ * RFC-0228 A6 — optional R$ money overlay for AllReportModal (additive + gated).
+ * When **absent**, the modal renders exactly as before (byte-identical). When
+ * present, an R$ column is shown beside kWh/m³ and an honest footer total is
+ * produced on the DEC-8 rounding contract (GCDR RFC-0054). Amounts are decimal
+ * **strings**; the modal never re-derives or `Number()`-round-trips them.
+ */
+export interface AllReportMoneyConfig {
+  /** Aggregate coverage overlay (F0) — gates whether a numeric total is shown. */
+  overlay: MoneyOverlay;
+  /** Per-device R$ (backend `monetaryValue`, DEC-8 2dp), keyed by device id (ingestionId). */
+  perDevice: Record<string, string | null | undefined>;
+  /** Backend-authoritative aggregate R$ (DEC-8 top-down parent). Preferred for the total. */
+  total?: string | null;
+  /** Optional R$ deviation vs the meta for the report total (A7 owns the per-consumer chip). */
+  variance?: string | null;
+  /** Column header label override (defaults to "Custo projetado (R$)"). */
+  headerLabel?: string;
+  /**
+   * RFC-0228 A7 — per-consumer **goal/budget R$** keyed by device id (ingestionId),
+   * the `currencyBudget` half of the naming bridge (never the quantity `budget`). When
+   * present, an additive "Variação vs meta (R$)" column shows each consumer's
+   * realized-vs-goal variance chip: realized R$ comes from {@link perDevice}
+   * (`monetaryProjection`), the goal from here. Absent → no variance column (the
+   * A6 cost column, if any, is unaffected). Withheld per DEC-6 when coverage is
+   * incomplete / a verdict is indeterminate — never a fabricated number.
+   */
+  perDeviceGoal?: Record<string, string | null | undefined>;
+  /** A7 variance column header override (defaults to "Variação vs meta (R$)"). */
+  varianceHeaderLabel?: string;
+}
 
 export interface DateRange { 
   start: ISODate; 
@@ -89,6 +123,11 @@ export interface OpenAllReportParams {
   theme?: { cssVars(): Record<string, string> } | Record<string, string>;
   /** Nome do customer/shopping exibido no footer premium da modal. */
   customerName?: string;
+  /**
+   * RFC-0228 A6 — optional R$ money overlay. Absent → byte-identical to the
+   * pre-A6 report. Present → an additive R$ column + honest DEC-8 footer total.
+   */
+  money?: AllReportMoneyConfig;
 }
 
 export interface OpenSettingsParams {

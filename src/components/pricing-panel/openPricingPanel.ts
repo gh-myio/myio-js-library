@@ -40,6 +40,8 @@ import {
   upsertEntry,
 } from './helpers';
 import { injectPricingPanelStyles } from './styles';
+import { TariffApiClient } from './tariffApiClient';
+import { TariffApiAdapter } from './tariffApiAdapter';
 
 const MODAL_ID = 'myio-pricing-panel';
 
@@ -149,11 +151,31 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
   const allowed = isPricingAllowed(params.currentUserEmail, isSuperAdmin());
   const customers: PricingCustomerRef[] = params.customers || [];
 
-  // Prototype state (in-memory, hydrated from localStorage + seeds).
+  // RFC-0228 A1 — when a tariff API is configured, persistence goes through the
+  // hourly-tariff adapter and localStorage is NOT the source of truth. When it is
+  // absent, the localStorage prototype path below is byte-identical (the gate).
+  const tariffApi = params.tariffApi;
+  let adapter: TariffApiAdapter | null = null;
+  if (allowed && tariffApi) {
+    const client = new TariffApiClient({
+      baseUrl: tariffApi.baseUrl,
+      apiKey: tariffApi.apiKey,
+      jwt: tariffApi.jwt,
+      tenantId: tariffApi.tenantId,
+      fetchImpl: tariffApi.fetchImpl,
+    });
+    adapter = new TariffApiAdapter(client, { year: tariffApi.year });
+  }
+
+  // Prototype state (in-memory). In the localStorage path it is hydrated from
+  // localStorage + seeds; in the tariff-API path it starts from seeds only and is
+  // (re)hydrated asynchronously from the API — localStorage is never read/written.
   let entries: PricingEntry[] = allowed
-    ? mergeEntries(loadJson<PricingEntry[]>(doc, keyEntries, []), params.initialEntries || [], author)
+    ? adapter
+      ? (params.initialEntries || []).map((e) => ({ ...e }))
+      : mergeEntries(loadJson<PricingEntry[]>(doc, keyEntries, []), params.initialEntries || [], author)
     : [];
-  let auditLog: PricingAuditRecord[] = allowed ? loadJson<PricingAuditRecord[]>(doc, keyAudit, []) : [];
+  let auditLog: PricingAuditRecord[] = allowed && !adapter ? loadJson<PricingAuditRecord[]>(doc, keyAudit, []) : [];
 
   const modal = doc.createElement('div');
   modal.id = MODAL_ID;
@@ -400,10 +422,59 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
       renderList();
     })
   );
+  // RFC-0228 A1 — reload the newly selected customer's tariffs from the API.
+  if (adapter) {
+    customerSel.addEventListener('change', () => {
+      void loadFromApi();
+    });
+  }
   syncPeriodFields();
   syncUnit();
 
-  const persist = (): void => {
+  type PersistChange = { kind: 'upsert' | 'remove'; entry: PricingEntry };
+
+  // Surface an adapter/API failure in the form error box. A version conflict
+  // (RFC-0054 409 TARIFF_VERSION_CONFLICT) is shown, never swallowed.
+  function surfaceApiError(err: unknown): void {
+    const code = (err as { code?: string })?.code;
+    if (code === 'TARIFF_VERSION_CONFLICT') {
+      const cv = (err as { currentVersion?: number }).currentVersion;
+      showError(
+        `Conflito de versão: a tarifa mudou no servidor${
+          cv != null ? ` (versão atual ${cv})` : ''
+        }. Reabra o painel e tente novamente.`
+      );
+      return;
+    }
+    showError(`Falha ao salvar a tarifa no servidor${code ? ` (${code})` : ''}.`);
+  }
+
+  // Reload the selected customer's tariffs from the API and merge into state.
+  async function loadFromApi(): Promise<void> {
+    if (!adapter) return;
+    const customerId = customerSel.value;
+    if (!customerId) return;
+    try {
+      const loaded = await adapter.loadEntriesForCustomer(customerId);
+      entries = entries.filter((e) => e.customerId !== customerId).concat(loaded);
+      renderList();
+    } catch (err) {
+      surfaceApiError(err);
+    }
+  }
+
+  const persist = (changed?: PersistChange): void => {
+    if (adapter) {
+      // Tariff-API path: write through the adapter; never localStorage.
+      if (changed?.kind === 'upsert') {
+        adapter.saveEntry(changed.entry.customerId, changed.entry).catch(surfaceApiError);
+      } else if (changed?.kind === 'remove') {
+        adapter.deleteEntry(changed.entry.customerId, changed.entry).catch(surfaceApiError);
+      }
+      if (typeof params.onSave === 'function') params.onSave(entries.map((e) => ({ ...e })));
+      emit('save', entries.map((e) => ({ ...e })));
+      return;
+    }
     saveJson(doc, keyEntries, entries);
     saveJson(doc, keyAudit, auditLog);
     if (typeof params.onSave === 'function') params.onSave(entries.map((e) => ({ ...e })));
@@ -451,6 +522,11 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
     listEl.querySelectorAll<HTMLButtonElement>('[data-remove]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const [domain, category, boundsKey] = String(btn.getAttribute('data-remove')).split('|');
+        const removedEntry = entries.find((e) => {
+          if (e.customerId !== customerId || e.domain !== domain || e.category !== category) return false;
+          const b = entryBounds(e);
+          return Boolean(b && `${b.start}__${b.end}` === boundsKey);
+        });
         const result = removeEntryByBounds(
           entries,
           {
@@ -463,7 +539,7 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
         );
         entries = result.entries;
         pushAudit(result.audit);
-        persist();
+        persist(removedEntry ? { kind: 'remove', entry: removedEntry } : undefined);
         renderList();
         emit('remove', result.audit);
       });
@@ -512,7 +588,7 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
     }
     entries = result.entries;
     pushAudit(result.audit);
-    persist();
+    persist({ kind: 'upsert', entry: candidate });
     customerSel.value = candidate.customerId;
     domainSel.value = candidate.domain;
     categorySel.value = candidate.category;
@@ -617,6 +693,9 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
   }
 
   renderList();
+
+  // RFC-0228 A1 — initial hydration from the tariff API (localStorage path skips this).
+  if (adapter) void loadFromApi();
 
   return handle;
 }

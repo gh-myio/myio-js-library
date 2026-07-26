@@ -4129,6 +4129,98 @@ body.filter-modal-open { overflow: hidden !important; }
     const totalEl = overlay.querySelector('[data-side-total]');
     const evoStatusEl = overlay.querySelector('[data-evo-status]');
     const evoCanvas = overlay.querySelector('[data-evo-chart]');
+
+    // ── RFC-0228 A2a — overlay de dinheiro (R$) no card, piloto GATED ──────────
+    // Opt-in: só entra quando settings.goalsMoneyApi está configurado (fonte de
+    // dados em R$) E a lib expõe os símbolos novos (getGoalWithMoney/renderer).
+    // Ausente → nada é buscado nem anexado: o painel fica byte-idêntico (só kWh/m³),
+    // sem mudança de comportamento para quem não optou. Espelha o gate do A1
+    // (params.tariffApi religa o pricing panel; aqui settings.goalsMoneyApi liga o R$).
+    const _moneyGate =
+      settings && settings.goalsMoneyApi &&
+      typeof MyIOLibrary?.createGoalsMoneyClient === 'function' &&
+      typeof MyIOLibrary?.renderFinancialIndicators === 'function'
+        ? settings.goalsMoneyApi
+        : null;
+    let _moneyOverlays = new Map(); // tbId -> MoneyOverlay (por load; limpo a cada load)
+    // Anexa (do cache, síncrono) a linha de R$ / a visão de cobertura A4 a cada card
+    // já renderizado. Sem gate/cache → no-op (não toca o DOM).
+    const _appendMoneyRows = () => {
+      if (!_moneyGate || _moneyOverlays.size === 0 || !tableEl) return;
+      tableEl.querySelectorAll('[data-cust-eye]').forEach((eyeBtn) => {
+        const card = eyeBtn.closest('.gc-side-item');
+        if (!card || card.querySelector('.myio-fin, .myio-cov')) return;
+        const overlayData = _moneyOverlays.get(eyeBtn.getAttribute('data-cust-eye'));
+        if (!overlayData) return;
+        try {
+          const el = MyIOLibrary.renderFinancialIndicators({
+            overlay: overlayData,
+            // Cobertura indisponível/incompleta (A4) → deep-link para o painel de tarifas.
+            onManageCategories: () => { try { openPricing(); } catch (_) { /* enfeite */ } },
+          });
+          if (el) card.appendChild(el);
+        } catch (err) {
+          LogHelper.warn('[GoalsCompare] money row render falhou:', err?.message || err);
+        }
+      });
+    };
+    // Busca o overlay de R$ por shopping VIA A LIB (getGoalWithMoney) e popula o
+    // cache; re-renderiza uma vez p/ pintar. Degrada em silêncio (lib/creds/cobertura).
+    const _fetchMoneyOverlays = async (rows, seq) => {
+      if (!_moneyGate) return;
+      const domain = domainKey === 'water' ? 'WATER' : 'ENERGY';
+      const year = Number(isoLocalDay(period.startISO).slice(0, 4));
+      const baseUrl = GCDR_API_BASE || window.MyIOOrchestrator?.gcdrApiBaseUrl || '';
+      await Promise.all(
+        (rows || []).map(async (row) => {
+          const attrs = row._attrs || {};
+          const customerId = attrs.gcdrCustomerId;
+          const apiKey = attrs.gcdrApiKey || GCDR_API_KEY || settings.gcdrApiKey || '';
+          if (!customerId || row.tbId == null || !baseUrl || !apiKey) return;
+          try {
+            const client = MyIOLibrary.createGoalsMoneyClient({ baseUrl, apiKey });
+            const proj = await client.getGoalWithMoney({ customerId, domain, year, granularity: 'month' });
+            if (seq !== reqSeq) return;
+            // ── RFC-0228 A2b — broad-rollout gate (per-customer eligibility) ────────
+            // A2a's _moneyGate (checked at the top) already AND-ed (feature configured)
+            // × (lib symbols). A2b adds the 2nd/3rd axes VIA THE LIB: is THIS customer
+            // explicitly curated/allowlisted, and is the sampled overlay coverage-sane.
+            // Non-curated / broken-coverage customers degrade to the honest A4 coverage
+            // state (unavailable overlay) instead of a R$ row — never a fabricated total.
+            // Base defaults OFF: with no allowlist configured every customer is
+            // 'not-eligible'. Lib symbol absent → A2a's original behavior (byte-identical).
+            if (proj && proj.money) {
+              if (typeof MyIOLibrary?.resolveMoneyRollout === 'function') {
+                const decision = MyIOLibrary.resolveMoneyRollout({
+                  customerId,
+                  settings,
+                  overlaySample: proj.money,
+                  allowlist: settings.goalsMoneyRolloutAllowlist,
+                });
+                if (decision.enabled) {
+                  _moneyOverlays.set(String(row.tbId), proj.money);
+                } else if (decision.reason === 'not-eligible' || decision.reason === 'coverage-gap') {
+                  // Honest coverage (A4): reuse the unavailable overlay, else synthesize it.
+                  _moneyOverlays.set(
+                    String(row.tbId),
+                    proj.money.state === 'unavailable'
+                      ? proj.money
+                      : { state: 'unavailable', reason: MyIOLibrary.MONEY_REQUIRES_DEVICE_GRANULARITY }
+                  );
+                }
+                // reason 'disabled' → cache nothing (no row appended; byte-identical off).
+              } else {
+                _moneyOverlays.set(String(row.tbId), proj.money); // A2a fallback (lib pre-A2b)
+              }
+            }
+          } catch (err) {
+            LogHelper.warn('[GoalsCompare] getGoalWithMoney falhou:', customerId, err?.code || err?.message || err);
+          }
+        })
+      );
+      if (seq !== reqSeq) return;
+      renderTable(lastRows, lastUnit); // re-render → _appendMoneyRows pinta do cache
+    };
     const dialogEl = overlay.querySelector('[data-gc-dialog]');
 
     // ── Tema (sincronizado com o dashboard via myio:theme-change / RFC-0120) ──
@@ -5017,11 +5109,15 @@ body.myio-gbt-dark .myio-gbt__empty{color:#64748b;}
           }
         });
       }
+      // RFC-0228 A2a (gated): anexa a linha de R$ / cobertura A4 aos cards (do cache).
+      // Gate off → no-op; DOM idêntico ao de hoje.
+      _appendMoneyRows();
       paintSideSort();
     };
 
     const load = async () => {
       const seq = ++reqSeq;
+      _moneyOverlays = new Map(); // RFC-0228 A2a: cache de overlays é por load (domínio/período)
       const cfg = GOALS_COMPARE_DOMAINS[domainKey];
       const startISO = period.startISO;
       const endISO = period.endISO;
@@ -5106,6 +5202,8 @@ body.myio-gbt-dark .myio-gbt__empty{color:#64748b;}
           refresh();
         });
       await Promise.all([goalsP, consP, consPrevP]);
+      // RFC-0228 A2a (gated): dados assentaram → busca overlays de R$ via lib e pinta.
+      void _fetchMoneyOverlays(rows, seq);
     };
 
     // Abas superiores Dashboards | Analítico (pills) — o resto da config vive no Engine.

@@ -18,6 +18,12 @@
  * EnergySummaryTooltip.hide();
  */
 
+// RFC-0228 A6 — R$ money column for the summary total (additive + gated). Reuses
+// A2a/F0 formatting + A4 coverage under DEC-8; disabled config → '' (byte-identical).
+import { createReportMoneyColumn } from '../../components/financial-goals/reportMoneyColumn';
+import { injectCoverageStyles } from '../../components/financial-goals/coverageStyles';
+import type { MoneyOverlay } from '../../components/financial-goals/moneyTypes';
+
 // ============================================
 // Types
 // ============================================
@@ -105,6 +111,29 @@ export interface DashboardEnergySummary {
   unfilteredTotal?: number;
   /** Label for the entity grouping dimension (default: 'Shopping'). Comes from goalsEntityLabel setting. */
   entityLabel?: string;
+  /**
+   * RFC-0228 A6 — optional R$ money overlay for the summary total (additive + gated).
+   * Absent → the tooltip renders exactly as before (byte-identical). Present → an R$
+   * figure is shown beside the "Consumo Total" on the DEC-8 rounding contract
+   * (GCDR RFC-0054): the backend aggregate string verbatim when coverage is complete,
+   * else A4's honest coverage state — never R$ 0 / NaN.
+   */
+  money?: EnergySummaryMoney;
+}
+
+/** RFC-0228 A6 — money overlay carried by {@link DashboardEnergySummary}. */
+export interface EnergySummaryMoney {
+  /** Aggregate coverage overlay (F0). Gates whether a numeric R$ total is shown. */
+  overlay: MoneyOverlay;
+  /**
+   * Backend-authoritative aggregate R$ (DEC-8 top-down parent) as a decimal string.
+   * Shown verbatim (never re-derived) when the overlay is confidently priced.
+   */
+  total?: string | null;
+  /** Optional per-device R$ (decimal strings) for a DEC-8 fallback row-sum. */
+  perDevice?: Record<string, string | null | undefined>;
+  /** Optional R$ deviation vs the meta for the total (A7 owns the per-consumer chip). */
+  variance?: string | null;
 }
 
 // ============================================
@@ -1195,6 +1224,33 @@ export const EnergySummaryTooltip = {
   },
 
   /**
+   * RFC-0228 A6 — the R$ figure shown beside "Consumo Total", or `''` when no money
+   * overlay is present (gate off → byte-identical to the pre-A6 tooltip).
+   *
+   * DEC-8 (GCDR RFC-0054): clients consume the backend decimal string and never
+   * re-derive. When the overlay is confidently priced this shows the backend
+   * aggregate verbatim; otherwise it shows A4's honest coverage indicator — never a
+   * fabricated R$ 0. Amounts are formatted string-in/string-out via A2a/F0.
+   */
+  formatMoneyTotal(summary: DashboardEnergySummary): string {
+    const money = summary.money;
+    const column = createReportMoneyColumn(
+      money ? { overlay: money.overlay, perDevice: money.perDevice || {}, total: money.total, variance: money.variance } : null
+    );
+    if (!column.enabled) return '';
+    // Coverage indicator (incomplete/unavailable) needs the A4 stylesheet.
+    if (typeof document !== 'undefined') injectCoverageStyles(document);
+    const rowValues = money?.perDevice ? Object.values(money.perDevice) : [];
+    const inner = column.totalHTML(rowValues);
+    return (
+      `<div class="energy-summary-tooltip__total energy-summary-tooltip__total--money" data-money-total-row="1">` +
+      `<span class="energy-summary-tooltip__total-label">Custo projetado (R$)</span>` +
+      `<span class="energy-summary-tooltip__total-value">${inner}</span>` +
+      `</div>`
+    );
+  },
+
+  /**
    * Render shopping view rows (for "Por Shopping" tab)
    * Shows device count and consumption breakdown by shopping with expandable subcategories
    */
@@ -1372,7 +1428,7 @@ export const EnergySummaryTooltip = {
         <div class="energy-summary-tooltip__total">
           <span class="energy-summary-tooltip__total-label">Consumo Total</span>
           <span class="energy-summary-tooltip__total-value">${this.formatTotalWithFilter(summary)}</span>
-        </div>
+        </div>${this.formatMoneyTotal(summary)}
       </div>
     `;
   },

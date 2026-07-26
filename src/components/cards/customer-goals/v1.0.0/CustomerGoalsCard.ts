@@ -18,6 +18,10 @@ import {
   CustomerGoalsTotals,
 } from './types';
 import { injectCustomerGoalsCardStyles } from './styles';
+// RFC-0228 A7 — per-consumer realized-vs-goal R$ variance readout (additive + gated).
+// `renderMoneyVariance` returns null when the money gate is off → card byte-identical.
+// Naming bridge: reads `monetaryProjection`/`currencyBudget`, never `series.budget`.
+import { renderMoneyVariance } from '../../../financial-goals/moneyVariance';
 
 // Esquema de cores padrão das Metas (fonte única — igual em card/gráfico/legenda):
 // A-1 cinza, Realizado AZUL fixo, Orçado LARANJA, Meta ROXO.
@@ -89,11 +93,12 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
   // ── Public API ────────────────────────────────────────────────────────────
 
   public update(
-    partial: Partial<Pick<CustomerGoalsCardParams, 'series' | 'totals' | 'title'>>
+    partial: Partial<Pick<CustomerGoalsCardParams, 'series' | 'totals' | 'title' | 'moneyVariance'>>
   ): void {
     if (partial.title !== undefined) this.params.title = partial.title;
     if (partial.series !== undefined) this.params.series = { ...partial.series };
     if (partial.totals !== undefined) this.params.totals = partial.totals;
+    if (partial.moneyVariance !== undefined) this.params.moneyVariance = partial.moneyVariance;
     this.renderInner();
     this.renderChart();
   }
@@ -409,6 +414,33 @@ export class CustomerGoalsCard implements CustomerGoalsCardInstance {
           this.toggleExpand();
         });
     }
+
+    this.renderMoneyVariance();
+  }
+
+  /**
+   * RFC-0228 A7 — append the R$ variance readout below the totals/deltas strip when a
+   * money overlay/amount is present. `renderMoneyVariance` returns `null` when the gate
+   * is off (no `params.moneyVariance`), so the card stays byte-identical to before.
+   * Reads only money names (`monetaryProjection`/`currencyBudget`) — never the quantity
+   * `series.budget` prop (naming bridge). Honors DEC-6 withholding inside the renderer.
+   */
+  private renderMoneyVariance(): void {
+    const mv = this.params.moneyVariance;
+    if (!mv) return; // gate off → nothing appended (byte-identical)
+    const el = renderMoneyVariance({
+      monetaryProjection: mv.monetaryProjection,
+      currencyBudget: mv.currencyBudget,
+      overlay: mv.overlay,
+      withheld: mv.withheld,
+      label: mv.label != null ? mv.label : 'Variação vs meta (R$)',
+      document,
+    });
+    if (!el) return;
+    el.classList.add('myio-cgc__money-variance');
+    el.style.padding = '6px 8px 8px';
+    el.style.borderTop = '1px solid var(--cgc-border)';
+    this.el.appendChild(el);
   }
 
   private destroyChart(): void {

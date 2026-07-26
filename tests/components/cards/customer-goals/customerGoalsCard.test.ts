@@ -574,3 +574,120 @@ describe('CustomerGoalsCard (RFC-0217)', () => {
     expect(card.el.querySelector('[data-total="realized"]')?.textContent).toBe('600,00 kWh');
   });
 });
+
+// ── RFC-0228 A7 — optional R$ variance readout (additive + gated) ────────────────
+
+describe('CustomerGoalsCard — RFC-0228 A7 money variance (gated, naming bridge)', () => {
+  const completeOverlay = {
+    state: 'available' as const,
+    currency: 'BRL',
+    coverageComplete: true,
+    pricedHours: 87600,
+    totalHours: 87600,
+    uncategorizedDevices: [],
+  };
+  const incompleteOverlay = {
+    state: 'available' as const,
+    currency: 'BRL',
+    coverageComplete: false,
+    pricedHours: 61320,
+    totalHours: 87600,
+    uncategorizedDevices: [],
+  };
+
+  it('GATE OFF: without moneyVariance the card is byte-identical (no money element)', () => {
+    const mk = (c: HTMLElement) =>
+      createCustomerGoalsCard({ container: c, title: 'Shopping Alpha', series: baseSeries() });
+
+    const cA = document.createElement('div');
+    const cB = document.createElement('div');
+    document.body.appendChild(cA);
+    document.body.appendChild(cB);
+    const a = mk(cA);
+    const b = mk(cB);
+
+    // No A7 element, and the two quantity-only cards are byte-identical.
+    expect(a.el.querySelector('.myio-cgc__money-variance')).toBeNull();
+    expect(a.el.querySelector('[data-money-variance-row]')).toBeNull();
+    expect(a.el.innerHTML).toBe(b.el.innerHTML);
+
+    a.destroy();
+    b.destroy();
+    cA.remove();
+    cB.remove();
+  });
+
+  it('GATE ON: an available overlay renders the variance chip + label (money names only)', () => {
+    const card = createCustomerGoalsCard({
+      container,
+      title: 'Shopping Alpha',
+      series: baseSeries(), // series.budget is a QUANTITY line — must not be read for money
+      moneyVariance: {
+        overlay: completeOverlay,
+        monetaryProjection: '1200.00', // realized R$
+        currencyBudget: '1000.00', // goal R$
+      },
+    });
+    const row = card.el.querySelector('.myio-cgc__money-variance');
+    expect(row).not.toBeNull();
+    expect(row!.querySelector('[data-money-variance="above"]')).not.toBeNull();
+    expect(row!.textContent).toContain('Variação vs meta (R$)');
+    expect(row!.textContent).toContain('Acima da meta (R$)');
+    expect(row!.textContent).toContain('R$ 200,00');
+  });
+
+  it('DEC-6: incomplete coverage → withheld chip, no number, no green/red', () => {
+    const card = createCustomerGoalsCard({
+      container,
+      title: 'Shopping Alpha',
+      series: baseSeries(),
+      moneyVariance: {
+        overlay: incompleteOverlay,
+        monetaryProjection: '1200.00',
+        currencyBudget: '1000.00',
+      },
+    });
+    const chip = card.el.querySelector('[data-money-variance="withheld"]');
+    expect(chip).not.toBeNull();
+    expect(chip!.textContent).toContain('Variação indisponível');
+    expect(chip!.innerHTML).not.toContain('R$');
+    expect(card.el.querySelector('[data-money-variance="above"]')).toBeNull();
+    expect(card.el.querySelector('[data-money-variance="below"]')).toBeNull();
+  });
+
+  it('naming bridge: the quantity series.budget is untouched by the money readout', () => {
+    // series.budget (quantity, kWh) drives the "Meta"/"Orçado" totals strip; the A7
+    // money readout must NOT change that behavior — the strip still reads budget[].
+    const withMoney = createCustomerGoalsCard({
+      container,
+      title: 'S',
+      series: { labels: ['Jan'], realized: [100], budget: [200] },
+      moneyVariance: {
+        overlay: completeOverlay,
+        monetaryProjection: '1200.00',
+        currencyBudget: '1000.00',
+      },
+    });
+    // The quantity budget total still renders from series.budget (200 kWh), unaffected.
+    expect(withMoney.el.querySelector('[data-total="budget"]')?.textContent).toBe('200,00 kWh');
+    // And the money chip lives in its own row, sourced from money names only.
+    expect(withMoney.el.querySelector('.myio-cgc__money-variance')).not.toBeNull();
+  });
+
+  it('update() can add the variance readout after construction', () => {
+    const card = createCustomerGoalsCard({
+      container,
+      title: 'S',
+      series: baseSeries(),
+    });
+    expect(card.el.querySelector('.myio-cgc__money-variance')).toBeNull();
+    card.update({
+      moneyVariance: {
+        overlay: completeOverlay,
+        monetaryProjection: '800.00',
+        currencyBudget: '1000.00',
+      },
+    });
+    expect(card.el.querySelector('[data-money-variance="below"]')).not.toBeNull();
+  });
+});

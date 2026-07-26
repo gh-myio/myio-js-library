@@ -974,7 +974,172 @@ export type {
   PricingPanelEvent,
   PricingPanelHandle,
   PricingPanelThemeSource,
+  TariffApiPanelConfig,
 } from './components/pricing-panel';
+
+// RFC-0228 A1 — GCDR hourly-tariff API client + panel↔wire adapter (makes the
+// pricing panel persist through /customers/:id/tariffs instead of localStorage).
+export {
+  TariffApiClient,
+  TariffApiError,
+  createTariffApiClient,
+  TariffApiAdapter,
+  createTariffApiAdapter,
+  panelDomainToWire,
+  wireDomainToPanel,
+  panelCategoryToWire,
+  wireCategoryToPanel,
+  normalizePriceString,
+  isLeapYear,
+  daysInMonthYear,
+  collapseHoursToBands,
+  collapseTreeToBands,
+  expandDayToHourBuckets,
+  expandBandHours,
+  expandBandToHourBucketsByYear,
+} from './components/pricing-panel';
+export type {
+  TariffApiClientConfig,
+  TariffSelector,
+  TariffBucket,
+  TariffTreeNode,
+  TariffTreeResponse,
+  TariffGranularity,
+  WireDomain,
+  WireCategory,
+  TariffApiAdapterOptions,
+  TariffBand,
+  TariffBandInput,
+  TariffBandPeriod,
+} from './components/pricing-panel';
+
+// RFC-0228 F0 — Financial Goals money foundation: naming bridge (resolves the
+// 3-way `budget` collision), goals-money API client, and pt-BR BRL formatters.
+// Pure types/client/formatters — no UI (A4/A2a/A3 consume this spine).
+// `formatBRL` is re-exported as `formatMoneyBRL` (takes a decimal STRING) to
+// avoid colliding with the pricing-panel numeric `formatBRL`.
+export {
+  MONEY_REQUIRES_DEVICE_GRANULARITY,
+  normalizeMoneyBlock,
+  normalizeBudgetBlock,
+  GoalsMoneyClient,
+  GoalsMoneyApiError,
+  createGoalsMoneyClient,
+  DASH as MONEY_DASH,
+  formatMoneyBRL,
+  formatBRLDelta,
+  formatDeltaPct,
+  computeDeltaPct,
+  signOf,
+  // RFC-0228 A4 — honest coverage UI (reusable renderer for A2a/A3).
+  renderCoverageView,
+  buildCoverageHTML,
+  coveragePercentLabel,
+  injectCoverageStyles,
+  COVERAGE_STYLE_ID,
+  // RFC-0228 A2a — R$ money overlay row for one Metas × Consumo card (pilot).
+  renderFinancialIndicators,
+  buildFinancialRowHTML,
+  resolveMoneyRowValues,
+  subtractDecimals,
+  // RFC-0228 A3 — native CURRENCY budget view (Target/Projected + DEC-6 verdict).
+  renderBudgetView,
+  buildBudgetHTML,
+  buildVerdictHTML,
+  resolveBudget,
+  // RFC-0228 A5a — device tariff-category management UI (seam-driven; B6 backs it).
+  createFakeDeviceCategoryPort,
+  createHttpDeviceCategoryPort,
+  DeviceCategoryConflictError,
+  openDeviceCategoryPanel,
+  createCoverageDeepLink,
+  deviceCategoryLabel,
+  deviceCategoryToPanelTerm,
+  panelTermToDeviceCategory,
+  injectDeviceCategoryStyles,
+  DEVICE_CATEGORY_STYLE_ID,
+  // RFC-0228 A6 — R$ money column for aggregate report rows/totals (DEC-8 contract).
+  createReportMoneyColumn,
+  isMoneyColumnConfident,
+  sumMoneyDecimals,
+  decimalStringToCents,
+  centsToDecimalString,
+  REPORT_MONEY_HEADER,
+  // RFC-0228 A7 — per-consumer realized-vs-goal variance in R$ (DEC-6 withholding).
+  computeMoneyVariance,
+  buildMoneyVarianceHTML,
+  renderMoneyVariance,
+  createMoneyVarianceColumn,
+  resolveGoalAmount,
+  overlayWithholdsVerdict,
+  VARIANCE_LABEL_ABOVE,
+  VARIANCE_LABEL_BELOW,
+  VARIANCE_LABEL_ONTARGET,
+  VARIANCE_LABEL_WITHHELD,
+  MONEY_VARIANCE_HEADER,
+  // RFC-0228 A2b — broad-rollout gate (per-customer eligibility; composes with A2a).
+  resolveMoneyRollout,
+  routeMoneyRender,
+  renderGatedMoney,
+} from './components/financial-goals';
+export type {
+  MoneyDomain,
+  QuantityGoal,
+  GoalTreeNode,
+  MonetaryProjection,
+  CurrencyBudget,
+  BudgetVerdict,
+  BudgetOverlay,
+  MoneyOverlay,
+  UncategorizedDevice,
+  TariffCoverageGaps,
+  RawMoneyBlock,
+  RawBudgetBlock,
+  GoalsMoneyClientConfig,
+  GoalSelector,
+  GoalGranularity,
+  CurrencyBudgetResponse,
+  CoverageViewOptions,
+  FinancialIndicatorsOptions,
+  FinancialMoneyValues,
+  FinancialChipColors,
+  FinancialValueColors,
+  BudgetViewOptions,
+  BudgetValueColors,
+  BudgetChipColors,
+  // RFC-0228 A5a — device tariff-category management UI.
+  // Aliased: a `DeviceCategory` value export already exists (RFC-0109 utils/device).
+  DeviceCategory as DeviceTariffCategory,
+  DeviceCategoryRow,
+  DeviceCategoryPort,
+  FakeDeviceSeed,
+  FakeDeviceCategoryPortOptions,
+  FakeDeviceCategoryPortHandle,
+  HttpDeviceCategoryPortConfig,
+  OpenDeviceCategoryPanelParams,
+  DeviceCategoryPanelHandle,
+  DeviceCategoryFilter,
+  // RFC-0228 A6 — R$ money report column types.
+  ReportMoneyColumnConfig,
+  ReportMoneyColumn,
+  ReportMoneyTotal,
+  // RFC-0228 A7 — per-consumer R$ variance types.
+  MoneyVarianceInput,
+  MoneyVarianceResult,
+  MoneyVarianceVerdict,
+  MoneyVarianceOptions,
+  MoneyVarianceColumn,
+  MoneyVarianceColumnConfig,
+  // RFC-0228 A2b — broad-rollout gate types.
+  MoneyRolloutReason,
+  MoneyRolloutDecision,
+  MoneyRolloutAllowlist,
+  MoneyRolloutSettings,
+  MoneyRolloutParams,
+  MoneyRenderAction,
+  MoneyRenderRouting,
+  GatedMoneyRenderers,
+} from './components/financial-goals';
 
 // RFC-0108: Measurement Setup Modal
 export { openMeasurementSetupModal } from './components/premium-modals/measurement-setup';
@@ -1216,6 +1381,8 @@ export type {
   CustomerGoalsSeries,
   CustomerGoalsTotals,
   CustomerGoalsThemeMode,
+  // RFC-0228 A7 — optional R$ variance readout on the card (money naming bridge).
+  CustomerGoalsMoneyVariance,
 } from './components/cards/customer-goals/v1.0.0';
 
 // RFC-0132: EnergyPanel Component
