@@ -113,3 +113,20 @@ export {
   injectDeviceCategoryStyles,
   DEVICE_CATEGORY_STYLE_ID,
 } from './deviceCategoryStyles';
+
+// A6 — R$ money column for aggregate report rows/totals (AllReportModal + energy
+// summaries). Reuses A2a/F0 formatting + A4 coverage under the DEC-8 rounding
+// contract; a null config yields a disabled (byte-identical-when-off) column.
+export {
+  createReportMoneyColumn,
+  isMoneyColumnConfident,
+  sumMoneyDecimals,
+  decimalStringToCents,
+  centsToDecimalString,
+  REPORT_MONEY_HEADER,
+} from './reportMoneyColumn';
+export type {
+  ReportMoneyColumnConfig,
+  ReportMoneyColumn,
+  ReportMoneyTotal,
+} from './reportMoneyColumn';

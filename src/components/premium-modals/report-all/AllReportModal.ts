@@ -20,6 +20,13 @@ import { createGranularitySelector } from '../../granularity-selector';
 import type { GranularitySelectorInstance } from '../../granularity-selector';
 import { createModalFooter } from '../footer-modal';
 import type { ModalFooterInstance } from '../footer-modal';
+// RFC-0228 A6 — R$ money column (additive + gated). `createReportMoneyColumn(undefined)`
+// yields a disabled column whose HTML methods all return '' → byte-identical when off.
+import {
+  createReportMoneyColumn,
+  type ReportMoneyColumn,
+} from '../../financial-goals/reportMoneyColumn';
+import { injectCoverageStyles } from '../../financial-goals/coverageStyles';
 
 // Domain configuration
 type Domain = 'energy' | 'water' | 'temperature';
@@ -113,6 +120,10 @@ export class AllReportModal {
   // Os botões de export vivem AQUI (removidos da toolbar).
   private modalFooter: ModalFooterInstance | null = null;
 
+  // RFC-0228 A6 — R$ money column. Disabled (all fragments '') when params.money is
+  // absent, so the table/summary stay byte-identical to the pre-A6 report.
+  private moneyColumn: ReportMoneyColumn;
+
   constructor(private params: OpenAllReportParams) {
     this.authClient = new AuthClient({
       clientId: params.api.clientId,
@@ -126,6 +137,13 @@ export class AllReportModal {
 
     // Set debug flag from params (1 = enabled, 0 = disabled)
     this.debugEnabled = params.debug === 1;
+
+    // RFC-0228 A6 — gate: no `money` config → disabled column (all HTML '' → byte-identical).
+    this.moneyColumn = createReportMoneyColumn(params.money ?? null);
+    if (this.moneyColumn.enabled && typeof document !== 'undefined') {
+      // A4 coverage indicator (incomplete/unavailable total) needs its stylesheet.
+      injectCoverageStyles(document);
+    }
 
     this.debugLog('🚀 AllReportModal initialized', {
       customerId: params.customerId,
@@ -719,7 +737,31 @@ export class AllReportModal {
       },
     ];
     if (!isTemperature) kpis.push({ value: String(zeroCount), label: 'Sem Consumo' });
+
+    // RFC-0228 A6 — additive R$ KPI (only when the money gate is on). Honest total
+    // when coverage is complete, else a coverage label — never R$ 0 / NaN.
+    const moneyKpi = this.computeMoneyKpi();
+    if (moneyKpi) kpis.push(moneyKpi);
+
     return kpis;
+  }
+
+  // RFC-0228 A6 — the "Custo projetado (R$)" summary KPI, or null when money is off.
+  // Reuses the A6 column's honest-coverage resolution: a formatted R$ total only when
+  // the overlay is confidently priced (DEC-8), otherwise a coverage state label.
+  private computeMoneyKpi(): { value: string; label: string; sub?: string } | null {
+    if (!this.moneyColumn.enabled) return null;
+    const rowValues = this.data.map((r) => (r.id ? this.params.money?.perDevice?.[r.id] : null));
+    const total = this.moneyColumn.resolveTotal(rowValues);
+    if (!total) return null;
+    const label = this.params.money?.headerLabel || 'Custo projetado (R$)';
+    if (total.kind === 'amount') {
+      return { value: total.formatted, label };
+    }
+    // Coverage state — honest label, never a number (§8-allowed wording).
+    const value =
+      total.overlay.state === 'unavailable' ? 'Indisponível' : 'Cobertura incompleta';
+    return { value, label };
   }
 
   private renderTable(): void {
@@ -747,6 +789,10 @@ export class AllReportModal {
     const grandTotal = this.calculateTotalConsumption();
     const pct = (v: number) => (grandTotal > 0 ? `${fmtPt((v / grandTotal) * 100)}%` : '—');
 
+    // RFC-0228 A6 — money fragments: '' when the gate is off (byte-identical), an
+    // extra R$ <td>/<th> when a money overlay was provided.
+    const moneyCell = (row: StoreReading): string => this.moneyColumn.bodyCellHTML(row.id);
+
     const tableRows = isGrouped
       ? this.renderGroupedRows(paginatedData, grandTotal)
       : paginatedData
@@ -756,7 +802,7 @@ export class AllReportModal {
             <td data-label="Identificador" style="font-family: monospace; font-weight: bold; text-transform: uppercase;">${row.identifier}</td>
             <td data-label="Nome"><strong>${row.name}</strong></td>
             <td data-label="${this.domainConfig.label}" style="text-align: right; font-weight: bold;">${fmtPt(row.consumption)}</td>
-            <td data-label="%" style="text-align: right; color: var(--myio-text-muted);">${pct(row.consumption)}</td>
+            ${moneyCell(row)}<td data-label="%" style="text-align: right; color: var(--myio-text-muted);">${pct(row.consumption)}</td>
           </tr>
         `
           )
@@ -809,7 +855,7 @@ export class AllReportModal {
                 ${this.domainConfig.label}
                 <span style="margin-left: 4px; opacity: ${this.getSortOpacity('consumption')};">${this.getSortIcon('consumption')}</span>
               </th>
-              <th style="text-align: right; width: 14%;">%</th>
+              ${this.moneyColumn.headerCellHTML()}<th style="text-align: right; width: 14%;">%</th>
             </tr>
           </thead>
           <tbody>${tableRows}</tbody>
@@ -894,7 +940,7 @@ export class AllReportModal {
 
         const header = `
         <tr class="rp-group-header">
-          <td colspan="4">
+          <td colspan="${this.moneyColumn.enabled ? 5 : 4}">
             ${groupLabel}
             <span class="rp-group-total">${items.length} dispositivos · ${fmtPt(groupTotal)} ${this.domainConfig.unit}</span>
           </td>
@@ -907,7 +953,7 @@ export class AllReportModal {
           <td data-label="Identificador" style="font-family: monospace; font-weight: bold; text-transform: uppercase;">${row.identifier}</td>
           <td data-label="Nome"><strong>${row.name}</strong></td>
           <td data-label="${this.domainConfig.label}" style="text-align: right; font-weight: bold;">${fmtPt(row.consumption)}</td>
-          <td data-label="%" style="text-align: right; color: var(--myio-text-muted);">${pct(row.consumption)}</td>
+          ${this.moneyColumn.bodyCellHTML(row.id)}<td data-label="%" style="text-align: right; color: var(--myio-text-muted);">${pct(row.consumption)}</td>
         </tr>`
           )
           .join('');

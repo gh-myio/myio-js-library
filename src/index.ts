@@ -1058,6 +1058,13 @@ export {
   panelTermToDeviceCategory,
   injectDeviceCategoryStyles,
   DEVICE_CATEGORY_STYLE_ID,
+  // RFC-0228 A6 — R$ money column for aggregate report rows/totals (DEC-8 contract).
+  createReportMoneyColumn,
+  isMoneyColumnConfident,
+  sumMoneyDecimals,
+  decimalStringToCents,
+  centsToDecimalString,
+  REPORT_MONEY_HEADER,
 } from './components/financial-goals';
 export type {
   MoneyDomain,
@@ -1096,6 +1103,10 @@ export type {
   OpenDeviceCategoryPanelParams,
   DeviceCategoryPanelHandle,
   DeviceCategoryFilter,
+  // RFC-0228 A6 — R$ money report column types.
+  ReportMoneyColumnConfig,
+  ReportMoneyColumn,
+  ReportMoneyTotal,
 } from './components/financial-goals';
 
 // RFC-0108: Measurement Setup Modal
