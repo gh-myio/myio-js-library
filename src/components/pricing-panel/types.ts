@@ -72,7 +72,20 @@ export interface PricingEntry {
   start?: string;
   /** Range end `YYYY-MM-DD` inclusive (present when periodType === 'range'). */
   end?: string;
-  /** Price per unit — kWh for energy, m³ for water — in BRL (positive number). */
+  /**
+   * Canonical price per unit as a **decimal string** (`"0.892000"`) — the
+   * authoritative value when the panel is backed by the GCDR tariff API
+   * (RFC-0228 A1). Preserved verbatim (no `Number()` drift). When absent (the
+   * localStorage prototype path), `pricePerKwh` is authoritative.
+   */
+  price?: string;
+  /**
+   * Price per unit — kWh for energy, m³ for water — in BRL (positive number).
+   *
+   * In the tariff-API path this is a **derived numeric view for rendering only**
+   * (`Number(price)`); never round-trip it back to the wire. In the localStorage
+   * prototype path it remains the source of truth.
+   */
   pricePerKwh: number;
   /** Always `'BRL'` in this prototype. */
   currency: 'BRL';
@@ -132,6 +145,32 @@ export interface OpenPricingPanelParams {
   storageKeyPrefix?: string;
   /** Seed entries (merged over anything found in localStorage). */
   initialEntries?: PricingEntry[];
+  /**
+   * RFC-0228 A1 — GCDR hourly tariff API config. **When present**, the panel
+   * loads and saves through the tariff adapter (`GET/PUT/PATCH/DELETE
+   * /customers/:id/tariffs`) and `localStorage` is NOT used as a source of truth.
+   * **When absent**, the panel keeps its byte-identical localStorage prototype.
+   */
+  tariffApi?: TariffApiPanelConfig;
+}
+
+/** Config for the RFC-0228 A1 tariff-API persistence path. */
+export interface TariffApiPanelConfig {
+  /** API origin, e.g. `https://gcdr-api.a.myio-bas.com`. `/api/v1` is appended. */
+  baseUrl: string;
+  /** Customer API Key (`gcdr_cust_…`) → `X-API-Key`. */
+  apiKey?: string;
+  /** JWT → `Authorization: Bearer`. */
+  jwt?: string;
+  /** Optional tenant hint forwarded as `X-Tenant-Id`. */
+  tenantId?: string;
+  /** Tariff year to load (default: current year). Writes derive year from the period. */
+  year?: number;
+  /**
+   * Test seam: injectable `fetch`. Not needed in production (defaults to
+   * `globalThis.fetch`); lets unit tests drive the panel with a mocked backend.
+   */
+  fetchImpl?: typeof fetch;
 }
 
 /** Events emitted by the panel handle. */

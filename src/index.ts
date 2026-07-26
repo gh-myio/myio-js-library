@@ -974,6 +974,43 @@ export type {
   PricingPanelEvent,
   PricingPanelHandle,
   PricingPanelThemeSource,
+  TariffApiPanelConfig,
+} from './components/pricing-panel';
+
+// RFC-0228 A1 — GCDR hourly-tariff API client + panel↔wire adapter (makes the
+// pricing panel persist through /customers/:id/tariffs instead of localStorage).
+export {
+  TariffApiClient,
+  TariffApiError,
+  createTariffApiClient,
+  TariffApiAdapter,
+  createTariffApiAdapter,
+  panelDomainToWire,
+  wireDomainToPanel,
+  panelCategoryToWire,
+  wireCategoryToPanel,
+  normalizePriceString,
+  isLeapYear,
+  daysInMonthYear,
+  collapseHoursToBands,
+  collapseTreeToBands,
+  expandDayToHourBuckets,
+  expandBandHours,
+  expandBandToHourBucketsByYear,
+} from './components/pricing-panel';
+export type {
+  TariffApiClientConfig,
+  TariffSelector,
+  TariffBucket,
+  TariffTreeNode,
+  TariffTreeResponse,
+  TariffGranularity,
+  WireDomain,
+  WireCategory,
+  TariffApiAdapterOptions,
+  TariffBand,
+  TariffBandInput,
+  TariffBandPeriod,
 } from './components/pricing-panel';
 
 // RFC-0108: Measurement Setup Modal
