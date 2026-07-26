@@ -1047,6 +1047,17 @@ export {
   buildBudgetHTML,
   buildVerdictHTML,
   resolveBudget,
+  // RFC-0228 A5a — device tariff-category management UI (seam-driven; B6 backs it).
+  createFakeDeviceCategoryPort,
+  createHttpDeviceCategoryPort,
+  DeviceCategoryConflictError,
+  openDeviceCategoryPanel,
+  createCoverageDeepLink,
+  deviceCategoryLabel,
+  deviceCategoryToPanelTerm,
+  panelTermToDeviceCategory,
+  injectDeviceCategoryStyles,
+  DEVICE_CATEGORY_STYLE_ID,
 } from './components/financial-goals';
 export type {
   MoneyDomain,
@@ -1073,6 +1084,18 @@ export type {
   BudgetViewOptions,
   BudgetValueColors,
   BudgetChipColors,
+  // RFC-0228 A5a — device tariff-category management UI.
+  // Aliased: a `DeviceCategory` value export already exists (RFC-0109 utils/device).
+  DeviceCategory as DeviceTariffCategory,
+  DeviceCategoryRow,
+  DeviceCategoryPort,
+  FakeDeviceSeed,
+  FakeDeviceCategoryPortOptions,
+  FakeDeviceCategoryPortHandle,
+  HttpDeviceCategoryPortConfig,
+  OpenDeviceCategoryPanelParams,
+  DeviceCategoryPanelHandle,
+  DeviceCategoryFilter,
 } from './components/financial-goals';
 
 // RFC-0108: Measurement Setup Modal

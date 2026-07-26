@@ -79,3 +79,37 @@ export type {
   BudgetValueColors,
   BudgetChipColors,
 } from './budgetView';
+
+// A5a — Device tariff-category management UI. Depends only on the injectable
+// DeviceCategoryPort SEAM (B6 implements it later); never on a concrete device
+// HTTP shape. Reuses A1's category map (tariffApiAdapter) for panel-term display.
+export {
+  createFakeDeviceCategoryPort,
+  createHttpDeviceCategoryPort,
+  DeviceCategoryConflictError,
+} from './deviceCategoryPort';
+export type {
+  DeviceCategory,
+  DeviceCategoryRow,
+  DeviceCategoryPort,
+  FakeDeviceSeed,
+  FakeDeviceCategoryPortOptions,
+  FakeDeviceCategoryPortHandle,
+  HttpDeviceCategoryPortConfig,
+} from './deviceCategoryPort';
+export {
+  openDeviceCategoryPanel,
+  createCoverageDeepLink,
+  deviceCategoryLabel,
+  deviceCategoryToPanelTerm,
+  panelTermToDeviceCategory,
+} from './deviceCategoryPanel';
+export type {
+  OpenDeviceCategoryPanelParams,
+  DeviceCategoryPanelHandle,
+  DeviceCategoryFilter,
+} from './deviceCategoryPanel';
+export {
+  injectDeviceCategoryStyles,
+  DEVICE_CATEGORY_STYLE_ID,
+} from './deviceCategoryStyles';
