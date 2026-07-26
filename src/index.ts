@@ -1077,6 +1077,10 @@ export {
   VARIANCE_LABEL_ONTARGET,
   VARIANCE_LABEL_WITHHELD,
   MONEY_VARIANCE_HEADER,
+  // RFC-0228 A2b — broad-rollout gate (per-customer eligibility; composes with A2a).
+  resolveMoneyRollout,
+  routeMoneyRender,
+  renderGatedMoney,
 } from './components/financial-goals';
 export type {
   MoneyDomain,
@@ -1126,6 +1130,15 @@ export type {
   MoneyVarianceOptions,
   MoneyVarianceColumn,
   MoneyVarianceColumnConfig,
+  // RFC-0228 A2b — broad-rollout gate types.
+  MoneyRolloutReason,
+  MoneyRolloutDecision,
+  MoneyRolloutAllowlist,
+  MoneyRolloutSettings,
+  MoneyRolloutParams,
+  MoneyRenderAction,
+  MoneyRenderRouting,
+  GatedMoneyRenderers,
 } from './components/financial-goals';
 
 // RFC-0108: Measurement Setup Modal

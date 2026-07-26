@@ -157,3 +157,24 @@ export type {
   MoneyVarianceColumn,
   MoneyVarianceColumnConfig,
 } from './moneyVariance';
+
+// A2b — broad-rollout gate: the per-customer eligibility layer that decides whether
+// the money overlay turns on. Composes with (never duplicates) A2a's feature gate:
+// AND of (feature available) × (customer explicitly curated/allowlisted) × (coverage
+// sane). Defaults OFF for the whole production base; base-wide flip is blocked on
+// GCDR B1. Ineligible/coverage-gap routes to A4 honest coverage, never money.
+export {
+  resolveMoneyRollout,
+  routeMoneyRender,
+  renderGatedMoney,
+} from './moneyRolloutGate';
+export type {
+  MoneyRolloutReason,
+  MoneyRolloutDecision,
+  MoneyRolloutAllowlist,
+  MoneyRolloutSettings,
+  MoneyRolloutParams,
+  MoneyRenderAction,
+  MoneyRenderRouting,
+  GatedMoneyRenderers,
+} from './moneyRolloutGate';
