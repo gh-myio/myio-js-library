@@ -49,3 +49,18 @@ export {
 } from './coverageView';
 export type { CoverageViewOptions } from './coverageView';
 export { injectCoverageStyles, COVERAGE_STYLE_ID } from './coverageStyles';
+
+// A2a — R$ money overlay row for one Metas × Consumo card (pilot). Renders the R$
+// row when coverage is complete; defers to A4 (`renderCoverageView`) otherwise.
+export {
+  renderFinancialIndicators,
+  buildFinancialRowHTML,
+  resolveMoneyRowValues,
+  subtractDecimals,
+} from './financialIndicators';
+export type {
+  FinancialIndicatorsOptions,
+  FinancialMoneyValues,
+  FinancialChipColors,
+  FinancialValueColors,
+} from './financialIndicators';

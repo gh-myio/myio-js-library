@@ -1037,6 +1037,11 @@ export {
   coveragePercentLabel,
   injectCoverageStyles,
   COVERAGE_STYLE_ID,
+  // RFC-0228 A2a — R$ money overlay row for one Metas × Consumo card (pilot).
+  renderFinancialIndicators,
+  buildFinancialRowHTML,
+  resolveMoneyRowValues,
+  subtractDecimals,
 } from './components/financial-goals';
 export type {
   MoneyDomain,
@@ -1056,6 +1061,10 @@ export type {
   GoalGranularity,
   CurrencyBudgetResponse,
   CoverageViewOptions,
+  FinancialIndicatorsOptions,
+  FinancialMoneyValues,
+  FinancialChipColors,
+  FinancialValueColors,
 } from './components/financial-goals';
 
 // RFC-0108: Measurement Setup Modal
