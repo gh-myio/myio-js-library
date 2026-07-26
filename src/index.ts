@@ -1042,6 +1042,11 @@ export {
   buildFinancialRowHTML,
   resolveMoneyRowValues,
   subtractDecimals,
+  // RFC-0228 A3 — native CURRENCY budget view (Target/Projected + DEC-6 verdict).
+  renderBudgetView,
+  buildBudgetHTML,
+  buildVerdictHTML,
+  resolveBudget,
 } from './components/financial-goals';
 export type {
   MoneyDomain,
@@ -1065,6 +1070,9 @@ export type {
   FinancialMoneyValues,
   FinancialChipColors,
   FinancialValueColors,
+  BudgetViewOptions,
+  BudgetValueColors,
+  BudgetChipColors,
 } from './components/financial-goals';
 
 // RFC-0108: Measurement Setup Modal

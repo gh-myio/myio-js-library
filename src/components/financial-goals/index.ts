@@ -64,3 +64,18 @@ export type {
   FinancialChipColors,
   FinancialValueColors,
 } from './financialIndicators';
+
+// A3 — Native CURRENCY budget view (Target/Projected + DEC-6 verdict). Renders the
+// native R$ budget beside the A2a R$ row; withholds the verdict while coverage is
+// incomplete (defers to A4 for the why).
+export {
+  renderBudgetView,
+  buildBudgetHTML,
+  buildVerdictHTML,
+  resolveBudget,
+} from './budgetView';
+export type {
+  BudgetViewOptions,
+  BudgetValueColors,
+  BudgetChipColors,
+} from './budgetView';
