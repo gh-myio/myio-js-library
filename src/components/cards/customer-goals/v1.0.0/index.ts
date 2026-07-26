@@ -10,4 +10,5 @@ export type {
   CustomerGoalsSeries,
   CustomerGoalsTotals,
   CustomerGoalsThemeMode,
+  CustomerGoalsMoneyVariance,
 } from './types';

@@ -26,6 +26,13 @@ import {
   createReportMoneyColumn,
   type ReportMoneyColumn,
 } from '../../financial-goals/reportMoneyColumn';
+// RFC-0228 A7 — per-consumer realized-vs-goal R$ variance chip (additive + gated).
+// `createMoneyVarianceColumn(undefined)` (or a config without `perDeviceGoal`) yields
+// a disabled column whose HTML methods all return '' → byte-identical when off.
+import {
+  createMoneyVarianceColumn,
+  type MoneyVarianceColumn,
+} from '../../financial-goals/moneyVariance';
 import { injectCoverageStyles } from '../../financial-goals/coverageStyles';
 
 // Domain configuration
@@ -124,6 +131,10 @@ export class AllReportModal {
   // absent, so the table/summary stay byte-identical to the pre-A6 report.
   private moneyColumn: ReportMoneyColumn;
 
+  // RFC-0228 A7 — per-consumer realized-vs-goal R$ variance column. Disabled (all
+  // fragments '') when params.money.perDeviceGoal is absent → byte-identical.
+  private varianceColumn: MoneyVarianceColumn;
+
   constructor(private params: OpenAllReportParams) {
     this.authClient = new AuthClient({
       clientId: params.api.clientId,
@@ -144,6 +155,19 @@ export class AllReportModal {
       // A4 coverage indicator (incomplete/unavailable total) needs its stylesheet.
       injectCoverageStyles(document);
     }
+
+    // RFC-0228 A7 — gate: no `money.perDeviceGoal` → disabled column (all HTML '').
+    // Realized R$ reuses A6's per-device map; the goal comes from perDeviceGoal.
+    this.varianceColumn = createMoneyVarianceColumn(
+      params.money && params.money.perDeviceGoal
+        ? {
+            overlay: params.money.overlay,
+            perDeviceRealized: params.money.perDevice,
+            perDeviceGoal: params.money.perDeviceGoal,
+            headerLabel: params.money.varianceHeaderLabel,
+          }
+        : null
+    );
 
     this.debugLog('🚀 AllReportModal initialized', {
       customerId: params.customerId,
@@ -802,7 +826,7 @@ export class AllReportModal {
             <td data-label="Identificador" style="font-family: monospace; font-weight: bold; text-transform: uppercase;">${row.identifier}</td>
             <td data-label="Nome"><strong>${row.name}</strong></td>
             <td data-label="${this.domainConfig.label}" style="text-align: right; font-weight: bold;">${fmtPt(row.consumption)}</td>
-            ${moneyCell(row)}<td data-label="%" style="text-align: right; color: var(--myio-text-muted);">${pct(row.consumption)}</td>
+            ${moneyCell(row)}${this.varianceColumn.bodyCellHTML(row.id)}<td data-label="%" style="text-align: right; color: var(--myio-text-muted);">${pct(row.consumption)}</td>
           </tr>
         `
           )
@@ -855,7 +879,7 @@ export class AllReportModal {
                 ${this.domainConfig.label}
                 <span style="margin-left: 4px; opacity: ${this.getSortOpacity('consumption')};">${this.getSortIcon('consumption')}</span>
               </th>
-              ${this.moneyColumn.headerCellHTML()}<th style="text-align: right; width: 14%;">%</th>
+              ${this.moneyColumn.headerCellHTML()}${this.varianceColumn.headerCellHTML()}<th style="text-align: right; width: 14%;">%</th>
             </tr>
           </thead>
           <tbody>${tableRows}</tbody>
@@ -940,7 +964,7 @@ export class AllReportModal {
 
         const header = `
         <tr class="rp-group-header">
-          <td colspan="${this.moneyColumn.enabled ? 5 : 4}">
+          <td colspan="${4 + (this.moneyColumn.enabled ? 1 : 0) + (this.varianceColumn.enabled ? 1 : 0)}">
             ${groupLabel}
             <span class="rp-group-total">${items.length} dispositivos · ${fmtPt(groupTotal)} ${this.domainConfig.unit}</span>
           </td>
@@ -953,7 +977,7 @@ export class AllReportModal {
           <td data-label="Identificador" style="font-family: monospace; font-weight: bold; text-transform: uppercase;">${row.identifier}</td>
           <td data-label="Nome"><strong>${row.name}</strong></td>
           <td data-label="${this.domainConfig.label}" style="text-align: right; font-weight: bold;">${fmtPt(row.consumption)}</td>
-          ${this.moneyColumn.bodyCellHTML(row.id)}<td data-label="%" style="text-align: right; color: var(--myio-text-muted);">${pct(row.consumption)}</td>
+          ${this.moneyColumn.bodyCellHTML(row.id)}${this.varianceColumn.bodyCellHTML(row.id)}<td data-label="%" style="text-align: right; color: var(--myio-text-muted);">${pct(row.consumption)}</td>
         </tr>`
           )
           .join('');

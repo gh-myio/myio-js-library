@@ -101,11 +101,43 @@ export interface CustomerGoalsTotals {
   orcado?: number | null;
 }
 
+/**
+ * RFC-0228 A7 — optional R$ realized-vs-goal variance readout for the card (additive
+ * + gated). Uses the money **naming bridge**: `monetaryProjection` = realized R$,
+ * `currencyBudget` = the R$ goal/budget. It NEVER touches the card's `series.budget`
+ * (a QUANTITY goal in kWh/m³) — money and quantity stay in separate props. Absent →
+ * the card renders exactly as before (byte-identical to the quantity-only view).
+ * Withheld per DEC-6 ("Variação indisponível") when coverage is incomplete or the
+ * verdict is indeterminate — never a fabricated number, never a green/red judgment.
+ */
+export interface CustomerGoalsMoneyVariance {
+  /** Realizado em R$ (RFC-0054 monetary projection). Decimal STRING (e.g. "223000.00"). */
+  monetaryProjection?: string | null;
+  /** Meta/orçamento em R$ (RFC-0054 CURRENCY target). Decimal STRING. */
+  currencyBudget?: string | null;
+  /**
+   * Normalized money overlay (F0) — the DEC-6 coverage gate. `unavailable` /
+   * `coverageComplete:false` → withheld chip. Optional; when omitted the caller
+   * vouches the amounts are confidently priced.
+   */
+  overlay?: import('../../../financial-goals/moneyTypes').MoneyOverlay | null;
+  /** Explicit withhold override (a null verdict already resolved by the host). */
+  withheld?: boolean;
+  /** Leading label for the readout (default "Variação vs meta (R$)"). */
+  label?: string;
+}
+
 export interface CustomerGoalsCardParams {
   container: HTMLElement;
   /** Shopping / unit name (card title) */
   title: string;
   series: CustomerGoalsSeries;
+  /**
+   * RFC-0228 A7 — optional R$ variance readout (realized R$ − goal R$). Additive +
+   * gated: absent → card byte-identical to the quantity-only view. Uses money names
+   * (`monetaryProjection`/`currencyBudget`), never the quantity `series.budget`.
+   */
+  moneyVariance?: CustomerGoalsMoneyVariance;
   /** Unit driving tick/total formatting. Default 'kWh'. */
   unit?: string;
   /** e.g. { current: '2026', previous: '2025' } — used in tooltips/aria only */
@@ -126,7 +158,9 @@ export interface CustomerGoalsCardParams {
 
 export interface CustomerGoalsCardInstance {
   el: HTMLElement;
-  update(partial: Partial<Pick<CustomerGoalsCardParams, 'series' | 'totals' | 'title'>>): void;
+  update(
+    partial: Partial<Pick<CustomerGoalsCardParams, 'series' | 'totals' | 'title' | 'moneyVariance'>>
+  ): void;
   setThemeMode(mode: CustomerGoalsThemeMode): void;
   /** Apply chart options (points on/off, line|bar) and re-render the chart */
   setOptions(options: CustomerGoalsCardOptions): void;

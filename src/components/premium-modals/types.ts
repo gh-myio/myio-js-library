@@ -21,6 +21,18 @@ export interface AllReportMoneyConfig {
   variance?: string | null;
   /** Column header label override (defaults to "Custo projetado (R$)"). */
   headerLabel?: string;
+  /**
+   * RFC-0228 A7 — per-consumer **goal/budget R$** keyed by device id (ingestionId),
+   * the `currencyBudget` half of the naming bridge (never the quantity `budget`). When
+   * present, an additive "Variação vs meta (R$)" column shows each consumer's
+   * realized-vs-goal variance chip: realized R$ comes from {@link perDevice}
+   * (`monetaryProjection`), the goal from here. Absent → no variance column (the
+   * A6 cost column, if any, is unaffected). Withheld per DEC-6 when coverage is
+   * incomplete / a verdict is indeterminate — never a fabricated number.
+   */
+  perDeviceGoal?: Record<string, string | null | undefined>;
+  /** A7 variance column header override (defaults to "Variação vs meta (R$)"). */
+  varianceHeaderLabel?: string;
 }
 
 export interface DateRange { 
