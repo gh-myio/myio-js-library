@@ -4181,7 +4181,38 @@ body.filter-modal-open { overflow: hidden !important; }
             const client = MyIOLibrary.createGoalsMoneyClient({ baseUrl, apiKey });
             const proj = await client.getGoalWithMoney({ customerId, domain, year, granularity: 'month' });
             if (seq !== reqSeq) return;
-            if (proj && proj.money) _moneyOverlays.set(String(row.tbId), proj.money);
+            // ── RFC-0228 A2b — broad-rollout gate (per-customer eligibility) ────────
+            // A2a's _moneyGate (checked at the top) already AND-ed (feature configured)
+            // × (lib symbols). A2b adds the 2nd/3rd axes VIA THE LIB: is THIS customer
+            // explicitly curated/allowlisted, and is the sampled overlay coverage-sane.
+            // Non-curated / broken-coverage customers degrade to the honest A4 coverage
+            // state (unavailable overlay) instead of a R$ row — never a fabricated total.
+            // Base defaults OFF: with no allowlist configured every customer is
+            // 'not-eligible'. Lib symbol absent → A2a's original behavior (byte-identical).
+            if (proj && proj.money) {
+              if (typeof MyIOLibrary?.resolveMoneyRollout === 'function') {
+                const decision = MyIOLibrary.resolveMoneyRollout({
+                  customerId,
+                  settings,
+                  overlaySample: proj.money,
+                  allowlist: settings.goalsMoneyRolloutAllowlist,
+                });
+                if (decision.enabled) {
+                  _moneyOverlays.set(String(row.tbId), proj.money);
+                } else if (decision.reason === 'not-eligible' || decision.reason === 'coverage-gap') {
+                  // Honest coverage (A4): reuse the unavailable overlay, else synthesize it.
+                  _moneyOverlays.set(
+                    String(row.tbId),
+                    proj.money.state === 'unavailable'
+                      ? proj.money
+                      : { state: 'unavailable', reason: MyIOLibrary.MONEY_REQUIRES_DEVICE_GRANULARITY }
+                  );
+                }
+                // reason 'disabled' → cache nothing (no row appended; byte-identical off).
+              } else {
+                _moneyOverlays.set(String(row.tbId), proj.money); // A2a fallback (lib pre-A2b)
+              }
+            }
           } catch (err) {
             LogHelper.warn('[GoalsCompare] getGoalWithMoney falhou:', customerId, err?.code || err?.message || err);
           }
