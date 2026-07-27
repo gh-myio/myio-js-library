@@ -1,0 +1,1204 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MYIO × Soul Malls — Resumo da Reunião · 14/07/2026</title>
+  <style>
+    :root {
+      --myio-purple: #663ab5;
+      --myio-purple-dark: #4d2a91;
+      --myio-purple-soft: #efe8fb;
+      --myio-green: #04c081;
+      --myio-green-dark: #039b69;
+      --myio-amber: #f5a623;
+      --myio-red: #e03131;
+      --myio-blue: #1864c4;
+      --text: #2a2340;
+      --muted: #6f6787;
+      --border: #e5ddf5;
+      --bg: #f7f4fc;
+      --white: #ffffff;
+      --shadow: 0 10px 30px rgba(102, 58, 181, 0.12);
+      --radius-xl: 22px;
+      --radius-lg: 16px;
+      --radius-md: 12px;
+      --page-width: 1122.5px;
+      --page-height: 793.7px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, 'Segoe UI', Arial, sans-serif;
+      background: #ece8f6;
+      color: var(--text);
+      padding: 24px;
+      overflow-x: hidden;
+    }
+
+    .document { display: grid; gap: 24px; justify-content: center; }
+
+    .page {
+      width: var(--page-width);
+      max-width: 100%;
+      height: var(--page-height);          /* exatamente 1 folha A4 paisagem */
+      background: radial-gradient(circle at top right, rgba(4,192,129,0.10), transparent 18%), var(--bg);
+      border-radius: 28px;
+      overflow: hidden;                    /* garante que nada transborde a folha */
+      box-shadow: 0 20px 60px rgba(49, 33, 90, 0.16);
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      page-break-after: always;
+      break-after: page;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    .page:last-child { page-break-after: auto; break-after: auto; }
+
+    /* Só o CONTEÚDO escala (header e footer ficam full-bleed no tamanho natural). */
+    .content-fit { transform-origin: top center; width: 100%; }
+
+    /* ── Hero cover ── */
+    .hero {
+      background: linear-gradient(135deg, var(--myio-purple-dark), var(--myio-purple) 62%, #7d52cf);
+      color: var(--white);
+      padding: 32px 36px 28px;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::after {
+      content: "";
+      position: absolute;
+      right: -70px; top: -45px;
+      width: 240px; height: 240px;
+      background: rgba(4, 192, 129, 0.92);
+      border-radius: 50%;
+    }
+
+    /* ── Hero inner pages ── */
+    .hero-sm {
+      background: linear-gradient(135deg, var(--myio-purple-dark), var(--myio-purple) 62%, #7d52cf);
+      color: var(--white);
+      padding: 18px 36px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .hero-sm::after {
+      content: "";
+      position: absolute;
+      right: -50px; top: -30px;
+      width: 130px; height: 130px;
+      background: rgba(4, 192, 129, 0.70);
+      border-radius: 50%;
+    }
+    .hero-sm .hs-brand { font-size: 20px; font-weight: 800; letter-spacing: -0.02em; position: relative; z-index: 1; }
+    .hero-sm .hs-title { font-size: 13px; opacity: 0.88; position: relative; z-index: 1; margin-top: 3px; }
+    .hero-sm .hs-right { display: flex; align-items: center; gap: 12px; position: relative; z-index: 1; }
+    .hero-sm .hs-sec   { font-size: 11px; opacity: 0.75; }
+    .hero-sm .hs-pill {
+      border: 1px solid rgba(255,255,255,0.55);
+      border-radius: 999px;
+      padding: 7px 16px;
+      font-weight: 700;
+      font-size: 13px;
+      backdrop-filter: blur(6px);
+    }
+
+    .brand-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; position: relative; z-index: 1; }
+    .brand h1  { margin: 0; font-size: 32px; line-height: 1; letter-spacing: -0.03em; }
+    .brand p   { margin: 8px 0 0; opacity: 0.92; font-size: 14px; }
+    .version-pill {
+      border: 1px solid rgba(255,255,255,0.55);
+      border-radius: 999px;
+      padding: 10px 20px;
+      font-weight: 700;
+      font-size: 14px;
+      backdrop-filter: blur(6px);
+    }
+    .meta { margin-top: 18px; display: flex; justify-content: flex-end; gap: 10px; font-size: 13px; position: relative; z-index: 1; }
+    .meta span:last-child { color: #d8ffd2; font-weight: 600; }
+
+    /* ── Content ── */
+    .content { padding: 22px 32px 18px; display: flex; flex-direction: column; gap: 18px; flex: 1 1 auto; overflow: hidden; }
+
+    .headline h2 { margin: 0 0 6px; font-size: 30px; line-height: 1.05; letter-spacing: -0.04em; color: #33275f; }
+    .headline p  { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.55; }
+
+    .col-stack { display: flex; flex-direction: column; gap: 14px; flex: 1; min-width: 0; }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+    .two-col > * { min-width: 0; }
+
+    /* grade de 2 cards por linha (páginas de temas) */
+    .card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: stretch; }
+    .card-grid > .card { margin: 0; min-width: 0; }
+
+    /* ── Cards ── */
+    .card {
+      background: rgba(255,255,255,0.93);
+      border: 1px solid var(--border);
+      border-left: 5px solid var(--myio-purple);
+      border-radius: var(--radius-lg);
+      padding: 16px 18px;
+      box-shadow: var(--shadow);
+      min-width: 0;
+      overflow: hidden;
+    }
+    .card.green { border-left-color: var(--myio-green); }
+    .card.amber { border-left-color: var(--myio-amber); }
+    .card.blue  { border-left-color: var(--myio-blue); }
+    .card.red   { border-left-color: var(--myio-red); }
+
+    .card h3 { margin: 0 0 10px; font-size: 16px; letter-spacing: -0.02em; color: #392d69; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .card p, .card li, .card div.text { font-size: 13px; line-height: 1.55; color: #4e4765; }
+    .card ul { margin: 6px 0 0; padding-left: 18px; }
+    .card li { margin-bottom: 4px; }
+
+    /* ── Origin badges ── */
+    .obadge { border-radius: 999px; padding: 3px 10px; font-size: 10.5px; font-weight: 800; letter-spacing: .02em; margin-left: auto; flex: 0 0 auto; }
+    .obadge.myio { background: #f3ecff; color: var(--myio-purple); border: 1.5px solid #bca7ea; }
+    .obadge.soul { background: #eaf2ff; color: var(--myio-blue); border: 1.5px solid #9ec1f0; }
+    .obadge.opp  { background: #edfff7; color: #0a7a4a; border: 1.5px solid #8de8c5; }
+    .tnum { font-family: 'Consolas', 'Fira Code', monospace; background: #f3eeff; color: #5b44a0; border-radius: 6px; padding: 2px 8px; font-size: 12px; font-weight: 700; flex: 0 0 auto; }
+    .card.blue  .tnum { background: #eaf2ff; color: #1864c4; }
+    .card.green .tnum { background: #edfff7; color: #0a7a4a; }
+
+    /* ── Panel list ── */
+    .panel-list { display: grid; gap: 6px; }
+    .panel-item { display: flex; gap: 8px; align-items: flex-start; }
+    .dot { width: 8px; height: 8px; border-radius: 3px; margin-top: 5px; background: linear-gradient(180deg, var(--myio-purple), #b577ff); flex: 0 0 auto; }
+    .dot.green { background: linear-gradient(180deg, var(--myio-green), #00e09b); }
+    .dot.amber { background: linear-gradient(180deg, var(--myio-amber), #ffc94d); }
+    .dot.blue  { background: linear-gradient(180deg, var(--myio-blue), #4d9fff); }
+    .dot.red   { background: linear-gradient(180deg, var(--myio-red), #ff6b6b); }
+
+    code { font-family: 'Consolas', 'Fira Code', monospace; font-size: 10.5px; background: #f3eeff; color: #5b44a0; padding: 2px 6px; border-radius: 5px; }
+
+    /* ── People grid ── */
+    .unit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px; }
+    .unit-card {
+      background: #faf8ff;
+      border: 1px solid #ede6fa;
+      border-radius: 10px;
+      padding: 11px 13px;
+    }
+    .unit-card .uc-name  { font-size: 13.5px; font-weight: 700; color: #392d69; margin-bottom: 3px; }
+    .unit-card .uc-state { font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+    .unit-card .uc-id    { font-family: 'Consolas', 'Fira Code', monospace; font-size: 9.5px; color: #5b44a0; background: #f0ebff; border-radius: 5px; padding: 2px 6px; display: inline-block; }
+    .scope-tag { display: inline-block; border-radius: 5px; padding: 1px 7px; font-size: 9.5px; font-weight: 700; }
+    .scope-tag.myio { background: #f3eeff; color: #5b44a0; border: 1px solid #bca7ea; }
+    .scope-tag.soul { background: #eaf2ff; color: #1864c4; border: 1px solid #9ec1f0; }
+
+    /* ── Steps / próximos passos ── */
+    .flow-panel { background: rgba(255,255,255,0.94); border: 1px solid var(--border); border-radius: 18px; overflow: hidden; box-shadow: var(--shadow); width: 100%; }
+    .flow-head { background: linear-gradient(135deg, #2a2a4a, #3a2d6e); color: #fff; padding: 12px 18px; font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+    .flow-head.soul { background: linear-gradient(135deg, #123a6e, #1864c4); }
+    .flow-body { padding: 14px 16px; display: grid; gap: 8px; }
+    .flow-step { display: flex; align-items: flex-start; gap: 12px; padding: 10px 12px; border-radius: 10px; background: #faf8ff; border: 1px solid #ede6fa; }
+    .flow-step .fs-num { background: var(--myio-purple); color: #fff; border-radius: 50%; width: 22px; height: 22px; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; }
+    .flow-step .fs-num.soul { background: var(--myio-blue); }
+    .flow-step .fs-body { font-size: 12.8px; color: #3d3464; line-height: 1.5; }
+    .flow-step .fs-body strong { color: #392d69; }
+
+    /* ── Notes ── */
+    .notes-card { background: #f3eeff; border: 1px solid #ede6fa; border-left: 5px solid var(--myio-purple); border-radius: var(--radius-lg); padding: 14px 18px; box-shadow: var(--shadow); }
+    .notes-card h3 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: #4e4765; }
+    .notes-card ul { margin: 0; padding-left: 18px; }
+    .notes-card li { font-size: 13px; padding: 3px 0; color: #4e4765; }
+
+    /* ── Legend ── */
+    .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12.5px; color: #4e4765; }
+    .legend b { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+
+    /* ── Map table (anexo) ── */
+    .map-wrap { border-radius: 12px; overflow: hidden; border: 1px solid #e5ddf5; box-shadow: var(--shadow); width: 100%; }
+    table.map-table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+    table.map-table thead tr { background: linear-gradient(135deg, #2a2a4a, #3a2d6e); color: #fff; }
+    table.map-table th { padding: 9px 12px; text-align: left; font-size: 10px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
+    table.map-table th.num, table.map-table td.num { text-align: right; }
+    table.map-table td { padding: 7px 12px; border-bottom: 1px solid #f0ebf8; color: #3d3464; }
+    table.map-table tbody tr:last-child td { border-bottom: none; }
+    table.map-table tbody tr:hover { background: #faf8ff; }
+    table.map-table tfoot td { padding: 8px 12px; font-weight: 800; color: #392d69; background: #f3eeff; border-top: 2px solid #ddd0f5; }
+    table.map-table .mono { font-family: 'Consolas', 'Fira Code', monospace; font-size: 10px; color: #5b44a0; }
+    .tag-cag   { display: inline-block; background: #fff8e6; color: #92600a; border-radius: 6px; padding: 1px 8px; font-weight: 700; font-size: 10px; }
+    .tag-ac    { display: inline-block; background: #eaf2ff; color: #1864c4; border-radius: 6px; padding: 1px 8px; font-weight: 700; font-size: 10px; }
+    .tag-none  { display: inline-block; background: #f4f4f4; color: #777; border-radius: 6px; padding: 1px 8px; font-weight: 700; font-size: 10px; }
+    .unit-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+    .unit-head .uh-name { font-size: 15px; font-weight: 800; color: #392d69; }
+    .unit-head .uh-meta { font-size: 11.5px; color: var(--muted); }
+
+    /* ── Attachment links ── */
+    .ref-link { background: #1e1b2e; border-radius: 10px; padding: 9px 14px; display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+    .ref-link .rl-ico { font-size: 15px; }
+    .ref-link .rl-body { min-width: 0; }
+    .ref-link .rl-label { font-size: 10px; font-weight: 700; color: #7c70a0; text-transform: uppercase; letter-spacing: 0.05em; }
+    .ref-url { font-family: 'Consolas', 'Fira Code', monospace; font-size: 12px; color: #89d99b; text-decoration: none; word-break: break-all; }
+    .ref-url:hover { text-decoration: underline; }
+
+    .card, .flow-panel, .notes-card, .map-wrap { break-inside: avoid; }
+
+    /* ── Prototype screenshots ── */
+    .shot { margin: 0; border-radius: 14px; overflow: hidden; border: 1px solid #ded1f2; background: #fff; box-shadow: var(--shadow); }
+    .shot img { display: block; width: 100%; height: auto; }
+    .shot figcaption { font-size: 11.5px; color: var(--muted); padding: 8px 12px; background: #faf8ff; border-top: 1px solid #ede6fa; }
+
+    /* ── Dimension chips ── */
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .chip { font-size: 11px; font-weight: 700; border-radius: 999px; padding: 3px 11px; background: #f3eeff; color: #5b44a0; border: 1px solid #ddd0f5; }
+    .chip.g { background: #edfff7; color: #0a7a4a; border-color: #8de8c5; }
+    .chip.b { background: #eaf2ff; color: #1864c4; border-color: #9ec1f0; }
+    .chip.a { background: #fff8e6; color: #92600a; border-color: #f0d79a; }
+
+    /* ── Field list ── */
+    .field-row { display: flex; align-items: flex-start; gap: 10px; padding: 6px 10px; border-radius: 9px; background: #faf8ff; border: 1px solid #ede6fa; margin-bottom: 5px; }
+    .field-name { font-family: 'Consolas', 'Fira Code', monospace; font-size: 11px; font-weight: 700; color: #5b44a0; min-width: 118px; flex: 0 0 auto; padding-top: 1px; }
+    .field-desc { font-size: 12px; color: #4e4765; line-height: 1.45; }
+
+    /* ── Glossary ── */
+    .gloss-item { display: flex; gap: 12px; align-items: flex-start; padding: 7px 0; border-bottom: 1px solid #f0ebf8; }
+    .gloss-item:last-child { border-bottom: none; }
+    .gloss-term { font-size: 12.5px; font-weight: 800; color: #5b44a0; min-width: 150px; flex: 0 0 auto; padding-top: 1px; }
+    .gloss-def  { font-size: 12.5px; color: #4e4765; line-height: 1.45; }
+    @media screen and (max-width: 900px) { .gloss-term { min-width: 110px; } }
+
+    /* ── Footer ── */
+    .footer {
+      margin-top: auto;
+      background: linear-gradient(180deg, var(--myio-purple), var(--myio-purple-dark));
+      color: rgba(255,255,255,0.95);
+      padding: 12px 28px;
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: center;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .footer strong { color: #fff; }
+
+    /* ── Responsive ── */
+    @media screen and (max-width: 900px) {
+      body { padding: 0; background: #fff; }
+      .document { gap: 0; }
+      .page { width: 100%; height: auto; overflow: visible; border-radius: 0; box-shadow: none; }
+      .content { overflow: visible; }
+      .content-fit { transform: none !important; }
+      .hero { padding: 24px 20px 20px; }
+      .hero::after { width: 140px; height: 140px; right: -40px; top: -30px; }
+      .brand h1 { font-size: 26px; }
+      .hero-sm { padding: 14px 20px; flex-wrap: wrap; gap: 8px; }
+      .hero-sm .hs-right { gap: 8px; }
+      .hero-sm .hs-sec { display: none; }
+      .content { padding: 16px 16px 14px; gap: 14px; }
+      .two-col { grid-template-columns: 1fr; }
+      .card-grid { grid-template-columns: 1fr; }
+      .unit-grid { grid-template-columns: 1fr; }
+      .footer { flex-direction: column; align-items: flex-start; gap: 4px; padding: 12px 18px; font-size: 12px; }
+      .footer span:last-child { align-self: flex-end; }
+    }
+
+    /* ── Export PDF (landscape) ── */
+    @page { size: A4 landscape; margin: 0; }
+
+    .export-btn {
+      position: fixed; right: 22px; bottom: 22px; z-index: 9999;
+      background: linear-gradient(135deg, #663ab5, #4d2a91); color: #fff;
+      border: none; border-radius: 999px; padding: 13px 22px;
+      font-family: Inter, 'Segoe UI', Arial, sans-serif; font-weight: 800; font-size: 14px;
+      cursor: pointer; display: inline-flex; align-items: center; gap: 9px;
+      box-shadow: 0 10px 28px rgba(102, 58, 181, 0.38);
+      transition: filter .15s ease, transform .15s ease;
+    }
+    .export-btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
+    .export-btn:active { transform: translateY(0); }
+    .export-btn .eb-ico { font-size: 16px; }
+
+    @media print {
+      body { background: #fff; padding: 0; }
+      .document { gap: 0; }
+      .page { border-radius: 0; box-shadow: none; margin: 0; }
+      .no-print { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <button type="button" class="export-btn no-print" onclick="window.print()" title="Exportar em PDF (paisagem)">
+    <span class="eb-ico">🖨️</span> Exportar PDF
+  </button>
+  <div class="document">
+
+    <!-- ══════════════════════════════════════════════════════════════
+         PAGE 1 — Capa + Participantes + Contexto
+    ══════════════════════════════════════════════════════════════ -->
+    <section class="page">
+      <header class="hero">
+        <div class="brand-row">
+          <div class="brand">
+            <h1>MYIO × Soul Malls</h1>
+            <p>Resumo da Reunião — Apresentação do Head Office e alinhamento</p>
+          </div>
+          <div class="version-pill">RESUMO</div>
+        </div>
+        <div class="meta">
+          <span>14 de julho de 2026, 10:30</span>
+          <span>Leblon — RJ</span>
+        </div>
+      </header>
+
+      <main class="content">
+        <div class="col-stack">
+          <section class="headline">
+            <h2>Reunião de apresentação e alinhamento</h2>
+            <p>Documento de <strong>resumo</strong> — não é ata. A MYIO apresentou o cockpit Head Office e o painel de metas; a Soul Malls trouxe as prioridades de orçamento em R$, integrações (TM e Intranet Mall) e indicadores de tendência. Segue o registro dos temas e dos próximos passos acordados.</p>
+          </section>
+
+          <article class="card blue">
+            <h3>👥 Participantes</h3>
+            <div class="unit-grid">
+              <div class="unit-card">
+                <div class="uc-name">Rodrigo Lago <span class="scope-tag myio">MYIO</span></div>
+                <div class="uc-state">Tecnologia</div>
+                <div class="uc-id">rodrigo@myio.com.br</div>
+              </div>
+              <div class="unit-card">
+                <div class="uc-name">João Paulo Couto <span class="scope-tag myio">MYIO</span></div>
+                <div class="uc-state">Comercial</div>
+                <div class="uc-id">jp@myio.com.br</div>
+              </div>
+              <div class="unit-card">
+                <div class="uc-name">Isabella Yamakawa <span class="scope-tag soul">Soul Malls</span></div>
+                <div class="uc-state">Operações</div>
+                <div class="uc-id">isabella.yamakawa@soulmalls.com.br</div>
+              </div>
+              <div class="unit-card">
+                <div class="uc-name">Ezio Diniz <span class="scope-tag soul">Soul Malls</span></div>
+                <div class="uc-state">Operações</div>
+                <div class="uc-id">ezio.diniz@soulmalls.com.br</div>
+              </div>
+            </div>
+          </article>
+
+          <article class="card">
+            <h3>🗂️ Como ler este documento</h3>
+            <div class="legend">
+              <b><span class="obadge myio">🟣 MYIO</span> apresentado pela MYIO</b>
+              <b><span class="obadge soul">🔵 Soul Malls</span> levantado pela Soul Malls</b>
+              <b><span class="obadge opp">🟢 Oportunidade</span> piloto / próximo passo</b>
+            </div>
+            <p class="text" style="margin-top:10px;">Na sequência: os <strong>8 temas</strong> organizados por área, os <strong>Antecedentes</strong> da parceria, os <strong>próximos passos</strong> por responsável, o <strong>Anexo — Relação de Equipamentos</strong> das 4 unidades, os <strong>Protótipos &amp; Validação de Fluxo — Metas Financeiras em R$</strong> e o <strong>Glossário</strong>.</p>
+          </article>
+        </div>
+      </main>
+
+      <footer class="footer">
+        <strong>MYIO</strong>
+        <span>Resumo — MYIO × Soul Malls</span>
+        <span style="opacity:0.75;">14/07/2026 · Pág. 1</span>
+      </footer>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         PAGE 2 — Temas T1–T4 (grade 2×2)
+    ══════════════════════════════════════════════════════════════ -->
+    <section class="page">
+      <header class="hero-sm">
+        <div>
+          <div class="hs-brand">MYIO · Soul Malls</div>
+          <div class="hs-title">Plataforma &amp; Head Office · Padrões</div>
+        </div>
+        <div class="hs-right">
+          <span class="hs-sec">Temas T1 – T4</span>
+          <span class="hs-pill">Temas</span>
+        </div>
+      </header>
+
+      <main class="content">
+        <div class="card-grid">
+          <article class="card">
+            <h3><span class="tnum">T1</span> Cockpit Head Office <span class="obadge myio">🟣 MYIO</span></h3>
+            <div class="panel-list">
+              <div class="panel-item"><span class="dot"></span><div class="text">Apresentado o Head Office como <strong>cockpit único</strong>, consolidando todos os shoppings.</div></div>
+              <div class="panel-item"><span class="dot"></span><div class="text">Visão <strong>consolidada e por unidade</strong> a partir de uma só tela.</div></div>
+              <div class="panel-item"><span class="dot"></span><div class="text">Cada unidade (Ilha Plaza, Plaza Macaé, West Plaza, Praia da Costa, Contagem) no mesmo painel.</div></div>
+              <div class="panel-item"><span class="dot"></span><div class="text">Ponto de entrada para os demais módulos — <strong>metas</strong> e <strong>alarmes</strong>.</div></div>
+              <div class="panel-item"><span class="dot"></span><div class="text">Base para comparar shoppings entre si e o conjunto (ver T3).</div></div>
+            </div>
+          </article>
+
+          <article class="card blue">
+            <h3><span class="tnum">T2</span> Metas: de kWh para R$ <span class="obadge soul">🔵 Soul Malls</span></h3>
+            <div class="panel-list">
+              <div class="panel-item"><span class="dot blue"></span><div class="text">Painel de metas apresentado hoje <strong>em kWh</strong>.</div></div>
+              <div class="panel-item"><span class="dot blue"></span><div class="text">Soul Malls avaliou que faz sentido o <strong>orçamento em R$</strong>.</div></div>
+              <div class="panel-item"><span class="dot blue"></span><div class="text">Meta em R$ <strong>por unidade</strong>, por <strong>ano</strong> ou <strong>mês fechado</strong>.</div></div>
+              <div class="panel-item"><span class="dot blue"></span><div class="text">Por domínio e categoria: <strong>Energia</strong> e <strong>Água</strong>, cada um por <strong>Lojas</strong> e <strong>Área Comum</strong>.</div></div>
+              <div class="panel-item"><span class="dot blue"></span><div class="text">Base no modelo GCDR <strong>RFC-0054</strong> (tarifa × meta) — ver Protótipos.</div></div>
+            </div>
+          </article>
+
+          <article class="card blue">
+            <h3><span class="tnum">T3</span> Dashboard, KPIs e indicadores <span class="obadge soul">🔵 Soul Malls</span></h3>
+            <div class="panel-list">
+              <div class="panel-item"><span class="dot blue"></span><div class="text">Reforçada a importância de dashboard / gráficos / KPIs / indicadores.</div></div>
+              <div class="panel-item"><span class="dot blue"></span><div class="text"><strong>Tendências de consumo</strong> do mês e do ano.</div></div>
+              <div class="panel-item"><span class="dot blue"></span><div class="text">Visão <strong>por shopping</strong> e <strong>consolidada</strong> (todos juntos).</div></div>
+              <div class="panel-item"><span class="dot blue"></span><div class="text">Comparação entre unidades num mesmo período.</div></div>
+              <div class="panel-item"><span class="dot blue"></span><div class="text">Indicadores de <strong>desvio</strong> (realizado × meta) como apoio à decisão.</div></div>
+            </div>
+          </article>
+
+          <article class="card">
+            <h3><span class="tnum">T4</span> Nomenclatura dos equipamentos <span class="obadge myio">🟣 MYIO</span></h3>
+            <div class="panel-list">
+              <div class="panel-item"><span class="dot"></span><div class="text">Discutido o <strong>padrão de nomenclatura</strong> dos equipamentos como base para os dados.</div></div>
+              <div class="panel-item"><span class="dot"></span><div class="text">Nomenclatura <strong>consistente entre unidades</strong> (mesmos nomes para mesmos tipos).</div></div>
+              <div class="panel-item"><span class="dot"></span><div class="text">Base para <strong>classificar por categoria</strong> (Área Comum × Lojas).</div></div>
+              <div class="panel-item"><span class="dot"></span><div class="text">Impacta a <strong>relação de equipamentos</strong> enviada (ver Anexo).</div></div>
+              <div class="panel-item"><span class="dot"></span><div class="text">Identificadores como <strong>CAG</strong>, <strong>Chiller</strong> e <strong>Subestação</strong> na classificação.</div></div>
+            </div>
+          </article>
+        </div>
+      </main>
+
+      <footer class="footer">
+        <strong>MYIO</strong>
+        <span>Temas — Plataforma &amp; Head Office · Padrões</span>
+        <span style="opacity:0.75;">14/07/2026 · Pág. 2</span>
+      </footer>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         PAGE 3 — Temas T5–T8 (grade 2×2)
+    ══════════════════════════════════════════════════════════════ -->
+    <section class="page">
+      <header class="hero-sm">
+        <div>
+          <div class="hs-brand">MYIO · Soul Malls</div>
+          <div class="hs-title">Integrações · Automação &amp; Piloto</div>
+        </div>
+        <div class="hs-right">
+          <span class="hs-sec">Temas T5 – T8</span>
+          <span class="hs-pill">Temas</span>
+        </div>
+      </header>
+
+      <main class="content">
+        <div class="card-grid">
+          <article class="card blue">
+            <h3><span class="tnum">T5</span> Integração com o TM <span class="obadge soul">🔵 Soul Malls</span></h3>
+            <div class="panel-list">
+              <div class="panel-item"><span class="dot blue"></span><div class="text">Sistema <strong>financeiro de cobrança</strong> da Soul Malls.</div></div>
+              <div class="panel-item"><span class="dot blue"></span><div class="text">Hoje a carga é por <strong>planilha exportada</strong> no painel de cada shopping.</div></div>
+              <div class="panel-item"><span class="dot blue"></span><div class="text">Objetivo: <strong>integração direta</strong>, substituindo a exportação manual.</div></div>
+              <div class="panel-item"><span class="dot blue"></span><div class="text">Soul Malls enviará a <strong>documentação da integração do TM</strong>.</div></div>
+              <div class="panel-item"><span class="dot"></span><div class="text">Depende da <strong>validação/autenticação a quatro mãos</strong> (ver Próximos passos).</div></div>
+            </div>
+          </article>
+
+          <article class="card blue">
+            <h3><span class="tnum">T6</span> Integração com a Intranet Mall <span class="obadge soul">🔵 Soul Malls</span></h3>
+            <div class="panel-list">
+              <div class="panel-item"><span class="dot blue"></span><div class="text">Dar ao <strong>lojista</strong> acesso aos dados via Intranet Mall.</div></div>
+              <div class="panel-item"><span class="dot"></span><div class="text">Já existe um <strong>desenho prévio</strong> do link → tela do lojista (fim de 2025).</div></div>
+              <div class="panel-item"><span class="dot amber"></span><div class="text">Falta apenas <strong>amarrar validação/autenticação</strong>.</div></div>
+              <div class="panel-item"><span class="dot blue"></span><div class="text">Envolve a <strong>Intranet Mall</strong> (parceira) e seu TI, <strong>Rafael Nascimento</strong>.</div></div>
+              <div class="panel-item"><span class="dot"></span><div class="text">Mesmo processo de autenticação do TM — ver <strong>Antecedentes</strong>.</div></div>
+            </div>
+          </article>
+
+          <article class="card">
+            <h3><span class="tnum">T7</span> Alarmes e automação <span class="obadge myio">🟣 MYIO</span></h3>
+            <div class="panel-list">
+              <div class="panel-item"><span class="dot"></span><div class="text">Também foi apresentado o <strong>módulo de Alarmes</strong> no painel de <strong>cada unidade</strong>.</div></div>
+              <div class="panel-item"><span class="dot"></span><div class="text">Um dos <strong>principais ganhos</strong> demonstrados na reunião.</div></div>
+              <div class="panel-item"><span class="dot"></span><div class="text">Foi o <strong>gancho para falar de automação</strong>.</div></div>
+              <div class="panel-item"><span class="dot"></span><div class="text">Ex.: reagir a alarmes / <strong>desativar Chiller em picos de demanda</strong>.</div></div>
+              <div class="panel-item"><span class="dot"></span><div class="text">Alvo típico de automação: <strong>climatização</strong> (CAG / Chillers).</div></div>
+            </div>
+          </article>
+
+          <article class="card green">
+            <h3><span class="tnum">T8</span> Piloto de Metas no Macaé <span class="obadge opp">🟢 Oportunidade</span></h3>
+            <div class="panel-list">
+              <div class="panel-item"><span class="dot green"></span><div class="text">Apenas o <strong>Macaé</strong> tem dispositivos de leitura de energia na <strong>entrada</strong>.</div></div>
+              <div class="panel-item"><span class="dot green"></span><div class="text">As demais unidades <strong>não têm</strong> leitura de entrada hoje.</div></div>
+              <div class="panel-item"><span class="dot green"></span><div class="text">Com isso, é possível rodar um <strong>piloto de metas</strong> já nessa unidade.</div></div>
+              <div class="panel-item"><span class="dot green"></span><div class="text">MYIO enviará a <strong>ideia do piloto de orçamento em R$</strong> para o Macaé.</div></div>
+              <div class="panel-item"><span class="dot green"></span><div class="text">MYIO enviará <strong>orçamentos</strong> para leitura de entrada nas demais unidades.</div></div>
+            </div>
+          </article>
+        </div>
+      </main>
+
+      <footer class="footer">
+        <strong>MYIO</strong>
+        <span>Temas — Integrações · Automação &amp; Piloto</span>
+        <span style="opacity:0.75;">14/07/2026 · Pág. 3</span>
+      </footer>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         PAGE 5 — Antecedentes
+    ══════════════════════════════════════════════════════════════ -->
+    <section class="page">
+      <header class="hero-sm">
+        <div>
+          <div class="hs-brand">MYIO · Soul Malls</div>
+          <div class="hs-title">Antecedentes — reunião prévia (fim de 2025)</div>
+        </div>
+        <div class="hs-right">
+          <span class="hs-pill">Histórico</span>
+        </div>
+      </header>
+
+      <main class="content">
+        <div class="col-stack">
+          <article class="card blue">
+            <h3>🗓️ Antecedentes — reunião prévia (fim de 2025) <span class="obadge soul">🔵 Histórico</span></h3>
+            <div class="panel-list">
+              <div class="panel-item"><span class="dot blue"></span><div class="text">Foi citado na reunião que já houve uma <strong>reunião prévia com Emerson Ataíde</strong> — à época no <strong>Praia da Costa</strong> e hoje no <strong>Shopping Plaza Macaé</strong>.</div></div>
+              <div class="panel-item"><span class="dot blue"></span><div class="text">No <strong>fim de 2025</strong>, conversaram <strong>Rodrigo Lago</strong> (MYIO), <strong>Emerson Ataíde</strong> (Soul Malls) e <strong>Rafael Nascimento</strong> (responsável de TI da <strong>Intranet Mall</strong> — empresa parceira).</div></div>
+              <div class="panel-item"><span class="dot"></span><div class="text">Já havia sido feito o <strong>desenho do link da Intranet Mall para uma tela do lojista</strong>.</div></div>
+              <div class="panel-item"><span class="dot amber"></span><div class="text">Faltava apenas deixar bem <strong>"amarrado"</strong> validação / autenticação — o que conecta diretamente ao próximo passo da Soul Malls (processo a quatro mãos).</div></div>
+            </div>
+            <div class="unit-grid" style="margin-top:12px;">
+              <div class="unit-card">
+                <div class="uc-name">Emerson Ataíde <span class="scope-tag soul">Soul Malls</span></div>
+                <div class="uc-state">Antes: Praia da Costa · Hoje: Shopping Plaza Macaé</div>
+                <div class="uc-id">emerson.ataide@soulmalls.com.br</div>
+              </div>
+              <div class="unit-card">
+                <div class="uc-name">Rafael Nascimento <span class="scope-tag soul" style="background:#eafff5;color:#0a7a4a;border-color:#8de8c5;">Intranet Mall</span></div>
+                <div class="uc-state">Responsável de TI · empresa parceira</div>
+                <div class="uc-id">rafael@intranetmall.com.br</div>
+              </div>
+            </div>
+            <p class="text" style="margin-top:10px;font-size:12px;color:var(--muted);">Registro: conversas do fim de 2025.</p>
+          </article>
+        </div>
+      </main>
+
+      <footer class="footer">
+        <strong>MYIO</strong>
+        <span>Antecedentes — reunião prévia</span>
+        <span style="opacity:0.75;">14/07/2026 · Pág. 5</span>
+      </footer>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         PAGE 4 — Próximos passos + Notas
+    ══════════════════════════════════════════════════════════════ -->
+    <section class="page">
+      <header class="hero-sm">
+        <div>
+          <div class="hs-brand">MYIO · Soul Malls</div>
+          <div class="hs-title">Próximos Passos e Notas</div>
+        </div>
+        <div class="hs-right">
+          <span class="hs-sec">Encaminhamentos</span>
+          <span class="hs-pill">Próximos passos</span>
+        </div>
+      </header>
+
+      <main class="content">
+        <div class="col-stack">
+          <article class="card">
+            <h3>📝 Próximos passos — resumo</h3>
+            <p class="text">Como encaminhamento da reunião, a <strong>MYIO</strong> ficou responsável por enviar a <strong>relação de equipamentos</strong> atuais, apresentar a <strong>ideia do piloto de orçamento em R$</strong> para o <strong>Macaé</strong> e enviar os <strong>orçamentos</strong> para implantação de dispositivos de leitura de entrada nas demais unidades.</p>
+            <p class="text" style="margin-top:8px;">A <strong>Soul Malls</strong>, por sua vez, enviará a <strong>documentação da integração do TM</strong>, validará a documentação do projeto das <strong>metas de orçamento em R$</strong> assim que recebê-la e definirá, em conjunto com a MYIO, um <strong>processo a quatro mãos</strong> de validação e autenticação para uso no <strong>TM</strong> e no <strong>Intranet Mall</strong>.</p>
+          </article>
+
+          <div class="two-col">
+            <div class="flow-panel">
+              <div class="flow-head">🟣 A cargo da MYIO</div>
+              <div class="flow-body">
+                <div class="flow-step">
+                  <div class="fs-num">1</div>
+                  <div class="fs-body">Enviar <strong>relação de equipamentos</strong> atuais.</div>
+                </div>
+                <div class="flow-step">
+                  <div class="fs-num">2</div>
+                  <div class="fs-body">Enviar a ideia do <strong>piloto de orçamento em R$</strong> para o Macaé.</div>
+                </div>
+                <div class="flow-step">
+                  <div class="fs-num">3</div>
+                  <div class="fs-body">Enviar <strong>orçamentos</strong> para implantação de dispositivos de leitura de entrada nas demais unidades.</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="flow-panel">
+              <div class="flow-head soul">🔵 A cargo da Soul Malls</div>
+              <div class="flow-body">
+                <div class="flow-step">
+                  <div class="fs-num soul">1</div>
+                  <div class="fs-body">Enviar a <strong>documentação da integração do TM</strong>.</div>
+                </div>
+                <div class="flow-step">
+                  <div class="fs-num soul">2</div>
+                  <div class="fs-body">Validar a documentação do projeto das <strong>metas de orçamento em R$</strong> assim que recebê-la.</div>
+                </div>
+                <div class="flow-step">
+                  <div class="fs-num soul">3</div>
+                  <div class="fs-body">Definir um <strong>processo a quatro mãos</strong> com a MYIO de validação e autenticação para uso no TM e no IntranetMalls.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="notes-card">
+            <h3>📌 Notas de leitura</h3>
+            <ul>
+              <li>Documento de resumo — não substitui a ata formal.</li>
+              <li>Legenda por origem: 🟣 apresentado pela MYIO · 🔵 levantado pela Soul Malls · 🟢 oportunidade/piloto.</li>
+              <li>O piloto de metas depende da leitura na entrada — hoje disponível apenas no Macaé.</li>
+            </ul>
+          </div>
+        </div>
+      </main>
+
+      <footer class="footer">
+        <strong>MYIO</strong>
+        <span>Próximos passos — MYIO × Soul Malls</span>
+        <span style="opacity:0.75;">14/07/2026 · Pág. 6</span>
+      </footer>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         PAGE 5 — ANEXO · Relação de Equipamentos (parte 1)
+    ══════════════════════════════════════════════════════════════ -->
+    <section class="page">
+      <header class="hero-sm">
+        <div>
+          <div class="hs-brand">MYIO · Soul Malls</div>
+          <div class="hs-title">Anexo — Relação de Equipamentos (Área Comum)</div>
+        </div>
+        <div class="hs-right">
+          <span class="hs-sec">Período 01–27/07/2026 · kWh</span>
+          <span class="hs-pill">Anexo A</span>
+        </div>
+      </header>
+
+      <main class="content">
+        <div class="col-stack">
+          <section class="headline">
+            <h2>Relação de equipamentos — Área Comum</h2>
+            <p>Relação atual de dispositivos de área comum por unidade, extraída da plataforma MYIO (período 01/07 a 27/07/2026, em kWh). Atende ao encaminhamento da MYIO de <em>enviar a relação de equipamentos atuais</em>. Os arquivos-fonte em PDF seguem anexos na Pág. 8.</p>
+          </section>
+
+          <div class="notes-card" style="border-left-color:var(--myio-amber);background:#fffbf0;">
+            <h3 style="color:#92600a;">⚠️ Observação</h3>
+            <ul>
+              <li>O <strong>Shopping Contagem</strong> não possui equipamentos em <strong>área comum</strong> atualmente — apenas <strong>Energia × Lojas</strong>. Por isso não consta nas tabelas de área comum abaixo.</li>
+            </ul>
+          </div>
+
+          <article class="card">
+            <div class="unit-head">
+              <span class="uh-name">🏬 Ilha Plaza</span>
+              <span class="uh-meta">5 dispositivos · total 78.043,667 kWh · Rio de Janeiro – RJ</span>
+            </div>
+            <div class="map-wrap">
+              <table class="map-table">
+                <thead><tr><th style="width:36px;">#</th><th>Nome</th><th>Identificador</th><th class="num">Consumo (kWh)</th><th class="num" style="width:70px;">%</th></tr></thead>
+                <tbody>
+                  <tr><td>1</td><td>Chillers</td><td><span class="tag-cag">CAG</span></td><td class="num mono">43.720,619</td><td class="num">56,02%</td></tr>
+                  <tr><td>2</td><td>Bomba CAG</td><td><span class="tag-cag">CAG</span></td><td class="num mono">29.591,275</td><td class="num">37,92%</td></tr>
+                  <tr><td>3</td><td>Chiller 02</td><td><span class="tag-cag">CAG</span></td><td class="num mono">3.241,858</td><td class="num">4,15%</td></tr>
+                  <tr><td>4</td><td>Cinema Bombas</td><td><span class="tag-cag">CAG</span></td><td class="num mono">1.067,415</td><td class="num">1,37%</td></tr>
+                  <tr><td>5</td><td>Chiller 01</td><td><span class="tag-cag">CAG</span></td><td class="num mono">422,500</td><td class="num">0,54%</td></tr>
+                </tbody>
+                <tfoot><tr><td colspan="3">Total</td><td class="num mono">78.043,667</td><td class="num">100%</td></tr></tfoot>
+              </table>
+            </div>
+          </article>
+
+          <article class="card">
+            <div class="unit-head">
+              <span class="uh-name">🏬 Shopping Plaza Macaé</span>
+              <span class="uh-meta">1 dispositivo · total 137.752,223 kWh · Macaé – RJ</span>
+            </div>
+            <div class="map-wrap">
+              <table class="map-table">
+                <thead><tr><th style="width:36px;">#</th><th>Nome</th><th>Identificador</th><th class="num">Consumo (kWh)</th><th class="num" style="width:70px;">%</th></tr></thead>
+                <tbody>
+                  <tr><td>1</td><td>MEDIÇÃO GERAL CAG</td><td><span class="tag-cag">CAG</span></td><td class="num mono">137.752,223</td><td class="num">100,00%</td></tr>
+                </tbody>
+                <tfoot><tr><td colspan="3">Total</td><td class="num mono">137.752,223</td><td class="num">100%</td></tr></tfoot>
+              </table>
+            </div>
+            <p class="text" style="margin-top:8px;font-size:11.5px;color:var(--muted);">Única unidade com medição de entrada — candidata ao piloto de metas (Tema T8).</p>
+          </article>
+
+          <article class="card blue">
+            <div class="unit-head">
+              <span class="uh-name">🏬 Praia da Costa</span>
+              <span class="uh-meta">4 dispositivos · total 554.443,732 kWh · Vila Velha – ES</span>
+            </div>
+            <div class="map-wrap">
+              <table class="map-table">
+                <thead><tr><th style="width:36px;">#</th><th>Nome</th><th>Identificador</th><th class="num">Consumo (kWh)</th><th class="num" style="width:70px;">%</th></tr></thead>
+                <tbody>
+                  <tr><td>1</td><td>Subestação Condomínio</td><td><span class="tag-ac">Área Comum</span></td><td class="num mono">459.541,582</td><td class="num">82,88%</td></tr>
+                  <tr><td>2</td><td>Subestação CAG</td><td><span class="tag-ac">Área Comum</span></td><td class="num mono">94.896,707</td><td class="num">17,12%</td></tr>
+                  <tr><td>3</td><td>Pista de Gelo</td><td><span class="tag-ac">Área Comum</span></td><td class="num mono">5,443</td><td class="num">0,00%</td></tr>
+                  <tr><td>4</td><td>G1 Elevador</td><td><span class="tag-ac">Área Comum</span></td><td class="num mono">0,000</td><td class="num">0,00%</td></tr>
+                </tbody>
+                <tfoot><tr><td colspan="3">Total</td><td class="num mono">554.443,732</td><td class="num">100%</td></tr></tfoot>
+              </table>
+            </div>
+          </article>
+        </div>
+      </main>
+
+      <footer class="footer">
+        <strong>MYIO</strong>
+        <span>Anexo — Relação de Equipamentos (Área Comum)</span>
+        <span style="opacity:0.75;">14/07/2026 · Pág. 7</span>
+      </footer>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         PAGE 6 — ANEXO · Relação de Equipamentos (parte 2) + Arquivos
+    ══════════════════════════════════════════════════════════════ -->
+    <section class="page">
+      <header class="hero-sm">
+        <div>
+          <div class="hs-brand">MYIO · Soul Malls</div>
+          <div class="hs-title">Anexo — Relação de Equipamentos (Área Comum)</div>
+        </div>
+        <div class="hs-right">
+          <span class="hs-sec">Período 01–27/07/2026 · kWh</span>
+          <span class="hs-pill">Anexo B</span>
+        </div>
+      </header>
+
+      <main class="content">
+        <div class="col-stack">
+          <article class="card">
+            <div class="unit-head">
+              <span class="uh-name">🏬 West Plaza</span>
+              <span class="uh-meta">10 dispositivos · total 96.384,368 kWh · São Paulo – SP</span>
+            </div>
+            <div class="map-wrap">
+              <table class="map-table">
+                <thead><tr><th style="width:36px;">#</th><th>Nome</th><th>Identificador</th><th class="num">Consumo (kWh)</th><th class="num" style="width:70px;">%</th></tr></thead>
+                <tbody>
+                  <tr><td>1</td><td>CHILLER 01 BLOCO B</td><td><span class="mono">SMWPCHILLER_B.3</span></td><td class="num mono">23.459,116</td><td class="num">24,34%</td></tr>
+                  <tr><td>2</td><td>CAG BLOCO C</td><td><span class="mono">SMWPCAGBOMBAS_C</span></td><td class="num mono">19.858,308</td><td class="num">20,60%</td></tr>
+                  <tr><td>3</td><td>CHILLER 2 BLOCO C</td><td><span class="mono">SMWPCHILLER_C.2</span></td><td class="num mono">13.796,990</td><td class="num">14,31%</td></tr>
+                  <tr><td>4</td><td>CAG BLOCO B</td><td><span class="mono">SMWPCAGBOMBAS_B</span></td><td class="num mono">12.166,352</td><td class="num">12,62%</td></tr>
+                  <tr><td>5</td><td>CHILLER 2 BLOCO B</td><td><span class="mono">SMWPCHILLER_B.2</span></td><td class="num mono">11.877,651</td><td class="num">12,32%</td></tr>
+                  <tr><td>6</td><td>CHILLER 1 BLOCO A</td><td><span class="mono">SMWPCHILLER_A.1</span></td><td class="num mono">9.133,516</td><td class="num">9,48%</td></tr>
+                  <tr><td>7</td><td>CAG BLOCO A</td><td><span class="mono">SMWPCAGBOMBAS_A</span></td><td class="num mono">6.092,435</td><td class="num">6,32%</td></tr>
+                  <tr><td>8</td><td>CHILLER 01 BLOCO C - 3.1</td><td><span class="mono">SMWPCHILLER3.1</span></td><td class="num mono">0,000</td><td class="num">0,00%</td></tr>
+                  <tr><td>9</td><td>CHILLER 1 BLOCO B</td><td><span class="mono">SMWPCHILLER_B.1</span></td><td class="num mono">0,000</td><td class="num">0,00%</td></tr>
+                  <tr><td>10</td><td>CHILLER 2 BLOCO A</td><td><span class="mono">SMWPCHILLER_A.2</span></td><td class="num mono">0,000</td><td class="num">0,00%</td></tr>
+                </tbody>
+                <tfoot><tr><td colspan="3">Total</td><td class="num mono">96.384,368</td><td class="num">100%</td></tr></tfoot>
+              </table>
+            </div>
+          </article>
+
+          <article class="card green">
+            <h3>📎 Arquivos anexos (PDF)</h3>
+            <p class="text" style="margin-bottom:10px;">Relatórios-fonte gerados na plataforma MYIO em 27/07/2026 — um por unidade, na pasta <code>docs/shared/soul-malls/</code>:</p>
+            <div class="ref-link">
+              <span class="rl-ico">📄</span>
+              <div class="rl-body">
+                <div class="rl-label">Ilha Plaza · 5 dispositivos</div>
+                <a class="ref-url" href="ilha-plaza-area-comum-20260727-1437.pdf" target="_blank">ilha-plaza-area-comum-20260727-1437.pdf</a>
+              </div>
+            </div>
+            <div class="ref-link">
+              <span class="rl-ico">📄</span>
+              <div class="rl-body">
+                <div class="rl-label">Shopping Plaza Macaé · 1 dispositivo</div>
+                <a class="ref-url" href="shopping-plaza-macae-area-comum-20260727-1437.pdf" target="_blank">shopping-plaza-macae-area-comum-20260727-1437.pdf</a>
+              </div>
+            </div>
+            <div class="ref-link">
+              <span class="rl-ico">📄</span>
+              <div class="rl-body">
+                <div class="rl-label">Praia da Costa · 4 dispositivos</div>
+                <a class="ref-url" href="praia-da-costa-area-comum-20260727-1436.pdf" target="_blank">praia-da-costa-area-comum-20260727-1436.pdf</a>
+              </div>
+            </div>
+            <div class="ref-link">
+              <span class="rl-ico">📄</span>
+              <div class="rl-body">
+                <div class="rl-label">West Plaza · 10 dispositivos</div>
+                <a class="ref-url" href="west-plaza-area-comum-20260727-1437.pdf" target="_blank">west-plaza-area-comum-20260727-1437.pdf</a>
+              </div>
+            </div>
+            <p class="text" style="margin-top:8px;font-size:11px;color:var(--muted);">4 unidades · 20 dispositivos de área comum no total. Valores conforme leitura do período; dispositivos em 0,000 kWh indicam ausência de leitura/consumo no intervalo.</p>
+          </article>
+        </div>
+      </main>
+
+      <footer class="footer">
+        <strong>MYIO</strong>
+        <span>Anexo — Arquivos e Relação por Unidade</span>
+        <span style="opacity:0.75;">14/07/2026 · Pág. 8</span>
+      </footer>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         PAGE 7 — PROTÓTIPOS · Fluxo + Resumo RFC-0054
+    ══════════════════════════════════════════════════════════════ -->
+    <section class="page">
+      <header class="hero-sm">
+        <div>
+          <div class="hs-brand">MYIO · Soul Malls</div>
+          <div class="hs-title">Protótipos &amp; Validação de Fluxo — Metas Financeiras em R$</div>
+        </div>
+        <div class="hs-right">
+          <span class="hs-sec">Base: GCDR RFC-0054</span>
+          <span class="hs-pill">Protótipos</span>
+        </div>
+      </header>
+
+      <main class="content">
+        <div class="col-stack">
+          <section class="headline">
+            <h2>Metas em R$ por unidade — fluxo proposto</h2>
+            <p>Objetivo: ter o <strong>orçamento em R$ da meta para cada unidade</strong>, por <strong>ano</strong> ou <strong>mês fechado</strong>, segmentado por <strong>Energia × Lojas</strong>, <strong>Energia × Área Comum</strong> (equipamentos) e demais categorias. O modelo abaixo resume o GCDR <strong>RFC-0054</strong> (Metas Monetárias e Tarifas Horárias), que é a base do backend.</p>
+          </section>
+
+          <div class="flow-panel">
+            <div class="flow-head">🔄 Fluxo — do preço à meta em R$ (validação)</div>
+            <div class="flow-body">
+              <div class="flow-step">
+                <div class="fs-num">1</div>
+                <div class="fs-body"><strong>Classificar o device</strong> — cada medidor recebe uma <strong>categoria explícita</strong>: <em>Área Comum</em> (<code>COMMON_AREA</code>) ou <em>Lojas/Específico</em> (<code>SPECIFIC</code>). É a chave que liga <strong>consumo × preço</strong> (nunca inferida por nome).</div>
+              </div>
+              <div class="flow-step">
+                <div class="fs-num">2</div>
+                <div class="fs-body"><strong>Definir o preço (tarifa)</strong> em <code>R$/kWh</code> por <strong>unidade × domínio × categoria × período</strong> (mês fechado) — <em>Protótipo 1</em> (Pág. 10).</div>
+              </div>
+              <div class="flow-step">
+                <div class="fs-num">3</div>
+                <div class="fs-body"><strong>Definir o orçamento (meta em R$)</strong> por <strong>unidade × domínio × ano × categoria</strong>, alternável <strong>Mensal/Anual</strong> e versionado — <em>Protótipo 2</em> (Pág. 11).</div>
+              </div>
+            </div>
+          </div>
+
+          <article class="card blue">
+            <h3>📘 Resumo do RFC-0054 — Metas Monetárias e Tarifas Horárias</h3>
+            <p class="text" style="margin-bottom:8px;">Telemetria mede <strong>quantidade</strong> (kWh/m³); o negócio gerencia <strong>custo</strong> (R$). O RFC-0054 adiciona a dimensão de dinheiro como <strong>3 aplicações independentes e opcionais</strong>, todas na mesma grade horária das metas:</p>
+            <div class="panel-list">
+              <div class="panel-item"><span class="dot"></span><div class="text"><strong>1. Tarifas horárias por unidade</strong> — <code>(unidade, domínio, categoria, hora) → preço</code> (R$/kWh ou R$/m³). Edita-se num nível conveniente (dia, faixas intraday, mês, ano) e o sistema distribui para as horas (o nível mais fino vence). Cada hora tem <strong>duas</strong> tarifas: <strong>Área Comum</strong> e <strong>Lojas/Específico</strong>.</div></div>
+              <div class="panel-item"><span class="dot"></span><div class="text"><strong>2. Metas de quantidade</strong> (kWh/m³) — inalteradas. Com tarifa carregada, uma meta por device passa a ser lida em R$: <code>quantidade × tarifa da categoria</code>, somado.</div></div>
+              <div class="panel-item"><span class="dot"></span><div class="text"><strong>3. Metas financeiras (orçamento)</strong> — alvo direto em R$ (ex.: "Energia 2026 ≤ R$ 7,5 mi"), por unidade e categoria.</div></div>
+              <div class="panel-item"><span class="dot amber"></span><div class="text"><strong>Backend-autoritativo</strong> — todo R$ é calculado no servidor; o cliente recebe <strong>valor já calculado</strong>. v1: BRL, tarifa <code>FLAT</code>, fuso America/Sao_Paulo.</div></div>
+            </div>
+            <div class="chips">
+              <span class="chip b">Domínio: Energia · Água</span>
+              <span class="chip">Categoria: Lojas · Área Comum</span>
+              <span class="chip a">Período: Mês fechado · Ano</span>
+              <span class="chip g">Meta em R$ · versionada</span>
+            </div>
+          </article>
+        </div>
+      </main>
+
+      <footer class="footer">
+        <strong>MYIO</strong>
+        <span>Protótipos — Fluxo &amp; Resumo RFC-0054</span>
+        <span style="opacity:0.75;">14/07/2026 · Pág. 9</span>
+      </footer>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         PAGE 8 — PROTÓTIPO 1 · Definição de Preço (tarifa)
+    ══════════════════════════════════════════════════════════════ -->
+    <section class="page">
+      <header class="hero-sm">
+        <div>
+          <div class="hs-brand">MYIO · Soul Malls</div>
+          <div class="hs-title">Protótipo 1 — Definição de Preço (Tarifa R$/kWh)</div>
+        </div>
+        <div class="hs-right">
+          <span class="hs-sec">Passo 2 do fluxo</span>
+          <span class="hs-pill">Protótipo 1</span>
+        </div>
+      </header>
+
+      <main class="content">
+        <div class="two-col">
+          <figure class="shot">
+            <img src="img/01-Tela-Definicao-Preco-Unidade.png" alt="Tela de definição de preços de energia e água por unidade" />
+            <figcaption>Preços de Energia &amp; Água — abas Definir preços · Dashboard · Histórico.</figcaption>
+          </figure>
+          <article class="card green">
+            <h3>💲 Definir preços — campos</h3>
+            <div class="field-row"><span class="field-name">Customer</span><span class="field-desc">Unidade (shopping). Ex.: <strong>Ilha Plaza</strong>.</span></div>
+            <div class="field-row"><span class="field-name">Domínio</span><span class="field-desc"><strong>Energia</strong> ou Água.</span></div>
+            <div class="field-row"><span class="field-name">Categoria</span><span class="field-desc"><strong>Área Comum</strong> ou <strong>Lojas</strong> — a mesma categoria explícita do device.</span></div>
+            <div class="field-row"><span class="field-name">Tipo de período</span><span class="field-desc"><strong>Mês fechado</strong> (ou dia / faixas / ano — distribuído para as horas).</span></div>
+            <div class="field-row"><span class="field-name">Preço (R$/kWh)</span><span class="field-desc">Valor da tarifa. Ex.: <strong>2,00</strong>.</span></div>
+            <div class="field-row"><span class="field-name">Mês</span><span class="field-desc">Competência. Ex.: <strong>janeiro de 2026</strong>.</span></div>
+            <p class="text" style="margin-top:6px;"><strong>Add período</strong> grava a faixa. Exemplo já cadastrado para Ilha Plaza:</p>
+            <div class="chips">
+              <span class="chip b">Energia · Área Comum · 2026-01 → R$ 2,00</span>
+              <span class="chip">Energia · Lojas · 2026-01 → R$ 1,00</span>
+            </div>
+            <p class="text" style="margin-top:8px;font-size:11.5px;color:var(--muted);">✅ A validar: preço por categoria e por competência; cada categoria com sua própria tarifa horária.</p>
+          </article>
+        </div>
+      </main>
+
+      <footer class="footer">
+        <strong>MYIO</strong>
+        <span>Protótipo 1 — Definição de Preço (Tarifa)</span>
+        <span style="opacity:0.75;">14/07/2026 · Pág. 10</span>
+      </footer>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         PAGE 9 — PROTÓTIPO 2 · Orçamento (meta em R$) por unidade
+    ══════════════════════════════════════════════════════════════ -->
+    <section class="page">
+      <header class="hero-sm">
+        <div>
+          <div class="hs-brand">MYIO · Soul Malls</div>
+          <div class="hs-title">Protótipo 2 — Orçamento (Meta em R$) por Unidade</div>
+        </div>
+        <div class="hs-right">
+          <span class="hs-sec">Passo 3 do fluxo</span>
+          <span class="hs-pill">Protótipo 2</span>
+        </div>
+      </header>
+
+      <main class="content">
+        <div class="col-stack">
+          <figure class="shot">
+            <img src="img/01-Tela-Definicao-Orcamento-Unidade.png" alt="Tela de definição de orçamento (meta em R$) por unidade, mês a mês" />
+            <figcaption>West Plaza — Metas de Consumo · Orçamento (meta em R$), alternável Anual/Mensal, com versão.</figcaption>
+          </figure>
+
+          <article class="card">
+            <h3>📅 Orçamento (meta em R$) — campos</h3>
+            <div class="two-col">
+              <div>
+                <div class="field-row"><span class="field-name">Unidade</span><span class="field-desc">Shopping selecionado. Ex.: <strong>West Plaza</strong>.</span></div>
+                <div class="field-row"><span class="field-name">Domínio</span><span class="field-desc"><strong>Energia</strong> (ou Água).</span></div>
+                <div class="field-row"><span class="field-name">Ano</span><span class="field-desc">Ex.: <strong>2026</strong>.</span></div>
+                <div class="field-row"><span class="field-name">Categoria</span><span class="field-desc"><strong>Lojas</strong>, <strong>Área Comum</strong>, etc.</span></div>
+              </div>
+              <div>
+                <div class="field-row"><span class="field-name">Anual / Mensal</span><span class="field-desc">Meta do ano fechado <strong>ou</strong> mês a mês (Jan–Dez).</span></div>
+                <div class="field-row"><span class="field-name">Valores (R$)</span><span class="field-desc">Orçamento por mês; <strong>Total anual</strong> somado.</span></div>
+                <div class="field-row"><span class="field-name">Versão</span><span class="field-desc">Cada gravação é <strong>versionada</strong> (ex.: v0) — histórico e concorrência.</span></div>
+                <div class="field-row"><span class="field-name">Energia · soma</span><span class="field-desc">Agregação por <strong>SUM</strong> da categoria.</span></div>
+              </div>
+            </div>
+            <div class="chips">
+              <span class="chip g">Meta por unidade</span>
+              <span class="chip a">Ano ou mês fechado</span>
+              <span class="chip b">Energia × Lojas</span>
+              <span class="chip b">Energia × Área Comum</span>
+              <span class="chip">Salvar orçamento (versionado)</span>
+            </div>
+            <p class="text" style="margin-top:8px;font-size:11.5px;color:var(--muted);">✅ A validar: orçamento por unidade e categoria (ano/mês), versionamento, e a leitura Realizado × Orçado.</p>
+          </article>
+        </div>
+      </main>
+
+      <footer class="footer">
+        <strong>MYIO</strong>
+        <span>Protótipo 2 — Orçamento (Meta em R$) por Unidade</span>
+        <span style="opacity:0.75;">14/07/2026 · Pág. 11</span>
+      </footer>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         PAGE 10 — GLOSSÁRIO
+    ══════════════════════════════════════════════════════════════ -->
+    <section class="page">
+      <header class="hero-sm">
+        <div>
+          <div class="hs-brand">MYIO · Soul Malls</div>
+          <div class="hs-title">Glossário — termos usados neste documento</div>
+        </div>
+        <div class="hs-right">
+          <span class="hs-sec">1 / 2</span>
+          <span class="hs-pill">Glossário</span>
+        </div>
+      </header>
+
+      <main class="content">
+        <div class="col-stack">
+          <article class="card">
+            <h3>📖 Plataforma &amp; processo MYIO</h3>
+            <div class="gloss-item">
+              <span class="gloss-term">RFC / RFC-0054</span>
+              <span class="gloss-def"><strong>Número/código interno da MYIO para uma demanda</strong> (do inglês <em>Request for Comments</em> — especificação técnica). <strong>RFC-0054</strong> é a demanda de <em>Metas Monetárias e Tarifas Horárias</em>, que embasa o modelo de metas em R$.</span>
+            </div>
+            <div class="gloss-item">
+              <span class="gloss-term">GCDR</span>
+              <span class="gloss-def">Plataforma de dados da MYIO (backend) onde ficam cadastro, tarifas e metas. "GCDR RFC-0054" = a demanda 0054 dentro do GCDR.</span>
+            </div>
+            <div class="gloss-item">
+              <span class="gloss-term">Head Office</span>
+              <span class="gloss-def">Painel/cockpit único que consolida todos os shoppings numa só visão.</span>
+            </div>
+            <div class="gloss-item">
+              <span class="gloss-term">Módulo de Alarmes</span>
+              <span class="gloss-def">Recurso no painel de cada unidade que sinaliza eventos/anomalias (ex.: picos de demanda) — base para acionar automação.</span>
+            </div>
+            <div class="gloss-item">
+              <span class="gloss-term">Device (dispositivo)</span>
+              <span class="gloss-def">Ponto de medição — o medidor de energia ou água de um equipamento/loja.</span>
+            </div>
+            <div class="gloss-item">
+              <span class="gloss-term">Piloto</span>
+              <span class="gloss-def">Implantação inicial restrita (ex.: Macaé) para validar antes do rollout amplo.</span>
+            </div>
+          </article>
+
+          <article class="card blue">
+            <h3>💰 Metas, tarifas e categorias</h3>
+            <div class="gloss-item">
+              <span class="gloss-term">Categoria — Área Comum × Lojas</span>
+              <span class="gloss-def">Classificação do device. <strong>Área Comum</strong> (<code>COMMON_AREA</code>): infraestrutura/equipamentos do shopping. <strong>Lojas / Específico</strong> (<code>SPECIFIC</code>): consumidores como lojas, restaurantes, estacionamento.</span>
+            </div>
+            <div class="gloss-item">
+              <span class="gloss-term">Domínio</span>
+              <span class="gloss-def">Tipo de grandeza medida: <strong>Energia</strong>, <strong>Água</strong> (e Temperatura, sem preço).</span>
+            </div>
+            <div class="gloss-item">
+              <span class="gloss-term">Tarifa (horária)</span>
+              <span class="gloss-def">Preço <code>R$/kWh</code> (ou <code>R$/m³</code>) por hora, por categoria. Editável por dia, faixa, mês ou ano — o sistema distribui para as horas.</span>
+            </div>
+            <div class="gloss-item">
+              <span class="gloss-term">Meta / Orçado (R$)</span>
+              <span class="gloss-def">Objetivo de custo definido para o período (mês fechado ou ano), por unidade e categoria.</span>
+            </div>
+            <div class="gloss-item">
+              <span class="gloss-term">Realizado</span>
+              <span class="gloss-def">Custo efetivo projetado a partir do consumo medido × tarifa.</span>
+            </div>
+            <div class="gloss-item">
+              <span class="gloss-term">Versão (v0)</span>
+              <span class="gloss-def">Cada gravação de meta/tarifa gera uma versão — para histórico e controle de concorrência.</span>
+            </div>
+            <div class="gloss-item">
+              <span class="gloss-term">kWh</span>
+              <span class="gloss-def">Quilowatt-hora — unidade de energia elétrica. (m³ = metros cúbicos, para água.)</span>
+            </div>
+          </article>
+
+        </div>
+      </main>
+
+      <footer class="footer">
+        <strong>MYIO</strong>
+        <span>Glossário (1/2) — Plataforma &amp; Metas</span>
+        <span style="opacity:0.75;">14/07/2026 · Pág. 12</span>
+      </footer>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         PAGE 13 — GLOSSÁRIO (2/2)
+    ══════════════════════════════════════════════════════════════ -->
+    <section class="page">
+      <header class="hero-sm">
+        <div>
+          <div class="hs-brand">MYIO · Soul Malls</div>
+          <div class="hs-title">Glossário — termos usados neste documento</div>
+        </div>
+        <div class="hs-right">
+          <span class="hs-sec">2 / 2</span>
+          <span class="hs-pill">Glossário</span>
+        </div>
+      </header>
+
+      <main class="content">
+        <div class="col-stack">
+          <article class="card green">
+            <h3>🏬 Equipamentos &amp; integrações</h3>
+            <div class="gloss-item">
+              <span class="gloss-term">CAG</span>
+              <span class="gloss-def">Central de Água Gelada — sistema de climatização (bombas e chillers) que resfria o shopping.</span>
+            </div>
+            <div class="gloss-item">
+              <span class="gloss-term">Chiller</span>
+              <span class="gloss-def">Resfriador de água da climatização; parte da CAG.</span>
+            </div>
+            <div class="gloss-item">
+              <span class="gloss-term">Subestação</span>
+              <span class="gloss-def">Ponto de entrada e transformação da energia elétrica da unidade.</span>
+            </div>
+            <div class="gloss-item">
+              <span class="gloss-term">TM</span>
+              <span class="gloss-def">Sistema financeiro de cobrança da Soul Malls (hoje recebe dados por planilha exportada).</span>
+            </div>
+            <div class="gloss-item">
+              <span class="gloss-term">Intranet Mall</span>
+              <span class="gloss-def">Empresa parceira responsável pelo portal do lojista.</span>
+            </div>
+          </article>
+        </div>
+      </main>
+
+      <footer class="footer">
+        <strong>MYIO</strong>
+        <span>Glossário (2/2) — Equipamentos &amp; integrações</span>
+        <span style="opacity:0.75;">14/07/2026 · Pág. 13</span>
+      </footer>
+    </section>
+
+  </div>
+
+  <script>
+    // Fit-to-page: garante que cada .page caiba EXATAMENTE em 1 folha A4 paisagem.
+    // Escala APENAS o conteúdo (.content); header e footer ficam full-bleed no tamanho natural.
+    (function () {
+      // Numera os rodapés automaticamente (Pág. N/Total) — nada de renumerar à mão.
+      function number() {
+        var pages = document.querySelectorAll('.page');
+        var total = pages.length;
+        pages.forEach(function (p, i) {
+          var f = p.querySelector('.footer > span:last-child');
+          if (f) { f.textContent = '14/07/2026 · Pág. ' + (i + 1) + '/' + total; }
+        });
+      }
+      function fit() {
+        var narrow = window.matchMedia('(max-width: 900px)').matches;
+        document.querySelectorAll('.page > .content').forEach(function (content) {
+          var inner = content.querySelector(':scope > .content-fit');
+          if (!inner) {
+            inner = document.createElement('div');
+            inner.className = 'content-fit';
+            while (content.firstChild) { inner.appendChild(content.firstChild); }
+            content.appendChild(inner);
+          }
+          inner.style.transform = 'none';
+          if (narrow) { return; } // mobile: sem escala, fluxo natural
+          var cs = getComputedStyle(content);
+          var avail = content.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+          var h = inner.getBoundingClientRect().height;
+          var s = Math.min(1, avail / h);
+          inner.style.transform = s < 1 ? 'scale(' + s + ')' : 'none';
+        });
+      }
+      window.addEventListener('DOMContentLoaded', function () { number(); fit(); });
+      window.addEventListener('load', fit); // após as imagens dos protótipos
+      window.addEventListener('beforeprint', fit);
+      window.addEventListener('resize', function () {
+        clearTimeout(window.__fitT); window.__fitT = setTimeout(fit, 150);
+      });
+      // reforço após imagens individuais
+      document.querySelectorAll('img').forEach(function (img) {
+        if (!img.complete) { img.addEventListener('load', fit); }
+      });
+    })();
+  </script>
+</body>
+</html>
