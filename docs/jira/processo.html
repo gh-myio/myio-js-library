@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Modelo de Trabalho · ED · MYIO</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%93%8B%3C/text%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --purple:#663ab5; --purple-d:#4e2a8e; --green:#04c081; --green-d:#039e6b;
+    --bg:#f4f5fb; --card:#fff; --ink:#1f2333; --muted:#6b7185; --line:#e7e9f3;
+    --amber:#f6a609; --red:#e5484d; --blue:#3b82f6; --gray:#9aa0b4;
+    --shadow:0 2px 10px rgba(31,35,51,.06),0 1px 3px rgba(31,35,51,.08);
+  }
+  *{box-sizing:border-box} html,body{margin:0;padding:0}
+  body{font-family:'Nunito',system-ui,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink);font-size:14px;line-height:1.45}
+  a{color:var(--purple);text-decoration:none} a:hover{text-decoration:underline}
+  header.top{background:linear-gradient(120deg,var(--purple) 0%,var(--purple-d) 60%,#3a1f6e 100%);color:#fff;padding:22px 26px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+  header.top::after{content:"";position:absolute;right:-40px;top:-40px;width:220px;height:220px;border-radius:50%;background:rgba(255,255,255,.06)}
+  .top h1{margin:0;font-size:22px;font-weight:900;display:flex;align-items:center;gap:10px}
+  .top .sub{margin-top:4px;font-size:13px;opacity:.92;font-weight:600}
+  .top .meta{margin-top:10px;display:flex;flex-wrap:wrap;gap:8px}
+  .nav{display:flex;gap:8px;flex-wrap:wrap}
+  .nav a{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.2);padding:4px 10px;border-radius:999px;font-size:12px;font-weight:700;color:#fff;text-decoration:none}
+  main{max-width:1320px;margin:0 auto;padding:22px}
+  .panel{background:var(--card);border-radius:14px;padding:18px;box-shadow:var(--shadow);margin-bottom:18px}
+  .panel h3{margin:0 0 4px;font-size:16px;font-weight:800;display:flex;align-items:center;gap:8px}
+  .panel h3 .dot{width:9px;height:9px;border-radius:50%;background:var(--purple)}
+  .panel .proc-sub{color:var(--muted);font-weight:700;font-size:12px;margin-left:2px}
+
+  /* Acordos de processo */
+  .proc-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:10px}
+  @media(max-width:1000px){.proc-grid{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:560px){.proc-grid{grid-template-columns:1fr}}
+  .proc-card{position:relative;border:1px solid var(--line);border-top:3px solid var(--ac);border-radius:13px;padding:15px 15px 13px;background:#fff;display:flex;flex-direction:column;gap:8px;overflow:hidden}
+  .proc-card::after{content:"";position:absolute;right:-24px;top:-24px;width:80px;height:80px;border-radius:50%;background:var(--ac);opacity:.06}
+  .proc-card .pc-top{display:flex;justify-content:space-between;align-items:center}
+  .proc-card .pc-ico{font-size:24px;line-height:1}
+  .proc-card .pc-n{font-size:26px;font-weight:900;color:var(--ac);opacity:.35;letter-spacing:-1px}
+  .proc-card .pc-title{font-weight:900;font-size:15.5px;color:var(--ink)}
+  .proc-card .pc-rule{font-size:12.5px;color:var(--ink);line-height:1.5}
+  .proc-card .pc-rule b{color:var(--ac)}
+  .proc-card .pc-why{font-size:11.5px;color:var(--muted);font-weight:600;line-height:1.45;border-left:2px solid var(--line);padding-left:8px}
+  .proc-card .pc-measure{margin-top:auto;font-size:10.5px;font-weight:800;color:var(--ac);background:color-mix(in srgb,var(--ac) 10%,#fff);border:1px solid color-mix(in srgb,var(--ac) 22%,#fff);border-radius:8px;padding:5px 8px}
+  .proc-foot{margin:15px 0 0;font-size:11.5px;color:var(--muted);font-weight:600}
+  .proc-foot code{background:#f0f1f8;padding:1px 5px;border-radius:5px}
+
+  /* Fluxo de trabalho */
+  .st-legend{display:flex;flex-wrap:wrap;gap:10px;margin:10px 0 14px}
+  .st-item{flex:1 1 210px;border:1px solid var(--line);border-radius:10px;padding:9px 11px}
+  .st-item .st-desc{font-size:11px;color:var(--muted);font-weight:600;line-height:1.4;margin-top:4px}
+  .sm-chip{padding:4px 11px;border-radius:8px;font-size:12px;font-weight:800;white-space:nowrap;display:inline-block}
+  .st-pill{padding:1px 7px;border-radius:6px;font-size:10.5px;font-weight:800;white-space:nowrap}
+  .sm-and{background:#fff7e6;color:#b26a00} .sm-rev{background:#e8f0fe;color:#1e5fd6} .sm-pend{background:#f2f0f7;color:#6a5aa0} .sm-done{background:#e8f7f0;color:#039e6b}
+  .statemap{display:flex;flex-wrap:wrap;align-items:center;gap:9px;background:#faf9ff;border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:8px}
+  .statemap.sub{background:#fff;border-style:dashed}
+  .sm-arrow{font-size:11px;font-weight:800;color:var(--muted)}
+  .sm-note{font-size:11px;font-weight:600;color:var(--muted)}
+  .flow-cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+  @media(max-width:820px){.flow-cols{grid-template-columns:1fr}}
+  .flow-card{border:1px solid var(--line);border-top:3px solid var(--ac);border-radius:12px;padding:15px}
+  .flow-card h4{margin:0;font-size:14.5px;font-weight:900;color:var(--ac)}
+  .flow-card .fc-sub{font-size:11px;color:var(--muted);font-weight:700;margin:2px 0 12px}
+  .flow-steps{margin:0;padding:0;list-style:none;counter-reset:fs}
+  .flow-steps li{position:relative;padding:0 0 12px 30px;font-size:12.5px;line-height:1.5;counter-increment:fs;color:var(--ink)}
+  .flow-steps li::before{content:counter(fs);position:absolute;left:0;top:-1px;width:21px;height:21px;border-radius:50%;background:var(--ac);color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center}
+  .flow-steps li:not(:last-child)::after{content:"";position:absolute;left:10px;top:23px;bottom:1px;width:2px;background:var(--line)}
+  .flow-steps b{color:var(--ink)}
+  .branch-box{margin-top:15px;border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:#fbfbfe}
+  .branch-box .bb-title{font-weight:800;font-size:13px;margin-bottom:9px}
+  .branch-box .bb-title code{background:#eef0f8;padding:1px 6px;border-radius:5px;font-size:12px}
+  .branch-tags{display:flex;flex-wrap:wrap;gap:8px}
+  .branch-tag{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;font-weight:700;background:#f0f1f8;border:1px solid var(--line);border-radius:7px;padding:4px 9px;color:var(--ink)}
+  .branch-tag b{color:var(--purple)}
+  footer{max-width:1320px;margin:6px auto 30px;padding:0 22px;color:var(--muted);font-size:12px}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>📋 Modelo de Trabalho — ED</h1>
+  <div class="sub">Engineer Dashboard (ED) · Board 166 · acordos de processo, fluxo de revisão e nomenclatura de branches</div>
+  <div class="meta">
+    <span class="nav">
+      <a href="/docs/jira/index.html">🗂️ Cockpit backlog</a>
+      <a href="/docs/jira/performance.html">📉 Performance &amp; Burndown</a>
+      <a href="/docs/jira/PROCESSO.md" target="_blank">📄 PROCESSO.md</a>
+    </span>
+  </div>
+</header>
+
+<main>
+  <section class="panel proc">
+    <h3><span class="dot"></span> Acordos de Processo do Time <span class="proc-sub">— o padrão de trabalho que as métricas cobram</span></h3>
+    <div class="proc-grid" id="procGrid"></div>
+    <p class="proc-foot" id="procFoot"></p>
+  </section>
+
+  <section class="panel flow-panel">
+    <h3><span class="dot"></span> Fluxo de Trabalho &amp; Branches <span class="proc-sub">— estados da TASK, revisão e nomenclatura</span></h3>
+
+    <div class="st-legend">
+      <div class="st-item"><span class="sm-chip sm-and">Em Andamento</span><div class="st-desc">Alguém está <b>trabalhando ativamente</b> — é o item de <b>WIP</b> daquela pessoa (1 por pessoa).</div></div>
+      <div class="st-item"><span class="sm-chip sm-rev">Em Revisão</span><div class="st-desc">Alguém está <b>revisando/validando ativamente</b> — existe uma <b>subtask em andamento</b> de revisão.</div></div>
+      <div class="st-item"><span class="sm-chip sm-pend">Pendente</span><div class="st-desc"><b>Parado esperando</b> — na fila (ninguém pegou) ou <b>devolvido</b> aguardando o DEV retomar.</div></div>
+      <div class="st-item"><span class="sm-chip sm-done">Concluído</span><div class="st-desc">Entregue e <b>validado</b>.</div></div>
+    </div>
+
+    <div class="statemap">
+      <span class="sm-chip sm-and">Em Andamento</span>
+      <span class="sm-arrow">DEV termina ▸</span>
+      <span class="sm-chip sm-rev">Em Revisão</span>
+      <span class="sm-arrow">aprovado ▸</span>
+      <span class="sm-chip sm-done">Concluído</span>
+    </div>
+    <div class="statemap sub">
+      <span class="sm-note">Retorno com bug: revisor evidencia e devolve →</span>
+      <span class="sm-chip sm-pend">Pendente</span>
+      <span class="sm-note">(pai <b>e</b> subtask de validação) · DEV retoma: <span class="st-pill sm-pend">Pendente</span> ▸ <span class="st-pill sm-and">Em Andamento</span> (vira o WIP dele).</span>
+    </div>
+
+    <div class="flow-cols">
+      <div class="flow-card" style="--ac:#04c081">
+        <h4>Fluxo DEV → QA</h4>
+        <p class="fc-sub">Validação funcional</p>
+        <ol class="flow-steps">
+          <li>DEV finaliza → <b>reatribui a TASK ao QA</b> e move para <span class="st-pill sm-rev">Em Revisão</span>.</li>
+          <li>QA cria a subtask <b>“Validação QA”</b> com <b>estimativa em horas</b> — ela é o <span class="st-pill sm-and">Em Andamento</span> do QA.</li>
+          <li><b>Aprovado:</b> QA <b>evidencia</b> na subtask, conclui a “Validação QA” e conclui a <b>TASK-pai</b>.</li>
+          <li><b>Bug:</b> QA evidencia o cenário, devolve ao DEV; <b>ambas</b> vão para <span class="st-pill sm-pend">Pendente</span>. DEV retoma: <span class="st-pill sm-pend">Pendente</span> ▸ <span class="st-pill sm-and">Em Andamento</span>.</li>
+          <li>Cada rodada de bug <b>reabre a MESMA</b> subtask “Validação QA” (histórico nos comentários).</li>
+        </ol>
+      </div>
+      <div class="flow-card" style="--ac:#663ab5">
+        <h4>Fluxo de PR</h4>
+        <p class="fc-sub">Revisão de código</p>
+        <ol class="flow-steps">
+          <li>DEV <b>abre o PR</b> → move a TASK para <span class="st-pill sm-pend">Pendente</span>, <b>reatribui</b> ao líder técnico/revisor e <b>comenta o link do PR</b> na TASK. <i>(Libera o WIP do DEV.)</i></li>
+          <li>Revisor move a pai <span class="st-pill sm-pend">Pendente</span> ▸ <span class="st-pill sm-rev">Em Revisão</span> e cria a subtask <b>“Revisão de código”</b> — seu <span class="st-pill sm-and">Em Andamento</span>.</li>
+          <li>Aprovação/pendência seguem a mesma mecânica: <b>evidência</b>, conclui ou devolve para <span class="st-pill sm-pend">Pendente</span>.</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="branch-box">
+      <div class="bb-title">Branch = ID do ticket &nbsp;·&nbsp; <code>&lt;tipo&gt;/ED-&lt;id&gt;[-slug]</code></div>
+      <div class="branch-tags">
+        <span class="branch-tag"><b>feat/</b>ED-953-tela-login</span>
+        <span class="branch-tag"><b>fix/</b>ED-999</span>
+        <span class="branch-tag"><b>refactor/</b>ED-1012</span>
+        <span class="branch-tag"><b>chore/</b>ED-1020</span>
+        <span class="branch-tag"><b>docs/</b>ED-981</span>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer id="footer">Fonte das regras: <code>metrics.json → rules</code> · documento completo em <a href="/docs/jira/PROCESSO.md" target="_blank">PROCESSO.md</a>.</footer>
+
+<script>
+const FALLBACK={minPerDay:1,targetPerDay:4,suspectPerDay:16,minTaskHours:0.5,wipLimit:1};
+function renderProcess(r){
+  const cards=[
+    {ac:'#663ab5',ico:'🎯',n:'01',t:'WIP = 1',
+     rule:`Sempre <b>um, e apenas um</b> ticket com status <b>“Em Andamento”</b> por pessoa — inclusive quando ocioso, usando o ticket de <b>“Aguardando Demanda”</b>. Nunca zero, nunca dois.`,
+     why:'Torna o trabalho — e a ociosidade — visível no board a todo momento; evita abrir várias frentes e nunca terminar.',
+     measure:'Cartão “WIP atual” no cockpit'},
+    {ac:'#04c081',ico:'📈',n:'02',t:'Vazão diária',
+     rule:`Mínimo aceitável de <b>${r.minPerDay} ticket por dia útil</b>; meta desejada de <b>${r.targetPerDay} por dia</b>.`,
+     why:'Garante fluxo contínuo de entregas — abaixo de 1/dia acende alerta; 4/dia é o ritmo saudável esperado.',
+     measure:`Aderência + linha-meta (${r.targetPerDay}/dia) no /performance`},
+    {ac:'#3b82f6',ico:'⏱️',n:'03',t:'Granularidade mínima',
+     rule:`Nenhuma tarefa menor que <b>${String(r.minTaskHours).replace('.',',')} h</b>. Trabalhos menores são agrupados num único ticket.`,
+     why:'Evita fragmentação artificial e “inflar” a contagem de tickets com micro-itens.',
+     measure:'Padrão de abertura de tickets'},
+    {ac:'#e5484d',ico:'🚦',n:'04',t:'Teto diário',
+     rule:`Fechar <b>mais de ${r.suspectPerDay} tickets num dia</b> (por pessoa) é sinalizado como <b>suspeito</b> — provável fechamento em lote.`,
+     why:`Coerência: ${r.suspectPerDay} × ${String(r.minTaskHours).replace('.',',')} h = 8 h = uma jornada. Acima disso, ou houve lote, ou a granularidade (item 03) foi furada.`,
+     measure:`Picos > ${r.suspectPerDay} + barras vermelhas no /performance`},
+  ];
+  document.getElementById('procGrid').innerHTML=cards.map(c=>`
+    <div class="proc-card" style="--ac:${c.ac}">
+      <div class="pc-top"><span class="pc-ico">${c.ico}</span><span class="pc-n">${c.n}</span></div>
+      <div class="pc-title">${c.t}</div>
+      <div class="pc-rule">${c.rule}</div>
+      <div class="pc-why">${c.why}</div>
+      <div class="pc-measure">📊 ${c.measure}</div>
+    </div>`).join('');
+  document.getElementById('procFoot').innerHTML=`Base de medição = <code>resolutiondate</code> · 1 ticket = 1 (sem peso por esforço; subtarefas contam no throughput) · documento completo em <a href="/docs/jira/PROCESSO.md" target="_blank" rel="noopener">PROCESSO.md</a>.`;
+}
+function loadJSON(name){const urls=['./'+name,name,'/docs/jira/'+name];return urls.reduce((p,u)=>p.catch(()=>fetch(u).then(r=>{if(!r.ok)throw new Error(r.status);return r.json()})),Promise.reject());}
+loadJSON('metrics.json').then(d=>renderProcess(d.rules||FALLBACK)).catch(()=>renderProcess(FALLBACK));
+</script>
+</body>
+</html>

@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Cockpit ED · Sprint ativa + Backlog · MYIO</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%9A%A1%3C/text%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    --purple:#663ab5; --purple-d:#4e2a8e; --green:#04c081; --green-d:#039e6b;
+    --bg:#f4f5fb; --card:#ffffff; --ink:#1f2333; --muted:#6b7185; --line:#e7e9f3;
+    --amber:#f6a609; --red:#e5484d; --blue:#3b82f6; --gray:#9aa0b4;
+    --shadow:0 2px 10px rgba(31,35,51,.06), 0 1px 3px rgba(31,35,51,.08);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{font-family:'Nunito',system-ui,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink);font-size:14px;line-height:1.45}
+  a{color:var(--purple);text-decoration:none}
+  a:hover{text-decoration:underline}
+
+  header.top{
+    background:linear-gradient(120deg,var(--purple) 0%,var(--purple-d) 60%,#3a1f6e 100%);
+    color:#fff;padding:22px 26px;box-shadow:var(--shadow);position:relative;overflow:hidden;
+  }
+  header.top::after{content:"";position:absolute;right:-40px;top:-40px;width:220px;height:220px;border-radius:50%;background:rgba(255,255,255,.06)}
+  .top h1{margin:0;font-size:22px;font-weight:900;letter-spacing:.2px;display:flex;align-items:center;gap:10px}
+  .top .sub{margin-top:4px;font-size:13px;opacity:.9;font-weight:600}
+  .top .meta{margin-top:10px;display:flex;flex-wrap:wrap;gap:8px}
+  .pill{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.18);padding:4px 10px;border-radius:999px;font-size:12px;font-weight:700}
+  .pill a{color:#fff;text-decoration:underline}
+  .pill.nav-perf{background:var(--green);border-color:var(--green);font-weight:800}
+  .pill.nav-perf a{text-decoration:none}
+  .pill.nav-perf:hover{filter:brightness(1.06)}
+
+  main{max-width:1440px;margin:0 auto;padding:22px}
+
+  .kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-bottom:18px}
+  @media(max-width:1100px){.kpis{grid-template-columns:repeat(3,1fr)}}
+  @media(max-width:620px){.kpis{grid-template-columns:repeat(2,1fr)}}
+  .kpi{background:var(--card);border-radius:14px;padding:15px 16px;box-shadow:var(--shadow);border-left:4px solid var(--purple);position:relative}
+  .kpi .n{font-size:30px;font-weight:900;line-height:1}
+  .kpi .l{font-size:12px;color:var(--muted);font-weight:700;margin-top:6px;text-transform:uppercase;letter-spacing:.4px}
+  .kpi .s{font-size:12px;color:var(--muted);margin-top:2px;font-weight:600}
+  .kpi.green{border-left-color:var(--green)} .kpi.green .n{color:var(--green-d)}
+  .kpi.red{border-left-color:var(--red)} .kpi.red .n{color:var(--red)}
+  .kpi.amber{border-left-color:var(--amber)} .kpi.amber .n{color:var(--amber)}
+  .kpi.blue{border-left-color:var(--blue)} .kpi.blue .n{color:var(--blue)}
+
+  .grid{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:16px;margin-bottom:18px}
+  @media(max-width:1100px){.grid{grid-template-columns:1fr 1fr}}
+  @media(max-width:720px){.grid{grid-template-columns:1fr}}
+  .panel{background:var(--card);border-radius:14px;padding:16px;box-shadow:var(--shadow)}
+  .panel h3{margin:0 0 12px;font-size:14px;font-weight:800;display:flex;align-items:center;gap:8px;color:var(--ink)}
+  .panel h3 .dot{width:9px;height:9px;border-radius:50%;background:var(--purple)}
+  .panel.tall{grid-row:span 2}
+  .chart-wrap{position:relative;height:230px}
+  .chart-wrap.big{height:430px}
+  .panel.wip{margin-bottom:18px}
+  .panel.wip .hint{color:var(--muted);font-size:12px;font-weight:600;margin:2px 0 12px}
+  .wip-badge{font-size:12px;font-weight:800;padding:2px 9px;border-radius:999px;background:#fdecec;color:#c92a2f;margin-left:6px}
+  .wip-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+  .wip-chip{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:#fbfbfe}
+  .wip-chip.over{border-color:#f2c4c4;background:#fdf3f3}
+  .wip-chip.ok{border-color:#c7ebd9;background:#f2fbf7}
+  .wip-chip .wp-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .wip-chip .wp-name{font-weight:800;font-size:13px}
+  .wip-chip .wp-n{font-size:24px;font-weight:900;line-height:1}
+  .wip-chip.over .wp-n{color:#c92a2f} .wip-chip.ok .wp-n{color:#039e6b}
+  .wip-chip .wp-tag{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.3px}
+  .wip-chip.over .wp-tag{color:#c92a2f} .wip-chip.ok .wp-tag{color:#039e6b}
+  .wip-chip .wp-keys{margin-top:8px;font-size:11px;color:var(--muted);font-weight:600;line-height:1.7;max-height:74px;overflow:auto}
+  .wip-chip .wp-keys a{color:var(--purple)}
+
+  .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--card);border-radius:14px;padding:12px 14px;box-shadow:var(--shadow);margin-bottom:14px}
+  .toolbar .tabs{display:flex;gap:6px;background:#eef0f8;border-radius:10px;padding:4px}
+  .tab{padding:7px 14px;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer;color:var(--muted);border:none;background:transparent}
+  .tab.active{background:var(--purple);color:#fff}
+  .toolbar input,.toolbar select{font-family:inherit;font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--ink);font-weight:600}
+  .toolbar input#q{flex:1;min-width:180px}
+  .toolbar .count{margin-left:auto;font-weight:800;color:var(--muted);font-size:13px}
+  .btn-clear{padding:8px 12px;border:1px solid var(--line);background:#fff;border-radius:9px;font-weight:700;cursor:pointer;color:var(--muted)}
+  .btn-clear:hover{border-color:var(--purple);color:var(--purple)}
+
+  .tablewrap{background:var(--card);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+  .tablescroll{max-height:620px;overflow:auto}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  thead th{position:sticky;top:0;background:#f7f8fd;z-index:2;text-align:left;padding:10px 12px;font-weight:800;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.4px;border-bottom:2px solid var(--line);cursor:pointer;white-space:nowrap}
+  thead th:hover{color:var(--purple)}
+  tbody td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  tbody tr:hover{background:#faf9ff}
+  .k{font-weight:800;white-space:nowrap}
+  .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:800;white-space:nowrap}
+  .b-bug{background:#fdecec;color:#c92a2f} .b-task{background:#eef1fb;color:#3f51b5} .b-story{background:#e8f7f0;color:#039e6b}
+  .b-fd{background:#fff4e5;color:#b26a00}
+  .st{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:800;white-space:nowrap;border:1px solid transparent}
+  .st-and{background:#fff7e6;color:#b26a00;border-color:#ffe2a8}
+  .st-new{background:#eef1fb;color:#4257b2;border-color:#dbe1f7}
+  .st-rev{background:#e8f0fe;color:#1e5fd6;border-color:#cfe0fd}
+  .st-pend{background:#f2f0f7;color:#6a5aa0;border-color:#e2dcf0}
+  .st-done{background:#e8f7f0;color:#039e6b;border-color:#c7ebd9}
+  .pr{font-weight:800;white-space:nowrap;font-size:12px}
+  .pr-Highest{color:#c92a2f} .pr-High{color:#e5484d} .pr-Medium{color:#b26a00} .pr-Low{color:#3b82f6} .pr-Lowest{color:#9aa0b4}
+  .grp{font-size:11px;color:var(--muted);font-weight:700}
+  .who{font-size:12px;color:var(--ink);font-weight:600;white-space:nowrap}
+  .sum{max-width:640px}
+  footer{max-width:1440px;margin:6px auto 30px;padding:0 22px;color:var(--muted);font-size:12px}
+  .legend-mini{font-size:11px;color:var(--muted);margin-top:8px;font-weight:600;text-align:center}
+  .empty{padding:40px;text-align:center;color:var(--muted);font-weight:700}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>⚡ Cockpit ED — Sprint ativa + Backlog</h1>
+  <div class="sub" id="subtitle">Carregando…</div>
+  <div class="meta" id="metaPills"></div>
+</header>
+
+<main>
+  <section class="kpis" id="kpis"></section>
+
+  <section class="panel wip" id="wipPanel" style="display:none">
+    <h3><span class="dot" style="background:#e5484d"></span> WIP atual — tickets <b>“Em Andamento”</b> por pessoa <span id="wipBadge"></span></h3>
+    <p class="hint" id="wipHint"></p>
+    <div class="wip-grid" id="wipCards"></div>
+  </section>
+
+  <section class="grid">
+    <div class="panel tall">
+      <h3><span class="dot"></span> Backlog por Grupo / Unidade</h3>
+      <div class="chart-wrap big"><canvas id="chGroup"></canvas></div>
+    </div>
+    <div class="panel">
+      <h3><span class="dot"></span> Backlog por Tipo</h3>
+      <div class="chart-wrap"><canvas id="chType"></canvas></div>
+    </div>
+    <div class="panel">
+      <h3><span class="dot"></span> Backlog por Prioridade</h3>
+      <div class="chart-wrap"><canvas id="chPrio"></canvas></div>
+    </div>
+    <div class="panel">
+      <h3><span class="dot"></span> Sprint 18 por Status</h3>
+      <div class="chart-wrap"><canvas id="chSprint"></canvas></div>
+    </div>
+    <div class="panel">
+      <h3><span class="dot"></span> Carga por Responsável (Sprint 18)</h3>
+      <div class="chart-wrap"><canvas id="chAssignee"></canvas></div>
+    </div>
+  </section>
+
+  <div class="toolbar">
+    <div class="tabs">
+      <button class="tab active" data-view="backlog">Backlog</button>
+      <button class="tab" data-view="sprint">Sprint 18</button>
+    </div>
+    <input type="text" id="q" placeholder="🔎 Buscar por chave, resumo, responsável…" />
+    <select id="fGroup"><option value="">Todos os grupos</option></select>
+    <select id="fType"><option value="">Todos os tipos</option></select>
+    <select id="fStatus"><option value="">Todos os status</option></select>
+    <select id="fPrio"><option value="">Toda prioridade</option></select>
+    <select id="fPeriod" title="Filtra por data de atualização (updated)"><option value="">Qualquer período</option></select>
+    <input type="date" id="pStart" class="dt" style="display:none" title="Atualizado de" />
+    <input type="date" id="pEnd" class="dt" style="display:none" title="Atualizado até" />
+    <button class="btn-clear" id="clear">Limpar</button>
+    <span class="count" id="rowCount">—</span>
+  </div>
+
+  <div class="tablewrap">
+    <div class="tablescroll">
+      <table id="tbl">
+        <thead>
+          <tr>
+            <th data-sort="key">Chave</th>
+            <th data-sort="type">Tipo</th>
+            <th data-sort="priority">Prior.</th>
+            <th data-sort="status">Status</th>
+            <th data-sort="group">Grupo</th>
+            <th data-sort="assignee">Responsável</th>
+            <th data-sort="summary">Resumo</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<footer id="footer"></footer>
+
+<script>
+const PURPLE='#663ab5', GREEN='#04c081', AMBER='#f6a609', RED='#e5484d', BLUE='#3b82f6', GRAY='#9aa0b4';
+const PALETTE=['#663ab5','#04c081','#f6a609','#3b82f6','#e5484d','#8e5bd8','#12b981','#f97316','#6366f1','#ec4899','#14b8a6','#eab308','#a855f7','#0ea5e9','#ef4444','#22c55e','#f59e0b','#7c3aed','#64748b','#d946ef'];
+let DATA=null, VIEW='backlog', charts={};
+// Sprints do board 166 (mesmas do dashboard de performance) — presets de período por "updated"
+const SPRINTS=[
+  {id:463,name:'Sprint 15',start:'2026-05-25',end:'2026-06-01'},
+  {id:496,name:'Sprint 16',start:'2026-06-01',end:'2026-06-08'},
+  {id:530,name:'Sprint 17',start:'2026-06-22',end:'2026-06-29'},
+  {id:563,name:'Sprint 18',start:'2026-06-30',end:'2026-07-07'},
+  {id:596,name:'Sprint 19',start:'2026-07-28',end:'2026-08-04'},
+];
+
+const jiraLink=(k,base)=>`<a href="${base}/browse/${k}" target="_blank" rel="noopener">${k}</a>`;
+const typeClass=t=>/bug/i.test(t)?'b-bug':/hist/i.test(t)?'b-story':/fresh/i.test(t)?'b-fd':'b-task';
+function statusClass(s){s=(s||'').toLowerCase();
+  if(s.includes('andamento'))return'st-and'; if(s.includes('novos'))return'st-new';
+  if(s.includes('revis'))return'st-rev'; if(s.includes('pend'))return'st-pend';
+  if(s.includes('conclu'))return'st-done'; return'st-new';}
+
+function kpiCard(n,l,s,cls){return `<div class="kpi ${cls||''}"><div class="n">${n}</div><div class="l">${l}</div>${s?`<div class="s">${s}</div>`:''}</div>`;}
+
+function renderKPIs(){
+  const d=DATA, all=[...d.sprint,...d.backlog];
+  const bugs=all.filter(r=>/bug/i.test(r.type)).length;
+  const high=all.filter(r=>/High|Highest/i.test(r.priority)).length;
+  const inProg=d.sprint.filter(r=>/andamento/i.test(r.status)).length;
+  const groups=new Set(d.backlog.map(r=>r.group)).size;
+  document.getElementById('kpis').innerHTML=
+    kpiCard(d.summary.total,'Total em aberto','Sprint + Backlog','')+
+    kpiCard(d.summary.sprintOpen,'Sprint 18',`${inProg} em andamento`,'green')+
+    kpiCard(d.summary.backlogOpen,'Backlog','sem épico/subtarefa','blue')+
+    kpiCard(bugs,'Bugs abertos','sprint + backlog','red')+
+    kpiCard(high,'Prioridade alta','High + Highest','amber')+
+    kpiCard(groups,'Grupos / unidades','no backlog','');
+}
+
+function mkBar(id,labels,values,horizontal,colors){
+  const ctx=document.getElementById(id);
+  charts[id]&&charts[id].destroy();
+  charts[id]=new Chart(ctx,{type:'bar',data:{labels,datasets:[{data:values,backgroundColor:colors||PURPLE,borderRadius:6,barThickness:horizontal?14:undefined,maxBarThickness:34}]},
+    options:{indexAxis:horizontal?'y':'x',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.parsed[horizontal?'x':'y']} ticket(s)`}}},
+      scales:{x:{grid:{display:!horizontal,color:'#eef0f8'},ticks:{font:{family:'Nunito',weight:'700'},autoSkip:false}},
+              y:{grid:{display:horizontal?false:true,color:'#eef0f8'},ticks:{font:{family:'Nunito',weight:'700'},autoSkip:false}}}}});
+}
+function mkDoughnut(id,labels,values,colors){
+  const ctx=document.getElementById(id);
+  charts[id]&&charts[id].destroy();
+  charts[id]=new Chart(ctx,{type:'doughnut',data:{labels,datasets:[{data:values,backgroundColor:colors,borderWidth:2,borderColor:'#fff'}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'62%',
+      plugins:{legend:{position:'right',labels:{font:{family:'Nunito',weight:'700',size:11},boxWidth:12,padding:8}},
+        tooltip:{callbacks:{label:c=>` ${c.label}: ${c.parsed}`}}}}});
+}
+const entries=o=>Object.entries(o);
+
+function renderCharts(){
+  const bg=DATA.aggregates.backlog, sp=DATA.aggregates.sprint;
+  // group (horizontal bar, sorted desc already)
+  const g=entries(bg.byGroup);
+  mkBar('chGroup',g.map(x=>x[0]),g.map(x=>x[1]),true,g.map((_,i)=>PALETTE[i%PALETTE.length]));
+  // type doughnut
+  const t=entries(bg.byType);
+  const typeColor=l=>/bug/i.test(l)?RED:/hist/i.test(l)?GREEN:/fresh/i.test(l)?AMBER:PURPLE;
+  mkDoughnut('chType',t.map(x=>x[0]),t.map(x=>x[1]),t.map(x=>typeColor(x[0])));
+  // priority bar
+  const prOrder=['Highest','High','Medium','Low','Lowest'];
+  const p=prOrder.filter(k=>bg.byPriority[k]).map(k=>[k,bg.byPriority[k]]);
+  const prColor={Highest:'#c92a2f',High:RED,Medium:AMBER,Low:BLUE,Lowest:GRAY};
+  mkBar('chPrio',p.map(x=>x[0]),p.map(x=>x[1]),false,p.map(x=>prColor[x[0]]));
+  // sprint status doughnut
+  const ss=entries(sp.byStatus);
+  const stColor=l=>/andamento/i.test(l)?AMBER:/novos/i.test(l)?BLUE:/revis/i.test(l)?'#1e5fd6':/pend/i.test(l)?PURPLE:GRAY;
+  mkDoughnut('chSprint',ss.map(x=>x[0]),ss.map(x=>x[1]),ss.map(x=>stColor(x[0])));
+  // sprint assignee horizontal bar
+  const a=entries(sp.byAssignee);
+  mkBar('chAssignee',a.map(x=>x[0]),a.map(x=>x[1]),true,a.map((_,i)=>PALETTE[i%PALETTE.length]));
+}
+
+// ---- table + filters ----
+let sortKey='key', sortDir=1;
+function populateFilters(){
+  const list=DATA[VIEW];
+  const uniq=(k)=>[...new Set(list.map(r=>r[k]))].sort((a,b)=>a.localeCompare(b,'pt'));
+  const fill=(id,vals,ph)=>{const s=document.getElementById(id);const cur=s.value;
+    s.innerHTML=`<option value="">${ph}</option>`+vals.map(v=>`<option ${v===cur?'selected':''}>${v}</option>`).join('');};
+  fill('fGroup',uniq('group'),'Todos os grupos');
+  fill('fType',uniq('type'),'Todos os tipos');
+  fill('fStatus',uniq('status'),'Todos os status');
+  fill('fPrio',uniq('priority'),'Toda prioridade');
+}
+function currentRows(){
+  let list=DATA[VIEW].slice();
+  const q=document.getElementById('q').value.trim().toLowerCase();
+  const fg=document.getElementById('fGroup').value, ft=document.getElementById('fType').value,
+        fs=document.getElementById('fStatus').value, fp=document.getElementById('fPrio').value;
+  if(q)list=list.filter(r=>(r.key+' '+r.summary+' '+r.assignee).toLowerCase().includes(q));
+  if(fg)list=list.filter(r=>r.group===fg);
+  if(ft)list=list.filter(r=>r.type===ft);
+  if(fs)list=list.filter(r=>r.status===fs);
+  if(fp)list=list.filter(r=>r.priority===fp);
+  const ps=document.getElementById('pStart').value, pe=document.getElementById('pEnd').value;
+  if(ps)list=list.filter(r=>r.updated&&r.updated>=ps);
+  if(pe)list=list.filter(r=>r.updated&&r.updated<=pe);
+  const prRank={Highest:0,High:1,Medium:2,Low:3,Lowest:4,'—':5};
+  list.sort((a,b)=>{
+    let va=a[sortKey],vb=b[sortKey];
+    if(sortKey==='priority'){va=prRank[va]??9;vb=prRank[vb]??9;return (va-vb)*sortDir;}
+    if(sortKey==='key'){va=+va.split('-')[1];vb=+vb.split('-')[1];return (va-vb)*sortDir;}
+    return String(va).localeCompare(String(vb),'pt')*sortDir;
+  });
+  return list;
+}
+function renderTable(){
+  const rows=currentRows(), base=DATA.meta.jiraBase, tb=document.getElementById('tbody');
+  document.getElementById('rowCount').textContent=`${rows.length} de ${DATA[VIEW].length}`;
+  if(!rows.length){tb.innerHTML=`<tr><td colspan="7" class="empty">Nenhum ticket com os filtros atuais.</td></tr>`;return;}
+  tb.innerHTML=rows.map(r=>`<tr>
+    <td class="k">${jiraLink(r.key,base)}</td>
+    <td><span class="badge ${typeClass(r.type)}">${r.type}</span></td>
+    <td class="pr pr-${r.priority}">${r.priority}</td>
+    <td><span class="st ${statusClass(r.status)}">${r.status}</span></td>
+    <td class="grp">${r.group}</td>
+    <td class="who">${r.assignee}</td>
+    <td class="sum">${r.summary.replace(/</g,'&lt;')}</td>
+  </tr>`).join('');
+}
+function setView(v){
+  VIEW=v;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.view===v));
+  ['q','fGroup','fType','fStatus','fPrio'].forEach(id=>{const e=document.getElementById(id);if(e.tagName==='INPUT')e.value='';else e.value='';});
+  populateFilters(); renderTable();
+}
+
+function renderWIP(w){
+  const panel=document.getElementById('wipPanel'); panel.style.display='';
+  const base=w.meta.jiraBase, limit=w.meta.wipLimit;
+  const over=w.people.filter(p=>p.over).length;
+  document.getElementById('wipBadge').innerHTML = over?`<span class="wip-badge">${over} acima do limite</span>`:`<span class="wip-badge" style="background:#e8f7f0;color:#039e6b">tudo ok</span>`;
+  document.getElementById('wipHint').innerHTML=`${w.meta.note} Total em andamento: <b>${w.total}</b> · limite acordado: <b>${limit}/pessoa</b> · snapshot ${fmt(w.meta.generatedAt)}.`;
+  document.getElementById('wipCards').innerHTML=w.people.map(p=>{
+    const cls=p.over?'over':(p.count===limit?'ok':'');
+    const keys=p.tickets.map(t=>`<a href="${base}/browse/${t.key}" target="_blank" rel="noopener" title="${(t.summary||'').replace(/"/g,'&quot;')}">${t.key}</a>`).join(' · ');
+    return `<div class="wip-chip ${cls}">
+      <div class="wp-top"><span class="wp-name">${p.name}</span><span class="wp-n">${p.count}</span></div>
+      <div class="wp-tag">${p.over?('acima do limite de '+limit):(p.count===limit?'dentro do limite':'ocioso?')}</div>
+      <div class="wp-keys">${keys}</div>
+    </div>`;
+  }).join('');
+}
+function init(){
+  document.getElementById('subtitle').textContent=
+    `${DATA.meta.projectName} (${DATA.meta.project}) · Board ${DATA.meta.board} · Sprint ativa: ${DATA.meta.sprint.name} (${fmt(DATA.meta.sprint.start)} → ${fmt(DATA.meta.sprint.end)})`;
+  document.getElementById('metaPills').innerHTML=
+    `<span class="pill">📅 Gerado em ${fmt(DATA.meta.generatedAt)}</span>`+
+    `<span class="pill">🎯 ${DATA.summary.total} tickets em aberto</span>`+
+    `<span class="pill nav-perf">📉 <a href="/docs/jira/performance.html">Performance &amp; Burndown</a></span>`+
+    `<span class="pill">📋 <a href="/docs/jira/processo.html">Modelo de Trabalho</a></span>`+
+    `<span class="pill"><a href="${DATA.meta.jiraBase}/jira/software/projects/${DATA.meta.project}/boards/${DATA.meta.board}" target="_blank" rel="noopener">🔗 Abrir board no Jira</a></span>`+
+    `<span class="pill">📄 <a href="./ED-sprint19-backlog-2026-07-28.md" target="_blank">Ver .md</a></span>`;
+  document.getElementById('footer').innerHTML=
+    `Fonte: ${DATA.meta.source}. Escopo: ${DATA.meta.scope} · Dados em <code>data.json</code>.`;
+  // period selector (por data de "updated")
+  const per=document.getElementById('fPeriod');
+  let popts='<option value="">Qualquer período</option>';
+  [...SPRINTS].reverse().forEach(s=>popts+=`<option value="sprint:${s.start}:${s.end}">${s.name} (${fmt(s.start)}–${fmt(s.end)})</option>`);
+  popts+=`<option value="all5:${SPRINTS[0].start}:${SPRINTS[SPRINTS.length-1].end}">Últimas 5 sprints (15–19)</option>`;
+  popts+=`<option value="custom">Personalizado…</option>`;
+  per.innerHTML=popts;
+  function applyPeriod(){
+    const v=per.value; const custom=v==='custom';
+    document.getElementById('pStart').style.display=custom?'':'none';
+    document.getElementById('pEnd').style.display=custom?'':'none';
+    if(v&&v!=='custom'){const [,s,e]=v.split(':');document.getElementById('pStart').value=s;document.getElementById('pEnd').value=e;}
+    else if(!v){document.getElementById('pStart').value='';document.getElementById('pEnd').value='';}
+    renderTable();
+  }
+  per.addEventListener('change',applyPeriod);
+  document.getElementById('pStart').addEventListener('change',renderTable);
+  document.getElementById('pEnd').addEventListener('change',renderTable);
+
+  renderKPIs(); renderCharts(); populateFilters(); renderTable();
+
+  document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>setView(t.dataset.view));
+  ['q','fGroup','fType','fStatus','fPrio'].forEach(id=>document.getElementById(id).addEventListener('input',renderTable));
+  document.getElementById('clear').onclick=()=>{['q','fGroup','fType','fStatus','fPrio','fPeriod','pStart','pEnd'].forEach(id=>document.getElementById(id).value='');document.getElementById('pStart').style.display='none';document.getElementById('pEnd').style.display='none';renderTable();};
+  document.querySelectorAll('thead th').forEach(th=>th.onclick=()=>{
+    const k=th.dataset.sort; if(!k)return;
+    if(sortKey===k)sortDir*=-1;else{sortKey=k;sortDir=1;}
+    renderTable();
+  });
+
+  loadJSON('wip.json').then(renderWIP).catch(e=>console.warn('wip.json indisponível',e));
+}
+const fmt=iso=>{const[y,m,d]=String(iso).split('-');return d?`${d}/${m}/${y}`:iso;};
+
+function loadJSON(name){
+  // resiliente a URL sem barra final (serve → /docs/jira sem "/")
+  const urls=['./'+name, name, '/docs/jira/'+name];
+  return urls.reduce((p,u)=>p.catch(()=>fetch(u).then(r=>{if(!r.ok)throw new Error(r.status);return r.json()})), Promise.reject());
+}
+loadJSON('data.json').then(d=>{DATA=d;init();}).catch(e=>{
+  document.getElementById('subtitle').textContent='Erro ao carregar data.json — inicie o servidor (start-server) e acesse via http://localhost:3340/docs/jira/';
+  console.error(e);
+});
+</script>
+</body>
+</html>

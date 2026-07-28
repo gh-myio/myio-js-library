@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Performance & Burndown · ED · MYIO</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%93%89%3C/text%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    --purple:#663ab5; --purple-d:#4e2a8e; --green:#04c081; --green-d:#039e6b;
+    --bg:#f4f5fb; --card:#fff; --ink:#1f2333; --muted:#6b7185; --line:#e7e9f3;
+    --amber:#f6a609; --red:#e5484d; --blue:#3b82f6; --gray:#9aa0b4;
+    --shadow:0 2px 10px rgba(31,35,51,.06),0 1px 3px rgba(31,35,51,.08);
+  }
+  *{box-sizing:border-box} html,body{margin:0;padding:0}
+  body{font-family:'Nunito',system-ui,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink);font-size:14px;line-height:1.45}
+  a{color:var(--purple);text-decoration:none} a:hover{text-decoration:underline}
+  header.top{background:linear-gradient(120deg,var(--green-d) 0%,#0a8f66 55%,#0b6e73 100%);color:#fff;padding:22px 26px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+  header.top::after{content:"";position:absolute;right:-40px;top:-40px;width:220px;height:220px;border-radius:50%;background:rgba(255,255,255,.07)}
+  .top h1{margin:0;font-size:22px;font-weight:900;display:flex;align-items:center;gap:10px}
+  .top .sub{margin-top:4px;font-size:13px;opacity:.92;font-weight:600}
+  .top .meta{margin-top:10px;display:flex;flex-wrap:wrap;gap:8px}
+  .pill{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.2);padding:4px 10px;border-radius:999px;font-size:12px;font-weight:700}
+  .pill a{color:#fff;text-decoration:underline}
+  .nav{display:flex;gap:8px}
+  .nav a{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.2);padding:4px 10px;border-radius:999px;font-size:12px;font-weight:700;color:#fff;text-decoration:none}
+  main{max-width:1440px;margin:0 auto;padding:22px}
+
+  .controls{background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:14px 16px;margin-bottom:18px;display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+  .controls .grp{display:flex;flex-direction:column;gap:3px}
+  .controls label{font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+  .controls select,.controls input[type=date]{font-family:inherit;font-size:13px;font-weight:700;padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--ink)}
+  .controls .spacer{flex:1}
+  .btn{font-family:inherit;font-weight:800;font-size:13px;padding:9px 16px;border-radius:10px;border:none;cursor:pointer}
+  .btn-prime{background:var(--purple);color:#fff;box-shadow:0 2px 8px rgba(102,58,181,.3)}
+  .btn-prime:hover{filter:brightness(1.07)}
+  .winlabel{font-size:12px;color:var(--muted);font-weight:700}
+  .winlabel b{color:var(--ink)}
+
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}
+  @media(max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}}
+  .kpi{background:var(--card);border-radius:14px;padding:15px 16px;box-shadow:var(--shadow);border-left:4px solid var(--green)}
+  .kpi .n{font-size:28px;font-weight:900;line-height:1}
+  .kpi .l{font-size:12px;color:var(--muted);font-weight:700;margin-top:6px;text-transform:uppercase;letter-spacing:.4px}
+  .kpi .s{font-size:12px;color:var(--muted);margin-top:2px;font-weight:600}
+  .kpi.purple{border-left-color:var(--purple)} .kpi.purple .n{color:var(--purple)}
+  .kpi.red{border-left-color:var(--red)} .kpi.red .n{color:var(--red)}
+  .kpi.amber{border-left-color:var(--amber)} .kpi.amber .n{color:var(--amber)}
+  .kpi.blue{border-left-color:var(--blue)} .kpi.blue .n{color:var(--blue)}
+
+  .grid2{display:grid;grid-template-columns:1.25fr 1fr;gap:16px;margin-bottom:18px}
+  @media(max-width:900px){.grid2{grid-template-columns:1fr}}
+  .panel{background:var(--card);border-radius:14px;padding:16px;box-shadow:var(--shadow);margin-bottom:18px}
+  .panel h3{margin:0 0 4px;font-size:15px;font-weight:800;display:flex;align-items:center;gap:8px}
+  .panel h3 .dot{width:9px;height:9px;border-radius:50%;background:var(--green)}
+  .panel .hint{color:var(--muted);font-size:12px;font-weight:600;margin:0 0 12px}
+  .chart-wrap{position:relative;height:300px}
+
+  .hm-scroll{overflow-x:auto;padding-bottom:6px}
+  table.hm{border-collapse:separate;border-spacing:3px}
+  table.hm th.name{position:sticky;left:0;background:var(--card);z-index:3;text-align:right;padding-right:10px;font-weight:800;font-size:12px;white-space:nowrap;min-width:150px}
+  table.hm th.day{font-size:9px;color:var(--muted);font-weight:700;text-align:center;height:44px;vertical-align:bottom;padding:0}
+  table.hm th.day span{display:inline-block;writing-mode:vertical-rl;transform:rotate(180deg);white-space:nowrap}
+  table.hm th.day.mon{border-left:2px solid var(--line)}
+  .cell{width:20px;height:20px;border-radius:5px;text-align:center;font-size:10px;font-weight:800;color:#fff;line-height:20px}
+  .c0{background:#eef0f8;color:#c3c8d8} .c0.we{background:#f7f8fc}
+  .c1{background:#bfe8d4;color:#0a6b47} .c2{background:#5fd0a0;color:#053d29}
+  .c3{background:#f6c94a;color:#5c4300} .c4{background:#f68a3c;color:#fff} .c5{background:#e5484d;color:#fff;box-shadow:0 0 0 2px rgba(229,72,77,.35)}
+  .cell.zerowd{background:#fbe9e9;color:#d05a5a;box-shadow:inset 0 0 0 1px #f2c4c4}
+  .hm-legend{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-top:12px;font-size:12px;color:var(--muted);font-weight:600}
+  .hm-legend .sw{display:inline-block;width:14px;height:14px;border-radius:4px;vertical-align:-2px;margin-right:5px}
+
+  table.perf{width:100%;border-collapse:collapse;font-size:13px}
+  table.perf th{text-align:left;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:800;border-bottom:2px solid var(--line)}
+  table.perf td{padding:10px 12px;border-bottom:1px solid var(--line)}
+  table.perf tr:hover{background:#faf9ff}
+  .who{font-weight:800}
+  .bar{height:8px;border-radius:6px;background:var(--green);display:inline-block;vertical-align:middle;min-width:2px}
+  .tag{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:800}
+  .tag.ok{background:#e8f7f0;color:#039e6b} .tag.no{background:#fdecec;color:#c92a2f} .tag.warn{background:#fff4e5;color:#b26a00}
+  .num{font-weight:800;font-variant-numeric:tabular-nums}
+  .alert{background:#fff8ee;border:1px solid #ffe2a8;border-radius:12px;padding:12px 14px;margin-bottom:18px;font-size:13px;font-weight:600;color:#8a5a00}
+  .alert b{color:#b26a00}
+  .empty{padding:30px;text-align:center;color:var(--muted);font-weight:700}
+
+  /* Acordos de processo */
+  .panel.proc h3 .proc-sub{color:var(--muted);font-weight:700;font-size:12px;margin-left:2px}
+  .proc-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:8px}
+  @media(max-width:1000px){.proc-grid{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:560px){.proc-grid{grid-template-columns:1fr}}
+  .proc-card{position:relative;border:1px solid var(--line);border-top:3px solid var(--ac);border-radius:13px;padding:15px 15px 13px;background:#fff;display:flex;flex-direction:column;gap:8px;overflow:hidden}
+  .proc-card::after{content:"";position:absolute;right:-24px;top:-24px;width:80px;height:80px;border-radius:50%;background:var(--ac);opacity:.06}
+  .proc-card .pc-top{display:flex;justify-content:space-between;align-items:center}
+  .proc-card .pc-ico{font-size:24px;line-height:1}
+  .proc-card .pc-n{font-size:26px;font-weight:900;color:var(--ac);opacity:.35;letter-spacing:-1px}
+  .proc-card .pc-title{font-weight:900;font-size:15.5px;color:var(--ink)}
+  .proc-card .pc-rule{font-size:12.5px;color:var(--ink);line-height:1.5}
+  .proc-card .pc-rule b{color:var(--ac)}
+  .proc-card .pc-why{font-size:11.5px;color:var(--muted);font-weight:600;line-height:1.45;border-left:2px solid var(--line);padding-left:8px}
+  .proc-card .pc-measure{margin-top:auto;font-size:10.5px;font-weight:800;color:var(--ac);background:color-mix(in srgb,var(--ac) 10%,#fff);border:1px solid color-mix(in srgb,var(--ac) 22%,#fff);border-radius:8px;padding:5px 8px}
+  .proc-foot{margin:15px 0 0;font-size:11.5px;color:var(--muted);font-weight:600}
+  .proc-foot code{background:#f0f1f8;padding:1px 5px;border-radius:5px}
+
+  /* Fluxo de trabalho */
+  .flow-panel .proc-sub{color:var(--muted);font-weight:700;font-size:12px}
+  .st-legend{display:flex;flex-wrap:wrap;gap:10px;margin:8px 0 14px}
+  .st-item{flex:1 1 210px;border:1px solid var(--line);border-radius:10px;padding:9px 11px}
+  .st-item .st-desc{font-size:11px;color:var(--muted);font-weight:600;line-height:1.4;margin-top:4px}
+  .sm-chip{padding:4px 11px;border-radius:8px;font-size:12px;font-weight:800;white-space:nowrap;display:inline-block}
+  .st-pill{padding:1px 7px;border-radius:6px;font-size:10.5px;font-weight:800;white-space:nowrap}
+  .sm-and{background:#fff7e6;color:#b26a00} .sm-rev{background:#e8f0fe;color:#1e5fd6} .sm-pend{background:#f2f0f7;color:#6a5aa0} .sm-done{background:#e8f7f0;color:#039e6b}
+  .statemap{display:flex;flex-wrap:wrap;align-items:center;gap:9px;background:#faf9ff;border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:8px}
+  .statemap.sub{background:#fff;border-style:dashed}
+  .sm-arrow{font-size:11px;font-weight:800;color:var(--muted)}
+  .sm-note{font-size:11px;font-weight:600;color:var(--muted)}
+  .flow-cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+  @media(max-width:820px){.flow-cols{grid-template-columns:1fr}}
+  .flow-card{border:1px solid var(--line);border-top:3px solid var(--ac);border-radius:12px;padding:15px}
+  .flow-card h4{margin:0;font-size:14.5px;font-weight:900;color:var(--ac)}
+  .flow-card .fc-sub{font-size:11px;color:var(--muted);font-weight:700;margin:2px 0 12px}
+  .flow-steps{margin:0;padding:0;list-style:none;counter-reset:fs}
+  .flow-steps li{position:relative;padding:0 0 12px 30px;font-size:12.5px;line-height:1.5;counter-increment:fs;color:var(--ink)}
+  .flow-steps li::before{content:counter(fs);position:absolute;left:0;top:-1px;width:21px;height:21px;border-radius:50%;background:var(--ac);color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center}
+  .flow-steps li:not(:last-child)::after{content:"";position:absolute;left:10px;top:23px;bottom:1px;width:2px;background:var(--line)}
+  .flow-steps b{color:var(--ink)}
+  .branch-box{margin-top:15px;border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:#fbfbfe}
+  .branch-box .bb-title{font-weight:800;font-size:13px;margin-bottom:9px}
+  .branch-box .bb-title code{background:#eef0f8;padding:1px 6px;border-radius:5px;font-size:12px}
+  .branch-tags{display:flex;flex-wrap:wrap;gap:8px}
+  .branch-tag{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;font-weight:700;background:#f0f1f8;border:1px solid var(--line);border-radius:7px;padding:4px 9px;color:var(--ink)}
+  .branch-tag b{color:var(--purple)}
+  footer{max-width:1440px;margin:6px auto 30px;padding:0 22px;color:var(--muted);font-size:12px}
+
+  /* ---------- PREMIUM REPORT (print) ---------- */
+  .report-head{display:none}
+  @media print{
+    @page{size:A4 portrait;margin:14mm 12mm}
+    body{background:#fff;font-size:11px}
+    .no-print{display:none !important}
+    header.top{background:var(--green-d) !important;-webkit-print-color-adjust:exact;print-color-adjust:exact;border-radius:0;padding:14px 18px}
+    main{padding:0;max-width:none}
+    .panel,.kpi{box-shadow:none;border:1px solid #e2e5f0;break-inside:avoid;page-break-inside:avoid}
+    .grid2{grid-template-columns:1fr 1fr}
+    .chart-wrap{height:220px}
+    .hm-scroll{overflow:visible}
+    .report-head{display:block;padding:12px 0 6px;border-bottom:2px solid var(--purple);margin-bottom:12px}
+    .report-head h2{margin:0;color:var(--purple-d);font-size:18px}
+    .report-head .rmeta{color:#555;font-size:11px;font-weight:700;margin-top:2px}
+    *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  }
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>📉 Performance & Burndown — ED</h1>
+  <div class="sub" id="subtitle">Carregando…</div>
+  <div class="meta no-print" id="metaPills"></div>
+</header>
+
+<main>
+  <div class="report-head">
+    <h2>Relatório de Performance — Engineer Dashboard (ED)</h2>
+    <div class="rmeta" id="reportMeta"></div>
+  </div>
+
+  <!-- PERIOD SELECTOR -->
+  <div class="controls no-print">
+    <div class="grp">
+      <label for="preset">Período</label>
+      <select id="preset"></select>
+    </div>
+    <div class="grp" id="customWrap" style="display:none">
+      <label for="dStart">De</label>
+      <input type="date" id="dStart" />
+    </div>
+    <div class="grp" id="customWrap2" style="display:none">
+      <label for="dEnd">Até</label>
+      <input type="date" id="dEnd" />
+    </div>
+    <div class="grp">
+      <label>&nbsp;</label>
+      <span class="winlabel" id="winLabel"></span>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn btn-prime" id="btnExport">🖨️ Exportar relatório premium (PDF)</button>
+  </div>
+
+  <section class="kpis" id="kpis"></section>
+  <div class="alert" id="ruleBox"></div>
+
+
+  <div class="grid2">
+    <div class="panel" style="margin:0">
+      <h3><span class="dot"></span> <span id="burnTitle">Burndown</span></h3>
+      <p class="hint" id="burnHint"></p>
+      <div class="chart-wrap"><canvas id="chBurn"></canvas></div>
+    </div>
+    <div class="panel" style="margin:0">
+      <h3><span class="dot"></span> Conclusões por dia (equipe)</h3>
+      <p class="hint">Barras = total de tickets concluídos/dia (equipe). Fins de semana em cinza; <b style="color:#e5484d">vermelhas</b> = dia com pico individual &gt; 16 (lote). Linha tracejada = <b style="color:#b26a00">meta de 4/dia</b>.</p>
+      <div class="chart-wrap"><canvas id="chDaily"></canvas></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3><span class="dot"></span> Heatmap de produtividade por pessoa</h3>
+    <p class="hint" id="hmHint"></p>
+    <div class="hm-scroll" id="hmWrap"></div>
+    <div class="hm-legend">
+      <span><span class="sw" style="background:#eef0f8"></span>0</span>
+      <span><span class="sw" style="background:#bfe8d4"></span>1</span>
+      <span><span class="sw" style="background:#5fd0a0"></span>2</span>
+      <span><span class="sw" style="background:#f6c94a"></span>3–4</span>
+      <span><span class="sw" style="background:#f68a3c"></span>5–16</span>
+      <span><span class="sw" style="background:#e5484d"></span>&gt;16 (suspeito)</span>
+      <span><span class="sw" style="background:#fbe9e9;box-shadow:inset 0 0 0 1px #f2c4c4"></span>dia útil sem entrega</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3><span class="dot"></span> Ranking & aderência por pessoa</h3>
+    <p class="hint" id="rankHint"></p>
+    <table class="perf" id="perfTbl">
+      <thead><tr>
+        <th>Pessoa</th><th>Concluídas</th><th>Volume</th><th>Dias c/ entrega</th>
+        <th>Média/dia útil</th><th>Máx/dia</th><th>Dias úteis s/ entrega</th><th>Picos &gt;8</th><th>Aderência</th>
+      </tr></thead>
+      <tbody id="perfBody"></tbody>
+    </table>
+  </div>
+</main>
+
+<footer id="footer"></footer>
+
+<script>
+const GREEN='#04c081',GREEN_D='#039e6b',PURPLE='#663ab5',AMBER='#f6a609',RED='#e5484d',BLUE='#3b82f6',GRAY='#9aa0b4';
+const PALETTE=['#663ab5','#04c081','#f6a609','#3b82f6','#e5484d','#8e5bd8','#12b981','#f97316','#6366f1','#ec4899'];
+let M=null, charts={}, WIN=null, MODE='sprint';
+
+const fmt=iso=>{const p=String(iso).split('-');return p[2]?`${p[2]}/${p[1]}`:iso;};
+const fmtFull=iso=>{const p=String(iso).split('-');return p[2]?`${p[2]}/${p[1]}/${p[0]}`:iso;};
+const iso=d=>d.toISOString().slice(0,10);
+function range(a,b){const out=[];let d=new Date(a+'T00:00:00Z');const e=new Date(b+'T00:00:00Z');if(e<d)return[];while(d<=e){out.push(iso(d));d=new Date(d.getTime()+864e5);}return out;}
+const dow=s=>new Date(s+'T00:00:00Z').getUTCDay();
+const isWorking=s=>dow(s)>=1&&dow(s)<=5;
+const daysDiff=(a,b)=>Math.round((new Date(b)-new Date(a))/864e5);
+
+// ---- compute throughput for a [start,end] window ----
+function computeWindow(start,end){
+  const comps=M.completions.filter(c=>c.date>=start&&c.date<=end);
+  const days=range(start,end).map(d=>({date:d,working:isWorking(d)}));
+  const workingDays=days.filter(d=>d.working).length;
+  // team daily
+  const dmap={}; comps.forEach(c=>dmap[c.date]=(dmap[c.date]||0)+1);
+  const daily=days.map(d=>({date:d.date,count:dmap[d.date]||0,working:d.working}));
+  // per person
+  const pmap={};
+  comps.forEach(c=>{const p=c.assignee||'—';(pmap[p]=pmap[p]||{byDay:{},keys:[]});pmap[p].byDay[c.date]=(pmap[p].byDay[c.date]||0)+1;pmap[p].keys.push(c);});
+  const wdList=days.filter(d=>d.working).map(d=>d.date);
+  const people=Object.entries(pmap).map(([name,o])=>{
+    const closed=o.keys.length;
+    const daysWith=Object.keys(o.byDay).filter(d=>isWorking(d)).length;
+    const zeroWD=wdList.filter(d=>!o.byDay[d]).length;
+    const suspect=Object.entries(o.byDay).filter(([d,v])=>v>M.rules.suspectPerDay).map(([d,v])=>({date:d,count:v}));
+    const maxDay=Math.max(0,...Object.values(o.byDay));
+    const adherencePct=workingDays?Math.round(daysWith/workingDays*100):0;
+    const avgPerWD=workingDays?+(closed/workingDays).toFixed(2):0;
+    return {name,closed,byDay:o.byDay,daysWith,zeroWD,suspect,maxDay,adherencePct,avgPerWD,
+      meetsMin: zeroWD===0 && daysWith>0, first:Object.keys(o.byDay).sort()[0], last:Object.keys(o.byDay).sort().slice(-1)[0]};
+  }).sort((a,b)=>b.closed-a.closed);
+  return {start,end,days,workingDays,totalClosed:comps.length,daily,people,comps};
+}
+
+// ---- selection ----
+function applyPreset(val){
+  const presetSel=document.getElementById('preset');
+  document.getElementById('customWrap').style.display = val==='custom'?'flex':'none';
+  document.getElementById('customWrap2').style.display = val==='custom'?'flex':'none';
+  let start,end,label,burn=null,sprint=null;
+  if(val==='all5'){ start=M.fullSpan.start; end=M.fullSpan.end; MODE='burnup'; label='Últimas 5 sprints (14–18)'; }
+  else if(val==='custom'){ start=document.getElementById('dStart').value; end=document.getElementById('dEnd').value; MODE='burnup'; label='Intervalo personalizado'; }
+  else { const sp=M.sprints.find(s=>'sprint-'+s.id===val); sprint=sp; start=sp.span.start; end=sp.span.end; MODE='sprint'; burn=sp; label=sp.name+' ('+fmt(sp.start)+'–'+fmt(sp.end)+')'; }
+  if(!start||!end||end<start){ document.getElementById('winLabel').textContent='intervalo inválido'; return; }
+  WIN=computeWindow(start,end); WIN.label=label; WIN.sprint=sprint; WIN.burn=burn;
+  renderAll();
+}
+
+function kpi(n,l,s,cls){return `<div class="kpi ${cls||''}"><div class="n">${n}</div><div class="l">${l}</div>${s?`<div class="s">${s}</div>`:''}</div>`;}
+
+function renderKPIs(){
+  const w=WIN; const belowMin=w.people.filter(p=>!p.meetsMin).length;
+  const suspect=w.people.reduce((a,p)=>a+p.suspect.length,0);
+  const avgTeam=w.workingDays?(w.totalClosed/w.workingDays).toFixed(1):'0';
+  let k1;
+  if(w.sprint){const sp=w.sprint;k1=kpi(`${sp.done}/${sp.scope}`,sp.name+' concluído',Math.round(sp.done/Math.max(1,sp.scope)*100)+'% do escopo','purple');}
+  else k1=kpi(w.totalClosed,'Concluídas no período',`${w.workingDays} dias úteis`,'purple');
+  document.getElementById('kpis').innerHTML=
+    k1+
+    kpi(w.totalClosed,'Tickets concluídos',`${avgTeam}/dia útil · equipe`,'green')+
+    kpi(`${belowMin}/${w.people.length||0}`,'Abaixo do mínimo','< 1 ticket/dia útil','amber')+
+    kpi(suspect,'Picos suspeitos','> '+M.rules.suspectPerDay+' num único dia','red');
+}
+
+function renderBurn(){
+  const w=WIN;
+  charts.burn&&charts.burn.destroy();
+  const ctx=document.getElementById('chBurn');
+  if(MODE==='sprint' && w.burn){
+    const b=w.burn.burndown;
+    document.getElementById('burnTitle').textContent='Burndown — '+w.burn.name;
+    document.getElementById('burnHint').innerHTML=`Escopo ${w.burn.scope} tickets · ideal encerrando em <b>${fmtFull(w.burn.end)}</b>.`;
+    charts.burn=new Chart(ctx,{type:'line',data:{labels:b.map(x=>fmt(x.date)),datasets:[
+      {label:'Ideal',data:b.map(x=>x.ideal),borderColor:GRAY,borderDash:[6,5],borderWidth:2,pointRadius:0},
+      {label:'Restante (real)',data:b.map(x=>x.remaining),borderColor:GREEN_D,backgroundColor:'rgba(4,192,129,.10)',borderWidth:3,fill:true,pointRadius:2}
+    ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      plugins:{legend:{position:'top',labels:{font:{family:'Nunito',weight:'700'},boxWidth:14}}},
+      scales:{x:{grid:{display:false},ticks:{font:{family:'Nunito',weight:'600',size:10},maxRotation:60,minRotation:60,autoSkip:true,maxTicksLimit:14}},
+        y:{beginAtZero:true,grid:{color:'#eef0f8'},title:{display:true,text:'Tickets restantes',font:{family:'Nunito',weight:'700'}}}}}});
+  } else {
+    // burn-up cumulative completions over window
+    let cum=0; const cumSeries=w.daily.map(d=>{cum+=d.count;return cum;});
+    document.getElementById('burnTitle').textContent='Evolução acumulada (burn-up)';
+    document.getElementById('burnHint').innerHTML=`Total de conclusões acumuladas no período (burndown por sprint aparece ao selecionar uma sprint).`;
+    charts.burn=new Chart(ctx,{type:'line',data:{labels:w.daily.map(x=>fmt(x.date)),datasets:[
+      {label:'Concluídas (acum.)',data:cumSeries,borderColor:PURPLE,backgroundColor:'rgba(102,58,181,.10)',borderWidth:3,fill:true,pointRadius:1}
+    ]},options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'top',labels:{font:{family:'Nunito',weight:'700'},boxWidth:14}}},
+      scales:{x:{grid:{display:false},ticks:{font:{family:'Nunito',weight:'600',size:10},maxRotation:60,minRotation:60,autoSkip:true,maxTicksLimit:14}},
+        y:{beginAtZero:true,grid:{color:'#eef0f8'},title:{display:true,text:'Concluídas (acum.)',font:{family:'Nunito',weight:'700'}}}}}});
+  }
+}
+function renderDaily(){
+  const w=WIN;
+  // dias com pico suspeito = algum indivíduo fechou > limite naquele dia
+  const suspectDaySet=new Set(); w.people.forEach(p=>p.suspect.forEach(s=>suspectDaySet.add(s.date)));
+  charts.daily&&charts.daily.destroy();
+  const target=M.rules.targetPerDay||4;
+  charts.daily=new Chart(document.getElementById('chDaily'),{type:'bar',
+    data:{labels:w.daily.map(x=>fmt(x.date)),datasets:[
+      {label:'Concluídas',data:w.daily.map(x=>x.count),order:2,
+        backgroundColor:w.daily.map(x=>suspectDaySet.has(x.date)?RED:(x.working?GREEN:'#cfd4e4')),borderRadius:4},
+      {label:'Meta ('+target+'/dia)',type:'line',order:1,data:w.daily.map(()=>target),
+        borderColor:AMBER,borderWidth:2,borderDash:[6,4],pointRadius:0,fill:false}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:true,position:'top',labels:{font:{family:'Nunito',weight:'700',size:11},boxWidth:12,filter:i=>i.text.startsWith('Meta')}},
+        tooltip:{callbacks:{label:c=>c.dataset.type==='line'?` Meta: ${target}/dia`:` ${c.parsed.y} concluída(s)`}}},
+      scales:{x:{grid:{display:false},ticks:{font:{family:'Nunito',weight:'600',size:10},maxRotation:60,minRotation:60,autoSkip:true,maxTicksLimit:18}},
+        y:{beginAtZero:true,grid:{color:'#eef0f8'},ticks:{stepSize:2,font:{family:'Nunito',weight:'700'}}}}}});
+}
+function cellClass(v){ const s=M.rules.suspectPerDay; if(v>s)return'c5'; if(v>=5)return'c4'; if(v>=3)return'c3'; if(v===2)return'c2'; if(v===1)return'c1'; return'c0'; }
+function renderHeatmap(){
+  const w=WIN;
+  document.getElementById('hmHint').textContent=`Cada célula = tickets concluídos por pessoa naquele dia, no período selecionado. Vermelho = pico > ${M.rules.suspectPerDay} (lote); rosa = dia útil sem entrega.`;
+  if(!w.people.length){document.getElementById('hmWrap').innerHTML='<div class="empty">Sem conclusões no período.</div>';return;}
+  let html='<table class="hm"><thead><tr><th class="name">Pessoa</th>';
+  w.days.forEach(d=>{const mon=dow(d.date)===1;html+=`<th class="day${mon?' mon':''}"><span>${fmt(d.date)}</span></th>`;});
+  html+='</tr></thead><tbody>';
+  w.people.forEach(p=>{
+    html+=`<tr><th class="name">${p.name}</th>`;
+    w.days.forEach(d=>{
+      const v=p.byDay[d.date]||0;
+      let cls='cell '+cellClass(v);
+      if(v===0){ cls='cell '+(d.working?'zerowd':'c0 we'); }
+      html+=`<td class="${cls}" title="${p.name} · ${fmtFull(d.date)} · ${v}">${v||''}</td>`;
+    });
+    html+='</tr>';
+  });
+  html+='</tbody></table>';
+  document.getElementById('hmWrap').innerHTML=html;
+}
+function renderPerf(){
+  const w=WIN, max=Math.max(1,...w.people.map(p=>p.closed));
+  document.getElementById('rankHint').innerHTML=`Janela: <b>${fmtFull(w.start)} → ${fmtFull(w.end)}</b> (${w.workingDays} dias úteis). Mínimo = <b>1/dia útil</b> · meta = <b>${M.rules.targetPerDay}/dia</b> · picos &gt; <b>${M.rules.suspectPerDay}/dia</b> sinalizados. Aderência = % de dias úteis com ≥1 entrega.`;
+  if(!w.people.length){document.getElementById('perfBody').innerHTML=`<tr><td colspan="9" class="empty">Sem conclusões no período.</td></tr>`;return;}
+  document.getElementById('perfBody').innerHTML=w.people.map(p=>{
+    const bw=Math.round(p.closed/max*120);
+    const adhCls=p.adherencePct>=100?'ok':p.adherencePct>=50?'warn':'no';
+    const suspTag=p.suspect.length?`<span class="tag warn">${p.suspect.length}× (máx ${p.maxDay})</span>`:`<span class="num">0</span>`;
+    return `<tr>
+      <td class="who">${p.name}</td>
+      <td class="num">${p.closed}</td>
+      <td><span class="bar" style="width:${bw}px"></span></td>
+      <td class="num">${p.daysWith}</td>
+      <td class="num">${p.avgPerWD.toFixed(2)}</td>
+      <td class="num">${p.maxDay}</td>
+      <td class="num">${p.zeroWD}</td>
+      <td>${suspTag}</td>
+      <td><span class="tag ${adhCls}">${p.adherencePct}%</span></td>
+    </tr>`;
+  }).join('');
+}
+function renderAll(){
+  document.getElementById('winLabel').innerHTML=`<b>${WIN.label}</b> · ${fmtFull(WIN.start)}→${fmtFull(WIN.end)}`;
+  document.getElementById('reportMeta').textContent=`Período: ${WIN.label} (${fmtFull(WIN.start)} → ${fmtFull(WIN.end)}) · ${WIN.totalClosed} concluídas · gerado ${fmtFull(M.meta.generatedAt)} · Fonte: Jira ED`;
+  renderKPIs(); renderBurn(); renderDaily(); renderHeatmap(); renderPerf();
+}
+
+function init(){
+  document.getElementById('subtitle').textContent=`${M.meta.projectName} (${M.meta.project}) · Board ${M.meta.board} · performance por período · gerado ${fmtFull(M.meta.generatedAt)}`;
+  document.getElementById('metaPills').innerHTML=
+    `<span class="pill">📦 5 sprints · ${M.completions.length} conclusões</span>`+
+    `<span class="nav"><a href="/docs/jira/index.html">🗂️ Cockpit backlog</a><a href="/docs/jira/processo.html">📋 Modelo de Trabalho</a><a href="${M.meta.jiraBase}/jira/software/projects/${M.meta.project}/boards/${M.meta.board}" target="_blank">🔗 Jira</a></span>`;
+  document.getElementById('ruleBox').innerHTML=`<b>Regras de leitura:</b> ${M.rules.note} &nbsp;·&nbsp; Base de conclusão = <code>resolutiondate</code> &nbsp;·&nbsp; <a href="/docs/jira/processo.html">📋 ver Modelo de Trabalho</a>.`;
+  document.getElementById('footer').innerHTML=`Fonte: ${M.meta.source}. Burndown por contagem de tickets. Throughput sobre issues resolvidas no período. Dados em <code>metrics.json</code>.`;
+
+  // build preset options
+  const sel=document.getElementById('preset');
+  let opts='';
+  [...M.sprints].reverse().forEach(sp=>{opts+=`<option value="sprint-${sp.id}">${sp.name} (${fmt(sp.start)}–${fmt(sp.end)})${sp.state==='active'?' · ativa':''}</option>`;});
+  const s0=M.sprints[0].name.replace(/\D+/g,''), sN=M.sprints[M.sprints.length-1].name.replace(/\D+/g,'');
+  opts+=`<option value="all5">Últimas ${M.sprints.length} sprints (${s0}–${sN})</option>`;
+  opts+=`<option value="custom">Personalizado (intervalo de datas)</option>`;
+  sel.innerHTML=opts;
+  sel.value=M.defaultPreset||('sprint-'+M.sprints[M.sprints.length-1].id);
+  // default custom dates = full span
+  document.getElementById('dStart').value=M.fullSpan.start;
+  document.getElementById('dEnd').value=M.fullSpan.end;
+
+  sel.addEventListener('change',()=>applyPreset(sel.value));
+  document.getElementById('dStart').addEventListener('change',()=>applyPreset('custom'));
+  document.getElementById('dEnd').addEventListener('change',()=>applyPreset('custom'));
+  document.getElementById('btnExport').addEventListener('click',()=>window.print());
+
+  applyPreset(sel.value);
+}
+function loadJSON(name){const urls=['./'+name,name,'/docs/jira/'+name];return urls.reduce((p,u)=>p.catch(()=>fetch(u).then(r=>{if(!r.ok)throw new Error(r.status);return r.json()})),Promise.reject());}
+loadJSON('metrics.json').then(d=>{M=d;init();}).catch(e=>{document.getElementById('subtitle').textContent='Erro ao carregar metrics.json — rode start-server e acesse via http://localhost:3340/docs/jira/performance.html';console.error(e);});
+</script>
+</body>
+</html>

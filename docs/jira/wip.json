@@ -1,0 +1,95 @@
+{
+  "meta": {
+    "project": "ED",
+    "jiraBase": "https://myio.atlassian.net",
+    "generatedAt": "2026-07-28",
+    "status": "Em Andamento",
+    "wipLimit": 1,
+    "note": "WIP = tickets com status \"Em Andamento\". Acordo: 1 por pessoa (inclui \"Aguardando Demanda\" quando ocioso)."
+  },
+  "total": 10,
+  "peopleOver": 2,
+  "people": [
+    {
+      "name": "Rodrigo Lago",
+      "count": 7,
+      "over": true,
+      "tickets": [
+        {
+          "key": "ED-992",
+          "type": "Bug",
+          "summary": "WestPlaza - Pontos com consumo incorreto no dashboard",
+          "updated": "2026-07-16"
+        },
+        {
+          "key": "ED-973",
+          "type": "Bug",
+          "summary": "[BUG][PRÉ-SETUP][GCDR] Duplicidade IPv6/UUID gateway",
+          "updated": "2026-06-22"
+        },
+        {
+          "key": "ED-956",
+          "type": "Bug",
+          "summary": "[BUG][PRÉ-SETUP] código do cliente não é gerado",
+          "updated": "2026-07-28"
+        },
+        {
+          "key": "ED-953",
+          "type": "Subtarefa",
+          "summary": "Ajuste Tela de solenóide",
+          "updated": "2026-06-12"
+        },
+        {
+          "key": "ED-949",
+          "type": "Tarefa",
+          "summary": "[GCDR] Pré-setup: autopreencher Identificador",
+          "updated": "2026-07-28"
+        },
+        {
+          "key": "ED-941",
+          "type": "Bug",
+          "summary": "[BUG][PRÉ-SETUP][GCDR] Falha sync múltiplos gateways",
+          "updated": "2026-07-28"
+        },
+        {
+          "key": "ED-255",
+          "type": "Subtarefa",
+          "summary": "Revisar e Normalizar Centrais Park Lagos x Thingsboard",
+          "updated": "2025-11-05"
+        }
+      ]
+    },
+    {
+      "name": "Letícia Camargo",
+      "count": 2,
+      "over": true,
+      "tickets": [
+        {
+          "key": "ED-788",
+          "type": "Subtarefa",
+          "summary": "[GCDR][Pré-Setup] Criar Modelagem do Processo no Bizagi",
+          "updated": "2026-07-28"
+        },
+        {
+          "key": "ED-359",
+          "type": "Subtarefa",
+          "summary": "Criar Modelagem no Bizagi",
+          "updated": "2026-07-28"
+        }
+      ]
+    },
+    {
+      "name": "Luiz Guilherme Martinho Sampaio Ito",
+      "count": 1,
+      "over": false,
+      "tickets": [
+        {
+          "key": "ED-1037",
+          "type": "Subtarefa",
+          "summary": "Secrets de Admin JWT para Prod",
+          "updated": "2026-07-28"
+        }
+      ]
+    }
+  ]
+}
