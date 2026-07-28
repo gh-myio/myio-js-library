@@ -345,10 +345,5 @@ const MyIOToast = (function() {
   };
 })();
 
-// Export for ES modules
+// Export for ES modules (tsup emits both ESM and CJS from this)
 export { MyIOToast };
-
-// Export for CommonJS
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { MyIOToast };
-}

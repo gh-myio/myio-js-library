@@ -280,48 +280,6 @@ class MyIOChartModalClass {
     const items = [];
 
     if (totals.energyKwh > 0) {
-      items.push(`<div class="summary-item" 
-      style="background: rgba(255,255,255,0.08); padding: 10px; border-radius: 8px;">
-      <span class="summary-label" style="display: block; font-size: 13px; color: rgba(255,255,255,0.7);">Energia Total:</span>
-      <span class="summary-value" style="font-weight: bold; font-size: 14px;">${this._formatNumber(
-        totals.energyKwh
-      )} kWh</span>
-    </div>`);
-    }
-
-    if (totals.waterM3 > 0) {
-      items.push(`<div class="summary-item" 
-      style="background: rgba(255,255,255,0.08); padding: 10px; border-radius: 8px;">
-      <span class="summary-label" style="display: block; font-size: 13px; color: rgba(255,255,255,0.7);">Água Total:</span>
-      <span class="summary-value" style="font-weight: bold; font-size: 14px;">${this._formatNumber(
-        totals.waterM3
-      )} m³</span>
-    </div>`);
-    }
-
-    if (totals.tempC > 0) {
-      items.push(`<div class="summary-item" 
-      style="background: rgba(255,255,255,0.08); padding: 10px; border-radius: 8px;">
-      <span class="summary-label" style="display: block; font-size: 13px; color: rgba(255,255,255,0.7);">Temperatura Média:</span>
-      <span class="summary-value" style="font-weight: bold; font-size: 14px;">${this._formatNumber(
-        totals.tempC / totals.count
-      )} °C</span>
-    </div>`);
-    }
-
-    items.push(`<div class="summary-item" 
-    style="background: rgba(255,255,255,0.08); padding: 10px; border-radius: 8px;">
-    <span class="summary-label" style="display: block; font-size: 13px; color: rgba(255,255,255,0.7);">Dispositivos:</span>
-    <span class="summary-value" style="font-weight: bold; font-size: 14px;">${totals.count}</span>
-  </div>`);
-
-    return items.join("");
-  }
-
-  _generateSummaryHTML(totals) {
-    const items = [];
-
-    if (totals.energyKwh > 0) {
       items.push(`<div class="summary-item">
         <span class="summary-label">Energia Total:</span>
         <span class="summary-value">${this._formatNumber(
@@ -707,10 +665,5 @@ if (
   globalThis.window.MyIOChartModal = MyIOChartModal;
 }
 
-// Export for module usage
-if (typeof module !== "undefined" && module.exports) {
-  module.exports = { MyIOChartModal };
-}
-
-// Export for ES modules
+// Export for ES modules (tsup emits both ESM and CJS from this)
 export { MyIOChartModal };
