@@ -74,6 +74,7 @@ ssh -i id_rsa root@<ipv6-da-central>
 | Ilha Plaza AL3            | `206:c160:eb69:3ddb:42c7:efce:511e:792a` | `91b719b7-f2d2-4d3f-9fb9-ab3d4edbac0d` | —              | —          |
 | Melicidade                | `200:43cb:c66:59be:9966:7330:8b9a:224`   | `05148707-6011-42fb-8b78-46f33a5ca988` | —              | —          |
 | Shopping Contagem         | `200:12b0:b768:7ba0:32b5:1c15:bec7:33aa` | `70b6d878-090f-4326-af18-2695396cbc67` | —              | —          |
+| Shopping Capim Dourado    | `200:1e47:5d5e:d011:a88c:6f1b:fda2:622d` | `988433ae-88c1-49b1-b43b-e08592ae3005` | —              | —          |
 
 #### Holding: ARGO PLAN
 
@@ -205,6 +206,9 @@ ssh -i id_rsa root@200:43cb:c66:59be:9966:7330:8b9a:224
 
 # Shopping Contagem (Soul Malls)
 ssh -i id_rsa root@200:12b0:b768:7ba0:32b5:1c15:bec7:33aa
+
+# Shopping Capim Dourado (Soul Malls)
+ssh -i id_rsa root@200:1e47:5d5e:d011:a88c:6f1b:fda2:622d
 
 # Deodoro (Supervia Estações)
 ssh -i id_rsa root@200:1e6a:69a5:73f1:b18a:e6e:aa68:9229
@@ -1007,4 +1011,4 @@ scp root@\[<ipv6-da-central>\]:/tmp/backup-cadastro-*.sql .
 
 ---
 
-_Última atualização: 2026-07-07_
+_Última atualização: 2026-07-28_
