@@ -55,7 +55,6 @@ function injectCSS() {
    MYIO Footer - Premium Design System
    ========================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 .myio-footer {
   /* Design Tokens - Purple Theme */
@@ -71,7 +70,7 @@ function injectCSS() {
   --color-border: rgba(255, 255, 255, 0.08);
   --color-error: #ff4444;
 
-  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-family: 'Nunito', system-ui, sans-serif;
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
   --radius-sm: 6px;

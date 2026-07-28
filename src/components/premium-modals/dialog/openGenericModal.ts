@@ -119,7 +119,7 @@ function injectGenericModalStyles(): void {
   align-items: center;
   justify-content: center;
   background: rgba(17, 24, 39, 0.55);
-  font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Nunito', system-ui, sans-serif;
 }
 .myio-genmodal {
   background: #ffffff;

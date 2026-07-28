@@ -1,6 +1,6 @@
 {
   "name": "myio-js-library",
-  "version": "0.1.524-homolog.19",
+  "version": "0.1.530",
   "description": "A clean, standalone JS SDK for MYIO projects",
   "license": "MIT",
   "repository": "github:gh-myio/myio-js-library",
@@ -47,6 +47,8 @@
     "build:umd": "rollup -c",
     "minify:umd": "terser dist/myio-js-library.umd.js -o dist/myio-js-library.umd.min.js --comments=false",
     "postbuild": "node scripts/verify-dts.js",
+    "gen:baked-profile": "node scripts/gen-baked-profile.mjs",
+    "prebuild": "node scripts/gen-baked-profile.mjs --check",
     "build": "npm run clean && npm run build:tsup && npm run build:umd && npm run minify:umd",
     "lint": "eslint .",
     "test": "vitest run",

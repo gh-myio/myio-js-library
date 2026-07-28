@@ -180,7 +180,7 @@ function ensureBusyModalDOM(): HTMLElement {
       z-index: 99999;
       align-items: center;
       justify-content: center;
-      font-family: 'Roboto', Inter, system-ui, -apple-system, sans-serif;
+      font-family: 'Nunito', system-ui, sans-serif;
     ">
       <div style="
         background: ${MYIO_PURPLE_DARK};
@@ -1050,7 +1050,7 @@ function renderModal(
         max-height: ${contentMaxHeight}; height: ${state.isMaximized ? '100%' : 'auto'};
         overflow: hidden; display: flex; flex-direction: column;
         box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        font-family: 'Roboto', Arial, sans-serif;
+        font-family: 'Nunito', system-ui, sans-serif;
       ">
         <!-- Header - MyIO Premium Style -->
         <div style="
@@ -1125,7 +1125,7 @@ function renderModal(
                 background: ${state.theme === 'dark' ? 'rgba(255,255,255,0.1)' : '#f3f4f6'};
                 color: ${colors.text}; border: 1px solid ${colors.border};
                 padding: 8px 16px; border-radius: 6px; cursor: pointer;
-                font-size: 14px; font-family: 'Roboto', Arial, sans-serif;
+                font-size: 14px; font-family: 'Nunito', system-ui, sans-serif;
               ">${t.back}</button>
             `
                 : ''
@@ -1140,49 +1140,49 @@ function renderModal(
               <button id="${modalId}-bulk-attr" style="
                 background: #f59e0b; color: white; border: none;
                 padding: 8px 16px; border-radius: 6px; cursor: pointer;
-                font-size: 14px; font-weight: 500; font-family: 'Roboto', Arial, sans-serif;
+                font-size: 14px; font-weight: 500; font-family: 'Nunito', system-ui, sans-serif;
                 display: flex; align-items: center; gap: 6px;
               ">⚡ Forçar Atributo (${state.selectedDevices.length})</button>
               <button id="${modalId}-bulk-profile" style="
                 background: #8b5cf6; color: white; border: none;
                 padding: 8px 16px; border-radius: 6px; cursor: pointer;
-                font-size: 14px; font-weight: 500; font-family: 'Roboto', Arial, sans-serif;
+                font-size: 14px; font-weight: 500; font-family: 'Nunito', system-ui, sans-serif;
                 display: flex; align-items: center; gap: 6px;
               ">🏷️ Forçar Profile (${state.selectedDevices.length})</button>
               <button id="${modalId}-bulk-owner" style="
                 background: #10b981; color: white; border: none;
                 padding: 8px 16px; border-radius: 6px; cursor: pointer;
-                font-size: 14px; font-weight: 500; font-family: 'Roboto', Arial, sans-serif;
+                font-size: 14px; font-weight: 500; font-family: 'Nunito', system-ui, sans-serif;
                 display: flex; align-items: center; gap: 6px;
               " ${!state.selectedCustomer ? 'disabled title="Selecione um Customer primeiro"' : ''}>👤 Atribuir Owner (${state.selectedDevices.length})</button>
               <button id="${modalId}-bulk-relation" style="
                 background: #0a6d5e; color: white; border: none;
                 padding: 8px 16px; border-radius: 6px; cursor: pointer;
-                font-size: 14px; font-weight: 500; font-family: 'Roboto', Arial, sans-serif;
+                font-size: 14px; font-weight: 500; font-family: 'Nunito', system-ui, sans-serif;
                 display: flex; align-items: center; gap: 6px;
               " ${!state.selectedCustomer ? 'disabled title="Selecione um Customer primeiro"' : ''}>🔗 Forçar Relação (${state.selectedDevices.length})</button>
               <button id="${modalId}-clear-gcdr-ids" style="
                 background: #dc2626; color: white; border: none;
                 padding: 8px 16px; border-radius: 6px; cursor: pointer;
-                font-size: 14px; font-weight: 500; font-family: 'Roboto', Arial, sans-serif;
+                font-size: 14px; font-weight: 500; font-family: 'Nunito', system-ui, sans-serif;
                 display: flex; align-items: center; gap: 6px;
               " ${!state.selectedCustomer ? 'disabled title="Selecione um Customer primeiro"' : ''}>🧹 Clear GCDR IDs</button>
               <button id="${modalId}-custom-shortcut" style="
                 background: #ef4444; color: white; border: none;
                 padding: 8px 16px; border-radius: 6px; cursor: pointer;
-                font-size: 14px; font-weight: 500; font-family: 'Roboto', Arial, sans-serif;
+                font-size: 14px; font-weight: 500; font-family: 'Nunito', system-ui, sans-serif;
                 display: flex; align-items: center; gap: 6px;
               ">🎛️ CUSTOM (${state.selectedDevices.length})</button>
               <button id="${modalId}-bulk-sync-ingestion" style="
                 background: #0284c7; color: white; border: none;
                 padding: 8px 16px; border-radius: 6px; cursor: pointer;
-                font-size: 14px; font-weight: 500; font-family: 'Roboto', Arial, sans-serif;
+                font-size: 14px; font-weight: 500; font-family: 'Nunito', system-ui, sans-serif;
                 display: flex; align-items: center; gap: 6px;
               " ${!state.selectedCustomer ? 'disabled title="Selecione um Customer primeiro"' : ''}>🔄 Sync Ingestion ID (${state.selectedDevices.length})</button>
               <button id="${modalId}-bulk-delete" style="
                 background: #b91c1c; color: white; border: 1px solid #7f1d1d;
                 padding: 8px 16px; border-radius: 6px; cursor: pointer;
-                font-size: 14px; font-weight: 600; font-family: 'Roboto', Arial, sans-serif;
+                font-size: 14px; font-weight: 600; font-family: 'Nunito', system-ui, sans-serif;
                 display: flex; align-items: center; gap: 6px;
               " title="Deletar permanentemente os dispositivos selecionados (irreversível)">🗑️ Deletar (${state.selectedDevices.length})</button>
             `
@@ -1194,13 +1194,13 @@ function renderModal(
               <button id="${modalId}-lojas-sync" style="
                 background: #3b82f6; color: white; border: none;
                 padding: 8px 16px; border-radius: 6px; cursor: pointer;
-                font-size: 14px; font-weight: 500; font-family: 'Roboto', Arial, sans-serif;
+                font-size: 14px; font-weight: 500; font-family: 'Nunito', system-ui, sans-serif;
                 display: flex; align-items: center; gap: 6px;
               " ${state.lojasDataLoading ? 'disabled' : ''}>🔄 Sync Ingestion</button>
               <button id="${modalId}-lojas-apply" style="
                 background: #ef4444; color: white; border: none;
                 padding: 8px 16px; border-radius: 6px; cursor: pointer;
-                font-size: 14px; font-weight: 500; font-family: 'Roboto', Arial, sans-serif;
+                font-size: 14px; font-weight: 500; font-family: 'Nunito', system-ui, sans-serif;
                 display: flex; align-items: center; gap: 6px;
               " ${state.lojasDataLoading ? 'disabled' : ''}>🏬 Aplicar ${state.lojasConfig?.label ?? 'LOJAS'} (${state.lojasDeviceData.length})</button>
             `
@@ -1210,7 +1210,7 @@ function renderModal(
               background: ${state.theme === 'dark' ? 'rgba(255,255,255,0.1)' : '#f3f4f6'};
               color: ${colors.text}; border: 1px solid ${colors.border};
               padding: 8px 16px; border-radius: 6px; cursor: pointer;
-              font-size: 14px; font-family: 'Roboto', Arial, sans-serif;
+              font-size: 14px; font-family: 'Nunito', system-ui, sans-serif;
             ">${t.cancel}</button>
             ${
               state.currentStep < 3
@@ -1218,7 +1218,7 @@ function renderModal(
               <button id="${modalId}-next" style="
                 background: ${MYIO_PURPLE}; color: white; border: none;
                 padding: 8px 16px; border-radius: 6px; cursor: pointer;
-                font-size: 14px; font-weight: 500; font-family: 'Roboto', Arial, sans-serif;
+                font-size: 14px; font-weight: 500; font-family: 'Nunito', system-ui, sans-serif;
               " ${
                 state.deviceSelectionMode === 'multi' ? 'disabled title="Desabilitado no modo multi"' : ''
               }>${t.next}</button>
@@ -1229,7 +1229,7 @@ function renderModal(
               <button id="${modalId}-save" style="
                 background: ${colors.success}; color: white; border: none;
                 padding: 8px 16px; border-radius: 6px; cursor: pointer;
-                font-size: 14px; font-weight: 500; font-family: 'Roboto', Arial, sans-serif;
+                font-size: 14px; font-weight: 500; font-family: 'Nunito', system-ui, sans-serif;
               ">${t.save}</button>
             `
             }
@@ -4088,7 +4088,7 @@ function openRelationsDetailPanel(
       z-index:99999; background:${colors.bg}; border:1px solid ${colors.border};
       border-radius:12px; box-shadow:0 20px 60px rgba(0,0,0,.35);
       min-width:380px; max-width:500px; width:90vw; max-height:70vh;
-      display:flex; flex-direction:column; font-family:system-ui,sans-serif;
+      display:flex; flex-direction:column; font-family:Nunito, system-ui, sans-serif;
     `;
 
     const rows = currentRels.map((rel, idx) => {
@@ -4277,7 +4277,7 @@ async function openClearGcdrIdsModal(state: ModalState): Promise<void> {
     position:fixed; inset:0; z-index:99999;
     background:rgba(0,0,0,0.55); backdrop-filter:blur(4px);
     display:flex; align-items:center; justify-content:center;
-    font-family:'Roboto',Inter,system-ui,sans-serif;
+    font-family:'Nunito', system-ui, sans-serif;
   `;
   overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
   document.body.appendChild(overlay);
@@ -6032,7 +6032,7 @@ function showMiniTooltip(trigger: HTMLElement, content: string, colors: ThemeCol
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     white-space: pre-line;
     max-width: 280px;
-    font-family: 'Roboto', Arial, sans-serif;
+    font-family: 'Nunito', system-ui, sans-serif;
   `;
   miniTooltipEl.textContent = content;
   document.body.appendChild(miniTooltipEl);
@@ -7480,7 +7480,7 @@ function openCheckFixScopeDialog(state: ModalState, onConfirm: (devices: Device[
   overlay.id = DIALOG_ID;
   overlay.style.cssText =
     'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.55);display:flex;' +
-    'align-items:center;justify-content:center;font-family:Roboto,Inter,system-ui,sans-serif;';
+    'align-items:center;justify-content:center;font-family:Nunito, system-ui, sans-serif;';
 
   overlay.innerHTML = `
     <div style="background:${c.surface};border-radius:12px;width:480px;max-width:92vw;max-height:88vh;

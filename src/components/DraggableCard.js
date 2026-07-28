@@ -434,10 +434,5 @@ if (typeof globalThis !== 'undefined' && typeof globalThis.window !== 'undefined
   globalThis.window.MyIODraggableCard = MyIODraggableCard;
 }
 
-// Export for module usage
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { MyIODraggableCard };
-}
-
-// Export for ES modules
+// Export for ES modules (tsup emits both ESM and CJS from this)
 export { MyIODraggableCard };

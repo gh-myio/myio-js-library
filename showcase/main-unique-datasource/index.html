@@ -166,6 +166,78 @@
         border-color: #e2e8f0;
       }
 
+      /* ===== COCKPIT COLLAPSE (recolher) ===== */
+      .showcase-layout.cockpit-collapsed {
+        grid-template-columns: 1fr;
+      }
+      .showcase-layout.cockpit-collapsed .showcase-sidebar {
+        display: none;
+      }
+      .cockpit-toggle {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 8px 12px;
+        background: inherit;
+        border-bottom: 1px solid #334155;
+      }
+      .cockpit-toggle .cockpit-title {
+        font: 700 11px/1 'Nunito', system-ui, sans-serif;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: #94a3b8;
+      }
+      .cockpit-toggle button,
+      .cockpit-reopen {
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid #334155;
+        border-radius: 6px;
+        background: transparent;
+        color: #94a3b8;
+        font-size: 16px;
+        line-height: 1;
+        cursor: pointer;
+      }
+      .cockpit-toggle button:hover,
+      .cockpit-reopen:hover {
+        background: #334155;
+        color: #e2e8f0;
+      }
+      .cockpit-reopen {
+        position: fixed;
+        top: 62px;
+        right: 8px;
+        z-index: 50;
+        width: 34px;
+        height: 34px;
+        background: #1e293b;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+      }
+      body.light-mode .cockpit-toggle .cockpit-title {
+        color: #64748b;
+      }
+      body.light-mode .cockpit-toggle button,
+      body.light-mode .cockpit-reopen {
+        border-color: #e2e8f0;
+        color: #64748b;
+      }
+      body.light-mode .cockpit-toggle button:hover,
+      body.light-mode .cockpit-reopen:hover {
+        background: #f1f5f9;
+        color: #1e293b;
+      }
+      body.light-mode .cockpit-reopen {
+        background: #ffffff;
+      }
+
       /* ===== CONTROLS PANEL ===== */
       .controls-panel {
         padding: 12px;
@@ -466,7 +538,7 @@
       <!-- Widget Mount Area (same structure as template.html) -->
       <main class="widget-area">
         <div class="widget-mount" id="widgetMount">
-          <div class="main-unique-wrap" id="mainUniqueWrap" data-theme="dark">
+          <div class="main-unique-wrap" id="mainUniqueWrap" data-theme="light">
             <section
               id="headerContainer"
               class="myio-header-section"
@@ -494,6 +566,17 @@
 
       <!-- Sidebar -->
       <aside class="showcase-sidebar">
+        <!-- Recolher cockpit -->
+        <div class="cockpit-toggle">
+          <span class="cockpit-title">🛠️ Cockpit</span>
+          <button
+            type="button"
+            id="cockpitCollapse"
+            title="Recolher cockpit"
+            aria-label="Recolher cockpit"
+            onclick="toggleCockpit(true)"
+          >&raquo;</button>
+        </div>
         <!-- Lifecycle Controls -->
         <div class="controls-panel">
           <h3>Widget Lifecycle</h3>
@@ -544,8 +627,8 @@
           <div class="ctrl-group">
             <label class="ctrl-label">defaultThemeMode</label>
             <select class="ctrl-select" id="settingsTheme" onchange="updateSettings()">
-              <option value="dark">dark</option>
               <option value="light">light</option>
+              <option value="dark">dark</option>
             </select>
           </div>
           <div class="ctrl-group">
@@ -613,7 +696,81 @@
           </div>
         </div>
       </aside>
+
+      <!-- Botão flutuante para reabrir o cockpit (visível só quando recolhido) -->
+      <button
+        type="button"
+        id="cockpitReopen"
+        class="cockpit-reopen"
+        title="Expandir cockpit"
+        aria-label="Expandir cockpit"
+        onclick="toggleCockpit(false)"
+        style="display: none"
+      >&laquo;</button>
+
+      <script>
+        // Recolher/expandir o cockpit (sidebar direita). Persiste em localStorage.
+        function toggleCockpit(collapse) {
+          var layout = document.querySelector('.showcase-layout');
+          var reopen = document.getElementById('cockpitReopen');
+          if (!layout) return;
+          var isCollapsed =
+            typeof collapse === 'boolean'
+              ? collapse
+              : !layout.classList.contains('cockpit-collapsed');
+          layout.classList.toggle('cockpit-collapsed', isCollapsed);
+          if (reopen) reopen.style.display = isCollapsed ? 'flex' : 'none';
+          try {
+            localStorage.setItem('showcase:cockpit:collapsed', isCollapsed ? '1' : '0');
+          } catch (e) {
+            /* noop */
+          }
+        }
+        // Restaura o estado salvo no load.
+        (function () {
+          var saved = null;
+          try {
+            saved = localStorage.getItem('showcase:cockpit:collapsed');
+          } catch (e) {
+            /* noop */
+          }
+          if (saved === '1') toggleCockpit(true);
+        })();
+      </script>
     </div>
+
+    <!-- ===== RFC-0217: CustomerGoalsCard demo (small multiples) ===== -->
+    <section id="cgcDemo" style="max-width:1280px;margin:24px auto;padding:16px;border:1px solid #e2e8f0;border-radius:12px;background:#fff;font-family:'Nunito',sans-serif;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px;">
+        <h2 style="margin:0;font:800 16px 'Nunito',sans-serif;color:#1e293b;">
+          RFC-0217 — CustomerGoalsCard <span style="font:600 12px 'Nunito',sans-serif;color:#64748b;">| Realizado, A-1 e Orçado</span>
+        </h2>
+        <div style="display:flex;gap:8px;">
+          <button id="cgcSettingsBtn" title="Configurações do gráfico" style="border:1px solid rgba(124,58,237,.45);border-radius:8px;background:transparent;color:#7C3AED;padding:5px 10px;cursor:pointer;font:700 14px 'Nunito',sans-serif;">⚙️</button>
+          <button id="cgcThemeBtn" title="Alternar tema" style="border:1px solid rgba(124,58,237,.45);border-radius:8px;background:transparent;color:#7C3AED;padding:5px 10px;cursor:pointer;font:700 14px 'Nunito',sans-serif;">🌙</button>
+        </div>
+      </div>
+      <!-- Modal de configurações do gráfico -->
+      <div id="cgcSettings" style="display:none;position:fixed;inset:0;z-index:100000;background:rgba(15,23,42,.45);align-items:center;justify-content:center;">
+        <div id="cgcSettingsBox" style="background:#fff;border-radius:14px;min-width:300px;max-width:92vw;padding:18px 20px;font-family:'Nunito',sans-serif;box-shadow:0 24px 64px rgba(2,6,23,.4);">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+            <h3 style="margin:0;font:800 14px 'Nunito',sans-serif;color:#1e293b;">⚙️ Configurações do gráfico</h3>
+            <button id="cgcSettingsClose" style="border:none;background:transparent;cursor:pointer;font:700 16px 'Nunito',sans-serif;color:#64748b;">✕</button>
+          </div>
+          <label style="display:flex;align-items:center;gap:8px;font:600 13px 'Nunito',sans-serif;color:#334155;margin-bottom:12px;cursor:pointer;">
+            <input type="checkbox" id="cgcOptPoints" checked style="accent-color:#7C3AED;width:16px;height:16px;">
+            Mostrar pontos na linha
+          </label>
+          <div style="font:600 13px 'Nunito',sans-serif;color:#334155;display:flex;align-items:center;gap:14px;">
+            Tipo de gráfico:
+            <label style="display:flex;align-items:center;gap:5px;cursor:pointer;"><input type="radio" name="cgcOptType" value="line" checked style="accent-color:#7C3AED;"> Linha</label>
+            <label style="display:flex;align-items:center;gap:5px;cursor:pointer;"><input type="radio" name="cgcOptType" value="bar" style="accent-color:#7C3AED;"> Barra</label>
+          </div>
+        </div>
+      </div>
+      <div id="cgcGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;"></div>
+      <div id="cgcLegend" style="display:flex;align-items:center;justify-content:center;gap:18px;flex-wrap:wrap;font:600 11px 'Nunito',sans-serif;color:#64748b;padding-top:10px;"></div>
+    </section>
 
     <!--
     Instructions:
@@ -706,7 +863,7 @@
           enableDebugMode: true,
           dataApiHost: 'https://api.data.apps.myio-bas.com',
           customerTB_ID: 'mock-customer-tb-id-12345',
-          defaultThemeMode: 'dark',
+          defaultThemeMode: 'light',
           darkMode: {
             backgroundType: 'color',
             backgroundColor: '#0f172a',
@@ -925,7 +1082,7 @@
       }
 
       // ===== GENERATE MOCK SHOPPING DATASOURCE =====
-      // This creates entries with aliasName='Shopping' that buildShoppingsListFromAlias expects
+      // This creates entries with aliasName='customers' that buildCustomersListFromAlias expects
       function generateMockShoppingDatasource() {
         const shoppingRows = [];
 
@@ -938,7 +1095,7 @@
               entityId: shopping.entityId,
               entityName: shopping.name,
               entityLabel: shopping.name,
-              aliasName: 'Shopping', // This is what buildShoppingsListFromAlias looks for
+              aliasName: 'customers', // contrato do controller (buildCustomersListFromAlias)
             },
             dataKey: { name: 'ingestionId', type: 'attribute' },
             data: [[Date.now(), shopping.id]], // Use shopping.id as ingestionId
@@ -952,7 +1109,7 @@
               entityId: shopping.entityId,
               entityName: shopping.name,
               entityLabel: shopping.name,
-              aliasName: 'Shopping',
+              aliasName: 'customers',
             },
             dataKey: { name: 'minTemperature', type: 'attribute' },
             data: [[Date.now(), 18]],
@@ -966,7 +1123,7 @@
               entityId: shopping.entityId,
               entityName: shopping.name,
               entityLabel: shopping.name,
-              aliasName: 'Shopping',
+              aliasName: 'customers',
             },
             dataKey: { name: 'maxTemperature', type: 'attribute' },
             data: [[Date.now(), 26]],
@@ -1678,7 +1835,7 @@
         updateMockData();
 
         // IMPORTANT: Pre-populate MyIOOrchestratorData BEFORE onInit
-        // so that buildShoppingsListFromClassified() can find the data
+        // so that buildCustomersListFromClassified() can find the data
         prepareOrchestratorData();
 
         try {
@@ -2316,6 +2473,98 @@
           logEvent('ERROR', 'Failed to load controller.js', 'error');
         };
         document.body.appendChild(scriptEl);
+      })();
+    </script>
+
+    <!-- ===== RFC-0217: CustomerGoalsCard demo script ===== -->
+    <script>
+      (() => {
+        const lib = window.MyIOLibrary;
+        const grid = document.getElementById('cgcGrid');
+        const legend = document.getElementById('cgcLegend');
+        const themeBtn = document.getElementById('cgcThemeBtn');
+        const section = document.getElementById('cgcDemo');
+        if (!lib?.createCustomerGoalsCard) {
+          grid.innerHTML =
+            '<div style="font:600 12px Nunito,sans-serif;color:#64748b;">createCustomerGoalsCard indisponível — rode npm run build.</div>';
+          return;
+        }
+
+        const MONTHS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+        // Séries mockadas espelhando logs/025-card-GoalsByCustomer.png (valores em kWh)
+        const wave = (base, amp, seed) =>
+          MONTHS.map((_, i) => Math.round(base + amp * Math.sin(i / 1.9 + seed) + (i % 3) * amp * 0.15));
+        const SHOPPINGS = [
+          { title: 'Shopping Alpha',   realized: wave(1650000, 320000, 0.4), prev: wave(1700000, 260000, 1.2), budget: wave(1720000, 220000, 2.0), totals: { realized: 1486520, previousYear: 1512300, budget: 1505000 } },
+          { title: 'Shopping Bravo',   realized: wave(1560000, 280000, 1.0), prev: wave(1480000, 240000, 0.2), budget: wave(1490000, 200000, 1.6), totals: { realized: 1399860, previousYear: 1328450, budget: 1330000 } },
+          { title: 'Shopping Charlie', realized: wave(1900000, 420000, 2.2), prev: wave(1650000, 260000, 0.9), budget: wave(1660000, 240000, 0.1), totals: { realized: 1443210, previousYear: 1287760, budget: 1288000 } },
+          // Degradações intencionais: Delta sem Orçado; Echo com gaps no A-1
+          { title: 'Shopping Delta (sem Orçado)', realized: wave(1950000, 160000, 0.7), prev: wave(1980000, 150000, 1.5), budget: null, totals: { realized: 1156780, previousYear: 1186900 } },
+          { title: 'Shopping Echo (gaps no A-1)', realized: wave(1400000, 200000, 1.8), prev: wave(1420000, 180000, 0.5).map((v, i) => (i % 4 === 2 ? null : v)), budget: wave(1450000, 170000, 2.4), totals: { realized: 1310400, previousYear: 1355200, budget: 1300000 } },
+        ];
+
+        let theme = 'light';
+        const cards = SHOPPINGS.map((s) =>
+          lib.createCustomerGoalsCard({
+            container: grid,
+            title: s.title,
+            unit: 'kWh',
+            yearLabels: { current: '2026', previous: '2025' },
+            themeMode: theme,
+            totals: s.totals,
+            series: {
+              labels: MONTHS,
+              realized: s.realized,
+              previousYear: s.prev,
+              budget: s.budget || undefined,
+            },
+            onClick: ({ title }) => console.log('[cgc-demo] card click:', title),
+          })
+        );
+
+        const item = (swatch, label) =>
+          `<span style="display:inline-flex;align-items:center;gap:6px;">${swatch}<span>${label}</span></span>`;
+        const line = (c) => `<span style="width:22px;border-top:3px solid ${c};border-radius:2px;display:inline-block;"></span>`;
+        const dash = (c) => `<span style="width:22px;border-top:3px dashed ${c};display:inline-block;"></span>`;
+        legend.innerHTML =
+          item(line('#94a3b8'), 'A-1 (2025)') + item(line('#6c5ce7'), 'Realizado (2026)') + item(dash('#f59e0b'), 'Orçado (2026)');
+
+        themeBtn.addEventListener('click', () => {
+          theme = theme === 'light' ? 'dark' : 'light';
+          cards.forEach((c) => c.setThemeMode(theme));
+          const dark = theme === 'dark';
+          section.style.background = dark ? '#0b1424' : '#fff';
+          section.style.borderColor = dark ? 'rgba(148,163,184,.25)' : '#e2e8f0';
+          section.querySelector('h2').style.color = dark ? '#e2e8f0' : '#1e293b';
+          legend.style.color = dark ? '#94a3b8' : '#64748b';
+          themeBtn.textContent = dark ? '☀️' : '🌙';
+          // Modal de configurações acompanha o tema
+          const box = document.getElementById('cgcSettingsBox');
+          box.style.background = dark ? '#0f1a2c' : '#fff';
+          box.querySelector('h3').style.color = dark ? '#e2e8f0' : '#1e293b';
+          box.querySelectorAll('label, div').forEach((el) => {
+            if (el.style.color) el.style.color = dark ? '#cbd5e1' : '#334155';
+          });
+        });
+
+        // ── Modal ⚙️: pontos on/off e linha|barra (aplica em todos os cards) ──
+        const settingsOverlay = document.getElementById('cgcSettings');
+        const applyOptions = () => {
+          const showPoints = document.getElementById('cgcOptPoints').checked;
+          const chartType = document.querySelector('input[name="cgcOptType"]:checked').value;
+          cards.forEach((c) => c.setOptions({ showPoints, chartType }));
+        };
+        document.getElementById('cgcSettingsBtn').addEventListener('click', () => {
+          settingsOverlay.style.display = 'flex';
+        });
+        document.getElementById('cgcSettingsClose').addEventListener('click', () => {
+          settingsOverlay.style.display = 'none';
+        });
+        settingsOverlay.addEventListener('click', (e) => {
+          if (e.target === settingsOverlay) settingsOverlay.style.display = 'none';
+        });
+        document.getElementById('cgcOptPoints').addEventListener('change', applyOptions);
+        document.querySelectorAll('input[name="cgcOptType"]').forEach((r) => r.addEventListener('change', applyOptions));
       })();
     </script>
   </body>

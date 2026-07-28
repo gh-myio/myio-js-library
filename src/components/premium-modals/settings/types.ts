@@ -3,6 +3,14 @@ import type { GCDRCustomerBundle } from '../gcdr-sync/types';
 export type TbScope = 'CLIENT_SCOPE' | 'SERVER_SCOPE';
 export type Domain = 'energy' | 'water' | 'temperature';
 
+/**
+ * Host dashboard palette propagated to the modal (same shape accepted by
+ * AllReportModal). Either a `createMyIOTheme` object (exposes `cssVars()`) or a
+ * flat map of `--myio-*` CSS custom properties. Applied on the modal root so the
+ * internal `var(--myio-brand-700)` styles follow the dashboard accent.
+ */
+export type MyIOThemeSource = { cssVars(): Record<string, string> } | Record<string, string>;
+
 export interface OpenDashboardPopupSettingsParams {
   // Device identification
   deviceId: string;
@@ -73,6 +81,14 @@ export interface OpenDashboardPopupSettingsParams {
     i18n?: { t: (key: string, def?: string) => string }; // Internationalization
     consumptionDecimalPlaces?: number; // Decimal places for consumption values (default: 3)
   };
+
+  /**
+   * Host dashboard palette (createMyIOTheme object or flat `--myio-*` map).
+   * When omitted, the modal falls back to `window.MyIOUtils.theme`. Drives the
+   * header/tabs/accent via `var(--myio-brand-700)`; does not affect the
+   * light/dark toggle.
+   */
+  theme?: MyIOThemeSource;
 
   /** RFC-0144: If false, annotations onboarding tour is never shown. Default: false */
   enableAnnotationsOnboarding?: boolean;
@@ -167,6 +183,8 @@ export interface ModalConfig {
   /** RFC-0198: Device identifier (e.g. "MED-LOJA-01") used for FreshDesk ticket filtering */
   identifier?: string;
   themeTokens?: Record<string, string | number>;
+  /** Host dashboard palette (createMyIOTheme or flat `--myio-*` map). Falls back to `window.MyIOUtils.theme`. */
+  themePalette?: MyIOThemeSource;
   i18n?: { t: (key: string, def?: string) => string };
   deviceLabel?: string; // Dynamic label for the left column section
   domain: Domain; // Domain for the left column section

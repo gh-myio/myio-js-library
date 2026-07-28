@@ -1,3 +1,4 @@
+
 .shopping-modal {
   position: fixed;
   inset: 0;
@@ -8,7 +9,7 @@
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.2s ease;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Nunito', system-ui, sans-serif;
 }
 
 .shopping-modal.show {
@@ -216,7 +217,7 @@
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.2s ease;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Nunito', system-ui, sans-serif;
 }
 
 .shopping-modal.show {
@@ -317,9 +318,11 @@
 }
 
 .shops-menu-root {
-  --brand: #3e1a7d; /* ativo */
-  --ghost: ghostwhite; /* texto no ativo */
-  --hover-bg: #efe7ff; /* hover (roxo claro) */
+  /* accent segue a paleta do dashboard (createMyIOTheme → --myio-brand-*);
+     fallback = cor MYIO atual, então sem tema nada muda visualmente */
+  --brand: var(--myio-brand-700, #3e1a7d); /* ativo */
+  --ghost: var(--myio-accent-text, ghostwhite); /* texto no ativo */
+  --hover-bg: color-mix(in srgb, var(--myio-brand-700, #3e1a7d) 9%, #fff); /* hover (roxo claro) */
   --text: #111827; /* texto padrão */
   --divider: #e5e7eb; /* linha divisória */
   --radius: 10px;
@@ -327,11 +330,11 @@
 
 /* Escopo local das cores */
 .shops-menu-root {
-  --brand: #3e1a7d; /* cor MYIO para ativo */
-  --ghost: ghostwhite; /* texto no ativo */
-  --hover-bg: #efe7ff; /* hover suave */
+  --brand: var(--myio-brand-700, #3e1a7d); /* cor MYIO para ativo */
+  --ghost: var(--myio-accent-text, ghostwhite); /* texto no ativo */
+  --hover-bg: color-mix(in srgb, var(--myio-brand-700, #3e1a7d) 9%, #fff); /* hover suave */
   --text: #111827; /* texto padrão */
-  --user-color: #2d1458; /* cor sutil para info do usuário */
+  --user-color: var(--myio-brand-600, #2d1458); /* cor sutil para info do usuário */
   --radius: 10px;
 
   display: flex;
@@ -518,7 +521,7 @@
 .menu-item.active .label {
   background: var(--brand, #3e1a7d);
   color: var(--ghost, #f8f8ff);
-  box-shadow: 0 2px 0 rgba(62, 26, 125, 0.35);
+  box-shadow: 0 2px 0 color-mix(in srgb, var(--myio-brand-700, #3e1a7d) 35%, transparent);
 }
 
 /* fundo no ativo pega a LINHA TODA */
@@ -526,7 +529,7 @@
   background: var(--brand);
   color: var(--ghost);
   border-bottom-color: transparent; /* evita “risco” roxo sob o ativo */
-  box-shadow: 0 1px 0 rgba(62, 26, 125, 0.2) inset;
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--myio-brand-700, #3e1a7d) 20%, transparent) inset;
 }
 
 /* opcional: ícone + texto alinhados, caso adicione ícones no futuro */
@@ -802,13 +805,7 @@
   box-shadow: 0 2px 10px rgba(31, 28, 53, 0.06);
   cursor: pointer;
   transition: all 0.15s ease;
-  font-family:
-    'Inter',
-    system-ui,
-    -apple-system,
-    Segoe UI,
-    Roboto,
-    sans-serif;
+  font-family: 'Nunito', system-ui, sans-serif;
 }
 
 /* primeira linha ("Trocar Shopping") */
@@ -1365,13 +1362,7 @@
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.2s ease;
-  font-family:
-    Inter,
-    system-ui,
-    -apple-system,
-    Segoe UI,
-    Roboto,
-    sans-serif;
+  font-family: 'Nunito', system-ui, sans-serif;
 }
 
 .myio-conf-picker.show {

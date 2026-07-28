@@ -22,6 +22,37 @@ The showcase includes:
 
 ---
 
+## 🔍 Auditoria de RFCs — o que não está implementado
+
+Painel consolidado das auditorias de **5 repositórios MYIO**, num único documento navegável:
+
+**[Abrir Auditoria Consolidada →](docs/AUDITORIA-RFCS-CONSOLIDADA-MYIO.html)**
+
+Consolida 2.093 linhas de relatórios de `gcdr`, `alarms-backend`, `myio-app-5.2.0`,
+`data-ingestion-prod` e `myio-js-library`, com evidências `arquivo:linha`. Inclui os
+**temas transversais** — padrões que aparecem em 2+ repositórios, como o campo `Status:`
+dos RFCs divergindo do código (nas **duas** direções: entregas declaradas que não
+existem, e código entregue que ainda se declara pendente).
+
+> Os **limites declarados** por cada relatório (cobertura, pontos cegos, o que não foi
+> verificado) estão preservados em bloco próprio por repo — e nenhum total foi somado
+> entre relatórios, porque as unidades não são comparáveis. Todo número exibido é
+> citação direta da origem.
+
+Fonte deste repositório: [`docs/rfcs/RFC-AUDIT-nao-implementados.md`](docs/rfcs/RFC-AUDIT-nao-implementados.md)
+
+### 🎯 OKRs de Tecnologia
+
+Objetivos derivados dessas auditorias, em formato de bullets:
+
+**[Abrir OKRs →](docs/OKRS-TECNOLOGIA.html)** · [versão Markdown](docs/OKRS-TECNOLOGIA.md)
+
+13 objetivos em duas partes — **Parte A · Corrigir** (O1–O9, derivados dos achados)
+e **Parte B · Construir** (O10–O13: Pré-Setup no GCDR, cockpit de logs, auto-sync de
+devices e OS integrada ao ecossistema).
+
+---
+
 ## 🚀 Features
 
 - 🔑 **Core codecs** — e.g., `decodePayloadBase64Xor`.

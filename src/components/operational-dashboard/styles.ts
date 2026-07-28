@@ -12,7 +12,7 @@ export const OPERATIONAL_DASHBOARD_STYLES = `
     width: 100%;
     background: transparent;
     color: var(--ink-1, #f1f5f9);
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: 'Nunito', system-ui, sans-serif;
     overflow: auto;
     padding: 0;
     box-sizing: border-box;

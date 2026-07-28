@@ -24,6 +24,13 @@ export type SettingsHubAction =
 
 export type SettingsHubHandlers = Partial<Record<SettingsHubAction, () => void>>;
 
+/**
+ * Host dashboard palette: either a `createMyIOTheme` object (exposes `cssVars()`)
+ * or a flat map of `--myio-*` CSS custom properties. Applied to the hub root so
+ * the header/accent follow the dashboard palette.
+ */
+export type SettingsHubThemeSource = { cssVars(): Record<string, string> } | Record<string, string>;
+
 export interface OpenSettingsHubModalOptions {
   /** Shown in the header as "⚙️ Configurações — <customerName>" (omitted when empty). */
   customerName?: string;
@@ -33,6 +40,13 @@ export interface OpenSettingsHubModalOptions {
   handlers: SettingsHubHandlers;
   /** Where to mount the modal. Defaults to the top-level document (falls back to the current one on cross-origin frames). */
   targetDocument?: Document;
+  /**
+   * Host dashboard palette (createMyIOTheme or flat `--myio-*` map). When omitted,
+   * falls back to `window.MyIOUtils.theme`. Applied to the hub root; sub-modals
+   * opened by the option handlers inherit the same palette through the global
+   * (they read `window.MyIOUtils.theme` themselves).
+   */
+  theme?: SettingsHubThemeSource;
 }
 
 export interface SettingsHubModalHandle {
@@ -124,7 +138,7 @@ const HUB_CSS = `
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.2s ease;
-    font-family: Nunito, Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    font-family: 'Nunito', system-ui, sans-serif;
   }
   .myio-conf-picker.show {
     opacity: 1;
@@ -156,7 +170,7 @@ const HUB_CSS = `
     align-items: center;
     justify-content: space-between;
     padding: 8px 12px;
-    background: #3e1a7d;
+    background: var(--myio-brand-700, #3e1a7d);
     color: white;
     min-height: 32px;
   }
@@ -242,7 +256,7 @@ const HUB_CSS = `
     background: linear-gradient(135deg, #3E1A7D22, #6A2FC022);
   }
   .myio-settings-option--myio .myio-settings-option__desc {
-    color: #7B2FF7;
+    color: var(--myio-brand-700, #7B2FF7);
   }
 `;
 
@@ -261,6 +275,21 @@ function resolveTopDocument(): Document {
   } catch {
     return document;
   }
+}
+
+// Paleta efetiva: option explícita OU o global do dashboard (MyIOUtils.theme).
+function resolveHubThemeVars(explicit?: SettingsHubThemeSource): Record<string, string> | null {
+  const theme =
+    explicit ||
+    (typeof window !== 'undefined'
+      ? (window as { MyIOUtils?: { theme?: SettingsHubThemeSource } }).MyIOUtils?.theme
+      : undefined);
+  if (!theme) return null;
+  const vars =
+    typeof (theme as { cssVars?: () => Record<string, string> }).cssVars === 'function'
+      ? (theme as { cssVars(): Record<string, string> }).cssVars()
+      : (theme as Record<string, string>);
+  return vars && typeof vars === 'object' ? vars : null;
 }
 
 export function openSettingsHubModal(options: OpenSettingsHubModalOptions): SettingsHubModalHandle {
@@ -311,6 +340,16 @@ export function openSettingsHubModal(options: OpenSettingsHubModalOptions): Sett
   `;
 
   doc.body.appendChild(modal);
+
+  // Aplica a paleta do dashboard no root do hub: header/accent leem
+  // var(--myio-brand-700). Sub-modais abertos pelos handlers herdam a mesma
+  // paleta via window.MyIOUtils.theme (leem o global por conta própria).
+  const themeVars = resolveHubThemeVars(options.theme);
+  if (themeVars) {
+    Object.entries(themeVars).forEach(([k, v]) => {
+      if (k.startsWith('--') && typeof v === 'string') modal.style.setProperty(k, v);
+    });
+  }
 
   // Animate in.
   requestAnimationFrame(() => modal.classList.add('show'));

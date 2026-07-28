@@ -854,10 +854,5 @@ if (typeof globalThis !== 'undefined' && typeof globalThis.window !== 'undefined
   MyIOSelectionStore = new MyIOSelectionStoreClass();
 }
 
-// Export for module usage
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { MyIOSelectionStore, MyIOSelectionStoreClass };
-}
-
-// Export for ES modules
+// Export for ES modules (tsup emits both ESM and CJS from this)
 export { MyIOSelectionStore, MyIOSelectionStoreClass };

@@ -734,9 +734,9 @@ Object.assign(window.MyIOUtils, {
       }
     }
 
-    // Generic efficiency recommendations based on device type
-    const deviceType = (deviceInfo.deviceType || '').toLowerCase();
-    if (deviceType.includes('bomba') || deviceType.includes('motor')) {
+    // Generic efficiency recommendations based on device profile (deviceType em desuso)
+    const deviceProfile = (deviceInfo.deviceProfile || '').toLowerCase();
+    if (deviceProfile.includes('bomba') || deviceProfile.includes('motor')) {
       recommendations.push({
         type: 'pump_efficiency',
         priority: 'medium',
@@ -977,7 +977,8 @@ let config = null;
 
 /**
  * RFC-0097/RFC-0106: Centralized device classification configuration
- * All deviceType → category mapping rules are defined here
+ * All deviceProfile → category mapping rules are defined here
+ * (deviceType em desuso 2026-07-14 — as listas abaixo casam contra deviceProfile)
  */
 const DEVICE_CLASSIFICATION_CONFIG = {
   // DeviceTypes que pertencem à categoria Climatização
@@ -1046,7 +1047,8 @@ const EQUIPMENT_EXCLUSION_PATTERN = new RegExp(
 
 function getEffectiveDeviceProfile(item) {
   if (!item || typeof item !== 'object') return '';
-  return String(item.effectiveDeviceType || item.deviceProfile || item.deviceType || '').toUpperCase();
+  // deviceType em desuso — sem fallback para deviceType
+  return String(item.effectiveDeviceType || item.deviceProfile || '').toUpperCase();
 }
 
 function isAllowedEquipmentProfile(item) {
@@ -1056,29 +1058,24 @@ function isAllowedEquipmentProfile(item) {
 
 /**
  * RFC-0106: Check if device is a store (loja)
- * A device is considered a store when BOTH deviceType AND deviceProfile equal '3F_MEDIDOR'
+ * deviceProfile é a ÚNICA autoridade (deviceType em desuso 2026-07-14):
+ * loja quando deviceProfile começa com '3F_MEDIDOR'
  *
- * @param {Object|string} itemOrDeviceProfile - Device item with deviceProfile/deviceType properties, or deviceProfile string directly
+ * @param {Object|string} itemOrDeviceProfile - Device item with deviceProfile property, or deviceProfile string directly
  * @returns {boolean} True if device is a store
  */
 function isStoreDevice(itemOrDeviceProfile) {
-  if (typeof itemOrDeviceProfile === 'string') {
-    // If only a string is passed, assume it's deviceProfile and return true if it matches
-    return String(itemOrDeviceProfile || '').toUpperCase() === '3F_MEDIDOR';
-  }
+  let deviceProfile;
 
-  if (!itemOrDeviceProfile || typeof itemOrDeviceProfile !== 'object') {
+  if (typeof itemOrDeviceProfile === 'string') {
+    deviceProfile = itemOrDeviceProfile;
+  } else if (itemOrDeviceProfile && typeof itemOrDeviceProfile === 'object') {
+    deviceProfile = itemOrDeviceProfile.deviceProfile;
+  } else {
     return false;
   }
 
-  const deviceType = String(itemOrDeviceProfile.deviceType || '').toUpperCase();
-  // RFC-0140: If deviceProfile is null/empty, assume it equals deviceType
-  const deviceProfile = String(
-    itemOrDeviceProfile.deviceProfile || itemOrDeviceProfile.deviceType || ''
-  ).toUpperCase();
-
-  // A device is a store only if BOTH deviceType AND deviceProfile are '3F_MEDIDOR'
-  return deviceProfile === '3F_MEDIDOR' && deviceType === '3F_MEDIDOR';
+  return String(deviceProfile || '').toUpperCase().startsWith('3F_MEDIDOR');
 }
 
 /**
@@ -1118,11 +1115,11 @@ function isEntradaDevice(item) {
 /**
  * RFC-0109: Simplified water meter classification
  *
- * New rule:
- * - STORE (loja): deviceType = deviceProfile = HIDROMETRO (both must be exactly "HIDROMETRO")
+ * New rule (deviceProfile é a ÚNICA autoridade — deviceType em desuso):
+ * - STORE (loja): deviceProfile = HIDROMETRO
  * - AREA_COMUM: everything else
  *
- * @param {Object} item - Device item with deviceType and deviceProfile properties
+ * @param {Object} item - Device item with deviceProfile property
  * @returns {boolean} True if device is a water store (loja)
  */
 function isWaterStoreDevice(item) {
@@ -1130,28 +1127,22 @@ function isWaterStoreDevice(item) {
     return false;
   }
 
-  const dt = String(item.deviceType || '').toUpperCase();
-  // RFC-0140: If deviceProfile is null/empty, assume it equals deviceType
-  const dp = String(item.deviceProfile || item.deviceType || '').toUpperCase();
+  const dp = String(item.deviceProfile || '').toUpperCase();
 
-  // LOJA: deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO
-  return dt === 'HIDROMETRO' && dp === 'HIDROMETRO';
+  // LOJA: deviceProfile = HIDROMETRO
+  return dp === 'HIDROMETRO';
 }
 
 /**
  * RFC-0109: Water meter classification
  * Returns classification: 'loja', 'areacomum', or 'entrada'
  *
- * Rules:
- * - LOJA: deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO
- * - AREA_COMUM:
- *   - deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_AREA_COMUM
- *   - OR deviceType = HIDROMETRO_AREA_COMUM (deviceProfile não importa)
- * - ENTRADA:
- *   - deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_SHOPPING
- *   - OR deviceType = HIDROMETRO_SHOPPING (deviceProfile não importa)
+ * Rules (deviceProfile é a ÚNICA autoridade — deviceType em desuso):
+ * - LOJA: deviceProfile = HIDROMETRO
+ * - ENTRADA: deviceProfile = HIDROMETRO_SHOPPING
+ * - AREA_COMUM: deviceProfile = HIDROMETRO_AREA_COMUM (e default para o resto)
  *
- * @param {Object} item - Device item with deviceType and deviceProfile properties
+ * @param {Object} item - Device item with deviceProfile property
  * @returns {'loja'|'areacomum'|'entrada'}
  */
 function classifyWaterMeterDevice(item) {
@@ -1159,30 +1150,28 @@ function classifyWaterMeterDevice(item) {
     return 'areacomum';
   }
 
-  const dt = String(item.deviceType || '').toUpperCase();
-  // RFC-0140: If deviceProfile is null/empty, assume it equals deviceType
-  const dp = String(item.deviceProfile || item.deviceType || '').toUpperCase();
+  const dp = String(item.deviceProfile || '').toUpperCase();
 
-  // LOJA: deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO
-  if (dt === 'HIDROMETRO' && dp === 'HIDROMETRO') {
+  // LOJA: deviceProfile = HIDROMETRO
+  if (dp === 'HIDROMETRO') {
     return 'loja';
   }
 
-  // ENTRADA: deviceType = HIDROMETRO_SHOPPING OR (deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_SHOPPING)
-  if (dt === 'HIDROMETRO_SHOPPING' || (dt === 'HIDROMETRO' && dp === 'HIDROMETRO_SHOPPING')) {
+  // ENTRADA: deviceProfile = HIDROMETRO_SHOPPING
+  if (dp === 'HIDROMETRO_SHOPPING') {
     return 'entrada';
   }
 
-  // AREA_COMUM: deviceType = HIDROMETRO_AREA_COMUM OR (deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_AREA_COMUM)
+  // AREA_COMUM: deviceProfile = HIDROMETRO_AREA_COMUM
   // Also default for any other combination
   return 'areacomum';
 }
 
 /**
  * RFC-0109: Check if device is a water entrada (shopping entrance)
- * ENTRADA: deviceType = HIDROMETRO_SHOPPING OR (deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_SHOPPING)
+ * ENTRADA: deviceProfile = HIDROMETRO_SHOPPING (deviceType em desuso)
  *
- * @param {Object} item - Device item with deviceType and deviceProfile properties
+ * @param {Object} item - Device item with deviceProfile property
  * @returns {boolean} True if device is a water entrada
  */
 function isWaterEntradaDevice(item) {
@@ -1190,12 +1179,10 @@ function isWaterEntradaDevice(item) {
     return false;
   }
 
-  const dt = String(item.deviceType || '').toUpperCase();
-  // RFC-0140: If deviceProfile is null/empty, assume it equals deviceType
-  const dp = String(item.deviceProfile || item.deviceType || '').toUpperCase();
+  const dp = String(item.deviceProfile || '').toUpperCase();
 
-  // ENTRADA: deviceType = HIDROMETRO_SHOPPING OR (deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_SHOPPING)
-  return dt === 'HIDROMETRO_SHOPPING' || (dt === 'HIDROMETRO' && dp === 'HIDROMETRO_SHOPPING');
+  // ENTRADA: deviceProfile = HIDROMETRO_SHOPPING
+  return dp === 'HIDROMETRO_SHOPPING';
 }
 
 /**
@@ -1206,14 +1193,14 @@ function isWaterEntradaDevice(item) {
  * - Lojas: deviceProfile === '3F_MEDIDOR' (uses isStoreDevice)
  * - Others: classify by deviceProfile using DEVICE_CLASSIFICATION_CONFIG
  *
- * @param {Object} item - Device item with deviceType, deviceProfile and identifier properties
+ * @param {Object} item - Device item with deviceProfile and identifier properties
  * @returns {'lojas'|'climatizacao'|'elevadores'|'escadas_rolantes'|'outros'}
  */
 function classifyDeviceByDeviceType(item) {
   if (!item) return 'outros';
 
-  // RFC-0140: If deviceProfile is null/empty, assume it equals deviceType
-  const deviceProfile = String(item.deviceProfile || item.deviceType || '').toUpperCase();
+  // deviceType em desuso — sem fallback para deviceType
+  const deviceProfile = String(item.deviceProfile || '').toUpperCase();
 
   // RFC-0106: Lojas - use centralized isStoreDevice
   if (isStoreDevice(item)) {
@@ -1311,8 +1298,8 @@ function classifyDeviceByIdentifier(identifier = '') {
 }
 
 /**
- * RFC-0097/RFC-0106: Classify device using deviceType as primary method
- * @param {Object} item - Device item with deviceType, deviceProfile, identifier, and label
+ * RFC-0097/RFC-0106: Classify device using deviceProfile as primary method (deviceType em desuso)
+ * @param {Object} item - Device item with deviceProfile, identifier, and label
  * @returns {'climatizacao'|'elevadores'|'escadas_rolantes'|'outros'}
  */
 function classifyDevice(item) {
@@ -1322,7 +1309,7 @@ function classifyDevice(item) {
     return 'outros';
   }
 
-  // RFC-0097: Primary classification by deviceType (or deviceProfile when deviceType = 3F_MEDIDOR)
+  // RFC-0097: Primary classification by deviceProfile (deviceType em desuso)
   const category = classifyDeviceByDeviceType(item);
 
   // Return if we got a specific category (not 'outros')
@@ -1359,20 +1346,20 @@ function categoryToLabelWidget(category) {
 }
 
 /**
- * RFC-0106: Infer labelWidget from deviceType AND deviceProfile
- * Classification based on BOTH deviceType and deviceProfile from ThingsBoard datasource
+ * RFC-0106: Infer labelWidget from deviceProfile
+ * deviceProfile é a ÚNICA autoridade de classificação (deviceType em desuso 2026-07-14)
  *
  * Rules (priority order):
- * 1. LOJAS: deviceProfile = '3F_MEDIDOR' (uses isStoreDevice)
- * 2. ENTRADA: deviceType OR deviceProfile contains ENTRADA/TRAFO/SUBESTACAO
- * 3. For other categories, check deviceProfile first, then deviceType:
+ * 1. LOJAS: deviceProfile começa com '3F_MEDIDOR' (uses isStoreDevice)
+ * 2. ENTRADA: deviceProfile contains ENTRADA/TRAFO/SUBESTACAO
+ * 3. For other categories, check deviceProfile:
  *    - CHILLER, FANCOIL, HVAC, AR_CONDICIONADO → 'Climatização'
  *    - ELEVADOR → 'Elevadores'
  *    - ESCADA_ROLANTE → 'Escadas Rolantes'
  *    - BOMBA, MOTOR, etc → 'Área Comum'
  * 4. Default: 'Área Comum' (if no classification matches)
  *
- * @param {Object} row - Item with deviceType, deviceProfile, identifier, name
+ * @param {Object} row - Item with deviceProfile, identifier, name
  * @returns {string} labelWidget for widget filtering
  */
 function inferLabelWidget(row) {
@@ -1382,10 +1369,8 @@ function inferLabelWidget(row) {
     return groupType;
   }
 
-  // Get deviceType and deviceProfile from ThingsBoard datasource
-  const deviceType = String(row.deviceType || '').toUpperCase();
-  // RFC-0140: If deviceProfile is null/empty, assume it equals deviceType
-  const deviceProfile = String(row.deviceProfile || row.deviceType || '').toUpperCase();
+  // Get deviceProfile from ThingsBoard datasource (deviceType em desuso — sem fallback)
+  const deviceProfile = String(row.deviceProfile || '').toUpperCase();
 
   // ==========================================================================
   // RULE 1: LOJAS - use centralized isStoreDevice
@@ -1395,17 +1380,16 @@ function inferLabelWidget(row) {
   }
 
   // ==========================================================================
-  // RULE 2: ENTRADA - deviceType OR deviceProfile contains ENTRADA/TRAFO/SUBESTACAO
+  // RULE 2: ENTRADA - deviceProfile contains ENTRADA/TRAFO/SUBESTACAO
   // ==========================================================================
   const ENTRADA_PATTERNS = ['ENTRADA', 'TRAFO', 'SUBESTACAO'];
-  const isEntradaByType = ENTRADA_PATTERNS.some((p) => deviceType.includes(p));
   const isEntradaByProfile = ENTRADA_PATTERNS.some((p) => deviceProfile.includes(p));
-  if (isEntradaByType || isEntradaByProfile) {
+  if (isEntradaByProfile) {
     return 'Entrada';
   }
 
   // ==========================================================================
-  // RULE 3: Check deviceProfile FIRST for other categories, then deviceType
+  // RULE 3: Check deviceProfile for other categories (deviceType em desuso)
   // ==========================================================================
 
   // Climatização: CHILLER, FANCOIL, HVAC, AR_CONDICIONADO, COMPRESSOR, VENTILADOR
@@ -1418,28 +1402,19 @@ function inferLabelWidget(row) {
     'VENTILADOR',
     'CLIMATIZA',
   ];
-  if (
-    CLIMATIZACAO_PATTERNS.some((p) => deviceProfile.includes(p)) ||
-    CLIMATIZACAO_PATTERNS.some((p) => deviceType.includes(p))
-  ) {
+  if (CLIMATIZACAO_PATTERNS.some((p) => deviceProfile.includes(p))) {
     return 'Climatização';
   }
 
   // Elevadores: ELEVADOR, ELV
   const ELEVADOR_PATTERNS = ['ELEVADOR', 'ELV'];
-  if (
-    ELEVADOR_PATTERNS.some((p) => deviceProfile.includes(p)) ||
-    ELEVADOR_PATTERNS.some((p) => deviceType.includes(p))
-  ) {
+  if (ELEVADOR_PATTERNS.some((p) => deviceProfile.includes(p))) {
     return 'Elevadores';
   }
 
   // Escadas Rolantes: ESCADA_ROLANTE, ESCADA
   const ESCADA_PATTERNS = ['ESCADA_ROLANTE', 'ESCADA'];
-  if (
-    ESCADA_PATTERNS.some((p) => deviceProfile.includes(p)) ||
-    ESCADA_PATTERNS.some((p) => deviceType.includes(p))
-  ) {
+  if (ESCADA_PATTERNS.some((p) => deviceProfile.includes(p))) {
     return 'Escadas Rolantes';
   }
 
@@ -1454,21 +1429,17 @@ function inferLabelWidget(row) {
     'ILUMINACAO',
     'LUZ',
   ];
-  if (
-    AREA_COMUM_PATTERNS.some((p) => deviceProfile.includes(p)) ||
-    AREA_COMUM_PATTERNS.some((p) => deviceType.includes(p))
-  ) {
+  if (AREA_COMUM_PATTERNS.some((p) => deviceProfile.includes(p))) {
     return 'Área Comum';
   }
 
   // Temperature types
-  if (deviceProfile.includes('TERMOSTATO') || deviceType.includes('TERMOSTATO')) {
+  if (deviceProfile.includes('TERMOSTATO')) {
     return 'Temperatura';
   }
 
   // ==========================================================================
   // RULE 4: Default - if nothing matched, default to Área Comum
-  // (deviceType = 3F_MEDIDOR but deviceProfile != 3F_MEDIDOR means it's equipment)
   // ==========================================================================
   return 'Área Comum';
 }
@@ -4400,15 +4371,13 @@ function storeContractState(deviceCounts, validationResult = { isValid: true, di
 
 /**
  * Categorize items into 3 groups: lojas, entrada, areacomum
- * Rules:
- * - LOJAS: deviceProfile = '3F_MEDIDOR' (uses isStoreDevice)
- * - ENTRADA: (deviceType = '3F_MEDIDOR' AND deviceProfile in [TRAFO, ENTRADA, RELOGIO, SUBESTACAO])
- *            OR deviceType in [TRAFO, ENTRADA, RELOGIO, SUBESTACAO]
+ * Rules (deviceProfile é a ÚNICA autoridade — deviceType em desuso):
+ * - LOJAS: deviceProfile começa com '3F_MEDIDOR' (uses isStoreDevice)
+ * - ENTRADA: deviceProfile in [TRAFO, ENTRADA, RELOGIO, SUBESTACAO]
  * - AREACOMUM: everything else
  */
 function categorizeItemsByGroup(items) {
   const ENTRADA_PROFILES = new Set(['TRAFO', 'ENTRADA', 'RELOGIO', 'SUBESTACAO']);
-  const ENTRADA_TYPES = new Set(['TRAFO', 'ENTRADA', 'RELOGIO', 'SUBESTACAO']);
 
   const lojas = [];
   const entrada = [];
@@ -4418,9 +4387,8 @@ function categorizeItemsByGroup(items) {
   const toStr = (val) => String(val || '').toUpperCase();
 
   for (const item of items) {
-    const deviceType = toStr(item.deviceType);
-    // RFC-0140: If deviceProfile is null/empty, assume it equals deviceType
-    const deviceProfile = toStr(item.deviceProfile || item.deviceType);
+    // deviceType em desuso — sem fallback para deviceType
+    const deviceProfile = toStr(item.deviceProfile);
 
     // Rule 1: LOJAS - use centralized isStoreDevice
     if (isStoreDevice(item)) {
@@ -4428,10 +4396,8 @@ function categorizeItemsByGroup(items) {
       continue;
     }
 
-    // Rule 2: ENTRADA - deviceType = 3F_MEDIDOR with entrada profile, OR deviceType is entrada type
-    const isEntradaByProfile = deviceType === '3F_MEDIDOR' && ENTRADA_PROFILES.has(deviceProfile);
-    const isEntradaByType = ENTRADA_TYPES.has(deviceType);
-    if (isEntradaByProfile || isEntradaByType) {
+    // Rule 2: ENTRADA - deviceProfile is entrada profile
+    if (ENTRADA_PROFILES.has(deviceProfile)) {
       entrada.push(item);
       continue;
     }
@@ -4446,15 +4412,11 @@ function categorizeItemsByGroup(items) {
 /**
  * RFC-0109: Water categorization into 3 groups: lojas, areacomum, entrada
  *
- * Rules:
- * - LOJAS: deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO
- * - ENTRADA:
- *   - deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_SHOPPING
- *   - OR deviceType = HIDROMETRO_SHOPPING (deviceProfile não importa)
- * - AREACOMUM:
- *   - deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_AREA_COMUM
- *   - OR deviceType = HIDROMETRO_AREA_COMUM (deviceProfile não importa)
- *   - OR any other combination (default)
+ * Rules (deviceProfile é a ÚNICA autoridade — deviceType em desuso):
+ * - LOJAS: deviceProfile = HIDROMETRO
+ * - ENTRADA: deviceProfile = HIDROMETRO_SHOPPING
+ * - AREACOMUM: deviceProfile = HIDROMETRO_AREA_COMUM (ou contém AREA_COMUM)
+ * - Sem match: não entra em grupo nenhum (log warn)
  */
 function categorizeItemsByGroupWater(items) {
   const entrada = [];
@@ -4466,40 +4428,34 @@ function categorizeItemsByGroupWater(items) {
   const toStr = (val) => String(val || '').toUpperCase();
 
   for (const item of items) {
-    const dt = toStr(item.deviceType);
-    // RFC-0140: If deviceProfile is null/empty, assume it equals deviceType
-    const dp = toStr(item.deviceProfile || item.deviceType);
+    // deviceType em desuso — deviceProfile é a única autoridade
+    const dp = toStr(item.deviceProfile);
 
-    // LOJAS: deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO
-    if (dt === 'HIDROMETRO' && dp === 'HIDROMETRO') {
+    // LOJAS: deviceProfile = HIDROMETRO
+    if (dp === 'HIDROMETRO') {
       lojas.push(item);
       continue;
     }
 
-    // ENTRADA: deviceType = HIDROMETRO_SHOPPING OR (deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_SHOPPING)
-    if (dt === 'HIDROMETRO_SHOPPING' || (dt === 'HIDROMETRO' && dp === 'HIDROMETRO_SHOPPING')) {
+    // ENTRADA: deviceProfile = HIDROMETRO_SHOPPING
+    if (dp === 'HIDROMETRO_SHOPPING') {
       entrada.push(item);
       continue;
     }
 
     // AREACOMUM: ONLY devices explicitly marked as area comum
-    // - deviceType = HIDROMETRO_AREA_COMUM (any deviceProfile)
-    // - OR deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_AREA_COMUM
+    // - deviceProfile = HIDROMETRO_AREA_COMUM (ou contém AREA_COMUM)
     // This prevents unclassified devices from appearing in area comum
-    if (
-      dt === 'HIDROMETRO_AREA_COMUM' ||
-      dt.includes('AREA_COMUM') ||
-      (dt === 'HIDROMETRO' && (dp === 'HIDROMETRO_AREA_COMUM' || dp.includes('AREA_COMUM')))
-    ) {
+    if (dp === 'HIDROMETRO_AREA_COMUM' || dp.includes('AREA_COMUM')) {
       areacomum.push(item);
       continue;
     }
 
     // Devices that don't match any category are NOT added to any group
-    // This prevents HIDROMETRO without deviceProfile from appearing in areacomum
+    // This prevents devices without deviceProfile from appearing in areacomum
     // RFC-0140: Log warn for unclassified devices
     LogHelper.warn(
-      `[categorizeItemsByGroupWater] ⚠️ UNCLASSIFIED water device: "${item.label}" (deviceType=${dt || 'NULL'}, deviceProfile=${dp || 'NULL'})`
+      `[categorizeItemsByGroupWater] ⚠️ UNCLASSIFIED water device: "${item.label}" (deviceProfile=${dp || 'NULL'})`
     );
   }
 
@@ -4576,11 +4532,10 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
 
   for (const item of areacomum) {
     const lw = toStr(item.labelWidget);
-    const dt = toStr(item.deviceType);
-    // RFC-0140: If deviceProfile is null/empty, assume it equals deviceType
-    const dp = toStr(item.deviceProfile || item.deviceType);
+    const dp = toStr(item.deviceProfile);
     const label = toStr(item.label);
-    const combined = `${lw} ${dt} ${dp} ${label}`;
+    // deviceType em desuso (2026-07-14) — fora do texto combinado
+    const combined = `${lw} ${dp} ${label}`;
 
     if (ELEVADOR_PATTERNS.some((p) => combined.includes(p))) {
       elevadoresItems.push(item);
@@ -5285,7 +5240,7 @@ const MyIOOrchestrator = (() => {
     align-items: center;
     justify-content: center;
     z-index: 99999;
-    font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;
+    font-family: 'Nunito', system-ui, sans-serif;
   `;
 
     const container = document.createElement('div');
@@ -5867,7 +5822,7 @@ const MyIOOrchestrator = (() => {
     font-weight: 500;
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     z-index: 999999;
-    font-family: Inter, system-ui, sans-serif;
+    font-family: 'Nunito', system-ui, sans-serif;
   `;
     notification.textContent = 'Dados recarregados automaticamente';
     document.body.appendChild(notification);
@@ -5978,10 +5933,11 @@ const MyIOOrchestrator = (() => {
       const shortDelayMins = 60; // 60 mins for BAD/OFFLINE recovery
 
       // RFC-0110 v5: Determine domain and telemetry timestamp
-      const deviceType = (options.deviceType || options.deviceProfile || '').toUpperCase();
-      const isTankDevice = deviceType === 'TANK' || deviceType === 'CAIXA_DAGUA';
-      const isHidrometerDevice = deviceType.startsWith('HIDROMETRO') || deviceType.includes('WATER');
-      const isTemperatureDevice = deviceType === 'TERMOSTATO' || deviceType.includes('TEMP');
+      // deviceType em desuso (2026-07-14) — domínio sai SÓ do deviceProfile
+      const deviceProfile = (options.deviceProfile || '').toUpperCase();
+      const isTankDevice = deviceProfile === 'TANK' || deviceProfile === 'CAIXA_DAGUA';
+      const isHidrometerDevice = deviceProfile.startsWith('HIDROMETRO') || deviceProfile.includes('WATER');
+      const isTemperatureDevice = deviceProfile === 'TERMOSTATO' || deviceProfile.includes('TEMP');
 
       const domain =
         isTankDevice || isHidrometerDevice ? 'water' : isTemperatureDevice ? 'temperature' : 'energy';
@@ -6257,13 +6213,13 @@ const MyIOOrchestrator = (() => {
       `[Orchestrator] 📋 Built metadata map: ${metadataByEntityId.size} entities, ${metadataByIngestion.size} with ingestionId`
     );
 
-    // DEBUG RFC-0107: Log deviceTypes of all entities in metadataByEntityId
+    // DEBUG RFC-0107: Log deviceProfiles of all entities in metadataByEntityId (deviceType em desuso)
     if (metadataByEntityId.size > 0) {
-      const deviceTypes = [];
+      const deviceProfiles = [];
       for (const [entityId, meta] of metadataByEntityId.entries()) {
-        deviceTypes.push(`${meta.label || entityId.substring(0, 8)}:${meta.deviceType || 'N/A'}`);
+        deviceProfiles.push(`${meta.label || entityId.substring(0, 8)}:${meta.deviceProfile || 'N/A'}`);
       }
-      LogHelper.log(`[Orchestrator] 📋 RFC-0107 Device types in metadata: ${deviceTypes.join(', ')}`);
+      LogHelper.log(`[Orchestrator] 📋 RFC-0107 Device profiles in metadata: ${deviceProfiles.join(', ')}`);
     }
 
     // DEBUG: Log all dataKeys found in ctx.data
@@ -6460,7 +6416,6 @@ const MyIOOrchestrator = (() => {
 
           // RFC-0110 v5: Pass telemetry timestamp and lastActivityTime for proper status calculation
           const deviceStatus = convertConnectionStatusToDeviceStatus(meta.connectionStatus, {
-            deviceType: meta.deviceType,
             deviceProfile: meta.deviceProfile,
             temperatureTs: meta.temperatureTs,
             lastActivityTime: meta.lastActivityTime,
@@ -6478,7 +6433,7 @@ const MyIOOrchestrator = (() => {
             temperature: temperatureValue,
             rawTemperature: rawTemperature, // RFC-FIX: Keep raw value for reference
             offSetTemperature: tempOffset, // RFC-FIX: Keep offset for reference
-            deviceType: meta.deviceType || 'TERMOSTATO',
+            deviceType: meta.deviceProfile || 'TERMOSTATO', // campo legado (deviceType em desuso) — preenchido do profile
             deviceProfile: meta.deviceProfile || '',
             deviceStatus: deviceStatus,
             connectionStatus: meta.connectionStatus || 'unknown',
@@ -6540,21 +6495,21 @@ const MyIOOrchestrator = (() => {
       // TANK/CAIXA_DAGUA get data directly from ThingsBoard (water_level, water_percentage)
       let tankItems = [];
       if (domain === 'water' && metadataByEntityId.size > 0) {
-        // DEBUG: Log all water device types
-        const waterDeviceTypes = [];
+        // DEBUG: Log all water device profiles (deviceType em desuso)
+        const waterDeviceProfiles = [];
         for (const [, meta] of metadataByEntityId.entries()) {
-          waterDeviceTypes.push(meta.deviceType || 'N/A');
+          waterDeviceProfiles.push(meta.deviceProfile || 'N/A');
         }
-        LogHelper.log(`[Orchestrator] 🔍 DEBUG Water device types: ${waterDeviceTypes.join(', ')}`);
+        LogHelper.log(`[Orchestrator] 🔍 DEBUG Water device profiles: ${waterDeviceProfiles.join(', ')}`);
 
         for (const [entityId, meta] of metadataByEntityId.entries()) {
-          const deviceType = String(meta.deviceType || '').toUpperCase();
-          if (deviceType === 'TANK' || deviceType === 'CAIXA_DAGUA') {
+          // deviceType está EM DESUSO (2026-07-14) — deviceProfile é a única autoridade
+          const deviceProfile = String(meta.deviceProfile || '').toUpperCase();
+          if (deviceProfile === 'TANK' || deviceProfile === 'CAIXA_DAGUA') {
             const waterLevel = Number(meta.waterLevel || 0);
             const waterPercentage = Number(meta.waterPercentage || 0);
             // RFC-0110 v5: Pass telemetry timestamp and lastActivityTime for proper status calculation
             const deviceStatus = convertConnectionStatusToDeviceStatus(meta.connectionStatus, {
-              deviceType: meta.deviceType,
               deviceProfile: meta.deviceProfile,
               waterLevelTs: meta.waterLevelTs,
               waterPercentageTs: meta.waterPercentageTs,
@@ -6572,9 +6527,9 @@ const MyIOOrchestrator = (() => {
               value: waterLevel, // water_level in liters
               waterLevel: waterLevel,
               waterPercentage: waterPercentage, // 0-1 range
-              deviceType: deviceType,
-              deviceProfile: meta.deviceProfile || deviceType,
-              effectiveDeviceType: meta.deviceProfile || deviceType,
+              deviceType: deviceProfile, // campo legado (deviceType em desuso) — preenchido do profile
+              deviceProfile: deviceProfile,
+              effectiveDeviceType: deviceProfile,
               deviceStatus: deviceStatus,
               connectionStatus: meta.connectionStatus || 'unknown',
               centralId: meta.centralId || null,
@@ -6730,7 +6685,7 @@ const MyIOOrchestrator = (() => {
       // RFC-0106: metadataMap was already built BEFORE API call (line ~1755)
       // Now combine metadata (ctx.data) with consumption values (API)
       // Match by ingestionId: metadata.ingestionId === api.id
-      // NO FALLBACK: deviceType, identifier, label ONLY from ctx.data
+      // NO FALLBACK: deviceProfile, identifier, label ONLY from ctx.data
 
       // RFC-0106: Value field differs by domain:
       // - energy: total_value (kWh)
@@ -6750,31 +6705,19 @@ const MyIOOrchestrator = (() => {
         const meta = metadataMap.get(apiId) || {}; // Get metadata by ingestionId
         const name = row.name || '';
 
-        // Use metadata from ThingsBoard datasource (ctx.data) - NO FALLBACKS for deviceType
-        // deviceType: ONLY from ctx.data where datakey = deviceType, NO fallback
+        // Use metadata from ThingsBoard datasource (ctx.data)
+        // deviceProfile: ONLY from ctx.data where datakey = deviceProfile, NO fallback
         // identifier: ONLY from ctx.data where datakey = identifier, fallback = 'N/A'
         // label: ONLY from ctx.data where datakey = label, fallback = 'SEM ETIQUETA'
-        const rawDeviceType = meta.deviceType || null;
+        // deviceType está EM DESUSO (2026-07-14) — deviceProfile é a única
+        // autoridade; a antiga "MASTER RULE" de coerção deviceType→profile morreu.
         const deviceProfile = meta.deviceProfile || null;
 
-        // MASTER RULE for deviceType:
-        // - If deviceType = deviceProfile = '3F_MEDIDOR' → keep as '3F_MEDIDOR' (it's a loja)
-        // - If deviceType = '3F_MEDIDOR' AND deviceProfile != '3F_MEDIDOR' → force deviceType = deviceProfile
-        let deviceType = rawDeviceType;
-        if (rawDeviceType === '3F_MEDIDOR' && deviceProfile && deviceProfile !== '3F_MEDIDOR') {
-          deviceType = deviceProfile;
-          LogHelper.log(
-            `[Orchestrator] 🔄 Master rule applied: deviceType changed from 3F_MEDIDOR to ${deviceProfile} for ${
-              meta.label || row.name
-            }`
-          );
-        }
         const identifier = meta.identifier || 'N/A';
         const label = meta.label || name || 'SEM ETIQUETA';
 
-        // Infer labelWidget from deviceType/deviceProfile
+        // Infer labelWidget from deviceProfile (deviceType em desuso)
         const labelWidget = inferLabelWidget({
-          deviceType: deviceType,
           deviceProfile: deviceProfile,
           identifier: identifier,
           name: name,
@@ -6791,12 +6734,11 @@ const MyIOOrchestrator = (() => {
           name: name,
           value: getValueFromRow(row),
           perc: 0,
-          deviceType: deviceType,
+          deviceType: deviceProfile || '', // campo legado (deviceType em desuso) — preenchido do profile
           deviceProfile: deviceProfile,
-          effectiveDeviceType: deviceProfile || deviceType || null,
+          effectiveDeviceType: deviceProfile || null,
           // RFC-0110 v5: Pass telemetry timestamp and lastActivityTime for proper status calculation
           deviceStatus: convertConnectionStatusToDeviceStatus(meta.connectionStatus, {
-            deviceType: meta.deviceType,
             deviceProfile: meta.deviceProfile,
             consumptionTs: meta.consumptionTs,
             lastActivityTime: meta.lastActivityTime,
@@ -6824,33 +6766,23 @@ const MyIOOrchestrator = (() => {
           groupLabel: labelWidget,
           // Flag to indicate if metadata was found
           _hasMetadata: !!meta.tbId,
+          // Placeholder do datasource (lixo, não classificação): em rows legadas sem
+          // profile, usa o deviceType bruto SÓ para detectar placeholder do domínio.
+          _placeholderBasis: (deviceProfile || meta.deviceType || '').toLowerCase(),
         };
       });
 
       // Filter out invalid items:
-      // 1. Items with deviceType = domain name (placeholder from API - 'energy' or 'water')
-      // 2. Items with effectiveDeviceType = domain name (no proper deviceType/deviceProfile)
-      // 3. Items without metadata (_hasMetadata = false) - these exist in API but not in ThingsBoard datasource
+      // 1. Items with deviceProfile = domain name (placeholder from API - 'energy' or 'water')
+      // 2. Items without metadata (_hasMetadata = false) - these exist in API but not in ThingsBoard datasource
       const itemsBeforeFilter = items.length;
       const domainLower = domain.toLowerCase(); // 'energy' or 'water'
       const filteredItems = items.filter((item) => {
-        const dt = (item.deviceType || '').toLowerCase();
-        const edt = (item.effectiveDeviceType || '').toLowerCase();
-
-        // Discard items with deviceType = domain (placeholder from API)
-        if (dt === domainLower) {
+        // Discard items with profile placeholder = domain (filtro de lixo de datasource,
+        // não classificação — deviceType em desuso)
+        if (item._placeholderBasis === domainLower) {
           LogHelper.log(
-            `[Orchestrator] 🗑️ Discarding item with deviceType='${domain}': ${item.label || item.name}`
-          );
-          return false;
-        }
-
-        // Discard items with effectiveDeviceType = domain (no proper classification)
-        if (edt === domainLower) {
-          LogHelper.log(
-            `[Orchestrator] 🗑️ Discarding item with effectiveDeviceType='${domain}': ${
-              item.label || item.name
-            }`
+            `[Orchestrator] 🗑️ Discarding placeholder item ('${domain}'): ${item.label || item.name}`
           );
           return false;
         }
@@ -6868,7 +6800,7 @@ const MyIOOrchestrator = (() => {
       const discardedCount = itemsBeforeFilter - filteredItems.length;
       if (discardedCount > 0) {
         LogHelper.log(
-          `[Orchestrator] 🗑️ Discarded ${discardedCount} invalid items (no metadata or deviceType='${domain}')`
+          `[Orchestrator] 🗑️ Discarded ${discardedCount} invalid items (no metadata or placeholder='${domain}')`
         );
 
         // DEBUG: Show first 3 discarded items with their API IDs for debugging
@@ -7309,8 +7241,8 @@ const MyIOOrchestrator = (() => {
         );
 
         // RFC-0109: Water meter classification
-        // FIX: Use aliasName as PRIMARY classification (more reliable than deviceType/deviceProfile)
-        // Fallback to deviceType/deviceProfile if aliasName doesn't match
+        // FIX: Use aliasName as PRIMARY classification (more reliable than deviceProfile)
+        // Fallback to deviceProfile if aliasName doesn't match (deviceType em desuso)
         let classificationDebugLog = { byAlias: {}, byType: {}, defaults: [] };
         const classifyWaterMeter = (device) => {
           const aliasName = String(device._aliasName || '').toLowerCase();
@@ -7333,25 +7265,24 @@ const MyIOOrchestrator = (() => {
             return 'areacomum';
           }
 
-          // FALLBACK: Classification by deviceType/deviceProfile (if aliasName didn't match)
-          const dt = String(device.deviceType || '').toUpperCase();
-          // RFC-0140: If deviceProfile is null/empty, assume it equals deviceType
-          const dp = String(device.deviceProfile || device.deviceType || '').toUpperCase();
+          // FALLBACK: Classification by deviceProfile (if aliasName didn't match)
+          // deviceType em desuso — deviceProfile é a única autoridade
+          const dp = String(device.deviceProfile || '').toUpperCase();
 
-          // LOJA: deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO
-          if (dt === 'HIDROMETRO' && dp === 'HIDROMETRO') {
+          // LOJA: deviceProfile = HIDROMETRO
+          if (dp === 'HIDROMETRO') {
             classificationDebugLog.byType['loja'] = (classificationDebugLog.byType['loja'] || 0) + 1;
             return 'loja';
           }
 
-          // ENTRADA: deviceType = HIDROMETRO_SHOPPING OR (deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_SHOPPING)
-          if (dt === 'HIDROMETRO_SHOPPING' || (dt === 'HIDROMETRO' && dp === 'HIDROMETRO_SHOPPING')) {
+          // ENTRADA: deviceProfile = HIDROMETRO_SHOPPING
+          if (dp === 'HIDROMETRO_SHOPPING') {
             classificationDebugLog.byType['entrada'] = (classificationDebugLog.byType['entrada'] || 0) + 1;
             return 'entrada';
           }
 
-          // AREA_COMUM: Check for explicit HIDROMETRO_AREA_COMUM types
-          if (dt.includes('AREA_COMUM') || dp.includes('AREA_COMUM')) {
+          // AREA_COMUM: Check for explicit HIDROMETRO_AREA_COMUM profile
+          if (dp.includes('AREA_COMUM')) {
             classificationDebugLog.byType['areacomum_explicit'] =
               (classificationDebugLog.byType['areacomum_explicit'] || 0) + 1;
             return 'areacomum';
@@ -7367,11 +7298,10 @@ const MyIOOrchestrator = (() => {
             classificationDebugLog.defaults.push({
               label: device.label,
               aliasName: device._aliasName,
-              dt: dt || 'NULL',
               dp: dp || 'NULL',
             });
             LogHelper.warn(
-              `[Orchestrator] ⚠️ UNCLASSIFIED water device: "${device.label}" (aliasName=${device._aliasName || 'N/A'}, deviceType=${dt || 'NULL'}, deviceProfile=${dp || 'NULL'})`
+              `[Orchestrator] ⚠️ UNCLASSIFIED water device: "${device.label}" (aliasName=${device._aliasName || 'N/A'}, deviceProfile=${dp || 'NULL'})`
             );
           }
 

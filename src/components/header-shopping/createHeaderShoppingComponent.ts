@@ -193,6 +193,12 @@ export function createHeaderShoppingComponent(params: HeaderShoppingParams): Hea
             granularity: calcGranularity(result.startISO, result.endISO),
             tz,
           });
+
+          // Aplicar do picker dispara o carregamento (paridade com o fix do
+          // HEADER v-5.2.0): antes só atualizava o range e o dashboard ficava
+          // no período anterior até o usuário clicar Carregar. triggerLoad()
+          // (API pública, definida abaixo) clica o botão Carregar da view.
+          triggerLoad();
         },
       });
 

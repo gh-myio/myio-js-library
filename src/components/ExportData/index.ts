@@ -381,7 +381,7 @@ function generatePDFContent(
       <title>${deviceLabel} - ${domainLabel} Report</title>
       <style>
         body {
-          font-family: 'Roboto', Arial, sans-serif;
+          font-family: 'Nunito', system-ui, sans-serif;
           margin: 0;
           padding: 24px;
           color: ${colors.text};

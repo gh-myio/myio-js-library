@@ -1,3 +1,4 @@
+
 :root {
   --card-bg: transparent;
   --card-bg-grad: transparent;
@@ -22,13 +23,7 @@
   height: 100%;
   padding: 8px 12px 4px 12px;
   box-sizing: border-box;
-  font-family:
-    Inter,
-    system-ui,
-    -apple-system,
-    Segoe UI,
-    Roboto,
-    Arial;
+  font-family: 'Nunito', system-ui, sans-serif;
   color: var(--ink-1);
   background: transparent !important;
   overflow: none !important;

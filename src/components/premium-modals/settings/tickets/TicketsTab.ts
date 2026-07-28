@@ -702,7 +702,7 @@ class TicketsTab {
         flex-direction: column;
         gap: 20px;
         padding: 4px;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-family: 'Nunito', system-ui, sans-serif;
       }
       .ct-section {
         background: #fff;

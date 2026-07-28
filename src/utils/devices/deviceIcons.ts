@@ -106,14 +106,14 @@ export const DEFAULT_DEVICE_ICON =
   'https://dashboard.myio-bas.com/api/images/public/f9Ce4meybsdaAhAkUlAfy5ei3I4kcN4k'; // generic 3F_MEDIDOR
 
 /**
- * Resolves the static image URL for a given device type string.
+ * Resolves the static image URL for a given device profile string.
  * Lookup is case-insensitive on the input; the canonical keys are uppercase.
  *
- * @param deviceType - typically `ctx.data` deviceType or deviceProfile attribute
+ * @param deviceProfile - o attr `deviceProfile` do device (deviceType está em desuso)
  * @returns the mapped URL, or `DEFAULT_DEVICE_ICON` when not recognised
  */
-export function getDeviceIcon(deviceType?: string | null): string {
-  const key = String(deviceType || '').toUpperCase();
+export function getDeviceIcon(deviceProfile?: string | null): string {
+  const key = String(deviceProfile || '').toUpperCase();
   return (deviceIcons as Record<string, string>)[key] ?? DEFAULT_DEVICE_ICON;
 }
 

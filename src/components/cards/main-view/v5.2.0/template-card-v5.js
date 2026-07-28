@@ -92,7 +92,10 @@ export function renderCardComponentV5({
     labelOrName,
     deviceIdentifier,
     entityType,
-    deviceType,
+    // deviceType (campo do payload) está em desuso — preferir deviceProfile;
+    // o alias abaixo mantém o resto do template funcionando com o profile.
+    deviceType: legacyDeviceType,
+    deviceProfile,
     slaveId,
     ingestionId,
     val,
@@ -116,6 +119,10 @@ export function renderCardComponentV5({
     excludeGroupsTotals,
   } = entityObject;
 
+  // deviceProfile é a autoridade; o campo legado deviceType (quando presente em
+  // payloads antigos) serve só de último recurso de exibição.
+  const deviceType = deviceProfile || legacyDeviceType || '';
+
   /*********************************************************
    * MyIO Global Toast Manager
    * - Cria um único elemento de toast no DOM.
@@ -136,7 +143,7 @@ export function renderCardComponentV5({
               width: 320px;
               padding: 16px;
               border-radius: 8px;
-              font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+              font-family: 'Nunito', system-ui, sans-serif;
               font-size: 15px;
               color: #fff;
               transform: translateX(120%);

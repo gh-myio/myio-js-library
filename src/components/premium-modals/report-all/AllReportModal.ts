@@ -14,6 +14,26 @@ import { OpenAllReportParams, ModalHandle, StoreItem } from '../types';
 import { InfoTooltip } from '../../../utils/tooltips/InfoTooltip';
 import { exportGridPdf, exportGridXls } from '../../telemetry-grid-shopping/export';
 import type { TelemetryDevice } from '../../telemetry-grid-shopping/types';
+import { createParticipationChart } from '../../graphs';
+import type { ParticipationChartInstance } from '../../graphs';
+import { createGranularitySelector } from '../../granularity-selector';
+import type { GranularitySelectorInstance } from '../../granularity-selector';
+import { createModalFooter } from '../footer-modal';
+import type { ModalFooterInstance } from '../footer-modal';
+// RFC-0228 A6 — R$ money column (additive + gated). `createReportMoneyColumn(undefined)`
+// yields a disabled column whose HTML methods all return '' → byte-identical when off.
+import {
+  createReportMoneyColumn,
+  type ReportMoneyColumn,
+} from '../../financial-goals/reportMoneyColumn';
+// RFC-0228 A7 — per-consumer realized-vs-goal R$ variance chip (additive + gated).
+// `createMoneyVarianceColumn(undefined)` (or a config without `perDeviceGoal`) yields
+// a disabled column whose HTML methods all return '' → byte-identical when off.
+import {
+  createMoneyVarianceColumn,
+  type MoneyVarianceColumn,
+} from '../../financial-goals/moneyVariance';
+import { injectCoverageStyles } from '../../financial-goals/coverageStyles';
 
 // Domain configuration
 type Domain = 'energy' | 'water' | 'temperature';
@@ -29,7 +49,7 @@ const DOMAIN_CONFIG: Record<Domain, DomainConfig> = {
   energy: {
     endpoint: 'energy',
     unit: 'kWh',
-    label: 'Consumption (kWh)',
+    label: 'Consumo (kWh)',
     totalLabel: 'Total kWh',
   },
   water: {
@@ -51,6 +71,7 @@ interface StoreReading {
   name: string; // e.g., "McDonalds" - human-readable name
   consumption: number; // e.g., 152.43 - consumption in kWh or m³
   groupLabel?: string; // RFC-0182: present when "todos" mode — triggers section headers
+  id?: string; // Data API item id (ingestionId) — needed for per-device series fetch (1h export)
 }
 
 export class AllReportModal {
@@ -80,6 +101,14 @@ export class AllReportModal {
   // Granularity: '1d' (daily) | '1h' (hourly)
   private granularity: '1d' | '1h' = '1d';
 
+  // Hourly series fetched device-by-device for the 1h CSV export (the /totals endpoint
+  // has no hourly granularity). Keyed by StoreReading.id; cache key = period, so a new
+  // load or granularity switch invalidates it.
+  private hourlySeriesCache: {
+    key: string;
+    series: Map<string, Array<{ timestamp: number; value: number }>>;
+  } | null = null;
+
   // When true, devices flagged via `exclude_groups_totals` for this group are dropped
   // from the report so its total reconciles with the dashboard KPIs. Toggleable in the UI.
   private considerExclusion = true;
@@ -89,6 +118,22 @@ export class AllReportModal {
   private exportPeriod: { startISO?: string | null; endISO?: string | null } | null = null;
   // Cleanup for the InfoTooltip attached to the exclusion-flag info icon.
   private exclusionTooltipCleanup: (() => void) | null = null;
+  // Participation chart (right column) — created lazily on the first data load;
+  // fed with the same rows the table shows (exclusion toggle + search respected).
+  private participationChart: ParticipationChartInstance | null = null;
+  // Granularity selector (shared component — same pattern as EnergyModal).
+  private granularitySelector: GranularitySelectorInstance | null = null;
+  // Footer premium: Customer · relógio · versão | Powered by MYIO | PDF/CSV/XLSX.
+  // Os botões de export vivem AQUI (removidos da toolbar).
+  private modalFooter: ModalFooterInstance | null = null;
+
+  // RFC-0228 A6 — R$ money column. Disabled (all fragments '') when params.money is
+  // absent, so the table/summary stay byte-identical to the pre-A6 report.
+  private moneyColumn: ReportMoneyColumn;
+
+  // RFC-0228 A7 — per-consumer realized-vs-goal R$ variance column. Disabled (all
+  // fragments '') when params.money.perDeviceGoal is absent → byte-identical.
+  private varianceColumn: MoneyVarianceColumn;
 
   constructor(private params: OpenAllReportParams) {
     this.authClient = new AuthClient({
@@ -103,6 +148,26 @@ export class AllReportModal {
 
     // Set debug flag from params (1 = enabled, 0 = disabled)
     this.debugEnabled = params.debug === 1;
+
+    // RFC-0228 A6 — gate: no `money` config → disabled column (all HTML '' → byte-identical).
+    this.moneyColumn = createReportMoneyColumn(params.money ?? null);
+    if (this.moneyColumn.enabled && typeof document !== 'undefined') {
+      // A4 coverage indicator (incomplete/unavailable total) needs its stylesheet.
+      injectCoverageStyles(document);
+    }
+
+    // RFC-0228 A7 — gate: no `money.perDeviceGoal` → disabled column (all HTML '').
+    // Realized R$ reuses A6's per-device map; the goal comes from perDeviceGoal.
+    this.varianceColumn = createMoneyVarianceColumn(
+      params.money && params.money.perDeviceGoal
+        ? {
+            overlay: params.money.overlay,
+            perDeviceRealized: params.money.perDevice,
+            perDeviceGoal: params.money.perDeviceGoal,
+            headerLabel: params.money.varianceHeaderLabel,
+          }
+        : null
+    );
 
     this.debugLog('🚀 AllReportModal initialized', {
       customerId: params.customerId,
@@ -168,47 +233,65 @@ export class AllReportModal {
     return 0;
   }
 
-  private resolveTitle(): string {
+  // withIcon: título da modal leva "<emoji> <Domínio> - "; exports (PDF/XLS)
+  // usam a versão sem emoji (jsPDF não renderiza emoji de forma confiável).
+  private resolveTitle(withIcon = false): string {
     const domain = this.params.domain || 'energy';
     const group = this.params.group || 'lojas';
 
-    const TITLES: Record<string, Record<string, string>> = {
+    const DOMAIN_BADGE: Record<string, { icon: string; label: string }> = {
+      energy: { icon: '⚡', label: 'Energia' },
+      water: { icon: '💧', label: 'Água' },
+      temperature: { icon: '🌡️', label: 'Temperatura' },
+    };
+
+    const GROUP_TITLES: Record<string, Record<string, string>> = {
       energy: {
-        lojas: 'Relatório Geral - Todas as Lojas',
-        entrada: 'Relatório Geral - Dispositivos de Entrada',
-        area_comum: 'Relatório Geral - Equipamentos em Área Comum',
-        todos: 'Relatório Geral - Todos os Dispositivos de Energia',
+        lojas: 'Todas as Lojas',
+        entrada: 'Dispositivos de Entrada',
+        area_comum: 'Equipamentos em Área Comum',
+        todos: 'Todos os Dispositivos de Energia',
       },
       water: {
-        lojas: 'Relatório Geral - Todas as Lojas',
-        entrada: 'Relatório Geral - Dispositivos de Entrada',
-        area_comum: 'Relatório Geral - Equipamentos em Área Comum',
-        banheiros: 'Relatório Geral - Banheiros',
-        todos: 'Relatório Geral - Todos os Dispositivos de Água',
+        lojas: 'Todas as Lojas',
+        entrada: 'Dispositivos de Entrada',
+        area_comum: 'Equipamentos em Área Comum',
+        banheiros: 'Banheiros',
+        todos: 'Todos os Dispositivos de Água',
       },
       temperature: {
-        climatizavel: 'Relatório Geral - Ambientes Climatizáveis',
-        nao_climatizavel: 'Relatório Geral - Ambientes Não Climatizáveis',
-        todos: 'Relatório Geral - Todos os Ambientes',
+        climatizavel: 'Ambientes Climatizáveis',
+        nao_climatizavel: 'Ambientes Não Climatizáveis',
+        todos: 'Todos os Ambientes',
       },
     };
 
-    return TITLES[domain]?.[group] ?? `Relatório Geral - ${group}`;
+    const badge = DOMAIN_BADGE[domain] || DOMAIN_BADGE.energy;
+    const groupTitle = GROUP_TITLES[domain]?.[group] ?? group;
+    const domainPart = withIcon ? `${badge.icon} ${badge.label}` : badge.label;
+    return `Relatório Geral - ${domainPart} - ${groupTitle}`;
   }
 
   public show(): ModalHandle {
     this.debugLog('🎭 Modal show() called - creating modal UI');
 
     this.modal = createModal({
-      title: `${this.resolveTitle()}${this.debugEnabled ? ' [DEBUG MODE]' : ''}`,
+      title: `${this.resolveTitle(true)}${this.debugEnabled ? ' [DEBUG MODE]' : ''}`,
       width: '85vw',
       height: '90vh',
       theme: this.params.ui?.theme || 'light',
     });
 
     this.renderContent();
+    this.mountFooter();
     this.modal.on('close', () => {
       this.debugLog('🚪 Modal closing - cleaning up resources');
+
+      // Cleanup footer premium (relógio + version checker + botões)
+      if (this.modalFooter) {
+        this.modalFooter.destroy();
+        this.modalFooter = null;
+      }
 
       // Cleanup DateRangePicker
       if (this.dateRangePicker) {
@@ -226,6 +309,18 @@ export class AllReportModal {
       if (this.filterModal) {
         this.filterModal.destroy();
         this.filterModal = null;
+      }
+
+      // Cleanup participation chart (also removes tooltips/fullscreen overlay)
+      if (this.participationChart) {
+        this.participationChart.destroy();
+        this.participationChart = null;
+      }
+
+      // Cleanup granularity selector (tooltip + listeners)
+      if (this.granularitySelector) {
+        this.granularitySelector.destroy();
+        this.granularitySelector = null;
       }
 
       this.authClient.clearCache();
@@ -250,24 +345,15 @@ export class AllReportModal {
               <label class="myio-label" for="date-range">Período</label>
               <input type="text" id="date-range" class="myio-input" readonly placeholder="Selecione o período" style="width: 300px;">
             </div>
-            <!-- granularity-toggle hidden: 1h not yet supported, default stays 1d -->
-            <div id="granularity-toggle" role="group" aria-label="Granularidade" style="display:none;">
-              <button type="button" data-gran="1d">1d</button>
-              <button type="button" data-gran="1h">1h</button>
+            <div class="myio-form-group" style="margin-bottom: 0;">
+              <label class="myio-label">Granularidade</label>
+              <div id="granularity-toggle" style="display: flex; align-items: center;"></div>
             </div>
             <button id="load-btn" class="myio-btn myio-btn-primary">
               <span class="myio-spinner" id="load-spinner" style="display: none;"></span>
               Carregar
             </button>
-            <button id="export-btn" class="myio-btn myio-btn-secondary" disabled>
-              Exportar CSV
-            </button>
-            <button id="export-pdf-btn" class="myio-btn myio-btn-secondary" disabled>
-              Exportar PDF
-            </button>
-            <button id="export-xls-btn" class="myio-btn myio-btn-secondary" disabled>
-              Exportar XLS
-            </button>
+            <!-- Exports CSV/PDF/XLS vivem no footer premium (createModalFooter) -->
             <button id="filter-btn" class="myio-btn myio-btn-secondary" style="background: var(--myio-brand-700); color: white;">
               🔍 Filtros & Ordenação
             </button>
@@ -295,49 +381,152 @@ export class AllReportModal {
         <div id="error-container" style="display: none; background: #ffebee; color: #c62828; padding: 12px; border-radius: 6px; margin-bottom: 16px;">
         </div>
 
-        <div id="summary-container" style="display: none; margin-bottom: 16px;">
-        </div>
+        <style>
+          /* Split layout: table (left ~70%) + participation chart (right ~30%).
+             Below 1100px the chart stacks under the table at full width. */
+          .rp-content-split { display: flex; gap: 16px; align-items: flex-start; }
+          .rp-content-split__main { flex: 1 1 70%; min-width: 0; }
+          .rp-content-split__chart { flex: 0 0 30%; min-width: 280px; }
+          @media (max-width: 1100px) {
+            .rp-content-split { flex-direction: column; }
+            .rp-content-split__main,
+            .rp-content-split__chart { flex: 1 1 auto; width: 100%; min-width: 0; }
+          }
+        </style>
+        <div class="rp-content-split">
+          <div class="rp-content-split__main">
+            <div id="summary-container" style="display: none; margin-bottom: 16px;">
+            </div>
 
-        <div id="table-container">
-          <div style="text-align: center; padding: 40px; color: var(--myio-text-muted);">
-            Selecione um período e clique em "Carregar" para visualizar os dados de todas as lojas.
+            <div id="table-container">
+              <div style="text-align: center; padding: 40px; color: var(--myio-text-muted);">
+                Selecione um período e clique em "Carregar" para visualizar os dados de todas as lojas.
+              </div>
+            </div>
+
+            <div id="pagination-container" style="display: none; margin-top: 16px; text-align: center;">
+            </div>
           </div>
-        </div>
 
-        <div id="pagination-container" style="display: none; margin-top: 16px; text-align: center;">
+          <div class="rp-content-split__chart" id="participation-chart-container">
+            <div id="participation-chart-placeholder" style="
+              border: 1px dashed var(--myio-border, #e5e7eb); border-radius: 10px;
+              padding: 32px 16px; text-align: center; font-size: 13px;
+              color: var(--myio-text-muted, #6b7280);
+            ">Carregue os dados para ver a participação</div>
+          </div>
         </div>
       </div>
     `;
 
     this.modal.setContent(content);
+    this.applyTheme();
     this.setupEventListeners();
+  }
+
+  // Footer premium (createModalFooter): Customer · relógio · versão da lib |
+  // Powered by MYIO Platform | PDF/CSV/XLSX. Os botões de export vivem aqui —
+  // recebem os MESMOS ids da antiga toolbar para que loadData/exportHourlyCSV
+  // continuem controlando disabled/spinner via getElementById.
+  private mountFooter(): void {
+    const win =
+      typeof window !== 'undefined'
+        ? (window as {
+            MyIOLibrary?: { version?: string };
+            MyIOOrchestrator?: { customerName?: string };
+            MyIOUtils?: { customerName?: string };
+          })
+        : undefined;
+    const lib = win?.MyIOLibrary;
+    this.modalFooter = createModalFooter({
+      // Fallback: globals do dashboard (controllers antigos não passam o param)
+      customerName:
+        this.params.customerName ||
+        win?.MyIOOrchestrator?.customerName ||
+        win?.MyIOUtils?.customerName ||
+        '',
+      libVersion: { current: lib?.version },
+      themeMode: this.params.ui?.theme === 'dark' ? 'dark' : 'light',
+      exports: {
+        pdf: { onClick: () => this.exportPDF(), disabled: true, tooltipText: 'Exporta o resumo em PDF' },
+        csv: {
+          onClick: () => void this.exportCSV(),
+          disabled: true,
+          tooltipText: 'Exporta em CSV — na granularidade 1h, uma linha por dispositivo × hora',
+        },
+        xls: { onClick: () => this.exportXLS(), disabled: true, tooltipText: 'Exporta o resumo em XLSX' },
+      },
+    });
+    if (this.modalFooter.buttons.csv) this.modalFooter.buttons.csv.element.id = 'export-btn';
+    if (this.modalFooter.buttons.pdf) this.modalFooter.buttons.pdf.element.id = 'export-pdf-btn';
+    if (this.modalFooter.buttons.xls) this.modalFooter.buttons.xls.element.id = 'export-xls-btn';
+
+    // Anexa direto no root .myio-modal (abaixo do body) — o footer é full-width.
+    const root =
+      ((this.modal?.element as HTMLElement | undefined)?.closest('.myio-modal') as HTMLElement | null) ||
+      (this.modal?.element as HTMLElement | undefined);
+    root?.appendChild(this.modalFooter.element);
+  }
+
+  // Tema efetivo: param explícito OU o global do dashboard (MyIOUtils.theme) —
+  // controllers antigos não passam o param, mas a MAIN expõe o global.
+  private resolveThemeSource(): OpenAllReportParams['theme'] {
+    if (this.params.theme) return this.params.theme;
+    if (typeof window === 'undefined') return undefined;
+    return (window as { MyIOUtils?: { theme?: OpenAllReportParams['theme'] } }).MyIOUtils?.theme;
+  }
+
+  // Aplica a paleta do dashboard (createMyIOTheme OU mapa plano de CSS vars)
+  // no root da modal: os estilos internos já leem var(--myio-*).
+  private applyTheme(): void {
+    const theme = this.resolveThemeSource();
+    if (!theme) return;
+    const vars: Record<string, string> | null =
+      typeof (theme as { cssVars?: () => Record<string, string> }).cssVars === 'function'
+        ? (theme as { cssVars(): Record<string, string> }).cssVars()
+        : (theme as Record<string, string>);
+    // modal.element é o BODY da modal — sobe para .myio-modal para o header
+    // (background var(--myio-brand-700)) também herdar a paleta.
+    const el = this.modal?.element as HTMLElement | undefined;
+    const root = (el?.closest?.('.myio-modal') as HTMLElement | null) || el;
+    if (!vars || !root) return;
+    Object.entries(vars).forEach(([k, v]) => {
+      if (k.startsWith('--') && typeof v === 'string') root.style.setProperty(k, v);
+    });
   }
 
   private async setupEventListeners(): Promise<void> {
     const loadBtn = document.getElementById('load-btn') as HTMLButtonElement;
-    const exportBtn = document.getElementById('export-btn') as HTMLButtonElement;
     const filterBtn = document.getElementById('filter-btn') as HTMLButtonElement;
     const dateRangeInput = document.getElementById('date-range') as HTMLInputElement;
     const searchInput = document.getElementById('search-input') as HTMLInputElement;
 
     loadBtn?.addEventListener('click', () => this.loadData());
-    exportBtn?.addEventListener('click', () => this.exportCSV());
-    document.getElementById('export-pdf-btn')?.addEventListener('click', () => this.exportPDF());
-    document.getElementById('export-xls-btn')?.addEventListener('click', () => this.exportXLS());
     filterBtn?.addEventListener('click', () => this.openFilterModal());
 
-    // Granularity toggle
+    // Granularity selector — mesmo componente da EnergyModal (createGranularitySelector).
+    // 1h só muda o CSV export (série horária por device); a tabela segue com totais.
     const granToggle = document.getElementById('granularity-toggle');
-    granToggle?.addEventListener('click', (e) => {
-      const btn = (e.target as HTMLElement).closest('[data-gran]') as HTMLElement | null;
-      if (!btn) return;
-      this.granularity = btn.dataset.gran as '1d' | '1h';
-      granToggle.querySelectorAll<HTMLElement>('[data-gran]').forEach((b) => {
-        const isActive = b === btn;
-        b.style.background = isActive ? 'var(--myio-primary,#1565c0)' : 'transparent';
-        b.style.color = isActive ? '#fff' : '#6b7280';
+    if (granToggle) {
+      this.granularitySelector?.destroy();
+      this.granularitySelector = createGranularitySelector(granToggle, {
+        settings: {
+          value: this.granularity,
+          // Padrão FIEL ao EnergyModal: pill "1h | 1d" (opções default do componente),
+          // sem label interno (o form group acima já tem "Granularidade").
+          label: '',
+          tooltip: {
+            enabled: true,
+            title: 'Granularidade',
+            text: 'Em <b>Hora</b>, o CSV exportado traz uma linha por dispositivo × hora (busca device a device). A tabela sempre mostra os totais do período.',
+          },
+        },
+        onChange: (value) => {
+          this.granularity = value;
+          this.hourlySeriesCache = null;
+        },
       });
-    });
+    }
 
     // Fix search input event listener
     if (searchInput) {
@@ -415,6 +604,7 @@ export class AllReportModal {
       const { startISO, endISO } = this.dateRangePicker.getDates();
       this.debugLog('📅 Date range selected', { startISO, endISO });
       this.exportPeriod = { startISO, endISO };
+      this.hourlySeriesCache = null;
 
       if (!startISO || !endISO) {
         this.showError('Selecione um período válido');
@@ -520,27 +710,82 @@ export class AllReportModal {
     const container = document.getElementById('summary-container');
     if (!container) return;
 
-    const totalConsumption = this.calculateTotalConsumption();
-    const storeCount = Math.max(1, this.data.length);
+    const kpiCard = (kpi: { value: string; label: string; sub?: string }) => `
+        <div style="text-align: center;">
+          <div style="font-size: 17px; font-weight: bold; color: var(--myio-primary);">${kpi.value}</div>
+          <div style="font-size: 12px; color: var(--myio-text-muted);">${kpi.label}</div>
+          ${kpi.sub ? `<div style="font-size: 10px; color: var(--myio-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${kpi.sub}">${kpi.sub}</div>` : ''}
+        </div>`;
 
     container.innerHTML = `
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; padding: 16px; background: var(--myio-bg); border-radius: 6px;">
-        <div style="text-align: center;">
-          <div style="font-size: 24px; font-weight: bold; color: var(--myio-primary);">${storeCount}</div>
-          <div style="color: var(--myio-text-muted);">Dispositivos</div>
-        </div>
-        <div style="text-align: center;">
-          <div style="font-size: 24px; font-weight: bold; color: var(--myio-primary);">${fmtPt(totalConsumption)}</div>
-          <div style="color: var(--myio-text-muted);">${this.domainConfig.totalLabel}</div>
-        </div>
-        <div style="text-align: center;">
-          <div style="font-size: 24px; font-weight: bold; color: var(--myio-primary);">${fmtPt(totalConsumption / storeCount)}</div>
-          <div style="color: var(--myio-text-muted);">Média por Dispositivo</div>
-        </div>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; padding: 16px; background: var(--myio-bg); border-radius: 6px;">
+        ${this.computeKpis().map(kpiCard).join('')}
       </div>
     `;
 
     container.style.display = 'block';
+  }
+
+  // KPIs do summary — compartilhados entre a UI (renderSummary) e o PDF export.
+  // Máximo/Mínimo com nome do device; mínimo só entre devices COM consumo;
+  // "Sem Consumo" oculto para temperature (média °C não tem semântica de zero).
+  private computeKpis(): Array<{ value: string; label: string; sub?: string }> {
+    const totalConsumption = this.calculateTotalConsumption();
+    const storeCount = Math.max(1, this.data.length);
+    const maxRow = this.data.reduce(
+      (best: StoreReading | null, r) => (!best || r.consumption > best.consumption ? r : best),
+      null
+    );
+    const minRow = this.data
+      .filter((r) => r.consumption > 0)
+      .reduce(
+        (best: StoreReading | null, r) => (!best || r.consumption < best.consumption ? r : best),
+        null
+      );
+    const zeroCount = this.data.filter((r) => r.consumption <= 0).length;
+    const isTemperature = (this.params.domain || 'energy') === 'temperature';
+
+    const kpis: Array<{ value: string; label: string; sub?: string }> = [
+      { value: String(this.data.length), label: 'Dispositivos' },
+      { value: fmtPt(totalConsumption), label: this.domainConfig.totalLabel },
+      { value: fmtPt(totalConsumption / storeCount), label: 'Média por Dispositivo' },
+      {
+        value: maxRow ? fmtPt(maxRow.consumption) : '—',
+        label: `Máximo (${this.domainConfig.unit})`,
+        ...(maxRow?.name ? { sub: maxRow.name } : {}),
+      },
+      {
+        value: minRow ? fmtPt(minRow.consumption) : '—',
+        label: `Mínimo (${this.domainConfig.unit})`,
+        ...(minRow?.name ? { sub: minRow.name } : {}),
+      },
+    ];
+    if (!isTemperature) kpis.push({ value: String(zeroCount), label: 'Sem Consumo' });
+
+    // RFC-0228 A6 — additive R$ KPI (only when the money gate is on). Honest total
+    // when coverage is complete, else a coverage label — never R$ 0 / NaN.
+    const moneyKpi = this.computeMoneyKpi();
+    if (moneyKpi) kpis.push(moneyKpi);
+
+    return kpis;
+  }
+
+  // RFC-0228 A6 — the "Custo projetado (R$)" summary KPI, or null when money is off.
+  // Reuses the A6 column's honest-coverage resolution: a formatted R$ total only when
+  // the overlay is confidently priced (DEC-8), otherwise a coverage state label.
+  private computeMoneyKpi(): { value: string; label: string; sub?: string } | null {
+    if (!this.moneyColumn.enabled) return null;
+    const rowValues = this.data.map((r) => (r.id ? this.params.money?.perDevice?.[r.id] : null));
+    const total = this.moneyColumn.resolveTotal(rowValues);
+    if (!total) return null;
+    const label = this.params.money?.headerLabel || 'Custo projetado (R$)';
+    if (total.kind === 'amount') {
+      return { value: total.formatted, label };
+    }
+    // Coverage state — honest label, never a number (§8-allowed wording).
+    const value =
+      total.overlay.state === 'unavailable' ? 'Indisponível' : 'Cobertura incompleta';
+    return { value, label };
   }
 
   private renderTable(): void {
@@ -556,21 +801,32 @@ export class AllReportModal {
           ${this.searchFilter ? 'Nenhuma loja encontrada com o filtro aplicado.' : 'Nenhum dado encontrado.'}
         </div>
       `;
+      this.updateParticipationChart();
       return;
     }
 
     // RFC-0182: grouped mode when items carry groupLabel
     const isGrouped = paginatedData.some((r) => r.groupLabel);
 
+    // Base do percentual: total de TODOS os devices carregados (mesma base dos
+    // KPIs do summary), não apenas os visíveis após busca/filtro.
+    const grandTotal = this.calculateTotalConsumption();
+    const pct = (v: number) => (grandTotal > 0 ? `${fmtPt((v / grandTotal) * 100)}%` : '—');
+
+    // RFC-0228 A6 — money fragments: '' when the gate is off (byte-identical), an
+    // extra R$ <td>/<th> when a money overlay was provided.
+    const moneyCell = (row: StoreReading): string => this.moneyColumn.bodyCellHTML(row.id);
+
     const tableRows = isGrouped
-      ? this.renderGroupedRows(paginatedData)
+      ? this.renderGroupedRows(paginatedData, grandTotal)
       : paginatedData
           .map(
             (row) => `
           <tr>
-            <td data-label="Identifier" style="font-family: monospace; font-weight: bold; text-transform: uppercase;">${row.identifier}</td>
-            <td data-label="Name"><strong>${row.name}</strong></td>
+            <td data-label="Identificador" style="font-family: monospace; font-weight: bold; text-transform: uppercase;">${row.identifier}</td>
+            <td data-label="Nome"><strong>${row.name}</strong></td>
             <td data-label="${this.domainConfig.label}" style="text-align: right; font-weight: bold;">${fmtPt(row.consumption)}</td>
+            ${moneyCell(row)}${this.varianceColumn.bodyCellHTML(row.id)}<td data-label="%" style="text-align: right; color: var(--myio-text-muted);">${pct(row.consumption)}</td>
           </tr>
         `
           )
@@ -611,18 +867,19 @@ export class AllReportModal {
         <table class="myio-table myio-table-mobile" style="table-layout: fixed; width: 100%;">
           <thead style="position: sticky; top: 0; background: var(--myio-bg); z-index: 1;">
             <tr>
-              <th style="cursor: pointer; width: 25%;" data-sort="identifier">
-                Identifier
+              <th style="cursor: pointer; width: 22%;" data-sort="identifier">
+                Identificador
                 <span style="margin-left: 4px; opacity: ${this.getSortOpacity('identifier')};">${this.getSortIcon('identifier')}</span>
               </th>
-              <th style="cursor: pointer; width: 45%;" data-sort="name">
-                Name
+              <th style="cursor: pointer; width: 40%;" data-sort="name">
+                Nome
                 <span style="margin-left: 4px; opacity: ${this.getSortOpacity('name')};">${this.getSortIcon('name')}</span>
               </th>
-              <th style="cursor: pointer; text-align: right; width: 30%;" data-sort="consumption">
+              <th style="cursor: pointer; text-align: right; width: 24%;" data-sort="consumption">
                 ${this.domainConfig.label}
                 <span style="margin-left: 4px; opacity: ${this.getSortOpacity('consumption')};">${this.getSortIcon('consumption')}</span>
               </th>
+              ${this.moneyColumn.headerCellHTML()}${this.varianceColumn.headerCellHTML()}<th style="text-align: right; width: 14%;">%</th>
             </tr>
           </thead>
           <tbody>${tableRows}</tbody>
@@ -631,10 +888,60 @@ export class AllReportModal {
     `;
 
     this.setupTableSorting();
+    this.updateParticipationChart();
+  }
+
+  // Resolve the chart palette from the host theme: createMyIOTheme exposes
+  // tones(n) — solid hex tones derived from the dashboard accent. When absent
+  // (or the accent is not hex), the component falls back to the MYIO palette.
+  private resolveChartPalette(count: number): string[] | undefined {
+    const theme = this.resolveThemeSource() as { tones?: (n: number) => string[] | null } | undefined;
+    if (theme && typeof theme.tones === 'function') {
+      const tones = theme.tones(count);
+      if (Array.isArray(tones) && tones.length) return tones;
+    }
+    return undefined;
+  }
+
+  // Feeds the participation chart with the SAME rows the table shows
+  // (exclusion toggle + filter modal selection + quick search all respected).
+  // Created lazily on the first non-empty dataset; updated on every re-render.
+  private updateParticipationChart(): void {
+    const container = document.getElementById('participation-chart-container');
+    if (!container) return;
+
+    const items = this.getFilteredData().map((row) => ({
+      id: row.id || this.generateStoreId(row.identifier),
+      label: row.name,
+      value: row.consumption,
+    }));
+
+    if (!this.participationChart) {
+      if (!items.length) return; // keep the "Carregue os dados..." placeholder
+      document.getElementById('participation-chart-placeholder')?.remove();
+      this.participationChart = createParticipationChart(container, {
+        items,
+        unit: this.domainConfig.unit,
+        title: 'Participação por Dispositivo',
+        chartType: 'pie',
+        showTypeSelector: true,
+        legend: { visible: true, position: 'bottom', selectable: true },
+        tooltip: true,
+        expandable: true,
+        exportButtons: { visible: true, png: true, pdf: true },
+        palette: this.resolveChartPalette(items.length),
+        themeMode: this.params.ui?.theme === 'dark' ? 'dark' : 'light',
+      });
+      return;
+    }
+
+    const palette = this.resolveChartPalette(items.length);
+    if (palette) this.participationChart.updateSettings({ palette });
+    this.participationChart.updateData(items);
   }
 
   // RFC-0182: Render rows grouped by groupLabel with section headers (Option B)
-  private renderGroupedRows(rows: StoreReading[]): string {
+  private renderGroupedRows(rows: StoreReading[], grandTotal: number): string {
     // Preserve group order (order of first occurrence)
     const groupOrder: string[] = [];
     const byGroup = new Map<string, StoreReading[]>();
@@ -648,6 +955,8 @@ export class AllReportModal {
       byGroup.get(g)!.push(row);
     }
 
+    const pct = (v: number) => (grandTotal > 0 ? `${fmtPt((v / grandTotal) * 100)}%` : '—');
+
     return groupOrder
       .map((groupLabel) => {
         const items = byGroup.get(groupLabel)!;
@@ -655,7 +964,7 @@ export class AllReportModal {
 
         const header = `
         <tr class="rp-group-header">
-          <td colspan="3">
+          <td colspan="${4 + (this.moneyColumn.enabled ? 1 : 0) + (this.varianceColumn.enabled ? 1 : 0)}">
             ${groupLabel}
             <span class="rp-group-total">${items.length} dispositivos · ${fmtPt(groupTotal)} ${this.domainConfig.unit}</span>
           </td>
@@ -665,9 +974,10 @@ export class AllReportModal {
           .map(
             (row) => `
         <tr>
-          <td data-label="Identifier" style="font-family: monospace; font-weight: bold; text-transform: uppercase;">${row.identifier}</td>
-          <td data-label="Name"><strong>${row.name}</strong></td>
+          <td data-label="Identificador" style="font-family: monospace; font-weight: bold; text-transform: uppercase;">${row.identifier}</td>
+          <td data-label="Nome"><strong>${row.name}</strong></td>
           <td data-label="${this.domainConfig.label}" style="text-align: right; font-weight: bold;">${fmtPt(row.consumption)}</td>
+          ${this.moneyColumn.bodyCellHTML(row.id)}${this.varianceColumn.bodyCellHTML(row.id)}<td data-label="%" style="text-align: right; color: var(--myio-text-muted);">${pct(row.consumption)}</td>
         </tr>`
           )
           .join('');
@@ -718,8 +1028,9 @@ export class AllReportModal {
     if (!this.filterModal) {
       // Initialize filter modal with current data
       this.filterModal = attachFilterOrderingModal({
-        title: 'Filtros & Ordenação - Lojas',
+        title: 'Filtros & Ordenação - Dispositivos',
         items: this.convertToStoreItems(),
+        unit: this.domainConfig.unit,
         initialSelected: Array.from(this.selectedStoreIds),
         initialSort: this.currentSortMode,
         onApply: ({ selected, sort }) => {
@@ -812,10 +1123,15 @@ export class AllReportModal {
     }
   }
 
-  private exportCSV(): void {
+  private async exportCSV(): Promise<void> {
     // RFC-0060: Simplified CSV export - only header and data rows
     // Get all data (not just filtered/paginated) for export
     const sortedData = [...this.data].sort((a, b) => b.consumption - a.consumption);
+
+    if (this.granularity === '1h') {
+      await this.exportHourlyCSV(sortedData);
+      return;
+    }
 
     const csvData = [
       // Header row only
@@ -826,6 +1142,116 @@ export class AllReportModal {
 
     const csvContent = toCsv(csvData);
     this.downloadCSV(csvContent, `relatorio-geral-lojas-${new Date().toISOString().split('T')[0]}.csv`);
+  }
+
+  // 1h CSV: one row per device × hour. The series comes from per-device requests
+  // (/telemetry/devices/{id}/{endpoint}?granularity=1h) fetched lazily at export time
+  // and cached per period — /totals cannot provide hourly data.
+  private async exportHourlyCSV(sortedData: StoreReading[]): Promise<void> {
+    const exportBtn = document.getElementById('export-btn') as HTMLButtonElement | null;
+    const originalHtml = exportBtn?.innerHTML;
+    if (exportBtn) {
+      exportBtn.disabled = true;
+      exportBtn.innerHTML = '<span class="myio-spinner" style="display:inline-block;"></span> CSV…';
+    }
+
+    try {
+      const series = await this.ensureHourlySeries(sortedData);
+
+      const fmtTs = (ts: number) => {
+        const d = new Date(ts);
+        return (
+          d.toLocaleDateString('pt-BR') +
+          ' ' +
+          d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+        );
+      };
+
+      const csvData: string[][] = [
+        ['Identificador', 'Nome', 'Data/Hora', `Consumo (${this.domainConfig.unit})`],
+      ];
+      for (const row of sortedData) {
+        const points = (row.id && series.get(row.id)) || [];
+        for (const p of points) {
+          csvData.push([row.identifier, row.name, fmtTs(p.timestamp), p.value.toFixed(2)]);
+        }
+      }
+
+      if (csvData.length === 1) {
+        this.showError('Nenhum dado horário disponível para o período selecionado.');
+        return;
+      }
+
+      const csvContent = toCsv(csvData);
+      this.downloadCSV(
+        csvContent,
+        `relatorio-geral-lojas-1h-${new Date().toISOString().split('T')[0]}.csv`
+      );
+    } catch (error) {
+      this.debugLog('❌ Error in exportHourlyCSV', error);
+      this.showError('Erro ao buscar dados horários para o CSV. Tente novamente.');
+    } finally {
+      if (exportBtn) {
+        exportBtn.disabled = false;
+        if (originalHtml) exportBtn.innerHTML = originalHtml;
+      }
+    }
+  }
+
+  // Fetches (or reuses) the per-device hourly series for the current export period.
+  // Same batching pattern as enrichTemperatureAverages (6 concurrent requests).
+  private async ensureHourlySeries(
+    rows: StoreReading[]
+  ): Promise<Map<string, Array<{ timestamp: number; value: number }>>> {
+    const startISO = this.exportPeriod?.startISO;
+    const endISO = this.exportPeriod?.endISO;
+    if (!startISO || !endISO) throw new Error('Período de exportação indisponível');
+
+    // Key includes the device set: the exclusion toggle changes rows without a reload.
+    const idsKey = rows
+      .map((r) => r.id)
+      .filter(Boolean)
+      .sort()
+      .join(',');
+    const cacheKey = `${startISO}|${endISO}|${idsKey}`;
+    if (this.hourlySeriesCache?.key === cacheKey) return this.hourlySeriesCache.series;
+
+    const token = this.params.api.ingestionToken;
+    const baseUrl = this.params.api.dataApiBaseUrl;
+    if (!token || !baseUrl) throw new Error('API não configurada para busca por device');
+
+    const endpoint = this.domainConfig.endpoint;
+    const startTime = encodeURIComponent(startISO);
+    const endTime = encodeURIComponent(endISO);
+    const series = new Map<string, Array<{ timestamp: number; value: number }>>();
+
+    const targets = rows.filter((r) => r.id);
+    const BATCH = 6;
+    for (let i = 0; i < targets.length; i += BATCH) {
+      await Promise.all(
+        targets.slice(i, i + BATCH).map(async (row) => {
+          try {
+            const url = `${baseUrl}/telemetry/devices/${row.id}/${endpoint}?startTime=${startTime}&endTime=${endTime}&granularity=1h&deep=0`;
+            const res = await fetch(url, {
+              headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            });
+            if (!res.ok) return;
+            const body = await res.json();
+            const ent = Array.isArray(body) ? body[0] : body;
+            const points = ((ent?.consumption || []) as Array<{ timestamp: unknown; value: unknown }>)
+              .map((p) => ({ timestamp: new Date(p?.timestamp as string | number).getTime(), value: Number(p?.value) }))
+              .filter((p) => Number.isFinite(p.timestamp) && Number.isFinite(p.value));
+            if (points.length) series.set(row.id!, points);
+          } catch {
+            /* device sem série no período — fica de fora do CSV */
+          }
+        })
+      );
+    }
+
+    this.debugLog(`[AllReportModal] 1h series fetched for ${series.size}/${targets.length} devices`);
+    this.hourlySeriesCache = { key: cacheKey, series };
+    return series;
   }
 
   // Maps the report rows to the TelemetryDevice shape consumed by the shared
@@ -842,15 +1268,44 @@ export class AllReportModal {
     })) as unknown as TelemetryDevice[];
   }
 
-  // PDF export — same premium layout as the TELEMETRY grid export.
-  private exportPDF(): void {
+  // Accent hex da paleta do dashboard (tema efetivo) para o PDF/XLS — cai no
+  // roxo MYIO default quando não há tema configurado.
+  private resolveAccentHex(): string | undefined {
+    const theme = this.resolveThemeSource() as
+      | { accent?: string; cssVars?: () => Record<string, string> }
+      | Record<string, string>
+      | undefined;
+    if (!theme) return undefined;
+    if (typeof (theme as { accent?: string }).accent === 'string') {
+      return (theme as { accent: string }).accent;
+    }
+    const vars =
+      typeof (theme as { cssVars?: () => Record<string, string> }).cssVars === 'function'
+        ? (theme as { cssVars(): Record<string, string> }).cssVars()
+        : (theme as Record<string, string>);
+    return vars?.['--myio-brand-700'];
+  }
+
+  // PDF export — layout premium do grid + paleta do dashboard + faixa de KPIs +
+  // página dedicada com o gráfico de participação da modal.
+  private async exportPDF(): Promise<void> {
     if (!this.data.length) return;
+
+    const chartPng = await this.participationChart?.toPngDataUrl?.().catch(() => null);
+
     exportGridPdf(
       this.buildExportDevices(),
       this.resolveTitle(),
       this.domainConfig.unit,
       this.exportPeriod,
       null,
+      {
+        accentColor: this.resolveAccentHex(),
+        kpis: this.computeKpis(),
+        chartImage: chartPng
+          ? { ...chartPng, title: 'Participação por Dispositivo' }
+          : null,
+      },
     );
   }
 
@@ -863,6 +1318,7 @@ export class AllReportModal {
       this.domainConfig.unit,
       this.exportPeriod,
       null,
+      { accentColor: this.resolveAccentHex() },
     );
   }
 
@@ -897,7 +1353,9 @@ export class AllReportModal {
     const endTime = encodeURIComponent(endISO);
 
     const endpoint = this.domainConfig.endpoint;
-    const url = `${baseUrl}/telemetry/customers/${this.params.customerId}/${endpoint}/devices/totals?startTime=${startTime}&endTime=${endTime}&granularity=${this.granularity}`;
+    // /totals does NOT support hourly granularity — always fetch daily. The 1h selection
+    // only affects the CSV export, which fetches per-device series separately.
+    const url = `${baseUrl}/telemetry/customers/${this.params.customerId}/${endpoint}/devices/totals?startTime=${startTime}&endTime=${endTime}&granularity=1d`;
 
     this.debugLog('[AllReportModal] Fetching customer totals:', {
       url,
@@ -921,7 +1379,59 @@ export class AllReportModal {
     const data = await response.json();
     this.debugLog('[AllReportModal] Customer totals response:', data);
 
+    // ED-996: /temperature/devices/totals retorna total_value=0 para sensores de
+    // temperatura ("total" não é semântica de temperatura) — substitui pelo valor
+    // MÉDIO do período de cada sensor, via o mesmo endpoint por device usado no
+    // modal de histórico do card (que funciona).
+    if ((this.params.domain || 'energy') === 'temperature') {
+      await this.enrichTemperatureAverages(data, startISO, endISO, token, baseUrl);
+    }
+
     return data;
+  }
+
+  // ED-996: busca a série de temperatura de cada sensor e escreve a MÉDIA do período
+  // em total_value (in-place). Sensores sem série ficam com o 0 original.
+  private async enrichTemperatureAverages(
+    data: any,
+    startISO: string,
+    endISO: string,
+    token: string,
+    baseUrl: string
+  ): Promise<void> {
+    const rows: any[] = Array.isArray(data?.data) ? data.data : [];
+    const tempRows = rows.filter((d) => String(d?.deviceType || '').toLowerCase() === 'temperature');
+    if (!tempRows.length) return;
+
+    const gran = this.granularity === '1h' ? '1h' : '1d';
+    const startTime = encodeURIComponent(startISO);
+    const endTime = encodeURIComponent(endISO);
+    const BATCH = 6;
+
+    for (let i = 0; i < tempRows.length; i += BATCH) {
+      await Promise.all(
+        tempRows.slice(i, i + BATCH).map(async (dev) => {
+          try {
+            const url = `${baseUrl}/telemetry/devices/${dev.id}/temperature?startTime=${startTime}&endTime=${endTime}&granularity=${gran}&deep=0`;
+            const res = await fetch(url, {
+              headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            });
+            if (!res.ok) return;
+            const body = await res.json();
+            const ent = Array.isArray(body) ? body[0] : body;
+            const values = ((ent?.consumption || []) as Array<{ value: unknown }>)
+              .map((p) => Number(p?.value))
+              .filter((v) => Number.isFinite(v));
+            if (values.length) {
+              dev.total_value = values.reduce((s, v) => s + v, 0) / values.length;
+            }
+          } catch {
+            /* mantém o 0 original para este sensor */
+          }
+        })
+      );
+    }
+    this.debugLog(`[AllReportModal] ED-996: temperaturas médias aplicadas a ${tempRows.length} sensores`);
   }
 
   // Re-map the cached API response under the current exclusion flag and refresh the UI.
@@ -1053,6 +1563,7 @@ export class AllReportModal {
         identifier: item.assetName || this.resolveStoreIdentifierFromApi(item) || item.id || '',
         name: item.name || item.assetName || item.id || '',
         consumption: this.pickConsumption(item),
+        ...(item.id ? { id: String(item.id) } : {}),
       }));
     }
 
@@ -1090,6 +1601,7 @@ export class AllReportModal {
         identifier: meta?.identifier || apiItem.name || apiId,
         name:       meta?.label      || apiItem.name || apiId,
         consumption,
+        id: apiId,
         ...(meta?.groupLabel ? { groupLabel: meta.groupLabel } : {}),
       };
 

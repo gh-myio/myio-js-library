@@ -69,6 +69,16 @@ export interface CardGridCustomStyle {
   fontColor?: string;
   width?: string;
   height?: string;
+  padding?: string;
+  /** Scale multiplier for all card dimensions (default: 1.0). */
+  zoomMultiplier?: number;
+  /**
+   * CSS height for the ⋮ piano-key actions column of each card.
+   * Default stretches with the card; 'auto' yields a compact pill.
+   */
+  actionsHeight?: string;
+  /** CSS height for each action button inside the column (e.g. '32px'). */
+  actionButtonHeight?: string;
 }
 
 /** @deprecated Use HeaderPanelStyle from header-panel component */
@@ -200,7 +210,7 @@ const PANEL_CSS = `
     background: #faf8f1;
     border: 1px solid #e8e4d9;
     overflow: hidden;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    font-family: 'Nunito', system-ui, sans-serif;
     height: 100%;
     min-width: 0;
   }

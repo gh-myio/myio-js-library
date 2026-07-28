@@ -39,6 +39,12 @@
         "default": "https://gcdr-api.a.myio-bas.com",
         "description": "RFC-0180: Base URL for the GCDR REST API (without trailing slash)."
       },
+      "gcdrApiKey": {
+        "title": "GCDR API Key (X-API-Key header)",
+        "type": "string",
+        "default": "",
+        "description": "RFC-0046: Customer key (gcdr_cust_*) sent as X-API-Key on GCDR requests (Goals). Fallback when the customer SERVER_SCOPE attribute gcdrApiKey is not set."
+      },
       "enableTemperatureApiDataFetch": {
         "title": "Enable Temperature API Fetch (offline detection)",
         "type": "boolean",
@@ -253,6 +259,12 @@
         "default": "Shopping",
         "description": "Label for entity in Goals Panel (e.g., Shopping, Loja, Escola, Filial)"
       },
+      "goalsEntityLabelPlural": {
+        "title": "Goals Panel Entity Label (plural)",
+        "type": "string",
+        "default": "Shoppings",
+        "description": "Plural do label da entidade (e.g., Shoppings, Estações, Hospitais). Vazio = label + 's'"
+      },
       "forceRemovePartialOwnerName": {
         "title": "Remove Prefix from Owner Name",
         "type": "string",
@@ -284,6 +296,10 @@
     },
     {
       "key": "gcdrApiBaseUrl",
+      "type": "text"
+    },
+    {
+      "key": "gcdrApiKey",
       "type": "text"
     },
     {
@@ -426,7 +442,7 @@
     {
       "type": "fieldset",
       "title": "Menu Labels",
-      "items": ["shoppingFilterLabel", "goalsEntityLabel"]
+      "items": ["shoppingFilterLabel", "goalsEntityLabel", "goalsEntityLabelPlural"]
     },
     {
       "type": "fieldset",

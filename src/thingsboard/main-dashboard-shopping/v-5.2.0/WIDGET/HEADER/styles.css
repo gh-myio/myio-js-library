@@ -1,14 +1,7 @@
+
 /* ===== Base ===== */
 .tbx-toolbar {
-  font-family:
-    Inter,
-    system-ui,
-    -apple-system,
-    Segoe UI,
-    Roboto,
-    Arial,
-    'Helvetica Neue',
-    Helvetica;
+  font-family: 'Nunito', system-ui, sans-serif;
   color: #1f2937;
   width: 100%;
   height: 100%;
@@ -126,16 +119,17 @@
 }
 
 .tbx-btn-secondary {
-  background: #3e1a7d;
+  /* accent do dashboard (createMyIOTheme → --myio-brand-*); fallback = roxo MYIO atual */
+  background: var(--myio-brand-700, #3e1a7d);
   color: #fff;
 }
 
 .tbx-btn-secondary:hover {
-  background: #2d1458;
+  background: var(--myio-brand-600, #2d1458);
 }
 
 .tbx-btn-secondary:active {
-  background: #1f0e3d;
+  background: color-mix(in srgb, var(--myio-brand-600, #2d1458) 82%, #000);
   transform: translateY(1px);
 }
 
@@ -365,7 +359,7 @@
   border-radius: 8px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
   padding: 8px 10px;
-  font-family: 'Nunito', sans-serif;
+  font-family: 'Nunito', system-ui, sans-serif;
   font-size: 12px;
   color: #1e293b;
   pointer-events: none;

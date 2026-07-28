@@ -1,3 +1,4 @@
+
 /* ============================================ */
 /* ENERGY WIDGET - SCROLL FIX (RFC-0073)       */
 /* ============================================ */
@@ -9,7 +10,7 @@
 */
 
 .energy-dashboard {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Nunito', system-ui, sans-serif;
   color: #1c2743;
 
   /* Layout */

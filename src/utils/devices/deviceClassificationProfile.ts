@@ -21,9 +21,17 @@
 export interface ClassifiableItem {
   deviceProfile?: string | null;
   identifier?: string | null;
-  /** Free-text fields used by the breakdown's combined-substring matching (RFC-0207 A1b). */
+  /**
+   * @deprecated NÃO é lido pelo classificador (RFC-0207, 2026-07-23).
+   * `labelWidget` é a SAÍDA ANTERIOR do próprio classificador (inferLabelWidget);
+   * lê-lo criava um laço circular auto-sustentado (um item carimbado
+   * "Climatização" voltava a casar com o padrão `CLIMATIZA` independentemente do
+   * `deviceProfile`). Mantido no tipo só porque os itens do dashboard o carregam.
+   */
   labelWidget?: string | null;
+  /** @deprecated EM DESUSO (2026-07-14) — nunca é lido; classificação usa só deviceProfile/identifier. */
   deviceType?: string | null;
+  /** @deprecated NÃO é lido pelo classificador — classificar por nome/label é proibido (RFC-0207 §J). */
   label?: string | null;
   [key: string]: unknown;
 }
@@ -59,6 +67,14 @@ export type CategoryName =
   | 'outros';
 export type CategoryMatchedBy =
   | 'deviceProfile'
+  /** Substring hit on `deviceProfile` (rule `profileContains`). */
+  | 'profileContains'
+  /**
+   * @deprecated RFC-0207 (2026-07-23) — nunca mais emitido. Era o hit sobre o
+   * texto combinado (labelWidget + deviceProfile + label); o texto combinado foi
+   * eliminado (laço circular do `labelWidget` + proibição de casar por nome).
+   * Mantido na união só para não quebrar narrowing de consumidores antigos.
+   */
   | 'combined'
   | 'identifier'
   | 'conditional'
@@ -87,24 +103,92 @@ export interface IdentifierMatch {
 
 /** Conditional rule: when deviceProfile is one of these, require an identifier hit. */
 export interface ConditionalRule extends IdentifierMatch {
-  deviceTypes: string[];
+  /** Perfis (deviceProfile) que exigem hit de identifier. */
+  deviceProfiles: string[];
+  /** @deprecated Nome legado do campo (sempre comparou contra o deviceProfile) — normalizado para deviceProfiles. */
+  deviceTypes?: string[];
+}
+
+/**
+ * RFC-0207 "Dispositivos Específicos" — modo de um override por dispositivo.
+ *
+ * - `include` — o device AGREGA nesta categoria do breakdown **mantendo o seu
+ *   grupo**. `resolveGroup` não muda: o total da coluna (ex.: Entrada) fica
+ *   idêntico. O device é apenas somado a mais na categoria (feed PARALELO — o
+ *   caso do Shopping da Ilha, onde o trafo da CAG é energia ADICIONAL).
+ * - `exclude` — o device sai do breakdown **inteiro**. Não cai em `outros` nem em
+ *   nenhum outro bucket. Existe para dupla-medição (o submedidor já está dentro
+ *   da leitura do trafo); mandá-lo para `outros` seria recontá-lo.
+ * - `parent` — o device é o **PAI** da composição da categoria: o valor DELE vira
+ *   o total da categoria e a composição auto-classificada (Chillers/Fancoils/…)
+ *   é o BREAKDOWN dele — mostrada aninhada, mas **NÃO somada por cima** do pai
+ *   (evita a dupla contagem). É o caso do Moxuara: o medidor de ENTRADA da CAG
+ *   (`CAG-Entrada`, 336.600) CONTÉM os submedidores internos (326.973); os filhos
+ *   estão a jusante do pai. Contraste com `include`: `include` SOMA (feed
+ *   paralelo), `parent` CONTÉM (a composição). Mesmo gesto de UI, matemática de
+ *   total OPOSTA — só o operador sabe qual dos dois é, por isso é escolha
+ *   explícita, nunca inferida. Como `include`, o device é PUXADO do grupo dele
+ *   (o grupo NÃO muda; o total da coluna de origem continua igual).
+ *
+ * Retrocompat: ausência do campo = comportamento de sempre; bundles antigos da
+ * lib coagem `parent` → `include` (degradação documentada — vira feed paralelo).
+ */
+export type DeviceOverrideMode = 'include' | 'exclude' | 'parent';
+
+/**
+ * Override explícito por dispositivo (escape hatch topológico).
+ *
+ * É uma LISTA DE VALORES, nunca um predicado (RFC-0207 §A proíbe
+ * predicates-as-data). `id` é o TB entity id — a MESMA chave usada por
+ * `excludeDevicesAtCountSubtotalCAG` (`String(item.id)`, comparada
+ * trim+lowercase).
+ *
+ * ⚠️ Escala mal e quebra em re-provisionamento (o entity id do TB muda). Regras
+ * por atributo (`deviceProfiles`/`profileContains`/`identifier*`) continuam sendo
+ * o caminho padrão; overrides são exceção topológica.
+ */
+export interface DeviceOverride {
+  /** TB entity id do dispositivo. */
+  id: string;
+  /** Guardado só para exibição/resiliência na UI (o motor NUNCA classifica por nome). */
+  label?: string;
+  mode: DeviceOverrideMode;
 }
 
 /** A single (non-fallback) category rule. */
 export interface CategoryRule {
   name: Exclude<CategoryName, 'lojas'>; // lojas is handled by the store shortcut
-  /** Exact deviceProfile matches (the legacy "deviceTypes" Set). */
+  /** Exact deviceProfile matches (a legacy "deviceTypes" Set). */
   deviceProfiles: string[];
   /**
-   * Substring patterns over the COMBINED text (labelWidget + deviceType +
-   * deviceProfile + label), mirroring buildSummary's loose matching (A1b).
-   * This is what unifies the breakdown subcategorization into one source.
+   * Substring patterns over `deviceProfile` (ex.: `CHILLER` casa
+   * `CHILLER_SECUNDARIO`). Value list limitada — nunca um predicado.
+   *
+   * RFC-0207 (2026-07-23): substitui `combinedContains`, que casava sobre o
+   * texto COMBINADO `labelWidget + deviceProfile + label`. Duas coisas estavam
+   * erradas ali: (a) `labelWidget` é a saída anterior do próprio classificador →
+   * laço circular; (b) `label` é nome livre, e classificar por nome é proibido.
+   * `normalizeProfile` migra `combinedContains` → `profileContains` (perfis já
+   * salvos continuam válidos).
+   */
+  profileContains?: string[];
+  /**
+   * @deprecated RFC-0207 (2026-07-23) — renomeado para `profileContains` e o
+   * texto combinado deixou de existir. Perfis persistidos com esta chave são
+   * migrados por `normalizeProfile`; o motor NÃO lê este campo.
    */
   combinedContains?: string[];
   /** climatizacao-only conditional ({BOMBA,MOTOR} + identifier hit). */
   conditional?: ConditionalRule;
   /** Identifier-fallback hit list, mirroring classifyDeviceByIdentifier. */
   identifierFallback?: IdentifierMatch;
+  /**
+   * RFC-0207 "Dispositivos Específicos" — overrides explícitos por dispositivo.
+   *
+   * OPCIONAL e retrocompatível: ausente ⇒ comportamento idêntico ao de antes
+   * (`selectBreakdownItems` tem fast-path para "zero overrides").
+   */
+  deviceOverrides?: DeviceOverride[];
   fallback?: boolean;
 }
 
@@ -189,7 +273,7 @@ export const DEFAULT_DEVICE_CLASSIFICATION_PROFILE: DeviceClassificationProfile 
             name: 'elevadores',
             // ELEVADORES_DEVICE_TYPES_SET + buildSummary ELEVADOR_PATTERNS
             deviceProfiles: ['ELEVADOR'],
-            combinedContains: ['ELEVADOR'],
+            profileContains: ['ELEVADOR'],
             identifierFallback: {
               // ELEVADORES_IDENTIFIERS_SET + buildSummary id prefix ELV-
               identifierEquals: ['ELV', 'ELEVADOR', 'ELEVADORES'],
@@ -200,7 +284,7 @@ export const DEFAULT_DEVICE_CLASSIFICATION_PROFILE: DeviceClassificationProfile 
             name: 'escadas_rolantes',
             // ESCADAS_DEVICE_TYPES_SET + buildSummary ESCADA_PATTERNS
             deviceProfiles: ['ESCADA_ROLANTE'],
-            combinedContains: ['ESCADA', 'ROLANTE'],
+            profileContains: ['ESCADA', 'ROLANTE'],
             identifierFallback: {
               // ESCADAS_IDENTIFIERS_SET + buildSummary id prefix ESC-
               identifierEquals: ['ESC', 'ESCADA', 'ESCADASROLANTES'],
@@ -211,8 +295,14 @@ export const DEFAULT_DEVICE_CLASSIFICATION_PROFILE: DeviceClassificationProfile 
             name: 'climatizacao',
             // CLIMATIZACAO_DEVICE_TYPES_SET
             deviceProfiles: ['CHILLER', 'AR_CONDICIONADO', 'HVAC', 'FANCOIL'],
-            // buildSummary CLIMATIZACAO_PATTERNS (superset of the deviceProfiles)
-            combinedContains: [
+            // buildSummary CLIMATIZACAO_PATTERNS (superset of the deviceProfiles).
+            // NB: BOMBA_HIDRAULICA/BOMBASHIDRAULICAS foram REMOVIDOS (2026-07-23):
+            // bomba hidráulica é recalque de água, não climatização — deve cair em
+            // 'outros' (igual a BOMBA_INCENDIO). BOMBA_CAG continua em climatização
+            // via `conditional`/`identifierFallback` (CAG), sem depender destas
+            // strings. Alinhado a equipmentCategory.js (hvacProfiles NÃO inclui bomba
+            // hidráulica) e a openUpsellModal (BOMBA_HIDRAULICA = energy_common_area).
+            profileContains: [
               'CHILLER',
               'FANCOIL',
               'HVAC',
@@ -220,12 +310,10 @@ export const DEFAULT_DEVICE_CLASSIFICATION_PROFILE: DeviceClassificationProfile 
               'COMPRESSOR',
               'VENTILADOR',
               'CLIMATIZA',
-              'BOMBA_HIDRAULICA',
-              'BOMBASHIDRAULICAS',
             ],
-            // CLIMATIZACAO_CONDITIONAL_TYPES_SET + identifier requirement
+            // CLIMATIZACAO conditional (perfis BOMBA/MOTOR) + identifier requirement
             conditional: {
-              deviceTypes: ['BOMBA', 'MOTOR'],
+              deviceProfiles: ['BOMBA', 'MOTOR'],
               // RFC-0207 A1 — BUG #1 FIX: substring (.includes), unifying with
               // equipmentCategory.js. Catches "CAG 01", "BOMBA CAG 2", etc.
               identifierContains: ['CAG', 'FANCOIL'],
@@ -319,15 +407,22 @@ function identifierOf(item: ClassifiableItem | null | undefined): string {
 }
 
 /**
- * combined: mirrors buildSummary's
- * `${labelWidget} ${deviceType} ${deviceProfile} ${label}` (upper-cased).
- * Identifier is intentionally NOT included (buildSummary keeps it separate).
+ * RFC-0207 (2026-07-23) — o texto COMBINADO foi eliminado.
+ *
+ * Antes: `combinedOf(item) = labelWidget + deviceProfile + label`, avaliado
+ * contra `rule.combinedContains`. Dois defeitos estruturais:
+ *
+ *  1. **Laço circular** — `labelWidget` é a SAÍDA ANTERIOR do classificador
+ *     (`inferLabelWidget`). Um item carimbado "Climatização" voltava a casar
+ *     com o padrão `CLIMATIZA` e se auto-sustentava, independentemente do
+ *     `deviceProfile`. Foi assim que uma bomba hidráulica ficou presa em
+ *     climatização no Moxuara mesmo depois do fix do seed.
+ *  2. **Classificação por nome** — `label` é texto livre do cadastro;
+ *     classificar por nome é proibido (`deviceProfile` é a autoridade).
+ *
+ * O que sobrou é substring sobre `deviceProfile` — hoje a regra
+ * `profileContains`, avaliada direto em `profileOf(item)`.
  */
-function combinedOf(item: ClassifiableItem | null | undefined): string {
-  return `${up(item?.labelWidget ?? '')} ${up(item?.deviceType ?? '')} ${up(
-    item?.deviceProfile ?? '',
-  )} ${up(item?.label ?? '')}`;
-}
 
 /** Mirrors an IdentifierMatch against an already-normalized (trim+upper) id. */
 function matchesIdentifier(id: string, m: IdentifierMatch | undefined): boolean {
@@ -409,10 +504,10 @@ export function resolveGroup(
 //            deviceProfiles. This keeps precise profile matches winning over the
 //            loose text signals (so e.g. an ELEVADOR with a "CAG" label stays an
 //            elevador, matching legacy classifyDevice).
-//   Pass 2 — loose, in rule order (= buildSummary precedence): combinedContains
-//            (text), then conditional (BOMBA/MOTOR + identifier), then the
-//            identifier fallback (equals/contains/prefixes — now unconditional,
-//            like buildSummary's id-prefix checks).
+//   Pass 2 — loose, in rule order (= buildSummary precedence): profileContains
+//            (substring sobre deviceProfile), then conditional (BOMBA/MOTOR +
+//            identifier), then the identifier fallback (equals/contains/prefixes
+//            — now unconditional, like buildSummary's id-prefix checks).
 //   else  — outros / fallback (the genuine-orphan signal).
 //
 // This is a deliberate behavior change vs BOTH legacy paths; the dual-oracle
@@ -450,19 +545,19 @@ export function resolveCategory(
   }
 
   // Pass 2 — loose, in rule order (buildSummary precedence).
-  const combined = combinedOf(item);
   const id = identifierOf(item);
   for (const rule of rules) {
-    // combinedContains (text substring)
-    if (rule.combinedContains) {
-      for (const pattern of rule.combinedContains) {
-        if (combined.includes(up(pattern))) {
-          return { category: rule.name, matchedBy: 'combined' };
+    // profileContains — substring sobre deviceProfile APENAS.
+    // (Nunca sobre labelWidget/label: ver a nota do laço circular acima.)
+    if (dp && rule.profileContains) {
+      for (const pattern of rule.profileContains) {
+        if (dp.includes(up(pattern))) {
+          return { category: rule.name, matchedBy: 'profileContains' };
         }
       }
     }
-    // conditional ({BOMBA,MOTOR} + identifier hit)
-    if (rule.conditional && rule.conditional.deviceTypes.some((t) => dp === up(t))) {
+    // conditional ({BOMBA,MOTOR} no PROFILE + identifier hit)
+    if (rule.conditional && rule.conditional.deviceProfiles.some((t) => dp === up(t))) {
       if (matchesIdentifier(id, rule.conditional)) {
         return { category: rule.name, matchedBy: 'conditional' };
       }
@@ -474,6 +569,298 @@ export function resolveCategory(
   }
 
   return { category: 'outros', matchedBy: 'fallback' };
+}
+
+// ---------------------------------------------------------------------------
+// Dispositivos Específicos — device-level overrides for the BREAKDOWN
+//
+// Por que existem, em uma frase: `resolveGroup` aloca cada device em UM grupo só
+// (invariante de coerência dos totais — não é para ser abolida) e o breakdown do
+// TELEMETRY_INFO só percorre o grupo residual (`areacomum`). Um trafo de entrada
+// que mede TODA a carga da CAG fica, portanto, estruturalmente invisível ao card
+// de Climatização — mesmo sendo, fisicamente, climatização.
+//
+// Os overrides são o escape hatch: por dispositivo, explícito, sem tocar em
+// `resolveGroup` e sem inventar predicados novos no JSON.
+// ---------------------------------------------------------------------------
+
+/** Chave de comparação de device id — mesma normalização de `excludeDevicesAtCountSubtotalCAG`. */
+export function normalizeDeviceOverrideId(id: unknown): string {
+  return String(id ?? '').trim().toLowerCase();
+}
+
+export interface CollectedDeviceOverrides {
+  /**
+   * device id normalizado → categoria na qual ele deve ser PUXADO ao breakdown.
+   * Contém tanto os `include` quanto os `parent` (ambos são puxados do grupo de
+   * origem e recebem `forcedCategory`); o que distingue os dois é o mapa
+   * `parents` abaixo, que só a matemática do total lê.
+   */
+  includes: Map<string, CategoryName>;
+  /**
+   * device id normalizado → categoria da qual ele é PAI. Subconjunto de
+   * `includes`. Um pai CONTÉM a composição da categoria (o total da categoria
+   * passa a ser o valor do pai; a composição vira breakdown aninhado, não somado
+   * por cima). Vazio quando não há nenhum `parent`.
+   */
+  parents: Map<string, CategoryName>;
+  /** device ids normalizados removidos do breakdown por inteiro. */
+  excludes: Set<string>;
+  /** device id normalizado → label capturado na edição (exibição/diagnóstico). */
+  labels: Map<string, string>;
+}
+
+/**
+ * Achata os `deviceOverrides` de TODAS as categorias de um domínio.
+ *
+ * Regras de precedência (decididas, não negociáveis aqui):
+ *  - `exclude` vence `include` — se o mesmo device aparecer nos dois, ele sai do
+ *    breakdown. `exclude` é global (vale para o breakdown inteiro), `include` é
+ *    por categoria.
+ *  - Primeiro `include` na ordem das regras vence, caso o device apareça como
+ *    `include` em mais de uma categoria (alocação única também no breakdown).
+ */
+export function collectDeviceOverrides(
+  profile: DeviceClassificationProfile = getActiveProfile(),
+  domain: ClassificationDomain = 'energy',
+): CollectedDeviceOverrides {
+  const includes = new Map<string, CategoryName>();
+  const parents = new Map<string, CategoryName>();
+  const excludes = new Set<string>();
+  const labels = new Map<string, string>();
+
+  const rules = getDomain(profile, domain).categories?.rules ?? [];
+  for (const rule of rules) {
+    for (const ov of rule.deviceOverrides ?? []) {
+      const key = normalizeDeviceOverrideId(ov?.id);
+      if (!key) continue;
+      if (ov.label) labels.set(key, String(ov.label));
+      if (ov.mode === 'exclude') {
+        excludes.add(key);
+      } else if (!includes.has(key)) {
+        // `parent` e `include` ambos entram em `includes` (ambos são puxados +
+        // recebem forcedCategory); `parent` é adicionalmente marcado em `parents`
+        // para que só a matemática do total troque SOMAR por CONTER.
+        includes.set(key, rule.name);
+        if (ov.mode === 'parent') parents.set(key, rule.name);
+      }
+    }
+  }
+  // exclude vence include (e vence parent — parent é uma variante de include)
+  for (const key of excludes) {
+    includes.delete(key);
+    parents.delete(key);
+  }
+
+  return { includes, parents, excludes, labels };
+}
+
+/** Um item elegível ao breakdown + a categoria forçada por override (ou `null`). */
+export interface BreakdownEntry<T> {
+  item: T;
+  /**
+   * Categoria imposta por um override `include`. `null` ⇒ classificar
+   * normalmente com `resolveCategory`.
+   */
+  forcedCategory: CategoryName | null;
+  /** Grupo de onde o item veio (chave de `groups`). */
+  sourceGroup: string;
+  /**
+   * `true` quando o item veio do grupo BASE (e portanto já está dentro do total
+   * daquele grupo); `false` quando foi PUXADO de outro grupo por um `include`.
+   *
+   * O consumidor **precisa** dessa distinção para o residual: o total do grupo
+   * base não contém os itens cross-group, então subtrair o subtotal cheio dele
+   * produz um residual negativo pelo valor exato do item puxado.
+   * Ver `computeBaseGroupResidual`.
+   */
+  fromBaseGroup: boolean;
+  /**
+   * `true` quando o item é PAI da composição da sua categoria (override `parent`).
+   * O consumidor usa isto para trocar a matemática do total: o valor do pai
+   * VIRA o total da categoria, e a composição auto-classificada é o breakdown
+   * aninhado (não somado por cima).
+   *
+   * OPCIONAL e emitido SÓ quando `true` (nunca `false`): mantém as entradas de
+   * `include`/base/fast-path byte-idênticas às de antes do modo `parent`
+   * (retrocompat — perfis sem pai não ganham chave nova). Leia como
+   * `entry.isParent === true`; ausência ⇒ não é pai.
+   */
+  isParent?: boolean;
+}
+
+export interface SelectBreakdownItemsOptions {
+  /** Grupo que alimenta o breakdown (default `areacomum`, o residual do energy). */
+  baseGroup?: string;
+}
+
+/**
+ * Monta a lista de itens que o breakdown (TELEMETRY_INFO) deve percorrer,
+ * aplicando os Dispositivos Específicos.
+ *
+ *  - base = `groups[baseGroup]` (hoje `areacomum`), na ordem original;
+ *  - itens `exclude` são REMOVIDOS (não caem em `outros`);
+ *  - itens `include` são PUXADOS de qualquer grupo (tipicamente `entrada`) e
+ *    marcados com `forcedCategory` — o grupo deles NÃO muda, então o total da
+ *    coluna Entrada continua idêntico.
+ *
+ * Função pura: sem DOM, sem fetch. Quando não há nenhum override, devolve
+ * exatamente `groups[baseGroup]` (zero mudança de comportamento).
+ */
+export function selectBreakdownItems<T extends ClassifiableItem>(
+  groups: Record<string, T[] | undefined | null>,
+  profile: DeviceClassificationProfile = getActiveProfile(),
+  domain: ClassificationDomain = 'energy',
+  options: SelectBreakdownItemsOptions = {},
+): BreakdownEntry<T>[] {
+  const baseGroup = options.baseGroup || 'areacomum';
+  const base = (groups?.[baseGroup] ?? []) as T[];
+
+  const { includes, parents, excludes } = collectDeviceOverrides(profile, domain);
+
+  // Fast-path: perfil sem Dispositivos Específicos ⇒ o breakdown de sempre.
+  if (includes.size === 0 && excludes.size === 0) {
+    return base.map((item) => ({
+      item,
+      forcedCategory: null,
+      sourceGroup: baseGroup,
+      fromBaseGroup: true,
+    }));
+  }
+
+  const out: BreakdownEntry<T>[] = [];
+  const seen = new Set<string>();
+  // `isParent` só é emitido quando true (ver BreakdownEntry) — mantém entradas
+  // de include/base byte-idênticas.
+  const parentFlag = (key: string): { isParent: true } | Record<string, never> =>
+    parents.has(key) ? { isParent: true } : {};
+
+  for (const item of base) {
+    const key = normalizeDeviceOverrideId((item as { id?: unknown })?.id);
+    if (key) {
+      if (excludes.has(key)) continue;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const forced = includes.get(key);
+      out.push({
+        item,
+        forcedCategory: forced ?? null,
+        sourceGroup: baseGroup,
+        fromBaseGroup: true,
+        ...parentFlag(key),
+      });
+      continue;
+    }
+    out.push({ item, forcedCategory: null, sourceGroup: baseGroup, fromBaseGroup: true });
+  }
+
+  if (includes.size === 0) return out;
+
+  // Puxa os `include`/`parent` que vivem FORA do grupo base (tipicamente `entrada`).
+  // Estes NÃO estão dentro do total do grupo base — daí `fromBaseGroup: false`.
+  for (const groupKey of Object.keys(groups || {})) {
+    if (groupKey === baseGroup) continue;
+    for (const item of (groups[groupKey] ?? []) as T[]) {
+      const key = normalizeDeviceOverrideId((item as { id?: unknown })?.id);
+      if (!key || excludes.has(key) || seen.has(key)) continue;
+      const forced = includes.get(key);
+      if (!forced) continue;
+      seen.add(key);
+      out.push({
+        item,
+        forcedCategory: forced,
+        sourceGroup: groupKey,
+        fromBaseGroup: false,
+        ...parentFlag(key),
+      });
+    }
+  }
+
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// Residual do grupo base × includes cross-group
+// ---------------------------------------------------------------------------
+
+/** Um subtotal do breakdown, decomposto por origem. */
+export interface BreakdownSubtotalInput {
+  /** Nome da categoria — só diagnóstico. */
+  category: string;
+  /** Total EXIBIDO no card (inclui a parcela cross-group). */
+  total: number;
+  /** Parcela de `total` que veio de devices FORA do grupo base. */
+  crossGroupTotal: number;
+  /**
+   * RFC-0207 "parent" — parcela EXPLÍCITA que está de fato dentro do
+   * `baseGroupTotal` e deve ser descontada no residual.
+   *
+   * Existe porque o modo `parent` QUEBRA a premissa `base = total − cross`: quando
+   * o pai (ex.: CAG-Entrada, 336.600, cross-group) SUBSTITUI a composição no card,
+   * `total` passa a ser o valor do pai — não mais a soma dos filhos. Os FILHOS
+   * (326.973), que continuam fisicamente no grupo base, é que precisam ser
+   * descontados do residual; o pai, nunca (é cross-group, jamais esteve em
+   * `baseGroupTotal`). Passe aqui a soma dos filhos de origem-base.
+   *
+   * Ausente/`undefined` ⇒ cai no cálculo de sempre `total − crossGroupTotal`
+   * (byte-idêntico ao de antes; `include`/sem-override não usam este campo).
+   */
+  baseGroupContribution?: number;
+}
+
+export interface BaseGroupResidual {
+  /** Soma das parcelas que estão de fato dentro de `baseGroupTotal`. */
+  subtotalFromBaseGroup: number;
+  /** Soma das parcelas cross-group (informativo). */
+  subtotalCrossGroup: number;
+  /** Residual ANTES do clamp. Negativo aqui = problema real de dado/config. */
+  residualRaw: number;
+  /** Residual publicável (clamp em 0). */
+  residual: number;
+  /** `true` quando `residualRaw < 0`. */
+  negative: boolean;
+}
+
+/**
+ * Residual do grupo base (Área Comum) na presença de includes cross-group.
+ *
+ * O bug que esta função existe para impedir: `residual = baseGroupTotal −
+ * Σ subtotais` assume que TODO subtotal é composto de devices que estão dentro
+ * de `baseGroupTotal`. Um `include` cross-group quebra a premissa — o trafo da
+ * Ilha (637.560) entra no subtotal de climatização mas vive no grupo `entrada`
+ * e nunca fez parte do `areacomumTotal`. O residual ia negativo pelo valor
+ * exato do device puxado, e o `Math.max(0, …)` mascarava.
+ *
+ * A correção: o **card** continua mostrando o total cheio (é o objetivo do
+ * recurso), mas o **residual** desconta apenas a parcela de origem-base.
+ */
+export function computeBaseGroupResidual(
+  baseGroupTotal: number,
+  subtotals: BreakdownSubtotalInput[],
+): BaseGroupResidual {
+  let subtotalFromBaseGroup = 0;
+  let subtotalCrossGroup = 0;
+  for (const s of subtotals ?? []) {
+    const total = Number(s?.total) || 0;
+    const cross = Number(s?.crossGroupTotal) || 0;
+    // `parent`: quando o card mostra o valor do PAI (cross-group) no lugar da
+    // composição, a parcela de origem-base é a soma dos FILHOS, não `total−cross`
+    // (que daria ~0 porque total==cross). O caller passa essa parcela explícita.
+    const base =
+      s?.baseGroupContribution !== undefined && s?.baseGroupContribution !== null
+        ? Number(s.baseGroupContribution) || 0
+        : total - cross;
+    subtotalFromBaseGroup += base;
+    subtotalCrossGroup += cross;
+  }
+  const residualRaw = (Number(baseGroupTotal) || 0) - subtotalFromBaseGroup;
+  return {
+    subtotalFromBaseGroup,
+    subtotalCrossGroup,
+    residualRaw,
+    residual: Math.max(0, residualRaw),
+    negative: residualRaw < 0,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -553,6 +940,43 @@ export function validateProfile(profile: DeviceClassificationProfile): string[] 
         if (!Array.isArray(r.deviceProfiles)) {
           errors.push(`${domain}.categories.rules["${r?.name}"]: missing deviceProfiles array`);
         }
+        // RFC-0207 (2026-07-23) — `profileContains` passou a ser contrato vivo E
+        // renderizado pelo editor; valida a forma. A chave legada
+        // `combinedContains` é TOLERADA aqui (migrada por normalizeProfile) para
+        // não invalidar perfis já persistidos — resolveActiveProfile valida ANTES
+        // de normalizar.
+        if (r.profileContains !== undefined && !Array.isArray(r.profileContains)) {
+          errors.push(`${domain}.categories.rules["${r?.name}"].profileContains: must be an array`);
+        }
+        if (r.combinedContains !== undefined && !Array.isArray(r.combinedContains)) {
+          errors.push(`${domain}.categories.rules["${r?.name}"].combinedContains: must be an array`);
+        }
+        // RFC-0207 "Dispositivos Específicos" — lista de valores por dispositivo.
+        // Campo OPCIONAL: ausente não gera erro (retrocompat total).
+        if (r.deviceOverrides !== undefined) {
+          if (!Array.isArray(r.deviceOverrides)) {
+            errors.push(
+              `${domain}.categories.rules["${r?.name}"].deviceOverrides: must be an array`,
+            );
+          } else {
+            r.deviceOverrides.forEach((ov, i) => {
+              const where = `${domain}.categories.rules["${r?.name}"].deviceOverrides[${i}]`;
+              if (!ov || typeof ov !== 'object') {
+                errors.push(`${where}: must be an object`);
+                return;
+              }
+              if (!ov.id || typeof ov.id !== 'string' || !ov.id.trim()) {
+                errors.push(`${where}.id: missing device id`);
+              }
+              if (ov.mode !== 'include' && ov.mode !== 'exclude' && ov.mode !== 'parent') {
+                errors.push(`${where}.mode: must be "include", "exclude" or "parent"`);
+              }
+              if (ov.label !== undefined && typeof ov.label !== 'string') {
+                errors.push(`${where}.label: must be a string`);
+              }
+            });
+          }
+        }
       }
       // exactly one fallback across the category family (the 'outros' bucket)
       const inlineFallbacks = catRules.filter((r) => r.fallback === true).length;
@@ -615,12 +1039,46 @@ export function normalizeProfile(raw: DeviceClassificationProfile): DeviceClassi
       }
       for (const r of dom.categories.rules ?? []) {
         r.deviceProfiles = upArr(r.deviceProfiles) ?? [];
-        r.combinedContains = upArr(r.combinedContains);
+        // RFC-0207 (2026-07-23): migração de chave `combinedContains` →
+        // `profileContains`. Os VALORES são preservados 1:1; o que muda é o
+        // texto sobre o qual eles são avaliados (só `deviceProfile` agora, sem
+        // `labelWidget`/`label`). Perfis já persistidos continuam válidos.
+        const _pc = upArr(r.profileContains);
+        const _legacy = upArr(r.combinedContains);
+        if (_pc || _legacy) {
+          const merged = [..._pc ?? [], ..._legacy ?? []];
+          r.profileContains = merged.filter((v, i) => merged.indexOf(v) === i);
+        }
+        delete r.combinedContains;
         if (r.conditional) {
-          r.conditional.deviceTypes = upArr(r.conditional.deviceTypes) ?? [];
+          // Compat: perfis JSON legados usavam a chave "deviceTypes" (que sempre
+          // comparou contra o deviceProfile) — normaliza para deviceProfiles.
+          r.conditional.deviceProfiles =
+            upArr(r.conditional.deviceProfiles) ?? upArr(r.conditional.deviceTypes) ?? [];
+          delete r.conditional.deviceTypes;
           upIdMatch(r.conditional);
         }
         upIdMatch(r.identifierFallback);
+        // RFC-0207 "Dispositivos Específicos": IDs e labels NUNCA são
+        // upper-cased. `id` é um UUID do TB (comparado trim+lowercase, igual a
+        // `excludeDevicesAtCountSubtotalCAG`) e `label` é texto de exibição.
+        // Só entradas estruturalmente sãs sobrevivem; ausência do campo é
+        // preservada como ausência (retrocompat).
+        if (r.deviceOverrides !== undefined) {
+          r.deviceOverrides = (Array.isArray(r.deviceOverrides) ? r.deviceOverrides : [])
+            .filter((ov) => ov && typeof ov === 'object' && String(ov.id ?? '').trim())
+            .map((ov) => {
+              const out: DeviceOverride = {
+                id: String(ov.id).trim(),
+                mode:
+                  ov.mode === 'exclude' ? 'exclude' : ov.mode === 'parent' ? 'parent' : 'include',
+              };
+              if (ov.label !== undefined && ov.label !== null) out.label = String(ov.label);
+              return out;
+            })
+            // dedupe por (id, mode) mantendo a primeira ocorrência
+            .filter((ov, i, arr) => arr.findIndex((o) => o.id === ov.id && o.mode === ov.mode) === i);
+        }
       }
     }
   }

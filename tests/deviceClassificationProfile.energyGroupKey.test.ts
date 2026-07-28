@@ -80,12 +80,14 @@ function delegatedEnergyGroupKey(it: Item): Bucket {
   if (cat === 'elevadores') return 'elevadores';
   if (cat === 'escadas_rolantes') return 'escadasRolantes';
   if (cat === 'lojas') return 'lojas';
-  // cat === 'outros' (genuine fallback). Preserve the legacy "null = not
-  // group-filterable" contract: only 3F_MEDIDOR devices bucket as 'outros';
-  // everything else (water/temperature/uncategorized) stays null → always shown.
-  const dt = String(it.deviceType || '').toUpperCase();
+  // cat === 'outros' (residual do breakdown). Fix 2026-07-24: todo device de
+  // ENERGIA nesta categoria é filtrável como 'outros' (antes só 3F_MEDIDOR, então
+  // bombas/motores/iluminação ficavam null e o card "Outros" não filtrava). Água
+  // (HIDROMETRO/TANK/CAIXA) e temperatura (TERMOSTATO) resolvem para 'outros' no
+  // domínio energy mas não são energia — mantêm o contrato null (sempre visíveis).
   const dp = String(it.deviceProfile || '').toUpperCase();
-  if (dt === '3F_MEDIDOR' || dp === '3F_MEDIDOR') return 'outros';
+  const isWaterOrTemp = /HIDROMETRO|TANK|CAIXA|TERMOSTATO/.test(dp);
+  if (!isWaterOrTemp) return 'outros';
   return null;
 }
 
@@ -106,9 +108,17 @@ const TABLE: { name: string; item: Item; legacy: Bucket; delegated: Bucket; move
   { name: 'escada by ESC- prefix', item: { deviceType: 'X', deviceProfile: 'X', identifier: 'ESC-1' }, legacy: 'escadasRolantes', delegated: 'escadasRolantes', move: false },
   { name: 'escada by profile', item: { deviceType: 'ESCADA_ROLANTE', deviceProfile: 'ESCADA_ROLANTE' }, legacy: 'escadasRolantes', delegated: 'escadasRolantes', move: false },
 
-  // --- null contract: water/temperature/uncategorized stay always-shown ---
+  // --- null contract: water/temperature stay always-shown (não filtráveis por energia) ---
   { name: 'temperature TERMOSTATO', item: { deviceType: 'TERMOSTATO', deviceProfile: 'TERMOSTATO', identifier: 'T-1' }, legacy: null, delegated: null, move: false },
   { name: 'water HIDROMETRO', item: { deviceType: 'HIDROMETRO', deviceProfile: 'HIDROMETRO' }, legacy: null, delegated: null, move: false },
+  { name: 'water TANK', item: { deviceType: 'TANK', deviceProfile: 'TANK' }, legacy: null, delegated: null, move: false },
+
+  // --- FIX 2026-07-24: energy-outros agora é filtrável pelo card "Outros" ---
+  // (antes só 3F_MEDIDOR retornava 'outros'; estes ficavam null → clicar em
+  //  "Outros Equipamentos" não filtrava. legacy null → delegated 'outros' = move.)
+  { name: 'FIX outros BOMBA_HIDRAULICA', item: { deviceType: 'BOMBA_HIDRAULICA', deviceProfile: 'BOMBA_HIDRAULICA' }, legacy: null, delegated: 'outros', move: true },
+  { name: 'FIX outros ILUMINACAO', item: { deviceType: 'ILUMINACAO', deviceProfile: 'ILUMINACAO' }, legacy: null, delegated: 'outros', move: true },
+  { name: 'FIX outros GERADOR', item: { deviceType: 'GERADOR', deviceProfile: 'GERADOR' }, legacy: null, delegated: 'outros', move: true },
 
   // --- intentional MOVES (deviceProfile authority + A1 CAG substring) ---
   // deviceType=TRAFO but deviceProfile=3F_MEDIDOR → profile wins → loja, not entrada.

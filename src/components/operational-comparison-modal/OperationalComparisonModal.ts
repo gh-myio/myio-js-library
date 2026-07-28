@@ -241,7 +241,7 @@ function render(
         display: flex; flex-direction: column; overflow: hidden;
         border: 1px solid ${colors.border};
         border-radius: 12px;
-        font-family: 'Roboto', Arial, sans-serif;
+        font-family: 'Nunito', system-ui, sans-serif;
         box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
       }
       #${modalId} .myio-op-compare-content.maximized {

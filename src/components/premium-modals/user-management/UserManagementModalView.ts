@@ -52,6 +52,39 @@ export class UserManagementModalView {
       onThemeChange: (theme) => { this.backdrop.setAttribute('data-theme', theme); },
       onClose: () => this.close(),
     });
+    // Propaga a paleta do dashboard (createMyIOTheme via window.MyIOUtils.theme)
+    // sobre os tokens --um-* e o cabeçalho — segue o accent do host, sem mexer
+    // no modo light/dark.
+    this.applyThemePalette();
+  }
+
+  // Aplica a paleta do dashboard (window.MyIOUtils.theme: createMyIOTheme OU
+  // mapa plano de --myio-*) no root do modal, sobrepondo --um-accent e o
+  // --modal-header-bg do cabeçalho.
+  private applyThemePalette(): void {
+    const theme =
+      typeof window !== 'undefined'
+        ? (window as { MyIOUtils?: { theme?: { cssVars?(): Record<string, string> } | Record<string, string> } })
+            .MyIOUtils?.theme
+        : undefined;
+    if (!theme) return;
+    const vars =
+      typeof (theme as { cssVars?: () => Record<string, string> }).cssVars === 'function'
+        ? (theme as { cssVars(): Record<string, string> }).cssVars()
+        : (theme as Record<string, string>);
+    if (!vars || typeof vars !== 'object') return;
+
+    const accent = vars['--myio-brand-700'] || vars['--myio-primary'];
+    const accentDark = vars['--myio-brand-600'] || accent;
+    if (accent) {
+      this.backdrop.style.setProperty('--um-accent', accent);
+      this.backdrop.style.setProperty('--um-accent-hover', accentDark);
+      const header = this.modalEl.querySelector('.myio-modal-header') as HTMLElement | null;
+      header?.style.setProperty('--modal-header-bg', accent);
+    }
+    Object.entries(vars).forEach(([k, v]) => {
+      if (k.startsWith('--') && typeof v === 'string') this.backdrop.style.setProperty(k, v);
+    });
   }
 
   destroy(): void {
@@ -442,7 +475,7 @@ export class UserManagementModalView {
 /* ── Component styles (theme-agnostic via variables) ── */
 .um-modal {
   background: var(--um-modal-bg);
-  font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Nunito', system-ui, sans-serif;
   border-radius: 14px; width: 96vw; max-width: 1200px;
   --modal-header-radius: 14px 14px 0 0;
   height: 84vh; display: flex; flex-direction: column;
@@ -586,7 +619,7 @@ export class UserManagementModalView {
   background: var(--um-modal-bg); border: 1px solid var(--um-border);
   border-radius: 10px; box-shadow: 0 8px 32px rgba(0,0,0,0.2);
   width: 260px; pointer-events: none;
-  font-family: 'Nunito', -apple-system, sans-serif;
+  font-family: 'Nunito', system-ui, sans-serif;
 }
 .um-sync-tooltip-header {
   display: flex; align-items: center; gap: 7px;
@@ -612,7 +645,7 @@ export class UserManagementModalView {
   background: var(--um-modal-bg); border: 1px solid var(--um-border);
   border-radius: 10px; box-shadow: 0 8px 32px rgba(0,0,0,0.18);
   width: 320px; max-height: 340px; overflow-y: auto;
-  font-family: 'Nunito', -apple-system, sans-serif;
+  font-family: 'Nunito', system-ui, sans-serif;
 }
 .um-assign-popup-header {
   display: flex; align-items: center; justify-content: space-between;

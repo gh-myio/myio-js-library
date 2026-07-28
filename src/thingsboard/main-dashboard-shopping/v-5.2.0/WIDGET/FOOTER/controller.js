@@ -44,23 +44,24 @@ function injectCSS() {
    MYIO Footer - Premium Design System
    ========================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 .myio-footer {
-  /* Design Tokens - Purple Theme */
-  --color-primary: #9E8CBE;
-  --color-primary-hover: #B8A5D6;
-  --color-primary-dark: #8472A8;
-  --color-background: #0f1419;
-  --color-surface: #1a1f28;
-  --color-surface-elevated: #242b36;
-  --color-text-primary: #ffffff;
-  --color-text-secondary: rgba(255, 255, 255, 0.7);
+  /* Design Tokens — fundo VERDE SÓLIDO do primary do dashboard, idêntico ao
+     header/tabs da modal de Metas (.gm-header/.gm-tabs = var(--myio-brand-700)),
+     orquestrado pela MAIN via createMyIOTheme. Conteúdo branco. Fallback = roxo. */
+  --color-primary: var(--myio-brand-700, #9E8CBE);
+  --color-primary-hover: var(--myio-brand-700, #B8A5D6);
+  --color-primary-dark: var(--myio-brand-600, #8472A8);
+  --color-background: var(--myio-brand-700, #3e1a7d);
+  --color-surface: rgba(255, 255, 255, 0.1);
+  --color-surface-elevated: rgba(255, 255, 255, 0.16);
+  --color-text-primary: var(--myio-accent-text, #ffffff);
+  --color-text-secondary: rgba(255, 255, 255, 0.75);
   --color-text-tertiary: rgba(255, 255, 255, 0.5);
-  --color-border: rgba(255, 255, 255, 0.08);
-  --color-error: #ff4444;
+  --color-border: rgba(255, 255, 255, 0.18);
+  --color-error: #ff6b6b;
 
-  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-family: 'Nunito', system-ui, sans-serif;
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
   --radius-sm: 6px;
@@ -80,24 +81,27 @@ function injectCSS() {
   padding: 0 18px;
   box-sizing: border-box;
 
-  /* Visual */
+  /* Visual — VERDE SÓLIDO do primary (mesmo do header/tabs da modal de Metas).
+     !important + backdrop-filter:none vencem a folha "Style" deployada (gradiente
+     escuro rgba(26,31,40,.98) de maior especificidade) — era isso que causava os
+     "dois fundos interlaçados". */
   font-family: var(--font-family);
   color: var(--color-text-primary);
-  background: linear-gradient(
-    180deg,
-    rgba(158, 140, 190, 0.95) 0%,
-    rgba(132, 114, 168, 0.98) 100%
-  );
-  border-top: 2px solid rgba(184, 165, 214, 0.5);
-  box-shadow:
-    var(--shadow-lg),
-    0 -2px 24px rgba(158, 140, 190, 0.3);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  background: var(--myio-brand-700, #3e1a7d) !important;
+  border-top: none !important;
+  box-shadow: 0 -4px 18px rgba(15, 23, 42, 0.14);
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 .myio-dock {
-  flex: 1;
+  /* !important vence uma folha "Style" antiga deployada no TB que setava
+     .myio-dock/.myio-right { width:100% }, o que colapsava o dock (chips) para
+     ~16px e escondia os labels dos devices selecionados. min-width:0 é o que
+     permite o overflow-x:auto funcionar dentro do flex. */
+  flex: 1 1 auto !important;
+  width: auto !important;
+  min-width: 0 !important;
   display: flex;
   align-items: center;
   gap: 16px;
@@ -108,7 +112,7 @@ function injectCSS() {
   padding-left: 8px;
   padding-right: 8px;
   scrollbar-width: thin;
-  scrollbar-color: rgba(158, 140, 190, 0.6) transparent;
+  scrollbar-color: color-mix(in srgb, var(--myio-brand-700, #9E8CBE) 60%, transparent) transparent;
 }
 
 .myio-dock::-webkit-scrollbar {
@@ -116,27 +120,27 @@ function injectCSS() {
 }
 
 .myio-dock::-webkit-scrollbar-track {
-  background: rgba(158, 140, 190, 0.08);
+  background: color-mix(in srgb, var(--myio-brand-700, #9E8CBE) 8%, transparent);
   border-radius: 3px;
 }
 
 .myio-dock::-webkit-scrollbar-thumb {
   background: linear-gradient(90deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
   border-radius: 3px;
-  box-shadow: 0 0 8px rgba(158, 140, 190, 0.4);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--myio-brand-700, #9E8CBE) 40%, transparent);
 }
 
 .myio-chip {
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 5px 10px;
-  height: 34px;
+  gap: 6px;
+  padding: 2px 8px;
+  height: 28px;
   flex-shrink: 0;
-  background: linear-gradient(135deg, rgba(158, 140, 190, 0.25) 0%, rgba(158, 140, 190, 0.15) 100%);
-  border: 1px solid rgba(184, 165, 214, 0.4);
-  border-radius: var(--radius-md);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--radius-sm);
+  box-shadow: none;
   white-space: nowrap;
   cursor: default;
   transition: var(--transition);
@@ -151,37 +155,39 @@ function injectCSS() {
 }
 
 .myio-chip:hover {
-  background: linear-gradient(135deg, rgba(158, 140, 190, 0.35) 0%, rgba(158, 140, 190, 0.25) 100%);
-  border-color: rgba(184, 165, 214, 0.6);
-  box-shadow: 0 6px 16px rgba(158, 140, 190, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15);
-  transform: translateY(-3px);
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.32);
+  box-shadow: none;
+  transform: translateY(-2px);
 }
 
 .myio-chip-content {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 0;
+  line-height: 1.15;
   min-width: 0;
   flex-shrink: 0;
 }
 
 .myio-chip-name {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 600;
-  color: #ffffff;
-  letter-spacing: -0.02em;
+  color: rgba(255, 255, 255, 0.92);
+  letter-spacing: 0;
+  text-transform: uppercase;
   overflow: hidden;
   text-overflow: ellipsis;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  text-shadow: none;
 }
 
 .myio-chip-value {
-  font-size: 12px;
-  font-weight: 700;
-  color: #ffffff;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--color-text-primary);
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  letter-spacing: -0.01em;
+  text-shadow: none;
 }
 
 .myio-chip-remove {
@@ -189,13 +195,13 @@ function injectCSS() {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 16px;
+  height: 16px;
   padding: 0;
-  margin-left: 5px;
+  margin-left: 3px;
   flex-shrink: 0;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.04) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: transparent;
+  border: none;
   border-radius: 4px;
   color: rgba(255, 255, 255, 0.6);
   cursor: pointer;
@@ -204,18 +210,16 @@ function injectCSS() {
 }
 
 .myio-chip-remove:hover {
-  background: linear-gradient(135deg, rgba(255, 68, 68, 0.25) 0%, rgba(255, 68, 68, 0.15) 100%);
-  border-color: rgba(255, 68, 68, 0.5);
-  color: #ff4444;
-  transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(255, 68, 68, 0.3);
+  background: rgba(255, 107, 107, 0.22);
+  color: #ffffff;
+  transform: scale(1.1);
 }
 
 .myio-chip-remove svg {
   position: relative;
   z-index: 1;
-  width: 16px;
-  height: 16px;
+  width: 12px;
+  height: 12px;
   stroke-width: 2.5;
   stroke-linecap: round;
 }
@@ -226,19 +230,23 @@ function injectCSS() {
   font-weight: 600;
   padding: 12px 24px;
   opacity: 0.9;
-  background: linear-gradient(135deg, rgba(158, 140, 190, 0.15) 0%, transparent 100%);
-  border: 1px dashed rgba(184, 165, 214, 0.4);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--myio-brand-700, #9E8CBE) 15%, transparent) 0%, transparent 100%);
+  border: 1px dashed color-mix(in srgb, var(--myio-brand-700, #B8A5D6) 40%, transparent);
   border-radius: var(--radius-md);
-  text-shadow: 0 0 8px rgba(158, 140, 190, 0.3);
+  text-shadow: 0 0 8px color-mix(in srgb, var(--myio-brand-700, #9E8CBE) 30%, transparent);
   animation: pulseGlow 2s ease-in-out infinite;
 }
 
 @keyframes pulseGlow {
-  0%, 100% { opacity: 0.7; box-shadow: 0 0 0 rgba(158, 140, 190, 0.3); }
-  50% { opacity: 1; box-shadow: 0 0 16px rgba(158, 140, 190, 0.3); }
+  0%, 100% { opacity: 0.7; box-shadow: 0 0 0 color-mix(in srgb, var(--myio-brand-700, #9E8CBE) 30%, transparent); }
+  50% { opacity: 1; box-shadow: 0 0 16px color-mix(in srgb, var(--myio-brand-700, #9E8CBE) 30%, transparent); }
 }
 
 .myio-right {
+  /* Bloco direito (seleção + comparar) sizes-to-content. width:auto !important
+     neutraliza o width:100% da folha "Style" antiga, devolvendo o espaço ao dock. */
+  width: auto !important;
+  flex: 0 0 auto !important;
   display: flex;
   align-items: center;
   gap: 20px;
@@ -262,8 +270,8 @@ function injectCSS() {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, rgba(158, 140, 190, 0.18) 0%, rgba(158, 140, 190, 0.10) 100%);
-  border: 1px solid rgba(184, 165, 214, 0.4);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--myio-brand-700, #9E8CBE) 18%, transparent) 0%, color-mix(in srgb, var(--myio-brand-700, #9E8CBE) 10%, transparent) 100%);
+  border: 1px solid color-mix(in srgb, var(--myio-brand-700, #B8A5D6) 40%, transparent);
   border-radius: var(--radius-md);
   color: var(--color-text-primary);
   cursor: pointer;
@@ -277,8 +285,8 @@ function injectCSS() {
 }
 
 .myio-dock-scroll-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, rgba(158, 140, 190, 0.32) 0%, rgba(158, 140, 190, 0.20) 100%);
-  border-color: rgba(184, 165, 214, 0.6);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--myio-brand-700, #9E8CBE) 32%, transparent) 0%, color-mix(in srgb, var(--myio-brand-700, #9E8CBE) 20%, transparent) 100%);
+  border-color: color-mix(in srgb, var(--myio-brand-700, #B8A5D6) 60%, transparent);
   transform: translateY(-1px);
 }
 
@@ -295,26 +303,26 @@ function injectCSS() {
   gap: 0px;
   padding: 4px 9px;
   min-width: 100px;
-  background: linear-gradient(135deg, rgba(158, 140, 190, 0.15) 0%, rgba(158, 140, 190, 0.08) 100%);
-  border: 1px solid rgba(184, 165, 214, 0.3);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: var(--radius-md);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .myio-meta-title {
   font-size: 10px;
-  font-weight: 700;
-  color: var(--color-text-primary);
+  font-weight: 800;
+  color: var(--color-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  text-shadow: 0 0 8px rgba(158, 140, 190, 0.4);
+  text-shadow: none;
 }
 
 #myioTotals {
   font-size: 11px;
   font-weight: 700;
   color: var(--color-text-primary);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  text-shadow: none;
 }
 
 .myio-clear-btn {
@@ -324,19 +332,19 @@ function injectCSS() {
   width: 32px;
   height: 32px;
   padding: 0;
-  background: linear-gradient(135deg, rgba(200, 200, 200, 0.2) 0%, rgba(200, 200, 200, 0.1) 100%);
-  border: 1px solid rgba(200, 200, 200, 0.3);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: var(--radius-md);
-  color: #cccccc;
+  color: rgba(255, 255, 255, 0.75);
   cursor: pointer;
   transition: var(--transition);
 }
 
 .myio-clear-btn:hover {
-  background: linear-gradient(135deg, rgba(200, 200, 200, 0.3) 0%, rgba(200, 200, 200, 0.2) 100%);
-  border-color: rgba(200, 200, 200, 0.5);
+  background: rgba(255, 107, 107, 0.22);
+  border-color: rgba(255, 107, 107, 0.45);
+  color: #ffffff;
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(200, 200, 200, 0.3);
 }
 
 .myio-clear-btn:disabled {
@@ -373,19 +381,19 @@ function injectCSS() {
   font-weight: 700;
   letter-spacing: -0.01em;
   text-transform: uppercase;
-  background: #3E1A7D;
+  background: #ffffff;
   border: none;
   border-radius: var(--radius-md);
-  color: var(--color-text-primary);
+  color: var(--myio-brand-700, #3E1A7D);
   cursor: pointer;
   overflow: hidden;
-  box-shadow: 0 0 0 1px rgba(62, 26, 125, 0.5), 0 4px 16px rgba(62, 26, 125, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.18);
   transition: var(--transition);
 }
 
 .myio-compare:hover {
-  background: linear-gradient(135deg, #5A2CB8 0%, #3E1A7D 100%);
-  box-shadow: 0 0 0 1px rgba(62, 26, 125, 0.7), 0 6px 24px rgba(62, 26, 125, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--myio-brand-700, #3E1A7D) 82%, #fff) 0%, var(--myio-brand-700, #3E1A7D) 100%);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--myio-brand-700, #3E1A7D) 70%, transparent), 0 6px 24px color-mix(in srgb, var(--myio-brand-700, #3E1A7D) 60%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.3);
   transform: translateY(-2px);
 }
 
@@ -458,8 +466,8 @@ function injectCSS() {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #3E1A7D 0%, #2D1359 100%);
-  border: 2px solid #3E1A7D;
+  background: linear-gradient(135deg, var(--myio-brand-700, #3E1A7D) 0%, color-mix(in srgb, var(--myio-brand-700, #3E1A7D) 82%, #000) 100%);
+  border: 2px solid var(--myio-brand-700, #3E1A7D);
   border-radius: 50%;
   color: #ffffff;
   font-size: 32px;
@@ -490,18 +498,18 @@ function injectCSS() {
   font-size: 15px;
   font-weight: 700;
   text-transform: uppercase;
-  background: linear-gradient(135deg, #3E1A7D 0%, #2D1359 100%);
+  background: linear-gradient(135deg, var(--myio-brand-700, #3E1A7D) 0%, color-mix(in srgb, var(--myio-brand-700, #3E1A7D) 82%, #000) 100%);
   border: none;
   border-radius: 12px;
   color: #ffffff;
   cursor: pointer;
-  box-shadow: 0 4px 16px rgba(62, 26, 125, 0.4);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--myio-brand-700, #3E1A7D) 40%, transparent);
   transition: var(--transition);
 }
 
 .myio-alert-button:hover {
-  background: linear-gradient(135deg, #4E2A9D 0%, #3E1A7D 100%);
-  box-shadow: 0 6px 24px rgba(62, 26, 125, 0.5);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--myio-brand-700, #3E1A7D) 88%, #fff) 0%, var(--myio-brand-700, #3E1A7D) 100%);
+  box-shadow: 0 6px 24px color-mix(in srgb, var(--myio-brand-700, #3E1A7D) 50%, transparent);
   transform: translateY(-2px);
 }
     `;
@@ -567,6 +575,7 @@ const footerController = {
     LogHelper.log('[MyIO Footer] Using ThingsBoard template.html (not mounting manually)');
 
     this.queryDOMElements(); // Consultar elementos do template.html
+    this.applyThemeVars(); // Paleta do dashboard (window.MyIOUtils.theme) → CSS vars
     LogHelper.log('[MyIO Footer] DOM elements queried:', {
       dock: !!this.$dock,
       totals: !!this.$totals,
@@ -641,6 +650,41 @@ const footerController = {
       $compareBtn: this.$compareBtn,
       $dockScroll: !!this.$dockScroll,
     });
+  },
+
+  /**
+   * Aplica a paleta do dashboard ao chrome do FOOTER.
+   *
+   * Lê `window.MyIOUtils.theme` (produzido por `createMyIOTheme` na MAIN_VIEW) e
+   * seta as CSS vars `--myio-*` (via `theme.cssVars()`) no root do widget. Os
+   * literais de accent do CSS usam `var(--myio-brand-*, <cor atual>)`, então sem
+   * theme (lib/createMyIOTheme indisponível) o footer permanece IGUAL a hoje.
+   * Não interfere no `theme: 'light'` (modo claro/escuro) passado às modais.
+   */
+  applyThemeVars() {
+    try {
+      const theme = window.MyIOUtils?.theme;
+      if (!theme || typeof theme.cssVars !== 'function') return;
+      const vars = theme.cssVars();
+      if (!vars) return;
+      // Seta nas raízes do footer (o container do widget e a section .myio-footer).
+      // O overlay de alerta é anexado ao document.body e herda as vars que a
+      // MAIN_VIEW já aplica em document.documentElement.
+      const targets = [this.$root, this.$footerEl].filter(Boolean);
+      targets.forEach((el) => {
+        Object.entries(vars).forEach(([k, v]) => {
+          if (k && k.startsWith('--') && typeof v === 'string') {
+            el.style.setProperty(k, v);
+          }
+        });
+      });
+      LogHelper.log('[MyIO Footer] Theme palette applied:', {
+        accent: theme.accent,
+        mode: theme.mode,
+      });
+    } catch (err) {
+      LogHelper.warn('[MyIO Footer] applyThemeVars failed:', err);
+    }
   },
 
   /**
@@ -731,8 +775,10 @@ const footerController = {
       displayValue = totalValue / validValuesCount;
     }
 
-    // Formata o valor usando formatação brasileira
-    const totals = this._formatValue(displayValue);
+    // RFC-0108: formata o total/média respeitando as preferências de medida do
+    // usuário (kWh→MWh, m³→L, °C→°F), igual ao TELEMETRY. Já retorna com unidade.
+    const totalsUnit = selected.find((e) => e && e.unit)?.unit;
+    const totals = this._formatValueWithUnit(displayValue, detectedType, totalsUnit);
 
     LogHelper.log('[MyIO Footer] Rendering dock:', {
       count,
@@ -779,9 +825,11 @@ const footerController = {
 
           const value = document.createElement('span');
           value.className = 'myio-chip-value';
-          // Formata o valor com unidade
-          const formattedValue = ent.lastValue
-            ? `${this._formatValue(ent.lastValue)} ${ent.unit || ''}`.trim()
+          // RFC-0108: formata respeitando as preferências de medida do usuário
+          // (kWh→MWh, m³→L, °C→°F) via _formatValueWithUnit — já vem com unidade.
+          const chipUnitType = ent.icon || this.currentUnitType;
+          const formattedValue = typeof ent.lastValue === 'number'
+            ? this._formatValueWithUnit(ent.lastValue, chipUnitType, ent.unit)
             : 'Sem dados';
           value.textContent = formattedValue;
 
@@ -904,7 +952,7 @@ const footerController = {
   },
 
   /**
-   * Formata valores numéricos para exibição
+   * Formata valores numéricos para exibição (fallback pt-BR, SEM unidade)
    */
   _formatValue(value) {
     if (typeof value !== 'number' || isNaN(value)) return '0';
@@ -919,6 +967,38 @@ const footerController = {
 
     // Para valores pequenos, mostra até 2 casas decimais
     return value.toFixed(2).replace(/\.?0+$/, '');
+  },
+
+  /**
+   * RFC-0108: Formata um valor JÁ COM UNIDADE, respeitando as preferências de
+   * medida do usuário (window.MyIOUtils.*WithSettings), exatamente como o widget
+   * TELEMETRY. O formatador de preferências já converte ≥ 1000 kWh → MWh, m³→L,
+   * °C→°F conforme a configuração, e já anexa a unidade — por isso NÃO se deve
+   * concatenar `ent.unit` novamente ao usar este caminho.
+   *
+   * @param {number} value    Valor numérico bruto (kWh, m³, °C, ...)
+   * @param {string} unitType Tipo detectado do footer: 'energy' | 'water' | 'temperature' | 'tank' | ...
+   * @param {string} rawUnit  Unidade crua da entidade (usada só no fallback)
+   * @returns {string} Valor formatado com unidade (ex.: "172,335 MWh")
+   */
+  _formatValueWithUnit(value, unitType, rawUnit) {
+    if (typeof value !== 'number' || isNaN(value)) {
+      return `${this._formatValue(value)} ${rawUnit || ''}`.trim();
+    }
+
+    const U = window.MyIOUtils;
+    if (unitType === 'energy' && typeof U?.formatEnergyWithSettings === 'function') {
+      return U.formatEnergyWithSettings(value);
+    }
+    if (unitType === 'water' && typeof U?.formatWaterWithSettings === 'function') {
+      return U.formatWaterWithSettings(value);
+    }
+    if (unitType === 'temperature' && typeof U?.formatTemperatureWithSettings === 'function') {
+      return U.formatTemperatureWithSettings(value);
+    }
+
+    // Fallback (tank/desconhecido, ou MyIOUtils indisponível): número pt-BR + unidade crua.
+    return `${this._formatValue(value)} ${rawUnit || ''}`.trim();
   },
 
   /**
@@ -1186,6 +1266,11 @@ const footerController = {
     // 6. Evento de mudança de aba no MENU (limpa seleção ao trocar entre energy/water/tank)
     window.addEventListener('myio:dashboard-state', this.boundDashboardStateChange);
     LogHelper.log('[MyIO Footer] Registered listener for myio:dashboard-state (tab change from MENU)');
+
+    // 7. RFC-0108: re-renderiza chips/totais quando o usuário altera as
+    // preferências de medida no MENU (mesmo comportamento do TELEMETRY).
+    window.addEventListener('myio:measurement-settings-updated', this.boundRenderDock);
+    LogHelper.log('[MyIO Footer] Registered listener for myio:measurement-settings-updated (RFC-0108)');
   },
 
   /**
@@ -1622,6 +1707,11 @@ const footerController = {
     // 3. Remove listener do evento de mudança de aba do MENU
     if (this.boundDashboardStateChange) {
       window.removeEventListener('myio:dashboard-state', this.boundDashboardStateChange);
+    }
+
+    // 3b. RFC-0108: remove listener de alteração de preferências de medida
+    if (this.boundRenderDock) {
+      window.removeEventListener('myio:measurement-settings-updated', this.boundRenderDock);
     }
 
     // 3. Limpa conteúdo (mas não remove elementos, pois são do template.html do ThingsBoard)

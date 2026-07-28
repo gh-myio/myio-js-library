@@ -38,7 +38,7 @@ export const BAS_DASHBOARD_STYLES = `
   flex-direction: column;
   width: 100%;
   height: 100%;
-  font-family: 'Roboto', 'Segoe UI', sans-serif;
+  font-family: 'Nunito', system-ui, sans-serif;
   overflow: hidden;
   background: var(--bas-bg-main);
   color: var(--bas-text-primary);

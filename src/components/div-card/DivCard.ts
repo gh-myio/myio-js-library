@@ -90,7 +90,7 @@ function injectStyles(): void {
   const s = document.createElement('style');
   s.id = STYLE_ID;
   s.textContent = `
-  .myio-divcard { box-sizing: border-box; font-family: 'Nunito', sans-serif; border: 1px solid #e2e8f0;
+  .myio-divcard { box-sizing: border-box; font-family: 'Nunito', system-ui, sans-serif; border: 1px solid #e2e8f0;
     border-radius: 10px; overflow: hidden; margin-bottom: 10px; background: #fff; }
   .myio-divcard * { box-sizing: border-box; }
   .myio-divcard__head { display: flex; align-items: center; gap: 8px; padding: 8px 12px;

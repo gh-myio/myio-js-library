@@ -2,9 +2,12 @@
 
 - **RFC**: 0207
 - **Title**: Customer-Scoped Device Classification Profile (SERVER_SCOPE JSON + MENU management modal)
-- **Status**: Implemented (v1) — A0/A1/A1b (single-source resolver + bug #1/#2 fixes, golden-tested) + Phase B (customer SERVER_SCOPE attribute load in MAIN_VIEW.onInit + premium MENU management modal `openDeviceProfileModal`). Branch `feat/rfc-0207-b-attribute-and-menu` → PR to `desenv`.
-  **+ v2 redesign — PROPOSED (2026-06-23)**: fully configurable group/subcategory **tree** (create groups at will, nest subcategories, config-driven labels, unique allocation, UPPERCASE, predefined deviceProfile catalog, computed residual/total nodes). See **§ Addendum — RFC-0207 v2**.
-  **+ v3 FINAL — COMPILED (2026-06-23)**: the **engine/tree seam** + **swappable `ProfileSource`** + **locked responsibility split** (lib × MAIN_VIEW × GCDR). Consolidates the full feedback series (GCDR v1→v5 + MyIO-Lib v4) and **absorbs the standalone `RFC-0207-v3` file and the feedback/reconciliation docs (now removed)**. See **§ Addendum — RFC-0207 v3 (FINAL, compiled)** at the end — this is the canonical design to implement. The v1 sections describe what shipped; v2 gives the tree schema; v3 is the final contract.
+- **Status** *(revisado contra o código em 2026-07-23 — ver § Estado verificado e § Implementação 2026-07-23)*:
+  - **v1 — Implemented.** A0/A1/A1b: resolver único (`resolveGroup`/`resolveCategory`), correções dos bugs #1/#2, golden-tested.
+  - **Phase B — Implemented (store = TB SERVER_SCOPE).** Load **e** save operacionais, ambos no MAIN_VIEW e contra a mesma chave (`deviceClassificationProfile`, SERVER_SCOPE do customer). `window.MyIOOrchestrator.saveDeviceClassificationProfile` existe. Ver § Implementação 2026-07-23 → D-1.
+  - **v2 — PARCIALMENTE implementado (motor pronto, produção ainda no v1).** A árvore recursiva, o walker genérico group-generic, a migração v1→v2 e a validação de invariantes existem e são golden-tested (`src/utils/devices/classificationNodeTree.ts`). O caminho que o dashboard **executa** continua sendo o par `resolveGroup`/`resolveCategory` (`schemaVersion: 1`) — a troca é um passo separado, com sua própria fronteira de reversão, porque **não é equivalente** (ver D-4). O editor do modal ainda edita o modelo plano.
+  - **v3.1 — Implemented.** `ProfileSource` + `BakedProfileSource` versionado + cadeia de degradação testada por fault injection + `TbAttributeProfileSource`/`GcdrResolveProfileSource` no MAIN_VIEW + goldens key-parity e order-sensitivity.
+  - **v3.2 — DESIGN ONLY.** A mecânica HTTP do `GcdrResolveProfileSource` (304/versionamento/cache) está implementada atrás de flag **desligada**; o **adaptador `entities ↔ ClassificationNode`** e o save via `/entities/bulk-replace` **não estão** — dependem do trabalho de backend que o próprio §v3.2-G lista. Ver D-2.
 - **Author**: Rodrigo Lago
 - **Created**: 2026-06-18
 - **Target**: `src/thingsboard/main-dashboard-shopping/v-5.2.0/WIDGET/` (MAIN_VIEW, MENU, TELEMETRY, TELEMETRY_INFO) + `src/utils/`
@@ -14,6 +17,238 @@
   - RFC-0128 — energy equipment subcategorization (`src/utils/equipmentCategory.js`).
   - RFC-0200 — `deviceIcons` shared device-type map (precedent for "shared config map").
   - `integration_setup` customer SERVER_SCOPE attribute (precedent for customer-scoped JSON config; see `MENU`/`GCDR-Upsell-Setup`).
+
+---
+
+## Estado verificado (auditoria 2026-07-23)
+
+> Auditoria do documento contra o código, disparada por um bug real em produção (bomba
+> hidráulica classificada como climatização no Moxuara). **Absorve e substitui** os arquivos
+> `…-feedback-v1.md` e `…-feedback-v2.md`, ambos removidos — seguindo a convenção deste RFC
+> de consolidar a série de feedback no documento canônico.
+>
+> **Tese:** o RFC mistura três estados no mesmo arquivo — o que foi entregue (v1), o que está
+> pela metade (Phase B) e o que é projeto (v2/v3/v3.2). O campo `Status` do topo induzia o
+> leitor a crer que a gestão de perfil já operava ponta a ponta. O `Status` foi corrigido acima;
+> os quatro achados abaixo registram as evidências.
+
+### Achado 1 — a persistência não existe (Phase B está pela metade) · **Alta**
+
+O `Status` declarava a Phase B entregue, e o bloco de *implementation status* descrevia o modal
+como `view/edit/preview/save`. O **load** existe; o **save** não está conectado.
+
+- `MAIN_VIEW` carrega `attrs.deviceClassificationProfile`, normaliza via `setActiveProfile`,
+  publica em `window.MyIOUtils.deviceClassificationProfile` e degrada para o DEFAULT em erro.
+  — `src/thingsboard/main-dashboard-shopping/v-5.2.0/WIDGET/MAIN_VIEW/controller.js:2017`
+- O `MENU` delega o save a `window.MyIOOrchestrator?.saveDeviceClassificationProfile`.
+  — `src/thingsboard/main-dashboard-shopping/v-5.2.0/WIDGET/MENU/controller.js:824`
+- Esse método **não é definido em lugar nenhum** do repositório — só consumido (MENU v-5.2.0 e
+  controller v-5.4.0). Verificado em runtime no dashboard do Moxuara:
+  `typeof window.MyIOOrchestrator.saveDeviceClassificationProfile === 'undefined'`, e zero
+  métodos do orchestrator casando `/save|profile|classif/i`.
+- Consequência: clicar em "Salvar perfil" lança
+  `Persistência do perfil indisponível: MAIN_VIEW.saveDeviceClassificationProfile (GCDR) não conectado.`
+  (`MENU/controller.js:826`). **A tela é, na prática, um visualizador com preview ao vivo.**
+
+O próprio RFC já reconhecia a pendência, enterrada no addendum v3.2:
+
+> `Pendente: MAIN_VIEW implementar load (lazy por aba no modal; todos os domínios no boot do dashboard) + save por domínio contra o RFC-0047.`
+
+### Achado 2 — store ambíguo: o código lê TB SERVER_SCOPE; a decisão final é GCDR · **Alta**
+
+O addendum v3.2 decide que o store passa a ser o GCDR/RFC-0047, não TB `SERVER_SCOPE`. O código
+atual ainda carrega de `attrs.deviceClassificationProfile` (atributo de customer no ThingsBoard).
+
+- **Estado implementado:** load por TB `SERVER_SCOPE`, sem persistência conectada.
+- **Decisão futura (v3.2):** GCDR `/entities/resolve` como store canônico.
+- **Trabalho restante:** `GcdrResolveProfileSource` + `saveDeviceClassificationProfile` em
+  `MAIN_VIEW`, com 304/cache/versionamento/409 conforme RFC-0047.
+
+Evidência de campo de que o load por SERVER_SCOPE está ativo e é **exclusivo** (não faz merge com
+o DEFAULT — `resolveActiveProfile` **substitui**, `deviceClassificationProfile.ts:647`):
+
+| Customer | `deviceClassificationProfile` no SERVER_SCOPE | Perfil efetivo |
+|---|---|---|
+| Moxuara | ausente | DEFAULT do `.ts` |
+| Mestre Álvaro | presente | JSON próprio (`climatizacao: deviceProfiles ["FANCOIL"]`) |
+
+Consequência operacional: corrigir o DEFAULT no código **não alcança** clientes que já têm JSON.
+
+### Achado 3 — `combinedContains` é contrato vivo no motor, mas inalcançável por qualquer editor · **Alta**
+
+O modal renderiza **exatamente três** campos por regra de categoria, e nenhum é `combinedContains`:
+
+- `openDeviceProfileModal.ts:347` — `cat-${i}-dp` (deviceProfile)
+- `openDeviceProfileModal.ts:348` — `cat-${i}-idc` (identifier contém)
+- `openDeviceProfileModal.ts:349` — `cat-${i}-idp` (identifier prefixo)
+
+Existe um handler de mutação para a chave `cc` (`openDeviceProfileModal.ts:424`), mas **nenhum
+elemento com essa chave é renderizado** — é código inalcançável. O texto de ajuda do próprio card
+confirma o desenho: *"(precedência): 1) deviceProfile exato; 2) identifier contém/prefixo."*
+(`:343`).
+
+Enquanto isso o motor declara, semeia e **avalia** o campo normalmente:
+tipo em `deviceClassificationProfile.ts:108`; seed em `:197` (elevadores), `:208` (escadas),
+`:226` (climatização); avaliação no Pass 2 em `:463-465`.
+
+**Isso corrobora — não refuta — a tese do vocabulário v3:** os três campos renderizados coincidem
+exatamente com as *bounded rule kinds* da §A (`deviceProfiles` / `identifierExact|Contains|Prefixes`),
+que **excluem** `combinedContains`. O editor foi escrito para o contrato futuro enquanto o motor
+executa o contrato atual.
+
+**Por que é Alta.** Foi precisamente nessa fresta que ficaram `BOMBA_HIDRAULICA` e
+`BOMBASHIDRAULICAS` no `combinedContains` de climatização, classificando bomba hidráulica como
+climatização **sem nenhum caminho pela UI** para diagnosticar ou corrigir — só lendo o fonte da lib.
+Corrigido em `14ad6257` (removidas as duas strings do seed).
+
+Agrava o quadro um **laço circular** descoberto na mesma auditoria: `combinedOf` inclui
+`labelWidget` (`:331-333`), que é a **saída anterior do próprio classificador**. Um item carimbado
+"Climatização" volta a casar com o padrão `CLIMATIZA` e se auto-sustenta, independentemente do
+`deviceProfile`. Verificado em runtime no Moxuara:
+
+```
+combined = "CLIMATIZAÇÃO BOMBA_HIDRAULICA BOMBA HIDRÁULICA 5 L2"
+           ^^^^^^^^^^^^ labelWidget do próprio item
+matchedBy: "combined"   patternsQueBatem: ["CLIMATIZA"]
+```
+
+**Resolver o campo sem resolver o laço não fecha a classe de bug.**
+
+### Achado 4 — goldens da §F: caso da bomba fechado no motor v1; key-parity e order-sensitivity seguem ausentes · **Baixa**
+
+A §F lista como obrigatório um golden chamado literalmente **`bomba-not-incêndio`**. Ele não
+existia. Foi escrito em `14ad6257` (2026-07-23), junto com a correção:
+
+- `BOMBA_HIDRAULICA` → `outros` — `tests/deviceClassificationProfile.buildsummary.test.ts:236`
+- `BOMBA_INCENDIO` → `outros` — mesmo teste
+- `BOMBA_CAG` → `climatizacao` — `tests/deviceClassificationProfile.buildsummary.test.ts:244`
+
+Os outros dois foram escritos junto com os artefatos v3 de que dependiam
+(§ Implementação 2026-07-23):
+
+- ✅ **key-parity** (`keys(engine) === keys(baked)`) — `tests/deviceClassificationProfile.keyParity.test.ts`,
+  reconciliado pelo arquivo commitado `src/utils/devices/bakedProfile.generated.ts`, **nunca por rede**.
+  A terceira perna (`=== GCDR is_system keys`) entra na v3.2, pelo mesmo mecanismo de arquivo.
+- ✅ **order-sensitivity** (o fallback nunca sombreia um irmão real) —
+  `tests/deviceClassificationProfile.treeWalker.test.ts`, sobre a árvore v2 com `order` inteiro
+  explícito por nó. Cobre também "a ordem do array não decide nada" e a rejeição, por
+  `validateTree`, de um fallback que não seja o maior `order` do nível.
+
+O mesmo commit trouxe os oráculos legados do `buildsummary.test.ts` de volta à realidade da fonte
+(o `deviceType` saiu do `combinedOf` em 2026-07-14 e o teste nunca acompanhou, ficando vermelho em
+2 asserções desde então).
+
+### Backlog
+
+1. ✅ **Fechar a Phase B de verdade** — feito. `saveDeviceClassificationProfile` implementado no
+   `MAIN_VIEW`. Ver § Implementação 2026-07-23 → **D-1**.
+2. ✅ **Escolher e documentar o store de transição** — **TB `SERVER_SCOPE` até a v3.2**, com load e
+   save simétricos. Ver **D-1**.
+3. ✅ **Resolver o contrato de regras** — `combinedContains` foi **exposto** (renomeado
+   `profileContains`, campo renderizado no modal), e o laço circular do `labelWidget` morreu no mesmo
+   lote com a eliminação do texto combinado. Migração device-a-device em
+   `tests/deviceClassificationProfile.profileContains.test.ts`. Ver **D-3**.
+4. ⬜ **Separar RFC implementado de RFC futuro** — **não feito** (decisão de governança do
+   mantenedor; PO-I em aberto). Segue sendo a correção de causa raiz: enquanto um único arquivo
+   tentar ser registro de entrega e especificação de futuro ao mesmo tempo, o campo `Status` vai
+   voltar a divergir do código. Ver **D-5**.
+
+---
+
+## Implementação 2026-07-23 — decisões travadas
+
+> Fechamento do backlog acima. Cada decisão registra o que foi escolhido, contra
+> o que, e onde está a evidência. O que **não** foi feito está em D-4 e D-5, dito
+> com todas as letras.
+
+### D-1 — Store da v3.1: **ThingsBoard SERVER_SCOPE**, load e save simétricos
+
+Fecha o **achado 1** (persistência inexistente) e o **achado 2** (store ambíguo).
+
+- `window.MyIOOrchestrator.saveDeviceClassificationProfile` **existe**, implementado
+  no MAIN_VIEW (§D o coloca lá como dono). O botão "Salvar perfil" persiste.
+- **Por que TB e não GCDR.** O §E deste RFC define, para a v3.1, `Store: TB attr +
+  baked`; só a v3.2 troca para o GCDR. O código já **lia** do SERVER_SCOPE. Escolher
+  o GCDR agora produziria exatamente o par assimétrico que o achado 2 condena — ou
+  pior: um save contra um contrato (`/entities/bulk-replace`, adaptador
+  `entities ↔ ClassificationNode`) que o §v3.2-G lista como **trabalho restante do
+  backend**. Quem lê e quem escreve usam a mesma chave, o mesmo escopo, a mesma
+  entidade.
+- Ordem do save: **validar → persistir → só então aplicar em memória**. Um save que
+  falha não pode deixar o dashboard classificando por um perfil que o store não tem
+  (o próximo F5 desfaria a classificação sem aviso).
+- O MENU continua **endpoint-agnóstico**: não conhece chave nem URL.
+
+### D-2 — `GcdrResolveProfileSource`: mecânica pronta, adaptador pendente
+
+Atrás da flag **desligada** `window.MyIOUtils.rfc0207UseGcdrStore`.
+
+- **Implementado:** `GET /api/v1/entities/resolve?customerId=&type=CLASSIFICATION_<DOMAIN>`,
+  `X-Version-Id` → `If-None-Match` → **304 sem corpo**, cache por
+  `(customerId, domain, version)` (§v3.2-F.3).
+- **Não implementado, e falha com erro rotulado:** o adaptador
+  `entities → ClassificationNode` (§v3.2-B) e o save via `/entities/bulk-replace`.
+  Chutar a topologia aqui produziria classificação errada **silenciosa** — o pior
+  modo de falha desta feature. A cadeia de degradação converte a falha em baked,
+  então ligar a flag nunca apaga o dashboard.
+
+### D-3 — Contrato de regra: `combinedContains` foi **exposto**, não removido; e o laço circular morreu junto
+
+Fecha o **achado 3** (as duas metades).
+
+- Das três opções ("expor / remover do motor / manter vivo e invisível"), escolhida
+  **expor**. Remover levaria `COMPRESSOR`/`VENTILADOR`/`CLIMATIZA` para `outros` sem
+  substituto; expor preserva o poder de expressão e o torna auditável pela UI.
+- A regra foi renomeada para **`profileContains`** e ganhou o campo
+  **"deviceProfile contém"** no `openDeviceProfileModal`. O handler órfão `cc` (sem
+  emissor) deixou de existir.
+- **O texto combinado foi eliminado.** `combinedOf` era
+  `labelWidget + deviceProfile + label`; agora o match é sobre `deviceProfile`
+  **apenas**. Dois defeitos morreram com ele:
+  1. o **laço circular** — `labelWidget` é a saída anterior do próprio classificador,
+     de modo que um item carimbado "Climatização" se auto-sustentava;
+  2. a **classificação por nome** — `label` é texto livre do cadastro.
+- `normalizeProfile` **migra** `combinedContains` → `profileContains` (com dedupe), e
+  `validateProfile` **tolera** a chave legada, porque `resolveActiveProfile` valida
+  **antes** de normalizar — perfis de customer já persistidos (ex.: Mestre Álvaro)
+  continuam válidos e não caem para o DEFAULT.
+- **Evidência da mudança de comportamento** (é behavior-changing de propósito):
+  `tests/deviceClassificationProfile.profileContains.test.ts` traz o oráculo com a
+  semântica antiga e enumera device-a-device os **5 moves** — todos "categoria
+  específica → outros", todos causados por `label` ou `labelWidget`, incluindo o
+  caso exato observado em runtime no Moxuara.
+
+### D-4 — v2: motor pronto, produção **não** trocada (e por quê)
+
+`src/utils/devices/classificationNodeTree.ts` traz a árvore recursiva, o walker
+group-generic, `liftProfileToTree` (migração v1→v2) e `validateTree`. O golden de
+equivalência dá **diff zero** nos três domínios.
+
+**O caminho de produção continua no v1** — deliberadamente. O modelo v2 **funde**
+colunas e breakdown numa árvore só, e essa fusão **não é** uma reexpressão neutra:
+um device cujo grupo é `entrada` mas cuja categoria v1 seria `climatizacao` (ex.:
+`RELOGIO` com identifier `CAG-1`) é reportado hoje como `climatizacao` no breakdown
+e passaria a ser `entrada` no walker. O golden de equivalência **define esse caso
+pela regra de merge** — ele prova que o walker é fiel ao modelo v2, não que trocar
+o motor seja invisível. Trocar exige a sua própria *migration snapshot*, revisada
+por humano, como manda o §"Por que A0's golden e A1's snapshot são testes
+diferentes". O editor do modal também segue editando o modelo plano.
+
+### D-5 — Bifurcação documental (D-k) **não** executada
+
+O §I.1 D-k manda congelar o RFC-0207 e abrir o RFC-0208 no primeiro commit de
+implementação do v3. **Não foi feito**: é decisão de governança do mantenedor
+(PO-I ainda em aberto) e cindir o documento no meio de uma entrega tornaria a
+revisão desta mesma entrega mais difícil, não menos. Segue como o item de causa
+raiz do backlog.
+
+### Nota de método
+
+Uma evidência de que algo "existe" só vale com **alcançabilidade** (quem chama ou renderiza) e
+**proveniência** (desde quando, por qual commit). Localizar um símbolo por busca textual e concluir
+que a funcionalidade existe produz exatamente os dois falsos negativos que esta auditoria precisou
+corrigir na sua primeira rodada: um handler sem emissor (achado 3) e um teste escrito na própria
+sessão da revisão (achado 4).
 
 ---
 
@@ -38,9 +273,10 @@ is absent), not the source of truth.
 > **Implementation status:** delivered in phases. **A0** — pure single-source resolver
 > (`src/utils/deviceClassificationProfile.ts`) + MAIN_VIEW delegation, proven equivalent by
 > golden tests. **A1/A1b** — bug #1 (CAG `Set.has` → substring) and bug #2 (column vs
-> breakdown unified through `resolveCategory`). **Phase B** — `setActiveProfile`/`getActiveProfile`,
+> breakdown unified through `resolveCategory`). **Phase B (PARCIAL)** — `setActiveProfile`/`getActiveProfile`,
 > the customer SERVER_SCOPE `deviceClassificationProfile` loaded in `MAIN_VIEW.onInit`, the
-> premium MENU modal `openDeviceProfileModal` (view/edit/preview/save, permission-gated), and
+> premium MENU modal `openDeviceProfileModal` (view/edit/preview, permission-gated — **o `save`
+> NÃO está operacional; ver § Estado verificado, achado 1**), and
 > the bug #3 dead-key removal in TELEMETRY. **Follow-up #1** — `conditional`-rule editor in
 > the modal. **Follow-up #2** — water/temperature domains: the resolver is now domain-generic
 > (`resolveGroup(item, profile, domain)`), the DEFAULT seed encodes `water` and `temperature`
@@ -215,6 +451,9 @@ A new MENU entry opens a premium modal that:
   - `identifierContains` → `identifier.includes(s)` (**this is the unified rule** that fixes
     the CAG `Set.has` bug — substring everywhere).
   - `conditional[]` → `{ deviceTypes, whenIdentifierContains }` for BOMBA/MOTOR-style devices.
+  - `deviceOverrides?[]` → `{ id, label?, mode }` — **Dispositivos Específicos**, escape hatch
+    topológico por dispositivo. Opcional; ausência = comportamento anterior. Ver o addendum
+    homônimo no fim deste RFC (semântica `include`/`exclude` e a ressalva de escala).
   - exactly one category per domain has `fallback: true` ("outros").
 
 ### Resolution order (deterministic)
@@ -1027,6 +1266,274 @@ Verde nesse teste = contrato `bulk-replace` honrado → o golden-lib e o adaptad
 [ ] boot: N parallel domain loads resolve distinct trees; 304 isolated per domain
 [ ] integração §v3.2-D: 422 atômico + 409 com currentVersion + pg_typeof=jsonb
 ```
+
+---
+
+## Addendum — "Dispositivos Específicos": overrides por dispositivo no breakdown (2026-07-24)
+
+### DE-A. O problema, com o caso que o produziu
+
+No **Shopping da Ilha**, o device **"Medição Geral CAG"** (`deviceProfile: ENTRADA`,
+`identifier: CAG`) é um **trafo de entrada** que mede toda a alimentação da CAG (central de
+água gelada): **637.560**. Ele cai no grupo `entrada` e conta no total de entrada — isso está
+**certo**. Só que aquela energia *é* climatização, e o operador quer vê-la no card
+**Climatização** do TELEMETRY_INFO.
+
+Hoje isso é impossível, por duas razões estruturais — nenhuma das quais deve ser abolida:
+
+1. **Alocação única.** `resolveGroup(item)` devolve **um** grupo. É o que mantém os totais
+   coerentes (nenhum device conta duas vezes numa coluna). Fica.
+2. **O breakdown só lê `areacomum`.** `buildSummary` (MAIN_VIEW) percorre o grupo residual.
+   Devices de entrada são, portanto, **estruturalmente invisíveis** ao card de climatização.
+
+A complicação que decidiu o desenho: na Ilha o **mesmo `identifier` "CAG"** é usado pelo trafo
+de entrada **e** por 9 submedidores `BOMBA_CAG` (155.671 no total) que **já** caem em
+climatização pela regra de identifier. As 9 bombas estão **fisicamente dentro** dos 637.560 que
+o trafo mede. Uma regra por identifier pegaria os dois e dobraria a conta (793.231). Daí:
+**override explícito por dispositivo, não regra.**
+
+### DE-B. Schema (aditivo, retrocompatível)
+
+Cada regra de categoria (`domains.<domain>.categories.rules[]`) ganha um campo **opcional**:
+
+```ts
+/** Overrides explícitos por dispositivo (escape hatch topológico). */
+deviceOverrides?: Array<{
+  id: string;              // TB entity id — mesma chave de `excludeDevicesAtCountSubtotalCAG`
+  label?: string;          // guardado só para exibição/resiliência na UI
+  mode: 'include' | 'exclude' | 'parent';  // `parent` adicionado em 2026-07-24 — ver §DE-G
+}>;
+```
+
+É uma **lista de valores**, nunca um predicado (§A segue valendo). `label` é guardado junto do
+`id` para que o modal consiga renderizar um nome humano mesmo quando o device sumiu do
+dashboard — nesse caso a chip aparece marcada como "não encontrado" (⚠). O motor **nunca**
+classifica por `label`; ele é texto de exibição.
+
+Ausência do campo ⇒ **comportamento idêntico ao de antes** (`selectBreakdownItems` tem
+fast-path para "zero overrides"; `normalizeProfile` preserva ausência como ausência e o modal
+apaga a chave quando a lista esvazia).
+
+### DE-C. Semântica (decidida)
+
+| modo | efeito |
+| --- | --- |
+| `include` | O device **agrega nesta categoria mantendo o seu grupo** (feed **paralelo**). `resolveGroup` não muda: o total da coluna Entrada fica **idêntico**. Ele é apenas somado a mais nos itens/total da categoria do breakdown. |
+| `exclude` | O device sai do breakdown **inteiro**. **Não** cai em `outros` nem em bucket nenhum. |
+| `parent` | O device **contém** a composição da categoria (ver **§DE-G**): o valor DELE vira o total da categoria e a composição auto-classificada é o **breakdown aninhado**, **não somado por cima** (evita a dupla contagem). Grupo inalterado (Entrada intacta), como no `include`. |
+
+Por que `exclude` não cai em `outros`: o `exclude` existe para **dupla medição** — a bomba já
+está dentro da leitura do trafo. Roteá-la para `outros` seria recontá-la, que é exatamente o
+bug que o mecanismo existe para evitar.
+
+- `exclude` **vence** `include` se um device aparecer nos dois (o `exclude` é global ao
+  breakdown; o `include` é por categoria).
+- Sobre o residual de Área Comum, ver **§DE-E** — um `include` cross-group exige separar a
+  origem de cada subtotal, senão o residual vai negativo pelo valor exato do device puxado.
+
+**Aceitação A — o rollout real da Ilha é INCLUDE-ONLY**: um único `include` no trafo
+"Medição Geral CAG", sem nenhum `exclude`. Números medidos em produção:
+
+| | valor |
+| --- | --- |
+| Card Climatização | **1.790.163** (1.152.603 internos + 637.560 do trafo) |
+| Entrada | **1.390.237**, inalterada |
+| Residual Área Comum | **0**, e **antes** do clamp (ver §DE-E) |
+
+**Aceitação B — semântica do `exclude`** (não usada na Ilha; trava o contrato do modo):
+`include` no trafo + `exclude` nas 9 bombas ⇒ Climatização **637.560** (e não 793.231, que
+seria a dupla contagem), Entrada **1.390.237** inalterada, e as 9 bombas em **nenhum** bucket
+do breakdown — nem em `outros`.
+
+### DE-D. Implementação
+
+**LIB** (`src/utils/devices/deviceClassificationProfile.ts`, pura — sem DOM, sem fetch):
+
+- `collectDeviceOverrides(profile, domain)` → achata os `deviceOverrides` de todas as
+  categorias em `{ includes: Map<id, categoria>, excludes: Set<id>, labels: Map<id, label> }`,
+  já aplicando a precedência do §DE-C.
+- `selectBreakdownItems(groups, profile, domain, { baseGroup })` → monta a lista que o
+  breakdown deve percorrer: base = `groups[baseGroup]` (hoje `areacomum`), menos os `exclude`,
+  mais os `include` **puxados de qualquer grupo**, cada um carimbado com `forcedCategory`.
+- `normalizeDeviceOverrideId(id)` → `String(id).trim().toLowerCase()`, a **mesma** chave que
+  `excludeDevicesAtCountSubtotalCAG` usa. IDs e labels **nunca** são upper-cased (ao contrário
+  dos demais comparandos): `id` é UUID do TB e `label` é texto humano.
+- `validateProfile` acusa `deviceOverrides` não-array, entrada não-objeto, `id` vazio, `mode`
+  fora de `include|exclude` e `label` não-string. Campo ausente **não** gera erro.
+
+**MAIN_VIEW** (`buildSummary`): o laço `for (const item of areacomum)` virou
+`for (const { item, forcedCategory } of _breakdownEntries)`, alimentado por
+`window.MyIOLibrary.selectBreakdownItems({ areacomum, entrada, lojas }, …)`. `forcedCategory`
+tem precedência sobre `resolveCategory`; a **sub-subcategorização** (chiller/fancoil/CAG/…)
+segue pelas regras de texto locais de sempre — o trafo da Ilha cai em `cag` porque o texto
+combinado contém "CAG" e não contém CHILLER/FANCOIL/BOMBA.
+
+**Relação com `excludeDevicesAtCountSubtotalCAG`** (setting de widget, preservado intacto):
+são mecanismos **distintos** e ambos continuam valendo.
+
+| | `excludeDevicesAtCountSubtotalCAG` | `deviceOverrides` |
+| --- | --- | --- |
+| onde vive | setting do **widget** | perfil do **cliente** (JSON persistido) |
+| quando age | tarde | cedo |
+| escopo | só o **subtotal** da sub-subcategoria CAG; o device segue em `climatizacaoTotal` e no breakdown | o breakdown **inteiro** (entra/sai) |
+
+Um device pode estar nos dois; o `exclude` do perfil vence por chegar primeiro.
+
+**Modal** (`openDeviceProfileModal.ts`): seção **"Dispositivos Específicos"** com botão **+**,
+picker com busca (🔍) sobre `device.label`, devices já adicionados **removidos da lista** (não
+dá para adicionar o mesmo duas vezes), marcação incluir/excluir na seleção e chips removíveis.
+Os devices vêm do callback `getDevices(domain)` que o modal **já recebia** para o preview
+(sem novo I/O); lista vazia ou callback que lança degradam para uma dica, sem quebrar. O
+**"Preview ao vivo"** reflete os overrides antes de salvar. Respeita `canEdit` (read-only não
+renderiza "+" nem "×"). O schema é genérico por categoria, mas a seção é **renderizada apenas
+em Climatização** (`DEVICE_OVERRIDE_CATEGORIES`) — ampliar = acrescentar nomes ali.
+
+Persistência: nada novo. O modal continua delegando ao `onSave` →
+`window.MyIOOrchestrator.saveDeviceClassificationProfile`; o campo apenas faz round-trip.
+
+### DE-E. O residual de Área Comum × includes cross-group (correção)
+
+A primeira versão desta implementação tinha um defeito aritmético, medido sobre dados reais
+da Ilha antes de ir a produção.
+
+`buildSummary` calculava
+`_areacomumResidual = Math.max(0, areacomumTotal − Σ subtotais)`. A fórmula assume que **todo
+subtotal é composto de devices que estão dentro de `areacomumTotal`**. Um `include`
+cross-group viola a premissa: os 637.560 do trafo entram no subtotal de climatização mas o
+device vive no grupo `entrada` e **nunca fez parte** do `areacomumTotal`.
+
+Medição em produção (Ilha, hoje, sem override):
+
+```
+areacomumTotal                    = 1.240.503
+climatizacao (origem areacomum)   = 1.152.603
+elevadores / escadas / outros     =    25.559 / 51.942 / 10.399
+                                    ------------------------------
+Σ subtotais                       = 1.240.503   ->  residual = 0
+```
+
+Com o `include` aplicado, `Σ subtotais` viraria 1.878.063 e
+`residual = max(0, 1.240.503 − 1.878.063) = max(0, −637.560) = 0`. Na Ilha o residual já é 0,
+então **nada pareceria errado** — mas a conta está quebrada por construção, e qualquer cliente
+com Área Comum positiva veria o número encolher pelo valor do device incluído, sem motivo
+legítimo. O `Math.max(0, …)` mascarava exatamente isso.
+
+**A correção.** Cada subtotal é decomposto em parcela de **origem-base** e parcela
+**cross-group**:
+
+- O **card mantém o total cheio** (1.790.163 em Climatização) — é o objetivo do recurso.
+- O **residual desconta apenas a parcela de origem-base**:
+  `1.240.503 − (1.152.603 + 25.559 + 51.942 + 10.399) = 0` — correto, e sem depender do clamp.
+
+Mecânica: `selectBreakdownItems` passou a devolver `sourceGroup` e `fromBaseGroup` em cada
+entrada; o `buildSummary` acumula, em paralelo aos totais cheios, a parcela cross-group de cada
+categoria; e `computeBaseGroupResidual(baseGroupTotal, subtotals[])` (pura, na lib) faz a
+conta e devolve `{ subtotalFromBaseGroup, subtotalCrossGroup, residualRaw, residual, negative }`.
+Sem overrides a parcela cross-group é 0 em todas as categorias e a aritmética é idêntica à
+anterior.
+
+O clamp em 0 **fica** — mas um `residualRaw` negativo agora significa problema real de
+dado/configuração (soma dos subtotais maior que o total do grupo), não artefato deste recurso.
+Por isso ele é logado uma vez por sessão (`LogHelper.warn`) com os números, em vez de sumir.
+
+### DE-G. Modo `parent` — o device CONTÉM a composição (2026-07-24)
+
+`include` resolve o caso da **Ilha** (feed **paralelo**: o trafo da CAG é energia *adicional*, some
+com os submedidores). Mas há o caso oposto, medido ao vivo no **Moxuara**:
+
+```
+CAG-Entrada  (deviceProfile ENTRADA, identifier CAG, grupo entrada)  = 336.600   ← PAI
+  ├─ Chillers 3                                                        = 184.661
+  ├─ Fancoils 14                                                       =  96.046   } composição
+  └─ Bombas  13                                                        =  46.266   } (grupo areacomum)
+                                                                        ---------
+                                                         Σ filhos      = 326.973
+```
+
+`CAG-Entrada` é o medidor de **entrada** da Central de Água Gelada: mede TODA a alimentação da
+CAG. Os submedidores internos (Chillers/Fancoils/Bombas) estão **a jusante** dele — 336.600 ≳
+326.973 (~3% de perda de linha). Não são feeds paralelos: o pai **contém** os filhos.
+
+Com `include` o card mostraria `336.600 + 326.973 = 663.573` — **dupla contagem**. Com a
+composição pura (sem override) mostraria 326.973 e o pai ficaria invisível. O correto é
+**336.600** (o pai), com a composição como **detalhamento aninhado**.
+
+**Schema.** `mode` passa a ser `'include' | 'exclude' | 'parent'` (valor puro, §A respeitada;
+ausente/bundles antigos ⇒ comportamento de antes — a lib antiga coage `parent` → `include`).
+
+**Semântica de `parent` para a Climatização:**
+
+| | `include` (Ilha) | `parent` (Moxuara) |
+|---|---|---|
+| Relação com a composição | **paralelo** | **contém** |
+| Total do card | composição **+** device | **valor do device** (a composição não soma por cima) |
+| Composição | some no total | vira **breakdown aninhado** sob o pai |
+| Grupo do device | inalterado (Entrada intacta) | inalterado (Entrada intacta) |
+
+Mesmo gesto de UI, matemática de total **oposta** — só o operador sabe qual é o caso, por isso é
+escolha **explícita** ("como pai" no picker), nunca inferida.
+
+**Fórmula do total** (MAIN_VIEW `buildSummary`):
+`climatizacaoTotal = hasParent ? Σ(pais) : Σ(filhos)`. Os pais vão para um balde à parte
+(`climatizacaoParentItems`) e **não** entram nem em `climatizacaoItems` nem nas subcategorias;
+`climatizacaoItems` continua sendo só a composição (os filhos). Moxuara: `climatizacaoTotal =
+336.600` (≠ 663.573, ≠ 326.973). Entrada continua `783.750 + 336.600 = 1.120.350` — o pai não
+muda de grupo.
+
+**Fórmula do residual** e a **prevenção da dupla subtração** (o ponto delicado). O modo `parent`
+quebra a premissa `base = total − cross` do §DE-E: quando o card mostra o valor do pai
+(cross-group), `total` **não** é mais a soma dos filhos. Se descontássemos `total − cross` do
+residual daria `336.600 − 336.600 = 0` — e os filhos (326.973), que ESTÃO em `areacomumTotal`,
+ficariam sem desconto. Se descontássemos os dois, o residual cairia por `−336.600`.
+
+A solução: `computeBaseGroupResidual` ganhou `baseGroupContribution` (opcional). Para a
+climatização com pai o `buildSummary` passa:
+
+```
+{ category:'climatizacao',
+  total: 336.600,                         // = card (o pai, cross-group)
+  crossGroupTotal: 336.600,               // o pai — informativo, NUNCA descontado
+  baseGroupContribution: 326.973 }        // os FILHOS de origem-base — o único desconto
+```
+
+`computeBaseGroupResidual` então faz `subtotalFromBaseGroup += baseGroupContribution` em vez de
+`total − cross`. Resultado: **só os filhos (326.973) são descontados, uma vez**; o pai (336.600),
+por ser cross-group, entra apenas em `subtotalCrossGroup` (informativo) e **nunca** toca o
+residual. É exatamente isso que impede o pai E os filhos de baterem no residual cada um:
+`residual = areacomumTotal − 326.973`. No Moxuara `areacomumTotal = 326.973` (só a composição)
+⇒ `residual = 0`, **de verdade** (pré-clamp 0, não negativo mascarado). `baseGroupContribution`
+ausente ⇒ cai em `total − cross` (byte-idêntico ao §DE-E; `include`/sem-override intocados).
+
+Na reconstrução da Área Comum efetiva (quando `excludeGroupsTotals` está ligado), a parcela de
+climatização usada é a dos **filhos** (`Math.max(0, Σfilhos − crossFilhos)`), não a do pai — o pai
+mora em Entrada e somá-lo ali dobraria com `_entradaEff`.
+
+**Tooltip** (TELEMETRY_INFO `buildClimatizacaoContent`). `STATE.consumidores.climatizacao` ganhou
+`parents: [{id,label,total}]` (threaded pelo MAIN_VIEW). Com pai, a **Composição** renderiza uma
+linha `🔌 <label> … <total>` no topo (classe `myio-info-tooltip__category--parent`, "Medidor pai
+da composição") e as subcategorias existentes vão num wrapper `myio-info-tooltip__nested`
+indentado abaixo. Campo ausente/vazio ⇒ composição plana, **byte-idêntica** à de antes.
+
+**Limitação assumida — N pais.** O modelo trata **todos** os pais de uma categoria como cobrindo
+**coletivamente** a composição inteira dela (a composição não é atribuída pai-a-pai). Para o caso
+de **um** pai que cobre toda a Climatização — que é o Moxuara — isso é exato. Com dois ou mais
+pais na mesma categoria, a partição "qual filho está sob qual pai" não é derivável dos dados
+disponíveis; o comportamento resultante (todos os pais somam no total da categoria; toda a
+composição vira o breakdown coletivo) é uma simplificação **documentada**, não um palpite. Se
+esse caso surgir de verdade, é sinal de que falta modelar a topologia com mais estrutura (ex.:
+um pai por sub-árvore), não de forçar heurística.
+
+### DE-F. Ressalva — isto é um escape hatch, não um método
+
+**Overrides por device-id escalam mal e quebram em re-provisionamento**: o `id` é o TB entity
+id, e um device recriado ganha id novo — o override vira órfão silencioso (o modal sinaliza
+com ⚠, mas o número já mudou). Também não sobrevivem a export/import entre ambientes.
+
+Portanto: **regras por atributo continuam sendo o caminho padrão**
+(`deviceProfiles` / `profileContains` / `identifier*`). Os `deviceOverrides` são para o que
+regra nenhuma alcança — topologia física, como um trafo que mede um subsistema inteiro. Se a
+lista de um cliente começar a crescer, isso é sinal de que falta uma **regra** (ou um
+`deviceProfile` novo), não de que faltam mais overrides.
 
 ---
 

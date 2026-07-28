@@ -507,7 +507,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     style.innerHTML = `
             /* Container Fundo Escuro */
             #energyContextModal {
-                font-family: 'Roboto', 'Segoe UI', sans-serif;
+                font-family: 'Nunito', system-ui, sans-serif;
                 backdrop-filter: blur(4px);
             }
 
@@ -597,7 +597,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
             /* RFC-0087: Water Modal Styles */
             #waterContextModal {
-                font-family: 'Roboto', 'Segoe UI', sans-serif;
+                font-family: 'Nunito', system-ui, sans-serif;
                 backdrop-filter: blur(4px);
             }
 
@@ -666,7 +666,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
             /* RFC-0092: Temperature Modal Styles */
             #temperatureContextModal {
-                font-family: 'Roboto', 'Segoe UI', sans-serif;
+                font-family: 'Nunito', system-ui, sans-serif;
                 backdrop-filter: blur(4px);
             }
 

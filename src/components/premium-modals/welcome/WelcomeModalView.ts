@@ -328,7 +328,17 @@ export class WelcomeModalView {
         bgImageUrl: card.bgImageUrl,
         buttonId: card.buttonId,
         deviceCounts: card.deviceCounts,
-        metaCounts: card.metaCounts,
+        // V2 cards don't support the null=loading contract — coerce null to undefined
+        // NB: the V2 card type (CustomerCardMetaCounts) has no annotations field;
+        // the annotations/lock badge lives on the PRIMARY welcome-card render, which
+        // reads card.metaCounts directly — so nothing to forward here.
+        metaCounts: card.metaCounts
+          ? {
+              users: card.metaCounts.users ?? undefined,
+              alarms: card.metaCounts.alarms ?? undefined,
+              notifications: card.metaCounts.notifications ?? undefined,
+            }
+          : undefined,
       };
 
       const instance = createCustomerCardV2({
@@ -337,7 +347,8 @@ export class WelcomeModalView {
         index,
         themeMode: this.themeMode,
         onClick: (clickedCard) => {
-          this.emit('card-click', card);
+          // card fresco por índice — updateShoppingCards troca o array durante o enrichment
+          this.emit('card-click', this.params.shoppingCards?.[index] ?? card);
         },
         onTileClick: (type, clickedCard, cardIndex) => {
           // Handle tile click - show tooltip
@@ -498,7 +509,7 @@ export class WelcomeModalView {
    RFC-0112: Welcome Modal Head Office
    ========================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap');
 
 /* CSS Reset to isolate modal from parent styles */
 .myio-welcome-modal,
@@ -533,7 +544,7 @@ export class WelcomeModalView {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  font-family: 'Nunito', system-ui, sans-serif !important;
   font-size: 16px !important;
   line-height: 1.5 !important;
   font-weight: 400 !important;
@@ -1239,9 +1250,81 @@ export class WelcomeModalView {
 .myio-welcome-card-device-count.energy .count-spinner { border-top-color: #22c55e; }
 .myio-welcome-card-device-count.water .count-spinner { border-top-color: #3b82f6; }
 .myio-welcome-card-device-count.temperature .count-spinner { border-top-color: #f97316; }
+.myio-welcome-card-device-count.users .count-spinner { border-top-color: #a78bfa; }
+.myio-welcome-card-device-count.alarms .count-spinner { border-top-color: #ef4444; }
+.myio-welcome-card-device-count.annotations .count-spinner { border-top-color: #6c5ce7; }
+.myio-welcome-card-device-count.notifications .count-spinner { border-top-color: #f59e0b; }
 
 @keyframes welcome-count-spin {
   to { transform: rotate(360deg); }
+}
+
+/* Per-card enrichment progress bar (bottom edge) */
+.myio-welcome-card-progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 0 0 inherit inherit;
+  overflow: hidden;
+  z-index: 3;
+}
+.myio-welcome-card-progress-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #7c3aed, #22c55e);
+  background-size: 200% 100%;
+  animation: welcome-progress-shimmer 1.6s ease infinite;
+  transition: width 0.4s ease;
+}
+
+/* Global enrichment progress bar — absolute overlay at the hero's bottom edge
+   so it takes NO layout space (the grid height math doesn't account for it;
+   in-flow it pushed the cards down and hid row 2's progress bars) */
+.myio-welcome-enrich-progress {
+  position: absolute;
+  left: 50%;
+  bottom: 4px;
+  transform: translateX(-50%);
+  width: min(420px, 70%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: opacity 0.4s ease;
+  z-index: 2;
+  pointer-events: none;
+}
+.myio-welcome-enrich-progress-track {
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+.myio-welcome-enrich-progress-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #7c3aed, #a78bfa, #22c55e);
+  background-size: 200% 100%;
+  animation: welcome-progress-shimmer 1.6s ease infinite;
+  transition: width 0.4s ease;
+}
+.myio-welcome-enrich-progress-label {
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  opacity: 0.85;
+}
+
+@keyframes welcome-progress-shimmer {
+  0% { background-position: 0% 0; }
+  50% { background-position: 100% 0; }
+  100% { background-position: 0% 0; }
 }
 
 /* Close Button (optional) */
@@ -1959,6 +2042,12 @@ export class WelcomeModalView {
                 <polyline points="12 5 19 12 12 19" />
               </svg>
             </button>
+            <div class="myio-welcome-enrich-progress" id="welcomeEnrichProgress" hidden>
+              <div class="myio-welcome-enrich-progress-track">
+                <div class="myio-welcome-enrich-progress-fill" id="welcomeEnrichProgressFill"></div>
+              </div>
+              <span class="myio-welcome-enrich-progress-label" id="welcomeEnrichProgressLabel"></span>
+            </div>
           </div>
         </div>
 
@@ -2045,28 +2134,48 @@ export class WelcomeModalView {
       ? `<div class="myio-welcome-card-bg" data-src="${card.bgImageUrl}"></div>`
       : '';
 
-    // Meta counts row (Users, Alarms, Notifications) - above title, same style as device counts
-    const { users = 0, alarms = 0, notifications = 0 } = card.metaCounts || {};
+    // Meta counts row (Users, Alarms, Notifications/Annotations) - above title, same style as device counts
+    // null = loading (spinner), number = loaded, undefined = legacy caller without meta data (0)
+    const meta = card.metaCounts || {};
+    const renderMetaCount = (count: number | null | undefined): string =>
+      count === null ? '<span class="count-spinner"></span>' : String(count ?? 0);
+    // When annotations is provided (even null = loading), the third badge replaces legacy notifications
+    const thirdBadgeHTML = meta.annotationsLocked
+      ? `<span class="myio-welcome-card-device-count annotations locked"
+              data-tooltip-type="annotations-locked"
+              data-card-index="${index}"
+              title="Anotações — funcionalidade não liberada ainda (em breve)"
+              style="opacity:.6;cursor:not-allowed;">
+          <span class="icon">📋</span> <span class="icon" style="font-size:.85em;">🔒</span>
+        </span>`
+      : 'annotations' in meta
+        ? `<span class="myio-welcome-card-device-count annotations"
+              data-tooltip-type="annotations"
+              data-card-index="${index}"
+              title="Anotacoes">
+          <span class="icon">📋</span> ${renderMetaCount(meta.annotations)}
+        </span>`
+        : `<span class="myio-welcome-card-device-count notifications"
+              data-tooltip-type="notifications"
+              data-card-index="${index}"
+              title="Notificacoes">
+          <span class="icon">🔔</span> ${renderMetaCount(meta.notifications)}
+        </span>`;
     const metaCountsHTML = `
       <div class="myio-welcome-card-meta-counts">
         <span class="myio-welcome-card-device-count users"
               data-tooltip-type="users"
               data-card-index="${index}"
               title="Usuarios">
-          <span class="icon">👥</span> ${users}
+          <span class="icon">👥</span> ${renderMetaCount(meta.users)}
         </span>
         <span class="myio-welcome-card-device-count alarms"
               data-tooltip-type="alarms"
               data-card-index="${index}"
               title="Alarmes">
-          <span class="icon">🚨</span> ${alarms}
+          <span class="icon">🚨</span> ${renderMetaCount(meta.alarms)}
         </span>
-        <span class="myio-welcome-card-device-count notifications"
-              data-tooltip-type="notifications"
-              data-card-index="${index}"
-              title="Notificacoes">
-          <span class="icon">🔔</span> ${notifications}
-        </span>
+        ${thirdBadgeHTML}
       </div>
     `;
 
@@ -2169,6 +2278,15 @@ export class WelcomeModalView {
           <div class="myio-welcome-card-title">${wrappedTitle}</div>
         </div>
         ${subtitleHTML}
+        ${
+          card.metaProgress !== undefined && card.metaProgress < 1
+            ? `<div class="myio-welcome-card-progress" title="Carregando indicadores…">
+                 <div class="myio-welcome-card-progress-fill" style="width:${Math.round(
+                   Math.max(0, Math.min(1, card.metaProgress)) * 100
+                 )}%"></div>
+               </div>`
+            : ''
+        }
       </div>
     `;
   }
@@ -2201,35 +2319,33 @@ export class WelcomeModalView {
       });
     }
 
-    // Shopping card clicks - only for clickable cards (with dashboardId)
+    // Shopping card clicks — bind em TODOS os cards e resolve o card NO CLIQUE
+    // (this.params.shoppingCards é substituído por updateShoppingCards durante o
+    // enrichment; capturar o objeto no bind emitia dado obsoleto). A validação de
+    // dashboardId fica no handler 'card-click' do openWelcomeModal (toast + modal
+    // aberta quando não configurado).
     const cards = this.container.querySelectorAll('.myio-welcome-card');
     cards.forEach((card, index) => {
-      const shoppingCard = this.params.shoppingCards?.[index];
-      if (!shoppingCard) return;
+      if (!this.params.shoppingCards?.[index]) return;
 
-      // Only add click handlers if card has dashboardId (is clickable)
-      if (shoppingCard.dashboardId) {
-        // Click handler
-        card.addEventListener('click', (e: Event) => {
-          // Don't trigger card click if clicking on device count (tooltip trigger)
-          const target = e.target as HTMLElement;
-          if (target.closest('.myio-welcome-card-device-count')) {
-            return;
-          }
-          // Don't trigger card click if clicking on title (tooltip trigger)
-          this.emit('card-click', shoppingCard);
-        });
+      // Click handler
+      card.addEventListener('click', (e: Event) => {
+        // Don't trigger card click if clicking on device count (tooltip trigger)
+        const target = e.target as HTMLElement;
+        if (target.closest('.myio-welcome-card-device-count')) {
+          return;
+        }
+        this.emit('card-click', this.params.shoppingCards?.[index]);
+      });
 
-        // Keyboard support (Enter and Space)
-        card.addEventListener('keydown', (e: Event) => {
-          const keyEvent = e as KeyboardEvent;
-          if (keyEvent.key === 'Enter' || keyEvent.key === ' ') {
-            e.preventDefault();
-            this.emit('card-click', shoppingCard);
-          }
-        });
-      }
-
+      // Keyboard support (Enter and Space)
+      card.addEventListener('keydown', (e: Event) => {
+        const keyEvent = e as KeyboardEvent;
+        if (keyEvent.key === 'Enter' || keyEvent.key === ' ') {
+          e.preventDefault();
+          this.emit('card-click', this.params.shoppingCards?.[index]);
+        }
+      });
     });
 
     // Font size slider - directly scales card text elements and card dimensions
@@ -2360,69 +2476,210 @@ export class WelcomeModalView {
       });
     });
 
-    // Meta counts tooltips (users, alarms, notifications)
+    // Meta counts tooltips (users, alarms, annotations/notifications)
+    // v-5.4.0 header hover-panel pattern: dark panel, chips by state + 10 most recent rows
     const metaCounts = this.container.querySelectorAll(
       '.myio-welcome-card-meta-counts .myio-welcome-card-device-count[data-tooltip-type]'
     );
     metaCounts.forEach((countEl) => {
-      // Click toggles tooltip: if open, close immediately; if closed, open
-      countEl.addEventListener('click', (e: Event) => {
-        e.stopPropagation();
+      const resolveBadge = (e: Event): { type: string; card: ShoppingCard; target: HTMLElement } | null => {
         const target = e.currentTarget as HTMLElement;
-        const tooltipType = target.dataset.tooltipType;
+        const type = target.dataset.tooltipType || '';
         const cardIndex = parseInt(target.dataset.cardIndex || '0', 10);
         const card = this.params.shoppingCards?.[cardIndex];
+        return card ? { type, card, target } : null;
+      };
 
-        if (!card) return;
-
-        // Check if tooltip is visible and toggle
-        const win = window as any;
-        const MyIOLibrary = win.MyIOLibrary;
-        if (MyIOLibrary) {
-          const tooltip = tooltipType === 'users' ? MyIOLibrary.UsersSummaryTooltip :
-                         tooltipType === 'alarms' ? MyIOLibrary.AlarmsSummaryTooltip :
-                         tooltipType === 'notifications' ? MyIOLibrary.NotificationsSummaryTooltip : null;
-
-          if (tooltip?.isVisible?.()) {
-            // Tooltip is open - close it immediately
-            tooltip.hide?.();
-            return;
-          }
+      // Click toggles the panel: if open, close immediately; if closed, open
+      countEl.addEventListener('click', (e: Event) => {
+        e.stopPropagation();
+        const badge = resolveBadge(e);
+        if (!badge) return;
+        if (this.metaTipEl && this.metaTipEl.style.display === 'block') {
+          this.hideMetaTip();
+          return;
         }
-
-        // Tooltip is closed - open it
-        this.handleTooltipClick(tooltipType as any, card, target);
+        this.showMetaTip(badge.target, badge.type, badge.card);
       });
 
       countEl.addEventListener('mouseenter', (e: Event) => {
-        const target = e.currentTarget as HTMLElement;
-        const tooltipType = target.dataset.tooltipType;
-        const cardIndex = parseInt(target.dataset.cardIndex || '0', 10);
-        const card = this.params.shoppingCards?.[cardIndex];
-
-        if (!card) return;
-
-        this.handleTooltipClick(tooltipType as any, card, target);
+        const badge = resolveBadge(e);
+        if (!badge) return;
+        this.showMetaTip(badge.target, badge.type, badge.card);
       });
 
-      // Start 2.5s timer to destroy tooltip when mouse leaves the badge
-      countEl.addEventListener('mouseleave', () => {
-        const win = window as any;
-        const MyIOLibrary = win.MyIOLibrary;
-        if (MyIOLibrary) {
-          MyIOLibrary.UsersSummaryTooltip?._startDelayedHide?.();
-          MyIOLibrary.AlarmsSummaryTooltip?._startDelayedHide?.();
-          MyIOLibrary.NotificationsSummaryTooltip?._startDelayedHide?.();
-        }
-      });
+      countEl.addEventListener('mouseleave', () => this.startMetaTipDelayedHide());
     });
+  }
+
+  // ==========================================
+  // Meta badges hover panel — faithful port of the v-5.4.0 header hover tip
+  // (_ensureHdrTip/_showHdrTip/_chip): dark panel, chips, 10 most recent rows
+  // ==========================================
+  private metaTipEl: HTMLDivElement | null = null;
+  private metaTipHideTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private static escapeMetaHtml(s: unknown): string {
+    return String(s ?? '').replace(
+      /[&<>"]/g,
+      (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string)
+    );
+  }
+
+  private static metaChip(text: string): string {
+    return `<span style="display:inline-block;padding:2px 8px;margin:0 4px 4px 0;border-radius:10px;background:#334155;font-weight:700">${WelcomeModalView.escapeMetaHtml(text)}</span>`;
+  }
+
+  private ensureMetaTip(): HTMLDivElement {
+    if (this.metaTipEl && document.body.contains(this.metaTipEl)) return this.metaTipEl;
+    const tip = document.createElement('div');
+    tip.className = 'myio-welcome-meta-tip';
+    Object.assign(tip.style, {
+      position: 'fixed',
+      zIndex: '100000',
+      minWidth: '260px',
+      maxWidth: '360px',
+      maxHeight: '60vh',
+      overflow: 'auto',
+      background: '#1e293b',
+      color: '#e2e8f0',
+      border: '1px solid #334155',
+      borderRadius: '10px',
+      boxShadow: '0 12px 40px rgba(0,0,0,.45)',
+      padding: '12px 14px',
+      font: "12px 'Nunito', system-ui, -apple-system, sans-serif",
+      display: 'none',
+    });
+    tip.addEventListener('mouseenter', () => {
+      if (this.metaTipHideTimer) clearTimeout(this.metaTipHideTimer);
+    });
+    tip.addEventListener('mouseleave', () => this.startMetaTipDelayedHide());
+    document.body.appendChild(tip);
+    this.metaTipEl = tip;
+    return tip;
+  }
+
+  private showMetaTip(anchorEl: HTMLElement, type: string, card: ShoppingCard): void {
+    const tip = this.ensureMetaTip();
+    if (this.metaTipHideTimer) clearTimeout(this.metaTipHideTimer);
+    tip.innerHTML = this.buildMetaTipHtml(type, card);
+    tip.style.display = 'block';
+    const r = anchorEl.getBoundingClientRect();
+    const tw = Math.min(360, window.innerWidth - 16);
+    let left = r.left;
+    if (left + tw > window.innerWidth - 8) left = window.innerWidth - tw - 8;
+    tip.style.left = Math.max(8, left) + 'px';
+    tip.style.top = r.bottom + 8 + 'px';
+  }
+
+  private startMetaTipDelayedHide(): void {
+    if (this.metaTipHideTimer) clearTimeout(this.metaTipHideTimer);
+    this.metaTipHideTimer = setTimeout(() => this.hideMetaTip(), 200);
+  }
+
+  private hideMetaTip(): void {
+    if (this.metaTipHideTimer) {
+      clearTimeout(this.metaTipHideTimer);
+      this.metaTipHideTimer = null;
+    }
+    if (this.metaTipEl) this.metaTipEl.style.display = 'none';
+  }
+
+  private buildMetaTipHtml(type: string, card: ShoppingCard): string {
+    const esc = WelcomeModalView.escapeMetaHtml;
+    const chip = WelcomeModalView.metaChip;
+    const meta = card.metaCounts || {};
+    const details = card.metaDetails || {};
+    const loadingBody = '<div style="opacity:.7;padding:6px 0">Carregando…</div>';
+    const header = (icon: string, label: string, count?: number | null) =>
+      `<div style="font-weight:800;font-size:13px;margin-bottom:8px">${icon} ${label}${
+        count === null || count === undefined ? '' : ` (${count})`
+      } — ${esc(card.title)}</div>`;
+    const row = (titleHtml: string, subHtml: string) =>
+      `<div style="padding:6px 0;border-top:1px solid #334155">
+         <div style="font-weight:600">${titleHtml}</div>
+         ${subHtml ? `<div style="opacity:.7">${subHtml}</div>` : ''}
+       </div>`;
+
+    if (type === 'alarms') {
+      if (meta.alarms === null) return header('🚨', 'Alarmes') + loadingBody;
+      const alarms = details.alarms || [];
+      const byState: Record<string, number> = {};
+      for (const a of alarms) {
+        const s = a.state || 'OPEN';
+        byState[s] = (byState[s] || 0) + 1;
+      }
+      const chips =
+        Object.entries(byState)
+          .map(([s, n]) => chip(`${s}: ${n}`))
+          .join('') || '<span style="opacity:.7">Sem alarmes ativos</span>';
+      const rows = alarms
+        .slice(0, 10)
+        .map((a) =>
+          row(
+            esc(a.deviceName ? `${a.deviceName} — ${a.title || 'Alarme'}` : a.title || 'Alarme'),
+            `${esc(a.severity || '')} · ${esc(a.state || '')}`
+          )
+        )
+        .join('');
+      return `${header('🚨', 'Alarmes', meta.alarms ?? alarms.length)}<div style="margin-bottom:6px">${chips}</div>${rows}`;
+    }
+
+    if (type === 'annotations-locked') {
+      return (
+        header('📋', 'Anotações') +
+        '<div style="opacity:.85;padding:6px 0">🔒 Funcionalidade não liberada ainda — em breve.</div>'
+      );
+    }
+
+    if (type === 'annotations') {
+      if (meta.annotations === null) return header('📋', 'Anotações') + loadingBody;
+      const annotations = details.annotations || [];
+      const byType: Record<string, number> = {};
+      for (const a of annotations) {
+        const t = a.type || 'observation';
+        byType[t] = (byType[t] || 0) + 1;
+      }
+      const chips =
+        Object.entries(byType)
+          .map(([t, n]) => chip(`${t}: ${n}`))
+          .join('') || '<span style="opacity:.7">Sem anotações ativas</span>';
+      const rows = annotations
+        .slice(0, 10)
+        .map((a) => {
+          const when = a.createdAt ? new Date(a.createdAt).toLocaleDateString('pt-BR') : '';
+          const text = a.text.length > 90 ? `${a.text.slice(0, 90)}…` : a.text;
+          return row(esc(a.deviceLabel || 'Dispositivo'), `${esc(text)}${when ? ` · ${esc(when)}` : ''}`);
+        })
+        .join('');
+      return `${header('📋', 'Anotações', meta.annotations ?? annotations.length)}<div style="margin-bottom:6px">${chips}</div>${rows}`;
+    }
+
+    if (type === 'users') {
+      if (meta.users === null) return header('👥', 'Usuários') + loadingBody;
+      const users = details.users || [];
+      const rows =
+        users
+          .slice(0, 10)
+          .map((u) => row(esc(u.name), esc(u.email || '')))
+          .join('') || '<div style="opacity:.7;padding:6px 0">Sem usuários</div>';
+      const more =
+        users.length > 10
+          ? `<div style="opacity:.7;padding:6px 0 0">… e mais ${users.length - 10}</div>`
+          : '';
+      return `${header('👥', 'Usuários', meta.users ?? users.length)}${rows}${more}`;
+    }
+
+    // Legacy notifications badge (callers that don't provide annotations)
+    return header('🔔', 'Notificações', meta.notifications ?? 0) +
+      '<div style="opacity:.7;padding:6px 0">Sem notificações</div>';
   }
 
   /**
    * Handle tooltip icon click - shows the appropriate tooltip
    */
   private handleTooltipClick(
-    type: 'energy' | 'water' | 'temperature' | 'users' | 'alarms' | 'notifications',
+    type: 'energy' | 'water' | 'temperature' | 'users' | 'alarms' | 'notifications' | 'annotations',
     card: ShoppingCard,
     triggerElement: HTMLElement
   ): void {
@@ -2454,20 +2711,13 @@ export class WelcomeModalView {
           MyIOLibrary.TempSensorSummaryTooltip.show(triggerElement, tooltipData.temperature);
         }
         break;
+      // Meta badges use the built-in v-5.4.0-style hover panel (not the RFC-0116 stub tooltips,
+      // which render a locked "Funcionalidade Não Liberada" body)
       case 'users':
-        if (MyIOLibrary.UsersSummaryTooltip) {
-          MyIOLibrary.UsersSummaryTooltip.show(triggerElement, tooltipData.users);
-        }
-        break;
       case 'alarms':
-        if (MyIOLibrary.AlarmsSummaryTooltip) {
-          MyIOLibrary.AlarmsSummaryTooltip.show(triggerElement, tooltipData.alarms);
-        }
-        break;
       case 'notifications':
-        if (MyIOLibrary.NotificationsSummaryTooltip) {
-          MyIOLibrary.NotificationsSummaryTooltip.show(triggerElement, tooltipData.notifications);
-        }
+      case 'annotations':
+        this.showMetaTip(triggerElement, type, card);
         break;
     }
   }
@@ -2752,24 +3002,24 @@ export class WelcomeModalView {
         customerName: card.title,
       },
       users: {
-        totalUsers: 0,
-        activeUsers: 0,
+        totalUsers: card.metaCounts?.users ?? 0,
+        activeUsers: card.metaCounts?.users ?? 0,
         inactiveUsers: 0,
         byRole: { admin: 0, operator: 0, viewer: 0 },
         lastUpdated: now,
         customerName: card.title,
       },
       alarms: {
-        totalAlarms: 0,
-        activeAlarms: 0,
+        totalAlarms: card.metaCounts?.alarms ?? 0,
+        activeAlarms: card.metaCounts?.alarms ?? 0,
         acknowledgedAlarms: 0,
         bySeverity: { critical: 0, warning: 0, info: 0 },
         lastUpdated: now,
         customerName: card.title,
       },
       notifications: {
-        totalNotifications: 0,
-        unreadNotifications: 0,
+        totalNotifications: card.metaCounts?.notifications ?? 0,
+        unreadNotifications: card.metaCounts?.notifications ?? 0,
         readNotifications: 0,
         byType: { system: 0, alert: 0, info: 0, success: 0 },
         lastUpdated: now,
@@ -3035,10 +3285,11 @@ export class WelcomeModalView {
    * Bind events for shopping cards (used after dynamic update)
    */
   private bindCardEvents(): void {
+    // Resolve o card NO CLIQUE (não no bind) — dados mudam a cada updateShoppingCards.
+    // A validação de dashboardId é do handler 'card-click' (toast quando ausente).
     const cards = this.container.querySelectorAll('.myio-welcome-card');
     cards.forEach((card, index) => {
-      const shoppingCard = this.params.shoppingCards?.[index];
-      if (!shoppingCard) return;
+      if (!this.params.shoppingCards?.[index]) return;
 
       // Click handler
       card.addEventListener('click', (e: Event) => {
@@ -3046,7 +3297,7 @@ export class WelcomeModalView {
         if (target.closest('.myio-welcome-card-device-count')) {
           return;
         }
-        this.emit('card-click', shoppingCard);
+        this.emit('card-click', this.params.shoppingCards?.[index]);
       });
 
       // Keyboard support
@@ -3054,7 +3305,7 @@ export class WelcomeModalView {
         const keyEvent = e as KeyboardEvent;
         if (keyEvent.key === 'Enter' || keyEvent.key === ' ') {
           e.preventDefault();
-          this.emit('card-click', shoppingCard);
+          this.emit('card-click', this.params.shoppingCards?.[index]);
         }
       });
     });
@@ -3256,6 +3507,41 @@ export class WelcomeModalView {
   }
 
   /**
+   * Show/hide the CTA button (e.g. hidden while indicator enrichment is loading)
+   */
+  public setCtaHidden(hidden: boolean): void {
+    const ctaBtn = this.container.querySelector('#welcomeCtaBtn') as HTMLButtonElement;
+    if (ctaBtn) ctaBtn.style.display = hidden ? 'none' : '';
+  }
+
+  /**
+   * Update the global enrichment progress bar below the CTA button.
+   * percent: 0–100; the bar fades out shortly after reaching 100.
+   */
+  public setEnrichmentProgress(percent: number, label?: string): void {
+    const wrap = this.container.querySelector('#welcomeEnrichProgress') as HTMLElement;
+    const fill = this.container.querySelector('#welcomeEnrichProgressFill') as HTMLElement;
+    const labelEl = this.container.querySelector('#welcomeEnrichProgressLabel') as HTMLElement;
+    if (!wrap || !fill) return;
+
+    const pct = Math.max(0, Math.min(100, Math.round(percent)));
+    wrap.hidden = false;
+    wrap.style.opacity = '1';
+    fill.style.width = `${pct}%`;
+    if (labelEl) labelEl.textContent = label ?? `Carregando indicadores… ${pct}%`;
+
+    if (pct >= 100) {
+      if (labelEl && label === undefined) labelEl.textContent = 'Dados carregados';
+      setTimeout(() => {
+        wrap.style.opacity = '0';
+        setTimeout(() => {
+          wrap.hidden = true;
+        }, 400);
+      }, 800);
+    }
+  }
+
+  /**
    * Show the modal (after it was hidden)
    */
   public show(): void {
@@ -3297,6 +3583,16 @@ export class WelcomeModalView {
 
     // Destroy V2 card instances
     this.destroyCardsV2();
+
+    // Remove meta badges hover panel
+    if (this.metaTipHideTimer) {
+      clearTimeout(this.metaTipHideTimer);
+      this.metaTipHideTimer = null;
+    }
+    if (this.metaTipEl) {
+      this.metaTipEl.remove();
+      this.metaTipEl = null;
+    }
 
     // Note: styleElement is shared across instances, so we don't remove it here
     this.eventHandlers.clear();

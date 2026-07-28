@@ -4748,13 +4748,6 @@ var DATA_API_HOST = '';
  */
 var THINGSBOARD_URL = '';
 
-/**
- * MyIO central UUID used to build https://{centralId}.y.myio.com.br/api/*
- * (on/off commands, water tank data, etc). Read from settings.centralId.
- * Without this, on/off buttons cannot dispatch commands (silently skipped).
- */
-var CENTRAL_ID = '';
-
 // Chart data cache to avoid unnecessary refetches (e.g., on maximize)
 // Keyed by domain, stores last result per period
 var _chartDataCache = {};
@@ -5993,9 +5986,6 @@ self.onInit = async function () {
   // TB base for direct REST calls. Default '' keeps same-origin behavior inside
   // the real TB runtime; the showcase sets it so /api/* doesn't hit the page origin.
   THINGSBOARD_URL = String(self.ctx.settings?.thingsboardUrl || '').replace(/\/$/, '');
-  // centralId: widget setting takes priority (per-dashboard override); if empty,
-  // it's resolved below from the customer's SERVER_SCOPE attrs once fetched.
-  CENTRAL_ID = self.ctx.settings?.centralId || '';
 
   // Create LogHelper instance using library function
   LogHelper = window.MyIOLibrary.createLogHelper({

@@ -225,6 +225,65 @@
           }
         }
       },
+      "defaultThemeMode": {
+        "title": "Default Theme Mode",
+        "type": "string",
+        "enum": ["dark", "light"],
+        "default": "light",
+        "description": "Paleta de cores do dashboard (createMyIOTheme). Propagada via window.MyIOUtils.theme para widgets filhos e modais premium (ex.: AllReportModal)."
+      },
+      "darkMode": {
+        "type": "object",
+        "title": "Dark Mode Settings",
+        "properties": {
+          "primaryColor": {
+            "title": "Primary Color",
+            "type": "string",
+            "default": "#3e1a7d"
+          },
+          "secondaryColor": {
+            "title": "Secondary Color",
+            "type": "string",
+            "default": "#2d1458"
+          },
+          "textColor": {
+            "title": "Text Color",
+            "type": "string",
+            "default": "#ffffff"
+          },
+          "mutedTextColor": {
+            "title": "Muted Text Color",
+            "type": "string",
+            "default": "#cccccc"
+          }
+        }
+      },
+      "lightMode": {
+        "type": "object",
+        "title": "Light Mode Settings",
+        "properties": {
+          "primaryColor": {
+            "title": "Primary Color",
+            "type": "string",
+            "default": "#3e1a7d"
+          },
+          "secondaryColor": {
+            "title": "Secondary Color",
+            "type": "string",
+            "default": "#2d1458"
+          },
+          "textColor": {
+            "title": "Text Color",
+            "type": "string",
+            "default": "#333333"
+          },
+          "mutedTextColor": {
+            "title": "Muted Text Color",
+            "type": "string",
+            "default": "#666666"
+          }
+        }
+      },
       "goalsDefaultPeriodDays": {
         "title": "Metas — Período padrão (dias, view 1d)",
         "type": "number",
@@ -304,6 +363,51 @@
     "goalsDefaultPeriodDays",
     "goalsThrottle.perReqMs",
     "goalsThrottle.batchSize",
-    "goalsThrottle.batchPauseMs"
+    "goalsThrottle.batchPauseMs",
+    "defaultThemeMode",
+    {
+      "type": "fieldset",
+      "title": "Dark Mode",
+      "items": [
+        {
+          "key": "darkMode.primaryColor",
+          "type": "color"
+        },
+        {
+          "key": "darkMode.secondaryColor",
+          "type": "color"
+        },
+        {
+          "key": "darkMode.textColor",
+          "type": "color"
+        },
+        {
+          "key": "darkMode.mutedTextColor",
+          "type": "color"
+        }
+      ]
+    },
+    {
+      "type": "fieldset",
+      "title": "Light Mode",
+      "items": [
+        {
+          "key": "lightMode.primaryColor",
+          "type": "color"
+        },
+        {
+          "key": "lightMode.secondaryColor",
+          "type": "color"
+        },
+        {
+          "key": "lightMode.textColor",
+          "type": "color"
+        },
+        {
+          "key": "lightMode.mutedTextColor",
+          "type": "color"
+        }
+      ]
+    }
   ]
 }

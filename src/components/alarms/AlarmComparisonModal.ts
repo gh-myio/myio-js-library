@@ -174,7 +174,7 @@ function render(container: HTMLElement, modalId: string, state: {
         max-height: ${state.isMaximized ? '100%' : '92vh'};
         display: flex; flex-direction: column; overflow: hidden;
         border: 1px solid ${colors.border};
-        font-family: 'Roboto', Arial, sans-serif;
+        font-family: 'Nunito', system-ui, sans-serif;
       }
       #${modalId} .myio-alarm-compare-header {
         background: #3e1a7d; color: white;

@@ -22,7 +22,7 @@ export const DEVICE_OPERATIONAL_CARD_GRID_STYLES = `
   --grid-accent: #8b5cf6;
   --grid-accent-light: rgba(139, 92, 246, 0.1);
 
-  font-family: 'Inter', 'Roboto', 'Segoe UI', sans-serif;
+  font-family: 'Nunito', system-ui, sans-serif;
   background: var(--grid-bg-primary);
   color: var(--grid-text-primary);
   height: 100%;

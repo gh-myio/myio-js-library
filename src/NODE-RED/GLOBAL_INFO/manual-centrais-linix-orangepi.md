@@ -47,7 +47,9 @@ ssh -i id_rsa root@<ipv6-da-central>
 | Mestre Álvaro — L3L4 | `200:b0b1:81aa:49a4:c554:4fec:f110:9896` | `fcb3ccd1-4b85-4cef-a1de-0b8a80bec81e` | —          | —          |
 | Rio Poty             | `203:bdfb:8fda:634d:c846:1404:f319:718c` | `c0af8288-7b13-4024-bc11-df5017fef656` | —          | —          |
 | Shopping da Ilha     | `201:3447:911:5955:4018:3960:6838:ee12`  | `cb318f02-1020-4f99-857f-d44d001d939b` | —          | —          |
-| Moxuara              | `202:1567:faee:79ef:486:6d44:d391:fb18`  | `e982edf9-edb1-4aa6-8a14-4782465ae5a3` | —          | —          |
+| ~~Moxuara~~ ⚠️ **INATIVADA 2026-07-13** — substituída pela Moxuara 2.0 (banco restaurado do backup desta) | ~~`202:1567:faee:79ef:486:6d44:d391:fb18`~~ | ~~`e982edf9-edb1-4aa6-8a14-4782465ae5a3`~~ | —          | —          |
+| Central Moxuara 2.0 - 2026-07-13 | `201:bc00:2a0e:6e36:a50f:9ef6:9b23:d097` | `6e88d9be-e351-4a8a-aa02-2a2222fcb22b` | —          | —          |
+| Central Moxuara 2.0 - ENTRADA - TRAFO - 2026-07-13 | `200:b2d6:a485:7a30:364b:424c:cafa:141c` | `6d7cd66a-c6dd-40df-b40b-e1bad295e424` | —          | —          |
 | Montserrat           | `200:abb2:e99:ec3d:eaf8:2d90:7bd9:42cc`  | `186bbdcb-95bc-4290-bf33-1ce89e48ffb4` | —          | —          |
 | Shopping Ananindeua  | `201:ca6e:c33b:3a06:f4dd:d148:5d85:6315` | `7ac0ac44-e631-4b64-ac1d-e9e93fe61e0a` | —          | —          |
 
@@ -82,9 +84,11 @@ ssh -i id_rsa root@<ipv6-da-central>
 
 #### Holding: SUPERVIA ESTAÇÕES
 
-| Central | IPv6                                    | Gateway ID                             | Central ID | Frequência |
-| ------- | --------------------------------------- | -------------------------------------- | ---------- | ---------- |
-| Deodoro | `200:1e6a:69a5:73f1:b18a:e6e:aa68:9229` | `adb43bf6-6107-44fa-b786-6e88c150d779` | —          | —          |
+| Central      | IPv6                                      | Gateway ID                             | Central ID | Frequência |
+| ------------ | ----------------------------------------- | -------------------------------------- | ---------- | ---------- |
+| Deodoro      | `200:1e6a:69a5:73f1:b18a:e6e:aa68:9229`  | `adb43bf6-6107-44fa-b786-6e88c150d779` | —          | —          |
+| Supervia CCO | `206:e178:b5ba:16:f028:c0bc:d616:2c5b`   | `af8a4c31-aa30-4417-9421-457496bcfe01` | —          | —          |
+| Supervia CTO | `202:1c94:dab9:af71:f553:616:615:adbc`   | `6dd63004-1009-4585-bd9f-556d4385e292` | —          | —          |
 
 #### Holding: DIMENSION
 
@@ -119,6 +123,14 @@ ssh -i id_rsa root@<ipv6-da-central>
 | ------------------------ | ----------------------------------------- | -------------------------------------- | ---------- | ---------- |
 | Porto Imbituba 4 — NOVA  | `200:c301:a4e7:529a:780c:9230:2142:9dba`  | `014fab8e-ee6d-4349-9866-d73864cbd44b` | —          | —          |
 
+#### MYIO — PRÉ-SETUP (bancada / referência)
+
+| Central           | IPv6                                      | Gateway ID                             | Central ID | Frequência |
+| ----------------- | ----------------------------------------- | -------------------------------------- | ---------- | ---------- |
+| Central Pre-Setup | `204:12fb:5518:d04:d9e1:360d:4ab0:125b`   | `a77ac87c-addd-4172-a65f-0f6f6038e98e` | `161.158.107.69` | 121 |
+
+> Referência canônica do Pre-Setup Constructor — ver `src/NODE-RED/CENTRAL_PRE_SETUP/README.md`.
+
 **Exemplos de conexão:**
 
 ```bash
@@ -137,8 +149,14 @@ ssh -i id_rsa root@203:bdfb:8fda:634d:c846:1404:f319:718c
 # Shopping da Ilha (Sá Cavalcante)
 ssh -i id_rsa root@201:3447:911:5955:4018:3960:6838:ee12
 
-# Moxuara (Sá Cavalcante)
-ssh -i id_rsa root@202:1567:faee:79ef:486:6d44:d391:fb18
+# Moxuara (Sá Cavalcante) — ⚠️ INATIVADA 2026-07-13 (substituída pela 2.0 abaixo)
+# ssh -i id_rsa root@202:1567:faee:79ef:486:6d44:d391:fb18
+
+# Central Moxuara 2.0 - 2026-07-13 (Sá Cavalcante)
+ssh -i id_rsa root@201:bc00:2a0e:6e36:a50f:9ef6:9b23:d097
+
+# Central Moxuara 2.0 - ENTRADA - TRAFO - 2026-07-13 (Sá Cavalcante)
+ssh -i id_rsa root@200:b2d6:a485:7a30:364b:424c:cafa:141c
 
 # Montserrat (Sá Cavalcante)
 ssh -i id_rsa root@200:abb2:e99:ec3d:eaf8:2d90:7bd9:42cc
@@ -191,6 +209,12 @@ ssh -i id_rsa root@200:12b0:b768:7ba0:32b5:1c15:bec7:33aa
 # Deodoro (Supervia Estações)
 ssh -i id_rsa root@200:1e6a:69a5:73f1:b18a:e6e:aa68:9229
 
+# Supervia CCO (Supervia Estações)
+ssh -i id_rsa root@206:e178:b5ba:16:f028:c0bc:d616:2c5b
+
+# Supervia CTO (Supervia Estações)
+ssh -i id_rsa root@202:1c94:dab9:af71:f553:616:615:adbc
+
 # Central Dimension (Dimension)
 ssh -i id_rsa root@203:984:24ef:b578:69a6:7136:b9f2:b5c2
 
@@ -214,6 +238,9 @@ ssh -i id_rsa root@200:47f1:8bf6:36da:65fa:4124:bcdb:dbb4
 
 # Porto Imbituba 4 — NOVA (Porto Imbituba)
 ssh -i id_rsa root@200:c301:a4e7:529a:780c:9230:2142:9dba
+
+# Central Pre-Setup (bancada / referência)
+ssh -i id_rsa root@204:12fb:5518:d04:d9e1:360d:4ab0:125b
 ```
 
 ---
@@ -924,6 +951,44 @@ systemctl restart nodered
 reboot
 ```
 
+### 9.4 Backup do banco Postgres em `/tmp` (ANTES de qualquer DELETE/UPDATE)
+
+> Sempre que for rodar um script SQL de correção (deletar slaves/ambients/channels,
+> updates em massa etc.), gere um backup em `/tmp` primeiro. O banco é `hubot`
+> (o prompt do `psql -U hubot` mostra `hubot=#`), então `pg_dump -U hubot` já
+> dumpa o banco certo sem `-d`.
+
+```bash
+# Backup SÓ das tabelas de cadastro (rápido — cobre slaves/channels/ambients/junction)
+pg_dump -U hubot --clean --if-exists \
+  -t slaves -t channels -t ambients -t ambients_rfir_slaves_rel \
+  > /tmp/backup-cadastro-$(date +%Y%m%d-%H%M%S).sql
+
+# Backup completo do banco (inclui timeseries — pode ser GRANDE e demorar)
+pg_dump -U hubot > /tmp/backup-full-$(date +%Y%m%d-%H%M%S).sql
+
+# Conferir que gerou
+ls -lh /tmp/backup-*.sql
+```
+
+**Restaurar** (o `--clean --if-exists` faz o dump dropar e recriar as tabelas na restauração):
+
+```bash
+psql -U hubot -f /tmp/backup-cadastro-<timestamp>.sql
+```
+
+**⚠️ `/tmp` é perdido no reboot** — antes de reiniciar a central (ou para guardar
+o backup), copie para sua máquina:
+
+```bash
+# Da SUA máquina (não de dentro da central)
+scp root@\[<ipv6-da-central>\]:/tmp/backup-cadastro-*.sql .
+```
+
+> Detalhes do modelo de dados e fluxo padrão de scripts SQL:
+> [`data-model-postgres-timeseries.md`](data-model-postgres-timeseries.md) (§5.5 e §6.1).
+> Lembrete: shell das centrais é BusyBox `ash` — sintaxe POSIX simples.
+
 ---
 
 ## 10. Troubleshooting
@@ -942,4 +1007,4 @@ reboot
 
 ---
 
-_Última atualização: 2026-06-30_
+_Última atualização: 2026-07-07_

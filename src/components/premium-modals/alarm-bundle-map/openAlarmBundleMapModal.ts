@@ -64,7 +64,7 @@ const STYLES = `
     display: flex;
     align-items: center;
     justify-content: center;
-    font-family: 'Roboto', Inter, system-ui, -apple-system, sans-serif;
+    font-family: 'Nunito', system-ui, sans-serif;
   }
   #${MODAL_ID} .abm-card {
     background: #fff;
@@ -345,7 +345,7 @@ const STYLES = `
     position: fixed; inset: 0;
     background: rgba(0,0,0,0.55); backdrop-filter: blur(4px);
     z-index: 99999; display: flex; align-items: center; justify-content: center;
-    font-family: 'Roboto', Inter, system-ui, -apple-system, sans-serif;
+    font-family: 'Nunito', system-ui, sans-serif;
   }
   .abm-confirm-modal {
     background: #fff; border-radius: 10px; width: min(420px, 94vw);

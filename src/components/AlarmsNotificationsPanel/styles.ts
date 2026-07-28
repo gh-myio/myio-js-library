@@ -77,7 +77,7 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
    Container
    ===================================================================== */
 .myio-alarms-panel {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: 'Nunito', system-ui, sans-serif;
   font-size: 12px;
   line-height: 1.4;
   color: var(--alarms-text);
@@ -1665,7 +1665,7 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
 .alarms-trend-chart .chart-label {
   font-size: 10px;
   fill: var(--alarms-text-muted);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: 'Nunito', system-ui, sans-serif;
 }
 
 .alarms-trend-legend {
@@ -2219,7 +2219,7 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   display: block;
   margin: 0;
   padding: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: 'Nunito', system-ui, sans-serif;
   font-size: 15px;
   font-weight: 700;
   color: #111827;

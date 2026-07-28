@@ -158,6 +158,8 @@ export {
 export type { AssetType, AssetTypeConfigEntry } from './utils/asset';
 
 // RFC-0109: Device Item Factory utilities
+// 2026-07-14: deviceType está EM DESUSO — classificação usa só o deviceProfile.
+// getDomainFromProfile é o nome canônico; getDomainFromDeviceType é alias @deprecated.
 export {
   DomainType,
   DeviceCategory,
@@ -166,6 +168,7 @@ export {
   isSolenoidDevice,
   isTemperatureDevice,
   isEnergyDevice,
+  getDomainFromProfile,
   getDomainFromDeviceType,
   extractPowerLimitsForDevice,
   createDeviceItem,
@@ -212,7 +215,53 @@ export {
   setActiveProfile,
   listDomains,
   listGroups,
+  // RFC-0207 "Dispositivos Específicos" — overrides por dispositivo no breakdown.
+  collectDeviceOverrides,
+  selectBreakdownItems,
+  normalizeDeviceOverrideId,
+  computeBaseGroupResidual,
 } from './utils/devices/deviceClassificationProfile.js';
+// RFC-0207 v2/v3.1: árvore recursiva de nós + walker genérico (group-generic).
+// ADITIVO: `resolveGroup`/`resolveCategory` (v1) continuam sendo o caminho que o
+// dashboard executa; o walker é provado equivalente sobre a árvore levantada do
+// seed (tests/deviceClassificationProfile.treeWalker.test.ts) e é a base do tier-2.
+export {
+  resolveClassification,
+  resolveSubcategory,
+  liftProfileToTree,
+  validateTree,
+  findNode,
+  flattenTree,
+} from './utils/devices/classificationNodeTree';
+export type {
+  ClassificationNode,
+  NodeRules,
+  NodeFormula,
+  NodeRole,
+  NodeMatchedBy,
+  ClassificationResolution,
+} from './utils/devices/classificationNodeTree';
+
+// RFC-0207 v3.1: engine × store seam. A lib é dona da INTERFACE `ProfileSource`,
+// do `BakedProfileSource` (piso offline versionado) e da cadeia de degradação;
+// as fontes CONCRETAS de I/O (TB attribute / GCDR resolve) vivem no MAIN_VIEW —
+// **a lib nunca faz fetch e nunca escreve no ThingsBoard** (§B/§D).
+export {
+  createBakedProfileSource,
+  resolveWithFallback,
+  isBakedStale,
+} from './utils/devices/profileSource';
+export type {
+  ProfileSource,
+  ResolvedProfile,
+  ProfileSourceKind,
+  ResolveWithFallbackOptions,
+} from './utils/devices/profileSource';
+export {
+  BAKED_PROFILE_VERSION,
+  BAKED_PROFILE_KEYS,
+} from './utils/devices/bakedProfile.generated';
+
 // RFC-0047: adapter for the GCDR entities classification tree (domain/column/profile)
 export { parseClassificationEntities } from './utils/devices/classificationTree';
 export type {
@@ -232,6 +281,13 @@ export type {
   GroupName,
   CategoryName,
   GroupDescriptor,
+  DeviceOveride,
+  DeviceOverrideMode,
+  CollectedDeviceOverrides,
+  BreakdownEntry,
+  SelectBreakdownItemsOptions,
+  BreakdownSubtotalInput,
+  BaseGroupResidual,
 } from './utils/devices/deviceClassificationProfile.js';
 
 // RFC-0207 Phase B: device classification profile management modal (premium UI).
@@ -245,11 +301,7 @@ export type {
 // vanilla port of the gcdr-frontend SectionCard. Used internally by the device
 // profile modal sections; exported for general reuse.
 export { createDivCard } from './components/div-card/DivCard';
-export type {
-  CreateDivCardOptions,
-  DivCardHandle,
-  DivCardAccent,
-} from './components/div-card/DivCard';
+export type { CreateDivCardOptions, DivCardHandle, DivCardAccent } from './components/div-card/DivCard';
 
 // RFC-0143: Device Grid Widget Factory
 export {
@@ -383,7 +435,13 @@ export {
 export { renderCardAmbienteV6 } from './components/cards/ambient/v6.0.0/template-card-ambiente-v6.js';
 
 // HeaderPanelComponent — Reusable header component for panels
-export { HeaderPanelComponent, HEADER_STYLE_SLIM, HEADER_STYLE_DEFAULT, HEADER_STYLE_DARK, HEADER_STYLE_PREMIUM_GREEN } from './components/header-panel/index';
+export {
+  HeaderPanelComponent,
+  HEADER_STYLE_SLIM,
+  HEADER_STYLE_DEFAULT,
+  HEADER_STYLE_DARK,
+  HEADER_STYLE_PREMIUM_GREEN,
+} from './components/header-panel/index';
 export type { HeaderPanelStyle, HeaderPanelOptions } from './components/header-panel/index';
 
 // EntityListPanel — Reusable sidebar list component
@@ -392,7 +450,12 @@ export type { EntityListItem, EntityListPanelOptions } from './components/entity
 
 // CardGridPanel — Reusable card grid panel component
 export { CardGridPanel } from './components/card-grid-panel/index';
-export type { CardGridItem, CardGridCustomStyle, CardGridPanelOptions, TabItem } from './components/card-grid-panel/index';
+export type {
+  CardGridItem,
+  CardGridCustomStyle,
+  CardGridPanelOptions,
+  TabItem,
+} from './components/card-grid-panel/index';
 // CardGridTabsBuilder — Builder pattern for data-driven CardGridPanel tabs
 export { CardGridTabsBuilder } from './components/card-grid-panel/index';
 export type { TabSpec } from './components/card-grid-panel/index';
@@ -619,6 +682,13 @@ export { WaterSummaryTooltip } from './utils/tooltips/WaterSummaryTooltip';
 export { InfoTooltip } from './utils/tooltips/InfoTooltip';
 export { ColumnSummaryTooltip } from './utils/tooltips/ColumnSummaryTooltip';
 export { resolvePercentDecimals } from './utils/percentDecimals';
+// RFC-0046 Addendum A: goals coverage-gap warning helpers (GCDR Goals API 2026-07)
+export {
+  formatCoverageRefPtBR,
+  buildCoverageWarningTextPtBR,
+  hasCoverageGaps,
+} from './utils/goalsCoverage';
+export type { GoalsCoverageGaps } from './utils/goalsCoverage';
 export type {
   DashboardEnergySummary,
   CategorySummary,
@@ -662,7 +732,10 @@ export type { AlarmsSummaryData, AlarmInfo } from './utils/tooltips/AlarmsSummar
 
 // Notifications Summary Tooltip (Not yet released - placeholder)
 export { NotificationsSummaryTooltip } from './utils/tooltips/NotificationsSummaryTooltip';
-export type { NotificationsSummaryData, NotificationInfo } from './utils/tooltips/NotificationsSummaryTooltip';
+export type {
+  NotificationsSummaryData,
+  NotificationInfo,
+} from './utils/tooltips/NotificationsSummaryTooltip';
 
 // RFC-0193 / RFC-0214: Alarm Notification Tooltip (rich, draggable/pinnable/maximizable)
 // Ported from v-5.2.0 HEADER inline AlarmNotificationTooltip into a reusable component.
@@ -724,6 +797,14 @@ export type {
   TemperatureConfig as ConsumptionTemperatureConfig,
   TemperatureReferenceLine as ConsumptionTemperatureReferenceLine,
 } from './components/Consumption7DaysChart';
+
+// Goals bar tooltip — premium tree-driven tooltip for the Metas bar charts
+export { createGoalsBarTooltip } from './components/tooltips/goals-bar-tooltip';
+export type {
+  TipRow as GoalsBarTipRow,
+  GoalsBarTooltipData,
+  GoalsBarTooltipInstance,
+} from './components/tooltips/goals-bar-tooltip';
 
 // Goals Modal — Painel de metas com linha de alvo (PR #101 / RFC-0046-ready)
 export { GoalsModal } from './components/goals-modal';
@@ -856,6 +937,16 @@ export type {
   ContractDomain,
 } from './components/premium-modals/contract-devices';
 
+// Theme palette (dark/light) dirigida pelas settings do dashboard — padrão
+// extraído do MYIO-SIM/v5.2.0_UNIQUE (darkMode/lightMode + goalsPalette).
+export { createMyIOTheme } from './components/theme';
+export type {
+  MyIOThemeMode,
+  MyIOThemeModeSettings,
+  MyIOThemeSettings,
+  MyIOThemePalette,
+} from './components/theme';
+
 // RFC-0215: Settings hub modal (consolidated "Configurações" picker — RFC-0108 UX)
 export { openSettingsHubModal } from './components/settings-hub';
 export type {
@@ -864,6 +955,191 @@ export type {
   SettingsHubHandlers,
   SettingsHubModalHandle,
 } from './components/settings-hub';
+
+// RFC-0222: Customer Energy/Water Pricing Panel (prototype — R$/kWh & R$/m³ per
+// customer × domain × category × period, with audit trail + KPI dashboard).
+// Prototype persistence (memory + localStorage + onSave); real GCDR persistence
+// documented in docs/rfcs/RFC-0222-Customer-Energy-Pricing-Panel.md.
+export { openPricingPanel } from './components/pricing-panel';
+export type {
+  OpenPricingPanelParams,
+  PricingCustomerRef,
+  PricingDomain,
+  PricingCategory,
+  PricingEntry,
+  PricingPeriodType,
+  PricingAuditAction,
+  PricingAuditRecord,
+  PricingKpis,
+  PricingPanelEvent,
+  PricingPanelHandle,
+  PricingPanelThemeSource,
+  TariffApiPanelConfig,
+} from './components/pricing-panel';
+
+// RFC-0228 A1 — GCDR hourly-tariff API client + panel↔wire adapter (makes the
+// pricing panel persist through /customers/:id/tariffs instead of localStorage).
+export {
+  TariffApiClient,
+  TariffApiError,
+  createTariffApiClient,
+  TariffApiAdapter,
+  createTariffApiAdapter,
+  panelDomainToWire,
+  wireDomainToPanel,
+  panelCategoryToWire,
+  wireCategoryToPanel,
+  normalizePriceString,
+  isLeapYear,
+  daysInMonthYear,
+  collapseHoursToBands,
+  collapseTreeToBands,
+  expandDayToHourBuckets,
+  expandBandHours,
+  expandBandToHourBucketsByYear,
+} from './components/pricing-panel';
+export type {
+  TariffApiClientConfig,
+  TariffSelector,
+  TariffBucket,
+  TariffTreeNode,
+  TariffTreeResponse,
+  TariffGranularity,
+  WireDomain,
+  WireCategory,
+  TariffApiAdapterOptions,
+  TariffBand,
+  TariffBandInput,
+  TariffBandPeriod,
+} from './components/pricing-panel';
+
+// RFC-0228 F0 — Financial Goals money foundation: naming bridge (resolves the
+// 3-way `budget` collision), goals-money API client, and pt-BR BRL formatters.
+// Pure types/client/formatters — no UI (A4/A2a/A3 consume this spine).
+// `formatBRL` is re-exported as `formatMoneyBRL` (takes a decimal STRING) to
+// avoid colliding with the pricing-panel numeric `formatBRL`.
+export {
+  MONEY_REQUIRES_DEVICE_GRANULARITY,
+  normalizeMoneyBlock,
+  normalizeBudgetBlock,
+  GoalsMoneyClient,
+  GoalsMoneyApiError,
+  createGoalsMoneyClient,
+  DASH as MONEY_DASH,
+  formatMoneyBRL,
+  formatBRLDelta,
+  formatDeltaPct,
+  computeDeltaPct,
+  signOf,
+  // RFC-0228 A4 — honest coverage UI (reusable renderer for A2a/A3).
+  renderCoverageView,
+  buildCoverageHTML,
+  coveragePercentLabel,
+  injectCoverageStyles,
+  COVERAGE_STYLE_ID,
+  // RFC-0228 A2a — R$ money overlay row for one Metas × Consumo card (pilot).
+  renderFinancialIndicators,
+  buildFinancialRowHTML,
+  resolveMoneyRowValues,
+  subtractDecimals,
+  // RFC-0228 A3 — native CURRENCY budget view (Target/Projected + DEC-6 verdict).
+  renderBudgetView,
+  buildBudgetHTML,
+  buildVerdictHTML,
+  resolveBudget,
+  // RFC-0228 A5a — device tariff-category management UI (seam-driven; B6 backs it).
+  createFakeDeviceCategoryPort,
+  createHttpDeviceCategoryPort,
+  DeviceCategoryConflictError,
+  openDeviceCategoryPanel,
+  createCoverageDeepLink,
+  deviceCategoryLabel,
+  deviceCategoryToPanelTerm,
+  panelTermToDeviceCategory,
+  injectDeviceCategoryStyles,
+  DEVICE_CATEGORY_STYLE_ID,
+  // RFC-0228 A6 — R$ money column for aggregate report rows/totals (DEC-8 contract).
+  createReportMoneyColumn,
+  isMoneyColumnConfident,
+  sumMoneyDecimals,
+  decimalStringToCents,
+  centsToDecimalString,
+  REPORT_MONEY_HEADER,
+  // RFC-0228 A7 — per-consumer realized-vs-goal variance in R$ (DEC-6 withholding).
+  computeMoneyVariance,
+  buildMoneyVarianceHTML,
+  renderMoneyVariance,
+  createMoneyVarianceColumn,
+  resolveGoalAmount,
+  overlayWithholdsVerdict,
+  VARIANCE_LABEL_ABOVE,
+  VARIANCE_LABEL_BELOW,
+  VARIANCE_LABEL_ONTARGET,
+  VARIANCE_LABEL_WITHHELD,
+  MONEY_VARIANCE_HEADER,
+  // RFC-0228 A2b — broad-rollout gate (per-customer eligibility; composes with A2a).
+  resolveMoneyRollout,
+  routeMoneyRender,
+  renderGatedMoney,
+} from './components/financial-goals';
+export type {
+  MoneyDomain,
+  QuantityGoal,
+  GoalTreeNode,
+  MonetaryProjection,
+  CurrencyBudget,
+  BudgetVerdict,
+  BudgetOverlay,
+  MoneyOverlay,
+  UncategorizedDevice,
+  TariffCoverageGaps,
+  RawMoneyBlock,
+  RawBudgetBlock,
+  GoalsMoneyClientConfig,
+  GoalSelector,
+  GoalGranularity,
+  CurrencyBudgetResponse,
+  CoverageViewOptions,
+  FinancialIndicatorsOptions,
+  FinancialMoneyValues,
+  FinancialChipColors,
+  FinancialValueColors,
+  BudgetViewOptions,
+  BudgetValueColors,
+  BudgetChipColors,
+  // RFC-0228 A5a — device tariff-category management UI.
+  // Aliased: a `DeviceCategory` value export already exists (RFC-0109 utils/device).
+  DeviceCategory as DeviceTariffCategory,
+  DeviceCategoryRow,
+  DeviceCategoryPort,
+  FakeDeviceSeed,
+  FakeDeviceCategoryPortOptions,
+  FakeDeviceCategoryPortHandle,
+  HttpDeviceCategoryPortConfig,
+  OpenDeviceCategoryPanelParams,
+  DeviceCategoryPanelHandle,
+  DeviceCategoryFilter,
+  // RFC-0228 A6 — R$ money report column types.
+  ReportMoneyColumnConfig,
+  ReportMoneyColumn,
+  ReportMoneyTotal,
+  // RFC-0228 A7 — per-consumer R$ variance types.
+  MoneyVarianceInput,
+  MoneyVarianceResult,
+  MoneyVarianceVerdict,
+  MoneyVarianceOptions,
+  MoneyVarianceColumn,
+  MoneyVarianceColumnConfig,
+  // RFC-0228 A2b — broad-rollout gate types.
+  MoneyRolloutReason,
+  MoneyRolloutDecision,
+  MoneyRolloutAllowlist,
+  MoneyRolloutSettings,
+  MoneyRolloutParams,
+  MoneyRenderAction,
+  MoneyRenderRouting,
+  GatedMoneyRenderers,
+} from './components/financial-goals';
 
 // RFC-0108: Measurement Setup Modal
 export { openMeasurementSetupModal } from './components/premium-modals/measurement-setup';
@@ -1087,9 +1363,27 @@ export type {
 export { CustomerCardV2, createCustomerCardV2 } from './components/cards/customer/v2.0.0';
 export { injectCustomerCardV2Styles } from './components/cards/customer/v2.0.0';
 
-export type { CustomerCardV2Params, CustomerCardV2Instance, MetroTile } from './components/cards/customer/v2.0.0';
+export type {
+  CustomerCardV2Params,
+  CustomerCardV2Instance,
+  MetroTile,
+} from './components/cards/customer/v2.0.0';
 
 export { METRO_TILE_COLORS } from './components/cards/customer/v2.0.0';
+
+// RFC-0217: CustomerGoalsCard (per-shopping small multiples — Realizado × A-1 × Orçado)
+export { CustomerGoalsCard, createCustomerGoalsCard } from './components/cards/customer-goals/v1.0.0';
+export type {
+  CustomerGoalsCardParams,
+  CustomerGoalsCardInstance,
+  CustomerGoalsCardOptions,
+  CustomerGoalsChartType,
+  CustomerGoalsSeries,
+  CustomerGoalsTotals,
+  CustomerGoalsThemeMode,
+  // RFC-0228 A7 — optional R$ variance readout on the card (money naming bridge).
+  CustomerGoalsMoneyVariance,
+} from './components/cards/customer-goals/v1.0.0';
 
 // RFC-0132: EnergyPanel Component
 export { createEnergyPanelComponent } from './components/energy-panel';
@@ -1144,6 +1438,25 @@ export { openOnboardModal, openTutorialModal, openHelpModal, OnboardModalView } 
 
 export type { OnboardModalConfig, OnboardModalHandle, OnboardFooterLink } from './components/onboard';
 
+// RFC-0227: Metas × Consumo — "?" Help Button + Mock-Data Guided Tour (Wizard)
+export {
+  openMetasGuide,
+  DEFAULT_FIXTURES as MetasGuideDefaultFixtures,
+  WATER_FIXTURES as MetasGuideWaterFixtures,
+  SERIES_COLORS as MetasGuideSeriesColors,
+  deriveTotal as metasGuideDeriveTotal,
+  computeChips as metasGuideComputeChips,
+} from './components/metas-guide';
+
+export type {
+  MetasGuideOptions,
+  MetasGuideHandle,
+  MetasGuideTheme,
+  MetasGuideFixtures,
+  MetasGuideShoppingFixture,
+  MetasGuideSeries,
+} from './components/metas-guide';
+
 // RFC-0139: HeaderShopping Component (Shopping Dashboard toolbar)
 export { createHeaderShoppingComponent } from './components/header-shopping';
 export { HeaderShoppingView, injectHeaderShoppingStyles } from './components/header-shopping';
@@ -1181,7 +1494,12 @@ export type {
 export { MENU_SHOPPING_CSS_PREFIX, DEFAULT_MENU_SHOPPING_CONFIG } from './components/menu-shopping';
 
 // RFC-0145: TelemetryGridShopping Component (Shopping Dashboard device grid)
-export { createTelemetryGridShoppingComponent, exportGridCsv, exportGridXls, exportGridPdf } from './components/telemetry-grid-shopping';
+export {
+  createTelemetryGridShoppingComponent,
+  exportGridCsv,
+  exportGridXls,
+  exportGridPdf,
+} from './components/telemetry-grid-shopping';
 
 export type {
   TelemetryGridShoppingParams,
@@ -1548,7 +1866,11 @@ export {
 } from './components/fancoil-remote';
 
 // RFC-0158: Solenoid Control Component
-export { createSolenoidControl, SolenoidControlController, SolenoidControlView } from './components/solenoid-control';
+export {
+  createSolenoidControl,
+  SolenoidControlController,
+  SolenoidControlView,
+} from './components/solenoid-control';
 
 export type {
   SolenoidStatus,
@@ -1587,7 +1909,7 @@ export {
 } from './components/switch-control';
 
 // RFC-0158: Action Button Component
-export { createActionButton, ActionButtonController, ActionButtonView } from './components/action-button';
+export { createActionButton, ActionButtonController, ActionButtonView } from './components/buttons/action-button';
 
 export type {
   ActionButtonThemeMode,
@@ -1596,13 +1918,96 @@ export type {
   ActionButtonSettings,
   ActionButtonParams,
   ActionButtonInstance,
-} from './components/action-button';
+} from './components/buttons/action-button';
 
 export {
   DEFAULT_ACTION_BUTTON_SETTINGS,
   ACTION_BUTTON_CSS_PREFIX,
   injectActionButtonStyles,
-} from './components/action-button';
+} from './components/buttons/action-button';
+
+// Buttons factory — export buttons PDF/CSV/XLS (padrão MAN4) com temas
+// light/dark, estado locked (cadeado) e tooltip via InfoTooltip.
+export {
+  createExportButton,
+  createPdfButton,
+  createCsvButton,
+  createXlsButton,
+  EXPORT_BUTTON_CSS_PREFIX,
+  injectExportButtonStyles,
+  EXPORT_BUTTON_KIND_DEFAULTS,
+  EXPORT_BUTTON_CUSTOM_COLORS,
+} from './components/buttons';
+export type {
+  ExportButtonKind,
+  ExportButtonThemeMode,
+  ExportButtonColors,
+  ExportButtonTooltip,
+  ExportButtonSettings,
+  ExportButtonParams,
+  ExportButtonInstance,
+} from './components/buttons';
+
+// Granularity Selector — tabs 1h / 1d extraídas do EnergyModal (RFC-0097):
+// pill container com fundo sutil, botão ativo na cor primária (respeita
+// --myio-energy-primary / --myio-brand-700), temas light/dark e tooltip
+// premium opcional via InfoTooltip. Usado pelo EnergyModalView.
+export {
+  createGranularitySelector,
+  GRANULARITY_SELECTOR_CSS_PREFIX,
+  injectGranularitySelectorStyles,
+  DEFAULT_GRANULARITY_OPTIONS,
+} from './components/granularity-selector';
+export type {
+  Granularity,
+  GranularitySelectorThemeMode,
+  GranularitySelectorOption,
+  GranularitySelectorTooltip,
+  GranularitySelectorSettings,
+  GranularitySelectorParams,
+  GranularitySelectorInstance,
+} from './components/granularity-selector';
+
+// Graphs — ParticipationChart (SVG puro, sem Chart.js): pizza/barras com
+// participação por item, legenda selecionável, tooltip InfoTooltip, temas
+// light/dark, export PNG/PDF e expand fullscreen. Usado no AllReportModal.
+export {
+  createParticipationChart,
+  PARTICIPATION_CHART_CSS_PREFIX,
+  injectParticipationChartStyles,
+  MYIO_CHART_PALETTE,
+  MYIO_CHART_PALETTE_DARK,
+  DEFAULT_PARTICIPATION_CHART_SETTINGS,
+} from './components/graphs';
+export type {
+  ParticipationChartType,
+  ParticipationChartThemeMode,
+  ParticipationChartLegendPosition,
+  ParticipationChartPaletteMode,
+  ParticipationChartItem,
+  ParticipationChartThemeColors,
+  ParticipationChartLegendSettings,
+  ParticipationChartExportSettings,
+  ParticipationChartSettings,
+  ParticipationChartParams,
+  ParticipationChartInstance,
+} from './components/graphs';
+
+// Real-time clock component (footer premium)
+export { createRealTimeClock } from './components/clock';
+export type {
+  RealTimeClockOptions,
+  RealTimeClockInstance,
+  RealTimeClockThemeMode,
+} from './components/clock';
+
+// Premium modal footer — Customer · relógio · versão | Powered by MYIO | PDF/CSV/XLSX
+export { createModalFooter } from './components/premium-modals/footer-modal';
+export type {
+  ModalFooterParams,
+  ModalFooterExportConfig,
+  ModalFooterInstance,
+} from './components/premium-modals/footer-modal';
 
 // Scheduling Shared Module
 export {
@@ -1645,7 +2050,11 @@ export type {
 } from './components/scheduling-shared';
 
 // Schedule On/Off Component
-export { createScheduleOnOff, ScheduleOnOffController, ScheduleOnOffView } from './components/schedule-on-off';
+export {
+  createScheduleOnOff,
+  ScheduleOnOffController,
+  ScheduleOnOffView,
+} from './components/schedule-on-off';
 
 export type {
   OnOffScheduleEntry,
@@ -1686,7 +2095,11 @@ export {
 } from './components/schedule-ir';
 
 // Schedule Setpoint Component
-export { createScheduleSetpoint, ScheduleSetpointController, ScheduleSetpointView } from './components/schedule-setpoint';
+export {
+  createScheduleSetpoint,
+  ScheduleSetpointController,
+  ScheduleSetpointView,
+} from './components/schedule-setpoint';
 
 export type {
   SetpointScheduleEntry,
@@ -1720,7 +2133,11 @@ export type {
 } from './components/device-grid-v6';
 
 // Schedule Holiday Component
-export { createScheduleHoliday, ScheduleHolidayController, ScheduleHolidayView } from './components/schedule-holiday';
+export {
+  createScheduleHoliday,
+  ScheduleHolidayController,
+  ScheduleHolidayView,
+} from './components/schedule-holiday';
 
 export type {
   HolidayEntry,
@@ -1776,10 +2193,7 @@ export {
   normalizeOnOff as normalizeOnOffStatus,
   formatStatusTimestamp,
 } from './components/premium-modals/on-off-device';
-export type {
-  DeviceStatusInput,
-  DeviceStatusResult,
-} from './components/premium-modals/on-off-device';
+export type { DeviceStatusInput, DeviceStatusResult } from './components/premium-modals/on-off-device';
 
 // RFC-0167: On/Off Timeline Chart (for On/Off Device Modal)
 export {
@@ -1939,7 +2353,12 @@ export type {
 
 // RFC-0198: FreshDesk API — reusable service client
 // Generic types (FreshDeskTicket, TicketTypeId, TicketMotivo) live in the service layer
-export type { FreshDeskTicket, FreshDeskConversation, TicketTypeId, TicketMotivo } from './services/freshdesk/types';
+export type {
+  FreshDeskTicket,
+  FreshDeskConversation,
+  TicketTypeId,
+  TicketMotivo,
+} from './services/freshdesk/types';
 // Named function exports (also available as FreshdeskClient namespace below)
 export {
   fetchOpenTickets,
@@ -1957,9 +2376,15 @@ export * as FreshdeskClient from './services/freshdesk/FreshdeskClient';
 // RFC-0198: FreshDesk / Tickets — dashboard integration
 export { createTicketsTab } from './components/premium-modals/settings/tickets/TicketsTab';
 export { NewTicketWizard, createNewTicketWizard } from './components/premium-modals/tickets/NewTicketWizard';
-export type { NewTicketWizardConfig, WizardDevice } from './components/premium-modals/tickets/NewTicketWizard';
+export type {
+  NewTicketWizardConfig,
+  WizardDevice,
+} from './components/premium-modals/tickets/NewTicketWizard';
 export { createTicketDetailModal } from './components/premium-modals/tickets/TicketDetailModal';
-export type { TicketDetailModalConfig, TicketDetailModalHandle } from './components/premium-modals/tickets/TicketDetailModal';
+export type {
+  TicketDetailModalConfig,
+  TicketDetailModalHandle,
+} from './components/premium-modals/tickets/TicketDetailModal';
 export type {
   TicketsTabConfig,
   TicketServiceOrchestratorShape,
@@ -1995,9 +2420,7 @@ export {
   getHeaderAnnotationsPanel,
   injectStylesOnce as injectHeaderAnnotationsStyles,
 } from './components/header-annotations-panel/HeaderAnnotationsPanel';
-export type {
-  HeaderAnnotationsPanelOptions,
-} from './components/header-annotations-panel/HeaderAnnotationsPanel';
+export type { HeaderAnnotationsPanelOptions } from './components/header-annotations-panel/HeaderAnnotationsPanel';
 export {
   renderAnnotationItemCard,
   escapeHtml as escapeAnnotationHtml,
@@ -2013,19 +2436,14 @@ export {
   SORT_OPTIONS as ANNOTATION_SORT_OPTIONS,
   DEFAULT_SORT as DEFAULT_ANNOTATION_SORT,
 } from './components/header-annotations-panel/searchSortFilter';
-export type {
-  AnnotationSortKey,
-} from './services/annotations/types';
+export type { AnnotationSortKey } from './services/annotations/types';
 // RFC-0203 M6 — VirtualList helper (used by HeaderAnnotationsPanel when items > 100)
 export {
   VirtualList,
   shouldVirtualize as shouldVirtualizeAnnotationList,
   VIRTUAL_SCROLL_THRESHOLD as ANNOTATION_VIRTUAL_THRESHOLD,
 } from './components/header-annotations-panel/VirtualList';
-export type {
-  VirtualRow,
-  VirtualListOptions,
-} from './components/header-annotations-panel/VirtualList';
+export type { VirtualRow, VirtualListOptions } from './components/header-annotations-panel/VirtualList';
 // RFC-0203 M7 — Export helpers (PDF + CSV) and the export modal
 export {
   exportAnnotationsCsv,
@@ -2036,9 +2454,7 @@ export {
   CSV_COLUMNS as ANNOTATION_CSV_COLUMNS,
 } from './components/header-annotations-panel/ExportCSV';
 export type { CsvColumn as AnnotationCsvColumn } from './components/header-annotations-panel/ExportCSV';
-export {
-  exportAnnotationsPdf,
-} from './components/header-annotations-panel/ExportPDF';
+export { exportAnnotationsPdf } from './components/header-annotations-panel/ExportPDF';
 export type {
   PdfLevel as AnnotationPdfLevel,
   ExportPdfOptions as AnnotationExportPdfOptions,
@@ -2048,4 +2464,3 @@ export {
   closeExportModal as closeAnnotationsExportModal,
 } from './components/header-annotations-panel/ExportModal';
 export type { OpenExportModalOptions as OpenAnnotationsExportModalOptions } from './components/header-annotations-panel/ExportModal';
-

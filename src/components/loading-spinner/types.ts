@@ -72,6 +72,25 @@ export interface LoadingSpinnerConfig {
    */
   theme?: LoadingTheme;
 
+  /**
+   * Accent color for the spinner + progress bar. When omitted, falls back to the
+   * inherited `--myio-brand-700` CSS var (host dashboard palette), then the
+   * default purple. Lets the overlay follow the dashboard theme.
+   */
+  accentColor?: string;
+
+  /**
+   * Render a progress bar under the message. Update it via `setProgress()`.
+   * Shown without a numeric value → indeterminate (animated) bar.
+   * @default false
+   */
+  showProgress?: boolean;
+
+  /**
+   * Initial progress percentage (0–100). `null` = indeterminate.
+   */
+  progress?: number | null;
+
   // =====================
   // DEBUG CONFIGURATION
   // =====================
@@ -121,6 +140,12 @@ export interface LoadingSpinnerInstance {
   updateMessage: (message: string) => void;
 
   /**
+   * Updates the progress bar. Pass 0–100 for a determinate bar, or `null` for an
+   * indeterminate (animated) bar. Optional `label` overrides the percentage text.
+   */
+  setProgress: (pct: number | null, label?: string) => void;
+
+  /**
    * Checks if spinner is currently visible
    * @returns true if spinner is showing
    */
@@ -144,6 +169,7 @@ export const DEFAULT_LOADING_CONFIG: LoadingSpinnerConfig = {
   spinnerType: 'double',
   theme: 'dark',
   showTimer: false,
+  showProgress: false,
 };
 
 /**

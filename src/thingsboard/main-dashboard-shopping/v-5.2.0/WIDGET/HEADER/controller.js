@@ -14,10 +14,10 @@ let MyIOAuth = null;
 
 // RFC-0054 FIX: Use global variable to share state across multiple HEADER instances
 // This prevents race conditions when multiple widgets are loaded
-// VERSION: 2026-03-17-rfc-0152
+// VERSION: 2026-07-06-rfc-0152b
 if (!window.__myioCurrentDomain) {
   window.__myioCurrentDomain = null;
-  console.log('[HEADER] VERSION: 2026-03-17-rfc-0152 - Global currentDomain initialized');
+  console.log('[HEADER] VERSION: 2026-07-06-rfc-0152b - Global currentDomain initialized');
 }
 
 // RFC-0042: Track current domain from MENU widget (use global reference)
@@ -39,7 +39,10 @@ let currentDomain = {
   if (!document.getElementById(styleId)) {
     const s = document.createElement('style');
     s.id = styleId;
-    s.textContent = '.tb-no-data-text, .tb-widget-no-data-text { display: none !important; }';
+    // RFC-0152b: broadened — .tb-widget-no-data is the actual overlay container
+    // in current TB versions (the previous two classes alone didn't match).
+    s.textContent =
+      '.tb-no-data-text, .tb-widget-no-data-text, .tb-widget-no-data, .tb-no-data-available, .tb-no-data-available-text { display: none !important; }';
     document.head.appendChild(s);
     console.log('[HEADER] RFC-0152: No-data overlay suppressed (module scope)');
   }
@@ -50,21 +53,61 @@ let currentDomain = {
 // preventing the orchestrator from waiting 20s before its own fallback kicks in.
 // onInit sets window.__myioHeaderOnInitRan = true to disable this fallback.
 window.__myioHeaderOnInitRan = false;
-(function installHeaderFallbackPeriodEmitter() {
-  // Only install once (guard against multiple HEADER instances)
-  if (window.__myioHeaderFallbackInstalled) return;
-  window.__myioHeaderFallbackInstalled = true;
+// RFC-0152b v2: instala o fallback POR INSTÂNCIA — cada avaliação do controller
+// captura o próprio `self`. O guard global de instalação única (v1) capturava o
+// PRIMEIRO `self` avaliado, que pode ser um HEADER oculto de outro dashboard
+// state (sem ctx inicializado) — deixando o header VISÍVEL sem fallback algum.
+(function installHeaderFallbackBootstrap() {
+  let _handled = false;
 
   function _fallbackHandler(e) {
     // Give onInit 800ms to mark itself as started
     setTimeout(function () {
-      if (window.__myioHeaderOnInitRan) {
+      if (_handled) return;
+      // Per-instance flag (set at the top of onInit). The old window-level flag
+      // is kept for compat but can't distinguish between multiple instances.
+      if (self.__myioHeaderOnInitRan) {
+        _handled = true;
         window.removeEventListener('myio:dashboard-state', _fallbackHandler);
         return;
       }
       const domain = e && e.detail && e.detail.tab;
       if (domain !== 'energy' && domain !== 'water') return;
+      _handled = true;
+      window.removeEventListener('myio:dashboard-state', _fallbackHandler);
 
+      // RFC-0152b: TB skipped the widget lifecycle (datasource resolved to 0
+      // entities — e.g. water-only customer). The widget EXISTS and the template
+      // is mounted, only onInit never fired — which left the whole header dead:
+      // date picker unbound and the alarm/ticket/annotation buttons stuck on
+      // their is-loading spinners (the listeners/watchdogs that strip them are
+      // registered inside onInit). Bootstrap manually: onInit itself emits the
+      // initial period, so on success we skip the manual emission below.
+      const hasOnInit = typeof self.onInit === 'function';
+      const hasContainer = !!(self.ctx && self.ctx.$container && self.ctx.$container[0]);
+      if (hasOnInit && hasContainer) {
+        console.warn(
+          '[HEADER] ⚠️ RFC-0152b FALLBACK: onInit não chamado pelo TB — executando bootstrap manual do header'
+        );
+        try {
+          Promise.resolve(self.onInit()).catch(function (err) {
+            console.error('[HEADER] RFC-0152b: fallback onInit rejected:', err);
+          });
+          return;
+        } catch (err) {
+          console.error('[HEADER] RFC-0152b: fallback onInit threw — falling back to period-only emission:', err);
+        }
+      } else {
+        // Diagnóstico: qual guarda falhou nesta instância
+        console.warn(
+          '[HEADER] RFC-0152b: bootstrap indisponível nesta instância (onInit=' +
+            hasOnInit + ', ctx.$container=' + hasContainer + ') — emitindo apenas o período'
+        );
+      }
+
+      // Plano C: só o período (dedupe global — uma emissão basta para o dashboard)
+      if (window.__myioHeaderFallbackPeriodEmitted) return;
+      window.__myioHeaderFallbackPeriodEmitted = true;
       const now = new Date();
       const startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
       const endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 0);
@@ -81,12 +124,11 @@ window.__myioHeaderOnInitRan = false;
         fallbackPeriod
       );
       window.dispatchEvent(new CustomEvent('myio:update-date', { detail: { period: fallbackPeriod } }));
-      window.removeEventListener('myio:dashboard-state', _fallbackHandler);
     }, 800);
   }
 
   window.addEventListener('myio:dashboard-state', _fallbackHandler);
-  console.log('[HEADER] RFC-0152: Fallback period emitter installed (module scope)');
+  console.log('[HEADER] RFC-0152b: Fallback bootstrap installed (per instance)');
 })();
 
 /* ==== RFC-0107: Contract Status Icon Management ==== */
@@ -322,6 +364,7 @@ function setupTooltipPremium(target, text) {
 self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   // Signal to the module-scope fallback emitter that onInit IS running
   window.__myioHeaderOnInitRan = true;
+  self.__myioHeaderOnInitRan = true; // RFC-0152b v2: per-instance flag
 
   const q = (sel) => self.ctx.$container[0].querySelector(sel);
 
@@ -334,9 +377,42 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     if (!document.getElementById(styleId)) {
       const s = document.createElement('style');
       s.id = styleId;
-      // Target common TB no-data overlay class names across versions
-      s.textContent = '.tb-no-data-text, .tb-widget-no-data-text { display: none !important; }';
+      // Target common TB no-data overlay class names across versions (RFC-0152b list)
+      s.textContent =
+        '.tb-no-data-text, .tb-widget-no-data-text, .tb-widget-no-data, .tb-no-data-available, .tb-no-data-available-text { display: none !important; }';
       document.head.appendChild(s);
+    }
+  })();
+
+  // Theme palette (window.MyIOUtils.theme, from createMyIOTheme in MAIN_VIEW):
+  // apply the dashboard accent to the HEADER chrome (alarm-notification tooltip,
+  // header buttons, KPI numbers). Sets the shared --myio-brand-* vars plus a few
+  // header-only derived tints on the widget root AND on documentElement (the alarm
+  // tooltip is appended to <body>, so it inherits from documentElement).
+  // FALLBACK: when no theme is configured nothing is set, and the CSS var()
+  // fallbacks keep today's green — the header looks identical to before.
+  (function applyHeaderTheme() {
+    try {
+      const theme = window.MyIOUtils?.theme;
+      if (!theme) return; // no theme → CSS var() fallbacks preserve current green
+      const setVars = (el) => {
+        if (!el) return;
+        const vars = typeof theme.cssVars === 'function' ? theme.cssVars() : null;
+        if (vars) Object.entries(vars).forEach(([k, v]) => el.style.setProperty(k, v));
+        // Header-only derived tints for the light header-band gradient + dark title.
+        // Only set when a theme exists → no-theme path keeps the exact green literals.
+        if (typeof theme.lighten === 'function') {
+          el.style.setProperty('--myio-hdr-head-bg1', theme.lighten(90));
+          el.style.setProperty('--myio-hdr-head-bg2', theme.lighten(80));
+          el.style.setProperty('--myio-hdr-head-border', theme.lighten(50));
+        }
+        el.style.setProperty('--myio-hdr-title', theme.accentDark || theme.accent);
+      };
+      setVars(self.ctx?.$container?.[0]);
+      if (typeof document !== 'undefined') setVars(document.documentElement);
+      LogHelper.log('[HEADER] theme palette applied to header chrome:', { accent: theme.accent });
+    } catch (themeErr) {
+      LogHelper.warn('[HEADER] theme palette apply failed (keeping default green):', themeErr?.message);
     }
   })();
 
@@ -433,6 +509,14 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
           start: self.__range.start.format('YYYY-MM-DD'),
           end: self.__range.end.format('YYYY-MM-DD'),
         });
+      }
+
+      // Aplicar do picker dispara o carregamento: antes só atualizava o range
+      // interno e os cards ficavam no período anterior até o usuário clicar
+      // Carregar (input mostrava junho, cards mostravam julho).
+      if (btnLoad && !btnLoad.disabled) {
+        LogHelper.log('[DateRangePicker] Auto-triggering Carregar after Apply');
+        btnLoad.click();
       }
 
       // The input display is automatically handled by the component
@@ -805,23 +889,23 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 .ant-tooltip.maximized .ant-alarm-time   { font-size: 11px; }
 .ant-tooltip.maximized .ant-footer-label { font-size: 13px; }
 .ant-tooltip.maximized .ant-footer-value { font-size: 20px; }
-.ant-tooltip.pinned { box-shadow: 0 0 0 2px #0a6d5e, 0 10px 40px rgba(0,0,0,0.2); }
+.ant-tooltip.pinned { box-shadow: 0 0 0 2px var(--myio-brand-700, #0a6d5e), 0 10px 40px rgba(0,0,0,0.2); }
 .ant-content {
   background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
   box-shadow: 0 10px 40px rgba(0,0,0,0.15), 0 2px 10px rgba(0,0,0,0.08);
   width: 1008px; max-width: 95vw; max-height: 82vh;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Nunito', system-ui, sans-serif;
   font-size: 12px; color: #1e293b; overflow: hidden;
   display: flex; flex-direction: column;
 }
 .ant-header {
   display: flex; align-items: center; gap: 8px; padding: 10px 14px;
-  background: linear-gradient(90deg, #e6f4f1 0%, #c3e6e2 100%);
-  border-bottom: 1px solid #7ecfc8; border-radius: 12px 12px 0 0;
+  background: linear-gradient(90deg, var(--myio-hdr-head-bg1, #e6f4f1) 0%, var(--myio-hdr-head-bg2, #c3e6e2) 100%);
+  border-bottom: 1px solid var(--myio-hdr-head-border, #7ecfc8); border-radius: 12px 12px 0 0;
   cursor: move; user-select: none;
 }
 .ant-header-icon  { font-size: 18px; }
-.ant-header-title { font-weight: 700; font-size: 14px; color: #0a4f45; flex: 1; }
+.ant-header-title { font-weight: 700; font-size: 14px; color: var(--myio-hdr-title, #0a4f45); flex: 1; }
 .ant-header-ts    { font-size: 10px; color: #6b7280; margin-right: 8px; }
 .ant-header-actions { display: flex; align-items: center; gap: 4px; }
 .ant-hbtn {
@@ -830,8 +914,8 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   justify-content: center; transition: all 0.15s; color: #64748b;
 }
 .ant-hbtn:hover { background: rgba(255,255,255,0.9); color: #1e293b; }
-.ant-hbtn.pinned { background: #0a6d5e; color: #fff; }
-.ant-hbtn.pinned:hover { background: #084f44; color: #fff; }
+.ant-hbtn.pinned { background: var(--myio-brand-700, #0a6d5e); color: #fff; }
+.ant-hbtn.pinned:hover { background: var(--myio-brand-600, #084f44); color: #fff; }
 .ant-hbtn svg { width: 14px; height: 14px; }
 .ant-body { padding: 14px; overflow-y: auto; flex: 1; min-height: 0; }
 
@@ -854,7 +938,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   position: absolute; inset: 0; background: #cbd5e1; border-radius: 20px;
   transition: background 0.2s;
 }
-.ant-switch input:checked + .ant-switch-track { background: #0a6d5e; }
+.ant-switch input:checked + .ant-switch-track { background: var(--myio-brand-700, #0a6d5e); }
 .ant-switch-thumb {
   position: absolute; top: 3px; left: 3px; width: 14px; height: 14px;
   background: #fff; border-radius: 50%; transition: transform 0.2s;
@@ -870,7 +954,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   flex: 1; text-align: center; padding: 8px 4px;
   background: #f8faf9; border: 1px solid #e0eceb; border-radius: 8px;
 }
-.ant-summary-num   { font-size: 20px; font-weight: 700; color: #0a6d5e; line-height: 1; }
+.ant-summary-num   { font-size: 20px; font-weight: 700; color: var(--myio-brand-700, #0a6d5e); line-height: 1; }
 .ant-summary-label { font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 2px; }
 
 /* Section headers */
@@ -979,11 +1063,11 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   content: '▸'; font-size: 12px; color: #94a3b8; transition: transform 0.2s;
 }
 .ant-collapse[open] summary::after { transform: rotate(90deg); }
-.ant-collapse summary:hover { color: #0a4f45; }
+.ant-collapse summary:hover { color: var(--myio-hdr-title, #0a4f45); }
 .ant-collapse-body { padding-top: 8px; }
 .ant-footer {
   padding: 10px 14px; border-top: 1px solid #e8ecef;
-  background: linear-gradient(135deg, #0a6d5e 0%, #0d8570 100%);
+  background: linear-gradient(135deg, var(--myio-brand-700, #0a6d5e) 0%, var(--myio-brand-600, #0d8570) 100%);
   border-radius: 0 0 11px 11px;
   display: flex; align-items: center; justify-content: space-between;
 }
@@ -1615,7 +1699,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   background: #fff; border: 1px solid #a5f3fc; border-radius: 12px;
   box-shadow: 0 10px 40px rgba(0,0,0,0.15), 0 2px 10px rgba(0,0,0,0.08);
   width: 420px; max-width: 95vw; max-height: 80vh;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Nunito', system-ui, sans-serif;
   font-size: 12px; color: #1e293b; overflow: hidden; display: flex; flex-direction: column;
 }
 .tnt-header {
@@ -2184,7 +2268,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
             identifier: d.identifier || '',
             label: d.label || d.identifier || '',
             domain,
-            deviceProfile: d.deviceProfile || d.deviceType || '',
+            deviceProfile: d.deviceProfile || '', // deviceType em desuso
           });
           return [
             ...(data.energy?.items || []).map((d) => toW(d, 'energy')),
@@ -2587,21 +2671,29 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       // RFC-0054: Validate current domain
       const MyIOToast = window.MyIOUtils?.MyIOToast;
       if (!currentDomain.value) {
-        LogHelper.warn('[HEADER] ⚠️ currentDomain is null - attempting to auto-select energy');
+        // RFC-0152c: derive the domain instead of hardcoding 'energy' — on a
+        // water-only dashboard the old auto-select emitted dashboard-state(energy),
+        // poisoning the orchestrator's visibleTab: every Carregar hydrated energy
+        // (error toast) while water never refetched.
+        const autoDomain =
+          window.MyIOOrchestrator?.getVisibleTab?.() ||
+          window.MyIOOrchestrator?.getFirstEnabledDomain?.() ||
+          'energy';
+        LogHelper.warn(`[HEADER] ⚠️ currentDomain is null - auto-selecting ${autoDomain}`);
 
-        // Try to auto-select energy domain before showing error
+        // Try to auto-select the derived domain before showing error
         try {
           // Set domain directly
-          currentDomain.value = 'energy';
+          currentDomain.value = autoDomain;
 
           // Dispatch event to notify other widgets
           window.dispatchEvent(
             new CustomEvent('myio:dashboard-state', {
-              detail: { tab: 'energy' },
+              detail: { tab: autoDomain },
             })
           );
 
-          LogHelper.log('[HEADER] ✅ Auto-selected energy domain');
+          LogHelper.log(`[HEADER] ✅ Auto-selected ${autoDomain} domain`);
 
           // If still null after setting (edge case), show error
           if (!currentDomain.value) {

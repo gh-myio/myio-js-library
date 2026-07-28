@@ -184,7 +184,7 @@ export class HeaderView {
   height: 100%;
   padding: 8px 12px 4px 12px;
   box-sizing: border-box;
-  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  font-family: 'Nunito', system-ui, sans-serif;
   color: var(--hdr-ink-1);
   background: transparent;
 }

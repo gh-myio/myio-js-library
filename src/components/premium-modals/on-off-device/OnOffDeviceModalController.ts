@@ -134,7 +134,7 @@ export class OnOffDeviceModalController {
         display: flex;
         flex-direction: column;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        font-family: 'Roboto', 'Segoe UI', Arial, sans-serif;
+        font-family: 'Nunito', system-ui, sans-serif;
       }
 
       .${ON_OFF_MODAL_CSS_PREFIX}-content.maximized {

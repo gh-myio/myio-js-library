@@ -1,0 +1,4336 @@
+[
+  {
+    "id": "5d3a7bbf-d73d-4d3b-aab5-08e10b37ef20",
+    "name": "Cliente Central Pre-Setup",
+    "gcdrCustomerId": "5d3a7bbf-d73d-4d3b-aab5-08e10b37ef20",
+    "thingsboard_customer_id": "84caa080-5f6a-11f1-b98b-230c8cf30ada",
+    "ingestion_customer_id": "10598936-53e4-4e49-ad08-8a6633836e4d",
+    "gateways": [],
+    "assets": [
+      {
+        "id": "973c308c-4b6c-49db-9644-8d894451a976",
+        "name": "ASSET CENTR-PRESE Todas CentraiL",
+        "type": "LOCATION",
+        "devices": [],
+        "gateways": [],
+        "children": [
+          {
+            "id": "607c5cbc-95e4-4491-9f82-73bb0a021526",
+            "name": "ASSET CENTR-PRESE Central 1",
+            "type": "LOCATION",
+            "devices": [],
+            "gateways": [
+              {
+                "id": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                "uuid": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                "name": "CENTRAL CLIENTE CENTRAL PRE-SETUP 1",
+                "type": "gateway",
+                "frequency": 121,
+                "central_id": [
+                  161,
+                  158,
+                  107,
+                  69
+                ],
+                "centralId": "161.158.107.69",
+                "ipv6-yggdrasil": "204:12fb:5518:d04:d9e1:360d:4ab0:125b",
+                "credentials": {
+                  "mqtt": {
+                    "server": "mqtt://mqtt.myio-bas.com",
+                    "clientId": "jqovootevaz8h638d6wl",
+                    "username": "ruwo58dts1fqzdil32ou",
+                    "userName": "ruwo58dts1fqzdil32ou"
+                  }
+                },
+                "devices": []
+              }
+            ],
+            "children": [
+              {
+                "id": "5976d0c6-c0fd-4eb3-9f24-8b4ce6a5d66d",
+                "name": "ASSET CENTR-PRESE Depósito Subsolo",
+                "type": "LOCATION",
+                "devices": [
+                  {
+                    "id": "ac8e7283-475e-4958-bef5-4cd6636c470b",
+                    "name": "3F ELEV. BMT2V83",
+                    "label": "3F ELEV. BMT2V83",
+                    "identifier": "3FELEV.Deposito_Terreo_JQE6K43-ASSET_Depósito_Térreo-SWDepSubsolo_01_02_XDN5R48-ASSET_Depósito_Subsolo-SWDepSubsolo_03_04_WLC8Q83-ASSET_Depósito_Subsolo",
+                    "type": "ELEVADOR",
+                    "addr_low": "53",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 53,
+                    "central_device_type": "ACTUATOR",
+                    "central_device_id": "53",
+                    "channels": [
+                      {
+                        "name": "Canal 1",
+                        "role": "output",
+                        "index": 0,
+                        "appSensor": "command",
+                        "centralType": "outlet"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  },
+                  {
+                    "id": "dce43dea-350a-4eac-b6ed-75ded4f859f9",
+                    "name": "3F ELEV. Deposito_Terreo_JQE6K43",
+                    "label": "ELEV. Deposito_Terreo_JQE6K43",
+                    "identifier": "3FELEV.Deposito_Terreo_JQE6K43-ASSET_Depósito_Térreo",
+                    "type": "ELEVADOR",
+                    "addr_low": "46",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 46,
+                    "central_device_type": "ACTUATOR",
+                    "central_device_id": "46",
+                    "channels": [
+                      {
+                        "name": "Canal 1",
+                        "role": "output",
+                        "index": 0,
+                        "appSensor": "command",
+                        "centralType": "outlet"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  },
+                  {
+                    "id": "0b7bd404-ebfe-4df3-a655-bfafabfe8c71",
+                    "name": "3F ELEV. RQR7Q43",
+                    "label": "Elevador Social",
+                    "identifier": "3FELEV.RQR7Q43-ASSET_CENTR-PRESE_Depósito_Subsolo",
+                    "type": "ELEVADOR",
+                    "addr_low": "56",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 56,
+                    "central_device_type": "ACTUATOR",
+                    "central_device_id": "56",
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  },
+                  {
+                    "id": "c1bf969a-3da8-4841-8bc4-1d6b3d220903",
+                    "name": "3F ESRL. TXS2Y92",
+                    "label": "teste rodrigo",
+                    "identifier": "ksdagfhjaslkg",
+                    "type": "ESCADA_ROLANTE",
+                    "addr_low": "55",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 55,
+                    "central_device_type": "ACTUATOR",
+                    "central_device_id": "55",
+                    "channels": [
+                      {
+                        "name": "Canal 1",
+                        "role": "output",
+                        "index": 0,
+                        "appSensor": "command",
+                        "centralType": "outlet"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  },
+                  {
+                    "id": "d49daa17-822a-49c1-af7e-8ef98549c8b7",
+                    "name": "HIDR. PCR5Z59",
+                    "label": "HIDR. PCR5Z59",
+                    "identifier": "HIDR.PCR5Z59-ASSET_CENTR-PRESE_Depósito_Subsolo",
+                    "type": "HIDROMETRO",
+                    "addr_low": "54",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 54,
+                    "central_device_type": "METER",
+                    "central_device_id": "54",
+                    "channels": [
+                      {
+                        "name": "Fonte",
+                        "role": "input",
+                        "index": 0,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Vazão",
+                        "role": "input",
+                        "index": 1,
+                        "config": {
+                          "pulses": 1,
+                          "countingPulseOnPower": true
+                        },
+                        "appSensor": "flow",
+                        "centralType": "flow_sensor"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  },
+                  {
+                    "id": "f034a3fe-7b94-4260-b867-ea7d5809c29c",
+                    "name": "SW DepSubsolo_01_02_XDN5R48",
+                    "label": "SW DepSubsolo_01_02_XDN5R48",
+                    "identifier": "SWDepSubsolo_01_02_XDN5R48-ASSET_Depósito_Subsolo",
+                    "type": "SW_ILUMINACAO",
+                    "addr_low": "38",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 38,
+                    "central_device_type": "OTHER",
+                    "central_device_id": "38",
+                    "channels": [
+                      {
+                        "name": "Auto. DepSubsolo_01_XDN5R48",
+                        "role": "input",
+                        "index": 0,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Auto. DepSubsolo_02_XDN5R48",
+                        "role": "input",
+                        "index": 1,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Iluminacao DepSubsolo_01_XDN5R48",
+                        "role": "output",
+                        "index": 0,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      },
+                      {
+                        "name": "Iluminacao DepSubsolo_02_XDN5R48",
+                        "role": "output",
+                        "index": 1,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  },
+                  {
+                    "id": "055bfef1-09f1-4c3c-951a-4de176c67de2",
+                    "name": "SW DepSubsolo_03_04_WLC8Q83",
+                    "label": "SW DepSubsolo_03_04_WLC8Q83",
+                    "identifier": "SWDepSubsolo_03_04_WLC8Q83-ASSET_Depósito_Subsolo",
+                    "type": "SW_ILUMINACAO",
+                    "addr_low": "39",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 39,
+                    "central_device_type": "OTHER",
+                    "central_device_id": "39",
+                    "channels": [
+                      {
+                        "name": "Auto. DepSubsolo_03_WLC8Q83",
+                        "role": "input",
+                        "index": 0,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Auto. DepSubsolo_04_WLC8Q83",
+                        "role": "input",
+                        "index": 1,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Iluminacao DepSubsolo_03_WLC8Q83",
+                        "role": "output",
+                        "index": 0,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      },
+                      {
+                        "name": "Iluminacao DepSubsolo_04_WLC8Q83",
+                        "role": "output",
+                        "index": 1,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  }
+                ],
+                "gateways": [],
+                "children": [],
+                "subAssets": [],
+                "status_sync": {
+                  "central": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "thingsboard": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "ingestion": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "central_log": [],
+                  "thingsboard_log": [],
+                  "ingestion_log": []
+                }
+              },
+              {
+                "id": "7d83e699-98e0-454a-a41c-4e6fa250d032",
+                "name": "ASSET CENTR-PRESE Depósito Térreo",
+                "type": "LOCATION",
+                "devices": [
+                  {
+                    "id": "eac2faf0-a597-44f9-89fa-ecfecb6a526a",
+                    "name": "3F ELEV. WBB4L26",
+                    "label": "3F ELEV. WBB4L26",
+                    "identifier": "SWDepTerreo_01_02_HNZ5G97-ASSET_Depósito_Térreo",
+                    "type": "ELEVADOR",
+                    "addr_low": "49",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 49,
+                    "central_device_type": "ACTUATOR",
+                    "central_device_id": "49",
+                    "channels": [
+                      {
+                        "name": "Canal 1",
+                        "role": "output",
+                        "index": 0,
+                        "appSensor": "command",
+                        "centralType": "outlet"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  },
+                  {
+                    "id": "e6434bd4-2d0d-4368-a897-07de0d270a4f",
+                    "name": "SW DepTerreo_01_02_HNZ5G97",
+                    "label": "SW DepTerreo_01_02_HNZ5G97",
+                    "identifier": "SWDepTerreo_01_02_HNZ5G97-ASSET_Depósito_Térreo",
+                    "type": "SW_ILUMINACAO",
+                    "addr_low": "33",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 33,
+                    "central_device_type": "OTHER",
+                    "central_device_id": "33",
+                    "channels": [
+                      {
+                        "name": "Auto. DepTerreo_01_HNZ5G97",
+                        "role": "input",
+                        "index": 0,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Auto. DepTerreo_02_HNZ5G97",
+                        "role": "input",
+                        "index": 1,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Iluminacao DepTerreo_01_HNZ5G97",
+                        "role": "output",
+                        "index": 0,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      },
+                      {
+                        "name": "Iluminacao DepTerreo_02_HNZ5G97",
+                        "role": "output",
+                        "index": 1,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  }
+                ],
+                "gateways": [],
+                "children": [],
+                "subAssets": [],
+                "status_sync": {
+                  "central": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "thingsboard": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "ingestion": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "central_log": [],
+                  "thingsboard_log": [],
+                  "ingestion_log": []
+                }
+              },
+              {
+                "id": "95674a46-f094-4b0c-884e-e573a1add84c",
+                "name": "ASSET CENTR-PRESE-DWU9M78",
+                "type": "LOCATION",
+                "devices": [
+                  {
+                    "id": "5ee35b7b-6ce4-4f40-95be-3cef1f3d2b7c",
+                    "name": "3F ELEV. FDJ9V23",
+                    "label": "3F ELEV. FDJ9V23",
+                    "type": "ELEVADOR",
+                    "addr_low": "50",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 50,
+                    "central_device_type": "ACTUATOR",
+                    "central_device_id": "50",
+                    "channels": [
+                      {
+                        "name": "Canal 1",
+                        "role": "output",
+                        "index": 0,
+                        "appSensor": "command",
+                        "centralType": "outlet"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  }
+                ],
+                "gateways": [],
+                "children": [],
+                "subAssets": [],
+                "status_sync": {
+                  "central": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "thingsboard": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "ingestion": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "central_log": [],
+                  "thingsboard_log": [],
+                  "ingestion_log": []
+                }
+              },
+              {
+                "id": "19042585-0e4d-45dc-b761-80d7571b1540",
+                "name": "ASSET CENTR-PRESE Exaustores",
+                "type": "LOCATION",
+                "devices": [
+                  {
+                    "id": "18d3206b-15d9-48de-b9a1-70d31a83cee4",
+                    "name": "SW Exaustor_01_02_DZL6R42",
+                    "label": "SW Exaustor_01_02_DZL6R42",
+                    "identifier": "SWExaustor_01_02_DZL6R42-ASSET_Exaustores",
+                    "type": "SW_ILUMINACAO",
+                    "addr_low": "29",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 29,
+                    "central_device_type": "OTHER",
+                    "central_device_id": "29",
+                    "channels": [
+                      {
+                        "name": "Auto. Exaustor_01_DZL6R42",
+                        "role": "input",
+                        "index": 0,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Auto. Exaustor_02_DZL6R42",
+                        "role": "input",
+                        "index": 1,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Iluminacao Exaustor_01_DZL6R42",
+                        "role": "output",
+                        "index": 0,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      },
+                      {
+                        "name": "Iluminacao Exaustor_02_DZL6R42",
+                        "role": "output",
+                        "index": 1,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  },
+                  {
+                    "id": "3dd4fa87-887f-49ac-af97-caa4fd3a8cdb",
+                    "name": "SW Exaustor_03_04_GSM4Y26",
+                    "label": "SW Exaustor_03_04_GSM4Y26",
+                    "identifier": "SWExaustor_03_04_GSM4Y26-ASSET_Exaustores",
+                    "type": "SW_ILUMINACAO",
+                    "addr_low": "30",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 30,
+                    "central_device_type": "OTHER",
+                    "central_device_id": "30",
+                    "channels": [
+                      {
+                        "name": "Auto. Exaustor_03_GSM4Y26",
+                        "role": "input",
+                        "index": 0,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Auto. Exaustor_04_GSM4Y26",
+                        "role": "input",
+                        "index": 1,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Iluminacao Exaustor_03_GSM4Y26",
+                        "role": "output",
+                        "index": 0,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      },
+                      {
+                        "name": "Iluminacao Exaustor_04_GSM4Y26",
+                        "role": "output",
+                        "index": 1,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  }
+                ],
+                "gateways": [],
+                "children": [],
+                "subAssets": [],
+                "status_sync": {
+                  "central": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "thingsboard": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "ingestion": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "central_log": [],
+                  "thingsboard_log": [],
+                  "ingestion_log": []
+                }
+              },
+              {
+                "id": "139ceb48-95a1-4fc2-a36c-d4a204894c2f",
+                "name": "ASSET CENTR-PRESE Gerador",
+                "type": "LOCATION",
+                "devices": [
+                  {
+                    "id": "6aac91be-f4d6-4840-9c15-629edc331f70",
+                    "name": "SW Gerador_WEV9X74",
+                    "label": "SW Gerador_WEV9X74",
+                    "identifier": "SWGerador_WEV9X74-ASSET_Gerador",
+                    "type": "SW_GERADOR",
+                    "addr_low": "41",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 41,
+                    "central_device_type": "OTHER",
+                    "central_device_id": "41",
+                    "channels": [
+                      {
+                        "name": "SW Gerador_Falha_Geral_WEV9X74",
+                        "role": "input",
+                        "index": 0,
+                        "appSensor": "status",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "SW Gerador_Ligado_Desligado_WEV9X74",
+                        "role": "input",
+                        "index": 1,
+                        "appSensor": "status",
+                        "centralType": "presence_sensor"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  }
+                ],
+                "gateways": [],
+                "children": [],
+                "subAssets": [],
+                "status_sync": {
+                  "central": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "thingsboard": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "ingestion": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "central_log": [],
+                  "thingsboard_log": [],
+                  "ingestion_log": []
+                }
+              },
+              {
+                "id": "d30a470b-7621-4fa5-a768-81903a1f9eb4",
+                "name": "ASSET CENTR-PRESE Hidrômetro Potável",
+                "type": "LOCATION",
+                "devices": [
+                  {
+                    "id": "e1b930d7-b2c8-4ad1-b81c-c1d7a0835000",
+                    "name": "SW Hidro_ZFF4A49",
+                    "label": "SW Hidro_ZFF4A49",
+                    "identifier": "SWHidro_ZFF4A49-ASSET_Hidrômetro_Potável",
+                    "type": "HIDROMETRO",
+                    "addr_low": "40",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 40,
+                    "central_device_type": "METER",
+                    "central_device_id": "40",
+                    "channels": [
+                      {
+                        "name": "Fonte",
+                        "role": "input",
+                        "index": 0,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Hidro. Potavel_ZFF4A49",
+                        "role": "input",
+                        "index": 1,
+                        "config": {
+                          "pulses": 1,
+                          "countingPulseOnPower": true
+                        },
+                        "appSensor": "flow",
+                        "centralType": "flow_sensor"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  }
+                ],
+                "gateways": [],
+                "children": [],
+                "subAssets": [],
+                "status_sync": {
+                  "central": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "thingsboard": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "ingestion": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "central_log": [],
+                  "thingsboard_log": [],
+                  "ingestion_log": []
+                }
+              },
+              {
+                "id": "bea64b90-20b6-4a5a-8590-b7b06c4090a5",
+                "name": "ASSET CENTR-PRESE-HZR9D66",
+                "type": "LOCATION",
+                "devices": [
+                  {
+                    "id": "e19cbb80-e49b-4589-b86a-4006f86a6aa7",
+                    "name": "3F ELEV. EHR2J79",
+                    "label": "3F ELEV. EHR2J79",
+                    "type": "ELEVADOR",
+                    "addr_low": "47",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 47,
+                    "central_device_type": "ACTUATOR",
+                    "central_device_id": "47",
+                    "channels": [
+                      {
+                        "name": "Canal 1",
+                        "role": "output",
+                        "index": 0,
+                        "appSensor": "command",
+                        "centralType": "outlet"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  }
+                ],
+                "gateways": [],
+                "children": [],
+                "subAssets": [],
+                "status_sync": {
+                  "central": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "thingsboard": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "ingestion": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "central_log": [],
+                  "thingsboard_log": [],
+                  "ingestion_log": []
+                }
+              },
+              {
+                "id": "9d7c1fa0-965d-452e-8cb5-f8199b371c93",
+                "name": "ASSET CENTR-PRESE Logística",
+                "type": "LOCATION",
+                "devices": [
+                  {
+                    "id": "d8f970df-7a12-4318-ac71-feb8fa4874b1",
+                    "name": "SW Logistica_01_02_WCY6S74",
+                    "label": "SW Logistica_01_02_WCY6S74",
+                    "identifier": "SWLogistica_01_02_WCY6S74-ASSET_Logística",
+                    "type": "SW_ILUMINACAO",
+                    "addr_low": "31",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 31,
+                    "central_device_type": "OTHER",
+                    "central_device_id": "31",
+                    "channels": [
+                      {
+                        "name": "Auto. Logistica_01_WCY6S74",
+                        "role": "input",
+                        "index": 0,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Auto. Logistica_02_WCY6S74",
+                        "role": "input",
+                        "index": 1,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Iluminacao Logistica_01_WCY6S74",
+                        "role": "output",
+                        "index": 0,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      },
+                      {
+                        "name": "Iluminacao Logistica_02_WCY6S74",
+                        "role": "output",
+                        "index": 1,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  },
+                  {
+                    "id": "d6e246d4-482b-4bac-8219-dc209275d3a5",
+                    "name": "SW Logistica_03_04_MHT7W55",
+                    "label": "SW Logistica_03_04_MHT7W55",
+                    "identifier": "SWLogistica_03_04_MHT7W55-ASSET_Logística",
+                    "type": "SW_ILUMINACAO",
+                    "addr_low": "32",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 32,
+                    "central_device_type": "OTHER",
+                    "central_device_id": "32",
+                    "channels": [
+                      {
+                        "name": "Auto. Logistica_03_MHT7W55",
+                        "role": "input",
+                        "index": 0,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Auto. Logistica_04_MHT7W55",
+                        "role": "input",
+                        "index": 1,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Iluminacao Logistica_03_MHT7W55",
+                        "role": "output",
+                        "index": 0,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      },
+                      {
+                        "name": "Iluminacao Logistica_04_MHT7W55",
+                        "role": "output",
+                        "index": 1,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  }
+                ],
+                "gateways": [],
+                "children": [],
+                "subAssets": [],
+                "status_sync": {
+                  "central": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "thingsboard": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "ingestion": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "central_log": [],
+                  "thingsboard_log": [],
+                  "ingestion_log": []
+                }
+              },
+              {
+                "id": "42d06a1f-d809-4a33-8743-261499c3435b",
+                "name": "ASSET CENTR-PRESE Loja",
+                "type": "LOCATION",
+                "devices": [
+                  {
+                    "id": "036f35b2-7f9e-4d84-a2d4-b77000f5a22f",
+                    "name": "TEMP. Loja_Frente_PGG2J56",
+                    "label": "TEMP. Loja_Frente_PGG2J56",
+                    "identifier": "TEMP.Loja_Frente_PGG2J56-ASSET_Loja",
+                    "type": "TERMOSTATO",
+                    "addr_low": "43",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 43,
+                    "central_device_type": "SENSOR",
+                    "central_device_id": "43",
+                    "channels": [
+                      {
+                        "name": "Fonte",
+                        "role": "input",
+                        "index": 0,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Temperatura",
+                        "role": "input",
+                        "index": 1,
+                        "config": {
+                          "pulses": 5,
+                          "countingPulseOnPower": true
+                        },
+                        "appSensor": "temperature",
+                        "centralType": "flow_sensor"
+                      }
+                    ],
+                    "slaveChannels": 2,
+                    "channelsConfigOnly": true,
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  },
+                  {
+                    "id": "cb3babae-2be7-46f5-959f-6b3d602a3f03",
+                    "name": "TEMP. Loja_Fundos_BZM9X84",
+                    "label": "TEMP. Loja_Fundos_BZM9X84",
+                    "identifier": "TEMP.Loja_Fundos_BZM9X84-ASSET_Loja",
+                    "type": "TERMOSTATO",
+                    "addr_low": "45",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 45,
+                    "central_device_type": "SENSOR",
+                    "central_device_id": "45",
+                    "channels": [
+                      {
+                        "name": "Fonte",
+                        "role": "input",
+                        "index": 0,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Temperatura",
+                        "role": "input",
+                        "index": 1,
+                        "config": {
+                          "pulses": 5,
+                          "countingPulseOnPower": true
+                        },
+                        "appSensor": "temperature",
+                        "centralType": "flow_sensor"
+                      }
+                    ],
+                    "slaveChannels": 2,
+                    "channelsConfigOnly": true,
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  },
+                  {
+                    "id": "127a17f9-7dd3-4b6a-ad63-55b358b7c010",
+                    "name": "TEMP. Loja_Meio_SHU7J84",
+                    "label": "TEMP. Loja_Meio_SHU7J84",
+                    "identifier": "TEMP.Loja_Meio_SHU7J84-ASSET_Loja",
+                    "type": "TERMOSTATO",
+                    "addr_low": "44",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 44,
+                    "central_device_type": "SENSOR",
+                    "central_device_id": "44",
+                    "channels": [
+                      {
+                        "name": "Fonte",
+                        "role": "input",
+                        "index": 0,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Temperatura",
+                        "role": "input",
+                        "index": 1,
+                        "config": {
+                          "pulses": 5,
+                          "countingPulseOnPower": true
+                        },
+                        "appSensor": "temperature",
+                        "centralType": "flow_sensor"
+                      }
+                    ],
+                    "slaveChannels": 2,
+                    "channelsConfigOnly": true,
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  }
+                ],
+                "gateways": [],
+                "children": [],
+                "subAssets": [],
+                "status_sync": {
+                  "central": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "thingsboard": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "ingestion": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "central_log": [],
+                  "thingsboard_log": [],
+                  "ingestion_log": []
+                }
+              },
+              {
+                "id": "455accf5-4aad-49e6-934f-97ae691b6c45",
+                "name": "ASSET CENTR-PRESE QGBT ADM Iluminação",
+                "type": "LOCATION",
+                "devices": [
+                  {
+                    "id": "657b4698-6a7a-4eae-ae86-797455bcb7a1",
+                    "name": "SW QGBT_01_02_LEN2C37",
+                    "label": "SW QGBT_01_02_LEN2C37",
+                    "identifier": "SWQGBT_01_02_LEN2C37-ASSET_QGBT_ADM_Iluminação",
+                    "type": "SW_ILUMINACAO",
+                    "addr_low": "1",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 1,
+                    "central_device_type": "OTHER",
+                    "central_device_id": "1",
+                    "channels": [
+                      {
+                        "name": "Auto. QGBT_01_LEN2C37",
+                        "role": "input",
+                        "index": 0,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Auto. QGBT_02_LEN2C37",
+                        "role": "input",
+                        "index": 1,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Iluminacao QGBT_01_LEN2C37",
+                        "role": "output",
+                        "index": 0,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      },
+                      {
+                        "name": "Iluminacao QGBT_02_LEN2C37",
+                        "role": "output",
+                        "index": 1,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  },
+                  {
+                    "id": "ff2cab7b-f5cd-413a-8f85-ea8cdc8f800c",
+                    "name": "SW QGBT_03_04_UBS5B38",
+                    "label": "SW QGBT_03_04_UBS5B38",
+                    "identifier": "SWQGBT_03_04_UBS5B38-ASSET_QGBT_ADM_Iluminação",
+                    "type": "SW_ILUMINACAO",
+                    "addr_low": "2",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 2,
+                    "central_device_type": "OTHER",
+                    "central_device_id": "2",
+                    "channels": [
+                      {
+                        "name": "Auto. QGBT_03_UBS5B38",
+                        "role": "input",
+                        "index": 0,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Auto. QGBT_04_UBS5B38",
+                        "role": "input",
+                        "index": 1,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Iluminacao QGBT_03_UBS5B38",
+                        "role": "output",
+                        "index": 0,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      },
+                      {
+                        "name": "Iluminacao QGBT_04_UBS5B38",
+                        "role": "output",
+                        "index": 1,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  },
+                  {
+                    "id": "5698d692-78c7-4647-951b-175f142f491b",
+                    "name": "SW QGBT_05_06_PCH3T82",
+                    "label": "SW QGBT_05_06_PCH3T82",
+                    "identifier": "SWQGBT_05_06_PCH3T82-ASSET_QGBT_ADM_Iluminação",
+                    "type": "SW_ILUMINACAO",
+                    "addr_low": "3",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 3,
+                    "central_device_type": "OTHER",
+                    "central_device_id": "3",
+                    "channels": [
+                      {
+                        "name": "Auto. QGBT_05_PCH3T82",
+                        "role": "input",
+                        "index": 0,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Auto. QGBT_06_PCH3T82",
+                        "role": "input",
+                        "index": 1,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Iluminacao QGBT_05_PCH3T82",
+                        "role": "output",
+                        "index": 0,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      },
+                      {
+                        "name": "Iluminacao QGBT_06_PCH3T82",
+                        "role": "output",
+                        "index": 1,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  },
+                  {
+                    "id": "a6968d46-64d9-4940-8ffb-576a1383cebb",
+                    "name": "SW QGBT_07_08_UDH2U82",
+                    "label": "SW QGBT_07_08_UDH2U82",
+                    "identifier": "SWQGBT_07_08_UDH2U82-ASSET_QGBT_ADM_Iluminação",
+                    "type": "SW_ILUMINACAO",
+                    "addr_low": "4",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 4,
+                    "central_device_type": "OTHER",
+                    "central_device_id": "4",
+                    "channels": [
+                      {
+                        "name": "Auto. QGBT_07_UDH2U82",
+                        "role": "input",
+                        "index": 0,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Auto. QGBT_08_UDH2U82",
+                        "role": "input",
+                        "index": 1,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Iluminacao QGBT_07_UDH2U82",
+                        "role": "output",
+                        "index": 0,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      },
+                      {
+                        "name": "Iluminacao QGBT_08_UDH2U82",
+                        "role": "output",
+                        "index": 1,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  },
+                  {
+                    "id": "2826d32f-43ec-42f1-932a-fbebf499674b",
+                    "name": "SW QGBT_09_10_HBT4K84",
+                    "label": "SW QGBT_09_10_HBT4K84",
+                    "identifier": "SWQGBT_09_10_HBT4K84-ASSET_QGBT_ADM_Iluminação",
+                    "type": "SW_ILUMINACAO",
+                    "addr_low": "5",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 5,
+                    "central_device_type": "OTHER",
+                    "central_device_id": "5",
+                    "channels": [
+                      {
+                        "name": "Auto. QGBT_09_HBT4K84",
+                        "role": "input",
+                        "index": 0,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Auto. QGBT_10_HBT4K84",
+                        "role": "input",
+                        "index": 1,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Iluminacao QGBT_09_HBT4K84",
+                        "role": "output",
+                        "index": 0,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      },
+                      {
+                        "name": "Iluminacao QGBT_10_HBT4K84",
+                        "role": "output",
+                        "index": 1,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  },
+                  {
+                    "id": "021f9291-4634-40c0-a7ee-96dad3ff2652",
+                    "name": "SW QGBT_11_12_TDU6T43",
+                    "label": "SW QGBT_11_12_TDU6T43",
+                    "identifier": "SWQGBT_11_12_TDU6T43-ASSET_QGBT_ADM_Iluminação",
+                    "type": "SW_ILUMINACAO",
+                    "addr_low": "6",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 6,
+                    "central_device_type": "OTHER",
+                    "central_device_id": "6",
+                    "channels": [
+                      {
+                        "name": "Auto. QGBT_11_TDU6T43",
+                        "role": "input",
+                        "index": 0,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Auto. QGBT_12_TDU6T43",
+                        "role": "input",
+                        "index": 1,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Iluminacao QGBT_11_TDU6T43",
+                        "role": "output",
+                        "index": 0,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      },
+                      {
+                        "name": "Iluminacao QGBT_12_TDU6T43",
+                        "role": "output",
+                        "index": 1,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  }
+                ],
+                "gateways": [],
+                "children": [],
+                "subAssets": [],
+                "status_sync": {
+                  "central": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "thingsboard": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "ingestion": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "central_log": [],
+                  "thingsboard_log": [],
+                  "ingestion_log": []
+                }
+              },
+              {
+                "id": "5f1b6b95-d082-4248-b17d-8f4c9c65e38a",
+                "name": "ASSET CENTR-PRESE Quadro Loja",
+                "type": "LOCATION",
+                "devices": [
+                  {
+                    "id": "155fde4d-b764-4a53-bb9b-2d2bf795dfdb",
+                    "name": "SW QuadroLoja_01_02_ZAA6R65",
+                    "label": "SW QuadroLoja_01_02_ZAA6R65",
+                    "identifier": "SWQuadroLoja_01_02_ZAA6R65-ASSET_Quadro_Loja",
+                    "type": "SW_ILUMINACAO",
+                    "addr_low": "34",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 34,
+                    "central_device_type": "OTHER",
+                    "central_device_id": "34",
+                    "channels": [
+                      {
+                        "name": "Auto. QuadroLoja_01_ZAA6R65",
+                        "role": "input",
+                        "index": 0,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Auto. QuadroLoja_02_ZAA6R65",
+                        "role": "input",
+                        "index": 1,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Iluminacao QuadroLoja_01_ZAA6R65",
+                        "role": "output",
+                        "index": 0,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      },
+                      {
+                        "name": "Iluminacao QuadroLoja_02_ZAA6R65",
+                        "role": "output",
+                        "index": 1,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  },
+                  {
+                    "id": "26e8afa0-f34b-414c-aadf-47f83feae6be",
+                    "name": "SW QuadroLoja_03_04_YVM9Z77",
+                    "label": "SW QuadroLoja_03_04_YVM9Z77",
+                    "identifier": "SWQuadroLoja_03_04_YVM9Z77-ASSET_Quadro_Loja",
+                    "type": "SW_ILUMINACAO",
+                    "addr_low": "35",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 35,
+                    "central_device_type": "OTHER",
+                    "central_device_id": "35",
+                    "channels": [
+                      {
+                        "name": "Auto. QuadroLoja_03_YVM9Z77",
+                        "role": "input",
+                        "index": 0,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Auto. QuadroLoja_04_YVM9Z77",
+                        "role": "input",
+                        "index": 1,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Iluminacao QuadroLoja_03_YVM9Z77",
+                        "role": "output",
+                        "index": 0,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      },
+                      {
+                        "name": "Iluminacao QuadroLoja_04_YVM9Z77",
+                        "role": "output",
+                        "index": 1,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  },
+                  {
+                    "id": "24f7e75f-d50a-4174-8b56-45b831e6021c",
+                    "name": "SW QuadroLoja_05_06_CHD5R57",
+                    "label": "SW QuadroLoja_05_06_CHD5R57",
+                    "identifier": "SWQuadroLoja_05_06_CHD5R57-ASSET_Quadro_Loja",
+                    "type": "SW_ILUMINACAO",
+                    "addr_low": "36",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 36,
+                    "central_device_type": "OTHER",
+                    "central_device_id": "36",
+                    "channels": [
+                      {
+                        "name": "Auto. QuadroLoja_05_CHD5R57",
+                        "role": "input",
+                        "index": 0,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Auto. QuadroLoja_06_CHD5R57",
+                        "role": "input",
+                        "index": 1,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Iluminacao QuadroLoja_05_CHD5R57",
+                        "role": "output",
+                        "index": 0,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      },
+                      {
+                        "name": "Iluminacao QuadroLoja_06_CHD5R57",
+                        "role": "output",
+                        "index": 1,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  },
+                  {
+                    "id": "dff2ff0a-cabb-4344-aef8-b56700d6ec98",
+                    "name": "SW QuadroLoja_07_08_GRV2R73",
+                    "label": "SW QuadroLoja_07_08_GRV2R73",
+                    "identifier": "SWQuadroLoja_07_08_GRV2R73-ASSET_Quadro_Loja",
+                    "type": "SW_ILUMINACAO",
+                    "addr_low": "37",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 37,
+                    "central_device_type": "OTHER",
+                    "central_device_id": "37",
+                    "channels": [
+                      {
+                        "name": "Auto. QuadroLoja_07_GRV2R73",
+                        "role": "input",
+                        "index": 0,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Auto. QuadroLoja_08_GRV2R73",
+                        "role": "input",
+                        "index": 1,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Iluminacao QuadroLoja_07_GRV2R73",
+                        "role": "output",
+                        "index": 0,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      },
+                      {
+                        "name": "Iluminacao QuadroLoja_08_GRV2R73",
+                        "role": "output",
+                        "index": 1,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  }
+                ],
+                "gateways": [],
+                "children": [],
+                "subAssets": [],
+                "status_sync": {
+                  "central": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "thingsboard": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "ingestion": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "central_log": [],
+                  "thingsboard_log": [],
+                  "ingestion_log": []
+                }
+              },
+              {
+                "id": "5ab02706-54e6-4dbe-bfc5-150ca7e45d65",
+                "name": "ASSET CENTR-PRESE Reservatório Geral",
+                "type": "LOCATION",
+                "devices": [
+                  {
+                    "id": "f35cbb8f-918e-469f-bb0b-4ca42f2e05ab",
+                    "name": "SCD Reservatorio_01_TTE2A34 132 160 x1.95",
+                    "label": "SCD Reservatorio_01_TTE2A34 132 160 x1.95",
+                    "identifier": "SCDReservatorio_01_TTE2A34132160x1.95-ASSET_Reservatório_Geral",
+                    "type": "CAIXA_D_AGUA",
+                    "addr_low": "42",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 42,
+                    "central_device_type": "SENSOR",
+                    "central_device_id": "42",
+                    "channels": [
+                      {
+                        "name": "SCD Reservatorio_01_Nivel_TTE2A34",
+                        "role": "input",
+                        "index": 0,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "level",
+                        "centralType": "presence_sensor"
+                      }
+                    ],
+                    "slaveChannels": 2,
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  }
+                ],
+                "gateways": [],
+                "children": [],
+                "subAssets": [],
+                "status_sync": {
+                  "central": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "thingsboard": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "ingestion": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "central_log": [],
+                  "thingsboard_log": [],
+                  "ingestion_log": []
+                }
+              },
+              {
+                "id": "7f875150-7de9-4597-a658-f2879072033c",
+                "name": "ASSET CENTR-PRESE-SEE5V47",
+                "type": "LOCATION",
+                "devices": [
+                  {
+                    "id": "7c4a770e-1af3-482a-a383-8bdc72919c2c",
+                    "name": "3F MOTR. TDT4D83",
+                    "label": "3F MOTR. TDT4D83",
+                    "identifier": "3FMOTR.TDT4D83-ASSET_CENTR-PRESE-SEE5V47",
+                    "type": "MOTOR",
+                    "addr_low": "51",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 51,
+                    "central_device_type": "ACTUATOR",
+                    "central_device_id": "51",
+                    "channels": [
+                      {
+                        "name": "Canal 1",
+                        "role": "output",
+                        "index": 0,
+                        "appSensor": "command",
+                        "centralType": "outlet"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  }
+                ],
+                "gateways": [],
+                "children": [],
+                "subAssets": [],
+                "status_sync": {
+                  "central": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "thingsboard": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "ingestion": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "central_log": [],
+                  "thingsboard_log": [],
+                  "ingestion_log": []
+                }
+              },
+              {
+                "id": "3874513d-e1d9-473a-80ad-8d6426464d67",
+                "name": "ASSET CENTR-PRESE Splitões",
+                "type": "LOCATION",
+                "devices": [
+                  {
+                    "id": "8c34e6b0-c6a1-40a6-89b6-9d95ee80ff63",
+                    "name": "SW Splitao_01_02_UUW5M33",
+                    "label": "SW Splitao_01_02_UUW5M33",
+                    "identifier": "SWSplitao_01_02_UUW5M33-ASSET_Splitões",
+                    "type": "SW_ILUMINACAO",
+                    "addr_low": "7",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 7,
+                    "central_device_type": "OTHER",
+                    "central_device_id": "7",
+                    "channels": [
+                      {
+                        "name": "Auto. Splitao_01_UUW5M33",
+                        "role": "input",
+                        "index": 0,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Auto. Splitao_02_UUW5M33",
+                        "role": "input",
+                        "index": 1,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Iluminacao Splitao_01_UUW5M33",
+                        "role": "output",
+                        "index": 0,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      },
+                      {
+                        "name": "Iluminacao Splitao_02_UUW5M33",
+                        "role": "output",
+                        "index": 1,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  },
+                  {
+                    "id": "6e9aae8c-f1fb-4d41-b907-f2cced2fa26f",
+                    "name": "SW Splitao_03_04_UBV5R87",
+                    "label": "SW Splitao_03_04_UBV5R87",
+                    "identifier": "SWSplitao_03_04_UBV5R87-ASSET_Splitões",
+                    "type": "SW_ILUMINACAO",
+                    "addr_low": "8",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 8,
+                    "central_device_type": "OTHER",
+                    "central_device_id": "8",
+                    "channels": [
+                      {
+                        "name": "Auto. Splitao_03_UBV5R87",
+                        "role": "input",
+                        "index": 0,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Auto. Splitao_04_UBV5R87",
+                        "role": "input",
+                        "index": 1,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Iluminacao Splitao_03_UBV5R87",
+                        "role": "output",
+                        "index": 0,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      },
+                      {
+                        "name": "Iluminacao Splitao_04_UBV5R87",
+                        "role": "output",
+                        "index": 1,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  },
+                  {
+                    "id": "3fd610f7-0626-4085-aeff-8a487726c008",
+                    "name": "SW Splitao_05_06_QUQ7K54",
+                    "label": "SW Splitao_05_06_QUQ7K54",
+                    "identifier": "SWSplitao_05_06_QUQ7K54-ASSET_Splitões",
+                    "type": "SW_ILUMINACAO",
+                    "addr_low": "9",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 9,
+                    "central_device_type": "OTHER",
+                    "central_device_id": "9",
+                    "channels": [
+                      {
+                        "name": "Auto. Splitao_05_QUQ7K54",
+                        "role": "input",
+                        "index": 0,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Auto. Splitao_06_QUQ7K54",
+                        "role": "input",
+                        "index": 1,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Iluminacao Splitao_05_QUQ7K54",
+                        "role": "output",
+                        "index": 0,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      },
+                      {
+                        "name": "Iluminacao Splitao_06_QUQ7K54",
+                        "role": "output",
+                        "index": 1,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  },
+                  {
+                    "id": "35be33fa-bf39-4808-8a33-f3d574780712",
+                    "name": "SW Splitao_07_08_YHC6S97",
+                    "label": "SW Splitao_07_08_YHC6S97",
+                    "identifier": "SWSplitao_07_08_YHC6S97-ASSET_Splitões",
+                    "type": "SW_ILUMINACAO",
+                    "addr_low": "10",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 10,
+                    "central_device_type": "OTHER",
+                    "central_device_id": "10",
+                    "channels": [
+                      {
+                        "name": "Auto. Splitao_07_YHC6S97",
+                        "role": "input",
+                        "index": 0,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Auto. Splitao_08_YHC6S97",
+                        "role": "input",
+                        "index": 1,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Iluminacao Splitao_07_YHC6S97",
+                        "role": "output",
+                        "index": 0,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      },
+                      {
+                        "name": "Iluminacao Splitao_08_YHC6S97",
+                        "role": "output",
+                        "index": 1,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  },
+                  {
+                    "id": "9e7d688d-b47d-4b88-a031-3dbe6c6cc032",
+                    "name": "SW Splitao_09_10_ZQK3D84",
+                    "label": "SW Splitao_09_10_ZQK3D84",
+                    "identifier": "SWSplitao_09_10_ZQK3D84-ASSET_Splitões",
+                    "type": "SW_ILUMINACAO",
+                    "addr_low": "11",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 11,
+                    "central_device_type": "OTHER",
+                    "central_device_id": "11",
+                    "channels": [
+                      {
+                        "name": "Auto. Splitao_09_ZQK3D84",
+                        "role": "input",
+                        "index": 0,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Auto. Splitao_10_ZQK3D84",
+                        "role": "input",
+                        "index": 1,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Iluminacao Splitao_09_ZQK3D84",
+                        "role": "output",
+                        "index": 0,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      },
+                      {
+                        "name": "Iluminacao Splitao_10_ZQK3D84",
+                        "role": "output",
+                        "index": 1,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  },
+                  {
+                    "id": "c6fbf54c-c58e-42f8-b3e8-a151f4091c54",
+                    "name": "SW Splitao_11_12_LER8B37",
+                    "label": "SW Splitao_11_12_LER8B37",
+                    "identifier": "SWSplitao_11_12_LER8B37-ASSET_Splitões",
+                    "type": "SW_ILUMINACAO",
+                    "addr_low": "12",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 12,
+                    "central_device_type": "OTHER",
+                    "central_device_id": "12",
+                    "channels": [
+                      {
+                        "name": "Auto. Splitao_11_LER8B37",
+                        "role": "input",
+                        "index": 0,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Auto. Splitao_12_LER8B37",
+                        "role": "input",
+                        "index": 1,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Iluminacao Splitao_11_LER8B37",
+                        "role": "output",
+                        "index": 0,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      },
+                      {
+                        "name": "Iluminacao Splitao_12_LER8B37",
+                        "role": "output",
+                        "index": 1,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  },
+                  {
+                    "id": "ae2d8f42-e6b5-44cd-b1fe-4de37009071e",
+                    "name": "SW Splitao_13_14_LYM9U93",
+                    "label": "SW Splitao_13_14_LYM9U93",
+                    "identifier": "SWSplitao_13_14_LYM9U93-ASSET_Splitões",
+                    "type": "SW_ILUMINACAO",
+                    "addr_low": "13",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 13,
+                    "central_device_type": "OTHER",
+                    "central_device_id": "13",
+                    "channels": [
+                      {
+                        "name": "Auto. Splitao_13_LYM9U93",
+                        "role": "input",
+                        "index": 0,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Auto. Splitao_14_LYM9U93",
+                        "role": "input",
+                        "index": 1,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Iluminacao Splitao_13_LYM9U93",
+                        "role": "output",
+                        "index": 0,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      },
+                      {
+                        "name": "Iluminacao Splitao_14_LYM9U93",
+                        "role": "output",
+                        "index": 1,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  },
+                  {
+                    "id": "fb16c49a-722f-4cba-b3b7-47530931cd9d",
+                    "name": "SW Splitao_15_16_CJR3B69",
+                    "label": "SW Splitao_15_16_CJR3B69",
+                    "identifier": "SWSplitao_15_16_CJR3B69-ASSET_Splitões",
+                    "type": "SW_ILUMINACAO",
+                    "addr_low": "14",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 14,
+                    "central_device_type": "OTHER",
+                    "central_device_id": "14",
+                    "channels": [
+                      {
+                        "name": "Auto. Splitao_15_CJR3B69",
+                        "role": "input",
+                        "index": 0,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Auto. Splitao_16_CJR3B69",
+                        "role": "input",
+                        "index": 1,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Iluminacao Splitao_15_CJR3B69",
+                        "role": "output",
+                        "index": 0,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      },
+                      {
+                        "name": "Iluminacao Splitao_16_CJR3B69",
+                        "role": "output",
+                        "index": 1,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  },
+                  {
+                    "id": "4eef1091-ac89-4a87-960b-1c30f32bb758",
+                    "name": "SW Splitao_17_18_KYN7A97",
+                    "label": "SW Splitao_17_18_KYN7A97",
+                    "identifier": "SWSplitao_17_18_KYN7A97-ASSET_Splitões",
+                    "type": "SW_ILUMINACAO",
+                    "addr_low": "15",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 15,
+                    "central_device_type": "OTHER",
+                    "central_device_id": "15",
+                    "channels": [
+                      {
+                        "name": "Auto. Splitao_17_KYN7A97",
+                        "role": "input",
+                        "index": 0,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Auto. Splitao_18_KYN7A97",
+                        "role": "input",
+                        "index": 1,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Iluminacao Splitao_17_KYN7A97",
+                        "role": "output",
+                        "index": 0,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      },
+                      {
+                        "name": "Iluminacao Splitao_18_KYN7A97",
+                        "role": "output",
+                        "index": 1,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  },
+                  {
+                    "id": "8d4b3dfe-c9c9-4c9b-aa57-c1436cb73719",
+                    "name": "SW Splitao_19_20_FVD9B56",
+                    "label": "SW Splitao_19_20_FVD9B56",
+                    "identifier": "SWSplitao_19_20_FVD9B56-ASSET_Splitões",
+                    "type": "SW_ILUMINACAO",
+                    "addr_low": "16",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 16,
+                    "central_device_type": "OTHER",
+                    "central_device_id": "16",
+                    "channels": [
+                      {
+                        "name": "Auto. Splitao_19_FVD9B56",
+                        "role": "input",
+                        "index": 0,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Auto. Splitao_20_FVD9B56",
+                        "role": "input",
+                        "index": 1,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Iluminacao Splitao_19_FVD9B56",
+                        "role": "output",
+                        "index": 0,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      },
+                      {
+                        "name": "Iluminacao Splitao_20_FVD9B56",
+                        "role": "output",
+                        "index": 1,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  },
+                  {
+                    "id": "213b98a4-633b-46ec-b444-7a80ace9a26d",
+                    "name": "SW Splitao_21_22_EZH8N93",
+                    "label": "SW Splitao_21_22_EZH8N93",
+                    "identifier": "SWSplitao_21_22_EZH8N93-ASSET_Splitões",
+                    "type": "SW_ILUMINACAO",
+                    "addr_low": "17",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 17,
+                    "central_device_type": "OTHER",
+                    "central_device_id": "17",
+                    "channels": [
+                      {
+                        "name": "Auto. Splitao_21_EZH8N93",
+                        "role": "input",
+                        "index": 0,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Auto. Splitao_22_EZH8N93",
+                        "role": "input",
+                        "index": 1,
+                        "config": {
+                          "pulses": 1,
+                          "remoteInput": true
+                        },
+                        "appSensor": "presence",
+                        "centralType": "presence_sensor"
+                      },
+                      {
+                        "name": "Iluminacao Splitao_21_EZH8N93",
+                        "role": "output",
+                        "index": 0,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      },
+                      {
+                        "name": "Iluminacao Splitao_22_EZH8N93",
+                        "role": "output",
+                        "index": 1,
+                        "appSensor": "command",
+                        "centralType": "lamp"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  },
+                  {
+                    "id": "9f6a3bac-ae83-480f-b040-eb277ee3fa21",
+                    "name": "SW Status_Compressor_Splitao_01_02_FQN6E86",
+                    "label": "SW Status_Compressor_Splitao_01_02_FQN6E86",
+                    "identifier": "SWStatus_Compressor_Splitao_01_02_FQN6E86-ASSET_Splitões",
+                    "type": "SW_COMPRESSOR",
+                    "addr_low": "18",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 18,
+                    "central_device_type": "OTHER",
+                    "central_device_id": "18",
+                    "channels": [
+                      {
+                        "name": "SW Status_Compressor_Splitao_01_FQN6E86",
+                        "role": "input",
+                        "index": 0,
+                        "appSensor": "status",
+                        "centralType": "plug"
+                      },
+                      {
+                        "name": "SW Status_Compressor_Splitao_02_FQN6E86",
+                        "role": "input",
+                        "index": 1,
+                        "appSensor": "status",
+                        "centralType": "plug"
+                      },
+                      {
+                        "name": "Temp. 01_FQN6E86",
+                        "role": "output",
+                        "index": 0,
+                        "appSensor": "temperature",
+                        "centralType": "outlet"
+                      },
+                      {
+                        "name": "Temp. 02_FQN6E86",
+                        "role": "output",
+                        "index": 1,
+                        "appSensor": "temperature",
+                        "centralType": "outlet"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  },
+                  {
+                    "id": "2d63e823-adeb-4266-a85e-69ed92fb0092",
+                    "name": "SW Status_Compressor_Splitao_03_04_YPM8H43",
+                    "label": "SW Status_Compressor_Splitao_03_04_YPM8H43",
+                    "identifier": "SWStatus_Compressor_Splitao_03_04_YPM8H43-ASSET_Splitões",
+                    "type": "SW_COMPRESSOR",
+                    "addr_low": "19",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 19,
+                    "central_device_type": "OTHER",
+                    "central_device_id": "19",
+                    "channels": [
+                      {
+                        "name": "SW Status_Compressor_Splitao_03_YPM8H43",
+                        "role": "input",
+                        "index": 0,
+                        "appSensor": "status",
+                        "centralType": "plug"
+                      },
+                      {
+                        "name": "SW Status_Compressor_Splitao_04_YPM8H43",
+                        "role": "input",
+                        "index": 1,
+                        "appSensor": "status",
+                        "centralType": "plug"
+                      },
+                      {
+                        "name": "Temp. 03_YPM8H43",
+                        "role": "output",
+                        "index": 0,
+                        "appSensor": "temperature",
+                        "centralType": "outlet"
+                      },
+                      {
+                        "name": "Temp. 04_YPM8H43",
+                        "role": "output",
+                        "index": 1,
+                        "appSensor": "temperature",
+                        "centralType": "outlet"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  },
+                  {
+                    "id": "817f70fc-9883-42f3-94fb-df80aae06b6d",
+                    "name": "SW Status_Compressor_Splitao_05_06_FEH5A94",
+                    "label": "SW Status_Compressor_Splitao_05_06_FEH5A94",
+                    "identifier": "SWStatus_Compressor_Splitao_05_06_FEH5A94-ASSET_Splitões",
+                    "type": "SW_COMPRESSOR",
+                    "addr_low": "20",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 20,
+                    "central_device_type": "OTHER",
+                    "central_device_id": "20",
+                    "channels": [
+                      {
+                        "name": "SW Status_Compressor_Splitao_05_FEH5A94",
+                        "role": "input",
+                        "index": 0,
+                        "appSensor": "status",
+                        "centralType": "plug"
+                      },
+                      {
+                        "name": "SW Status_Compressor_Splitao_06_FEH5A94",
+                        "role": "input",
+                        "index": 1,
+                        "appSensor": "status",
+                        "centralType": "plug"
+                      },
+                      {
+                        "name": "Temp. 05_FEH5A94",
+                        "role": "output",
+                        "index": 0,
+                        "appSensor": "temperature",
+                        "centralType": "outlet"
+                      },
+                      {
+                        "name": "Temp. 06_FEH5A94",
+                        "role": "output",
+                        "index": 1,
+                        "appSensor": "temperature",
+                        "centralType": "outlet"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  },
+                  {
+                    "id": "600657a1-15cf-4b11-b7e4-35159a5ad35a",
+                    "name": "SW Status_Compressor_Splitao_07_08_JKA4P77",
+                    "label": "SW Status_Compressor_Splitao_07_08_JKA4P77",
+                    "identifier": "SWStatus_Compressor_Splitao_07_08_JKA4P77-ASSET_Splitões",
+                    "type": "SW_COMPRESSOR",
+                    "addr_low": "21",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 21,
+                    "central_device_type": "OTHER",
+                    "central_device_id": "21",
+                    "channels": [
+                      {
+                        "name": "SW Status_Compressor_Splitao_07_JKA4P77",
+                        "role": "input",
+                        "index": 0,
+                        "appSensor": "status",
+                        "centralType": "plug"
+                      },
+                      {
+                        "name": "SW Status_Compressor_Splitao_08_JKA4P77",
+                        "role": "input",
+                        "index": 1,
+                        "appSensor": "status",
+                        "centralType": "plug"
+                      },
+                      {
+                        "name": "Temp. 07_JKA4P77",
+                        "role": "output",
+                        "index": 0,
+                        "appSensor": "temperature",
+                        "centralType": "outlet"
+                      },
+                      {
+                        "name": "Temp. 08_JKA4P77",
+                        "role": "output",
+                        "index": 1,
+                        "appSensor": "temperature",
+                        "centralType": "outlet"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  },
+                  {
+                    "id": "293a0fe9-9a7e-4f01-805f-6e28f6d92966",
+                    "name": "SW Status_Compressor_Splitao_09_10_EYS2Q88",
+                    "label": "SW Status_Compressor_Splitao_09_10_EYS2Q88",
+                    "identifier": "SWStatus_Compressor_Splitao_09_10_EYS2Q88-ASSET_Splitões",
+                    "type": "SW_COMPRESSOR",
+                    "addr_low": "22",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 22,
+                    "central_device_type": "OTHER",
+                    "central_device_id": "22",
+                    "channels": [
+                      {
+                        "name": "SW Status_Compressor_Splitao_09_EYS2Q88",
+                        "role": "input",
+                        "index": 0,
+                        "appSensor": "status",
+                        "centralType": "plug"
+                      },
+                      {
+                        "name": "SW Status_Compressor_Splitao_10_EYS2Q88",
+                        "role": "input",
+                        "index": 1,
+                        "appSensor": "status",
+                        "centralType": "plug"
+                      },
+                      {
+                        "name": "Temp. 09_EYS2Q88",
+                        "role": "output",
+                        "index": 0,
+                        "appSensor": "temperature",
+                        "centralType": "outlet"
+                      },
+                      {
+                        "name": "Temp. 10_EYS2Q88",
+                        "role": "output",
+                        "index": 1,
+                        "appSensor": "temperature",
+                        "centralType": "outlet"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  },
+                  {
+                    "id": "ba23aee6-354f-47e6-ab23-8f58bfdf35f1",
+                    "name": "SW Status_Compressor_Splitao_11_12_NND9W82",
+                    "label": "SW Status_Compressor_Splitao_11_12_NND9W82",
+                    "identifier": "SWStatus_Compressor_Splitao_11_12_NND9W82-ASSET_Splitões",
+                    "type": "SW_COMPRESSOR",
+                    "addr_low": "23",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 23,
+                    "central_device_type": "OTHER",
+                    "central_device_id": "23",
+                    "channels": [
+                      {
+                        "name": "SW Status_Compressor_Splitao_11_NND9W82",
+                        "role": "input",
+                        "index": 0,
+                        "appSensor": "status",
+                        "centralType": "plug"
+                      },
+                      {
+                        "name": "SW Status_Compressor_Splitao_12_NND9W82",
+                        "role": "input",
+                        "index": 1,
+                        "appSensor": "status",
+                        "centralType": "plug"
+                      },
+                      {
+                        "name": "Temp. 11_NND9W82",
+                        "role": "output",
+                        "index": 0,
+                        "appSensor": "temperature",
+                        "centralType": "outlet"
+                      },
+                      {
+                        "name": "Temp. 12_NND9W82",
+                        "role": "output",
+                        "index": 1,
+                        "appSensor": "temperature",
+                        "centralType": "outlet"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  },
+                  {
+                    "id": "81fff454-b335-4d4a-a9dd-c82e1b095f75",
+                    "name": "SW Status_Compressor_Splitao_13_14_GCG9F37",
+                    "label": "SW Status_Compressor_Splitao_13_14_GCG9F37",
+                    "identifier": "SWStatus_Compressor_Splitao_13_14_GCG9F37-ASSET_Splitões",
+                    "type": "SW_COMPRESSOR",
+                    "addr_low": "24",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 24,
+                    "central_device_type": "OTHER",
+                    "central_device_id": "24",
+                    "channels": [
+                      {
+                        "name": "SW Status_Compressor_Splitao_13_GCG9F37",
+                        "role": "input",
+                        "index": 0,
+                        "appSensor": "status",
+                        "centralType": "plug"
+                      },
+                      {
+                        "name": "SW Status_Compressor_Splitao_14_GCG9F37",
+                        "role": "input",
+                        "index": 1,
+                        "appSensor": "status",
+                        "centralType": "plug"
+                      },
+                      {
+                        "name": "Temp. 13_GCG9F37",
+                        "role": "output",
+                        "index": 0,
+                        "appSensor": "temperature",
+                        "centralType": "outlet"
+                      },
+                      {
+                        "name": "Temp. 14_GCG9F37",
+                        "role": "output",
+                        "index": 1,
+                        "appSensor": "temperature",
+                        "centralType": "outlet"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  },
+                  {
+                    "id": "b3c63d75-9e90-4771-aeb8-a1767e375189",
+                    "name": "SW Status_Compressor_Splitao_15_16_VBD2U43",
+                    "label": "SW Status_Compressor_Splitao_15_16_VBD2U43",
+                    "identifier": "SWStatus_Compressor_Splitao_15_16_VBD2U43-ASSET_Splitões",
+                    "type": "SW_COMPRESSOR",
+                    "addr_low": "25",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 25,
+                    "central_device_type": "OTHER",
+                    "central_device_id": "25",
+                    "channels": [
+                      {
+                        "name": "SW Status_Compressor_Splitao_15_VBD2U43",
+                        "role": "input",
+                        "index": 0,
+                        "appSensor": "status",
+                        "centralType": "plug"
+                      },
+                      {
+                        "name": "SW Status_Compressor_Splitao_16_VBD2U43",
+                        "role": "input",
+                        "index": 1,
+                        "appSensor": "status",
+                        "centralType": "plug"
+                      },
+                      {
+                        "name": "Temp. 15_VBD2U43",
+                        "role": "output",
+                        "index": 0,
+                        "appSensor": "temperature",
+                        "centralType": "outlet"
+                      },
+                      {
+                        "name": "Temp. 16_VBD2U43",
+                        "role": "output",
+                        "index": 1,
+                        "appSensor": "temperature",
+                        "centralType": "outlet"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  },
+                  {
+                    "id": "23d62aba-83dc-4a53-b516-3c1e91f0febb",
+                    "name": "SW Status_Compressor_Splitao_17_18_MVA3G84",
+                    "label": "SW Status_Compressor_Splitao_17_18_MVA3G84",
+                    "identifier": "SWStatus_Compressor_Splitao_17_18_MVA3G84-ASSET_Splitões",
+                    "type": "SW_COMPRESSOR",
+                    "addr_low": "26",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 26,
+                    "central_device_type": "OTHER",
+                    "central_device_id": "26",
+                    "channels": [
+                      {
+                        "name": "SW Status_Compressor_Splitao_17_MVA3G84",
+                        "role": "input",
+                        "index": 0,
+                        "appSensor": "status",
+                        "centralType": "plug"
+                      },
+                      {
+                        "name": "SW Status_Compressor_Splitao_18_MVA3G84",
+                        "role": "input",
+                        "index": 1,
+                        "appSensor": "status",
+                        "centralType": "plug"
+                      },
+                      {
+                        "name": "Temp. 17_MVA3G84",
+                        "role": "output",
+                        "index": 0,
+                        "appSensor": "temperature",
+                        "centralType": "outlet"
+                      },
+                      {
+                        "name": "Temp. 18_MVA3G84",
+                        "role": "output",
+                        "index": 1,
+                        "appSensor": "temperature",
+                        "centralType": "outlet"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  },
+                  {
+                    "id": "3567cb94-111d-4e71-81fb-a4fb2d9b4e01",
+                    "name": "SW Status_Compressor_Splitao_19_20_WJM7R33",
+                    "label": "SW Status_Compressor_Splitao_19_20_WJM7R33",
+                    "identifier": "SWStatus_Compressor_Splitao_19_20_WJM7R33-ASSET_Splitões",
+                    "type": "SW_COMPRESSOR",
+                    "addr_low": "27",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 27,
+                    "central_device_type": "OTHER",
+                    "central_device_id": "27",
+                    "channels": [
+                      {
+                        "name": "SW Status_Compressor_Splitao_19_WJM7R33",
+                        "role": "input",
+                        "index": 0,
+                        "appSensor": "status",
+                        "centralType": "plug"
+                      },
+                      {
+                        "name": "SW Status_Compressor_Splitao_20_WJM7R33",
+                        "role": "input",
+                        "index": 1,
+                        "appSensor": "status",
+                        "centralType": "plug"
+                      },
+                      {
+                        "name": "Temp. 19_WJM7R33",
+                        "role": "output",
+                        "index": 0,
+                        "appSensor": "temperature",
+                        "centralType": "outlet"
+                      },
+                      {
+                        "name": "Temp. 20_WJM7R33",
+                        "role": "output",
+                        "index": 1,
+                        "appSensor": "temperature",
+                        "centralType": "outlet"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  }
+                ],
+                "gateways": [],
+                "children": [],
+                "subAssets": [],
+                "status_sync": {
+                  "central": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "thingsboard": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "ingestion": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "central_log": [],
+                  "thingsboard_log": [],
+                  "ingestion_log": []
+                }
+              },
+              {
+                "id": "9521f14d-297c-404b-8cf6-486c140fb84f",
+                "name": "ASSET CENTR-PRESE-TRN4H48",
+                "type": "LOCATION",
+                "devices": [
+                  {
+                    "id": "196a77ae-fc02-40fb-bc35-753a326ba7d8",
+                    "name": "3F ELEV. TUG3K32",
+                    "label": "3F ELEV. TUG3K32",
+                    "identifier": "3FELEV.TUG3K32-ASSET_CENTR-PRESE-TRN4H48",
+                    "type": "ELEVADOR",
+                    "addr_low": "28",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 28,
+                    "central_device_type": "ACTUATOR",
+                    "central_device_id": "28",
+                    "channels": [
+                      {
+                        "name": "Canal 1",
+                        "role": "output",
+                        "index": 0,
+                        "appSensor": "command",
+                        "centralType": "outlet"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  }
+                ],
+                "gateways": [],
+                "children": [],
+                "subAssets": [],
+                "status_sync": {
+                  "central": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "thingsboard": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "ingestion": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "central_log": [],
+                  "thingsboard_log": [],
+                  "ingestion_log": []
+                }
+              },
+              {
+                "id": "89e68157-e6f7-47b0-88e6-51fd0a859324",
+                "name": "ASSET CENTR-PRESE-UTZ9V98",
+                "type": "LOCATION",
+                "devices": [
+                  {
+                    "id": "8980b67c-409e-4d9e-89e3-3a71563419e4",
+                    "name": "3F XGN6H48",
+                    "label": "3F XGN6H48",
+                    "type": "3F_MEDIDOR",
+                    "addr_low": "48",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 48,
+                    "central_device_type": "METER",
+                    "central_device_id": "48",
+                    "channels": [
+                      {
+                        "name": "Canal 1",
+                        "role": "output",
+                        "index": 0,
+                        "appSensor": "command",
+                        "centralType": "outlet"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  }
+                ],
+                "gateways": [],
+                "children": [],
+                "subAssets": [],
+                "status_sync": {
+                  "central": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "thingsboard": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "ingestion": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "central_log": [],
+                  "thingsboard_log": [],
+                  "ingestion_log": []
+                }
+              },
+              {
+                "id": "87f46c9f-a358-4da5-8cd8-a735729efbfa",
+                "name": "ASSET CENTR-PRESE-XMN2H89",
+                "type": "LOCATION",
+                "devices": [
+                  {
+                    "id": "02984371-4fec-45c0-9c43-cda8e6fa1991",
+                    "name": "3F ELEV. RHF4V32",
+                    "label": "3F ELEV. RHF4V32",
+                    "type": "ELEVADOR",
+                    "addr_low": "52",
+                    "addr_high": "248",
+                    "frequency": "121",
+                    "central_id": [
+                      0
+                    ],
+                    "centralId": "a77ac87c-addd-4172-a65f-0f6f6038e98e",
+                    "slaveId": 52,
+                    "central_device_type": "ACTUATOR",
+                    "central_device_id": "52",
+                    "channels": [
+                      {
+                        "name": "Canal 1",
+                        "role": "output",
+                        "index": 0,
+                        "appSensor": "command",
+                        "centralType": "outlet"
+                      }
+                    ],
+                    "status_sync": {
+                      "central": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "thingsboard": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "ingestion": {
+                        "status": "not_started",
+                        "message": "Não iniciado",
+                        "timestamp": "2026-07-06T19:56:53.131Z"
+                      },
+                      "central_log": [],
+                      "thingsboard_log": [],
+                      "ingestion_log": []
+                    }
+                  }
+                ],
+                "gateways": [],
+                "children": [],
+                "subAssets": [],
+                "status_sync": {
+                  "central": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "thingsboard": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "ingestion": {
+                    "status": "not_started",
+                    "message": "Não iniciado",
+                    "timestamp": "2026-07-06T19:56:53.131Z"
+                  },
+                  "central_log": [],
+                  "thingsboard_log": [],
+                  "ingestion_log": []
+                }
+              }
+            ],
+            "subAssets": [],
+            "status_sync": {
+              "central": {
+                "status": "not_started",
+                "message": "Não iniciado",
+                "timestamp": "2026-07-06T19:56:53.131Z"
+              },
+              "thingsboard": {
+                "status": "not_started",
+                "message": "Não iniciado",
+                "timestamp": "2026-07-06T19:56:53.131Z"
+              },
+              "ingestion": {
+                "status": "not_started",
+                "message": "Não iniciado",
+                "timestamp": "2026-07-06T19:56:53.131Z"
+              },
+              "central_log": [],
+              "thingsboard_log": [],
+              "ingestion_log": []
+            }
+          },
+          {
+            "id": "b55639c2-d8eb-4523-93e5-c5f5675efd6b",
+            "name": "ASSET CENTR-PRESE Central 2",
+            "type": "LOCATION",
+            "devices": [],
+            "gateways": [],
+            "children": [],
+            "subAssets": [],
+            "status_sync": {
+              "central": {
+                "status": "not_started",
+                "message": "Não iniciado",
+                "timestamp": "2026-07-06T19:56:53.131Z"
+              },
+              "thingsboard": {
+                "status": "not_started",
+                "message": "Não iniciado",
+                "timestamp": "2026-07-06T19:56:53.131Z"
+              },
+              "ingestion": {
+                "status": "not_started",
+                "message": "Não iniciado",
+                "timestamp": "2026-07-06T19:56:53.131Z"
+              },
+              "central_log": [],
+              "thingsboard_log": [],
+              "ingestion_log": []
+            }
+          }
+        ],
+        "subAssets": [],
+        "status_sync": {
+          "central": {
+            "status": "not_started",
+            "message": "Não iniciado",
+            "timestamp": "2026-07-06T19:56:53.131Z"
+          },
+          "thingsboard": {
+            "status": "not_started",
+            "message": "Não iniciado",
+            "timestamp": "2026-07-06T19:56:53.131Z"
+          },
+          "ingestion": {
+            "status": "not_started",
+            "message": "Não iniciado",
+            "timestamp": "2026-07-06T19:56:53.131Z"
+          },
+          "central_log": [],
+          "thingsboard_log": [],
+          "ingestion_log": []
+        }
+      }
+    ],
+    "children": [],
+    "code": "CENTR-PRESE",
+    "status_sync": {
+      "central": {
+        "status": "not_started",
+        "message": "Não iniciado",
+        "timestamp": "2026-07-06T19:56:53.131Z"
+      },
+      "thingsboard": {
+        "status": "not_started",
+        "message": "Não iniciado",
+        "timestamp": "2026-07-06T19:56:53.131Z"
+      },
+      "ingestion": {
+        "status": "not_started",
+        "message": "Não iniciado",
+        "timestamp": "2026-07-06T19:56:53.131Z"
+      },
+      "central_log": [],
+      "thingsboard_log": [],
+      "ingestion_log": []
+    }
+  }
+]

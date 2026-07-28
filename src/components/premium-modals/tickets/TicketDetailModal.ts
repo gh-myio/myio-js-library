@@ -434,7 +434,7 @@ class TicketDetailModal {
         width: 100%; max-width: 580px;
         max-height: 86vh; min-height: 0;
         display: flex; flex-direction: column;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        font-family: 'Nunito', system-ui, sans-serif;
         font-size: 13px; color: #1a1a2e;
         animation: tdm-slide-up 0.2s ease;
       }

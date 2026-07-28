@@ -26,7 +26,7 @@ export function injectActionButtonStyles(): void {
       gap: 8px;
       border: none;
       cursor: pointer;
-      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: 'Nunito', system-ui, sans-serif;
       font-weight: 600;
       white-space: nowrap;
       transition: all 0.2s ease;

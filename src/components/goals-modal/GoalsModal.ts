@@ -5,11 +5,16 @@
  * - Lê dados de meta de `window.MyIOUtils.goalsData[domain]` (cache populado pelo MAIN_VIEW)
  * - Busca consumo real via callback `fetchConsumption` (injeção de dependência)
  * - Renderiza Chart.js diretamente (sem depender de createConsumptionChartWidget)
- * - Suporta granularidade horária (24h de um dia selecionado) e diária (últimos N dias)
+ * - Suporta granularidade horária (24h de um dia selecionado) e diária (range de datas do picker)
  */
 
 import { createDateRangePicker } from '../createDateRangePicker';
 import type { DateRangeControl } from '../createDateRangePicker';
+import { InfoTooltip } from '../../utils/tooltips/InfoTooltip';
+import { createGoalsBarTooltip } from '../tooltips/goals-bar-tooltip';
+import type { GoalsBarTooltipInstance, TipRow } from '../tooltips/goals-bar-tooltip';
+import { buildCoverageWarningTextPtBR, hasCoverageGaps } from '../../utils/goalsCoverage';
+import type { GoalsCoverageGaps } from '../../utils/goalsCoverage';
 
 declare const Chart: any;
 declare const window: any;
@@ -89,14 +94,35 @@ export interface GoalsModalOptions {
   throttleBatchSize?: number;
   /** Pausa extra (ms) a cada `throttleBatchSize` requests. Default 1500. */
   throttleBatchPauseMs?: number;
+  /**
+   * Paleta do dashboard (createMyIOTheme OU mapa plano de CSS vars) — igual ao
+   * `theme` do AllReportModal. Quando presente, o modal aplica as CSS vars
+   * `--myio-*` no root (overlay) e o chrome (header/tabs/botões/spinner) passa a
+   * seguir o accent do host. Sem este param, o modal lê `window.MyIOUtils.theme`.
+   */
+  theme?: { cssVars(): Record<string, string> } | Record<string, string>;
 }
 
 // Estrutura do goals JSON cacheado
 interface GoalsTree {
-  annual?: { value: number };
-  monthly?: Record<string, { value: number; method?: string }>;
-  daily?: Record<string, { value: number; method?: string }>;
-  hourly?: Record<string, { value: number; method?: string }>;
+  // RFC-0052 (GCDR): adjustedValue = value × (1 + goalMarginPct/100) — a "Meta"
+  // com a margem de gestão aplicada (igual a value quando margem 0/ausente)
+  annual?: { value: number; adjustedValue?: number };
+  monthly?: Record<string, { value: number; adjustedValue?: number; method?: string }>;
+  daily?: Record<string, { value: number; adjustedValue?: number; method?: string }>;
+  hourly?: Record<string, { value: number; adjustedValue?: number; method?: string }>;
+}
+
+/** Meta por medidor de entrada (Addendum A — anos com granularity DEVICE). */
+interface GoalsDeviceEntry {
+  deviceId?: string;
+  code?: string;
+  label?: string;
+  allocation?: 'EXPLICIT' | 'RESIDUAL';
+  annual?: number;
+  annualAdjusted?: number;
+  hoursCovered?: number;
+  coverageGaps?: GoalsCoverageGaps;
 }
 
 interface GoalsJsonData {
@@ -106,6 +132,13 @@ interface GoalsJsonData {
     unit?: string;
     year?: number;
     tree?: GoalsTree;
+    // GCDR Goals 2026-07 (Addendum A) — presentes só em leituras novas; anos
+    // CUSTOMER legados seguem byte-idênticos (parsing tolerante, sem mudança
+    // de comportamento quando ausentes).
+    granularity?: 'CUSTOMER' | 'DEVICE';
+    devices?: GoalsDeviceEntry[];
+    hoursCovered?: number;
+    coverageGaps?: GoalsCoverageGaps;
   };
 }
 
@@ -133,20 +166,22 @@ const DOMAIN_CFG: Record<string, {
     unitLarge: 'MWh',
     threshold: 1000,
     primaryColor: '#3e1a7d',
-    barColor: '#6c5ce7',
-    barColorAlpha: 'rgba(108,92,231,0.15)',
-    goalColor: '#f97316',
-    goalColorAlpha: 'rgba(249,115,22,0.12)',
+    // Esquema padrão das Metas: Realizado AZUL fixo #2563eb, Meta ROXO #7c3aed.
+    barColor: '#2563eb',
+    barColorAlpha: 'rgba(37,99,235,0.15)',
+    goalColor: '#7c3aed',
+    goalColorAlpha: 'rgba(124,58,237,0.12)',
   },
   water: {
     label: 'Água',
     icon: '💧',
     unit: 'm³',
     primaryColor: '#0288d1',
-    barColor: '#0891b2',
-    barColorAlpha: 'rgba(8,145,178,0.15)',
-    goalColor: '#f59e0b',
-    goalColorAlpha: 'rgba(245,158,11,0.12)',
+    // Esquema padrão das Metas: Realizado AZUL fixo #2563eb, Meta ROXO #7c3aed.
+    barColor: '#2563eb',
+    barColorAlpha: 'rgba(37,99,235,0.15)',
+    goalColor: '#7c3aed',
+    goalColorAlpha: 'rgba(124,58,237,0.12)',
   },
   temperature: {
     label: 'Temperatura',
@@ -173,7 +208,11 @@ let _currentDomain: string = 'energy';
 let _currentGran: '1h' | '1d' | '1M' = '1d';
 let _selectedDate: string = _todayISO();
 let _selectedYear: number = new Date().getFullYear();
-let _periodDays = 30;
+// Janela da granularidade diária (datas ISO locais, inclusive). Antes era só um
+// comprimento (_periodDays) ancorado em "hoje" — o start escolhido no picker era
+// descartado e qualquer range passado virava "últimos N dias".
+let _periodStart: string = _firstOfMonthISO();
+let _periodEnd: string = _todayISO();
 // YoY: o consumo do ano anterior (mesmo período) é SEMPRE buscado/plotado (exceto temperatura).
 // Sem toggle — vira 3ª linha (view linha) / barra pareada (view barra) + linha de meta.
 // Tipo do gráfico: barras (default) ou linhas.
@@ -187,6 +226,33 @@ let _lastRender:
 // from being dropped (the old _isRendering early-return swallowed them).
 let _renderSeq = 0;
 let _datePickerControl: DateRangeControl | null = null;
+// Premium tree-driven tooltip for the bars (A-1/Realizado/Meta, Realizado and Meta
+// expandable into per-medidor breakdowns). Lazily created; destroyed on close.
+let _barTip: GoalsBarTooltipInstance | null = null;
+// Per-entrada-device consumption breakdown for the CURRENT window (period-total,
+// fetched once per _loadAndRender). Used as weights to split each bar's Realizado
+// into its entry devices in the tooltip. Null when unavailable (guarded).
+let _periodDeviceBreakdown: { list: Array<{ label: string; value: number }>; sum: number } | null = null;
+
+// ── Deviation chip helpers (pt-BR) — shared by the bar tooltip rows. ──────────
+/** Neutral (informational) chip: (a−b)/b·100, arrow up/down/flat. */
+function _neutralDelta(a: number | null, b: number | null): TipRow['delta'] | undefined {
+  if (a == null || b == null || !(b > 0) || !isFinite(a)) return undefined;
+  const d = ((a - b) / b) * 100;
+  return { pct: Math.abs(d), tone: 'neutral', arrow: d > 0.05 ? 'up' : d < -0.05 ? 'down' : 'flat' };
+}
+/**
+ * Band chip vs a reference (Meta/Orçado): d = (real−ref)/ref·100.
+ *  d < −3 → "abaixo" (down, good)  |  −3..+3 → midText (flat, neutral)  |  d > +3 → "ultrapassou" (up, bad).
+ */
+function _bandDelta(real: number | null, ref: number | null, midText: string): TipRow['delta'] | undefined {
+  if (real == null || ref == null || !(ref > 0) || !isFinite(real)) return undefined;
+  const d = ((real - ref) / ref) * 100;
+  const abs = Math.abs(d);
+  if (d < -3) return { pct: abs, tone: 'good', arrow: 'down', text: 'abaixo' };
+  if (d > 3) return { pct: abs, tone: 'bad', arrow: 'up', text: 'ultrapassou' };
+  return { pct: abs, tone: 'neutral', arrow: 'flat', text: midText };
+}
 
 function _todayISO(): string {
   // Local date (not UTC) — toISOString() would shift the day in UTC-3 late evening.
@@ -194,6 +260,21 @@ function _todayISO(): string {
   const mm = String(d.getMonth() + 1).padStart(2, '0');
   const dd = String(d.getDate()).padStart(2, '0');
   return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
+function _isoNDaysAgo(n: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
+// Primeiro dia do mês corrente (ISO local) — período default do modal (mês atual → hoje).
+function _firstOfMonthISO(): string {
+  const d = new Date();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  return `${d.getFullYear()}-${mm}-01`;
 }
 
 // ============================================================================
@@ -208,17 +289,65 @@ function _getTopDoc(): Document {
   }
 }
 
+// Tema efetivo: param explícito OU o global do dashboard (MyIOUtils.theme) —
+// o MENU pode não passar o param, mas a MAIN expõe o global (createMyIOTheme).
+function _resolveThemeSource(): GoalsModalOptions['theme'] | undefined {
+  if (_options?.theme) return _options.theme;
+  if (typeof window === 'undefined') return undefined;
+  return window.MyIOUtils?.theme;
+}
+
+// Aplica a paleta do dashboard (createMyIOTheme OU mapa plano de CSS vars) no
+// root da modal: os estilos internos já leem var(--myio-brand-700). Idêntico ao
+// applyTheme do AllReportModal.
+function _applyTheme(root: HTMLElement): void {
+  const theme = _resolveThemeSource();
+  if (!theme) return;
+  const vars: Record<string, string> | null =
+    typeof (theme as { cssVars?: () => Record<string, string> }).cssVars === 'function'
+      ? (theme as { cssVars(): Record<string, string> }).cssVars()
+      : (theme as Record<string, string>);
+  if (!vars) return;
+  Object.entries(vars).forEach(([k, v]) => {
+    if (k.startsWith('--') && typeof v === 'string') root.style.setProperty(k, v);
+  });
+}
+
 function _formatValue(value: number, domain: string): string {
   const cfg = DOMAIN_CFG[domain] || DOMAIN_CFG.energy;
-  if (cfg.threshold && cfg.unitLarge && Math.abs(value) >= cfg.threshold) {
-    return `${(value / cfg.threshold).toFixed(2)} ${cfg.unitLarge}`;
+
+  // RFC-0108: preferir o formatador de preferências do usuário exposto pelo host
+  // (window.MyIOUtils.*WithSettings) — idêntico ao TELEMETRY/FOOTER. Ele respeita
+  // a unidade escolhida pelo usuário, as casas decimais e o "≥ 1000 kWh → MWh".
+  // A lib NÃO pode depender de window: se indisponível (ex.: showcase/testes),
+  // cai no cálculo local baseado em DOMAIN_CFG abaixo.
+  const U = typeof window !== 'undefined' ? window.MyIOUtils : undefined;
+  if (domain === 'energy' && typeof U?.formatEnergyWithSettings === 'function') {
+    return U.formatEnergyWithSettings(value);
   }
-  return `${value.toFixed(domain === 'temperature' ? 1 : 2)} ${cfg.unit}`;
+  if (domain === 'water' && typeof U?.formatWaterWithSettings === 'function') {
+    return U.formatWaterWithSettings(value);
+  }
+
+  // Fallback pt-BR (vírgula) — antes usava toFixed (ponto en-US), destoando
+  // das demais fontes (Resumo por shopping/HO usam pt-BR).
+  // Convenção Metas: 3 casas decimais para energia/água (1 para temperatura).
+  const dec = domain === 'temperature' ? 1 : 3;
+  const ptBR = (v: number, d: number) =>
+    v.toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d });
+  if (cfg.threshold && cfg.unitLarge && Math.abs(value) >= cfg.threshold) {
+    return `${ptBR(value / cfg.threshold, 3)} ${cfg.unitLarge}`;
+  }
+  return `${ptBR(value, dec)} ${cfg.unit}`;
+}
+
+function _getGoalsData(domain: string): GoalsJsonData['data'] | null {
+  const cached: GoalsJsonData | null = window.MyIOUtils?.goalsData?.[domain] ?? null;
+  return cached?.data ?? null;
 }
 
 function _getGoalsTree(domain: string): GoalsTree | null {
-  const cached: GoalsJsonData | null = window.MyIOUtils?.goalsData?.[domain] ?? null;
-  return cached?.data?.tree ?? null;
+  return _getGoalsData(domain)?.tree ?? null;
 }
 
 /** Converte label "DD/MM" → chave daily "MM-DD" */
@@ -227,19 +356,19 @@ function _labelToDailyKey(label: string): string {
   return `${mm}-${dd}`;
 }
 
-/** Retorna lista de N últimos dias como { label, startTs, endTs } */
-function _buildDayBoundaries(n: number): Array<{ label: string; startTs: number; endTs: number }> {
-  const now = new Date();
+/** Retorna um slot por dia do range [startISO..endISO] (inclusive) como { label, startTs, endTs } */
+function _buildDayBoundaries(startISO: string, endISO: string): Array<{ label: string; startTs: number; endTs: number }> {
   const result = [];
-  for (let i = n - 1; i >= 0; i--) {
-    const d = new Date(now);
-    d.setDate(now.getDate() - i);
-    d.setHours(0, 0, 0, 0);
+  const d = new Date(`${startISO}T00:00:00`);
+  const last = new Date(`${endISO}T00:00:00`);
+  // Guarda contra ranges invertidos/absurdos (picker já limita a 366 dias).
+  for (let i = 0; d <= last && i < 400; i++, d.setDate(d.getDate() + 1)) {
+    const s = new Date(d);
     const e = new Date(d);
     e.setHours(23, 59, 59, 999);
     result.push({
-      label: d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
-      startTs: d.getTime(),
+      label: s.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+      startTs: s.getTime(),
       endTs: e.getTime(),
     });
   }
@@ -353,12 +482,18 @@ function _seriesToTotals(
     }
     return totals;
   }
-  // '1d' / '1M': chave de data extraída da string ISO (sem conversão de TZ).
+  // '1d' / '1M': chave de data em HORÁRIO LOCAL (getMonth/getDate) para casar com
+  // os boundaries (dias locais). Antes usava iso.slice(...) em UTC, o que em UTC-3
+  // jogava o bucket do fim do último dia local no "dia seguinte" (sem boundary) e o
+  // descartava → subcontagem de ~3h/dia. Com a chave local, a soma passa a bater
+  // com o Resumo por shopping / HO (buckets no range local).
   const byKey = new Map<string, number>();
   for (const pt of series) {
     if (!pt) continue;
-    const iso = typeof pt.timestamp === 'number' ? new Date(pt.timestamp).toISOString() : String(pt.timestamp);
-    const key = viewGran === '1M' ? iso.slice(5, 7) : iso.slice(5, 10);
+    const dt = new Date(pt.timestamp as string | number);
+    const mm = String(dt.getMonth() + 1).padStart(2, '0');
+    const dd = String(dt.getDate()).padStart(2, '0');
+    const key = viewGran === '1M' ? mm : `${mm}-${dd}`;
     byKey.set(key, (byKey.get(key) || 0) + (Number(pt.value) || 0));
   }
   return boundaries.map(
@@ -388,10 +523,16 @@ async function _fetchSeriesTotals(
 }
 
 async function _fetchDayData(domain: string): Promise<{ labels: string[]; totals: number[] }> {
-  const boundaries = _buildDayBoundaries(_periodDays);
+  const boundaries = _buildDayBoundaries(_periodStart, _periodEnd);
   const labels = boundaries.map((b) => b.label);
+  // Série em '1h' e binagem por CONTENÇÃO no boundary do dia local ('1h' viewGran).
+  // Antes usava '1d': a API retorna buckets de dia UTC timestampados em T00:00Z e a
+  // chave por data local jogava o bucket UTC-(N+1) no dia local N; no ÚLTIMO dia do
+  // range o endTime (…T02:59Z) cobria só ~3h desse bucket → o último dia vinha
+  // truncado (ex.: 4.693 em vez de 58.978). Horário + contenção é TZ-agnóstico:
+  // cada ponto cai no dia local certo, sem truncar e sem perder pontos.
   const totals =
-    (await _fetchSeriesTotals(domain, boundaries, '1d', '1d')) ??
+    (await _fetchSeriesTotals(domain, boundaries, '1h', '1h')) ??
     (await _fetchTotalsThrottled(domain, boundaries, '1d'));
   return { labels, totals };
 }
@@ -415,11 +556,46 @@ async function _fetchMonthData(domain: string, year: number): Promise<{ labels: 
   return { labels, totals };
 }
 
+/**
+ * Breakdown por MEDIDOR DE ENTRADA do consumo do PERÍODO inteiro (uma request via
+ * fetchConsumption — endpoint /{domain}/devices/totals, que já retorna por device).
+ * Usado só no tooltip: os totais por device viram PESOS (share do período) e são
+ * aplicados ao Realizado de CADA barra (não é per-barra — é o total do período
+ * distribuído), de forma consistente e que sempre soma 100%. Retorna null quando
+ * indisponível (guardado — enfeite, nunca quebra o chart).
+ */
+async function _fetchPeriodDeviceBreakdown(
+  domain: string,
+  boundaries: Array<{ startTs: number; endTs: number }>,
+  gran: '1h' | '1d' | '1M'
+): Promise<{ list: Array<{ label: string; value: number }>; sum: number } | null> {
+  try {
+    const fn = _options?.fetchConsumption;
+    if (!fn || !boundaries.length) return null;
+    const start = boundaries[0].startTs;
+    const end = boundaries[boundaries.length - 1].endTs;
+    const devices = await fn(domain, start, end, gran);
+    if (!Array.isArray(devices) || devices.length === 0) return null;
+    const list = devices
+      .map((d) => ({
+        label: String(d.name || d.label || d.deviceName || 'Medidor'),
+        value: Number(d.total_value) || Number(d.value) || 0,
+      }))
+      .filter((d) => d.value > 0);
+    if (list.length === 0) return null;
+    const sum = list.reduce((a, d) => a + d.value, 0);
+    if (!(sum > 0)) return null;
+    return { list, sum };
+  } catch {
+    return null;
+  }
+}
+
 /** Boundaries da janela atual conforme a granularidade (mesma base usada nos fetchers acima). */
 function _buildBoundaries(gran: '1h' | '1d' | '1M', dateISO: string): Array<{ label: string; startTs: number; endTs: number }> {
   if (gran === '1M') return _buildMonthBoundaries(_selectedYear);
   if (gran === '1h') return _buildHourBoundaries(dateISO);
-  return _buildDayBoundaries(_periodDays);
+  return _buildDayBoundaries(_periodStart, _periodEnd);
 }
 
 /**
@@ -440,8 +616,12 @@ async function _fetchPrevYearTotals(
     return { ...b, startTs: ps.getTime(), endTs: pe.getTime() };
   });
 
-  // 1 request via série (a view de mês usa '1d' e agrupa por mês).
-  const viaSeries = await _fetchSeriesTotals(domain, prevBoundaries, gran, gran === '1M' ? '1d' : gran);
+  // 1 request via série. A view de mês usa '1d' e agrupa por mês; a view de DIA usa
+  // '1h' + contenção (mesmo motivo TZ do _fetchDayData — senão o último dia do YoY
+  // trunca igual ao ano atual). A view de hora já é '1h'.
+  const seriesViewGran = gran === '1d' ? '1h' : gran;
+  const seriesFetchGran = gran === '1M' ? '1d' : gran === '1d' ? '1h' : gran;
+  const viaSeries = await _fetchSeriesTotals(domain, prevBoundaries, seriesViewGran, seriesFetchGran);
   if (viaSeries) return viaSeries;
 
   // Fallback: N requests por-boundary via fetchConsumption (throttle não se aplica aqui —
@@ -469,7 +649,7 @@ async function _fetchPrevYearTotals(
 }
 
 async function _fetchTemperatureDayData(): Promise<{ labels: string[]; totals: number[] }> {
-  const boundaries = _buildDayBoundaries(_periodDays);
+  const boundaries = _buildDayBoundaries(_periodStart, _periodEnd);
   const labels = boundaries.map((b) => b.label);
   const totals = new Array<number>(boundaries.length).fill(0);
   const fetchFn = _options!.fetchTemperature;
@@ -501,6 +681,18 @@ async function _fetchTemperatureDayData(): Promise<{ labels: string[]; totals: n
 // Linha de meta
 // ============================================================================
 
+/**
+ * Valor de META de um nó da árvore: prefere o adjustedValue do GCDR (RFC-0052 —
+ * Orçado × margem de gestão, por customer × domínio × ano) e cai para value
+ * quando a API ainda não o entrega. O antigo delta client-side (goalsDelta das
+ * settings do widget) foi removido — a margem é única e gerida no servidor.
+ */
+function _goalNodeValue(node?: { value: number; adjustedValue?: number }): number | null {
+  if (!node) return null;
+  const v = node.adjustedValue ?? node.value;
+  return v == null ? null : v;
+}
+
 function _buildGoalLine(domain: string, labels: string[], gran: '1h' | '1d' | '1M', dateISO?: string): (number | null)[] {
   const tree = _getGoalsTree(domain);
   if (!tree) return labels.map(() => null);
@@ -514,7 +706,7 @@ function _buildGoalLine(domain: string, labels: string[], gran: '1h' | '1d' | '1
       // Keys use "MM-DDThh" format (e.g. "07-01T09")
       return labels.map((lbl) => {
         const hh = lbl.replace('h', '').padStart(2, '0');
-        return tree.hourly![`${mm}-${dd}T${hh}`]?.value ?? null;
+        return _goalNodeValue(tree.hourly![`${mm}-${dd}T${hh}`]);
       });
     }
 
@@ -526,14 +718,14 @@ function _buildGoalLine(domain: string, labels: string[], gran: '1h' | '1d' | '1
       const m = MONTH_LABELS_PT.indexOf(lbl);
       if (m < 0) return null;
       const key = String(m + 1).padStart(2, '0');
-      return tree.monthly?.[key]?.value ?? null;
+      return _goalNodeValue(tree.monthly?.[key]);
     });
   }
 
   // 1d: label = "DD/MM" → daily key = "MM-DD"
   return labels.map((lbl) => {
     const key = _labelToDailyKey(lbl);
-    return tree.daily?.[key]?.value ?? null;
+    return _goalNodeValue(tree.daily?.[key]);
   });
 }
 
@@ -580,14 +772,16 @@ function _renderChart(
       fill: false,
       tension: 0.4,
       pointRadius: isLine ? 2 : 0,
+      // Legenda: barra → quadradinho (usePointStyle + 'rect').
+      pointStyle: 'rect',
       order: 4,
     });
   }
 
-  // Consumo (ano atual) — order 5 (na frente do ano anterior).
+  // Realizado (consumo do ano atual) — order 5 (na frente do ano anterior).
   datasets.push({
     type: _chartType,
-    label: `Consumo (${cfg.unit})`,
+    label: `Realizado (${cfg.unit})`,
     data: totals,
     borderColor: cfg.barColor,
     backgroundColor: isLine ? cfg.barColorAlpha : cfg.barColor,
@@ -597,10 +791,13 @@ function _renderChart(
     tension: 0.4,
     pointRadius: isLine ? 3 : 0,
     pointHoverRadius: 4,
+    // Legenda: barra → quadradinho (usePointStyle + 'rect').
+    pointStyle: 'rect',
     order: 5,
   });
 
   // Meta — SEMPRE linha (laranja), sobre as barras/linhas (order 0).
+  // A margem (RFC-0052) já vem aplicada nos pontos via adjustedValue — invisível na legenda.
   if (hasGoals) {
     datasets.push({
       type: 'line',
@@ -614,6 +811,8 @@ function _renderChart(
       fill: false,
       spanGaps: true,
       tension: 0.4,
+      // Meta é LINHA — legenda deve mostrar um traço, não um quadradinho.
+      pointStyle: 'line',
       order: 0,
     });
   }
@@ -633,6 +832,123 @@ function _renderChart(
   const axisDivisor = useLarge ? cfg.threshold! : 1;
   const axisUnit = useLarge ? cfg.unitLarge! : cfg.unit;
 
+  // ── Premium tree-driven tooltip. Ordem: A-1, Realizado, Meta (SEM Orçado — o
+  // shopping mostra só a Meta = adjustedValue). Cada linha ganha um CHIP de desvio:
+  //  · A-1 → vs Meta (neutro, informativo)
+  //  · Realizado → vs A-1 (neutro, contexto YoY)
+  //  · Meta → Realizado vs Meta com banda (abaixo=verde / na meta=cinza / ultrapassou=vermelho).
+  // Realizado expande por medidor de entrada (share do período — _periodDeviceBreakdown);
+  // Meta expande por medidor (pesos ANUAIS do GCDR distribuídos sobre a meta do bucket).
+  let accent = cfg.primaryColor;
+  try {
+    const root = _overlay || _getTopDoc().documentElement;
+    const v = getComputedStyle(root).getPropertyValue('--myio-brand-700').trim();
+    if (v) accent = v;
+  } catch { /* keep domain default */ }
+
+  const buildBarTipData = (idx: number): any => {
+    const realizado = totals[idx];
+    const meta = goalLine[idx];
+    const prev = prevTotals ? prevTotals[idx] : null;
+
+    const rows: TipRow[] = [];
+
+    // A-1 (ano anterior) — informativo; chip = A-1 vs Meta.
+    if (prev != null && prev > 0) {
+      rows.push({
+        icon: '🕓', label: 'A-1 (ano anterior)', color: '#94a3b8',
+        valueText: _formatValue(prev, domain),
+        delta: (meta != null && meta > 0) ? _neutralDelta(prev, meta) : undefined,
+      });
+    }
+
+    // Realizado — chip = Realizado vs A-1; expande por medidor de entrada.
+    const realizadoRow: TipRow = {
+      icon: '📊', label: 'Realizado', color: cfg.barColor,
+      valueText: _formatValue(realizado, domain),
+      delta: (prev != null && prev > 0) ? _neutralDelta(realizado, prev) : undefined,
+    };
+    try {
+      const bd = _periodDeviceBreakdown;
+      if (bd && bd.sum > 0 && realizado > 0 && bd.list.length > 0) {
+        realizadoRow.children = bd.list.map((d) => {
+          const w = d.value / bd.sum;
+          return {
+            icon: cfg.icon, label: d.label,
+            valueText: _formatValue(realizado * w, domain), pct: w * 100,
+          } as TipRow;
+        });
+        realizadoRow.defaultExpanded = false;
+      }
+    } catch { /* breakdown é enfeite */ }
+    rows.push(realizadoRow);
+
+    // Meta — chip = Realizado vs Meta (banda); expande por medidor (metas anuais).
+    if (meta != null) {
+      const metaRow: TipRow = {
+        icon: '🎯', label: 'Meta', color: cfg.goalColor,
+        valueText: _formatValue(meta, domain),
+        delta: _bandDelta(realizado, meta, 'na meta'),
+      };
+      const gdata = _getGoalsData(domain);
+      if (gdata?.granularity === 'DEVICE' && Array.isArray(gdata.devices) && gdata.devices.length && meta > 0) {
+        const devs = gdata.devices.map((d) => ({
+          label: d.label || d.code || 'Medidor',
+          annual: Number(d.annualAdjusted ?? d.annual ?? 0) || 0,
+        }));
+        const totalAnnual = devs.reduce((s, d) => s + d.annual, 0);
+        if (totalAnnual > 0) {
+          metaRow.children = devs.map((d) => {
+            const w = d.annual / totalAnnual;
+            return {
+              icon: cfg.icon, label: d.label,
+              valueText: _formatValue(meta * w, domain), pct: w * 100,
+            } as TipRow;
+          });
+          metaRow.defaultExpanded = false;
+        }
+      }
+      rows.push(metaRow);
+    }
+
+    let subtitle: string | undefined;
+    if (meta != null && meta > 0) {
+      const dev = ((realizado - meta) / meta) * 100;
+      subtitle = Math.abs(dev) < 0.05
+        ? 'Na Meta (0,0%)'
+        : `${Math.abs(dev).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}% ${dev < 0 ? 'abaixo' : 'acima'} da Meta`;
+    }
+    return { title: labels[idx] ?? '', subtitle, rows, accentColor: accent };
+  };
+
+  // Posiciona o tooltip PERTO DO CURSOR (não no caret da barra) — assim dá pra
+  // arrastar o mouse até ele e clicar no 📌. O contexto `external` do Chart.js não
+  // carrega o mouse, então guardamos a última posição via mousemove no canvas.
+  let _lastMouse: { x: number; y: number } | null = null;
+  try {
+    canvas.addEventListener('mousemove', (e: MouseEvent) => {
+      _lastMouse = { x: e.clientX, y: e.clientY };
+    });
+  } catch { /* ignore */ }
+
+  const externalTip = _barTip
+    ? (context: any) => {
+        try {
+          const tt = context?.tooltip;
+          if (!tt || tt.opacity === 0) { _barTip!.hide(); return; }
+          const dp = tt.dataPoints && tt.dataPoints[0];
+          if (!dp) return;
+          const idx = dp.dataIndex;
+          const rect = context.chart.canvas.getBoundingClientRect();
+          const pos = _lastMouse ?? {
+            x: rect.left + tt.caretX,
+            y: rect.top + tt.caretY,
+          };
+          _barTip!.show(buildBarTipData(idx), { clientX: pos.x, clientY: pos.y });
+        } catch { /* tooltip é enfeite — nunca quebra o chart */ }
+      }
+    : undefined;
+
   _chartInstance = new Chart(canvas, {
     type: 'bar',
     data: { labels, datasets },
@@ -646,16 +962,21 @@ function _renderChart(
         legend: {
           display: hasGoals || hasPrev,
           position: 'bottom',
-          labels: { color: '#374151', font: { size: 11 } },
+          // usePointStyle + pointStyle por dataset: barras (Realizado/Ano anterior)
+          // ficam quadradinhos ('rect'), Meta fica um traço ('line').
+          labels: { color: '#374151', font: { size: 11 }, usePointStyle: true },
         },
         tooltip: {
+          // Premium tooltip via external handler; se indisponível, cai no built-in.
+          enabled: !externalTip,
+          external: externalTip,
           callbacks: {
             label(ctx: any) {
               const v = ctx.parsed.y;
               if (v == null) return '';
               return `${ctx.dataset.label}: ${_formatValue(v, domain)}`;
             },
-            // Resumo do ponto: aderência à meta e variação vs ano anterior.
+            // Resumo do ponto: desvio percentual vs meta e variação vs ano anterior.
             afterBody(items: any[]): string[] {
               const idx = items?.[0]?.dataIndex;
               if (idx == null) return [];
@@ -663,7 +984,13 @@ function _renderChart(
               const cons = totals[idx];
               const goal = goalLine[idx];
               if (goal != null && goal > 0) {
-                lines.push(`Aderência à meta: ${((cons / goal) * 100).toFixed(1)}%`);
+                // Ex.: consumo 23,10 × meta 29,04 → "20,5% abaixo da Meta"
+                const dev = ((cons - goal) / goal) * 100;
+                if (Math.abs(dev) < 0.05) lines.push('Na Meta (0,0%)');
+                else
+                  lines.push(
+                    `${Math.abs(dev).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}% ${dev < 0 ? 'abaixo' : 'acima'} da Meta`
+                  );
               }
               if (hasPrev && prevTotals) {
                 const prev = prevTotals[idx];
@@ -772,6 +1099,17 @@ async function _loadAndRender(domain: string, gran: '1h' | '1d' | '1M', dateISO:
     // Cache p/ os toggles (barra/linha) re-renderizarem sem refazer o fetch.
     _lastRender = { labels, totals, goalLine, prevTotals, domain };
 
+    // Breakdown por medidor de entrada (enfeite do tooltip: Realizado ⤵ por device).
+    // Detached — não bloqueia o render nem o loader; popula a var lida no hover.
+    _periodDeviceBreakdown = null;
+    if (domain !== 'temperature') {
+      const mySeq = seq;
+      const bnds = _buildBoundaries(gran, dateISO);
+      _fetchPeriodDeviceBreakdown(domain, bnds, gran)
+        .then((bd) => { if (mySeq === _renderSeq) _periodDeviceBreakdown = bd; })
+        .catch(() => { /* enfeite — nunca quebra o chart */ });
+    }
+
     // Stats footer
     if (statsEl) {
       const total = totals.reduce((a, b) => a + b, 0);
@@ -779,7 +1117,20 @@ async function _loadAndRender(domain: string, gran: '1h' | '1d' | '1M', dateISO:
       const peak = Math.max(...totals);
       const peakLabel = labels[totals.indexOf(peak)] ?? '';
       const goalTotal = goalLine.reduce<number>((a, b) => a + (b ?? 0), 0);
-      const pct = goalTotal > 0 ? ((total / goalTotal) * 100).toFixed(1) : null;
+      // Mesmo formato do tooltip: desvio percentual em relação à meta do período
+      // (ex.: consumo 77,4% da meta → "22,6% abaixo da Meta")
+      let vsMetaHtml = '';
+      if (goalTotal > 0) {
+        const dev = ((total - goalTotal) / goalTotal) * 100;
+        const devTxt = Math.abs(dev).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+        const [txt, color] =
+          Math.abs(dev) < 0.05
+            ? ['Na Meta (0,0%)', '#10b981']
+            : dev < 0
+              ? [`${devTxt}% abaixo`, '#10b981']
+              : [`${devTxt}% acima`, '#ef4444'];
+        vsMetaHtml = `<div class="gm-stat"><span class="gm-stat-label">vs Meta</span><span class="gm-stat-value gm-stat-pct" style="color:${color}">${txt}</span></div>`;
+      }
 
       // YoY stat — só quando há dados do ano anterior
       let yoyHtml = '';
@@ -795,7 +1146,7 @@ async function _loadAndRender(domain: string, gran: '1h' | '1d' | '1M', dateISO:
         <div class="gm-stat"><span class="gm-stat-label">Total</span><span class="gm-stat-value">${_formatValue(total, domain)}</span></div>
         <div class="gm-stat"><span class="gm-stat-label">Média</span><span class="gm-stat-value">${_formatValue(avg, domain)}</span></div>
         <div class="gm-stat"><span class="gm-stat-label">Pico</span><span class="gm-stat-value">${_formatValue(peak, domain)}<span class="gm-stat-sub">${peakLabel}</span></span></div>
-        ${pct !== null ? `<div class="gm-stat"><span class="gm-stat-label">vs Meta</span><span class="gm-stat-value gm-stat-pct" style="color:${parseFloat(pct) <= 100 ? '#10b981' : '#ef4444'}">${pct}%</span></div>` : ''}
+        ${vsMetaHtml}
         ${yoyHtml}
       `;
     }
@@ -830,32 +1181,33 @@ function _injectStyles(topDoc: Document): void {
   const s = topDoc.createElement('style');
   s.id = STYLE_ID;
   s.textContent = `
-    .gm-overlay{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);opacity:0;transition:opacity .2s ease;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;}
+    .gm-overlay{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);opacity:0;transition:opacity .2s ease;font-family:'Nunito', system-ui, sans-serif;}
     .gm-overlay.show{opacity:1;}
     .gm-modal{position:relative;background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.25);width:min(1000px,95vw);height:min(660px,90vh);overflow:hidden;display:flex;flex-direction:column;transform:translateY(12px) scale(.98);transition:transform .2s ease;}
     .gm-overlay.show .gm-modal{transform:translateY(0) scale(1);}
-    .gm-header{display:flex;align-items:center;gap:10px;padding:10px 16px;background:#3e1a7d;color:#fff;flex-shrink:0;flex-wrap:wrap;row-gap:6px;}
+    .gm-header{display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--myio-brand-700, #3e1a7d);color:#fff;flex-shrink:0;flex-wrap:wrap;row-gap:6px;}
     .gm-header h3{margin:0;font-size:14px;font-weight:600;display:flex;align-items:center;gap:6px;}
     .gm-header-spacer{flex:1;}
     .gm-gran-wrap{display:flex;gap:2px;align-items:center;background:rgba(0,0,0,.2);border-radius:8px;padding:3px;}
     .gm-gran-btn{border:none;background:transparent;color:rgba(255,255,255,.65);font-size:12px;font-weight:700;padding:4px 12px;border-radius:6px;cursor:pointer;transition:all .15s;}
     .gm-gran-btn:hover{background:rgba(255,255,255,.15);color:#fff;}
-    .gm-gran-btn.active{background:#fff;color:#3e1a7d;box-shadow:0 1px 4px rgba(0,0,0,.2);}
+    .gm-gran-btn.active{background:#fff;color:var(--myio-brand-700, #3e1a7d);box-shadow:0 1px 4px rgba(0,0,0,.2);}
     .gm-date-input{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.3);border-radius:6px;color:#fff;font-size:12px;padding:3px 8px;cursor:pointer;outline:none;}
     .gm-date-picker-wrap{display:flex;align-items:center;}
-    #gm-date-range-input{min-width:155px;}
+    /* "DD/MM/YYYY até DD/MM/YYYY" precisa de ~170px em 12px Roboto — 155px cortava o final */
+    #gm-date-range-input{min-width:195px;}
     .gm-close{background:transparent;border:none;color:#fff;font-size:22px;line-height:1;cursor:pointer;padding:4px;border-radius:4px;flex-shrink:0;}
     .gm-close:hover{background:rgba(255,255,255,.15);}
-    .gm-tabs{display:flex;gap:4px;padding:8px 14px 0;background:#3e1a7d;flex-shrink:0;}
+    .gm-tabs{display:flex;gap:4px;padding:8px 14px 0;background:var(--myio-brand-700, #3e1a7d);flex-shrink:0;}
     .gm-tab{flex:0 0 auto;display:flex;align-items:center;gap:5px;padding:7px 14px;border:none;background:rgba(255,255,255,.08);color:#cbb6e8;font-size:12px;font-weight:600;cursor:pointer;border-radius:8px 8px 0 0;transition:all .15s;}
     .gm-tab:hover{background:rgba(255,255,255,.16);color:#fff;}
-    .gm-tab.active{background:#fff;color:#3e1a7d;}
+    .gm-tab.active{background:#fff;color:var(--myio-brand-700, #3e1a7d);}
     .gm-body{flex:1;min-height:0;display:flex;flex-direction:column;padding:12px 14px 0;}
     .gm-chart-wrap{position:relative;flex:1;min-height:0;}
     #gm-chart-area{width:100%;height:100%;}
     #gm-canvas{width:100%!important;height:100%!important;}
     .gm-loading{position:absolute;inset:0;background:rgba(255,255,255,.85);display:flex;align-items:center;justify-content:center;z-index:10;border-radius:8px;}
-    .gm-spinner{width:28px;height:28px;border:3px solid #e5e7eb;border-top-color:#3e1a7d;border-radius:50%;animation:gm-spin 1s linear infinite;}
+    .gm-spinner{width:28px;height:28px;border:3px solid #e5e7eb;border-top-color:var(--myio-brand-700, #3e1a7d);border-radius:50%;animation:gm-spin 1s linear infinite;}
     @keyframes gm-spin{to{transform:rotate(360deg);}}
     .gm-footer{display:flex;align-items:flex-start;padding:10px 14px;border-top:1px solid #f3f4f6;flex-shrink:0;}
     #gm-stats{display:flex;justify-content:space-around;align-items:flex-start;width:100%;flex-wrap:wrap;gap:8px;}
@@ -879,8 +1231,6 @@ function _buildModalHTML(): string {
     return `<button class="gm-tab${d === _currentDomain ? ' active' : ''}" data-domain="${d}">${cfg.icon} ${cfg.label}</button>`;
   }).join('');
 
-  const hasGoalsHint = !_getGoalsTree(_currentDomain);
-
   return `
     <div class="gm-header">
       <h3>🎯 Metas</h3>
@@ -894,13 +1244,16 @@ function _buildModalHTML(): string {
         <button class="gm-gran-btn${_currentGran === '1d' ? ' active' : ''}" data-gran="1d">1d</button>
         <button class="gm-gran-btn${_currentGran === '1h' ? ' active' : ''}" data-gran="1h">1h</button>
       </div>
+      <div class="gm-gran-wrap" title="Atalhos de período">
+        <button class="gm-gran-btn" data-preset="prevYear">Ano ${new Date().getFullYear() - 1}</button>
+        <button class="gm-gran-btn" data-preset="curYear">Ano ${new Date().getFullYear()}</button>
+      </div>
       <div class="gm-date-picker-wrap" id="gm-date-picker-wrap">
         <input type="text" id="gm-date-range-input" class="gm-date-input" readonly placeholder="Selecione o período…" />
       </div>
       <button class="gm-close" id="gm-close" aria-label="Fechar">&times;</button>
     </div>
     <div class="gm-tabs">${tabs}</div>
-    ${hasGoalsHint ? '<div class="gm-no-goals-hint">Linha de meta não disponível para este domínio (nenhuma meta cadastrada no GCDR para este ano)</div>' : ''}
     <div class="gm-body">
       <div class="gm-chart-wrap">
         <div id="gm-chart-area"><canvas id="gm-canvas"></canvas></div>
@@ -922,11 +1275,7 @@ function _defaultDatesForGran(gran: '1h' | '1d' | '1M'): { start: string; end: s
     const yr = _selectedYear;
     return { start: `${yr}-01-01`, end: `${yr}-12-31` };
   }
-  const s = new Date();
-  s.setDate(s.getDate() - (_periodDays - 1));
-  const sm = String(s.getMonth() + 1).padStart(2, '0');
-  const sd = String(s.getDate()).padStart(2, '0');
-  return { start: `${s.getFullYear()}-${sm}-${sd}`, end: today };
+  return { start: _periodStart, end: _periodEnd };
 }
 
 function _applyDateRange(startISO: string, endISO: string): void {
@@ -935,9 +1284,8 @@ function _applyDateRange(startISO: string, endISO: string): void {
   } else if (_currentGran === '1M') {
     _selectedYear = new Date(startISO).getFullYear();
   } else {
-    const d0 = new Date(startISO.slice(0, 10));
-    const d1 = new Date(endISO.slice(0, 10));
-    _periodDays = Math.max(1, Math.round((d1.getTime() - d0.getTime()) / 86400000) + 1);
+    _periodStart = startISO.slice(0, 10);
+    _periodEnd = endISO.slice(0, 10);
   }
   _loadAndRender(_currentDomain, _currentGran, _selectedDate);
 }
@@ -1009,6 +1357,25 @@ function _wireEvents(overlay: HTMLElement, topDoc: Document): void {
       _loadAndRender(_currentDomain, _currentGran, _selectedDate);
     });
   });
+
+  // Presets de período (Ano anterior / Ano atual) — visão mensal do ano escolhido.
+  overlay.querySelectorAll('.gm-gran-btn[data-preset]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const which = (btn as HTMLElement).dataset.preset;
+      const Y = new Date().getFullYear();
+      const year = which === 'prevYear' ? Y - 1 : Y;
+      _selectedYear = year;
+      _currentGran = '1M';
+      _periodStart = `${year}-01-01`;
+      _periodEnd = which === 'prevYear' ? `${year}-12-31` : _todayISO();
+      // Reflete no seletor de granularidade (1M ativo) e re-inicializa o picker.
+      overlay
+        .querySelectorAll('.gm-gran-btn[data-gran]')
+        .forEach((b) => b.classList.toggle('active', (b as HTMLElement).dataset.gran === '1M'));
+      _initDatePicker(topDoc).catch(console.error);
+      _loadAndRender(_currentDomain, _currentGran, _selectedDate);
+    });
+  });
 }
 
 function _updateGoalsHint(topDoc: Document): void {
@@ -1024,6 +1391,63 @@ function _updateGoalsHint(topDoc: Document): void {
     hint.textContent = 'Linha de meta não disponível para este domínio (nenhuma meta cadastrada no GCDR para este ano)';
     tabs.insertAdjacentElement('afterend', hint);
   }
+  _updateCoverageHint(topDoc);
+}
+
+// Cobertura incompleta (GCDR Goals 2026-07): quando o GET do domínio traz
+// coverageGaps, mostra um hint ⚠ discreto sob as tabs com InfoTooltip listando
+// os buracos (meses/dias/horas sem meta). Ausente = cobertura completa.
+let _coverageDetach: (() => void) | null = null;
+
+function _updateCoverageHint(topDoc: Document): void {
+  const existing = topDoc.getElementById('gm-coverage-hint-el');
+  if (existing) {
+    existing.remove();
+  }
+  if (_coverageDetach) {
+    try { _coverageDetach(); } catch { /* já removido */ }
+    _coverageDetach = null;
+  }
+  const data = _getGoalsData(_currentDomain);
+  if (!data?.tree || !hasCoverageGaps(data.coverageGaps)) return;
+  const tabs = topDoc.querySelector('.gm-tabs');
+  if (!tabs) return;
+
+  const hint = topDoc.createElement('div');
+  hint.id = 'gm-coverage-hint-el';
+  hint.className = 'gm-no-goals-hint';
+  hint.style.cursor = 'help';
+  const deviceCount = data.granularity === 'DEVICE' ? (data.devices?.length ?? 0) : 0;
+  hint.textContent =
+    `⚠ Meta incompleta para este domínio/ano` +
+    (deviceCount > 0 ? ` · Por medidor (${deviceCount})` : '') +
+    ` — passe o mouse para detalhes`;
+  tabs.insertAdjacentElement('afterend', hint);
+
+  const esc = (s: string) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  try {
+    _coverageDetach = InfoTooltip.attach(hint, () => {
+      const d = _getGoalsData(_currentDomain);
+      const parts: string[] = [];
+      if (hasCoverageGaps(d?.coverageGaps)) {
+        parts.push(`<p style="margin:0 0 8px;">${esc(buildCoverageWarningTextPtBR(d?.coverageGaps, 'GERAL'))}</p>`);
+      }
+      (d?.devices || []).forEach((dev) => {
+        if (!hasCoverageGaps(dev?.coverageGaps)) return;
+        const label = dev.label || dev.code || 'medidor';
+        parts.push(
+          `<p style="margin:0 0 8px;">${esc(buildCoverageWarningTextPtBR(dev.coverageGaps, `do medidor ${label}`))}</p>`
+        );
+      });
+      return {
+        icon: '⚠️',
+        title: 'Meta incompleta',
+        content: `<div style="font-size:12px;line-height:1.55;color:#334155;">${parts.join('')}</div>`,
+      };
+    });
+  } catch {
+    /* tooltip é enfeite — nunca pode quebrar o modal */
+  }
 }
 
 // ============================================================================
@@ -1034,7 +1458,13 @@ export const GoalsModal = {
   open(options: GoalsModalOptions): void {
     _options = options;
     _currentDomain = options.initialDomain ?? 'energy';
-    _periodDays = options.defaultPeriodDays ?? 30;
+    _periodEnd = _todayISO();
+    // Default = mês corrente (01/mm/aaaa → hoje). `defaultPeriodDays` explícito ainda
+    // é honrado (retrocompat); ausente → mês corrente (antes: últimos 30 dias).
+    _periodStart =
+      options.defaultPeriodDays != null
+        ? _isoNDaysAgo(options.defaultPeriodDays - 1)
+        : _firstOfMonthISO();
     _selectedDate = _todayISO();
     _selectedYear = new Date().getFullYear();
     _currentGran = '1d';
@@ -1062,9 +1492,19 @@ export const GoalsModal = {
     topDoc.body.appendChild(overlay);
 
     _overlay = overlay;
+    // Tooltip premium das barras (criado uma vez por abertura; destruído no close).
+    try { _barTip?.destroy(); } catch { /* ignore */ }
+    _barTip = null;
+    try { _barTip = createGoalsBarTooltip(); } catch { _barTip = null; }
+    // Paleta do dashboard (param OU window.MyIOUtils.theme): CSS vars --myio-* no
+    // root do overlay → header/tabs/botões/spinner herdam o accent do host.
+    _applyTheme(overlay);
     requestAnimationFrame(() => overlay.classList.add('show'));
 
     _wireEvents(overlay, topDoc);
+    // Hints (sem meta / meta incompleta) do domínio inicial — antes eram inline
+    // no HTML do modal; agora o mesmo caminho da troca de aba cuida da abertura.
+    _updateGoalsHint(topDoc);
     _initDatePicker(topDoc).catch(console.error);
 
     setTimeout(() => {
@@ -1076,8 +1516,14 @@ export const GoalsModal = {
     if (!_overlay) return;
     _overlay.classList.remove('show');
     _destroyChart();
+    try { _barTip?.destroy(); } catch { /* ignore */ }
+    _barTip = null;
     _datePickerControl?.destroy();
     _datePickerControl = null;
+    if (_coverageDetach) {
+      try { _coverageDetach(); } catch { /* já removido */ }
+      _coverageDetach = null;
+    }
     const overlayRef = _overlay;
     _overlay = null;
     _options = null;

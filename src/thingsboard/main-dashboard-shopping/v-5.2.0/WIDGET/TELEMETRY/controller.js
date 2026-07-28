@@ -306,7 +306,7 @@ function injectFilterModalStyles() {
     .telemetry-filter-overlay {
       --ink-1: #1c2743; --ink-2: #6b7a90; --bd: #e8eef4; --bd-2: #d6e1ec;
       --brand: #1f6fb5; --bg-soft: #f7fbff;
-      --font-ui: Inter,'Inter var','Plus Jakarta Sans',system-ui,-apple-system,sans-serif;
+      --font-ui: 'Nunito', system-ui, sans-serif;
       position: fixed; inset: 0;
       background: rgba(17,24,39,0.35);
       z-index: 99999;
@@ -594,7 +594,7 @@ function injectFilterModalStyles() {
       background: #fff; border-radius: 12px; width: 1280px; max-width: 96vw;
       max-height: 98vh; display: flex; flex-direction: column;
       box-shadow: 0 20px 60px rgba(0,0,0,0.25);
-      font-family: system-ui,sans-serif; font-size: 13px;
+      font-family: 'Nunito', system-ui, sans-serif; font-size: 13px;
       transition: width 0.2s ease, max-height 0.2s ease, border-radius 0.2s ease;
     }
     .telemetry-sync-gcdr-card.sgj-expanded {
@@ -1168,11 +1168,22 @@ function _getEnergyGroupKey(it) {
   if (cat === 'escadas_rolantes') return 'escadasRolantes';
   if (cat === 'lojas') return 'lojas';
 
-  // genuine fallback ('outros'): only 3F_MEDIDOR cards are group-filterable as
-  // 'outros'; everything else stays null (always shown).
-  const dt = String(it.deviceType || '').toUpperCase();
+  // Categoria 'outros' (residual do breakdown): device de ENERGIA desta categoria
+  // — não só 3F_MEDIDOR — é filtrável pelo card "Outros Equipamentos".
+  // BUG histórico (corrigido 2026-07-24): antes só 3F_MEDIDOR retornava 'outros';
+  // bombas hidráulicas, motores, iluminação, incêndio e gerador ficavam null
+  // ("sempre visível", ver filtro em _groupFilterChangedHandler), e o card sequer
+  // recebia data-energy-group (setado só quando a chave é truthy). Resultado:
+  // clicar em "Outros Equipamentos" não filtrava nada. O card conta TODOS eles
+  // (STATE.consumidores.outros), então o filtro precisa casar com essa categoria.
+  //
+  // CONTRATO null preservado: água (HIDROMETRO/TANK/CAIXA) e temperatura
+  // (TERMOSTATO) também resolvem para 'outros' no domínio energy, mas NÃO são
+  // consumidores de energia — mantêm null (sempre visíveis, não filtráveis pelo
+  // grupo de energia). deviceType em desuso (2026-07-14) — profile apenas.
   const dp = String(it.deviceProfile || '').toUpperCase();
-  if (dt === '3F_MEDIDOR' || dp === '3F_MEDIDOR') return 'outros';
+  const isWaterOrTemp = /HIDROMETRO|TANK|CAIXA|TERMOSTATO/.test(dp);
+  if (!isWaterOrTemp) return 'outros';
   return null;
 }
 
@@ -1202,17 +1213,17 @@ const EQUIPMENT_EXCLUSION_PATTERN =
 function inferDisplayIdentifier(item) {
   if (!item) return 'N/A';
 
-  // Primeiro, tentar usar deviceType
-  const deviceType = String(item.deviceType || '').toUpperCase();
-  if (deviceType && deviceType !== 'N/D' && deviceType !== '3F_MEDIDOR') {
-    // Se for um deviceType conhecido, retornar o próprio deviceType ou abreviação
-    if (CLIMATIZACAO_DEVICE_TYPES_SET.has(deviceType)) {
-      return deviceType;
+  // Primeiro, tentar usar o deviceProfile (deviceType em desuso, 2026-07-14)
+  const deviceProfile = String(item.deviceProfile || '').toUpperCase();
+  if (deviceProfile && deviceProfile !== 'N/D' && deviceProfile !== '3F_MEDIDOR') {
+    // Se for um profile conhecido, retornar o próprio profile ou abreviação
+    if (CLIMATIZACAO_DEVICE_TYPES_SET.has(deviceProfile)) {
+      return deviceProfile;
     }
-    if (ELEVADORES_DEVICE_TYPES_SET.has(deviceType)) {
+    if (ELEVADORES_DEVICE_TYPES_SET.has(deviceProfile)) {
       return 'ELV';
     }
-    if (ESCADAS_DEVICE_TYPES_SET.has(deviceType)) {
+    if (ESCADAS_DEVICE_TYPES_SET.has(deviceProfile)) {
       return 'ESC';
     }
   }
@@ -1812,7 +1823,7 @@ function ensureBusyModalDOM() {
       background: rgba(150,132,181,0.45); /* #9684B5 com transparência */
       backdrop-filter: blur(5px);
       z-index:9999; align-items:center; justify-content:center;
-      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;">
+      font-family: 'Nunito', system-ui, sans-serif;">
     <div style="
         background:#2d1458; color:#fff;
         border:1px solid rgba(255,255,255,0.10);
@@ -2026,7 +2037,7 @@ function ensureGlobalSuccessModalDOM() {
     border-radius: 20px; padding: 26px 30px; min-width: 360px;
     border: 1px solid rgba(255,255,255,0.12);
     box-shadow: 0 14px 44px rgba(0,0,0,.35);
-    font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;
+    font-family: 'Nunito', system-ui, sans-serif;
     text-align: center;
   `
   );
@@ -2354,7 +2365,7 @@ const TEMP_INFO_TOOLTIP_CSS_LEGACY = `
     font-size: 12px;
     color: #1e293b;
     overflow: hidden;
-    font-family: Inter, system-ui, -apple-system, sans-serif;
+    font-family: 'Nunito', system-ui, sans-serif;
   }
   .temp-info-tooltip__header {
     display: flex;
@@ -2517,7 +2528,8 @@ function showTempInfoTooltip(triggerElement) {
 
   if (window._telemetryAuthoritativeItems) {
     window._telemetryAuthoritativeItems.forEach((item) => {
-      if (item.deviceType === 'TERMOSTATO') {
+      // profile exato (deviceType em desuso); EXTERNAL fica fora como antes
+      if ((item.deviceProfile || '').toUpperCase() === 'TERMOSTATO') {
         const temp = Number(item.value) || 0;
         totalTemp += temp;
 
@@ -2758,9 +2770,8 @@ function renderList(visible) {
       deviceIdentifierToDisplay = inferDisplayIdentifier(it);
     }
 
-    // RFC-0106: Use effectiveDeviceType for card icon (deviceProfile > deviceType)
-    // This ensures proper icon rendering based on actual device classification
-    const cardDeviceType = it.effectiveDeviceType || it.deviceProfile || it.deviceType || 'N/A';
+    // RFC-0106: ícone do card pelo deviceProfile (deviceType em desuso)
+    const cardDeviceType = it.deviceProfile || it.effectiveDeviceType || 'N/A';
 
     const entityObject = {
       entityId: it.tbId || it.id, // preferir TB deviceId
@@ -2863,9 +2874,10 @@ function renderList(visible) {
         const endDateISO = self.ctx?.scope?.endDateISO;
         const startTs = startDateISO ? new Date(startDateISO).getTime() : Date.now() - 86400000;
         const endTs = endDateISO ? new Date(endDateISO).getTime() : Date.now();
-        const deviceType = it.deviceType || entityObject.deviceType;
+        // deviceProfile apenas (deviceType em desuso)
+        const deviceType = it.deviceProfile || entityObject.deviceType;
         const isWaterTank = deviceType === 'TANK' || deviceType === 'CAIXA_DAGUA';
-        const isTermostato = deviceType === 'TERMOSTATO';
+        const isTermostato = String(deviceType || '').startsWith('TERMOSTATO');
 
         LogHelper.log(
           '[TELEMETRY v5] Opening dashboard for deviceType:',
@@ -3200,8 +3212,9 @@ function renderList(visible) {
         try {
           showBusy(); // mensagem fixa
 
-          const deviceType = it.deviceType || entityObject.deviceType;
-          const isTermostatoDevice = deviceType === 'TERMOSTATO';
+          // deviceProfile apenas (deviceType em desuso)
+          const deviceType = it.deviceProfile || entityObject.deviceType;
+          const isTermostatoDevice = String(deviceType || '').startsWith('TERMOSTATO');
 
           // For TERMOSTATO devices, reports use ThingsBoard API (no ingestion)
           if (isTermostatoDevice || WIDGET_DOMAIN === 'temperature') {
@@ -3343,6 +3356,10 @@ function renderList(visible) {
               identifier: it.identifier,
               label: it.label,
               domain: 'temperature',
+              // Paleta do dashboard (createMyIOTheme, exposta pela MAIN em MyIOUtils.theme)
+              theme: window.MyIOUtils?.theme || undefined,
+              // Nome do customer/shopping — exibido no footer premium da modal
+              customerName: it.customerName || window.MyIOOrchestrator?.customerName || '',
               fetcher: temperatureFetcher, // Custom fetcher for ThingsBoard data
               api: {
                 // These are not used when custom fetcher is provided, but required by interface
@@ -3367,6 +3384,10 @@ function renderList(visible) {
             identifier: it.identifier,
             label: it.label,
             domain: WIDGET_DOMAIN, // 'energy', 'water', or 'temperature'
+            // Paleta do dashboard (createMyIOTheme, exposta pela MAIN em MyIOUtils.theme)
+            theme: window.MyIOUtils?.theme || undefined,
+            // Nome do customer/shopping — exibido no footer premium da modal
+            customerName: it.customerName || window.MyIOOrchestrator?.customerName || '',
             api: {
               dataApiBaseUrl: window.MyIOUtils?.getDataApiHost?.(),
               clientId: CLIENT_ID,
@@ -3975,23 +3996,20 @@ const _QF_GROUPS = [
 ];
 
 // Equipment category for the "Tipo" quick-filter group.
-// Mirrors categorizeItemsByGroup (MAIN_VIEW): the device GROUP is decided by
-// deviceProfile alone — so a device living in the "lojas" group always reads as
-// 'stores' here, even if its deviceType says otherwise. The areacomum bucket is
-// then sub-categorized by RFC-0128 (deviceType / identifier).
+// Mirrors categorizeItemsByGroup (MAIN_VIEW): tudo decidido pelo deviceProfile
+// (deviceType em desuso, 2026-07-14) + identifier (RFC-0128).
 function _quickFilterCategory(item) {
-  const dt = String(item.deviceType || '').toUpperCase();
   const dp = String(item.deviceProfile || '').toUpperCase();
   const idf = String(item.identifier || '').toUpperCase();
   const hasAny = (s, arr) => arr.some((k) => s.includes(k));
 
-  if (dp === '3F_MEDIDOR') return 'stores';
+  if (dp.startsWith('3F_MEDIDOR')) return 'stores';
   if (['TRAFO', 'ENTRADA', 'RELOGIO', 'SUBESTACAO'].indexOf(dp) !== -1) return 'entrada';
   // areacomum bucket
-  if (hasAny(dt, ['CHILLER', 'FANCOIL', 'HVAC', 'AR_CONDICIONADO', 'BOMBA_CAG']) || idf.includes('CAG'))
+  if (hasAny(dp, ['CHILLER', 'FANCOIL', 'HVAC', 'AR_CONDICIONADO', 'BOMBA_CAG']) || idf.includes('CAG'))
     return 'hvac';
-  if (dt.includes('ELEVADOR') || idf.startsWith('ELV-')) return 'elevators';
-  if (dt.includes('ESCADA_ROLANTE') || idf.startsWith('ESC-')) return 'escalators';
+  if (dp.includes('ELEVADOR') || idf.startsWith('ELV-')) return 'elevators';
+  if (dp.includes('ESCADA_ROLANTE') || idf.startsWith('ESC-')) return 'escalators';
   return 'others';
 }
 
@@ -5396,20 +5414,21 @@ function emitAreaComumBreakdown(periodKey) {
       breakdown[category].total += energia;
       breakdown[category].count += 1;
 
-      // RFC-0097: Agrupar subcategorias de climatização por identifier (ou deviceType)
+      // RFC-0097: Agrupar subcategorias de climatização por identifier (ou deviceProfile —
+      // deviceType em desuso, 2026-07-14)
       if (category === 'climatizacao') {
         const identifier = String(item.identifier || '')
           .toUpperCase()
           .trim();
-        const deviceType = String(item.deviceType || '').toUpperCase();
+        const deviceProfile = String(item.deviceProfile || '').toUpperCase();
 
-        // Usar identifier como chave de agrupamento, ou deviceType se identifier estiver vazio
+        // Usar identifier como chave de agrupamento, ou deviceProfile se identifier estiver vazio
         let groupKey = identifier;
         let groupLabel = identifier;
 
         if (!identifier || identifier === 'N/A' || identifier === 'NULL' || identifier === 'UNDEFINED') {
-          groupKey = deviceType || 'OUTROS';
-          groupLabel = deviceType || 'Outros';
+          groupKey = deviceProfile || 'OUTROS';
+          groupLabel = deviceProfile || 'Outros';
         }
 
         // Inicializar grupo se não existir
@@ -5436,20 +5455,15 @@ function emitAreaComumBreakdown(periodKey) {
         */
       }
 
-      // RFC-0097: Agrupar subcategorias de "outros" por deviceType (ou deviceProfile se 3F_MEDIDOR)
+      // RFC-0097: Agrupar subcategorias de "outros" por deviceProfile (deviceType em desuso)
       if (category === 'outros') {
-        let deviceType = String(item.deviceType || 'DESCONHECIDO')
+        const deviceProfile = String(item.deviceProfile || 'DESCONHECIDO')
           .toUpperCase()
           .trim();
 
-        // Se deviceType é 3F_MEDIDOR, usar deviceProfile como tipo real
-        if (deviceType === '3F_MEDIDOR' && item.deviceProfile) {
-          deviceType = String(item.deviceProfile).toUpperCase().trim();
-        }
-
-        // Usar deviceType como chave de agrupamento
-        const groupKey = deviceType || 'DESCONHECIDO';
-        const groupLabel = deviceType || 'Desconhecido';
+        // Usar deviceProfile como chave de agrupamento
+        const groupKey = deviceProfile || 'DESCONHECIDO';
+        const groupLabel = deviceProfile || 'Desconhecido';
 
         // Inicializar grupo se não existir
         if (!outrosSubcategories.has(groupKey)) {
@@ -5601,7 +5615,8 @@ function emitWaterTelemetry(widgetType, periodKey) {
       identifier: item.identifier || item.deviceIdentifier || '', // FIX: incluir identifier para classificação de banheiros
       label: item.label || item.name || '',
       value: item.value || 0,
-      deviceType: item.deviceType || 'HIDROMETRO',
+      // campo legado (deviceType em desuso) — preenchido do profile
+      deviceType: item.deviceProfile || 'HIDROMETRO',
     }));
 
     // RFC-0002: For areaComum context, classify devices into banheiros vs outros
@@ -6253,10 +6268,10 @@ self.onInit = async function () {
                 entityLabel: item.entityLabel || item.label || item.name || '',
                 value: temp,
                 perc: 0,
-                deviceType: item.deviceType || WIDGET_DOMAIN,
+                // campos legados de type preenchidos do profile (deviceType em desuso)
+                deviceType: item.deviceProfile || WIDGET_DOMAIN,
                 deviceProfile: item.deviceProfile || null,
-                effectiveDeviceType:
-                  item.effectiveDeviceType || item.deviceProfile || item.deviceType || null,
+                effectiveDeviceType: item.deviceProfile || item.effectiveDeviceType || null,
                 slaveId: item.slaveId || null,
                 centralId: item.centralId || null,
                 centralName: item.centralName || null,
@@ -6367,9 +6382,9 @@ self.onInit = async function () {
       const deviceStatus = item.deviceStatus || 'no_info';
       const connectionStatus = item.connectionStatus || 'unknown';
 
-      // RFC-0107: Calculate percentage and value for water tanks
+      // RFC-0107: Calculate percentage and value for water tanks (profile apenas)
       const isTankDevice =
-        item._isTankDevice || item.deviceType === 'TANK' || item.deviceType === 'CAIXA_DAGUA';
+        item._isTankDevice || item.deviceProfile === 'TANK' || item.deviceProfile === 'CAIXA_DAGUA';
       let itemPerc = 0;
       let itemValue = temp;
 
@@ -6393,9 +6408,10 @@ self.onInit = async function () {
         entityLabel: item.entityLabel || item.label || item.name || '',
         value: itemValue,
         perc: itemPerc,
-        deviceType: item.deviceType || WIDGET_DOMAIN,
+        // campos legados de type preenchidos do profile (deviceType em desuso)
+        deviceType: item.deviceProfile || WIDGET_DOMAIN,
         deviceProfile: item.deviceProfile || null,
-        effectiveDeviceType: item.effectiveDeviceType || item.deviceProfile || item.deviceType || null,
+        effectiveDeviceType: item.deviceProfile || item.effectiveDeviceType || null,
         slaveId: item.slaveId || null,
         centralId: item.centralId || null,
         centralName: item.centralName || null,

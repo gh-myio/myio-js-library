@@ -6,7 +6,7 @@
  * aggregation can never silently diverge. No fetch, no DOM, no toast: the
  * caller (controller) owns I/O and decides UI on the typed result/`unknown[]`.
  */
-import { getDomainFromDeviceType } from '../devices/deviceItem.js';
+import { getDomainFromProfile } from '../devices/deviceItem.js';
 import { calculateDeviceStatusMasterRules } from '../devices/deviceStatus.js';
 import type { DeviceMeta, ByStatusCounts } from '../../types/device';
 
@@ -22,8 +22,8 @@ export type ProfileIndex = Record<string, { domain: string; column: string }>;
 export interface ExtractDeps {
   /** Domain catalog (provides each domain's primary `valueField`). */
   catalog: DomainCatalog;
-  /** Override for domain detection (default: lib getDomainFromDeviceType). */
-  getDomain?: (deviceType: string) => string;
+  /** Override for domain detection (default: lib getDomainFromProfile — alimentado com o deviceProfile). */
+  getDomain?: (deviceProfile: string) => string;
   /** Override for status calc (default: lib calculateDeviceStatusMasterRules). */
   calcStatus?: (args: {
     connectionStatus: string;
@@ -45,7 +45,7 @@ export function extractDeviceMetadataFromRows(
 ): DeviceMeta | null {
   if (!rows || rows.length === 0) return null;
 
-  const getDomain = deps.getDomain || getDomainFromDeviceType;
+  const getDomain = deps.getDomain || getDomainFromProfile;
   const calcStatus = deps.calcStatus || calculateDeviceStatusMasterRules;
   const catalog = deps.catalog || {};
   const delayMins = deps.delayMins ?? 1440;
@@ -69,11 +69,13 @@ export function extractDeviceMetadataFromRows(
     }
   }
 
-  const deviceType = dataKeyValues['deviceType'] || '';
-  const deviceProfile = dataKeyValues['deviceProfile'] || deviceType;
+  // deviceProfile é a ÚNICA autoridade (deviceType em desuso, 2026-07-14) — o
+  // campo legado é preenchido do profile e o domínio sai do profile.
+  const deviceProfile = dataKeyValues['deviceProfile'] || '';
+  const deviceType = deviceProfile;
   const connectionStatus = dataKeyValues['connectionStatus'] || 'no_info';
 
-  const domain = getDomain(deviceType) || '';
+  const domain = getDomain(deviceProfile) || '';
   const valueField = catalog[domain]?.valueField || '';
   const primaryValue = valueField ? dataKeyValues[valueField] ?? null : null;
   const primaryTs = valueField ? dataKeyTimestamps[valueField] ?? null : null;

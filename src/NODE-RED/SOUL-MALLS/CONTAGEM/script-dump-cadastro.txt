@@ -1,0 +1,20 @@
+cat > /tmp/dump-cadastro.sh << 'EOF'
+#!/bin/sh
+# Dump de cadastro — Central Contagem
+# Gera /tmp/logsMaps-CONTAGEM-<timestamp>.log com SELECT * das tabelas:
+# ambients_rfir_devices_rel, ambients_rfir_slaves_rel, channels, ambients, slaves
+OUT=/tmp/logsMaps-CONTAGEM-$(date +%Y%m%d-%H%M%S).log
+{
+  for t in ambients_rfir_devices_rel ambients_rfir_slaves_rel channels ambients slaves; do
+    echo "select * from $t;"
+    psql -U hubot -P pager=off -c "SELECT * FROM $t;"
+    echo ""
+    echo "---"
+    echo ""
+  done
+} > "$OUT" 2>&1
+echo "gerado: $OUT"
+ls -lh "$OUT"
+EOF
+chmod +x /tmp/dump-cadastro.sh
+/tmp/dump-cadastro.sh

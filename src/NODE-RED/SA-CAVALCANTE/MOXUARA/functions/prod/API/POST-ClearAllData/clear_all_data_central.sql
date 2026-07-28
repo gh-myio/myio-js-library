@@ -1,0 +1,1 @@
+SELECT clear_all_data_central() AS result;

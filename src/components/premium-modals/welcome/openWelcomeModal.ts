@@ -4,6 +4,7 @@
  */
 
 import { WelcomeModalView } from './WelcomeModalView';
+import { MyIOToast } from '../../MyIOToast';
 import {
   WelcomeModalParams,
   WelcomeModalInstance,
@@ -147,6 +148,16 @@ export function openWelcomeModal(params: WelcomeModalParams): WelcomeModalInstan
 
     params.onCardClick?.(card);
 
+    // Sem destino válido, navegar geraria /dashboards/null ("Invalid UUID string:
+    // null" no TB) com a modal já fechada. Avisa e mantém a modal aberta.
+    const dashId = String(card.dashboardId ?? '').trim();
+    if (!dashId || dashId === 'null' || dashId === 'undefined') {
+      MyIOToast?.error?.(
+        `Dashboard de "${card.title}" não configurado (defina o Dashboard Padrão do shopping).`
+      );
+      return;
+    }
+
     if (params.closeOnCardClick !== false) {
       close();
     }
@@ -234,5 +245,10 @@ export function openWelcomeModal(params: WelcomeModalParams): WelcomeModalInstan
     setCtaLabel: (label: string) => view.setCtaLabel(label),
     /** Set CTA button disabled state */
     setCtaDisabled: (disabled: boolean) => view.setCtaDisabled(disabled),
+    /** Show/hide the CTA button (hidden while enrichment is loading) */
+    setCtaHidden: (hidden: boolean) => view.setCtaHidden(hidden),
+    /** Update the global enrichment progress bar (0–100; fades out at 100) */
+    setEnrichmentProgress: (percent: number, label?: string) =>
+      view.setEnrichmentProgress(percent, label),
   };
 }

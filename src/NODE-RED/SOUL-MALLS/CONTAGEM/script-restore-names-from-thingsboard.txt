@@ -1,0 +1,149 @@
+cat > /tmp/restore-names-from-thingsboard.sql << 'EOF'
+-- =============================================================================
+-- RESTAURA os nomes ORIGINAIS de 77 slaves — Central Contagem (Soul Malls)
+-- =============================================================================
+-- Fonte: devices do ThingsBoard (customer c1915150-7719-11f1-b3a7-c5fc06cba2c4),
+-- que preservaram os nomes de campo — o MQTT Sync rodou 16:53–16:56 de 06/07,
+-- minutos ANTES do import das 16:59:39 que renomeou os slaves na central.
+-- Validação cruzada: os 26 slaves do backup 2026-07-04-04-00.bak batem 100%
+-- com os nomes dos devices TB (ids 5–30).
+-- Critério p/ variantes (com/sem sufixo "X40 X40A"): device com gcdrSyncAt mais
+-- recente; empate resolvido por inactivityAlarmTime (última atividade).
+--
+-- Slaves 89 e 112 recuperados por query por slaveId (nomes fora do padrão '3F SM%'):
+--   89 = 'Quiosque Quadro QPBT-G3' (não identificado; ambient "Identificar"),
+--   112 = '3F CONTAGEM_Q200A' (prefixo sem "SM").
+-- FICAM COM O NOME ATUAL: 106 ('3F SCO02083') e 116 ('3F SCO02094') — evidências
+--   indicam que já foram criados com o código SCO (ver confronto-backup-2026-07-04.md).
+--
+-- Guarda dupla: id + nome atual; se qualquer linha não casar, o total difere
+-- e a transação ABORTA sem alterar nada.
+-- =============================================================================
+
+-- IDEMPOTENTE: renomeia só quem ainda está com o nome do import; quem já tem o
+-- nome original conta como OK. A validação é pelo ESTADO FINAL (77/77 com
+-- nome original), não pela quantidade de updates desta execução.
+
+\set ON_ERROR_STOP on
+
+BEGIN;
+
+CREATE TEMP TABLE _name_map (id int PRIMARY KEY, current_name text, original_name text) ON COMMIT DROP;
+INSERT INTO _name_map (id, current_name, original_name) VALUES
+      (  5, '3F SCO01067', '3F SMCONTAGEM_01006'),
+      (  6, '3F SCO01016', '3F SMCONTAGEM_01011'),
+      (  7, '3F SCO01018', '3F SMCONTAGEM_01012'),
+      (  8, '3F SCO01019', '3F SMCONTAGEM_01015'),
+      (  9, '3F SCO01020', '3F SMCONTAGEM_01059'),
+      ( 10, '3F SCO01021', '3F SMCONTAGEM_01060'),
+      ( 11, '3F SCO01022', '3F SMCONTAGEM_01064'),
+      ( 12, '3F SCO01023', '3F SMCONTAGEM_01065'),
+      ( 13, '3F SCO01025', '3F SMCONTAGEM_01066'),
+      ( 14, '3F SCO01027', '3F SMCONTAGEM_Q0102'),
+      ( 15, '3F SCO01028', '3F SMCONTAGEM_02024'),
+      ( 16, '3F SCO01029', '3F SMCONTAGEM_1013B'),
+      ( 17, '3F SCO1031', '3F SMCONTAGEM_1019B'),
+      ( 18, '3F SCO01035', '3F SMCINTAGEM_Q0115'),
+      ( 19, '3F SCO01036', '3F SMCONTAGEM_Q0204'),
+      ( 20, '3F SCO01037', '3F SMCONTAGEM_Q200B'),
+      ( 21, '3F SCO01041', '3F SMCONTAGEM_Q0103'),
+      ( 22, '3F SCO01044', '3F SMCONTAGEM_Q0116'),
+      ( 23, '3F SCO01046', '3F SMCONTAGEM_Q1015'),
+      ( 24, '3F SCO1047', '3F SMCONTAGEM_Q202B'),
+      ( 25, '3F SCO01048', '3F SMCONTAGEM_Q0104'),
+      ( 26, '3F SCO01053', '3F SMCONTAGEM_Q0201'),
+      ( 27, '3F SCO01054', '3F SMCONTAGEM_Q0104B'),
+      ( 28, '3F SCO01059', '3F SMCONTAGEM_Q0202'),
+      ( 29, '3F SCO01060', '3F SMCONTAGEM_Q102A'),
+      ( 30, '3F SCO01064', '3F SMCONTAGEM_Q114A'),
+      ( 31, '3F SCO01065', '3F SMCONTAGEM_M0001'),
+      ( 32, '3F SCO1045A', '3F SMCONTAGEM_2047'),
+      ( 33, '3F SCO01066', '3F SMCONTAGEM_2062'),
+      ( 34, '3F SCO01071', '3F SMCONTAGEM_1041'),
+      ( 35, '3F SCO01072', '3F SMCONTAGEM_Q300 X10 X10A'),
+      ( 36, '3F SCO01073', '3F SMCONTAGEM_1048 X30 X30A'),
+      ( 37, '3F SCO01074', '3F SMCONTAGEM_2021 X16 X16A'),
+      ( 38, '3F SCO01082', '3F SMCONTAGEM_2018'),
+      ( 39, '3F SCO01084', '3F SMCONTAGEM_2020'),
+      ( 40, '3F SCO01085', '3F SMCONTAGEM_2017 X30 X30A'),
+      ( 41, '3F SCO01088', '3F SMCONTAGEM_2022'),
+      ( 42, '3F SCO01090', '3F SMCONTAGEM_2019'),
+      ( 43, '3F SCO01091', '3F SMCONTAGEM_2015 X40 X40A'),
+      ( 44, '3F SCO01092', '3F SMCONTAGEM_2001'),
+      ( 45, '3F SCO01093', '3F SMCONTAGEM_2011 X80 X80A'),
+      ( 46, '3F SCO01097', '3F SMCONTAGEM_2013 X40 X40A'),
+      ( 47, '3F SCO01098', '3F SMCONTAGEM_3002'),
+      ( 48, '3F SCO01099', '3F SMCONTAGEM_3004'),
+      ( 49, '3F SCO01100', '3F SMCONTAGEM_3005 X15 X15A'),
+      ( 50, '3F SCO01106', '3F SMCONTAGEM_3006A'),
+      ( 51, '3F SCO02089', '3F SMCONTAGEM_3007'),
+      ( 52, '3F SCO02001', '3F SMCONTAGEM_312B'),
+      ( 53, '3F SCO02002', '3F SMCONTAGEM_Q312'),
+      ( 54, '3F SCO02003', '3F SMCONTAGEM_ETG402'),
+      ( 55, '3F SCO02004', '3F SMCONTAGEM_ETG403'),
+      ( 88, '3F SCO02048', '3F SMCONTAGEM_Q109'),
+      ( 89, '3F SCO02054', 'Quiosque Quadro QPBT-G3'),
+      ( 91, '3F SCO02060', '3F SMCONTAGEM_Q309'),
+      ( 92, '3F SCO02061', '3F SMCONTAGEM_Q305'),
+      ( 93, '3F SCO02062', '3F SMCONTAGEM_Q308'),
+      ( 94, '3F SCO02063', '3F SMCONTAGEM_3009'),
+      ( 95, '3F SCO02065', '3F SMCONTAGEM_1002'),
+      ( 96, '3F SCO02071', '3F SMCONTAGEM_1071'),
+      ( 97, '3F SCO02072', '3F SMCONTAGEM_1054'),
+      ( 98, '3F SCO02073', '3F SMCONTAGEM_1072'),
+      ( 99, '3F SCO02066', '3F SMCONTAGEM_1053'),
+      (100, '3F SCO02074', '3F SMCONTAGEM_1070'),
+      (101, '3F SCO02076', '3F SMCONTAGEM_1047'),
+      (102, '3F SCO02078', '3F SMCONTAGEM_1073'),
+      (103, '3F SCO02079', '3F SMCONTAGEM_1078A'),
+      (104, '3F SCO02080', '3F SMCONTAGEM_1057A'),
+      (105, '3F SCO02081', '3F SMCONTAGEM_1057C'),
+      (107, '3F SCO02085', '3F SMCONTAGEM_1052'),
+      (108, '3F SCO02086', '3F SMCONTAGEM_1074'),
+      (109, '3F SCO02087', '3F SMCONTAGEM_1082'),
+      (110, '3F SCO02088', '3F SMCONTAGEM_1076'),
+      (111, '3F SCO02089', '3F SMCONTAGEM_Q203A'),
+      (112, '3F SCO02090', '3F CONTAGEM_Q200A'),
+      (113, '3F SCO02091', '3F SMCONTAGEM_Q211'),
+      (114, '3F SCO02092', '3F SMCONTAGEM_1068'),
+      (115, '3F SCO02093', '3F SMCONTAGEM_1069A');
+
+DO $$
+DECLARE
+  n integer; ok integer; r record;
+BEGIN
+  UPDATE slaves s
+     SET name = m.original_name,
+         updated_at = now()
+    FROM _name_map m
+   WHERE s.id = m.id
+     AND s.name = m.current_name;
+
+  GET DIAGNOSTICS n = ROW_COUNT;
+  RAISE NOTICE 'Renomeados NESTA execução: %', n;
+
+  SELECT count(*) INTO ok
+    FROM slaves s JOIN _name_map m ON m.id = s.id
+   WHERE s.name = m.original_name;
+  RAISE NOTICE 'Com nome original após execução: % de 77', ok;
+
+  IF ok <> 77 THEN
+    FOR r IN
+      SELECT s.id, s.name, m.current_name, m.original_name
+        FROM slaves s JOIN _name_map m ON m.id = s.id
+       WHERE s.name <> m.original_name
+       ORDER BY s.id
+    LOOP
+      RAISE NOTICE 'NÃO CASOU id=% — na central: "%" · esperado atual: "%" · original: "%"',
+        r.id, r.name, r.current_name, r.original_name;
+    END LOOP;
+    RAISE EXCEPTION 'Estado final divergente (% de 77) — abortando, nada foi alterado', ok;
+  END IF;
+END $$;
+
+-- Conferência visual
+SELECT id, name FROM slaves ORDER BY id;
+
+COMMIT;
+
+EOF

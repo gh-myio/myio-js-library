@@ -190,6 +190,12 @@ export interface EnergyViewConfig {
   onExport: () => void;
   onError: (error: EnergyModalError) => void;
   onDateRangeChange?: (startISO: string, endISO: string) => Promise<void>;
+  /**
+   * Troca de granularidade no seletor 1h/1d — o modal refaz o fetch de
+   * energyData para que KPIs e Exportar CSV respeitem a granularidade atual
+   * (antes o CSV saía sempre diário mesmo com 1h selecionado).
+   */
+  onGranularityChange?: (granularity: '1h' | '1d') => Promise<void>;
 }
 
 export interface ChartOptions {
@@ -230,7 +236,7 @@ export const DEFAULT_STYLES: EnergyModalStyleOverrides = {
   textColor: '#1f2937',
   borderColor: '#e5e7eb',
   borderRadius: '8px',
-  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+  fontFamily: 'Nunito, system-ui, sans-serif',
   modalWidth: '90vw',
   modalHeight: '90vh'
 };

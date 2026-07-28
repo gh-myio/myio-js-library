@@ -1,0 +1,19 @@
+{
+  "_meta": {
+    "central": "Contagem (Soul Malls)",
+    "table": "ambients",
+    "rowCount": 7,
+    "capturedAt": "2026-07-07 (pós-revert do import + restauração de nomes)",
+    "source": "/tmp/dump-cadastro.sh na central (psql -U hubot, sem pager) — logMaps-v2-CONTAGEM.log, capturado 2026-07-07 12:33 UTC",
+    "note": "Estado final após revert do import de 2026-07-06 (deletou os 218 ambients SCO*). Nomes dos ids 5/6/7 têm espaços reais (confirmados via pg_dump): \"L1 Medidores 3F \" e \"L2 ...\" com espaço à direita; id 7 com espaço à esquerda E à direita, e vazio (sem slaves). Piso G3 (229) também vazio."
+  },
+  "rows": [
+    { "id": 5, "name": "L1 Medidores 3F ", "image": null, "order": null, "config": null, "created_at": "2026-07-03 23:53:35.76+00", "updated_at": "2026-07-03 23:54:57.853+00" },
+    { "id": 6, "name": "L2 Medidores 3F ", "image": null, "order": null, "config": null, "created_at": "2026-07-03 23:53:49.957+00", "updated_at": "2026-07-03 23:55:11.769+00" },
+    { "id": 8, "name": "L3 Medidores 3F", "image": null, "order": null, "config": null, "created_at": "2026-07-03 23:55:33.79+00", "updated_at": "2026-07-03 23:55:33.79+00" },
+    { "id": 7, "name": " Serviço Medidores 3F ", "image": null, "order": null, "config": null, "created_at": "2026-07-03 23:54:21.962+00", "updated_at": "2026-07-03 23:55:58.501+00" },
+    { "id": 9, "name": "Piso G4", "image": null, "order": null, "config": null, "created_at": "2026-07-05 14:58:23.148+00", "updated_at": "2026-07-05 14:58:23.148+00" },
+    { "id": 10, "name": "Identificar", "image": null, "order": null, "config": null, "created_at": "2026-07-05 15:48:56.825+00", "updated_at": "2026-07-05 15:49:25.52+00" },
+    { "id": 229, "name": "Piso G3", "image": null, "order": null, "config": null, "created_at": "2026-07-07 03:14:17.396+00", "updated_at": "2026-07-07 03:14:17.396+00" }
+  ]
+}

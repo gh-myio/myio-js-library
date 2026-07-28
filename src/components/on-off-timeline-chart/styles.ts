@@ -20,7 +20,7 @@ export function injectOnOffTimelineStyles(): void {
 
     .${ONOFF_TIMELINE_CSS_PREFIX} {
       width: 100%;
-      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: 'Nunito', system-ui, sans-serif;
       box-sizing: border-box;
     }
 

@@ -88,7 +88,7 @@ function injectStyles(): void {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Nunito', system-ui, sans-serif;
   max-width: 100%;
 }
 .myio-tabs__arrow {

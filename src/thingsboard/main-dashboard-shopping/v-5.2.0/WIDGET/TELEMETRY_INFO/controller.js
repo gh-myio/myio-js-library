@@ -1591,6 +1591,10 @@ function processStateFromSummaryEnergy(summary, _grandTotal) {
       perc: _pct(_climatTot),
       // Subcategories available for detailed tooltips
       subcategories: summary.climatizacao?.subcategories || null,
+      // RFC-0207 "parent": device(s) que headam a composição. Quando presente e
+      // não-vazio, o tooltip renderiza o pai no topo e a composição aninhada
+      // abaixo dele. Ausente/vazio ⇒ composição plana (comportamento de antes).
+      parents: summary.climatizacao?.parents || [],
     },
     elevadores: {
       devices: elevadoresDevices,
@@ -2769,17 +2773,46 @@ function buildClimatizacaoContent() {
   // RFC-0106: Get subcategories from STATE.consumidores (pre-computed in MAIN_VIEW)
   const subcategoriesData = STATE.consumidores.climatizacao?.subcategories || null;
 
+  // RFC-0207 saldo/percentual: o modo "parent" (Dispositivos Específicos) publica
+  // `parents[]` com o total do medidor pai. Precisamos dele ANTES de montar as
+  // subcategorias para: (a) escolher a base do percentual de cada linha; (b) no
+  // final, decompor o saldo do pai não itemizado ("Pontos não mapeados"). Sem pai
+  // ⇒ base = total do card (header) e nenhuma linha de saldo é adicionada.
+  const climParents = STATE.consumidores.climatizacao?.parents || [];
+  const _hasClimParents = Array.isArray(climParents) && climParents.length > 0;
+  const _parentTotalSum = _hasClimParents
+    ? climParents.reduce((sum, p) => sum + (Number(p?.total) || 0), 0)
+    : 0;
+  // Base do percentual de cada linha da composição. COM pai ⇒ total do pai (as
+  // linhas + "não mapeados" somam 100%). SEM pai ⇒ total do card (composição plana).
+  const _pctBase = _hasClimParents ? _parentTotalSum : climatizacao;
+  // pt-BR, uma casa decimal, vírgula. Guard div-por-zero ⇒ '' (sem artefato/NaN).
+  const _fmtPct = (num, base) => {
+    if (!(base > 0) || !isFinite(num) || !isFinite(base)) return '';
+    const pct = (num / base) * 100;
+    if (!isFinite(pct)) return '';
+    return pct.toFixed(1).replace('.', ',') + '%';
+  };
+  // Span STRIPPÁVEL (classe própria) ⇒ remover o percentual devolve o HTML byte a
+  // byte anterior (estrutura/totais intactos).
+  const _pctSpan = (num, base) => {
+    const t = _fmtPct(num, base);
+    return t ? ` <span class="myio-info-tooltip__pct">(${t})</span>` : '';
+  };
+
   // Subcategory icons
   const subcatIcons = {
     chillers: '🧊',
     fancoils: '💨',
-    bombasHidraulicas: '💧',
+    bombasClimatizacao: '💧',
     cag: '🌡️',
     hvacOutros: '❄️',
   };
 
   // Build subcategories HTML dynamically
   let subcatHtml = '';
+  // Soma dos filhos EFETIVAMENTE renderizados (base do saldo do pai).
+  let _childrenShownSum = 0;
   if (subcategoriesData && typeof subcategoriesData === 'object') {
     const sortedKeys = Object.keys(subcategoriesData).sort((a, b) => {
       // RFC-0106: New structure has .summary.total
@@ -2798,6 +2831,7 @@ function buildClimatizacaoContent() {
         const label = data?.details?.name || key.toUpperCase();
         const icon = subcatIcons[key] || '❄️';
         const expandHtml = buildDeviceExpandList('clim_' + key, data?.details?.devices || [], formatEnergy);
+        _childrenShownSum += Number(total) || 0;
         subcatHtml += `
           <div class="myio-info-tooltip__category myio-info-tooltip__category--climatizacao">
             <span class="myio-info-tooltip__category-icon">${icon}</span>
@@ -2805,7 +2839,10 @@ function buildClimatizacaoContent() {
               <div class="myio-info-tooltip__category-name">${label} ${expandHtml}</div>
               <div class="myio-info-tooltip__category-desc">${count} equipamento(s)</div>
             </div>
-            <span class="myio-info-tooltip__category-value">${formatEnergy(total)}</span>
+            <span class="myio-info-tooltip__category-value">${formatEnergy(total)}${_pctSpan(
+              total,
+              _pctBase
+            )}</span>
           </div>
         `;
       }
@@ -2822,6 +2859,83 @@ function buildClimatizacaoContent() {
         </div>
       </div>
     `;
+  }
+
+  // RFC-0207 "parent": quando um device foi declarado PAI da composição, ele
+  // aparece como uma linha no TOPO da Composição (com o valor dele = total do
+  // card) e as subcategorias existentes ficam ANINHADAS (indentadas) abaixo. O
+  // pai NÃO é somado por cima da composição — o total já é o valor dele. Campo
+  // ausente/vazio ⇒ composição plana, exatamente como antes.
+  const _escClim = (s) =>
+    String(s == null ? '' : s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  // climParents / _hasClimParents / _parentTotalSum já foram computados no topo.
+  let composicaoHtml = subcatHtml;
+  if (_hasClimParents) {
+    const parentLines = climParents
+      .map(
+        (p) => `
+          <div class="myio-info-tooltip__category myio-info-tooltip__category--climatizacao myio-info-tooltip__category--parent">
+            <span class="myio-info-tooltip__category-icon">🔌</span>
+            <div class="myio-info-tooltip__category-info">
+              <div class="myio-info-tooltip__category-name">Grupo ${_escClim(p.label)}</div>
+              <div class="myio-info-tooltip__category-desc">Valor master — composição abaixo</div>
+            </div>
+            <span class="myio-info-tooltip__category-value">${formatEnergy(p.total || 0)}</span>
+          </div>
+        `
+      )
+      .join('');
+
+    // RFC-0207 "Pontos não mapeados": parcela do medidor pai que NENHUM submedidor
+    // filho itemiza (saldo = total do pai − Σ filhos exibidos). É uma decomposição
+    // SÓ DE EXIBIÇÃO do valor do pai — não altera o total de Climatização (segue =
+    // total do pai) nem o residual da Área Comum. Genérico: nada específico de CAG.
+    const _saldoTol = 0.5; // ruído de arredondamento / float no unidade de trabalho
+    const _saldo = _parentTotalSum - _childrenShownSum;
+    let naoMapeadosHtml = '';
+    if (_saldo > _saldoTol) {
+      naoMapeadosHtml = `
+          <div class="myio-info-tooltip__category myio-info-tooltip__category--climatizacao myio-info-tooltip__category--nao-mapeados">
+            <span class="myio-info-tooltip__category-icon">❓</span>
+            <div class="myio-info-tooltip__category-info">
+              <div class="myio-info-tooltip__category-name">Pontos não mapeados</div>
+              <div class="myio-info-tooltip__category-desc">Consumo do medidor pai não itemizado por submedidores</div>
+            </div>
+            <span class="myio-info-tooltip__category-value">${formatEnergy(_saldo)}${_pctSpan(
+              _saldo,
+              _parentTotalSum
+            )}</span>
+          </div>
+        `;
+    } else if (_saldo < -_saldoTol) {
+      // Saldo NEGATIVO = a composição excede o pai (não deveria ocorrer sob
+      // contenção — problema de dado/config). Não renderiza linha enganosa; avisa
+      // uma única vez. Resolve o warn de forma segura no sandbox de teste (sem
+      // depender do LogHelper de escopo de módulo).
+      const _warnFn =
+        (typeof LogHelper !== 'undefined' && LogHelper && LogHelper.warn) ||
+        window.MyIOUtils?.LogHelper?.warn ||
+        (typeof console !== 'undefined' ? console.warn : function () {});
+      if (!window.__myioClimSaldoNegWarned) {
+        window.__myioClimSaldoNegWarned = true;
+        _warnFn(
+          '[RFC-0207] Climatização: composição (' +
+            _childrenShownSum +
+            ') excede o medidor pai (' +
+            _parentTotalSum +
+            ') — saldo negativo suprimido.'
+        );
+      }
+    }
+
+    composicaoHtml = `${parentLines}
+      <div class="myio-info-tooltip__nested" style="margin-left:16px; padding-left:10px; border-left:2px solid rgba(0,200,150,0.28);">
+        ${subcatHtml}${naoMapeadosHtml}
+      </div>`;
   }
 
   return `
@@ -2849,13 +2963,17 @@ function buildClimatizacaoContent() {
       <div class="myio-info-tooltip__section-title">
         <span>📋</span> Composição
       </div>
-      ${subcatHtml}
+      ${composicaoHtml}
     </div>
 
     <div class="myio-info-tooltip__notice">
       <span class="myio-info-tooltip__notice-icon">💡</span>
       <div class="myio-info-tooltip__notice-text">
-        O valor de <strong>Climatização</strong> é calculado pela soma do consumo de todos os equipamentos classificados nestas categorias.
+        ${
+          _hasClimParents
+            ? 'O valor de <strong>Climatização</strong> é o do <strong>medidor pai</strong> da composição; as subcategorias abaixo dele são o detalhamento (não somam por cima).'
+            : 'O valor de <strong>Climatização</strong> é calculado pela soma do consumo de todos os equipamentos classificados nestas categorias.'
+        }
       </div>
     </div>
     ${buildExcludedFromCAGNotice()}
@@ -4250,15 +4368,17 @@ function setupSummaryTooltip() {
                         percentage: byCategory.climatizacao.subcategories.fancoils?.summary?.perc || 0,
                       },
                       {
-                        id: 'bombasHidraulicas',
-                        name: 'Bombas Hidráulicas',
+                        id: 'bombasClimatizacao',
+                        // "Bombas" genérico: pós-fix, este balde só tem bombas de
+                        // climatização (CAG/secundária), não recalque hidráulico.
+                        name: 'Bombas',
                         icon: '💧',
                         deviceCount:
-                          byCategory.climatizacao.subcategories.bombasHidraulicas?.summary?.count || 0,
+                          byCategory.climatizacao.subcategories.bombasClimatizacao?.summary?.count || 0,
                         consumption:
-                          byCategory.climatizacao.subcategories.bombasHidraulicas?.summary?.total || 0,
+                          byCategory.climatizacao.subcategories.bombasClimatizacao?.summary?.total || 0,
                         percentage:
-                          byCategory.climatizacao.subcategories.bombasHidraulicas?.summary?.perc || 0,
+                          byCategory.climatizacao.subcategories.bombasClimatizacao?.summary?.perc || 0,
                       },
                       {
                         id: 'cag',

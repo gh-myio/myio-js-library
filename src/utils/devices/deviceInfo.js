@@ -6,17 +6,14 @@
  * @version 1.0.0
  */
 
-import { getDomainFromDeviceType, DomainType as DeviceItemDomainType } from './deviceItem.js';
+import { getDomainFromProfile, DomainType as DeviceItemDomainType } from './deviceItem.js';
 
 /**
  * Domain types for device classification
+ * (re-export do deviceItem.js — antes havia DOIS enums idênticos em paralelo)
  * @enum {string}
  */
-export const DomainType = {
-  ENERGY: 'energy',
-  WATER: 'water',
-  TEMPERATURE: 'temperature',
-};
+export const DomainType = DeviceItemDomainType;
 
 /**
  * Context types for device classification
@@ -44,127 +41,122 @@ export const ContextType = {
 };
 
 /**
- * RFC-0111: Detect device context based on deviceType, deviceProfile, and identifier.
+ * RFC-0111: Detect device context based on deviceProfile (+identifier).
  *
- * WATER Rules (priority order):
- * 1. deviceType = HIDROMETRO_SHOPPING OR deviceProfile = HIDROMETRO_SHOPPING → ENTRADA (main water meter)
- * 2. deviceProfile = HIDROMETRO_AREA_COMUM AND identifier = 'BANHEIROS' → BANHEIROS
- * 3. deviceProfile = HIDROMETRO_AREA_COMUM → AREA_COMUM (common area without bathrooms)
- * 4. deviceType = deviceProfile = HIDROMETRO → LOJAS (store water meters)
+ * ⚠️ AUTORIDADE: deviceProfile decide TUDO. deviceType está EM DESUSO e não é
+ * lido nunca (nem como fallback); name/label também nunca entram.
  *
- * ENERGY Rules:
- * - deviceType = deviceProfile = 3F_MEDIDOR → STORE (stores)
- * - deviceType = 3F_MEDIDOR AND deviceProfile != 3F_MEDIDOR → equipments
- * - deviceType != 3F_MEDIDOR AND NOT (ENTRADA/RELOGIO/TRAFO/SUBESTACAO) → equipments
- * - deviceType = ENTRADA/RELOGIO/TRAFO/SUBESTACAO → ENTRADA ENERGY
+ * WATER Rules (priority order, sobre o deviceProfile):
+ * 1. profile contém HIDROMETRO_SHOPPING → ENTRADA (main water meter)
+ * 2. profile = HIDROMETRO_AREA_COMUM AND identifier = 'BANHEIROS' → BANHEIROS
+ * 3. profile = HIDROMETRO_AREA_COMUM → AREA_COMUM (common area without bathrooms)
+ * 4. default → LOJAS/hidrometro (inclui profile HIDROMETRO exato)
  *
- * TEMPERATURE Rules:
- * - deviceType = deviceProfile = TERMOSTATO → termostato (climatized)
- * - deviceType = TERMOSTATO AND deviceProfile = TERMOSTATO_EXTERNAL → termostato_external
- * - deviceType = TERMOSTATO_EXTERNAL → termostato_external
+ * ENERGY Rules (sobre o deviceProfile):
+ * - profile contém ENTRADA/RELOGIO/TRAFO/SUBESTACAO → ENTRADA (main meters)
+ * - profile contém BOMBA_CAG → EQUIPMENTS (é Climatização/RFC-0128, não bomba BAS)
+ * - profile contém BOMBA → BOMBA (BAS) · contém MOTOR → MOTOR (BAS)
+ * - profile começa com 3F_MEDIDOR → STORES (mesmo com deviceType errado)
+ * - default → EQUIPMENTS
  *
- * @param {Object} device - Device object with deviceType, deviceProfile, and identifier properties
- * @param {string} [device.deviceType] - The device type string
- * @param {string} [device.deviceProfile] - The device profile string
+ * TEMPERATURE Rules (sobre o deviceProfile):
+ * - profile contém EXTERNAL (TERMOSTATO_EXTERNAL) → termostato_external
+ * - default → termostato (climatized)
+ *
+ * @param {Object} device - Device object with deviceProfile and identifier properties
+ * @param {string} [device.deviceProfile] - The device profile string (única autoridade)
  * @param {string} [device.identifier] - The device identifier (server_scope attribute)
  * @param {'energy' | 'water' | 'temperature'} domain - The device domain
  * @returns {string} The detected context
  *
  * @example
- * detectContext({ deviceType: 'HIDROMETRO', deviceProfile: 'HIDROMETRO' }, 'water');
+ * detectContext({ deviceProfile: 'HIDROMETRO' }, 'water');
  * // Returns 'hidrometro'
  *
  * @example
- * detectContext({ deviceType: 'HIDROMETRO', deviceProfile: 'HIDROMETRO_AREA_COMUM', identifier: 'BANHEIROS' }, 'water');
+ * detectContext({ deviceProfile: 'HIDROMETRO_AREA_COMUM', identifier: 'BANHEIROS' }, 'water');
  * // Returns 'banheiros'
  *
  * @example
- * detectContext({ deviceType: '3F_MEDIDOR', deviceProfile: '3F_MEDIDOR' }, 'energy');
+ * detectContext({ deviceProfile: '3F_MEDIDOR' }, 'energy');
  * // Returns 'stores'
  */
 export function detectContext(device, domain) {
-  const deviceType = String(device?.deviceType || '').toUpperCase();
-  const deviceProfile = String(device?.deviceProfile || '').toUpperCase();
+  // 2026-07-14 (endurecimento do RFC-0111): deviceProfile é a ÚNICA autoridade
+  // de classificação. deviceType está EM DESUSO (chegava errado do
+  // provisionamento: hidrômetro com deviceType=MOTOR, loja 3F com
+  // deviceType=ELEVADOR, subestação com deviceType=SUBESTACAO mas
+  // profile=MOTOR) e não é lido NUNCA — nem como fallback. name/label idem.
+  const basis = String(device?.deviceProfile || '').toUpperCase().trim();
   const identifier = String(device?.identifier || '').toUpperCase();
-  const entradaTypes = ['ENTRADA', 'RELOGIO', 'TRAFO', 'SUBESTACAO'];
-  const isEntrada = entradaTypes.some((t) => deviceType.includes(t) || deviceProfile.includes(t));
 
   if (domain === DomainType.WATER) {
     // BAS: CAIXA_DAGUA (water tank)
-    if (deviceType.includes('CAIXA_DAGUA') || deviceProfile.includes('CAIXA_DAGUA')) {
+    if (basis.includes('CAIXA_DAGUA')) {
       return ContextType.CAIXA_DAGUA;
     }
 
     // BAS: SOLENOIDE (solenoid valve)
-    if (deviceType.includes('SOLENOIDE') || deviceProfile.includes('SOLENOIDE')) {
+    if (basis.includes('SOLENOIDE')) {
       return ContextType.SOLENOIDE;
     }
 
     // Priority 1: HIDROMETRO_SHOPPING → ENTRADA (main water meter for shopping)
-    if (deviceType.includes('HIDROMETRO_SHOPPING') || deviceProfile.includes('HIDROMETRO_SHOPPING')) {
+    if (basis.includes('HIDROMETRO_SHOPPING')) {
       return ContextType.HIDROMETRO_ENTRADA;
     }
 
     // Priority 2: BANHEIROS (identifier = 'BANHEIROS' with HIDROMETRO_AREA_COMUM profile)
-    if (deviceProfile === 'HIDROMETRO_AREA_COMUM' && identifier === 'BANHEIROS') {
+    if (basis === 'HIDROMETRO_AREA_COMUM' && identifier === 'BANHEIROS') {
       return ContextType.BANHEIROS;
     }
 
     // Priority 3: HIDROMETRO_AREA_COMUM (common area without bathroom identifier)
-    if (deviceType === 'HIDROMETRO' && deviceProfile === 'HIDROMETRO_AREA_COMUM') {
+    if (basis === 'HIDROMETRO_AREA_COMUM') {
       return ContextType.HIDROMETRO_AREA_COMUM;
     }
 
-    // Priority 4: deviceType = HIDROMETRO and deviceProfile = HIDROMETRO → store (lojas)
-    if (deviceType === 'HIDROMETRO' && deviceProfile === 'HIDROMETRO') {
-      return ContextType.HIDROMETRO;
-    }
-
-    // Default for water: hidrometro (store) - fallback for devices with HIDROMETRO in deviceType
-    if (deviceType.includes('HIDROMETRO')) {
-      return ContextType.HIDROMETRO;
-    }
-
+    // Default for water: hidrometro (lojas) — inclui profile HIDROMETRO exato
     return ContextType.HIDROMETRO;
   }
 
   if (domain === DomainType.ENERGY) {
-    // RFC-0111: ENTRADA/RELOGIO/TRAFO/SUBESTACAO → ENTRADA ENERGY (main meters)
-    if (isEntrada) {
+    // RFC-0111: profile ENTRADA/RELOGIO/TRAFO/SUBESTACAO → ENTRADA (main meters).
+    // Por PROFILE apenas — "3F SUBESTACAO Condominio" com profile=MOTOR NÃO é entrada.
+    const entradaProfiles = ['ENTRADA', 'RELOGIO', 'TRAFO', 'SUBESTACAO'];
+    if (entradaProfiles.some((t) => basis.includes(t))) {
       return ContextType.ENTRADA;
     }
 
+    // BOMBA_CAG é CLIMATIZAÇÃO (RFC-0128) — vai para equipments, NÃO para o
+    // grupo bomba (BAS). Checado antes do check genérico de BOMBA.
+    if (basis.includes('BOMBA_CAG')) {
+      return ContextType.EQUIPMENTS;
+    }
+
     // BAS: BOMBA (pumps) - check before generic motor
-    if (deviceType.includes('BOMBA') || deviceProfile.includes('BOMBA')) {
+    if (basis.includes('BOMBA')) {
       return ContextType.BOMBA;
     }
 
     // BAS: MOTOR (motors)
-    if (deviceType.includes('MOTOR') || deviceProfile.includes('MOTOR')) {
+    if (basis.includes('MOTOR')) {
       return ContextType.MOTOR;
     }
 
-    // RFC-0111: deviceType = 3F_MEDIDOR AND deviceProfile starts with 3F_MEDIDOR → STORE
+    // RFC-0111: profile começa com 3F_MEDIDOR → STORE (lojas), independente do
+    // deviceType (ex.: loja com deviceType=ELEVADOR errado continua loja).
     // Includes archived/variant profiles like 3F_MEDIDOR_ARQUIVADO_INSTALADO_SEM_DADOS
-    if (deviceType === '3F_MEDIDOR' && deviceProfile.startsWith('3F_MEDIDOR')) {
+    if (basis.startsWith('3F_MEDIDOR')) {
       return ContextType.STORES;
     }
-    // RFC-0111: deviceType = 3F_MEDIDOR AND deviceProfile doesn't start with 3F_MEDIDOR → equipments
-    if (deviceType === '3F_MEDIDOR') {
-      return ContextType.EQUIPMENTS;
-    }
-    // RFC-0111: deviceType != 3F_MEDIDOR → equipments
+
     return ContextType.EQUIPMENTS;
   }
 
   if (domain === DomainType.TEMPERATURE) {
-    // TERMOSTATO_EXTERNAL in deviceType → external (non-climatized)
-    if (deviceType.includes('TERMOSTATO_EXTERNAL')) {
-      return ContextType.TERMOSTATO_EXTERNAL;
-    }
-
-    // deviceType = TERMOSTATO AND deviceProfile = TERMOSTATO_EXTERNAL → external
-    if (deviceType.includes('TERMOSTATO') && deviceProfile.includes('EXTERNAL')) {
+    // TERMOSTATO_EXTERNAL → external (non-climatized)
+    if (basis.includes('EXTERNAL')) {
       return ContextType.TERMOSTATO_EXTERNAL;
     }
 
@@ -178,15 +170,17 @@ export function detectContext(device, domain) {
 /**
  * Detect both domain and context for a device in a single call.
  *
- * @param {Object} device - Device object with deviceType and deviceProfile properties
+ * @param {Object} device - Device object with deviceProfile (única autoridade) and identifier
  * @returns {{ domain: string, context: string }} Object with domain and context
  *
  * @example
- * detectDomainAndContext({ deviceType: 'HIDROMETRO', deviceProfile: 'HIDROMETRO_AREA_COMUM' });
+ * detectDomainAndContext({ deviceProfile: 'HIDROMETRO_AREA_COMUM' });
  * // Returns { domain: 'water', context: 'hidrometro_area_comum' }
  */
 export function detectDomainAndContext(device) {
-  const domain = getDomainFromDeviceType(device?.deviceType);
+  // Domínio também é decidido exclusivamente pelo deviceProfile (deviceType em
+  // desuso) — um hidrômetro com deviceType=MOTOR errado continua sendo água.
+  const domain = getDomainFromProfile(String(device?.deviceProfile || ''));
   const context = detectContext(device, domain);
 
   return { domain, context };

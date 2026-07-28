@@ -20,7 +20,7 @@ export const HEADER_ANNOTATIONS_STYLES = `
   box-shadow: 0 20px 50px rgba(15, 23, 42, 0.18);
   display: flex;
   flex-direction: column;
-  font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Nunito', system-ui, sans-serif;
   color: #1e293b;
   overflow: hidden;
   animation: myio-anno-pop 0.16s ease-out;

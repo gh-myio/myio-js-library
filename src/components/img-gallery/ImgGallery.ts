@@ -158,7 +158,7 @@ function injectStyles(): void {
   style.id = STYLE_ID;
   style.textContent = `
 .myio-gallery {
-  font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Nunito', system-ui, sans-serif;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -258,7 +258,7 @@ function injectStyles(): void {
   position: fixed; inset: 0; z-index: 10800;
   display: flex; align-items: center; justify-content: center;
   background: rgba(0,0,0,.82);
-  font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Nunito', system-ui, sans-serif;
 }
 .myio-gallery-lb__img { max-width: 88vw; max-height: 82vh; border-radius: 10px; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
 .myio-gallery-lb__cap {

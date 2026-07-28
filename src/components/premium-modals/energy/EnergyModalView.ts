@@ -19,6 +19,22 @@ import {
   getDeviceIcon
 } from './utils';
 import { BASControlPanel } from './BASControlPanel';
+import {
+  createGranularitySelector,
+  GranularitySelectorInstance
+} from '../../granularity-selector';
+
+// Verbose logs are OPT-IN: silent unless the host dashboard sets
+// window.MyIOUtils.debugModals = true (MAIN_BAS wires it to enableDebugMode).
+// Errors/warnings keep logging unconditionally via console.error/warn.
+const dbg = (...args: unknown[]): void => {
+  try {
+    if ((globalThis as any)?.MyIOUtils?.debugModals) console.log(...args);
+  } catch {
+    /* noop */
+  }
+};
+
 
 // Verbose logs are OPT-IN: silent unless the host dashboard sets
 // window.MyIOUtils.debugModals = true (MAIN_BAS wires it to enableDebugMode).
@@ -44,6 +60,8 @@ export class EnergyModalView {
   private currentBarMode: 'stacked' | 'grouped' = 'stacked';
   // RFC-0097: Granularity selector state (only 1h and 1d supported)
   private currentGranularity: '1h' | '1d' = '1d';
+  // RFC-0097: Reusable granularity selector component (owns the tabs UI)
+  private granularitySelector: GranularitySelectorInstance | null = null;
   // RFC-0165: BAS Control Panel reference
   private basControlPanel: BASControlPanel | null = null;
 
@@ -91,17 +109,14 @@ export class EnergyModalView {
   }
 
   /**
-   * RFC-0097: Initializes granularity from config or localStorage
+   * RFC-0097: Initializes granularity — SEMPRE '1d' na abertura.
+   * O localStorage deixou de ser lido: persistir a última escolha fazia a
+   * modal abrir em 1h para sempre depois de um único uso. config.params
+   * .granularity também é ignorado de propósito (FOOTER auto-computa '1h'
+   * para ranges ≤1 dia e não queremos isso como estado inicial do seletor).
    */
   private initializeGranularity(): void {
-    // Priority: localStorage (user's last choice) > default '1d'.
-    // We intentionally ignore config.params.granularity here so the modal
-    // always opens on '1d' unless the user explicitly selected otherwise.
-    // Callers like FOOTER auto-compute '1h' for ≤1-day ranges, which we
-    // don't want to silently apply as the modal's initial selector state.
-    const savedGranularity = localStorage.getItem('myio-modal-granularity') as '1h' | '1d' | null;
-    const candidate = savedGranularity || '1d';
-    this.currentGranularity = (candidate === '1h' || candidate === '1d') ? candidate : '1d';
+    this.currentGranularity = '1d';
   }
 
   /**
@@ -112,19 +127,12 @@ export class EnergyModalView {
 
     this.currentGranularity = granularity;
 
-    // Update UI - highlight active button
-    const buttons = document.querySelectorAll('.myio-btn-granularity');
-    buttons.forEach(btn => {
-      const btnEl = btn as HTMLElement;
-      if (btnEl.dataset.granularity === granularity) {
-        btnEl.classList.add('active');
-      } else {
-        btnEl.classList.remove('active');
-      }
-    });
+    // O componente granularity-selector é dono da UI (highlight do botão
+    // ativo). Sync silencioso cobre chamadas programáticas sem re-disparar
+    // onChange (evita loop componente → setGranularity → componente).
+    this.granularitySelector?.setValue(granularity, { silent: true });
 
-    // Save preference to localStorage
-    localStorage.setItem('myio-modal-granularity', granularity);
+    // (localStorage não é mais persistido — a modal SEMPRE abre em 1d)
 
     // Rebuild DateRangePicker so the time picker appears only for '1h'.
     // Await so the picker is ready before the chart re-renders (avoids falling
@@ -140,6 +148,16 @@ export class EnergyModalView {
 
     // Re-render chart with new granularity
     this.reRenderChart();
+
+    // Refaz o fetch de energyData no modal — sem isso o Exportar CSV/KPIs
+    // continuavam com os buckets DIÁRIOS mesmo com 1h selecionado.
+    if (this.config.onGranularityChange) {
+      try {
+        await this.config.onGranularityChange(granularity);
+      } catch (err) {
+        console.warn('[EnergyModalView] onGranularityChange failed:', err);
+      }
+    }
 
     dbg('[EnergyModalView] [RFC-0097] Granularity changed to:', granularity);
   }
@@ -157,21 +175,6 @@ export class EnergyModalView {
     if (diffDays <= 1) return '1h';
     // For all other periods, suggest daily granularity
     return '1d';
-  }
-
-  /**
-   * RFC-0097: Applies granularity UI state (highlights correct button)
-   */
-  private applyGranularityUI(): void {
-    const buttons = document.querySelectorAll('.myio-btn-granularity');
-    buttons.forEach(btn => {
-      const btnEl = btn as HTMLElement;
-      if (btnEl.dataset.granularity === this.currentGranularity) {
-        btnEl.classList.add('active');
-      } else {
-        btnEl.classList.remove('active');
-      }
-    });
   }
 
   /**
@@ -259,6 +262,11 @@ export class EnergyModalView {
     if (modalContent) {
       modalContent.setAttribute('data-theme', this.currentTheme);
     }
+
+    // Sync do componente de granularidade com o tema atual (as CSS vars do
+    // modal já fluem por herança, mas o modifier class mantém o componente
+    // correto mesmo fora do escopo das vars).
+    this.granularitySelector?.setThemeMode(this.currentTheme);
 
     // Re-render chart with new theme
     this.reRenderChart();
@@ -522,12 +530,9 @@ export class EnergyModalView {
               </svg>
             </button>
             ` : ''}
-            <!-- RFC-0097: Granularity Selector (only 1h and 1d supported) -->
-            <div class="myio-granularity-selector" style="display: flex; align-items: center; gap: 4px; margin-left: 8px; padding: 4px 8px; background: rgba(0,0,0,0.05); border-radius: 8px;">
-              <span class="myio-label-secondary" style="font-size: 11px; margin-right: 4px; white-space: nowrap;">Granularidade:</span>
-              <button class="myio-btn myio-btn-granularity ${this.currentGranularity === '1h' ? 'active' : ''}" data-granularity="1h" title="Hora">1h</button>
-              <button class="myio-btn myio-btn-granularity ${this.currentGranularity === '1d' ? 'active' : ''}" data-granularity="1d" title="Dia">1d</button>
-            </div>
+            <!-- RFC-0097: Granularity Selector (only 1h and 1d supported) —
+                 mounted via createGranularitySelector in setupEventListeners -->
+            <div id="granularity-selector-mount" style="margin-left: 8px;"></div>
             <button id="close-btn" class="myio-btn myio-btn-secondary">
               Fechar
             </button>
@@ -1251,7 +1256,10 @@ export class EnergyModalView {
       ['', '', ''],
       ['Date', `Consumption (${unit})`, ''],
       ...this.currentEnergyData.consumption.map(row => [
-        formatDate(row.timestamp),
+        // 1h: sem a hora as 24 linhas do dia sairiam com a mesma data
+        this.currentGranularity === '1h'
+          ? `${formatDate(row.timestamp)} ${new Date(row.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+          : formatDate(row.timestamp),
         formatNumber(row.value),
         ''
       ])
@@ -1512,20 +1520,16 @@ export class EnergyModalView {
       });
     }
 
-    // RFC-0097: Granularity selector buttons (only in comparison mode)
-    const granularityButtons = document.querySelectorAll('.myio-btn-granularity');
-    if (granularityButtons.length > 0) {
-      // Apply initial granularity UI state
-      this.applyGranularityUI();
-
-      granularityButtons.forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          const target = e.currentTarget as HTMLElement;
-          const newGranularity = target.dataset.granularity as '1h' | '1d';
-          if (newGranularity && (newGranularity === '1h' || newGranularity === '1d')) {
-            this.setGranularity(newGranularity);
-          }
-        });
+    // RFC-0097: Granularity selector — reusable library component (owns the
+    // tabs UI/active state); onChange drives the existing setGranularity flow.
+    const granularityMount = this.container?.querySelector('#granularity-selector-mount') as HTMLElement | null;
+    if (granularityMount) {
+      this.granularitySelector = createGranularitySelector(granularityMount, {
+        settings: {
+          value: this.currentGranularity,
+          themeMode: this.currentTheme
+        },
+        onChange: (granularity) => this.setGranularity(granularity)
       });
 
       dbg('[EnergyModalView] [RFC-0097] Granularity selector initialized with:', this.currentGranularity);
@@ -1635,7 +1639,7 @@ export class EnergyModalView {
   private getModalStyles(): string {
     const styles = this.config.params.styles || {};
     const defaultPrimary = styles.primaryColor || '#4A148C';
-    const defaultFont = styles.fontFamily || '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    const defaultFont = styles.fontFamily || 'Nunito, system-ui, sans-serif';
 
     return `
       /* --- VARIÁVEIS DE TEMA (LIGHT MODE - PADRÃO) --- */
@@ -1709,47 +1713,11 @@ export class EnergyModalView {
       }
 
       /* --- Resto dos estilos (Botões, Labels, etc.) --- */
-      
-      .myio-label-secondary {
-        color: var(--myio-energy-text-secondary);
-        font-weight: 500;
-      }
 
-      .myio-granularity-selector {
-        display: flex; 
-        align-items: center; 
-        gap: 4px; 
-        margin-left: 8px; 
-        padding: 4px 8px; 
-        border-radius: 8px;
-        background: var(--myio-granularity-bg);
-        border: 1px solid var(--myio-energy-border); /* Granularidade mantém borda suave */
-      }
-
-      .myio-btn-granularity {
-        padding: 4px 10px;
-        font-size: 12px;
-        font-weight: 600;
-        border-radius: 6px;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        min-width: 36px;
-        background: transparent;
-        border: 1px solid transparent;
-        color: var(--myio-energy-text-secondary);
-      }
-
-      .myio-btn-granularity:hover:not(.active) {
-        background: var(--myio-energy-btn-hover);
-        color: var(--myio-energy-text);
-      }
-
-      .myio-btn-granularity.active {
-        background: var(--myio-energy-primary);
-        color: white;
-        border-color: var(--myio-energy-primary);
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-      }
+      /* RFC-0097: os estilos do seletor de granularidade agora vivem no
+         componente reutilizável (src/components/granularity-selector), que
+         herda --myio-granularity-bg / --myio-energy-* deste escopo — por isso
+         essas vars continuam definidas acima nos dois temas. */
 
       .myio-btn {
         padding: 8px 16px;
@@ -1882,6 +1850,12 @@ export class EnergyModalView {
     if (this.dateRangePicker) {
       this.dateRangePicker.destroy();
       this.dateRangePicker = null;
+    }
+
+    // RFC-0097: Cleanup granularity selector component
+    if (this.granularitySelector) {
+      this.granularitySelector.destroy();
+      this.granularitySelector = null;
     }
 
     // RFC-0165: Cleanup BAS Control Panel

@@ -104,6 +104,29 @@ self.onInit = function () {
   const menuRoot = document.querySelector('.shops-menu-root');
   let isMenuCollapsed = false;
 
+  // Theme palette (window.MyIOUtils.theme, from createMyIOTheme in MAIN_VIEW):
+  // aplica as CSS vars --myio-brand-* no root do MENU para que o item ativo/
+  // selecionado (.menu-item.active → var(--brand) = var(--myio-brand-700)) siga
+  // o accent do dashboard em vez do roxo MYIO fixo. Sem tema configurado, os
+  // fallbacks var(..., #3e1a7d) do styles.css preservam o visual atual.
+  (function applyMenuTheme() {
+    try {
+      const theme = window.MyIOUtils?.theme;
+      if (!theme || typeof theme.cssVars !== 'function') return; // fallbacks preservam o roxo atual
+      const vars = theme.cssVars();
+      if (!vars) return;
+      const targets = [menuRoot, self.ctx?.$container?.[0]].filter(Boolean);
+      targets.forEach((el) => {
+        Object.entries(vars).forEach(([k, v]) => {
+          if (k && k.startsWith('--') && typeof v === 'string') el.style.setProperty(k, v);
+        });
+      });
+      LogHelper.log('[MENU] theme palette applied to menu root:', { accent: theme.accent });
+    } catch (themeErr) {
+      LogHelper.warn('[MENU] theme palette apply failed (keeping default purple):', themeErr?.message);
+    }
+  })();
+
   if (hamburgerBtn && menuRoot) {
     hamburgerBtn.addEventListener('click', function (e) {
       e.preventDefault();
@@ -456,6 +479,9 @@ self.onInit = function () {
       libHub({
         customerName: user?.customerTitle || user?.customerName || getCurrentDashboardTitle() || '',
         isSuperAdmin: window.MyIOUtils?.SuperAdmin === true,
+        // Paleta do dashboard (MyIOUtils.theme) — o hub aplica as CSS vars --myio-*
+        // no próprio root (lado que aplica: componente settings-hub da lib).
+        theme: window.MyIOUtils?.theme || undefined,
         handlers: {
           temperature: () => openTemperatureSettings(user),
           contract: () => openContractDevicesSettings(user),
@@ -497,7 +523,7 @@ self.onInit = function () {
           opacity: 0;
           pointer-events: none;
           transition: opacity 0.2s ease;
-          font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+          font-family: 'Nunito', system-ui, sans-serif;
         }
         .myio-conf-picker.show {
           opacity: 1;
@@ -791,14 +817,15 @@ self.onInit = function () {
       window.MyIOUtils?.deviceClassificationProfile ||
       (typeof Lib.getActiveProfile === 'function' ? Lib.getActiveProfile() : null);
 
-    // RFC-0207 v3: the MENU is endpoint-agnostic. Persistence is owned by MAIN_VIEW
-    // (which stores the profile JSON in the GCDR endpoint). The MENU/lib never write
-    // to ThingsBoard. If MAIN_VIEW hasn't wired the saver yet, fail loud (no TB write).
+    // RFC-0207 §D: o MENU é endpoint-agnóstico. A persistência pertence ao
+    // MAIN_VIEW — só ele conhece a chave e a URL do store (SERVER_SCOPE na v3.1,
+    // GCDR na v3.2). O MENU e a lib nunca escrevem no ThingsBoard. Se o saver não
+    // estiver conectado, falha alto em vez de fingir que salvou.
     const saveProfile = async (next) => {
       const saver = window.MyIOOrchestrator?.saveDeviceClassificationProfile;
       if (typeof saver !== 'function') {
         throw new Error(
-          'Persistência do perfil indisponível: MAIN_VIEW.saveDeviceClassificationProfile (GCDR) não conectado.',
+          'Persistência do perfil indisponível: MAIN_VIEW.saveDeviceClassificationProfile não conectado (atualize o widget MAIN_VIEW).',
         );
       }
       await saver(next);
@@ -816,6 +843,8 @@ self.onInit = function () {
     Lib.openDeviceProfileModal({
       customerId,
       profile,
+      // Paleta do dashboard (MyIOUtils.theme) — lado que aplica no componente da lib.
+      theme: window.MyIOUtils?.theme || undefined,
       canEdit: true, // option only rendered for superadmin (isSuperAdmin gate above)
       getDevices,
       userName: (user && (user.email || user.name)) || 'user',
@@ -846,6 +875,8 @@ self.onInit = function () {
     const jwt = localStorage.getItem('jwt_token') || '';
     const orch = window.MyIOOrchestrator;
     window.MyIOUtils.openUserManagementModal({
+      // Paleta do dashboard (MyIOUtils.theme) — lado que aplica no componente da lib.
+      theme: window.MyIOUtils?.theme || undefined,
       customerId: orch?.customerTB_ID || self.ctx.settings?.customerTB_ID || '',
       tenantId: user.tenantId?.id || '',
       customerName:
@@ -897,7 +928,7 @@ self.onInit = function () {
       const s = topDoc.createElement('style');
       s.id = STYLE_ID;
       s.textContent = `
-        .mdd-overlay{position:fixed;inset:0;z-index:999999;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s ease;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+        .mdd-overlay{position:fixed;inset:0;z-index:999999;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s ease;font-family:'Nunito',system-ui,sans-serif}
         .mdd-overlay.show{opacity:1;pointer-events:auto}
         .mdd-bg{position:absolute;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(4px)}
         .mdd-card{position:relative;z-index:2;background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.28);width:min(1080px,95vw);max-height:90vh;display:flex;flex-direction:column;overflow:hidden;transform:translateY(12px) scale(.98);transition:transform .2s ease}
@@ -1200,7 +1231,7 @@ self.onInit = function () {
       const s = topDoc.createElement('style');
       s.id = STYLE_ID;
       s.textContent = `
-        .myio-isetup{position:fixed;inset:0;z-index:999999;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s ease;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+        .myio-isetup{position:fixed;inset:0;z-index:999999;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s ease;font-family:'Nunito',system-ui,sans-serif}
         .myio-isetup.show{opacity:1;pointer-events:auto}
         .myio-isetup__overlay{position:absolute;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(4px)}
         .myio-isetup__card{position:relative;z-index:2;background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.28);width:min(860px,97vw);max-height:92vh;display:flex;flex-direction:column;overflow:hidden;transform:translateY(12px) scale(.98);transition:transform .2s ease}
@@ -2316,7 +2347,12 @@ function openGoalsModal() {
 
   GoalsModal.open({
     initialDomain,
+    // Paleta do dashboard (createMyIOTheme, exposta pela MAIN em MyIOUtils.theme):
+    // a modal aplica as CSS vars --myio-* no próprio root (header/tabs/spinner).
+    theme: window.MyIOUtils?.theme || undefined,
     // Config vinda das settings do MAIN_VIEW via bridge (fallback aplicado na MAIN).
+    // Ajuste da meta: RFC-0052 (GCDR) — o adjustedValue já vem da API por
+    // customer × domínio × ano; nenhum delta client-side é injetado aqui.
     defaultPeriodDays: window.MyIOUtils?.goalsDefaultPeriodDays,
     // Throttle das requisições de consumo — fonte única/fallback nas settings do MAIN_VIEW,
     // exposto via window.MyIOUtils.goalsThrottle (já com defaults aplicados na MAIN).
@@ -2376,24 +2412,24 @@ function openGoalsModal() {
       const s = topDoc.createElement('style');
       s.id = STYLE_ID;
       s.textContent = `
-        .rp-overlay{position:fixed;inset:0;z-index:999998;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);opacity:0;transition:opacity .2s ease;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;}
+        .rp-overlay{position:fixed;inset:0;z-index:999998;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);opacity:0;transition:opacity .2s ease;font-family:'Nunito',system-ui,sans-serif;}
         .rp-overlay.show{opacity:1;}
         .rp-modal{position:relative;background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.25);width:min(640px,92vw);max-height:90vh;overflow:hidden;display:flex;flex-direction:column;transform:translateY(12px) scale(.98);transition:transform .2s ease;}
         .rp-overlay.show .rp-modal{transform:translateY(0) scale(1);}
-        .rp-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;background:linear-gradient(135deg,#1565c0,#1976d2);color:#fff;flex-shrink:0;}
+        .rp-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;background:linear-gradient(135deg,var(--rp-accent,#1565c0),var(--rp-accent-2,#1976d2));color:#fff;flex-shrink:0;}
         .rp-header h3{margin:0;font-size:16px;font-weight:600;display:flex;align-items:center;gap:8px;}
         .rp-close{background:transparent;border:none;color:#fff;font-size:24px;line-height:1;cursor:pointer;padding:4px;border-radius:4px;transition:background .15s;}
         .rp-close:hover{background:rgba(255,255,255,.15);}
         .rp-tabs{display:flex;border-bottom:1px solid #e5e7eb;background:#f9fafb;flex-shrink:0;overflow-x:auto;}
         .rp-tab{flex:1 1 auto;padding:12px 8px;border:none;background:transparent;cursor:pointer;font-size:13px;font-weight:500;color:#6b7280;border-bottom:3px solid transparent;transition:all .15s;white-space:nowrap;}
-        .rp-tab:hover{color:#1565c0;background:#eff6ff;}
-        .rp-tab.active{color:#1565c0;border-bottom-color:#1565c0;background:#fff;}
+        .rp-tab:hover{color:var(--rp-accent,#1565c0);background:var(--rp-accent-soft,#eff6ff);}
+        .rp-tab.active{color:var(--rp-accent,#1565c0);border-bottom-color:var(--rp-accent,#1565c0);background:#fff;}
         .rp-body{padding:20px;overflow-y:auto;}
         .rp-panel{display:none;flex-direction:column;gap:12px;}
         .rp-panel.active{display:flex;}
         .rp-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px;}
         .rp-card{display:flex;align-items:center;gap:12px;padding:14px 16px;border:1.5px solid #e5e7eb;border-radius:12px;background:#fafafa;cursor:pointer;transition:all .15s;position:relative;text-align:left;width:100%;}
-        .rp-card[data-enabled="true"]:hover{background:#eff6ff;border-color:#90caf9;box-shadow:0 4px 12px rgba(21,101,192,.1);transform:translateY(-1px);}
+        .rp-card[data-enabled="true"]:hover{background:var(--rp-accent-soft,#eff6ff);border-color:var(--rp-accent-border,#90caf9);box-shadow:0 4px 12px rgba(0,0,0,.10);transform:translateY(-1px);}
         .rp-card[data-enabled="false"]{opacity:.55;cursor:not-allowed;}
         .rp-card__icon{width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:10px;font-size:20px;flex-shrink:0;}
         .rp-card__text{display:flex;flex-direction:column;gap:2px;min-width:0;}
@@ -2603,6 +2639,18 @@ function openGoalsModal() {
       </div>
     `;
 
+    // Paleta do dashboard (createMyIOTheme via MAIN) — header/tabs/hover do picker
+    // seguem o accent; sem tema configurado, mantém o azul padrão.
+    const rpTheme = window.MyIOUtils?.theme;
+    if (rpTheme?.accent) {
+      overlay.style.setProperty('--rp-accent', rpTheme.accent);
+      overlay.style.setProperty('--rp-accent-2', rpTheme.accentDark || rpTheme.accent);
+      if (typeof rpTheme.lighten === 'function') {
+        overlay.style.setProperty('--rp-accent-soft', rpTheme.lighten(92));
+        overlay.style.setProperty('--rp-accent-border', rpTheme.lighten(55));
+      }
+    }
+
     topDoc.body.appendChild(overlay);
     requestAnimationFrame(() => overlay.classList.add('show'));
 
@@ -2694,6 +2742,12 @@ function openGoalsModal() {
       domain,
       group,
       itemsList,
+      // Paleta do dashboard (createMyIOTheme, exposta pela MAIN em MyIOUtils.theme):
+      // a modal aplica as CSS vars --myio-* no próprio root.
+      theme: window.MyIOUtils?.theme || undefined,
+      // Nome do customer para o footer premium da modal
+      customerName:
+        window.MyIOOrchestrator?.customerName || getCurrentDashboardTitle() || '',
     });
   }
 
@@ -2737,7 +2791,7 @@ function openGoalsModal() {
         opacity: 0;
         pointer-events: none;
         transition: opacity .2s ease;
-        font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        font-family: 'Nunito', system-ui, sans-serif;
       }
       .myio-modal.show { opacity: 1; pointer-events: auto; }
       .myio-modal__overlay {
@@ -3019,7 +3073,7 @@ function openGoalsModal() {
       const s = topDoc.createElement('style');
       s.id = STYLE_ID;
       s.textContent = `
-        .mcc-overlay{position:fixed;inset:0;z-index:999999;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s ease;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+        .mcc-overlay{position:fixed;inset:0;z-index:999999;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s ease;font-family:'Nunito',system-ui,sans-serif}
         .mcc-overlay.show{opacity:1;pointer-events:auto}
         .mcc-bg{position:absolute;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(4px)}
         .mcc-card{position:relative;z-index:2;background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.28);width:min(520px,95vw);display:flex;flex-direction:column;overflow:hidden;transform:translateY(12px) scale(.98);transition:transform .2s ease}

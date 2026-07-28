@@ -127,7 +127,7 @@ const PANEL_CSS = `
     background: #faf8f1;
     border: 1px solid #e8e4d9;
     overflow: hidden;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    font-family: 'Nunito', system-ui, sans-serif;
     position: relative;
     height: 100%;
     min-width: 180px;

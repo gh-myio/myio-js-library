@@ -30,7 +30,7 @@ export function injectAmbienteModalStyles(): void {
       align-items: center;
       justify-content: center;
       z-index: 10000;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-family: 'Nunito', system-ui, sans-serif;
       opacity: 0;
       visibility: hidden;
       transition: opacity 0.2s ease, visibility 0.2s ease;

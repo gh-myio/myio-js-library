@@ -115,6 +115,19 @@ window.MyIOUtils = window.MyIOUtils || {};
     'resolveCategory',
     'getActiveProfile',
     'setActiveProfile',
+    // RFC-0207 v3.1 — motor genérico + costura engine × store (§H-3).
+    // Sem registrar aqui, os widgets filhos não enxergam o símbolo (§C2).
+    'resolveClassification',
+    'resolveSubcategory',
+    'validateProfile',
+    'normalizeProfile',
+    'liftProfileToTree',
+    'DEFAULT_DEVICE_CLASSIFICATION_PROFILE',
+    'createBakedProfileSource',
+    'resolveWithFallback',
+    'isBakedStale',
+    'BAKED_PROFILE_VERSION',
+    'BAKED_PROFILE_KEYS',
     // modals / popups
     'openDashboardPopupEnergy',
     'openDashboardPopupWaterTank',
@@ -140,6 +153,7 @@ window.MyIOUtils = window.MyIOUtils || {};
     'getHeaderAnnotationsPanel',
     // misc components / helpers
     'ModalHeader',
+    'createMyIOTheme',
     'createLogHelper',
     'createLibraryVersionChecker',
     'calculateDeviceStatusWithRanges',
@@ -430,6 +444,13 @@ Object.assign(window.MyIOUtils, {
    */
   handleDataLoadError: (domain = 'unknown', reason = 'timeout') => {
     LogHelper.error(`[MyIOUtils] Data load error for ${domain}: ${reason}`);
+
+    // RFC-0152c: never start a retry loop for a DISABLED domain (water-only /
+    // temperature-only dashboards) — no datasource will ever answer it.
+    if (widgetSettings?.domainsEnabled && widgetSettings.domainsEnabled[domain] === false) {
+      LogHelper.log(`[MyIOUtils] ⏭️ Domain ${domain} disabled (domainsEnabled) — skipping retry loop`);
+      return;
+    }
 
     // Stop retry loop after final error for this domain
     window._dataLoadRetryLocked = window._dataLoadRetryLocked || {};
@@ -1172,6 +1193,295 @@ function classifyDeviceByIdentifier(identifier = '') {
   return 'outros';
 }
 
+// ===========================================================================
+// RFC-0207 v3.1 — STORE do perfil de classificação (load + save).
+//
+// §D TRAVADO: o MAIN_VIEW é o ÚNICO dono da persistência. A lib é pura (nunca
+// faz fetch, nunca escreve no ThingsBoard) e o MENU é endpoint-agnóstico (só
+// chama `window.MyIOOrchestrator.saveDeviceClassificationProfile`). A URL e a
+// chave do atributo existem APENAS aqui.
+//
+// DECISÃO DE STORE (v3.1) — ThingsBoard SERVER_SCOPE, load e save simétricos.
+//   O §E do RFC define, para a v3.1, "Store: TB attr + baked"; só a v3.2 troca
+//   para o GCDR. A auditoria (achado 2) registrou que o código LIA do
+//   SERVER_SCOPE enquanto nada escrevia em lugar nenhum. Fechamos a assimetria
+//   pelo lado que já funcionava: quem lê e quem escreve são a MESMA chave, o
+//   MESMO escopo, a MESMA entidade. `GcdrResolveProfileSource` existe abaixo,
+//   atrás de flag DESLIGADA, para que a troca de store (v3.2) seja trocar a
+//   fonte primária — não reescrever o consumidor.
+// ===========================================================================
+
+/** Chave do atributo de customer (SERVER_SCOPE). Existe só aqui. */
+const RFC0207_PROFILE_ATTR_KEY = 'deviceClassificationProfile';
+
+/**
+ * Flag de rollout do store (§H-6: flag GLOBAL durante a v3.2). DESLIGADA:
+ * o adaptador `entities → ClassificationNode` do RFC-0047 ainda não existe
+ * (§v3.2-G lista o trabalho restante), então ligar isto hoje só exercitaria a
+ * cadeia de degradação. Setável em runtime para teste:
+ *   window.MyIOUtils.rfc0207UseGcdrStore = true
+ */
+function _rfc0207UseGcdrStore() {
+  return window.MyIOUtils?.rfc0207UseGcdrStore === true;
+}
+
+function _rfc0207Jwt() {
+  return localStorage.getItem('jwt_token') || '';
+}
+
+function _rfc0207TbBase() {
+  return self.ctx?.settings?.tbBaseUrl || '';
+}
+
+/**
+ * `ProfileSource` concreto — atributo de customer no ThingsBoard (SERVER_SCOPE).
+ *
+ * `prefetched`: o `onInit` já busca TODOS os atributos do customer numa chamada
+ * só (`fetchThingsboardCustomerAttrsFromStorage`). Passar o valor já lido evita
+ * um segundo round-trip no boot; sem ele, a fonte busca sozinha (usada pelo
+ * reload pós-save e por qualquer chamada avulsa).
+ */
+function createTbAttributeProfileSource(prefetched) {
+  return {
+    name: 'tb-attribute',
+    async resolve(customerId) {
+      const MyIO = window.MyIOLibrary;
+      let raw = prefetched;
+      if (raw === undefined) {
+        const url = `${_rfc0207TbBase()}/api/plugins/telemetry/CUSTOMER/${encodeURIComponent(
+          customerId
+        )}/values/attributes/SERVER_SCOPE?keys=${RFC0207_PROFILE_ATTR_KEY}`;
+        const res = await fetch(url, {
+          headers: { 'X-Authorization': `Bearer ${_rfc0207Jwt()}` },
+        });
+        if (!res.ok) throw new Error(`TB attribute HTTP ${res.status}`);
+        const rows = await res.json();
+        raw = Array.isArray(rows)
+          ? rows.find((r) => r.key === RFC0207_PROFILE_ATTR_KEY)?.value
+          : undefined;
+      }
+      // Atributo ausente NÃO é falha: é o caminho documentado do seed default
+      // (fail-open para o comportamento default, nunca para "sem classificação").
+      if (raw === undefined || raw === null || raw === '') {
+        return {
+          version: MyIO?.BAKED_PROFILE_VERSION || 'baked',
+          source: 'baked',
+          degraded: true,
+          reason: 'tb-attribute:absent',
+          profile: MyIO?.DEFAULT_DEVICE_CLASSIFICATION_PROFILE,
+        };
+      }
+      const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      return {
+        // O TB não versiona atributos; `updatedAt` é o melhor etag disponível.
+        version: String(parsed?.updatedAt || 'tb-attr'),
+        source: 'customer',
+        degraded: false,
+        profile: parsed,
+      };
+    },
+    /** Escreve o mesmo atributo que `resolve` lê — load e save simétricos. */
+    async save(customerId, profile) {
+      const url = `${_rfc0207TbBase()}/api/plugins/telemetry/CUSTOMER/${encodeURIComponent(
+        customerId
+      )}/attributes/SERVER_SCOPE`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'X-Authorization': `Bearer ${_rfc0207Jwt()}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ [RFC0207_PROFILE_ATTR_KEY]: profile }),
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(`HTTP ${res.status}${text ? ': ' + text.slice(0, 160) : ''}`);
+      }
+    },
+  };
+}
+
+/** Cache do 304 por `(customerId, domain, version)` — §v3.2-F.3. */
+const _rfc0207GcdrCache = new Map();
+
+/**
+ * `ProfileSource` concreto — GCDR / RFC-0047 (`GET /entities/resolve`), atrás da
+ * flag. A MECÂNICA especificada está implementada e é a que importa para a
+ * costura: `X-Version-Id` → `If-None-Match` → **304 sem corpo**, cache por
+ * `(customerId, domain, version)`.
+ *
+ * O que NÃO está implementado, e por isso lança um erro rotulado: o adaptador
+ * `entities → ClassificationNode` (§v3.2-B). Ele depende de contrato de backend
+ * que o próprio RFC lista como trabalho restante (§v3.2-G) — chutar a topologia
+ * aqui produziria classificação errada silenciosa. Enquanto isso, a cadeia de
+ * degradação (§B.1-4) converte a falha em `BakedProfileSource`, então ligar a
+ * flag nunca apaga o dashboard.
+ */
+function createGcdrResolveProfileSource(domain = 'energy') {
+  const entityType = `CLASSIFICATION_${String(domain).toUpperCase()}`;
+  return {
+    name: 'gcdr-resolve',
+    async resolve(customerId) {
+      const orch = window.MyIOOrchestrator || {};
+      const cacheKey = `${customerId}|${domain}`;
+      const cached = _rfc0207GcdrCache.get(cacheKey);
+      const url =
+        `${orch.gcdrApiBaseUrl}/api/v1/entities/resolve` +
+        `?customerId=${encodeURIComponent(customerId)}&type=${encodeURIComponent(entityType)}`;
+      const headers = {
+        'X-API-Key': orch.gcdrApiKey || '',
+        'X-Tenant-ID': orch.gcdrTenantId || '',
+        Accept: 'application/json',
+      };
+      if (cached?.version) headers['If-None-Match'] = cached.version;
+
+      const res = await fetch(url, { headers });
+      if (res.status === 304) {
+        if (!cached) throw new Error('gcdr 304 sem cache local');
+        return cached.resolved;
+      }
+      if (!res.ok) throw new Error(`GCDR entities/resolve HTTP ${res.status}`);
+      const json = await res.json();
+      const version = res.headers.get('X-Version-Id') || String(json?.data?.version || '');
+      const payload = json?.data ?? json;
+
+      // Caminho suportado: o registry devolve o documento de perfil diretamente.
+      const doc = payload?.deviceClassificationProfile || payload?.profile;
+      if (!doc) {
+        throw new Error(
+          'adaptador entities→ClassificationNode não implementado (RFC-0207 §v3.2-B/G)'
+        );
+      }
+      const resolved = {
+        version: version || 'gcdr',
+        source: payload?.source === 'system' ? 'system' : 'customer',
+        degraded: false,
+        profile: typeof doc === 'string' ? JSON.parse(doc) : doc,
+      };
+      _rfc0207GcdrCache.set(cacheKey, { version: resolved.version, resolved });
+      return resolved;
+    },
+  };
+}
+
+/** Fonte primária ativa, segundo a flag de store. */
+function rfc0207PrimaryProfileSource(prefetched) {
+  return _rfc0207UseGcdrStore()
+    ? createGcdrResolveProfileSource('energy')
+    : createTbAttributeProfileSource(prefetched);
+}
+
+/**
+ * Carrega o perfil ativo e aplica no motor. NUNCA lança: a cadeia de degradação
+ * da lib (§B.1-4) garante o piso `baked`.
+ *
+ * @param {string} customerId
+ * @param {*} prefetched valor já lido do atributo (ou `undefined` para buscar)
+ */
+async function rfc0207LoadActiveProfile(customerId, prefetched) {
+  const MyIO = window.MyIOLibrary;
+  if (!MyIO || typeof MyIO.resolveWithFallback !== 'function') {
+    // Bundle antigo sem a costura: preserva o caminho legado (setActiveProfile
+    // direto), para não regredir dashboards que ainda não recarregaram a lib.
+    if (typeof MyIO?.setActiveProfile === 'function') {
+      let parsed = null;
+      try {
+        parsed = typeof prefetched === 'string' ? JSON.parse(prefetched) : prefetched;
+      } catch (e) {
+        LogHelper.warn('[MAIN_VIEW] RFC-0207: atributo com JSON inválido → DEFAULT:', e);
+      }
+      const applied = MyIO.setActiveProfile(parsed || null, LogHelper);
+      window.MyIOUtils.deviceClassificationProfile = applied;
+      window.MyIOUtils.deviceClassificationProfileRaw = parsed || null;
+      return applied;
+    }
+    LogHelper.error(
+      '[MAIN_VIEW] RFC-0207: MyIOLibrary sem resolveWithFallback/setActiveProfile — perfil não aplicado'
+    );
+    return null;
+  }
+
+  const resolved = await MyIO.resolveWithFallback(rfc0207PrimaryProfileSource(prefetched), {
+    customerId,
+    logger: LogHelper,
+    timeoutMs: 8000,
+    onDegraded: (info) => {
+      // Espelha em estado observável (o piso NUNCA é apresentado como verdade).
+      window.MyIOUtils.deviceClassificationProfileDegraded = info;
+    },
+  });
+
+  if (!resolved.degraded) window.MyIOUtils.deviceClassificationProfileDegraded = null;
+  const applied = MyIO.setActiveProfile(resolved.profile, LogHelper);
+  window.MyIOUtils.deviceClassificationProfile = applied;
+  window.MyIOUtils.deviceClassificationProfileRaw = resolved.profile || null;
+  window.MyIOUtils.deviceClassificationProfileSource = {
+    source: resolved.source,
+    version: resolved.version,
+    degraded: resolved.degraded,
+    reason: resolved.reason || null,
+  };
+  LogHelper.log(
+    `[MAIN_VIEW] RFC-0207: perfil aplicado (source=${resolved.source} version=${resolved.version}` +
+      `${resolved.degraded ? ' DEGRADADO: ' + resolved.reason : ''})`
+  );
+  return applied;
+}
+
+/**
+ * RFC-0207 Phase B — PERSISTÊNCIA. Exposta como
+ * `window.MyIOOrchestrator.saveDeviceClassificationProfile` (é exatamente o
+ * método que o `MENU/controller.js` chamava e que não existia em lugar nenhum,
+ * fazendo o botão "Salvar perfil" lançar).
+ *
+ * Ordem deliberada: validar → persistir → só então aplicar em memória. Um save
+ * que falha NÃO pode deixar o dashboard classificando por um perfil que o store
+ * não tem (o próximo F5 desfaria a classificação sem aviso).
+ */
+async function rfc0207SaveActiveProfile(nextProfile) {
+  const MyIO = window.MyIOLibrary;
+  if (!MyIO || typeof MyIO.validateProfile !== 'function') {
+    throw new Error('MyIOLibrary indisponível — atualize o bundle da biblioteca MyIO.');
+  }
+  const customerId =
+    window.MyIOOrchestrator?.customerTB_ID ||
+    window.MyIOUtils?.customerTB_ID ||
+    self.ctx?.settings?.customerTB_ID ||
+    '';
+  if (!customerId) throw new Error('customerTB_ID indisponível — não é possível salvar o perfil.');
+
+  const errors = MyIO.validateProfile(nextProfile);
+  if (errors.length) {
+    throw new Error(`Perfil inválido: ${errors.slice(0, 3).join('; ')}`);
+  }
+
+  if (_rfc0207UseGcdrStore()) {
+    // §v3.2-A: save = PUT /entities/bulk-replace por (customer, domain), com
+    // If-Match por domínio → 409. Não implementado enquanto o adaptador
+    // entities↔ClassificationNode não existir — falhar ALTO é melhor que
+    // gravar num store cujo formato ainda não está fechado.
+    throw new Error(
+      'Store GCDR ligado, mas o save via /entities/bulk-replace ainda não está implementado (RFC-0207 §v3.2-G). Desligue window.MyIOUtils.rfc0207UseGcdrStore para salvar no SERVER_SCOPE.'
+    );
+  }
+
+  await createTbAttributeProfileSource().save(customerId, nextProfile);
+  LogHelper.log('[MAIN_VIEW] RFC-0207: perfil persistido no SERVER_SCOPE do customer', customerId);
+
+  // Aplica no motor só depois do store confirmar.
+  const applied = MyIO.setActiveProfile(nextProfile, LogHelper);
+  window.MyIOUtils.deviceClassificationProfile = applied;
+  window.MyIOUtils.deviceClassificationProfileRaw = nextProfile;
+  window.MyIOUtils.deviceClassificationProfileDegraded = null;
+  window.MyIOUtils.deviceClassificationProfileSource = {
+    source: 'customer',
+    version: String(nextProfile?.updatedAt || 'tb-attr'),
+    degraded: false,
+    reason: null,
+  };
+  return applied;
+}
+
 /**
  * RFC-0097/RFC-0106: Classify device using deviceType as primary method
  * @param {Object} item - Device item with deviceType, deviceProfile, identifier, and label
@@ -1267,23 +1577,16 @@ function inferLabelWidget(row) {
     return 'Lojas';
   }
 
+  // deviceType está EM DESUSO (2026-07-14) — domínio/labelWidget saem SÓ do profile
   const dp = String(row.deviceProfile || '').toUpperCase();
-  const dt = String(row.deviceType || '').toUpperCase();
 
   // Temperature domain
-  if (dp.includes('TERMOSTATO') || dt.includes('TERMOSTATO')) {
+  if (dp.includes('TERMOSTATO')) {
     return 'Temperatura';
   }
 
   // Water domain (hidrômetros + caixas d'água)
-  if (
-    dp.includes('HIDROMETRO') ||
-    dt.includes('HIDROMETRO') ||
-    dp === 'TANK' ||
-    dt === 'TANK' ||
-    dp === 'CAIXA_DAGUA' ||
-    dt === 'CAIXA_DAGUA'
-  ) {
+  if (dp.includes('HIDROMETRO') || dp === 'TANK' || dp === 'CAIXA_DAGUA') {
     const wg = Lib.resolveGroup(row, undefined, 'water').group;
     if (wg === 'ocultos') return 'Ocultos';
     if (wg === 'entrada') return 'Entrada';
@@ -1673,6 +1976,55 @@ Object.assign(window.MyIOUtils, {
     );
     LogHelper.log('[Orchestrator] RFC-0182: enabledReportItems:', window.MyIOUtils.enabledReportItems);
 
+    // Theme palette (dark/light) — padrão MYIO-SIM UNIQUE trazido para o shopping:
+    // settings (defaultThemeMode/darkMode/lightMode) → createMyIOTheme → CSS vars
+    // --myio-* + window.MyIOUtils.theme. Filhos (MENU/HEADER) repassam a paleta às
+    // modais premium (ex.: AllReportModal via param theme). Defaults do componente
+    // espelham os tokens atuais — sem configuração, nada muda visualmente.
+    try {
+      const themeSettings = {
+        defaultThemeMode: self.ctx.settings?.defaultThemeMode,
+        darkMode: self.ctx.settings?.darkMode,
+        lightMode: self.ctx.settings?.lightMode,
+      };
+      const theme = window.MyIOLibrary?.createMyIOTheme?.(themeSettings);
+      if (theme) {
+        window.MyIOUtils.theme = theme;
+        window.MyIOUtils.getTheme = (mode) =>
+          window.MyIOLibrary.createMyIOTheme(themeSettings, mode);
+        theme.applyTo(document.documentElement);
+        LogHelper.log('[Orchestrator] theme palette:', { mode: theme.mode, accent: theme.accent });
+      } else {
+        LogHelper.warn('[Orchestrator] createMyIOTheme indisponível na lib — tema não aplicado');
+      }
+    } catch (themeErr) {
+      LogHelper.error('[Orchestrator] theme palette failed:', themeErr);
+    }
+
+    // Nome do customer (title no TB) — consumido pelo footer premium das modais
+    // (createModalFooter) via MyIOOrchestrator.customerName / MyIOUtils.customerName.
+    // Não bloqueia o onInit (fire-and-forget).
+    (async () => {
+      try {
+        const custId = self.ctx.settings?.customerTB_ID;
+        if (!custId) return;
+        const jwt = localStorage.getItem('jwt_token');
+        const res = await fetch(`/api/customer/${custId}`, {
+          headers: { 'X-Authorization': `Bearer ${jwt}` },
+        });
+        if (!res.ok) return;
+        const customer = await res.json();
+        const custName = customer?.title || customer?.name || '';
+        if (custName) {
+          window.MyIOUtils.customerName = custName;
+          if (window.MyIOOrchestrator) window.MyIOOrchestrator.customerName = custName;
+          LogHelper.log('[Orchestrator] customerName:', custName);
+        }
+      } catch (custErr) {
+        LogHelper.warn('[Orchestrator] customerName fetch failed:', custErr);
+      }
+    })();
+
     // Goals JSON URLs — carregados via settings, futuramente substituídos por chamada GCDR
     widgetSettings.goalsJsonUrls = {
       energy:      self.ctx.settings?.goalsJsonUrls?.energy      || '',
@@ -1695,6 +2047,9 @@ Object.assign(window.MyIOUtils, {
       batchSize: Number.isFinite(_gt.batchSize) ? _gt.batchSize : 5,
       batchPauseMs: Number.isFinite(_gt.batchPauseMs) ? _gt.batchPauseMs : 1500,
     };
+    // Ajuste da meta (RFC-0052 GCDR): a margem é gerida no servidor por
+    // customer × domínio × ano — a API entrega adjustedValue em cada nó e o
+    // GoalsModal o consome direto. O antigo goalsDelta (client-side) foi removido.
     LogHelper.log(
       '[Orchestrator] goals config:',
       { defaultPeriodDays: window.MyIOUtils.goalsDefaultPeriodDays, throttle: window.MyIOUtils.goalsThrottle }
@@ -1788,6 +2143,15 @@ Object.assign(window.MyIOUtils, {
           },
         },
 
+        // RFC-0207 Phase B: persistência do perfil de classificação. Stub que
+        // falha ALTO — o MENU chama este método e, se ele não existir, o botão
+        // "Salvar perfil" quebra silenciosamente (foi o achado 1 da auditoria).
+        saveDeviceClassificationProfile: async () => {
+          throw new Error(
+            '[Orchestrator] saveDeviceClassificationProfile chamado antes do orquestrador estar pronto.'
+          );
+        },
+
         // RFC-0180: GCDR API method stubs (replaced by real impl after merge)
         gcdrFetchCustomerRules: async () => {
           LogHelper.warn('[Orchestrator] ⚠️ gcdrFetchCustomerRules called before orchestrator is ready');
@@ -1838,6 +2202,39 @@ Object.assign(window.MyIOUtils, {
             ? 'temperature'
             : 'energy';
     LogHelper.log('[MAIN_VIEW] Initial tab derived from domainsEnabled:', _initialTab);
+
+    // RFC-0152c: Align the state-div visibility with domainsEnabled. The template
+    // ships with telemetry_content (energy) as display:block — the right default
+    // for energy dashboards, but on water-only/temperature-only dashboards the
+    // dashboard has NO telemetry_content state, so the embedded
+    // <tb-dashboard-state> renders "Dashboard state with id ... is not found"
+    // inside the still-visible div (nothing hides it until a MENU click).
+    // Hide the divs of DISABLED domains (display:none — Angular-safe, no DOM
+    // removal) and make the _initialTab div the visible one.
+    try {
+      const STATE_BY_DOMAIN = {
+        energy: 'telemetry_content',
+        water: 'water_content',
+        temperature: 'temperature_content',
+      };
+      const _initialStateId = STATE_BY_DOMAIN[_initialTab] || 'telemetry_content';
+      const _stateDivs = self.ctx.$container[0].querySelectorAll('[data-content-state]');
+      _stateDivs.forEach((div) => {
+        const stId = div.getAttribute('data-content-state');
+        const domainOfState = Object.keys(STATE_BY_DOMAIN).find((d) => STATE_BY_DOMAIN[d] === stId);
+        if (domainOfState && widgetSettings.domainsEnabled?.[domainOfState] === false) {
+          div.style.display = 'none'; // domínio desabilitado — nunca mostrar
+          return;
+        }
+        if (domainOfState) {
+          div.style.display = stId === _initialStateId ? 'block' : 'none';
+        }
+        // alarm_content / integrations: mantém o default do template (none)
+      });
+      LogHelper.log('[MAIN_VIEW] RFC-0152c: state divs aligned — visible:', _initialStateId);
+    } catch (stateErr) {
+      LogHelper.warn('[MAIN_VIEW] RFC-0152c: state-div alignment failed:', stateErr);
+    }
 
     // Initialize MyIO Library and Authentication
     const MyIO =
@@ -1924,27 +2321,13 @@ Object.assign(window.MyIOUtils, {
               LogHelper.log('[MAIN_VIEW] exclude_groups_totals loaded:', _excludeGroupsTotals);
             }
 
-            // RFC-0207 Phase B: customer-scoped device classification profile.
-            // Loaded BEFORE the first classification pass; the no-arg resolvers
-            // (resolveGroup/resolveCategory) the orchestrator delegates to will
-            // pick this up via setActiveProfile. Absent/invalid → DEFAULT seed.
-            try {
-              const _rawProfile = attrs?.deviceClassificationProfile;
-              const _parsedProfile =
-                typeof _rawProfile === 'string' ? JSON.parse(_rawProfile) : _rawProfile;
-              if (typeof MyIO.setActiveProfile === 'function') {
-                const _applied = MyIO.setActiveProfile(_parsedProfile, LogHelper);
-                window.MyIOUtils.deviceClassificationProfile = _applied;
-                window.MyIOUtils.deviceClassificationProfileRaw = _parsedProfile || null;
-                LogHelper.log(
-                  '[MAIN_VIEW] RFC-0207: classification profile ' +
-                    (_rawProfile ? 'loaded from SERVER_SCOPE' : 'absent → DEFAULT seed')
-                );
-              }
-            } catch (e) {
-              LogHelper.warn('[MAIN_VIEW] RFC-0207: invalid deviceClassificationProfile → DEFAULT:', e);
-              if (typeof MyIO.setActiveProfile === 'function') MyIO.setActiveProfile(null, LogHelper);
-            }
+            // RFC-0207 Phase B / v3.1: customer-scoped device classification profile.
+            // Carregado ANTES da primeira passada de classificação, através do
+            // `ProfileSource` (store = TB SERVER_SCOPE na v3.1, ver o bloco
+            // "RFC-0207 v3.1 — STORE"). `attrs` já traz o atributo desta mesma
+            // chave, então passamos o valor lido e não há round-trip extra.
+            // A cadeia de degradação garante o piso `baked` — nunca lança.
+            await rfc0207LoadActiveProfile(customerTB_ID, attrs?.[RFC0207_PROFILE_ATTR_KEY]);
 
             LogHelper.log('[MAIN_VIEW] 🔑 Parsed credentials:');
             LogHelper.log('[MAIN_VIEW]   CLIENT_ID:', CLIENT_ID ? '✅ ' + CLIENT_ID : '❌ EMPTY');
@@ -2660,7 +3043,7 @@ function _showNewAlarmNotification(newAlarms) {
     border-radius: 13px;
     box-shadow: 0 8px 32px rgba(0,0,0,0.45);
     border-left: 5px solid ${accentColor};
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: 'Nunito', system-ui, sans-serif;
     overflow: hidden;
     animation: myio-notif-in 0.28s cubic-bezier(0.34,1.56,0.64,1) both;
   `;
@@ -2779,7 +3162,7 @@ function _showClosedAlarmNotification(closedAlarms) {
     border-radius: 13px;
     box-shadow: 0 8px 32px rgba(0,0,0,0.45);
     border-left: 5px solid ${GREEN};
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: 'Nunito', system-ui, sans-serif;
     overflow: hidden;
     animation: myio-notif-in 0.28s cubic-bezier(0.34,1.56,0.64,1) both;
   `;
@@ -3678,6 +4061,10 @@ function buildGroupData(items) {
   };
 }
 
+// RFC-0207 — o aviso de residual negativo sai UMA vez por sessão (buildSummary
+// roda a cada troca de período; sem o flag, o log viraria ruído).
+let _warnedNegativeAreacomumResidual = false;
+
 /**
  * Build summary for TELEMETRY_INFO (pie chart, cards, tooltips)
  * RFC-0106: Pre-compute ALL tooltip data so TELEMETRY_INFO just reads it
@@ -3783,6 +4170,11 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
   const GERADOR_PATTERNS = ['GERADOR', 'NOBREAK', 'UPS'];
 
   const climatizacaoItems = [];
+  // RFC-0207 "parent" — devices marcados como PAI da composição de Climatização.
+  // O valor deles VIRA o total do card; a composição (chillers/fancoils/bombas)
+  // é o breakdown aninhado, NÃO somado por cima (evita a dupla contagem). Ficam
+  // FORA de `climatizacaoItems` e das subcategorias por isso.
+  const climatizacaoParentItems = [];
   const elevadoresItems = [];
   const escadasRolantesItems = [];
   const outrosItems = [];
@@ -3800,24 +4192,79 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
 
   const toStr = (val) => String(val || '').toUpperCase();
 
-  for (const item of areacomum) {
+  // ============ RFC-0207 "DISPOSITIVOS ESPECÍFICOS" ============
+  // O breakdown historicamente só percorria `areacomum`, o que torna um device de
+  // ENTRADA estruturalmente invisível ao card de Climatização — mesmo quando ele
+  // é, fisicamente, climatização (Shopping da Ilha: o trafo "Medição Geral CAG"
+  // mede TODA a alimentação da CAG). `selectBreakdownItems` resolve isso sem
+  // mexer em `resolveGroup` (alocação única preservada, total de Entrada intacto):
+  //   - `include` → puxa o device de QUALQUER grupo e força a categoria dele;
+  //   - `exclude` → tira o device do breakdown INTEIRO (nunca cai em `outros`,
+  //     porque o motivo do exclude é dupla-medição — recontá-lo em outros seria
+  //     exatamente o bug que ele existe para evitar).
+  //
+  // Relação com `widgetSettings.excludeDevicesAtCountSubtotalCAG` (abaixo, na
+  // seção "FILTER EXCLUDED DEVICES FROM CAG"): são mecanismos DISTINTOS e ambos
+  // continuam valendo. Aquele é setting de WIDGET e atua tarde, só no SUBTOTAL da
+  // sub-subcategoria CAG (o device continua contando em `climatizacaoTotal`).
+  // Este é perfil de CLIENTE (persistido no JSON) e atua cedo, decidindo quais
+  // devices sequer entram no breakdown. Um device pode estar nos dois; o
+  // `exclude` do perfil vence por chegar primeiro.
+  const _selectBreakdownItems =
+    (typeof window !== 'undefined' &&
+      window.MyIOLibrary &&
+      window.MyIOLibrary.selectBreakdownItems) ||
+    null;
+  const _computeBaseGroupResidual =
+    (typeof window !== 'undefined' &&
+      window.MyIOLibrary &&
+      window.MyIOLibrary.computeBaseGroupResidual) ||
+    null;
+  const _breakdownEntries = _selectBreakdownItems
+    ? _selectBreakdownItems({ areacomum, entrada, lojas }, undefined, 'energy', {
+        baseGroup: 'areacomum',
+      })
+    : areacomum.map((item) => ({ item, forcedCategory: null, fromBaseGroup: true }));
+
+  // Itens que entraram no breakdown vindos de OUTRO grupo (include cross-group).
+  // Guardados por identidade porque `areacomumTotal` NÃO os contém: sem separar a
+  // origem, o residual de Área Comum (mais abaixo) ficaria negativo pelo valor
+  // exato do device puxado — e o clamp em 0 esconderia o erro. Ver
+  // `computeBaseGroupResidual`. Fica vazio quando não há override nenhum.
+  const _crossOriginItems = new Set();
+
+  for (const { item, forcedCategory, fromBaseGroup, isParent } of _breakdownEntries) {
+    // `=== false` de propósito: bundles antigos da lib não emitem o campo, e
+    // `undefined` deve significar "veio do grupo base" (comportamento de antes).
+    if (fromBaseGroup === false) _crossOriginItems.add(item);
+
     const lw = toStr(item.labelWidget);
-    const dt = toStr(item.deviceType);
     const dp = toStr(item.deviceProfile);
     const label = toStr(item.label);
     const id = toStr(item.identifier);
-    const combined = `${lw} ${dt} ${dp} ${label}`;
+    // deviceType em desuso (2026-07-14) — fora do texto combinado
+    const combined = `${lw} ${dp} ${label}`;
 
     // RFC-0207 (A1b → cleanup): top-level bucket is resolver-only (degrades to
     // 'outros' when the library is missing — logged once above). Identifier-prefix
     // and combined-text signals are now encoded in the resolver seed.
-    const _topCat = _resolveCategory ? _resolveCategory(item).category : 'outros';
+    // `forcedCategory` (Dispositivos Específicos) tem precedência: o operador
+    // declarou explicitamente onde o device agrega. A sub-subcategorização abaixo
+    // segue pelas regras de texto normais.
+    const _topCat = forcedCategory || (_resolveCategory ? _resolveCategory(item).category : 'outros');
 
     if (_topCat === 'elevadores') {
       elevadoresItems.push(item);
     } else if (_topCat === 'escadas_rolantes') {
       escadasRolantesItems.push(item);
     } else if (_topCat === 'climatizacao') {
+      // RFC-0207 "parent": o PAI da composição CONTÉM os filhos — o valor dele
+      // é o total do card e os filhos são só o breakdown aninhado. Não entra em
+      // climatizacaoItems (não infla o total) nem nas subcategorias.
+      if (isParent === true) {
+        climatizacaoParentItems.push(item);
+        continue;
+      }
       climatizacaoItems.push(item);
       if (combined.includes('CHILLER') || id.startsWith('CHILLER-')) chillerItems.push(item);
       else if (combined.includes('FANCOIL') || id.startsWith('FANCOIL-')) fancoilItems.push(item);
@@ -3845,6 +4292,13 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
   }
 
   // ============ FILTER EXCLUDED DEVICES FROM CAG ============
+  // NÃO confundir com os "Dispositivos Específicos" do perfil (RFC-0207, acima):
+  //   - AQUI: setting de WIDGET, escopo estreito — retira o device apenas do
+  //     SUBTOTAL da sub-subcategoria CAG. Ele continua dentro de
+  //     `climatizacaoItems`/`climatizacaoTotal` e dentro do breakdown.
+  //   - LÁ: perfil do CLIENTE (JSON persistido), escopo largo — `exclude` retira
+  //     o device do breakdown INTEIRO (não chega aqui) e `include` traz devices de
+  //     outros grupos. Os dois convivem; o do perfil age antes.
   const excludeIds = widgetSettings.excludeDevicesAtCountSubtotalCAG || [];
   const excludeIdsSet = new Set(excludeIds.map((id) => String(id).trim().toLowerCase()));
 
@@ -3863,13 +4317,43 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
   }
 
   // ============ CALCULATE SUB-TOTAIS (Usando o Helper) ============
-  const climatizacaoTotal = climatizacaoItems.reduce((sum, i) => sum + getValorEfetivo(i, 'climatizacao'), 0);
+  // RFC-0207 "parent": `climatizacaoItems` é a COMPOSIÇÃO (filhos auto-classificados,
+  // sempre no grupo base). Quando há um PAI declarado, o total do card passa a ser
+  // o valor do pai (ele CONTÉM os filhos), e os filhos viram só o breakdown aninhado
+  // — nunca somados por cima (a dupla contagem que o modo existe para evitar).
+  const _climatizacaoChildrenTotal = climatizacaoItems.reduce(
+    (sum, i) => sum + getValorEfetivo(i, 'climatizacao'),
+    0
+  );
+  const _climatizacaoParentTotal = climatizacaoParentItems.reduce(
+    (sum, i) => sum + getValorEfetivo(i, 'climatizacao'),
+    0
+  );
+  const _hasClimatizacaoParent = climatizacaoParentItems.length > 0;
+  const climatizacaoTotal = _hasClimatizacaoParent
+    ? _climatizacaoParentTotal
+    : _climatizacaoChildrenTotal;
   const elevadoresTotal = elevadoresItems.reduce((sum, i) => sum + getValorEfetivo(i, 'elevadores'), 0);
   const escadasRolantesTotal = escadasRolantesItems.reduce(
     (sum, i) => sum + getValorEfetivo(i, 'escadas_rolantes'),
     0
   );
   const outrosTotal = outrosItems.reduce((sum, i) => sum + getValorEfetivo(i, 'outros'), 0);
+
+  // RFC-0207 — parcela CROSS-GROUP de cada subtotal (devices puxados por um
+  // `include` de fora do grupo `areacomum`). Os totais acima seguem CHEIOS: é o
+  // que os cards exibem, e é o objetivo do recurso. Estas parcelas servem só para
+  // o cálculo do residual logo abaixo, que não pode descontar de `areacomumTotal`
+  // um valor que nunca esteve nele. Sem overrides, o Set é vazio e tudo dá 0 —
+  // aritmética byte-idêntica à de antes.
+  const _crossTotalOf = (items, grupo) =>
+    _crossOriginItems.size === 0
+      ? 0
+      : items.reduce((sum, i) => sum + (_crossOriginItems.has(i) ? getValorEfetivo(i, grupo) : 0), 0);
+  const climatizacaoCrossTotal = _crossTotalOf(climatizacaoItems, 'climatizacao');
+  const elevadoresCrossTotal = _crossTotalOf(elevadoresItems, 'elevadores');
+  const escadasRolantesCrossTotal = _crossTotalOf(escadasRolantesItems, 'escadas_rolantes');
+  const outrosCrossTotal = _crossTotalOf(outrosItems, 'outros');
 
   // Climatizacao subcategories totals (O Helper usa 'climatizacao' para herdar a regra do pai)
   const chillerTotal = chillerItems.reduce((sum, i) => sum + getValorEfetivo(i, 'climatizacao'), 0);
@@ -3894,12 +4378,77 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
     const _exclGroups = _excludeGroupsTotals.groups || {};
     const _lojasEff = _exclGroups.lojas ? 0 : lojasTotal;
     const _entradaEff = _exclGroups.entrada ? 0 : entradaTotal;
-    const _climatizacaoEff = _exclGroups.climatizacao ? 0 : climatizacaoTotal;
+    // RFC-0207 "parent": ao reconstruir a Área Comum efetiva, a parcela de
+    // climatização que REALMENTE mora em `areacomum` é a dos FILHOS (a composição),
+    // não a do pai — o pai é cross-group (mora em Entrada) e somá-lo aqui dobraria
+    // com `_entradaEff`. Sem pai, usa `climatizacaoTotal` cheio (include/normal
+    // seguem byte-idênticos: o quirk cross-group do include é pré-existente).
+    const _climatizacaoAreacomumPortion = _hasClimatizacaoParent
+      ? Math.max(0, _climatizacaoChildrenTotal - climatizacaoCrossTotal)
+      : climatizacaoTotal;
+    const _climatizacaoEff = _exclGroups.climatizacao ? 0 : _climatizacaoAreacomumPortion;
     const _elevadoresEff = _exclGroups.elevadores ? 0 : elevadoresTotal;
     const _escadasEff = _exclGroups.escadas_rolantes ? 0 : escadasRolantesTotal;
     const _outrosEff = _exclGroups.outros ? 0 : outrosTotal;
-    const _areacomumSubtot = climatizacaoTotal + elevadoresTotal + escadasRolantesTotal + outrosTotal;
-    const _areacomumResidual = Math.max(0, areacomumTotal - _areacomumSubtot);
+    // RFC-0207 — o residual desconta APENAS a parcela de cada subtotal que veio
+    // do próprio grupo `areacomum`. Descontar o subtotal cheio jogaria o residual
+    // negativo pelo valor exato de cada device puxado por um `include`
+    // cross-group (que vive em outro grupo e nunca esteve em `areacomumTotal`),
+    // e o clamp em 0 mascararia. Sem overrides, cross = 0 e a conta é a de antes.
+    const _residualCalc = _computeBaseGroupResidual
+      ? _computeBaseGroupResidual(areacomumTotal, [
+          // RFC-0207 "parent": o card mostra o valor do PAI (cross-group), mas o
+          // residual só pode descontar de `areacomumTotal` os FILHOS que de fato
+          // estão nele. `baseGroupContribution` = soma dos filhos de origem-base;
+          // o pai entra em crossGroupTotal (informativo, nunca descontado). Assim
+          // nem o pai (336.600) nem os filhos (326.973) são descontados duas vezes:
+          // só os filhos, uma vez. Sem pai, o campo fica ausente e a conta é a de
+          // antes (total − crossGroupTotal).
+          _hasClimatizacaoParent
+            ? {
+                category: 'climatizacao',
+                total: climatizacaoTotal,
+                crossGroupTotal: _climatizacaoParentTotal,
+                baseGroupContribution: Math.max(0, _climatizacaoChildrenTotal - climatizacaoCrossTotal),
+              }
+            : { category: 'climatizacao', total: climatizacaoTotal, crossGroupTotal: climatizacaoCrossTotal },
+          { category: 'elevadores', total: elevadoresTotal, crossGroupTotal: elevadoresCrossTotal },
+          {
+            category: 'escadas_rolantes',
+            total: escadasRolantesTotal,
+            crossGroupTotal: escadasRolantesCrossTotal,
+          },
+          { category: 'outros', total: outrosTotal, crossGroupTotal: outrosCrossTotal },
+        ])
+      : (() => {
+          // Sem a lib no bundle não existe `selectBreakdownItems`, logo não existe
+          // include cross-group — as duas fórmulas coincidem.
+          const raw =
+            areacomumTotal -
+            (climatizacaoTotal + elevadoresTotal + escadasRolantesTotal + outrosTotal);
+          return { residualRaw: raw, residual: Math.max(0, raw), negative: raw < 0 };
+        })();
+    const _areacomumResidual = _residualCalc.residual;
+
+    // Um residual negativo AGORA significa problema real de dado/configuração
+    // (soma dos subtotais maior que o total do grupo), não artefato do recurso.
+    // Não pode ficar invisível atrás do clamp. Uma vez por sessão.
+    if (_residualCalc.negative && !_warnedNegativeAreacomumResidual) {
+      _warnedNegativeAreacomumResidual = true;
+      LogHelper.warn(
+        '[RFC-0207] Residual de Área Comum NEGATIVO (clampado em 0) — soma dos subtotais excede o total do grupo areacomum:',
+        {
+          areacomumTotal,
+          residualRaw: _residualCalc.residualRaw,
+          subtotalFromBaseGroup: _residualCalc.subtotalFromBaseGroup,
+          subtotalCrossGroup: _residualCalc.subtotalCrossGroup,
+          climatizacaoTotal,
+          elevadoresTotal,
+          escadasRolantesTotal,
+          outrosTotal,
+        }
+      );
+    }
     const _residualEff = _exclGroups.area_comum ? 0 : _areacomumResidual;
     const _areacomumEff = _climatizacaoEff + _elevadoresEff + _escadasEff + _outrosEff + _residualEff;
 
@@ -3962,13 +4511,26 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
     lojas: buildCategorySummary(lojas, lojasTotal, 'Lojas'),
     climatizacao: {
       ...buildCategorySummary(climatizacaoItems, climatizacaoTotal, 'Climatização'),
+      // RFC-0207 "parent": devices que HEADAM a composição (o total do card é o
+      // valor deles; a composição abaixo é o breakdown aninhado). Vazio quando não
+      // há pai — nesse caso o TELEMETRY_INFO renderiza a composição plana, como antes.
+      parents: climatizacaoParentItems.map((i) => ({
+        id: i.id,
+        label: i.label || i.name || i.identifier || i.id,
+        total: getValorEfetivo(i, 'climatizacao'),
+      })),
       subcategories: {
         chillers: buildCategorySummary(chillerItems, chillerTotal, 'Chillers'),
         fancoils: buildCategorySummary(fancoilItems, fancoilTotal, 'Fancoils'),
-        bombasHidraulicas: buildCategorySummary(
+        // Rótulo genérico "Bombas": após o fix da classificação (bomba hidráulica de
+        // recalque saiu de climatização → 'outros'), este balde só recebe bombas de
+        // climatização de fato (BOMBA_CAG/secundária/primária, que casam por 'BOMBA'
+        // no texto e ficam em climatização via identifier CAG). Chamar de "Bombas
+        // Hidráulicas" ficou enganoso — são bombas do sistema de água gelada.
+        bombasClimatizacao: buildCategorySummary(
           bombaHidraulicaItems,
           bombaHidraulicaTotal,
-          'Bombas Hidráulicas'
+          'Bombas'
         ),
         cag: buildCategorySummary(cagItemsFiltered, cagTotal, 'CAG'),
         hvacOutros: buildCategorySummary(hvacOutrosItems, hvacOutrosTotal, 'Outros HVAC'),
@@ -4213,6 +4775,11 @@ function buildSummaryWater(entrada, lojas, banheiros, areacomum, periodKey) {
         label: i.label || i.name,
         value: i.value,
         deviceStatus: i.deviceStatus,
+        // RFC-0106: o TELEMETRY_INFO extrai banheiros da área comum por
+        // deviceProfile + identifier — sem estes campos a extração nunca dispara
+        // e o KPI "Banheiros" fica 0 (bug observado no Moxuara, 2026-07-09)
+        identifier: i.identifier || '',
+        deviceProfile: i.deviceProfile || '',
       })),
       name: name,
     },
@@ -4510,25 +5077,49 @@ const MyIOOrchestrator = (() => {
   // RFC-0137: Using LoadingSpinner component instead of custom busy overlay
   const BUSY_OVERLAY_ID = 'myio-orchestrator-busy-overlay'; // Kept for backwards compatibility
 
-  // RFC-0137: LoadingSpinner instance (lazy initialized)
-  let _loadingSpinnerInstance = null;
+  // BUGFIX BUSY-RACE: o estado do busy é um SINGLETON em window. Este módulo pode
+  // ser avaliado mais de uma vez (widget duplicado entre estados TB) e cada avaliação
+  // tinha seu próprio contador activeRequests + instância de spinner sobre o MESMO
+  // DOM compartilhado — o hideGlobalBusy de uma instância (contador zerado) matava o
+  // overlay da outra com fetch em voo, deixando a tela em branco até o provide-data.
+  const _busyCtl = (window.__myioBusyCtl = window.__myioBusyCtl || {
+    spinner: null,
+    state: {
+      isVisible: false,
+      timeoutId: null,
+      startTime: null,
+      currentDomain: null,
+      requestCount: 0,
+    },
+    activeRequests: new Map(),
+    lastProvide: new Map(),
+    pendingHideId: null,
+  });
 
   /**
    * RFC-0137: Get or create LoadingSpinner instance
    * Uses MyIOLibrary.createLoadingSpinner if available, falls back to legacy overlay
    */
   function getLoadingSpinner() {
-    if (_loadingSpinnerInstance) return _loadingSpinnerInstance;
+    if (_busyCtl.spinner) return _busyCtl.spinner;
 
     // Try to use new LoadingSpinner from myio-js-library
     const MyIOLibrary = window.MyIOLibrary;
     if (MyIOLibrary && typeof MyIOLibrary.createLoadingSpinner === 'function') {
-      _loadingSpinnerInstance = MyIOLibrary.createLoadingSpinner({
+      _busyCtl.spinner = MyIOLibrary.createLoadingSpinner({
         minDisplayTime: 800, // Minimum 800ms to avoid flash
-        maxTimeout: 25000, // 25 seconds max (matches existing timeout)
+        // BUGFIX BUSY-RACE: 60s de teto (era 25s). É rede de segurança contra estado
+        // travado, não o esconderijo normal — cargas reais (Moxuara ~35s) estouravam
+        // os 25s e o spinner sumia com a tela ainda em branco. showGlobalBusy re-arma
+        // este timer a cada novo request via spinner.show().
+        maxTimeout: 60000,
         message: 'Carregando dados...',
         spinnerType: 'double',
         theme: 'dark',
+        // accent segue a paleta do dashboard (o componente lê --myio-brand-700,
+        // setado no documentElement pelo MAIN_VIEW). showProgress = barra sob a
+        // mensagem (indeterminada; setProgress p/ % quando houver etapas).
+        showProgress: true,
         showTimer: false, // Set to true for debugging
         onTimeout: () => {
           LogHelper.warn('[Orchestrator] RFC-0137: LoadingSpinner max timeout reached');
@@ -4551,20 +5142,16 @@ const MyIOOrchestrator = (() => {
       );
     }
 
-    return _loadingSpinnerInstance;
+    return _busyCtl.spinner;
   }
 
-  let globalBusyState = {
-    isVisible: false,
-    timeoutId: null,
-    startTime: null,
-    currentDomain: null,
-    requestCount: 0,
-  };
+  // BUGFIX BUSY-RACE: aliases do singleton — todas as avaliações do módulo
+  // enxergam e mutam o MESMO estado (contadores, cooldown, hide pendente).
+  const globalBusyState = _busyCtl.state;
 
   // RFC-0054: contador por domínio e cooldown pós-provide
-  const activeRequests = new Map(); // domain -> count
-  const lastProvide = new Map(); // domain -> { periodKey, at }
+  const activeRequests = _busyCtl.activeRequests; // domain -> count
+  const lastProvide = _busyCtl.lastProvide; // domain -> { periodKey, at }
 
   function getActiveTotal() {
     let total = 0;
@@ -4594,7 +5181,7 @@ const MyIOOrchestrator = (() => {
     align-items: center;
     justify-content: center;
     z-index: 99999;
-    font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;
+    font-family: 'Nunito', system-ui, sans-serif;
   `;
 
     const container = document.createElement('div');
@@ -5017,12 +5604,22 @@ const MyIOOrchestrator = (() => {
       `[Orchestrator] 📊 Active requests for ${domain}: ${prev + 1} (totalBefore=${totalBefore})`
     );
 
+    // BUGFIX BUSY-RACE: um request novo invalida qualquer hide atrasado agendado.
+    // Sem isso, o performHide de 2s (RFC-0137 "Dados carregados!") de um hide anterior
+    // disparava DEPOIS deste show e matava o overlay com o fetch em pleno voo —
+    // tela em branco até o provide-data chegar (bug relatado no Moxuara).
+    if (_busyCtl.pendingHideId) {
+      clearTimeout(_busyCtl.pendingHideId);
+      _busyCtl.pendingHideId = null;
+      LogHelper.log(`[Orchestrator] ⏹️ Pending delayed hide cancelled by new request (${domain})`);
+    }
+
     // RFC-0137: Try to use new LoadingSpinner component
     const spinner = getLoadingSpinner();
 
     if (spinner) {
       // Use new LoadingSpinner component
-      if (totalBefore === 0) {
+      if (totalBefore === 0 && !spinner.isShowing()) {
         globalBusyState.isVisible = true;
         globalBusyState.currentDomain = domain;
         globalBusyState.startTime = Date.now();
@@ -5031,10 +5628,16 @@ const MyIOOrchestrator = (() => {
         // Show spinner with Portuguese message
         spinner.show(message || 'Carregando dados...');
         LogHelper.log(`[Orchestrator] 🔄 RFC-0137: LoadingSpinner shown for ${domain}`);
-      } else if (!options.silent) {
-        // Update message if already showing (skip if silent — used for pre-registration)
-        spinner.updateMessage(message || 'Carregando dados...');
-        LogHelper.log(`[Orchestrator] 🔄 RFC-0137: LoadingSpinner message updated (already showing)`);
+      } else {
+        // BUGFIX BUSY-RACE: spinner.show() num spinner já visível NÃO pisca — só
+        // re-arma o maxTimeout (atividade nova = mais tempo de rede de segurança)
+        // e atualiza a mensagem. updateMessage sozinho deixava o timer do primeiro
+        // show() estourar no meio de cargas longas.
+        globalBusyState.isVisible = true;
+        spinner.show(options.silent ? undefined : message || 'Carregando dados...');
+        if (!options.silent) {
+          LogHelper.log(`[Orchestrator] 🔄 RFC-0137: LoadingSpinner refreshed (already showing)`);
+        }
       }
     } else {
       // Fallback to legacy busy overlay
@@ -5099,8 +5702,7 @@ const MyIOOrchestrator = (() => {
     }
   }
 
-  // RFC-0137: Track pending hide timeout for delayed hide
-  let _pendingHideTimeoutId = null;
+  // RFC-0137: Pending hide timeout for delayed hide — vive no singleton (_busyCtl.pendingHideId)
 
   function hideGlobalBusy(domain = null, options = {}) {
     // RFC-0137: Options for controlling hide behavior
@@ -5109,6 +5711,13 @@ const MyIOOrchestrator = (() => {
     // RFC-0054: decremento por domínio; se domain for nulo, força limpeza
     if (domain) {
       const prev = activeRequests.get(domain) || 0;
+      // BUGFIX BUSY-RACE: hide sem show correspondente (contador já em 0) com o
+      // overlay fechado é no-op — antes ele agendava um performHide atrasado que
+      // matava o overlay de um show subsequente (ex.: myio:dashboard-state inicial).
+      if (prev === 0 && !globalBusyState.isVisible && getActiveTotal() === 0) {
+        LogHelper.log(`[Orchestrator] ⏭️ hideGlobalBusy(${domain}) ignorado — nada ativo/visível`);
+        return;
+      }
       const next = Math.max(0, prev - 1);
       activeRequests.set(domain, next);
       LogHelper.log(
@@ -5138,9 +5747,9 @@ const MyIOOrchestrator = (() => {
     }
 
     // Clear any pending hide timeout
-    if (_pendingHideTimeoutId) {
-      clearTimeout(_pendingHideTimeoutId);
-      _pendingHideTimeoutId = null;
+    if (_busyCtl.pendingHideId) {
+      clearTimeout(_busyCtl.pendingHideId);
+      _busyCtl.pendingHideId = null;
     }
 
     // RFC-0137: Use LoadingSpinner if available
@@ -5185,9 +5794,15 @@ const MyIOOrchestrator = (() => {
         );
       }
 
-      _pendingHideTimeoutId = setTimeout(() => {
+      _busyCtl.pendingHideId = setTimeout(() => {
+        // BUGFIX BUSY-RACE: se um request novo chegou durante o delay, aborta o hide
+        if (getActiveTotal() > 0) {
+          LogHelper.log('[Orchestrator] ⏹️ Delayed hide abortado — requests ativos novamente');
+          _busyCtl.pendingHideId = null;
+          return;
+        }
         performHide();
-        _pendingHideTimeoutId = null;
+        _busyCtl.pendingHideId = null;
       }, SPINNER_HIDE_DELAY_MS);
     }
   }
@@ -5207,7 +5822,7 @@ const MyIOOrchestrator = (() => {
     font-weight: 500;
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     z-index: 999999;
-    font-family: Inter, system-ui, sans-serif;
+    font-family: 'Nunito', system-ui, sans-serif;
   `;
     notification.textContent = 'Dados recarregados automaticamente';
     document.body.appendChild(notification);
@@ -5234,7 +5849,11 @@ const MyIOOrchestrator = (() => {
   // Config will be initialized in onInit() after widgetSettings are populated
   let config = null;
 
-  let visibleTab = 'energy';
+  // RFC-0152c: starts as null (NOT 'energy') — the auto-triggers of RFC-0130
+  // ("skip if no tab visible yet") rely on getVisibleTab() returning empty until
+  // MENU/dashboard-state sets it. The old 'energy' default made the 500ms
+  // auto-trigger start an energy retry loop on water-only dashboards.
+  let visibleTab = null;
   let currentPeriod = null;
   let CUSTOMER_ING_ID = '';
   let CLIENT_ID = '';
@@ -5363,6 +5982,12 @@ const MyIOOrchestrator = (() => {
    * @param {object} providedPeriod - Period object (optional)
    */
   async function requestDataWithRetry(domain, providedPeriod = null) {
+    // RFC-0152c: skip disabled domains entirely (same guard as request-data listener)
+    if (widgetSettings?.domainsEnabled && widgetSettings.domainsEnabled[domain] === false) {
+      LogHelper.log(`[Orchestrator] ⏭️ Domain ${domain} disabled (domainsEnabled) — skipping retry`);
+      return;
+    }
+
     // Prevent duplicate retry loops for same domain
     if (pendingRetries.has(domain)) {
       LogHelper.log(`[Orchestrator] ⏭️ Retry already in progress for ${domain}`);
@@ -5472,7 +6097,8 @@ const MyIOOrchestrator = (() => {
     // RFC-0110 v5: Use library's calculateDeviceStatus if available
     if (lib?.calculateDeviceStatus) {
       // RFC-0130: Get delay based on device profile (stores=60d, equipment=24h, water=48h, temp=24h)
-      const deviceProfile = options.deviceProfile || options.deviceType || '';
+      // deviceType em desuso — profile apenas
+      const deviceProfile = options.deviceProfile || '';
       const delayMins = window.MyIOUtils?.getDelayTimeConnectionInMins?.(deviceProfile);
       const shortDelayMins = SHORT_DELAY_IN_MINS_TO_BYPASS_OFFLINE_STATUS;
       const isDebugDevice = deviceName.includes('HIDR. SCMP110A') || deviceName.includes('HIDR. SCMP110A');
@@ -5635,7 +6261,8 @@ const MyIOOrchestrator = (() => {
     let debugLabel = meta.label || meta.identifier || overrides.label || '';
 
     // RFC-0110 v5: Determine domain and telemetry timestamp for device status calculation
-    const effectiveDeviceType = (meta.deviceProfile || meta.deviceType || '').toLowerCase();
+    // deviceType em desuso (2026-07-14) — domínio sai SÓ do deviceProfile
+    const effectiveDeviceType = (meta.deviceProfile || '').toLowerCase();
     const isWaterDevice =
       effectiveDeviceType.includes('hidrometro') ||
       effectiveDeviceType.includes('water') ||
@@ -5656,8 +6283,8 @@ const MyIOOrchestrator = (() => {
           : meta.consumptionTs);
 
     // RFC-0109 + RFC-0110 v5: Calculate deviceStatus with telemetry timestamp and lastActivityTime fallback
-    // RFC-0130: Pass deviceProfile for delay time calculation
-    const deviceProfile = meta.deviceProfile || meta.deviceType || '';
+    // RFC-0130: Pass deviceProfile for delay time calculation (deviceType em desuso)
+    const deviceProfile = meta.deviceProfile || '';
     let deviceStatus = convertConnectionStatusToDeviceStatus(meta.connectionStatus, debugLabel, {
       domain: domain,
       deviceProfile: deviceProfile,
@@ -5696,8 +6323,9 @@ const MyIOOrchestrator = (() => {
       const limitsToUse = deviceMapLimits || customerLimits;
 
       if (limitsToUse) {
-        const deviceTypeForRanges = meta.deviceProfile || meta.deviceType || '3F_MEDIDOR';
-        const ranges = extractLimitsFromJSON(limitsToUse, deviceTypeForRanges, 'consumption');
+        // deviceType em desuso — a chave do mapInstantaneousPower é o profile
+        const profileForRanges = meta.deviceProfile || '3F_MEDIDOR';
+        const ranges = extractLimitsFromJSON(limitsToUse, profileForRanges, 'consumption');
 
         if (ranges && typeof window.MyIOLibrary?.calculateDeviceStatusWithRanges === 'function') {
           const delayMins = window.MyIOUtils?.getDelayTimeConnectionInMins?.(deviceProfile) ?? 1440;
@@ -5754,10 +6382,10 @@ const MyIOOrchestrator = (() => {
       entityLabel: meta.label || meta.identifier || '',
       name: meta.label || meta.identifier || '',
 
-      // Device classification
-      deviceType: meta.deviceType || '',
+      // Device classification — deviceType em desuso; campos legados preenchidos do profile
+      deviceType: meta.deviceProfile || '',
       deviceProfile: meta.deviceProfile || '',
-      effectiveDeviceType: meta.deviceProfile || meta.deviceType || null,
+      effectiveDeviceType: meta.deviceProfile || null,
 
       // Status (RFC-0109 + RFC-0110)
       deviceStatus: deviceStatus,
@@ -6389,7 +7017,8 @@ const MyIOOrchestrator = (() => {
                 name: meta.label || meta.identifier || 'Sensor',
                 value: temperatureValue, // RFC-0189: API last value when enabled, else ctx.data
                 temperature: temperatureValue,
-                deviceType: meta.deviceType || 'TERMOSTATO',
+                // deviceType em desuso — campo legado preenchido do profile
+                deviceType: meta.deviceProfile || 'TERMOSTATO',
                 offSetTemperature: tempOffset,
                 lastTelemetryTs, // RFC-0189 + RFC-0188: null when API disabled/unavailable (graceful fallback)
               },
@@ -6456,52 +7085,43 @@ const MyIOOrchestrator = (() => {
       let tankItems = [];
       let hidrometroItems = [];
       if (domain === 'water' && metadataByEntityId.size > 0) {
-        // DEBUG: Log all water device types
-        const waterDeviceTypes = [];
+        // DEBUG: Log all water device profiles (deviceType em desuso)
+        const waterDeviceProfiles = [];
         for (const [, meta] of metadataByEntityId.entries()) {
-          waterDeviceTypes.push(meta.deviceType || 'N/A');
+          waterDeviceProfiles.push(meta.deviceProfile || 'N/A');
         }
-        LogHelper.log(`[Orchestrator] 🔍 DEBUG Water device types: ${waterDeviceTypes.join(', ')}`);
+        LogHelper.log(`[Orchestrator] 🔍 DEBUG Water device profiles: ${waterDeviceProfiles.join(', ')}`);
 
         for (const [entityId, meta] of metadataByEntityId.entries()) {
-          const deviceType = String(meta.deviceType || '').toUpperCase();
+          // deviceType está EM DESUSO (2026-07-14) — deviceProfile é a única
+          // autoridade (ex.: "Entrada Sanasa" tinha deviceType=ENTRADA mas
+          // deviceProfile=HIDROMETRO_SHOPPING — é hidrômetro, não tank).
           const deviceProfile = String(meta.deviceProfile || '').toUpperCase();
-          // RFC-0107: Detect tank devices by:
-          // 1. deviceType = TANK or CAIXA_DAGUA
-          // 2. OR has water_level/water_percentage data (even without deviceType)
-          // BUT EXCLUDE hidrometers (devices with pulses data or HIDROMETRO deviceType)
+          // RFC-0107: Detect tank devices by profile TANK/CAIXA_DAGUA
+          // OR water_level/water_percentage data; hidrometers by profile.
           const hasWaterLevelData = meta.waterLevel !== undefined || meta.waterPercentage !== undefined;
-          // deviceProfile is authoritative when present; deviceType is only a fallback.
-          // (e.g. "Entrada Sanasa" has deviceType=ENTRADA but deviceProfile=HIDROMETRO_SHOPPING —
-          //  it is a water meter, not a tank.)
-          const isTankByType = deviceProfile
-            ? deviceProfile === 'TANK' || deviceProfile === 'CAIXA_DAGUA'
-            : deviceType === 'TANK' || deviceType === 'CAIXA_DAGUA';
-          const isHidrometer = deviceProfile
-            ? deviceProfile.includes('HIDROMETRO')
-            : deviceType.includes('HIDROMETRO');
+          const isTankByType = deviceProfile === 'TANK' || deviceProfile === 'CAIXA_DAGUA';
+          const isHidrometer = deviceProfile.includes('HIDROMETRO');
 
           // RFC-0107: Build HIDROMETRO items from ctx.data
-          // Categorization based on deviceType AND deviceProfile:
+          // Categorization based on deviceProfile:
           // - HIDROMETRO_SHOPPING → Entrada (main water meter)
           // - HIDROMETRO_AREA_COMUM → Área Comum (common area meters)
-          // - HIDROMETRO with profile = HIDROMETRO or empty → Lojas (store meters)
+          // - HIDROMETRO (or empty) → Lojas (store meters)
           if (isHidrometer) {
             const pulses = Number(meta.pulses || 0);
-            const dp = (deviceProfile || '').toUpperCase();
-            const dt = deviceType.toUpperCase();
 
-            // Determine labelWidget based on deviceType and deviceProfile
+            // Determine labelWidget based on deviceProfile
             let labelWidget = 'Lojas'; // Default: store meters
             let isEntradaDevice = false;
 
-            if (dt === 'HIDROMETRO_SHOPPING' || dp === 'HIDROMETRO_SHOPPING') {
+            if (deviceProfile === 'HIDROMETRO_SHOPPING') {
               labelWidget = 'Entrada';
               isEntradaDevice = true;
-            } else if (dt === 'HIDROMETRO_AREA_COMUM' || dp === 'HIDROMETRO_AREA_COMUM') {
+            } else if (deviceProfile === 'HIDROMETRO_AREA_COMUM') {
               labelWidget = 'Área Comum';
             }
-            // else: HIDROMETRO with profile = HIDROMETRO or empty → Lojas
+            // else: profile HIDROMETRO → Lojas
 
             // RFC-0111: Use centralized factory
             hidrometroItems.push(
@@ -6514,9 +7134,9 @@ const MyIOOrchestrator = (() => {
                   name: meta.label || meta.identifier || 'Hidrômetro',
                   value: 0, // RFC-0108 FIX: Use 0 as placeholder - real value comes from API enrichment
                   pulses: pulses,
-                  deviceType: deviceType,
-                  deviceProfile: deviceProfile || deviceType,
-                  effectiveDeviceType: deviceProfile || deviceType,
+                  deviceType: deviceProfile, // campo legado (em desuso) — preenchido do profile
+                  deviceProfile: deviceProfile,
+                  effectiveDeviceType: deviceProfile,
                   labelWidget: labelWidget,
                   groupLabel: labelWidget,
                   _isHidrometerDevice: isEntradaDevice,
@@ -6542,9 +7162,9 @@ const MyIOOrchestrator = (() => {
                   value: waterLevel,
                   waterLevel: waterLevel,
                   waterPercentage: waterPercentage,
-                  deviceType: deviceType || 'TANK',
-                  deviceProfile: meta.deviceProfile || deviceType || 'TANK',
-                  effectiveDeviceType: meta.deviceProfile || deviceType || 'TANK',
+                  deviceType: deviceProfile || 'TANK', // campo legado (em desuso)
+                  deviceProfile: deviceProfile || 'TANK',
+                  effectiveDeviceType: deviceProfile || 'TANK',
                   labelWidget: "Caixa D'Água",
                   groupLabel: "Caixa D'Água",
                   _isTankDevice: true,
@@ -6824,21 +7444,15 @@ const MyIOOrchestrator = (() => {
           unmatchedCount++;
         }
 
-        // Use metadata from ThingsBoard datasource (ctx.data) - NO FALLBACKS for deviceType
-        const rawDeviceType = meta.deviceType || null;
+        // deviceType está EM DESUSO (2026-07-14) — deviceProfile é a única
+        // autoridade; a antiga "MASTER RULE" de coerção deviceType→profile morreu.
         const deviceProfile = meta.deviceProfile || null;
 
-        // MASTER RULE for deviceType:
-        // - If deviceType = deviceProfile = '3F_MEDIDOR' → keep as '3F_MEDIDOR' (it's a loja)
-        // - If deviceType = '3F_MEDIDOR' AND deviceProfile != '3F_MEDIDOR' → force deviceType = deviceProfile
-        let deviceType = rawDeviceType;
-        if (rawDeviceType === '3F_MEDIDOR' && deviceProfile && deviceProfile !== '3F_MEDIDOR') {
-          deviceType = deviceProfile;
-        }
-
-        // Skip items with deviceType = domain (placeholder)
-        const dt = (deviceType || '').toLowerCase();
-        if (dt === domainLower) {
+        // Skip placeholder rows do datasource (profile — ou, em rows legadas sem
+        // profile, o deviceType bruto — igual ao nome do domínio). Filtro de lixo
+        // de datasource, não classificação.
+        const placeholderBasis = (deviceProfile || meta.deviceType || '').toLowerCase();
+        if (placeholderBasis === domainLower) {
           continue;
         }
 
@@ -6857,9 +7471,8 @@ const MyIOOrchestrator = (() => {
         const label = labelClean || entityNameClean || 'SEM ETIQUETA';
         const name = apiRow?.name || entityNameClean || '';
 
-        // Infer labelWidget from deviceType/deviceProfile
+        // Infer labelWidget from deviceProfile (deviceType em desuso)
         const labelWidget = inferLabelWidget({
-          deviceType: deviceType,
           deviceProfile: deviceProfile,
           identifier: identifier,
           name: name,
@@ -6880,9 +7493,9 @@ const MyIOOrchestrator = (() => {
               name: name,
               value: getValueFromRow(apiRow),
               perc: 0,
-              deviceType: deviceType,
+              deviceType: deviceProfile || '', // campo legado (em desuso) — preenchido do profile
               deviceProfile: deviceProfile,
-              effectiveDeviceType: deviceProfile || deviceType || null,
+              effectiveDeviceType: deviceProfile || null,
               // API-specific fields
               gatewayId: apiRow?.gatewayId || null,
               customerId: apiRow?.customerId || null,
@@ -6995,6 +7608,17 @@ const MyIOOrchestrator = (() => {
     }
   }
 
+  // Guard por domínio: hidrações concorrentes com períodos diferentes não são
+  // coalescidas (keys distintas) e a que TERMINA por último vencia a UI, mesmo
+  // sendo a requisição mais antiga (ex.: Aplicar junho durante a hidração
+  // inicial de julho → julho terminava depois e sobrescrevia junho). Um
+  // resultado só é emitido se o SEU período ainda for o último solicitado.
+  // A comparação é por periodKey (não por seq): o handler de myio:update-date
+  // limpa o inFlight e redispara o MESMO período no boot, e uma run idêntica
+  // re-solicitada não pode invalidar a anterior (emitir 2× é inócuo — o
+  // emitProvide já suprime duplicatas).
+  const hydrateLatestKey = new Map(); // domain -> periodKey da hidração mais recente solicitada
+
   // Fetch data for a domain and period
   // RFC-0138: Added options.force to bypass cooldown when switching domains via MENU
   async function hydrateDomain(domain, period, options = {}) {
@@ -7007,6 +7631,10 @@ const MyIOOrchestrator = (() => {
       inFlight: inFlight.has(key),
       force,
     });
+
+    // Toda solicitação (coalescida ou não) marca seu período como o mais
+    // recente do domínio — runs de períodos anteriores perdem o direito de emitir.
+    hydrateLatestKey.set(domain, key);
 
     // Coalesce duplicate requests
     if (inFlight.has(key)) {
@@ -7024,6 +7652,16 @@ const MyIOOrchestrator = (() => {
     const fetchPromise = (async () => {
       try {
         const items = await fetchAndEnrich(domain, period);
+
+        // Guard: se um período DIFERENTE foi solicitado enquanto esta run
+        // rodava, o resultado é obsoleto — não emitir para não sobrescrever a
+        // UI com o período antigo. Mesmo período re-solicitado → pode emitir.
+        if (hydrateLatestKey.get(domain) !== key) {
+          LogHelper.warn(
+            `[Orchestrator] ⏭️ Stale hydration for ${domain} (${key}) — newer period requested; skipping emit`
+          );
+          return items;
+        }
 
         emitHydrated(domain, key, items.length);
 
@@ -7333,9 +7971,29 @@ const MyIOOrchestrator = (() => {
     }, 50); // 50ms delay to ensure listener is ready
   });
 
+  // RFC-0152c: first enabled domain (same derivation as _initialTab in onInit).
+  // Used when myio:update-date arrives but myio:dashboard-state was never seen
+  // (listener-registration race) — hydrating the WRONG default domain caused
+  // "Erro ao carregar dados (energy)" on water-only dashboards while the real
+  // domain never loaded.
+  function firstEnabledDomain() {
+    const de = widgetSettings?.domainsEnabled || {};
+    if (de.energy !== false) return 'energy';
+    if (de.water !== false) return 'water';
+    if (de.temperature !== false) return 'temperature';
+    return 'energy';
+  }
+
   // Event listeners
   window.addEventListener('myio:update-date', (ev) => {
     LogHelper.log('[Orchestrator] 📅 Received myio:update-date event', ev.detail);
+
+    // RFC-0152c: if no dashboard-state ever set the tab, derive it from
+    // domainsEnabled so "Carregar" hydrates the right domain instead of skipping.
+    if (!visibleTab) {
+      visibleTab = firstEnabledDomain();
+      LogHelper.log(`[Orchestrator] RFC-0152c: visibleTab was unset — derived from domainsEnabled: ${visibleTab}`);
+    }
 
     // RFC-0130: Check if period changed - if so, clear cache for this domain
     const newPeriod = ev.detail.period;
@@ -7403,6 +8061,14 @@ const MyIOOrchestrator = (() => {
       visibleTab = 'alarm';
       LogHelper.log('[Orchestrator] 🔔 myio:dashboard-state → alarm view activated');
       window.dispatchEvent(new CustomEvent('myio:alarm-content-activated'));
+      return;
+    }
+
+    // RFC-0152c: never accept a DISABLED domain as the visible tab — a stray
+    // dashboard-state (e.g. HEADER's old auto-select 'energy') would poison
+    // visibleTab and every subsequent Carregar would hydrate the wrong domain.
+    if (widgetSettings?.domainsEnabled && widgetSettings.domainsEnabled[tab] === false) {
+      LogHelper.warn(`[Orchestrator] ⏭️ RFC-0152c: dashboard-state ignorado — domínio ${tab} desabilitado`);
       return;
     }
 
@@ -7636,6 +8302,9 @@ const MyIOOrchestrator = (() => {
       visibleTab = tab;
     },
     getVisibleTab: () => visibleTab,
+    // RFC-0152c: exposed so HEADER's auto-select derives the right domain on
+    // water-only/temperature-only dashboards instead of hardcoding 'energy'.
+    getFirstEnabledDomain: firstEnabledDomain,
     getCurrentPeriod: () => currentPeriod,
     getStats: () => ({
       totalRequests: metrics.totalRequests,
@@ -7745,10 +8414,9 @@ const MyIOOrchestrator = (() => {
         const value = Number(item.value) || Number(item.consumption) || 0;
         customerTotal += value;
 
-        // Check if it's a store device (both deviceType AND deviceProfile are '3F_MEDIDOR')
+        // Check if it's a store device — deviceProfile apenas (deviceType em desuso)
         const deviceProfile = String(item.deviceProfile || '').toUpperCase();
-        const deviceType = String(item.deviceType || '').toUpperCase();
-        const isStore = deviceProfile === '3F_MEDIDOR' && deviceType === '3F_MEDIDOR';
+        const isStore = deviceProfile.startsWith('3F_MEDIDOR');
 
         if (isStore) {
           lojasTotal += value;
@@ -7781,6 +8449,18 @@ const MyIOOrchestrator = (() => {
         })
       );
     },
+
+    // ── RFC-0207 Phase B: persistência do perfil de classificação ────────────
+    // O MENU é endpoint-agnóstico (§D) e delega aqui; a chave/URL do store vivem
+    // só no bloco "RFC-0207 v3.1 — STORE" deste arquivo.
+    saveDeviceClassificationProfile: (nextProfile) => rfc0207SaveActiveProfile(nextProfile),
+
+    /** Recarrega o perfil do store (usado após save externo / troca de customer). */
+    reloadDeviceClassificationProfile: (customerId) =>
+      rfc0207LoadActiveProfile(
+        customerId || window.MyIOOrchestrator?.customerTB_ID || '',
+        undefined
+      ),
 
     // ── RFC-0180: GCDR API methods ───────────────────────────────────────────
     // Owned by the orchestrator so widgets (AlarmsTab, etc.) don't carry
@@ -7905,6 +8585,23 @@ const MyIOOrchestrator = (() => {
       if (busyEl && busyEl.parentNode) {
         busyEl.parentNode.removeChild(busyEl);
       }
+      // BUGFIX BUSY-RACE: o LoadingSpinner da lib tem DOM próprio compartilhado —
+      // destrói e solta a instância do singleton para o próximo dashboard recriar
+      // (senão o spinner cacheado aponta para um container removido e nunca aparece).
+      if (_busyCtl.spinner) {
+        try {
+          _busyCtl.spinner.destroy();
+        } catch (e) {
+          /* já destruído */
+        }
+        _busyCtl.spinner = null;
+      }
+      _busyCtl.activeRequests.clear();
+      if (_busyCtl.pendingHideId) {
+        clearTimeout(_busyCtl.pendingHideId);
+        _busyCtl.pendingHideId = null;
+      }
+      _busyCtl.state.isVisible = false;
     },
   };
 })();

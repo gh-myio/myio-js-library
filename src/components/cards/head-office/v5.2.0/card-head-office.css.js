@@ -123,7 +123,7 @@ export const CSS_STRING = `
   border-radius: var(--myio-card-radius);
   box-shadow: var(--myio-card-shadow);
   padding: 14px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Nunito', system-ui, sans-serif;
   font-size: 14px;
   line-height: 1.4;
   color: var(--myio-text-1);
@@ -370,7 +370,7 @@ export const CSS_STRING = `
   position: relative;
   min-width: 300px;
   text-align: left;
-  font-family: sans-serif; /* Use a fonte que preferir */
+  font-family: 'Nunito', system-ui, sans-serif; /* Use a fonte que preferir */
   line-height: 1.6;
 }
 
@@ -984,7 +984,7 @@ export const CSS_STRING = `
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
   min-width: 340px;
   max-width: 420px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Nunito', system-ui, sans-serif;
   font-size: 12px;
   color: #e2e8f0;
   overflow: hidden;
@@ -1176,7 +1176,7 @@ export const CSS_STRING = `
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15), 0 2px 10px rgba(0, 0, 0, 0.08);
   min-width: 280px;
   max-width: 320px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Nunito', system-ui, sans-serif;
   font-size: 12px;
   color: #1e293b;
   overflow: hidden;
@@ -1410,7 +1410,7 @@ export const CSS_STRING = `
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15), 0 2px 10px rgba(0, 0, 0, 0.08);
   min-width: 300px;
   max-width: 360px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Nunito', system-ui, sans-serif;
   font-size: 12px;
   color: #1e293b;
   overflow: hidden;

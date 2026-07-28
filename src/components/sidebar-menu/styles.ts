@@ -33,7 +33,7 @@ export function injectSidebarMenuStyles(): void {
       background: #ffffff;
       border-right: 1px solid #e5e7eb;
       border-radius: 0 16px 16px 0;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-family: 'Nunito', system-ui, sans-serif;
       transition: width var(--sidebar-transition);
       overflow: hidden;
       z-index: 100;

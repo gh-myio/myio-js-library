@@ -1,4 +1,4 @@
-/* global self, localStorage, document, window */
+/* global self, localStorage, document, window, MutationObserver */
 
 /**
  * GCDR-Upsell-Setup Widget — v.1.0.0
@@ -48,6 +48,226 @@ function guRequireGcdrMasterKey() {
     throw new Error(msg);
   }
   return GU_GCDR_MASTER_KEY;
+}
+
+// ============================================================
+// LOJAS column strip rules (Upsell modal — CUSTOM → Lojas table).
+// Adds a ⚙️ gear to the "Etiqueta" and "Identificador" column headers.
+// Each gear opens a modal where the user defines text/prefix exclusion
+// rules (regex-capable) that are STRIPPED from each row's deviceName to
+// produce that column's displayed value. Each column has its own rule set.
+//
+// The Upsell modal itself is rendered by MyIOLibrary.openUpsellModal
+// (loaded from CDN), so this feature is a DOM progressive-enhancement:
+// a MutationObserver detects the LOJAS table and injects the gears; on
+// Apply we set the column <input> values and dispatch an 'input' event so
+// the library keeps its save-state in sync.
+//
+// Persistence: in-memory for the widget session (survives modal re-opens,
+// resets on page reload). The widget has no column-config persistence store.
+// ============================================================
+const GU_LOJAS_STRIP_RULES = {
+  label: { patterns: [], caseInsensitive: false },
+  identifier: { patterns: [], caseInsensitive: false },
+};
+
+const GU_LOJAS_FIELD_LABEL = { label: 'Etiqueta', identifier: 'Identificador' };
+
+// Escape a string so it can be used as a literal RegExp fragment.
+function guEscapeRegexLiteral(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Compile a rule's patterns into RegExp[] (global; case-insensitive optional).
+// A plain substring (e.g. "3F SMCONTAGEM_") is a valid regex and works as-is.
+// If a pattern is not valid regex, fall back to treating it as a literal.
+function guCompileStripPatterns(rule) {
+  const flags = 'g' + (rule && rule.caseInsensitive ? 'i' : '');
+  const out = [];
+  for (const p of (rule && rule.patterns) || []) {
+    if (!p) continue;
+    try {
+      out.push(new RegExp(p, flags));
+    } catch {
+      try {
+        out.push(new RegExp(guEscapeRegexLiteral(p), flags));
+      } catch {
+        /* skip unusable pattern */
+      }
+    }
+  }
+  return out;
+}
+
+// Strip every compiled pattern from deviceName. Non-destructive: if the
+// result is empty/blank, fall back to the original deviceName.
+function guStripDeviceName(deviceName, compiled) {
+  const src = deviceName == null ? '' : String(deviceName);
+  let out = src;
+  for (const re of compiled) out = out.replace(re, '');
+  out = out.trim();
+  return out === '' ? src : out;
+}
+
+// Resolve a LOJAS row's deviceName from the "Nome" cell (2nd <td>).
+function guLojasRowDeviceName(input) {
+  const tr = input.closest && input.closest('tr');
+  if (!tr) return null;
+  const nameCell = tr.children && tr.children[1]; // 0:#, 1:Nome, 2:centralId…
+  if (!nameCell) return null;
+  return (nameCell.getAttribute('title') || nameCell.textContent || '').trim();
+}
+
+// Recompute a column's values for ALL rows from deviceName + its rule set,
+// then notify the library (input event) so the new values are persisted.
+function guApplyLojasStripColumn(field) {
+  const compiled = guCompileStripPatterns(GU_LOJAS_STRIP_RULES[field]);
+  const inputs = document.querySelectorAll(`input[data-lojas-field="${field}"]`);
+  inputs.forEach((input) => {
+    const deviceName = guLojasRowDeviceName(input);
+    if (deviceName == null) return;
+    const next = compiled.length ? guStripDeviceName(deviceName, compiled) : deviceName;
+    input.value = next;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+}
+
+// Modal to edit a column's exclusion rules (regex-capable, multiple patterns).
+function guOpenLojasStripModal(field) {
+  const colLabel = GU_LOJAS_FIELD_LABEL[field] || field;
+  const rule = GU_LOJAS_STRIP_RULES[field] || { patterns: [], caseInsensitive: false };
+
+  const firstInput = document.querySelector(`input[data-lojas-field="${field}"]`);
+  const sampleName = firstInput ? guLojasRowDeviceName(firstInput) : '';
+
+  const overlay = document.createElement('div');
+  overlay.className = 'gu-fu-overlay';
+  overlay.style.zIndex = '2000000000'; // above the Upsell modal (z-index 99999)
+  overlay.innerHTML = `
+    <div class="gu-fu-modal" style="width:520px;max-width:96vw;max-height:none;">
+      <div class="gu-fu-header">
+        <div>
+          <div class="gu-fu-title">⚙️ Regras de Exclusão — ${colLabel}</div>
+          <div class="gu-fu-subtitle">Remove textos/prefixos do nome do dispositivo</div>
+        </div>
+        <button class="gu-fu-close" id="gu-strip-x">✕</button>
+      </div>
+      <div class="gu-fu-body">
+        <div class="gu-fu-label">Padrões a remover (um por linha — texto ou regex)</div>
+        <div class="gu-fu-hint">
+          Cada linha é aplicada como expressão regular (global). Um texto simples
+          como <code>3F SMCONTAGEM_</code> funciona como substring; regex também.
+          Todos os padrões listados são removidos do <strong>deviceName</strong>
+          para gerar o valor da coluna <strong>${colLabel}</strong>.
+        </div>
+        <textarea class="gu-fu-textarea" id="gu-strip-textarea" style="height:130px"
+          placeholder="3F SMCONTAGEM_&#10;3F CONTAGEM_"></textarea>
+        <label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--gu-text);cursor:pointer">
+          <input type="checkbox" id="gu-strip-ci" style="accent-color:#b45309;cursor:pointer">
+          Ignorar maiúsculas/minúsculas (case-insensitive)
+        </label>
+        <div style="margin-top:12px;padding:10px 12px;border-radius:8px;background:#f9fafb;border:1px solid var(--gu-border)">
+          <div class="gu-fu-hint" style="margin-bottom:4px">Prévia (primeira linha):</div>
+          <div style="font-size:12px"><span style="color:var(--gu-muted)">deviceName:</span>
+            <span id="gu-strip-src" style="font-family:monospace"></span></div>
+          <div style="font-size:12px;margin-top:2px"><span style="color:var(--gu-muted)">resultado:</span>
+            <span id="gu-strip-out" style="font-family:monospace;font-weight:700;color:#065f46"></span></div>
+        </div>
+      </div>
+      <div class="gu-fu-footer">
+        <button class="gu-fu-btn gu-fu-btn-secondary" id="gu-strip-cancel">Cancelar</button>
+        <button class="gu-fu-btn gu-fu-btn-primary" id="gu-strip-apply">Aplicar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  const ta = overlay.querySelector('#gu-strip-textarea');
+  const ciEl = overlay.querySelector('#gu-strip-ci');
+  const srcEl = overlay.querySelector('#gu-strip-src');
+  const outEl = overlay.querySelector('#gu-strip-out');
+
+  // Prefill via .value (avoids HTML-injection from patterns).
+  ta.value = (rule.patterns || []).join('\n');
+  ciEl.checked = !!rule.caseInsensitive;
+
+  function close() {
+    if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+  }
+  function parseTextarea() {
+    return ta.value.split('\n').map((s) => s.trim()).filter(Boolean);
+  }
+  function updatePreview() {
+    const compiled = guCompileStripPatterns({ patterns: parseTextarea(), caseInsensitive: ciEl.checked });
+    srcEl.textContent = sampleName || '—';
+    outEl.textContent = sampleName
+      ? compiled.length
+        ? guStripDeviceName(sampleName, compiled)
+        : sampleName
+      : '—';
+  }
+
+  overlay.querySelector('#gu-strip-x').addEventListener('click', close);
+  overlay.querySelector('#gu-strip-cancel').addEventListener('click', close);
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) close();
+  });
+  ta.addEventListener('input', updatePreview);
+  ciEl.addEventListener('change', updatePreview);
+  overlay.querySelector('#gu-strip-apply').addEventListener('click', () => {
+    GU_LOJAS_STRIP_RULES[field] = { patterns: parseTextarea(), caseInsensitive: ciEl.checked };
+    guApplyLojasStripColumn(field);
+    close();
+  });
+
+  updatePreview();
+}
+
+// Watch for the LOJAS table (Upsell modal) and inject the ⚙️ gears into
+// the Etiqueta / Identificador headers. Returns { disconnect } — the caller
+// disconnects on modal close. Idempotent (guarded per <th>).
+function guAttachLojasStripEnhancer() {
+  function injectGear(th, field) {
+    if (!th || th.dataset.guStripGear === '1') return;
+    th.dataset.guStripGear = '1';
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = '⚙️';
+    btn.title = `Regras de exclusão para ${GU_LOJAS_FIELD_LABEL[field] || field}`;
+    btn.style.cssText =
+      'margin-left:6px;border:none;background:none;cursor:pointer;font-size:12px;padding:0;line-height:1;vertical-align:middle;';
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      guOpenLojasStripModal(field);
+    });
+    th.appendChild(btn);
+  }
+  function scan() {
+    const anyInput = document.querySelector(
+      'input[data-lojas-field="label"], input[data-lojas-field="identifier"]'
+    );
+    if (!anyInput) return;
+    const table = anyInput.closest('table');
+    if (!table) return;
+    table.querySelectorAll('thead th').forEach((th) => {
+      if (th.dataset.guStripGear === '1') return;
+      const txt = (th.textContent || '').trim();
+      if (txt === 'Etiqueta') injectGear(th, 'label');
+      else if (txt === 'Identificador') injectGear(th, 'identifier');
+    });
+  }
+  scan();
+  const observer = new MutationObserver(scan);
+  observer.observe(document.body, { childList: true, subtree: true });
+  return {
+    disconnect() {
+      try {
+        observer.disconnect();
+      } catch {
+        /* noop */
+      }
+    },
+  };
 }
 
 // ============================================================
@@ -148,6 +368,7 @@ async function guFetchCustomerTBAssets(customerId) {
   return assets;
 }
 
+// eslint-disable-next-line no-unused-vars -- retained utility (no current call site)
 async function guFetchDeviceParentAssetId(deviceTbId) {
   const token = localStorage.getItem('jwt_token');
   if (!token) return null;
@@ -1302,6 +1523,7 @@ self.onInit = function () {
 
   // Fetch ALL devices for a GCDR customer (paginated, limit=100).
   // Endpoint: GET /api/v1/customers/{gcdrCustomerId}/devices
+  // eslint-disable-next-line no-unused-vars -- retained utility (superseded by guFetchGCDRCustomerBundle; no current call site)
   async function guFetchGCDRCustomerDevices(gcdrCustomerId, tenantId) {
     const GCDR_BASE = 'https://gcdr-api.a.myio-bas.com';
     const resolvedKey = guRequireGcdrMasterKey();
@@ -2076,6 +2298,106 @@ self.onInit = function () {
         }`;
     }
 
+    // ── Completion modal (details of OK vs failed + download log) ──────
+    // Prefers the library's generic modal (window.MyIOLibrary.openGenericModal);
+    // falls back to the in-modal final-log summary on older lib versions.
+    function showSyncCompletionModal(log) {
+      const devOk = log.devices.filter((r) => r.ok);
+      const devFail = log.devices.filter((r) => !r.ok);
+      const nOk = devOk.length;
+      const nFail = devFail.length;
+      const nTotal = nOk + nFail;
+      const nSkipped = log.skipped.length;
+      const nAssets = log.assets.length;
+
+      const openGeneric =
+        window.MyIOLibrary && typeof window.MyIOLibrary.openGenericModal === 'function'
+          ? window.MyIOLibrary.openGenericModal
+          : null;
+
+      // Fallback: keep the previous in-modal final-log + download-log behavior.
+      if (!openGeneric) {
+        setBody(renderFinalLog(log));
+        overlay.querySelector('#gcs-footer').innerHTML = `
+          <button class="gu-fu-btn gu-fu-btn-secondary" id="gcs-download-log">⬇ Baixar Log</button>
+          <button class="gu-fu-btn gu-fu-btn-secondary" id="gcs-done">Fechar</button>`;
+        overlay.querySelector('#gcs-download-log').addEventListener('click', () => downloadLog(log));
+        overlay.querySelector('#gcs-done').addEventListener('click', closeModal);
+        return;
+      }
+
+      const esc = (s) =>
+        String(s == null ? '' : s)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+
+      const failList = devFail
+        .map(
+          (r) => `
+          <li class="gu-fu-result-item">
+            <span class="gu-fu-result-icon">❌</span>
+            <div>
+              <div class="gu-fu-result-name">${esc(r.name)} <span style="color:#9ca3af;font-weight:400">· ${esc(
+                r.action || '—'
+              )}</span></div>
+              <div class="gu-fu-result-err">${esc(r.error || 'erro desconhecido')}</div>
+            </div>
+          </li>`
+        )
+        .join('');
+
+      const okList = devOk
+        .map(
+          (r) => `
+          <li class="gu-fu-result-item">
+            <span class="gu-fu-result-icon">✅</span>
+            <div>
+              <div class="gu-fu-result-name">${esc(r.name)} <span style="color:#9ca3af;font-weight:400">· ${esc(
+                r.action || '—'
+              )}</span></div>
+            </div>
+          </li>`
+        )
+        .join('');
+
+      const bodyHtml = `
+        <div class="gu-fu-summary" style="margin-bottom:14px">
+          <span class="gu-fu-badge match">✓ ${nOk} sincronizados</span>
+          ${nFail ? `<span class="gu-fu-badge fail">✗ ${nFail} com erro</span>` : ''}
+          ${nSkipped ? `<span class="gu-fu-badge warn">⏭ ${nSkipped} ignorados</span>` : ''}
+          <span class="gu-fu-badge total">📁 ${nAssets} assets</span>
+        </div>
+        ${
+          nFail
+            ? `<div style="font-weight:700;font-size:12px;color:#991b1b;margin:6px 0 4px">O que NÃO deu certo (${nFail})</div>
+               <ul class="gu-fu-result-list" style="margin-bottom:12px">${failList}</ul>`
+            : ''
+        }
+        <div style="font-weight:700;font-size:12px;color:#065f46;margin:6px 0 4px">Sincronizados (${nOk})</div>
+        <ul class="gu-fu-result-list">${
+          okList || '<li class="gu-fu-result-item" style="color:#9ca3af">Nenhum dispositivo sincronizado.</li>'
+        }</ul>`;
+
+      // Replace the progress overlay with the completion modal.
+      closeModal();
+
+      openGeneric({
+        title: `Sincronização concluída — ${nOk}/${nTotal} dispositivos`,
+        icon: nFail ? '⚠️' : '✅',
+        width: 620,
+        bodyHtml,
+        buttons: [
+          { label: '⬇ Baixar log', value: 'download', variant: 'secondary', closeOnClick: false },
+          { label: 'Fechar', value: 'close', variant: 'primary', autoFocus: true },
+        ],
+        onButton: (value) => {
+          if (value === 'download') downloadLog(log);
+        },
+      });
+    }
+
     // ── Open modal ────────────────────────────────────────────────
     overlay = document.createElement('div');
     overlay.className = 'gu-fu-overlay';
@@ -2196,7 +2518,6 @@ self.onInit = function () {
       // Sort by name
       allDevices.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
-      const isMulti = _syncMode === 'multiplos';
       setBody(renderDevicePickerHTML(allDevices, _syncMode));
       overlay.querySelector('#gcs-footer').innerHTML = `
         <button class="gu-fu-btn gu-fu-btn-secondary" id="gcs-back-picker">← Voltar</button>
@@ -2716,12 +3037,9 @@ self.onInit = function () {
           }
 
           // ── Resultado final ────────────────────────────────────────
-          setBody(renderFinalLog(log));
-          overlay.querySelector('#gcs-footer').innerHTML = `
-          <button class="gu-fu-btn gu-fu-btn-secondary" id="gcs-download-log">⬇ Baixar Log</button>
-          <button class="gu-fu-btn gu-fu-btn-secondary" id="gcs-done">Fechar</button>`;
-          overlay.querySelector('#gcs-download-log').addEventListener('click', () => downloadLog(log));
-          overlay.querySelector('#gcs-done').addEventListener('click', closeModal);
+          // Completion modal: details of OK vs failed + "Baixar log" button
+          // (via openGenericModal, with graceful fallback to the inline summary).
+          showSyncCompletionModal(log);
         } catch (err) {
           console.error('[GCDR Sync RFC-0186] Erro fatal:', err);
           setBody(`<div style="color:#ef4444;font-size:13px;padding:8px 0">❌ ${err.message}</div>`);
@@ -3892,8 +4210,6 @@ self.onInit = function () {
           ${matchResults.every((r) => r.status === 'FAIL') ? 'disabled' : ''}>
           ⚡ Executar Force Update
         </button>`;
-      const footerStep3Done = `
-        <button class="gu-fu-btn gu-fu-btn-success" id="gu-fu-done">Fechar</button>`;
 
       overlay.innerHTML = `
         <div class="gu-fu-modal">
@@ -4352,7 +4668,6 @@ self.onInit = function () {
         async function processBatch(items, fetchFn, keys, targetRows, entityType) {
           const chunks = [];
           for (let i = 0; i < items.length; i += 10) chunks.push(items.slice(i, i + 10));
-          let done = 0;
           for (let ci = 0; ci < chunks.length; ci++) {
             if (ci > 0) await sleep(1000);
             await Promise.all(
@@ -4367,7 +4682,6 @@ self.onInit = function () {
                   /* non-fatal */
                 }
                 targetRows.push({ tbId, name, entityType, present, hasAny: keys.some((k) => present[k]) });
-                done++;
               })
             );
             const totalDone = deviceRows.length + assetRows.length;
@@ -4747,7 +5061,6 @@ self.onInit = function () {
         async function processBatch(items, fetchFn, keys, targetRows) {
           const chunks = [];
           for (let i = 0; i < items.length; i += 10) chunks.push(items.slice(i, i + 10));
-          let done = 0;
           for (let ci = 0; ci < chunks.length; ci++) {
             if (ci > 0) await sleep(GU_CHUNK_DELAY_MS);
             await Promise.all(
@@ -4772,7 +5085,6 @@ self.onInit = function () {
                   errored,
                   errorMsg,
                 });
-                done++;
               })
             );
             const body = overlay.querySelector('#gfci-body');
@@ -5429,6 +5741,10 @@ self.onInit = function () {
       setAttr(root.querySelector('#gu-upsell-tb-status'), '✓ Disponível', 'success');
       setStatus(upsellStatusEl, 'loading', 'Abrindo modal...');
 
+      // Progressive-enhancement: inject the ⚙️ strip-rules gears into the
+      // LOJAS table (CUSTOM → Lojas) once the library renders it.
+      const lojasStripEnhancer = guAttachLojasStripEnhancer();
+
       lib.openUpsellModal({
         thingsboardToken: tbToken,
         ingestionToken: ingestionToken,
@@ -5440,6 +5756,7 @@ self.onInit = function () {
         },
         onClose: () => {
           setStatus(upsellStatusEl, '', '');
+          lojasStripEnhancer.disconnect();
         },
       });
 

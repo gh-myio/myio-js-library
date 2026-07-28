@@ -930,7 +930,7 @@ export class AlarmsTab {
       'background:#dc2626;color:#fff;font-size:13px;font-weight:600;' +
       'padding:10px 20px;border-radius:8px;z-index:99999;' +
       'box-shadow:0 4px 12px rgba(0,0,0,0.25);pointer-events:none;' +
-      'font-family:Inter,system-ui,-apple-system,sans-serif;white-space:nowrap;';
+      'font-family:Nunito, system-ui, sans-serif;white-space:nowrap;';
     el.textContent = `⚠️ ${msg}`;
     document.body.appendChild(el);
     setTimeout(() => el.remove(), 4000);
@@ -977,7 +977,7 @@ export class AlarmsTab {
         flex-direction: column;
         gap: 20px;
         padding: 4px;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-family: 'Nunito', system-ui, sans-serif;
       }
       .at-section {
         background: #fff;
@@ -1248,7 +1248,7 @@ export class AlarmsTab {
         max-width: 440px;
         width: calc(100% - 32px);
         overflow: hidden;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-family: 'Nunito', system-ui, sans-serif;
       }
       .at-confirm-warning-bar {
         height: 4px;

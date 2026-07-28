@@ -347,6 +347,9 @@ const isSolenoidDeviceType = (deviceType) => {
  * @property {string} [boxShadow]       - CSS box-shadow for the card (e.g. '0 4px 12px rgba(0,0,0,0.1)')
  * @property {string} [margin]          - CSS margin for the card (e.g. '8px', '0 auto')
  * @property {number} [zoomMultiplier]  - Scale multiplier for all sizes (default: 1.0, e.g. 0.9 = 90% scale)
+ * @property {string} [actionsHeight]      - CSS height for the ⋮ piano-key actions column (e.g. 'auto' for a
+ *                                           compact pill hugging its buttons; default stretches with the card)
+ * @property {string} [actionButtonHeight] - CSS height for each action button inside the column (e.g. '32px')
  */
 
 // Default card dimensions for zoom calculations
@@ -383,6 +386,8 @@ function applyCustomStyle(container, customStyle) {
     boxShadow,
     margin,
     zoomMultiplier = 1.0,
+    actionsHeight,
+    actionButtonHeight,
   } = customStyle;
 
   // The actual card element is the first child (.device-card-centered)
@@ -484,6 +489,26 @@ function applyCustomStyle(container, customStyle) {
       const scaledBadgePadH = (10 * zoom).toFixed(1);
       shoppingBadge.style.setProperty('padding', `${scaledBadgePadV}px ${scaledBadgePadH}px`, 'important');
     }
+  }
+
+  // -- Piano-key ⋮ actions column ------------------------------------------
+  // The stylesheet stretches .card-actions with the card (height: 100% from
+  // the container rules + max-height: 72%). actionsHeight opts out of that —
+  // 'auto' yields a compact pill hugging its buttons. Applied AFTER the zoom
+  // block so explicit values win over zoom-scaled ones.
+  if (actionsHeight) {
+    const actionsEl = cardEl.querySelector('.card-actions');
+    if (actionsEl) {
+      actionsEl.style.setProperty('height', actionsHeight, 'important');
+      actionsEl.style.setProperty('max-height', 'none', 'important');
+    }
+  }
+
+  if (actionButtonHeight) {
+    cardEl.querySelectorAll('.card-action').forEach((btn) => {
+      btn.style.setProperty('height', actionButtonHeight, 'important');
+      btn.style.setProperty('min-height', actionButtonHeight, 'important');
+    });
   }
 
   // -- Width & Height: applied on the outer container AND the card --
@@ -604,7 +629,7 @@ function injectCardActionSelectorStyles() {
       position: relative; width: 90%; max-width: 380px;
       background: #fff; border-radius: 16px; overflow: hidden;
       box-shadow: 0 20px 60px rgba(0,0,0,.3);
-      font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-family: 'Nunito', system-ui, sans-serif;
       transform: translateY(16px) scale(.98); transition: transform .2s ease;
     }
     .myio-card-action-picker.show .myio-card-action-picker__content { transform: translateY(0) scale(1); }
@@ -772,8 +797,8 @@ export function renderCardComponentV6({
     solenoidStatus,
   } = entityObject;
 
-  // RFC-0175: Use deviceProfile (preferred) or deviceType (fallback) for device classification
-  // This fixes SOLENOIDE devices which have deviceType=3F_MEDIDOR but deviceProfile=SOLENOIDE
+  // deviceProfile é a ÚNICA autoridade (deviceType em desuso, 2026-07-14) — o
+  // campo legado do payload fica só como último recurso de exibição.
   const effectiveDeviceType = deviceProfile || deviceType;
 
   // MyIO Global Toast Manager
@@ -790,7 +815,7 @@ export function renderCardComponentV6({
         width: 320px;
         padding: 16px;
         border-radius: 8px;
-        font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        font-family: 'Nunito', system-ui, sans-serif;
         font-size: 15px;
         color: #fff;
         transform: translateX(120%);

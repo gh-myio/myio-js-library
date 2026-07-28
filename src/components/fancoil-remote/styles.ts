@@ -27,7 +27,7 @@ export function injectFancoilRemoteStyles(): void {
       background: #BBB8A6;
       border-radius: 18px;
       padding: 12px;
-      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: 'Nunito', system-ui, sans-serif;
       color: #18446C;
       display: flex;
       flex-direction: column;
@@ -317,7 +317,7 @@ export function injectFancoilRemoteStyles(): void {
       text-align: center;
       max-width: 360px;
       width: 90%;
-      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: 'Nunito', system-ui, sans-serif;
       color: #222;
     }
 

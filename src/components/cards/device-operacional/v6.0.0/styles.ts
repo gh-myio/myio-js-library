@@ -38,7 +38,7 @@ export const DEVICE_OPERATIONAL_CARD_STYLES = `
   --myio-chip-not-installed-bg: #e9d5ff;
   --myio-chip-not-installed-fg: #7c3aed;
 
-  font-family: 'Inter', 'Roboto', 'Segoe UI', sans-serif;
+  font-family: 'Nunito', system-ui, sans-serif;
   background: var(--alarms-bg-primary);
   color: var(--alarms-text-primary);
   height: 100%;

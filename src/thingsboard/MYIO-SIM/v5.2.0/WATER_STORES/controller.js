@@ -116,7 +116,7 @@ function ensureBusyModalDOM() {
       background: rgba(150,132,181,0.45); /* #9684B5 com transparência */
       backdrop-filter: blur(5px);
       z-index:9999; align-items:center; justify-content:center;
-      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;">
+      font-family: 'Nunito', system-ui, sans-serif;">
     <div style="
         background:#2d1458; color:#fff;
         border:1px solid rgba(255,255,255,0.10);
@@ -204,7 +204,7 @@ function showGlobalSuccessModal(countdown = 5) {
         position:fixed; inset:0; display:flex;
         background:rgba(0,0,0,.5); backdrop-filter:blur(6px);
         z-index:999999; align-items:center; justify-content:center;
-        font-family:Inter, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, sans-serif;">
+        font-family:'Nunito', system-ui, sans-serif;">
       <div style="background:#fff;border-radius:18px;padding:28px 36px;
           min-width:420px;box-shadow:0 15px 50px rgba(0,0,0,.3);text-align:center;">
         <div style="font-size:48px; margin-bottom:14px;">✅</div>
@@ -387,11 +387,8 @@ function buildAuthoritativeItems() {
     // RFC-0140 FIX: Default to hidrometro_lojas since this is the WATER_STORES widget
     // If deviceProfile is not set in ThingsBoard, assume it's lojas (not area comum)
     const deviceProfile = attrs.deviceProfile || 'hidrometro_lojas';
-    let deviceTypeToDisplay = attrs.deviceType || 'HIDROMETRO';
-
-    if (deviceTypeToDisplay === '3F_MEDIDOR' && deviceProfile !== 'N/D') {
-      deviceTypeToDisplay = deviceProfile;
-    }
+    // campo legado (deviceType em desuso) — preenchido do profile
+    const deviceTypeToDisplay = deviceProfile;
 
     return {
       id: tbId || ingestionId, // para seleção/toggle
@@ -417,40 +414,33 @@ function buildAuthoritativeItems() {
   });
 
   // RFC-0140 FIX: Filter to include ONLY LOJAS devices
-  // Rules:
-  // - deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO (exact match = loja)
-  // - OR deviceType contains LOJA
+  // Rules (deviceProfile é a única autoridade de classificação; deviceType em desuso):
+  // - deviceProfile = HIDROMETRO (exato) = loja
+  // - OR deviceProfile contém LOJA
   // This excludes HIDROMETRO_AREA_COMUM from appearing in WATER_STORES
   const filtered = mapped.filter((item) => {
-    const dt = String(item.deviceType || '').toUpperCase();
-    // RFC-0140: If deviceProfile is null/empty, assume it equals deviceType
-    const dp = String(item.deviceProfile || item.deviceType || '').toUpperCase();
-
-    // Accept if deviceType contains LOJA
-    if (dt.includes('LOJA')) {
-      return true;
-    }
-
-    // Accept if deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO (both same = loja)
-    if (dt === 'HIDROMETRO' && dp === 'HIDROMETRO') {
-      return true;
-    }
+    const dp = String(item.deviceProfile || '').toUpperCase();
 
     // Reject AREA_COMUM devices
-    if (dt.includes('AREA_COMUM') || dp.includes('AREA_COMUM')) {
+    if (dp.includes('AREA_COMUM')) {
       LogHelper.log(
-        `[WATER_STORES] Filtering out area comum device: ${item.label} (deviceType=${dt}, deviceProfile=${dp})`
+        `[WATER_STORES] Filtering out area comum device: ${item.label} (deviceProfile=${dp})`
       );
       return false;
     }
 
-    // Accept other HIDROMETRO devices as lojas by default
-    if (dt === 'HIDROMETRO') {
+    // Accept if deviceProfile contains LOJA
+    if (dp.includes('LOJA')) {
+      return true;
+    }
+
+    // Accept HIDROMETRO devices as lojas
+    if (dp === 'HIDROMETRO') {
       return true;
     }
 
     LogHelper.log(
-      `[WATER_STORES] Filtering out device: ${item.label} (deviceType=${dt}, deviceProfile=${dp})`
+      `[WATER_STORES] Filtering out device: ${item.label} (deviceProfile=${dp})`
     );
     return false;
   });
@@ -751,7 +741,7 @@ async function renderList(visible) {
       pulses: it.pulses || 0,
 
       // Metadados
-      deviceType: it.deviceType || 'HIDROMETRO',
+      deviceType: it.deviceProfile || 'HIDROMETRO', // campo legado (deviceType em desuso) — preenchido do profile
       deviceProfile: it.deviceProfile || 'HIDROMETRO',
       deviceStatus: deviceStatus,
       connectionStatus: 'online', // RFC-0144: Force connectionStatus to 'online' for water lojas
@@ -782,22 +772,18 @@ async function renderList(visible) {
 
     // RFC-0140 FORCE CHECK: Skip rendering if device is NOT a loja
     // This is the final safety check before rendering
-    const dtCheck = String(it.deviceType || '').toUpperCase();
-    // RFC-0140: If deviceProfile is null/empty, assume it equals deviceType
-    const dpCheck = String(it.deviceProfile || it.deviceType || '').toUpperCase();
+    // deviceProfile é a única autoridade de classificação (deviceType em desuso)
+    const dpCheck = String(it.deviceProfile || '').toUpperCase();
 
-    // Check if it's a LOJA device (HIDROMETRO + HIDROMETRO or contains LOJA)
-    const isLoja =
-      dtCheck.includes('LOJA') ||
-      (dtCheck === 'HIDROMETRO' && dpCheck === 'HIDROMETRO') ||
-      (dtCheck === 'HIDROMETRO' && !dpCheck.includes('AREA_COMUM'));
+    // Check if it's a LOJA device (HIDROMETRO or contains LOJA)
+    const isLoja = dpCheck.includes('LOJA') || dpCheck === 'HIDROMETRO';
 
     // Skip AREA_COMUM devices
-    const isAreaComum = dtCheck.includes('AREA_COMUM') || dpCheck.includes('AREA_COMUM');
+    const isAreaComum = dpCheck.includes('AREA_COMUM');
 
     if (!isLoja || isAreaComum) {
       LogHelper.warn(
-        `[WATER_STORES] FORCE CHECK: Skipping non-loja device: ${it.label} (deviceType=${dtCheck}, deviceProfile=${dpCheck})`
+        `[WATER_STORES] FORCE CHECK: Skipping non-loja device: ${it.label} (deviceProfile=${dpCheck})`
       );
       container.remove(); // Remove the empty container
       continue;
@@ -900,7 +886,7 @@ async function renderList(visible) {
             label: it.label,
             jwtToken: jwt,
             domain: WIDGET_DOMAIN,
-            deviceType: entityObject.deviceType,
+            deviceType: entityObject.deviceProfile, // campo legado (deviceType em desuso) — preenchido do profile
             deviceProfile: entityObject.deviceProfile,
             customerName: entityObject.customerName,
             connectionData: {
@@ -1401,7 +1387,7 @@ self.onInit = async function () {
       label: item.label || item.identifier || item.id,
       value: Number(item.value || 0),
       perc: 0,
-      deviceType: item.deviceType || 'HIDROMETRO',
+      deviceType: item.deviceProfile || 'HIDROMETRO', // campo legado (deviceType em desuso) — preenchido do profile
       slaveId: item.slaveId || null,
       centralId: item.centralId || null,
       updatedIdentifiers: {},
@@ -1667,7 +1653,7 @@ self.onInit = async function () {
           slaveId: item.slaveId || null,
           centralId: item.centralId || null,
           centralName: item.centralName || null,
-          deviceType: item.deviceType || 'hidrometro_lojas',
+          deviceType: item.deviceProfile || 'hidrometro_lojas', // campo legado (deviceType em desuso) — preenchido do profile
           deviceProfile: item.deviceProfile || 'hidrometro_lojas',
           updatedIdentifiers: {},
           connectionStatusTime: item.lastConnectTime || null,
@@ -1692,36 +1678,30 @@ self.onInit = async function () {
 
       // RFC-0140 FIX: Filter to include ONLY LOJAS devices (same logic as buildAuthoritativeItems)
       // This ensures consistency even when data comes from MAIN
+      // deviceProfile é a única autoridade de classificação (deviceType em desuso)
       STATE.itemsBase = mappedItems.filter((item) => {
-        const dt = String(item.deviceType || '').toUpperCase();
-        // RFC-0140: If deviceProfile is null/empty, assume it equals deviceType
-        const dp = String(item.deviceProfile || item.deviceType || '').toUpperCase();
+        const dp = String(item.deviceProfile || '').toUpperCase();
 
         // Reject AREA_COMUM devices
-        if (dt.includes('AREA_COMUM') || dp.includes('AREA_COMUM')) {
+        if (dp.includes('AREA_COMUM')) {
           LogHelper.log(
-            `[WATER_STORES] Filtering out area comum MAIN item: ${item.label} (deviceType=${dt}, deviceProfile=${dp})`
+            `[WATER_STORES] Filtering out area comum MAIN item: ${item.label} (deviceProfile=${dp})`
           );
           return false;
         }
 
-        // Accept if deviceType contains LOJA
-        if (dt.includes('LOJA')) {
+        // Accept if deviceProfile contains LOJA
+        if (dp.includes('LOJA')) {
           return true;
         }
 
-        // Accept if deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO (both same = loja)
-        if (dt === 'HIDROMETRO' && dp === 'HIDROMETRO') {
-          return true;
-        }
-
-        // Accept other HIDROMETRO devices as lojas by default
-        if (dt === 'HIDROMETRO') {
+        // Accept HIDROMETRO devices as lojas
+        if (dp === 'HIDROMETRO') {
           return true;
         }
 
         LogHelper.log(
-          `[WATER_STORES] Filtering out MAIN item: ${item.label} (deviceType=${dt}, deviceProfile=${dp})`
+          `[WATER_STORES] Filtering out MAIN item: ${item.label} (deviceProfile=${dp})`
         );
         return false;
       });
