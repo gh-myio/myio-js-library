@@ -23,6 +23,74 @@ então **não** é preciso buscá-los no `data-ingestion-prod.git`.
 Pré-requisitos: chave `id_rsa`; kit `mqtt-sync/` desta pasta;
 `node-red-contrib-myio-data-fetcher-1.7.2.tgz` no workstation (passo 5).
 
+> ⚠️ **Escopo deste runbook**: os passos 1–8 abaixo cobrem só a parte
+> "state-api + MQTT Sync + contribs" (espelhando o runbook da Moxuara). O
+> bootstrap completo de uma central nova também envolve provisionamento em
+> ThingsBoard/GCDR/Ingestion e trabalho físico de fiação — isso está coberto
+> na nova **seção 0**, escrita a partir de notas de campo porque **não há,
+> em nenhum outro lugar do repo, um runbook prévio para essa parte** (só
+> referências parciais/soltas, linkadas abaixo). Os subitens marcados
+> "⏳ a confirmar" dependem de UI externa (ThingsBoard/GCDR/Ingestion) ainda
+> não documentada — ao contrário do restante deste doc (que segue o runbook
+> validado na Moxuara em 2026-07-13), eles não foram validados em campo.
+
+---
+
+## 0. Provisionamento prévio (ThingsBoard, GCDR, Ingestion)
+
+> Fazer **antes** de mexer fisicamente na central. Ordem sugerida com base em
+> notas de campo do setup da Capim Dourado.
+
+### 0.1 Baseline do flow — exportar de uma central boa e preparar import
+
+Exportar o flow do Node-RED de uma central de referência já validada (ex.:
+"G0") para usar como ponto de partida na central nova, em vez de montar o
+flow do zero.
+
+Convenção de export/import (3 abas: Flow, Config nodes, Credentials) e
+rollback via reimport: ver
+[`OBRAMAX/README.md`](../../OBRAMAX/README.md) §2 e
+[`SA-CAVALCANTE/MESTRE-ALVARO-L2AC/PLAN-replicate-nodes-to-centrals.md`](../../SA-CAVALCANTE/MESTRE-ALVARO-L2AC/PLAN-replicate-nodes-to-centrals.md) §4.
+
+### 0.2 ThingsBoard — criar Gateway + Customer
+
+Criar o **Gateway** e o **Customer** no ThingsBoard **antes de finalizar a
+configuração no Node-RED** — é desse cadastro que saem `clientId`,
+`username` e `password` MQTT usados no passo 6.3.
+
+> ⏳ A confirmar: o passo a passo de UI (telas exatas de criação de
+> gateway/customer) não está documentado em nenhum runbook do repo hoje;
+> `docs/rfcs/RFC-0185-PresetupGateway.md` trata a criação de gateway como
+> **não-objetivo** (assume que ele já existe). Preencher aqui após a primeira
+> execução bem-sucedida na Capim Dourado.
+
+### 0.3 GCDR — criar Cliente + API Key
+
+Criar o Cliente no GCDR correspondente à Capim Dourado e gerar a API Key que
+será usada no passo 6.4 (nó `get Bundle`).
+
+Contexto da arquitetura de clientes/hierarquia do GCDR:
+[`docs/ONBOARDING-ECOSYSTEM-GCDR-ALARMS.md`](../../../../docs/ONBOARDING-ECOSYSTEM-GCDR-ALARMS.md).
+
+> ⏳ A confirmar: o passo a passo de criação de cliente + emissão de API Key
+> ainda não está documentado — mesma lacuna já registrada como pergunta em
+> aberto em
+> [`MESTRE-ALVARO-L2AC/PLAN-replicate-nodes-to-centrals.md`](../../SA-CAVALCANTE/MESTRE-ALVARO-L2AC/PLAN-replicate-nodes-to-centrals.md) §8
+> ("onde buscar gcdrCustomerId e apiKey?").
+
+### 0.4 Ingestion — criar Gateway + API Key
+
+Criar o Gateway no ingestion (`data-ingestion-prod`) correspondente à Capim
+Dourado e gerar a API Key associada.
+
+> ⏳ A confirmar: sem runbook prévio no repo para esta etapa.
+
+### ⚠️ 0.5 Fiação — desconectar os fios de telemetria
+
+**Antes de iniciar qualquer trabalho físico/Modbus na central**, desconectar
+os fios de telemetria. Só reconectar no passo 8.1, depois de todo o setup
+de software concluído.
+
 ---
 
 ## 1. Acesso
@@ -53,6 +121,19 @@ psql -U hubot   # db default = hubot
 > queries dos NÓS do Node-RED (`SELECT clear_all_data_central()` etc.); o do
 > POST-ClearAllData **APAGA os dados da central**. Os arquivos abaixo são os
 > INSTALADORES (`CREATE OR REPLACE FUNCTION` — seguros e idempotentes).
+
+```bash
+# 3.0 Backup ANTES de qualquer DDL/DML (manual §9.4) — mesmo os instaladores
+#     abaixo sendo idempotentes, o 3.4 grava DADOS (slave/channel/ambient virtuais)
+pg_dump -U hubot --clean --if-exists \
+  -t slaves -t channels -t ambients -t ambients_rfir_slaves_rel \
+  > /tmp/backup-cadastro-$(date +%Y%m%d-%H%M%S).sql
+ls -lh /tmp/backup-*.sql
+```
+
+> ⚠️ `/tmp` não sobrevive a reboot — copiar o backup para o workstation
+> (`scp root@\[IPV6\]:/tmp/backup-cadastro-*.sql .`) antes de qualquer
+> `reboot` (inclusive o do passo 4).
 
 ```sql
 -- 3.1 Functions do state-api (instaladores)
@@ -107,6 +188,13 @@ cd /data/node-red && HOME=/data/nodecache NPM_CONFIG_CACHE=/data/nodecache/.npm 
 systemctl restart myio-api.service
 ```
 
+> 💡 Nota de campo: em alguns casos, `systemctl restart myio-api.service`
+> não foi suficiente para o Node-RED reconhecer os contribs recém-instalados
+> — um `reboot` completo da central (§9.3 do manual) resolveu. Se o Postgres
+> node não aparecer/funcionar após o restart, tentar reboot completo antes de
+> investigar mais a fundo (⚠️ copiar antes qualquer backup em `/tmp` — ver
+> aviso no passo 3.0).
+
 ## 5. Palette — data-fetcher
 
 No editor (`http://[200:1e47:5d5e:d011:a88c:6f1b:fda2:622d]:8080/red`) → menu →
@@ -129,6 +217,10 @@ workstation). Não precisa restart — só Deploy quando mexer no flow.
    se o flow importado for anterior a 2026-07-13, ele tem query inline
    `WHERE name = 'MQTT Sync'` (match EXATO — não acha o nome especializado).
    Trocar por `SELECT get_mqtt_sync_status() AS mqtt_sync_status;` → Deploy.
+3. **Nó `mqtt-broker`**: preencher `clientId`, `username` e `password`
+   obtidos no passo 0.2 (Gateway + Customer criados no ThingsBoard) → Deploy.
+4. **Nó `get Bundle`** (aba **notifics**): preencher a API Key do GCDR e o
+   `customerId` obtidos no passo 0.3 → Deploy.
 
 ## 7. Testes de aceite
 
@@ -157,6 +249,24 @@ attributes/status-sync rodar.
 
 ---
 
+## 8. Fechamento
+
+### 8.1 Reconectar fiação + Deploy
+
+Reconectar os fios de telemetria desconectados no passo 0.5. Fazer o Deploy
+final no editor Node-RED (`/red`) com todos os nós do passo 6 configurados.
+
+### 8.2 Verificação dupla — ThingsBoard **e** Ingestion
+
+Não basta conferir o device no ThingsBoard (já feito no passo 7) — checar
+também o status/telemetria do lado **Ingestion/GCDR** (API Key/Gateway
+criados no passo 0.4), já que os dois sistemas consomem a mesma central de
+formas independentes.
+
+> validação bem-sucedida na Capim Dourado.
+
+---
+
 ### Referências
 
 - Kit desta central: [`mqtt-sync/`](mqtt-sync/) — `create-virtual-mqtt-sync.sql`
@@ -166,3 +276,7 @@ attributes/status-sync rodar.
 - Referência canônica de nomenclatura + functions JS de sync: [`CENTRAL_PRE_SETUP/README.md`](../../CENTRAL_PRE_SETUP/README.md)
 - Manual das centrais (SSH, Node-RED, Postgres, backup): [`GLOBAL_INFO/manual-centrais-linix-orangepi.md`](../../GLOBAL_INFO/manual-centrais-linix-orangepi.md)
 - Restore de banco de backup S3: [`GLOBAL_INFO/restore-hubot-backup.sh`](../../GLOBAL_INFO/restore-hubot-backup.sh)
+- Convenção de export/import de flow entre centrais: [`OBRAMAX/README.md`](../../OBRAMAX/README.md) §2,
+  [`SA-CAVALCANTE/MESTRE-ALVARO-L2AC/PLAN-replicate-nodes-to-centrals.md`](../../SA-CAVALCANTE/MESTRE-ALVARO-L2AC/PLAN-replicate-nodes-to-centrals.md) §4
+- Arquitetura de clientes/hierarquia GCDR: [`docs/ONBOARDING-ECOSYSTEM-GCDR-ALARMS.md`](../../../../docs/ONBOARDING-ECOSYSTEM-GCDR-ALARMS.md)
+- Escopo/não-objetivos de criação de gateway pré-setup: [`docs/rfcs/RFC-0185-PresetupGateway.md`](../../../../docs/rfcs/RFC-0185-PresetupGateway.md)
