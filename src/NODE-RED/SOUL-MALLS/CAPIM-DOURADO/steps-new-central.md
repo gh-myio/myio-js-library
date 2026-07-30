@@ -29,6 +29,12 @@ então **não** é preciso buscá-los no `data-ingestion-prod.git`.
 Pré-requisitos: chave `id_rsa`; kit `mqtt-sync/` desta pasta;
 `node-red-contrib-myio-data-fetcher-1.7.2.tgz` no workstation (passo 5).
 
+> 🔒 **Execução restrita ao Líder Técnico.** Atualmente, os passos deste runbook
+> executados **diretamente na central via SSH** — rodar os SQLs no `psql`
+> (passo 3), instalar os contribs / `systemctl restart` / `reboot` (passo 4) e
+> qualquer outra ação no shell da central — são de responsabilidade **estrita
+> do Líder Técnico**. Não executar sem essa autorização.
+
 > ⚠️ **Escopo deste runbook**: os passos 1–8 abaixo cobrem só a parte
 > "state-api + MQTT Sync + contribs" (espelhando o runbook da Moxuara). O
 > bootstrap completo de uma central nova também envolve provisionamento em
