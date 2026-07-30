@@ -142,11 +142,11 @@
       <div class="chart-wrap"><canvas id="chPrio"></canvas></div>
     </div>
     <div class="panel">
-      <h3><span class="dot"></span> Sprint 18 por Status</h3>
+      <h3><span class="dot"></span> <span data-sprint-name>Sprint 19</span> por Status</h3>
       <div class="chart-wrap"><canvas id="chSprint"></canvas></div>
     </div>
     <div class="panel">
-      <h3><span class="dot"></span> Carga por Responsável (Sprint 18)</h3>
+      <h3><span class="dot"></span> Carga por Responsável (<span data-sprint-name>Sprint 19</span>)</h3>
       <div class="chart-wrap"><canvas id="chAssignee"></canvas></div>
     </div>
   </section>
@@ -154,7 +154,7 @@
   <div class="toolbar">
     <div class="tabs">
       <button class="tab active" data-view="backlog">Backlog</button>
-      <button class="tab" data-view="sprint">Sprint 18</button>
+      <button class="tab" data-view="sprint"><span data-sprint-name>Sprint 19</span></button>
     </div>
     <input type="text" id="q" placeholder="🔎 Buscar por chave, resumo, responsável…" />
     <select id="fGroup"><option value="">Todos os grupos</option></select>
@@ -220,11 +220,12 @@ function renderKPIs(){
   const groups=new Set(d.backlog.map(r=>r.group)).size;
   document.getElementById('kpis').innerHTML=
     kpiCard(d.summary.total,'Total em aberto','Sprint + Backlog','')+
-    kpiCard(d.summary.sprintOpen,'Sprint 18',`${inProg} em andamento`,'green')+
+    kpiCard(d.summary.sprintOpen,d.meta.sprint.name,`${inProg} em andamento`,'green')+
     kpiCard(d.summary.backlogOpen,'Backlog','sem épico/subtarefa','blue')+
     kpiCard(bugs,'Bugs abertos','sprint + backlog','red')+
     kpiCard(high,'Prioridade alta','High + Highest','amber')+
     kpiCard(groups,'Grupos / unidades','no backlog','');
+  document.querySelectorAll('[data-sprint-name]').forEach(e=>e.textContent=d.meta.sprint.name);
 }
 
 function mkBar(id,labels,values,horizontal,colors){

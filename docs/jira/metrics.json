@@ -4,8 +4,8 @@
     "projectName": "Engineer Dashboard",
     "board": 166,
     "jiraBase": "https://myio.atlassian.net",
-    "generatedAt": "2026-07-28",
-    "today": "2026-07-28",
+    "generatedAt": "2026-07-30",
+    "today": "2026-07-30",
     "source": "Jira Cloud (myio.atlassian.net) via MCP Atlassian"
   },
   "rules": {
@@ -265,7 +265,7 @@
       "name": "Sprint 18",
       "start": "2026-06-30",
       "end": "2026-07-07",
-      "complete": "2026-07-28",
+      "complete": "2026-07-29",
       "state": "closed",
       "scope": 6,
       "done": 6,
@@ -414,11 +414,16 @@
           "date": "2026-07-28",
           "remaining": 0,
           "ideal": 0
+        },
+        {
+          "date": "2026-07-29",
+          "remaining": 0,
+          "ideal": 0
         }
       ],
       "span": {
         "start": "2026-06-30",
-        "end": "2026-07-28"
+        "end": "2026-07-29"
       }
     },
     {
@@ -428,25 +433,35 @@
       "end": "2026-08-04",
       "complete": "",
       "state": "active",
-      "scope": 59,
-      "done": 6,
+      "scope": 64,
+      "done": 7,
       "burndown": [
         {
           "date": "2026-07-28",
-          "remaining": 53,
-          "ideal": 59
+          "remaining": 58,
+          "ideal": 64
+        },
+        {
+          "date": "2026-07-29",
+          "remaining": 57,
+          "ideal": 54.9
+        },
+        {
+          "date": "2026-07-30",
+          "remaining": 57,
+          "ideal": 45.7
         }
       ],
       "span": {
         "start": "2026-07-28",
-        "end": "2026-07-28"
+        "end": "2026-07-30"
       }
     }
   ],
   "defaultPreset": "sprint-596",
   "fullSpan": {
     "start": "2026-05-25",
-    "end": "2026-07-28"
+    "end": "2026-07-30"
   },
   "completions": [
     {
@@ -1320,6 +1335,70 @@
       "type": "História",
       "priority": "Medium",
       "date": "2026-07-28"
+    },
+    {
+      "key": "ED-953",
+      "summary": "Ajuste Tela de solenóide",
+      "assignee": "Rodrigo Lago",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-07-28"
+    },
+    {
+      "key": "ED-255",
+      "summary": "Revisar e Normalizar Centrais Park Lagos x Thingsboard",
+      "assignee": "Rodrigo Lago",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-07-28"
+    },
+    {
+      "key": "ED-788",
+      "summary": "[GCDR][Pré-Setup] Criar Modelagem do Processo no Bizagi",
+      "assignee": "Letícia Camargo",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-07-29"
+    },
+    {
+      "key": "ED-1029",
+      "summary": "[QA] Validar dia 15 inteiro nas Metas v5.2.0 (01→15/jul)",
+      "assignee": "Letícia Camargo",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-07-29"
+    },
+    {
+      "key": "ED-1006",
+      "summary": "Testar Metas — Head Office: Metas × Consumo (painel comparativo)",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-07-29"
+    },
+    {
+      "key": "ED-1054",
+      "summary": "[RCP] Pareamento pela serial + fix não-bloqueante",
+      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-07-30"
+    },
+    {
+      "key": "ED-1051",
+      "summary": "[RCP] Firmware do co-processador ESP32 (Fase 0+1)",
+      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-07-30"
+    },
+    {
+      "key": "ED-1052",
+      "summary": "[RCP] Backend Erlang radio_rcp (drop-in do radio)",
+      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-07-30"
     }
   ]
 }

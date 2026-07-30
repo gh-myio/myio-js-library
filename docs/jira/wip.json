@@ -2,19 +2,37 @@
   "meta": {
     "project": "ED",
     "jiraBase": "https://myio.atlassian.net",
-    "generatedAt": "2026-07-28",
+    "generatedAt": "2026-07-30",
     "status": "Em Andamento",
     "wipLimit": 1,
     "note": "WIP = tickets com status \"Em Andamento\". Acordo: 1 por pessoa (inclui \"Aguardando Demanda\" quando ocioso)."
   },
-  "total": 10,
-  "peopleOver": 2,
+  "total": 8,
+  "peopleOver": 1,
   "people": [
     {
       "name": "Rodrigo Lago",
-      "count": 7,
+      "count": 5,
       "over": true,
       "tickets": [
+        {
+          "key": "ED-956",
+          "type": "Bug",
+          "summary": "[BUG] [PRÉ-SETUP] Ao criar novo cliente com estrutura sugerida, código do cliente não é gerado",
+          "updated": "2026-07-28"
+        },
+        {
+          "key": "ED-949",
+          "type": "Tarefa",
+          "summary": "[GCDR] Pré-setup: autopreencher \"Identificador\" ao adicionar device em asset com mais de 1 device",
+          "updated": "2026-07-28"
+        },
+        {
+          "key": "ED-941",
+          "type": "Bug",
+          "summary": "[BUG] [PRÉ-SETUP] [GCDR] Falha na sincronização para o GDCR de cliente cadastrado com múltiplos gateways (2+)",
+          "updated": "2026-07-28"
+        },
         {
           "key": "ED-992",
           "type": "Bug",
@@ -24,57 +42,21 @@
         {
           "key": "ED-973",
           "type": "Bug",
-          "summary": "[BUG][PRÉ-SETUP][GCDR] Duplicidade IPv6/UUID gateway",
+          "summary": "[BUG] [PRÉ-SETUP] [GCDR] Sistema não emite alerta de duplicidade (IPv6/UUID) ao cadastrar gateway e quebra sincronização com GCDR",
           "updated": "2026-06-22"
-        },
-        {
-          "key": "ED-956",
-          "type": "Bug",
-          "summary": "[BUG][PRÉ-SETUP] código do cliente não é gerado",
-          "updated": "2026-07-28"
-        },
-        {
-          "key": "ED-953",
-          "type": "Subtarefa",
-          "summary": "Ajuste Tela de solenóide",
-          "updated": "2026-06-12"
-        },
-        {
-          "key": "ED-949",
-          "type": "Tarefa",
-          "summary": "[GCDR] Pré-setup: autopreencher Identificador",
-          "updated": "2026-07-28"
-        },
-        {
-          "key": "ED-941",
-          "type": "Bug",
-          "summary": "[BUG][PRÉ-SETUP][GCDR] Falha sync múltiplos gateways",
-          "updated": "2026-07-28"
-        },
-        {
-          "key": "ED-255",
-          "type": "Subtarefa",
-          "summary": "Revisar e Normalizar Centrais Park Lagos x Thingsboard",
-          "updated": "2025-11-05"
         }
       ]
     },
     {
       "name": "Letícia Camargo",
-      "count": 2,
-      "over": true,
+      "count": 1,
+      "over": false,
       "tickets": [
         {
-          "key": "ED-788",
+          "key": "ED-1044",
           "type": "Subtarefa",
-          "summary": "[GCDR][Pré-Setup] Criar Modelagem do Processo no Bizagi",
-          "updated": "2026-07-28"
-        },
-        {
-          "key": "ED-359",
-          "type": "Subtarefa",
-          "summary": "Criar Modelagem no Bizagi",
-          "updated": "2026-07-28"
+          "summary": "[QA] Testes ED-1020",
+          "updated": "2026-07-30"
         }
       ]
     },
@@ -84,10 +66,23 @@
       "over": false,
       "tickets": [
         {
-          "key": "ED-1037",
+          "key": "ED-1055",
           "type": "Subtarefa",
-          "summary": "Secrets de Admin JWT para Prod",
-          "updated": "2026-07-28"
+          "summary": "[Docs/PR] Design doc + runbook + PR do RCP",
+          "updated": "2026-07-30"
+        }
+      ]
+    },
+    {
+      "name": "Victor Hugo da Silva",
+      "count": 1,
+      "over": false,
+      "tickets": [
+        {
+          "key": "ED-1039",
+          "type": "Tarefa",
+          "summary": "[MQTT Sync] Ajustar bloco SQL do nó GET MQTT Status Sync no flow API — Campinas G0 Nova (+ verificar demais centrais)",
+          "updated": "2026-07-29"
         }
       ]
     }
