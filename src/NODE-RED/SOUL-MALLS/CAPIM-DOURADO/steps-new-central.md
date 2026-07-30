@@ -1,4 +1,4 @@
-# Setup da central — Shopping Capim Dourado (Soul Malls)
+# Setup da central — Central Capim Dourado Reserva (Soul Malls)
 
 > Runbook especializado a partir de
 > [`SA-CAVALCANTE/MOXUARA/steps-new-central.md`](../../SA-CAVALCANTE/MOXUARA/steps-new-central.md)
@@ -7,14 +7,20 @@
 >
 > | Campo | Valor |
 > |---|---|
-> | Central | Shopping Capim Dourado |
+> | Central | Central Capim Dourado Reserva |
 > | Holding | Soul Malls |
-> | IPv6 (mesh Yggdrasil) | `200:1e47:5d5e:d011:a88c:6f1b:fda2:622d` |
-> | CENTRAL_UUID / Gateway ID | `988433ae-88c1-49b1-b43b-e08592ae3005` |
+> | IPv6 (mesh Yggdrasil) | `200:9738:d165:f821:68d3:2852:d822:a748` |
+> | CENTRAL_UUID / Gateway ID | `84638207-ac49-4adf-a033-4731dbb920c2` |
 > | Banco | `hubot` (PostgreSQL local na central) |
 > | Node-RED | embarcado no `myio-api.service` — editor `/red`, porta `8080` |
 >
 > Fonte da identificação: [`GLOBAL_INFO/manual-centrais-linix-orangepi.md`](../../GLOBAL_INFO/manual-centrais-linix-orangepi.md).
+>
+> ℹ️ Esta central (**Central Capim Dourado Reserva**) **substitui** a central
+> anterior do Capim Dourado (IPv6 `200:1e47:…:622d`, UUID `988433ae-…`),
+> **inativada em 2026-07-30**. É uma **central nova de fábrica** — sem
+> restauração de banco e sem pré-setup prévio (por isso a seção 0 é
+> obrigatória aqui). Ver o par inativada/nova no manual global.
 
 **Diferença em relação ao runbook da Moxuara:** o kit `mqtt-sync/` desta pasta já
 inclui os SQLs do state-api (`provision-central-v5.sql`, `clear-all-data-central.sql`),
@@ -96,7 +102,7 @@ de software concluído.
 ## 1. Acesso
 
 ```bash
-ssh -i id_rsa root@200:1e47:5d5e:d011:a88c:6f1b:fda2:622d
+ssh -i id_rsa root@200:9738:d165:f821:68d3:2852:d822:a748
 ```
 
 ## 2. Levar os SQLs para a central
@@ -105,7 +111,7 @@ Do workstation (repare nos colchetes do IPv6 no `scp`):
 
 ```bash
 scp -i id_rsa -r src/NODE-RED/SOUL-MALLS/CAPIM-DOURADO/mqtt-sync \
-  "root@[200:1e47:5d5e:d011:a88c:6f1b:fda2:622d]:/tmp/mqtt-sync"
+  "root@[200:9738:d165:f821:68d3:2852:d822:a748]:/tmp/mqtt-sync"
 ```
 
 > ⚠️ Arquivos vindos de checkout Windows podem ter CRLF — já na central:
@@ -156,7 +162,7 @@ SELECT 'ambient', id, name      FROM ambients WHERE name ILIKE '%mqtt%sync%';
 
 -- 3.4 ÚNICO script que grava DADOS (slave/channel/ambient virtuais; tem guarda
 --     anti-duplicata que aborta se já existir). Já vem com o nome especializado
---     'MQTT Sync - 988433ae-88c1-49b1-b43b-e08592ae3005' e addr_low dinâmico.
+--     'MQTT Sync - 84638207-ac49-4adf-a033-4731dbb920c2' e addr_low dinâmico.
 \i /tmp/mqtt-sync/create-virtual-mqtt-sync.sql
 
 -- 3.5 Conferências
@@ -197,14 +203,14 @@ systemctl restart myio-api.service
 
 ## 5. Palette — data-fetcher
 
-No editor (`http://[200:1e47:5d5e:d011:a88c:6f1b:fda2:622d]:8080/red`) → menu →
+No editor (`http://[200:9738:d165:f821:68d3:2852:d822:a748]:8080/red`) → menu →
 **Manage Palette → Install → upload** do
 `node-red-contrib-myio-data-fetcher-1.7.2.tgz` (upload é feito do browser do
 workstation). Não precisa restart — só Deploy quando mexer no flow.
 
 ## 6. Flow — conferências obrigatórias
 
-1. **env `CENTRAL_UUID` = `988433ae-88c1-49b1-b43b-e08592ae3005`** definida no
+1. **env `CENTRAL_UUID` = `84638207-ac49-4adf-a033-4731dbb920c2`** definida no
    ambiente do serviço (é ela que nomeia o device no ThingsBoard:
    `MQTT Sync - <CENTRAL_UUID>`, via attributes-sync/status-sync):
    ```bash
@@ -244,7 +250,7 @@ journalctl -u 'myio*' -n 50 -f
 ```
 
 No **ThingsBoard**: conferir o device
-`MQTT Sync - 988433ae-88c1-49b1-b43b-e08592ae3005` criado pelo gateway após o
+`MQTT Sync - 84638207-ac49-4adf-a033-4731dbb920c2` criado pelo gateway após o
 attributes/status-sync rodar.
 
 ---
