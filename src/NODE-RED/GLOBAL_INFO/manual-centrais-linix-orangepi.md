@@ -40,18 +40,18 @@ ssh -i id_rsa root@<ipv6-da-central>
 
 #### Holding: SÁ CAVALCANTE
 
-| Central              | IPv6                                     | Gateway ID                             | Central ID | Frequência |
-| -------------------- | ---------------------------------------- | -------------------------------------- | ---------- | ---------- |
-| Mestre Álvaro — L0L1 | `200:ba5f:dacb:b278:8f85:acf4:f33c:f485` | `45250d44-bad0-4071-aaa0-8091cfb12691` | —          | —          |
-| Mestre Álvaro — L2AC | `200:8b:483c:9008:1184:caec:41b1:fa28`   | `d3202744-05dd-46d1-af33-495e9a2ecd52` | —          | —          |
-| Mestre Álvaro — L3L4 | `200:b0b1:81aa:49a4:c554:4fec:f110:9896` | `fcb3ccd1-4b85-4cef-a1de-0b8a80bec81e` | —          | —          |
-| Rio Poty             | `203:bdfb:8fda:634d:c846:1404:f319:718c` | `c0af8288-7b13-4024-bc11-df5017fef656` | —          | —          |
-| Shopping da Ilha     | `201:3447:911:5955:4018:3960:6838:ee12`  | `cb318f02-1020-4f99-857f-d44d001d939b` | —          | —          |
+| Central                                                                                                   | IPv6                                        | Gateway ID                                 | Central ID | Frequência |
+| --------------------------------------------------------------------------------------------------------- | ------------------------------------------- | ------------------------------------------ | ---------- | ---------- |
+| Mestre Álvaro — L0L1                                                                                      | `200:ba5f:dacb:b278:8f85:acf4:f33c:f485`    | `45250d44-bad0-4071-aaa0-8091cfb12691`     | —          | —          |
+| Mestre Álvaro — L2AC                                                                                      | `200:8b:483c:9008:1184:caec:41b1:fa28`      | `d3202744-05dd-46d1-af33-495e9a2ecd52`     | —          | —          |
+| Mestre Álvaro — L3L4                                                                                      | `200:b0b1:81aa:49a4:c554:4fec:f110:9896`    | `fcb3ccd1-4b85-4cef-a1de-0b8a80bec81e`     | —          | —          |
+| Rio Poty                                                                                                  | `203:bdfb:8fda:634d:c846:1404:f319:718c`    | `c0af8288-7b13-4024-bc11-df5017fef656`     | —          | —          |
+| Shopping da Ilha                                                                                          | `201:3447:911:5955:4018:3960:6838:ee12`     | `cb318f02-1020-4f99-857f-d44d001d939b`     | —          | —          |
 | ~~Moxuara~~ ⚠️ **INATIVADA 2026-07-13** — substituída pela Moxuara 2.0 (banco restaurado do backup desta) | ~~`202:1567:faee:79ef:486:6d44:d391:fb18`~~ | ~~`e982edf9-edb1-4aa6-8a14-4782465ae5a3`~~ | —          | —          |
-| Central Moxuara 2.0 - 2026-07-13 | `201:bc00:2a0e:6e36:a50f:9ef6:9b23:d097` | `6e88d9be-e351-4a8a-aa02-2a2222fcb22b` | —          | —          |
-| Central Moxuara 2.0 - ENTRADA - TRAFO - 2026-07-13 | `200:b2d6:a485:7a30:364b:424c:cafa:141c` | `6d7cd66a-c6dd-40df-b40b-e1bad295e424` | —          | —          |
-| Montserrat           | `200:abb2:e99:ec3d:eaf8:2d90:7bd9:42cc`  | `186bbdcb-95bc-4290-bf33-1ce89e48ffb4` | —          | —          |
-| Shopping Ananindeua  | `201:ca6e:c33b:3a06:f4dd:d148:5d85:6315` | `7ac0ac44-e631-4b64-ac1d-e9e93fe61e0a` | —          | —          |
+| Central Moxuara 2.0 - 2026-07-13                                                                          | `201:bc00:2a0e:6e36:a50f:9ef6:9b23:d097`    | `6e88d9be-e351-4a8a-aa02-2a2222fcb22b`     | —          | —          |
+| Central Moxuara 2.0 - ENTRADA - TRAFO - 2026-07-13                                                        | `200:b2d6:a485:7a30:364b:424c:cafa:141c`    | `6d7cd66a-c6dd-40df-b40b-e1bad295e424`     | —          | —          |
+| Montserrat                                                                                                | `200:abb2:e99:ec3d:eaf8:2d90:7bd9:42cc`     | `186bbdcb-95bc-4290-bf33-1ce89e48ffb4`     | —          | —          |
+| Shopping Ananindeua                                                                                       | `201:ca6e:c33b:3a06:f4dd:d148:5d85:6315`    | `7ac0ac44-e631-4b64-ac1d-e9e93fe61e0a`     | —          | —          |
 
 #### Holding: SOUZA AGUIAR
 
@@ -65,16 +65,17 @@ ssh -i id_rsa root@<ipv6-da-central>
 
 #### Holding: SOUL MALLS
 
-| Central                   | IPv6                                     | Gateway ID                             | Central ID     | Frequência |
-| ------------------------- | ---------------------------------------- | -------------------------------------- | -------------- | ---------- |
-| Praia da Costa L1         | `200:8e12:1a64:71bc:ff06:5c56:9f09:f4aa` | —                                      | —              | —          |
-| Macaé                     | `200:bf4f:c3a0:e697:17ff:28a5:38ae:536b` | `571ff592-8983-43b3-b7f2-96ab688d4f1c` | —              | —          |
-| Ilha Plaza AL1            | `200:dc42:651b:5ae5:338d:2b26:670d:34e6` | `81a60176-222c-4bb9-88f5-bc2b47802d82` | —              | —          |
-| Ilha Plaza AL2            | `200:24a5:8297:cce7:59d2:8126:6d67:7e4d` | `53052549-cc8c-4ca2-a597-58e0577548a2` | —              | —          |
-| Ilha Plaza AL3            | `206:c160:eb69:3ddb:42c7:efce:511e:792a` | `91b719b7-f2d2-4d3f-9fb9-ab3d4edbac0d` | —              | —          |
-| Melicidade                | `200:43cb:c66:59be:9966:7330:8b9a:224`   | `05148707-6011-42fb-8b78-46f33a5ca988` | —              | —          |
-| Shopping Contagem         | `200:12b0:b768:7ba0:32b5:1c15:bec7:33aa` | `70b6d878-090f-4326-af18-2695396cbc67` | —              | —          |
-| Shopping Capim Dourado    | `200:1e47:5d5e:d011:a88c:6f1b:fda2:622d` | `988433ae-88c1-49b1-b43b-e08592ae3005` | —              | —          |
+| Central                | IPv6                                     | Gateway ID                             | Central ID | Frequência |
+| ---------------------- | ---------------------------------------- | -------------------------------------- | ---------- | ---------- |
+| Praia da Costa L1      | `200:8e12:1a64:71bc:ff06:5c56:9f09:f4aa` | —                                      | —          | —          |
+| Macaé                  | `200:bf4f:c3a0:e697:17ff:28a5:38ae:536b` | `571ff592-8983-43b3-b7f2-96ab688d4f1c` | —          | —          |
+| Ilha Plaza AL1         | `200:dc42:651b:5ae5:338d:2b26:670d:34e6` | `81a60176-222c-4bb9-88f5-bc2b47802d82` | —          | —          |
+| Ilha Plaza AL2         | `200:24a5:8297:cce7:59d2:8126:6d67:7e4d` | `53052549-cc8c-4ca2-a597-58e0577548a2` | —          | —          |
+| Ilha Plaza AL3         | `206:c160:eb69:3ddb:42c7:efce:511e:792a` | `91b719b7-f2d2-4d3f-9fb9-ab3d4edbac0d` | —          | —          |
+| Melicidade             | `200:43cb:c66:59be:9966:7330:8b9a:224`   | `05148707-6011-42fb-8b78-46f33a5ca988` | —          | —          |
+| Shopping Contagem      | `200:12b0:b768:7ba0:32b5:1c15:bec7:33aa` | `70b6d878-090f-4326-af18-2695396cbc67` | —          | —          |
+| ~~Shopping Capim Dourado~~ ⚠️ **INATIVADA 2026-07-30** — substituída pela central nova abaixo (central nova de fábrica, **sem restauração de banco**; pré-setup ainda pendente) | ~~`200:1e47:5d5e:d011:a88c:6f1b:fda2:622d`~~ | ~~`988433ae-88c1-49b1-b43b-e08592ae3005`~~ | —          | —          |
+| Shopping Capim Dourado 2.0 - 2026-07-30 | `200:9738:d165:f821:68d3:2852:d822:a748` | `84638207-ac49-4adf-a033-4731dbb920c2` | —          | —          |
 
 #### Holding: ARGO PLAN
 
@@ -85,11 +86,11 @@ ssh -i id_rsa root@<ipv6-da-central>
 
 #### Holding: SUPERVIA ESTAÇÕES
 
-| Central      | IPv6                                      | Gateway ID                             | Central ID | Frequência |
-| ------------ | ----------------------------------------- | -------------------------------------- | ---------- | ---------- |
-| Deodoro      | `200:1e6a:69a5:73f1:b18a:e6e:aa68:9229`  | `adb43bf6-6107-44fa-b786-6e88c150d779` | —          | —          |
-| Supervia CCO | `206:e178:b5ba:16:f028:c0bc:d616:2c5b`   | `af8a4c31-aa30-4417-9421-457496bcfe01` | —          | —          |
-| Supervia CTO | `202:1c94:dab9:af71:f553:616:615:adbc`   | `6dd63004-1009-4585-bd9f-556d4385e292` | —          | —          |
+| Central      | IPv6                                    | Gateway ID                             | Central ID | Frequência |
+| ------------ | --------------------------------------- | -------------------------------------- | ---------- | ---------- |
+| Deodoro      | `200:1e6a:69a5:73f1:b18a:e6e:aa68:9229` | `adb43bf6-6107-44fa-b786-6e88c150d779` | —          | —          |
+| Supervia CCO | `206:e178:b5ba:16:f028:c0bc:d616:2c5b`  | `af8a4c31-aa30-4417-9421-457496bcfe01` | —          | —          |
+| Supervia CTO | `202:1c94:dab9:af71:f553:616:615:adbc`  | `6dd63004-1009-4585-bd9f-556d4385e292` | —          | —          |
 
 #### Holding: DIMENSION
 
@@ -120,15 +121,15 @@ ssh -i id_rsa root@<ipv6-da-central>
 
 #### Holding: PORTO IMBITUBA
 
-| Central                  | IPv6                                      | Gateway ID                             | Central ID | Frequência |
-| ------------------------ | ----------------------------------------- | -------------------------------------- | ---------- | ---------- |
-| Porto Imbituba 4 — NOVA  | `200:c301:a4e7:529a:780c:9230:2142:9dba`  | `014fab8e-ee6d-4349-9866-d73864cbd44b` | —          | —          |
+| Central                 | IPv6                                     | Gateway ID                             | Central ID | Frequência |
+| ----------------------- | ---------------------------------------- | -------------------------------------- | ---------- | ---------- |
+| Porto Imbituba 4 — NOVA | `200:c301:a4e7:529a:780c:9230:2142:9dba` | `014fab8e-ee6d-4349-9866-d73864cbd44b` | —          | —          |
 
 #### MYIO — PRÉ-SETUP (bancada / referência)
 
-| Central           | IPv6                                      | Gateway ID                             | Central ID | Frequência |
-| ----------------- | ----------------------------------------- | -------------------------------------- | ---------- | ---------- |
-| Central Pre-Setup | `204:12fb:5518:d04:d9e1:360d:4ab0:125b`   | `a77ac87c-addd-4172-a65f-0f6f6038e98e` | `161.158.107.69` | 121 |
+| Central           | IPv6                                    | Gateway ID                             | Central ID       | Frequência |
+| ----------------- | --------------------------------------- | -------------------------------------- | ---------------- | ---------- |
+| Central Pre-Setup | `204:12fb:5518:d04:d9e1:360d:4ab0:125b` | `a77ac87c-addd-4172-a65f-0f6f6038e98e` | `161.158.107.69` | 121        |
 
 > Referência canônica do Pre-Setup Constructor — ver `src/NODE-RED/CENTRAL_PRE_SETUP/README.md`.
 
@@ -207,8 +208,11 @@ ssh -i id_rsa root@200:43cb:c66:59be:9966:7330:8b9a:224
 # Shopping Contagem (Soul Malls)
 ssh -i id_rsa root@200:12b0:b768:7ba0:32b5:1c15:bec7:33aa
 
-# Shopping Capim Dourado (Soul Malls)
-ssh -i id_rsa root@200:1e47:5d5e:d011:a88c:6f1b:fda2:622d
+# Shopping Capim Dourado (Soul Malls) — ⚠️ INATIVADA 2026-07-30 (substituída pela 2.0 abaixo)
+# ssh -i id_rsa root@200:1e47:5d5e:d011:a88c:6f1b:fda2:622d
+
+# Shopping Capim Dourado 2.0 - 2026-07-30 (Soul Malls) — central nova (sem restore de banco; pré-setup pendente)
+ssh -i id_rsa root@200:9738:d165:f821:68d3:2852:d822:a748
 
 # Deodoro (Supervia Estações)
 ssh -i id_rsa root@200:1e6a:69a5:73f1:b18a:e6e:aa68:9229
