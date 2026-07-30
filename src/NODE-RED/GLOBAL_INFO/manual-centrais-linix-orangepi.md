@@ -75,7 +75,7 @@ ssh -i id_rsa root@<ipv6-da-central>
 | Melicidade             | `200:43cb:c66:59be:9966:7330:8b9a:224`   | `05148707-6011-42fb-8b78-46f33a5ca988` | —          | —          |
 | Shopping Contagem      | `200:12b0:b768:7ba0:32b5:1c15:bec7:33aa` | `70b6d878-090f-4326-af18-2695396cbc67` | —          | —          |
 | ~~Shopping Capim Dourado~~ ⚠️ **INATIVADA 2026-07-30** — substituída pela central nova abaixo (central nova de fábrica, **sem restauração de banco**; pré-setup ainda pendente) | ~~`200:1e47:5d5e:d011:a88c:6f1b:fda2:622d`~~ | ~~`988433ae-88c1-49b1-b43b-e08592ae3005`~~ | —          | —          |
-| Shopping Capim Dourado 2.0 - 2026-07-30 | `200:9738:d165:f821:68d3:2852:d822:a748` | `84638207-ac49-4adf-a033-4731dbb920c2` | —          | —          |
+| Shopping Capim Dourado 2.0 - 2026-07-30 | `200:9738:d165:f821:68d3:2852:d822:a748` | `84638207-ac49-4adf-a033-4731dbb920c2` | `75.216.106.156` | `102`      |
 
 #### Holding: ARGO PLAN
 
