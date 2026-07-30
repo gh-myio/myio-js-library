@@ -23,7 +23,7 @@
 > obrigatória aqui). Ver o par inativada/nova no manual global.
 
 **Diferença em relação ao runbook da Moxuara:** o kit `mqtt-sync/` desta pasta já
-inclui os SQLs do state-api (`provision-central-v5.sql`, `clear-all-data-central.sql`),
+inclui os SQLs do state-api (`01-provision-central-v5.sql`, `02-clear-all-data-central.sql`),
 então **não** é preciso buscá-los no `data-ingestion-prod.git`.
 
 Pré-requisitos: chave `id_rsa`; kit `mqtt-sync/` desta pasta;
@@ -117,20 +117,25 @@ scp -i id_rsa -r src/NODE-RED/SOUL-MALLS/CAPIM-DOURADO/mqtt-sync \
 > ⚠️ Arquivos vindos de checkout Windows podem ter CRLF — já na central:
 > `sed -i 's/\r$//' /tmp/mqtt-sync/*.sql`
 
-## 3. Banco — instalar FUNCTIONS primeiro, DADOS por último
+## 3. Banco — rodar os SQLs na ordem numérica do kit (00 → 04)
 
 ```bash
 psql -U hubot   # db default = hubot
 ```
 
+> Os arquivos do kit `mqtt-sync/` já vêm **prefixados com a ordem de execução**
+> (`00-` a `04-`) — rode-os nessa ordem. O `00` é o **único que grava DADOS**
+> (slave/channel/ambient virtuais) e tem **guarda anti-duplicata** (aborta se o
+> MQTT Sync já existir), por isso roda seguro mesmo primeiro; `01`–`04` são
+> INSTALADORES (`CREATE OR REPLACE FUNCTION` — idempotentes).
+>
 > ⚠️ **NUNCA rode no psql os .sql de `functions/prod/API/...`** — aqueles são as
 > queries dos NÓS do Node-RED (`SELECT clear_all_data_central()` etc.); o do
-> POST-ClearAllData **APAGA os dados da central**. Os arquivos abaixo são os
-> INSTALADORES (`CREATE OR REPLACE FUNCTION` — seguros e idempotentes).
+> POST-ClearAllData **APAGA os dados da central**.
 
 ```bash
 # 3.0 Backup ANTES de qualquer DDL/DML (manual §9.4) — mesmo os instaladores
-#     abaixo sendo idempotentes, o 3.4 grava DADOS (slave/channel/ambient virtuais)
+#     sendo idempotentes, o 00 grava DADOS (slave/channel/ambient virtuais)
 pg_dump -U hubot --clean --if-exists \
   -t slaves -t channels -t ambients -t ambients_rfir_slaves_rel \
   > /tmp/backup-cadastro-$(date +%Y%m%d-%H%M%S).sql
@@ -142,28 +147,28 @@ ls -lh /tmp/backup-*.sql
 > `reboot` (inclusive o do passo 4).
 
 ```sql
--- 3.1 Functions do state-api (instaladores)
-\i /tmp/mqtt-sync/provision-central-v5.sql
-\i /tmp/mqtt-sync/clear-all-data-central.sql
-
--- 3.2 Functions do MQTT Sync (instaladores; LIKE 'MQTT Sync%' — funcionam com
---     nome legado E especializado)
-\i /tmp/mqtt-sync/get_mqtt_sync_status.sql
-\i /tmp/mqtt-sync/set_mqtt_sync_status.sql
-
--- 3.3 VERIFICAÇÃO antes do create (essencial em banco restaurado de backup —
---     o MQTT Sync pode já existir; nesse caso é RENAME, não create — ver
---     cabeçalho do create-virtual-mqtt-sync.sql):
+-- 3.1 VERIFICAÇÃO antes do 00 (essencial em banco restaurado de backup — o MQTT
+--     Sync pode já existir; nesse caso é RENAME, não create — ver cabeçalho do
+--     00-create-virtual-mqtt-sync.sql). Numa central nova de fábrica: 0 linhas.
 SELECT 'slave' AS obj, id, name FROM slaves   WHERE name ILIKE '%mqtt%sync%'
 UNION ALL
 SELECT 'channel', id, name      FROM channels WHERE name ILIKE '%mqtt%sync%'
 UNION ALL
 SELECT 'ambient', id, name      FROM ambients WHERE name ILIKE '%mqtt%sync%';
 
--- 3.4 ÚNICO script que grava DADOS (slave/channel/ambient virtuais; tem guarda
---     anti-duplicata que aborta se já existir). Já vem com o nome especializado
+-- 3.2 (00) DADOS — device virtual MQTT Sync. ÚNICO que grava dados; guarda
+--     anti-duplicata (aborta se já existir). Nome já especializado
 --     'MQTT Sync - 84638207-ac49-4adf-a033-4731dbb920c2' e addr_low dinâmico.
-\i /tmp/mqtt-sync/create-virtual-mqtt-sync.sql
+\i /tmp/mqtt-sync/00-create-virtual-mqtt-sync.sql
+
+-- 3.3 (01-02) Functions do state-api (instaladores)
+\i /tmp/mqtt-sync/01-provision-central-v5.sql
+\i /tmp/mqtt-sync/02-clear-all-data-central.sql
+
+-- 3.4 (03-04) Functions do MQTT Sync (instaladores; LIKE 'MQTT Sync%' —
+--     funcionam com nome legado E especializado)
+\i /tmp/mqtt-sync/03-get_mqtt_sync_status.sql
+\i /tmp/mqtt-sync/04-set_mqtt_sync_status.sql
 
 -- 3.5 Conferências
 \df *mqtt*
@@ -275,9 +280,10 @@ formas independentes.
 
 ### Referências
 
-- Kit desta central: [`mqtt-sync/`](mqtt-sync/) — `create-virtual-mqtt-sync.sql`
-  (especializado), `get_mqtt_sync_status.sql`, `set_mqtt_sync_status.sql`,
-  `provision-central-v5.sql`, `clear-all-data-central.sql`
+- Kit desta central: [`mqtt-sync/`](mqtt-sync/) — arquivos prefixados na ordem de
+  execução: `00-create-virtual-mqtt-sync.sql` (especializado, grava dados),
+  `01-provision-central-v5.sql`, `02-clear-all-data-central.sql`,
+  `03-get_mqtt_sync_status.sql`, `04-set_mqtt_sync_status.sql`
 - Runbook de origem: [`SA-CAVALCANTE/MOXUARA/steps-new-central.md`](../../SA-CAVALCANTE/MOXUARA/steps-new-central.md)
 - Referência canônica de nomenclatura + functions JS de sync: [`CENTRAL_PRE_SETUP/README.md`](../../CENTRAL_PRE_SETUP/README.md)
 - Manual das centrais (SSH, Node-RED, Postgres, backup): [`GLOBAL_INFO/manual-centrais-linix-orangepi.md`](../../GLOBAL_INFO/manual-centrais-linix-orangepi.md)
