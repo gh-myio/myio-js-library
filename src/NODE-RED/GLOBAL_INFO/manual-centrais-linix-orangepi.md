@@ -125,6 +125,12 @@ ssh -i id_rsa root@<ipv6-da-central>
 | ----------------------- | ---------------------------------------- | -------------------------------------- | ---------- | ---------- |
 | Porto Imbituba 4 — NOVA | `200:c301:a4e7:529a:780c:9230:2142:9dba` | `014fab8e-ee6d-4349-9866-d73864cbd44b` | —          | —          |
 
+#### Holding: WEST PLAZA
+
+| Central    | IPv6                                 | Gateway ID                             | Central ID       | Frequência |
+| ---------- | ------------------------------------ | -------------------------------------- | ---------------- | ---------- |
+| West Plaza | `203:1211:7a3a:89f:4ce2:4482:13:e8b` | `1982b47d-2e82-40df-94cc-f89ae12cba58` | `137.177.222.39` | `1117`     |
+
 #### MYIO — PRÉ-SETUP (bancada / referência)
 
 | Central           | IPv6                                    | Gateway ID                             | Central ID       | Frequência |
@@ -246,6 +252,9 @@ ssh -i id_rsa root@200:47f1:8bf6:36da:65fa:4124:bcdb:dbb4
 
 # Porto Imbituba 4 — NOVA (Porto Imbituba)
 ssh -i id_rsa root@200:c301:a4e7:529a:780c:9230:2142:9dba
+
+# West Plaza (West Plaza)
+ssh -i id_rsa root@203:1211:7a3a:89f:4ce2:4482:13:e8b
 
 # Central Pre-Setup (bancada / referência)
 ssh -i id_rsa root@204:12fb:5518:d04:d9e1:360d:4ab0:125b
