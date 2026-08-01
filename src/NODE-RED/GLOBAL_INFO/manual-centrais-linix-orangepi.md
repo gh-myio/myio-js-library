@@ -249,6 +249,9 @@ ssh -i id_rsa root@202:f573:1e70:22f1:1dae:95bd:eeb9:1157
 # Benfica (Obramax)
 ssh -i id_rsa root@200:47f1:8bf6:36da:65fa:4124:bcdb:dbb4
 
+# Mesquita (Obramax)
+ssh -i id_rsa root@203:1800:d709:3207:2e0e:bfc1:8aa1:4281
+
 # Porto Imbituba 4 — NOVA (Porto Imbituba)
 ssh -i id_rsa root@200:c301:a4e7:529a:780c:9230:2142:9dba
 
