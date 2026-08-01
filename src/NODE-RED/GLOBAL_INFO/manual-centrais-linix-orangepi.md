@@ -76,6 +76,7 @@ ssh -i id_rsa root@<ipv6-da-central>
 | Shopping Contagem      | `200:12b0:b768:7ba0:32b5:1c15:bec7:33aa` | `70b6d878-090f-4326-af18-2695396cbc67` | —          | —          |
 | ~~Shopping Capim Dourado~~ ⚠️ **INATIVADA 2026-07-30** — substituída pela central nova abaixo (central nova de fábrica, **sem restauração de banco**; pré-setup ainda pendente) | ~~`200:1e47:5d5e:d011:a88c:6f1b:fda2:622d`~~ | ~~`988433ae-88c1-49b1-b43b-e08592ae3005`~~ | —          | —          |
 | Shopping Capim Dourado 2.0 - 2026-07-30 | `200:9738:d165:f821:68d3:2852:d822:a748` | `84638207-ac49-4adf-a033-4731dbb920c2` | `75.216.106.156` | `102`      |
+| West Plaza             | `203:1211:7a3a:89f:4ce2:4482:13:e8b`     | `1982b47d-2e82-40df-94cc-f89ae12cba58` | `137.177.222.39` | `1117`     |
 
 #### Holding: ARGO PLAN
 
@@ -118,18 +119,13 @@ ssh -i id_rsa root@<ipv6-da-central>
 | Aricanduva   | `200:bc45:34ee:59da:371a:cfe9:98d3:3805` | `1e0c1d77-1d41-4004-8be7-41328e590111` | —          | —          |
 | Guadalupe    | `202:f573:1e70:22f1:1dae:95bd:eeb9:1157` | `96a7ca86-c291-4d77-aa66-4706641eaa5a` | —          | —          |
 | Benfica      | `200:47f1:8bf6:36da:65fa:4124:bcdb:dbb4` | `1248905a-ed03-414d-bde6-c4410604ae8f` | —          | —          |
+| Mesquita     | `203:1800:d709:3207:2e0e:bfc1:8aa1:4281` | `17bda76f-c391-435e-9f76-5080432ee6aa` | `98.75.250.115` | `107`      |
 
 #### Holding: PORTO IMBITUBA
 
 | Central                 | IPv6                                     | Gateway ID                             | Central ID | Frequência |
 | ----------------------- | ---------------------------------------- | -------------------------------------- | ---------- | ---------- |
 | Porto Imbituba 4 — NOVA | `200:c301:a4e7:529a:780c:9230:2142:9dba` | `014fab8e-ee6d-4349-9866-d73864cbd44b` | —          | —          |
-
-#### Holding: WEST PLAZA
-
-| Central    | IPv6                                 | Gateway ID                             | Central ID       | Frequência |
-| ---------- | ------------------------------------ | -------------------------------------- | ---------------- | ---------- |
-| West Plaza | `203:1211:7a3a:89f:4ce2:4482:13:e8b` | `1982b47d-2e82-40df-94cc-f89ae12cba58` | `137.177.222.39` | `1117`     |
 
 #### MYIO — PRÉ-SETUP (bancada / referência)
 
@@ -220,6 +216,9 @@ ssh -i id_rsa root@200:12b0:b768:7ba0:32b5:1c15:bec7:33aa
 # Shopping Capim Dourado 2.0 - 2026-07-30 (Soul Malls) — central nova (sem restore de banco; pré-setup pendente)
 ssh -i id_rsa root@200:9738:d165:f821:68d3:2852:d822:a748
 
+# West Plaza (Soul Malls)
+ssh -i id_rsa root@203:1211:7a3a:89f:4ce2:4482:13:e8b
+
 # Deodoro (Supervia Estações)
 ssh -i id_rsa root@200:1e6a:69a5:73f1:b18a:e6e:aa68:9229
 
@@ -252,9 +251,6 @@ ssh -i id_rsa root@200:47f1:8bf6:36da:65fa:4124:bcdb:dbb4
 
 # Porto Imbituba 4 — NOVA (Porto Imbituba)
 ssh -i id_rsa root@200:c301:a4e7:529a:780c:9230:2142:9dba
-
-# West Plaza (West Plaza)
-ssh -i id_rsa root@203:1211:7a3a:89f:4ce2:4482:13:e8b
 
 # Central Pre-Setup (bancada / referência)
 ssh -i id_rsa root@204:12fb:5518:d04:d9e1:360d:4ab0:125b
