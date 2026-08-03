@@ -2,6 +2,7 @@
 -- CENTRAL PRE-SETUP — Produto VIRTUAL "MQTT Sync" (plug)
 -- Central: Pre-Setup · CENTRAL_UUID a77ac87c-addd-4172-a65f-0f6f6038e98e
 -- IPv6 (Yggdrasil): 204:12fb:5518:d04:d9e1:360d:4ab0:125b
+-- Template canônico do MQTT Sync (bancada Pre-Setup) — origem dos kits especializados por central.
 -- Banco: hubot (PostgreSQL, na própria central OrangePi)
 --
 -- Objetivo: criar um device "fake" (sem hardware Modbus) que aparece como card
@@ -10,7 +11,7 @@
 -- ⚠️ NOME ESPECIALIZADO POR CENTRAL (banco E ThingsBoard):
 --   - NESTA central o slave/channel/ambient são criados já com o nome
 --     especializado 'MQTT Sync - a77ac87c-addd-4172-a65f-0f6f6038e98e'
---     (uuid colocado NA MÃO — igual ao CENTRAL_UUID da env do Node-RED).
+--     (uuid = CENTRAL_UUID da env do Node-RED desta central).
 --   - As functions PG get/set_mqtt_sync_status() usam LIKE 'MQTT Sync%',
 --     então funcionam com o nome especializado E com o legado ('MQTT Sync').
 --   - No THINGSBOARD o gateway cria o device com o MESMO nome, montado nas
@@ -31,7 +32,42 @@
 --        200) AS addr_low_que_sera_usado;
 -- =============================================================================
 
+-- ─────────────────────────────────────────────────────────────────────────────
+-- VERIFICAÇÃO PRÉVIA (rode antes, principalmente em banco RESTAURADO de backup —
+-- o MQTT Sync pode já existir de uma configuração anterior):
+--   SELECT 'slave'   AS obj, id, name FROM slaves   WHERE name ILIKE '%mqtt%sync%'
+--   UNION ALL
+--   SELECT 'channel', id, name        FROM channels WHERE name ILIKE '%mqtt%sync%'
+--   UNION ALL
+--   SELECT 'ambient', id, name        FROM ambients WHERE name ILIKE '%mqtt%sync%';
+-- 0 linhas → pode rodar o create. Linhas existentes → NÃO rode; avalie renomear
+-- para o padrão especializado em vez de duplicar:
+--   UPDATE slaves   SET name = 'MQTT Sync - a77ac87c-addd-4172-a65f-0f6f6038e98e', updated_at = now() WHERE name = 'MQTT Sync';
+--   UPDATE channels SET name = 'MQTT Sync - a77ac87c-addd-4172-a65f-0f6f6038e98e', updated_at = now() WHERE name = 'MQTT Sync';
+--   UPDATE ambients SET name = 'MQTT Sync - a77ac87c-addd-4172-a65f-0f6f6038e98e', updated_at = now() WHERE name = 'MQTT Sync';
+-- ─────────────────────────────────────────────────────────────────────────────
+
 BEGIN;
+
+-- Guarda de idempotência: se QUALQUER objeto MQTT Sync já existir (slave,
+-- channel ou ambient — legado ou especializado), aborta a transação inteira.
+DO $$
+DECLARE
+  v_found TEXT;
+BEGIN
+  SELECT string_agg(obj || ' #' || id || ' "' || name || '"', ' · ')
+    INTO v_found
+  FROM (
+    SELECT 'slave'   AS obj, id, name FROM slaves   WHERE name ILIKE '%mqtt%sync%'
+    UNION ALL
+    SELECT 'channel', id, name        FROM channels WHERE name ILIKE '%mqtt%sync%'
+    UNION ALL
+    SELECT 'ambient', id, name        FROM ambients WHERE name ILIKE '%mqtt%sync%'
+  ) hits;
+  IF v_found IS NOT NULL THEN
+    RAISE EXCEPTION 'MQTT Sync JÁ EXISTE neste banco (%) — não rode o create de novo; se for o nome legado, use os UPDATEs de rename do cabeçalho.', v_found;
+  END IF;
+END $$;
 
 WITH next_addr AS (
   -- (0) addr_low DINÂMICO: menor addr_low do banco + 1; se esse valor já
@@ -83,7 +119,7 @@ SELECT (SELECT id FROM new_slave), (SELECT id FROM new_ambient), now(), now();
 
 -- Confira antes do COMMIT:
 --   SELECT id, name, type, addr_low, addr_high, config FROM slaves   WHERE name LIKE 'MQTT Sync%';
---   SELECT id, type, channel, name, slave_id          FROM channels WHERE name LIKE 'MQTT Sync%';
+--   SELECT id, type, channel, name, slave_id           FROM channels WHERE name LIKE 'MQTT Sync%';
 --   SELECT id, name, config                            FROM ambients WHERE name LIKE 'MQTT Sync%';
 
 COMMIT;

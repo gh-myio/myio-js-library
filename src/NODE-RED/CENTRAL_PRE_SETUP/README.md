@@ -30,16 +30,18 @@ ssh -i id_rsa root@204:12fb:5518:d04:d9e1:360d:4ab0:125b
 | `attributes-sync.js` | Function ATTRIBUTES-SYNC (devices → TB) — inclui o device virtual **MQTT Sync** com nome `MQTT Sync - <CENTRAL_UUID>` via `env.get('CENTRAL_UUID')` |
 | `status-sync.js` | Function Map-status-to-device (status → TB) — idem, nome especializado |
 | `transform-slave-outlet-devices.js` | Transform auxiliar de slaves outlet |
-| `mqtt-sync/create-virtual-mqtt-sync.sql` | Cria slave/channel/ambient virtuais `MQTT Sync` no Postgres da central (⚠️ conferir addr 200/249 livre antes — ver header) |
-| `mqtt-sync/get_mqtt_sync_status.sql` | Function PG `get_mqtt_sync_status()` (write-on-miss, default `enable`) |
-| `mqtt-sync/set_mqtt_sync_status.sql` | Function PG `set_mqtt_sync_status(payload)` (persistência + auditoria em `logs`) |
+| `mqtt-sync/00-create-virtual-mqtt-sync.sql` | Cria slave/channel/ambient virtuais `MQTT Sync` no Postgres da central — **grava DADOS, roda 1º** (tem guarda anti-duplicata; ⚠️ conferir addr 200/249 livre antes — ver header) |
+| `mqtt-sync/01-provision-central-v5.sql` | Instalador da function `provision_central()` (state-api; default version `6.0.0`) |
+| `mqtt-sync/02-clear-all-data-central.sql` | Instalador da function `clear_all_data_central()` (state-api) |
+| `mqtt-sync/03-get_mqtt_sync_status.sql` | Function PG `get_mqtt_sync_status()` (write-on-miss, default `enable`) |
+| `mqtt-sync/04-set_mqtt_sync_status.sql` | Function PG `set_mqtt_sync_status(payload)` (persistência + auditoria em `logs`) |
 | `state-api-bkp/` | **Cópia de segurança** (2026-07-06) dos SQLs do state-api de `data-ingestion-prod.git/src/NODE-RED/state-api`: `clear-all-data-central.sql`, `get-state.sql`, `provision-central-v5.sql` |
 
 ## MQTT Sync — estratégia de nome (importante)
 
 - **Nesta central o nome é especializado NOS DOIS lados**: banco **e**
   ThingsBoard usam **`MQTT Sync - a77ac87c-addd-4172-a65f-0f6f6038e98e`**.
-  - No banco: o uuid vai **na mão** no `mqtt-sync/create-virtual-mqtt-sync.sql`
+  - No banco: o uuid vai **na mão** no `mqtt-sync/00-create-virtual-mqtt-sync.sql`
     (slave/channel/ambient já criados com o nome completo).
   - No TB: o gateway monta o mesmo nome via `env.get('CENTRAL_UUID')` nas
     functions `attributes-sync.js` / `status-sync.js`. Evita colisão de
@@ -57,7 +59,7 @@ ssh -i id_rsa root@204:12fb:5518:d04:d9e1:360d:4ab0:125b
 ## Checklist de deploy do MQTT Sync nesta central
 
 1. Conferir a env `CENTRAL_UUID` no Node-RED (inject `env.get('CENTRAL_UUID')` → debug deve mostrar `a77ac87c-addd-4172-a65f-0f6f6038e98e`).
-2. Rodar `mqtt-sync/create-virtual-mqtt-sync.sql` no `hubot` (validar addr livre antes; conferir os SELECTs do header antes do COMMIT).
-3. Rodar `mqtt-sync/get_mqtt_sync_status.sql` e `mqtt-sync/set_mqtt_sync_status.sql` (CREATE OR REPLACE FUNCTION).
+2. Rodar `mqtt-sync/00-create-virtual-mqtt-sync.sql` no `hubot` (grava dados; tem guarda anti-duplicata; validar addr livre antes; conferir os SELECTs do header antes do COMMIT).
+3. Rodar `mqtt-sync/03-get_mqtt_sync_status.sql` e `mqtt-sync/04-set_mqtt_sync_status.sql` (CREATE OR REPLACE FUNCTION). Os instaladores state-api `01-provision-central-v5.sql` / `02-clear-all-data-central.sql` só entram no bootstrap completo da central.
 4. Colar `attributes-sync.js` e `status-sync.js` nos nós correspondentes do flow e Deploy.
 5. Validar no TB: device novo **`MQTT Sync - a77ac87c-addd-4172-a65f-0f6f6038e98e`** com `connectionStatus: online` e `status` refletindo `global.mqttSyncStatus`.
