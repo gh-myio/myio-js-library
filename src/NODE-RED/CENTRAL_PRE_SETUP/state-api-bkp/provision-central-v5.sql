@@ -24,6 +24,9 @@ DECLARE
   remove_entry JSONB;
   rename_entry JSONB;
   cleanup_amb_entry JSONB;
+  env_entry JSONB;
+  env_key TEXT;
+  env_value TEXT;
   ambient_name TEXT;
   ambient_id_var INTEGER;
   slave_id_var INTEGER;
@@ -36,9 +39,6 @@ DECLARE
   slave_type TEXT;
   -- v5.3 — versão do slave configurável via payload.version (default '6.0.0').
   slave_version TEXT;
-  -- v5.4 — payload.gateway.{central_id,frequency} → upsert em `environment`.
-  gateway_central_id TEXT;
-  gateway_frequency TEXT;
   ambient_map JSONB := '{}'::JSONB;
   is_ac BOOLEAN;
   has_rfir BOOLEAN;
@@ -73,32 +73,28 @@ BEGIN
   slave_version := COALESCE(payload->>'version', '6.0.0');
 
   -- ─────────────────────────────────────────────────────────────────────────
-  -- 0) ENVIRONMENT — payload.gateway.{central_id,frequency} (v5.4)
-  -- Config key→value persistida na tabela `environment` (cf.
-  -- state-api-bkp/get-state.sql, que a expõe no GET /api/state). Só grava
-  -- quando o campo vem no payload — reprovisionar sem `gateway` preserva os
-  -- valores já salvos. Upsert manual (UPDATE, senão INSERT) por não haver
-  -- constraint UNIQUE confirmada em environment.key para usar ON CONFLICT.
+  -- 0) ENVIRONMENT — payload.environment[] (v5.4)
+  -- Array de {key, value}, irmão de payload.devices[] — mesmo padrão de loop
+  -- (jsonb_array_elements). Upsert genérico na tabela `environment`: aceita
+  -- qualquer chave (CENTRAL_ID, FREQUENCY, e o que mais surgir depois) sem
+  -- precisar de código novo por propriedade. Chave normalizada p/ MAIÚSCULO
+  -- (convenção já usada nas linhas existentes da tabela). Upsert manual
+  -- (UPDATE, senão INSERT) por não haver constraint UNIQUE confirmada em
+  -- environment.key para usar ON CONFLICT.
   -- ─────────────────────────────────────────────────────────────────────────
-  -- centralId (string pontilhada, ex. "161.158.107.69") tem precedência sobre
-  -- central_id (array de octetos no JSON de pre-setup) — evita gravar "[161, …]".
-  gateway_central_id := COALESCE(payload->'gateway'->>'centralId', payload->'gateway'->>'central_id');
-  IF gateway_central_id IS NOT NULL THEN
-    UPDATE environment SET value = gateway_central_id WHERE key = 'central_id';
-    IF NOT FOUND THEN
-      INSERT INTO environment (key, value) VALUES ('central_id', gateway_central_id);
+  FOR env_entry IN
+    SELECT value FROM jsonb_array_elements(COALESCE(payload->'environment', '[]'::jsonb))
+  LOOP
+    env_key := UPPER(env_entry->>'key');
+    env_value := env_entry->>'value';
+    IF env_key IS NOT NULL THEN
+      UPDATE environment SET value = env_value WHERE key = env_key;
+      IF NOT FOUND THEN
+        INSERT INTO environment (key, value) VALUES (env_key, env_value);
+      END IF;
+      result := jsonb_set(result, '{environment_updated}', (result->'environment_updated') || to_jsonb(env_key));
     END IF;
-    result := jsonb_set(result, '{environment_updated}', (result->'environment_updated') || '"central_id"'::JSONB);
-  END IF;
-
-  gateway_frequency := payload->'gateway'->>'frequency';
-  IF gateway_frequency IS NOT NULL THEN
-    UPDATE environment SET value = gateway_frequency WHERE key = 'frequency';
-    IF NOT FOUND THEN
-      INSERT INTO environment (key, value) VALUES ('frequency', gateway_frequency);
-    END IF;
-    result := jsonb_set(result, '{environment_updated}', (result->'environment_updated') || '"frequency"'::JSONB);
-  END IF;
+  END LOOP;
 
   -- ─────────────────────────────────────────────────────────────────────────
   -- 1) ADD/REUSE — slave_id-aware (v4) + multi-channel (v5)
