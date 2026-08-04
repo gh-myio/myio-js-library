@@ -65,5 +65,9 @@ SELECT json_build_object(
       'rfir_device_id', rfir_device_id
     ))
     FROM ambients_rfir_devices_rel
-  ), '[]'::json)
+  ), '[]'::json),
+  'environment', COALESCE((
+    SELECT json_object_agg(key, value)
+    FROM environment
+  ), '{}'::json)
 ) AS state;
