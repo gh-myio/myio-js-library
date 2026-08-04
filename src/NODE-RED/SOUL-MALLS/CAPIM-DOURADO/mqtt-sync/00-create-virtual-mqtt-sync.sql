@@ -1,7 +1,7 @@
 -- =============================================================================
--- SHOPPING CAPIM DOURADO (Soul Malls) — Produto VIRTUAL "MQTT Sync" (plug)
--- Central: Shopping Capim Dourado · CENTRAL_UUID 988433ae-88c1-49b1-b43b-e08592ae3005
--- IPv6 (Yggdrasil): 200:1e47:5d5e:d011:a88c:6f1b:fda2:622d
+-- CENTRAL CAPIM DOURADO RESERVA (Soul Malls) — Produto VIRTUAL "MQTT Sync" (plug)
+-- Central: Central Capim Dourado Reserva · CENTRAL_UUID 84638207-ac49-4adf-a033-4731dbb920c2
+-- IPv6 (Yggdrasil): 200:9738:d165:f821:68d3:2852:d822:a748
 -- Especializado a partir do runbook da Moxuara 2.0 (SA-CAVALCANTE/MOXUARA/mqtt-sync).
 -- Banco: hubot (PostgreSQL, na própria central OrangePi)
 --
@@ -10,7 +10,7 @@
 --
 -- ⚠️ NOME ESPECIALIZADO POR CENTRAL (banco E ThingsBoard):
 --   - NESTA central o slave/channel/ambient são criados já com o nome
---     especializado 'MQTT Sync - 988433ae-88c1-49b1-b43b-e08592ae3005'
+--     especializado 'MQTT Sync - 84638207-ac49-4adf-a033-4731dbb920c2'
 --     (uuid = CENTRAL_UUID da env do Node-RED desta central).
 --   - As functions PG get/set_mqtt_sync_status() usam LIKE 'MQTT Sync%',
 --     então funcionam com o nome especializado E com o legado ('MQTT Sync').
@@ -42,9 +42,9 @@
 --   SELECT 'ambient', id, name        FROM ambients WHERE name ILIKE '%mqtt%sync%';
 -- 0 linhas → pode rodar o create. Linhas existentes → NÃO rode; avalie renomear
 -- para o padrão especializado em vez de duplicar:
---   UPDATE slaves   SET name = 'MQTT Sync - 988433ae-88c1-49b1-b43b-e08592ae3005', updated_at = now() WHERE name = 'MQTT Sync';
---   UPDATE channels SET name = 'MQTT Sync - 988433ae-88c1-49b1-b43b-e08592ae3005', updated_at = now() WHERE name = 'MQTT Sync';
---   UPDATE ambients SET name = 'MQTT Sync - 988433ae-88c1-49b1-b43b-e08592ae3005', updated_at = now() WHERE name = 'MQTT Sync';
+--   UPDATE slaves   SET name = 'MQTT Sync - 84638207-ac49-4adf-a033-4731dbb920c2', updated_at = now() WHERE name = 'MQTT Sync';
+--   UPDATE channels SET name = 'MQTT Sync - 84638207-ac49-4adf-a033-4731dbb920c2', updated_at = now() WHERE name = 'MQTT Sync';
+--   UPDATE ambients SET name = 'MQTT Sync - 84638207-ac49-4adf-a033-4731dbb920c2', updated_at = now() WHERE name = 'MQTT Sync';
 -- ─────────────────────────────────────────────────────────────────────────────
 
 BEGIN;
@@ -89,7 +89,7 @@ new_slave AS (
   )
   SELECT
     'outlet', next_addr.addr_low, 249, 1,
-    'MQTT Sync - 988433ae-88c1-49b1-b43b-e08592ae3005', NULL, '002-002-002-012',
+    'MQTT Sync - 84638207-ac49-4adf-a033-4731dbb920c2', NULL, '002-002-002-012',
     NULL, true, '6.0.0', NULL,
     '{"virtual":true,"source":"mqttSyncStatus"}',
     now(), now()
@@ -102,7 +102,7 @@ new_channel AS (
     type, channel, name, channel_id, slave_id, scene_up_id, scene_down_id,
     config, created_at, updated_at
   )
-  SELECT 'plug', 0, 'MQTT Sync - 988433ae-88c1-49b1-b43b-e08592ae3005', NULL, id, NULL, NULL,
+  SELECT 'plug', 0, 'MQTT Sync - 84638207-ac49-4adf-a033-4731dbb920c2', NULL, id, NULL, NULL,
          '{"confirm":false}', now(), now()
   FROM new_slave
   RETURNING slave_id
@@ -110,7 +110,7 @@ new_channel AS (
 new_ambient AS (
   -- (3) Ambient "MQTT Sync - <uuid>".
   INSERT INTO ambients (name, image, "order", config, created_at, updated_at)
-  VALUES ('MQTT Sync - 988433ae-88c1-49b1-b43b-e08592ae3005', NULL, NULL, NULL, now(), now())
+  VALUES ('MQTT Sync - 84638207-ac49-4adf-a033-4731dbb920c2', NULL, NULL, NULL, now(), now())
   RETURNING id
 )
 -- (4) Vincula o slave ao ambient (junction; created_at/updated_at obrigatórios).
