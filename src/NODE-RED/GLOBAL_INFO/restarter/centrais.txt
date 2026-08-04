@@ -1,0 +1,59 @@
+# Frota de centrais — nome|IPv6 (Yggdrasil). Fonte: GLOBAL_INFO/manual-centrais-linix-orangepi.md
+# Gerado do manual (só ATIVAS; inativadas ~~...~~ ficam de fora). Regenerar: ver README.md.
+# Linhas com # e vazias são ignoradas pelo run-fleet.sh.
+
+# ── Sá Cavalcante ──
+Mestre Álvaro — L0L1|200:ba5f:dacb:b278:8f85:acf4:f33c:f485
+Mestre Álvaro — L2AC|200:8b:483c:9008:1184:caec:41b1:fa28
+Mestre Álvaro — L3L4|200:b0b1:81aa:49a4:c554:4fec:f110:9896
+Rio Poty|203:bdfb:8fda:634d:c846:1404:f319:718c
+Shopping da Ilha|201:3447:911:5955:4018:3960:6838:ee12
+Central Moxuara 2.0 - 2026-07-13|201:bc00:2a0e:6e36:a50f:9ef6:9b23:d097
+Central Moxuara 2.0 - ENTRADA - TRAFO - 2026-07-13|200:b2d6:a485:7a30:364b:424c:cafa:141c
+Montserrat|200:abb2:e99:ec3d:eaf8:2d90:7bd9:42cc
+Shopping Ananindeua|201:ca6e:c33b:3a06:f4dd:d148:5d85:6315
+
+# ── Souza Aguiar ──
+Souza Aguiar — CO2|201:3941:4753:9232:901b:19fa:4978:51aa
+Souza Aguiar — Ar Comprimido|200:4dbc:14be:a704:6904:81cd:b62a:ab22
+Souza Aguiar — Maternidade Nova|201:ce30:f047:7f02:a27c:cbac:ffb7:2b67
+Souza Aguiar — T&D|202:1d97:2112:f9b9:cfcb:e237:5dc:a3f7
+Souza Aguiar — Gerador|200:dd4c:53b0:28d5:33dc:fbef:2c98:b23
+
+# ── Soul Malls ──
+Praia da Costa L1|200:8e12:1a64:71bc:ff06:5c56:9f09:f4aa
+Macaé|200:bf4f:c3a0:e697:17ff:28a5:38ae:536b
+Ilha Plaza AL1|200:dc42:651b:5ae5:338d:2b26:670d:34e6
+Ilha Plaza AL2|200:24a5:8297:cce7:59d2:8126:6d67:7e4d
+Ilha Plaza AL3|206:c160:eb69:3ddb:42c7:efce:511e:792a
+Melicidade|200:43cb:c66:59be:9966:7330:8b9a:224
+Shopping Contagem|200:12b0:b768:7ba0:32b5:1c15:bec7:33aa
+Shopping Capim Dourado 2.0 - 2026-07-30|200:9738:d165:f821:68d3:2852:d822:a748
+West Plaza|203:1211:7a3a:89f:4ce2:4482:13:e8b
+
+# ── Argo Plan ──
+Campinas Shopping — G1 G2|203:5e50:3e69:89bd:5846:e41f:23b8:fd28
+Campinas Shopping — G0 Nova|200:83a1:247a:8c7b:d428:3ed4:21dd:389f
+
+# ── Supervia Estações ──
+Deodoro|200:1e6a:69a5:73f1:b18a:e6e:aa68:9229
+Supervia CCO|206:e178:b5ba:16:f028:c0bc:d616:2c5b
+Supervia CTO|202:1c94:dab9:af71:f553:616:615:adbc
+
+# ── Dimension / Raiz / HCor ──
+Central Dimension|203:984:24ef:b578:69a6:7136:b9f2:b5c2
+Central Raiz Educação|201:3bed:541b:8c61:3e69:9:d453:1bef
+HCor Q521-527|200:a420:9834:fc66:dcf9:f46:4a57:9d09
+
+# ── Obramax ──
+Praia Grande|200:a12e:4703:c680:dfb7:936b:88b9:6f4b
+Aricanduva|200:bc45:34ee:59da:371a:cfe9:98d3:3805
+Guadalupe|202:f573:1e70:22f1:1dae:95bd:eeb9:1157
+Benfica|200:47f1:8bf6:36da:65fa:4124:bcdb:dbb4
+Mesquita|203:1800:d709:3207:2e0e:bfc1:8aa1:4281
+
+# ── Porto Imbituba ──
+Porto Imbituba 4 — NOVA|200:c301:a4e7:529a:780c:9230:2142:9dba
+
+# ── MYIO Pré-Setup (bancada / referência — comente se não quiser incluir) ──
+Central Pre-Setup|204:12fb:5518:d04:d9e1:360d:4ab0:125b
