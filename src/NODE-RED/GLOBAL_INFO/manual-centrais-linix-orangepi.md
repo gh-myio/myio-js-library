@@ -3,6 +3,12 @@
 > **Escopo:** Procedimentos para acesso remoto, operação e manutenção das centrais Orange Pi utilizadas nos shoppings MyIO.
 > **Audiência:** Técnicos e desenvolvedores MyIO.
 
+> 🔴 **DESTAQUE — VERSÕES DE BANCO DIVERGEM POR GERAÇÃO DE IMAGEM (backup NÃO é portável entre elas):**
+> - **Imagem antiga (Orange Pi / Poky, ARM 32-bit):** PostgreSQL **11.16** + TimescaleDB **1.7.5** — ex.: Moxuara 2.0 `201:bc00…` (conferido 2026-08-04).
+> - **Imagem nova (CM4):** TimescaleDB **2.18.0** — ex.: board `myio-cm4` (2026-08-04).
+>
+> ⚠️ **Dump de TS 1.7.5 NÃO restaura em TS 2.18.0** (o catálogo `_timescaledb_catalog.hypertable` mudou — coluna `compressed` removida ~TS 2.9 → erro `column "compressed" of relation "hypertable" does not exist`). **Restaure só entre centrais da MESMA versão de TimescaleDB; confira ANTES.** Detalhes + como conferir: [`data-model-postgres-timeseries.md`](data-model-postgres-timeseries.md).
+
 ---
 
 ## 1. Visão Geral

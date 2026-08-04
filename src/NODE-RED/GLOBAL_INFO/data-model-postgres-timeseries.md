@@ -9,11 +9,32 @@
 
 | Campo | Valor |
 |-------|-------|
-| SGBD | PostgreSQL <!-- versão: ex. 14.x --> |
-| Extensão timeseries | **TimescaleDB** (`ts_insert_blocker` trigger em tabelas hypertable) |
-| Usuário padrão | `hubot` |
+| SGBD | **PostgreSQL 11.16** (imagem antiga Poky, ARM 32-bit) · ⚠️ imagem nova (CM4) difere — ver destaque abaixo |
+| Extensão timeseries | **TimescaleDB 1.7.5** (imagem antiga) · **2.18.0** (imagem nova CM4) — `ts_insert_blocker` trigger em hypertables. ⚠️ **versões incompatíveis p/ restore** (ver destaque) |
+| Usuário padrão | `hubot` (⚠️ boards mal-inicializados podem ter super `myio` em vez de `hubot`) |
 | Banco padrão | `hubot` |
-| Porta | `5432` |
+| Porta / socket | `5432` · socket em **`/run/postgresql`** (`export PGHOST=/run/postgresql`) — DynamicUser+PrivateTmp isola o `/tmp` |
+
+> 🔴 **DESTAQUE — DUAS GERAÇÕES DE IMAGEM, VERSÕES DE BANCO INCOMPATÍVEIS PARA BACKUP/RESTORE** (conferido 2026-08-04)
+>
+> | Geração | PostgreSQL | TimescaleDB | Exemplo |
+> |---|---|---|---|
+> | **Antiga** (Orange Pi / Poky, ARM 32-bit) | **11.16** | **1.7.5** | Moxuara 2.0 `201:bc00…` |
+> | **Nova** (CM4) | ≥ 15 | **2.18.0** | board `myio-cm4` |
+>
+> ⚠️ **Backup NÃO é portável entre gerações.** Um dump (`pg_dump -Fc`) feito na **TS 1.7.5** **não restaura** numa central **TS 2.18.0** pelo método `timescaledb_pre_restore()`/`post_restore()`: o catálogo interno `_timescaledb_catalog.hypertable` mudou (a coluna `compressed`/`compressed_hypertable_id` foi **removida ~TS 2.9**), então o `COPY` falha com:
+> ```
+> ERROR:  column "compressed" of relation "hypertable" does not exist
+> ```
+> **Regra:** só restaure entre centrais da **MESMA versão de TimescaleDB**. **Confira a versão ANTES.**
+>
+> **Como conferir (na central):**
+> ```bash
+> export PGHOST=/run/postgresql
+> psql -X -U hubot -d hubot -c 'SELECT version();' \
+>   -c "SELECT extversion FROM pg_extension WHERE extname='timescaledb';"
+> ```
+> Se der `role "hubot" does not exist`, o board foi inicializado com super `myio` (use `-U myio` e `CREATE ROLE hubot WITH LOGIN SUPERUSER;`).
 
 ---
 
