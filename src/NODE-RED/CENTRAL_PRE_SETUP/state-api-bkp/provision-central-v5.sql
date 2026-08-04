@@ -36,6 +36,9 @@ DECLARE
   slave_type TEXT;
   -- v5.3 — versão do slave configurável via payload.version (default '6.0.0').
   slave_version TEXT;
+  -- v5.4 — payload.gateway.{central_id,frequency} → upsert em `environment`.
+  gateway_central_id TEXT;
+  gateway_frequency TEXT;
   ambient_map JSONB := '{}'::JSONB;
   is_ac BOOLEAN;
   has_rfir BOOLEAN;
@@ -61,12 +64,41 @@ DECLARE
     "channels_removed":0, "channels_renamed":0,
     "rfir_devices_created":0, "rfir_devices_reused":0,
     "rfir_devices_removed":0, "rfir_devices_renamed":0,
+    "environment_updated":[],
     "errors":[]
   }'::JSONB;
 BEGIN
   -- v5.3 — versão aplicada a TODOS os slaves deste provisionamento.
   -- payload.version (mesmo '') manda; ausente → '6.0.0' (default).
   slave_version := COALESCE(payload->>'version', '6.0.0');
+
+  -- ─────────────────────────────────────────────────────────────────────────
+  -- 0) ENVIRONMENT — payload.gateway.{central_id,frequency} (v5.4)
+  -- Config key→value persistida na tabela `environment` (cf.
+  -- state-api-bkp/get-state.sql, que a expõe no GET /api/state). Só grava
+  -- quando o campo vem no payload — reprovisionar sem `gateway` preserva os
+  -- valores já salvos. Upsert manual (UPDATE, senão INSERT) por não haver
+  -- constraint UNIQUE confirmada em environment.key para usar ON CONFLICT.
+  -- ─────────────────────────────────────────────────────────────────────────
+  -- centralId (string pontilhada, ex. "161.158.107.69") tem precedência sobre
+  -- central_id (array de octetos no JSON de pre-setup) — evita gravar "[161, …]".
+  gateway_central_id := COALESCE(payload->'gateway'->>'centralId', payload->'gateway'->>'central_id');
+  IF gateway_central_id IS NOT NULL THEN
+    UPDATE environment SET value = gateway_central_id WHERE key = 'central_id';
+    IF NOT FOUND THEN
+      INSERT INTO environment (key, value) VALUES ('central_id', gateway_central_id);
+    END IF;
+    result := jsonb_set(result, '{environment_updated}', (result->'environment_updated') || '"central_id"'::JSONB);
+  END IF;
+
+  gateway_frequency := payload->'gateway'->>'frequency';
+  IF gateway_frequency IS NOT NULL THEN
+    UPDATE environment SET value = gateway_frequency WHERE key = 'frequency';
+    IF NOT FOUND THEN
+      INSERT INTO environment (key, value) VALUES ('frequency', gateway_frequency);
+    END IF;
+    result := jsonb_set(result, '{environment_updated}', (result->'environment_updated') || '"frequency"'::JSONB);
+  END IF;
 
   -- ─────────────────────────────────────────────────────────────────────────
   -- 1) ADD/REUSE — slave_id-aware (v4) + multi-channel (v5)
