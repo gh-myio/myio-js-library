@@ -24,6 +24,9 @@ DECLARE
   remove_entry JSONB;
   rename_entry JSONB;
   cleanup_amb_entry JSONB;
+  env_entry JSONB;
+  env_key TEXT;
+  env_value TEXT;
   ambient_name TEXT;
   ambient_id_var INTEGER;
   slave_id_var INTEGER;
@@ -61,12 +64,37 @@ DECLARE
     "channels_removed":0, "channels_renamed":0,
     "rfir_devices_created":0, "rfir_devices_reused":0,
     "rfir_devices_removed":0, "rfir_devices_renamed":0,
+    "environment_updated":[],
     "errors":[]
   }'::JSONB;
 BEGIN
   -- v5.3 — versão aplicada a TODOS os slaves deste provisionamento.
   -- payload.version (mesmo '') manda; ausente → '6.0.0' (default).
   slave_version := COALESCE(payload->>'version', '6.0.0');
+
+  -- ─────────────────────────────────────────────────────────────────────────
+  -- 0) ENVIRONMENT — payload.environment[] (v5.4)
+  -- Array de {key, value}, irmão de payload.devices[] — mesmo padrão de loop
+  -- (jsonb_array_elements). Upsert genérico na tabela `environment`: aceita
+  -- qualquer chave (CENTRAL_ID, FREQUENCY, e o que mais surgir depois) sem
+  -- precisar de código novo por propriedade. Chave normalizada p/ MAIÚSCULO
+  -- (convenção já usada nas linhas existentes da tabela). Upsert manual
+  -- (UPDATE, senão INSERT) por não haver constraint UNIQUE confirmada em
+  -- environment.key para usar ON CONFLICT.
+  -- ─────────────────────────────────────────────────────────────────────────
+  FOR env_entry IN
+    SELECT value FROM jsonb_array_elements(COALESCE(payload->'environment', '[]'::jsonb))
+  LOOP
+    env_key := UPPER(env_entry->>'key');
+    env_value := env_entry->>'value';
+    IF env_key IS NOT NULL THEN
+      UPDATE environment SET value = env_value WHERE key = env_key;
+      IF NOT FOUND THEN
+        INSERT INTO environment (key, value) VALUES (env_key, env_value);
+      END IF;
+      result := jsonb_set(result, '{environment_updated}', (result->'environment_updated') || to_jsonb(env_key));
+    END IF;
+  END LOOP;
 
   -- ─────────────────────────────────────────────────────────────────────────
   -- 1) ADD/REUSE — slave_id-aware (v4) + multi-channel (v5)
