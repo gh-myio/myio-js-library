@@ -60,7 +60,7 @@ psql -U hubot   # db default = hubot
 
 -- 3.3 VERIFICAÇÃO antes do create (essencial em banco restaurado de backup —
 --     o MQTT Sync pode já existir; nesse caso é RENAME, não create — ver
---     cabeçalho do create-virtual-mqtt-sync.sql):
+--     cabeçalho do create-virtual-mqtt-sync-<central>.sql):
 SELECT 'slave' AS obj, id, name FROM slaves   WHERE name ILIKE '%mqtt%sync%'
 UNION ALL
 SELECT 'channel', id, name      FROM channels WHERE name ILIKE '%mqtt%sync%'
@@ -69,8 +69,9 @@ SELECT 'ambient', id, name      FROM ambients WHERE name ILIKE '%mqtt%sync%';
 
 -- 3.4 ÚNICO script que grava DADOS (slave/channel/ambient virtuais; tem guarda
 --     anti-duplicata que aborta se já existir). Use a versão ESPECIALIZADA da
---     central (nome 'MQTT Sync - <CENTRAL_UUID>', addr_low dinâmico):
-\i /tmp/mqtt-sync/create-virtual-mqtt-sync.sql
+--     central (nome 'MQTT Sync - <CENTRAL_UUID>', addr_low dinâmico). A Moxuara
+--     2.0 tem uma por central: -geral (6e88d9be…) e -entrada-trafo (6d7cd66a…):
+\i /tmp/mqtt-sync/create-virtual-mqtt-sync-entrada-trafo.sql   -- ou -geral, conforme a central
 
 -- 3.5 Conferências
 \df *mqtt*

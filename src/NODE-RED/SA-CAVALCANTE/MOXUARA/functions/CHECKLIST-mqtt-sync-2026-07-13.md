@@ -4,7 +4,7 @@ Central: **Moxuara 2.0 - ENTRADA - TRAFO** · CENTRAL_UUID `6d7cd66a-c6dd-40df-b
 IPv6 `200:b2d6:a485:7a30:364b:424c:cafa:141c` · banco `hubot`
 
 Estado: slave virtual **criado** (id 3, addr 83/249, nome especializado) via
-`../mqtt-sync/create-virtual-mqtt-sync.sql`. Diagnóstico do flow feito sobre o
+`../mqtt-sync/create-virtual-mqtt-sync-entrada-trafo.sql`. Diagnóstico do flow feito sobre o
 backup `bkp-bruno-2026-07-13-11-10-Moxuara.json` (tab **Watchdog MQTT Sync** já
 existe, com APIs GET/POST completas).
 
