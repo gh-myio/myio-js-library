@@ -11,92 +11,94 @@
       "end": "2026-08-04",
       "state": "active"
     },
-    "generatedAt": "2026-07-30",
+    "generatedAt": "2026-08-04",
     "source": "Jira Cloud (myio.atlassian.net) via MCP Atlassian",
     "scope": "Tickets em aberto (status != Concluído). Backlog exclui épicos e subtarefas."
   },
   "summary": {
-    "sprintOpen": 57,
-    "backlogOpen": 515,
-    "total": 572
+    "sprintOpen": 64,
+    "backlogOpen": 532,
+    "total": 596
   },
   "aggregates": {
     "sprint": {
       "byStatus": {
-        "Itens Novos": 39,
+        "Itens Novos": 46,
         "PENDENTE": 11,
         "Em Andamento": 4,
         "EM REVISÃO": 3
       },
       "byType": {
-        "Tarefa": 29,
-        "Bug": 20,
+        "Tarefa": 33,
+        "Bug": 23,
         "História": 8
       },
       "byPriority": {
-        "Medium": 51,
-        "High": 3,
+        "Medium": 53,
+        "High": 8,
         "Highest": 2,
         "Low": 1
       },
       "byAssignee": {
-        "Rodrigo Lago": 31,
-        "Victor Hugo da Silva": 14,
-        "Luiz Guilherme Martinho Sampaio Ito": 8,
+        "Rodrigo Lago": 35,
+        "Victor Hugo da Silva": 15,
+        "Luiz Guilherme Martinho Sampaio Ito": 10,
         "Letícia Camargo": 4
       },
       "byGroup": {
-        "Outros": 14,
-        "GCDR / Plataforma": 14,
-        "Central / Firmware / HW": 13,
+        "GCDR / Plataforma": 16,
+        "Outros": 15,
+        "Central / Firmware / HW": 12,
         "BAS": 9,
+        "Obramax": 3,
         "Melicidade": 2,
+        "Moxuara": 2,
         "Relatórios / Dashboard": 1,
-        "Campinas": 1,
+        "Capim Dourado": 1,
+        "Ilha Plaza": 1,
         "Shopping da Ilha / SDI": 1,
-        "Contagem": 1,
-        "Moxuara": 1
+        "Contagem": 1
       }
     },
     "backlog": {
       "byStatus": {
-        "Itens Novos": 497,
+        "Itens Novos": 513,
         "PENDENTE": 9,
         "EM REVISÃO": 7,
-        "Em Andamento": 2
+        "Em Andamento": 3
       },
       "byType": {
-        "Tarefa": 431,
-        "Bug": 40,
-        "História": 38,
+        "Tarefa": 448,
+        "História": 39,
+        "Bug": 39,
         "Freshdesk": 6
       },
       "byPriority": {
-        "Medium": 481,
+        "Medium": 499,
         "High": 20,
-        "Highest": 10,
+        "Highest": 9,
         "Low": 3,
         "Lowest": 1
       },
       "byAssignee": {
         "Luiz Guilherme Martinho Sampaio Ito": 374,
-        "Rodrigo Lago": 102,
+        "Rodrigo Lago": 118,
         "—": 11,
         "Bruno Dantas Costa": 9,
         "Leandro Gadioli Rodrigues": 7,
         "Letícia Camargo": 6,
         "Bruno Kubudi Cardeman": 3,
         "giovani": 2,
-        "Victor Hugo da Silva": 1
+        "Victor Hugo da Silva": 2
       },
       "byGroup": {
-        "Central / Firmware / HW": 381,
-        "GCDR / Plataforma": 24,
-        "Outros": 18,
+        "Central / Firmware / HW": 382,
+        "GCDR / Plataforma": 33,
+        "Outros": 25,
         "Campinas": 16,
         "Obramax": 13,
-        "Sá Cavalcante": 13,
-        "Relatórios / Dashboard": 11,
+        "Relatórios / Dashboard": 12,
+        "Sá Cavalcante": 12,
         "Praia da Costa": 9,
         "Souza Aguiar": 6,
         "Raiz Educação": 4,
@@ -171,8 +173,8 @@
       "priority": "Medium",
       "assignee": "Rodrigo Lago",
       "updated": "2026-07-29",
-      "group": "Central / Firmware / HW",
-      "kind": "theme"
+      "group": "Capim Dourado",
+      "kind": "unit"
     },
     {
       "key": "ED-783",
@@ -283,15 +285,15 @@
       "kind": "theme"
     },
     {
-      "key": "ED-1039",
-      "summary": "[MQTT Sync] Ajustar bloco SQL do nó GET MQTT Status Sync no flow API — Campinas G0 Nova (+ verificar demais centrais)",
+      "key": "ED-1091",
+      "summary": "[TESTE] Validar novo componente da Aba API (node-red-contrib-myio-api-flows) — Central Moxuara 2.0 - 2026-07-13",
       "type": "Tarefa",
       "status": "Em Andamento",
       "cat": "indeterminate",
-      "priority": "Medium",
+      "priority": "High",
       "assignee": "Victor Hugo da Silva",
-      "updated": "2026-07-29",
-      "group": "Campinas",
+      "updated": "2026-08-04",
+      "group": "Moxuara",
       "kind": "unit"
     },
     {
@@ -329,6 +331,90 @@
       "updated": "2026-07-28",
       "group": "GCDR / Plataforma",
       "kind": "theme"
+    },
+    {
+      "key": "ED-1096",
+      "summary": "[api-flows] Middleware X-API-Key nos endpoints (credential + timingSafeEqual → 401)",
+      "type": "Tarefa",
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Victor Hugo da Silva",
+      "updated": "2026-08-04",
+      "group": "GCDR / Plataforma",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1095",
+      "summary": "[API] Endpoint p/ forçar backup na central (POST) + auth X-API-Key (master key)",
+      "type": "Tarefa",
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+      "updated": "2026-08-04",
+      "group": "GCDR / Plataforma",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1094",
+      "summary": "[RESTORE] Criar versão da central nova — Ilha Plaza AL1 (restore do backup AWS)",
+      "type": "Tarefa",
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "High",
+      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+      "updated": "2026-08-04",
+      "group": "Ilha Plaza",
+      "kind": "unit"
+    },
+    {
+      "key": "ED-1067",
+      "summary": "[BUG] Alarmes de Geradores — notificações não enviadas (investigar falha de 2026-07-29)",
+      "type": "Bug",
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "High",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-08-04",
+      "group": "Outros",
+      "kind": "other"
+    },
+    {
+      "key": "ED-1069",
+      "summary": "Obramax Aricanduva — liberar acesso do painel",
+      "type": "Tarefa",
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-08-04",
+      "group": "Obramax",
+      "kind": "unit"
+    },
+    {
+      "key": "ED-1068",
+      "summary": "[BUG] Obramax São Gonçalo — automação não rodou em 2026-07-29 (analisar log da central)",
+      "type": "Bug",
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "High",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-08-04",
+      "group": "Obramax",
+      "kind": "unit"
+    },
+    {
+      "key": "ED-1066",
+      "summary": "[BUG] Obramax Mesquita — tela de agendamento permite agendas com conflito de horário (individual × grupo)",
+      "type": "Bug",
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "High",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-08-04",
+      "group": "Obramax",
+      "kind": "unit"
     },
     {
       "key": "ED-1042",
@@ -6832,7 +6918,7 @@
       "cat": "new",
       "priority": "Medium",
       "assignee": "Rodrigo Lago",
-      "updated": "2026-07-09",
+      "updated": "2026-08-04",
       "group": "Sá Cavalcante",
       "kind": "unit"
     },
@@ -6856,19 +6942,7 @@
       "cat": "new",
       "priority": "Medium",
       "assignee": "Rodrigo Lago",
-      "updated": "2026-07-09",
-      "group": "Sá Cavalcante",
-      "kind": "unit"
-    },
-    {
-      "key": "ED-997",
-      "summary": "Sá Cavalcante - Alarme sem funcionamento",
-      "type": "Bug",
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Highest",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-07-03",
+      "updated": "2026-08-03",
       "group": "Sá Cavalcante",
       "kind": "unit"
     },
@@ -6976,9 +7050,225 @@
       "cat": "new",
       "priority": "Medium",
       "assignee": "Rodrigo Lago",
-      "updated": "2026-07-29",
+      "updated": "2026-08-04",
       "group": "Rio Poty",
       "kind": "unit"
+    },
+    {
+      "key": "ED-1074",
+      "summary": "RFC-0055 · Spike: definir fonte da agregação horária de consumo",
+      "type": "Tarefa",
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-08-03",
+      "group": "Outros",
+      "kind": "other"
+    },
+    {
+      "key": "ED-1075",
+      "summary": "RFC-0055 · Decisão: storage do noConsumptionConfig (JSONB genérico vs coluna)",
+      "type": "Tarefa",
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-08-03",
+      "group": "Outros",
+      "kind": "other"
+    },
+    {
+      "key": "ED-1076",
+      "summary": "RFC-0055 · Decisão: notificação default (painel-only vs dispatch por canal)",
+      "type": "Tarefa",
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-08-03",
+      "group": "Relatórios / Dashboard",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1077",
+      "summary": "RFC-0055 · Decisão: transporte do frontend (API Alarms direto vs proxy GCDR)",
+      "type": "Tarefa",
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-08-03",
+      "group": "GCDR / Plataforma",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1078",
+      "summary": "RFC-0055 · GCDR Backend: rule type NO_CONSUMPTION (enum, config, migration, bundle, testes)",
+      "type": "Tarefa",
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-08-03",
+      "group": "GCDR / Plataforma",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1079",
+      "summary": "RFC-0055 · GCDR Backend: seed/gestão da rule interna (piloto), disabled by default",
+      "type": "Tarefa",
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-08-03",
+      "group": "GCDR / Plataforma",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1080",
+      "summary": "RFC-0055 · GCDR Backend: endpoint de enrichment batch (device/central/customer)",
+      "type": "Tarefa",
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-08-03",
+      "group": "GCDR / Plataforma",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1081",
+      "summary": "RFC-0055 · GCDR Backend: bump de versão do bundle + compat (ignorar rule type desconhecido)",
+      "type": "Tarefa",
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-08-03",
+      "group": "GCDR / Plataforma",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1082",
+      "summary": "RFC-0055 · Alarms: consumir NO_CONSUMPTION do bundle + expor support/version",
+      "type": "Tarefa",
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-08-03",
+      "group": "Outros",
+      "kind": "other"
+    },
+    {
+      "key": "ED-1083",
+      "summary": "RFC-0055 · Alarms: evaluator de no-consumption (bucketing, slot vazio, debounce, timezone)",
+      "type": "Tarefa",
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-08-03",
+      "group": "Outros",
+      "kind": "other"
+    },
+    {
+      "key": "ED-1084",
+      "summary": "RFC-0055 · Alarms: modelo + persistência do incidente (dedup, lifecycle, rollover/late)",
+      "type": "Tarefa",
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-08-03",
+      "group": "Outros",
+      "kind": "other"
+    },
+    {
+      "key": "ED-1085",
+      "summary": "RFC-0055 · Alarms: API de incidentes (list dayFrom/dayTo, detail, ack, resolve) + auth/tenant",
+      "type": "Tarefa",
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-08-03",
+      "group": "GCDR / Plataforma",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1086",
+      "summary": "RFC-0055 · Alarms (opcional): dispatch de incidente via canais",
+      "type": "Tarefa",
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-08-03",
+      "group": "Outros",
+      "kind": "other"
+    },
+    {
+      "key": "ED-1087",
+      "summary": "RFC-0055 · GCDR Frontend: painel de Incidentes (dia ▸ central ▸ device ▸ slots)",
+      "type": "Tarefa",
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-08-03",
+      "group": "GCDR / Plataforma",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1088",
+      "summary": "RFC-0055 · GCDR Backend (condicional): proxy fino /incidents",
+      "type": "Tarefa",
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-08-03",
+      "group": "GCDR / Plataforma",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1089",
+      "summary": "RFC-0055 · Cross: authorization & tenant isolation (GCDR + Alarms)",
+      "type": "Tarefa",
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-08-03",
+      "group": "GCDR / Plataforma",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1090",
+      "summary": "RFC-0055 · Cross: docs/contrato (bundle payload + incident payload)",
+      "type": "Tarefa",
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-08-03",
+      "group": "Outros",
+      "kind": "other"
+    },
+    {
+      "key": "ED-1093",
+      "summary": "Ajuste lib sql provision",
+      "type": "História",
+      "status": "Em Andamento",
+      "cat": "indeterminate",
+      "priority": "Medium",
+      "assignee": "Victor Hugo da Silva",
+      "updated": "2026-08-04",
+      "group": "Central / Firmware / HW",
+      "kind": "theme"
     }
   ]
 }

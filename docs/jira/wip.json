@@ -2,13 +2,13 @@
   "meta": {
     "project": "ED",
     "jiraBase": "https://myio.atlassian.net",
-    "generatedAt": "2026-07-30",
+    "generatedAt": "2026-08-04",
     "status": "Em Andamento",
     "wipLimit": 1,
     "note": "WIP = tickets com status \"Em Andamento\". Acordo: 1 por pessoa (inclui \"Aguardando Demanda\" quando ocioso)."
   },
-  "total": 8,
-  "peopleOver": 1,
+  "total": 9,
+  "peopleOver": 2,
   "people": [
     {
       "name": "Rodrigo Lago",
@@ -48,6 +48,25 @@
       ]
     },
     {
+      "name": "Victor Hugo da Silva",
+      "count": 2,
+      "over": true,
+      "tickets": [
+        {
+          "key": "ED-1093",
+          "type": "História",
+          "summary": "Ajuste lib sql provision",
+          "updated": "2026-08-04"
+        },
+        {
+          "key": "ED-1091",
+          "type": "Tarefa",
+          "summary": "[TESTE] Validar novo componente da Aba API (node-red-contrib-myio-api-flows) — Central Moxuara 2.0 - 2026-07-13",
+          "updated": "2026-08-04"
+        }
+      ]
+    },
+    {
       "name": "Letícia Camargo",
       "count": 1,
       "over": false,
@@ -70,19 +89,6 @@
           "type": "Subtarefa",
           "summary": "[Docs/PR] Design doc + runbook + PR do RCP",
           "updated": "2026-07-30"
-        }
-      ]
-    },
-    {
-      "name": "Victor Hugo da Silva",
-      "count": 1,
-      "over": false,
-      "tickets": [
-        {
-          "key": "ED-1039",
-          "type": "Tarefa",
-          "summary": "[MQTT Sync] Ajustar bloco SQL do nó GET MQTT Status Sync no flow API — Campinas G0 Nova (+ verificar demais centrais)",
-          "updated": "2026-07-29"
         }
       ]
     }
