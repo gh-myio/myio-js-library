@@ -2400,6 +2400,42 @@ export {
   toSummary as toFreshdeskTicketSummary,
 } from './components/premium-modals/settings/tickets/TbTicketSync';
 
+// RFC-0218 — GcdrAnnotationsClient (data-access layer for GCDR /annotations)
+export {
+  GcdrAnnotationsClient,
+  createGcdrAnnotationsClient,
+  adaptGcdrToLegacyAnnotation,
+  adaptLegacyToGcdrInput,
+  GcdrAnnotationsError as GcdrAnnotationsClientError,
+  ConflictError as GcdrAnnotationsConflictError,
+  ValidationError as GcdrAnnotationsValidationError,
+} from './components/gcdr-annotations/v1.0.0';
+export type {
+  GcdrEntityType,
+  GcdrAnnotationType,
+  GcdrAnnotationStatus,
+  GcdrFinalizedReason,
+  GcdrResponseType,
+  GcdrEventAction,
+  GcdrMentionType,
+  GcdrActorSnapshot,
+  GcdrAnnotation,
+  GcdrAnnotationResponse,
+  GcdrAnnotationEvent,
+  GcdrAnnotationMention,
+  GcdrAnnotationAttachment,
+  GcdrAnnotationDetail,
+  CreateAnnotationInput as GcdrCreateAnnotationInput,
+  PatchAnnotationInput as GcdrPatchAnnotationInput,
+  CreateResponseInput as GcdrCreateResponseInput,
+  CreateMentionInput as GcdrCreateMentionInput,
+  CreateAttachmentInput as GcdrCreateAttachmentInput,
+  ListAnnotationsParams as GcdrListAnnotationsParams,
+  GcdrPagination,
+  GcdrAnnotationsAuth,
+  GcdrAnnotationsClientParams,
+} from './components/gcdr-annotations/v1.0.0';
+
 // RFC-0203 M2 — AnnotationServiceOrchestrator (cross-domain annotations)
 export { buildAnnotationServiceOrchestrator } from './services/annotations/AnnotationServiceOrchestrator';
 export { CustomerDeviceService } from './services/annotations/CustomerDeviceService';
