@@ -1,5 +1,5 @@
 #!/bin/bash
-PORT=3340
+PORT=3499
 echo "Stopping server on port $PORT..."
 
 # Find PID listening on the port (Windows-compatible via netstat)

@@ -1,5 +1,5 @@
 #!/bin/bash
-PORT=3340
+PORT=3499
 echo "Stopping any existing server on port $PORT..."
 lsof -ti:$PORT | xargs kill -9 2>/dev/null || true
 echo "Starting HTTP server on port $PORT..."

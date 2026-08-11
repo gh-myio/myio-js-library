@@ -73,9 +73,11 @@ ssh -i id_rsa root@<ipv6-da-central>
 
 | Central                | IPv6                                     | Gateway ID                             | Central ID | Frequência |
 | ---------------------- | ---------------------------------------- | -------------------------------------- | ---------- | ---------- |
-| Praia da Costa L1      | `200:8e12:1a64:71bc:ff06:5c56:9f09:f4aa` | —                                      | —          | —          |
+| Praia da Costa L1      | `200:8e12:1a64:71bc:ff06:5c56:9f09:f4aa` | `ab589fee-b47b-4577-a7aa-016bf7e6f5b1` | —          | —          |
+| Praia da Costa L3      | `200:af84:3511:6645:d746:a980:dc50:c849` | `f476d770-675e-4730-8b73-afb6bba2060d` | `199.208.71.145` | `107`      |
 | Macaé                  | `200:bf4f:c3a0:e697:17ff:28a5:38ae:536b` | `571ff592-8983-43b3-b7f2-96ab688d4f1c` | —          | —          |
-| Ilha Plaza AL1         | `200:dc42:651b:5ae5:338d:2b26:670d:34e6` | `81a60176-222c-4bb9-88f5-bc2b47802d82` | —          | —          |
+| ~~Ilha Plaza AL1~~ ⚠️ **DEPRECATED** — substituída pela central nova CM4 abaixo | ~~`200:dc42:651b:5ae5:338d:2b26:670d:34e6`~~ | ~~`81a60176-222c-4bb9-88f5-bc2b47802d82`~~ | —          | —          |
+| Ilha Plaza AL1 - NOVA CM4 | `201:46fb:1e45:5ad9:7324:ecb7:5c4:b7d6` | `65b7e467-d340-4dff-a05f-4e8de0e94bca` | `185.19.10.226` | `104`      |
 | Ilha Plaza AL2         | `200:24a5:8297:cce7:59d2:8126:6d67:7e4d` | `53052549-cc8c-4ca2-a597-58e0577548a2` | —          | —          |
 | Ilha Plaza AL3         | `206:c160:eb69:3ddb:42c7:efce:511e:792a` | `91b719b7-f2d2-4d3f-9fb9-ab3d4edbac0d` | —          | —          |
 | Melicidade             | `200:43cb:c66:59be:9966:7330:8b9a:224`   | `05148707-6011-42fb-8b78-46f33a5ca988` | —          | —          |
@@ -90,6 +92,9 @@ ssh -i id_rsa root@<ipv6-da-central>
 | --------------------------- | ---------------------------------------- | -------------------------------------- | -------------- | ---------- |
 | Campinas Shopping — G1 G2   | `203:5e50:3e69:89bd:5846:e41f:23b8:fd28` | `1b5d79c4-5fc6-46c4-bd05-89e8b1499920` | `16.2.170.222` | `107`      |
 | Campinas Shopping — G0 Nova | `200:83a1:247a:8c7b:d428:3ed4:21dd:389f` | `401230d1-e7d6-46dd-9bb1-059387683303` | —              | —          |
+| Campinas Shopping — G0 Hidrômetros        | `200:6bd3:fa74:f805:7b0a:c337:ccc5:e1b7` | `b126ce91-6567-492b-96f8-b157b47e2600` | —              | —          |
+| Campinas Shopping — G1 G2 Hidrômetros     | `200:a107:d79f:55d0:65:212e:15f6:d27b`   | `aab91440-3bb4-4b04-aeb4-6533c93afb57` | —              | —          |
+| Campinas Shopping — Subestação Principal  | `202:7cde:b52f:7210:12a5:91d6:1fe5:4d6e` | `c248c77f-da23-4247-a06b-cf371a82f4d9` | —              | —          |
 
 #### Holding: SUPERVIA ESTAÇÕES
 
@@ -192,11 +197,17 @@ ssh -i id_rsa root@200:dd4c:53b0:28d5:33dc:fbef:2c98:b23
 # Praia da Costa L1 (Soul Malls)
 ssh -i id_rsa root@200:8e12:1a64:71bc:ff06:5c56:9f09:f4aa
 
+# Praia da Costa L3 (Soul Malls)
+ssh -i id_rsa root@200:af84:3511:6645:d746:a980:dc50:c849
+
 # Macaé (Soul Malls)
 ssh -i id_rsa root@200:bf4f:c3a0:e697:17ff:28a5:38ae:536b
 
-# Ilha Plaza AL1 (Soul Malls)
-ssh -i id_rsa root@200:dc42:651b:5ae5:338d:2b26:670d:34e6
+# ~~Ilha Plaza AL1 (Soul Malls)~~ — DEPRECATED (substituída pela CM4 abaixo)
+# ssh -i id_rsa root@200:dc42:651b:5ae5:338d:2b26:670d:34e6
+
+# Ilha Plaza AL1 - NOVA CM4 (Soul Malls)
+ssh -i id_rsa root@201:46fb:1e45:5ad9:7324:ecb7:5c4:b7d6
 
 # Ilha Plaza AL2 (Soul Malls)
 ssh -i id_rsa root@200:24a5:8297:cce7:59d2:8126:6d67:7e4d
@@ -209,6 +220,15 @@ ssh -i id_rsa root@203:5e50:3e69:89bd:5846:e41f:23b8:fd28
 
 # Campinas Shopping — G0 Nova (Argo Plan)
 ssh -i id_rsa root@200:83a1:247a:8c7b:d428:3ed4:21dd:389f
+
+# Campinas Shopping — G0 Hidrômetros (Argo Plan)
+ssh -i id_rsa root@200:6bd3:fa74:f805:7b0a:c337:ccc5:e1b7
+
+# Campinas Shopping — G1 G2 Hidrômetros (Argo Plan)
+ssh -i id_rsa root@200:a107:d79f:55d0:65:212e:15f6:d27b
+
+# Campinas Shopping — Subestação Principal (Argo Plan)
+ssh -i id_rsa root@202:7cde:b52f:7210:12a5:91d6:1fe5:4d6e
 
 # Melicidade (Soul Malls)
 ssh -i id_rsa root@200:43cb:c66:59be:9966:7330:8b9a:224

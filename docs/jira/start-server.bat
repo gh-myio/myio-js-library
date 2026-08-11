@@ -1,5 +1,5 @@
 @echo off
-set PORT=3340
+set PORT=3499
 echo Starting HTTP server on port %PORT%...
 cd /d "%~dp0..\.."
 start "" npx serve . -p %PORT%

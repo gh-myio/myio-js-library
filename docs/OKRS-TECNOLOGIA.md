@@ -1,167 +1,149 @@
-# OKRs — Tecnologia
+# OKRs — Tecnologia (espelho do painel)
 
-> Extraídos das auditorias de 5 repositórios MYIO (2.093 linhas) · 2026-07-24
-> Fonte: [Auditoria Consolidada](AUDITORIA-RFCS-CONSOLIDADA-MYIO.html)
-> Organizados por **categoria** (sistema/produto). 🔴 = risco de produção · 🟢 = capacidade nova a construir.
+> Espelho do **OKR Tracker** (okrmyio.lovable.app) · **Q3 2026** · dimensão **Tecnologia** · sincronizado em 2026-08-10.
+> Fonte da verdade = o painel; este arquivo é gerado por engenharia reversa dos dados do painel.
+> KRs: unidade **%**, meta **100**, responsável **Rodrigo Lago** (salvo indicado). Todos marcados com observação **SAV**.
 
----
+**13 objetivos · 57 KRs · 57/57 com SAV · progresso médio ~8%**
 
-## 🏭 Ingestion
+## 1. Ecossistema de Autenticação MYIO
 
-### O1 — Zerar risco de perda de dado em produção 🔴
+- **Status:** 🟠 Em andamento · **Progresso:** 24% · **Responsável:** Rodrigo Lago, André Abadesso
+- **Descrição:** Desenvolvimento de um ecossistema completo usando Auth0 para gerenciar os logins de forma integrada e com controle de escopo e perfis
 
-- Confirmar índice único de `energy_readings` e idempotência de backfill/replay
-- Eliminar perda silenciosa de batch na ingestão (QoS 1 auto-ack)
-- Alerta de freshness em CAgg (jobs zumbis de 96 e 358 dias)
-- Ajustar orçamento de conexões (120 > `max_connections` 100)
-- Confirmar shared-subscription do poller (fan-out 6×)
+1. Reunião inicial de validaçào e entendimento da demanda — 100/100 % · _SAV_
+2. Implementação Inicial — 0/100 % · _SAV_
+3. Múltiplos Testes — 0/100 % · _SAV_
+4. Virada para Produção — 0/100 % · _SAV_
+5. Design inicial do sistema de autenticação — 20/100 % · _SAV_
 
----
+## 2. Cockpit de auditoria de logs das aplicações
 
-## 🔔 Alarmes & Notificações
+- **Status:** ⚠️ Sem avanço · **Progresso:** 0% · **Responsável:** Rodrigo Lago
+- **Descrição:** Centralizar logs, alarmes, dashboards e presetup em painel único
 
-### O2 — Zerar vulnerabilidades de segurança conhecidas 🔴
 
-- Remover `terraform.tfstate` do git e rotacionar segredos expostos
-- Autenticar `/ws` e validar `tenantId` (vazamento cross-tenant)
+1. Painel único de logs de todas as aplicações — 0/100 % · _SAV_
+2. Retenção e organização do histórico de logs (90 dias) — 0/100 % · _SAV_
+3. Cockpit — 0/100 % · _SAV_
+4. Alertas automáticos de falha/atraso por aplicação — 0/100 % · _SAV_
+5. Reunião inicial de validação e entendimento da demanda — 0/100 % · _SAV_
 
-### O3 — Ligar o que já está construído e inalcançável
+## 3. Gestão de Node-RED por central
 
-- Conectar `broadcastAlarmCreated` (tempo real hoje é código morto)
-- Persistir `closedBy`/`acknowledgedBy` → destravar MTTR
-- Aplicar filtro `actorType` no handler (aceito e ignorado)
-- Expor UI do RFC-0018 (backend entregue e inacessível)
+- **Status:** ⚠️ Sem avanço · **Progresso:** 0% · **Responsável:** Rodrigo Lago
+- **Descrição:** Inventário de versão de runtime e contribs por central
+x Pipeline de update com fix e rollback versionado
 
-### O4 — Central de notificações multicanal 🟢
+1. Inventário de versão e componentes por central — 0/100 % · _SAV_
+2. Padronização do runtime em toda a lista de dispositivos — 0/100 % · _SAV_
+3. Atualização com correção e reversão controladas — 0/100 % · _SAV_
+4. Detecção de divergência entre central e versão oficial — 0/100 % · _SAV_
+5. Implantação gradual com rollback de 1 clique — 0/100 % · _SAV_
 
-- Plano único de dispatch para e-mail, Telegram e WhatsApp
-- Adicionar canal WhatsApp
-- Concluir templates GCDR do Telegram (RFC-0026 — 0/6 hoje)
-- Criar templates de e-mail faltantes (`alarm.closed`, `alarm.escalated`)
-- Corrigir fallback global de token que fura o kill switch por customer
-- Ativar dispatch por grupo (RFC-0020 fase 2, hoje inativa)
-- Motor de escalação por tempo sem ACK (RFC-0026 v2)
-- Preferência de canal por customer, regra e severidade
+## 4. Monitoramento de centrais dentro do GCDR
 
----
+- **Status:** ⚠️ Sem avanço · **Progresso:** 0% · **Responsável:** Rodrigo Lago
+- **Descrição:** Central como entidade de primeira classe no GCDR x Telemetria de saúde por central (uptime, versão, conectividade)
 
-## 📊 Dashboard & Head Office
 
-### O5 — Reduzir dívida estrutural de classificação
+1. Central como entidade oficial no GCDR — 0/100 % · _SAV_
+2. Alerta de central offline ou fora do padrão — 0/100 % · _SAV_
+3. Integração ao painel de centrais + cockpit de logs — 0/100 % · _SAV_
+4. Telemetria de saúde por central (disponibilidade, versão, conexão) — 0/100 % · _SAV_
+5. Comandos remotos de rede (backup/restore, etc) — 0/100 % · _SAV_
 
-- Consolidar classificação de dispositivos em fonte única
-- Definir `saveDeviceClassificationProfile` no v-5.4.0
-- Eliminar o laço circular de `labelWidget` no texto combinado
-- Concluir a persistência de perfil (Phase B) nos dois controllers
+## 5. Backup e restore das centrais no GCDR
 
-### O6 — Metas financeiras e indicadores no painel do Head Office 🟢
+- **Status:** ⚠️ Sem avanço · **Progresso:** 0% · **Responsável:** Rodrigo Lago
+- **Descrição:** Runbook único de backup/restore para OrangePi/Mender
 
-- Destravar RFC-0054 — metas monetárias e tarifas (*APPROVED & FROZEN*, fora do `desenv`)
-- Tarifa por customer e por período no cálculo da meta
-- Indicadores financeiros no Metas × Consumo (R$ realizado × orçado × meta)
-- Desvio financeiro por shopping e consolidado
-- Exportação financeira no relatório de metas (PDF/CSV)
+1. Restore validado (simulado) antes de aplicar em campo — 0/100 % · _SAV_
+2. Backup automático e versionado por central — 0/100 % · _SAV_
+3. Runbook único de backup/restore — 0/100 % · _SAV_
+4. Alerta de central sem backup recente — 0/100 % · _SAV_
+5. Inventário com data do último backup válido — 0/100 % · _SAV_
 
----
+## 6. Ordens de Serviço integradas a todo o ecossistema
 
-## 📱 Novo APP MYIO
+- **Status:** ⚠️ Sem avanço · **Progresso:** 0% · **Responsável:** Rodrigo Lago
+- **Descrição:** OS disparada por alarme, com rastro até o device x OS refletida no app móvel e no dashboard
 
-### O7 — Conectar o app a backend real
+1. Fluxo de ciclo de vida das OS (regras automáticas) — 0/100 % · _SAV_
+2. OS disparada por alarme, rastreável até o equipamento — 0/100 % · _SAV_
+3. Agrupamento de ordens de serviço — 0/100 % · _SAV_
+4. Abertura de OS a partir de e-mail — 0/100 % · _SAV_
+5. OS visível no app e no dashboard — 0/100 % · _SAV_
 
-- Trocar `DEMO_MODE` hard-coded por env var, default `false`
-- Definir `EXPO_PUBLIC_GCDR_BASE_URL` em ambiente real
-- Migrar os 15 endpoints interceptados para backend real
-- Eliminar as duas cópias divergentes de estado falso
-- Substituir fixtures nos 8 módulos da home
+## 7. Auto-construtor e auto-sync de devices no ecossistema
 
----
+- **Status:** ⚠️ Sem avanço · **Progresso:** 0% · **Responsável:** Rodrigo Lago
+- **Descrição:** Implementar conformidade ThingsBoard x Detecção e correção automática de divergência de cadastro
 
-## 🔗 Pré-Setup, GCDR & Devices
+1. Conformidade de cadastro entre plataformas — 0/100 % · _SAV_
+2. Verificação automática de cadastro — 0/100 % · _SAV_
+3. Criação automática de equipamento a partir do perfil — 0/100 % · _SAV_
+4. Mapeamento completo de equipamentos entre plataformas — 0/100 % · _SAV_
+5. Sincronização contínua de equipamentos — 0/100 % · _SAV_
 
-### O8 — Pré-Setup totalmente migrado para o GCDR 🟢
+## 8. Pré-Setup totalmente migrado para o GCDR
 
-- Concluir `@myio/presetup-sdk` — componente embutível de 1 gateway (RFC-0001)
-- GCDR como âncora única do estado de sync (RFC-0002)
-- Destravar fase 5 do modelo de canais por placa (RFC-0003)
-- Concluir migração do presetup para o `gcdr-frontend`
-- Fechar próximos passos de `device-types-mapping` e `presetup-import-schema-comparison`
-- Remover pin de pré-release da `myio-js-library` no presetup
+- **Status:** ⚠️ Sem avanço · **Progresso:** 0% · **Responsável:** Rodrigo Lago
+- **Descrição:** GCDR como âncora única do estado de sync
 
-### O9 — Auto-construtor e auto-sync de devices no ecossistema 🟢
+1. GCDR como fonte única do estado de sincronização — 0/100 % · _SAV_
+2. Modelo de canais por dispositivos — 0/100 % · _SAV_
+3. Componente de pré-setup embutível (1 gateway) — 0/100 % · _SAV_
+4. Pré-setup migrado para o novo frontend — 0/100 % · _SAV_
+5. Pré-setup usando a biblioteca oficial (sem versão de teste) — 0/100 % · _SAV_
 
-- Implementar conformidade ThingsBoard ↔ GCDR (RFC-0022)
-- Completar mapeamento de entidades TB ↔ GCDR (RFC-0016)
-- Plano de configuração do Verify Service com checkers (RFC-0027)
-- Auto-sync contínuo de devices entre TB, GCDR e ingestão
-- Detecção e correção automática de divergência de cadastro
-- Auto-construção de device a partir do perfil e do canal da placa
+## 9. Zerar risco de perda de dado em produção
 
----
+- **Status:** ⚠️ Sem avanço · **Progresso:** 0% · **Responsável:** Rodrigo Lago
+- **Descrição:** Detectar centrais instáveis, e quando voltar pensar em buscar os dados dos sensores acumulados
 
-## 🛠 Ordens de Serviço
+1. Detecção automática de lacunas de dados por central, a cada hora — 0/100 % · _SAV_
+2. Preenchimento automático (interpolação) das lacunas dentro da tolerância — 0/100 % · _SAV_
+3. Módulo em operação em toda a lista de dispositivos — 0/100 % · _SAV_
+4. Regras de tolerância por tipo de equipamento (GCDR) — 0/100 % · _SAV_
+5. Abertura automática de incidente quando a lacuna ultrapassa o limite — 0/100 % · _SAV_
 
-### O10 — Ordens de Serviço integradas a todo o ecossistema 🟢
+## 10. Migração de Alarme para código
 
-- Implementar WO Groups (RFC-0051)
-- Motor de regras de ciclo de vida de OS (RFC-0041)
-- Ingestão de e-mail → ticket (RFC-0045)
-- Persistir atores do workflow (RFC-0028) → MTTR real
-- OS disparada por alarme, com rastro até o device
-- OS refletida no app móvel e no dashboard
+- **Status:** ⚠️ Sem avanço · **Progresso:** 0% · **Responsável:** Rodrigo Lago
+- **Descrição:** Migração de Alarme para código 
 
----
+1. Regras de alarme versionadas em Git (alarm-as-code), com CI/CD valida sintaxe, testes unitários e simula disparo antes do deploy — 0/100 % · _SAV_
+2. Rollback auditável e diff entre versões por cliente — 0/100 % · _SAV_
+3. Templates reutilizáveis por vertical (shopping, indústria, varejo) — 0/100 % · _SAV_
 
-## 🖥 Centrais
+## 11. Anotações com upload de imagens e uso de MCP do Ingestion
 
-### O11 — Backup e restore das centrais 🟢
+- **Status:** ⚠️ Sem avanço · **Progresso:** 0% · **Responsável:** Rodrigo Lago
+- **Descrição:** Anotações com upload de imagens e uso de MCP do Ingestion
 
-- Backup automático e versionado dos flows Node-RED por central
-- Restore verificado (dry-run) antes de aplicar em campo
-- Runbook único de backup/restore para OrangePi/Mender
-- Inventário de centrais com data do último backup válido
-- Alerta de central sem backup recente
-- Restore de nomes e mapa de slaves sem perda de identidade
+1. Histórico visual vira base de conhecimento para treinamento de novos técnicos — 0/100 % · _SAV_
+2. MCP Ingestion enriquece com contexto: última leitura, histórico de alarmes, manuais — 0/100 % · _SAV_
+3. Técnico anexa foto do equipamento direto do celular na anotação — 0/100 % · _SAV_
+4. Integração nativa com OS e chamados (foto = evidência) — 0/100 % · _SAV_
 
-### O12 — Monitoramento de centrais dentro do GCDR 🟢
+## 12. Alarme / Notificações no Whatsapp
 
-- Central como entidade de primeira classe no GCDR
-- Telemetria de saúde por central (uptime, versão, conectividade)
-- Destravar `signal-topology` e `central-wifi-command` (PRs parados)
-- Alerta de central offline ou com flow divergente do versionado
-- Painel de centrais integrado ao cockpit de logs (O15)
+- **Status:** 🟠 Em andamento · **Progresso:** 25% · **Responsável:** Rodrigo Lago
+- **Descrição:** Alarme / Notificações no Whatsapp
 
-### O13 — Gestão de Node-RED por central 🟢
+1. Canal oficial Meta Business API — 25/100 % · _SAV_
+2. Audit log de quem recebeu e respondeu (compliance) — 50/100 % · _SAV_
+3. Gestão de Templates por tipo: crítico, aviso, recuperação ou outro tipo — 0/100 % · _SAV_
 
-- Inventário de versão de runtime e contribs por central
-- Padronizar runtime (hoje há pré-release `1.2.0-beta.1` em produção)
-- Detectar drift entre flow em campo e flow versionado
-- Pipeline de update com fix e rollback versionado
-- Rollout controlado por central/grupo (canary)
-- Rollback de um clique para estado conhecido-bom
-- Concluir integração Node-RED do RFC-NodeRed (2/7 hoje)
+## 13. Dashboard Cliente Individual
 
----
+- **Status:** 🟠 Em andamento · **Progresso:** 60% · **Responsável:** Rodrigo Lago
+- **Descrição:** Dashboard Cliente Individual para clientes via API de parceiro ou acesso direto
 
-## ⚙️ Plataforma & Observabilidade
-
-### O14 — Fazer os portões de qualidade executarem
-
-- Ligar `size-check` no pipeline de build
-- Trazer bundle para dentro do limite (hoje ~218× acima)
-- Mergear CI de qualidade nas branches de frontend
-
-### O15 — Cockpit de auditoria de logs das aplicações 🟢
-
-- Implementar o Log Cockpit / on-call (RFC-0048 — hoje só runbook)
-- Centralizar logs de ingestão, alarmes, dashboards e presetup em painel único
-- Particionamento e retenção de `audit_logs` (90d, pg_partman)
-- Alertas de freshness e de falha silenciosa por aplicação
-- Rastro de auditoria por ator, device e customer
+1. Entendimento Demanda e Definição do Escopo — 70/100 % · _SAV_
+2. Design do Painel de Cliente Individual — 50/100 % · _SAV_
 
 ---
-
-## Notas de leitura
-
-- Nenhum total foi somado entre repositórios — as unidades não são comparáveis
-- Itens marcados como "possivelmente" na origem são hipóteses de alto risco, não fatos
-- 5 das 7 pendências de ingestão têm severidade de incidente em produção
+*Objetivo "Melhorar a confiabilidade e monitoramento dos dados operacionais" pertence à dimensão **Suporte CS (Q2 2026)** — fora deste doc de Tecnologia; seus 4 KRs foram cadastrados no painel.*
+*Regenerar: reabrir o Chrome debug (`:9222`) e rodar o pull CDP.*
