@@ -145,7 +145,25 @@ Confirmado em campo (OBRAMAX/Benfica, 2026-06-17). **É por `slave_id` — não 
 
 ### 3.6 Telemetria de atuador (plug/lamp/relé) → `logs`
 
-O **estado on/off** e os **acionamentos** de um channel atuador (`plug`, `lamp`, …) **não** vão para as tabelas de energia — vão para **`logs`** (hypertable TimescaleDB, particionada por `timestamp`), com `slave_id` + `channel` e `value` **100 = ligado / 0 = desligado**.
+O **estado on/off** e os **acionamentos** de um channel atuador (`plug`, `lamp`, …) **não** vão para as tabelas de energia — vão para **`logs`** (hypertable TimescaleDB, particionada por `timestamp`), com `slave_id` + `channel` e `value` **100 = ligado / 0 = desligado**. Na prática `logs` é o **log de eventos/ações** da central: além do estado de atuadores, registra acionamento de cenas, comandos RF/IR e ações de usuário.
+
+**Estrutura (`\d logs`):**
+
+| Coluna | Tipo | Descrição |
+|--------|------|-----------|
+| `timestamp` | `TIMESTAMPTZ(0)` NOT NULL, default `now()` | Momento do evento |
+| `type` | `varchar(255)` | Tipo do evento (`binary_sensor`, `user_action`, …) |
+| `action_type` | `varchar(255)` | Ação (`activate_channel`, `binary_sensor`, …) |
+| `user` | `varchar(255)` | Quem acionou (UUID do usuário) — vazio p/ feedback do device |
+| `slave_id` | `integer` | FK lógica → `slaves.id` |
+| `ambient_id` | `integer` | FK lógica → `ambients.id` |
+| `scene_id` | `integer` | FK lógica → `scenes.id` (acionamento de cena) |
+| `channel` | `integer` | Canal do atuador |
+| `rfir_command_id` | `integer` | FK lógica → `rfir_commands.id` (comando RF/IR) |
+| `value` | `integer` | Valor do evento (`100`=on / `0`=off; ou valor do comando) |
+
+- Índice: `logs_timestamp_idx` btree (`timestamp DESC`).
+- **Hypertable TimescaleDB** (`ts_insert_blocker`; **35 chunks filhos**). `"user"` é palavra reservada — sempre entre aspas duplas no SQL.
 
 Confirmado com o plug `Ventilador Cozinha` (Benfica, `channels.id=110`, `slave_id=47`, `channel=0`):
 
@@ -190,6 +208,25 @@ ORDER BY timestamp DESC LIMIT 50;
 | `datetime` | `INTEGER` | **Epoch** (segundos), não `timestamptz` |
 | `slave_id` | `INTEGER` | FK → `slaves.id` (ON DELETE SET NULL) |
 | `rfir_remote_id` | `INTEGER` | FK → `rfir_remotes.id` (ON DELETE SET NULL) |
+
+### 3.9 `users` — usuários locais da central
+
+Usuários do app local da central (autenticação no próprio device, **não** é o usuário do ThingsBoard/GCDR).
+
+**Estrutura (`\d users`):**
+
+| Coluna | Tipo | Descrição |
+|--------|------|-----------|
+| `UUID` | `uuid` PK NOT NULL | Identificador do usuário (chave primária) |
+| `name` | `text` NOT NULL | Nome |
+| `password` | `text` | 🔒 **Hash da senha** — nunca exportar/logar em texto claro |
+| `email` | `text` NOT NULL, **UNIQUE** | E-mail (login) |
+| `createdAt` | `TIMESTAMPTZ` NOT NULL | Criação |
+| `updatedAt` | `TIMESTAMPTZ` NOT NULL | Última atualização |
+
+- PK `users_pkey` (`UUID`); constraint única `users_email_key` (`email`).
+- Colunas em **camelCase com maiúsculas** (`UUID`, `createdAt`, `updatedAt`) → sempre entre aspas duplas no SQL.
+- ⚠️ `password` é sensível (hash) — tratar como segredo em qualquer API/backup/export.
 
 ---
 

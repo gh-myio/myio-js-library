@@ -2398,7 +2398,14 @@ Object.assign(window.MyIOUtils, {
           LogHelper.warn('[MAIN_VIEW] gcdrApiKey não encontrado nos atributos SERVER_SCOPE do customer.');
         LogHelper.log('[MAIN_VIEW] RFC-0180: gcdrCustomerId:', gcdrCustomerId || '(empty)');
         LogHelper.log('[MAIN_VIEW] RFC-0180: gcdrTenantId:', gcdrTenantId || '(empty)');
-        LogHelper.log('[MAIN_VIEW] RFC-0180: gcdrApiKey:', gcdrApiKey ? '✅ set' : '❌ empty');
+        LogHelper.log(
+          '[MAIN_VIEW] RFC-0180: gcdrApiKey:',
+          gcdrApiKey
+            ? gcdrApiKey.length > 12
+              ? gcdrApiKey.slice(0, 5) + '****' + gcdrApiKey.slice(-5)
+              : '****'
+            : '❌ empty'
+        );
 
         // RFC-0180: Pre-fetch all customer alarms (non-blocking) so AlarmsTab can use them
         // without a per-device fetch when the Settings modal is opened.

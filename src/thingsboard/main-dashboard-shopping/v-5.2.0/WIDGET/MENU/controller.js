@@ -3192,11 +3192,14 @@ function openGoalsModal() {
             <div class="mcc-section-title">Funcionalidades</div>
             <div class="mcc-field">
               <div class="mcc-field-label">
-                <span class="mcc-field-name">Pico de Demanda / Telemetrias Instantâneas</span>
+                <span class="mcc-field-name">Pico de Demanda + Telemetrias Instantâneas (modal de energia)</span>
                 <span class="mcc-field-desc">
-                  Exibe os botões de análise avançada no modal de energia.<br>
+                  Controla <strong>em conjunto</strong> os dois botões do modal de energia — <strong>📊 Pico de Demanda</strong> e <strong>⚡ Telemetrias Instantâneas</strong> (não há controle separado por botão).<br>
+                  <strong>Ligado:</strong> exibe os dois botões em todos os medidores de energia.<br>
+                  <strong>Desligado:</strong> oculta os dois em todos os medidores.<br>
+                  <strong>Não definido:</strong> regra automática por tipo — exibe em Entrada e Área Comum, oculta em Lojas (<code>deviceProfile = 3F_MEDIDOR</code>).<br>
                   <em>Atributo:</em> <code>canShowDemandButtons</code>
-                  ${currentDemand === null ? ' <span style="color:#F59E0B">(não definido — fallback: deviceProfile)</span>' : ''}
+                  ${currentDemand === null ? ' <span style="color:#F59E0B">(não definido — usando a regra automática por tipo)</span>' : ''}
                 </span>
               </div>
               <label class="mcc-toggle" title="canShowDemandButtons">

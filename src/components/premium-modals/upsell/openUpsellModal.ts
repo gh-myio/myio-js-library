@@ -6295,10 +6295,20 @@ async function tbDelete(state: ModalState, path: string): Promise<void> {
 }
 
 // Change device owner (assign to new customer)
+// TB PE (e.g. 3.9.0PE) does NOT have the CE endpoint POST /api/customer/{cid}/device/{did}
+// (it 404s with "No static resource"). PE uses the Change Owner API instead:
+//   POST /api/owner/CUSTOMER/{ownerId}/{entityType}/{entityId}  (changeOwnerToCustomer, empty body)
+// Try PE first; on 404 fall back to the classic CE assign endpoint.
 async function changeDeviceOwner(state: ModalState, device: Device, newCustomerId: string): Promise<void> {
   const deviceId = getEntityId(device);
-  // Use the assign device to customer endpoint
-  await tbPost(state, `/api/customer/${newCustomerId}/device/${deviceId}`, {});
+  try {
+    await tbPost(state, `/api/owner/CUSTOMER/${newCustomerId}/DEVICE/${deviceId}`, {});
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (!/\b404\b/.test(msg)) throw err;
+    // CE instance (no /api/owner route) — use the classic assign endpoint
+    await tbPost(state, `/api/customer/${newCustomerId}/device/${deviceId}`, {});
+  }
 }
 
 // Create relation: Entity (ASSET/CUSTOMER) -> DEVICE (entity "Contains" device)
