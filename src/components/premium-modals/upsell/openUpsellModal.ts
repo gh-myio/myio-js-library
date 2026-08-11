@@ -6302,7 +6302,9 @@ async function tbDelete(state: ModalState, path: string): Promise<void> {
 async function changeDeviceOwner(state: ModalState, device: Device, newCustomerId: string): Promise<void> {
   const deviceId = getEntityId(device);
   try {
-    await tbPost(state, `/api/owner/CUSTOMER/${newCustomerId}/DEVICE/${deviceId}`, {});
+    // PE body is an OPTIONAL String[] (target entity-group ids under the new
+    // owner) — sending {} 500s with "Cannot deserialize java.lang.String[]".
+    await tbPost(state, `/api/owner/CUSTOMER/${newCustomerId}/DEVICE/${deviceId}`, []);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     if (!/\b404\b/.test(msg)) throw err;
