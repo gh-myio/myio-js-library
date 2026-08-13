@@ -2,17 +2,17 @@
   "meta": {
     "project": "ED",
     "jiraBase": "https://myio.atlassian.net",
-    "generatedAt": "2026-08-10",
+    "generatedAt": "2026-08-13",
     "status": "Em Andamento",
     "wipLimit": 1,
     "note": "WIP = tickets com status \"Em Andamento\". Acordo: 1 por pessoa (inclui \"Aguardando Demanda\" quando ocioso)."
   },
-  "total": 9,
-  "peopleOver": 3,
+  "total": 6,
+  "peopleOver": 2,
   "people": [
     {
       "name": "Rodrigo Lago",
-      "count": 4,
+      "count": 3,
       "over": true,
       "tickets": [
         {
@@ -32,12 +32,6 @@
           "type": "Tarefa",
           "summary": "[GCDR] Pré-setup: autopreencher \"Identificador\" ao adicionar device em asset com mais de 1 device",
           "updated": "2026-07-28"
-        },
-        {
-          "key": "ED-941",
-          "type": "Bug",
-          "summary": "[BUG] [PRÉ-SETUP] [GCDR] Falha na sincronização para o GDCR de cliente cadastrado com múltiplos gateways (2+)",
-          "updated": "2026-07-28"
         }
       ]
     },
@@ -47,10 +41,10 @@
       "over": true,
       "tickets": [
         {
-          "key": "ED-1108",
+          "key": "ED-1113",
           "type": "Subtarefa",
-          "summary": "Enlace ponto-a-ponto RJ45 dedicado entre as duas centrais",
-          "updated": "2026-08-10"
+          "summary": "Redundância de saída: um modem por central",
+          "updated": "2026-08-11"
         },
         {
           "key": "ED-1104",
@@ -61,34 +55,15 @@
       ]
     },
     {
-      "name": "Victor Hugo da Silva",
-      "count": 2,
-      "over": true,
-      "tickets": [
-        {
-          "key": "ED-1093",
-          "type": "História",
-          "summary": "Ajuste lib sql provision",
-          "updated": "2026-08-04"
-        },
-        {
-          "key": "ED-1091",
-          "type": "Tarefa",
-          "summary": "[TESTE] Validar novo componente da Aba API (node-red-contrib-myio-api-flows) — Central Moxuara 2.0 - 2026-07-13",
-          "updated": "2026-08-05"
-        }
-      ]
-    },
-    {
       "name": "Letícia Camargo",
       "count": 1,
       "over": false,
       "tickets": [
         {
-          "key": "ED-1117",
-          "type": "Subtarefa",
-          "summary": "[QA] Testes ED-951",
-          "updated": "2026-08-10"
+          "key": "ED-840",
+          "type": "Tarefa",
+          "summary": "Desenvolver template para report de tickets",
+          "updated": "2026-08-13"
         }
       ]
     }

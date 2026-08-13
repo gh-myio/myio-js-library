@@ -11,70 +11,71 @@
       "end": "2026-08-04",
       "state": "active"
     },
-    "generatedAt": "2026-08-10",
+    "generatedAt": "2026-08-13",
     "source": "Jira Cloud (myio.atlassian.net) via MCP Atlassian",
     "scope": "Tickets em aberto (status != Concluído). Backlog exclui épicos e subtarefas."
   },
   "summary": {
-    "sprintOpen": 66,
-    "backlogOpen": 539,
-    "total": 605
+    "sprintOpen": 68,
+    "backlogOpen": 540,
+    "total": 608
   },
   "aggregates": {
     "sprint": {
       "byStatus": {
-        "Itens Novos": 46,
-        "PENDENTE": 14,
+        "Itens Novos": 47,
+        "PENDENTE": 15,
         "Em Andamento": 5,
         "EM REVISÃO": 1
       },
       "byType": {
-        "Tarefa": 35,
+        "Tarefa": 37,
         "Bug": 23,
         "História": 8
       },
       "byPriority": {
-        "Medium": 55,
-        "High": 8,
+        "Medium": 58,
+        "High": 7,
         "Highest": 2,
         "Low": 1
       },
       "byAssignee": {
-        "Rodrigo Lago": 38,
-        "Victor Hugo da Silva": 15,
+        "Rodrigo Lago": 40,
+        "Victor Hugo da Silva": 14,
         "Luiz Guilherme Martinho Sampaio Ito": 12,
-        "Letícia Camargo": 1
+        "Letícia Camargo": 1,
+        "Andre Abadesso": 1
       },
       "byGroup": {
-        "GCDR / Plataforma": 16,
+        "GCDR / Plataforma": 17,
         "Outros": 15,
         "Central / Firmware / HW": 14,
         "BAS": 9,
         "Obramax": 3,
-        "Moxuara": 2,
+        "Relatórios / Dashboard": 3,
         "Melicidade": 2,
         "Ilha Plaza": 1,
+        "Moxuara": 1,
         "Shopping da Ilha / SDI": 1,
         "Contagem": 1,
-        "Capim Dourado": 1,
-        "Relatórios / Dashboard": 1
+        "Capim Dourado": 1
       }
     },
     "backlog": {
       "byStatus": {
         "Itens Novos": 520,
+        "EM REVISÃO": 10,
         "PENDENTE": 9,
-        "EM REVISÃO": 8,
-        "Em Andamento": 2
+        "Em Andamento": 1
       },
       "byType": {
-        "Tarefa": 455,
-        "Bug": 39,
-        "História": 39,
+        "Tarefa": 456,
+        "Bug": 40,
+        "História": 38,
         "Freshdesk": 6
       },
       "byPriority": {
-        "Medium": 506,
+        "Medium": 507,
         "High": 20,
         "Highest": 9,
         "Low": 3,
@@ -82,19 +83,19 @@
       },
       "byAssignee": {
         "Luiz Guilherme Martinho Sampaio Ito": 380,
-        "Rodrigo Lago": 117,
+        "Rodrigo Lago": 119,
         "—": 11,
+        "Leandro Gadioli Rodrigues": 9,
         "Bruno Dantas Costa": 9,
-        "Leandro Gadioli Rodrigues": 8,
-        "Letícia Camargo": 6,
-        "Victor Hugo da Silva": 3,
+        "Letícia Camargo": 5,
         "Bruno Kubudi Cardeman": 3,
+        "Victor Hugo da Silva": 2,
         "giovani": 2
       },
       "byGroup": {
-        "Central / Firmware / HW": 388,
-        "GCDR / Plataforma": 34,
-        "Outros": 25,
+        "Central / Firmware / HW": 386,
+        "GCDR / Plataforma": 36,
+        "Outros": 24,
         "Campinas": 16,
         "Obramax": 13,
         "Relatórios / Dashboard": 12,
@@ -107,6 +108,7 @@
         "Montserrat": 3,
         "Rio Poty": 2,
         "Supervia": 2,
+        "Mestre Álvaro": 2,
         "West Plaza": 2,
         "Melicidade": 1,
         "Contagem": 1,
@@ -116,6 +118,19 @@
     }
   },
   "sprint": [
+    {
+      "key": "ED-1120",
+      "summary": "[api-flows] Central Logs API — endpoints GET /logs (journalctl allowlisted) (RFC-0002)",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-08-11",
+      "group": "GCDR / Plataforma",
+      "kind": "theme"
+    },
     {
       "key": "ED-1101",
       "summary": "[CENTRAL] Endpoint de POST para reiniciar o myio-api.service (systemctl restart)",
@@ -347,8 +362,8 @@
       "priority": "Medium",
       "assignee": "Rodrigo Lago",
       "updated": "2026-07-28",
-      "group": "Outros",
-      "kind": "other"
+      "group": "Relatórios / Dashboard",
+      "kind": "theme"
     },
     {
       "key": "ED-1019",
@@ -728,19 +743,6 @@
       "kind": "theme"
     },
     {
-      "key": "ED-1091",
-      "summary": "[TESTE] Validar novo componente da Aba API (node-red-contrib-myio-api-flows) — Central Moxuara 2.0 - 2026-07-13",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Em Andamento",
-      "cat": "indeterminate",
-      "priority": "High",
-      "assignee": "Victor Hugo da Silva",
-      "updated": "2026-08-05",
-      "group": "Moxuara",
-      "kind": "unit"
-    },
-    {
       "key": "ED-956",
       "summary": "[BUG] [PRÉ-SETUP] Ao criar novo cliente com estrutura sugerida, código do cliente não é gerado",
       "type": "Bug",
@@ -778,6 +780,19 @@
       "updated": "2026-07-28",
       "group": "GCDR / Plataforma",
       "kind": "theme"
+    },
+    {
+      "key": "ED-840",
+      "summary": "Desenvolver template para report de tickets",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Em Andamento",
+      "cat": "indeterminate",
+      "priority": "Medium",
+      "assignee": "Letícia Camargo",
+      "updated": "2026-08-13",
+      "group": "Outros",
+      "kind": "other"
     },
     {
       "key": "ED-1038",
@@ -897,6 +912,19 @@
       "kind": "other"
     },
     {
+      "key": "ED-951",
+      "summary": "[GCDR] OS: nova aba \"Agenda Alocações\" (agenda de alocações de equipe nas OSs)",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "PENDENTE",
+      "cat": "indeterminate",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-08-13",
+      "group": "GCDR / Plataforma",
+      "kind": "theme"
+    },
+    {
       "key": "ED-885",
       "summary": "[CENTRAL - SOFTWARE]ATUALIZAÇÃO REMOTA",
       "type": "História",
@@ -962,20 +990,59 @@
       "kind": "theme"
     },
     {
-      "key": "ED-951",
-      "summary": "[GCDR] OS: nova aba \"Agenda Alocações\" (agenda de alocações de equipe nas OSs)",
+      "key": "ED-1118",
+      "summary": "RCA: endpoints de totais de temperatura liam a tabela de água (docs/rca)",
       "type": "Tarefa",
       "sub": false,
       "status": "EM REVISÃO",
       "cat": "indeterminate",
       "priority": "Medium",
-      "assignee": "Letícia Camargo",
-      "updated": "2026-08-10",
-      "group": "GCDR / Plataforma",
+      "assignee": "Andre Abadesso",
+      "updated": "2026-08-11",
+      "group": "Relatórios / Dashboard",
       "kind": "theme"
     }
   ],
   "backlog": [
+    {
+      "key": "ED-1124",
+      "summary": "Email relay de alarmes: corrigir a cadeia de disparo (RFC-0029 D2–D8)",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-08-13",
+      "group": "Outros",
+      "kind": "other"
+    },
+    {
+      "key": "ED-1123",
+      "summary": "[BUG] Comparação de Temperatura (Footer) não mostra dados — busca na API do TB em vez da Ingestion",
+      "type": "Bug",
+      "sub": false,
+      "status": "EM REVISÃO",
+      "cat": "indeterminate",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-08-13",
+      "group": "GCDR / Plataforma",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1119",
+      "summary": "[TESTE] Validar Telemetry Query API (/telemetry/*) do node-red-contrib-myio-api-flows",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Victor Hugo da Silva",
+      "updated": "2026-08-11",
+      "group": "GCDR / Plataforma",
+      "kind": "theme"
+    },
     {
       "key": "ED-1097",
       "summary": "[api-flows] Telemetry Query API — endpoints GET /telemetry/* (RFC-0001)",
@@ -994,11 +1061,11 @@
       "summary": "Praia da Costa - Customização do painel de água para setup de novos pontos",
       "type": "Tarefa",
       "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
+      "status": "EM REVISÃO",
+      "cat": "indeterminate",
       "priority": "Highest",
-      "assignee": "Victor Hugo da Silva",
-      "updated": "2026-08-10",
+      "assignee": "Leandro Gadioli Rodrigues",
+      "updated": "2026-08-11",
       "group": "Praia da Costa",
       "kind": "unit"
     },
@@ -1104,19 +1171,6 @@
       "assignee": "Rodrigo Lago",
       "updated": "2026-08-05",
       "group": "GCDR / Plataforma",
-      "kind": "theme"
-    },
-    {
-      "key": "ED-1093",
-      "summary": "Ajuste lib sql provision",
-      "type": "História",
-      "sub": false,
-      "status": "Em Andamento",
-      "cat": "indeterminate",
-      "priority": "Medium",
-      "assignee": "Victor Hugo da Silva",
-      "updated": "2026-08-04",
-      "group": "Central / Firmware / HW",
       "kind": "theme"
     },
     {
@@ -1727,8 +1781,8 @@
       "priority": "Medium",
       "assignee": "Rodrigo Lago",
       "updated": "2026-06-18",
-      "group": "Central / Firmware / HW",
-      "kind": "theme"
+      "group": "Mestre Álvaro",
+      "kind": "unit"
     },
     {
       "key": "ED-954",
@@ -1928,19 +1982,6 @@
     {
       "key": "ED-841",
       "summary": "Documentar processo gravação de evidência de erros via JAM",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Letícia Camargo",
-      "updated": "2026-05-27",
-      "group": "Outros",
-      "kind": "other"
-    },
-    {
-      "key": "ED-840",
-      "summary": "Desenvolver template para report de tickets",
       "type": "Tarefa",
       "sub": false,
       "status": "Itens Novos",
@@ -2156,8 +2197,8 @@
       "priority": "Medium",
       "assignee": "Bruno Dantas Costa",
       "updated": "2026-05-04",
-      "group": "Outros",
-      "kind": "other"
+      "group": "Mestre Álvaro",
+      "kind": "unit"
     },
     {
       "key": "ED-223",
