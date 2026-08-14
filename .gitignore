@@ -19,3 +19,10 @@ anotacoes_*.pdf
 src/thingsboard/smart-hospital/Tabela_Temp_V5/prod/*.json
 src/thingsboard/smart-hospital/Tabela_Temp_V5/prod/sistema-os/fix_souza_aguiar.xlsx
 src/thingsboard/smart-hospital/Tabela_Temp_V5/prod/sistema-os/visita_tecnica_souza-SistemaOS.pdf
+
+# Central tokens (credentials) — never commit
+src/NODE-RED/GLOBAL_INFO/centrals-tokens.local.json
+*.local.json
+
+# Contains central bearer tokens (credentials) — never commit
+src/NODE-RED/GLOBAL_INFO/centrals-registry.json

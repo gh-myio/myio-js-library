@@ -1990,6 +1990,14 @@ self.onInit = function () {
     return 'OTHER';
   }
 
+  // GCDR valida ingestionId/ingestionGatewayId como UUID (HTTP 400 "Invalid uuid" caso contrário).
+  // TB SERVER_SCOPE pode conter sentinelas legadas (ex.: -1) de syncs antigos do Pre-Setup-Constructor
+  // quando não havia registro correspondente na Ingestion API — filtra antes de enviar ao GCDR.
+  const GU_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  function guIsValidUuid(value) {
+    return typeof value === 'string' && GU_UUID_RE.test(value);
+  }
+
   // ── Main modal ───────────────────────────────────────────────────
 
   function openGCDRSyncInlineModal() {
@@ -2905,6 +2913,14 @@ self.onInit = function () {
               identifiersSeen.add(resolvedIdentifier);
             }
 
+            if (scope.ingestionId && !guIsValidUuid(scope.ingestionId)) {
+              console.warn(
+                `[GCDR Sync] ingestionId inválido descartado para "${tbDev.name}" (TB:${tbDev.id}): ${JSON.stringify(
+                  scope.ingestionId
+                )} — provável sentinela legada do Pre-Setup-Constructor`
+              );
+            }
+
             const deviceType = scope.deviceType || scope.deviceProfile || tbDev.type || '';
             const updatePayload = {
               name: tbDev.name,
@@ -2918,8 +2934,8 @@ self.onInit = function () {
               identifier: resolvedIdentifier,
               ...(scope.deviceProfile ? { deviceProfile: scope.deviceProfile } : {}),
               ...(scope.deviceType ? { deviceType: scope.deviceType } : {}),
-              ...(scope.ingestionId ? { ingestionId: scope.ingestionId } : {}),
-              ...(scope.ingestionGatewayId ? { ingestionGatewayId: scope.ingestionGatewayId } : {}),
+              ...(guIsValidUuid(scope.ingestionId) ? { ingestionId: scope.ingestionId } : {}),
+              ...(guIsValidUuid(scope.ingestionGatewayId) ? { ingestionGatewayId: scope.ingestionGatewayId } : {}),
               metadata: {
                 tbId: tbDev.id,
                 tbDeviceName: tbDev.name,
