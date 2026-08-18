@@ -1771,6 +1771,7 @@ Object.assign(window.MyIOUtils, {
     if (!jwt) {
       window.MyIOUtils.SuperAdmin = false;
       window.MyIOUtils.currentUserEmail = null;
+      window.MyIOUtils.HoldingAdmin = false;
       LogHelper.log('[MAIN_VIEW] SuperAdmin: false (no JWT token)');
       return;
     }
@@ -1789,6 +1790,7 @@ Object.assign(window.MyIOUtils, {
       if (!response.ok) {
         window.MyIOUtils.SuperAdmin = false;
         window.MyIOUtils.currentUserEmail = null;
+        window.MyIOUtils.HoldingAdmin = false;
         LogHelper.warn('[MAIN_VIEW] SuperAdmin: false (API error:', response.status, ')');
         return;
       }
@@ -1808,12 +1810,45 @@ Object.assign(window.MyIOUtils, {
       window.MyIOUtils.SuperAdmin = isSuperAdmin;
       LogHelper.log(`[MAIN_VIEW] SuperAdmin detection: ${email} -> ${isSuperAdmin}`);
 
+      // Holding admin: USER SERVER_SCOPE attrs isHolding=true AND isUserAdmin=true
+      // (mirrors detectHoldingUserAdmin in utils/superAdminUtils.ts). Grants the same
+      // "Identificador" field edit permission as SuperAdmin, for holding-level admins
+      // whose email is not @myio.com.br (e.g. Soul Malls holding admins).
+      let isHoldingAdmin = false;
+      try {
+        const userId = user.id?.id || user.id;
+        if (userId) {
+          const attrResp = await fetch(
+            `${tbBase}/api/plugins/telemetry/USER/${userId}/values/attributes/SERVER_SCOPE`,
+            {
+              method: 'GET',
+              headers: { 'Content-Type': 'application/json', 'X-Authorization': `Bearer ${jwt}` },
+              credentials: 'include',
+            }
+          );
+          if (attrResp.ok) {
+            const attrs = await attrResp.json();
+            const truthy = (key) => {
+              const a = Array.isArray(attrs) ? attrs.find((x) => x.key === key) : null;
+              return a?.value === true || a?.value === 'true';
+            };
+            isHoldingAdmin = truthy('isHolding') && truthy('isUserAdmin');
+          }
+        }
+      } catch (holdingErr) {
+        LogHelper.warn('[MAIN_VIEW] Holding admin detection failed (fail-closed to false):', holdingErr);
+        isHoldingAdmin = false;
+      }
+      window.MyIOUtils.HoldingAdmin = isHoldingAdmin;
+      LogHelper.log(`[MAIN_VIEW] HoldingAdmin detection: ${email} -> ${isHoldingAdmin}`);
+
       // RFC-0171: Dispatch event for other widgets (MENU, etc.)
       window.dispatchEvent(
         new CustomEvent('myio:user-info-ready', {
           detail: {
             email: email,
             isSuperAdmin: isSuperAdmin,
+            isHoldingAdmin: isHoldingAdmin,
             ts: Date.now(),
           },
         })
@@ -1822,6 +1857,7 @@ Object.assign(window.MyIOUtils, {
       LogHelper.error('[MAIN_VIEW] SuperAdmin detection failed:', err);
       window.MyIOUtils.SuperAdmin = false;
       window.MyIOUtils.currentUserEmail = null;
+      window.MyIOUtils.HoldingAdmin = false;
     }
   }
 

@@ -61,6 +61,16 @@ export class SettingsModalView {
     return email.endsWith(ALLOWED_EMAIL_DOMAIN.toLowerCase());
   }
 
+  /**
+   * Check if the user may edit the "Identificador" field.
+   * True when isSuperAdmin() OR the caller already resolved the user as a
+   * holding admin (USER SERVER_SCOPE attrs isHolding=true AND isUserAdmin=true
+   * — see detectHoldingUserAdmin in utils/superAdminUtils.ts).
+   */
+  private canEditIdentifier(): boolean {
+    return this.isSuperAdmin() || this.config.holdingAdmin === true;
+  }
+
   render(initialData: Record<string, any>): void {
     // Store current focus to restore later
     this.originalActiveElement = document.activeElement;
@@ -744,7 +754,7 @@ export class SettingsModalView {
             <div class="identity-field-label">Identificador / LUC / SUC</div>
             <!-- Col 2, row 6: input identificador -->
             <input type="text" id="identifier" name="identifier" class="identity-input" maxlength="20" ${
-              this.isSuperAdmin() ? '' : 'readonly'
+              this.canEditIdentifier() ? '' : 'readonly'
             }>
 
             <!-- Col 3, rows 1-6: date info block -->

@@ -31,6 +31,9 @@ export interface OpenDashboardPopupSettingsParams {
   // RFC-0171: User email for permission check (fields editable only for @myio.com.br domain)
   userEmail?: string;
 
+  // Holding admin (USER SERVER_SCOPE attrs isHolding=true AND isUserAdmin=true) - also allows editing the Identificador field
+  holdingAdmin?: boolean;
+
   // Connection information (from card v5 info panel)
   connectionData?: {
     centralName?: string;
@@ -209,6 +212,7 @@ export interface ModalConfig {
   consumptionDecimalPlaces?: number; // Decimal places for consumption values (default: 3)
   superadmin?: boolean; // RFC-XXXX: SuperAdmin mode - allows editing identifier and offSetTemperature fields
   userEmail?: string; // RFC-0171: User email for permission check (fields editable only for @myio.com.br domain)
+  holdingAdmin?: boolean; // Holding admin (USER SERVER_SCOPE isHolding=true AND isUserAdmin=true) - also allows editing the Identificador field
   /** RFC-0144: If false, annotations onboarding tour is never shown. Default: false */
   enableAnnotationsOnboarding?: boolean;
 
