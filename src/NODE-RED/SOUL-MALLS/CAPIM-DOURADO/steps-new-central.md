@@ -1,26 +1,35 @@
-# Setup da central — Shopping Capim Dourado (Soul Malls)
+# Setup MQTT Sync — Shopping Capim Dourado 2.0 (Soul Malls)
 
-> Runbook especializado a partir de
-> [`SA-CAVALCANTE/MOXUARA/steps-new-central.md`](../../SA-CAVALCANTE/MOXUARA/steps-new-central.md)
-> (validado na Moxuara 2.0 ENTRADA-TRAFO em 2026-07-13). Aqui os comandos já
-> vêm com o IPv6/UUID desta central.
+> Runbook especializado a partir do template canônico
+> [`CENTRAL_PRE_SETUP/mqtt-sync/`](../../CENTRAL_PRE_SETUP/mqtt-sync/), seguindo o
+> mesmo padrão dos kits já especializados em
+> [`SA-CAVALCANTE/ANANINDEUA/steps-new-central.md`](../../SA-CAVALCANTE/ANANINDEUA/steps-new-central.md).
+> Aqui os comandos já vêm com o IPv6/UUID desta central.
 >
 > | Campo | Valor |
 > |---|---|
-> | Central | Shopping Capim Dourado |
+> | Central | Shopping Capim Dourado 2.0 - 2026-07-30 |
 > | Holding | Soul Malls |
-> | IPv6 (mesh Yggdrasil) | `200:1e47:5d5e:d011:a88c:6f1b:fda2:622d` |
-> | CENTRAL_UUID / Gateway ID | `988433ae-88c1-49b1-b43b-e08592ae3005` |
+> | IPv6 (mesh Yggdrasil) | `200:9738:d165:f821:68d3:2852:d822:a748` |
+> | CENTRAL_UUID / Gateway ID | `84638207-ac49-4adf-a033-4731dbb920c2` |
 > | Banco | `hubot` (PostgreSQL local na central) |
 > | Node-RED | embarcado no `myio-api.service` — editor `/red`, porta `8080` |
 >
-> Fonte da identificação: [`GLOBAL_INFO/manual-centrais-linix-orangepi.md`](../../GLOBAL_INFO/manual-centrais-linix-orangepi.md).
+> Fonte da identificação: [`GLOBAL_INFO/manual-centrais-linix-orangepi.md`](../../GLOBAL_INFO/manual-centrais-linix-orangepi.md)
+> (tabela "Holding: SOUL MALLS" + bloco de comandos SSH).
+> ⚠️ Esta é a central **2.0**, de fábrica, **sem restauração de banco** — substituiu
+> a central original "Shopping Capim Dourado" (`988433ae-88c1-49b1-b43b-e08592ae3005`,
+> IPv6 `200:1e47:5d5e:d011:a88c:6f1b:fda2:622d`), **inativada em 2026-07-30**. Não
+> confundir os dois UUIDs.
 
-**Diferença em relação ao runbook da Moxuara:** o kit `mqtt-sync/` desta pasta já
-inclui os SQLs do state-api (`provision-central-v5.sql`, `clear-all-data-central.sql`),
-então **não** é preciso buscá-los no `data-ingestion-prod.git`.
+> ✅ **Banco LIMPO** (central de fábrica): o `00-create-virtual-mqtt-sync.sql` é a
+> operação correta aqui — diferente de uma central com banco **restaurado** de
+> backup, que usaria rename-uuid em vez de create (ver cabeçalho do próprio `00`).
 
-Pré-requisitos: chave `id_rsa`; kit `mqtt-sync/` desta pasta;
+> 🔒 Execução via SSH nas centrais é **estritamente do Líder Técnico**.
+
+Pré-requisitos: chave `id_rsa`; kit `mqtt-sync/` desta pasta (arquivos numerados
+`00`–`04` na ordem de uso — `00` é o único que grava dados);
 `node-red-contrib-myio-data-fetcher-1.7.2.tgz` no workstation (passo 5).
 
 ---
@@ -28,7 +37,7 @@ Pré-requisitos: chave `id_rsa`; kit `mqtt-sync/` desta pasta;
 ## 1. Acesso
 
 ```bash
-ssh -i id_rsa root@200:1e47:5d5e:d011:a88c:6f1b:fda2:622d
+ssh -i id_rsa root@200:9738:d165:f821:68d3:2852:d822:a748
 ```
 
 ## 2. Levar os SQLs para a central
@@ -37,46 +46,45 @@ Do workstation (repare nos colchetes do IPv6 no `scp`):
 
 ```bash
 scp -i id_rsa -r src/NODE-RED/SOUL-MALLS/CAPIM-DOURADO/mqtt-sync \
-  "root@[200:1e47:5d5e:d011:a88c:6f1b:fda2:622d]:/tmp/mqtt-sync"
+  "root@[200:9738:d165:f821:68d3:2852:d822:a748]:/tmp/mqtt-sync"
 ```
 
 > ⚠️ Arquivos vindos de checkout Windows podem ter CRLF — já na central:
 > `sed -i 's/\r$//' /tmp/mqtt-sync/*.sql`
 
-## 3. Banco — instalar FUNCTIONS primeiro, DADOS por último
+## 3. Banco — instalar FUNCTIONS primeiro (01–04), DADOS por último (00)
 
 ```bash
 psql -U hubot   # db default = hubot
 ```
 
-> ⚠️ **NUNCA rode no psql os .sql de `functions/prod/API/...`** — aqueles são as
-> queries dos NÓS do Node-RED (`SELECT clear_all_data_central()` etc.); o do
-> POST-ClearAllData **APAGA os dados da central**. Os arquivos abaixo são os
-> INSTALADORES (`CREATE OR REPLACE FUNCTION` — seguros e idempotentes).
+> ⚠️ **NUNCA rode no psql os .sql de `functions/prod/API/...`** de outras pastas —
+> aqueles são as queries dos NÓS do Node-RED (`SELECT clear_all_data_central()`
+> etc.). Os arquivos deste kit são INSTALADORES (`CREATE OR REPLACE FUNCTION` —
+> seguros e idempotentes), exceto o `00`, que grava dados.
 
 ```sql
 -- 3.1 Functions do state-api (instaladores)
-\i /tmp/mqtt-sync/provision-central-v5.sql
-\i /tmp/mqtt-sync/clear-all-data-central.sql
+\i /tmp/mqtt-sync/01-provision-central-v5.sql
+\i /tmp/mqtt-sync/02-clear-all-data-central.sql
 
 -- 3.2 Functions do MQTT Sync (instaladores; LIKE 'MQTT Sync%' — funcionam com
 --     nome legado E especializado)
-\i /tmp/mqtt-sync/get_mqtt_sync_status.sql
-\i /tmp/mqtt-sync/set_mqtt_sync_status.sql
+\i /tmp/mqtt-sync/03-get_mqtt_sync_status.sql
+\i /tmp/mqtt-sync/04-set_mqtt_sync_status.sql
 
--- 3.3 VERIFICAÇÃO antes do create (essencial em banco restaurado de backup —
---     o MQTT Sync pode já existir; nesse caso é RENAME, não create — ver
---     cabeçalho do create-virtual-mqtt-sync.sql):
+-- 3.3 VERIFICAÇÃO antes do create (banco de fábrica — deve dar 0 linhas; se
+--     der alguma, avalie renomear em vez de duplicar — ver cabeçalho do 00):
 SELECT 'slave' AS obj, id, name FROM slaves   WHERE name ILIKE '%mqtt%sync%'
 UNION ALL
 SELECT 'channel', id, name      FROM channels WHERE name ILIKE '%mqtt%sync%'
 UNION ALL
 SELECT 'ambient', id, name      FROM ambients WHERE name ILIKE '%mqtt%sync%';
 
--- 3.4 ÚNICO script que grava DADOS (slave/channel/ambient virtuais; tem guarda
---     anti-duplicata que aborta se já existir). Já vem com o nome especializado
---     'MQTT Sync - 988433ae-88c1-49b1-b43b-e08592ae3005' e addr_low dinâmico.
-\i /tmp/mqtt-sync/create-virtual-mqtt-sync.sql
+-- 3.4 ÚNICO script que grava DADOS (slave/channel/ambient virtuais; guarda
+--     anti-duplicata aborta se já existir). Já vem com o nome especializado
+--     'MQTT Sync - 84638207-ac49-4adf-a033-4731dbb920c2' e addr_low dinâmico.
+\i /tmp/mqtt-sync/00-create-virtual-mqtt-sync.sql
 
 -- 3.5 Conferências
 \df *mqtt*
@@ -109,14 +117,14 @@ systemctl restart myio-api.service
 
 ## 5. Palette — data-fetcher
 
-No editor (`http://[200:1e47:5d5e:d011:a88c:6f1b:fda2:622d]:8080/red`) → menu →
+No editor (`http://[200:9738:d165:f821:68d3:2852:d822:a748]:8080/red`) → menu →
 **Manage Palette → Install → upload** do
 `node-red-contrib-myio-data-fetcher-1.7.2.tgz` (upload é feito do browser do
 workstation). Não precisa restart — só Deploy quando mexer no flow.
 
 ## 6. Flow — conferências obrigatórias
 
-1. **env `CENTRAL_UUID` = `988433ae-88c1-49b1-b43b-e08592ae3005`** definida no
+1. **env `CENTRAL_UUID` = `84638207-ac49-4adf-a033-4731dbb920c2`** definida no
    ambiente do serviço (é ela que nomeia o device no ThingsBoard:
    `MQTT Sync - <CENTRAL_UUID>`, via attributes-sync/status-sync):
    ```bash
@@ -152,17 +160,17 @@ journalctl -u 'myio*' -n 50 -f
 ```
 
 No **ThingsBoard**: conferir o device
-`MQTT Sync - 988433ae-88c1-49b1-b43b-e08592ae3005` criado pelo gateway após o
+`MQTT Sync - 84638207-ac49-4adf-a033-4731dbb920c2` criado pelo gateway após o
 attributes/status-sync rodar.
 
 ---
 
 ### Referências
 
-- Kit desta central: [`mqtt-sync/`](mqtt-sync/) — `create-virtual-mqtt-sync.sql`
-  (especializado), `get_mqtt_sync_status.sql`, `set_mqtt_sync_status.sql`,
-  `provision-central-v5.sql`, `clear-all-data-central.sql`
-- Runbook de origem: [`SA-CAVALCANTE/MOXUARA/steps-new-central.md`](../../SA-CAVALCANTE/MOXUARA/steps-new-central.md)
-- Referência canônica de nomenclatura + functions JS de sync: [`CENTRAL_PRE_SETUP/README.md`](../../CENTRAL_PRE_SETUP/README.md)
+- Kit desta central: [`mqtt-sync/`](mqtt-sync/) — `00-create-virtual-mqtt-sync.sql`
+  (especializado; único que grava dados), `01-provision-central-v5.sql`,
+  `02-clear-all-data-central.sql`, `03-get_mqtt_sync_status.sql`,
+  `04-set_mqtt_sync_status.sql`
+- Template canônico: [`CENTRAL_PRE_SETUP/mqtt-sync/`](../../CENTRAL_PRE_SETUP/mqtt-sync/) + [`CENTRAL_PRE_SETUP/README.md`](../../CENTRAL_PRE_SETUP/README.md)
 - Manual das centrais (SSH, Node-RED, Postgres, backup): [`GLOBAL_INFO/manual-centrais-linix-orangepi.md`](../../GLOBAL_INFO/manual-centrais-linix-orangepi.md)
 - Restore de banco de backup S3: [`GLOBAL_INFO/restore-hubot-backup.sh`](../../GLOBAL_INFO/restore-hubot-backup.sh)
