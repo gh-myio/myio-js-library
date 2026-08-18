@@ -11,22 +11,22 @@
       "end": "2026-08-04",
       "state": "active"
     },
-    "generatedAt": "2026-08-13",
+    "generatedAt": "2026-08-17",
     "source": "Jira Cloud (myio.atlassian.net) via MCP Atlassian",
     "scope": "Tickets em aberto (status != Concluído). Backlog exclui épicos e subtarefas."
   },
   "summary": {
     "sprintOpen": 68,
-    "backlogOpen": 540,
-    "total": 608
+    "backlogOpen": 541,
+    "total": 609
   },
   "aggregates": {
     "sprint": {
       "byStatus": {
-        "Itens Novos": 47,
+        "Itens Novos": 46,
         "PENDENTE": 15,
         "Em Andamento": 5,
-        "EM REVISÃO": 1
+        "EM REVISÃO": 2
       },
       "byType": {
         "Tarefa": 37,
@@ -63,13 +63,13 @@
     },
     "backlog": {
       "byStatus": {
-        "Itens Novos": 520,
+        "Itens Novos": 521,
         "EM REVISÃO": 10,
         "PENDENTE": 9,
         "Em Andamento": 1
       },
       "byType": {
-        "Tarefa": 456,
+        "Tarefa": 457,
         "Bug": 40,
         "História": 38,
         "Freshdesk": 6
@@ -78,12 +78,12 @@
         "Medium": 507,
         "High": 20,
         "Highest": 9,
-        "Low": 3,
+        "Low": 4,
         "Lowest": 1
       },
       "byAssignee": {
         "Luiz Guilherme Martinho Sampaio Ito": 380,
-        "Rodrigo Lago": 119,
+        "Rodrigo Lago": 120,
         "—": 11,
         "Leandro Gadioli Rodrigues": 9,
         "Bruno Dantas Costa": 9,
@@ -102,9 +102,9 @@
         "Sá Cavalcante": 12,
         "Praia da Costa": 9,
         "Souza Aguiar": 6,
+        "Macaé": 4,
         "Raiz Educação": 4,
         "Shopping da Ilha / SDI": 4,
-        "Macaé": 3,
         "Montserrat": 3,
         "Rio Poty": 2,
         "Supervia": 2,
@@ -136,11 +136,11 @@
       "summary": "[CENTRAL] Endpoint de POST para reiniciar o myio-api.service (systemctl restart)",
       "type": "Tarefa",
       "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
+      "status": "EM REVISÃO",
+      "cat": "indeterminate",
       "priority": "Medium",
       "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "updated": "2026-08-07",
+      "updated": "2026-08-13",
       "group": "Central / Firmware / HW",
       "kind": "theme"
     },
@@ -803,7 +803,7 @@
       "cat": "indeterminate",
       "priority": "Medium",
       "assignee": "Rodrigo Lago",
-      "updated": "2026-07-29",
+      "updated": "2026-08-14",
       "group": "Capim Dourado",
       "kind": "unit"
     },
@@ -1004,6 +1004,19 @@
     }
   ],
   "backlog": [
+    {
+      "key": "ED-1126",
+      "summary": "Shopping Macaé | Alteração de LUC em lote",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Low",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-08-14",
+      "group": "Macaé",
+      "kind": "unit"
+    },
     {
       "key": "ED-1124",
       "summary": "Email relay de alarmes: corrigir a cadeia de disparo (RFC-0029 D2–D8)",

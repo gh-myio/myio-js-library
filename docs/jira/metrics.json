@@ -4,8 +4,8 @@
     "projectName": "Engineer Dashboard",
     "board": 166,
     "jiraBase": "https://myio.atlassian.net",
-    "generatedAt": "2026-08-13",
-    "today": "2026-08-13",
+    "generatedAt": "2026-08-17",
+    "today": "2026-08-17",
     "source": "Jira Cloud (myio.atlassian.net) via MCP Atlassian"
   },
   "rules": {
@@ -520,18 +520,38 @@
           "date": "2026-08-13",
           "remaining": 68,
           "ideal": 0
+        },
+        {
+          "date": "2026-08-14",
+          "remaining": 68,
+          "ideal": 0
+        },
+        {
+          "date": "2026-08-15",
+          "remaining": 68,
+          "ideal": 0
+        },
+        {
+          "date": "2026-08-16",
+          "remaining": 68,
+          "ideal": 0
+        },
+        {
+          "date": "2026-08-17",
+          "remaining": 68,
+          "ideal": 0
         }
       ],
       "span": {
         "start": "2026-07-28",
-        "end": "2026-08-13"
+        "end": "2026-08-17"
       }
     }
   ],
   "defaultPreset": "sprint-596",
   "fullSpan": {
     "start": "2026-05-25",
-    "end": "2026-08-13"
+    "end": "2026-08-17"
   },
   "completions": [
     {
@@ -1610,6 +1630,78 @@
       "key": "ED-1117",
       "summary": "[QA] Testes ED-951",
       "assignee": "Letícia Camargo",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-08-13"
+    },
+    {
+      "key": "ED-1113",
+      "summary": "Redundância de saída: um modem por central",
+      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-08-13"
+    },
+    {
+      "key": "ED-1108",
+      "summary": "Enlace ponto-a-ponto RJ45 dedicado entre as duas centrais",
+      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-08-13"
+    },
+    {
+      "key": "ED-1112",
+      "summary": "Consumo e reporte do health check da Slave pela Master",
+      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-08-13"
+    },
+    {
+      "key": "ED-1047",
+      "summary": "Central CM4 - Mender com log de dados e debug completo",
+      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-08-13"
+    },
+    {
+      "key": "ED-1037",
+      "summary": "Secrets de Admin JWT para Prod",
+      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-08-13"
+    },
+    {
+      "key": "ED-1053",
+      "summary": "[RCP] Watchdog de liveness do ESP32 por PING ativo + recovery",
+      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-08-13"
+    },
+    {
+      "key": "ED-1055",
+      "summary": "[Docs/PR] Design doc + runbook + PR do RCP",
+      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-08-13"
+    },
+    {
+      "key": "ED-1062",
+      "summary": "Robustez + matriz de teste (interrupção/CRC/power-loss/rollback)",
+      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-08-13"
+    },
+    {
+      "key": "ED-1060",
+      "summary": "CM4: orquestrador myio-rcp-ota (stream/verify/commit/rollback)",
+      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
       "type": "Subtarefa",
       "priority": "Medium",
       "date": "2026-08-13"

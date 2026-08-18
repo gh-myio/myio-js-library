@@ -2,25 +2,19 @@
   "meta": {
     "project": "ED",
     "jiraBase": "https://myio.atlassian.net",
-    "generatedAt": "2026-08-13",
+    "generatedAt": "2026-08-17",
     "status": "Em Andamento",
     "wipLimit": 1,
     "note": "WIP = tickets com status \"Em Andamento\". Acordo: 1 por pessoa (inclui \"Aguardando Demanda\" quando ocioso)."
   },
-  "total": 6,
+  "total": 7,
   "peopleOver": 2,
   "people": [
     {
       "name": "Rodrigo Lago",
-      "count": 3,
+      "count": 4,
       "over": true,
       "tickets": [
-        {
-          "key": "ED-973",
-          "type": "Bug",
-          "summary": "[BUG] [PRÉ-SETUP] [GCDR] Sistema não emite alerta de duplicidade (IPv6/UUID) ao cadastrar gateway e quebra sincronização com GCDR",
-          "updated": "2026-06-22"
-        },
         {
           "key": "ED-956",
           "type": "Bug",
@@ -32,6 +26,18 @@
           "type": "Tarefa",
           "summary": "[GCDR] Pré-setup: autopreencher \"Identificador\" ao adicionar device em asset com mais de 1 device",
           "updated": "2026-07-28"
+        },
+        {
+          "key": "ED-941",
+          "type": "Bug",
+          "summary": "[BUG] [PRÉ-SETUP] [GCDR] Falha na sincronização para o GDCR de cliente cadastrado com múltiplos gateways (2+)",
+          "updated": "2026-07-28"
+        },
+        {
+          "key": "ED-973",
+          "type": "Bug",
+          "summary": "[BUG] [PRÉ-SETUP] [GCDR] Sistema não emite alerta de duplicidade (IPv6/UUID) ao cadastrar gateway e quebra sincronização com GCDR",
+          "updated": "2026-06-22"
         }
       ]
     },
@@ -41,10 +47,10 @@
       "over": true,
       "tickets": [
         {
-          "key": "ED-1113",
+          "key": "ED-1115",
           "type": "Subtarefa",
-          "summary": "Redundância de saída: um modem por central",
-          "updated": "2026-08-11"
+          "summary": "Validação em bancada com duas OPi e um sensor pareado",
+          "updated": "2026-08-13"
         },
         {
           "key": "ED-1104",
