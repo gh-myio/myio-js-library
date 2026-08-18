@@ -1447,6 +1447,10 @@ body.filter-modal-open { overflow: hidden !important; }
   window.MyIOUtils = window.MyIOUtils || {};
   window.MyIOUtils.currentUserEmail = userInfo?.email || '';
   window.MyIOUtils.SuperAdmin = /@myio\.com\.br$/i.test(userInfo?.email || '');
+  // ED-1127: holding admin (isHolding+isUserAdmin no USER SERVER_SCOPE) também pode
+  // editar o Identificador no Settings Modal, mesma regra do v-5.2.0/WIDGET/MAIN_VIEW.
+  // Fail-closed (false) em qualquer erro — já tratado dentro de detectHoldingUserAdmin.
+  window.MyIOUtils.HoldingAdmin = await MyIOLibrary.detectHoldingUserAdmin();
 
   // Build shopping cards from datasource with fallback to DEFAULT_SHOPPING_CARDS
   _currentCustomersCards = buildCustomerCardsFromDatasource(self.ctx.data || []);
@@ -2872,6 +2876,8 @@ body.filter-modal-open { overflow: hidden !important; }
             customerId: device.customerId, // RFC-0080: Required for GLOBAL mapInstantaneousPower fetch
             // RFC-0171: Pass userEmail for superadmin check (allows editing identifier field)
             userEmail: window.MyIOUtils?.currentUserEmail || null,
+            // ED-1127: holding admin (isHolding+isUserAdmin) also allowed to edit identifier field
+            holdingAdmin: window.MyIOUtils?.HoldingAdmin || false,
             connectionData: {
               centralName: device.centralName || device.customerName,
               connectionStatusTime: device.lastConnectTime,

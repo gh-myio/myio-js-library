@@ -3440,6 +3440,10 @@ function renderList(visible) {
           // RFC-XXXX: SuperAdmin flag from MAIN_VIEW
           const isSuperAdmin = window.MyIOUtils?.SuperAdmin || false;
 
+          // Holding admin flag from MAIN_VIEW (USER SERVER_SCOPE isHolding=true AND
+          // isUserAdmin=true) — also allows editing the Identificador field.
+          const isHoldingAdmin = window.MyIOUtils?.HoldingAdmin || false;
+
           // RFC-0144: Annotations onboarding flag from MAIN_VIEW settings
           const enableAnnotationsOnboarding = window.MyIOUtils?.enableAnnotationsOnboarding ?? false;
 
@@ -3478,6 +3482,7 @@ function renderList(visible) {
             customerId: customerTbId, // RFC-0080: Pass customerId for GLOBAL fetch
             superadmin: isSuperAdmin, // RFC-XXXX: SuperAdmin mode
             userEmail: window.MyIOUtils?.currentUserEmail || '', // RFC-0171: needed for offSetTemperature field visibility
+            holdingAdmin: isHoldingAdmin, // Holding admin (isHolding+isUserAdmin) — also unlocks Identificador editing
             enableAnnotationsOnboarding: enableAnnotationsOnboarding, // RFC-0144: Annotations onboarding control
             createdTime: it.createdTime || null,
             lastActivityTime: it.lastActivityTime || null,
