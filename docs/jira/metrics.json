@@ -4,8 +4,8 @@
     "projectName": "Engineer Dashboard",
     "board": 166,
     "jiraBase": "https://myio.atlassian.net",
-    "generatedAt": "2026-08-17",
-    "today": "2026-08-17",
+    "generatedAt": "2026-08-19",
+    "today": "2026-08-19",
     "source": "Jira Cloud (myio.atlassian.net) via MCP Atlassian"
   },
   "rules": {
@@ -540,18 +540,28 @@
           "date": "2026-08-17",
           "remaining": 68,
           "ideal": 0
+        },
+        {
+          "date": "2026-08-18",
+          "remaining": 68,
+          "ideal": 0
+        },
+        {
+          "date": "2026-08-19",
+          "remaining": 68,
+          "ideal": 0
         }
       ],
       "span": {
         "start": "2026-07-28",
-        "end": "2026-08-17"
+        "end": "2026-08-19"
       }
     }
   ],
   "defaultPreset": "sprint-596",
   "fullSpan": {
     "start": "2026-05-25",
-    "end": "2026-08-17"
+    "end": "2026-08-19"
   },
   "completions": [
     {
@@ -1705,6 +1715,14 @@
       "type": "Subtarefa",
       "priority": "Medium",
       "date": "2026-08-13"
+    },
+    {
+      "key": "ED-1127",
+      "summary": "[BUG] Settings Modal: campo Identificador não habilita para holding admin (isHolding+isUserAdmin)",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Bug",
+      "priority": "Medium",
+      "date": "2026-08-18"
     }
   ]
 }

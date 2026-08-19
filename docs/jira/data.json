@@ -11,7 +11,7 @@
       "end": "2026-08-04",
       "state": "active"
     },
-    "generatedAt": "2026-08-17",
+    "generatedAt": "2026-08-19",
     "source": "Jira Cloud (myio.atlassian.net) via MCP Atlassian",
     "scope": "Tickets em aberto (status != Concluído). Backlog exclui épicos e subtarefas."
   },
