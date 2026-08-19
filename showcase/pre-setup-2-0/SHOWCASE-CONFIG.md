@@ -1,6 +1,6 @@
 # Showcase — Pre-Setup 2.0: Configurações
 
-Harness do widget **GCDR-Upsell-Setup v1.0.0** com backend real.
+Harness do widget **GCDR-Upsell-Setup v2.0.0** com backend real.
 
 ## Ambiente
 
@@ -8,7 +8,7 @@ Harness do widget **GCDR-Upsell-Setup v1.0.0** com backend real.
 |----------|-------|
 | `_TB_URL` | `https://dashboard.myio-bas.com` |
 | Porta do servidor | `3340` |
-| Controller | `src/thingsboard/GCDR-Upsell-Setup/v.1.0.0/controller.js` |
+| Controller | `src/thingsboard/GCDR-Upsell-Setup/v.2.0.0/controller.js` |
 | Build local (opcional) | `dist/myio-js-library.umd.js` |
 
 ## Autenticação

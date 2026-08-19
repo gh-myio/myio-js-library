@@ -13,6 +13,7 @@ import {
   getSuggestedProfiles,
   type InferredDeviceType,
 } from '../../classify/deviceType';
+import { MyIOToast } from '../../MyIOToast';
 
 import type {
   UpsellModalParams,
@@ -111,6 +112,18 @@ const TELEMETRY_KEYS_BY_DOMAIN: Record<string, string[]> = {
   water:       ['pulses', 'water_level', 'water_percentage'],
   temperature: ['temperature'],
   remote:      ['status'],
+};
+
+// RFC-0184: the ONE key whose timestamp anchors "Last Telemetry" per domain.
+// Must NOT be connectionStatus — that key updates on every connect/disconnect
+// event and is unrelated to whether the device's actual reading is fresh
+// (e.g. connectionStatus can tick minutes after the last real consumption
+// sample, making the device look more "alive" than its telemetry really is).
+const CHECK_FIX_PRIMARY_TS_KEY: Record<string, string> = {
+  energy:      'consumption',
+  water:       'pulses',
+  temperature: 'temperature',
+  remote:      'status',
 };
 
 // RFC-0184: infer expected deviceType from device name (returns 'UNDEFINED' when nothing matches)
@@ -590,7 +603,7 @@ function getThemeColors(theme: 'dark' | 'light'): ThemeColors {
 
 const i18n = {
   pt: {
-    title: 'Upsell Post-Setup',
+    title: 'SETUP de Dispositivos',
     step1: 'Cliente',
     step2: 'Dispositivo',
     step3: 'Validação',
@@ -621,7 +634,7 @@ const i18n = {
     errorSaving: 'Erro ao salvar. Tente novamente.',
   },
   en: {
-    title: 'Upsell Post-Setup',
+    title: 'Device Setup',
     step1: 'Customer',
     step2: 'Device',
     step3: 'Validation',
@@ -788,6 +801,14 @@ interface ModalState {
     overrideCustomerName: string;
     customerSearch: string;
     customerPickerOpen: boolean;
+    /**
+     * When true, this run of the modal also reassigns each device's OWNER
+     * (customerId) to the chosen CUSTOMER target, in addition to forcing the
+     * relation — triggered from the CUSTOM picker's "Atribuir Owner" mode.
+     * Only meaningful when target === 'CUSTOMER' (owner reassignment has no
+     * ASSET equivalent), so the UI locks target to CUSTOMER while this is true.
+     */
+    alsoChangeOwner: boolean;
   };
   /** deviceId → all entities pointing TO it (relTO, e.g. assets that contain this device) */
   deviceRelToMap: Map<string, RelEntry[]>;
@@ -964,7 +985,7 @@ export function openUpsellModal(params: UpsellModalParams): UpsellModalInstance 
     lojasConfig: null,
     lojasApplyRelation: true,
     customModeModal: { open: false },
-    bulkRelationModal: { open: false, target: 'CUSTOMER', selectedAssetId: '', selectedAssetName: '', search: '', newAssetName: '', assetsLoaded: false, overrideCustomerId: '', overrideCustomerName: '', customerSearch: '', customerPickerOpen: false },
+    bulkRelationModal: { open: false, target: 'CUSTOMER', selectedAssetId: '', selectedAssetName: '', search: '', newAssetName: '', assetsLoaded: false, overrideCustomerId: '', overrideCustomerName: '', customerSearch: '', customerPickerOpen: false, alsoChangeOwner: false },
     checkFixLoading: false,
     checkFixReport: null,
     checkFixFilter: 'all',
@@ -1642,6 +1663,21 @@ function renderModal(
                 <span style="font-size: 11px; color: ${colors.textMuted};">${m.sub}</span>
               </button>
             `).join('')}
+            <button
+              id="${modalId}-custom-mode-assign-owner"
+              style="
+                grid-column: 1 / -1;
+                background: ${colors.cardBg}; border: 2px solid ${colors.border};
+                border-radius: 10px; padding: 14px 12px; cursor: pointer; text-align: left;
+                display: flex; flex-direction: column; gap: 4px; transition: border-color 0.15s;
+              "
+              onmouseover="this.style.borderColor='#ef4444'"
+              onmouseout="this.style.borderColor='${colors.border}'"
+            >
+              <span style="font-size: 22px;">👤</span>
+              <span style="font-size: 14px; font-weight: 600; color: ${colors.text};">Atribuir Owner + Forçar Relação para Owner</span>
+              <span style="font-size: 11px; color: ${colors.textMuted};">Troca o owner, remove a relação existente e força nova relação para o owner atribuído — mantém o tipo/profile atual do device</span>
+            </button>
           </div>
           <div style="display: flex; justify-content: flex-end;">
             <button id="${modalId}-custom-cancel-bottom" style="
@@ -1682,11 +1718,13 @@ function renderModal(
           box-shadow: 0 20px 40px rgba(0,0,0,0.3);
         ">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-            <h3 style="margin: 0; color: ${colors.text}; font-size: 18px; font-weight: 600;">🔗 Forçar Relação em Lote</h3>
+            <h3 style="margin: 0; color: ${colors.text}; font-size: 18px; font-weight: 600;">${rel.alsoChangeOwner ? '👤 Atribuir Owner + Forçar Relação' : '🔗 Forçar Relação em Lote'}</h3>
             <button id="${modalId}-bulk-rel-close" style="background: none; border: none; font-size: 20px; cursor: pointer; color: ${colors.textMuted}; padding: 4px;">✕</button>
           </div>
           <p style="margin: 0 0 16px; font-size: 13px; color: ${colors.textMuted};">
-            Remove todas as relações TO existentes dos <strong>${state.selectedDevices.length}</strong> devices e cria uma nova relação para o destino escolhido.
+            ${rel.alsoChangeOwner
+              ? `Troca o owner (customerId) dos <strong>${state.selectedDevices.length}</strong> devices para o customer escolhido, remove as relações TO existentes e cria uma nova relação Customer → Device. O tipo/profile atual do device não é alterado.`
+              : `Remove todas as relações TO existentes dos <strong>${state.selectedDevices.length}</strong> devices e cria uma nova relação para o destino escolhido.`}
           </p>
 
           <!-- Customer de destino -->
@@ -1741,7 +1779,8 @@ function renderModal(
             </div>
           </label>
 
-          <!-- Target: Existing Asset -->
+          <!-- Target: Existing Asset (hidden when reassigning owner — no ASSET equivalent) -->
+          ${rel.alsoChangeOwner ? '' : `
           <label style="display: flex; align-items: flex-start; gap: 10px; padding: 12px; border-radius: 8px; border: 2px solid ${rel.target === 'ASSET_EXISTING' ? '#0a6d5e' : colors.border}; cursor: pointer; margin-bottom: 8px; flex-direction: column;">
             <div style="display: flex; align-items: center; gap: 10px; width: 100%;">
               <input type="radio" name="${modalId}-bulk-rel-target" value="ASSET_EXISTING"
@@ -1790,8 +1829,10 @@ function renderModal(
               </div>
             ` : ''}
           </label>
+          `}
 
-          <!-- Target: New Asset -->
+          <!-- Target: New Asset (hidden when reassigning owner — no ASSET equivalent) -->
+          ${rel.alsoChangeOwner ? '' : `
           <label style="display: flex; align-items: flex-start; gap: 10px; padding: 12px; border-radius: 8px; border: 2px solid ${rel.target === 'ASSET_NEW' ? '#0a6d5e' : colors.border}; cursor: pointer; margin-bottom: 16px; flex-direction: column;">
             <div style="display: flex; align-items: center; gap: 10px; width: 100%;">
               <input type="radio" name="${modalId}-bulk-rel-target" value="ASSET_NEW"
@@ -1812,6 +1853,7 @@ function renderModal(
               </div>
             ` : ''}
           </label>
+          `}
 
           <div style="display: flex; gap: 10px; justify-content: flex-end;">
             <button id="${modalId}-bulk-rel-cancel" style="
@@ -1828,7 +1870,7 @@ function renderModal(
               (rel.target === 'ASSET_NEW' && !rel.newAssetName.trim())
                 ? 'disabled'
                 : ''
-            }>🔗 Forçar (${state.selectedDevices.length} dev)</button>
+            }>${rel.alsoChangeOwner ? '👤 Atribuir Owner' : '🔗 Forçar'} (${state.selectedDevices.length} dev)</button>
           </div>
         </div>
       </div>
@@ -2087,7 +2129,6 @@ function renderCheckFixRow(
 
   const isMismatch     = r.status === 'mismatch';
   const typeActWrong   = isMismatch && r.actual.type          !== r.inferred.deviceType;
-  const devTypeWrong   = isMismatch && r.actual.deviceType    !== r.inferred.deviceType;
   const devProfWrong   = isMismatch && r.actual.deviceProfile !== r.inferred.deviceProfile;
 
   const tsStr = r.telemetry.ts
@@ -2124,8 +2165,6 @@ function renderCheckFixRow(
       <td ${copyAttr(r.deviceLabel)} style="${cell()} max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:${colors.textMuted};" title="${r.deviceLabel}">${r.deviceLabel || dash}</td>
       <td ${copyAttr(r.inferred.deviceType)} style="${cell(typeActWrong ? 'ok' : 'none', true)}">${r.inferred.deviceType}</td>
       <td ${copyAttr(r.actual.type ?? '')} style="${cell(typeActWrong ? (r.typeEqualsProfile ? 'warn' : 'bad') : 'none', true)}" title="${typeActWrong ? `esperado: ${r.inferred.deviceType}` : ''}">${r.actual.type || dash}</td>
-      <td ${copyAttr(r.inferred.deviceType)} style="${cell(devTypeWrong ? 'ok' : 'none', true)}">${r.inferred.deviceType}</td>
-      <td ${copyAttr(r.actual.deviceType ?? '')} style="${cell(devTypeWrong ? 'bad' : 'none', true)}" title="${devTypeWrong ? `esperado: ${r.inferred.deviceType}` : ''}">${r.actual.deviceType || dash}</td>
       <td ${copyAttr(r.inferred.deviceProfile)} style="${cell(devProfWrong ? 'ok' : 'none', true)}">${r.inferred.deviceProfile}</td>
       <td ${copyAttr(r.actual.deviceProfile ?? '')} style="${cell(devProfWrong ? 'bad' : 'none', true)}" title="${devProfWrong ? `esperado: ${r.inferred.deviceProfile}` : ''}">${r.actual.deviceProfile || dash}</td>
       <td ${copyAttr(r.telemetry.ts ? tsStr : '')} style="${cell()} white-space:nowrap; color:${colors.textMuted}; font-size:9px;">${tsStr}</td>
@@ -2722,7 +2761,7 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
         const dupIngestionIds = new Set<string>();
         ingCount.forEach(ids => { if (ids.length > 1) ids.forEach(id => dupIngestionIds.add(id)); });
 
-        const colSpan = multiCol ? 18 : 17;
+        const colSpan = multiCol ? 16 : 15; // 2 fewer since the DevType Exp/Act columns were removed
 
         // Sortable CF header helper
         const cfSortHeader = (field: typeof cfSortField, label: string, rowspan = 1, extraStyle = '') => {
@@ -2813,7 +2852,6 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
               <col style="width:95px"/>
               <col style="width:70px"/><col style="width:70px"/>
               <col style="width:90px"/><col style="width:90px"/>
-              <col style="width:90px"/><col style="width:90px"/>
               <col style="width:85px"/>
               <col style="width:110px"/>
               <col style="width:70px"/>
@@ -2829,7 +2867,6 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
                 ${cfSortHeader('name', 'Name', 2, 'min-width:140px')}
                 <th rowspan="2" style="${thStyle('min-width:90px')}">Label</th>
                 <th colspan="2" style="${thStyle('text-align:center')}">TYPE</th>
-                <th colspan="2" style="${thStyle('text-align:center')}">DevType</th>
                 <th colspan="2" style="${thStyle('text-align:center')}">DevProfile</th>
                 <th colspan="2" style="${thStyle('text-align:center')}">Last Telemetry</th>
                 ${cfSortHeader('connStatus', 'Conn.', 2, 'min-width:65px')}
@@ -2840,7 +2877,6 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
                 ${cfSortHeader('status', 'Result', 2)}
               </tr>
               <tr>
-                <th style="${thStyle()}">Exp</th><th style="${thStyle()}">Act</th>
                 <th style="${thStyle()}">Exp</th><th style="${thStyle()}">Act</th>
                 <th style="${thStyle()}">Exp</th><th style="${thStyle()}">Act</th>
                 <th style="${thStyle('min-width:80px')}">Date</th>
@@ -5425,6 +5461,28 @@ function setupEventListeners(
     });
   });
 
+  // "Atribuir Owner + Forçar Relação para Owner" — reuses the Bulk Force
+  // Relation modal (customer picker), locked to target=CUSTOMER, tagged so
+  // handleBatchForceRelation also reassigns each device's owner. Keeps the
+  // existing device type/profile untouched (no CUSTOM_MODES profile applied).
+  document.getElementById(`${modalId}-custom-mode-assign-owner`)?.addEventListener('click', () => {
+    if (!state.selectedCustomer) { alert('Selecione um Customer primeiro no Step 1'); return; }
+    state.customModeModal.open = false;
+    state.bulkRelationModal.open = true;
+    state.bulkRelationModal.target = 'CUSTOMER';
+    state.bulkRelationModal.selectedAssetId = '';
+    state.bulkRelationModal.selectedAssetName = '';
+    state.bulkRelationModal.search = '';
+    state.bulkRelationModal.newAssetName = '';
+    state.bulkRelationModal.overrideCustomerId = '';
+    state.bulkRelationModal.overrideCustomerName = '';
+    state.bulkRelationModal.customerSearch = '';
+    state.bulkRelationModal.customerPickerOpen = false;
+    state.bulkRelationModal.alsoChangeOwner = true;
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
+  });
+
   // ========================
   // Bulk Sync Ingestion ID
   // ========================
@@ -5461,6 +5519,7 @@ function setupEventListeners(
     state.bulkRelationModal.overrideCustomerName = '';
     state.bulkRelationModal.customerSearch = '';
     state.bulkRelationModal.customerPickerOpen = false;
+    state.bulkRelationModal.alsoChangeOwner = false;
     renderModal(container, state, modalId, t);
     setupEventListeners(container, state, modalId, t, onClose);
   });
@@ -6545,10 +6604,16 @@ async function handleBatchForceRelation(
     }
   }
 
-  const confirmMsg =
-    `Forçar relação para ${devices.length} dispositivos?\n\n` +
-    `Destino: ${fromEntityType} → ${fromEntityName}\n\n` +
-    `Todas as relações TO existentes serão removidas e substituídas.\n\nDeseja continuar?`;
+  const confirmMsg = rel.alsoChangeOwner
+    ? `Atribuir owner + forçar relação para ${devices.length} dispositivos?\n\n` +
+      `Novo owner: ${fromEntityName}\n\n` +
+      `Cada device terá o owner (customerId) trocado para o customer acima, ` +
+      `todas as relações TO existentes serão removidas, e uma nova relação ` +
+      `Customer → Device será criada para o mesmo owner. O tipo/profile ` +
+      `atual do device NÃO será alterado.\n\nDeseja continuar?`
+    : `Forçar relação para ${devices.length} dispositivos?\n\n` +
+      `Destino: ${fromEntityType} → ${fromEntityName}\n\n` +
+      `Todas as relações TO existentes serão removidas e substituídas.\n\nDeseja continuar?`;
   if (!confirm(confirmMsg)) return;
 
   // Close the sub-modal before showing busy
@@ -6556,7 +6621,7 @@ async function handleBatchForceRelation(
   renderModal(container, state, modalId, t);
   setupEventListeners(container, state, modalId, t, onClose);
 
-  showBusyProgress('Forçando relações em lote...', devices.length);
+  showBusyProgress(rel.alsoChangeOwner ? 'Atribuindo owner em lote...' : 'Forçando relações em lote...', devices.length);
 
   let successCount = 0;
   let errorCount = 0;
@@ -6568,6 +6633,15 @@ async function handleBatchForceRelation(
     const deviceName = device.label || device.name;
 
     try {
+      // Owner reassignment happens FIRST — the relation graph is fixed up
+      // right after, to the same new owner, so the device never sits without
+      // a Customer→Device relation matching its actual owner.
+      if (rel.alsoChangeOwner && fromEntityType === 'CUSTOMER') {
+        updateBusyProgress(i + 1, `[${i + 1}/${devices.length}] ${deviceName}: Atualizando owner...`);
+        await changeDeviceOwner(state, device, fromEntityId);
+        device.customerId = { entityType: 'CUSTOMER', id: fromEntityId };
+      }
+
       updateBusyProgress(i + 1, `[${i + 1}/${devices.length}] ${deviceName}: Buscando relações...`);
 
       // Fetch existing TO relations
@@ -6618,11 +6692,12 @@ async function handleBatchForceRelation(
 
   hideBusyProgress();
 
+  const actionLabel = rel.alsoChangeOwner ? 'Owner atribuído e relação forçada' : 'Relações forçadas';
   if (errorCount === 0) {
-    alert(`Relações forçadas com sucesso para ${successCount} dispositivos!`);
+    alert(`${actionLabel} com sucesso para ${successCount} dispositivos!`);
   } else {
     alert(
-      `Relações forçadas para ${successCount} dispositivos.\n` +
+      `${actionLabel} para ${successCount} dispositivos.\n` +
         `Erro em ${errorCount} dispositivos:\n${errors.slice(0, 5).join('\n')}` +
         (errors.length > 5 ? `\n... e mais ${errors.length - 5} erros` : '')
     );
@@ -7597,7 +7672,22 @@ async function runCheckFixRoutine(
 
   const BATCH_SIZE = 5;
   const BATCH_DELAY_MS = 1500;
-  showBusyProgress('Executando diagnóstico CHECK & FIX...', devices.length);
+
+  // Switch the modal into CHECK & FIX mode right away (empty records) so the
+  // diagnostic grid — and the progress it shows via "N / total registros" —
+  // renders incrementally as each batch resolves, instead of waiting for the
+  // whole scan to finish before anything appears.
+  const customer = state.selectedCustomer as (Customer & { title?: string }) | null;
+  state.checkFixReport = {
+    customerName: customer?.name || customer?.title || '',
+    totalDevices: devices.length,
+    records: [],
+    runAt: Date.now(),
+  };
+
+  const progressMessage = (done: number) =>
+    `🔬 CHECK & FIX: ${done} / ${devices.length} (${Math.round((done / devices.length) * 100)}%)`;
+  const toast = MyIOToast.info(progressMessage(0), 0); // duration 0 = sticky, updated in place below
 
   const records: DeviceDiagnosticRecord[] = [];
 
@@ -7643,20 +7733,26 @@ async function runCheckFixRoutine(
           state,
           `/api/plugins/telemetry/DEVICE/${deviceId}/values/timeseries?keys=${CHECK_FIX_TELEMETRY_KEYS}`
         );
-        // connectionStatus always parsed regardless of domain
+        // connectionStatus is parsed for the "Conn." column, but its ts must
+        // NEVER anchor "Last Telemetry" — it ticks on connect/disconnect
+        // events independent of whether the domain reading itself is fresh.
         if (telem.connectionStatus?.[0]) {
           connStatus = String(telem.connectionStatus[0].value);
-          telemetryTs = telem.connectionStatus[0].ts;
         }
-        // domain-specific value keys
+        // domain-specific value keys (shown in the VALUES column)
         const domainKeys = domain ? (TELEMETRY_KEYS_BY_DOMAIN[domain] ?? []) : [];
         domainKeys.forEach((key) => {
           const entry = telem[key]?.[0];
           if (entry) {
             telemetryValues[key] = entry.value as string | number;
-            if (!telemetryTs || entry.ts > telemetryTs) telemetryTs = entry.ts;
           }
         });
+        // "Last Telemetry" ts comes ONLY from the domain's primary key
+        // (energy → consumption, water → pulses, temperature → temperature) —
+        // never from connectionStatus or the other domain-adjacent keys.
+        const primaryTsKey = domain ? CHECK_FIX_PRIMARY_TS_KEY[domain] : null;
+        const primaryEntry = primaryTsKey ? telem[primaryTsKey]?.[0] : null;
+        telemetryTs = primaryEntry ? primaryEntry.ts : null;
       } catch { /* telemetry is informational — don't fail the scan */ }
 
       let status: CheckFixStatus;
@@ -7687,22 +7783,22 @@ async function runCheckFixRoutine(
 
     const batchResults = await Promise.all(promises);
     records.push(...batchResults);
-    updateBusyProgress(Math.min(i + BATCH_SIZE, devices.length));
+
+    const done = Math.min(i + BATCH_SIZE, devices.length);
+    // Progressive render: append this batch to the report already backing the
+    // grid and redraw — rows appear as they're diagnosed, not all at once at
+    // the end. state.checkFixReport is non-null (set before the loop).
+    state.checkFixReport!.records = records.slice();
+    toast.update(progressMessage(done));
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
 
     if (i + BATCH_SIZE < devices.length) {
       await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY_MS));
     }
   }
 
-  const customer = state.selectedCustomer as (Customer & { title?: string }) | null;
-  state.checkFixReport = {
-    customerName: customer?.name || customer?.title || '',
-    totalDevices: devices.length,
-    records,
-    runAt: Date.now(),
-  };
-
-  hideBusyProgress();
+  toast.hide();
 }
 
 async function loadValidationData(

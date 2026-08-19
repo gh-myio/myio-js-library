@@ -20,6 +20,7 @@
  * MyIOToast.show('Operation completed');            // info
  * MyIOToast.error('Failed to load data');           // stacks below previous toasts
  * const t = MyIOToast.info('Processing…', 0);        // duration 0 = sticky
+ * t.update('Processing... 50%');                     // mutate the same toast in place
  * t.hide();                                          // dismiss that specific toast
  * MyIOToast.hide();                                  // dismiss ALL toasts
  * ```
@@ -143,6 +144,32 @@ const MyIOToast = (function() {
       background: rgba(255, 255, 255, 0.45);
     }
 
+    /* "×" button — force-dismiss this toast, present on EVERY toast regardless
+       of type or auto-hide duration (including sticky duration=0 toasts). */
+    #myio-global-toast-container .myio-toast-close {
+      flex-shrink: 0;
+      margin-left: 10px;
+      width: 20px;
+      height: 20px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: none;
+      border-radius: 50%;
+      background: transparent;
+      color: #ffffff;
+      opacity: 0.75;
+      font-size: 15px;
+      line-height: 1;
+      cursor: pointer;
+      transition: background 0.2s ease, opacity 0.2s ease;
+    }
+
+    #myio-global-toast-container .myio-toast-close:hover {
+      background: rgba(255, 255, 255, 0.25);
+      opacity: 1;
+    }
+
     @media (max-width: 480px) {
       #myio-global-toast-container {
         top: 10px;
@@ -198,7 +225,8 @@ const MyIOToast = (function() {
    * @param {string} message - The message to display
    * @param {string} [type='info'] - 'info' | 'success' | 'warning' | 'error'
    * @param {number} [duration=3500] - ms before auto-hide; 0 = sticky
-   * @returns {{ hide: () => void }} handle to dismiss this specific toast
+   * @returns {{ hide: () => void, update: (message: string) => void }} handle to
+   *   dismiss this specific toast, or mutate its text in place (sticky toasts)
    *
    * @example
    * MyIOToast.show('Failed to save changes', 'error', 5000);
@@ -235,6 +263,18 @@ const MyIOToast = (function() {
       removeToast(toastEl);
     };
 
+    // Mutate this toast's text in place (no re-stack, no re-trigger of the
+    // slide-in animation) — for sticky (duration=0) progress-style toasts that
+    // get updated repeatedly (e.g. "Processing... 40/100").
+    const doUpdate = (newMessage) => {
+      const fullMsg = newMessage == null ? '' : String(newMessage);
+      const isLongMsg = fullMsg.length > TOAST_MAX_MESSAGE_LENGTH;
+      msgSpan.textContent = isLongMsg
+        ? fullMsg.slice(0, TOAST_MAX_MESSAGE_LENGTH).trimEnd() + '…'
+        : fullMsg;
+      msgSpan.title = isLongMsg ? 'Mensagem truncada — clique em + para ver tudo' : '';
+    };
+
     if (isLong) {
       const meta = TOAST_TYPE_META[type] || TOAST_TYPE_META.info;
       const expandBtn = document.createElement('button');
@@ -256,6 +296,20 @@ const MyIOToast = (function() {
       toastEl.appendChild(expandBtn);
     }
 
+    // "×" force-close button — present on every toast (info/success/warning/
+    // error), independent of duration, so sticky (duration=0) toasts always
+    // have a way to be dismissed manually.
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'myio-toast-close';
+    closeBtn.textContent = '×';
+    closeBtn.setAttribute('aria-label', 'Fechar');
+    closeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      doHide();
+    });
+    toastEl.appendChild(closeBtn);
+
     toastContainer.appendChild(toastEl);
 
     // Cap the stack: drop the oldest toasts beyond MAX_TOASTS.
@@ -270,7 +324,7 @@ const MyIOToast = (function() {
       toastTimeout = setTimeout(doHide, duration);
     }
 
-    return { hide: doHide };
+    return { hide: doHide, update: doUpdate };
   }
 
   /**

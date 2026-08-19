@@ -1,7 +1,7 @@
 /* global self, localStorage, document, window, MutationObserver */
 
 /**
- * GCDR-Upsell-Setup Widget — v.1.0.0
+ * GCDR-Upsell-Setup Widget — v.2.0.0
  * Premium standalone widget for GCDR Sync and Upsell Setup operations.
  *
  * Layout:
@@ -1217,7 +1217,7 @@ self.onInit = function () {
     `<div class="gu-root">
       <div class="gu-header">
         <div class="gu-header-title">GCDR &amp; <span>Upsell</span> Setup</div>
-        <div class="gu-header-badge">v1.0.0</div>
+        <div class="gu-header-badge">v2.0.0</div>
       </div>
       <div class="gu-layout">
         <!-- Left: customer selector -->
@@ -1290,7 +1290,7 @@ self.onInit = function () {
             <div class="gu-card-header">
               <div class="gu-card-icon upsell">⚡</div>
               <div class="gu-card-meta">
-                <div class="gu-card-title">Upsell Setup</div>
+                <div class="gu-card-title">Gestão de SETUP de Dispositivos, tanto pré-setup, pós-setup ou upsell.</div>
                 <div class="gu-card-desc">Configure features premium e planos de upsell para os dispositivos do cliente.</div>
               </div>
             </div>
@@ -1311,7 +1311,7 @@ self.onInit = function () {
                   <span>🧹</span><span>Force Clear (SlavesIDs, Central IDs, Ingestion)</span>
                 </button>
                 <button id="gu-btn-upsell" class="gu-btn gu-btn-upsell" disabled>
-                  <span>⚡</span><span>Abrir Upsell</span>
+                  <span>⚡</span><span>Abrir SETUP de Dispositivos</span>
                 </button>
               </div>
             </div>
