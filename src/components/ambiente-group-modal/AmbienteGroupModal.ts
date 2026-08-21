@@ -449,11 +449,17 @@ export function createAmbienteGroupModal(
           deviceType: remoteDevice.deviceType,
           deviceProfile: remoteDevice.deviceProfile,
           status: remoteDevice.status as 'online' | 'offline' | 'unknown',
+          // Without this, evalDeviceStatus() finds no on/off reading (attributes/rawData
+          // are also empty here) and the modal falls back to "Indisponível" even for
+          // devices that ARE reporting a valid on/off state via `isOn`.
+          statusValue: remoteDevice.isOn ? 'on' : 'off',
         };
 
         openOnOffDeviceModal(deviceData, {
           deviceType: 'switch',
           themeMode: config.themeMode ?? 'dark',
+          // Without centralId, sendDeviceCommand() silently skips the on/off POST.
+          centralId: config.centralId,
           onStateChange: (_deviceId, isOn) => {
             if (config.onRemoteToggle) {
               config.onRemoteToggle(isOn, subAmbiente, remoteId);

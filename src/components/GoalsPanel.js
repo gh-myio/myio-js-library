@@ -78,6 +78,56 @@ function esc(s) {
 // Public entry point
 // =============================================================================
 
+// =============================================================================
+// Domain config (mirrors GOAL_DOMAIN_CONFIG in gcdr-frontend src/types/goals.ts)
+// =============================================================================
+
+const DOMAINS = ['ENERGY', 'WATER', 'TEMPERATURE'];
+
+const GOAL_DOMAIN_CONFIG = {
+  ENERGY: { unit: 'kWh', aggregationMethod: 'SUM', allowsNegative: false },
+  WATER: { unit: 'm3', aggregationMethod: 'SUM', allowsNegative: false },
+  TEMPERATURE: { unit: 'C', aggregationMethod: 'AVERAGE', allowsNegative: true },
+};
+
+/** Zero-padded month keys "01".."12". */
+const MONTH_KEYS = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'));
+
+/** Zero-padded hour keys "00".."23". */
+const HOUR_KEYS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
+
+const pad2 = (n) => String(n).padStart(2, '0');
+
+/** Days in a (year, 1-based month), leap-year aware (matches the backend). */
+function daysInMonth(year, month) {
+  if (month === 2) {
+    const leap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+    return leap ? 29 : 28;
+  }
+  return [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1];
+}
+
+/** Current year ± 2, newest-first. */
+function buildYearOptions() {
+  const now = new Date().getFullYear();
+  const out = [];
+  for (let y = now + 2; y >= now - 2; y--) out.push(y);
+  return out;
+}
+
+/** Small HTML escaper for any operator/server-provided text. */
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// =============================================================================
+// Public entry point
+// =============================================================================
+
 /**
  * Opens the GCDR Consumption Goals panel modal.
  *

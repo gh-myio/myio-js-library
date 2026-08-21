@@ -281,7 +281,7 @@ export type {
   GroupName,
   CategoryName,
   GroupDescriptor,
-  DeviceOverride,
+  DeviceOveride,
   DeviceOverrideMode,
   CollectedDeviceOverrides,
   BreakdownEntry,

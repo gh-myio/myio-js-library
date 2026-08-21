@@ -9,6 +9,12 @@
         "type": "string",
         "default": ""
       },
+      "centralId": {
+        "title": "Id da Central (MyIO) — opcional",
+        "type": "string",
+        "default": "",
+        "description": "UUID da central MyIO usada para montar https://{centralId}.y.myio.com.br/api/* (comandos on/off, água, etc). Opcional: se vazio, é resolvido automaticamente do atributo SERVER_SCOPE 'centralId' do customer no ThingsBoard. Preencha aqui apenas para sobrepor esse valor por dashboard."
+      },
       "enableDebugMode": {
         "title": "Enable Debug Mode",
         "type": "boolean",
@@ -182,6 +188,11 @@
       "key": "customerTB_ID",
       "type": "text",
       "placeholder": "Customer ThingsBoard UUID"
+    },
+    {
+      "key": "centralId",
+      "type": "text",
+      "placeholder": "UUID da central (ex: 05148707-6011-42fb-8b78-46f33a5ca988)"
     },
     {
       "key": "enableDebugMode",
