@@ -343,7 +343,7 @@ const MyIOToast = (function() {
    * Show an info toast (alias)
    * @param {string} message - The message to display
    * @param {number} [duration=3500] - Duration in milliseconds
-   * @returns {object} Toast instance with hide() method
+   * @returns {{ hide: () => void, update: (message: string) => void }} Toast instance
    */
   function info(message, duration = 3500) {
     return show(message, 'info', duration);
@@ -353,7 +353,7 @@ const MyIOToast = (function() {
    * Show a success toast (alias)
    * @param {string} message - The message to display
    * @param {number} [duration=3500] - Duration in milliseconds
-   * @returns {object} Toast instance with hide() method
+   * @returns {{ hide: () => void, update: (message: string) => void }} Toast instance
    */
   function success(message, duration = 3500) {
     return show(message, 'success', duration);
@@ -363,7 +363,7 @@ const MyIOToast = (function() {
    * Show a warning toast (alias)
    * @param {string} message - The message to display
    * @param {number} [duration=3500] - Duration in milliseconds
-   * @returns {object} Toast instance with hide() method
+   * @returns {{ hide: () => void, update: (message: string) => void }} Toast instance
    */
   function warning(message, duration = 3500) {
     return show(message, 'warning', duration);
@@ -373,7 +373,7 @@ const MyIOToast = (function() {
    * Show an error toast (alias)
    * @param {string} message - The message to display
    * @param {number} [duration=5000] - Duration in milliseconds (longer for errors)
-   * @returns {object} Toast instance with hide() method
+   * @returns {{ hide: () => void, update: (message: string) => void }} Toast instance
    */
   function error(message, duration = 5000) {
     return show(message, 'error', duration);
