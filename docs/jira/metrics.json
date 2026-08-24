@@ -4,8 +4,8 @@
     "projectName": "Engineer Dashboard",
     "board": 166,
     "jiraBase": "https://myio.atlassian.net",
-    "generatedAt": "2026-08-19",
-    "today": "2026-08-19",
+    "generatedAt": "2026-08-20",
+    "today": "2026-08-20",
     "source": "Jira Cloud (myio.atlassian.net) via MCP Atlassian"
   },
   "rules": {
@@ -433,8 +433,8 @@
       "end": "2026-08-04",
       "complete": "",
       "state": "active",
-      "scope": 81,
-      "done": 13,
+      "scope": 82,
+      "done": 15,
       "burndown": [
         {
           "date": "2026-07-28",
@@ -550,6 +550,11 @@
           "date": "2026-08-19",
           "remaining": 68,
           "ideal": 0
+        },
+        {
+          "date": "2026-08-20",
+          "remaining": 67,
+          "ideal": 0
         }
       ],
       "span": {
@@ -561,7 +566,7 @@
   "defaultPreset": "sprint-596",
   "fullSpan": {
     "start": "2026-05-25",
-    "end": "2026-08-19"
+    "end": "2026-08-20"
   },
   "completions": [
     {
@@ -662,7 +667,7 @@
     },
     {
       "key": "ED-868",
-      "summary": "RFC: arquitetura de deploy CM4",
+      "summary": "RFC: arquitetura de deploy CM4 ",
       "assignee": "Luiz Guilherme Martinho Sampaio Ito",
       "type": "Subtarefa",
       "priority": "Medium",
@@ -670,7 +675,7 @@
     },
     {
       "key": "ED-886",
-      "summary": "[Discovery] Comparar 4 caminhos de atualização remota — matriz custo / risco / granularidade / tempo",
+      "summary": "[Discovery] Comparar 4 caminhos de atualização remota — matriz custo / risco / granularidade /     tempo",
       "assignee": "Luiz Guilherme Martinho Sampaio Ito",
       "type": "Subtarefa",
       "priority": "Medium",
@@ -830,7 +835,7 @@
     },
     {
       "key": "ED-938",
-      "summary": "[BUG] [PRÉ-SETUP] O botão '✨ Gerar sugestão (ASSET …)' não está gerando corretamente",
+      "summary": "[BUG] [PRÉ-SETUP] O botão '✨ Gerar sugestão (ASSET …)' não está gerando corretamente ",
       "assignee": "Letícia Camargo",
       "type": "Bug",
       "priority": "High",
@@ -1230,7 +1235,7 @@
     },
     {
       "key": "ED-312",
-      "summary": "Tecon Imbituba - Criação de Dashboard e acessos.",
+      "summary": "Tecon Imbituba - Criação de Dashboard e acessos.  ",
       "assignee": "Leandro Gadioli Rodrigues",
       "type": "Tarefa",
       "priority": "Highest",
@@ -1278,7 +1283,7 @@
     },
     {
       "key": "ED-869",
-      "summary": "Spec do mecanismo /data/.bootstrap (substituto do U-Boot env)",
+      "summary": "Spec do mecanismo /data/.bootstrap (substituto do U-Boot env) ",
       "assignee": "Luiz Guilherme Martinho Sampaio Ito",
       "type": "Subtarefa",
       "priority": "Medium",
@@ -1723,6 +1728,30 @@
       "type": "Bug",
       "priority": "Medium",
       "date": "2026-08-18"
+    },
+    {
+      "key": "ED-1114",
+      "summary": " Design doc do par de centrais",
+      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-08-19"
+    },
+    {
+      "key": "ED-994",
+      "summary": "GoalsPanel — plotar linha de meta na granularidade por hora + calendário padrão (createDateRangePicker) sempre visível em todas as granularidades",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-08-19"
+    },
+    {
+      "key": "ED-932",
+      "summary": "[Dashboard BAS] Ao clicar no Card V6 apresentar modal seletora",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-08-19"
     }
   ]
 }

@@ -2,13 +2,13 @@
   "meta": {
     "project": "ED",
     "jiraBase": "https://myio.atlassian.net",
-    "generatedAt": "2026-08-19",
+    "generatedAt": "2026-08-20",
     "status": "Em Andamento",
     "wipLimit": 1,
     "note": "WIP = tickets com status \"Em Andamento\". Acordo: 1 por pessoa (inclui \"Aguardando Demanda\" quando ocioso)."
   },
-  "total": 7,
-  "peopleOver": 2,
+  "total": 6,
+  "peopleOver": 1,
   "people": [
     {
       "name": "Rodrigo Lago",
@@ -43,20 +43,14 @@
     },
     {
       "name": "Luiz Guilherme Martinho Sampaio Ito",
-      "count": 2,
-      "over": true,
+      "count": 1,
+      "over": false,
       "tickets": [
         {
           "key": "ED-1115",
           "type": "Subtarefa",
           "summary": "Validação em bancada com duas OPi e um sensor pareado",
           "updated": "2026-08-13"
-        },
-        {
-          "key": "ED-1104",
-          "type": "Tarefa",
-          "summary": "[CENTRAL] Master x Slave: duas centrais via RJ45, uma monitora a outra (health check), modems distintos",
-          "updated": "2026-08-10"
         }
       ]
     },
@@ -66,10 +60,10 @@
       "over": false,
       "tickets": [
         {
-          "key": "ED-840",
+          "key": "ED-841",
           "type": "Tarefa",
-          "summary": "Desenvolver template para report de tickets",
-          "updated": "2026-08-13"
+          "summary": "Documentar processo gravação de evidência de erros via JAM",
+          "updated": "2026-08-20"
         }
       ]
     }
