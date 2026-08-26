@@ -6,13 +6,14 @@
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font-family:Nunito,system-ui,Segoe UI,Roboto,sans-serif;line-height:1.5}
 .wrap{max-width:1080px;margin:0 auto;padding:32px 20px 64px}
 h1{font-size:26px;margin:0 0 4px}.sub{color:var(--mut);font-size:14px;margin:0 0 20px}
-.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:0 0 26px}
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin:0 0 26px}
 .kpi{background:var(--panel);border:1px solid var(--brd);border-radius:14px;padding:16px}
 .kpi b{display:block;font-size:26px}.kpi span{color:var(--mut);font-size:12.5px}
 .card{background:var(--panel);border:1px solid var(--brd);border-left:4px solid var(--acc);border-radius:14px;padding:18px 20px;margin:0 0 16px}
 .card.late{border-left-color:var(--late)}.card.risk{border-left-color:var(--risk)}.card.ok{border-left-color:var(--ok)}
 .card header{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .num{background:var(--panel2);color:var(--mut);width:26px;height:26px;border-radius:8px;display:grid;place-items:center;font-size:13px;font-weight:700;flex:0 0 auto}
+.prio{background:var(--panel2);color:var(--acc);padding:2px 8px;border-radius:999px;font-size:11px;font-weight:800}
 .card h2{font-size:17px;margin:0;flex:1}
 .badge{font-size:12px;padding:3px 9px;border-radius:999px;font-weight:700;white-space:nowrap}
 .badge.late{background:#3a1b17;color:#f19a8e}.badge.risk{background:#3a2814;color:#f2b878}.badge.ok{background:#16311f;color:#8fe6b0}
@@ -21,112 +22,89 @@ h1{font-size:26px;margin:0 0 4px}.sub{color:var(--mut);font-size:14px;margin:0 0
 .progress .bar{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,var(--acc),#a68bff);border-radius:6px;min-width:2px}
 .progress span{position:absolute;right:0;top:-20px;font-size:12px;color:var(--mut)}
 .owners{color:var(--mut);font-size:13px;margin:0 0 10px}
-ol.krs{margin:6px 0 0;padding-left:20px}ol.krs li{margin:5px 0;font-size:14.5px}
-.kr-meta{color:var(--mut);font-size:12px;margin-left:8px}
+ol.krs{margin:6px 0 0;padding-left:0;list-style:none}
+ol.krs li{margin:8px 0;font-size:13.5px;padding:8px 10px;border-radius:8px;background:var(--panel2);border-left:3px solid var(--brd)}
+ol.krs li.late{border-left-color:var(--late)}ol.krs li.risk{border-left-color:var(--risk)}ol.krs li.ok{border-left-color:var(--ok)}
+.kr-head{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.kr-badge{font-size:10.5px;padding:2px 7px;border-radius:999px;font-weight:700;white-space:nowrap}
+.kr-badge.late{background:#3a1b17;color:#f19a8e}.kr-badge.risk{background:#3a2814;color:#f2b878}.kr-badge.ok{background:#16311f;color:#8fe6b0}
+.kr-meta{color:var(--mut);font-size:12px;margin-top:3px}
+.kr-note{color:#c9cdd6;font-size:12px;margin-top:5px;font-style:italic}
+.kr-note-date{color:var(--mut);font-style:normal}
 footer{color:var(--mut);font-size:12px;margin-top:26px;border-top:1px solid var(--brd);padding-top:14px}
 </style></head>
 <body><div class="wrap">
 <h1>OKRs — Tecnologia <span style="color:var(--mut);font-weight:400;font-size:16px">(espelho do painel)</span></h1>
-<p class="sub">Espelho do OKR Tracker · Q3 2026 · dimensão Tecnologia · sincronizado em 2026-08-10. Fonte da verdade = o painel.</p>
+<p class="sub">Espelho do OKR Tracker · Q3 2026 (jul–set) · dimensão Tecnologia · sincronizado em 2026-08-24 via engenharia reversa KR a KR. Fonte da verdade = o painel.</p>
 <div class="kpis">
-  <div class="kpi"><b>13</b><span>Objetivos</span></div>
-  <div class="kpi"><b>57</b><span>Key Results</span></div>
-  <div class="kpi"><b>57/57</b><span>com SAV</span></div>
-  <div class="kpi"><b>~8%</b><span>Progresso médio</span></div>
+  <div class="kpi"><b>9</b><span>Objetivos</span></div>
+  <div class="kpi"><b>41</b><span>Key Results</span></div>
+  <div class="kpi"><b>30%</b><span>Progresso médio (esperado ~59%)</span></div>
+  <div class="kpi"><b>2 🟢 / 1 🟠</b><span>No caminho / Em risco</span></div>
+  <div class="kpi"><b>6 🔴</b><span>Atrasados</span></div>
 </div>
+<article class="card late">
+    <header><span class="num">1</span><span class="prio">P1</span><h2>Ecossistema de Autenticação MYIO</h2><span class="badge late">🔴 Atrasado</span></header>
+    <p class="desc">Desenvolvimento de um ecossistema completo usando Auth0 para gerenciar os logins de forma integrada e com controle de escopo e perfis</p>
+    <div class="progress"><div class="bar" style="width:24%"></div><span>24%</span></div>
+    <div class="owners">👤 Rodrigo Lago, André Abadesso</div>
+    <ol class="krs"><li class="ok"><div class="kr-head"><span>Reunião inicial de validaçào e entendimento da demanda</span><span class="kr-badge ok">🟢 No Caminho</span></div><div class="kr-meta">100/100 % · responsável: Rodrigo Lago</div><div class="kr-note">💬 "Reunião já feita e alinhamento já estruturado." <span class="kr-note-date">(2026-08-10)</span></div></li><li class="late"><div class="kr-head"><span>Implementação Inicial</span><span class="kr-badge late">🔴 Atrasado</span></div><div class="kr-meta">0/100 % · responsável: Rodrigo Lago / André</div></li><li class="late"><div class="kr-head"><span>Virada para Produção</span><span class="kr-badge late">🔴 Atrasado</span></div><div class="kr-meta">0/100 % · responsável: Rodrigo Lago / André</div></li><li class="late"><div class="kr-head"><span>Múltiplos Testes</span><span class="kr-badge late">🔴 Atrasado</span></div><div class="kr-meta">0/100 % · responsável: Rodrigo Lago / André</div></li><li class="late"><div class="kr-head"><span>Design inicial do sistema de autenticação</span><span class="kr-badge late">🔴 Atrasado</span></div><div class="kr-meta">20/100 % · responsável: Rodrigo Lago / André</div><div class="kr-note">💬 "Design inicial feito e aguardando validação de próximos passos." <span class="kr-note-date">(2026-08-10)</span></div></li></ol>
+  </article>
+<article class="card late">
+    <header><span class="num">2</span><span class="prio">P1</span><h2>Zerar risco de perda de dado em produção</h2><span class="badge late">🔴 Atrasado</span></header>
+    <p class="desc">Detectar centrais instáveis, e quando voltar pensar em buscar os dados dos sensores acumulados</p>
+    <div class="progress"><div class="bar" style="width:5%"></div><span>5%</span></div>
+    <div class="owners">👤 Rodrigo Lago</div>
+    <ol class="krs"><li class="late"><div class="kr-head"><span>Detecção automática de lacunas de dados por central, a cada hora</span><span class="kr-badge late">🔴 Atrasado</span></div><div class="kr-meta">0/100 % · responsável: Rodrigo Lago</div></li><li class="late"><div class="kr-head"><span>Preenchimento automático (interpolação) das lacunas dentro da tolerância</span><span class="kr-badge late">🔴 Atrasado</span></div><div class="kr-meta">0/100 % · responsável: Rodrigo Lago</div></li><li class="late"><div class="kr-head"><span>Módulo em operação em toda a lista de dispositivos</span><span class="kr-badge late">🔴 Atrasado</span></div><div class="kr-meta">0/100 % · responsável: Rodrigo Lago</div></li><li class="late"><div class="kr-head"><span>Abertura automática de incidente quando a lacuna ultrapassa o limite</span><span class="kr-badge late">🔴 Atrasado</span></div><div class="kr-meta">0/100 % · responsável: Rodrigo Lago</div></li><li class="late"><div class="kr-head"><span>Regras de tolerância por tipo de equipamento (GCDR)</span><span class="kr-badge late">🔴 Atrasado</span></div><div class="kr-meta">25/100 % · responsável: Rodrigo Lago</div><div class="kr-note">💬 "Design da solução feito " <span class="kr-note-date">(2026-08-17)</span></div></li></ol>
+  </article>
+<article class="card late">
+    <header><span class="num">3</span><span class="prio">P2</span><h2>Cockpit de auditoria de logs das aplicações</h2><span class="badge late">🔴 Atrasado</span></header>
+    <p class="desc">Centralizar logs, alarmes, dashboards e presetup em painel único</p>
+    <div class="progress"><div class="bar" style="width:20%"></div><span>20%</span></div>
+    <div class="owners">👤 Rodrigo Lago</div>
+    <ol class="krs"><li class="late"><div class="kr-head"><span>Painel único de logs de todas as aplicações</span><span class="kr-badge late">🔴 Atrasado</span></div><div class="kr-meta">0/100 % · responsável: Rodrigo Lago</div></li><li class="late"><div class="kr-head"><span>Cockpit</span><span class="kr-badge late">🔴 Atrasado</span></div><div class="kr-meta">0/100 % · responsável: Rodrigo Lago</div></li><li class="late"><div class="kr-head"><span>Alertas automáticos de falha/atraso por aplicação</span><span class="kr-badge late">🔴 Atrasado</span></div><div class="kr-meta">0/100 % · responsável: Rodrigo Lago</div></li><li class="ok"><div class="kr-head"><span>Reunião inicial de validação e entendimento da demanda</span><span class="kr-badge ok">🟢 No Caminho</span></div><div class="kr-meta">100/100 % · responsável: Rodrigo Lago</div><div class="kr-note">💬 "Reunião já realizada." <span class="kr-note-date">(2026-08-17)</span></div></li><li class="late"><div class="kr-head"><span>Retenção e organização do histórico de logs (90 dias)</span><span class="kr-badge late">🔴 Atrasado</span></div><div class="kr-meta">0/100 % · responsável: Rodrigo Lago</div></li></ol>
+  </article>
+<article class="card late">
+    <header><span class="num">4</span><span class="prio">P2</span><h2>Gestão de Node-RED por central</h2><span class="badge late">🔴 Atrasado</span></header>
+    <p class="desc">Inventário de versão de runtime e contribs por central x Pipeline de update com fix e rollback versionado</p>
+    <div class="progress"><div class="bar" style="width:16%"></div><span>16%</span></div>
+    <div class="owners">👤 Rodrigo Lago</div>
+    <ol class="krs"><li class="ok"><div class="kr-head"><span>Inventário de versão e componentes por central</span><span class="kr-badge ok">🟢 No Caminho</span></div><div class="kr-meta">80/100 % · responsável: Rodrigo Lago</div><div class="kr-note">💬 "Inventário realizado de forma geral" <span class="kr-note-date">(2026-08-17)</span></div></li><li class="late"><div class="kr-head"><span>Padronização do runtime em toda a lista de dispositivos</span><span class="kr-badge late">🔴 Atrasado</span></div><div class="kr-meta">0/100 % · responsável: Rodrigo Lago</div></li><li class="late"><div class="kr-head"><span>Atualização com correção e reversão controladas</span><span class="kr-badge late">🔴 Atrasado</span></div><div class="kr-meta">0/100 % · responsável: Rodrigo Lago</div></li><li class="late"><div class="kr-head"><span>Detecção de divergência entre central e versão oficial</span><span class="kr-badge late">🔴 Atrasado</span></div><div class="kr-meta">0/100 % · responsável: Rodrigo Lago</div></li><li class="late"><div class="kr-head"><span>Implantação gradual com rollback de 1 clique</span><span class="kr-badge late">🔴 Atrasado</span></div><div class="kr-meta">0/100 % · responsável: Rodrigo Lago</div></li></ol>
+  </article>
 <article class="card risk">
-      <header><span class="num">1</span><h2>Ecossistema de Autenticação MYIO</h2><span class="badge risk">🟠 Em andamento</span></header>
-      <p class="desc">Desenvolvimento de um ecossistema completo usando Auth0 para gerenciar os logins de forma integrada e com controle de escopo e perfis</p>
-      <div class="progress"><div class="bar" style="width:24%"></div><span>24%</span></div>
-      <div class="owners">👤 Rodrigo Lago, André Abadesso</div>
-      <ol class="krs"><li>Reunião inicial de validaçào e entendimento da demanda<span class="kr-meta">100/100 % · SAV</span></li><li>Implementação Inicial<span class="kr-meta">0/100 % · SAV</span></li><li>Múltiplos Testes<span class="kr-meta">0/100 % · SAV</span></li><li>Virada para Produção<span class="kr-meta">0/100 % · SAV</span></li><li>Design inicial do sistema de autenticação<span class="kr-meta">20/100 % · SAV</span></li></ol>
-    </article>
+    <header><span class="num">5</span><span class="prio">P2</span><h2>Auto-construtor e auto-sync de devices no ecossistema</h2><span class="badge risk">🟠 Em Risco</span></header>
+    <p class="desc">Implementar conformidade ThingsBoard x Detecção e correção automática de divergência de cadastro</p>
+    <div class="progress"><div class="bar" style="width:35%"></div><span>35%</span></div>
+    <div class="owners">👤 Rodrigo Lago</div>
+    <ol class="krs"><li class="late"><div class="kr-head"><span>Criação automática de equipamento a partir do perfil</span><span class="kr-badge late">🔴 Atrasado</span></div><div class="kr-meta">25/100 % · responsável: Rodrigo Lago</div><div class="kr-note">💬 "Algoritmo em validação manual" <span class="kr-note-date">(2026-08-17)</span></div></li><li class="late"><div class="kr-head"><span>Verificação automática de cadastro</span><span class="kr-badge late">🔴 Atrasado</span></div><div class="kr-meta">0/100 % · responsável: Rodrigo Lago</div></li><li class="late"><div class="kr-head"><span>Conformidade de cadastro entre plataformas</span><span class="kr-badge late">🔴 Atrasado</span></div><div class="kr-meta">25/100 % · responsável: Rodrigo Lago</div><div class="kr-note">💬 "Algoritmo em validação manual" <span class="kr-note-date">(2026-08-17)</span></div></li><li class="late"><div class="kr-head"><span>Sincronização contínua de equipamentos</span><span class="kr-badge late">🔴 Atrasado</span></div><div class="kr-meta">25/100 % · responsável: Rodrigo Lago</div><div class="kr-note">💬 "Algoritmo em validação" <span class="kr-note-date">(2026-08-17)</span></div></li><li class="ok"><div class="kr-head"><span>Mapeamento completo de equipamentos entre plataformas</span><span class="kr-badge ok">🟢 No Caminho</span></div><div class="kr-meta">100/100 % · responsável: Rodrigo Lago</div><div class="kr-note">💬 "feito" <span class="kr-note-date">(2026-08-17)</span></div></li></ol>
+  </article>
+<article class="card ok">
+    <header><span class="num">6</span><span class="prio">P3</span><h2>Monitoramento de centrais dentro do GCDR</h2><span class="badge ok">🟢 No Caminho</span></header>
+    <p class="desc">Central como entidade de primeira classe no GCDR x Telemetria de saúde por central (uptime, versão, conectividade)</p>
+    <div class="progress"><div class="bar" style="width:50%"></div><span>50%</span></div>
+    <div class="owners">👤 Rodrigo Lago</div>
+    <ol class="krs"><li class="late"><div class="kr-head"><span>Integração ao painel de centrais + cockpit de logs</span><span class="kr-badge late">🔴 Atrasado</span></div><div class="kr-meta">0/100 % · responsável: Rodrigo Lago</div></li><li class="ok"><div class="kr-head"><span>Alerta de central offline ou fora do padrão</span><span class="kr-badge ok">🟢 No Caminho</span></div><div class="kr-meta">50/100 % · responsável: Rodrigo Lago</div><div class="kr-note">💬 "Já existe um alerta pelo SLACK só falta padronizar para todo ecossistema GCDR / Alertas Myio" <span class="kr-note-date">(2026-08-17)</span></div></li><li class="ok"><div class="kr-head"><span>Central como entidade oficial no GCDR</span><span class="kr-badge ok">🟢 No Caminho</span></div><div class="kr-meta">100/100 % · responsável: Rodrigo Lago</div><div class="kr-note">💬 "feito" <span class="kr-note-date">(2026-08-17)</span></div></li><li class="ok"><div class="kr-head"><span>Comandos remotos de rede (backup/restore, etc)</span><span class="kr-badge ok">🟢 No Caminho</span></div><div class="kr-meta">50/100 % · responsável: Rodrigo Lago</div><div class="kr-note">💬 "Interface implementada, faltam mais testes" <span class="kr-note-date">(2026-08-17)</span></div></li><li class="ok"><div class="kr-head"><span>Telemetria de saúde por central (disponibilidade, versão, conexão)</span><span class="kr-badge ok">🟢 No Caminho</span></div><div class="kr-meta">50/100 % · responsável: Rodrigo Lago</div><div class="kr-note">💬 "Healthy check nas centrais com novo Build OK. E nas antigas equalizar o node red" <span class="kr-note-date">(2026-08-17)</span></div></li></ol>
+  </article>
 <article class="card late">
-      <header><span class="num">2</span><h2>Cockpit de auditoria de logs das aplicações</h2><span class="badge late">⚠️ Sem avanço</span></header>
-      <p class="desc">Centralizar logs, alarmes, dashboards e presetup em painel único
-</p>
-      <div class="progress"><div class="bar" style="width:0%"></div><span>0%</span></div>
-      <div class="owners">👤 Rodrigo Lago</div>
-      <ol class="krs"><li>Painel único de logs de todas as aplicações<span class="kr-meta">0/100 % · SAV</span></li><li>Retenção e organização do histórico de logs (90 dias)<span class="kr-meta">0/100 % · SAV</span></li><li>Cockpit<span class="kr-meta">0/100 % · SAV</span></li><li>Alertas automáticos de falha/atraso por aplicação<span class="kr-meta">0/100 % · SAV</span></li><li>Reunião inicial de validação e entendimento da demanda<span class="kr-meta">0/100 % · SAV</span></li></ol>
-    </article>
+    <header><span class="num">7</span><span class="prio">P3</span><h2>Backup e restore das centrais no GCDR</h2><span class="badge late">🔴 Atrasado</span></header>
+    <p class="desc">Runbook único de backup/restore para OrangePi/Mender</p>
+    <div class="progress"><div class="bar" style="width:30%"></div><span>30%</span></div>
+    <div class="owners">👤 Rodrigo Lago</div>
+    <ol class="krs"><li class="late"><div class="kr-head"><span>Restore validado (simulado) antes de aplicar em campo</span><span class="kr-badge late">🔴 Atrasado</span></div><div class="kr-meta">0/100 % · responsável: Rodrigo Lago</div></li><li class="ok"><div class="kr-head"><span>Backup automático e versionado por central</span><span class="kr-badge ok">🟢 No Caminho</span></div><div class="kr-meta">100/100 % · responsável: Rodrigo Lago</div><div class="kr-note">💬 "Feito" <span class="kr-note-date">(2026-08-17)</span></div></li><li class="ok"><div class="kr-head"><span>Runbook único de backup/restore</span><span class="kr-badge ok">🟢 No Caminho</span></div><div class="kr-meta">50/100 % · responsável: Rodrigo Lago</div><div class="kr-note">💬 "Feito parcial, falta equalizar os bancos." <span class="kr-note-date">(2026-08-17)</span></div></li><li class="late"><div class="kr-head"><span>Alerta de central sem backup recente</span><span class="kr-badge late">🔴 Atrasado</span></div><div class="kr-meta">0/100 % · responsável: Rodrigo Lago</div></li><li class="late"><div class="kr-head"><span>Inventário com data do último backup válido</span><span class="kr-badge late">🔴 Atrasado</span></div><div class="kr-meta">0/100 % · responsável: Rodrigo Lago</div></li></ol>
+  </article>
 <article class="card late">
-      <header><span class="num">3</span><h2>Gestão de Node-RED por central</h2><span class="badge late">⚠️ Sem avanço</span></header>
-      <p class="desc">Inventário de versão de runtime e contribs por central
-x Pipeline de update com fix e rollback versionado</p>
-      <div class="progress"><div class="bar" style="width:0%"></div><span>0%</span></div>
-      <div class="owners">👤 Rodrigo Lago</div>
-      <ol class="krs"><li>Inventário de versão e componentes por central<span class="kr-meta">0/100 % · SAV</span></li><li>Padronização do runtime em toda a lista de dispositivos<span class="kr-meta">0/100 % · SAV</span></li><li>Atualização com correção e reversão controladas<span class="kr-meta">0/100 % · SAV</span></li><li>Detecção de divergência entre central e versão oficial<span class="kr-meta">0/100 % · SAV</span></li><li>Implantação gradual com rollback de 1 clique<span class="kr-meta">0/100 % · SAV</span></li></ol>
-    </article>
-<article class="card late">
-      <header><span class="num">4</span><h2>Monitoramento de centrais dentro do GCDR</h2><span class="badge late">⚠️ Sem avanço</span></header>
-      <p class="desc">Central como entidade de primeira classe no GCDR x Telemetria de saúde por central (uptime, versão, conectividade)
-</p>
-      <div class="progress"><div class="bar" style="width:0%"></div><span>0%</span></div>
-      <div class="owners">👤 Rodrigo Lago</div>
-      <ol class="krs"><li>Central como entidade oficial no GCDR<span class="kr-meta">0/100 % · SAV</span></li><li>Alerta de central offline ou fora do padrão<span class="kr-meta">0/100 % · SAV</span></li><li>Integração ao painel de centrais + cockpit de logs<span class="kr-meta">0/100 % · SAV</span></li><li>Telemetria de saúde por central (disponibilidade, versão, conexão)<span class="kr-meta">0/100 % · SAV</span></li><li>Comandos remotos de rede (backup/restore, etc)<span class="kr-meta">0/100 % · SAV</span></li></ol>
-    </article>
-<article class="card late">
-      <header><span class="num">5</span><h2>Backup e restore das centrais no GCDR</h2><span class="badge late">⚠️ Sem avanço</span></header>
-      <p class="desc">Runbook único de backup/restore para OrangePi/Mender</p>
-      <div class="progress"><div class="bar" style="width:0%"></div><span>0%</span></div>
-      <div class="owners">👤 Rodrigo Lago</div>
-      <ol class="krs"><li>Restore validado (simulado) antes de aplicar em campo<span class="kr-meta">0/100 % · SAV</span></li><li>Backup automático e versionado por central<span class="kr-meta">0/100 % · SAV</span></li><li>Runbook único de backup/restore<span class="kr-meta">0/100 % · SAV</span></li><li>Alerta de central sem backup recente<span class="kr-meta">0/100 % · SAV</span></li><li>Inventário com data do último backup válido<span class="kr-meta">0/100 % · SAV</span></li></ol>
-    </article>
-<article class="card late">
-      <header><span class="num">6</span><h2>Ordens de Serviço integradas a todo o ecossistema</h2><span class="badge late">⚠️ Sem avanço</span></header>
-      <p class="desc">OS disparada por alarme, com rastro até o device x OS refletida no app móvel e no dashboard</p>
-      <div class="progress"><div class="bar" style="width:0%"></div><span>0%</span></div>
-      <div class="owners">👤 Rodrigo Lago</div>
-      <ol class="krs"><li>Fluxo de ciclo de vida das OS (regras automáticas)<span class="kr-meta">0/100 % · SAV</span></li><li>OS disparada por alarme, rastreável até o equipamento<span class="kr-meta">0/100 % · SAV</span></li><li>Agrupamento de ordens de serviço<span class="kr-meta">0/100 % · SAV</span></li><li>Abertura de OS a partir de e-mail<span class="kr-meta">0/100 % · SAV</span></li><li>OS visível no app e no dashboard<span class="kr-meta">0/100 % · SAV</span></li></ol>
-    </article>
-<article class="card late">
-      <header><span class="num">7</span><h2>Auto-construtor e auto-sync de devices no ecossistema</h2><span class="badge late">⚠️ Sem avanço</span></header>
-      <p class="desc">Implementar conformidade ThingsBoard x Detecção e correção automática de divergência de cadastro</p>
-      <div class="progress"><div class="bar" style="width:0%"></div><span>0%</span></div>
-      <div class="owners">👤 Rodrigo Lago</div>
-      <ol class="krs"><li>Conformidade de cadastro entre plataformas<span class="kr-meta">0/100 % · SAV</span></li><li>Verificação automática de cadastro<span class="kr-meta">0/100 % · SAV</span></li><li>Criação automática de equipamento a partir do perfil<span class="kr-meta">0/100 % · SAV</span></li><li>Mapeamento completo de equipamentos entre plataformas<span class="kr-meta">0/100 % · SAV</span></li><li>Sincronização contínua de equipamentos<span class="kr-meta">0/100 % · SAV</span></li></ol>
-    </article>
-<article class="card late">
-      <header><span class="num">8</span><h2>Pré-Setup totalmente migrado para o GCDR</h2><span class="badge late">⚠️ Sem avanço</span></header>
-      <p class="desc">GCDR como âncora única do estado de sync</p>
-      <div class="progress"><div class="bar" style="width:0%"></div><span>0%</span></div>
-      <div class="owners">👤 Rodrigo Lago</div>
-      <ol class="krs"><li>GCDR como fonte única do estado de sincronização<span class="kr-meta">0/100 % · SAV</span></li><li>Modelo de canais por dispositivos<span class="kr-meta">0/100 % · SAV</span></li><li>Componente de pré-setup embutível (1 gateway)<span class="kr-meta">0/100 % · SAV</span></li><li>Pré-setup migrado para o novo frontend<span class="kr-meta">0/100 % · SAV</span></li><li>Pré-setup usando a biblioteca oficial (sem versão de teste)<span class="kr-meta">0/100 % · SAV</span></li></ol>
-    </article>
-<article class="card late">
-      <header><span class="num">9</span><h2>Zerar risco de perda de dado em produção</h2><span class="badge late">⚠️ Sem avanço</span></header>
-      <p class="desc">Detectar centrais instáveis, e quando voltar pensar em buscar os dados dos sensores acumulados</p>
-      <div class="progress"><div class="bar" style="width:0%"></div><span>0%</span></div>
-      <div class="owners">👤 Rodrigo Lago</div>
-      <ol class="krs"><li>Detecção automática de lacunas de dados por central, a cada hora<span class="kr-meta">0/100 % · SAV</span></li><li>Preenchimento automático (interpolação) das lacunas dentro da tolerância<span class="kr-meta">0/100 % · SAV</span></li><li>Módulo em operação em toda a lista de dispositivos<span class="kr-meta">0/100 % · SAV</span></li><li>Regras de tolerância por tipo de equipamento (GCDR)<span class="kr-meta">0/100 % · SAV</span></li><li>Abertura automática de incidente quando a lacuna ultrapassa o limite<span class="kr-meta">0/100 % · SAV</span></li></ol>
-    </article>
-<article class="card late">
-      <header><span class="num">10</span><h2>Migração de Alarme para código</h2><span class="badge late">⚠️ Sem avanço</span></header>
-      <p class="desc">Migração de Alarme para código </p>
-      <div class="progress"><div class="bar" style="width:0%"></div><span>0%</span></div>
-      <div class="owners">👤 Rodrigo Lago</div>
-      <ol class="krs"><li>Regras de alarme versionadas em Git (alarm-as-code), com CI/CD valida sintaxe, testes unitários e simula disparo antes do deploy<span class="kr-meta">0/100 % · SAV</span></li><li>Rollback auditável e diff entre versões por cliente<span class="kr-meta">0/100 % · SAV</span></li><li>Templates reutilizáveis por vertical (shopping, indústria, varejo)<span class="kr-meta">0/100 % · SAV</span></li></ol>
-    </article>
-<article class="card late">
-      <header><span class="num">11</span><h2>Anotações com upload de imagens e uso de MCP do Ingestion</h2><span class="badge late">⚠️ Sem avanço</span></header>
-      <p class="desc">Anotações com upload de imagens e uso de MCP do Ingestion</p>
-      <div class="progress"><div class="bar" style="width:0%"></div><span>0%</span></div>
-      <div class="owners">👤 Rodrigo Lago</div>
-      <ol class="krs"><li>Histórico visual vira base de conhecimento para treinamento de novos técnicos<span class="kr-meta">0/100 % · SAV</span></li><li>MCP Ingestion enriquece com contexto: última leitura, histórico de alarmes, manuais<span class="kr-meta">0/100 % · SAV</span></li><li>Técnico anexa foto do equipamento direto do celular na anotação<span class="kr-meta">0/100 % · SAV</span></li><li>Integração nativa com OS e chamados (foto = evidência)<span class="kr-meta">0/100 % · SAV</span></li></ol>
-    </article>
-<article class="card risk">
-      <header><span class="num">12</span><h2>Alarme / Notificações no Whatsapp</h2><span class="badge risk">🟠 Em andamento</span></header>
-      <p class="desc">Alarme / Notificações no Whatsapp</p>
-      <div class="progress"><div class="bar" style="width:25%"></div><span>25%</span></div>
-      <div class="owners">👤 Rodrigo Lago</div>
-      <ol class="krs"><li>Canal oficial Meta Business API<span class="kr-meta">25/100 % · SAV</span></li><li>Audit log de quem recebeu e respondeu (compliance)<span class="kr-meta">50/100 % · SAV</span></li><li>Gestão de Templates por tipo: crítico, aviso, recuperação ou outro tipo<span class="kr-meta">0/100 % · SAV</span></li></ol>
-    </article>
-<article class="card risk">
-      <header><span class="num">13</span><h2>Dashboard Cliente Individual</h2><span class="badge risk">🟠 Em andamento</span></header>
-      <p class="desc">Dashboard Cliente Individual para clientes via API de parceiro ou acesso direto</p>
-      <div class="progress"><div class="bar" style="width:60%"></div><span>60%</span></div>
-      <div class="owners">👤 Rodrigo Lago</div>
-      <ol class="krs"><li>Entendimento Demanda e Definição do Escopo<span class="kr-meta">70/100 % · SAV</span></li><li>Design do Painel de Cliente Individual<span class="kr-meta">50/100 % · SAV</span></li></ol>
-    </article>
-<footer>Gerado por engenharia reversa do painel (okrmyio.lovable.app). O objetivo "Melhorar a confiabilidade e monitoramento dos dados operacionais" é da dimensão <strong>Suporte CS (Q2 2026)</strong> — fora deste doc; seus 4 KRs foram cadastrados no painel.</footer>
+    <header><span class="num">8</span><span class="prio">P4</span><h2>Anotações com upload de imagens e uso de MCP do Ingestion</h2><span class="badge late">🔴 Atrasado</span></header>
+    <p class="desc">Anotações com upload de imagens e uso de MCP do Ingestion</p>
+    <div class="progress"><div class="bar" style="width:31%"></div><span>31%</span></div>
+    <div class="owners">👤 Rodrigo Lago</div>
+    <ol class="krs"><li class="late"><div class="kr-head"><span>Histórico visual vira base de conhecimento para treinamento de novos técnicos</span><span class="kr-badge late">🔴 Atrasado</span></div><div class="kr-meta">0/100 % · responsável: Rodrigo Lago</div></li><li class="ok"><div class="kr-head"><span>MCP Ingestion enriquece com contexto: última leitura, histórico de alarmes, manuais</span><span class="kr-badge ok">🟢 No Caminho</span></div><div class="kr-meta">50/100 % · responsável: Rodrigo Lago</div><div class="kr-note">💬 "Versão inicial do GCDR já com MCP" <span class="kr-note-date">(2026-08-17)</span></div></li><li class="late"><div class="kr-head"><span>Técnico anexa foto do equipamento direto do celular na anotação</span><span class="kr-badge late">🔴 Atrasado</span></div><div class="kr-meta">25/100 % · responsável: Rodrigo Lago</div><div class="kr-note">💬 "Design pronto." <span class="kr-note-date">(2026-08-17)</span></div></li><li class="ok"><div class="kr-head"><span>Integração nativa com OS e chamados (foto = evidência)</span><span class="kr-badge ok">🟢 No Caminho</span></div><div class="kr-meta">50/100 % · responsável: Rodrigo Lago</div><div class="kr-note">💬 "Fluxo em validação" <span class="kr-note-date">(2026-08-17)</span></div></li></ol>
+  </article>
+<article class="card ok">
+    <header><span class="num">9</span><span class="prio">P4</span><h2>Dashboard Cliente Individual</h2><span class="badge ok">🟢 No Caminho</span></header>
+    <p class="desc">Dashboard Cliente Individual para clientes via API de parceiro ou acesso direto</p>
+    <div class="progress"><div class="bar" style="width:60%"></div><span>60%</span></div>
+    <div class="owners">👤 Rodrigo Lago</div>
+    <ol class="krs"><li class="ok"><div class="kr-head"><span>Design do Painel de Cliente Individual</span><span class="kr-badge ok">🟢 No Caminho</span></div><div class="kr-meta">50/100 % · responsável: Rodrigo Lago</div><div class="kr-note">💬 "Prottótipo inicial em andamento" <span class="kr-note-date">(2026-03-30)</span></div></li><li class="ok"><div class="kr-head"><span>Entendimento Demanda e Definição do Escopo</span><span class="kr-badge ok">🟢 No Caminho</span></div><div class="kr-meta">70/100 % · responsável: Rodrigo Lago / Bruno / JP</div><div class="kr-note">💬 "Alinhamento feito sobre escopo simplificado" <span class="kr-note-date">(2026-03-30)</span></div></li></ol>
+  </article>
+<footer>Gerado por engenharia reversa do painel (okrmyio.lovable.app) — leitura direta do DOM (status por KR) + histórico de check-ins via API (Supabase REST), sem escrita. Regenerar reabrindo o Chrome debug (:9222) na aba do painel.</footer>
 </div></body></html>
