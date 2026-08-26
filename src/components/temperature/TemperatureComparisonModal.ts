@@ -41,6 +41,8 @@ export interface TemperatureDevice {
   label: string;
   /** Alternative ThingsBoard ID */
   tbId?: string;
+  /** Ingestion API device id (used by a custom dataFetcher, when provided) */
+  ingestionId?: string;
   /** Customer name (for grouping/display) */
   customerName?: string;
   /** Minimum threshold for this device's ideal range */
@@ -74,6 +76,15 @@ export interface TemperatureComparisonModalParams {
   temperatureMin?: number;
   /** Maximum threshold for ideal range (Y-axis will include this) */
   temperatureMax?: number;
+  /**
+   * Optional custom data fetcher, called per device. When provided, replaces the
+   * default ThingsBoard API fetch for every device in `devices`.
+   * Receives (deviceId, startTs, endTs) — deviceId is device.tbId || device.id,
+   * matching the id fetchAllDevicesData resolves per device. Must return
+   * TemperatureTelemetry[]. Use this to fetch from an alternative source
+   * (e.g. Data Apps ingestion API) — see RFC-0189.
+   */
+  dataFetcher?: (deviceId: string, startTs: number, endTs: number) => Promise<TemperatureTelemetry[]>;
 }
 
 export interface TemperatureComparisonModalInstance {
@@ -109,6 +120,7 @@ interface ModalState {
   selectedPeriods: DayPeriod[];
   temperatureMin: number | null;
   temperatureMax: number | null;
+  dataFetcher: ((deviceId: string, startTs: number, endTs: number) => Promise<TemperatureTelemetry[]>) | null;
 }
 
 // ============================================================================
@@ -143,7 +155,8 @@ export async function openTemperatureComparisonModal(
     dateRangePicker: null,
     selectedPeriods: ['madrugada', 'manha', 'tarde', 'noite'], // All periods selected by default
     temperatureMin: params.temperatureMin ?? null,
-    temperatureMax: params.temperatureMax ?? null
+    temperatureMax: params.temperatureMax ?? null,
+    dataFetcher: params.dataFetcher ?? null
   };
 
   // Load saved preferences
@@ -202,7 +215,9 @@ async function fetchAllDevicesData(state: ModalState): Promise<void> {
       state.devices.map(async (device, index) => {
         const deviceId = device.tbId || device.id;
         try {
-          const data = await fetchTemperatureData(state.token, deviceId, state.startTs, state.endTs);
+          const data = await (state.dataFetcher
+            ? state.dataFetcher(deviceId, state.startTs, state.endTs)
+            : fetchTemperatureData(state.token, deviceId, state.startTs, state.endTs));
           const stats = calculateStats(data, state.clampRange);
           return {
             device,
