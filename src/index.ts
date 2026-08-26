@@ -2464,3 +2464,19 @@ export {
   closeExportModal as closeAnnotationsExportModal,
 } from './components/header-annotations-panel/ExportModal';
 export type { OpenExportModalOptions as OpenAnnotationsExportModalOptions } from './components/header-annotations-panel/ExportModal';
+
+// RFC-0230 — Device Product Code (factory serial + canonical name)
+export {
+  encodeDeviceProductCode,
+  decodeDeviceProductCode,
+  formatDeviceProductCode,
+  deviceProductCodeToName,
+  deviceNameToDeviceProductCode,
+  validateDeviceProductCode,
+  validateDeviceProductName,
+} from './utils/devices/device-product-code';
+export type {
+  DeviceProductCode,
+  DeviceProductCodeFields,
+  DeviceProductCodeValidationResult,
+} from './utils/devices/device-product-code';

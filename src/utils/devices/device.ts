@@ -125,6 +125,10 @@ export function deviceTypeToken(deviceType?: string | null): string {
  * Generates an opaque device code embedding the type token:
  * `D-<TYPE>-<plate>-<plate>`, e.g. `generateDeviceCode('3F_MEDIDOR')` ->
  * `'D-3F-XDN5R48-JQE6K43'`. Each `<plate>` is a 7-char Mercosul plate.
+ *
+ * @see {@link encodeDeviceProductCode} in `./device-product-code` (RFC-0230)
+ * for the real, decodable factory serial — this function only produces a
+ * random, non-decodable pre-provisioning placeholder.
  */
 export function generateDeviceCode(deviceType?: string | null): string {
   return `D-${deviceTypeToken(deviceType)}-${generateMercosulPlate()}-${generateMercosulPlate()}`;

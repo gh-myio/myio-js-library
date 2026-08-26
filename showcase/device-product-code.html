@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Device Product Code (RFC-0230) - MYIO JS Library Showcase</title>
+    <style>
+        :root {
+            --primary: #22c55e;
+            --primary-dark: #16a34a;
+            --danger: #ef4444;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-600: #4b5563;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--gray-50);
+            color: var(--gray-800);
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+            color: white;
+            padding: 32px 20px;
+        }
+
+        .header-content { max-width: 1200px; margin: 0 auto; }
+        .breadcrumb { font-size: 14px; opacity: 0.8; margin-bottom: 8px; }
+        .breadcrumb a { color: white; text-decoration: none; }
+        .breadcrumb a:hover { text-decoration: underline; }
+        .header h1 { font-size: 2rem; font-weight: 700; display: flex; align-items: center; gap: 12px; }
+        .header p { opacity: 0.9; margin-top: 6px; font-size: 14px; }
+
+        .container { max-width: 1200px; margin: 0 auto; padding: 32px 20px; }
+
+        .section {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .section h2 { font-size: 1.25rem; color: var(--gray-900); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+        .section-desc { color: var(--gray-600); font-size: 14px; margin-bottom: 20px; }
+
+        .demo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin-bottom: 16px; }
+
+        .demo-card { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; padding: 14px; }
+        .demo-card label { display: block; font-size: 11px; color: var(--gray-600); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .demo-card input, .demo-card select {
+            width: 100%; padding: 9px 10px; border: 1px solid var(--gray-200); border-radius: 6px; font-size: 14px;
+        }
+        .demo-card input:focus, .demo-card select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15); }
+
+        .result {
+            background: var(--gray-900); color: #86efac; padding: 12px 16px; border-radius: 6px;
+            font-family: 'Monaco', 'Menlo', monospace; font-size: 14px; white-space: pre-wrap; word-break: break-word;
+        }
+        .result.error { color: #fca5a5; }
+
+        .code-example {
+            background: var(--gray-900); color: #e5e7eb; padding: 16px 20px; border-radius: 8px;
+            font-family: 'Monaco', 'Menlo', monospace; font-size: 13px; overflow-x: auto;
+        }
+        .code-example .comment { color: #6b7280; }
+        .code-example .keyword { color: #c084fc; }
+        .code-example .string { color: #86efac; }
+        .code-example .function { color: #60a5fa; }
+        .code-example .number { color: #fbbf24; }
+
+        table.table-demo { width: 100%; border-collapse: collapse; margin-top: 16px; }
+        table.table-demo th, table.table-demo td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--gray-200); }
+        table.table-demo th { background: var(--gray-50); font-weight: 600; font-size: 12px; text-transform: uppercase; color: var(--gray-600); }
+        table.table-demo td { font-family: 'Monaco', 'Menlo', monospace; font-size: 13px; }
+        table.table-demo .ok { color: var(--primary); font-weight: 600; }
+        table.table-demo .bad { color: var(--danger); font-weight: 600; }
+
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+        .badge.ratified { background: #dcfce7; color: #15803d; }
+        .badge.draft { background: #fef3c7; color: #b45309; }
+
+        .btn {
+            display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 8px;
+            font-size: 14px; font-weight: 500; text-decoration: none; border: none; cursor: pointer; transition: all 0.2s;
+        }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-dark); }
+    </style>
+    <script src="../dist/myio-js-library.umd.min.js"></script>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <div class="breadcrumb"><a href="index.html">Showcase</a> / Device Product Code</div>
+            <h1>🏭 Device Product Code <span style="font-size: 14px; font-weight: 400; opacity: 0.85;">(RFC-0230)</span></h1>
+            <p>Serial de fábrica v2 (código 4 bytes) + nome canônico — conversão sem perda, validação, registry de tipos.</p>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Decode a code -->
+        <section class="section">
+            <h2>🔓 decodeDeviceProductCode(code) / deviceProductCodeToName(value)</h2>
+            <p class="section-desc">Digite um código <code>B1.B2.B3.B4</code> e veja os campos decodificados e o nome canônico.</p>
+
+            <div class="demo-grid">
+                <div class="demo-card" style="grid-column: span 2;">
+                    <label>Código</label>
+                    <input type="text" id="decodeInput" value="17.2.25.15" placeholder="17.2.25.15">
+                </div>
+            </div>
+            <div class="result" id="decodeResult"></div>
+
+            <div class="code-example" style="margin-top: 16px;">
+<span class="keyword">import</span> { <span class="function">decodeDeviceProductCode</span>, <span class="function">deviceProductCodeToName</span> } <span class="keyword">from</span> <span class="string">'myio-js-library'</span>;
+
+<span class="keyword">const</span> value = <span class="function">decodeDeviceProductCode</span>(<span class="string">'17.2.25.15'</span>);
+<span class="comment">// { year: 2027, month: 1, day: 2, seq3: 0, seq: 25, productType: 15 }</span>
+<span class="function">deviceProductCodeToName</span>(value); <span class="comment">// '3F 270102-0025'</span>
+            </div>
+        </section>
+
+        <!-- Encode fields -->
+        <section class="section">
+            <h2>🔒 encodeDeviceProductCode(fields) / formatDeviceProductCode(value)</h2>
+            <p class="section-desc">Preencha os campos (data de fabricação, sequência, tipo) e veja o código e o nome resultantes.</p>
+
+            <div class="demo-grid">
+                <div class="demo-card"><label>Ano</label><input type="number" id="encYear" value="2027" min="2026" max="2041"></div>
+                <div class="demo-card"><label>Mês</label><input type="number" id="encMonth" value="1" min="1" max="12"></div>
+                <div class="demo-card"><label>Dia</label><input type="number" id="encDay" value="2" min="1" max="31"></div>
+                <div class="demo-card"><label>Seq3 (bloco)</label><input type="number" id="encSeq3" value="0" min="0" max="7"></div>
+                <div class="demo-card"><label>Seq (diário)</label><input type="number" id="encSeq" value="25" min="1" max="254"></div>
+                <div class="demo-card">
+                    <label>Tipo (productType)</label>
+                    <select id="encType"></select>
+                </div>
+            </div>
+            <div class="result" id="encodeResult"></div>
+        </section>
+
+        <!-- Name to code -->
+        <section class="section">
+            <h2>🔁 deviceNameToDeviceProductCode(name)</h2>
+            <p class="section-desc">Digite um nome canônico (<code>PREFIX YYMMDD-NNNN</code>) e veja o round-trip de volta pro código.</p>
+
+            <div class="demo-grid">
+                <div class="demo-card" style="grid-column: span 2;">
+                    <label>Nome</label>
+                    <input type="text" id="nameInput" value="3F 270102-0025" placeholder="3F 270102-0025">
+                </div>
+            </div>
+            <div class="result" id="nameResult"></div>
+        </section>
+
+        <!-- Golden fixtures -->
+        <section class="section">
+            <h2>✅ Golden fixtures — DEVICE-NAME-SPEC.md §6</h2>
+            <p class="section-desc">Os 4 exemplos oficiais do spec GCDR, verificados ao vivo contra esta implementação.</p>
+            <table class="table-demo">
+                <thead><tr><th>Código</th><th>Nome esperado</th><th>Nome calculado</th><th>Round-trip</th></tr></thead>
+                <tbody id="goldenTbody"></tbody>
+            </table>
+        </section>
+
+        <!-- Registry -->
+        <section class="section">
+            <h2>📋 productTypeRegistry</h2>
+            <p class="section-desc">Registro fechado e bijetivo byte↔prefixo — a única fonte usada por encode/decode/format.</p>
+            <table class="table-demo">
+                <thead><tr><th>Byte (B4)</th><th>Prefixo</th><th>Status</th><th>Rótulo legado</th></tr></thead>
+                <tbody id="registryTbody"></tbody>
+            </table>
+        </section>
+
+        <!-- Validation examples -->
+        <section class="section">
+            <h2>⚠️ Exemplos de validação</h2>
+            <p class="section-desc">Casos que o validador precisa recusar (ou aceitar) de forma explícita, não silenciosa.</p>
+            <table class="table-demo">
+                <thead><tr><th>Entrada</th><th>Caso</th><th>Válido?</th><th>Motivo</th></tr></thead>
+                <tbody id="validationTbody"></tbody>
+            </table>
+        </section>
+
+        <div style="text-align: center; margin-top: 32px;">
+            <a href="index.html" class="btn btn-primary">← Voltar ao Portal</a>
+        </div>
+    </div>
+
+    <script>
+        const {
+            encodeDeviceProductCode,
+            decodeDeviceProductCode,
+            formatDeviceProductCode,
+            deviceProductCodeToName,
+            deviceNameToDeviceProductCode,
+            validateDeviceProductCode,
+            validateDeviceProductName,
+        } = MyIOLibrary;
+
+        function esc(s) {
+            return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
+        // ---- Decode ----
+        const decodeInput = document.getElementById('decodeInput');
+        const decodeResult = document.getElementById('decodeResult');
+        function runDecode() {
+            try {
+                const value = decodeDeviceProductCode(decodeInput.value.trim());
+                const name = deviceProductCodeToName(value);
+                decodeResult.classList.remove('error');
+                decodeResult.textContent = `fields: ${JSON.stringify(value)}\nname:   ${name}`;
+            } catch (e) {
+                decodeResult.classList.add('error');
+                decodeResult.textContent = `${e.name || 'Error'}${e.reason ? ' [' + e.reason + ']' : ''}: ${e.message}`;
+            }
+        }
+        decodeInput.addEventListener('input', runDecode);
+
+        // ---- Encode ----
+        const encFields = ['encYear', 'encMonth', 'encDay', 'encSeq3', 'encSeq'].map((id) => document.getElementById(id));
+        const encType = document.getElementById('encType');
+        const encodeResult = document.getElementById('encodeResult');
+        function runEncode() {
+            try {
+                const [year, month, day, seq3, seq] = encFields.map((el) => Number(el.value));
+                const productType = Number(encType.value);
+                const value = encodeDeviceProductCode({ year, month, day, seq3, seq, productType });
+                const code = formatDeviceProductCode(value);
+                const name = deviceProductCodeToName(value);
+                encodeResult.classList.remove('error');
+                encodeResult.textContent = `code: ${code}\nname: ${name}`;
+            } catch (e) {
+                encodeResult.classList.add('error');
+                encodeResult.textContent = `${e.name || 'Error'}${e.reason ? ' [' + e.reason + ']' : ''}: ${e.message}`;
+            }
+        }
+        [...encFields, encType].forEach((el) => el.addEventListener('input', runEncode));
+
+        // ---- Name to code ----
+        const nameInput = document.getElementById('nameInput');
+        const nameResult = document.getElementById('nameResult');
+        function runNameToCode() {
+            try {
+                const value = deviceNameToDeviceProductCode(nameInput.value);
+                const code = formatDeviceProductCode(value);
+                nameResult.classList.remove('error');
+                nameResult.textContent = `fields: ${JSON.stringify(value)}\ncode:   ${code}`;
+            } catch (e) {
+                nameResult.classList.add('error');
+                nameResult.textContent = `${e.name || 'Error'}${e.reason ? ' [' + e.reason + ']' : ''}: ${e.message}`;
+            }
+        }
+        nameInput.addEventListener('input', runNameToCode);
+
+        // ---- Golden fixtures (DEVICE-NAME-SPEC.md §6) ----
+        const GOLDEN_FIXTURES = [
+            { code: '17.2.25.15', name: '3F 270102-0025' },
+            { code: '1.1.1.12', name: 'HIDR 260101-0001' },
+            { code: '1.34.10.15', name: '3F 260102-0264' },
+            { code: '252.1.254.14', name: 'REM 411201-0254' },
+        ];
+        const goldenTbody = document.getElementById('goldenTbody');
+        GOLDEN_FIXTURES.forEach(({ code, name }) => {
+            const value = decodeDeviceProductCode(code);
+            const computedName = deviceProductCodeToName(value);
+            const roundTripOk = computedName === name && formatDeviceProductCode(deviceNameToDeviceProductCode(name)) === code;
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${esc(code)}</td>
+                <td>${esc(name)}</td>
+                <td>${esc(computedName)}</td>
+                <td class="${roundTripOk ? 'ok' : 'bad'}">${roundTripOk ? '✓ OK' : '✗ FALHOU'}</td>
+            `;
+            goldenTbody.appendChild(tr);
+        });
+
+        // ---- Registry table (populated by probing known bytes, since the
+        // registry lookup helpers aren't part of the public index.ts export
+        // surface — only the byte->prefix behavior is, via deviceProductCodeToName) ----
+        const REGISTRY_PROBE = [
+            { byte: 12, status: 'ratified', legacyLabel: 'switch' },
+            { byte: 14, status: 'ratified', legacyLabel: '' },
+            { byte: 15, status: 'ratified', legacyLabel: '' },
+            { byte: 16, status: 'draft', legacyLabel: '' },
+            { byte: 17, status: 'draft', legacyLabel: '' },
+            { byte: 18, status: 'ratified', legacyLabel: '' },
+        ];
+        const registryTbody = document.getElementById('registryTbody');
+        REGISTRY_PROBE.forEach(({ byte, status, legacyLabel }) => {
+            const value = encodeDeviceProductCode({ year: 2026, month: 1, day: 1, seq3: 0, seq: 1, productType: byte });
+            const prefix = deviceProductCodeToName(value).split(' ')[0];
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${byte}</td>
+                <td>${esc(prefix)}</td>
+                <td><span class="badge ${status}">${status}</span></td>
+                <td>${legacyLabel ? esc(legacyLabel) : '<span style="color:#9ca3af">—</span>'}</td>
+            `;
+            registryTbody.appendChild(tr);
+            const opt = document.createElement('option');
+            opt.value = String(byte);
+            opt.textContent = `${byte} · ${prefix}${legacyLabel ? ' (was ' + legacyLabel + ')' : ''}`;
+            encType.appendChild(opt);
+        });
+        // Also offer one intentionally-unregistered byte so the T{B4} fallback is reachable from the Encode demo.
+        const unknownOpt = document.createElement('option');
+        unknownOpt.value = '99';
+        unknownOpt.textContent = '99 · (unregistered — T{B4} fallback)';
+        encType.appendChild(unknownOpt);
+        encType.value = '15';
+
+        // ---- Validation examples ----
+        const VALIDATION_CASES = [
+            { kind: 'code', input: '17.2.25.15', label: 'código bem formado' },
+            { kind: 'code', input: '300.2.25.15', label: 'byte fora de 0-255' },
+            { kind: 'code', input: '16.2.25.15', label: 'mês = 0 (B1 baixo = 0)' },
+            { kind: 'name', input: '3F 270102-0025', label: 'nome bem formado' },
+            { kind: 'name', input: '3F-270102-0025', label: 'hífen em vez de espaço após o prefixo' },
+            { kind: 'name', input: 'COMPRESSOR 270102-0025', label: 'prefixo funcional (não-invertível)' },
+            { kind: 'name', input: 'T99 270102-0025', label: 'fallback T{B4} para byte não registrado' },
+            { kind: 'name', input: 'ZZ 270102-0025', label: 'prefixo desconhecido, não bate com T{B4}' },
+        ];
+        const validationTbody = document.getElementById('validationTbody');
+        VALIDATION_CASES.forEach(({ kind, input, label }) => {
+            const result = kind === 'code' ? validateDeviceProductCode(input) : validateDeviceProductName(input);
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${esc(input)}</td>
+                <td>${esc(label)}</td>
+                <td class="${result.valid ? 'ok' : 'bad'}">${result.valid ? '✓ válido' : '✗ inválido'}</td>
+                <td>${result.reason ? esc(result.reason) : '<span style="color:#9ca3af">—</span>'}</td>
+            `;
+            validationTbody.appendChild(tr);
+        });
+
+        // Initial render
+        runDecode();
+        runEncode();
+        runNameToCode();
+    </script>
+</body>
+</html>
