@@ -16,30 +16,30 @@
     "scope": "Tickets em aberto (status != Concluído). Inclui Tarefa, Subtarefa e Bug. Exclui Épicos e História/Story."
   },
   "summary": {
-    "sprintOpen": 57,
-    "backlogOpen": 567,
-    "total": 624
+    "sprintOpen": 54,
+    "backlogOpen": 545,
+    "total": 599
   },
   "aggregates": {
     "sprint": {
       "byStatus": {
-        "Itens Novos": 39,
+        "Itens Novos": 36,
         "PENDENTE": 11,
         "Em Andamento": 4,
         "EM REVISÃO": 3
       },
       "byType": {
-        "Tarefa": 36,
-        "Bug": 21
+        "Tarefa": 35,
+        "Bug": 19
       },
       "byPriority": {
-        "Medium": 47,
-        "High": 7,
+        "Medium": 46,
+        "High": 5,
         "Highest": 2,
         "Low": 1
       },
       "byAssignee": {
-        "Rodrigo Lago": 34,
+        "Rodrigo Lago": 31,
         "Victor Hugo da Silva": 12,
         "Luiz Guilherme Martinho Sampaio Ito": 9,
         "Letícia Camargo": 1,
@@ -51,7 +51,6 @@
         "Outros": 10,
         "BAS": 8,
         "Relatórios / Dashboard": 3,
-        "Obramax": 3,
         "Melicidade": 2,
         "Contagem": 1,
         "Shopping da Ilha / SDI": 1,
@@ -62,56 +61,53 @@
     },
     "backlog": {
       "byStatus": {
-        "Itens Novos": 543,
-        "PENDENTE": 12,
-        "EM REVISÃO": 9,
+        "Itens Novos": 528,
+        "PENDENTE": 7,
+        "EM REVISÃO": 7,
         "Em Andamento": 3
       },
       "byType": {
-        "Tarefa": 465,
-        "Subtarefa": 61,
+        "Tarefa": 444,
+        "Subtarefa": 60,
         "Bug": 41
       },
       "byPriority": {
-        "Medium": 530,
-        "High": 24,
+        "Medium": 511,
+        "High": 21,
         "Highest": 9,
         "Low": 3,
         "Lowest": 1
       },
       "byAssignee": {
         "Luiz Guilherme Martinho Sampaio Ito": 377,
-        "Rodrigo Lago": 134,
+        "Rodrigo Lago": 128,
         "Letícia Camargo": 16,
         "Victor Hugo da Silva": 13,
-        "Bruno Dantas Costa": 9,
-        "Leandro Gadioli Rodrigues": 8,
+        "Leandro Gadioli Rodrigues": 5,
         "Leticia Saraiva": 5,
-        "Bruno Kubudi Cardeman": 4,
         "—": 1
       },
       "byGroup": {
         "Central / Firmware / HW": 376,
         "GCDR / Plataforma": 70,
-        "Relatórios / Dashboard": 18,
         "Outros": 18,
-        "Campinas": 12,
+        "Relatórios / Dashboard": 17,
         "Sá Cavalcante": 12,
-        "Obramax": 11,
         "Praia da Costa": 9,
         "Souza Aguiar": 6,
-        "Shopping da Ilha / SDI": 5,
-        "Raiz Educação": 4,
-        "Supervia": 4,
+        "Campinas": 6,
+        "Shopping da Ilha / SDI": 4,
         "Macaé": 4,
+        "Raiz Educação": 3,
+        "Supervia": 3,
         "Montserrat": 3,
-        "Mestre Álvaro": 2,
         "West Plaza": 2,
         "Ilha Plaza": 2,
         "Moxuara": 2,
         "Melicidade": 2,
         "Rio Poty": 2,
         "Contagem": 1,
+        "Mestre Álvaro": 1,
         "Park Lagos": 1,
         "BAS": 1
       }
@@ -717,19 +713,6 @@
       "kind": "theme"
     },
     {
-      "key": "ED-1066",
-      "summary": "[BUG] Obramax Mesquita — tela de agendamento permite agendas com conflito de horário (individual × grupo)",
-      "type": "Bug",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "High",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-08-04",
-      "group": "Obramax",
-      "kind": "unit"
-    },
-    {
       "key": "ED-1067",
       "summary": "[BUG] Alarmes de Geradores — notificações não enviadas (investigar falha de 2026-07-29)",
       "type": "Bug",
@@ -741,32 +724,6 @@
       "updated": "2026-08-04",
       "group": "Outros",
       "kind": "other"
-    },
-    {
-      "key": "ED-1068",
-      "summary": "[BUG] Obramax São Gonçalo — automação não rodou em 2026-07-29 (analisar log da central)",
-      "type": "Bug",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "High",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-08-04",
-      "group": "Obramax",
-      "kind": "unit"
-    },
-    {
-      "key": "ED-1069",
-      "summary": "Obramax Aricanduva — liberar acesso do painel",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-08-04",
-      "group": "Obramax",
-      "kind": "unit"
     },
     {
       "key": "ED-1094",
@@ -862,19 +819,6 @@
   ],
   "backlog": [
     {
-      "key": "ED-61",
-      "summary": "Padronizando o Relatorio geral de Agua",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "EM REVISÃO",
-      "cat": "indeterminate",
-      "priority": "Medium",
-      "assignee": "Bruno Kubudi Cardeman",
-      "updated": "2026-05-04",
-      "group": "Relatórios / Dashboard",
-      "kind": "theme"
-    },
-    {
       "key": "ED-75",
       "summary": "Criar relatório novo para o Praia da Costa",
       "type": "Tarefa",
@@ -914,19 +858,6 @@
       "kind": "unit"
     },
     {
-      "key": "ED-122",
-      "summary": "Raiz Educação - Verificação dos sensores (Auditório e Sala Raiz) no Node-Red",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "High",
-      "assignee": "Bruno Kubudi Cardeman",
-      "updated": "2026-05-04",
-      "group": "Raiz Educação",
-      "kind": "unit"
-    },
-    {
       "key": "ED-123",
       "summary": "Souza Aguiar - Verificação de alertas por e-mail",
       "type": "Tarefa",
@@ -937,71 +868,6 @@
       "assignee": "Rodrigo Lago",
       "updated": "2026-05-04",
       "group": "Souza Aguiar",
-      "kind": "unit"
-    },
-    {
-      "key": "ED-136",
-      "summary": "Obramax - Disponibilizar na Plataforma dados do Nobreak (Novo modelo) para as Unidades Mesquita, Caxias e Guadalupe.",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Leandro Gadioli Rodrigues",
-      "updated": "2026-05-04",
-      "group": "Obramax",
-      "kind": "unit"
-    },
-    {
-      "key": "ED-143",
-      "summary": "Obramax - Retirar duas medições da leitura de água reuso e substituir pela leitura de consumo (Unidade Piracicaba) ",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "High",
-      "assignee": "Bruno Kubudi Cardeman",
-      "updated": "2026-05-04",
-      "group": "Obramax",
-      "kind": "unit"
-    },
-    {
-      "key": "ED-144",
-      "summary": "Obramax Benfica - Verificar que mesmo com os tanques de reuso cheios, a água continua sendo direcionada para as caixas  -",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "PENDENTE",
-      "cat": "indeterminate",
-      "priority": "Medium",
-      "assignee": "Bruno Dantas Costa",
-      "updated": "2026-05-04",
-      "group": "Obramax",
-      "kind": "unit"
-    },
-    {
-      "key": "ED-145",
-      "summary": "Obramax Mesquita -Verificar sinalização de volume de água da unidade que não está de forma compreensível - Unidade ",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "PENDENTE",
-      "cat": "indeterminate",
-      "priority": "Medium",
-      "assignee": "Leandro Gadioli Rodrigues",
-      "updated": "2026-05-04",
-      "group": "Obramax",
-      "kind": "unit"
-    },
-    {
-      "key": "ED-146",
-      "summary": "Obramax Jacarepagua -Verificar sinalização de volume de água da unidade que não está de forma compreensível ",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "PENDENTE",
-      "cat": "indeterminate",
-      "priority": "Medium",
-      "assignee": "Leandro Gadioli Rodrigues",
-      "updated": "2026-05-04",
-      "group": "Obramax",
       "kind": "unit"
     },
     {
@@ -1026,19 +892,6 @@
       "cat": "new",
       "priority": "High",
       "assignee": "Rodrigo Lago",
-      "updated": "2026-05-04",
-      "group": "Campinas",
-      "kind": "unit"
-    },
-    {
-      "key": "ED-173",
-      "summary": "Campinas Shopping (Boreli)- Registro na dashboard incompatível com a medição feita in loco",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Bruno Dantas Costa",
       "updated": "2026-05-04",
       "group": "Campinas",
       "kind": "unit"
@@ -1070,32 +923,6 @@
       "kind": "unit"
     },
     {
-      "key": "ED-220",
-      "summary": "Obramax - Verificação de alarme no Telegram - Unidade Suzano/Praia Grande",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-05-04",
-      "group": "Obramax",
-      "kind": "unit"
-    },
-    {
-      "key": "ED-222",
-      "summary": "Obramax- Verificação de automação sem funcionamento no feriado - Unidade Jacarepaguá/Guadalupe",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-05-04",
-      "group": "Obramax",
-      "kind": "unit"
-    },
-    {
       "key": "ED-223",
       "summary": "Praia da Costa - Checagem de CVC - LUC 116B e alteração para  LUC 101A  Melissa",
       "type": "Tarefa",
@@ -1106,110 +933,6 @@
       "assignee": "Rodrigo Lago",
       "updated": "2026-05-04",
       "group": "Praia da Costa",
-      "kind": "unit"
-    },
-    {
-      "key": "ED-232",
-      "summary": "Mestre Alvaro - Verificação de leitura de área comum (Temperatura 14)",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "PENDENTE",
-      "cat": "indeterminate",
-      "priority": "Medium",
-      "assignee": "Bruno Dantas Costa",
-      "updated": "2026-05-04",
-      "group": "Mestre Álvaro",
-      "kind": "unit"
-    },
-    {
-      "key": "ED-242",
-      "summary": "CAmpinas - Valores divergentes - Entrada da subestação 02",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Bruno Dantas Costa",
-      "updated": "2026-05-04",
-      "group": "Campinas",
-      "kind": "unit"
-    },
-    {
-      "key": "ED-243",
-      "summary": "Campinas - Valores divergentes - Entrada Postinho expansão cps",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Bruno Dantas Costa",
-      "updated": "2026-05-04",
-      "group": "Campinas",
-      "kind": "unit"
-    },
-    {
-      "key": "ED-244",
-      "summary": "Campinas - Valores divergentes - Entrada Laje expansão ( 40094488 )",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Bruno Dantas Costa",
-      "updated": "2026-05-04",
-      "group": "Campinas",
-      "kind": "unit"
-    },
-    {
-      "key": "ED-245",
-      "summary": "Campinas - Valores divergentes - Entrada Quadro de madeira G2",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Bruno Dantas Costa",
-      "updated": "2026-05-04",
-      "group": "Campinas",
-      "kind": "unit"
-    },
-    {
-      "key": "ED-246",
-      "summary": "Campinas - Valores divergente - Entrada do emplacamento",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Bruno Dantas Costa",
-      "updated": "2026-05-04",
-      "group": "Campinas",
-      "kind": "unit"
-    },
-    {
-      "key": "ED-247",
-      "summary": "Obramax - Unidade Suzano - Verificar dados de água de Entrada Potável e Saída Potável - ",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-05-04",
-      "group": "Obramax",
-      "kind": "unit"
-    },
-    {
-      "key": "ED-248",
-      "summary": " Obramax Unidade Piracicaba - Verificar dados de água da Entrada de Potável - ",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-05-04",
-      "group": "Obramax",
       "kind": "unit"
     },
     {
@@ -1236,32 +959,6 @@
       "assignee": "Rodrigo Lago",
       "updated": "2025-11-19",
       "group": "West Plaza",
-      "kind": "unit"
-    },
-    {
-      "key": "ED-286",
-      "summary": "Shopping da Ilha- Nomeação do Sensor de temperatura",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "EM REVISÃO",
-      "cat": "indeterminate",
-      "priority": "Medium",
-      "assignee": "Bruno Dantas Costa",
-      "updated": "2026-01-06",
-      "group": "Shopping da Ilha / SDI",
-      "kind": "unit"
-    },
-    {
-      "key": "ED-287",
-      "summary": "Obramax –  Inclusão de  alarme com status de funcionamento",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2025-12-11",
-      "group": "Obramax",
       "kind": "unit"
     },
     {
@@ -1340,19 +1037,6 @@
       "assignee": "Rodrigo Lago",
       "updated": "2026-01-12",
       "group": "Ilha Plaza",
-      "kind": "unit"
-    },
-    {
-      "key": "ED-297",
-      "summary": "Obramax- Solicitação de Abertura de Chamado –  Alterar a nomenclatura dos alarmes - Unidade Todas",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-01-07",
-      "group": "Obramax",
       "kind": "unit"
     },
     {
@@ -7438,19 +7122,6 @@
       "updated": "2026-08-26",
       "group": "GCDR / Plataforma",
       "kind": "theme"
-    },
-    {
-      "key": "ED-50",
-      "summary": "Criação dos dashboards para cliente ATUAL - SUPERVIA CCO - UPSELL",
-      "type": "Subtarefa",
-      "sub": true,
-      "status": "PENDENTE",
-      "cat": "indeterminate",
-      "priority": "High",
-      "assignee": "Bruno Kubudi Cardeman",
-      "updated": "2025-05-29",
-      "group": "Supervia",
-      "kind": "unit"
     },
     {
       "key": "ED-68",

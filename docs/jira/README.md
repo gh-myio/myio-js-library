@@ -6,7 +6,7 @@ Dashboards estáticos gerados a partir do Jira Cloud (`myio.atlassian.net`, proj
 
 | Arquivo | Descrição |
 |---|---|
-| `index.html` | **Cockpit do backlog** — KPIs, charts, cartão de WIP e grid filtrável (567 backlog + 57 da Sprint 19). Escopo: Tarefa + Subtarefa + Bug (sem Épico, sem História/Story). |
+| `index.html` | **Cockpit do backlog** — KPIs, charts, cartão de WIP e grid filtrável (545 backlog + 54 da Sprint 19). Escopo: Tarefa + Subtarefa + Bug (sem Épico, sem História/Story). |
 | `performance.html` | **Performance & Burndown** — burndown por sprint, conclusões/dia, heatmap e ranking de aderência, seletor de período, export PDF. |
 | `processo.html` | **Modelo de Trabalho** — acordos de processo + fluxo de revisão (DEV→QA, PR) + nomenclatura de branches. |
 | `data.json` | Dados estruturados do cockpit (sprint + backlog + agregados). Consumido por `index.html`. |
@@ -44,6 +44,7 @@ start-server.bat        # abre http://localhost:3340/docs/jira/
 ## Escopo dos dados
 
 - **Tipos contados:** Tarefa/Task, Subtarefa/Subtask e Bug. **Excluídos:** Épico e História/Story (decisão de 26/08/2026 — antes o escopo incluía História e excluía Subtarefa; ver histórico do repo).
+- **26/08/2026:** 25 tickets concluídos no Jira (transição real, não só snapshot) e removidos daqui — 4 de Bruno Kubudi Cardeman, 9 de Bruno Dantas Costa, e todos os 12 restantes do grupo Obramax (Rodrigo Lago + Leandro Gadioli Rodrigues), com 2 tickets contados nos dois critérios (ED-143, ED-144). Totais caíram de 567/57/624 para 545/54/599.
 - **Backlog (cockpit):** `project = ED`, fora de sprint aberta, `statusCategory != Done`, tipos acima.
 - **Sprint 19:** `sprint = 596` (ainda **active** no Jira em 26/08/2026, apesar da janela planejada 28/07 → 04/08/2026 já ter passado — o time não fechou formalmente a sprint). Sprints anteriores 15–18 fechadas; ao fechar, itens incompletos migram para a próxima sprint, então o escopo visível de sprint fechada ≈ o que foi concluído.
 - **Subtarefas:** herdam o `group`/tema do ticket pai quando o conteúdo da subtarefa não indica algo mais específico (ex.: subtarefa citando um shopping/cliente pelo nome vai para o grupo daquele cliente, mesmo que o pai seja um container genérico).
