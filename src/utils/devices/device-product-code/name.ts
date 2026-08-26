@@ -13,6 +13,7 @@ import type { DeviceProductCode, DeviceProductCodeValidationResult } from './typ
 import { DeviceProductCodeError } from './errors';
 import { getProductTypeEntryByByte, getProductTypeEntryByPrefix } from './registry/productTypeRegistry';
 import { isFunctionalKeywordPrefix } from './registry/functionalKeywordRegistry';
+import { checkFields } from './codecs/v2';
 
 const NAME_RE = /^([A-Z0-9]{2,12}) (\d{2})(\d{2})(\d{2})-(\d{4})$/;
 
@@ -79,7 +80,7 @@ export function deviceNameToDeviceProductCode(name: string): DeviceProductCode {
   const seq3 = Math.floor((unit - 1) / 254);
   const seq = unit - seq3 * 254;
 
-  return {
+  const fields: DeviceProductCode = {
     year: 2000 + Number(yy),
     month: Number(mm),
     day: Number(dd),
@@ -87,6 +88,19 @@ export function deviceNameToDeviceProductCode(name: string): DeviceProductCode {
     seq,
     productType,
   };
+
+  // A name can match the shape regex (YY/MM/DD are each just "2 digits" to
+  // the regex) while still carrying a year/month/day the codec would never
+  // accept — e.g. "3F 250101-0001" (year 2025, one short of the 2026 floor).
+  // Route through the same range checks the codec itself enforces so a name
+  // that validates here is guaranteed to survive formatDeviceProductCode
+  // too, not just the regex.
+  const reason = checkFields(fields);
+  if (reason) {
+    throw new DeviceProductCodeError(reason, `deviceNameToDeviceProductCode: ${reason} ("${name}" -> ${JSON.stringify(fields)})`);
+  }
+
+  return fields;
 }
 
 export function validateDeviceProductName(name: string): DeviceProductCodeValidationResult {

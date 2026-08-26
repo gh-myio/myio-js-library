@@ -3,6 +3,8 @@ import {
   validateDeviceProductCode,
   validateDeviceProductName,
   encodeDeviceProductCode,
+  deviceNameToDeviceProductCode,
+  formatDeviceProductCode,
   DeviceProductCodeError,
 } from '../../../../src/utils/devices/device-product-code';
 
@@ -104,5 +106,65 @@ describe('RFC-0230 validateDeviceProductName — malformed inputs, full branch c
   it('rejects NNNN out of 0001-2032', () => {
     expect(validateDeviceProductName('3F 270102-0000').reason).toBe('unit-out-of-range');
     expect(validateDeviceProductName('3F 270102-2033').reason).toBe('unit-out-of-range');
+  });
+});
+
+// Regression: a name can match the ^[A-Z0-9]{2,12} \d{6}-\d{4}$ shape while
+// still encoding a year/month the codec would reject outright — YY/MM/DD are
+// each just "2 digits" to the regex, with no range check of their own before
+// this fix. validateDeviceProductName must not report valid:true for a name
+// that formatDeviceProductCode(deviceNameToDeviceProductCode(name)) can't
+// actually round-trip.
+describe('RFC-0230 name.ts — year/month out of codec range, despite matching the name shape regex', () => {
+  it('year 2025 (one below the 2026 floor) is rejected, not silently accepted', () => {
+    const r = validateDeviceProductName('3F 250101-0001');
+    expect(r.valid).toBe(false);
+    expect(r.reason).toBe('year-out-of-range');
+    expect(() => deviceNameToDeviceProductCode('3F 250101-0001')).toThrow(DeviceProductCodeError);
+  });
+
+  it('year 2042 (one above the 2041 ceiling) is rejected', () => {
+    expect(validateDeviceProductName('3F 420101-0001').reason).toBe('year-out-of-range');
+  });
+
+  it('month 13 is rejected even though it fits the 2-digit shape', () => {
+    expect(validateDeviceProductName('3F 271301-0001').reason).toBe('month-out-of-range');
+  });
+
+  it('a name that DOES pass full validation survives the round-trip through formatDeviceProductCode', () => {
+    const name = '3F 270102-0025';
+    expect(validateDeviceProductName(name).valid).toBe(true);
+    const value = deviceNameToDeviceProductCode(name);
+    expect(() => formatDeviceProductCode(value)).not.toThrow();
+  });
+});
+
+// Regression: DeviceProductCode is an exported, structural type — nothing
+// stops a caller from constructing one by hand with an out-of-byte-range
+// productType and passing it straight to formatDeviceProductCode. Before
+// this fix that silently produced a malformed code string (e.g. "17.1.1.999")
+// instead of failing loudly.
+describe('RFC-0230 v2.ts — productType out of 0-255 byte range', () => {
+  it('formatDeviceProductCode rejects productType=999 instead of emitting a malformed code', () => {
+    const bad = { year: 2027, month: 1, day: 1, seq3: 0, seq: 1, productType: 999 };
+    expect(() => formatDeviceProductCode(bad)).toThrow(DeviceProductCodeError);
+    try {
+      formatDeviceProductCode(bad);
+      expect.fail('expected a throw');
+    } catch (e) {
+      expect((e as InstanceType<typeof DeviceProductCodeError>).reason).toBe('product-type-out-of-range');
+    }
+  });
+
+  it('encodeDeviceProductCode rejects productType=999 too', () => {
+    expect(() =>
+      encodeDeviceProductCode({ year: 2027, month: 1, day: 1, seq3: 0, seq: 1, productType: 999 }),
+    ).toThrow(DeviceProductCodeError);
+  });
+
+  it('negative productType is rejected', () => {
+    expect(() =>
+      formatDeviceProductCode({ year: 2027, month: 1, day: 1, seq3: 0, seq: 1, productType: -1 }),
+    ).toThrow(DeviceProductCodeError);
   });
 });

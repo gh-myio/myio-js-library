@@ -12,6 +12,7 @@ export type DeviceProductCodeErrorReason =
   | 'day-out-of-range'
   | 'seq3-out-of-range'
   | 'seq-out-of-range'
+  | 'product-type-out-of-range'
   | 'unit-out-of-range'
   | 'unknown-prefix'
   | 'non-invertible-prefix'

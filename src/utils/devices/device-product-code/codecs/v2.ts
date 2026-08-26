@@ -6,11 +6,12 @@
  *   B1  high 4 bits = year offset (year - 2026, 0-15)   low 4 bits = month (1-12)
  *   B2  high 3 bits = seq3 (0-7)                        low 5 bits = day (1-31)
  *   B3  all 8 bits  = seq (1-254; 0 and 255 reserved)
- *   B4  all 8 bits  = productType (registry byte — this codec does not look
- *                     up or validate registry membership; that is the
- *                     name-layer's concern, since a raw code is valid B4
- *                     shape (0-255) regardless of whether the byte is a
- *                     currently-registered product type)
+ *   B4  all 8 bits  = productType (registry byte — this codec validates only
+ *                     that it's a valid byte, 0-255; it does not look up or
+ *                     validate registry membership, since a raw code can be
+ *                     shape-valid regardless of whether the byte is a
+ *                     currently-registered product type — that check is the
+ *                     name-layer's concern)
  *
  * This codec only implements v2. v1 is legacy/archived per the spec and is
  * intentionally not implemented here.
@@ -23,12 +24,22 @@ import { DeviceProductCodeError, type DeviceProductCodeErrorReason } from '../er
 const YEAR_BASE = 2026;
 const YEAR_MAX = 2041; // YEAR_BASE + 15 (4-bit offset ceiling)
 
-function checkFields(fields: DeviceProductCodeFields): DeviceProductCodeErrorReason | null {
+/**
+ * Field-range validation shared by V2Codec's own encode/decode AND by
+ * name.ts's deviceNameToDeviceProductCode (imported directly from here,
+ * not via index.ts, to avoid a circular import — index.ts is what exports
+ * the public facade and itself imports from name.ts). Exported so both
+ * "build a code from fields" and "build a code from a name" go through the
+ * exact same range checks — a name that parses but doesn't survive this
+ * check must fail validateDeviceProductName too, not just formatting.
+ */
+export function checkFields(fields: DeviceProductCodeFields): DeviceProductCodeErrorReason | null {
   if (fields.year < YEAR_BASE || fields.year > YEAR_MAX) return 'year-out-of-range';
   if (fields.month < 1 || fields.month > 12) return 'month-out-of-range';
   if (fields.day < 1 || fields.day > 31) return 'day-out-of-range';
   if (fields.seq3 < 0 || fields.seq3 > 7) return 'seq3-out-of-range';
   if (fields.seq < 1 || fields.seq > 254) return 'seq-out-of-range';
+  if (fields.productType < 0 || fields.productType > 255) return 'product-type-out-of-range';
   return null;
 }
 
