@@ -111,6 +111,12 @@ export interface OpenAllReportParams {
   domain?: 'energy' | 'water' | 'temperature'; // Data domain (default: 'energy')
   group?: string; // RFC-0182: e.g. 'lojas' | 'entrada' | 'area_comum' | 'todos' | 'climatizavel' | 'nao_climatizavel'
   granularity?: '1d' | '1h'; // API data granularity (default: '1d')
+  /**
+   * RFC-0223: report temporal resolution — 'consolidado' (default) keeps today's
+   * single aggregate-per-device behavior; '1d'/'1h' render collapsible per-device
+   * sections (day rows / day→hour drill-down) in both the grid and the PDF.
+   */
+  reportMode?: 'consolidado' | '1d' | '1h';
   ui?: BaseUiCfg;
   api: BaseApiCfg;
   itemsList?: StoreItem[]; // RFC-0182: Optional — if absent, maps directly from API response
