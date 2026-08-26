@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Catapult — Migration Panel</title>
+<style>
+/* Light theme = default */
+:root{
+  --bg:#f5f6fa;--panel:#ffffff;--panel2:#f0f1f6;--txt:#1c1e26;--mut:#6b7280;--acc:#6c5ce7;--brd:#e2e4ea;
+  --s-fg:#15803d;--s-bg:#dcfce7;--m-fg:#b45309;--m-bg:#fef3c7;--l-fg:#b91c1c;--l-bg:#fee2e2;--warn-fg:#92400e;--warn-bg:#fef3c7;
+}
+:root[data-theme="dark"]{
+  --bg:#0f1117;--panel:#1a1d27;--panel2:#232735;--txt:#e7e9ee;--mut:#9aa0ad;--acc:#6c5ce7;--brd:#2b2f3d;
+  --s-fg:#2ecc71;--s-bg:#123a26;--m-fg:#e67e22;--m-bg:#3a2814;--l-fg:#e74c3c;--l-bg:#3a1b17;--warn-fg:#f2b878;--warn-bg:#3a2814;
+}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font-family:Nunito,system-ui,Segoe UI,Roboto,sans-serif;line-height:1.5;transition:background .15s,color .15s}
+.wrap{max-width:1080px;margin:0 auto;padding:32px 20px 64px}
+.topbar{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
+h1{font-size:26px;margin:0 0 4px}.sub{color:var(--mut);font-size:14px;margin:0 0 20px}
+.sub a{color:var(--acc)}.sub code{background:var(--panel2);padding:1px 5px;border-radius:4px;font-size:12.5px}
+.switches{display:flex;flex-direction:row;align-items:center;gap:8px;flex:0 0 auto;flex-wrap:wrap}
+.lang-switch,.theme-switch{display:inline-flex;background:var(--panel);border:1px solid var(--brd);border-radius:999px;padding:3px}
+.lang-switch button,.theme-switch button{border:none;background:transparent;color:var(--mut);font-family:inherit;font-weight:800;font-size:12.5px;padding:6px 14px;border-radius:999px;cursor:pointer;transition:background .15s,color .15s}
+.lang-switch button.active,.theme-switch button.active{background:var(--acc);color:#fff}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:0 0 26px}
+.kpi{background:var(--panel);border:1px solid var(--brd);border-radius:14px;padding:16px}
+.kpi b{display:block;font-size:26px}.kpi span{color:var(--mut);font-size:12.5px}
+.kpi .mix{display:flex;gap:8px;align-items:baseline}
+.kpi .mix b{font-size:20px}
+.size-chip{font-size:11px;font-weight:800;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.size-chip.S{background:var(--s-bg);color:var(--s-fg)}
+.size-chip.M{background:var(--m-bg);color:var(--m-fg)}
+.size-chip.L{background:var(--l-bg);color:var(--l-fg)}
+.phase{background:var(--panel);border:1px solid var(--brd);border-left:4px solid var(--acc);border-radius:14px;padding:18px 20px;margin:0 0 16px}
+.phase header{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px}
+.phase .num{background:var(--panel2);color:var(--acc);width:28px;height:28px;border-radius:8px;display:grid;place-items:center;font-size:13px;font-weight:800;flex:0 0 auto}
+.phase h2{font-size:16.5px;margin:0;flex:1}
+.phase .count{color:var(--mut);font-size:12px}
+ol.tasks{margin:10px 0 0;padding-left:0;list-style:none}
+ol.tasks li{margin:8px 0;font-size:13.5px;padding:10px 12px;border-radius:8px;background:var(--panel2);border-left:3px solid var(--brd)}
+ol.tasks li.flag{border-left-color:var(--warn)}
+.task-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.task-title{font-weight:600}
+.task-desc{color:var(--mut);font-size:12.5px;margin-top:4px}
+.task-flag{display:inline-flex;align-items:center;gap:5px;background:var(--warn-bg);color:var(--warn-fg);font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;margin-top:6px}
+.legend{display:flex;gap:16px;flex-wrap:wrap;margin:0 0 24px;font-size:12.5px;color:var(--mut)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+footer{color:var(--mut);font-size:12px;margin-top:26px;border-top:1px solid var(--brd);padding-top:14px}
+
+@media (max-width: 680px){
+  .topbar{flex-direction:column;align-items:stretch}
+  .switches{justify-content:flex-start}
+  .kpis{grid-template-columns:1fr 1fr}
+  .kpi .mix{flex-wrap:wrap}
+  .task-head{flex-direction:column}
+}
+@media (max-width: 420px){
+  .kpis{grid-template-columns:1fr}
+}
+</style></head>
+<body><div class="wrap">
+
+<div class="topbar">
+  <div>
+    <h1 id="t-title">Catapult <span style="color:var(--mut);font-weight:400;font-size:16px" id="t-titleSuffix">(migration panel)</span></h1>
+    <p class="sub" id="t-intro"></p>
+  </div>
+  <div class="switches">
+    <div class="lang-switch" role="group" aria-label="Language selector">
+      <button type="button" data-lang="pt" id="btn-pt">PT</button>
+      <button type="button" data-lang="en" id="btn-en">EN</button>
+    </div>
+    <div class="theme-switch" role="group" aria-label="Theme selector">
+      <button type="button" data-theme="light" id="btn-light">☀️ Light</button>
+      <button type="button" data-theme="dark" id="btn-dark">🌙 Dark</button>
+    </div>
+  </div>
+</div>
+
+<div class="kpis" id="kpis"></div>
+<div class="legend" id="legend"></div>
+<div id="phases"></div>
+<footer id="footer"></footer>
+
+</div>
+
+<script>
+// ---------------------------------------------------------------------------
+// I18N — all page text lives here as data (PT + EN). The render() function
+// below reads this structure and builds the DOM; nothing else in the file
+// hardcodes user-facing strings. Task *titles* are kept identical in both
+// languages on purpose — they are literal values copied from the source
+// spreadsheet (Catapult-Migration.xlsx), not free text to translate.
+// ---------------------------------------------------------------------------
+const TASK_TITLES = {
+  en: {
+    1: 'Create a Git repository and make the first commit',
+    2: 'Run an LLM-based code analysis',
+    3: 'Create a technical installation plan',
+    4: 'List all external dependencies',
+    5: 'Collect credentials and access for external services',
+    6: 'Provision the initial infrastructure',
+    7: 'Configure the server baseline',
+    8: 'Prepare the staging environment',
+    9: 'Restore the database in the staging environment',
+    10: 'Perform the first application installation',
+    11: 'Validate critical system workflows',
+    12: 'Define the automated deployment model',
+    13: 'Set up the deployment pipeline',
+    14: 'Define the Lovable usage strategy',
+    15: 'Plan the frontend/backend separation',
+    16: 'Define the Supabase strategy',
+  },
+  pt: {
+    1: 'Criar um repositório Git e fazer o primeiro commit',
+    2: 'Rodar uma análise de código baseada em LLM',
+    3: 'Criar um plano técnico de instalação',
+    4: 'Listar todas as dependências externas',
+    5: 'Coletar credenciais e acessos dos serviços externos',
+    6: 'Provisionar a infraestrutura inicial',
+    7: 'Configurar a base do servidor',
+    8: 'Preparar o ambiente de staging',
+    9: 'Restaurar o banco de dados no ambiente de staging',
+    10: 'Realizar a primeira instalação da aplicação',
+    11: 'Validar os fluxos críticos do sistema',
+    12: 'Definir o modelo de deploy automatizado',
+    13: 'Configurar o pipeline de deploy',
+    14: 'Definir a estratégia de uso do Lovable',
+    15: 'Planejar a separação frontend/backend',
+    16: 'Definir a estratégia do Supabase',
+  },
+};
+
+const I18N = {
+  pt: {
+    titleSuffix: '(painel de migração)',
+    intro: 'Espelho visual de <code>Catapult-Migration.xlsx</code> (aba única "Stage 1") via <a href="Catapult-Migration.md">Catapult-Migration.md</a> — 16 tarefas organizadas em 7 fases, t-shirt sizing S/M/L. Fonte da verdade = a planilha.',
+    kpiLabels: { tasks: 'Tarefas', phases: 'Fases', sizeMix: 'Mix de tamanhos', finding: 'Achado sinalizado (descrição duplicada, tarefa #6)' },
+    legend: { S: 'Small — esforço pontual', M: 'Medium — esforço moderado', L: 'Large — esforço alto/incerto' },
+    taskCountLabel: (n) => n === 1 ? '1 tarefa' : n + ' tarefas',
+    phases: [
+      { title: 'Repositório & Versionamento', tasks: [
+        { id: 1, desc: 'Centralizar a versão do sistema recebido no GitHub corporativo, com estrutura inicial de branches, permissões e convenções de trabalho.', size: 'S' },
+      ]},
+      { title: 'Descoberta & Análise de Arquitetura', tasks: [
+        { id: 2, desc: 'Usar o workflow BMAD Brownfield para mapear a arquitetura do sistema, identificar módulos, dependências, integrações e riscos de instalação.', size: 'L' },
+        { id: 3, desc: 'Gerar um plano técnico de instalação com ordem de execução, componentes necessários, comandos, considerações-chave e pré-requisitos de ambiente.', size: 'M' },
+      ]},
+      { title: 'Dependências Externas & Acessos', tasks: [
+        { id: 4, desc: 'Inventariar os serviços, APIs, contas e integrações externas necessárias para o sistema operar corretamente.', size: 'S' },
+        { id: 5, desc: 'Coletar os tokens, chaves, logins, contas e permissões de todos os serviços externos identificados.', size: 'S',
+          flag: '⚠️ Segurança: nunca commitar credenciais reais — usar cofre de segredos apropriado' },
+      ]},
+      { title: 'Infraestrutura & Ambiente Base', tasks: [
+        { id: 6, desc: 'Coletar os tokens, chaves, logins, contas e permissões de todos os serviços externos identificados.', size: 'M',
+          flag: '⚠️ Descrição provavelmente duplicada da #5 (copy/paste error na planilha fonte) — revisar' },
+        { id: 7, desc: 'Instalar e configurar o SO, servidor web, PHP, banco de dados, extensões, storage e ferramentas básicas.', size: 'M' },
+        { id: 8, desc: 'Criar um ambiente separado para validação, testes e ajuste fino antes do release em produção.', size: 'S' },
+        { id: 9, desc: 'Restaurar o banco de dados no ambiente de staging.', size: 'S' },
+      ]},
+      { title: 'Instalação & Validação da Aplicação', tasks: [
+        { id: 10, desc: 'Subir a aplicação no novo ambiente com a configuração mínima necessária para funcionar.', size: 'L' },
+        { id: 11, desc: 'Testar login, permissões, operações CRUD, uploads, jobs, integrações e outros fluxos de negócio centrais. Registrar erros, limitações, ajustes necessários e pontos de retrabalho encontrados durante a validação.', size: 'L' },
+      ]},
+      { title: 'Automação de Deploy', tasks: [
+        { id: 12, desc: 'Escolher e definir o fluxo de deploy usando GitHub Actions, Docker, scripts ou um orquestrador simples.', size: 'S' },
+        { id: 13, desc: 'Implementar o fluxo automatizado para publicar novas versões com segurança e rollback previsível.', size: 'M' },
+      ]},
+      { title: 'Estratégia de Plataforma (Lovable / Supabase)', tasks: [
+        { id: 14, desc: 'Decidir se o Lovable será usado apenas como ferramenta de desenvolvimento ou também como camada de edição para o time interno.', size: 'S' },
+        { id: 15, desc: 'Avaliar quais partes podem ser desacopladas e quais devem permanecer no backend atual.', size: 'M' },
+        { id: 16, desc: 'Avaliar quais partes do sistema podem migrar para o Supabase, especialmente banco de dados, auth e storage.', size: 'S' },
+      ]},
+    ],
+    footer: 'Gerado a partir de <code>docs/Catapult/Catapult-Migration.md</code> (espelho de <code>Catapult-Migration.xlsx</code>, aba "Stage 1"). Sem dados de progresso/status na fonte — este painel é organizacional (fases + tamanho), não um tracker de execução. Ao editar o plano, atualizar o <code>.md</code> e este <code>.html</code> juntos. Títulos das tarefas traduzidos para exibição; o identificador `#N` mapeia de volta pra planilha fonte.',
+  },
+  en: {
+    titleSuffix: '(migration panel)',
+    intro: 'Visual mirror of <code>Catapult-Migration.xlsx</code> (single "Stage 1" sheet) via <a href="Catapult-Migration.en.md">Catapult-Migration.en.md</a> — 16 tasks organized into 7 phases, S/M/L t-shirt sizing. Source of truth = the spreadsheet.',
+    kpiLabels: { tasks: 'Tasks', phases: 'Phases', sizeMix: 'Size mix', finding: 'Flagged finding (duplicated description, task #6)' },
+    legend: { S: 'Small — one-off effort', M: 'Medium — moderate effort', L: 'Large — high/uncertain effort' },
+    taskCountLabel: (n) => n === 1 ? '1 task' : n + ' tasks',
+    phases: [
+      { title: 'Repository & Version Control', tasks: [
+        { id: 1, desc: 'Centralize the version of the system received into Corporate Github, with an initial structure for branches, permissions, and working conventions.', size: 'S' },
+      ]},
+      { title: 'Discovery & Architecture Analysis', tasks: [
+        { id: 2, desc: 'Use BMAD Brownfield workflow to map the system architecture, identify modules, dependencies, integrations, and installation risks.', size: 'L' },
+        { id: 3, desc: 'Generate an installation plan with execution order, required components, commands, key considerations, and environment prerequisites.', size: 'M' },
+      ]},
+      { title: 'External Dependencies & Access', tasks: [
+        { id: 4, desc: 'Inventory the services, APIs, accounts, and external integrations required for the system to operate correctly.', size: 'S' },
+        { id: 5, desc: 'Gather the tokens, keys, logins, accounts, and permissions for all identified external services.', size: 'S',
+          flag: '⚠️ Security: never commit real credentials — use an appropriate secrets vault' },
+      ]},
+      { title: 'Infrastructure & Base Environment', tasks: [
+        { id: 6, desc: 'Gather the tokens, keys, logins, accounts, and permissions for all identified external services.', size: 'M',
+          flag: '⚠️ Description likely duplicated from #5 (copy/paste error in the source spreadsheet) — review' },
+        { id: 7, desc: 'Install and configure the operating system, web server, PHP, database, extensions, storage, and basic tooling.', size: 'M' },
+        { id: 8, desc: 'Create a separate environment for validation, testing, and fine-tuning before production release.', size: 'S' },
+        { id: 9, desc: 'Restore the database in the staging environment.', size: 'S' },
+      ]},
+      { title: 'Application Installation & Validation', tasks: [
+        { id: 10, desc: 'Bring the application up in the new environment with the minimum configuration required to run.', size: 'L' },
+        { id: 11, desc: 'Test login, permissions, CRUD operations, uploads, jobs, integrations, and other core business flows. Record errors, limitations, required adjustments, and rework points found during validation.', size: 'L' },
+      ]},
+      { title: 'Deployment Automation', tasks: [
+        { id: 12, desc: 'Choose and configure the deployment flow using GitHub Actions, Docker, scripts, or a simple orchestrator.', size: 'S' },
+        { id: 13, desc: 'Implement the automated flow to publish new versions with security and predictable rollback.', size: 'M' },
+      ]},
+      { title: 'Platform Strategy (Lovable / Supabase)', tasks: [
+        { id: 14, desc: 'Decide whether Lovable will be used only as a development tool or also as an editing layer for the internal team.', size: 'S' },
+        { id: 15, desc: 'Evaluate which parts can be decoupled and which should remain in the current backend.', size: 'M' },
+        { id: 16, desc: 'Assess which parts of the system can move to Supabase, especially database, auth, and storage.', size: 'S' },
+      ]},
+    ],
+    footer: 'Generated from <code>docs/Catapult/Catapult-Migration.md</code> (mirror of <code>Catapult-Migration.xlsx</code>, "Stage 1" sheet). No progress/status data in the source — this panel is organizational (phases + size), not an execution tracker. When editing the plan, update the <code>.md</code> and this <code>.html</code> together. Task titles are translated for display; the `#N` identifier maps back to the source spreadsheet.',
+  },
+};
+
+const SIZE_COUNTS = { S: 6, M: 7, L: 3 }; // constant across languages (same source data)
+const TOTAL_TASKS = 16;
+const TOTAL_PHASES = 7;
+
+function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+function render(lang) {
+  const t = I18N[lang];
+  document.documentElement.lang = lang === 'pt' ? 'pt-BR' : 'en';
+  document.title = lang === 'pt' ? 'Catapult — Painel de Migração' : 'Catapult — Migration Panel';
+
+  document.getElementById('t-titleSuffix').textContent = t.titleSuffix;
+  document.getElementById('t-intro').innerHTML = t.intro;
+
+  document.getElementById('kpis').innerHTML = `
+    <div class="kpi"><b>${TOTAL_TASKS}</b><span>${esc(t.kpiLabels.tasks)}</span></div>
+    <div class="kpi"><b>${TOTAL_PHASES}</b><span>${esc(t.kpiLabels.phases)}</span></div>
+    <div class="kpi">
+      <div class="mix"><b>${SIZE_COUNTS.S}</b><span class="size-chip S">S</span>&nbsp;<b>${SIZE_COUNTS.M}</b><span class="size-chip M">M</span>&nbsp;<b>${SIZE_COUNTS.L}</b><span class="size-chip L">L</span></div>
+      <span>${esc(t.kpiLabels.sizeMix)}</span>
+    </div>
+    <div class="kpi"><b>1</b><span>${esc(t.kpiLabels.finding)}</span></div>
+  `;
+
+  document.getElementById('legend').innerHTML = `
+    <span><span class="size-chip S">S</span> ${esc(t.legend.S)}</span>
+    <span><span class="size-chip M">M</span> ${esc(t.legend.M)}</span>
+    <span><span class="size-chip L">L</span> ${esc(t.legend.L)}</span>
+  `;
+
+  document.getElementById('phases').innerHTML = t.phases.map((phase, i) => `
+    <div class="phase">
+      <header>
+        <span class="num">${i + 1}</span>
+        <h2>${esc(phase.title)}</h2>
+        <span class="count">${esc(t.taskCountLabel(phase.tasks.length))}</span>
+      </header>
+      <ol class="tasks">
+        ${phase.tasks.map((task) => `
+          <li class="${task.flag ? 'flag' : ''}">
+            <div class="task-head">
+              <span class="task-title">#${task.id} · ${esc(TASK_TITLES[lang][task.id])}</span>
+              <span class="size-chip ${task.size}">${task.size}</span>
+            </div>
+            <div class="task-desc">${esc(task.desc)}</div>
+            ${task.flag ? `<div class="task-flag">${esc(task.flag)}</div>` : ''}
+          </li>
+        `).join('')}
+      </ol>
+    </div>
+  `).join('');
+
+  document.getElementById('footer').innerHTML = t.footer;
+
+  document.getElementById('btn-pt').classList.toggle('active', lang === 'pt');
+  document.getElementById('btn-en').classList.toggle('active', lang === 'en');
+}
+
+function setLang(lang) {
+  try { localStorage.setItem('catapult-lang', lang); } catch (e) {}
+  render(lang);
+}
+
+function setTheme(theme) {
+  try { localStorage.setItem('catapult-theme', theme); } catch (e) {}
+  applyTheme(theme);
+}
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  document.getElementById('btn-light').classList.toggle('active', theme === 'light');
+  document.getElementById('btn-dark').classList.toggle('active', theme === 'dark');
+}
+
+document.getElementById('btn-pt').addEventListener('click', () => setLang('pt'));
+document.getElementById('btn-en').addEventListener('click', () => setLang('en'));
+document.getElementById('btn-light').addEventListener('click', () => setTheme('light'));
+document.getElementById('btn-dark').addEventListener('click', () => setTheme('dark'));
+
+let initialLang = 'en';
+try {
+  const saved = localStorage.getItem('catapult-lang');
+  if (saved === 'pt' || saved === 'en') initialLang = saved;
+} catch (e) {}
+render(initialLang);
+
+// Default theme is LIGHT — only switch to dark if the viewer explicitly chose it before.
+let initialTheme = 'light';
+try {
+  const savedTheme = localStorage.getItem('catapult-theme');
+  if (savedTheme === 'light' || savedTheme === 'dark') initialTheme = savedTheme;
+} catch (e) {}
+applyTheme(initialTheme);
+</script>
+</body></html>
