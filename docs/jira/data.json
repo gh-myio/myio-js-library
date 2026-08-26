@@ -69,10 +69,51 @@
         "Em Andamento": 2
       },
       "byType": {
-        "História": 38,
         "Tarefa": 464,
-        "Freshdesk": 6,
-        "Bug": 41
+        "Bug": 41,
+        "História": 38,
+        "Freshdesk": 6
+      },
+      "byPriority": {
+        "Medium": 514,
+        "High": 21,
+        "Highest": 9,
+        "Low": 4,
+        "Lowest": 1
+      },
+      "byAssignee": {
+        "Luiz Guilherme Martinho Sampaio Ito": 382,
+        "Rodrigo Lago": 126,
+        "—": 11,
+        "Leandro Gadioli Rodrigues": 9,
+        "Bruno Dantas Costa": 9,
+        "Letícia Camargo": 4,
+        "Bruno Kubudi Cardeman": 3,
+        "Victor Hugo da Silva": 3,
+        "giovani": 2
+      },
+      "byGroup": {
+        "Central / Firmware / HW": 388,
+        "GCDR / Plataforma": 43,
+        "Outros": 23,
+        "Campinas": 16,
+        "Obramax": 13,
+        "Sá Cavalcante": 12,
+        "Relatórios / Dashboard": 11,
+        "Praia da Costa": 8,
+        "Souza Aguiar": 6,
+        "Raiz Educação": 4,
+        "Shopping da Ilha / SDI": 4,
+        "Macaé": 4,
+        "Montserrat": 3,
+        "Supervia": 2,
+        "Mestre Álvaro": 2,
+        "West Plaza": 2,
+        "Moxuara": 2,
+        "Melicidade": 2,
+        "Rio Poty": 2,
+        "Ilha Plaza": 1,
+        "Contagem": 1
       }
     }
   },
