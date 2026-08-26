@@ -9,6 +9,8 @@
 
   These two specs are the algorithmic source of truth this RFC conforms to. Both are marked as drafts with their own open questions (see [Unresolved questions](#unresolved-questions)); this RFC does not attempt to resolve them on GCDR's behalf. **Spec-drift risk:** if either spec's status changes from DRAFT → RATIFIED, or its own "open questions" section is edited, this RFC must be revisited before implementation begins.
 
+  **Revision (2026-08-25):** exactly this happened. GCDR's specs were edited after this RFC's authoring date (PR #34, PR #39, both post-2026-08-17): `BOX=18` was ratified into the type-byte registry, and byte `12` was reconciled to `switch/HIDR`. This RFC has been revised in place to reconcile — see [Design patterns](#design-patterns) (registry), [Validation rules](#validation-rules) (fallback), and [Non-goals](#non-goals) / [Future possibilities](#future-possibilities) (BOX scope) below. The algorithm and test matrix required no changes — only registry contents and scope premises had drifted.
+
 # Summary
 [summary]: #summary
 
@@ -105,7 +107,9 @@ Three patterns, chosen to match the shape of the actual problem (a versioned, du
 1. **Value Object** — `DeviceProductCodeV2` is an immutable object carrying `{ year, month, day, seq3, seq, productType }`. It is the single point of truth; both `formatDeviceProductCode` and `deviceProductCodeToName` are pure projections of it, which is what makes the round-trip invariant (`decode(encode(x)) === x`, both directions) meaningfully testable.
 2. **Strategy (versioned codec)** — a `Codec` interface (`{ version, encode, decode, validate }`) with `V2Codec` as the only implementation today. This exists specifically because the spec itself states the 4-bit year field runs out in 2041 and a v3 will be needed; a `resolveCodec(version?)` entry point means a future `V3Codec` slots into the same contract without a breaking rewrite of every consumer.
 3. **Registry — two distinct ones, not one:**
-   - `productTypeRegistry` — closed, bijective, currently 5 entries (`12=HIDR, 14=REM, 15=3F, 16=TEMP (draft), 17=TANK (draft)`). This is the **only** mapping used by `encode`/`decode`/`format` — it is what makes the code↔name conversion lossless.
+   - `productTypeRegistry` — closed, bijective, currently 6 entries (`12=switch/HIDR, 14=REM, 15=3F, 16=TEMP (draft), 17=TANK (draft), 18=BOX (ratified)`). This is the **only** mapping used by `encode`/`decode`/`format` — it is what makes the code↔name conversion lossless. Two entries need a note beyond the bare number:
+     - `12` — the byte was originally documented as `switch`; GCDR reconciled it to the hydrometer device type. The registry's decodable canonical name **prefix** is `HIDR`; `switch` survives only as the byte's legacy/internal label (GCDR's own generator UI shows it as `12 · switch/HIDR`, and it is worth keeping as a code comment) — it is never emitted as a name prefix by this module.
+     - `18=BOX` — ratified 2026-08-25 (GCDR PR #39; owner confirmed "pode aceitar"). Registered here **only as a type-byte entry** so `decodeDeviceProductCode` and the `T{B4}` fallback correctly recognize `18` as a known, named type (`BOX`) instead of falling through to the generic unknown-type fallback. Parsing/formatting the BOX device *profile* itself (its own fields beyond the shared 4-byte code) remains out of scope — see [Non-goals](#non-goals).
    - `functionalKeywordRegistry` — open, lossy, mirrors the broader keyword vocabulary from `CENTRAL_PRE_SETUP/attributes-sync.js`'s `handleDeviceType()` (e.g. `COMPRESSOR`, `MOTOR`, `ELEVADOR`). It exists for **name formatting/display context only** and is explicitly **not** wired into `decodeDeviceProductCode`/`deviceNameToDeviceProductCode` — a name using a functional-keyword prefix cannot be losslessly converted back to a code without the product-type byte supplied separately (see [Non-goals](#non-goals)). This module mirrors that vocabulary for documentation/consistency purposes; it does not replace or call into `attributes-sync.js`, and `attributes-sync.js` is not modified by this RFC.
 
 ## Proposed file layout
@@ -119,7 +123,7 @@ src/utils/devices/device-product-code/
     v2.ts                         # V2Codec — bit-packing per §1–2 above
     registry.ts                   # CODEC_REGISTRY + resolveCodec(version?)
   registry/
-    productTypeRegistry.ts        # closed, bijective, lossless (12/14/15/16/17 <-> HIDR/REM/3F/TEMP/TANK)
+    productTypeRegistry.ts        # closed, bijective, lossless (12/14/15/16/17/18 <-> HIDR/REM/3F/TEMP/TANK/BOX; 12's legacy label is "switch")
     functionalKeywordRegistry.ts  # open, lossy, mirrored from attributes-sync.js for context only
   name.ts                         # PREFIX YYMMDD-NNNN <-> DeviceProductCodeV2
   errors.ts                       # DeviceProductCodeError, with a typed `reason` discriminant
@@ -135,7 +139,9 @@ src/utils/devices/device-product-code/
 
 ## Draft/unratified registry values
 
-`TEMP=16` and `TANK=17` are marked "proposed" in the source spec, not ratified. `productTypeRegistry` carries them with an explicit `status: 'draft'` marker (or equivalent) and a code comment citing the spec section. This RFC does not block on ratification — blocking would be disproportionate to a two-entry table — but implementations must not present draft entries as equivalent in confidence to the three ratified ones (`HIDR`, `REM`, `3F`).
+`TEMP=16` and `TANK=17` are marked "proposed" in the source spec, not ratified. `productTypeRegistry` carries them with an explicit `status: 'draft'` marker (or equivalent) and a code comment citing the spec section. This RFC does not block on ratification — blocking would be disproportionate to a two-entry table — but implementations must not present draft entries as equivalent in confidence to the four ratified ones (`HIDR`, `REM`, `3F`, `BOX`).
+
+`BOX=18` was itself still "proposed" at this RFC's authoring date (2026-08-17) but was ratified 2026-08-25 (GCDR PR #39, `DEVICE-NAME-SPEC.md` §3a) before implementation began — this is the spec-drift scenario the header block warned about, and this revision reconciles the registry accordingly.
 
 ## Validation rules
 
@@ -145,7 +151,7 @@ Per `DEVICE-NAME-SPEC.md` §5 and `DEVICE-PRODUCT-CODE-NUMBERING.md` §4:
 |---|---|
 | Code shape | 4 dotted decimal bytes, each 0–255 |
 | Name shape | matches `^[A-Z0-9]{2,12} \d{6}-\d{4}$` (space, not hyphen, after prefix) |
-| Prefix | in `productTypeRegistry`, or the `T{B4}` fallback for an unrecognized type byte |
+| Prefix | in `productTypeRegistry` (now includes `18=BOX`), or the `T{B4}` fallback for any other unrecognized type byte |
 | Year | `26`–`41` (2026–2041) |
 | Month | `01`–`12` |
 | Day | `01`–`31` (calendar-impossible dates, e.g. Feb 30, are **not** rejected by the bit-field alone — see [Unresolved questions](#unresolved-questions)) |
@@ -153,6 +159,8 @@ Per `DEVICE-NAME-SPEC.md` §5 and `DEVICE-PRODUCT-CODE-NUMBERING.md` §4:
 | Seq | `1`–`254` (`0` and `255` are reserved) |
 | NNNN (name) | `0001`–`2032` |
 | Round-trip | `decode(encode(x)) === x` and `nameToCode(codeToName(x)) === x` both hold |
+
+**Note on the `T{B4}` fallback:** `DEVICE-PRODUCT-CODE-NUMBERING.md` only states that an unrecognized type byte should be "flagged as unknown" — it does not itself define a `T{B4}`-style fallback prefix format. `T{B4}` is this RFC's own proposed convention for that flagging, not a spec-mandated one; the implementing PR should confirm this against GCDR rather than treat it as fixed. Whatever form is chosen, it **must** exclude `18` now that `BOX` is a registered type — a code with `B4=18` decodes as `BOX`, not `T18`.
 
 Validation failures are surfaced as a typed `DeviceProductCodeError` with a `reason` discriminant (e.g. `'invalid-shape' | 'month-out-of-range' | 'unknown-prefix' | ...`) rather than a generic thrown `Error`, so failure branches are individually assertable in tests.
 
@@ -193,7 +201,7 @@ export type {
 [non-goals]: #non-goals
 
 - **Does not modify, replace, or deprecate `generateDeviceCode()` / `generateMercosulPlate()`.** They solve a different problem (random pre-provisioning placeholder vs. real deterministic factory serial) at a different point in a device's lifecycle.
-- **Does not implement the BOX device profile** (`DEVICE-BOX-PROFILE.md`). That spec is a GCDR database/backend concern (Postgres migration, new `box_id` FK, new API endpoints) with 7 of its own open decisions and no identified frontend consumer — out of scope for a shared frontend library RFC.
+- **Does not implement the BOX device profile's parsing** (`DEVICE-BOX-PROFILE.md`). The backend side of this (Postgres migration, new `box_id` FK, new API endpoints) is no longer a future concern as of this revision — **RFC-0058 has been ratified and its backend is implemented** (GCDR PR #40). What stays out of scope here is specifically the profile's *own* fields/parsing beyond the shared 4-byte product code: this library now recognizes `18=BOX` as a known type byte (see [Design patterns](#design-patterns)) so `decode`/`format` don't misclassify it, but it does not parse or expose BOX-specific profile data. That remains a follow-up once a concrete frontend consumer is identified.
 - **Does not migrate `CENTRAL_PRE_SETUP/attributes-sync.js`** (or any TS rewrite of it) to consume `functionalKeywordRegistry`. That file is a live production pipeline; changing its behavior is a separate, higher-stakes change tracked as a follow-up (see [Future possibilities](#future-possibilities)), not bundled into this RFC.
 - **Does not allocate, persist, or track the daily sequence counter (`seq`/`seq3`).** Those are caller-supplied inputs to `encodeDeviceProductCode`. Sequence allocation is the manufacturing service's responsibility (state that belongs to a backend/database, not this library).
 - **Does not build a rendering/presentation component** (badge, label, autocomplete). No confirmed consumer needs one today (see [Prior art](#prior-art)); if one emerges, it is a thin, separate follow-up built on top of this codec.
@@ -202,7 +210,7 @@ export type {
 [drawbacks]: #drawbacks
 
 - Two separate registries (`productTypeRegistry` vs. `functionalKeywordRegistry`) add conceptual surface for what is, numerically, a small feature (5 + ~15 entries). The alternative — one merged registry — was rejected because it would blur the lossless/lossy distinction that the round-trip guarantee depends on.
-- The module depends on external, still-DRAFT specs in a sibling repo (`gcdr.git`) that are not version-pinned or published as a package. Spec drift is a real, named risk (see header block) with no automated detection today — only the documented process convention of revisiting this RFC on spec status change.
+- The module depends on external, still-DRAFT specs in a sibling repo (`gcdr.git`) that are not version-pinned or published as a package. Spec drift is a real, named risk (see header block) with no automated detection today — only the documented process convention of revisiting this RFC on spec status change. This is not hypothetical — it already happened once, between this RFC's authoring (2026-08-17) and its first review (2026-08-25): GCDR PRs #34/#39 ratified `BOX=18` and reconciled byte `12` to `switch/HIDR`, requiring the registry-section revision above.
 - Introducing a second "device code" concept into the same package, however well-disambiguated, still adds a burden of care for anyone skimming `index.ts`'s export list.
 
 # Rationale and alternatives
@@ -239,4 +247,4 @@ The following are owned by the source specs (`gcdr.git`) or deferred to the impl
 - A **v3 codec** once the 2026–2041 range is exhausted, or sooner if GCDR revises the byte layout — the `Codec`/`resolveCodec` seam exists specifically to make this additive.
 - **Migrating `CENTRAL_PRE_SETUP/attributes-sync.js`** (or a future TypeScript rewrite of it) to consume `functionalKeywordRegistry` from this module instead of its own inline keyword matching — this would close the duplicated-logic gap noted in [Reference-level explanation](#reference-level-explanation), but is a production-pipeline change requiring its own RFC and rollout plan, not bundled here.
 - A **thin presentational layer** (a formatter/badge/label rendering `PREFIX YYMMDD-NNNN · displayName`) built on top of this codec, if and when a concrete UI consumer is identified. No such consumer exists today (see [Non-goals](#non-goals)).
-- **BOX device profile** (`DEVICE-BOX-PROFILE.md`) code/name parsing support, once its own GCDR-side backend RFC (schema, API surface) is ratified and a frontend consumer is identified.
+- **BOX device profile** (`DEVICE-BOX-PROFILE.md`) code/name parsing support — its own fields beyond the shared 4-byte type byte already registered here. The backend side (RFC-0058) is now ratified and implemented (GCDR PR #40), so the remaining blocker is solely a concrete frontend consumer being identified.
