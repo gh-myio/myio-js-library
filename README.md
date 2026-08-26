@@ -67,6 +67,7 @@ devices e OS integrada ao ecossistema).
 - 🏷️ **Classification** — energy entity classification utilities.
 - 🔍 **Data access** — nested object value retrieval with datakey paths.
 - 🔌 **Device status** — comprehensive status calculation and management with `calculateDeviceStatus`.
+- 🏭 **Device product code** — RFC-0230 factory serial (`B1.B2.B3.B4`) ⇄ canonical name (`PREFIX YYMMDD-NNNN`), lossless encode/decode/validate with `encodeDeviceProductCode`/`decodeDeviceProductCode`/`deviceProductCodeToName`.
 - 🎯 **Goals Panel** — consumption goals setup with annual/monthly targets, versioning, and ThingsBoard integration.
 - ⚡ **Dual module support** — ESM and CJS.
 - 🌍 **Browser-ready** — UMD global + CDN link.
