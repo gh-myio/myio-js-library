@@ -2,12 +2,12 @@
   "meta": {
     "project": "ED",
     "jiraBase": "https://myio.atlassian.net",
-    "generatedAt": "2026-08-20",
+    "generatedAt": "2026-08-25",
     "status": "Em Andamento",
     "wipLimit": 1,
     "note": "WIP = tickets com status \"Em Andamento\". Acordo: 1 por pessoa (inclui \"Aguardando Demanda\" quando ocioso)."
   },
-  "total": 6,
+  "total": 7,
   "peopleOver": 1,
   "people": [
     {
@@ -38,6 +38,19 @@
           "type": "Bug",
           "summary": "[BUG] [PRÉ-SETUP] [GCDR] Sistema não emite alerta de duplicidade (IPv6/UUID) ao cadastrar gateway e quebra sincronização com GCDR",
           "updated": "2026-06-22"
+        }
+      ]
+    },
+    {
+      "name": "Victor Hugo da Silva",
+      "count": 1,
+      "over": false,
+      "tickets": [
+        {
+          "key": "ED-1133",
+          "type": "Tarefa",
+          "summary": "[GCDR/AUTH] Implementar RFC-0059 — Auth0 Identity Platform & Grant Service",
+          "updated": "2026-08-20"
         }
       ]
     },

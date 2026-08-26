@@ -4,8 +4,8 @@
     "projectName": "Engineer Dashboard",
     "board": 166,
     "jiraBase": "https://myio.atlassian.net",
-    "generatedAt": "2026-08-20",
-    "today": "2026-08-20",
+    "generatedAt": "2026-08-25",
+    "today": "2026-08-25",
     "source": "Jira Cloud (myio.atlassian.net) via MCP Atlassian"
   },
   "rules": {
@@ -434,7 +434,7 @@
       "complete": "",
       "state": "active",
       "scope": 82,
-      "done": 15,
+      "done": 17,
       "burndown": [
         {
           "date": "2026-07-28",
@@ -555,20 +555,72 @@
           "date": "2026-08-20",
           "remaining": 67,
           "ideal": 0
+        },
+        {
+          "date": "2026-08-21",
+          "remaining": 66,
+          "ideal": 0
+        },
+        {
+          "date": "2026-08-22",
+          "remaining": 66,
+          "ideal": 0
+        },
+        {
+          "date": "2026-08-23",
+          "remaining": 66,
+          "ideal": 0
+        },
+        {
+          "date": "2026-08-24",
+          "remaining": 65,
+          "ideal": 0
         }
       ],
       "span": {
         "start": "2026-07-28",
-        "end": "2026-08-19"
+        "end": "2026-08-24"
       }
     }
   ],
   "defaultPreset": "sprint-596",
   "fullSpan": {
     "start": "2026-05-25",
-    "end": "2026-08-20"
+    "end": "2026-08-24"
   },
   "completions": [
+    {
+      "key": "ED-1019",
+      "summary": "[MET-1] Metas Shopping v5.2.0 — último dia do range vem truncado (TZ)",
+      "assignee": "Letícia Camargo",
+      "type": "Bug",
+      "priority": "Medium",
+      "date": "2026-08-24"
+    },
+    {
+      "key": "ED-177",
+      "summary": "Shopping Geral- Relatório de água não realiza ordenação",
+      "assignee": "Letícia Camargo",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-08-24"
+    },
+    {
+      "key": "ED-284",
+      "summary": "Praia da Costa -Relatório com falta de exibição de algumas lojas",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "High",
+      "date": "2026-08-21"
+    },
+    {
+      "key": "ED-984",
+      "summary": "[BUG] [RFC-0207] Totalização exibe label \"BOMBA HIDRAULICA\" indevidamente",
+      "assignee": "Rodrigo Lago",
+      "type": "Bug",
+      "priority": "Medium",
+      "date": "2026-08-21"
+    },
     {
       "key": "ED-347",
       "summary": "Onboarding Ito",

@@ -11,109 +11,68 @@
       "end": "2026-08-04",
       "state": "active"
     },
-    "generatedAt": "2026-08-20",
+    "generatedAt": "2026-08-25",
     "source": "Jira Cloud (myio.atlassian.net) via MCP Atlassian",
     "scope": "Tickets em aberto (status != Concluído). Backlog exclui épicos e subtarefas."
   },
   "summary": {
-    "sprintOpen": 67,
-    "backlogOpen": 541,
-    "total": 608
+    "sprintOpen": 65,
+    "backlogOpen": 549,
+    "total": 614
   },
   "aggregates": {
     "sprint": {
       "byStatus": {
-        "Itens Novos": 44,
+        "Itens Novos": 42,
         "PENDENTE": 16,
-        "Em Andamento": 4,
-        "EM REVISÃO": 3
+        "EM REVISÃO": 3,
+        "Em Andamento": 4
       },
       "byType": {
         "Tarefa": 36,
-        "Bug": 23,
-        "História": 8
+        "História": 8,
+        "Bug": 21
       },
       "byPriority": {
-        "Medium": 57,
-        "High": 7,
+        "Medium": 55,
         "Highest": 2,
+        "High": 7,
         "Low": 1
       },
       "byAssignee": {
-        "Rodrigo Lago": 41,
         "Luiz Guilherme Martinho Sampaio Ito": 12,
+        "Rodrigo Lago": 39,
         "Victor Hugo da Silva": 12,
         "Letícia Camargo": 1,
         "Andre Abadesso": 1
       },
       "byGroup": {
-        "GCDR / Plataforma": 17,
-        "Outros": 15,
         "Central / Firmware / HW": 14,
-        "BAS": 8,
-        "Relatórios / Dashboard": 3,
-        "Obramax": 3,
+        "GCDR / Plataforma": 17,
         "Melicidade": 2,
+        "Outros": 13,
+        "BAS": 8,
         "Contagem": 1,
+        "Relatórios / Dashboard": 3,
         "Shopping da Ilha / SDI": 1,
         "Moxuara": 1,
         "Capim Dourado": 1,
+        "Obramax": 3,
         "Ilha Plaza": 1
       }
     },
     "backlog": {
       "byStatus": {
-        "Itens Novos": 521,
-        "EM REVISÃO": 10,
+        "Itens Novos": 529,
+        "EM REVISÃO": 9,
         "PENDENTE": 9,
-        "Em Andamento": 1
+        "Em Andamento": 2
       },
       "byType": {
-        "Tarefa": 457,
-        "Bug": 40,
         "História": 38,
-        "Freshdesk": 6
-      },
-      "byPriority": {
-        "Medium": 506,
-        "High": 21,
-        "Highest": 9,
-        "Low": 4,
-        "Lowest": 1
-      },
-      "byAssignee": {
-        "Luiz Guilherme Martinho Sampaio Ito": 380,
-        "Rodrigo Lago": 121,
-        "—": 11,
-        "Leandro Gadioli Rodrigues": 9,
-        "Bruno Dantas Costa": 9,
-        "Letícia Camargo": 4,
-        "Bruno Kubudi Cardeman": 3,
-        "giovani": 2,
-        "Victor Hugo da Silva": 2
-      },
-      "byGroup": {
-        "Central / Firmware / HW": 386,
-        "GCDR / Plataforma": 36,
-        "Outros": 23,
-        "Campinas": 16,
-        "Obramax": 13,
-        "Relatórios / Dashboard": 12,
-        "Sá Cavalcante": 12,
-        "Praia da Costa": 9,
-        "Souza Aguiar": 6,
-        "Raiz Educação": 4,
-        "Shopping da Ilha / SDI": 4,
-        "Macaé": 4,
-        "Montserrat": 3,
-        "Supervia": 2,
-        "Mestre Álvaro": 2,
-        "West Plaza": 2,
-        "Moxuara": 2,
-        "Rio Poty": 2,
-        "Ilha Plaza": 1,
-        "Melicidade": 1,
-        "Contagem": 1
+        "Tarefa": 464,
+        "Freshdesk": 6,
+        "Bug": 41
       }
     }
   },
@@ -509,19 +468,6 @@
       "kind": "other"
     },
     {
-      "key": "ED-984",
-      "summary": "[BUG] [RFC-0207] Totalização exibe label \"BOMBA HIDRAULICA\" indevidamente",
-      "type": "Bug",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-07-28",
-      "group": "Outros",
-      "kind": "other"
-    },
-    {
       "key": "ED-999",
       "summary": "Testar RFC-0051 — Grupo de OS (hierarquia pai/filhas de Work Orders no GCDR)",
       "type": "Tarefa",
@@ -655,19 +601,6 @@
       "key": "ED-1018",
       "summary": "[UI-2] Auditoria de propagação da paleta (dark/light) em todos os módulos — Shopping",
       "type": "Tarefa",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-07-28",
-      "group": "Outros",
-      "kind": "other"
-    },
-    {
-      "key": "ED-1019",
-      "summary": "[MET-1] Metas Shopping v5.2.0 — último dia do range vem truncado (TZ)",
-      "type": "Bug",
       "sub": false,
       "status": "Itens Novos",
       "cat": "new",
@@ -1421,19 +1354,6 @@
       "kind": "unit"
     },
     {
-      "key": "ED-177",
-      "summary": "Shopping Geral- Relatório de água não realiza ordenação",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "EM REVISÃO",
-      "cat": "indeterminate",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-05-04",
-      "group": "Relatórios / Dashboard",
-      "kind": "theme"
-    },
-    {
       "key": "ED-188",
       "summary": "Cliente Campinas Shopping- Envio de notificação de alarme (Area Comum de água)",
       "type": "Freshdesk",
@@ -1678,19 +1598,6 @@
       "assignee": "Rodrigo Lago",
       "updated": "2025-11-19",
       "group": "West Plaza",
-      "kind": "unit"
-    },
-    {
-      "key": "ED-284",
-      "summary": "Praia da Costa -Relatório com falta de exibição de algumas lojas",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "High",
-      "assignee": "Rodrigo Lago",
-      "updated": "2025-12-23",
-      "group": "Praia da Costa",
       "kind": "unit"
     },
     {
@@ -8023,6 +7930,136 @@
       "updated": "2026-08-20",
       "group": "Moxuara",
       "kind": "unit"
+    },
+    {
+      "key": "ED-1129",
+      "summary": "[GCDR/GAP] Gap analysis via múltiplas regras NO_CONSUMPTION + regras de exclusão + LOCF no ingestion",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-08-20",
+      "group": "GCDR / Plataforma",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1130",
+      "summary": "[CENTRAL/MESH] Algoritmo de gestão da mesh para reduzir colisões / perda de pacotes",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+      "updated": "2026-08-20",
+      "group": "Central / Firmware / HW",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1131",
+      "summary": "[CENTRAL] Detecção preditiva de falha do medidor 3F (anomalia antes da parada total)",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+      "updated": "2026-08-20",
+      "group": "Central / Firmware / HW",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1132",
+      "summary": "[GCDR] Alarme/Incidente → geração automática de Ordem de Serviço (O.S.)",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-08-20",
+      "group": "GCDR / Plataforma",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1133",
+      "summary": "[GCDR/AUTH] Implementar RFC-0059 — Auth0 Identity Platform & Grant Service",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Em Andamento",
+      "cat": "indeterminate",
+      "priority": "High",
+      "assignee": "Victor Hugo da Silva",
+      "updated": "2026-08-20",
+      "group": "GCDR / Plataforma",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1141",
+      "summary": "RFC-0057 DEC-14: Backfill de config TB SERVER_SCOPE → GCDR customers.config",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-08-24",
+      "group": "GCDR / Plataforma",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1142",
+      "summary": "RFC-0057: Provisionar policy:customer-secrets no RBAC de produção",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-08-24",
+      "group": "GCDR / Plataforma",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1143",
+      "summary": "RFC-0057: Reconciliar doc (DEC-15 vs código) + fechar unresolved questions",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-08-24",
+      "group": "GCDR / Plataforma",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1144",
+      "summary": "RFC-0229 (frontend): consumir GCDR customer config (featureButtons + dual-read no cutover)",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-08-24",
+      "group": "GCDR / Plataforma",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1145",
+      "summary": "Melicidade- Menu lateral de água sem carregamento",
+      "type": "Bug",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-08-25",
+      "group": "Melicidade",
+      "kind": "theme"
     }
   ]
 }
