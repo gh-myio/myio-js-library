@@ -39,17 +39,17 @@ This is a **documentation-only RFC**. No component code, tests, or `src/index.ts
 // Encode fields (manufacture date, daily sequence, product type) into a code.
 // The daily sequence itself is caller-supplied — this module does not allocate
 // or persist counters; that is the manufacturing service's responsibility.
-encodeDeviceProductCode(fields: DeviceProductCodeFieldsV2): DeviceProductCodeV2
+encodeDeviceProductCode(fields: DeviceProductCodeFields): DeviceProductCode
 
 // Parse a "B1.B2.B3.B4" string into a validated value object.
-decodeDeviceProductCode(code: string): DeviceProductCodeV2
+decodeDeviceProductCode(code: string): DeviceProductCode
 
 // Serialize back to the dotted "B1.B2.B3.B4" string.
-formatDeviceProductCode(value: DeviceProductCodeV2): string
+formatDeviceProductCode(value: DeviceProductCode): string
 
 // Convert to/from the canonical human-readable name, "PREFIX YYMMDD-NNNN".
-deviceProductCodeToName(value: DeviceProductCodeV2): string
-deviceNameToDeviceProductCode(name: string): DeviceProductCodeV2
+deviceProductCodeToName(value: DeviceProductCode): string
+deviceNameToDeviceProductCode(name: string): DeviceProductCode
 
 // Standalone validators — independently exported so validation logic is
 // unit-testable (and its branch coverage measurable) without going through
@@ -78,7 +78,7 @@ deviceNameToDeviceProductCode('3F 270102-0025');
 | Nature | Random, non-deterministic | Deterministic — derived from real manufacture date + sequence |
 | Decodable? | No — opaque placeholder | Yes — losslessly round-trips to its source fields |
 | Used for | Pre-provisioning placeholder, before a real device exists | Real factory-assigned serial, once a device is manufactured |
-| Exported names | `generateDeviceCode`, `generateMercosulPlate` | `encodeDeviceProductCode`, `decodeDeviceProductCode`, `DeviceProductCodeV2`, … (never bare `DeviceCode`) |
+| Exported names | `generateDeviceCode`, `generateMercosulPlate` | `encodeDeviceProductCode`, `decodeDeviceProductCode`, `DeviceProductCode`, … (never bare `DeviceCode`) |
 
 The legacy `generateDeviceCode` JSDoc gains an `@see` pointer to this new module once it exists, so it surfaces via editor autocomplete. No behavior of the legacy function changes.
 
@@ -104,7 +104,7 @@ The canonical name (`DEVICE-NAME-SPEC.md` §1–2) is `PREFIX YYMMDD-NNNN` — *
 
 Three patterns, chosen to match the shape of the actual problem (a versioned, dual-serialization Value Object with an evolving type registry) rather than added for their own sake:
 
-1. **Value Object** — `DeviceProductCodeV2` is an immutable object carrying `{ year, month, day, seq3, seq, productType }`. It is the single point of truth; both `formatDeviceProductCode` and `deviceProductCodeToName` are pure projections of it, which is what makes the round-trip invariant (`decode(encode(x)) === x`, both directions) meaningfully testable.
+1. **Value Object** — `DeviceProductCode` is an immutable object carrying `{ year, month, day, seq3, seq, productType }`. It is the single point of truth; both `formatDeviceProductCode` and `deviceProductCodeToName` are pure projections of it, which is what makes the round-trip invariant (`decode(encode(x)) === x`, both directions) meaningfully testable.
 2. **Strategy (versioned codec)** — a `Codec` interface (`{ version, encode, decode, validate }`) with `V2Codec` as the only implementation today. This exists specifically because the spec itself states the 4-bit year field runs out in 2041 and a v3 will be needed; a `resolveCodec(version?)` entry point means a future `V3Codec` slots into the same contract without a breaking rewrite of every consumer.
 3. **Registry — two distinct ones, not one:**
    - `productTypeRegistry` — closed, bijective, currently 6 entries (`12=switch/HIDR, 14=REM, 15=3F, 16=TEMP (draft), 17=TANK (draft), 18=BOX (ratified)`). This is the **only** mapping used by `encode`/`decode`/`format` — it is what makes the code↔name conversion lossless. Two entries need a note beyond the bare number:
@@ -117,7 +117,7 @@ Three patterns, chosen to match the shape of the actual problem (a versioned, du
 ```
 src/utils/devices/device-product-code/
   index.ts                        # public facade — this is what src/index.ts re-exports
-  types.ts                        # DeviceProductCodeV2, DeviceProductCodeFieldsV2, error/result types
+  types.ts                        # DeviceProductCode, DeviceProductCodeFields, error/result types
   codecs/
     codec.ts                      # Codec interface
     v2.ts                         # V2Codec — bit-packing per §1–2 above
@@ -125,7 +125,7 @@ src/utils/devices/device-product-code/
   registry/
     productTypeRegistry.ts        # closed, bijective, lossless (12/14/15/16/17/18 <-> HIDR/REM/3F/TEMP/TANK/BOX; 12's legacy label is "switch")
     functionalKeywordRegistry.ts  # open, lossy, mirrored from attributes-sync.js for context only
-  name.ts                         # PREFIX YYMMDD-NNNN <-> DeviceProductCodeV2
+  name.ts                         # PREFIX YYMMDD-NNNN <-> DeviceProductCode
   errors.ts                       # DeviceProductCodeError, with a typed `reason` discriminant
 ```
 
@@ -160,7 +160,7 @@ Per `DEVICE-NAME-SPEC.md` §5 and `DEVICE-PRODUCT-CODE-NUMBERING.md` §4:
 | NNNN (name) | `0001`–`2032` |
 | Round-trip | `decode(encode(x)) === x` and `nameToCode(codeToName(x)) === x` both hold |
 
-**Note on the `T{B4}` fallback:** `DEVICE-PRODUCT-CODE-NUMBERING.md` only states that an unrecognized type byte should be "flagged as unknown" — it does not itself define a `T{B4}`-style fallback prefix format. `T{B4}` is this RFC's own proposed convention for that flagging, not a spec-mandated one; the implementing PR should confirm this against GCDR rather than treat it as fixed. Whatever form is chosen, it **must** exclude `18` now that `BOX` is a registered type — a code with `B4=18` decodes as `BOX`, not `T18`.
+**Note on the `T{B4}` fallback (corrected 2026-08-26):** an earlier revision of this note claimed `T{B4}` was this RFC's own invention, not spec-mandated — that was wrong, and is corrected here after reading the spec source directly. `DEVICE-NAME-SPEC.md` §4's reference implementation defines it explicitly (`` const prefix = PREFIX_BY_BYTE[b4] ?? `T${b4}`; // unknown type -> Tnn fallback ``), and §5 rule 2 states it as a validation rule ("`PREFIX` is in the registry (§3) — or accept the `T{B4}` fallback for unknown types"). `DEVICE-PRODUCT-CODE-NUMBERING.md` §"open questions" only mentions "flag unknown for other future types" in passing — that's the numbering doc being silent, not the name spec being silent; the two specs must be read together. `T{B4}` is therefore spec-mandated, not an RFC invention. It **must** exclude `18` now that `BOX` is a registered type — a code with `B4=18` decodes as `BOX`, not `T18`.
 
 Validation failures are surfaced as a typed `DeviceProductCodeError` with a `reason` discriminant (e.g. `'invalid-shape' | 'month-out-of-range' | 'unknown-prefix' | ...`) rather than a generic thrown `Error`, so failure branches are individually assertable in tests.
 
@@ -191,8 +191,8 @@ export {
   validateDeviceProductName,
 } from './utils/devices/device-product-code';
 export type {
-  DeviceProductCodeV2,
-  DeviceProductCodeFieldsV2,
+  DeviceProductCode,
+  DeviceProductCodeFields,
   DeviceProductCodeValidationResult,
 } from './utils/devices/device-product-code';
 ```
