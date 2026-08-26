@@ -1,18 +1,18 @@
 # Cockpit Jira — ED (Sprint 19 + Backlog)
 
-Dashboards estáticos gerados a partir do Jira Cloud (`myio.atlassian.net`, projeto **ED / Engineer Dashboard**, board **166**), via MCP Atlassian. **Snapshot: 25/08/2026.**
+Dashboards estáticos gerados a partir do Jira Cloud (`myio.atlassian.net`, projeto **ED / Engineer Dashboard**, board **166**), via MCP Atlassian. **Snapshot: 26/08/2026.**
 
 ## Arquivos
 
 | Arquivo | Descrição |
 |---|---|
-| `index.html` | **Cockpit do backlog** — KPIs, charts, cartão de WIP e grid filtrável (549 backlog + 65 da Sprint 19). |
+| `index.html` | **Cockpit do backlog** — KPIs, charts, cartão de WIP e grid filtrável (567 backlog + 57 da Sprint 19). Escopo: Tarefa + Subtarefa + Bug (sem Épico, sem História/Story). |
 | `performance.html` | **Performance & Burndown** — burndown por sprint, conclusões/dia, heatmap e ranking de aderência, seletor de período, export PDF. |
 | `processo.html` | **Modelo de Trabalho** — acordos de processo + fluxo de revisão (DEV→QA, PR) + nomenclatura de branches. |
 | `data.json` | Dados estruturados do cockpit (sprint + backlog + agregados). Consumido por `index.html`. |
 | `metrics.json` | Métricas temporais (sprints 15–19, burndown, 152 conclusões p/ throughput por período). Consumido por `performance.html` e `processo.html`. |
 | `wip.json` | Snapshot de WIP (tickets `Em Andamento` por pessoa). Consumido pelo cartão WIP do cockpit. |
-| `ED-sprint19-backlog-2026-08-25.md` | Relatório textual atual (tabelas agrupadas por unidade/tema). Snapshots anteriores (`2026-07-28`, `2026-08-20`, `2026-08-24`) mantidos como histórico. |
+| `ED-sprint19-backlog-2026-08-25.md` | Relatório textual (tabelas agrupadas por unidade/tema) — **desatualizado**: ainda reflete o escopo antigo (Tarefa+História+Bug+Freshdesk). Snapshots anteriores (`2026-07-28`, `2026-08-20`, `2026-08-24`) mantidos como histórico. |
 | `PROCESSO.md` | Acordos de processo do time (WIP=1, vazão 1/4/dia, teto 16, tarefa mín. 0,5h) + fluxos e branches. |
 | `start-server.*` / `stop-server.*` | Sobem/derrubam um servidor estático local na porta **3340**. |
 
@@ -43,9 +43,11 @@ start-server.bat        # abre http://localhost:3340/docs/jira/
 
 ## Escopo dos dados
 
-- **Backlog (cockpit):** `project = ED`, fora de sprint aberta, `statusCategory != Done`, **excluindo épicos e subtarefas** (containers) — reflete a lista de trabalho do board.
-- **Sprint 19:** `sprint = 596` (ainda **active** no Jira em 25/08/2026, apesar da janela planejada 28/07 → 04/08/2026 já ter passado — o time não fechou formalmente a sprint). Sprints anteriores 15–18 fechadas; ao fechar, itens incompletos migram para a próxima sprint, então o escopo visível de sprint fechada ≈ o que foi concluído.
+- **Tipos contados:** Tarefa/Task, Subtarefa/Subtask e Bug. **Excluídos:** Épico e História/Story (decisão de 26/08/2026 — antes o escopo incluía História e excluía Subtarefa; ver histórico do repo).
+- **Backlog (cockpit):** `project = ED`, fora de sprint aberta, `statusCategory != Done`, tipos acima.
+- **Sprint 19:** `sprint = 596` (ainda **active** no Jira em 26/08/2026, apesar da janela planejada 28/07 → 04/08/2026 já ter passado — o time não fechou formalmente a sprint). Sprints anteriores 15–18 fechadas; ao fechar, itens incompletos migram para a próxima sprint, então o escopo visível de sprint fechada ≈ o que foi concluído.
+- **Subtarefas:** herdam o `group`/tema do ticket pai quando o conteúdo da subtarefa não indica algo mais específico (ex.: subtarefa citando um shopping/cliente pelo nome vai para o grupo daquele cliente, mesmo que o pai seja um container genérico).
 
 ## Regenerar
 
-Os JSONs foram gerados a partir de consultas JQL via MCP Atlassian (paginadas em `searchJiraIssuesUsingJql`). Para atualizar, refaça as consultas e reprocesse — os scripts de geração ficaram no scratchpad da sessão. Snapshot atual: **25/08/2026**.
+Os JSONs foram gerados a partir de consultas JQL via MCP Atlassian (paginadas em `searchJiraIssuesUsingJql`). Para atualizar, refaça as consultas e reprocesse — os scripts de geração ficaram no scratchpad da sessão. Snapshot atual: **26/08/2026**.
