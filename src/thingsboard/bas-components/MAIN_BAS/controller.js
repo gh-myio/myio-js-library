@@ -3288,6 +3288,132 @@ function basOpenDeviceReport(device, _settings) {
 }
 
 /**
+ * Escape a string for safe insertion into HTML markup.
+ */
+function escapeHtml(value) {
+  return String(value == null ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
+ * "Água" sidebar item summary modal.
+ * (006)-Água is not a physical ASSET_AMBIENT room (no climate/energy hierarchy),
+ * so it can't reuse the Deck-style ambiente modal. Instead, show a dedicated
+ * summary built from the same water devices as #bas-water-host, with rows that
+ * route to the exact same per-device modals the water panel cards use.
+ * @param {Object} settings - Widget settings
+ */
+function openWaterSummaryModal(settings) {
+  traceClick('openWaterSummaryModal ENTER', { available: !!MyIOLibrary.openGenericModal });
+  if (!MyIOLibrary.openGenericModal) {
+    LogHelper.warn('[MAIN_BAS] MyIOLibrary.openGenericModal not available');
+    return;
+  }
+
+  var waterDevices = getWaterDevicesFromClassified(_currentClassified);
+
+  var TYPE_META = {
+    hydrometer: { icon: '💧', label: 'Hidrômetro' },
+    tank: { icon: '🛢️', label: "Caixa d'Água" },
+    cistern: { icon: '🛢️', label: "Caixa d'Água" },
+    caixa: { icon: '🛢️', label: "Caixa d'Água" },
+    solenoid: { icon: '🚰', label: 'Solenoide' },
+  };
+
+  var onlineCount = 0;
+  var offlineCount = 0;
+
+  var rowsHtml = waterDevices
+    .map(function (device) {
+      var meta = TYPE_META[device.type] || { icon: '📱', label: 'Dispositivo' };
+      var statusKey = String(device.status || '').toLowerCase();
+      var normalizedStatus = WATER_STATUS_MAP[statusKey] || 'no_info';
+      if (normalizedStatus === 'online') onlineCount++;
+      else if (normalizedStatus === 'offline') offlineCount++;
+
+      var statusLabel =
+        normalizedStatus === 'online' ? 'Online' :
+        normalizedStatus === 'offline' ? 'Offline' :
+        normalizedStatus === 'alert' ? 'Alerta' : 'Sem info';
+      var statusColor =
+        normalizedStatus === 'online' ? '#16a34a' :
+        normalizedStatus === 'offline' ? '#dc2626' :
+        normalizedStatus === 'alert' ? '#d97706' : '#9ca3af';
+
+      var name = device.name || device.label || meta.label;
+
+      return (
+        '<button type="button" class="myio-water-summary__row" data-device-id="' +
+        escapeHtml(device.id) +
+        '">' +
+        '<span class="myio-water-summary__row-icon">' + meta.icon + '</span>' +
+        '<span class="myio-water-summary__row-body">' +
+        '<span class="myio-water-summary__row-name">' + escapeHtml(name) + '</span>' +
+        '<span class="myio-water-summary__row-type">' + escapeHtml(meta.label) + '</span>' +
+        '</span>' +
+        '<span class="myio-water-summary__row-status" style="color:' + statusColor + '">● ' + statusLabel + '</span>' +
+        '</button>'
+      );
+    })
+    .join('');
+
+  var bodyHtml =
+    '<style>' +
+    '.myio-water-summary__stats{display:flex;gap:12px;margin-bottom:16px;}' +
+    '.myio-water-summary__stat{flex:1;text-align:center;padding:10px 8px;border-radius:8px;background:rgba(47,136,80,0.08);}' +
+    '.myio-water-summary__stat-value{font-size:22px;font-weight:700;line-height:1.2;}' +
+    '.myio-water-summary__stat-label{font-size:11px;text-transform:uppercase;letter-spacing:0.4px;color:#6b7280;}' +
+    '.myio-water-summary__list{display:flex;flex-direction:column;gap:6px;}' +
+    '.myio-water-summary__row{display:flex;align-items:center;gap:10px;width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;cursor:pointer;font-family:inherit;text-align:left;}' +
+    '.myio-water-summary__row:hover{background:#f9fafb;border-color:#d1d5db;}' +
+    '.myio-water-summary__row-icon{font-size:18px;}' +
+    '.myio-water-summary__row-body{flex:1;display:flex;flex-direction:column;min-width:0;}' +
+    '.myio-water-summary__row-name{font-weight:600;font-size:14px;color:#1f2937;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}' +
+    '.myio-water-summary__row-type{font-size:12px;color:#6b7280;}' +
+    '.myio-water-summary__row-status{font-size:12px;font-weight:600;white-space:nowrap;}' +
+    '.myio-water-summary__empty{text-align:center;color:#6b7280;padding:24px 0;}' +
+    '</style>' +
+    '<div class="myio-water-summary">' +
+    '<div class="myio-water-summary__stats">' +
+    '<div class="myio-water-summary__stat"><div class="myio-water-summary__stat-value">' + waterDevices.length + '</div><div class="myio-water-summary__stat-label">Dispositivos</div></div>' +
+    '<div class="myio-water-summary__stat"><div class="myio-water-summary__stat-value" style="color:#16a34a">' + onlineCount + '</div><div class="myio-water-summary__stat-label">Online</div></div>' +
+    '<div class="myio-water-summary__stat"><div class="myio-water-summary__stat-value" style="color:#dc2626">' + offlineCount + '</div><div class="myio-water-summary__stat-label">Offline</div></div>' +
+    '</div>' +
+    '<div class="myio-water-summary__list">' +
+    (rowsHtml || '<div class="myio-water-summary__empty">Nenhum dispositivo de água encontrado</div>') +
+    '</div>' +
+    '</div>';
+
+  var modal = MyIOLibrary.openGenericModal({
+    title: 'Água',
+    icon: '💧',
+    bodyHtml: bodyHtml,
+    theme: (settings && settings.themeMode) || 'light',
+    width: 480,
+    onClose: function () {
+      LogHelper.log('[MAIN_BAS] Água summary modal closed');
+    },
+  });
+
+  modal.getBodyEl().querySelectorAll('[data-device-id]').forEach(function (rowEl) {
+    rowEl.addEventListener('click', function () {
+      var deviceId = rowEl.getAttribute('data-device-id');
+      var device = waterDevices.find(function (d) {
+        return String(d.id) === deviceId;
+      });
+      if (!device) return;
+      traceClick('Água summary row click', clickSummary(device));
+      modal.close();
+      basRouteWaterClick({ source: device, entityObject: waterDeviceToEntityObject(device) }, settings);
+    });
+  });
+}
+
+/**
  * RFC-0172: Open BAS Water Modal for HIDROMETRO devices
  * Shows water telemetry (m3, pulses = liters)
  * @param {Object} device - Device data from classified
@@ -4598,6 +4724,10 @@ function handleSidebarMenuNavigation(itemId, item) {
       if (_sidebarMenu) _sidebarMenu.setActiveItem('dashboard');
       break;
 
+    // NOTE: 'water'/'settings' below are unreachable from the current sidebar
+    // menu — Água/Configuração now arrive here as 'ambiente:<assetId>' and are
+    // special-cased in handleAmbienteSelection() instead. Left in place in case
+    // the menu is ever restructured back to fixed RFC-0173 items.
     case 'water':
       scrollToElement('bas-water-host');
       break;
@@ -4668,6 +4798,31 @@ function handleAmbienteSelection(ambienteId, item) {
           }
         },
       });
+    }
+    return;
+  }
+
+  // "(006)-Água" is not a physical ASSET_AMBIENT room — it has no climate/energy
+  // hierarchy, so the generic ambiente modal would open empty. Show a dedicated
+  // water summary modal instead, built from the same devices as #bas-water-host.
+  if (originalLabel === '(006)-Água') {
+    LogHelper.log('[MAIN_BAS] Opening Água summary modal');
+    openWaterSummaryModal(_settings);
+    return;
+  }
+
+  // "(007)-Configuração" has no settings feature implemented yet in this
+  // dashboard — show a placeholder instead of silently doing nothing.
+  if (originalLabel === '(007)-Configuração') {
+    LogHelper.log('[MAIN_BAS] Opening Configuração placeholder');
+    if (MyIOLibrary.openMessageDialog) {
+      MyIOLibrary.openMessageDialog({
+        title: 'Configurações',
+        message: 'Em breve: mais opções de configuração estarão disponíveis aqui.',
+        severity: 'info',
+      });
+    } else {
+      LogHelper.warn('[MAIN_BAS] MyIOLibrary.openMessageDialog not available');
     }
     return;
   }
