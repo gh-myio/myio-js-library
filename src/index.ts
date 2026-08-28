@@ -347,6 +347,16 @@ export {
   extractMyIOCredentials,
   type ThingsboardCustomerAttrsConfig,
 } from './services/thingsboard/fetchThingsboardCustomerServerScopeAttrs';
+export {
+  CustomerConfigApiClient,
+  CustomerConfigApiError,
+  createCustomerConfigApiClient,
+  loadCustomerConfig,
+  type CustomerAlarmsConfig,
+  type CustomerConfigReadModel,
+  type CustomerConfigApiClientConfig,
+  type LoadCustomerConfigParams,
+} from './services/gcdr/customerConfigApiClient';
 // export {
 //   getEntityInfoAndAttributesTB,
 //   type TBFetchOptions,

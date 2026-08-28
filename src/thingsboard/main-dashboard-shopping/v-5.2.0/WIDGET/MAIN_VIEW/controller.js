@@ -2325,6 +2325,26 @@ Object.assign(window.MyIOUtils, {
             gcdrApiKey = attrs?.gcdrApiKey || '';
             // RFC-0193: read alarm notifications toggle from SERVER_SCOPE (undefined → enabled)
             alarmNotificationsEnabled = attrs?.alarmNotificationsEnabled !== false;
+            // ED-1149 / RFC-0229 §3.4: dual-read — try GCDR customer-config first, keep the
+            // TB value above as fallback. Only attempted when this customer already has GCDR
+            // bootstrap creds (gcdrCustomerId + gcdrApiKey, both from the same attrs fetch);
+            // customers without them are untouched — pure TB path, no GCDR call at all.
+            // loadCustomerConfig() never throws (fail-open) — no try/catch needed here.
+            if (gcdrCustomerId && gcdrApiKey) {
+              const gcdrCfg = await MyIO.loadCustomerConfig({
+                baseUrl: gcdrApiBaseUrl,
+                customerId: gcdrCustomerId,
+                apiKey: gcdrApiKey,
+                tenantId: gcdrTenantId,
+              });
+              if (typeof gcdrCfg?.alarms?.notificationsEnabled === 'boolean') {
+                alarmNotificationsEnabled = gcdrCfg.alarms.notificationsEnabled;
+                LogHelper.log(
+                  '[MAIN_VIEW] alarmNotificationsEnabled resolved from GCDR config:',
+                  alarmNotificationsEnabled
+                );
+              }
+            }
             // RFC-0194: customer default dashboard config (full object stored for management UI)
             defaultDashboardCfg = attrs?.customerDefaultDashboard || null;
             // Customer feature flag: Pico de Demanda / Telemetrias Instantâneas buttons
