@@ -399,22 +399,14 @@
   <div class="cutoff-modal-backdrop" *ngIf="isDataCutoffModal" (click)="closeDataCutoffModal()">
     <div class="cutoff-modal" (click)="$event.stopPropagation()">
       <div class="cutoff-modal-icon">
-        <i class="fa-solid fa-clock-rotate-left"></i>
+        <i class="fa-solid fa-triangle-exclamation"></i>
       </div>
-      <span class="cutoff-modal-badge">Período fora de consulta</span>
-      <h3 class="cutoff-modal-title">Dados anteriores a {{ exportCutoffDateLabel }} não podem ser exportados</h3>
+      <h3 class="cutoff-modal-title">Período fora de consulta</h3>
       <p class="cutoff-modal-message">
-        Entre 28/03 e 01/04/2026 os sensores desta central passaram por
-        <strong>troca física e recalibração</strong>. Depois dessa manutenção, o
-        histórico anterior deixou de estar associado ao sensor atual — a
-        exportação de um período que comece antes de {{ exportCutoffDateLabel }}
-        traria valores que não refletem a leitura real registrada na época.
+        Sensores foram trocados e recalibrados entre 28/03 e 01/04/2026.
+        Dados anteriores a {{ exportCutoffDateLabel }} não são mais confiáveis
+        — selecione um período a partir dessa data.
       </p>
-      <ul class="cutoff-modal-list">
-        <li><i class="fa-solid fa-microchip"></i> Sensores substituídos e recalibrados em 28/03–01/04/2026</li>
-        <li><i class="fa-solid fa-database"></i> Vínculo com o histórico anterior à troca não é mais confiável</li>
-        <li><i class="fa-solid fa-file-shield"></i> Ajuste o período inicial para {{ exportCutoffDateLabel }} ou depois</li>
-      </ul>
       <button class="cutoff-modal-close-btn" (click)="closeDataCutoffModal()">Entendido</button>
     </div>
   </div>

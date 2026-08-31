@@ -88,8 +88,9 @@ const LOADING_STATES = {
 // Sensores da central "Souza Aguiar CO2" foram trocados/recalibrados entre
 // 28/03 e 01/04/2026 — o histórico anterior a essa janela não é mais
 // recuperável via consulta ao vivo (nome do device hoje aponta pro sensor
-// novo, sem o dado antigo). Exportação de período anterior é bloqueada.
-const EXPORT_DATA_CUTOFF = new Date('2026-04-03T00:00:00');
+// novo, sem o dado antigo). Consulta/carregamento e exportação de período
+// anterior a esse corte são bloqueados.
+const DATA_CUTOFF_DATE = new Date('2026-04-03T00:00:00');
 
 let startDate = null,
   endDate = null;
@@ -1233,7 +1234,7 @@ async function _loadJSZip() {
 }
 
 async function _exportZIP() {
-  if (!_ensureExportDateAllowed()) return;
+  if (!_ensureReportDateAllowed()) return;
   const d = _buildExportData();
   if (!d.length) {
     openErrorModal('Sem dados', 'Não há dados para exportar no ZIP.');
@@ -2325,6 +2326,7 @@ function applyDateRange() {
     openErrorModal('Período não selecionado', 'Selecione as datas de início e fim para gerar o relatório.');
     return;
   }
+  if (!_ensureReportDateAllowed()) return;
   const selectedDevices = getSelectedDevices();
   if (selectedDevices.length === 0) {
     openErrorModal('Nenhum ambiente', 'Selecione ao menos um ambiente para gerar o relatório.');
@@ -2379,11 +2381,12 @@ function closeDataCutoffModal() {
   self.ctx.detectChanges();
 }
 
-// Devolve true se o período selecionado pode ser exportado. Se o início do
-// período for anterior ao corte de sensores (03/04/2026), abre o modal de
-// aviso e devolve false — quem chamar deve interromper a exportação.
-function _ensureExportDateAllowed() {
-  if (startDate && new Date(startDate) < EXPORT_DATA_CUTOFF) {
+// Devolve true se o período selecionado pode ser consultado/exportado. Se o
+// início do período for anterior ao corte de sensores (03/04/2026), abre o
+// modal de aviso e devolve false — quem chamar deve interromper a ação
+// (carregamento de dados ou exportação).
+function _ensureReportDateAllowed() {
+  if (startDate && new Date(startDate) < DATA_CUTOFF_DATE) {
     openDataCutoffModal();
     return false;
   }
@@ -2554,29 +2557,29 @@ self.onInit = function () {
 
   // Bindings de export
   self.ctx.$scope.downloadPDF = () => {
-    if (!_ensureExportDateAllowed()) return;
+    if (!_ensureReportDateAllowed()) return;
     const d = _buildExportData();
     d.length ? exportToPDF(d) : openErrorModal('Sem dados', 'Não há dados para exportar.');
   };
   self.ctx.$scope.downloadCSV = () => {
-    if (!_ensureExportDateAllowed()) return;
+    if (!_ensureReportDateAllowed()) return;
     const d = _buildExportData();
     d.length ? exportToCSV(d) : openErrorModal('Sem dados', 'Não há dados para exportar.');
   };
   self.ctx.$scope.downloadZIP = () => _exportZIP();
 
   window.tbtv5_exportPDF = function () {
-    if (!_ensureExportDateAllowed()) return;
+    if (!_ensureReportDateAllowed()) return;
     const d = _buildExportData();
     d.length ? exportToPDF(d) : openErrorModal('Sem dados', 'Não há dados para exportar.');
   };
   window.tbtv5_exportXLS = function () {
-    if (!_ensureExportDateAllowed()) return;
+    if (!_ensureReportDateAllowed()) return;
     const d = _buildExportData();
     d.length ? exportToXLS(d) : openErrorModal('Sem dados', 'Não há dados para exportar.');
   };
   window.tbtv5_exportCSV = function () {
-    if (!_ensureExportDateAllowed()) return;
+    if (!_ensureReportDateAllowed()) return;
     const d = _buildExportData();
     d.length ? exportToCSV(d) : openErrorModal('Sem dados', 'Não há dados para exportar.');
   };
