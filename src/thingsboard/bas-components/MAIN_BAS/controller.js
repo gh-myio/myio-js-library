@@ -3331,6 +3331,11 @@ function openWaterSummaryModal(settings) {
     .map(function (device) {
       var meta = TYPE_META[device.type] || { icon: '📱', label: 'Dispositivo' };
       var statusKey = String(device.status || '').toLowerCase();
+      // NOTE: this reflects the device's real connection status. The water
+      // panel cards (waterDeviceToEntityObject, ~line 1374) force every
+      // device to 'online' as a presentation-mode override, so the same
+      // device can show a different status here vs. in the main panel.
+      // Pre-existing behavior, called out as a follow-up (not fixed here).
       var normalizedStatus = WATER_STATUS_MAP[statusKey] || 'no_info';
       if (normalizedStatus === 'online') onlineCount++;
       else if (normalizedStatus === 'offline') offlineCount++;
@@ -3376,6 +3381,13 @@ function openWaterSummaryModal(settings) {
     '.myio-water-summary__row-type{font-size:12px;color:#6b7280;}' +
     '.myio-water-summary__row-status{font-size:12px;font-weight:600;white-space:nowrap;}' +
     '.myio-water-summary__empty{text-align:center;color:#6b7280;padding:24px 0;}' +
+    '.myio-genmodal-overlay--dark .myio-water-summary__stat{background:rgba(167,212,192,0.12);}' +
+    '.myio-genmodal-overlay--dark .myio-water-summary__row{background:#111827;border-color:#374151;}' +
+    '.myio-genmodal-overlay--dark .myio-water-summary__row:hover{background:#1f2937;border-color:#4b5563;}' +
+    '.myio-genmodal-overlay--dark .myio-water-summary__row-name{color:#f3f4f6;}' +
+    '.myio-genmodal-overlay--dark .myio-water-summary__row-type,' +
+    '.myio-genmodal-overlay--dark .myio-water-summary__stat-label,' +
+    '.myio-genmodal-overlay--dark .myio-water-summary__empty{color:#9ca3af;}' +
     '</style>' +
     '<div class="myio-water-summary">' +
     '<div class="myio-water-summary__stats">' +
@@ -3392,7 +3404,7 @@ function openWaterSummaryModal(settings) {
     title: 'Água',
     icon: '💧',
     bodyHtml: bodyHtml,
-    theme: (settings && settings.themeMode) || 'light',
+    theme: (settings && settings.defaultThemeMode) || 'light',
     width: 480,
     onClose: function () {
       LogHelper.log('[MAIN_BAS] Água summary modal closed');
@@ -4802,10 +4814,15 @@ function handleAmbienteSelection(ambienteId, item) {
     return;
   }
 
+  // Match Água/Configuração by their (NNN)- prefix code (same convention as
+  // AMBIENTE_ICON_MAP) instead of the full label text, so renaming the asset
+  // label in ThingsBoard doesn't silently break this routing.
+  var prefixCode = getAmbientePrefixCode(originalLabel);
+
   // "(006)-Água" is not a physical ASSET_AMBIENT room — it has no climate/energy
   // hierarchy, so the generic ambiente modal would open empty. Show a dedicated
   // water summary modal instead, built from the same devices as #bas-water-host.
-  if (originalLabel === '(006)-Água') {
+  if (prefixCode === '006') {
     LogHelper.log('[MAIN_BAS] Opening Água summary modal');
     openWaterSummaryModal(_settings);
     return;
@@ -4813,13 +4830,14 @@ function handleAmbienteSelection(ambienteId, item) {
 
   // "(007)-Configuração" has no settings feature implemented yet in this
   // dashboard — show a placeholder instead of silently doing nothing.
-  if (originalLabel === '(007)-Configuração') {
+  if (prefixCode === '007') {
     LogHelper.log('[MAIN_BAS] Opening Configuração placeholder');
     if (MyIOLibrary.openMessageDialog) {
       MyIOLibrary.openMessageDialog({
         title: 'Configurações',
         message: 'Em breve: mais opções de configuração estarão disponíveis aqui.',
         severity: 'info',
+        theme: (_settings && _settings.defaultThemeMode) || 'light',
       });
     } else {
       LogHelper.warn('[MAIN_BAS] MyIOLibrary.openMessageDialog not available');
