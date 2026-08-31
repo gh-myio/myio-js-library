@@ -4,7 +4,7 @@
       <img src="https://myio.com.br/app/uploads/2020/05/Logotest01.png" alt="Myio" id="Myio" />
       <div class="headline">
         <p>
-          Sistema Myio v.5-20260404001 | Registro de Aferição de Temperatura | Complexo Hospitalar Municipal
+          Sistema Myio v.5-20260831001 | Registro de Aferição de Temperatura | Complexo Hospitalar Municipal
           Souza Aguiar
         </p>
         <p>UNIDADE SOUZA AGUIAR - HMSA</p>
@@ -392,6 +392,30 @@
       <h3 class="error-modal-title">{{ errorTitle }}</h3>
       <p class="error-modal-message">{{ errorMessage }}</p>
       <button class="error-modal-close-btn" (click)="closeErrorModal()">Entendido</button>
+    </div>
+  </div>
+
+  <!-- Modal premium — período fora de consulta (dado pré-troca de sensores) -->
+  <div class="cutoff-modal-backdrop" *ngIf="isDataCutoffModal" (click)="closeDataCutoffModal()">
+    <div class="cutoff-modal" (click)="$event.stopPropagation()">
+      <div class="cutoff-modal-icon">
+        <i class="fa-solid fa-clock-rotate-left"></i>
+      </div>
+      <span class="cutoff-modal-badge">Período fora de consulta</span>
+      <h3 class="cutoff-modal-title">Dados anteriores a {{ exportCutoffDateLabel }} não podem ser exportados</h3>
+      <p class="cutoff-modal-message">
+        Entre 28/03 e 01/04/2026 os sensores desta central passaram por
+        <strong>troca física e recalibração</strong>. Depois dessa manutenção, o
+        histórico anterior deixou de estar associado ao sensor atual — a
+        exportação de um período que comece antes de {{ exportCutoffDateLabel }}
+        traria valores que não refletem a leitura real registrada na época.
+      </p>
+      <ul class="cutoff-modal-list">
+        <li><i class="fa-solid fa-microchip"></i> Sensores substituídos e recalibrados em 28/03–01/04/2026</li>
+        <li><i class="fa-solid fa-database"></i> Vínculo com o histórico anterior à troca não é mais confiável</li>
+        <li><i class="fa-solid fa-file-shield"></i> Ajuste o período inicial para {{ exportCutoffDateLabel }} ou depois</li>
+      </ul>
+      <button class="cutoff-modal-close-btn" (click)="closeDataCutoffModal()">Entendido</button>
     </div>
   </div>
 

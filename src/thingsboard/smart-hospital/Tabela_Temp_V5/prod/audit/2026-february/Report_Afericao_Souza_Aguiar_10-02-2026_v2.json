@@ -1,0 +1,59 @@
+{
+  "meta": {
+    "source_pdf": "Report_Afericao_Souza_Aguiar_10-02-2026_v2.pdf",
+    "titulo": "Verificação de Temperatura — Sensores de Monitoramento",
+    "cliente": "Complexo Hospitalar Municipal Souza Aguiar",
+    "data_verificacao": "2026-02-10",
+    "sensores_verificados": 30,
+    "data_emissao": "2026-02-12",
+    "instrumento_referencia": "Termo-higrômetro digital Exbom",
+    "criterio_tolerancia_c": 0.5,
+    "criterio_fonte": "Procedimento_Ajuste_Sensores_Myio_com_Anexo_1.pdf secao 2 (datasheet DS18B20, tERR = +-0.5C de -10C a +85C)",
+    "regra_status": "abs(temp_referencia_c - temp_myio_c) > 0.5 => fora; caso contrario => dentro; sem leitura myio => indisponivel_myio",
+    "extraido_em": "2026-08-31",
+    "extraido_de_pdf_por": "leitura direta do PDF, valores conferidos manualmente contra a tabela 'Comparativo por Dispositivo' (pagina 2)"
+  },
+  "leituras": [
+    { "ordem": 1,  "dispositivo": "Cirurgia 01",           "hora": "15:28", "temp_referencia_c": 22.1, "temp_myio_c": 22.00, "desvio_c": 0.10, "status_tolerancia": "dentro",             "foto_evidencia": true },
+    { "ordem": 2,  "dispositivo": "Cirurgia 02",           "hora": "14:37", "temp_referencia_c": 21.9, "temp_myio_c": 21.00, "desvio_c": 0.90, "status_tolerancia": "fora",               "foto_evidencia": true },
+    { "ordem": 3,  "dispositivo": "Cirurgia 03",           "hora": "15:33", "temp_referencia_c": 21.0, "temp_myio_c": 21.00, "desvio_c": 0.00, "status_tolerancia": "dentro",             "foto_evidencia": true },
+    { "ordem": 4,  "dispositivo": "Cirurgia 04",           "hora": "14:40", "temp_referencia_c": 21.4, "temp_myio_c": 20.55, "desvio_c": 0.85, "status_tolerancia": "fora",               "foto_evidencia": true },
+    { "ordem": 5,  "dispositivo": "Cirurgia 05",           "hora": "14:43", "temp_referencia_c": 23.3, "temp_myio_c": 23.00, "desvio_c": 0.30, "status_tolerancia": "dentro",             "foto_evidencia": true },
+    { "ordem": 6,  "dispositivo": "Cirurgia 06",           "hora": "14:50", "temp_referencia_c": 18.6, "temp_myio_c": 18.00, "desvio_c": 0.60, "status_tolerancia": "fora",               "foto_evidencia": true },
+    { "ordem": 7,  "dispositivo": "Cirurgia 07",           "hora": "14:59", "temp_referencia_c": 19.8, "temp_myio_c": 20.20, "desvio_c": 0.40, "status_tolerancia": "dentro",             "foto_evidencia": true },
+    { "ordem": 8,  "dispositivo": "Cirurgia 08",           "hora": "15:09", "temp_referencia_c": 22.6, "temp_myio_c": 21.71, "desvio_c": 0.89, "status_tolerancia": "fora",               "foto_evidencia": true },
+    { "ordem": 9,  "dispositivo": "Cirurgia 09",           "hora": "15:14", "temp_referencia_c": 20.1, "temp_myio_c": 20.00, "desvio_c": 0.10, "status_tolerancia": "dentro",             "foto_evidencia": true },
+    { "ordem": 10, "dispositivo": "Cirurgia 10",           "hora": "15:21", "temp_referencia_c": 21.2, "temp_myio_c": 20.01, "desvio_c": 1.19, "status_tolerancia": "fora",               "foto_evidencia": true },
+    { "ordem": 11, "dispositivo": "RPA",                   "hora": "15:17", "temp_referencia_c": 21.9, "temp_myio_c": 21.01, "desvio_c": 0.89, "status_tolerancia": "fora",               "foto_evidencia": true },
+    { "ordem": 12, "dispositivo": "CTI 01",                "hora": "15:47", "temp_referencia_c": 20.9, "temp_myio_c": 20.00, "desvio_c": 0.90, "status_tolerancia": "fora",               "foto_evidencia": true },
+    { "ordem": 13, "dispositivo": "CTI 02",                "hora": "15:52", "temp_referencia_c": 21.0, "temp_myio_c": 21.00, "desvio_c": 0.00, "status_tolerancia": "dentro",             "foto_evidencia": true },
+    { "ordem": 14, "dispositivo": "CTI 03",                "hora": "15:59", "temp_referencia_c": 18.3, "temp_myio_c": 18.00, "desvio_c": 0.30, "status_tolerancia": "dentro",             "foto_evidencia": true },
+    { "ordem": 15, "dispositivo": "CTI 04",                "hora": "16:04", "temp_referencia_c": 20.3, "temp_myio_c": 20.65, "desvio_c": 0.35, "status_tolerancia": "dentro",             "foto_evidencia": true },
+    { "ordem": 16, "dispositivo": "Hemodiálise",           "hora": "16:11", "temp_referencia_c": 23.3, "temp_myio_c": 23.00, "desvio_c": 0.30, "status_tolerancia": "dentro",             "foto_evidencia": true },
+    { "ordem": 17, "dispositivo": "Laboratório",           "hora": "16:15", "temp_referencia_c": 22.1, "temp_myio_c": 22.00, "desvio_c": 0.10, "status_tolerancia": "dentro",             "foto_evidencia": true },
+    { "ordem": 18, "dispositivo": "Agência Transfusional", "hora": "16:25", "temp_referencia_c": 24.4, "temp_myio_c": 24.00, "desvio_c": 0.40, "status_tolerancia": "dentro",             "foto_evidencia": true },
+    { "ordem": 19, "dispositivo": "Farmácia Satélite",     "hora": "16:29", "temp_referencia_c": 22.8, "temp_myio_c": 22.00, "desvio_c": 0.80, "status_tolerancia": "fora",               "foto_evidencia": true },
+    { "ordem": 20, "dispositivo": "CAF",                   "hora": "16:40", "temp_referencia_c": 22.2, "temp_myio_c": 21.36, "desvio_c": 0.84, "status_tolerancia": "fora",               "foto_evidencia": true },
+    { "ordem": 21, "dispositivo": "Sala Verm. Infantil",   "hora": "16:47", "temp_referencia_c": 22.3, "temp_myio_c": 21.59, "desvio_c": 0.71, "status_tolerancia": "fora",               "foto_evidencia": true },
+    { "ordem": 22, "dispositivo": "Sala Verm. Adulto",     "hora": "16:50", "temp_referencia_c": 20.7, "temp_myio_c": 19.45, "desvio_c": 1.25, "status_tolerancia": "fora",               "foto_evidencia": true },
+    { "ordem": 23, "dispositivo": "Centro Obst. 01",       "hora": "17:08", "temp_referencia_c": 19.6, "temp_myio_c": null,  "desvio_c": null, "status_tolerancia": "indisponivel_myio", "foto_evidencia": true, "nota": "central MYIO indisponivel 17:08-17:22 (RT-MYIO-2026-004)" },
+    { "ordem": 24, "dispositivo": "Centro Obst. 02",       "hora": "17:14", "temp_referencia_c": 21.8, "temp_myio_c": null,  "desvio_c": null, "status_tolerancia": "indisponivel_myio", "foto_evidencia": true, "nota": "central MYIO indisponivel 17:08-17:22 (RT-MYIO-2026-004)" },
+    { "ordem": 25, "dispositivo": "Centro Obst. 03",       "hora": "17:17", "temp_referencia_c": 21.2, "temp_myio_c": null,  "desvio_c": null, "status_tolerancia": "indisponivel_myio", "foto_evidencia": true, "nota": "central MYIO indisponivel 17:08-17:22 (RT-MYIO-2026-004)" },
+    { "ordem": 26, "dispositivo": "UTI Neonatal",          "hora": "17:22", "temp_referencia_c": 21.5, "temp_myio_c": null,  "desvio_c": null, "status_tolerancia": "indisponivel_myio", "foto_evidencia": true, "nota": "central MYIO indisponivel 17:08-17:22 (RT-MYIO-2026-004)" },
+    { "ordem": 27, "dispositivo": "Medicação CER",         "hora": "17:37", "temp_referencia_c": 22.0, "temp_myio_c": 22.00, "desvio_c": 0.00, "status_tolerancia": "dentro",             "foto_evidencia": true },
+    { "ordem": 28, "dispositivo": "Queimados",             "hora": "17:51", "temp_referencia_c": 23.6, "temp_myio_c": 23.00, "desvio_c": 0.60, "status_tolerancia": "fora",               "foto_evidencia": true },
+    { "ordem": 29, "dispositivo": "Lactário",               "hora": "18:06", "temp_referencia_c": 20.5, "temp_myio_c": 20.00, "desvio_c": 0.50, "status_tolerancia": "dentro",             "foto_evidencia": true },
+    { "ordem": 30, "dispositivo": "CME Sala Limpa",        "hora": "18:30", "temp_referencia_c": 23.1, "temp_myio_c": 23.00, "desvio_c": 0.10, "status_tolerancia": "dentro",             "foto_evidencia": true }
+  ],
+  "resumo": {
+    "total_pontos": 30,
+    "dentro_tolerancia": 14,
+    "fora_tolerancia": 12,
+    "indisponivel_myio": 4,
+    "pontos_fora_tolerancia": [
+      "Cirurgia 02", "Cirurgia 04", "Cirurgia 06", "Cirurgia 08", "Cirurgia 10",
+      "RPA", "CTI 01", "Farmácia Satélite", "CAF", "Sala Verm. Infantil",
+      "Sala Verm. Adulto", "Queimados"
+    ]
+  }
+}
