@@ -1935,20 +1935,25 @@ self.onInit = function () {
       return;
     }
 
-    const existingSettings =
-      window.MyIOOrchestrator?.measurementDisplaySettings ||
-      (window.MyIOUtils?.measurementSettings
-        ? {
-            water: { ...window.MyIOUtils.measurementSettings.water },
-            energy: { ...window.MyIOUtils.measurementSettings.energy },
-            temperature: { ...window.MyIOUtils.measurementSettings.temperature },
-          }
-        : null);
+    // ED-1149 / RFC-0229 §3.1: existingSettings intentionally left null so
+    // openMeasurementSetupModal's loadFormData() always calls
+    // persister.loadSettings() (GCDR-first, TB-fallback) — passing a truthy hint
+    // here (as this used to do, from window.MyIOUtils.measurementSettings'
+    // hardcoded generic defaults) short-circuited that fetch entirely, meaning
+    // this modal never actually loaded the customer's real persisted settings
+    // on a fresh page load. The loading spinner in the modal already covers the
+    // resulting round-trip.
+    const orch = window.MyIOOrchestrator;
+    const gcdrCreds =
+      orch?.gcdrCustomerId && orch?.gcdrApiKey && orch?.gcdrApiBaseUrl
+        ? { baseUrl: orch.gcdrApiBaseUrl, customerId: orch.gcdrCustomerId, apiKey: orch.gcdrApiKey, tenantId: orch.gcdrTenantId }
+        : undefined;
 
     MyIOBridge.openMeasurementSetupModal({
       token: jwtToken,
       customerId: customerId,
-      existingSettings: existingSettings,
+      existingSettings: null,
+      gcdr: gcdrCreds,
       userName: user?.firstName || user?.email || '',
       onSave: (settings) => {
         LogHelper.log('[MENU] Measurement settings saved:', settings);
@@ -2252,21 +2257,26 @@ self.onInit = function () {
 
       LogHelper.log('[MENU] Opening measurement setup modal for customer:', { customerId, customerName });
 
-      // RFC-0108: Get existing settings from orchestrator or MyIOUtils defaults
-      const existingSettings =
-        window.MyIOOrchestrator?.measurementDisplaySettings ||
-        (window.MyIOUtils?.measurementSettings
+      // ED-1149 / RFC-0229 §3.1: existingSettings intentionally left null — see the
+      // matching comment at the other openMeasurementSetupModal call site above for
+      // why (a truthy hint here short-circuited persister.loadSettings()'s GCDR-first/
+      // TB-fallback dual-read entirely).
+      const orchForMeasurement = window.MyIOOrchestrator;
+      const gcdrCredsForMeasurement =
+        orchForMeasurement?.gcdrCustomerId && orchForMeasurement?.gcdrApiKey && orchForMeasurement?.gcdrApiBaseUrl
           ? {
-              water: { ...window.MyIOUtils.measurementSettings.water },
-              energy: { ...window.MyIOUtils.measurementSettings.energy },
-              temperature: { ...window.MyIOUtils.measurementSettings.temperature },
+              baseUrl: orchForMeasurement.gcdrApiBaseUrl,
+              customerId: orchForMeasurement.gcdrCustomerId,
+              apiKey: orchForMeasurement.gcdrApiKey,
+              tenantId: orchForMeasurement.gcdrTenantId,
             }
-          : null);
+          : undefined;
 
       MyIOBridge.openMeasurementSetupModal({
         token: jwtToken,
         customerId: customerId,
-        existingSettings: existingSettings,
+        existingSettings: null,
+        gcdr: gcdrCredsForMeasurement,
         userName: user?.firstName || user?.email || '',
         onSave: (settings) => {
           LogHelper.log('[MENU] Measurement settings saved:', settings);

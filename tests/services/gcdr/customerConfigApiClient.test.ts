@@ -8,6 +8,9 @@ import {
   CustomerConfigApiClient,
   CustomerConfigApiError,
   loadCustomerConfig,
+  resolveConfigField,
+  printResolvedConfigSummary,
+  isFeatureButtonsMatrix,
 } from '../../../src/services/gcdr/customerConfigApiClient';
 
 function jsonResponse(body: unknown, init: { status?: number } = {}): Response {
@@ -198,5 +201,200 @@ describe('loadCustomerConfig — dual-read entry point', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(r1?.alarms?.notificationsEnabled).toBe(false);
     expect(r2?.alarms?.notificationsEnabled).toBe(false);
+  });
+});
+
+describe('isFeatureButtonsMatrix', () => {
+  it('accepts a well-formed matrix', () => {
+    expect(
+      isFeatureButtonsMatrix({
+        demandPeak: { entrada: true, areacomum: true, lojas: false },
+        instantTelemetry: { entrada: true, areacomum: true, lojas: false },
+      })
+    ).toBe(true);
+  });
+
+  it('rejects malformed/missing shapes', () => {
+    expect(isFeatureButtonsMatrix(undefined)).toBe(false);
+    expect(isFeatureButtonsMatrix({})).toBe(false);
+    expect(isFeatureButtonsMatrix({ demandPeak: { entrada: true } })).toBe(false);
+  });
+});
+
+describe('resolveConfigField — generic per-field dual-read', () => {
+  let logSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    logSpy.mockRestore();
+  });
+
+  it('resolves from GCDR when extract() finds a usable value', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({ featureButtons: { demandPeak: { entrada: false, areacomum: false, lojas: false }, instantTelemetry: { entrada: false, areacomum: false, lojas: false } } })
+    );
+    const result = await resolveConfigField({
+      baseUrl: 'https://a.example',
+      customerId: 'cust-rcf-1',
+      apiKey: 'key-1',
+      fetchImpl: fetchMock as unknown as typeof fetch,
+      fieldLabel: 'featureButtons',
+      fallbackValue: { demandPeak: { entrada: true, areacomum: true, lojas: false }, instantTelemetry: { entrada: true, areacomum: true, lojas: false } },
+      extract: (cfg) => (isFeatureButtonsMatrix(cfg.featureButtons) ? cfg.featureButtons : undefined),
+    });
+    expect(result.source).toBe('GCDR');
+    expect(result.value.demandPeak.entrada).toBe(false);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back to TB when extract() returns undefined (GCDR reachable, field unusable)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({}));
+    const fallback = 'tb-fallback';
+    const result = await resolveConfigField({
+      baseUrl: 'https://a.example',
+      customerId: 'cust-rcf-2',
+      apiKey: 'key-1',
+      fetchImpl: fetchMock as unknown as typeof fetch,
+      fieldLabel: 'someField',
+      fallbackValue: fallback,
+      extract: () => undefined,
+    });
+    expect(result.source).toBe('TB (GCDR reachable but no usable value)');
+    expect(result.value).toBe(fallback);
+  });
+
+  it('falls back to TB with no fetch attempted when creds are missing', async () => {
+    const fetchMock = vi.fn();
+    const fallback = 'tb-fallback';
+    const result = await resolveConfigField({
+      baseUrl: 'https://a.example',
+      customerId: 'cust-rcf-3',
+      fetchImpl: fetchMock as unknown as typeof fetch,
+      fieldLabel: 'someField',
+      fallbackValue: fallback,
+      extract: () => 'should-not-be-called',
+    });
+    expect(result.source).toBe('TB (no GCDR bootstrap creds)');
+    expect(result.value).toBe(fallback);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('falls back to TB when GCDR is unreachable (network error)', async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new TypeError('network down'));
+    const fallback = 'tb-fallback';
+    const result = await resolveConfigField({
+      baseUrl: 'https://a.example',
+      customerId: 'cust-rcf-4',
+      apiKey: 'key-1',
+      fetchImpl: fetchMock as unknown as typeof fetch,
+      fieldLabel: 'someField',
+      fallbackValue: fallback,
+      extract: () => 'should-not-be-called',
+    });
+    expect(result.source).toBe('TB (GCDR unreachable)');
+    expect(result.value).toBe(fallback);
+  });
+
+  it('falls back to TB when GCDR responds non-2xx', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({}, { status: 500 }));
+    const fallback = 'tb-fallback';
+    const result = await resolveConfigField({
+      baseUrl: 'https://a.example',
+      customerId: 'cust-rcf-5',
+      apiKey: 'key-1',
+      fetchImpl: fetchMock as unknown as typeof fetch,
+      fieldLabel: 'someField',
+      fallbackValue: fallback,
+      extract: () => 'should-not-be-called',
+    });
+    expect(result.source).toBe('TB (GCDR unreachable)');
+    expect(result.value).toBe(fallback);
+  });
+
+  it('logs a diagnostic line including the fieldLabel and resolved source', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ alarms: { notificationsEnabled: true } }));
+    await resolveConfigField({
+      baseUrl: 'https://a.example',
+      customerId: 'cust-rcf-6',
+      apiKey: 'key-1',
+      fetchImpl: fetchMock as unknown as typeof fetch,
+      fieldLabel: 'alarmNotificationsEnabled',
+      fallbackValue: false,
+      extract: (cfg) => (typeof cfg.alarms?.notificationsEnabled === 'boolean' ? cfg.alarms.notificationsEnabled : undefined),
+    });
+    const loggedField = logSpy.mock.calls.some((call) =>
+      call.some((arg) => typeof arg === 'string' && arg.includes('alarmNotificationsEnabled'))
+    );
+    expect(loggedField).toBe(true);
+  });
+});
+
+describe('printResolvedConfigSummary — central log', () => {
+  let logSpy: ReturnType<typeof vi.spyOn>;
+  let tableSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    tableSpy = vi.spyOn(console, 'table').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    logSpy.mockRestore();
+    tableSpy.mockRestore();
+  });
+
+  it('prints one row per field resolved via resolveConfigField, keyed by fieldLabel', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ alarms: { notificationsEnabled: true } }));
+    await resolveConfigField({
+      baseUrl: 'https://a.example',
+      customerId: 'cust-summary-1',
+      apiKey: 'key-1',
+      fetchImpl: fetchMock as unknown as typeof fetch,
+      fieldLabel: 'summaryFieldA',
+      fallbackValue: false,
+      extract: (cfg) => (typeof cfg.alarms?.notificationsEnabled === 'boolean' ? cfg.alarms.notificationsEnabled : undefined),
+    });
+    await resolveConfigField({
+      baseUrl: 'https://a.example',
+      customerId: 'cust-summary-2',
+      apiKey: 'key-1',
+      fetchImpl: fetchMock as unknown as typeof fetch,
+      fieldLabel: 'summaryFieldB',
+      fallbackValue: 'x',
+      extract: () => undefined,
+    });
+
+    printResolvedConfigSummary();
+
+    expect(tableSpy).toHaveBeenCalledTimes(1);
+    const rows = tableSpy.mock.calls[0][0] as Array<{ field: string; source: string }>;
+    const fieldA = rows.find((r) => r.field === 'summaryFieldA');
+    const fieldB = rows.find((r) => r.field === 'summaryFieldB');
+    expect(fieldA?.source).toBe('GCDR');
+    expect(fieldB?.source).toBe('TB (GCDR reachable but no usable value)');
+  });
+
+  it('overwrites (does not duplicate) a row when the same fieldLabel resolves again', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({}));
+    const call = () =>
+      resolveConfigField({
+        baseUrl: 'https://a.example',
+        customerId: 'cust-summary-3',
+        apiKey: 'key-1',
+        fetchImpl: fetchMock as unknown as typeof fetch,
+        fieldLabel: 'repeatedField',
+        fallbackValue: 'v',
+        extract: () => undefined,
+      });
+    await call();
+    await call();
+
+    printResolvedConfigSummary();
+
+    const rows = tableSpy.mock.calls[tableSpy.mock.calls.length - 1][0] as Array<{ field: string }>;
+    expect(rows.filter((r) => r.field === 'repeatedField')).toHaveLength(1);
   });
 });
