@@ -38,9 +38,15 @@ afterEach(() => {
 });
 
 describe('CustomerConfigApiClient — getConfig', () => {
-  it('builds the customer-scoped URL and auth headers, parses the response', async () => {
+  it('builds the customer-scoped URL and auth headers, unwraps the {success,data,meta} envelope', async () => {
+    // Real GCDR shape (gcdr/src/middleware/response.ts sendSuccess) — every
+    // response is wrapped; the read model itself lives at `.data`.
     const fetchMock = vi.fn().mockResolvedValue(
-      jsonResponse({ alarms: { notificationsEnabled: false, showOffline: true } })
+      jsonResponse({
+        success: true,
+        data: { alarms: { notificationsEnabled: false, showOffline: true } },
+        meta: { requestId: 'r1', timestamp: '2026-01-01T00:00:00Z' },
+      })
     );
     const client = makeClient(fetchMock as unknown as typeof fetch);
     const cfg = await client.getConfig('cust-1');
@@ -53,8 +59,17 @@ describe('CustomerConfigApiClient — getConfig', () => {
     expect(cfg.alarms?.notificationsEnabled).toBe(false);
   });
 
+  it('falls back to a flat (unwrapped) body when there is no .data envelope', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({ alarms: { notificationsEnabled: true } })
+    );
+    const client = makeClient(fetchMock as unknown as typeof fetch);
+    const cfg = await client.getConfig('cust-1');
+    expect(cfg.alarms?.notificationsEnabled).toBe(true);
+  });
+
   it('strips a baseUrl that already ends in /api/v1 instead of doubling it', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ alarms: {} }));
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ success: true, data: { alarms: {} } }));
     const client = makeClient(fetchMock as unknown as typeof fetch, 'https://gcdr.example/api/v1');
     await client.getConfig('cust-1');
 

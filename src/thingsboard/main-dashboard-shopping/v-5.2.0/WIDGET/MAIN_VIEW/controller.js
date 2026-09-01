@@ -906,6 +906,44 @@ async function _fetchGoalsFromGCDR(gcdrApiBaseUrl, gcdrCustomerId, gcdrApiKey, g
   }
 }
 
+// ED-1149 — TEMPORARY manual backfill helper for validating the alarmNotificationsEnabled
+// dual-read against real customers, while there is no dedicated backend endpoint for it yet
+// (that endpoint is planned for the end of the whole ED-1149 effort — see RFC-0229). Delete
+// this function once that endpoint exists.
+//
+// Deliberately NOT wired into onInit / any automatic flow, and NEVER stores a credential:
+// it takes an admin JWT as a plain call argument, used once, in memory, for a single request.
+// The customer-scoped `gcdrApiKey` this widget already holds stays read-only, as it must —
+// giving it write scope would put write-capable credentials in every visitor's browser.
+// Usage from DevTools console, on the dashboard of the customer you want to backfill:
+//   await MyIOUtils.ed1149PatchAlarmConfig('<admin JWT>', true)   // or false
+async function _ed1149PatchAlarmConfig(jwt, notificationsEnabled) {
+  const orch = window.MyIOOrchestrator;
+  const gcdrCustomerId = orch?.gcdrCustomerId;
+  const gcdrTenantId = orch?.gcdrTenantId;
+  if (!jwt || !gcdrCustomerId) {
+    console.error('[ED-1149] ed1149PatchAlarmConfig: missing jwt or gcdrCustomerId (orchestrator not ready?)');
+    return null;
+  }
+  const root = String(orch.gcdrApiBaseUrl || '')
+    .replace(/\/+$/, '')
+    .replace(/\/api\/v1$/, '');
+  const url = `${root}/api/v1/customers/${encodeURIComponent(gcdrCustomerId)}/config`;
+  const res = await fetch(url, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${jwt}`,
+      'X-Tenant-Id': gcdrTenantId || '',
+    },
+    body: JSON.stringify({ alarms: { notificationsEnabled } }),
+  });
+  const json = await res.json().catch(() => null);
+  console.log('[ED-1149] ed1149PatchAlarmConfig:', res.status, json);
+  return json;
+}
+window.MyIOUtils.ed1149PatchAlarmConfig = _ed1149PatchAlarmConfig;
+
 // RFC-0051.1: Global widget settings (will be populated in onInit)
 // IMPORTANT: customerTB_ID must NEVER be 'default' - it must always be a valid ThingsBoard ID
 let widgetSettings = {
@@ -2330,20 +2368,55 @@ Object.assign(window.MyIOUtils, {
             // bootstrap creds (gcdrCustomerId + gcdrApiKey, both from the same attrs fetch);
             // customers without them are untouched — pure TB path, no GCDR call at all.
             // loadCustomerConfig() never throws (fail-open) — no try/catch needed here.
+            const _tbFallbackForLog = alarmNotificationsEnabled;
+            let _alarmSource = 'TB (no GCDR bootstrap creds)';
             if (gcdrCustomerId && gcdrApiKey) {
+              LogHelper.log(
+                `[MAIN_VIEW][ED-1149] 🔍 Buscando customer-config no GCDR (customerId=${gcdrCustomerId})...`
+              );
+              const _t0 = typeof performance !== 'undefined' ? performance.now() : Date.now();
               const gcdrCfg = await MyIO.loadCustomerConfig({
                 baseUrl: gcdrApiBaseUrl,
                 customerId: gcdrCustomerId,
                 apiKey: gcdrApiKey,
                 tenantId: gcdrTenantId,
               });
+              const _dt = Math.round(
+                (typeof performance !== 'undefined' ? performance.now() : Date.now()) - _t0
+              );
+              LogHelper.log(
+                `[MAIN_VIEW][ED-1149] ${gcdrCfg ? '✅' : '⚠️'} GCDR customer-config fetch:`,
+                gcdrCfg ? 'ok' : 'failed/empty',
+                `(${_dt}ms)`,
+                '| raw alarms:',
+                gcdrCfg?.alarms
+              );
               if (typeof gcdrCfg?.alarms?.notificationsEnabled === 'boolean') {
                 alarmNotificationsEnabled = gcdrCfg.alarms.notificationsEnabled;
-                LogHelper.log(
-                  '[MAIN_VIEW] alarmNotificationsEnabled resolved from GCDR config:',
-                  alarmNotificationsEnabled
-                );
+                _alarmSource = 'GCDR';
+              } else {
+                _alarmSource = 'TB (GCDR reachable but no usable value)';
               }
+            } else {
+              LogHelper.log(
+                '[MAIN_VIEW][ED-1149] ⏭️ Pulando busca no GCDR — customer sem gcdrCustomerId/gcdrApiKey (não bootstrapado)'
+              );
+            }
+            LogHelper.log(
+              `[MAIN_VIEW][ED-1149] alarmNotificationsEnabled = ${alarmNotificationsEnabled} | source: ${_alarmSource} | TB raw value: ${_tbFallbackForLog} | gcdrCustomerId: ${gcdrCustomerId || '(none)'}`
+            );
+            // ED-1149: dados prontos para ajustar o GCDR na mão via ed1149PatchAlarmConfig
+            // (ver definição acima) — cole um JWT admin e rode o comando impresso no console.
+            if (gcdrCustomerId && gcdrApiKey) {
+              console.group('[ED-1149] Dados prontos — use MyIOUtils.ed1149PatchAlarmConfig para escrever no GCDR');
+              console.log('gcdrTenantId:', gcdrTenantId || '(vazio)');
+              console.log('gcdrCustomerId:', gcdrCustomerId);
+              console.log('alarmNotificationsEnabled no TB (attrs):', attrs?.alarmNotificationsEnabled);
+              console.log('Comando (cole seu JWT admin no lugar de <jwt>):');
+              console.log(
+                `await MyIOUtils.ed1149PatchAlarmConfig('<jwt>', ${attrs?.alarmNotificationsEnabled !== false})`
+              );
+              console.groupEnd();
             }
             // RFC-0194: customer default dashboard config (full object stored for management UI)
             defaultDashboardCfg = attrs?.customerDefaultDashboard || null;

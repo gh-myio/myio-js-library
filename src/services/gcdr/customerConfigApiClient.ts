@@ -119,7 +119,15 @@ export class CustomerConfigApiClient {
       const err = body && (body as { error?: { message?: string } }).error;
       throw new CustomerConfigApiError(res.status, err?.message || res.statusText);
     }
-    return (body || {}) as CustomerConfigReadModel;
+    // GCDR wraps every response as { success, data, meta } (sendSuccess,
+    // gcdr/src/middleware/response.ts) — the read model itself lives at .data.
+    // Fall back to the raw body when .data is absent (defensive, and keeps
+    // this client usable against a hypothetical unwrapped test double).
+    const envelope = body as { data?: unknown } | null;
+    const payload = envelope && typeof envelope === 'object' && 'data' in envelope
+      ? envelope.data
+      : body;
+    return (payload || {}) as CustomerConfigReadModel;
   }
 
   private async readBody(res: Response): Promise<unknown> {
@@ -180,13 +188,17 @@ export async function loadCustomerConfig(
   const now = Date.now();
   const cached = _cache.get(key);
   if (cached?.inFlight) return cached.inFlight;
-  if (cached && now - cached.at < ttlMs) return cached.value;
+  if (cached && now - cached.at < ttlMs) {
+    console.log('[GcdrCustomerConfig] loadCustomerConfig: cache hit for', key);
+    return cached.value;
+  }
 
   const inFlight = (async () => {
     try {
       const client = new CustomerConfigApiClient({ baseUrl, ...clientConfig });
       const value = await client.getConfig(customerId);
       _cache.set(key, { at: Date.now(), value });
+      console.log('[GcdrCustomerConfig] loadCustomerConfig: fetched fresh config for', key);
       return value;
     } catch (err) {
       console.warn(
