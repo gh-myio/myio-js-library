@@ -1,5 +1,13 @@
 /**
- * Get Slave IDs v3
+ * Get Slave IDs v3.1
+ *
+ * Changes from v3:
+ * - Reads optional `adjustmentSince` from the URL query string
+ *   (?adjustmentSince=2026-09-01T00:00:00Z) and forwards it in
+ *   msg.originalPayload. Controller v3.2 only applies the name-based
+ *   adjustment (+/-/x) to telemetry from that date forward.
+ *   When the parameter is absent (or invalid), the HARD-CODED default
+ *   below is used: 2026-09-01 00:00 UTC.
  *
  * Changes from v2:
  * - Added null check for slave_data
@@ -81,11 +89,36 @@ if (slaveIds.length === 0) {
   return null;
 }
 
+// Adjustment reference date, from the URL query string
+// (?adjustmentSince=...) with the request body as fallback.
+// HARD-CODED default when absent or invalid: 2026-09-01 00:00 UTC —
+// adjustments (+/-/x from the device name) only apply to telemetry
+// from this date forward.
+const ADJUSTMENT_SINCE_DEFAULT = '2026-09-01T00:00:00.000Z';
+const adjustmentSinceRaw =
+  (msg.req && msg.req.query && msg.req.query.adjustmentSince) ||
+  msg.payload.adjustmentSince ||
+  null;
+let adjustmentSince = ADJUSTMENT_SINCE_DEFAULT;
+if (adjustmentSinceRaw) {
+  const parsed = new Date(adjustmentSinceRaw);
+  if (isNaN(parsed.getTime())) {
+    node.warn({
+      msg: 'Invalid adjustmentSince, falling back to default',
+      adjustmentSince: adjustmentSinceRaw,
+      default: ADJUSTMENT_SINCE_DEFAULT,
+    });
+  } else {
+    adjustmentSince = parsed.toISOString();
+  }
+}
+
 // Preserve original payload for controller v3
 msg.originalPayload = {
   ...msg.payload,
   slaveIds,
   deviceMapping,
+  adjustmentSince,
 };
 
 msg.payload = {

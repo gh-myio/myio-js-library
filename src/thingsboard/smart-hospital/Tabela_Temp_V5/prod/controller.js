@@ -50,6 +50,13 @@ let clampMax = CLAMP_DEFAULT_MAX;
 let _clampFromCustomer = false; // true = loaded from SERVER_SCOPE; false = using defaults
 let _customerSlug = 'hospital'; // slug do nome do cliente, preenchido no _loadClampAttributes
 
+// Data de referência do ajuste de sensores (+/-/x no nome do device, aplicado
+// na central Node-RED). O operador só é aplicado a telemetria >= esta data.
+// Enviada às centrais no body do RPC (adjustmentSince) e persistida no
+// SERVER_SCOPE do cliente como tempAdjustmentSince (admin-configurável).
+const ADJUSTMENT_SINCE_DEFAULT = '2026-09-01T00:00:00.000Z';
+let _adjustmentSince = ADJUSTMENT_SINCE_DEFAULT;
+
 // Customer entity ID — Complexo Hospitalar Municipal Souza Aguiar (HMSA)
 const THINGSBOARD_CUSTOMER_ID = '492387b0-a1e6-11ef-9e25-b7f6e6d4253b';
 
@@ -277,13 +284,14 @@ async function _loadClampAttributes() {
       /* mantém fallback 'hospital' */
     }
     const resp = await getHttp()
-      .get('/api/plugins/telemetry/CUSTOMER/' + entityId.id + '/values/attributes/SERVER_SCOPE?keys=tempClampMin,tempClampMax,tempMaxGapSlots')
+      .get('/api/plugins/telemetry/CUSTOMER/' + entityId.id + '/values/attributes/SERVER_SCOPE?keys=tempClampMin,tempClampMax,tempMaxGapSlots,tempAdjustmentSince')
       .toPromise();
     const data = (resp && resp.data) ? resp.data : resp;
     const attrs = Array.isArray(data) ? data : [];
     const minAttr = attrs.find(function (a) { return a.key === 'tempClampMin'; });
     const maxAttr = attrs.find(function (a) { return a.key === 'tempClampMax'; });
     const gapAttr = attrs.find(function (a) { return a.key === 'tempMaxGapSlots'; });
+    const adjAttr = attrs.find(function (a) { return a.key === 'tempAdjustmentSince'; });
     const hasMin = minAttr != null && minAttr.value != null;
     const hasMax = maxAttr != null && maxAttr.value != null;
     const hasGap = gapAttr != null && gapAttr.value != null;
@@ -308,10 +316,18 @@ async function _loadClampAttributes() {
       _maxGapSlots = MAX_GAP_SLOTS_DEFAULT;
       LogHelper.log('[INTERP] maxGapSlots usando default:', _maxGapSlots);
     }
+    if (adjAttr != null && adjAttr.value != null && !isNaN(new Date(adjAttr.value).getTime())) {
+      _adjustmentSince = new Date(adjAttr.value).toISOString();
+      LogHelper.log('[ADJUST] adjustmentSince carregado de SERVER_SCOPE:', _adjustmentSince);
+    } else {
+      _adjustmentSince = ADJUSTMENT_SINCE_DEFAULT;
+      LogHelper.log('[ADJUST] adjustmentSince usando default:', _adjustmentSince);
+    }
     self.ctx.$scope.clampMin = clampMin;
     self.ctx.$scope.clampMax = clampMax;
     self.ctx.$scope.clampFromCustomer = _clampFromCustomer;
     self.ctx.$scope.maxGapSlots = _maxGapSlots;
+    self.ctx.$scope.adjustmentSinceDate = _adjustmentSince.slice(0, 10); // YYYY-MM-DD p/ input date
     self.ctx.detectChanges();
   } catch (e) {
     LogHelper.warn('[CLAMP] Falha ao carregar, usando defaults:', e);
@@ -334,6 +350,7 @@ async function _saveClampAttributes() {
         tempClampMin: clampMin,
         tempClampMax: clampMax,
         tempMaxGapSlots: _maxGapSlots,
+        tempAdjustmentSince: _adjustmentSince,
       })
       .toPromise();
     _clampFromCustomer = true;
@@ -521,7 +538,8 @@ async function _saveManualOverrides(data) {
 
 // -------- Cache --------
 function cacheKey(centrals, s, e) {
-  return `${centrals.sort().join(',')}|${s}|${e}`;
+  // _adjustmentSince na chave: mudar a data de referência invalida o cache
+  return `${centrals.sort().join(',')}|${s}|${e}|${_adjustmentSince}`;
 }
 
 function getCache(centrals, s, e) {
@@ -1030,7 +1048,7 @@ const RPC_TIMEOUT_MS = 300000; // 300 segundos (5 minutos)
 
 /**
  * sendRPCTemp v2
- * @param {Object} bodiesPerCentral - Mapa { centralId: { devices, dateStart, dateEnd } }
+ * @param {Object} bodiesPerCentral - Mapa { centralId: { devices, dateStart, dateEnd, adjustmentSince } }
  */
 async function sendRPCTemp(bodiesPerCentral) {
   const $http = getHttp();
@@ -1734,7 +1752,7 @@ async function getData() {
   LogHelper.log('[UTC-FIX-V5] dateEnd:', e.toISOString());
   const keyStart = s.toISOString();
   const keyEnd = e.toISOString();
-  const queryKey = `${centrals.slice().sort().join(',')}|${keyStart}|${keyEnd}`;
+  const queryKey = `${centrals.slice().sort().join(',')}|${keyStart}|${keyEnd}|${_adjustmentSince}`;
 
   // Guardas anti-duplicação
   if (_inFlight) {
@@ -1806,6 +1824,9 @@ async function getData() {
           devices: devicesForCentral,
           dateStart: chunk.start.toISOString(),
           dateEnd: chunk.end.toISOString(),
+          // Get-slave-ids v3.1 na central lê msg.payload.adjustmentSince:
+          // ajuste +/-/x do nome do device só se aplica a telemetria >= esta data
+          adjustmentSince: _adjustmentSince,
         };
       }
 
@@ -3331,6 +3352,20 @@ self.onInit = function () {
       self.ctx.detectChanges();
       _saveClampAttributes();
     }
+  };
+
+  // Data de referência do ajuste de sensores (+/-/x) — persiste no SERVER_SCOPE
+  // (tempAdjustmentSince) e é enviada às centrais no body do RPC.
+  self.ctx.$scope.adjustmentSinceDate = _adjustmentSince.slice(0, 10);
+  self.ctx.$scope.setAdjustmentSince = function (evt) {
+    const v = (evt?.target?.value || '').trim(); // input type=date → 'YYYY-MM-DD'
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return;
+    const iso = v + 'T00:00:00.000Z'; // meia-noite UTC, consistente com o fluxo
+    if (isNaN(new Date(iso).getTime())) return;
+    _adjustmentSince = iso;
+    self.ctx.$scope.adjustmentSinceDate = v;
+    self.ctx.detectChanges();
+    _saveClampAttributes(); // salva junto com os demais atributos temp* no SERVER_SCOPE
   };
 
   // ── Manual Override — admin detection ───────────────────────────────────────

@@ -182,6 +182,28 @@
               </div>
 
               <div class="settings-group" style="margin-top: 14px">
+                <label class="group-label">Ajuste de sensores (+/-/x)</label>
+                <p class="muted" style="margin-bottom: 8px">
+                  O operador de correção no nome do device (ex.: <strong>+2</strong>, <strong>-1.5</strong>,
+                  <strong>x1.1</strong>) só é aplicado a leituras <strong>a partir desta data</strong> (meia-noite
+                  UTC). Leituras anteriores permanecem cruas. Salvo no cliente (SERVER_SCOPE:
+                  tempAdjustmentSince).
+                </p>
+                <div class="row" style="align-items: center; gap: 8px">
+                  <label style="font-size: 13px; color: var(--text-muted, #aaa); white-space: nowrap">
+                    Data de referência
+                  </label>
+                  <input
+                    type="date"
+                    class="clamp-input"
+                    style="width: 150px"
+                    [ngModel]="adjustmentSinceDate"
+                    (change)="setAdjustmentSince($event)"
+                  />
+                </div>
+              </div>
+
+              <div class="settings-group" style="margin-top: 14px">
                 <label class="group-label">Limites de Temperatura (clamp)</label>
                 <p class="muted" style="margin-bottom: 8px">
                   Leituras fora desse intervalo são corrigidas para o limite correspondente e marcadas com
