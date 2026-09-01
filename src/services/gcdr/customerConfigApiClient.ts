@@ -82,6 +82,32 @@ export interface CustomerDisplayConfig {
 }
 
 /**
+ * `ingestion` section (RFC-0229 §3.1) — replaces the legacy TB `client_id`
+ * attribute. `clientId` is a plain, non-secret, null-defaulted string
+ * (`gcdr/src/services/CustomerConfigService.ts:346-348`). `clientSecret` is
+ * typed here for documentation only — it is ALWAYS the literal string `'***'`
+ * on the normal read model (never real plaintext) and is never dual-read; see
+ * the `client_secret` TODO in MAIN_VIEW/controller.js and RFC-0231 §1.
+ */
+export interface CustomerIngestionConfig {
+  clientId: string | null;
+  clientSecret: '***' | string;
+}
+
+/**
+ * `tickets` section (RFC-0229 §3.1) — replaces the legacy TB
+ * `tickets_enabled`/`tickets_only_to_myio` attributes. Backend always
+ * structurally defaults to `{enabled:false, onlyToMyio:true}`
+ * (`gcdr/src/services/CustomerConfigService.ts:37`) — same "can't distinguish
+ * not-yet-migrated from real value" limitation as `alarms`/`featureButtons`/
+ * `temperature`, and it happens to match this widget's own TB-side defaults.
+ */
+export interface CustomerTicketsConfig {
+  enabled: boolean;
+  onlyToMyio: boolean;
+}
+
+/**
  * Normalized customer-config read model. Deliberately loose/partial — new
  * sections are added here as future Group-A subtasks need them, one at a
  * time, per RFC-0229.
@@ -92,6 +118,8 @@ export interface CustomerConfigReadModel {
   defaultDashboard?: CustomerDefaultDashboardConfig;
   temperature?: CustomerTemperatureConfig;
   display?: CustomerDisplayConfig;
+  ingestion?: CustomerIngestionConfig;
+  tickets?: CustomerTicketsConfig;
   /**
    * TODO(ED-1149 / RFC-0229 §3.1): typed but NOT wired to any dual-read yet.
    * `deviceClassificationProfile` already has a separate, in-progress GCDR

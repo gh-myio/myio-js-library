@@ -362,6 +362,8 @@ export {
   type CustomerDefaultDashboardConfig,
   type CustomerTemperatureConfig,
   type CustomerDisplayConfig,
+  type CustomerIngestionConfig,
+  type CustomerTicketsConfig,
   type CustomerConfigReadModel,
   type CustomerConfigApiClientConfig,
   type LoadCustomerConfigParams,
