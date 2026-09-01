@@ -1,84 +1,84 @@
 {
-  "meta": {
-    "project": "ED",
-    "jiraBase": "https://myio.atlassian.net",
-    "generatedAt": "2026-08-25",
-    "status": "Em Andamento",
-    "wipLimit": 1,
-    "note": "WIP = tickets com status \"Em Andamento\". Acordo: 1 por pessoa (inclui \"Aguardando Demanda\" quando ocioso)."
-  },
-  "total": 7,
-  "peopleOver": 1,
-  "people": [
+ "meta": {
+  "project": "ED",
+  "jiraBase": "https://myio.atlassian.net",
+  "generatedAt": "2026-09-01",
+  "status": "Em Andamento",
+  "wipLimit": 1,
+  "note": "WIP = tickets com status \"Em Andamento\". Acordo: 1 por pessoa (inclui \"Aguardando Demanda\" quando ocioso)."
+ },
+ "total": 7,
+ "peopleOver": 1,
+ "people": [
+  {
+   "name": "Rodrigo Lago",
+   "count": 4,
+   "over": true,
+   "tickets": [
     {
-      "name": "Rodrigo Lago",
-      "count": 4,
-      "over": true,
-      "tickets": [
-        {
-          "key": "ED-956",
-          "type": "Bug",
-          "summary": "[BUG] [PRÉ-SETUP] Ao criar novo cliente com estrutura sugerida, código do cliente não é gerado",
-          "updated": "2026-07-28"
-        },
-        {
-          "key": "ED-949",
-          "type": "Tarefa",
-          "summary": "[GCDR] Pré-setup: autopreencher \"Identificador\" ao adicionar device em asset com mais de 1 device",
-          "updated": "2026-07-28"
-        },
-        {
-          "key": "ED-941",
-          "type": "Bug",
-          "summary": "[BUG] [PRÉ-SETUP] [GCDR] Falha na sincronização para o GDCR de cliente cadastrado com múltiplos gateways (2+)",
-          "updated": "2026-07-28"
-        },
-        {
-          "key": "ED-973",
-          "type": "Bug",
-          "summary": "[BUG] [PRÉ-SETUP] [GCDR] Sistema não emite alerta de duplicidade (IPv6/UUID) ao cadastrar gateway e quebra sincronização com GCDR",
-          "updated": "2026-06-22"
-        }
-      ]
+     "key": "ED-956",
+     "type": "Bug",
+     "summary": "[BUG] [PRÉ-SETUP] Ao criar novo cliente com estrutura sugerida, código do cliente não é gerado",
+     "updated": "2026-07-28"
     },
     {
-      "name": "Victor Hugo da Silva",
-      "count": 1,
-      "over": false,
-      "tickets": [
-        {
-          "key": "ED-1133",
-          "type": "Tarefa",
-          "summary": "[GCDR/AUTH] Implementar RFC-0059 — Auth0 Identity Platform & Grant Service",
-          "updated": "2026-08-20"
-        }
-      ]
+     "key": "ED-973",
+     "type": "Bug",
+     "summary": "[BUG] [PRÉ-SETUP] [GCDR] Sistema não emite alerta de duplicidade (IPv6/UUID) ao cadastrar gateway e quebra sincronização com GCDR",
+     "updated": "2026-06-22"
     },
     {
-      "name": "Luiz Guilherme Martinho Sampaio Ito",
-      "count": 1,
-      "over": false,
-      "tickets": [
-        {
-          "key": "ED-1115",
-          "type": "Subtarefa",
-          "summary": "Validação em bancada com duas OPi e um sensor pareado",
-          "updated": "2026-08-13"
-        }
-      ]
+     "key": "ED-949",
+     "type": "Tarefa",
+     "summary": "[GCDR] Pré-setup: autopreencher \"Identificador\" ao adicionar device em asset com mais de 1 device",
+     "updated": "2026-07-28"
     },
     {
-      "name": "Letícia Camargo",
-      "count": 1,
-      "over": false,
-      "tickets": [
-        {
-          "key": "ED-841",
-          "type": "Tarefa",
-          "summary": "Documentar processo gravação de evidência de erros via JAM",
-          "updated": "2026-08-20"
-        }
-      ]
+     "key": "ED-941",
+     "type": "Bug",
+     "summary": "[BUG] [PRÉ-SETUP] [GCDR] Falha na sincronização para o GDCR de cliente cadastrado com múltiplos gateways (2+)",
+     "updated": "2026-07-28"
     }
-  ]
+   ]
+  },
+  {
+   "name": "Letícia Camargo",
+   "count": 1,
+   "over": false,
+   "tickets": [
+    {
+     "key": "ED-1214",
+     "type": "Tarefa",
+     "summary": "Explorar o sistema de OS antigo (somente leitura) — base para a nova OS",
+     "updated": "2026-08-31"
+    }
+   ]
+  },
+  {
+   "name": "Luiz Guilherme Martinho Sampaio Ito",
+   "count": 1,
+   "over": false,
+   "tickets": [
+    {
+     "key": "ED-1208",
+     "type": "Subtarefa",
+     "summary": "Definir o critério de setor",
+     "updated": "2026-08-27"
+    }
+   ]
+  },
+  {
+   "name": "Victor Hugo da Silva",
+   "count": 1,
+   "over": false,
+   "tickets": [
+    {
+     "key": "ED-1133",
+     "type": "Tarefa",
+     "summary": "[GCDR/AUTH] Implementar RFC-0059 — Auth0 Identity Platform & Grant Service",
+     "updated": "2026-08-20"
+    }
+   ]
+  }
+ ]
 }

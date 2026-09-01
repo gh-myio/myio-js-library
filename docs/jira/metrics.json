@@ -1,1809 +1,1881 @@
 {
-  "meta": {
-    "project": "ED",
-    "projectName": "Engineer Dashboard",
-    "board": 166,
-    "jiraBase": "https://myio.atlassian.net",
-    "generatedAt": "2026-08-25",
-    "today": "2026-08-25",
-    "source": "Jira Cloud (myio.atlassian.net) via MCP Atlassian"
-  },
-  "rules": {
-    "minPerDay": 1,
-    "targetPerDay": 4,
-    "suspectPerDay": 16,
-    "minTaskHours": 0.5,
-    "wipLimit": 1,
-    "note": "Mínimo: 1 ticket/dia útil · Meta: 4/dia · Teto suspeito: >16/dia (lote) · Tarefa mínima 0,5h · WIP=1 por pessoa."
-  },
-  "sprints": [
+ "meta": {
+  "project": "ED",
+  "projectName": "Engineer Dashboard",
+  "board": 166,
+  "jiraBase": "https://myio.atlassian.net",
+  "generatedAt": "2026-09-01",
+  "today": "2026-09-01",
+  "source": "Jira Cloud (myio.atlassian.net) via MCP Atlassian"
+ },
+ "rules": {
+  "minPerDay": 1,
+  "targetPerDay": 4,
+  "suspectPerDay": 16,
+  "minTaskHours": 0.5,
+  "wipLimit": 1,
+  "note": "Mínimo: 1 ticket/dia útil · Meta: 4/dia · Teto suspeito: >16/dia (lote) · Tarefa mínima 0,5h · WIP=1 por pessoa."
+ },
+ "sprints": [
+  {
+   "id": 463,
+   "name": "Sprint 15",
+   "start": "2026-05-25",
+   "end": "2026-06-01",
+   "complete": "2026-06-01",
+   "state": "closed",
+   "scope": 3,
+   "done": 3,
+   "burndown": [
     {
-      "id": 463,
-      "name": "Sprint 15",
-      "start": "2026-05-25",
-      "end": "2026-06-01",
-      "complete": "2026-06-01",
-      "state": "closed",
-      "scope": 3,
-      "done": 3,
-      "burndown": [
-        {
-          "date": "2026-05-25",
-          "remaining": 2,
-          "ideal": 3
-        },
-        {
-          "date": "2026-05-26",
-          "remaining": 2,
-          "ideal": 2.6
-        },
-        {
-          "date": "2026-05-27",
-          "remaining": 2,
-          "ideal": 2.1
-        },
-        {
-          "date": "2026-05-28",
-          "remaining": 2,
-          "ideal": 1.7
-        },
-        {
-          "date": "2026-05-29",
-          "remaining": 1,
-          "ideal": 1.3
-        },
-        {
-          "date": "2026-05-30",
-          "remaining": 1,
-          "ideal": 0.9
-        },
-        {
-          "date": "2026-05-31",
-          "remaining": 1,
-          "ideal": 0.4
-        },
-        {
-          "date": "2026-06-01",
-          "remaining": 0,
-          "ideal": 0
-        }
-      ],
-      "span": {
-        "start": "2026-05-25",
-        "end": "2026-06-01"
-      }
+     "date": "2026-05-25",
+     "remaining": 2,
+     "ideal": 3
     },
     {
-      "id": 496,
-      "name": "Sprint 16",
-      "start": "2026-06-01",
-      "end": "2026-06-08",
-      "complete": "2026-06-22",
-      "state": "closed",
-      "scope": 25,
-      "done": 25,
-      "burndown": [
-        {
-          "date": "2026-06-01",
-          "remaining": 23,
-          "ideal": 25
-        },
-        {
-          "date": "2026-06-02",
-          "remaining": 21,
-          "ideal": 21.4
-        },
-        {
-          "date": "2026-06-03",
-          "remaining": 19,
-          "ideal": 17.9
-        },
-        {
-          "date": "2026-06-04",
-          "remaining": 19,
-          "ideal": 14.3
-        },
-        {
-          "date": "2026-06-05",
-          "remaining": 19,
-          "ideal": 10.7
-        },
-        {
-          "date": "2026-06-06",
-          "remaining": 19,
-          "ideal": 7.1
-        },
-        {
-          "date": "2026-06-07",
-          "remaining": 19,
-          "ideal": 3.6
-        },
-        {
-          "date": "2026-06-08",
-          "remaining": 17,
-          "ideal": 0
-        },
-        {
-          "date": "2026-06-09",
-          "remaining": 17,
-          "ideal": 0
-        },
-        {
-          "date": "2026-06-10",
-          "remaining": 14,
-          "ideal": 0
-        },
-        {
-          "date": "2026-06-11",
-          "remaining": 14,
-          "ideal": 0
-        },
-        {
-          "date": "2026-06-12",
-          "remaining": 13,
-          "ideal": 0
-        },
-        {
-          "date": "2026-06-13",
-          "remaining": 13,
-          "ideal": 0
-        },
-        {
-          "date": "2026-06-14",
-          "remaining": 13,
-          "ideal": 0
-        },
-        {
-          "date": "2026-06-15",
-          "remaining": 8,
-          "ideal": 0
-        },
-        {
-          "date": "2026-06-16",
-          "remaining": 0,
-          "ideal": 0
-        },
-        {
-          "date": "2026-06-17",
-          "remaining": 0,
-          "ideal": 0
-        },
-        {
-          "date": "2026-06-18",
-          "remaining": 0,
-          "ideal": 0
-        },
-        {
-          "date": "2026-06-19",
-          "remaining": 0,
-          "ideal": 0
-        },
-        {
-          "date": "2026-06-20",
-          "remaining": 0,
-          "ideal": 0
-        },
-        {
-          "date": "2026-06-21",
-          "remaining": 0,
-          "ideal": 0
-        },
-        {
-          "date": "2026-06-22",
-          "remaining": 0,
-          "ideal": 0
-        }
-      ],
-      "span": {
-        "start": "2026-06-01",
-        "end": "2026-06-22"
-      }
+     "date": "2026-05-26",
+     "remaining": 2,
+     "ideal": 2.6
     },
     {
-      "id": 530,
-      "name": "Sprint 17",
-      "start": "2026-06-22",
-      "end": "2026-06-29",
-      "complete": "2026-06-30",
-      "state": "closed",
-      "scope": 11,
-      "done": 11,
-      "burndown": [
-        {
-          "date": "2026-06-22",
-          "remaining": 10,
-          "ideal": 11
-        },
-        {
-          "date": "2026-06-23",
-          "remaining": 8,
-          "ideal": 9.4
-        },
-        {
-          "date": "2026-06-24",
-          "remaining": 8,
-          "ideal": 7.9
-        },
-        {
-          "date": "2026-06-25",
-          "remaining": 8,
-          "ideal": 6.3
-        },
-        {
-          "date": "2026-06-26",
-          "remaining": 8,
-          "ideal": 4.7
-        },
-        {
-          "date": "2026-06-27",
-          "remaining": 8,
-          "ideal": 3.1
-        },
-        {
-          "date": "2026-06-28",
-          "remaining": 8,
-          "ideal": 1.6
-        },
-        {
-          "date": "2026-06-29",
-          "remaining": 3,
-          "ideal": 0
-        },
-        {
-          "date": "2026-06-30",
-          "remaining": 3,
-          "ideal": 0
-        }
-      ],
-      "span": {
-        "start": "2026-06-22",
-        "end": "2026-06-30"
-      }
+     "date": "2026-05-27",
+     "remaining": 2,
+     "ideal": 2.1
     },
     {
-      "id": 563,
-      "name": "Sprint 18",
-      "start": "2026-06-30",
-      "end": "2026-07-07",
-      "complete": "2026-07-29",
-      "state": "closed",
-      "scope": 6,
-      "done": 6,
-      "burndown": [
-        {
-          "date": "2026-06-30",
-          "remaining": 6,
-          "ideal": 6
-        },
-        {
-          "date": "2026-07-01",
-          "remaining": 6,
-          "ideal": 5.1
-        },
-        {
-          "date": "2026-07-02",
-          "remaining": 6,
-          "ideal": 4.3
-        },
-        {
-          "date": "2026-07-03",
-          "remaining": 6,
-          "ideal": 3.4
-        },
-        {
-          "date": "2026-07-04",
-          "remaining": 6,
-          "ideal": 2.6
-        },
-        {
-          "date": "2026-07-05",
-          "remaining": 6,
-          "ideal": 1.7
-        },
-        {
-          "date": "2026-07-06",
-          "remaining": 6,
-          "ideal": 0.9
-        },
-        {
-          "date": "2026-07-07",
-          "remaining": 6,
-          "ideal": 0
-        },
-        {
-          "date": "2026-07-08",
-          "remaining": 6,
-          "ideal": 0
-        },
-        {
-          "date": "2026-07-09",
-          "remaining": 6,
-          "ideal": 0
-        },
-        {
-          "date": "2026-07-10",
-          "remaining": 6,
-          "ideal": 0
-        },
-        {
-          "date": "2026-07-11",
-          "remaining": 6,
-          "ideal": 0
-        },
-        {
-          "date": "2026-07-12",
-          "remaining": 6,
-          "ideal": 0
-        },
-        {
-          "date": "2026-07-13",
-          "remaining": 6,
-          "ideal": 0
-        },
-        {
-          "date": "2026-07-14",
-          "remaining": 3,
-          "ideal": 0
-        },
-        {
-          "date": "2026-07-15",
-          "remaining": 3,
-          "ideal": 0
-        },
-        {
-          "date": "2026-07-16",
-          "remaining": 3,
-          "ideal": 0
-        },
-        {
-          "date": "2026-07-17",
-          "remaining": 2,
-          "ideal": 0
-        },
-        {
-          "date": "2026-07-18",
-          "remaining": 2,
-          "ideal": 0
-        },
-        {
-          "date": "2026-07-19",
-          "remaining": 2,
-          "ideal": 0
-        },
-        {
-          "date": "2026-07-20",
-          "remaining": 2,
-          "ideal": 0
-        },
-        {
-          "date": "2026-07-21",
-          "remaining": 0,
-          "ideal": 0
-        },
-        {
-          "date": "2026-07-22",
-          "remaining": 0,
-          "ideal": 0
-        },
-        {
-          "date": "2026-07-23",
-          "remaining": 0,
-          "ideal": 0
-        },
-        {
-          "date": "2026-07-24",
-          "remaining": 0,
-          "ideal": 0
-        },
-        {
-          "date": "2026-07-25",
-          "remaining": 0,
-          "ideal": 0
-        },
-        {
-          "date": "2026-07-26",
-          "remaining": 0,
-          "ideal": 0
-        },
-        {
-          "date": "2026-07-27",
-          "remaining": 0,
-          "ideal": 0
-        },
-        {
-          "date": "2026-07-28",
-          "remaining": 0,
-          "ideal": 0
-        },
-        {
-          "date": "2026-07-29",
-          "remaining": 0,
-          "ideal": 0
-        }
-      ],
-      "span": {
-        "start": "2026-06-30",
-        "end": "2026-07-29"
-      }
+     "date": "2026-05-28",
+     "remaining": 2,
+     "ideal": 1.7
     },
     {
-      "id": 596,
-      "name": "Sprint 19",
-      "start": "2026-07-28",
-      "end": "2026-08-04",
-      "complete": "",
-      "state": "active",
-      "scope": 82,
-      "done": 17,
-      "burndown": [
-        {
-          "date": "2026-07-28",
-          "remaining": 75,
-          "ideal": 81
-        },
-        {
-          "date": "2026-07-29",
-          "remaining": 74,
-          "ideal": 69.4
-        },
-        {
-          "date": "2026-07-30",
-          "remaining": 72,
-          "ideal": 57.9
-        },
-        {
-          "date": "2026-07-31",
-          "remaining": 71,
-          "ideal": 46.3
-        },
-        {
-          "date": "2026-08-01",
-          "remaining": 71,
-          "ideal": 34.7
-        },
-        {
-          "date": "2026-08-02",
-          "remaining": 71,
-          "ideal": 23.1
-        },
-        {
-          "date": "2026-08-03",
-          "remaining": 70,
-          "ideal": 11.6
-        },
-        {
-          "date": "2026-08-04",
-          "remaining": 69,
-          "ideal": 0
-        },
-        {
-          "date": "2026-08-05",
-          "remaining": 69,
-          "ideal": 0
-        },
-        {
-          "date": "2026-08-06",
-          "remaining": 69,
-          "ideal": 0
-        },
-        {
-          "date": "2026-08-07",
-          "remaining": 69,
-          "ideal": 0
-        },
-        {
-          "date": "2026-08-08",
-          "remaining": 69,
-          "ideal": 0
-        },
-        {
-          "date": "2026-08-09",
-          "remaining": 69,
-          "ideal": 0
-        },
-        {
-          "date": "2026-08-10",
-          "remaining": 69,
-          "ideal": 0
-        },
-        {
-          "date": "2026-08-11",
-          "remaining": 68,
-          "ideal": 0
-        },
-        {
-          "date": "2026-08-12",
-          "remaining": 68,
-          "ideal": 0
-        },
-        {
-          "date": "2026-08-13",
-          "remaining": 68,
-          "ideal": 0
-        },
-        {
-          "date": "2026-08-14",
-          "remaining": 68,
-          "ideal": 0
-        },
-        {
-          "date": "2026-08-15",
-          "remaining": 68,
-          "ideal": 0
-        },
-        {
-          "date": "2026-08-16",
-          "remaining": 68,
-          "ideal": 0
-        },
-        {
-          "date": "2026-08-17",
-          "remaining": 68,
-          "ideal": 0
-        },
-        {
-          "date": "2026-08-18",
-          "remaining": 68,
-          "ideal": 0
-        },
-        {
-          "date": "2026-08-19",
-          "remaining": 68,
-          "ideal": 0
-        },
-        {
-          "date": "2026-08-20",
-          "remaining": 67,
-          "ideal": 0
-        },
-        {
-          "date": "2026-08-21",
-          "remaining": 66,
-          "ideal": 0
-        },
-        {
-          "date": "2026-08-22",
-          "remaining": 66,
-          "ideal": 0
-        },
-        {
-          "date": "2026-08-23",
-          "remaining": 66,
-          "ideal": 0
-        },
-        {
-          "date": "2026-08-24",
-          "remaining": 65,
-          "ideal": 0
-        }
-      ],
-      "span": {
-        "start": "2026-07-28",
-        "end": "2026-08-24"
-      }
+     "date": "2026-05-29",
+     "remaining": 1,
+     "ideal": 1.3
+    },
+    {
+     "date": "2026-05-30",
+     "remaining": 1,
+     "ideal": 0.9
+    },
+    {
+     "date": "2026-05-31",
+     "remaining": 1,
+     "ideal": 0.4
+    },
+    {
+     "date": "2026-06-01",
+     "remaining": 0,
+     "ideal": 0
     }
-  ],
-  "defaultPreset": "sprint-596",
-  "fullSpan": {
+   ],
+   "span": {
     "start": "2026-05-25",
-    "end": "2026-08-24"
+    "end": "2026-06-01"
+   }
   },
-  "completions": [
+  {
+   "id": 496,
+   "name": "Sprint 16",
+   "start": "2026-06-01",
+   "end": "2026-06-08",
+   "complete": "2026-06-22",
+   "state": "closed",
+   "scope": 25,
+   "done": 25,
+   "burndown": [
     {
-      "key": "ED-1019",
-      "summary": "[MET-1] Metas Shopping v5.2.0 — último dia do range vem truncado (TZ)",
-      "assignee": "Letícia Camargo",
-      "type": "Bug",
-      "priority": "Medium",
-      "date": "2026-08-24"
+     "date": "2026-06-01",
+     "remaining": 23,
+     "ideal": 25
     },
     {
-      "key": "ED-177",
-      "summary": "Shopping Geral- Relatório de água não realiza ordenação",
-      "assignee": "Letícia Camargo",
-      "type": "Tarefa",
-      "priority": "Medium",
-      "date": "2026-08-24"
+     "date": "2026-06-02",
+     "remaining": 21,
+     "ideal": 21.4
     },
     {
-      "key": "ED-284",
-      "summary": "Praia da Costa -Relatório com falta de exibição de algumas lojas",
-      "assignee": "Rodrigo Lago",
-      "type": "Tarefa",
-      "priority": "High",
-      "date": "2026-08-21"
+     "date": "2026-06-03",
+     "remaining": 19,
+     "ideal": 17.9
     },
     {
-      "key": "ED-984",
-      "summary": "[BUG] [RFC-0207] Totalização exibe label \"BOMBA HIDRAULICA\" indevidamente",
-      "assignee": "Rodrigo Lago",
-      "type": "Bug",
-      "priority": "Medium",
-      "date": "2026-08-21"
+     "date": "2026-06-04",
+     "remaining": 19,
+     "ideal": 14.3
     },
     {
-      "key": "ED-347",
-      "summary": "Onboarding Ito",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Tarefa",
-      "priority": "Medium",
-      "date": "2026-05-25"
+     "date": "2026-06-05",
+     "remaining": 19,
+     "ideal": 10.7
     },
     {
-      "key": "ED-853",
-      "summary": "[BUG] Divergência na quantidade de dispositivos entre relatório PDF e listagem em tela no Dashboard do Campinas Shopping",
-      "assignee": "Letícia Camargo",
-      "type": "Bug",
-      "priority": "Medium",
-      "date": "2026-05-25"
+     "date": "2026-06-06",
+     "remaining": 19,
+     "ideal": 7.1
     },
     {
-      "key": "ED-860",
-      "summary": "Criar tickets para toda essa entrega",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-05-26"
+     "date": "2026-06-07",
+     "remaining": 19,
+     "ideal": 3.6
     },
     {
-      "key": "ED-831",
-      "summary": "Na Tooltip de Informações de Energia, não exibir a TAB seletor (Por Categoria / Por Shopping), isso só faz sentido no Head Office",
-      "assignee": "Letícia Camargo",
-      "type": "Bug",
-      "priority": "Medium",
-      "date": "2026-05-29"
+     "date": "2026-06-08",
+     "remaining": 17,
+     "ideal": 0
     },
     {
-      "key": "ED-856",
-      "summary": "Moxuara - Dispositivo Espaço Laser sem exibição de consumo no painel",
-      "assignee": "Rodrigo Lago",
-      "type": "Bug",
-      "priority": "Medium",
-      "date": "2026-05-29"
+     "date": "2026-06-09",
+     "remaining": 17,
+     "ideal": 0
     },
     {
-      "key": "ED-865",
-      "summary": "Mapear todos os pntos onde a identidade da central é lida",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-06-01"
+     "date": "2026-06-10",
+     "remaining": 14,
+     "ideal": 0
     },
     {
-      "key": "ED-863",
-      "summary": "Catalogar scripts/services envolvidos no deploy atual",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-06-01"
+     "date": "2026-06-11",
+     "remaining": 14,
+     "ideal": 0
     },
     {
-      "key": "ED-821",
-      "summary": "Validar BLE end-to-end: celular acha MyIO-FT-XXXX, conecta, MTU 247 negociado",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-06-01"
+     "date": "2026-06-12",
+     "remaining": 13,
+     "ideal": 0
     },
     {
-      "key": "ED-854",
-      "summary": "[BUG] Erro na sincronização Pre-setup -> GDCR",
-      "assignee": "Letícia Camargo",
-      "type": "Bug",
-      "priority": "Medium",
-      "date": "2026-06-01"
+     "date": "2026-06-13",
+     "remaining": 13,
+     "ideal": 0
     },
     {
-      "key": "ED-830",
-      "summary": "No componente do Dashboard Melicidades onde mostra consumo, o TAB Seletor mostraÇ Consolidado / Por Shopping (aqui precisa ser flexível e aqui mostrar Por Dispositivo)",
-      "assignee": "Victor Hugo da Silva",
-      "type": "Bug",
-      "priority": "Medium",
-      "date": "2026-06-01"
+     "date": "2026-06-14",
+     "remaining": 13,
+     "ideal": 0
     },
     {
-      "key": "ED-836",
-      "summary": "[BUG] - Bloqueio total de interações (detalhamento, filtros e pesquisa) na área de Hidrômetros em modo tela cheia",
-      "assignee": "Victor Hugo da Silva",
-      "type": "Bug",
-      "priority": "Medium",
-      "date": "2026-06-01"
+     "date": "2026-06-15",
+     "remaining": 8,
+     "ideal": 0
     },
     {
-      "key": "ED-816",
-      "summary": "[BUG] [THINGSBOARD]- Hidrômetros zerados no dashboard de Melicidade",
-      "assignee": "Rodrigo Lago",
-      "type": "Bug",
-      "priority": "High",
-      "date": "2026-06-02"
+     "date": "2026-06-16",
+     "remaining": 0,
+     "ideal": 0
     },
     {
-      "key": "ED-868",
-      "summary": "RFC: arquitetura de deploy CM4 ",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-06-02"
+     "date": "2026-06-17",
+     "remaining": 0,
+     "ideal": 0
     },
     {
-      "key": "ED-886",
-      "summary": "[Discovery] Comparar 4 caminhos de atualização remota — matriz custo / risco / granularidade /     tempo",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-06-02"
+     "date": "2026-06-18",
+     "remaining": 0,
+     "ideal": 0
     },
     {
-      "key": "ED-862",
-      "summary": "Documentar arquitetura de deploy atual",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-06-02"
+     "date": "2026-06-19",
+     "remaining": 0,
+     "ideal": 0
     },
     {
-      "key": "ED-915",
-      "summary": "[ThingsBoard] Copiar conteúdo dos 7 widgets v.5.2.0 → v.5.2.0 - TESTE + apontar lib para @homolog",
-      "assignee": "Victor Hugo da Silva",
-      "type": "Tarefa",
-      "priority": "Medium",
-      "date": "2026-06-02"
+     "date": "2026-06-20",
+     "remaining": 0,
+     "ideal": 0
     },
     {
-      "key": "ED-917",
-      "summary": "[Node-RED][Sá Cavalcante] Propagar function transform-temperature-reading-to-device-update da Central Mestre Álvaro L2AC para demais centrais/shoppings",
-      "assignee": "Victor Hugo da Silva",
-      "type": "Tarefa",
-      "priority": "Medium",
-      "date": "2026-06-03"
+     "date": "2026-06-21",
+     "remaining": 0,
+     "ideal": 0
     },
     {
-      "key": "ED-916",
-      "summary": "[Mestre Álvaro] Conferir 8 hidrômetros: online + última telemetria de pulso (TB) e dados recentes 30d (Ingestion)",
-      "assignee": "Victor Hugo da Silva",
-      "type": "Tarefa",
-      "priority": "Medium",
-      "date": "2026-06-03"
-    },
-    {
-      "key": "ED-918",
-      "summary": "[Pré-Setup] Setup do dashboard da Central Pre-Setup — configurar assets filhos (ASSET_AMBIENT)",
-      "assignee": "Victor Hugo da Silva",
-      "type": "Tarefa",
-      "priority": "Medium",
-      "date": "2026-06-08"
-    },
-    {
-      "key": "ED-909",
-      "summary": "[BUG] [MACAÉ] Dashboard do Shopping Macaé contabiliza dispositivo de medição geral CAG apenas quando o deviceProfile está como 'Chiller'",
-      "assignee": "Victor Hugo da Silva",
-      "type": "Bug",
-      "priority": "Medium",
-      "date": "2026-06-08"
-    },
-    {
-      "key": "ED-280",
-      "summary": "Ajuste em CARD de Device no Dashboards em Shoppings 5.2.0 para potencia instantaneas",
-      "assignee": "Victor Hugo da Silva",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-06-08"
-    },
-    {
-      "key": "ED-323",
-      "summary": "[Thingsboard][User] - Ajustes gerais na modal de gestão de usuários",
-      "assignee": "Victor Hugo da Silva",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-06-08"
-    },
-    {
-      "key": "ED-833",
-      "summary": "Ao tentar abrir o gráfico (dashboard) de um dispositivo 3F, ex: Grileto no Campinas shopping, mostou Loading energy data... e devemos ter um timeout com mensagem mais amigável",
-      "assignee": "Victor Hugo da Silva",
-      "type": "Bug",
-      "priority": "Medium",
-      "date": "2026-06-08"
-    },
-    {
-      "key": "ED-849",
-      "summary": "[BUG] [PRÉ-SETUP] Ausência do campo \"CNPJ\" no cadastro de clientes no GDCR bloqueia adição de gateway no Pré-setup",
-      "assignee": "Letícia Camargo",
-      "type": "Bug",
-      "priority": "Medium",
-      "date": "2026-06-10"
-    },
-    {
-      "key": "ED-937",
-      "summary": "[BUG] [PRÉ-SETUP] Nome dos dispositivos sem padronização",
-      "assignee": "Letícia Camargo",
-      "type": "Bug",
-      "priority": "Medium",
-      "date": "2026-06-10"
-    },
-    {
-      "key": "ED-935",
-      "summary": "[BUG] [PRÉ-SETUP] Campo de nome do Customer limita cadastro a apenas 20 caracteres",
-      "assignee": "Letícia Camargo",
-      "type": "Bug",
-      "priority": "Medium",
-      "date": "2026-06-10"
-    },
-    {
-      "key": "ED-945",
-      "summary": "Campinas Shopping - Loja com setup sem exibição no painel",
-      "assignee": "Rodrigo Lago",
-      "type": "Bug",
-      "priority": "Medium",
-      "date": "2026-06-11"
-    },
-    {
-      "key": "ED-224",
-      "summary": "Inclusão de usuário interno no App da Supervia Estações",
-      "assignee": "Rodrigo Lago",
-      "type": "Tarefa",
-      "priority": "Medium",
-      "date": "2026-06-12"
-    },
-    {
-      "key": "ED-354",
-      "summary": "[GCDR][Migração OS -> GCDR] Migração / Criação da estrutura do Backend no GCDR",
-      "assignee": "Rodrigo Lago",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-06-12"
-    },
-    {
-      "key": "ED-355",
-      "summary": "[GCDR][Migração OS -> GCDR] Migração / Criação da estrutura do Frontend no GCDR",
-      "assignee": "Rodrigo Lago",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-06-12"
-    },
-    {
-      "key": "ED-356",
-      "summary": "[GCDR][Migração OS -> GCDR] Migração / Criação da estrutura do Frontend MYIO APP",
-      "assignee": "Rodrigo Lago",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-06-12"
-    },
-    {
-      "key": "ED-947",
-      "summary": "[GCDR] Pré-setup: exibir a etiqueta (Label) do device junto com o nome",
-      "assignee": "Letícia Camargo",
-      "type": "Tarefa",
-      "priority": "Medium",
-      "date": "2026-06-15"
-    },
-    {
-      "key": "ED-952",
-      "summary": "[PRÉ-SETUP] Criação de novo Dispositivo com Asset (ambiente) integrado",
-      "assignee": "Letícia Camargo",
-      "type": "Tarefa",
-      "priority": "Medium",
-      "date": "2026-06-15"
-    },
-    {
-      "key": "ED-938",
-      "summary": "[BUG] [PRÉ-SETUP] O botão '✨ Gerar sugestão (ASSET …)' não está gerando corretamente ",
-      "assignee": "Letícia Camargo",
-      "type": "Bug",
-      "priority": "High",
-      "date": "2026-06-15"
-    },
-    {
-      "key": "ED-948",
-      "summary": "[GCDR] Pré-setup: adicionar campo \"Etiqueta/Label\" no cadastro de device",
-      "assignee": "Letícia Camargo",
-      "type": "Tarefa",
-      "priority": "Medium",
-      "date": "2026-06-15"
-    },
-    {
-      "key": "ED-353",
-      "summary": "[GCDR] Migração OS -> GCDR",
-      "assignee": "Victor Hugo da Silva",
-      "type": "História",
-      "priority": "Medium",
-      "date": "2026-06-15"
-    },
-    {
-      "key": "ED-832",
-      "summary": "Na tooltipo de Resumo de Energia, no Head Office da Supervia, mostra Categorias: Lojas por exemplo que não faz sentido. Tem que ajustar isso.",
-      "assignee": "Letícia Camargo",
-      "type": "Bug",
-      "priority": "Medium",
-      "date": "2026-06-16"
-    },
-    {
-      "key": "ED-955",
-      "summary": "[BUG] [PRÉ-SETUP] Ao editar um device o campo 'Label' não aparece",
-      "assignee": "Letícia Camargo",
-      "type": "Bug",
-      "priority": "Medium",
-      "date": "2026-06-16"
-    },
-    {
-      "key": "ED-923",
-      "summary": "[BUG] [PRÉ-SETUP] Cliente criado no ThingsBoard não é listado para importação",
-      "assignee": "Letícia Camargo",
-      "type": "Bug",
-      "priority": "Medium",
-      "date": "2026-06-16"
-    },
-    {
-      "key": "ED-934",
-      "summary": "[BUG] [PRÉ-SETUP] Sincronização com Ingestion não exibe criação do novo gateway",
-      "assignee": "Letícia Camargo",
-      "type": "Bug",
-      "priority": "Medium",
-      "date": "2026-06-16"
-    },
-    {
-      "key": "ED-940",
-      "summary": "[BUG] [PRÉ-SETUP] Erro no status de sincronização do GCDR ao importar cliente",
-      "assignee": "Letícia Camargo",
-      "type": "Bug",
-      "priority": "High",
-      "date": "2026-06-16"
-    },
-    {
-      "key": "ED-944",
-      "summary": "[BUG] [GCDR] Ao editar um asset o campo Customer está vazio",
-      "assignee": "Letícia Camargo",
-      "type": "Bug",
-      "priority": "Medium",
-      "date": "2026-06-16"
-    },
-    {
-      "key": "ED-871",
-      "summary": "Decisão arquitetural: rpiboot fixture vs SD pré-flashado vs network boot",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-06-16"
-    },
-    {
-      "key": "ED-867",
-      "summary": "Secrets managemente para MYIO_BOOTSTRAP_ENV",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-06-16"
-    },
-    {
-      "key": "ED-866",
-      "summary": "Inventário de débitos da arquitetura atual de deploy",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-06-16"
-    },
-    {
-      "key": "ED-873",
-      "summary": "Comparativo formal: arq atual vs arq nova (deploy)",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-06-16"
-    },
-    {
-      "key": "ED-874",
-      "summary": "Spec do myio-migrate-legacy-to-cm4",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-06-16"
-    },
-    {
-      "key": "ED-876",
-      "summary": "Implementação: mecanismo substituto para fw_printenv",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-06-16"
-    },
-    {
-      "key": "ED-907",
-      "summary": "[Decisão] Decisão arquitetural + runbook de deploy e rollback",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-06-16"
-    },
-    {
-      "key": "ED-887",
-      "summary": "[NodeRed] POC: deploy de flow via backend em central de teste",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-06-16"
-    },
-    {
-      "key": "ED-892",
-      "summary": "[Mender-Module] Spike: tipos (single-file, directory, custom) + signing",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-06-16"
-    },
-    {
-      "key": "ED-893",
-      "summary": "[Mender-Module] POC: artifact directory pra /usr/lib/node_modules/API/",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-06-16"
-    },
-    {
-      "key": "ED-894",
-      "summary": "[Mender-Module] Recipe Yocto: empacotar myio-api-update-module.mender",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-06-16"
-    },
-    {
-      "key": "ED-895",
-      "summary": "[Mender-Module] Pipeline CI separado pra artifact módulo (vs full rootfs)",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-06-16"
-    },
-    {
-      "key": "ED-896",
-      "summary": "[Mender-Module] Compatibility check: módulo vs versão base da central",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-06-16"
-    },
-    {
-      "key": "ED-897",
-      "summary": "[Mender-Module] Rollback via state-scripts pós-update",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-06-16"
-    },
-    {
-      "key": "ED-900",
-      "summary": "[Podman] Setup gh-myio Container Registry + autenticação por central",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-06-16"
-    },
-    {
-      "key": "ED-901",
-      "summary": "[Podman] Dockerfile: myio-api (Node 20 + sequelize)",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-06-16"
-    },
-    {
-      "key": "ED-902",
-      "summary": "[Podman] Dockerfile: myio-exporter (Go static)",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-06-16"
-    },
-    {
-      "key": "ED-904",
-      "summary": "[Podman] Migrar systemd unit → systemd-podman quadlet pros 3 serviços",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-06-16"
-    },
-    {
-      "key": "ED-905",
-      "summary": "[Podman] podman auto-update periódico + healthcheck por container",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-06-16"
-    },
-    {
-      "key": "ED-908",
-      "summary": "[BUG] [PRÉ-SETUP] Função de re-sincronização gera multiplas chave de API",
-      "assignee": "Victor Hugo da Silva",
-      "type": "Bug",
-      "priority": "Medium",
-      "date": "2026-06-16"
-    },
-    {
-      "key": "ED-921",
-      "summary": "[BUG] [INGESTION] Re-sincronização de cliente no Ingestion cria novo cadastro ao invés de atualizar o existente",
-      "assignee": "Rodrigo Lago",
-      "type": "Bug",
-      "priority": "Medium",
-      "date": "2026-06-16"
-    },
-    {
-      "key": "ED-913",
-      "summary": "[BUG] [PRÉ-SETUP] Os campos classificados como \"Parâmetros Opcionais\" devem ser obrigatórios no cadastro de gateway no Pré Setup",
-      "assignee": "Letícia Camargo",
-      "type": "Bug",
-      "priority": "Medium",
-      "date": "2026-06-16"
-    },
-    {
-      "key": "ED-933",
-      "summary": "[BUG] [PRÉ-SETUP] [GCDR] Alteração de Device no Asset o Diff não valida nem sincroniza as informações atualizadas",
-      "assignee": "Rodrigo Lago",
-      "type": "Bug",
-      "priority": "Medium",
-      "date": "2026-06-16"
-    },
-    {
-      "key": "ED-939",
-      "summary": "[BUG] [PRÉ-SETUP] [GCDR] Ao clicar em re-executar ao GCDR ocorre uma duplicação de assets",
-      "assignee": "Letícia Camargo",
-      "type": "Bug",
-      "priority": "High",
-      "date": "2026-06-16"
-    },
-    {
-      "key": "ED-942",
-      "summary": "[BUG] [PRÉ-SETUP] Ao padronizar os nomes de devices a página não é atualizada",
-      "assignee": "Letícia Camargo",
-      "type": "Bug",
-      "priority": "High",
-      "date": "2026-06-17"
-    },
-    {
-      "key": "ED-960",
-      "summary": "[PRÉ-SETUP] Identificador do device estourava 255 caracteres (auto-preencher) → 400 no GCDR",
-      "assignee": "Letícia Camargo",
-      "type": "Bug",
-      "priority": "Medium",
-      "date": "2026-06-17"
-    },
-    {
-      "key": "ED-974",
-      "summary": "Montserrat- Painel de temperatura exibindo sensores offline",
-      "assignee": "Rodrigo Lago",
-      "type": "Bug",
-      "priority": "Medium",
-      "date": "2026-06-19"
-    },
-    {
-      "key": "ED-975",
-      "summary": "[BUG] [PRÉ-SETUP] Código do Cliente deve vir pré-preenchido e ser obrigatório (estrutura sugerida)",
-      "assignee": "Letícia Camargo",
-      "type": "Bug",
-      "priority": "Medium",
-      "date": "2026-06-22"
-    },
-    {
-      "key": "ED-962",
-      "summary": "[BUG] [PRÉ-SETUP] [GCDR] Código do cliente não sincroniza com GCDR",
-      "assignee": "Rodrigo Lago",
-      "type": "Bug",
-      "priority": "Medium",
-      "date": "2026-06-23"
-    },
-    {
-      "key": "ED-957",
-      "summary": "[BUG] [PRÉ-SETUP] [GCDR] Ao criar um device com label preenchida e sincronizar com o GCDR, a label não é persistida",
-      "assignee": "Letícia Camargo",
-      "type": "Bug",
-      "priority": "Medium",
-      "date": "2026-06-23"
-    },
-    {
-      "key": "ED-199",
-      "summary": "Campinas Shopping K_HOT - Hidrometro Não tem medição do dispositivo.",
-      "assignee": "Rodrigo Lago",
-      "type": "Freshdesk",
-      "priority": "Medium",
-      "date": "2026-06-23"
-    },
-    {
-      "key": "ED-986",
-      "summary": "RIO POTY- TELEMETRIA INSTANTÂNEA SEM EXIBIÇÃO NO CARD DE LOJAS",
-      "assignee": "Leandro Gadioli Rodrigues",
-      "type": "Tarefa",
-      "priority": "Medium",
-      "date": "2026-06-23"
-    },
-    {
-      "key": "ED-988",
-      "summary": "Campinas Shopping - Ajustar multiplicador de dispositivo HIDR. SCP00023",
-      "assignee": "Victor Hugo da Silva",
-      "type": "Tarefa",
-      "priority": "Medium",
-      "date": "2026-06-24"
-    },
-    {
-      "key": "ED-950",
-      "summary": "[BUG] [GCDR] AddrLow não está funcionando no cadastro de device (Mestre Álvaro)",
-      "assignee": "Letícia Camargo",
-      "type": "Bug",
-      "priority": "Medium",
-      "date": "2026-06-29"
-    },
-    {
-      "key": "ED-835",
-      "summary": "[BUG][MELICIDADE] Impossível acessar os detalhes dos dispositivos no ambiente \"Deck Iluminação\"",
-      "assignee": "Letícia Camargo",
-      "type": "Bug",
-      "priority": "Medium",
-      "date": "2026-06-29"
-    },
-    {
-      "key": "ED-837",
-      "summary": "[BUG] [MELICIDADE] Seção de logs do dispositivo de iluminação exibindo dados mockados",
-      "assignee": "Letícia Camargo",
-      "type": "Bug",
-      "priority": "Medium",
-      "date": "2026-06-29"
-    },
-    {
-      "key": "ED-961",
-      "summary": "[PRÉ-SETUP] Habilitar botões de sync apenas após rodar o Preview",
-      "assignee": "Letícia Camargo",
-      "type": "Tarefa",
-      "priority": "Medium",
-      "date": "2026-06-29"
-    },
-    {
-      "key": "ED-911",
-      "summary": "[Pré-Setup][GCDR Sync] \"Aplicar diff\" deve suportar creates (asset/central/device)",
-      "assignee": "Letícia Camargo",
-      "type": "Tarefa",
-      "priority": "Medium",
-      "date": "2026-06-29"
-    },
-    {
-      "key": "ED-991",
-      "summary": "Rio Poty - Sensores de temperatura offline no painel",
-      "assignee": "Rodrigo Lago",
-      "type": "Bug",
-      "priority": "Medium",
-      "date": "2026-06-29"
-    },
-    {
-      "key": "ED-995",
-      "summary": "Porto Imbituba - Painel sem parametrização de período",
-      "assignee": "Rodrigo Lago",
-      "type": "Bug",
-      "priority": "Medium",
-      "date": "2026-07-06"
-    },
-    {
-      "key": "ED-993",
-      "summary": "Porto Imbituba - Setup do Hidrometro 4",
-      "assignee": "Rodrigo Lago",
-      "type": "Tarefa",
-      "priority": "Highest",
-      "date": "2026-07-06"
-    },
-    {
-      "key": "ED-312",
-      "summary": "Tecon Imbituba - Criação de Dashboard e acessos.  ",
-      "assignee": "Leandro Gadioli Rodrigues",
-      "type": "Tarefa",
-      "priority": "Highest",
-      "date": "2026-07-06"
-    },
-    {
-      "key": "ED-31",
-      "summary": "Iniciar a restauração via API",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-07-06"
-    },
-    {
-      "key": "ED-32",
-      "summary": "Implementar a rotina para Restaurar os dados",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-07-06"
-    },
-    {
-      "key": "ED-28",
-      "summary": "Fazer download do Backup da URL e sempre atualizar o Backup",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-07-06"
-    },
-    {
-      "key": "ED-30",
-      "summary": "Garantir que todos os serviços estão parados",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-07-06"
-    },
-    {
-      "key": "ED-906",
-      "summary": "[Mender-Delta] Avaliar Mender Enterprise — trial + ROI vs ganho operacional",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-07-06"
-    },
-    {
-      "key": "ED-869",
-      "summary": "Spec do mecanismo /data/.bootstrap (substituto do U-Boot env) ",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-07-06"
-    },
-    {
-      "key": "ED-1007",
-      "summary": "Testar Metas — Delta (%) invisível na legenda + desvio \"X% abaixo da Meta\" (shopping v-5.2.0)",
-      "assignee": "Rodrigo Lago",
-      "type": "Tarefa",
-      "priority": "Medium",
-      "date": "2026-07-14"
-    },
-    {
-      "key": "ED-1012",
-      "summary": "Documentar requisitos mínimos para rodar o Simulador da Central + publicar na Wiki do GCDR",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Tarefa",
-      "priority": "Medium",
-      "date": "2026-07-14"
-    },
-    {
-      "key": "ED-870",
-      "summary": "Spec do fluxo rpiboot de fábrica end-to-end",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-07-14"
-    },
-    {
-      "key": "ED-872",
-      "summary": "Diagrama de provisioning CM4",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-07-14"
-    },
-    {
-      "key": "ED-966",
-      "summary": "Conexão Direta com a Central pelo APP sem depender de Internet - Atualizar Documentação + WIKI",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Tarefa",
-      "priority": "Medium",
-      "date": "2026-07-14"
-    },
-    {
-      "key": "ED-1005",
-      "summary": "Testar Metas — Head Office: Gestão de Metas (por shopping)",
-      "assignee": "Rodrigo Lago",
-      "type": "Tarefa",
-      "priority": "Medium",
-      "date": "2026-07-17"
-    },
-    {
-      "key": "ED-1001",
-      "summary": "Testar [GCDR] Card \"Localização\" unificado em Asset, Cliente e Central",
-      "assignee": "Rodrigo Lago",
-      "type": "Tarefa",
-      "priority": "Medium",
-      "date": "2026-07-21"
-    },
-    {
-      "key": "ED-1004",
-      "summary": "Testar Metas — visão de um shopping (dashboard v-5.2.0)",
-      "assignee": "Rodrigo Lago",
-      "type": "Tarefa",
-      "priority": "Medium",
-      "date": "2026-07-21"
-    },
-    {
-      "key": "ED-1032",
-      "summary": "[QA] Validar reconciliação Moxuara (Trafo+CAG vs Entrada)",
-      "assignee": "Letícia Camargo",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-07-21"
-    },
-    {
-      "key": "ED-981",
-      "summary": "Dashboard 5.2.0 — Novo item de Menu \"Metas\" que abre a modal de consumo 7 dias (HEAD 5.2.0)",
-      "assignee": "Victor Hugo da Silva",
-      "type": "Tarefa",
-      "priority": "Medium",
-      "date": "2026-07-28"
-    },
-    {
-      "key": "ED-798",
-      "summary": "[CENTRAL - SOFTWARE] BACKUP / RESTORE",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "História",
-      "priority": "Medium",
-      "date": "2026-07-28"
-    },
-    {
-      "key": "ED-964",
-      "summary": "Novo Deploy de Central - Atualizar Documentação + WIKI",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Tarefa",
-      "priority": "Medium",
-      "date": "2026-07-28"
-    },
-    {
-      "key": "ED-965",
-      "summary": "Conexão Direta com Sensores pelo novo APP - Atualizar Documentação + WIKI",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Tarefa",
-      "priority": "Medium",
-      "date": "2026-07-28"
-    },
-    {
-      "key": "ED-925",
-      "summary": "[Dashboard BAS] Ajustes de UI — branch fix-bas-ui",
-      "assignee": "Victor Hugo da Silva",
-      "type": "Tarefa",
-      "priority": "Medium",
-      "date": "2026-07-28"
-    },
-    {
-      "key": "ED-924",
-      "summary": "[Dashboard BAS] Ajustar responsividade — Melicidades e cliente Central Pre-Setup",
-      "assignee": "Victor Hugo da Silva",
-      "type": "Tarefa",
-      "priority": "Medium",
-      "date": "2026-07-28"
-    },
-    {
-      "key": "ED-337",
-      "summary": "Ilha Plaza - Dashboard sem funcionamento dos cards e relatório",
-      "assignee": "Rodrigo Lago",
-      "type": "Bug",
-      "priority": "Highest",
-      "date": "2026-07-28"
-    },
-    {
-      "key": "ED-262",
-      "summary": "MYIO SIM - Ajustes no FOOTER",
-      "assignee": "Rodrigo Lago",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-07-28"
-    },
-    {
-      "key": "ED-261",
-      "summary": "MYIO SIM - Ajustes em EQUIPAMENTOS",
-      "assignee": "Rodrigo Lago",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-07-28"
-    },
-    {
-      "key": "ED-241",
-      "summary": "Criar Dashboard Moxuara 5.2.0",
-      "assignee": "Rodrigo Lago",
-      "type": "História",
-      "priority": "Medium",
-      "date": "2026-07-28"
-    },
-    {
-      "key": "ED-953",
-      "summary": "Ajuste Tela de solenóide",
-      "assignee": "Rodrigo Lago",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-07-28"
-    },
-    {
-      "key": "ED-255",
-      "summary": "Revisar e Normalizar Centrais Park Lagos x Thingsboard",
-      "assignee": "Rodrigo Lago",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-07-28"
-    },
-    {
-      "key": "ED-788",
-      "summary": "[GCDR][Pré-Setup] Criar Modelagem do Processo no Bizagi",
-      "assignee": "Letícia Camargo",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-07-29"
-    },
-    {
-      "key": "ED-1029",
-      "summary": "[QA] Validar dia 15 inteiro nas Metas v5.2.0 (01→15/jul)",
-      "assignee": "Letícia Camargo",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-07-29"
-    },
-    {
-      "key": "ED-1006",
-      "summary": "Testar Metas — Head Office: Metas × Consumo (painel comparativo)",
-      "assignee": "Rodrigo Lago",
-      "type": "Tarefa",
-      "priority": "Medium",
-      "date": "2026-07-29"
-    },
-    {
-      "key": "ED-1054",
-      "summary": "[RCP] Pareamento pela serial + fix não-bloqueante",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-07-30"
-    },
-    {
-      "key": "ED-1051",
-      "summary": "[RCP] Firmware do co-processador ESP32 (Fase 0+1)",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-07-30"
-    },
-    {
-      "key": "ED-1052",
-      "summary": "[RCP] Backend Erlang radio_rcp (drop-in do radio)",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-07-30"
-    },
-    {
-      "key": "ED-1065",
-      "summary": "[SETUP] Rodar SQLs mqtt-sync + instalar contribs (pg + postgresql) — Central Capim Dourado Reserva",
-      "assignee": "Rodrigo Lago",
-      "type": "Tarefa",
-      "priority": "Medium",
-      "date": "2026-07-30"
-    },
-    {
-      "key": "ED-299",
-      "summary": "Implementação de Painel de Setup de Controle de Prioridade de Alarmes e ajuste na RuleChain OBRAMAX",
-      "assignee": "Victor Hugo da Silva",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-07-30"
-    },
-    {
-      "key": "ED-1070",
-      "summary": "[URGENTE] Smart Hospital — reatribuir o owner nos dashboards (ver imagem no Slack)",
-      "assignee": "Victor Hugo da Silva",
-      "type": "Tarefa",
-      "priority": "Highest",
-      "date": "2026-07-30"
-    },
-    {
-      "key": "ED-1064",
-      "summary": "[SETUP] Provisionamento da Central Capim Dourado Reserva (Soul Malls)",
-      "assignee": "Victor Hugo da Silva",
-      "type": "Tarefa",
-      "priority": "High",
-      "date": "2026-07-31"
-    },
-    {
-      "key": "ED-1039",
-      "summary": "[MQTT Sync] Ajustar bloco SQL do nó GET MQTT Status Sync no flow API — Campinas G0 Nova (+ verificar demais centrais)",
-      "assignee": "Victor Hugo da Silva",
-      "type": "Tarefa",
-      "priority": "Medium",
-      "date": "2026-08-03"
-    },
-    {
-      "key": "ED-1071",
-      "summary": "[Frota] Atualizar data-fetcher para 1.7.3 em todas as centrais",
-      "assignee": "Victor Hugo da Silva",
-      "type": "Tarefa",
-      "priority": "Medium",
-      "date": "2026-08-04"
-    },
-    {
-      "key": "ED-997",
-      "summary": "Sá Cavalcante - Alarme sem funcionamento",
-      "assignee": "Rodrigo Lago",
-      "type": "Bug",
-      "priority": "Highest",
-      "date": "2026-08-04"
-    },
-    {
-      "key": "ED-1072",
-      "summary": "Global - Página de integração apresentando erro 502 Bad Gateway",
-      "assignee": "Rodrigo Lago",
-      "type": "Bug",
-      "priority": "Medium",
-      "date": "2026-08-04"
-    },
-    {
-      "key": "ED-1092",
-      "summary": "Inclusão tabela environments sql get state",
-      "assignee": "Victor Hugo da Silva",
-      "type": "História",
-      "priority": "Medium",
-      "date": "2026-08-04"
-    },
-    {
-      "key": "ED-1044",
-      "summary": "[QA] Testes ED-1020",
-      "assignee": "Letícia Camargo",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-08-07"
-    },
-    {
-      "key": "ED-1109",
-      "summary": "Papéis Master/Slave, eleição e promoção automática",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-08-10"
-    },
-    {
-      "key": "ED-1110",
-      "summary": "Replicação do banco da Slave e sync de identidade de serviço",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-08-10"
-    },
-    {
-      "key": "ED-1111",
-      "summary": "Heartbeat e detecção de queda da Slave pelo cabo",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-08-10"
-    },
-    {
-      "key": "ED-1030",
-      "summary": "[QA] Testes ED-1022",
-      "assignee": "Letícia Camargo",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-08-10"
-    },
-    {
-      "key": "ED-1043",
-      "summary": "[QA] Testes ED-1017",
-      "assignee": "Letícia Camargo",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-08-10"
-    },
-    {
-      "key": "ED-1093",
-      "summary": "Ajuste lib sql provision",
-      "assignee": "Victor Hugo da Silva",
-      "type": "História",
-      "priority": "Medium",
-      "date": "2026-08-11"
-    },
-    {
-      "key": "ED-1091",
-      "summary": "[TESTE] Validar novo componente da Aba API (node-red-contrib-myio-api-flows) — Central Moxuara 2.0 - 2026-07-13",
-      "assignee": "Victor Hugo da Silva",
-      "type": "Tarefa",
-      "priority": "High",
-      "date": "2026-08-11"
-    },
-    {
-      "key": "ED-1117",
-      "summary": "[QA] Testes ED-951",
-      "assignee": "Letícia Camargo",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-08-13"
-    },
-    {
-      "key": "ED-1113",
-      "summary": "Redundância de saída: um modem por central",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-08-13"
-    },
-    {
-      "key": "ED-1108",
-      "summary": "Enlace ponto-a-ponto RJ45 dedicado entre as duas centrais",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-08-13"
-    },
-    {
-      "key": "ED-1112",
-      "summary": "Consumo e reporte do health check da Slave pela Master",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-08-13"
-    },
-    {
-      "key": "ED-1047",
-      "summary": "Central CM4 - Mender com log de dados e debug completo",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-08-13"
-    },
-    {
-      "key": "ED-1037",
-      "summary": "Secrets de Admin JWT para Prod",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-08-13"
-    },
-    {
-      "key": "ED-1053",
-      "summary": "[RCP] Watchdog de liveness do ESP32 por PING ativo + recovery",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-08-13"
-    },
-    {
-      "key": "ED-1055",
-      "summary": "[Docs/PR] Design doc + runbook + PR do RCP",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-08-13"
-    },
-    {
-      "key": "ED-1062",
-      "summary": "Robustez + matriz de teste (interrupção/CRC/power-loss/rollback)",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-08-13"
-    },
-    {
-      "key": "ED-1060",
-      "summary": "CM4: orquestrador myio-rcp-ota (stream/verify/commit/rollback)",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-08-13"
-    },
-    {
-      "key": "ED-1127",
-      "summary": "[BUG] Settings Modal: campo Identificador não habilita para holding admin (isHolding+isUserAdmin)",
-      "assignee": "Victor Hugo da Silva",
-      "type": "Bug",
-      "priority": "Medium",
-      "date": "2026-08-18"
-    },
-    {
-      "key": "ED-1114",
-      "summary": " Design doc do par de centrais",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "type": "Subtarefa",
-      "priority": "Medium",
-      "date": "2026-08-19"
-    },
-    {
-      "key": "ED-994",
-      "summary": "GoalsPanel — plotar linha de meta na granularidade por hora + calendário padrão (createDateRangePicker) sempre visível em todas as granularidades",
-      "assignee": "Victor Hugo da Silva",
-      "type": "Tarefa",
-      "priority": "Medium",
-      "date": "2026-08-19"
-    },
-    {
-      "key": "ED-932",
-      "summary": "[Dashboard BAS] Ao clicar no Card V6 apresentar modal seletora",
-      "assignee": "Victor Hugo da Silva",
-      "type": "Tarefa",
-      "priority": "Medium",
-      "date": "2026-08-19"
+     "date": "2026-06-22",
+     "remaining": 0,
+     "ideal": 0
     }
-  ]
+   ],
+   "span": {
+    "start": "2026-06-01",
+    "end": "2026-06-22"
+   }
+  },
+  {
+   "id": 530,
+   "name": "Sprint 17",
+   "start": "2026-06-22",
+   "end": "2026-06-29",
+   "complete": "2026-06-30",
+   "state": "closed",
+   "scope": 11,
+   "done": 11,
+   "burndown": [
+    {
+     "date": "2026-06-22",
+     "remaining": 10,
+     "ideal": 11
+    },
+    {
+     "date": "2026-06-23",
+     "remaining": 8,
+     "ideal": 9.4
+    },
+    {
+     "date": "2026-06-24",
+     "remaining": 8,
+     "ideal": 7.9
+    },
+    {
+     "date": "2026-06-25",
+     "remaining": 8,
+     "ideal": 6.3
+    },
+    {
+     "date": "2026-06-26",
+     "remaining": 8,
+     "ideal": 4.7
+    },
+    {
+     "date": "2026-06-27",
+     "remaining": 8,
+     "ideal": 3.1
+    },
+    {
+     "date": "2026-06-28",
+     "remaining": 8,
+     "ideal": 1.6
+    },
+    {
+     "date": "2026-06-29",
+     "remaining": 3,
+     "ideal": 0
+    },
+    {
+     "date": "2026-06-30",
+     "remaining": 3,
+     "ideal": 0
+    }
+   ],
+   "span": {
+    "start": "2026-06-22",
+    "end": "2026-06-30"
+   }
+  },
+  {
+   "id": 563,
+   "name": "Sprint 18",
+   "start": "2026-06-30",
+   "end": "2026-07-07",
+   "complete": "2026-07-29",
+   "state": "closed",
+   "scope": 6,
+   "done": 6,
+   "burndown": [
+    {
+     "date": "2026-06-30",
+     "remaining": 6,
+     "ideal": 6
+    },
+    {
+     "date": "2026-07-01",
+     "remaining": 6,
+     "ideal": 5.1
+    },
+    {
+     "date": "2026-07-02",
+     "remaining": 6,
+     "ideal": 4.3
+    },
+    {
+     "date": "2026-07-03",
+     "remaining": 6,
+     "ideal": 3.4
+    },
+    {
+     "date": "2026-07-04",
+     "remaining": 6,
+     "ideal": 2.6
+    },
+    {
+     "date": "2026-07-05",
+     "remaining": 6,
+     "ideal": 1.7
+    },
+    {
+     "date": "2026-07-06",
+     "remaining": 6,
+     "ideal": 0.9
+    },
+    {
+     "date": "2026-07-07",
+     "remaining": 6,
+     "ideal": 0
+    },
+    {
+     "date": "2026-07-08",
+     "remaining": 6,
+     "ideal": 0
+    },
+    {
+     "date": "2026-07-09",
+     "remaining": 6,
+     "ideal": 0
+    },
+    {
+     "date": "2026-07-10",
+     "remaining": 6,
+     "ideal": 0
+    },
+    {
+     "date": "2026-07-11",
+     "remaining": 6,
+     "ideal": 0
+    },
+    {
+     "date": "2026-07-12",
+     "remaining": 6,
+     "ideal": 0
+    },
+    {
+     "date": "2026-07-13",
+     "remaining": 6,
+     "ideal": 0
+    },
+    {
+     "date": "2026-07-14",
+     "remaining": 3,
+     "ideal": 0
+    },
+    {
+     "date": "2026-07-15",
+     "remaining": 3,
+     "ideal": 0
+    },
+    {
+     "date": "2026-07-16",
+     "remaining": 3,
+     "ideal": 0
+    },
+    {
+     "date": "2026-07-17",
+     "remaining": 2,
+     "ideal": 0
+    },
+    {
+     "date": "2026-07-18",
+     "remaining": 2,
+     "ideal": 0
+    },
+    {
+     "date": "2026-07-19",
+     "remaining": 2,
+     "ideal": 0
+    },
+    {
+     "date": "2026-07-20",
+     "remaining": 2,
+     "ideal": 0
+    },
+    {
+     "date": "2026-07-21",
+     "remaining": 0,
+     "ideal": 0
+    },
+    {
+     "date": "2026-07-22",
+     "remaining": 0,
+     "ideal": 0
+    },
+    {
+     "date": "2026-07-23",
+     "remaining": 0,
+     "ideal": 0
+    },
+    {
+     "date": "2026-07-24",
+     "remaining": 0,
+     "ideal": 0
+    },
+    {
+     "date": "2026-07-25",
+     "remaining": 0,
+     "ideal": 0
+    },
+    {
+     "date": "2026-07-26",
+     "remaining": 0,
+     "ideal": 0
+    },
+    {
+     "date": "2026-07-27",
+     "remaining": 0,
+     "ideal": 0
+    },
+    {
+     "date": "2026-07-28",
+     "remaining": 0,
+     "ideal": 0
+    },
+    {
+     "date": "2026-07-29",
+     "remaining": 0,
+     "ideal": 0
+    }
+   ],
+   "span": {
+    "start": "2026-06-30",
+    "end": "2026-07-29"
+   }
+  },
+  {
+   "id": 596,
+   "name": "Sprint 19",
+   "start": "2026-07-28",
+   "end": "2026-08-04",
+   "complete": "",
+   "state": "active",
+   "scope": 96,
+   "done": 17,
+   "burndown": [
+    {
+     "date": "2026-07-28",
+     "remaining": 75,
+     "ideal": 81
+    },
+    {
+     "date": "2026-07-29",
+     "remaining": 74,
+     "ideal": 69.4
+    },
+    {
+     "date": "2026-07-30",
+     "remaining": 72,
+     "ideal": 57.9
+    },
+    {
+     "date": "2026-07-31",
+     "remaining": 71,
+     "ideal": 46.3
+    },
+    {
+     "date": "2026-08-01",
+     "remaining": 71,
+     "ideal": 34.7
+    },
+    {
+     "date": "2026-08-02",
+     "remaining": 71,
+     "ideal": 23.1
+    },
+    {
+     "date": "2026-08-03",
+     "remaining": 70,
+     "ideal": 11.6
+    },
+    {
+     "date": "2026-08-04",
+     "remaining": 69,
+     "ideal": 0
+    },
+    {
+     "date": "2026-08-05",
+     "remaining": 69,
+     "ideal": 0
+    },
+    {
+     "date": "2026-08-06",
+     "remaining": 69,
+     "ideal": 0
+    },
+    {
+     "date": "2026-08-07",
+     "remaining": 69,
+     "ideal": 0
+    },
+    {
+     "date": "2026-08-08",
+     "remaining": 69,
+     "ideal": 0
+    },
+    {
+     "date": "2026-08-09",
+     "remaining": 69,
+     "ideal": 0
+    },
+    {
+     "date": "2026-08-10",
+     "remaining": 69,
+     "ideal": 0
+    },
+    {
+     "date": "2026-08-11",
+     "remaining": 68,
+     "ideal": 0
+    },
+    {
+     "date": "2026-08-12",
+     "remaining": 68,
+     "ideal": 0
+    },
+    {
+     "date": "2026-08-13",
+     "remaining": 68,
+     "ideal": 0
+    },
+    {
+     "date": "2026-08-14",
+     "remaining": 68,
+     "ideal": 0
+    },
+    {
+     "date": "2026-08-15",
+     "remaining": 68,
+     "ideal": 0
+    },
+    {
+     "date": "2026-08-16",
+     "remaining": 68,
+     "ideal": 0
+    },
+    {
+     "date": "2026-08-17",
+     "remaining": 68,
+     "ideal": 0
+    },
+    {
+     "date": "2026-08-18",
+     "remaining": 68,
+     "ideal": 0
+    },
+    {
+     "date": "2026-08-19",
+     "remaining": 68,
+     "ideal": 0
+    },
+    {
+     "date": "2026-08-20",
+     "remaining": 67,
+     "ideal": 0
+    },
+    {
+     "date": "2026-08-21",
+     "remaining": 66,
+     "ideal": 0
+    },
+    {
+     "date": "2026-08-22",
+     "remaining": 66,
+     "ideal": 0
+    },
+    {
+     "date": "2026-08-23",
+     "remaining": 66,
+     "ideal": 0
+    },
+    {
+     "date": "2026-08-24",
+     "remaining": 65,
+     "ideal": 0
+    },
+    {
+     "date": "2026-08-25",
+     "remaining": 65,
+     "ideal": 0
+    },
+    {
+     "date": "2026-08-26",
+     "remaining": 65,
+     "ideal": 0
+    },
+    {
+     "date": "2026-08-27",
+     "remaining": 79,
+     "ideal": 0
+    },
+    {
+     "date": "2026-08-28",
+     "remaining": 79,
+     "ideal": 0
+    },
+    {
+     "date": "2026-08-29",
+     "remaining": 79,
+     "ideal": 0
+    },
+    {
+     "date": "2026-08-30",
+     "remaining": 79,
+     "ideal": 0
+    },
+    {
+     "date": "2026-08-31",
+     "remaining": 79,
+     "ideal": 0
+    },
+    {
+     "date": "2026-09-01",
+     "remaining": 79,
+     "ideal": 0
+    }
+   ],
+   "span": {
+    "start": "2026-07-28",
+    "end": "2026-09-01"
+   }
+  }
+ ],
+ "defaultPreset": "sprint-596",
+ "fullSpan": {
+  "start": "2026-05-25",
+  "end": "2026-09-01"
+ },
+ "completions": [
+  {
+   "key": "ED-1019",
+   "summary": "[MET-1] Metas Shopping v5.2.0 — último dia do range vem truncado (TZ)",
+   "assignee": "Letícia Camargo",
+   "type": "Bug",
+   "priority": "Medium",
+   "date": "2026-08-24"
+  },
+  {
+   "key": "ED-177",
+   "summary": "Shopping Geral- Relatório de água não realiza ordenação",
+   "assignee": "Letícia Camargo",
+   "type": "Tarefa",
+   "priority": "Medium",
+   "date": "2026-08-24"
+  },
+  {
+   "key": "ED-284",
+   "summary": "Praia da Costa -Relatório com falta de exibição de algumas lojas",
+   "assignee": "Rodrigo Lago",
+   "type": "Tarefa",
+   "priority": "High",
+   "date": "2026-08-21"
+  },
+  {
+   "key": "ED-984",
+   "summary": "[BUG] [RFC-0207] Totalização exibe label \"BOMBA HIDRAULICA\" indevidamente",
+   "assignee": "Rodrigo Lago",
+   "type": "Bug",
+   "priority": "Medium",
+   "date": "2026-08-21"
+  },
+  {
+   "key": "ED-347",
+   "summary": "Onboarding Ito",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Tarefa",
+   "priority": "Medium",
+   "date": "2026-05-25"
+  },
+  {
+   "key": "ED-853",
+   "summary": "[BUG] Divergência na quantidade de dispositivos entre relatório PDF e listagem em tela no Dashboard do Campinas Shopping",
+   "assignee": "Letícia Camargo",
+   "type": "Bug",
+   "priority": "Medium",
+   "date": "2026-05-25"
+  },
+  {
+   "key": "ED-860",
+   "summary": "Criar tickets para toda essa entrega",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-05-26"
+  },
+  {
+   "key": "ED-831",
+   "summary": "Na Tooltip de Informações de Energia, não exibir a TAB seletor (Por Categoria / Por Shopping), isso só faz sentido no Head Office",
+   "assignee": "Letícia Camargo",
+   "type": "Bug",
+   "priority": "Medium",
+   "date": "2026-05-29"
+  },
+  {
+   "key": "ED-856",
+   "summary": "Moxuara - Dispositivo Espaço Laser sem exibição de consumo no painel",
+   "assignee": "Rodrigo Lago",
+   "type": "Bug",
+   "priority": "Medium",
+   "date": "2026-05-29"
+  },
+  {
+   "key": "ED-865",
+   "summary": "Mapear todos os pntos onde a identidade da central é lida",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-06-01"
+  },
+  {
+   "key": "ED-863",
+   "summary": "Catalogar scripts/services envolvidos no deploy atual",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-06-01"
+  },
+  {
+   "key": "ED-821",
+   "summary": "Validar BLE end-to-end: celular acha MyIO-FT-XXXX, conecta, MTU 247 negociado",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-06-01"
+  },
+  {
+   "key": "ED-854",
+   "summary": "[BUG] Erro na sincronização Pre-setup -> GDCR",
+   "assignee": "Letícia Camargo",
+   "type": "Bug",
+   "priority": "Medium",
+   "date": "2026-06-01"
+  },
+  {
+   "key": "ED-830",
+   "summary": "No componente do Dashboard Melicidades onde mostra consumo, o TAB Seletor mostraÇ Consolidado / Por Shopping (aqui precisa ser flexível e aqui mostrar Por Dispositivo)",
+   "assignee": "Victor Hugo da Silva",
+   "type": "Bug",
+   "priority": "Medium",
+   "date": "2026-06-01"
+  },
+  {
+   "key": "ED-836",
+   "summary": "[BUG] - Bloqueio total de interações (detalhamento, filtros e pesquisa) na área de Hidrômetros em modo tela cheia",
+   "assignee": "Victor Hugo da Silva",
+   "type": "Bug",
+   "priority": "Medium",
+   "date": "2026-06-01"
+  },
+  {
+   "key": "ED-816",
+   "summary": "[BUG] [THINGSBOARD]- Hidrômetros zerados no dashboard de Melicidade",
+   "assignee": "Rodrigo Lago",
+   "type": "Bug",
+   "priority": "High",
+   "date": "2026-06-02"
+  },
+  {
+   "key": "ED-868",
+   "summary": "RFC: arquitetura de deploy CM4 ",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-06-02"
+  },
+  {
+   "key": "ED-886",
+   "summary": "[Discovery] Comparar 4 caminhos de atualização remota — matriz custo / risco / granularidade /     tempo",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-06-02"
+  },
+  {
+   "key": "ED-862",
+   "summary": "Documentar arquitetura de deploy atual",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-06-02"
+  },
+  {
+   "key": "ED-915",
+   "summary": "[ThingsBoard] Copiar conteúdo dos 7 widgets v.5.2.0 → v.5.2.0 - TESTE + apontar lib para @homolog",
+   "assignee": "Victor Hugo da Silva",
+   "type": "Tarefa",
+   "priority": "Medium",
+   "date": "2026-06-02"
+  },
+  {
+   "key": "ED-917",
+   "summary": "[Node-RED][Sá Cavalcante] Propagar function transform-temperature-reading-to-device-update da Central Mestre Álvaro L2AC para demais centrais/shoppings",
+   "assignee": "Victor Hugo da Silva",
+   "type": "Tarefa",
+   "priority": "Medium",
+   "date": "2026-06-03"
+  },
+  {
+   "key": "ED-916",
+   "summary": "[Mestre Álvaro] Conferir 8 hidrômetros: online + última telemetria de pulso (TB) e dados recentes 30d (Ingestion)",
+   "assignee": "Victor Hugo da Silva",
+   "type": "Tarefa",
+   "priority": "Medium",
+   "date": "2026-06-03"
+  },
+  {
+   "key": "ED-918",
+   "summary": "[Pré-Setup] Setup do dashboard da Central Pre-Setup — configurar assets filhos (ASSET_AMBIENT)",
+   "assignee": "Victor Hugo da Silva",
+   "type": "Tarefa",
+   "priority": "Medium",
+   "date": "2026-06-08"
+  },
+  {
+   "key": "ED-909",
+   "summary": "[BUG] [MACAÉ] Dashboard do Shopping Macaé contabiliza dispositivo de medição geral CAG apenas quando o deviceProfile está como 'Chiller'",
+   "assignee": "Victor Hugo da Silva",
+   "type": "Bug",
+   "priority": "Medium",
+   "date": "2026-06-08"
+  },
+  {
+   "key": "ED-280",
+   "summary": "Ajuste em CARD de Device no Dashboards em Shoppings 5.2.0 para potencia instantaneas",
+   "assignee": "Victor Hugo da Silva",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-06-08"
+  },
+  {
+   "key": "ED-323",
+   "summary": "[Thingsboard][User] - Ajustes gerais na modal de gestão de usuários",
+   "assignee": "Victor Hugo da Silva",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-06-08"
+  },
+  {
+   "key": "ED-833",
+   "summary": "Ao tentar abrir o gráfico (dashboard) de um dispositivo 3F, ex: Grileto no Campinas shopping, mostou Loading energy data... e devemos ter um timeout com mensagem mais amigável",
+   "assignee": "Victor Hugo da Silva",
+   "type": "Bug",
+   "priority": "Medium",
+   "date": "2026-06-08"
+  },
+  {
+   "key": "ED-849",
+   "summary": "[BUG] [PRÉ-SETUP] Ausência do campo \"CNPJ\" no cadastro de clientes no GDCR bloqueia adição de gateway no Pré-setup",
+   "assignee": "Letícia Camargo",
+   "type": "Bug",
+   "priority": "Medium",
+   "date": "2026-06-10"
+  },
+  {
+   "key": "ED-937",
+   "summary": "[BUG] [PRÉ-SETUP] Nome dos dispositivos sem padronização",
+   "assignee": "Letícia Camargo",
+   "type": "Bug",
+   "priority": "Medium",
+   "date": "2026-06-10"
+  },
+  {
+   "key": "ED-935",
+   "summary": "[BUG] [PRÉ-SETUP] Campo de nome do Customer limita cadastro a apenas 20 caracteres",
+   "assignee": "Letícia Camargo",
+   "type": "Bug",
+   "priority": "Medium",
+   "date": "2026-06-10"
+  },
+  {
+   "key": "ED-945",
+   "summary": "Campinas Shopping - Loja com setup sem exibição no painel",
+   "assignee": "Rodrigo Lago",
+   "type": "Bug",
+   "priority": "Medium",
+   "date": "2026-06-11"
+  },
+  {
+   "key": "ED-224",
+   "summary": "Inclusão de usuário interno no App da Supervia Estações",
+   "assignee": "Rodrigo Lago",
+   "type": "Tarefa",
+   "priority": "Medium",
+   "date": "2026-06-12"
+  },
+  {
+   "key": "ED-354",
+   "summary": "[GCDR][Migração OS -> GCDR] Migração / Criação da estrutura do Backend no GCDR",
+   "assignee": "Rodrigo Lago",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-06-12"
+  },
+  {
+   "key": "ED-355",
+   "summary": "[GCDR][Migração OS -> GCDR] Migração / Criação da estrutura do Frontend no GCDR",
+   "assignee": "Rodrigo Lago",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-06-12"
+  },
+  {
+   "key": "ED-356",
+   "summary": "[GCDR][Migração OS -> GCDR] Migração / Criação da estrutura do Frontend MYIO APP",
+   "assignee": "Rodrigo Lago",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-06-12"
+  },
+  {
+   "key": "ED-947",
+   "summary": "[GCDR] Pré-setup: exibir a etiqueta (Label) do device junto com o nome",
+   "assignee": "Letícia Camargo",
+   "type": "Tarefa",
+   "priority": "Medium",
+   "date": "2026-06-15"
+  },
+  {
+   "key": "ED-952",
+   "summary": "[PRÉ-SETUP] Criação de novo Dispositivo com Asset (ambiente) integrado",
+   "assignee": "Letícia Camargo",
+   "type": "Tarefa",
+   "priority": "Medium",
+   "date": "2026-06-15"
+  },
+  {
+   "key": "ED-938",
+   "summary": "[BUG] [PRÉ-SETUP] O botão '✨ Gerar sugestão (ASSET …)' não está gerando corretamente ",
+   "assignee": "Letícia Camargo",
+   "type": "Bug",
+   "priority": "High",
+   "date": "2026-06-15"
+  },
+  {
+   "key": "ED-948",
+   "summary": "[GCDR] Pré-setup: adicionar campo \"Etiqueta/Label\" no cadastro de device",
+   "assignee": "Letícia Camargo",
+   "type": "Tarefa",
+   "priority": "Medium",
+   "date": "2026-06-15"
+  },
+  {
+   "key": "ED-353",
+   "summary": "[GCDR] Migração OS -> GCDR",
+   "assignee": "Victor Hugo da Silva",
+   "type": "História",
+   "priority": "Medium",
+   "date": "2026-06-15"
+  },
+  {
+   "key": "ED-832",
+   "summary": "Na tooltipo de Resumo de Energia, no Head Office da Supervia, mostra Categorias: Lojas por exemplo que não faz sentido. Tem que ajustar isso.",
+   "assignee": "Letícia Camargo",
+   "type": "Bug",
+   "priority": "Medium",
+   "date": "2026-06-16"
+  },
+  {
+   "key": "ED-955",
+   "summary": "[BUG] [PRÉ-SETUP] Ao editar um device o campo 'Label' não aparece",
+   "assignee": "Letícia Camargo",
+   "type": "Bug",
+   "priority": "Medium",
+   "date": "2026-06-16"
+  },
+  {
+   "key": "ED-923",
+   "summary": "[BUG] [PRÉ-SETUP] Cliente criado no ThingsBoard não é listado para importação",
+   "assignee": "Letícia Camargo",
+   "type": "Bug",
+   "priority": "Medium",
+   "date": "2026-06-16"
+  },
+  {
+   "key": "ED-934",
+   "summary": "[BUG] [PRÉ-SETUP] Sincronização com Ingestion não exibe criação do novo gateway",
+   "assignee": "Letícia Camargo",
+   "type": "Bug",
+   "priority": "Medium",
+   "date": "2026-06-16"
+  },
+  {
+   "key": "ED-940",
+   "summary": "[BUG] [PRÉ-SETUP] Erro no status de sincronização do GCDR ao importar cliente",
+   "assignee": "Letícia Camargo",
+   "type": "Bug",
+   "priority": "High",
+   "date": "2026-06-16"
+  },
+  {
+   "key": "ED-944",
+   "summary": "[BUG] [GCDR] Ao editar um asset o campo Customer está vazio",
+   "assignee": "Letícia Camargo",
+   "type": "Bug",
+   "priority": "Medium",
+   "date": "2026-06-16"
+  },
+  {
+   "key": "ED-871",
+   "summary": "Decisão arquitetural: rpiboot fixture vs SD pré-flashado vs network boot",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-06-16"
+  },
+  {
+   "key": "ED-867",
+   "summary": "Secrets managemente para MYIO_BOOTSTRAP_ENV",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-06-16"
+  },
+  {
+   "key": "ED-866",
+   "summary": "Inventário de débitos da arquitetura atual de deploy",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-06-16"
+  },
+  {
+   "key": "ED-873",
+   "summary": "Comparativo formal: arq atual vs arq nova (deploy)",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-06-16"
+  },
+  {
+   "key": "ED-874",
+   "summary": "Spec do myio-migrate-legacy-to-cm4",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-06-16"
+  },
+  {
+   "key": "ED-876",
+   "summary": "Implementação: mecanismo substituto para fw_printenv",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-06-16"
+  },
+  {
+   "key": "ED-907",
+   "summary": "[Decisão] Decisão arquitetural + runbook de deploy e rollback",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-06-16"
+  },
+  {
+   "key": "ED-887",
+   "summary": "[NodeRed] POC: deploy de flow via backend em central de teste",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-06-16"
+  },
+  {
+   "key": "ED-892",
+   "summary": "[Mender-Module] Spike: tipos (single-file, directory, custom) + signing",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-06-16"
+  },
+  {
+   "key": "ED-893",
+   "summary": "[Mender-Module] POC: artifact directory pra /usr/lib/node_modules/API/",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-06-16"
+  },
+  {
+   "key": "ED-894",
+   "summary": "[Mender-Module] Recipe Yocto: empacotar myio-api-update-module.mender",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-06-16"
+  },
+  {
+   "key": "ED-895",
+   "summary": "[Mender-Module] Pipeline CI separado pra artifact módulo (vs full rootfs)",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-06-16"
+  },
+  {
+   "key": "ED-896",
+   "summary": "[Mender-Module] Compatibility check: módulo vs versão base da central",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-06-16"
+  },
+  {
+   "key": "ED-897",
+   "summary": "[Mender-Module] Rollback via state-scripts pós-update",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-06-16"
+  },
+  {
+   "key": "ED-900",
+   "summary": "[Podman] Setup gh-myio Container Registry + autenticação por central",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-06-16"
+  },
+  {
+   "key": "ED-901",
+   "summary": "[Podman] Dockerfile: myio-api (Node 20 + sequelize)",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-06-16"
+  },
+  {
+   "key": "ED-902",
+   "summary": "[Podman] Dockerfile: myio-exporter (Go static)",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-06-16"
+  },
+  {
+   "key": "ED-904",
+   "summary": "[Podman] Migrar systemd unit → systemd-podman quadlet pros 3 serviços",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-06-16"
+  },
+  {
+   "key": "ED-905",
+   "summary": "[Podman] podman auto-update periódico + healthcheck por container",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-06-16"
+  },
+  {
+   "key": "ED-908",
+   "summary": "[BUG] [PRÉ-SETUP] Função de re-sincronização gera multiplas chave de API",
+   "assignee": "Victor Hugo da Silva",
+   "type": "Bug",
+   "priority": "Medium",
+   "date": "2026-06-16"
+  },
+  {
+   "key": "ED-921",
+   "summary": "[BUG] [INGESTION] Re-sincronização de cliente no Ingestion cria novo cadastro ao invés de atualizar o existente",
+   "assignee": "Rodrigo Lago",
+   "type": "Bug",
+   "priority": "Medium",
+   "date": "2026-06-16"
+  },
+  {
+   "key": "ED-913",
+   "summary": "[BUG] [PRÉ-SETUP] Os campos classificados como \"Parâmetros Opcionais\" devem ser obrigatórios no cadastro de gateway no Pré Setup",
+   "assignee": "Letícia Camargo",
+   "type": "Bug",
+   "priority": "Medium",
+   "date": "2026-06-16"
+  },
+  {
+   "key": "ED-933",
+   "summary": "[BUG] [PRÉ-SETUP] [GCDR] Alteração de Device no Asset o Diff não valida nem sincroniza as informações atualizadas",
+   "assignee": "Rodrigo Lago",
+   "type": "Bug",
+   "priority": "Medium",
+   "date": "2026-06-16"
+  },
+  {
+   "key": "ED-939",
+   "summary": "[BUG] [PRÉ-SETUP] [GCDR] Ao clicar em re-executar ao GCDR ocorre uma duplicação de assets",
+   "assignee": "Letícia Camargo",
+   "type": "Bug",
+   "priority": "High",
+   "date": "2026-06-16"
+  },
+  {
+   "key": "ED-942",
+   "summary": "[BUG] [PRÉ-SETUP] Ao padronizar os nomes de devices a página não é atualizada",
+   "assignee": "Letícia Camargo",
+   "type": "Bug",
+   "priority": "High",
+   "date": "2026-06-17"
+  },
+  {
+   "key": "ED-960",
+   "summary": "[PRÉ-SETUP] Identificador do device estourava 255 caracteres (auto-preencher) → 400 no GCDR",
+   "assignee": "Letícia Camargo",
+   "type": "Bug",
+   "priority": "Medium",
+   "date": "2026-06-17"
+  },
+  {
+   "key": "ED-974",
+   "summary": "Montserrat- Painel de temperatura exibindo sensores offline",
+   "assignee": "Rodrigo Lago",
+   "type": "Bug",
+   "priority": "Medium",
+   "date": "2026-06-19"
+  },
+  {
+   "key": "ED-975",
+   "summary": "[BUG] [PRÉ-SETUP] Código do Cliente deve vir pré-preenchido e ser obrigatório (estrutura sugerida)",
+   "assignee": "Letícia Camargo",
+   "type": "Bug",
+   "priority": "Medium",
+   "date": "2026-06-22"
+  },
+  {
+   "key": "ED-962",
+   "summary": "[BUG] [PRÉ-SETUP] [GCDR] Código do cliente não sincroniza com GCDR",
+   "assignee": "Rodrigo Lago",
+   "type": "Bug",
+   "priority": "Medium",
+   "date": "2026-06-23"
+  },
+  {
+   "key": "ED-957",
+   "summary": "[BUG] [PRÉ-SETUP] [GCDR] Ao criar um device com label preenchida e sincronizar com o GCDR, a label não é persistida",
+   "assignee": "Letícia Camargo",
+   "type": "Bug",
+   "priority": "Medium",
+   "date": "2026-06-23"
+  },
+  {
+   "key": "ED-199",
+   "summary": "Campinas Shopping K_HOT - Hidrometro Não tem medição do dispositivo.",
+   "assignee": "Rodrigo Lago",
+   "type": "Freshdesk",
+   "priority": "Medium",
+   "date": "2026-06-23"
+  },
+  {
+   "key": "ED-986",
+   "summary": "RIO POTY- TELEMETRIA INSTANTÂNEA SEM EXIBIÇÃO NO CARD DE LOJAS",
+   "assignee": "Leandro Gadioli Rodrigues",
+   "type": "Tarefa",
+   "priority": "Medium",
+   "date": "2026-06-23"
+  },
+  {
+   "key": "ED-988",
+   "summary": "Campinas Shopping - Ajustar multiplicador de dispositivo HIDR. SCP00023",
+   "assignee": "Victor Hugo da Silva",
+   "type": "Tarefa",
+   "priority": "Medium",
+   "date": "2026-06-24"
+  },
+  {
+   "key": "ED-950",
+   "summary": "[BUG] [GCDR] AddrLow não está funcionando no cadastro de device (Mestre Álvaro)",
+   "assignee": "Letícia Camargo",
+   "type": "Bug",
+   "priority": "Medium",
+   "date": "2026-06-29"
+  },
+  {
+   "key": "ED-835",
+   "summary": "[BUG][MELICIDADE] Impossível acessar os detalhes dos dispositivos no ambiente \"Deck Iluminação\"",
+   "assignee": "Letícia Camargo",
+   "type": "Bug",
+   "priority": "Medium",
+   "date": "2026-06-29"
+  },
+  {
+   "key": "ED-837",
+   "summary": "[BUG] [MELICIDADE] Seção de logs do dispositivo de iluminação exibindo dados mockados",
+   "assignee": "Letícia Camargo",
+   "type": "Bug",
+   "priority": "Medium",
+   "date": "2026-06-29"
+  },
+  {
+   "key": "ED-961",
+   "summary": "[PRÉ-SETUP] Habilitar botões de sync apenas após rodar o Preview",
+   "assignee": "Letícia Camargo",
+   "type": "Tarefa",
+   "priority": "Medium",
+   "date": "2026-06-29"
+  },
+  {
+   "key": "ED-911",
+   "summary": "[Pré-Setup][GCDR Sync] \"Aplicar diff\" deve suportar creates (asset/central/device)",
+   "assignee": "Letícia Camargo",
+   "type": "Tarefa",
+   "priority": "Medium",
+   "date": "2026-06-29"
+  },
+  {
+   "key": "ED-991",
+   "summary": "Rio Poty - Sensores de temperatura offline no painel",
+   "assignee": "Rodrigo Lago",
+   "type": "Bug",
+   "priority": "Medium",
+   "date": "2026-06-29"
+  },
+  {
+   "key": "ED-995",
+   "summary": "Porto Imbituba - Painel sem parametrização de período",
+   "assignee": "Rodrigo Lago",
+   "type": "Bug",
+   "priority": "Medium",
+   "date": "2026-07-06"
+  },
+  {
+   "key": "ED-993",
+   "summary": "Porto Imbituba - Setup do Hidrometro 4",
+   "assignee": "Rodrigo Lago",
+   "type": "Tarefa",
+   "priority": "Highest",
+   "date": "2026-07-06"
+  },
+  {
+   "key": "ED-312",
+   "summary": "Tecon Imbituba - Criação de Dashboard e acessos.  ",
+   "assignee": "Leandro Gadioli Rodrigues",
+   "type": "Tarefa",
+   "priority": "Highest",
+   "date": "2026-07-06"
+  },
+  {
+   "key": "ED-31",
+   "summary": "Iniciar a restauração via API",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-07-06"
+  },
+  {
+   "key": "ED-32",
+   "summary": "Implementar a rotina para Restaurar os dados",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-07-06"
+  },
+  {
+   "key": "ED-28",
+   "summary": "Fazer download do Backup da URL e sempre atualizar o Backup",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-07-06"
+  },
+  {
+   "key": "ED-30",
+   "summary": "Garantir que todos os serviços estão parados",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-07-06"
+  },
+  {
+   "key": "ED-906",
+   "summary": "[Mender-Delta] Avaliar Mender Enterprise — trial + ROI vs ganho operacional",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-07-06"
+  },
+  {
+   "key": "ED-869",
+   "summary": "Spec do mecanismo /data/.bootstrap (substituto do U-Boot env) ",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-07-06"
+  },
+  {
+   "key": "ED-1007",
+   "summary": "Testar Metas — Delta (%) invisível na legenda + desvio \"X% abaixo da Meta\" (shopping v-5.2.0)",
+   "assignee": "Rodrigo Lago",
+   "type": "Tarefa",
+   "priority": "Medium",
+   "date": "2026-07-14"
+  },
+  {
+   "key": "ED-1012",
+   "summary": "Documentar requisitos mínimos para rodar o Simulador da Central + publicar na Wiki do GCDR",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Tarefa",
+   "priority": "Medium",
+   "date": "2026-07-14"
+  },
+  {
+   "key": "ED-870",
+   "summary": "Spec do fluxo rpiboot de fábrica end-to-end",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-07-14"
+  },
+  {
+   "key": "ED-872",
+   "summary": "Diagrama de provisioning CM4",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-07-14"
+  },
+  {
+   "key": "ED-966",
+   "summary": "Conexão Direta com a Central pelo APP sem depender de Internet - Atualizar Documentação + WIKI",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Tarefa",
+   "priority": "Medium",
+   "date": "2026-07-14"
+  },
+  {
+   "key": "ED-1005",
+   "summary": "Testar Metas — Head Office: Gestão de Metas (por shopping)",
+   "assignee": "Rodrigo Lago",
+   "type": "Tarefa",
+   "priority": "Medium",
+   "date": "2026-07-17"
+  },
+  {
+   "key": "ED-1001",
+   "summary": "Testar [GCDR] Card \"Localização\" unificado em Asset, Cliente e Central",
+   "assignee": "Rodrigo Lago",
+   "type": "Tarefa",
+   "priority": "Medium",
+   "date": "2026-07-21"
+  },
+  {
+   "key": "ED-1004",
+   "summary": "Testar Metas — visão de um shopping (dashboard v-5.2.0)",
+   "assignee": "Rodrigo Lago",
+   "type": "Tarefa",
+   "priority": "Medium",
+   "date": "2026-07-21"
+  },
+  {
+   "key": "ED-1032",
+   "summary": "[QA] Validar reconciliação Moxuara (Trafo+CAG vs Entrada)",
+   "assignee": "Letícia Camargo",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-07-21"
+  },
+  {
+   "key": "ED-981",
+   "summary": "Dashboard 5.2.0 — Novo item de Menu \"Metas\" que abre a modal de consumo 7 dias (HEAD 5.2.0)",
+   "assignee": "Victor Hugo da Silva",
+   "type": "Tarefa",
+   "priority": "Medium",
+   "date": "2026-07-28"
+  },
+  {
+   "key": "ED-798",
+   "summary": "[CENTRAL - SOFTWARE] BACKUP / RESTORE",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "História",
+   "priority": "Medium",
+   "date": "2026-07-28"
+  },
+  {
+   "key": "ED-964",
+   "summary": "Novo Deploy de Central - Atualizar Documentação + WIKI",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Tarefa",
+   "priority": "Medium",
+   "date": "2026-07-28"
+  },
+  {
+   "key": "ED-965",
+   "summary": "Conexão Direta com Sensores pelo novo APP - Atualizar Documentação + WIKI",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Tarefa",
+   "priority": "Medium",
+   "date": "2026-07-28"
+  },
+  {
+   "key": "ED-925",
+   "summary": "[Dashboard BAS] Ajustes de UI — branch fix-bas-ui",
+   "assignee": "Victor Hugo da Silva",
+   "type": "Tarefa",
+   "priority": "Medium",
+   "date": "2026-07-28"
+  },
+  {
+   "key": "ED-924",
+   "summary": "[Dashboard BAS] Ajustar responsividade — Melicidades e cliente Central Pre-Setup",
+   "assignee": "Victor Hugo da Silva",
+   "type": "Tarefa",
+   "priority": "Medium",
+   "date": "2026-07-28"
+  },
+  {
+   "key": "ED-337",
+   "summary": "Ilha Plaza - Dashboard sem funcionamento dos cards e relatório",
+   "assignee": "Rodrigo Lago",
+   "type": "Bug",
+   "priority": "Highest",
+   "date": "2026-07-28"
+  },
+  {
+   "key": "ED-262",
+   "summary": "MYIO SIM - Ajustes no FOOTER",
+   "assignee": "Rodrigo Lago",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-07-28"
+  },
+  {
+   "key": "ED-261",
+   "summary": "MYIO SIM - Ajustes em EQUIPAMENTOS",
+   "assignee": "Rodrigo Lago",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-07-28"
+  },
+  {
+   "key": "ED-241",
+   "summary": "Criar Dashboard Moxuara 5.2.0",
+   "assignee": "Rodrigo Lago",
+   "type": "História",
+   "priority": "Medium",
+   "date": "2026-07-28"
+  },
+  {
+   "key": "ED-953",
+   "summary": "Ajuste Tela de solenóide",
+   "assignee": "Rodrigo Lago",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-07-28"
+  },
+  {
+   "key": "ED-255",
+   "summary": "Revisar e Normalizar Centrais Park Lagos x Thingsboard",
+   "assignee": "Rodrigo Lago",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-07-28"
+  },
+  {
+   "key": "ED-788",
+   "summary": "[GCDR][Pré-Setup] Criar Modelagem do Processo no Bizagi",
+   "assignee": "Letícia Camargo",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-07-29"
+  },
+  {
+   "key": "ED-1029",
+   "summary": "[QA] Validar dia 15 inteiro nas Metas v5.2.0 (01→15/jul)",
+   "assignee": "Letícia Camargo",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-07-29"
+  },
+  {
+   "key": "ED-1006",
+   "summary": "Testar Metas — Head Office: Metas × Consumo (painel comparativo)",
+   "assignee": "Rodrigo Lago",
+   "type": "Tarefa",
+   "priority": "Medium",
+   "date": "2026-07-29"
+  },
+  {
+   "key": "ED-1054",
+   "summary": "[RCP] Pareamento pela serial + fix não-bloqueante",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-07-30"
+  },
+  {
+   "key": "ED-1051",
+   "summary": "[RCP] Firmware do co-processador ESP32 (Fase 0+1)",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-07-30"
+  },
+  {
+   "key": "ED-1052",
+   "summary": "[RCP] Backend Erlang radio_rcp (drop-in do radio)",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-07-30"
+  },
+  {
+   "key": "ED-1065",
+   "summary": "[SETUP] Rodar SQLs mqtt-sync + instalar contribs (pg + postgresql) — Central Capim Dourado Reserva",
+   "assignee": "Rodrigo Lago",
+   "type": "Tarefa",
+   "priority": "Medium",
+   "date": "2026-07-30"
+  },
+  {
+   "key": "ED-299",
+   "summary": "Implementação de Painel de Setup de Controle de Prioridade de Alarmes e ajuste na RuleChain OBRAMAX",
+   "assignee": "Victor Hugo da Silva",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-07-30"
+  },
+  {
+   "key": "ED-1070",
+   "summary": "[URGENTE] Smart Hospital — reatribuir o owner nos dashboards (ver imagem no Slack)",
+   "assignee": "Victor Hugo da Silva",
+   "type": "Tarefa",
+   "priority": "Highest",
+   "date": "2026-07-30"
+  },
+  {
+   "key": "ED-1064",
+   "summary": "[SETUP] Provisionamento da Central Capim Dourado Reserva (Soul Malls)",
+   "assignee": "Victor Hugo da Silva",
+   "type": "Tarefa",
+   "priority": "High",
+   "date": "2026-07-31"
+  },
+  {
+   "key": "ED-1039",
+   "summary": "[MQTT Sync] Ajustar bloco SQL do nó GET MQTT Status Sync no flow API — Campinas G0 Nova (+ verificar demais centrais)",
+   "assignee": "Victor Hugo da Silva",
+   "type": "Tarefa",
+   "priority": "Medium",
+   "date": "2026-08-03"
+  },
+  {
+   "key": "ED-1071",
+   "summary": "[Frota] Atualizar data-fetcher para 1.7.3 em todas as centrais",
+   "assignee": "Victor Hugo da Silva",
+   "type": "Tarefa",
+   "priority": "Medium",
+   "date": "2026-08-04"
+  },
+  {
+   "key": "ED-997",
+   "summary": "Sá Cavalcante - Alarme sem funcionamento",
+   "assignee": "Rodrigo Lago",
+   "type": "Bug",
+   "priority": "Highest",
+   "date": "2026-08-04"
+  },
+  {
+   "key": "ED-1072",
+   "summary": "Global - Página de integração apresentando erro 502 Bad Gateway",
+   "assignee": "Rodrigo Lago",
+   "type": "Bug",
+   "priority": "Medium",
+   "date": "2026-08-04"
+  },
+  {
+   "key": "ED-1092",
+   "summary": "Inclusão tabela environments sql get state",
+   "assignee": "Victor Hugo da Silva",
+   "type": "História",
+   "priority": "Medium",
+   "date": "2026-08-04"
+  },
+  {
+   "key": "ED-1044",
+   "summary": "[QA] Testes ED-1020",
+   "assignee": "Letícia Camargo",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-08-07"
+  },
+  {
+   "key": "ED-1109",
+   "summary": "Papéis Master/Slave, eleição e promoção automática",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-08-10"
+  },
+  {
+   "key": "ED-1110",
+   "summary": "Replicação do banco da Slave e sync de identidade de serviço",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-08-10"
+  },
+  {
+   "key": "ED-1111",
+   "summary": "Heartbeat e detecção de queda da Slave pelo cabo",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-08-10"
+  },
+  {
+   "key": "ED-1030",
+   "summary": "[QA] Testes ED-1022",
+   "assignee": "Letícia Camargo",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-08-10"
+  },
+  {
+   "key": "ED-1043",
+   "summary": "[QA] Testes ED-1017",
+   "assignee": "Letícia Camargo",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-08-10"
+  },
+  {
+   "key": "ED-1093",
+   "summary": "Ajuste lib sql provision",
+   "assignee": "Victor Hugo da Silva",
+   "type": "História",
+   "priority": "Medium",
+   "date": "2026-08-11"
+  },
+  {
+   "key": "ED-1091",
+   "summary": "[TESTE] Validar novo componente da Aba API (node-red-contrib-myio-api-flows) — Central Moxuara 2.0 - 2026-07-13",
+   "assignee": "Victor Hugo da Silva",
+   "type": "Tarefa",
+   "priority": "High",
+   "date": "2026-08-11"
+  },
+  {
+   "key": "ED-1117",
+   "summary": "[QA] Testes ED-951",
+   "assignee": "Letícia Camargo",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-08-13"
+  },
+  {
+   "key": "ED-1113",
+   "summary": "Redundância de saída: um modem por central",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-08-13"
+  },
+  {
+   "key": "ED-1108",
+   "summary": "Enlace ponto-a-ponto RJ45 dedicado entre as duas centrais",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-08-13"
+  },
+  {
+   "key": "ED-1112",
+   "summary": "Consumo e reporte do health check da Slave pela Master",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-08-13"
+  },
+  {
+   "key": "ED-1047",
+   "summary": "Central CM4 - Mender com log de dados e debug completo",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-08-13"
+  },
+  {
+   "key": "ED-1037",
+   "summary": "Secrets de Admin JWT para Prod",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-08-13"
+  },
+  {
+   "key": "ED-1053",
+   "summary": "[RCP] Watchdog de liveness do ESP32 por PING ativo + recovery",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-08-13"
+  },
+  {
+   "key": "ED-1055",
+   "summary": "[Docs/PR] Design doc + runbook + PR do RCP",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-08-13"
+  },
+  {
+   "key": "ED-1062",
+   "summary": "Robustez + matriz de teste (interrupção/CRC/power-loss/rollback)",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-08-13"
+  },
+  {
+   "key": "ED-1060",
+   "summary": "CM4: orquestrador myio-rcp-ota (stream/verify/commit/rollback)",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-08-13"
+  },
+  {
+   "key": "ED-1127",
+   "summary": "[BUG] Settings Modal: campo Identificador não habilita para holding admin (isHolding+isUserAdmin)",
+   "assignee": "Victor Hugo da Silva",
+   "type": "Bug",
+   "priority": "Medium",
+   "date": "2026-08-18"
+  },
+  {
+   "key": "ED-1114",
+   "summary": " Design doc do par de centrais",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-08-19"
+  },
+  {
+   "key": "ED-994",
+   "summary": "GoalsPanel — plotar linha de meta na granularidade por hora + calendário padrão (createDateRangePicker) sempre visível em todas as granularidades",
+   "assignee": "Victor Hugo da Silva",
+   "type": "Tarefa",
+   "priority": "Medium",
+   "date": "2026-08-19"
+  },
+  {
+   "key": "ED-932",
+   "summary": "[Dashboard BAS] Ao clicar no Card V6 apresentar modal seletora",
+   "assignee": "Victor Hugo da Silva",
+   "type": "Tarefa",
+   "priority": "Medium",
+   "date": "2026-08-19"
+  },
+  {
+   "key": "ED-50",
+   "summary": "Criação dos dashboards para cliente ATUAL - SUPERVIA CCO - UPSELL",
+   "assignee": "Bruno Kubudi Cardeman",
+   "type": "Subtarefa",
+   "priority": "High",
+   "date": "2026-08-26"
+  },
+  {
+   "key": "ED-1066",
+   "summary": "[BUG] Obramax Mesquita — tela de agendamento permite agendas com conflito de horário (individual × grupo)",
+   "assignee": "Rodrigo Lago",
+   "type": "Bug",
+   "priority": "High",
+   "date": "2026-08-26"
+  },
+  {
+   "key": "ED-1068",
+   "summary": "[BUG] Obramax São Gonçalo — automação não rodou em 2026-07-29 (analisar log da central)",
+   "assignee": "Rodrigo Lago",
+   "type": "Bug",
+   "priority": "High",
+   "date": "2026-08-26"
+  },
+  {
+   "key": "ED-1115",
+   "summary": "Validação em bancada com duas OPi e um sensor pareado",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-08-27"
+  }
+ ]
 }
