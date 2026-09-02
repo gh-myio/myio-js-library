@@ -206,39 +206,81 @@ export type CentralConnectivity = 'ONLINE' | 'OFFLINE' | 'WARNING' | 'UNKNOWN';
 
 export interface CentralConnectivityEvidence {
   monitoringEnabled: boolean;
-  lastCheckAt?: string | null;     // last_gateway_check_at (ISO)
-  lastSuccessAt?: string | null;   // last_gateway_success_check_at (ISO)
+  lastCheckAt?: string | null;     // last_gateway_check_at (ISO) — last ATTEMPT
+  lastSuccessAt?: string | null;   // last_gateway_success_check_at (ISO) — last SUCCESS (the baseline)
   probeResult?: string | null;     // OK|TIMEOUT|CONN_REFUSED|HTTP_5XX|PARSE_FAIL|AUTH_ERROR|CONFIG_ERROR|null
-  canonicalStatus?: string | null; // connection_status (fallback when never probed)
+  canonicalStatus?: string | null; // connection_status — display hint only; NEVER used to assert OFFLINE
 }
 
 export interface DeriveConnectivityOptions {
   offlineGraceMs: number;          // input threshold — never hard-coded in the helper
-  nowMs?: number;                  // injectable clock for deterministic tests
+  nowMs?: number;                  // injectable clock; used ONLY for staleness + "since last sync" display
+}
+
+export interface CentralConnectivityResult {
+  connectivity: CentralConnectivity;
+  stale: boolean;                  // derived while monitoring is OFF (data no longer refreshed) → show a "stale" badge
+  pastGrace: boolean;              // genuine down AND no success within grace (measured relative to lastCheckAt)
+  sinceSuccessMs: number | null;   // for the "último sync há X" line; null when never synced
+  reason:
+    | 'NEVER_SYNCED'               // no success baseline → UNKNOWN (conservative)
+    | 'OK'                         // last attempt succeeded → ONLINE
+    | 'WITHIN_GRACE'              // failing but < grace since last success → WARNING
+    | 'PAST_GRACE'                // no success ≥ grace → OFFLINE
+    | 'MONITORING_OFF_STALE';     // monitoring OFF → last-known connectivity, frozen + stale
 }
 
 export function deriveCentralConnectivity(
   ev: CentralConnectivityEvidence,
   opts: DeriveConnectivityOptions,
-): CentralConnectivity;
+): CentralConnectivityResult;
 ```
 
-Rule (identical to the cockpit `effStatus` and the read-side of the worker's
-`centralVerdict`):
+Rule (read-side; aligns with the cockpit `effStatus` and **reproduces the
+worker's `centralVerdict` from stored timestamps**, with one deliberate
+divergence — see the first bullet):
 
-- not monitored **and** never probed → `UNKNOWN`;
-- no `probeResult` → fall back to `canonicalStatus` (or `UNKNOWN`);
-- `probeResult === 'OK'` → `ONLINE`;
-- otherwise: no successful sync for `≥ offlineGraceMs` → `OFFLINE`, else
-  `WARNING`.
+- **No success baseline** (`lastSuccessAt` null/absent) → **`UNKNOWN`**
+  (`NEVER_SYNCED`), *regardless of `monitoringEnabled`, `probeResult`, or a
+  persisted `canonicalStatus === 'OFFLINE'`*. A central that has never once been
+  reached is **"not yet known", not "confirmed down"**. This is deliberately more
+  conservative than the worker's write-side `centralVerdict` (which may persist
+  `OFFLINE` after a failed probe), and it is what stops cold-start /
+  freshly-imported centrals (e.g. the RFC-0062 inbox gateways) from a
+  **false-OFFLINE storm**.
+- **Has a success baseline** (`lastSuccessAt` present) — compute the verdict
+  **relative to `lastCheckAt`** (the last observation), NOT the live clock, so it
+  reproduces exactly what the worker stored at check time and does not drift as
+  wall-clock passes:
+  - last attempt was the success (`probeResult === 'OK'`, or `lastCheckAt` ≤
+    `lastSuccessAt`) → **`ONLINE`** (`OK`);
+  - last attempt failed (`lastCheckAt` > `lastSuccessAt`):
+    - `lastCheckAt − lastSuccessAt ≥ offlineGraceMs` → **`OFFLINE`**
+      (`PAST_GRACE`, `pastGrace: true`);
+    - else → **`WARNING`** (`WITHIN_GRACE`).
+- **Monitoring OFF with a success baseline** → keep the **last-known**
+  connectivity from the rule above but set **`stale: true`**
+  (`MONITORING_OFF_STALE`). Because the verdict is anchored to `lastCheckAt`
+  (frozen once checks stop), it does **not** drift to `OFFLINE` merely because
+  time passed — the card renders the last known state with a
+  "stale / desatualizado" badge and the Monitoramento slider OFF.
+- `sinceSuccessMs` = `nowMs − lastSuccessAt` (for the "último sync há X" line);
+  `null` when never synced. The live clock (`nowMs`) is used **only** for this
+  display value and the `stale` badge — **never** for the
+  ONLINE/WARNING/OFFLINE verdict.
+- `canonicalStatus` is a **display hint only** (e.g. seeding a badge before
+  evidence loads); it must **never** promote a central to `OFFLINE` in the
+  absence of a success baseline.
 
 `accentFor` mapping (matching the cockpit): `ONLINE→emerald`, `OFFLINE→rose`,
-`WARNING→amber`, `UNKNOWN→slate`.
+`WARNING→amber`, `UNKNOWN→slate`. The `stale` flag is orthogonal to the accent —
+it renders as a separate badge, so a stale `ONLINE` still reads emerald + "stale".
 
 It is **pure**: input = raw evidence + grace threshold (+ optional injected
-clock), output = one of four enum values, no DOM, no I/O. This is what makes it
-trivially and exhaustively testable, and safe for the cockpit/worker to adopt
-before the card exists.
+clock), output = a small `CentralConnectivityResult` object, no DOM, no I/O. This
+is what makes it trivially and exhaustively testable, and safe for the
+cockpit/worker to adopt before the card exists. The card consumes
+`result.connectivity` for the accent and `result.stale` for the badge.
 
 ### Component name & location
 
@@ -352,8 +394,14 @@ export interface CreateCentralStatusCardParams {
   accent?: DivCardAccent;
 
   // ── connectivity: pass EITHER the derived value OR the raw evidence ───────
+  /** Pre-derived connectivity (host called deriveCentralConnectivity itself and
+   *  passes result.connectivity). */
   derivedConnectivity?: CentralConnectivity;
-  /** If `derivedConnectivity` is absent, the card calls deriveCentralConnectivity on this. */
+  /** Pre-derived stale flag (result.stale) — renders the "stale/desatualizado"
+   *  badge. Only meaningful alongside `derivedConnectivity`. */
+  derivedStale?: boolean;
+  /** If `derivedConnectivity` is absent, the card calls deriveCentralConnectivity
+   *  on this and uses BOTH result.connectivity and result.stale. */
   connectivityEvidence?: CentralConnectivityEvidence;
   /** Grace threshold (ms) for the derivation path. */
   offlineGraceMs?: number;
@@ -858,6 +906,19 @@ covering **every** combination, with an injected `nowMs`:
   simple single-component UMD showcase).
 
 ## Unresolved questions
+
+**Resolved (2026-09-02, GCDR review) — encode these in the helper:**
+
+- **Never-synced central → `UNKNOWN`, not `OFFLINE`.** When there is no success
+  baseline (`lastSuccessAt` absent), the read-side helper returns `UNKNOWN` even
+  if monitoring is ON and even if a persisted `canonicalStatus` says `OFFLINE`.
+  This deliberately diverges from the worker's write-side and fixes the observed
+  false-OFFLINE on freshly-imported gateways. (See §0, first rule bullet.)
+- **Monitoring OFF with a past sync → last-known connectivity + `stale`.** The
+  card shows the frozen last-known verdict (anchored to `lastCheckAt`, so it does
+  not drift to `OFFLINE`) plus a `stale` badge, not `UNKNOWN`. (See §0.)
+
+Still open:
 
 - **Auth model for the toggles.** RFC-0062 gates cockpit controls behind
   `DB_ADMIN_PASSWORD` as a *temporary* internal measure (RFC-0062 §7) and defers
