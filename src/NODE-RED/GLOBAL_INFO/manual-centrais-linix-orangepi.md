@@ -92,7 +92,8 @@ ssh -i id_rsa root@<ipv6-da-central>
 | --------------------------- | ---------------------------------------- | -------------------------------------- | -------------- | ---------- |
 | Campinas Shopping — G1 G2   | `203:5e50:3e69:89bd:5846:e41f:23b8:fd28` | `1b5d79c4-5fc6-46c4-bd05-89e8b1499920` | `16.2.170.222` | `107`      |
 | Campinas Shopping — G0 Nova | `200:83a1:247a:8c7b:d428:3ed4:21dd:389f` | `401230d1-e7d6-46dd-9bb1-059387683303` | —              | —          |
-| Campinas Shopping — G0 Hidrômetros        | `200:6bd3:fa74:f805:7b0a:c337:ccc5:e1b7` | `b126ce91-6567-492b-96f8-b157b47e2600` | —              | —          |
+| ~~Campinas Shopping — G0 Hidrômetros~~ ⚠️ **INATIVADA 2026-09-03** — substituída pela central nova abaixo | ~~`200:6bd3:fa74:f805:7b0a:c337:ccc5:e1b7`~~ | ~~`b126ce91-6567-492b-96f8-b157b47e2600`~~ | —              | —          |
+| Campinas Shopping — G0 Hidrômetros Novo - 2026-09-03 | `200:a2db:17c5:bb1c:afa1:2caa:c73:4312` | `989671ae-345c-4416-90ed-20939e363ea0` | `133.56.105.88` | `8`        |
 | Campinas Shopping — G1 G2 Hidrômetros     | `200:a107:d79f:55d0:65:212e:15f6:d27b`   | `aab91440-3bb4-4b04-aeb4-6533c93afb57` | —              | —          |
 | Campinas Shopping — Subestação Principal  | `202:7cde:b52f:7210:12a5:91d6:1fe5:4d6e` | `c248c77f-da23-4247-a06b-cf371a82f4d9` | —              | —          |
 
@@ -221,8 +222,11 @@ ssh -i id_rsa root@203:5e50:3e69:89bd:5846:e41f:23b8:fd28
 # Campinas Shopping — G0 Nova (Argo Plan)
 ssh -i id_rsa root@200:83a1:247a:8c7b:d428:3ed4:21dd:389f
 
-# Campinas Shopping — G0 Hidrômetros (Argo Plan)
+# ~~Campinas Shopping — G0 Hidrômetros~~ — INATIVADA 2026-09-03 (substituída pela Novo abaixo)
 ssh -i id_rsa root@200:6bd3:fa74:f805:7b0a:c337:ccc5:e1b7
+
+# Campinas Shopping — G0 Hidrômetros Novo (Argo Plan)
+ssh -i id_rsa root@200:a2db:17c5:bb1c:afa1:2caa:c73:4312
 
 # Campinas Shopping — G1 G2 Hidrômetros (Argo Plan)
 ssh -i id_rsa root@200:a107:d79f:55d0:65:212e:15f6:d27b
