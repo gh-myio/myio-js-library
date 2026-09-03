@@ -516,6 +516,8 @@ export type {
   EnergyModalI18n,
   EnergyModalStyleOverrides,
   EnergyModalError,
+  FeatureButtonsMatrix,
+  FeatureGroupVisibility,
 } from './components/premium-modals/energy/openDashboardPopupEnergy';
 
 // Settings Modal Component

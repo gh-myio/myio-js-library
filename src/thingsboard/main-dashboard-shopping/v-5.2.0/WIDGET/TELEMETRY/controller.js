@@ -3154,6 +3154,10 @@ function renderList(visible) {
               readingType: WIDGET_DOMAIN, // 'energy', 'water', or 'tank'
               deviceProfile: it.deviceProfile || null,
               canShowDemandButtons: window.MyIOOrchestrator?.canShowDemandButtons,
+              // RFC-0229 §1: granular per-group visibility — takes precedence over
+              // canShowDemandButtons above when present (EnergyModalView falls back
+              // to the flat flag/deviceProfile rule when this is undefined).
+              featureButtons: window.MyIOOrchestrator?.featureButtons,
               startDate: self.ctx.scope.startDateISO,
               endDate: self.ctx.scope.endDateISO,
               tbJwtToken: jwtToken,
