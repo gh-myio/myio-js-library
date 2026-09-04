@@ -1,6 +1,23 @@
 // energy/types.ts - Comprehensive types for openDashboardPopupEnergy component
 
 // ============================================================================
+// RFC-0229 §1: granular demand/telemetry button visibility
+// ============================================================================
+
+/** Per-group visibility flags for one feature (e.g. "Pico de Demanda"). */
+export interface FeatureGroupVisibility {
+  entrada: boolean;
+  areacomum: boolean;
+  lojas: boolean;
+}
+
+/** Mirrors GCDR's `featureButtons` customer-config section (RFC-0229 §1). */
+export interface FeatureButtonsMatrix {
+  demandPeak: FeatureGroupVisibility;
+  instantTelemetry: FeatureGroupVisibility;
+}
+
+// ============================================================================
 // RFC-0165: BAS Mode Types
 // ============================================================================
 
@@ -86,8 +103,20 @@ export interface OpenDashboardPopupEnergyOptions {
   granularity?: '1d' | '1h' | '15m';   // default: '1d' (REQUIRED for comparison mode)
   deviceLabel?: string;               // Display label for device (used in demand modal)
   deviceProfile?: string;             // Device profile (e.g. '3F_MEDIDOR')
-  /** Customer SERVER_SCOPE attribute. When true, shows Pico de Demanda and Telemetrias Instantâneas buttons. Default: false. */
+  /**
+   * Legacy customer-wide flag. When `featureButtons` (below) is also provided, it
+   * takes precedence and this is only consulted as its fallback. Kept for callers
+   * that haven't migrated to the granular matrix yet.
+   */
   canShowDemandButtons?: boolean;
+  /**
+   * RFC-0229 §1 — granular per-group visibility for the "Pico de Demanda" and
+   * "Telemetrias Instantâneas" buttons, replacing the flat `canShowDemandButtons`.
+   * The device's group (`entrada`/`areacomum`/`lojas`) is resolved from
+   * `deviceProfile` above via the same classifier used elsewhere in the dashboard.
+   * Falls back to `canShowDemandButtons`/the legacy deviceProfile rule when omitted.
+   */
+  featureButtons?: FeatureButtonsMatrix;
   userEmail?: string;                  // Logged-in user email — enables ⚙️ polling button in RTT modal if @myio.com.br
   customerName?: string;               // Customer display name shown as badge in RTT modal header
   closeOnEsc?: boolean;                // default: true
