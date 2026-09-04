@@ -49,7 +49,23 @@ The ED-1149 breakdown flags these as `[Órfão]`/`[Gap]` — absent from RFC-022
 
 - **ED-1167 `inauguration_date`** — **finding: this is NOT a Customer SERVER_SCOPE attribute today.** It's a **per-device/per-store** `dataKey` (`camelCase` as `inaugurationDate`), read in `src/thingsboard/MYIO-SIM/v5.2.0_UNIQUE/controller.js` (lines 3914-3915, 5143, 7414, 10456-10480) and modeled in `src/components/metas-guide/types.ts:41` — used to sort stores by inauguration date in the Metas × Consumo (Goals vs. Consumption) feature. The ED-1149 ticket's classification as a Customer-level attribute looks inaccurate. **Needs**: re-verification directly against a real production customer's TB SERVER_SCOPE attributes (via TB's own UI or API) before any decision — if it genuinely doesn't exist there, this ticket should be closed as a misclassification, not implemented.
 - **ED-1168 `obs`** — **finding: zero references anywhere in the frontend codebase** (`grep -rn "'obs'"` / `"obs"` across all of `src/`, no matches). If this attribute exists on real TB customers, nothing in this repository reads or writes it — it would be unused/vestigial, likely entered directly through TB's own UI by operations staff with no frontend consumer at all. **Needs**: confirmation it exists on a live customer, and — if so — a decision on whether migrating a field nothing consumes is even worth doing, versus just documenting it as legacy metadata that stays in TB.
-- **ED-1171 `alarmRecipients`** — **finding: zero references anywhere in the frontend codebase**, same as `obs`. Not found near `alarmNotificationsEnabled` or anywhere in the alarm-handling code paths (`_prefetchCustomerAlarms`, `AlarmServiceOrchestrator`, `_buildAlarmDayMap`, etc.). **Needs**: the same confirmation-before-decision treatment as `obs`.
+
+**ED-1171 `alarmRecipients` — RESOLVED, moved out of this section.** Unlike the two above, this one now has a decided disposition — see §3a immediately below and the new row in RFC-0229 §3.1.
+
+## §3a — ED-1171 `alarmRecipients`: resolved (DROP)
+
+Confirmed via `grep -rn "alarmRecipients"` across every locally-available repo, not just this one:
+
+- **Zero references** in `myio-js-library` (this frontend widget — not near `alarmNotificationsEnabled` or anywhere in the alarm-handling code paths: `_prefetchCustomerAlarms`, `AlarmServiceOrchestrator`, `_buildAlarmDayMap`, etc.), `gcdr-frontend` (one doc mention only, unrelated — see below), and `alarms-frontend` (zero).
+- **The name IS used elsewhere, but for a different, unrelated concept** — a real finding, not just absence of evidence:
+  - `alarms-backend/src/workers/orchestrator.worker.ts:212-283` builds a **per-alarm, per-rule** `alarmRecipients[]` field for its email-notification payload, sourced from *"GCDR rule.notifications.OPEN"*.
+  - `gcdr/src/domain/entities/Rule.ts:207,218,268` — `Rule.recipients: NotificationRecipient[]`, a per-rule, per-notification-category structure configured via the AlarmsTab UI (RFC-0180). This is the real, actively-wired recipients system today.
+  - `gcdr-frontend/docs/BACKEND-RFC-0021-HTML-Templates-v2.md:441` confirms the same per-rule payload contract downstream (EMAIL_SENDER receiving `alarmRecipients: string[]` per rule).
+  - `alarms-backend/test/thingsboard/rule-chain/build-email-fields.js` (a reference copy of a legacy ThingsBoard rule-chain script, not executed from any repo) shows a third, even older per-rule shape (`rules.<ruleId>.alarmRecipients`) from a pre-GCDR TB-native email pipeline.
+
+**Conclusion**: the customer-level TB SERVER_SCOPE `alarmRecipients` (confirmed `[]` on a real production customer) is a legacy, superseded attribute — its apparent original purpose (one customer-wide recipients list) has been replaced by GCDR's per-rule, per-category `Rule.recipients` system, which is strictly more capable and is what's actually wired end-to-end today. Nothing depends on the TB attribute.
+
+**Decision: DROP** — documented in RFC-0229 §3.1 (not "GCDR (metadata)" like `obs`/`inauguration_date`, which remain genuinely unconfirmed rather than confirmed-superseded). Same standing rule as every other subtask: this is the *documented future disposition*, not an executed action — the TB attribute is not removed in this pass, only flagged as a Phase 2 removal candidate, same treatment as the `qt*` row.
 
 ## §4 — `integration_setup` (ED-1169) — complex, real structural overlap confirmed
 
@@ -72,14 +88,13 @@ This ticket asks to **delete** a family of legacy `qtDevices*` attributes from T
 
 `gcdrCustomerId`, `gcdrTenantId`, `gcdrApiKey` never migrate to GCDR — this has been the de facto behavior of every subtask in this session (they're read from TB, used to *authenticate the GCDR call itself*, and are the one thing that structurally cannot live on the far side of the connection they establish). This document is the first place it's written down formally rather than only implied by every dual-read block's own `_gcdrFieldParams` construction. Also relevant to the §4 `integration_setup.gcdr` overlap — the same three values, potentially duplicated in two TB locations.
 
-## §7 — Group B: 26 widget settings (ED-1173–1198) — disposition undecided
+## §7 — Group B: 26 widget settings (ED-1173–1198) — 5 resolved, 21 disposition undecided
 
-Group B (`WIDGET/MAIN_VIEW/settingsSchema.json`, the dashboard's Appearance tab) is a **different mechanism** from Group A (per-customer TB attributes) — these are per-widget-instance deployment settings. RFC-0229 does not cover Group B explicitly, and the ED-1149 breakdown itself states the process: *"Cada sub-task do Grupo B deve ter disposição confirmada por Victor Hugo antes de implementar"* (each Group B item needs its disposition — migrate to GCDR vs. stay a widget setting — confirmed by Victor Hugo before implementation). **No Group B code was implemented this round** for exactly that reason. Reproducing the ticket's own recommendation split below as a starting point for that confirmation, not as a decision:
+Group B (`WIDGET/MAIN_VIEW/settingsSchema.json`, the dashboard's Appearance tab) is a **different mechanism** from Group A (per-customer TB attributes) — these are per-widget-instance deployment settings. RFC-0229 does not cover Group B explicitly, and the ED-1149 breakdown itself states the process: *"Cada sub-task do Grupo B deve ter disposição confirmada por Victor Hugo antes de implementar"* (each Group B item needs its disposition — migrate to GCDR vs. stay a widget setting — confirmed by Victor Hugo before implementation). **No Group B code was implemented this round** for exactly that reason — the exceptions are ED-1173–1176 and ED-1177, resolved below with a confirmed (not guessed) disposition each. Reproducing the ticket's own recommendation split below as a starting point for the remaining 21, not as a decision:
 
 **Likely stays a widget/deployment setting** (environment-specific, not per-customer):
 | Ticket | Field |
 |---|---|
-| ED-1177 | `debugMode` |
 | ED-1178 | `homologMode` |
 | ED-1182 | `alarmsApiBaseUrl` |
 | ED-1183 | `gcdrApiBaseUrl` |
@@ -89,9 +104,18 @@ Group B (`WIDGET/MAIN_VIEW/settingsSchema.json`, the dashboard's Appearance tab)
 **Likely migrates to GCDR** (per-customer customization):
 | Ticket | Field |
 |---|---|
-| ED-1173–1176 | `enableCache`, `cacheTtlMinutes`, `enableStaleWhileRevalidate`, `maxCacheSize` |
 | ED-1189–1193 | `maxSelection`, `enableTemperatureApiDataFetch`, `enableDeviceDataExport`, `enableReportButton`, `enabledReportItems` |
 | ED-1194–1196 | `defaultThemeMode`, `darkMode`, `lightMode` |
+
+**Confirmed DROP — dead scaffolding from a removed feature (resolved, not a guess)**:
+| Ticket | Field | Finding |
+|---|---|---|
+| ED-1173–1176 | `enableCache`, `cacheTtlMinutes`, `enableStaleWhileRevalidate`, `maxCacheSize` | These four control nothing today, in either store. `grep` confirms zero reads anywhere in `MAIN_VIEW/controller.js` — no `widgetSettings.enableCache`, no `config.enableCache`. This isn't "always unused": `docs/rfcs/RFC-0052-GLOBAL-CACHE-TOGGLE.md` + `RFC-0052-IMPLEMENTATION-COMPLETE.md` (2025-10-22) show a full implementation once existed — `widgetSettings.enableCache`, `config.enableCache`/`.ttlMinutes`, and a dedicated `readCache()`/`writeCache()`/`memCache` layer gated by the flag. `grep -n "function readCache\|function writeCache\|memCache\b"` on the current file returns **zero matches** — that whole mechanism was removed in a later orchestrator refactor, superseded by the caching approach used today (`window.MyIOOrchestratorData[domain]` + hardcoded freshness windows, e.g. `30000`/`60000`/`120000` ms literals in `hydrateDomain`/`waitForCtxData`/`registerWidget`, none of which read these settings). The schema fields were simply never cleaned up when the feature they controlled was replaced. **Decision: DROP** — same treatment as `qt*`/`alarmRecipients` (§3a): documented as a Phase 2 removal candidate from `settingsSchema.json`, not migrated to GCDR (moving a dead value into a fancier store restores no function), not removed in this pass. |
+
+**Confirmed stays as widget setting (resolved, not a guess)**:
+| Ticket | Field | Finding |
+|---|---|---|
+| ED-1177 | `debugMode` | Real and wired, unlike the RFC-0052 cache fields above — but narrow in scope, and genuinely deployment/instance-level, not customer-level. Confirmed reads: `widgetSettings.debugMode = self.ctx.settings?.debugMode ?? false` (onInit), then `config.debugMode`, consumed at exactly 2 call sites — `recordHydration()`'s per-domain timing log (`MAIN_VIEW/controller.js:6365`) and the telemetry-reporting gate (`:8550`, `if (!config?.debugMode && typeof window.tbClient !== 'undefined')` — periodic `tbClient.sendTelemetry` runs only while this is `false`). **Note**: it is a *different* mechanism from the file's main `DEBUG_ACTIVE`/`LogHelper` logging switch (module-level, default `true`, toggled only at runtime via `window.MyIOUtils.setDebug()` — unrelated to this schema field). Also, the schema's own description ("Enable console logging **and debug overlay (Ctrl+Shift+D)**") is partly aspirational — `grep` for any Ctrl+Shift+D handler or debug-overlay UI turned up nothing; that half of the feature was never built (or was removed), independent of the disposition question. **Decision: stays a widget setting** — this is an ops/troubleshooting toggle for a specific dashboard *instance/deployment*, the same category as `homologMode`; moving it to GCDR would gate a debugging aid behind per-customer API credentials for no benefit, and wouldn't even reach the file's actual primary logging switch (`DEBUG_ACTIVE`), which isn't wired to any setting at all. |
 
 **Undecided either way, needs its own look**:
 | Ticket | Field | Note |
@@ -123,6 +147,6 @@ Replaces the manual `ed1149PatchCustomerConfig` DevTools helper (removed from `M
 [unresolved]: #unresolved-questions
 
 - §2: who owns the RFC-0207 v3.2 / RFC-0229 `classificationProfile` convergence decision, and on what timeline?
-- §3: can someone with TB admin access confirm, on a real production customer, whether `inauguration_date` (customer-level, not per-device), `obs`, and `alarmRecipients` actually exist as SERVER_SCOPE attributes today?
+- §3: can someone with TB admin access confirm, on a real production customer, whether `inauguration_date` (customer-level, not per-device) and `obs` actually exist as SERVER_SCOPE attributes today? (`alarmRecipients` is resolved — see §3a.)
 - §4: does `integration_setup` already contain the Freshdesk fields (ED-1186/1187)? Needs a full-shape dump from a real customer, not just the code paths that read/write it.
 - §7: Victor Hugo's per-field sign-off for all 26 Group B items — this document proposes a starting split, not a decision.
