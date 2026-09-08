@@ -862,13 +862,15 @@ function formatDate(date: Date, locale: string): string {
 }
 
 /**
- * Format date according to locale (without time)
+ * Format date and time according to locale
  */
 function formatDateTime(date: Date, locale: string): string {
   return date.toLocaleDateString(locale, {
     day: '2-digit',
     month: '2-digit',
-    year: 'numeric'
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
   });
 }
 
@@ -1004,7 +1006,7 @@ function processMultiSeriesChartData(
       // Data is already aggregated - use values directly
       for (let i = 0; i < sortedData.length; i++) {
         const current = sortedData[i];
-        const value = parseFloat(current.value) * correctionFactor;
+        const value = (parseFloat(current.value) / 1000) * correctionFactor;
         // Apply timezone offset to convert UTC to local time
         const timestamp = current.ts + tzOffsetMs;
 
