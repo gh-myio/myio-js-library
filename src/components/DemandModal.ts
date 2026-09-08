@@ -2013,14 +2013,8 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
       // Show global peak information
       if (chartData.globalPeak) {
         const peak = chartData.globalPeak;
-        const date = new Date(peak.timestamp);
-        const dateStr = date.toLocaleDateString(locale, {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric'
-        });
 
-        peakEl.textContent = `${strings.maximum}: ${peak.formattedValue} kW ${peak.key ? `(${peak.key}) ` : ''}${strings.at} ${dateStr}`;
+        peakEl.textContent = `${strings.maximum}: ${peak.formattedValue} kW ${peak.key ? `(${peak.key}) ` : ''}${strings.at} ${peak.formattedTime}`;
         peakEl.style.display = 'block';
       }
 
