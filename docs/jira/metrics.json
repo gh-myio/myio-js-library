@@ -4,8 +4,8 @@
   "projectName": "Engineer Dashboard",
   "board": 166,
   "jiraBase": "https://myio.atlassian.net",
-  "generatedAt": "2026-09-01",
-  "today": "2026-09-01",
+  "generatedAt": "2026-09-08",
+  "today": "2026-09-08",
   "source": "Jira Cloud (myio.atlassian.net) via MCP Atlassian"
  },
  "rules": {
@@ -433,7 +433,7 @@
    "end": "2026-08-04",
    "complete": "",
    "state": "active",
-   "scope": 96,
+   "scope": 99,
    "done": 17,
    "burndown": [
     {
@@ -615,18 +615,53 @@
      "date": "2026-09-01",
      "remaining": 79,
      "ideal": 0
+    },
+    {
+     "date": "2026-09-02",
+     "remaining": 79,
+     "ideal": 0
+    },
+    {
+     "date": "2026-09-03",
+     "remaining": 79,
+     "ideal": 0
+    },
+    {
+     "date": "2026-09-04",
+     "remaining": 79,
+     "ideal": 0
+    },
+    {
+     "date": "2026-09-05",
+     "remaining": 79,
+     "ideal": 0
+    },
+    {
+     "date": "2026-09-06",
+     "remaining": 79,
+     "ideal": 0
+    },
+    {
+     "date": "2026-09-07",
+     "remaining": 79,
+     "ideal": 0
+    },
+    {
+     "date": "2026-09-08",
+     "remaining": 82,
+     "ideal": 0
     }
    ],
    "span": {
     "start": "2026-07-28",
-    "end": "2026-09-01"
+    "end": "2026-09-08"
    }
   }
  ],
  "defaultPreset": "sprint-596",
  "fullSpan": {
   "start": "2026-05-25",
-  "end": "2026-09-01"
+  "end": "2026-09-08"
  },
  "completions": [
   {
@@ -1876,6 +1911,62 @@
    "type": "Subtarefa",
    "priority": "Medium",
    "date": "2026-08-27"
+  },
+  {
+   "key": "ED-1145",
+   "summary": "Melicidade- Menu lateral de água sem carregamento",
+   "assignee": "Victor Hugo da Silva",
+   "type": "Bug",
+   "priority": "Medium",
+   "date": "2026-09-01"
+  },
+  {
+   "key": "ED-1150",
+   "summary": "[Grupo A] Migrar atributo GCDR-config: alarmNotificationsEnabled",
+   "assignee": "Victor Hugo da Silva",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-09-01"
+  },
+  {
+   "key": "ED-1149",
+   "summary": "RFC-0229: Migrar Customer Server Scope (TB) → GCDR customer-config, atributo por atributo + settings do widget MAIN_VIEW",
+   "assignee": "Victor Hugo da Silva",
+   "type": "Tarefa",
+   "priority": "Medium",
+   "date": "2026-09-04"
+  },
+  {
+   "key": "ED-1174",
+   "summary": "[Grupo B] Avaliar/migrar setting do widget: cacheTtlMinutes",
+   "assignee": "Victor Hugo da Silva",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-09-04"
+  },
+  {
+   "key": "ED-1173",
+   "summary": "[Grupo B] Avaliar/migrar setting do widget: enableCache",
+   "assignee": "Victor Hugo da Silva",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-09-04"
+  },
+  {
+   "key": "ED-1175",
+   "summary": "[Grupo B] Avaliar/migrar setting do widget: enableStaleWhileRevalidate",
+   "assignee": "Victor Hugo da Silva",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-09-04"
+  },
+  {
+   "key": "ED-1176",
+   "summary": "[Grupo B] Avaliar/migrar setting do widget: maxCacheSize",
+   "assignee": "Victor Hugo da Silva",
+   "type": "Subtarefa",
+   "priority": "Medium",
+   "date": "2026-09-04"
   }
  ]
 }

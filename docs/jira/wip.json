@@ -2,17 +2,17 @@
  "meta": {
   "project": "ED",
   "jiraBase": "https://myio.atlassian.net",
-  "generatedAt": "2026-09-01",
+  "generatedAt": "2026-09-08",
   "status": "Em Andamento",
   "wipLimit": 1,
   "note": "WIP = tickets com status \"Em Andamento\". Acordo: 1 por pessoa (inclui \"Aguardando Demanda\" quando ocioso)."
  },
- "total": 7,
+ "total": 6,
  "peopleOver": 1,
  "people": [
   {
    "name": "Rodrigo Lago",
-   "count": 4,
+   "count": 3,
    "over": true,
    "tickets": [
     {
@@ -20,12 +20,6 @@
      "type": "Bug",
      "summary": "[BUG] [PRÉ-SETUP] Ao criar novo cliente com estrutura sugerida, código do cliente não é gerado",
      "updated": "2026-07-28"
-    },
-    {
-     "key": "ED-973",
-     "type": "Bug",
-     "summary": "[BUG] [PRÉ-SETUP] [GCDR] Sistema não emite alerta de duplicidade (IPv6/UUID) ao cadastrar gateway e quebra sincronização com GCDR",
-     "updated": "2026-06-22"
     },
     {
      "key": "ED-949",
@@ -47,10 +41,10 @@
    "over": false,
    "tickets": [
     {
-     "key": "ED-1214",
+     "key": "ED-1219",
      "type": "Tarefa",
-     "summary": "Explorar o sistema de OS antigo (somente leitura) — base para a nova OS",
-     "updated": "2026-08-31"
+     "summary": "QA: validar dashboard Tabela Temp V5 (Souza Aguiar) operacional após feature adjustmentSince",
+     "updated": "2026-09-03"
     }
    ]
   },

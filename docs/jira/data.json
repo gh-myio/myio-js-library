@@ -11,87 +11,88 @@
    "end": "2026-08-04",
    "state": "active"
   },
-  "generatedAt": "2026-09-01",
+  "generatedAt": "2026-09-08",
   "source": "Jira Cloud (myio.atlassian.net) via MCP Atlassian",
   "scope": "Tickets em aberto (status != Concluído). Inclui Tarefa, Subtarefa e Bug. Exclui Épicos e História/Story."
  },
  "summary": {
-  "sprintOpen": 68,
-  "backlogOpen": 597,
+  "sprintOpen": 71,
+  "backlogOpen": 594,
   "total": 665
  },
  "aggregates": {
   "sprint": {
    "byStatus": {
-    "Itens Novos": 43,
-    "PENDENTE": 11,
-    "EM REVISÃO": 9,
+    "Itens Novos": 44,
+    "PENDENTE": 12,
+    "EM REVISÃO": 10,
     "Em Andamento": 5
    },
    "byType": {
-    "Tarefa": 35,
+    "Tarefa": 38,
     "Bug": 19,
     "Subtarefa": 14
    },
    "byPriority": {
-    "Medium": 60,
+    "Medium": 62,
     "High": 5,
-    "Highest": 2,
+    "Highest": 3,
     "Low": 1
    },
    "byAssignee": {
-    "Rodrigo Lago": 31,
+    "Rodrigo Lago": 33,
     "Luiz Guilherme Martinho Sampaio Ito": 23,
     "Victor Hugo da Silva": 12,
-    "Letícia Camargo": 1,
+    "Letícia Camargo": 2,
     "Andre Abadesso": 1
    },
    "byGroup": {
-    "Central / Firmware / HW": 25,
-    "GCDR / Plataforma": 15,
-    "Outros": 10,
+    "Central / Firmware / HW": 26,
+    "GCDR / Plataforma": 16,
+    "Outros": 9,
     "BAS": 8,
-    "Relatórios / Dashboard": 3,
+    "Relatórios / Dashboard": 4,
     "Melicidade": 2,
     "Contagem": 1,
     "Shopping da Ilha / SDI": 1,
     "Moxuara": 1,
     "Capim Dourado": 1,
-    "Ilha Plaza": 1
+    "Ilha Plaza": 1,
+    "Souza Aguiar": 1
    }
   },
   "backlog": {
    "byStatus": {
-    "Itens Novos": 580,
+    "Itens Novos": 577,
+    "EM REVISÃO": 8,
     "PENDENTE": 7,
-    "EM REVISÃO": 7,
-    "Em Andamento": 3
+    "Em Andamento": 2
    },
    "byType": {
-    "Tarefa": 447,
-    "Subtarefa": 108,
-    "Bug": 42
+    "Tarefa": 450,
+    "Subtarefa": 103,
+    "Bug": 41
    },
    "byPriority": {
-    "Medium": 563,
-    "High": 21,
+    "Medium": 559,
+    "High": 22,
     "Highest": 9,
     "Low": 3,
     "Lowest": 1
    },
    "byAssignee": {
     "Luiz Guilherme Martinho Sampaio Ito": 376,
-    "Rodrigo Lago": 128,
-    "Victor Hugo da Silva": 65,
-    "Letícia Camargo": 17,
+    "Rodrigo Lago": 130,
+    "Victor Hugo da Silva": 59,
+    "Letícia Camargo": 18,
     "Leandro Gadioli Rodrigues": 5,
     "Leticia Saraiva": 5,
     "—": 1
    },
    "byGroup": {
     "Central / Firmware / HW": 375,
-    "GCDR / Plataforma": 120,
-    "Outros": 19,
+    "GCDR / Plataforma": 116,
+    "Outros": 20,
     "Relatórios / Dashboard": 17,
     "Sá Cavalcante": 12,
     "Praia da Costa": 9,
@@ -101,13 +102,13 @@
     "Macaé": 4,
     "Raiz Educação": 3,
     "Supervia": 3,
+    "West Plaza": 3,
     "Montserrat": 3,
     "BAS": 3,
-    "West Plaza": 2,
     "Ilha Plaza": 2,
     "Moxuara": 2,
-    "Melicidade": 2,
     "Rio Poty": 2,
+    "Melicidade": 1,
     "Contagem": 1,
     "Mestre Álvaro": 1,
     "Park Lagos": 1
@@ -215,19 +216,6 @@
    "cat": "indeterminate",
    "priority": "Medium",
    "assignee": "Rodrigo Lago",
-   "updated": "2026-08-20",
-   "group": "Outros",
-   "kind": "other"
-  },
-  {
-   "key": "ED-841",
-   "summary": "Documentar processo gravação de evidência de erros via JAM",
-   "type": "Tarefa",
-   "sub": false,
-   "status": "Em Andamento",
-   "cat": "indeterminate",
-   "priority": "Medium",
-   "assignee": "Letícia Camargo",
    "updated": "2026-08-20",
    "group": "Outros",
    "kind": "other"
@@ -997,6 +985,58 @@
    "assignee": "Luiz Guilherme Martinho Sampaio Ito",
    "updated": "2026-08-27",
    "group": "Central / Firmware / HW",
+   "kind": "theme"
+  },
+  {
+   "key": "ED-1219",
+   "summary": "QA: validar dashboard Tabela Temp V5 (Souza Aguiar) operacional após feature adjustmentSince",
+   "type": "Tarefa",
+   "sub": false,
+   "status": "Em Andamento",
+   "cat": "indeterminate",
+   "priority": "Medium",
+   "assignee": "Letícia Camargo",
+   "updated": "2026-09-03",
+   "group": "Souza Aguiar",
+   "kind": "unit"
+  },
+  {
+   "key": "ED-1224",
+   "summary": "ALARMS: endpoint de leitura de contagem diária NO_CONSUMPTION (POST /incidents/counts/daily) — blocker do GCDR orchestrator Monitor D",
+   "type": "Tarefa",
+   "sub": false,
+   "status": "Itens Novos",
+   "cat": "new",
+   "priority": "Medium",
+   "assignee": "Rodrigo Lago",
+   "updated": "2026-09-04",
+   "group": "GCDR / Plataforma",
+   "kind": "theme"
+  },
+  {
+   "key": "ED-1220",
+   "summary": "[API] Public GET /v3/health — structured services (audit/sync/version), items, environment presence, backup",
+   "type": "Tarefa",
+   "sub": false,
+   "status": "EM REVISÃO",
+   "cat": "indeterminate",
+   "priority": "Medium",
+   "assignee": "Rodrigo Lago",
+   "updated": "2026-09-08",
+   "group": "Central / Firmware / HW",
+   "kind": "theme"
+  },
+  {
+   "key": "ED-1226",
+   "summary": "[URGENTE] Pico de Demanda — hora ausente na timeline + valores 1000x fora de escala",
+   "type": "Tarefa",
+   "sub": false,
+   "status": "PENDENTE",
+   "cat": "indeterminate",
+   "priority": "Highest",
+   "assignee": "Letícia Camargo",
+   "updated": "2026-09-08",
+   "group": "Relatórios / Dashboard",
    "kind": "theme"
   }
  ],
@@ -6639,7 +6679,7 @@
    "cat": "new",
    "priority": "Medium",
    "assignee": "Rodrigo Lago",
-   "updated": "2026-08-04",
+   "updated": "2026-09-08",
    "group": "Sá Cavalcante",
    "kind": "unit"
   },
@@ -7278,19 +7318,6 @@
    "assignee": "Rodrigo Lago",
    "updated": "2026-08-24",
    "group": "GCDR / Plataforma",
-   "kind": "theme"
-  },
-  {
-   "key": "ED-1145",
-   "summary": "Melicidade- Menu lateral de água sem carregamento",
-   "type": "Bug",
-   "sub": false,
-   "status": "Itens Novos",
-   "cat": "new",
-   "priority": "Medium",
-   "assignee": "Victor Hugo da Silva",
-   "updated": "2026-08-31",
-   "group": "Melicidade",
    "kind": "theme"
   },
   {
@@ -8074,19 +8101,6 @@
    "kind": "theme"
   },
   {
-   "key": "ED-1150",
-   "summary": "[Grupo A] Migrar atributo GCDR-config: alarmNotificationsEnabled",
-   "type": "Subtarefa",
-   "sub": true,
-   "status": "Itens Novos",
-   "cat": "new",
-   "priority": "Medium",
-   "assignee": "Victor Hugo da Silva",
-   "updated": "2026-08-26",
-   "group": "GCDR / Plataforma",
-   "kind": "theme"
-  },
-  {
    "key": "ED-1151",
    "summary": "[Grupo A] Migrar atributo GCDR-config: canShowDemandButtons → featureButtons",
    "type": "Subtarefa",
@@ -8362,58 +8376,6 @@
   {
    "key": "ED-1172",
    "summary": "[DROP] Remover atributos legados qt* (qtDevices...) do TB SERVER_SCOPE",
-   "type": "Subtarefa",
-   "sub": true,
-   "status": "Itens Novos",
-   "cat": "new",
-   "priority": "Medium",
-   "assignee": "Victor Hugo da Silva",
-   "updated": "2026-08-26",
-   "group": "GCDR / Plataforma",
-   "kind": "theme"
-  },
-  {
-   "key": "ED-1173",
-   "summary": "[Grupo B] Avaliar/migrar setting do widget: enableCache",
-   "type": "Subtarefa",
-   "sub": true,
-   "status": "Itens Novos",
-   "cat": "new",
-   "priority": "Medium",
-   "assignee": "Victor Hugo da Silva",
-   "updated": "2026-08-26",
-   "group": "GCDR / Plataforma",
-   "kind": "theme"
-  },
-  {
-   "key": "ED-1174",
-   "summary": "[Grupo B] Avaliar/migrar setting do widget: cacheTtlMinutes",
-   "type": "Subtarefa",
-   "sub": true,
-   "status": "Itens Novos",
-   "cat": "new",
-   "priority": "Medium",
-   "assignee": "Victor Hugo da Silva",
-   "updated": "2026-08-26",
-   "group": "GCDR / Plataforma",
-   "kind": "theme"
-  },
-  {
-   "key": "ED-1175",
-   "summary": "[Grupo B] Avaliar/migrar setting do widget: enableStaleWhileRevalidate",
-   "type": "Subtarefa",
-   "sub": true,
-   "status": "Itens Novos",
-   "cat": "new",
-   "priority": "Medium",
-   "assignee": "Victor Hugo da Silva",
-   "updated": "2026-08-26",
-   "group": "GCDR / Plataforma",
-   "kind": "theme"
-  },
-  {
-   "key": "ED-1176",
-   "summary": "[Grupo B] Avaliar/migrar setting do widget: maxCacheSize",
    "type": "Subtarefa",
    "sub": true,
    "status": "Itens Novos",
@@ -8728,11 +8690,11 @@
    "summary": "Explorar o sistema de OS antigo (somente leitura) — base para a nova OS",
    "type": "Tarefa",
    "sub": false,
-   "status": "Em Andamento",
+   "status": "EM REVISÃO",
    "cat": "indeterminate",
    "priority": "Medium",
    "assignee": "Letícia Camargo",
-   "updated": "2026-08-31",
+   "updated": "2026-09-03",
    "group": "Outros",
    "kind": "theme"
   },
@@ -8750,17 +8712,56 @@
    "kind": "theme"
   },
   {
-   "key": "ED-1149",
-   "summary": "RFC-0229: Migrar Customer Server Scope (TB) → GCDR customer-config, atributo por atributo + settings do widget MAIN_VIEW",
+   "key": "ED-841",
+   "summary": "Documentar processo gravação de evidência de erros via JAM",
+   "type": "Tarefa",
+   "sub": false,
+   "status": "Itens Novos",
+   "cat": "new",
+   "priority": "Medium",
+   "assignee": "Letícia Camargo",
+   "updated": "2026-09-03",
+   "group": "Outros",
+   "kind": "other"
+  },
+  {
+   "key": "ED-1221",
+   "summary": "RFC-0033: ack/resolve granular de incidentes por slot (bucket canônico)",
    "type": "Tarefa",
    "sub": false,
    "status": "Itens Novos",
    "cat": "new",
    "priority": "Medium",
    "assignee": "Victor Hugo da Silva",
-   "updated": "2026-08-26",
+   "updated": "2026-09-04",
    "group": "GCDR / Plataforma",
    "kind": "theme"
+  },
+  {
+   "key": "ED-1225",
+   "summary": "RFC-0034: Desfazer Backfill — job no ingestion para apagar dados interpolados de GAPs",
+   "type": "Tarefa",
+   "sub": false,
+   "status": "Itens Novos",
+   "cat": "new",
+   "priority": "Medium",
+   "assignee": "Rodrigo Lago",
+   "updated": "2026-09-04",
+   "group": "GCDR / Plataforma",
+   "kind": "theme"
+  },
+  {
+   "key": "ED-1227",
+   "summary": "West Plaza - Gap de consumo do Chiller",
+   "type": "Tarefa",
+   "sub": false,
+   "status": "Itens Novos",
+   "cat": "new",
+   "priority": "High",
+   "assignee": "Rodrigo Lago",
+   "updated": "2026-09-08",
+   "group": "West Plaza",
+   "kind": "unit"
   }
  ]
 }
