@@ -9,6 +9,44 @@ export { openDashboardPopupWaterTank } from './water-tank/openDashboardPopupWate
 // RFC-0103: Power Limits Setup Modal
 export { openPowerLimitsSetupModal } from './power-limits/openPowerLimitsSetupModal';
 
+// RFC-0231 (follow-up): Gateway Modal — "gráfico de Centrais" (probe latency
+// history), rewritten to closely mirror
+// src/components/temperature/TemperatureModal.ts (see GatewayModal.ts's file
+// doc for the exact fidelity target).
+export { openGatewayModal } from './gateway';
+export type {
+  GatewayModalParams,
+  GatewayModalInstance,
+  GatewayModalLabels,
+  GatewayModalSourceConfig,
+  GatewayLatencyPoint,
+  GatewayLatencyStats,
+  GatewayGranularity,
+} from './gateway';
+
+// RFC-0231 (follow-up): Gateway Comparison Modal — multi-central connectivity
+// comparison, near-1:1 structural port of
+// src/components/temperature/TemperatureComparisonModal.ts.
+export { openGatewayComparisonModal } from './gateway-comparison';
+export type {
+  CentralForComparison,
+  GatewayComparisonModalParams,
+  GatewayComparisonModalInstance,
+  GatewayComparisonModalSourceConfig,
+} from './gateway-comparison';
+
+// RFC-0231 (follow-up): Central Settings Modal — adapted from
+// settings/SettingsModalView.ts for a central/gateway.
+export { openCentralSettingsModal, minutesToMs, msToMinutes, validateCentralSettings } from './central-settings';
+export type {
+  CentralSettingsModalParams,
+  CentralSettingsModalInstance,
+  CentralSettingsModalLabels,
+  CentralSettingsData,
+  CentralSettingsValidationError,
+  CentralSettingsPersistResult,
+} from './central-settings';
+
 // RFC-0112: Welcome Modal Head Office
 export { openWelcomeModal } from './welcome/openWelcomeModal';
 export type {

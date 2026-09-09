@@ -27,7 +27,9 @@ export class SettingsModalView {
   private chamadosTabHandle: { destroy(): void } | null = null;
   // Exclusão de Grupos tab
   private exclusionGroupsTab: ExclusionGroupsTab | null = null;
-  private currentTab: 'general' | 'annotations' | 'alarms' | 'chamados' | 'exclusion-groups' = 'general';
+  // "gateway": read-only Central identity/telemetry tab, only rendered when
+  // config.isGateway (see getGatewayInfoHTML()) — a real device never has it.
+  private currentTab: 'general' | 'annotations' | 'alarms' | 'chamados' | 'exclusion-groups' | 'gateway' = 'general';
   private currentUser: UserInfo | null = null;
   private permissions: PermissionSet | null = null;
   // RFC-0190: Exclude Groups Totals
@@ -393,7 +395,7 @@ export class SettingsModalView {
   }
 
   // RFC-0104 / RFC-0180 / RFC-0198: Switch between tabs
-  private switchTab(tab: 'general' | 'annotations' | 'alarms' | 'chamados' | 'exclusion-groups'): void {
+  private switchTab(tab: 'general' | 'annotations' | 'alarms' | 'chamados' | 'exclusion-groups' | 'gateway'): void {
     this.currentTab = tab;
 
     // Update tab buttons
@@ -408,14 +410,17 @@ export class SettingsModalView {
     const alarmsContent = this.modal.querySelector('#alarms-tab-content') as HTMLElement;
     const chamadosContent = this.modal.querySelector('#chamados-tab-content') as HTMLElement;
     const exclusionGroupsContent = this.modal.querySelector('#exclusion-groups-tab-content') as HTMLElement;
+    const gatewayContent = this.modal.querySelector('#gateway-tab-content') as HTMLElement;
 
     if (generalContent) generalContent.style.display = tab === 'general' ? 'block' : 'none';
     if (annotationsContent) annotationsContent.style.display = tab === 'annotations' ? 'block' : 'none';
     if (alarmsContent) alarmsContent.style.display = tab === 'alarms' ? 'block' : 'none';
     if (chamadosContent) chamadosContent.style.display = tab === 'chamados' ? 'block' : 'none';
     if (exclusionGroupsContent) exclusionGroupsContent.style.display = tab === 'exclusion-groups' ? 'block' : 'none';
+    if (gatewayContent) gatewayContent.style.display = tab === 'gateway' ? 'block' : 'none';
 
-    // Update footer Save button (only on General tab; all other tabs have own save)
+    // Update footer Save button (only on General tab; all other tabs have own save
+    // or, like "gateway", are read-only)
     const saveBtn = this.modal.querySelector('.btn-save') as HTMLElement;
     if (saveBtn) saveBtn.style.display = tab === 'general' ? 'inline-flex' : 'none';
 
@@ -645,6 +650,20 @@ export class SettingsModalView {
               Excluir Grupos
               <span class="modal-tab-badge modal-tab-badge--exclusion" id="tab-badge-exclusion-groups" style="display:none"></span>
             </button>
+            <!-- Central/gateway identity+telemetry tab — only for CentralSettingsModal (isGateway) -->
+            ${
+              this.config.isGateway
+                ? `<button type="button" class="modal-tab" data-tab="gateway">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="2" y="4" width="20" height="6" rx="1"></rect>
+                  <rect x="2" y="14" width="20" height="6" rx="1"></rect>
+                  <line x1="6" y1="7" x2="6.01" y2="7"></line>
+                  <line x1="6" y1="17" x2="6.01" y2="17"></line>
+                </svg>
+                Central
+              </button>`
+                : ''
+            }
           </div>
           <div class="modal-body">
             <div class="error-message" style="display: none;" role="alert" aria-live="polite"></div>
@@ -682,6 +701,12 @@ export class SettingsModalView {
                 <p>Carregando configurações de exclusão...</p>
               </div>
             </div>
+            <!-- Central/gateway identity+telemetry tab (read-only) -->
+            ${
+              this.config.isGateway
+                ? `<div id="gateway-tab-content" class="tab-content" style="display: none;">${this.getGatewayInfoHTML()}</div>`
+                : ''
+            }
           </div>
           <div class="modal-footer">
             <button type="button" class="btn-cancel">Fechar</button>
@@ -985,6 +1010,93 @@ export class SettingsModalView {
       day: '2-digit', month: '2-digit', year: 'numeric',
       hour: '2-digit', minute: '2-digit',
     });
+  }
+
+  /** ISO-8601 string variant of formatTs — GCDR (`GatewayInfo`) sends dates as
+   *  ISO strings, not Unix ms. */
+  private formatIso(iso?: string | null): string {
+    if (!iso) return '—';
+    const ms = Date.parse(iso);
+    return Number.isNaN(ms) ? '—' : this.formatTs(ms);
+  }
+
+  private formatUptime(seconds?: number | null): string {
+    if (seconds == null || Number.isNaN(seconds)) return '—';
+    const d = Math.floor(seconds / 86400);
+    const h = Math.floor((seconds % 86400) / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const parts: string[] = [];
+    if (d > 0) parts.push(`${d}d`);
+    if (h > 0 || d > 0) parts.push(`${h}h`);
+    parts.push(`${m}min`);
+    return parts.join(' ');
+  }
+
+  /**
+   * Central/gateway identity + telemetry — read-only, sourced 1:1 from
+   * GCDR's `GET /api/v1/centrals/:id`. Every value carries a stable
+   * `id="gwinfo-<key>"` so a host (CentralSettingsModal) can patch
+   * `.textContent` after an async fetch resolves — this method itself only
+   * runs once, at construction time (createModal() is never re-invoked),
+   * so it can't pick up data that arrives after the modal is already built.
+   */
+  private getGatewayInfoHTML(): string {
+    const g = this.config.gatewayInfo || {};
+    const bool = (v?: boolean | null) => (v == null ? '—' : v ? 'Sim' : 'Não');
+    const num = (v?: number | null, suffix = '') => (v == null ? '—' : `${v}${suffix}`);
+    const txt = (v?: string | null) => (v == null || v === '' ? '—' : v);
+    const row = (label: string, key: string, value: string) =>
+      `<div class="identity-date-row">
+        <div class="identity-date-label">${label}</div>
+        <div class="identity-date-value" id="gwinfo-${key}">${value}</div>
+      </div>`;
+
+    return `
+      <div class="gateway-info-grid">
+        <div class="form-card gateway-info-card">
+          <h4 class="section-title">Identificação</h4>
+          <div class="gateway-info-rows">
+            ${row('UUID', 'uuid', txt(this.config.deviceId))}
+            ${row('Serial Number', 'serialNumber', txt(g.serialNumber))}
+            ${row('Hardware ID', 'hardwareId', txt(g.hardwareId))}
+            ${row('Tipo', 'type', txt(g.type))}
+            ${row('Status (cadastro)', 'status', txt(g.status))}
+            ${row('Firmware', 'firmwareVersion', txt(g.firmwareVersion))}
+            ${row('Software', 'softwareVersion', txt(g.softwareVersion))}
+            ${row('Frequência (canal)', 'frequency', num(g.frequency))}
+          </div>
+        </div>
+        <div class="form-card gateway-info-card">
+          <h4 class="section-title">Conectividade (telemetria)</h4>
+          <div class="gateway-info-rows">
+            ${row('Status de conexão', 'connectionStatus', txt(g.connectionStatus))}
+            ${row('Monitoramento habilitado', 'monitoringEnabled', bool(g.monitoringEnabled))}
+            ${row('Última tentativa', 'lastGatewayCheckAt', this.formatIso(g.lastGatewayCheckAt))}
+            ${row('Último sucesso', 'lastGatewaySuccessCheckAt', this.formatIso(g.lastGatewaySuccessCheckAt))}
+            ${row('Latência', 'lastGatewayCheckLatencyMs', num(g.lastGatewayCheckLatencyMs, 'ms'))}
+            ${row('Resultado do probe', 'probeResult', txt(g.probeResult))}
+          </div>
+        </div>
+        <div class="form-card gateway-info-card">
+          <h4 class="section-title">Estatísticas</h4>
+          <div class="gateway-info-rows">
+            ${row('Dispositivos conectados', 'statsConnectedDevices', num(g.stats?.connectedDevices))}
+            ${row('Regras ativas', 'statsActiveRules', num(g.stats?.activeRules))}
+            ${row('Eventos de sync pendentes', 'statsPendingSyncEvents', num(g.stats?.pendingSyncEvents))}
+            ${row('Uptime', 'statsUptimeSeconds', this.formatUptime(g.stats?.uptimeSeconds))}
+            ${row('Último heartbeat', 'statsLastHeartbeatAt', this.formatIso(g.stats?.lastHeartbeatAt))}
+          </div>
+        </div>
+        <div class="form-card gateway-info-card">
+          <h4 class="section-title">Metadados</h4>
+          <div class="gateway-info-rows">
+            ${row('Criado em', 'createdAt', this.formatIso(g.createdAt))}
+            ${row('Atualizado em', 'updatedAt', this.formatIso(g.updatedAt))}
+            ${row('Versão', 'version', num(g.version))}
+          </div>
+        </div>
+      </div>
+    `;
   }
 
   private getDeviceImage(deviceType?: string): string {
@@ -1721,6 +1833,22 @@ export class SettingsModalView {
           box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
           padding: 20px;
           height: fit-content;
+        }
+
+        /* "Central" tab (isGateway) — read-only identity/telemetry, 4 form-cards
+           in a responsive grid, each a stack of identity-date-row pairs. */
+        .gateway-info-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+          gap: 16px;
+        }
+        .gateway-info-card .section-title {
+          margin-bottom: 12px;
+        }
+        .gateway-info-rows {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
         }
 
         /* RFC-0180: Identity card — 2-column × 6-row grid */
@@ -3071,7 +3199,7 @@ export class SettingsModalView {
     tabButtons.forEach((btn) => {
       btn.addEventListener('click', (event) => {
         event.preventDefault();
-        const tab = (btn as HTMLElement).dataset.tab as 'general' | 'annotations' | 'alarms' | 'chamados' | 'exclusion-groups';
+        const tab = (btn as HTMLElement).dataset.tab as 'general' | 'annotations' | 'alarms' | 'chamados' | 'exclusion-groups' | 'gateway';
         if (tab) {
           this.switchTab(tab);
         }

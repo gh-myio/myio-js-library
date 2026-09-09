@@ -239,6 +239,45 @@ export interface ModalConfig {
    *  When set, the alarm rule removal confirmation requires this password. */
   masterAdminPassword?: string;
 
+  /** When true, renders an extra native "Central" tab with read-only gateway
+   *  identity/telemetry fields (see `GatewayInfo`) — used by
+   *  `CentralSettingsModal` for a CENTRAL/gateway entity, never for a real
+   *  telemetry device. Participates in `switchTab()` like any other tab. */
+  isGateway?: boolean;
+  /** Data for the "Central" tab (only rendered when `isGateway`). 1:1 with
+   *  GCDR's `GET /api/v1/centrals/:id` response shape. All fields optional —
+   *  missing ones render as "—". */
+  gatewayInfo?: GatewayInfo;
+
   onSave: (formData: Record<string, any>) => Promise<void>;
   onClose: () => void;
+}
+
+/** Read-only gateway/central identity + telemetry, shown in the "Central" tab
+ *  when `ModalConfig.isGateway` is true. Field names/shapes mirror GCDR's
+ *  `GET /api/v1/centrals/:id` response 1:1 (see CentralSettingsModal.ts). */
+export interface GatewayInfo {
+  serialNumber?: string | null;
+  hardwareId?: string | null;
+  type?: string | null; // NODEHUB | GATEWAY | EDGE_CONTROLLER | VIRTUAL
+  status?: string | null; // ACTIVE | INACTIVE | DELETED
+  connectionStatus?: string | null; // ONLINE | OFFLINE | DEGRADED | MAINTENANCE
+  monitoringEnabled?: boolean | null;
+  lastGatewayCheckAt?: string | null; // ISO
+  lastGatewaySuccessCheckAt?: string | null; // ISO
+  lastGatewayCheckLatencyMs?: number | null;
+  probeResult?: string | null; // OK|TIMEOUT|CONN_REFUSED|HTTP_5XX|PARSE_FAIL|AUTH_ERROR|CONFIG_ERROR
+  firmwareVersion?: string | null;
+  softwareVersion?: string | null;
+  frequency?: number | null;
+  stats?: {
+    connectedDevices?: number | null;
+    activeRules?: number | null;
+    pendingSyncEvents?: number | null;
+    uptimeSeconds?: number | null;
+    lastHeartbeatAt?: string | null; // ISO
+  } | null;
+  createdAt?: string | null; // ISO
+  updatedAt?: string | null; // ISO
+  version?: number | null;
 }

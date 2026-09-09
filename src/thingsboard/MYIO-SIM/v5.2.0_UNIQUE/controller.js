@@ -4775,6 +4775,11 @@ body.myio-gbt-dark .myio-gbt__empty{color:#64748b;}
     // Última renderização — fonte de dados do export PDF
     let lastRows = null;
     let lastUnit = '';
+    // Última renderização do gráfico de evolução (loadEvo) — detalhamento por bucket
+    // (Orçado/Meta/Consumo, granularidade evoGran) para a seção "Detalhamento" do PDF.
+    // Só é atualizado nos modos cons/sep/stack (os únicos que chegam a renderEvoChart);
+    // cards/analytics deixam o valor anterior (ou null) — a seção some graciosamente.
+    let lastEvoBreakdown = null;
 
     // Ordenação do Resumo por shopping: null = ordem original; dir 1 asc / -1 desc
     // DEFAULT: Dt. Inauguração asc (mais antiga primeiro; sem data por último)
@@ -6828,6 +6833,44 @@ body.myio-gbt-dark .myio-gbt__empty{color:#64748b;}
       };
 
       renderEvoChart(labels, datasets, evoMode === 'stack', tipModel);
+
+      // Detalhamento por bucket p/ export PDF — soma só shoppings VISÍVEIS (👁),
+      // mesma regra do sumAll() acima. Mode-independente (cons/sep/stack) e
+      // refeito a cada loadEvo(), então acompanha evoGran/evoMode atuais.
+      const sumVisibleBk = (buckets) =>
+        labels.map((_, i) => {
+          let s = 0, has = false;
+          visShopIdx.forEach((si) => {
+            const v = buckets[si] ? buckets[si][i] : null;
+            if (v != null) { s += v; has = true; }
+          });
+          return has ? s : null;
+        });
+      // Por-customer, por-bucket (tier 3 do PDF) — mesmas fontes já computadas
+      // acima, sem sumarizar: uma tabela por shopping VISÍVEL. goalOf/goalRawOf
+      // já são funções puras (definidas antes da branch de evoMode); chamá-las
+      // aqui as torna mode-independentes (antes só 'sep' usava goalOf por shop).
+      const perShopBk = visShopIdx.map((si) => ({
+        title: shops[si].title,
+        budget: goalRawOf(trees[si]),
+        goal: goalOf(trees[si]),
+        consCur: shopCurBk[si],
+        consPrev: shopPrevBk[si],
+      }));
+      lastEvoBreakdown = {
+        gran: evoGran,
+        mode: evoMode,
+        unit: cfgD.unit,
+        labels: labels.slice(),
+        budget: budgetSum.slice(),
+        goal: goalSum.slice(),
+        consCur: sumVisibleBk(shopCurBk),
+        consPrev: sumVisibleBk(shopPrevBk),
+        yearCurLabel,
+        yearPrevLabel,
+        perShop: perShopBk,
+      };
+
       // Período/anos já aparecem no calendário e nos toggles 👁 — status só sinaliza falha
       evoStatusEl.textContent = curBy || prevBy ? '' : 'Falha ao carregar o consumo';
       setEvoLoading(false);
@@ -6853,7 +6896,11 @@ body.myio-gbt-dark .myio-gbt__empty{color:#64748b;}
         const JsPDF = await ensureJsPdf();
         const cfgD = GOALS_COMPARE_DOMAINS[domainKey];
         const unit = lastUnit || cfgD.unit;
-        const rows = (lastRows || []).filter((r) => r.meta !== undefined || r.consumo !== undefined);
+        // 👁: nunca incluir customers ocultos no PDF (mesma regra do renderTable/visRows
+        // e do sumAll do gráfico) — bug corrigido: antes só filtrava linhas "carregando".
+        const rows = (lastRows || []).filter(
+          (r) => (r.meta !== undefined || r.consumo !== undefined) && !isCustHidden(r.tbId)
+        );
         const domLabel = cfgD.label.replace(/^\S+\s/, ''); // sem emoji (jsPDF não renderiza)
         const doc = new JsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
         const W = 210;
@@ -6961,17 +7008,91 @@ body.myio-gbt-dark .myio-gbt__empty{color:#64748b;}
         doc.setFont('helvetica', 'normal');
         y += 12;
 
+        // Rótulo de granularidade — compartilhado entre as tabelas de Detalhamento
+        // (abaixo) e a legenda do snapshot do gráfico (mesma redação em todas).
+        const granLbl =
+          evoGran === '1y'
+            ? 'anual (mensal)'
+            : evoGran === '1M'
+              ? 'mensal'
+              : evoGran === '1d'
+                ? 'diário'
+                : 'horário';
+
+        // Detalhamento por período — tier 2 (consolidado por bucket, soma dos
+        // shoppings visíveis) + tier 3 (uma tabela por shopping visível). Fonte:
+        // lastEvoBreakdown, capturado em loadEvo() logo após renderEvoChart — já
+        // soma/filtra só shoppings VISÍVEIS (👁) e usa a Meta AJUSTADA p/ Situação.
+        // Skip: período com 1 único bucket (ex.: 1M dentro de um único mês) não
+        // agrega nada sobre o tier 1 (consolidado) — pula as tabelas inteiras.
+        // Também sai graciosamente sem breakdown ainda (export antes do 1º
+        // loadEvo(), ou modo cards/analytics sem canvas único).
+        if (lastEvoBreakdown && lastEvoBreakdown.labels && lastEvoBreakdown.labels.length > 1) {
+          const bk = lastEvoBreakdown;
+          const bcolX = [MX, MX + 26, MX + 64, MX + 102, MX + 140];
+          const drawBucketHeader = (title) => {
+            doc.setFontSize(13);
+            doc.setTextColor(74, 20, 140);
+            doc.setFont('helvetica', 'bold');
+            doc.text(title, MX, y);
+            y += 7;
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(100, 116, 139);
+            doc.text('Período', bcolX[0], y);
+            doc.setTextColor(245, 158, 11); // Orçado — LARANJA
+            doc.text('Orçado', bcolX[1], y);
+            doc.setTextColor(37, 99, 235); // Consumo ano corrente — AZUL
+            doc.text(`Consumo ${bk.yearCurLabel}`, bcolX[2], y);
+            doc.setTextColor(100, 116, 139);
+            doc.text(`Consumo ${bk.yearPrevLabel}`, bcolX[3], y);
+            doc.text('Situação', bcolX[4], y);
+            y += 2;
+            doc.setDrawColor(226, 232, 240);
+            doc.line(MX, y, W - MX, y);
+            y += 6;
+            doc.setFontSize(9);
+          };
+          // Desenha uma tabela bucket-a-bucket completa (título + header + linhas),
+          // paginando e repetindo o header (e o título) a cada quebra de página.
+          // `data` = { budget[], goal[], consCur[], consPrev[] } alinhados a bk.labels
+          // — tanto o agregado (bk) quanto cada entrada de bk.perShop têm essa forma.
+          const drawBucketTable = (title, data) => {
+            if (y > 265) { doc.addPage(); y = 14; } // título não fica órfão no rodapé
+            drawBucketHeader(title);
+            bk.labels.forEach((lbl, i) => {
+              if (y > 280) {
+                doc.addPage();
+                y = 14;
+                drawBucketHeader(title);
+              }
+              doc.setTextColor(30, 41, 59);
+              doc.text(String(lbl).slice(0, 14), bcolX[0], y);
+              doc.text(_fmtQtyStr(data.budget[i], bk.unit), bcolX[1], y);
+              doc.text(_fmtQtyStr(data.consCur[i], bk.unit), bcolX[2], y);
+              doc.text(_fmtQtyStr(data.consPrev[i], bk.unit), bcolX[3], y);
+              const st = situacao(data.goal[i], data.consCur[i]);
+              doc.setTextColor(st.rgb[0], st.rgb[1], st.rgb[2]);
+              doc.text(st.txt, bcolX[4], y);
+              y += 6;
+            });
+            doc.setFont('helvetica', 'normal');
+            y += 6;
+          };
+
+          // Tier 2 — consolidado por período (soma dos shoppings visíveis)
+          drawBucketTable(`Detalhamento ${granLbl}`, bk);
+
+          // Tier 3 — por shopping visível, por período (uma tabela por customer;
+          // shoppings ocultos via 👁 já ficaram fora de bk.perShop em loadEvo()).
+          (bk.perShop || []).forEach((sh) => {
+            drawBucketTable(`Detalhamento ${granLbl} — ${sh.title}`, sh);
+          });
+        }
+
         // Snapshot do gráfico (com fundo branco — canvas é transparente)
         // Cards/Analítico não têm canvas único — PDF sai com KPIs + tabela (RFC-0217 v1)
         if (evoMode !== 'cards' && evoMode !== 'analytics' && evoChart && evoCanvas.width > 0) {
-          const granLbl =
-            evoGran === '1y'
-              ? 'anual (mensal)'
-              : evoGran === '1M'
-                ? 'mensal'
-                : evoGran === '1d'
-                  ? 'diário'
-                  : 'horário';
           const modeLbl = evoMode === 'sep' ? `por ${_entSLow()}` : 'consolidado';
           const img = evoCanvas.toDataURL('image/png', 1.0);
           const iw = W - MX * 2;

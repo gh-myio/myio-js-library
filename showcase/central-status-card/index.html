@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RFC-0231: CentralStatusCard Component Showcase</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+        background: #0f172a;
+        color: #f1f5f9;
+        min-height: 100vh;
+      }
+
+      .showcase-header {
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        padding: 24px;
+        border-bottom: 1px solid #334155;
+      }
+
+      .showcase-header h1 {
+        font-size: 24px;
+        font-weight: 600;
+        margin-bottom: 8px;
+      }
+
+      .showcase-header p {
+        color: #94a3b8;
+        font-size: 14px;
+      }
+
+      .controls-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        padding: 16px 24px;
+        background: #1e293b;
+        border-bottom: 1px solid #334155;
+      }
+
+      .control-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .control-group label {
+        font-size: 12px;
+        color: #94a3b8;
+        font-weight: 500;
+      }
+
+      .control-group select,
+      .control-group input,
+      .control-group button {
+        padding: 8px 12px;
+        border-radius: 6px;
+        border: 1px solid #475569;
+        background: #0f172a;
+        color: #f1f5f9;
+        font-size: 13px;
+        cursor: pointer;
+      }
+
+      .control-group input[type='checkbox'] {
+        width: 18px;
+        height: 18px;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 24px;
+      }
+
+      .section {
+        background: #1e293b;
+        border-radius: 12px;
+        padding: 24px;
+        margin-bottom: 24px;
+        border: 1px solid #334155;
+      }
+
+      .section h2 {
+        font-size: 18px;
+        font-weight: 600;
+        margin-bottom: 16px;
+        color: #f1f5f9;
+      }
+
+      .section-desc {
+        color: #94a3b8;
+        font-size: 14px;
+        margin-bottom: 20px;
+        line-height: 1.5;
+      }
+
+      .card-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        /* Generous gap on purpose: the notification badges hang OUTSIDE each
+           card's own border (see README §11) — a tight gap would make them
+           bleed into the neighboring card, defeating validation. */
+        gap: 40px 32px;
+      }
+
+      .compact-list {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+      }
+
+      .card-caption {
+        font-size: 11px;
+        color: #64748b;
+        margin-top: 4px;
+      }
+
+      .card-wrap {
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* Log Panel */
+      .log-panel {
+        background: #0f172a;
+        border-radius: 8px;
+        padding: 16px;
+        min-height: 160px;
+        max-height: 260px;
+        overflow-y: auto;
+        font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+        font-size: 12px;
+        color: #94a3b8;
+        border: 1px solid #334155;
+      }
+
+      .log-entry {
+        padding: 4px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      }
+      .log-entry:last-child {
+        border-bottom: none;
+      }
+      .log-time {
+        color: #64748b;
+      }
+      .log-info {
+        color: #60a5fa;
+      }
+      .log-success {
+        color: #34d399;
+      }
+      .log-error {
+        color: #f87171;
+      }
+      .log-warn {
+        color: #fbbf24;
+      }
+
+      body.light-mode {
+        background: #f8fafc;
+        color: #1e293b;
+      }
+      body.light-mode .showcase-header {
+        background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%);
+        border-color: #e2e8f0;
+      }
+      body.light-mode .showcase-header p {
+        color: #64748b;
+      }
+      body.light-mode .controls-bar {
+        background: #ffffff;
+        border-color: #e2e8f0;
+      }
+      body.light-mode .control-group select,
+      body.light-mode .control-group input,
+      body.light-mode .control-group button {
+        background: #f1f5f9;
+        border-color: #cbd5e1;
+        color: #1e293b;
+      }
+      body.light-mode .section {
+        background: #ffffff;
+        border-color: #e2e8f0;
+      }
+      body.light-mode .section h2 {
+        color: #1e293b;
+      }
+      body.light-mode .section-desc {
+        color: #64748b;
+      }
+      body.light-mode .card-caption {
+        color: #94a3b8;
+      }
+      body.light-mode .log-panel {
+        background: #f1f5f9;
+        border-color: #e2e8f0;
+      }
+
+      /* Legend — reuses the REAL library CSS on the swatches (same
+         .myio-cscard[data-status]/[data-connectivity] rules the live cards
+         use) so this reference can never silently drift from the component. */
+      .legend-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 24px;
+      }
+      .legend-group h3 {
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #64748b;
+        margin-bottom: 10px;
+      }
+      .legend-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 10px;
+        font-size: 13px;
+        color: #cbd5e1;
+      }
+      .legend-swatch {
+        width: 30px;
+        height: 20px;
+        border-radius: 6px;
+        flex-shrink: 0;
+      }
+      .legend-swatch-header {
+        width: 60px;
+        height: 22px;
+        border-radius: 6px 6px 0 0;
+        overflow: hidden;
+        flex-shrink: 0;
+      }
+      .legend-swatch-header .myio-cscard__titlebar {
+        height: 100%;
+        border-bottom: none;
+      }
+      .legend-chip {
+        display: inline-flex !important;
+        flex-direction: row !important;
+        align-items: center;
+        gap: 6px;
+        background: transparent !important;
+        border: none !important;
+        padding: 0 !important;
+        flex-shrink: 0;
+      }
+      body.light-mode .legend-row {
+        color: #475569;
+      }
+      body.light-mode .legend-group h3 {
+        color: #94a3b8;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="showcase-header">
+      <h1>RFC-0231: CentralStatusCard Component</h1>
+      <p>Connectivity/monitoring/status card for one central — a single flat block (connectivity, Monitoramento, evidence, Status), shared by the GCDR cockpit and the customer centrals list</p>
+    </header>
+
+    <div class="controls-bar">
+      <div class="control-group">
+        <label>Theme:</label>
+        <select id="themeSelect">
+          <option value="dark">Dark</option>
+          <option value="light" selected>Light</option>
+        </select>
+      </div>
+      <div class="control-group">
+        <label>Language:</label>
+        <select id="languageSelect">
+          <option value="pt">Português (default)</option>
+          <option value="en">English</option>
+        </select>
+      </div>
+      <div class="control-group">
+        <label>Scale:</label>
+        <select id="scaleSelect">
+          <option value="1">100%</option>
+          <option value="0.9">90%</option>
+          <option value="0.85" selected>85%</option>
+          <option value="0.75">75%</option>
+          <option value="0.6">60%</option>
+        </select>
+      </div>
+      <div class="control-group">
+        <label>Callback delay (ms):</label>
+        <input type="number" id="delayMs" value="600" min="0" max="5000" step="100" />
+      </div>
+      <div class="control-group">
+        <input type="checkbox" id="forceReject" />
+        <label for="forceReject">Force reject (demo revert-on-reject)</label>
+      </div>
+      <div class="control-group">
+        <input type="checkbox" id="confirmActivate" />
+        <label for="confirmActivate">confirmStatusActivate</label>
+      </div>
+      <div class="control-group">
+        <input type="checkbox" id="enableSelection" />
+        <label for="enableSelection">enableSelection</label>
+      </div>
+      <div class="control-group">
+        <input type="checkbox" id="enableDragDrop" />
+        <label for="enableDragDrop">enableDragDrop</label>
+      </div>
+      <div class="control-group">
+        <button type="button" id="compareCentraisBtn">Comparar centrais</button>
+      </div>
+    </div>
+
+    <div class="container">
+      <section class="section" id="legendSection">
+        <h2>Legenda — como ler o card</h2>
+        <p class="section-desc">
+          Dois eixos independentes: a <b>borda</b> segue o <code>entityStatus</code> (cadastro/registro) e o
+          <b>header + badge</b> seguem a <code>connectivity</code> (saúde ao vivo). Os swatches abaixo usam o CSS
+          real da lib (mesmas regras <code>[data-status]</code>/<code>[data-connectivity]</code> dos cards acima) —
+          não é uma cópia, então não pode ficar desatualizado sem os cards ficarem também.
+        </p>
+        <div class="legend-grid">
+          <div class="legend-group">
+            <h3>Borda (cadastro / entityStatus)</h3>
+            <div class="legend-row">
+              <div class="myio-cscard legend-swatch" data-status="ACTIVE"></div>
+              <span><b>ACTIVE</b> — verde, efeito 3D (glow)</span>
+            </div>
+            <div class="legend-row">
+              <div class="myio-cscard legend-swatch" data-status="INACTIVE"></div>
+              <span><b>INACTIVE</b> / <b>DELETED</b> — cinza, flat</span>
+            </div>
+          </div>
+
+          <div class="legend-group">
+            <h3>Header + badge (saúde / connectivity)</h3>
+            <div class="legend-row">
+              <div class="myio-cscard legend-swatch-header" data-connectivity="ONLINE"><div class="myio-cscard__titlebar"></div></div>
+              <span class="myio-cscard legend-chip"><span class="myio-cscard__badge myio-cscard__badge--ONLINE">ONLINE</span></span>
+              <span>tudo certo — azul</span>
+            </div>
+            <div class="legend-row">
+              <div class="myio-cscard legend-swatch-header" data-connectivity="WARNING"><div class="myio-cscard__titlebar"></div></div>
+              <span class="myio-cscard legend-chip"><span class="myio-cscard__badge myio-cscard__badge--WARNING">WARNING</span></span>
+              <span>dentro da graça — amarelo sutil</span>
+            </div>
+            <div class="legend-row">
+              <div class="myio-cscard legend-swatch-header" data-connectivity="OFFLINE"><div class="myio-cscard__titlebar"></div></div>
+              <span class="myio-cscard legend-chip"><span class="myio-cscard__badge myio-cscard__badge--OFFLINE">OFFLINE</span></span>
+              <span>passou da graça — vermelho sutil (pode ganhar sufixo "Xh Ymin" com <code>offlineHardMs</code>)</span>
+            </div>
+            <div class="legend-row">
+              <div class="myio-cscard legend-swatch-header" data-connectivity="UNKNOWN"><div class="myio-cscard__titlebar"></div></div>
+              <span class="myio-cscard legend-chip"><span class="myio-cscard__badge myio-cscard__badge--UNKNOWN">UNKNOWN</span></span>
+              <span>nunca sincronizada — cinza sutil</span>
+            </div>
+          </div>
+
+          <div class="legend-group">
+            <h3>Indicadores extras</h3>
+            <div class="legend-row">
+              <span class="myio-cscard legend-chip"><span class="myio-cscard__stale">desatualizado</span></span>
+              <span>Monitoramento OFF — congela o último estado conhecido</span>
+            </div>
+            <div class="legend-row">
+              <span class="myio-cscard legend-chip"><span class="myio-cscard__divergence-flag">⚠️</span></span>
+              <span>Divergência — valor persistido ≠ calculado; hover/clique mostra atual → proposto</span>
+            </div>
+            <div class="legend-row">
+              <span class="myio-cscard legend-chip">
+                <span class="myio-cscard__devicedot myio-cscard__devicedot--total" title="total">42</span><span class="myio-cscard__devicedot myio-cscard__devicedot--online" title="online">40</span><span class="myio-cscard__devicedot myio-cscard__devicedot--offline" title="offline">1</span><span class="myio-cscard__devicedot myio-cscard__devicedot--unknown" title="desconhecido">1</span>
+              </span>
+              <span>Dispositivos — total · online · offline · desconhecido</span>
+            </div>
+          </div>
+
+          <div class="legend-group">
+            <h3>Badges de notificação (fiel ao TELEMETRY/controller.js)</h3>
+            <div class="legend-row">
+              <span class="myio-cscard legend-chip" style="gap:4px;">
+                <span class="myio-cscard__alarm-badge" style="position:static;">🔔<span>3</span></span>
+                <span class="myio-cscard__ticket-badge" style="position:static;">🎧<span class="myio-cscard__ticket-badge-count">2</span></span>
+              </span>
+              <span>Alarmes + chamados — coluna na borda esquerda (alarme vermelho, some em 0; chamado ciano, clicável)</span>
+            </div>
+            <div class="legend-row">
+              <span class="myio-cscard legend-chip" style="gap:6px;">
+                <span class="myio-cscard__annotation-badge" data-type="pending" style="position:relative;background:#d63031;">⚠️<span class="myio-cscard__annotation-badge-count">1</span></span>
+                <span class="myio-cscard__annotation-badge" data-type="maintenance" style="position:relative;background:#e17055;">🔧<span class="myio-cscard__annotation-badge-count">2</span></span>
+                <span class="myio-cscard__annotation-badge" data-type="activity" style="position:relative;background:#00b894;">✓<span class="myio-cscard__annotation-badge-count">1</span></span>
+                <span class="myio-cscard__annotation-badge" data-type="observation" style="position:relative;background:#0984e3;">📝<span class="myio-cscard__annotation-badge-count">3</span></span>
+              </span>
+              <span>Anotações — coluna à direita, 1 quadrado por tipo presente</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>variant: 'card' — every connectivity state</h2>
+        <p class="section-desc">
+          Full grid card, used by the cockpit. Covers ONLINE / WARNING / OFFLINE / UNKNOWN (never-probed), monitored
+          and unmonitored (stale), with and without divergência.
+        </p>
+        <div class="card-grid" id="cardGrid"></div>
+      </section>
+
+      <section class="section">
+        <h2>variant: 'compact' — row-dense for the customer table</h2>
+        <p class="section-desc">
+          Same states, compact density — the connectivity badge and both sliders stay inline; evidence rows collapse.
+        </p>
+        <div class="compact-list" id="compactList"></div>
+      </section>
+
+      <section class="section">
+        <h2>Event Log</h2>
+        <div class="log-panel" id="logPanel">
+          <div class="log-entry">
+            <span class="log-time">[--:--:--]</span>
+            <span class="log-info">Showcase initialized.</span>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!--
+    To run this showcase:
+    1. Run: npm run build (to generate dist/myio-js-library.umd.min.js)
+    2. Run: start-server.bat (Windows) or start-server.sh (Linux/macOS)
+    3. Open: http://localhost:3343/showcase/central-status-card/
+  -->
+
+    <script src="../../dist/myio-js-library.umd.min.js"></script>
+    <script>
+      function log(message, type) {
+        type = type || 'info';
+        var panel = document.getElementById('logPanel');
+        var time = new Date().toLocaleTimeString('pt-BR');
+        var entry = document.createElement('div');
+        entry.className = 'log-entry';
+        entry.innerHTML =
+          '<span class="log-time">[' + time + ']</span> <span class="log-' + type + '">' + message + '</span>';
+        panel.appendChild(entry);
+        panel.scrollTop = panel.scrollHeight;
+      }
+
+      if (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.createCentralStatusCard) {
+        log('MyIOLibrary.createCentralStatusCard available', 'success');
+      } else {
+        log('ERROR: MyIOLibrary.createCentralStatusCard not found! Did you run npm run build?', 'error');
+      }
+      if (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.openGatewayModal) {
+        log('MyIOLibrary.openGatewayModal available', 'success');
+      } else {
+        log('ERROR: MyIOLibrary.openGatewayModal not found! Did you run npm run build?', 'error');
+      }
+      if (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.openCentralSettingsModal) {
+        log('MyIOLibrary.openCentralSettingsModal available', 'success');
+      } else {
+        log('ERROR: MyIOLibrary.openCentralSettingsModal not found! Did you run npm run build?', 'error');
+      }
+      if (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.openGatewayComparisonModal) {
+        log('MyIOLibrary.openGatewayComparisonModal available', 'success');
+      } else {
+        log('ERROR: MyIOLibrary.openGatewayComparisonModal not found! Did you run npm run build?', 'error');
+      }
+
+      function applyLegendTheme(mode) {
+        document.querySelectorAll('#legendSection .myio-cscard').forEach(function (el) {
+          el.dataset.theme = mode;
+        });
+      }
+
+      var theme = 'light';
+      document.body.classList.toggle('light-mode', theme === 'light'); // page chrome (header/controls/sections) follows the default theme too
+      applyLegendTheme(theme); // legend swatches follow the same theme as the live cards below
+      document.getElementById('themeSelect').addEventListener('change', function (e) {
+        theme = e.target.value;
+        document.body.classList.toggle('light-mode', theme === 'light');
+        handles.forEach(function (h) {
+          h.setThemeMode(theme);
+        });
+        applyLegendTheme(theme);
+        log('Theme changed to: ' + theme, 'info');
+      });
+
+      var language = 'pt';
+      document.getElementById('languageSelect').addEventListener('change', function (e) {
+        language = e.target.value;
+        handles.forEach(function (h) {
+          h.update({ language: language });
+        });
+        log('Language changed to: ' + language, 'info');
+      });
+
+      // Default < 100% — at full size the badges (fixed small px, ported verbatim
+      // from the device-tile original) look disproportionately tiny/illegible next
+      // to this card's larger grid cell; shrinking the whole card via `scale` (CSS
+      // zoom) keeps every proportion intact while reading closer to the real
+      // grid-of-many-cards density these badges were designed for.
+      var scale = 0.85;
+      document.getElementById('scaleSelect').addEventListener('change', function (e) {
+        scale = parseFloat(e.target.value);
+        handles.forEach(function (h) {
+          h.update({ scale: scale });
+        });
+        log('Scale changed to: ' + Math.round(scale * 100) + '%', 'info');
+      });
+
+      function getDelay() {
+        return parseInt(document.getElementById('delayMs').value, 10) || 0;
+      }
+      function isForceReject() {
+        return document.getElementById('forceReject').checked;
+      }
+      function isConfirmActivate() {
+        return document.getElementById('confirmActivate').checked;
+      }
+      function isSelectionEnabled() {
+        return document.getElementById('enableSelection').checked;
+      }
+      function isDragDropEnabled() {
+        return document.getElementById('enableDragDrop').checked;
+      }
+      ['enableSelection', 'enableDragDrop'].forEach(function (id) {
+        document.getElementById(id).addEventListener('change', function () {
+          handles.forEach(function (h) {
+            h.update({ enableSelection: isSelectionEnabled(), enableDragDrop: isDragDropEnabled() });
+          });
+          log(id + ' -> ' + document.getElementById(id).checked, 'info');
+        });
+      });
+
+      function mockToggle(kind) {
+        return function (e) {
+          log(kind + ' request: ' + JSON.stringify(e), 'info');
+          return new Promise(function (resolve, reject) {
+            setTimeout(function () {
+              if (isForceReject()) {
+                log(kind + ' REJECTED (forced) — card should revert', 'error');
+                reject(new Error('Falha simulada (force reject)'));
+              } else {
+                log(kind + ' resolved', 'success');
+                resolve();
+              }
+            }, getDelay());
+          });
+        };
+      }
+
+      function mockForceSync(name) {
+        return function (e) {
+          log('forceSync: ' + JSON.stringify(e), 'info');
+          return new Promise(function (resolve) {
+            setTimeout(function () {
+              log('forceSync resolved for ' + name, 'success');
+              resolve();
+            }, getDelay());
+          });
+        };
+      }
+
+      // Sync action-row callbacks (📊/📄/⚙️) — no async round-trip needed, unlike onMonitoringToggle/onForceSync.
+      function mockAction(kind) {
+        return function (e) {
+          log(kind + ': ' + JSON.stringify(e), 'success');
+        };
+      }
+
+      // Mock GCDR timeline endpoint (GET {baseUrl}/admin/orchestrator-devices/api/centrals/:id/timeline?days=N).
+      // Real hosts wire `timeline.baseUrl` + `fetchOptions` instead of `onFetchTimeline` —
+      // this showcase has no real GCDR to hit, so it fabricates a plausible history.
+      function mockFetchTimeline(name) {
+        return function (params) {
+          log('onFetchTimeline: ' + name + ' · days=' + params.days, 'info');
+          return new Promise(function (resolve) {
+            setTimeout(function () {
+              var windowMs = params.days * 86400000;
+              var start = now - windowMs;
+              var t1 = start + windowMs * 0.55;
+              var t2 = t1 + Math.min(windowMs * 0.02, 20 * 60 * 1000); // short DEGRADED blip
+              var t3 = start + windowMs * 0.82;
+              var t4 = t3 + Math.min(windowMs * 0.05, 3 * 60 * 60 * 1000); // real OFFLINE outage
+              function seg(status, s, e) {
+                return { status: status, start: new Date(s).toISOString(), end: new Date(e).toISOString(), durationMs: e - s };
+              }
+              function tr(from, to, at, probe, mode) {
+                return { from_status: from, to_status: to, probe_result: probe, mode: mode, created_at: new Date(at).toISOString() };
+              }
+              resolve({
+                segments: [
+                  seg('ONLINE', start, t1),
+                  seg('DEGRADED', t1, t2),
+                  seg('ONLINE', t2, t3),
+                  seg('OFFLINE', t3, t4),
+                  seg('ONLINE', t4, now),
+                ],
+                transitions: [
+                  tr('ONLINE', 'DEGRADED', t1, 'HTTP_5XX', 'canonical'),
+                  tr('DEGRADED', 'ONLINE', t2, null, 'canonical'),
+                  tr('ONLINE', 'OFFLINE', t3, 'TIMEOUT', 'shadow'),
+                  tr('OFFLINE', 'ONLINE', t4, null, 'shadow'),
+                ],
+              });
+            }, getDelay());
+          });
+        };
+      }
+
+      // Mock latency-history endpoint for openGatewayModal ("gráfico de Centrais")
+      // and openGatewayComparisonModal. Driven by explicit {startTs, endTs} (ms) —
+      // matches GatewayModal.ts's new fidelity-with-TemperatureModal.ts contract
+      // (dataFetcher(startTs, endTs), not a `days` count). Mirrors
+      // mockFetchTimeline's narrative: same DEGRADED-blip/OFFLINE-outage windows,
+      // just expressed as latency points (ms) instead of connectivity segments.
+      function mockFetchLatencyHistory(name) {
+        return function (params) {
+          log('onFetchLatencyHistory: ' + name + ' · ' + new Date(params.startTs).toLocaleDateString() + '–' + new Date(params.endTs).toLocaleDateString(), 'info');
+          return new Promise(function (resolve) {
+            setTimeout(function () {
+              var start = params.startTs;
+              var windowMs = params.endTs - params.startTs;
+              var t1 = start + windowMs * 0.55;
+              var t2 = t1 + Math.min(windowMs * 0.02, 20 * 60 * 1000);
+              var t3 = start + windowMs * 0.82;
+              var t4 = t3 + Math.min(windowMs * 0.05, 3 * 60 * 60 * 1000);
+              var points = [];
+              var steps = 60;
+              for (var i = 0; i <= steps; i++) {
+                var ts = start + (windowMs * i) / steps;
+                var latencyMs;
+                if (ts >= t3 && ts <= t4) {
+                  latencyMs = null; // OFFLINE outage — gap in the line
+                } else if (ts >= t1 && ts <= t2) {
+                  latencyMs = Math.round(220 + Math.random() * 120); // DEGRADED blip
+                } else {
+                  latencyMs = Math.round(35 + Math.random() * 25); // healthy baseline
+                }
+                points.push({ ts: new Date(ts).toISOString(), latencyMs: latencyMs });
+              }
+              resolve(points);
+            }, getDelay());
+          });
+        };
+      }
+
+      var now = Date.now(); // "since" labels are relative to the live clock, so samples must be too
+      var SAMPLES = [
+        {
+          id: 'c1',
+          name: 'Central Campinas Shopping G1 G2',
+          derivedConnectivity: 'ONLINE',
+          monitoringEnabled: true,
+          entityStatus: 'ACTIVE',
+          lastAttemptAt: new Date(now - 12000).toISOString(),
+          lastSuccessAt: new Date(now - 12000).toISOString(),
+          probeVerdict: { label: 'Respondendo', tone: 'ok', latencyMs: 45 },
+          deviceCounts: { total: 128, online: 120, offline: 3, unknown: 5 },
+          titleTooltipHtml:
+            '<div><b>UUID</b>: 6e88d9be-e351-4a8a-aa02-2a2222fcb22b</div>' +
+            '<div><b>Hardware ID</b>: OPI-ZERO-0417</div>',
+          timeline: { onFetchTimeline: mockFetchTimeline('Central Campinas Shopping G1 G2') },
+          alarmCount: 3,
+          ticketCount: 2,
+          annotationCounts: { pending: 1, maintenance: 2, activity: 1, observation: 3 },
+          onOpenDashboard: function (e) {
+            log('onOpenDashboard · ' + e.id + ' → opening GatewayModal', 'success');
+            MyIOLibrary.openGatewayModal({
+              id: e.id,
+              name: 'Central Campinas Shopping G1 G2',
+              theme: theme,
+              language: language,
+              source: { onFetchLatencyHistory: mockFetchLatencyHistory('Central Campinas Shopping G1 G2') },
+            });
+          },
+          onOpenReport: mockAction('onOpenReport'),
+          onOpenSettings: function (e) {
+            log('onOpenSettings · ' + e.id + ' → opening CentralSettingsModal', 'success');
+            MyIOLibrary.openCentralSettingsModal({
+              id: e.id,
+              name: 'Central Campinas Shopping G1 G2',
+              uuid: '6e88d9be-e351-4a8a-aa02-2a2222fcb22b',
+              hardwareId: 'OPI-ZERO-0417',
+              theme: theme,
+              language: language,
+              seed: {
+                offlineGraceMinutes: 10,
+                blipToleranceMinutes: 0,
+                offlineHardMinutes: 150,
+                // Shape matches GCDR's GET /api/v1/centrals/:id 1:1 — shown
+                // read-only in the modal's native "Central" tab.
+                serialNumber: 'SCMXGATEWAY01',
+                type: 'GATEWAY',
+                status: 'ACTIVE',
+                connectionStatus: 'ONLINE',
+                monitoringEnabled: true,
+                lastGatewayCheckAt: new Date(now - 12000).toISOString(),
+                lastGatewaySuccessCheckAt: new Date(now - 12000).toISOString(),
+                lastGatewayCheckLatencyMs: 45,
+                probeResult: 'OK',
+                firmwareVersion: '1.0.0',
+                softwareVersion: '0.0.0',
+                frequency: 60,
+                stats: {
+                  connectedDevices: 128,
+                  activeRules: 12,
+                  pendingSyncEvents: 0,
+                  uptimeSeconds: 733820,
+                  lastHeartbeatAt: new Date(now - 5000).toISOString(),
+                },
+                createdAt: '2026-03-16T10:00:00.000Z',
+                updatedAt: new Date(now - 12000).toISOString(),
+                version: 7,
+              },
+              onSaveSettings: function (p) {
+                log('onSaveSettings · ' + JSON.stringify(p), 'success');
+                return new Promise(function (resolve) {
+                  setTimeout(resolve, getDelay());
+                });
+              },
+            });
+          },
+        },
+        {
+          id: 'c2',
+          name: 'Central Shopping Ananindeua',
+          derivedConnectivity: 'WARNING',
+          monitoringEnabled: true,
+          entityStatus: 'ACTIVE',
+          lastAttemptAt: new Date(now - 30000).toISOString(),
+          lastSuccessAt: new Date(now - 240000).toISOString(),
+          probeVerdict: { label: 'Sem resposta', tone: 'warn' },
+          deviceCounts: { total: 42, online: 38, offline: 2, unknown: 2 },
+          showDivergence: true,
+          divergence: { current: 'ONLINE', proposed: 'WARNING' },
+          selected: true, // pre-checked once you turn on "enableSelection" — shows the violet outline ring
+        },
+        {
+          id: 'c3',
+          name: 'Central Montserrat',
+          derivedConnectivity: 'OFFLINE',
+          monitoringEnabled: true,
+          entityStatus: 'ACTIVE',
+          lastAttemptAt: new Date(now - 5000).toISOString(),
+          lastSuccessAt: new Date(now - 3600000).toISOString(),
+          probeVerdict: { label: 'Erro de configuração', tone: 'bad' },
+          deviceCounts: { total: 16, online: 0, offline: 16, unknown: 0 },
+          timeline: { onFetchTimeline: mockFetchTimeline('Central Montserrat'), periods: [1, 7, 30, 90] },
+          alarmCount: 16, // one per offline device — demonstrates the "99+" cap doesn't kick in yet
+          annotationCounts: { pending: 4 }, // only 1 of 4 types present — shows single-square omission
+        },
+        {
+          id: 'c4',
+          name: 'Central Rio Poty (nunca sincronizada)',
+          derivedConnectivity: 'UNKNOWN',
+          monitoringEnabled: true,
+          entityStatus: 'INACTIVE',
+        },
+        {
+          id: 'c5',
+          name: 'Central Moxuara 2.0 (monitoramento OFF)',
+          derivedConnectivity: 'ONLINE',
+          derivedStale: true,
+          monitoringEnabled: false,
+          entityStatus: 'ACTIVE',
+          lastAttemptAt: new Date(now - 86400000).toISOString(),
+          lastSuccessAt: new Date(now - 86400000).toISOString(),
+        },
+        {
+          id: 'c6',
+          name: 'Central West Plaza',
+          derivedConnectivity: 'ONLINE',
+          monitoringEnabled: true,
+          entityStatus: 'ACTIVE',
+          lastAttemptAt: new Date(now - 8000).toISOString(),
+          lastSuccessAt: new Date(now - 8000).toISOString(),
+          probeVerdict: { label: 'Respondendo', tone: 'ok', latencyMs: 22 },
+          deviceCounts: { total: 8, online: 8, offline: 0, unknown: 0 },
+          onOpenReport: mockAction('onOpenReport'), // only 1 of the 3 action buttons — demonstrates independent gating
+          ticketCount: 1, // only ticket badge, no alarms/annotations — shows badges are independent
+        },
+        {
+          id: 'c7',
+          name: 'Central Sá Cavalcante (offline há 2h30)',
+          // v2 helper: connectivityEvidence + offlineGraceMs/offlineHardMs — the card
+          // derives OFFLINE_HARD itself and appends the duration to the badge text.
+          connectivityEvidence: {
+            monitoringEnabled: true,
+            probeResult: 'CONN_REFUSED',
+            lastCheckAt: new Date(now).toISOString(),
+            lastSuccessAt: new Date(now - 2.5 * 60 * 60 * 1000).toISOString(),
+          },
+          offlineGraceMs: 10 * 60 * 1000,
+          offlineHardMs: 2.5 * 60 * 60 * 1000,
+          monitoringEnabled: true,
+          entityStatus: 'ACTIVE',
+          deviceCounts: { total: 30, online: 0, offline: 30, unknown: 0 },
+        },
+        {
+          id: 'c8',
+          name: 'Central Obramax Mesquita (excluída)',
+          derivedConnectivity: 'UNKNOWN',
+          monitoringEnabled: false,
+          entityStatus: 'DELETED',
+        },
+      ];
+
+      var handles = [];
+
+      function mountSample(sample, container, variant) {
+        var handle = MyIOLibrary.createCentralStatusCard(
+          Object.assign({}, sample, {
+            container: container,
+            variant: variant,
+            theme: theme,
+            language: language,
+            scale: scale,
+            showForceSync: true,
+            confirmStatusActivate: isConfirmActivate(),
+            enableSelection: isSelectionEnabled(),
+            enableDragDrop: isDragDropEnabled(),
+            onMonitoringToggle: mockToggle('onMonitoringToggle · ' + sample.name),
+            onStatusToggle: mockToggle('onStatusToggle · ' + sample.name),
+            onForceSync: mockForceSync(sample.name),
+            onSelectChange: function (e) {
+              log('onSelectChange · ' + sample.name + ' · ' + JSON.stringify(e), 'info');
+            },
+            onClickCard: function (e) {
+              log('onClickCard · ' + sample.name + ' · ' + JSON.stringify(e), 'info');
+            },
+            onAlarmBadgeClick: function (e) {
+              log('onAlarmBadgeClick · ' + sample.name + ' · ' + JSON.stringify(e), 'warn');
+            },
+            onTicketBadgeClick: function (e) {
+              log('onTicketBadgeClick · ' + sample.name + ' · ' + JSON.stringify(e), 'info');
+            },
+            onAnnotationBadgeClick: function (e) {
+              log('onAnnotationBadgeClick · ' + sample.name + ' · ' + JSON.stringify(e), 'info');
+            },
+          })
+        );
+        handles.push(handle);
+        return handle;
+      }
+
+      var cardGrid = document.getElementById('cardGrid');
+      var compactList = document.getElementById('compactList');
+
+      SAMPLES.forEach(function (sample) {
+        var wrap = document.createElement('div');
+        wrap.className = 'card-wrap';
+        cardGrid.appendChild(wrap);
+        mountSample(sample, wrap, 'card');
+        var caption = document.createElement('div');
+        caption.className = 'card-caption';
+        var connLabel = sample.derivedConnectivity || (sample.connectivityEvidence ? 'via connectivityEvidence' : '?');
+        caption.textContent = connLabel + (sample.derivedStale ? ' (stale)' : '') + ' · ' + sample.entityStatus;
+        wrap.appendChild(caption);
+
+        var compactWrap = document.createElement('div');
+        compactList.appendChild(compactWrap);
+        mountSample(sample, compactWrap, 'compact');
+      });
+
+      log('Rendered ' + SAMPLES.length + ' samples × 2 variants (card + compact)', 'success');
+
+      // "Comparar centrais" — openGatewayComparisonModal (RFC-0231 follow-up),
+      // reusing 4 of the SAMPLES' own mock latency fetchers.
+      document.getElementById('compareCentraisBtn').addEventListener('click', function () {
+        if (!MyIOLibrary.openGatewayComparisonModal) {
+          log('ERROR: MyIOLibrary.openGatewayComparisonModal not found! Did you run npm run build?', 'error');
+          return;
+        }
+        log('compareCentraisBtn click → opening GatewayComparisonModal', 'success');
+        var nowTs = Date.now();
+        MyIOLibrary.openGatewayComparisonModal({
+          centrals: [
+            { id: 'c1', label: 'Central Campinas Shopping G1 G2', targetLatencyMs: 200 },
+            { id: 'c2', label: 'Central Shopping Ananindeua', targetLatencyMs: 200 },
+            { id: 'c3', label: 'Central Montserrat', targetLatencyMs: 200 },
+            { id: 'c6', label: 'Central West Plaza', targetLatencyMs: 200 },
+          ],
+          startDate: new Date(nowTs - 7 * 24 * 60 * 60 * 1000).toISOString(),
+          endDate: new Date(nowTs).toISOString(),
+          theme: theme,
+          locale: language === 'en' ? 'en-US' : 'pt-BR',
+          source: {
+            onFetchLatencyHistory: function (params) {
+              var byId = {
+                c1: 'Central Campinas Shopping G1 G2',
+                c2: 'Central Shopping Ananindeua',
+                c3: 'Central Montserrat',
+                c6: 'Central West Plaza',
+              };
+              return mockFetchLatencyHistory(byId[params.id] || params.id)(params);
+            },
+          },
+          onClose: function () {
+            log('GatewayComparisonModal closed', 'info');
+          },
+        });
+      });
+    </script>
+  </body>
+</html>
