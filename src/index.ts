@@ -927,6 +927,58 @@ export {
 // RFC-0107: Contract Devices Modal (Shopping Dashboard)
 export { openContractDevicesModal, DEVICE_COUNT_KEYS } from './components/premium-modals/contract-devices';
 
+// RFC-0231 (follow-up): Gateway Modal — "gráfico de Centrais" (probe latency
+// history for one central/gateway). Rewritten to closely mirror
+// src/components/temperature/TemperatureModal.ts — confirmed via
+// handleActionDashboard in TELEMETRY/controller.js as the real production
+// "open dashboard chart" reference (self-contained overlay + ModalHeader,
+// Granularity + Day Period + Date Range Picker + Query button, no more
+// openGenericModal / quick-period shortcuts — see GatewayModal.ts's file doc).
+export { openGatewayModal } from './components/premium-modals/gateway';
+export type {
+  GatewayModalParams,
+  GatewayModalInstance,
+  GatewayModalLabels,
+  GatewayModalSourceConfig,
+  GatewayLatencyPoint,
+  GatewayLatencyStats,
+  GatewayGranularity,
+} from './components/premium-modals/gateway';
+
+// RFC-0231 (follow-up): Gateway Comparison Modal — multi-central
+// connectivity/latency comparison, near-1:1 structural port of
+// src/components/temperature/TemperatureComparisonModal.ts.
+export { openGatewayComparisonModal } from './components/premium-modals/gateway-comparison';
+export type {
+  CentralForComparison,
+  GatewayComparisonModalParams,
+  GatewayComparisonModalInstance,
+  GatewayComparisonModalSourceConfig,
+} from './components/premium-modals/gateway-comparison';
+
+// RFC-0231 (follow-up): Central Settings Modal — adapted from
+// src/components/premium-modals/settings/SettingsModalView.ts (the device
+// settings modal) for a central/gateway. Most of the original's tabs
+// (energy/water/temperature thresholds, GCDR alarms, exclusion groups,
+// tickets) don't apply to a central — this keeps identity fields (name,
+// read-only UUID/hardware ID) plus the v2 connectivity tuning knobs
+// (offlineGraceMs/blipToleranceMs/offlineHardMs) as end-user-editable
+// settings, which the original never exposed at all (developer-only props).
+export {
+  openCentralSettingsModal,
+  minutesToMs,
+  msToMinutes,
+  validateCentralSettings,
+} from './components/premium-modals/central-settings';
+export type {
+  CentralSettingsModalParams,
+  CentralSettingsModalInstance,
+  CentralSettingsModalLabels,
+  CentralSettingsData,
+  CentralSettingsValidationError,
+  CentralSettingsPersistResult,
+} from './components/premium-modals/central-settings';
+
 // RFC-0107: Contract Devices Modal Types
 export type {
   OpenContractDevicesModalParams,
@@ -2480,3 +2532,45 @@ export type {
   DeviceProductCodeFields,
   DeviceProductCodeValidationResult,
 } from './utils/devices/device-product-code';
+
+// RFC-0231 — Central Status Card (shared vanilla card for the orchestrator-devices
+// cockpit and the customer centrals list — derived connectivity + Monitoramento/Status
+// sliders, grouped into Operação/Cadastro blocks). Auth/audit are host-provided callbacks.
+export { createCentralStatusCard } from './components/cards/central-status/v1.0.0';
+export type {
+  CreateCentralStatusCardParams,
+  CentralStatusCardHandle,
+  CentralStatusCardVariant,
+  CentralConnectivity,
+  CentralEntityStatus,
+  CentralProbeVerdict,
+  CentralDeviceCounts,
+  CentralDivergence,
+  CentralStatusCardLabels,
+  CentralCardActionEvent,
+  CentralSelectChangeEvent,
+  CentralAnnotationType,
+  CentralAnnotationBadgeClickEvent,
+} from './components/cards/central-status/v1.0.0';
+
+// RFC-0231 (follow-up) — connectivity timeline modal, ported from the old
+// DivCard-based central card's 📈 feature. Reads orchestrator_devices_status_history
+// via a GCDR admin endpoint the host wires (baseUrl+path or a full onFetchTimeline
+// override) — same "auth is host-provided" principle as the card's own callbacks.
+export { openCentralTimelineModal } from './components/cards/central-status/v1.0.0';
+export type {
+  OpenCentralTimelineModalParams,
+  CentralTimelineStatus,
+  CentralTimelineTransition,
+  CentralTimelineSegment,
+  CentralTimelineResponse,
+  CreateCentralStatusCardTimelineConfig,
+} from './components/cards/central-status/v1.0.0';
+
+// RFC-0231 — pure, DOM-independent grace-window derivation so cockpit/worker/frontend/card
+// all agree. Recommended to ship FIRST and let the cockpit effStatus adopt it.
+export { deriveCentralConnectivity } from './utils/central/deriveConnectivity';
+export type {
+  CentralConnectivityEvidence,
+  DeriveConnectivityOptions,
+} from './utils/central/deriveConnectivity';
