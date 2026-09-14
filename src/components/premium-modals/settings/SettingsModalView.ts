@@ -1,6 +1,6 @@
 import { ModalConfig } from './types';
 import { mapDeviceStatusToCardStatus } from '../../../utils/devices/deviceStatus';
-import { deviceIcons } from '../../../utils/devices/deviceIcons';
+import { deviceIcons, DEFAULT_DEVICE_ICON } from '../../../utils/devices/deviceIcons';
 import { ModalHeader } from '../../../utils/ModalHeader';
 import { AnnotationsTab } from './annotations/AnnotationsTab';
 import { AlarmsTab } from './alarms/AlarmsTab';
@@ -1111,8 +1111,10 @@ export class SettingsModalView {
     }
 
     // RFC-0202: device-type image URLs come from the shared deviceIcons map.
-    const DEFAULT = 'https://cdn-icons-png.flaticon.com/512/1178/1178428.png';
-    const url = (deviceIcons as Record<string, string>)[normalized] || DEFAULT;
+    // Fallback uses the map's own DEFAULT_DEVICE_ICON (generic 3F_MEDIDOR art) —
+    // this used to hardcode a flaticon "search not found" icon that read as a
+    // broken image whenever deviceType had no entry (e.g. GATEWAY).
+    const url = (deviceIcons as Record<string, string>)[normalized] || DEFAULT_DEVICE_ICON;
     return `<img src="${url}" class="identity-device-image" alt="${normalized}" />`;
   }
 
@@ -1835,12 +1837,24 @@ export class SettingsModalView {
           height: fit-content;
         }
 
-        /* "Central" tab (isGateway) — read-only identity/telemetry, 4 form-cards
-           in a responsive grid, each a stack of identity-date-row pairs. */
+        /* "Central" tab (isGateway) — read-only identity/telemetry form-cards of
+           uneven height (Identificação/Conectividade run long, Metadados is
+           short) plus a 5th card injected by CentralSettingsModal. A plain CSS
+           grid stretches every card in a row to match its tallest sibling and
+           leaves the row below a short card entirely empty — real gap seen in
+           production. CSS multi-column masonry packs cards top-to-bottom per
+           column instead, so short cards don't leave trailing dead space. */
         .gateway-info-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-          gap: 16px;
+          column-width: 280px;
+          column-gap: 16px;
+        }
+        .gateway-info-card {
+          break-inside: avoid;
+          -webkit-column-break-inside: avoid;
+          display: inline-block;
+          width: 100%;
+          vertical-align: top;
+          margin: 0 0 16px;
         }
         .gateway-info-card .section-title {
           margin-bottom: 12px;
