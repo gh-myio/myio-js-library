@@ -2,19 +2,25 @@
  "meta": {
   "project": "ED",
   "jiraBase": "https://myio.atlassian.net",
-  "generatedAt": "2026-09-08",
+  "generatedAt": "2026-09-14",
   "status": "Em Andamento",
   "wipLimit": 1,
   "note": "WIP = tickets com status \"Em Andamento\". Acordo: 1 por pessoa (inclui \"Aguardando Demanda\" quando ocioso)."
  },
- "total": 6,
+ "total": 7,
  "peopleOver": 1,
  "people": [
   {
    "name": "Rodrigo Lago",
-   "count": 3,
+   "count": 4,
    "over": true,
    "tickets": [
+    {
+     "key": "ED-973",
+     "type": "Bug",
+     "summary": "[BUG] [PRÉ-SETUP] [GCDR] Sistema não emite alerta de duplicidade (IPv6/UUID) ao cadastrar gateway e quebra sincronização com GCDR",
+     "updated": "2026-06-22"
+    },
     {
      "key": "ED-956",
      "type": "Bug",

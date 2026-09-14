@@ -4,8 +4,8 @@
   "projectName": "Engineer Dashboard",
   "board": 166,
   "jiraBase": "https://myio.atlassian.net",
-  "generatedAt": "2026-09-08",
-  "today": "2026-09-08",
+  "generatedAt": "2026-09-14",
+  "today": "2026-09-14",
   "source": "Jira Cloud (myio.atlassian.net) via MCP Atlassian"
  },
  "rules": {
@@ -431,10 +431,10 @@
    "name": "Sprint 19",
    "start": "2026-07-28",
    "end": "2026-08-04",
-   "complete": "",
-   "state": "active",
+   "complete": "2026-09-14",
+   "state": "closed",
    "scope": 99,
-   "done": 17,
+   "done": 26,
    "burndown": [
     {
      "date": "2026-07-28",
@@ -650,18 +650,69 @@
      "date": "2026-09-08",
      "remaining": 82,
      "ideal": 0
+    },
+    {
+     "date": "2026-09-09",
+     "remaining": 82,
+     "ideal": 0
+    },
+    {
+     "date": "2026-09-10",
+     "remaining": 82,
+     "ideal": 0
+    },
+    {
+     "date": "2026-09-11",
+     "remaining": 82,
+     "ideal": 0
+    },
+    {
+     "date": "2026-09-12",
+     "remaining": 82,
+     "ideal": 0
+    },
+    {
+     "date": "2026-09-13",
+     "remaining": 82,
+     "ideal": 0
+    },
+    {
+     "date": "2026-09-14",
+     "remaining": 73,
+     "ideal": 0
     }
    ],
    "span": {
     "start": "2026-07-28",
-    "end": "2026-09-08"
+    "end": "2026-09-14"
+   }
+  },
+  {
+   "id": 629,
+   "name": "Sprint 20",
+   "start": "2026-09-14",
+   "end": "2026-09-21",
+   "complete": "",
+   "state": "future",
+   "scope": 92,
+   "done": 0,
+   "burndown": [
+    {
+     "date": "2026-09-14",
+     "remaining": 92,
+     "ideal": 92
+    }
+   ],
+   "span": {
+    "start": "2026-09-14",
+    "end": "2026-09-14"
    }
   }
  ],
  "defaultPreset": "sprint-596",
  "fullSpan": {
   "start": "2026-05-25",
-  "end": "2026-09-08"
+  "end": "2026-09-14"
  },
  "completions": [
   {
@@ -1967,6 +2018,86 @@
    "type": "Subtarefa",
    "priority": "Medium",
    "date": "2026-09-04"
+  },
+  {
+   "key": "ED-1228",
+   "summary": "Rio Poty - Dispositivo HIDR. SCRP302EF sem informação real do App",
+   "assignee": "Rodrigo Lago",
+   "type": "Bug",
+   "priority": "Medium",
+   "date": "2026-09-09"
+  },
+  {
+   "key": "ED-1104",
+   "summary": "[CENTRAL] Master x Slave: duas centrais via RJ45, uma monitora a outra (health check), modems distintos",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Tarefa",
+   "priority": "Medium",
+   "date": "2026-08-27"
+  },
+  {
+   "key": "ED-1101",
+   "summary": "[CENTRAL] Endpoint de POST para reiniciar o myio-api.service (systemctl restart)",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Tarefa",
+   "priority": "Medium",
+   "date": "2026-08-27"
+  },
+  {
+   "key": "ED-1095",
+   "summary": "[API] Endpoint p/ forçar backup na central (POST) + auth X-API-Key (master key)",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Tarefa",
+   "priority": "Medium",
+   "date": "2026-08-27"
+  },
+  {
+   "key": "ED-1094",
+   "summary": "[RESTORE] Criar versão da central nova — Ilha Plaza AL1 (restore do backup AWS)",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Tarefa",
+   "priority": "High",
+   "date": "2026-08-27"
+  },
+  {
+   "key": "ED-547",
+   "summary": "SW.H.6 POST do Mender",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Tarefa",
+   "priority": "Medium",
+   "date": "2026-08-27"
+  },
+  {
+   "key": "ED-510",
+   "summary": "SW.F.6 Implementar restore do PostgreSQL via myio-restore",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Tarefa",
+   "priority": "Medium",
+   "date": "2026-08-27"
+  },
+  {
+   "key": "ED-509",
+   "summary": "SW.F.5 Implementar download do dump da cloud no myio-restore",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Tarefa",
+   "priority": "Medium",
+   "date": "2026-08-27"
+  },
+  {
+   "key": "ED-508",
+   "summary": "SW.F.4 Implementar myio-restore core (Go)",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Tarefa",
+   "priority": "Medium",
+   "date": "2026-08-27"
+  },
+  {
+   "key": "ED-506",
+   "summary": "SW.F.2 Validar que backup atual e restauravel",
+   "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+   "type": "Tarefa",
+   "priority": "Medium",
+   "date": "2026-08-27"
   }
  ]
 }
