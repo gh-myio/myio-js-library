@@ -1,0 +1,12 @@
+{
+  "_meta": {
+    "central": "Mestre Álvaro — Entrada (Sá Cavalcante)",
+    "table": "slaves",
+    "rowCount": 1,
+    "capturedAt": "2026-09-14",
+    "source": "psql -U hubot — SELECT * FROM slaves; (colado pelo usuário)"
+  },
+  "rows": [
+    { "id": 1, "type": "three_phase_sensor", "addr_low": 33, "addr_high": 248, "channels": 3, "name": "3F SCMAL2AC Trafo Entrada Shopping x4344 x48A x90.5V", "color": null, "code": "002-002-002-015", "clamp_type": null, "aggregate": true, "version": "6.0.0", "temperature_correction": null, "config": { "config_clamp": { "confirmed": true, "value": 0 } }, "created_at": "2026-09-11 23:12:25.246971+00", "updated_at": "2026-09-12 02:32:30.334+00" }
+  ]
+}

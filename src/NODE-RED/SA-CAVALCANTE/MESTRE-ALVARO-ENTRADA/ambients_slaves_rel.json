@@ -1,0 +1,13 @@
+{
+  "_meta": {
+    "central": "Mestre Álvaro — Entrada (Sá Cavalcante)",
+    "table": "ambients_rfir_slaves_rel",
+    "rowCount": 1,
+    "capturedAt": "2026-09-14",
+    "source": "psql -U hubot — SELECT * FROM ambients_rfir_slaves_rel; (colado pelo usuário)",
+    "note": "PK composta (slave_id, ambient_id). created_at/updated_at são NOT NULL SEM default — INSERTs devem preenchê-los. Esta é a tabela que associa um slave a um ambient."
+  },
+  "rows": [
+    { "slave_id": 1, "ambient_id": 1, "created_at": "2026-09-11 23:12:56.575+00", "updated_at": "2026-09-11 23:12:56.575+00" }
+  ]
+}

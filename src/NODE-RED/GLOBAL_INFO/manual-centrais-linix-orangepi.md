@@ -51,6 +51,7 @@ ssh -i id_rsa root@<ipv6-da-central>
 | Mestre Álvaro — L0L1                                                                                      | `200:ba5f:dacb:b278:8f85:acf4:f33c:f485`    | `45250d44-bad0-4071-aaa0-8091cfb12691`     | —          | —          |
 | Mestre Álvaro — L2AC                                                                                      | `200:8b:483c:9008:1184:caec:41b1:fa28`      | `d3202744-05dd-46d1-af33-495e9a2ecd52`     | —          | —          |
 | Mestre Álvaro — L3L4                                                                                      | `200:b0b1:81aa:49a4:c554:4fec:f110:9896`    | `fcb3ccd1-4b85-4cef-a1de-0b8a80bec81e`     | —          | —          |
+| Mestre Álvaro — Entrada                                                                                  | `204:5b68:177a:540d:91c4:143b:d3b7:2ae2`    | `e6e9484d-af12-4209-b0aa-510378e01c1e`     | `28.248.84.203` | `65`       |
 | Rio Poty                                                                                                  | `203:bdfb:8fda:634d:c846:1404:f319:718c`    | `c0af8288-7b13-4024-bc11-df5017fef656`     | —          | —          |
 | Shopping da Ilha                                                                                          | `201:3447:911:5955:4018:3960:6838:ee12`     | `cb318f02-1020-4f99-857f-d44d001d939b`     | —          | —          |
 | ~~Moxuara~~ ⚠️ **INATIVADA 2026-07-13** — substituída pela Moxuara 2.0 (banco restaurado do backup desta) | ~~`202:1567:faee:79ef:486:6d44:d391:fb18`~~ | ~~`e982edf9-edb1-4aa6-8a14-4782465ae5a3`~~ | —          | —          |
@@ -158,6 +159,9 @@ ssh -i id_rsa root@200:8b:483c:9008:1184:caec:41b1:fa28
 
 # Mestre Álvaro L3L4 (Sá Cavalcante)
 ssh -i id_rsa root@200:b0b1:81aa:49a4:c554:4fec:f110:9896
+
+# Mestre Álvaro Entrada (Sá Cavalcante)
+ssh -i id_rsa root@204:5b68:177a:540d:91c4:143b:d3b7:2ae2
 
 # Rio Poty (Sá Cavalcante)
 ssh -i id_rsa root@203:bdfb:8fda:634d:c846:1404:f319:718c
