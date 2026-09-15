@@ -906,6 +906,14 @@ async function _fetchGoalsFromGCDR(gcdrApiBaseUrl, gcdrCustomerId, gcdrApiKey, g
   }
 }
 
+// ED-1149: backfilling a customer's GCDR customer-config document from its TB
+// SERVER_SCOPE attrs is now done via the real backend endpoint —
+// POST /api/v1/customers/:id/config/backfill-from-tb (gcdr repo, RFC-0231 §8),
+// write-tier auth (JWT operator or master API key — never this widget's
+// browser-exposed, read-only gcdrApiKey). The temporary manual
+// ed1149PatchCustomerConfig DevTools helper this comment used to document has
+// been removed now that the real endpoint exists.
+
 // RFC-0051.1: Global widget settings (will be populated in onInit)
 // IMPORTANT: customerTB_ID must NEVER be 'default' - it must always be a valid ThingsBoard ID
 let widgetSettings = {
@@ -949,11 +957,66 @@ function normalizeExcludeGroupsTotals(raw) {
   return raw;
 }
 
+// ── ED-1149 legacy TB-attribute → GCDR field mapping helpers ────────────────
+// Every Group-A subtask whose GCDR shape isn't a 1:1 copy of its TB attribute
+// (RFC-0229 §3.1) adds its mapper here — ONE place, instead of scattered
+// through onInit — so the file doesn't accumulate ad hoc mapping logic per
+// field. Each mapper MUST mirror its backend counterpart in
+// gcdr/src/services/CustomerConfigBackfillService.ts bit-for-bit, so the
+// frontend fallback and the backend backfill never disagree.
+
+// Coerces a legacy TB attribute (real boolean or 'true'/'false' string) to a
+// tri-state boolean, `undefined` when unset or unrecognised.
+function coerceLegacyBoolean(value) {
+  if (value === true || value === 'true') return true;
+  if (value === false || value === 'false') return false;
+  return undefined;
+}
+
+// Coerces a TB SERVER_SCOPE attribute to a plain truthy boolean, accepting the
+// shapes ThingsBoard is known to send: real boolean, 'true'/'false' string, or
+// numeric/string 1. Unlike coerceLegacyBoolean, this has no tri-state — callers
+// that need to distinguish "unset" check that separately before calling this.
+function coerceTruthyAttribute(value) {
+  return value === true || value === 'true' || value === 1 || value === '1';
+}
+
+// Mirrors mapCanShowDemandButtons() — legacy canShowDemandButtons boolean →
+// the featureButtons 2x3 matrix (RFC-0229 §1).
+function mapCanShowDemandButtonsToFeatureButtons(value) {
+  const b = coerceLegacyBoolean(value);
+  if (b === true) {
+    return {
+      demandPeak: { entrada: true, areacomum: true, lojas: true },
+      instantTelemetry: { entrada: true, areacomum: true, lojas: true },
+    };
+  }
+  if (b === false) {
+    return {
+      demandPeak: { entrada: false, areacomum: false, lojas: false },
+      instantTelemetry: { entrada: false, areacomum: false, lojas: false },
+    };
+  }
+  // unset (or unrecognised) → canonical default (matches createDefaultFeatureButtons())
+  return {
+    demandPeak: { entrada: true, areacomum: true, lojas: false },
+    instantTelemetry: { entrada: true, areacomum: true, lojas: false },
+  };
+}
+
 // Config object (populated in onInit from widgetSettings)
 let config = null;
 
 // RFC-0111: Added throttle to max 15 calls
 let _onDataUpdatedCallCount = 0;
+
+// ED-1149 subtask 3: guards the fire-and-forget temperature-limits GCDR dual-read
+// in onDataUpdated so it runs at most once per customer session (see onDataUpdated).
+let _temperatureLimitsGcdrChecked = false;
+
+// ED-1149: guards the fire-and-forget mapInstantaneousPower GCDR dual-read in
+// onDataUpdated, same shape/reason as _temperatureLimitsGcdrChecked above.
+let _mapInstantaneousPowerGcdrChecked = false;
 
 // ============================================================================
 // RFC-0106: Device Classification (moved from TELEMETRY)
@@ -1210,6 +1273,22 @@ function classifyDeviceByIdentifier(identifier = '') {
 //   atrás de flag DESLIGADA, para que a troca de store (v3.2) seja trocar a
 //   fonte primária — não reescrever o consumidor.
 // ===========================================================================
+
+// TODO(ED-1149 / RFC-0229 §3.1): RFC-0229 wants deviceClassificationProfile represented
+// as GCDR's customer-config `classificationProfile` field (confirmed present on the
+// backend: gcdr/src/domain/entities/Customer.ts:129, opaque JSON, null-defaulted, its
+// own comment literally says "RFC-0207 shape"). But THIS file already has a SEPARATE,
+// in-progress GCDR-store mechanism for the same data — createGcdrResolveProfileSource()
+// below, hitting a DIFFERENT endpoint (/entities/resolve, RFC-0047), currently disabled
+// via the rfc0207UseGcdrStore flag (see the comment on _rfc0207UseGcdrStore() just below)
+// because its own entities→ClassificationNode adapter isn't built yet (RFC-0207 §v3.2-B/G).
+// Adding a resolveConfigField() dual-read against /config here, without reconciling these
+// two paths, would create two competing "GCDR truth" sources for one field that feeds
+// MyIO.setActiveProfile() (device categorization dashboard-wide). Needs a scoping decision
+// from whoever owns RFC-0207 v3.2 before implementing — not a technical blocker, a design
+// one. The `classificationProfile` field is already typed (but unused) in
+// src/services/gcdr/customerConfigApiClient.ts's CustomerConfigReadModel, ready for
+// whenever this is unblocked.
 
 /** Chave do atributo de customer (SERVER_SCOPE). Existe só aqui. */
 const RFC0207_PROFILE_ATTR_KEY = 'deviceClassificationProfile';
@@ -2301,7 +2380,9 @@ Object.assign(window.MyIOUtils, {
         let gcdrApiKey = '';
         let alarmNotificationsEnabled = true; // RFC-0193: default enabled; read from SERVER_SCOPE below
         let defaultDashboardCfg = null; // RFC-0194: CustomerDefaultDashboard from SERVER_SCOPE
+        let resolvedDefaultDashboardId = null; // ED-1149 subtask 3: flat dashboard id, dual-read from GCDR defaultDashboard.id
         let canShowDemandButtons = undefined; // Customer feature flag; undefined = not set (fallback to deviceProfile rule)
+        let featureButtons = undefined; // ED-1149 subtask 2 / RFC-0229 §1: granular demandPeak/instantTelemetry visibility matrix
         let showOfflineAlarms = false; // default: offline alarms hidden
         let isInternalSupportRuleRaw = null; // null = not set in SERVER_SCOPE
         const gcdrApiBaseUrl = self.ctx.settings?.gcdrApiBaseUrl || 'https://gcdr-api.a.myio-bas.com';
@@ -2315,7 +2396,18 @@ Object.assign(window.MyIOUtils, {
 
             LogHelper.log('[MAIN_VIEW] 📦 Received attrs:', attrs);
 
-            CLIENT_ID = attrs?.client_id || '';
+            // TODO(ED-1149): client_secret is NOT a dual-read candidate. GCDR's normal
+            // GET /config always masks ingestion.clientSecret as the literal string "***"
+            // (never the real value, never undefined) — a naive `cfg.ingestion?.clientSecret
+            // ?? tbFallback` would pick up "***" itself (truthy) and try to use it as a
+            // credential. The only endpoint that reveals plaintext, GET /config/secrets,
+            // explicitly rejects customer API keys at the door (this widget's only GCDR
+            // credential) and requires a JWT + the high-risk `customers.secret.reveal`
+            // permission, audited on every call (gcdr RFC-0057 §DEC-7/8). A future migration
+            // needs a backend-mediated (BFF) endpoint holding that privileged credential
+            // server-side — never expose it to the browser. RFC-0229 already reaches the
+            // same conclusion. Same reasoning applies to master_admin_password
+            // (TELEMETRY/controller.js) and security.masterAdminPassword.
             CLIENT_SECRET = attrs?.client_secret || '';
             CUSTOMER_ING_ID = attrs?.ingestionId || '';
 
@@ -2323,30 +2415,145 @@ Object.assign(window.MyIOUtils, {
             gcdrCustomerId = attrs?.gcdrCustomerId || '';
             gcdrTenantId = attrs?.gcdrTenantId || '';
             gcdrApiKey = attrs?.gcdrApiKey || '';
-            // RFC-0193: read alarm notifications toggle from SERVER_SCOPE (undefined → enabled)
-            alarmNotificationsEnabled = attrs?.alarmNotificationsEnabled !== false;
-            // RFC-0194: customer default dashboard config (full object stored for management UI)
-            defaultDashboardCfg = attrs?.customerDefaultDashboard || null;
-            // Customer feature flag: Pico de Demanda / Telemetrias Instantâneas buttons
-            // undefined = not set (fallback to deviceProfile rule in EnergyModalView)
-            canShowDemandButtons = attrs?.canShowDemandButtons ?? undefined;
-            // Offline alarms visibility: default false (hidden)
-            showOfflineAlarms = attrs?.showOfflineAlarms === true;
-            // isInternalSupportRule: raw value from SERVER_SCOPE (null = never set)
-            isInternalSupportRuleRaw = attrs?.isInternalSupportRule ?? null;
-            // RFC-0198: tickets gate — read from SERVER_SCOPE attrs (no dataKey needed)
-            if (attrs?.tickets_enabled !== undefined && attrs?.tickets_enabled !== null) {
-              const rawT = attrs.tickets_enabled;
-              window.MyIOUtils._ticketsRawEnabled =
-                rawT === true || rawT === 'true' || rawT === 1 || rawT === '1';
+            // ED-1149 / RFC-0229 §3.4: dual-read every Group-A field via the shared
+            // resolveConfigField() primitive — GCDR-first, TB fallback, never throws.
+            // Each call is a few lines; the diagnostic logging and cred-gating live
+            // in the shared helper so this doesn't grow per field. See
+            // src/services/gcdr/customerConfigApiClient.ts for the full contract.
+            const _gcdrFieldParams = {
+              baseUrl: gcdrApiBaseUrl,
+              customerId: gcdrCustomerId,
+              apiKey: gcdrApiKey,
+              tenantId: gcdrTenantId,
+            };
+
+            // RFC-0193: alarm notifications toggle (undefined in TB → enabled)
+            const _alarmFallback = attrs?.alarmNotificationsEnabled !== false;
+            const _alarmResolved = await MyIO.resolveConfigField({
+              ..._gcdrFieldParams,
+              fieldLabel: 'alarmNotificationsEnabled',
+              fallbackValue: _alarmFallback,
+              extract: (cfg) =>
+                typeof cfg.alarms?.notificationsEnabled === 'boolean'
+                  ? cfg.alarms.notificationsEnabled
+                  : undefined,
+            });
+            alarmNotificationsEnabled = _alarmResolved.value;
+
+            // ED-1149 subtask 2: canShowDemandButtons → featureButtons matrix (RFC-0229 §1).
+            // Not a 1:1 copy — the legacy boolean is mapped via
+            // mapCanShowDemandButtonsToFeatureButtons() when GCDR doesn't have it yet.
+            // Pure data-plumbing: canShowDemandButtons below stays unchanged, no
+            // consumer reads featureButtons yet.
+            const _fbFallback = mapCanShowDemandButtonsToFeatureButtons(attrs?.canShowDemandButtons);
+            const _fbResolved = await MyIO.resolveConfigField({
+              ..._gcdrFieldParams,
+              fieldLabel: 'featureButtons',
+              fallbackValue: _fbFallback,
+              extract: (cfg) => (MyIO.isFeatureButtonsMatrix(cfg.featureButtons) ? cfg.featureButtons : undefined),
+            });
+            featureButtons = _fbResolved.value;
+
+            // ED-1149 subtask 3 / RFC-0229 §3.1: isInternalSupportRule → alarms.showInternalSupport.
+            // NOT the same flag as rules.is_internal_support_rule (RFC-0055) — that's a per-rule
+            // backend setting; this is the customer-level display toggle. Similar name, different thing.
+            const _isrFallback = attrs?.isInternalSupportRule ?? null;
+            const _isrResolved = await MyIO.resolveConfigField({
+              ..._gcdrFieldParams,
+              fieldLabel: 'isInternalSupportRule',
+              fallbackValue: _isrFallback,
+              extract: (cfg) =>
+                typeof cfg.alarms?.showInternalSupport === 'boolean' ? cfg.alarms.showInternalSupport : undefined,
+            });
+            isInternalSupportRuleRaw = _isrResolved.value;
+
+            // ED-1149 subtask 3 / RFC-0229 §3.1: customerDefaultDashboard → defaultDashboard.{id,cfg}.
+            // GCDR null-defaults both fields independently when unset (no structural default like
+            // alarms/featureButtons/temperature) — "both null" unambiguously means "not configured
+            // in GCDR yet", so extract() must treat that case as unusable rather than as a real value
+            // (otherwise every non-backfilled customer would have its real TB dashboard wiped to null).
+            const _ddTbValue = attrs?.customerDefaultDashboard || null;
+            const _ddFallback = { id: _ddTbValue?.dashboardId ?? null, cfg: _ddTbValue };
+            const _ddResolved = await MyIO.resolveConfigField({
+              ..._gcdrFieldParams,
+              fieldLabel: 'customerDefaultDashboard',
+              fallbackValue: _ddFallback,
+              extract: (cfg) =>
+                cfg.defaultDashboard && (cfg.defaultDashboard.id !== null || cfg.defaultDashboard.cfg !== null)
+                  ? cfg.defaultDashboard
+                  : undefined,
+            });
+            defaultDashboardCfg = _ddResolved.value.cfg;
+            resolvedDefaultDashboardId = _ddResolved.value.id;
+
+            // ED-1149 / RFC-0229 §3.1: client_id → ingestion.clientId. Not a secret (unlike
+            // client_secret right above) — plain, null-defaulted string on the normal read model.
+            const _clientIdFallback = attrs?.client_id || '';
+            const _clientIdResolved = await MyIO.resolveConfigField({
+              ..._gcdrFieldParams,
+              fieldLabel: 'client_id',
+              fallbackValue: _clientIdFallback,
+              extract: (cfg) =>
+                typeof cfg.ingestion?.clientId === 'string' && cfg.ingestion.clientId
+                  ? cfg.ingestion.clientId
+                  : undefined,
+            });
+            CLIENT_ID = _clientIdResolved.value;
+
+            // ED-1149 / RFC-0229 §3.1: showOfflineAlarms → alarms.showOffline.
+            const _showOfflineFallback = attrs?.showOfflineAlarms === true;
+            const _showOfflineResolved = await MyIO.resolveConfigField({
+              ..._gcdrFieldParams,
+              fieldLabel: 'showOfflineAlarms',
+              fallbackValue: _showOfflineFallback,
+              extract: (cfg) =>
+                typeof cfg.alarms?.showOffline === 'boolean' ? cfg.alarms.showOffline : undefined,
+            });
+            showOfflineAlarms = _showOfflineResolved.value;
+
+            // ED-1149 / RFC-0229 §3.1: tickets_enabled + tickets_only_to_myio → tickets.{enabled,onlyToMyio}.
+            // Bundled into one call — same GCDR section, same TB read site. Leaves
+            // window.MyIOUtils._ticketsRawEnabled/.ticketsOnlyToMyio unset (not forced to a
+            // default) when neither source has a usable value — _applyTicketsGate() already
+            // treats undefined correctly (raw defaults false, onlyToMyio defaults true).
+            const _ticketsFallback = {
+              enabled:
+                attrs?.tickets_enabled !== undefined && attrs?.tickets_enabled !== null
+                  ? coerceTruthyAttribute(attrs.tickets_enabled)
+                  : undefined,
+              onlyToMyio:
+                attrs?.tickets_only_to_myio !== undefined && attrs?.tickets_only_to_myio !== null
+                  ? coerceTruthyAttribute(attrs.tickets_only_to_myio)
+                  : undefined,
+            };
+            const _ticketsResolved = await MyIO.resolveConfigField({
+              ..._gcdrFieldParams,
+              fieldLabel: 'tickets',
+              fallbackValue: _ticketsFallback,
+              extract: (cfg) =>
+                cfg.tickets && typeof cfg.tickets.enabled === 'boolean' && typeof cfg.tickets.onlyToMyio === 'boolean'
+                  ? cfg.tickets
+                  : undefined,
+            });
+            if (typeof _ticketsResolved.value.enabled === 'boolean') {
+              window.MyIOUtils._ticketsRawEnabled = _ticketsResolved.value.enabled;
             }
-            if (attrs?.tickets_only_to_myio !== undefined && attrs?.tickets_only_to_myio !== null) {
-              const rawOM = attrs.tickets_only_to_myio;
-              window.MyIOUtils.ticketsOnlyToMyio =
-                rawOM === true || rawOM === 'true' || rawOM === 1 || rawOM === '1';
+            if (typeof _ticketsResolved.value.onlyToMyio === 'boolean') {
+              window.MyIOUtils.ticketsOnlyToMyio = _ticketsResolved.value.onlyToMyio;
             }
             // Evaluate gate now (currentUserEmail may not be set yet; re-evaluated after user fetch)
             _applyTicketsGate();
+
+            // Central summary — one console.table with every ED-1149 field resolved
+            // this session (name, value, source). Grows automatically as future
+            // subtasks add their own resolveConfigField() call above; no extra
+            // logging code needed per field.
+            MyIO.printResolvedConfigSummary();
+
+            // Customer feature flag: Pico de Demanda / Telemetrias Instantâneas buttons
+            // undefined = not set (fallback to deviceProfile rule in EnergyModalView)
+            // NOTE: unchanged by ED-1149 subtask 2 — featureButtons above is additive.
+            canShowDemandButtons = attrs?.canShowDemandButtons ?? undefined;
 
             // Exclusão de Grupos: read from CUSTOMER SERVER_SCOPE (saved by SettingsModal)
             const _rawExcludeGroups = attrs?.exclude_groups_totals;
@@ -2400,10 +2607,16 @@ Object.assign(window.MyIOUtils, {
           // RFC-0193: alarm notifications toggle — default true (undefined treated as enabled)
           window.MyIOOrchestrator.alarmNotificationsEnabled = alarmNotificationsEnabled;
           // RFC-0194: stable default dashboard ID + full config for management UI
-          window.MyIOOrchestrator.defaultDashboardId = defaultDashboardCfg?.dashboardId ?? null;
+          // ED-1149 subtask 3: resolvedDefaultDashboardId is GCDR's defaultDashboard.id when
+          // dual-read succeeded, else the TB-fallback dashboardId (see dual-read block above).
+          window.MyIOOrchestrator.defaultDashboardId = resolvedDefaultDashboardId;
           window.MyIOOrchestrator.defaultDashboardCfg = defaultDashboardCfg;
           // Customer feature flag: undefined = not set (fallback to deviceProfile rule in EnergyModalView)
           window.MyIOOrchestrator.canShowDemandButtons = canShowDemandButtons;
+          // ED-1149 subtask 2 / RFC-0229 §1: granular demandPeak/instantTelemetry visibility
+          // matrix — additive only, no consumer reads this yet (canShowDemandButtons above
+          // is still the only thing EnergyModalView/TELEMETRY consult).
+          window.MyIOOrchestrator.featureButtons = featureButtons;
           // Offline alarms visibility
           window.MyIOOrchestrator.showOfflineAlarms = showOfflineAlarms;
           // isInternalSupportRule: @myio.com.br users default true (unless explicitly false);
@@ -2686,6 +2899,69 @@ Object.assign(window.MyIOUtils, {
           LogHelper.warn(`[MAIN_VIEW] Failed to parse mapInstantaneousPower: ${err.message}`);
         }
       }
+    }
+
+    // ED-1149 subtask 3 / RFC-0229 §3.1: temperature.{min,max,clampMin,clampMax} dual-read.
+    // onDataUpdated is synchronous and fires repeatedly (throttled above) with no closure
+    // access to gcdrCustomerId/gcdrApiKey (those are local to onInit) — so this can't be an
+    // inline `await` like the onInit dual-reads. Fire-and-forget, guarded to run once per
+    // customer session: the TB values above are used immediately/optimistically (unchanged
+    // behavior), and GCDR's value (if reachable and different) patches them in shortly after,
+    // mirroring existing fire-and-forget patterns in this file (customerName fetch,
+    // detectSuperAdmin(), _fetchGoalsFromGCDR).
+    if (!_temperatureLimitsGcdrChecked && window.MyIOOrchestrator?.gcdrCustomerId) {
+      _temperatureLimitsGcdrChecked = true;
+      (async () => {
+        const orch = window.MyIOOrchestrator;
+        const _tempFallback = {
+          min: window.MyIOUtils.temperatureLimits.minTemperature ?? 18,
+          max: window.MyIOUtils.temperatureLimits.maxTemperature ?? 27,
+          clampMin: window.MyIOUtils.temperatureClampRange?.min ?? 15,
+          clampMax: window.MyIOUtils.temperatureClampRange?.max ?? 40,
+        };
+        const _tempResolved = await window.MyIOLibrary.resolveConfigField({
+          baseUrl: orch.gcdrApiBaseUrl,
+          customerId: orch.gcdrCustomerId,
+          apiKey: orch.gcdrApiKey,
+          tenantId: orch.gcdrTenantId,
+          fieldLabel: 'temperatureLimits',
+          fallbackValue: _tempFallback,
+          extract: (cfg) => cfg.temperature ?? undefined,
+        });
+        const v = _tempResolved.value;
+        window.MyIOUtils.temperatureLimits.minTemperature = v.min;
+        window.MyIOUtils.temperatureLimits.maxTemperature = v.max;
+        window.MyIOUtils.temperatureClampRange = { min: v.clampMin, max: v.clampMax };
+        // Re-print so this async-resolved field shows up in the same summary table
+        // as the onInit-resolved fields, even though it lands on a later tick.
+        window.MyIOLibrary.printResolvedConfigSummary();
+      })();
+    }
+
+    // ED-1149 / RFC-0229 §3.1: mapInstantaneousPower → display.mapInstantaneousPower dual-read.
+    // Same structural constraint and fire-and-forget shape as the temperature block above —
+    // separate guard/call since it's a different field, even though both live under GCDR's
+    // `display` section (both hit the same cached loadCustomerConfig() result within the
+    // 60s TTL, so this doesn't add a real extra fetch).
+    if (!_mapInstantaneousPowerGcdrChecked && window.MyIOOrchestrator?.gcdrCustomerId) {
+      _mapInstantaneousPowerGcdrChecked = true;
+      (async () => {
+        const orch = window.MyIOOrchestrator;
+        const _mapPowerFallback = window.MyIOUtils.mapInstantaneousPower ?? null;
+        const _mapPowerResolved = await window.MyIOLibrary.resolveConfigField({
+          baseUrl: orch.gcdrApiBaseUrl,
+          customerId: orch.gcdrCustomerId,
+          apiKey: orch.gcdrApiKey,
+          tenantId: orch.gcdrTenantId,
+          fieldLabel: 'mapInstantaneousPower',
+          fallbackValue: _mapPowerFallback,
+          extract: (cfg) => cfg.display?.mapInstantaneousPower ?? undefined,
+        });
+        if (_mapPowerResolved.value) {
+          window.MyIOUtils.mapInstantaneousPower = _mapPowerResolved.value;
+        }
+        window.MyIOLibrary.printResolvedConfigSummary();
+      })();
     }
 
     // RFC-0179: Build enrichment maps for ALARM widget device name resolution.

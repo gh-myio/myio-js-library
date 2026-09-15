@@ -79,7 +79,7 @@ export async function openMeasurementSetupModal(
     try {
       // Load from API if not provided
       if (!existingSettings) {
-        existingSettings = await persister.loadSettings(params.customerId);
+        existingSettings = await persister.loadSettings(params.customerId, params.gcdr);
       }
 
       // Extract form data from settings

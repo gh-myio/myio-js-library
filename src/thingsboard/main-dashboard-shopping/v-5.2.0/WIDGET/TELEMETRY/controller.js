@@ -3154,6 +3154,10 @@ function renderList(visible) {
               readingType: WIDGET_DOMAIN, // 'energy', 'water', or 'tank'
               deviceProfile: it.deviceProfile || null,
               canShowDemandButtons: window.MyIOOrchestrator?.canShowDemandButtons,
+              // RFC-0229 §1: granular per-group visibility — takes precedence over
+              // canShowDemandButtons above when present (EnergyModalView falls back
+              // to the flat flag/deviceProfile rule when this is undefined).
+              featureButtons: window.MyIOOrchestrator?.featureButtons,
               startDate: self.ctx.scope.startDateISO,
               endDate: self.ctx.scope.endDateISO,
               tbJwtToken: jwtToken,
@@ -3447,6 +3451,11 @@ function renderList(visible) {
           // RFC-0144: Annotations onboarding flag from MAIN_VIEW settings
           const enableAnnotationsOnboarding = window.MyIOUtils?.enableAnnotationsOnboarding ?? false;
 
+          // TODO(ED-1149): master_admin_password is NOT a dual-read candidate — same
+          // secrets-endpoint constraint as client_secret in MAIN_VIEW/controller.js (see
+          // the comment there for the full reasoning: GCDR's normal /config masks it as
+          // "***", and the only reveal endpoint rejects this widget's API-key credential).
+          // Needs a backend-mediated (BFF) design later, not a client-side GCDR read.
           // Fetch master_admin_password from customer SERVER_SCOPE attributes
           let masterAdminPassword = null;
           if (customerTbId && jwt) {

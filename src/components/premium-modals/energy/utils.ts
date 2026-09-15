@@ -1,6 +1,46 @@
 // energy/utils.ts - Utility functions for energy modal
 
-import { EnergyModalError, OpenDashboardPopupEnergyOptions } from './types';
+import { EnergyModalError, OpenDashboardPopupEnergyOptions, FeatureButtonsMatrix } from './types';
+import { resolveGroup } from '../../../utils/devices/deviceClassificationProfile';
+
+export interface FeatureButtonVisibilityParams {
+  readingType?: string;
+  mode?: string;
+  deviceProfile?: string;
+  canShowDemandButtons?: boolean;
+  featureButtons?: FeatureButtonsMatrix;
+}
+
+/**
+ * RFC-0229 §1 — resolves whether one feature button ("Pico de Demanda" /
+ * "Telemetrias Instantâneas") should be shown for the current device. Pure
+ * function (no DOM, no class state) so it's unit-testable on its own.
+ *
+ * Resolution order:
+ *   1. `featureButtons[feature][group]`, group resolved from `deviceProfile`
+ *      via the same classifier the rest of the dashboard uses (`resolveGroup`).
+ *   2. The legacy flat `canShowDemandButtons`, for callers that haven't
+ *      migrated to the granular matrix yet.
+ *   3. The original deviceProfile rule (`!== '3F_MEDIDOR'`), unchanged.
+ */
+export function resolveFeatureButtonVisibility(
+  feature: keyof FeatureButtonsMatrix,
+  params: FeatureButtonVisibilityParams
+): boolean {
+  const { readingType, mode, deviceProfile, canShowDemandButtons, featureButtons } = params;
+  if (readingType !== 'energy' || mode === 'comparison') return false;
+
+  if (featureButtons) {
+    const { group } = resolveGroup({ deviceProfile });
+    if (group === 'entrada' || group === 'areacomum' || group === 'lojas') {
+      return featureButtons[feature][group];
+    }
+    return false; // e.g. 'ocultos' — no matrix entry, hide by default
+  }
+
+  if (canShowDemandButtons !== undefined && canShowDemandButtons !== null) return canShowDemandButtons;
+  return deviceProfile !== '3F_MEDIDOR';
+}
 
 /**
  * Validates the required parameters for openDashboardPopupEnergy
