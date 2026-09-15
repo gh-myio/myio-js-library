@@ -44,6 +44,7 @@ export const DeviceIconType = {
   COMPRESSOR: 'COMPRESSOR',
   VENTILADOR: 'VENTILADOR',
   SOLENOIDE: 'SOLENOIDE',
+  GATEWAY: 'GATEWAY',
 } as const;
 
 export type DeviceIconType =
@@ -74,6 +75,9 @@ export const deviceIcons: Record<DeviceIconType, string> = {
   VENTILADOR:            'https://dashboard.myio-bas.com/api/images/public/Rge8Q3t0CP5PW8XyTn9bBK9aVP6uzSTT',
   // SOLENOIDE: single representative (on); dynamic on/off/offline lives in solenoid-control SOLENOID_IMAGES.
   SOLENOIDE:             'https://dashboard.myio-bas.com/api/images/public/Tnq47Vd1TxhhqhYoHvzS73WVh1X84fPa',
+  // GATEWAY: central/gateway hardware (OrangePi) — used by SettingsModalView's
+  // "Central" tab identity card. Previously fell through to DEFAULT_DEVICE_ICON.
+  GATEWAY:               'https://dashboard.myio-bas.com/api/images/public/kNlazDO8Yy90R5O12i17EqkQUFsNj44b',
 };
 
 /** Friendly Portuguese labels for UI rendering (pickers, tooltips, captions). */
@@ -99,6 +103,7 @@ export const deviceIconLabels: Record<DeviceIconType, string> = {
   COMPRESSOR:            'Compressor',
   VENTILADOR:            'Ventilador',
   SOLENOIDE:             'Solenoide',
+  GATEWAY:               'Gateway',
 };
 
 /** Default fallback URL when type is unknown or not yet mapped. */

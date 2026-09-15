@@ -48,10 +48,10 @@ describe('RFC-0200 deviceIcons utility', () => {
       }
     });
 
-    it('the const-as-const enum exposes the expected 21 entries', () => {
-      expect(Object.keys(DeviceIconType).length).toBe(21);
-      expect(Object.keys(deviceIcons).length).toBe(21);
-      expect(Object.keys(deviceIconLabels).length).toBe(21);
+    it('the const-as-const enum exposes the expected 22 entries', () => {
+      expect(Object.keys(DeviceIconType).length).toBe(22);
+      expect(Object.keys(deviceIcons).length).toBe(22);
+      expect(Object.keys(deviceIconLabels).length).toBe(22);
     });
 
     it('resolves COMPRESSOR / VENTILADOR / SOLENOIDE (previously default-only)', () => {
@@ -66,6 +66,13 @@ describe('RFC-0200 deviceIcons utility', () => {
       expect(deviceIconLabels.COMPRESSOR).toBe('Compressor');
       expect(deviceIconLabels.VENTILADOR).toBe('Ventilador');
       expect(deviceIconLabels.SOLENOIDE).toBe('Solenoide');
+    });
+
+    it('resolves GATEWAY (previously default-only — SettingsModalView Central tab identity image)', () => {
+      expect(getDeviceIcon('GATEWAY')).toBe(deviceIcons.GATEWAY);
+      expect(getDeviceIcon('gateway')).toBe(deviceIcons.GATEWAY);
+      expect(getDeviceIcon('GATEWAY')).not.toBe(DEFAULT_DEVICE_ICON);
+      expect(deviceIconLabels.GATEWAY).toBe('Gateway');
     });
   });
 
