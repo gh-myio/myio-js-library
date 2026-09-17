@@ -401,6 +401,40 @@ export type {
   AnnotationSummary,
 } from './utils/AnnotationIndicator';
 
+// RFC-0218: GcdrAnnotationsClient — GCDR-native annotations (entities that
+// aren't a TB device, e.g. a central identified by its GCDR UUID, plus the
+// eventual TB log_annotations → GCDR migration for real devices).
+export {
+  GcdrAnnotationsClient,
+  createGcdrAnnotationsClient,
+  adaptGcdrToLegacyAnnotation,
+  adaptGcdrListToLegacyAnnotations,
+  adaptLegacyToGcdrInput,
+  createAuthStrategy as createGcdrAnnotationsAuthStrategy,
+  GcdrAnnotationsError,
+  GcdrAnnotationsConflictError,
+  type AuthStrategy as GcdrAnnotationsAuthStrategy,
+  type GcdrAnnotation,
+  type GcdrAnnotationDetail,
+  type GcdrAnnotationListPage,
+  type GcdrAnnotationListParams,
+  type GcdrAnnotationResponse,
+  type GcdrAnnotationEvent,
+  type GcdrAnnotationAttachment,
+  type GcdrAnnotationType,
+  type GcdrAnnotationImportance,
+  type GcdrFinalizedReason,
+  type GcdrResponseType,
+  type GcdrEntityType,
+  type GcdrUserSnapshot,
+  type GcdrCreateAnnotationInput,
+  type GcdrPatchAnnotationInput,
+  type GcdrRespondInput,
+  type GcdrAnnotationsAuthConfig,
+  type GcdrAnnotationsClientLogger,
+  type GcdrAnnotationsClientParams,
+} from './components/gcdr-annotations/v1.0.0';
+
 // Re-export existing utilities
 export { detectDeviceType, getAvailableContexts, addDetectionContext } from './utils/devices/deviceType';
 export { addNamespace } from './utils/namespace';
