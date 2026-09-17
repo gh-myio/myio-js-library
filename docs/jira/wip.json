@@ -2,7 +2,7 @@
  "meta": {
   "project": "ED",
   "jiraBase": "https://myio.atlassian.net",
-  "generatedAt": "2026-09-14",
+  "generatedAt": "2026-09-15",
   "status": "Em Andamento",
   "wipLimit": 1,
   "note": "WIP = tickets com status \"Em Andamento\". Acordo: 1 por pessoa (inclui \"Aguardando Demanda\" quando ocioso)."

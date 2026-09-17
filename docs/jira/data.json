@@ -11,39 +11,39 @@
    "end": "2026-09-21",
    "state": "future"
   },
-  "generatedAt": "2026-09-14",
+  "generatedAt": "2026-09-17",
   "source": "Jira Cloud (myio.atlassian.net) via MCP Atlassian",
   "scope": "Tickets em aberto (status != Concluído). Inclui Tarefa, Subtarefa e Bug. Exclui Épicos e História/Story."
  },
  "summary": {
-  "sprintOpen": 92,
-  "backlogOpen": 570,
-  "total": 662
+  "sprintOpen": 99,
+  "backlogOpen": 575,
+  "total": 674
  },
  "aggregates": {
   "sprint": {
    "byStatus": {
-    "Itens Novos": 65,
-    "PENDENTE": 13,
-    "EM REVISÃO": 9,
+    "Itens Novos": 72,
+    "PENDENTE": 12,
+    "EM REVISÃO": 10,
     "Em Andamento": 5
    },
    "byType": {
     "Subtarefa": 44,
-    "Tarefa": 29,
-    "Bug": 19
+    "Tarefa": 31,
+    "Bug": 24
    },
    "byPriority": {
-    "Medium": 82,
-    "High": 6,
+    "Medium": 88,
+    "High": 7,
     "Highest": 3,
     "Low": 1
    },
    "byAssignee": {
-    "Rodrigo Lago": 43,
+    "Rodrigo Lago": 47,
     "Luiz Guilherme Martinho Sampaio Ito": 22,
     "Letícia Camargo": 14,
-    "Victor Hugo da Silva": 12,
+    "Victor Hugo da Silva": 15,
     "Andre Abadesso": 1
    },
    "byGroup": {
@@ -51,29 +51,29 @@
     "Central / Firmware / HW": 27,
     "Outros": 13,
     "BAS": 8,
-    "Relatórios / Dashboard": 5,
+    "Relatórios / Dashboard": 8,
+    "Souza Aguiar": 4,
     "Shopping da Ilha / SDI": 2,
+    "Contagem": 2,
     "Melicidade": 2,
-    "Souza Aguiar": 1,
     "Capim Dourado": 1,
-    "Moxuara": 1,
-    "Contagem": 1
+    "Moxuara": 1
    }
   },
   "backlog": {
    "byStatus": {
-    "Itens Novos": 555,
-    "EM REVISÃO": 8,
+    "Itens Novos": 559,
+    "EM REVISÃO": 9,
     "PENDENTE": 5,
     "Em Andamento": 2
    },
    "byType": {
-    "Tarefa": 456,
+    "Tarefa": 460,
     "Subtarefa": 73,
-    "Bug": 41
+    "Bug": 42
    },
    "byPriority": {
-    "Medium": 537,
+    "Medium": 542,
     "High": 20,
     "Highest": 9,
     "Low": 3,
@@ -81,16 +81,16 @@
    },
    "byAssignee": {
     "Luiz Guilherme Martinho Sampaio Ito": 368,
-    "Rodrigo Lago": 128,
+    "Rodrigo Lago": 132,
     "Victor Hugo da Silva": 59,
-    "Leandro Gadioli Rodrigues": 5,
+    "Leandro Gadioli Rodrigues": 6,
     "Leticia Saraiva": 5,
     "Letícia Camargo": 4,
     "null": 1
    },
    "byGroup": {
-    "Central / Firmware / HW": 368,
-    "GCDR / Plataforma": 103,
+    "Central / Firmware / HW": 369,
+    "GCDR / Plataforma": 106,
     "Outros": 17,
     "Relatórios / Dashboard": 16,
     "Sá Cavalcante": 12,
@@ -106,9 +106,9 @@
     "Shopping da Ilha / SDI": 3,
     "Moxuara": 2,
     "Rio Poty": 2,
+    "Contagem": 2,
     "Ilha Plaza": 2,
     "Mestre Álvaro": 1,
-    "Contagem": 1,
     "Melicidade": 1,
     "Park Lagos": 1
    }
@@ -1056,11 +1056,11 @@
    "summary": "VM para emulação de imagem Yocto CM4 (aarch64)",
    "type": "Subtarefa",
    "sub": true,
-   "status": "PENDENTE",
+   "status": "EM REVISÃO",
    "cat": "indeterminate",
    "priority": "Medium",
    "assignee": "Rodrigo Lago",
-   "updated": "2026-07-28",
+   "updated": "2026-09-15",
    "group": "Central / Firmware / HW",
    "kind": "theme"
   },
@@ -1309,6 +1309,97 @@
    "assignee": "Letícia Camargo",
    "updated": "2026-07-29",
    "group": "GCDR / Plataforma",
+   "kind": "theme"
+  },
+  {
+   "key": "ED-1235",
+   "summary": "[BUG] Interpolação não preenche lacuna dentro do limite configurado no Relatório de Temperatura do Souza Aguiar",
+   "type": "Bug",
+   "sub": false,
+   "status": "Itens Novos",
+   "cat": "new",
+   "priority": "Medium",
+   "assignee": "Rodrigo Lago",
+   "updated": "2026-09-15",
+   "group": "Souza Aguiar",
+   "kind": "unit"
+  },
+  {
+   "key": "ED-1236",
+   "summary": "Pre-Setup v2.0 — Sincronizar GCDR falha em \"Mapeando árvore ThingsBoard\" para Shopping Contagem (customer não encontrado no GCDR)",
+   "type": "Bug",
+   "sub": false,
+   "status": "Itens Novos",
+   "cat": "new",
+   "priority": "Medium",
+   "assignee": "Rodrigo Lago",
+   "updated": "2026-09-15",
+   "group": "Contagem",
+   "kind": "unit"
+  },
+  {
+   "key": "ED-1238",
+   "summary": "[BUG] Interpolação preenche mais slots do que o limite configurado no Dashboard Tabela Temp V5 (Souza Aguiar)de ",
+   "type": "Bug",
+   "sub": false,
+   "status": "Itens Novos",
+   "cat": "new",
+   "priority": "Medium",
+   "assignee": "Rodrigo Lago",
+   "updated": "2026-09-15",
+   "group": "Souza Aguiar",
+   "kind": "unit"
+  },
+  {
+   "key": "ED-1239",
+   "summary": "[BUG] Filtros da tela MAN4 do Relatório Temperatura do Souza Aguiar não funcionam",
+   "type": "Bug",
+   "sub": false,
+   "status": "Itens Novos",
+   "cat": "new",
+   "priority": "Medium",
+   "assignee": "Rodrigo Lago",
+   "updated": "2026-09-15",
+   "group": "Souza Aguiar",
+   "kind": "unit"
+  },
+  {
+   "key": "ED-1250",
+   "summary": "[TELEMETRY] Gráfico da Telemetria Instantânea cresce verticalmente sem parar ao maximizar",
+   "type": "Bug",
+   "sub": false,
+   "status": "Itens Novos",
+   "cat": "new",
+   "priority": "High",
+   "assignee": "Victor Hugo da Silva",
+   "updated": "2026-09-17",
+   "group": "Relatórios / Dashboard",
+   "kind": "theme"
+  },
+  {
+   "key": "ED-1251",
+   "summary": "[EnergyModalView] Unificar \"Pico de Demanda\" + \"Telemetrias Instantâneas\" em um único botão com abas Real time | Por Período",
+   "type": "Tarefa",
+   "sub": false,
+   "status": "Itens Novos",
+   "cat": "new",
+   "priority": "Medium",
+   "assignee": "Victor Hugo da Silva",
+   "updated": "2026-09-17",
+   "group": "Relatórios / Dashboard",
+   "kind": "theme"
+  },
+  {
+   "key": "ED-1252",
+   "summary": "[Telemetria Instantânea / Pico de Demanda] Exportação em PDF — hoje só existe CSV",
+   "type": "Tarefa",
+   "sub": false,
+   "status": "Itens Novos",
+   "cat": "new",
+   "priority": "Medium",
+   "assignee": "Victor Hugo da Silva",
+   "updated": "2026-09-17",
+   "group": "Relatórios / Dashboard",
    "kind": "theme"
   }
  ],
@@ -8722,6 +8813,71 @@
    "updated": "2025-05-28",
    "group": "Supervia",
    "kind": "unit"
+  },
+  {
+   "key": "ED-1231",
+   "summary": "[BUG] Central: hidrômetro não lê após \"Replace Product\" até inserir manualmente em channel_pulse_log",
+   "type": "Bug",
+   "sub": false,
+   "status": "EM REVISÃO",
+   "cat": "indeterminate",
+   "priority": "Medium",
+   "assignee": "Rodrigo Lago",
+   "updated": "2026-09-14",
+   "group": "Central / Firmware / HW",
+   "kind": "theme"
+  },
+  {
+   "key": "ED-1232",
+   "summary": "Shopping Contagem - Customização de painel (Area Comum + Entrada)",
+   "type": "Tarefa",
+   "sub": false,
+   "status": "Itens Novos",
+   "cat": "new",
+   "priority": "Medium",
+   "assignee": "Leandro Gadioli Rodrigues",
+   "updated": "2026-09-15",
+   "group": "Contagem",
+   "kind": "unit"
+  },
+  {
+   "key": "ED-1233",
+   "summary": "[alarms-backend] Implementar episódios de escopo central — /incidents/episodes (RFC-0036 / CENTRAL_OFFLINE)",
+   "type": "Tarefa",
+   "sub": false,
+   "status": "Itens Novos",
+   "cat": "new",
+   "priority": "Medium",
+   "assignee": "Rodrigo Lago",
+   "updated": "2026-09-14",
+   "group": "GCDR / Plataforma",
+   "kind": "theme"
+  },
+  {
+   "key": "ED-1234",
+   "summary": "[alarms-frontend] Aba \"Centrais offline\" no painel de incidentes — episódios RFC-0036 (ED-1233)",
+   "type": "Tarefa",
+   "sub": false,
+   "status": "Itens Novos",
+   "cat": "new",
+   "priority": "Medium",
+   "assignee": "Rodrigo Lago",
+   "updated": "2026-09-14",
+   "group": "GCDR / Plataforma",
+   "kind": "theme"
+  },
+  {
+   "key": "ED-1237",
+   "summary": "[alarms] Notificação de e-mail para episódios CENTRAL_OFFLINE (rule-driven + extra MYIO)",
+   "type": "Tarefa",
+   "sub": false,
+   "status": "Itens Novos",
+   "cat": "new",
+   "priority": "Medium",
+   "assignee": "Rodrigo Lago",
+   "updated": "2026-09-15",
+   "group": "GCDR / Plataforma",
+   "kind": "theme"
   }
  ]
 }
