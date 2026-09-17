@@ -262,6 +262,16 @@ const CSS = `
   justify-content:center;gap:2px;line-height:1;cursor:default;box-shadow:0 1px 3px rgba(0,0,0,.25);
   z-index:10;
 }
+/* Incident (RFC-0232) sits at the vertical midpoint of the left border —
+   below the alarm badge, above the ticket badge — reading as a 3-badge
+   stack on the same edge regardless of card height (card vs. compact). */
+.myio-cscard__incident-badge{
+  position:absolute;top:50%;left:-14px;transform:translateY(-50%);
+  background:#7C3AED;color:#fff;border-radius:10px;min-width:22px;height:22px;
+  padding:0 6px;font:700 10px 'Nunito', system-ui, sans-serif;display:flex;align-items:center;
+  justify-content:center;gap:2px;line-height:1;cursor:default;box-shadow:0 1px 3px rgba(0,0,0,.25);
+  z-index:10;
+}
 .myio-cscard__ticket-badge{
   position:absolute;bottom:18%;left:-14px;transform:translateY(50%);width:24px;height:24px;
   background:rgba(8,145,178,.12);color:#0891b2;border:1px solid rgba(8,145,178,.25);

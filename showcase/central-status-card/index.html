@@ -388,9 +388,10 @@
             <div class="legend-row">
               <span class="myio-cscard legend-chip" style="gap:4px;">
                 <span class="myio-cscard__alarm-badge" style="position:static;">🔔<span>3</span></span>
+                <span class="myio-cscard__incident-badge" style="position:static;">🔺<span>5</span></span>
                 <span class="myio-cscard__ticket-badge" style="position:static;">🎧<span class="myio-cscard__ticket-badge-count">2</span></span>
               </span>
-              <span>Alarmes + chamados — coluna na borda esquerda (alarme vermelho, some em 0; chamado ciano, clicável)</span>
+              <span>Alarmes + incidentes + chamados — coluna na borda esquerda (alarme vermelho no topo, <b>incidente violeta logo abaixo (RFC-0232)</b>, chamado ciano no rodapé, clicável)</span>
             </div>
             <div class="legend-row">
               <span class="myio-cscard legend-chip" style="gap:6px;">
@@ -671,6 +672,7 @@
             '<div><b>Hardware ID</b>: OPI-ZERO-0417</div>',
           timeline: { onFetchTimeline: mockFetchTimeline('Central Campinas Shopping G1 G2') },
           alarmCount: 3,
+          incidentCount: 5,
           ticketCount: 2,
           annotationCounts: { pending: 1, maintenance: 2, activity: 1, observation: 3 },
           onOpenDashboard: function (e) {
@@ -693,6 +695,16 @@
               hardwareId: 'OPI-ZERO-0417',
               theme: theme,
               language: language,
+              // RFC-0232: "Incidentes" tab is admin-MyIO-only — gated by
+              // isSuperAdmin() (userEmail ending in @myio.com.br OR superadmin:true).
+              // Without these two params the tab stays hidden even with slots present.
+              userEmail: 'admin@myio.com.br',
+              interpolatedSlots: [
+                { slaveId: 12, deviceName: 'Hidr. Outback', hourStart: new Date(now - 5 * 3600000).toISOString(), value: 12.4, sourceHour: new Date(now - 29 * 3600000).toISOString(), ruleId: 'no-consumption-v1', incidentRef: 'INC-3391', createdAt: new Date(now - 5 * 3600000).toISOString() },
+                { slaveId: 12, deviceName: 'Hidr. Outback', hourStart: new Date(now - 4 * 3600000).toISOString(), value: 11.8, sourceHour: new Date(now - 28 * 3600000).toISOString(), ruleId: 'no-consumption-v1', incidentRef: null, createdAt: new Date(now - 4 * 3600000).toISOString() },
+                { slaveId: 12, deviceName: 'Hidr. Outback', hourStart: new Date(now - 30 * 3600000).toISOString(), value: 10.2, sourceHour: new Date(now - 54 * 3600000).toISOString(), ruleId: 'no-consumption-v1', incidentRef: null, createdAt: new Date(now - 30 * 3600000).toISOString() },
+                { slaveId: 7, deviceName: null, hourStart: new Date(now - 6 * 3600000).toISOString(), value: 3.1, sourceHour: new Date(now - 30 * 3600000).toISOString(), ruleId: 'no-consumption-v1', incidentRef: null, createdAt: new Date(now - 6 * 3600000).toISOString() },
+              ],
               seed: {
                 offlineGraceMinutes: 10,
                 blipToleranceMinutes: 0,
@@ -757,6 +769,7 @@
           deviceCounts: { total: 16, online: 0, offline: 16, unknown: 0 },
           timeline: { onFetchTimeline: mockFetchTimeline('Central Montserrat'), periods: [1, 7, 30, 90] },
           alarmCount: 16, // one per offline device — demonstrates the "99+" cap doesn't kick in yet
+          incidentCount: 130, // demonstrates the "99+" cap on the incident badge
           annotationCounts: { pending: 4 }, // only 1 of 4 types present — shows single-square omission
         },
         {
@@ -765,6 +778,7 @@
           derivedConnectivity: 'UNKNOWN',
           monitoringEnabled: true,
           entityStatus: 'INACTIVE',
+          incidentCount: 4, // only incident badge, no alarms/tickets — shows badges are independent
         },
         {
           id: 'c5',
@@ -840,6 +854,9 @@
             },
             onAlarmBadgeClick: function (e) {
               log('onAlarmBadgeClick · ' + sample.name + ' · ' + JSON.stringify(e), 'warn');
+            },
+            onIncidentBadgeClick: function (e) {
+              log('onIncidentBadgeClick · ' + sample.name + ' · ' + JSON.stringify(e), 'warn');
             },
             onTicketBadgeClick: function (e) {
               log('onTicketBadgeClick · ' + sample.name + ' · ' + JSON.stringify(e), 'info');

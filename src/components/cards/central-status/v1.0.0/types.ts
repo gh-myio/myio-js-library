@@ -382,6 +382,14 @@ export interface CreateCentralStatusCardParams {
   /** Bottom-left cyan headphone badge. Hidden when 0/omitted. Same 99+ cap as the original. */
   ticketCount?: number;
   onTicketBadgeClick?: (e: CentralCardActionEvent) => void;
+  /**
+   * Left-edge violet warning-triangle badge, stacked directly between the
+   * alarm badge (top) and the ticket badge (bottom) — count of
+   * interpolated/fabricated telemetry slots for this central (RFC-0232
+   * "Incidentes" admin tab). Hidden entirely when 0/omitted. Same 99+ cap.
+   */
+  incidentCount?: number;
+  onIncidentBadgeClick?: (e: CentralCardActionEvent) => void;
   /** Right-edge stacked column, one colored square per type present — same 4 types/colors/icons/order as `addAnnotationIndicator` (pending #d63031 ⚠️, maintenance #e17055 🔧, activity #00b894 ✓, observation #0984e3 📝). Omit a key or pass 0 to hide that type's badge. */
   annotationCounts?: Partial<Record<CentralAnnotationType, number>>;
   onAnnotationBadgeClick?: (e: CentralAnnotationBadgeClickEvent) => void;

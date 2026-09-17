@@ -208,6 +208,87 @@ function injectTicketBadgeStyles() {
   document.head.appendChild(s);
 }
 
+// RFC-0232: Inject incident badge CSS (once, idempotent). Stacked directly
+// below the alarm badge (same corner, same shape) for devices with
+// interpolated/fabricated telemetry slots.
+function injectIncidentBadgeStyles() {
+  if (document.getElementById('myio-incident-badge-styles')) return;
+  const s = document.createElement('style');
+  s.id = 'myio-incident-badge-styles';
+  s.textContent = `
+    .myio-incident-badge {
+      position: absolute;
+      top: 28px;
+      left: 6px;
+      background: #7C3AED;
+      color: #fff;
+      border-radius: 10px;
+      padding: 2px 5px;
+      font-size: 10px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      z-index: 10;
+      pointer-events: none;
+      line-height: 1.3;
+    }
+  `;
+  document.head.appendChild(s);
+}
+
+// RFC-0232: Append incident badge to a card element for devices with
+// interpolated/fabricated telemetry slots. Always inserted in the DOM
+// (hidden when count=0) so refreshIncidentBadges() can light it up when
+// IncidentServiceOrchestrator becomes available.
+function addIncidentBadge(cardElement, gcdrDeviceId) {
+  if (!cardElement || !gcdrDeviceId) return;
+  if (cardElement.querySelector('[data-incident-device-id="' + gcdrDeviceId + '"]')) return;
+
+  injectIncidentBadgeStyles();
+  if (cardElement.style) cardElement.style.position = 'relative';
+
+  const iso = window.IncidentServiceOrchestrator;
+  const count = iso ? iso.getIncidentCountForDevice(gcdrDeviceId) : 0;
+
+  const badge = document.createElement('div');
+  badge.className = 'myio-incident-badge';
+  badge.setAttribute('data-incident-device-id', gcdrDeviceId);
+  badge.style.display = count > 0 ? '' : 'none';
+  badge.title = count + ' incidente' + (count !== 1 ? 's' : '') + ' de interpolação';
+  badge.innerHTML =
+    '<svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor" aria-hidden="true">' +
+    '<path d="M12 2L1 21h22L12 2z"/>' +
+    '</svg>' +
+    '<span>' +
+    (count > 99 ? '99+' : count) +
+    '</span>';
+  cardElement.appendChild(badge);
+}
+
+/**
+ * RFC-0232: Called on myio:incidents-updated: refreshes incident badge counts
+ * on all currently-rendered TELEMETRY cards without re-rendering.
+ */
+function refreshIncidentBadges() {
+  const iso = window.IncidentServiceOrchestrator;
+  if (!iso) return;
+
+  document.querySelectorAll('.myio-incident-badge[data-incident-device-id]').forEach((badge) => {
+    const gcdrDeviceId = badge.getAttribute('data-incident-device-id');
+    if (!gcdrDeviceId) return;
+    const count = iso.getIncidentCountForDevice(gcdrDeviceId);
+    const span = badge.querySelector('span');
+    if (count > 0) {
+      badge.style.display = '';
+      badge.title = count + ' incidente' + (count !== 1 ? 's' : '') + ' de interpolação';
+      if (span) span.textContent = count > 99 ? '99+' : String(count);
+    } else {
+      badge.style.display = 'none';
+    }
+  });
+}
+
 // RFC-0198: Append ticket badge to a card element for the given device identifier.
 // The badge is ALWAYS inserted in the DOM (hidden when count=0) so that
 // refreshTicketBadges() can find and update it when myio:tickets-ready fires later.
@@ -3540,6 +3621,12 @@ function renderList(visible) {
       addAlarmBadge($card[0], it.gcdrDeviceId || null);
     }
 
+    // RFC-0232: Incident badge — violet warning triangle directly below the alarm badge,
+    // for devices with interpolated/fabricated telemetry slots (IncidentServiceOrchestrator).
+    if ($card && $card[0]) {
+      addIncidentBadge($card[0], it.gcdrDeviceId || null);
+    }
+
     // RFC-0198: Ticket badge — always insert element so myio:tickets-ready can update it.
     // Visibility is controlled by ticketsEnabled inside addTicketBadge + refreshTicketBadges.
     if ($card && $card[0]) {
@@ -6537,6 +6624,10 @@ self.onInit = async function () {
   // Refreshes badge counts on all currently-rendered TELEMETRY cards without re-rendering.
   window.addEventListener('myio:alarms-updated', refreshAlarmBadges);
 
+  // RFC-0232: myio:incidents-updated — fired when IncidentServiceOrchestrator rebuilds.
+  // Refreshes incident badge counts on all currently-rendered TELEMETRY cards without re-rendering.
+  window.addEventListener('myio:incidents-updated', refreshIncidentBadges);
+
   // myio:offline-alarms-toggle — fired by HEADER when showOfflineAlarms changes.
   // Re-applies filters (alarm filter may include/exclude offline-only cards) and refreshes badges.
   window.addEventListener('myio:offline-alarms-toggle', () => {
@@ -6941,6 +7032,7 @@ self.onDestroy = function () {
     LogHelper.log("[RFC-0056] Event listener 'myio:telemetry:update' removido.");
   }
   window.removeEventListener('myio:alarms-updated', refreshAlarmBadges);
+  window.removeEventListener('myio:incidents-updated', refreshIncidentBadges);
   window.removeEventListener('myio:group-filter-changed', _groupFilterChangedHandler);
 
   // Cleanup TempSensorSummaryTooltip if attached

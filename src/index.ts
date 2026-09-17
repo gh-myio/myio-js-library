@@ -1270,14 +1270,16 @@ export type { InferredDeviceType } from './components/classify/deviceType';
 // RFC-0109: Upsell Post-Setup Modal
 export { openUpsellModal } from './components/premium-modals/upsell';
 
-// RFC-0183/RFC-0198: shared card alarm/ticket badge decoration helpers
+// RFC-0183/RFC-0198/RFC-0232: shared card alarm/ticket/incident badge decoration helpers
 export {
   addAlarmBadge,
   refreshAlarmBadges,
   addTicketBadge,
   refreshTicketBadges,
+  addIncidentBadge,
+  refreshIncidentBadges,
 } from './components/card-badges';
-export type { AlarmBadgeOptions, TicketBadgeOptions } from './components/card-badges';
+export type { AlarmBadgeOptions, TicketBadgeOptions, IncidentBadgeOptions } from './components/card-badges';
 
 // RFC-0205: Premium Dialog — exported confirm/message modal + generic HTML modal
 export { openConfirmDialog, openMessageDialog, openGenericModal } from './components/premium-modals/dialog';

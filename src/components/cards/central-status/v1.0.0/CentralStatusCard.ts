@@ -193,6 +193,7 @@ export class CentralStatusCard implements CentralStatusCardHandle {
   private detachTitleTooltip: (() => void) | null = null;
   private detachDivergenceTooltip: (() => void) | null = null;
   private detachAlarmTooltip: (() => void) | null = null;
+  private detachIncidentTooltip: (() => void) | null = null;
   private detachTicketTooltip: (() => void) | null = null;
   private detachAnnotationTooltips: Array<() => void> = [];
   /** Latency from the PREVIOUS render, to derive the trend arrow next to
@@ -271,6 +272,7 @@ export class CentralStatusCard implements CentralStatusCardHandle {
     this.detachTitleTooltip?.();
     this.detachDivergenceTooltip?.();
     this.detachAlarmTooltip?.();
+    this.detachIncidentTooltip?.();
     this.detachTicketTooltip?.();
     this.detachAnnotationTooltips.forEach((fn) => fn());
     this.el.remove();
@@ -710,6 +712,16 @@ export class CentralStatusCard implements CentralStatusCardHandle {
           </div>`
         : '';
 
+    const incidentBadgeHtml =
+      p.incidentCount && p.incidentCount > 0
+        ? `<div class="myio-cscard__incident-badge" data-role="incident-badge" aria-label="${escAttr(
+            `${p.incidentCount} incidente${p.incidentCount !== 1 ? 's' : ''} de interpolação`
+          )}">
+            <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor" aria-hidden="true"><path d="M12 2L1 21h22L12 2z"/></svg>
+            <span>${p.incidentCount > 99 ? '99+' : p.incidentCount}</span>
+          </div>`
+        : '';
+
     const ticketBadgeHtml =
       p.ticketCount && p.ticketCount > 0
         ? `<div class="myio-cscard__ticket-badge" data-role="ticket-badge" aria-label="${escAttr(
@@ -794,6 +806,7 @@ export class CentralStatusCard implements CentralStatusCardHandle {
 
     this.el.innerHTML = `
       ${alarmBadgeHtml}
+      ${incidentBadgeHtml}
       ${ticketBadgeHtml}
       ${annotationBadgesHtml}
       <div class="myio-cscard__surface">
@@ -922,6 +935,8 @@ export class CentralStatusCard implements CentralStatusCardHandle {
     this.detachDivergenceTooltip = null;
     this.detachAlarmTooltip?.();
     this.detachAlarmTooltip = null;
+    this.detachIncidentTooltip?.();
+    this.detachIncidentTooltip = null;
     this.detachTicketTooltip?.();
     this.detachTicketTooltip = null;
     this.detachAnnotationTooltips.forEach((fn) => fn());
@@ -965,6 +980,22 @@ export class CentralStatusCard implements CentralStatusCardHandle {
             en
               ? `${count} active alarm${count !== 1 ? 's' : ''}`
               : `${count} alarme${count !== 1 ? 's' : ''} ativo${count !== 1 ? 's' : ''}`
+          ),
+        }));
+      }
+    }
+
+    if (p.incidentCount && p.incidentCount > 0) {
+      const incidentBadge = this.el.querySelector<HTMLElement>('[data-role="incident-badge"]');
+      if (incidentBadge) {
+        const count = p.incidentCount;
+        this.detachIncidentTooltip = InfoTooltip.attach(incidentBadge, () => ({
+          icon: '🔺',
+          title: en ? 'Incidents' : 'Incidentes',
+          content: escAttr(
+            en
+              ? `${count} interpolated reading${count !== 1 ? 's' : ''}`
+              : `${count} incidente${count !== 1 ? 's' : ''} de interpolação`
           ),
         }));
       }
@@ -1081,6 +1112,13 @@ export class CentralStatusCard implements CentralStatusCardHandle {
       alarmBadge.addEventListener('click', (e) => {
         e.stopPropagation();
         this.params.onAlarmBadgeClick?.({ id: this.params.id, source: 'central-status-card' });
+      });
+    }
+    const incidentBadge = this.el.querySelector<HTMLElement>('[data-role="incident-badge"]');
+    if (incidentBadge && this.params.onIncidentBadgeClick) {
+      incidentBadge.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.params.onIncidentBadgeClick?.({ id: this.params.id, source: 'central-status-card' });
       });
     }
     const ticketBadge = this.el.querySelector<HTMLElement>('[data-role="ticket-badge"]');

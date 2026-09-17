@@ -5012,14 +5012,18 @@ function basBuildAlarmServiceOrchestrator(alarms, gcdrCustomerId, gcdrTenantId, 
   );
 }
 
-// RFC-0183/RFC-0198: decorate a freshly rendered device card with alarm and
-// ticket badges. Wired as CardGridPanel.onCardRendered on the Water and
-// Energy/Motors panels. No-ops gracefully on libs older than the helpers.
+// RFC-0183/RFC-0198/RFC-0232: decorate a freshly rendered device card with
+// alarm, incident and ticket badges. Wired as CardGridPanel.onCardRendered on
+// the Water and Energy/Motors panels. No-ops gracefully on libs older than
+// the helpers.
 function basDecorateCardWithBadges(item, cardEl) {
   var dev = item && item.source;
   if (!dev || !cardEl || typeof MyIOLibrary === 'undefined') return;
   if (typeof MyIOLibrary.addAlarmBadge === 'function') {
     MyIOLibrary.addAlarmBadge(cardEl, dev.gcdrDeviceId || null);
+  }
+  if (typeof MyIOLibrary.addIncidentBadge === 'function') {
+    MyIOLibrary.addIncidentBadge(cardEl, dev.gcdrDeviceId || null);
   }
   if (typeof MyIOLibrary.addTicketBadge === 'function') {
     var identifier = (dev.rawData && dev.rawData.identifier) || null;
