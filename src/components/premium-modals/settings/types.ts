@@ -239,21 +239,48 @@ export interface ModalConfig {
    *  When set, the alarm rule removal confirmation requires this password. */
   masterAdminPassword?: string;
 
-  /** When true, renders an extra native "Central" tab with read-only gateway
-   *  identity/telemetry fields (see `GatewayInfo`) — used by
-   *  `CentralSettingsModal` for a CENTRAL/gateway entity, never for a real
-   *  telemetry device. Participates in `switchTab()` like any other tab. */
+  /** When true, renders read-only gateway identity/telemetry fields (see
+   *  `GatewayInfo`) inline in the Geral tab — used by `CentralSettingsModal`
+   *  for a CENTRAL/gateway entity, never for a real telemetry device. */
   isGateway?: boolean;
-  /** Data for the "Central" tab (only rendered when `isGateway`). 1:1 with
-   *  GCDR's `GET /api/v1/centrals/:id` response shape. All fields optional —
+  /** Data rendered inline in Geral when `isGateway` is true. 1:1 with GCDR's
+   *  `GET /api/v1/centrals/:id` response shape. All fields optional —
    *  missing ones render as "—". */
   gatewayInfo?: GatewayInfo;
+  /**
+   * RFC-0232 — interpolated (fabricated) readings for this central, from the
+   * No-Consumption Interpolation agent (`data-ingestion-prod`). Admin-only:
+   * the "Incidentes" tab renders ONLY when both `isGateway` is true AND the
+   * viewer is a MyIO admin (`isSuperAdmin()`) — a non-admin never sees the
+   * tab, regardless of whether this array is populated. The host pre-fetches
+   * this (scoped to one central — no gateway grouping needed, unlike the
+   * agent's own multi-central dashboard) and passes it in; the tab itself
+   * only regroups device → day → hour slots for display, no fetching.
+   */
+  interpolatedSlots?: InterpolatedSlot[];
 
   onSave: (formData: Record<string, any>) => Promise<void>;
   onClose: () => void;
 }
 
-/** Read-only gateway/central identity + telemetry, shown in the "Central" tab
+/**
+ * One fabricated hourly reading from the No-Consumption Interpolation agent.
+ * Field names/shapes mirror `data-ingestion-prod`'s `InterpolatedSlot` 1:1
+ * (`packages/dashboard/src/api/managementService.ts`) so a host can pass its
+ * own API response straight through with no mapping.
+ */
+export interface InterpolatedSlot {
+  slaveId: number;
+  deviceName: string | null;
+  hourStart: string; // ISO
+  value: number;
+  sourceHour: string; // ISO — the real hour LOCF-copied from
+  ruleId: string;
+  incidentRef: string | null;
+  createdAt: string; // ISO
+}
+
+/** Read-only gateway/central identity + telemetry, shown inline in Geral
  *  when `ModalConfig.isGateway` is true. Field names/shapes mirror GCDR's
  *  `GET /api/v1/centrals/:id` response 1:1 (see CentralSettingsModal.ts). */
 export interface GatewayInfo {
@@ -280,4 +307,11 @@ export interface GatewayInfo {
   createdAt?: string | null; // ISO
   updatedAt?: string | null; // ISO
   version?: number | null;
+  /**
+   * Optional — set only when this central is (or is co-located with) a real
+   * measurement point, e.g. an ENTRADA/TRAFO 3-phase sensor. Renders "—" in
+   * the "Última Telemetria de Consumo" row when absent; no host wires this
+   * yet (GCDR's `GET /api/v1/centrals/:id` doesn't return it today).
+   */
+  lastConsumptionTelemetry?: { value: number; unit?: string; timestamp: string } | null;
 }

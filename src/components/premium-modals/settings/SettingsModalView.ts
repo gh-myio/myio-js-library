@@ -1,4 +1,4 @@
-import { ModalConfig } from './types';
+import { ModalConfig, InterpolatedSlot } from './types';
 import { mapDeviceStatusToCardStatus } from '../../../utils/devices/deviceStatus';
 import { deviceIcons, DEFAULT_DEVICE_ICON } from '../../../utils/devices/deviceIcons';
 import { ModalHeader } from '../../../utils/ModalHeader';
@@ -8,6 +8,10 @@ import { ExclusionGroupsTab } from './exclusion-groups/ExclusionGroupsTab';
 import { createTicketsTab } from './tickets/TicketsTab';
 import { getAnnotationPermissions } from '../../../utils/superAdminUtils';
 import type { UserInfo, PermissionSet } from './annotations/types';
+import {
+  createInputDateRangePickerInsideDIV,
+  type DateRangeInputController,
+} from '../../createInputDateRangePickerInsideDIV';
 
 // RFC-0171: Allowed email domain for superadmin editing permissions
 const ALLOWED_EMAIL_DOMAIN = '@myio.com.br';
@@ -27,14 +31,25 @@ export class SettingsModalView {
   private chamadosTabHandle: { destroy(): void } | null = null;
   // Exclusão de Grupos tab
   private exclusionGroupsTab: ExclusionGroupsTab | null = null;
-  // "gateway": read-only Central identity/telemetry tab, only rendered when
-  // config.isGateway (see getGatewayInfoHTML()) — a real device never has it.
-  private currentTab: 'general' | 'annotations' | 'alarms' | 'chamados' | 'exclusion-groups' | 'gateway' = 'general';
+  private currentTab: 'general' | 'annotations' | 'alarms' | 'chamados' | 'exclusion-groups' | 'incidents' = 'general';
   private currentUser: UserInfo | null = null;
   private permissions: PermissionSet | null = null;
   // RFC-0190: Exclude Groups Totals
   private excludeGroupsEnabled = false;
   private excludedGroups: string[] = [];
+
+  // RFC-0232: Incidentes tab filters (search/devices/period) — client-side
+  // state, all derived from `config.interpolatedSlots` (the host's one
+  // pre-fetch). `incidentsIdSuffix` is only needed because
+  // createInputDateRangePickerInsideDIV() does a global `document.getElementById`
+  // internally — every other Incidentes element is found via `this.modal.querySelector`,
+  // which is safely scoped even with duplicate ids across simultaneous instances.
+  private incidentsIdSuffix = Math.random().toString(36).slice(2, 10);
+  private incidentsAllSlots: InterpolatedSlot[] = [];
+  private incidentsSelectedDevices: Set<string> = new Set();
+  private incidentsSearch = '';
+  private incidentsDateRange: { startISO: string | null; endISO: string | null } = { startISO: null, endISO: null };
+  private incidentsDateRangeController: DateRangeInputController | null = null;
 
   constructor(config: ModalConfig) {
     this.config = config;
@@ -128,6 +143,12 @@ export class SettingsModalView {
     this.initChamadosTab();
     // Exclusão de Grupos tab (async, energy domain only)
     this.initExclusionGroupsTab();
+    // RFC-0232: Incidentes tab (central + admin MyIO only) — search/devices
+    // filters are plain sync listeners, the period picker loads its CDN deps async.
+    if (this.config.isGateway && this.isSuperAdmin()) {
+      this.bindIncidentsTabEvents();
+      this.initIncidentsDateRange();
+    }
     // Seed tab badges from available orchestrators + initialData
     this._updateTabBadges(initialData);
   }
@@ -395,7 +416,9 @@ export class SettingsModalView {
   }
 
   // RFC-0104 / RFC-0180 / RFC-0198: Switch between tabs
-  private switchTab(tab: 'general' | 'annotations' | 'alarms' | 'chamados' | 'exclusion-groups' | 'gateway'): void {
+  private switchTab(
+    tab: 'general' | 'annotations' | 'alarms' | 'chamados' | 'exclusion-groups' | 'incidents'
+  ): void {
     this.currentTab = tab;
 
     // Update tab buttons
@@ -410,17 +433,16 @@ export class SettingsModalView {
     const alarmsContent = this.modal.querySelector('#alarms-tab-content') as HTMLElement;
     const chamadosContent = this.modal.querySelector('#chamados-tab-content') as HTMLElement;
     const exclusionGroupsContent = this.modal.querySelector('#exclusion-groups-tab-content') as HTMLElement;
-    const gatewayContent = this.modal.querySelector('#gateway-tab-content') as HTMLElement;
+    const incidentsContent = this.modal.querySelector('#incidents-tab-content') as HTMLElement;
 
     if (generalContent) generalContent.style.display = tab === 'general' ? 'block' : 'none';
     if (annotationsContent) annotationsContent.style.display = tab === 'annotations' ? 'block' : 'none';
     if (alarmsContent) alarmsContent.style.display = tab === 'alarms' ? 'block' : 'none';
     if (chamadosContent) chamadosContent.style.display = tab === 'chamados' ? 'block' : 'none';
     if (exclusionGroupsContent) exclusionGroupsContent.style.display = tab === 'exclusion-groups' ? 'block' : 'none';
-    if (gatewayContent) gatewayContent.style.display = tab === 'gateway' ? 'block' : 'none';
+    if (incidentsContent) incidentsContent.style.display = tab === 'incidents' ? 'block' : 'none';
 
-    // Update footer Save button (only on General tab; all other tabs have own save
-    // or, like "gateway", are read-only)
+    // Update footer Save button (only on General tab; all other tabs have own save)
     const saveBtn = this.modal.querySelector('.btn-save') as HTMLElement;
     if (saveBtn) saveBtn.style.display = tab === 'general' ? 'inline-flex' : 'none';
 
@@ -455,6 +477,12 @@ export class SettingsModalView {
     if (this.exclusionGroupsTab) {
       this.exclusionGroupsTab.destroy();
       this.exclusionGroupsTab = null;
+    }
+
+    // RFC-0232: Clean up the Incidentes tab's period picker (jQuery plugin instance)
+    if (this.incidentsDateRangeController) {
+      this.incidentsDateRangeController.destroy();
+      this.incidentsDateRangeController = null;
     }
 
     // Restore focus to original element
@@ -650,17 +678,21 @@ export class SettingsModalView {
               Excluir Grupos
               <span class="modal-tab-badge modal-tab-badge--exclusion" id="tab-badge-exclusion-groups" style="display:none"></span>
             </button>
-            <!-- Central/gateway identity+telemetry tab — only for CentralSettingsModal (isGateway) -->
+            <!-- RFC-0232: Incidentes (interpolação) — central + admin MyIO only -->
             ${
-              this.config.isGateway
-                ? `<button type="button" class="modal-tab" data-tab="gateway">
+              this.config.isGateway && this.isSuperAdmin()
+                ? `<button type="button" class="modal-tab" data-tab="incidents">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <rect x="2" y="4" width="20" height="6" rx="1"></rect>
-                  <rect x="2" y="14" width="20" height="6" rx="1"></rect>
-                  <line x1="6" y1="7" x2="6.01" y2="7"></line>
-                  <line x1="6" y1="17" x2="6.01" y2="17"></line>
+                  <path d="M12 9v4"></path>
+                  <path d="M12 17h.01"></path>
+                  <path d="M10.29 3.86l-8.18 14.14A2 2 0 0 0 3.93 21h16.14a2 2 0 0 0 1.82-2.99L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
                 </svg>
-                Central
+                Incidentes
+                ${
+                  (this.config.interpolatedSlots?.length ?? 0) > 0
+                    ? `<span class="modal-tab-badge modal-tab-badge--incidents">${this.config.interpolatedSlots!.length}</span>`
+                    : ''
+                }
               </button>`
                 : ''
             }
@@ -701,10 +733,12 @@ export class SettingsModalView {
                 <p>Carregando configurações de exclusão...</p>
               </div>
             </div>
-            <!-- Central/gateway identity+telemetry tab (read-only) -->
+            <!-- RFC-0232: Incidentes (interpolação) Tab Content — central + admin MyIO only.
+                 Rendered synchronously (data comes pre-fetched via config.interpolatedSlots,
+                 same as getGatewayInfoHTML() — no async loading state needed here). -->
             ${
-              this.config.isGateway
-                ? `<div id="gateway-tab-content" class="tab-content" style="display: none;">${this.getGatewayInfoHTML()}</div>`
+              this.config.isGateway && this.isSuperAdmin()
+                ? `<div id="incidents-tab-content" class="tab-content" style="display: none;">${this.getInterpolationIncidentsHTML()}</div>`
                 : ''
             }
           </div>
@@ -800,6 +834,10 @@ export class SettingsModalView {
 
           </div>
         </div>
+
+        <!-- Central/gateway identity+telemetry — only for CentralSettingsModal (isGateway);
+             rendered directly in Geral instead of its own tab, right after the identity card. -->
+        ${this.config.isGateway ? this.getGatewayInfoHTML() : ''}
 
         <!-- Bottom Row: Connection Info spanning full width -->
         ${this.getConnectionInfoHTML()}
@@ -1032,71 +1070,510 @@ export class SettingsModalView {
     return parts.join(' ');
   }
 
+  /** pt-BR absolute timestamp WITH seconds, ISO-string input (mirrors the
+   *  seconds-precision formatting `getConnectionInfoHTML()` uses for its
+   *  disconnect-interval row). */
+  private formatIsoWithSeconds(iso?: string | null): string {
+    if (!iso) return '—';
+    const ms = Date.parse(iso);
+    if (Number.isNaN(ms)) return '—';
+    return new Date(ms).toLocaleString('pt-BR', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+    });
+  }
+
+  /** "(Xd:YYhs:YYmins atrás)"-style relative time, ISO-string input — mirrors
+   *  the device "Conectado desde" pattern in `getConnectionInfoHTML()`. */
+  private formatIsoRelativeDetailed(iso?: string | null): string {
+    const ms = iso ? Date.parse(iso) : NaN;
+    if (Number.isNaN(ms)) return '';
+    const diffMinutes = Math.floor((Date.now() - ms) / 60000);
+    const diffHours = Math.floor(diffMinutes / 60);
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays > 0) {
+      return `(${diffDays}d:${String(diffHours % 24).padStart(2, '0')}hs:${String(diffMinutes % 60).padStart(2, '0')}mins atrás)`;
+    }
+    if (diffHours > 0) return `(${diffHours}hs:${String(diffMinutes % 60).padStart(2, '0')}mins atrás)`;
+    if (diffMinutes > 0) return `(${diffMinutes}mins atrás)`;
+    return '(agora)';
+  }
+
+  /** "(Xd/h/min atrás)"-style relative time, ISO-string input — mirrors the
+   *  device "Último check status" pattern in `getConnectionInfoHTML()`. */
+  private formatIsoRelativeSimple(iso?: string | null): string {
+    const ms = iso ? Date.parse(iso) : NaN;
+    if (Number.isNaN(ms)) return '';
+    const diffMinutes = Math.floor((Date.now() - ms) / 60000);
+    const diffHours = Math.floor(diffMinutes / 60);
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays > 0) return `(${diffDays}d atrás)`;
+    if (diffHours > 0) return `(${diffHours}h atrás)`;
+    if (diffMinutes > 0) return `(${diffMinutes}min atrás)`;
+    return '(agora)';
+  }
+
   /**
    * Central/gateway identity + telemetry — read-only, sourced 1:1 from
-   * GCDR's `GET /api/v1/centrals/:id`. Every value carries a stable
-   * `id="gwinfo-<key>"` so a host (CentralSettingsModal) can patch
-   * `.textContent` after an async fetch resolves — this method itself only
-   * runs once, at construction time (createModal() is never re-invoked),
-   * so it can't pick up data that arrives after the modal is already built.
+   * GCDR's `GET /api/v1/centrals/:id`. Rendered inline in the Geral tab
+   * (right after the identity card) rather than its own tab — a real device
+   * never sets `isGateway`, so this is fully inert for the device settings
+   * modal. Every value carries a stable `id="gwinfo-<key>"` so a host
+   * (CentralSettingsModal) can patch `.textContent` after an async fetch
+   * resolves — this method itself only runs once, at construction time
+   * (createModal() is never re-invoked), so it can't pick up data that
+   * arrives after the modal is already built.
    */
+  /**
+   * "Status" text/color mapping for `GatewayInfo.connectionStatus`
+   * (ONLINE|OFFLINE|DEGRADED|MAINTENANCE) — same visual vocabulary as
+   * `getConnectionInfoHTML()`'s device `statusMap` (ONLINE/OFFLINE stay
+   * ALL-CAPS, DEGRADED reads "Atenção"). Exposed as a static so
+   * `CentralSettingsModal.patchGatewayInfoDom()` can mirror it exactly when
+   * an async `onFetchSettings` re-renders this card's values.
+   */
+  static readonly GATEWAY_CONN_STATUS_MAP: Record<string, { text: string; color: string }> = {
+    ONLINE: { text: 'ONLINE', color: '#22c55e' },
+    OFFLINE: { text: 'OFFLINE', color: '#ef4444' },
+    DEGRADED: { text: 'Atenção', color: '#f59e0b' },
+    MAINTENANCE: { text: 'Manutenção', color: '#3b82f6' },
+  };
+
   private getGatewayInfoHTML(): string {
     const g = this.config.gatewayInfo || {};
     const bool = (v?: boolean | null) => (v == null ? '—' : v ? 'Sim' : 'Não');
     const num = (v?: number | null, suffix = '') => (v == null ? '—' : `${v}${suffix}`);
     const txt = (v?: string | null) => (v == null || v === '' ? '—' : v);
-    const row = (label: string, key: string, value: string) =>
-      `<div class="identity-date-row">
-        <div class="identity-date-label">${label}</div>
-        <div class="identity-date-value" id="gwinfo-${key}">${value}</div>
+    const infoRow = (label: string, key: string, valueHtml: string, fullWidth = false) =>
+      `<div class="info-row${fullWidth ? ' full-width' : ''}">
+        <span class="info-label">${label}</span>
+        <span class="info-value" id="gwinfo-${key}">${valueHtml}</span>
       </div>`;
 
+    // "Informações de Conexão" — same visual pattern (divs/classes/fonts) as
+    // getConnectionInfoHTML()'s device card, mapped onto GatewayInfo's
+    // fields. "Último intervalo desconectado" always reads "—": GatewayInfo
+    // only carries point-in-time checks (last attempt / last success), not a
+    // recorded downtime interval — showing a fabricated one would misrepresent
+    // data that doesn't exist yet on GCDR's `GET /api/v1/centrals/:id`.
+    const connStatusInfo = SettingsModalView.GATEWAY_CONN_STATUS_MAP[(g.connectionStatus || '').toUpperCase()] || {
+      text: txt(g.connectionStatus),
+      color: '#6b7280',
+    };
+    const isOnline = (g.connectionStatus || '').toUpperCase() === 'ONLINE';
+    const connectedSinceAbs = isOnline ? this.formatIso(g.lastGatewaySuccessCheckAt) : '—';
+    const connectedSinceRel = isOnline ? this.formatIsoRelativeDetailed(g.lastGatewaySuccessCheckAt) : '';
+    const lastCheckAbs = this.formatIso(g.lastGatewayCheckAt);
+    const lastCheckRel = this.formatIsoRelativeSimple(g.lastGatewayCheckAt);
+    const lc = g.lastConsumptionTelemetry;
+    const consumptionText = lc
+      ? `${lc.value.toLocaleString('pt-BR')}${lc.unit ? ` ${lc.unit}` : ''} - ${this.formatIsoWithSeconds(
+          lc.timestamp
+        )} ${this.formatIsoRelativeSimple(lc.timestamp)}`.trim()
+      : '—';
+
+    const connectionInfoCard = `
+      <div class="form-card info-card-wide">
+        <h4 class="section-title">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="vertical-align: text-bottom; margin-right: 6px;">
+            <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+            <path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533L8.93 6.588zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
+          </svg>
+          Informações de Conexão
+        </h4>
+        <div class="info-grid">
+          ${infoRow('Central:', 'connCentral', txt(this.config.deviceLabel))}
+          ${infoRow(
+            'Status:',
+            'connectionStatus',
+            `<span style="color: ${connStatusInfo.color}; font-weight: 600;">${connStatusInfo.text}</span>`
+          )}
+          ${infoRow(
+            'Conectado desde:',
+            'lastGatewaySuccessCheckAt',
+            `${connectedSinceAbs}${connectedSinceRel ? ` <span class="time-since">${connectedSinceRel}</span>` : ''}`
+          )}
+          ${infoRow(
+            'Último check status:',
+            'lastGatewayCheckAt',
+            `${lastCheckAbs}${lastCheckRel ? ` <span class="time-since">${lastCheckRel}</span>` : ''}`
+          )}
+          ${infoRow('Último intervalo desconectado:', 'disconnectInterval', '—', true)}
+          ${infoRow('Última Telemetria de Consumo:', 'lastConsumptionTelemetry', consumptionText, true)}
+          ${infoRow('Monitoramento habilitado:', 'monitoringEnabled', bool(g.monitoringEnabled))}
+          ${infoRow('Latência:', 'lastGatewayCheckLatencyMs', num(g.lastGatewayCheckLatencyMs, 'ms'))}
+          ${infoRow('Resultado do probe:', 'probeResult', txt(g.probeResult))}
+        </div>
+      </div>
+    `;
+
+    // Identificação/Estatísticas/Metadados — same "one section per line" full-
+    // width pattern as "Informações de Conexão" above (`.info-card-wide` +
+    // `.info-grid`/`.info-row`), not the narrower side-by-side cards this used
+    // to be. `.gateway-info-grid` is now a simple vertical stack; the
+    // Conectividade fieldset CentralSettingsModal injects after these three
+    // follows the exact same pattern (see `connectivityFieldsetHtml()`).
     return `
+      ${connectionInfoCard}
       <div class="gateway-info-grid">
-        <div class="form-card gateway-info-card">
+        <div class="form-card gateway-info-card info-card-wide">
           <h4 class="section-title">Identificação</h4>
-          <div class="gateway-info-rows">
-            ${row('UUID', 'uuid', txt(this.config.deviceId))}
-            ${row('Serial Number', 'serialNumber', txt(g.serialNumber))}
-            ${row('Hardware ID', 'hardwareId', txt(g.hardwareId))}
-            ${row('Tipo', 'type', txt(g.type))}
-            ${row('Status (cadastro)', 'status', txt(g.status))}
-            ${row('Firmware', 'firmwareVersion', txt(g.firmwareVersion))}
-            ${row('Software', 'softwareVersion', txt(g.softwareVersion))}
-            ${row('Frequência (canal)', 'frequency', num(g.frequency))}
+          <div class="info-grid">
+            ${infoRow('UUID:', 'uuid', txt(this.config.deviceId))}
+            ${infoRow('Serial Number:', 'serialNumber', txt(g.serialNumber))}
+            ${infoRow('Hardware ID:', 'hardwareId', txt(g.hardwareId))}
+            ${infoRow('Tipo:', 'type', txt(g.type))}
+            ${infoRow('Status (cadastro):', 'status', txt(g.status))}
+            ${infoRow('Firmware:', 'firmwareVersion', txt(g.firmwareVersion))}
+            ${infoRow('Software:', 'softwareVersion', txt(g.softwareVersion))}
+            ${infoRow('Frequência (canal):', 'frequency', num(g.frequency))}
           </div>
         </div>
-        <div class="form-card gateway-info-card">
-          <h4 class="section-title">Conectividade (telemetria)</h4>
-          <div class="gateway-info-rows">
-            ${row('Status de conexão', 'connectionStatus', txt(g.connectionStatus))}
-            ${row('Monitoramento habilitado', 'monitoringEnabled', bool(g.monitoringEnabled))}
-            ${row('Última tentativa', 'lastGatewayCheckAt', this.formatIso(g.lastGatewayCheckAt))}
-            ${row('Último sucesso', 'lastGatewaySuccessCheckAt', this.formatIso(g.lastGatewaySuccessCheckAt))}
-            ${row('Latência', 'lastGatewayCheckLatencyMs', num(g.lastGatewayCheckLatencyMs, 'ms'))}
-            ${row('Resultado do probe', 'probeResult', txt(g.probeResult))}
-          </div>
-        </div>
-        <div class="form-card gateway-info-card">
+        <div class="form-card gateway-info-card info-card-wide">
           <h4 class="section-title">Estatísticas</h4>
-          <div class="gateway-info-rows">
-            ${row('Dispositivos conectados', 'statsConnectedDevices', num(g.stats?.connectedDevices))}
-            ${row('Regras ativas', 'statsActiveRules', num(g.stats?.activeRules))}
-            ${row('Eventos de sync pendentes', 'statsPendingSyncEvents', num(g.stats?.pendingSyncEvents))}
-            ${row('Uptime', 'statsUptimeSeconds', this.formatUptime(g.stats?.uptimeSeconds))}
-            ${row('Último heartbeat', 'statsLastHeartbeatAt', this.formatIso(g.stats?.lastHeartbeatAt))}
+          <div class="info-grid">
+            ${infoRow('Dispositivos conectados:', 'statsConnectedDevices', num(g.stats?.connectedDevices))}
+            ${infoRow('Regras ativas:', 'statsActiveRules', num(g.stats?.activeRules))}
+            ${infoRow('Eventos de sync pendentes:', 'statsPendingSyncEvents', num(g.stats?.pendingSyncEvents))}
+            ${infoRow('Uptime:', 'statsUptimeSeconds', this.formatUptime(g.stats?.uptimeSeconds))}
+            ${infoRow('Último heartbeat:', 'statsLastHeartbeatAt', this.formatIso(g.stats?.lastHeartbeatAt))}
           </div>
         </div>
-        <div class="form-card gateway-info-card">
+        <div class="form-card gateway-info-card info-card-wide">
           <h4 class="section-title">Metadados</h4>
-          <div class="gateway-info-rows">
-            ${row('Criado em', 'createdAt', this.formatIso(g.createdAt))}
-            ${row('Atualizado em', 'updatedAt', this.formatIso(g.updatedAt))}
-            ${row('Versão', 'version', num(g.version))}
+          <div class="info-grid">
+            ${infoRow('Criado em:', 'createdAt', this.formatIso(g.createdAt))}
+            ${infoRow('Atualizado em:', 'updatedAt', this.formatIso(g.updatedAt))}
+            ${infoRow('Versão:', 'version', num(g.version))}
           </div>
         </div>
       </div>
     `;
+  }
+
+  private escHtml(v: string): string {
+    return String(v ?? '').replace(
+      /[&<>"']/g,
+      (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string)
+    );
+  }
+
+  private incidentsDeviceKey(s: InterpolatedSlot): string {
+    return s.deviceName || `slave ${s.slaveId}`;
+  }
+
+  private incidentsFmtHour(iso: string): string {
+    return new Date(iso).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' });
+  }
+  private incidentsFmtDay(iso: string): string {
+    return new Date(iso).toLocaleDateString('pt-BR', {
+      timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric',
+    });
+  }
+  private incidentsFmtFull(iso: string | null): string {
+    return iso == null
+      ? '—'
+      : new Date(iso).toLocaleString('pt-BR', {
+          timeZone: 'America/Sao_Paulo',
+          day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
+        });
+  }
+
+  /**
+   * RFC-0232 — "Incidentes" tab (central + admin MyIO only): what the
+   * No-Consumption Interpolation agent (`data-ingestion-prod`) fabricated for
+   * THIS central. Inspired by that app's own ledger
+   * (`InterpolationPanel.tsx`'s "Logs" tab, ~L450-548) but simplified for a
+   * single-central context: that page groups by GATEWAY first (it shows every
+   * central at once) — here there's only one central, so grouping starts one
+   * level down, by DEVICE, then by DAY, each day showing its hour slots.
+   * `config.interpolatedSlots` arrives pre-fetched from the host — nothing is
+   * fetched in here, ever; the header controls (busca/dispositivos/período)
+   * only filter that one array client-side. This method runs once, at
+   * construction time, and builds the STATIC shell (filters header + KPI/body
+   * mount points); `refreshIncidentsView()` re-renders the KPI/body pair on
+   * every filter change via `this.modal.querySelector`.
+   */
+  private getInterpolationIncidentsHTML(): string {
+    this.incidentsAllSlots = this.config.interpolatedSlots ?? [];
+    const deviceKeys = Array.from(new Set(this.incidentsAllSlots.map((s) => this.incidentsDeviceKey(s)))).sort((a, b) =>
+      a.localeCompare(b, 'pt-BR')
+    );
+    // Default: every device checked (see class doc — "default todos marcados").
+    this.incidentsSelectedDevices = new Set(deviceKeys);
+
+    if (this.incidentsAllSlots.length === 0) {
+      return `<div class="incidents-empty">Nenhuma interpolação registrada para esta central no período consultado pelo host.</div>`;
+    }
+
+    const devicesPanel = deviceKeys
+      .map(
+        (key) => `
+        <label class="incidents-multiselect__item">
+          <input type="checkbox" checked value="${this.escHtml(key)}" data-role="incidents-device-checkbox">
+          <span>${this.escHtml(key)}</span>
+        </label>`
+      )
+      .join('');
+
+    return `
+      <div class="incidents-filters">
+        <div class="incidents-filter incidents-filter--search">
+          <label class="incidents-filter__label">Buscar dispositivo</label>
+          <input type="text" class="incidents-search-input" placeholder="Nome do dispositivo…" data-role="incidents-search-input">
+        </div>
+        <div class="incidents-filter incidents-filter--devices">
+          <label class="incidents-filter__label">Dispositivos</label>
+          <div class="incidents-multiselect">
+            <button type="button" class="incidents-multiselect__toggle" data-role="incidents-devices-toggle">
+              <span data-role="incidents-devices-summary">Todos (${deviceKeys.length})</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </button>
+            <div class="incidents-multiselect__panel" data-role="incidents-devices-panel" hidden>
+              <div class="incidents-multiselect__actions">
+                <button type="button" data-role="incidents-devices-all">Marcar todos</button>
+                <button type="button" data-role="incidents-devices-none">Desmarcar todos</button>
+              </div>
+              ${devicesPanel}
+            </div>
+          </div>
+        </div>
+        <div class="incidents-filter incidents-filter--period">
+          <label class="incidents-filter__label">Período</label>
+          <div id="incidents-daterange-${this.incidentsIdSuffix}" class="incidents-daterange-mount"></div>
+        </div>
+      </div>
+      <div class="incidents-kpis">${this.buildIncidentsKpisHtml(this.incidentsAllSlots)}</div>
+      <div class="incidents-body">${this.buildIncidentsBodyHtml(this.incidentsAllSlots)}</div>
+    `;
+  }
+
+  /** 4 small KPI cards summarizing the currently-filtered slot set. */
+  private buildIncidentsKpisHtml(slots: InterpolatedSlot[]): string {
+    if (slots.length === 0) {
+      return `<div class="incidents-kpi-empty">Nenhuma interpolação corresponde aos filtros atuais.</div>`;
+    }
+    const deviceCount = new Set(slots.map((s) => this.incidentsDeviceKey(s))).size;
+    const dayCount = new Set(slots.map((s) => this.incidentsFmtDay(s.hourStart))).size;
+    const withIncident = slots.filter((s) => s.incidentRef).length;
+    const pct = slots.length ? Math.round((withIncident / slots.length) * 100) : 0;
+    const kpi = (label: string, value: string, sub?: string) => `
+      <div class="incidents-kpi">
+        <div class="incidents-kpi__value">${value}</div>
+        <div class="incidents-kpi__label">${label}</div>
+        ${sub ? `<div class="incidents-kpi__sub">${sub}</div>` : ''}
+      </div>`;
+    return [
+      kpi('Interpolações', String(slots.length)),
+      kpi('Dispositivos', String(deviceCount)),
+      kpi('Dias com atividade', String(dayCount)),
+      kpi('Com incidente vinculado', String(withIncident), `${pct}% do total`),
+    ].join('');
+  }
+
+  /** Device → day → hour-slot table, for whatever slot subset the caller already filtered. */
+  private buildIncidentsBodyHtml(slots: InterpolatedSlot[]): string {
+    if (slots.length === 0) {
+      return `<div class="incidents-empty">Nenhuma interpolação corresponde aos filtros atuais.</div>`;
+    }
+
+    const byDevice = new Map<string, InterpolatedSlot[]>();
+    for (const s of slots) {
+      const key = this.incidentsDeviceKey(s);
+      (byDevice.get(key) ?? byDevice.set(key, []).get(key)!).push(s);
+    }
+    const deviceNames = Array.from(byDevice.keys()).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+
+    const deviceSections = deviceNames
+      .map((deviceName) => {
+        const deviceSlots = byDevice.get(deviceName)!.slice().sort((a, b) => a.hourStart.localeCompare(b.hourStart));
+
+        // Sub-group by day, in chronological order (Map preserves insertion order).
+        const byDay = new Map<string, InterpolatedSlot[]>();
+        for (const s of deviceSlots) {
+          const day = this.incidentsFmtDay(s.hourStart);
+          (byDay.get(day) ?? byDay.set(day, []).get(day)!).push(s);
+        }
+
+        const daySections = Array.from(byDay.entries())
+          .map(([day, daySlots]) => {
+            const rows = daySlots
+              .map(
+                (s) => `
+              <tr>
+                <td class="mono">${this.incidentsFmtHour(s.hourStart)}</td>
+                <td class="num mono">${s.value.toFixed(1)}</td>
+                <td class="mono muted">${this.incidentsFmtHour(s.sourceHour)}</td>
+                <td class="mono muted" title="${this.escHtml(s.ruleId)}">${this.escHtml(s.ruleId.slice(0, 8))}</td>
+                <td>${s.incidentRef ? `<code>${this.escHtml(s.incidentRef)}</code>` : '<span class="muted">—</span>'}</td>
+                <td class="muted">${this.incidentsFmtFull(s.createdAt)}</td>
+              </tr>`
+              )
+              .join('');
+            return `
+              <div class="incidents-day">
+                <div class="incidents-day__header">
+                  <span>${this.escHtml(day)}</span>
+                  <span class="incidents-day__count">${daySlots.length} hora${daySlots.length === 1 ? '' : 's'}</span>
+                </div>
+                <table class="incidents-table">
+                  <thead>
+                    <tr><th>Hora</th><th>Valor</th><th>Fonte LOCF</th><th>Regra</th><th>Incidente</th><th>Gravado</th></tr>
+                  </thead>
+                  <tbody>${rows}</tbody>
+                </table>
+              </div>`;
+          })
+          .join('');
+
+        return `
+          <div class="incidents-device">
+            <button type="button" class="incidents-device__header" data-role="toggle-incidents-device">
+              <svg class="incidents-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <polyline points="9 18 15 12 9 6"></polyline>
+              </svg>
+              <span class="incidents-device__name">${this.escHtml(deviceName)}</span>
+              <span class="incidents-device__count">${deviceSlots.length} hora${deviceSlots.length === 1 ? '' : 's'} · ${byDay.size} dia${byDay.size === 1 ? '' : 's'}</span>
+            </button>
+            <div class="incidents-device__body">${daySections}</div>
+          </div>`;
+      })
+      .join('');
+
+    return `
+      <div class="incidents-summary">${slots.length} interpolação(ões) · ${deviceNames.length} dispositivo(s)</div>
+      <div class="incidents-wrap">${deviceSections}</div>
+    `;
+  }
+
+  /** Applies search + device + period filters to `incidentsAllSlots`. */
+  private getFilteredIncidentsSlots(): InterpolatedSlot[] {
+    const search = this.incidentsSearch.trim().toLowerCase();
+    const { startISO, endISO } = this.incidentsDateRange;
+    return this.incidentsAllSlots.filter((s) => {
+      const key = this.incidentsDeviceKey(s);
+      if (!this.incidentsSelectedDevices.has(key)) return false;
+      if (search && !key.toLowerCase().includes(search)) return false;
+      if (startISO && s.hourStart < startISO) return false;
+      if (endISO && s.hourStart > endISO) return false;
+      return true;
+    });
+  }
+
+  /** Re-renders the KPI cards + device/day body after any filter change (search/devices/period). */
+  private refreshIncidentsView(): void {
+    const filtered = this.getFilteredIncidentsSlots();
+    const kpisEl = this.modal.querySelector('.incidents-kpis');
+    const bodyEl = this.modal.querySelector('.incidents-body');
+    if (kpisEl) kpisEl.innerHTML = this.buildIncidentsKpisHtml(filtered);
+    if (bodyEl) bodyEl.innerHTML = this.buildIncidentsBodyHtml(filtered);
+    const summaryEl = this.modal.querySelector('[data-role="incidents-devices-summary"]');
+    if (summaryEl) {
+      const total = this.incidentsAllSlots.length
+        ? new Set(this.incidentsAllSlots.map((s) => this.incidentsDeviceKey(s))).size
+        : 0;
+      const selected = this.incidentsSelectedDevices.size;
+      summaryEl.textContent = selected === total ? `Todos (${total})` : `${selected} de ${total}`;
+    }
+  }
+
+  /**
+   * Wires the Incidentes tab's static controls (search input, devices
+   * multiselect dropdown, device-group collapse). Called once from `render()`
+   * — all delegated on `this.modal`, so it survives the KPI/body innerHTML
+   * swaps `refreshIncidentsView()` does (those never touch the header). The
+   * date-range picker is wired separately in `initIncidentsDateRange()`
+   * (async — see that method).
+   */
+  private bindIncidentsTabEvents(): void {
+    this.modal.addEventListener('input', (event) => {
+      const target = event.target as HTMLElement;
+      if (target.dataset.role !== 'incidents-search-input') return;
+      this.incidentsSearch = (target as HTMLInputElement).value;
+      this.refreshIncidentsView();
+    });
+
+    this.modal.addEventListener('click', (event) => {
+      const target = event.target as HTMLElement;
+
+      // Collapse/expand a device group in the body.
+      const deviceHeader = target.closest<HTMLElement>('[data-role="toggle-incidents-device"]');
+      if (deviceHeader) {
+        deviceHeader.closest('.incidents-device')?.classList.toggle('is-collapsed');
+        return;
+      }
+
+      const panel = this.modal.querySelector<HTMLElement>('[data-role="incidents-devices-panel"]');
+
+      // Open/close the devices dropdown.
+      const toggle = target.closest<HTMLElement>('[data-role="incidents-devices-toggle"]');
+      if (toggle && panel) {
+        panel.hidden = !panel.hidden;
+        return;
+      }
+
+      // "Marcar todos" / "Desmarcar todos".
+      if (target.dataset.role === 'incidents-devices-all' || target.dataset.role === 'incidents-devices-none') {
+        const checkAll = target.dataset.role === 'incidents-devices-all';
+        this.modal.querySelectorAll<HTMLInputElement>('[data-role="incidents-device-checkbox"]').forEach((cb) => {
+          cb.checked = checkAll;
+        });
+        this.incidentsSelectedDevices = checkAll
+          ? new Set(this.incidentsAllSlots.map((s) => this.incidentsDeviceKey(s)))
+          : new Set();
+        this.refreshIncidentsView();
+        return;
+      }
+
+      // Click outside the dropdown closes it.
+      if (panel && !panel.hidden && !target.closest('[data-role="incidents-devices-toggle"]') && !panel.contains(target)) {
+        panel.hidden = true;
+      }
+    });
+
+    // Per-device checkbox toggling (delegated 'change', not 'click', so it
+    // also fires for keyboard-driven checks).
+    this.modal.addEventListener('change', (event) => {
+      const target = event.target as HTMLElement;
+      if (target.dataset.role !== 'incidents-device-checkbox') return;
+      const cb = target as HTMLInputElement;
+      if (cb.checked) this.incidentsSelectedDevices.add(cb.value);
+      else this.incidentsSelectedDevices.delete(cb.value);
+      this.refreshIncidentsView();
+    });
+  }
+
+  /**
+   * Mounts the period date-range picker into the Incidentes tab's header —
+   * async (loads jQuery/moment/daterangepicker from CDN on first use, see
+   * `createInputDateRangePickerInsideDIV`), so this runs from `render()`
+   * AFTER the modal is attached to the DOM, same timing as
+   * `initAnnotationsTab()`/`initAlarmsTab()`. No-ops when the tab isn't
+   * rendered at all (non-admin / non-gateway).
+   */
+  private async initIncidentsDateRange(): Promise<void> {
+    if (!(this.config.isGateway && this.isSuperAdmin())) return;
+    const mountId = `incidents-daterange-${this.incidentsIdSuffix}`;
+    if (!document.getElementById(mountId)) return; // tab HTML wasn't rendered (empty state has no filters header)
+
+    try {
+      this.incidentsDateRangeController = await createInputDateRangePickerInsideDIV({
+        containerId: mountId,
+        inputId: `${mountId}-input`,
+        label: '',
+        placeholder: 'Todo o período',
+        showHelper: false,
+        pickerOptions: {
+          includeTime: true,
+          onApply: (result) => {
+            this.incidentsDateRange = { startISO: result.startISO, endISO: result.endISO };
+            this.refreshIncidentsView();
+          },
+        },
+      });
+    } catch (err) {
+      console.warn('[SettingsModalView] Incidentes: failed to mount date-range picker:', err);
+    }
   }
 
   private getDeviceImage(deviceType?: string): string {
@@ -1588,7 +2065,19 @@ export class SettingsModalView {
           z-index: 9999999;
           font-family: 'Nunito', system-ui, sans-serif;
         }
-        
+
+        /* RFC-0232: the "Incidentes" period picker (createInputDateRangePickerInsideDIV
+           -> jQuery daterangepicker) always appends its calendar dropdown to
+           document.body, as a SIBLING of this overlay, not a descendant — so it
+           can't be reached with a normal descendant selector. The plugin's own
+           default z-index (~10000) is far below this overlay's 9999999 (chosen
+           to beat ThingsBoard's Angular Material overlays in production), so
+           without this override the calendar renders but is fully hidden behind
+           the modal, making the input look like it "doesn't open". */
+        .daterangepicker {
+          z-index: 10000000 !important;
+        }
+
         .myio-device-settings-modal {
           background: white;
           border-radius: 8px;
@@ -1690,10 +2179,276 @@ export class SettingsModalView {
         .modal-tab-badge--alarms      { background: #dc2626; }
         .modal-tab-badge--chamados    { background: #0891b2; }
         .modal-tab-badge--exclusion   { background: #d97706; }
+        .modal-tab-badge--incidents   { background: #7C3AED; }
 
         .tab-content {
           min-height: 400px;
         }
+
+        /* RFC-0232: Incidentes (interpolação) tab — device → day → hour slots. */
+        .incidents-filters {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: flex-end;
+          gap: 16px;
+          margin-bottom: 16px;
+          padding-bottom: 16px;
+          border-bottom: 1px solid #e5e7eb;
+        }
+        .incidents-filter {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+        .incidents-filter--search { flex: 1 1 123px; min-width: 100px; }
+        .incidents-filter--devices { flex: 0 0 auto; }
+        .incidents-filter--period { flex: 0 0 auto; }
+        .incidents-filter__label {
+          font: 700 11px 'Nunito', system-ui, sans-serif;
+          color: #6b7280;
+          text-transform: uppercase;
+          letter-spacing: 0.03em;
+        }
+        .incidents-search-input {
+          width: 100%;
+          padding: 7px 10px;
+          border: 1px solid #d1d5db;
+          border-radius: 6px;
+          font: 600 13px 'Nunito', system-ui, sans-serif;
+          color: #1f2937;
+          box-sizing: border-box;
+        }
+        .incidents-search-input:focus { outline: 2px solid #7C3AED; outline-offset: 1px; }
+        .incidents-multiselect { position: relative; }
+        .incidents-multiselect__toggle {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 7px 12px;
+          min-width: 200px;
+          border: 1px solid #d1d5db;
+          border-radius: 6px;
+          background: #fff;
+          font: 600 13px 'Nunito', system-ui, sans-serif;
+          color: #1f2937;
+          cursor: pointer;
+          white-space: nowrap;
+        }
+        .incidents-multiselect__toggle:hover { border-color: #7C3AED; }
+        .incidents-multiselect__panel {
+          position: absolute;
+          top: calc(100% + 4px);
+          left: 0;
+          z-index: 20;
+          min-width: 220px;
+          max-height: 260px;
+          overflow-y: auto;
+          background: #fff;
+          border: 1px solid #d1d5db;
+          border-radius: 8px;
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+          padding: 8px;
+        }
+        .incidents-multiselect__actions {
+          display: flex;
+          gap: 8px;
+          padding-bottom: 6px;
+          margin-bottom: 6px;
+          border-bottom: 1px solid #f3f4f6;
+        }
+        .incidents-multiselect__actions button {
+          flex: 1;
+          padding: 4px 6px;
+          border: none;
+          border-radius: 4px;
+          background: #f5f3ff;
+          color: #5b21b6;
+          font: 700 11px 'Nunito', system-ui, sans-serif;
+          cursor: pointer;
+        }
+        .incidents-multiselect__actions button:hover { background: #ede9fe; }
+        .incidents-multiselect__item {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 5px 4px;
+          font: 600 13px 'Nunito', system-ui, sans-serif;
+          color: #374151;
+          cursor: pointer;
+          border-radius: 4px;
+        }
+        .incidents-multiselect__item:hover { background: #f9fafb; }
+        .incidents-daterange-mount .myio-daterange-wrapper {
+          margin-bottom: 0;
+          padding: 0;
+          background: transparent;
+          box-shadow: none;
+        }
+        .incidents-daterange-mount {
+          min-width: 280px;
+        }
+        .incidents-daterange-mount .myio-daterange-input {
+          padding: 7px 10px;
+          font-size: 13px;
+          width: 100%;
+          min-width: 280px;
+          max-width: 340px;
+        }
+        .incidents-kpis {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+          gap: 12px;
+          margin-bottom: 16px;
+        }
+        .incidents-kpi {
+          padding: 12px 14px;
+          border-radius: 8px;
+          background: #f5f3ff;
+          border: 1px solid #e9d5ff;
+        }
+        .incidents-kpi__value {
+          font: 800 22px 'Nunito', system-ui, sans-serif;
+          color: #5b21b6;
+        }
+        .incidents-kpi__label {
+          margin-top: 2px;
+          font: 700 11px 'Nunito', system-ui, sans-serif;
+          color: #6b7280;
+          text-transform: uppercase;
+          letter-spacing: 0.02em;
+        }
+        .incidents-kpi__sub {
+          margin-top: 2px;
+          font-size: 11px;
+          color: #9ca3af;
+        }
+        .incidents-kpi-empty {
+          margin-bottom: 16px;
+          padding: 10px 14px;
+          border-radius: 8px;
+          background: #f9fafb;
+          color: #9ca3af;
+          font-size: 12px;
+        }
+        .theme-dark .incidents-filters { border-color: #374151; }
+        .theme-dark .incidents-filter__label { color: #9ca3af; }
+        .theme-dark .incidents-search-input { background: #111827; border-color: #4b5563; color: #e5e7eb; }
+        .theme-dark .incidents-multiselect__toggle { background: #111827; border-color: #4b5563; color: #e5e7eb; }
+        .theme-dark .incidents-multiselect__panel { background: #1f2937; border-color: #374151; }
+        .theme-dark .incidents-multiselect__item { color: #e5e7eb; }
+        .theme-dark .incidents-multiselect__item:hover { background: #111827; }
+        .theme-dark .incidents-kpi { background: #2e1065; border-color: #4c1d95; }
+        .theme-dark .incidents-kpi__value { color: #d8b4fe; }
+        .theme-dark .incidents-kpi-empty { background: #111827; color: #6b7280; }
+
+        .incidents-summary {
+          margin-bottom: 14px;
+          font-size: 13px;
+          font-weight: 600;
+          color: #6b7280;
+        }
+        .incidents-empty {
+          padding: 40px 20px;
+          text-align: center;
+          color: #6b7280;
+          font-size: 14px;
+          border: 1px dashed #d1d5db;
+          border-radius: 8px;
+        }
+        .incidents-wrap {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+        .incidents-device {
+          border: 1px solid #e5e7eb;
+          border-radius: 8px;
+          overflow: hidden;
+        }
+        .incidents-device__header {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          width: 100%;
+          padding: 10px 14px;
+          background: #f5f3ff;
+          border: none;
+          cursor: pointer;
+          font: 700 13px 'Nunito', system-ui, sans-serif;
+          color: #5b21b6;
+          text-align: left;
+        }
+        .incidents-device__header:hover { background: #ede9fe; }
+        /* Chevron SVG points right (▶); rotated 90° to point down (▼) while
+           expanded — the default state, since a group starts open. */
+        .incidents-chevron { flex-shrink: 0; transition: transform 0.15s ease; transform: rotate(90deg); }
+        .incidents-device.is-collapsed .incidents-chevron { transform: rotate(0deg); }
+        .incidents-device.is-collapsed .incidents-device__body { display: none; }
+        .incidents-device__name { flex: 1; }
+        .incidents-device__count {
+          font-size: 11px;
+          font-weight: 600;
+          color: #7c3aed;
+          background: #fff;
+          border-radius: 999px;
+          padding: 2px 8px;
+        }
+        .incidents-device__body {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          padding: 10px 14px;
+        }
+        .incidents-day__header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 4px 2px;
+          font: 700 12px 'Nunito', system-ui, sans-serif;
+          color: #374151;
+        }
+        .incidents-day__count {
+          font-size: 11px;
+          font-weight: 600;
+          color: #6b7280;
+        }
+        .incidents-table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 12px;
+        }
+        .incidents-table th {
+          text-align: left;
+          padding: 6px 8px;
+          background: #f9fafb;
+          color: #6b7280;
+          font-weight: 600;
+          border-bottom: 1px solid #e5e7eb;
+        }
+        .incidents-table td {
+          padding: 6px 8px;
+          border-bottom: 1px solid #f3f4f6;
+          color: #1f2937;
+        }
+        .incidents-table td.num { text-align: right; }
+        .incidents-table td.mono { font-family: 'Courier New', Courier, monospace; }
+        .incidents-table td.muted { color: #9ca3af; }
+        .incidents-table code {
+          color: #7c3aed;
+          background: #f5f3ff;
+          border-radius: 4px;
+          padding: 1px 5px;
+          font-size: 11px;
+        }
+        .theme-dark .incidents-empty { border-color: #4b5563; color: #9ca3af; }
+        .theme-dark .incidents-device { border-color: #374151; }
+        .theme-dark .incidents-device__header { background: #2e1065; color: #d8b4fe; }
+        .theme-dark .incidents-device__header:hover { background: #3b0764; }
+        .theme-dark .incidents-device__count { background: #111827; color: #c4b5fd; }
+        .theme-dark .incidents-day__header { color: #e5e7eb; }
+        .theme-dark .incidents-table th { background: #111827; color: #9ca3af; border-color: #374151; }
+        .theme-dark .incidents-table td { color: #e5e7eb; border-color: #1f2937; }
+        .theme-dark .incidents-table code { background: #2e1065; }
 
         /* Loading spinner for annotations tab */
         .loading-spinner {
@@ -1837,32 +2592,22 @@ export class SettingsModalView {
           height: fit-content;
         }
 
-        /* "Central" tab (isGateway) — read-only identity/telemetry form-cards of
-           uneven height (Identificação/Conectividade run long, Metadados is
-           short) plus a 5th card injected by CentralSettingsModal. A plain CSS
-           grid stretches every card in a row to match its tallest sibling and
-           leaves the row below a short card entirely empty — real gap seen in
-           production. CSS multi-column masonry packs cards top-to-bottom per
-           column instead, so short cards don't leave trailing dead space. */
+        /* Central/gateway identity+telemetry (isGateway), inline in Geral —
+           one section per line, same visual pattern as "Informações de
+           Conexão" (.info-card-wide + .info-grid/.info-row) for every card:
+           Identificação/Estatísticas/Metadados here, plus the Conectividade
+           fieldset CentralSettingsModal injects after them.
+           .gateway-info-grid is just a vertical stack — .gateway-info-card
+           carries no sizing of its own any more (that lived here back when
+           these were narrower, side-by-side flex-wrap cards); the full-width
+           look now comes entirely from .info-card-wide. */
         .gateway-info-grid {
-          column-width: 280px;
-          column-gap: 16px;
-        }
-        .gateway-info-card {
-          break-inside: avoid;
-          -webkit-column-break-inside: avoid;
-          display: inline-block;
-          width: 100%;
-          vertical-align: top;
-          margin: 0 0 16px;
-        }
-        .gateway-info-card .section-title {
-          margin-bottom: 12px;
-        }
-        .gateway-info-rows {
           display: flex;
           flex-direction: column;
-          gap: 10px;
+          gap: 16px;
+        }
+        .gateway-info-card {
+          margin: 0;
         }
 
         /* RFC-0180: Identity card — 2-column × 6-row grid */
@@ -3213,7 +3958,13 @@ export class SettingsModalView {
     tabButtons.forEach((btn) => {
       btn.addEventListener('click', (event) => {
         event.preventDefault();
-        const tab = (btn as HTMLElement).dataset.tab as 'general' | 'annotations' | 'alarms' | 'chamados' | 'exclusion-groups' | 'gateway';
+        const tab = (btn as HTMLElement).dataset.tab as
+          | 'general'
+          | 'annotations'
+          | 'alarms'
+          | 'chamados'
+          | 'exclusion-groups'
+          | 'incidents';
         if (tab) {
           this.switchTab(tab);
         }
@@ -3228,6 +3979,13 @@ export class SettingsModalView {
         this.switchTab('alarms');
       }
     });
+
+    // RFC-0232: Incidentes tab click/input/change handling (search, devices
+    // multiselect, device-group collapse) lives in bindIncidentsTabEvents(),
+    // called from render() — not here, to avoid double-binding the same
+    // 'click' delegate twice on this.modal (bit us once already: two
+    // listeners both toggling 'is-collapsed' on the same click cancelled
+    // each other out).
 
     // Handle form submission
     this.form.addEventListener('submit', (event) => {

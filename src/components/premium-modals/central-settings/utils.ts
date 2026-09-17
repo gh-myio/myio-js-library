@@ -36,7 +36,7 @@ export interface CentralSettingsData {
   offlineHardMinutes: number | null;
 
   // ── Read-only identity/telemetry — 1:1 with GCDR's GET /api/v1/centrals/:id,
-  // shown in the modal's native "Central" tab (SettingsModalView's
+  // rendered inline in the modal's Geral tab (SettingsModalView's
   // `isGateway`/`gatewayInfo`, see CentralSettingsModal.ts). Never sent back
   // by handleCentralSave — the host's onSaveSettings only ever receives
   // name/offlineGraceMinutes/blipToleranceMinutes/offlineHardMinutes. ──
@@ -62,6 +62,9 @@ export interface CentralSettingsData {
   createdAt?: string | null; // ISO
   updatedAt?: string | null; // ISO
   version?: number | null;
+  /** Optional — set only when this central is (or is co-located with) a real
+   *  measurement point. See `GatewayInfo.lastConsumptionTelemetry`. */
+  lastConsumptionTelemetry?: { value: number; unit?: string; timestamp: string } | null;
 }
 
 export interface CentralSettingsValidationError {

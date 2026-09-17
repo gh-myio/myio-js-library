@@ -6,28 +6,32 @@
  *
  * What this buys today: the full device-modal shell (header, tabs, theme
  * toggle, focus trap, identity card, Anotações/Alarmes/Chamados tabs) for
- * free. A native "Central" tab was ALSO added directly to
+ * free. Central/gateway identity+telemetry was ALSO added directly to
  * `SettingsModalView.ts` (its first real edit — everything else here is pure
  * subclass injection) — gated behind `ModalConfig.isGateway`/`gatewayInfo`,
  * a real device never sets it, so this changes nothing for the device
- * settings modal. That tab renders the full read-only GCDR identity/
- * telemetry surface (`GET /api/v1/centrals/:id`: serialNumber, type, status,
+ * settings modal. It renders the full read-only GCDR identity/telemetry
+ * surface (`GET /api/v1/centrals/:id`: serialNumber, type, status,
  * connectionStatus, monitoringEnabled, lastGatewayCheck*, probeResult,
  * firmware/softwareVersion, frequency, stats{}, createdAt/updatedAt,
- * version) via `SettingsModalView.getGatewayInfoHTML()`, participating in
- * `switchTab()` exactly like the other 5 tabs. The editable v2
+ * version) via `SettingsModalView.getGatewayInfoHTML()`, INLINE in the Geral
+ * tab right after the identity card — not its own tab (an earlier revision
+ * used a dedicated "Central" tab; folded back into Geral per explicit
+ * follow-up: wanted the whole modal to open on one screen instead of forcing
+ * a tab switch to see central-specific data). Connectivity health itself
+ * (`connectionStatus`/last-check timestamps) reuses the SAME visual pattern
+ * as a real device's "Informações de Conexão" card (`getConnectionInfoHTML()`)
+ * — same classes, same status color-coding, same relative-time-ago style —
+ * so a central's connectivity reads exactly like a device's, per explicit
+ * follow-up wanting maximum visual parity. The editable v2
  * `deriveCentralConnectivity` calibration knobs (grace/blip/hard-offline —
  * the base has no concept of these either) are injected as a 5th
- * `.form-card` INTO that same Central tab, right next to the read-only
- * "Conectividade (telemetria)" card — everything central-specific lives in
- * one tab, not split across Geral+Central (an earlier revision injected them
- * into the Geral tab instead; moved after explicit follow-up: "tem uma aba
- * nova Central, esses dados não deveriam estar todos na aba central?").
+ * `.form-card` into the gateway-info grid (Identificação/Estatísticas/
+ * Metadados) — everything central-specific lives in one place, in Geral.
  *
  * Still deferred (per the "customizações depois" instruction) — the base's
  * OTHER tabs/fields stay device-shaped:
  *   - "Andar"/"Identificador" fields (Geral tab) don't map to a central concept
- *   - the identity image is a device-type icon, not a central icon
  *   - Anotações/Alarmes read as generic device tabs, showing "não disponível"
  *     placeholders (no `jwtToken`/`gcdrDeviceId` wired — a central isn't
  *     GCDR-alarm-shaped the same way a device is)
@@ -39,22 +43,21 @@
  * Mechanics: `SettingsModalView`'s fields are `private`, so a subclass has no
  * access to `this.config`/`this.modal`/`this.form` — this class works around
  * that in two ways: (1) `render()` and `close()`/`showError()`/
- * `showLoadingState()`/`getFormData()` are all public, so they're legitimate
- * override/call points; (2) `onSave`/`onClose` are rebound by mutating the
- * SAME config object reference passed to `super()` — the base class stores it
- * as `this.config` internally (no clone), so a closure over `this` set on
- * that object AFTER `super()` returns is picked up correctly at click-time.
- * The Conectividade fieldset itself is injected via a plain
- * `document.querySelector` into the Central tab's `.gateway-info-grid` after
- * `super.render()` mounts the DOM. Since the Central tab (unlike Geral) isn't
- * wrapped in a `<form>`, the base's own `new FormData(this.form)` can't see
- * those fields — `getFormData()` is overridden to merge them in manually
- * (the base's save/submit handlers call `this.getFormData()` internally,
- * which resolves to this override via normal prototype dispatch, no base
- * edit needed).
+ * `showLoadingState()` are all public, so they're legitimate override/call
+ * points; (2) `onSave`/`onClose` are rebound by mutating the SAME config
+ * object reference passed to `super()` — the base class stores it as
+ * `this.config` internally (no clone), so a closure over `this` set on that
+ * object AFTER `super()` returns is picked up correctly at click-time. The
+ * Conectividade fieldset itself is injected via a plain
+ * `document.querySelector` into the Geral tab's inline `.gateway-info-grid`
+ * after `super.render()` mounts the DOM. That grid is a descendant of the
+ * Geral tab's own `<form>`, so the base's own `getFormData()`
+ * (`new FormData(this.form)`) already picks up these fields — no
+ * `getFormData()` override needed (unlike when this content lived in a
+ * separate, non-form-wrapped tab).
  */
 import { SettingsModalView } from '../settings/SettingsModalView';
-import type { ModalConfig, Domain, GatewayInfo } from '../settings/types';
+import type { ModalConfig, Domain, GatewayInfo, InterpolatedSlot } from '../settings/types';
 import { validateCentralSettings, type CentralSettingsData, type CentralSettingsPersistResult } from './utils';
 
 function escAttr(s: string): string {
@@ -97,6 +100,26 @@ export interface CentralSettingsModalParams {
   seed?: Partial<CentralSettingsData>;
   onFetchSettings?: (params: { id: string }) => Promise<CentralSettingsData>;
   onSaveSettings: (params: { id: string; data: CentralSettingsData }) => Promise<CentralSettingsPersistResult | void>;
+  /**
+   * Current viewer's email — gates the "Incidentes" tab (RFC-0232) via the
+   * base class's `isSuperAdmin()` (true when this ends in `@myio.com.br`, or
+   * when `superadmin` below is explicitly set). Neither field affects
+   * anything else in this modal (central settings have no other
+   * admin-vs-non-admin distinction today) — they exist ONLY for this gate.
+   */
+  userEmail?: string;
+  /** Explicit override for the "Incidentes" tab gate — takes precedence over the `userEmail` domain check. */
+  superadmin?: boolean;
+  /**
+   * Pre-fetched interpolated (fabricated) readings for this central, from
+   * the No-Consumption Interpolation agent (`data-ingestion-prod`) — a
+   * different backend than GCDR, so this is its own param rather than a
+   * `CentralSettingsData`/`onFetchSettings` field. Renders in the
+   * admin-only "Incidentes" tab (see `userEmail`/`superadmin` above); omit
+   * or pass `[]` to show its empty state. The host is responsible for
+   * scoping the fetch to this central and to whatever period it wants shown.
+   */
+  interpolatedSlots?: InterpolatedSlot[];
 }
 
 export interface CentralSettingsModalInstance {
@@ -131,6 +154,7 @@ function mapToGatewayInfo(data: CentralSettingsData): GatewayInfo {
     softwareVersion: data.softwareVersion ?? null,
     frequency: data.frequency ?? null,
     stats: data.stats ?? null,
+    lastConsumptionTelemetry: data.lastConsumptionTelemetry ?? null,
     createdAt: data.createdAt ?? null,
     updatedAt: data.updatedAt ?? null,
     version: data.version ?? null,
@@ -146,6 +170,44 @@ function formatIsoPtBr(iso?: string | null): string {
   });
 }
 
+function formatIsoPtBrWithSeconds(iso?: string | null): string {
+  if (!iso) return '—';
+  const ms = Date.parse(iso);
+  if (Number.isNaN(ms)) return '—';
+  return new Date(ms).toLocaleString('pt-BR', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+  });
+}
+
+/** Mirrors `SettingsModalView`'s private "Conectado desde" relative-time format. */
+function formatIsoRelativeDetailed(iso?: string | null): string {
+  const ms = iso ? Date.parse(iso) : NaN;
+  if (Number.isNaN(ms)) return '';
+  const diffMinutes = Math.floor((Date.now() - ms) / 60000);
+  const diffHours = Math.floor(diffMinutes / 60);
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays > 0) {
+    return `(${diffDays}d:${String(diffHours % 24).padStart(2, '0')}hs:${String(diffMinutes % 60).padStart(2, '0')}mins atrás)`;
+  }
+  if (diffHours > 0) return `(${diffHours}hs:${String(diffMinutes % 60).padStart(2, '0')}mins atrás)`;
+  if (diffMinutes > 0) return `(${diffMinutes}mins atrás)`;
+  return '(agora)';
+}
+
+/** Mirrors `SettingsModalView`'s private "Último check status" relative-time format. */
+function formatIsoRelativeSimple(iso?: string | null): string {
+  const ms = iso ? Date.parse(iso) : NaN;
+  if (Number.isNaN(ms)) return '';
+  const diffMinutes = Math.floor((Date.now() - ms) / 60000);
+  const diffHours = Math.floor(diffMinutes / 60);
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays > 0) return `(${diffDays}d atrás)`;
+  if (diffHours > 0) return `(${diffHours}h atrás)`;
+  if (diffMinutes > 0) return `(${diffMinutes}min atrás)`;
+  return '(agora)';
+}
+
 function formatUptime(seconds?: number | null): string {
   if (seconds == null || Number.isNaN(seconds)) return '—';
   const d = Math.floor(seconds / 86400);
@@ -159,8 +221,8 @@ function formatUptime(seconds?: number | null): string {
 }
 
 /**
- * Patches the base's `#gwinfo-<key>` elements (native "Central" tab, see
- * `SettingsModalView.getGatewayInfoHTML()`) with fresh values — needed
+ * Patches the base's `#gwinfo-<key>` elements (inline gateway-info grid in
+ * Geral, see `SettingsModalView.getGatewayInfoHTML()`) with fresh values — needed
  * because that HTML is only generated ONCE, at construction time
  * (`createModal()` never re-runs), so it can't see data that arrives later
  * via an async `onFetchSettings`. Mirrors the exact same formatting the base
@@ -172,6 +234,10 @@ function patchGatewayInfoDom(root: HTMLElement, uuid: string | null | undefined,
     const el = root.querySelector(`#gwinfo-${key}`);
     if (el) el.textContent = value;
   };
+  const setHtml = (key: string, html: string) => {
+    const el = root.querySelector(`#gwinfo-${key}`);
+    if (el) el.innerHTML = html;
+  };
   set('uuid', uuid || '—');
   set('serialNumber', data.serialNumber || '—');
   set('hardwareId', data.hardwareId || '—');
@@ -180,12 +246,42 @@ function patchGatewayInfoDom(root: HTMLElement, uuid: string | null | undefined,
   set('firmwareVersion', data.firmwareVersion || '—');
   set('softwareVersion', data.softwareVersion || '—');
   set('frequency', data.frequency != null ? String(data.frequency) : '—');
-  set('connectionStatus', data.connectionStatus || '—');
+
+  // "Informações de Conexão" card — mirrors SettingsModalView.getGatewayInfoHTML()'s
+  // rendering exactly (status color-coding + relative-time-ago spans), so an
+  // async refresh doesn't regress to plain, uncolored text.
+  set('connCentral', data.name || '—');
+  const connStatusInfo = SettingsModalView.GATEWAY_CONN_STATUS_MAP[(data.connectionStatus || '').toUpperCase()] || {
+    text: data.connectionStatus || '—',
+    color: '#6b7280',
+  };
+  setHtml('connectionStatus', `<span style="color: ${connStatusInfo.color}; font-weight: 600;">${connStatusInfo.text}</span>`);
+  const isOnline = (data.connectionStatus || '').toUpperCase() === 'ONLINE';
+  const connectedSinceAbs = isOnline ? formatIsoPtBr(data.lastGatewaySuccessCheckAt) : '—';
+  const connectedSinceRel = isOnline ? formatIsoRelativeDetailed(data.lastGatewaySuccessCheckAt) : '';
+  setHtml(
+    'lastGatewaySuccessCheckAt',
+    `${connectedSinceAbs}${connectedSinceRel ? ` <span class="time-since">${connectedSinceRel}</span>` : ''}`
+  );
+  const lastCheckAbs = formatIsoPtBr(data.lastGatewayCheckAt);
+  const lastCheckRel = formatIsoRelativeSimple(data.lastGatewayCheckAt);
+  setHtml(
+    'lastGatewayCheckAt',
+    `${lastCheckAbs}${lastCheckRel ? ` <span class="time-since">${lastCheckRel}</span>` : ''}`
+  );
+  const lc = data.lastConsumptionTelemetry;
+  setHtml(
+    'lastConsumptionTelemetry',
+    lc
+      ? `${lc.value.toLocaleString('pt-BR')}${lc.unit ? ` ${lc.unit}` : ''} - ${formatIsoPtBrWithSeconds(
+          lc.timestamp
+        )} ${formatIsoRelativeSimple(lc.timestamp)}`.trim()
+      : '—'
+  );
   set('monitoringEnabled', data.monitoringEnabled == null ? '—' : data.monitoringEnabled ? 'Sim' : 'Não');
-  set('lastGatewayCheckAt', formatIsoPtBr(data.lastGatewayCheckAt));
-  set('lastGatewaySuccessCheckAt', formatIsoPtBr(data.lastGatewaySuccessCheckAt));
   set('lastGatewayCheckLatencyMs', data.lastGatewayCheckLatencyMs != null ? `${data.lastGatewayCheckLatencyMs}ms` : '—');
   set('probeResult', data.probeResult || '—');
+
   set('statsConnectedDevices', data.stats?.connectedDevices != null ? String(data.stats.connectedDevices) : '—');
   set('statsActiveRules', data.stats?.activeRules != null ? String(data.stats.activeRules) : '—');
   set('statsPendingSyncEvents', data.stats?.pendingSyncEvents != null ? String(data.stats.pendingSyncEvents) : '—');
@@ -199,16 +295,15 @@ function patchGatewayInfoDom(root: HTMLElement, uuid: string | null | undefined,
 /**
  * The one piece of UI the base class has no concept of — the v2
  * `deriveCentralConnectivity` calibration knobs (grace/blip/hard-offline).
- * Injected as a 5th `.form-card.gateway-info-card` into the native "Central"
- * tab's `.gateway-info-grid` (see `injectConnectivitySection()`), right next
- * to the read-only "Conectividade (telemetria)" card — NOT into the Geral
- * tab, where it used to live. Rationale (explicit follow-up: "tem uma aba
- * nova Central, esses dados não deveriam estar todos na aba central?"): once
- * a dedicated Central tab existed for GCDR identity/telemetry, splitting
- * central-specific config across two tabs (Geral + Central) made no sense —
- * everything central-shaped now lives in one place. No `UUID` field here any
- * more either — the Central tab's own "Identificação" card already shows it
- * (`#gwinfo-uuid`), so repeating it here was pure duplication.
+ * Injected as a 4th `.form-card.gateway-info-card.info-card-wide` into the
+ * Geral tab's inline `.gateway-info-grid` (see `injectConnectivitySection()`),
+ * appended after Identificação/Estatísticas/Metadados, same one-per-line
+ * "Informações de Conexão" pattern as its siblings (`.info-grid`/`.info-row`
+ * with an `<input>` where a device's card would show a read-only value) —
+ * connectivity HEALTH itself (status/last-check) lives separately in
+ * "Informações de Conexão". No `UUID` field here either — the "Identificação"
+ * card already shows it (`#gwinfo-uuid`), so repeating it here was pure
+ * duplication.
  */
 function connectivityFieldsetHtml(
   data: CentralSettingsData,
@@ -219,35 +314,40 @@ function connectivityFieldsetHtml(
   const err = (field: string) =>
     errors[field] ? `<span class="myio-csettings__field-error">${escAttr(errors[field])}</span>` : '';
   const errClass = (field: string) => (errors[field] ? ' myio-csettings__input--error' : '');
+  const inputRow = (label: string, field: string, inputHtml: string) => `
+    <div class="info-row">
+      <span class="info-label">${escAttr(label)}</span>
+      <span class="info-value">${inputHtml}${err(field)}</span>
+    </div>`;
   return `
-    <div class="form-card gateway-info-card myio-csettings-connectivity">
+    <div class="form-card gateway-info-card info-card-wide myio-csettings-connectivity">
       <h4 class="section-title">${escAttr(
         l.connectivitySection || (language === 'en' ? 'Connectivity Settings' : 'Configuração de Conectividade')
       )}</h4>
-      <div class="myio-csettings__fields">
-        <label class="myio-csettings__field">
-          <span>${escAttr(l.offlineGraceLabel || (language === 'en' ? 'Grace window (min)' : 'Janela de graça (min)'))}</span>
-          <input type="number" min="0" step="1" name="offlineGraceMinutes" value="${data.offlineGraceMinutes}" class="myio-csettings__input${errClass(
-    'offlineGraceMinutes'
-  )}" />
-          ${err('offlineGraceMinutes')}
-        </label>
-        <label class="myio-csettings__field">
-          <span>${escAttr(l.blipToleranceLabel || (language === 'en' ? 'Blip tolerance (min)' : 'Tolerância de blip (min)'))}</span>
-          <input type="number" min="0" step="1" name="blipToleranceMinutes" value="${data.blipToleranceMinutes}" class="myio-csettings__input${errClass(
-    'blipToleranceMinutes'
-  )}" />
-          ${err('blipToleranceMinutes')}
-        </label>
-        <label class="myio-csettings__field">
-          <span>${escAttr(l.offlineHardLabel || (language === 'en' ? 'Hard-offline threshold (min)' : 'Limiar de hard-offline (min)'))}</span>
-          <input type="number" min="0" step="1" name="offlineHardMinutes" value="${
+      <div class="info-grid">
+        ${inputRow(
+          `${l.offlineGraceLabel || (language === 'en' ? 'Grace window (min)' : 'Janela de graça (min)')}:`,
+          'offlineGraceMinutes',
+          `<input type="number" min="0" step="1" name="offlineGraceMinutes" value="${data.offlineGraceMinutes}" class="myio-csettings__input${errClass(
+            'offlineGraceMinutes'
+          )}" />`
+        )}
+        ${inputRow(
+          `${l.blipToleranceLabel || (language === 'en' ? 'Blip tolerance (min)' : 'Tolerância de blip (min)')}:`,
+          'blipToleranceMinutes',
+          `<input type="number" min="0" step="1" name="blipToleranceMinutes" value="${data.blipToleranceMinutes}" class="myio-csettings__input${errClass(
+            'blipToleranceMinutes'
+          )}" />`
+        )}
+        ${inputRow(
+          `${l.offlineHardLabel || (language === 'en' ? 'Hard-offline threshold (min)' : 'Limiar de hard-offline (min)')}:`,
+          'offlineHardMinutes',
+          `<input type="number" min="0" step="1" name="offlineHardMinutes" value="${
             data.offlineHardMinutes ?? ''
           }" placeholder="${escAttr(l.offlineHardHint || (language === 'en' ? 'empty = disabled' : 'vazio = desativado'))}" class="myio-csettings__input${errClass(
-    'offlineHardMinutes'
-  )}" />
-          ${err('offlineHardMinutes')}
-        </label>
+            'offlineHardMinutes'
+          )}" />`
+        )}
       </div>
     </div>
   `;
@@ -259,16 +359,13 @@ function injectStyles(): void {
   const tag = document.createElement('style');
   tag.id = STYLE_ID;
   tag.textContent = `
-.myio-csettings__fields{display:flex;flex-direction:column;gap:10px;}
-.myio-csettings__field{display:flex;flex-direction:column;gap:4px;}
-.myio-csettings__field span{font:700 12px 'Nunito', system-ui, sans-serif;color:#374151;}
 .myio-csettings__input{
-  font:600 13px 'Nunito', system-ui, sans-serif;padding:7px 10px;border-radius:8px;
-  border:1px solid #e5e7eb;background:#fff;color:#1f2937;width:100%;box-sizing:border-box;
+  font:600 13px 'Nunito', system-ui, sans-serif;padding:6px 8px;border-radius:6px;
+  border:1px solid #e5e7eb;background:#fff;color:#1f2937;width:100px;box-sizing:border-box;
+  text-align:right;
 }
 .myio-csettings__input--error{border-color:#dc2626;}
-.myio-csettings__field-error{font:700 11px 'Nunito', system-ui, sans-serif;color:#dc2626;}
-.theme-dark .myio-csettings__field span{color:#d1d5db;}
+.myio-csettings__field-error{display:block;margin-top:4px;font:700 11px 'Nunito', system-ui, sans-serif;color:#dc2626;text-align:right;}
 .theme-dark .myio-csettings__input{background:#111827;border-color:#4b5563;color:#e5e7eb;}
 `;
   document.head.appendChild(tag);
@@ -303,6 +400,12 @@ export class CentralSettingsModal extends SettingsModalView {
       deviceId: params.id,
       deviceLabel: params.name,
       deviceName: params.uuid ?? undefined,
+      // RFC-0200: identity-card image (Geral tab) — without this, getDeviceImage()
+      // sees an empty deviceType and falls back to DEFAULT_DEVICE_ICON (generic
+      // 3F_MEDIDOR art) instead of deviceIcons.GATEWAY. A real device never sets
+      // deviceType to this value (it's not a valid TB deviceProfile), so this is
+      // fully inert for the device settings modal, same as isGateway above.
+      deviceType: 'GATEWAY',
       // No domain concept for a central — suppresses the energy/water/
       // temperature-only sections and removes the "Excluir Grupos" tab
       // (gated on `domain === 'energy'` in the base class).
@@ -312,11 +415,15 @@ export class CentralSettingsModal extends SettingsModalView {
       jwtToken: '',
       mapInstantaneousPower: {},
       deviceMapInstaneousPower: {},
-      // Native "Central" tab (see file doc) — read-only GCDR identity/
-      // telemetry. Real devices never set isGateway, so this is fully inert
+      // Inline gateway identity/telemetry in Geral (see file doc) — read-only
+      // GCDR data. Real devices never set isGateway, so this is fully inert
       // for the device settings modal.
       isGateway: true,
       gatewayInfo: mapToGatewayInfo(initialData),
+      // RFC-0232: "Incidentes" tab gate + data — see CentralSettingsModalParams doc.
+      userEmail: params.userEmail,
+      superadmin: params.superadmin,
+      interpolatedSlots: params.interpolatedSlots,
       onSave: () => Promise.resolve(), // rebound below once `this` exists (see class doc)
       onClose: () => {}, // rebound below
     };
@@ -339,7 +446,7 @@ export class CentralSettingsModal extends SettingsModalView {
 
   /** Overrides the base's public `render()`: mounts the full device-modal
    *  shell via `super.render()`, then injects the Conectividade fieldset the
-   *  base has no concept of, and patches the native "Central" tab's
+   *  base has no concept of, and patches the Geral tab's inline gateway-info
    *  `#gwinfo-*` elements — its HTML was generated once at construction time
    *  (from whatever data was available then), so an async `onFetchSettings`
    *  resolving later needs this explicit patch to actually show up. */
@@ -359,17 +466,15 @@ export class CentralSettingsModal extends SettingsModalView {
   }
 
   /**
-   * Injects the editable connectivity fieldset into the native "Central"
-   * tab's `.gateway-info-grid` — as a 5th `.form-card`, right after the
-   * read-only "Conectividade (telemetria)" card (found by its heading text,
-   * not a fixed position, so this stays correct even if the base ever
-   * reorders `getGatewayInfoHTML()`'s 4 cards). Lives outside `<form>`
-   * (the Central tab isn't form-wrapped, unlike Geral) — `getFormData()` is
-   * overridden below to read these fields manually since `new
-   * FormData(this.form)` can't see them.
+   * Injects the editable connectivity fieldset into the Geral tab's inline
+   * gateway-info `.gateway-info-grid` (Identificação/Estatísticas/Metadados)
+   * as a 4th `.form-card`, appended at the end. This grid is a descendant of
+   * the Geral tab's own `<form>`, so the base's `new FormData(this.form)`
+   * (used by the base's own `getFormData()`) picks up these inputs
+   * automatically — no `getFormData()` override needed here.
    */
   private injectConnectivitySection(errors: Record<string, string>): void {
-    const grid = this.csRootEl?.querySelector('#gateway-tab-content .gateway-info-grid');
+    const grid = this.csRootEl?.querySelector('.gateway-info-grid');
     if (!grid) return;
     const html = connectivityFieldsetHtml(this.csCurrentData, this.csLabels, this.csLanguage, errors);
     const existing = grid.querySelector('.myio-csettings-connectivity');
@@ -377,33 +482,7 @@ export class CentralSettingsModal extends SettingsModalView {
       existing.outerHTML = html;
       return;
     }
-    const telemetryCard = Array.from(grid.querySelectorAll('.gateway-info-card')).find(
-      (card) => card.querySelector('.section-title')?.textContent === 'Conectividade (telemetria)'
-    );
-    if (telemetryCard) {
-      telemetryCard.insertAdjacentHTML('afterend', html);
-    } else {
-      grid.insertAdjacentHTML('beforeend', html);
-    }
-  }
-
-  /**
-   * Overrides the base's public `getFormData()` (called internally by the
-   * base's own submit/save-button handlers via `this.getFormData()`, which
-   * dispatches here through normal prototype resolution — no base edit
-   * needed). Merges the base's `new FormData(this.form)` read (Geral tab
-   * fields) with a manual read of the connectivity inputs, which live in the
-   * Central tab, outside `this.form`.
-   */
-  getFormData(): Record<string, any> {
-    const base = super.getFormData();
-    const extra: Record<string, any> = {};
-    this.csRootEl
-      ?.querySelectorAll<HTMLInputElement>('.myio-csettings-connectivity [name]')
-      .forEach((el) => {
-        if (el.name) extra[el.name] = el.value;
-      });
-    return { ...base, ...extra };
+    grid.insertAdjacentHTML('beforeend', html);
   }
 
   private async handleCentralSave(formData: Record<string, any>): Promise<void> {
