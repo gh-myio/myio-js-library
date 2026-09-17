@@ -189,11 +189,19 @@ const MODAL_HEADER_CSS = `
 }
 
 .myio-modal-header__title {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
+  /* Rendered as an <h2> (see generateHTML() below) — on a real ThingsBoard
+     dashboard (Angular Material) a global rule like ".mat-typography h2"
+     has HIGHER specificity (class+element) than this single-class selector,
+     regardless of load order, and wins with Material's own much larger
+     font-size/line-height/margin — the header balloons in height there while
+     looking fine in an isolated showcase page with no Material CSS at all.
+     Same class of bug, same !important remedy already used in
+     WelcomeModalView.ts's title rules. */
+  margin: 0 !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
   color: white;
-  line-height: 1.4;
+  line-height: 1.4 !important;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
