@@ -34,6 +34,7 @@ export const DeviceIconType = {
   RELOGIO: 'RELOGIO',
   ENTRADA: 'ENTRADA',
   SUBESTACAO: 'SUBESTACAO',
+  TRANSFORMADOR: 'TRANSFORMADOR',
   FANCOIL: 'FANCOIL',
   CHILLER: 'CHILLER',
   HIDROMETRO: 'HIDROMETRO',
@@ -63,6 +64,10 @@ export const deviceIcons: Record<DeviceIconType, string> = {
   RELOGIO:               'https://dashboard.myio-bas.com/api/images/public/ljHZostWg0G5AfKiyM8oZixWRIIGRASB',
   ENTRADA:               'https://dashboard.myio-bas.com/api/images/public/TQHPFqiejMW6lOSVsb8Pi85WtC0QKOLU',
   SUBESTACAO:            'https://dashboard.myio-bas.com/api/images/public/TQHPFqiejMW6lOSVsb8Pi85WtC0QKOLU',
+  // TRANSFORMADOR (RFC-0234): no dedicated art asset yet — shares ENTRADA/SUBESTACAO's
+  // icon until a distinct one is uploaded. Explicit entry (not DEFAULT_DEVICE_ICON
+  // fallback) so it's visually grouped with the meters it's electrically closest to.
+  TRANSFORMADOR:         'https://dashboard.myio-bas.com/api/images/public/TQHPFqiejMW6lOSVsb8Pi85WtC0QKOLU',
   FANCOIL:               'https://dashboard.myio-bas.com/api/images/public/4BWMuVIFHnsfqatiV86DmTrOB7IF0X8Y',
   CHILLER:               'https://dashboard.myio-bas.com/api/images/public/27Rvy9HbNoPz8KKWPa0SBDwu4kQ827VU',
   HIDROMETRO:            'https://dashboard.myio-bas.com/api/images/public/aMQYFJbGHs9gQbQkMn6XseAlUZHanBR4',
@@ -93,6 +98,7 @@ export const deviceIconLabels: Record<DeviceIconType, string> = {
   RELOGIO:               'Relógio',
   ENTRADA:               'Entrada',
   SUBESTACAO:            'Subestação',
+  TRANSFORMADOR:         'Transformador',
   FANCOIL:               'Fancoil',
   CHILLER:               'Chiller',
   HIDROMETRO:            'Hidrômetro',

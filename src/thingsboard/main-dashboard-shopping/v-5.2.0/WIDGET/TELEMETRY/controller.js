@@ -1744,6 +1744,7 @@ let MyIO = null;
 // RFC-0106: Map labelWidget to window.STATE group
 // lojas = 'Lojas'
 // entrada = 'Entrada'
+// transformadores = 'Transformador' | 'Transformadores' (RFC-0234)
 // ocultos = 'Ocultos' (RFC-0142: archived/inactive devices)
 // areacomum = everything else (Climatização, Elevadores, Escadas Rolantes, Área Comum, etc.)
 function mapLabelWidgetToStateGroup(labelWidget) {
@@ -1751,6 +1752,9 @@ function mapLabelWidgetToStateGroup(labelWidget) {
   const lw = labelWidget.toLowerCase().trim();
   if (lw === 'lojas') return 'lojas';
   if (lw === 'entrada') return 'entrada';
+  // RFC-0234: dedicated, optional group for step-down transformers — never
+  // falls through to the areacomum catch-all below (that's the whole point).
+  if (lw === 'transformador' || lw === 'transformadores') return 'transformadores';
   // RFC-0142: Ocultos group for archived/inactive devices - should NOT be displayed
   if (lw === 'ocultos') return 'ocultos';
   // RFC-0107: Add caixadagua for water tanks
@@ -1810,8 +1814,13 @@ function getItemsFromState(domain, labelWidget) {
     return window.STATE[domain]?._raw || [];
   }
 
-  // For lojas, entrada, and caixadagua, return directly from STATE group
-  if (stateGroup === 'lojas' || stateGroup === 'entrada' || stateGroup === 'caixadagua') {
+  // For lojas, entrada, transformadores, and caixadagua, return directly from STATE group
+  if (
+    stateGroup === 'lojas' ||
+    stateGroup === 'entrada' ||
+    stateGroup === 'transformadores' ||
+    stateGroup === 'caixadagua'
+  ) {
     const groupData = window.STATE.get(domain, stateGroup);
     LogHelper.log(
       `[TELEMETRY] Getting items from STATE.${domain}.${stateGroup}: ${groupData?.count || 0} items`

@@ -1194,43 +1194,50 @@ function classifyDeviceByIdentifier(identifier = '') {
 }
 
 // ===========================================================================
-// RFC-0207 v3.1 — STORE do perfil de classificação (load + save).
+// RFC-0234 v2 — STORE do perfil de classificação: GCDR entities, não TB.
 //
 // §D TRAVADO: o MAIN_VIEW é o ÚNICO dono da persistência. A lib é pura (nunca
 // faz fetch, nunca escreve no ThingsBoard) e o MENU é endpoint-agnóstico (só
-// chama `window.MyIOOrchestrator.saveDeviceClassificationProfile`). A URL e a
-// chave do atributo existem APENAS aqui.
+// chama `window.MyIOOrchestrator.saveDeviceClassificationProfile`).
 //
-// DECISÃO DE STORE (v3.1) — ThingsBoard SERVER_SCOPE, load e save simétricos.
-//   O §E do RFC define, para a v3.1, "Store: TB attr + baked"; só a v3.2 troca
-//   para o GCDR. A auditoria (achado 2) registrou que o código LIA do
-//   SERVER_SCOPE enquanto nada escrevia em lugar nenhum. Fechamos a assimetria
-//   pelo lado que já funcionava: quem lê e quem escreve são a MESMA chave, o
-//   MESMO escopo, a MESMA entidade. `GcdrResolveProfileSource` existe abaixo,
-//   atrás de flag DESLIGADA, para que a troca de store (v3.2) seja trocar a
-//   fonte primária — não reescrever o consumidor.
+// DECISÃO DE STORE (RFC-0234 v2, substitui a decisão v3.1 "TB attr + baked"):
+// a taxonomia do customer é dado do GCDR (`GROUP`→`PROFILE`, `GET
+// /entities/resolve`), nunca um nome cozido nesta lib nem um atributo
+// SERVER_SCOPE do ThingsBoard. Um grupo novo (ex.: "Transformadores") é uma
+// ESCRITA NO GCDR, nunca uma release da lib — confirmado ao vivo 2026-09-18
+// contra https://gcdr-api.a.myio-bas.com: o customer já tinha
+// `energy-transformers`→`TRANSFORMADOR` cadastrado nessa árvore.
+//
+//   LER  (todo carregamento): UMA chamada, `GET /entities/resolve
+//        ?customerId=&deep=all` — o GCDR decide sozinho customer-override vs.
+//        system-default; o dashboard só consome o que vier. Cache por
+//        `X-Version-Id` → `If-None-Match` → 304 sem corpo.
+//   SALVAR (editor): `POST /entities/clone` (só na primeira customização —
+//        `409 ALREADY_CLONED` é tratado como "já clonado, segue o jogo") +
+//        `PUT /entities/bulk-replace?type=GROUP` com `If-Match` = a version
+//        anterior. Da segunda edição em diante, só o bulk-replace.
+//   DESFAZER: `POST /entities/revert` — volta ao default de sistema.
+//
+// O atributo TB SERVER_SCOPE (`deviceClassificationProfile`) não é mais lido
+// nem escrito por este bloco — o piso final de degradação continua sendo o
+// `BakedProfileSource` da lib (§B.1-4), inalterado.
 // ===========================================================================
 
-/** Chave do atributo de customer (SERVER_SCOPE). Existe só aqui. */
-const RFC0207_PROFILE_ATTR_KEY = 'deviceClassificationProfile';
-
-/**
- * Flag de rollout do store (§H-6: flag GLOBAL durante a v3.2). DESLIGADA:
- * o adaptador `entities → ClassificationNode` do RFC-0047 ainda não existe
- * (§v3.2-G lista o trabalho restante), então ligar isto hoje só exercitaria a
- * cadeia de degradação. Setável em runtime para teste:
- *   window.MyIOUtils.rfc0207UseGcdrStore = true
- */
-function _rfc0207UseGcdrStore() {
-  return window.MyIOUtils?.rfc0207UseGcdrStore === true;
+function _rfc0234GcdrHeaders(extra) {
+  const orch = window.MyIOOrchestrator || {};
+  return Object.assign(
+    {
+      'X-API-Key': orch.gcdrApiKey || '',
+      'X-Tenant-ID': orch.gcdrTenantId || '',
+      Accept: 'application/json',
+    },
+    extra || {},
+  );
 }
 
-function _rfc0207Jwt() {
-  return localStorage.getItem('jwt_token') || '';
-}
-
-function _rfc0207TbBase() {
-  return self.ctx?.settings?.tbBaseUrl || '';
+/** ID do customer NO GCDR — não confundir com o TB `customerTB_ID` (RFC-0180: mesmo padrão de `_fetchAlarmDayMap`/`refresh`). */
+function _rfc0234GcdrCustomerId() {
+  return window.MyIOOrchestrator?.gcdrCustomerId || '';
 }
 
 /**
@@ -1241,134 +1248,70 @@ function _rfc0207TbBase() {
  * um segundo round-trip no boot; sem ele, a fonte busca sozinha (usada pelo
  * reload pós-save e por qualquer chamada avulsa).
  */
-function createTbAttributeProfileSource(prefetched) {
-  return {
-    name: 'tb-attribute',
-    async resolve(customerId) {
-      const MyIO = window.MyIOLibrary;
-      let raw = prefetched;
-      if (raw === undefined) {
-        const url = `${_rfc0207TbBase()}/api/plugins/telemetry/CUSTOMER/${encodeURIComponent(
-          customerId
-        )}/values/attributes/SERVER_SCOPE?keys=${RFC0207_PROFILE_ATTR_KEY}`;
-        const res = await fetch(url, {
-          headers: { 'X-Authorization': `Bearer ${_rfc0207Jwt()}` },
-        });
-        if (!res.ok) throw new Error(`TB attribute HTTP ${res.status}`);
-        const rows = await res.json();
-        raw = Array.isArray(rows)
-          ? rows.find((r) => r.key === RFC0207_PROFILE_ATTR_KEY)?.value
-          : undefined;
-      }
-      // Atributo ausente NÃO é falha: é o caminho documentado do seed default
-      // (fail-open para o comportamento default, nunca para "sem classificação").
-      if (raw === undefined || raw === null || raw === '') {
-        return {
-          version: MyIO?.BAKED_PROFILE_VERSION || 'baked',
-          source: 'baked',
-          degraded: true,
-          reason: 'tb-attribute:absent',
-          profile: MyIO?.DEFAULT_DEVICE_CLASSIFICATION_PROFILE,
-        };
-      }
-      const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
-      return {
-        // O TB não versiona atributos; `updatedAt` é o melhor etag disponível.
-        version: String(parsed?.updatedAt || 'tb-attr'),
-        source: 'customer',
-        degraded: false,
-        profile: parsed,
-      };
-    },
-    /** Escreve o mesmo atributo que `resolve` lê — load e save simétricos. */
-    async save(customerId, profile) {
-      const url = `${_rfc0207TbBase()}/api/plugins/telemetry/CUSTOMER/${encodeURIComponent(
-        customerId
-      )}/attributes/SERVER_SCOPE`;
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'X-Authorization': `Bearer ${_rfc0207Jwt()}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ [RFC0207_PROFILE_ATTR_KEY]: profile }),
-      });
-      if (!res.ok) {
-        const text = await res.text().catch(() => '');
-        throw new Error(`HTTP ${res.status}${text ? ': ' + text.slice(0, 160) : ''}`);
-      }
-    },
-  };
-}
-
-/** Cache do 304 por `(customerId, domain, version)` — §v3.2-F.3. */
-const _rfc0207GcdrCache = new Map();
+/** Cache por customer GCDR: `{version, roots, gcdrSource}` — a chave para o 304 E para preservar water/temperature/etc. intactos num save. */
+const _rfc0234GcdrCache = new Map();
 
 /**
- * `ProfileSource` concreto — GCDR / RFC-0047 (`GET /entities/resolve`), atrás da
- * flag. A MECÂNICA especificada está implementada e é a que importa para a
- * costura: `X-Version-Id` → `If-None-Match` → **304 sem corpo**, cache por
- * `(customerId, domain, version)`.
- *
- * O que NÃO está implementado, e por isso lança um erro rotulado: o adaptador
- * `entities → ClassificationNode` (§v3.2-B). Ele depende de contrato de backend
- * que o próprio RFC lista como trabalho restante (§v3.2-G) — chutar a topologia
- * aqui produziria classificação errada silenciosa. Enquanto isso, a cadeia de
- * degradação (§B.1-4) converte a falha em `BakedProfileSource`, então ligar a
- * flag nunca apaga o dashboard.
+ * `ProfileSource` concreto — GCDR entities, FONTE ÚNICA (RFC-0234 v2, substitui
+ * a v3.1 "TB attr + flag"). Uma chamada (`deep=all`) traz o forest inteiro do
+ * customer; o adapter da lib (`parseGcdrEntityForest`) só aproveita a raiz
+ * `energy` — water/temperature seguem vindo do DEFAULT/baked (ver o comentário
+ * de escopo no próprio adapter). Cache por `X-Version-Id` → `If-None-Match` →
+ * 304 sem corpo.
  */
-function createGcdrResolveProfileSource(domain = 'energy') {
-  const entityType = `CLASSIFICATION_${String(domain).toUpperCase()}`;
+function createGcdrGroupProfileSource() {
   return {
-    name: 'gcdr-resolve',
+    name: 'gcdr-entities',
     async resolve(customerId) {
-      const orch = window.MyIOOrchestrator || {};
-      const cacheKey = `${customerId}|${domain}`;
-      const cached = _rfc0207GcdrCache.get(cacheKey);
+      const MyIO = window.MyIOLibrary;
+      const gcdrCustomerId = _rfc0234GcdrCustomerId() || customerId;
+      const cached = _rfc0234GcdrCache.get(gcdrCustomerId);
       const url =
-        `${orch.gcdrApiBaseUrl}/api/v1/entities/resolve` +
-        `?customerId=${encodeURIComponent(customerId)}&type=${encodeURIComponent(entityType)}`;
-      const headers = {
-        'X-API-Key': orch.gcdrApiKey || '',
-        'X-Tenant-ID': orch.gcdrTenantId || '',
-        Accept: 'application/json',
-      };
+        `${window.MyIOOrchestrator?.gcdrApiBaseUrl}/api/v1/entities/resolve` +
+        `?customerId=${encodeURIComponent(gcdrCustomerId)}&deep=all`;
+      const headers = _rfc0234GcdrHeaders();
       if (cached?.version) headers['If-None-Match'] = cached.version;
 
       const res = await fetch(url, { headers });
+      let entry;
       if (res.status === 304) {
         if (!cached) throw new Error('gcdr 304 sem cache local');
-        return cached.resolved;
+        entry = cached;
+      } else {
+        if (!res.ok) throw new Error(`GCDR entities/resolve HTTP ${res.status}`);
+        const json = await res.json();
+        entry = {
+          version: res.headers.get('X-Version-Id') || String(json?.data?.version || ''),
+          roots: json?.data?.roots || [],
+          gcdrSource: json?.data?.source === 'customer' ? 'customer' : 'system',
+        };
+        _rfc0234GcdrCache.set(gcdrCustomerId, entry);
       }
-      if (!res.ok) throw new Error(`GCDR entities/resolve HTTP ${res.status}`);
-      const json = await res.json();
-      const version = res.headers.get('X-Version-Id') || String(json?.data?.version || '');
-      const payload = json?.data ?? json;
 
-      // Caminho suportado: o registry devolve o documento de perfil diretamente.
-      const doc = payload?.deviceClassificationProfile || payload?.profile;
-      if (!doc) {
-        throw new Error(
-          'adaptador entities→ClassificationNode não implementado (RFC-0207 §v3.2-B/G)'
-        );
+      const domains = MyIO?.parseGcdrEntityForest ? MyIO.parseGcdrEntityForest(entry.roots) : {};
+      if (!domains.energy) {
+        throw new Error('gcdr-entities: raiz "energy" ausente na árvore resolvida do customer');
       }
-      const resolved = {
-        version: version || 'gcdr',
-        source: payload?.source === 'system' ? 'system' : 'customer',
+      return {
+        version: entry.version || 'gcdr',
+        source: entry.gcdrSource,
         degraded: false,
-        profile: typeof doc === 'string' ? JSON.parse(doc) : doc,
+        profile: {
+          schemaVersion: 1,
+          domains: {
+            energy: domains.energy,
+            water: MyIO?.DEFAULT_DEVICE_CLASSIFICATION_PROFILE?.domains?.water,
+            temperature: MyIO?.DEFAULT_DEVICE_CLASSIFICATION_PROFILE?.domains?.temperature,
+          },
+        },
       };
-      _rfc0207GcdrCache.set(cacheKey, { version: resolved.version, resolved });
-      return resolved;
     },
   };
 }
 
-/** Fonte primária ativa, segundo a flag de store. */
-function rfc0207PrimaryProfileSource(prefetched) {
-  return _rfc0207UseGcdrStore()
-    ? createGcdrResolveProfileSource('energy')
-    : createTbAttributeProfileSource(prefetched);
+/** Fonte primária — GCDR entities, sempre (RFC-0234 v2: não há mais flag nem store TB). */
+function rfc0207PrimaryProfileSource() {
+  return createGcdrGroupProfileSource();
 }
 
 /**
@@ -1376,32 +1319,17 @@ function rfc0207PrimaryProfileSource(prefetched) {
  * da lib (§B.1-4) garante o piso `baked`.
  *
  * @param {string} customerId
- * @param {*} prefetched valor já lido do atributo (ou `undefined` para buscar)
  */
-async function rfc0207LoadActiveProfile(customerId, prefetched) {
+async function rfc0207LoadActiveProfile(customerId) {
   const MyIO = window.MyIOLibrary;
   if (!MyIO || typeof MyIO.resolveWithFallback !== 'function') {
-    // Bundle antigo sem a costura: preserva o caminho legado (setActiveProfile
-    // direto), para não regredir dashboards que ainda não recarregaram a lib.
-    if (typeof MyIO?.setActiveProfile === 'function') {
-      let parsed = null;
-      try {
-        parsed = typeof prefetched === 'string' ? JSON.parse(prefetched) : prefetched;
-      } catch (e) {
-        LogHelper.warn('[MAIN_VIEW] RFC-0207: atributo com JSON inválido → DEFAULT:', e);
-      }
-      const applied = MyIO.setActiveProfile(parsed || null, LogHelper);
-      window.MyIOUtils.deviceClassificationProfile = applied;
-      window.MyIOUtils.deviceClassificationProfileRaw = parsed || null;
-      return applied;
-    }
     LogHelper.error(
-      '[MAIN_VIEW] RFC-0207: MyIOLibrary sem resolveWithFallback/setActiveProfile — perfil não aplicado'
+      '[MAIN_VIEW] RFC-0234: MyIOLibrary sem resolveWithFallback — atualize o bundle da biblioteca MyIO; perfil não aplicado'
     );
     return null;
   }
 
-  const resolved = await MyIO.resolveWithFallback(rfc0207PrimaryProfileSource(prefetched), {
+  const resolved = await MyIO.resolveWithFallback(rfc0207PrimaryProfileSource(), {
     customerId,
     logger: LogHelper,
     timeoutMs: 8000,
@@ -1422,51 +1350,113 @@ async function rfc0207LoadActiveProfile(customerId, prefetched) {
     reason: resolved.reason || null,
   };
   LogHelper.log(
-    `[MAIN_VIEW] RFC-0207: perfil aplicado (source=${resolved.source} version=${resolved.version}` +
+    `[MAIN_VIEW] RFC-0234: perfil aplicado (source=${resolved.source} version=${resolved.version}` +
       `${resolved.degraded ? ' DEGRADADO: ' + resolved.reason : ''})`
   );
   return applied;
 }
 
 /**
- * RFC-0207 Phase B — PERSISTÊNCIA. Exposta como
- * `window.MyIOOrchestrator.saveDeviceClassificationProfile` (é exatamente o
- * método que o `MENU/controller.js` chamava e que não existia em lugar nenhum,
- * fazendo o botão "Salvar perfil" lançar).
+ * RFC-0234 v2 — PERSISTÊNCIA no GCDR. Exposta como
+ * `window.MyIOOrchestrator.saveDeviceClassificationProfile` (o método que o
+ * `MENU/controller.js` chama quando o operador salva o editor).
  *
- * Ordem deliberada: validar → persistir → só então aplicar em memória. Um save
- * que falha NÃO pode deixar o dashboard classificando por um perfil que o store
- * não tem (o próximo F5 desfaria a classificação sem aviso).
+ * Ordem: validar → clonar (só na 1ª customização) → bulk-replace (`type=GROUP`,
+ * `If-Match`) → só então aplicar em memória. Um save que falha NÃO pode deixar
+ * o dashboard classificando por um perfil que o GCDR não tem.
+ *
+ * ⚠️ BLOQUEIO CONHECIDO (confirmado ao vivo 2026-09-18 contra a doc da API,
+ * `docs/api/entities/API-Entities.md` §2/§6 do repo `gcdr.git`): toda escrita em
+ * `/entities` exige escopo `entities:write`, e uma Customer API Key
+ * (`gcdr_cust_*` — a MESMA chave que este dashboard já usa para leitura, metas
+ * e alarmes) **nunca** recebe esse escopo, por design do próprio GCDR
+ * ("MYIO-operator-only"). Este método está implementado por completo — a
+ * mecânica é exatamente a que foi especificada — mas vai devolver
+ * `403 FORBIDDEN` em produção até o GCDR emitir uma credencial com
+ * `entities:write`/`entities:admin` para este dashboard (ou expor um endpoint
+ * de escrita intermediado). Falhar ALTO com essa mensagem é melhor que
+ * mascarar o 403 como um erro genérico.
  */
 async function rfc0207SaveActiveProfile(nextProfile) {
   const MyIO = window.MyIOLibrary;
-  if (!MyIO || typeof MyIO.validateProfile !== 'function') {
-    throw new Error('MyIOLibrary indisponível — atualize o bundle da biblioteca MyIO.');
+  if (!MyIO || typeof MyIO.validateProfile !== 'function' || typeof MyIO.buildGcdrEnergyRoot !== 'function') {
+    throw new Error('MyIOLibrary indisponível/desatualizada — atualize o bundle da biblioteca MyIO.');
   }
-  const customerId =
-    window.MyIOOrchestrator?.customerTB_ID ||
-    window.MyIOUtils?.customerTB_ID ||
-    self.ctx?.settings?.customerTB_ID ||
-    '';
-  if (!customerId) throw new Error('customerTB_ID indisponível — não é possível salvar o perfil.');
+  const gcdrCustomerId = _rfc0234GcdrCustomerId();
+  if (!gcdrCustomerId) throw new Error('gcdrCustomerId indisponível — não é possível salvar o perfil no GCDR.');
 
   const errors = MyIO.validateProfile(nextProfile);
   if (errors.length) {
     throw new Error(`Perfil inválido: ${errors.slice(0, 3).join('; ')}`);
   }
 
-  if (_rfc0207UseGcdrStore()) {
-    // §v3.2-A: save = PUT /entities/bulk-replace por (customer, domain), com
-    // If-Match por domínio → 409. Não implementado enquanto o adaptador
-    // entities↔ClassificationNode não existir — falhar ALTO é melhor que
-    // gravar num store cujo formato ainda não está fechado.
-    throw new Error(
-      'Store GCDR ligado, mas o save via /entities/bulk-replace ainda não está implementado (RFC-0207 §v3.2-G). Desligue window.MyIOUtils.rfc0207UseGcdrStore para salvar no SERVER_SCOPE.'
-    );
+  const base = window.MyIOOrchestrator?.gcdrApiBaseUrl;
+  let current = _rfc0234GcdrCache.get(gcdrCustomerId);
+
+  // 1ª customização deste customer: clona a árvore de sistema ANTES de poder
+  // gravar uma subtree própria (bulk-replace exige linhas que o customer já
+  // "possui"). Da 2ª edição em diante, `current.gcdrSource === 'customer'` e
+  // este passo é pulado.
+  if (!current || current.gcdrSource !== 'customer') {
+    const cloneRes = await fetch(`${base}/api/v1/entities/clone`, {
+      method: 'POST',
+      headers: _rfc0234GcdrHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ customerId: gcdrCustomerId }),
+    });
+    if (!cloneRes.ok && cloneRes.status !== 409) {
+      const text = await cloneRes.text().catch(() => '');
+      throw new Error(`GCDR clone HTTP ${cloneRes.status}${text ? ': ' + text.slice(0, 160) : ''}`);
+    }
+    // 409 ALREADY_CLONED: segue o jogo, o customer já tinha cópia própria.
+    current = null; // força reler a version/roots pós-clone abaixo
   }
 
-  await createTbAttributeProfileSource().save(customerId, nextProfile);
-  LogHelper.log('[MAIN_VIEW] RFC-0207: perfil persistido no SERVER_SCOPE do customer', customerId);
+  if (!current) {
+    const resolveRes = await fetch(
+      `${base}/api/v1/entities/resolve?customerId=${encodeURIComponent(gcdrCustomerId)}&deep=all`,
+      { headers: _rfc0234GcdrHeaders() },
+    );
+    if (!resolveRes.ok) throw new Error(`GCDR entities/resolve HTTP ${resolveRes.status}`);
+    const json = await resolveRes.json();
+    current = {
+      version: resolveRes.headers.get('X-Version-Id') || String(json?.data?.version || ''),
+      roots: json?.data?.roots || [],
+      gcdrSource: json?.data?.source === 'customer' ? 'customer' : 'system',
+    };
+  }
+
+  const previousEnergyRoot = current.roots.find(
+    (r) => r.entityType === 'GROUP' && r.entityKey === 'energy',
+  );
+  const newEnergyRoot = MyIO.buildGcdrEnergyRoot(nextProfile.domains.energy, previousEnergyRoot);
+  // Preserva TODO outro root (water/temperature/qualquer coisa que já exista)
+  // byte-a-byte — este save edita SÓ energy; bulk-replace substitui a subtree
+  // inteira do tipo GROUP, então omitir um root aqui apagaria os dados dele.
+  const newRoots = current.roots.map((r) =>
+    r.entityType === 'GROUP' && r.entityKey === 'energy' ? newEnergyRoot : r,
+  );
+  if (!previousEnergyRoot) newRoots.push(newEnergyRoot);
+
+  const bulkRes = await fetch(
+    `${base}/api/v1/entities/bulk-replace?customerId=${encodeURIComponent(gcdrCustomerId)}&type=GROUP`,
+    {
+      method: 'PUT',
+      headers: _rfc0234GcdrHeaders({ 'Content-Type': 'application/json', 'If-Match': current.version }),
+      body: JSON.stringify({ roots: newRoots }),
+    },
+  );
+  if (!bulkRes.ok) {
+    const text = await bulkRes.text().catch(() => '');
+    throw new Error(`GCDR bulk-replace HTTP ${bulkRes.status}${text ? ': ' + text.slice(0, 200) : ''}`);
+  }
+  const bulkJson = await bulkRes.json();
+  const newVersion = bulkRes.headers.get('X-Version-Id') || String(bulkJson?.data?.version || '');
+  _rfc0234GcdrCache.set(gcdrCustomerId, {
+    version: newVersion,
+    roots: bulkJson?.data?.roots || newRoots,
+    gcdrSource: 'customer',
+  });
+  LogHelper.log('[MAIN_VIEW] RFC-0234: perfil persistido no GCDR (entities/bulk-replace) para', gcdrCustomerId);
 
   // Aplica no motor só depois do store confirmar.
   const applied = MyIO.setActiveProfile(nextProfile, LogHelper);
@@ -1475,11 +1465,38 @@ async function rfc0207SaveActiveProfile(nextProfile) {
   window.MyIOUtils.deviceClassificationProfileDegraded = null;
   window.MyIOUtils.deviceClassificationProfileSource = {
     source: 'customer',
-    version: String(nextProfile?.updatedAt || 'tb-attr'),
+    version: newVersion,
     degraded: false,
     reason: null,
   };
   return applied;
+}
+
+/**
+ * RFC-0234 v2 — desfaz toda customização do customer no GCDR (`POST
+ * /entities/revert`), voltando ao default de sistema. Exposta como
+ * `window.MyIOOrchestrator.revertDeviceClassificationProfile`. Sujeita ao
+ * mesmo bloqueio de credencial `entities:write` documentado acima em
+ * `rfc0207SaveActiveProfile`.
+ */
+async function rfc0234RevertActiveProfile() {
+  const gcdrCustomerId = _rfc0234GcdrCustomerId();
+  if (!gcdrCustomerId) throw new Error('gcdrCustomerId indisponível — não é possível reverter o perfil.');
+  const base = window.MyIOOrchestrator?.gcdrApiBaseUrl;
+
+  const res = await fetch(`${base}/api/v1/entities/revert`, {
+    method: 'POST',
+    headers: _rfc0234GcdrHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ customerId: gcdrCustomerId }),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`GCDR revert HTTP ${res.status}${text ? ': ' + text.slice(0, 160) : ''}`);
+  }
+  _rfc0234GcdrCache.delete(gcdrCustomerId);
+  const customerId =
+    window.MyIOOrchestrator?.customerTB_ID || window.MyIOUtils?.customerTB_ID || self.ctx?.settings?.customerTB_ID || '';
+  return rfc0207LoadActiveProfile(customerId);
 }
 
 /**
@@ -2357,13 +2374,22 @@ Object.assign(window.MyIOUtils, {
               LogHelper.log('[MAIN_VIEW] exclude_groups_totals loaded:', _excludeGroupsTotals);
             }
 
-            // RFC-0207 Phase B / v3.1: customer-scoped device classification profile.
+            // RFC-0234 v2: customer-scoped device classification profile.
+            // Publica os identificadores GCDR no orquestrador JÁ AQUI (antes do
+            // bloco "RFC-0180" mais abaixo, que faz o mesmo) — `createGcdrGroupProfileSource`
+            // lê `window.MyIOOrchestrator.gcdrCustomerId/gcdrApiKey/gcdrTenantId`
+            // e precisa deles ANTES desta chamada, não depois.
+            if (window.MyIOOrchestrator) {
+              window.MyIOOrchestrator.gcdrCustomerId = gcdrCustomerId;
+              window.MyIOOrchestrator.gcdrTenantId = gcdrTenantId;
+              window.MyIOOrchestrator.gcdrApiBaseUrl = gcdrApiBaseUrl;
+              window.MyIOOrchestrator.gcdrApiKey = gcdrApiKey;
+            }
             // Carregado ANTES da primeira passada de classificação, através do
-            // `ProfileSource` (store = TB SERVER_SCOPE na v3.1, ver o bloco
-            // "RFC-0207 v3.1 — STORE"). `attrs` já traz o atributo desta mesma
-            // chave, então passamos o valor lido e não há round-trip extra.
-            // A cadeia de degradação garante o piso `baked` — nunca lança.
-            await rfc0207LoadActiveProfile(customerTB_ID, attrs?.[RFC0207_PROFILE_ATTR_KEY]);
+            // `ProfileSource` (store = GCDR entities, ver o bloco "RFC-0234 v2
+            // — STORE" acima). A cadeia de degradação garante o piso `baked` —
+            // nunca lança.
+            await rfc0207LoadActiveProfile(customerTB_ID);
 
             LogHelper.log('[MAIN_VIEW] 🔑 Parsed credentials:');
             LogHelper.log('[MAIN_VIEW]   CLIENT_ID:', CLIENT_ID ? '✅ ' + CLIENT_ID : '❌ EMPTY');
@@ -3957,17 +3983,21 @@ function storeContractState(deviceCounts, validationResult = { isValid: true, di
 }
 
 /**
- * Categorize items into 4 groups: lojas, entrada, areacomum, ocultos
+ * Categorize items into 5 groups: lojas, entrada, transformadores, areacomum, ocultos
  * Rules:
  * - RFC-0142: OCULTOS - devices with ARQUIVADO, SEM_DADOS, etc. in deviceProfile (hidden group)
  * - LOJAS: deviceProfile = '3F_MEDIDOR' (uses isStoreDevice)
  * - ENTRADA: (deviceType = '3F_MEDIDOR' AND deviceProfile in [TRAFO, ENTRADA, RELOGIO, SUBESTACAO])
  *            OR deviceType in [TRAFO, ENTRADA, RELOGIO, SUBESTACAO]
+ * - TRANSFORMADORES (RFC-0234): deviceProfile = 'TRANSFORMADOR' — a distinct, optional
+ *   top-level group so step-down transformers never double-count into Entrada or
+ *   Área Comum. Falls into its own bucket, NOT the areacomum catch-all below.
  * - AREACOMUM: everything else
  */
 function categorizeItemsByGroup(items) {
   const lojas = [];
   const entrada = [];
+  const transformadores = [];
   const areacomum = [];
   const ocultos = [];
 
@@ -3981,13 +4011,14 @@ function categorizeItemsByGroup(items) {
     LogHelper.error(
       '[MAIN_VIEW] RFC-0207: MyIOLibrary.resolveGroup unavailable — energy grouping degraded (update the MyIO library bundle)'
     );
-    return { lojas, entrada, areacomum: items.slice(), ocultos };
+    return { lojas, entrada, transformadores, areacomum: items.slice(), ocultos };
   }
 
   for (const item of items) {
-    const grp = _resolveGroup(item).group; // 'lojas'|'entrada'|'areacomum'|'ocultos'
+    const grp = _resolveGroup(item).group; // 'lojas'|'entrada'|'transformadores'|'areacomum'|'ocultos'
     if (grp === 'lojas') lojas.push(item);
     else if (grp === 'entrada') entrada.push(item);
+    else if (grp === 'transformadores') transformadores.push(item);
     else if (grp === 'ocultos') ocultos.push(item);
     else areacomum.push(item);
   }
@@ -3999,7 +4030,7 @@ function categorizeItemsByGroup(items) {
     );
   }
 
-  return { lojas, entrada, areacomum, ocultos };
+  return { lojas, entrada, transformadores, areacomum, ocultos };
 }
 
 /**
@@ -4108,85 +4139,114 @@ function buildGroupData(items) {
 // roda a cada troca de período; sem o flag, o log viraria ruído).
 let _warnedNegativeAreacomumResidual = false;
 
+// RFC-0128: per-device exclusion — reads exclude_groups_totals from the item's own TB
+// attribute. Supports two shields to prevent value leakage across the parent/child group
+// hierarchy:
+//   - Bottom-up: if a sub-group (e.g. climatizacao) is excluded, the value must also be
+//     zeroed when summing the parent (area_comum), otherwise it leaks into the residual.
+//   - Top-down: if area_comum is excluded entirely, all sub-groups must also return 0
+//     to keep subcategory totals consistent with the parent exclusion.
+// Hoisted to module scope (RFC-0234) so both the total calculation (getValorEfetivo,
+// inside buildSummary) and the "which devices were excluded" notice-list builder read
+// the EXACT same interpretation of the attribute — a device can never be "excluded from
+// the total but absent from the notice," or vice versa, because both call this.
+const SUB_GROUPS = ['climatizacao', 'elevadores', 'escadas_rolantes', 'outros'];
+
+function isExcludedFromGroup(item, nomeDoGrupo) {
+  if (!item.excludeGroupsTotals) return false; // no per-device rule — count normally
+
+  try {
+    const parsed =
+      typeof item.excludeGroupsTotals === 'string'
+        ? JSON.parse(item.excludeGroupsTotals)
+        : item.excludeGroupsTotals;
+
+    if (!parsed || !parsed.enabled) return false;
+
+    // classifyDevice is only needed for the bottom-up shield (area_comum sums) and
+    // the legacy top-down path; skip the call for direct group checks.
+    const needsClassify = nomeDoGrupo === 'area_comum' || SUB_GROUPS.includes(nomeDoGrupo);
+    const categoriaReal = needsClassify ? classifyDevice(item) : null;
+
+    if (parsed.groups && typeof parsed.groups === 'object') {
+      // 1. Direct match: this group is explicitly excluded.
+      if (parsed.groups[nomeDoGrupo] === true) return true;
+
+      // 2. Bottom-up shield: summing area_comum but the item's real sub-group is excluded
+      //    → zero it here so it doesn't leak into the residual calculation.
+      if (nomeDoGrupo === 'area_comum' && parsed.groups[categoriaReal] === true) {
+        return true;
+      }
+
+      // 3. Top-down shield: area_comum is excluded entirely → sub-groups must also be 0
+      //    to keep subcategory totals consistent with the parent exclusion.
+      if (parsed.groups['area_comum'] === true && SUB_GROUPS.includes(nomeDoGrupo)) {
+        return true;
+      }
+    }
+
+    // Legacy format support: { enabled, excludedGroups: ['climatizacao', 'esc_rolantes', ...] }
+    else if (Array.isArray(parsed.excludedGroups)) {
+      const gruposExcluidos = parsed.excludedGroups.map((g) => String(g).toLowerCase());
+
+      if (gruposExcluidos.includes(nomeDoGrupo.toLowerCase()) || gruposExcluidos.includes('all')) {
+        return true;
+      }
+
+      // Bottom-up shield for legacy format
+      if (nomeDoGrupo === 'area_comum') {
+        if (
+          gruposExcluidos.includes(categoriaReal) ||
+          (categoriaReal === 'escadas_rolantes' && gruposExcluidos.includes('esc_rolantes'))
+        ) {
+          return true;
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('Erro ao ler exclude_groups_totals do dispositivo', item.label, e);
+  }
+  return false;
+}
+
 /**
  * Build summary for TELEMETRY_INFO (pie chart, cards, tooltips)
  * RFC-0106: Pre-compute ALL tooltip data so TELEMETRY_INFO just reads it
  */
-function buildSummary(lojas, entrada, areacomum, periodKey) {
-  // Per-device exclusion helper — reads exclude_groups_totals from the item's own TB attribute.
+function buildSummary(lojas, entrada, transformadores, areacomum, periodKey) {
   // Returns 0 to exclude the device's value from the group total without hiding its card.
-  // Supports two shields to prevent value leakage across the parent/child group hierarchy:
-  //   - Bottom-up: if a sub-group (e.g. climatizacao) is excluded, the value must also be
-  //     zeroed when summing the parent (area_comum), otherwise it leaks into the residual.
-  //   - Top-down: if area_comum is excluded entirely, all sub-groups must also return 0
-  //     to keep subcategory totals consistent with the parent exclusion.
-  const SUB_GROUPS = ['climatizacao', 'elevadores', 'escadas_rolantes', 'outros'];
-
-  const getValorEfetivo = (item, nomeDoGrupo) => {
-    const val = Number(item.value) || 0;
-    if (!item.excludeGroupsTotals) return val; // no per-device rule — count normally
-
-    try {
-      const parsed =
-        typeof item.excludeGroupsTotals === 'string'
-          ? JSON.parse(item.excludeGroupsTotals)
-          : item.excludeGroupsTotals;
-
-      if (parsed && parsed.enabled) {
-        // classifyDevice is only needed for the bottom-up shield (area_comum sums) and
-        // the legacy top-down path; skip the call for direct group checks.
-        const needsClassify = nomeDoGrupo === 'area_comum' || SUB_GROUPS.includes(nomeDoGrupo);
-        const categoriaReal = needsClassify ? classifyDevice(item) : null;
-
-        if (parsed.groups && typeof parsed.groups === 'object') {
-          // 1. Direct match: this group is explicitly excluded.
-          if (parsed.groups[nomeDoGrupo] === true) return 0;
-
-          // 2. Bottom-up shield: summing area_comum but the item's real sub-group is excluded
-          //    → zero it here so it doesn't leak into the residual calculation.
-          if (nomeDoGrupo === 'area_comum' && parsed.groups[categoriaReal] === true) {
-            return 0;
-          }
-
-          // 3. Top-down shield: area_comum is excluded entirely → sub-groups must also be 0
-          //    to keep subcategory totals consistent with the parent exclusion.
-          if (parsed.groups['area_comum'] === true && SUB_GROUPS.includes(nomeDoGrupo)) {
-            return 0;
-          }
-        }
-
-        // Legacy format support: { enabled, excludedGroups: ['climatizacao', 'esc_rolantes', ...] }
-        else if (Array.isArray(parsed.excludedGroups)) {
-          const gruposExcluidos = parsed.excludedGroups.map((g) => String(g).toLowerCase());
-
-          if (gruposExcluidos.includes(nomeDoGrupo.toLowerCase()) || gruposExcluidos.includes('all')) {
-            return 0;
-          }
-
-          // Bottom-up shield for legacy format
-          if (nomeDoGrupo === 'area_comum') {
-            if (
-              gruposExcluidos.includes(categoriaReal) ||
-              (categoriaReal === 'escadas_rolantes' && gruposExcluidos.includes('esc_rolantes'))
-            ) {
-              return 0;
-            }
-          }
-        }
-      }
-    } catch (e) {
-      console.warn('Erro ao ler exclude_groups_totals do dispositivo', item.label, e);
-    }
-    return val;
-  };
+  const getValorEfetivo = (item, nomeDoGrupo) =>
+    isExcludedFromGroup(item, nomeDoGrupo) ? 0 : Number(item.value) || 0;
   // --------------------------------------------------------
 
   // ============ TOTALS (Usando o Helper) ============
   const lojasTotal = lojas.reduce((sum, item) => sum + getValorEfetivo(item, 'lojas'), 0);
   const entradaTotal = entrada.reduce((sum, item) => sum + getValorEfetivo(item, 'entrada'), 0);
   const areacomumTotal = areacomum.reduce((sum, item) => sum + getValorEfetivo(item, 'area_comum'), 0);
+  // RFC-0234: transformadoresTotal is computed for display only — deliberately
+  // NEVER added to grandTotal below. This is the load-bearing line that
+  // implements "sem contabilizar no total de entrada em si."
+  const transformadoresTotal = transformadores.reduce(
+    (sum, item) => sum + (Number(item.value) || 0),
+    0
+  );
 
   let grandTotal = lojasTotal + entradaTotal + areacomumTotal;
+
+  // RFC-0234: devices excluded from the Entrada total (typically step-down
+  // transformers whose reading is redundant with an upstream substation meter or
+  // with already-metered equipment under Área Comum) — surfaced separately so
+  // TELEMETRY_INFO can show *which* devices and *how much* they read, without
+  // adding them back into entradaTotal/grandTotal. Uses the device's real `value`
+  // (not getValorEfetivo's zeroed contribution) since the notice must show what
+  // the device actually reads.
+  const excludedFromEntrada = entrada
+    .filter((item) => isExcludedFromGroup(item, 'entrada'))
+    .map((item) => ({
+      id: item.id,
+      label: item.label || item.name || item.deviceIdentifier || item.id,
+      value: Number(item.value) || 0,
+    }));
 
   // ============ PERCENTAGE HELPER ============
   const calcPerc = (value) => (grandTotal > 0 ? (value / grandTotal) * 100 : 0);
@@ -4499,7 +4559,7 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
   }
 
   // ============ DEVICE STATUS AGGREGATION ============
-  const allItems = [...lojas, ...entrada, ...areacomum];
+  const allItems = [...lojas, ...entrada, ...transformadores, ...areacomum];
   const statusAggregation = aggregateDeviceStatus(allItems);
 
   // ============ BUILD TOOLTIP-READY STRUCTURE ============
@@ -4534,6 +4594,9 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
     byGroup: {
       lojas: { total: lojasTotal, count: lojas.length },
       entrada: { total: entradaTotal, count: entrada.length },
+      // RFC-0234: informational only — deliberately absent from `percentages`/
+      // `formatted` below and from `grandTotal` above.
+      transformadores: { total: transformadoresTotal, count: transformadores.length },
       areacomum: { total: areacomumTotal, count: areacomum.length },
     },
     percentages: {
@@ -4552,6 +4615,9 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
     },
     entrada: buildCategorySummary(entrada, entradaTotal, 'Entrada'),
     lojas: buildCategorySummary(lojas, lojasTotal, 'Lojas'),
+    // RFC-0234: top-level group, excluded from grandTotal — consumed by
+    // TELEMETRY_INFO to render the "Transformadores" widget/tooltip child.
+    transformadores: buildCategorySummary(transformadores, transformadoresTotal, 'Transformadores'),
     climatizacao: {
       ...buildCategorySummary(climatizacaoItems, climatizacaoTotal, 'Climatização'),
       // RFC-0207 "parent": devices que HEADAM a composição (o total do card é o
@@ -4659,6 +4725,9 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
       label: item.label || item.name || item.deviceIdentifier || item.id,
       value: item.value || 0,
     })),
+    // RFC-0234: devices excluded from the Entrada total (already-computed above,
+    // outside this returned-object literal).
+    excludedFromEntrada,
     excludedGroups: _exclEnabled
       ? Object.entries(_excludeGroupsTotals?.groups || {})
           .filter(([, v]) => v)
@@ -4947,14 +5016,15 @@ function populateState(domain, items, periodKey) {
       total: items.length,
     });
   } else {
-    // Energy domain (default): lojas, entrada, areacomum
-    const { lojas, entrada, areacomum } = categorizeItemsByGroup(items);
+    // Energy domain (default): lojas, entrada, transformadores, areacomum
+    const { lojas, entrada, transformadores, areacomum } = categorizeItemsByGroup(items);
 
     window.STATE[domain] = {
       lojas: buildGroupData(lojas),
       entrada: buildGroupData(entrada),
+      transformadores: buildGroupData(transformadores), // RFC-0234
       areacomum: buildGroupData(areacomum),
-      summary: buildSummary(lojas, entrada, areacomum, periodKey),
+      summary: buildSummary(lojas, entrada, transformadores, areacomum, periodKey),
       _raw: items,
     };
 
@@ -4963,6 +5033,7 @@ function populateState(domain, items, periodKey) {
     LogHelper.log(`[Orchestrator] 🗄️ window.STATE.${domain} populated:`, {
       lojas: lojas.length,
       entrada: entrada.length,
+      transformadores: transformadores.length,
       areacomum: areacomum.length,
       total: items.length,
     });
@@ -8493,17 +8564,17 @@ const MyIOOrchestrator = (() => {
       );
     },
 
-    // ── RFC-0207 Phase B: persistência do perfil de classificação ────────────
-    // O MENU é endpoint-agnóstico (§D) e delega aqui; a chave/URL do store vivem
-    // só no bloco "RFC-0207 v3.1 — STORE" deste arquivo.
+    // ── RFC-0234 v2: persistência do perfil de classificação (GCDR entities) ──
+    // O MENU é endpoint-agnóstico (§D) e delega aqui; a URL/credenciais do
+    // store vivem só no bloco "RFC-0234 v2 — STORE" deste arquivo.
     saveDeviceClassificationProfile: (nextProfile) => rfc0207SaveActiveProfile(nextProfile),
+
+    /** Desfaz toda customização do customer no GCDR, voltando ao default de sistema. */
+    revertDeviceClassificationProfile: () => rfc0234RevertActiveProfile(),
 
     /** Recarrega o perfil do store (usado após save externo / troca de customer). */
     reloadDeviceClassificationProfile: (customerId) =>
-      rfc0207LoadActiveProfile(
-        customerId || window.MyIOOrchestrator?.customerTB_ID || '',
-        undefined
-      ),
+      rfc0207LoadActiveProfile(customerId || window.MyIOOrchestrator?.customerTB_ID || ''),
 
     // ── RFC-0180: GCDR API methods ───────────────────────────────────────────
     // Owned by the orchestrator so widgets (AlarmsTab, etc.) don't carry
