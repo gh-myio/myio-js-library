@@ -150,11 +150,12 @@ const UNIT_GROUP_META: Record<string, { label: string; icon: string }> = {
 
 const STRINGS = {
   'pt-BR': {
-    title: 'Telemetrias Instantâneas',
+    title: 'Telemetrias Instantâneas e Pico de Demanda',
     close: 'Fechar',
     pause: 'Pausar',
     resume: 'Reiniciar',
     export: 'Exportar CSV',
+    exportPdf: 'Exportar PDF',
     autoUpdate: 'Atualização automática',
     lastUpdate: 'Última atualização',
     noData: 'Sem dados',
@@ -165,11 +166,12 @@ const STRINGS = {
     trend_stable: 'Estável',
   },
   'en-US': {
-    title: 'Real-Time Telemetry',
+    title: 'Instant Telemetry and Demand Peak',
     close: 'Close',
     pause: 'Pause',
     resume: 'Resume',
     export: 'Export CSV',
+    exportPdf: 'Export PDF',
     autoUpdate: 'Auto-update',
     lastUpdate: 'Last update',
     noData: 'No data',
@@ -181,12 +183,138 @@ const STRINGS = {
   },
 };
 
+// External library CDN URLs — same self-loading pattern as DemandModal.ts, so this
+// modal no longer depends on Chart.js/jsPDF having been loaded incidentally by some
+// other component opened first (e.g. it used to implicitly rely on DemandModal.ts
+// having already loaded Chart.js before this modal's chart was initialized).
+const CHART_JS_CDN = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js';
+const JSPDF_VERSION = '2.5.1';
+const JSPDF_CDN = `https://cdnjs.cloudflare.com/ajax/libs/jspdf/${JSPDF_VERSION}/jspdf.umd.min.js`;
+
+let chartJsLoaded = false;
+let jsPdfLoaded = false;
+let _jspdfPromise: Promise<void> | null = null;
+
+async function loadScript(url: string, checkGlobal: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if ((window as any)[checkGlobal]) {
+      resolve();
+      return;
+    }
+
+    const existingScript = document.querySelector(`script[src="${url}"]`);
+    if (existingScript) {
+      existingScript.addEventListener('load', () => {
+        if ((window as any)[checkGlobal]) {
+          resolve();
+        } else {
+          reject(new Error(`Library ${checkGlobal} not available after loading ${url}`));
+        }
+      });
+      existingScript.addEventListener('error', () => reject(new Error(`Failed to load ${url}`)));
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = url;
+    script.onload = () => {
+      if ((window as any)[checkGlobal]) {
+        resolve();
+      } else {
+        reject(new Error(`Library ${checkGlobal} not available after loading ${url}`));
+      }
+    };
+    script.onerror = () => reject(new Error(`Failed to load ${url}`));
+    document.head.appendChild(script);
+  });
+}
+
+function ensureJsPDF(): Promise<void> {
+  if (window.jspdf?.jsPDF) {
+    return Promise.resolve();
+  }
+  if (_jspdfPromise) {
+    return _jspdfPromise;
+  }
+
+  _jspdfPromise = new Promise<void>((resolve, reject) => {
+    const existing = document.querySelector<HTMLScriptElement>('script[data-lib="jspdf"]');
+    if (existing) {
+      existing.addEventListener('load', () => {
+        if (window.jspdf?.jsPDF) {
+          resolve();
+        } else {
+          reject(new Error('jsPDF loaded but window.jspdf.jsPDF missing'));
+        }
+      });
+      existing.addEventListener('error', () => reject(new Error('Failed to load jsPDF via existing script')));
+      return;
+    }
+
+    const s = document.createElement('script');
+    s.src = JSPDF_CDN;
+    s.async = true;
+    s.defer = true;
+    s.dataset.lib = 'jspdf';
+    s.onload = () => {
+      if (window.jspdf?.jsPDF) {
+        resolve();
+      } else {
+        reject(new Error('jsPDF loaded but window.jspdf.jsPDF missing'));
+      }
+    };
+    s.onerror = () => reject(new Error('Failed to load jsPDF from CDN'));
+    document.head.appendChild(s);
+  }).finally(() => {
+    _jspdfPromise = null;
+  });
+
+  return _jspdfPromise;
+}
+
+function getJsPDFCtor(): typeof window.jspdf.jsPDF {
+  if (window.jspdf?.jsPDF) return window.jspdf.jsPDF;
+  if ((window as any).jsPDF?.jsPDF) return (window as any).jsPDF.jsPDF;
+  if ((window as any).jsPDF) return (window as any).jsPDF;
+  throw new Error('jsPDF constructor not found on window');
+}
+
+function savePdfSafe(doc: any, filename: string) {
+  try {
+    doc.save(filename);
+  } catch (e) {
+    console.warn('doc.save() failed, attempting Blob URL fallback:', e);
+    const blob = doc.output('blob');
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank') || alert('Pop-up blocked. Allow pop-ups to download the PDF.');
+    setTimeout(() => URL.revokeObjectURL(url), 30_000);
+  }
+}
+
+async function loadExternalLibraries(): Promise<void> {
+  try {
+    if (!chartJsLoaded) {
+      await loadScript(CHART_JS_CDN, 'Chart');
+      chartJsLoaded = true;
+    }
+    if (!jsPdfLoaded) {
+      await ensureJsPDF();
+      jsPdfLoaded = true;
+    }
+  } catch (error) {
+    throw new Error(`Failed to load external libraries: ${error}`);
+  }
+}
+
 /**
  * Open Real-Time Telemetry Modal
  */
 export async function openRealTimeTelemetryModal(
   params: RealTimeTelemetryParams
 ): Promise<RealTimeTelemetryInstance> {
+  await loadExternalLibraries();
+
+
   const {
     token,
     deviceId,
@@ -555,10 +683,17 @@ export async function openRealTimeTelemetryModal(
       }
 
       .myio-realtime-telemetry-overlay.rtt-expanded .myio-telemetry-chart {
-        flex: 1;
+        /* ED-1250: flex:1 here used to fight the inline width/height that
+           toggleExpand() sets via chart.resize(w, h) — flex-basis:0% from
+           flex:1 discards that specified size as its starting point, so the
+           flex algorithm and Chart.js's fixed-size resize kept re-triggering
+           each other on every real-time chart.update('none') tick, growing
+           the canvas over time. The canvas's size is now driven solely by
+           the inline style toggleExpand() sets (no flex sizing competing). */
         min-height: 0;
         max-height: none;
-        /* Fixed pixel height prevents Chart.js infinite-growth loop */
+        /* Fixed pixel height prevents Chart.js infinite-growth loop, and acts
+           as the initial floor before JS sets the real inline height/width. */
         height: 1px;
         width: 100%;
       }
@@ -1247,6 +1382,7 @@ export async function openRealTimeTelemetryModal(
                     </select>
                   </div>
                 </div>
+                <div id="rtt-peak-summary" style="display:none;font-size:12px;font-weight:600;color:#3e1a7d;background:rgba(62,26,125,0.08);padding:4px 10px;border-radius:8px;margin-top:6px;"></div>
               </div>
             </div>
             <canvas class="myio-telemetry-chart" id="telemetry-chart"></canvas>
@@ -1277,6 +1413,9 @@ export async function openRealTimeTelemetryModal(
           <button class="myio-telemetry-btn myio-telemetry-btn-primary" id="export-btn">
             ⬇️ ${strings.export}
           </button>
+          <button class="myio-telemetry-btn myio-telemetry-btn-secondary" id="export-pdf-btn">
+            📄 ${strings.exportPdf}
+          </button>
         </div>
       </div>
     </div>
@@ -1299,6 +1438,7 @@ export async function openRealTimeTelemetryModal(
   const pauseBtnText = overlay.querySelector('#pause-btn-text') as HTMLSpanElement;
   const sessionCountdownEl = overlay.querySelector('#rtt-session-countdown') as HTMLSpanElement | null;
   const exportBtn = overlay.querySelector('#export-btn') as HTMLButtonElement;
+  const exportPdfBtn = overlay.querySelector('#export-pdf-btn') as HTMLButtonElement;
   const loadingState = overlay.querySelector('#loading-state') as HTMLDivElement;
   const telemetryContent = overlay.querySelector('#telemetry-content') as HTMLDivElement;
   const errorState = overlay.querySelector('#error-state') as HTMLDivElement;
@@ -1320,6 +1460,7 @@ export async function openRealTimeTelemetryModal(
   const centralBadge = overlay.querySelector('#rtt-central-badge') as HTMLSpanElement | null;
   const deviceBadge = overlay.querySelector('#rtt-device-badge') as HTMLSpanElement | null;
   const chartTitleEl = overlay.querySelector('#chart-title') as HTMLElement | null;
+  const peakSummaryEl = overlay.querySelector('#rtt-peak-summary') as HTMLElement | null;
 
   /** Update the chart title and status icon based on currentMode + device/central status. */
   function updateChartTitle(): void {
@@ -2347,11 +2488,48 @@ export async function openRealTimeTelemetryModal(
           let y = pt.value ?? 0;
           if (key === 'total_current' || key === 'current') y = y / 1000;
           if (key === 'fp_a' || key === 'fp_b' || key === 'fp_c' || key === 'powerFactor') y = y / 255;
+          // Wh -> kWh: aggregated (MAX/AVG/etc.) power/energy values come back raw from
+          // ThingsBoard, same unit mismatch already fixed in DemandModal.ts for these keys.
+          if (POWER_KEYS.has(key)) y = y / 1000;
           return { x: pt.ts, y };
         });
 
         telemetryHistory.set(key, points);
         if (points.length > 0) lastKnownValues.set(key, points[points.length - 1].y);
+      }
+
+      // Peak summary — only meaningful when the user picked MAX aggregation.
+      // Mirrors DemandModal.ts's globalPeak pill, computed from the points already fetched.
+      if (peakSummaryEl) {
+        let peakKey: string | null = null;
+        let peakPoint: { x: number; y: number } | null = null;
+        if (selectedAgg === 'MAX') {
+          for (const key of selectedChartKeys) {
+            const points = telemetryHistory.get(key);
+            if (!points || points.length === 0) continue;
+            const candidate = points.reduce((max, p) => (p.y > max.y ? p : max));
+            if (!peakPoint || candidate.y > peakPoint.y) {
+              peakPoint = candidate;
+              peakKey = key;
+            }
+          }
+        }
+        if (peakPoint && peakKey) {
+          const cfg = TELEMETRY_CONFIG[peakKey] || { label: peakKey, unit: '' };
+          const when = peakPoint.x
+            ? new Date(peakPoint.x).toLocaleString(locale, {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+              })
+            : '';
+          peakSummaryEl.textContent = `Máxima: ${peakPoint.y.toFixed(2)} ${cfg.unit} (${cfg.label}) em ${when}`;
+          peakSummaryEl.style.display = 'block';
+        } else {
+          peakSummaryEl.style.display = 'none';
+        }
       }
 
       // Build TelemetryValue array from last known values for the cards
@@ -2859,6 +3037,23 @@ export async function openRealTimeTelemetryModal(
         scales,
       },
     });
+
+    // ED-1250: a freshly created chart always starts with responsive:true (set
+    // above). If the modal is currently expanded, reapply the same fixed-size
+    // state toggleExpand() would have set — otherwise a chart recreated while
+    // expanded (e.g. via rebuildChart() on grandeza change) silently reverts to
+    // responsive mode inside the fixed-height expanded container.
+    if (isExpanded && chart) {
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          if (!chart) return;
+          chart.options.responsive = false;
+          const w = chartContainer.clientWidth - 40;
+          const h = chartContainer.clientHeight - 60;
+          chart.resize(Math.max(w, 200), Math.max(h, 120));
+        })
+      );
+    }
   }
 
   /**
@@ -2990,6 +3185,102 @@ export async function openRealTimeTelemetryModal(
     URL.revokeObjectURL(url);
   }
 
+  /** Ensures there is enough room on the current PDF page, adding a new page if necessary. */
+  function ensureRoom(doc: any, nextY: number, minRoom = 12): number {
+    const h = doc.internal.pageSize.getHeight();
+    if (nextY + minRoom > h - 15) {
+      doc.addPage();
+      return 20;
+    }
+    return nextY;
+  }
+
+  /** Same data as exportToCSV(), as a jsPDF report: header, chart snapshot, full table. */
+  async function exportToPDF(): Promise<void> {
+    try {
+      await ensureJsPDF();
+      const JsPDF = getJsPDFCtor();
+      const doc = new JsPDF('p', 'mm', 'a4');
+
+      doc.setFontSize(18);
+      doc.setTextColor(62, 26, 125);
+      doc.text(strings.title, 20, 18);
+
+      doc.setFontSize(11);
+      doc.setTextColor(0, 0, 0);
+      doc.text(`Dispositivo: ${deviceLabel}`, 20, 27);
+      if (customerName) doc.text(`Cliente: ${customerName}`, 20, 33);
+
+      // Period covered — min/max timestamp across all history
+      let minTs = Infinity;
+      let maxTs = -Infinity;
+      for (const key of telemetryKeys) {
+        const history = telemetryHistory.get(key);
+        if (!history || history.length === 0) continue;
+        minTs = Math.min(minTs, history[0].x);
+        maxTs = Math.max(maxTs, history[history.length - 1].x);
+      }
+      let currentY = customerName ? 39 : 33;
+      if (minTs !== Infinity) {
+        const period = `${new Date(minTs).toLocaleString(locale)} — ${new Date(maxTs).toLocaleString(locale)}`;
+        doc.text(`Período: ${period}`, 20, currentY);
+        currentY += 6;
+      }
+      doc.text(`Modo: ${currentMode === 'period' ? 'Por Período' : 'Real time'}`, 20, currentY);
+      currentY += 10;
+
+      // Chart snapshot, if a chart is currently rendered
+      if (chart && chartCanvas) {
+        const img = chartCanvas.toDataURL('image/png', 1.0);
+        const pageWmm = doc.internal.pageSize.getWidth();
+        const mmW = Math.min(170, pageWmm - 40);
+        const mmH = (chartCanvas.height / chartCanvas.width) * mmW;
+        currentY = ensureRoom(doc, currentY, mmH + 10);
+        doc.addImage(img, 'PNG', 20, currentY, mmW, mmH, undefined, 'FAST');
+        currentY += mmH + 10;
+      }
+
+      // Full data table (same rows as exportToCSV)
+      let maxLength = 0;
+      for (const key of telemetryKeys) {
+        const history = telemetryHistory.get(key);
+        if (history && history.length > maxLength) maxLength = history.length;
+      }
+
+      const headerLabels = telemetryKeys.map((k) => TELEMETRY_CONFIG[k]?.label || k);
+      doc.setFontSize(9);
+      currentY = ensureRoom(doc, currentY, 10);
+      doc.setFont(undefined, 'bold');
+      doc.text(['Timestamp', ...headerLabels].join(' | '), 20, currentY);
+      doc.setFont(undefined, 'normal');
+      currentY += 6;
+
+      for (let i = 0; i < maxLength; i++) {
+        const row: string[] = [];
+        let timestamp = '';
+        for (const key of telemetryKeys) {
+          const history = telemetryHistory.get(key);
+          if (history && history[i]) {
+            if (!timestamp) timestamp = new Date(history[i].x).toLocaleString(locale);
+            row.push(history[i].y.toFixed(2));
+          } else {
+            row.push('');
+          }
+        }
+        if (!timestamp) continue;
+        currentY = ensureRoom(doc, currentY, 6);
+        doc.text([timestamp, ...row].join(' | '), 20, currentY);
+        currentY += 5;
+      }
+
+      const fileName = `telemetry_${deviceLabel}_${new Date().toISOString()}.pdf`;
+      savePdfSafe(doc, fileName);
+    } catch (error) {
+      console.error('[RealTimeTelemetry] Error exporting PDF:', error);
+      showRTTToast('Erro ao exportar PDF.', 'error');
+    }
+  }
+
   /**
    * Toggle light/dark theme
    */
@@ -3115,6 +3406,7 @@ export async function openRealTimeTelemetryModal(
   expandBtn?.addEventListener('click', toggleExpand);
   pauseBtn.addEventListener('click', togglePause);
   exportBtn.addEventListener('click', exportToCSV);
+  exportPdfBtn?.addEventListener('click', () => { void exportToPDF(); });
 
   // Status badges — each opens its own premium tooltip
   centralBadge?.addEventListener('click', () => {
