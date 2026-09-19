@@ -1240,14 +1240,13 @@ function _rfc0234GcdrCustomerId() {
   return window.MyIOOrchestrator?.gcdrCustomerId || '';
 }
 
-/**
- * `ProfileSource` concreto — atributo de customer no ThingsBoard (SERVER_SCOPE).
- *
- * `prefetched`: o `onInit` já busca TODOS os atributos do customer numa chamada
- * só (`fetchThingsboardCustomerAttrsFromStorage`). Passar o valor já lido evita
- * um segundo round-trip no boot; sem ele, a fonte busca sozinha (usada pelo
- * reload pós-save e por qualquer chamada avulsa).
- */
+/** Normaliza `gcdrApiBaseUrl` (alguns customers têm o attr salvo já com `/api/v1`, outros sem — mesma ambiguidade que `_fetchGoalsFromGCDR` já trata) e devolve a raiz SEM `/api/v1`. */
+function _rfc0234GcdrApiRoot() {
+  return String(window.MyIOOrchestrator?.gcdrApiBaseUrl || '')
+    .replace(/\/+$/, '')
+    .replace(/\/api\/v1$/, '');
+}
+
 /** Cache por customer GCDR: `{version, roots, gcdrSource}` — a chave para o 304 E para preservar water/temperature/etc. intactos num save. */
 const _rfc0234GcdrCache = new Map();
 
@@ -1267,7 +1266,7 @@ function createGcdrGroupProfileSource() {
       const gcdrCustomerId = _rfc0234GcdrCustomerId() || customerId;
       const cached = _rfc0234GcdrCache.get(gcdrCustomerId);
       const url =
-        `${window.MyIOOrchestrator?.gcdrApiBaseUrl}/api/v1/entities/resolve` +
+        `${_rfc0234GcdrApiRoot()}/api/v1/entities/resolve` +
         `?customerId=${encodeURIComponent(gcdrCustomerId)}&deep=all`;
       const headers = _rfc0234GcdrHeaders();
       if (cached?.version) headers['If-None-Match'] = cached.version;
@@ -1390,7 +1389,7 @@ async function rfc0207SaveActiveProfile(nextProfile) {
     throw new Error(`Perfil inválido: ${errors.slice(0, 3).join('; ')}`);
   }
 
-  const base = window.MyIOOrchestrator?.gcdrApiBaseUrl;
+  const base = _rfc0234GcdrApiRoot();
   let current = _rfc0234GcdrCache.get(gcdrCustomerId);
 
   // 1ª customização deste customer: clona a árvore de sistema ANTES de poder
@@ -1482,7 +1481,7 @@ async function rfc0207SaveActiveProfile(nextProfile) {
 async function rfc0234RevertActiveProfile() {
   const gcdrCustomerId = _rfc0234GcdrCustomerId();
   if (!gcdrCustomerId) throw new Error('gcdrCustomerId indisponível — não é possível reverter o perfil.');
-  const base = window.MyIOOrchestrator?.gcdrApiBaseUrl;
+  const base = _rfc0234GcdrApiRoot();
 
   const res = await fetch(`${base}/api/v1/entities/revert`, {
     method: 'POST',
