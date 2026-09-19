@@ -290,6 +290,22 @@ export type {
   BaseGroupResidual,
 } from './utils/devices/deviceClassificationProfile.js';
 
+// RFC-0234 v2: GCDR `GROUP`/`PROFILE` entities <-> DeviceClassificationProfile
+// (energy domain) adapter — two-level (groups + categories breakdown), the
+// fidelity v-5.2.0's TELEMETRY_INFO breakdown needs. Complements
+// `parseClassificationEntities` above (RFC-0047, one flat level, used by
+// v-5.4.0): that one is domain/column-generic but folds every descendant
+// PROFILE into one flat list per column, which would lose the
+// climatizacao/elevadores/escadas/outros sub-buckets inside "Área Comum".
+// The customer's taxonomy is GCDR data, never a name baked into this
+// library — a new energy group is a GCDR write, not a library release.
+export {
+  parseGcdrEntityForest,
+  parseGcdrEnergyRoot,
+  buildGcdrEnergyRoot,
+} from './utils/devices/deviceClassificationProfile.js';
+export type { GcdrEntityNode } from './utils/devices/deviceClassificationProfile.js';
+
 // RFC-0207 Phase B: device classification profile management modal (premium UI).
 export { openDeviceProfileModal } from './components/premium-modals/device-profile/openDeviceProfileModal';
 export type {
@@ -2438,6 +2454,10 @@ export type {
   ExclusionGroupsTabConfig,
   ExcludeGroupsTotals,
 } from './components/premium-modals/settings/exclusion-groups/ExclusionGroupsTab';
+
+// Perfil de Dispositivo tab (SettingsModal — read-only TB entity + SERVER_SCOPE dump, all domains)
+export { DeviceProfileTab } from './components/premium-modals/settings/device-profile/DeviceProfileTab';
+export type { DeviceProfileTabConfig } from './components/premium-modals/settings/device-profile/DeviceProfileTab';
 
 // RFC-0198: FreshDesk API — reusable service client
 // Generic types (FreshDeskTicket, TicketTypeId, TicketMotivo) live in the service layer

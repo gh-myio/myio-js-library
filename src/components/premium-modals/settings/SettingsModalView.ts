@@ -5,6 +5,7 @@ import { ModalHeader } from '../../../utils/ModalHeader';
 import { AnnotationsTab } from './annotations/AnnotationsTab';
 import { AlarmsTab } from './alarms/AlarmsTab';
 import { ExclusionGroupsTab } from './exclusion-groups/ExclusionGroupsTab';
+import { DeviceProfileTab } from './device-profile/DeviceProfileTab';
 import { createTicketsTab } from './tickets/TicketsTab';
 import { getAnnotationPermissions } from '../../../utils/superAdminUtils';
 import type { UserInfo, PermissionSet } from './annotations/types';
@@ -31,7 +32,8 @@ export class SettingsModalView {
   private chamadosTabHandle: { destroy(): void } | null = null;
   // Exclusão de Grupos tab
   private exclusionGroupsTab: ExclusionGroupsTab | null = null;
-  private currentTab: 'general' | 'annotations' | 'alarms' | 'chamados' | 'exclusion-groups' | 'incidents' = 'general';
+  private deviceProfileTab: DeviceProfileTab | null = null;
+  private currentTab: 'general' | 'annotations' | 'alarms' | 'chamados' | 'exclusion-groups' | 'device-profile' | 'incidents' = 'general';
   private currentUser: UserInfo | null = null;
   private permissions: PermissionSet | null = null;
   // RFC-0190: Exclude Groups Totals
@@ -143,6 +145,8 @@ export class SettingsModalView {
     this.initChamadosTab();
     // Exclusão de Grupos tab (async, energy domain only)
     this.initExclusionGroupsTab();
+    // Perfil de Dispositivo tab (async, all domains)
+    this.initDeviceProfileTab();
     // RFC-0232: Incidentes tab (central + admin MyIO only) — search/devices
     // filters are plain sync listeners, the period picker loads its CDN deps async.
     if (this.config.isGateway && this.isSuperAdmin()) {
@@ -415,9 +419,53 @@ export class SettingsModalView {
     }
   }
 
+  // Perfil de Dispositivo: ThingsBoard identity + SERVER_SCOPE attribute dump,
+  // with inline edit/force for the fields support needs to fix — MyIO admins
+  // only (writes ThingsBoard entity/attributes/owner directly).
+  private async initDeviceProfileTab(): Promise<void> {
+    if (!this.isSuperAdmin()) {
+      this.modal.querySelector('[data-tab="device-profile"]')?.remove();
+      return;
+    }
+
+    const container = this.modal.querySelector('#device-profile-tab-content') as HTMLElement;
+    if (!container) return;
+
+    const { deviceId, jwtToken, tbBaseUrl } = this.config;
+
+    if (!deviceId || !jwtToken) {
+      container.innerHTML = `
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;
+                    min-height:320px;padding:40px 24px;text-align:center;">
+          <div style="font-size:15px;font-weight:600;color:#374151;margin-bottom:8px;">
+            Perfil de dispositivo não disponível
+          </div>
+          <div style="font-size:13px;color:#9ca3af;max-width:320px;line-height:1.6;">
+            deviceId ou jwtToken não disponíveis para carregar os atributos.
+          </div>
+        </div>`;
+      return;
+    }
+
+    try {
+      this.deviceProfileTab = new DeviceProfileTab({
+        container,
+        deviceId,
+        jwtToken,
+        tbBaseUrl: tbBaseUrl ?? window.location.origin,
+      });
+      await this.deviceProfileTab.init();
+      console.log('[SettingsModalView] DeviceProfileTab initialized');
+    } catch (error) {
+      console.error('[SettingsModalView] Failed to initialize DeviceProfileTab:', error);
+      container.innerHTML =
+        '<p style="color:#dc3545;padding:20px;text-align:center;">Erro ao carregar perfil do dispositivo</p>';
+    }
+  }
+
   // RFC-0104 / RFC-0180 / RFC-0198: Switch between tabs
   private switchTab(
-    tab: 'general' | 'annotations' | 'alarms' | 'chamados' | 'exclusion-groups' | 'incidents'
+    tab: 'general' | 'annotations' | 'alarms' | 'chamados' | 'exclusion-groups' | 'device-profile' | 'incidents'
   ): void {
     this.currentTab = tab;
 
@@ -433,12 +481,14 @@ export class SettingsModalView {
     const alarmsContent = this.modal.querySelector('#alarms-tab-content') as HTMLElement;
     const chamadosContent = this.modal.querySelector('#chamados-tab-content') as HTMLElement;
     const exclusionGroupsContent = this.modal.querySelector('#exclusion-groups-tab-content') as HTMLElement;
+    const deviceProfileContent = this.modal.querySelector('#device-profile-tab-content') as HTMLElement;
     const incidentsContent = this.modal.querySelector('#incidents-tab-content') as HTMLElement;
 
     if (generalContent) generalContent.style.display = tab === 'general' ? 'block' : 'none';
     if (annotationsContent) annotationsContent.style.display = tab === 'annotations' ? 'block' : 'none';
     if (alarmsContent) alarmsContent.style.display = tab === 'alarms' ? 'block' : 'none';
     if (chamadosContent) chamadosContent.style.display = tab === 'chamados' ? 'block' : 'none';
+    if (deviceProfileContent) deviceProfileContent.style.display = tab === 'device-profile' ? 'block' : 'none';
     if (exclusionGroupsContent) exclusionGroupsContent.style.display = tab === 'exclusion-groups' ? 'block' : 'none';
     if (incidentsContent) incidentsContent.style.display = tab === 'incidents' ? 'block' : 'none';
 
@@ -477,6 +527,12 @@ export class SettingsModalView {
     if (this.exclusionGroupsTab) {
       this.exclusionGroupsTab.destroy();
       this.exclusionGroupsTab = null;
+    }
+
+    // Cleanup device profile tab
+    if (this.deviceProfileTab) {
+      this.deviceProfileTab.destroy();
+      this.deviceProfileTab = null;
     }
 
     // RFC-0232: Clean up the Incidentes tab's period picker (jQuery plugin instance)
@@ -678,6 +734,19 @@ export class SettingsModalView {
               Excluir Grupos
               <span class="modal-tab-badge modal-tab-badge--exclusion" id="tab-badge-exclusion-groups" style="display:none"></span>
             </button>
+            <!-- Perfil de Dispositivo Tab — MyIO admins only (edits ThingsBoard directly) -->
+            ${
+              this.isSuperAdmin()
+                ? `<button type="button" class="modal-tab" data-tab="device-profile">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+                <line x1="3" y1="9" x2="21" y2="9"></line>
+                <line x1="9" y1="21" x2="9" y2="9"></line>
+              </svg>
+              Perfil de Dispositivo
+            </button>`
+                : ''
+            }
             <!-- RFC-0232: Incidentes (interpolação) — central + admin MyIO only -->
             ${
               this.config.isGateway && this.isSuperAdmin()
@@ -731,6 +800,13 @@ export class SettingsModalView {
               <div style="padding: 20px; text-align: center; color: #6c757d;">
                 <div class="loading-spinner"></div>
                 <p>Carregando configurações de exclusão...</p>
+              </div>
+            </div>
+            <!-- Perfil de Dispositivo Tab Content -->
+            <div id="device-profile-tab-content" class="tab-content" style="display: none;">
+              <div style="padding: 20px; text-align: center; color: #6c757d;">
+                <div class="loading-spinner"></div>
+                <p>Carregando perfil do dispositivo...</p>
               </div>
             </div>
             <!-- RFC-0232: Incidentes (interpolação) Tab Content — central + admin MyIO only.
@@ -3964,6 +4040,7 @@ export class SettingsModalView {
           | 'alarms'
           | 'chamados'
           | 'exclusion-groups'
+          | 'device-profile'
           | 'incidents';
         if (tab) {
           this.switchTab(tab);
