@@ -2455,6 +2455,10 @@ export type {
   ExcludeGroupsTotals,
 } from './components/premium-modals/settings/exclusion-groups/ExclusionGroupsTab';
 
+// Perfil de Dispositivo tab (SettingsModal — read-only TB entity + SERVER_SCOPE dump, all domains)
+export { DeviceProfileTab } from './components/premium-modals/settings/device-profile/DeviceProfileTab';
+export type { DeviceProfileTabConfig } from './components/premium-modals/settings/device-profile/DeviceProfileTab';
+
 // RFC-0198: FreshDesk API — reusable service client
 // Generic types (FreshDeskTicket, TicketTypeId, TicketMotivo) live in the service layer
 export type {
