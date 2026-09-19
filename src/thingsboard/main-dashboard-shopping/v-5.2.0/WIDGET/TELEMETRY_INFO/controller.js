@@ -3029,6 +3029,55 @@ function buildExcludedFromCAGNotice() {
 }
 
 /**
+ * RFC-0234 v2: Transformadores is its own top-level classification group
+ * (GCDR `energy-transformers`), deliberately excluded from Entrada's total
+ * (buildSummary's grandTotal) to avoid double-counting. It already shows up
+ * correctly in the "Resumo de Energia" modal (EnergySummaryTooltip, via
+ * STATE.tooltipData.byCategory.transformadores) — this section surfaces the
+ * same data inside the Entrada InfoTooltip itself, since a shopping operator
+ * looking at "Entrada" naturally expects to see the transformers there too,
+ * clearly marked as informational (not summed into Entrada's own total).
+ * @returns {string} HTML content or empty string
+ */
+function buildTransformadoresInfoSection() {
+  const cat = STATE.tooltipData?.byCategory?.transformadores;
+  const devices = cat?.details?.devices || [];
+  if (devices.length === 0) return '';
+
+  const deviceListHtml = devices
+    .map(
+      (device) => `
+      <div class="myio-info-tooltip__row" style="padding: 4px 0; border-bottom: 1px dashed rgba(100, 116, 139, 0.2);">
+        <span class="myio-info-tooltip__label" style="max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${device.label}">${device.label}</span>
+        <span class="myio-info-tooltip__value">${formatEnergy(device.value)}</span>
+      </div>
+    `
+    )
+    .join('');
+
+  const total = cat?.summary?.total || 0;
+
+  return `
+    <div class="myio-info-tooltip__section" style="margin-top: 12px;">
+      <div class="myio-info-tooltip__section-title"><span>🔌</span> Transformadores (${devices.length})</div>
+      <div style="font-size: 11px;">
+        ${deviceListHtml}
+        <div class="myio-info-tooltip__row" style="padding-top: 6px; margin-top: 4px; border-top: 1px solid rgba(100, 116, 139, 0.25); font-weight: 600;">
+          <span class="myio-info-tooltip__label">Total:</span>
+          <span class="myio-info-tooltip__value">${formatEnergy(total)}</span>
+        </div>
+      </div>
+    </div>
+    <div class="myio-info-tooltip__notice">
+      <span class="myio-info-tooltip__notice-icon">💡</span>
+      <div class="myio-info-tooltip__notice-text">
+        Transformadores é um grupo próprio — não soma ao <strong>Total</strong> de Entrada acima, para não contar a mesma energia duas vezes.
+      </div>
+    </div>
+  `;
+}
+
+/**
  * RFC-0234: Build notice for devices excluded from the Entrada total
  * (typically step-down transformers whose reading is redundant with an
  * upstream substation meter, or with equipment already metered under Área
@@ -3674,7 +3723,7 @@ function buildEntradaContent() {
       formatFn: formatEnergy,
       footerHtml: buildExportFooter('energy', 'entrada'),
       noticeText: 'Soma de todos os medidores de <strong>Entrada</strong> do shopping (transformadores e relógios principais).',
-    }) + buildExcludedFromEntradaNotice()
+    }) + buildTransformadoresInfoSection() + buildExcludedFromEntradaNotice()
   ); // RFC-0234
 }
 
