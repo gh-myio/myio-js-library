@@ -1877,6 +1877,27 @@ Object.assign(window.MyIOUtils, {
     }
   }
 
+  // Guarantees the Nunito font FILE is actually loaded page-wide. Every
+  // widget (MAIN_VIEW, MENU, HEADER, TELEMETRY, TELEMETRY_INFO, FOOTER,
+  // ALARM) already declares `font-family: 'Nunito', ...` in its own CSS, but
+  // none of them load the Google Fonts stylesheet themselves — until now that
+  // only happened as a side effect of opening a premium modal (dialog/
+  // welcome/user-management), so a session that never opens one silently
+  // fell back to system-ui. MAIN_VIEW is the one widget guaranteed to run
+  // onInit on every dashboard load, so it's the right single place to
+  // guarantee this for the whole page. Reuses the SAME link id as the
+  // library's own components (dialog/styles.ts, img-gallery/*.ts) so
+  // whichever loads first wins and the other's own guard skips a duplicate.
+  (function injectNunitoFont() {
+    const FONT_LINK_ID = 'myio-dialog-font-nunito';
+    if (document.getElementById(FONT_LINK_ID)) return;
+    const link = document.createElement('link');
+    link.id = FONT_LINK_ID;
+    link.rel = 'stylesheet';
+    link.href = 'https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&display=swap';
+    document.head.appendChild(link);
+  })();
+
   // ThingsBoard lifecycle
   self.onInit = async function () {
     // FIRST: populate _dataApiHost from widget settings before any other logic
