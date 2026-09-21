@@ -4,8 +4,8 @@
   "projectName": "Engineer Dashboard",
   "board": 166,
   "jiraBase": "https://myio.atlassian.net",
-  "generatedAt": "2026-09-17",
-  "today": "2026-09-17",
+  "generatedAt": "2026-09-21",
+  "today": "2026-09-21",
   "source": "Jira Cloud (myio.atlassian.net) via MCP Atlassian"
  },
  "rules": {
@@ -694,7 +694,7 @@
    "end": "2026-09-21",
    "complete": "",
    "state": "future",
-   "scope": 99,
+   "scope": 107,
    "done": 0,
    "burndown": [
     {
@@ -711,18 +711,23 @@
      "date": "2026-09-17",
      "remaining": 99,
      "ideal": 52.6
+    },
+    {
+     "date": "2026-09-21",
+     "remaining": 107,
+     "ideal": 0
     }
    ],
    "span": {
     "start": "2026-09-14",
-    "end": "2026-09-17"
+    "end": "2026-09-21"
    }
   }
  ],
  "defaultPreset": "sprint-596",
  "fullSpan": {
   "start": "2026-05-25",
-  "end": "2026-09-17"
+  "end": "2026-09-21"
  },
  "completions": [
   {

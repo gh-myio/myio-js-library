@@ -11,30 +11,30 @@
    "end": "2026-09-21",
    "state": "future"
   },
-  "generatedAt": "2026-09-17",
+  "generatedAt": "2026-09-21",
   "source": "Jira Cloud (myio.atlassian.net) via MCP Atlassian",
   "scope": "Tickets em aberto (status != Concluído). Inclui Tarefa, Subtarefa e Bug. Exclui Épicos e História/Story."
  },
  "summary": {
-  "sprintOpen": 99,
+  "sprintOpen": 107,
   "backlogOpen": 575,
-  "total": 674
+  "total": 682
  },
  "aggregates": {
   "sprint": {
    "byStatus": {
-    "Itens Novos": 72,
+    "Itens Novos": 80,
     "PENDENTE": 12,
     "EM REVISÃO": 10,
     "Em Andamento": 5
    },
    "byType": {
-    "Subtarefa": 44,
-    "Tarefa": 31,
+    "Subtarefa": 50,
+    "Tarefa": 33,
     "Bug": 24
    },
    "byPriority": {
-    "Medium": 88,
+    "Medium": 96,
     "High": 7,
     "Highest": 3,
     "Low": 1
@@ -43,7 +43,7 @@
     "Rodrigo Lago": 47,
     "Luiz Guilherme Martinho Sampaio Ito": 22,
     "Letícia Camargo": 14,
-    "Victor Hugo da Silva": 15,
+    "Victor Hugo da Silva": 23,
     "Andre Abadesso": 1
    },
    "byGroup": {
@@ -57,7 +57,8 @@
     "Contagem": 2,
     "Melicidade": 2,
     "Capim Dourado": 1,
-    "Moxuara": 1
+    "Moxuara": 1,
+    "Sá Cavalcante": 8
    }
   },
   "backlog": {
@@ -1401,6 +1402,110 @@
    "updated": "2026-09-17",
    "group": "Relatórios / Dashboard",
    "kind": "theme"
+  },
+  {
+   "key": "ED-1259",
+   "summary": "Alteração do painel dos shoppings da Sá Cavalcante — Grupo Transformadores",
+   "type": "Tarefa",
+   "sub": false,
+   "status": "Itens Novos",
+   "cat": "new",
+   "priority": "Medium",
+   "assignee": "Victor Hugo da Silva",
+   "updated": "2026-09-21",
+   "group": "Sá Cavalcante",
+   "kind": "unit"
+  },
+  {
+   "key": "ED-1260",
+   "summary": "Alteração do painel dos shoppings da Sá Cavalcante — Grupo Transformadores — Mestre Álvaro",
+   "type": "Subtarefa",
+   "sub": true,
+   "status": "Itens Novos",
+   "cat": "new",
+   "priority": "Medium",
+   "assignee": "Victor Hugo da Silva",
+   "updated": "2026-09-21",
+   "group": "Sá Cavalcante",
+   "kind": "unit"
+  },
+  {
+   "key": "ED-1261",
+   "summary": "Alteração do painel dos shoppings da Sá Cavalcante — Grupo Transformadores — Montserrat",
+   "type": "Subtarefa",
+   "sub": true,
+   "status": "Itens Novos",
+   "cat": "new",
+   "priority": "Medium",
+   "assignee": "Victor Hugo da Silva",
+   "updated": "2026-09-21",
+   "group": "Sá Cavalcante",
+   "kind": "unit"
+  },
+  {
+   "key": "ED-1262",
+   "summary": "Alteração do painel dos shoppings da Sá Cavalcante — Grupo Transformadores — Moxuara",
+   "type": "Subtarefa",
+   "sub": true,
+   "status": "Itens Novos",
+   "cat": "new",
+   "priority": "Medium",
+   "assignee": "Victor Hugo da Silva",
+   "updated": "2026-09-21",
+   "group": "Sá Cavalcante",
+   "kind": "unit"
+  },
+  {
+   "key": "ED-1263",
+   "summary": "Alteração do painel dos shoppings da Sá Cavalcante — Grupo Transformadores — Rio Poty",
+   "type": "Subtarefa",
+   "sub": true,
+   "status": "Itens Novos",
+   "cat": "new",
+   "priority": "Medium",
+   "assignee": "Victor Hugo da Silva",
+   "updated": "2026-09-21",
+   "group": "Sá Cavalcante",
+   "kind": "unit"
+  },
+  {
+   "key": "ED-1264",
+   "summary": "Alteração do painel dos shoppings da Sá Cavalcante — Grupo Transformadores — Shopping da Ilha",
+   "type": "Subtarefa",
+   "sub": true,
+   "status": "Itens Novos",
+   "cat": "new",
+   "priority": "Medium",
+   "assignee": "Victor Hugo da Silva",
+   "updated": "2026-09-21",
+   "group": "Sá Cavalcante",
+   "kind": "unit"
+  },
+  {
+   "key": "ED-1265",
+   "summary": "Alteração do painel dos shoppings da Sá Cavalcante — Grupo Transformadores — Metrópole Ananindeua",
+   "type": "Subtarefa",
+   "sub": true,
+   "status": "Itens Novos",
+   "cat": "new",
+   "priority": "Medium",
+   "assignee": "Victor Hugo da Silva",
+   "updated": "2026-09-21",
+   "group": "Sá Cavalcante",
+   "kind": "unit"
+  },
+  {
+   "key": "ED-1266",
+   "summary": "Atualizar widgets Shopping Dashboard v.5.2.0 na Widgets Library do ThingsBoard (a partir da branch desenv)",
+   "type": "Tarefa",
+   "sub": false,
+   "status": "Itens Novos",
+   "cat": "new",
+   "priority": "Medium",
+   "assignee": "Victor Hugo da Silva",
+   "updated": "2026-09-21",
+   "group": "Sá Cavalcante",
+   "kind": "unit"
   }
  ],
  "backlog": [
