@@ -1744,6 +1744,7 @@ let MyIO = null;
 // RFC-0106: Map labelWidget to window.STATE group
 // lojas = 'Lojas'
 // entrada = 'Entrada'
+// transformadores = 'Transformador' | 'Transformadores' (RFC-0234)
 // ocultos = 'Ocultos' (RFC-0142: archived/inactive devices)
 // areacomum = everything else (Climatização, Elevadores, Escadas Rolantes, Área Comum, etc.)
 function mapLabelWidgetToStateGroup(labelWidget) {
@@ -1751,6 +1752,9 @@ function mapLabelWidgetToStateGroup(labelWidget) {
   const lw = labelWidget.toLowerCase().trim();
   if (lw === 'lojas') return 'lojas';
   if (lw === 'entrada') return 'entrada';
+  // RFC-0234: dedicated, optional group for step-down transformers — never
+  // falls through to the areacomum catch-all below (that's the whole point).
+  if (lw === 'transformador' || lw === 'transformadores') return 'transformadores';
   // RFC-0142: Ocultos group for archived/inactive devices - should NOT be displayed
   if (lw === 'ocultos') return 'ocultos';
   // RFC-0107: Add caixadagua for water tanks
@@ -1810,8 +1814,13 @@ function getItemsFromState(domain, labelWidget) {
     return window.STATE[domain]?._raw || [];
   }
 
-  // For lojas, entrada, and caixadagua, return directly from STATE group
-  if (stateGroup === 'lojas' || stateGroup === 'entrada' || stateGroup === 'caixadagua') {
+  // For lojas, entrada, transformadores, and caixadagua, return directly from STATE group
+  if (
+    stateGroup === 'lojas' ||
+    stateGroup === 'entrada' ||
+    stateGroup === 'transformadores' ||
+    stateGroup === 'caixadagua'
+  ) {
     const groupData = window.STATE.get(domain, stateGroup);
     LogHelper.log(
       `[TELEMETRY] Getting items from STATE.${domain}.${stateGroup}: ${groupData?.count || 0} items`
@@ -5905,6 +5914,66 @@ async function hydrateAndRender() {
 }
 
 /** ===================== TB LIFE CYCLE ===================== **/
+/**
+ * `height: 100%` on `self.ctx.$container` (= the `tb-dynamic-component` host
+ * ThingsBoard gives this widget) doesn't always resolve against a definite
+ * ancestor height in the real dashboard chrome — when it doesn't, the browser
+ * falls back to sizing the container by its OWN CONTENT instead of the space
+ * TB actually allocated. The card list then renders a few dozen px taller
+ * than the real widget frame, and an ancestor's `overflow:hidden` clips that
+ * extra content off the BOTTOM — truncating the last card even though the
+ * internal `.shops-list` scroll (sized against the same wrong number)
+ * believes it has already reached its own end.
+ *
+ * Fix: measure the TRUE available height directly off the container's own
+ * parent (which IS reliably sized by TB) and set it as an explicit pixel
+ * value instead of a percentage. `.shops-root` itself (rendered from our own
+ * `templateHtml`, one level further in) inherits the SAME failure mode
+ * independently — verified live: it computes its own `min-height: 400px`
+ * from a ThingsBoard/dashboard-chrome CSS rule, not from this widget's own
+ * stylesheet — so it needs the identical override, not just its parent.
+ * Re-run on every `onResize` so a later dashboard relayout doesn't leave a
+ * stale value behind.
+ */
+function _syncWidgetContainerHeight() {
+  try {
+    const el = self.ctx && self.ctx.$container && self.ctx.$container[0];
+    const parent = el && el.parentElement;
+    if (!el || !parent) return;
+    const realHeight = parent.getBoundingClientRect().height;
+    if (realHeight <= 0) return;
+    // `min-height` (some ancestor/global rule pins it to the widget's
+    // configured sizeY, e.g. 400px) always wins over a smaller `height` per
+    // the CSS spec — override both, or `height` alone is silently ignored.
+    el.style.height = realHeight + 'px';
+    el.style.minHeight = realHeight + 'px';
+
+    const shopsRoot = el.querySelector('.shops-root');
+    if (shopsRoot) {
+      shopsRoot.style.height = realHeight + 'px';
+      shopsRoot.style.minHeight = realHeight + 'px';
+
+      // `.shops-list` carries BOTH `flex: 1 1 0` and an explicit `height:
+      // 100%` (styles.css) — verified live that the explicit height wins
+      // over the flex-computed remaining-space size, so it renders as tall
+      // as `.shops-root` ITSELF instead of `.shops-root minus the header`,
+      // pushing its real overflow (and the truncation) well past where the
+      // internal scrollbar thinks the content ends. Compute the header's
+      // actual rendered height and give the list exactly what's left.
+      const header = shopsRoot.querySelector('.shops-header');
+      const list = shopsRoot.querySelector('.shops-list');
+      if (list) {
+        const headerHeight = header ? header.getBoundingClientRect().height : 0;
+        const listHeight = Math.max(0, realHeight - headerHeight);
+        list.style.height = listHeight + 'px';
+        list.style.minHeight = '0px';
+      }
+    }
+  } catch (e) {
+    /* best-effort — never block render on a measurement failure */
+  }
+}
+
 self.onInit = async function () {
   TLMDBG('onInit START', {
     labelWidget: self.ctx?.settings?.labelWidget,
@@ -5918,6 +5987,10 @@ self.onInit = async function () {
     flexDirection: 'column',
     position: 'relative',
   });
+  // Immediately override the `height:100%` above with a measured pixel value
+  // (see _syncWidgetContainerHeight) — rAF so the container is attached/laid
+  // out by TB before we measure its parent.
+  requestAnimationFrame(_syncWidgetContainerHeight);
 
   // Lib access goes through the MyIOUtils bridge (MAIN is the only widget that
   // touches the library object). All `MyIO.<symbol>` reads below resolve via the
@@ -7013,7 +7086,9 @@ self.onDataUpdated = function () {
   /* no-op */
 };
 
-self.onResize = function () {};
+self.onResize = function () {
+  _syncWidgetContainerHeight();
+};
 self.onDestroy = function () {
   if (dateUpdateHandler) {
     window.removeEventListener('myio:update-date', dateUpdateHandler);
