@@ -199,9 +199,12 @@ self.onInit = function () {
     style.textContent = `
       .menu-collapse-arrow {
         position: fixed;
-        width: 22px;
-        height: 22px;
-        border-radius: 50%;
+        /* Vertical pill instead of a circle — same 50%-in/50%-out straddle,
+           but a much taller click/touch target (was a 22x22 circle, easy to
+           miss). Pattern matches VS Code / Notion sidebar collapse handles. */
+        width: 14px;
+        height: 60px;
+        border-radius: 7px;
         border: 1px solid #e5e7eb;
         background: #ffffff;
         color: #2f2a3b;
@@ -211,13 +214,21 @@ self.onInit = function () {
         padding: 0;
         cursor: pointer;
         box-shadow: 0 1px 6px rgba(31, 28, 53, 0.18);
+        /* Quieter at rest than the old circle (this is a much bigger shape,
+           full-strength all the time would read as heavy/intrusive on the
+           menu edge) — full opacity only on hover/focus. */
+        opacity: 0.6;
         /* Must stay BELOW loading/busy overlays (myio-orchestrator-busy-overlay,
            z-index:99999) and premium modals (z-index:999999) — found live: at
            2147483000 it rendered on top of the "Carregando contrato..." busy
            overlay, staying clickable while the app was mid-load. 10000 clears
            ordinary dashboard widget content but yields to any real overlay. */
         z-index: 10000;
-        transition: background 0.15s ease, box-shadow 0.15s ease;
+        transition: background 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+      }
+      .menu-collapse-arrow:hover,
+      .menu-collapse-arrow:focus-visible {
+        opacity: 1;
       }
       .menu-collapse-arrow:hover {
         background: #f4f1ff;
@@ -242,9 +253,13 @@ self.onInit = function () {
   function positionCollapseArrow() {
     if (!collapseArrowBtn || !menuRoot) return;
     const rect = menuRoot.getBoundingClientRect();
-    const half = collapseArrowBtn.offsetWidth / 2 || 11;
-    collapseArrowBtn.style.left = Math.round(rect.right - half) + 'px';
-    collapseArrowBtn.style.top = Math.round(rect.top + rect.height / 2 - half) + 'px';
+    // Width != height now (vertical pill, not a circle) — straddle the edge
+    // using half the button's own width, and vertically center it using half
+    // its own height, instead of reusing one "half" value for both axes.
+    const halfWidth = collapseArrowBtn.offsetWidth / 2 || 7;
+    const halfHeight = collapseArrowBtn.offsetHeight / 2 || 30;
+    collapseArrowBtn.style.left = Math.round(rect.right - halfWidth) + 'px';
+    collapseArrowBtn.style.top = Math.round(rect.top + rect.height / 2 - halfHeight) + 'px';
   }
 
   (function initCollapseArrow() {
