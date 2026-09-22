@@ -2,7 +2,7 @@
  "meta": {
   "project": "ED",
   "jiraBase": "https://myio.atlassian.net",
-  "generatedAt": "2026-09-21",
+  "generatedAt": "2026-09-22",
   "status": "Em Andamento",
   "wipLimit": 1,
   "note": "WIP = tickets com status \"Em Andamento\". Acordo: 1 por pessoa (inclui \"Aguardando Demanda\" quando ocioso)."
@@ -37,13 +37,13 @@
      "key": "ED-949",
      "type": "Tarefa",
      "summary": "[GCDR] Pré-setup: autopreencher \"Identificador\" ao adicionar device em asset com mais de 1 device",
-     "updated": "2026-09-14"
+     "updated": "2026-09-22"
     },
     {
      "key": "ED-941",
      "type": "Bug",
      "summary": "[BUG] [PRÉ-SETUP] [GCDR] Falha na sincronização para o GDCR de cliente cadastrado com múltiplos gateways (2+)",
-     "updated": "2026-09-14"
+     "updated": "2026-09-22"
     },
     {
      "key": "ED-920",

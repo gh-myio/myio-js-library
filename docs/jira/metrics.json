@@ -4,8 +4,8 @@
     "projectName": "Engineer Dashboard",
     "board": 166,
     "jiraBase": "https://myio.atlassian.net",
-    "generatedAt": "2026-09-21",
-    "today": "2026-09-21",
+    "generatedAt": "2026-09-22",
+    "today": "2026-09-22",
     "source": "Jira Cloud (myio.atlassian.net) via MCP Atlassian"
   },
   "rules": {
@@ -694,8 +694,8 @@
       "end": "2026-09-21",
       "complete": "",
       "state": "future",
-      "scope": 91,
-      "done": 5,
+      "scope": 39,
+      "done": 6,
       "burndown": [
         {
           "date": "2026-09-14",
@@ -716,6 +716,11 @@
           "date": "2026-09-21",
           "remaining": 86,
           "ideal": 0
+        },
+        {
+          "date": "2026-09-22",
+          "remaining": 33,
+          "ideal": 0
         }
       ],
       "span": {
@@ -730,6 +735,14 @@
     "end": "2026-09-21"
   },
   "completions": [
+    {
+      "key": "ED-982",
+      "summary": "Testar RFC-0207 — Gestão de Perfil de Dispositivos (classificação single-source)",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-22"
+    },
     {
       "key": "ED-1019",
       "summary": "[MET-1] Metas Shopping v5.2.0 — último dia do range vem truncado (TZ)",
