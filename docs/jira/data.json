@@ -16,90 +16,87 @@
     "scope": "Tickets em aberto (status != Concluído). Inclui Tarefa, Subtarefa e Bug. Exclui Épicos e História/Story."
   },
   "summary": {
-    "sprintOpen": 33,
-    "backlogOpen": 584,
+    "sprintOpen": 27,
+    "backlogOpen": 590,
     "total": 617
   },
   "aggregates": {
     "sprint": {
       "byStatus": {
-        "Itens Novos": 24,
+        "Itens Novos": 18,
         "PENDENTE": 5,
         "EM REVISÃO": 3,
         "Em Andamento": 1
       },
       "byType": {
         "Tarefa": 21,
-        "Bug": 12
+        "Bug": 6
       },
       "byPriority": {
-        "Medium": 28,
-        "High": 3,
+        "Medium": 25,
         "Highest": 2
       },
       "byAssignee": {
-        "Rodrigo Lago": 24,
+        "Rodrigo Lago": 19,
         "Letícia Camargo": 4,
-        "Victor Hugo da Silva": 4,
+        "Victor Hugo da Silva": 3,
         "Andre Abadesso": 1
       },
       "byGroup": {
-        "Outros": 8,
-        "Relatórios / Dashboard": 8,
-        "GCDR / Plataforma": 6,
-        "Souza Aguiar": 4,
+        "Outros": 7,
+        "Relatórios / Dashboard": 7,
+        "GCDR / Plataforma": 5,
+        "Souza Aguiar": 3,
         "Central / Firmware / HW": 2,
-        "Shopping da Ilha / SDI": 1,
         "Moxuara": 1,
         "Capim Dourado": 1,
-        "Contagem": 1,
         "Sá Cavalcante": 1
       }
     },
     "backlog": {
       "byStatus": {
-        "PENDENTE": 391,
-        "Itens Novos": 169,
+        "PENDENTE": 392,
+        "Itens Novos": 179,
         "EM REVISÃO": 17,
-        "Em Andamento": 7
+        "Em Andamento": 2
       },
       "byType": {
         "Tarefa": 428,
         "Subtarefa": 108,
-        "Bug": 48
+        "Bug": 54
       },
       "byPriority": {
-        "Medium": 560,
-        "High": 17,
+        "Medium": 563,
+        "High": 20,
         "Highest": 3,
         "Low": 3,
         "Lowest": 1
       },
       "byAssignee": {
         "Luiz Guilherme Martinho Sampaio Ito": 385,
-        "Rodrigo Lago": 93,
-        "Victor Hugo da Silva": 65,
+        "Rodrigo Lago": 98,
+        "Victor Hugo da Silva": 66,
         "Letícia Camargo": 34,
         "Leticia Saraiva": 5,
         "Leandro Gadioli Rodrigues": 2
       },
       "byGroup": {
         "Central / Firmware / HW": 390,
-        "GCDR / Plataforma": 128,
-        "Outros": 13,
+        "GCDR / Plataforma": 129,
+        "Outros": 14,
         "BAS": 10,
         "Sá Cavalcante": 9,
-        "Relatórios / Dashboard": 5,
+        "Relatórios / Dashboard": 6,
         "Raiz Educação": 3,
+        "Souza Aguiar": 3,
+        "Contagem": 3,
         "Macaé": 3,
         "Rio Poty": 3,
         "Moxuara": 3,
+        "Shopping da Ilha / SDI": 3,
         "Praia da Costa": 2,
-        "Souza Aguiar": 2,
-        "Contagem": 2,
         "Campinas": 2,
         "West Plaza": 2,
-        "Shopping da Ilha / SDI": 2,
         "Melicidade": 2,
         "Mestre Álvaro": 1,
         "Montserrat": 1,
@@ -213,19 +210,6 @@
       "kind": "other"
     },
     {
-      "key": "ED-1024",
-      "summary": "[MET-7] Metas Head Office v5.4.0 — Analítico exibe SDI Total Realizado",
-      "type": "Bug",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-09-14",
-      "group": "Shopping da Ilha / SDI",
-      "kind": "unit"
-    },
-    {
       "key": "ED-1026",
       "summary": "[DATA-1] Moxuara — equipamentos (Trafo+CAG) não fecham com a Entrada",
       "type": "Bug",
@@ -263,32 +247,6 @@
       "updated": "2026-09-14",
       "group": "Capim Dourado",
       "kind": "unit"
-    },
-    {
-      "key": "ED-1042",
-      "summary": "[BUG] [GCDR] Tela \"Novo Usuário\" não trava o Cliente na navegação escopada e ignora o customerId da URL",
-      "type": "Bug",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "High",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-09-14",
-      "group": "GCDR / Plataforma",
-      "kind": "theme"
-    },
-    {
-      "key": "ED-1067",
-      "summary": "[BUG] Alarmes de Geradores — notificações não enviadas (investigar falha de 2026-07-29)",
-      "type": "Bug",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "High",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-09-14",
-      "group": "Outros",
-      "kind": "other"
     },
     {
       "key": "ED-1118",
@@ -369,32 +327,6 @@
       "kind": "theme"
     },
     {
-      "key": "ED-1235",
-      "summary": "[BUG] Interpolação não preenche lacuna dentro do limite configurado no Relatório de Temperatura do Souza Aguiar",
-      "type": "Bug",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-09-15",
-      "group": "Souza Aguiar",
-      "kind": "unit"
-    },
-    {
-      "key": "ED-1236",
-      "summary": "Pre-Setup v2.0 — Sincronizar GCDR falha em \"Mapeando árvore ThingsBoard\" para Shopping Contagem (customer não encontrado no GCDR)",
-      "type": "Bug",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-09-15",
-      "group": "Contagem",
-      "kind": "unit"
-    },
-    {
       "key": "ED-1238",
       "summary": "[BUG] Interpolação preenche mais slots do que o limite configurado no Dashboard Tabela Temp V5 (Souza Aguiar)de ",
       "type": "Bug",
@@ -419,19 +351,6 @@
       "updated": "2026-09-15",
       "group": "Souza Aguiar",
       "kind": "unit"
-    },
-    {
-      "key": "ED-1250",
-      "summary": "[TELEMETRY] Gráfico da Telemetria Instantânea cresce verticalmente sem parar ao maximizar",
-      "type": "Bug",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "High",
-      "assignee": "Victor Hugo da Silva",
-      "updated": "2026-09-17",
-      "group": "Relatórios / Dashboard",
-      "kind": "theme"
     },
     {
       "key": "ED-1251",
@@ -5744,11 +5663,11 @@
       "summary": "[BUG] [GCDR] Sistema não realiza envio de e-mails",
       "type": "Bug",
       "sub": false,
-      "status": "Em Andamento",
-      "cat": "indeterminate",
+      "status": "Itens Novos",
+      "cat": "new",
       "priority": "Medium",
       "assignee": "Rodrigo Lago",
-      "updated": "2026-09-21",
+      "updated": "2026-09-22",
       "group": "GCDR / Plataforma",
       "kind": "theme"
     },
@@ -5848,11 +5767,11 @@
       "summary": "[BUG] [PRÉ-SETUP] [GCDR] Sistema não emite alerta de duplicidade (IPv6/UUID) ao cadastrar gateway e quebra sincronização com GCDR",
       "type": "Bug",
       "sub": false,
-      "status": "Em Andamento",
-      "cat": "indeterminate",
+      "status": "Itens Novos",
+      "cat": "new",
       "priority": "Medium",
       "assignee": "Rodrigo Lago",
-      "updated": "2026-06-22",
+      "updated": "2026-09-22",
       "group": "GCDR / Plataforma",
       "kind": "theme"
     },
@@ -6264,11 +6183,11 @@
       "summary": "[GCDR/AUTH] Implementar RFC-0059 — Auth0 Identity Platform & Grant Service",
       "type": "Tarefa",
       "sub": false,
-      "status": "Em Andamento",
+      "status": "PENDENTE",
       "cat": "indeterminate",
       "priority": "High",
       "assignee": "Rodrigo Lago",
-      "updated": "2026-09-21",
+      "updated": "2026-09-22",
       "group": "GCDR / Plataforma",
       "kind": "theme"
     },
@@ -7486,8 +7405,8 @@
       "summary": "[BUG] [PRÉ-SETUP] [GCDR] Falha na sincronização para o GDCR de cliente cadastrado com múltiplos gateways (2+)",
       "type": "Bug",
       "sub": false,
-      "status": "Em Andamento",
-      "cat": "indeterminate",
+      "status": "Itens Novos",
+      "cat": "new",
       "priority": "Medium",
       "assignee": "Rodrigo Lago",
       "updated": "2026-09-22",
@@ -7525,8 +7444,8 @@
       "summary": "[GCDR] Pré-setup: autopreencher \"Identificador\" ao adicionar device em asset com mais de 1 device",
       "type": "Tarefa",
       "sub": false,
-      "status": "Em Andamento",
-      "cat": "indeterminate",
+      "status": "Itens Novos",
+      "cat": "new",
       "priority": "Medium",
       "assignee": "Rodrigo Lago",
       "updated": "2026-09-22",
@@ -8130,6 +8049,84 @@
       "updated": "2026-09-22",
       "group": "Moxuara",
       "kind": "unit"
+    },
+    {
+      "key": "ED-1024",
+      "summary": "[MET-7] Metas Head Office v5.4.0 — Analítico exibe SDI Total Realizado",
+      "type": "Bug",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-09-22",
+      "group": "Shopping da Ilha / SDI",
+      "kind": "unit"
+    },
+    {
+      "key": "ED-1042",
+      "summary": "[BUG] [GCDR] Tela \"Novo Usuário\" não trava o Cliente na navegação escopada e ignora o customerId da URL",
+      "type": "Bug",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "High",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-09-22",
+      "group": "GCDR / Plataforma",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1067",
+      "summary": "[BUG] Alarmes de Geradores — notificações não enviadas (investigar falha de 2026-07-29)",
+      "type": "Bug",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "High",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-09-22",
+      "group": "Outros",
+      "kind": "other"
+    },
+    {
+      "key": "ED-1235",
+      "summary": "[BUG] Interpolação não preenche lacuna dentro do limite configurado no Relatório de Temperatura do Souza Aguiar",
+      "type": "Bug",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-09-22",
+      "group": "Souza Aguiar",
+      "kind": "unit"
+    },
+    {
+      "key": "ED-1236",
+      "summary": "Pre-Setup v2.0 — Sincronizar GCDR falha em \"Mapeando árvore ThingsBoard\" para Shopping Contagem (customer não encontrado no GCDR)",
+      "type": "Bug",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-09-22",
+      "group": "Contagem",
+      "kind": "unit"
+    },
+    {
+      "key": "ED-1250",
+      "summary": "[TELEMETRY] Gráfico da Telemetria Instantânea cresce verticalmente sem parar ao maximizar",
+      "type": "Bug",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "High",
+      "assignee": "Victor Hugo da Silva",
+      "updated": "2026-09-22",
+      "group": "Relatórios / Dashboard",
+      "kind": "theme"
     }
   ]
 }

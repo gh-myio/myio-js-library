@@ -193,7 +193,7 @@
 <script>
 const PURPLE='#663ab5', GREEN='#04c081', AMBER='#f6a609', RED='#e5484d', BLUE='#3b82f6', GRAY='#9aa0b4';
 const PALETTE=['#663ab5','#04c081','#f6a609','#3b82f6','#e5484d','#8e5bd8','#12b981','#f97316','#6366f1','#ec4899','#14b8a6','#eab308','#a855f7','#0ea5e9','#ef4444','#22c55e','#f59e0b','#7c3aed','#64748b','#d946ef'];
-let DATA=null, VIEW='backlog', charts={}, ONLY_PARENT=true;
+let DATA=null, VIEW='backlog', charts={}, ONLY_PARENT=true, SHOW_ITO=false;
 // Sprints do board 166 (mesmas do dashboard de performance) — presets de período por "updated"
 const SPRINTS=[
   {id:463,name:'Sprint 15',start:'2026-05-25',end:'2026-06-01'},
@@ -213,7 +213,13 @@ function statusClass(s){s=(s||'').toLowerCase();
 function kpiCard(n,l,s,cls){return `<div class="kpi ${cls||''}"><div class="n">${n}</div><div class="l">${l}</div>${s?`<div class="s">${s}</div>`:''}</div>`;}
 
 const isSubtask=r=>/subtarefa|subtask/i.test(r.type);
-function filteredList(arr){return ONLY_PARENT?arr.filter(r=>!isSubtask(r)):arr;}
+const isIto=r=>/sampaio ito/i.test(r.assignee||'');
+function filteredList(arr){
+  let list=arr;
+  if(ONLY_PARENT)list=list.filter(r=>!isSubtask(r));
+  if(!SHOW_ITO)list=list.filter(r=>!isIto(r));
+  return list;
+}
 const getSprint=()=>filteredList(DATA.sprint);
 const getBacklog=()=>filteredList(DATA.backlog);
 function computeAggregates(list){
@@ -367,9 +373,14 @@ function init(){
     `<span class="pill">📋 <a href="/docs/jira/processo.html">Modelo de Trabalho</a></span>`+
     `<span class="pill"><a href="${DATA.meta.jiraBase}/jira/software/projects/${DATA.meta.project}/boards/${DATA.meta.board}" target="_blank" rel="noopener">🔗 Abrir board no Jira</a></span>`+
     `<span class="pill">📄 <a href="./ED-sprint19-backlog-2026-07-28.md" target="_blank">Ver .md</a></span>`+
-    `<label class="pill" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px"><input type="checkbox" id="onlyParent" ${ONLY_PARENT?'checked':''} style="cursor:pointer">🧩 Mostrar apenas Tasks Pai</label>`;
+    `<label class="pill" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px"><input type="checkbox" id="onlyParent" ${ONLY_PARENT?'checked':''} style="cursor:pointer">🧩 Mostrar apenas Tasks Pai</label>`+
+    `<label class="pill" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px"><input type="checkbox" id="showIto" ${SHOW_ITO?'checked':''} style="cursor:pointer">👤 Exibir Itens do ITO</label>`;
   document.getElementById('onlyParent').addEventListener('change',e=>{
     ONLY_PARENT=e.target.checked;
+    renderKPIs(); renderCharts(); populateFilters(); renderTable();
+  });
+  document.getElementById('showIto').addEventListener('change',e=>{
+    SHOW_ITO=e.target.checked;
     renderKPIs(); renderCharts(); populateFilters(); renderTable();
   });
   document.getElementById('footer').innerHTML=

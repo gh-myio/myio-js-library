@@ -7,52 +7,9 @@
   "wipLimit": 1,
   "note": "WIP = tickets com status \"Em Andamento\". Acordo: 1 por pessoa (inclui \"Aguardando Demanda\" quando ocioso)."
  },
- "total": 8,
- "peopleOver": 1,
+ "total": 3,
+ "peopleOver": 0,
  "people": [
-  {
-   "name": "Rodrigo Lago",
-   "count": 6,
-   "over": true,
-   "tickets": [
-    {
-     "key": "ED-1242",
-     "type": "Tarefa",
-     "summary": "Sá Cavalcante - Ajuste retroativo de consumo de entrada",
-     "updated": "2026-09-17"
-    },
-    {
-     "key": "ED-1133",
-     "type": "Tarefa",
-     "summary": "[GCDR/AUTH] Implementar RFC-0059 — Auth0 Identity Platform & Grant Service",
-     "updated": "2026-09-21"
-    },
-    {
-     "key": "ED-973",
-     "type": "Bug",
-     "summary": "[BUG] [PRÉ-SETUP] [GCDR] Sistema não emite alerta de duplicidade (IPv6/UUID) ao cadastrar gateway e quebra sincronização com GCDR",
-     "updated": "2026-06-22"
-    },
-    {
-     "key": "ED-949",
-     "type": "Tarefa",
-     "summary": "[GCDR] Pré-setup: autopreencher \"Identificador\" ao adicionar device em asset com mais de 1 device",
-     "updated": "2026-09-22"
-    },
-    {
-     "key": "ED-941",
-     "type": "Bug",
-     "summary": "[BUG] [PRÉ-SETUP] [GCDR] Falha na sincronização para o GDCR de cliente cadastrado com múltiplos gateways (2+)",
-     "updated": "2026-09-22"
-    },
-    {
-     "key": "ED-920",
-     "type": "Bug",
-     "summary": "[BUG] [GCDR] Sistema não realiza envio de e-mails",
-     "updated": "2026-09-21"
-    }
-   ]
-  },
   {
    "name": "Letícia Camargo",
    "count": 1,
@@ -76,6 +33,19 @@
      "type": "Subtarefa",
      "summary": "Plano de canal por vizinhança física",
      "updated": "2026-09-16"
+    }
+   ]
+  },
+  {
+   "name": "Rodrigo Lago",
+   "count": 1,
+   "over": false,
+   "tickets": [
+    {
+     "key": "ED-1242",
+     "type": "Tarefa",
+     "summary": "Sá Cavalcante - Ajuste retroativo de consumo de entrada",
+     "updated": "2026-09-17"
     }
    ]
   }

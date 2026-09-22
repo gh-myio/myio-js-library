@@ -694,7 +694,7 @@
       "end": "2026-09-21",
       "complete": "",
       "state": "future",
-      "scope": 39,
+      "scope": 33,
       "done": 6,
       "burndown": [
         {
@@ -719,7 +719,7 @@
         },
         {
           "date": "2026-09-22",
-          "remaining": 33,
+          "remaining": 27,
           "ideal": 0
         }
       ],
