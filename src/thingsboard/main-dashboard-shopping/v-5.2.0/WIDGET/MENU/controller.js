@@ -202,12 +202,12 @@ self.onInit = function () {
         /* Vertical pill instead of a circle — same 50%-in/50%-out straddle,
            but a much taller click/touch target (was a 22x22 circle, easy to
            miss). Pattern matches VS Code / Notion sidebar collapse handles. */
-        width: 14px;
+        width: 28px;
         height: 60px;
-        border-radius: 7px;
-        border: 1px solid #e5e7eb;
-        background: #ffffff;
-        color: #2f2a3b;
+        border-radius: 10px;
+        border: 1px solid #d5d8de;
+        background: #e9ebef;
+        color: #4b5060;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -231,8 +231,8 @@ self.onInit = function () {
         opacity: 1;
       }
       .menu-collapse-arrow:hover {
-        background: #f4f1ff;
-        box-shadow: 0 2px 10px rgba(91, 60, 196, 0.2);
+        background: #dde0e6;
+        box-shadow: 0 2px 10px rgba(31, 28, 53, 0.22);
       }
       .menu-collapse-arrow:focus-visible {
         outline: 3px solid rgba(123, 93, 251, 0.4);
@@ -256,7 +256,7 @@ self.onInit = function () {
     // Width != height now (vertical pill, not a circle) — straddle the edge
     // using half the button's own width, and vertically center it using half
     // its own height, instead of reusing one "half" value for both axes.
-    const halfWidth = collapseArrowBtn.offsetWidth / 2 || 7;
+    const halfWidth = collapseArrowBtn.offsetWidth / 2 || 14;
     const halfHeight = collapseArrowBtn.offsetHeight / 2 || 30;
     collapseArrowBtn.style.left = Math.round(rect.right - halfWidth) + 'px';
     collapseArrowBtn.style.top = Math.round(rect.top + rect.height / 2 - halfHeight) + 'px';
