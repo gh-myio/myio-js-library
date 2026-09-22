@@ -193,7 +193,7 @@
 <script>
 const PURPLE='#663ab5', GREEN='#04c081', AMBER='#f6a609', RED='#e5484d', BLUE='#3b82f6', GRAY='#9aa0b4';
 const PALETTE=['#663ab5','#04c081','#f6a609','#3b82f6','#e5484d','#8e5bd8','#12b981','#f97316','#6366f1','#ec4899','#14b8a6','#eab308','#a855f7','#0ea5e9','#ef4444','#22c55e','#f59e0b','#7c3aed','#64748b','#d946ef'];
-let DATA=null, VIEW='backlog', charts={};
+let DATA=null, VIEW='backlog', charts={}, ONLY_PARENT=true;
 // Sprints do board 166 (mesmas do dashboard de performance) — presets de período por "updated"
 const SPRINTS=[
   {id:463,name:'Sprint 15',start:'2026-05-25',end:'2026-06-01'},
@@ -212,18 +212,34 @@ function statusClass(s){s=(s||'').toLowerCase();
 
 function kpiCard(n,l,s,cls){return `<div class="kpi ${cls||''}"><div class="n">${n}</div><div class="l">${l}</div>${s?`<div class="s">${s}</div>`:''}</div>`;}
 
+const isSubtask=r=>/subtarefa|subtask/i.test(r.type);
+function filteredList(arr){return ONLY_PARENT?arr.filter(r=>!isSubtask(r)):arr;}
+const getSprint=()=>filteredList(DATA.sprint);
+const getBacklog=()=>filteredList(DATA.backlog);
+function computeAggregates(list){
+  const count=(key)=>{
+    const o={};
+    list.forEach(r=>{const v=r[key]||'—';o[v]=(o[v]||0)+1;});
+    return Object.fromEntries(Object.entries(o).sort((a,b)=>b[1]-a[1]));
+  };
+  return {byStatus:count('status'),byType:count('type'),byPriority:count('priority'),byAssignee:count('assignee'),byGroup:count('group')};
+}
+
 function renderKPIs(){
-  const d=DATA, all=[...d.sprint,...d.backlog];
-  const bugs=all.filter(r=>/bug/i.test(r.type)).length;
-  const high=all.filter(r=>/High|Highest/i.test(r.priority)).length;
-  const inProg=d.sprint.filter(r=>/andamento/i.test(r.status)).length;
-  const groups=new Set(d.backlog.map(r=>r.group)).size;
+  const d=DATA, sprintList=getSprint(), backlogList=getBacklog();
+  const isBug=r=>/bug/i.test(r.type), isHigh=r=>/High|Highest/i.test(r.priority);
+  const bugsBacklog=backlogList.filter(isBug).length, bugsSprint=sprintList.filter(isBug).length;
+  const highBacklog=backlogList.filter(isHigh).length, highSprint=sprintList.filter(isHigh).length;
+  const inProg=sprintList.filter(r=>/andamento/i.test(r.status)).length;
+  const groups=new Set(backlogList.map(r=>r.group)).size;
+  const sprintOpen=sprintList.length, backlogOpen=backlogList.length;
+  const tc=document.getElementById('ticketCount'); if(tc)tc.textContent=sprintOpen+backlogOpen;
   document.getElementById('kpis').innerHTML=
-    kpiCard(d.summary.total,'Total em aberto','Sprint + Backlog','')+
-    kpiCard(d.summary.sprintOpen,d.meta.sprint.name,`${inProg} em andamento`,'green')+
-    kpiCard(d.summary.backlogOpen,'Backlog','sem épico/subtarefa','blue')+
-    kpiCard(bugs,'Bugs abertos','sprint + backlog','red')+
-    kpiCard(high,'Prioridade alta','High + Highest','amber')+
+    kpiCard(sprintOpen+backlogOpen,'Total em aberto',`Backlog ${backlogOpen} · Sprint ${sprintOpen}`,'')+
+    kpiCard(sprintOpen,d.meta.sprint.name,`${inProg} em andamento`,'green')+
+    kpiCard(backlogOpen,'Backlog','sem épico/subtarefa','blue')+
+    kpiCard(bugsBacklog+bugsSprint,'Bugs abertos',`Backlog ${bugsBacklog} · Sprint ${bugsSprint}`,'red')+
+    kpiCard(highBacklog+highSprint,'Prioridade alta',`Backlog ${highBacklog} · Sprint ${highSprint}`,'amber')+
     kpiCard(groups,'Grupos / unidades','no backlog','');
   document.querySelectorAll('[data-sprint-name]').forEach(e=>e.textContent=d.meta.sprint.name);
 }
@@ -248,7 +264,7 @@ function mkDoughnut(id,labels,values,colors){
 const entries=o=>Object.entries(o);
 
 function renderCharts(){
-  const bg=DATA.aggregates.backlog, sp=DATA.aggregates.sprint;
+  const bg=computeAggregates(getBacklog()), sp=computeAggregates(getSprint());
   // group (horizontal bar, sorted desc already)
   const g=entries(bg.byGroup);
   mkBar('chGroup',g.map(x=>x[0]),g.map(x=>x[1]),true,g.map((_,i)=>PALETTE[i%PALETTE.length]));
@@ -273,7 +289,7 @@ function renderCharts(){
 // ---- table + filters ----
 let sortKey='key', sortDir=1;
 function populateFilters(){
-  const list=DATA[VIEW];
+  const list=filteredList(DATA[VIEW]);
   const uniq=(k)=>[...new Set(list.map(r=>r[k]))].sort((a,b)=>a.localeCompare(b,'pt'));
   const fill=(id,vals,ph)=>{const s=document.getElementById(id);const cur=s.value;
     s.innerHTML=`<option value="">${ph}</option>`+vals.map(v=>`<option ${v===cur?'selected':''}>${v}</option>`).join('');};
@@ -283,7 +299,7 @@ function populateFilters(){
   fill('fPrio',uniq('priority'),'Toda prioridade');
 }
 function currentRows(){
-  let list=DATA[VIEW].slice();
+  let list=filteredList(DATA[VIEW]).slice();
   const q=document.getElementById('q').value.trim().toLowerCase();
   const fg=document.getElementById('fGroup').value, ft=document.getElementById('fType').value,
         fs=document.getElementById('fStatus').value, fp=document.getElementById('fPrio').value;
@@ -306,7 +322,7 @@ function currentRows(){
 }
 function renderTable(){
   const rows=currentRows(), base=DATA.meta.jiraBase, tb=document.getElementById('tbody');
-  document.getElementById('rowCount').textContent=`${rows.length} de ${DATA[VIEW].length}`;
+  document.getElementById('rowCount').textContent=`${rows.length} de ${filteredList(DATA[VIEW]).length}`;
   if(!rows.length){tb.innerHTML=`<tr><td colspan="7" class="empty">Nenhum ticket com os filtros atuais.</td></tr>`;return;}
   tb.innerHTML=rows.map(r=>`<tr>
     <td class="k">${jiraLink(r.key,base)}</td>
@@ -346,11 +362,16 @@ function init(){
     `${DATA.meta.projectName} (${DATA.meta.project}) · Board ${DATA.meta.board} · Sprint ativa: ${DATA.meta.sprint.name} (${fmt(DATA.meta.sprint.start)} → ${fmt(DATA.meta.sprint.end)})`;
   document.getElementById('metaPills').innerHTML=
     `<span class="pill">📅 Gerado em ${fmt(DATA.meta.generatedAt)}</span>`+
-    `<span class="pill">🎯 ${DATA.summary.total} tickets em aberto</span>`+
+    `<span class="pill">🎯 <span id="ticketCount">${DATA.summary.total}</span> tickets em aberto</span>`+
     `<span class="pill nav-perf">📉 <a href="/docs/jira/performance.html">Performance &amp; Burndown</a></span>`+
     `<span class="pill">📋 <a href="/docs/jira/processo.html">Modelo de Trabalho</a></span>`+
     `<span class="pill"><a href="${DATA.meta.jiraBase}/jira/software/projects/${DATA.meta.project}/boards/${DATA.meta.board}" target="_blank" rel="noopener">🔗 Abrir board no Jira</a></span>`+
-    `<span class="pill">📄 <a href="./ED-sprint19-backlog-2026-07-28.md" target="_blank">Ver .md</a></span>`;
+    `<span class="pill">📄 <a href="./ED-sprint19-backlog-2026-07-28.md" target="_blank">Ver .md</a></span>`+
+    `<label class="pill" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px"><input type="checkbox" id="onlyParent" ${ONLY_PARENT?'checked':''} style="cursor:pointer">🧩 Mostrar apenas Tasks Pai</label>`;
+  document.getElementById('onlyParent').addEventListener('change',e=>{
+    ONLY_PARENT=e.target.checked;
+    renderKPIs(); renderCharts(); populateFilters(); renderTable();
+  });
   document.getElementById('footer').innerHTML=
     `Fonte: ${DATA.meta.source}. Escopo: ${DATA.meta.scope} · Dados em <code>data.json</code>.`;
   // period selector (por data de "updated")

@@ -2,19 +2,31 @@
  "meta": {
   "project": "ED",
   "jiraBase": "https://myio.atlassian.net",
-  "generatedAt": "2026-09-15",
+  "generatedAt": "2026-09-21",
   "status": "Em Andamento",
   "wipLimit": 1,
   "note": "WIP = tickets com status \"Em Andamento\". Acordo: 1 por pessoa (inclui \"Aguardando Demanda\" quando ocioso)."
  },
- "total": 7,
+ "total": 8,
  "peopleOver": 1,
  "people": [
   {
    "name": "Rodrigo Lago",
-   "count": 4,
+   "count": 6,
    "over": true,
    "tickets": [
+    {
+     "key": "ED-1242",
+     "type": "Tarefa",
+     "summary": "Sá Cavalcante - Ajuste retroativo de consumo de entrada",
+     "updated": "2026-09-17"
+    },
+    {
+     "key": "ED-1133",
+     "type": "Tarefa",
+     "summary": "[GCDR/AUTH] Implementar RFC-0059 — Auth0 Identity Platform & Grant Service",
+     "updated": "2026-09-21"
+    },
     {
      "key": "ED-973",
      "type": "Bug",
@@ -22,22 +34,22 @@
      "updated": "2026-06-22"
     },
     {
-     "key": "ED-956",
-     "type": "Bug",
-     "summary": "[BUG] [PRÉ-SETUP] Ao criar novo cliente com estrutura sugerida, código do cliente não é gerado",
-     "updated": "2026-07-28"
-    },
-    {
      "key": "ED-949",
      "type": "Tarefa",
      "summary": "[GCDR] Pré-setup: autopreencher \"Identificador\" ao adicionar device em asset com mais de 1 device",
-     "updated": "2026-07-28"
+     "updated": "2026-09-14"
     },
     {
      "key": "ED-941",
      "type": "Bug",
      "summary": "[BUG] [PRÉ-SETUP] [GCDR] Falha na sincronização para o GDCR de cliente cadastrado com múltiplos gateways (2+)",
-     "updated": "2026-07-28"
+     "updated": "2026-09-14"
+    },
+    {
+     "key": "ED-920",
+     "type": "Bug",
+     "summary": "[BUG] [GCDR] Sistema não realiza envio de e-mails",
+     "updated": "2026-09-21"
     }
    ]
   },
@@ -50,7 +62,7 @@
      "key": "ED-1219",
      "type": "Tarefa",
      "summary": "QA: validar dashboard Tabela Temp V5 (Souza Aguiar) operacional após feature adjustmentSince",
-     "updated": "2026-09-03"
+     "updated": "2026-09-15"
     }
    ]
   },
@@ -60,23 +72,10 @@
    "over": false,
    "tickets": [
     {
-     "key": "ED-1208",
+     "key": "ED-1211",
      "type": "Subtarefa",
-     "summary": "Definir o critério de setor",
-     "updated": "2026-08-27"
-    }
-   ]
-  },
-  {
-   "name": "Victor Hugo da Silva",
-   "count": 1,
-   "over": false,
-   "tickets": [
-    {
-     "key": "ED-1133",
-     "type": "Tarefa",
-     "summary": "[GCDR/AUTH] Implementar RFC-0059 — Auth0 Identity Platform & Grant Service",
-     "updated": "2026-08-20"
+     "summary": "Plano de canal por vizinhança física",
+     "updated": "2026-09-16"
     }
    ]
   }
