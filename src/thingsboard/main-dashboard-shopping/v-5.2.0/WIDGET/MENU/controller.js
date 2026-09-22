@@ -70,6 +70,15 @@ self.onInit = function () {
     const has = !!(name && name.trim());
     el.textContent = has ? name.trim() : '';
     el.style.display = has ? 'block' : 'none';
+
+    // Keep the collapsed-state hover tooltip (aria-label, see styles.css
+    // .collapsed [aria-label]::after) showing the actual current shopping
+    // name instead of the generic "Trocar Shopping" — most useful precisely
+    // when collapsed, since that's when the name text itself is hidden.
+    const btn = document.getElementById('shopping-selector-btn');
+    if (btn) {
+      btn.setAttribute('aria-label', has ? `Trocar Shopping (atual: ${name.trim()})` : 'Trocar Shopping');
+    }
   }
 
   // chama e persiste o nome atual
@@ -127,27 +136,270 @@ self.onInit = function () {
     }
   })();
 
+  // Shared by the hamburger button AND the floating collapse arrow — both
+  // trigger the exact same collapse/expand behavior.
+  function toggleMenuCollapse() {
+    isMenuCollapsed = !isMenuCollapsed;
+
+    if (isMenuCollapsed) {
+      menuRoot.classList.add('collapsed');
+      LogHelper.log('[MENU] Menu collapsed');
+    } else {
+      menuRoot.classList.remove('collapsed');
+      LogHelper.log('[MENU] Menu expanded');
+    }
+
+    if (collapseArrowBtn) {
+      collapseArrowBtn.classList.toggle('is-collapsed', isMenuCollapsed);
+      collapseArrowBtn.title = isMenuCollapsed ? 'Expandir menu' : 'Recolher menu';
+      collapseArrowBtn.setAttribute('aria-label', collapseArrowBtn.title);
+    }
+    // Reposition on the next frame — the menu's width transitions, so wait a
+    // tick for layout to settle before reading its new boundingClientRect.
+    requestAnimationFrame(positionCollapseArrow);
+
+    // Emit event to notify other widgets (like MAIN_VIEW)
+    window.dispatchEvent(
+      new CustomEvent('myio:menu-toggle', {
+        detail: { collapsed: isMenuCollapsed },
+      })
+    );
+  }
+
   if (hamburgerBtn && menuRoot) {
     hamburgerBtn.addEventListener('click', function (e) {
       e.preventDefault();
-      isMenuCollapsed = !isMenuCollapsed;
-
-      if (isMenuCollapsed) {
-        menuRoot.classList.add('collapsed');
-        LogHelper.log('[MENU] Menu collapsed');
-      } else {
-        menuRoot.classList.remove('collapsed');
-        LogHelper.log('[MENU] Menu expanded');
-      }
-
-      // Emit event to notify other widgets (like MAIN_VIEW)
-      window.dispatchEvent(
-        new CustomEvent('myio:menu-toggle', {
-          detail: { collapsed: isMenuCollapsed },
-        })
-      );
+      toggleMenuCollapse();
     });
   }
+
+  // Floating collapse-arrow toggle — same action as the hamburger, but
+  // rendered as a small circular button straddling the menu's right edge
+  // (50% inside, 50% outside), matching sidebar-collapse patterns from other
+  // admin UIs. MUST live outside .shops-menu-root: the ThingsBoard widget
+  // frame around the menu has overflow:hidden (confirmed live via CDP), so a
+  // half-outside element placed *inside* the menu gets silently clipped —
+  // exactly the bug that made the footer buttons disappear when collapsed.
+  // Appended to document.body instead, `position:fixed`, JS-positioned.
+  let collapseArrowBtn = null;
+
+  // The button lives in document.body, OUTSIDE this widget's own Angular
+  // component tree — this widget's own `templateCss` is view-encapsulation
+  // scoped by Angular to elements *inside* the component, so it silently
+  // never matches an externally-appended body child (confirmed live: the
+  // button's `position:fixed` inline style was set correctly, but computed
+  // `position` never actually applied — it just fell into normal document
+  // flow at the bottom of <body>). A plain, unscoped <style> tag bypasses
+  // that scoping entirely — same pattern already used by the premium modals
+  // (e.g. openGenericModal.ts's injectDialogStyles()).
+  function injectMenuCollapseArrowStyles() {
+    if (document.getElementById('menu-collapse-arrow-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'menu-collapse-arrow-styles';
+    style.textContent = `
+      .menu-collapse-arrow {
+        position: fixed;
+        /* Vertical pill instead of a circle — same 50%-in/50%-out straddle,
+           but a much taller click/touch target (was a 22x22 circle, easy to
+           miss). Pattern matches VS Code / Notion sidebar collapse handles. */
+        width: 14px;
+        height: 60px;
+        border-radius: 7px;
+        border: 1px solid #e5e7eb;
+        background: #ffffff;
+        color: #2f2a3b;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        cursor: pointer;
+        box-shadow: 0 1px 6px rgba(31, 28, 53, 0.18);
+        /* Quieter at rest than the old circle (this is a much bigger shape,
+           full-strength all the time would read as heavy/intrusive on the
+           menu edge) — full opacity only on hover/focus. */
+        opacity: 0.6;
+        /* Must stay BELOW loading/busy overlays (myio-orchestrator-busy-overlay,
+           z-index:99999) and premium modals (z-index:999999) — found live: at
+           2147483000 it rendered on top of the "Carregando contrato..." busy
+           overlay, staying clickable while the app was mid-load. 10000 clears
+           ordinary dashboard widget content but yields to any real overlay. */
+        z-index: 10000;
+        transition: background 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+      }
+      .menu-collapse-arrow:hover,
+      .menu-collapse-arrow:focus-visible {
+        opacity: 1;
+      }
+      .menu-collapse-arrow:hover {
+        background: #f4f1ff;
+        box-shadow: 0 2px 10px rgba(91, 60, 196, 0.2);
+      }
+      .menu-collapse-arrow:focus-visible {
+        outline: 3px solid rgba(123, 93, 251, 0.4);
+        outline-offset: 2px;
+      }
+      .menu-collapse-arrow .menu-collapse-arrow__icon {
+        font-size: 12px;
+        line-height: 1;
+        transition: transform 0.2s ease;
+      }
+      .menu-collapse-arrow.is-collapsed .menu-collapse-arrow__icon {
+        transform: rotate(180deg);
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function positionCollapseArrow() {
+    if (!collapseArrowBtn || !menuRoot) return;
+    const rect = menuRoot.getBoundingClientRect();
+    // Width != height now (vertical pill, not a circle) — straddle the edge
+    // using half the button's own width, and vertically center it using half
+    // its own height, instead of reusing one "half" value for both axes.
+    const halfWidth = collapseArrowBtn.offsetWidth / 2 || 7;
+    const halfHeight = collapseArrowBtn.offsetHeight / 2 || 30;
+    collapseArrowBtn.style.left = Math.round(rect.right - halfWidth) + 'px';
+    collapseArrowBtn.style.top = Math.round(rect.top + rect.height / 2 - halfHeight) + 'px';
+  }
+
+  (function initCollapseArrow() {
+    // Idempotent: remove any leftover instance from a previous init (mirrors
+    // the lib-version-display guard above) — this button lives in
+    // document.body, outside the widget's own DOM, so TB re-running onInit
+    // wouldn't naturally clean it up on its own.
+    const existing = document.getElementById('menu-collapse-arrow');
+    if (existing) existing.remove();
+
+    if (!menuRoot) return;
+
+    injectMenuCollapseArrowStyles();
+
+    collapseArrowBtn = document.createElement('button');
+    collapseArrowBtn.id = 'menu-collapse-arrow';
+    collapseArrowBtn.type = 'button';
+    collapseArrowBtn.className = 'menu-collapse-arrow';
+    collapseArrowBtn.title = 'Recolher menu';
+    collapseArrowBtn.setAttribute('aria-label', 'Recolher menu');
+    collapseArrowBtn.innerHTML = '<span class="menu-collapse-arrow__icon">‹</span>';
+    collapseArrowBtn.addEventListener('click', function (e) {
+      e.preventDefault();
+      toggleMenuCollapse();
+    });
+
+    document.body.appendChild(collapseArrowBtn);
+    positionCollapseArrow();
+
+    window.addEventListener('resize', positionCollapseArrow);
+    // The menu's own width can also change without a window resize (e.g. the
+    // dashboard layout reflowing) — a lightweight polling fallback keeps the
+    // arrow glued to the edge without needing a ResizeObserver dependency.
+    const repositionInterval = setInterval(positionCollapseArrow, 500);
+
+    const oldDestroy2 = self.onDestroy;
+    self.onDestroy = function () {
+      if (typeof oldDestroy2 === 'function') oldDestroy2();
+      window.removeEventListener('resize', positionCollapseArrow);
+      clearInterval(repositionInterval);
+      if (collapseArrowBtn) {
+        collapseArrowBtn.remove();
+        collapseArrowBtn = null;
+      }
+    };
+  })();
+
+  // Hover tooltip for the icon-only footer buttons (+ lib version) when the
+  // menu is collapsed. A CSS-only ::after tooltip (position:relative on the
+  // button, absolute child) was tried first but reads its content from
+  // `aria-label` and extends past the collapsed menu's 48px width — the same
+  // overflow:hidden clipping bug that made the footer buttons themselves
+  // disappear. Fixed the same way as the collapse arrow: a single floating
+  // element appended to document.body, `position:fixed`, JS-positioned next
+  // to whichever button is hovered, with its own unscoped injected <style>.
+  let hoverTooltipEl = null;
+
+  function injectCollapseHoverTooltipStyles() {
+    if (document.getElementById('menu-collapse-tooltip-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'menu-collapse-tooltip-styles';
+    style.textContent = `
+      .menu-collapse-hover-tooltip {
+        position: fixed;
+        background: #1e2638;
+        color: #fff;
+        font: 500 11px/1.4 'Nunito', system-ui, sans-serif;
+        white-space: nowrap;
+        padding: 4px 8px;
+        border-radius: 5px;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.12s ease;
+        z-index: 10001;
+      }
+      .menu-collapse-hover-tooltip.is-visible {
+        opacity: 1;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function ensureHoverTooltipEl() {
+    if (hoverTooltipEl) return hoverTooltipEl;
+    injectCollapseHoverTooltipStyles();
+    hoverTooltipEl = document.createElement('div');
+    hoverTooltipEl.id = 'menu-collapse-hover-tooltip';
+    hoverTooltipEl.className = 'menu-collapse-hover-tooltip';
+    document.body.appendChild(hoverTooltipEl);
+    return hoverTooltipEl;
+  }
+
+  function showHoverTooltipFor(targetEl, text) {
+    if (!isMenuCollapsed || !text) return;
+    const tip = ensureHoverTooltipEl();
+    tip.textContent = text;
+    const rect = targetEl.getBoundingClientRect();
+    tip.style.left = Math.round(rect.right + 10) + 'px';
+    tip.style.top = Math.round(rect.top + rect.height / 2) + 'px';
+    tip.style.transform = 'translateY(-50%)';
+    tip.classList.add('is-visible');
+  }
+
+  function hideHoverTooltip() {
+    if (hoverTooltipEl) hoverTooltipEl.classList.remove('is-visible');
+  }
+
+  // Delegated on menuRoot (capture phase, since mouseover/mouseout are used
+  // instead of non-bubbling mouseenter/mouseleave) rather than bound directly
+  // to each button: #shopping-selector-btn and #settings-menu-btn are created
+  // asynchronously later in onInit (inside fetchUserInfo()), so binding here
+  // at init time would silently find them null. Delegation also survives TB
+  // re-running onInit and rebuilding these buttons.
+  const HOVER_TOOLTIP_SELECTOR = '#shopping-selector-btn, #settings-menu-btn, .logout-btn, #lib-version-display';
+
+  (function initCollapseHoverTooltip() {
+    if (!menuRoot) return;
+
+    menuRoot.addEventListener('mouseover', (e) => {
+      const el = e.target.closest(HOVER_TOOLTIP_SELECTOR);
+      if (!el || !menuRoot.contains(el)) return;
+      const text = el.getAttribute('aria-label') || el.querySelector('[aria-label]')?.getAttribute('aria-label');
+      showHoverTooltipFor(el, text);
+    });
+
+    menuRoot.addEventListener('mouseout', (e) => {
+      const el = e.target.closest(HOVER_TOOLTIP_SELECTOR);
+      if (!el) return;
+      hideHoverTooltip();
+    });
+
+    const oldDestroy3 = self.onDestroy;
+    self.onDestroy = function () {
+      if (typeof oldDestroy3 === 'function') oldDestroy3();
+      if (hoverTooltipEl) {
+        hoverTooltipEl.remove();
+        hoverTooltipEl = null;
+      }
+    };
+  })();
 
   // Shared auth headers helper (used by fetchUserInfo and openIntegrationSetupModal)
   function buildAuthHeaders() {
@@ -3357,6 +3609,10 @@ function openGoalsModal() {
     container.innerHTML = '';
 
     const MyIOLib = window.MyIOUtils;
+    // Collapsed-state hover tooltip (see initCollapseHoverTooltip) reads this
+    // aria-label — the badge's own inner markup comes from the library
+    // component below and isn't ours to annotate directly.
+    container.setAttribute('aria-label', `MyIO Lib v${MyIOLib?.version || 'unknown'}`);
     if (MyIOLib && typeof MyIOLib.createLibraryVersionChecker === 'function') {
       // Homolog channel toggle from MAIN_VIEW (settingsSchema.homologMode). When
       // ON, validate against the latest -homolog build instead of latest stable.
