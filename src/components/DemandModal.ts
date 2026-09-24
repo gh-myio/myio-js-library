@@ -133,7 +133,7 @@ export interface DemandModalStyles {
   borderRadius: string;                // Card border radius (8px)
   buttonRadius: string;                // Button border radius (6px)
   pillRadius: string;                  // Pill border radius (20px)
-  zIndex: number;                      // Modal z-index (10000)
+  zIndex: number;                      // Modal z-index (1000005 — above --myio-z-modal)
   
   // Spacing tokens
   spacingXs: string;                   // 4px
@@ -197,7 +197,7 @@ const DEFAULT_STYLES: DemandModalStyles = {
   borderRadius: '8px',
   buttonRadius: '6px',
   pillRadius: '20px',
-  zIndex: 10000,
+  zIndex: 1000005,
   spacingXs: '4px',
   spacingSm: '8px',
   spacingMd: '16px',
