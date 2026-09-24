@@ -34,9 +34,14 @@ export const CSS_TOKENS = `
   --myio-font-size-lg: 16px;
   --myio-line-height: 1.4;
   
-  /* Z-index */
-  --myio-z-modal: 9999;
-  --myio-z-backdrop: 9998;
+  /* Z-index — pushed well above the MENU widget's own scale (which goes up
+     to 999999 for its overlays/pickers, external to this repo's control) so
+     premium modals never render underneath a stray MENU element that leaks
+     out of its stacking context. See RFC discussion: settings button was
+     rendering on top of the open energy charts modal. */
+  --myio-z-modal: 1000001;
+  --myio-z-backdrop: 1000000;
+  --myio-z-popover: 1000010;
   --myio-z-sticky: 100;
   
   /* Animation */
@@ -363,7 +368,7 @@ export const DATERANGEPICKER_STYLES = `
   border-radius: 10px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
   background: #ffffff;
-  z-index: 10000;
+  z-index: var(--myio-z-popover, 1000010);
 }
 
 /* Wider ranges panel */
@@ -732,7 +737,7 @@ export const DATERANGEPICKER_STYLES = `
   border-radius: var(--myio-radius);
   box-shadow: var(--myio-shadow-lg);
   background: var(--myio-card);
-  z-index: var(--myio-z-popover, 10000);
+  z-index: var(--myio-z-popover, 1000010);
 }
 
 .myio-modal-scope .daterangepicker .calendar-table {

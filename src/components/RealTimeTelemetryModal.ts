@@ -417,7 +417,7 @@ export async function openRealTimeTelemetryModal(
         display: flex;
         align-items: center;
         justify-content: center;
-        z-index: 10000;
+        z-index: 1000005;
         padding: 20px;
         animation: fadeIn 0.2s ease;
       }
@@ -1010,7 +1010,7 @@ export async function openRealTimeTelemetryModal(
         border-top: none;
         border-radius: 0 0 6px 6px;
         box-shadow: 0 4px 12px rgba(0,0,0,0.12);
-        z-index: 10010;
+        z-index: 1000015;
         display: none;
       }
 
@@ -1591,7 +1591,7 @@ export async function openRealTimeTelemetryModal(
     toast.style.cssText = `
       position:fixed;bottom:80px;left:50%;transform:translateX(-50%);
       background:${bg};color:#fff;padding:10px 20px;border-radius:8px;
-      font-size:13px;font-weight:500;z-index:10002;
+      font-size:13px;font-weight:500;z-index:1000007;
       box-shadow:0 4px 16px rgba(0,0,0,0.3);pointer-events:none;
       white-space:nowrap;max-width:90vw;text-align:center;
       animation:rttToastIn 0.2s ease;
@@ -1684,7 +1684,7 @@ export async function openRealTimeTelemetryModal(
     s.id = 'rtt-card-tooltip-styles';
     s.textContent = `
       #rtt-card-tooltip,#rtt-status-tooltip,#rtt-device-tooltip {
-        position:fixed;z-index:99999;background:#fff;border-radius:12px;
+        position:fixed;z-index:1000300;background:#fff;border-radius:12px;
         border:1px solid #e2e8f0;
         box-shadow:0 10px 40px rgba(0,0,0,0.15),0 2px 10px rgba(0,0,0,0.08);
         min-width:240px;max-width:320px;overflow:hidden;
@@ -2291,7 +2291,7 @@ export async function openRealTimeTelemetryModal(
     backdrop.style.cssText = `
       position:fixed;inset:0;background:rgba(0,0,0,0.35);
       backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);
-      display:flex;align-items:center;justify-content:center;z-index:10200;
+      display:flex;align-items:center;justify-content:center;z-index:1000205;
     `;
     backdrop.innerHTML = `
       <div class="myio-realtime-telemetry-container" style="width:min(420px,94vw);max-height:90vh;overflow-y:auto;position:relative;">

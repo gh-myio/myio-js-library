@@ -1181,7 +1181,7 @@ function _injectStyles(topDoc: Document): void {
   const s = topDoc.createElement('style');
   s.id = STYLE_ID;
   s.textContent = `
-    .gm-overlay{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);opacity:0;transition:opacity .2s ease;font-family:'Nunito', system-ui, sans-serif;}
+    .gm-overlay{position:fixed;inset:0;z-index:1000000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);opacity:0;transition:opacity .2s ease;font-family:'Nunito', system-ui, sans-serif;}
     .gm-overlay.show{opacity:1;}
     .gm-modal{position:relative;background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.25);width:min(1000px,95vw);height:min(660px,90vh);overflow:hidden;display:flex;flex-direction:column;transform:translateY(12px) scale(.98);transition:transform .2s ease;}
     .gm-overlay.show .gm-modal{transform:translateY(0) scale(1);}
