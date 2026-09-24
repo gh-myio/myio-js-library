@@ -1503,6 +1503,7 @@ const footerController = {
         id: entity.id || entity.entityId,
         label: entity.name || entity.label || entity.id,
         tbId: entity.tbId || entity.entityId,
+        ingestionId: entity.ingestionId || null,
         customerName: entity.customerTitle || entity.customerName || entity.customer || null,
         temperatureMin: min !== undefined && min !== null ? Number(min) : undefined,
         temperatureMax: max !== undefined && max !== null ? Number(max) : undefined,
@@ -1555,6 +1556,68 @@ const footerController = {
       return;
     }
 
+    // RFC-0189: build an ingestion-based per-device fetcher, mirroring the
+    // single-device temperature modal fix in TELEMETRY/controller.js. ThingsBoard's
+    // own "temperature" timeseries key stopped being written for these devices
+    // (stale for weeks/months) — live data lives in the ingestion API instead,
+    // keyed by ingestionId. dataFetcher receives the same deviceId (tbId) that
+    // fetchAllDevicesData resolves per device, so we look up ingestionId here.
+    let ingestionDataFetcher = null;
+    const idToIngestionId = new Map(
+      devices.filter((d) => d.ingestionId).map((d) => [d.tbId || d.id, d.ingestionId])
+    );
+    const useIngestionApi = !!(window.MyIOUtils?.enableTemperatureApiDataFetch && idToIngestionId.size > 0);
+
+    if (useIngestionApi) {
+      try {
+        const creds = window.MyIOOrchestrator?.getCredentials?.();
+        if (!creds?.CLIENT_ID || !creds?.CLIENT_SECRET) {
+          throw new Error('Missing credentials for ingestion API');
+        }
+        const dataApiHost = window.MyIOUtils?.getDataApiHost?.();
+        const myIOAuth = window.MyIOUtils.buildMyioIngestionAuth({
+          dataApiHost,
+          clientId: creds.CLIENT_ID,
+          clientSecret: creds.CLIENT_SECRET,
+        });
+
+        ingestionDataFetcher = async (deviceId, fetchStartTs, fetchEndTs) => {
+          const ingestionId = idToIngestionId.get(deviceId);
+          if (!ingestionId) return [];
+
+          const token = await myIOAuth.getToken();
+          const url = new URL(`${dataApiHost}/telemetry/devices/${ingestionId}/temperature`);
+          url.searchParams.set('startTime', new Date(fetchStartTs).toISOString());
+          url.searchParams.set('endTime', new Date(fetchEndTs).toISOString());
+          url.searchParams.set('granularity', '1h');
+          url.searchParams.set('deep', '0');
+
+          const res = await fetch(url.toString(), { headers: { Authorization: `Bearer ${token}` } });
+          if (!res.ok) throw new Error(`Ingestion API error: ${res.status}`);
+
+          const json = await res.json();
+          const rows = Array.isArray(json) ? json : [];
+          const row = rows.find((r) => r.id === ingestionId) || rows[0] || null;
+          if (!row || !Array.isArray(row.consumption)) return [];
+
+          // Transform to TemperatureTelemetry[] format: { ts: number, value: number }
+          return row.consumption
+            .filter((e) => e && e.timestamp !== undefined && e.value !== undefined)
+            .map((e) => ({ ts: new Date(e.timestamp).getTime(), value: Number(e.value) }));
+        };
+
+        LogHelper.log(
+          `[MyIO Footer] 🌡️ RFC-0189: using ingestion API for comparison modal (${idToIngestionId.size} device(s))`
+        );
+      } catch (authErr) {
+        LogHelper.warn(
+          '[MyIO Footer] 🌡️ RFC-0189: could not build ingestion fetcher for comparison, falling back to TB:',
+          authErr.message
+        );
+        ingestionDataFetcher = null;
+      }
+    }
+
     try {
       _openTemperatureComparisonModal({
         token: jwtToken,
@@ -1567,6 +1630,7 @@ const footerController = {
         // Global fallback range (used only if devices don't have individual ranges)
         temperatureMin: globalTemperatureMin,
         temperatureMax: globalTemperatureMax,
+        ...(ingestionDataFetcher ? { dataFetcher: ingestionDataFetcher } : {}),
       });
 
       LogHelper.log('[MyIO Footer] Temperature comparison modal opened');
