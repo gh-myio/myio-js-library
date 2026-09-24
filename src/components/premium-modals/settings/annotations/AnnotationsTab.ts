@@ -5802,6 +5802,10 @@ export class AnnotationsTab {
     const isArchived = annotation.status === 'archived';
     const isFinalized = responseStatus === 'approved' || responseStatus === 'rejected';
     const cannotModify = !canModify || isArchived || isFinalized;
+    // Archiving is intentionally NOT gated by isFinalized — approved/rejected
+    // annotations must always remain archivable (business rule), only edit/
+    // respond/comment are locked once finalized.
+    const cannotArchive = !canModify || isArchived;
     const cannotRespond = isArchived || isFinalized;
     const cannotComment = isArchived || isFinalized;
 
@@ -5840,7 +5844,7 @@ export class AnnotationsTab {
 
         <div class="annotation-card__actions">
           <button class="annotation-card__btn annotation-card__btn--edit" data-action="edit" title="Editar anotação" ${cannotModify ? 'disabled' : ''}>✏️</button>
-          <button class="annotation-card__btn annotation-card__btn--archive" data-action="archive" title="Arquivar anotação" ${cannotModify ? 'disabled' : ''}>⬇️</button>
+          <button class="annotation-card__btn annotation-card__btn--archive" data-action="archive" title="Arquivar anotação" ${cannotArchive ? 'disabled' : ''}>⬇️</button>
           <button class="annotation-card__btn annotation-card__btn--approve" data-action="approve" title="Aprovar anotação" ${cannotRespond ? 'disabled' : ''}>✓</button>
           <button class="annotation-card__btn annotation-card__btn--reject" data-action="reject" title="Rejeitar anotação" ${cannotRespond ? 'disabled' : ''}>✗</button>
           <button class="annotation-card__btn annotation-card__btn--comment" data-action="comment" title="Adicionar comentário" ${cannotComment ? 'disabled' : ''}>💬</button>
@@ -6733,7 +6737,7 @@ export class AnnotationsTab {
           </div>
         </div>
         <div class="annotation-detail__footer">
-          ${canModify && annotation.status !== 'archived' && !hasResponse ? `
+          ${canModify && annotation.status !== 'archived' ? `
             <button class="annotation-detail__btn annotation-detail__btn--danger" data-action="archive">
               ⬇️ Arquivar
             </button>
