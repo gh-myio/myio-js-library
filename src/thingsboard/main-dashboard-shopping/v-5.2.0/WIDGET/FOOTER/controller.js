@@ -582,6 +582,13 @@ const footerController = {
       compareBtn: !!this.$compareBtn,
     });
 
+    // RFC-0233: per-user feature visibility (restrict_view) — footer has no
+    // other dynamic per-user gate today to mirror, this is the first one.
+    // Check immediately (MAIN_VIEW may have resolved restrict_view before
+    // FOOTER's own onInit ran) and subscribe (in case FOOTER initialized first).
+    this.applyFeatureVisibility();
+    window.addEventListener('myio:feature-visibility-ready', () => this.applyFeatureVisibility());
+
     this.bindEvents();
     LogHelper.log('[MyIO Footer] Events bound');
 
@@ -650,6 +657,19 @@ const footerController = {
       $compareBtn: this.$compareBtn,
       $dockScroll: !!this.$dockScroll,
     });
+  },
+
+  /**
+   * RFC-0233: hides the "Comparar" button + its parent `.myio-right` dock
+   * when the current user's restrict_view marks footer.compare as false. A
+   * lone disabled-forever Compare button with no way to ever enable it would
+   * be confusing UI, so the whole dock is hidden, not just the button.
+   */
+  applyFeatureVisibility() {
+    const isFV = window.MyIOUtils?.isFeatureVisible;
+    if (!isFV || isFV(['footer', 'compare'])) return; // not restricted — leave as-is
+    const dock = this.$footerEl?.querySelector('.myio-right');
+    if (dock) dock.style.display = 'none';
   },
 
   /**
