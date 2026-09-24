@@ -128,22 +128,67 @@ async function syncField(page, widgetName, fieldKey, { dryRun }) {
   const def = FIELD_DEF[fieldKey];
   const content = readFile(widgetName, def.fileName);
 
-  if (def.tabLabel) {
-    await page.evaluate((label) => {
-      const tabs = Array.from(document.querySelectorAll('.mat-mdc-tab, [role="tab"]'));
-      const tab = tabs.find((t) => t.textContent.trim() === label);
-      if (!tab) throw new Error('Tab not found: ' + label);
-      tab.click();
-    }, def.tabLabel);
-    await page.waitForTimeout(300); // tab-switch animation + lazy content mount
-  }
-
   // pageLocateEditor's SOURCE is passed as a string and reconstructed with
   // `new Function` inside the page, since Playwright's evaluate only
   // serializes the one function object it's handed, not other Node-side
   // functions referenced by closure. `new Function(body)` here is safe (no
   // user/network-controlled input — pageLocateEditor is our own static source).
   const locateSrc = pageLocateEditor.toString();
+
+  if (def.tabLabel) {
+    // Read the shared editor's content BEFORE the click, so we can detect
+    // when Angular has actually finished swapping tab content afterwards.
+    const preClickValue = await page.evaluate(
+      ({ pane, locateSrc }) => {
+        const locateEditorEl = new Function('pane', `const fn = ${locateSrc}; return fn(pane);`);
+        const el = locateEditorEl(pane);
+        return el ? window.ace.edit(el).getValue() : null;
+      },
+      { pane: def.pane, locateSrc }
+    );
+
+    await page.evaluate((label) => {
+      const tabs = Array.from(document.querySelectorAll('.mat-mdc-tab, [role="tab"]'));
+      const tab = tabs.find((t) => t.textContent.trim() === label);
+      if (!tab) throw new Error('Tab not found: ' + label);
+      tab.click();
+    }, def.tabLabel);
+
+    // CRITICAL (post-incident hardening): a fixed timeout here is not
+    // reliable — Angular's tab-switch handler (which commits the outgoing
+    // tab's content to ITS model slot, then loads the incoming tab's stored
+    // content into the shared Ace instance) can still be mid-flight when we
+    // call setValue() next. If our write lands before that handler's first
+    // step runs, our NEW value gets committed to the PREVIOUS (outgoing)
+    // tab's model instead — this is the exact corruption bug from the
+    // original incident, reproduced even in a single-field, no-reload run.
+    // Poll for the editor's content to actually change away from what it
+    // was pre-click, which can only happen once Angular's handler has run.
+    const start = Date.now();
+    let changed = false;
+    while (Date.now() - start < 3000) {
+      const current = await page.evaluate(
+        ({ pane, locateSrc }) => {
+          const locateEditorEl = new Function('pane', `const fn = ${locateSrc}; return fn(pane);`);
+          const el = locateEditorEl(pane);
+          return el ? window.ace.edit(el).getValue() : null;
+        },
+        { pane: def.pane, locateSrc }
+      );
+      if (current !== preClickValue) {
+        changed = true;
+        break;
+      }
+      await page.waitForTimeout(100);
+    }
+    if (!changed) {
+      // Rare fallback (e.g. the two tabs' stored content happens to be
+      // byte-identical) — give Angular extra grace time and proceed anyway.
+      console.log(`  [${fieldKey}] (tab content did not visibly change after click — using fallback grace wait)`);
+      await page.waitForTimeout(1000);
+    }
+    await page.waitForTimeout(200); // small settle margin after the detected swap
+  }
 
   const write = await page.evaluate(
     ({ pane, content, locateSrc }) => {
@@ -183,7 +228,20 @@ async function syncField(page, widgetName, fieldKey, { dryRun }) {
     return;
   }
 
-  await waitForSaveState(page, true); // Save must be enabled (dirty) before we click it
+  // If the content we just wrote is byte-identical to what was already
+  // saved, Angular never marks the form dirty and Save never enables — this
+  // is a legitimate "already up to date" case (verified above via read-back),
+  // not a failure. Treat it as a benign skip so it doesn't abort the rest of
+  // this widget's fields.
+  try {
+    await waitForSaveState(page, true); // Save must be enabled (dirty) before we click it
+  } catch (err) {
+    if (/become enabled/.test(err.message)) {
+      console.log(`  [${fieldKey}] OK (already up to date, nothing to save) — ${content.length} chars verified`);
+      return;
+    }
+    throw err;
+  }
   await page.evaluate(() => {
     const btn = Array.from(document.querySelectorAll('button')).find((b) => b.textContent.trim() === 'saveSave');
     if (!btn) throw new Error('Save button not found');
@@ -211,10 +269,11 @@ async function main() {
       continue;
     }
     console.log(`\n[${widgetName}] (${page.url()})`);
-    try {
-      let lastPane = null;
-      for (const fieldKey of fields) {
-        const pane = FIELD_DEF[fieldKey].pane;
+    let lastPane = null;
+    let widgetFailed = false;
+    for (const fieldKey of fields) {
+      const pane = FIELD_DEF[fieldKey].pane;
+      try {
         // Confirmed by incident post-mortem: syncing two 'left'-pane fields
         // (html/css) back-to-back in the SAME page session still corrupts
         // one into the other, even with the full save-cycle wait in between.
@@ -228,12 +287,15 @@ async function main() {
           await page.waitForTimeout(500);
         }
         await syncField(page, widgetName, fieldKey, { dryRun });
-        lastPane = pane;
+      } catch (err) {
+        // Don't let one field's failure stop the rest of this widget's
+        // fields from being attempted — each field is independent.
+        console.log(`  [${fieldKey}] FAILED: ${err.message}`);
+        widgetFailed = true;
       }
-    } catch (err) {
-      console.log(`  FAILED: ${err.message}`);
-      failures.push(widgetName);
+      lastPane = pane;
     }
+    if (widgetFailed) failures.push(widgetName);
   }
 
   await browser.close();
