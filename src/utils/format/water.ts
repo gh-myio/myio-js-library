@@ -28,10 +28,10 @@ export function formatWaterVolumeM3(value: number, locale: string = 'pt-BR'): st
 }
 
 /**
- * Formats tank head from centimeters to meters of water column (m.c.a.)
+ * Formats tank head from centimeters to meters of water column (M.C.A)
  * @param valueCm - The tank head value in centimeters
  * @param locale - The locale to use for formatting (defaults to 'pt-BR')
- * @returns Formatted tank head string in m.c.a. unit
+ * @returns Formatted tank head string in M.C.A unit (e.g. "12,21 M.C.A")
  */
 export function formatTankHeadFromCm(valueCm: number, locale: string = 'pt-BR'): string {
   if (valueCm === null || valueCm === undefined || isNaN(valueCm)) {
@@ -44,7 +44,7 @@ export function formatTankHeadFromCm(valueCm: number, locale: string = 'pt-BR'):
     maximumFractionDigits: 2
   });
   
-  return `${formattedValue} m.c.a.`;
+  return `${formattedValue} M.C.A`;
 }
 
 /**
