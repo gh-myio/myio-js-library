@@ -11,6 +11,7 @@ import {
   attach as attachDateRangePicker,
   type DateRangeControl,
 } from './premium-modals/internal/DateRangePickerJQ';
+import { formatPower } from '../utils/format/energy';
 
 export interface RealTimeTelemetryParams {
   token: string; // JWT token for ThingsBoard authentication
@@ -392,12 +393,15 @@ export async function openRealTimeTelemetryModal(
   let selectedChartKeys: string[] = [
     telemetryKeys.includes('consumption') ? 'consumption' : (telemetryKeys[0] ?? 'consumption'),
   ];
-  let selectedAgg: 'NONE' | 'MIN' | 'MAX' | 'AVG' | 'SUM' | 'COUNT' = 'NONE';
+  // Default mode is "Por Período" (last 7 days / Máximo / 24 horas) — matches
+  // the tab order and pre-selected controls in the markup below, so the modal
+  // opens already showing this period's data without any realtime bootstrap.
+  let selectedAgg: 'NONE' | 'MIN' | 'MAX' | 'AVG' | 'SUM' | 'COUNT' = 'MAX';
   let selectedLimit: number = 500;
-  let selectedIntervalMs: number = 0; // 0 = Padrão (don't send interval param)
+  let selectedIntervalMs: number = 86400000; // 24 horas
   let currentTheme: 'light' | 'dark' = 'light';
   let isExpanded = false;
-  let currentMode: 'realtime' | 'period' = 'realtime';
+  let currentMode: 'realtime' | 'period' = 'period';
   let periodDatePicker: DateRangeControl | null = null;
   let periodStartISO: string | null = null;
   let periodEndISO: string | null = null;
@@ -1337,10 +1341,10 @@ export async function openRealTimeTelemetryModal(
             <!-- Linha 2: tabs + controles de período -->
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
               <div class="myio-rtt-mode-tabs" id="rtt-mode-tabs">
-                <button class="myio-rtt-tab active" data-mode="realtime">Realtime</button>
-                <button class="myio-rtt-tab" data-mode="period">Pro Período</button>
+                <button class="myio-rtt-tab active" data-mode="period">Por Período</button>
+                <button class="myio-rtt-tab" data-mode="realtime">Realtime</button>
               </div>
-              <div class="myio-rtt-period-input" id="rtt-period-row">
+              <div class="myio-rtt-period-input visible" id="rtt-period-row">
                 <div class="myio-rtt-period-controls">
                   <input type="text" id="rtt-date-range" class="myio-telemetry-selector" readonly placeholder="Selecione o período" style="width: 260px; cursor: pointer;">
                   <button id="rtt-period-load-btn" class="myio-telemetry-btn myio-telemetry-btn-primary" style="padding: 6px 14px; font-size: 13px;">Carregar</button>
@@ -1349,7 +1353,7 @@ export async function openRealTimeTelemetryModal(
                       style="font-size:12px;padding:5px 8px;">
                       <option value="NONE">Bruto</option>
                       <option value="AVG">Média</option>
-                      <option value="MAX">Máximo</option>
+                      <option value="MAX" selected>Máximo</option>
                       <option value="MIN">Mínimo</option>
                       <option value="SUM">Soma</option>
                     </select>
@@ -1360,7 +1364,7 @@ export async function openRealTimeTelemetryModal(
                       <option value="900000">15 min</option>
                       <option value="1800000">30 min</option>
                       <option value="3600000">1 hora</option>
-                      <option value="86400000">24 horas</option>
+                      <option value="86400000" selected>24 horas</option>
                     </select>
                     <select id="chart-limit-input" class="myio-telemetry-selector" title="Limite de pontos retornados"
                       style="font-size:12px;padding:5px 8px;">
@@ -1395,7 +1399,7 @@ export async function openRealTimeTelemetryModal(
       </div>
 
       <div class="myio-realtime-telemetry-footer">
-        <div class="myio-telemetry-status">
+        <div class="myio-telemetry-status" id="rtt-status-row" style="display:none;">
           <span class="myio-telemetry-status-indicator" id="status-indicator"></span>
           <span id="status-text">${strings.autoUpdate}: ON</span>
           <span>•</span>
@@ -1406,7 +1410,7 @@ export async function openRealTimeTelemetryModal(
 
         <div class="myio-telemetry-actions">
           <span id="rtt-session-countdown" style="display:none;align-items:center;font-size:12px;font-weight:600;color:#667eea;background:rgba(102,126,234,0.1);padding:0 10px;height:32px;line-height:32px;border-radius:10px;white-space:nowrap;"></span>
-          <button class="myio-telemetry-btn myio-telemetry-btn-secondary" id="pause-btn">
+          <button class="myio-telemetry-btn myio-telemetry-btn-secondary" id="pause-btn" style="display:none;">
             <span id="pause-btn-icon">⏸️</span>
             <span id="pause-btn-text">${strings.pause}</span>
           </button>
@@ -1433,6 +1437,7 @@ export async function openRealTimeTelemetryModal(
   const periodLoadBtn = overlay.querySelector('#rtt-period-load-btn') as HTMLButtonElement;
   const expandIcon = overlay.querySelector('#rtt-expand-icon') as unknown as SVGElement;
   const container = overlay.querySelector('.myio-realtime-telemetry-container') as HTMLDivElement;
+  const statusRow = overlay.querySelector('#rtt-status-row') as HTMLDivElement;
   const pauseBtn = overlay.querySelector('#pause-btn') as HTMLButtonElement;
   const pauseBtnIcon = overlay.querySelector('#pause-btn-icon') as HTMLSpanElement;
   const pauseBtnText = overlay.querySelector('#pause-btn-text') as HTMLSpanElement;
@@ -2272,6 +2277,11 @@ export async function openRealTimeTelemetryModal(
         clearCountdown();
         await refreshData();
       }
+      // Stop the loop once the user has switched to "Por Período" — otherwise
+      // this reschedules itself forever in the background (harmless payload
+      // thanks to the guard above, but still ticking). switchMode('realtime')
+      // restarts it explicitly.
+      if (currentMode === 'period') return;
       scheduleCheckDeviceTick(); // reschedule
     }, pollMs);
   }
@@ -2515,17 +2525,34 @@ export async function openRealTimeTelemetryModal(
           }
         }
         if (peakPoint && peakKey) {
-          const cfg = TELEMETRY_CONFIG[peakKey] || { label: peakKey, unit: '' };
+          const cfg = TELEMETRY_CONFIG[peakKey] || { label: peakKey, unit: '', decimals: 2 };
+          // Daily (24h) buckets already drop the hour axis from the chart itself
+          // (isDailyBucket below) — the peak KPI must match: only the day, no time.
+          const isDailyBucket = selectedIntervalMs === 86400000;
           const when = peakPoint.x
-            ? new Date(peakPoint.x).toLocaleString(locale, {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-              })
+            ? new Date(peakPoint.x).toLocaleString(
+                locale,
+                isDailyBucket
+                  ? { day: '2-digit', month: '2-digit', year: 'numeric' }
+                  : {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    }
+              )
             : '';
-          peakSummaryEl.textContent = `Máxima: ${peakPoint.y.toFixed(2)} ${cfg.unit} (${cfg.label}) em ${when}`;
+          // Brazilian number mask: values in W auto-scale to kW/MW (formatPower),
+          // everything else keeps its own unit with a pt-BR decimal comma.
+          const formattedValue =
+            cfg.unit === 'W'
+              ? formatPower(peakPoint.y, 3)
+              : `${peakPoint.y.toLocaleString('pt-BR', {
+                  minimumFractionDigits: cfg.decimals ?? 2,
+                  maximumFractionDigits: cfg.decimals ?? 2,
+                })} ${cfg.unit}`;
+          peakSummaryEl.textContent = `Máxima: ${formattedValue} (${cfg.label}) em ${when}`;
           peakSummaryEl.style.display = 'block';
         } else {
           peakSummaryEl.style.display = 'none';
@@ -3346,6 +3373,17 @@ export async function openRealTimeTelemetryModal(
       clearCountdown();
       periodRow.classList.add('visible');
 
+      // Realtime-only footer bits (auto-update status, last-update clock,
+      // central/device badges, pause button) don't make sense over historical
+      // data — hide them while in "Por Período".
+      statusRow.style.display = 'none';
+      pauseBtn.style.display = 'none';
+      // stopSession() (not just hiding the element) — its setInterval otherwise
+      // keeps firing every second forever and re-shows sessionCountdownEl,
+      // which is exactly what made the footer "turn back on and stay on"
+      // after a Realtime → Período round trip.
+      stopSession();
+
       // Save realtime history snapshot so we can resume on switch back
       realtimeHistorySnapshot = new Map(Array.from(telemetryHistory.entries()).map(([k, v]) => [k, [...v]]));
       realtimeLastKnownSnapshot = new Map(lastKnownValues);
@@ -3369,6 +3407,8 @@ export async function openRealTimeTelemetryModal(
     } else {
       // Realtime mode: restore snapshot if available, then continue appending
       periodRow.classList.remove('visible');
+      statusRow.style.display = '';
+      pauseBtn.style.display = '';
 
       if (realtimeHistorySnapshot) {
         telemetryHistory = new Map(
@@ -3452,8 +3492,10 @@ export async function openRealTimeTelemetryModal(
     }
   });
   // Apply initial limit visibility: show only when agg is NONE
+  // (cast to string: selectedAgg's initial literal is 'MAX', so TS narrows the
+  // comparison as unreachable otherwise — this is a live default, not dead code)
   if (chartLimitInput) {
-    chartLimitInput.style.display = selectedAgg === 'NONE' ? '' : 'none';
+    chartLimitInput.style.display = (selectedAgg as string) === 'NONE' ? '' : 'none';
   }
 
   chartAggSelector?.addEventListener('change', (e) => {
@@ -3498,34 +3540,66 @@ export async function openRealTimeTelemetryModal(
   // Load polling interval from customer attribute (if customerId provided)
   if (customerId) await loadCheckDeviceInterval();
 
-  // Initial fetch: if centralId is provided, call check_device first, wait 8 s, then fetch telemetry.
-  // This ensures the first telemetry read reflects the freshest data from the device.
-  const useCheckDeviceOnOpen = !!centralId && !sessionStorage.getItem('rtt_check_device_disabled');
-  if (useCheckDeviceOnOpen) {
-    startCountdown(checkDeviceWaitMs);
+  if (currentMode === 'period') {
+    // Default mode: "Por Período" opens directly with the last 7 days /
+    // Máximo / 24 horas already selected (matching the pre-selected controls
+    // in the markup) and loads immediately — no realtime check_device POST,
+    // no polling bootstrap. The user can still switch to "Realtime" manually.
+    updateChartTitle();
+
+    const defaultEnd = new Date();
+    const defaultStart = new Date(defaultEnd.getTime() - 6 * 24 * 60 * 60 * 1000);
+    defaultStart.setHours(0, 0, 0, 0);
+    periodStartISO = defaultStart.toISOString();
+    periodEndISO = defaultEnd.toISOString();
+
     try {
-      await fetch(`https://${centralId}.y.myio.com.br/api/check_device/${deviceCheckName}`, {
-        signal: AbortSignal.timeout(10_000),
+      periodDatePicker = await attachDateRangePicker(dateRangeInput, {
+        presetStart: periodStartISO,
+        presetEnd: periodEndISO,
+        maxRangeDays: 90,
+        includeTime: true,
+        timePrecision: 'minute',
+        onApply: ({ startISO, endISO }) => {
+          periodStartISO = startISO;
+          periodEndISO = endISO;
+        },
       });
-      centralStatus = 'ok';
-      checkDeviceHistory.push({ ts: Date.now(), status: 'ok' });
     } catch (e) {
-      console.warn('[RTT] check_device (open) error:', (e as Error)?.message ?? e);
-      centralStatus = 'offline';
-      checkDeviceHistory.push({ ts: Date.now(), status: 'offline' });
+      console.warn('[RealTimeTelemetry] DateRangePicker init failed:', e);
     }
-    if (checkDeviceHistory.length > MAX_CHECK_DEVICE_HISTORY) checkDeviceHistory.shift();
-    updateStatusBadges();
-    await new Promise<void>((r) => setTimeout(r, checkDeviceWaitMs));
-    clearCountdown();
+
+    await loadPeriodData();
+  } else {
+    // Initial fetch: if centralId is provided, call check_device first, wait 8 s, then fetch telemetry.
+    // This ensures the first telemetry read reflects the freshest data from the device.
+    const useCheckDeviceOnOpen = !!centralId && !sessionStorage.getItem('rtt_check_device_disabled');
+    if (useCheckDeviceOnOpen) {
+      startCountdown(checkDeviceWaitMs);
+      try {
+        await fetch(`https://${centralId}.y.myio.com.br/api/check_device/${deviceCheckName}`, {
+          signal: AbortSignal.timeout(10_000),
+        });
+        centralStatus = 'ok';
+        checkDeviceHistory.push({ ts: Date.now(), status: 'ok' });
+      } catch (e) {
+        console.warn('[RTT] check_device (open) error:', (e as Error)?.message ?? e);
+        centralStatus = 'offline';
+        checkDeviceHistory.push({ ts: Date.now(), status: 'offline' });
+      }
+      if (checkDeviceHistory.length > MAX_CHECK_DEVICE_HISTORY) checkDeviceHistory.shift();
+      updateStatusBadges();
+      await new Promise<void>((r) => setTimeout(r, checkDeviceWaitMs));
+      clearCountdown();
+    }
+
+    await refreshData();
+
+    // Start regular polling tick (check_device → wait → refresh, repeating)
+    isFirstTick = false; // opening already did the initial check_device + wait
+    scheduleCheckDeviceTick();
+    startSession();
   }
-
-  await refreshData();
-
-  // Start regular polling tick (check_device → wait → refresh, repeating)
-  isFirstTick = false; // opening already did the initial check_device + wait
-  scheduleCheckDeviceTick();
-  startSession();
 
   return {
     destroy: closeModal,
