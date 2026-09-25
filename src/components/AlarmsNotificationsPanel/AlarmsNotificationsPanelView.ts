@@ -39,6 +39,17 @@ export class AlarmsNotificationsPanelView {
   private trendData: AlarmTrendDataPoint[] = [];
   private trendFetched = false;
 
+  /**
+   * RFC-0233 Phase 2: per-action alarm permission gate (header.alarms.features.<action>).
+   * Fails open (true) when restrict_view is absent/malformed or MyIOUtils isn't loaded yet —
+   * same fail-open contract as the rest of the RFC.
+   */
+  private isAlarmActionAllowed(action: 'acknowledge' | 'snooze' | 'escalate' | 'mapEdit'): boolean {
+    const isFV = (window as any).MyIOUtils?.isFeatureVisible;
+    if (typeof isFV !== 'function') return true;
+    return isFV(['header', 'alarms', 'features', action]);
+  }
+
   /** Called externally (e.g. from controller) to inject trend data and refresh the chart */
   updateTrendData(data: AlarmTrendDataPoint[]): void {
     this.trendData = data;
@@ -688,6 +699,9 @@ export class AlarmsNotificationsPanelView {
           hideSelect: this.closedHistoryMode || !isSeparado, // no bulk-select in closed mode or grouped
           hideDetails: !isSeparado,                // card click opens modal in grouped modes
           hideOccurrenceCount: isSeparado,         // Qte. always 1 in separado — not useful
+          canAcknowledge: this.isAlarmActionAllowed('acknowledge'),
+          canSnooze: this.isAlarmActionAllowed('snooze'),
+          canEscalate: this.isAlarmActionAllowed('escalate'),
         });
         grid.appendChild(card);
       });
@@ -1068,9 +1082,9 @@ export class AlarmsNotificationsPanelView {
       const escSource = this.esc(alarm.source || '-');
 
       const actionBtns = `
-        ${alarm.state === 'OPEN' ? `<button class="atbl-btn atbl-btn--ack" data-action="acknowledge" data-alarm-id="${alarm.id}" title="Reconhecer"><svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></button>` : ''}
-        ${isActive ? `<button class="atbl-btn atbl-btn--snooze" data-action="snooze" data-alarm-id="${alarm.id}" title="Adiar"><svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z"/></svg></button>` : ''}
-        ${isActive ? `<button class="atbl-btn atbl-btn--escalate" data-action="escalate" data-alarm-id="${alarm.id}" title="Escalar"><svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor"><path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z"/></svg></button>` : ''}
+        ${this.isAlarmActionAllowed('acknowledge') && alarm.state === 'OPEN' ? `<button class="atbl-btn atbl-btn--ack" data-action="acknowledge" data-alarm-id="${alarm.id}" title="Reconhecer"><svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></button>` : ''}
+        ${this.isAlarmActionAllowed('snooze') && isActive ? `<button class="atbl-btn atbl-btn--snooze" data-action="snooze" data-alarm-id="${alarm.id}" title="Adiar"><svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z"/></svg></button>` : ''}
+        ${this.isAlarmActionAllowed('escalate') && isActive ? `<button class="atbl-btn atbl-btn--escalate" data-action="escalate" data-alarm-id="${alarm.id}" title="Escalar"><svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor"><path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z"/></svg></button>` : ''}
         <button class="atbl-btn atbl-btn--details" data-action="details" data-alarm-id="${alarm.id}" title="Detalhes"><svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg></button>
       `;
 
@@ -1591,18 +1605,18 @@ export class AlarmsNotificationsPanelView {
           <ul class="abm-alarm-list">${listHtml}${moreHtml}</ul>
           <div class="abm-action-label">Escolha a ação:</div>
           <div class="abm-actions">
-            <button class="abm-action-btn abm-action-btn--ack" data-bulk-action="acknowledge">
+            ${this.isAlarmActionAllowed('acknowledge') ? `<button class="abm-action-btn abm-action-btn--ack" data-bulk-action="acknowledge">
               <span class="abm-action-icon">✅</span>
               <span>Reconhecer</span>
-            </button>
-            <button class="abm-action-btn abm-action-btn--snooze" data-bulk-action="snooze">
+            </button>` : ''}
+            ${this.isAlarmActionAllowed('snooze') ? `<button class="abm-action-btn abm-action-btn--snooze" data-bulk-action="snooze">
               <span class="abm-action-icon">⏰</span>
               <span>Adiar</span>
-            </button>
-            <button class="abm-action-btn abm-action-btn--escalate" data-bulk-action="escalate">
+            </button>` : ''}
+            ${this.isAlarmActionAllowed('escalate') ? `<button class="abm-action-btn abm-action-btn--escalate" data-bulk-action="escalate">
               <span class="abm-action-icon">⬆️</span>
               <span>Escalar</span>
-            </button>
+            </button>` : ''}
           </div>
         </div>
         <div class="abm-footer">

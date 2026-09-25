@@ -643,11 +643,14 @@ function _bindHeaderButtons() {
         return;
       }
 
+      // RFC-0233 Phase 2: header.alarms.features.mapEdit — view-only when explicitly restricted.
+      const _isFV = window.MyIOUtils?.isFeatureVisible || (() => true);
       MyIOBridge.openAlarmBundleMapModal({
         customerTB_ID,
         gcdrTenantId,
         gcdrApiBaseUrl,
         themeMode: _currentTheme,
+        readOnly: !_isFV(['header', 'alarms', 'features', 'mapEdit']),
       });
     });
   }

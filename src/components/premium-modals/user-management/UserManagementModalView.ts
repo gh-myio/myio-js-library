@@ -600,6 +600,9 @@ export class UserManagementModalView {
 .um-table tr:hover td { background: var(--um-bg-surface); }
 .um-col-actions { width: 100px; text-align: center; }
 .um-col-gcdr { width: 72px; text-align: center; }
+.um-col-sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+.um-col-sortable:hover { color: var(--um-text-secondary); }
+.um-sort-arrow { display: inline-block; width: 10px; margin-left: 2px; opacity: 0.6; }
 
 /* Sync status dot */
 .um-sync-icon { display: inline-flex; align-items: center; justify-content: center; }

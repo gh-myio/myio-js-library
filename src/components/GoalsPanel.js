@@ -127,7 +127,7 @@ export function openGoalsPanel(params) {
     amber: styles.warningColor || '#d97706',
     borderRadius: styles.borderRadius || '10px',
     fontFamily: styles.fontFamily || "'Nunito', system-ui, sans-serif",
-    zIndex: styles.zIndex || 10000,
+    zIndex: styles.zIndex || 1000000,
   };
 
   const MODAL_ID = 'goals-gcdr-modal';

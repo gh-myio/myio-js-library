@@ -1538,7 +1538,10 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
             LogHelper.warn('[HEADER] open-alarm-map: customerTB_ID not available');
             return;
           }
-          _openAlarmBundleMapModal({ customerTB_ID, gcdrTenantId, gcdrApiBaseUrl });
+          // RFC-0233 Phase 2: header.alarms.features.mapEdit — view-only when explicitly restricted.
+          const _isFV = window.MyIOUtils?.isFeatureVisible || (() => true);
+          const _mapReadOnly = !_isFV(['header', 'alarms', 'features', 'mapEdit']);
+          _openAlarmBundleMapModal({ customerTB_ID, gcdrTenantId, gcdrApiBaseUrl, readOnly: _mapReadOnly });
         });
 
         // Notification toggle
@@ -2636,6 +2639,35 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       // Initial sync — orchestrator may already be ready by the time HEADER mounts
       _syncAnnotationButtonVisibility();
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // RFC-0233 — per-user feature visibility (restrict_view). One more AND
+    // condition on top of the existing ticketsEnabled/enableAnnotationsOnboarding
+    // gates above, never a replacement for them: this only ever forces a
+    // restricted button to display:none, and does nothing for a non-restricted
+    // one (leaving the existing gates fully in control). Registered after those
+    // gates' own event listeners so it always runs last for the same events —
+    // a restriction can't be silently re-opened by a later gate re-show.
+    // ─────────────────────────────────────────────────────────────────────────
+    function _applyHeaderFeatureVisibility() {
+      const isFV = window.MyIOUtils?.isFeatureVisible;
+      if (!isFV) return;
+      [
+        ['tbx-btn-alarm-notif', 'alarms'],
+        ['tbx-btn-annotation-notif', 'annotations'],
+        ['tbx-btn-ticket-notif', 'tickets'],
+      ].forEach(([id, key]) => {
+        if (!isFV(['header', key])) {
+          const el = document.getElementById(id);
+          if (el) el.style.display = 'none';
+        }
+      });
+    }
+    _applyHeaderFeatureVisibility();
+    window.addEventListener('myio:feature-visibility-ready', _applyHeaderFeatureVisibility);
+    window.addEventListener('myio:tickets-ready', _applyHeaderFeatureVisibility);
+    window.addEventListener('myio:tickets-gate-changed', _applyHeaderFeatureVisibility);
+    window.addEventListener('myio:annotations-ready', _applyHeaderFeatureVisibility);
 
     // ─────────────────────────────────────────────────────────────────────────
     // RFC-0045 FIX: Track last emission to prevent duplicates

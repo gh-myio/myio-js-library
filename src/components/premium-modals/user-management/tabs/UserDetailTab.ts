@@ -1,4 +1,5 @@
 import { UserManagementConfig, TBUser, buildUserTabLabel, GCDRAssignment, GCDRRole, GCDRPolicy, UserAssignmentsResponse, UserRoleAssignmentsSnapshot } from '../types';
+import { MyIOToast } from '../../../../components/MyIOToast';
 
 export interface UserDetailCallbacks {
   onDeleted(): void;
@@ -8,6 +9,14 @@ export interface UserDetailCallbacks {
 }
 
 type DetailMode = 'view' | 'edit';
+
+/**
+ * RFC-0233: one node of the `restrict_view` tree. A bare boolean is the
+ * Phase 1 shorthand; the `{enabled, features}` shape (Phase 2) additionally
+ * carries nested sub-feature flags — currently only used for
+ * `header.alarms.features.{mapEdit,acknowledge,snooze,escalate}`.
+ */
+type RestrictViewNode = boolean | { enabled: boolean; features?: Record<string, boolean> };
 
 export class UserDetailTab {
   private config: UserManagementConfig;
@@ -23,6 +32,56 @@ export class UserDetailTab {
   private availablePolicies: GCDRPolicy[] = [];
   private assignmentsEl: HTMLElement | null = null;
   private assignmentsVersion = 0;
+
+  // RFC-0233: Feature access section state (restrict_view USER SERVER_SCOPE attribute)
+  private restrictView: Record<string, Record<string, RestrictViewNode>> | null = null;
+  private featureAccessEl: HTMLElement | null = null;
+  private featureAccessSaveBtn: HTMLButtonElement | null = null;
+
+  private static readonly FEATURE_GROUPS: Array<{
+    group: 'menu' | 'header' | 'footer';
+    groupLabel: string;
+    features: Array<{ key: string; label: string; icon: string }>;
+  }> = [
+    {
+      group: 'menu',
+      groupLabel: 'Menu',
+      features: [
+        { key: 'energy', label: 'Energia', icon: '⚡' },
+        { key: 'water', label: 'Água', icon: '💧' },
+        { key: 'temperature', label: 'Temperatura', icon: '🌡️' },
+        { key: 'alarms', label: 'Alarmes', icon: '🔔' },
+        { key: 'reports', label: 'Relatórios', icon: '📊' },
+        { key: 'goals', label: 'Metas', icon: '🎯' },
+        { key: 'settings', label: 'Configurações', icon: '⚙️' },
+      ],
+    },
+    {
+      group: 'header',
+      groupLabel: 'Cabeçalho',
+      features: [
+        { key: 'alarms', label: 'Notificação de Alarmes', icon: '🔔' },
+        { key: 'annotations', label: 'Anotações', icon: '✏️' },
+        { key: 'tickets', label: 'Chamados', icon: '🎧' },
+      ],
+    },
+    {
+      group: 'footer',
+      groupLabel: 'Rodapé',
+      features: [{ key: 'compare', label: 'Comparar', icon: '📊' }],
+    },
+  ];
+
+  /** menu.* keys where at least one must stay enabled — a user must always see at least one content domain. */
+  private static readonly MENU_MIN_ONE_KEYS = ['energy', 'water', 'temperature', 'alarms', 'reports', 'goals'];
+
+  /** RFC-0233 Phase 2: nested sub-features under header.alarms.features — only meaningful while the parent "Notificação de Alarmes" toggle is on. */
+  private static readonly ALARM_SUB_FEATURES: Array<{ key: string; label: string; icon: string }> = [
+    { key: 'mapEdit', label: 'Editar Mapa de Alarmes GCDR', icon: '🗺️' },
+    { key: 'acknowledge', label: 'Reconhecer alarmes', icon: '✅' },
+    { key: 'snooze', label: 'Adiar alarmes', icon: '⏰' },
+    { key: 'escalate', label: 'Escalar alarmes', icon: '📈' },
+  ];
 
   constructor(config: UserManagementConfig, user: TBUser, callbacks: UserDetailCallbacks) {
     this.config = config;
@@ -94,7 +153,146 @@ export class UserDetailTab {
     const assignmentsSection = this.buildAssignmentsSection();
     card.appendChild(assignmentsSection);
 
+    // Special permissions (isUserAdmin / isHolding, USER SERVER_SCOPE)
+    const specialPermissionsSection = this.buildSpecialPermissionsSection();
+    card.appendChild(specialPermissionsSection);
+
+    // RFC-0233: Feature access section
+    const featureAccessSection = this.buildFeatureAccessSection();
+    card.appendChild(featureAccessSection);
+
     return card;
+  }
+
+  // ── Special Permissions Section (isUserAdmin / isHolding) ─────────────────
+  //
+  // Both live on this USER's own SERVER_SCOPE (not the customer's) and are
+  // read together in MAIN_VIEW's detectSuperAdmin():
+  //   isHoldingAdmin = truthy('isHolding') && truthy('isUserAdmin')
+  // Note the naming collision: MENU/controller.js separately reads a
+  // DIFFERENT, CUSTOMER-scoped `isUserAdmin` attribute (RFC-0108) to decide
+  // whether to show the Settings/shopping-selector buttons for non-tenant-
+  // admin users of that customer — same attribute name, different scope,
+  // different purpose. This section only edits the USER-scoped pair used for
+  // Holding Admin detection.
+
+  private specialPermissions: { isUserAdmin: boolean; isHolding: boolean } | null = null;
+  private specialPermissionsEl: HTMLElement | null = null;
+  private specialPermissionsSaveBtn: HTMLButtonElement | null = null;
+
+  private buildSpecialPermissionsSection(): HTMLElement {
+    const section = document.createElement('div');
+    section.style.cssText = 'margin-top:20px;border:1px solid var(--um-border);border-radius:10px;overflow:hidden;';
+
+    const sectionHeader = document.createElement('div');
+    sectionHeader.style.cssText =
+      'display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--um-accent);border-bottom:1px solid var(--um-btn-2-border);';
+    sectionHeader.innerHTML = `<span style="font-size:13px;font-weight:600;color:#fff;">🛡️ Permissões Especiais</span>`;
+
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'um-btn um-btn--secondary um-btn--sm';
+    saveBtn.textContent = 'Salvar';
+    saveBtn.disabled = true;
+    saveBtn.addEventListener('click', () => this.saveSpecialPermissions(saveBtn));
+    sectionHeader.appendChild(saveBtn);
+    section.appendChild(sectionHeader);
+
+    const body = document.createElement('div');
+    body.style.cssText = 'padding:14px 16px;';
+    body.innerHTML = `<div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--um-text-faint);"><div class="um-spinner"></div> Carregando...</div>`;
+    section.appendChild(body);
+    this.specialPermissionsEl = body;
+    this.specialPermissionsSaveBtn = saveBtn;
+
+    this.loadSpecialPermissions();
+    return section;
+  }
+
+  private async loadSpecialPermissions(): Promise<void> {
+    const { tbBaseUrl, jwtToken } = this.config;
+    try {
+      const res = await fetch(
+        `${tbBaseUrl}/api/plugins/telemetry/USER/${this.user.id.id}/values/attributes/SERVER_SCOPE?keys=isUserAdmin,isHolding`,
+        { headers: { 'X-Authorization': `Bearer ${jwtToken}` } }
+      );
+      if (res.ok) {
+        const attrs: Array<{ key: string; value: unknown }> = await res.json();
+        this.specialPermissions = {
+          isUserAdmin: attrs.find((a) => a.key === 'isUserAdmin')?.value === true,
+          isHolding: attrs.find((a) => a.key === 'isHolding')?.value === true,
+        };
+      } else {
+        this.specialPermissions = { isUserAdmin: false, isHolding: false };
+      }
+    } catch (err) {
+      console.warn('[UserDetailTab] loadSpecialPermissions failed — defaulting to off:', err);
+      this.specialPermissions = { isUserAdmin: false, isHolding: false };
+    }
+    this.renderSpecialPermissions();
+  }
+
+  private renderSpecialPermissions(): void {
+    if (!this.specialPermissionsEl || !this.specialPermissions) return;
+    const el = this.specialPermissionsEl;
+    const rows: Array<{ key: 'isUserAdmin' | 'isHolding'; label: string; hint: string; icon: string }> = [
+      { key: 'isUserAdmin', label: 'Usuário Administrador', hint: 'isUserAdmin — em conjunto com Holding Admin, concede acesso administrativo elevado a este usuário.', icon: '👤' },
+      { key: 'isHolding', label: 'Holding Admin', hint: 'isHolding — em conjunto com Usuário Administrador, concede status de Holding Admin (acesso entre clientes).', icon: '🏢' },
+    ];
+    el.innerHTML = `
+      <div style="font-size:12px;color:var(--um-text-faint);margin-bottom:12px;">
+        Atributos de <code>SERVER_SCOPE</code> do próprio usuário. Ambos precisam estar ligados juntos para conceder status de Holding Admin.
+      </div>
+      <div style="display:flex;flex-direction:column;gap:2px;">
+        ${rows
+          .map(
+            (r, idx) => `
+          <label style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 8px;border-radius:6px;background:${
+            idx % 2 === 1 ? 'var(--um-bg-input)' : 'transparent'
+          };" title="${this.esc(r.hint)}">
+            <span style="font-size:13px;color:var(--um-text-secondary);">${r.icon} ${this.esc(r.label)}</span>
+            <span class="gm-toggle">
+              <input type="checkbox" class="gm-toggle-input um-special-permission-toggle" data-key="${r.key}" ${
+                this.specialPermissions![r.key] ? 'checked' : ''
+              } />
+              <span class="gm-toggle-slider"></span>
+            </span>
+          </label>`
+          )
+          .join('')}
+      </div>
+    `;
+
+    el.querySelectorAll<HTMLInputElement>('.um-special-permission-toggle').forEach((input) => {
+      input.addEventListener('change', () => {
+        const key = input.dataset.key as 'isUserAdmin' | 'isHolding';
+        if (!this.specialPermissions) this.specialPermissions = { isUserAdmin: false, isHolding: false };
+        this.specialPermissions[key] = input.checked;
+        if (this.specialPermissionsSaveBtn) this.specialPermissionsSaveBtn.disabled = false;
+      });
+    });
+  }
+
+  private async saveSpecialPermissions(btn: HTMLButtonElement): Promise<void> {
+    const { tbBaseUrl, jwtToken } = this.config;
+    if (!this.specialPermissions) return;
+    btn.disabled = true;
+    const originalLabel = btn.textContent;
+    btn.textContent = 'Salvando...';
+    try {
+      const res = await fetch(`${tbBaseUrl}/api/plugins/telemetry/USER/${this.user.id.id}/SERVER_SCOPE`, {
+        method: 'POST',
+        headers: { 'X-Authorization': `Bearer ${jwtToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(this.specialPermissions),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      MyIOToast.success('Permissões especiais atualizadas!');
+    } catch (err) {
+      console.error('[UserDetailTab] saveSpecialPermissions error', err);
+      MyIOToast.error('Erro ao salvar permissões especiais.');
+      btn.disabled = false;
+    } finally {
+      btn.textContent = originalLabel || 'Salvar';
+    }
   }
 
   // ── RFC-0197: Assignments Section ─────────────────────────────────────────
@@ -170,7 +368,7 @@ export class UserDetailTab {
       this.renderAssignments();
     } catch (err) {
       console.error('[UserDetailTab] loadAssignments error', err);
-      this.callbacks.showToast('Erro ao carregar atribuições. Verifique a conexão com o GCDR.', 'error');
+      MyIOToast.error('Erro ao carregar atribuições. Verifique a conexão com o GCDR.');
       if (this.assignmentsEl) {
         this.assignmentsEl.innerHTML = `<div style="font-size:12px;color:var(--um-btn-danger-text);">Erro ao carregar atribuições.</div>`;
       }
@@ -339,14 +537,14 @@ export class UserDetailTab {
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const created: GCDRAssignment = await res.json();
-        this.callbacks.showToast(`Função "${role?.displayName || roleId}" atribuída!`, 'success');
+        MyIOToast.success(`Função "${role?.displayName || roleId}" atribuída!`);
         close();
         this.assignments.push(created);
         this.renderAssignments();
         await this.writeTBSnapshot();
       } catch (err) {
         console.error('[UserDetailTab] assign error', err);
-        this.callbacks.showToast('Erro ao atribuir função.', 'error');
+        MyIOToast.error('Erro ao atribuir função.');
         btn.disabled = false; btn.textContent = 'Atribuir';
       }
     });
@@ -363,11 +561,268 @@ export class UserDetailTab {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       this.assignments = this.assignments.filter(x => x.id !== a.id);
       this.renderAssignments();
-      this.callbacks.showToast(`Função "${label}" revogada.`, 'success');
+      MyIOToast.success(`Função "${label}" revogada.`);
       await this.writeTBSnapshot();
     } catch (err) {
       console.error('[UserDetailTab] revoke error', err);
-      this.callbacks.showToast('Erro ao revogar função.', 'error');
+      MyIOToast.error('Erro ao revogar função.');
+    }
+  }
+
+  // ── RFC-0233: Feature Access Section ──────────────────────────────────────
+
+  private buildFeatureAccessSection(): HTMLElement {
+    const section = document.createElement('div');
+    section.style.cssText = 'margin-top:20px;border:1px solid var(--um-border);border-radius:10px;overflow:hidden;';
+
+    const sectionHeader = document.createElement('div');
+    sectionHeader.style.cssText =
+      'display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--um-accent);border-bottom:1px solid var(--um-btn-2-border);';
+    sectionHeader.innerHTML = `<span style="font-size:13px;font-weight:600;color:#fff;">🔓 Acesso em Funcionalidades</span>`;
+
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'um-btn um-btn--secondary um-btn--sm';
+    saveBtn.textContent = 'Salvar';
+    saveBtn.disabled = true;
+    saveBtn.addEventListener('click', () => this.saveFeatureAccess(saveBtn));
+    sectionHeader.appendChild(saveBtn);
+    section.appendChild(sectionHeader);
+
+    const body = document.createElement('div');
+    body.style.cssText = 'padding:14px 16px;';
+    body.innerHTML = `<div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--um-text-faint);"><div class="um-spinner"></div> Carregando...</div>`;
+    section.appendChild(body);
+    this.featureAccessEl = body;
+    this.featureAccessSaveBtn = saveBtn;
+
+    this.loadFeatureAccess();
+    return section;
+  }
+
+  /**
+   * RFC-0233: reads the raw `restrict_view` USER SERVER_SCOPE attribute for
+   * this user (same key/scope MAIN_VIEW reads at dashboard load). Absent or
+   * malformed → fails open to "nothing restricted" (all toggles default on),
+   * matching the RFC's own fail-open semantics.
+   */
+  private async loadFeatureAccess(): Promise<void> {
+    const { tbBaseUrl, jwtToken } = this.config;
+    try {
+      const res = await fetch(
+        `${tbBaseUrl}/api/plugins/telemetry/USER/${this.user.id.id}/values/attributes/SERVER_SCOPE?keys=restrict_view`,
+        { headers: { 'X-Authorization': `Bearer ${jwtToken}` } }
+      );
+      if (res.ok) {
+        const attrs: Array<{ key: string; value: unknown }> = await res.json();
+        const raw = attrs.find((a) => a.key === 'restrict_view')?.value;
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        this.restrictView = parsed && typeof parsed === 'object' ? (parsed as Record<string, Record<string, RestrictViewNode>>) : null;
+      } else {
+        this.restrictView = null;
+      }
+    } catch (err) {
+      console.warn('[UserDetailTab] loadFeatureAccess failed — defaulting to fully enabled (fail-open):', err);
+      this.restrictView = null;
+    }
+    this.renderFeatureAccess();
+  }
+
+  /** Same resolution rule as `isFeatureVisible` in MAIN_VIEW: absent/malformed → enabled; only an explicit `false` (or `{enabled:false}`) restricts. */
+  private isFeatureEnabled(group: string, key: string): boolean {
+    const node = this.restrictView?.[group]?.[key] as unknown;
+    if (node == null) return true;
+    if (typeof node === 'boolean') return node;
+    if (typeof node === 'object') return (node as { enabled?: boolean }).enabled !== false;
+    return true;
+  }
+
+  /**
+   * RFC-0233 Phase 2: resolves one of header.alarms.features.{mapEdit,acknowledge,snooze,escalate}.
+   * Mirrors isFeatureVisible's own nested resolution: absent parent → enabled;
+   * a bare boolean parent applies to every sub-feature; an {enabled,features}
+   * parent falls back to `enabled` for any sub-key not explicitly listed.
+   */
+  private isAlarmSubFeatureEnabled(subKey: string): boolean {
+    const node = this.restrictView?.header?.alarms;
+    if (node == null) return true;
+    if (typeof node === 'boolean') return node;
+    const features = node.features;
+    if (features && subKey in features) return features[subKey] !== false;
+    return node.enabled !== false;
+  }
+
+  /** RFC-0233 Phase 2: renders the 4 nested alarm sub-toggles under the "Notificação de Alarmes" row. */
+  private renderAlarmSubFeatures(parentEnabled: boolean): string {
+    return `
+      <div style="margin:2px 0 4px 20px;padding-left:10px;border-left:2px solid var(--um-border);display:flex;flex-direction:column;gap:2px;${
+        parentEnabled ? '' : 'opacity:0.45;'
+      }">
+        ${UserDetailTab.ALARM_SUB_FEATURES.map(
+          (sf, idx) => `
+          <label style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 8px;border-radius:6px;background:${
+            idx % 2 === 1 ? 'var(--um-bg-input)' : 'transparent'
+          };">
+            <span style="font-size:12px;color:var(--um-text-muted);">${sf.icon} ${this.esc(sf.label)}</span>
+            <span class="gm-toggle">
+              <input type="checkbox" class="gm-toggle-input um-alarm-sub-toggle" data-subkey="${sf.key}" ${
+                this.isAlarmSubFeatureEnabled(sf.key) ? 'checked' : ''
+              } ${parentEnabled ? '' : 'disabled'} />
+              <span class="gm-toggle-slider"></span>
+            </span>
+          </label>`
+        ).join('')}
+      </div>`;
+  }
+
+  private renderFeatureAccess(): void {
+    if (!this.featureAccessEl) return;
+    const el = this.featureAccessEl;
+    const alarmsEnabled = this.isFeatureEnabled('header', 'alarms');
+    el.innerHTML = `
+      <div style="font-size:12px;color:var(--um-text-faint);margin-bottom:12px;">
+        Controla quais itens de menu, botões do cabeçalho e recursos do rodapé este usuário específico enxerga no dashboard.
+        Por padrão tudo está liberado — desative apenas o que este usuário não deve ver.
+      </div>
+      ${UserDetailTab.FEATURE_GROUPS.map(
+        (g) => `
+        <div style="margin-bottom:14px;">
+          <div style="font-size:11px;font-weight:600;color:var(--um-text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;">${this.esc(g.groupLabel)}</div>
+          <div style="display:flex;flex-direction:column;gap:2px;">
+            ${g.features
+              .map(
+                (f, idx) => `
+              <label style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 8px;border-radius:6px;background:${
+                idx % 2 === 1 ? 'var(--um-bg-input)' : 'transparent'
+              };">
+                <span style="font-size:13px;color:var(--um-text-secondary);">${f.icon} ${this.esc(f.label)}</span>
+                <span class="gm-toggle">
+                  <input type="checkbox" class="gm-toggle-input um-feature-toggle" data-group="${g.group}" data-key="${f.key}" ${
+                    this.isFeatureEnabled(g.group, f.key) ? 'checked' : ''
+                  } />
+                  <span class="gm-toggle-slider"></span>
+                </span>
+              </label>${g.group === 'header' && f.key === 'alarms' ? this.renderAlarmSubFeatures(alarmsEnabled) : ''}`
+              )
+              .join('')}
+          </div>
+        </div>`
+      ).join('')}
+    `;
+
+    el.querySelectorAll<HTMLInputElement>('.um-feature-toggle').forEach((input) => {
+      input.addEventListener('change', () => {
+        const group = input.dataset.group!;
+        const key = input.dataset.key!;
+
+        // At least one of the 6 main menu domains must stay enabled — a user
+        // must always be able to see at least one content domain.
+        if (!input.checked && group === 'menu' && UserDetailTab.MENU_MIN_ONE_KEYS.includes(key)) {
+          const wouldAllBeDisabled = UserDetailTab.MENU_MIN_ONE_KEYS.every((k) =>
+            k === key ? false : !this.isFeatureEnabled('menu', k)
+          );
+          if (wouldAllBeDisabled) {
+            input.checked = true;
+            MyIOToast.error('Pelo menos uma funcionalidade entre Energia, Água, Temperatura, Alarmes, Relatórios ou Metas precisa ficar habilitada.');
+            return;
+          }
+        }
+
+        if (!this.restrictView) this.restrictView = {};
+        if (!this.restrictView[group]) this.restrictView[group] = {};
+
+        // header.alarms carries nested `features` (RFC-0233 Phase 2) —
+        // preserve them across a plain enable/disable of the parent toggle
+        // instead of clobbering the node with a bare boolean, then re-render
+        // so the sub-toggles' enabled/disabled state follows the parent.
+        if (group === 'header' && key === 'alarms') {
+          const existing = this.restrictView.header.alarms;
+          const existingFeatures = existing && typeof existing === 'object' ? existing.features : undefined;
+          this.restrictView.header.alarms = existingFeatures
+            ? { enabled: input.checked, features: existingFeatures }
+            : input.checked;
+          if (this.featureAccessSaveBtn) this.featureAccessSaveBtn.disabled = false;
+          this.renderFeatureAccess();
+          return;
+        }
+
+        this.restrictView[group][key] = input.checked;
+        if (this.featureAccessSaveBtn) this.featureAccessSaveBtn.disabled = false;
+      });
+    });
+
+    el.querySelectorAll<HTMLInputElement>('.um-alarm-sub-toggle').forEach((input) => {
+      input.addEventListener('change', () => {
+        const subKey = input.dataset.subkey!;
+        if (!this.restrictView) this.restrictView = {};
+        if (!this.restrictView.header) this.restrictView.header = {};
+        const existing = this.restrictView.header.alarms;
+        const parentEnabled = existing == null ? true : typeof existing === 'boolean' ? existing : existing.enabled !== false;
+        const existingFeatures: Record<string, boolean> =
+          existing && typeof existing === 'object' && existing.features
+            ? { ...existing.features }
+            : Object.fromEntries(UserDetailTab.ALARM_SUB_FEATURES.map((sf) => [sf.key, true]));
+        existingFeatures[subKey] = input.checked;
+        this.restrictView.header.alarms = { enabled: parentEnabled, features: existingFeatures };
+        if (this.featureAccessSaveBtn) this.featureAccessSaveBtn.disabled = false;
+      });
+    });
+  }
+
+  /** Writes the full explicit true/false map back to `restrict_view` (USER SERVER_SCOPE). */
+  private async saveFeatureAccess(btn: HTMLButtonElement): Promise<void> {
+    // Belt-and-suspenders: the per-toggle `change` guard should already
+    // prevent reaching this state via the UI, but Salvar must never persist
+    // it regardless of how `this.restrictView` got here (stale data loaded
+    // from a prior bad save, a re-render race, etc.) — a user must always be
+    // able to see at least one content domain.
+    const allMenuDisabled = UserDetailTab.MENU_MIN_ONE_KEYS.every((k) => !this.isFeatureEnabled('menu', k));
+    if (allMenuDisabled) {
+      MyIOToast.error('Pelo menos uma funcionalidade entre Energia, Água, Temperatura, Alarmes, Relatórios ou Metas precisa ficar habilitada.');
+      return;
+    }
+
+    const { tbBaseUrl, jwtToken } = this.config;
+    btn.disabled = true;
+    const originalLabel = btn.textContent;
+    btn.textContent = 'Salvando...';
+    try {
+      const payload: Record<string, Record<string, RestrictViewNode>> = {};
+      UserDetailTab.FEATURE_GROUPS.forEach((g) => {
+        payload[g.group] = {};
+        g.features.forEach((f) => {
+          if (g.group === 'header' && f.key === 'alarms') {
+            // RFC-0233 Phase 2: only emit the nested {enabled, features} shape
+            // when at least one sub-feature is actually restricted — keeps the
+            // stored JSON as the plain boolean everywhere else stays, and is
+            // semantically identical either way per isFeatureVisible's resolver.
+            const enabled = this.isFeatureEnabled('header', 'alarms');
+            const features: Record<string, boolean> = {};
+            let anyRestricted = false;
+            UserDetailTab.ALARM_SUB_FEATURES.forEach((sf) => {
+              const v = this.isAlarmSubFeatureEnabled(sf.key);
+              features[sf.key] = v;
+              if (!v) anyRestricted = true;
+            });
+            payload[g.group][f.key] = anyRestricted ? { enabled, features } : enabled;
+            return;
+          }
+          payload[g.group][f.key] = this.isFeatureEnabled(g.group, f.key);
+        });
+      });
+      const res = await fetch(`${tbBaseUrl}/api/plugins/telemetry/USER/${this.user.id.id}/SERVER_SCOPE`, {
+        method: 'POST',
+        headers: { 'X-Authorization': `Bearer ${jwtToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ restrict_view: payload }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      this.restrictView = payload;
+      MyIOToast.success('Acesso em funcionalidades atualizado!');
+    } catch (err) {
+      console.error('[UserDetailTab] saveFeatureAccess error', err);
+      MyIOToast.error('Erro ao salvar acesso em funcionalidades.');
+      btn.disabled = false;
+    } finally {
+      btn.textContent = originalLabel || 'Salvar';
     }
   }
 
@@ -502,11 +957,11 @@ export class UserDetailTab {
       this.user = saved;
       this.mode = 'view';
       this.renderContent();
-      this.callbacks.showToast('Usuário atualizado com sucesso!', 'success');
+      MyIOToast.success('Usuário atualizado com sucesso!');
       this.callbacks.onUpdated(saved);
     } catch (err: any) {
       console.error('[UserDetailTab] handleSave error', err);
-      this.callbacks.showToast('Erro ao salvar. Tente novamente.', 'error');
+      MyIOToast.error('Erro ao salvar. Tente novamente.');
     } finally {
       this.saving = false;
       saveBtn.disabled = false;
@@ -532,10 +987,10 @@ export class UserDetailTab {
             body: JSON.stringify({ email: this.user.email }),
           });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          this.callbacks.showToast('E-mail de redefinição de senha enviado!', 'success');
+          MyIOToast.success('E-mail de redefinição de senha enviado!');
         } catch (err: any) {
           console.error('[UserDetailTab] resetPassword error', err);
-          this.callbacks.showToast('Erro ao enviar e-mail de redefinição.', 'error');
+          MyIOToast.error('Erro ao enviar e-mail de redefinição.');
         }
       },
     });
@@ -556,11 +1011,11 @@ export class UserDetailTab {
             headers: { 'X-Authorization': `Bearer ${jwtToken}` },
           });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          this.callbacks.showToast(`Usuário ${name} excluído.`, 'success');
+          MyIOToast.success(`Usuário ${name} excluído.`);
           this.callbacks.onDeleted();
         } catch (err: any) {
           console.error('[UserDetailTab] delete error', err);
-          this.callbacks.showToast('Erro ao excluir usuário. Verifique as permissões.', 'error');
+          MyIOToast.error('Erro ao excluir usuário. Verifique as permissões.');
         }
       },
     });
