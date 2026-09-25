@@ -2332,46 +2332,55 @@ Object.assign(window.MyIOUtils, {
     // <tb-dashboard-state> renders "Dashboard state with id ... is not found"
     // inside the still-visible div (nothing hides it until a MENU click).
     // Hide the divs of DISABLED domains (display:none — Angular-safe, no DOM
-    // removal) and make the _initialTab div the visible one.
-    try {
-      const STATE_BY_DOMAIN = {
-        energy: 'telemetry_content',
-        water: 'water_content',
-        temperature: 'temperature_content',
-      };
-      const _initialStateId = STATE_BY_DOMAIN[_initialTab] || 'telemetry_content';
-      // RFC-0233: restrict_view narrows on top of domainsEnabled, never widens
-      // it — a user can't see a domain the dashboard itself has disabled.
-      const _isFV = window.MyIOUtils?.isFeatureVisible || (() => true);
-      const _stateDivs = self.ctx.$container[0].querySelectorAll('[data-content-state]');
-      _stateDivs.forEach((div) => {
-        const stId = div.getAttribute('data-content-state');
-        const domainOfState = Object.keys(STATE_BY_DOMAIN).find((d) => STATE_BY_DOMAIN[d] === stId);
-        if (
-          domainOfState &&
-          (widgetSettings.domainsEnabled?.[domainOfState] === false || !_isFV(['menu', domainOfState]))
-        ) {
-          div.style.display = 'none'; // domínio desabilitado (dashboard) ou restrito (restrict_view)
-          return;
+    // removal) and make the first available domain's div the visible one.
+    //
+    // RFC-0233: extracted into a named, re-callable function because
+    // `detectSuperAdmin()` above is fired WITHOUT awaiting it — at the point
+    // this used to run inline, `window.MyIOUtils.featureVisibility` has not
+    // been populated yet, so `isFeatureVisible()` fails open (returns true
+    // for everything) and any restrict_view-based restriction is silently
+    // skipped on the first pass. Re-running this once `restrict_view` has
+    // actually loaded (myio:feature-visibility-ready) is what actually
+    // applies the restriction. It also now picks the first ALLOWED domain
+    // (energy → water → temperature → alarms) as the visible one, instead of
+    // only ever hiding a restricted domain without promoting another.
+    function applyDomainStateVisibility() {
+      try {
+        const STATE_BY_DOMAIN = {
+          energy: 'telemetry_content',
+          water: 'water_content',
+          temperature: 'temperature_content',
+          alarms: 'alarm_content',
+        };
+        // RFC-0233: restrict_view narrows on top of domainsEnabled, never
+        // widens it — a user can't see a domain the dashboard itself has
+        // disabled.
+        const _isFV = window.MyIOUtils?.isFeatureVisible || (() => true);
+        const _domainAllowed = (domain) =>
+          widgetSettings.domainsEnabled?.[domain] !== false && _isFV(['menu', domain]);
+        const _activeDomain = ['energy', 'water', 'temperature', 'alarms'].find(_domainAllowed);
+        if (!_activeDomain) {
+          LogHelper.warn('[MAIN_VIEW] applyDomainStateVisibility: no domain allowed (domainsEnabled + restrict_view) — leaving all state divs hidden.');
         }
-        if (domainOfState) {
-          div.style.display = stId === _initialStateId ? 'block' : 'none';
-        }
-        // alarm_content / integrations: mantém o default do template (none)
-      });
-      // RFC-0233: alarm_content has no domainsEnabled equivalent (alarms are
-      // always available per-dashboard today), but restrict_view can still
-      // hide it per-user. Handled separately from the loop above so it never
-      // changes alarm_content's existing block/none toggling behavior when
-      // NOT restricted — this only ever forces it to 'none'.
-      if (!_isFV(['menu', 'alarms'])) {
-        const _alarmDiv = self.ctx.$container[0].querySelector('[data-content-state="alarm_content"]');
-        if (_alarmDiv) _alarmDiv.style.display = 'none';
+        const _activeStateId = _activeDomain ? STATE_BY_DOMAIN[_activeDomain] : null;
+        const _stateDivs = self.ctx.$container[0].querySelectorAll('[data-content-state]');
+        _stateDivs.forEach((div) => {
+          const stId = div.getAttribute('data-content-state');
+          const domainOfState = Object.keys(STATE_BY_DOMAIN).find((d) => STATE_BY_DOMAIN[d] === stId);
+          if (!domainOfState) return; // integrations / other non-domain states: keep template default
+          div.style.display = stId === _activeStateId ? 'block' : 'none';
+        });
+        LogHelper.log('[MAIN_VIEW] RFC-0233: state divs aligned — active domain:', _activeDomain || '(none)');
+      } catch (stateErr) {
+        LogHelper.warn('[MAIN_VIEW] applyDomainStateVisibility failed:', stateErr);
       }
-      LogHelper.log('[MAIN_VIEW] RFC-0152c: state divs aligned — visible:', _initialStateId);
-    } catch (stateErr) {
-      LogHelper.warn('[MAIN_VIEW] RFC-0152c: state-div alignment failed:', stateErr);
     }
+
+    applyDomainStateVisibility();
+    // RFC-0233: reapply once the real restrict_view (if any) has finished
+    // loading — detectSuperAdmin() dispatches this after its async USER
+    // SERVER_SCOPE fetch resolves, which happens after the call above.
+    window.addEventListener('myio:feature-visibility-ready', applyDomainStateVisibility);
 
     // Initialize MyIO Library and Authentication
     const MyIO =

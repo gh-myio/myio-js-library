@@ -1538,7 +1538,10 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
             LogHelper.warn('[HEADER] open-alarm-map: customerTB_ID not available');
             return;
           }
-          _openAlarmBundleMapModal({ customerTB_ID, gcdrTenantId, gcdrApiBaseUrl });
+          // RFC-0233 Phase 2: header.alarms.features.mapEdit — view-only when explicitly restricted.
+          const _isFV = window.MyIOUtils?.isFeatureVisible || (() => true);
+          const _mapReadOnly = !_isFV(['header', 'alarms', 'features', 'mapEdit']);
+          _openAlarmBundleMapModal({ customerTB_ID, gcdrTenantId, gcdrApiBaseUrl, readOnly: _mapReadOnly });
         });
 
         // Notification toggle
