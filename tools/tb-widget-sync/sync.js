@@ -255,7 +255,10 @@ async function main() {
   const { fields, widgets, dryRun } = parseArgs();
   console.log(`Fields: ${fields.join(', ')} | Widgets: ${widgets.join(', ')} | dryRun=${dryRun}`);
 
-  const browser = await chromium.connectOverCDP(CDP_ENDPOINT);
+  // Default 30s connect timeout isn't always enough once the dashboard page
+  // has accumulated many worker targets over a long session (Playwright has
+  // to enumerate all of them on connect) — bump it rather than fail spuriously.
+  const browser = await chromium.connectOverCDP(CDP_ENDPOINT, { timeout: 90000 });
   const contexts = browser.contexts();
   const allPages = contexts.flatMap((c) => c.pages());
 
