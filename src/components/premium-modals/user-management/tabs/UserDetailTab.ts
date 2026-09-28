@@ -1,5 +1,6 @@
 import { UserManagementConfig, TBUser, buildUserTabLabel, GCDRAssignment, GCDRRole, GCDRPolicy, UserAssignmentsResponse, UserRoleAssignmentsSnapshot } from '../types';
 import { MyIOToast } from '../../../../components/MyIOToast';
+import { openConfirmDialog } from '../../dialog';
 
 export interface UserDetailCallbacks {
   onDeleted(): void;
@@ -972,7 +973,7 @@ export class UserDetailTab {
   private handleResetPassword(): void {
     this.showConfirmDialog({
       title: 'Redefinir Senha',
-      message: `Enviar e-mail de redefinição de senha para <strong>${this.esc(this.user.email)}</strong>?`,
+      message: `Enviar e-mail de redefinição de senha para ${this.user.email}?`,
       confirmLabel: 'Enviar E-mail',
       confirmClass: 'um-btn--secondary',
       onConfirm: async () => {
@@ -1000,7 +1001,7 @@ export class UserDetailTab {
     const name = [this.user.firstName, this.user.lastName].filter(Boolean).join(' ') || this.user.email;
     this.showConfirmDialog({
       title: 'Excluir Usuário',
-      message: `Tem certeza que deseja excluir o usuário <strong>${this.esc(name)}</strong>? Esta ação não pode ser desfeita.`,
+      message: `Tem certeza que deseja excluir o usuário "${name}"? Esta ação não pode ser desfeita.`,
       confirmLabel: 'Excluir',
       confirmClass: 'um-btn--danger',
       onConfirm: async () => {
@@ -1021,43 +1022,35 @@ export class UserDetailTab {
     });
   }
 
-  private showConfirmDialog(opts: {
+  /**
+   * Confirmation via the shared premium dialog (RFC-0205) — same component the user list uses, so it
+   * follows the modal's light/dark theme instead of the hard-coded dark box this used to render.
+   * It is mounted inside this modal's own `.um-backdrop` (z-index 99999), otherwise it would paint behind it.
+   */
+  private async showConfirmDialog(opts: {
     title: string;
     message: string;
     confirmLabel: string;
     confirmClass: string;
     onConfirm: () => Promise<void>;
-  }): void {
-    const overlay = document.createElement('div');
-    overlay.className = 'um-confirm-overlay';
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:100001;';
-
-    const modal = document.createElement('div');
-    modal.className = 'um-confirm-modal';
-    modal.style.cssText = 'background:#1e2433;border:1px solid #3a4160;border-radius:12px;padding:24px;max-width:440px;width:90%;box-shadow:0 24px 64px rgba(0,0,0,0.5);';
-    modal.innerHTML = `
-      <h4 style="margin:0 0 12px;font-size:16px;font-weight:600;color:#e2e8f0;">${opts.title}</h4>
-      <p style="margin:0 0 20px;font-size:14px;color:#94a3b8;line-height:1.5;">${opts.message}</p>
-      <div style="display:flex;gap:8px;justify-content:flex-end;">
-        <button class="um-btn um-btn--ghost um-confirm-cancel">Cancelar</button>
-        <button class="um-btn ${opts.confirmClass} um-confirm-ok">${opts.confirmLabel}</button>
-      </div>
-    `;
-
-    overlay.appendChild(modal);
-    document.body.appendChild(overlay);
-
-    const close = () => overlay.remove();
-
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
-    modal.querySelector('.um-confirm-cancel')!.addEventListener('click', close);
-    modal.querySelector('.um-confirm-ok')!.addEventListener('click', async () => {
-      const btn = modal.querySelector<HTMLButtonElement>('.um-confirm-ok')!;
-      btn.disabled = true;
-      btn.textContent = '...';
-      close();
-      await opts.onConfirm();
+  }): Promise<void> {
+    const choice = await openConfirmDialog({
+      title: opts.title,
+      message: opts.message,
+      buttons: [
+        { label: 'Cancelar', value: 'cancel', variant: 'secondary' },
+        {
+          label: opts.confirmLabel,
+          value: 'confirm',
+          variant: opts.confirmClass.includes('danger') ? 'danger' : 'primary',
+          autoFocus: true,
+        },
+      ],
+      theme: this.config.theme,
+      container: (this.el.closest('.um-backdrop') as HTMLElement | null) || undefined,
     });
+    if (choice !== 'confirm') return;
+    await opts.onConfirm();
   }
 
   private esc(s: string): string {
