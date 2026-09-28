@@ -85,7 +85,8 @@ ssh -i id_rsa root@<ipv6-da-central>
 | Shopping Contagem      | `200:12b0:b768:7ba0:32b5:1c15:bec7:33aa` | `70b6d878-090f-4326-af18-2695396cbc67` | —          | —          |
 | ~~Shopping Capim Dourado~~ ⚠️ **INATIVADA 2026-07-30** — substituída pela central nova abaixo (central nova de fábrica, **sem restauração de banco**; pré-setup ainda pendente) | ~~`200:1e47:5d5e:d011:a88c:6f1b:fda2:622d`~~ | ~~`988433ae-88c1-49b1-b43b-e08592ae3005`~~ | —          | —          |
 | Shopping Capim Dourado 2.0 - 2026-07-30 | `200:9738:d165:f821:68d3:2852:d822:a748` | `84638207-ac49-4adf-a033-4731dbb920c2` | `75.216.106.156` | `102`      |
-| West Plaza             | `203:1211:7a3a:89f:4ce2:4482:13:e8b`     | `1982b47d-2e82-40df-94cc-f89ae12cba58` | `137.177.222.39` | `1117`     |
+| ~~West Plaza~~ ⚠️ **SUBSTITUÍDA 2026-09-28** — substituída pela central nova abaixo | ~~`203:1211:7a3a:89f:4ce2:4482:13:e8b`~~ | ~~`1982b47d-2e82-40df-94cc-f89ae12cba58`~~ | ~~`137.177.222.39`~~ | ~~`1117`~~ |
+| West Plaza - NOVA - 2026-09-28 | `200:4bfa:32e0:da5f:74bd:ab68:202b:20a7` | `61b789a3-23cc-45b2-91a3-5ec1dfc2ac6d` | `70.96.63.2222` | `77`      |
 
 #### Holding: ARGO PLAN
 
@@ -250,8 +251,11 @@ ssh -i id_rsa root@200:12b0:b768:7ba0:32b5:1c15:bec7:33aa
 # Shopping Capim Dourado 2.0 - 2026-07-30 (Soul Malls) — central nova (sem restore de banco; pré-setup pendente)
 ssh -i id_rsa root@200:9738:d165:f821:68d3:2852:d822:a748
 
-# West Plaza (Soul Malls)
-ssh -i id_rsa root@203:1211:7a3a:89f:4ce2:4482:13:e8b
+# West Plaza (Soul Malls) — ⚠️ SUBSTITUÍDA 2026-09-28
+# ssh -i id_rsa root@203:1211:7a3a:89f:4ce2:4482:13:e8b
+
+# West Plaza - NOVA - 2026-09-28 (Soul Malls)
+ssh -i id_rsa root@200:4bfa:32e0:da5f:74bd:ab68:202b:20a7
 
 # Deodoro (Supervia Estações)
 ssh -i id_rsa root@200:1e6a:69a5:73f1:b18a:e6e:aa68:9229
