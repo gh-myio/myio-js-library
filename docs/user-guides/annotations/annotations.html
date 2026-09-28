@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MyIO — Guia: Anotações</title>
+<style>
+  :root {
+    --myio-purple: #663ab5;
+    --myio-purple-dark: #4d2a91;
+    --myio-purple-soft: #efe8fb;
+    --myio-green: #04c081;
+    --myio-green-dark: #039b69;
+    --myio-amber: #f5a623;
+    --myio-red: #e03131;
+    --text: #2a2340;
+    --muted: #6f6787;
+    --border: #e5ddf5;
+    --bg: #f7f4fc;
+    --white: #ffffff;
+    --shadow: 0 10px 30px rgba(102, 58, 181, 0.12);
+    --radius-xl: 22px;
+    --radius-lg: 16px;
+    --radius-md: 12px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: Inter, "Segoe UI", Arial, sans-serif;
+    background: #ece8f6;
+    color: var(--text);
+    padding: 24px;
+    line-height: 1.55;
+  }
+  .doc {
+    max-width: 860px;
+    margin: 0 auto;
+    background: var(--bg);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .hero {
+    background: linear-gradient(135deg, var(--myio-purple-dark), var(--myio-purple) 62%, #7d52cf);
+    color: var(--white);
+    padding: 36px 40px 30px;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::after {
+    content: "";
+    position: absolute;
+    right: -70px;
+    top: -45px;
+    width: 220px;
+    height: 220px;
+    background: rgba(4, 192, 129, 0.92);
+    border-radius: 50%;
+  }
+  .hero .brand { font-weight: 800; letter-spacing: 0.04em; font-size: 13px; color: #f4f2fb; position: relative; z-index: 1; }
+  .hero h1 { margin: 10px 0 6px; font-size: 30px; color: var(--white); position: relative; z-index: 1; }
+  .hero p { margin: 0; color: #f4f2fb; font-size: 14px; position: relative; z-index: 1; max-width: 560px; }
+  main { padding: 34px 40px 44px; }
+  h2 {
+    font-size: 19px;
+    color: var(--myio-purple-dark);
+    border-bottom: 2px solid var(--border);
+    padding-bottom: 8px;
+    margin-top: 38px;
+  }
+  h2:first-of-type { margin-top: 0; }
+  h3 { font-size: 15px; color: var(--myio-purple-dark); margin-top: 24px; }
+  p, li { font-size: 14px; color: var(--text); }
+  a { color: var(--myio-purple); font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 13px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); }
+  th { background: var(--myio-purple-soft); color: var(--myio-purple-dark); font-weight: 700; text-transform: uppercase; font-size: 11px; letter-spacing: 0.03em; }
+  tr:last-child td { border-bottom: none; }
+  code { background: var(--myio-purple-soft); color: var(--myio-purple-dark); padding: 1px 6px; border-radius: 6px; font-size: 12px; }
+  .callout {
+    border-radius: var(--radius-md);
+    padding: 14px 18px;
+    margin: 18px 0;
+    font-size: 13px;
+    border: 1px solid var(--border);
+  }
+  .callout--warn { background: #fff8ec; border-color: #f5d99a; }
+  .callout--tip { background: #eafcf5; border-color: #a9ecd4; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .toc { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 30px; }
+  .toc a {
+    background: var(--white); border: 1px solid var(--border); border-radius: 999px;
+    padding: 6px 14px; font-size: 12px; text-decoration: none; color: var(--myio-purple-dark); font-weight: 600;
+  }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+  footer { padding: 20px 40px; font-size: 11px; color: var(--muted); border-top: 1px solid var(--border); }
+  .shot { max-width: 100%; border-radius: var(--radius-md); border: 1px solid var(--border); box-shadow: var(--shadow); margin: 14px 0 20px; display: block; }
+</style>
+</head>
+<body>
+<div class="doc">
+  <div class="hero">
+    <div class="brand">MYIO · GUIA DO USUÁRIO</div>
+    <h1>Anotações</h1>
+    <p>Como registrar, consultar e gerenciar anotações de dispositivos no dashboard MyIO.</p>
+  </div>
+  <main>
+    <div class="toc">
+      <a href="#visao-geral">Visão geral</a>
+      <a href="#criando">Criando uma anotação</a>
+      <a href="#ciclo">Ciclo de vida</a>
+      <a href="#filtros">Filtros Avançados</a>
+      <a href="#exportar">Exportando</a>
+      <a href="#faq">Dúvidas frequentes</a>
+    </div>
+
+    <h2 id="visao-geral">Visão geral</h2>
+    <p>Anotações são registros de texto associados a um dispositivo — pendências, manutenções, atividades ou observações — que ficam salvas no histórico e podem ser consultadas a qualquer momento por qualquer pessoa com acesso ao dashboard.</p>
+    <h3>Como acessar</h3>
+    <ul>
+      <li><strong>De um dispositivo específico</strong>: abra as Configurações do dispositivo (ícone ⚙️ no card) → aba Anotações.</li>
+      <li><strong>Todas as anotações do cliente</strong>: passe o mouse sobre <strong>✏️ Anotações operacionais</strong> no cabeçalho, ou clique para filtrar o dashboard.</li>
+    </ul>
+
+    <h2 id="criando">Criando uma anotação</h2>
+    <p>Clique em <strong>+ Nova Anotação</strong> e preencha texto, tipo e importância (1 a 5).</p>
+    <table>
+      <tr><th>Tipo</th><th>Uso</th></tr>
+      <tr><td><span class="dot" style="background:#ff6b6b;"></span>Pendência</td><td>Algo que precisa de ação/resolução</td></tr>
+      <tr><td><span class="dot" style="background:#ffa94d;"></span>Manutenção</td><td>Atividades de manutenção, programada ou corretiva</td></tr>
+      <tr><td><span class="dot" style="background:#51cf66;"></span>Atividade</td><td>Atividades gerais, não necessariamente um problema</td></tr>
+      <tr><td><span class="dot" style="background:#339af0;"></span>Observação</td><td>Informações e observações gerais</td></tr>
+    </table>
+
+    <h2 id="ciclo">Ciclo de vida de uma anotação</h2>
+    <p>Toda anotação tem um <strong>status</strong>:</p>
+    <ul>
+      <li><strong>Criado</strong> — estado inicial.</li>
+      <li><strong>Modificado</strong> — após qualquer edição.</li>
+      <li><strong>Arquivado</strong> — fora da visão ativa, mas preservada no histórico.</li>
+    </ul>
+    <div class="callout callout--tip">
+      <strong>✅ Arquivar é sempre permitido</strong>
+      Anotações com status Criado ou Modificado podem sempre ser arquivadas — mesmo que outras ações (como editar) já estejam bloqueadas para elas. Assim, qualquer anotação resolvida pode sempre sair da visão ativa.
+    </div>
+
+    <h2 id="filtros">Filtros Avançados</h2>
+    <p>Abra a modal <strong>Filtros Avançados</strong> para refinar a lista:</p>
+    <img class="shot" src="assets/advanced-filters.png" alt="Modal Filtros Avançados com os 5 chips de contagem e os seletores de Status, Importância e Período" />
+    <h3>Chips de contagem por tipo</h3>
+    <p>🔴 Pendência(s) · 🟠 Manutenção(ões) · 🟢 Atividade(s) · 🔵 Observação(ões) · ⚫ <strong>Arquivado(s)</strong> — clique em um chip para filtrar por aquele tipo (ou pelas arquivadas); clique de novo para remover o filtro.</p>
+    <h3>Status e Importância</h3>
+    <p>Dois seletores multi-marcação: <strong>Status</strong> (Todos/Criado/Modificado/Arquivado) e <strong>Importância</strong> (1 a 5).</p>
+    <img class="shot" src="assets/status-dropdown.png" alt="Dropdown de Status mostrando as 4 opções completas, sem corte" />
+    <h3>Período</h3>
+    <p>Um seletor de intervalo de datas restringe a lista às anotações criadas naquele período.</p>
+    <p>Use <strong>Limpar Filtros</strong> para voltar ao padrão (tudo visível).</p>
+
+    <h2 id="exportar">Exportando anotações</h2>
+    <p><strong>PDF</strong> gera um relatório das anotações filtradas atualmente; <strong>CSV</strong> exporta os mesmos dados em planilha.</p>
+
+    <h2 id="faq">Dúvidas frequentes</h2>
+    <p><strong>Uma anotação aprovada pode ser arquivada?</strong><br/>Sim — arquivar é sempre permitido para qualquer anotação não arquivada.</p>
+    <p><strong>Arquivar apaga a anotação?</strong><br/>Não. Continua no histórico; use o filtro Arquivado(s) para revê-la.</p>
+    <p><strong>Por que não vejo mais as anotações de alguém?</strong><br/>Verifique se o acesso a Anotações não foi restringido em <a href="../user-profile-management/user-profile-management.html">Acesso em Funcionalidades</a>.</p>
+  </main>
+  <footer>MyIO · Guia do Usuário · Anotações</footer>
+</div>
+</body>
+</html>
