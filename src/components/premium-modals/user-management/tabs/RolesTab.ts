@@ -3,6 +3,7 @@
  * Lists GCDR roles with their associated policies. Super-admins can create, edit and delete.
  */
 import { UserManagementConfig, GCDRRole, GCDRPolicy } from '../types';
+import { MyIOToast } from '../../../../components/MyIOToast';
 
 export interface RolesTabCallbacks {
   showToast(msg: string, type?: 'success' | 'error'): void;
@@ -73,7 +74,7 @@ export class RolesTab {
       this.renderList();
     } catch (err) {
       console.error('[RolesTab] loadAll error', err);
-      this.callbacks.showToast('Erro ao carregar funções. Verifique a conexão com o GCDR.', 'error');
+      MyIOToast.error('Erro ao carregar funções. Verifique a conexão com o GCDR.');
       this.el.innerHTML = `<div class="gm-error">Erro ao carregar funções. Verifique a conexão com o GCDR.</div>`;
     }
   }
@@ -283,12 +284,12 @@ export class RolesTab {
           body: JSON.stringify(body),
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        this.callbacks.showToast(isEdit ? 'Função atualizada!' : 'Função criada!', 'success');
+        MyIOToast.success(isEdit ? 'Função atualizada!' : 'Função criada!');
         close();
         await this.loadAll();
       } catch (err) {
         console.error('[RolesTab] save error', err);
-        this.callbacks.showToast('Erro ao salvar função.', 'error');
+        MyIOToast.error('Erro ao salvar função.');
         btn.disabled = false;
         btn.textContent = isEdit ? 'Salvar' : 'Criar';
       }
@@ -303,11 +304,11 @@ export class RolesTab {
         headers: this.gcdrHeaders(),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      this.callbacks.showToast('Função excluída.', 'success');
+      MyIOToast.success('Função excluída.');
       await this.loadAll();
     } catch (err) {
       console.error('[RolesTab] delete error', err);
-      this.callbacks.showToast('Erro ao excluir função.', 'error');
+      MyIOToast.error('Erro ao excluir função.');
     }
   }
 

@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MyIO — Guia: Gestão de Perfil de Usuário</title>
+<style>
+  :root {
+    --myio-purple: #663ab5;
+    --myio-purple-dark: #4d2a91;
+    --myio-purple-soft: #efe8fb;
+    --myio-green: #04c081;
+    --myio-green-dark: #039b69;
+    --myio-amber: #f5a623;
+    --myio-red: #e03131;
+    --text: #2a2340;
+    --muted: #6f6787;
+    --border: #e5ddf5;
+    --bg: #f7f4fc;
+    --white: #ffffff;
+    --shadow: 0 10px 30px rgba(102, 58, 181, 0.12);
+    --radius-xl: 22px;
+    --radius-lg: 16px;
+    --radius-md: 12px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: Inter, "Segoe UI", Arial, sans-serif;
+    background: #ece8f6;
+    color: var(--text);
+    padding: 24px;
+    line-height: 1.55;
+  }
+  .doc {
+    max-width: 860px;
+    margin: 0 auto;
+    background: var(--bg);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .hero {
+    background: linear-gradient(135deg, var(--myio-purple-dark), var(--myio-purple) 62%, #7d52cf);
+    color: var(--white);
+    padding: 36px 40px 30px;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::after {
+    content: "";
+    position: absolute;
+    right: -70px;
+    top: -45px;
+    width: 220px;
+    height: 220px;
+    background: rgba(4, 192, 129, 0.92);
+    border-radius: 50%;
+  }
+  .hero .brand { font-weight: 800; letter-spacing: 0.04em; font-size: 13px; color: #f4f2fb; position: relative; z-index: 1; }
+  .hero h1 { margin: 10px 0 6px; font-size: 30px; color: var(--white); position: relative; z-index: 1; }
+  .hero p { margin: 0; color: #f4f2fb; font-size: 14px; position: relative; z-index: 1; max-width: 560px; }
+  main { padding: 34px 40px 44px; }
+  h2 {
+    font-size: 19px;
+    color: var(--myio-purple-dark);
+    border-bottom: 2px solid var(--border);
+    padding-bottom: 8px;
+    margin-top: 38px;
+  }
+  h2:first-of-type { margin-top: 0; }
+  h3 { font-size: 15px; color: var(--myio-purple-dark); margin-top: 24px; }
+  p, li { font-size: 14px; color: var(--text); }
+  a { color: var(--myio-purple); font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 13px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); }
+  th { background: var(--myio-purple-soft); color: var(--myio-purple-dark); font-weight: 700; text-transform: uppercase; font-size: 11px; letter-spacing: 0.03em; }
+  tr:last-child td { border-bottom: none; }
+  code { background: var(--myio-purple-soft); color: var(--myio-purple-dark); padding: 1px 6px; border-radius: 6px; font-size: 12px; }
+  .callout {
+    border-radius: var(--radius-md);
+    padding: 14px 18px;
+    margin: 18px 0;
+    font-size: 13px;
+    border: 1px solid var(--border);
+  }
+  .callout--warn { background: #fff8ec; border-color: #f5d99a; }
+  .callout--tip { background: #eafcf5; border-color: #a9ecd4; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .toc { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 30px; }
+  .toc a {
+    background: var(--white); border: 1px solid var(--border); border-radius: 999px;
+    padding: 6px 14px; font-size: 12px; text-decoration: none; color: var(--myio-purple-dark); font-weight: 600;
+  }
+  footer { padding: 20px 40px; font-size: 11px; color: var(--muted); border-top: 1px solid var(--border); }
+  .shot { max-width: 100%; border-radius: var(--radius-md); border: 1px solid var(--border); box-shadow: var(--shadow); margin: 14px 0 20px; display: block; }
+  .shot-caption { font-size: 12px; color: var(--muted); margin: -12px 0 20px; }
+</style>
+</head>
+<body>
+<div class="doc">
+  <div class="hero">
+    <div class="brand">MYIO · GUIA DO USUÁRIO</div>
+    <h1>Gestão de Perfil de Usuário</h1>
+    <p>Como gerenciar usuários, perfis e permissões de acesso no dashboard MyIO.</p>
+  </div>
+  <main>
+    <div class="toc">
+      <a href="#visao-geral">Visão geral</a>
+      <a href="#lista">Aba Usuários</a>
+      <a href="#detalhe">Detalhe do usuário</a>
+      <a href="#faq">Dúvidas frequentes</a>
+    </div>
+
+    <h2 id="visao-geral">Visão geral</h2>
+    <p>A tela <strong>Gestão de Usuários</strong> é onde administradores criam, editam e controlam o acesso de cada usuário ao dashboard. Ela reúne:</p>
+    <ul>
+      <li>A lista de todos os usuários do cliente (customer), com busca, filtros e ações em lote.</li>
+      <li>O detalhe de cada usuário, com suas Funções/Papéis, Permissões Especiais e o mapa de Acesso em Funcionalidades.</li>
+      <li>Grupos e Políticas de acesso (GCDR).</li>
+    </ul>
+    <h3>Como acessar</h3>
+    <ol>
+      <li>No <strong>Menu</strong> lateral do dashboard, clique em <strong>⚙️ Configurações</strong>.</li>
+      <li>Na modal que abrir, escolha <strong>Gestão de Usuários</strong>.</li>
+    </ol>
+    <div class="callout callout--tip">
+      <strong>Dica</strong>
+      A opção Gestão de Usuários só aparece para usuários administradores. Se você não a vê, seu perfil pode não ter a permissão necessária — veja Permissões Especiais.
+    </div>
+
+    <h2 id="lista">Aba Usuários — a lista</h2>
+    <p>A aba <strong>Usuários</strong> mostra uma tabela com todos os usuários do cliente:</p>
+    <img class="shot" src="assets/user-list.png" alt="Lista de usuários com colunas PERFIL (TB), Status, Adm/Holding User Attr., Criado em, Alterado em" />
+    <table>
+      <tr><th>Coluna</th><th>O que mostra</th></tr>
+      <tr><td>Nome</td><td>Nome do usuário, com o e-mail logo abaixo em fonte menor</td></tr>
+      <tr><td>PERFIL (TB)</td><td><strong>Admin</strong> (Tenant Administrator) ou <strong>Usuário</strong></td></tr>
+      <tr><td>Status</td><td><strong>Ativo</strong> ou <strong>Bloqueado</strong> — clique no badge para alternar</td></tr>
+      <tr><td>Adm User Attr.</td><td>Toggle do atributo <code>isUserAdmin</code></td></tr>
+      <tr><td>Holding User Attr.</td><td>Toggle do atributo <code>isHolding</code></td></tr>
+      <tr><td>Criado em</td><td>Data de criação do usuário</td></tr>
+      <tr><td>Alterado em</td><td>Estimativa da última alteração conhecida</td></tr>
+      <tr><td>GCDR</td><td>Status de sincronização, com botão para forçar sync</td></tr>
+      <tr><td>Ações</td><td>Ver Funções/Papéis, Ver Detalhes</td></tr>
+    </table>
+
+    <h3>Buscar, ordenar e filtrar</h3>
+    <ul>
+      <li><strong>Busca</strong>: digite nome ou e-mail no campo de busca no topo da lista.</li>
+      <li><strong>Ordenar</strong>: clique nos cabeçalhos Nome, Criado em ou Alterado em; clique de novo para inverter a direção.</li>
+      <li><strong>Filtrar</strong>: botão Filtros (funil) — por padrão tudo vem marcado; desmarque o que não quiser ver.</li>
+    </ul>
+    <img class="shot" src="assets/filters-modal.png" alt="Modal de Filtros com Status e PERFIL (TB), tudo marcado por padrão" />
+
+    <h3>Alterando Adm User Attr. / Holding User Attr. direto na lista</h3>
+    <p>Cada linha tem um toggle para <code>isUserAdmin</code> e outro para <code>isHolding</code>. A mudança pede confirmação antes de ser salva, e mostra um aviso de sucesso ou erro. Se você cancelar, o toggle volta ao valor anterior.</p>
+
+    <h3>Ações em Lote</h3>
+    <p>Marque uma ou mais linhas para fazer aparecer o botão <strong>Ações em Lote</strong>:</p>
+    <ul>
+      <li><strong>Sync GCDR</strong> — sincroniza os selecionados com o GCDR.</li>
+      <li><strong>Bloquear todos</strong> / <strong>Liberar todos</strong></li>
+      <li><strong>Habilitar Admin User Attr. para todos</strong></li>
+      <li><strong>Habilitar Holding User Attr. para todos</strong></li>
+    </ul>
+    <p>Toda ação em lote pede confirmação e mostra um resumo do resultado ao final.</p>
+    <img class="shot" src="assets/bulk-actions.png" alt="Modal Ações em Lote com as 5 opções disponíveis" />
+
+    <h2 id="detalhe">Detalhe do usuário</h2>
+    <p>Clique em <strong>Ver Detalhes</strong> em qualquer linha para abrir a visão completa:</p>
+
+    <h3>Dados gerais</h3>
+    <p>Nome, e-mail, telefone, perfil, data de criação e descrição — editáveis via <strong>Habilitar Edição</strong>. Também é daqui que se <strong>Redefine Senha</strong> ou <strong>Exclui</strong> o usuário.</p>
+
+    <h3>🔑 Funções / Papéis</h3>
+    <p>Funções (roles) do GCDR atribuídas a este usuário, com escopo, status e validade. <strong>+ Adicionar</strong> atribui uma nova; <strong>Revogar</strong> remove uma existente.</p>
+
+    <h3>🛡️ Permissões Especiais</h3>
+    <p>Dois toggles que, juntos, concedem status de <strong>Holding Admin</strong> (acesso entre clientes):</p>
+    <ul>
+      <li><strong>Usuário Administrador</strong> (<code>isUserAdmin</code>)</li>
+      <li><strong>Holding Admin</strong> (<code>isHolding</code>)</li>
+    </ul>
+    <img class="shot" src="assets/special-permissions.png" alt="Seção Permissões Especiais com os toggles Usuário Administrador e Holding Admin" />
+    <div class="callout callout--warn">
+      <strong>⚠️ Não confunda com o "Adm User Attr." da lista</strong>
+      Existe também um <code>isUserAdmin</code> de outro nível (do cliente, não do usuário), que controla se o botão Configurações aparece no Menu para quem não é Tenant Administrator. São dois atributos com nomes parecidos, escopos diferentes.
+    </div>
+
+    <h3>🔓 Acesso em Funcionalidades</h3>
+    <p>Controla o que este usuário enxerga no dashboard — itens de menu, botões do cabeçalho e o dock de comparação do rodapé. Por padrão, <strong>tudo está liberado</strong>.</p>
+    <table>
+      <tr><th>Grupo</th><th>Itens</th></tr>
+      <tr><td>Menu</td><td>⚡ Energia · 💧 Água · 🌡️ Temperatura · 🔔 Alarmes · 📊 Relatórios · 🎯 Metas · ⚙️ Configurações</td></tr>
+      <tr><td>Cabeçalho</td><td>🔔 Notificação de Alarmes (4 sub-permissões) · ✏️ Anotações · 🎧 Chamados</td></tr>
+      <tr><td>Rodapé</td><td>📊 Comparar</td></tr>
+    </table>
+    <div class="callout callout--warn">
+      <strong>✅ Regra obrigatória</strong>
+      Pelo menos um item entre Energia, Água, Temperatura, Alarmes, Relatórios e Metas precisa continuar ativo. Tentar desligar o último é bloqueado automaticamente.
+    </div>
+    <p><strong>Sub-permissões de Alarmes</strong> (aparecem recuadas, abaixo do toggle pai "Notificação de Alarmes"):</p>
+    <ul>
+      <li>🗺️ Editar Mapa de Alarmes GCDR</li>
+      <li>✅ Reconhecer alarmes</li>
+      <li>⏰ Adiar alarmes</li>
+      <li>📈 Escalar alarmes</li>
+    </ul>
+    <p>Clique em <strong>Salvar</strong> para gravar. Desligando o toggle pai, os sub-itens ficam desabilitados.</p>
+    <img class="shot" src="assets/feature-access.png" alt="Seção Acesso em Funcionalidades com os grupos Menu, Cabeçalho e Rodapé, e os 4 sub-toggles de Alarmes" />
+
+    <h2 id="faq">Dúvidas frequentes</h2>
+    <p><strong>Por que o usuário não vê mais o botão Configurações no Menu?</strong><br/>Verifique se <code>menu.settings</code> está desligado em Acesso em Funcionalidades, e se o cliente tem o atributo <code>isUserAdmin</code> (nível cliente) configurado.</p>
+    <p><strong>Uma mudança em Acesso em Funcionalidades afeta outros usuários?</strong><br/>Não — é sempre por usuário.</p>
+    <p><strong>Posso restringir um domínio que o dashboard já desabilitou?</strong><br/>Não — restrições de usuário só estreitam, nunca alargam o que o dashboard já permite.</p>
+  </main>
+  <footer>MyIO · Guia do Usuário · Gestão de Perfil de Usuário</footer>
+</div>
+</body>
+</html>

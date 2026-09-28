@@ -1,0 +1,13 @@
+{
+  "name": "tb-widget-sync",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Dev-only tool: syncs the 7 ThingsBoard 'v.5.2.0 - TESTE' widget-type editors from local WIDGET/*.{html,css,json,js} source, and verifies them against the ThingsBoard REST API. See docs/thingsboard/runbooks/sync-widget-source-to-tb-teste.md.",
+  "scripts": {
+    "sync": "node sync.js",
+    "verify": "node verify.js"
+  },
+  "dependencies": {
+    "playwright-core": "^1.48.0"
+  }
+}

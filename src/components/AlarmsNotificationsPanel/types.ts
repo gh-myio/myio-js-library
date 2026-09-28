@@ -227,6 +227,12 @@ export interface AlarmCardParams {
   alarmTypes?: string[];
   /** Hide ACK / Snooze / Escalate action buttons (consolidado and porDispositivo modes) */
   hideActions?: boolean;
+  /** RFC-0233 Phase 2: per-action gate (header.alarms.features.acknowledge) — default true when omitted */
+  canAcknowledge?: boolean;
+  /** RFC-0233 Phase 2: per-action gate (header.alarms.features.snooze) — default true when omitted */
+  canSnooze?: boolean;
+  /** RFC-0233 Phase 2: per-action gate (header.alarms.features.escalate) — default true when omitted */
+  canEscalate?: boolean;
   /** Hide the bulk-select checkbox (consolidado and porDispositivo modes) */
   hideSelect?: boolean;
   /** Hide the inline Details button — card click opens the modal instead */

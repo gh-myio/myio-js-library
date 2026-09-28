@@ -75,6 +75,29 @@ function getDataApiBaseUrl() {
 
 window.MyIOUtils = window.MyIOUtils || {};
 
+// RFC-0233: per-user feature visibility resolver (`restrict_view`). Reads
+// the tree detectSuperAdmin() parses from the USER SERVER_SCOPE
+// `restrict_view` attribute into window.MyIOUtils.featureVisibility. An
+// absent or malformed attribute leaves featureVisibility null, so every
+// path resolves to "visible" — restrict_view can only ever narrow
+// visibility, never break the dashboard (fail-open by design). A present
+// tree only restricts on an explicit `false` (or `{enabled:false}`); a
+// missing key at any level also means "not restricted".
+window.MyIOUtils.isFeatureVisible = function isFeatureVisible(path) {
+  const root = window.MyIOUtils && window.MyIOUtils.featureVisibility;
+  if (!root) return true;
+  let node = root;
+  for (let i = 0; i < path.length; i++) {
+    if (node == null) return true;
+    if (typeof node === 'boolean') return node;
+    node = node[path[i]];
+  }
+  if (node == null) return true;
+  if (typeof node === 'boolean') return node;
+  if (typeof node === 'object') return node.enabled !== false;
+  return true;
+};
+
 // ===========================================================================
 // Library access bridge — single source of `window.MyIOLibrary`.
 //
@@ -1831,6 +1854,9 @@ Object.assign(window.MyIOUtils, {
       // "Identificador" field edit permission as SuperAdmin, for holding-level admins
       // whose email is not @myio.com.br (e.g. Soul Malls holding admins).
       let isHoldingAdmin = false;
+      // RFC-0233: restrict_view — parsed from the exact same USER SERVER_SCOPE
+      // fetch already in flight for isHolding/isUserAdmin, so no new round-trip.
+      let restrictView = null;
       try {
         const userId = user.id?.id || user.id;
         if (userId) {
@@ -1849,6 +1875,16 @@ Object.assign(window.MyIOUtils, {
               return a?.value === true || a?.value === 'true';
             };
             isHoldingAdmin = truthy('isHolding') && truthy('isUserAdmin');
+
+            const rvAttr = Array.isArray(attrs) ? attrs.find((x) => x.key === 'restrict_view') : null;
+            if (rvAttr && rvAttr.value != null) {
+              try {
+                restrictView = typeof rvAttr.value === 'string' ? JSON.parse(rvAttr.value) : rvAttr.value;
+              } catch (rvErr) {
+                LogHelper.warn('[MAIN_VIEW] restrict_view: malformed JSON, ignoring (fail-open)', rvErr);
+                restrictView = null;
+              }
+            }
           }
         }
       } catch (holdingErr) {
@@ -1857,6 +1893,9 @@ Object.assign(window.MyIOUtils, {
       }
       window.MyIOUtils.HoldingAdmin = isHoldingAdmin;
       LogHelper.log(`[MAIN_VIEW] HoldingAdmin detection: ${email} -> ${isHoldingAdmin}`);
+
+      window.MyIOUtils.featureVisibility = restrictView;
+      LogHelper.log(`[MAIN_VIEW] RFC-0233 restrict_view: ${email} ->`, restrictView);
 
       // RFC-0171: Dispatch event for other widgets (MENU, etc.)
       window.dispatchEvent(
@@ -1867,6 +1906,16 @@ Object.assign(window.MyIOUtils, {
             isHoldingAdmin: isHoldingAdmin,
             ts: Date.now(),
           },
+        })
+      );
+
+      // RFC-0233: separate event so consumers can distinguish "user info
+      // ready" from "feature-visibility resolved" even though both currently
+      // resolve at the same point — mirrors the myio:user-info-ready /
+      // _applyPresetupVisibility check-immediately-and-subscribe pattern.
+      window.dispatchEvent(
+        new CustomEvent('myio:feature-visibility-ready', {
+          detail: { featureVisibility: restrictView, ts: Date.now() },
         })
       );
     } catch (err) {
@@ -2283,31 +2332,55 @@ Object.assign(window.MyIOUtils, {
     // <tb-dashboard-state> renders "Dashboard state with id ... is not found"
     // inside the still-visible div (nothing hides it until a MENU click).
     // Hide the divs of DISABLED domains (display:none — Angular-safe, no DOM
-    // removal) and make the _initialTab div the visible one.
-    try {
-      const STATE_BY_DOMAIN = {
-        energy: 'telemetry_content',
-        water: 'water_content',
-        temperature: 'temperature_content',
-      };
-      const _initialStateId = STATE_BY_DOMAIN[_initialTab] || 'telemetry_content';
-      const _stateDivs = self.ctx.$container[0].querySelectorAll('[data-content-state]');
-      _stateDivs.forEach((div) => {
-        const stId = div.getAttribute('data-content-state');
-        const domainOfState = Object.keys(STATE_BY_DOMAIN).find((d) => STATE_BY_DOMAIN[d] === stId);
-        if (domainOfState && widgetSettings.domainsEnabled?.[domainOfState] === false) {
-          div.style.display = 'none'; // domínio desabilitado — nunca mostrar
-          return;
+    // removal) and make the first available domain's div the visible one.
+    //
+    // RFC-0233: extracted into a named, re-callable function because
+    // `detectSuperAdmin()` above is fired WITHOUT awaiting it — at the point
+    // this used to run inline, `window.MyIOUtils.featureVisibility` has not
+    // been populated yet, so `isFeatureVisible()` fails open (returns true
+    // for everything) and any restrict_view-based restriction is silently
+    // skipped on the first pass. Re-running this once `restrict_view` has
+    // actually loaded (myio:feature-visibility-ready) is what actually
+    // applies the restriction. It also now picks the first ALLOWED domain
+    // (energy → water → temperature → alarms) as the visible one, instead of
+    // only ever hiding a restricted domain without promoting another.
+    function applyDomainStateVisibility() {
+      try {
+        const STATE_BY_DOMAIN = {
+          energy: 'telemetry_content',
+          water: 'water_content',
+          temperature: 'temperature_content',
+          alarms: 'alarm_content',
+        };
+        // RFC-0233: restrict_view narrows on top of domainsEnabled, never
+        // widens it — a user can't see a domain the dashboard itself has
+        // disabled.
+        const _isFV = window.MyIOUtils?.isFeatureVisible || (() => true);
+        const _domainAllowed = (domain) =>
+          widgetSettings.domainsEnabled?.[domain] !== false && _isFV(['menu', domain]);
+        const _activeDomain = ['energy', 'water', 'temperature', 'alarms'].find(_domainAllowed);
+        if (!_activeDomain) {
+          LogHelper.warn('[MAIN_VIEW] applyDomainStateVisibility: no domain allowed (domainsEnabled + restrict_view) — leaving all state divs hidden.');
         }
-        if (domainOfState) {
-          div.style.display = stId === _initialStateId ? 'block' : 'none';
-        }
-        // alarm_content / integrations: mantém o default do template (none)
-      });
-      LogHelper.log('[MAIN_VIEW] RFC-0152c: state divs aligned — visible:', _initialStateId);
-    } catch (stateErr) {
-      LogHelper.warn('[MAIN_VIEW] RFC-0152c: state-div alignment failed:', stateErr);
+        const _activeStateId = _activeDomain ? STATE_BY_DOMAIN[_activeDomain] : null;
+        const _stateDivs = self.ctx.$container[0].querySelectorAll('[data-content-state]');
+        _stateDivs.forEach((div) => {
+          const stId = div.getAttribute('data-content-state');
+          const domainOfState = Object.keys(STATE_BY_DOMAIN).find((d) => STATE_BY_DOMAIN[d] === stId);
+          if (!domainOfState) return; // integrations / other non-domain states: keep template default
+          div.style.display = stId === _activeStateId ? 'block' : 'none';
+        });
+        LogHelper.log('[MAIN_VIEW] RFC-0233: state divs aligned — active domain:', _activeDomain || '(none)');
+      } catch (stateErr) {
+        LogHelper.warn('[MAIN_VIEW] applyDomainStateVisibility failed:', stateErr);
+      }
     }
+
+    applyDomainStateVisibility();
+    // RFC-0233: reapply once the real restrict_view (if any) has finished
+    // loading — detectSuperAdmin() dispatches this after its async USER
+    // SERVER_SCOPE fetch resolves, which happens after the call above.
+    window.addEventListener('myio:feature-visibility-ready', applyDomainStateVisibility);
 
     // Initialize MyIO Library and Authentication
     const MyIO =

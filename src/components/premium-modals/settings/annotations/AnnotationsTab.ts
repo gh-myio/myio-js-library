@@ -3162,7 +3162,26 @@ export class AnnotationsTab {
   public destroy(): void {
     this.endTour();
     this.styleElement?.remove();
+    this.removeDetachedMultiselectDropdowns();
     this.container.innerHTML = '';
+  }
+
+  /**
+   * Multiselect dropdowns (Status/Importância, both the inline premium filter
+   * and the "Filtros Avançados" modal) get detached to <body> once opened —
+   * see openMultiselectDropdown. Since they're no longer descendants of
+   * `this.container` or `this.filterModal`, a plain `innerHTML = ''` /
+   * `.remove()` on those doesn't reach them, leaving an orphaned node behind
+   * on every re-render while a dropdown happened to be open. Call this
+   * before any such wipe.
+   */
+  private removeDetachedMultiselectDropdowns(): void {
+    [
+      'premium-filter-status-dropdown',
+      'premium-filter-importance-dropdown',
+      'modal-filter-status-dropdown',
+      'modal-filter-importance-dropdown',
+    ].forEach((id) => document.getElementById(id)?.remove());
   }
 
   // ============================================
@@ -4515,6 +4534,7 @@ export class AnnotationsTab {
   }
 
   private render(): void {
+    this.removeDetachedMultiselectDropdowns();
     this.container.innerHTML = `
       <div class="annotations-tab">
         ${this.renderHeader()}
@@ -4555,6 +4575,7 @@ export class AnnotationsTab {
       maintenance: this.annotations.filter(a => a.type === 'maintenance' && a.status !== 'archived').length,
       activity: this.annotations.filter(a => a.type === 'activity' && a.status !== 'archived').length,
       observation: this.annotations.filter(a => a.type === 'observation' && a.status !== 'archived').length,
+      archived: this.annotations.filter(a => a.status === 'archived').length,
     };
 
     const totalFiltered = this.getFilteredAnnotations().length;
@@ -4596,6 +4617,11 @@ export class AnnotationsTab {
             <span class="annotations-premium-filter__stat-dot annotations-premium-filter__stat-dot--observation"></span>
             <span class="annotations-premium-filter__stat-count">${stats.observation}</span>
             <span class="annotations-premium-filter__stat-label">Observação(ões)</span>
+          </div>
+          <div class="annotations-premium-filter__stat ${this.isTypeFilterActive('archived') ? 'active' : ''}" data-filter-type="archived" style="color: #868e96;">
+            <span class="annotations-premium-filter__stat-dot" style="background: #868e96;"></span>
+            <span class="annotations-premium-filter__stat-count">${stats.archived}</span>
+            <span class="annotations-premium-filter__stat-label">Arquivado(s)</span>
           </div>
         </div>
 
@@ -4718,6 +4744,9 @@ export class AnnotationsTab {
    * Check if a type filter is currently active
    */
   private isTypeFilterActive(type: string): boolean {
+    // "Arquivados" is a status, not an annotation type — the chip toggles
+    // statusList instead (mirrors the Status dropdown's own checkbox).
+    if (type === 'archived') return this.filters.statusList?.includes('archived') || false;
     return this.filters.typeList?.includes(type as any) || false;
   }
 
@@ -4736,17 +4765,22 @@ export class AnnotationsTab {
     });
 
     // Multiselect buttons
-    this.container.querySelectorAll('.annotations-premium-filter__multiselect-btn').forEach((btn) => {
+    this.container.querySelectorAll('.annotations-premium-filter__multiselect').forEach((multiselect) => {
+      const btn = multiselect.querySelector('.annotations-premium-filter__multiselect-btn') as HTMLElement | null;
+      const dropdown = multiselect.querySelector('.annotations-premium-filter__dropdown') as HTMLElement | null;
+      if (!btn || !dropdown) return;
+      // Captured now (before any detachment) since a plain `.querySelector`
+      // from `multiselect` stops finding it once it's moved to <body>.
+      (multiselect as any)._myioDropdown = dropdown;
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        const multiselect = btn.closest('.annotations-premium-filter__multiselect');
-        if (multiselect) {
-          // Close others
-          this.container.querySelectorAll('.annotations-premium-filter__multiselect.open').forEach((el) => {
-            if (el !== multiselect) el.classList.remove('open');
-          });
-          multiselect.classList.toggle('open');
-        }
+        const willOpen = !multiselect.classList.contains('open');
+        // Close others first (each may have its own detached dropdown).
+        this.container.querySelectorAll('.annotations-premium-filter__multiselect.open').forEach((el) => {
+          if (el !== multiselect) this.closeMultiselectDropdown(el as HTMLElement);
+        });
+        if (willOpen) this.openMultiselectDropdown(multiselect as HTMLElement, dropdown, btn);
+        else this.closeMultiselectDropdown(multiselect as HTMLElement);
       });
     });
 
@@ -4785,20 +4819,87 @@ export class AnnotationsTab {
       createBtn.addEventListener('click', () => this.showNewAnnotationModal());
     }
 
-    // Close dropdowns on outside click
+    // Close dropdowns on outside click. Checking only `.multiselect` would
+    // treat a click on the (now possibly <body>-detached) dropdown itself as
+    // "outside" and close it instantly — also match `.dropdown`.
     document.addEventListener('click', (e) => {
-      if (!(e.target as HTMLElement).closest('.annotations-premium-filter__multiselect')) {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.annotations-premium-filter__multiselect, .annotations-premium-filter__dropdown')) {
         this.container.querySelectorAll('.annotations-premium-filter__multiselect.open').forEach((el) => {
-          el.classList.remove('open');
+          this.closeMultiselectDropdown(el as HTMLElement);
         });
       }
     });
   }
 
   /**
+   * Opens a premium-filter multiselect dropdown. Detaches the dropdown panel
+   * to <body> as `position: fixed`, positioned from the trigger button's own
+   * rect — its `.annotations-premium-filter` ancestor uses `overflow: hidden`
+   * to clip the card's rounded-corner header/stats backgrounds, which was
+   * also silently clipping this popover (only the first couple of options
+   * were visible, cut off after the point the container's rounded box ends).
+   * Same technique as the MENU widget's floating collapse-arrow button.
+   */
+  private openMultiselectDropdown(multiselect: HTMLElement, dropdown: HTMLElement, btn: HTMLElement): void {
+    const rect = btn.getBoundingClientRect();
+    if (dropdown.parentElement !== document.body) {
+      document.body.appendChild(dropdown);
+    }
+    dropdown.style.display = 'block';
+    dropdown.style.position = 'fixed';
+    dropdown.style.top = `${rect.bottom + 4}px`;
+    dropdown.style.left = `${rect.left}px`;
+    dropdown.style.width = `${rect.width}px`;
+    dropdown.style.right = 'auto';
+    dropdown.style.marginTop = '0';
+    // Once moved to <body>, the dropdown's static z-index (999999, from CSS)
+    // is compared directly against its ORIGINAL ancestors as top-level
+    // siblings instead of inheriting their stacking context — e.g. the
+    // "Filtros Avançados" modal overlay sits at 10000000, which now outranks
+    // it and hides it completely. Set a z-index above whatever wraps `btn`.
+    dropdown.style.zIndex = String(this.highestAncestorZIndex(btn) + 1);
+    multiselect.classList.add('open');
+  }
+
+  /** Highest numeric `z-index` among `el`'s ancestors (used to out-rank whatever context a detached dropdown is escaping). */
+  private highestAncestorZIndex(el: HTMLElement): number {
+    let max = 999999;
+    let cur: HTMLElement | null = el;
+    while (cur) {
+      const z = parseInt(getComputedStyle(cur).zIndex, 10);
+      if (!Number.isNaN(z) && z > max) max = z;
+      cur = cur.parentElement;
+    }
+    return max;
+  }
+
+  /** Closes a premium-filter multiselect dropdown opened via {@link openMultiselectDropdown}. */
+  private closeMultiselectDropdown(multiselect: HTMLElement): void {
+    multiselect.classList.remove('open');
+    // A plain `multiselect.querySelector(...)` stops finding the dropdown
+    // once it's been detached to <body> (it's no longer a descendant) — use
+    // the reference captured at setup time instead, falling back to the
+    // query for the (rare) case a dropdown was never opened/detached yet.
+    const dropdown =
+      ((multiselect as any)._myioDropdown as HTMLElement | undefined) ||
+      (multiselect.querySelector('.annotations-premium-filter__dropdown') as HTMLElement | null);
+    if (dropdown) {
+      dropdown.style.display = 'none';
+    }
+  }
+
+  /**
    * Toggle a type filter on/off
    */
   private toggleTypeFilter(type: string): void {
+    if (type === 'archived') {
+      const isActive = this.filters.statusList?.includes('archived') || false;
+      this.filters.statusList = isActive ? [] : ['archived'];
+      this.applyFilters();
+      return;
+    }
+
     if (!this.filters.typeList) {
       this.filters.typeList = [];
     }
@@ -4994,6 +5095,7 @@ export class AnnotationsTab {
       maintenance: this.annotations.filter(a => a.type === 'maintenance' && a.status !== 'archived').length,
       activity: this.annotations.filter(a => a.type === 'activity' && a.status !== 'archived').length,
       observation: this.annotations.filter(a => a.type === 'observation' && a.status !== 'archived').length,
+      archived: this.annotations.filter(a => a.status === 'archived').length,
     };
 
     const totalFiltered = this.getFilteredAnnotations().length;
@@ -5037,6 +5139,11 @@ export class AnnotationsTab {
               <span class="annotations-premium-filter__stat-dot annotations-premium-filter__stat-dot--observation"></span>
               <span class="annotations-premium-filter__stat-count">${stats.observation}</span>
               <span class="annotations-premium-filter__stat-label">Observação(ões)</span>
+            </div>
+            <div class="annotations-premium-filter__stat ${this.isTypeFilterActive('archived') ? 'active' : ''}" data-filter-type="archived" style="color: #868e96;">
+              <span class="annotations-premium-filter__stat-dot" style="background: #868e96;"></span>
+              <span class="annotations-premium-filter__stat-count">${stats.archived}</span>
+              <span class="annotations-premium-filter__stat-label">Arquivado(s)</span>
             </div>
           </div>
 
@@ -5175,16 +5282,19 @@ export class AnnotationsTab {
     });
 
     // Multiselect buttons
-    overlay.querySelectorAll('.annotations-premium-filter__multiselect-btn').forEach((btn) => {
+    overlay.querySelectorAll('.annotations-premium-filter__multiselect').forEach((multiselect) => {
+      const btn = multiselect.querySelector('.annotations-premium-filter__multiselect-btn') as HTMLElement | null;
+      const dropdown = multiselect.querySelector('.annotations-premium-filter__dropdown') as HTMLElement | null;
+      if (!btn || !dropdown) return;
+      (multiselect as any)._myioDropdown = dropdown;
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        const multiselect = btn.closest('.annotations-premium-filter__multiselect');
-        if (multiselect) {
-          overlay.querySelectorAll('.annotations-premium-filter__multiselect.open').forEach((el) => {
-            if (el !== multiselect) el.classList.remove('open');
-          });
-          multiselect.classList.toggle('open');
-        }
+        const willOpen = !multiselect.classList.contains('open');
+        overlay.querySelectorAll('.annotations-premium-filter__multiselect.open').forEach((el) => {
+          if (el !== multiselect) this.closeMultiselectDropdown(el as HTMLElement);
+        });
+        if (willOpen) this.openMultiselectDropdown(multiselect as HTMLElement, dropdown, btn);
+        else this.closeMultiselectDropdown(multiselect as HTMLElement);
       });
     });
 
@@ -5207,11 +5317,13 @@ export class AnnotationsTab {
       });
     }
 
-    // Close dropdowns on outside click
+    // Close dropdowns on outside click (also match `.dropdown` itself — once
+    // detached to <body> it's no longer inside `.multiselect`).
     overlay.addEventListener('click', (e) => {
-      if (!(e.target as HTMLElement).closest('.annotations-premium-filter__multiselect')) {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.annotations-premium-filter__multiselect, .annotations-premium-filter__dropdown')) {
         overlay.querySelectorAll('.annotations-premium-filter__multiselect.open').forEach((el) => {
-          el.classList.remove('open');
+          this.closeMultiselectDropdown(el as HTMLElement);
         });
       }
     });
@@ -5305,6 +5417,10 @@ export class AnnotationsTab {
   }
 
   private closeFilterModal(): void {
+    // Multiselect dropdowns get detached to <body> once opened (see
+    // openMultiselectDropdown) — removing the overlay alone leaves them
+    // orphaned in the DOM, since they're no longer its descendants.
+    this.removeDetachedMultiselectDropdowns();
     this.filterModal?.remove();
     this.filterModal = null;
   }
@@ -5802,6 +5918,10 @@ export class AnnotationsTab {
     const isArchived = annotation.status === 'archived';
     const isFinalized = responseStatus === 'approved' || responseStatus === 'rejected';
     const cannotModify = !canModify || isArchived || isFinalized;
+    // Archiving is intentionally NOT gated by isFinalized — approved/rejected
+    // annotations must always remain archivable (business rule), only edit/
+    // respond/comment are locked once finalized.
+    const cannotArchive = !canModify || isArchived;
     const cannotRespond = isArchived || isFinalized;
     const cannotComment = isArchived || isFinalized;
 
@@ -5840,7 +5960,7 @@ export class AnnotationsTab {
 
         <div class="annotation-card__actions">
           <button class="annotation-card__btn annotation-card__btn--edit" data-action="edit" title="Editar anotação" ${cannotModify ? 'disabled' : ''}>✏️</button>
-          <button class="annotation-card__btn annotation-card__btn--archive" data-action="archive" title="Arquivar anotação" ${cannotModify ? 'disabled' : ''}>⬇️</button>
+          <button class="annotation-card__btn annotation-card__btn--archive" data-action="archive" title="Arquivar anotação" ${cannotArchive ? 'disabled' : ''}>⬇️</button>
           <button class="annotation-card__btn annotation-card__btn--approve" data-action="approve" title="Aprovar anotação" ${cannotRespond ? 'disabled' : ''}>✓</button>
           <button class="annotation-card__btn annotation-card__btn--reject" data-action="reject" title="Rejeitar anotação" ${cannotRespond ? 'disabled' : ''}>✗</button>
           <button class="annotation-card__btn annotation-card__btn--comment" data-action="comment" title="Adicionar comentário" ${cannotComment ? 'disabled' : ''}>💬</button>
@@ -6733,7 +6853,7 @@ export class AnnotationsTab {
           </div>
         </div>
         <div class="annotation-detail__footer">
-          ${canModify && annotation.status !== 'archived' && !hasResponse ? `
+          ${canModify && annotation.status !== 'archived' ? `
             <button class="annotation-detail__btn annotation-detail__btn--danger" data-action="archive">
               ⬇️ Arquivar
             </button>

@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MyIO — Guia: Telemetria Instantânea e Pico de Demanda</title>
+<style>
+  :root {
+    --myio-purple: #663ab5;
+    --myio-purple-dark: #4d2a91;
+    --myio-purple-soft: #efe8fb;
+    --myio-green: #04c081;
+    --myio-green-dark: #039b69;
+    --myio-amber: #f5a623;
+    --myio-red: #e03131;
+    --text: #2a2340;
+    --muted: #6f6787;
+    --border: #e5ddf5;
+    --bg: #f7f4fc;
+    --white: #ffffff;
+    --shadow: 0 10px 30px rgba(102, 58, 181, 0.12);
+    --radius-xl: 22px;
+    --radius-lg: 16px;
+    --radius-md: 12px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: Inter, "Segoe UI", Arial, sans-serif;
+    background: #ece8f6;
+    color: var(--text);
+    padding: 24px;
+    line-height: 1.55;
+  }
+  .doc {
+    max-width: 860px;
+    margin: 0 auto;
+    background: var(--bg);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .hero {
+    background: linear-gradient(135deg, var(--myio-purple-dark), var(--myio-purple) 62%, #7d52cf);
+    color: var(--white);
+    padding: 36px 40px 30px;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::after {
+    content: "";
+    position: absolute;
+    right: -70px;
+    top: -45px;
+    width: 220px;
+    height: 220px;
+    background: rgba(4, 192, 129, 0.92);
+    border-radius: 50%;
+  }
+  .hero .brand { font-weight: 800; letter-spacing: 0.04em; font-size: 13px; color: #f4f2fb; position: relative; z-index: 1; }
+  .hero h1 { margin: 10px 0 6px; font-size: 30px; color: var(--white); position: relative; z-index: 1; }
+  .hero p { margin: 0; color: #f4f2fb; font-size: 14px; position: relative; z-index: 1; max-width: 560px; }
+  main { padding: 34px 40px 44px; }
+  h2 {
+    font-size: 19px;
+    color: var(--myio-purple-dark);
+    border-bottom: 2px solid var(--border);
+    padding-bottom: 8px;
+    margin-top: 38px;
+  }
+  h2:first-of-type { margin-top: 0; }
+  h3 { font-size: 15px; color: var(--myio-purple-dark); margin-top: 24px; }
+  p, li { font-size: 14px; color: var(--text); }
+  a { color: var(--myio-purple); font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 13px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); }
+  th { background: var(--myio-purple-soft); color: var(--myio-purple-dark); font-weight: 700; text-transform: uppercase; font-size: 11px; letter-spacing: 0.03em; }
+  tr:last-child td { border-bottom: none; }
+  code { background: var(--myio-purple-soft); color: var(--myio-purple-dark); padding: 1px 6px; border-radius: 6px; font-size: 12px; }
+  .callout {
+    border-radius: var(--radius-md);
+    padding: 14px 18px;
+    margin: 18px 0;
+    font-size: 13px;
+    border: 1px solid var(--border);
+  }
+  .callout--warn { background: #fff8ec; border-color: #f5d99a; }
+  .callout--tip { background: #eafcf5; border-color: #a9ecd4; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .toc { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 30px; }
+  .toc a {
+    background: var(--white); border: 1px solid var(--border); border-radius: 999px;
+    padding: 6px 14px; font-size: 12px; text-decoration: none; color: var(--myio-purple-dark); font-weight: 600;
+  }
+  footer { padding: 20px 40px; font-size: 11px; color: var(--muted); border-top: 1px solid var(--border); }
+  .shot { max-width: 100%; border-radius: var(--radius-md); border: 1px solid var(--border); box-shadow: var(--shadow); margin: 14px 0 20px; display: block; }
+</style>
+</head>
+<body>
+<div class="doc">
+  <div class="hero">
+    <div class="brand">MYIO · GUIA DO USUÁRIO</div>
+    <h1>Telemetria Instantânea e Pico de Demanda</h1>
+    <p>Como consultar tensão, corrente, potência e fator de potência em tempo real, e identificar o pico de demanda de um dispositivo no dashboard MyIO.</p>
+  </div>
+  <main>
+    <div class="toc">
+      <a href="#visao-geral">Visão geral</a>
+      <a href="#por-periodo">Aba Por Período</a>
+      <a href="#roxo">Pontos roxos</a>
+      <a href="#aviso">Aviso de dados incompletos</a>
+      <a href="#realtime">Aba Realtime</a>
+      <a href="#leitura-continua">Leitura contínua</a>
+      <a href="#saude">CENTRAL e Device</a>
+      <a href="#numeros">Formato dos números</a>
+      <a href="#faq">Dúvidas frequentes</a>
+    </div>
+
+    <h2 id="visao-geral">Visão geral</h2>
+    <p>A modal <strong>⚡ Telemetrias Instantâneas e Pico de Demanda</strong> mostra, para um dispositivo de energia (entrada, medidor, etc.), duas visões complementares. <strong>Cada aba tem o seu próprio gráfico e os seus próprios dados</strong> — o que você consulta em uma não aparece na outra.</p>
+    <ul>
+      <li><strong>Por Período</strong> — histórico de uma ou duas telemetrias em um intervalo de datas, com o pico de demanda destacado.</li>
+      <li><strong>Realtime</strong> — leitura do <strong>dia de hoje</strong> (desde 00:00) de Tensão, Corrente, Potência e Fator de Potência por fase, atualizada automaticamente.</li>
+    </ul>
+    <h3>Como acessar</h3>
+    <ul>
+      <li>Em um card de dispositivo de energia, clique no ícone <strong>Dashboard</strong> (⚡) para abrir a modal <strong>Gráfico de Energia</strong>.</li>
+      <li>Dentro dela, clique no botão <strong>⚡ Telemetrias Instantâneas e Pico de Demanda</strong>.</li>
+    </ul>
+
+    <h2 id="por-periodo">Aba "Por Período" (padrão)</h2>
+    <p>Ao abrir a modal, a aba <strong>Por Período</strong> já vem selecionada e carregada — nenhuma conexão em tempo real é iniciada até que você clique em <strong>Realtime</strong>.</p>
+    <img class="shot" src="assets/by-period-tab.png" alt="Aba Por Período com Máximo a cada 15 min, pico de demanda e pontos roxos onde não houve telemetria" />
+    <table>
+      <tr><th>Elemento</th><th>O que faz</th></tr>
+      <tr><td>Seletor de Telemetrias</td><td>Escolha até 2 grandezas diferentes para comparar no mesmo gráfico</td></tr>
+      <tr><td>Período de datas</td><td>Intervalo consultado; clique em Carregar após alterar</td></tr>
+      <tr><td>Agregação dos pontos</td><td>Bruto, Média, Máximo, Mínimo ou Soma — define qual dos dois campos abaixo aparece</td></tr>
+      <tr><td>Limite de pontos <em>(só Bruto)</em></td><td>100, 500, 1000, 5000, 10000, 25000 ou 50000</td></tr>
+      <tr><td>Intervalo de agrupamento <em>(fora do Bruto)</em></td><td>15 min, 30 min, 1 hora, 2 horas, 4 horas, 12 horas ou 1 dia (24 horas)</td></tr>
+    </table>
+    <p>Bruto mostra os valores reais recebidos do dispositivo, sem agrupar — por isso não tem intervalo. As demais agregações trazem um ponto por intervalo e não têm limite de pontos. Os cards de Tensão/Corrente/Potência/Fator de Potência <strong>não aparecem</strong> nesta aba.</p>
+    <div class="callout callout--tip">
+      <strong>📌 Pico de demanda</strong>
+      Logo acima do gráfico (com Máximo), uma linha destaca o maior valor do período e quando ocorreu — ex.: "Máxima: 2,198 kW (Potência Total) em 22/09/2026". Com agrupamento de 1 dia (24 horas) mostra só a data; nos demais, data e horário. O pico considera apenas leituras reais, nunca os pontos roxos.
+    </div>
+    <p><strong>Exportar CSV / Exportar PDF</strong>, no rodapé, levam os dados para fora do dashboard.</p>
+
+    <h3 id="roxo">Pontos roxos: intervalos sem telemetria</h3>
+    <p>O dispositivo só envia a potência quando o valor muda (ou quando a central força uma leitura). Se uma máquina fica estável em 10.000 W por 40 minutos, não chegam telemetrias nesse tempo. Para que o gráfico tenha <strong>um ponto em cada intervalo</strong>, quando uma agregação não encontra dados num intervalo, o gráfico <strong>repete o valor do intervalo anterior</strong> e marca o ponto em <strong style="color:#8e44ad">roxo</strong>, com a linha tracejada até ele.</p>
+    <ul>
+      <li>Ao passar o mouse, o tooltip mostra <em>"↺ Mesmo dado anterior (sem telemetria neste intervalo)"</em>.</li>
+      <li>Uma legenda aparece abaixo do gráfico sempre que houver pontos assim.</li>
+      <li><strong>Bruto nunca preenche nada</strong> — mostra exatamente o que o dispositivo enviou.</li>
+      <li>No início do período, o primeiro valor repetido vem da última leitura anterior à data inicial.</li>
+    </ul>
+
+    <h3 id="aviso">Aviso de dados incompletos (Bruto)</h3>
+    <p>Com Bruto, se os dados retornados terminam antes do fim do período pedido, um aviso fica <strong>fixo abaixo do gráfico</strong> até você fazer uma nova consulta.</p>
+    <img class="shot" src="assets/truncated-notice.png" alt="Aviso fixo abaixo do gráfico informando até que data os dados foram buscados" />
+    <ul>
+      <li>Quando o motivo é o <strong>limite de pontos</strong>, o aviso traz o link <strong>Clique aqui</strong>: ele preenche o período com o trecho que faltou — começando <strong>1 minuto depois</strong> do último registro recebido e indo até o fim originalmente pedido. Depois é só clicar em <strong>Carregar</strong>.</li>
+      <li>Quando o dispositivo simplesmente não tem dados depois daquela data, o aviso informa isso e não oferece o link.</li>
+      <li>Diferenças pequenas (até 15 minutos) entre o fim do período e o último dado não geram aviso.</li>
+    </ul>
+
+    <h2 id="realtime">Aba "Realtime"</h2>
+    <p>Clique em <strong>Realtime</strong> para ver o <strong>dia de hoje</strong>. O título mostra a data e o estado dos dados: <strong>Telemetria em Tempo Real de hoje (28/09/2026) ✅</strong>.</p>
+    <img class="shot" src="assets/realtime-tab.png" alt="Aba Realtime com os cards, o gráfico de hoje em Máximo a cada 15 min e os indicadores de saúde no rodapé" />
+    <table>
+      <tr><th>Ícone</th><th>Significado</th></tr>
+      <tr><td>✅</td><td>Há telemetrias de hoje e central/dispositivo estão respondendo</td></tr>
+      <tr><td>⚠️</td><td>Atenção: central ou dispositivo falhou numa verificação (ainda não é offline)</td></tr>
+      <tr><td>🔴</td><td>Central ou dispositivo offline</td></tr>
+      <tr><td>❌</td><td>O dispositivo não enviou nenhuma telemetria hoje</td></tr>
+    </table>
+    <ul>
+      <li><strong>Quatro cards por fase</strong> — Tensão (V), Corrente (A), Potência (W) e Fator de Potência. O ícone ⓘ de cada card abre mais detalhes.</li>
+      <li><strong>Gráfico do dia</strong> — sempre de 00:00 até agora. Ao voltar de Por Período, o gráfico de hoje continua de onde estava; o histórico do período nunca entra nele.</li>
+      <li><strong>Agregação e intervalo</strong> — ao lado das abas: <strong>Bruto</strong> (padrão), <strong>Mínimo</strong>, <strong>Máximo</strong>, <strong>Média</strong> ou <strong>Soma</strong>; fora do Bruto, intervalo de <strong>15 min, 30 min, 1 hora, 2 horas ou 4 horas</strong>. Intervalos sem telemetria repetem o dado anterior em roxo.</li>
+      <li><strong>Contador de sessão</strong> (ex.: <code>⏱ 4:50</code>) — ao zerar, a atualização automática para sozinha.</li>
+      <li><strong>Pausar / Retomar</strong> e <strong>Exportar CSV / PDF</strong> no rodapé.</li>
+    </ul>
+    <p><strong>Rodapé:</strong> mostra "Atualização automática: ON", o tempo até a próxima atualização e, numa linha abaixo em texto discreto, o horário da última atualização. A cada ciclo (por padrão <strong>45 segundos</strong>: 30 s de intervalo + 15 s de espera) a modal manda um comando à central para <strong>forçar o dispositivo a enviar</strong> uma leitura e plota um ponto — o <em>ticker</em>.</p>
+
+    <h3 id="leitura-continua">Leitura contínua (ⓘ)</h3>
+    <p>O dispositivo pode enviar telemetrias por conta própria entre um ticker e outro. Com <strong>Leitura contínua</strong> ligada (padrão), a modal consulta o ThingsBoard a cada <strong>5 segundos</strong> e, quando há uma leitura <strong>mais nova</strong>, plota na hora com o horário real em que o dispositivo enviou. Desligada, o gráfico só se atualiza a cada ticker.</p>
+    <img class="shot" src="assets/live-info-tooltip.png" alt="Tooltip do ⓘ explicando a leitura contínua" />
+    <p>Só <strong>lê</strong> dados — não envia comandos ao dispositivo — e para junto com a atualização automática (ao pausar, ao trocar para Por Período e ao fim da sessão).</p>
+
+    <h3 id="saude">Indicadores de saúde: CENTRAL e Device</h3>
+    <p>Os badges do rodapé têm três estados. Uma falha <strong>não</strong> leva direto a offline:</p>
+    <table>
+      <tr><th>Badge</th><th>Quando aparece</th></tr>
+      <tr><td><strong style="color:#27ae60">OK</strong> (verde)</td><td>A última verificação foi bem-sucedida</td></tr>
+      <tr><td><strong style="color:#d68910">ATENÇÃO</strong> (âmbar)</td><td>A verificação falhou, mas ainda não atingiu o limite de tentativas (o tooltip mostra a tentativa, ex.: 2/3)</td></tr>
+      <tr><td><strong style="color:#e74c3c">OFFLINE</strong> (vermelho)</td><td><strong>3 falhas seguidas</strong> (valor fixo por enquanto)</td></tr>
+    </table>
+    <ul>
+      <li><strong>CENTRAL</strong> — falha quando a chamada de verificação (<code>check_device</code>) à central não responde.</li>
+      <li><strong>Device</strong> — falha quando a telemetria mais recente do próprio dispositivo tem <strong>mais de 30 minutos</strong>. Ex.: são 13h e a última leitura foi às 12h20 → ATENÇÃO; se continuar assim por 3 verificações seguidas → OFFLINE.</li>
+      <li>Qualquer verificação bem-sucedida zera a contagem e o badge volta para OK. Uma leitura nova do dispositivo (inclusive pela leitura contínua) também volta o Device para OK.</li>
+    </ul>
+
+    <h2 id="numeros">Formato dos números</h2>
+    <p>Todos os valores numéricos da modal usam separador de milhar <code>.</code> e separador decimal <code>,</code> (ex.: <code>2.198,00</code>), padrão brasileiro. Potências grandes são escaladas automaticamente de W para kW quando faz sentido.</p>
+
+    <h2 id="faq">Dúvidas frequentes</h2>
+    <p><strong>Por que a aba Realtime não teve nenhuma leitura ao abrir a modal?</strong><br/>Por padrão, a modal abre em Por Período e não inicia a conexão em tempo real automaticamente. Clique em Realtime para começar.</p>
+    <p><strong>O pico de demanda não mostra hora, só a data — é um bug?</strong><br/>Não. Acontece com o agrupamento de 1 dia (24 horas): o pico representa o valor máximo do dia inteiro, sem um horário específico.</p>
+    <p><strong>O que são os pontos roxos?</strong><br/>Intervalos em que o dispositivo não enviou telemetria (por exemplo, porque a potência ficou estável). O gráfico repete o valor do intervalo anterior. Só aparecem fora do Bruto.</p>
+    <p><strong>Por que sumiu o intervalo de agrupamento (ou o limite de pontos)?</strong><br/>Bruto mostra só o Limite de pontos; as outras agregações mostram só o Intervalo de agrupamento.</p>
+    <p><strong>Apareceu um aviso dizendo que só foi possível buscar até uma data anterior.</strong><br/>Com Bruto, o limite de pontos foi atingido (ou o dispositivo não tem dados até o fim do período). Clique em "Clique aqui" no aviso para preencher o período restante e depois em Carregar, ou aumente o limite de pontos.</p>
+    <p><strong>O badge ficou âmbar (ATENÇÃO) — a central caiu?</strong><br/>Ainda não. ATENÇÃO indica uma falha isolada; só após 3 verificações seguidas sem sucesso o estado vira OFFLINE.</p>
+    <p><strong>A leitura em tempo real parou sozinha depois de alguns minutos.</strong><br/>É esperado — a sessão tem um tempo limite (contador no rodapé). Clique novamente em Realtime, ou em Retomar, para iniciar uma nova sessão.</p>
+  </main>
+  <footer>MyIO · Guia do Usuário · Telemetria Instantânea e Pico de Demanda</footer>
+</div>
+</body>
+</html>

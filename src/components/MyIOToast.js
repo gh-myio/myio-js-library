@@ -67,7 +67,11 @@ const MyIOToast = (function() {
       position: fixed;
       top: 25px;
       right: 25px;
-      z-index: 99999;
+      /* Must always render above every modal in the app, including the
+         highest ad-hoc z-index scales seen so far (premium-modals tokens.ts
+         tops out at 1000001; some legacy modals hardcode 99999/10000000) —
+         a toast that's invisible behind a modal defeats its own purpose. */
+      z-index: 2000000;
       display: flex;
       flex-direction: column;
       gap: 10px;
