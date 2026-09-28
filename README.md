@@ -620,13 +620,14 @@ formatWaterVolumeM3(null); // "-"
 
 ##### `formatTankHeadFromCm(valueCm: number, locale?: string): string`
 
-Formats tank head from centimeters to meters of water column (m.c.a.).
+Formats tank head from centimeters to meters of water column (M.C.A).
 
 ```javascript
 import { formatTankHeadFromCm } from 'myio-js-library';
 
-formatTankHeadFromCm(178); // "1,78 m.c.a."
-formatTankHeadFromCm(250); // "2,50 m.c.a."
+formatTankHeadFromCm(178); // "1,78 M.C.A"
+formatTankHeadFromCm(250); // "2,50 M.C.A"
+formatTankHeadFromCm(1220.7); // "12,21 M.C.A"
 formatTankHeadFromCm(null); // "-"
 ```
 

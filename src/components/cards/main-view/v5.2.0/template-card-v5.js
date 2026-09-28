@@ -17,6 +17,7 @@
 import { MyIOSelectionStore } from '../../../../components/SelectionStore.js';
 import { MyIODraggableCard } from '../../../../components/DraggableCard.js';
 import { formatEnergy } from '../../../../utils/format/energy.ts';
+import { formatTankHeadFromCm } from '../../../../utils/format/water.ts';
 import {
   DeviceStatusType,
   ConnectionStatusType,
@@ -326,8 +327,24 @@ export function renderCardComponentV5({
   // Check if device is temperature-related (uses centralized config)
   const isTemperatureDevice = (deviceType) => isTemperatureDeviceType(deviceType);
 
+  // For TANK devices, waterPercentage is 0-1, so multiply by 100
+  // For other devices, perc is already 0-100
+  const isTankDevice = deviceType === 'TANK' || deviceType === 'CAIXA_DAGUA';
+  const percentageForDisplay = isTankDevice ? (waterPercentage || 0) * 100 : perc;
+  // TANK: water_level chega em cm — a conversão p/ M.C.A (÷100) é só de exibição
+  const tankLevelCm = isTankDevice ? Number(waterLevel ?? val) : null;
+
+  // Decimal places for the percentage badge — prop > window.MyIOUtils.percentDecimals > 2.
+  // Runtime-resolved, so it can change without a lib rebuild.
+  const _pctDecimals = resolvePercentDecimals(percentDecimals);
+
   // RFC-0108: Smart formatting function that respects MyIOUtils measurement settings
   const formatCardValue = (value, deviceType) => {
+    // TANK/CAIXA_DAGUA: o percentual é o destaque; o nível (M.C.A) vai para o badge
+    if (isTankDevice) {
+      return `${percentageForDisplay.toFixed(_pctDecimals).replace('.', ',')}%`;
+    }
+
     const numValue = Number(value) || 0;
     const category = getDeviceCategory(deviceType);
 
@@ -646,16 +663,8 @@ export function renderCardComponentV5({
   };
 
   // Create custom card HTML
-  // For TANK devices, waterPercentage is 0-1, so multiply by 100
-  // For other devices, perc is already 0-100
-  const isTankDevice = deviceType === 'TANK' || deviceType === 'CAIXA_DAGUA';
   const isTermostatoDevice = deviceType?.toUpperCase() === 'TERMOSTATO';
   const isEnergyDeviceFlag = isEnergyDevice(deviceType);
-  const percentageForDisplay = isTankDevice ? (waterPercentage || 0) * 100 : perc;
-
-  // Decimal places for the percentage badge — prop > window.MyIOUtils.percentDecimals > 2.
-  // Runtime-resolved, so it can change without a lib rebuild.
-  const _pctDecimals = resolvePercentDecimals(percentDecimals);
 
   // Calculate temperature status for TERMOSTATO devices
   const calculateTempStatus = () => {
@@ -770,7 +779,9 @@ export function renderCardComponentV5({
                 </div>
               </div>
               ${
-                !isTermostatoDevice
+                isTankDevice
+                  ? `<span class="device-percentage-badge device-tank-level-badge" style="position: absolute; bottom: 12px; right: 12px; z-index: 20; background: none !important;">${formatTankHeadFromCm(tankLevelCm)}</span>`
+                  : !isTermostatoDevice
                   ? `<span class="device-percentage-badge percentage-tooltip-trigger" style="position: absolute; bottom: 12px; right: 12px; z-index: 20; background: none !important; cursor: help;">${percentageForDisplay.toFixed(_pctDecimals).replace('.', ',')}%</span>`
                   : tempDeviationPercent
                   ? `<span class="device-percentage-badge temp-deviation-badge temp-comparison-tooltip-trigger" style="position: absolute; bottom: 12px; right: 12px; z-index: 20; background: none !important; color: ${

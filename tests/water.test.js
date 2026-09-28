@@ -56,10 +56,12 @@ describe('Water Formatting Functions', () => {
   });
 
   describe('formatTankHeadFromCm', () => {
-    it('should convert cm to m.c.a.', () => {
-      expect(formatTankHeadFromCm(178)).toBe('1,78 m.c.a.');
-      expect(formatTankHeadFromCm(250)).toBe('2,50 m.c.a.');
-      expect(formatTankHeadFromCm(0)).toBe('0,00 m.c.a.');
+    it('should convert cm to M.C.A', () => {
+      expect(formatTankHeadFromCm(178)).toBe('1,78 M.C.A');
+      expect(formatTankHeadFromCm(250)).toBe('2,50 M.C.A');
+      expect(formatTankHeadFromCm(0)).toBe('0,00 M.C.A');
+      // water_level do gateway (cm) → metros com 2 casas, sem ponto final
+      expect(formatTankHeadFromCm(1220.7)).toBe('12,21 M.C.A');
     });
 
     it('should handle null/undefined values', () => {
@@ -114,7 +116,7 @@ describe('Water Formatting Functions', () => {
     });
 
     it('should format Caixas D\'Água as tank head', () => {
-      expect(formatWaterByGroup(178, "Caixas D'Água")).toBe('1,78 m.c.a.');
+      expect(formatWaterByGroup(178, "Caixas D'Água")).toBe('1,78 M.C.A');
     });
 
     it('should format other groups as water volume', () => {
