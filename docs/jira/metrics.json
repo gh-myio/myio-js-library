@@ -4,7 +4,7 @@
     "projectName": "Engineer Dashboard",
     "board": 166,
     "jiraBase": "https://myio.atlassian.net",
-    "generatedAt": "2026-09-22",
+    "generatedAt": "2026-09-28",
     "today": "2026-09-22",
     "source": "Jira Cloud (myio.atlassian.net) via MCP Atlassian"
   },
@@ -695,7 +695,7 @@
       "complete": "",
       "state": "future",
       "scope": 33,
-      "done": 6,
+      "done": 7,
       "burndown": [
         {
           "date": "2026-09-14",
@@ -720,6 +720,11 @@
         {
           "date": "2026-09-22",
           "remaining": 27,
+          "ideal": 0
+        },
+        {
+          "date": "2026-09-28",
+          "remaining": 30,
           "ideal": 0
         }
       ],
@@ -2910,6 +2915,62 @@
       "type": "Bug",
       "priority": "Medium",
       "date": "2026-09-21"
+    },
+    {
+      "key": "ED-1284",
+      "summary": "West Plaza — backfill forçado de 3.427 slots (7 devices), jun-set/2026",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Highest",
+      "date": "2026-09-23"
+    },
+    {
+      "key": "ED-1265",
+      "summary": "Alteração do painel dos shoppings da Sá Cavalcante — Grupo Transformadores — Metrópole Ananindeua",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-23"
+    },
+    {
+      "key": "ED-1264",
+      "summary": "Alteração do painel dos shoppings da Sá Cavalcante — Grupo Transformadores — Shopping da Ilha",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-23"
+    },
+    {
+      "key": "ED-1262",
+      "summary": "Alteração do painel dos shoppings da Sá Cavalcante — Grupo Transformadores — Moxuara",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-23"
+    },
+    {
+      "key": "ED-1259",
+      "summary": "Alteração do painel dos shoppings da Sá Cavalcante — Grupo Transformadores",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-23"
+    },
+    {
+      "key": "ED-840",
+      "summary": "Desenvolver template para report de tickets",
+      "assignee": "Letícia Camargo",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-24"
+    },
+    {
+      "key": "ED-1282",
+      "summary": "Moxuara - Setup de dispositivo sem ingestion id",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-25"
     }
   ]
 }

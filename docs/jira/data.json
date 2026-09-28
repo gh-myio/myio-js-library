@@ -11,79 +11,81 @@
       "end": "2026-09-21",
       "state": "future"
     },
-    "generatedAt": "2026-09-22",
+    "generatedAt": "2026-09-28",
     "source": "Jira Cloud (myio.atlassian.net) via MCP Atlassian",
     "scope": "Tickets em aberto (status != Concluído). Inclui Tarefa, Subtarefa e Bug. Exclui Épicos e História/Story."
   },
   "summary": {
-    "sprintOpen": 27,
-    "backlogOpen": 590,
-    "total": 617
+    "sprintOpen": 30,
+    "backlogOpen": 593,
+    "total": 623
   },
   "aggregates": {
     "sprint": {
       "byStatus": {
-        "Itens Novos": 18,
-        "PENDENTE": 5,
+        "Itens Novos": 16,
+        "PENDENTE": 10,
         "EM REVISÃO": 3,
         "Em Andamento": 1
       },
       "byType": {
-        "Tarefa": 21,
-        "Bug": 6
+        "Tarefa": 22,
+        "Bug": 8
       },
       "byPriority": {
         "Medium": 25,
-        "Highest": 2
+        "Highest": 3,
+        "Lowest": 2
       },
       "byAssignee": {
-        "Rodrigo Lago": 19,
-        "Letícia Camargo": 4,
-        "Victor Hugo da Silva": 3,
-        "Andre Abadesso": 1
+        "Rodrigo Lago": 24,
+        "Victor Hugo da Silva": 2,
+        "Letícia Camargo": 2,
+        "Andre Abadesso": 1,
+        "Leandro Gadioli Rodrigues": 1
       },
       "byGroup": {
-        "Outros": 7,
-        "Relatórios / Dashboard": 7,
-        "GCDR / Plataforma": 5,
+        "Outros": 8,
+        "Relatórios / Dashboard": 8,
+        "GCDR / Plataforma": 6,
         "Souza Aguiar": 3,
         "Central / Firmware / HW": 2,
         "Moxuara": 1,
         "Capim Dourado": 1,
-        "Sá Cavalcante": 1
+        "Macaé": 1
       }
     },
     "backlog": {
       "byStatus": {
-        "PENDENTE": 392,
+        "PENDENTE": 393,
         "Itens Novos": 179,
         "EM REVISÃO": 17,
-        "Em Andamento": 2
+        "Em Andamento": 4
       },
       "byType": {
         "Tarefa": 428,
         "Subtarefa": 108,
-        "Bug": 54
+        "Bug": 57
       },
       "byPriority": {
-        "Medium": 563,
-        "High": 20,
+        "Medium": 564,
+        "High": 21,
+        "Low": 4,
         "Highest": 3,
-        "Low": 3,
         "Lowest": 1
       },
       "byAssignee": {
         "Luiz Guilherme Martinho Sampaio Ito": 385,
-        "Rodrigo Lago": 98,
-        "Victor Hugo da Silva": 66,
-        "Letícia Camargo": 34,
+        "Rodrigo Lago": 105,
+        "Victor Hugo da Silva": 63,
+        "Letícia Camargo": 33,
         "Leticia Saraiva": 5,
         "Leandro Gadioli Rodrigues": 2
       },
       "byGroup": {
         "Central / Firmware / HW": 390,
-        "GCDR / Plataforma": 129,
-        "Outros": 14,
+        "GCDR / Plataforma": 131,
+        "Outros": 15,
         "BAS": 10,
         "Sá Cavalcante": 9,
         "Relatórios / Dashboard": 6,
@@ -91,43 +93,29 @@
         "Souza Aguiar": 3,
         "Contagem": 3,
         "Macaé": 3,
+        "Mestre Álvaro": 3,
+        "Campinas": 3,
         "Rio Poty": 3,
-        "Moxuara": 3,
-        "Shopping da Ilha / SDI": 3,
+        "Melicidade": 3,
         "Praia da Costa": 2,
-        "Campinas": 2,
         "West Plaza": 2,
-        "Melicidade": 2,
-        "Mestre Álvaro": 1,
-        "Montserrat": 1,
-        "Metrópole Ananindeua": 1
+        "Shopping da Ilha / SDI": 2,
+        "Moxuara": 1,
+        "Montserrat": 1
       }
     }
   },
   "sprint": [
     {
-      "key": "ED-840",
-      "summary": "Desenvolver template para report de tickets",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "EM REVISÃO",
-      "cat": "indeterminate",
-      "priority": "Medium",
-      "assignee": "Letícia Camargo",
-      "updated": "2026-09-22",
-      "group": "Outros",
-      "kind": "other"
-    },
-    {
       "key": "ED-983",
       "summary": "[BUG] [RFC-0207] Gestão de Perfil de Dispositivos não atualiza estado após salvar edição (Requer F5).",
       "type": "Bug",
       "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
+      "status": "PENDENTE",
+      "cat": "indeterminate",
       "priority": "Medium",
-      "assignee": "Letícia Camargo",
-      "updated": "2026-09-22",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-09-28",
       "group": "Outros",
       "kind": "other"
     },
@@ -279,11 +267,11 @@
       "summary": "QA: validar dashboard Tabela Temp V5 (Souza Aguiar) operacional após feature adjustmentSince",
       "type": "Tarefa",
       "sub": false,
-      "status": "Em Andamento",
+      "status": "PENDENTE",
       "cat": "indeterminate",
       "priority": "Medium",
-      "assignee": "Letícia Camargo",
-      "updated": "2026-09-15",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-09-28",
       "group": "Souza Aguiar",
       "kind": "unit"
     },
@@ -405,28 +393,15 @@
       "kind": "theme"
     },
     {
-      "key": "ED-1259",
-      "summary": "Alteração do painel dos shoppings da Sá Cavalcante — Grupo Transformadores",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Victor Hugo da Silva",
-      "updated": "2026-09-21",
-      "group": "Sá Cavalcante",
-      "kind": "unit"
-    },
-    {
       "key": "ED-1271",
       "summary": "QA: Validar branch feat/interpolation-agent em Staging (Sprint 20)",
       "type": "Tarefa",
       "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
+      "status": "Em Andamento",
+      "cat": "indeterminate",
       "priority": "Medium",
       "assignee": "Letícia Camargo",
-      "updated": "2026-09-22",
+      "updated": "2026-09-28",
       "group": "GCDR / Plataforma",
       "kind": "theme"
     },
@@ -455,6 +430,71 @@
       "updated": "2026-09-22",
       "group": "Relatórios / Dashboard",
       "kind": "theme"
+    },
+    {
+      "key": "ED-1295",
+      "summary": "QA — Testar novo botão \"Telemetria Instantânea e Pico de Demanda\"",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "PENDENTE",
+      "cat": "indeterminate",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-09-28",
+      "group": "Relatórios / Dashboard",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1294",
+      "summary": "[BUG] Anotações: dropdown de Status/Importância cortado em \"Filtros Avançados\" + arquivamento bloqueado indevidamente",
+      "type": "Bug",
+      "sub": false,
+      "status": "EM REVISÃO",
+      "cat": "indeterminate",
+      "priority": "Lowest",
+      "assignee": "Letícia Camargo",
+      "updated": "2026-09-28",
+      "group": "Outros",
+      "kind": "other"
+    },
+    {
+      "key": "ED-1293",
+      "summary": "RFC-0233 — Mapa de visibilidade de funcionalidades por usuário (restrict_view)",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "PENDENTE",
+      "cat": "indeterminate",
+      "priority": "Highest",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-09-28",
+      "group": "Outros",
+      "kind": "other"
+    },
+    {
+      "key": "ED-1291",
+      "summary": "[BUG] [INGESTION STAGING] Dispositivos: \"Load more\" para de carregar após o 2º clique",
+      "type": "Bug",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Lowest",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-09-28",
+      "group": "GCDR / Plataforma",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1288",
+      "summary": "Shopping Macaé - Água: criar widget \"Entrada\" (mover hidrômetros classificados incorretamente em Área Comum)",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "PENDENTE",
+      "cat": "indeterminate",
+      "priority": "Medium",
+      "assignee": "Leandro Gadioli Rodrigues",
+      "updated": "2026-09-28",
+      "group": "Macaé",
+      "kind": "unit"
     }
   ],
   "backlog": [
@@ -7093,51 +7133,12 @@
       "summary": "Shopping Macaé - Customização de painel para produtos de água",
       "type": "Tarefa",
       "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
+      "status": "Em Andamento",
+      "cat": "indeterminate",
       "priority": "Medium",
       "assignee": "Victor Hugo da Silva",
-      "updated": "2026-09-22",
+      "updated": "2026-09-28",
       "group": "Macaé",
-      "kind": "unit"
-    },
-    {
-      "key": "ED-1262",
-      "summary": "Alteração do painel dos shoppings da Sá Cavalcante — Grupo Transformadores — Moxuara",
-      "type": "Subtarefa",
-      "sub": true,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Victor Hugo da Silva",
-      "updated": "2026-09-21",
-      "group": "Moxuara",
-      "kind": "unit"
-    },
-    {
-      "key": "ED-1264",
-      "summary": "Alteração do painel dos shoppings da Sá Cavalcante — Grupo Transformadores — Shopping da Ilha",
-      "type": "Subtarefa",
-      "sub": true,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Victor Hugo da Silva",
-      "updated": "2026-09-21",
-      "group": "Shopping da Ilha / SDI",
-      "kind": "unit"
-    },
-    {
-      "key": "ED-1265",
-      "summary": "Alteração do painel dos shoppings da Sá Cavalcante — Grupo Transformadores — Metrópole Ananindeua",
-      "type": "Subtarefa",
-      "sub": true,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Victor Hugo da Silva",
-      "updated": "2026-09-21",
-      "group": "Metrópole Ananindeua",
       "kind": "unit"
     },
     {
@@ -7938,11 +7939,11 @@
       "summary": "QA: Painel Interpolação — 4 abas (Dashboard/Gateways/Logs/Setup)",
       "type": "Subtarefa",
       "sub": true,
-      "status": "Itens Novos",
-      "cat": "new",
+      "status": "Em Andamento",
+      "cat": "indeterminate",
       "priority": "Medium",
       "assignee": "Letícia Camargo",
-      "updated": "2026-09-22",
+      "updated": "2026-09-28",
       "group": "GCDR / Plataforma",
       "kind": "theme"
     },
@@ -7990,11 +7991,11 @@
       "summary": "QA: Regressão geral do dashboard (mudanças não-interpolação da branch)",
       "type": "Subtarefa",
       "sub": true,
-      "status": "Itens Novos",
-      "cat": "new",
+      "status": "PENDENTE",
+      "cat": "indeterminate",
       "priority": "Medium",
-      "assignee": "Letícia Camargo",
-      "updated": "2026-09-22",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-09-28",
       "group": "GCDR / Plataforma",
       "kind": "theme"
     },
@@ -8035,19 +8036,6 @@
       "assignee": "Rodrigo Lago",
       "updated": "2026-09-22",
       "group": "Rio Poty",
-      "kind": "unit"
-    },
-    {
-      "key": "ED-1282",
-      "summary": "Moxuara - Setup de dispositivo sem ingestion id",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-09-22",
-      "group": "Moxuara",
       "kind": "unit"
     },
     {
@@ -8126,6 +8114,97 @@
       "assignee": "Victor Hugo da Silva",
       "updated": "2026-09-22",
       "group": "Relatórios / Dashboard",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1296",
+      "summary": "[BUG] [DASHBOARD] [MESTRE ALVARO DESENV] Ao adicionar Funções/Papéis em gestão de usuários o select de Funções não apresenta informações",
+      "type": "Subtarefa",
+      "sub": true,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-09-28",
+      "group": "Mestre Álvaro",
+      "kind": "unit"
+    },
+    {
+      "key": "ED-1292",
+      "summary": "Melicidade - Outlier no registro de consumo de água",
+      "type": "Bug",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-09-28",
+      "group": "Melicidade",
+      "kind": "unit"
+    },
+    {
+      "key": "ED-1290",
+      "summary": "Mestre Alvaro - Verificação de possível outlier de consumo",
+      "type": "Bug",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "High",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-09-28",
+      "group": "Mestre Álvaro",
+      "kind": "unit"
+    },
+    {
+      "key": "ED-1289",
+      "summary": "Ajuste de dispositivos de nível de caixa dágua",
+      "type": "Subtarefa",
+      "sub": true,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-09-28",
+      "group": "Outros",
+      "kind": "other"
+    },
+    {
+      "key": "ED-1287",
+      "summary": "Campinas - notificação de alarme com falha",
+      "type": "Bug",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-09-28",
+      "group": "Campinas",
+      "kind": "unit"
+    },
+    {
+      "key": "ED-1286",
+      "summary": "Tela de login — melhorias de UI (paridade com o login do GCDR)",
+      "type": "Subtarefa",
+      "sub": true,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-09-28",
+      "group": "GCDR / Plataforma",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1285",
+      "summary": "Catálogo de pequenas melhorias de UI — frontend Alarms",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Low",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-09-28",
+      "group": "GCDR / Plataforma",
       "kind": "theme"
     }
   ]

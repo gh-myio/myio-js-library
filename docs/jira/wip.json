@@ -1,53 +1,72 @@
 {
- "meta": {
-  "project": "ED",
-  "jiraBase": "https://myio.atlassian.net",
-  "generatedAt": "2026-09-22",
-  "status": "Em Andamento",
-  "wipLimit": 1,
-  "note": "WIP = tickets com status \"Em Andamento\". Acordo: 1 por pessoa (inclui \"Aguardando Demanda\" quando ocioso)."
- },
- "total": 3,
- "peopleOver": 0,
- "people": [
-  {
-   "name": "Letícia Camargo",
-   "count": 1,
-   "over": false,
-   "tickets": [
-    {
-     "key": "ED-1219",
-     "type": "Tarefa",
-     "summary": "QA: validar dashboard Tabela Temp V5 (Souza Aguiar) operacional após feature adjustmentSince",
-     "updated": "2026-09-15"
-    }
-   ]
+  "meta": {
+    "project": "ED",
+    "jiraBase": "https://myio.atlassian.net",
+    "generatedAt": "2026-09-28",
+    "status": "Em Andamento",
+    "wipLimit": 1,
+    "note": "WIP = tickets com status \"Em Andamento\". Acordo: 1 por pessoa (inclui \"Aguardando Demanda\" quando ocioso)."
   },
-  {
-   "name": "Luiz Guilherme Martinho Sampaio Ito",
-   "count": 1,
-   "over": false,
-   "tickets": [
+  "total": 5,
+  "peopleOver": 1,
+  "people": [
     {
-     "key": "ED-1211",
-     "type": "Subtarefa",
-     "summary": "Plano de canal por vizinhança física",
-     "updated": "2026-09-16"
-    }
-   ]
-  },
-  {
-   "name": "Rodrigo Lago",
-   "count": 1,
-   "over": false,
-   "tickets": [
+      "name": "Letícia Camargo",
+      "count": 2,
+      "over": true,
+      "tickets": [
+        {
+          "key": "ED-1273",
+          "type": "Subtarefa",
+          "summary": "QA: Painel Interpolação — 4 abas (Dashboard/Gateways/Logs/Setup)",
+          "updated": "2026-09-24"
+        },
+        {
+          "key": "ED-1271",
+          "type": "Tarefa",
+          "summary": "QA: Validar branch feat/interpolation-agent em Staging (Sprint 20)",
+          "updated": "2026-09-24"
+        }
+      ]
+    },
     {
-     "key": "ED-1242",
-     "type": "Tarefa",
-     "summary": "Sá Cavalcante - Ajuste retroativo de consumo de entrada",
-     "updated": "2026-09-17"
+      "name": "Victor Hugo da Silva",
+      "count": 1,
+      "over": false,
+      "tickets": [
+        {
+          "key": "ED-1258",
+          "type": "Tarefa",
+          "summary": "Shopping Macaé - Customização de painel para produtos de água",
+          "updated": "2026-09-23"
+        }
+      ]
+    },
+    {
+      "name": "Rodrigo Lago",
+      "count": 1,
+      "over": false,
+      "tickets": [
+        {
+          "key": "ED-1242",
+          "type": "Tarefa",
+          "summary": "Sá Cavalcante - Ajuste retroativo de consumo de entrada",
+          "updated": "2026-09-17"
+        }
+      ]
+    },
+    {
+      "name": "Luiz Guilherme Martinho Sampaio Ito",
+      "count": 1,
+      "over": false,
+      "tickets": [
+        {
+          "key": "ED-1211",
+          "type": "Subtarefa",
+          "summary": "Plano de canal por vizinhança física",
+          "updated": "2026-09-16"
+        }
+      ]
     }
-   ]
-  }
- ]
+  ]
 }
