@@ -3,7 +3,6 @@
 import { toCsv } from '../internal/engines/CsvExporter';
 import { fmtPt } from '../internal/engines/NumberFmt';
 import { attach as attachDateRangePicker, DateRangeControl } from '../internal/DateRangePickerJQ';
-import { openDemandModal } from '../../DemandModal';
 import { openRealTimeTelemetryModal } from '../../RealTimeTelemetryModal';
 import {
   EnergyViewConfig,
@@ -419,17 +418,7 @@ export class EnergyModalView {
               Exportar CSV
             </button>
             ${this.canShowDemandButtons() ? `
-            <button id="view-demand-btn" class="myio-btn myio-btn-secondary" style="
-              background: linear-gradient(135deg, #1976D2 0%, #2196F3 100%);
-              color: white;
-              border: none;
-              transition: all 0.3s ease;
-              box-shadow: 0 2px 8px rgba(25, 118, 210, 0.3);
-            ">
-              <span style="font-size: 16px; margin-right: 4px;">📊</span>
-              Pico de Demanda
-            </button>
-            <button id="view-telemetry-btn" class="myio-btn myio-btn-secondary" style="
+            <button id="view-telemetry-demand-btn" class="myio-btn myio-btn-secondary" style="
               background: linear-gradient(135deg, #4A148C 0%, #6A1B9A 100%);
               color: white;
               border: none;
@@ -437,7 +426,7 @@ export class EnergyModalView {
               box-shadow: 0 2px 8px rgba(74, 20, 140, 0.3);
             ">
               <span style="font-size: 16px; margin-right: 4px;">⚡</span>
-              Telemetrias Instantâneas
+              Telemetrias Instantâneas e Pico de Demanda
             </button>
             ` : ''}
             <button id="theme-toggle-btn" class="myio-btn myio-btn-secondary" title="Alternar tema (claro/escuro)" style="
@@ -1392,60 +1381,16 @@ export class EnergyModalView {
       loadBtn.addEventListener('click', () => this.loadData());
     }
 
-    // RFC-0084: "Pico de Demanda" button - Opens DemandModal with historical aggregated data
-    const viewDemandBtn = document.getElementById('view-demand-btn');
-    if (viewDemandBtn) {
-      viewDemandBtn.addEventListener('click', async () => {
-        try {
-          dbg('[EnergyModalView] Opening demand modal (Pico de Demanda)');
-
-          const jwtToken = localStorage.getItem('jwt_token');
-          if (!jwtToken) {
-            throw new Error('Token de autenticação não encontrado');
-          }
-
-          // Get date range from picker or fallback to params
-          let startDate: string;
-          let endDate: string;
-
-          if (this.dateRangePicker) {
-            const dates = this.dateRangePicker.getDates();
-            startDate = dates.startISO;
-            endDate = dates.endISO;
-          } else {
-            startDate = this.config.params.startDate instanceof Date
-              ? this.config.params.startDate.toISOString()
-              : this.config.params.startDate;
-            endDate = this.config.params.endDate instanceof Date
-              ? this.config.params.endDate.toISOString()
-              : this.config.params.endDate;
-          }
-
-          await openDemandModal({
-            token: jwtToken,
-            deviceId: this.config.params.deviceId!,
-            startDate: startDate,
-            endDate: endDate,
-            label: this.config.params.deviceLabel || 'Dispositivo',
-            locale: 'pt-BR',
-            readingType: (this.config.params.readingType === 'tank' ? 'water' : this.config.params.readingType) || 'energy',
-            enableRealTimeMode: true,
-            realTimeInterval: 8000,
-            realTimeAutoScroll: true
-          });
-        } catch (error) {
-          console.error('[EnergyModalView] Error opening demand modal:', error);
-          this.showError('Erro ao abrir pico de demanda: ' + (error as Error).message);
-        }
-      });
-    }
-
-    // RFC-0084: "Telemetrias Instantâneas" button - Opens RealTimeTelemetryModal
-    const viewTelemetryBtn = document.getElementById('view-telemetry-btn');
+    // ED-1251: unified "Telemetrias Instantâneas e Pico de Demanda" button — opens
+    // RealTimeTelemetryModal, which now has its own Real time / Por Período tabs
+    // (built by the team in parallel — see ED-1251 plan notes) covering both what
+    // "Pico de Demanda" (openDemandModal) and "Telemetrias Instantâneas" used to
+    // offer separately. openDemandModal is no longer called from this view.
+    const viewTelemetryBtn = document.getElementById('view-telemetry-demand-btn');
     if (viewTelemetryBtn) {
       viewTelemetryBtn.addEventListener('click', async () => {
         try {
-          dbg('[EnergyModalView] Opening real-time telemetry modal');
+          dbg('[EnergyModalView] Opening real-time telemetry modal (Real time + Por Período)');
 
           const jwtToken = localStorage.getItem('jwt_token');
           if (!jwtToken) {

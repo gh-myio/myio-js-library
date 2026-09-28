@@ -500,6 +500,7 @@ self.onInit = function () {
         LogHelper.log('[MENU] User admin detected - enabling shopping selector and settings buttons');
         addShoppingSelectorButton();
         addSettingsMenuButton(user); // RFC-0108: Consolidated settings menu
+        _applySettingsButtonVisibility(); // RFC-0233: check immediately in case restrict_view already resolved
         updateShoppingLabel();
       }
 
@@ -523,6 +524,48 @@ self.onInit = function () {
     temperature_content: 'temperature',
     alarm_content: 'alarm',
   };
+
+  // RFC-0233: per-user feature visibility (restrict_view) — MENU consumer.
+  // Reuses the same domain map above, plus the exact same Relatórios/Metas
+  // label-regex heuristic changeDashboardState() already uses to intercept
+  // those two clicks (no stable featureKey on links[] yet — see RFC's
+  // "Unresolved questions" #4).
+  const MENU_KEY_BY_DOMAIN = { energy: 'energy', water: 'water', temperature: 'temperature', alarm: 'alarms' };
+  const _originalMenuLinks = settings.links || [];
+
+  function _menuFeatureKeyForLink(link) {
+    const content = link?.content || '';
+    if (/relat/i.test(content)) return 'reports';
+    if (/metas/i.test(content)) return 'goals';
+    const domain = DOMAIN_BY_STATE[link?.stateId];
+    return domain ? MENU_KEY_BY_DOMAIN[domain] : null;
+  }
+
+  function applyMenuFeatureVisibility() {
+    const isFV = window.MyIOUtils?.isFeatureVisible;
+    if (!isFV) return; // resolver not attached yet — nothing to restrict
+    scope.links = _originalMenuLinks.filter((link) => {
+      const key = _menuFeatureKeyForLink(link);
+      return !key || isFV(['menu', key]);
+    });
+    self.ctx.detectChanges?.();
+  }
+
+  function _applySettingsButtonVisibility() {
+    const isFV = window.MyIOUtils?.isFeatureVisible;
+    const visible = !isFV || isFV(['menu', 'settings']);
+    const btn = document.getElementById('settings-menu-btn');
+    if (btn) btn.style.display = visible ? '' : 'none';
+  }
+
+  // Check immediately (MAIN_VIEW may have resolved restrict_view before this
+  // widget's onInit ran) and subscribe (MENU may have initialized first) —
+  // mirrors _applyPresetupVisibility's check-immediately-and-subscribe idiom.
+  applyMenuFeatureVisibility();
+  window.addEventListener('myio:feature-visibility-ready', () => {
+    applyMenuFeatureVisibility();
+    _applySettingsButtonVisibility();
+  });
 
   scope.changeDashboardState = function (e, stateId, index) {
     e.preventDefault();

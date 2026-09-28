@@ -3,6 +3,7 @@
  * Lists GCDR permission policies. Super-admins can create, edit and delete.
  */
 import { UserManagementConfig, GCDRPolicy } from '../types';
+import { MyIOToast } from '../../../../components/MyIOToast';
 
 export interface PoliciesTabCallbacks {
   showToast(msg: string, type?: 'success' | 'error'): void;
@@ -68,7 +69,7 @@ export class PoliciesTab {
       this.renderList();
     } catch (err) {
       console.error('[PoliciesTab] loadPolicies error', err);
-      this.callbacks.showToast('Erro ao carregar políticas. Verifique a conexão com o GCDR.', 'error');
+      MyIOToast.error('Erro ao carregar políticas. Verifique a conexão com o GCDR.');
       this.el.innerHTML = `<div class="gm-error">Erro ao carregar políticas. Verifique a conexão com o GCDR.</div>`;
     }
   }
@@ -270,12 +271,12 @@ export class PoliciesTab {
           body: JSON.stringify(body),
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        this.callbacks.showToast(isEdit ? 'Política atualizada!' : 'Política criada!', 'success');
+        MyIOToast.success(isEdit ? 'Política atualizada!' : 'Política criada!');
         close();
         await this.loadPolicies();
       } catch (err) {
         console.error('[PoliciesTab] save error', err);
-        this.callbacks.showToast('Erro ao salvar política.', 'error');
+        MyIOToast.error('Erro ao salvar política.');
         btn.disabled = false;
         btn.textContent = isEdit ? 'Salvar' : 'Criar';
       }
@@ -290,11 +291,11 @@ export class PoliciesTab {
         headers: this.gcdrHeaders(),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      this.callbacks.showToast('Política excluída.', 'success');
+      MyIOToast.success('Política excluída.');
       await this.loadPolicies();
     } catch (err) {
       console.error('[PoliciesTab] delete error', err);
-      this.callbacks.showToast('Erro ao excluir política.', 'error');
+      MyIOToast.error('Erro ao excluir política.');
     }
   }
 

@@ -1,4 +1,5 @@
 import { UserManagementConfig } from '../types';
+import { MyIOToast } from '../../../../components/MyIOToast';
 
 export interface NewUserCallbacks {
   onCreated(userId: string): void;
@@ -220,12 +221,12 @@ export class NewUserTab {
         );
       }
 
-      this.callbacks.showToast(`Usuário ${data.firstName} ${data.lastName} criado com sucesso!`, 'success');
+      MyIOToast.success(`Usuário ${data.firstName} ${data.lastName} criado com sucesso!`);
       this.reset();
       this.callbacks.onCreated(newUserId);
     } catch (err: any) {
       console.error('[NewUserTab] create user error', err);
-      this.callbacks.showToast('Erro ao criar usuário. Verifique os dados e tente novamente.', 'error');
+      MyIOToast.error('Erro ao criar usuário. Verifique os dados e tente novamente.');
     } finally {
       this.submitting = false;
       submitBtn.disabled = false;
