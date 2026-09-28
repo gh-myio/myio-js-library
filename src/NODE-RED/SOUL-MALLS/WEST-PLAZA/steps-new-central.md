@@ -9,8 +9,8 @@
 > |---|---|
 > | Central | West Plaza |
 > | Holding | Soul Malls |
-> | IPv6 (mesh Yggdrasil) | `203:1211:7a3a:89f:4ce2:4482:13:e8b` |
-> | CENTRAL_UUID / Gateway ID | `1982b47d-2e82-40df-94cc-f89ae12cba58` |
+> | IPv6 (mesh Yggdrasil) | `200:4bfa:32e0:da5f:74bd:ab68:202b:20a7` |
+> | CENTRAL_UUID / Gateway ID | `61b789a3-23cc-45b2-91a3-5ec1dfc2ac6d` |
 > | Banco | `hubot` (PostgreSQL local na central) |
 > | Node-RED | embarcado no `myio-api.service` — editor `/red`, porta `8080` |
 >
@@ -32,7 +32,7 @@ Pré-requisitos: chave `id_rsa`; kit `mqtt-sync/` desta pasta (arquivos numerado
 ## 1. Acesso
 
 ```bash
-ssh -i id_rsa root@203:1211:7a3a:89f:4ce2:4482:13:e8b
+ssh -i id_rsa root@200:4bfa:32e0:da5f:74bd:ab68:202b:20a7
 ```
 
 ## 2. Levar os SQLs para a central
@@ -41,7 +41,7 @@ Do workstation (repare nos colchetes do IPv6 no `scp`):
 
 ```bash
 scp -i id_rsa -r src/NODE-RED/SOUL-MALLS/WEST-PLAZA/mqtt-sync \
-  "root@[203:1211:7a3a:89f:4ce2:4482:13:e8b]:/tmp/mqtt-sync"
+  "root@[200:4bfa:32e0:da5f:74bd:ab68:202b:20a7]:/tmp/mqtt-sync"
 ```
 
 > ⚠️ Arquivos vindos de checkout Windows podem ter CRLF — já na central:
@@ -78,7 +78,7 @@ SELECT 'ambient', id, name      FROM ambients WHERE name ILIKE '%mqtt%sync%';
 
 -- 3.4 ÚNICO script que grava DADOS (slave/channel/ambient virtuais; guarda
 --     anti-duplicata aborta se já existir). Já vem com o nome especializado
---     'MQTT Sync - 1982b47d-2e82-40df-94cc-f89ae12cba58' e addr_low dinâmico.
+--     'MQTT Sync - 61b789a3-23cc-45b2-91a3-5ec1dfc2ac6d' e addr_low dinâmico.
 \i /tmp/mqtt-sync/00-create-virtual-mqtt-sync.sql
 
 -- 3.5 Conferências
@@ -112,14 +112,14 @@ systemctl restart myio-api.service
 
 ## 5. Palette — data-fetcher
 
-No editor (`http://[203:1211:7a3a:89f:4ce2:4482:13:e8b]:8080/red`) → menu →
+No editor (`http://[200:4bfa:32e0:da5f:74bd:ab68:202b:20a7]:8080/red`) → menu →
 **Manage Palette → Install → upload** do
 `node-red-contrib-myio-data-fetcher-1.7.2.tgz` (upload é feito do browser do
 workstation). Não precisa restart — só Deploy quando mexer no flow.
 
 ## 6. Flow — conferências obrigatórias
 
-1. **env `CENTRAL_UUID` = `1982b47d-2e82-40df-94cc-f89ae12cba58`** definida no
+1. **env `CENTRAL_UUID` = `61b789a3-23cc-45b2-91a3-5ec1dfc2ac6d`** definida no
    ambiente do serviço (é ela que nomeia o device no ThingsBoard:
    `MQTT Sync - <CENTRAL_UUID>`, via attributes-sync/status-sync):
    ```bash
@@ -155,7 +155,7 @@ journalctl -u 'myio*' -n 50 -f
 ```
 
 No **ThingsBoard**: conferir o device
-`MQTT Sync - 1982b47d-2e82-40df-94cc-f89ae12cba58` criado pelo gateway após o
+`MQTT Sync - 61b789a3-23cc-45b2-91a3-5ec1dfc2ac6d` criado pelo gateway após o
 attributes/status-sync rodar.
 
 ---
