@@ -16,36 +16,35 @@
     "scope": "Tickets em aberto (status != Concluído). Inclui Tarefa, Subtarefa e Bug. Exclui Épicos e História/Story."
   },
   "summary": {
-    "sprintOpen": 12,
-    "backlogOpen": 605,
-    "total": 617
+    "sprintOpen": 11,
+    "backlogOpen": 588,
+    "total": 599
   },
   "aggregates": {
     "sprint": {
       "byStatus": {
         "EM REVISÃO": 6,
-        "Itens Novos": 4,
+        "Itens Novos": 3,
         "Em Andamento": 1,
         "PENDENTE": 1
       },
       "byType": {
         "Bug": 4,
-        "Tarefa": 8
+        "Tarefa": 7
       },
       "byPriority": {
         "Medium": 9,
-        "Lowest": 2,
-        "Highest": 1
+        "Lowest": 2
       },
       "byAssignee": {
         "Letícia Camargo": 6,
-        "Rodrigo Lago": 3,
+        "Rodrigo Lago": 2,
         "Andre Abadesso": 1,
         "Victor Hugo da Silva": 1,
         "Leandro Gadioli Rodrigues": 1
       },
       "byGroup": {
-        "Outros": 4,
+        "Outros": 3,
         "Moxuara": 1,
         "Relatórios / Dashboard": 4,
         "GCDR / Plataforma": 2,
@@ -55,18 +54,18 @@
     "backlog": {
       "byStatus": {
         "PENDENTE": 394,
-        "Itens Novos": 189,
+        "Itens Novos": 173,
         "EM REVISÃO": 18,
-        "Em Andamento": 4
+        "Em Andamento": 3
       },
       "byType": {
-        "Tarefa": 436,
-        "Subtarefa": 108,
+        "Tarefa": 435,
+        "Subtarefa": 92,
         "Bug": 61
       },
       "byPriority": {
         "High": 21,
-        "Medium": 576,
+        "Medium": 559,
         "Lowest": 1,
         "Highest": 3,
         "Low": 4
@@ -77,18 +76,18 @@
         "Luiz Guilherme Martinho Sampaio Ito": 385,
         "Leticia Saraiva": 5,
         "Leandro Gadioli Rodrigues": 2,
-        "Victor Hugo da Silva": 63
+        "Victor Hugo da Silva": 46
       },
       "byGroup": {
         "Praia da Costa": 2,
         "Raiz Educação": 3,
         "Souza Aguiar": 6,
         "Relatórios / Dashboard": 8,
-        "GCDR / Plataforma": 132,
+        "GCDR / Plataforma": 116,
         "Central / Firmware / HW": 392,
         "Contagem": 3,
         "Outros": 19,
-        "Macaé": 3,
+        "Macaé": 2,
         "Sá Cavalcante": 9,
         "Mestre Álvaro": 3,
         "Campinas": 3,
@@ -221,28 +220,15 @@
       "kind": "other"
     },
     {
-      "key": "ED-1293",
-      "summary": "RFC-0233 — Mapa de visibilidade de funcionalidades por usuário (restrict_view)",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "EM REVISÃO",
-      "cat": "indeterminate",
-      "priority": "Highest",
-      "assignee": "Letícia Camargo",
-      "updated": "2026-09-28",
-      "group": "Outros",
-      "kind": "other"
-    },
-    {
       "key": "ED-1291",
       "summary": "[BUG] [INGESTION STAGING] Dispositivos: \"Load more\" para de carregar após o 2º clique",
       "type": "Bug",
       "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
+      "status": "EM REVISÃO",
+      "cat": "indeterminate",
       "priority": "Lowest",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-09-28",
+      "assignee": "Letícia Camargo",
+      "updated": "2026-09-29",
       "group": "GCDR / Plataforma",
       "kind": "theme"
     },
@@ -6151,266 +6137,6 @@
       "kind": "theme"
     },
     {
-      "key": "ED-1151",
-      "summary": "[Grupo A] Migrar atributo GCDR-config: canShowDemandButtons → featureButtons",
-      "type": "Subtarefa",
-      "sub": true,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Victor Hugo da Silva",
-      "updated": "2026-08-26",
-      "group": "GCDR / Plataforma",
-      "kind": "theme"
-    },
-    {
-      "key": "ED-1152",
-      "summary": "[Grupo A] Migrar atributo GCDR-config: client_id",
-      "type": "Subtarefa",
-      "sub": true,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Victor Hugo da Silva",
-      "updated": "2026-08-26",
-      "group": "GCDR / Plataforma",
-      "kind": "theme"
-    },
-    {
-      "key": "ED-1153",
-      "summary": "[Grupo A] 🔒 Migrar atributo GCDR-config (secret): client_secret",
-      "type": "Subtarefa",
-      "sub": true,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Victor Hugo da Silva",
-      "updated": "2026-08-26",
-      "group": "GCDR / Plataforma",
-      "kind": "theme"
-    },
-    {
-      "key": "ED-1154",
-      "summary": "[Grupo A] Migrar atributo GCDR-config: customerDefaultDashboard",
-      "type": "Subtarefa",
-      "sub": true,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Victor Hugo da Silva",
-      "updated": "2026-08-26",
-      "group": "GCDR / Plataforma",
-      "kind": "theme"
-    },
-    {
-      "key": "ED-1155",
-      "summary": "[Grupo A] Migrar atributo GCDR-config: deviceClassificationProfile",
-      "type": "Subtarefa",
-      "sub": true,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Victor Hugo da Silva",
-      "updated": "2026-08-26",
-      "group": "GCDR / Plataforma",
-      "kind": "theme"
-    },
-    {
-      "key": "ED-1156",
-      "summary": "[Grupo A] Migrar atributo GCDR-config: isInternalSupportRule → alarms.showInternalSupport",
-      "type": "Subtarefa",
-      "sub": true,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Victor Hugo da Silva",
-      "updated": "2026-08-26",
-      "group": "GCDR / Plataforma",
-      "kind": "theme"
-    },
-    {
-      "key": "ED-1157",
-      "summary": "[Grupo A] Migrar atributo GCDR-config: mapInstantaneousPower",
-      "type": "Subtarefa",
-      "sub": true,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Victor Hugo da Silva",
-      "updated": "2026-08-26",
-      "group": "GCDR / Plataforma",
-      "kind": "theme"
-    },
-    {
-      "key": "ED-1158",
-      "summary": "[Grupo A] 🔒 Migrar atributo GCDR-config (secret): master_admin_password",
-      "type": "Subtarefa",
-      "sub": true,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Victor Hugo da Silva",
-      "updated": "2026-08-26",
-      "group": "GCDR / Plataforma",
-      "kind": "theme"
-    },
-    {
-      "key": "ED-1159",
-      "summary": "[Grupo A] Migrar atributo GCDR-config: maxTemperature",
-      "type": "Subtarefa",
-      "sub": true,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Victor Hugo da Silva",
-      "updated": "2026-08-26",
-      "group": "GCDR / Plataforma",
-      "kind": "theme"
-    },
-    {
-      "key": "ED-1160",
-      "summary": "[Grupo A] Migrar atributo GCDR-config: measurementDisplaySettings",
-      "type": "Subtarefa",
-      "sub": true,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Victor Hugo da Silva",
-      "updated": "2026-08-26",
-      "group": "GCDR / Plataforma",
-      "kind": "theme"
-    },
-    {
-      "key": "ED-1161",
-      "summary": "[Grupo A] Migrar atributo GCDR-config: minTemperature",
-      "type": "Subtarefa",
-      "sub": true,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Victor Hugo da Silva",
-      "updated": "2026-08-26",
-      "group": "GCDR / Plataforma",
-      "kind": "theme"
-    },
-    {
-      "key": "ED-1162",
-      "summary": "[Grupo A] Migrar atributo GCDR-config: showOfflineAlarms",
-      "type": "Subtarefa",
-      "sub": true,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Victor Hugo da Silva",
-      "updated": "2026-08-26",
-      "group": "GCDR / Plataforma",
-      "kind": "theme"
-    },
-    {
-      "key": "ED-1163",
-      "summary": "[Grupo A] Migrar atributo GCDR-config: temperatureClampMax",
-      "type": "Subtarefa",
-      "sub": true,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Victor Hugo da Silva",
-      "updated": "2026-08-26",
-      "group": "GCDR / Plataforma",
-      "kind": "theme"
-    },
-    {
-      "key": "ED-1164",
-      "summary": "[Grupo A] Migrar atributo GCDR-config: temperatureClampMin",
-      "type": "Subtarefa",
-      "sub": true,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Victor Hugo da Silva",
-      "updated": "2026-08-26",
-      "group": "GCDR / Plataforma",
-      "kind": "theme"
-    },
-    {
-      "key": "ED-1165",
-      "summary": "[Grupo A] Migrar atributo GCDR-config: tickets_enabled",
-      "type": "Subtarefa",
-      "sub": true,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Victor Hugo da Silva",
-      "updated": "2026-08-26",
-      "group": "GCDR / Plataforma",
-      "kind": "theme"
-    },
-    {
-      "key": "ED-1166",
-      "summary": "[Grupo A] Migrar atributo GCDR-config: tickets_only_to_myio",
-      "type": "Subtarefa",
-      "sub": true,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Victor Hugo da Silva",
-      "updated": "2026-08-26",
-      "group": "GCDR / Plataforma",
-      "kind": "theme"
-    },
-    {
-      "key": "ED-1167",
-      "summary": "[Grupo A][Órfão] Migrar atributo GCDR-config: inauguration_date",
-      "type": "Subtarefa",
-      "sub": true,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Victor Hugo da Silva",
-      "updated": "2026-08-26",
-      "group": "GCDR / Plataforma",
-      "kind": "theme"
-    },
-    {
-      "key": "ED-1168",
-      "summary": "[Grupo A][Órfão] Migrar atributo GCDR-config: obs",
-      "type": "Subtarefa",
-      "sub": true,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Victor Hugo da Silva",
-      "updated": "2026-08-26",
-      "group": "GCDR / Plataforma",
-      "kind": "theme"
-    },
-    {
-      "key": "ED-1169",
-      "summary": "[Grupo A][Complexo] Migrar/reconciliar integration_setup (flat vs aninhado)",
-      "type": "Subtarefa",
-      "sub": true,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Victor Hugo da Silva",
-      "updated": "2026-08-26",
-      "group": "GCDR / Plataforma",
-      "kind": "theme"
-    },
-    {
-      "key": "ED-1170",
-      "summary": "[TB-BOOT] Confirmar que credenciais de bootstrap GCDR permanecem no TB (não migrar)",
-      "type": "Subtarefa",
-      "sub": true,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Victor Hugo da Silva",
-      "updated": "2026-08-26",
-      "group": "GCDR / Plataforma",
-      "kind": "theme"
-    },
-    {
       "key": "ED-1171",
       "summary": "[Gap RFC-0229] Investigar disposição de \"alarmRecipients\" (ausente da tabela do RFC)",
       "type": "Subtarefa",
@@ -6889,19 +6615,6 @@
       "assignee": "Rodrigo Lago",
       "updated": "2026-09-18",
       "group": "Souza Aguiar",
-      "kind": "unit"
-    },
-    {
-      "key": "ED-1258",
-      "summary": "Shopping Macaé - Customização de painel para produtos de água",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Em Andamento",
-      "cat": "indeterminate",
-      "priority": "Medium",
-      "assignee": "Victor Hugo da Silva",
-      "updated": "2026-09-28",
-      "group": "Macaé",
       "kind": "unit"
     },
     {
@@ -8122,6 +7835,58 @@
       "cat": "new",
       "priority": "Medium",
       "assignee": "Rodrigo Lago",
+      "updated": "2026-09-29",
+      "group": "GCDR / Plataforma",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1173",
+      "summary": "[Grupo B] Avaliar/migrar setting do widget: enableCache",
+      "type": "Subtarefa",
+      "sub": true,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Victor Hugo da Silva",
+      "updated": "2026-09-29",
+      "group": "GCDR / Plataforma",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1174",
+      "summary": "[Grupo B] Avaliar/migrar setting do widget: cacheTtlMinutes",
+      "type": "Subtarefa",
+      "sub": true,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Victor Hugo da Silva",
+      "updated": "2026-09-29",
+      "group": "GCDR / Plataforma",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1175",
+      "summary": "[Grupo B] Avaliar/migrar setting do widget: enableStaleWhileRevalidate",
+      "type": "Subtarefa",
+      "sub": true,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Victor Hugo da Silva",
+      "updated": "2026-09-29",
+      "group": "GCDR / Plataforma",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1176",
+      "summary": "[Grupo B] Avaliar/migrar setting do widget: maxCacheSize",
+      "type": "Subtarefa",
+      "sub": true,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Victor Hugo da Silva",
       "updated": "2026-09-29",
       "group": "GCDR / Plataforma",
       "kind": "theme"

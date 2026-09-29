@@ -7,7 +7,7 @@
     "wipLimit": 1,
     "note": "WIP = tickets com status \"Em Andamento\". Acordo: 1 por pessoa (inclui \"Aguardando Demanda\" quando ocioso)."
   },
-  "total": 5,
+  "total": 4,
   "peopleOver": 1,
   "people": [
     {
@@ -39,19 +39,6 @@
           "type": "Tarefa",
           "summary": "QA: Validar branch feat/interpolation-agent em Staging (Sprint 20)",
           "updated": "2026-09-24"
-        }
-      ]
-    },
-    {
-      "name": "Victor Hugo da Silva",
-      "count": 1,
-      "over": false,
-      "tickets": [
-        {
-          "key": "ED-1258",
-          "type": "Tarefa",
-          "summary": "Shopping Macaé - Customização de painel para produtos de água",
-          "updated": "2026-09-23"
         }
       ]
     },

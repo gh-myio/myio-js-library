@@ -695,7 +695,7 @@
       "complete": "",
       "state": "future",
       "scope": 25,
-      "done": 13,
+      "done": 14,
       "burndown": [
         {
           "date": "2026-09-14",
@@ -729,7 +729,7 @@
         },
         {
           "date": "2026-09-29",
-          "remaining": 12,
+          "remaining": 11,
           "ideal": 0
         }
       ],
@@ -3022,6 +3022,182 @@
       "summary": "ALARMS: endpoint de leitura de contagem diária NO_CONSUMPTION (POST /incidents/counts/daily) — blocker do GCDR orchestrator Monitor D",
       "assignee": "Rodrigo Lago",
       "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1293",
+      "summary": "RFC-0233 — Mapa de visibilidade de funcionalidades por usuário (restrict_view)",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Highest",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1258",
+      "summary": "Shopping Macaé - Customização de painel para produtos de água",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1170",
+      "summary": "[TB-BOOT] Confirmar que credenciais de bootstrap GCDR permanecem no TB (não migrar)",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1169",
+      "summary": "[Grupo A][Complexo] Migrar/reconciliar integration_setup (flat vs aninhado)",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1168",
+      "summary": "[Grupo A][Órfão] Migrar atributo GCDR-config: obs",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1167",
+      "summary": "[Grupo A][Órfão] Migrar atributo GCDR-config: inauguration_date",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1166",
+      "summary": "[Grupo A] Migrar atributo GCDR-config: tickets_only_to_myio",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1165",
+      "summary": "[Grupo A] Migrar atributo GCDR-config: tickets_enabled",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1164",
+      "summary": "[Grupo A] Migrar atributo GCDR-config: temperatureClampMin",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1163",
+      "summary": "[Grupo A] Migrar atributo GCDR-config: temperatureClampMax",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1162",
+      "summary": "[Grupo A] Migrar atributo GCDR-config: showOfflineAlarms",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1161",
+      "summary": "[Grupo A] Migrar atributo GCDR-config: minTemperature",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1160",
+      "summary": "[Grupo A] Migrar atributo GCDR-config: measurementDisplaySettings",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1159",
+      "summary": "[Grupo A] Migrar atributo GCDR-config: maxTemperature",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1158",
+      "summary": "[Grupo A] Migrar atributo GCDR-config (secret): master_admin_password",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1157",
+      "summary": "[Grupo A] Migrar atributo GCDR-config: mapInstantaneousPower",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1156",
+      "summary": "[Grupo A] Migrar atributo GCDR-config: isInternalSupportRule → alarms.showInternalSupport",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1155",
+      "summary": "[Grupo A] Migrar atributo GCDR-config: deviceClassificationProfile",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1154",
+      "summary": "[Grupo A] Migrar atributo GCDR-config: customerDefaultDashboard",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1153",
+      "summary": "[Grupo A] Migrar atributo GCDR-config (secret): client_secret",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1152",
+      "summary": "[Grupo A] Migrar atributo GCDR-config: client_id",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1151",
+      "summary": "[Grupo A] Migrar atributo GCDR-config: canShowDemandButtons → featureButtons",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
       "priority": "Medium",
       "date": "2026-09-29"
     }
