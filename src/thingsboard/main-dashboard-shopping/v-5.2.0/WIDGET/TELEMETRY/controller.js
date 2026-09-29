@@ -6346,7 +6346,7 @@ self.onInit = async function () {
    * Now reads directly from window.STATE instead of processing event items
    */
   dataProvideHandler = function (ev) {
-    const { domain, periodKey } = ev.detail;
+    const { domain, periodKey, force } = ev.detail;
 
     TLMDBG('provide-data RECEIVED', {
       eventDomain: domain,
@@ -6387,11 +6387,22 @@ self.onInit = async function () {
       hasRequestedInitialData = false;
     }
 
-    // Prevent duplicate processing of the same periodKey
-    if (lastProcessedPeriodKey === periodKey) {
+    // Prevent duplicate processing of the same periodKey — UNLESS the sender
+    // marked this delivery as forced (ED-983 follow-up): a device-classification
+    // profile save triggers a reclassify hydrate for the SAME domain+period, so
+    // periodKey is identical to the last one processed. Without this escape
+    // hatch, that intentional re-delivery looked like a no-op duplicate and got
+    // silently dropped here — window.STATE was rebuilt with the fresh groups
+    // upstream, but this widget never re-read it, so the dashboard kept showing
+    // stale counts until a full page reload (F5).
+    if (lastProcessedPeriodKey === periodKey && !force) {
       TLMDBG('provide-data SKIP (duplicate periodKey)', { periodKey });
       LogHelper.log(`[TELEMETRY] ⏭️ Skipping duplicate provide-data for periodKey: ${periodKey}`);
       return;
+    }
+    if (lastProcessedPeriodKey === periodKey && force) {
+      TLMDBG('provide-data FORCED (same periodKey, reclassify)', { periodKey });
+      LogHelper.log(`[TELEMETRY] 🔁 ED-983: forced re-processing of periodKey: ${periodKey}`);
     }
 
     // Validate current period matches

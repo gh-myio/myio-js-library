@@ -7893,7 +7893,13 @@ const MyIOOrchestrator = (() => {
         emitHydrated(domain, key, items.length);
 
         // Emit data to widgets
-        emitProvide(domain, key, items);
+        // ED-983 (follow-up): `force` must reach TELEMETRY's provide-data handler.
+        // Without it, a force-reclassify hydrate (same domain+period, e.g. after
+        // saving a new device-classification profile) rebuilds window.STATE with
+        // fresh groups here, but TELEMETRY's own periodKey-dedup guard silently
+        // drops the event — same periodKey as last time, so it looks like a
+        // no-op duplicate to TELEMETRY even though the classification changed.
+        emitProvide(domain, key, items, { force });
         LogHelper.log(`[Orchestrator] 📡 Emitted provide-data for ${domain} with ${items.length} items`);
 
         const duration = Date.now() - startTime;
@@ -7942,7 +7948,8 @@ const MyIOOrchestrator = (() => {
   }
 
   // Emit data to widgets
-  function emitProvide(domain, pKey, items) {
+  function emitProvide(domain, pKey, items, options = {}) {
+    const { force = false } = options;
     const now = Date.now();
     const key = `${domain}_${pKey}`;
 
@@ -7985,7 +7992,9 @@ const MyIOOrchestrator = (() => {
     );
 
     // Emit event to all widgets (kept for backwards compatibility)
-    const eventDetail = { domain, periodKey: pKey, items };
+    // `force` lets consumers (TELEMETRY) bypass their own periodKey-dedup guard
+    // for an intentional same-period re-delivery (e.g. ED-983 reclassify).
+    const eventDetail = { domain, periodKey: pKey, items, force };
     window.dispatchEvent(new CustomEvent('myio:telemetry:provide-data', { detail: eventDetail }));
 
     try {
