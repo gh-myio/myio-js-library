@@ -1274,6 +1274,26 @@ function _rfc0234GcdrApiRoot() {
 const _rfc0234GcdrCache = new Map();
 
 /**
+ * ED-983 (QA 24/09): a escrita em `/entities` pode devolver 403 quando a
+ * credencial do customer (`gcdr_cust_*`) não tem o escopo `entities:write` —
+ * ver o comentário grande acima de `rfc0207SaveActiveProfile`. Sem esta
+ * mensagem, o operador só vê "HTTP 403" no modal e lê isso como "a tela
+ * quebrou", quando na verdade é uma permissão de backend pendente. Traduz o
+ * 403 num aviso acionável; qualquer outro status mantém o formato técnico cru.
+ */
+function _rfc0234GcdrErrorMessage(action, status, text) {
+  if (status === 403) {
+    return (
+      `Sem permissão para ${action} no GCDR (403 FORBIDDEN). A credencial atual do customer não tem ` +
+      'o escopo entities:write/entities:admin necessário para esta operação — isto é uma limitação ' +
+      'conhecida do backend (RFC-0234), não um bug da tela. Peça ao time MyIO para liberar uma ' +
+      'credencial com esse escopo.'
+    );
+  }
+  return `GCDR ${action} HTTP ${status}${text ? ': ' + text.slice(0, 200) : ''}`;
+}
+
+/**
  * `ProfileSource` concreto — GCDR entities, FONTE ÚNICA (RFC-0234 v2, substitui
  * a v3.1 "TB attr + flag"). Uma chamada (`deep=all`) traz o forest inteiro do
  * customer; o adapter da lib (`parseGcdrEntityForest`) só aproveita a raiz
@@ -1427,7 +1447,7 @@ async function rfc0207SaveActiveProfile(nextProfile) {
     });
     if (!cloneRes.ok && cloneRes.status !== 409) {
       const text = await cloneRes.text().catch(() => '');
-      throw new Error(`GCDR clone HTTP ${cloneRes.status}${text ? ': ' + text.slice(0, 160) : ''}`);
+      throw new Error(_rfc0234GcdrErrorMessage('clonar a taxonomia', cloneRes.status, text));
     }
     // 409 ALREADY_CLONED: segue o jogo, o customer já tinha cópia própria.
     current = null; // força reler a version/roots pós-clone abaixo
@@ -1469,7 +1489,7 @@ async function rfc0207SaveActiveProfile(nextProfile) {
   );
   if (!bulkRes.ok) {
     const text = await bulkRes.text().catch(() => '');
-    throw new Error(`GCDR bulk-replace HTTP ${bulkRes.status}${text ? ': ' + text.slice(0, 200) : ''}`);
+    throw new Error(_rfc0234GcdrErrorMessage('salvar o perfil', bulkRes.status, text));
   }
   const bulkJson = await bulkRes.json();
   const newVersion = bulkRes.headers.get('X-Version-Id') || String(bulkJson?.data?.version || '');
@@ -1513,7 +1533,7 @@ async function rfc0234RevertActiveProfile() {
   });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    throw new Error(`GCDR revert HTTP ${res.status}${text ? ': ' + text.slice(0, 160) : ''}`);
+    throw new Error(_rfc0234GcdrErrorMessage('reverter o perfil', res.status, text));
   }
   _rfc0234GcdrCache.delete(gcdrCustomerId);
   const customerId =

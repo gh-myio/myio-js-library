@@ -456,18 +456,22 @@ function openDeviceProfileSettings() {
     userName: window.MyIOUtils?.currentUserEmail || self.ctx?.currentUser?.email || 'user',
     onSave: saveProfile,
     onSaved: () => {
-      // Re-classify: invalidate cache + re-hydrate (same path as the refresh button).
+      // ED-983: re-classify the already-fetched GCDR devices with the
+      // newly-saved profile and re-dispatch domain state, instead of the
+      // dashboard needing F5. The previous approach here was dead code:
+      // `window.MyIOOrchestrator.invalidateCache` doesn't exist on this
+      // controller's orchestrator shim, and dispatching `myio:update-date`
+      // with an empty `detail` is ignored by this file's own listener
+      // (`if (!p.startISO || !p.endISO) return;`) — so nothing ever refreshed.
+      // `processDataAndDispatchEvents` is the same function the initial load
+      // uses to classify+dispatch; calling it again re-runs classification
+      // against the (now updated) active profile without a network refetch.
       try {
-        window.MyIOOrchestrator?.invalidateCache?.('*');
-      } catch {
-        /* noop */
+        processDataAndDispatchEvents();
+        LogHelper.log('RFC-0207/ED-983: classification profile saved → processDataAndDispatchEvents()');
+      } catch (err) {
+        LogHelper.warn('RFC-0207/ED-983: reclassify after profile save failed', err);
       }
-      try {
-        window.dispatchEvent(new CustomEvent('myio:update-date', { detail: {} }));
-      } catch {
-        /* noop */
-      }
-      LogHelper.log('RFC-0207: classification profile saved → re-classify triggered');
     },
   });
 }
