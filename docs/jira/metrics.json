@@ -695,7 +695,7 @@
       "complete": "",
       "state": "future",
       "scope": 31,
-      "done": 7,
+      "done": 12,
       "burndown": [
         {
           "date": "2026-09-14",
@@ -724,7 +724,7 @@
         },
         {
           "date": "2026-09-28",
-          "remaining": 24,
+          "remaining": 19,
           "ideal": 0
         }
       ],
@@ -2971,6 +2971,46 @@
       "type": "Tarefa",
       "priority": "Medium",
       "date": "2026-09-25"
+    },
+    {
+      "key": "ED-1279",
+      "summary": "Expor endpoint para valores brutos de energy_readings (GET /api/v1/energy-readings/raw)",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Highest",
+      "date": "2026-09-28"
+    },
+    {
+      "key": "ED-1257",
+      "summary": "GCDR: deviceIndex do bundle deve incluir devices de escopo NO_CONSUMPTION e identidade híbrida da central (centralId + hardwareId)",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-28"
+    },
+    {
+      "key": "ED-1251",
+      "summary": "[EnergyModalView] Unificar \"Pico de Demanda\" + \"Telemetrias Instantâneas\" em um único botão com abas Real time | Por Período",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-28"
+    },
+    {
+      "key": "ED-1226",
+      "summary": "[URGENTE] Pico de Demanda — hora ausente na timeline + valores 1000x fora de escala",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Highest",
+      "date": "2026-09-28"
+    },
+    {
+      "key": "ED-1038",
+      "summary": "Setup Inicial da Central — Shopping Capim Dourado (Soul Malls)",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-28"
     }
   ]
 }

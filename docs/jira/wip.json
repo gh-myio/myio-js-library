@@ -7,25 +7,19 @@
     "wipLimit": 1,
     "note": "WIP = tickets com status \"Em Andamento\". Acordo: 1 por pessoa (inclui \"Aguardando Demanda\" quando ocioso)."
   },
-  "total": 6,
-  "peopleOver": 2,
+  "total": 5,
+  "peopleOver": 1,
   "people": [
     {
       "name": "Rodrigo Lago",
-      "count": 2,
-      "over": true,
+      "count": 1,
+      "over": false,
       "tickets": [
         {
           "key": "ED-1242",
           "type": "Tarefa",
           "summary": "Sá Cavalcante - Ajuste retroativo de consumo de entrada",
           "updated": "2026-09-17"
-        },
-        {
-          "key": "ED-983",
-          "type": "Bug",
-          "summary": "[BUG] [RFC-0207] Gestão de Perfil de Dispositivos não atualiza estado após salvar edição (Requer F5).",
-          "updated": "2026-09-28"
         }
       ]
     },

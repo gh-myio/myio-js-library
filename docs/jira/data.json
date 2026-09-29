@@ -16,42 +16,41 @@
     "scope": "Tickets em aberto (status != Concluído). Inclui Tarefa, Subtarefa e Bug. Exclui Épicos e História/Story."
   },
   "summary": {
-    "sprintOpen": 24,
+    "sprintOpen": 19,
     "backlogOpen": 599,
-    "total": 623
+    "total": 618
   },
   "aggregates": {
     "sprint": {
       "byStatus": {
-        "Itens Novos": 13,
-        "EM REVISÃO": 5,
-        "PENDENTE": 4,
-        "Em Andamento": 2
+        "EM REVISÃO": 6,
+        "Itens Novos": 10,
+        "PENDENTE": 2,
+        "Em Andamento": 1
       },
       "byType": {
-        "Tarefa": 18,
-        "Bug": 6
+        "Bug": 6,
+        "Tarefa": 13
       },
       "byPriority": {
-        "Medium": 19,
-        "Highest": 3,
-        "Lowest": 2
+        "Medium": 16,
+        "Lowest": 2,
+        "Highest": 1
       },
       "byAssignee": {
-        "Rodrigo Lago": 18,
-        "Victor Hugo da Silva": 2,
-        "Letícia Camargo": 2,
+        "Letícia Camargo": 5,
+        "Rodrigo Lago": 11,
         "Andre Abadesso": 1,
+        "Victor Hugo da Silva": 1,
         "Leandro Gadioli Rodrigues": 1
       },
       "byGroup": {
-        "Relatórios / Dashboard": 6,
-        "GCDR / Plataforma": 6,
         "Outros": 4,
+        "Moxuara": 1,
+        "Relatórios / Dashboard": 4,
+        "GCDR / Plataforma": 4,
         "Souza Aguiar": 3,
         "Central / Firmware / HW": 2,
-        "Moxuara": 1,
-        "Capim Dourado": 1,
         "Macaé": 1
       }
     },
@@ -111,10 +110,10 @@
       "summary": "[BUG] [RFC-0207] Gestão de Perfil de Dispositivos não atualiza estado após salvar edição (Requer F5).",
       "type": "Bug",
       "sub": false,
-      "status": "Em Andamento",
+      "status": "EM REVISÃO",
       "cat": "indeterminate",
       "priority": "Medium",
-      "assignee": "Rodrigo Lago",
+      "assignee": "Letícia Camargo",
       "updated": "2026-09-28",
       "group": "Outros",
       "kind": "other"
@@ -144,19 +143,6 @@
       "updated": "2026-09-14",
       "group": "Outros",
       "kind": "other"
-    },
-    {
-      "key": "ED-1038",
-      "summary": "Setup Inicial da Central — Shopping Capim Dourado (Soul Malls)",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "PENDENTE",
-      "cat": "indeterminate",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-09-14",
-      "group": "Capim Dourado",
-      "kind": "unit"
     },
     {
       "key": "ED-1118",
@@ -224,19 +210,6 @@
       "kind": "theme"
     },
     {
-      "key": "ED-1226",
-      "summary": "[URGENTE] Pico de Demanda — hora ausente na timeline + valores 1000x fora de escala",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "PENDENTE",
-      "cat": "indeterminate",
-      "priority": "Highest",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-09-14",
-      "group": "Relatórios / Dashboard",
-      "kind": "theme"
-    },
-    {
       "key": "ED-1238",
       "summary": "[BUG] Interpolação preenche mais slots do que o limite configurado no Dashboard Tabela Temp V5 (Souza Aguiar)de ",
       "type": "Bug",
@@ -261,19 +234,6 @@
       "updated": "2026-09-15",
       "group": "Souza Aguiar",
       "kind": "unit"
-    },
-    {
-      "key": "ED-1251",
-      "summary": "[EnergyModalView] Unificar \"Pico de Demanda\" + \"Telemetrias Instantâneas\" em um único botão com abas Real time | Por Período",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Victor Hugo da Silva",
-      "updated": "2026-09-17",
-      "group": "Relatórios / Dashboard",
-      "kind": "theme"
     },
     {
       "key": "ED-1252",
@@ -302,19 +262,6 @@
       "kind": "theme"
     },
     {
-      "key": "ED-1257",
-      "summary": "GCDR: deviceIndex do bundle deve incluir devices de escopo NO_CONSUMPTION e identidade híbrida da central (centralId + hardwareId)",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-09-19",
-      "group": "GCDR / Plataforma",
-      "kind": "theme"
-    },
-    {
       "key": "ED-1271",
       "summary": "QA: Validar branch feat/interpolation-agent em Staging (Sprint 20)",
       "type": "Tarefa",
@@ -324,19 +271,6 @@
       "priority": "Medium",
       "assignee": "Letícia Camargo",
       "updated": "2026-09-28",
-      "group": "GCDR / Plataforma",
-      "kind": "theme"
-    },
-    {
-      "key": "ED-1279",
-      "summary": "Expor endpoint para valores brutos de energy_readings (GET /api/v1/energy-readings/raw)",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Highest",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-09-22",
       "group": "GCDR / Plataforma",
       "kind": "theme"
     },
@@ -361,7 +295,7 @@
       "status": "EM REVISÃO",
       "cat": "indeterminate",
       "priority": "Medium",
-      "assignee": "Rodrigo Lago",
+      "assignee": "Letícia Camargo",
       "updated": "2026-09-28",
       "group": "Relatórios / Dashboard",
       "kind": "theme"
@@ -387,7 +321,7 @@
       "status": "EM REVISÃO",
       "cat": "indeterminate",
       "priority": "Highest",
-      "assignee": "Rodrigo Lago",
+      "assignee": "Letícia Camargo",
       "updated": "2026-09-28",
       "group": "Outros",
       "kind": "other"
