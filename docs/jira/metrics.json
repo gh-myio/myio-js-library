@@ -5,7 +5,7 @@
     "board": 166,
     "jiraBase": "https://myio.atlassian.net",
     "generatedAt": "2026-09-28",
-    "today": "2026-09-22",
+    "today": "2026-09-28",
     "source": "Jira Cloud (myio.atlassian.net) via MCP Atlassian"
   },
   "rules": {
@@ -694,7 +694,7 @@
       "end": "2026-09-21",
       "complete": "",
       "state": "future",
-      "scope": 33,
+      "scope": 31,
       "done": 7,
       "burndown": [
         {
@@ -724,7 +724,7 @@
         },
         {
           "date": "2026-09-28",
-          "remaining": 30,
+          "remaining": 24,
           "ideal": 0
         }
       ],

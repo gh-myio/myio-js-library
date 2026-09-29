@@ -16,38 +16,38 @@
     "scope": "Tickets em aberto (status != Concluído). Inclui Tarefa, Subtarefa e Bug. Exclui Épicos e História/Story."
   },
   "summary": {
-    "sprintOpen": 30,
-    "backlogOpen": 593,
+    "sprintOpen": 24,
+    "backlogOpen": 599,
     "total": 623
   },
   "aggregates": {
     "sprint": {
       "byStatus": {
-        "Itens Novos": 16,
-        "PENDENTE": 10,
-        "EM REVISÃO": 3,
-        "Em Andamento": 1
+        "Itens Novos": 13,
+        "EM REVISÃO": 5,
+        "PENDENTE": 4,
+        "Em Andamento": 2
       },
       "byType": {
-        "Tarefa": 22,
-        "Bug": 8
+        "Tarefa": 18,
+        "Bug": 6
       },
       "byPriority": {
-        "Medium": 25,
+        "Medium": 19,
         "Highest": 3,
         "Lowest": 2
       },
       "byAssignee": {
-        "Rodrigo Lago": 24,
+        "Rodrigo Lago": 18,
         "Victor Hugo da Silva": 2,
         "Letícia Camargo": 2,
         "Andre Abadesso": 1,
         "Leandro Gadioli Rodrigues": 1
       },
       "byGroup": {
-        "Outros": 8,
-        "Relatórios / Dashboard": 8,
+        "Relatórios / Dashboard": 6,
         "GCDR / Plataforma": 6,
+        "Outros": 4,
         "Souza Aguiar": 3,
         "Central / Firmware / HW": 2,
         "Moxuara": 1,
@@ -57,18 +57,18 @@
     },
     "backlog": {
       "byStatus": {
-        "PENDENTE": 393,
-        "Itens Novos": 179,
+        "PENDENTE": 395,
+        "Itens Novos": 183,
         "EM REVISÃO": 17,
         "Em Andamento": 4
       },
       "byType": {
-        "Tarefa": 428,
+        "Tarefa": 432,
         "Subtarefa": 108,
-        "Bug": 57
+        "Bug": 59
       },
       "byPriority": {
-        "Medium": 564,
+        "Medium": 570,
         "High": 21,
         "Low": 4,
         "Highest": 3,
@@ -76,7 +76,7 @@
       },
       "byAssignee": {
         "Luiz Guilherme Martinho Sampaio Ito": 385,
-        "Rodrigo Lago": 105,
+        "Rodrigo Lago": 111,
         "Victor Hugo da Silva": 63,
         "Letícia Camargo": 33,
         "Leticia Saraiva": 5,
@@ -85,10 +85,10 @@
       "byGroup": {
         "Central / Firmware / HW": 390,
         "GCDR / Plataforma": 131,
-        "Outros": 15,
+        "Outros": 19,
         "BAS": 10,
         "Sá Cavalcante": 9,
-        "Relatórios / Dashboard": 6,
+        "Relatórios / Dashboard": 8,
         "Raiz Educação": 3,
         "Souza Aguiar": 3,
         "Contagem": 3,
@@ -111,89 +111,11 @@
       "summary": "[BUG] [RFC-0207] Gestão de Perfil de Dispositivos não atualiza estado após salvar edição (Requer F5).",
       "type": "Bug",
       "sub": false,
-      "status": "PENDENTE",
+      "status": "Em Andamento",
       "cat": "indeterminate",
       "priority": "Medium",
       "assignee": "Rodrigo Lago",
       "updated": "2026-09-28",
-      "group": "Outros",
-      "kind": "other"
-    },
-    {
-      "key": "ED-1017",
-      "summary": "[UI-1] Footer Shopping v5.2.0 — paleta, label do device na seleção e chip premium",
-      "type": "Bug",
-      "sub": false,
-      "status": "PENDENTE",
-      "cat": "indeterminate",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-09-14",
-      "group": "Outros",
-      "kind": "other"
-    },
-    {
-      "key": "ED-1018",
-      "summary": "[UI-2] Auditoria de propagação da paleta (dark/light) em todos os módulos — Shopping",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-09-14",
-      "group": "Outros",
-      "kind": "other"
-    },
-    {
-      "key": "ED-1020",
-      "summary": "[MET-3] Metas Shopping v5.2.0 — padronizar 3 casas decimais",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "PENDENTE",
-      "cat": "indeterminate",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-09-14",
-      "group": "Outros",
-      "kind": "other"
-    },
-    {
-      "key": "ED-1021",
-      "summary": "[MET-4] Metas Shopping v5.2.0 — travar abas Água/Temperatura (só @myio.com.br)",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-09-14",
-      "group": "Relatórios / Dashboard",
-      "kind": "theme"
-    },
-    {
-      "key": "ED-1022",
-      "summary": "[MET-5] Metas Shopping v5.2.0 — Realizado destoa do Dashboard/HO",
-      "type": "Bug",
-      "sub": false,
-      "status": "PENDENTE",
-      "cat": "indeterminate",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-09-14",
-      "group": "Relatórios / Dashboard",
-      "kind": "theme"
-    },
-    {
-      "key": "ED-1023",
-      "summary": "[MET-6] Metas Head Office v5.4.0 — padronizar 3 casas decimais",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-09-14",
       "group": "Outros",
       "kind": "other"
     },
@@ -436,7 +358,7 @@
       "summary": "QA — Testar novo botão \"Telemetria Instantânea e Pico de Demanda\"",
       "type": "Tarefa",
       "sub": false,
-      "status": "PENDENTE",
+      "status": "EM REVISÃO",
       "cat": "indeterminate",
       "priority": "Medium",
       "assignee": "Rodrigo Lago",
@@ -462,7 +384,7 @@
       "summary": "RFC-0233 — Mapa de visibilidade de funcionalidades por usuário (restrict_view)",
       "type": "Tarefa",
       "sub": false,
-      "status": "PENDENTE",
+      "status": "EM REVISÃO",
       "cat": "indeterminate",
       "priority": "Highest",
       "assignee": "Rodrigo Lago",
@@ -8206,6 +8128,84 @@
       "updated": "2026-09-28",
       "group": "GCDR / Plataforma",
       "kind": "theme"
+    },
+    {
+      "key": "ED-1017",
+      "summary": "[UI-1] Footer Shopping v5.2.0 — paleta, label do device na seleção e chip premium",
+      "type": "Bug",
+      "sub": false,
+      "status": "PENDENTE",
+      "cat": "indeterminate",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-09-28",
+      "group": "Outros",
+      "kind": "other"
+    },
+    {
+      "key": "ED-1018",
+      "summary": "[UI-2] Auditoria de propagação da paleta (dark/light) em todos os módulos — Shopping",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-09-28",
+      "group": "Outros",
+      "kind": "other"
+    },
+    {
+      "key": "ED-1020",
+      "summary": "[MET-3] Metas Shopping v5.2.0 — padronizar 3 casas decimais",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-09-28",
+      "group": "Outros",
+      "kind": "other"
+    },
+    {
+      "key": "ED-1021",
+      "summary": "[MET-4] Metas Shopping v5.2.0 — travar abas Água/Temperatura (só @myio.com.br)",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-09-28",
+      "group": "Relatórios / Dashboard",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1022",
+      "summary": "[MET-5] Metas Shopping v5.2.0 — Realizado destoa do Dashboard/HO",
+      "type": "Bug",
+      "sub": false,
+      "status": "PENDENTE",
+      "cat": "indeterminate",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-09-28",
+      "group": "Relatórios / Dashboard",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1023",
+      "summary": "[MET-6] Metas Head Office v5.4.0 — padronizar 3 casas decimais",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-09-28",
+      "group": "Outros",
+      "kind": "other"
     }
   ]
 }
