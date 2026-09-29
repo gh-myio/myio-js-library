@@ -695,7 +695,7 @@
       "complete": "",
       "state": "future",
       "scope": 25,
-      "done": 15,
+      "done": 17,
       "burndown": [
         {
           "date": "2026-09-14",
@@ -729,7 +729,7 @@
         },
         {
           "date": "2026-09-29",
-          "remaining": 10,
+          "remaining": 8,
           "ideal": 0
         }
       ],
@@ -3284,6 +3284,22 @@
     {
       "key": "ED-855",
       "summary": "Macaé - Customizar coluna de entrada no painel com inserção dos pontos",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1288",
+      "summary": "Shopping Macaé - Água: criar widget \"Entrada\" (mover hidrômetros classificados incorretamente em Área Comum)",
+      "assignee": "Leandro Gadioli Rodrigues",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1027",
+      "summary": "[DATA-2] Investigar \"Equipamentos diferentes\" entre fontes",
       "assignee": "Rodrigo Lago",
       "type": "Tarefa",
       "priority": "Medium",

@@ -16,39 +16,37 @@
     "scope": "Tickets em aberto (status != Concluído). Inclui Tarefa, Subtarefa e Bug. Exclui Épicos e História/Story."
   },
   "summary": {
-    "sprintOpen": 10,
+    "sprintOpen": 8,
     "backlogOpen": 578,
-    "total": 588
+    "total": 586
   },
   "aggregates": {
     "sprint": {
       "byStatus": {
-        "PENDENTE": 2,
-        "Itens Novos": 3,
+        "PENDENTE": 1,
+        "Itens Novos": 2,
         "EM REVISÃO": 4,
         "Em Andamento": 1
       },
       "byType": {
         "Bug": 3,
-        "Tarefa": 7
+        "Tarefa": 5
       },
       "byPriority": {
-        "Medium": 9,
+        "Medium": 7,
         "Lowest": 1
       },
       "byAssignee": {
-        "Rodrigo Lago": 3,
+        "Rodrigo Lago": 2,
         "Andre Abadesso": 1,
         "Victor Hugo da Silva": 1,
-        "Letícia Camargo": 4,
-        "Leandro Gadioli Rodrigues": 1
+        "Letícia Camargo": 4
       },
       "byGroup": {
-        "Outros": 3,
+        "Outros": 2,
         "Moxuara": 1,
         "Relatórios / Dashboard": 4,
-        "GCDR / Plataforma": 1,
-        "Macaé": 1
+        "GCDR / Plataforma": 1
       }
     },
     "backlog": {
@@ -127,19 +125,6 @@
       "kind": "unit"
     },
     {
-      "key": "ED-1027",
-      "summary": "[DATA-2] Investigar \"Equipamentos diferentes\" entre fontes",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-09-14",
-      "group": "Outros",
-      "kind": "other"
-    },
-    {
       "key": "ED-1118",
       "summary": "RCA: endpoints de totais de temperatura liam a tabela de água (docs/rca)",
       "type": "Tarefa",
@@ -216,19 +201,6 @@
       "updated": "2026-09-28",
       "group": "Outros",
       "kind": "other"
-    },
-    {
-      "key": "ED-1288",
-      "summary": "Shopping Macaé - Água: criar widget \"Entrada\" (mover hidrômetros classificados incorretamente em Área Comum)",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "PENDENTE",
-      "cat": "indeterminate",
-      "priority": "Medium",
-      "assignee": "Leandro Gadioli Rodrigues",
-      "updated": "2026-09-28",
-      "group": "Macaé",
-      "kind": "unit"
     }
   ],
   "backlog": [
