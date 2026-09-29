@@ -16,86 +16,84 @@
     "scope": "Tickets em aberto (status != Concluído). Inclui Tarefa, Subtarefa e Bug. Exclui Épicos e História/Story."
   },
   "summary": {
-    "sprintOpen": 11,
-    "backlogOpen": 588,
-    "total": 599
+    "sprintOpen": 10,
+    "backlogOpen": 578,
+    "total": 588
   },
   "aggregates": {
     "sprint": {
       "byStatus": {
-        "EM REVISÃO": 6,
+        "PENDENTE": 2,
         "Itens Novos": 3,
-        "Em Andamento": 1,
-        "PENDENTE": 1
+        "EM REVISÃO": 4,
+        "Em Andamento": 1
       },
       "byType": {
-        "Bug": 4,
+        "Bug": 3,
         "Tarefa": 7
       },
       "byPriority": {
         "Medium": 9,
-        "Lowest": 2
+        "Lowest": 1
       },
       "byAssignee": {
-        "Letícia Camargo": 6,
-        "Rodrigo Lago": 2,
+        "Rodrigo Lago": 3,
         "Andre Abadesso": 1,
         "Victor Hugo da Silva": 1,
+        "Letícia Camargo": 4,
         "Leandro Gadioli Rodrigues": 1
       },
       "byGroup": {
         "Outros": 3,
         "Moxuara": 1,
         "Relatórios / Dashboard": 4,
-        "GCDR / Plataforma": 2,
+        "GCDR / Plataforma": 1,
         "Macaé": 1
       }
     },
     "backlog": {
       "byStatus": {
-        "PENDENTE": 394,
-        "Itens Novos": 173,
-        "EM REVISÃO": 18,
-        "Em Andamento": 3
+        "PENDENTE": 395,
+        "Itens Novos": 162,
+        "EM REVISÃO": 16,
+        "Em Andamento": 5
       },
       "byType": {
-        "Tarefa": 435,
-        "Subtarefa": 92,
-        "Bug": 61
+        "Tarefa": 430,
+        "Subtarefa": 91,
+        "Bug": 57
       },
       "byPriority": {
-        "High": 21,
-        "Medium": 559,
+        "High": 20,
+        "Medium": 551,
         "Lowest": 1,
-        "Highest": 3,
-        "Low": 4
+        "Low": 4,
+        "Highest": 2
       },
       "byAssignee": {
-        "Rodrigo Lago": 117,
+        "Rodrigo Lago": 109,
         "Letícia Camargo": 33,
         "Luiz Guilherme Martinho Sampaio Ito": 385,
         "Leticia Saraiva": 5,
-        "Leandro Gadioli Rodrigues": 2,
         "Victor Hugo da Silva": 46
       },
       "byGroup": {
-        "Praia da Costa": 2,
+        "Praia da Costa": 1,
         "Raiz Educação": 3,
         "Souza Aguiar": 6,
-        "Relatórios / Dashboard": 8,
+        "Relatórios / Dashboard": 7,
         "GCDR / Plataforma": 116,
         "Central / Firmware / HW": 392,
         "Contagem": 3,
-        "Outros": 19,
-        "Macaé": 2,
-        "Sá Cavalcante": 9,
+        "Outros": 17,
+        "Sá Cavalcante": 6,
         "Mestre Álvaro": 3,
         "Campinas": 3,
-        "Rio Poty": 3,
+        "Rio Poty": 2,
+        "Macaé": 1,
         "Moxuara": 1,
         "BAS": 10,
         "West Plaza": 2,
-        "Montserrat": 1,
         "Melicidade": 3,
         "Shopping da Ilha / SDI": 2
       }
@@ -107,11 +105,11 @@
       "summary": "[BUG] [RFC-0207] Gestão de Perfil de Dispositivos não atualiza estado após salvar edição (Requer F5).",
       "type": "Bug",
       "sub": false,
-      "status": "EM REVISÃO",
+      "status": "PENDENTE",
       "cat": "indeterminate",
       "priority": "Medium",
-      "assignee": "Letícia Camargo",
-      "updated": "2026-09-28",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-09-29",
       "group": "Outros",
       "kind": "other"
     },
@@ -218,19 +216,6 @@
       "updated": "2026-09-28",
       "group": "Outros",
       "kind": "other"
-    },
-    {
-      "key": "ED-1291",
-      "summary": "[BUG] [INGESTION STAGING] Dispositivos: \"Load more\" para de carregar após o 2º clique",
-      "type": "Bug",
-      "sub": false,
-      "status": "EM REVISÃO",
-      "cat": "indeterminate",
-      "priority": "Lowest",
-      "assignee": "Letícia Camargo",
-      "updated": "2026-09-29",
-      "group": "GCDR / Plataforma",
-      "kind": "theme"
     },
     {
       "key": "ED-1288",
@@ -5227,19 +5212,6 @@
       "kind": "theme"
     },
     {
-      "key": "ED-855",
-      "summary": "Macaé - Customizar coluna de entrada no painel com inserção dos pontos",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-05-25",
-      "group": "Macaé",
-      "kind": "unit"
-    },
-    {
       "key": "ED-858",
       "summary": "[BUG] [INGESTION] Campos \"Cliente\" e \"Asset\" não retêm dados simultaneamente, bloqueando cadastro de dispositivo no Ingestion",
       "type": "Bug",
@@ -5643,45 +5615,6 @@
       "kind": "unit"
     },
     {
-      "key": "ED-990",
-      "summary": "Sá Cavalcante- Sem Visualização de demanda por hora e erro na unidade de medida.",
-      "type": "Bug",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-09-08",
-      "group": "Sá Cavalcante",
-      "kind": "unit"
-    },
-    {
-      "key": "ED-992",
-      "summary": "WestPlaza - Pontos com consumo incorreto no dashboard",
-      "type": "Bug",
-      "sub": false,
-      "status": "EM REVISÃO",
-      "cat": "indeterminate",
-      "priority": "Medium",
-      "assignee": "Leandro Gadioli Rodrigues",
-      "updated": "2026-08-10",
-      "group": "Relatórios / Dashboard",
-      "kind": "theme"
-    },
-    {
-      "key": "ED-996",
-      "summary": "Sá Cavalcante - Relatório de temperatura apresentando temperatura zerada",
-      "type": "Bug",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-08-03",
-      "group": "Sá Cavalcante",
-      "kind": "unit"
-    },
-    {
       "key": "ED-1003",
       "summary": "[BUG] [GCDR] [OS] Card \"Linha do tempo\" não atualiza automaticamente após vincular/desvincular OS Filha (Requer F5)",
       "type": "Bug",
@@ -5693,19 +5626,6 @@
       "updated": "2026-07-07",
       "group": "GCDR / Plataforma",
       "kind": "theme"
-    },
-    {
-      "key": "ED-1015",
-      "summary": "Praia da Costa - Customização do painel de água para setup de novos pontos",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "EM REVISÃO",
-      "cat": "indeterminate",
-      "priority": "Highest",
-      "assignee": "Leandro Gadioli Rodrigues",
-      "updated": "2026-08-11",
-      "group": "Praia da Costa",
-      "kind": "unit"
     },
     {
       "key": "ED-1033",
@@ -5732,19 +5652,6 @@
       "updated": "2026-07-27",
       "group": "Rio Poty",
       "kind": "unit"
-    },
-    {
-      "key": "ED-1035",
-      "summary": "Validação do sistema de notificação de e-mail",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-07-28",
-      "group": "Outros",
-      "kind": "other"
     },
     {
       "key": "ED-1048",
@@ -6579,41 +6486,15 @@
       "kind": "theme"
     },
     {
-      "key": "ED-1242",
-      "summary": "Sá Cavalcante - Ajuste retroativo de consumo de entrada",
-      "type": "Tarefa",
+      "key": "ED-1256",
+      "summary": "Souza  Aguiar - Dispositivo CTI Pediátrico sem exibição no relatorio de temperatura",
+      "type": "Bug",
       "sub": false,
       "status": "Em Andamento",
       "cat": "indeterminate",
       "priority": "High",
       "assignee": "Rodrigo Lago",
-      "updated": "2026-09-17",
-      "group": "Sá Cavalcante",
-      "kind": "unit"
-    },
-    {
-      "key": "ED-1245",
-      "summary": "Montserrat- Ajuste de consumo de Trafos",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-09-16",
-      "group": "Montserrat",
-      "kind": "unit"
-    },
-    {
-      "key": "ED-1256",
-      "summary": "Souza  Aguiar - Dispositivo CTI Pediátrico sem exibição no relatorio de temperatura",
-      "type": "Bug",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "High",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-09-18",
+      "updated": "2026-09-29",
       "group": "Souza Aguiar",
       "kind": "unit"
     },
@@ -7502,19 +7383,6 @@
       "kind": "theme"
     },
     {
-      "key": "ED-1281",
-      "summary": "Rio Poty - Card da coluna de transformadores sem exibição useer cliente",
-      "type": "Bug",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-09-22",
-      "group": "Rio Poty",
-      "kind": "unit"
-    },
-    {
       "key": "ED-1024",
       "summary": "[MET-7] Metas Head Office v5.4.0 — Analítico exibe SDI Total Realizado",
       "type": "Bug",
@@ -7610,11 +7478,11 @@
       "summary": "Melicidade - Outlier no registro de consumo de água",
       "type": "Bug",
       "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
+      "status": "Em Andamento",
+      "cat": "indeterminate",
       "priority": "Medium",
       "assignee": "Rodrigo Lago",
-      "updated": "2026-09-28",
+      "updated": "2026-09-29",
       "group": "Melicidade",
       "kind": "unit"
     },
@@ -7623,37 +7491,24 @@
       "summary": "Mestre Alvaro - Verificação de possível outlier de consumo",
       "type": "Bug",
       "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
+      "status": "Em Andamento",
+      "cat": "indeterminate",
       "priority": "High",
       "assignee": "Rodrigo Lago",
-      "updated": "2026-09-28",
+      "updated": "2026-09-29",
       "group": "Mestre Álvaro",
       "kind": "unit"
-    },
-    {
-      "key": "ED-1289",
-      "summary": "Ajuste de dispositivos de nível de caixa dágua",
-      "type": "Subtarefa",
-      "sub": true,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-09-28",
-      "group": "Outros",
-      "kind": "other"
     },
     {
       "key": "ED-1287",
       "summary": "Campinas - notificação de alarme com falha",
       "type": "Bug",
       "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
+      "status": "PENDENTE",
+      "cat": "indeterminate",
       "priority": "Medium",
       "assignee": "Rodrigo Lago",
-      "updated": "2026-09-28",
+      "updated": "2026-09-29",
       "group": "Campinas",
       "kind": "unit"
     },

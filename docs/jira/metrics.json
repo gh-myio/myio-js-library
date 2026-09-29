@@ -695,7 +695,7 @@
       "complete": "",
       "state": "future",
       "scope": 25,
-      "done": 14,
+      "done": 15,
       "burndown": [
         {
           "date": "2026-09-14",
@@ -729,7 +729,7 @@
         },
         {
           "date": "2026-09-29",
-          "remaining": 11,
+          "remaining": 10,
           "ideal": 0
         }
       ],
@@ -3198,6 +3198,94 @@
       "summary": "[Grupo A] Migrar atributo GCDR-config: canShowDemandButtons → featureButtons",
       "assignee": "Victor Hugo da Silva",
       "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1291",
+      "summary": "[BUG] [INGESTION STAGING] Dispositivos: \"Load more\" para de carregar após o 2º clique",
+      "assignee": "Letícia Camargo",
+      "type": "Bug",
+      "priority": "Lowest",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1289",
+      "summary": "Ajuste de dispositivos de nível de caixa dágua",
+      "assignee": "Rodrigo Lago",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1281",
+      "summary": "Rio Poty - Card da coluna de transformadores sem exibição user cliente",
+      "assignee": "Rodrigo Lago",
+      "type": "Bug",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1245",
+      "summary": "Montserrat - Ajuste de consumo de Trafos",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1242",
+      "summary": "Sá Cavalcante - Ajuste retroativo de consumo de entrada",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "High",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1035",
+      "summary": "Validação do sistema de notificação de e-mail",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1015",
+      "summary": "Praia da Costa - Customização do painel de água para setup de novos pontos",
+      "assignee": "Leandro Gadioli Rodrigues",
+      "type": "Tarefa",
+      "priority": "Highest",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-996",
+      "summary": "Sá Cavalcante - Relatório de temperatura apresentando temperatura zerada",
+      "assignee": "Rodrigo Lago",
+      "type": "Bug",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-992",
+      "summary": "WestPlaza - Pontos com consumo incorreto no dashboard",
+      "assignee": "Leandro Gadioli Rodrigues",
+      "type": "Bug",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-990",
+      "summary": "Sá Cavalcante - Sem visualização de demanda por hora e erro na unidade de medida",
+      "assignee": "Rodrigo Lago",
+      "type": "Bug",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-855",
+      "summary": "Macaé - Customizar coluna de entrada no painel com inserção dos pontos",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
       "priority": "Medium",
       "date": "2026-09-29"
     }

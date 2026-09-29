@@ -7,19 +7,31 @@
     "wipLimit": 1,
     "note": "WIP = tickets com status \"Em Andamento\". Acordo: 1 por pessoa (inclui \"Aguardando Demanda\" quando ocioso)."
   },
-  "total": 4,
-  "peopleOver": 1,
+  "total": 6,
+  "peopleOver": 2,
   "people": [
     {
       "name": "Rodrigo Lago",
-      "count": 1,
-      "over": false,
+      "count": 3,
+      "over": true,
       "tickets": [
         {
-          "key": "ED-1242",
-          "type": "Tarefa",
-          "summary": "Sá Cavalcante - Ajuste retroativo de consumo de entrada",
-          "updated": "2026-09-17"
+          "key": "ED-1292",
+          "type": "Bug",
+          "summary": "Melicidade - Outlier no registro de consumo de água",
+          "updated": "2026-09-29"
+        },
+        {
+          "key": "ED-1290",
+          "type": "Bug",
+          "summary": "Mestre Alvaro - Verificação de possível outlier de consumo",
+          "updated": "2026-09-29"
+        },
+        {
+          "key": "ED-1256",
+          "type": "Bug",
+          "summary": "Souza Aguiar - Dispositivo CTI Pediátrico sem exibição no relatorio de temperatura",
+          "updated": "2026-09-29"
         }
       ]
     },
