@@ -15,7 +15,7 @@ declare global {
 export interface AttachOptions {
   presetStart?: string;  // ISO or "YYYY-MM-DD"
   presetEnd?: string;    // ISO or "YYYY-MM-DD"
-  maxRangeDays?: number; // default 31
+  maxRangeDays?: number; // max calendar days in the range, inclusive (default 31)
   parentEl?: HTMLElement; // modal root for proper z-index
   onApply?: (result: DateRangeResult) => void;
 
@@ -94,6 +94,17 @@ function getLocaleConfig(includeTime: boolean = false): any {
     monthNames: ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'],
     firstDay: 1
   };
+}
+
+// maxSpan for the jQuery daterangepicker: `maxRangeDays` calendar days, inclusive.
+// The lib clamps the end date to `startDate + maxSpan`. With `{ days: N }` that
+// instant is MIDNIGHT of day N+1, a day the calendar still lets the user click:
+// picking it silently truncated the end to 00:00:00 while the input kept showing
+// the day, so the query dropped it (15/08 → 15/09 sent endTime=15/09T00:00:00).
+// Minus 1 ms, the limit is the END of day N — the clamp never cuts a displayed
+// day and day N+1 is greyed out instead.
+export function buildMaxSpan(maxRangeDays: number): { days: number; milliseconds: number } {
+  return { days: maxRangeDays, milliseconds: -1 };
 }
 
 class CDNLoader {
@@ -396,7 +407,7 @@ function createDateRangePicker($: any, input: HTMLInputElement, opts: AttachOpti
     autoUpdateInput: true,
     linkedCalendars: true,
     showCustomRangeLabel: true,
-    maxSpan: { days: maxRangeDays },
+    maxSpan: buildMaxSpan(maxRangeDays),
     maxDate: moment().endOf('day'),
     startDate: startDate,
     endDate: endDate,

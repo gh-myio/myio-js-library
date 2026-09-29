@@ -429,7 +429,8 @@ export class DeviceReportModal {
       this.dateRangePicker = await attachDateRangePicker(input, {
         presetStart,
         presetEnd,
-        maxRangeDays: 31,
+        // Ciclo de rateio (dia D → dia D do mês seguinte) tem até 32 dias corridos (ex.: 15/08→15/09)
+        maxRangeDays: 32,
         includeTime: this.granularity === '1h',
         timePrecision: 'minute',
         parentEl: this.modal.element,
@@ -442,6 +443,16 @@ export class DeviceReportModal {
       console.warn('DateRangePicker initialization failed, using fallback:', error);
       // DateRangePicker will automatically fallback to native inputs
     }
+  }
+
+  // Janela da consulta. No 1d a API recebe dias inteiros — os MESMOS dias que viram
+  // linhas no zero-fill (rangeDaysInclusive): início 00:00:00 e fim 23:59:59, com o
+  // offset do picker. Um fim à meia-noite (ex.: 15/09T00:00:00, exclusivo na API)
+  // não vira mais um dia "0,00" que nem foi consultado. No 1h vale a hora escolhida.
+  private resolveQueryWindow(range: { startISO: string; endISO: string }): { startISO: string; endISO: string } {
+    if (this.granularity === '1h' || !range.startISO || !range.endISO) return range;
+    const atTime = (iso: string, hms: string) => iso.replace(/T\d{2}:\d{2}:\d{2}/, `T${hms}`);
+    return { startISO: atTime(range.startISO, '00:00:00'), endISO: atTime(range.endISO, '23:59:59') };
   }
 
   private async loadData(): Promise<void> {
@@ -468,7 +479,7 @@ export class DeviceReportModal {
     spinner!.style.display = 'inline-block';
 
     try {
-      const { startISO, endISO } = this.dateRangePicker.getDates();
+      const { startISO, endISO } = this.resolveQueryWindow(this.dateRangePicker.getDates());
       this.exportPeriod = { startISO, endISO };
 
       if (!startISO || !endISO) {

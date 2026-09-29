@@ -569,7 +569,8 @@ export class AllReportModal {
       this.dateRangePicker = await attachDateRangePicker(dateRangeInput, {
         presetStart: this.getDefaultStartDate(),
         presetEnd: this.getDefaultEndDate(),
-        maxRangeDays: 31,
+        // Ciclo de rateio (dia D → dia D do mês seguinte) tem até 32 dias corridos (ex.: 15/08→15/09)
+        maxRangeDays: 32,
         parentEl: this.modal.element,
         onApply: ({ startISO, endISO }) => {
           this.hideError();
