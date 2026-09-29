@@ -16,35 +16,33 @@
     "scope": "Tickets em aberto (status != Concluído). Inclui Tarefa, Subtarefa e Bug. Exclui Épicos e História/Story."
   },
   "summary": {
-    "sprintOpen": 8,
+    "sprintOpen": 7,
     "backlogOpen": 578,
-    "total": 586
+    "total": 585
   },
   "aggregates": {
     "sprint": {
       "byStatus": {
         "PENDENTE": 1,
         "Itens Novos": 2,
-        "EM REVISÃO": 4,
-        "Em Andamento": 1
+        "Em Andamento": 1,
+        "EM REVISÃO": 3
       },
       "byType": {
-        "Bug": 3,
+        "Bug": 2,
         "Tarefa": 5
       },
       "byPriority": {
-        "Medium": 7,
+        "Medium": 6,
         "Lowest": 1
       },
       "byAssignee": {
         "Rodrigo Lago": 2,
-        "Andre Abadesso": 1,
         "Victor Hugo da Silva": 1,
         "Letícia Camargo": 4
       },
       "byGroup": {
         "Outros": 2,
-        "Moxuara": 1,
         "Relatórios / Dashboard": 4,
         "GCDR / Plataforma": 1
       }
@@ -112,28 +110,15 @@
       "kind": "other"
     },
     {
-      "key": "ED-1026",
-      "summary": "[DATA-1] Moxuara — equipamentos (Trafo+CAG) não fecham com a Entrada",
-      "type": "Bug",
+      "key": "ED-1118",
+      "summary": "RCA: endpoints de totais de temperatura liam a tabela de água (docs/rca)",
+      "type": "Tarefa",
       "sub": false,
       "status": "Itens Novos",
       "cat": "new",
       "priority": "Medium",
       "assignee": "Rodrigo Lago",
-      "updated": "2026-09-14",
-      "group": "Moxuara",
-      "kind": "unit"
-    },
-    {
-      "key": "ED-1118",
-      "summary": "RCA: endpoints de totais de temperatura liam a tabela de água (docs/rca)",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "EM REVISÃO",
-      "cat": "indeterminate",
-      "priority": "Medium",
-      "assignee": "Andre Abadesso",
-      "updated": "2026-09-14",
+      "updated": "2026-09-29",
       "group": "Relatórios / Dashboard",
       "kind": "theme"
     },

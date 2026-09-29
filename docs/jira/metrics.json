@@ -695,7 +695,7 @@
       "complete": "",
       "state": "future",
       "scope": 25,
-      "done": 17,
+      "done": 18,
       "burndown": [
         {
           "date": "2026-09-14",
@@ -729,7 +729,7 @@
         },
         {
           "date": "2026-09-29",
-          "remaining": 8,
+          "remaining": 7,
           "ideal": 0
         }
       ],
@@ -3302,6 +3302,14 @@
       "summary": "[DATA-2] Investigar \"Equipamentos diferentes\" entre fontes",
       "assignee": "Rodrigo Lago",
       "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1026",
+      "summary": "[DATA-1] Moxuara — equipamentos (Trafo+CAG) não fecham com a Entrada",
+      "assignee": "Rodrigo Lago",
+      "type": "Bug",
       "priority": "Medium",
       "date": "2026-09-29"
     }
