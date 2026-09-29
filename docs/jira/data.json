@@ -16,30 +16,30 @@
     "scope": "Tickets em aberto (status != Concluído). Inclui Tarefa, Subtarefa e Bug. Exclui Épicos e História/Story."
   },
   "summary": {
-    "sprintOpen": 16,
-    "backlogOpen": 601,
+    "sprintOpen": 12,
+    "backlogOpen": 605,
     "total": 617
   },
   "aggregates": {
     "sprint": {
       "byStatus": {
-        "EM REVISÃO": 7,
-        "Itens Novos": 6,
-        "PENDENTE": 2,
-        "Em Andamento": 1
+        "EM REVISÃO": 6,
+        "Itens Novos": 4,
+        "Em Andamento": 1,
+        "PENDENTE": 1
       },
       "byType": {
         "Bug": 4,
-        "Tarefa": 12
+        "Tarefa": 8
       },
       "byPriority": {
-        "Medium": 13,
+        "Medium": 9,
         "Lowest": 2,
         "Highest": 1
       },
       "byAssignee": {
         "Letícia Camargo": 6,
-        "Rodrigo Lago": 7,
+        "Rodrigo Lago": 3,
         "Andre Abadesso": 1,
         "Victor Hugo da Silva": 1,
         "Leandro Gadioli Rodrigues": 1
@@ -48,33 +48,31 @@
         "Outros": 4,
         "Moxuara": 1,
         "Relatórios / Dashboard": 4,
-        "GCDR / Plataforma": 3,
-        "Souza Aguiar": 1,
-        "Central / Firmware / HW": 2,
+        "GCDR / Plataforma": 2,
         "Macaé": 1
       }
     },
     "backlog": {
       "byStatus": {
         "PENDENTE": 394,
-        "Itens Novos": 186,
-        "EM REVISÃO": 17,
+        "Itens Novos": 189,
+        "EM REVISÃO": 18,
         "Em Andamento": 4
       },
       "byType": {
-        "Tarefa": 432,
+        "Tarefa": 436,
         "Subtarefa": 108,
         "Bug": 61
       },
       "byPriority": {
         "High": 21,
-        "Medium": 572,
+        "Medium": 576,
         "Lowest": 1,
         "Highest": 3,
         "Low": 4
       },
       "byAssignee": {
-        "Rodrigo Lago": 113,
+        "Rodrigo Lago": 117,
         "Letícia Camargo": 33,
         "Luiz Guilherme Martinho Sampaio Ito": 385,
         "Leticia Saraiva": 5,
@@ -84,10 +82,10 @@
       "byGroup": {
         "Praia da Costa": 2,
         "Raiz Educação": 3,
-        "Souza Aguiar": 5,
+        "Souza Aguiar": 6,
         "Relatórios / Dashboard": 8,
-        "GCDR / Plataforma": 131,
-        "Central / Firmware / HW": 390,
+        "GCDR / Plataforma": 132,
+        "Central / Firmware / HW": 392,
         "Contagem": 3,
         "Outros": 19,
         "Macaé": 3,
@@ -158,45 +156,6 @@
       "kind": "theme"
     },
     {
-      "key": "ED-1120",
-      "summary": "[api-flows] Central Logs API — endpoints GET /logs (journalctl allowlisted) (RFC-0002)",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-09-14",
-      "group": "GCDR / Plataforma",
-      "kind": "theme"
-    },
-    {
-      "key": "ED-1219",
-      "summary": "QA: validar dashboard Tabela Temp V5 (Souza Aguiar) operacional após feature adjustmentSince",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "PENDENTE",
-      "cat": "indeterminate",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-09-28",
-      "group": "Souza Aguiar",
-      "kind": "unit"
-    },
-    {
-      "key": "ED-1220",
-      "summary": "[API] Public GET /v3/health — structured services (audit/sync/version), items, environment presence, backup",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "EM REVISÃO",
-      "cat": "indeterminate",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-09-14",
-      "group": "Central / Firmware / HW",
-      "kind": "theme"
-    },
-    {
       "key": "ED-1252",
       "summary": "[Telemetria Instantânea / Pico de Demanda] Exportação em PDF — hoje só existe CSV",
       "type": "Tarefa",
@@ -207,19 +166,6 @@
       "assignee": "Victor Hugo da Silva",
       "updated": "2026-09-17",
       "group": "Relatórios / Dashboard",
-      "kind": "theme"
-    },
-    {
-      "key": "ED-1254",
-      "summary": "Testar endpoints v3 do novo build rodando nas centrais (escritório)",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-09-17",
-      "group": "Central / Firmware / HW",
       "kind": "theme"
     },
     {
@@ -8127,6 +8073,58 @@
       "updated": "2026-09-29",
       "group": "Souza Aguiar",
       "kind": "unit"
+    },
+    {
+      "key": "ED-1254",
+      "summary": "Testar endpoints v3 do novo build rodando nas centrais (escritório)",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-09-29",
+      "group": "Central / Firmware / HW",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1220",
+      "summary": "[API] Public GET /v3/health — structured services (audit/sync/version), items, environment presence, backup",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "EM REVISÃO",
+      "cat": "indeterminate",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-09-29",
+      "group": "Central / Firmware / HW",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1219",
+      "summary": "QA: validar dashboard Tabela Temp V5 (Souza Aguiar) operacional após feature adjustmentSince",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-09-29",
+      "group": "Souza Aguiar",
+      "kind": "unit"
+    },
+    {
+      "key": "ED-1120",
+      "summary": "[api-flows] Central Logs API — endpoints GET /logs (journalctl allowlisted) (RFC-0002)",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-09-29",
+      "group": "GCDR / Plataforma",
+      "kind": "theme"
     }
   ]
 }
