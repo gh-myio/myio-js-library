@@ -16,6 +16,55 @@ function toastError(message) {
   else LogHelper.error('[MENU] ' + message);
 }
 
+/**
+ * ED-983 — re-hydrate the currently visible domain right after a device
+ * classification profile save, so the dashboard reflects the new grouping
+ * immediately (no F5 needed).
+ *
+ * Two previous "refresh" attempts here were dead code:
+ *  1. `window.MyIOOrchestrator.invalidateCache` was never implemented on the
+ *     real orchestrator (`MAIN_VIEW/controller.js`) — the optional-chaining
+ *     call silently no-op'd.
+ *  2. Dispatching `myio:update-date` with an EMPTY `detail` clobbers the
+ *     orchestrator's `currentPeriod` to `undefined` (its handler does
+ *     `currentPeriod = ev.detail.period`), which then makes the
+ *     `if (visibleTab && currentPeriod)` guard SKIP `hydrateDomain` entirely.
+ *     Net effect: the domain cache got cleared but nothing re-fetched it.
+ *
+ * Fix: call the orchestrator's own exposed `getVisibleTab`/`getCurrentPeriod`/
+ * `hydrateDomain` API directly — the same primitives the "Carregar" (load)
+ * button already uses — instead of routing through a broken event.
+ */
+function triggerDeviceProfileReclassify(orchestrator, logHelper) {
+  const log = logHelper || console;
+  const domain = orchestrator?.getVisibleTab?.() || orchestrator?.getFirstEnabledDomain?.();
+  const period = orchestrator?.getCurrentPeriod?.();
+  if (domain && period && typeof orchestrator?.hydrateDomain === 'function') {
+    try {
+      orchestrator.hydrateDomain(domain, period, { force: true });
+      log.log?.(
+        `[MENU] ED-983: classification profile saved -> hydrateDomain(${domain}, force=true)`
+      );
+      return true;
+    } catch (err) {
+      log.warn?.('[MENU] ED-983: hydrateDomain after profile save failed', err);
+    }
+  } else {
+    log.warn?.(
+      '[MENU] ED-983: no visible domain/period available yet on the orchestrator — falling back to myio:update-date (best-effort, may not refresh anything)'
+    );
+  }
+  // Best-effort fallback for any other/older listener reacting to this event.
+  // Not relied upon to actually refresh the dashboard — kept only so an
+  // outdated bundle doesn't regress further than it already does.
+  try {
+    window.dispatchEvent(new CustomEvent('myio:update-date', { detail: {} }));
+  } catch {
+    /* noop */
+  }
+  return false;
+}
+
 self.onInit = function () {
   // Guard contra re-inicialização (evita footer/listeners duplicados)
   if (self.ctx.$scope.__menuInitialized) {
@@ -1145,17 +1194,11 @@ self.onInit = function () {
       userName: (user && (user.email || user.name)) || 'user',
       onSave: saveProfile, // RFC-0207 v3: persistence delegated to MAIN_VIEW (GCDR), not TB
       onSaved: () => {
-        // Re-classify: invalidate cache + re-hydrate (same path as the refresh button).
-        try {
-          window.MyIOOrchestrator?.invalidateCache?.('*');
-        } catch {
-          /* noop */
-        }
-        try {
-          window.dispatchEvent(new CustomEvent('myio:update-date', { detail: {} }));
-        } catch {
-          /* noop */
-        }
+        // ED-983: re-hydrate the visible domain so the new classification is
+        // reflected immediately (no F5). See triggerDeviceProfileReclassify's
+        // docblock for why the previous invalidateCache/empty-event approach
+        // was silently a no-op.
+        triggerDeviceProfileReclassify(window.MyIOOrchestrator, LogHelper);
         LogHelper.log('[MENU] RFC-0207: classification profile saved → re-classify triggered');
       },
     });
