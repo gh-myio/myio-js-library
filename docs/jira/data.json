@@ -11,35 +11,35 @@
       "end": "2026-09-21",
       "state": "future"
     },
-    "generatedAt": "2026-09-28",
+    "generatedAt": "2026-09-29",
     "source": "Jira Cloud (myio.atlassian.net) via MCP Atlassian",
     "scope": "Tickets em aberto (status != Concluído). Inclui Tarefa, Subtarefa e Bug. Exclui Épicos e História/Story."
   },
   "summary": {
-    "sprintOpen": 19,
-    "backlogOpen": 599,
-    "total": 618
+    "sprintOpen": 16,
+    "backlogOpen": 601,
+    "total": 617
   },
   "aggregates": {
     "sprint": {
       "byStatus": {
-        "EM REVISÃO": 6,
-        "Itens Novos": 10,
+        "EM REVISÃO": 7,
+        "Itens Novos": 6,
         "PENDENTE": 2,
         "Em Andamento": 1
       },
       "byType": {
-        "Bug": 6,
-        "Tarefa": 13
+        "Bug": 4,
+        "Tarefa": 12
       },
       "byPriority": {
-        "Medium": 16,
+        "Medium": 13,
         "Lowest": 2,
         "Highest": 1
       },
       "byAssignee": {
-        "Letícia Camargo": 5,
-        "Rodrigo Lago": 11,
+        "Letícia Camargo": 6,
+        "Rodrigo Lago": 7,
         "Andre Abadesso": 1,
         "Victor Hugo da Silva": 1,
         "Leandro Gadioli Rodrigues": 1
@@ -48,59 +48,59 @@
         "Outros": 4,
         "Moxuara": 1,
         "Relatórios / Dashboard": 4,
-        "GCDR / Plataforma": 4,
-        "Souza Aguiar": 3,
+        "GCDR / Plataforma": 3,
+        "Souza Aguiar": 1,
         "Central / Firmware / HW": 2,
         "Macaé": 1
       }
     },
     "backlog": {
       "byStatus": {
-        "PENDENTE": 395,
-        "Itens Novos": 183,
+        "PENDENTE": 394,
+        "Itens Novos": 186,
         "EM REVISÃO": 17,
         "Em Andamento": 4
       },
       "byType": {
         "Tarefa": 432,
         "Subtarefa": 108,
-        "Bug": 59
+        "Bug": 61
       },
       "byPriority": {
-        "Medium": 570,
         "High": 21,
-        "Low": 4,
+        "Medium": 572,
+        "Lowest": 1,
         "Highest": 3,
-        "Lowest": 1
+        "Low": 4
       },
       "byAssignee": {
-        "Luiz Guilherme Martinho Sampaio Ito": 385,
-        "Rodrigo Lago": 111,
-        "Victor Hugo da Silva": 63,
+        "Rodrigo Lago": 113,
         "Letícia Camargo": 33,
+        "Luiz Guilherme Martinho Sampaio Ito": 385,
         "Leticia Saraiva": 5,
-        "Leandro Gadioli Rodrigues": 2
+        "Leandro Gadioli Rodrigues": 2,
+        "Victor Hugo da Silva": 63
       },
       "byGroup": {
-        "Central / Firmware / HW": 390,
-        "GCDR / Plataforma": 131,
-        "Outros": 19,
-        "BAS": 10,
-        "Sá Cavalcante": 9,
-        "Relatórios / Dashboard": 8,
+        "Praia da Costa": 2,
         "Raiz Educação": 3,
-        "Souza Aguiar": 3,
+        "Souza Aguiar": 5,
+        "Relatórios / Dashboard": 8,
+        "GCDR / Plataforma": 131,
+        "Central / Firmware / HW": 390,
         "Contagem": 3,
+        "Outros": 19,
         "Macaé": 3,
+        "Sá Cavalcante": 9,
         "Mestre Álvaro": 3,
         "Campinas": 3,
         "Rio Poty": 3,
-        "Melicidade": 3,
-        "Praia da Costa": 2,
-        "West Plaza": 2,
-        "Shopping da Ilha / SDI": 2,
         "Moxuara": 1,
-        "Montserrat": 1
+        "BAS": 10,
+        "West Plaza": 2,
+        "Montserrat": 1,
+        "Melicidade": 3,
+        "Shopping da Ilha / SDI": 2
       }
     }
   },
@@ -197,45 +197,6 @@
       "kind": "theme"
     },
     {
-      "key": "ED-1224",
-      "summary": "ALARMS: endpoint de leitura de contagem diária NO_CONSUMPTION (POST /incidents/counts/daily) — blocker do GCDR orchestrator Monitor D",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-09-14",
-      "group": "GCDR / Plataforma",
-      "kind": "theme"
-    },
-    {
-      "key": "ED-1238",
-      "summary": "[BUG] Interpolação preenche mais slots do que o limite configurado no Dashboard Tabela Temp V5 (Souza Aguiar)de ",
-      "type": "Bug",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-09-15",
-      "group": "Souza Aguiar",
-      "kind": "unit"
-    },
-    {
-      "key": "ED-1239",
-      "summary": "[BUG] Filtros da tela MAN4 do Relatório Temperatura do Souza Aguiar não funcionam",
-      "type": "Bug",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-09-15",
-      "group": "Souza Aguiar",
-      "kind": "unit"
-    },
-    {
       "key": "ED-1252",
       "summary": "[Telemetria Instantânea / Pico de Demanda] Exportação em PDF — hoje só existe CSV",
       "type": "Tarefa",
@@ -279,11 +240,11 @@
       "summary": "Report-Gaps: modal \"Verificar na Central\" com comparação de telemetria bruta (central × ingestion)",
       "type": "Tarefa",
       "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
+      "status": "EM REVISÃO",
+      "cat": "indeterminate",
       "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-09-22",
+      "assignee": "Letícia Camargo",
+      "updated": "2026-09-29",
       "group": "Relatórios / Dashboard",
       "kind": "theme"
     },
@@ -8068,11 +8029,11 @@
       "summary": "[UI-1] Footer Shopping v5.2.0 — paleta, label do device na seleção e chip premium",
       "type": "Bug",
       "sub": false,
-      "status": "PENDENTE",
-      "cat": "indeterminate",
+      "status": "Itens Novos",
+      "cat": "new",
       "priority": "Medium",
       "assignee": "Rodrigo Lago",
-      "updated": "2026-09-28",
+      "updated": "2026-09-29",
       "group": "Outros",
       "kind": "other"
     },
@@ -8140,6 +8101,32 @@
       "updated": "2026-09-28",
       "group": "Outros",
       "kind": "other"
+    },
+    {
+      "key": "ED-1238",
+      "summary": "[BUG] Interpolação preenche mais slots do que o limite configurado no Dashboard Tabela Temp V5 (Souza Aguiar)de ",
+      "type": "Bug",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-09-29",
+      "group": "Souza Aguiar",
+      "kind": "unit"
+    },
+    {
+      "key": "ED-1239",
+      "summary": "[BUG] Filtros da tela MAN4 do Relatório Temperatura do Souza Aguiar não funcionam",
+      "type": "Bug",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-09-29",
+      "group": "Souza Aguiar",
+      "kind": "unit"
     }
   ]
 }

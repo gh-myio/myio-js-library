@@ -4,8 +4,8 @@
     "projectName": "Engineer Dashboard",
     "board": 166,
     "jiraBase": "https://myio.atlassian.net",
-    "generatedAt": "2026-09-28",
-    "today": "2026-09-28",
+    "generatedAt": "2026-09-29",
+    "today": "2026-09-29",
     "source": "Jira Cloud (myio.atlassian.net) via MCP Atlassian"
   },
   "rules": {
@@ -694,8 +694,8 @@
       "end": "2026-09-21",
       "complete": "",
       "state": "future",
-      "scope": 31,
-      "done": 12,
+      "scope": 29,
+      "done": 13,
       "burndown": [
         {
           "date": "2026-09-14",
@@ -725,6 +725,11 @@
         {
           "date": "2026-09-28",
           "remaining": 19,
+          "ideal": 0
+        },
+        {
+          "date": "2026-09-29",
+          "remaining": 16,
           "ideal": 0
         }
       ],
@@ -3011,6 +3016,14 @@
       "type": "Tarefa",
       "priority": "Medium",
       "date": "2026-09-28"
+    },
+    {
+      "key": "ED-1224",
+      "summary": "ALARMS: endpoint de leitura de contagem diária NO_CONSUMPTION (POST /incidents/counts/daily) — blocker do GCDR orchestrator Monitor D",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
     }
   ]
 }
