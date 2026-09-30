@@ -7,8 +7,19 @@
  * - PIN button (creates independent clone)
  * - Maximize/restore button
  * - Close button
- * - Delayed hide (1.5s) with hover detection
+ * - Delayed hide (2.5s) with hover detection
  * - Smooth animations
+ *
+ * Interaction model (hover = passive, click = interactive):
+ * - A tooltip opened by hover (`attach` → mouseenter, or `show(..., { interactive: false })`)
+ *   is PASSIVE: it only displays information and never captures the pointer
+ *   (`pointer-events: none` even while visible). It hides on scroll and on mouseleave.
+ * - A tooltip opened by click (`attach` → click, or `show(...)` with the default
+ *   `interactive: true`) is INTERACTIVE: the user can enter it, pin, drag, maximize, copy.
+ *
+ * Why: a visible/closing tooltip with `pointer-events: auto` sat over neighbouring
+ * triggers (e.g. the cells of an hour grid), swallowed their mouseenter and kept
+ * itself alive via `isMouseOverTooltip` — "hover doesn't work".
  *
  * @example
  * // Create and show tooltip
@@ -31,6 +42,21 @@ export interface InfoTooltipOptions {
   title: string;
   content: string;
   containerId?: string;
+  /**
+   * `true` (default): interactive tooltip — the user can move the mouse into it,
+   * pin, drag, maximize. `false`: passive tooltip — informational only, never
+   * captures the pointer (`pointer-events: none`), hides on scroll.
+   */
+  interactive?: boolean;
+}
+
+export interface InfoTooltipAttachOptions {
+  /**
+   * `false` (default): hover opens a passive tooltip; click opens the interactive one.
+   * `true`: legacy behaviour — hover opens the interactive tooltip (the user can
+   * enter it). Only for callers that truly need hover-to-pin.
+   */
+  hoverInteractive?: boolean;
 }
 
 // ============================================
@@ -58,10 +84,19 @@ const INFO_TOOLTIP_CSS = `
   transform: translateY(0);
 }
 
+/* While fading out the panel is invisible but must NOT block the pointer
+   (measured ~410 ms of an invisible panel swallowing mouseenter on neighbours). */
 .myio-info-tooltip.closing {
   opacity: 0;
   transform: translateY(8px);
   transition: opacity 0.4s ease, transform 0.4s ease;
+  pointer-events: none;
+}
+
+/* Passive (hover-opened) tooltip: informational only, never captures the pointer.
+   Declared after .visible so it wins at equal specificity. */
+.myio-info-tooltip.passive {
+  pointer-events: none;
 }
 
 .myio-info-tooltip.pinned {
@@ -352,6 +387,10 @@ function injectCSS(): void {
 interface TooltipState {
   hideTimer: ReturnType<typeof setTimeout> | null;
   safetyTimer: ReturnType<typeof setTimeout> | null;
+  /** Timeout that finishes the closing animation (removes `visible`, clears innerHTML).
+   *  Tracked so `clearAllTimers()` can cancel it — otherwise a `show()` issued during
+   *  the 400 ms fade-out would be wiped by the stale callback. */
+  closeTimer: ReturnType<typeof setTimeout> | null;
   isMouseOverTooltip: boolean;
   isMaximized: boolean;
   isDragging: boolean;
@@ -359,14 +398,20 @@ interface TooltipState {
   savedPosition: { left: string; top: string } | null;
   pinnedCounter: number;
   isPinned: boolean;
+  /** Current tooltip is passive (hover-opened): never captures the pointer. */
+  isPassive: boolean;
+  /** Window scroll listener installed while a passive tooltip is visible. */
+  scrollListener: (() => void) | null;
 }
 
-const HIDE_DELAY_MS = 2500; // 1.5 seconds
+const HIDE_DELAY_MS = 2500; // 2.5 seconds
 const SAFETY_TIMEOUT_MS = 15000; // 15 seconds max without interaction
+const CLOSE_ANIMATION_MS = 400; // must match .myio-info-tooltip.closing transition
 
 const state: TooltipState = {
   hideTimer: null,
   safetyTimer: null,
+  closeTimer: null,
   isMouseOverTooltip: false,
   isMaximized: false,
   isDragging: false,
@@ -374,6 +419,8 @@ const state: TooltipState = {
   savedPosition: null,
   pinnedCounter: 0,
   isPinned: false,
+  isPassive: false,
+  scrollListener: null,
 };
 
 // ============================================
@@ -415,6 +462,14 @@ function generateHeaderHTML(icon: string, title: string): string {
  * Setup hover listeners on tooltip container
  */
 function setupHoverListeners(container: HTMLElement): void {
+  // The container is shared by every tooltip on the page: a passive tooltip
+  // (pointer-events: none) must not keep handlers from a previous interactive one.
+  if (state.isPassive) {
+    container.onmouseenter = null;
+    container.onmouseleave = null;
+    return;
+  }
+
   container.onmouseenter = () => {
     state.isMouseOverTooltip = true;
     if (state.hideTimer) {
@@ -462,6 +517,12 @@ function setupDragListeners(container: HTMLElement): void {
   const header = container.querySelector('[data-drag-handle]') as HTMLElement;
   if (!header) return;
 
+  // Passive tooltip: the mouse can never be over it, nothing to drag.
+  if (state.isPassive) {
+    header.onmousedown = null;
+    return;
+  }
+
   header.onmousedown = (e: MouseEvent) => {
     if ((e.target as HTMLElement).closest('[data-action]')) return;
     if (state.isMaximized) return;
@@ -507,7 +568,8 @@ function createPinnedClone(container: HTMLElement): void {
   const clone = container.cloneNode(true) as HTMLElement;
   clone.id = pinnedId;
   clone.classList.add('pinned');
-  clone.classList.remove('closing');
+  // A pinned clone is always interactive — never inherit `passive`.
+  clone.classList.remove('closing', 'passive');
 
   const pinBtn = clone.querySelector('[data-action="pin"]');
   if (pinBtn) {
@@ -655,7 +717,10 @@ function toggleMaximize(container: HTMLElement): void {
  * Start delayed hide (uses HIDE_DELAY_MS constant)
  */
 function startDelayedHide(): void {
-  if (state.isMouseOverTooltip || state.isPinned) return;
+  // A passive tooltip can never have the mouse over it (pointer-events: none),
+  // so a stale isMouseOverTooltip must not keep it alive.
+  if (state.isPinned) return;
+  if (state.isMouseOverTooltip && !state.isPassive) return;
   if (state.hideTimer) {
     clearTimeout(state.hideTimer);
   }
@@ -694,6 +759,30 @@ function clearAllTimers(): void {
     clearTimeout(state.safetyTimer);
     state.safetyTimer = null;
   }
+  if (state.closeTimer) {
+    clearTimeout(state.closeTimer);
+    state.closeTimer = null;
+  }
+}
+
+/**
+ * Passive tooltips use `position: fixed` and do not follow the page: after a
+ * scroll they would sit over unrelated content. Hide them as soon as the
+ * window scrolls (capture + passive listener so it costs nothing on scroll).
+ */
+function installScrollListener(): void {
+  if (state.scrollListener || typeof window === 'undefined') return;
+  const onScroll = () => {
+    InfoTooltip.hide();
+  };
+  state.scrollListener = onScroll;
+  window.addEventListener('scroll', onScroll, { capture: true, passive: true });
+}
+
+function removeScrollListener(): void {
+  if (!state.scrollListener || typeof window === 'undefined') return;
+  window.removeEventListener('scroll', state.scrollListener, { capture: true });
+  state.scrollListener = null;
 }
 
 /**
@@ -705,15 +794,20 @@ function hideWithAnimation(): void {
     clearTimeout(state.safetyTimer);
     state.safetyTimer = null;
   }
+  removeScrollListener();
 
   const container = document.getElementById('myio-info-tooltip');
   if (container && container.classList.contains('visible')) {
     container.classList.add('closing');
-    setTimeout(() => {
+    if (state.closeTimer) clearTimeout(state.closeTimer);
+    // Tracked in state so a show() during the fade-out cancels it (clearAllTimers)
+    // instead of having its fresh content wiped by this callback.
+    state.closeTimer = setTimeout(() => {
+      state.closeTimer = null;
       // Reset state and clear content to prevent invisible blocking divs
-      container.classList.remove('visible', 'closing', 'pinned', 'maximized', 'dragging');
+      container.classList.remove('visible', 'closing', 'pinned', 'maximized', 'dragging', 'passive');
       container.innerHTML = '';
-    }, 400);
+    }, CLOSE_ANIMATION_MS);
   }
 }
 
@@ -764,15 +858,31 @@ export const InfoTooltip = {
   },
 
   /**
-   * Show tooltip
+   * Show tooltip.
+   *
+   * `options.interactive` defaults to `true` (explicit callers are click-driven):
+   * the user can enter the tooltip, pin, drag, maximize. Pass `interactive: false`
+   * for a passive tooltip that never captures the pointer and hides on scroll —
+   * this is what `attach()` uses on hover.
    */
   show(triggerElement: HTMLElement, options: InfoTooltipOptions): void {
-    // Cancel pending timers
+    // Cancel pending timers (including a closing animation still in flight)
     clearAllTimers();
 
     const container = this.getContainer();
     container.classList.remove('closing');
     state.isPinned = false;
+    state.isMouseOverTooltip = false;
+    state.isPassive = options.interactive === false;
+
+    // The container is shared by every tooltip on the page: set/clear `passive`
+    // on every show so the class never leaks from one tooltip to the next.
+    container.classList.toggle('passive', state.isPassive);
+    if (state.isPassive) {
+      installScrollListener();
+    } else {
+      removeScrollListener();
+    }
 
     // Build HTML
     container.innerHTML = `
@@ -809,11 +919,13 @@ export const InfoTooltip = {
    */
   hide(): void {
     clearAllTimers();
+    removeScrollListener();
     state.isMouseOverTooltip = false;
+    state.isPassive = false;
 
     const container = document.getElementById(this.containerId);
     if (container) {
-      container.classList.remove('visible', 'closing');
+      container.classList.remove('visible', 'closing', 'passive');
     }
   },
 
@@ -822,15 +934,17 @@ export const InfoTooltip = {
    */
   close(): void {
     clearAllTimers();
+    removeScrollListener();
     state.isMaximized = false;
     state.isDragging = false;
     state.savedPosition = null;
     state.isMouseOverTooltip = false;
     state.isPinned = false;
+    state.isPassive = false;
 
     const container = document.getElementById(this.containerId);
     if (container) {
-      container.classList.remove('visible', 'pinned', 'maximized', 'dragging', 'closing');
+      container.classList.remove('visible', 'pinned', 'maximized', 'dragging', 'closing', 'passive');
     }
   },
 
@@ -840,11 +954,13 @@ export const InfoTooltip = {
    */
   destroy(): void {
     clearAllTimers();
+    removeScrollListener();
     state.isMaximized = false;
     state.isDragging = false;
     state.savedPosition = null;
     state.isMouseOverTooltip = false;
     state.isPinned = false;
+    state.isPassive = false;
 
     const container = document.getElementById(this.containerId);
     if (container) {
@@ -859,31 +975,55 @@ export const InfoTooltip = {
   },
 
   /**
-   * Attach tooltip to trigger element with hover behavior
+   * Attach tooltip to trigger element.
+   *
+   * - `mouseenter` → passive tooltip (informational, never captures the pointer,
+   *   hides on scroll / after `mouseleave`).
+   * - `click` → interactive tooltip (enter it, pin, drag, maximize), cancelling
+   *   any pending hide.
+   *
+   * `attachOptions.hoverInteractive: true` restores the legacy behaviour where
+   * hover already opens the interactive tooltip.
+   *
+   * Returns a cleanup function that removes all listeners and hides the tooltip.
    */
-  attach(triggerElement: HTMLElement, getOptions: () => InfoTooltipOptions): () => void {
+  attach(
+    triggerElement: HTMLElement,
+    getOptions: () => InfoTooltipOptions,
+    attachOptions: InfoTooltipAttachOptions = {}
+  ): () => void {
     const self = this;
+    const hoverInteractive = attachOptions.hoverInteractive === true;
 
     const handleMouseEnter = () => {
       if (state.hideTimer) {
         clearTimeout(state.hideTimer);
         state.hideTimer = null;
       }
-      const options = getOptions();
-      self.show(triggerElement, options);
+      self.show(triggerElement, { ...getOptions(), interactive: hoverInteractive });
     };
 
     const handleMouseLeave = () => {
       startDelayedHide();
     };
 
+    const handleClick = () => {
+      if (state.hideTimer) {
+        clearTimeout(state.hideTimer);
+        state.hideTimer = null;
+      }
+      self.show(triggerElement, { ...getOptions(), interactive: true });
+    };
+
     triggerElement.addEventListener('mouseenter', handleMouseEnter);
     triggerElement.addEventListener('mouseleave', handleMouseLeave);
+    triggerElement.addEventListener('click', handleClick);
 
     // Return cleanup function
     return () => {
       triggerElement.removeEventListener('mouseenter', handleMouseEnter);
       triggerElement.removeEventListener('mouseleave', handleMouseLeave);
+      triggerElement.removeEventListener('click', handleClick);
       self.hide();
     };
   },
