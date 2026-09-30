@@ -146,8 +146,11 @@ ssh -i id_rsa root@<ipv6-da-central>
 | Central           | IPv6                                    | Gateway ID                             | Central ID       | Frequência |
 | ----------------- | --------------------------------------- | -------------------------------------- | ---------------- | ---------- |
 | Central Pre-Setup | `204:12fb:5518:d04:d9e1:360d:4ab0:125b` | `a77ac87c-addd-4172-a65f-0f6f6038e98e` | `161.158.107.69` | 121        |
+| Guilherme Ito Prod | `206:e562:457e:287c:5ca2:b043:68c3:305e` | `34e55153-c2b2-4c07-9949-2fc5ee809617` | `187.164.48.227` | `4`        |
 
 > Referência canônica do Pre-Setup Constructor — ver `src/NODE-RED/CENTRAL_PRE_SETUP/README.md`.
+>
+> **Guilherme Ito Prod** — MAC `02:42:ba:a3:2f:e2` (`central_uuid` = Gateway ID; IPv6 = interface `ygg0`).
 
 **Exemplos de conexão:**
 
