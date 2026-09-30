@@ -11,74 +11,71 @@
       "end": "2026-09-21",
       "state": "future"
     },
-    "generatedAt": "2026-09-29",
+    "generatedAt": "2026-09-30",
     "source": "Jira Cloud (myio.atlassian.net) via MCP Atlassian",
     "scope": "Tickets em aberto (status != Concluído). Inclui Tarefa, Subtarefa e Bug. Exclui Épicos e História/Story."
   },
   "summary": {
-    "sprintOpen": 7,
-    "backlogOpen": 578,
-    "total": 585
+    "sprintOpen": 5,
+    "backlogOpen": 574,
+    "total": 579
   },
   "aggregates": {
     "sprint": {
       "byStatus": {
         "PENDENTE": 1,
-        "Itens Novos": 2,
         "Em Andamento": 1,
         "EM REVISÃO": 3
       },
       "byType": {
         "Bug": 2,
-        "Tarefa": 5
+        "Tarefa": 3
       },
       "byPriority": {
-        "Medium": 6,
+        "Medium": 4,
         "Lowest": 1
       },
       "byAssignee": {
-        "Rodrigo Lago": 2,
-        "Victor Hugo da Silva": 1,
+        "Rodrigo Lago": 1,
         "Letícia Camargo": 4
       },
       "byGroup": {
         "Outros": 2,
-        "Relatórios / Dashboard": 4,
-        "GCDR / Plataforma": 1
+        "GCDR / Plataforma": 1,
+        "Relatórios / Dashboard": 2
       }
     },
     "backlog": {
       "byStatus": {
-        "PENDENTE": 395,
-        "Itens Novos": 162,
-        "EM REVISÃO": 16,
-        "Em Andamento": 5
+        "Itens Novos": 159,
+        "EM REVISÃO": 19,
+        "PENDENTE": 392,
+        "Em Andamento": 4
       },
       "byType": {
-        "Tarefa": 430,
+        "Tarefa": 428,
         "Subtarefa": 91,
-        "Bug": 57
+        "Bug": 55
       },
       "byPriority": {
-        "High": 20,
+        "High": 16,
         "Medium": 551,
         "Lowest": 1,
         "Low": 4,
         "Highest": 2
       },
       "byAssignee": {
-        "Rodrigo Lago": 109,
-        "Letícia Camargo": 33,
+        "Rodrigo Lago": 103,
+        "Letícia Camargo": 36,
         "Luiz Guilherme Martinho Sampaio Ito": 385,
         "Leticia Saraiva": 5,
-        "Victor Hugo da Silva": 46
+        "Victor Hugo da Silva": 45
       },
       "byGroup": {
-        "Praia da Costa": 1,
-        "Raiz Educação": 3,
-        "Souza Aguiar": 6,
+        "Souza Aguiar": 5,
         "Relatórios / Dashboard": 7,
-        "GCDR / Plataforma": 116,
+        "GCDR / Plataforma": 115,
+        "Raiz Educação": 2,
         "Central / Firmware / HW": 392,
         "Contagem": 3,
         "Outros": 17,
@@ -108,32 +105,6 @@
       "updated": "2026-09-29",
       "group": "Outros",
       "kind": "other"
-    },
-    {
-      "key": "ED-1118",
-      "summary": "RCA: endpoints de totais de temperatura liam a tabela de água (docs/rca)",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-09-29",
-      "group": "Relatórios / Dashboard",
-      "kind": "theme"
-    },
-    {
-      "key": "ED-1252",
-      "summary": "[Telemetria Instantânea / Pico de Demanda] Exportação em PDF — hoje só existe CSV",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Victor Hugo da Silva",
-      "updated": "2026-09-17",
-      "group": "Relatórios / Dashboard",
-      "kind": "theme"
     },
     {
       "key": "ED-1271",
@@ -189,32 +160,6 @@
     }
   ],
   "backlog": [
-    {
-      "key": "ED-75",
-      "summary": "Criar relatório novo para o Praia da Costa",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "PENDENTE",
-      "cat": "indeterminate",
-      "priority": "High",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-05-04",
-      "group": "Praia da Costa",
-      "kind": "unit"
-    },
-    {
-      "key": "ED-117",
-      "summary": "Desenvolvimento de dashboard - Raiz Educação",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "PENDENTE",
-      "cat": "indeterminate",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-05-04",
-      "group": "Raiz Educação",
-      "kind": "unit"
-    },
     {
       "key": "ED-123",
       "summary": "Souza Aguiar - Verificação de alertas por e-mail",
@@ -6443,28 +6388,15 @@
       "kind": "theme"
     },
     {
-      "key": "ED-1256",
-      "summary": "Souza  Aguiar - Dispositivo CTI Pediátrico sem exibição no relatorio de temperatura",
-      "type": "Bug",
-      "sub": false,
-      "status": "Em Andamento",
-      "cat": "indeterminate",
-      "priority": "High",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-09-29",
-      "group": "Souza Aguiar",
-      "kind": "unit"
-    },
-    {
       "key": "ED-1267",
       "summary": "West Plaza - Intervalo do relatório exibido inferior ao consultado",
       "type": "Bug",
       "sub": false,
       "status": "Itens Novos",
       "cat": "new",
-      "priority": "High",
+      "priority": "Medium",
       "assignee": "Rodrigo Lago",
-      "updated": "2026-09-21",
+      "updated": "2026-09-29",
       "group": "West Plaza",
       "kind": "unit"
     },
@@ -6835,19 +6767,6 @@
     {
       "key": "ED-999",
       "summary": "Testar RFC-0051 — Grupo de OS (hierarquia pai/filhas de Work Orders no GCDR)",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "PENDENTE",
-      "cat": "indeterminate",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-09-22",
-      "group": "GCDR / Plataforma",
-      "kind": "theme"
-    },
-    {
-      "key": "ED-1000",
-      "summary": "Testar [GCDR] Nova aba \"Centrais\" no detalhe do Cliente",
       "type": "Tarefa",
       "sub": false,
       "status": "PENDENTE",
@@ -7383,11 +7302,11 @@
       "summary": "[BUG] Interpolação não preenche lacuna dentro do limite configurado no Relatório de Temperatura do Souza Aguiar",
       "type": "Bug",
       "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
+      "status": "EM REVISÃO",
+      "cat": "indeterminate",
       "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-09-22",
+      "assignee": "Letícia Camargo",
+      "updated": "2026-09-29",
       "group": "Souza Aguiar",
       "kind": "unit"
     },
@@ -7403,19 +7322,6 @@
       "updated": "2026-09-22",
       "group": "Contagem",
       "kind": "unit"
-    },
-    {
-      "key": "ED-1250",
-      "summary": "[TELEMETRY] Gráfico da Telemetria Instantânea cresce verticalmente sem parar ao maximizar",
-      "type": "Bug",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "High",
-      "assignee": "Victor Hugo da Silva",
-      "updated": "2026-09-22",
-      "group": "Relatórios / Dashboard",
-      "kind": "theme"
     },
     {
       "key": "ED-1296",
@@ -7578,10 +7484,10 @@
       "summary": "[BUG] Interpolação preenche mais slots do que o limite configurado no Dashboard Tabela Temp V5 (Souza Aguiar)de ",
       "type": "Bug",
       "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
+      "status": "EM REVISÃO",
+      "cat": "indeterminate",
       "priority": "Medium",
-      "assignee": "Rodrigo Lago",
+      "assignee": "Letícia Camargo",
       "updated": "2026-09-29",
       "group": "Souza Aguiar",
       "kind": "unit"
@@ -7591,10 +7497,10 @@
       "summary": "[BUG] Filtros da tela MAN4 do Relatório Temperatura do Souza Aguiar não funcionam",
       "type": "Bug",
       "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
+      "status": "EM REVISÃO",
+      "cat": "indeterminate",
       "priority": "Medium",
-      "assignee": "Rodrigo Lago",
+      "assignee": "Letícia Camargo",
       "updated": "2026-09-29",
       "group": "Souza Aguiar",
       "kind": "unit"
@@ -7701,6 +7607,19 @@
       "assignee": "Victor Hugo da Silva",
       "updated": "2026-09-29",
       "group": "GCDR / Plataforma",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1118",
+      "summary": "RCA: endpoints de totais de temperatura liam a tabela de água (docs/rca)",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-09-29",
+      "group": "Relatórios / Dashboard",
       "kind": "theme"
     }
   ]

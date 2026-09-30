@@ -4,8 +4,8 @@
     "projectName": "Engineer Dashboard",
     "board": 166,
     "jiraBase": "https://myio.atlassian.net",
-    "generatedAt": "2026-09-29",
-    "today": "2026-09-29",
+    "generatedAt": "2026-09-30",
+    "today": "2026-09-30",
     "source": "Jira Cloud (myio.atlassian.net) via MCP Atlassian"
   },
   "rules": {
@@ -694,8 +694,8 @@
       "end": "2026-09-21",
       "complete": "",
       "state": "future",
-      "scope": 25,
-      "done": 18,
+      "scope": 24,
+      "done": 19,
       "burndown": [
         {
           "date": "2026-09-14",
@@ -729,7 +729,12 @@
         },
         {
           "date": "2026-09-29",
-          "remaining": 7,
+          "remaining": 5,
+          "ideal": 0
+        },
+        {
+          "date": "2026-09-30",
+          "remaining": 5,
           "ideal": 0
         }
       ],
@@ -3310,6 +3315,54 @@
       "summary": "[DATA-1] Moxuara — equipamentos (Trafo+CAG) não fecham com a Entrada",
       "assignee": "Rodrigo Lago",
       "type": "Bug",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1256",
+      "summary": "Souza  Aguiar - Dispositivo CTI Pediátrico sem exibição no relatorio de temperatura",
+      "assignee": "Rodrigo Lago",
+      "type": "Bug",
+      "priority": "High",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1250",
+      "summary": "[TELEMETRY] Gráfico da Telemetria Instantânea cresce verticalmente sem parar ao maximizar",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Bug",
+      "priority": "High",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1252",
+      "summary": "[Telemetria Instantânea / Pico de Demanda] Exportação em PDF — hoje só existe CSV",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-75",
+      "summary": "Criar relatório novo para o Praia da Costa",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "High",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-117",
+      "summary": "Desenvolvimento de dashboard - Raiz Educação",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1000",
+      "summary": "Testar [GCDR] Nova aba \"Centrais\" no detalhe do Cliente",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
       "priority": "Medium",
       "date": "2026-09-29"
     }
