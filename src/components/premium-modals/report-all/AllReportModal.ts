@@ -569,7 +569,8 @@ export class AllReportModal {
       this.dateRangePicker = await attachDateRangePicker(dateRangeInput, {
         presetStart: this.getDefaultStartDate(),
         presetEnd: this.getDefaultEndDate(),
-        maxRangeDays: 31,
+        // Ciclo de rateio (dia D → dia D do mês seguinte) tem até 32 dias corridos (ex.: 15/08→15/09)
+        maxRangeDays: 32,
         parentEl: this.modal.element,
         onApply: ({ startISO, endISO }) => {
           this.hideError();
@@ -577,7 +578,8 @@ export class AllReportModal {
         },
       });
     } catch (error) {
-      this.debugLog('DateRangePicker initialization failed, using fallback:', error);
+      // Sem fallback nativo: attach() lança quando as libs do CDN não carregam.
+      this.debugLog('DateRangePicker initialization failed:', error);
     }
   }
 
@@ -601,6 +603,10 @@ export class AllReportModal {
     spinner!.style.display = 'inline-block';
 
     try {
+      // Sem resolveQueryWindow aqui, de propósito: o picker é só-data e já devolve
+      // 00:00:00 / 23:59:59 dos dias exibidos (fim no fim do dia N — buildMaxSpan).
+      // O DeviceReportModal normaliza porque monta uma linha por dia (zero-fill) a partir
+      // dessas datas; aqui só há totais por loja. Não "alinhar" os dois modais.
       const { startISO, endISO } = this.dateRangePicker.getDates();
       this.debugLog('📅 Date range selected', { startISO, endISO });
       this.exportPeriod = { startISO, endISO };
