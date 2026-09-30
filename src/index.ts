@@ -488,6 +488,8 @@ export type {
 export { EnergySummaryTooltip } from './utils/EnergySummaryTooltip';
 export { WaterSummaryTooltip } from './utils/WaterSummaryTooltip';
 export { InfoTooltip } from './utils/InfoTooltip';
+// InfoTooltip: hover = passive (never captures the pointer), click = interactive
+export type { InfoTooltipOptions, InfoTooltipAttachOptions } from './utils/InfoTooltip';
 export type {
   DashboardEnergySummary,
   CategorySummary,
