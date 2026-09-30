@@ -103,6 +103,8 @@ function getLocaleConfig(includeTime: boolean = false): any {
 // the day, so the query dropped it (15/08 → 15/09 sent endTime=15/09T00:00:00).
 // Minus 1 ms, the limit is the END of day N — the clamp never cuts a displayed
 // day and day N+1 is greyed out instead.
+// With the time picker (includeTime) the limit is `start + N×24h − 1 ms`: the same
+// as "N calendar days" only when the start is at 00:00.
 export function buildMaxSpan(maxRangeDays: number): { days: number; milliseconds: number } {
   return { days: maxRangeDays, milliseconds: -1 };
 }
@@ -227,8 +229,11 @@ class CDNLoader {
   }
 }
 
-// Native input fallback
-function createNativeFallback(input: HTMLInputElement, opts: AttachOptions): DateRangeControl {
+/**
+ * Native input fallback. NOT used by attach(): native date inputs are forbidden in
+ * this project, so attach() throws when the CDN libs are unavailable. Exported for tests.
+ */
+export function createNativeFallback(input: HTMLInputElement, opts: AttachOptions): DateRangeControl {
   // Replace single input with two native date inputs
   const container = document.createElement('div');
   container.style.display = 'flex';
@@ -269,11 +274,12 @@ function createNativeFallback(input: HTMLInputElement, opts: AttachOptions): Dat
     getDates(): DateRangeResult {
       const start = new Date(startInput.value + 'T00:00:00');
       const end = new Date(endInput.value + 'T23:59:59');
-      
-      // Generate timezone-aware ISO strings
-      const startISO = start.toISOString().replace('Z', getTimezoneOffset());
-      const endISO = end.toISOString().replace('Z', getTimezoneOffset());
-      
+
+      // Local wall time + local offset — same contract as the daterangepicker path.
+      // (toISOString() is UTC: it produced 15/09T03:00:00-03:00 → 16/09T02:59:59-03:00.)
+      const startISO = `${startInput.value}T00:00:00${getTimezoneOffset(start)}`;
+      const endISO = `${endInput.value}T23:59:59${getTimezoneOffset(end)}`;
+
       return {
         startISO,
         endISO,
@@ -293,8 +299,8 @@ function createNativeFallback(input: HTMLInputElement, opts: AttachOptions): Dat
   };
 }
 
-function getTimezoneOffset(): string {
-  const offset = new Date().getTimezoneOffset();
+function getTimezoneOffset(date: Date = new Date()): string {
+  const offset = date.getTimezoneOffset();
   const hours = Math.floor(Math.abs(offset) / 60);
   const minutes = Math.abs(offset) % 60;
   const sign = offset <= 0 ? '+' : '-';

@@ -248,6 +248,17 @@ describe('DeviceReportModal', () => {
     expect(semConsumo.value).toBe('0');
   });
 
+  it('resolveQueryWindow (1d): dias inteiros a partir do dia exibido, preservando o offset', () => {
+    const modal = new DeviceReportModal(baseParams);
+    expect(
+      (modal as any).resolveQueryWindow({ startISO: '2026-08-15T00:00:00-03:00', endISO: '2026-09-15T00:00:00-03:00' })
+    ).toEqual({ startISO: '2026-08-15T00:00:00-03:00', endISO: '2026-09-15T23:59:59-03:00' });
+    // Hora/ms ignorados; offset de cada string preservado
+    expect(
+      (modal as any).resolveQueryWindow({ startISO: '2026-09-15T10:30:00.000+00:00', endISO: '2026-09-15T12:00:00+00:00' })
+    ).toEqual({ startISO: '2026-09-15T00:00:00+00:00', endISO: '2026-09-15T23:59:59+00:00' });
+  });
+
   it('resolveQueryWindow (1h): respeita a hora escolhida no picker', () => {
     const modal = new DeviceReportModal({ ...baseParams, granularity: '1h' });
     const range = { startISO: '2026-08-15T00:00:00-03:00', endISO: '2026-09-15T23:59:00-03:00' };

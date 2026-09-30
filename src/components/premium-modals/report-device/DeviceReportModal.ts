@@ -4,7 +4,7 @@ import { toISOWithOffset, rangeDaysInclusive } from '../internal/engines/DateEng
 import { toCsv } from '../internal/engines/CsvExporter';
 import { fmtPt } from '../internal/engines/NumberFmt';
 import { AuthClient } from '../internal/engines/AuthClient';
-import { attach as attachDateRangePicker, DateRangeControl } from '../internal/DateRangePickerJQ';
+import { attach as attachDateRangePicker, DateRangeControl, DateRangeResult } from '../internal/DateRangePickerJQ';
 import { OpenDeviceReportParams, ModalHandle, EnergyFetcher } from '../types';
 import { exportGridPdf, exportGridXls } from '../../telemetry-grid-shopping/export';
 import type { TelemetryDevice } from '../../telemetry-grid-shopping/types';
@@ -440,19 +440,26 @@ export class DeviceReportModal {
         }
       });
     } catch (error) {
-      console.warn('DateRangePicker initialization failed, using fallback:', error);
-      // DateRangePicker will automatically fallback to native inputs
+      // Sem fallback nativo: attach() lança quando as libs do CDN não carregam;
+      // dateRangePicker fica null e o loadData avisa "Seletor de data não inicializado".
+      console.warn('DateRangePicker initialization failed:', error);
     }
   }
 
   // Janela da consulta. No 1d a API recebe dias inteiros — os MESMOS dias que viram
-  // linhas no zero-fill (rangeDaysInclusive): início 00:00:00 e fim 23:59:59, com o
-  // offset do picker. Um fim à meia-noite (ex.: 15/09T00:00:00, exclusivo na API)
-  // não vira mais um dia "0,00" que nem foi consultado. No 1h vale a hora escolhida.
-  private resolveQueryWindow(range: { startISO: string; endISO: string }): { startISO: string; endISO: string } {
+  // linhas no zero-fill (rangeDaysInclusive): início 00:00:00 e fim 23:59:59. Um fim à
+  // meia-noite (ex.: 15/09T00:00:00, exclusivo na API) não vira mais um dia "0,00" que
+  // nem foi consultado. No 1h vale a hora escolhida.
+  // Contrato do getDates(): hora LOCAL + offset (YYYY-MM-DDTHH:mm:ss±HH:MM) — os 10
+  // primeiros caracteres são o dia exibido e os 6 últimos, o offset.
+  private resolveQueryWindow(range: DateRangeResult): { startISO: string; endISO: string } {
     if (this.granularity === '1h' || !range.startISO || !range.endISO) return range;
-    const atTime = (iso: string, hms: string) => iso.replace(/T\d{2}:\d{2}:\d{2}/, `T${hms}`);
-    return { startISO: atTime(range.startISO, '00:00:00'), endISO: atTime(range.endISO, '23:59:59') };
+    const day = (iso: string) => iso.slice(0, 10);
+    const offset = (iso: string) => iso.slice(-6);
+    return {
+      startISO: `${day(range.startISO)}T00:00:00${offset(range.startISO)}`,
+      endISO: `${day(range.endISO)}T23:59:59${offset(range.endISO)}`,
+    };
   }
 
   private async loadData(): Promise<void> {
