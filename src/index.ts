@@ -2582,11 +2582,15 @@ export {
   deviceNameToDeviceProductCode,
   validateDeviceProductCode,
   validateDeviceProductName,
+  getDeviceProductTypeIcon,
+  getDeviceProductTypeInfo,
+  listDeviceProductTypes,
 } from './utils/devices/device-product-code';
 export type {
   DeviceProductCode,
   DeviceProductCodeFields,
   DeviceProductCodeValidationResult,
+  DeviceProductTypeInfo,
 } from './utils/devices/device-product-code';
 
 // RFC-0231 — Central Status Card (shared vanilla card for the orchestrator-devices

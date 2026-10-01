@@ -33,6 +33,14 @@ const ENTRIES: readonly ProductTypeEntry[] = [
   // decodes as BOX instead of falling through to the unknown-type
   // (`T{B4}`) fallback.
   { byte: 18, prefix: 'BOX', status: 'ratified' },
+  // 19 is reserved in GCDR for BOX_GROUP (RFC-0058, optional) — intentionally
+  // not registered here.
+  // Central (gateway). Added 2026-10-01 at the owner's request; not yet in
+  // GCDR's DEVICE-NAME-SPEC.md / DEVICE-PRODUCT-CODE-NUMBERING.md, so it is
+  // carried as draft until ratified there. Type-byte entry only — a code
+  // with B4=20 decodes as CENTRAL instead of the unknown-type (`T{B4}`)
+  // fallback.
+  { byte: 20, prefix: 'CENTRAL', status: 'draft' },
 ];
 
 const BY_BYTE = new Map<number, ProductTypeEntry>(ENTRIES.map((e) => [e.byte, e]));

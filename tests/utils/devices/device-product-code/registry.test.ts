@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { encodeDeviceProductCode, deviceProductCodeToName } from '../../../../src/utils/devices/device-product-code';
+import {
+  encodeDeviceProductCode,
+  decodeDeviceProductCode,
+  formatDeviceProductCode,
+  deviceProductCodeToName,
+  deviceNameToDeviceProductCode,
+} from '../../../../src/utils/devices/device-product-code';
 import {
   getProductTypeEntryByByte,
   getProductTypeEntryByPrefix,
@@ -7,9 +13,31 @@ import {
 } from '../../../../src/utils/devices/device-product-code/registry/productTypeRegistry';
 
 describe('RFC-0230 productTypeRegistry', () => {
-  it('has 6 entries: 12/14/15/16/17/18', () => {
-    expect(listProductTypeEntries()).toHaveLength(6);
-    expect(listProductTypeEntries().map((e) => e.byte).sort((a, b) => a - b)).toEqual([12, 14, 15, 16, 17, 18]);
+  it('has 7 entries: 12/14/15/16/17/18/20', () => {
+    expect(listProductTypeEntries()).toHaveLength(7);
+    expect(listProductTypeEntries().map((e) => e.byte).sort((a, b) => a - b)).toEqual([12, 14, 15, 16, 17, 18, 20]);
+  });
+
+  it('20 (CENTRAL) is a known type-byte, flagged draft, and round-trips code <-> name', () => {
+    expect(getProductTypeEntryByByte(20)).toEqual({ byte: 20, prefix: 'CENTRAL', status: 'draft' });
+    expect(getProductTypeEntryByPrefix('CENTRAL')?.byte).toBe(20);
+
+    const input = { year: 2026, month: 1, day: 1, seq3: 0, seq: 1, productType: 20 };
+    const value = encodeDeviceProductCode(input);
+    expect(formatDeviceProductCode(value)).toBe('1.1.1.20');
+
+    const name = deviceProductCodeToName(value);
+    expect(name).toBe('CENTRAL 260101-0001');
+    expect(name.startsWith('T20')).toBe(false);
+
+    expect(deviceNameToDeviceProductCode(name)).toEqual(value);
+    expect(decodeDeviceProductCode('1.1.1.20')).toEqual(value);
+  });
+
+  it('19 stays unregistered (reserved in GCDR for BOX_GROUP) — falls back to T19', () => {
+    expect(getProductTypeEntryByByte(19)).toBeUndefined();
+    const value = encodeDeviceProductCode({ year: 2026, month: 1, day: 1, seq3: 0, seq: 1, productType: 19 });
+    expect(deviceProductCodeToName(value).startsWith('T19 ')).toBe(true);
   });
 
   it('12 decodes/encodes to prefix HIDR — never the legacy "switch" label', () => {

@@ -107,9 +107,10 @@ Three patterns, chosen to match the shape of the actual problem (a versioned, du
 1. **Value Object** — `DeviceProductCode` is an immutable object carrying `{ year, month, day, seq3, seq, productType }`. It is the single point of truth; both `formatDeviceProductCode` and `deviceProductCodeToName` are pure projections of it, which is what makes the round-trip invariant (`decode(encode(x)) === x`, both directions) meaningfully testable.
 2. **Strategy (versioned codec)** — a `Codec` interface (`{ version, encode, decode, validate }`) with `V2Codec` as the only implementation today. This exists specifically because the spec itself states the 4-bit year field runs out in 2041 and a v3 will be needed; a `resolveCodec(version?)` entry point means a future `V3Codec` slots into the same contract without a breaking rewrite of every consumer.
 3. **Registry — two distinct ones, not one:**
-   - `productTypeRegistry` — closed, bijective, currently 6 entries (`12=switch/HIDR, 14=REM, 15=3F, 16=TEMP (draft), 17=TANK (draft), 18=BOX (ratified)`). This is the **only** mapping used by `encode`/`decode`/`format` — it is what makes the code↔name conversion lossless. Two entries need a note beyond the bare number:
+   - `productTypeRegistry` — closed, bijective, currently 7 entries (`12=switch/HIDR, 14=REM, 15=3F, 16=TEMP (draft), 17=TANK (draft), 18=BOX (ratified), 20=CENTRAL (draft)`). This is the **only** mapping used by `encode`/`decode`/`format` — it is what makes the code↔name conversion lossless. Three entries need a note beyond the bare number:
      - `12` — the byte was originally documented as `switch`; GCDR reconciled it to the hydrometer device type. The registry's decodable canonical name **prefix** is `HIDR`; `switch` survives only as the byte's legacy/internal label (GCDR's own generator UI shows it as `12 · switch/HIDR`, and it is worth keeping as a code comment) — it is never emitted as a name prefix by this module.
      - `18=BOX` — ratified 2026-08-25 (GCDR PR #39; owner confirmed "pode aceitar"). Registered here **only as a type-byte entry** so `decodeDeviceProductCode` and the `T{B4}` fallback correctly recognize `18` as a known, named type (`BOX`) instead of falling through to the generic unknown-type fallback. Parsing/formatting the BOX device *profile* itself (its own fields beyond the shared 4-byte code) remains out of scope — see [Non-goals](#non-goals).
+     - `20=CENTRAL` — the Central (gateway) product type, added 2026-10-01 at the owner's request and carried as **draft** (see [Draft/unratified registry values](#draftunratified-registry-values)). Registered as a type-byte entry only, so a code with `B4=20` decodes as `CENTRAL` instead of the `T20` fallback. Byte `19` is deliberately skipped: GCDR RFC-0058 reserves it for an optional `BOX_GROUP`.
    - `functionalKeywordRegistry` — open, lossy, mirrors the broader keyword vocabulary from `CENTRAL_PRE_SETUP/attributes-sync.js`'s `handleDeviceType()` (e.g. `COMPRESSOR`, `MOTOR`, `ELEVADOR`). It exists for **name formatting/display context only** and is explicitly **not** wired into `decodeDeviceProductCode`/`deviceNameToDeviceProductCode` — a name using a functional-keyword prefix cannot be losslessly converted back to a code without the product-type byte supplied separately (see [Non-goals](#non-goals)). This module mirrors that vocabulary for documentation/consistency purposes; it does not replace or call into `attributes-sync.js`, and `attributes-sync.js` is not modified by this RFC.
 
 ## Proposed file layout
@@ -123,7 +124,7 @@ src/utils/devices/device-product-code/
     v2.ts                         # V2Codec — bit-packing per §1–2 above
     registry.ts                   # CODEC_REGISTRY + resolveCodec(version?)
   registry/
-    productTypeRegistry.ts        # closed, bijective, lossless (12/14/15/16/17/18 <-> HIDR/REM/3F/TEMP/TANK/BOX; 12's legacy label is "switch")
+    productTypeRegistry.ts        # closed, bijective, lossless (12/14/15/16/17/18/20 <-> HIDR/REM/3F/TEMP/TANK/BOX/CENTRAL; 12's legacy label is "switch")
     functionalKeywordRegistry.ts  # open, lossy, mirrored from attributes-sync.js for context only
   name.ts                         # PREFIX YYMMDD-NNNN <-> DeviceProductCode
   errors.ts                       # DeviceProductCodeError, with a typed `reason` discriminant
@@ -143,6 +144,8 @@ src/utils/devices/device-product-code/
 
 `BOX=18` was itself still "proposed" at this RFC's authoring date (2026-08-17) but was ratified 2026-08-25 (GCDR PR #39, `DEVICE-NAME-SPEC.md` §3a) before implementation began — this is the spec-drift scenario the header block warned about, and this revision reconciles the registry accordingly.
 
+`CENTRAL=20` was added on 2026-10-01 to give the Central (gateway) its own product type. It is **not yet present** in GCDR's `DEVICE-NAME-SPEC.md` / `DEVICE-PRODUCT-CODE-NUMBERING.md`, so the registry carries it with `status: 'draft'`, under the same rule as `TEMP` and `TANK`: it encodes, decodes and round-trips (`1.1.1.20` ↔ `CENTRAL 260101-0001`), but it must be flipped to `ratified` only once GCDR ratifies both the byte and the prefix. If GCDR settles on a different prefix, the entry here must follow it — the prefix is part of the lossless code↔name contract. Byte `19` stays unregistered (reserved in GCDR RFC-0058 for an optional `BOX_GROUP`) and still falls through to the `T19` fallback.
+
 ## Validation rules
 
 Per `DEVICE-NAME-SPEC.md` §5 and `DEVICE-PRODUCT-CODE-NUMBERING.md` §4:
@@ -151,7 +154,7 @@ Per `DEVICE-NAME-SPEC.md` §5 and `DEVICE-PRODUCT-CODE-NUMBERING.md` §4:
 |---|---|
 | Code shape | 4 dotted decimal bytes, each 0–255 |
 | Name shape | matches `^[A-Z0-9]{2,12} \d{6}-\d{4}$` (space, not hyphen, after prefix) |
-| Prefix | in `productTypeRegistry` (now includes `18=BOX`), or the `T{B4}` fallback for any other unrecognized type byte |
+| Prefix | in `productTypeRegistry` (now includes `18=BOX` and `20=CENTRAL`), or the `T{B4}` fallback for any other unrecognized type byte |
 | Year | `26`–`41` (2026–2041) |
 | Month | `01`–`12` |
 | Day | `01`–`31` (calendar-impossible dates, e.g. Feb 30, are **not** rejected by the bit-field alone — see [Unresolved questions](#unresolved-questions)) |

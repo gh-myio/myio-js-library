@@ -46,10 +46,36 @@ export const DeviceIconType = {
   VENTILADOR: 'VENTILADOR',
   SOLENOIDE: 'SOLENOIDE',
   GATEWAY: 'GATEWAY',
+  BOX: 'BOX',
 } as const;
 
 export type DeviceIconType =
   (typeof DeviceIconType)[keyof typeof DeviceIconType];
+
+/**
+ * BOX (device enclosure, RFC-0058 / product type 18): no uploaded art asset yet.
+ * Initial hand-drawn placeholder (a cardboard box in perspective), inlined as a data URI so it works in an
+ * `<img src>` exactly like the hosted icons. Replace with the hosted asset
+ * once one is uploaded.
+ */
+const BOX_ICON_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" fill="none" stroke-linejoin="round">' +
+  '<ellipse cx="48" cy="85" rx="36" ry="5" fill="#000" opacity=".08"/>' +
+  // top, left (short) face, right (long) face
+  '<polygon points="12,40 56,22 84,36 40,54" fill="#E3BC85" stroke="#7A5527" stroke-width="2"/>' +
+  '<polygon points="12,40 40,54 40,84 12,70" fill="#C99A5B" stroke="#7A5527" stroke-width="2"/>' +
+  '<polygon points="40,54 84,36 84,66 40,84" fill="#B5823F" stroke="#7A5527" stroke-width="2"/>' +
+  // packing tape over the top seam, folding down the short face
+  '<polygon points="22.6,45.3 66.6,27.3 73.4,30.7 29.4,48.7" fill="#F3DDB0"/>' +
+  '<polygon points="22.6,45.3 29.4,48.7 29.4,59 22.6,55.6" fill="#E6CB96"/>' +
+  '<path d="M26 47L70 29" stroke="#7A5527" stroke-width="1" opacity=".55"/>' +
+  // shipping label on the long face
+  '<polygon points="64.2,59.1 77.4,53.7 77.4,62.7 64.2,68.1" fill="#FBF6EC" stroke="#7A5527" stroke-width="1"/>' +
+  '<path d="M66.6 61.4l8.6-3.5M66.6 64.6l5.6-2.3" stroke="#7A5527" stroke-width="1.2" stroke-linecap="round"/>' +
+  '</svg>';
+
+/** `data:` URI of the BOX placeholder — usable anywhere a hosted icon URL is. */
+export const BOX_ICON_DATA_URI = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(BOX_ICON_SVG);
 
 /** Static URL map (current opaque-token strategy). */
 export const deviceIcons: Record<DeviceIconType, string> = {
@@ -83,6 +109,8 @@ export const deviceIcons: Record<DeviceIconType, string> = {
   // GATEWAY: central/gateway hardware (OrangePi) — used by SettingsModalView's
   // "Central" tab identity card. Previously fell through to DEFAULT_DEVICE_ICON.
   GATEWAY:               'https://dashboard.myio-bas.com/api/images/public/kNlazDO8Yy90R5O12i17EqkQUFsNj44b',
+  // BOX: device enclosure (RFC-0058). Inline SVG placeholder until a hosted asset exists.
+  BOX:                   BOX_ICON_DATA_URI,
 };
 
 /** Friendly Portuguese labels for UI rendering (pickers, tooltips, captions). */
@@ -110,6 +138,7 @@ export const deviceIconLabels: Record<DeviceIconType, string> = {
   VENTILADOR:            'Ventilador',
   SOLENOIDE:             'Solenoide',
   GATEWAY:               'Gateway',
+  BOX:                   'Box',
 };
 
 /** Default fallback URL when type is unknown or not yet mapped. */
