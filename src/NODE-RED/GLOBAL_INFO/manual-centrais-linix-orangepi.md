@@ -134,6 +134,8 @@ ssh -i id_rsa root@<ipv6-da-central>
 | Guadalupe    | `202:f573:1e70:22f1:1dae:95bd:eeb9:1157` | `96a7ca86-c291-4d77-aa66-4706641eaa5a` | —          | —          |
 | Benfica      | `200:47f1:8bf6:36da:65fa:4124:bcdb:dbb4` | `1248905a-ed03-414d-bde6-c4410604ae8f` | —          | —          |
 | Mesquita     | `203:1800:d709:3207:2e0e:bfc1:8aa1:4281` | `17bda76f-c391-435e-9f76-5080432ee6aa` | `98.75.250.115` | `107`      |
+| Jacarepaguá  | `201:91a5:f3eb:e718:946e:2c8c:ba67:1028` | `65d0f8c9-27de-497a-9ef8-c42a9021f3eb` | `43.161.61.73` | `88`       |
+| São Gonçalo  | `201:16bc:18d:dd1f:373c:c603:92bf:b83d`  | `6cbe447e-f32c-46fa-85d7-0340a009aebe` | —          | —          |
 
 #### Holding: PORTO IMBITUBA
 
@@ -292,6 +294,12 @@ ssh -i id_rsa root@200:47f1:8bf6:36da:65fa:4124:bcdb:dbb4
 
 # Mesquita (Obramax)
 ssh -i id_rsa root@203:1800:d709:3207:2e0e:bfc1:8aa1:4281
+
+# Jacarepaguá (Obramax)
+ssh -i id_rsa root@201:91a5:f3eb:e718:946e:2c8c:ba67:1028
+
+# São Gonçalo (Obramax)
+ssh -i id_rsa root@201:16bc:18d:dd1f:373c:c603:92bf:b83d
 
 # Porto Imbituba 4 — NOVA (Porto Imbituba)
 ssh -i id_rsa root@200:c301:a4e7:529a:780c:9230:2142:9dba
