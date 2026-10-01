@@ -11,74 +11,77 @@
       "end": "2026-09-21",
       "state": "future"
     },
-    "generatedAt": "2026-09-30",
+    "generatedAt": "2026-10-01",
     "source": "Jira Cloud (myio.atlassian.net) via MCP Atlassian",
     "scope": "Tickets em aberto (status != Concluído). Inclui Tarefa, Subtarefa e Bug. Exclui Épicos e História/Story."
   },
   "summary": {
-    "sprintOpen": 5,
-    "backlogOpen": 574,
-    "total": 579
+    "sprintOpen": 8,
+    "backlogOpen": 583,
+    "total": 591
   },
   "aggregates": {
     "sprint": {
       "byStatus": {
-        "PENDENTE": 1,
+        "PENDENTE": 2,
+        "EM REVISÃO": 2,
         "Em Andamento": 1,
-        "EM REVISÃO": 3
+        "Itens Novos": 3
       },
       "byType": {
-        "Bug": 2,
-        "Tarefa": 3
+        "Bug": 3,
+        "Tarefa": 5
       },
       "byPriority": {
-        "Medium": 4,
-        "Lowest": 1
+        "Medium": 6,
+        "Lowest": 1,
+        "Highest": 1
       },
       "byAssignee": {
-        "Rodrigo Lago": 1,
-        "Letícia Camargo": 4
+        "Rodrigo Lago": 5,
+        "Letícia Camargo": 3
       },
       "byGroup": {
         "Outros": 2,
-        "GCDR / Plataforma": 1,
-        "Relatórios / Dashboard": 2
+        "GCDR / Plataforma": 4,
+        "Relatórios / Dashboard": 1,
+        "Central / Firmware / HW": 1
       }
     },
     "backlog": {
       "byStatus": {
-        "Itens Novos": 159,
+        "Itens Novos": 165,
         "EM REVISÃO": 19,
         "PENDENTE": 392,
-        "Em Andamento": 4
+        "Em Andamento": 7
       },
       "byType": {
-        "Tarefa": 428,
+        "Tarefa": 436,
         "Subtarefa": 91,
-        "Bug": 55
+        "Bug": 56
       },
       "byPriority": {
-        "High": 16,
-        "Medium": 551,
+        "High": 17,
+        "Medium": 558,
         "Lowest": 1,
-        "Low": 4,
+        "Low": 5,
         "Highest": 2
       },
       "byAssignee": {
-        "Rodrigo Lago": 103,
+        "Rodrigo Lago": 111,
         "Letícia Camargo": 36,
-        "Luiz Guilherme Martinho Sampaio Ito": 385,
+        "Luiz Guilherme Martinho Sampaio Ito": 386,
         "Leticia Saraiva": 5,
         "Victor Hugo da Silva": 45
       },
       "byGroup": {
         "Souza Aguiar": 5,
         "Relatórios / Dashboard": 7,
-        "GCDR / Plataforma": 115,
+        "GCDR / Plataforma": 118,
         "Raiz Educação": 2,
-        "Central / Firmware / HW": 392,
+        "Central / Firmware / HW": 394,
         "Contagem": 3,
-        "Outros": 17,
+        "Outros": 18,
         "Sá Cavalcante": 6,
         "Mestre Álvaro": 3,
         "Campinas": 3,
@@ -88,7 +91,8 @@
         "BAS": 10,
         "West Plaza": 2,
         "Melicidade": 3,
-        "Shopping da Ilha / SDI": 2
+        "Shopping da Ilha / SDI": 3,
+        "TrensRJ": 2
       }
     }
   },
@@ -111,11 +115,11 @@
       "summary": "QA: Validar branch feat/interpolation-agent em Staging (Sprint 20)",
       "type": "Tarefa",
       "sub": false,
-      "status": "Em Andamento",
+      "status": "PENDENTE",
       "cat": "indeterminate",
       "priority": "Medium",
       "assignee": "Letícia Camargo",
-      "updated": "2026-09-28",
+      "updated": "2026-09-30",
       "group": "GCDR / Plataforma",
       "kind": "theme"
     },
@@ -133,19 +137,6 @@
       "kind": "theme"
     },
     {
-      "key": "ED-1295",
-      "summary": "QA — Testar novo botão \"Telemetria Instantânea e Pico de Demanda\"",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "EM REVISÃO",
-      "cat": "indeterminate",
-      "priority": "Medium",
-      "assignee": "Letícia Camargo",
-      "updated": "2026-09-28",
-      "group": "Relatórios / Dashboard",
-      "kind": "theme"
-    },
-    {
       "key": "ED-1294",
       "summary": "[BUG] Anotações: dropdown de Status/Importância cortado em \"Filtros Avançados\" + arquivamento bloqueado indevidamente",
       "type": "Bug",
@@ -157,6 +148,58 @@
       "updated": "2026-09-28",
       "group": "Outros",
       "kind": "other"
+    },
+    {
+      "key": "ED-1299",
+      "summary": "Obramax São Gonçalo — adicionar Modbus no Node-RED da central",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Em Andamento",
+      "cat": "indeterminate",
+      "priority": "Highest",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-09-30",
+      "group": "Central / Firmware / HW",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1302",
+      "summary": "GCDR — Exclusão de usuário com vínculos: análise antes de excluir, exclusão segura e retorno do usuário",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-10-01",
+      "group": "GCDR / Plataforma",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1306",
+      "summary": "GCDR — Restaurar usuário excluído (lista de excluídos, restauração auditada e aviso no recadastro)",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-10-01",
+      "group": "GCDR / Plataforma",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1307",
+      "summary": "GCDR — \"+ Adicionar Dispositivo\" abre \"Dispositivo não encontrado\" (/devices/new não cria device)",
+      "type": "Bug",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-10-01",
+      "group": "GCDR / Plataforma",
+      "kind": "theme"
     }
   ],
   "backlog": [
@@ -7176,7 +7219,7 @@
       "cat": "indeterminate",
       "priority": "Medium",
       "assignee": "Letícia Camargo",
-      "updated": "2026-09-28",
+      "updated": "2026-09-30",
       "group": "GCDR / Plataforma",
       "kind": "theme"
     },
@@ -7621,6 +7664,123 @@
       "updated": "2026-09-29",
       "group": "Relatórios / Dashboard",
       "kind": "theme"
+    },
+    {
+      "key": "ED-1297",
+      "summary": "GCDR — Fluxo \"Esqueci a senha\" com magic link e template MYIO",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Em Andamento",
+      "cat": "indeterminate",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-09-30",
+      "group": "GCDR / Plataforma",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1298",
+      "summary": "Testes do lado GCDR para o novo build da central (compatibilidade, HA/failover, Node-RED e telemetria)",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-09-30",
+      "group": "Central / Firmware / HW",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1300",
+      "summary": "GCDR — Bloqueio de conta (6ª tentativa), notificação de bloqueio e Turnstile no login",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Em Andamento",
+      "cat": "indeterminate",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-09-30",
+      "group": "GCDR / Plataforma",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1301",
+      "summary": "GCDR — Usuário bloqueado não é recuperado pela tela de usuários (Ativar, Redefinir senha e Reenviar verificação não funcionam)",
+      "type": "Bug",
+      "sub": false,
+      "status": "Em Andamento",
+      "cat": "indeterminate",
+      "priority": "High",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-10-01",
+      "group": "GCDR / Plataforma",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1303",
+      "summary": "Central — novo build: script e API para instalar, desinstalar e consultar o Modbus (node-red-contrib-myio-modbus)",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Low",
+      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+      "updated": "2026-10-01",
+      "group": "Central / Firmware / HW",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1304",
+      "summary": "Shopping da Ilha - Gap no ponto 316F/G/H/I Bistrô",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-10-01",
+      "group": "Shopping da Ilha / SDI",
+      "kind": "unit"
+    },
+    {
+      "key": "ED-1305",
+      "summary": "[RFC-0236] Premium Login Modal — componente injetado na myio-js-library (fiel ao login do GCDR)",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-10-01",
+      "group": "Outros",
+      "kind": "other"
+    },
+    {
+      "key": "ED-1308",
+      "summary": "TrensRJ (Supervia) - Restore de central nova no CCO",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-10-01",
+      "group": "TrensRJ",
+      "kind": "unit"
+    },
+    {
+      "key": "ED-1309",
+      "summary": "TrensRJ - Alteração de nomenclatura no sistema",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-10-01",
+      "group": "TrensRJ",
+      "kind": "unit"
     }
   ]
 }

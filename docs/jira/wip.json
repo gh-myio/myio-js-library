@@ -2,19 +2,43 @@
   "meta": {
     "project": "ED",
     "jiraBase": "https://myio.atlassian.net",
-    "generatedAt": "2026-09-30",
+    "generatedAt": "2026-10-01",
     "status": "Em Andamento",
     "wipLimit": 1,
     "note": "WIP = tickets com status \"Em Andamento\". Acordo: 1 por pessoa (inclui \"Aguardando Demanda\" quando ocioso)."
   },
-  "total": 5,
-  "peopleOver": 2,
+  "total": 8,
+  "peopleOver": 1,
   "people": [
     {
       "name": "Rodrigo Lago",
-      "count": 2,
+      "count": 6,
       "over": true,
       "tickets": [
+        {
+          "key": "ED-1301",
+          "type": "Bug",
+          "summary": "GCDR — Usuário bloqueado não é recuperado pela tela de usuários (Ativar, Redefinir senha e Reenviar verificação não funcionam)",
+          "updated": "2026-10-01"
+        },
+        {
+          "key": "ED-1300",
+          "type": "Tarefa",
+          "summary": "GCDR — Bloqueio de conta (6ª tentativa), notificação de bloqueio e Turnstile no login",
+          "updated": "2026-09-30"
+        },
+        {
+          "key": "ED-1299",
+          "type": "Tarefa",
+          "summary": "Obramax São Gonçalo — adicionar Modbus no Node-RED da central",
+          "updated": "2026-09-30"
+        },
+        {
+          "key": "ED-1297",
+          "type": "Tarefa",
+          "summary": "GCDR — Fluxo \"Esqueci a senha\" com magic link e template MYIO",
+          "updated": "2026-09-30"
+        },
         {
           "key": "ED-1292",
           "type": "Bug",
@@ -31,20 +55,14 @@
     },
     {
       "name": "Letícia Camargo",
-      "count": 2,
-      "over": true,
+      "count": 1,
+      "over": false,
       "tickets": [
         {
           "key": "ED-1273",
           "type": "Subtarefa",
           "summary": "QA: Painel Interpolação — 4 abas (Dashboard/Gateways/Logs/Setup)",
-          "updated": "2026-09-24"
-        },
-        {
-          "key": "ED-1271",
-          "type": "Tarefa",
-          "summary": "QA: Validar branch feat/interpolation-agent em Staging (Sprint 20)",
-          "updated": "2026-09-24"
+          "updated": "2026-09-30"
         }
       ]
     },

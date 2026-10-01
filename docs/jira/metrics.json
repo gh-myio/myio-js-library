@@ -4,8 +4,8 @@
     "projectName": "Engineer Dashboard",
     "board": 166,
     "jiraBase": "https://myio.atlassian.net",
-    "generatedAt": "2026-09-30",
-    "today": "2026-09-30",
+    "generatedAt": "2026-10-01",
+    "today": "2026-10-01",
     "source": "Jira Cloud (myio.atlassian.net) via MCP Atlassian"
   },
   "rules": {
@@ -694,8 +694,8 @@
       "end": "2026-09-21",
       "complete": "",
       "state": "future",
-      "scope": 24,
-      "done": 19,
+      "scope": 28,
+      "done": 20,
       "burndown": [
         {
           "date": "2026-09-14",
@@ -735,6 +735,11 @@
         {
           "date": "2026-09-30",
           "remaining": 5,
+          "ideal": 0
+        },
+        {
+          "date": "2026-10-01",
+          "remaining": 8,
           "ideal": 0
         }
       ],
@@ -3365,6 +3370,14 @@
       "type": "Tarefa",
       "priority": "Medium",
       "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1295",
+      "summary": "QA — Testar novo botão \"Telemetria Instantânea e Pico de Demanda\"",
+      "assignee": "Letícia Camargo",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-30"
     }
   ]
 }
