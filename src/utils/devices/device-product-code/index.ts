@@ -47,6 +47,9 @@ export function validateDeviceProductCode(code: string): DeviceProductCodeValida
 
 export { deviceProductCodeToName, deviceNameToDeviceProductCode, validateDeviceProductName };
 
+export { getDeviceProductTypeIcon, getDeviceProductTypeInfo, listDeviceProductTypes } from './productTypeInfo';
+export type { DeviceProductTypeInfo } from './productTypeInfo';
+
 export type { DeviceProductCode, DeviceProductCodeFields, DeviceProductCodeValidationResult } from './types';
 export { DeviceProductCodeError } from './errors';
 export type { DeviceProductCodeErrorReason } from './errors';

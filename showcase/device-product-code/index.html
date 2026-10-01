@@ -95,12 +95,12 @@
         .btn-primary { background: var(--primary); color: white; }
         .btn-primary:hover { background: var(--primary-dark); }
     </style>
-    <script src="../dist/myio-js-library.umd.min.js"></script>
+    <script src="../../dist/myio-js-library.umd.min.js"></script>
 </head>
 <body>
     <header class="header">
         <div class="header-content">
-            <div class="breadcrumb"><a href="index.html">Showcase</a> / Device Product Code</div>
+            <div class="breadcrumb"><a href="../index.html">Showcase</a> / Device Product Code</div>
             <h1>🏭 Device Product Code <span style="font-size: 14px; font-weight: 400; opacity: 0.85;">(RFC-0230)</span></h1>
             <p>Serial de fábrica v2 (código 4 bytes) + nome canônico — conversão sem perda, validação, registry de tipos.</p>
         </div>
@@ -144,6 +144,11 @@
                     <label>Tipo (productType)</label>
                     <select id="encType"></select>
                 </div>
+                <div class="demo-card" style="text-align:center">
+                    <label>Imagem do tipo</label>
+                    <img id="encTypeImg" alt="" style="width:72px;height:72px;object-fit:contain;display:block;margin:4px auto 0">
+                    <div id="encTypeLabel" style="font-size:12px;color:#6b7280;margin-top:4px"></div>
+                </div>
             </div>
             <div class="result" id="encodeResult"></div>
         </section>
@@ -175,9 +180,9 @@
         <!-- Registry -->
         <section class="section">
             <h2>📋 productTypeRegistry</h2>
-            <p class="section-desc">Registro fechado e bijetivo byte↔prefixo — a única fonte usada por encode/decode/format.</p>
+            <p class="section-desc">Registro fechado e bijetivo byte↔prefixo — a única fonte usada por encode/decode/format. Lista, nomes e imagens vêm da lib (<code>listDeviceProductTypes()</code>).</p>
             <table class="table-demo">
-                <thead><tr><th>Byte (B4)</th><th>Prefixo</th><th>Status</th><th>Rótulo legado</th></tr></thead>
+                <thead><tr><th>Imagem</th><th>Byte (B4)</th><th>Prefixo</th><th>Nome</th><th>Status</th><th>Rótulo legado</th></tr></thead>
                 <tbody id="registryTbody"></tbody>
             </table>
         </section>
@@ -193,7 +198,7 @@
         </section>
 
         <div style="text-align: center; margin-top: 32px;">
-            <a href="index.html" class="btn btn-primary">← Voltar ao Portal</a>
+            <a href="../index.html" class="btn btn-primary">← Voltar ao Portal</a>
         </div>
     </div>
 
@@ -206,6 +211,9 @@
             deviceNameToDeviceProductCode,
             validateDeviceProductCode,
             validateDeviceProductName,
+            getDeviceProductTypeIcon,
+            getDeviceProductTypeInfo,
+            listDeviceProductTypes,
         } = MyIOLibrary;
 
         function esc(s) {
@@ -286,32 +294,23 @@
             goldenTbody.appendChild(tr);
         });
 
-        // ---- Registry table (populated by probing known bytes, since the
-        // registry lookup helpers aren't part of the public index.ts export
-        // surface — only the byte->prefix behavior is, via deviceProductCodeToName) ----
-        const REGISTRY_PROBE = [
-            { byte: 12, status: 'ratified', legacyLabel: 'switch' },
-            { byte: 14, status: 'ratified', legacyLabel: '' },
-            { byte: 15, status: 'ratified', legacyLabel: '' },
-            { byte: 16, status: 'draft', legacyLabel: '' },
-            { byte: 17, status: 'draft', legacyLabel: '' },
-            { byte: 18, status: 'ratified', legacyLabel: '' },
-        ];
+        // ---- Registry table + type picker, both driven by the library
+        // (listDeviceProductTypes) — no hardcoded copy of the registry here ----
         const registryTbody = document.getElementById('registryTbody');
-        REGISTRY_PROBE.forEach(({ byte, status, legacyLabel }) => {
-            const value = encodeDeviceProductCode({ year: 2026, month: 1, day: 1, seq3: 0, seq: 1, productType: byte });
-            const prefix = deviceProductCodeToName(value).split(' ')[0];
+        listDeviceProductTypes().forEach(({ byte, prefix, status, legacyLabel, label, icon }) => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
+                <td><img src="${esc(icon)}" alt="${esc(label)}" style="width:40px;height:40px;object-fit:contain"></td>
                 <td>${byte}</td>
                 <td>${esc(prefix)}</td>
+                <td>${esc(label)}</td>
                 <td><span class="badge ${status}">${status}</span></td>
                 <td>${legacyLabel ? esc(legacyLabel) : '<span style="color:#9ca3af">—</span>'}</td>
             `;
             registryTbody.appendChild(tr);
             const opt = document.createElement('option');
             opt.value = String(byte);
-            opt.textContent = `${byte} · ${prefix}${legacyLabel ? ' (was ' + legacyLabel + ')' : ''}`;
+            opt.textContent = `${byte} · ${prefix} — ${label}${legacyLabel ? ' (was ' + legacyLabel + ')' : ''}`;
             encType.appendChild(opt);
         });
         // Also offer one intentionally-unregistered byte so the T{B4} fallback is reachable from the Encode demo.
@@ -319,7 +318,20 @@
         unknownOpt.value = '99';
         unknownOpt.textContent = '99 · (unregistered — T{B4} fallback)';
         encType.appendChild(unknownOpt);
+
+        // Image of the selected type — also resolved by the library.
+        const encTypeImg = document.getElementById('encTypeImg');
+        const encTypeLabel = document.getElementById('encTypeLabel');
+        function renderTypeImage() {
+            const byte = Number(encType.value);
+            const info = getDeviceProductTypeInfo(byte);
+            encTypeImg.src = getDeviceProductTypeIcon(byte);
+            encTypeImg.alt = info ? info.label : 'tipo não registrado';
+            encTypeLabel.textContent = info ? `${info.label} (${info.status})` : 'não registrado — imagem padrão';
+        }
+        encType.addEventListener('input', renderTypeImage);
         encType.value = '15';
+        renderTypeImage();
 
         // ---- Validation examples ----
         const VALIDATION_CASES = [

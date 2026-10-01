@@ -12,7 +12,7 @@ const MONTHS = [1, 6, 12];
 const DAYS = [1, 15, 31];
 const SEQ3S = [0, 4, 7];
 const SEQS = [1, 127, 254];
-const PRODUCT_TYPES = [12, 14, 15, 16, 17, 18, 99]; // 99 is an intentionally unregistered byte
+const PRODUCT_TYPES = [12, 14, 15, 16, 17, 18, 20, 99]; // 99 is an intentionally unregistered byte
 
 function fieldsFor(year: number, month: number, day: number, seq3: number, seq: number, productType: number): DeviceProductCodeFields {
   return { year, month, day, seq3, seq, productType };
