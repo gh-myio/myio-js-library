@@ -4,7 +4,7 @@
       <img src="https://myio.com.br/app/uploads/2020/05/Logotest01.png" alt="Myio" id="Myio" />
       <div class="headline">
         <p>
-          Sistema Myio v.5-20260404001 | Registro de Aferição de Temperatura | Complexo Hospitalar Municipal
+          Sistema Myio v.5-20260831001 | Registro de Aferição de Temperatura | Complexo Hospitalar Municipal
           Souza Aguiar
         </p>
         <p>UNIDADE SOUZA AGUIAR - HMSA</p>
@@ -179,6 +179,28 @@
                 <span style="font-size: 12px; color: var(--text-muted, #aaa)">
                   slots ({{ maxGapSlots * 30 }} min). Salvo junto com Limites de Temperatura.
                 </span>
+              </div>
+
+              <div class="settings-group" style="margin-top: 14px">
+                <label class="group-label">Ajuste de sensores (+/-/x)</label>
+                <p class="muted" style="margin-bottom: 8px">
+                  O operador de correção no nome do device (ex.: <strong>+2</strong>, <strong>-1.5</strong>,
+                  <strong>x1.1</strong>) só é aplicado a leituras <strong>a partir desta data</strong> (meia-noite
+                  UTC). Leituras anteriores permanecem cruas. Salvo no cliente (SERVER_SCOPE:
+                  tempAdjustmentSince).
+                </p>
+                <div class="row" style="align-items: center; gap: 8px">
+                  <label style="font-size: 13px; color: var(--text-muted, #aaa); white-space: nowrap">
+                    Data de referência
+                  </label>
+                  <input
+                    type="date"
+                    class="clamp-input"
+                    style="width: 150px"
+                    [ngModel]="adjustmentSinceDate"
+                    (change)="setAdjustmentSince($event)"
+                  />
+                </div>
               </div>
 
               <div class="settings-group" style="margin-top: 14px">
@@ -392,6 +414,22 @@
       <h3 class="error-modal-title">{{ errorTitle }}</h3>
       <p class="error-modal-message">{{ errorMessage }}</p>
       <button class="error-modal-close-btn" (click)="closeErrorModal()">Entendido</button>
+    </div>
+  </div>
+
+  <!-- Modal premium — período fora de consulta (dado pré-troca de sensores) -->
+  <div class="cutoff-modal-backdrop" *ngIf="isDataCutoffModal" (click)="closeDataCutoffModal()">
+    <div class="cutoff-modal" (click)="$event.stopPropagation()">
+      <div class="cutoff-modal-icon">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+      </div>
+      <h3 class="cutoff-modal-title">Período fora de consulta</h3>
+      <p class="cutoff-modal-message">
+        Sensores foram trocados e recalibrados entre 28/03 e 01/04/2026.
+        Dados anteriores a {{ exportCutoffDateLabel }} não são mais confiáveis
+        — selecione um período a partir dessa data.
+      </p>
+      <button class="cutoff-modal-close-btn" (click)="closeDataCutoffModal()">Entendido</button>
     </div>
   </div>
 

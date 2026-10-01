@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Comparativo Multi-Mês — Dia 10</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root {
+    --ink: #221c35;
+    --ink-soft: #3a3252;
+    --paper: #faf8fc;
+    --surface: #ffffff;
+    --muted: #6f6687;
+    --line: #e4dcf3;
+    --line-soft: #eee8f8;
+    --myio-purple: #663ab5;
+    --myio-purple-dark: #4d2a91;
+    --myio-purple-tint: #f1ecfb;
+    --ok: #04966a;
+    --ok-tint: #e5f8f1;
+    --bad: #c81e3a;
+    --bad-tint: #fbeaee;
+    --warn: #b5740a;
+    --warn-tint: #fdf3e2;
+    --nodata: #857c9c;
+    --nodata-tint: #efecf6;
+    --shadow: 0 1px 2px rgba(34,28,53,0.06), 0 8px 24px -12px rgba(34,28,53,0.18);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ink: #ece8f7; --ink-soft: #cfc7e8; --paper: #17131f; --surface: #201a2d;
+      --muted: #a79bc9; --line: #362c4a; --line-soft: #2b2338;
+      --myio-purple: #a480e6; --myio-purple-dark: #c6a8f5; --myio-purple-tint: #2a2140;
+      --ok: #3fd9a4; --ok-tint: #113228; --bad: #ff7d92; --bad-tint: #3a1620;
+      --warn: #f0b545; --warn-tint: #3a2a0e; --nodata: #a99fc4; --nodata-tint: #241f33;
+      --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 12px 28px -14px rgba(0,0,0,0.6);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ink: #ece8f7; --ink-soft: #cfc7e8; --paper: #17131f; --surface: #201a2d;
+    --muted: #a79bc9; --line: #362c4a; --line-soft: #2b2338;
+    --myio-purple: #a480e6; --myio-purple-dark: #c6a8f5; --myio-purple-tint: #2a2140;
+    --ok: #3fd9a4; --ok-tint: #113228; --bad: #ff7d92; --bad-tint: #3a1620;
+    --warn: #f0b545; --warn-tint: #3a2a0e; --nodata: #a99fc4; --nodata-tint: #241f33;
+    --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 12px 28px -14px rgba(0,0,0,0.6);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font-family: 'IBM Plex Sans', system-ui, sans-serif; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+  .mono { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 24px 80px; }
+
+  header.top { background: linear-gradient(160deg, var(--myio-purple-dark), var(--myio-purple)); color: #fbf9ff; padding: 40px 24px 84px; }
+  header.top .inner { max-width: 1040px; margin: 0 auto; }
+  .eyebrow { display: flex; align-items: center; gap: 10px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.85; margin-bottom: 14px; }
+  .eyebrow .dot { width: 7px; height: 7px; border-radius: 50%; background: #b9ffe0; box-shadow: 0 0 0 3px rgba(185,255,224,0.25); }
+  h1 { font-size: 34px; font-weight: 700; letter-spacing: -0.01em; margin: 0 0 12px; text-wrap: balance; max-width: 34ch; }
+  header.top p.sub { margin: 0; font-size: 15.5px; color: #e6dcfb; max-width: 72ch; }
+  .meta-row { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 18px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #d9c9f7; }
+  .meta-row span b { color: #fff; font-weight: 500; }
+
+  section { margin-top: 40px; }
+  h2 { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--myio-purple); margin: 0 0 4px; }
+  h3.section-title { font-size: 21px; font-weight: 700; color: var(--ink); margin: 2px 0 16px; text-wrap: balance; }
+  p { color: var(--ink-soft); }
+  p.lede { font-size: 16px; }
+  code.inline { font-family: 'IBM Plex Mono', monospace; font-size: 0.92em; background: var(--line-soft); padding: 1px 5px; border-radius: 4px; color: var(--ink); }
+
+  .summary-card { background: var(--surface); border: 1px solid var(--line); border-left: 5px solid var(--myio-purple); border-radius: 10px; padding: 24px 26px; margin-top: -46px; box-shadow: var(--shadow); position: relative; }
+  .summary-card .tag { display: inline-block; font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--myio-purple); background: var(--myio-purple-tint); padding: 3px 9px; border-radius: 999px; margin-bottom: 12px; }
+  .summary-card p.headline { font-size: 18px; font-weight: 500; color: var(--ink); margin: 0 0 16px; }
+  .summary-card p.headline b { color: var(--myio-purple-dark); font-weight: 700; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 16px; font-size: 13px; color: var(--muted); }
+  .legend .sw { display: inline-flex; align-items: center; gap: 6px; }
+  .legend .sw::before { content: ''; width: 12px; height: 12px; border-radius: 3px; }
+  .legend .sw.plausible::before { background: var(--ok); }
+  .legend .sw.suspect::before { background: var(--warn); }
+  .legend .sw.implausible::before { background: var(--bad); }
+  .legend .sw.nodata::before { background: var(--nodata); }
+
+  .method-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin-top: 18px; }
+  @media (max-width: 720px) { .method-strip { grid-template-columns: repeat(2, 1fr); } }
+  .method-strip .cell { background: var(--surface); padding: 16px 16px 15px; }
+  .method-strip .cell .k { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 6px; }
+  .method-strip .cell .v { font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 500; color: var(--ink); }
+
+  .card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 18px; }
+  @media (max-width: 720px) { .card-grid { grid-template-columns: 1fr; } }
+  .device-card { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--myio-purple); border-radius: 10px; padding: 16px 18px 14px; }
+  .device-card .head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 4px; }
+  .device-card .head .name { font-weight: 600; font-size: 14.5px; color: var(--ink); }
+  .device-card .head .stat { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); }
+  .device-card .cap { font-size: 12.5px; color: var(--muted); margin: 6px 0 10px; }
+  .spark-wrap svg { display: block; width: 100%; height: auto; }
+  .month-vals { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-top: 10px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; text-align: center; }
+  .month-vals div.mm { color: var(--muted); font-size: 10px; text-transform: uppercase; }
+  .month-vals div.vv { font-weight: 600; padding: 2px 0; border-radius: 4px; }
+  .month-vals div.vv.implausible { color: var(--bad); background: var(--bad-tint); }
+  .month-vals div.vv.suspect { color: var(--warn); background: var(--warn-tint); }
+  .month-vals div.vv.plausible { color: var(--ok); background: var(--ok-tint); }
+
+  .table-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
+  table.heatmap { width: 100%; border-collapse: collapse; background: var(--surface); font-size: 12.5px; min-width: 760px; }
+  table.heatmap thead th { text-align: center; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); padding: 10px 8px; border-bottom: 1px solid var(--line); background: var(--line-soft); white-space: nowrap; }
+  table.heatmap thead th:first-child { text-align: left; }
+  td.hm-dev { padding: 8px 12px; font-weight: 600; color: var(--ink); white-space: nowrap; border-bottom: 1px solid var(--line-soft); font-size: 12.5px; }
+  td.hm { text-align: center; padding: 8px 4px; border-bottom: 1px solid var(--line-soft); font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 11.5px; }
+  td.hm.plausible { color: var(--ok); background: var(--ok-tint); }
+  td.hm.suspect { color: var(--warn); background: var(--warn-tint); }
+  td.hm.implausible { color: var(--bad); background: var(--bad-tint); }
+  td.hm.nodata { color: var(--nodata); background: var(--nodata-tint); font-size: 9.5px; }
+
+  .callout { margin-top: 16px; padding: 12px 14px; background: var(--nodata-tint); border-radius: 8px; font-size: 13.5px; color: var(--ink-soft); }
+  .callout b { color: var(--ink); }
+
+  footer { margin-top: 56px; padding-top: 22px; border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; font-size: 12.5px; color: var(--muted); }
+  footer .src-list { font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; line-height: 1.9; }
+  footer .brand { font-weight: 700; color: var(--myio-purple); }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="inner">
+    <div class="eyebrow"><span class="dot"></span> MYIO · Diagnóstico de integridade de dado</div>
+    <h1>Comparativo multi-mês — dia 10, fev a ago 2026</h1>
+    <p class="sub">Mesmo endpoint, mesmos 29 dispositivos da central "Souza Aguiar CO2", consultados hoje para o dia 10 de cada mês — pra ver a partir de quando a plataforma volta a devolver valor de temperatura plausível.</p>
+    <div class="meta-row">
+      <span>Consulta feita em: <b>31/08/2026</b></span>
+      <span>Endpoint: <b>/api/rpc/temperature_report</b></span>
+      <span>Central: <b>Souza Aguiar CO2</b></span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="summary-card">
+    <span class="tag">Achado</span>
+    <p class="headline">Consultando <b>hoje</b> o dia 10 de cada mês, fevereiro (e em menor grau março) devolve valores <b>fisicamente implausíveis</b> pra maioria dos 29 dispositivos desta central — negativos ou próximos de zero, impossíveis pra uma sala de hospital. A partir de <b>abril</b>, os mesmos dispositivos voltam a devolver valores plausíveis (15–26 °C). Isso confirma: o relatório de 10/02 não pode mais ser reproduzido consultando a API hoje — os números corretos só sobrevivem nos exports capturados na época.</p>
+    <div class="legend">
+      <span class="sw plausible">Plausível (≥16 °C)</span>
+      <span class="sw suspect">Suspeito (10–16 °C)</span>
+      <span class="sw implausible">Implausível (&lt;10 °C ou negativo)</span>
+      <span class="sw nodata">Sem dado</span>
+    </div>
+  </div>
+
+  <section>
+    <h2>Metodologia</h2>
+    <h3 class="section-title">Como os 7 pontos foram coletados</h3>
+    <p>Uma chamada POST por mês, para o mesmo endpoint que o widget usa, com os mesmos 29 devices da central "Souza Aguiar CO2" e uma janela de 24h alinhada ao dia 10 em BRT (<span class="mono">03:00Z → 02:59:59.999Z do dia seguinte</span>). Nenhum parâmetro além da data mudou entre as 7 chamadas.</p>
+    <div class="method-strip">
+      <div class="cell"><div class="k">Dias consultados</div><div class="v">10/02, 10/03, 10/04, 10/05, 10/06, 10/07, 10/08</div></div>
+      <div class="cell"><div class="k">Dispositivos por chamada</div><div class="v">29 (central inteira)</div></div>
+      <div class="cell"><div class="k">Amostras por chamada</div><div class="v">1.392 (29 × 48 slots)</div></div>
+      <div class="cell"><div class="k">Origem</div><div class="v">fetch() autenticado, mesma sessão do dashboard</div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Os 4 pontos já confirmados contra o relatório</h2>
+    <h3 class="section-title">Trajetória mês a mês vs. o valor que o relatório de 10/02 registrou</h3>
+    <p>Linha tracejada = valor que o relatório e os exports contemporâneos de fevereiro confirmaram como correto. O gráfico usa a mesma escala nos 4 cards — dá pra ver o tamanho do salto de fevereiro (implausível) para abril em diante (plausível).</p>
+    <div class="card-grid">
+
+      <div class="device-card">
+        <div class="head"><span class="name">Cirurgia 01</span><span class="stat">baseline 22,00 °C</span></div>
+        <p class="cap">Valor às 15:28 BRT, dia 10, em cada mês.</p>
+        <div class="spark-wrap">
+          <svg viewBox="0 0 280 70" preserveAspectRatio="none">
+            <line x1="0" y1="14.0" x2="280" y2="14.0" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3,3" opacity="0.6" />
+            <polyline points="6.0,61.5 50.7,26.2 95.3,20.2 140.0,19.0 184.7,10.0 229.3,12.0 274.0,11.0" fill="none" stroke="var(--myio-purple)" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" />
+          </svg>
+        </div>
+        <div class="month-vals">
+          <div class="mm">Fev</div><div class="mm">Mar</div><div class="mm">Abr</div><div class="mm">Mai</div><div class="mm">Jun</div><div class="mm">Jul</div><div class="mm">Ago</div>
+          <div class="vv implausible">-1.74</div><div class="vv suspect">15.92</div><div class="vv plausible">18.92</div><div class="vv plausible">19.50</div><div class="vv plausible">24.02</div><div class="vv plausible">22.98</div><div class="vv plausible">23.50</div>
+        </div>
+      </div>
+
+      <div class="device-card">
+        <div class="head"><span class="name">Cirurgia 02</span><span class="stat">baseline 21,00 °C</span></div>
+        <p class="cap">Valor às 14:37 BRT, dia 10, em cada mês.</p>
+        <div class="spark-wrap">
+          <svg viewBox="0 0 280 70" preserveAspectRatio="none">
+            <line x1="0" y1="16.0" x2="280" y2="16.0" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3,3" opacity="0.6" />
+            <polyline points="6.0,59.9 50.7,29.8 95.3,20.4 140.0,8.9 184.7,12.6 229.3,14.0 274.0,12.6" fill="none" stroke="var(--myio-purple)" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" />
+          </svg>
+        </div>
+        <div class="month-vals">
+          <div class="mm">Fev</div><div class="mm">Mar</div><div class="mm">Abr</div><div class="mm">Mai</div><div class="mm">Jun</div><div class="mm">Jul</div><div class="mm">Ago</div>
+          <div class="vv implausible">-0.97</div><div class="vv suspect">14.11</div><div class="vv plausible">18.81</div><div class="vv plausible">24.54</div><div class="vv plausible">22.68</div><div class="vv plausible">22.02</div><div class="vv plausible">22.68</div>
+        </div>
+      </div>
+
+      <div class="device-card">
+        <div class="head"><span class="name">Cirurgia 03</span><span class="stat">baseline 21,00 °C</span></div>
+        <p class="cap">Valor às 15:33 BRT, dia 10, em cada mês.</p>
+        <div class="spark-wrap">
+          <svg viewBox="0 0 280 70" preserveAspectRatio="none">
+            <line x1="0" y1="16.0" x2="280" y2="16.0" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3,3" opacity="0.6" />
+            <polyline points="6.0,58.2 50.7,26.7 95.3,13.2 140.0,11.7 184.7,15.0 229.3,20.7 274.0,17.8" fill="none" stroke="var(--myio-purple)" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" />
+          </svg>
+        </div>
+        <div class="month-vals">
+          <div class="mm">Fev</div><div class="mm">Mar</div><div class="mm">Abr</div><div class="mm">Mai</div><div class="mm">Jun</div><div class="mm">Jul</div><div class="mm">Ago</div>
+          <div class="vv implausible">-0.09</div><div class="vv suspect">15.66</div><div class="vv plausible">22.38</div><div class="vv plausible">23.17</div><div class="vv plausible">21.51</div><div class="vv plausible">18.66</div><div class="vv plausible">20.10</div>
+        </div>
+      </div>
+
+      <div class="device-card">
+        <div class="head"><span class="name">CTI 01</span><span class="stat">baseline 20,00 °C</span></div>
+        <p class="cap">Valor às 15:47 BRT, dia 10, em cada mês.</p>
+        <div class="spark-wrap">
+          <svg viewBox="0 0 280 70" preserveAspectRatio="none">
+            <line x1="0" y1="18.0" x2="280" y2="18.0" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3,3" opacity="0.6" />
+            <polyline points="6.0,24.8 50.7,26.5 95.3,21.9 140.0,18.1 184.7,21.1 229.3,14.4 274.0,20.9" fill="none" stroke="var(--myio-purple)" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" />
+          </svg>
+        </div>
+        <div class="month-vals">
+          <div class="mm">Fev</div><div class="mm">Mar</div><div class="mm">Abr</div><div class="mm">Mai</div><div class="mm">Jun</div><div class="mm">Jul</div><div class="mm">Ago</div>
+          <div class="vv suspect">16.61</div><div class="vv suspect">15.74</div><div class="vv plausible">18.06</div><div class="vv plausible">19.94</div><div class="vv plausible">18.45</div><div class="vv plausible">21.78</div><div class="vv plausible">18.53</div>
+        </div>
+      </div>
+
+    </div>
+    <div class="callout">
+      Repare: os valores de abril em diante <b>não precisam bater com 22,00 / 21,00 / 21,00 / 20,00</b> — são leituras reais de dias diferentes, com temperatura real diferente. O que importa aqui não é "bater com fevereiro", é "ser um número plausível de sala de hospital" — o que só volta a acontecer a partir de abril.
+    </div>
+  </section>
+
+  <section>
+    <h2>Os outros 25 dispositivos da central</h2>
+    <h3 class="section-title">O mesmo padrão, pra dimensionar o tamanho do problema</h3>
+    <p>Média das 48 amostras do dia, por dispositivo e por mês. A maior parte segue o mesmo padrão (implausível em fev/mar, plausível de abr em diante) — mas nem todos: um pequeno grupo (Agência Transfusional, CTI 02/04, Hemodiálise, Raiox 1/2/3/4) já tinha valor plausível mesmo em fevereiro, e o Raiox 2 passou a dar "sem dado" a partir de junho — um problema novo, separado deste.</p>
+    <div class="table-scroll">
+      <table class="heatmap">
+        <thead>
+          <tr><th>Dispositivo</th><th>Fev</th><th>Mar</th><th>Abr</th><th>Mai</th><th>Jun</th><th>Jul</th><th>Ago</th></tr>
+        </thead>
+        <tbody>
+<tr><td class="hm-dev">Agencia Transfusional</td><td class="hm plausible">20.72°</td><td class="hm plausible">17.97°</td><td class="hm plausible">22.64°</td><td class="hm plausible">21.11°</td><td class="hm plausible">21.41°</td><td class="hm plausible">20.62°</td><td class="hm plausible">22.01°</td></tr>
+<tr><td class="hm-dev">CAF</td><td class="hm nodata">SEM DADOS</td><td class="hm plausible">22.71°</td><td class="hm plausible">23.03°</td><td class="hm plausible">23.54°</td><td class="hm plausible">20.68°</td><td class="hm plausible">20.65°</td><td class="hm plausible">20.61°</td></tr>
+<tr><td class="hm-dev">CC 03 (Cirurgia 03)</td><td class="hm implausible">-0.10°</td><td class="hm suspect">14.44°</td><td class="hm plausible">20.58°</td><td class="hm plausible">21.95°</td><td class="hm plausible">21.94°</td><td class="hm plausible">18.92°</td><td class="hm plausible">20.38°</td></tr>
+<tr><td class="hm-dev">CC02 (Cirurgia 02)</td><td class="hm implausible">-1.00°</td><td class="hm suspect">15.07°</td><td class="hm plausible">18.03°</td><td class="hm plausible">21.14°</td><td class="hm plausible">21.78°</td><td class="hm plausible">20.91°</td><td class="hm plausible">20.18°</td></tr>
+<tr><td class="hm-dev">CC05</td><td class="hm implausible">-0.69°</td><td class="hm suspect">15.38°</td><td class="hm plausible">21.32°</td><td class="hm plausible">19.11°</td><td class="hm plausible">20.55°</td><td class="hm plausible">21.04°</td><td class="hm plausible">20.22°</td></tr>
+<tr><td class="hm-dev">CC10</td><td class="hm implausible">-1.03°</td><td class="hm suspect">15.07°</td><td class="hm plausible">20.38°</td><td class="hm plausible">20.45°</td><td class="hm plausible">20.50°</td><td class="hm plausible">21.34°</td><td class="hm plausible">19.63°</td></tr>
+<tr><td class="hm-dev">Cirurgia06</td><td class="hm implausible">-0.54°</td><td class="hm suspect">14.81°</td><td class="hm plausible">21.47°</td><td class="hm plausible">21.98°</td><td class="hm plausible">21.23°</td><td class="hm plausible">20.56°</td><td class="hm plausible">18.64°</td></tr>
+<tr><td class="hm-dev">Cirurgia1 (Cirurgia 01)</td><td class="hm implausible">-1.82°</td><td class="hm suspect">15.44°</td><td class="hm plausible">20.35°</td><td class="hm plausible">19.95°</td><td class="hm plausible">23.25°</td><td class="hm plausible">22.43°</td><td class="hm plausible">22.96°</td></tr>
+<tr><td class="hm-dev">Cirurgia4</td><td class="hm plausible">17.01°</td><td class="hm plausible">16.36°</td><td class="hm plausible">18.86°</td><td class="hm plausible">22.64°</td><td class="hm plausible">19.79°</td><td class="hm plausible">21.18°</td><td class="hm plausible">20.07°</td></tr>
+<tr><td class="hm-dev">Cirurgia7</td><td class="hm implausible">-0.13°</td><td class="hm plausible">16.06°</td><td class="hm plausible">21.16°</td><td class="hm plausible">22.38°</td><td class="hm plausible">20.97°</td><td class="hm plausible">22.37°</td><td class="hm plausible">19.99°</td></tr>
+<tr><td class="hm-dev">Cirurgia8</td><td class="hm implausible">-0.99°</td><td class="hm suspect">14.45°</td><td class="hm plausible">21.67°</td><td class="hm plausible">19.70°</td><td class="hm plausible">22.59°</td><td class="hm plausible">22.38°</td><td class="hm plausible">18.51°</td></tr>
+<tr><td class="hm-dev">Cirurgia9</td><td class="hm implausible">-2.00°</td><td class="hm plausible">16.10°</td><td class="hm plausible">22.79°</td><td class="hm plausible">21.92°</td><td class="hm plausible">22.64°</td><td class="hm plausible">23.45°</td><td class="hm plausible">21.84°</td></tr>
+<tr><td class="hm-dev">CME SL01</td><td class="hm implausible">-1.13°</td><td class="hm plausible">16.76°</td><td class="hm plausible">19.89°</td><td class="hm plausible">19.34°</td><td class="hm plausible">21.23°</td><td class="hm plausible">22.45°</td><td class="hm plausible">21.65°</td></tr>
+<tr><td class="hm-dev">CTI 01</td><td class="hm plausible">16.23°</td><td class="hm suspect">15.22°</td><td class="hm plausible">18.55°</td><td class="hm plausible">20.09°</td><td class="hm plausible">18.83°</td><td class="hm plausible">19.97°</td><td class="hm plausible">18.48°</td></tr>
+<tr><td class="hm-dev">CTI 02</td><td class="hm plausible">16.50°</td><td class="hm plausible">17.09°</td><td class="hm plausible">17.14°</td><td class="hm plausible">18.21°</td><td class="hm plausible">18.28°</td><td class="hm plausible">19.02°</td><td class="hm plausible">21.55°</td></tr>
+<tr><td class="hm-dev">CTI 03</td><td class="hm implausible">-1.02°</td><td class="hm suspect">14.36°</td><td class="hm plausible">18.93°</td><td class="hm plausible">19.50°</td><td class="hm plausible">18.61°</td><td class="hm plausible">19.66°</td><td class="hm plausible">19.27°</td></tr>
+<tr><td class="hm-dev">CTI 04</td><td class="hm plausible">17.52°</td><td class="hm plausible">18.28°</td><td class="hm plausible">20.76°</td><td class="hm plausible">24.54°</td><td class="hm plausible">22.80°</td><td class="hm plausible">21.47°</td><td class="hm plausible">21.06°</td></tr>
+<tr><td class="hm-dev">CTI Pediatrico</td><td class="hm nodata">SEM DADOS</td><td class="hm plausible">23.17°</td><td class="hm plausible">23.85°</td><td class="hm plausible">24.55°</td><td class="hm plausible">22.84°</td><td class="hm plausible">23.01°</td><td class="hm plausible">22.43°</td></tr>
+<tr><td class="hm-dev">Farmácia Satelite</td><td class="hm implausible">-0.02°</td><td class="hm plausible">18.50°</td><td class="hm plausible">19.91°</td><td class="hm plausible">17.65°</td><td class="hm plausible">21.85°</td><td class="hm plausible">22.68°</td><td class="hm plausible">22.37°</td></tr>
+<tr><td class="hm-dev">Hemodialise</td><td class="hm plausible">19.20°</td><td class="hm plausible">16.38°</td><td class="hm plausible">23.38°</td><td class="hm plausible">23.99°</td><td class="hm plausible">20.86°</td><td class="hm plausible">20.74°</td><td class="hm plausible">21.65°</td></tr>
+<tr><td class="hm-dev">Laboratorio</td><td class="hm implausible">-1.10°</td><td class="hm plausible">17.88°</td><td class="hm plausible">22.02°</td><td class="hm plausible">22.30°</td><td class="hm plausible">21.11°</td><td class="hm plausible">20.98°</td><td class="hm plausible">18.80°</td></tr>
+<tr><td class="hm-dev">Queimados</td><td class="hm implausible">1.94°</td><td class="hm plausible">18.95°</td><td class="hm plausible">22.74°</td><td class="hm plausible">21.22°</td><td class="hm plausible">23.16°</td><td class="hm plausible">23.04°</td><td class="hm plausible">19.60°</td></tr>
+<tr><td class="hm-dev">Raiox1</td><td class="hm plausible">19.75°</td><td class="hm plausible">19.74°</td><td class="hm plausible">26.53°</td><td class="hm plausible">26.73°</td><td class="hm plausible">19.72°</td><td class="hm plausible">19.09°</td><td class="hm plausible">20.75°</td></tr>
+<tr><td class="hm-dev">Raiox2</td><td class="hm plausible">25.08°</td><td class="hm plausible">26.75°</td><td class="hm plausible">26.00°</td><td class="hm plausible">25.56°</td><td class="hm nodata">SEM DADOS</td><td class="hm nodata">SEM DADOS</td><td class="hm nodata">SEM DADOS</td></tr>
+<tr><td class="hm-dev">Raiox3</td><td class="hm plausible">16.98°</td><td class="hm plausible">17.00°</td><td class="hm plausible">22.08°</td><td class="hm plausible">19.45°</td><td class="hm plausible">16.34°</td><td class="hm plausible">18.53°</td><td class="hm plausible">19.09°</td></tr>
+<tr><td class="hm-dev">Raiox4</td><td class="hm plausible">16.94°</td><td class="hm plausible">17.44°</td><td class="hm plausible">22.24°</td><td class="hm plausible">23.66°</td><td class="hm plausible">20.33°</td><td class="hm plausible">18.89°</td><td class="hm plausible">20.09°</td></tr>
+<tr><td class="hm-dev">RPA</td><td class="hm implausible">-0.19°</td><td class="hm plausible">17.85°</td><td class="hm plausible">21.60°</td><td class="hm plausible">22.26°</td><td class="hm plausible">22.56°</td><td class="hm plausible">22.02°</td><td class="hm plausible">22.94°</td></tr>
+<tr><td class="hm-dev">Sala Vermelha Adulto</td><td class="hm nodata">SEM DADOS</td><td class="hm plausible">20.81°</td><td class="hm plausible">21.58°</td><td class="hm plausible">19.55°</td><td class="hm plausible">22.51°</td><td class="hm plausible">21.57°</td><td class="hm plausible">19.60°</td></tr>
+<tr><td class="hm-dev">Sala Vermelha Infantil</td><td class="hm implausible">-1.01°</td><td class="hm suspect">15.26°</td><td class="hm plausible">18.54°</td><td class="hm plausible">17.58°</td><td class="hm plausible">22.93°</td><td class="hm plausible">22.57°</td><td class="hm plausible">22.54°</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Leitura</h2>
+    <h3 class="section-title">O que isso significa na prática</h3>
+    <p><b>21 de 29 dispositivos</b> desta central mostram valor implausível ou suspeito quando consultados hoje para fevereiro — a maioria volta ao normal a partir de abril, coincidindo com a janela em que os sensores foram fisicamente trocados. Isso não é uma dúvida de interpretação: é a prova de que <b>o relatório original de 10/02 não pode ser reconstruído hoje a partir de uma consulta ao vivo à API</b> — a única fonte confiável pra fevereiro são os exports capturados na época (<code class="inline">clientes\souza aguiar\</code>) e a planilha de calibração do dia seguinte.</p>
+  </section>
+
+  <footer>
+    <div>
+      <div class="brand">MYIO</div>
+      Diagnóstico técnico — captura ao vivo em 31/08/2026, mesma sessão autenticada do dashboard.
+    </div>
+    <div class="src-list">
+      raw-network/day10-multi-month.json<br>
+      raw-network/day10-multi-month-summary.json<br>
+      clientes/souza aguiar/dispositivo_temperatura_horario-10-02-2026.csv<br>
+      clientes/souza aguiar/calibracao_temperatura_souza_aguiar_10-02-2026.xlsx
+    </div>
+  </footer>
+
+</div>
+</body>
+</html>

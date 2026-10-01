@@ -133,7 +133,7 @@ export interface DemandModalStyles {
   borderRadius: string;                // Card border radius (8px)
   buttonRadius: string;                // Button border radius (6px)
   pillRadius: string;                  // Pill border radius (20px)
-  zIndex: number;                      // Modal z-index (10000)
+  zIndex: number;                      // Modal z-index (1000005 — above --myio-z-modal)
   
   // Spacing tokens
   spacingXs: string;                   // 4px
@@ -197,7 +197,7 @@ const DEFAULT_STYLES: DemandModalStyles = {
   borderRadius: '8px',
   buttonRadius: '6px',
   pillRadius: '20px',
-  zIndex: 10000,
+  zIndex: 1000005,
   spacingXs: '4px',
   spacingSm: '8px',
   spacingMd: '16px',
@@ -862,13 +862,15 @@ function formatDate(date: Date, locale: string): string {
 }
 
 /**
- * Format date according to locale (without time)
+ * Format date and time according to locale
  */
 function formatDateTime(date: Date, locale: string): string {
   return date.toLocaleDateString(locale, {
     day: '2-digit',
     month: '2-digit',
-    year: 'numeric'
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
   });
 }
 
@@ -935,13 +937,11 @@ async function fetchTelemetryData(
   const agg = queryParams?.agg || 'MAX';
   const orderBy = queryParams?.orderBy || 'ASC';
 
-  // Build URL - only include limit when agg=NONE
   let url = `/api/plugins/telemetry/DEVICE/${deviceId}/values/timeseries?` +
     `keys=${keys}&startTs=${startTs}&endTs=${endTs}&` +
     `intervalType=${intervalType}&interval=${interval}&agg=${agg}&orderBy=${orderBy}`;
 
-  // Add limit only when aggregation is NONE (per ThingsBoard API docs)
-  if (agg === 'NONE' && queryParams?.limit) {
+  if (queryParams?.limit) {
     url += `&limit=${queryParams.limit}`;
   }
 
@@ -953,7 +953,15 @@ async function fetchTelemetryData(
   });
 
   if (!response.ok) {
-    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    const errorBody = await response.text().catch(() => '');
+    let errorDetail = errorBody;
+    try {
+      const parsed = JSON.parse(errorBody);
+      errorDetail = parsed.message || errorBody;
+    } catch {
+      // errorBody wasn't JSON, use as-is
+    }
+    throw new Error(`HTTP ${response.status}${errorDetail ? `: ${errorDetail}` : ''}`);
   }
 
   const data = await response.json();
@@ -1004,7 +1012,7 @@ function processMultiSeriesChartData(
       // Data is already aggregated - use values directly
       for (let i = 0; i < sortedData.length; i++) {
         const current = sortedData[i];
-        const value = parseFloat(current.value) * correctionFactor;
+        const value = (parseFloat(current.value) / 1000) * correctionFactor;
         // Apply timezone offset to convert UTC to local time
         const timestamp = current.ts + tzOffsetMs;
 
@@ -1287,7 +1295,7 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
           ${strings.startDate}:
           <input type="date" class="myio-demand-modal-date-input myio-demand-modal-date-start" />
         </label>
-        <label>
+        <label class="myio-demand-modal-enddate-label">
           ${strings.endDate}:
           <input type="date" class="myio-demand-modal-date-input myio-demand-modal-date-end" />
         </label>
@@ -1360,6 +1368,7 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
   const contentEl = overlay.querySelector('.myio-demand-modal-content') as HTMLElement;
   const dateStartInput = overlay.querySelector('.myio-demand-modal-date-start') as HTMLInputElement;
   const dateEndInput = overlay.querySelector('.myio-demand-modal-date-end') as HTMLInputElement;
+  const endDateLabel = overlay.querySelector('.myio-demand-modal-enddate-label') as HTMLElement;
   const updateBtn = overlay.querySelector('.myio-demand-modal-btn-update') as HTMLButtonElement;
   // RFC-0084: Real-time toggle button removed - use RealTimeTelemetryModal instead
   // const realTimeToggleBtn = overlay.querySelector('#realtime-toggle-btn') as HTMLButtonElement;
@@ -1374,6 +1383,7 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
   let isFullscreen = false;
   let currentStartDate = params.startDate;
   let currentEndDate = params.endDate;
+  let defaultEndDateValue = ''; // dateEndInput value captured when the modal first opened
   let activeTelemetryType: TelemetryType = currentTelemetryType; // RFC-0061: Track active telemetry type
 
   // RFC-0082: Real-time mode state
@@ -1780,6 +1790,21 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
     }
   }
 
+  // 1-minute granularity always queries a business-hours slice of the start date only
+  // (see loadData's isBusinessHoursClamp), so "Data Final" has no effect in that mode —
+  // hide it to avoid implying it does anything, and restore it when switching back.
+  function updateEndDateVisibility() {
+    const isOneMinute = intervalSelect?.value === '60000';
+    if (endDateLabel) {
+      endDateLabel.style.display = isOneMinute ? 'none' : '';
+    }
+    if (isOneMinute) {
+      dateEndInput.value = dateStartInput.value;
+    } else {
+      dateEndInput.value = defaultEndDateValue;
+    }
+  }
+
   // RFC-0061: Debounce utility function
   function debounce<T extends (...args: any[]) => any>(
     func: T,
@@ -1834,8 +1859,11 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
       return;
     }
 
-    const startDateObj = new Date(newStartDate);
-    const endDateObj = new Date(newEndDate);
+    // Build ISO strings directly from the YYYY-MM-DD text (no Date object mutation)
+    // to avoid double timezone-adjustment bugs — same pattern as normalizeToSaoPauloISO
+    // in premium-modals/energy/utils.ts (ED-816 fix).
+    const startDateObj = new Date(`${newStartDate}T00:00:00.000-03:00`);
+    const endDateObj = new Date(`${newEndDate}T23:59:59.000-03:00`);
 
     // Validation: end date must be >= start date
     if (endDateObj < startDateObj) {
@@ -1891,17 +1919,23 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
   }
 
   // Interval and Aggregation selector event listeners
+  // Route through updatePeriod() (not loadData() directly) so the date range
+  // is re-synced from the visible inputs — otherwise a date edited but not yet
+  // confirmed via "Atualizar" is silently ignored and the stale currentStartDate/
+  // currentEndDate gets queried instead.
   if (intervalSelect) {
     intervalSelect.addEventListener('change', () => {
+      // Show/hide + sync "Data Final" before updatePeriod() reads it
+      updateEndDateVisibility();
       // Automatically reload data when interval changes
-      loadData();
+      updatePeriod();
     });
   }
 
   if (aggSelect) {
     aggSelect.addEventListener('change', () => {
       // Automatically reload data when aggregation changes
-      loadData();
+      updatePeriod();
     });
   }
 
@@ -1938,21 +1972,46 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
         return;
       }
 
+      // Get selected interval and aggregation from selects
+      const selectedInterval = intervalSelect ? parseInt(intervalSelect.value) : 86400000;
+      const selectedAgg = aggSelect ? aggSelect.value : 'MAX';
+
+      // 1-minute granularity only fits within the server's aggregation-bucket cap for a
+      // short window (see MAX_AGGREGATION_INTERVALS below), so instead of forcing the user
+      // to pick an exact time range, silently narrow the query to a business-hours slice
+      // (08:00-18:00) of the selected start date whenever "1 minuto" is chosen.
+      const BUSINESS_HOURS_INTERVAL_MS = 60000;
+      const isBusinessHoursClamp = selectedInterval === BUSINESS_HOURS_INTERVAL_MS;
+      let queryStartDate = currentStartDate;
+      let queryEndDate = currentEndDate;
+      if (isBusinessHoursClamp) {
+        const baseDay = new Date(currentStartDate);
+        const y = baseDay.getFullYear();
+        const m = String(baseDay.getMonth() + 1).padStart(2, '0');
+        const d = String(baseDay.getDate()).padStart(2, '0');
+        queryStartDate = `${y}-${m}-${d}T08:00:00.000-03:00`;
+        queryEndDate = `${y}-${m}-${d}T18:00:00.000-03:00`;
+      }
+      const queryDiffTime = Math.abs(new Date(queryEndDate).getTime() - new Date(queryStartDate).getTime());
+
+      // ThingsBoard default (database.ts.max_intervals) — confirmed via server error:
+      // "Incorrect TsKvQuery. Number of intervals is to high - 1439."
+      const MAX_AGGREGATION_INTERVALS = 1000;
+      const numIntervals = Math.ceil(queryDiffTime / selectedInterval);
+
+      if (selectedAgg !== 'NONE' && numIntervals > MAX_AGGREGATION_INTERVALS) {
+        loadingEl.style.display = 'none';
+        errorEl.style.display = 'flex';
+        errorText.textContent = `Intervalo muito pequeno para o período selecionado (${numIntervals} pontos, máximo ${MAX_AGGREGATION_INTERVALS}). Aumente o Intervalo ou reduza o período.`;
+        return;
+      }
+
       // RFC-0061: Build telemetry query using active telemetry type
       const keysStr = Array.isArray(activeTelemetryType.keys)
         ? activeTelemetryType.keys.join(',')
         : activeTelemetryType.keys;
 
-      // Get selected interval and aggregation from selects
-      const selectedInterval = intervalSelect ? parseInt(intervalSelect.value) : 86400000;
-      const selectedAgg = aggSelect ? aggSelect.value : 'MAX';
-
-      // Calculate limit based on interval for 60s (1 minute)
-      // For 60s interval, limit to 24 hours worth of data (1440 points)
-      let queryLimit = params.telemetryQuery?.limit || 10000;
-      if (selectedInterval === 60000) {
-        queryLimit = 1440; // 24 hours * 60 minutes = 1440 points
-      }
+      const queryLimit = params.telemetryQuery?.limit || MAX_AGGREGATION_INTERVALS;
 
       // Build query parameters with active telemetry type
       const telemetryQuery: TelemetryQueryParams = {
@@ -1966,8 +2025,8 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
       // RFC-0061: Check cache first
       const cacheKey = getCacheKey({
         deviceId: params.deviceId,
-        startDate: currentStartDate,
-        endDate: currentEndDate,
+        startDate: queryStartDate,
+        endDate: queryEndDate,
         keys: keysStr,
         agg: telemetryQuery.agg,
         interval: telemetryQuery.interval || 86400000
@@ -1978,8 +2037,8 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
       if (!rawData) {
         // Cache miss - fetch from API
         rawData = params.fetcher
-          ? await params.fetcher({ token: params.token, deviceId: params.deviceId, startDate: currentStartDate, endDate: currentEndDate, telemetryQuery })
-          : await fetchTelemetryData(params.token, params.deviceId, currentStartDate, currentEndDate, telemetryQuery);
+          ? await params.fetcher({ token: params.token, deviceId: params.deviceId, startDate: queryStartDate, endDate: queryEndDate, telemetryQuery })
+          : await fetchTelemetryData(params.token, params.deviceId, queryStartDate, queryEndDate, telemetryQuery);
 
         // Store in cache
         setCachedData(cacheKey, rawData);
@@ -2011,14 +2070,9 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
       // Show global peak information
       if (chartData.globalPeak) {
         const peak = chartData.globalPeak;
-        const date = new Date(peak.timestamp);
-        const dateStr = date.toLocaleDateString(locale, {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric'
-        });
+        const clampNote = isBusinessHoursClamp ? ' (horário comercial 08:00–18:00, devido à granularidade de 1 minuto)' : '';
 
-        peakEl.textContent = `${strings.maximum}: ${peak.formattedValue} kW ${peak.key ? `(${peak.key}) ` : ''}${strings.at} ${dateStr}`;
+        peakEl.textContent = `${strings.maximum}: ${peak.formattedValue} kW ${peak.key ? `(${peak.key}) ` : ''}${strings.at} ${peak.formattedTime}${clampNote}`;
         peakEl.style.display = 'block';
       }
 
@@ -2032,8 +2086,10 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
           label: series.label,
           data: series.points,
           borderColor: series.color,
-          backgroundColor: series.color + 'CC',
-          borderWidth: 1,
+          backgroundColor: series.color + '33',
+          borderWidth: 2,
+          fill: true,
+          tension: 0.4,
         }));
         chart.options.plugins.legend.display = chartData.series.length > 1;
 
@@ -2043,22 +2099,13 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
             const timestamp = context[0].parsed.x;
             const date = new Date(timestamp);
 
-            // RFC-0083: Show date + time for temperature, date only for energy/water
-            if (params.readingType === 'temperature') {
-              return date.toLocaleString(locale, {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-              });
-            } else {
-              return date.toLocaleDateString(locale, {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric'
-              });
-            }
+            return date.toLocaleString(locale, {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            });
           },
           label: function(context: any) {
             const seriesLabel = context.dataset.label || '';
@@ -2114,22 +2161,13 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
                   const timestamp = context[0].parsed.x;
                   const date = new Date(timestamp);
 
-                  // RFC-0083: Show date + time for temperature, date only for energy/water
-                  if (params.readingType === 'temperature') {
-                    return date.toLocaleString(locale, {
-                      day: '2-digit',
-                      month: '2-digit',
-                      year: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    });
-                  } else {
-                    return date.toLocaleDateString(locale, {
-                      day: '2-digit',
-                      month: '2-digit',
-                      year: 'numeric'
-                    });
-                  }
+                  return date.toLocaleString(locale, {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  });
                 },
                 label: function(context: any) {
                   const seriesLabel = context.dataset.label || '';
@@ -2208,9 +2246,11 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
 
   // Initialize date inputs
   initializeDateInputs();
+  defaultEndDateValue = dateEndInput.value;
 
   // Initialize query selects (interval and aggregation)
   initializeQuerySelects();
+  updateEndDateVisibility();
 
   // Start loading data
   loadData();

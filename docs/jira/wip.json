@@ -2,55 +2,49 @@
   "meta": {
     "project": "ED",
     "jiraBase": "https://myio.atlassian.net",
-    "generatedAt": "2026-08-25",
+    "generatedAt": "2026-09-30",
     "status": "Em Andamento",
     "wipLimit": 1,
     "note": "WIP = tickets com status \"Em Andamento\". Acordo: 1 por pessoa (inclui \"Aguardando Demanda\" quando ocioso)."
   },
-  "total": 7,
-  "peopleOver": 1,
+  "total": 5,
+  "peopleOver": 2,
   "people": [
     {
       "name": "Rodrigo Lago",
-      "count": 4,
+      "count": 2,
       "over": true,
       "tickets": [
         {
-          "key": "ED-956",
+          "key": "ED-1292",
           "type": "Bug",
-          "summary": "[BUG] [PRÉ-SETUP] Ao criar novo cliente com estrutura sugerida, código do cliente não é gerado",
-          "updated": "2026-07-28"
+          "summary": "Melicidade - Outlier no registro de consumo de água",
+          "updated": "2026-09-29"
         },
         {
-          "key": "ED-949",
-          "type": "Tarefa",
-          "summary": "[GCDR] Pré-setup: autopreencher \"Identificador\" ao adicionar device em asset com mais de 1 device",
-          "updated": "2026-07-28"
-        },
-        {
-          "key": "ED-941",
+          "key": "ED-1290",
           "type": "Bug",
-          "summary": "[BUG] [PRÉ-SETUP] [GCDR] Falha na sincronização para o GDCR de cliente cadastrado com múltiplos gateways (2+)",
-          "updated": "2026-07-28"
-        },
-        {
-          "key": "ED-973",
-          "type": "Bug",
-          "summary": "[BUG] [PRÉ-SETUP] [GCDR] Sistema não emite alerta de duplicidade (IPv6/UUID) ao cadastrar gateway e quebra sincronização com GCDR",
-          "updated": "2026-06-22"
+          "summary": "Mestre Alvaro - Verificação de possível outlier de consumo",
+          "updated": "2026-09-29"
         }
       ]
     },
     {
-      "name": "Victor Hugo da Silva",
-      "count": 1,
-      "over": false,
+      "name": "Letícia Camargo",
+      "count": 2,
+      "over": true,
       "tickets": [
         {
-          "key": "ED-1133",
+          "key": "ED-1273",
+          "type": "Subtarefa",
+          "summary": "QA: Painel Interpolação — 4 abas (Dashboard/Gateways/Logs/Setup)",
+          "updated": "2026-09-24"
+        },
+        {
+          "key": "ED-1271",
           "type": "Tarefa",
-          "summary": "[GCDR/AUTH] Implementar RFC-0059 — Auth0 Identity Platform & Grant Service",
-          "updated": "2026-08-20"
+          "summary": "QA: Validar branch feat/interpolation-agent em Staging (Sprint 20)",
+          "updated": "2026-09-24"
         }
       ]
     },
@@ -60,23 +54,10 @@
       "over": false,
       "tickets": [
         {
-          "key": "ED-1115",
+          "key": "ED-1211",
           "type": "Subtarefa",
-          "summary": "Validação em bancada com duas OPi e um sensor pareado",
-          "updated": "2026-08-13"
-        }
-      ]
-    },
-    {
-      "name": "Letícia Camargo",
-      "count": 1,
-      "over": false,
-      "tickets": [
-        {
-          "key": "ED-841",
-          "type": "Tarefa",
-          "summary": "Documentar processo gravação de evidência de erros via JAM",
-          "updated": "2026-08-20"
+          "summary": "Plano de canal por vizinhança física",
+          "updated": "2026-09-16"
         }
       ]
     }

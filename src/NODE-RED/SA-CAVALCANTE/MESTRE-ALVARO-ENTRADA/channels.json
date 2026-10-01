@@ -1,0 +1,11 @@
+{
+  "_meta": {
+    "central": "Mestre Álvaro — Entrada (Sá Cavalcante)",
+    "table": "channels",
+    "rowCount": 0,
+    "capturedAt": "2026-09-14",
+    "source": "psql -U hubot — SELECT * FROM channels; (colado pelo usuário)",
+    "note": "Central nova, ainda sem channels cadastrados (0 rows) — só o slave 3F de entrada existe até agora."
+  },
+  "rows": []
+}

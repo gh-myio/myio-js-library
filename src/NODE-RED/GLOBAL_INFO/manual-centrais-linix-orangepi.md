@@ -51,6 +51,7 @@ ssh -i id_rsa root@<ipv6-da-central>
 | Mestre Álvaro — L0L1                                                                                      | `200:ba5f:dacb:b278:8f85:acf4:f33c:f485`    | `45250d44-bad0-4071-aaa0-8091cfb12691`     | —          | —          |
 | Mestre Álvaro — L2AC                                                                                      | `200:8b:483c:9008:1184:caec:41b1:fa28`      | `d3202744-05dd-46d1-af33-495e9a2ecd52`     | —          | —          |
 | Mestre Álvaro — L3L4                                                                                      | `200:b0b1:81aa:49a4:c554:4fec:f110:9896`    | `fcb3ccd1-4b85-4cef-a1de-0b8a80bec81e`     | —          | —          |
+| Mestre Álvaro — Entrada                                                                                  | `204:5b68:177a:540d:91c4:143b:d3b7:2ae2`    | `e6e9484d-af12-4209-b0aa-510378e01c1e`     | `28.248.84.203` | `65`       |
 | Rio Poty                                                                                                  | `203:bdfb:8fda:634d:c846:1404:f319:718c`    | `c0af8288-7b13-4024-bc11-df5017fef656`     | —          | —          |
 | Shopping da Ilha                                                                                          | `201:3447:911:5955:4018:3960:6838:ee12`     | `cb318f02-1020-4f99-857f-d44d001d939b`     | —          | —          |
 | ~~Moxuara~~ ⚠️ **INATIVADA 2026-07-13** — substituída pela Moxuara 2.0 (banco restaurado do backup desta) | ~~`202:1567:faee:79ef:486:6d44:d391:fb18`~~ | ~~`e982edf9-edb1-4aa6-8a14-4782465ae5a3`~~ | —          | —          |
@@ -84,7 +85,8 @@ ssh -i id_rsa root@<ipv6-da-central>
 | Shopping Contagem      | `200:12b0:b768:7ba0:32b5:1c15:bec7:33aa` | `70b6d878-090f-4326-af18-2695396cbc67` | —          | —          |
 | ~~Shopping Capim Dourado~~ ⚠️ **INATIVADA 2026-07-30** — substituída pela central nova abaixo (central nova de fábrica, **sem restauração de banco**; pré-setup ainda pendente) | ~~`200:1e47:5d5e:d011:a88c:6f1b:fda2:622d`~~ | ~~`988433ae-88c1-49b1-b43b-e08592ae3005`~~ | —          | —          |
 | Shopping Capim Dourado 2.0 - 2026-07-30 | `200:9738:d165:f821:68d3:2852:d822:a748` | `84638207-ac49-4adf-a033-4731dbb920c2` | `75.216.106.156` | `102`      |
-| West Plaza             | `203:1211:7a3a:89f:4ce2:4482:13:e8b`     | `1982b47d-2e82-40df-94cc-f89ae12cba58` | `137.177.222.39` | `1117`     |
+| ~~West Plaza~~ ⚠️ **SUBSTITUÍDA 2026-09-28** — substituída pela central nova abaixo | ~~`203:1211:7a3a:89f:4ce2:4482:13:e8b`~~ | ~~`1982b47d-2e82-40df-94cc-f89ae12cba58`~~ | ~~`137.177.222.39`~~ | ~~`1117`~~ |
+| West Plaza - NOVA - 2026-09-28 | `200:4bfa:32e0:da5f:74bd:ab68:202b:20a7` | `61b789a3-23cc-45b2-91a3-5ec1dfc2ac6d` | `70.96.63.2222` | `77`      |
 
 #### Holding: ARGO PLAN
 
@@ -92,7 +94,8 @@ ssh -i id_rsa root@<ipv6-da-central>
 | --------------------------- | ---------------------------------------- | -------------------------------------- | -------------- | ---------- |
 | Campinas Shopping — G1 G2   | `203:5e50:3e69:89bd:5846:e41f:23b8:fd28` | `1b5d79c4-5fc6-46c4-bd05-89e8b1499920` | `16.2.170.222` | `107`      |
 | Campinas Shopping — G0 Nova | `200:83a1:247a:8c7b:d428:3ed4:21dd:389f` | `401230d1-e7d6-46dd-9bb1-059387683303` | —              | —          |
-| Campinas Shopping — G0 Hidrômetros        | `200:6bd3:fa74:f805:7b0a:c337:ccc5:e1b7` | `b126ce91-6567-492b-96f8-b157b47e2600` | —              | —          |
+| ~~Campinas Shopping — G0 Hidrômetros~~ ⚠️ **INATIVADA 2026-09-03** — substituída pela central nova abaixo | ~~`200:6bd3:fa74:f805:7b0a:c337:ccc5:e1b7`~~ | ~~`b126ce91-6567-492b-96f8-b157b47e2600`~~ | —              | —          |
+| Campinas Shopping — G0 Hidrômetros Novo - 2026-09-03 | `200:a2db:17c5:bb1c:afa1:2caa:c73:4312` | `989671ae-345c-4416-90ed-20939e363ea0` | `133.56.105.88` | `8`        |
 | Campinas Shopping — G1 G2 Hidrômetros     | `200:a107:d79f:55d0:65:212e:15f6:d27b`   | `aab91440-3bb4-4b04-aeb4-6533c93afb57` | —              | —          |
 | Campinas Shopping — Subestação Principal  | `202:7cde:b52f:7210:12a5:91d6:1fe5:4d6e` | `c248c77f-da23-4247-a06b-cf371a82f4d9` | —              | —          |
 
@@ -143,8 +146,11 @@ ssh -i id_rsa root@<ipv6-da-central>
 | Central           | IPv6                                    | Gateway ID                             | Central ID       | Frequência |
 | ----------------- | --------------------------------------- | -------------------------------------- | ---------------- | ---------- |
 | Central Pre-Setup | `204:12fb:5518:d04:d9e1:360d:4ab0:125b` | `a77ac87c-addd-4172-a65f-0f6f6038e98e` | `161.158.107.69` | 121        |
+| Guilherme Ito Prod | `206:e562:457e:287c:5ca2:b043:68c3:305e` | `34e55153-c2b2-4c07-9949-2fc5ee809617` | `187.164.48.227` | `4`        |
 
 > Referência canônica do Pre-Setup Constructor — ver `src/NODE-RED/CENTRAL_PRE_SETUP/README.md`.
+>
+> **Guilherme Ito Prod** — MAC `02:42:ba:a3:2f:e2` (`central_uuid` = Gateway ID; IPv6 = interface `ygg0`).
 
 **Exemplos de conexão:**
 
@@ -157,6 +163,9 @@ ssh -i id_rsa root@200:8b:483c:9008:1184:caec:41b1:fa28
 
 # Mestre Álvaro L3L4 (Sá Cavalcante)
 ssh -i id_rsa root@200:b0b1:81aa:49a4:c554:4fec:f110:9896
+
+# Mestre Álvaro Entrada (Sá Cavalcante)
+ssh -i id_rsa root@204:5b68:177a:540d:91c4:143b:d3b7:2ae2
 
 # Rio Poty (Sá Cavalcante)
 ssh -i id_rsa root@203:bdfb:8fda:634d:c846:1404:f319:718c
@@ -221,8 +230,11 @@ ssh -i id_rsa root@203:5e50:3e69:89bd:5846:e41f:23b8:fd28
 # Campinas Shopping — G0 Nova (Argo Plan)
 ssh -i id_rsa root@200:83a1:247a:8c7b:d428:3ed4:21dd:389f
 
-# Campinas Shopping — G0 Hidrômetros (Argo Plan)
+# ~~Campinas Shopping — G0 Hidrômetros~~ — INATIVADA 2026-09-03 (substituída pela Novo abaixo)
 ssh -i id_rsa root@200:6bd3:fa74:f805:7b0a:c337:ccc5:e1b7
+
+# Campinas Shopping — G0 Hidrômetros Novo (Argo Plan)
+ssh -i id_rsa root@200:a2db:17c5:bb1c:afa1:2caa:c73:4312
 
 # Campinas Shopping — G1 G2 Hidrômetros (Argo Plan)
 ssh -i id_rsa root@200:a107:d79f:55d0:65:212e:15f6:d27b
@@ -242,8 +254,11 @@ ssh -i id_rsa root@200:12b0:b768:7ba0:32b5:1c15:bec7:33aa
 # Shopping Capim Dourado 2.0 - 2026-07-30 (Soul Malls) — central nova (sem restore de banco; pré-setup pendente)
 ssh -i id_rsa root@200:9738:d165:f821:68d3:2852:d822:a748
 
-# West Plaza (Soul Malls)
-ssh -i id_rsa root@203:1211:7a3a:89f:4ce2:4482:13:e8b
+# West Plaza (Soul Malls) — ⚠️ SUBSTITUÍDA 2026-09-28
+# ssh -i id_rsa root@203:1211:7a3a:89f:4ce2:4482:13:e8b
+
+# West Plaza - NOVA - 2026-09-28 (Soul Malls)
+ssh -i id_rsa root@200:4bfa:32e0:da5f:74bd:ab68:202b:20a7
 
 # Deodoro (Supervia Estações)
 ssh -i id_rsa root@200:1e6a:69a5:73f1:b18a:e6e:aa68:9229

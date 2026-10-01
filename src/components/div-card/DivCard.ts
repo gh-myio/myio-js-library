@@ -22,6 +22,7 @@ import { InfoTooltip } from '../../utils/tooltips/InfoTooltip';
 export type DivCardAccent =
   | 'rose'
   | 'amber'
+  | 'orange'
   | 'blue'
   | 'sky'
   | 'emerald'
@@ -34,6 +35,7 @@ const STYLE_ID = 'myio-divcard-styles';
 const ACCENTS: Record<Exclude<DivCardAccent, 'none'>, { band: string; border: string; title: string }> = {
   rose: { band: '#fff1f2', border: '#fecdd3', title: '#9f1239' },
   amber: { band: '#fffbeb', border: '#fde68a', title: '#92400e' },
+  orange: { band: '#fff7ed', border: '#fed7aa', title: '#9a3412' },
   blue: { band: '#eff6ff', border: '#bfdbfe', title: '#1e3a8a' },
   sky: { band: '#f0f9ff', border: '#bae6fd', title: '#075985' },
   emerald: { band: '#ecfdf5', border: '#a7f3d0', title: '#065f46' },

@@ -2621,7 +2621,12 @@ self.onInit = function () {
           const bundle = await guFetchGCDRCustomerBundle(selectedCustomer.id, gcdrTenantId);
           if (!bundle)
             throw new Error(
-              'Customer não encontrado no GCDR. Configure gcdrCustomerId em SERVER_SCOPE e verifique o tenant.'
+              `Nenhum customer no GCDR possui externalId = ${selectedCustomer.id} (busca é por ` +
+                `externalId = UUID do customer TB, não por gcdrCustomerId). Isso significa que ` +
+                `o customer nunca foi sincronizado no GCDR OU que existe lá mas com o campo ` +
+                `externalId errado/desatualizado. gcdrCustomerId atual em SERVER_SCOPE: ` +
+                `${gcdrCustomerId || '(vazio)'} — confira no GCDR se o customer com esse ID tem ` +
+                `externalId apontando para ${selectedCustomer.id}, e verifique o tenant (${gcdrTenantId || '(vazio)'}).`
             );
 
           // Filtrar estritamente por gcdrCustomerId — o bundle ?deep=1 pode conter
@@ -3909,7 +3914,15 @@ self.onInit = function () {
         setBody(renderProgress('Fase 1/2 — Carregando bundle GCDR…', 0, 0));
         console.log('[Raio X] Fase 1: guFetchGCDRCustomerBundle');
         const bundle = await guFetchGCDRCustomerBundle(selectedCustomer.id, gcdrTenantId);
-        if (!bundle) throw new Error('Customer não encontrado no GCDR. Verifique gcdrCustomerId e tenant.');
+        if (!bundle)
+          throw new Error(
+            `Nenhum customer no GCDR possui externalId = ${selectedCustomer.id} (busca é por ` +
+              `externalId = UUID do customer TB, não por gcdrCustomerId). Isso significa que ` +
+              `o customer nunca foi sincronizado no GCDR OU que existe lá mas com o campo ` +
+              `externalId errado/desatualizado. gcdrCustomerId atual em SERVER_SCOPE: ` +
+              `${gcdrCustomerId || '(vazio)'} — confira no GCDR se o customer com esse ID tem ` +
+              `externalId apontando para ${selectedCustomer.id}, e verifique o tenant (${gcdrTenantId || '(vazio)'}).`
+          );
 
         const bundleAssets = Array.isArray(bundle.assets) ? bundle.assets : [];
         const bundleDevices = Array.isArray(bundle.devices) ? bundle.devices : [];

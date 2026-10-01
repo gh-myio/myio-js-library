@@ -1,0 +1,12 @@
+{
+  "_meta": {
+    "central": "Mestre Álvaro — Entrada (Sá Cavalcante)",
+    "table": "ambients",
+    "rowCount": 1,
+    "capturedAt": "2026-09-14",
+    "source": "psql -U hubot — SELECT * FROM ambients; (colado pelo usuário)"
+  },
+  "rows": [
+    { "id": 1, "name": "Medidor Geral De Energia", "image": null, "order": null, "config": null, "created_at": "2026-09-11 23:12:13.878+00", "updated_at": "2026-09-11 23:12:13.878+00" }
+  ]
+}

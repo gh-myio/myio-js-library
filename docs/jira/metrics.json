@@ -4,8 +4,8 @@
     "projectName": "Engineer Dashboard",
     "board": 166,
     "jiraBase": "https://myio.atlassian.net",
-    "generatedAt": "2026-08-25",
-    "today": "2026-08-25",
+    "generatedAt": "2026-09-30",
+    "today": "2026-09-30",
     "source": "Jira Cloud (myio.atlassian.net) via MCP Atlassian"
   },
   "rules": {
@@ -431,10 +431,10 @@
       "name": "Sprint 19",
       "start": "2026-07-28",
       "end": "2026-08-04",
-      "complete": "",
-      "state": "active",
-      "scope": 82,
-      "done": 17,
+      "complete": "2026-09-14",
+      "state": "closed",
+      "scope": 99,
+      "done": 26,
       "burndown": [
         {
           "date": "2026-07-28",
@@ -575,20 +575,189 @@
           "date": "2026-08-24",
           "remaining": 65,
           "ideal": 0
+        },
+        {
+          "date": "2026-08-25",
+          "remaining": 65,
+          "ideal": 0
+        },
+        {
+          "date": "2026-08-26",
+          "remaining": 65,
+          "ideal": 0
+        },
+        {
+          "date": "2026-08-27",
+          "remaining": 79,
+          "ideal": 0
+        },
+        {
+          "date": "2026-08-28",
+          "remaining": 79,
+          "ideal": 0
+        },
+        {
+          "date": "2026-08-29",
+          "remaining": 79,
+          "ideal": 0
+        },
+        {
+          "date": "2026-08-30",
+          "remaining": 79,
+          "ideal": 0
+        },
+        {
+          "date": "2026-08-31",
+          "remaining": 79,
+          "ideal": 0
+        },
+        {
+          "date": "2026-09-01",
+          "remaining": 79,
+          "ideal": 0
+        },
+        {
+          "date": "2026-09-02",
+          "remaining": 79,
+          "ideal": 0
+        },
+        {
+          "date": "2026-09-03",
+          "remaining": 79,
+          "ideal": 0
+        },
+        {
+          "date": "2026-09-04",
+          "remaining": 79,
+          "ideal": 0
+        },
+        {
+          "date": "2026-09-05",
+          "remaining": 79,
+          "ideal": 0
+        },
+        {
+          "date": "2026-09-06",
+          "remaining": 79,
+          "ideal": 0
+        },
+        {
+          "date": "2026-09-07",
+          "remaining": 79,
+          "ideal": 0
+        },
+        {
+          "date": "2026-09-08",
+          "remaining": 82,
+          "ideal": 0
+        },
+        {
+          "date": "2026-09-09",
+          "remaining": 82,
+          "ideal": 0
+        },
+        {
+          "date": "2026-09-10",
+          "remaining": 82,
+          "ideal": 0
+        },
+        {
+          "date": "2026-09-11",
+          "remaining": 82,
+          "ideal": 0
+        },
+        {
+          "date": "2026-09-12",
+          "remaining": 82,
+          "ideal": 0
+        },
+        {
+          "date": "2026-09-13",
+          "remaining": 82,
+          "ideal": 0
+        },
+        {
+          "date": "2026-09-14",
+          "remaining": 73,
+          "ideal": 0
         }
       ],
       "span": {
         "start": "2026-07-28",
-        "end": "2026-08-24"
+        "end": "2026-09-14"
+      }
+    },
+    {
+      "id": 629,
+      "name": "Sprint 20",
+      "start": "2026-09-14",
+      "end": "2026-09-21",
+      "complete": "",
+      "state": "future",
+      "scope": 24,
+      "done": 19,
+      "burndown": [
+        {
+          "date": "2026-09-14",
+          "remaining": 92,
+          "ideal": 92
+        },
+        {
+          "date": "2026-09-15",
+          "remaining": 96,
+          "ideal": 78.9
+        },
+        {
+          "date": "2026-09-17",
+          "remaining": 99,
+          "ideal": 52.6
+        },
+        {
+          "date": "2026-09-21",
+          "remaining": 86,
+          "ideal": 0
+        },
+        {
+          "date": "2026-09-22",
+          "remaining": 27,
+          "ideal": 0
+        },
+        {
+          "date": "2026-09-28",
+          "remaining": 19,
+          "ideal": 0
+        },
+        {
+          "date": "2026-09-29",
+          "remaining": 5,
+          "ideal": 0
+        },
+        {
+          "date": "2026-09-30",
+          "remaining": 5,
+          "ideal": 0
+        }
+      ],
+      "span": {
+        "start": "2026-09-14",
+        "end": "2026-09-21"
       }
     }
   ],
   "defaultPreset": "sprint-596",
   "fullSpan": {
     "start": "2026-05-25",
-    "end": "2026-08-24"
+    "end": "2026-09-21"
   },
   "completions": [
+    {
+      "key": "ED-982",
+      "summary": "Testar RFC-0207 — Gestão de Perfil de Dispositivos (classificação single-source)",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-22"
+    },
     {
       "key": "ED-1019",
       "summary": "[MET-1] Metas Shopping v5.2.0 — último dia do range vem truncado (TZ)",
@@ -1804,6 +1973,1398 @@
       "type": "Tarefa",
       "priority": "Medium",
       "date": "2026-08-19"
+    },
+    {
+      "key": "ED-50",
+      "summary": "Criação dos dashboards para cliente ATUAL - SUPERVIA CCO - UPSELL",
+      "assignee": "Bruno Kubudi Cardeman",
+      "type": "Subtarefa",
+      "priority": "High",
+      "date": "2026-08-26"
+    },
+    {
+      "key": "ED-1066",
+      "summary": "[BUG] Obramax Mesquita — tela de agendamento permite agendas com conflito de horário (individual × grupo)",
+      "assignee": "Rodrigo Lago",
+      "type": "Bug",
+      "priority": "High",
+      "date": "2026-08-26"
+    },
+    {
+      "key": "ED-1068",
+      "summary": "[BUG] Obramax São Gonçalo — automação não rodou em 2026-07-29 (analisar log da central)",
+      "assignee": "Rodrigo Lago",
+      "type": "Bug",
+      "priority": "High",
+      "date": "2026-08-26"
+    },
+    {
+      "key": "ED-1115",
+      "summary": "Validação em bancada com duas OPi e um sensor pareado",
+      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-08-27"
+    },
+    {
+      "key": "ED-1145",
+      "summary": "Melicidade- Menu lateral de água sem carregamento",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Bug",
+      "priority": "Medium",
+      "date": "2026-09-01"
+    },
+    {
+      "key": "ED-1150",
+      "summary": "[Grupo A] Migrar atributo GCDR-config: alarmNotificationsEnabled",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-01"
+    },
+    {
+      "key": "ED-1149",
+      "summary": "RFC-0229: Migrar Customer Server Scope (TB) → GCDR customer-config, atributo por atributo + settings do widget MAIN_VIEW",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-04"
+    },
+    {
+      "key": "ED-1174",
+      "summary": "[Grupo B] Avaliar/migrar setting do widget: cacheTtlMinutes",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-04"
+    },
+    {
+      "key": "ED-1173",
+      "summary": "[Grupo B] Avaliar/migrar setting do widget: enableCache",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-04"
+    },
+    {
+      "key": "ED-1175",
+      "summary": "[Grupo B] Avaliar/migrar setting do widget: enableStaleWhileRevalidate",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-04"
+    },
+    {
+      "key": "ED-1176",
+      "summary": "[Grupo B] Avaliar/migrar setting do widget: maxCacheSize",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-04"
+    },
+    {
+      "key": "ED-1228",
+      "summary": "Rio Poty - Dispositivo HIDR. SCRP302EF sem informação real do App",
+      "assignee": "Rodrigo Lago",
+      "type": "Bug",
+      "priority": "Medium",
+      "date": "2026-09-09"
+    },
+    {
+      "key": "ED-1104",
+      "summary": "[CENTRAL] Master x Slave: duas centrais via RJ45, uma monitora a outra (health check), modems distintos",
+      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-08-27"
+    },
+    {
+      "key": "ED-1101",
+      "summary": "[CENTRAL] Endpoint de POST para reiniciar o myio-api.service (systemctl restart)",
+      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-08-27"
+    },
+    {
+      "key": "ED-1095",
+      "summary": "[API] Endpoint p/ forçar backup na central (POST) + auth X-API-Key (master key)",
+      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-08-27"
+    },
+    {
+      "key": "ED-1094",
+      "summary": "[RESTORE] Criar versão da central nova — Ilha Plaza AL1 (restore do backup AWS)",
+      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+      "type": "Tarefa",
+      "priority": "High",
+      "date": "2026-08-27"
+    },
+    {
+      "key": "ED-547",
+      "summary": "SW.H.6 POST do Mender",
+      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-08-27"
+    },
+    {
+      "key": "ED-510",
+      "summary": "SW.F.6 Implementar restore do PostgreSQL via myio-restore",
+      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-08-27"
+    },
+    {
+      "key": "ED-509",
+      "summary": "SW.F.5 Implementar download do dump da cloud no myio-restore",
+      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-08-27"
+    },
+    {
+      "key": "ED-508",
+      "summary": "SW.F.4 Implementar myio-restore core (Go)",
+      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-08-27"
+    },
+    {
+      "key": "ED-506",
+      "summary": "SW.F.2 Validar que backup atual e restauravel",
+      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-08-27"
+    },
+    {
+      "key": "ED-68",
+      "summary": "Configurar Node RED para ATUAL - SUPERVIA CCO - UPSELL",
+      "assignee": null,
+      "type": "Subtarefa",
+      "priority": "High",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-108",
+      "summary": "Inclusão de 3 lojas na dashboard do Praia da Costa",
+      "assignee": "Leandro Gadioli Rodrigues",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-170",
+      "summary": "Campinas Hub(antes Detran) - Dados zerados na dashboard referente a loja Hub",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "High",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-172",
+      "summary": "Campinas Shopping - Verificação de Dashboards com medições zeradas",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "High",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-184",
+      "summary": "Migração Praia da Costa para novo Painel",
+      "assignee": "Rodrigo Lago",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-185",
+      "summary": "Migração Ilha Plaza para novo Painel",
+      "assignee": "Rodrigo Lago",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-186",
+      "summary": "Migração Park Lagos para novo Painel",
+      "assignee": "Rodrigo Lago",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-190",
+      "summary": "Desenvolvimento de uma arquitetura de IA para Mostrar a Logo das Lojas",
+      "assignee": "Rodrigo Lago",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-218",
+      "summary": "Cacau_show - Relatório Hidrometro",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-219",
+      "summary": "Supervia Estações - Indicadores Myio.",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-223",
+      "summary": "Praia da Costa - Checagem de CVC - LUC 116B e alteração para  LUC 101A  Melissa",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-256",
+      "summary": "MYIO SIM - Ajustar o card do HEADER de Média de Temperatura para a faixa não ficar hardcoded, e ser um atribbute do customer",
+      "assignee": "Rodrigo Lago",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-263",
+      "summary": "MYIO SIM - Ajustes em ENERGY",
+      "assignee": "Rodrigo Lago",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-264",
+      "summary": "MYIO SIM - Ajustes em Water",
+      "assignee": "Rodrigo Lago",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-265",
+      "summary": "MYIO SIM - Ajustes em Temperatura",
+      "assignee": "Rodrigo Lago",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-270",
+      "summary": "Praia da Costa - Sem exibição de lojas Multicoisas e CocoBambu na dashboard do Praia da Costa",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-273",
+      "summary": "West Plaza- Ajuste de gráfico comparativo de lojas",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-288",
+      "summary": "Praia da Costa - Setup de loja Halfi 109BC",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-289",
+      "summary": "Campinas - Setup de sensor de hidrômetro torre de resfriamento (area comum)",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-292",
+      "summary": "Solicitação de nova versão do painel para o Shopping Praia da Costa",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-293",
+      "summary": "SÁ CAVALCANTE SMO - Ajuste de pontos na dashboard",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "High",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-294",
+      "summary": "SHOPPING PRAIA DA COSTA - DESCRIÇÃO DO CALCULO DE LEITURA AREA COMUM",
+      "assignee": "Leandro Gadioli Rodrigues",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-296",
+      "summary": "ILHA PLAZA- Atualização de versão de Plataforma",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-298",
+      "summary": "Montserrat - Setup de Trafo de entrada",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "High",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-301",
+      "summary": "Montserrat SMO - Alteração de ícones do Rooftop para o mesmo de climatização",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Low",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-302",
+      "summary": "Campinas Shopping - Revisão de dispositivos para a associação correta no painel.",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Highest",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-303",
+      "summary": "Shopping da Ilha - Inserção do card Medição Geral CAG na coluna de Entrada no painel",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-304",
+      "summary": "Souza Aguiar - Divergências de 60% na medição de temperatura",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Highest",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-305",
+      "summary": "Campinas Shopping - Problemas com abertura de leitura em alguns cards",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Highest",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-306",
+      "summary": "Implementação dos Indicacores Operacionais",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-307",
+      "summary": "Moxuara - Ajuste da leitura de amperagem e tensão das fases A,B,C",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-308",
+      "summary": "Sá Cavalcante - Ajuste da configuração de medidas referente aos painéis do Shopping",
+      "assignee": "Rodrigo Lago",
+      "type": "Bug",
+      "priority": "High",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-310",
+      "summary": "Souza Aguiar - Ambientes/dispositivos sem exibição no relatório de Temp.",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "High",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-311",
+      "summary": "desenvolvimento de tela nova de solenoie BAS",
+      "assignee": "Rodrigo Lago",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-317",
+      "summary": "Sá Cavalcante – Solicitação de implementação de novos alarmes operacionais",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "High",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-327",
+      "summary": "Souza Aguiar - Temperatura Março 2026",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-332",
+      "summary": "Melicidade - Verificação de leitura de consumo de água exibido",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-334",
+      "summary": "SDI | Alarmes de outros shoppings aparecendo no painel do Shopping da Ilha",
+      "assignee": "Leandro Gadioli Rodrigues",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-335",
+      "summary": "Relatório dos painéis sem funcionamento",
+      "assignee": "Rodrigo Lago",
+      "type": "Bug",
+      "priority": "Highest",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-336",
+      "summary": "SDI- Sensores de temperatura offline no painel",
+      "assignee": "Rodrigo Lago",
+      "type": "Bug",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-338",
+      "summary": "Montserrat - Painel exibe leitura zerada de energia geral para os meses de Janeiro e Fevereiro",
+      "assignee": "Rodrigo Lago",
+      "type": "Bug",
+      "priority": "Highest",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-339",
+      "summary": "Sá Cavalcante - Exibição de telemetrias no gráfico do dashboard",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-341",
+      "summary": "Souza Aguiar - Erro na exportação das temperaturas (Abril)",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "High",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-342",
+      "summary": "Macaé - Lojas sem exibição de gráfico de consumo e relatório",
+      "assignee": "Rodrigo Lago",
+      "type": "Bug",
+      "priority": "High",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-345",
+      "summary": "West Plaza - Painel sem exibição dos dados",
+      "assignee": "Rodrigo Lago",
+      "type": "Bug",
+      "priority": "Highest",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-350",
+      "summary": "Ajuste Comparativo de Grupos não mostra total de consumo",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-351",
+      "summary": "comparativo de grupos não deve popular caso exceda o limite máximo",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-352",
+      "summary": "Macaé- Sem dados no período de 22/04 a 26/04",
+      "assignee": "Rodrigo Lago",
+      "type": "Bug",
+      "priority": "Highest",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-812",
+      "summary": "[Ingestion][Pré-Setup-Ingestion] Melhorias no fluxo do Pré-Setup",
+      "assignee": "Rodrigo Lago",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-857",
+      "summary": "Souza Aguiar - Atualização Diária dos Indicadores de Manutenção UTI Neonatal",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Highest",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-954",
+      "summary": "Shopping Metropole - Sensores de temperatura com indicação offline no painel",
+      "assignee": "Rodrigo Lago",
+      "type": "Bug",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-1199",
+      "summary": "[Erlradio] fix -fPIC",
+      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-16"
+    },
+    {
+      "key": "ED-1201",
+      "summary": "fix(erlradio): correct type declarations that made the radio path unanalysable",
+      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-16"
+    },
+    {
+      "key": "ED-1203",
+      "summary": "fix(erlradio): defects and dead code from the second triage round",
+      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-16"
+    },
+    {
+      "key": "ED-1204",
+      "summary": "Docs: record what the fleet actually measures, and the OTA that went wrong",
+      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-16"
+    },
+    {
+      "key": "ED-1208",
+      "summary": " Definir o critério de setor",
+      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-16"
+    },
+    {
+      "key": "ED-1246",
+      "summary": "Mestre Alvaro - Verificação de Gap com o Trafo Entrada",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Highest",
+      "date": "2026-09-17"
+    },
+    {
+      "key": "ED-1260",
+      "summary": "Alteração do painel dos shoppings da Sá Cavalcante — Grupo Transformadores — Mestre Álvaro",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-1261",
+      "summary": "Alteração do painel dos shoppings da Sá Cavalcante — Grupo Transformadores — Montserrat",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-1263",
+      "summary": "Alteração do painel dos shoppings da Sá Cavalcante — Grupo Transformadores — Rio Poty",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-1266",
+      "summary": "Atualizar widgets Shopping Dashboard v.5.2.0 na Widgets Library do ThingsBoard (a partir da branch desenv)",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-1074",
+      "summary": "RFC-0055 · Spike: definir fonte da agregação horária de consumo",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-1075",
+      "summary": "RFC-0055 · Decisão: storage do noConsumptionConfig (JSONB genérico vs coluna)",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-1076",
+      "summary": "RFC-0055 · Decisão: notificação default (painel-only vs dispatch por canal)",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-1077",
+      "summary": "RFC-0055 · Decisão: transporte do frontend (API Alarms direto vs proxy GCDR)",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-1078",
+      "summary": "RFC-0055 · GCDR Backend: rule type NO_CONSUMPTION (enum, config, migration, bundle, testes)",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-1079",
+      "summary": "RFC-0055 · GCDR Backend: seed/gestão da rule interna (piloto), disabled by default",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-1080",
+      "summary": "RFC-0055 · GCDR Backend: endpoint de enrichment batch (device/central/customer)",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-1081",
+      "summary": "RFC-0055 · GCDR Backend: bump de versão do bundle + compat (ignorar rule type desconhecido)",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-1082",
+      "summary": "RFC-0055 · Alarms: consumir NO_CONSUMPTION do bundle + expor support/version",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-1083",
+      "summary": "RFC-0055 · Alarms: evaluator de no-consumption (bucketing, slot vazio, debounce, timezone)",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-1084",
+      "summary": "RFC-0055 · Alarms: modelo + persistência do incidente (dedup, lifecycle, rollover/late)",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-1085",
+      "summary": "RFC-0055 · Alarms: API de incidentes (list dayFrom/dayTo, detail, ack, resolve) + auth/tenant",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-1086",
+      "summary": "RFC-0055 · Alarms (opcional): dispatch de incidente via canais",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-1087",
+      "summary": "RFC-0055 · GCDR Frontend: painel de Incidentes (dia ▸ central ▸ device ▸ slots)",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-1088",
+      "summary": "RFC-0055 · GCDR Backend (condicional): proxy fino /incidents",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-1089",
+      "summary": "RFC-0055 · Cross: authorization & tenant isolation (GCDR + Alarms)",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-1090",
+      "summary": "RFC-0055 · Cross: docs/contrato (bundle payload + incident payload)",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-1124",
+      "summary": "Email relay de alarmes: corrigir a cadeia de disparo (RFC-0029 D2–D8)",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-1129",
+      "summary": "[GCDR/GAP] Gap analysis via múltiplas regras NO_CONSUMPTION + regras de exclusão + LOCF no ingestion",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-1146",
+      "summary": "Agregação de e-mails de alarme por central (RFC-0032)",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-1148",
+      "summary": "Close manual de alarme deve disparar a notificação de CLOSE da regra (evento de resolução)",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-1214",
+      "summary": "Explorar o sistema de OS antigo (somente leitura) — base para a nova OS",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-1229",
+      "summary": "[alarms-backend] Incidentes: description opcional do produtor (ingestão + exibição) — adendo RFC-0031",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-1230",
+      "summary": "[alarms-backend] RFC: incidentes de escopo central e tipos customizados (CENTRAL_OFFLINE)",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-1232",
+      "summary": "Shopping Contagem - Customização de painel (Area Comum + Entrada)",
+      "assignee": "Leandro Gadioli Rodrigues",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-1233",
+      "summary": "[alarms-backend] Implementar episódios de escopo central — /incidents/episodes (RFC-0036 / CENTRAL_OFFLINE)",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-1234",
+      "summary": "[alarms-frontend] Aba \"Centrais offline\" no painel de incidentes — episódios RFC-0036 (ED-1233)",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-1237",
+      "summary": "[alarms] Notificação de e-mail para episódios CENTRAL_OFFLINE (rule-driven + extra MYIO)",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-1241",
+      "summary": "GCDR: template de e-mail dedicado para CENTRAL_OFFLINE (sem coluna \"Valor\")",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-1243",
+      "summary": "Template de Notificação de Central (Central Offline) — novo type EMAIL_CENTRAL_OFFLINE",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-1244",
+      "summary": "Template de Notificação de Incidente (Ingestão) — novo type INCIDENT",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-1247",
+      "summary": "Expor macAddress + ipv6Yggdrasil no CentralResponseDTO (list por customerId e by-id)",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-1248",
+      "summary": "Orchestrator-devices: desligar emissão DEVICE_OFFLINE (flag default-off) + corrigir help do toggle Devices",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-1249",
+      "summary": "Cockpit: toggle device_offline_emission_enabled na seção FLAGS",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-1253",
+      "summary": "Orchestrator-devices: heartbeat condicional + renomear failures→probeMisses (log não vermelho no Dokploy)",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-1255",
+      "summary": "Alarm bundle: expor centralId por device no deviceIndex (simple + to-verify-service)",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-998",
+      "summary": "Supervia Estações - Engenho de Dentro escada rolante 08 em funcionamento, porém offline no painel",
+      "assignee": "Rodrigo Lago",
+      "type": "Bug",
+      "priority": "Medium",
+      "date": "2026-09-21"
+    },
+    {
+      "key": "ED-1284",
+      "summary": "West Plaza — backfill forçado de 3.427 slots (7 devices), jun-set/2026",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Highest",
+      "date": "2026-09-23"
+    },
+    {
+      "key": "ED-1265",
+      "summary": "Alteração do painel dos shoppings da Sá Cavalcante — Grupo Transformadores — Metrópole Ananindeua",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-23"
+    },
+    {
+      "key": "ED-1264",
+      "summary": "Alteração do painel dos shoppings da Sá Cavalcante — Grupo Transformadores — Shopping da Ilha",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-23"
+    },
+    {
+      "key": "ED-1262",
+      "summary": "Alteração do painel dos shoppings da Sá Cavalcante — Grupo Transformadores — Moxuara",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-23"
+    },
+    {
+      "key": "ED-1259",
+      "summary": "Alteração do painel dos shoppings da Sá Cavalcante — Grupo Transformadores",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-23"
+    },
+    {
+      "key": "ED-840",
+      "summary": "Desenvolver template para report de tickets",
+      "assignee": "Letícia Camargo",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-24"
+    },
+    {
+      "key": "ED-1282",
+      "summary": "Moxuara - Setup de dispositivo sem ingestion id",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-25"
+    },
+    {
+      "key": "ED-1279",
+      "summary": "Expor endpoint para valores brutos de energy_readings (GET /api/v1/energy-readings/raw)",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Highest",
+      "date": "2026-09-28"
+    },
+    {
+      "key": "ED-1257",
+      "summary": "GCDR: deviceIndex do bundle deve incluir devices de escopo NO_CONSUMPTION e identidade híbrida da central (centralId + hardwareId)",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-28"
+    },
+    {
+      "key": "ED-1251",
+      "summary": "[EnergyModalView] Unificar \"Pico de Demanda\" + \"Telemetrias Instantâneas\" em um único botão com abas Real time | Por Período",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-28"
+    },
+    {
+      "key": "ED-1226",
+      "summary": "[URGENTE] Pico de Demanda — hora ausente na timeline + valores 1000x fora de escala",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Highest",
+      "date": "2026-09-28"
+    },
+    {
+      "key": "ED-1038",
+      "summary": "Setup Inicial da Central — Shopping Capim Dourado (Soul Malls)",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-28"
+    },
+    {
+      "key": "ED-1224",
+      "summary": "ALARMS: endpoint de leitura de contagem diária NO_CONSUMPTION (POST /incidents/counts/daily) — blocker do GCDR orchestrator Monitor D",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1293",
+      "summary": "RFC-0233 — Mapa de visibilidade de funcionalidades por usuário (restrict_view)",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Highest",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1258",
+      "summary": "Shopping Macaé - Customização de painel para produtos de água",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1170",
+      "summary": "[TB-BOOT] Confirmar que credenciais de bootstrap GCDR permanecem no TB (não migrar)",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1169",
+      "summary": "[Grupo A][Complexo] Migrar/reconciliar integration_setup (flat vs aninhado)",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1168",
+      "summary": "[Grupo A][Órfão] Migrar atributo GCDR-config: obs",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1167",
+      "summary": "[Grupo A][Órfão] Migrar atributo GCDR-config: inauguration_date",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1166",
+      "summary": "[Grupo A] Migrar atributo GCDR-config: tickets_only_to_myio",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1165",
+      "summary": "[Grupo A] Migrar atributo GCDR-config: tickets_enabled",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1164",
+      "summary": "[Grupo A] Migrar atributo GCDR-config: temperatureClampMin",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1163",
+      "summary": "[Grupo A] Migrar atributo GCDR-config: temperatureClampMax",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1162",
+      "summary": "[Grupo A] Migrar atributo GCDR-config: showOfflineAlarms",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1161",
+      "summary": "[Grupo A] Migrar atributo GCDR-config: minTemperature",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1160",
+      "summary": "[Grupo A] Migrar atributo GCDR-config: measurementDisplaySettings",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1159",
+      "summary": "[Grupo A] Migrar atributo GCDR-config: maxTemperature",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1158",
+      "summary": "[Grupo A] Migrar atributo GCDR-config (secret): master_admin_password",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1157",
+      "summary": "[Grupo A] Migrar atributo GCDR-config: mapInstantaneousPower",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1156",
+      "summary": "[Grupo A] Migrar atributo GCDR-config: isInternalSupportRule → alarms.showInternalSupport",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1155",
+      "summary": "[Grupo A] Migrar atributo GCDR-config: deviceClassificationProfile",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1154",
+      "summary": "[Grupo A] Migrar atributo GCDR-config: customerDefaultDashboard",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1153",
+      "summary": "[Grupo A] Migrar atributo GCDR-config (secret): client_secret",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1152",
+      "summary": "[Grupo A] Migrar atributo GCDR-config: client_id",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1151",
+      "summary": "[Grupo A] Migrar atributo GCDR-config: canShowDemandButtons → featureButtons",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1291",
+      "summary": "[BUG] [INGESTION STAGING] Dispositivos: \"Load more\" para de carregar após o 2º clique",
+      "assignee": "Letícia Camargo",
+      "type": "Bug",
+      "priority": "Lowest",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1289",
+      "summary": "Ajuste de dispositivos de nível de caixa dágua",
+      "assignee": "Rodrigo Lago",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1281",
+      "summary": "Rio Poty - Card da coluna de transformadores sem exibição user cliente",
+      "assignee": "Rodrigo Lago",
+      "type": "Bug",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1245",
+      "summary": "Montserrat - Ajuste de consumo de Trafos",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1242",
+      "summary": "Sá Cavalcante - Ajuste retroativo de consumo de entrada",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "High",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1035",
+      "summary": "Validação do sistema de notificação de e-mail",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1015",
+      "summary": "Praia da Costa - Customização do painel de água para setup de novos pontos",
+      "assignee": "Leandro Gadioli Rodrigues",
+      "type": "Tarefa",
+      "priority": "Highest",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-996",
+      "summary": "Sá Cavalcante - Relatório de temperatura apresentando temperatura zerada",
+      "assignee": "Rodrigo Lago",
+      "type": "Bug",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-992",
+      "summary": "WestPlaza - Pontos com consumo incorreto no dashboard",
+      "assignee": "Leandro Gadioli Rodrigues",
+      "type": "Bug",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-990",
+      "summary": "Sá Cavalcante - Sem visualização de demanda por hora e erro na unidade de medida",
+      "assignee": "Rodrigo Lago",
+      "type": "Bug",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-855",
+      "summary": "Macaé - Customizar coluna de entrada no painel com inserção dos pontos",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1288",
+      "summary": "Shopping Macaé - Água: criar widget \"Entrada\" (mover hidrômetros classificados incorretamente em Área Comum)",
+      "assignee": "Leandro Gadioli Rodrigues",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1027",
+      "summary": "[DATA-2] Investigar \"Equipamentos diferentes\" entre fontes",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1026",
+      "summary": "[DATA-1] Moxuara — equipamentos (Trafo+CAG) não fecham com a Entrada",
+      "assignee": "Rodrigo Lago",
+      "type": "Bug",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1256",
+      "summary": "Souza  Aguiar - Dispositivo CTI Pediátrico sem exibição no relatorio de temperatura",
+      "assignee": "Rodrigo Lago",
+      "type": "Bug",
+      "priority": "High",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1250",
+      "summary": "[TELEMETRY] Gráfico da Telemetria Instantânea cresce verticalmente sem parar ao maximizar",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Bug",
+      "priority": "High",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1252",
+      "summary": "[Telemetria Instantânea / Pico de Demanda] Exportação em PDF — hoje só existe CSV",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-75",
+      "summary": "Criar relatório novo para o Praia da Costa",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "High",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-117",
+      "summary": "Desenvolvimento de dashboard - Raiz Educação",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
+    },
+    {
+      "key": "ED-1000",
+      "summary": "Testar [GCDR] Nova aba \"Centrais\" no detalhe do Cliente",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-09-29"
     }
   ]
 }

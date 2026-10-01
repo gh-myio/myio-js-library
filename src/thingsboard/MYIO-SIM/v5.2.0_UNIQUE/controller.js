@@ -3477,9 +3477,14 @@ body.filter-modal-open { overflow: hidden !important; }
     return _entradaDevicesPromise;
   };
 
-  // Série de UM device (~1s) — base do consumo de entrada. A Data API dá 500
-  // intermitente em ranges longos: 1 retry após 800ms antes de desistir.
-  const fetchDeviceSeries = async (deviceId, apiDomain, startISO, endISO, granularity, _retry = true) => {
+  // Série de UM device (~1s) — base do consumo de entrada. A Data API dá 500/timeout
+  // intermitente em ranges longos: até 2 retries (backoff 800ms/1600ms) antes de
+  // desistir — 1 retry sozinho se mostrou insuficiente sob carga concorrente alta
+  // (~8 medidores × 2 anos em paralelo), deixando shoppings com "Sem consumo" falso
+  // silenciosamente (bug real reportado, não reproduzível de forma determinística —
+  // reforçar a resiliência aqui é a mitigação).
+  const fetchDeviceSeries = async (deviceId, apiDomain, startISO, endISO, granularity, _attempt = 0) => {
+    const MAX_ATTEMPTS = 3;
     const creds = window.MyIOUtils?.getCredentials?.();
     if (!creds?.clientId || !MyIOLibrary?.buildMyioIngestionAuth) return [];
     const auth = MyIOLibrary.buildMyioIngestionAuth({
@@ -3494,6 +3499,10 @@ body.filter-modal-open { overflow: hidden !important; }
     url.searchParams.set('endTime', endISO);
     url.searchParams.set('granularity', granularity);
     url.searchParams.set('deep', '0');
+    const retry = async () => {
+      await new Promise((r) => setTimeout(r, 800 * (_attempt + 1)));
+      return fetchDeviceSeries(deviceId, apiDomain, startISO, endISO, granularity, _attempt + 1);
+    };
     let res;
     try {
       res = await fetch(url.toString(), {
@@ -3501,17 +3510,11 @@ body.filter-modal-open { overflow: hidden !important; }
         signal: AbortSignal.timeout(60000),
       });
     } catch (err) {
-      if (_retry) {
-        await new Promise((r) => setTimeout(r, 800));
-        return fetchDeviceSeries(deviceId, apiDomain, startISO, endISO, granularity, false);
-      }
+      if (_attempt + 1 < MAX_ATTEMPTS) return retry();
       throw err;
     }
     if (!res.ok) {
-      if (_retry && res.status >= 500) {
-        await new Promise((r) => setTimeout(r, 800));
-        return fetchDeviceSeries(deviceId, apiDomain, startISO, endISO, granularity, false);
-      }
+      if (_attempt + 1 < MAX_ATTEMPTS && res.status >= 500) return retry();
       return []; // 4xx (ex.: 403 em ano sem dados do device) → sem pontos
     }
     const body = await res.json();
@@ -3858,7 +3861,8 @@ body.filter-modal-open { overflow: hidden !important; }
     startISO,
     endISO,
     granularity,
-    customerIngestionId = null
+    customerIngestionId = null,
+    _attempt = 0
   ) => {
     const creds = window.MyIOUtils?.getCredentials?.();
     if (!creds?.clientId || !creds?.customerId || !MyIOLibrary?.buildMyioIngestionAuth) return null;
@@ -3876,11 +3880,26 @@ body.filter-modal-open { overflow: hidden !important; }
     url.searchParams.set('endTime', endISO);
     url.searchParams.set('deep', '1');
     url.searchParams.set('granularity', granularity);
-    const res = await fetch(url.toString(), {
-      headers: { Authorization: `Bearer ${token}` },
-      signal: AbortSignal.timeout(180000),
-    });
-    if (!res.ok) return null;
+    // 1 retry em falha (throw/5xx) — mesma mitigação de fetchDeviceSeries, mais
+    // conservador aqui pois esta chamada já é lenta por natureza (~1-2min/shopping).
+    const retry = async () => {
+      await new Promise((r) => setTimeout(r, 1500));
+      return fetchHeadOfficeSeries(apiDomain, startISO, endISO, granularity, customerIngestionId, _attempt + 1);
+    };
+    let res;
+    try {
+      res = await fetch(url.toString(), {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: AbortSignal.timeout(180000),
+      });
+    } catch (err) {
+      if (_attempt < 1) return retry();
+      throw err;
+    }
+    if (!res.ok) {
+      if (_attempt < 1 && res.status >= 500) return retry();
+      return null;
+    }
     const payload = await res.json();
     const arr = Array.isArray(payload) ? payload : (payload?.data ?? []);
     const byTs = new Map();
@@ -4775,6 +4794,11 @@ body.myio-gbt-dark .myio-gbt__empty{color:#64748b;}
     // Última renderização — fonte de dados do export PDF
     let lastRows = null;
     let lastUnit = '';
+    // Última renderização do gráfico de evolução (loadEvo) — detalhamento por bucket
+    // (Orçado/Meta/Consumo, granularidade evoGran) para a seção "Detalhamento" do PDF.
+    // Só é atualizado nos modos cons/sep/stack (os únicos que chegam a renderEvoChart);
+    // cards/analytics deixam o valor anterior (ou null) — a seção some graciosamente.
+    let lastEvoBreakdown = null;
 
     // Ordenação do Resumo por shopping: null = ordem original; dir 1 asc / -1 desc
     // DEFAULT: Dt. Inauguração asc (mais antiga primeiro; sem data por último)
@@ -6173,8 +6197,12 @@ body.myio-gbt-dark .myio-gbt__empty{color:#64748b;}
       if (externalTip) attachTipPin(evoCanvas, evoChart);
     };
 
-    const loadEvo = async () => {
+    const loadEvo = async (forceRefresh = false) => {
       const seq = ++evoSeq;
+      // forceRefresh: usado pelo self-heal do exportPdf() — descarta o cache de
+      // consumo (evoConsCache) para não repetir um resultado parcial/vazio que uma
+      // falha transiente de rede tenha deixado gravado.
+      if (forceRefresh) evoConsCache.clear();
       const cfgD = GOALS_COMPARE_DOMAINS[domainKey];
       const isEnergy = domainKey === 'energy';
       const yearSel = Number(isoLocalDay(period.startISO).slice(0, 4));
@@ -6392,8 +6420,108 @@ body.myio-gbt-dark .myio-gbt__empty{color:#64748b;}
         return has ? s : null;
       });
 
+      // Consumo por customer (ano do período e ano-1). Energia: séries dos medidores de
+      // entrada (~1s/device). Água: série agregada — consolidado 1 chamada; por shopping
+      // 1 por customer (lentas ~2min, em paralelo).
+      // Rodado incondicionalmente (ANTES de qualquer branch de evoMode/cardsGroupBy,
+      // incl. os Cards agrupados por dispositivo logo abaixo, que fazem seu próprio
+      // fetch por medidor) — alimenta lastEvoBreakdown p/ export PDF independente da
+      // visualização atual na tela (bug: Cards "Dispositivos separados/empilhados"
+      // saíam cedo demais e nunca populavam o detalhamento por período/customer).
+      evoStatusEl.textContent = isEnergy
+        ? 'Carregando consumo…'
+        : 'Carregando consumo… (água pode levar ~2 min)';
+      const seriesGran = evoGran === '1h' ? '1h' : '1d';
+      const fetchByCustomer = async (range) => {
+        // Água: 'stack' e 'sep' precisam da série POR shopping; consolidado usa 1 chamada head-office
+        const perShopping = evoMode !== 'cons';
+        const ck = `${domainKey}|${evoGran}|${perShopping && !isEnergy ? 'sep' : 'all'}|${range[0]}|${range[1]}`;
+        if (evoConsCache.has(ck)) return evoConsCache.get(ck);
+        let byCust = null;
+        if (isEnergy) {
+          byCust = await fetchEntradaPointsByCustomer(range[0], range[1], seriesGran).catch(() => null);
+        } else if (perShopping) {
+          byCust = new Map();
+          await Promise.all(
+            shops.map(async (s) => {
+              if (!s.ingestionId) return;
+              const pts = await fetchHeadOfficeSeries(
+                cfgD.api,
+                range[0],
+                range[1],
+                seriesGran,
+                s.ingestionId
+              ).catch(() => null);
+              if (pts) byCust.set(s.ingestionId, pts);
+            })
+          );
+          if (byCust.size === 0) byCust = null;
+        } else {
+          const pts = await fetchHeadOfficeSeries(cfgD.api, range[0], range[1], seriesGran).catch(() => null);
+          byCust = pts ? new Map([['__ALL__', pts]]) : null;
+        }
+        // cache só quando o range já fechou (não toca o agora)
+        if (byCust && new Date(range[1]) < nowD) evoConsCache.set(ck, byCust);
+        return byCust;
+      };
+      const [curBy, prevBy] = await Promise.all([fetchByCustomer(ranges.cur), fetchByCustomer(ranges.prev)]);
+      if (seq !== evoSeq) return;
+
+      const yearCurLabel = String(yearSel);
+      const yearPrevLabel = String(Number(yearCurLabel) - 1);
+
+      // Detalhamento por bucket p/ export PDF — soma só shoppings VISÍVEIS (👁),
+      // mesma regra do sumAll()/tipModel mais abaixo.
+      const visShopIdx = shops.map((_, i) => i).filter((i) => !isCustHidden(shops[i].tbId));
+      const shopCurBk = shops.map((s) => bucketize(curBy?.get(s.ingestionId)));
+      const shopPrevBk = shops.map((s) => bucketize(prevBy?.get(s.ingestionId)));
+      const budgetSum = labels.map((_, i) => {
+        const keys = goalKeysAt(i);
+        let s = 0, has = false;
+        trees.forEach((tr, si) => {
+          if (isCustHidden(shops[si]?.tbId)) return;
+          const v = sumNodes(tr, keys, goalNodeRaw);
+          if (v != null) { s += v; has = true; }
+        });
+        return has ? s : null;
+      });
+      const sumVisibleBk = (buckets) =>
+        labels.map((_, i) => {
+          let s = 0, has = false;
+          visShopIdx.forEach((si) => {
+            const v = buckets[si] ? buckets[si][i] : null;
+            if (v != null) { s += v; has = true; }
+          });
+          return has ? s : null;
+        });
+      // Por-customer, por-bucket (tier 3 do PDF) — uma tabela por shopping
+      // VISÍVEL; goalOf/goalRawOf já são funções puras (definidas antes do
+      // fetch por shopping), então isso independe do modo atual.
+      const perShopBk = visShopIdx.map((si) => ({
+        title: shops[si].title,
+        budget: goalRawOf(trees[si]),
+        goal: goalOf(trees[si]),
+        consCur: shopCurBk[si],
+        consPrev: shopPrevBk[si],
+      }));
+      lastEvoBreakdown = {
+        gran: evoGran,
+        mode: evoMode,
+        unit: cfgD.unit,
+        labels: labels.slice(),
+        budget: budgetSum.slice(),
+        goal: goalSum.slice(),
+        consCur: sumVisibleBk(shopCurBk),
+        consPrev: sumVisibleBk(shopPrevBk),
+        yearCurLabel,
+        yearPrevLabel,
+        perShop: perShopBk,
+      };
+
       // Cards agrupados por DISPOSITIVO: séries por medidor (não por customer) —
-      // busca própria + render próprio; não passa pelo fetch por shopping abaixo.
+      // busca própria + render próprio; usa curBy/prevBy/yearCurLabel/yearPrevLabel
+      // já resolvidos acima só para lastEvoBreakdown (o card em si é 100% por
+      // medidor — fetch de curDev/prevDev abaixo é separado).
       if (evoMode === 'cards' && cardsGroupBy !== 'shopping') {
         evoStatusEl.textContent = 'Carregando medidores…';
         const seriesGranDev = evoGran === '1h' ? '1h' : '1d';
@@ -6472,51 +6600,6 @@ body.myio-gbt-dark .myio-gbt__empty{color:#64748b;}
         setEvoLoading(false);
         return;
       }
-
-      // Consumo por customer (ano do período e ano-1). Energia: séries dos medidores de
-      // entrada (~1s/device). Água: série agregada — consolidado 1 chamada; por shopping
-      // 1 por customer (lentas ~2min, em paralelo).
-      evoStatusEl.textContent = isEnergy
-        ? 'Carregando consumo…'
-        : 'Carregando consumo… (água pode levar ~2 min)';
-      const seriesGran = evoGran === '1h' ? '1h' : '1d';
-      const fetchByCustomer = async (range) => {
-        // Água: 'stack' e 'sep' precisam da série POR shopping; consolidado usa 1 chamada head-office
-        const perShopping = evoMode !== 'cons';
-        const ck = `${domainKey}|${evoGran}|${perShopping && !isEnergy ? 'sep' : 'all'}|${range[0]}|${range[1]}`;
-        if (evoConsCache.has(ck)) return evoConsCache.get(ck);
-        let byCust = null;
-        if (isEnergy) {
-          byCust = await fetchEntradaPointsByCustomer(range[0], range[1], seriesGran).catch(() => null);
-        } else if (perShopping) {
-          byCust = new Map();
-          await Promise.all(
-            shops.map(async (s) => {
-              if (!s.ingestionId) return;
-              const pts = await fetchHeadOfficeSeries(
-                cfgD.api,
-                range[0],
-                range[1],
-                seriesGran,
-                s.ingestionId
-              ).catch(() => null);
-              if (pts) byCust.set(s.ingestionId, pts);
-            })
-          );
-          if (byCust.size === 0) byCust = null;
-        } else {
-          const pts = await fetchHeadOfficeSeries(cfgD.api, range[0], range[1], seriesGran).catch(() => null);
-          byCust = pts ? new Map([['__ALL__', pts]]) : null;
-        }
-        // cache só quando o range já fechou (não toca o agora)
-        if (byCust && new Date(range[1]) < nowD) evoConsCache.set(ck, byCust);
-        return byCust;
-      };
-      const [curBy, prevBy] = await Promise.all([fetchByCustomer(ranges.cur), fetchByCustomer(ranges.prev)]);
-      if (seq !== evoSeq) return;
-
-      const yearCurLabel = String(yearSel);
-      const yearPrevLabel = String(Number(yearCurLabel) - 1);
 
       // RFC-0217: modo Cards — um small-multiple por shopping em vez do canvas único
       if (evoMode === 'cards') {
@@ -6686,19 +6769,9 @@ body.myio-gbt-dark .myio-gbt__empty{color:#64748b;}
       // bucket — não há meta por-medidor por-período). Orçado (cru) entra como
       // linha extra quando difere da Meta (margem de gestão aplicada).
       const tipUnit = cfgD.unit;
-      const budgetSum = labels.map((_, i) => {
-        const keys = goalKeysAt(i);
-        let s = 0, has = false;
-        trees.forEach((tr, si) => {
-          if (isCustHidden(shops[si]?.tbId)) return;
-          const v = sumNodes(tr, keys, goalNodeRaw);
-          if (v != null) { s += v; has = true; }
-        });
-        return has ? s : null;
-      });
-      const shopCurBk = shops.map((s) => bucketize(curBy?.get(s.ingestionId)));
-      const shopPrevBk = shops.map((s) => bucketize(prevBy?.get(s.ingestionId)));
-      const visShopIdx = shops.map((_, i) => i).filter((i) => !isCustHidden(shops[i].tbId));
+      // budgetSum/shopCurBk/shopPrevBk/visShopIdx: computados mais acima (antes
+      // das branches de evoMode), para alimentar lastEvoBreakdown independente
+      // da view — reutilizados aqui por closure.
       const perShopChildren = (buckets, idx, total) =>
         visShopIdx
           .map((i) => ({ i, v: buckets[i] ? buckets[i][idx] : null }))
@@ -6828,6 +6901,10 @@ body.myio-gbt-dark .myio-gbt__empty{color:#64748b;}
       };
 
       renderEvoChart(labels, datasets, evoMode === 'stack', tipModel);
+
+      // lastEvoBreakdown já foi (re)computado acima, antes das branches de
+      // evoMode — não precisa refazer aqui.
+
       // Período/anos já aparecem no calendário e nos toggles 👁 — status só sinaliza falha
       evoStatusEl.textContent = curBy || prevBy ? '' : 'Falha ao carregar o consumo';
       setEvoLoading(false);
@@ -6850,10 +6927,36 @@ body.myio-gbt-dark .myio-gbt__empty{color:#64748b;}
       try {
         btn.disabled = true;
         btn.textContent = '⏳ Gerando…';
+
+        // Self-heal: um shopping com Orçado > 0 em algum bucket mas Consumo do ano
+        // corrente zerado em TODOS os buckets quase certamente é falha transiente de
+        // fetch (device timeout engolido em silêncio por fetchDeviceSeries/
+        // fetchEntradaPointsByCustomer — não consumo real zero). Detecta isso e força
+        // um loadEvo(forceRefresh=true) — que limpa evoConsCache antes de refazer o
+        // fetch, então não repete o mesmo resultado parcial cacheado — antes de gerar
+        // o PDF. Garante que o export nunca saia com esse buraco silenciosamente.
+        const breakdownLooksIncomplete = (bk) => {
+          if (!bk || !Array.isArray(bk.perShop)) return true;
+          return bk.perShop.some((sh) => {
+            const hasBudget = (sh.budget || []).some((v) => v != null && v > 0);
+            const hasCons = (sh.consCur || []).some((v) => v != null && v > 0);
+            return hasBudget && !hasCons;
+          });
+        };
+        if (breakdownLooksIncomplete(lastEvoBreakdown)) {
+          btn.textContent = '⏳ Verificando dados…';
+          await loadEvo(true).catch(() => {});
+          btn.textContent = '⏳ Gerando…';
+        }
+
         const JsPDF = await ensureJsPdf();
         const cfgD = GOALS_COMPARE_DOMAINS[domainKey];
         const unit = lastUnit || cfgD.unit;
-        const rows = (lastRows || []).filter((r) => r.meta !== undefined || r.consumo !== undefined);
+        // 👁: nunca incluir customers ocultos no PDF (mesma regra do renderTable/visRows
+        // e do sumAll do gráfico) — bug corrigido: antes só filtrava linhas "carregando".
+        const rows = (lastRows || []).filter(
+          (r) => (r.meta !== undefined || r.consumo !== undefined) && !isCustHidden(r.tbId)
+        );
         const domLabel = cfgD.label.replace(/^\S+\s/, ''); // sem emoji (jsPDF não renderiza)
         const doc = new JsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
         const W = 210;
@@ -6879,19 +6982,31 @@ body.myio-gbt-dark .myio-gbt__empty{color:#64748b;}
         const totalMeta = rows.reduce((s, r) => s + (r.meta || 0), 0);
         const totalCons = rows.reduce((s, r) => s + (r.consumo || 0), 0);
         const pctTotal = totalMeta > 0 ? (totalCons / totalMeta) * 100 : null;
+        const pctDelta = pctTotal == null ? null : Math.abs(100 - pctTotal);
+        const pctBelow = pctTotal != null && pctTotal <= 100; // abaixo do Orçado
+        // "vs Orçado" usa seta colorida (▼ verde abaixo / ▲ vermelho acima) em vez
+        // de "X% abaixo/acima do Orçado" por extenso — o texto estourava o
+        // quadradinho do card (jsPDF não faz wrap automático). Seta desenhada como
+        // triângulo vetorial (não glyph Unicode — jsPDF/Helvetica não renderiza ▼▲).
         const kpis = [
-          ['Orçado do período', _fmtQtyStr(totalMeta, unit)],
-          ['Consumo do período', _fmtQtyStr(totalCons, unit)],
-          [
-            'vs Orçado',
-            pctTotal == null
-              ? '—'
-              : `${Math.abs(100 - pctTotal).toFixed(1)}% ${pctTotal <= 100 ? 'abaixo' : 'acima'} do Orçado`,
-          ],
-          [_entP(), String(rows.length)],
+          { label: 'Orçado do período', value: _fmtQtyStr(totalMeta, unit) },
+          { label: 'Consumo do período', value: _fmtQtyStr(totalCons, unit) },
+          {
+            label: 'vs Orçado',
+            value: pctDelta == null ? '—' : `${pctDelta.toFixed(1)}%`,
+            arrowUp: pctDelta == null ? null : !pctBelow,
+            color: pctDelta == null ? [30, 41, 59] : pctBelow ? [21, 128, 61] : [185, 28, 28],
+          },
+          { label: _entP(), value: String(rows.length) },
         ];
         const boxW = (W - MX * 2 - 9) / 4;
-        kpis.forEach(([label, value], i) => {
+        const drawKpiArrow = (ax, ay, up, rgb) => {
+          doc.setFillColor(rgb[0], rgb[1], rgb[2]);
+          const s = 1.6;
+          if (up) doc.triangle(ax - s, ay + s, ax + s, ay + s, ax, ay - s, 'F');
+          else doc.triangle(ax - s, ay - s, ax + s, ay - s, ax, ay + s, 'F');
+        };
+        kpis.forEach(({ label, value, arrowUp, color }, i) => {
           const x = MX + i * (boxW + 3);
           doc.setDrawColor(226, 232, 240);
           doc.setFillColor(248, 250, 252);
@@ -6900,9 +7015,11 @@ body.myio-gbt-dark .myio-gbt__empty{color:#64748b;}
           doc.setTextColor(100, 116, 139);
           doc.text(label, x + 3, y + 6);
           doc.setFontSize(11);
-          doc.setTextColor(30, 41, 59);
+          const rgb = color || [30, 41, 59];
+          doc.setTextColor(rgb[0], rgb[1], rgb[2]);
           doc.setFont('helvetica', 'bold');
           doc.text(String(value), x + 3, y + 14);
+          if (arrowUp != null) drawKpiArrow(x + boxW - 6, y + 12, arrowUp, rgb);
           doc.setFont('helvetica', 'normal');
         });
         y += 28;
@@ -6961,17 +7078,91 @@ body.myio-gbt-dark .myio-gbt__empty{color:#64748b;}
         doc.setFont('helvetica', 'normal');
         y += 12;
 
+        // Rótulo de granularidade — compartilhado entre as tabelas de Detalhamento
+        // (abaixo) e a legenda do snapshot do gráfico (mesma redação em todas).
+        const granLbl =
+          evoGran === '1y'
+            ? 'anual (mensal)'
+            : evoGran === '1M'
+              ? 'mensal'
+              : evoGran === '1d'
+                ? 'diário'
+                : 'horário';
+
+        // Detalhamento por período — tier 2 (consolidado por bucket, soma dos
+        // shoppings visíveis) + tier 3 (uma tabela por shopping visível). Fonte:
+        // lastEvoBreakdown, capturado em loadEvo() logo após renderEvoChart — já
+        // soma/filtra só shoppings VISÍVEIS (👁) e usa a Meta AJUSTADA p/ Situação.
+        // Skip: período com 1 único bucket (ex.: 1M dentro de um único mês) não
+        // agrega nada sobre o tier 1 (consolidado) — pula as tabelas inteiras.
+        // Também sai graciosamente sem breakdown ainda (export antes do 1º
+        // loadEvo(), ou modo cards/analytics sem canvas único).
+        if (lastEvoBreakdown && lastEvoBreakdown.labels && lastEvoBreakdown.labels.length > 1) {
+          const bk = lastEvoBreakdown;
+          const bcolX = [MX, MX + 26, MX + 64, MX + 102, MX + 140];
+          const drawBucketHeader = (title) => {
+            doc.setFontSize(13);
+            doc.setTextColor(74, 20, 140);
+            doc.setFont('helvetica', 'bold');
+            doc.text(title, MX, y);
+            y += 7;
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(100, 116, 139);
+            doc.text('Período', bcolX[0], y);
+            doc.setTextColor(245, 158, 11); // Orçado — LARANJA
+            doc.text('Orçado', bcolX[1], y);
+            doc.setTextColor(37, 99, 235); // Consumo ano corrente — AZUL
+            doc.text(`Consumo ${bk.yearCurLabel}`, bcolX[2], y);
+            doc.setTextColor(100, 116, 139);
+            doc.text(`Consumo ${bk.yearPrevLabel}`, bcolX[3], y);
+            doc.text('Situação', bcolX[4], y);
+            y += 2;
+            doc.setDrawColor(226, 232, 240);
+            doc.line(MX, y, W - MX, y);
+            y += 6;
+            doc.setFontSize(9);
+          };
+          // Desenha uma tabela bucket-a-bucket completa (título + header + linhas),
+          // paginando e repetindo o header (e o título) a cada quebra de página.
+          // `data` = { budget[], goal[], consCur[], consPrev[] } alinhados a bk.labels
+          // — tanto o agregado (bk) quanto cada entrada de bk.perShop têm essa forma.
+          const drawBucketTable = (title, data) => {
+            if (y > 265) { doc.addPage(); y = 14; } // título não fica órfão no rodapé
+            drawBucketHeader(title);
+            bk.labels.forEach((lbl, i) => {
+              if (y > 280) {
+                doc.addPage();
+                y = 14;
+                drawBucketHeader(title);
+              }
+              doc.setTextColor(30, 41, 59);
+              doc.text(String(lbl).slice(0, 14), bcolX[0], y);
+              doc.text(_fmtQtyStr(data.budget[i], bk.unit), bcolX[1], y);
+              doc.text(_fmtQtyStr(data.consCur[i], bk.unit), bcolX[2], y);
+              doc.text(_fmtQtyStr(data.consPrev[i], bk.unit), bcolX[3], y);
+              const st = situacao(data.goal[i], data.consCur[i]);
+              doc.setTextColor(st.rgb[0], st.rgb[1], st.rgb[2]);
+              doc.text(st.txt, bcolX[4], y);
+              y += 6;
+            });
+            doc.setFont('helvetica', 'normal');
+            y += 6;
+          };
+
+          // Tier 2 — consolidado por período (soma dos shoppings visíveis)
+          drawBucketTable(`Detalhamento ${granLbl}`, bk);
+
+          // Tier 3 — por shopping visível, por período (uma tabela por customer;
+          // shoppings ocultos via 👁 já ficaram fora de bk.perShop em loadEvo()).
+          (bk.perShop || []).forEach((sh) => {
+            drawBucketTable(`Detalhamento ${granLbl} — ${sh.title}`, sh);
+          });
+        }
+
         // Snapshot do gráfico (com fundo branco — canvas é transparente)
         // Cards/Analítico não têm canvas único — PDF sai com KPIs + tabela (RFC-0217 v1)
         if (evoMode !== 'cards' && evoMode !== 'analytics' && evoChart && evoCanvas.width > 0) {
-          const granLbl =
-            evoGran === '1y'
-              ? 'anual (mensal)'
-              : evoGran === '1M'
-                ? 'mensal'
-                : evoGran === '1d'
-                  ? 'diário'
-                  : 'horário';
           const modeLbl = evoMode === 'sep' ? `por ${_entSLow()}` : 'consolidado';
           const img = evoCanvas.toDataURL('image/png', 1.0);
           const iw = W - MX * 2;

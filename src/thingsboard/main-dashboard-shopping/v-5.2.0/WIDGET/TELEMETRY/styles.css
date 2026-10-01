@@ -252,8 +252,8 @@
   height: 100%;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 16px 10px 48px 10px;
-  scroll-padding-bottom: 48px;
+  padding: 16px 10px 8px 10px;
+  scroll-padding-bottom: 8px;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 12px;
@@ -263,11 +263,21 @@
   justify-items: center;
 }
 
-/* Spacer após o último card — garante visibilidade total sem ser cortado pelo scroll */
+/* Spacer após o último card — garante visibilidade total sem ser cortado pelo scroll.
+ * Reduzido de 48px+24px para 8px+4px: em widgets pequenos (poucas linhas de altura no
+ * dashboard, ex. Transformadores/Entrada com 1-2 cards), o frame real que o ThingsBoard
+ * dá ao widget (`tb-widget`) fica alguns px menor que o wrapper interno que ele mesmo
+ * calcula (`tb-dynamic-component`, ambos com overflow:hidden) — um mismatch de
+ * layout do próprio TB, não deste CSS. O padding generoso empurrava o scrollHeight
+ * bem além do necessário, e essa folga extra é exatamente o que ficava cortado por
+ * aquele mismatch. Confirmado ao vivo (CDP) num customer real: com o padding
+ * reduzido, o último card sobra com ~24px de folga em vez de ser cortado. Widgets
+ * grandes (dezenas de cards) continuam com espaço de sobra de qualquer forma.
+ */
 .shops-root .shops-list::after {
   content: '';
   display: block;
-  height: 24px;
+  height: 4px;
   grid-column: 1 / -1;
 }
 

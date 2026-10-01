@@ -201,4 +201,67 @@ describe('DeviceReportModal', () => {
       delete (window as any).MyIOOrchestrator;
     }
   });
+
+  // West Plaza — ciclo de rateio 15/08→15/09: o picker devolvia fim 15/09T00:00:00, a
+  // API (fim exclusivo) não trazia 15/09 e a tabela mostrava 15/09 = 0,00.
+  it('loadData (1d): consulta dias inteiros — 15/09 entra no ciclo 15/08→15/09', async () => {
+    document.body.innerHTML = '<button id="load-btn"></button><span id="load-spinner"></span>';
+    // Valores diários reais da API para o device do ticket (15/08 … 15/09)
+    const daily = [
+      657.6953015873015, 689.660634920635, 720.5796190476191, 388.0721904761905, 401.92, 899.08,
+      891.24, 536.16, 402.3866666666667, 529.5466666666667, 522.0933333333334, 545.2,
+      760.6800000000001, 829.4933333333333, 1063.8133333333335, 843.7466666666669, 678.68,
+      542.8533333333334, 780.4133333333333, 1069.44, 540.9066666666668, 921.32, 398.96,
+      298.25333333333333, 495.6, 736.9599999999999, 404.8, 827.7733333333331, 657.6933333333333,
+      361.7200000000001, 428.14666666666665, 506.56,
+    ];
+    const calls: Array<{ startISO: string; endISO: string }> = [];
+    // Emula a API: um ponto por dia, só os com timestamp < endTime (fim exclusivo)
+    const fetcher = async ({ startISO, endISO }: { startISO: string; endISO: string }) => {
+      calls.push({ startISO, endISO });
+      const consumption = daily
+        .map((value, i) => {
+          const ymd = new Date(Date.UTC(2026, 7, 15 + i)).toISOString().slice(0, 10);
+          return { timestamp: `${ymd}T00:00:00-03:00`, value };
+        })
+        .filter((p) => new Date(p.timestamp).getTime() < new Date(endISO).getTime());
+      return [{ consumption }];
+    };
+
+    const modal = new DeviceReportModal({ ...baseParams, fetcher });
+    (modal as any).dateRangePicker = {
+      getDates: () => ({
+        startISO: '2026-08-15T00:00:00-03:00',
+        endISO: '2026-09-15T00:00:00-03:00', // fim truncado que o picker devolvia
+        startLabel: '15/08/2026',
+        endLabel: '15/09/2026',
+      }),
+    };
+    await (modal as any).loadData();
+
+    expect(calls).toEqual([{ startISO: '2026-08-15T00:00:00-03:00', endISO: '2026-09-15T23:59:59-03:00' }]);
+    const rows = (modal as any).data;
+    expect(rows).toHaveLength(32);
+    expect(rows[31]).toEqual({ date: '2026-09-15', consumption: 506.56 });
+    expect((modal as any).calculateTotal()).toBeCloseTo(20331.45, 2);
+    const semConsumo = (modal as any).computeKpis().find((k: any) => k.label === 'Dias sem Consumo');
+    expect(semConsumo.value).toBe('0');
+  });
+
+  it('resolveQueryWindow (1d): dias inteiros a partir do dia exibido, preservando o offset', () => {
+    const modal = new DeviceReportModal(baseParams);
+    expect(
+      (modal as any).resolveQueryWindow({ startISO: '2026-08-15T00:00:00-03:00', endISO: '2026-09-15T00:00:00-03:00' })
+    ).toEqual({ startISO: '2026-08-15T00:00:00-03:00', endISO: '2026-09-15T23:59:59-03:00' });
+    // Hora/ms ignorados; offset de cada string preservado
+    expect(
+      (modal as any).resolveQueryWindow({ startISO: '2026-09-15T10:30:00.000+00:00', endISO: '2026-09-15T12:00:00+00:00' })
+    ).toEqual({ startISO: '2026-09-15T00:00:00+00:00', endISO: '2026-09-15T23:59:59+00:00' });
+  });
+
+  it('resolveQueryWindow (1h): respeita a hora escolhida no picker', () => {
+    const modal = new DeviceReportModal({ ...baseParams, granularity: '1h' });
+    const range = { startISO: '2026-08-15T00:00:00-03:00', endISO: '2026-09-15T23:59:00-03:00' };
+    expect((modal as any).resolveQueryWindow(range)).toEqual(range);
+  });
 });

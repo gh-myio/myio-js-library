@@ -1,25 +1,28 @@
 /**
- * Card alarm/ticket badges — shared decoration helpers (RFC-0183 / RFC-0198).
+ * Card alarm/ticket/incident badges — shared decoration helpers
+ * (RFC-0183 / RFC-0198 / RFC-0232).
  *
  * Lifted from the v-5.2.0 TELEMETRY widget controller so every consumer that
  * renders device cards (TELEMETRY, MAIN_BAS, v-5.4.0 grid) can decorate them
  * from a single source instead of keeping private copies.
  *
- * Data sources (window globals, both optional):
+ * Data sources (window globals, all optional):
  * - `window.AlarmServiceOrchestrator.getAlarmCountForDevice(gcdrDeviceId)`
  * - `window.TicketServiceOrchestrator.getTicketCountForDevice(identifier)`
  *   with a per-device `tickets_items` SERVER_SCOPE JSON fallback, gated by
  *   `window.MyIOUtils.ticketsEnabled === true`.
+ * - `window.IncidentServiceOrchestrator.getIncidentCountForDevice(gcdrDeviceId)`
+ *   — count of interpolated/fabricated readings (RFC-0232 "Incidentes").
  *
- * Unlike the original TELEMETRY alarm badge, BOTH badges here are always
- * inserted in the DOM (hidden when count = 0) so the refresh functions can
- * light them up when the orchestrators finish loading after the cards
- * rendered — the common case outside the shopping dashboard, where panels
- * mount before the alarm prefetch resolves.
+ * All three badges are always inserted in the DOM (hidden when count = 0) so
+ * the refresh functions can light them up when the orchestrators finish
+ * loading after the cards rendered — the common case outside the shopping
+ * dashboard, where panels mount before the prefetch resolves.
  */
 
 const ALARM_STYLES_ID = 'myio-alarm-badge-styles';
 const TICKET_STYLES_ID = 'myio-ticket-badge-styles';
+const INCIDENT_STYLES_ID = 'myio-incident-badge-styles';
 
 declare global {
   interface Window {
@@ -28,6 +31,9 @@ declare global {
     };
     TicketServiceOrchestrator?: {
       getTicketCountForDevice?: (identifier: string) => number;
+    };
+    IncidentServiceOrchestrator?: {
+      getIncidentCountForDevice?: (gcdrDeviceId: string) => number;
     };
   }
 }
@@ -40,6 +46,11 @@ export interface AlarmBadgeOptions {
 export interface TicketBadgeOptions {
   /** Overrides the `window.MyIOUtils.ticketsEnabled === true` gate. */
   gateOpen?: boolean;
+}
+
+export interface IncidentBadgeOptions {
+  /** Custom counter. Default: IncidentServiceOrchestrator. */
+  getCount?: (gcdrDeviceId: string) => number;
 }
 
 function injectAlarmBadgeStyles(): void {
@@ -117,6 +128,33 @@ function injectTicketBadgeStyles(): void {
   document.head.appendChild(s);
 }
 
+function injectIncidentBadgeStyles(): void {
+  if (document.getElementById(INCIDENT_STYLES_ID)) return;
+  const s = document.createElement('style');
+  s.id = INCIDENT_STYLES_ID;
+  s.textContent = `
+    /* Stacked directly under .myio-alarm-badge (same corner, same shape) */
+    .myio-incident-badge {
+      position: absolute;
+      top: 28px;
+      left: 6px;
+      background: #7C3AED;
+      color: #fff;
+      border-radius: 10px;
+      padding: 2px 5px;
+      font-size: 10px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      z-index: 10;
+      pointer-events: none;
+      line-height: 1.3;
+    }
+  `;
+  document.head.appendChild(s);
+}
+
 function defaultAlarmCount(gcdrDeviceId: string): number {
   const aso = window.AlarmServiceOrchestrator;
   return aso?.getAlarmCountForDevice?.(gcdrDeviceId) ?? 0;
@@ -128,6 +166,15 @@ function alarmTitle(count: number): string {
 
 function ticketTitle(count: number): string {
   return count > 0 ? `${count} chamado${count !== 1 ? 's' : ''} aberto${count !== 1 ? 's' : ''}` : 'Chamados';
+}
+
+function defaultIncidentCount(gcdrDeviceId: string): number {
+  const iso = window.IncidentServiceOrchestrator;
+  return iso?.getIncidentCountForDevice?.(gcdrDeviceId) ?? 0;
+}
+
+function incidentTitle(count: number): string {
+  return `${count} incidente${count !== 1 ? 's' : ''} de interpolação`;
 }
 
 /**
@@ -273,4 +320,58 @@ export function refreshTicketBadges(opts?: TicketBadgeOptions): void {
         badge.style.display = 'none';
       }
     });
+}
+
+/**
+ * RFC-0232: Append an incident badge (violet warning triangle) directly below
+ * the alarm badge, for devices with interpolated/fabricated telemetry slots
+ * (see the Central Settings "Incidentes" admin tab). Always inserted (hidden
+ * when count = 0) so refreshIncidentBadges() can update it when
+ * IncidentServiceOrchestrator loads later.
+ */
+export function addIncidentBadge(
+  cardElement: HTMLElement | null | undefined,
+  gcdrDeviceId: string | null | undefined,
+  opts?: IncidentBadgeOptions,
+): void {
+  if (!cardElement || !gcdrDeviceId) return;
+  if (cardElement.querySelector(`[data-incident-device-id="${gcdrDeviceId}"]`)) return;
+
+  const count = (opts?.getCount ?? defaultIncidentCount)(gcdrDeviceId);
+
+  injectIncidentBadgeStyles();
+  if (cardElement.style) cardElement.style.position = 'relative';
+
+  const badge = document.createElement('div');
+  badge.className = 'myio-incident-badge';
+  badge.setAttribute('data-incident-device-id', gcdrDeviceId);
+  badge.style.display = count > 0 ? '' : 'none';
+  badge.title = incidentTitle(count);
+  badge.innerHTML =
+    '<svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor" aria-hidden="true">' +
+    '<path d="M12 2L1 21h22L12 2z"/>' +
+    '</svg>' +
+    `<span>${count > 99 ? '99+' : count}</span>`;
+  cardElement.appendChild(badge);
+}
+
+/**
+ * Refresh every incident badge on the page (e.g. on myio:incidents-updated)
+ * without re-rendering the cards.
+ */
+export function refreshIncidentBadges(opts?: IncidentBadgeOptions): void {
+  const getCount = opts?.getCount ?? defaultIncidentCount;
+  document.querySelectorAll<HTMLElement>('.myio-incident-badge[data-incident-device-id]').forEach((badge) => {
+    const gcdrDeviceId = badge.getAttribute('data-incident-device-id');
+    if (!gcdrDeviceId) return;
+    const count = getCount(gcdrDeviceId);
+    const span = badge.querySelector('span');
+    if (count > 0) {
+      badge.style.display = '';
+      badge.title = incidentTitle(count);
+      if (span) span.textContent = count > 99 ? '99+' : String(count);
+    } else {
+      badge.style.display = 'none';
+    }
+  });
 }

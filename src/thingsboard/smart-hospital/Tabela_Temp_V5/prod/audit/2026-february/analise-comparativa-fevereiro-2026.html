@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Auditoria Souza Aguiar Fev/2026</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root {
+    --ink: #221c35;
+    --ink-soft: #3a3252;
+    --paper: #faf8fc;
+    --surface: #ffffff;
+    --muted: #6f6687;
+    --line: #e4dcf3;
+    --line-soft: #eee8f8;
+    --myio-purple: #663ab5;
+    --myio-purple-dark: #4d2a91;
+    --myio-purple-tint: #f1ecfb;
+    --ok: #04966a;
+    --ok-tint: #e5f8f1;
+    --bad: #c81e3a;
+    --bad-tint: #fbeaee;
+    --warn: #b5740a;
+    --warn-tint: #fdf3e2;
+    --nodata: #857c9c;
+    --nodata-tint: #efecf6;
+    --shadow: 0 1px 2px rgba(34,28,53,0.06), 0 8px 24px -12px rgba(34,28,53,0.18);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ink: #ece8f7;
+      --ink-soft: #cfc7e8;
+      --paper: #17131f;
+      --surface: #201a2d;
+      --muted: #a79bc9;
+      --line: #362c4a;
+      --line-soft: #2b2338;
+      --myio-purple: #a480e6;
+      --myio-purple-dark: #c6a8f5;
+      --myio-purple-tint: #2a2140;
+      --ok: #3fd9a4;
+      --ok-tint: #113228;
+      --bad: #ff7d92;
+      --bad-tint: #3a1620;
+      --warn: #f0b545;
+      --warn-tint: #3a2a0e;
+      --nodata: #a99fc4;
+      --nodata-tint: #241f33;
+      --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 12px 28px -14px rgba(0,0,0,0.6);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ink: #ece8f7;
+    --ink-soft: #cfc7e8;
+    --paper: #17131f;
+    --surface: #201a2d;
+    --muted: #a79bc9;
+    --line: #362c4a;
+    --line-soft: #2b2338;
+    --myio-purple: #a480e6;
+    --myio-purple-dark: #c6a8f5;
+    --myio-purple-tint: #2a2140;
+    --ok: #3fd9a4;
+    --ok-tint: #113228;
+    --bad: #ff7d92;
+    --bad-tint: #3a1620;
+    --warn: #f0b545;
+    --warn-tint: #3a2a0e;
+    --nodata: #a99fc4;
+    --nodata-tint: #241f33;
+    --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 12px 28px -14px rgba(0,0,0,0.6);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .mono {
+    font-family: 'IBM Plex Mono', ui-monospace, 'Cascadia Code', Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .wrap {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 0 24px 80px;
+  }
+
+  /* ---------- header ---------- */
+  header.top {
+    background: linear-gradient(160deg, var(--myio-purple-dark), var(--myio-purple));
+    color: #fbf9ff;
+    padding: 40px 24px 84px;
+  }
+  header.top .inner {
+    max-width: 920px;
+    margin: 0 auto;
+  }
+  .eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    opacity: 0.85;
+    margin-bottom: 14px;
+  }
+  .eyebrow .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: #b9ffe0;
+    box-shadow: 0 0 0 3px rgba(185,255,224,0.25);
+  }
+  h1 {
+    font-size: 34px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin: 0 0 12px;
+    text-wrap: balance;
+    max-width: 30ch;
+  }
+  header.top p.sub {
+    margin: 0;
+    font-size: 15.5px;
+    color: #e6dcfb;
+    max-width: 68ch;
+  }
+  .meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 18px;
+    margin-top: 18px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: #d9c9f7;
+  }
+  .meta-row span b { color: #fff; font-weight: 500; }
+
+  /* ---------- generic sections ---------- */
+  section { margin-top: 40px; }
+  h2 {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--myio-purple);
+    margin: 0 0 4px;
+  }
+  h3.section-title {
+    font-size: 21px;
+    font-weight: 700;
+    color: var(--ink);
+    margin: 2px 0 16px;
+    text-wrap: balance;
+  }
+  p { color: var(--ink-soft); max-width: 100%; }
+  p.lede { font-size: 16px; }
+
+  /* ---------- summary card ---------- */
+  .summary-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-left: 5px solid var(--myio-purple);
+    border-radius: 10px;
+    padding: 24px 26px;
+    margin-top: -46px;
+    box-shadow: var(--shadow);
+    position: relative;
+  }
+  .summary-card .tag {
+    display: inline-block;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--myio-purple);
+    background: var(--myio-purple-tint);
+    padding: 3px 9px;
+    border-radius: 999px;
+    margin-bottom: 12px;
+  }
+  .summary-card p.headline {
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--ink);
+    margin: 0 0 16px;
+    max-width: none;
+  }
+  .summary-card p.headline b { color: var(--myio-purple-dark); font-weight: 700; }
+
+  .split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 4px;
+  }
+  @media (max-width: 640px) { .split { grid-template-columns: 1fr; } }
+  .split .box {
+    border-radius: 8px;
+    padding: 14px 16px;
+    font-size: 14px;
+  }
+  .split .box.ok-ish { background: var(--nodata-tint); border: 1px solid var(--line); }
+  .split .box.bad-ish { background: var(--warn-tint); border: 1px solid var(--line); }
+  .split .box b.label { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 6px; }
+  .split .box .num { font-family: 'IBM Plex Mono', monospace; font-weight: 600; }
+
+  /* ---------- methodology strip ---------- */
+  .method-strip {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-top: 18px;
+  }
+  @media (max-width: 720px) { .method-strip { grid-template-columns: repeat(2, 1fr); } }
+  .method-strip .cell {
+    background: var(--surface);
+    padding: 16px 16px 15px;
+  }
+  .method-strip .cell .k {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .method-strip .cell .v {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink);
+  }
+
+  /* ---------- table ---------- */
+  .table-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--surface);
+    font-size: 13.5px;
+    min-width: 760px;
+  }
+  thead th {
+    text-align: left;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line);
+    background: var(--line-soft);
+    white-space: nowrap;
+  }
+  tbody td {
+    padding: 13px 14px;
+    border-bottom: 1px solid var(--line-soft);
+    vertical-align: top;
+    color: var(--ink-soft);
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td.dev { font-weight: 600; color: var(--ink); white-space: nowrap; }
+  td .fig { font-family: 'IBM Plex Mono', monospace; color: var(--ink); }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 3px 10px 3px 8px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .pill::before { content: ''; width: 7px; height: 7px; border-radius: 50%; }
+  .pill.bad { background: var(--bad-tint); color: var(--bad); }
+  .pill.bad::before { background: var(--bad); }
+  .pill.warn { background: var(--warn-tint); color: var(--warn); }
+  .pill.warn::before { background: var(--warn); }
+  .pill.ok { background: var(--ok-tint); color: var(--ok); }
+  .pill.ok::before { background: var(--ok); }
+
+  /* ---------- device cards w/ sparkline ---------- */
+  .card-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-top: 18px;
+  }
+  @media (max-width: 640px) { .card-grid { grid-template-columns: 1fr; } }
+  .device-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--nodata);
+    border-radius: 10px;
+    padding: 16px 18px 14px;
+  }
+  .device-card.v-bad { border-left-color: var(--bad); }
+  .device-card.v-warn { border-left-color: var(--warn); }
+  .device-card .head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 4px;
+  }
+  .device-card .head .name { font-weight: 600; font-size: 14.5px; color: var(--ink); }
+  .device-card .head .stat { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); }
+  .device-card .cap { font-size: 12.5px; color: var(--muted); margin: 6px 0 10px; }
+  .spark-wrap { position: relative; }
+  .spark-wrap svg { display: block; width: 100%; height: auto; }
+  .spark-empty {
+    height: 56px;
+    border-radius: 6px;
+    background: repeating-linear-gradient(135deg, var(--nodata-tint), var(--nodata-tint) 6px, var(--line-soft) 6px, var(--line-soft) 12px);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--nodata);
+  }
+
+  /* ---------- finding block (sentinel) ---------- */
+  .finding {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-left: 5px solid var(--warn);
+    border-radius: 10px;
+    padding: 22px 24px;
+  }
+  .finding .k-v-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin: 16px 0;
+  }
+  @media (max-width: 640px) { .finding .k-v-row { grid-template-columns: repeat(2, 1fr); } }
+  .warn-chip {
+    background: var(--warn-tint);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+  .warn-chip .n { font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 20px; color: var(--warn); }
+  .warn-chip .d { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+  .callout {
+    margin-top: 16px;
+    padding: 12px 14px;
+    background: var(--nodata-tint);
+    border-radius: 8px;
+    font-size: 13.5px;
+    color: var(--ink-soft);
+  }
+  .callout b { color: var(--ink); }
+  code.inline {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.92em;
+    background: var(--line-soft);
+    padding: 1px 5px;
+    border-radius: 4px;
+    color: var(--ink);
+  }
+
+  /* ---------- checklist ---------- */
+  ul.checklist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  ul.checklist li {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    font-size: 14px;
+    color: var(--ink-soft);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 12px 14px;
+  }
+  ul.checklist li .box {
+    flex: 0 0 auto;
+    width: 16px; height: 16px;
+    border-radius: 4px;
+    border: 1.5px solid var(--muted);
+    margin-top: 2px;
+  }
+  ul.checklist li b { color: var(--ink); }
+
+  /* ---------- footer ---------- */
+  footer {
+    margin-top: 56px;
+    padding-top: 22px;
+    border-top: 1px solid var(--line);
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 16px;
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+  footer .src-list { font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; line-height: 1.9; }
+  footer .brand { font-weight: 700; color: var(--myio-purple); }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .device-card, .summary-card, .finding { transition: transform 0.15s ease; }
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="inner">
+    <div class="eyebrow"><span class="dot"></span> MYIO · Auditoria interna de telemetria</div>
+    <h1>Dados brutos × painel × relatório de aferição</h1>
+    <p class="sub">Complexo Hospitalar Municipal Souza Aguiar — reconciliação do incidente de 10/02/2026 registrado no relatório de verificação de sensores, contra a camada bruta da API de telemetria.</p>
+    <div class="meta-row">
+      <span>Janela capturada: <b>09–11/02/2026 (BRT)</b></span>
+      <span>Documento gerado em: <b>31/08/2026</b></span>
+      <span>Classificação: <b>Uso interno</b></span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="summary-card">
+    <span class="tag">Achado principal · 3 fontes cruzadas</span>
+    <p class="headline">O relatório de 10/02 atribui os <b>4 pontos N/A</b> (Centro Obstétrico 01/02/03 e UTI Neonatal) a <b>uma única causa</b> — uma falha da central de 14 minutos, das 17:08 às 17:22. Os dados brutos da API e o próprio CSV/PDF exportado pelo widget (mesmo array que alimenta a tela) <b>contradizem essa hipótese para 2 dos 4 pontos</b>, e mostram um problema <b>mais severo — não mais brando —</b> para os outros 2.</p>
+    <div class="split">
+      <div class="box bad-ish">
+        <b class="label">Centro Obst. 01 e 02</b>
+        <span class="num">0 falhas em 144 amostras</span> nos 3 dias capturados — inclusive dentro da própria janela do "apagão" relatado. Havia leitura no instante em que o relatório diz que não havia.
+      </div>
+      <div class="box ok-ish">
+        <b class="label">Centro Obst. 03 e UTI Neonatal</b>
+        <span class="num">144 de 144 amostras "SEM DADOS"</span> — nos 3 dias inteiros da captura, não apenas nos 14 minutos citados no relatório.
+      </div>
+    </div>
+  </div>
+
+  <section>
+    <h2>Metodologia</h2>
+    <h3 class="section-title">Como este documento foi construído</h3>
+    <p>Dados brutos capturados diretamente do endpoint de telemetria via monitoramento de Network do navegador, na mesma tela do dashboard usada pelo cliente — antes de qualquer clamp, interpolação ou substituição por valor manual que o widget aplique antes de renderizar.</p>
+    <div class="method-strip">
+      <div class="cell">
+        <div class="k">Fonte dos dados brutos</div>
+        <div class="v">POST /api/rpc/temperature_report</div>
+      </div>
+      <div class="cell">
+        <div class="k">Período capturado</div>
+        <div class="v">09/02 00:00 – 11/02 23:59</div>
+      </div>
+      <div class="cell">
+        <div class="k">Ferramenta</div>
+        <div class="v">Chrome DevTools (Network + Console)</div>
+      </div>
+      <div class="cell">
+        <div class="k">Fuso horário</div>
+        <div class="v">BRT = UTC−3 (sem DST)</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Comparação ponto a ponto</h2>
+    <h3 class="section-title">Os 4 pontos N/A do relatório de 10/02</h3>
+    <p>Coluna "dado bruto" é o valor da API no bucket de 30 min que contém o horário relatado (17:00–17:30 BRT). Coluna "cobertura 3 dias" é a contagem de amostras com dado numérico sobre as 144 amostras da janela inteira capturada (3 dias × 48 intervalos de 30 min).</p>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Ponto</th>
+            <th>Relatório (10/02)</th>
+            <th>Dado bruto às 17:00–17:30</th>
+            <th>Cobertura (144 amostras)</th>
+            <th>Veredito</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="dev">Centro Obst. 01</td>
+            <td>Ref. <span class="fig">19.6 °C</span> às 17:08 · Myio = <span class="fig">N/A</span></td>
+            <td><span class="fig">16.29 °C</span> presente</td>
+            <td><span class="fig">144/144</span> com dado</td>
+            <td><span class="pill bad">contradiz</span></td>
+          </tr>
+          <tr>
+            <td class="dev">Centro Obst. 02</td>
+            <td>Ref. <span class="fig">21.8 °C</span> às 17:14 · Myio = <span class="fig">N/A</span></td>
+            <td><span class="fig">19.84 °C</span> presente</td>
+            <td><span class="fig">144/144</span> com dado</td>
+            <td><span class="pill bad">contradiz</span></td>
+          </tr>
+          <tr>
+            <td class="dev">Centro Obst. 03</td>
+            <td>Ref. <span class="fig">21.2 °C</span> às 17:17 · Myio = <span class="fig">N/A</span></td>
+            <td><span class="fig">SEM DADOS</span></td>
+            <td><span class="fig">0/144</span> com dado</td>
+            <td><span class="pill warn">confirma, mas é mais grave</span></td>
+          </tr>
+          <tr>
+            <td class="dev">UTI Neonatal</td>
+            <td>Ref. <span class="fig">21.5 °C</span> às 17:22 · Myio = <span class="fig">N/A</span></td>
+            <td><span class="fig">SEM DADOS</span></td>
+            <td><span class="fig">0/144</span> com dado</td>
+            <td><span class="pill warn">confirma, mas é mais grave</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card-grid">
+      <div class="device-card v-bad">
+        <div class="head"><span class="name">Centro Obstétrico 01</span><span class="stat">144/144 amostras</span></div>
+        <p class="cap">Série completa de 10/02 (00:00–23:30 BRT). Marcador vermelho = bucket 17:00–17:30, onde o relatório diz "N/A".</p>
+        <div class="spark-wrap">
+          <svg viewBox="0 0 280 56" preserveAspectRatio="none">
+            <polyline points="4.0,27.3 9.8,33.6 15.6,40.5 21.4,36.1 27.1,37.3 32.9,33.7 38.7,32.4 44.5,34.7 50.3,31.7 56.1,34.1 61.9,34.7 67.7,38.1 73.4,41.5 79.2,41.3 85.0,52.0 90.8,48.8 96.6,46.3 102.4,37.9 108.2,39.9 114.0,37.3 119.7,23.1 125.5,33.7 131.3,35.9 137.1,37.0 142.9,46.5 148.7,38.3 154.5,41.3 160.3,39.4 166.0,32.1 171.8,28.8 177.6,29.9 183.4,23.0 189.2,20.2 195.0,16.9 200.8,24.1 206.6,24.9 212.3,11.1 218.1,39.3 223.9,15.6 229.7,32.2 235.5,31.8 241.3,33.4 247.1,26.7 252.9,35.6 258.6,34.0 264.4,31.2 270.2,4.0 276.0,13.0"
+              fill="none" stroke="var(--bad)" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" />
+            <line x1="270.2" y1="0" x2="270.2" y2="56" stroke="var(--bad)" stroke-width="1" stroke-dasharray="2,2" opacity="0.5" />
+            <circle cx="270.2" cy="4.0" r="3.4" fill="var(--surface)" stroke="var(--bad)" stroke-width="2" />
+          </svg>
+        </div>
+        <p class="cap" style="margin-top:8px;">16.29 °C às 17:00–17:30 · faixa do dia 13.65–18.19 °C</p>
+      </div>
+
+      <div class="device-card v-bad">
+        <div class="head"><span class="name">Centro Obstétrico 02</span><span class="stat">144/144 amostras</span></div>
+        <p class="cap">Série completa de 10/02 (00:00–23:30 BRT). Marcador vermelho = bucket 17:00–17:30, onde o relatório diz "N/A".</p>
+        <div class="spark-wrap">
+          <svg viewBox="0 0 280 56" preserveAspectRatio="none">
+            <polyline points="4.0,48.5 9.8,48.0 15.6,46.4 21.4,44.1 27.1,40.6 32.9,46.0 38.7,45.6 44.5,49.4 50.3,43.7 56.1,38.9 61.9,34.0 67.7,44.4 73.4,45.0 79.2,40.7 85.0,51.2 90.8,42.8 96.6,28.8 102.4,48.0 108.2,52.0 114.0,43.0 119.7,37.8 125.5,23.2 131.3,32.2 137.1,36.8 142.9,27.0 148.7,21.4 154.5,29.8 160.3,18.3 166.0,10.5 171.8,16.3 177.6,14.4 183.4,24.5 189.2,19.0 195.0,16.0 200.8,5.2 206.6,12.5 212.3,4.0 218.1,11.2 223.9,14.4 229.7,19.6 235.5,18.1 241.3,28.9 247.1,16.8 252.9,20.8 258.6,11.3 264.4,18.0 270.2,35.4 276.0,11.5"
+              fill="none" stroke="var(--bad)" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" />
+            <line x1="270.2" y1="0" x2="270.2" y2="56" stroke="var(--bad)" stroke-width="1" stroke-dasharray="2,2" opacity="0.5" />
+            <circle cx="270.2" cy="35.4" r="3.4" fill="var(--surface)" stroke="var(--bad)" stroke-width="2" />
+          </svg>
+        </div>
+        <p class="cap" style="margin-top:8px;">19.84 °C às 17:00–17:30 · faixa do dia 14.87–19.97 °C</p>
+      </div>
+
+      <div class="device-card v-warn">
+        <div class="head"><span class="name">Centro Obstétrico 03</span><span class="stat">0/144 amostras</span></div>
+        <p class="cap">Nenhuma leitura numérica em nenhum dos 3 dias capturados — não só na janela de 14 min do relatório.</p>
+        <div class="spark-empty">SEM DADOS — 144/144 amostras</div>
+      </div>
+
+      <div class="device-card v-warn">
+        <div class="head"><span class="name">UTI Neonatal</span><span class="stat">0/144 amostras</span></div>
+        <p class="cap">Nenhuma leitura numérica em nenhum dos 3 dias capturados — não só na janela de 14 min do relatório.</p>
+        <div class="spark-empty">SEM DADOS — 144/144 amostras</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Terceira ponta</h2>
+    <h3 class="section-title">O que o CSV/PDF exportado do dashboard mostra</h3>
+    <p>Confirmado em <code class="inline">controller.js</code>: o botão de exportação (<code class="inline">downloadCSV</code>/<code class="inline">downloadPDF</code>) chama <code class="inline">_buildExportData()</code>, que lê <code class="inline">self.ctx.$scope.dados</code> — <b>o mesmo array <code class="inline">allProcessed</code></b> que alimenta a tabela em tela, já depois do clamp, da interpolação e do override manual. Ou seja, o CSV/PDF exportado é literalmente o dado renderizado, não uma segunda fonte independente. Isso fecha a pendência que este documento deixava em aberto na primeira versão.</p>
+    <p>Gerado pelo próprio widget para o mesmo período (09–11/02/2026) e lido diretamente: <span class="mono">relatorio_smart_hospital_temperatura_periodo-09-02-2026-a-11-02-2026-emitido-em-31-08-2026-11-36.csv</span>.</p>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Ponto</th>
+            <th>Export às 17:00 (BRT)</th>
+            <th>Dado bruto às 17:00 (BRT)</th>
+            <th>Comparação</th>
+            <th>Veredito</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="dev">Centro Obst. 01</td>
+            <td><span class="fig">16,29 °C</span></td>
+            <td><span class="fig">16,29 °C</span></td>
+            <td>idêntico, bit a bit</td>
+            <td><span class="pill bad">confirma a contradição</span></td>
+          </tr>
+          <tr>
+            <td class="dev">Centro Obst. 02</td>
+            <td><span class="fig">19,84 °C</span></td>
+            <td><span class="fig">19,84 °C</span></td>
+            <td>idêntico, bit a bit</td>
+            <td><span class="pill bad">confirma a contradição</span></td>
+          </tr>
+          <tr>
+            <td class="dev">Centro Obst. 03</td>
+            <td><span class="fig">ausente do export</span></td>
+            <td><span class="fig">SEM DADOS</span></td>
+            <td>device nem aparece no CSV/PDF — não sai nem como "-"</td>
+            <td><span class="pill warn">achado novo</span></td>
+          </tr>
+          <tr>
+            <td class="dev">UTI Neonatal</td>
+            <td><span class="fig">ausente do export</span></td>
+            <td><span class="fig">SEM DADOS</span></td>
+            <td>device nem aparece no CSV/PDF — não sai nem como "-"</td>
+            <td><span class="pill warn">achado novo</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">
+      <b>Achado novo:</b> Centro Obst. 03 e UTI Neonatal não têm nenhuma linha real em nenhum dos 144 intervalos do período — e por isso o <code class="inline">controller.js</code> os remove inteiramente da lista de labels exportados (comentário no próprio código: <span class="mono">"NÃO geramos dados fictícios para labels sem telemetria real"</span>, linha ~2022). Resultado prático: quem abre o CSV/PDF não vê esses 2 pontos nem como "SEM DADOS" — eles simplesmente não existem no relatório, o que é pior para um auditor do que aparecer como falha explícita.
+    </div>
+  </section>
+
+  <section>
+    <h2>Achado adicional</h2>
+    <h3 class="section-title">Valores sentinela sem correção manual configurada</h3>
+    <div class="finding">
+      <p style="margin-top:0;">O <code class="inline">controller.js</code> do widget trata um valor recebido como <b>placeholder</b> quando ele é nulo, vem com uma flag de igualdade, ou fica a menos de 0,001 °C de <b>17,0 °C</b>. Nesse caso, ele tenta substituir o valor por uma correção manual pré-cadastrada (<code class="inline">overrideMap</code>, indexado pelo nome curto do device). Quando não existe correção cadastrada, o valor sentinela de ~17,0 °C permanece em tela — e o console registra um aviso.</p>
+      <p>No mesmo período de captura (09–11/02), o console do dashboard emitiu <b>174 avisos</b> desse tipo (<code class="inline">[OVERRIDE] ✗ device não encontrado no overrideMap</code>) e <b>0 erros</b>:</p>
+      <div class="k-v-row">
+        <div class="warn-chip"><div class="n">118×</div><div class="d">Farmácia Satélite</div></div>
+        <div class="warn-chip"><div class="n">49×</div><div class="d">Lactário</div></div>
+        <div class="warn-chip"><div class="n">2×</div><div class="d">CTI 02</div></div>
+        <div class="warn-chip"><div class="n">2×</div><div class="d">Cirurgia 04</div></div>
+        <div class="warn-chip"><div class="n">1×</div><div class="d">Raiox 03</div></div>
+        <div class="warn-chip"><div class="n">1×</div><div class="d">Raiox 04</div></div>
+      </div>
+      <p>Isso é uma questão de qualidade de dado <b>separada e não relacionada</b> ao achado principal deste documento — mas responde diretamente à preocupação original com "clamp, interpolação etc": para Farmácia Satélite e Lactário, uma fração relevante do que o painel exibe pode não ser leitura real de sensor.</p>
+      <p>O export confirma e refina o quadro: no CSV do mesmo período, <b>Farmácia Satélite tem 118 de 144 linhas marcadas "-"</b> (idêntico às 118 ocorrências do aviso no console — o <code class="inline">overrideMap</code> não tem nenhuma entrada cadastrada para esse device). <b>Lactário tem 54 de 144 linhas "-"</b>, contra apenas 49 avisos no console — a diferença de 5 é mais grave, não menos: nesses 5 slots existe uma entrada parcial no <code class="inline">overrideMap</code> para o device, mas sem valor para aquele horário específico, e o código não cai no branch que gera aviso (linhas 1940–1949 vs. 1950–1953 de <code class="inline">controller.js</code>) — ou seja, há placeholders sem correção que nem aparecem no log.</p>
+      <div class="callout">
+        <b>Honestidade sobre o que ainda não fecha:</b> o stream bruto capturado para Farmácia Satélite nesta mesma janela não mostra valores próximos de 17 °C — mostra frações pequenas (ex.: <span class="mono">0, 0.125, −0.1</span>), sugerindo que o valor comparado a 17,0 °C no controller já passou por alguma transformação anterior no pipeline do widget, não é o mesmo <code class="inline">value</code> bruto da API observado aqui. Rastrear essa transformação é um item em aberto, não uma conclusão fechada.
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Pendências</h2>
+    <h3 class="section-title">O que ainda falta para fechar as três pontas</h3>
+    <ul class="checklist">
+      <li><span class="box"></span><span><b>Rastrear o pipeline de transformação</b> que gera o valor comparado a 17,0 °C na Farmácia Satélite/Lactário, já que diverge do <code class="inline">value</code> bruto da API para esse device.</span></li>
+      <li><span class="box"></span><span><b>Confirmar se as 5 linhas "silenciosas"</b> do Lactário (sem aviso no console, mas marcadas "-" no export) correspondem a um cadastro parcial no <code class="inline">overrideMap</code> — só dá para confirmar lendo o atributo <span class="mono">device_list_interval_values</span> no TB.</span></li>
+      <li><span class="box"></span><span><b>Confirmar ajustes de offset</b> pós-10/02 nos 12 pontos fora da tolerância de ±0,5 °C identificados em <span class="mono">Report_Afericao_Souza_Aguiar_10-02-2026_v2.md</span>.</span></li>
+    </ul>
+  </section>
+
+  <footer>
+    <div>
+      <div class="brand">MYIO</div>
+      Documento de análise interna — não substitui o relatório oficial de aferição nem o RT-MYIO-2026-004.
+    </div>
+    <div class="src-list">
+      raw-network/central-MaternidadeOf_CentroObst_UTINeonatal.network-response<br>
+      raw-network/central-01-CO2.network-response<br>
+      relatorio_smart_hospital_temperatura_periodo-09-02-2026-a-11-02-2026-emitido-em-31-08-2026-11-36.csv<br>
+      Report_Afericao_Souza_Aguiar_10-02-2026_v2.{md,json}<br>
+      controller.js (_buildExportData, allProcessed, overrideMap · linhas ~1120, ~1922–2016)<br>
+      INPUT-AUDITORIA-FEVEREIRO-2026.md · console (174 avisos, 0 erros)
+    </div>
+  </footer>
+
+</div>
+</body>
+</html>

@@ -195,7 +195,7 @@
 /* quando o menu estiver recolhido (classe .collapsed já existe no seu código) */
 .shops-menu-root.collapsed .shopping-selector-btn {
   justify-content: center;
-  padding: 10px;
+  padding: 6px 2px;
 }
 .shops-menu-root.collapsed .shopping-selector-btn .menu-label,
 .shops-menu-root.collapsed .shopping-selector-btn .menu-kicker {
@@ -580,8 +580,9 @@
 }
 
 .logout-icon {
-  font-size: 20px;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .logout-text {
@@ -593,7 +594,28 @@
    ============================================ */
 
 .shops-menu-root.collapsed {
-  width: 35px;
+  /* 48px (not the previous 35px) — 35px wasn't enough room for the footer
+     buttons below even icon-only; see the min-width:0 fix further down for
+     why they were invisible (clipped by the widget frame's overflow:hidden)
+     rather than just cramped. */
+  width: 48px;
+}
+
+/* Footer buttons/lib-version were being clipped, not just cramped, when
+   collapsed: they live in a CSS Grid (.menu-footer) with `width:100%`, but
+   grid items default to `min-width:auto` — they refuse to shrink below their
+   own content's min-content size (icon + padding, ~74px) even when the track
+   is only 35-48px wide. The overflow doesn't wrap or scroll; the ENCLOSING
+   ThingsBoard widget frame has overflow:hidden (confirmed live), so the
+   ~40px sticking out past the frame's right edge was silently invisible to
+   the user rather than visibly overflowing. `min-width: 0` lets the grid
+   items actually shrink to the collapsed width. */
+.shops-menu-root.collapsed .menu-footer {
+  padding-left: 4px;
+  padding-right: 4px;
+}
+.shops-menu-root.collapsed .menu-footer > * {
+  min-width: 0;
 }
 
 /* Hide text elements when collapsed */
@@ -626,12 +648,32 @@
 
 /* Center logout button when collapsed */
 .shops-menu-root.collapsed .logout-btn {
-  padding: 12px 8px;
+  padding: 10px 4px;
   justify-content: center;
 }
 
 .shops-menu-root.collapsed .logout-icon {
   margin: 0;
+}
+
+/* Hover tooltip for the icon-only footer buttons when collapsed is handled
+   entirely from JS (see initCollapseHoverTooltip in controller.js) as a
+   single floating element appended to document.body, exactly like
+   .menu-collapse-arrow — a CSS ::after positioned relative to the button
+   would extend past the 48px collapsed width and get clipped by the
+   ThingsBoard widget frame's overflow:hidden (confirmed live, same class of
+   bug as the footer buttons originally disappearing). */
+
+/* RFC menu-collapse: lib version — text + refresh icon don't fit in 48px;
+   keep only the status dot (✓/⚠) visible, centered, so there's still a
+   meaningful "library health" signal instead of nothing at all. */
+.shops-menu-root.collapsed #lib-version-display .myio-lib-version {
+  justify-content: center;
+  padding: 0 4px;
+}
+.shops-menu-root.collapsed #lib-version-display .myio-lib-version__text,
+.shops-menu-root.collapsed #lib-version-display .myio-lib-version__refresh {
+  display: none;
 }
 
 /* ============================================
@@ -1126,7 +1168,7 @@
 
 .shops-menu-root.collapsed #temp-settings-btn {
   justify-content: center;
-  padding: 10px;
+  padding: 6px 2px;
 }
 
 /* RFC-0107: Contract Devices Button */
@@ -1200,7 +1242,7 @@
 
 .shops-menu-root.collapsed #contract-devices-btn {
   justify-content: center;
-  padding: 10px;
+  padding: 6px 2px;
 }
 
 /* RFC-0108: Measurement Setup Button */
@@ -1274,7 +1316,7 @@
 
 .shops-menu-root.collapsed #measurement-setup-btn {
   justify-content: center;
-  padding: 10px;
+  padding: 6px 2px;
 }
 
 /* RFC-0108: Consolidated Settings Menu Button */
@@ -1348,7 +1390,7 @@
 
 .shops-menu-root.collapsed #settings-menu-btn {
   justify-content: center;
-  padding: 10px;
+  padding: 6px 2px;
 }
 
 /* RFC-0108: Settings Modal Styles */
@@ -1586,7 +1628,7 @@
 
 .shops-menu-root.collapsed #reports-menu-btn {
   justify-content: center;
-  padding: 10px;
+  padding: 6px 2px;
 }
 
 /* RFC-0137: Library version display - styles injected by component */
@@ -1602,3 +1644,15 @@
 .shops-menu-root {
   position: relative;
 }
+
+/* NOTE: the floating .menu-collapse-arrow button is appended to
+   document.body (outside this widget's own DOM/Angular component tree) so it
+   can render above the ThingsBoard widget frame's overflow:hidden and
+   achieve the "half inside, half outside" look. This widget's `templateCss`
+   is view-encapsulation-scoped by Angular to elements *inside* the widget's
+   own component — confirmed live that it silently doesn't match an
+   externally-appended body child at all (position:fixed never applied, the
+   element fell into normal document flow instead). Its styles are injected
+   as a plain, unscoped `<style>` tag from controller.js instead — see
+   injectMenuCollapseArrowStyles() there, same pattern already used by the
+   premium modals (e.g. openGenericModal.ts's injectDialogStyles()). */

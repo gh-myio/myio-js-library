@@ -50,6 +50,13 @@ let clampMax = CLAMP_DEFAULT_MAX;
 let _clampFromCustomer = false; // true = loaded from SERVER_SCOPE; false = using defaults
 let _customerSlug = 'hospital'; // slug do nome do cliente, preenchido no _loadClampAttributes
 
+// Data de referência do ajuste de sensores (+/-/x no nome do device, aplicado
+// na central Node-RED). O operador só é aplicado a telemetria >= esta data.
+// Enviada às centrais no body do RPC (adjustmentSince) e persistida no
+// SERVER_SCOPE do cliente como tempAdjustmentSince (admin-configurável).
+const ADJUSTMENT_SINCE_DEFAULT = '2026-09-01T00:00:00.000Z';
+let _adjustmentSince = ADJUSTMENT_SINCE_DEFAULT;
+
 // Customer entity ID — Complexo Hospitalar Municipal Souza Aguiar (HMSA)
 const THINGSBOARD_CUSTOMER_ID = '492387b0-a1e6-11ef-9e25-b7f6e6d4253b';
 
@@ -84,6 +91,13 @@ const LOADING_STATES = {
   INTERPOLATING: 'Preenchendo lacunas de telemetria...',
   READY: 'Relatório pronto!',
 };
+
+// Sensores da central "Souza Aguiar CO2" foram trocados/recalibrados entre
+// 28/03 e 01/04/2026 — o histórico anterior a essa janela não é mais
+// recuperável via consulta ao vivo (nome do device hoje aponta pro sensor
+// novo, sem o dado antigo). Consulta/carregamento e exportação de período
+// anterior a esse corte são bloqueados.
+const DATA_CUTOFF_DATE = new Date('2026-04-03T00:00:00');
 
 let startDate = null,
   endDate = null;
@@ -270,13 +284,14 @@ async function _loadClampAttributes() {
       /* mantém fallback 'hospital' */
     }
     const resp = await getHttp()
-      .get('/api/plugins/telemetry/CUSTOMER/' + entityId.id + '/values/attributes/SERVER_SCOPE?keys=tempClampMin,tempClampMax,tempMaxGapSlots')
+      .get('/api/plugins/telemetry/CUSTOMER/' + entityId.id + '/values/attributes/SERVER_SCOPE?keys=tempClampMin,tempClampMax,tempMaxGapSlots,tempAdjustmentSince')
       .toPromise();
     const data = (resp && resp.data) ? resp.data : resp;
     const attrs = Array.isArray(data) ? data : [];
     const minAttr = attrs.find(function (a) { return a.key === 'tempClampMin'; });
     const maxAttr = attrs.find(function (a) { return a.key === 'tempClampMax'; });
     const gapAttr = attrs.find(function (a) { return a.key === 'tempMaxGapSlots'; });
+    const adjAttr = attrs.find(function (a) { return a.key === 'tempAdjustmentSince'; });
     const hasMin = minAttr != null && minAttr.value != null;
     const hasMax = maxAttr != null && maxAttr.value != null;
     const hasGap = gapAttr != null && gapAttr.value != null;
@@ -301,10 +316,18 @@ async function _loadClampAttributes() {
       _maxGapSlots = MAX_GAP_SLOTS_DEFAULT;
       LogHelper.log('[INTERP] maxGapSlots usando default:', _maxGapSlots);
     }
+    if (adjAttr != null && adjAttr.value != null && !isNaN(new Date(adjAttr.value).getTime())) {
+      _adjustmentSince = new Date(adjAttr.value).toISOString();
+      LogHelper.log('[ADJUST] adjustmentSince carregado de SERVER_SCOPE:', _adjustmentSince);
+    } else {
+      _adjustmentSince = ADJUSTMENT_SINCE_DEFAULT;
+      LogHelper.log('[ADJUST] adjustmentSince usando default:', _adjustmentSince);
+    }
     self.ctx.$scope.clampMin = clampMin;
     self.ctx.$scope.clampMax = clampMax;
     self.ctx.$scope.clampFromCustomer = _clampFromCustomer;
     self.ctx.$scope.maxGapSlots = _maxGapSlots;
+    self.ctx.$scope.adjustmentSinceDate = _adjustmentSince.slice(0, 10); // YYYY-MM-DD p/ input date
     self.ctx.detectChanges();
   } catch (e) {
     LogHelper.warn('[CLAMP] Falha ao carregar, usando defaults:', e);
@@ -327,6 +350,7 @@ async function _saveClampAttributes() {
         tempClampMin: clampMin,
         tempClampMax: clampMax,
         tempMaxGapSlots: _maxGapSlots,
+        tempAdjustmentSince: _adjustmentSince,
       })
       .toPromise();
     _clampFromCustomer = true;
@@ -513,8 +537,14 @@ async function _saveManualOverrides(data) {
 }
 
 // -------- Cache --------
+// Interpolação é aplicada antes de cachear: a config faz parte da identidade do resultado
+function _interpConfigKey() {
+  return `interp=${interpolationEnabled ? 1 : 0}:max=${_maxGapSlots}`;
+}
+
 function cacheKey(centrals, s, e) {
-  return `${centrals.sort().join(',')}|${s}|${e}`;
+  // _adjustmentSince na chave: mudar a data de referência invalida o cache
+  return `${centrals.sort().join(',')}|${s}|${e}|${_adjustmentSince}|${_interpConfigKey()}`;
 }
 
 function getCache(centrals, s, e) {
@@ -537,77 +567,34 @@ const INTERPOLATION_CONFIG = {
   includeMissingInOutput: true, // Inclui slots sem dados no output (missing: true) para contagem de perda
 };
 
-/**
- * Identifica gaps consecutivos na série de slots
- * @param {string[]} fullSlots - Array de slots ISO
- * @param {Map} existingBySlot - Map de slots com dados reais
- * @returns {Array<{startIndex, endIndex, startSlot, endSlot, size}>}
- */
-function identifyGaps(fullSlots, existingBySlot) {
-  const gaps = [];
-  let currentGap = null;
+const SLOT_MS = 30 * 60 * 1000; // slot de telemetria: 30 min
 
-  for (let i = 0; i < fullSlots.length; i++) {
-    const hasData = existingBySlot.has(fullSlots[i]);
-
-    if (!hasData) {
-      if (!currentGap) {
-        currentGap = { startIndex: i, startSlot: fullSlots[i], size: 0 };
-      }
-      currentGap.size++;
-      currentGap.endIndex = i;
-      currentGap.endSlot = fullSlots[i];
-    } else {
-      if (currentGap) {
-        gaps.push(currentGap);
-        currentGap = null;
-      }
-    }
-  }
-
-  // Gap final (se terminar sem dados)
-  if (currentGap) {
-    gaps.push(currentGap);
-  }
-
-  return gaps;
+// Dia-calendário em Brasília (independe do fuso do navegador)
+function _brtDayKey(ms) {
+  return new Date(ms).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
 }
 
 /**
- * Encontra o gap que contém um determinado índice
- * @param {Array} gaps - Lista de gaps identificados
- * @param {number} slotIndex - Índice do slot atual
- * @returns {Object|null} - Gap info ou null se não encontrado
- */
-function findGapForSlot(gaps, slotIndex) {
-  return gaps.find((gap) => slotIndex >= gap.startIndex && slotIndex <= gap.endIndex) || null;
-}
-
-/**
- * Verifica se um gap pode ser interpolado
- * @param {Object} gapInfo - Informações do gap
+ * Verifica se uma lacuna pode ser interpolada
+ * @param {Object} gapInfo - { open, size, startSlot, endSlot } — lacuna inteira, medida na série contínua
  * @param {number} maxGapSlots - Máximo de slots permitidos
  * @param {boolean} allowCrossMidnight - Permitir cruzar meia-noite
  * @returns {boolean}
  */
 function canInterpolate(gapInfo, maxGapSlots, allowCrossMidnight) {
+  // Regra 0: lacuna aberta (sem leitura real de um dos lados) não tem como ser estimada
+  if (gapInfo.open) {
+    return false;
+  }
+
   // Regra 1: Gap não pode exceder maxGapSlots
   if (gapInfo.size > maxGapSlots) {
     return false;
   }
 
   // Regra 2: Não cruzar meia-noite (se não permitido)
-  if (!allowCrossMidnight) {
-    const startDate = new Date(gapInfo.startSlot);
-    const endDate = new Date(gapInfo.endSlot);
-
-    // Verificar se estão no mesmo dia (comparar data local)
-    const startDay = startDate.toLocaleDateString();
-    const endDay = endDate.toLocaleDateString();
-
-    if (startDay !== endDay) {
-      return false;
-    }
+  if (!allowCrossMidnight && _brtDayKey(Date.parse(gapInfo.startSlot)) !== _brtDayKey(Date.parse(gapInfo.endSlot))) {
+    return false;
   }
 
   return true;
@@ -615,268 +602,137 @@ function canInterpolate(gapInfo, maxGapSlots, allowCrossMidnight) {
 
 /**
  * Retorna o motivo pelo qual o slot não foi interpolado
- * @param {Object} gapInfo - Informações do gap
+ * @param {Object} gapInfo - Informações da lacuna
  * @param {number} maxGapSlots - Máximo de slots permitidos
  * @param {boolean} allowCrossMidnight - Permitir cruzar meia-noite
  * @returns {string}
  */
 function getSkipReason(gapInfo, maxGapSlots, allowCrossMidnight) {
+  if (gapInfo.open) {
+    return 'open_gap_no_neighbor';
+  }
+
   if (gapInfo.size > maxGapSlots) {
     return `gap_too_large_${gapInfo.size}_slots_max_${maxGapSlots}`;
   }
 
-  if (!allowCrossMidnight) {
-    const startDate = new Date(gapInfo.startSlot);
-    const endDate = new Date(gapInfo.endSlot);
-    const startDay = startDate.toLocaleDateString();
-    const endDay = endDate.toLocaleDateString();
-
-    if (startDay !== endDay) {
-      return 'crosses_midnight';
-    }
+  if (!allowCrossMidnight && _brtDayKey(Date.parse(gapInfo.startSlot)) !== _brtDayKey(Date.parse(gapInfo.endSlot))) {
+    return 'crosses_midnight';
   }
 
   return 'unknown';
 }
 
 /**
- * Gera série contínua em passos de 30 min entre startISO e endISO (ambos inclusivos),
- * cobrindo de 00:00 até 23:30 de cada dia no **fuso local**.
+ * Gera a série contínua de slots de 30 min da janela [startISO, endISO] de um device.
  *
- * INTERPOLAÇÃO LIMITADA:
- * - Máximo de 3 horas (6 slots) de gap
- * - Não interpola gaps que cruzam meia-noite
- * - Gaps inválidos são marcados como missing: true
+ * INTERPOLAÇÃO LIMITADA (ED-1235 / ED-1238):
+ * - Cada lacuna é medida INTEIRA na série contínua — não é cortada na meia-noite nem na
+ *   borda do período. `sorted` deve trazer leituras além da janela (margem buscada em
+ *   getData) para que as lacunas das bordas tenham vizinho e tamanho reais.
+ * - Lacuna fechada (leitura real dos dois lados), com tamanho <= maxGapSlots e sem cruzar a
+ *   meia-noite: interpolação linear entre as leituras vizinhas (ou "=" com interpolação desligada).
+ * - Lacuna maior, que cruza a meia-noite ou aberta (sem vizinho de um dos lados): missing: true.
+ * - Só emite slots dentro da janela. Sem leitura real dentro da janela → [] (não gera dado fictício).
  *
- * @param {Array<{time_interval: string, value: number}>} sorted  Leituras ordenadas por tempo ASC (pode estar vazia)
- * @param {string} deviceName  (não usado, mantido por compatibilidade de assinatura)
- * @param {string} startISO    Início do intervalo (qualquer horário; será normalizado para 00:00 local)
- * @param {string} endISO      Fim do intervalo (qualquer horário; será normalizado para 23:30 local)
+ * @param {Array<{time_interval: string, value: number}>} sorted  Leituras ordenadas por tempo ASC
+ * @param {string} deviceName  Usado só nos logs
+ * @param {string} startISO    Início da janela (1º slot emitido)
+ * @param {string} endISO      Fim da janela (último slot emitido, arredondado para baixo)
  * @returns {Array<{time_interval: string, value: number, interpolated?: boolean, missing?: boolean, reason?: string}>}
  */
 function interpolateSeries(sorted, deviceName, startISO, endISO) {
   const { maxGapSlots, allowCrossMidnight, includeMissingInOutput } = INTERPOLATION_CONFIG;
+  const winStart = Math.ceil(Date.parse(startISO) / SLOT_MS) * SLOT_MS;
+  const winEnd = Math.floor(Date.parse(endISO) / SLOT_MS) * SLOT_MS;
 
-  // IMPORTANTE: Se não há dados reais, retorna array vazio (não gera dados fictícios)
-  if (!sorted || sorted.length === 0) {
-    LogHelper.log(`[Interpolation] Device: ${deviceName} - NO REAL DATA, skipping entirely`);
+  // Leitura real por slot canônico: "snap" para o slot de 30 min mais próximo
+  // (tolerante a segundos/offsets), preservando o último valor observado no slot
+  const bySlot = new Map();
+  for (const item of sorted || []) {
+    const t = Date.parse(item.time_interval);
+    if (isNaN(t)) continue;
+    const slot = Math.round(t / SLOT_MS) * SLOT_MS;
+    bySlot.set(slot, { ...item, time_interval: new Date(slot).toISOString(), interpolated: false });
+  }
+  const realSlots = Array.from(bySlot.keys()).sort((a, b) => a - b);
+
+  // IMPORTANTE: sem leitura real dentro da janela, não gera nada (não geramos dados fictícios)
+  if (!realSlots.some((t) => t >= winStart && t <= winEnd)) {
+    LogHelper.log(`[Interpolation] Device: ${deviceName} - NO REAL DATA in window, skipping entirely`);
     return [];
   }
 
-  const HALF_HOUR_MS = 30 * 60 * 1000;
-
-  // Agrupar dados reais por dia LOCAL (Brasil, não UTC)
-  // Usando getFullYear/getMonth/getDate que retornam valores no timezone local
-  const dataByDay = new Map();
-  for (const item of sorted) {
-    const dt = new Date(item.time_interval);
-    // Usa métodos locais para extrair o dia no timezone do Brasil
-    const year = dt.getFullYear();
-    const month = String(dt.getMonth() + 1).padStart(2, '0');
-    const day = String(dt.getDate()).padStart(2, '0');
-    const dayKey = `${year}-${month}-${day}`; // dia LOCAL, não UTC
-    if (!dataByDay.has(dayKey)) {
-      dataByDay.set(dayKey, []);
-    }
-    dataByDay.get(dayKey).push(item);
-  }
-
-  const daysWithData = Array.from(dataByDay.keys()).sort();
-  LogHelper.log(
-    `[Interpolation] Device: ${deviceName} - Days with real data: ${daysWithData.length} (${daysWithData[0]} to ${daysWithData[daysWithData.length - 1]})`
-  );
-
-  // Processar APENAS os dias que têm dados reais
-  const allResults = [];
-
-  for (const dayKey of daysWithData) {
-    const dayData = dataByDay.get(dayKey);
-
-    // Normaliza para slots de 30 min no horário Brasil (UTC-3)
-    // Dia local começa às 03:00 UTC e termina às 02:30 UTC do dia seguinte
-    // Mas para simplificar, vamos criar slots de 00:00 local até 23:30 local
-    // usando Date que já trabalha no timezone local
-    const [year, month, day] = dayKey.split('-').map(Number);
-    const start = new Date(year, month - 1, day, 0, 0, 0, 0); // 00:00 local
-    let end = new Date(year, month - 1, day, 23, 30, 0, 0); // 23:30 local
-    // Não gerar slots além do endISO (evita dados futuros interpolados)
-    const endCap = new Date(endISO);
-    if (end > endCap) {
-      const snapped = Math.floor(endCap.getTime() / HALF_HOUR_MS) * HALF_HOUR_MS;
-      end = new Date(snapped);
-    }
-
-    const dayResult = interpolateDay(
-      dayData,
-      deviceName,
-      start,
-      end,
-      HALF_HOUR_MS,
-      maxGapSlots,
-      allowCrossMidnight,
-      includeMissingInOutput
-    );
-    allResults.push(...dayResult);
-  }
-
-  return allResults;
-}
-
-/**
- * Interpola um único dia
- */
-function interpolateDay(
-  sorted,
-  deviceName,
-  start,
-  end,
-  HALF_HOUR_MS,
-  maxGapSlots,
-  allowCrossMidnight,
-  includeMissingInOutput
-) {
-  // "Snap" de qualquer timestamp para o slot de 30min **mais próximo** (tolerante a segundos/offsets).
-  // Trabalha em tempo absoluto (epoch), então independe de UTC/local para arredondamento.
-  function canonicalISO30(dt) {
-    const ms = dt.getTime();
-    const snapped = Math.round(ms / HALF_HOUR_MS) * HALF_HOUR_MS;
-    return new Date(snapped).toISOString();
-  }
-
-  // Mapa de leituras existentes por slot canônico (ISO), preservando o último valor observado para o slot
-  const existingBySlot = new Map();
-  for (const item of sorted || []) {
-    const t = new Date(item.time_interval);
-    if (isNaN(t)) continue;
-    const key = canonicalISO30(t);
-    // armazenamos já com time_interval no slot canônico e flag interpolated false
-    existingBySlot.set(key, { ...item, time_interval: key, interpolated: false });
-  }
-
-  // Gera todos os slots de 30min do período (inclusive o 23:30 final)
-  const fullSlots = [];
-  for (let t = new Date(start); t.getTime() <= end.getTime(); t = new Date(t.getTime() + HALF_HOUR_MS)) {
-    fullSlots.push(t.toISOString());
-  }
-
-  // Identificar todos os gaps na série
-  const gaps = identifyGaps(fullSlots, existingBySlot);
-
-  // Log para debug
-  if (gaps.length > 0) {
-    LogHelper.log(
-      `[Interpolation] Device: ${deviceName}, Gaps found: ${gaps.length}, Config: max ${maxGapSlots} slots, crossMidnight: ${allowCrossMidnight}`
-    );
-    gaps.forEach((g, idx) => {
-      const canInterp = canInterpolate(g, maxGapSlots, allowCrossMidnight);
-      LogHelper.log(
-        `  Gap ${idx + 1}: ${g.size} slots (${g.startSlot} → ${g.endSlot}) - ${canInterp ? 'WILL INTERPOLATE' : 'SKIP: ' + getSkipReason(g, maxGapSlots, allowCrossMidnight)}`
-      );
-    });
-  }
-
-  // Monta a série final usando leitura existente, valor interpolado, ou missing
   const result = [];
   let interpolatedCount = 0;
   let missingCount = 0;
+  let next = 0; // índice da 1ª leitura real com slot > t
 
-  for (let i = 0; i < fullSlots.length; i++) {
-    const slotISO = fullSlots[i];
+  for (let t = winStart; t <= winEnd; t += SLOT_MS) {
+    const real = bySlot.get(t);
+    if (real) {
+      result.push(real);
+      continue;
+    }
 
-    if (existingBySlot.has(slotISO)) {
-      // Valor real - sempre incluir
-      result.push(existingBySlot.get(slotISO));
-    } else {
-      // Verificar se este slot faz parte de um gap válido para interpolação
-      const gapInfo = findGapForSlot(gaps, i);
+    while (next < realSlots.length && realSlots[next] <= t) next++;
+    const prevTs = next > 0 ? realSlots[next - 1] : null;
+    const nextTs = next < realSlots.length ? realSlots[next] : null;
+    const open = prevTs === null || nextTs === null;
+    const gapInfo = {
+      open,
+      size: open ? Infinity : (nextTs - prevTs) / SLOT_MS - 1,
+      startSlot: new Date(prevTs === null ? t : prevTs + SLOT_MS).toISOString(),
+      endSlot: new Date(nextTs === null ? t : nextTs - SLOT_MS).toISOString(),
+    };
+    const slotISO = new Date(t).toISOString();
 
-      if (gapInfo && canInterpolate(gapInfo, maxGapSlots, allowCrossMidnight)) {
-        if (interpolationEnabled) {
-          // Interpolação habilitada: calcular valor estimado
-          const interpolatedValue = generateInterpolatedValue(slotISO, existingBySlot, fullSlots, i);
-          result.push({
-            time_interval: slotISO,
-            value: interpolatedValue,
-            interpolated: true,
-            gapSize: gapInfo.size,
-          });
-          interpolatedCount++;
-        } else {
-          // Interpolação desabilitada: marcar slot com "=" (gap preenchível mas não estimado)
-          result.push({
-            time_interval: slotISO,
-            value: null,
-            interpolated: false,
-            equalSign: true,
-            gapSize: gapInfo.size,
-          });
-        }
+    if (canInterpolate(gapInfo, maxGapSlots, allowCrossMidnight)) {
+      if (interpolationEnabled) {
+        // Interpolação linear entre as leituras reais que fecham a lacuna
+        const v0 = Number(bySlot.get(prevTs).value);
+        const v1 = Number(bySlot.get(nextTs).value);
+        result.push({
+          time_interval: slotISO,
+          value: Number((v0 + ((v1 - v0) * (t - prevTs)) / (nextTs - prevTs)).toFixed(2)),
+          interpolated: true,
+          gapSize: gapInfo.size,
+        });
+        interpolatedCount++;
       } else {
-        // Gap muito grande ou cruza meia-noite - marcar como missing
-        // Se includeMissingInOutput = false, não adiciona ao resultado (simplesmente pula)
-        if (includeMissingInOutput) {
-          const reason = gapInfo ? getSkipReason(gapInfo, maxGapSlots, allowCrossMidnight) : 'no_gap_info';
-          result.push({
-            time_interval: slotISO,
-            value: null,
-            interpolated: false,
-            missing: true,
-            reason: reason,
-          });
-        }
-        missingCount++;
+        // Interpolação desabilitada: marcar slot com "=" (gap preenchível mas não estimado)
+        result.push({
+          time_interval: slotISO,
+          value: null,
+          interpolated: false,
+          equalSign: true,
+          gapSize: gapInfo.size,
+        });
       }
+    } else {
+      // Lacuna grande, aberta ou que cruza meia-noite - marcar como missing
+      // Se includeMissingInOutput = false, não adiciona ao resultado (simplesmente pula)
+      if (includeMissingInOutput) {
+        result.push({
+          time_interval: slotISO,
+          value: null,
+          interpolated: false,
+          missing: true,
+          reason: getSkipReason(gapInfo, maxGapSlots, allowCrossMidnight),
+        });
+      }
+      missingCount++;
     }
   }
 
-  // Log summary
   if (interpolatedCount > 0 || missingCount > 0) {
     const missingAction = includeMissingInOutput ? 'included' : 'skipped';
     LogHelper.log(
-      `[Interpolation] Device: ${deviceName} - Interpolated: ${interpolatedCount}, Missing: ${missingCount} (${missingAction}), Real: ${existingBySlot.size}`
+      `[Interpolation] Device: ${deviceName} - Interpolated: ${interpolatedCount}, Missing: ${missingCount} (${missingAction}), Config: max ${maxGapSlots} slots, crossMidnight: ${allowCrossMidnight}`
     );
   }
 
   return result;
-}
-
-function generateInterpolatedValue(timeSlot, existingData, timeSeries, currentIndex) {
-  const timeSlotDate = new Date(timeSlot);
-  const hour = timeSlotDate.getHours();
-
-  // Base temperature varies by time of day with some randomness
-  let baseTemp;
-  if (hour >= 0 && hour < 9) {
-    // Early morning: 17-19°C
-    baseTemp = 17 + Math.random() * 2;
-  } else if (hour >= 9 && hour < 18) {
-    // Day time: 18-22°C
-    baseTemp = 18 + Math.random() * 4;
-  } else {
-    // Evening/night: 17-20°C
-    baseTemp = 17 + Math.random() * 3;
-  }
-
-  // Add small random variation to avoid identical values
-  const variation = (Math.random() - 0.5) * 1.5; // ±0.75°C variation
-  const finalTemp = baseTemp + variation;
-
-  // Look for nearby existing values to make interpolation more realistic
-  const nearbyValues = [];
-  for (let j = Math.max(0, currentIndex - 4); j < Math.min(timeSeries.length, currentIndex + 4); j++) {
-    const nearbyTime = timeSeries[j];
-    if (existingData.has(nearbyTime)) {
-      nearbyValues.push(Number(existingData.get(nearbyTime).value));
-    }
-  }
-
-  if (nearbyValues.length > 0) {
-    const avgNearby = nearbyValues.reduce((sum, val) => sum + val, 0) / nearbyValues.length;
-    // Blend with nearby average (70% nearby, 30% base calculation)
-    return Number((avgNearby * 0.7 + finalTemp * 0.3).toFixed(2));
-  }
-
-  return Number(finalTemp.toFixed(2));
 }
 
 function clampTemperature(val) {
@@ -1023,7 +879,7 @@ const RPC_TIMEOUT_MS = 300000; // 300 segundos (5 minutos)
 
 /**
  * sendRPCTemp v2
- * @param {Object} bodiesPerCentral - Mapa { centralId: { devices, dateStart, dateEnd } }
+ * @param {Object} bodiesPerCentral - Mapa { centralId: { devices, dateStart, dateEnd, adjustmentSince } }
  */
 async function sendRPCTemp(bodiesPerCentral) {
   const $http = getHttp();
@@ -1227,6 +1083,7 @@ async function _loadJSZip() {
 }
 
 async function _exportZIP() {
+  if (!_ensureReportDateAllowed()) return;
   const d = _buildExportData();
   if (!d.length) {
     openErrorModal('Sem dados', 'Não há dados para exportar no ZIP.');
@@ -1713,11 +1570,13 @@ async function getData() {
     nowUTC.toISOString()
   );
 
+  let endCappedToNow = false;
   if (e > nowUTC) {
     e = new Date(nowUTC);
     // Arredonda para o slot de 30min anterior mais próximo
     const mins = e.getUTCMinutes();
     e.setUTCMinutes(mins < 30 ? 0 : 30, 0, 0);
+    endCappedToNow = true;
     LogHelper.log('[UTC-FIX-V5] END limitado ao horário atual UTC:', e.toISOString());
   }
 
@@ -1726,7 +1585,9 @@ async function getData() {
   LogHelper.log('[UTC-FIX-V5] dateEnd:', e.toISOString());
   const keyStart = s.toISOString();
   const keyEnd = e.toISOString();
-  const queryKey = `${centrals.slice().sort().join(',')}|${keyStart}|${keyEnd}`;
+  // Config de interpolação entra na chave: mudar toggle/lacuna máx. e recarregar
+  // o mesmo período precisa reprocessar (antes era ignorado como "mesma consulta")
+  const queryKey = `${centrals.slice().sort().join(',')}|${keyStart}|${keyEnd}|${_adjustmentSince}|${_interpConfigKey()}`;
 
   // Guardas anti-duplicação
   if (_inFlight) {
@@ -1760,8 +1621,26 @@ async function getData() {
   setPremiumLoading(true, LOADING_STATES.AWAITING_DATA, 10);
   self.ctx.$scope.loading = true;
 
-  // Chunking em 31 dias (cobre meses completos de até 31 dias em um único chunk)
+  // Janela do relatório (slots emitidos) × janela de busca (com margem).
+  // ED-1235/ED-1238: cada lacuna é medida inteira na série contínua, então buscamos
+  // maxGapSlots+1 slots além de cada borda — sem a margem, o 23:30 do último dia não tem
+  // vizinho à direita e uma lacuna que começa antes do período parece menor do que é.
+  const winStartISO = s.toISOString();
+  // Com o fim limitado ao "agora", o slot em andamento fica de fora (mesma regra de _fillWithMissingSlots)
+  const winEndISO = new Date(endCappedToNow ? e.getTime() - SLOT_MS : e.getTime()).toISOString();
+  const padMs = (_maxGapSlots + 1) * SLOT_MS;
+  const nowSlotMs = Math.floor(Date.now() / SLOT_MS) * SLOT_MS;
+  const fetchStart = new Date(s.getTime() - padMs);
+  const fetchEnd = new Date(Math.max(e.getTime(), Math.min(e.getTime() + padMs, nowSlotMs)));
+  LogHelper.log('[INTERP] janela:', winStartISO, '→', winEndISO, '| busca com margem:', fetchStart.toISOString(), '→', fetchEnd.toISOString());
+
+  // Chunking em 31 dias (cobre meses completos de até 31 dias em um único chunk).
+  // A margem só estende o início do 1º chunk e o fim do último (chunks não se sobrepõem).
   const dateChunks = createDateChunks(s, e, 31);
+  if (dateChunks.length) {
+    dateChunks[0].start = fetchStart;
+    dateChunks[dateChunks.length - 1].end = fetchEnd;
+  }
   const totalChunks = dateChunks.length;
 
   const dd = (d) => String(d.getDate()).padStart(2, '0');
@@ -1778,7 +1657,8 @@ async function getData() {
     const overrideMap = buildOverrideMap(_manualOverrides); // manual override lookup
     LogHelper.log('[OVERRIDE] getData: overrideMap.size =', overrideMap.size);
     const globalMissingMap = {};
-    const devicesSeen = {}; // continuidade após 1ª aparição
+    const readingsByDevice = {}; // devName -> leituras de TODOS os chunks (inclui a margem)
+    const centralByDevice = {}; // devName -> centralId que respondeu pelo device
     const allRpcErrors = []; // Acumula erros de conexão com centrais
 
     for (let chunkIndex = 0; chunkIndex < dateChunks.length; chunkIndex++) {
@@ -1798,6 +1678,9 @@ async function getData() {
           devices: devicesForCentral,
           dateStart: chunk.start.toISOString(),
           dateEnd: chunk.end.toISOString(),
+          // Get-slave-ids v3.1 na central lê msg.payload.adjustmentSince:
+          // ajuste +/-/x do nome do device só se aplica a telemetria >= esta data
+          adjustmentSince: _adjustmentSince,
         };
       }
 
@@ -1825,9 +1708,15 @@ async function getData() {
         const arrReadings = Array.isArray(readings) ? readings : [];
         LogHelper.log(`[CHUNK ${chunkNumber}/${totalChunks}]`, centralId, 'leituras:', arrReadings.length);
 
-        // Accumulate raw readings for ZIP export (all chunks concatenated per central)
+        // Accumulate raw readings for ZIP export (all chunks concatenated per central).
+        // Só o período consultado — a margem de interpolação fica de fora.
         if (!_lastRawByCentral[centralId]) _lastRawByCentral[centralId] = [];
-        _lastRawByCentral[centralId].push(...arrReadings);
+        _lastRawByCentral[centralId].push(
+          ...arrReadings.filter((r) => {
+            const t = Date.parse(r.time_interval);
+            return !(t < s.getTime() || t > e.getTime());
+          })
+        );
 
         // v2.1: Normalização condicional por central
         // Centrais com backend ORIGINAL precisam de -3h de correção
@@ -1838,7 +1727,7 @@ async function getData() {
         const needsLegacyNormalization = CENTRALS_WITH_OLD_BACKEND.includes(centralId);
         const THREE_HOURS_MS = 3 * 60 * 60 * 1000;
 
-        const normalizedReadings = (Array.isArray(readings) ? readings : []).map((r) => {
+        const normalizedReadings = arrReadings.map((r) => {
           if (needsLegacyNormalization && r.time_interval) {
             const originalTime = new Date(r.time_interval);
             const normalizedTime = new Date(originalTime.getTime() - THREE_HOURS_MS);
@@ -1860,158 +1749,143 @@ async function getData() {
           );
         }
 
-        const byDevice = _.groupBy(
-          normalizedReadings,
-          (r) =>
-            r.device_label || r.deviceLabel || r.label || r.deviceName || r.device || r.name || 'desconhecido'
-        );
+        for (const r of normalizedReadings) {
+          const devName =
+            r.device_label || r.deviceLabel || r.label || r.deviceName || r.device || r.name || 'desconhecido';
+          if (!readingsByDevice[devName]) readingsByDevice[devName] = [];
+          readingsByDevice[devName].push(r);
+          centralByDevice[devName] = centralId;
+        }
+      }
+    }
 
-        const deviceKeys = Object.keys(byDevice);
-        LogHelper.log(
-          `[CHUNK ${chunkNumber}/${totalChunks}] ${centralId} devices:`,
-          deviceKeys.length,
-          deviceKeys.slice(0, 8)
-        );
+    // Processa cada device UMA vez, sobre as leituras de todos os chunks — assim uma lacuna
+    // na fronteira entre chunks também é medida inteira.
+    // União: devices do widget ∪ devices que efetivamente chegaram do backend
+    const unionDevices = new Set([...deviceList, ...Object.keys(readingsByDevice)]);
+    LogHelper.log('[INTERP] devices com leituras:', Object.keys(readingsByDevice).length, '/ união:', unionDevices.size);
 
-        // União: devices do widget ∪ devices que efetivamente chegaram do backend
-        const unionDevices = new Set([...deviceList, ...Object.keys(byDevice)]);
+    for (const devName of unionDevices) {
+      const arr = (readingsByDevice[devName] || [])
+        .filter(
+          (r) => r.value !== 'SEM DADOS' && r.value != null && r.value !== '' && Number(r.value) !== 0
+        )
+        .sort((a, b) => new Date(a.time_interval) - new Date(b.time_interval));
 
-        for (const devName of unionDevices) {
-          const arr = (byDevice[devName] || [])
-            .filter(
-              (r) => r.value !== 'SEM DADOS' && r.value != null && r.value !== '' && Number(r.value) !== 0
-            )
-            .sort((a, b) => new Date(a.time_interval) - new Date(b.time_interval));
+      // Sem nenhuma leitura real, pula o device
+      if (!arr.length) continue;
 
-          if (arr.length) devicesSeen[devName] = true;
+      const centralId = centralByDevice[devName];
+      var _ovPpStart = allProcessed.length;
 
-          // Continuidade após 1ª aparição:
-          // - se nunca apareceu e não há leitura neste chunk -> pula
-          if (!devicesSeen[devName] && arr.length === 0) continue;
+      const interpolated = interpolateSeries(arr, devName, winStartISO, winEndISO);
 
-          // Limita a interpolação pelo último dado REAL do device (não pelo chunk.end)
-          // Isso evita criar slots interpolados para horários sem dados reais
-          const firstRealData = arr.length > 0 ? arr[0].time_interval : null;
-          const lastRealData = arr.length > 0 ? arr[arr.length - 1].time_interval : null;
+      // Leituras só na margem (nenhuma dentro do período): device fica fora do relatório
+      if (!interpolated.length) continue;
 
-          // Se não há dados reais, pula a interpolação
-          if (!firstRealData || !lastRealData) continue;
+      // Mapear lacunas (slots interpolados)
+      const miss = interpolated.filter((r) => r.interpolated).map((r) => r.time_interval);
+      if (miss.length) {
+        if (!globalMissingMap[devName]) globalMissingMap[devName] = [];
+        globalMissingMap[devName].push(...miss);
+      }
 
-          var _ovPpStart = allProcessed.length;
+      const deviceLabel = deviceNameLabelMap[devName] || devName;
 
-          const interpolated = interpolateSeries(
-            arr,
-            devName,
-            firstRealData, // Começa do primeiro dado real
-            lastRealData // Termina no último dado real
-          );
+      if (allProcessed.length === 0) {
+        LogHelper.log('Exemplo de ponto interpolado/original:', interpolated[0]);
+      }
 
-          // Mapear lacunas (slots interpolados)
-          const miss = interpolated.filter((r) => r.interpolated).map((r) => r.time_interval);
-          if (miss.length) {
-            if (!globalMissingMap[devName]) globalMissingMap[devName] = [];
-            globalMissingMap[devName].push(...miss);
-          }
-
-          const deviceLabel = deviceNameLabelMap[devName] || devName;
-
-          if (chunkIndex === 0 && allProcessed.length === 0 && interpolated.length > 0) {
-            LogHelper.log('Exemplo de ponto interpolado/original:', interpolated[0]);
-          }
-
-          for (const r of interpolated) {
-            const { value, clamped } = clampTemperature(r.value);
-            // ── Manual Override check ────────────────────────────────────────
-            let finalValue = value;
-            let finalEqualSign = !!r.equalSign;
-            let isManual = false;
-            const isSentinel =
-              finalValue == null ||
-              finalEqualSign ||
-              (finalValue != null && Math.abs(finalValue - 17.0) < 0.001);
-            if (isSentinel && overrideMap.size > 0) {
-              const overrideKey = devName.split(' ')[0]; // normalize to deviceCentralName
-              const devMap = overrideMap.get(overrideKey);
-              LogHelper.log('[OVERRIDE] sentinel slot: devName=' + devName +
-                ' overrideKey=' + overrideKey +
-                ' time_interval=' + r.time_interval +
-                ' devMapFound=' + !!devMap +
-                ' finalValue=' + finalValue);
-              if (devMap) {
-                const ov = devMap.get(r.time_interval);
-                LogHelper.log('[OVERRIDE] devMap lookup: timeUTC=' + r.time_interval + ' ov=' + ov);
-                if (ov !== undefined && ov !== null) {
-                  const { value: ov2 } = clampTemperature(ov);
-                  finalValue = ov2;
-                  finalEqualSign = false;
-                  isManual = true;
-                  LogHelper.log('[OVERRIDE] ✓ aplicado: ' + overrideKey + ' @ ' + r.time_interval + ' = ' + ov2);
-                }
-              } else {
-                LogHelper.warn('[OVERRIDE] ✗ device não encontrado no overrideMap: "' + overrideKey + '"',
-                  'chaves disponíveis:', Array.from(overrideMap.keys()));
-              }
-            } else if (isSentinel) {
-              LogHelper.log('[OVERRIDE] sentinel slot sem overrideMap (vazio): devName=' + devName + ' time=' + r.time_interval);
+      for (const r of interpolated) {
+        const { value, clamped } = clampTemperature(r.value);
+        // ── Manual Override check ────────────────────────────────────────
+        let finalValue = value;
+        let finalEqualSign = !!r.equalSign;
+        let isManual = false;
+        const isSentinel =
+          finalValue == null ||
+          finalEqualSign ||
+          (finalValue != null && Math.abs(finalValue - 17.0) < 0.001);
+        if (isSentinel && overrideMap.size > 0) {
+          const overrideKey = devName.split(' ')[0]; // normalize to deviceCentralName
+          const devMap = overrideMap.get(overrideKey);
+          LogHelper.log('[OVERRIDE] sentinel slot: devName=' + devName +
+            ' overrideKey=' + overrideKey +
+            ' time_interval=' + r.time_interval +
+            ' devMapFound=' + !!devMap +
+            ' finalValue=' + finalValue);
+          if (devMap) {
+            const ov = devMap.get(r.time_interval);
+            LogHelper.log('[OVERRIDE] devMap lookup: timeUTC=' + r.time_interval + ' ov=' + ov);
+            if (ov !== undefined && ov !== null) {
+              const { value: ov2 } = clampTemperature(ov);
+              finalValue = ov2;
+              finalEqualSign = false;
+              isManual = true;
+              LogHelper.log('[OVERRIDE] ✓ aplicado: ' + overrideKey + ' @ ' + r.time_interval + ' = ' + ov2);
             }
-            // ────────────────────────────────────────────────────────────────
-            allProcessed.push({
-              centralId,
-              deviceName: deviceLabel,
-              reading_date: brDatetime(r.time_interval),
-              sort_ts: new Date(r.time_interval).getTime(),
-              temperature: finalEqualSign ? '=' : finalValue == null ? '-' : finalValue.toFixed(2),
-              interpolated: !!r.interpolated && !isManual,
-              equalSign: finalEqualSign,
-              correctedBelowThreshold: !!clamped && !isManual,
-              missing: !!r.missing && !isManual,
-              missingReason: !isManual ? (r.reason || null) : null,
-              gapSize: !isManual ? (r.gapSize || null) : null,
-              isManual,
-            });
+          } else {
+            LogHelper.warn('[OVERRIDE] ✗ device não encontrado no overrideMap: "' + overrideKey + '"',
+              'chaves disponíveis:', Array.from(overrideMap.keys()));
           }
+        } else if (isSentinel) {
+          LogHelper.log('[OVERRIDE] sentinel slot sem overrideMap (vazio): devName=' + devName + ' time=' + r.time_interval);
+        }
+        // ────────────────────────────────────────────────────────────────
+        allProcessed.push({
+          centralId,
+          deviceName: deviceLabel,
+          reading_date: brDatetime(r.time_interval),
+          sort_ts: new Date(r.time_interval).getTime(),
+          temperature: finalEqualSign ? '=' : finalValue == null ? '-' : finalValue.toFixed(2),
+          interpolated: !!r.interpolated && !isManual,
+          equalSign: finalEqualSign,
+          correctedBelowThreshold: !!clamped && !isManual,
+          missing: !!r.missing && !isManual,
+          missingReason: !isManual ? (r.reason || null) : null,
+          gapSize: !isManual ? (r.gapSize || null) : null,
+          isManual,
+        });
+      }
 
-          // FIX (override post-pass injection):
-          // interpolateSeries so processa dias com leitura real (linhas 657-720).
-          // Para dias 100% SEM DADOS, mesmo havendo override valido, nenhum slot
-          // era emitido. Esta passada injeta os slots de override do chunk que
-          // ainda nao sairam pelo loop principal.
-          var _ovPpKey = devName.split(' ')[0];
-          var _ovPpMap = overrideMap.get(_ovPpKey);
-          if (_ovPpMap && _ovPpMap.size > 0) {
-            var _ovPpChunkStart = chunk.start.toISOString();
-            var _ovPpChunkEnd = chunk.end.toISOString();
-            var _ovPpEmitted = {};
-            for (var _ovIdx = _ovPpStart; _ovIdx < allProcessed.length; _ovIdx++) {
-              _ovPpEmitted[allProcessed[_ovIdx].sort_ts] = true;
-            }
-            var _ovPpCount = 0;
-            _ovPpMap.forEach(function (ovValue, ovTimeUTC) {
-              if (ovTimeUTC < _ovPpChunkStart || ovTimeUTC > _ovPpChunkEnd) return;
-              var _ovTs = new Date(ovTimeUTC).getTime();
-              if (_ovPpEmitted[_ovTs]) return;
-              var _ovClamp = clampTemperature(ovValue);
-              allProcessed.push({
-                centralId: centralId,
-                deviceName: deviceLabel,
-                reading_date: brDatetime(ovTimeUTC),
-                sort_ts: _ovTs,
-                temperature: _ovClamp.value == null ? '-' : _ovClamp.value.toFixed(2),
-                interpolated: false,
-                equalSign: false,
-                correctedBelowThreshold: false,
-                missing: false,
-                missingReason: null,
-                gapSize: null,
-                isManual: true
-              });
-              _ovPpEmitted[_ovTs] = true;
-              _ovPpCount++;
-            });
-            if (_ovPpCount > 0) {
-              LogHelper.log('[OVERRIDE] post-pass injected ' + _ovPpCount + ' override-only slots for ' + devName);
-            }
-          }
+      // FIX (override post-pass injection):
+      // interpolateSeries so emite slots de devices com leitura real no periodo.
+      // Esta passada injeta os slots de override da janela que ainda nao sairam
+      // pelo loop principal.
+      var _ovPpKey = devName.split(' ')[0];
+      var _ovPpMap = overrideMap.get(_ovPpKey);
+      if (_ovPpMap && _ovPpMap.size > 0) {
+        var _ovPpWinStart = winStartISO;
+        var _ovPpWinEnd = winEndISO;
+        var _ovPpEmitted = {};
+        for (var _ovIdx = _ovPpStart; _ovIdx < allProcessed.length; _ovIdx++) {
+          _ovPpEmitted[allProcessed[_ovIdx].sort_ts] = true;
+        }
+        var _ovPpCount = 0;
+        _ovPpMap.forEach(function (ovValue, ovTimeUTC) {
+          if (ovTimeUTC < _ovPpWinStart || ovTimeUTC > _ovPpWinEnd) return;
+          var _ovTs = new Date(ovTimeUTC).getTime();
+          if (_ovPpEmitted[_ovTs]) return;
+          var _ovClamp = clampTemperature(ovValue);
+          allProcessed.push({
+            centralId: centralId,
+            deviceName: deviceLabel,
+            reading_date: brDatetime(ovTimeUTC),
+            sort_ts: _ovTs,
+            temperature: _ovClamp.value == null ? '-' : _ovClamp.value.toFixed(2),
+            interpolated: false,
+            equalSign: false,
+            correctedBelowThreshold: false,
+            missing: false,
+            missingReason: null,
+            gapSize: null,
+            isManual: true
+          });
+          _ovPpEmitted[_ovTs] = true;
+          _ovPpCount++;
+        });
+        if (_ovPpCount > 0) {
+          LogHelper.log('[OVERRIDE] post-pass injected ' + _ovPpCount + ' override-only slots for ' + devName);
         }
       }
     }
@@ -2318,6 +2192,7 @@ function applyDateRange() {
     openErrorModal('Período não selecionado', 'Selecione as datas de início e fim para gerar o relatório.');
     return;
   }
+  if (!_ensureReportDateAllowed()) return;
   const selectedDevices = getSelectedDevices();
   if (selectedDevices.length === 0) {
     openErrorModal('Nenhum ambiente', 'Selecione ao menos um ambiente para gerar o relatório.');
@@ -2357,6 +2232,31 @@ function closeErrorModal() {
   const s = self.ctx.$scope;
   s.isErrorModal = false;
   self.ctx.detectChanges();
+}
+
+// -------- Modal premium de bloqueio de exportação (dado pré-03/04/2026) --------
+function openDataCutoffModal() {
+  const s = self.ctx.$scope;
+  s.isDataCutoffModal = true;
+  self.ctx.detectChanges();
+}
+
+function closeDataCutoffModal() {
+  const s = self.ctx.$scope;
+  s.isDataCutoffModal = false;
+  self.ctx.detectChanges();
+}
+
+// Devolve true se o período selecionado pode ser consultado/exportado. Se o
+// início do período for anterior ao corte de sensores (03/04/2026), abre o
+// modal de aviso e devolve false — quem chamar deve interromper a ação
+// (carregamento de dados ou exportação).
+function _ensureReportDateAllowed() {
+  if (startDate && new Date(startDate) < DATA_CUTOFF_DATE) {
+    openDataCutoffModal();
+    return false;
+  }
+  return true;
 }
 
 // -------- Init --------
@@ -2523,24 +2423,29 @@ self.onInit = function () {
 
   // Bindings de export
   self.ctx.$scope.downloadPDF = () => {
+    if (!_ensureReportDateAllowed()) return;
     const d = _buildExportData();
     d.length ? exportToPDF(d) : openErrorModal('Sem dados', 'Não há dados para exportar.');
   };
   self.ctx.$scope.downloadCSV = () => {
+    if (!_ensureReportDateAllowed()) return;
     const d = _buildExportData();
     d.length ? exportToCSV(d) : openErrorModal('Sem dados', 'Não há dados para exportar.');
   };
   self.ctx.$scope.downloadZIP = () => _exportZIP();
 
   window.tbtv5_exportPDF = function () {
+    if (!_ensureReportDateAllowed()) return;
     const d = _buildExportData();
     d.length ? exportToPDF(d) : openErrorModal('Sem dados', 'Não há dados para exportar.');
   };
   window.tbtv5_exportXLS = function () {
+    if (!_ensureReportDateAllowed()) return;
     const d = _buildExportData();
     d.length ? exportToXLS(d) : openErrorModal('Sem dados', 'Não há dados para exportar.');
   };
   window.tbtv5_exportCSV = function () {
+    if (!_ensureReportDateAllowed()) return;
     const d = _buildExportData();
     d.length ? exportToCSV(d) : openErrorModal('Sem dados', 'Não há dados para exportar.');
   };
@@ -2738,15 +2643,23 @@ self.onInit = function () {
   const _LV_SORT_LABELS = { loss_desc: '↓ Maior perda', loss_asc: '↑ Menor perda', az: 'A → Z', za: 'Z → A' };
   self.ctx.$scope.lvSortLabel = () => _LV_SORT_LABELS[_lvFilter.sort] || 'A → Z';
 
-  // Reconstrói a view MAN4 respeitando text + device selection + sort
+  // Reconstrói a view MAN4 respeitando text + device selection + mode + sort
   function _man4SyncFiltered() {
     const s = self.ctx.$scope;
     const allData = s.dados || [];
     if (!allData.length) return;
-    const text = _lvFilter.text;
+    const { text, mode } = _lvFilter;
+    // ED-1239: "Só perdas"/"Sem perdas" usam a mesma perda (slots de 30 min) dos badges da barra
+    const gd = s.groupedData || {};
+    const lossByDevice = {};
+    if (mode === 'loss' || mode === 'ok') {
+      Object.keys(gd).forEach((k) => { lossByDevice[k] = s.getDeviceLossPct(gd[k]); });
+    }
     const filtered = allData.filter(r => {
       if (text && !r.deviceName.toLowerCase().includes(text)) return false;
       if (_lvDeviceSel !== null && !_lvDeviceSel.has(r.deviceName)) return false;
+      if (mode === 'loss' && !(lossByDevice[r.deviceName] > 0)) return false;
+      if (mode === 'ok' && lossByDevice[r.deviceName] !== 0) return false;
       return true;
     });
     const report = _man4BuildReport(filtered.length ? filtered : []);
@@ -2761,7 +2674,7 @@ self.onInit = function () {
     } else { // loss_desc (default) = pior conformidade primeiro
       report.devices.sort((a, b) => a.conformePct - b.conformePct);
     }
-    _man4ActivateDashboard(report);
+    _man4ActivateDashboard(report, true);
   }
 
   // Sincroniza filtro do dashboard (_smState) quando estamos na tab Dashboard
@@ -3168,6 +3081,7 @@ self.onInit = function () {
   self.ctx.$scope.openMAN4Dashboard = function () {
     const s = self.ctx.$scope;
     if (!(s.dados && s.dados.length)) return;
+    _man4State.filterMode = null; // entrar na aba MAN4 zera o filtro dos cards KPI
     _man4SyncFiltered();
   };
 
@@ -3188,6 +3102,12 @@ self.onInit = function () {
   self.ctx.$scope.errorMessage = '';
   self.ctx.$scope.openErrorModal = openErrorModal;
   self.ctx.$scope.closeErrorModal = closeErrorModal;
+
+  // Modal premium — período fora de consulta (pré-03/04/2026)
+  self.ctx.$scope.isDataCutoffModal = false;
+  self.ctx.$scope.exportCutoffDateLabel = '03/04/2026';
+  self.ctx.$scope.openDataCutoffModal = openDataCutoffModal;
+  self.ctx.$scope.closeDataCutoffModal = closeDataCutoffModal;
 
   // Admin mode
   self.ctx.$scope.adminMode = adminMode;
@@ -3286,6 +3206,20 @@ self.onInit = function () {
       self.ctx.detectChanges();
       _saveClampAttributes();
     }
+  };
+
+  // Data de referência do ajuste de sensores (+/-/x) — persiste no SERVER_SCOPE
+  // (tempAdjustmentSince) e é enviada às centrais no body do RPC.
+  self.ctx.$scope.adjustmentSinceDate = _adjustmentSince.slice(0, 10);
+  self.ctx.$scope.setAdjustmentSince = function (evt) {
+    const v = (evt?.target?.value || '').trim(); // input type=date → 'YYYY-MM-DD'
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return;
+    const iso = v + 'T00:00:00.000Z'; // meia-noite UTC, consistente com o fluxo
+    if (isNaN(new Date(iso).getTime())) return;
+    _adjustmentSince = iso;
+    self.ctx.$scope.adjustmentSinceDate = v;
+    self.ctx.detectChanges();
+    _saveClampAttributes(); // salva junto com os demais atributos temp* no SERVER_SCOPE
   };
 
   // ── Manual Override — admin detection ───────────────────────────────────────
@@ -3969,10 +3903,11 @@ function _man4BuildHTML(report) {
     '</div>';
 }
 
-function _man4ActivateDashboard(report) {
+function _man4ActivateDashboard(report, keepFilterMode) {
   _man4InjectCSS();
   _man4State.report = report;
-  _man4State.filterMode = null; // reset ao re-renderizar por mudança de dados/filtro
+  // Mudança na barra de filtros preserva o filtro dos cards KPI (sem dados / temp. alta)
+  if (!keepFilterMode) _man4State.filterMode = null;
   var container = document.getElementById('tbtv5-man4-view');
   if (!container) return;
   container.innerHTML = _man4BuildHTML(report);

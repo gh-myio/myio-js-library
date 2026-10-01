@@ -11,6 +11,8 @@ import {
   attach as attachDateRangePicker,
   type DateRangeControl,
 } from './premium-modals/internal/DateRangePickerJQ';
+import { formatPower } from '../utils/format/energy';
+import { InfoTooltip } from '../utils/tooltips/InfoTooltip';
 
 export interface RealTimeTelemetryParams {
   token: string; // JWT token for ThingsBoard authentication
@@ -150,11 +152,12 @@ const UNIT_GROUP_META: Record<string, { label: string; icon: string }> = {
 
 const STRINGS = {
   'pt-BR': {
-    title: 'Telemetrias Instantâneas',
+    title: 'Telemetrias Instantâneas e Pico de Demanda',
     close: 'Fechar',
     pause: 'Pausar',
     resume: 'Reiniciar',
     export: 'Exportar CSV',
+    exportPdf: 'Exportar PDF',
     autoUpdate: 'Atualização automática',
     lastUpdate: 'Última atualização',
     noData: 'Sem dados',
@@ -165,11 +168,12 @@ const STRINGS = {
     trend_stable: 'Estável',
   },
   'en-US': {
-    title: 'Real-Time Telemetry',
+    title: 'Instant Telemetry and Demand Peak',
     close: 'Close',
     pause: 'Pause',
     resume: 'Resume',
     export: 'Export CSV',
+    exportPdf: 'Export PDF',
     autoUpdate: 'Auto-update',
     lastUpdate: 'Last update',
     noData: 'No data',
@@ -181,12 +185,138 @@ const STRINGS = {
   },
 };
 
+// External library CDN URLs — same self-loading pattern as DemandModal.ts, so this
+// modal no longer depends on Chart.js/jsPDF having been loaded incidentally by some
+// other component opened first (e.g. it used to implicitly rely on DemandModal.ts
+// having already loaded Chart.js before this modal's chart was initialized).
+const CHART_JS_CDN = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js';
+const JSPDF_VERSION = '2.5.1';
+const JSPDF_CDN = `https://cdnjs.cloudflare.com/ajax/libs/jspdf/${JSPDF_VERSION}/jspdf.umd.min.js`;
+
+let chartJsLoaded = false;
+let jsPdfLoaded = false;
+let _jspdfPromise: Promise<void> | null = null;
+
+async function loadScript(url: string, checkGlobal: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if ((window as any)[checkGlobal]) {
+      resolve();
+      return;
+    }
+
+    const existingScript = document.querySelector(`script[src="${url}"]`);
+    if (existingScript) {
+      existingScript.addEventListener('load', () => {
+        if ((window as any)[checkGlobal]) {
+          resolve();
+        } else {
+          reject(new Error(`Library ${checkGlobal} not available after loading ${url}`));
+        }
+      });
+      existingScript.addEventListener('error', () => reject(new Error(`Failed to load ${url}`)));
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = url;
+    script.onload = () => {
+      if ((window as any)[checkGlobal]) {
+        resolve();
+      } else {
+        reject(new Error(`Library ${checkGlobal} not available after loading ${url}`));
+      }
+    };
+    script.onerror = () => reject(new Error(`Failed to load ${url}`));
+    document.head.appendChild(script);
+  });
+}
+
+function ensureJsPDF(): Promise<void> {
+  if (window.jspdf?.jsPDF) {
+    return Promise.resolve();
+  }
+  if (_jspdfPromise) {
+    return _jspdfPromise;
+  }
+
+  _jspdfPromise = new Promise<void>((resolve, reject) => {
+    const existing = document.querySelector<HTMLScriptElement>('script[data-lib="jspdf"]');
+    if (existing) {
+      existing.addEventListener('load', () => {
+        if (window.jspdf?.jsPDF) {
+          resolve();
+        } else {
+          reject(new Error('jsPDF loaded but window.jspdf.jsPDF missing'));
+        }
+      });
+      existing.addEventListener('error', () => reject(new Error('Failed to load jsPDF via existing script')));
+      return;
+    }
+
+    const s = document.createElement('script');
+    s.src = JSPDF_CDN;
+    s.async = true;
+    s.defer = true;
+    s.dataset.lib = 'jspdf';
+    s.onload = () => {
+      if (window.jspdf?.jsPDF) {
+        resolve();
+      } else {
+        reject(new Error('jsPDF loaded but window.jspdf.jsPDF missing'));
+      }
+    };
+    s.onerror = () => reject(new Error('Failed to load jsPDF from CDN'));
+    document.head.appendChild(s);
+  }).finally(() => {
+    _jspdfPromise = null;
+  });
+
+  return _jspdfPromise;
+}
+
+function getJsPDFCtor(): typeof window.jspdf.jsPDF {
+  if (window.jspdf?.jsPDF) return window.jspdf.jsPDF;
+  if ((window as any).jsPDF?.jsPDF) return (window as any).jsPDF.jsPDF;
+  if ((window as any).jsPDF) return (window as any).jsPDF;
+  throw new Error('jsPDF constructor not found on window');
+}
+
+function savePdfSafe(doc: any, filename: string) {
+  try {
+    doc.save(filename);
+  } catch (e) {
+    console.warn('doc.save() failed, attempting Blob URL fallback:', e);
+    const blob = doc.output('blob');
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank') || alert('Pop-up blocked. Allow pop-ups to download the PDF.');
+    setTimeout(() => URL.revokeObjectURL(url), 30_000);
+  }
+}
+
+async function loadExternalLibraries(): Promise<void> {
+  try {
+    if (!chartJsLoaded) {
+      await loadScript(CHART_JS_CDN, 'Chart');
+      chartJsLoaded = true;
+    }
+    if (!jsPdfLoaded) {
+      await ensureJsPDF();
+      jsPdfLoaded = true;
+    }
+  } catch (error) {
+    throw new Error(`Failed to load external libraries: ${error}`);
+  }
+}
+
 /**
  * Open Real-Time Telemetry Modal
  */
 export async function openRealTimeTelemetryModal(
   params: RealTimeTelemetryParams
 ): Promise<RealTimeTelemetryInstance> {
+  await loadExternalLibraries();
+
+
   const {
     token,
     deviceId,
@@ -242,9 +372,25 @@ export async function openRealTimeTelemetryModal(
   let cardTooltipExpanded = false;
 
   // Central / Device status derived from check_device + telemetry freshness
-  let centralStatus: 'ok' | 'offline' | 'unknown' = 'unknown';
-  let lastTelemetryUpdateMs = 0; // epoch ms of last successful telemetry update
-  const DEVICE_OK_DELTA_MS = 60_000; // telemetry must be ≤60 s fresh for Device OK
+  // Health of each component. A failed check first moves it to 'warning' (chip "ATENÇÃO");
+  // only STATUS_MAX_RETRIES consecutive failed checks in a row make it 'offline'. Any good check resets it.
+  type HealthStatus = 'ok' | 'warning' | 'offline' | 'unknown';
+  let centralStatus: HealthStatus = 'unknown';
+  let deviceStatus: HealthStatus = 'unknown';
+  let lastTelemetryUpdateMs = 0; // epoch ms of last successful telemetry fetch
+  /**
+   * Consecutive failed checks before a component goes from "atenção" (warning) to OFFLINE.
+   * Hard-coded for now (applies to both the central and the device) — to be documented and,
+   * later, exposed as a parameter / customer attribute.
+   */
+  const STATUS_MAX_RETRIES = 3;
+  /**
+   * Device check fails when its latest telemetry (device timestamp, not fetch time) is older
+   * than this. Central check fails when the check_device call errors out.
+   */
+  const DEVICE_STALE_MS = 30 * 60_000;
+  let centralFailStreak = 0;
+  let deviceStaleStreak = 0;
 
   // check_device call history for the status tooltip
   interface CheckDeviceRecord {
@@ -255,21 +401,47 @@ export async function openRealTimeTelemetryModal(
   const MAX_CHECK_DEVICE_HISTORY = 60;
   let statusTooltipEl: HTMLDivElement | null = null;
   let deviceTooltipEl: HTMLDivElement | null = null;
-  let telemetryHistory: Map<string, Array<{ x: number; y: number }>> = new Map();
-  let lastKnownValues: Map<string, number> = new Map(); // Store last known value for each key
-  // Snapshot of realtime history preserved while in Period mode so we can resume on switch back
-  let realtimeHistorySnapshot: Map<string, Array<{ x: number; y: number }>> | null = null;
-  let realtimeLastKnownSnapshot: Map<string, number> | null = null;
+  // Each tab owns its own series so a "Por Período" query never leaks into the
+  // Realtime chart (and vice-versa). `telemetryHistory` / `lastKnownValues` always
+  // point at the store of the ACTIVE tab — switchMode() re-points them.
+  /** `carried` = no telemetry in that interval, value repeated from the previous one (aggregated views only). */
+  type SeriesPoint = { x: number; y: number; carried?: boolean };
+  const periodHistory: Map<string, SeriesPoint[]> = new Map();
+  const periodLastKnown: Map<string, number> = new Map();
+  const realtimeHistory: Map<string, SeriesPoint[]> = new Map();
+  const realtimeLastKnown: Map<string, number> = new Map();
+  let telemetryHistory: Map<string, SeriesPoint[]> = periodHistory;
+  let lastKnownValues: Map<string, number> = periodLastKnown; // Last known value for each key
+  let realtimeSeededDay = ''; // yyyy-mm-dd the realtime chart was seeded for ('' = not seeded yet)
+  const RT_MAX_POINTS = Math.max(historyPoints, 5000); // realtime keeps today's history, not just the last N ticks
+  const LIVE_POLL_MS = 5_000; // independent ThingsBoard read (device may push on its own)
+  // Realtime tab aggregation (today only). NONE = raw samples; anything else is fetched
+  // aggregated from ThingsBoard (00:00 -> now) into its own store and re-fetched on every tick.
+  let rtAgg: 'NONE' | 'MIN' | 'MAX' | 'AVG' | 'SUM' = 'NONE';
+  let rtIntervalMs = 900000; // 15 min
+  const realtimeAggHistory: Map<string, SeriesPoint[]> = new Map();
+  let rtAggInFlight = false;
+  let rtSeedBefore: { startTs: number; values: Record<string, number> } = { startTs: -1, values: {} };
+  let detachLiveInfoTooltip: (() => void) | null = null;
+  // Period tab: set when a Bruto query stopped short of the end the user asked for (truncated by limit)
+  let coverageResume: { startISO: string; endISO: string } | null = null;
+  let liveTelemetryEnabled = true;
+  let liveTelemetryTimerId: number | null = null;
+  let liveTelemetryInFlight = false;
+  const lastSeenTelemetryTs: Map<string, number> = new Map();
   let chart: any = null;
   let selectedChartKeys: string[] = [
     telemetryKeys.includes('consumption') ? 'consumption' : (telemetryKeys[0] ?? 'consumption'),
   ];
-  let selectedAgg: 'NONE' | 'MIN' | 'MAX' | 'AVG' | 'SUM' | 'COUNT' = 'NONE';
+  // Default mode is "Por Período" (last 7 days / Máximo / 24 horas) — matches
+  // the tab order and pre-selected controls in the markup below, so the modal
+  // opens already showing this period's data without any realtime bootstrap.
+  let selectedAgg: 'NONE' | 'MIN' | 'MAX' | 'AVG' | 'SUM' | 'COUNT' = 'MAX';
   let selectedLimit: number = 500;
-  let selectedIntervalMs: number = 0; // 0 = Padrão (don't send interval param)
+  let selectedIntervalMs: number = 86400000; // 24 horas
   let currentTheme: 'light' | 'dark' = 'light';
   let isExpanded = false;
-  let currentMode: 'realtime' | 'period' = 'realtime';
+  let currentMode: 'realtime' | 'period' = 'period';
   let periodDatePicker: DateRangeControl | null = null;
   let periodStartISO: string | null = null;
   let periodEndISO: string | null = null;
@@ -289,7 +461,7 @@ export async function openRealTimeTelemetryModal(
         display: flex;
         align-items: center;
         justify-content: center;
-        z-index: 10000;
+        z-index: 1000005;
         padding: 20px;
         animation: fadeIn 0.2s ease;
       }
@@ -555,10 +727,17 @@ export async function openRealTimeTelemetryModal(
       }
 
       .myio-realtime-telemetry-overlay.rtt-expanded .myio-telemetry-chart {
-        flex: 1;
+        /* ED-1250: flex:1 here used to fight the inline width/height that
+           toggleExpand() sets via chart.resize(w, h) — flex-basis:0% from
+           flex:1 discards that specified size as its starting point, so the
+           flex algorithm and Chart.js's fixed-size resize kept re-triggering
+           each other on every real-time chart.update('none') tick, growing
+           the canvas over time. The canvas's size is now driven solely by
+           the inline style toggleExpand() sets (no flex sizing competing). */
         min-height: 0;
         max-height: none;
-        /* Fixed pixel height prevents Chart.js infinite-growth loop */
+        /* Fixed pixel height prevents Chart.js infinite-growth loop, and acts
+           as the initial floor before JS sets the real inline height/width. */
         height: 1px;
         width: 100%;
       }
@@ -875,7 +1054,7 @@ export async function openRealTimeTelemetryModal(
         border-top: none;
         border-radius: 0 0 6px 6px;
         box-shadow: 0 4px 12px rgba(0,0,0,0.12);
-        z-index: 10010;
+        z-index: 1000015;
         display: none;
       }
 
@@ -1171,7 +1350,7 @@ export async function openRealTimeTelemetryModal(
         </div>
 
         <div id="telemetry-content" style="display: none;">
-          <div class="myio-telemetry-cards-grid" id="telemetry-cards"></div>
+          <div class="myio-telemetry-cards-grid" id="telemetry-cards" style="display: none;"></div>
 
           <div class="myio-telemetry-chart-container" id="chart-container" style="display: none;">
             <!-- Linha 1: título (esquerda) + seletor de telemetrias (direita) — sempre na mesma linha -->
@@ -1202,10 +1381,28 @@ export async function openRealTimeTelemetryModal(
             <!-- Linha 2: tabs + controles de período -->
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
               <div class="myio-rtt-mode-tabs" id="rtt-mode-tabs">
-                <button class="myio-rtt-tab active" data-mode="realtime">Realtime</button>
-                <button class="myio-rtt-tab" data-mode="period">Pro Período</button>
+                <button class="myio-rtt-tab active" data-mode="period">Por Período</button>
+                <button class="myio-rtt-tab" data-mode="realtime">Realtime</button>
               </div>
-              <div class="myio-rtt-period-input" id="rtt-period-row">
+              <div id="rtt-realtime-row" style="display:none;align-items:center;gap:6px;">
+                <select id="rt-agg-selector" class="myio-telemetry-selector" title="Agregação dos pontos de hoje"
+                  style="font-size:12px;padding:5px 8px;">
+                  <option value="NONE" selected>Bruto</option>
+                  <option value="MIN">Mínimo</option>
+                  <option value="MAX">Máximo</option>
+                  <option value="AVG">Média</option>
+                  <option value="SUM">Soma</option>
+                </select>
+                <select id="rt-interval-select" class="myio-telemetry-selector" title="Intervalo de agrupamento"
+                  style="font-size:12px;padding:5px 8px;display:none;">
+                  <option value="900000" selected>15 min</option>
+                  <option value="1800000">30 min</option>
+                  <option value="3600000">1 hora</option>
+                  <option value="7200000">2 horas</option>
+                  <option value="14400000">4 horas</option>
+                </select>
+              </div>
+              <div class="myio-rtt-period-input visible" id="rtt-period-row">
                 <div class="myio-rtt-period-controls">
                   <input type="text" id="rtt-date-range" class="myio-telemetry-selector" readonly placeholder="Selecione o período" style="width: 260px; cursor: pointer;">
                   <button id="rtt-period-load-btn" class="myio-telemetry-btn myio-telemetry-btn-primary" style="padding: 6px 14px; font-size: 13px;">Carregar</button>
@@ -1214,43 +1411,43 @@ export async function openRealTimeTelemetryModal(
                       style="font-size:12px;padding:5px 8px;">
                       <option value="NONE">Bruto</option>
                       <option value="AVG">Média</option>
-                      <option value="MAX">Máximo</option>
+                      <option value="MAX" selected>Máximo</option>
                       <option value="MIN">Mínimo</option>
                       <option value="SUM">Soma</option>
                     </select>
-                    <select id="chart-interval-select" class="myio-telemetry-selector" title="Intervalo de agrupamento (longValue)"
+                    <select id="chart-interval-select" class="myio-telemetry-selector" title="Intervalo de agrupamento"
                       style="font-size:12px;padding:5px 8px;">
-                      <option value="0">Padrão</option>
-                      <option value="60000">1 min</option>
                       <option value="900000">15 min</option>
                       <option value="1800000">30 min</option>
                       <option value="3600000">1 hora</option>
-                      <option value="86400000">24 horas</option>
+                      <option value="7200000">2 horas</option>
+                      <option value="14400000">4 horas</option>
+                      <option value="43200000">12 horas</option>
+                      <option value="86400000" selected>1 dia (24 horas)</option>
                     </select>
                     <select id="chart-limit-input" class="myio-telemetry-selector" title="Limite de pontos retornados"
-                      style="font-size:12px;padding:5px 8px;">
+                      style="font-size:12px;padding:5px 8px;display:none;">
                       <option value="100">100</option>
-                      <option value="200">200</option>
-                      <option value="300">300</option>
-                      <option value="400">400</option>
                       <option value="500" selected>500</option>
-                      <option value="600">600</option>
-                      <option value="700">700</option>
-                      <option value="800">800</option>
-                      <option value="900">900</option>
                       <option value="1000">1000</option>
-                      <option value="1100">1100</option>
-                      <option value="1200">1200</option>
-                      <option value="1300">1300</option>
-                      <option value="1400">1400</option>
-                      <option value="1500">1500</option>
+                      <option value="5000">5000</option>
+                      <option value="10000">10000</option>
+                      <option value="25000">25000</option>
+                      <option value="50000">50000</option>
                     </select>
                   </div>
                 </div>
+                <div id="rtt-peak-summary" style="display:none;font-size:12px;font-weight:600;color:#3e1a7d;background:rgba(62,26,125,0.08);padding:4px 10px;border-radius:8px;margin-top:6px;"></div>
               </div>
             </div>
             <canvas class="myio-telemetry-chart" id="telemetry-chart"></canvas>
           </div>
+          <!-- Outside #chart-container on purpose: that box is max-height + overflow:hidden and would clip these -->
+          <div id="rtt-carried-legend" style="display:none;margin:-8px 4px 10px;font-size:11px;color:#8e44ad;">
+            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#8e44ad;margin-right:5px;"></span>Roxo: intervalo sem telemetria — repete o dado anterior
+          </div>
+          <!-- Fixed notice under the "Por Período" chart (kept until the next query) -->
+          <div id="rtt-coverage-notice" style="display:none;margin:0 0 16px;padding:8px 12px;border-radius:8px;background:#fff4e5;border:1px solid #f5a623;color:#8a4b00;font-size:12px;line-height:1.5;"></div>
         </div>
 
         <div class="myio-telemetry-error" id="error-state" style="display: none;">
@@ -1259,23 +1456,34 @@ export async function openRealTimeTelemetryModal(
       </div>
 
       <div class="myio-realtime-telemetry-footer">
-        <div class="myio-telemetry-status">
-          <span class="myio-telemetry-status-indicator" id="status-indicator"></span>
-          <span id="status-text">${strings.autoUpdate}: ON</span>
-          <span>•</span>
-          <span id="last-update-text">${strings.lastUpdate}: --:--:--</span>
-          <span id="rtt-countdown-text" style="font-size:12px;font-weight:600;color:#667eea;background:rgba(102,126,234,0.1);padding:2px 8px;border-radius:10px;"></span>
-          ${centralId ? `<span id="rtt-central-badge" style="display:none;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;letter-spacing:0.3px;cursor:pointer;" title="Clique para ver histórico de chamadas"></span><span id="rtt-device-badge" style="display:none;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;letter-spacing:0.3px;cursor:pointer;" title="Clique para ver histórico de chamadas"></span>` : ''}
+        <div class="myio-telemetry-status" id="rtt-status-row" style="display:none;flex-direction:column;align-items:flex-start;gap:2px;">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <span class="myio-telemetry-status-indicator" id="status-indicator"></span>
+            <span id="status-text">${strings.autoUpdate}: ON</span>
+            <span id="rtt-countdown-text" style="font-size:12px;font-weight:600;color:#667eea;background:rgba(102,126,234,0.1);padding:2px 8px;border-radius:10px;"></span>
+            <span style="display:inline-flex;align-items:center;gap:4px;">
+              <label id="rtt-live-toggle-wrap" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;cursor:pointer;white-space:nowrap;">
+                <input type="checkbox" id="rtt-live-toggle" checked> Leitura contínua
+              </label>
+              <button type="button" id="rtt-live-info" aria-label="O que é a leitura contínua?"
+                style="width:16px;height:16px;border-radius:50%;border:1px solid #667eea;background:transparent;color:#667eea;font-size:10px;font-weight:700;line-height:1;cursor:help;padding:0;display:inline-flex;align-items:center;justify-content:center;">i</button>
+            </span>
+            ${centralId ? `<span id="rtt-central-badge" style="display:none;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;letter-spacing:0.3px;cursor:pointer;" title="Clique para ver histórico de chamadas"></span><span id="rtt-device-badge" style="display:none;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;letter-spacing:0.3px;cursor:pointer;" title="Clique para ver histórico de chamadas"></span>` : ''}
+          </div>
+          <span id="last-update-text" style="font-size:11px;font-weight:400;opacity:0.6;">${strings.lastUpdate}: --:--:--</span>
         </div>
 
         <div class="myio-telemetry-actions">
           <span id="rtt-session-countdown" style="display:none;align-items:center;font-size:12px;font-weight:600;color:#667eea;background:rgba(102,126,234,0.1);padding:0 10px;height:32px;line-height:32px;border-radius:10px;white-space:nowrap;"></span>
-          <button class="myio-telemetry-btn myio-telemetry-btn-secondary" id="pause-btn">
+          <button class="myio-telemetry-btn myio-telemetry-btn-secondary" id="pause-btn" style="display:none;">
             <span id="pause-btn-icon">⏸️</span>
             <span id="pause-btn-text">${strings.pause}</span>
           </button>
           <button class="myio-telemetry-btn myio-telemetry-btn-primary" id="export-btn">
             ⬇️ ${strings.export}
+          </button>
+          <button class="myio-telemetry-btn myio-telemetry-btn-secondary" id="export-pdf-btn">
+            📄 ${strings.exportPdf}
           </button>
         </div>
       </div>
@@ -1294,11 +1502,13 @@ export async function openRealTimeTelemetryModal(
   const periodLoadBtn = overlay.querySelector('#rtt-period-load-btn') as HTMLButtonElement;
   const expandIcon = overlay.querySelector('#rtt-expand-icon') as unknown as SVGElement;
   const container = overlay.querySelector('.myio-realtime-telemetry-container') as HTMLDivElement;
+  const statusRow = overlay.querySelector('#rtt-status-row') as HTMLDivElement;
   const pauseBtn = overlay.querySelector('#pause-btn') as HTMLButtonElement;
   const pauseBtnIcon = overlay.querySelector('#pause-btn-icon') as HTMLSpanElement;
   const pauseBtnText = overlay.querySelector('#pause-btn-text') as HTMLSpanElement;
   const sessionCountdownEl = overlay.querySelector('#rtt-session-countdown') as HTMLSpanElement | null;
   const exportBtn = overlay.querySelector('#export-btn') as HTMLButtonElement;
+  const exportPdfBtn = overlay.querySelector('#export-pdf-btn') as HTMLButtonElement;
   const loadingState = overlay.querySelector('#loading-state') as HTMLDivElement;
   const telemetryContent = overlay.querySelector('#telemetry-content') as HTMLDivElement;
   const errorState = overlay.querySelector('#error-state') as HTMLDivElement;
@@ -1320,6 +1530,12 @@ export async function openRealTimeTelemetryModal(
   const centralBadge = overlay.querySelector('#rtt-central-badge') as HTMLSpanElement | null;
   const deviceBadge = overlay.querySelector('#rtt-device-badge') as HTMLSpanElement | null;
   const chartTitleEl = overlay.querySelector('#chart-title') as HTMLElement | null;
+  const peakSummaryEl = overlay.querySelector('#rtt-peak-summary') as HTMLElement | null;
+  const realtimeRow = overlay.querySelector('#rtt-realtime-row') as HTMLDivElement;
+  const rtAggSelector = overlay.querySelector('#rt-agg-selector') as HTMLSelectElement;
+  const rtIntervalSelect = overlay.querySelector('#rt-interval-select') as HTMLSelectElement;
+  const coverageNoticeEl = overlay.querySelector('#rtt-coverage-notice') as HTMLDivElement;
+  const carriedLegendEl = overlay.querySelector('#rtt-carried-legend') as HTMLDivElement;
 
   /** Update the chart title and status icon based on currentMode + device/central status. */
   function updateChartTitle(): void {
@@ -1328,51 +1544,114 @@ export async function openRealTimeTelemetryModal(
       chartTitleEl.innerHTML = 'Histórico de Telemetria';
       return;
     }
-    // Realtime mode: compute status icon
-    const deviceOk = lastTelemetryUpdateMs > 0 && Date.now() - lastTelemetryUpdateMs <= DEVICE_OK_DELTA_MS;
-    let iconHtml = '';
-    if (centralStatus === 'unknown') {
-      iconHtml = ''; // no icon while status is still loading
-    } else if (centralStatus === 'ok' && deviceOk) {
-      iconHtml = `<span title="Central online e dispositivo online" style="margin-left:8px;cursor:default;font-size:16px;vertical-align:middle;">✅</span>`;
-    } else if (centralStatus === 'ok' && !deviceOk) {
-      iconHtml = `<span title="Central online e dispositivo offline / conexão fraca" style="margin-left:8px;cursor:default;font-size:16px;vertical-align:middle;">⚠️</span>`;
+    // Realtime mode: the tab always shows TODAY — say so, and flag when there is nothing from today.
+    const todayStr = new Date().toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const dateHtml = `<span style="margin-left:8px;font-size:13px;font-weight:400;opacity:0.55;">(${todayStr})</span>`;
+    const icon = (glyph: string, title: string) =>
+      `<span title="${title}" style="margin-left:8px;cursor:default;font-size:16px;vertical-align:middle;">${glyph}</span>`;
+    let iconHtml: string;
+    if (!hasTelemetryToday()) {
+      iconHtml = icon('❌', 'Sem telemetrias de hoje para este dispositivo');
+    } else if (centralStatus === 'offline') {
+      iconHtml = icon('🔴', `Central offline (${STATUS_MAX_RETRIES} falhas seguidas)`);
+    } else if (deviceStatus === 'offline') {
+      iconHtml = icon('🔴', `Dispositivo offline (${STATUS_MAX_RETRIES} verificações seguidas sem telemetria recente)`);
+    } else if (centralStatus === 'warning') {
+      iconHtml = icon('⚠️', `Atenção: central sem resposta (tentativa ${centralFailStreak}/${STATUS_MAX_RETRIES})`);
+    } else if (deviceStatus === 'warning') {
+      iconHtml = icon('⚠️', `Atenção: ${deviceStaleLabel()} (verificação ${deviceStaleStreak}/${STATUS_MAX_RETRIES})`);
     } else {
-      // central offline
-      iconHtml = `<span title="Central offline" style="margin-left:8px;cursor:default;font-size:16px;vertical-align:middle;">🔴</span>`;
+      iconHtml = icon('✅', 'Há telemetrias de hoje e o dispositivo está respondendo');
     }
-    chartTitleEl.innerHTML = `Telemetria em Tempo Real${iconHtml}`;
+    chartTitleEl.innerHTML = `Telemetria em Tempo Real de hoje${dateHtml}${iconHtml}`;
   }
+
+  /**
+   * True when the device itself reported at least one sample today (00:00 onwards).
+   * Based on the device timestamps, not on plotted points: the ticker also plots a
+   * point at "now" repeating the last value, which would hide a silent device.
+   */
+  function hasTelemetryToday(): boolean {
+    const d = new Date();
+    const startOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    for (const ts of lastSeenTelemetryTs.values()) {
+      if (ts >= startOfDay) return true;
+    }
+    return false;
+  }
+
+  function statusFromStreak(streak: number): HealthStatus {
+    if (streak <= 0) return 'ok';
+    return streak >= STATUS_MAX_RETRIES ? 'offline' : 'warning';
+  }
+
+  /** Result of one check_device call. A failure only reaches 'offline' after STATUS_MAX_RETRIES in a row. */
+  function recordCentralCheck(ok: boolean): void {
+    centralFailStreak = ok ? 0 : centralFailStreak + 1;
+    centralStatus = statusFromStreak(centralFailStreak);
+  }
+
+  /** Newest timestamp the DEVICE itself reported (0 = never seen). */
+  function latestDeviceTs(): number {
+    let newest = 0;
+    for (const ts of lastSeenTelemetryTs.values()) if (ts > newest) newest = ts;
+    return newest;
+  }
+
+  function deviceStaleLabel(): string {
+    const ts = latestDeviceTs();
+    if (ts === 0) return 'dispositivo sem nenhuma telemetria';
+    const mins = Math.floor((Date.now() - ts) / 60_000);
+    return `telemetria do dispositivo sem atualização há ${mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}min` : `${mins} min`}`;
+  }
+
+  /**
+   * One device check (called once per ticker cycle, after the telemetry fetch): the check fails when
+   * the device's latest own timestamp is older than DEVICE_STALE_MS. STATUS_MAX_RETRIES failures in a
+   * row -> 'offline'; a fresh sample (here or from the continuous read) resets it.
+   */
+  function recordDeviceCheck(): void {
+    const ts = latestDeviceTs();
+    const stale = ts === 0 || Date.now() - ts > DEVICE_STALE_MS;
+    deviceStaleStreak = stale ? deviceStaleStreak + 1 : 0;
+    deviceStatus = statusFromStreak(deviceStaleStreak);
+  }
+
+  const STATUS_BADGE_BASE =
+    'display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;letter-spacing:0.3px;color:#fff;cursor:pointer;';
+  const STATUS_BADGE_STYLE: Record<Exclude<HealthStatus, 'unknown'>, { bg: string; label: string }> = {
+    ok: { bg: '#27ae60', label: 'OK' },
+    warning: { bg: '#f39c12', label: 'ATENÇÃO' },
+    offline: { bg: '#e74c3c', label: 'OFFLINE' },
+  };
 
   /** Update CENTRAL / Device status badges in the footer. */
   function updateStatusBadges(): void {
-    if (!centralBadge || !deviceBadge) return;
-    if (centralStatus === 'unknown') {
-      centralBadge.style.display = 'none';
-      deviceBadge.style.display = 'none';
+    if (!centralBadge || !deviceBadge) {
+      updateChartTitle(); // no central badges (no centralId) — the title icon still reflects device status
       return;
     }
-    if (centralStatus === 'ok') {
-      centralBadge.textContent = 'CENTRAL OK';
-      centralBadge.style.cssText =
-        'display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;letter-spacing:0.3px;color:#fff;background:#27ae60;';
-      const deviceOk = lastTelemetryUpdateMs > 0 && Date.now() - lastTelemetryUpdateMs <= DEVICE_OK_DELTA_MS;
-      if (deviceOk) {
-        deviceBadge.textContent = 'Device OK';
-        deviceBadge.style.cssText =
-          'display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;letter-spacing:0.3px;color:#fff;background:#27ae60;';
-      } else {
-        deviceBadge.textContent = 'Device OFFLINE';
-        deviceBadge.style.cssText =
-          'display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;letter-spacing:0.3px;color:#fff;background:#e74c3c;';
-      }
+    if (centralStatus === 'unknown') {
+      centralBadge.style.display = 'none';
     } else {
-      centralBadge.textContent = 'CENTRAL OFFLINE';
-      centralBadge.style.cssText =
-        'display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;letter-spacing:0.3px;color:#fff;background:#e74c3c;';
-      deviceBadge.textContent = 'Device OFFLINE';
-      deviceBadge.style.cssText =
-        'display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;letter-spacing:0.3px;color:#fff;background:#e74c3c;';
+      const st = STATUS_BADGE_STYLE[centralStatus];
+      centralBadge.textContent = `CENTRAL ${st.label}`;
+      centralBadge.style.cssText = `${STATUS_BADGE_BASE}background:${st.bg};`;
+      centralBadge.title =
+        centralStatus === 'warning'
+          ? `Central sem resposta (tentativa ${centralFailStreak}/${STATUS_MAX_RETRIES}). Fica OFFLINE após ${STATUS_MAX_RETRIES} falhas seguidas. Clique para ver o histórico de chamadas`
+          : 'Clique para ver histórico de chamadas';
+    }
+    if (deviceStatus === 'unknown') {
+      deviceBadge.style.display = 'none';
+    } else {
+      const st = STATUS_BADGE_STYLE[deviceStatus];
+      deviceBadge.textContent = `Device ${st.label}`;
+      deviceBadge.style.cssText = `${STATUS_BADGE_BASE}background:${st.bg};`;
+      deviceBadge.title =
+        deviceStatus === 'warning'
+          ? `${deviceStaleLabel()} (verificação ${deviceStaleStreak}/${STATUS_MAX_RETRIES}). Fica OFFLINE após ${STATUS_MAX_RETRIES} verificações seguidas. Clique para ver detalhes`
+          : 'Clique para ver detalhes do dispositivo';
     }
     updateChartTitle();
   }
@@ -1442,7 +1721,7 @@ export async function openRealTimeTelemetryModal(
    * Close modal
    */
   /** Show a brief floating toast inside the modal area. */
-  function showRTTToast(message: string, type: 'warn' | 'error' | 'info' = 'info'): void {
+  function showRTTToast(message: string, type: 'warn' | 'error' | 'info' = 'info', durationMs = 3500): void {
     const bg = { warn: '#e67e22', error: '#e74c3c', info: '#3498db' }[type];
     overlay.querySelector('.myio-rtt-toast')?.remove();
     const toast = document.createElement('div');
@@ -1450,9 +1729,9 @@ export async function openRealTimeTelemetryModal(
     toast.style.cssText = `
       position:fixed;bottom:80px;left:50%;transform:translateX(-50%);
       background:${bg};color:#fff;padding:10px 20px;border-radius:8px;
-      font-size:13px;font-weight:500;z-index:10002;
+      font-size:13px;font-weight:500;z-index:1000007;
       box-shadow:0 4px 16px rgba(0,0,0,0.3);pointer-events:none;
-      white-space:nowrap;max-width:90vw;text-align:center;
+      white-space:normal;width:max-content;max-width:min(90vw,720px);text-align:center;
       animation:rttToastIn 0.2s ease;
     `;
     toast.textContent = message;
@@ -1463,7 +1742,7 @@ export async function openRealTimeTelemetryModal(
       document.head.appendChild(s);
     }
     document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), 3500);
+    setTimeout(() => toast.remove(), durationMs);
   }
 
   // Keys considered "power" — dequeued first when a 3rd grandeza is added
@@ -1543,7 +1822,7 @@ export async function openRealTimeTelemetryModal(
     s.id = 'rtt-card-tooltip-styles';
     s.textContent = `
       #rtt-card-tooltip,#rtt-status-tooltip,#rtt-device-tooltip {
-        position:fixed;z-index:99999;background:#fff;border-radius:12px;
+        position:fixed;z-index:1000300;background:#fff;border-radius:12px;
         border:1px solid #e2e8f0;
         box-shadow:0 10px 40px rgba(0,0,0,0.15),0 2px 10px rgba(0,0,0,0.08);
         min-width:240px;max-width:320px;overflow:hidden;
@@ -1767,10 +2046,16 @@ export async function openRealTimeTelemetryModal(
         })()
       : '--';
 
-    const isOk = centralStatus === 'ok';
-    const headerColor = isOk ? '#27ae60' : '#e74c3c';
+    const headerColor =
+      centralStatus === 'ok' ? '#27ae60' : centralStatus === 'warning' ? '#f39c12' : '#e74c3c';
     const headerLabel =
-      centralStatus === 'unknown' ? 'Central — aguardando...' : isOk ? 'Central OK' : 'Central OFFLINE';
+      centralStatus === 'unknown'
+        ? 'Central — aguardando...'
+        : centralStatus === 'ok'
+          ? 'Central OK'
+          : centralStatus === 'warning'
+            ? `Central ATENÇÃO (${centralFailStreak}/${STATUS_MAX_RETRIES})`
+            : 'Central OFFLINE';
 
     const recentRows = [...checkDeviceHistory]
       .reverse()
@@ -1862,12 +2147,21 @@ export async function openRealTimeTelemetryModal(
     }
     injectCardTooltipStyles();
 
-    const deviceOk = lastTelemetryUpdateMs > 0 && Date.now() - lastTelemetryUpdateMs <= DEVICE_OK_DELTA_MS;
-    const headerColor = deviceOk ? '#27ae60' : '#e74c3c';
-    const headerLabel = deviceOk ? 'Device OK' : 'Device OFFLINE';
+    const headerColor =
+      deviceStatus === 'ok' ? '#27ae60' : deviceStatus === 'warning' ? '#f39c12' : '#e74c3c';
+    const headerLabel =
+      deviceStatus === 'ok'
+        ? 'Device OK'
+        : deviceStatus === 'warning'
+          ? `Device ATENÇÃO (${deviceStaleStreak}/${STATUS_MAX_RETRIES})`
+          : deviceStatus === 'offline'
+            ? 'Device OFFLINE'
+            : 'Device — aguardando...';
+    // the device's own newest timestamp, falling back to when we last fetched anything
+    const deviceLastTs = latestDeviceTs() || lastTelemetryUpdateMs;
     const lastUpdateStr =
-      lastTelemetryUpdateMs > 0
-        ? new Date(lastTelemetryUpdateMs).toLocaleString(locale, {
+      deviceLastTs > 0
+        ? new Date(deviceLastTs).toLocaleString(locale, {
             day: '2-digit',
             month: '2-digit',
             hour: '2-digit',
@@ -1970,6 +2264,7 @@ export async function openRealTimeTelemetryModal(
     }
     clearCountdown();
     stopSession();
+    stopLivePoll();
 
     if (chart) {
       chart.destroy();
@@ -1981,6 +2276,8 @@ export async function openRealTimeTelemetryModal(
     statusTooltipEl = null;
     deviceTooltipEl?.remove();
     deviceTooltipEl = null;
+    detachLiveInfoTooltip?.();
+    detachLiveInfoTooltip = null;
     overlay.remove();
 
     if (onClose) {
@@ -2035,14 +2332,19 @@ export async function openRealTimeTelemetryModal(
   async function fetchPeriodTelemetry(startISO: string, endISO: string): Promise<Record<string, any>> {
     const startTs = new Date(startISO).getTime();
     const endTs = new Date(endISO).getTime(); // includeTime: true — user already specifies exact end time
+    // Bruto (NONE): no grouping interval, the user-chosen limit caps the raw points.
+    // Aggregated: grouping interval applies and the limit selector is hidden, so size the
+    // limit to the number of buckets in the range (TB defaults to 100 otherwise).
+    const isRaw = selectedAgg === 'NONE';
+    const bucketCount = Math.ceil(Math.max(endTs - startTs, 0) / selectedIntervalMs) + 2;
     const url = buildTsUrl({
       keys: selectedChartKeys,
       startTs,
       endTs,
-      limit: selectedLimit,
+      limit: isRaw ? selectedLimit : Math.min(bucketCount, 50000),
       agg: selectedAgg,
       orderBy: 'ASC',
-      ...(selectedIntervalMs > 0 ? { intervalType: 'MILLISECONDS', interval: selectedIntervalMs } : {}),
+      ...(isRaw ? {} : { intervalType: 'MILLISECONDS' as const, interval: selectedIntervalMs }),
     });
     const response = await fetch(url, { headers: { 'X-Authorization': `Bearer ${token}` } });
     if (!response.ok) throw new Error(`Failed to fetch period telemetry: ${response.statusText}`);
@@ -2117,20 +2419,29 @@ export async function openRealTimeTelemetryModal(
             await fetch(`https://${centralId}.y.myio.com.br/api/check_device/${deviceCheckName}`, {
               signal: AbortSignal.timeout(10_000),
             });
-            centralStatus = 'ok';
+            recordCentralCheck(true);
             checkDeviceHistory.push({ ts: Date.now(), status: 'ok' });
           } catch (e) {
             console.warn('[RTT] check_device error:', (e as Error)?.message ?? e);
-            centralStatus = 'offline';
+            recordCentralCheck(false);
             checkDeviceHistory.push({ ts: Date.now(), status: 'offline' });
           }
           if (checkDeviceHistory.length > MAX_CHECK_DEVICE_HISTORY) checkDeviceHistory.shift();
           updateStatusBadges();
           await new Promise<void>((r) => setTimeout(r, waitMs)); // countdown reaches 0 during this wait
+          // paused / left the tab / closed during the wait: don't plot a stale tick
+          if (isPaused || (currentMode as string) === 'period' || !document.body.contains(overlay)) return;
         }
         clearCountdown();
         await refreshData();
+        recordDeviceCheck(); // one device check per ticker cycle
+        updateStatusBadges();
       }
+      // Stop the loop once the user has switched to "Por Período" — otherwise
+      // this reschedules itself forever in the background (harmless payload
+      // thanks to the guard above, but still ticking). switchMode('realtime')
+      // restarts it explicitly.
+      if (currentMode === 'period') return;
       scheduleCheckDeviceTick(); // reschedule
     }, pollMs);
   }
@@ -2150,7 +2461,7 @@ export async function openRealTimeTelemetryModal(
     backdrop.style.cssText = `
       position:fixed;inset:0;background:rgba(0,0,0,0.35);
       backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);
-      display:flex;align-items:center;justify-content:center;z-index:10200;
+      display:flex;align-items:center;justify-content:center;z-index:1000205;
     `;
     backdrop.innerHTML = `
       <div class="myio-realtime-telemetry-container" style="width:min(420px,94vw);max-height:90vh;overflow-y:auto;position:relative;">
@@ -2270,121 +2581,350 @@ export async function openRealTimeTelemetryModal(
     });
   }
 
+  /** Raw ThingsBoard value -> display scale for the realtime tab (mA -> A, fp 0-255 -> 0-1). */
+  function normalizeRealtimeValue(key: string, raw: number): number {
+    if (
+      key === 'total_current' ||
+      key === 'current' ||
+      key === 'current_a' ||
+      key === 'current_b' ||
+      key === 'current_c'
+    ) {
+      return raw / 1000;
+    }
+    if (key === 'fp_a' || key === 'fp_b' || key === 'fp_c' || key === 'powerFactor') return raw / 255;
+    return raw;
+  }
+
   /**
-   * Seed realtime chart with today's history (from 00:00 to now).
-   * Called on initial open and when switching back to Realtime mode.
+   * Aggregated (non-Bruto) series must have ONE point per grouping interval. A device only reports
+   * when the value changes (or on a forced check), so a quiet interval comes back empty from ThingsBoard.
+   * Those gaps are filled by repeating the previous interval's value, flagged `carried` so the chart
+   * paints them purple and the tooltip says it is the same data as before. Bruto never goes through here.
+   *
+   * Buckets are anchored at `startTs` and ThingsBoard reports each at its midpoint, so a carried point
+   * uses the same midpoint. `seedY` (last raw value before `startTs`) fills the leading empty buckets.
+   */
+  function fillAggregatedGaps(
+    returned: SeriesPoint[],
+    startTs: number,
+    endTs: number,
+    intervalMs: number,
+    seedY?: number
+  ): Array<{ x: number; y: number; carried?: boolean }> {
+    const byBucket = new Map<number, { x: number; y: number }>();
+    for (const p of returned) byBucket.set(Math.floor((p.x - startTs) / intervalMs), p);
+
+    const out: Array<{ x: number; y: number; carried?: boolean }> = [];
+    let prevY = seedY;
+    const buckets = Math.ceil(Math.max(endTs - startTs, 0) / intervalMs);
+    for (let i = 0; i < buckets; i++) {
+      const got = byBucket.get(i);
+      if (got) {
+        out.push(got);
+        prevY = got.y;
+      } else if (prevY !== undefined) {
+        out.push({ x: startTs + i * intervalMs + intervalMs / 2, y: prevY, carried: true });
+      }
+    }
+    return out;
+  }
+
+  /** Latest raw value each key had BEFORE `beforeTs` (raw scale), used to seed leading empty buckets. */
+  async function fetchLastValuesBefore(beforeTs: number, keys: string[]): Promise<Record<string, number>> {
+    try {
+      const url = buildTsUrl({ keys, startTs: 0, endTs: beforeTs, limit: 1, agg: 'NONE', orderBy: 'DESC' });
+      const response = await fetch(url, { headers: { 'X-Authorization': `Bearer ${token}` } });
+      if (!response.ok) return {};
+      const data: Record<string, Array<{ ts: number; value: number }>> = await response.json();
+      const out: Record<string, number> = {};
+      for (const key of keys) {
+        const series = data[key];
+        if (series && series.length > 0) out[key] = Number(series[0].value) || 0;
+      }
+      return out;
+    } catch (_e) {
+      return {}; // seed is best-effort: without it only the leading empty buckets stay blank
+    }
+  }
+
+  /** Purple used for points that repeat the previous interval's value. */
+  const CARRIED_COLOR = '#8e44ad';
+
+  function todayKey(): string {
+    const d = new Date();
+    return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+  }
+
+  /**
+   * Seed the REALTIME store with today's history (00:00 -> now). Writes to its own
+   * store, so it never touches the "Por Período" series. Fetched newest-first and
+   * reversed so the cap keeps the latest points of the day, not the earliest.
    */
   async function seedRealtimeHistory(): Promise<void> {
     const now = new Date();
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-    const startTs = startOfDay.getTime();
-    const endTs = now.getTime();
-    const url = buildTsUrl({ startTs, endTs, limit: historyPoints, agg: 'NONE', orderBy: 'ASC' });
+    const startTs = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0).getTime();
+    const url = buildTsUrl({ startTs, endTs: now.getTime(), limit: RT_MAX_POINTS, agg: 'NONE', orderBy: 'DESC' });
 
     try {
       const response = await fetch(url, { headers: { 'X-Authorization': `Bearer ${token}` } });
-      if (response.ok) {
-        const data: Record<string, Array<{ ts: number; value: number }>> = await response.json();
-        telemetryHistory.clear();
-        lastKnownValues.clear();
-        for (const key of telemetryKeys) {
-          const series = data[key];
-          if (!series || series.length === 0) continue;
-          const points = series.map((pt) => {
-            let y = pt.value ?? 0;
-            if (key === 'total_current' || key === 'current') y = y / 1000;
-            if (key === 'fp_a' || key === 'fp_b' || key === 'fp_c' || key === 'powerFactor') y = y / 255;
-            return { x: pt.ts, y };
-          });
-          telemetryHistory.set(key, points);
-          lastKnownValues.set(key, points[points.length - 1].y);
-        }
+      if (!response.ok) return;
+      const data: Record<string, Array<{ ts: number; value: number }>> = await response.json();
+      realtimeHistory.clear();
+      realtimeLastKnown.clear();
+      lastSeenTelemetryTs.clear();
+      for (const key of telemetryKeys) {
+        const series = data[key];
+        if (!series || series.length === 0) continue;
+        const points = series
+          .map((pt) => ({ x: pt.ts, y: normalizeRealtimeValue(key, Number(pt.value) || 0) }))
+          .reverse();
+        realtimeHistory.set(key, points);
+        realtimeLastKnown.set(key, points[points.length - 1].y);
+        lastSeenTelemetryTs.set(key, points[points.length - 1].x);
       }
+      realtimeSeededDay = todayKey();
     } catch (_e) {
       // seed failure is non-fatal — realtime append will still work
     }
+  }
 
-    // Now fetch the very latest point and update cards + show content
-    const data = await fetchLatestTelemetry();
-    const values = processTelemetryData(data);
-    updateHistory(values);
-    updateTelemetryCards(values);
+  /** True when the chart shows one point per day (date-only axis / tooltip / peak). Period tab, aggregated, 24h. */
+  function isDailyBucketView(): boolean {
+    return currentMode === 'period' && selectedAgg !== 'NONE' && selectedIntervalMs === 86400000;
+  }
 
-    const nowStr = new Date();
-    lastUpdateText.textContent = `${strings.lastUpdate}: ${nowStr.toLocaleTimeString(locale)}`;
+  /**
+   * Bruto only. Compares the last timestamp the API returned against the end of the
+   * period the user picked and warns (same toast used for "máximo de 2 grandezas")
+   * when the data stops short — either because the point limit was hit (series are
+   * fetched oldest-first) or because the device has no data up to the chosen end.
+   */
+  function checkRawCoverage(
+    data: Record<string, Array<{ ts: number; value: number }>>,
+    startISO: string,
+    endISO: string
+  ): void {
+    const startTs = new Date(startISO).getTime();
+    const endTs = new Date(endISO).getTime();
+    const fmt = (ts: number) =>
+      new Date(ts).toLocaleString(locale, {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
 
-    loadingState.style.display = 'none';
-    telemetryContent.style.display = 'block';
+    const lastTsAll: number[] = [];
+    const lastTsTruncated: number[] = [];
+    for (const key of selectedChartKeys) {
+      const series = data[key];
+      if (!series || series.length === 0) continue;
+      const lastTs = series[series.length - 1].ts;
+      lastTsAll.push(lastTs);
+      if (series.length >= selectedLimit) lastTsTruncated.push(lastTs);
+    }
 
-    if (!chart) {
-      initializeChart();
-    } else {
-      rebuildChart();
+    if (lastTsAll.length === 0) {
+      showCoverageNotice(`Nenhum dado retornado entre ${fmt(startTs)} e ${fmt(endTs)}.`);
+      return;
+    }
+
+    const truncated = lastTsTruncated.length > 0;
+    // Truncated by the limit: the covered range ends at the earliest cut-off.
+    const coveredUntil = truncated ? Math.min(...lastTsTruncated) : Math.max(...lastTsAll);
+    // Without truncation a short gap is just the device's sampling period — only flag real gaps.
+    const toleranceMs = truncated ? 60_000 : 15 * 60_000;
+    if (endTs - coveredUntil <= toleranceMs) return;
+
+    const hint = truncated
+      ? ` O limite de ${selectedLimit} pontos foi atingido — aumente o limite ou reduza o período.`
+      : ' Não há dados do dispositivo após essa data.';
+    // Truncated by the limit: offer to fill the picker with the part that was not returned,
+    // starting 1 minute after the last timestamp received.
+    const resumeStartTs = coveredUntil + 60_000;
+    const resume =
+      truncated && resumeStartTs < endTs
+        ? { startISO: new Date(resumeStartTs).toISOString(), endISO: new Date(endTs).toISOString() }
+        : undefined;
+    showCoverageNotice(
+      `Você buscou dados de ${fmt(startTs)} até ${fmt(endTs)}, mas só foi possível buscar até ${fmt(coveredUntil)}.${hint}`,
+      resume ? { ...resume, label: `${fmt(resumeStartTs)} até ${fmt(endTs)}` } : undefined
+    );
+  }
+
+  /** Hide the fixed "data stopped short" notice (called at the start of every new period query). */
+  function clearCoverageNotice(): void {
+    coverageResume = null;
+    if (coverageNoticeEl) {
+      coverageNoticeEl.style.display = 'none';
+      coverageNoticeEl.textContent = '';
     }
   }
 
   /**
-   * Load and render period data into the chart (clears realtime history)
+   * Fixed notice under the "Por Período" chart. Stays until the next query. With `resume`,
+   * shows a link that fills the period picker with the part of the range that was not returned.
+   */
+  function showCoverageNotice(text: string, resume?: { startISO: string; endISO: string; label: string }): void {
+    if (!coverageNoticeEl) return;
+    coverageNoticeEl.textContent = '';
+    const icon = document.createElement('span');
+    icon.textContent = '⚠️ ';
+    const msg = document.createElement('span');
+    msg.textContent = text;
+    coverageNoticeEl.append(icon, msg);
+    coverageResume = resume ? { startISO: resume.startISO, endISO: resume.endISO } : null;
+    if (resume) {
+      const link = document.createElement('a');
+      link.href = '#';
+      link.id = 'rtt-coverage-fill';
+      link.textContent = 'Clique aqui';
+      link.style.cssText = 'font-weight:700;color:#3e1a7d;text-decoration:underline;cursor:pointer;margin-left:6px;';
+      link.title = `Preenche o período com ${resume.label}`;
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        fillPeriodWithResume();
+      });
+      coverageNoticeEl.append(link, document.createTextNode(` para buscar o período não retornado (${resume.label}).`));
+    }
+    coverageNoticeEl.style.display = currentMode === 'period' ? 'block' : 'none';
+  }
+
+  /** Fill the period picker with the pending range (does not run the query — user clicks Carregar). */
+  function fillPeriodWithResume(): void {
+    if (!coverageResume) return;
+    periodStartISO = coverageResume.startISO;
+    periodEndISO = coverageResume.endISO;
+    try {
+      periodDatePicker?.setDates(periodStartISO, periodEndISO);
+    } catch (e) {
+      console.warn('[RealTimeTelemetry] setDates failed:', e);
+    }
+    periodLoadBtn?.focus();
+    showRTTToast('Período preenchido. Clique em Carregar para buscar o restante.', 'info', 4000);
+  }
+
+  /**
+   * Load and render period data into the chart (does not touch the realtime store)
    */
   async function loadPeriodData(): Promise<void> {
     if (!periodStartISO || !periodEndISO) return;
 
+    clearCoverageNotice(); // stays until the next query — a new one replaces it
     try {
       loadingState.style.display = 'block';
       telemetryContent.style.display = 'none';
 
       const data = await fetchPeriodTelemetry(periodStartISO, periodEndISO);
 
-      // Rebuild history from period data
-      telemetryHistory.clear();
-      lastKnownValues.clear();
+      // Rebuild the PERIOD store (the realtime store is left untouched)
+      periodHistory.clear();
+      periodLastKnown.clear();
+
+      const toPeriodY = (key: string, raw: number): number => {
+        let y = raw ?? 0;
+        if (key === 'total_current' || key === 'current') y = y / 1000;
+        if (key === 'fp_a' || key === 'fp_b' || key === 'fp_c' || key === 'powerFactor') y = y / 255;
+        // Wh -> kWh: aggregated (MAX/AVG/etc.) power/energy values come back raw from
+        // ThingsBoard, same unit mismatch already fixed in DemandModal.ts for these keys.
+        if (POWER_KEYS.has(key)) y = y / 1000;
+        return y;
+      };
+
+      // Aggregated: every grouping interval of the period gets a point (gaps repeat the previous value).
+      const fillGaps = selectedAgg !== 'NONE';
+      const periodStartTs = new Date(periodStartISO).getTime();
+      const periodEndTs = new Date(periodEndISO).getTime();
+      const seedRaw = fillGaps ? await fetchLastValuesBefore(periodStartTs, selectedChartKeys) : {};
 
       for (const key of telemetryKeys) {
         const series = data[key];
-        if (!series || series.length === 0) continue;
+        if ((!series || series.length === 0) && !(fillGaps && key in seedRaw)) continue;
 
-        const points = series.map((pt: { ts: number; value: number }) => {
-          let y = pt.value ?? 0;
-          if (key === 'total_current' || key === 'current') y = y / 1000;
-          if (key === 'fp_a' || key === 'fp_b' || key === 'fp_c' || key === 'powerFactor') y = y / 255;
-          return { x: pt.ts, y };
-        });
+        const returned = (series ?? []).map((pt: { ts: number; value: number }) => ({
+          x: pt.ts,
+          y: toPeriodY(key, pt.value),
+        }));
+        const points = fillGaps
+          ? fillAggregatedGaps(
+              returned,
+              periodStartTs,
+              periodEndTs,
+              selectedIntervalMs,
+              key in seedRaw ? toPeriodY(key, seedRaw[key]) : undefined
+            )
+          : returned;
 
-        telemetryHistory.set(key, points);
-        if (points.length > 0) lastKnownValues.set(key, points[points.length - 1].y);
+        periodHistory.set(key, points);
+        if (points.length > 0) periodLastKnown.set(key, points[points.length - 1].y);
       }
 
-      // Build TelemetryValue array from last known values for the cards
-      const values = telemetryKeys
-        .filter((k) => lastKnownValues.has(k))
-        .map((k) => {
-          const numValue = lastKnownValues.get(k)!;
-          const cfg = TELEMETRY_CONFIG[k] || { label: k, unit: '', icon: '📊', decimals: 2 };
-          return {
-            key: k,
-            value: numValue,
-            timestamp: Date.now(),
-            formatted: `${numValue.toFixed(cfg.decimals)} ${cfg.unit}`,
-            unit: cfg.unit,
-            icon: cfg.icon,
-            label: cfg.label,
-            trend: 'stable' as const,
-          };
-        });
+      // Bruto only: does the returned data actually reach the end of the period the user asked for?
+      if (selectedAgg === 'NONE') checkRawCoverage(data, periodStartISO, periodEndISO);
 
+      // Peak summary — only meaningful when the user picked MAX aggregation.
+      // Mirrors DemandModal.ts's globalPeak pill, computed from the points already fetched.
+      if (peakSummaryEl) {
+        let peakKey: string | null = null;
+        let peakPoint: { x: number; y: number } | null = null;
+        if (selectedAgg === 'MAX') {
+          for (const key of selectedChartKeys) {
+            // the peak must be a real reading — never a repeated (purple) filler point
+            const points = (periodHistory.get(key) ?? []).filter((p) => !p.carried);
+            if (points.length === 0) continue;
+            const candidate = points.reduce((max, p) => (p.y > max.y ? p : max));
+            if (!peakPoint || candidate.y > peakPoint.y) {
+              peakPoint = candidate;
+              peakKey = key;
+            }
+          }
+        }
+        if (peakPoint && peakKey) {
+          const cfg = TELEMETRY_CONFIG[peakKey] || { label: peakKey, unit: '', decimals: 2 };
+          // Daily (24h) buckets already drop the hour axis from the chart itself
+          // (isDailyBucket below) — the peak KPI must match: only the day, no time.
+          const isDailyBucket = isDailyBucketView();
+          const when = peakPoint.x
+            ? new Date(peakPoint.x).toLocaleString(
+                locale,
+                isDailyBucket
+                  ? { day: '2-digit', month: '2-digit', year: 'numeric' }
+                  : {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    }
+              )
+            : '';
+          // Brazilian number mask: values in W auto-scale to kW/MW (formatPower),
+          // everything else keeps its own unit with a pt-BR decimal comma.
+          const formattedValue =
+            cfg.unit === 'W'
+              ? formatPower(peakPoint.y, 3)
+              : `${peakPoint.y.toLocaleString('pt-BR', {
+                  minimumFractionDigits: cfg.decimals ?? 2,
+                  maximumFractionDigits: cfg.decimals ?? 2,
+                })} ${cfg.unit}`;
+          peakSummaryEl.textContent = `Máxima: ${formattedValue} (${cfg.label}) em ${when}`;
+          peakSummaryEl.style.display = 'block';
+        } else {
+          peakSummaryEl.style.display = 'none';
+        }
+      }
+
+      // KPI cards are realtime-only — "Por Período" doesn't render them.
       loadingState.style.display = 'none';
       telemetryContent.style.display = 'block';
-
-      updateTelemetryCards(values);
 
       const now = new Date();
       lastUpdateText.textContent = `${strings.lastUpdate}: ${now.toLocaleTimeString(locale)}`;
 
-      if (!chart) {
-        initializeChart();
-      } else {
-        rebuildChart();
-      }
+      // Always rebuild: axis format (daily / date+time) depends on the chosen grouping
+      rebuildChart();
     } catch (error) {
       console.error('[RealTimeTelemetry] Error loading period data:', error);
       errorState.style.display = 'block';
@@ -2617,61 +3157,118 @@ export async function openRealTimeTelemetryModal(
    * Update history and chart
    * If a telemetry value is missing, repeat the last known value
    */
-  function updateHistory(values: TelemetryValue[]) {
+  function updateHistory(values: TelemetryValue[], opts: { useDeviceTs?: boolean } = {}) {
     const now = Date.now();
+
+    // Never let x go backwards (device/server clock skew vs. this browser's clock)
+    const pushPoint = (key: string, x: number, y: number) => {
+      if (!telemetryHistory.has(key)) telemetryHistory.set(key, []);
+      const history = telemetryHistory.get(key)!;
+      const lastX = history.length > 0 ? history[history.length - 1].x : x;
+      history.push({ x: Math.max(x, lastX), y });
+      if (history.length > RT_MAX_POINTS) history.shift();
+    };
 
     // Update values that we received
     for (const tel of values) {
-      if (!telemetryHistory.has(tel.key)) {
-        telemetryHistory.set(tel.key, []);
-      }
-
-      const history = telemetryHistory.get(tel.key)!;
-      history.push({ x: now, y: tel.value });
-
-      // Store last known value
+      pushPoint(tel.key, opts.useDeviceTs ? tel.timestamp : now, tel.value);
       lastKnownValues.set(tel.key, tel.value);
-
-      // Keep only last N points
-      if (history.length > historyPoints) {
-        history.shift();
-      }
     }
 
-    // For telemetries that didn't get updated, repeat last known value
-    for (const key of telemetryKeys) {
-      const receivedKeys = values.map((v) => v.key);
-
-      if (!receivedKeys.includes(key) && lastKnownValues.has(key)) {
-        if (!telemetryHistory.has(key)) {
-          telemetryHistory.set(key, []);
-        }
-
-        const history = telemetryHistory.get(key)!;
-        const lastValue = lastKnownValues.get(key)!;
-
-        history.push({ x: now, y: lastValue });
-
-        // Keep only last N points
-        if (history.length > historyPoints) {
-          history.shift();
+    // Ticker path only: for telemetries that didn't get updated, repeat last known value.
+    // (The continuous-read path appends real device samples only.)
+    if (!opts.useDeviceTs) {
+      const receivedKeys = new Set(values.map((v) => v.key));
+      for (const key of telemetryKeys) {
+        if (!receivedKeys.has(key) && lastKnownValues.has(key)) {
+          pushPoint(key, now, lastKnownValues.get(key)!);
         }
       }
     }
 
-    // Update all selected datasets in the chart
-    if (chart) {
-      selectedChartKeys.forEach((key, idx) => {
-        const h = telemetryHistory.get(key);
-        if (h && chart.data.datasets[idx]) {
-          chart.data.datasets[idx].data = h;
-        }
-      });
-      chart.update('none');
-    }
+    refreshChartData();
 
     // Live-update card tooltip if open
     refreshCardTooltip();
+  }
+
+  /**
+   * Series the chart is currently showing for a key: the period store on "Por Período";
+   * on Realtime, the raw samples (Bruto) or the server-aggregated series of today.
+   */
+  function getSeries(key: string): SeriesPoint[] {
+    if (currentMode === 'period') return periodHistory.get(key) || [];
+    return (rtAgg === 'NONE' ? realtimeHistory : realtimeAggHistory).get(key) || [];
+  }
+
+  /** Push the current series into the existing chart datasets without rebuilding it. */
+  function refreshChartData(): void {
+    if (!chart) return;
+    selectedChartKeys.forEach((key, idx) => {
+      if (chart.data.datasets[idx]) chart.data.datasets[idx].data = getSeries(key);
+    });
+    chart.update('none');
+    updateCarriedLegend();
+  }
+
+  /** Show the purple-dot legend only while the plotted series actually contains repeated points. */
+  function updateCarriedLegend(): void {
+    if (!carriedLegendEl) return;
+    const any = selectedChartKeys.some((k) => getSeries(k).some((p) => p.carried));
+    carriedLegendEl.style.display = any ? 'block' : 'none';
+  }
+
+  /**
+   * Realtime with an aggregation picked: fetch TODAY (00:00 -> now) aggregated by ThingsBoard
+   * into its own store and redraw. Called on selection change and after every ticker / live sample,
+   * so the last bucket keeps growing without any client-side bucketing (and without the raw cap).
+   */
+  async function refreshRealtimeAggregated(): Promise<void> {
+    if (rtAgg === 'NONE' || rtAggInFlight || currentMode !== 'realtime') return;
+    rtAggInFlight = true;
+    try {
+      const now = new Date();
+      const startTs = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+      // last raw value before today's 00:00 — seeds the leading empty intervals (fetched once per day)
+      if (rtSeedBefore.startTs !== startTs) {
+        rtSeedBefore = { startTs, values: await fetchLastValuesBefore(startTs, telemetryKeys) };
+      }
+      const url = buildTsUrl({
+        startTs,
+        endTs: now.getTime(),
+        limit: Math.ceil(86_400_000 / rtIntervalMs) + 2,
+        agg: rtAgg,
+        orderBy: 'ASC',
+        intervalType: 'MILLISECONDS',
+        interval: rtIntervalMs,
+      });
+      const response = await fetch(url, { headers: { 'X-Authorization': `Bearer ${token}` } });
+      if (!response.ok) return;
+      const data: Record<string, Array<{ ts: number; value: number }>> = await response.json();
+      if (currentMode !== 'realtime' || (rtAgg as string) === 'NONE') return; // selection changed meanwhile
+      realtimeAggHistory.clear();
+      // One point per interval since 00:00: quiet intervals repeat the previous value (purple, "carried")
+      const seed = rtSeedBefore.values;
+      for (const key of telemetryKeys) {
+        const series = data[key];
+        if ((!series || series.length === 0) && !(key in seed)) continue;
+        realtimeAggHistory.set(
+          key,
+          fillAggregatedGaps(
+            (series ?? []).map((pt) => ({ x: pt.ts, y: normalizeRealtimeValue(key, Number(pt.value) || 0) })),
+            startTs,
+            now.getTime(),
+            rtIntervalMs,
+            key in seed ? normalizeRealtimeValue(key, seed[key]) : undefined
+          )
+        );
+      }
+      refreshChartData();
+    } catch (_e) {
+      // transient — next tick retries
+    } finally {
+      rtAggInFlight = false;
+    }
   }
 
   /**
@@ -2747,16 +3344,28 @@ export async function openRealTimeTelemetryModal(
       const color = KEY_COLORS[key] || '#667eea';
       const cfg = TELEMETRY_CONFIG[key] || { label: key, unit: '' };
       const yAxisID = dualAxis ? (cfg.unit === rightUnit ? 'y1' : 'y') : 'y';
+      const seriesData = getSeries(key);
+      const dense = seriesData.length > 1000; // raw queries can return up to 50k points
       return {
         label: cfg.label,
-        data: (telemetryHistory.get(key) || []) as Array<{ x: number; y: number }>,
+        data: seriesData,
         borderColor: color,
         backgroundColor: hexRgba(color, multi ? 0.05 : 0.1),
-        borderWidth: 2,
+        borderWidth: dense ? 1 : 2,
         fill: !multi,
-        tension: 0.4,
-        pointRadius: 2,
+        tension: dense ? 0 : 0.4,
+        // Carried points (interval without telemetry, previous value repeated) are purple.
+        // Scriptable options read `raw` from the live dataset, so they survive data refreshes.
+        pointBackgroundColor: (ctx: any) => (ctx.raw?.carried ? CARRIED_COLOR : color),
+        pointBorderColor: (ctx: any) => (ctx.raw?.carried ? CARRIED_COLOR : color),
+        pointRadius: (ctx: any) => (ctx.raw?.carried ? 4 : dense ? 0 : 2),
         pointHoverRadius: 5,
+        segment: {
+          borderColor: (ctx: any) =>
+            ctx.chart.data.datasets[ctx.datasetIndex]?.data?.[ctx.p1DataIndex]?.carried ? CARRIED_COLOR : undefined,
+          borderDash: (ctx: any) =>
+            ctx.chart.data.datasets[ctx.datasetIndex]?.data?.[ctx.p1DataIndex]?.carried ? [5, 4] : undefined,
+        },
         yAxisID,
       };
     });
@@ -2765,18 +3374,31 @@ export async function openRealTimeTelemetryModal(
     const xLabelColor = isDark ? '#94a3b8' : '#6b7280';
     const xGridColor = isDark ? 'rgba(148,163,184,0.12)' : 'rgba(0,0,0,0.06)';
 
-    const isDailyBucket = selectedIntervalMs === 86400000;
+    const isDailyBucket = isDailyBucketView();
+    const isPeriodView = currentMode === 'period';
     const xTickCallback = isDailyBucket
       ? function (value: any) {
           return new Date(value).toLocaleDateString(locale, { day: '2-digit', month: '2-digit' });
         }
-      : function (value: any) {
-          return new Date(value).toLocaleTimeString(locale, {
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-          });
-        };
+      : isPeriodView
+        ? // multi-day range at sub-day resolution: time alone is ambiguous, show the date too
+          function (value: any) {
+            return new Date(value).toLocaleString(locale, {
+              day: '2-digit',
+              month: '2-digit',
+              hour: '2-digit',
+              minute: '2-digit',
+            });
+          }
+        : function (value: any) {
+            // aggregated buckets are >= 15 min apart: seconds add nothing
+            return new Date(value).toLocaleTimeString(
+              locale,
+              rtAgg === 'NONE'
+                ? { hour: '2-digit', minute: '2-digit', second: '2-digit' }
+                : { hour: '2-digit', minute: '2-digit' }
+            );
+          };
 
     const scales: Record<string, any> = {
       x: {
@@ -2787,7 +3409,11 @@ export async function openRealTimeTelemetryModal(
           color: xLabelColor,
           callback: xTickCallback,
         },
-        title: { display: true, text: isDailyBucket ? 'Data' : 'Hora', color: xLabelColor },
+        title: {
+          display: true,
+          text: isDailyBucket ? 'Data' : isPeriodView ? 'Data / Hora' : 'Hora',
+          color: xLabelColor,
+        },
         grid: { color: xGridColor },
         // For daily buckets: force ticks at exact data-point positions (TB anchors at bucket midpoint)
         ...(isDailyBucket
@@ -2853,12 +3479,34 @@ export async function openRealTimeTelemetryModal(
                 const key = selectedChartKeys[context.datasetIndex] ?? primaryKey;
                 return `${context.dataset.label}: ${getFormattedValue(key, context.parsed.y)}`;
               },
+              afterLabel: function (context: any) {
+                return context.raw?.carried ? '↺ Mesmo dado anterior (sem telemetria neste intervalo)' : undefined;
+              },
             },
           },
         },
         scales,
       },
     });
+
+    updateCarriedLegend();
+
+    // ED-1250: a freshly created chart always starts with responsive:true (set
+    // above). If the modal is currently expanded, reapply the same fixed-size
+    // state toggleExpand() would have set — otherwise a chart recreated while
+    // expanded (e.g. via rebuildChart() on grandeza change) silently reverts to
+    // responsive mode inside the fixed-height expanded container.
+    if (isExpanded && chart) {
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          if (!chart) return;
+          chart.options.responsive = false;
+          const w = chartContainer.clientWidth - 40;
+          const h = chartContainer.clientHeight - 60;
+          chart.resize(Math.max(w, 200), Math.max(h, 120));
+        })
+      );
+    }
   }
 
   /**
@@ -2880,16 +3528,23 @@ export async function openRealTimeTelemetryModal(
 
     try {
       const data = await fetchLatestTelemetry();
+      if (currentMode !== 'realtime') return; // user switched tab while the request was in flight
       const values = processTelemetryData(data);
 
+      // Ticker sample: always plotted at "now" (one point per request, even if the value repeats)
       updateHistory(values);
       updateTelemetryCards(values);
+      for (const v of values) {
+        lastSeenTelemetryTs.set(v.key, Math.max(lastSeenTelemetryTs.get(v.key) ?? 0, v.timestamp));
+      }
 
       // Track last telemetry update for Device OK badge
       if (values.length > 0) {
         lastTelemetryUpdateMs = Date.now();
         updateStatusBadges();
       }
+      updateChartTitle();
+      if (rtAgg !== 'NONE') void refreshRealtimeAggregated();
 
       // Update last update time
       const now = new Date();
@@ -2912,6 +3567,56 @@ export async function openRealTimeTelemetryModal(
   }
 
   /**
+   * Continuous read (independent of the ticker): the device may already be pushing
+   * telemetry on its own, so poll the latest ThingsBoard sample every LIVE_POLL_MS and
+   * plot it — at the device's own timestamp — whenever it is newer than what we have.
+   * The ticker (check_device) stays as the "force send" safety net.
+   */
+  async function pollLiveTelemetry(): Promise<void> {
+    if (liveTelemetryInFlight || !liveTelemetryEnabled || isPaused || currentMode !== 'realtime') return;
+    if (!document.body.contains(overlay)) return;
+    liveTelemetryInFlight = true;
+    try {
+      const data = await fetchLatestTelemetry();
+      // tab switched / paused / closed while the request was in flight
+      if (isPaused || !liveTelemetryEnabled || currentMode !== 'realtime') return;
+      const all = processTelemetryData(data);
+      const fresh = all.filter((v) => v.timestamp > (lastSeenTelemetryTs.get(v.key) ?? 0));
+      if (fresh.length === 0) return;
+
+      for (const v of fresh) lastSeenTelemetryTs.set(v.key, v.timestamp);
+      // the device is talking on its own: a recent sample clears any "atenção" / retry count
+      if (Date.now() - Math.max(...fresh.map((v) => v.timestamp)) <= DEVICE_STALE_MS) {
+        deviceStaleStreak = 0;
+        deviceStatus = 'ok';
+      }
+      updateHistory(fresh, { useDeviceTs: true });
+      updateTelemetryCards(all); // cards show every key, not only the fresh ones
+      lastTelemetryUpdateMs = Date.now();
+      updateStatusBadges();
+      updateChartTitle();
+      if (rtAgg !== 'NONE') void refreshRealtimeAggregated();
+      lastUpdateText.textContent = `${strings.lastUpdate}: ${new Date().toLocaleTimeString(locale)}`;
+    } catch (_e) {
+      // transient — the ticker path still reports errors
+    } finally {
+      liveTelemetryInFlight = false;
+    }
+  }
+
+  function startLivePoll(): void {
+    if (liveTelemetryTimerId !== null || !liveTelemetryEnabled) return;
+    liveTelemetryTimerId = window.setInterval(() => void pollLiveTelemetry(), LIVE_POLL_MS);
+  }
+
+  function stopLivePoll(): void {
+    if (liveTelemetryTimerId !== null) {
+      clearInterval(liveTelemetryTimerId);
+      liveTelemetryTimerId = null;
+    }
+  }
+
+  /**
    * Toggle pause/resume
    */
   function togglePause() {
@@ -2922,6 +3627,7 @@ export async function openRealTimeTelemetryModal(
         clearTimeout(refreshIntervalId);
         refreshIntervalId = null;
       }
+      stopLivePoll();
       stopSession();
       clearCountdown();
       pauseBtnIcon.textContent = '▶️';
@@ -2932,6 +3638,7 @@ export async function openRealTimeTelemetryModal(
       statusText.textContent = `${strings.autoUpdate}: OFF`;
     } else {
       scheduleCheckDeviceTick();
+      startLivePoll();
       startSession();
       pauseBtnIcon.textContent = '⏸️';
       pauseBtnText.textContent = strings.pause;
@@ -2952,7 +3659,7 @@ export async function openRealTimeTelemetryModal(
     // Find max history length
     let maxLength = 0;
     for (const key of telemetryKeys) {
-      const history = telemetryHistory.get(key);
+      const history = getSeries(key);
       if (history && history.length > maxLength) {
         maxLength = history.length;
       }
@@ -2964,7 +3671,7 @@ export async function openRealTimeTelemetryModal(
       let timestamp = '';
 
       for (const key of telemetryKeys) {
-        const history = telemetryHistory.get(key);
+        const history = getSeries(key);
         if (history && history[i]) {
           if (!timestamp) {
             timestamp = new Date(history[i].x).toISOString();
@@ -2988,6 +3695,102 @@ export async function openRealTimeTelemetryModal(
     a.download = `telemetry_${deviceLabel}_${new Date().toISOString()}.csv`;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  /** Ensures there is enough room on the current PDF page, adding a new page if necessary. */
+  function ensureRoom(doc: any, nextY: number, minRoom = 12): number {
+    const h = doc.internal.pageSize.getHeight();
+    if (nextY + minRoom > h - 15) {
+      doc.addPage();
+      return 20;
+    }
+    return nextY;
+  }
+
+  /** Same data as exportToCSV(), as a jsPDF report: header, chart snapshot, full table. */
+  async function exportToPDF(): Promise<void> {
+    try {
+      await ensureJsPDF();
+      const JsPDF = getJsPDFCtor();
+      const doc = new JsPDF('p', 'mm', 'a4');
+
+      doc.setFontSize(18);
+      doc.setTextColor(62, 26, 125);
+      doc.text(strings.title, 20, 18);
+
+      doc.setFontSize(11);
+      doc.setTextColor(0, 0, 0);
+      doc.text(`Dispositivo: ${deviceLabel}`, 20, 27);
+      if (customerName) doc.text(`Cliente: ${customerName}`, 20, 33);
+
+      // Period covered — min/max timestamp across all history
+      let minTs = Infinity;
+      let maxTs = -Infinity;
+      for (const key of telemetryKeys) {
+        const history = getSeries(key);
+        if (!history || history.length === 0) continue;
+        minTs = Math.min(minTs, history[0].x);
+        maxTs = Math.max(maxTs, history[history.length - 1].x);
+      }
+      let currentY = customerName ? 39 : 33;
+      if (minTs !== Infinity) {
+        const period = `${new Date(minTs).toLocaleString(locale)} — ${new Date(maxTs).toLocaleString(locale)}`;
+        doc.text(`Período: ${period}`, 20, currentY);
+        currentY += 6;
+      }
+      doc.text(`Modo: ${currentMode === 'period' ? 'Por Período' : 'Real time'}`, 20, currentY);
+      currentY += 10;
+
+      // Chart snapshot, if a chart is currently rendered
+      if (chart && chartCanvas) {
+        const img = chartCanvas.toDataURL('image/png', 1.0);
+        const pageWmm = doc.internal.pageSize.getWidth();
+        const mmW = Math.min(170, pageWmm - 40);
+        const mmH = (chartCanvas.height / chartCanvas.width) * mmW;
+        currentY = ensureRoom(doc, currentY, mmH + 10);
+        doc.addImage(img, 'PNG', 20, currentY, mmW, mmH, undefined, 'FAST');
+        currentY += mmH + 10;
+      }
+
+      // Full data table (same rows as exportToCSV)
+      let maxLength = 0;
+      for (const key of telemetryKeys) {
+        const history = getSeries(key);
+        if (history && history.length > maxLength) maxLength = history.length;
+      }
+
+      const headerLabels = telemetryKeys.map((k) => TELEMETRY_CONFIG[k]?.label || k);
+      doc.setFontSize(9);
+      currentY = ensureRoom(doc, currentY, 10);
+      doc.setFont(undefined, 'bold');
+      doc.text(['Timestamp', ...headerLabels].join(' | '), 20, currentY);
+      doc.setFont(undefined, 'normal');
+      currentY += 6;
+
+      for (let i = 0; i < maxLength; i++) {
+        const row: string[] = [];
+        let timestamp = '';
+        for (const key of telemetryKeys) {
+          const history = getSeries(key);
+          if (history && history[i]) {
+            if (!timestamp) timestamp = new Date(history[i].x).toLocaleString(locale);
+            row.push(history[i].y.toFixed(2));
+          } else {
+            row.push('');
+          }
+        }
+        if (!timestamp) continue;
+        currentY = ensureRoom(doc, currentY, 6);
+        doc.text([timestamp, ...row].join(' | '), 20, currentY);
+        currentY += 5;
+      }
+
+      const fileName = `telemetry_${deviceLabel}_${new Date().toISOString()}.pdf`;
+      savePdfSafe(doc, fileName);
+    } catch (error) {
+      console.error('[RealTimeTelemetry] Error exporting PDF:', error);
+      showRTTToast('Erro ao exportar PDF.', 'error');
+    }
   }
 
   /**
@@ -3055,9 +3858,30 @@ export async function openRealTimeTelemetryModal(
       clearCountdown();
       periodRow.classList.add('visible');
 
-      // Save realtime history snapshot so we can resume on switch back
-      realtimeHistorySnapshot = new Map(Array.from(telemetryHistory.entries()).map(([k, v]) => [k, [...v]]));
-      realtimeLastKnownSnapshot = new Map(lastKnownValues);
+      // Realtime-only footer bits (auto-update status, last-update clock,
+      // central/device badges, pause button) don't make sense over historical
+      // data — hide them while in "Por Período".
+      statusRow.style.display = 'none';
+      pauseBtn.style.display = 'none';
+      // stopSession() (not just hiding the element) — its setInterval otherwise
+      // keeps firing every second forever and re-shows sessionCountdownEl,
+      // which is exactly what made the footer "turn back on and stay on"
+      // after a Realtime → Período round trip.
+      stopSession();
+      stopLivePoll();
+
+      // Point at the period store; the realtime store keeps everything plotted so far
+      // and simply stops growing while this tab is active.
+      telemetryHistory = periodHistory;
+      lastKnownValues = periodLastKnown;
+      closeCardTooltip();
+      InfoTooltip.hide(); // the (i) lives in the realtime footer
+      telemetryCards.style.display = 'none'; // KPI cards are realtime-only
+      realtimeRow.style.display = 'none';
+      // the "data stopped short" notice belongs to the period chart and stays until the next query
+      if (coverageNoticeEl.textContent) coverageNoticeEl.style.display = 'block';
+      updateChartTitle();
+      rebuildChart();
 
       // Initialize date picker lazily
       if (!periodDatePicker) {
@@ -3078,22 +3902,40 @@ export async function openRealTimeTelemetryModal(
     } else {
       // Realtime mode: restore snapshot if available, then continue appending
       periodRow.classList.remove('visible');
+      statusRow.style.display = '';
+      pauseBtn.style.display = '';
 
-      if (realtimeHistorySnapshot) {
-        telemetryHistory = new Map(
-          Array.from(realtimeHistorySnapshot.entries()).map(([k, v]) => [k, [...v]])
-        );
-        lastKnownValues = realtimeLastKnownSnapshot ? new Map(realtimeLastKnownSnapshot) : new Map();
-        realtimeHistorySnapshot = null;
-        realtimeLastKnownSnapshot = null;
-        // Update chart with restored data without clearing
-        rebuildChart();
+      telemetryHistory = realtimeHistory;
+      lastKnownValues = realtimeLastKnown;
+      telemetryCards.style.display = '';
+      realtimeRow.style.display = 'flex';
+      coverageNoticeEl.style.display = 'none';
+
+      // Realtime always shows the current day. Seed it the first time (or when the day
+      // rolled over); afterwards keep the already-started chart and just resume appending.
+      if (realtimeSeededDay !== todayKey()) {
+        loadingState.style.display = 'block';
+        telemetryContent.style.display = 'none';
+        await seedRealtimeHistory();
+        if (currentMode !== 'realtime') return; // user left the tab while seeding
+        loadingState.style.display = 'none';
+        telemetryContent.style.display = 'block';
       }
+      if (rtAgg !== 'NONE') await refreshRealtimeAggregated();
+      if (currentMode !== 'realtime') return;
+      updateChartTitle();
+      rebuildChart();
 
       if (!isPaused) {
         isFirstTick = true; // reset quick-tick on mode switch back to realtime
         await refreshData();
+        if (deviceStatus === 'unknown') {
+          recordDeviceCheck(); // first read of this session — not a retry, but seeds the status
+          updateStatusBadges();
+        }
+        if (currentMode !== 'realtime') return;
         scheduleCheckDeviceTick();
+        startLivePoll();
         startSession();
       }
     }
@@ -3115,6 +3957,7 @@ export async function openRealTimeTelemetryModal(
   expandBtn?.addEventListener('click', toggleExpand);
   pauseBtn.addEventListener('click', togglePause);
   exportBtn.addEventListener('click', exportToCSV);
+  exportPdfBtn?.addEventListener('click', () => { void exportToPDF(); });
 
   // Status badges — each opens its own premium tooltip
   centralBadge?.addEventListener('click', () => {
@@ -3159,16 +4002,18 @@ export async function openRealTimeTelemetryModal(
       multiselectTrigger?.classList.remove('open');
     }
   });
-  // Apply initial limit visibility: show only when agg is NONE
-  if (chartLimitInput) {
-    chartLimitInput.style.display = selectedAgg === 'NONE' ? '' : 'none';
+  // Bruto (NONE): grouping makes no sense → only the point limit is shown.
+  // Any aggregation: only the grouping interval is shown (limit is derived from the range).
+  function syncPeriodParamVisibility(): void {
+    const isRaw = (selectedAgg as string) === 'NONE';
+    if (chartLimitInput) chartLimitInput.style.display = isRaw ? '' : 'none';
+    if (chartIntervalSelect) chartIntervalSelect.style.display = isRaw ? 'none' : '';
   }
+  syncPeriodParamVisibility();
 
   chartAggSelector?.addEventListener('change', (e) => {
     selectedAgg = (e.target as HTMLSelectElement).value as typeof selectedAgg;
-    if (chartLimitInput) {
-      chartLimitInput.style.display = selectedAgg === 'NONE' ? '' : 'none';
-    }
+    syncPeriodParamVisibility();
   });
   chartLimitInput?.addEventListener('change', (e) => {
     const v = parseInt((e.target as HTMLSelectElement).value, 10);
@@ -3176,18 +4021,71 @@ export async function openRealTimeTelemetryModal(
   });
 
   chartIntervalSelect?.addEventListener('change', (e) => {
-    selectedIntervalMs = parseInt((e.target as HTMLSelectElement).value, 10) || 0;
-    // interval só funciona com agg ≠ NONE no ThingsBoard — força AVG quando intervalo > 0
-    if (selectedIntervalMs > 0 && selectedAgg === 'NONE') {
-      selectedAgg = 'AVG';
-      if (chartAggSelector) chartAggSelector.value = 'AVG';
-      if (chartLimitInput) chartLimitInput.style.display = 'none';
-    } else if (selectedIntervalMs === 0 && selectedAgg === 'AVG') {
-      // voltou para Padrão: restaura Bruto
-      selectedAgg = 'NONE';
-      if (chartAggSelector) chartAggSelector.value = 'NONE';
-      if (chartLimitInput) chartLimitInput.style.display = '';
-    }
+    selectedIntervalMs = parseInt((e.target as HTMLSelectElement).value, 10) || 86400000;
+  });
+
+  // Realtime aggregation (today): Bruto / Mínimo / Máximo / Média / Soma + grouping interval
+  function syncRealtimeParamVisibility(): void {
+    if (rtIntervalSelect) rtIntervalSelect.style.display = rtAgg === 'NONE' ? 'none' : '';
+  }
+  async function applyRealtimeAggregation(): Promise<void> {
+    syncRealtimeParamVisibility();
+    if (rtAgg !== 'NONE') await refreshRealtimeAggregated();
+    if (currentMode === 'realtime') rebuildChart();
+  }
+  rtAggSelector?.addEventListener('change', (e) => {
+    rtAgg = (e.target as HTMLSelectElement).value as typeof rtAgg;
+    void applyRealtimeAggregation();
+  });
+  rtIntervalSelect?.addEventListener('change', (e) => {
+    rtIntervalMs = parseInt((e.target as HTMLSelectElement).value, 10) || 900000;
+    void applyRealtimeAggregation();
+  });
+
+  /** (i) next to "Leitura contínua": explains what it does, using the lib's standard InfoTooltip. */
+  const liveInfoBtn = overlay.querySelector('#rtt-live-info') as HTMLButtonElement | null;
+  if (liveInfoBtn) {
+    detachLiveInfoTooltip = InfoTooltip.attach(liveInfoBtn, () => {
+      const tickerSecs = Math.round(
+        (centralId ? checkDeviceIntervalMs + checkDeviceWaitMs : refreshInterval) / 1000
+      );
+      return {
+        icon: '📡',
+        title: 'Leitura contínua',
+        content: `
+          <div class="myio-info-tooltip__section">
+            <div class="myio-info-tooltip__section-title">Ticker (a cada ${tickerSecs} s)</div>
+            <div style="font-size:12px;line-height:1.55;color:#334155;">
+              ${centralId ? 'Manda o comando <b>check_device</b> à central para <b>forçar o dispositivo a enviar</b> uma leitura, aguarda e plota um ponto.' : 'Consulta o ThingsBoard e plota um ponto.'}
+            </div>
+          </div>
+          <div class="myio-info-tooltip__section">
+            <div class="myio-info-tooltip__section-title">Leitura contínua (a cada ${LIVE_POLL_MS / 1000} s)</div>
+            <div style="font-size:12px;line-height:1.55;color:#334155;">
+              O dispositivo também pode enviar telemetrias por conta própria, entre um ticker e outro.
+              Com esta opção ligada, a modal consulta o ThingsBoard e, se houver uma leitura <b>mais nova</b>,
+              plota na hora, com o horário real em que o dispositivo enviou.
+            </div>
+          </div>
+          <div class="myio-info-tooltip__section">
+            <div class="myio-info-tooltip__section-title">Desligada</div>
+            <div style="font-size:12px;line-height:1.55;color:#334155;">O gráfico só se atualiza a cada ticker.</div>
+          </div>
+          <div class="myio-info-tooltip__notice">
+            <span class="myio-info-tooltip__notice-icon">ℹ️</span>
+            <span class="myio-info-tooltip__notice-text">Só <strong>lê</strong> dados — não envia comandos ao dispositivo.
+            Para ao pausar, ao trocar para “Por Período” e ao fim da sessão de 5 min.</span>
+          </div>`,
+      };
+    });
+  }
+
+  // Continuous read toggle (realtime footer)
+  const liveToggle = overlay.querySelector('#rtt-live-toggle') as HTMLInputElement | null;
+  liveToggle?.addEventListener('change', () => {
+    liveTelemetryEnabled = liveToggle.checked;
+    if (!liveTelemetryEnabled) stopLivePoll();
+    else if (currentMode === 'realtime' && !isPaused) startLivePoll();
   });
 
   overlay.addEventListener('click', (e) => {
@@ -3206,34 +4104,69 @@ export async function openRealTimeTelemetryModal(
   // Load polling interval from customer attribute (if customerId provided)
   if (customerId) await loadCheckDeviceInterval();
 
-  // Initial fetch: if centralId is provided, call check_device first, wait 8 s, then fetch telemetry.
-  // This ensures the first telemetry read reflects the freshest data from the device.
-  const useCheckDeviceOnOpen = !!centralId && !sessionStorage.getItem('rtt_check_device_disabled');
-  if (useCheckDeviceOnOpen) {
-    startCountdown(checkDeviceWaitMs);
+  if (currentMode === 'period') {
+    // Default mode: "Por Período" opens directly with the last 7 days /
+    // Máximo / 24 horas already selected (matching the pre-selected controls
+    // in the markup) and loads immediately — no realtime check_device POST,
+    // no polling bootstrap. The user can still switch to "Realtime" manually.
+    updateChartTitle();
+
+    const defaultEnd = new Date();
+    const defaultStart = new Date(defaultEnd.getTime() - 6 * 24 * 60 * 60 * 1000);
+    defaultStart.setHours(0, 0, 0, 0);
+    periodStartISO = defaultStart.toISOString();
+    periodEndISO = defaultEnd.toISOString();
+
     try {
-      await fetch(`https://${centralId}.y.myio.com.br/api/check_device/${deviceCheckName}`, {
-        signal: AbortSignal.timeout(10_000),
+      periodDatePicker = await attachDateRangePicker(dateRangeInput, {
+        presetStart: periodStartISO,
+        presetEnd: periodEndISO,
+        maxRangeDays: 90,
+        includeTime: true,
+        timePrecision: 'minute',
+        onApply: ({ startISO, endISO }) => {
+          periodStartISO = startISO;
+          periodEndISO = endISO;
+        },
       });
-      centralStatus = 'ok';
-      checkDeviceHistory.push({ ts: Date.now(), status: 'ok' });
     } catch (e) {
-      console.warn('[RTT] check_device (open) error:', (e as Error)?.message ?? e);
-      centralStatus = 'offline';
-      checkDeviceHistory.push({ ts: Date.now(), status: 'offline' });
+      console.warn('[RealTimeTelemetry] DateRangePicker init failed:', e);
     }
-    if (checkDeviceHistory.length > MAX_CHECK_DEVICE_HISTORY) checkDeviceHistory.shift();
+
+    await loadPeriodData();
+  } else {
+    // Initial fetch: if centralId is provided, call check_device first, wait 8 s, then fetch telemetry.
+    // This ensures the first telemetry read reflects the freshest data from the device.
+    const useCheckDeviceOnOpen = !!centralId && !sessionStorage.getItem('rtt_check_device_disabled');
+    if (useCheckDeviceOnOpen) {
+      startCountdown(checkDeviceWaitMs);
+      try {
+        await fetch(`https://${centralId}.y.myio.com.br/api/check_device/${deviceCheckName}`, {
+          signal: AbortSignal.timeout(10_000),
+        });
+        recordCentralCheck(true);
+        checkDeviceHistory.push({ ts: Date.now(), status: 'ok' });
+      } catch (e) {
+        console.warn('[RTT] check_device (open) error:', (e as Error)?.message ?? e);
+        recordCentralCheck(false);
+        checkDeviceHistory.push({ ts: Date.now(), status: 'offline' });
+      }
+      if (checkDeviceHistory.length > MAX_CHECK_DEVICE_HISTORY) checkDeviceHistory.shift();
+      updateStatusBadges();
+      await new Promise<void>((r) => setTimeout(r, checkDeviceWaitMs));
+      clearCountdown();
+    }
+
+    await refreshData();
+    recordDeviceCheck();
     updateStatusBadges();
-    await new Promise<void>((r) => setTimeout(r, checkDeviceWaitMs));
-    clearCountdown();
+
+    // Start regular polling tick (check_device → wait → refresh, repeating)
+    isFirstTick = false; // opening already did the initial check_device + wait
+    scheduleCheckDeviceTick();
+    startLivePoll();
+    startSession();
   }
-
-  await refreshData();
-
-  // Start regular polling tick (check_device → wait → refresh, repeating)
-  isFirstTick = false; // opening already did the initial check_device + wait
-  scheduleCheckDeviceTick();
-  startSession();
 
   return {
     destroy: closeModal,

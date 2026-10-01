@@ -47,6 +47,14 @@ export interface AlarmBundleMapParams {
    * RFC-0180: If true, always fetches fresh data even when prefetchedBundle is provided.
    */
   forceRefetch?: boolean;
+  /**
+   * RFC-0233 Phase 2 (header.alarms.features.mapEdit): when true, the modal
+   * renders view-only — the ✏️ edit-rule and ↩ restore-override buttons are
+   * omitted entirely (hidden, not disabled, matching the rest of this RFC's
+   * convention). Viewing devices/rules/assets is unaffected. Default false
+   * (fully editable), preserving today's behavior when omitted.
+   */
+  readOnly?: boolean;
 }
 
 // ============================================================================
@@ -484,19 +492,22 @@ function renderRuleChips(rule: GCDRBundleRule): string {
   return chips + days;
 }
 
-function renderRule(rule: GCDRBundleRule, device?: GCDRBundleDevice, viewMode: 'granular' | 'por-regra' = 'granular'): string {
+function renderRule(rule: GCDRBundleRule, device?: GCDRBundleDevice, viewMode: 'granular' | 'por-regra' = 'granular', readOnly = false): string {
   const isOverride = !!rule.parentRuleId;
   const overrideBadge = isOverride ? `<span class="abm-override-badge">override</span>` : '';
-  const restoreBtn = isOverride && viewMode === 'granular'
+  const restoreBtn = !readOnly && isOverride && viewMode === 'granular'
     ? `<button class="abm-restore-btn" data-restore-rule="${escHtml(rule.id)}" data-parent-rule="${escHtml(rule.parentRuleId!)}" data-device-id="${escHtml(device?.id ?? '')}" title="Restaurar valor padrão da regra">↩</button>`
     : '';
+  const editBtn = readOnly
+    ? ''
+    : `<button class="abm-edit-rule-btn" data-edit-rule="${escHtml(rule.id)}" title="Editar regra">✏️</button>`;
   return `
     <li class="abm-rule-item" data-rule-id="${escHtml(rule.id)}" data-device-id="${escHtml(device?.id ?? '')}">
       <div class="abm-rule-name">
         <span>🔔 ${escHtml(rule.name)} ${overrideBadge}</span>
         <span style="display:flex;align-items:center;gap:4px;">
           ${restoreBtn}
-          <button class="abm-edit-rule-btn" data-edit-rule="${escHtml(rule.id)}" title="Editar regra">✏️</button>
+          ${editBtn}
         </span>
       </div>
       <div class="abm-rule-detail">${renderRuleDetailContent(rule)}</div>
@@ -1023,7 +1034,7 @@ function _alarmBadgeHtml(count: number): string {
   return `<span class="abm-alarm-badge">🔴 ${count}</span>`;
 }
 
-function renderDevice(device: GCDRBundleDevice, rules: Record<string, GCDRBundleRule>, viewMode: 'granular' | 'por-regra' = 'granular'): string {
+function renderDevice(device: GCDRBundleDevice, rules: Record<string, GCDRBundleRule>, viewMode: 'granular' | 'por-regra' = 'granular', readOnly = false): string {
   const deviceRules = (device.ruleIds ?? [])
     .map((rid) => rules[rid])
     .filter(Boolean) as GCDRBundleRule[];
@@ -1041,7 +1052,7 @@ function renderDevice(device: GCDRBundleDevice, rules: Record<string, GCDRBundle
       </div>
       <ul class="abm-rule-list">
         ${deviceRules.length > 0
-          ? deviceRules.map((r) => renderRule(r, device, viewMode)).join('')
+          ? deviceRules.map((r) => renderRule(r, device, viewMode, readOnly)).join('')
           : `<li class="abm-rule-item" style="color:#888;">Sem regras associadas</li>`
         }
       </ul>
@@ -1049,7 +1060,7 @@ function renderDevice(device: GCDRBundleDevice, rules: Record<string, GCDRBundle
   `;
 }
 
-function renderByRuleView(bundle: GCDRCustomerBundle): string {
+function renderByRuleView(bundle: GCDRCustomerBundle, readOnly = false): string {
   const { devices, rules } = bundle;
   if (devices.length === 0) return '<div class="abm-empty-box">Nenhum dispositivo com regras configuradas.</div>';
 
@@ -1078,7 +1089,7 @@ function renderByRuleView(bundle: GCDRCustomerBundle): string {
           <span style="font-size:16px;">🔔</span>
           <span class="abm-rule-group-name">${escHtml(baseRule.name)}</span>
           ${_alarmBadgeHtml(groupAlarmCount)}
-          <button class="abm-edit-rule-btn" data-edit-rule="${escHtml(baseRuleId)}" title="Editar dias/horário">✏️</button>
+          ${readOnly ? '' : `<button class="abm-edit-rule-btn" data-edit-rule="${escHtml(baseRuleId)}" title="Editar dias/horário">✏️</button>`}
         </div>
         <div class="abm-rule-detail" style="padding:8px 14px;" data-rule-id="${escHtml(baseRuleId)}">
           ${renderRuleDetailContent(baseRule)}
@@ -1091,7 +1102,7 @@ function renderByRuleView(bundle: GCDRCustomerBundle): string {
             const overridePart = overrideRule
               ? `<span class="abm-override-badge">override</span>
                  <span class="abm-override-value">${escHtml(overrideRule.metric)} ${escHtml(OPERATOR_LABELS[overrideRule.operator] ?? overrideRule.operator)} ${overrideRule.value}</span>
-                 <button class="abm-restore-btn" data-restore-rule="${escHtml(overrideRule.id)}" data-device-id="${escHtml(d.id)}" title="Restaurar valor padrão da regra">↩</button>`
+                 ${readOnly ? '' : `<button class="abm-restore-btn" data-restore-rule="${escHtml(overrideRule.id)}" data-device-id="${escHtml(d.id)}" title="Restaurar valor padrão da regra">↩</button>`}`
               : '';
             return `
             <li class="abm-rule-group-device" data-device-id="${escHtml(d.id)}">
@@ -1108,7 +1119,7 @@ function renderByRuleView(bundle: GCDRCustomerBundle): string {
   return groups;
 }
 
-function renderBundle(bundle: GCDRCustomerBundle, viewMode: 'granular' | 'por-regra' = 'granular'): string {
+function renderBundle(bundle: GCDRCustomerBundle, viewMode: 'granular' | 'por-regra' = 'granular', readOnly = false): string {
   const { customer, assets, devices, rules } = bundle;
 
   const deviceCount = devices.length;
@@ -1157,7 +1168,7 @@ function renderBundle(bundle: GCDRCustomerBundle, viewMode: 'granular' | 'por-re
         <div class="abm-summary-item"><div class="abm-summary-num">${deviceCount}</div><div class="abm-summary-label">Dispositivos</div></div>
         <div class="abm-summary-item"><div class="abm-summary-num">${ruleCount}</div><div class="abm-summary-label">Regras</div></div>
       </div>
-      ${renderByRuleView(bundle)}
+      ${renderByRuleView(bundle, readOnly)}
     `;
   }
 
@@ -1168,7 +1179,7 @@ function renderBundle(bundle: GCDRCustomerBundle, viewMode: 'granular' | 'por-re
     groups += `
       <div class="abm-asset-group">
         <div class="abm-asset-label">🏗️ ${escHtml(assetLabel)}</div>
-        ${devs.map((d) => renderDevice(d, rules, viewMode)).join('')}
+        ${devs.map((d) => renderDevice(d, rules, viewMode, readOnly)).join('')}
       </div>
     `;
   }
@@ -1176,7 +1187,7 @@ function renderBundle(bundle: GCDRCustomerBundle, viewMode: 'granular' | 'por-re
     groups += `
       <div class="abm-asset-group">
         <div class="abm-asset-label">— Sem Asset</div>
-        ${noAsset.map((d) => renderDevice(d, rules, viewMode)).join('')}
+        ${noAsset.map((d) => renderDevice(d, rules, viewMode, readOnly)).join('')}
       </div>
     `;
   }
@@ -1324,7 +1335,8 @@ export async function openAlarmBundleMapModal(params: AlarmBundleMapParams): Pro
       || '';
 
     const rerenderBundle = () => {
-      render(renderBundle(bundle, viewMode), customerName, true);
+      const subtitle = params.readOnly ? `${customerName} · somente leitura` : customerName;
+      render(renderBundle(bundle, viewMode, params.readOnly), subtitle, true);
 
       // Prepend filter bar to body
       const body = card.querySelector<HTMLElement>('.abm-body');

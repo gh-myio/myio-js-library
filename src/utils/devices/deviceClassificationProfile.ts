@@ -40,6 +40,14 @@ export interface ClassifiableItem {
 // Result types
 // ---------------------------------------------------------------------------
 
+/**
+ * Known group names kept as literals for editor autocomplete, but the type is
+ * intentionally open (`| (string & {})`) — group names are DATA now (GCDR
+ * `GROUP`/`PROFILE` taxonomy, `parseGcdrEntityForest` below), not a fixed enum.
+ * A customer's tree can contain a group whose name was never seen in this file
+ * and it still type-checks and flows through `resolveGroup`/the profile editor
+ * unchanged.
+ */
 export type GroupName =
   // energy
   | 'lojas'
@@ -51,7 +59,8 @@ export type GroupName =
   | 'caixadagua'
   // temperature (RFC-0207 follow-up #2)
   | 'climatizavel'
-  | 'nao_climatizavel';
+  | 'nao_climatizavel'
+  | (string & {});
 export type GroupMatchedBy = 'ocultos' | 'deviceProfile' | 'fallback';
 
 export interface GroupResolution {
@@ -59,12 +68,14 @@ export interface GroupResolution {
   matchedBy: GroupMatchedBy;
 }
 
+/** Same "open union" as `GroupName` — categories are also GCDR data now. */
 export type CategoryName =
   | 'lojas'
   | 'climatizacao'
   | 'elevadores'
   | 'escadas_rolantes'
-  | 'outros';
+  | 'outros'
+  | (string & {});
 export type CategoryMatchedBy =
   | 'deviceProfile'
   /** Substring hit on `deviceProfile` (rule `profileContains`). */
@@ -256,7 +267,7 @@ export const DEFAULT_DEVICE_CLASSIFICATION_PROFILE: DeviceClassificationProfile 
         rules: [
           // RULE 1 — lojas: dp === '3F_MEDIDOR'
           { name: 'lojas', deviceProfiles: ['3F_MEDIDOR'] },
-          // RULE 2 — entrada: ENTRADA_PROFILES.has(dp)
+          // RULE 2 — entrada: ENTRADA_PROFILES.has(dp).
           { name: 'entrada', deviceProfiles: ['TRAFO', 'ENTRADA', 'RELOGIO', 'SUBESTACAO'] },
           // RULE 3 — areacomum: residual fallback
           { name: 'areacomum', deviceProfiles: [], fallback: true },
@@ -1173,4 +1184,255 @@ export function listGroups(
   const dom = profile?.domains?.[domain as ClassificationDomain];
   const rules = dom?.groups?.rules ?? [];
   return rules.map((r) => ({ key: r.name, fallback: !!r.fallback }));
+}
+
+// ---------------------------------------------------------------------------
+// GCDR entities adapter (GROUP/PROFILE family) — RFC-0234 v2
+//
+// The customer's taxonomy is GCDR data (`GROUP`→`PROFILE` tree, `GET
+// /entities/resolve`), never a name baked into this library. Adding a new
+// energy group (e.g. "Transformadores") is a GCDR write, not a library
+// release — this module only converts shapes, it never enumerates group
+// names as code.
+//
+// Scope: ENERGY only. GCDR's `water`/`temperature` GROUP subtrees (verified
+// live 2026-09-18) don't structurally match the current internal
+// water/temperature model (different leaf vocabulary, no nested
+// container group) — `parseGcdrEntityForest` only emits `domains.energy`;
+// callers keep classifying water/temperature from
+// `DEFAULT_DEVICE_CLASSIFICATION_PROFILE` exactly as before (`getDomain`'s
+// existing "fall back to DEFAULT for an absent domain" behavior already
+// does this with zero extra code). Extending to water/temperature is a
+// follow-up once GCDR's tree for those domains gets a comparable shape.
+// ---------------------------------------------------------------------------
+
+/** Minimal shape read from a GCDR `/entities/resolve` node — only what the adapter needs. */
+export interface GcdrEntityNode {
+  entityType: string;
+  entityKey: string;
+  entityValue?: string | null;
+  children?: GcdrEntityNode[];
+}
+
+/**
+ * `entityKey` <-> internal group/category name, kept ONLY for the handful of
+ * groups that predate this adapter and whose internal name is woven into
+ * already-deployed TELEMETRY widget configs (`labelWidget` strings,
+ * `window.STATE.energy.<name>` keys) — renaming them would break every
+ * customer dashboard configured today. A GCDR group whose `entityKey` is NOT
+ * in this table is not an error: `deriveGroupName`/`deriveCategoryName` fall
+ * back to a generic, reversible derivation from the `entityKey` itself, so a
+ * brand-new group (e.g. a future "energy-elevadores-only") flows through with
+ * zero code changes here.
+ */
+const KNOWN_ENERGY_GROUP_KEYS: Record<string, string> = {
+  'energy-entry': 'entrada',
+  'energy-stores': 'lojas',
+  'energy-commonarea': 'areacomum',
+  'energy-transformers': 'transformadores',
+};
+const ENERGY_GROUP_NAME_TO_KEY: Record<string, string> = Object.fromEntries(
+  Object.entries(KNOWN_ENERGY_GROUP_KEYS).map(([k, v]) => [v, k]),
+);
+
+const KNOWN_ENERGY_CATEGORY_KEYS: Record<string, string> = {
+  climatizacao: 'climatizacao',
+  elevadores: 'elevadores',
+  'escada-rolante': 'escadas_rolantes',
+  'outros-equipamentos': 'outros',
+};
+const ENERGY_CATEGORY_NAME_TO_KEY: Record<string, string> = Object.fromEntries(
+  Object.entries(KNOWN_ENERGY_CATEGORY_KEYS).map(([k, v]) => [v, k]),
+);
+
+function stripDomainPrefix(domain: string, key: string): string {
+  const prefix = `${domain}-`;
+  return key.startsWith(prefix) ? key.slice(prefix.length) : key;
+}
+
+function deriveGroupName(domain: string, key: string): string {
+  return KNOWN_ENERGY_GROUP_KEYS[key] ?? stripDomainPrefix(domain, key);
+}
+
+function deriveGroupKey(domain: string, name: string): string {
+  return ENERGY_GROUP_NAME_TO_KEY[name] ?? `${domain}-${name}`;
+}
+
+function deriveCategoryName(key: string): string {
+  return KNOWN_ENERGY_CATEGORY_KEYS[key] ?? key;
+}
+
+function deriveCategoryKey(name: string): string {
+  return ENERGY_CATEGORY_NAME_TO_KEY[name] ?? name;
+}
+
+function isProfileLeafGroup(node: GcdrEntityNode): boolean {
+  const children = node.children ?? [];
+  return children.length === 0 || children.every((c) => c.entityType === 'PROFILE');
+}
+
+function humanize(name: string): string {
+  const s = name.replace(/[_-]+/g, ' ').trim();
+  return s.length ? s[0].toUpperCase() + s.slice(1) : s;
+}
+
+/**
+ * Converts the `energy` GCDR `GROUP` root into a `DomainProfile`. Structural,
+ * not name-based: a direct child `GROUP` whose own children are all `PROFILE`
+ * leaves becomes a `groups.rules[]` entry (its `PROFILE` children's
+ * `entityKey`s are the `deviceProfiles` match list); the one child `GROUP`
+ * that instead nests further `GROUP`s is the residual/fallback bucket, and
+ * ITS children become `categories.rules[]` (same PROFILE-leaf rule, one level
+ * down). Mirrors the shape GCDR returns for a real customer today (`energy`
+ * -> `energy-entry`/`energy-stores`/`energy-transformers` (leaves) +
+ * `energy-commonarea` (nested) -> `climatizacao`/`elevadores`/... — verified
+ * live, 2026-09-18).
+ */
+export function parseGcdrEnergyRoot(energyRoot: GcdrEntityNode): DomainProfile {
+  const domain = 'energy';
+  const children = (energyRoot.children ?? []).filter((c) => c.entityType === 'GROUP');
+
+  const rules: GroupRule[] = [];
+  let containerChild: GcdrEntityNode | null = null;
+  for (const child of children) {
+    if (isProfileLeafGroup(child) && !containerChild) {
+      rules.push({
+        name: deriveGroupName(domain, child.entityKey),
+        deviceProfiles: (child.children ?? [])
+          .filter((p) => p.entityType === 'PROFILE')
+          .map((p) => p.entityKey),
+      });
+    } else if (!containerChild) {
+      containerChild = child; // first nested-group child wins the fallback slot
+    } else {
+      // A second profile-leaf-looking group after the container was already
+      // claimed still needs a home — treat it as an ordinary leaf rule too.
+      rules.push({
+        name: deriveGroupName(domain, child.entityKey),
+        deviceProfiles: (child.children ?? [])
+          .filter((p) => p.entityType === 'PROFILE')
+          .map((p) => p.entityKey),
+      });
+    }
+  }
+
+  const fallbackName = containerChild
+    ? deriveGroupName(domain, containerChild.entityKey)
+    : 'areacomum';
+  rules.push({ name: fallbackName, deviceProfiles: [], fallback: true });
+
+  const groups: GroupsConfig = { ocultosProfilePatterns: [], rules };
+
+  const storeRule = rules.find((r) => r.name === 'lojas');
+  const storeDeviceProfile = storeRule?.deviceProfiles?.[0] || '3F_MEDIDOR';
+
+  const categoryRules: CategoryRule[] = [];
+  for (const grandchild of containerChild?.children ?? []) {
+    if (grandchild.entityType !== 'GROUP') continue;
+    const name = deriveCategoryName(grandchild.entityKey);
+    if (name === 'outros') continue; // implicit residual — resolveCategory's own fallback, no rule needed
+    categoryRules.push({
+      name,
+      deviceProfiles: (grandchild.children ?? [])
+        .filter((p) => p.entityType === 'PROFILE')
+        .map((p) => p.entityKey),
+    });
+  }
+
+  return {
+    caseInsensitive: true,
+    groups,
+    categories: {
+      storeDeviceProfile,
+      rules: categoryRules,
+      fallback: { name: 'outros' },
+    },
+  };
+}
+
+/**
+ * Converts a full `GET /entities/resolve` response's `roots[]` (a mixed
+ * forest — non-`GROUP` roots, e.g. leftover `CLASSIFICATION_*` roots, are
+ * ignored) into `DeviceClassificationProfile['domains']`. Only `energy` is
+ * populated (see module note above) — callers spread this over
+ * `DEFAULT_DEVICE_CLASSIFICATION_PROFILE.domains` so water/temperature keep
+ * classifying exactly as before.
+ */
+export function parseGcdrEntityForest(
+  roots: GcdrEntityNode[] | null | undefined,
+): { energy?: DomainProfile } {
+  const energyRoot = (roots ?? []).find(
+    (r) => r.entityType === 'GROUP' && r.entityKey === 'energy',
+  );
+  return energyRoot ? { energy: parseGcdrEnergyRoot(energyRoot) } : {};
+}
+
+/**
+ * Reverse of `parseGcdrEnergyRoot` — builds the `energy` GROUP/PROFILE
+ * subtree GCDR's `PUT /entities/bulk-replace?type=GROUP` expects, from the
+ * profile the editor is about to save. `previousRoot`, when given (the raw
+ * node last read from `/entities/resolve`), lets an unchanged group/category
+ * keep its original `entityKey`/`entityValue` instead of a freshly-derived
+ * one — round-trips every name `parseGcdrEnergyRoot` can produce (a known
+ * group keeps its real `entityKey`; an unknown one gets `"energy-<name>"`,
+ * which `deriveGroupName` reads back to the same internal name next load).
+ */
+export function buildGcdrEnergyRoot(
+  domainProfile: DomainProfile,
+  previousRoot?: GcdrEntityNode | null,
+): GcdrEntityNode {
+  const domain = 'energy';
+  const prevChildByName = new Map<string, GcdrEntityNode>();
+  for (const child of previousRoot?.children ?? []) {
+    prevChildByName.set(deriveGroupName(domain, child.entityKey), child);
+  }
+  const prevGrandchildByName = new Map<string, GcdrEntityNode>();
+  const prevContainer = [...prevChildByName.values()].find(
+    (c) => !isProfileLeafGroup(c),
+  );
+  for (const gc of prevContainer?.children ?? []) {
+    prevGrandchildByName.set(deriveCategoryName(gc.entityKey), gc);
+  }
+
+  const leafProfileNodes = (deviceProfiles: string[]): GcdrEntityNode[] =>
+    deviceProfiles.map((dp) => ({
+      entityType: 'PROFILE',
+      entityKey: dp,
+      entityValue: dp,
+      children: [],
+    }));
+
+  const children: GcdrEntityNode[] = domainProfile.groups.rules.map((rule) => {
+    const prev = prevChildByName.get(rule.name);
+    if (rule.fallback && domainProfile.categories) {
+      // Residual group — nests categories (breakdown), not PROFILE leaves.
+      return {
+        entityType: 'GROUP',
+        entityKey: prev?.entityKey ?? deriveGroupKey(domain, rule.name),
+        entityValue: prev?.entityValue ?? humanize(rule.name),
+        children: (domainProfile.categories.rules ?? []).map((cat) => {
+          const prevCat = prevGrandchildByName.get(cat.name);
+          return {
+            entityType: 'GROUP',
+            entityKey: prevCat?.entityKey ?? deriveCategoryKey(cat.name),
+            entityValue: prevCat?.entityValue ?? humanize(cat.name),
+            children: leafProfileNodes(cat.deviceProfiles),
+          };
+        }),
+      };
+    }
+    return {
+      entityType: 'GROUP',
+      entityKey: prev?.entityKey ?? deriveGroupKey(domain, rule.name),
+      entityValue: prev?.entityValue ?? humanize(rule.name),
+      children: leafProfileNodes(rule.deviceProfiles),
+    };
+  });
+
+  return {
+    entityType: 'GROUP',
+    entityKey: previousRoot?.entityKey ?? domain,
+    entityValue: previousRoot?.entityValue ?? humanize(domain),
+    children,
+  };
 }

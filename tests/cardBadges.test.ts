@@ -1,10 +1,12 @@
-// RFC-0183/RFC-0198: shared card alarm/ticket badge helpers
+// RFC-0183/RFC-0198/RFC-0232: shared card alarm/ticket/incident badge helpers
 import { describe, it, expect, afterEach, beforeEach } from 'vitest';
 import {
   addAlarmBadge,
   refreshAlarmBadges,
   addTicketBadge,
   refreshTicketBadges,
+  addIncidentBadge,
+  refreshIncidentBadges,
 } from '../src/components/card-badges';
 
 declare global {
@@ -24,6 +26,7 @@ afterEach(() => {
   card.remove();
   delete (window as any).AlarmServiceOrchestrator;
   delete (window as any).TicketServiceOrchestrator;
+  delete (window as any).IncidentServiceOrchestrator;
   delete (window as any).MyIOUtils;
 });
 
@@ -121,5 +124,60 @@ describe('addTicketBadge', () => {
     (window as any).MyIOUtils.ticketsEnabled = false;
     refreshTicketBadges();
     expect(badge.style.display).toBe('none');
+  });
+});
+
+describe('addIncidentBadge', () => {
+  it('inserts a hidden badge when the orchestrator is absent (count 0)', () => {
+    addIncidentBadge(card, 'gcdr-1');
+    const badge = card.querySelector<HTMLElement>('[data-incident-device-id="gcdr-1"]');
+    expect(badge).not.toBeNull();
+    expect(badge!.style.display).toBe('none');
+  });
+
+  it('shows the count when the orchestrator reports incidents', () => {
+    (window as any).IncidentServiceOrchestrator = {
+      getIncidentCountForDevice: () => 4,
+    };
+    addIncidentBadge(card, 'gcdr-2');
+    const badge = card.querySelector<HTMLElement>('[data-incident-device-id="gcdr-2"]')!;
+    expect(badge.style.display).toBe('');
+    expect(badge.querySelector('span')!.textContent).toBe('4');
+    expect(badge.title).toContain('4 incidentes');
+  });
+
+  it('does nothing without gcdrDeviceId and avoids duplicates', () => {
+    addIncidentBadge(card, null);
+    expect(card.querySelector('.myio-incident-badge')).toBeNull();
+
+    addIncidentBadge(card, 'gcdr-3');
+    addIncidentBadge(card, 'gcdr-3');
+    expect(card.querySelectorAll('[data-incident-device-id="gcdr-3"]')).toHaveLength(1);
+  });
+
+  it('is positioned directly below the alarm badge on the same card', () => {
+    (window as any).AlarmServiceOrchestrator = { getAlarmCountForDevice: () => 1 };
+    (window as any).IncidentServiceOrchestrator = { getIncidentCountForDevice: () => 1 };
+    addAlarmBadge(card, 'gcdr-4');
+    addIncidentBadge(card, 'gcdr-4');
+
+    const alarmStyle = document.getElementById('myio-alarm-badge-styles')!.textContent!;
+    const incidentStyle = document.getElementById('myio-incident-badge-styles')!.textContent!;
+    expect(alarmStyle).toContain('top: 6px');
+    expect(incidentStyle).toContain('top: 28px');
+  });
+
+  it('refreshIncidentBadges lights hidden badges up when incidents arrive later', () => {
+    addIncidentBadge(card, 'gcdr-5');
+    expect(card.querySelector<HTMLElement>('.myio-incident-badge')!.style.display).toBe('none');
+
+    (window as any).IncidentServiceOrchestrator = {
+      getIncidentCountForDevice: () => 120,
+    };
+    refreshIncidentBadges();
+
+    const badge = card.querySelector<HTMLElement>('.myio-incident-badge')!;
+    expect(badge.style.display).toBe('');
+    expect(badge.querySelector('span')!.textContent).toBe('99+');
   });
 });

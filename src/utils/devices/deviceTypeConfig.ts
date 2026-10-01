@@ -57,6 +57,7 @@ export const DEVICE_TYPE_CONFIG: Record<string, DeviceTypeConfigEntry> = {
   RELOGIO: { category: 'energy', image: deviceIcons.RELOGIO },
   ENTRADA: { category: 'energy', image: deviceIcons.ENTRADA },
   SUBESTACAO: { category: 'energy', image: deviceIcons.SUBESTACAO },
+  TRANSFORMADOR: { category: 'energy', image: deviceIcons.TRANSFORMADOR },
   FANCOIL: { category: 'energy', image: deviceIcons.FANCOIL },
   CHILLER: { category: 'energy', image: deviceIcons.CHILLER },
   AR_CONDICIONADO: { category: 'energy', image: null },

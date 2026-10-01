@@ -995,6 +995,69 @@
   background: #7b4fa6;
 }
 
+/* Modal premium — período fora de consulta (corte de sensores) */
+.cutoff-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 10, 35, 0.55);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: fadeIn 0.15s ease;
+}
+.cutoff-modal {
+  background: #fff;
+  border-radius: 20px;
+  padding: 32px 32px 24px;
+  width: 560px;
+  max-width: 92vw;
+  text-align: center;
+  box-shadow: 0 24px 56px rgba(43, 15, 74, 0.35);
+  border: 1px solid #ede0fb;
+}
+.cutoff-modal-icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 14px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  color: #fff;
+  background: linear-gradient(135deg, #f5a623, #c9820a);
+  box-shadow: 0 8px 18px rgba(201, 130, 10, 0.35);
+}
+.cutoff-modal-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin: 0 0 10px;
+  line-height: 1.35;
+}
+.cutoff-modal-message {
+  font-size: 13.5px;
+  color: #555;
+  margin: 0 0 22px;
+  line-height: 1.6;
+}
+.cutoff-modal-close-btn {
+  padding: 10px 32px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  background: #5c307d;
+  color: #fff;
+  font-size: 13.5px;
+  font-weight: 600;
+  transition: background 0.15s;
+}
+.cutoff-modal-close-btn:hover {
+  background: #7b4fa6;
+}
+
 /* Settings Modal */
 .settings-backdrop {
   position: fixed;
@@ -1006,7 +1069,7 @@
   z-index: 9999;
 }
 .settings-modal {
-  width: 420px;
+  width: 840px;
   max-width: 90vw;
   background: #fff;
   border: 1px solid #eee;

@@ -1,5 +1,12 @@
 /**
- * Temperature Report Controller v3.1
+ * Temperature Report Controller v3.2
+ *
+ * Changes from v3.1:
+ * - Name-based adjustment (+/-/x) is now gated by originalPayload.adjustmentSince
+ *   (set by Get-slave-ids v3.1 from the URL query ?adjustmentSince=..., with a
+ *   hard-coded default of 2026-09-01T00:00:00Z when the parameter is absent):
+ *   the operator is applied ONLY to telemetry slots (time_interval) >= that
+ *   date. Slots before the reference date are returned raw.
  *
  * Changes from v3:
  * - Fixed regex to use Unicode escapes (\u00C0-\u00FF) instead of literal
@@ -22,6 +29,19 @@ const originalPayload = msg.originalPayload || {};
 const requestedSlaveIds = originalPayload.slaveIds || [];
 const dateStartStr = originalPayload.dateStart;
 const dateEndStr = originalPayload.dateEnd;
+
+// Adjustment reference date. The +/-/x operator from the device name is only
+// applied to telemetry from this date forward. Get-slave-ids v3.1 always
+// provides it (URL param or hard-coded default 2026-09-01T00:00:00Z); the
+// null-guard below is just defensive for older upstream nodes.
+const adjustmentSinceStr = originalPayload.adjustmentSince || null;
+let adjustmentSince = null;
+if (adjustmentSinceStr) {
+  const parsedSince = new Date(adjustmentSinceStr);
+  if (!isNaN(parsedSince.getTime())) {
+    adjustmentSince = parsedSince;
+  }
+}
 
 // Validate dates
 const dateStart = new Date(dateStartStr);
@@ -175,7 +195,13 @@ const finalPayload = expectedSlots.map((slot) => {
   if (existingReading) {
     // We have telemetry data
     const rawValue = existingReading.avg_value;
-    const adjustedValue = applyAdjustment(rawValue, adjustment);
+
+    // Gate: only adjust readings from the reference date forward.
+    // No adjustmentSince (or invalid) => no adjustment at all.
+    const slotTime = new Date(existingReading.time_interval);
+    const shouldAdjust =
+      adjustmentSince !== null && !isNaN(slotTime.getTime()) && slotTime >= adjustmentSince;
+    const adjustedValue = applyAdjustment(rawValue, shouldAdjust ? adjustment : '');
 
     return {
       reading_date: slot.reading_date,

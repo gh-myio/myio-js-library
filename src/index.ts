@@ -290,6 +290,22 @@ export type {
   BaseGroupResidual,
 } from './utils/devices/deviceClassificationProfile.js';
 
+// RFC-0234 v2: GCDR `GROUP`/`PROFILE` entities <-> DeviceClassificationProfile
+// (energy domain) adapter — two-level (groups + categories breakdown), the
+// fidelity v-5.2.0's TELEMETRY_INFO breakdown needs. Complements
+// `parseClassificationEntities` above (RFC-0047, one flat level, used by
+// v-5.4.0): that one is domain/column-generic but folds every descendant
+// PROFILE into one flat list per column, which would lose the
+// climatizacao/elevadores/escadas/outros sub-buckets inside "Área Comum".
+// The customer's taxonomy is GCDR data, never a name baked into this
+// library — a new energy group is a GCDR write, not a library release.
+export {
+  parseGcdrEntityForest,
+  parseGcdrEnergyRoot,
+  buildGcdrEnergyRoot,
+} from './utils/devices/deviceClassificationProfile.js';
+export type { GcdrEntityNode } from './utils/devices/deviceClassificationProfile.js';
+
 // RFC-0207 Phase B: device classification profile management modal (premium UI).
 export { openDeviceProfileModal } from './components/premium-modals/device-profile/openDeviceProfileModal';
 export type {
@@ -424,6 +440,40 @@ export type {
   AnnotationIndicatorTheme,
   AnnotationSummary,
 } from './utils/AnnotationIndicator';
+
+// RFC-0218: GcdrAnnotationsClient — GCDR-native annotations (entities that
+// aren't a TB device, e.g. a central identified by its GCDR UUID, plus the
+// eventual TB log_annotations → GCDR migration for real devices).
+export {
+  GcdrAnnotationsClient,
+  createGcdrAnnotationsClient,
+  adaptGcdrToLegacyAnnotation,
+  adaptGcdrListToLegacyAnnotations,
+  adaptLegacyToGcdrInput,
+  createAuthStrategy as createGcdrAnnotationsAuthStrategy,
+  GcdrAnnotationsError,
+  GcdrAnnotationsConflictError,
+  type AuthStrategy as GcdrAnnotationsAuthStrategy,
+  type GcdrAnnotation,
+  type GcdrAnnotationDetail,
+  type GcdrAnnotationListPage,
+  type GcdrAnnotationListParams,
+  type GcdrAnnotationResponse,
+  type GcdrAnnotationEvent,
+  type GcdrAnnotationAttachment,
+  type GcdrAnnotationType,
+  type GcdrAnnotationImportance,
+  type GcdrFinalizedReason,
+  type GcdrResponseType,
+  type GcdrEntityType,
+  type GcdrUserSnapshot,
+  type GcdrCreateAnnotationInput,
+  type GcdrPatchAnnotationInput,
+  type GcdrRespondInput,
+  type GcdrAnnotationsAuthConfig,
+  type GcdrAnnotationsClientLogger,
+  type GcdrAnnotationsClientParams,
+} from './components/gcdr-annotations/v1.0.0';
 
 // Re-export existing utilities
 export { detectDeviceType, getAvailableContexts, addDetectionContext } from './utils/devices/deviceType';
@@ -953,6 +1003,58 @@ export {
 // RFC-0107: Contract Devices Modal (Shopping Dashboard)
 export { openContractDevicesModal, DEVICE_COUNT_KEYS } from './components/premium-modals/contract-devices';
 
+// RFC-0231 (follow-up): Gateway Modal — "gráfico de Centrais" (probe latency
+// history for one central/gateway). Rewritten to closely mirror
+// src/components/temperature/TemperatureModal.ts — confirmed via
+// handleActionDashboard in TELEMETRY/controller.js as the real production
+// "open dashboard chart" reference (self-contained overlay + ModalHeader,
+// Granularity + Day Period + Date Range Picker + Query button, no more
+// openGenericModal / quick-period shortcuts — see GatewayModal.ts's file doc).
+export { openGatewayModal } from './components/premium-modals/gateway';
+export type {
+  GatewayModalParams,
+  GatewayModalInstance,
+  GatewayModalLabels,
+  GatewayModalSourceConfig,
+  GatewayLatencyPoint,
+  GatewayLatencyStats,
+  GatewayGranularity,
+} from './components/premium-modals/gateway';
+
+// RFC-0231 (follow-up): Gateway Comparison Modal — multi-central
+// connectivity/latency comparison, near-1:1 structural port of
+// src/components/temperature/TemperatureComparisonModal.ts.
+export { openGatewayComparisonModal } from './components/premium-modals/gateway-comparison';
+export type {
+  CentralForComparison,
+  GatewayComparisonModalParams,
+  GatewayComparisonModalInstance,
+  GatewayComparisonModalSourceConfig,
+} from './components/premium-modals/gateway-comparison';
+
+// RFC-0231 (follow-up): Central Settings Modal — adapted from
+// src/components/premium-modals/settings/SettingsModalView.ts (the device
+// settings modal) for a central/gateway. Most of the original's tabs
+// (energy/water/temperature thresholds, GCDR alarms, exclusion groups,
+// tickets) don't apply to a central — this keeps identity fields (name,
+// read-only UUID/hardware ID) plus the v2 connectivity tuning knobs
+// (offlineGraceMs/blipToleranceMs/offlineHardMs) as end-user-editable
+// settings, which the original never exposed at all (developer-only props).
+export {
+  openCentralSettingsModal,
+  minutesToMs,
+  msToMinutes,
+  validateCentralSettings,
+} from './components/premium-modals/central-settings';
+export type {
+  CentralSettingsModalParams,
+  CentralSettingsModalInstance,
+  CentralSettingsModalLabels,
+  CentralSettingsData,
+  CentralSettingsValidationError,
+  CentralSettingsPersistResult,
+} from './components/premium-modals/central-settings';
+
 // RFC-0107: Contract Devices Modal Types
 export type {
   OpenContractDevicesModalParams,
@@ -1210,14 +1312,16 @@ export type { InferredDeviceType } from './components/classify/deviceType';
 // RFC-0109: Upsell Post-Setup Modal
 export { openUpsellModal } from './components/premium-modals/upsell';
 
-// RFC-0183/RFC-0198: shared card alarm/ticket badge decoration helpers
+// RFC-0183/RFC-0198/RFC-0232: shared card alarm/ticket/incident badge decoration helpers
 export {
   addAlarmBadge,
   refreshAlarmBadges,
   addTicketBadge,
   refreshTicketBadges,
+  addIncidentBadge,
+  refreshIncidentBadges,
 } from './components/card-badges';
-export type { AlarmBadgeOptions, TicketBadgeOptions } from './components/card-badges';
+export type { AlarmBadgeOptions, TicketBadgeOptions, IncidentBadgeOptions } from './components/card-badges';
 
 // RFC-0205: Premium Dialog — exported confirm/message modal + generic HTML modal
 export { openConfirmDialog, openMessageDialog, openGenericModal } from './components/premium-modals/dialog';
@@ -2377,6 +2481,10 @@ export type {
   ExcludeGroupsTotals,
 } from './components/premium-modals/settings/exclusion-groups/ExclusionGroupsTab';
 
+// Perfil de Dispositivo tab (SettingsModal — read-only TB entity + SERVER_SCOPE dump, all domains)
+export { DeviceProfileTab } from './components/premium-modals/settings/device-profile/DeviceProfileTab';
+export type { DeviceProfileTabConfig } from './components/premium-modals/settings/device-profile/DeviceProfileTab';
+
 // RFC-0198: FreshDesk API — reusable service client
 // Generic types (FreshDeskTicket, TicketTypeId, TicketMotivo) live in the service layer
 export type {
@@ -2506,3 +2614,45 @@ export type {
   DeviceProductCodeFields,
   DeviceProductCodeValidationResult,
 } from './utils/devices/device-product-code';
+
+// RFC-0231 — Central Status Card (shared vanilla card for the orchestrator-devices
+// cockpit and the customer centrals list — derived connectivity + Monitoramento/Status
+// sliders, grouped into Operação/Cadastro blocks). Auth/audit are host-provided callbacks.
+export { createCentralStatusCard } from './components/cards/central-status/v1.0.0';
+export type {
+  CreateCentralStatusCardParams,
+  CentralStatusCardHandle,
+  CentralStatusCardVariant,
+  CentralConnectivity,
+  CentralEntityStatus,
+  CentralProbeVerdict,
+  CentralDeviceCounts,
+  CentralDivergence,
+  CentralStatusCardLabels,
+  CentralCardActionEvent,
+  CentralSelectChangeEvent,
+  CentralAnnotationType,
+  CentralAnnotationBadgeClickEvent,
+} from './components/cards/central-status/v1.0.0';
+
+// RFC-0231 (follow-up) — connectivity timeline modal, ported from the old
+// DivCard-based central card's 📈 feature. Reads orchestrator_devices_status_history
+// via a GCDR admin endpoint the host wires (baseUrl+path or a full onFetchTimeline
+// override) — same "auth is host-provided" principle as the card's own callbacks.
+export { openCentralTimelineModal } from './components/cards/central-status/v1.0.0';
+export type {
+  OpenCentralTimelineModalParams,
+  CentralTimelineStatus,
+  CentralTimelineTransition,
+  CentralTimelineSegment,
+  CentralTimelineResponse,
+  CreateCentralStatusCardTimelineConfig,
+} from './components/cards/central-status/v1.0.0';
+
+// RFC-0231 — pure, DOM-independent grace-window derivation so cockpit/worker/frontend/card
+// all agree. Recommended to ship FIRST and let the cockpit effStatus adopt it.
+export { deriveCentralConnectivity } from './utils/central/deriveConnectivity';
+export type {
+  CentralConnectivityEvidence,
+  DeriveConnectivityOptions,
+} from './utils/central/deriveConnectivity';

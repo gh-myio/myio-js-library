@@ -3,6 +3,7 @@ import {
   GCDRChannelType, AlarmAction,
   GCDRGroup, GCDRGroupMember, GCDRGroupChannel, GCDRDispatchEntry, CustomerChannel,
 } from '../types';
+import { MyIOToast } from '../../../../components/MyIOToast';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -599,10 +600,10 @@ export class GroupManagementTab {
       this.membersCache.delete(group.id);
       const item = this.el.querySelector<HTMLElement>(`.gm-accordion-item[data-id="${group.id}"]`)!;
       await this.renderGroupPanel(group, item);
-      this.callbacks.showToast('Membro adicionado.', 'success');
+      MyIOToast.success('Membro adicionado.');
     } catch (err: any) {
       console.error('[GroupManagementTab] addMember', err);
-      this.callbacks.showToast(`Erro ao adicionar membro: ${err.message}`, 'error');
+      MyIOToast.error(`Erro ao adicionar membro: ${err.message}`);
       btn.disabled = false;
       btn.textContent = 'Adicionar';
     }
@@ -620,10 +621,10 @@ export class GroupManagementTab {
       this.membersCache.delete(group.id);
       const item = this.el.querySelector<HTMLElement>(`.gm-accordion-item[data-id="${group.id}"]`)!;
       await this.renderGroupPanel(group, item);
-      this.callbacks.showToast('Membro removido.', 'success');
+      MyIOToast.success('Membro removido.');
     } catch (err: any) {
       console.error('[GroupManagementTab] removeMember', err);
-      this.callbacks.showToast(`Erro ao remover membro: ${err.message}`, 'error');
+      MyIOToast.error(`Erro ao remover membro: ${err.message}`);
     }
   }
 
@@ -641,11 +642,11 @@ export class GroupManagementTab {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const cached = this.groupChannelsCache.get(groupId);
       if (cached) { const ch = cached.find(c => c.channel === channel); if (ch) ch.active = active; }
-      this.callbacks.showToast(`Canal ${channel} ${active ? 'ativado' : 'desativado'}.`, 'success');
+      MyIOToast.success(`Canal ${channel} ${active ? 'ativado' : 'desativado'}.`);
     } catch (err: any) {
       console.error('[GroupManagementTab] patchGroupChannel', err);
       toggle.checked = !active;
-      this.callbacks.showToast('Erro ao atualizar canal.', 'error');
+      MyIOToast.error('Erro ao atualizar canal.');
     }
   }
 
@@ -662,10 +663,10 @@ export class GroupManagementTab {
       const group = this.groups.find(g => g.id === groupId)!;
       const item  = this.el.querySelector<HTMLElement>(`.gm-accordion-item[data-id="${groupId}"]`)!;
       await this.renderGroupPanel(group, item);
-      this.callbacks.showToast(`Canal ${channel} removido.`, 'success');
+      MyIOToast.success(`Canal ${channel} removido.`);
     } catch (err: any) {
       console.error('[GroupManagementTab] deleteGroupChannel', err);
-      this.callbacks.showToast('Erro ao remover canal.', 'error');
+      MyIOToast.error('Erro ao remover canal.');
     }
   }
 
@@ -729,10 +730,10 @@ export class GroupManagementTab {
       const group = this.groups.find(g => g.id === groupId)!;
       const item  = this.el.querySelector<HTMLElement>(`.gm-accordion-item[data-id="${groupId}"]`)!;
       await this.renderGroupPanel(group, item);
-      this.callbacks.showToast(`Canal ${channel} adicionado ao grupo.`, 'success');
+      MyIOToast.success(`Canal ${channel} adicionado ao grupo.`);
     } catch (err: any) {
       console.error('[GroupManagementTab] saveGroupChannel', err);
-      this.callbacks.showToast(`Erro ao salvar canal: ${err.message}`, 'error');
+      MyIOToast.error(`Erro ao salvar canal: ${err.message}`);
       btn.disabled = false;
       btn.textContent = 'Adicionar';
     }
@@ -769,10 +770,10 @@ export class GroupManagementTab {
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       this.dispatchCache.set(groupId, entries);
-      this.callbacks.showToast('Matriz de despacho salva!', 'success');
+      MyIOToast.success('Matriz de despacho salva!');
     } catch (err: any) {
       console.error('[GroupManagementTab] saveDispatch', err);
-      this.callbacks.showToast('Erro ao salvar matriz.', 'error');
+      MyIOToast.error('Erro ao salvar matriz.');
     } finally {
       btn.disabled = false;
       btn.textContent = 'Salvar Matriz';
@@ -798,10 +799,10 @@ export class GroupManagementTab {
       if (this.groups.length === 0) {
         this.el.querySelector<HTMLElement>('.gm-groups-empty')!.style.display = '';
       }
-      this.callbacks.showToast(`Grupo "${group.name}" desativado.`, 'success');
+      MyIOToast.success(`Grupo "${group.name}" desativado.`);
     } catch (err: any) {
       console.error('[GroupManagementTab] deleteGroup', err);
-      this.callbacks.showToast(`Erro ao desativar grupo: ${err.message}`, 'error');
+      MyIOToast.error(`Erro ao desativar grupo: ${err.message}`);
     }
   }
 
@@ -880,9 +881,9 @@ export class GroupManagementTab {
     ).map(cb => cb.value);
     const cid = this.gcdrCid();
 
-    if (!name)              { this.callbacks.showToast('Nome é obrigatório.', 'error'); return; }
-    if (!code)              { this.callbacks.showToast('Código é obrigatório.', 'error'); return; }
-    if (!purposes.length)   { this.callbacks.showToast('Selecione pelo menos uma finalidade.', 'error'); return; }
+    if (!name)              { MyIOToast.error('Nome é obrigatório.'); return; }
+    if (!code)              { MyIOToast.error('Código é obrigatório.'); return; }
+    if (!purposes.length)   { MyIOToast.error('Selecione pelo menos uma finalidade.'); return; }
 
     const btn = formEl.querySelector<HTMLButtonElement>('.gm-create-group-btn')!;
     btn.disabled = true;
@@ -899,11 +900,11 @@ export class GroupManagementTab {
         throw new Error(`HTTP ${res.status}${txt ? ': ' + txt.slice(0, 80) : ''}`);
       }
       formEl.style.display = 'none';
-      this.callbacks.showToast(`Grupo "${name}" criado!`, 'success');
+      MyIOToast.success(`Grupo "${name}" criado!`);
       await this.loadGroups();
     } catch (err: any) {
       console.error('[GroupManagementTab] createGroup', err);
-      this.callbacks.showToast(`Erro ao criar grupo: ${err.message}`, 'error');
+      MyIOToast.error(`Erro ao criar grupo: ${err.message}`);
       btn.disabled = false;
       btn.textContent = 'Criar Grupo';
     }
@@ -1024,11 +1025,11 @@ export class GroupManagementTab {
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       ch.active = active;
-      this.callbacks.showToast(`Canal ${ch.channel} ${active ? 'ativado' : 'desativado'}.`, 'success');
+      MyIOToast.success(`Canal ${ch.channel} ${active ? 'ativado' : 'desativado'}.`);
     } catch (err: any) {
       console.error('[GroupManagementTab] toggleCustomerChannel', err);
       toggle.checked = !active;
-      this.callbacks.showToast('Erro ao atualizar canal.', 'error');
+      MyIOToast.error('Erro ao atualizar canal.');
     }
   }
 
@@ -1045,10 +1046,10 @@ export class GroupManagementTab {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       this.customerChannels = this.customerChannels.filter(c => c.id !== ch.id);
       this.renderCustomerChannels();
-      this.callbacks.showToast(`Canal ${ch.channel} removido.`, 'success');
+      MyIOToast.success(`Canal ${ch.channel} removido.`);
     } catch (err: any) {
       console.error('[GroupManagementTab] deleteCustomerChannel', err);
-      this.callbacks.showToast('Erro ao remover canal.', 'error');
+      MyIOToast.error('Erro ao remover canal.');
     }
   }
 
@@ -1213,11 +1214,11 @@ export class GroupManagementTab {
         throw new Error(`HTTP ${res.status}${txt ? ': ' + txt.slice(0, 80) : ''}`);
       }
       formEl.style.display = 'none';
-      this.callbacks.showToast(`Canal ${type} ${existing ? 'atualizado' : 'adicionado'}!`, 'success');
+      MyIOToast.success(`Canal ${type} ${existing ? 'atualizado' : 'adicionado'}!`);
       await this.loadCustomerChannels();
     } catch (err: any) {
       console.error('[GroupManagementTab] saveCustomerChannel', err);
-      this.callbacks.showToast(`Erro: ${err.message}`, 'error');
+      MyIOToast.error(`Erro: ${err.message}`);
     } finally {
       btn.disabled = false;
       btn.textContent = existing ? 'Salvar' : 'Adicionar';
