@@ -363,6 +363,30 @@ export {
   extractMyIOCredentials,
   type ThingsboardCustomerAttrsConfig,
 } from './services/thingsboard/fetchThingsboardCustomerServerScopeAttrs';
+export {
+  CustomerConfigApiClient,
+  CustomerConfigApiError,
+  createCustomerConfigApiClient,
+  loadCustomerConfig,
+  resolveConfigField,
+  isFeatureButtonsMatrix,
+  printResolvedConfigSummary,
+  type CustomerAlarmsConfig,
+  type CustomerFeatureButtonsConfig,
+  type FeatureGroup,
+  type FeatureGroupFlags,
+  type CustomerDefaultDashboardConfig,
+  type CustomerTemperatureConfig,
+  type CustomerDisplayConfig,
+  type CustomerIngestionConfig,
+  type CustomerTicketsConfig,
+  type CustomerConfigReadModel,
+  type CustomerConfigApiClientConfig,
+  type LoadCustomerConfigParams,
+  type ConfigFieldSource,
+  type ResolveConfigFieldParams,
+  type ResolveConfigFieldResult,
+} from './services/gcdr/customerConfigApiClient';
 // export {
 //   getEntityInfoAndAttributesTB,
 //   type TBFetchOptions,
@@ -542,6 +566,8 @@ export type {
   EnergyModalI18n,
   EnergyModalStyleOverrides,
   EnergyModalError,
+  FeatureButtonsMatrix,
+  FeatureGroupVisibility,
 } from './components/premium-modals/energy/openDashboardPopupEnergy';
 
 // Settings Modal Component

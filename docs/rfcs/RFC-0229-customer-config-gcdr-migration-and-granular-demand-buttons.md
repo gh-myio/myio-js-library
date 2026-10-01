@@ -155,6 +155,7 @@ Disposition: **GCDR** = move to GCDR customer-config · **TB-BOOT** = keep in TB
 | Attribute | Read | Runtime global | Default | Type | Disposition | Notes |
 |---|---|---|---|---|---|---|
 | `alarmNotificationsEnabled` | 2291 | `MyIOOrchestrator.alarmNotificationsEnabled` (2365) | `true` | bool | **GCDR** | |
+| `alarmRecipients` | — | — | `[]` | array | **DROP** | orphan, confirmed superseded by GCDR's per-rule `Rule.recipients` (RFC-0180) — see `alarms-backend/src/workers/orchestrator.worker.ts`; **not** the same thing as the per-rule `alarmRecipients` field used in alarm-notification payloads (name collision, different granularity) |
 | `canShowDemandButtons` | 2296 | `MyIOOrchestrator.canShowDemandButtons` (2370) | `undefined` | bool | **GCDR → replaced** | becomes `featureButtons` matrix |
 | `client_id` | 2282 | `orchestrator.creds.CLIENT_ID` (2480) | `''` | string | **GCDR** | Ingestion API cred |
 | `client_secret` 🔒 | 2283 | `orchestrator.creds.CLIENT_SECRET` (2480) | `''` | string | **GCDR** | **secret** |

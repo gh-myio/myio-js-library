@@ -92,5 +92,8 @@ export type {
   EnergyModalError,
   // RFC-0165: BAS Mode types
   BASDeviceData,
-  BASDeviceTelemetry
+  BASDeviceTelemetry,
+  // RFC-0229 §1: granular demand/telemetry button visibility
+  FeatureButtonsMatrix,
+  FeatureGroupVisibility
 } from './types';

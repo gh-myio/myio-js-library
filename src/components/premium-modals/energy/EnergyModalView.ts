@@ -9,13 +9,15 @@ import {
   EnergyData,
   DEFAULT_I18N,
   BASDeviceData,
-  BASDeviceTelemetry
+  BASDeviceTelemetry,
+  FeatureButtonsMatrix
 } from './types';
 import {
   formatNumber,
   formatDate,
   classifyDevice,
-  getDeviceIcon
+  getDeviceIcon,
+  resolveFeatureButtonVisibility
 } from './utils';
 import { BASControlPanel } from './BASControlPanel';
 import {
@@ -348,15 +350,20 @@ export class EnergyModalView {
   }
 
   /**
-   * Gets modal title based on mode
+   * RFC-0229 §1 — per-feature, per-group visibility for "Pico de Demanda" and
+   * "Telemetrias Instantâneas". Logic lives in `resolveFeatureButtonVisibility`
+   * (`./utils`) — a pure function, unit-tested independently of this view.
    */
-  private canShowDemandButtons(): boolean {
-    const { readingType, mode, deviceProfile, canShowDemandButtons } = this.config.params;
-    if (readingType !== 'energy' || mode === 'comparison') return false;
-    // If the customer SERVER_SCOPE attribute exists, it takes precedence
-    if (canShowDemandButtons !== undefined && canShowDemandButtons !== null) return canShowDemandButtons;
-    // Fallback: legacy rule based on deviceProfile
-    return deviceProfile !== '3F_MEDIDOR';
+  private canShowFeatureButton(feature: keyof FeatureButtonsMatrix): boolean {
+    return resolveFeatureButtonVisibility(feature, this.config.params);
+  }
+
+  private canShowDemandPeakButton(): boolean {
+    return this.canShowFeatureButton('demandPeak');
+  }
+
+  private canShowInstantTelemetryButton(): boolean {
+    return this.canShowFeatureButton('instantTelemetry');
   }
 
   private getModalTitle(): string {
@@ -417,8 +424,20 @@ export class EnergyModalView {
             <button id="export-csv-btn" class="myio-btn myio-btn-secondary" disabled>
               Exportar CSV
             </button>
-            ${this.canShowDemandButtons() ? `
-            <button id="view-telemetry-demand-btn" class="myio-btn myio-btn-secondary" style="
+            ${this.canShowDemandPeakButton() ? `
+            <button id="view-demand-btn" class="myio-btn myio-btn-secondary" style="
+              background: linear-gradient(135deg, #1976D2 0%, #2196F3 100%);
+              color: white;
+              border: none;
+              transition: all 0.3s ease;
+              box-shadow: 0 2px 8px rgba(25, 118, 210, 0.3);
+            ">
+              <span style="font-size: 16px; margin-right: 4px;">📊</span>
+              Pico de Demanda
+            </button>
+            ` : ''}
+            ${this.canShowInstantTelemetryButton() ? `
+            <button id="view-telemetry-btn" class="myio-btn myio-btn-secondary" style="
               background: linear-gradient(135deg, #4A148C 0%, #6A1B9A 100%);
               color: white;
               border: none;

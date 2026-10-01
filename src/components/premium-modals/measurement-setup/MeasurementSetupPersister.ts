@@ -5,7 +5,9 @@ import {
   MeasurementSetupFormData,
   PersistResult,
   DEFAULT_SETTINGS,
+  GcdrCreds,
 } from './types';
+import { resolveConfigField } from '../../../services/gcdr/customerConfigApiClient';
 
 export class MeasurementSetupPersister {
   private token: string;
@@ -41,9 +43,9 @@ export class MeasurementSetupPersister {
   }
 
   /**
-   * Load measurement settings from customer SERVER_SCOPE
+   * Load measurement settings from customer SERVER_SCOPE (TB-only, unchanged behavior).
    */
-  async loadSettings(customerId: string): Promise<MeasurementDisplaySettings | null> {
+  private async loadSettingsFromTb(customerId: string): Promise<MeasurementDisplaySettings | null> {
     try {
       const url = `${this.tbBaseUrl}/api/plugins/telemetry/CUSTOMER/${customerId}/values/attributes/SERVER_SCOPE?keys=${MeasurementSetupPersister.ATTRIBUTE_KEY}`;
 
@@ -74,11 +76,37 @@ export class MeasurementSetupPersister {
         : settingsAttr.value;
 
       console.log('[MeasurementSetupPersister] Loaded settings:', value);
-      return this.validateAndMergeSettings(value);
+      return value;
     } catch (error) {
       console.error('[MeasurementSetupPersister] Failed to load settings:', error);
       return null;
     }
+  }
+
+  /**
+   * Load measurement settings — ED-1149 / RFC-0229 §3.1 dual-read: GCDR
+   * `display.measurementDisplaySettings` first (when `gcdr` creds are passed),
+   * falling back to the existing TB SERVER_SCOPE read. Never throws (mirrors
+   * `resolveConfigField`'s fail-open contract) — returns `null` only when
+   * neither source has a value, exactly like the pre-dual-read behavior.
+   */
+  async loadSettings(customerId: string, gcdr?: GcdrCreds): Promise<MeasurementDisplaySettings | null> {
+    if (!gcdr) {
+      const tbValue = await this.loadSettingsFromTb(customerId);
+      return tbValue ? this.validateAndMergeSettings(tbValue) : null;
+    }
+
+    const tbValue = await this.loadSettingsFromTb(customerId);
+    const resolved = await resolveConfigField<unknown>({
+      baseUrl: gcdr.baseUrl,
+      customerId: gcdr.customerId,
+      apiKey: gcdr.apiKey,
+      tenantId: gcdr.tenantId,
+      fieldLabel: 'measurementDisplaySettings',
+      fallbackValue: tbValue,
+      extract: (cfg) => cfg.display?.measurementDisplaySettings ?? undefined,
+    });
+    return resolved.value ? this.validateAndMergeSettings(resolved.value as Partial<MeasurementDisplaySettings>) : null;
   }
 
   /**

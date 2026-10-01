@@ -52,6 +52,18 @@ export interface MeasurementSetupModalStyles {
   fontFamily?: string;
 }
 
+/**
+ * ED-1149 / RFC-0229 §3.1: optional GCDR bootstrap creds for the dual-read in
+ * `MeasurementSetupPersister.loadSettings()`. Callers already hold these on
+ * `window.MyIOOrchestrator` (populated by MAIN_VIEW/controller.js's onInit).
+ */
+export interface GcdrCreds {
+  baseUrl: string;
+  customerId: string;
+  apiKey: string;
+  tenantId?: string;
+}
+
 export interface MeasurementSetupModalParams {
   // Required parameters
   token: string;
@@ -66,6 +78,8 @@ export interface MeasurementSetupModalParams {
   styles?: MeasurementSetupModalStyles;
   /** Current user name/email to show in the modal header title */
   userName?: string;
+  /** ED-1149 / RFC-0229 §3.1: GCDR creds for dual-reading measurementDisplaySettings; omit to keep the pre-existing TB-only behavior. */
+  gcdr?: GcdrCreds;
 }
 
 export interface MeasurementSetupModalInstance {
