@@ -132,8 +132,10 @@ Também grava em PostgreSQL (tabelas de ambientes, histórico, log de ACL, confi
 3. **Endereço do Trafo divergente.** A função ativa usa `4`; a função legada não conectada
    (`wires: [[]]`) usa `14`; o mapa Helexia aponta `Trafo → ..._modbus_14`. O mapa Helexia é por
    nome, então funciona, mas o endereço `14` indica cópia de outra loja.
-4. **Mapa Helexia herdado.** Os nomes `QFAC Portaria`, `QFAC-1A`, `QFAC-QGBT`, `QFAC-VBF` etc. e os IDs
-   `edf9a41f..._modbus_1x` parecem vir de outra loja — confirmar com a Helexia os IDs corretos de São Gonçalo.
+4. **Mapa Helexia herdado da Obramax Caxias.** O prefixo `edf9a41f83d64cb781ef4803e9d5ecc6` dos IDs
+   `..._modbus_1x` é o **UUID da central de Caxias** (`edf9a41f-83d6-4cb7-81ef-4803e9d5ecc6`, no
+   `centrals-registry.json`) — o flow foi clonado de lá, junto com os nomes `QFAC Portaria`, `QFAC-1A`,
+   `QFAC-QGBT`, `QFAC-VBF` etc. Confirmar com a Helexia os IDs corretos de São Gonçalo.
 5. O poller dinâmico **não envia** para TB/Helexia — os medidores adicionados pela tela do
    Supervisório só aparecem localmente.
 
@@ -204,6 +206,11 @@ Salvo pela tela do Supervisório (`Salvar config → global + arquivo`), carrega
 ---
 
 ## 5. ED-1299 — plano de trabalho
+
+> Instalação/validação do pacote do nó `modbus` (`node-red-contrib-myio-modbus` 4.0.3):
+> [`RUNBOOK-MODBUS-CONTRIB-INSTALL.md`](./RUNBOOK-MODBUS-CONTRIB-INSTALL.md).
+>
+> ![Nó Modbus do Flow 1 — /dev/ttyUSB0, 9600, 8N2, AutoOpen, timeout 1500](./screenshot-node-red.png)
 
 - [ ] **Levantamento em campo:** medidores a integrar (modelo Kron/Schneider/outro, endereço/slave id,
       parâmetros seriais), nomes dos circuitos e IDs Helexia correspondentes
