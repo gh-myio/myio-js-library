@@ -35,11 +35,9 @@ const PRESENTATION: Readonly<Record<number, { label: string; icon: DeviceIconTyp
   // REM: no dedicated art and no confirmed friendly name yet — label stays the prefix.
   14: { label: 'REM', icon: null },
   15: { label: 'Medidor 3F', icon: DeviceIconType.MEDIDOR_3F },
-  16: { label: 'Termostato', icon: DeviceIconType.TERMOSTATO },
-  17: { label: "Caixa d'Água", icon: DeviceIconType.CAIXA_DAGUA },
-  18: { label: 'Box', icon: DeviceIconType.BOX },
   // Central (gateway hardware) reuses the existing GATEWAY art.
   20: { label: 'Central', icon: DeviceIconType.GATEWAY },
+  50: { label: 'Box', icon: DeviceIconType.BOX },
 };
 
 function iconFor(byte: number): string {

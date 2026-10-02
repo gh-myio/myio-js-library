@@ -15,7 +15,7 @@ import {
 describe('RFC-0230 productTypeInfo — presentation helpers', () => {
   it('lists every registered product type, sorted by byte, with label and icon', () => {
     const types = listDeviceProductTypes();
-    expect(types.map((t) => t.byte)).toEqual([12, 14, 15, 16, 17, 18, 20]);
+    expect(types.map((t) => t.byte)).toEqual([12, 14, 15, 20, 50]);
     expect(types).toHaveLength(listProductTypeEntries().length);
     for (const t of types) {
       expect(t.label.length).toBeGreaterThan(0);
@@ -28,14 +28,14 @@ describe('RFC-0230 productTypeInfo — presentation helpers', () => {
     expect(getDeviceProductTypeInfo(20)).toMatchObject({
       byte: 20,
       prefix: 'CENTRAL',
-      status: 'draft',
+      status: 'ratified',
       label: 'Central',
       icon: deviceIcons.GATEWAY,
     });
   });
 
-  it('18 (BOX) resolves to the inline SVG placeholder', () => {
-    const icon = getDeviceProductTypeIcon(18);
+  it('50 (BOX) resolves to the inline SVG placeholder', () => {
+    const icon = getDeviceProductTypeIcon(50);
     expect(icon).toBe(BOX_ICON_DATA_URI);
     expect(icon.startsWith('data:image/svg+xml;charset=utf-8,')).toBe(true);
 
@@ -54,5 +54,12 @@ describe('RFC-0230 productTypeInfo — presentation helpers', () => {
     expect(getDeviceProductTypeIcon(14)).toBe(DEFAULT_DEVICE_ICON);
     expect(getDeviceProductTypeIcon(99)).toBe(DEFAULT_DEVICE_ICON);
     expect(getDeviceProductTypeInfo(99)).toBeUndefined();
+  });
+
+  it('the removed bytes 16, 17 and 18 have no presentation and no dedicated art', () => {
+    for (const byte of [16, 17, 18]) {
+      expect(getDeviceProductTypeInfo(byte)).toBeUndefined();
+      expect(getDeviceProductTypeIcon(byte)).toBe(DEFAULT_DEVICE_ICON);
+    }
   });
 });

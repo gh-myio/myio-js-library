@@ -53,7 +53,7 @@ export type DeviceIconType =
   (typeof DeviceIconType)[keyof typeof DeviceIconType];
 
 /**
- * BOX (device enclosure, RFC-0058 / product type 18): no uploaded art asset yet.
+ * BOX (device enclosure, RFC-0058 / product type 50): no uploaded art asset yet.
  * Initial hand-drawn placeholder (a cardboard box in perspective), inlined as a data URI so it works in an
  * `<img src>` exactly like the hosted icons. Replace with the hosted asset
  * once one is uploaded.
