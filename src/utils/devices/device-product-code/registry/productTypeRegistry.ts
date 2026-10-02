@@ -21,26 +21,26 @@ const ENTRIES: readonly ProductTypeEntry[] = [
   // GCDR reconciled it to the hydrometer device type. The decodable name
   // prefix is HIDR — `switch` survives only as the byte's legacy/internal
   // label (GCDR's own generator UI shows it as "12 · switch/HIDR").
+  // Thermostats and tank-level sensors are manufactured on this same switch
+  // hardware, so they are also 12 — they have no type byte of their own
+  // (the former 16=TEMP / 17=TANK drafts were a misreading; removed 2026-10-01).
   { byte: 12, prefix: 'HIDR', status: 'ratified', legacyLabel: 'switch' },
   { byte: 14, prefix: 'REM', status: 'ratified' },
   { byte: 15, prefix: '3F', status: 'ratified' },
-  // Proposed, not ratified — DEVICE-PRODUCT-CODE-NUMBERING.md.
-  { byte: 16, prefix: 'TEMP', status: 'draft' },
-  { byte: 17, prefix: 'TANK', status: 'draft' },
-  // Ratified 2026-08-25 (GCDR PR #39, DEVICE-NAME-SPEC.md §3a). Type-byte
-  // entry only — the BOX device *profile*'s own fields/parsing stay out of
-  // scope (RFC-0230 Non-goals). Registered here so a code with B4=18
-  // decodes as BOX instead of falling through to the unknown-type
+  // 16, 17 and 18 are intentionally not registered (see above for 16/17; 18
+  // was BOX until it moved to 50). 19 is reserved in GCDR for BOX_GROUP
+  // (RFC-0058, optional). All of them fall through to the `T{B4}` fallback.
+  // Central (gateway). Ratified by the owner on 2026-10-01. Type-byte entry
+  // only — a code with B4=20 decodes as CENTRAL instead of the unknown-type
   // (`T{B4}`) fallback.
-  { byte: 18, prefix: 'BOX', status: 'ratified' },
-  // 19 is reserved in GCDR for BOX_GROUP (RFC-0058, optional) — intentionally
-  // not registered here.
-  // Central (gateway). Added 2026-10-01 at the owner's request; not yet in
-  // GCDR's DEVICE-NAME-SPEC.md / DEVICE-PRODUCT-CODE-NUMBERING.md, so it is
-  // carried as draft until ratified there. Type-byte entry only — a code
-  // with B4=20 decodes as CENTRAL instead of the unknown-type (`T{B4}`)
-  // fallback.
-  { byte: 20, prefix: 'CENTRAL', status: 'draft' },
+  { byte: 20, prefix: 'CENTRAL', status: 'ratified' },
+  // BOX (device enclosure, GCDR RFC-0058). Ratified by the owner on 2026-10-01
+  // as byte 50; GCDR's docs had only ever *proposed* 18. Type-byte entry only
+  // — the BOX device *profile*'s own fields/parsing stay out of scope
+  // (RFC-0230 Non-goals).
+  // GCDR's specs are being updated to match (see
+  // gcdr.git/docs/specs/rules-devices-code/v2/DEVICE-NAME-SPEC-updates-draft.md).
+  { byte: 50, prefix: 'BOX', status: 'ratified' },
 ];
 
 const BY_BYTE = new Map<number, ProductTypeEntry>(ENTRIES.map((e) => [e.byte, e]));
