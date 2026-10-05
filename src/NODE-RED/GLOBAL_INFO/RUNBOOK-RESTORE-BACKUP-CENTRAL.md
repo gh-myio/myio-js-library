@@ -289,11 +289,12 @@ journalctl -u myio-api.service -f        # Ctrl+C para sair
   | Unidade | Papel | Subir à mão? |
   | --- | --- | --- |
   | `myio.path`, `myio-api.path` | vigiam arquivos e disparam os serviços | sim |
-  | `myio.service`, `myio-api.service` (Node-RED), `myio-hkbridge.service` | ficam rodando | sim |
+  | `myio.service`, `myio-api.service` (Node-RED) | ficam rodando | sim |
+  | `myio-hkbridge.service` | ponte de automação residencial da Apple (HomeKit) | não; `inactive (dead)` é normal onde não se usa HomeKit |
   | `myio-cloud-env`, `myio-cloud-reg`, `myio-radio-env`, `myio-serial-gen` | pelo nome, preparação que roda no boot | em geral não |
 
   ```sh
-  systemctl start myio.path myio-api.path myio.service myio-api.service myio-hkbridge.service
+  systemctl start myio.path myio-api.path myio.service myio-api.service
   ```
 
 - **Alternativa mais limpa:** `reboot` depois que o `ANALYZE` terminar. Tudo sobe na ordem do boot,
