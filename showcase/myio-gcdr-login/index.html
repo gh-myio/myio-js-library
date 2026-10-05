@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MYIO GCDR Login (RFC-0236) — Showcase</title>
+  <style>
+    :root { --bg:#f4f2fa; --panel:#fff; --ink:#1e1b2e; --muted:#6b6880; --line:#e4e0f2; --accent:#6B4ABF; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: Nunito, system-ui, sans-serif; background: var(--bg); color: var(--ink); }
+    header.top { display:flex; align-items:center; gap:12px; padding:12px 20px; background:#1e1a2e; color:#fff; }
+    header.top h1 { font-size:16px; margin:0; font-weight:800; }
+    header.top small { opacity:.75; }
+    .layout { display:grid; grid-template-columns: 340px 1fr; min-height: calc(100vh - 48px); }
+    @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+    aside.ctl { background: var(--panel); border-right:1px solid var(--line); padding:16px; overflow-y:auto; max-height: calc(100vh - 48px); }
+    @media (max-width: 900px) { aside.ctl { max-height:none; border-right:0; border-bottom:1px solid var(--line); } }
+    fieldset { border:1px solid var(--line); border-radius:10px; padding:10px 12px; margin:0 0 12px; }
+    legend { font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); padding:0 4px; }
+    label.row { display:flex; align-items:center; gap:8px; font-size:14px; margin:4px 0; }
+    select, input[type=text], input[type=number] { width:100%; font:inherit; font-size:14px; padding:6px 8px; border:1px solid var(--line); border-radius:8px; background:#fff; }
+    .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+    button.run { width:100%; padding:10px; border:0; border-radius:10px; background:var(--accent); color:#fff; font:inherit; font-weight:800; cursor:pointer; margin-top:4px; }
+    button.ghost { width:100%; padding:8px; border:1px solid var(--line); border-radius:10px; background:#fff; font:inherit; cursor:pointer; margin-top:6px; }
+    main.stage { position:relative; display:flex; flex-direction:column; min-width:0; }
+    #stage { position:relative; flex:1; min-height:720px; }
+    .dash { padding:24px; display:grid; grid-template-columns: repeat(auto-fill, minmax(220px,1fr)); gap:16px; }
+    .dash .kpi { background:#fff; border-radius:12px; padding:16px; box-shadow:0 2px 8px rgba(0,0,0,.06); }
+    .dash .kpi b { display:block; font-size:28px; }
+    .dash h2 { grid-column:1/-1; margin:0; }
+    #log { height:180px; overflow:auto; background:#15121f; color:#d9d4f0; font: 12px/1.5 ui-monospace, Consolas, monospace; padding:10px 14px; margin:0; }
+    .hint { font-size:12px; color:var(--muted); margin:4px 0 0; }
+    .cockpit { background:#fff; border-radius:16px; padding:24px; box-shadow:0 18px 50px rgba(40,20,90,.3); }
+    [data-theme="dark"] .cockpit { background:#1E1A2E; color:#fff; }
+    .badge { display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:800; padding:6px 10px; border-radius:999px; background:#6B4ABF; color:#fff; border:0; cursor:pointer; font-family:inherit; }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <h1>MYIO GCDR Login</h1>
+    <small>RFC-0236 rev. 5 · createMyioGcdrLoginView · openMyioGcdrLoginModal · createMyioGcdrShell (experimental)</small>
+  </header>
+  <div class="layout">
+    <aside class="ctl">
+      <fieldset>
+        <legend>Apresentação</legend>
+        <select id="presentation">
+          <option value="inline">Página de login (inline)</option>
+          <option value="modal">Modal sobre o dashboard (reautenticação)</option>
+          <option value="hotpage">Hot page /qr-code (shell + troca de slots)</option>
+        </select>
+      </fieldset>
+      <fieldset>
+        <legend>Produto</legend>
+        <select id="brand">
+          <option value="myio">MYIO / GCDR (roxo)</option>
+          <option value="ingestion">Data-Ingestion (laranja)</option>
+          <option value="alarms">Alarms (carmim)</option>
+        </select>
+        <label class="row" style="margin-top:8px">Rótulo da faixa</label>
+        <input type="text" id="bandLabel" placeholder="ex.: Acesso GCDR (vazio = do produto)">
+        <div class="grid2" style="margin-top:6px">
+          <label class="row"><input type="checkbox" id="useBandColor"> Cor da faixa</label>
+          <input type="color" id="bandColor" value="#1F2937" style="width:100%;height:32px;border:1px solid var(--line);border-radius:8px">
+        </div>
+        <div class="grid2">
+          <label class="row"><input type="checkbox" id="useAccent"> Cor do botão/links</label>
+          <input type="color" id="accent" value="#6B4ABF" style="width:100%;height:32px;border:1px solid var(--line);border-radius:8px">
+        </div>
+        <p class="hint">brand.label · brand.bandColor (só a faixa) · brand.accent (faixa + botão + links + foco)</p>
+      </fieldset>
+      <fieldset>
+        <legend>Aparência</legend>
+        <div class="grid2">
+          <select id="theme"><option value="system">Tema: sistema</option><option value="light">Claro</option><option value="dark">Escuro</option></select>
+          <select id="locale"><option value="pt-BR">pt-BR</option><option value="en">en</option></select>
+        </div>
+        <select id="aside" style="margin-top:6px">
+          <option value="about">Lateral: Sobre a MYIO</option>
+          <option value="signedOutPrompt">Lateral: cadeado + texto (hot page)</option>
+          <option value="none">Lateral: nenhuma</option>
+        </select>
+        <label class="row"><input type="checkbox" id="wallpaper" checked> Wallpaper</label>
+        <label class="row"><input type="checkbox" id="remember" checked> "Lembrar de mim"</label>
+        <label class="row"><input type="checkbox" id="buildInfo" checked> Linha de versão</label>
+        <label class="row"><input type="checkbox" id="hotStyle"> Botão estilo hot page</label>
+      </fieldset>
+      <fieldset>
+        <legend>Links e ajuda</legend>
+        <label class="row"><input type="checkbox" id="webUrl" checked> gcdrWebUrl ("Esqueceu a senha?" com backend GCDR)</label>
+        <label class="row"><input type="checkbox" id="register"> "Criar conta" explícito</label>
+        <label class="row"><input type="checkbox" id="support"> Link de suporte explícito</label>
+      </fieldset>
+      <fieldset>
+        <legend>Modal</legend>
+        <select id="backdrop"><option value="solid">Fundo: sólido (padrão)</option><option value="blur">Fundo: blur (página visível)</option><option value="image">Fundo: wallpaper</option></select>
+        <label class="row"><input type="checkbox" id="dismissible"> dismissible (Esc + ×)</label>
+        <label class="row"><input type="checkbox" id="exit" checked> Saída "Sair" (exit)</label>
+        <label class="row"><input type="checkbox" id="notice" checked> Aviso "sessão expirou"</label>
+        <label class="row"><input type="checkbox" id="initialEmail" checked> E-mail pré-preenchido</label>
+      </fieldset>
+      <fieldset>
+        <legend>Backend</legend>
+        <select id="backend">
+          <option value="mock">Simulado (onSubmit)</option>
+          <option value="gcdr-mock">Cliente GCDR com fetch simulado</option>
+          <option value="gcdr-real">Cliente GCDR real (CORS!)</option>
+        </select>
+        <select id="outcome" style="margin-top:6px">
+          <option value="success">Sucesso</option>
+          <option value="slow">Sucesso lento (3 s)</option>
+          <option value="postfail">onSuccess falha</option>
+          <option value="invalid5">Senha errada — restam 5</option>
+          <option value="invalid3">Senha errada — restam 3</option>
+          <option value="invalid2">Senha errada — restam 2</option>
+          <option value="invalid1">Senha errada — última</option>
+          <option value="invalidNo">Senha errada — sem contador (e-mail inexistente / conta pendente)</option>
+          <option value="locked">Conta bloqueada</option>
+          <option value="mfa">Conta com MFA</option>
+          <option value="rate">Muitas tentativas (429)</option>
+          <option value="network">Erro de rede</option>
+          <option value="timeout">Timeout (4 s)</option>
+          <option value="badresult">Resultado inválido do host</option>
+          <option value="custom">CUSTOM "Sistema em manutenção"</option>
+        </select>
+        <div class="grid2" style="margin-top:6px">
+          <input type="text" id="apiUrl" placeholder="apiUrl" value="https://gcdr-api.a.myio-bas.com">
+          <input type="text" id="tenantId" placeholder="tenantId" value="">
+        </div>
+        <p class="hint">O resultado simulado é lido a cada envio — dá para trocar sem remontar.</p>
+      </fieldset>
+      <button class="run" id="run">Montar</button>
+      <button class="ghost" id="destroy">Destruir</button>
+      <button class="ghost" id="sessionExpired">handle.setNotice(SESSION_EXPIRED)</button>
+    </aside>
+    <main class="stage">
+      <div id="stage"></div>
+      <pre id="log" aria-label="Log de callbacks"></pre>
+    </main>
+  </div>
+
+  <script src="../../dist/myio-js-library.umd.js"></script>
+  <script>
+  (function () {
+    const L = window.MyIOLibrary;
+    const $ = (id) => document.getElementById(id);
+    const logEl = $('log');
+    const log = (...a) => {
+      const line = `[${new Date().toLocaleTimeString()}] ` + a.map((x) => (typeof x === 'string' ? x : JSON.stringify(x))).join(' ');
+      logEl.textContent = line + '\n' + logEl.textContent;
+    };
+    const ASSETS = {
+      logoUrl: './assets/myio-logo.png',
+      wallpaper: { light: './assets/myio-light-16-9.webp', dark: './assets/myio-dark-16-9.webp', mobileLight: './assets/myio-light-9-16.webp', mobileDark: './assets/myio-dark-9-16.webp' },
+    };
+    const BRANDS = {
+      myio: {},
+      ingestion: { label: { 'pt-BR': 'Acesso Ingestion', en: 'Ingestion access' }, accent: '#D35400' },
+      alarms: { label: { 'pt-BR': 'Acesso Alarmes', en: 'Alarms access' }, accent: '#AF3463' },
+    };
+    const sleep = (ms, signal) => new Promise((res, rej) => {
+      const t = setTimeout(res, ms);
+      signal && signal.addEventListener('abort', () => { clearTimeout(t); rej(new DOMException('aborted', 'AbortError')); });
+    });
+
+    // Simulated host backend (onSubmit). Only allow-listed fields are logged — never the password.
+    async function mockSubmit(input, ctx) {
+      log('onSubmit', { email: input.email, remember: input.remember, locale: input.locale, attempt: ctx.attempt });
+      const o = $('outcome').value;
+      await sleep(o === 'slow' ? 3000 : 700, ctx.signal);
+      switch (o) {
+        case 'success': case 'slow': case 'postfail': return { ok: true, session: { user: input.email, token: 'demo' } };
+        case 'invalid5': return { ok: false, code: 'INVALID_CREDENTIALS', remainingAttempts: 5 };
+        case 'invalid3': return { ok: false, code: 'INVALID_CREDENTIALS', remainingAttempts: 3 };
+        case 'invalid2': return { ok: false, code: 'INVALID_CREDENTIALS', remainingAttempts: 2 };
+        case 'invalid1': return { ok: false, code: 'INVALID_CREDENTIALS', remainingAttempts: 1 };
+        case 'invalidNo': return { ok: false, code: 'UNAUTHORIZED' };
+        case 'locked': return { ok: false, code: 'ACCOUNT_LOCKED' };
+        case 'mfa': return { ok: false, code: 'MFA_REQUIRED' };
+        case 'rate': return { ok: false, code: 'RATE_LIMITED' };
+        case 'network': throw new TypeError('Failed to fetch');
+        case 'timeout': return new Promise(() => {});
+        case 'badresult': return undefined;
+        case 'custom': return { ok: false, code: 'CUSTOM', message: 'Sistema em manutenção até 14h.', clearPassword: false };
+      }
+    }
+
+    // Simulated GCDR HTTP answers, to exercise createMyioGcdrLoginSubmit's real mapping.
+    function gcdrFetchMock(url, init) {
+      const o = $('outcome').value;
+      log('fetch', init.method, url, { headers: Object.keys(init.headers) });
+      const env = (code, details) => ({ success: false, error: { code, message: 'texto do backend (nunca exibido)', ...(details ? { details } : {}) }, meta: { requestId: 'demo', timestamp: new Date().toISOString() } });
+      const map = {
+        success: [200, { success: true, data: { accessToken: 'a', refreshToken: 'r', expiresIn: 3600 } }],
+        slow: [200, { success: true, data: { accessToken: 'a' } }],
+        postfail: [200, { success: true, data: { accessToken: 'a' } }],
+        invalid5: [401, env('INVALID_CREDENTIALS', { remainingAttempts: 5 })],
+        invalid3: [401, env('INVALID_CREDENTIALS', { remainingAttempts: 3 })],
+        invalid2: [401, env('INVALID_CREDENTIALS', { remainingAttempts: 2 })],
+        invalid1: [401, env('INVALID_CREDENTIALS', { remainingAttempts: 1 })],
+        invalidNo: [401, env('UNAUTHORIZED')],
+        locked: [403, env('ACCOUNT_LOCKED')],
+        mfa: [200, { success: true, data: { mfaRequired: true, mfaToken: 'm', mfaMethod: 'totp', expiresIn: 300 } }],
+        rate: [429, env('RATE_LIMITED')],
+        badresult: [200, { success: true, data: {} }],
+        custom: [500, env('INTERNAL')],
+      };
+      if (o === 'network') return Promise.reject(new TypeError('Failed to fetch'));
+      if (o === 'timeout') return new Promise((_, rej) => init.signal.addEventListener('abort', () => rej(new DOMException('aborted', 'AbortError'))));
+      const [status, body] = map[o] || map.success;
+      return sleep(o === 'slow' ? 3000 : 700, init.signal).then(() => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } }));
+    }
+
+    function baseOptions(extra) {
+      const backend = $('backend').value;
+      const brand = { ...BRANDS[$('brand').value] };
+      if ($('bandLabel').value.trim()) brand.label = $('bandLabel').value.trim();
+      if ($('useAccent').checked) brand.accent = $('accent').value;
+      if ($('useBandColor').checked) brand.bandColor = $('bandColor').value;
+      const o = {
+        brand,
+        theme: $('theme').value,
+        locale: $('locale').value,
+        show: { rememberMe: $('remember').checked, wallpaper: $('wallpaper').checked },
+        submitStyle: $('hotStyle').checked ? 'hotPage' : 'auth',
+        assets: { logoUrl: ASSETS.logoUrl, wallpaper: $('wallpaper').checked ? ASSETS.wallpaper : false },
+        buildInfo: $('buildInfo').checked ? 'v1.4.2 • Build: 04/10/2026, 09:50' : undefined,
+        links: {
+          gcdrWebUrl: $('webUrl').checked ? 'https://gcdr-web.a.myio-bas.com' : undefined,
+          register: $('register').checked ? 'https://gcdr-web.a.myio-bas.com/register' : undefined,
+        },
+        support: $('support').checked ? { label: 'Suporte', href: 'mailto:suporte@myio.com.br' } : undefined,
+        aside: { kind: $('aside').value },
+        onSuccess: async (session, ctx) => {
+          log('onSuccess', session && typeof session === 'object' ? Object.keys(session) : session);
+          if ($('outcome').value === 'postfail') { await sleep(500); throw new Error('host failed'); }
+          await sleep(400, ctx.signal).catch(() => {});
+        },
+        onError: (e) => log('onError', e),
+        onThemeChange: (t) => log('onThemeChange', t),
+        onLocaleChange: (l) => log('onLocaleChange', l),
+        ...extra,
+      };
+      if (backend === 'mock') { o.onSubmit = mockSubmit; o.submitTimeoutMs = 4000; }
+      else o.gcdr = { apiUrl: $('apiUrl').value, tenantId: $('tenantId').value || 'demo-tenant', timeoutMs: 4000, fetch: backend === 'gcdr-mock' ? gcdrFetchMock : undefined };
+      return o;
+    }
+
+    let current = null;
+    function destroy() {
+      if (current) { try { current.destroy(); } catch (e) { console.error(e); } current = null; log('destroy'); }
+      $('stage').innerHTML = '';
+    }
+
+    function mountDashboard() {
+      const d = document.createElement('div');
+      d.className = 'dash';
+      d.innerHTML = '<h2>Dashboard Shopping (conteúdo de exemplo atrás do modal)</h2>' +
+        ['Energia 1.284 kWh', 'Água 312 m³', 'Temperatura 23,4 °C', 'Alarmes 3 ativos', 'Lojas 148', 'Elevadores 12']
+          .map((x) => { const [k, ...v] = x.split(' '); return `<div class="kpi">${k}<b>${v.join(' ')}</b></div>`; }).join('');
+      $('stage').appendChild(d);
+    }
+
+    function run() {
+      destroy();
+      const p = $('presentation').value;
+      try {
+        if (p === 'inline') {
+          const el = document.createElement('div');
+          el.style.minHeight = '720px';
+          $('stage').appendChild(el);
+          current = L.createMyioGcdrLoginView(el, baseOptions());
+          log('createMyioGcdrLoginView');
+        } else if (p === 'modal') {
+          mountDashboard();
+          const opts = baseOptions({
+            aside: { kind: 'none' },
+            notice: $('notice').checked ? { code: 'SESSION_EXPIRED' } : undefined,
+            initialEmail: $('initialEmail').checked ? 'operador@shopping.com.br' : undefined,
+            overlay: {
+              backdrop: $('backdrop').value,
+              dismissible: $('dismissible').checked,
+              exit: $('exit').checked ? { label: { 'pt-BR': 'Sair', en: 'Sign out' }, href: '#saiu' } : undefined,
+            },
+            onOpen: () => log('onOpen'),
+            onClose: (r) => { log('onClose', r); current = null; },
+          });
+          delete opts.buildInfo;
+          current = L.openMyioGcdrLoginModal(opts);
+          log('openMyioGcdrLoginModal; isOpen =', L.isMyioGcdrLoginModalOpen());
+        } else {
+          runHotPage();
+        }
+      } catch (e) {
+        log('ERRO', e.code || '', e.message);
+      }
+    }
+
+    // GCDR hot page /qr-code: the shell hosts the login while signed out, then its own mini app.
+    function runHotPage() {
+      const el = document.createElement('div');
+      el.style.minHeight = '720px';
+      $('stage').appendChild(el);
+      const shell = L.createMyioGcdrShell(el, {
+        size: 'xl', width: 'cockpit', theme: $('theme').value, locale: $('locale').value,
+        wallpaper: $('wallpaper').checked ? ASSETS.wallpaper : false,
+        buildInfo: 'v1.4.2 • Build: 04/10/2026, 09:50', asideCompact: 'stack',
+        onThemeChange: (t) => log('shell onThemeChange', t),
+      });
+      current = shell;
+      const signedOut = () => {
+        shell.setSlot('topRight', null);
+        shell.setSlot('aside', { kind: 'signedOutPrompt' });
+        shell.setSlot('main', (body, ctx) => {
+          const o = baseOptions({ embed: { context: ctx }, submitStyle: 'hotPage', onSuccess: async () => { log('hot page: signed in'); queueMicrotask(signedIn); } });
+          ['theme', 'locale', 'buildInfo', 'aside', 'assets'].forEach((k) => delete o[k]);
+          delete o.show.wallpaper;
+          const v = L.createMyioGcdrLoginView(body, o);
+          return () => v.destroy();
+        }, { announce: { 'pt-BR': 'Faça o login', en: 'Please sign in' } });
+      };
+      const signedIn = () => {
+        shell.setSlot('topRight', (slot) => {
+          const b = document.createElement('button');
+          b.className = 'badge';
+          b.textContent = 'operador@fabrica ⏻';
+          b.title = 'Sair';
+          b.onclick = () => { log('hot page: logout'); signedOut(); };
+          slot.appendChild(b);
+        });
+        shell.setSlot('aside', (slot, ctx) => {
+          const { body } = ctx.panel({ eyebrow: { 'pt-BR': 'Cockpit QR', en: 'QR cockpit' }, fill: true, logo: false });
+          body.innerHTML = '<p><b>Menu do cockpit</b></p><ul><li>Criar etiqueta</li><li>Lote</li><li>Caixa</li><li>Histórico</li></ul>';
+        });
+        shell.setSlot('main', (slot, ctx) => {
+          const { body } = ctx.panel({ eyebrow: { 'pt-BR': 'Etiqueta', en: 'Label' }, title: { 'pt-BR': 'Detalhe da etiqueta QR', en: 'QR label detail' }, fill: true });
+          const p = document.createElement('p');
+          const paint = () => { p.textContent = `Conteúdo da aplicação do GCDR (tema: ${ctx.theme}, idioma: ${ctx.locale}).`; };
+          paint();
+          ctx.on('theme', paint);
+          ctx.on('locale', paint);
+          body.appendChild(p);
+        }, { announce: { 'pt-BR': 'Login concluído', en: 'Signed in' } });
+        log('shell state', shell.getState());
+      };
+      signedOut();
+      log('createMyioGcdrShell (hot page)');
+    }
+
+    $('run').addEventListener('click', run);
+    $('destroy').addEventListener('click', destroy);
+    $('sessionExpired').addEventListener('click', () => {
+      if (current && current.setNotice) { current.setNotice({ code: 'SESSION_EXPIRED' }); log('setNotice'); }
+      else log('setNotice: não há view montada');
+    });
+    log('MyIOLibrary carregada:', typeof L.createMyioGcdrLoginView === 'function' ? 'ok' : 'FALTANDO');
+    run();
+  })();
+  </script>
+</body>
+</html>

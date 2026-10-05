@@ -1310,6 +1310,34 @@ export type {
   GenericModalInstance,
 } from './components/premium-modals/dialog';
 
+// RFC-0236: MYIO GCDR shell (layout SDK, @experimental) + login view/modal + GCDR login call
+export {
+  createMyioGcdrShell,
+  createMyioGcdrLoginView,
+  openMyioGcdrLoginModal,
+  isMyioGcdrLoginModalOpen,
+  createMyioGcdrLoginSubmit,
+} from './components/myio-gcdr-login';
+export type {
+  MyioGcdrShellOptions,
+  MyioGcdrShellHandle,
+  MyioGcdrSlotName,
+  MyioGcdrSlotContext,
+  MyioGcdrSlotRenderer,
+  MyioGcdrBuiltInSlot,
+  MyioGcdrCredentials,
+  MyioGcdrLoginErrorCode,
+  MyioGcdrLoginResult,
+  MyioGcdrLoginSubmitFn,
+  MyioGcdrAuth,
+  MyioGcdrClientOptions,
+  MyioGcdrLoginViewOptions,
+  MyioGcdrLoginViewHandle,
+  MyioGcdrLoginModalOptions,
+  MyioGcdrLoginModalHandle,
+  MyioGcdrLoginState,
+} from './components/myio-gcdr-login';
+
 // ImgGallery — autonomous filterable image gallery + reusable ScrollableTabs
 export { createImgGallery, createScrollableTabs } from './components/img-gallery';
 export type {
