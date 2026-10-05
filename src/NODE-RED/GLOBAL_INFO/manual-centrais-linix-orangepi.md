@@ -104,7 +104,8 @@ ssh -i id_rsa root@<ipv6-da-central>
 | Central      | IPv6                                    | Gateway ID                             | Central ID | Frequência |
 | ------------ | --------------------------------------- | -------------------------------------- | ---------- | ---------- |
 | Deodoro      | `200:1e6a:69a5:73f1:b18a:e6e:aa68:9229` | `adb43bf6-6107-44fa-b786-6e88c150d779` | —          | —          |
-| Supervia CCO | `206:e178:b5ba:16:f028:c0bc:d616:2c5b`  | `af8a4c31-aa30-4417-9421-457496bcfe01` | —          | —          |
+| ~~Supervia CCO~~ ⚠️ **QUEIMOU — substituída em 2026-10-05** pela central abaixo | ~~`206:e178:b5ba:16:f028:c0bc:d616:2c5b`~~ | ~~`af8a4c31-aa30-4417-9421-457496bcfe01`~~ | —          | —          |
+| Central Supervia CCO 2026-10-05 | `201:4536:897d:52fc:3bd0:c93f:df9f:51e4` | `fb924430-a756-4a45-842a-e55b6cb091dc` | `242.37.202.62` | `45` |
 | Supervia CTO | `202:1c94:dab9:af71:f553:616:615:adbc`  | `6dd63004-1009-4585-bd9f-556d4385e292` | —          | —          |
 
 #### Holding: DIMENSION
@@ -265,8 +266,11 @@ ssh -i id_rsa root@200:4bfa:32e0:da5f:74bd:ab68:202b:20a7
 # Deodoro (Supervia Estações)
 ssh -i id_rsa root@200:1e6a:69a5:73f1:b18a:e6e:aa68:9229
 
-# Supervia CCO (Supervia Estações)
-ssh -i id_rsa root@206:e178:b5ba:16:f028:c0bc:d616:2c5b
+# Supervia CCO (Supervia Estações) — ⚠️ QUEIMOU, SUBSTITUÍDA 2026-10-05
+# ssh -i id_rsa root@206:e178:b5ba:16:f028:c0bc:d616:2c5b
+
+# Central Supervia CCO 2026-10-05 (Supervia Estações)
+ssh -i id_rsa root@201:4536:897d:52fc:3bd0:c93f:df9f:51e4
 
 # Supervia CTO (Supervia Estações)
 ssh -i id_rsa root@202:1c94:dab9:af71:f553:616:615:adbc
