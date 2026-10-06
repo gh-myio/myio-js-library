@@ -121,6 +121,10 @@ export {
 } from './utils/devices/deviceTypeConfig';
 export type { DeviceTypeCategory, DeviceTypeConfigEntry } from './utils/devices/deviceTypeConfig';
 
+// RFC-0237: Inventory Panel v2 — pure inventory logic (rules, filters, export matrix).
+// Namespaced (MyIOLibrary.inventory.*) because names like applyFilters/toCSV already exist.
+export * as inventory from './utils/devices/inventory';
+
 // Device naming utilities (+ RFC-0206 Phase 3: device code)
 export {
   generateMercosulPlate,

@@ -1,0 +1,13 @@
+{
+  "_comment": "Copie para config.json (gitignored). 'settings' sobrescreve os defaults do settings.schema do widget v2 (RFC-0237). pageSize vem do campo da barra da showcase.",
+  "settings": {
+    "title": "Inventário de Dispositivos",
+    "defaultGroupBy": "customer",
+    "defaultSort": "gravity",
+    "staleHours": 24,
+    "disabledRules": "C6",
+    "integrationOverrides": "{}",
+    "refreshInterval": 0,
+    "enableNavigation": true
+  }
+}
