@@ -1,0 +1,2047 @@
+{
+ "_comment": "Synthetic inventory fixtures (RFC-0237). Values are strings as TB returns them; AGO:<h> is rebased to now - h hours by the showcase.",
+ "customers": [
+  {
+   "id": "00000000-0000-4000-8000-000000000001",
+   "title": "Shopping Alfa"
+  },
+  {
+   "id": "00000000-0000-4000-8000-000000000002",
+   "title": "Shopping Beta"
+  },
+  {
+   "id": "00000000-0000-4000-8000-000000000003",
+   "title": "Loja Sem Integração"
+  },
+  {
+   "id": "00000000-0000-4000-8000-000000000004",
+   "title": "Cliente Antigo DESATIVAR"
+  }
+ ],
+ "devices": [
+  {
+   "case": "healthy",
+   "id": "00000000-0000-4000-8000-000000000005",
+   "fields": {
+    "name": "3F ALFA001",
+    "label": "Loja 1",
+    "type": "3F_MEDIDOR",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "3F_MEDIDOR",
+    "identifier": "L1",
+    "ingestionId": "ing-5",
+    "gcdrDeviceId": "gcdr-5",
+    "centralId": "central-alfa-1",
+    "slaveId": "1",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "healthy",
+   "id": "00000000-0000-4000-8000-000000000006",
+   "fields": {
+    "name": "3F ALFA002",
+    "label": "Loja 2",
+    "type": "3F_MEDIDOR",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "3F_MEDIDOR",
+    "identifier": "L2",
+    "ingestionId": "ing-6",
+    "gcdrDeviceId": "gcdr-6",
+    "centralId": "central-alfa-1",
+    "slaveId": "2",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "healthy",
+   "id": "00000000-0000-4000-8000-000000000007",
+   "fields": {
+    "name": "3F ALFA003",
+    "label": "Loja 3 Água",
+    "type": "HIDROMETRO",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "HIDROMETRO",
+    "identifier": "L3",
+    "ingestionId": "ing-7",
+    "gcdrDeviceId": "gcdr-7",
+    "centralId": "central-alfa-1",
+    "slaveId": "3",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "healthy",
+   "id": "00000000-0000-4000-8000-000000000008",
+   "fields": {
+    "name": "3F ALFA004",
+    "label": "Loja 4",
+    "type": "CHILLER",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "CHILLER",
+    "identifier": "L4",
+    "ingestionId": "ing-8",
+    "gcdrDeviceId": "gcdr-8",
+    "centralId": "central-alfa-1",
+    "slaveId": "4",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "healthy",
+   "id": "00000000-0000-4000-8000-000000000009",
+   "fields": {
+    "name": "3F ALFA005",
+    "label": "Loja 5",
+    "type": "FANCOIL",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "FANCOIL",
+    "identifier": "L5",
+    "ingestionId": "ing-9",
+    "gcdrDeviceId": "gcdr-9",
+    "centralId": "central-alfa-1",
+    "slaveId": "5",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "healthy",
+   "id": "00000000-0000-4000-8000-00000000000a",
+   "fields": {
+    "name": "3F ALFA006",
+    "label": "Loja 6",
+    "type": "ELEVADOR",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "ELEVADOR",
+    "identifier": "L6",
+    "ingestionId": "ing-10",
+    "gcdrDeviceId": "gcdr-10",
+    "centralId": "central-alfa-1",
+    "slaveId": "6",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "healthy",
+   "id": "00000000-0000-4000-8000-00000000000b",
+   "fields": {
+    "name": "3F ALFA007",
+    "label": "Loja 7",
+    "type": "ESCADA_ROLANTE",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "ESCADA_ROLANTE",
+    "identifier": "L7",
+    "ingestionId": "ing-11",
+    "gcdrDeviceId": "gcdr-11",
+    "centralId": "central-alfa-1",
+    "slaveId": "7",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "healthy",
+   "id": "00000000-0000-4000-8000-00000000000c",
+   "fields": {
+    "name": "3F ALFA008",
+    "label": "Loja 8",
+    "type": "BOMBA_CAG",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "BOMBA_CAG",
+    "identifier": "L8",
+    "ingestionId": "ing-12",
+    "gcdrDeviceId": "gcdr-12",
+    "centralId": "central-alfa-1",
+    "slaveId": "8",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "healthy",
+   "id": "00000000-0000-4000-8000-00000000000d",
+   "fields": {
+    "name": "3F ALFA009",
+    "label": "Loja 9",
+    "type": "HIDROMETRO_AREA_COMUM",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "HIDROMETRO_AREA_COMUM",
+    "identifier": "L9",
+    "ingestionId": "ing-13",
+    "gcdrDeviceId": "gcdr-13",
+    "centralId": "central-alfa-1",
+    "slaveId": "9",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "healthy",
+   "id": "00000000-0000-4000-8000-00000000000e",
+   "fields": {
+    "name": "3F ALFA010",
+    "label": "Loja 10",
+    "type": "3F_MEDIDOR",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "3F_MEDIDOR",
+    "identifier": "L10",
+    "ingestionId": "ing-14",
+    "gcdrDeviceId": "gcdr-14",
+    "centralId": "central-alfa-1",
+    "slaveId": "10",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "healthy",
+   "id": "00000000-0000-4000-8000-00000000000f",
+   "fields": {
+    "name": "3F ALFA011",
+    "label": "Loja 11",
+    "type": "3F_MEDIDOR",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "3F_MEDIDOR",
+    "identifier": "L11",
+    "ingestionId": "ing-15",
+    "gcdrDeviceId": "gcdr-15",
+    "centralId": "central-alfa-1",
+    "slaveId": "11",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "healthy",
+   "id": "00000000-0000-4000-8000-000000000010",
+   "fields": {
+    "name": "3F ALFA012",
+    "label": "Loja 12",
+    "type": "3F_MEDIDOR",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "3F_MEDIDOR",
+    "identifier": "L12",
+    "ingestionId": "ing-16",
+    "gcdrDeviceId": "gcdr-16",
+    "centralId": "central-alfa-1",
+    "slaveId": "12",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "healthy",
+   "id": "00000000-0000-4000-8000-000000000011",
+   "fields": {
+    "name": "3F ALFA013",
+    "label": "Loja 13 Água",
+    "type": "HIDROMETRO",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "HIDROMETRO",
+    "identifier": "L13",
+    "ingestionId": "ing-17",
+    "gcdrDeviceId": "gcdr-17",
+    "centralId": "central-alfa-1",
+    "slaveId": "13",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "healthy",
+   "id": "00000000-0000-4000-8000-000000000012",
+   "fields": {
+    "name": "3F ALFA014",
+    "label": "Loja 14",
+    "type": "CHILLER",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "CHILLER",
+    "identifier": "L14",
+    "ingestionId": "ing-18",
+    "gcdrDeviceId": "gcdr-18",
+    "centralId": "central-alfa-1",
+    "slaveId": "14",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "healthy",
+   "id": "00000000-0000-4000-8000-000000000013",
+   "fields": {
+    "name": "3F ALFA015",
+    "label": "Loja 15",
+    "type": "FANCOIL",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "FANCOIL",
+    "identifier": "L15",
+    "ingestionId": "ing-19",
+    "gcdrDeviceId": "gcdr-19",
+    "centralId": "central-alfa-1",
+    "slaveId": "15",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "healthy",
+   "id": "00000000-0000-4000-8000-000000000014",
+   "fields": {
+    "name": "3F ALFA016",
+    "label": "Loja 16",
+    "type": "ELEVADOR",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "ELEVADOR",
+    "identifier": "L16",
+    "ingestionId": "ing-20",
+    "gcdrDeviceId": "gcdr-20",
+    "centralId": "central-alfa-1",
+    "slaveId": "16",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "healthy",
+   "id": "00000000-0000-4000-8000-000000000015",
+   "fields": {
+    "name": "3F ALFA017",
+    "label": "Loja 17",
+    "type": "ESCADA_ROLANTE",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "ESCADA_ROLANTE",
+    "identifier": "L17",
+    "ingestionId": "ing-21",
+    "gcdrDeviceId": "gcdr-21",
+    "centralId": "central-alfa-1",
+    "slaveId": "17",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "healthy",
+   "id": "00000000-0000-4000-8000-000000000016",
+   "fields": {
+    "name": "3F ALFA018",
+    "label": "Loja 18",
+    "type": "BOMBA_CAG",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "BOMBA_CAG",
+    "identifier": "L18",
+    "ingestionId": "ing-22",
+    "gcdrDeviceId": "gcdr-22",
+    "centralId": "central-alfa-1",
+    "slaveId": "18",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "healthy",
+   "id": "00000000-0000-4000-8000-000000000017",
+   "fields": {
+    "name": "3F ALFA019",
+    "label": "Loja 19",
+    "type": "HIDROMETRO_AREA_COMUM",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "HIDROMETRO_AREA_COMUM",
+    "identifier": "L19",
+    "ingestionId": "ing-23",
+    "gcdrDeviceId": "gcdr-23",
+    "centralId": "central-alfa-1",
+    "slaveId": "19",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "healthy",
+   "id": "00000000-0000-4000-8000-000000000018",
+   "fields": {
+    "name": "3F ALFA020",
+    "label": "Loja 20",
+    "type": "3F_MEDIDOR",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "3F_MEDIDOR",
+    "identifier": "L20",
+    "ingestionId": "ing-24",
+    "gcdrDeviceId": "gcdr-24",
+    "centralId": "central-alfa-1",
+    "slaveId": "20",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "healthy",
+   "id": "00000000-0000-4000-8000-000000000019",
+   "fields": {
+    "name": "3F ALFA021",
+    "label": "Loja 21",
+    "type": "3F_MEDIDOR",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "3F_MEDIDOR",
+    "identifier": "L21",
+    "ingestionId": "ing-25",
+    "gcdrDeviceId": "gcdr-25",
+    "centralId": "central-alfa-1",
+    "slaveId": "21",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "healthy",
+   "id": "00000000-0000-4000-8000-00000000001a",
+   "fields": {
+    "name": "3F ALFA022",
+    "label": "Loja 22",
+    "type": "3F_MEDIDOR",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "3F_MEDIDOR",
+    "identifier": "L22",
+    "ingestionId": "ing-26",
+    "gcdrDeviceId": "gcdr-26",
+    "centralId": "central-alfa-1",
+    "slaveId": "22",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "healthy",
+   "id": "00000000-0000-4000-8000-00000000001b",
+   "fields": {
+    "name": "3F ALFA023",
+    "label": "Loja 23 Água",
+    "type": "HIDROMETRO",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "HIDROMETRO",
+    "identifier": "L23",
+    "ingestionId": "ing-27",
+    "gcdrDeviceId": "gcdr-27",
+    "centralId": "central-alfa-1",
+    "slaveId": "23",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "healthy",
+   "id": "00000000-0000-4000-8000-00000000001c",
+   "fields": {
+    "name": "3F ALFA024",
+    "label": "Loja 24",
+    "type": "CHILLER",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "CHILLER",
+    "identifier": "L24",
+    "ingestionId": "ing-28",
+    "gcdrDeviceId": "gcdr-28",
+    "centralId": "central-alfa-1",
+    "slaveId": "24",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "healthy",
+   "id": "00000000-0000-4000-8000-00000000001d",
+   "fields": {
+    "name": "3F ALFA025",
+    "label": "Loja 25",
+    "type": "FANCOIL",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "FANCOIL",
+    "identifier": "L25",
+    "ingestionId": "ing-29",
+    "gcdrDeviceId": "gcdr-29",
+    "centralId": "central-alfa-1",
+    "slaveId": "25",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "healthy",
+   "id": "00000000-0000-4000-8000-00000000001e",
+   "fields": {
+    "name": "3F ALFA026",
+    "label": "Loja 26",
+    "type": "ELEVADOR",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "ELEVADOR",
+    "identifier": "L26",
+    "ingestionId": "ing-30",
+    "gcdrDeviceId": "gcdr-30",
+    "centralId": "central-alfa-1",
+    "slaveId": "26",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "healthy",
+   "id": "00000000-0000-4000-8000-00000000001f",
+   "fields": {
+    "name": "3F ALFA027",
+    "label": "Loja 27",
+    "type": "ESCADA_ROLANTE",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "ESCADA_ROLANTE",
+    "identifier": "L27",
+    "ingestionId": "ing-31",
+    "gcdrDeviceId": "gcdr-31",
+    "centralId": "central-alfa-1",
+    "slaveId": "27",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "healthy",
+   "id": "00000000-0000-4000-8000-000000000020",
+   "fields": {
+    "name": "3F ALFA028",
+    "label": "Loja 28",
+    "type": "BOMBA_CAG",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "BOMBA_CAG",
+    "identifier": "L28",
+    "ingestionId": "ing-32",
+    "gcdrDeviceId": "gcdr-32",
+    "centralId": "central-alfa-1",
+    "slaveId": "28",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "healthy",
+   "id": "00000000-0000-4000-8000-000000000021",
+   "fields": {
+    "name": "3F ALFA029",
+    "label": "Loja 29",
+    "type": "HIDROMETRO_AREA_COMUM",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "HIDROMETRO_AREA_COMUM",
+    "identifier": "L29",
+    "ingestionId": "ing-33",
+    "gcdrDeviceId": "gcdr-33",
+    "centralId": "central-alfa-1",
+    "slaveId": "29",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "healthy",
+   "id": "00000000-0000-4000-8000-000000000022",
+   "fields": {
+    "name": "3F ALFA030",
+    "label": "Loja 30",
+    "type": "3F_MEDIDOR",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "3F_MEDIDOR",
+    "identifier": "L30",
+    "ingestionId": "ing-34",
+    "gcdrDeviceId": "gcdr-34",
+    "centralId": "central-alfa-1",
+    "slaveId": "30",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "thermostat (no central needed)",
+   "id": "00000000-0000-4000-8000-000000000023",
+   "fields": {
+    "name": "TEMP ALFA01",
+    "label": "Praça de Alimentação",
+    "type": "TERMOSTATO",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "TERMOSTATO",
+    "identifier": "",
+    "ingestionId": "ing-35",
+    "gcdrDeviceId": "gcdr-35",
+    "centralId": "",
+    "slaveId": "",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "C2 no deviceProfile",
+   "id": "00000000-0000-4000-8000-000000000024",
+   "fields": {
+    "name": "3F ALFA-SEMPERFIL",
+    "label": "Sem perfil",
+    "type": "default",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "",
+    "identifier": "",
+    "ingestionId": "ing-36",
+    "gcdrDeviceId": "gcdr-36",
+    "centralId": "central-alfa-1",
+    "slaveId": "31",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "C3 no ingestionId (critical)",
+   "id": "00000000-0000-4000-8000-000000000025",
+   "fields": {
+    "name": "3F ALFA-SEMING",
+    "label": "Sem ingestion",
+    "type": "3F_MEDIDOR",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "3F_MEDIDOR",
+    "identifier": "",
+    "ingestionId": "",
+    "gcdrDeviceId": "gcdr-37",
+    "centralId": "central-alfa-1",
+    "slaveId": "32",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "C4 no gcdrDeviceId (pending)",
+   "id": "00000000-0000-4000-8000-000000000026",
+   "fields": {
+    "name": "3F ALFA-SEMGCDR",
+    "label": "Sem GCDR",
+    "type": "3F_MEDIDOR",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "3F_MEDIDOR",
+    "identifier": "",
+    "ingestionId": "ing-38",
+    "gcdrDeviceId": "",
+    "centralId": "central-alfa-1",
+    "slaveId": "33",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "C5 unrecognized profile",
+   "id": "00000000-0000-4000-8000-000000000027",
+   "fields": {
+    "name": "3F ALFA-PERFILX",
+    "label": "Perfil estranho",
+    "type": "Park Lagos CAG",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "Park Lagos CAG",
+    "identifier": "",
+    "ingestionId": "ing-39",
+    "gcdrDeviceId": "gcdr-39",
+    "centralId": "central-alfa-1",
+    "slaveId": "34",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "C6 profile differs from TB type (info, off by default)",
+   "id": "00000000-0000-4000-8000-000000000028",
+   "fields": {
+    "name": "3F ALFA-TYPEDEFAULT",
+    "label": "Tipo default no TB",
+    "type": "default",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "3F_MEDIDOR",
+    "identifier": "",
+    "ingestionId": "ing-40",
+    "gcdrDeviceId": "gcdr-40",
+    "centralId": "central-alfa-1",
+    "slaveId": "35",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "C7 energy device without central",
+   "id": "00000000-0000-4000-8000-000000000029",
+   "fields": {
+    "name": "3F ALFA-SEMCENTRAL",
+    "label": "Sem central",
+    "type": "3F_MEDIDOR",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "3F_MEDIDOR",
+    "identifier": "",
+    "ingestionId": "ing-41",
+    "gcdrDeviceId": "gcdr-41",
+    "centralId": "",
+    "slaveId": "36",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "C8 duplicate ingestionId (1/2)",
+   "id": "00000000-0000-4000-8000-00000000002a",
+   "fields": {
+    "name": "HIDR ALFA-DUP-A",
+    "label": "Hidrômetro duplicado A",
+    "type": "HIDROMETRO",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "HIDROMETRO",
+    "identifier": "",
+    "ingestionId": "ing-duplicado",
+    "gcdrDeviceId": "gcdr-42",
+    "centralId": "central-alfa-1",
+    "slaveId": "37",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "C8 duplicate ingestionId (2/2)",
+   "id": "00000000-0000-4000-8000-00000000002b",
+   "fields": {
+    "name": "HIDR ALFA-DUP-B",
+    "label": "Hidrômetro duplicado B",
+    "type": "HIDROMETRO",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "HIDROMETRO",
+    "identifier": "",
+    "ingestionId": "ing-duplicado",
+    "gcdrDeviceId": "gcdr-43",
+    "centralId": "central-alfa-1",
+    "slaveId": "38",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "C8 ignored: archived twin of an active id",
+   "id": "00000000-0000-4000-8000-00000000002c",
+   "fields": {
+    "name": "3F ALFA-OLD",
+    "label": "Medidor substituído",
+    "type": "3F_MEDIDOR",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "3F_MEDIDOR",
+    "identifier": "",
+    "ingestionId": "ing-substituido",
+    "gcdrDeviceId": "gcdr-44",
+    "centralId": "central-alfa-1",
+    "slaveId": "39",
+    "lifecycleStatus": "archived",
+    "active": "false",
+    "lastActivityTime": "AGO:900"
+   }
+  },
+  {
+   "case": "C8 ignored: active device sharing the archived id",
+   "id": "00000000-0000-4000-8000-00000000002d",
+   "fields": {
+    "name": "3F ALFA-NEW",
+    "label": "Medidor novo",
+    "type": "3F_MEDIDOR",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "3F_MEDIDOR",
+    "identifier": "",
+    "ingestionId": "ing-substituido",
+    "gcdrDeviceId": "gcdr-45",
+    "centralId": "central-alfa-1",
+    "slaveId": "40",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "A1 inactive in TB",
+   "id": "00000000-0000-4000-8000-00000000002e",
+   "fields": {
+    "name": "3F ALFA-INATIVO",
+    "label": "Fancoil inativo",
+    "type": "FANCOIL",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "FANCOIL",
+    "identifier": "",
+    "ingestionId": "ing-46",
+    "gcdrDeviceId": "gcdr-46",
+    "centralId": "central-alfa-1",
+    "slaveId": "41",
+    "lifecycleStatus": "",
+    "active": "false",
+    "lastActivityTime": "AGO:2"
+   }
+  },
+  {
+   "case": "A2 stale 3 days",
+   "id": "00000000-0000-4000-8000-00000000002f",
+   "fields": {
+    "name": "3F ALFA-SILENCIO",
+    "label": "Chiller calado",
+    "type": "CHILLER",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "CHILLER",
+    "identifier": "",
+    "ingestionId": "ing-47",
+    "gcdrDeviceId": "gcdr-47",
+    "centralId": "central-alfa-1",
+    "slaveId": "42",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:72"
+   }
+  },
+  {
+   "case": "A2 no lastActivityTime (Sem dado)",
+   "id": "00000000-0000-4000-8000-000000000030",
+   "fields": {
+    "name": "3F ALFA-SEMDADO",
+    "label": "Motor sem atividade registrada",
+    "type": "MOTOR",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "MOTOR",
+    "identifier": "",
+    "ingestionId": "ing-48",
+    "gcdrDeviceId": "gcdr-48",
+    "centralId": "central-alfa-1",
+    "slaveId": "43",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": ""
+   }
+  },
+  {
+   "case": "many failures (+N)",
+   "id": "00000000-0000-4000-8000-000000000031",
+   "fields": {
+    "name": "3F ALFA-TUDOERRADO",
+    "label": "Tudo errado",
+    "type": "Perfil Antigo",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "Perfil Antigo",
+    "identifier": "",
+    "ingestionId": "ing-49",
+    "gcdrDeviceId": "",
+    "centralId": "",
+    "slaveId": "44",
+    "lifecycleStatus": "",
+    "active": "false",
+    "lastActivityTime": "AGO:200"
+   }
+  },
+  {
+   "case": "label empty → name only",
+   "id": "00000000-0000-4000-8000-000000000032",
+   "fields": {
+    "name": "3F ALFA-SEMLABEL",
+    "label": "",
+    "type": "3F_MEDIDOR",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "3F_MEDIDOR",
+    "identifier": "",
+    "ingestionId": "ing-50",
+    "gcdrDeviceId": "gcdr-50",
+    "centralId": "central-alfa-1",
+    "slaveId": "45",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "label equals name → no parentheses",
+   "id": "00000000-0000-4000-8000-000000000033",
+   "fields": {
+    "name": "Loja Igual",
+    "label": "Loja Igual",
+    "type": "3F_MEDIDOR",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "3F_MEDIDOR",
+    "identifier": "",
+    "ingestionId": "ing-51",
+    "gcdrDeviceId": "gcdr-51",
+    "centralId": "central-alfa-1",
+    "slaveId": "46",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "CSV injection in label/name",
+   "id": "00000000-0000-4000-8000-000000000034",
+   "fields": {
+    "name": "=SUM(A1:A9)",
+    "label": "+55 Loja Fórmula",
+    "type": "3F_MEDIDOR",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "3F_MEDIDOR",
+    "identifier": "",
+    "ingestionId": "ing-52",
+    "gcdrDeviceId": "gcdr-52",
+    "centralId": "central-alfa-1",
+    "slaveId": "47",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "accents for search (climatizacao)",
+   "id": "00000000-0000-4000-8000-000000000035",
+   "fields": {
+    "name": "3F ALFA-CLIMA",
+    "label": "Climatização Praça Central",
+    "type": "FANCOIL",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "FANCOIL",
+    "identifier": "",
+    "ingestionId": "ing-53",
+    "gcdrDeviceId": "gcdr-53",
+    "centralId": "central-alfa-1",
+    "slaveId": "48",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "very long label",
+   "id": "00000000-0000-4000-8000-000000000036",
+   "fields": {
+    "name": "3F ALFA-LONGO",
+    "label": "Loja com um nome comercial muito comprido que precisa de reticências na lista do inventário",
+    "type": "3F_MEDIDOR",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "3F_MEDIDOR",
+    "identifier": "",
+    "ingestionId": "ing-54",
+    "gcdrDeviceId": "gcdr-54",
+    "centralId": "central-alfa-1",
+    "slaveId": "49",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "legacy hint: _ARQUIVADO_ profile",
+   "id": "00000000-0000-4000-8000-000000000037",
+   "fields": {
+    "name": "3F ALFA-ARQLEGADO",
+    "label": "Arquivado pelo perfil",
+    "type": "3F_MEDIDOR_ARQUIVADO_OFFLINE",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "3F_MEDIDOR_ARQUIVADO_OFFLINE",
+    "identifier": "",
+    "ingestionId": "ing-55",
+    "gcdrDeviceId": "gcdr-55",
+    "centralId": "central-alfa-1",
+    "slaveId": "50",
+    "lifecycleStatus": "",
+    "active": "false",
+    "lastActivityTime": "AGO:600"
+   }
+  },
+  {
+   "case": "lifecycle stock",
+   "id": "00000000-0000-4000-8000-000000000038",
+   "fields": {
+    "name": "3F ALFA-ESTOQUE",
+    "label": "Em estoque",
+    "type": "3F_MEDIDOR",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Alfa",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "3F_MEDIDOR",
+    "identifier": "",
+    "ingestionId": "ing-56",
+    "gcdrDeviceId": "gcdr-56",
+    "centralId": "central-alfa-1",
+    "slaveId": "51",
+    "lifecycleStatus": "stock",
+    "active": "true",
+    "lastActivityTime": ""
+   }
+  },
+  {
+   "case": "healthy",
+   "id": "00000000-0000-4000-8000-000000000039",
+   "fields": {
+    "name": "3F BETA001",
+    "label": "Beta Loja 1",
+    "type": "3F_MEDIDOR",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Beta",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "3F_MEDIDOR",
+    "identifier": "",
+    "ingestionId": "ing-57",
+    "gcdrDeviceId": "gcdr-57",
+    "centralId": "central-beta-1",
+    "slaveId": "52",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "healthy",
+   "id": "00000000-0000-4000-8000-00000000003a",
+   "fields": {
+    "name": "3F BETA002",
+    "label": "Beta Loja 2",
+    "type": "3F_MEDIDOR",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Beta",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "3F_MEDIDOR",
+    "identifier": "",
+    "ingestionId": "ing-58",
+    "gcdrDeviceId": "gcdr-58",
+    "centralId": "central-beta-1",
+    "slaveId": "53",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "healthy",
+   "id": "00000000-0000-4000-8000-00000000003b",
+   "fields": {
+    "name": "3F BETA003",
+    "label": "Beta Loja 3",
+    "type": "HIDROMETRO",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Beta",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "HIDROMETRO",
+    "identifier": "",
+    "ingestionId": "ing-59",
+    "gcdrDeviceId": "gcdr-59",
+    "centralId": "central-beta-1",
+    "slaveId": "54",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "C4 GCDR rollout pending",
+   "id": "00000000-0000-4000-8000-00000000003c",
+   "fields": {
+    "name": "3F BETA004",
+    "label": "Beta Loja 4",
+    "type": "3F_MEDIDOR",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Beta",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "3F_MEDIDOR",
+    "identifier": "",
+    "ingestionId": "ing-60",
+    "gcdrDeviceId": "",
+    "centralId": "central-beta-1",
+    "slaveId": "55",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "healthy",
+   "id": "00000000-0000-4000-8000-00000000003d",
+   "fields": {
+    "name": "3F BETA005",
+    "label": "Beta Loja 5",
+    "type": "3F_MEDIDOR",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Beta",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "3F_MEDIDOR",
+    "identifier": "",
+    "ingestionId": "ing-61",
+    "gcdrDeviceId": "gcdr-61",
+    "centralId": "central-beta-1",
+    "slaveId": "56",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "healthy",
+   "id": "00000000-0000-4000-8000-00000000003e",
+   "fields": {
+    "name": "3F BETA006",
+    "label": "Beta Loja 6",
+    "type": "HIDROMETRO",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Beta",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "HIDROMETRO",
+    "identifier": "",
+    "ingestionId": "ing-62",
+    "gcdrDeviceId": "gcdr-62",
+    "centralId": "central-beta-1",
+    "slaveId": "57",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "healthy",
+   "id": "00000000-0000-4000-8000-00000000003f",
+   "fields": {
+    "name": "3F BETA007",
+    "label": "Beta Loja 7",
+    "type": "3F_MEDIDOR",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Beta",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "3F_MEDIDOR",
+    "identifier": "",
+    "ingestionId": "ing-63",
+    "gcdrDeviceId": "gcdr-63",
+    "centralId": "central-beta-1",
+    "slaveId": "58",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "C4 GCDR rollout pending",
+   "id": "00000000-0000-4000-8000-000000000040",
+   "fields": {
+    "name": "3F BETA008",
+    "label": "Beta Loja 8",
+    "type": "3F_MEDIDOR",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Beta",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "3F_MEDIDOR",
+    "identifier": "",
+    "ingestionId": "ing-64",
+    "gcdrDeviceId": "",
+    "centralId": "central-beta-1",
+    "slaveId": "59",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "healthy",
+   "id": "00000000-0000-4000-8000-000000000041",
+   "fields": {
+    "name": "3F BETA009",
+    "label": "Beta Loja 9",
+    "type": "HIDROMETRO",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Beta",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "HIDROMETRO",
+    "identifier": "",
+    "ingestionId": "ing-65",
+    "gcdrDeviceId": "gcdr-65",
+    "centralId": "central-beta-1",
+    "slaveId": "60",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "healthy",
+   "id": "00000000-0000-4000-8000-000000000042",
+   "fields": {
+    "name": "3F BETA010",
+    "label": "Beta Loja 10",
+    "type": "3F_MEDIDOR",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Beta",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "3F_MEDIDOR",
+    "identifier": "",
+    "ingestionId": "ing-66",
+    "gcdrDeviceId": "gcdr-66",
+    "centralId": "central-beta-1",
+    "slaveId": "61",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "healthy",
+   "id": "00000000-0000-4000-8000-000000000043",
+   "fields": {
+    "name": "3F BETA011",
+    "label": "Beta Loja 11",
+    "type": "3F_MEDIDOR",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Beta",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "3F_MEDIDOR",
+    "identifier": "",
+    "ingestionId": "ing-67",
+    "gcdrDeviceId": "gcdr-67",
+    "centralId": "central-beta-1",
+    "slaveId": "62",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "C4 GCDR rollout pending",
+   "id": "00000000-0000-4000-8000-000000000044",
+   "fields": {
+    "name": "3F BETA012",
+    "label": "Beta Loja 12",
+    "type": "HIDROMETRO",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Beta",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "HIDROMETRO",
+    "identifier": "",
+    "ingestionId": "ing-68",
+    "gcdrDeviceId": "",
+    "centralId": "central-beta-1",
+    "slaveId": "63",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "healthy",
+   "id": "00000000-0000-4000-8000-000000000045",
+   "fields": {
+    "name": "3F BETA013",
+    "label": "Beta Loja 13",
+    "type": "3F_MEDIDOR",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Beta",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "3F_MEDIDOR",
+    "identifier": "",
+    "ingestionId": "ing-69",
+    "gcdrDeviceId": "gcdr-69",
+    "centralId": "central-beta-1",
+    "slaveId": "64",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "healthy",
+   "id": "00000000-0000-4000-8000-000000000046",
+   "fields": {
+    "name": "3F BETA014",
+    "label": "Beta Loja 14",
+    "type": "3F_MEDIDOR",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Beta",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "3F_MEDIDOR",
+    "identifier": "",
+    "ingestionId": "ing-70",
+    "gcdrDeviceId": "gcdr-70",
+    "centralId": "central-beta-1",
+    "slaveId": "65",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "healthy",
+   "id": "00000000-0000-4000-8000-000000000047",
+   "fields": {
+    "name": "3F BETA015",
+    "label": "Beta Loja 15",
+    "type": "HIDROMETRO",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Beta",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "HIDROMETRO",
+    "identifier": "",
+    "ingestionId": "ing-71",
+    "gcdrDeviceId": "gcdr-71",
+    "centralId": "central-beta-1",
+    "slaveId": "66",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "C4 GCDR rollout pending",
+   "id": "00000000-0000-4000-8000-000000000048",
+   "fields": {
+    "name": "3F BETA016",
+    "label": "Beta Loja 16",
+    "type": "3F_MEDIDOR",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Beta",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "3F_MEDIDOR",
+    "identifier": "",
+    "ingestionId": "ing-72",
+    "gcdrDeviceId": "",
+    "centralId": "central-beta-1",
+    "slaveId": "67",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "healthy",
+   "id": "00000000-0000-4000-8000-000000000049",
+   "fields": {
+    "name": "3F BETA017",
+    "label": "Beta Loja 17",
+    "type": "3F_MEDIDOR",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Beta",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "3F_MEDIDOR",
+    "identifier": "",
+    "ingestionId": "ing-73",
+    "gcdrDeviceId": "gcdr-73",
+    "centralId": "central-beta-1",
+    "slaveId": "68",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "healthy",
+   "id": "00000000-0000-4000-8000-00000000004a",
+   "fields": {
+    "name": "3F BETA018",
+    "label": "Beta Loja 18",
+    "type": "HIDROMETRO",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Beta",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "HIDROMETRO",
+    "identifier": "",
+    "ingestionId": "ing-74",
+    "gcdrDeviceId": "gcdr-74",
+    "centralId": "central-beta-1",
+    "slaveId": "69",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "healthy",
+   "id": "00000000-0000-4000-8000-00000000004b",
+   "fields": {
+    "name": "3F BETA019",
+    "label": "Beta Loja 19",
+    "type": "3F_MEDIDOR",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Beta",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "3F_MEDIDOR",
+    "identifier": "",
+    "ingestionId": "ing-75",
+    "gcdrDeviceId": "gcdr-75",
+    "centralId": "central-beta-1",
+    "slaveId": "70",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "C4 GCDR rollout pending",
+   "id": "00000000-0000-4000-8000-00000000004c",
+   "fields": {
+    "name": "3F BETA020",
+    "label": "Beta Loja 20",
+    "type": "3F_MEDIDOR",
+    "createdTime": "1748736000000",
+    "ownerName": "Shopping Beta",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "3F_MEDIDOR",
+    "identifier": "",
+    "ingestionId": "ing-76",
+    "gcdrDeviceId": "",
+    "centralId": "central-beta-1",
+    "slaveId": "71",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "not integrated (n/a)",
+   "id": "00000000-0000-4000-8000-00000000004d",
+   "fields": {
+    "name": "CHAVE 1",
+    "label": "Chave seletora 1",
+    "type": "Obra - Chaves",
+    "createdTime": "1748736000000",
+    "ownerName": "Loja Sem Integração",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "",
+    "identifier": "",
+    "ingestionId": "",
+    "gcdrDeviceId": "",
+    "centralId": "",
+    "slaveId": "",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "not integrated (n/a)",
+   "id": "00000000-0000-4000-8000-00000000004e",
+   "fields": {
+    "name": "CHAVE 2",
+    "label": "Chave seletora 2",
+    "type": "Obra - Chaves",
+    "createdTime": "1748736000000",
+    "ownerName": "Loja Sem Integração",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "",
+    "identifier": "",
+    "ingestionId": "",
+    "gcdrDeviceId": "",
+    "centralId": "",
+    "slaveId": "",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "not integrated (n/a)",
+   "id": "00000000-0000-4000-8000-00000000004f",
+   "fields": {
+    "name": "CHAVE 3",
+    "label": "Chave seletora 3",
+    "type": "Obra - Chaves",
+    "createdTime": "1748736000000",
+    "ownerName": "Loja Sem Integração",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "",
+    "identifier": "",
+    "ingestionId": "",
+    "gcdrDeviceId": "",
+    "centralId": "",
+    "slaveId": "",
+    "lifecycleStatus": "",
+    "active": "false",
+    "lastActivityTime": "AGO:30"
+   }
+  },
+  {
+   "case": "not integrated (n/a)",
+   "id": "00000000-0000-4000-8000-000000000050",
+   "fields": {
+    "name": "CHAVE 4",
+    "label": "Chave seletora 4",
+    "type": "Obra - Chaves",
+    "createdTime": "1748736000000",
+    "ownerName": "Loja Sem Integração",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "",
+    "identifier": "",
+    "ingestionId": "",
+    "gcdrDeviceId": "",
+    "centralId": "",
+    "slaveId": "",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "not integrated (n/a)",
+   "id": "00000000-0000-4000-8000-000000000051",
+   "fields": {
+    "name": "CHAVE 5",
+    "label": "Chave seletora 5",
+    "type": "Obra - Chaves",
+    "createdTime": "1748736000000",
+    "ownerName": "Loja Sem Integração",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "",
+    "identifier": "",
+    "ingestionId": "",
+    "gcdrDeviceId": "",
+    "centralId": "",
+    "slaveId": "",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "not integrated (n/a)",
+   "id": "00000000-0000-4000-8000-000000000052",
+   "fields": {
+    "name": "CHAVE 6",
+    "label": "Chave seletora 6",
+    "type": "Obra - Chaves",
+    "createdTime": "1748736000000",
+    "ownerName": "Loja Sem Integração",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "",
+    "identifier": "",
+    "ingestionId": "",
+    "gcdrDeviceId": "",
+    "centralId": "",
+    "slaveId": "",
+    "lifecycleStatus": "",
+    "active": "false",
+    "lastActivityTime": "AGO:30"
+   }
+  },
+  {
+   "case": "not integrated (n/a)",
+   "id": "00000000-0000-4000-8000-000000000053",
+   "fields": {
+    "name": "CHAVE 7",
+    "label": "Chave seletora 7",
+    "type": "Obra - Chaves",
+    "createdTime": "1748736000000",
+    "ownerName": "Loja Sem Integração",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "",
+    "identifier": "",
+    "ingestionId": "",
+    "gcdrDeviceId": "",
+    "centralId": "",
+    "slaveId": "",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "not integrated (n/a)",
+   "id": "00000000-0000-4000-8000-000000000054",
+   "fields": {
+    "name": "CHAVE 8",
+    "label": "Chave seletora 8",
+    "type": "Obra - Chaves",
+    "createdTime": "1748736000000",
+    "ownerName": "Loja Sem Integração",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "",
+    "identifier": "",
+    "ingestionId": "",
+    "gcdrDeviceId": "",
+    "centralId": "",
+    "slaveId": "",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "not integrated (n/a)",
+   "id": "00000000-0000-4000-8000-000000000055",
+   "fields": {
+    "name": "CHAVE 9",
+    "label": "Chave seletora 9",
+    "type": "Obra - Chaves",
+    "createdTime": "1748736000000",
+    "ownerName": "Loja Sem Integração",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "",
+    "identifier": "",
+    "ingestionId": "",
+    "gcdrDeviceId": "",
+    "centralId": "",
+    "slaveId": "",
+    "lifecycleStatus": "",
+    "active": "false",
+    "lastActivityTime": "AGO:30"
+   }
+  },
+  {
+   "case": "not integrated (n/a)",
+   "id": "00000000-0000-4000-8000-000000000056",
+   "fields": {
+    "name": "CHAVE 10",
+    "label": "Chave seletora 10",
+    "type": "Obra - Chaves",
+    "createdTime": "1748736000000",
+    "ownerName": "Loja Sem Integração",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "",
+    "identifier": "",
+    "ingestionId": "",
+    "gcdrDeviceId": "",
+    "centralId": "",
+    "slaveId": "",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": "AGO:1"
+   }
+  },
+  {
+   "case": "legacy hint: DESATIVAR customer",
+   "id": "00000000-0000-4000-8000-000000000057",
+   "fields": {
+    "name": "3F ANTIGO1",
+    "label": "Antigo 1",
+    "type": "3F_MEDIDOR",
+    "createdTime": "1748736000000",
+    "ownerName": "Cliente Antigo DESATIVAR",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "3F_MEDIDOR",
+    "identifier": "",
+    "ingestionId": "ing-87",
+    "gcdrDeviceId": "gcdr-87",
+    "centralId": "central-antiga",
+    "slaveId": "72",
+    "lifecycleStatus": "",
+    "active": "false",
+    "lastActivityTime": "AGO:2000"
+   }
+  },
+  {
+   "case": "legacy hint: DESATIVAR customer",
+   "id": "00000000-0000-4000-8000-000000000058",
+   "fields": {
+    "name": "3F ANTIGO2",
+    "label": "Antigo 2",
+    "type": "3F_MEDIDOR",
+    "createdTime": "1748736000000",
+    "ownerName": "Cliente Antigo DESATIVAR",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "3F_MEDIDOR",
+    "identifier": "",
+    "ingestionId": "ing-88",
+    "gcdrDeviceId": "gcdr-88",
+    "centralId": "central-antiga",
+    "slaveId": "73",
+    "lifecycleStatus": "",
+    "active": "false",
+    "lastActivityTime": "AGO:2000"
+   }
+  },
+  {
+   "case": "legacy hint: DESATIVAR customer",
+   "id": "00000000-0000-4000-8000-000000000059",
+   "fields": {
+    "name": "3F ANTIGO3",
+    "label": "Antigo 3",
+    "type": "3F_MEDIDOR",
+    "createdTime": "1748736000000",
+    "ownerName": "Cliente Antigo DESATIVAR",
+    "ownerType": "CUSTOMER"
+   },
+   "attrs": {
+    "deviceProfile": "3F_MEDIDOR",
+    "identifier": "",
+    "ingestionId": "ing-89",
+    "gcdrDeviceId": "gcdr-89",
+    "centralId": "central-antiga",
+    "slaveId": "74",
+    "lifecycleStatus": "",
+    "active": "false",
+    "lastActivityTime": "AGO:2000"
+   }
+  },
+  {
+   "case": "C1 no customer",
+   "id": "00000000-0000-4000-8000-00000000005a",
+   "fields": {
+    "name": "3F SEMCLIENTE1",
+    "label": "Sem cliente 1",
+    "type": "3F_MEDIDOR",
+    "createdTime": "1748736000000",
+    "ownerName": "MYIO Tenant",
+    "ownerType": "TENANT"
+   },
+   "attrs": {
+    "deviceProfile": "3F_MEDIDOR",
+    "identifier": "",
+    "ingestionId": "",
+    "gcdrDeviceId": "",
+    "centralId": "",
+    "slaveId": "75",
+    "lifecycleStatus": "",
+    "active": "true",
+    "lastActivityTime": ""
+   }
+  },
+  {
+   "case": "C1 no customer",
+   "id": "00000000-0000-4000-8000-00000000005b",
+   "fields": {
+    "name": "Device novo",
+    "label": "",
+    "type": "default",
+    "createdTime": "1748736000000",
+    "ownerName": "MYIO Tenant",
+    "ownerType": "TENANT"
+   },
+   "attrs": {
+    "deviceProfile": "",
+    "identifier": "",
+    "ingestionId": "",
+    "gcdrDeviceId": "",
+    "centralId": "",
+    "slaveId": "76",
+    "lifecycleStatus": "",
+    "active": "false",
+    "lastActivityTime": ""
+   }
+  },
+  {
+   "case": "tenant-owned stock (excluded)",
+   "id": "00000000-0000-4000-8000-00000000005c",
+   "fields": {
+    "name": "3F ESTOQUE-CENTRAL",
+    "label": "Estoque da fábrica",
+    "type": "3F_MEDIDOR",
+    "createdTime": "1748736000000",
+    "ownerName": "MYIO Tenant",
+    "ownerType": "TENANT"
+   },
+   "attrs": {
+    "deviceProfile": "3F_MEDIDOR",
+    "identifier": "",
+    "ingestionId": "",
+    "gcdrDeviceId": "",
+    "centralId": "",
+    "slaveId": "77",
+    "lifecycleStatus": "stock",
+    "active": "true",
+    "lastActivityTime": ""
+   }
+  }
+ ]
+}

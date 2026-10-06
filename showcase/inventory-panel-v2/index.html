@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inventory Panel v2 — Showcase (RFC-0237)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --sc-accent: #3e1a7d; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Nunito, system-ui, sans-serif; background: #0f172a; color: #e2e8f0; }
+    .sc-top { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 10px 16px; background: #1e1b4b; border-bottom: 1px solid #312e81; }
+    .sc-top h1 { font-size: 16px; margin: 0 12px 0 0; }
+    .sc-top label { font-size: 12px; display: inline-flex; align-items: center; gap: 4px; }
+    .sc-btn { border: 1px solid #4c1d95; background: #312e81; color: #fff; border-radius: 6px; padding: 5px 10px; font: inherit; font-size: 12px; cursor: pointer; }
+    .sc-btn:hover { background: #4338ca; }
+    .sc-btn.primary { background: #7c3aed; border-color: #7c3aed; }
+    .sc-sep { width: 1px; height: 22px; background: #4c1d95; }
+    .sc-input { background: #0f172a; color: #e2e8f0; border: 1px solid #4c1d95; border-radius: 6px; padding: 4px 8px; font: inherit; font-size: 12px; }
+    .sc-auth { font-size: 12px; }
+    .sc-auth.ok { color: #86efac; } .sc-auth.no { color: #fca5a5; }
+    .sc-auth a { color: #c4b5fd; }
+    .sc-main { display: grid; grid-template-columns: 1fr; gap: 12px; padding: 12px 16px; }
+    .sc-main.two { grid-template-columns: 1fr 1fr; }
+    .sc-widget { height: 74vh; background: #fff; border-radius: 10px; overflow: hidden; position: relative; }
+    .sc-widget-tag { position: absolute; top: 6px; right: 8px; z-index: 5; font-size: 10px; background: rgba(0,0,0,.55); color: #fff; padding: 2px 6px; border-radius: 4px; }
+    .sc-log { margin: 0 16px 16px; background: #020617; border: 1px solid #1e293b; border-radius: 8px; height: 18vh; overflow: auto; font: 12px ui-monospace, Consolas, monospace; padding: 8px; }
+    .sc-log div { white-space: pre-wrap; }
+    .sc-log .info { color: #93c5fd; } .sc-log .ok { color: #86efac; } .sc-log .warn { color: #fcd34d; } .sc-log .err { color: #fca5a5; }
+    .sc-modal { position: fixed; inset: 0; background: rgba(2,6,23,.7); display: none; align-items: center; justify-content: center; z-index: 50; }
+    .sc-modal.open { display: flex; }
+    .sc-modal form { background: #1e1b4b; padding: 20px; border-radius: 10px; width: 340px; display: flex; flex-direction: column; gap: 10px; }
+    .sc-modal .err { color: #fca5a5; font-size: 12px; display: none; }
+    .mock-only.hidden, .live-only.hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="sc-top">
+    <h1>📦 Inventory Panel v2 · showcase</h1>
+    <label>Modo
+      <select id="sc-mode" class="sc-input">
+        <option value="mock">Mock (fixtures, sem login)</option>
+        <option value="live">Real (ThingsBoard, só leitura)</option>
+      </select>
+    </label>
+    <label>Instâncias
+      <select id="sc-instances" class="sc-input"><option value="1">1</option><option value="2">2 lado a lado</option></select>
+    </label>
+    <label>pageSize <input id="sc-pagesize" class="sc-input" type="number" min="5" max="5000" value="25" style="width:70px"></label>
+    <span class="sc-sep"></span>
+    <span class="mock-only">
+      <label><input type="checkbox" id="sc-fail-page"> falhar página 2</label>
+      <label><input type="checkbox" id="sc-fail-first"> falhar 1ª página</label>
+      <label><input type="checkbox" id="sc-fail-customers"> falhar /customers</label>
+      <label><input type="checkbox" id="sc-slow"> páginas lentas</label>
+      <label><input type="checkbox" id="sc-no-attrs"> sem atributos MYIO</label>
+    </span>
+    <span class="live-only hidden">
+      <input id="sc-tb-url" class="sc-input" value="https://dashboard.myio-bas.com" style="width:230px">
+      <button class="sc-btn" id="sc-login" type="button">🔑 Login TB</button>
+      <span id="sc-auth" class="sc-auth"></span>
+    </span>
+    <span class="sc-sep"></span>
+    <button class="sc-btn primary" id="sc-mount" type="button">▶ Montar (onInit)</button>
+    <button class="sc-btn" id="sc-refresh" type="button">⟳ refresh()</button>
+    <button class="sc-btn" id="sc-destroy" type="button">■ Destruir (onDestroy)</button>
+  </div>
+
+  <div id="sc-main" class="sc-main"></div>
+  <div id="sc-log" class="sc-log"></div>
+
+  <div id="sc-login-modal" class="sc-modal">
+    <form id="sc-login-form">
+      <strong>Login no ThingsBoard</strong>
+      <small>Salva o JWT em <code>localStorage.jwt_token</code> (como a showcase main-view-shopping).</small>
+      <input id="sc-login-user" class="sc-input" placeholder="usuário" autocomplete="username">
+      <input id="sc-login-pass" class="sc-input" type="password" placeholder="senha" autocomplete="current-password">
+      <span id="sc-login-err" class="err"></span>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="sc-btn" type="button" id="sc-login-close">Cancelar</button>
+        <button class="sc-btn primary" type="submit">Entrar</button>
+      </div>
+    </form>
+  </div>
+
+  <script>
+    document.write('<script src="../../dist/myio-js-library.umd.js?v=' + Date.now() + '"><\/script>');
+  </script>
+  <script>
+    const CONTROLLER_URL = '../../src/thingsboard/inventory-panel/v2.0.0/controller.js';
+    const SCHEMA_URL = '../../src/thingsboard/inventory-panel/v2.0.0/settings.schema';
+    const FIXTURES_URL = './fixtures/devices.json';
+
+    // ---------- log ----------
+    const logEl = document.getElementById('sc-log');
+    function log(level, msg) {
+      const line = document.createElement('div');
+      line.className = level;
+      line.textContent = `${new Date().toLocaleTimeString('pt-BR')}  ${msg}`;
+      logEl.appendChild(line);
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    // ---------- mode + auth ----------
+    const modeEl = document.getElementById('sc-mode');
+    const mode = () => modeEl.value;
+    function applyModeUi() {
+      document.querySelectorAll('.mock-only').forEach((e) => e.classList.toggle('hidden', mode() !== 'mock'));
+      document.querySelectorAll('.live-only').forEach((e) => e.classList.toggle('hidden', mode() !== 'live'));
+      if (mode() === 'live' && Number(document.getElementById('sc-pagesize').value) < 100) document.getElementById('sc-pagesize').value = 1000;
+      updateAuthStatus();
+    }
+    modeEl.addEventListener('change', applyModeUi);
+
+    const tbUrl = () => document.getElementById('sc-tb-url').value.replace(/\/+$/, '');
+    function decodeJwt(t) { try { return JSON.parse(atob(t.split('.')[1])); } catch { return null; } }
+    function updateAuthStatus() {
+      const el = document.getElementById('sc-auth');
+      const t = localStorage.getItem('jwt_token');
+      const p = t && decodeJwt(t);
+      if (p && p.exp > Date.now() / 1000) {
+        el.className = 'sc-auth ok';
+        el.innerHTML = `✅ ${p.sub || 'autenticado'} · <a href="#" id="sc-logout">logout</a>`;
+        document.getElementById('sc-logout').onclick = (e) => { e.preventDefault(); localStorage.removeItem('jwt_token'); updateAuthStatus(); };
+      } else {
+        el.className = 'sc-auth no';
+        el.textContent = t ? '⚠️ JWT expirado — refaça o login' : '🔒 sem JWT';
+      }
+    }
+    const loginModal = document.getElementById('sc-login-modal');
+    document.getElementById('sc-login').onclick = () => { document.getElementById('sc-login-err').style.display = 'none'; loginModal.classList.add('open'); };
+    document.getElementById('sc-login-close').onclick = () => loginModal.classList.remove('open');
+    document.getElementById('sc-login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const errEl = document.getElementById('sc-login-err');
+      try {
+        const resp = await fetch(`${tbUrl()}/api/auth/login`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: document.getElementById('sc-login-user').value, password: document.getElementById('sc-login-pass').value }),
+        });
+        if (!resp.ok) throw new Error(resp.status === 401 ? 'Usuário ou senha inválidos' : `Login falhou (${resp.status})`);
+        const data = await resp.json();
+        localStorage.setItem('jwt_token', data.token);
+        loginModal.classList.remove('open');
+        updateAuthStatus();
+        log('ok', 'login TB ok');
+      } catch (err) { errEl.textContent = err.message; errEl.style.display = 'block'; }
+    });
+
+    // ---------- ctx.http (Observable-like, as Angular HttpClient) ----------
+    function observable(promise) {
+      return { toPromise: () => promise, subscribe: (next, error) => { promise.then(next, error); return { unsubscribe() {} }; } };
+    }
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const flag = (id) => document.getElementById(id).checked;
+
+    let fixtures = null;
+    async function loadFixtures() {
+      if (!fixtures) fixtures = await (await fetch(FIXTURES_URL + '?v=' + Date.now())).json();
+      return fixtures;
+    }
+
+    function toTbRow(dev, now, withAttrs) {
+      const wrap = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => {
+        let value = v;
+        if (typeof v === 'string' && v.startsWith('AGO:')) value = String(now - Number(v.slice(4)) * 3600e3);
+        return [k, { ts: value === '' ? 0 : now, value }];
+      }));
+      const attrs = withAttrs ? dev.attrs : Object.fromEntries(Object.keys(dev.attrs).map((k) => [k, '']));
+      return { entityId: { entityType: 'DEVICE', id: dev.id }, latest: { ENTITY_FIELD: wrap(dev.fields), SERVER_ATTRIBUTE: wrap(attrs) } };
+    }
+
+    function mockHttp(tag) {
+      async function route(method, url, body) {
+        const fx = await loadFixtures();
+        if (flag('sc-slow')) await sleep(900);
+        if (url.startsWith('/api/customers')) {
+          if (flag('sc-fail-customers')) throw { status: 500, message: 'mock: /customers falhou' };
+          return { data: fx.customers.map((c) => ({ id: { entityType: 'CUSTOMER', id: c.id }, title: c.title })), hasNext: false, totalElements: fx.customers.length };
+        }
+        if (method === 'POST' && url === '/api/entitiesQuery/find') {
+          const { page, pageSize } = body.pageLink;
+          if (page === 0 && flag('sc-fail-first')) throw { status: 503, message: 'mock: 1ª página falhou' };
+          if (page === 1 && flag('sc-fail-page')) throw { status: 500, message: 'mock: página 2 falhou' };
+          const now = Date.now();
+          const sorted = [...fx.devices].sort((a, b) => a.fields.name.localeCompare(b.fields.name));
+          const slice = sorted.slice(page * pageSize, (page + 1) * pageSize);
+          return {
+            data: slice.map((d) => toTbRow(d, now, !flag('sc-no-attrs'))),
+            totalElements: sorted.length,
+            totalPages: Math.ceil(sorted.length / pageSize),
+            hasNext: (page + 1) * pageSize < sorted.length,
+          };
+        }
+        throw { status: 404, message: 'mock: rota não simulada ' + url };
+      }
+      const call = (method, url, body) => {
+        log('info', `[${tag}] ${method} ${url}${body && body.pageLink ? ` page=${body.pageLink.page}` : ''}`);
+        return observable(route(method, url, body).catch((err) => { log('err', `[${tag}] ${err.message || err.status}`); throw err; }));
+      };
+      return { get: (url) => call('GET', url), post: (url, body) => call('POST', url, body) };
+    }
+
+    function liveHttp(tag) {
+      const call = (method, url, body) => {
+        const t0 = performance.now();
+        const p = fetch(tbUrl() + url, {
+          method,
+          headers: { 'Content-Type': 'application/json', 'X-Authorization': 'Bearer ' + (localStorage.getItem('jwt_token') || '') },
+          body: body ? JSON.stringify(body) : undefined,
+        }).then(async (r) => {
+          log(r.ok ? 'info' : 'err', `[${tag}] ${method} ${url} → ${r.status} (${Math.round(performance.now() - t0)} ms)`);
+          if (!r.ok) throw { status: r.status, message: `HTTP ${r.status}` };
+          return r.json();
+        });
+        return observable(p);
+      };
+      return { get: (url) => call('GET', url), post: (url, body) => call('POST', url, body) };
+    }
+
+    // ---------- settings (schema defaults + config.json overrides) ----------
+    async function loadSettings() {
+      const schema = await (await fetch(SCHEMA_URL + '?v=' + Date.now())).json();
+      const defaults = Object.fromEntries(Object.entries(schema.schema.properties).map(([k, v]) => [k, v.default]));
+      let overrides = {};
+      try {
+        const r = await fetch('./config.json?v=' + Date.now());
+        if (r.ok) overrides = (await r.json()).settings || {};
+      } catch { /* config.json is optional */ }
+      return { ...defaults, ...overrides, pageSize: Number(document.getElementById('sc-pagesize').value) || defaults.pageSize, debug: true };
+    }
+
+    // ---------- widget instances (one controller closure each, like TB) ----------
+    let controllerSrc = null;
+    const instances = [];
+
+    async function mount() {
+      destroyAll();
+      if (typeof MyIOLibrary === 'undefined' || !MyIOLibrary.inventory) {
+        log('err', 'MyIOLibrary.inventory não carregado — rode npm run build (dist/myio-js-library.umd.js)');
+        return;
+      }
+      if (mode() === 'live' && !localStorage.getItem('jwt_token')) log('warn', 'modo real sem JWT — faça o login TB');
+      controllerSrc = await (await fetch(CONTROLLER_URL + '?v=' + Date.now())).text();
+      const settings = await loadSettings();
+      const n = Number(document.getElementById('sc-instances').value);
+      const main = document.getElementById('sc-main');
+      main.className = 'sc-main' + (n === 2 ? ' two' : '');
+      main.innerHTML = '';
+      for (let i = 0; i < n; i++) {
+        const tag = 'w' + (i + 1);
+        const box = document.createElement('div');
+        box.className = 'sc-widget';
+        box.innerHTML = `<span class="sc-widget-tag">${tag}</span><div style="height:100%"></div>`;
+        main.appendChild(box);
+        const self = {
+          ctx: {
+            $container: [box.lastElementChild],
+            settings: { ...settings },
+            http: mode() === 'live' ? liveHttp(tag) : mockHttp(tag),
+            // TB exposes the logged user as ctx.currentUser (JWT claims); used for "Gerado por" in exports.
+            currentUser: mode() === 'live' ? decodeJwt(localStorage.getItem('jwt_token') || '') || {} : { sub: 'showcase@myio.com.br' },
+            stateController: { openState: (state, params) => log('ok', `[${tag}] openState(${state}, ${JSON.stringify(params)})`) },
+          },
+        };
+        // eslint-disable-next-line no-new-func
+        new Function('self', controllerSrc)(self);
+        self.onInit();
+        instances.push({ tag, self });
+        log('ok', `[${tag}] onInit · modo ${mode()} · pageSize ${settings.pageSize}`);
+      }
+    }
+
+    function destroyAll() {
+      while (instances.length) {
+        const { tag, self } = instances.pop();
+        self.onDestroy();
+        log('warn', `[${tag}] onDestroy`);
+      }
+    }
+
+    document.getElementById('sc-mount').onclick = () => mount().catch((e) => log('err', e.message));
+    document.getElementById('sc-destroy').onclick = destroyAll;
+    document.getElementById('sc-refresh').onclick = () => instances.forEach(({ tag, self }) => { log('info', `[${tag}] refresh()`); self.__inventoryApp && self.__inventoryApp.refresh(); });
+
+    applyModeUi();
+    log('info', typeof MyIOLibrary !== 'undefined'
+      ? `MyIOLibrary ${MyIOLibrary.version || ''} · inventory=${typeof MyIOLibrary.inventory}`
+      : 'MyIOLibrary NÃO carregado — rode npm run build');
+    mount().catch((e) => log('err', e.message));
+  </script>
+</body>
+</html>

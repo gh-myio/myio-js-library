@@ -1,0 +1,105 @@
+{
+  "schema": {
+    "type": "object",
+    "title": "Inventory Panel v2 Settings (RFC-0237)",
+    "properties": {
+      "title": {
+        "type": "string",
+        "title": "Título do painel",
+        "default": "Inventário de Dispositivos"
+      },
+      "defaultGroupBy": {
+        "type": "string",
+        "title": "Agrupamento padrão",
+        "enum": ["customer", "domain", "profile", "none"],
+        "default": "customer"
+      },
+      "defaultSort": {
+        "type": "string",
+        "title": "Ordenação padrão",
+        "enum": ["gravity", "label", "customer", "lastActivity"],
+        "default": "gravity"
+      },
+      "pageSize": {
+        "type": "number",
+        "title": "Tamanho da página (entitiesQuery)",
+        "default": 1000,
+        "minimum": 100,
+        "maximum": 5000
+      },
+      "refreshInterval": {
+        "type": "number",
+        "title": "Atualização automática (segundos, 0 = desligada)",
+        "default": 0,
+        "minimum": 0,
+        "maximum": 3600
+      },
+      "staleHours": {
+        "type": "number",
+        "title": "Sem atividade após (horas) — regra A2",
+        "default": 24,
+        "minimum": 1,
+        "maximum": 720
+      },
+      "disabledRules": {
+        "type": "string",
+        "title": "Regras desligadas (ids separados por vírgula)",
+        "default": "C6"
+      },
+      "integrationOverrides": {
+        "type": "string",
+        "title": "Integração esperada por cliente (JSON: {\"Nome do cliente\": true|false})",
+        "default": "{}"
+      },
+      "enableNavigation": {
+        "type": "boolean",
+        "title": "Abrir o dispositivo ao clicar na linha",
+        "default": true
+      },
+      "xlsxScriptUrl": {
+        "type": "string",
+        "title": "URL do SheetJS para XLSX (vazio = cdnjs xlsx 0.18.5)",
+        "default": ""
+      },
+      "debug": {
+        "type": "boolean",
+        "title": "Log de depuração no console",
+        "default": false
+      }
+    },
+    "required": []
+  },
+  "form": [
+    { "key": "title", "type": "text" },
+    {
+      "key": "defaultGroupBy",
+      "type": "rc-select",
+      "multiple": false,
+      "items": [
+        { "value": "customer", "label": "Cliente" },
+        { "value": "domain", "label": "Domínio" },
+        { "value": "profile", "label": "Perfil" },
+        { "value": "none", "label": "Sem agrupamento" }
+      ]
+    },
+    {
+      "key": "defaultSort",
+      "type": "rc-select",
+      "multiple": false,
+      "items": [
+        { "value": "gravity", "label": "Gravidade" },
+        { "value": "label", "label": "Nome" },
+        { "value": "customer", "label": "Cliente" },
+        { "value": "lastActivity", "label": "Última atividade" }
+      ]
+    },
+    { "key": "pageSize", "type": "number" },
+    { "key": "refreshInterval", "type": "number" },
+    { "key": "staleHours", "type": "number" },
+    { "key": "disabledRules", "type": "text", "placeholder": "C6" },
+    { "key": "integrationOverrides", "type": "textarea", "placeholder": "{\"Shopping X\": true}" },
+    "enableNavigation",
+    { "key": "xlsxScriptUrl", "type": "text", "placeholder": "https://…/xlsx.full.min.js" },
+    "debug"
+  ]
+}
