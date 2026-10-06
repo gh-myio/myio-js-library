@@ -54,6 +54,7 @@ ssh -i id_rsa root@<ipv6-da-central>
 | Mestre Álvaro — Entrada                                                                                  | `204:5b68:177a:540d:91c4:143b:d3b7:2ae2`    | `e6e9484d-af12-4209-b0aa-510378e01c1e`     | `28.248.84.203` | `65`       |
 | Rio Poty                                                                                                  | `203:bdfb:8fda:634d:c846:1404:f319:718c`    | `c0af8288-7b13-4024-bc11-df5017fef656`     | —          | —          |
 | Shopping da Ilha                                                                                          | `201:3447:911:5955:4018:3960:6838:ee12`     | `cb318f02-1020-4f99-857f-d44d001d939b`     | —          | —          |
+| Central Shopping da Ilha - ENTRADA - 2026-10-06                                                           | `200:f095:bb4:4e43:62ca:fbae:b36e:a2aa`     | `e89e15f2-4dac-4fdb-b62f-a7e49a7a8127`     | `54.17.161.225` | `83`       |
 | ~~Moxuara~~ ⚠️ **INATIVADA 2026-07-13** — substituída pela Moxuara 2.0 (banco restaurado do backup desta) | ~~`202:1567:faee:79ef:486:6d44:d391:fb18`~~ | ~~`e982edf9-edb1-4aa6-8a14-4782465ae5a3`~~ | —          | —          |
 | Central Moxuara 2.0 - 2026-07-13                                                                          | `201:bc00:2a0e:6e36:a50f:9ef6:9b23:d097`    | `6e88d9be-e351-4a8a-aa02-2a2222fcb22b`     | —          | —          |
 | Central Moxuara 2.0 - ENTRADA - TRAFO - 2026-07-13                                                        | `200:b2d6:a485:7a30:364b:424c:cafa:141c`    | `6d7cd66a-c6dd-40df-b40b-e1bad295e424`     | —          | —          |
@@ -175,6 +176,9 @@ ssh -i id_rsa root@203:bdfb:8fda:634d:c846:1404:f319:718c
 
 # Shopping da Ilha (Sá Cavalcante)
 ssh -i id_rsa root@201:3447:911:5955:4018:3960:6838:ee12
+
+# Central Shopping da Ilha - ENTRADA - 2026-10-06 (Sá Cavalcante)
+ssh -i id_rsa root@200:f095:bb4:4e43:62ca:fbae:b36e:a2aa
 
 # Moxuara (Sá Cavalcante) — ⚠️ INATIVADA 2026-07-13 (substituída pela 2.0 abaixo)
 # ssh -i id_rsa root@202:1567:faee:79ef:486:6d44:d391:fb18
