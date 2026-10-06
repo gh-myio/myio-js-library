@@ -136,6 +136,14 @@
         "default": false,
         "description": "RFC-0189: When true, calls the Data Apps API per temperature device over the last 72h to derive lastTelemetryTs for accurate offline detection (RFC-0188). One HTTP call per device at each data load. Enable for customers whose temperature devices are integrated into the Data Apps pipeline."
       },
+      "temperatureApiFallbackThresholdPercent": {
+        "title": "Temperature API fallback threshold (%)",
+        "type": "number",
+        "default": 90,
+        "minimum": 1,
+        "maximum": 100,
+        "description": "Only used when Enable Temperature API Fetch is on. If, in a data load, at least this percentage of the temperature devices queried on the Data Apps API fail (HTTP error, network error or no data in the last 72h), the dashboard falls back to the behaviour of the flag set to false: ThingsBoard data only, for offline detection and for the temperature modal. Re-evaluated on every data load."
+      },
       "enableDeviceDataExport": {
         "title": "Enable Device Data Export (console log)",
         "type": "boolean",
@@ -336,6 +344,7 @@
     "shortDelayMinsToBypassOfflineStatus",
     "maxSelection",
     "enableTemperatureApiDataFetch",
+    "temperatureApiFallbackThresholdPercent",
     "enableDeviceDataExport",
     "excludeDevicesAtCountSubtotalCAG",
     "enableAnnotationsOnboarding",
