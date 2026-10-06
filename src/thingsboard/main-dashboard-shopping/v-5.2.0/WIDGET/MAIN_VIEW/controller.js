@@ -2053,8 +2053,16 @@ Object.assign(window.MyIOUtils, {
 
     // RFC-0189: Temperature API fetch for offline detection + modal data source
     widgetSettings.enableTemperatureApiDataFetch = self.ctx.settings?.enableTemperatureApiDataFetch ?? false;
-    // Expose via window.MyIOUtils for TELEMETRY widget (modal data source)
+    // Fallback: if >= this % of the per-device API calls fail in a data load, behave as if the flag were false
+    {
+      const rawThreshold = Number(self.ctx.settings?.temperatureApiFallbackThresholdPercent);
+      widgetSettings.temperatureApiFallbackThresholdPercent =
+        Number.isFinite(rawThreshold) && rawThreshold > 0 ? Math.min(rawThreshold, 100) : 90;
+    }
+    // Expose via window.MyIOUtils for TELEMETRY widget (modal data source).
+    // Effective value: the fetch in fetchAndEnrich('temperature') turns it off while the fallback is active.
     window.MyIOUtils.enableTemperatureApiDataFetch = widgetSettings.enableTemperatureApiDataFetch;
+    window.MyIOUtils.temperatureApiFallback = null;
 
     // RFC-0152: Device data export to console (TB↔GCDR mapping audit)
     widgetSettings.enableDeviceDataExport = self.ctx.settings?.enableDeviceDataExport ?? false;
@@ -7112,8 +7120,16 @@ const MyIOOrchestrator = (() => {
         // Key: ingestionId → Unix ms timestamp / raw sensor value of last consumption entry
         const apiTsMap = new Map();
         const apiValueMap = new Map(); // ingestionId → last temperature value (°C, raw before offset)
+        let apiFallbackActive = false;
 
         if (useApi) {
+          const devicesWithIngestionId = [...metadataByEntityId.values()].filter(
+            (meta) => !!meta.ingestionId
+          );
+          const queried = devicesWithIngestionId.length;
+          // Problem = HTTP error, network error or no data in the 72h window (result null/rejected)
+          let problems = 0;
+
           try {
             const latestCreds = window.MyIOOrchestrator?.getCredentials?.();
             if (!latestCreds?.CLIENT_ID || !latestCreds?.CLIENT_SECRET) {
@@ -7134,10 +7150,6 @@ const MyIOOrchestrator = (() => {
             // Fixed 72-hour window — independent of the dashboard period
             const endTime = new Date().toISOString();
             const startTime = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString();
-
-            const devicesWithIngestionId = [...metadataByEntityId.values()].filter(
-              (meta) => !!meta.ingestionId
-            );
 
             LogHelper.log(
               `[Orchestrator] 🌡️ RFC-0189: Fetching temperature API for ${devicesWithIngestionId.length} devices (last 72h)`
@@ -7182,16 +7194,39 @@ const MyIOOrchestrator = (() => {
                 if (result.value.lastValue !== null) {
                   apiValueMap.set(result.value.ingestionId, result.value.lastValue);
                 }
+              } else {
+                problems++;
               }
             }
 
             LogHelper.log(
-              `[Orchestrator] 🌡️ RFC-0189: lastTelemetryTs resolved for ${apiTsMap.size}/${devicesWithIngestionId.length} devices`
+              `[Orchestrator] 🌡️ RFC-0189: lastTelemetryTs resolved for ${apiTsMap.size}/${queried} devices`
             );
           } catch (err) {
             LogHelper.warn('[Orchestrator] 🌡️ RFC-0189: Temperature API fetch failed:', err.message);
-            // apiTsMap stays empty → all devices fall back to meta.temperatureTs
+            // Auth/library failure: every queried device counts as a problem
+            problems = queried;
           }
+
+          // Fallback: at or above the threshold, behave as if enableTemperatureApiDataFetch were false
+          // (ThingsBoard-only offline detection + legacy modal data source). Re-evaluated on every load.
+          const threshold = widgetSettings.temperatureApiFallbackThresholdPercent ?? 90;
+          const problemPct = queried > 0 ? (problems / queried) * 100 : 0;
+          apiFallbackActive = queried > 0 && problemPct >= threshold;
+
+          if (apiFallbackActive) {
+            apiTsMap.clear();
+            apiValueMap.clear();
+            LogHelper.warn(
+              `[Orchestrator] 🌡️ RFC-0189: API fallback — ${problems}/${queried} devices with problems ` +
+                `(${problemPct.toFixed(0)}% >= ${threshold}%). Using ThingsBoard data only, as if enableTemperatureApiDataFetch were false.`
+            );
+          }
+
+          window.MyIOUtils.enableTemperatureApiDataFetch = !apiFallbackActive;
+          window.MyIOUtils.temperatureApiFallback = apiFallbackActive
+            ? { active: true, problems, queried, problemPct: Math.round(problemPct), threshold, at: Date.now() }
+            : null;
         }
 
         // Build items from metadata (value = meta.temperature from ctx.data — ThingsBoard real-time)
@@ -7238,7 +7273,11 @@ const MyIOOrchestrator = (() => {
 
         LogHelper.log(
           `[Orchestrator] 🌡️ Temperature items: ${items.length}` +
-            (useApi ? ` | API ts enriched: ${apiTsMap.size}` : ' | ctx.data only')
+            (useApi && !apiFallbackActive
+              ? ` | API ts enriched: ${apiTsMap.size}`
+              : useApi
+                ? ' | ctx.data only (API fallback)'
+                : ' | ctx.data only')
         );
         return items;
       }
