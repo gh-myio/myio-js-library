@@ -2,7 +2,7 @@
   "meta": {
     "project": "ED",
     "jiraBase": "https://myio.atlassian.net",
-    "generatedAt": "2026-10-01",
+    "generatedAt": "2026-10-05",
     "status": "Em Andamento",
     "wipLimit": 1,
     "note": "WIP = tickets com status \"Em Andamento\". Acordo: 1 por pessoa (inclui \"Aguardando Demanda\" quando ocioso)."
@@ -28,12 +28,6 @@
           "updated": "2026-09-30"
         },
         {
-          "key": "ED-1299",
-          "type": "Tarefa",
-          "summary": "Obramax São Gonçalo — adicionar Modbus no Node-RED da central",
-          "updated": "2026-09-30"
-        },
-        {
           "key": "ED-1297",
           "type": "Tarefa",
           "summary": "GCDR — Fluxo \"Esqueci a senha\" com magic link e template MYIO",
@@ -50,6 +44,12 @@
           "type": "Bug",
           "summary": "Mestre Alvaro - Verificação de possível outlier de consumo",
           "updated": "2026-09-29"
+        },
+        {
+          "key": "ED-996",
+          "type": "Bug",
+          "summary": "Sá Cavalcante - Relatório de temperatura apresentando temperatura zerada",
+          "updated": "2026-10-05"
         }
       ]
     },
@@ -59,10 +59,10 @@
       "over": false,
       "tickets": [
         {
-          "key": "ED-1273",
-          "type": "Subtarefa",
-          "summary": "QA: Painel Interpolação — 4 abas (Dashboard/Gateways/Logs/Setup)",
-          "updated": "2026-09-30"
+          "key": "ED-1294",
+          "type": "Bug",
+          "summary": "[BUG] Anotações: dropdown de Status/Importância cortado em \"Filtros Avançados\" + arquivamento bloqueado indevidamente",
+          "updated": "2026-10-05"
         }
       ]
     },

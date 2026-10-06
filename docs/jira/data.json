@@ -11,78 +11,81 @@
       "end": "2026-09-21",
       "state": "future"
     },
-    "generatedAt": "2026-10-01",
+    "generatedAt": "2026-10-05",
     "source": "Jira Cloud (myio.atlassian.net) via MCP Atlassian",
     "scope": "Tickets em aberto (status != Concluído). Inclui Tarefa, Subtarefa e Bug. Exclui Épicos e História/Story."
   },
   "summary": {
-    "sprintOpen": 8,
-    "backlogOpen": 583,
-    "total": 591
+    "sprintOpen": 14,
+    "backlogOpen": 579,
+    "total": 593
   },
   "aggregates": {
     "sprint": {
       "byStatus": {
-        "PENDENTE": 2,
-        "EM REVISÃO": 2,
+        "PENDENTE": 3,
+        "EM REVISÃO": 3,
         "Em Andamento": 1,
-        "Itens Novos": 3
+        "Itens Novos": 7
       },
       "byType": {
-        "Bug": 3,
-        "Tarefa": 5
+        "Bug": 5,
+        "Tarefa": 9
       },
       "byPriority": {
-        "Medium": 6,
+        "Medium": 8,
         "Lowest": 1,
-        "Highest": 1
+        "Highest": 3,
+        "High": 2
       },
       "byAssignee": {
-        "Rodrigo Lago": 5,
-        "Letícia Camargo": 3
+        "Rodrigo Lago": 8,
+        "Letícia Camargo": 5,
+        "Victor Hugo da Silva": 1
       },
       "byGroup": {
         "Outros": 2,
-        "GCDR / Plataforma": 4,
+        "GCDR / Plataforma": 9,
         "Relatórios / Dashboard": 1,
-        "Central / Firmware / HW": 1
+        "Souza Aguiar": 1,
+        "TrensRJ": 1
       }
     },
     "backlog": {
       "byStatus": {
-        "Itens Novos": 165,
-        "EM REVISÃO": 19,
-        "PENDENTE": 392,
+        "Itens Novos": 168,
+        "EM REVISÃO": 9,
+        "PENDENTE": 395,
         "Em Andamento": 7
       },
       "byType": {
-        "Tarefa": 436,
-        "Subtarefa": 91,
-        "Bug": 56
+        "Tarefa": 437,
+        "Subtarefa": 90,
+        "Bug": 52
       },
       "byPriority": {
-        "High": 17,
-        "Medium": 558,
-        "Lowest": 1,
-        "Low": 5,
+        "High": 18,
+        "Medium": 553,
+        "Low": 6,
         "Highest": 2
       },
       "byAssignee": {
-        "Rodrigo Lago": 111,
-        "Letícia Camargo": 36,
+        "Rodrigo Lago": 117,
+        "Letícia Camargo": 25,
         "Luiz Guilherme Martinho Sampaio Ito": 386,
         "Leticia Saraiva": 5,
-        "Victor Hugo da Silva": 45
+        "Victor Hugo da Silva": 45,
+        "Leandro Gadioli Rodrigues": 1
       },
       "byGroup": {
-        "Souza Aguiar": 5,
+        "Souza Aguiar": 3,
         "Relatórios / Dashboard": 7,
-        "GCDR / Plataforma": 118,
+        "GCDR / Plataforma": 114,
         "Raiz Educação": 2,
         "Central / Firmware / HW": 394,
         "Contagem": 3,
         "Outros": 18,
-        "Sá Cavalcante": 6,
+        "Sá Cavalcante": 7,
         "Mestre Álvaro": 3,
         "Campinas": 3,
         "Rio Poty": 2,
@@ -91,7 +94,7 @@
         "BAS": 10,
         "West Plaza": 2,
         "Melicidade": 3,
-        "Shopping da Ilha / SDI": 3,
+        "Shopping da Ilha / SDI": 4,
         "TrensRJ": 2
       }
     }
@@ -141,36 +144,23 @@
       "summary": "[BUG] Anotações: dropdown de Status/Importância cortado em \"Filtros Avançados\" + arquivamento bloqueado indevidamente",
       "type": "Bug",
       "sub": false,
-      "status": "EM REVISÃO",
+      "status": "Em Andamento",
       "cat": "indeterminate",
       "priority": "Lowest",
       "assignee": "Letícia Camargo",
-      "updated": "2026-09-28",
+      "updated": "2026-10-05",
       "group": "Outros",
       "kind": "other"
-    },
-    {
-      "key": "ED-1299",
-      "summary": "Obramax São Gonçalo — adicionar Modbus no Node-RED da central",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Em Andamento",
-      "cat": "indeterminate",
-      "priority": "Highest",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-09-30",
-      "group": "Central / Firmware / HW",
-      "kind": "theme"
     },
     {
       "key": "ED-1302",
       "summary": "GCDR — Exclusão de usuário com vínculos: análise antes de excluir, exclusão segura e retorno do usuário",
       "type": "Tarefa",
       "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
+      "status": "EM REVISÃO",
+      "cat": "indeterminate",
+      "priority": "Highest",
+      "assignee": "Letícia Camargo",
       "updated": "2026-10-01",
       "group": "GCDR / Plataforma",
       "kind": "theme"
@@ -180,22 +170,113 @@
       "summary": "GCDR — Restaurar usuário excluído (lista de excluídos, restauração auditada e aviso no recadastro)",
       "type": "Tarefa",
       "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
+      "status": "EM REVISÃO",
+      "cat": "indeterminate",
       "priority": "Medium",
-      "assignee": "Rodrigo Lago",
+      "assignee": "Letícia Camargo",
       "updated": "2026-10-01",
       "group": "GCDR / Plataforma",
       "kind": "theme"
     },
     {
-      "key": "ED-1307",
-      "summary": "GCDR — \"+ Adicionar Dispositivo\" abre \"Dispositivo não encontrado\" (/devices/new não cria device)",
+      "key": "ED-1323",
+      "summary": "[BUG] [DASHBOARD] Filtros da tela MAN4 (Relatório de Temperatura, Souza Aguiar) não funcionam após a primeira seleção, e contagem de ambientes diverge do total de dispositivos",
       "type": "Bug",
       "sub": false,
       "status": "Itens Novos",
       "cat": "new",
       "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-10-05",
+      "group": "Souza Aguiar",
+      "kind": "unit"
+    },
+    {
+      "key": "ED-1322",
+      "summary": "[BUG] [GCDR] Usuário com role manufacturing-technician recebe \"Sem acesso\" na página de QR Code",
+      "type": "Bug",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "High",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-10-05",
+      "group": "GCDR / Plataforma",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1321",
+      "summary": "GCDR — Login pela myio-js-library 0.1.547 (createMyioGcdrLoginView): trocar a tela de login própria pela da LIB",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-10-05",
+      "group": "GCDR / Plataforma",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1319",
+      "summary": "Supervia CCO — restore do banco da central antiga na central nova (troca de central, 2026-10-05)",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Highest",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-10-05",
+      "group": "TrensRJ",
+      "kind": "unit"
+    },
+    {
+      "key": "ED-1318",
+      "summary": "GCDR — Login permite enumeração de contas (e-mail inexistente vs senha errada; status checado antes da senha)",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-10-04",
+      "group": "GCDR / Plataforma",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1316",
+      "summary": "GCDR — /qr-code: leitura do QR Code pela câmera (implementar e validar em aparelhos reais)",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Victor Hugo da Silva",
+      "updated": "2026-10-02",
+      "group": "GCDR / Plataforma",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1315",
+      "summary": "GCDR — Tela /qr-code: cadastro de produto e etiqueta QR para técnicos de fabricação (RFC-0071 / RFC-0053)",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "PENDENTE",
+      "cat": "indeterminate",
+      "priority": "Highest",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-10-05",
+      "group": "GCDR / Plataforma",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1311",
+      "summary": "[BUG] [INGESTION STAGING] Switch \"Desligar Tudo\" não desmarca as centrais / contagem \"Centrais Ligadas\" não atualiza",
+      "type": "Bug",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "High",
       "assignee": "Rodrigo Lago",
       "updated": "2026-10-01",
       "group": "GCDR / Plataforma",
@@ -5131,32 +5212,6 @@
       "kind": "theme"
     },
     {
-      "key": "ED-850",
-      "summary": "[BUG] [GCDR] Falha de redirecionamento ao tentar cadastrar novo dispositivo no cliente no GCDR",
-      "type": "Bug",
-      "sub": false,
-      "status": "EM REVISÃO",
-      "cat": "indeterminate",
-      "priority": "Medium",
-      "assignee": "Letícia Camargo",
-      "updated": "2026-09-21",
-      "group": "GCDR / Plataforma",
-      "kind": "theme"
-    },
-    {
-      "key": "ED-851",
-      "summary": "[BUG] [GCDR] Lentidão excessiva e recorrente ao carregar a aba de Dispositivos no GCDR",
-      "type": "Bug",
-      "sub": false,
-      "status": "EM REVISÃO",
-      "cat": "indeterminate",
-      "priority": "Medium",
-      "assignee": "Letícia Camargo",
-      "updated": "2026-09-21",
-      "group": "GCDR / Plataforma",
-      "kind": "theme"
-    },
-    {
       "key": "ED-858",
       "summary": "[BUG] [INGESTION] Campos \"Cliente\" e \"Asset\" não retêm dados simultaneamente, bloqueando cadastro de dispositivo no Ingestion",
       "type": "Bug",
@@ -5339,19 +5394,6 @@
       "kind": "theme"
     },
     {
-      "key": "ED-914",
-      "summary": "[MELHORIA] [INGESTION] Retirar campo de pesquisa \"Buscar entidades\" no canto superior direito",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "EM REVISÃO",
-      "cat": "indeterminate",
-      "priority": "Lowest",
-      "assignee": "Letícia Camargo",
-      "updated": "2026-09-21",
-      "group": "GCDR / Plataforma",
-      "kind": "theme"
-    },
-    {
       "key": "ED-919",
       "summary": "[BUG] [GCDR] Campos \"Modelo\" e \"Código\" não são persistidos após edição de central ",
       "type": "Bug",
@@ -5404,45 +5446,6 @@
       "kind": "theme"
     },
     {
-      "key": "ED-967",
-      "summary": "[BUG] [INGESTION] Sistema não carrega informações no campo 'Ativo' na edição do Dispositivo",
-      "type": "Bug",
-      "sub": false,
-      "status": "EM REVISÃO",
-      "cat": "indeterminate",
-      "priority": "Medium",
-      "assignee": "Letícia Camargo",
-      "updated": "2026-09-21",
-      "group": "GCDR / Plataforma",
-      "kind": "theme"
-    },
-    {
-      "key": "ED-968",
-      "summary": "[BUG] [INGESTION] Campo 'Ativo Pai' não exibe todos os clientes na edição de Ativos",
-      "type": "Bug",
-      "sub": false,
-      "status": "EM REVISÃO",
-      "cat": "indeterminate",
-      "priority": "Medium",
-      "assignee": "Letícia Camargo",
-      "updated": "2026-09-21",
-      "group": "GCDR / Plataforma",
-      "kind": "theme"
-    },
-    {
-      "key": "ED-970",
-      "summary": "[BUG] [INGESTION] Campo 'Ativo' não exibe todos os clientes na edição de Dispositivos",
-      "type": "Bug",
-      "sub": false,
-      "status": "EM REVISÃO",
-      "cat": "indeterminate",
-      "priority": "Medium",
-      "assignee": "Letícia Camargo",
-      "updated": "2026-09-21",
-      "group": "GCDR / Plataforma",
-      "kind": "theme"
-    },
-    {
       "key": "ED-971",
       "summary": "[BUG] [PRÉ-SETUP] Erro ao tentar cadastrar um novo device no Mestre Álvaro",
       "type": "Bug",
@@ -5460,11 +5463,11 @@
       "summary": "[MELHORIA] [GDCR] Incluir um campo de pesquisa no campo 'Todos os Clientes' na aba Dispositivos",
       "type": "Tarefa",
       "sub": false,
-      "status": "EM REVISÃO",
+      "status": "PENDENTE",
       "cat": "indeterminate",
       "priority": "Medium",
-      "assignee": "Letícia Camargo",
-      "updated": "2026-09-21",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-10-05",
       "group": "Outros",
       "kind": "other"
     },
@@ -7215,11 +7218,11 @@
       "summary": "QA: Painel Interpolação — 4 abas (Dashboard/Gateways/Logs/Setup)",
       "type": "Subtarefa",
       "sub": true,
-      "status": "Em Andamento",
+      "status": "PENDENTE",
       "cat": "indeterminate",
       "priority": "Medium",
-      "assignee": "Letícia Camargo",
-      "updated": "2026-09-30",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-10-01",
       "group": "GCDR / Plataforma",
       "kind": "theme"
     },
@@ -7259,19 +7262,6 @@
       "priority": "Medium",
       "assignee": "Letícia Camargo",
       "updated": "2026-09-22",
-      "group": "GCDR / Plataforma",
-      "kind": "theme"
-    },
-    {
-      "key": "ED-1277",
-      "summary": "QA: Regressão geral do dashboard (mudanças não-interpolação da branch)",
-      "type": "Subtarefa",
-      "sub": true,
-      "status": "PENDENTE",
-      "cat": "indeterminate",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-09-28",
       "group": "GCDR / Plataforma",
       "kind": "theme"
     },
@@ -7339,19 +7329,6 @@
       "updated": "2026-09-22",
       "group": "Outros",
       "kind": "other"
-    },
-    {
-      "key": "ED-1235",
-      "summary": "[BUG] Interpolação não preenche lacuna dentro do limite configurado no Relatório de Temperatura do Souza Aguiar",
-      "type": "Bug",
-      "sub": false,
-      "status": "EM REVISÃO",
-      "cat": "indeterminate",
-      "priority": "Medium",
-      "assignee": "Letícia Camargo",
-      "updated": "2026-09-29",
-      "group": "Souza Aguiar",
-      "kind": "unit"
     },
     {
       "key": "ED-1236",
@@ -7527,24 +7504,11 @@
       "summary": "[BUG] Interpolação preenche mais slots do que o limite configurado no Dashboard Tabela Temp V5 (Souza Aguiar)de ",
       "type": "Bug",
       "sub": false,
-      "status": "EM REVISÃO",
+      "status": "PENDENTE",
       "cat": "indeterminate",
       "priority": "Medium",
-      "assignee": "Letícia Camargo",
-      "updated": "2026-09-29",
-      "group": "Souza Aguiar",
-      "kind": "unit"
-    },
-    {
-      "key": "ED-1239",
-      "summary": "[BUG] Filtros da tela MAN4 do Relatório Temperatura do Souza Aguiar não funcionam",
-      "type": "Bug",
-      "sub": false,
-      "status": "EM REVISÃO",
-      "cat": "indeterminate",
-      "priority": "Medium",
-      "assignee": "Letícia Camargo",
-      "updated": "2026-09-29",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-10-05",
       "group": "Souza Aguiar",
       "kind": "unit"
     },
@@ -7579,11 +7543,11 @@
       "summary": "QA: validar dashboard Tabela Temp V5 (Souza Aguiar) operacional após feature adjustmentSince",
       "type": "Tarefa",
       "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
+      "status": "PENDENTE",
+      "cat": "indeterminate",
       "priority": "Medium",
       "assignee": "Rodrigo Lago",
-      "updated": "2026-09-29",
+      "updated": "2026-10-05",
       "group": "Souza Aguiar",
       "kind": "unit"
     },
@@ -7780,6 +7744,71 @@
       "assignee": "Rodrigo Lago",
       "updated": "2026-10-01",
       "group": "TrensRJ",
+      "kind": "unit"
+    },
+    {
+      "key": "ED-1320",
+      "summary": "SDI -Substituição de central de medição de entrada de energia",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "High",
+      "assignee": "Leandro Gadioli Rodrigues",
+      "updated": "2026-10-05",
+      "group": "Shopping da Ilha / SDI",
+      "kind": "unit"
+    },
+    {
+      "key": "ED-1314",
+      "summary": "GCDR — /admin/db: mostrar todos os resultados, mensagens e desfecho da transação de um script (RFC-0072)",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-10-02",
+      "group": "GCDR / Plataforma",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1313",
+      "summary": "[BUG] [INGESTION STATING] \"Expandir tudo\" precisa de 2 cliques após clicar em \"Recolher tudo\"",
+      "type": "Bug",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Low",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-10-01",
+      "group": "GCDR / Plataforma",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1312",
+      "summary": "[BUG] [INGESTION STATING] Número total de incidentes diverge entre abas (contagem inconsistente com a lista de logs)",
+      "type": "Bug",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-10-01",
+      "group": "GCDR / Plataforma",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-996",
+      "summary": "Sá Cavalcante - Relatório de temperatura apresentando temperatura zerada",
+      "type": "Bug",
+      "sub": false,
+      "status": "Em Andamento",
+      "cat": "indeterminate",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-10-05",
+      "group": "Sá Cavalcante",
       "kind": "unit"
     }
   ]

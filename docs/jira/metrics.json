@@ -4,8 +4,8 @@
     "projectName": "Engineer Dashboard",
     "board": 166,
     "jiraBase": "https://myio.atlassian.net",
-    "generatedAt": "2026-10-01",
-    "today": "2026-10-01",
+    "generatedAt": "2026-10-05",
+    "today": "2026-10-05",
     "source": "Jira Cloud (myio.atlassian.net) via MCP Atlassian"
   },
   "rules": {
@@ -694,8 +694,8 @@
       "end": "2026-09-21",
       "complete": "",
       "state": "future",
-      "scope": 28,
-      "done": 20,
+      "scope": 38,
+      "done": 24,
       "burndown": [
         {
           "date": "2026-09-14",
@@ -740,6 +740,11 @@
         {
           "date": "2026-10-01",
           "remaining": 8,
+          "ideal": 0
+        },
+        {
+          "date": "2026-10-05",
+          "remaining": 14,
           "ideal": 0
         }
       ],
@@ -3268,14 +3273,6 @@
       "date": "2026-09-29"
     },
     {
-      "key": "ED-996",
-      "summary": "Sá Cavalcante - Relatório de temperatura apresentando temperatura zerada",
-      "assignee": "Rodrigo Lago",
-      "type": "Bug",
-      "priority": "Medium",
-      "date": "2026-09-29"
-    },
-    {
       "key": "ED-992",
       "summary": "WestPlaza - Pontos com consumo incorreto no dashboard",
       "assignee": "Leandro Gadioli Rodrigues",
@@ -3378,6 +3375,110 @@
       "type": "Tarefa",
       "priority": "Medium",
       "date": "2026-09-30"
+    },
+    {
+      "key": "ED-1235",
+      "summary": "[BUG] Interpolação não preenche lacuna dentro do limite configurado no Relatório de Temperatura do Souza Aguiar",
+      "assignee": "Letícia Camargo",
+      "type": "Bug",
+      "priority": "Medium",
+      "date": "2026-10-05"
+    },
+    {
+      "key": "ED-1239",
+      "summary": "[BUG] Filtros da tela MAN4 do Relatório Temperatura do Souza Aguiar não funcionam",
+      "assignee": "Letícia Camargo",
+      "type": "Bug",
+      "priority": "Medium",
+      "date": "2026-10-05"
+    },
+    {
+      "key": "ED-967",
+      "summary": "[BUG] [INGESTION] Sistema não carrega informações no campo 'Ativo' na edição do Dispositivo",
+      "assignee": "Letícia Camargo",
+      "type": "Bug",
+      "priority": "Medium",
+      "date": "2026-10-05"
+    },
+    {
+      "key": "ED-850",
+      "summary": "[BUG] [GCDR] Falha de redirecionamento ao tentar cadastrar novo dispositivo no cliente no GCDR",
+      "assignee": "Letícia Camargo",
+      "type": "Bug",
+      "priority": "Medium",
+      "date": "2026-10-05"
+    },
+    {
+      "key": "ED-851",
+      "summary": "[BUG] [GCDR] Lentidão excessiva e recorrente ao carregar a aba de Dispositivos no GCDR",
+      "assignee": "Letícia Camargo",
+      "type": "Bug",
+      "priority": "Medium",
+      "date": "2026-10-05"
+    },
+    {
+      "key": "ED-968",
+      "summary": "[BUG] [INGESTION] Campo 'Ativo Pai' não exibe todos os clientes na edição de Ativos",
+      "assignee": "Letícia Camargo",
+      "type": "Bug",
+      "priority": "Medium",
+      "date": "2026-10-05"
+    },
+    {
+      "key": "ED-914",
+      "summary": "[MELHORIA] [INGESTION] Retirar campo de pesquisa \"Buscar entidades\" no canto superior direito",
+      "assignee": "Letícia Camargo",
+      "type": "Tarefa",
+      "priority": "Lowest",
+      "date": "2026-10-05"
+    },
+    {
+      "key": "ED-970",
+      "summary": "[BUG] [INGESTION] Campo 'Ativo' não exibe todos os clientes na edição de Dispositivos",
+      "assignee": "Letícia Camargo",
+      "type": "Bug",
+      "priority": "Medium",
+      "date": "2026-10-05"
+    },
+    {
+      "key": "ED-1317",
+      "summary": "GCDR — /users/:id: \"Revogar\" função não funciona (POST /authorization/revoke/:id → 404) e não há toast de sucesso/erro",
+      "assignee": "Letícia Camargo",
+      "type": "Bug",
+      "priority": "High",
+      "date": "2026-10-05"
+    },
+    {
+      "key": "ED-1310",
+      "summary": "GCDR — Central: gerar e validar código de produto (tipo 20) no fluxo de criar/editar central",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-10-02"
+    },
+    {
+      "key": "ED-1307",
+      "summary": "GCDR — \"+ Adicionar Dispositivo\" abre \"Dispositivo não encontrado\" (/devices/new não cria device)",
+      "assignee": "Letícia Camargo",
+      "type": "Bug",
+      "priority": "Medium",
+      "date": "2026-10-02"
+    },
+    {
+      "key": "ED-1277",
+      "summary": "QA: Regressão geral do dashboard (mudanças não-interpolação da branch)",
+      "assignee": "Letícia Camargo",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-10-01"
+    },
+    {
+      "key": "ED-1299",
+      "summary": "Obramax São Gonçalo — adicionar Modbus no Node-RED da central",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Highest",
+      "date": "2026-10-01"
     }
   ]
 }
