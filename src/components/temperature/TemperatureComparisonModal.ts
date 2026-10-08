@@ -135,7 +135,7 @@ export async function openTemperatureComparisonModal(
     startTs,
     endTs,
     granularity: params.granularity || 'hour',
-    theme: params.theme || 'dark',
+    theme: params.theme || 'light',
     clampRange: params.clampRange || DEFAULT_CLAMP_RANGE,
     locale: params.locale || 'pt-BR',
     deviceData: [],
@@ -150,7 +150,8 @@ export async function openTemperatureComparisonModal(
   const savedGranularity = localStorage.getItem('myio-temp-comparison-granularity') as TemperatureGranularity;
   const savedTheme = localStorage.getItem('myio-temp-comparison-theme') as 'dark' | 'light';
   if (savedGranularity) state.granularity = savedGranularity;
-  if (savedTheme) state.theme = savedTheme;
+  // Tema pedido pelo chamador vence a preferência salva (senão um toggle antigo p/ dark grudava)
+  if (savedTheme && !params.theme) state.theme = savedTheme;
 
   // Create modal container
   const modalContainer = document.createElement('div');

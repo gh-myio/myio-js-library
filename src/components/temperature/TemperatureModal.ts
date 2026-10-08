@@ -171,7 +171,8 @@ export async function openTemperatureModal(
   const savedGranularity = localStorage.getItem('myio-temp-modal-granularity') as TemperatureGranularity;
   const savedTheme = localStorage.getItem('myio-temp-modal-theme') as 'dark' | 'light';
   if (savedGranularity) state.granularity = savedGranularity;
-  if (savedTheme) state.theme = savedTheme;
+  // Tema pedido pelo chamador vence a preferência salva (senão um toggle antigo p/ dark grudava)
+  if (savedTheme && !params.theme) state.theme = savedTheme;
 
   // Create modal container
   const modalContainer = document.createElement('div');

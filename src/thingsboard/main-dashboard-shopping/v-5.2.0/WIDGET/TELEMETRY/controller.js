@@ -3136,7 +3136,7 @@ function renderList(visible) {
               temperatureMax: tempMaxRange,
               temperatureStatus: tempStatus,
               temperatureOffset,
-              theme: 'dark',
+              theme: 'light', // modal de temperatura abre SEMPRE em light (toggle continua disponível)
               locale: 'pt-BR',
               granularity: 'hour',
               ...(clampRange ? { clampRange } : {}),
