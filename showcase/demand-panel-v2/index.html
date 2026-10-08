@@ -1,0 +1,1317 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Demand Panel v2 — protótipo (RFC-0238)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* ---------- showcase chrome ---------- */
+  body { margin: 0; font-family: Nunito, system-ui, sans-serif; background: #eef0f6; color: #1e293b; }
+  .sc-bar { position: sticky; top: 0; z-index: 10; padding: 8px 16px; background: #1e1b3a; color: #e2e8f0; font-size: 12.5px; }
+  .sc-row { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; margin: 3px 0; }
+  .sc-row b { color: #fff; min-width: 92px; }
+  .sc-bar strong { font-size: 15px; color: #fff; margin-right: 8px; }
+  .sc-bar label { display: inline-flex; gap: 5px; align-items: center; cursor: pointer; }
+  .sc-bar label.once { color: #fde68a; }
+  .sc-bar button { border: 1px solid rgba(255,255,255,.3); background: rgba(255,255,255,.08); color: #fff; border-radius: 8px;
+    padding: 4px 9px; font: inherit; cursor: pointer; }
+  .sc-note { color: #a5b4fc; }
+  .sc-main { max-width: 1180px; margin: 16px auto; padding: 0 16px; }
+  .sc-log { margin-top: 14px; background: #0f172a; color: #cbd5e1; border-radius: 10px; padding: 10px 12px; font: 12px/1.5 ui-monospace, Consolas, monospace;
+    height: 190px; overflow: auto; }
+  .sc-log .ok { color: #86efac; } .sc-log .err { color: #fca5a5; } .sc-log .info { color: #93c5fd; } .sc-log .warn { color: #fde68a; }
+
+  /* ---------- the panel (prototype of openDemandPanelV2) ---------- */
+  .dp2 { --ac: #3e1a7d; --ac-soft: #f1ecfb; --bg: #f8fafc; --panel: #fff; --text: #1e293b; --muted: #64748b; --border: #e2e8f0;
+    --ok: #16a34a; --warn: #d97706; --err: #dc2626; --info: #2563eb;
+    background: var(--bg); color: var(--text); border-radius: 16px; box-shadow: 0 20px 50px rgba(15,23,42,.18);
+    overflow: hidden; display: flex; flex-direction: column; height: 740px; font-size: 13px; position: relative; }
+  .dp2[data-theme="dark"] { --ac: #a78bfa; --ac-soft: #2e2550; --bg: #0f1020; --panel: #181a2e; --text: #e2e8f0; --muted: #94a3b8; --border: #2c2f4a; }
+  .dp2 * { box-sizing: border-box; }
+  .dp2-head { display: flex; align-items: center; gap: 12px; padding: 14px 20px; background: #3e1a7d; color: #fff; }
+  .dp2-head h2 { margin: 0; font-size: 17px; flex: 1; }
+  .dp2-head small { opacity: .75; }
+  .dp2-tabs { display: flex; gap: 4px; padding: 0 20px; background: var(--panel); border-bottom: 1px solid var(--border); }
+  .dp2-tab { border: none; background: none; font: inherit; font-weight: 700; color: var(--muted); padding: 11px 14px; cursor: pointer;
+    border-bottom: 3px solid transparent; }
+  .dp2-tab[aria-selected="true"] { color: var(--ac); border-bottom-color: var(--ac); }
+  .dp2-count { display: inline-block; min-width: 18px; padding: 0 5px; margin-left: 4px; border-radius: 9px; background: var(--info); color: #fff; font-size: 11px; }
+  .dp2-stepper { display: flex; gap: 6px; padding: 12px 20px; background: var(--panel); border-bottom: 1px solid var(--border); }
+  .dp2-stepper[hidden] { display: none; }
+  .dp2-step { flex: 1; display: flex; align-items: center; gap: 8px; border: none; background: none; font: inherit; color: var(--muted);
+    padding: 6px 8px; border-radius: 10px; text-align: left; cursor: default; }
+  .dp2-step b { width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+    border: 2px solid var(--border); font-size: 12px; flex-shrink: 0; }
+  .dp2-step[data-state="current"] { color: var(--ac); font-weight: 800; background: var(--ac-soft); }
+  .dp2-step[data-state="current"] b { border-color: var(--ac); background: var(--ac); color: #fff; }
+  .dp2-step[data-state="done"] { color: var(--text); cursor: pointer; }
+  .dp2-step[data-state="done"] b { border-color: var(--ok); background: var(--ok); color: #fff; }
+  .dp2-banner { margin: 10px 20px 0; padding: 9px 12px; border-radius: 10px; background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; }
+  .dp2[data-theme="dark"] .dp2-banner { background: #3b2410; border-color: #7c4a1a; color: #fed7aa; }
+  .dp2-body { flex: 1; overflow: auto; padding: 16px 20px; }
+  .dp2-foot { display: flex; align-items: center; gap: 10px; padding: 12px 20px; background: var(--panel); border-top: 1px solid var(--border); }
+  .dp2-foot .hint { flex: 1; color: var(--muted); }
+  .dp2-btn { border: 1px solid var(--border); background: var(--panel); color: var(--text); border-radius: 9px; padding: 8px 14px;
+    font: inherit; font-weight: 700; cursor: pointer; }
+  .dp2-btn:hover:not([disabled]) { border-color: var(--ac); }
+  .dp2-btn[disabled] { opacity: .45; cursor: not-allowed; }
+  .dp2-btn.primary { background: var(--ac); color: #fff; border-color: var(--ac); }
+  .dp2-btn.danger { background: var(--err); color: #fff; border-color: var(--err); }
+  .dp2-btn.sm { padding: 4px 9px; font-size: 12px; }
+  .dp2-btn.link { border: none; background: none; color: var(--ac); padding: 4px 6px; }
+  .dp2-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+  /* step 1 */
+  .dp2-s1 { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 16px; height: 100%; }
+  .dp2-col { display: flex; flex-direction: column; min-height: 0; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; }
+  .dp2-col-head { padding: 12px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
+  .dp2-col-head h3 { margin: 0; font-size: 13px; display: flex; justify-content: space-between; align-items: center; }
+  .dp2-search { width: 100%; border: 1px solid var(--border); background: var(--bg); color: var(--text); border-radius: 9px;
+    padding: 9px 12px; font: inherit; font-size: 14px; }
+  .dp2-search:focus { outline: 2px solid var(--ac); outline-offset: -1px; }
+  .dp2-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .dp2-chip { border: 1px solid var(--border); background: var(--panel); color: var(--text); border-radius: 999px; padding: 3px 10px;
+    font: inherit; font-size: 12px; cursor: pointer; }
+  .dp2-chip[aria-pressed="true"] { background: var(--ac-soft); border-color: var(--ac); color: var(--ac); font-weight: 700; }
+  .dp2-chip[disabled] { opacity: .4; cursor: not-allowed; }
+  .dp2-list { flex: 1; overflow: auto; padding: 6px; }
+  .dp2-item { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px; border-radius: 9px; }
+  .dp2-item:hover { background: var(--ac-soft); }
+  .dp2-item.blocked { opacity: .6; }
+  .dp2-ico { width: 30px; height: 30px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; background: var(--ac-soft); font-size: 15px; }
+  .dp2-name { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dp2-sub { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dp2-tag { display: inline-block; border-radius: 999px; padding: 0 7px; font-size: 11px; background: #eef2ff; color: #3730a3; margin-right: 4px; }
+  .dp2-tag.warn { background: #fff7ed; color: #9a3412; } .dp2-tag.block { background: #fef2f2; color: #991b1b; }
+  .dp2-added { color: var(--ok); font-weight: 700; font-size: 12px; }
+  .dp2-empty { color: var(--muted); text-align: center; padding: 30px 12px; }
+  .dp2-mark { background: #fde68a; color: inherit; border-radius: 2px; }
+
+  /* step 2 / 3 / 4 */
+  .dp2-card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 14px; }
+  .dp2-card h3 { margin: 0 0 10px; font-size: 14px; display: flex; justify-content: space-between; align-items: center; }
+  .dp2-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; }
+  .dp2-field { display: flex; flex-direction: column; gap: 4px; font-weight: 700; font-size: 12px; color: var(--muted); }
+  .dp2-field input { border: 1px solid var(--border); background: var(--bg); color: var(--text); border-radius: 8px; padding: 7px 9px; font: inherit; }
+  .dp2-info { color: var(--muted); }
+  .dp2-err { color: var(--err); font-weight: 700; }
+  .dp2-fix { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
+  .dp2-tgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+  .dp2-check { display: flex; align-items: center; gap: 8px; padding: 6px 4px; cursor: pointer; border-radius: 7px; }
+  .dp2-check:hover { background: var(--ac-soft); }
+  .dp2-check input { width: 16px; height: 16px; accent-color: var(--ac); }
+  .dp2-check .u { margin-left: auto; color: var(--muted); font-size: 11px; font-family: ui-monospace, Consolas, monospace; }
+  .dp2-sum { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 8px 14px; }
+  .dp2-sum dt { color: var(--muted); font-weight: 700; }
+  .dp2-sum dd { margin: 0; }
+  .dp2-pills { display: flex; flex-wrap: wrap; gap: 5px; }
+  .dp2-pill { border-radius: 999px; padding: 2px 9px; font-size: 12px; background: var(--ac-soft); color: var(--ac); }
+  .dp2-size { display: inline-block; border-radius: 999px; padding: 2px 10px; font-weight: 800; color: #fff; background: var(--ok); }
+  .dp2-size.medio { background: var(--warn); } .dp2-size.grande { background: var(--err); }
+  .dp2-json { background: #0f172a; color: #e2e8f0; border-radius: 9px; padding: 10px 12px; font: 11.5px/1.45 ui-monospace, Consolas, monospace;
+    max-height: 260px; overflow: auto; white-space: pre; margin: 8px 0 0; }
+  .dp2-meter { height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; margin-top: 6px; }
+  .dp2-meter span { display: block; height: 100%; background: var(--ok); }
+  details.dp2-details summary { cursor: pointer; color: var(--ac); font-weight: 700; }
+
+  /* jobs */
+  .dp2-job { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
+  .dp2-job.ghost { border-style: dashed; }
+  .dp2-job-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .dp2-job-title { font-weight: 800; }
+  .dp2-status { border-radius: 999px; padding: 2px 10px; font-size: 12px; font-weight: 800; color: #fff; background: #94a3b8; }
+  .dp2-status.running, .dp2-status.sending, .dp2-status.send_uncertain { background: var(--info); }
+  .dp2-status.succeeded { background: var(--ok); }
+  .dp2-status.failed, .dp2-status.not_received, .dp2-status.rejected { background: var(--err); }
+  .dp2-status.query_unavailable { background: var(--warn); }
+  .dp2-job-meta { color: var(--muted); font-size: 12px; margin-top: 4px; }
+  .dp2-bar { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; margin-top: 8px; }
+  .dp2-bar span { display: block; height: 100%; background: var(--info); transition: width .4s; }
+  .dp2-job-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; align-items: center; }
+  .dp2-skel { height: 74px; border-radius: 12px; margin-bottom: 10px; background: linear-gradient(90deg, var(--border), var(--panel), var(--border));
+    background-size: 200% 100%; animation: dp2sk 1.2s infinite; }
+  @keyframes dp2sk { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+  .dp2-audit-warn { color: var(--warn); font-size: 12px; font-weight: 700; }
+
+  /* dialog (stands in for openConfirmDialog, RFC-0205) */
+  .dp2-dlg-bg { position: absolute; inset: 0; background: rgba(15,23,42,.45); display: flex; align-items: center; justify-content: center; z-index: 5; }
+  .dp2-dlg { width: 420px; max-width: 92%; background: var(--panel); color: var(--text); border-radius: 14px; padding: 18px 20px; box-shadow: 0 20px 50px rgba(0,0,0,.3); }
+  .dp2-dlg h4 { margin: 0 0 8px; font-size: 16px; }
+  .dp2-dlg p { margin: 0 0 16px; color: var(--muted); white-space: pre-line; }
+  .dp2-dlg .acts { display: flex; justify-content: flex-end; gap: 8px; }
+
+  .dp2-toast { position: fixed; right: 20px; bottom: 20px; background: #1e293b; color: #fff; padding: 10px 14px; border-radius: 10px; max-width: 460px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.25); opacity: 0; transform: translateY(10px); transition: .25s; pointer-events: none; z-index: 50; }
+  .dp2-toast.show { opacity: 1; transform: none; }
+
+  @media (max-width: 820px) {
+    .dp2 { height: auto; min-height: 740px; }
+    .dp2-s1 { grid-template-columns: 1fr; }
+    .dp2-col { min-height: 320px; }
+    .dp2-stepper .dp2-step span { display: none; }
+    .dp2-sum { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="sc-bar">
+  <div class="sc-row"><strong>⚡ Demand Panel v2 · protótipo (RFC-0238 rev. 4)</strong>
+    <span class="sc-note">Tudo mockado. Tempos acelerados: carência 20 s (RFC: 2 min), janela de reenvio 30 min (RFC: em aberto), polling 2 s → 10 s.</span></div>
+  <div class="sc-row"><b>Próxima chamada</b>
+    <label class="once"><input type="checkbox" data-sc="gcdrSubmitLost"> GCDR aceita o envio e a resposta se perde</label>
+    <label class="once"><input type="checkbox" data-sc="gcdrSubmitDown" data-times="2"> GCDR envio → 503 (as 2 tentativas)</label>
+    <label class="once"><input type="checkbox" data-sc="gcdr422"> envio → 422</label>
+    <label class="once"><input type="checkbox" data-sc="gcdr403"> GCDR → 403</label>
+    <label class="once"><input type="checkbox" data-sc="tbPutLost"> TB grava o envelope e a resposta se perde</label>
+    <label class="once"><input type="checkbox" data-sc="tbAppendFail"> TB recusa o append de auditoria</label></div>
+  <div class="sc-row"><b>Contínuo</b>
+    <label><input type="checkbox" data-sc="gcdr404Transient"> 404 transitório (job invisível por 15 s)</label>
+    <label><input type="checkbox" data-sc="gcdrQueryDown"> consultas GCDR → 503</label>
+    <label><input type="checkbox" data-sc="jobsFail"> jobs falham</label>
+    <label><input type="checkbox" data-sc="shortResultTtl"> resultado expira em 1 min</label>
+    <label><input type="checkbox" id="sc-support"> perfil suporte (O-11)</label>
+    <label><input type="checkbox" id="sc-dark"> tema escuro</label></div>
+  <div class="sc-row"><b>Cenários</b>
+    <button type="button" id="sc-seed-active">Semear 3 jobs ativos antigos (fora da 1ª página)</button>
+    <button type="button" id="sc-orphan">Criar job no GCDR sem envelope</button>
+    <button type="button" id="sc-conflict">Mesmo jobId com pedido alterado</button>
+    <button type="button" id="sc-reset">Limpar dados mock</button></div>
+</div>
+
+<div class="sc-main">
+  <div id="panel-root"></div>
+  <div class="sc-log" id="sc-log" aria-label="Log das chamadas mock"></div>
+</div>
+<div class="dp2-toast" id="dp2-toast" role="status"></div>
+
+<script>
+'use strict';
+/* =====================================================================
+ * Constants (RFC-0238 rev. 4)
+ * ===================================================================== */
+const CATALOG_VERSION = 1;
+const HASH_ALGORITHM = 'rmc-json-sha256-v1';
+const PROTOCOL_VERSION = 1;
+const GRACE_MS = 20e3;                    // RFC: 2 min (accelerated)
+const IDEMPOTENCY_WINDOW_MS = 30 * 60e3;  // RFC: open (Q5/O-17) — prototype value
+const PAGE_SIZE = 5;                      // envelopes per page (small on purpose)
+const MIN_PERIOD_START = '2019-03-01';    // last DST in São Paulo ended 2019-02-17
+const LIMITS = { devices: 50, points: 2000000, activeJobs: 3 };
+
+const CUSTOMER = { tbCustomerId: '7c1f0a10-1111-4abc-9def-000000000001', gcdrCustomerId: 'gcdr-cust-0001', name: 'Shopping Exemplo' };
+const USER = { tbUserId: 'tb-user-0001', email: 'rodrigo@myio.com.br', name: 'Rodrigo Lago' };
+const GROUP_LABEL = { entrada: 'Entrada', areacomum: 'Área Comum', lojas: 'Lojas' };
+const PROFILE_ICON = { ENTRADA: '🏭', RELOGIO: '⏱️', TRAFO: '🔋', CHILLER: '❄️', FANCOIL: '🌀', BOMBA_CAG: '💧',
+  ELEVADOR: '🛗', ESCADA_ROLANTE: '↗️', '3F_MEDIDOR': '⚡' };
+
+/* =====================================================================
+ * Mock devices — the adapter output (RFC-0238 §2): each id keeps its own namespace
+ * ===================================================================== */
+function makeDevices() {
+  const list = [];
+  let n = 0;
+  const add = (label, name, identifier, profile, group, opts = {}) => {
+    n++;
+    const hex = n.toString(16).padStart(4, '0');
+    list.push({
+      tbDeviceId: `d0000000-0000-4000-8000-00000000${hex}`,
+      gcdrDeviceId: opts.noGcdr ? null : `gcdr-dev-${hex}`,
+      ingestionId: opts.noIngestion ? null : `ing-${hex}-${(n * 7919).toString(36)}`,
+      label, name, identifier, deviceProfile: profile, group,
+    });
+  };
+  add('Entrada Subestação', '3F ENTRADA SUB', 'ENT-01', 'ENTRADA', 'entrada');
+  add('Relógio Concessionária', 'RELOGIO CEMIG', 'REL-01', 'RELOGIO', 'entrada');
+  add('Transformador 1', 'TRAFO 1', 'TRF-01', 'TRAFO', 'entrada');
+  add('Transformador 2', 'TRAFO 2', 'TRF-02', 'TRAFO', 'entrada', { noIngestion: true });
+  ['1', '2', '3'].forEach((i) => add(`Chiller ${i}`, `CHILLER ${i}`, `CAG-CH${i}`, 'CHILLER', 'areacomum'));
+  add('Chiller 1', 'CHILLER 1 TORRE B', 'CAG2-CH1', 'CHILLER', 'areacomum');          // same label, other identifier
+  ['1', '2'].forEach((i) => add(`Bomba CAG ${i}`, `BOMBA CAG ${i}`, `CAG-BP${i}`, 'BOMBA_CAG', 'areacomum'));
+  ['L1', 'L2', 'L3'].forEach((p) => add(`Fancoil ${p}`, `FANCOIL ${p}`, `FC-${p}`, 'FANCOIL', 'areacomum', { noIngestion: p === 'L3' }));
+  ['Social 1', 'Social 2', 'Serviço'].forEach((e, i) => add(`Elevador ${e}`, `ELEVADOR ${i + 1}`, `ELV-0${i + 1}`, 'ELEVADOR', 'areacomum', { noGcdr: i === 2 }));
+  ['Norte', 'Sul', 'Leste', 'Oeste'].forEach((e, i) => add(`Escada Rolante ${e}`, `ESC ROL ${i + 1}`, `ESC-0${i + 1}`, 'ESCADA_ROLANTE', 'areacomum'));
+  add('Iluminação Estacionamento', '3F ILUM ESTAC', 'AC-ILU-01', '3F_MEDIDOR', 'areacomum');
+  const stores = ['Renner', 'C&A', 'Riachuelo', 'Centauro', 'Americanas', 'Zara', 'Hering', 'Cacau Show', 'O Boticário', 'Natura',
+    'McDonald\'s', 'Burger King', 'Outback', 'Coco Bambu', 'Livraria Leitura', 'Kalunga', 'Ri Happy', 'Vivo', 'Claro', 'Samsung',
+    'Drogasil', 'Pague Menos', 'Arezzo', 'Havaianas', 'Track&Field', 'Polishop', 'Chilli Beans', 'Lojas Pernambucanas',
+    'Cinemark', 'Smart Fit', 'Kopenhagen', 'Spoleto', 'Giraffas', 'Bob\'s', 'Casas Bahia', 'Magazine Luiza', 'Decathlon', 'Puket',
+    'Lupo', 'Brooksfield'];
+  stores.forEach((s, i) => {
+    const lu = `LUC ${String(101 + i)}`;
+    add(s, `3F ${s.toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim()} ${lu}`, lu, '3F_MEDIDOR', 'lojas', { noIngestion: i === 7 || i === 23, noGcdr: i === 31 });
+  });
+  return list;
+}
+const DEVICES = makeDevices();
+const GCDR_ONLY_DEVICES = 1; // a GCDR device without TB id — not offered (O-18 open)
+/** Eligibility for the current flow (GCDR resolves data by gcdrDeviceId). */
+function eligibility(d) {
+  if (!d.gcdrDeviceId) return { ok: false, tag: 'block', text: '⛔ sem vínculo GCDR', title: 'O fluxo atual exige gcdrDeviceId — não pode ser incluído' };
+  if (!d.ingestionId) return { ok: true, tag: 'warn', text: '⚠ sem vínculo de dados', title: 'Sem ingestionId — depende da decisão Q3' };
+  return { ok: true };
+}
+
+/* Same keys/labels as EnergyModalView → RealTimeTelemetryModal (ED-1251) — 14 keys. */
+const TELEMETRY_GROUPS = [
+  { id: 'power', label: 'Potência', icon: '⚙️', items: [
+    { key: 'consumption', label: 'Potência Total', unit: 'W' }, { key: 'a', label: 'Potência Fase A', unit: 'W' },
+    { key: 'b', label: 'Potência Fase B', unit: 'W' }, { key: 'c', label: 'Potência Fase C', unit: 'W' } ] },
+  { id: 'voltage', label: 'Tensão', icon: '⚡', items: [
+    { key: 'voltage_a', label: 'Tensão Fase A', unit: 'V' }, { key: 'voltage_b', label: 'Tensão Fase B', unit: 'V' },
+    { key: 'voltage_c', label: 'Tensão Fase C', unit: 'V' } ] },
+  { id: 'current', label: 'Corrente', icon: '🔌', items: [
+    { key: 'current_a', label: 'Corrente Fase A', unit: 'A' }, { key: 'current_b', label: 'Corrente Fase B', unit: 'A' },
+    { key: 'current_c', label: 'Corrente Fase C', unit: 'A' }, { key: 'total_current', label: 'Corrente Total', unit: 'A' } ] },
+  { id: 'pf', label: 'Fator de potência', icon: '📐', items: [
+    { key: 'fp_a', label: 'Fator de Potência A', unit: 'fp' }, { key: 'fp_b', label: 'Fator de Potência B', unit: 'fp' },
+    { key: 'fp_c', label: 'Fator de Potência C', unit: 'fp' } ] },
+];
+const CATALOG = TELEMETRY_GROUPS.flatMap((g) => g.items);
+
+const RESOLUTIONS = [
+  { id: '1m', label: '1 minuto', ms: 60e3, maxDays: 1 },
+  { id: '5m', label: '5 minutos', ms: 300e3, maxDays: 7 },
+  { id: '15m', label: '15 minutos', ms: 900e3, maxDays: 31 },
+  { id: '1h', label: '1 hora', ms: 3600e3, maxDays: 92 },
+  { id: '1d', label: '1 dia', ms: 86400e3, maxDays: 92 },
+];
+const RES_BY_ID = Object.fromEntries(RESOLUTIONS.map((r) => [r.id, r]));
+const PRESETS = [
+  { id: 'today', label: 'Hoje' }, { id: 'yesterday', label: 'Ontem' }, { id: 'last7days', label: 'Últimos 7 dias' },
+  { id: 'thisMonth', label: 'Este mês' }, { id: 'lastMonth', label: 'Mês passado' }, { id: 'custom', label: 'Personalizado' },
+];
+
+/* =====================================================================
+ * Time — America/Sao_Paulo is UTC-03:00 for every date ≥ 2019-02-17 (no DST since).
+ * The period is half-open [start, end); buckets sit on a grid anchored at local midnight.
+ * ===================================================================== */
+const SP_OFFSET_MS = -3 * 3600e3;
+const GRID_ORIGIN = -SP_OFFSET_MS;        // 1970-01-01T00:00 local = 03:00Z
+const pad = (n) => String(n).padStart(2, '0');
+function spParts(ms) { const d = new Date(ms + SP_OFFSET_MS); return { y: d.getUTCFullYear(), m: d.getUTCMonth(), d: d.getUTCDate(), h: d.getUTCHours(), mi: d.getUTCMinutes() }; }
+function spEpoch(y, m, d, h = 0, mi = 0) { return Date.UTC(y, m, d, h, mi) - SP_OFFSET_MS; }
+function spInput(ms) { const p = spParts(ms); return `${p.y}-${pad(p.m + 1)}-${pad(p.d)}T${pad(p.h)}:${pad(p.mi)}`; }
+function fromInput(v) { const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(v || ''); return m ? spEpoch(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]) : NaN; }
+function fmtDateTime(ms) { const p = spParts(ms); return `${pad(p.d)}/${pad(p.m + 1)}/${p.y} ${pad(p.h)}:${pad(p.mi)}`; }
+function fmtDay(ms) { const p = spParts(ms); return `${pad(p.d)}/${pad(p.m + 1)}`; }
+function fmtDuration(ms) {
+  const h = ms / 3600e3;
+  return h < 48 ? `${h.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} h` : `${(h / 24).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} dias`;
+}
+/** Grid cells of `res` intersecting [start, end) — partial edge buckets count. */
+function bucketCount(start, end, resId) {
+  const size = RES_BY_ID[resId].ms;
+  if (!(end > start)) return 0;
+  return Math.ceil((end - GRID_ORIGIN) / size) - Math.floor((start - GRID_ORIGIN) / size);
+}
+/** Presets resolved against a single `now` snapshot. "Hoje"/"Este mês" end at `now` (prototype assumption — O-16 open). */
+function presetRange(id, now) {
+  const t = spParts(now);
+  switch (id) {
+    case 'today': return { start: spEpoch(t.y, t.m, t.d), end: now };
+    case 'yesterday': return { start: spEpoch(t.y, t.m, t.d - 1), end: spEpoch(t.y, t.m, t.d) };
+    case 'last7days': return { start: spEpoch(t.y, t.m, t.d - 7), end: spEpoch(t.y, t.m, t.d) };
+    case 'thisMonth': return { start: spEpoch(t.y, t.m, 1), end: now };
+    case 'lastMonth': return { start: spEpoch(t.y, t.m - 1, 1), end: spEpoch(t.y, t.m, 1) };
+    default: return null;
+  }
+}
+const isoUtc = (ms) => new Date(ms).toISOString();                    // canonical instant: 2026-10-01T03:00:00.000Z
+
+/* =====================================================================
+ * Helpers
+ * ===================================================================== */
+const norm = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const fmtN = (n) => n.toLocaleString('pt-BR');
+/** UUID v7: 48-bit ms timestamp + version + random (time-ordered by the CLIENT clock). */
+function uuidv7(ms) {
+  const r = crypto.getRandomValues(new Uint8Array(10));
+  const hex = (b) => [...b].map((x) => x.toString(16).padStart(2, '0')).join('');
+  const t = Math.floor(ms).toString(16).padStart(12, '0');
+  const rh = hex(r);
+  const variant = ((r[2] & 0x3f) | 0x80).toString(16);
+  return `${t.slice(0, 8)}-${t.slice(8, 12)}-7${rh.slice(0, 3)}-${variant}${rh.slice(6, 8)}-${rh.slice(8, 20)}`;
+}
+
+/* ---------- request hash (RFC-0238 §6.3): canonical projection → canonical JSON → SHA-256 ---------- */
+function hashProjection(request, catalogVersion) {
+  return {
+    type: 'demand-report',
+    catalogVersion,
+    devices: request.devices.map((d) => d.gcdrDeviceId).sort(),
+    period: { start: request.period.startUtc, end: request.period.endUtc, timezone: request.period.timezone },
+    resolution: request.resolution,
+    telemetries: request.telemetries.map((t) => t.key).sort(),
+  };
+}
+function canonicalJson(v) {
+  if (v === null || typeof v !== 'object') return JSON.stringify(v);
+  if (Array.isArray(v)) return '[' + v.map(canonicalJson).join(',') + ']';
+  return '{' + Object.keys(v).sort().map((k) => JSON.stringify(k) + ':' + canonicalJson(v[k])).join(',') + '}';
+}
+async function requestHash(request, catalogVersion) {
+  const bytes = new TextEncoder().encode(canonicalJson(hashProjection(request, catalogVersion)));
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
+  return 'sha256:' + [...digest].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/* =====================================================================
+ * Showcase log + scenario switches
+ * ===================================================================== */
+const logEl = document.getElementById('sc-log');
+function log(kind, text) {
+  const d = new Date();
+  const line = document.createElement('div');
+  line.className = kind;
+  line.textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}  ${text}`;
+  logEl.appendChild(line);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+const scEl = (k) => document.querySelector(`[data-sc="${k}"]`);
+const sc = (k) => scEl(k).checked;
+/** One-shot switches fire once and turn themselves off (deterministic scenarios). */
+function fire(k) {
+  const el = scEl(k);
+  if (!el.checked) return false;
+  const left = Number(el.dataset.left || el.dataset.times || 1) - 1;
+  el.dataset.left = String(left);
+  if (left <= 0) { el.checked = false; delete el.dataset.left; }
+  log('warn', `cenário disparado: ${el.parentElement.textContent.trim()}`);
+  return true;
+}
+class HttpError extends Error {
+  constructor(status, code, message) { super(message); this.status = status; this.code = code; }
+}
+const timeoutError = () => new HttpError(0, 'TIMEOUT', 'sem resposta (timeout)');
+
+/* =====================================================================
+ * Mock ThingsBoard — customer SERVER_SCOPE attributes: only envelopes
+ * ===================================================================== */
+const ATTR_KEY = 'dp2.mock.tb.attributes';
+const JOB_KEY_PREFIX = 'demandReportJob_';
+const mockTb = {
+  _read() { try { return JSON.parse(localStorage.getItem(ATTR_KEY) || '{}'); } catch { return {}; } },
+  _write(all) { try { localStorage.setItem(ATTR_KEY, JSON.stringify(all)); } catch { /* memory only */ } },
+  async put(key, envelope, { signal } = {}) {
+    await sleep(150 + Math.random() * 100);
+    if (signal && signal.aborted) throw new DOMException('aborted', 'AbortError');
+    const all = this._read();
+    all[key] = { value: envelope, lastUpdateTs: Date.now() };
+    this._write(all);
+    if (fire('tbPutLost')) { log('err', `TB  POST …/attributes/SERVER_SCOPE ${key.slice(0, 30)}… → gravado, resposta perdida`); throw timeoutError(); }
+    log('ok', `TB  POST …/attributes/SERVER_SCOPE ${key.slice(0, 30)}… → 200`);
+  },
+  async keys() {
+    await sleep(80);
+    log('info', 'TB  GET  …/keys/attributes/SERVER_SCOPE → 200');
+    return Object.keys(this._read());
+  },
+  async get(keys) {
+    await sleep(80);
+    const all = this._read();
+    log('info', `TB  GET  …/values/attributes/SERVER_SCOPE?keys=${keys.length} → 200`);
+    return keys.filter((k) => k in all).map((k) => ({ key: k, value: all[k].value, lastUpdateTs: all[k].lastUpdateTs }));
+  },
+  /** Append-only audit = read-modify-write of one key (no compare-and-set → best effort). */
+  async appendAudit(key, event) {
+    await sleep(120);
+    if (fire('tbAppendFail')) { log('err', `TB  POST …/attributes/SERVER_SCOPE ${key.slice(0, 30)}… (append ${event.op}.${event.outcome}) → 500`); throw new HttpError(500, 'TB_WRITE_FAILED', 'falha ao gravar a auditoria'); }
+    const all = this._read();
+    if (!all[key]) throw new HttpError(404, 'NOT_FOUND', 'envelope não encontrado');
+    all[key].value = { ...all[key].value, audit: [...all[key].value.audit, event] };
+    all[key].lastUpdateTs = Date.now();
+    this._write(all);
+    log('ok', `TB  POST …/attributes/SERVER_SCOPE ${key.slice(0, 30)}… (append ${event.op}.${event.outcome}${event.source ? ' · ' + event.source : ''}) → 200`);
+    return all[key].value;
+  },
+  clear() { localStorage.removeItem(ATTR_KEY); },
+};
+
+/* =====================================================================
+ * Mock GCDR — report-jobs API (RFC-0238 §6). GCDR owns status/result.
+ * ===================================================================== */
+const GCDR_KEY = 'dp2.mock.gcdr.jobs';
+const mockGcdr = {
+  _read() { try { return JSON.parse(localStorage.getItem(GCDR_KEY) || '{}'); } catch { return {}; } },
+  _write(all) { try { localStorage.setItem(GCDR_KEY, JSON.stringify(all)); } catch { /* ignore */ } },
+  _status(j, now = Date.now()) {
+    if (j.cancelledAt) return { status: 'cancelled', progress: null, finishedAt: j.cancelledAt };
+    const t = now - j.acceptedAt;
+    if (t < j.queueMs) return { status: 'queued', progress: 0 };
+    const run = t - j.queueMs;
+    if (run < j.runMs) return { status: 'running', progress: Math.round((run / j.runMs) * 100) };
+    const finishedAt = j.acceptedAt + j.queueMs + j.runMs;
+    if (j.willFail) return { status: 'failed', progress: 100, finishedAt, error: { code: 'DATA_SOURCE_TIMEOUT', message: 'A fonte de dados não respondeu a tempo para 3 dispositivos.', retryable: true } };
+    return { status: 'succeeded', progress: 100, finishedAt, result: { available: now < finishedAt + j.resultTtlMs, expiresAt: new Date(finishedAt + j.resultTtlMs).toISOString() } };
+  },
+  _view(jobId, j) {
+    return { jobId, ...this._status(j), createdAt: new Date(j.acceptedAt).toISOString(),
+      requestedBy: j.requestedBy, summary: j.summary, cancelledBy: j.cancelledBy || null, cancelledAt: j.cancelledAt ? new Date(j.cancelledAt).toISOString() : null };
+  },
+  _active(all) { return Object.entries(all).filter(([, j]) => ['queued', 'running'].includes(this._status(j).status)); },
+  _guard(path, method = 'GET') {
+    if (fire('gcdr403')) { log('err', `GCDR ${method} ${path} → 403 FORBIDDEN`); throw new HttpError(403, 'FORBIDDEN', 'sem permissão para esta operação'); }
+  },
+  /** Submit: idempotency lookup BEFORE the active-job limit; server recomputes the hash. */
+  async submit(cid, cmd) {
+    await sleep(300 + Math.random() * 250);
+    const path = `/customers/${cid}/report-jobs`;
+    this._guard(path, 'POST');
+    if (fire('gcdrSubmitDown')) { log('err', `GCDR POST ${path} jobId=${cmd.jobId.slice(0, 13)}… → 503`); throw new HttpError(503, 'UNAVAILABLE', 'GCDR indisponível'); }
+    if (fire('gcdr422')) { log('err', `GCDR POST ${path} → 422 VALIDATION_FAILED`); throw new HttpError(422, 'VALIDATION_FAILED', 'Período fora do limite para a resolução escolhida.'); }
+    const recomputed = await requestHash(cmd.request, cmd.catalogVersion);
+    if (recomputed !== cmd.requestHash) { log('err', `GCDR POST ${path} → 422 HASH_MISMATCH`); throw new HttpError(422, 'HASH_MISMATCH', 'O conteúdo do pedido não confere com o hash.'); }
+    const all = this._read();
+    const existing = all[cmd.jobId];
+    if (existing) {
+      if (existing.hash !== recomputed) { log('err', `GCDR POST ${path} jobId=${cmd.jobId.slice(0, 13)}… → 409 JOB_ID_CONFLICT`); throw new HttpError(409, 'JOB_ID_CONFLICT', 'Este identificador já foi usado com outro pedido.'); }
+      log('ok', `GCDR POST ${path} jobId=${cmd.jobId.slice(0, 13)}… → 200 (idempotente: job já existia)`);
+      return this._view(cmd.jobId, existing);
+    }
+    if (Date.now() - Date.parse(cmd.requestedAt) > IDEMPOTENCY_WINDOW_MS) {
+      log('err', `GCDR POST ${path} → 410 IDEMPOTENCY_WINDOW_EXPIRED`); throw new HttpError(410, 'IDEMPOTENCY_WINDOW_EXPIRED', 'O prazo para reenviar este pedido expirou.');
+    }
+    if (this._active(all).length >= LIMITS.activeJobs) {
+      log('err', `GCDR POST ${path} → 429 ACTIVE_JOBS_LIMIT`); throw new HttpError(429, 'ACTIVE_JOBS_LIMIT', `Já existem ${LIMITS.activeJobs} relatórios em andamento.`);
+    }
+    const r = cmd.request;
+    all[cmd.jobId] = {
+      hash: recomputed, acceptedAt: Date.now(),
+      notVisibleUntil: sc('gcdr404Transient') ? Date.now() + 15e3 : 0,
+      queueMs: 3000 + Math.random() * 3000, runMs: Math.min(25000, 6000 + r.estimate.points / 400),
+      willFail: sc('jobsFail'), resultTtlMs: sc('shortResultTtl') ? 60e3 : 24 * 3600e3,
+      requestedBy: { principal: `apikey:${cid}`, declared: cmd.declaredRequester || null },
+      summary: { deviceCount: r.devices.length, start: r.period.startUtc, end: r.period.endUtc, resolution: r.resolution, telemetryCount: r.telemetries.length },
+    };
+    this._write(all);
+    if (fire('gcdrSubmitLost')) { log('err', `GCDR POST ${path} jobId=${cmd.jobId.slice(0, 13)}… → job criado, resposta perdida`); throw timeoutError(); }
+    log('ok', `GCDR POST ${path} jobId=${cmd.jobId.slice(0, 13)}… → 202 {status: queued}`);
+    return this._view(cmd.jobId, all[cmd.jobId]);
+  },
+  /** batchGet: one result per id — {found:true, job} or {found:false}. */
+  async batchGet(cid, jobIds) {
+    await sleep(150);
+    const path = `/customers/${cid}/report-jobs:batchGet`;
+    this._guard(path, 'POST');
+    if (sc('gcdrQueryDown')) { log('err', `GCDR POST ${path} (${jobIds.length}) → 503`); throw new HttpError(503, 'UNAVAILABLE', 'consulta indisponível'); }
+    const all = this._read();
+    const now = Date.now();
+    const results = jobIds.map((id) => (all[id] && now >= all[id].notVisibleUntil ? { jobId: id, found: true, job: this._view(id, all[id]) } : { jobId: id, found: false }));
+    log('info', `GCDR POST ${path} (${jobIds.length} ids) → 200 {found: ${results.filter((x) => x.found).length}, notFound: ${results.filter((x) => !x.found).length}}`);
+    return results;
+  },
+  /** Authoritative active jobs of the customer (banner/limit) — independent of the TB page. */
+  async active(cid) {
+    await sleep(120);
+    const path = `/customers/${cid}/report-jobs?status=queued,running`;
+    if (sc('gcdrQueryDown')) { log('err', `GCDR GET ${path} → 503`); throw new HttpError(503, 'UNAVAILABLE', 'consulta indisponível'); }
+    const all = this._read();
+    const items = this._active(all).map(([id, j]) => this._view(id, j));
+    log('info', `GCDR GET ${path} → 200 (${items.length})`);
+    return items;
+  },
+  async cancel(cid, jobId, declaredBy) {
+    await sleep(250);
+    const path = `/customers/${cid}/report-jobs/${jobId.slice(0, 13)}…/cancel`;
+    this._guard(path, 'POST');
+    const all = this._read();
+    const j = all[jobId];
+    if (!j) { log('err', `GCDR POST ${path} → 404 JOB_NOT_FOUND`); throw new HttpError(404, 'JOB_NOT_FOUND', 'job não encontrado'); }
+    const s = this._status(j).status;
+    if (!['queued', 'running'].includes(s)) { log('err', `GCDR POST ${path} → 409 ALREADY_FINISHED (${s})`); throw new HttpError(409, 'ALREADY_FINISHED', `O relatório já terminou (${s}).`); }
+    j.cancelledAt = Date.now();
+    j.cancelledBy = { principal: `apikey:${cid}`, declared: declaredBy || null };
+    this._write(all);
+    log('ok', `GCDR POST ${path} → 200 {status: cancelled}`);
+    return this._view(jobId, j);
+  },
+  async download(cid, jobId) {
+    await sleep(200);
+    const all = this._read();
+    const j = all[jobId];
+    const s = j && this._status(j);
+    const path = `/customers/${cid}/report-jobs/${jobId.slice(0, 13)}…/result`;
+    if (s && s.result && !s.result.available) { log('err', `GCDR GET ${path} → 410 RESULT_EXPIRED`); throw new HttpError(410, 'RESULT_EXPIRED', 'O arquivo deste relatório expirou.'); }
+    log('info', `GCDR GET ${path} → (forma de entrega a definir — Q8)`);
+    return { pending: true };
+  },
+  /* showcase helpers */
+  _seedJob(jobId, j) { const all = this._read(); all[jobId] = j; this._write(all); },
+  clear() { localStorage.removeItem(GCDR_KEY); },
+};
+
+/* =====================================================================
+ * The panel (prototype of openDemandPanelV2)
+ * ===================================================================== */
+function createDemandPanel(root, ports) {
+  const { store, api } = ports;
+  const STEPS = ['Dispositivos', 'Período', 'Telemetrias', 'Resumo'];
+  const instance = new AbortController();          // aborted on destroy — late responses are ignored
+  const init = presetRange('last7days', Date.now());
+  const state = {
+    tab: 'new', step: 1, maxStep: 1,
+    search: '', group: 'all', selected: [],
+    period: { preset: 'last7days', start: init.start, end: init.end },
+    resolution: '15m',
+    telemetries: new Set(['consumption']),
+    snapshot: null,                                 // frozen request shown in step 4 (what is sent)
+    submitting: false,
+    envelopes: [], envelopeKeys: [], page: 1, listState: 'idle', listError: null,
+    jobs: new Map(),                                // jobId → {found, job} | {queryError}
+    active: [], activeError: false,
+    inflight: new Set(), uncertain: new Set(), auditPending: new Set(),
+    openDetails: new Set(),
+  };
+  const pollTimers = new Map();
+  let pollDelay = 2000;
+  let destroyed = false;
+  let paused = false;
+
+  root.innerHTML = `
+    <div class="dp2" data-dp2>
+      <div class="dp2-head"><h2>Relatório de Demanda e Telemetrias <small>· v2</small></h2><small>${esc(CUSTOMER.name)}</small></div>
+      <nav class="dp2-tabs" role="tablist" aria-label="Relatório de demanda">
+        <button class="dp2-tab" role="tab" aria-controls="dp2-body" data-action="tab" data-tab="new">Novo relatório</button>
+        <button class="dp2-tab" role="tab" aria-controls="dp2-body" data-action="tab" data-tab="jobs">Relatórios <span data-role="active-count"></span></button>
+      </nav>
+      <div class="dp2-stepper" data-region="stepper" aria-label="Etapas"></div>
+      <div data-region="banner"></div>
+      <div class="dp2-body" id="dp2-body" data-region="body" role="tabpanel"></div>
+      <div class="dp2-foot" data-region="foot"></div>
+      <div class="dp2-sr" aria-live="polite" data-region="live"></div>
+    </div>`;
+  const el = {
+    app: root.querySelector('[data-dp2]'),
+    stepper: root.querySelector('[data-region="stepper"]'),
+    banner: root.querySelector('[data-region="banner"]'),
+    body: root.querySelector('[data-region="body"]'),
+    foot: root.querySelector('[data-region="foot"]'),
+    live: root.querySelector('[data-region="live"]'),
+    activeCount: root.querySelector('[data-role="active-count"]'),
+  };
+  const announce = (msg) => { el.live.textContent = msg; };
+  const support = () => document.getElementById('sc-support').checked;
+
+  /* ---------- dialog (stands in for openConfirmDialog, RFC-0205) ---------- */
+  function askConfirm({ title, message, confirmLabel, cancelLabel = 'Cancelar', danger = false }) {
+    return new Promise((resolve) => {
+      const bg = document.createElement('div');
+      bg.className = 'dp2-dlg-bg';
+      bg.innerHTML = `<div class="dp2-dlg" role="dialog" aria-modal="true" aria-labelledby="dp2-dlg-t"><h4 id="dp2-dlg-t">${esc(title)}</h4><p>${esc(message)}</p>
+        <div class="acts"><button class="dp2-btn" data-v="0">${esc(cancelLabel)}</button><button class="dp2-btn ${danger ? 'danger' : 'primary'}" data-v="1">${esc(confirmLabel)}</button></div></div>`;
+      const done = (v) => { bg.remove(); resolve(v); };
+      bg.addEventListener('click', (e) => { const b = e.target.closest('[data-v]'); if (b) done(b.dataset.v === '1'); else if (e.target === bg) done(false); });
+      bg.addEventListener('keydown', (e) => { if (e.key === 'Escape') done(false); });
+      el.app.appendChild(bg);
+      bg.querySelector('[data-v="1"]').focus();
+    });
+  }
+
+  /* ---------- derived ---------- */
+  const deviceById = new Map(DEVICES.map((d) => [d.tbDeviceId, d]));
+  const selectedDevices = () => state.selected.map((id) => deviceById.get(id));
+  function searchResults() {
+    const q = norm(state.search).trim();
+    return DEVICES.filter((d) => (state.group === 'all' || d.group === state.group) &&
+      (!q || norm(`${d.label} ${d.name} ${d.identifier} ${d.deviceProfile}`).includes(q)));
+  }
+  const labelCount = (() => { const m = new Map(); DEVICES.forEach((d) => m.set(d.label, (m.get(d.label) || 0) + 1)); return m; })();
+  function periodErrors(p = state.period, resId = state.resolution) {
+    const r = RES_BY_ID[resId];
+    if (!Number.isFinite(p.start) || !Number.isFinite(p.end)) return ['Informe início e fim.'];
+    if (p.end <= p.start) return ['O fim precisa ser depois do início.'];
+    const errs = [];
+    if (p.start < Date.parse(MIN_PERIOD_START + 'T03:00:00Z')) errs.push('Períodos antes de 01/03/2019 não são suportados.');
+    if (p.start > Date.now()) errs.push('O início está no futuro.');
+    if (p.end - p.start > r.maxDays * 86400e3) errs.push(`Com resolução de ${r.label}, o período máximo é ${r.maxDays} dia(s).`);
+    return errs;
+  }
+  const estimate = () => {
+    const buckets = bucketCount(state.period.start, state.period.end, state.resolution);
+    return { buckets, points: buckets * state.selected.length * state.telemetries.size };
+  };
+  const activeCount = () => state.active.length;
+  function stepErrors(step) {
+    if (step === 1) return state.selected.length ? [] : ['Adicione ao menos 1 dispositivo.'];
+    if (step === 2) return periodErrors();
+    if (step === 3) return state.telemetries.size ? [] : ['Escolha ao menos 1 telemetria.'];
+    const errs = [];
+    [1, 2, 3].forEach((s) => stepErrors(s).length && errs.push(`Etapa ${s} incompleta.`));
+    if (state.snapshot && state.snapshot.request.estimate.points > LIMITS.points) errs.push(`O relatório passa do tamanho máximo (${fmtN(LIMITS.points)} linhas).`);
+    if (activeCount() >= LIMITS.activeJobs) errs.push(`Já existem ${LIMITS.activeJobs} relatórios em andamento — aguarde um terminar.`);
+    return errs;
+  }
+  const sizeLabel = (points) => (points < 50000 ? ['pequeno', 'pequeno'] : points < 500000 ? ['medio', 'médio'] : ['grande', 'grande']);
+
+  /* ---------- request snapshot + envelope (RFC-0238 §3) ---------- */
+  function freezeSnapshot() {
+    const now = Date.now();
+    if (state.period.preset !== 'custom') {
+      const r = presetRange(state.period.preset, now);
+      state.period.start = r.start; state.period.end = r.end;
+    }
+    state.snapshot = {
+      takenAt: now,
+      request: {
+        devices: selectedDevices().map((d) => ({ tbDeviceId: d.tbDeviceId, gcdrDeviceId: d.gcdrDeviceId, ingestionId: d.ingestionId,
+          label: d.label, name: d.name, identifier: d.identifier, deviceProfile: d.deviceProfile, group: d.group })),
+        period: { startUtc: isoUtc(state.period.start), endUtc: isoUtc(state.period.end), timezone: 'America/Sao_Paulo', preset: state.period.preset },
+        resolution: state.resolution,
+        telemetries: CATALOG.filter((t) => state.telemetries.has(t.key)).map((t) => ({ key: t.key, label: t.label, unit: t.unit })),
+        estimate: estimate(),
+      },
+    };
+  }
+  async function buildEnvelope() {
+    const requestedAt = Date.now();
+    const jobId = `drj_${uuidv7(requestedAt)}`;
+    const request = state.snapshot.request;
+    return {
+      schemaVersion: 1, type: 'demand-report', jobId,
+      catalogVersion: CATALOG_VERSION,
+      hashAlgorithm: HASH_ALGORITHM,
+      requestHash: await requestHash(request, CATALOG_VERSION),
+      requestedAt: new Date(requestedAt).toISOString(),
+      requestedBy: { tbUserId: USER.tbUserId, name: USER.name, email: USER.email },
+      customer: CUSTOMER,
+      request,
+      audit: [{ op: 'submit', outcome: 'requested', at: new Date(requestedAt).toISOString(), by: USER.tbUserId }],
+    };
+  }
+  /** The GCDR command — a projection of the stored envelope; a resend sends the stored snapshot as is. */
+  const toCommand = (e) => ({ protocolVersion: PROTOCOL_VERSION, jobId: e.jobId, type: e.type, catalogVersion: e.catalogVersion,
+    hashAlgorithm: e.hashAlgorithm, requestHash: e.requestHash, requestedAt: e.requestedAt, request: e.request,
+    declaredRequester: { tbUserId: e.requestedBy.tbUserId } });  // only if the O-7 model keeps declared identity
+
+  /* ---------- presentation state per job (client-only, never written to TB) ---------- */
+  const lastSubmitEvent = (e) => [...e.audit].reverse().find((a) => (a.op === 'submit' || a.op === 'resend') && a.outcome !== 'requested');
+  function view(e) {
+    const id = e.jobId;
+    if (state.inflight.has(id)) return { st: 'sending' };
+    const q = state.jobs.get(id);
+    const age = Date.now() - Date.parse(e.requestedAt);
+    const inWindow = age < IDEMPOTENCY_WINDOW_MS;
+    if (q && q.found) {
+      const j = q.job;
+      if (j.status === 'succeeded' && j.result && !j.result.available) return { st: 'result_expired', job: j };
+      return { st: j.status, job: j };
+    }
+    const lastSub = lastSubmitEvent(e);
+    if (lastSub && lastSub.outcome === 'rejected') return { st: 'rejected', code: lastSub.code, message: lastSub.message, inWindow };
+    if (q && q.queryError) return { st: 'query_unavailable', inWindow };
+    if (!q) return { st: 'loading' };
+    if (!inWindow) return { st: 'expired' };                         // GCDR answered "not found"
+    if (age < GRACE_MS) return { st: state.uncertain.has(id) ? 'send_uncertain' : 'sending' };
+    return { st: 'not_received', inWindow };
+  }
+  const STATUS_LABEL = { loading: 'Consultando…', sending: 'Enviando…', send_uncertain: 'Confirmando envio…', not_received: 'Não enviado',
+    query_unavailable: 'Status indisponível', rejected: 'Recusado', expired: 'Prazo de reenvio expirado', queued: 'Na fila',
+    running: 'Processando', succeeded: 'Concluído', result_expired: 'Arquivo expirado', failed: 'Falhou', cancelled: 'Cancelado' };
+  const needsPolling = (v) => ['queued', 'running', 'sending', 'send_uncertain', 'query_unavailable', 'loading'].includes(v.st);
+
+  /* ---------- rendering ---------- */
+  function render() {
+    if (destroyed) return;
+    el.app.dataset.theme = document.getElementById('sc-dark').checked ? 'dark' : 'light';
+    el.app.querySelectorAll('[data-action="tab"]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === state.tab)));
+    el.activeCount.innerHTML = activeCount() ? `<span class="dp2-count">${activeCount()}</span>` : '';
+    el.stepper.hidden = state.tab !== 'new';
+    renderBanner();
+    if (state.tab === 'jobs') { renderJobs(); return; }
+    renderStepper();
+    [null, renderStep1, renderStep2, renderStep3, renderStep4][state.step]();
+    renderFoot();
+  }
+  function renderBanner() {
+    if (state.tab !== 'new' || activeCount() < LIMITS.activeJobs) { el.banner.innerHTML = ''; return; }
+    const who = state.active.slice(0, 3).map((j) => `${j.requestedBy.declared ? 'usuário …' + j.requestedBy.declared.tbUserId.slice(-4) : 'API'} às ${fmtDateTime(Date.parse(j.createdAt)).slice(11)}`).join(', ');
+    el.banner.innerHTML = `<div class="dp2-banner">⏳ ${LIMITS.activeJobs} relatórios em andamento (${esc(who)}). Você pode montar o pedido, mas só poderá enviar quando um terminar.
+      <button class="dp2-btn link" type="button" data-action="tab" data-tab="jobs">Ver relatórios</button></div>`;
+  }
+  function renderStepper() {
+    el.stepper.innerHTML = STEPS.map((label, i) => {
+      const n = i + 1;
+      const st = n === state.step ? 'current' : n <= state.maxStep && n < 4 && !stepErrors(n).length ? 'done' : 'todo';
+      return `<button class="dp2-step" type="button" data-action="goto" data-step="${n}" data-state="${st}" ${st === 'current' ? 'aria-current="step"' : ''} ${st === 'done' ? '' : 'tabindex="-1"'}>
+        <b>${st === 'done' ? '✓' : n}</b><span>${label}</span></button>`;
+    }).join('');
+  }
+  function highlight(text) {
+    const q = norm(state.search).trim();
+    const i = q ? norm(text).indexOf(q) : -1;
+    if (i < 0) return esc(text);
+    return esc(text.slice(0, i)) + `<mark class="dp2-mark">${esc(text.slice(i, i + q.length))}</mark>` + esc(text.slice(i + q.length));
+  }
+  function deviceRow(d, mode) {
+    const picked = state.selected.includes(d.tbDeviceId);
+    const elig = eligibility(d);
+    const dup = labelCount.get(d.label) > 1;
+    const action = mode === 'result'
+      ? (picked ? '<span class="dp2-added">✓ Adicionado</span>'
+        : `<button class="dp2-btn sm" type="button" data-action="add" data-id="${d.tbDeviceId}" ${elig.ok ? '' : 'disabled'} aria-label="Adicionar ${esc(d.label)}">+ Adicionar</button>`)
+      : `<button class="dp2-btn sm" type="button" data-action="remove" data-id="${d.tbDeviceId}" aria-label="Remover ${esc(d.label)}">✕ Remover</button>`;
+    return `<div class="dp2-item ${elig.ok ? '' : 'blocked'}">
+      <span class="dp2-ico" aria-hidden="true">${PROFILE_ICON[d.deviceProfile] || '⚡'}</span>
+      <div style="min-width:0">
+        <div class="dp2-name">${mode === 'result' ? highlight(d.label) : esc(d.label)}${dup ? ` <small class="dp2-info">· ${esc(d.identifier)}</small>` : ''}</div>
+        <div class="dp2-sub"><span class="dp2-tag">${esc(GROUP_LABEL[d.group])}</span>
+          ${elig.text ? `<span class="dp2-tag ${elig.tag}" title="${esc(elig.title)}">${elig.text}</span>` : ''}
+          ${mode === 'result' ? highlight(d.name) : esc(d.name)} · ${esc(d.identifier)}</div>
+      </div>
+      <div>${action}</div>
+    </div>`;
+  }
+  function renderStep1() {
+    const results = searchResults();
+    const groups = [['all', 'Todos'], ['entrada', 'Entrada'], ['areacomum', 'Área Comum'], ['lojas', 'Lojas']];
+    const count = (g) => DEVICES.filter((d) => g === 'all' || d.group === g).length;
+    const addable = results.filter((d) => !state.selected.includes(d.tbDeviceId) && eligibility(d).ok).length;
+    const sel = selectedDevices();
+    const hadFocus = document.activeElement && document.activeElement.dataset.role === 'search';
+    const caret = hadFocus ? document.activeElement.selectionStart : null;
+    el.body.innerHTML = `<div class="dp2-s1">
+      <section class="dp2-col" aria-label="Buscar medidores">
+        <div class="dp2-col-head">
+          <input class="dp2-search" data-role="search" type="search" placeholder="🔎 Buscar por nome, identificador ou tipo…" value="${esc(state.search)}" aria-label="Buscar medidores">
+          <div class="dp2-chips">${groups.map(([g, l]) => `<button class="dp2-chip" type="button" data-action="group" data-group="${g}" aria-pressed="${state.group === g}">${l} · ${count(g)}</button>`).join('')}</div>
+          <h3><span>${fmtN(results.length)} resultado(s)</span>
+            <button class="dp2-btn link" type="button" data-action="add-all" ${addable ? '' : 'disabled'}>+ Adicionar todos (${addable})</button></h3>
+        </div>
+        <div class="dp2-list" data-role="results">${results.length ? results.map((d) => deviceRow(d, 'result')).join('') : '<div class="dp2-empty">Nenhum medidor encontrado para essa busca.</div>'}</div>
+        ${support() ? `<div class="dp2-info" style="padding:6px 12px">${GCDR_ONLY_DEVICES} medidor do GCDR sem vínculo no ThingsBoard não é listado (O-18).</div>` : ''}
+      </section>
+      <section class="dp2-col" aria-label="Medidores selecionados">
+        <div class="dp2-col-head"><h3><span>Selecionados · ${sel.length} de ${LIMITS.devices}</span>
+          <button class="dp2-btn link" type="button" data-action="clear" ${sel.length ? '' : 'disabled'}>Limpar lista</button></h3>
+          <div class="dp2-meter"><span style="width:${Math.min(100, (sel.length / LIMITS.devices) * 100)}%"></span></div></div>
+        <div class="dp2-list" data-role="selected">${sel.length ? sel.map((d) => deviceRow(d, 'selected')).join('') : '<div class="dp2-empty">Nenhum medidor na lista.<br>Busque à esquerda e clique em <b>+ Adicionar</b>.</div>'}</div>
+      </section>
+    </div>`;
+    if (hadFocus) { const s = el.body.querySelector('[data-role="search"]'); s.focus(); s.setSelectionRange(caret, caret); }
+  }
+  /** Finest resolution that fits the current period. */
+  const finestFitting = () => RESOLUTIONS.find((r) => state.period.end - state.period.start <= r.maxDays * 86400e3);
+  function renderStep2() {
+    const { start, end, preset } = state.period;
+    const r = RES_BY_ID[state.resolution];
+    const errs = periodErrors();
+    const valid = Number.isFinite(start) && Number.isFinite(end) && end > start;
+    const tooLong = valid && end - start > r.maxDays * 86400e3;
+    const fit = tooLong ? finestFitting() : null;
+    const presetTooLong = (id) => { const x = presetRange(id, Date.now()); return x && x.end - x.start > r.maxDays * 86400e3; };
+    el.body.innerHTML = `
+      <div class="dp2-card"><h3 tabindex="-1" data-role="step-title">Período</h3>
+        <div class="dp2-chips" style="margin-bottom:12px">${PRESETS.map((p) => {
+          const off = p.id !== 'custom' && presetTooLong(p.id);
+          return `<button class="dp2-chip" type="button" data-action="preset" data-preset="${p.id}" aria-pressed="${preset === p.id}" ${off ? `disabled title="até ${r.maxDays} dia(s) em ${r.label}"` : ''}>${p.label}</button>`;
+        }).join('')}</div>
+        <div class="dp2-row">
+          <label class="dp2-field">Início<input type="datetime-local" data-role="start" min="${MIN_PERIOD_START}T00:00" value="${Number.isFinite(start) ? spInput(start) : ''}"></label>
+          <label class="dp2-field">Fim (exclusivo)<input type="datetime-local" data-role="end" value="${Number.isFinite(end) ? spInput(end) : ''}"></label>
+          <div class="dp2-info">${valid ? `Duração: <b>${fmtDuration(end - start)}</b> · horário de Brasília` : ''}</div>
+        </div></div>
+      <div class="dp2-card"><h3>Resolução</h3>
+        <div class="dp2-chips">${RESOLUTIONS.map((x) => `<button class="dp2-chip" type="button" data-action="resolution" data-res="${x.id}" aria-pressed="${state.resolution === x.id}">${x.label} <small>(até ${x.maxDays} d)</small></button>`).join('')}</div>
+        <p class="dp2-info" style="margin:10px 0 0">15 minutos é o intervalo de integração de demanda usado pelas concessionárias. Os intervalos seguem o relógio (00:00, 00:15…); intervalos parciais nas pontas contam.</p>
+        ${valid && !tooLong ? `<p class="dp2-info" style="margin:6px 0 0">${fmtN(bucketCount(start, end, state.resolution))} intervalos de ${r.label}.</p>` : ''}
+        ${tooLong ? `<div class="dp2-fix"><span class="dp2-err">O período é longo demais para ${r.label}.</span>
+          ${fit ? `<button class="dp2-btn sm primary" type="button" data-action="use-res" data-res="${fit.id}">Usar ${fit.label}</button>` : ''}
+          <button class="dp2-btn sm" type="button" data-action="shorten">Encurtar para os últimos ${r.maxDays} dia(s)</button></div>` : ''}
+      </div>
+      ${errs.length && !tooLong ? `<p class="dp2-err">${errs.map(esc).join('<br>')}</p>` : ''}`;
+  }
+  function renderStep3() {
+    el.body.innerHTML = `<div class="dp2-tgrid">${TELEMETRY_GROUPS.map((g) => {
+      const all = g.items.every((t) => state.telemetries.has(t.key));
+      return `<div class="dp2-card"><h3><span>${g.icon} ${g.label}</span>
+        <button class="dp2-btn link" type="button" data-action="group-all" data-gid="${g.id}">${all ? 'Desmarcar' : 'Marcar'} todos</button></h3>
+        ${g.items.map((t) => `<label class="dp2-check"><input type="checkbox" data-action="tel" data-key="${t.key}" ${state.telemetries.has(t.key) ? 'checked' : ''}>
+          ${esc(t.label)}<span class="u">${support() ? esc(t.key) + ' · ' : ''}${esc(t.unit)}</span></label>`).join('')}
+      </div>`;
+    }).join('')}</div>
+    <p class="dp2-info">${state.telemetries.size} de ${CATALOG.length} telemetrias. Mesmo catálogo da modal "Telemetrias Instantâneas e Pico de Demanda".</p>`;
+  }
+  function renderStep4() {
+    const req = state.snapshot.request;
+    const est = req.estimate;
+    const errs = stepErrors(4);
+    const sel = req.devices;
+    const noIng = sel.filter((d) => !d.ingestionId).length;
+    const [cls, txt] = sizeLabel(est.points);
+    el.body.innerHTML = `
+      <div class="dp2-card"><h3 tabindex="-1" data-role="step-title">Resumo do pedido</h3>
+        <dl class="dp2-sum">
+          <dt>Solicitante</dt><dd>${esc(USER.name)}</dd>
+          <dt>Medidores (${sel.length})</dt><dd><div class="dp2-pills">${sel.map((d) => `<span class="dp2-pill">${esc(d.label)}${labelCount.get(d.label) > 1 ? ' · ' + esc(d.identifier) : ''}</span>`).join('')}</div>
+            ${noIng ? `<div class="dp2-err" style="font-weight:600;margin-top:6px">⚠ ${noIng} sem vínculo de dados — o resultado pode vir sem esses medidores (Q3).</div>` : ''}</dd>
+          <dt>Período</dt><dd>${fmtDateTime(Date.parse(req.period.startUtc))} → ${fmtDateTime(Date.parse(req.period.endUtc))} <span class="dp2-info">(${fmtDuration(Date.parse(req.period.endUtc) - Date.parse(req.period.startUtc))}, horário de Brasília${['today', 'thisMonth'].includes(req.period.preset) ? `, calculado às ${fmtDateTime(state.snapshot.takenAt).slice(11)}` : ''})</span></dd>
+          <dt>Resolução</dt><dd>${RES_BY_ID[req.resolution].label}</dd>
+          <dt>Telemetrias (${req.telemetries.length})</dt><dd><div class="dp2-pills">${req.telemetries.map((t) => `<span class="dp2-pill">${esc(t.label)} · ${esc(t.unit)}</span>`).join('')}</div></dd>
+          <dt>Tamanho</dt><dd><span class="dp2-size ${cls}">${txt}</span> <span class="dp2-info">≈ ${fmtN(est.points)} linhas de dados</span>
+            <details class="dp2-details"><summary>Detalhes</summary><span class="dp2-info">${fmtN(est.buckets)} intervalos × ${sel.length} medidores × ${req.telemetries.length} telemetrias · limite ${fmtN(LIMITS.points)}</span></details></dd>
+        </dl>
+        <p class="dp2-info" style="margin:12px 0 0">Seu pedido fica registrado (quem, quando, o quê) e é processado em segundo plano. <b>Você pode fechar este painel</b> e acompanhar em Relatórios.</p>
+      </div>
+      ${support() ? `<div class="dp2-card"><h3>Pedido que será registrado (suporte)</h3><pre class="dp2-json">${esc(JSON.stringify({ request: req, note: 'jobId, requestHash e requestedAt são gerados ao confirmar' }, null, 2))}</pre></div>` : ''}
+      ${errs.length ? `<p class="dp2-err">${errs.map(esc).join('<br>')}</p>` : ''}`;
+  }
+  function renderFoot() {
+    const errs = stepErrors(state.step);
+    const hints = { 1: `${state.selected.length} medidor(es) na lista`, 2: 'Escolha o período e a resolução', 3: `${state.telemetries.size} telemetria(s)`, 4: 'Revise e confirme' };
+    el.foot.innerHTML = `
+      <button class="dp2-btn" type="button" data-action="back" ${state.step === 1 ? 'disabled' : ''}>← Voltar</button>
+      <span class="hint">${esc(hints[state.step])}</span>
+      ${state.step === 4
+        ? `<button class="dp2-btn primary" type="button" data-action="confirm" ${errs.length || state.submitting ? 'disabled' : ''}>${state.submitting ? 'Enviando…' : '✓ Confirmar e enviar'}</button>`
+        : `<button class="dp2-btn primary" type="button" data-action="next" ${errs.length ? 'disabled' : ''}>Próximo →</button>`}`;
+  }
+
+  function jobTitle(e) {
+    const r = e.request;
+    return `${r.devices.length} medidor(es) · ${fmtDay(Date.parse(r.period.startUtc))}–${fmtDay(Date.parse(r.period.endUtc) - 1)} · ${RES_BY_ID[r.resolution].label}`;
+  }
+  function rejectedText(v) {
+    return { VALIDATION_FAILED: v.message || 'O pedido não passou na validação.', HASH_MISMATCH: 'O conteúdo do pedido não confere — contate o suporte.',
+      ACTIVE_JOBS_LIMIT: `Limite de ${LIMITS.activeJobs} relatórios em andamento.`, FORBIDDEN: 'Sem permissão para pedir relatórios.',
+      JOB_ID_CONFLICT: 'Conflito de identificador — contate o suporte.', IDEMPOTENCY_WINDOW_EXPIRED: 'O prazo para reenviar este pedido expirou.' }[v.code] || v.message || v.code;
+  }
+  function renderJobs() {
+    el.foot.innerHTML = `<span class="hint">${state.envelopes.length} de ${state.envelopeKeys.length} pedido(s) registrados</span>
+      ${state.envelopes.length < state.envelopeKeys.length ? '<button class="dp2-btn" type="button" data-action="more">Carregar mais</button>' : ''}
+      <button class="dp2-btn" type="button" data-action="reload-jobs">⟳ Atualizar</button>
+      <button class="dp2-btn primary" type="button" data-action="tab" data-tab="new">+ Novo relatório</button>`;
+    if (state.listState === 'loading' && !state.envelopes.length) { el.body.innerHTML = '<div class="dp2-skel"></div><div class="dp2-skel"></div><div class="dp2-skel"></div>'; return; }
+    if (state.listState === 'error') { el.body.innerHTML = `<div class="dp2-empty">Não foi possível carregar os relatórios (${esc(state.listError)}).<br><button class="dp2-btn" type="button" data-action="reload-jobs">Tentar de novo</button></div>`; return; }
+    const orphans = support() ? state.active.filter((j) => !state.envelopeKeys.includes(JOB_KEY_PREFIX + j.jobId)) : [];
+    if (!state.envelopes.length && !orphans.length) { el.body.innerHTML = '<div class="dp2-empty">Nenhum relatório ainda. Crie um em <b>Novo relatório</b>.</div>'; return; }
+    const cards = state.envelopes.map((e) => {
+      const v = view(e);
+      const st = v.st;
+      const j = v.job;
+      const busy = state.inflight.has(e.jobId) ? 'disabled' : '';
+      const canResend = (['not_received', 'send_uncertain', 'query_unavailable'].includes(st) && v.inWindow !== false)
+        || (st === 'rejected' && v.code === 'ACTIVE_JOBS_LIMIT' && v.inWindow && activeCount() < LIMITS.activeJobs);
+      const progress = j && j.progress != null ? j.progress : 0;
+      return `<article class="dp2-job" aria-label="${esc(jobTitle(e))}">
+        <div class="dp2-job-top">
+          <span class="dp2-job-title">${esc(jobTitle(e))}</span>
+          <span class="dp2-status ${st}">${STATUS_LABEL[st]}${st === 'running' ? ` ${progress}%` : ''}</span>
+          <span style="flex:1"></span>
+          <span class="dp2-info">${esc(e.requestedBy.name)} · ${fmtDateTime(Date.parse(e.requestedAt))}</span>
+        </div>
+        ${['queued', 'running'].includes(st) ? `<div class="dp2-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress}"><span style="width:${progress}%"></span></div>` : ''}
+        ${st === 'failed' ? `<div class="dp2-err" style="margin-top:6px">${esc(j.error.message)} ${support() ? `<small>(${esc(j.error.code)})</small>` : ''}</div>` : ''}
+        ${st === 'rejected' ? `<div class="dp2-err" style="margin-top:6px">${esc(rejectedText(v))} ${support() ? `<small>(${esc(v.code)})</small>` : ''}</div>` : ''}
+        ${st === 'not_received' ? '<div class="dp2-err" style="margin-top:6px">O pedido está registrado, mas o processamento não o recebeu. Reenviar é seguro: não gera relatório duplicado.</div>' : ''}
+        ${st === 'query_unavailable' ? '<div class="dp2-info" style="margin-top:6px">Não foi possível consultar o andamento agora. Tentaremos de novo; reenviar é seguro.</div>' : ''}
+        ${st === 'expired' ? '<div class="dp2-info" style="margin-top:6px">Passou o prazo para reenviar este pedido com segurança. Use "Duplicar e editar".</div>' : ''}
+        ${st === 'result_expired' ? '<div class="dp2-info" style="margin-top:6px">O relatório foi concluído, mas o arquivo já expirou.</div>' : ''}
+        ${state.auditPending.has(e.jobId) ? '<div class="dp2-audit-warn">⚠ A ação foi aceita, mas o registro de auditoria falhou — será reconciliado.</div>' : ''}
+        <div class="dp2-job-actions">
+          ${st === 'succeeded' ? `<button class="dp2-btn sm" type="button" data-action="download" data-job="${e.jobId}">⬇ Baixar</button><span class="dp2-info">entrega a definir (Q8)</span>` : ''}
+          ${['queued', 'running'].includes(st) ? `<button class="dp2-btn sm" type="button" data-action="cancel" data-job="${e.jobId}" ${busy}>✕ Cancelar</button>` : ''}
+          ${canResend ? `<button class="dp2-btn sm primary" type="button" data-action="resend" data-job="${e.jobId}" ${busy}>↻ Reenviar</button>` : ''}
+          ${['failed', 'cancelled', 'succeeded', 'result_expired', 'expired', 'rejected'].includes(st) ? `<button class="dp2-btn sm" type="button" data-action="clone" data-job="${e.jobId}">⧉ Duplicar e editar</button>` : ''}
+          ${support() ? `<button class="dp2-btn link" type="button" data-action="details" data-job="${e.jobId}">${state.openDetails.has(e.jobId) ? 'Ocultar' : 'Detalhes /'} auditoria</button>` : ''}
+        </div>
+        ${support() && state.openDetails.has(e.jobId) ? `<pre class="dp2-json">${esc(JSON.stringify(e, null, 2))}</pre>` : ''}
+      </article>`;
+    }).join('');
+    const orphanCards = orphans.map((j) => `<article class="dp2-job ghost"><div class="dp2-job-top">
+        <span class="dp2-job-title">Job sem registro no ThingsBoard (O-6)</span><span class="dp2-status ${j.status}">${STATUS_LABEL[j.status]}</span>
+        <span style="flex:1"></span><span class="dp2-info">${esc(j.requestedBy.principal)} · ${fmtDateTime(Date.parse(j.createdAt))}</span></div>
+        <div class="dp2-job-meta">${j.summary.deviceCount} medidor(es) · ${RES_BY_ID[j.summary.resolution].label} · <code>${esc(j.jobId)}</code></div></article>`).join('');
+    el.body.innerHTML = cards + orphanCards;
+  }
+
+  /* ---------- data flows ---------- */
+  async function refreshActive() {
+    try { state.active = await api.active(CUSTOMER.gcdrCustomerId); state.activeError = false; }
+    catch { state.activeError = true; }
+  }
+  async function queryJobs(ids) {
+    if (!ids.length) return;
+    try {
+      const results = await api.batchGet(CUSTOMER.gcdrCustomerId, ids);
+      results.forEach((r) => {
+        const prev = state.jobs.get(r.jobId);
+        // a 404 after GCDR already confirmed the job is a read-after-write lag: keep the last confirmed view
+        if (!r.found && prev && prev.found) return;
+        state.jobs.set(r.jobId, r.found ? { found: true, job: r.job } : { found: false });
+      });
+    } catch (err) {
+      ids.forEach((id) => state.jobs.set(id, { queryError: err.code || 'ERROR' }));
+    }
+  }
+  async function loadPage(reset) {
+    state.listState = 'loading';
+    if (reset) { state.page = 1; render(); }
+    try {
+      state.envelopeKeys = (await store.keys()).filter((k) => k.startsWith(JOB_KEY_PREFIX)).sort().reverse();   // UUID v7 → newest first (client clock)
+      const keys = state.envelopeKeys.slice(0, state.page * PAGE_SIZE);
+      const rows = keys.length ? await store.get(keys) : [];
+      state.envelopes = rows.map((r) => r.value).filter((v) => v && v.schemaVersion === 1);
+      state.listState = 'ok';
+    } catch (err) {
+      state.listState = 'error'; state.listError = err.message; render(); return;
+    }
+    if (destroyed) return;
+    await Promise.all([queryJobs(state.envelopes.map((e) => e.jobId)), refreshActive()]);
+    if (destroyed) return;
+    await reconcile();
+    render();
+    schedulePoll(true);
+  }
+  /** Reconstruct audit events GCDR can prove: an accepted submit and an accepted cancel (best effort). */
+  async function reconcile() {
+    for (const e of state.envelopes) {
+      const q = state.jobs.get(e.jobId);
+      if (!q || !q.found) continue;
+      const add = [];
+      if (!e.audit.some((a) => (a.op === 'submit' || a.op === 'resend') && a.outcome === 'accepted')) {
+        add.push({ op: 'submit', outcome: 'accepted', at: q.job.createdAt, by: e.requestedBy.tbUserId, source: 'reconciled' });
+      }
+      if (q.job.status === 'cancelled' && q.job.cancelledAt && !e.audit.some((a) => a.op === 'cancel' && a.outcome === 'accepted')) {
+        const cb = q.job.cancelledBy || {};
+        add.push({ op: 'cancel', outcome: 'accepted', at: q.job.cancelledAt, by: (cb.declared && cb.declared.tbUserId) || cb.principal, source: 'reconciled' });
+      }
+      for (const ev of add) {
+        try { Object.assign(e, await store.appendAudit(JOB_KEY_PREFIX + e.jobId, ev)); state.auditPending.delete(e.jobId); }
+        catch { break; }
+      }
+    }
+  }
+
+  /** TB write with recovery of an uncertain write: read back, reuse if it matches, never overwrite appended audit. */
+  async function putEnvelope(envelope) {
+    const key = JOB_KEY_PREFIX + envelope.jobId;
+    try { await store.put(key, envelope, { signal: instance.signal }); return; }
+    catch (err) { if (err.name === 'AbortError') throw err; log('warn', 'gravação no TB incerta — relendo a chave'); }
+    const [found] = await store.get([key]);
+    if (found && found.value.requestHash === envelope.requestHash) { log('ok', 'envelope já estava gravado — reutilizado sem regravar'); return; }
+    if (found) throw new Error('chave existente com outro conteúdo');
+    await store.put(key, envelope, { signal: instance.signal });
+  }
+  /** Send the command; one automatic retry for an uncertain outcome (no response / 5xx). */
+  async function sendCommand(envelope, op) {
+    let lastErr;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try { return { outcome: 'accepted', job: await api.submit(CUSTOMER.gcdrCustomerId, toCommand(envelope)) }; }
+      catch (err) {
+        lastErr = err;
+        const uncertain = err.status === 0 || err.status >= 500;
+        if (!uncertain) return { outcome: 'rejected', err };
+        if (attempt === 0) log('warn', `${op}: resultado incerto — repetindo com o mesmo jobId`);
+      }
+    }
+    return { outcome: 'uncertain', err: lastErr };
+  }
+  async function audit(e, event) {
+    try { Object.assign(e, await store.appendAudit(JOB_KEY_PREFIX + e.jobId, event)); return true; }
+    catch { state.auditPending.add(e.jobId); return false; }
+  }
+  async function applySendResult(e, res, op) {
+    const at = new Date().toISOString();
+    if (res.outcome === 'accepted') {
+      state.uncertain.delete(e.jobId);
+      state.jobs.set(e.jobId, { found: true, job: res.job });          // UI first: what GCDR confirmed
+      render();
+      return (await audit(e, { op, outcome: 'accepted', at, by: USER.tbUserId })) ? 'ok' : 'audit_failed';
+    }
+    if (res.outcome === 'rejected') {
+      state.uncertain.delete(e.jobId);
+      state.jobs.set(e.jobId, { found: false });
+      await audit(e, { op, outcome: 'rejected', at, by: USER.tbUserId, code: res.err.code, httpStatus: res.err.status, message: res.err.message });
+      return 'rejected';
+    }
+    state.uncertain.add(e.jobId);                                       // timeouts are not rejections: nothing appended
+    state.jobs.set(e.jobId, { found: false });
+    return 'uncertain';
+  }
+
+  async function confirm() {
+    if (stepErrors(4).length || state.submitting) return;
+    state.submitting = true; render();
+    const envelope = await buildEnvelope();
+    try { await putEnvelope(envelope); }
+    catch (err) {
+      state.submitting = false;
+      if (err.name !== 'AbortError') toast('Não foi possível registrar o pedido: ' + err.message + '. Nada foi enviado.');
+      render(); return;
+    }
+    state.inflight.add(envelope.jobId);
+    state.envelopes.unshift(envelope);
+    state.envelopeKeys.unshift(JOB_KEY_PREFIX + envelope.jobId);
+    resetWizard(); state.tab = 'jobs'; render();
+    const res = await sendCommand(envelope, 'submit');
+    state.inflight.delete(envelope.jobId);
+    if (destroyed) return;
+    const outcome = await applySendResult(envelope, res, 'submit');
+    state.submitting = false;
+    await refreshActive();
+    toast({ ok: 'Pedido enviado. Acompanhe em Relatórios.', audit_failed: 'Pedido enviado. O registro de auditoria falhou e será reconciliado.',
+      rejected: 'Pedido recusado: ' + rejectedText({ code: res.err && res.err.code, message: res.err && res.err.message }),
+      uncertain: 'Pedido registrado; confirmando o recebimento…' }[outcome]);
+    announce('Pedido registrado.');
+    render(); schedulePoll(true);
+  }
+  async function resend(jobId) {
+    const e = state.envelopes.find((x) => x.jobId === jobId);
+    if (!e) return;
+    state.inflight.add(jobId); render();
+    const res = await sendCommand(e, 'resend');                         // stored snapshot, stored hash, same jobId
+    state.inflight.delete(jobId);
+    const outcome = await applySendResult(e, res, 'resend');
+    await refreshActive();
+    toast({ ok: 'Reenviado.', audit_failed: 'Reenviado. O registro de auditoria falhou e será reconciliado.',
+      rejected: 'Recusado: ' + rejectedText({ code: res.err && res.err.code, message: res.err && res.err.message }),
+      uncertain: 'Ainda sem confirmação — tentaremos de novo.' }[outcome]);
+    render(); schedulePoll(true);
+  }
+  async function cancelJob(jobId) {
+    const e = state.envelopes.find((x) => x.jobId === jobId);
+    const ok = await askConfirm({ title: 'Cancelar relatório?', message: `${jobTitle(e)}\nO cancelamento fica registrado na auditoria.`, confirmLabel: 'Sim, cancelar', cancelLabel: 'Manter', danger: true });
+    if (!ok) return;
+    let job;
+    try { job = await api.cancel(CUSTOMER.gcdrCustomerId, jobId, { tbUserId: USER.tbUserId }); }
+    catch (err) {
+      await audit(e, { op: 'cancel', outcome: 'rejected', at: new Date().toISOString(), by: USER.tbUserId, code: err.code, httpStatus: err.status });
+      toast('Não foi possível cancelar: ' + err.message);
+      await queryJobs([jobId]); render(); return;
+    }
+    state.jobs.set(jobId, { found: true, job });                        // UI reflects GCDR first
+    await refreshActive(); render();
+    const audited = await audit(e, { op: 'cancel', outcome: 'accepted', at: new Date().toISOString(), by: USER.tbUserId });
+    toast(audited ? 'Relatório cancelado.' : 'Relatório cancelado. O registro de auditoria falhou e será reconciliado.');
+    announce('Relatório cancelado.');
+    render();
+  }
+
+  /* ---------- polling: active + uncertain jobs, one batchGet per tick ---------- */
+  function pollIds() { return state.envelopes.filter((e) => needsPolling(view(e))).map((e) => e.jobId); }
+  function schedulePoll(reset) {
+    if (destroyed) return;
+    if (reset) pollDelay = 2000;
+    clearTimeout(pollTimers.get('main'));
+    pollTimers.delete('main');
+    if (!pollIds().length && activeCount() === 0) return;
+    // a job inside the grace period must flip to "Não enviado" right when the grace ends
+    const graceEnds = state.envelopes.filter((e) => ['sending', 'send_uncertain'].includes(view(e).st) && !state.inflight.has(e.jobId))
+      .map((e) => Date.parse(e.requestedAt) + GRACE_MS - Date.now() + 100).filter((ms) => ms > 0);
+    pollTimers.set('main', setTimeout(pollTick, Math.min(pollDelay, ...graceEnds)));
+  }
+  async function pollTick() {
+    pollTimers.delete('main');
+    if (destroyed) return;
+    if (document.hidden) { paused = true; return; }
+    await Promise.all([queryJobs(pollIds()), refreshActive()]);
+    if (destroyed) return;
+    await reconcile();
+    render();
+    pollDelay = Math.min(pollDelay * 1.5, 10000);
+    schedulePoll(false);
+  }
+  function onVisibility() { if (!document.hidden && paused) { paused = false; pollTick(); } }
+  document.addEventListener('visibilitychange', onVisibility);
+
+  /* ---------- wizard actions ---------- */
+  async function addDevices(ids) {
+    const fresh = ids.filter((id) => !state.selected.includes(id) && eligibility(deviceById.get(id)).ok);
+    const room = LIMITS.devices - state.selected.length;
+    if (fresh.length > room) {
+      if (room <= 0) { toast(`A lista já tem ${LIMITS.devices} medidores.`); return; }
+      const go = await askConfirm({ title: 'Limite de medidores', message: `Cabem ${room} de ${fresh.length}. Adicionar os ${room} primeiros?`, confirmLabel: `Adicionar ${room}` });
+      if (!go) return;
+    }
+    const added = fresh.slice(0, Math.max(0, room));
+    state.selected.push(...added);
+    if (added.length) announce(`${added.length === 1 ? deviceById.get(added[0]).label + ' adicionado' : added.length + ' medidores adicionados'} · ${state.selected.length} de ${LIMITS.devices}`);
+  }
+  function resetWizard() {
+    const r = presetRange('last7days', Date.now());
+    Object.assign(state, { step: 1, maxStep: 1, search: '', group: 'all', selected: [], resolution: '15m', snapshot: null,
+      period: { preset: 'last7days', start: r.start, end: r.end }, telemetries: new Set(['consumption']) });
+  }
+  function cloneJob(e) {
+    const req = e.request;
+    resetWizard();
+    state.selected = req.devices.map((d) => d.tbDeviceId).filter((id) => deviceById.has(id) && eligibility(deviceById.get(id)).ok);
+    state.resolution = req.resolution;
+    // a duplicate is a NEW request: relative presets are recomputed (O-12 open — prototype assumption)
+    state.period = req.period.preset !== 'custom' ? { preset: req.period.preset, ...presetRange(req.period.preset, Date.now()) }
+      : { preset: 'custom', start: Date.parse(req.period.startUtc), end: Date.parse(req.period.endUtc) };
+    state.telemetries = new Set(req.telemetries.map((t) => t.key));
+    state.tab = 'new'; state.step = 4; state.maxStep = 4;
+    freezeSnapshot();
+  }
+  function focusStepTitle() { const t = el.body.querySelector('[data-role="step-title"]'); if (t) t.focus(); }
+
+  async function onClick(ev) {
+    const t = ev.target.closest('[data-action]');
+    if (!t || !el.app.contains(t) || t.closest('.dp2-dlg-bg')) return;
+    const a = t.dataset.action;
+    const job = t.dataset.job;
+    if (a === 'tel') return;
+    if (a === 'tab') { state.tab = t.dataset.tab; if (state.tab === 'jobs') { loadPage(true); return; } }
+    else if (a === 'goto') { if (t.dataset.state === 'done') { state.step = +t.dataset.step; render(); focusStepTitle(); } return; }
+    else if (a === 'next') {
+      if (!stepErrors(state.step).length) {
+        state.step++; state.maxStep = Math.max(state.maxStep, state.step);
+        if (state.step === 4) freezeSnapshot();
+        render(); focusStepTitle();
+      }
+      return;
+    }
+    else if (a === 'back') { state.step = Math.max(1, state.step - 1); render(); focusStepTitle(); return; }
+    else if (a === 'add' || a === 'remove') {
+      const sel = `[data-role="${a === 'add' ? 'results' : 'selected'}"] [data-action="${a}"]`;
+      const idx = [...el.body.querySelectorAll(sel)].indexOf(t);
+      if (a === 'add') await addDevices([t.dataset.id]);
+      else { const d = deviceById.get(t.dataset.id); state.selected = state.selected.filter((id) => id !== t.dataset.id); announce(`${d.label} removido · ${state.selected.length} de ${LIMITS.devices}`); }
+      render();
+      const next = [...el.body.querySelectorAll(sel)];
+      (next[idx] || next[idx - 1] || el.body.querySelector('[data-role="search"]')).focus();
+      return;
+    }
+    else if (a === 'add-all') { await addDevices(searchResults().map((d) => d.tbDeviceId)); }
+    else if (a === 'clear') state.selected = [];
+    else if (a === 'group') state.group = t.dataset.group;
+    else if (a === 'preset') { state.period.preset = t.dataset.preset; const r = presetRange(t.dataset.preset, Date.now()); if (r) Object.assign(state.period, r); }
+    else if (a === 'resolution' || a === 'use-res') state.resolution = t.dataset.res;   // never changes the period by itself
+    else if (a === 'shorten') { const r = RES_BY_ID[state.resolution]; state.period.start = state.period.end - r.maxDays * 86400e3; state.period.preset = 'custom'; }
+    else if (a === 'group-all') {
+      const g = TELEMETRY_GROUPS.find((x) => x.id === t.dataset.gid);
+      const all = g.items.every((x) => state.telemetries.has(x.key));
+      g.items.forEach((x) => (all ? state.telemetries.delete(x.key) : state.telemetries.add(x.key)));
+    }
+    else if (a === 'confirm') { confirm(); return; }
+    else if (a === 'reload-jobs') { loadPage(true); return; }
+    else if (a === 'more') { state.page++; loadPage(false); return; }
+    else if (a === 'details') { state.openDetails.has(job) ? state.openDetails.delete(job) : state.openDetails.add(job); }
+    else if (a === 'resend') { resend(job); return; }
+    else if (a === 'cancel') { cancelJob(job); return; }
+    else if (a === 'clone') { const e = state.envelopes.find((x) => x.jobId === job); if (e) cloneJob(e); }
+    else if (a === 'download') {
+      try { await api.download(CUSTOMER.gcdrCustomerId, job); toast('Download: forma de entrega ainda a definir (Q8).'); }
+      catch (err) { toast(err.message); await queryJobs([job]); }
+    }
+    render();
+  }
+  function onInput(ev) { if (ev.target.dataset.role === 'search') { state.search = ev.target.value; renderStep1(); renderFoot(); } }
+  function onChange(ev) {
+    const t = ev.target;
+    if (t.dataset.action === 'tel') { t.checked ? state.telemetries.add(t.dataset.key) : state.telemetries.delete(t.dataset.key); render(); }
+    if (t.dataset.role === 'start' || t.dataset.role === 'end') { state.period.preset = 'custom'; state.period[t.dataset.role] = fromInput(t.value); render(); }
+  }
+  async function onKeydown(ev) {
+    if (ev.key === 'Enter' && ev.target.dataset.role === 'search') {
+      const candidates = searchResults().filter((d) => !state.selected.includes(d.tbDeviceId) && eligibility(d).ok);
+      if (candidates.length === 1) { await addDevices([candidates[0].tbDeviceId]); renderStep1(); renderFoot(); }
+      else { const first = el.body.querySelector('[data-role="results"] [data-action="add"]'); if (first) first.focus(); }
+    }
+    if ((ev.key === 'ArrowRight' || ev.key === 'ArrowLeft') && ev.target.getAttribute('role') === 'tab') {
+      const tabs = [...el.app.querySelectorAll('[role="tab"]')];
+      tabs[(tabs.indexOf(ev.target) + (ev.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length].focus();
+    }
+  }
+  el.app.addEventListener('click', onClick);
+  el.app.addEventListener('input', onInput);
+  el.app.addEventListener('change', onChange);
+  el.app.addEventListener('keydown', onKeydown);
+
+  render();
+  loadPage(false).then(() => { if (!destroyed) render(); });
+  return {
+    render,
+    reload: () => loadPage(true),
+    destroy() {
+      destroyed = true;
+      instance.abort();
+      pollTimers.forEach((tm) => clearTimeout(tm));
+      pollTimers.clear();
+      document.removeEventListener('visibilitychange', onVisibility);
+      el.app.removeEventListener('click', onClick);
+      el.app.removeEventListener('input', onInput);
+      el.app.removeEventListener('change', onChange);
+      el.app.removeEventListener('keydown', onKeydown);
+      root.innerHTML = '';
+    },
+    _state: state,
+    _debug: { view, pollIds },
+  };
+}
+
+/* =====================================================================
+ * Toast + showcase wiring
+ * ===================================================================== */
+let toastTimer;
+function toast(msg) {
+  const t = document.getElementById('dp2-toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 4000);
+}
+
+const ports = { store: mockTb, api: mockGcdr };
+let panel = createDemandPanel(document.getElementById('panel-root'), ports);
+log('info', `Protótipo montado · ${DEVICES.length} medidores mock (2 sem vínculo GCDR, 4 sem ingestionId) · cliente ${CUSTOMER.name}`);
+document.getElementById('sc-dark').addEventListener('change', () => panel.render());
+document.getElementById('sc-support').addEventListener('change', () => panel.render());
+document.getElementById('sc-reset').addEventListener('click', () => {
+  mockTb.clear(); mockGcdr.clear();
+  panel.destroy();
+  panel = createDemandPanel(document.getElementById('panel-root'), ports);
+  log('info', 'Dados mock apagados (envelopes TB + jobs GCDR)');
+});
+
+/* Seed: 3 long-running active jobs requested 2 h ago + 5 newer finished ones → the actives fall outside page 1. */
+document.getElementById('sc-seed-active').addEventListener('click', async () => {
+  const base = DEVICES.slice(0, 2);
+  const mk = async (ageMs, runMs) => {
+    const at = Date.now() - ageMs;
+    const request = {
+      devices: base.map((d) => ({ ...d })), resolution: '1h',
+      period: { startUtc: isoUtc(at - 86400e3), endUtc: isoUtc(at), timezone: 'America/Sao_Paulo', preset: 'custom' },
+      telemetries: [{ key: 'consumption', label: 'Potência Total', unit: 'W' }], estimate: { buckets: 24, points: 48 },
+    };
+    const jobId = `drj_${uuidv7(at)}`;
+    const env = { schemaVersion: 1, type: 'demand-report', jobId, catalogVersion: CATALOG_VERSION, hashAlgorithm: HASH_ALGORITHM,
+      requestHash: await requestHash(request, CATALOG_VERSION), requestedAt: new Date(at).toISOString(),
+      requestedBy: { tbUserId: 'tb-user-0042', name: 'Ana Souza', email: 'ana@shopping.example' }, customer: CUSTOMER, request,
+      audit: [{ op: 'submit', outcome: 'requested', at: new Date(at).toISOString(), by: 'tb-user-0042' },
+        { op: 'submit', outcome: 'accepted', at: new Date(at + 500).toISOString(), by: 'tb-user-0042' }] };
+    await mockTb.put(JOB_KEY_PREFIX + jobId, env);
+    mockGcdr._seedJob(jobId, { hash: env.requestHash, acceptedAt: at, notVisibleUntil: 0, queueMs: 1000, runMs, willFail: false,
+      resultTtlMs: 24 * 3600e3, requestedBy: { principal: `apikey:${CUSTOMER.gcdrCustomerId}`, declared: { tbUserId: 'tb-user-0042' } },
+      summary: { deviceCount: 2, start: request.period.startUtc, end: request.period.endUtc, resolution: '1h', telemetryCount: 1 } });
+  };
+  for (let i = 0; i < 3; i++) await mk(2 * 3600e3 + i * 60e3, 4 * 3600e3);       // active for hours
+  for (let i = 0; i < 5; i++) await mk(30 * 60e3 - i * 60e3, 2000);              // newer, already finished
+  log('info', 'Semeados: 3 jobs ativos (há 2 h, fora da 1ª página) + 5 concluídos mais novos');
+  panel.reload();
+});
+document.getElementById('sc-orphan').addEventListener('click', () => {
+  const jobId = `drj_${uuidv7(Date.now())}`;
+  mockGcdr._seedJob(jobId, { hash: 'sha256:external', acceptedAt: Date.now(), notVisibleUntil: 0, queueMs: 2000, runMs: 120000, willFail: false,
+    resultTtlMs: 24 * 3600e3, requestedBy: { principal: 'apikey:support-script', declared: null },
+    summary: { deviceCount: 12, start: isoUtc(Date.now() - 86400e3), end: isoUtc(Date.now()), resolution: '1h', telemetryCount: 3 } });
+  log('info', `Criado no GCDR sem envelope: ${jobId.slice(0, 13)}… (visível com "perfil suporte")`);
+  panel.reload();
+});
+document.getElementById('sc-conflict').addEventListener('click', async () => {
+  const e = panel._state.envelopes[0];
+  if (!e) { toast('Crie um pedido antes.'); return; }
+  const altered = { ...e.request, resolution: e.request.resolution === '1h' ? '15m' : '1h' };
+  const cmd = { protocolVersion: PROTOCOL_VERSION, jobId: e.jobId, type: e.type, catalogVersion: e.catalogVersion, hashAlgorithm: e.hashAlgorithm,
+    requestHash: await requestHash(altered, e.catalogVersion), requestedAt: e.requestedAt, request: altered };
+  try { await mockGcdr.submit(CUSTOMER.gcdrCustomerId, cmd); toast('Inesperado: o GCDR aceitou.'); }
+  catch (err) { toast(`Esperado: ${err.status} ${err.code} — nenhum job novo criado.`); }
+});
+</script>
+</body>
+</html>
