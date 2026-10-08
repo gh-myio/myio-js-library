@@ -108,3 +108,63 @@ describe('renderCardComponentV5 — other domains keep their rendering', () => {
     expect(badge.textContent.trim()).toBe('-2.2%');
   });
 });
+
+describe('renderCardComponentV5 — temperatura atual do Ingestion (média 2 h)', () => {
+  const fetchedAt = new Date(2026, 9, 8, 14, 5).getTime();
+
+  it('sem leitura na janela: "Sem leitura recente", sem badge de desvio e nunca 0 °C', () => {
+    const $card = renderCardComponentV5({
+      entityObject: {
+        entityId: 'dev-1',
+        labelOrName: 'Sensor',
+        deviceStatus: 'power_on',
+        deviceProfile: 'TERMOSTATO',
+        val: 0,
+        temperatureMin: 20,
+        temperatureMax: 26,
+        temperatureNoRecentReading: true,
+        temperatureSource: 'ingestion-avg-2h',
+        temperatureFetchedAt: fetchedAt,
+      },
+      enableSelection: false,
+      enableDragDrop: false,
+    });
+    const value = $card[0].querySelector('.consumption-value');
+
+    expect(value.textContent.trim()).toBe('Sem leitura recente');
+    expect(value.getAttribute('title')).toBe('Nenhuma leitura nas últimas 2 h · Atualizado às 14:05');
+    expect($card[0].querySelector('.temp-deviation-badge')).toBeNull();
+  });
+
+  it('com leitura: valor em °C com rótulo "média das últimas 2 h"', () => {
+    const $card = renderCardComponentV5({
+      entityObject: {
+        entityId: 'dev-1',
+        labelOrName: 'Sensor',
+        deviceStatus: 'power_on',
+        deviceProfile: 'TERMOSTATO',
+        val: 28.06,
+        temperatureSource: 'ingestion-avg-2h',
+        temperatureFetchedAt: fetchedAt,
+      },
+      enableSelection: false,
+      enableDragDrop: false,
+    });
+    const value = $card[0].querySelector('.consumption-value');
+
+    expect(value.textContent.trim()).toBe('28,06 °C');
+    expect(value.getAttribute('title')).toBe('Temperatura (média das últimas 2 h) · Atualizado às 14:05');
+  });
+
+  it('valor do ThingsBoard: sem rótulo de média', () => {
+    const { headline } = render({ deviceProfile: 'TERMOSTATO', val: 22.5, temperatureSource: 'thingsboard' });
+    const $card = renderCardComponentV5({
+      entityObject: { entityId: 'dev-1', labelOrName: 'S', deviceProfile: 'TERMOSTATO', val: 22.5, temperatureSource: 'thingsboard' },
+      enableSelection: false,
+      enableDragDrop: false,
+    });
+
+    expect(headline).toBe('22,50 °C');
+    expect($card[0].querySelector('.consumption-value').hasAttribute('title')).toBe(false);
+  });
+});

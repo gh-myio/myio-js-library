@@ -116,6 +116,10 @@ export function renderCardComponentV5({
     temperatureMin,
     temperatureMax,
     temperatureStatus, // 'ok' | 'above' | 'below' | undefined
+    // Temperatura atual vinda do Ingestion = média das últimas 2 h; true = nenhuma leitura na janela
+    temperatureNoRecentReading = false,
+    temperatureSource, // 'ingestion-avg-2h' | 'thingsboard' | undefined
+    temperatureFetchedAt, // ms da consulta (rótulo "Atualizado às HH:MM")
     // Per-device exclude_groups_totals attribute (SERVER_SCOPE) — drives the orange marker
     excludeGroupsTotals,
   } = entityObject;
@@ -338,8 +342,21 @@ export function renderCardComponentV5({
   // Runtime-resolved, so it can change without a lib rebuild.
   const _pctDecimals = resolvePercentDecimals(percentDecimals);
 
+  // Temperatura sem leitura na janela → texto cinza, nunca "0 °C"
+  const showNoTempReading = !!temperatureNoRecentReading && isTemperatureDevice(deviceType);
+  const tempValueTitle = (() => {
+    if (!isTemperatureDevice(deviceType) || temperatureSource !== 'ingestion-avg-2h') return '';
+    const at = temperatureFetchedAt
+      ? ` · Atualizado às ${new Date(temperatureFetchedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+      : '';
+    return showNoTempReading
+      ? `Nenhuma leitura nas últimas 2 h${at}`
+      : `Temperatura (média das últimas 2 h)${at}`;
+  })();
+
   // RFC-0108: Smart formatting function that respects MyIOUtils measurement settings
   const formatCardValue = (value, deviceType) => {
+    if (showNoTempReading) return 'Sem leitura recente';
     // TANK/CAIXA_DAGUA: o percentual é o destaque; o nível (M.C.A) vai para o badge
     if (isTankDevice) {
       return `${percentageForDisplay.toFixed(_pctDecimals).replace('.', ',')}%`;
@@ -683,7 +700,8 @@ export function renderCardComponentV5({
     return 'ok';
   };
 
-  const tempStatus = isTermostatoDevice ? calculateTempStatus() : null;
+  // Sem leitura recente: sem status de faixa nem desvio (0 °C não é leitura)
+  const tempStatus = isTermostatoDevice && !showNoTempReading ? calculateTempStatus() : null;
   const deviceImageUrl = getDeviceImageUrl(deviceType, percentageForDisplay, {
     tempStatus,
     isOffline,
@@ -706,7 +724,7 @@ export function renderCardComponentV5({
     return null;
   };
 
-  const tempDeviationPercent = isTermostatoDevice ? calculateTempDeviationPercent() : null;
+  const tempDeviationPercent = isTermostatoDevice && !showNoTempReading ? calculateTempDeviationPercent() : null;
 
   // Temperature tooltip is now handled by TempRangeTooltip (attached after render)
 
@@ -775,7 +793,9 @@ export function renderCardComponentV5({
                   <span class="flash-icon ${shouldFlashIcon ? 'flash' : ''}">
                     ${icon}
                   </span>
-                  <span class="consumption-value">${formatCardValue(cardEntity.lastValue, deviceType)}</span>
+                  <span class="consumption-value"${
+                    showNoTempReading ? ' style="color:#9ca3af;font-weight:500;font-size:0.85em;"' : ''
+                  }${tempValueTitle ? ` title="${tempValueTitle}"` : ''}>${formatCardValue(cardEntity.lastValue, deviceType)}</span>
                 </div>
               </div>
               ${

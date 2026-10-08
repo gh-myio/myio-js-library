@@ -2828,7 +2828,8 @@ function renderList(visible) {
         item.deviceStatus === 'power_off' ||
         item.deviceStatus === 'offline' ||
         item.deviceStatus === 'no_info';
-      if (!isOffline) {
+      // Sem leitura recente não entra na média (não é 0 °C)
+      if (!isOffline && !item.temperatureNoRecentReading && item.value !== null && item.value !== undefined) {
         totalTemp += Number(item.value || 0);
         tempDeviceCount++;
       }
@@ -2893,10 +2894,14 @@ function renderList(visible) {
       waterLevel: it.waterLevel || null,
       waterPercentage: it.waterPercentage || null,
       // TERMOSTATO specific fields
-      temperature: it.temperature || null,
-      temperatureMin: it.temperatureMin || null,
-      temperatureMax: it.temperatureMax || null,
+      temperature: it.temperature ?? null,
+      temperatureMin: it.temperatureMin ?? null,
+      temperatureMax: it.temperatureMax ?? null,
       temperatureStatus: it.temperatureStatus || null,
+      // Card mostra "Sem leitura recente" (lib) e rótulo "média das últimas 2 h" quando vier do Ingestion
+      temperatureNoRecentReading: !!it.temperatureNoRecentReading,
+      temperatureSource: it.temperatureSource || null,
+      temperatureFetchedAt: it.temperatureFetchedAt || null,
       // Average temperature across all TERMOSTATO devices (for TempComparisonTooltip)
       averageTemperature: avgTemperature,
       temperatureDeviceCount: tempDeviceCount,
@@ -3011,7 +3016,10 @@ function renderList(visible) {
 
             // Get temperature-related properties from entity
             // Priority: device attributes > entity attributes > global customer limits (MyIOUtils)
-            const currentTemp = it.temperature || entityObject.temperature;
+            // null = sem leitura recente → modal mostra "N/A" (nunca 0 °C)
+            const currentTemp = it.temperatureNoRecentReading ? null : (it.temperature ?? entityObject.temperature ?? null);
+            // Offset do device: o gráfico (TB ou Ingestion) chega bruto e o modal aplica
+            const temperatureOffset = Number(it.temperatureOffset ?? it.offSetTemperature ?? 0) || 0;
             const tempMinRange =
               it.temperatureMin ??
               it.minTemperature ??
@@ -3106,6 +3114,7 @@ function renderList(visible) {
               temperatureMin: tempMinRange,
               temperatureMax: tempMaxRange,
               temperatureStatus: tempStatus,
+              temperatureOffset,
               useIngestionApi,
             });
 
@@ -3126,6 +3135,7 @@ function renderList(visible) {
               temperatureMin: tempMinRange,
               temperatureMax: tempMaxRange,
               temperatureStatus: tempStatus,
+              temperatureOffset,
               theme: 'dark',
               locale: 'pt-BR',
               granularity: 'hour',
@@ -6521,7 +6531,10 @@ self.onInit = async function () {
       let temperatureStatus = null;
       const isTemperatureDomain = domain === 'temperature';
       const isEnergyDomain = domain === 'energy';
-      const rawTemp = Number(item.value || 0);
+      // Temperatura: null = sem leitura recente (Ingestion média 2 h sem dados) → nunca vira 0 °C
+      const noTempReading =
+        isTemperatureDomain && (item.value === null || item.value === undefined || item.temperatureNoRecentReading === true);
+      const rawTemp = noTempReading ? null : Number(item.value || 0);
 
       // Apply temperature offset if available (from dataKey "offSetTemperature")
       // The offset can be positive or negative and is added to the raw temperature
@@ -6530,9 +6543,11 @@ self.onInit = async function () {
         ? (item.offSetTemperature ?? getTemperatureOffset(deviceTbId))
         : 0;
       const temp =
-        isTemperatureDomain && tempOffset !== 0 ? applyTemperatureOffset(rawTemp, tempOffset) : rawTemp;
+        rawTemp !== null && isTemperatureDomain && tempOffset !== 0
+          ? applyTemperatureOffset(rawTemp, tempOffset)
+          : rawTemp;
 
-      if (isTemperatureDomain && temp && globalTempMin !== null && globalTempMax !== null) {
+      if (isTemperatureDomain && temp !== null && globalTempMin !== null && globalTempMax !== null) {
         if (temp > globalTempMax) {
           temperatureStatus = 'above';
         } else if (temp < globalTempMin) {
@@ -6609,6 +6624,9 @@ self.onInit = async function () {
         temperatureMin: isTemperatureDomain ? globalTempMin : null,
         temperatureMax: isTemperatureDomain ? globalTempMax : null,
         temperatureStatus: temperatureStatus,
+        temperatureNoRecentReading: isTemperatureDomain ? noTempReading : false,
+        temperatureSource: isTemperatureDomain ? item.temperatureSource || null : null, // 'ingestion-avg-2h' | 'thingsboard'
+        temperatureFetchedAt: isTemperatureDomain ? item.temperatureFetchedAt || null : null,
         // RFC-0107: Water tank specific fields
         waterLevel: item.waterLevel ?? null,
         waterPercentage: item.waterPercentage ?? null,
