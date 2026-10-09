@@ -4055,12 +4055,19 @@ let _activeQuickFilter = 'all';
 
 const _QF_OFFLINE = ['power_off', 'offline', 'no_info'];
 const _QF_WAITING = ['waiting', 'aguardando', 'not_installed', 'pending', 'connecting'];
+// Conexão fraca (card pisca 📶): deviceStatus weak_connection ou connectionStatus 'bad'
+const _QF_WEAK = ['weak_connection', 'conexao_fraca', 'bad'];
 
 // Quick-filter tab groups. Each filter id matches a tag produced by _quickFilterTags().
 const _QF_GROUPS = [
   {
     label: 'Conectividade',
-    filters: [['online', 'Online'], ['offline', 'Offline'], ['notInstalled', 'Não instalado']],
+    filters: [
+      ['online', 'Online'],
+      ['weak', 'Conexão fraca'],
+      ['offline', 'Offline'],
+      ['notInstalled', 'Não instalado'],
+    ],
   },
   {
     label: 'Status',
@@ -4105,17 +4112,33 @@ function _quickFilterTags(item) {
   // Conectividade
   if (_QF_OFFLINE.includes(ds) || _QF_OFFLINE.includes(cs)) tags.push('offline');
   else if (_QF_WAITING.includes(ds) || _QF_WAITING.includes(cs)) tags.push('notInstalled');
+  else if (_QF_WEAK.includes(ds) || _QF_WEAK.includes(cs)) tags.push('weak');
   else tags.push('online');
   // Status (deviceStatus)
   if (['alert', 'alarm', 'warning', 'warn'].includes(ds)) tags.push('alert');
   else if (['failure', 'fail', 'danger', 'critical', 'error'].includes(ds)) tags.push('failure');
   else if (['standby', 'stand_by', 'idle', 'pausado'].includes(ds)) tags.push('standby');
   else tags.push('normal');
-  // Consumo
-  tags.push((Number(item.value) || 0) > 0 ? 'withConsumption' : 'noConsumption');
+  // Consumo (temperatura: com/sem leitura — 0 °C não é "sem consumo")
+  if (WIDGET_DOMAIN === 'temperature') {
+    tags.push(_isTempOffline(item) ? 'noConsumption' : 'withConsumption');
+  } else {
+    tags.push((Number(item.value) || 0) > 0 ? 'withConsumption' : 'noConsumption');
+  }
   // Tipo
   tags.push(_quickFilterCategory(item));
   return tags;
+}
+
+// Temperatura: "Consumo" → "Leitura" (com/sem leitura)
+function _qfGroupLabel(label) {
+  return WIDGET_DOMAIN === 'temperature' && label === 'Consumo' ? 'Leitura' : label;
+}
+function _qfLabel(id, label) {
+  if (WIDGET_DOMAIN !== 'temperature') return label;
+  if (id === 'withConsumption') return 'Com leitura';
+  if (id === 'noConsumption') return 'Sem leitura';
+  return label;
 }
 
 // Renders the quick-filter tabs into #quickFilterTabs. Tabs with count 0 are hidden;
@@ -4132,11 +4155,13 @@ function _renderQuickFilterTabs($m, list) {
     </div>`;
 
   for (const group of _QF_GROUPS) {
-    const tabs = group.filters.filter(([id]) => (counts[id] || 0) > 0);
+    const tabs = group.filters
+      .filter(([id]) => (counts[id] || 0) > 0)
+      .map(([id, label]) => [id, _qfLabel(id, label)]);
     if (!tabs.length) continue;
     html += `
       <div class="filter-group">
-        <span class="filter-group-label">${group.label}</span>
+        <span class="filter-group-label">${_qfGroupLabel(group.label)}</span>
         <div class="filter-group-tabs">
           ${tabs
             .map(
@@ -4191,7 +4216,7 @@ function _showQuickFilterDevices(triggerEl, filterId) {
   for (const g of _QF_GROUPS) {
     const f = g.filters.find((x) => x[0] === filterId);
     if (f) {
-      flabel = f[1];
+      flabel = _qfLabel(filterId, f[1]);
       break;
     }
   }
@@ -4256,7 +4281,11 @@ function _fmtDeviceValue(value) {
   if (WIDGET_DOMAIN === 'tank') {
     return hasMyIO && MyIO.formatTankHeadFromCm ? MyIO.formatTankHeadFromCm(v) : v.toFixed(0) + ' cm';
   }
-  if (WIDGET_DOMAIN === 'temperature') return v.toFixed(1) + '°C';
+  if (WIDGET_DOMAIN === 'temperature') {
+    // Mesmo formato do card ("30,1 °C"), não "30.1°C"
+    if (window.MyIOUtils?.formatTemperatureWithSettings) return window.MyIOUtils.formatTemperatureWithSettings(v);
+    return v.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' °C';
+  }
   return v.toFixed(2);
 }
 
@@ -4512,15 +4541,20 @@ function openFilterModal() {
     it._qfTags = _quickFilterTags(it);
     label.setAttribute('data-filter-tags', it._qfTags.join(' '));
     const _v = Number(it.value) || 0;
-    const _vColor = _v > 0 ? '#16a34a' : '#94a3b8';
+    // Temperatura: sem "%" (participação não se aplica a média °C) e "sem leitura" ≠ 0 °C
+    const _isTemp = WIDGET_DOMAIN === 'temperature';
+    const _noRead = _isTemp && _isTempOffline(it);
+    const _vColor = _noRead ? '#94a3b8' : _isTemp || _v > 0 ? '#16a34a' : '#94a3b8';
     label.setAttribute('data-value', String(_v));
     label.innerHTML = `
       <input type="checkbox" id="chk-${safeId}" data-entity="${escapeHtml(it.id)}" ${
         checked ? 'checked' : ''
       }>
       <span class="check-item-name">${escapeHtml(it.label || it.identifier || it.id)}</span>
-      <span class="check-item-value" style="color:${_vColor};">${escapeHtml(_fmtDeviceValue(_v))}</span>
-      <span class="check-item-pct">${_fmtPct(_v, _totalValue)}</span>
+      <span class="check-item-value" style="color:${_vColor};">${
+        _noRead ? 'sem leitura' : escapeHtml(_fmtDeviceValue(_v))
+      }</span>
+      ${_isTemp ? '' : `<span class="check-item-pct">${_fmtPct(_v, _totalValue)}</span>`}
     `;
     frag.appendChild(label);
   }
@@ -4534,6 +4568,14 @@ function openFilterModal() {
   $m.find('#sortModeSelect').val(STATE.sortMode || 'cons_desc');
   $m.find('#alarmFilterSelect').val(STATE.alarmFilter || 'ativado');
   $m.find('#consRangeUnit').text(`(${_getExportUnit()})`);
+  // Temperatura: textos de "Consumo" viram "Temperatura"
+  const _isTempModal = WIDGET_DOMAIN === 'temperature';
+  $m.find('#sortModeSelect option[value="cons_desc"]').text(_isTempModal ? 'Temperatura ↓' : 'Consumo ↓');
+  $m.find('#sortModeSelect option[value="cons_asc"]').text(_isTempModal ? 'Temperatura ↑' : 'Consumo ↑');
+  const $rangeLbl = $m.find('#consRangeUnit').parent();
+  if ($rangeLbl.length && $rangeLbl[0].firstChild && $rangeLbl[0].firstChild.nodeType === 3) {
+    $rangeLbl[0].firstChild.nodeValue = _isTempModal ? 'Faixa de Temperatura ' : 'Faixa de Consumo ';
+  }
 
   const $footer = $m.find('.shops-modal-footer');
   if ($footer.length) $footer.show().find('#applyFilters, #resetFilters').show();
