@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MYIO — Release Notes Temperatura v0.1.555</title>
+  <style>
+    :root {
+      --myio-purple: #663ab5;
+      --myio-purple-dark: #4d2a91;
+      --myio-purple-soft: #efe8fb;
+      --myio-green: #04c081;
+      --myio-green-dark: #039b69;
+      --myio-amber: #f5a623;
+      --myio-red: #e03131;
+      --myio-blue: #3b82f6;
+      --text: #2a2340;
+      --muted: #6f6787;
+      --border: #e5ddf5;
+      --bg: #f7f4fc;
+      --white: #ffffff;
+      --shadow: 0 10px 30px rgba(102, 58, 181, 0.12);
+      --radius-lg: 16px;
+      --page-width: 1123px;
+      --page-height: 794px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, Segoe UI, Arial, sans-serif;
+      background: #ece8f6;
+      color: var(--text);
+      padding: 24px;
+    }
+
+    .document { display: grid; gap: 24px; justify-content: center; }
+
+    .page {
+      width: var(--page-width);
+      min-height: var(--page-height);
+      background: radial-gradient(circle at top right, rgba(4,192,129,0.10), transparent 18%), var(--bg);
+      border-radius: 28px;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(49, 33, 90, 0.16);
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      page-break-after: always;
+    }
+    .page:last-child { page-break-after: auto; }
+
+    /* ── Hero ── */
+    .hero {
+      background: linear-gradient(135deg, var(--myio-purple-dark), var(--myio-purple) 62%, #7d52cf);
+      color: var(--white);
+      padding: 18px 36px 14px;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::after {
+      content: "";
+      position: absolute;
+      right: -70px; top: -45px;
+      width: 220px; height: 220px;
+      background: rgba(4, 192, 129, 0.92);
+      border-radius: 50%;
+    }
+    .brand-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; position: relative; z-index: 1; }
+    .brand h1 { margin: 0; font-size: 28px; line-height: 1; letter-spacing: -0.03em; }
+    .brand p { margin: 8px 0 0; opacity: 0.92; font-size: 14px; }
+    .version-pill {
+      border: 1px solid rgba(255,255,255,0.55);
+      border-radius: 999px;
+      padding: 10px 18px;
+      font-weight: 700;
+      font-size: 14px;
+      backdrop-filter: blur(6px);
+      white-space: nowrap;
+    }
+    .meta { margin-top: 4px; display: flex; justify-content: flex-end; gap: 10px; font-size: 13px; position: relative; z-index: 1; }
+    .meta span:last-child { color: #d8ffd2; font-weight: 600; }
+
+    /* ── Content ── */
+    .content { padding: 16px 32px 12px; display: flex; flex-direction: column; gap: 11px; flex: 1; }
+    .headline h2 { margin: 0 0 4px; font-size: 25px; line-height: 1.05; letter-spacing: -0.04em; color: #33275f; }
+    .headline p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
+
+    .grid { display: grid; grid-template-columns: 390px 1fr; gap: 20px; align-items: start; flex: 1; }
+    .stack { display: grid; gap: 8px; }
+
+    .card {
+      background: rgba(255,255,255,0.92);
+      border: 1px solid var(--border);
+      border-left: 5px solid var(--myio-purple);
+      border-radius: var(--radius-lg);
+      padding: 10px 14px;
+      box-shadow: var(--shadow);
+    }
+    .card.green { border-left-color: var(--myio-green); }
+    .card.amber { border-left-color: var(--myio-amber); }
+    .card h3 { margin: 0 0 6px; font-size: 16px; letter-spacing: -0.02em; color: #392d69; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .card p, .card li, .card .text { font-size: 12px; line-height: 1.45; color: #4e4765; margin: 0; }
+
+    .badge.new {
+      border: 2px solid #bca7ea;
+      color: var(--myio-purple);
+      border-radius: 999px;
+      padding: 3px 9px;
+      display: inline-block;
+      background: #f3ecff;
+      font-size: 10.5px;
+      font-weight: 800;
+    }
+    .badge.new.fix { border-color: #9be3c8; color: var(--myio-green-dark); background: #e9fbf4; }
+
+    .panel-list { display: grid; gap: 3px; margin-top: 4px; }
+    .panel-item { display: flex; gap: 8px; align-items: flex-start; }
+    .dot { width: 8px; height: 8px; border-radius: 3px; margin-top: 5px; background: linear-gradient(180deg, var(--myio-purple), #b577ff); flex: 0 0 auto; }
+    .dot.green { background: linear-gradient(180deg, var(--myio-green), #00e09b); }
+    .dot.amber { background: linear-gradient(180deg, var(--myio-amber), #ffc94d); }
+    .dot.red   { background: linear-gradient(180deg, var(--myio-red), #ff6b6b); }
+    .dot.blue  { background: linear-gradient(180deg, var(--myio-blue), #7fb0ff); }
+    .dot.gray  { background: #b9b3c9; }
+
+    /* ── Preview panel (right) ── */
+    .preview { background: rgba(255,255,255,0.94); border: 1px solid var(--border); border-radius: 20px; box-shadow: var(--shadow); overflow: hidden; }
+    .preview-head {
+      padding: 12px 18px;
+      display: flex; justify-content: space-between; align-items: center;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px; font-weight: 700; color: #443668;
+      background: linear-gradient(180deg, #fff, #faf8fe);
+    }
+    .preview-head small { font-weight: 600; color: var(--muted); }
+    .preview-body { padding: 12px; display: grid; gap: 10px; }
+
+    /* Screenshot crops — recorte em pixels do print 1920 px: --sx/--sy origem, --sw/--sh tamanho */
+    .shot {
+      position: relative;
+      aspect-ratio: var(--sw) / var(--sh);
+      container-type: inline-size;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      background: #f2eff8;
+    }
+    .shot img {
+      position: absolute;
+      display: block;
+      width: calc(100cqw * 1920 / var(--sw));
+      left: calc(-100cqw * var(--sx) / var(--sw));
+      top: calc(-100cqw * var(--sy) / var(--sw));
+    }
+    .caption { font-size: 11.5px; color: var(--muted); margin-top: -6px; }
+
+    /* Mockups: temperature badge states */
+    .states { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .state {
+      background: #fff;
+      border: 1px solid #e8e3f2;
+      border-radius: 12px;
+      padding: 10px 10px 12px;
+      text-align: center;
+      font-size: 11px;
+      color: var(--muted);
+      position: relative;
+    }
+    .state .val { font-size: 16px; font-weight: 800; color: #2a2340; margin: 4px 0; }
+    .state.warn { border: 2px solid var(--myio-amber); }
+    .state.excl::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: 0; height: 3px; border-radius: 3px; background: var(--myio-amber); }
+    .state.off .val { color: #9a93ad; font-size: 13px; }
+    .blink { animation: blink 1s steps(2, start) infinite; }
+    @keyframes blink { to { visibility: hidden; } }
+    .pill { display: inline-block; border-radius: 999px; padding: 2px 8px; font-weight: 700; font-size: 11px; }
+    .pill.red { background: #fde8e8; color: #ef4444; }
+    .pill.blue { background: #e6efff; color: #3b82f6; }
+    .pill.green { background: #e6f7ee; color: #16a34a; }
+    .pill.gray { background: #f1eff6; color: #8a83a0; }
+
+    /* Freshness timeline */
+    .timeline { display: grid; grid-template-columns: 10fr 2fr 12fr 6fr; border-radius: 10px; overflow: hidden; font-size: 11px; font-weight: 700; text-align: center; }
+    .timeline div { padding: 8px 4px; color: #fff; }
+    .tl-ok { background: var(--myio-green); }
+    .tl-warn { background: var(--myio-amber); }
+    .tl-stale { background: #9a8fbd; }
+    .tl-off { background: #5f5778; }
+    .tl-scale { display: grid; grid-template-columns: 10fr 2fr 12fr 6fr; font-size: 10.5px; color: var(--muted); margin-top: 3px; }
+
+    .export-row { display: flex; gap: 8px; margin-top: 6px; }
+    .export-btn {
+      flex: 1;
+      text-align: center;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 7px 4px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #443668;
+      background: #fff;
+    }
+
+    .steps { display: grid; gap: 5px; margin-top: 6px; }
+    .step-row { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; color: #4e4765; line-height: 1.4; }
+    .step-num {
+      background: var(--myio-purple); color: #fff; border-radius: 50%;
+      width: 18px; height: 18px; font-size: 10px; font-weight: 800;
+      display: flex; align-items: center; justify-content: center; flex: 0 0 auto; margin-top: 1px;
+    }
+
+    /* ── Guide-style blocks (do guia do usuário) ── */
+    .toc { display: flex; flex-wrap: wrap; gap: 6px; }
+    .toc a {
+      font-size: 12px; font-weight: 600; color: var(--myio-purple);
+      background: #fff; border: 1px solid var(--border);
+      border-radius: 999px; padding: 4px 11px; text-decoration: none;
+    }
+    .toc a:hover { background: var(--myio-purple-soft); }
+
+    .doc-h2 { margin: 0; font-size: 18px; color: #33275f; padding-bottom: 6px; border-bottom: 2px solid var(--border); letter-spacing: -0.02em; }
+
+    table.rules-table { width: 100%; border-collapse: collapse; font-size: 12px; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: var(--shadow); }
+    .rules-table th { background: var(--myio-purple-soft); color: #392d69; text-align: left; padding: 8px 10px; font-size: 11.5px; }
+    .rules-table td { padding: 7px 10px; border-top: 1px solid #f0ebf8; color: #4e4765; vertical-align: top; line-height: 1.45; }
+    .rules-table td:first-child { font-weight: 700; color: #392d69; white-space: nowrap; }
+
+    .callout { border-radius: 12px; padding: 10px 14px; font-size: 12.5px; line-height: 1.5; border: 1px solid; }
+    .callout--tip { background: #e9fbf4; border-color: #9be3c8; color: #145c43; }
+    .callout--warn { background: #fff6e6; border-color: #f7d08a; color: #7a4d00; }
+    .callout strong { display: block; margin-bottom: 2px; }
+
+    .faq { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .faq-item { background: #fff; border: 1px solid var(--border); border-radius: 14px; padding: 11px 14px; box-shadow: var(--shadow); }
+    .faq-item h4 { margin: 0 0 4px; font-size: 13px; color: #392d69; }
+    .faq-item p { margin: 0; font-size: 12px; color: #51496c; line-height: 1.5; }
+
+    .important {
+      background: linear-gradient(135deg, var(--myio-purple-dark), var(--myio-purple));
+      color: #fff;
+      border-radius: 16px;
+      padding: 12px 16px;
+      font-size: 12.5px;
+      line-height: 1.5;
+    }
+    .important strong { color: #d8ffd2; }
+
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+
+    .footer {
+      margin-top: auto;
+      background: linear-gradient(180deg, var(--myio-purple), var(--myio-purple-dark));
+      color: rgba(255,255,255,0.95);
+      padding: 11px 26px;
+      display: flex; justify-content: space-between; gap: 16px; align-items: center;
+      font-size: 13px; font-weight: 600;
+    }
+    .footer strong { color: #fff; }
+
+    @media print {
+      body { background: #fff; padding: 0; }
+      .document { gap: 0; }
+      .page { width: 100%; min-height: auto; border-radius: 0; box-shadow: none; margin: 0; }
+      .blink { animation: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="document">
+
+    <!-- ══════════════════════════════════════════════════════════
+         PAGE 1 — Cards de temperatura
+    ══════════════════════════════════════════════════════════ -->
+    <section class="page" id="cards">
+      <header class="hero">
+        <div class="brand-row">
+          <div class="brand">
+            <h1>MYIO</h1>
+            <p>Plataforma de Telemetria e Monitoramento</p>
+          </div>
+          <div class="version-pill">RELEASE NOTE &nbsp; v0.1.555</div>
+        </div>
+        <div class="meta">
+          <span>Outubro 2026</span>
+          <span>Módulo de Temperatura</span>
+        </div>
+      </header>
+
+      <main class="content">
+        <section class="headline">
+          <h2>Temperatura — leitura atual confiável, do card ao relatório</h2>
+          <p>A temperatura passa a vir da API de Ingestion em todo o painel: cards, gráficos, comparação e relatórios usam a mesma regra (hora fechada, offset do sensor e descarte de leituras inválidas). O resultado: o valor que você vê no card bate com o que aparece no relatório e na exportação.</p>
+        </section>
+
+        <nav class="toc">
+          <a href="#cards">🌡️ Cards</a>
+          <a href="#resumo">ℹ️ Resumo e filtro</a>
+          <a href="#graficos">📈 Gráfico e comparação</a>
+          <a href="#relatorios">📄 Relatórios</a>
+          <a href="#regras">📐 Regras</a>
+          <a href="#faq">❓ Perguntas frequentes</a>
+        </nav>
+
+        <section class="grid">
+          <div class="stack">
+            <article class="card">
+              <h3>🕐 Leitura da última hora fechada <span class="badge new">NOVO</span></h3>
+              <p class="text">O card mostra a <strong>média da hora fechada mais recente</strong> das últimas 24 h, já com o offset do sensor. Passe o mouse sobre o valor para ver a hora da média e o horário da última leitura recebida.</p>
+            </article>
+
+            <article class="card amber">
+              <h3>⏱️ Estados de atualização <span class="badge new">NOVO</span></h3>
+              <div class="panel-list">
+                <div class="panel-item"><span class="dot green"></span><div class="text"><strong>Até 10 h:</strong> card normal</div></div>
+                <div class="panel-item"><span class="dot amber"></span><div class="text"><strong>10 a 12 h:</strong> borda laranja e ⚠ piscando ao lado do valor</div></div>
+                <div class="panel-item"><span class="dot"></span><div class="text"><strong>12 a 24 h:</strong> “Sem leitura recente”</div></div>
+                <div class="panel-item"><span class="dot gray"></span><div class="text"><strong>Mais de 24 h:</strong> sensor offline</div></div>
+              </div>
+            </article>
+
+            <article class="card">
+              <h3>🎯 Desvio em °C da faixa ideal <span class="badge new">NOVO</span></h3>
+              <p class="text">O selo no canto do card agora diz <strong>quantos graus</strong> o ambiente está fora da faixa ideal do shopping, em vez de uma porcentagem. Ex.: 30,7 °C com faixa 23–25,5 °C → <span class="pill red">+5,2 °C</span>.</p>
+            </article>
+
+            <article class="card green">
+              <h3>🟧 Marcador de offset</h3>
+              <p class="text">Sensores com offset aplicado ganham a mesma <strong>linha laranja na base do card</strong> usada em energia para “excluído dos totais”. Sem offset, sem marcador.</p>
+            </article>
+          </div>
+
+          <div class="preview">
+            <div class="preview-head">Painel de Temperatura · Shopping da Ilha <small>dados reais</small></div>
+            <div class="preview-body">
+              <div class="shot" style="--sx:280; --sy:185; --sw:1580; --sh:600;">
+                <img src="assets/temperatura-v0.1.555/01-cards.jpeg" alt="Grade de cards de temperatura com selos de desvio em °C" />
+              </div>
+              <div class="states">
+                <div class="state">Normal<div class="val">24,8 °C</div><span class="pill green">na faixa</span></div>
+                <div class="state warn">10–12 h<div class="val">26,1 °C <span class="blink">⚠</span></div><span class="pill red">+0,6 °C</span></div>
+                <div class="state off">12–24 h<div class="val">Sem leitura recente</div><span class="pill gray">sem selo</span></div>
+                <div class="state excl">Com offset<div class="val">21,8 °C</div><span class="pill blue">−1,2 °C</span></div>
+              </div>
+              <div>
+                <div class="timeline"><div class="tl-ok">normal</div><div class="tl-warn">⚠</div><div class="tl-stale">sem leitura recente</div><div class="tl-off">offline</div></div>
+                <div class="tl-scale"><span>0 h</span><span>10 h</span><span>12 h</span><span style="display:flex;justify-content:space-between;"><span></span><span>24 h+</span></span></div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <div>MYIO Plataforma de Telemetria • v0.1.555 • Outubro 2026</div>
+        <strong>Módulo de Temperatura — Página 1 de 5</strong>
+        <div>myio.com.br</div>
+      </footer>
+    </section>
+
+
+    <!-- ══════════════════════════════════════════════════════════
+         PAGE 2 — Resumo (i) e Filtro
+    ══════════════════════════════════════════════════════════ -->
+    <section class="page" id="resumo">
+      <header class="hero">
+        <div class="brand-row">
+          <div class="brand">
+            <h1>MYIO</h1>
+            <p>Plataforma de Telemetria e Monitoramento</p>
+          </div>
+          <div class="version-pill">RELEASE NOTE &nbsp; v0.1.555</div>
+        </div>
+        <div class="meta">
+          <span>Outubro 2026</span>
+          <span>Resumo e Filtro</span>
+        </div>
+      </header>
+
+      <main class="content">
+        <section class="headline">
+          <h2>Resumo dos sensores e filtro falando a língua da temperatura</h2>
+          <p>Nada de “consumo total” em °C: o resumo mostra média, mínima e máxima só dos sensores online, e o filtro ganhou “Conexão fraca” e rótulos próprios.</p>
+        </section>
+
+        <section class="grid">
+          <div class="stack">
+            <article class="card">
+              <h3>ℹ️ Resumo “Sensores de Temperatura” <span class="badge new fix">CORRIGIDO</span></h3>
+              <div class="panel-list">
+                <div class="panel-item"><span class="dot green"></span><div class="text"><strong>Temperatura média</strong>, mínima e máxima no lugar de “consumo médio/total”</div></div>
+                <div class="panel-item"><span class="dot"></span><div class="text">Contagem <strong>“14 online · 2 offline”</strong>, com (i) explicando que as médias só consideram sensores online</div></div>
+                <div class="panel-item"><span class="dot red"></span><div class="text">Sensores sem leitura <strong>não entram</strong> nas listas de maiores/menores (antes apareciam com 0,0 °C) e ficam numa seção própria de offline</div></div>
+              </div>
+            </article>
+
+            <article class="card">
+              <h3>🔎 Modal de filtro <span class="badge new">NOVO</span></h3>
+              <div class="panel-list">
+                <div class="panel-item"><span class="dot amber"></span><div class="text">Aba <strong>Conectividade</strong>: Online · <strong>Conexão fraca</strong> · Offline · Não instalado</div></div>
+                <div class="panel-item"><span class="dot"></span><div class="text">“Consumo” vira <strong>Leitura</strong>: Com leitura / Sem leitura</div></div>
+                <div class="panel-item"><span class="dot green"></span><div class="text">Lista de sensores com um único valor em °C (sem % de participação) e “sem leitura” quando for o caso</div></div>
+                <div class="panel-item"><span class="dot"></span><div class="text">Ordenação <strong>Temperatura ↓ / ↑</strong> e “Faixa de Temperatura”</div></div>
+              </div>
+            </article>
+
+            <article class="card green">
+              <h3>📶 Conexão fraca no card</h3>
+              <p class="text">O ícone 📶 no lugar do termômetro indica sinal fraco do sensor. A leitura continua válida; o filtro “Conexão fraca” lista todos esses sensores de uma vez.</p>
+            </article>
+          </div>
+
+          <div class="preview">
+            <div class="preview-head">Resumo (i) e Filtros &amp; Ordenação <small>dados reais</small></div>
+            <div class="preview-body">
+              <div class="shot" style="--sx:390; --sy:160; --sw:1300; --sh:500;">
+                <img src="assets/temperatura-v0.1.555/02-resumo-sensores.jpeg" alt="Resumo dos sensores de temperatura com média, mínima e máxima" />
+              </div>
+              <div class="shot" style="--sx:300; --sy:25; --sw:1320; --sh:480;">
+                <img src="assets/temperatura-v0.1.555/03-filtro.jpeg" alt="Modal de filtro com Conexão fraca e rótulos de temperatura" />
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <div>MYIO Plataforma de Telemetria • v0.1.555 • Outubro 2026</div>
+        <strong>Módulo de Temperatura — Página 2 de 5</strong>
+        <div>myio.com.br</div>
+      </footer>
+    </section>
+
+
+    <!-- ══════════════════════════════════════════════════════════
+         PAGE 3 — Gráfico do sensor e Comparação
+    ══════════════════════════════════════════════════════════ -->
+    <section class="page" id="graficos">
+      <header class="hero">
+        <div class="brand-row">
+          <div class="brand">
+            <h1>MYIO</h1>
+            <p>Plataforma de Telemetria e Monitoramento</p>
+          </div>
+          <div class="version-pill">RELEASE NOTE &nbsp; v0.1.555</div>
+        </div>
+        <div class="meta">
+          <span>Outubro 2026</span>
+          <span>Gráfico e Comparação</span>
+        </div>
+      </header>
+
+      <main class="content">
+        <section class="headline">
+          <h2>Histórico por hora fechada e comparação que funciona</h2>
+          <p>O gráfico do card e a comparação entre sensores usam os dados da Ingestion, com o offset de cada sensor e o mesmo visual dos relatórios.</p>
+        </section>
+
+        <section class="grid">
+          <div class="stack">
+            <article class="card">
+              <h3>📈 Gráfico do sensor <span class="badge new">NOVO</span></h3>
+              <div class="panel-list">
+                <div class="panel-item"><span class="dot green"></span><div class="text">Pontos por <strong>hora fechada</strong> (antes vinham de 30 em 30 min) e eixo X com a <strong>data</strong></div></div>
+                <div class="panel-item"><span class="dot"></span><div class="text">Faixa ideal destacada em verde; KPIs de atual, média, mín/máx e quantidade de leituras</div></div>
+                <div class="panel-item"><span class="dot amber"></span><div class="text">Cabeçalho com nome, identificador (📋 copiar) e <strong>offset</strong> discreto, quando houver</div></div>
+                <div class="panel-item"><span class="dot"></span><div class="text">Abre no <strong>modo claro</strong>, com o rodapé padrão (shopping, horário, versão) e CSV igual ao gráfico</div></div>
+              </div>
+            </article>
+
+            <article class="card">
+              <h3>⚖️ Comparação de sensores <span class="badge new fix">CORRIGIDO</span></h3>
+              <p class="text">Selecionar 2 ou mais cards e clicar em <strong>COMPARAR</strong> voltou a funcionar. Cada sensor aparece com o seu offset na legenda e um quadro com média, mín, máx e leituras.</p>
+              <div class="steps">
+                <div class="step-row"><span class="step-num">1</span>Marque a caixa no canto dos cards</div>
+                <div class="step-row"><span class="step-num">2</span>Clique em <strong>COMPARAR</strong> na barra inferior</div>
+                <div class="step-row"><span class="step-num">3</span>Ajuste período/granularidade e exporte o CSV (uma coluna por sensor)</div>
+              </div>
+            </article>
+          </div>
+
+          <div class="preview">
+            <div class="preview-head">Área externa (17) · Comparação de 2 sensores <small>dados reais</small></div>
+            <div class="preview-body">
+              <div class="shot" style="--sx:510; --sy:107; --sw:900; --sh:290;">
+                <img src="assets/temperatura-v0.1.555/04-grafico-card.jpeg" alt="Gráfico de histórico de temperatura do sensor Área externa" />
+              </div>
+              <div class="shot" style="--sx:410; --sy:215; --sw:1100; --sh:440;">
+                <img src="assets/temperatura-v0.1.555/05-comparacao.jpeg" alt="Comparação de temperatura entre Área externa e Hering L3" />
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <div>MYIO Plataforma de Telemetria • v0.1.555 • Outubro 2026</div>
+        <strong>Módulo de Temperatura — Página 3 de 5</strong>
+        <div>myio.com.br</div>
+      </footer>
+    </section>
+
+
+    <!-- ══════════════════════════════════════════════════════════
+         PAGE 4 — Relatórios
+    ══════════════════════════════════════════════════════════ -->
+    <section class="page" id="relatorios">
+      <header class="hero">
+        <div class="brand-row">
+          <div class="brand">
+            <h1>MYIO</h1>
+            <p>Plataforma de Telemetria e Monitoramento</p>
+          </div>
+          <div class="version-pill">RELEASE NOTE &nbsp; v0.1.555</div>
+        </div>
+        <div class="meta">
+          <span>Outubro 2026</span>
+          <span>Relatórios</span>
+        </div>
+      </header>
+
+      <main class="content">
+        <section class="headline">
+          <h2>Relatórios de temperatura: abrem carregados e exportam o que está na tela</h2>
+          <p>Relatório do sensor (botão 📄 do card) e Relatório Geral (Menu → Relatórios → Temperatura) carregam sozinhos com o período padrão, já em <strong>1 h</strong>.</p>
+        </section>
+
+        <section class="grid">
+          <div class="stack">
+            <article class="card">
+              <h3>📄 Relatório do sensor <span class="badge new">NOVO</span></h3>
+              <div class="panel-list">
+                <div class="panel-item"><span class="dot green"></span><div class="text">Granularidade <strong>1 h</strong> (horas fechadas) ou <strong>1 d</strong> (média do dia)</div></div>
+                <div class="panel-item"><span class="dot"></span><div class="text">KPIs: média, média por dia, dia mais quente e dia mais frio</div></div>
+                <div class="panel-item"><span class="dot red"></span><div class="text">Painel <strong>“Dias mais quentes”</strong> (1 d) ou horas mais quentes (1 h), com a faixa ideal</div></div>
+              </div>
+            </article>
+
+            <article class="card">
+              <h3>🗂️ Relatório Geral <span class="badge new">NOVO</span></h3>
+              <div class="panel-list">
+                <div class="panel-item"><span class="dot"></span><div class="text">Climatizáveis, Não climatizáveis ou Todos os ambientes, agrupados</div></div>
+                <div class="panel-item"><span class="dot green"></span><div class="text">KPIs: sensores, média geral, maior/menor média, <strong>fora da faixa ideal</strong> e <strong>leituras descartadas</strong></div></div>
+                <div class="panel-item"><span class="dot amber"></span><div class="text">Mín/Máx com tooltip mostrando <strong>dia e hora exatos</strong>; ▸ abre a série hora a hora</div></div>
+                <div class="panel-item"><span class="dot"></span><div class="text">Offset discreto em cada linha; gráfico “Temperatura média por sensor”</div></div>
+              </div>
+            </article>
+
+            <article class="card green">
+              <h3>📤 Exportações iguais à tela <span class="badge new fix">CORRIGIDO</span></h3>
+              <div class="export-row">
+                <div class="export-btn">📄 PDF<br><span style="font-weight:400;color:#888;font-size:10px;">com gráfico</span></div>
+                <div class="export-btn">📊 XLSX<br><span style="font-weight:400;color:#888;font-size:10px;">com KPIs</span></div>
+                <div class="export-btn">📋 CSV<br><span style="font-weight:400;color:#888;font-size:10px;">vírgula decimal</span></div>
+              </div>
+            </article>
+          </div>
+
+          <div class="preview">
+            <div class="preview-head">Relatório do sensor · Relatório Geral <small>dados reais</small></div>
+            <div class="preview-body">
+              <div class="shot" style="--sx:192; --sy:47; --sw:1536; --sh:470;">
+                <img src="assets/temperatura-v0.1.555/06-relatorio-device.jpeg" alt="Relatório do sensor Área externa com dias mais quentes" />
+              </div>
+              <div class="shot" style="--sx:144; --sy:47; --sw:1632; --sh:560;">
+                <img src="assets/temperatura-v0.1.555/07-relatorio-geral.jpeg" alt="Relatório geral de temperatura com KPIs e média por sensor" />
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <div>MYIO Plataforma de Telemetria • v0.1.555 • Outubro 2026</div>
+        <strong>Módulo de Temperatura — Página 4 de 5</strong>
+        <div>myio.com.br</div>
+      </footer>
+    </section>
+
+
+    <!-- ══════════════════════════════════════════════════════════
+         PAGE 5 — Regras + FAQ (formato guia do usuário)
+    ══════════════════════════════════════════════════════════ -->
+    <section class="page" id="regras">
+      <header class="hero">
+        <div class="brand-row">
+          <div class="brand">
+            <h1>MYIO</h1>
+            <p>Plataforma de Telemetria e Monitoramento</p>
+          </div>
+          <div class="version-pill">RELEASE NOTE &nbsp; v0.1.555</div>
+        </div>
+        <div class="meta">
+          <span>Outubro 2026</span>
+          <span>Guia rápido · Regras e FAQ</span>
+        </div>
+      </header>
+
+      <main class="content">
+        <div class="two-col">
+          <div style="display:grid; gap:10px; align-content:start;">
+            <h2 class="doc-h2">📐 Como a temperatura é calculada</h2>
+            <table class="rules-table">
+              <thead><tr><th>Regra</th><th>O que acontece</th></tr></thead>
+              <tbody>
+                <tr><td>Fonte</td><td>API de Ingestion em todo o painel (o valor antigo do ThingsBoard não é mais usado na temperatura).</td></tr>
+                <tr><td>Offset</td><td>O ajuste configurado no sensor (ex.: −2 °C) é somado a <strong>todas</strong> as leituras: card, gráfico, comparação, relatórios e exportações.</td></tr>
+                <tr><td>Faixa válida</td><td>Leituras fora de 15–40 °C (ou da faixa configurada no cliente) são <strong>descartadas</strong>, não arredondadas para o limite.</td></tr>
+                <tr><td>Faixa ideal</td><td>Definida por shopping (ex.: 23–25,5 °C). Base do selo de desvio e da faixa verde dos gráficos.</td></tr>
+                <tr><td>Hora fechada</td><td>Leituras de 15 em 15 min viram a média de cada hora (00:00, 01:00…).</td></tr>
+                <tr><td>Médias gerais</td><td>Só sensores online. Média geral = média das médias dos sensores.</td></tr>
+              </tbody>
+            </table>
+
+            <div class="callout callout--tip">
+              <strong>💡 Dica</strong>
+              Passe o mouse sobre o valor do card para ver de que hora é a média e quando chegou a última leitura.
+            </div>
+            <div class="callout callout--warn">
+              <strong>⚠️ Atenção</strong>
+              Os relatórios usam a Ingestion. Se a busca de temperatura pela API estiver desligada no painel, os cards voltam ao valor do ThingsBoard, que pode estar desatualizado.
+            </div>
+          </div>
+
+          <div style="display:grid; gap:10px; align-content:start;" id="faq">
+            <h2 class="doc-h2">❓ Perguntas frequentes</h2>
+            <div class="faq" style="grid-template-columns:1fr;">
+              <div class="faq-item">
+                <h4>O que significa “Sem leitura recente”?</h4>
+                <p>O sensor não envia leitura válida há mais de 12 h (mas enviou nas últimas 24 h). Depois de 24 h sem leitura, ele aparece como offline.</p>
+              </div>
+              <div class="faq-item">
+                <h4>Por que o card está piscando um ⚠?</h4>
+                <p>A última leitura tem entre 10 e 12 h. O valor ainda é mostrado, mas é um aviso de que o sensor pode estar parando.</p>
+              </div>
+              <div class="faq-item">
+                <h4>O que é o “+5,2 °C” no canto do card?</h4>
+                <p>Quanto a temperatura está acima do teto da faixa ideal (vermelho). Em azul, abaixo do piso; “na faixa”, dentro.</p>
+              </div>
+              <div class="faq-item">
+                <h4>Por que a linha laranja embaixo do card?</h4>
+                <p>O sensor tem offset aplicado. O valor do offset aparece no gráfico, na comparação e nos relatórios.</p>
+              </div>
+              <div class="faq-item">
+                <h4>O relatório dava “Erro 401” depois de um tempo parado.</h4>
+                <p>Corrigido: a sessão é renovada automaticamente ao clicar em Carregar. Relatórios de água e temperatura também abrem mesmo sem ter visitado a aba antes.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="important">
+          <strong>⚡ Importante:</strong> card, gráfico, comparação, relatório do sensor e Relatório Geral agora seguem a mesma regra. Se o mesmo sensor e o mesmo período mostrarem valores diferentes entre essas telas, avise o time MYIO.
+        </div>
+      </main>
+
+      <footer class="footer">
+        <div>MYIO Plataforma de Telemetria • v0.1.555 • Outubro 2026</div>
+        <strong>Módulo de Temperatura — Página 5 de 5</strong>
+        <div>myio.com.br</div>
+      </footer>
+    </section>
+
+  </div>
+</body>
+</html>

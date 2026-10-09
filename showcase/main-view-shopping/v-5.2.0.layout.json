@@ -1,0 +1,96 @@
+{
+  "_comment": "Layout of the ThingsBoard dashboard 'Dashboard - <Shopping> - v.5.2.0', derived from the real TB export (thingsboard_repo.git/dashboard, Ilha Plaza 2026) and aligned with what the v-5.2.0 controllers read today (aliases all3fs / allhidrosdevices / alltempdevices / customer). Only data — every widget's controller.js, template.html, styles.css and settingsSchema.json are fetched from src/thingsboard/main-dashboard-shopping/v-5.2.0/WIDGET/<widget>/ at runtime.",
+  "widgetRoot": "../../src/thingsboard/main-dashboard-shopping/v-5.2.0/WIDGET/",
+  "rootState": "home",
+  "sharedSettings": ["customerTB_ID", "tbBaseUrl"],
+  "aliases": {
+    "customer": { "kind": "customer" },
+    "all3fs": { "kind": "devicesByDomain", "domain": "energy" },
+    "allhidrosdevices": { "kind": "devicesByDomain", "domain": "water" },
+    "alltempdevices": { "kind": "devicesByDomain", "domain": "temperature" },
+    "lojas": { "kind": "devicesByTypes", "deviceTypes": ["3F_MEDIDOR"] },
+    "hidrometrosLojas": { "kind": "devicesByTypes", "deviceTypes": ["HIDROMETRO"] }
+  },
+  "keySets": {
+    "customer": [
+      ["title", "ENTITY_FIELD"],
+      ["minTemperature", "ATTRIBUTE"], ["maxTemperature", "ATTRIBUTE"],
+      ["temperatureClampMin", "ATTRIBUTE"], ["temperatureClampMax", "ATTRIBUTE"],
+      ["tickets_enabled", "ATTRIBUTE"], ["tickets_only_to_myio", "ATTRIBUTE"],
+      ["mapInstantaneousPower", "ATTRIBUTE"]
+    ],
+    "deviceMeta": [
+      ["label", "ENTITY_FIELD"], ["createdTime", "ENTITY_FIELD"],
+      ["deviceType", "ATTRIBUTE"], ["deviceProfile", "ATTRIBUTE"], ["identifier", "ATTRIBUTE"],
+      ["ingestionId", "ATTRIBUTE"], ["slaveId", "ATTRIBUTE"], ["centralId", "ATTRIBUTE"], ["centralName", "ATTRIBUTE"],
+      ["lastActivityTime", "ATTRIBUTE"], ["lastConnectTime", "ATTRIBUTE"], ["lastDisconnectTime", "ATTRIBUTE"],
+      ["log_annotations", "ATTRIBUTE"], ["exclude_groups_totals", "ATTRIBUTE"], ["tickets_items", "ATTRIBUTE"],
+      ["gcdrDeviceId", "ATTRIBUTE"], ["gcdrCustomerId", "ATTRIBUTE"], ["gcdrAssetId", "ATTRIBUTE"], ["gcdrSyncAt", "ATTRIBUTE"],
+      ["connectionStatus", "TIME_SERIES"]
+    ],
+    "energyExtra": [["consumption", "TIME_SERIES"], ["deviceMapInstaneousPower", "ATTRIBUTE"]],
+    "waterExtra": [["pulses", "TIME_SERIES"], ["volume", "TIME_SERIES"], ["water_level", "TIME_SERIES"], ["water_percentage", "TIME_SERIES"], ["litersPerPulse", "ATTRIBUTE"]],
+    "temperatureExtra": [["temperature", "TIME_SERIES"], ["offSetTemperature", "ATTRIBUTE"]],
+    "reportList": [["ingestionId", "ATTRIBUTE"], ["identifier", "ATTRIBUTE"], ["label", "ENTITY_FIELD"]]
+  },
+  "states": {
+    "home": {
+      "columns": 24,
+      "widgets": [
+        {
+          "widget": "MAIN_VIEW", "pos": [0, 0, 24, 10],
+          "datasources": [
+            { "alias": "customer", "keys": ["customer"] },
+            { "alias": "all3fs", "keys": ["deviceMeta", "energyExtra"] },
+            { "alias": "allhidrosdevices", "keys": ["deviceMeta", "waterExtra"] },
+            { "alias": "alltempdevices", "keys": ["deviceMeta", "temperatureExtra"] }
+          ]
+        }
+      ]
+    },
+    "menu": { "columns": 24, "widgets": [{ "widget": "MENU", "pos": [0, 0, 24, 10], "datasources": [{ "alias": "customer", "keys": [[["title", "ENTITY_FIELD"]]] }] }] },
+    "header": {
+      "columns": 24,
+      "widgets": [
+        {
+          "widget": "HEADER", "pos": [0, 0, 24, 1],
+          "datasources": [{ "alias": "lojas", "keys": ["reportList"] }, { "alias": "hidrometrosLojas", "keys": ["reportList"] }]
+        }
+      ]
+    },
+    "footer": { "columns": 24, "widgets": [{ "widget": "FOOTER", "pos": [0, 0, 24, 1], "datasources": [{ "alias": "customer", "keys": [[["title", "ENTITY_FIELD"]]] }] }] },
+    "telemetry_content": {
+      "columns": 25,
+      "widgets": [
+        { "widget": "TELEMETRY", "pos": [0, 0, 6, 12], "settings": { "DOMAIN": "energy", "labelWidget": "Entrada", "waterContext": "auto" }, "datasources": [{ "alias": "customer", "keys": [[["title", "ENTITY_FIELD"]]] }] },
+        { "widget": "TELEMETRY", "pos": [0, 6, 6, 12], "settings": { "DOMAIN": "energy", "labelWidget": "Área Comum", "waterContext": "auto" }, "datasources": [{ "alias": "customer", "keys": [[["title", "ENTITY_FIELD"]]] }] },
+        { "widget": "TELEMETRY", "pos": [0, 12, 6, 12], "settings": { "DOMAIN": "energy", "labelWidget": "Lojas", "waterContext": "auto" }, "datasources": [{ "alias": "customer", "keys": [[["title", "ENTITY_FIELD"]]] }] },
+        { "widget": "TELEMETRY_INFO", "pos": [0, 18, 7, 12], "settings": { "DOMAIN": "energy", "labelWidget": "Informações de Energia", "showDevicesList": false }, "datasources": [{ "alias": "customer", "keys": [[["title", "ENTITY_FIELD"], ["name", "ENTITY_FIELD"]]] }] }
+      ]
+    },
+    "water_content": {
+      "columns": 25,
+      "widgets": [
+        { "widget": "TELEMETRY", "pos": [0, 0, 6, 11], "settings": { "DOMAIN": "water", "labelWidget": "Entrada", "waterContext": "auto" }, "datasources": [{ "alias": "customer", "keys": [[["title", "ENTITY_FIELD"]]] }] },
+        { "widget": "TELEMETRY", "pos": [0, 6, 6, 11], "settings": { "DOMAIN": "water", "labelWidget": "Área Comum", "waterContext": "auto" }, "datasources": [{ "alias": "customer", "keys": [[["title", "ENTITY_FIELD"]]] }] },
+        { "widget": "TELEMETRY", "pos": [0, 12, 6, 11], "settings": { "DOMAIN": "water", "labelWidget": "Lojas", "waterContext": "auto" }, "datasources": [{ "alias": "customer", "keys": [[["title", "ENTITY_FIELD"]]] }] },
+        { "widget": "TELEMETRY_INFO", "pos": [0, 18, 7, 11], "settings": { "DOMAIN": "water", "labelWidget": "Informações de Água", "showDevicesList": false }, "datasources": [{ "alias": "customer", "keys": [[["title", "ENTITY_FIELD"], ["name", "ENTITY_FIELD"]]] }] }
+      ]
+    },
+    "temperature_content": {
+      "columns": 24,
+      "widgets": [
+        { "widget": "TELEMETRY", "pos": [0, 0, 24, 10], "settings": { "DOMAIN": "temperature", "labelWidget": "Devices" }, "datasources": [{ "alias": "alltempdevices", "keys": ["deviceMeta", "temperatureExtra"] }] }
+      ]
+    },
+    "alarm_content": { "columns": 24, "widgets": [{ "widget": "ALARM", "pos": [0, 0, 24, 11], "datasources": [] }] },
+    "integrations": { "columns": 24, "widgets": [] }
+  },
+  "menuLinks": [
+    { "content": "Energia", "enableLink": true, "stateId": "telemetry_content" },
+    { "content": "Água", "enableLink": false, "stateId": "water_content" },
+    { "content": "Temperatura", "enableLink": false, "stateId": "temperature_content" },
+    { "content": "Alarmes", "enableLink": false, "stateId": "alarm_content" },
+    { "content": "Relatórios", "enableLink": false, "stateId": "reports" }
+  ]
+}
