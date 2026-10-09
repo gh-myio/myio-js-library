@@ -104,13 +104,15 @@ export interface StoreItem {
   // When a device is flagged for the report's group, it is excluded from the report so the
   // total reconciles with the dashboard KPIs (which honor it via getValorEfetivo in MAIN_VIEW).
   excludeGroupsTotals?: string | Record<string, unknown> | null;
+  /** Temperatura: `offSetTemperature` do sensor (°C, somado a cada leitura bruta). */
+  temperatureOffset?: number;
 }
 
 export interface OpenAllReportParams {
   customerId: string;
   domain?: 'energy' | 'water' | 'temperature'; // Data domain (default: 'energy')
   group?: string; // RFC-0182: e.g. 'lojas' | 'entrada' | 'area_comum' | 'todos' | 'climatizavel' | 'nao_climatizavel'
-  granularity?: '1d' | '1h'; // API data granularity (default: '1d')
+  granularity?: '1d' | '1h'; // Granularidade inicial do seletor (default: '1h' p/ temperature, '1d' p/ os demais)
   ui?: BaseUiCfg;
   api: BaseApiCfg;
   itemsList?: StoreItem[]; // RFC-0182: Optional — if absent, maps directly from API response
@@ -128,6 +130,14 @@ export interface OpenAllReportParams {
    * pre-A6 report. Present → an additive R$ column + honest DEC-8 footer total.
    */
   money?: AllReportMoneyConfig;
+  /**
+   * Temperatura: leituras (já com offset) fora desta faixa são DESCARTADAS antes das
+   * médias — sensor com defeito manda negativos/absurdos. Default 15–40 °C
+   * (DEFAULT_CLAMP_RANGE, o mesmo do modal de histórico).
+   */
+  temperatureValidRange?: { min: number; max: number } | null;
+  /** Temperatura: faixa ideal do cliente (KPI "Fora da faixa ideal" + faixa no gráfico). */
+  temperatureIdealRange?: { min: number; max: number } | null;
 }
 
 export interface OpenSettingsParams {

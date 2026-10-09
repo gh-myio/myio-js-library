@@ -3007,6 +3007,8 @@ function openGoalsModal() {
       // RFC-0128: carry exclude_groups_totals so the report can drop devices that the
       // dashboard KPIs already exclude (keeps report total == card total).
       excludeGroupsTotals: d.excludeGroupsTotals || null,
+      // Temperatura: offset do sensor — o relatório soma em cada leitura (tabela, KPIs, exports)
+      ...(domain === 'temperature' ? { temperatureOffset: Number(d.offSetTemperature) || 0 } : {}),
     });
 
     if (group === 'todos') {
@@ -3022,18 +3024,52 @@ function openGoalsModal() {
     return (groups[groupKey] || []).map((d) => toItem(d, null));
   }
 
-  function _openGroupReport(domain, group, baseParams) {
+  // Água/temperatura só são carregadas quando a aba do domínio é aberta. Relatório pedido
+  // pelo menu antes disso saía com 0 dispositivos (grupos vazios) → carrega sob demanda.
+  async function _ensureDomainLoaded(domain) {
+    const orch = window.MyIOOrchestrator;
+    if (domain === 'energy' || typeof orch?.hydrateDomain !== 'function') return;
+    if (window.MyIOOrchestratorData?.[domain]?.items?.length) return;
+    const period = orch.getCurrentPeriod?.();
+    if (!period) {
+      LogHelper.warn(`[MENU] ${domain} not loaded and no current period — report may be empty`);
+      return;
+    }
+    try {
+      await orch.hydrateDomain(domain, period);
+    } catch (err) {
+      LogHelper.warn(`[MENU] hydrateDomain(${domain}) failed:`, err?.message || err);
+    }
+  }
+
+  async function _openGroupReport(domain, group, baseParams) {
     const MyIOLib = window.MyIOUtils;
     if (!MyIOLib?.openDashboardPopupAllReport) {
       LogHelper.error('[MENU RFC-0181] openDashboardPopupAllReport not available');
       return;
     }
 
+    await _ensureDomainLoaded(domain);
     const itemsList = _buildItemsList(domain, group);
     LogHelper.log(`[MENU RFC-0181] Opening report domain=${domain} group=${group} items=${itemsList.length}`);
 
+    // Temperatura: faixa de leituras válidas (clamp do cliente; ausente → 15–40 na lib) e
+    // faixa ideal (minTemperature/maxTemperature do cliente)
+    const tempParams = {};
+    if (domain === 'temperature') {
+      const clamp = window.MyIOUtils?.temperatureClampRange;
+      if (clamp && Number.isFinite(Number(clamp.min)) && Number.isFinite(Number(clamp.max))) {
+        tempParams.temperatureValidRange = { min: Number(clamp.min), max: Number(clamp.max) };
+      }
+      const lim = window.MyIOUtils?.temperatureLimits;
+      if (lim && lim.minTemperature != null && lim.maxTemperature != null) {
+        tempParams.temperatureIdealRange = { min: Number(lim.minTemperature), max: Number(lim.maxTemperature) };
+      }
+    }
+
     MyIOLib.openDashboardPopupAllReport({
       ...baseParams,
+      ...tempParams,
       domain,
       group,
       itemsList,

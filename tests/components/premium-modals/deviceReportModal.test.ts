@@ -22,6 +22,23 @@ const baseParams: DeviceReportModalParams = {
   theme: { '--myio-brand-700': '#123456' },
 };
 
+describe('DeviceReportModal — header', () => {
+  it('mostra o nome do device (sutil) com botão copiar, sem customer (já está no footer)', () => {
+    const modal = new DeviceReportModal({ ...baseParams, deviceName: 'Temperatura <Loteria> L2' });
+    const html: string = (modal as any).buildHeaderTitleHTML();
+    expect(html.startsWith('Relatório - SCM123 - Loja Teste')).toBe(true);
+    expect(html).toContain('class="myio-dr-devname"');
+    expect(html).toContain('Temperatura &lt;Loteria&gt; L2'); // escapado (título vai por innerHTML)
+    expect(html).toContain('class="myio-dr-copy" data-copy="Temperatura &lt;Loteria&gt; L2"');
+    expect(html).not.toContain('Shopping Teste');
+  });
+
+  it('sem deviceName: só o título base', () => {
+    const modal = new DeviceReportModal(baseParams);
+    expect((modal as any).buildHeaderTitleHTML()).toBe('Relatório - SCM123 - Loja Teste');
+  });
+});
+
 describe('DeviceReportModal', () => {
   it('defaults granularity to 1d', () => {
     const modal = new DeviceReportModal(baseParams);

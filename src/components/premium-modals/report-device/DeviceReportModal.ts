@@ -68,6 +68,8 @@ interface DailyReading {
 export type DeviceReportModalParams = OpenDeviceReportParams & {
   /** Nome do customer/shopping exibido no footer premium da modal. */
   customerName?: string;
+  /** Nome do device no ThingsBoard (entity name) — header, fonte sutil + botão copiar. */
+  deviceName?: string;
   /** Paleta do dashboard (createMyIOTheme) OU mapa plano de CSS vars (--myio-*). */
   theme?: { cssVars(): Record<string, string> } | Record<string, string>;
 };
@@ -143,13 +145,67 @@ export class DeviceReportModal {
     this.energyFetcher = params.fetcher || createDefaultEnergyFetcher(params, () => this.granularity);
   }
 
+  // Header: "Relatório - <identifier> - <label>" + nome do device (sutil, com copiar).
+  // O customer já aparece no footer premium. Texto escapado — o shell usa innerHTML no título.
+  private buildHeaderTitleHTML(): string {
+    const esc = (s: string) =>
+      s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const base = esc(
+      `Relatório - ${this.params.identifier || 'SEM IDENTIFICADOR'} - ${this.params.label || 'SEM ETIQUETA'}`
+    );
+    const deviceName = String(this.params.deviceName || '').trim();
+
+    const deviceHTML = deviceName
+      ? `<span class="myio-dr-devname" style="margin-left:10px;font-size:0.72em;font-weight:400;opacity:.75;display:inline-flex;align-items:center;gap:4px;vertical-align:middle;">
+           ${esc(deviceName)}
+           <button type="button" class="myio-dr-copy" data-copy="${esc(deviceName)}" title="Copiar nome do dispositivo"
+             aria-label="Copiar nome do dispositivo"
+             style="border:none;background:transparent;color:inherit;cursor:pointer;padding:0 2px;line-height:1;opacity:.9;display:inline-flex;">
+             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+           </button>
+         </span>`
+      : '';
+    return `${base}${deviceHTML}`;
+  }
+
+  private bindCopyDeviceName(): void {
+    const root: HTMLElement | undefined = this.modal?.element;
+    const btn = root?.querySelector<HTMLButtonElement>('.myio-dr-copy');
+    if (!btn) return;
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const text = btn.dataset.copy || '';
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        // Fallback p/ contextos sem Clipboard API (iframe sem permissão)
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+      }
+      const prev = btn.innerHTML;
+      btn.textContent = '✓';
+      btn.title = 'Copiado!';
+      setTimeout(() => {
+        btn.innerHTML = prev;
+        btn.title = 'Copiar nome do dispositivo';
+      }, 1200);
+    });
+  }
+
   public show(): ModalHandle {
     this.modal = createModal({
-      title: `Relatório - ${this.params.identifier || 'SEM IDENTIFICADOR'} - ${this.params.label || 'SEM ETIQUETA'}`,
+      title: this.buildHeaderTitleHTML(),
       width: '80vw',
       height: '90vh',
       theme: this.params.ui?.theme || 'light'
     });
+    this.bindCopyDeviceName();
 
     this.renderContent();
     this.mountFooter();

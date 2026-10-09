@@ -34,6 +34,16 @@ import {
   type MoneyVarianceColumn,
 } from '../../financial-goals/moneyVariance';
 import { injectCoverageStyles } from '../../financial-goals/coverageStyles';
+import { DEFAULT_CLAMP_RANGE } from '../../temperature/utils';
+
+type SeriesPoint = { timestamp: number; value: number };
+
+// Dia civil em America/Sao_Paulo (UTC-3 fixo) — agrega a série horária em diária.
+const SP_OFFSET_MS = 3 * 60 * 60 * 1000;
+const spDayStart = (ts: number): number => {
+  const d = new Date(ts - SP_OFFSET_MS);
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) + SP_OFFSET_MS;
+};
 
 // Domain configuration
 type Domain = 'energy' | 'water' | 'temperature';
@@ -72,6 +82,22 @@ interface StoreReading {
   consumption: number; // e.g., 152.43 - consumption in kWh or m³
   groupLabel?: string; // RFC-0182: present when "todos" mode — triggers section headers
   id?: string; // Data API item id (ingestionId) — needed for per-device series fetch (1h export)
+  // Temperatura: `consumption` = MÉDIA do período (offset aplicado, leituras inválidas fora)
+  noData?: boolean; // nenhuma leitura válida no período → exibe "Sem leitura", fora dos KPIs
+  min?: number; // menor leitura válida (°C)
+  max?: number; // maior leitura válida (°C)
+  readings?: number; // nº de leituras válidas (horárias)
+  discarded?: number; // nº de leituras descartadas por estarem fora da faixa válida
+}
+
+// Estatística por sensor calculada da série horária (offset aplicado, inválidas descartadas)
+interface TemperatureStats {
+  avg: number | null;
+  min: number | null;
+  max: number | null;
+  readings: number;
+  discarded: number;
+  series: SeriesPoint[];
 }
 
 export class AllReportModal {
@@ -100,6 +126,13 @@ export class AllReportModal {
 
   // Granularity: '1d' (daily) | '1h' (hourly)
   private granularity: '1d' | '1h' = '1d';
+
+  // Temperatura: estatísticas por sensor (key = ingestionId) da última carga
+  private temperatureStats = new Map<string, TemperatureStats>();
+  // Linhas expandidas (série do device na granularidade escolhida) — key = row.id
+  private expandedIds = new Set<string>();
+  // Série por device p/ energia/água (expansão) — key = `${granularity}|${id}`, por período
+  private deviceSeriesCache = new Map<string, SeriesPoint[]>();
 
   // Hourly series fetched device-by-device for the 1h CSV export (the /totals endpoint
   // has no hourly granularity). Keyed by StoreReading.id; cache key = period, so a new
@@ -146,6 +179,10 @@ export class AllReportModal {
     const domain = params.domain || 'energy';
     this.domainConfig = DOMAIN_CONFIG[domain];
 
+    // Granularidade inicial: param explícito > temperatura em 1h (todos/climatizável/não
+    // climatizável) > 1d nos demais domínios.
+    this.granularity = params.granularity ?? (domain === 'temperature' ? '1h' : '1d');
+
     // Set debug flag from params (1 = enabled, 0 = disabled)
     this.debugEnabled = params.debug === 1;
 
@@ -187,6 +224,44 @@ export class AllReportModal {
     if (this.debugEnabled) {
       console.log(`[AllReportModal DEBUG] ${message}`, data || '');
     }
+  }
+
+  private get isTemperature(): boolean {
+    return (this.params.domain || 'energy') === 'temperature';
+  }
+
+  // Faixa de leituras válidas (°C, já com offset) — fora dela a leitura é descartada
+  private get temperatureValidRange(): { min: number; max: number } {
+    const r = this.params.temperatureValidRange;
+    return r && Number.isFinite(r.min) && Number.isFinite(r.max) ? r : DEFAULT_CLAMP_RANGE;
+  }
+
+  private get temperatureIdealRange(): { min: number; max: number } | null {
+    const r = this.params.temperatureIdealRange;
+    return r && Number.isFinite(Number(r.min)) && Number.isFinite(Number(r.max))
+      ? { min: Number(r.min), max: Number(r.max) }
+      : null;
+  }
+
+  // offSetTemperature do sensor (vem do itemsList do MENU); 0 quando ausente
+  private temperatureOffsetFor(id: string): number {
+    const item = this.params.itemsList?.find((i) => String(i.id) === String(id));
+    const off = Number(item?.temperatureOffset ?? 0);
+    return Number.isFinite(off) ? off : 0;
+  }
+
+  // Identificador genérico (ex.: todo sensor de temperatura tem identifier "Temperatura")
+  // não identifica nada → a coluna só aparece se algum device tiver um código de verdade.
+  private showIdentifierColumn(rows: StoreReading[] = this.data): boolean {
+    if (!this.isTemperature) return true;
+    return rows.some((r) => {
+      const id = String(r.identifier || '').trim();
+      return !!id && !/^temperatura$/i.test(id) && id !== r.name;
+    });
+  }
+
+  private fmtTemp(v: number | null | undefined): string {
+    return v === null || v === undefined || !Number.isFinite(v) ? '—' : fmtPt(v);
   }
 
   // Helper: normalize identifiers (upper, strip spaces and non-alphanum)
@@ -518,12 +593,16 @@ export class AllReportModal {
           tooltip: {
             enabled: true,
             title: 'Granularidade',
-            text: 'Em <b>Hora</b>, o CSV exportado traz uma linha por dispositivo × hora (busca device a device). A tabela sempre mostra os totais do período.',
+            text: this.isTemperature
+              ? 'A tabela mostra a <b>média do período</b> de cada sensor. Clique em ▸ no sensor para ver a série <b>por hora</b> ou <b>por dia</b>; o CSV segue a mesma granularidade.'
+              : 'A tabela mostra os <b>totais do período</b>. Clique em ▸ no dispositivo para ver a série <b>por hora</b> ou <b>por dia</b>; em Hora, o CSV traz uma linha por dispositivo × hora.',
           },
         },
         onChange: (value) => {
           this.granularity = value;
           this.hourlySeriesCache = null;
+          // Linhas expandidas passam a mostrar a série na nova granularidade
+          if (this.data.length && this.expandedIds.size) this.renderTable();
         },
       });
     }
@@ -611,6 +690,9 @@ export class AllReportModal {
       this.debugLog('📅 Date range selected', { startISO, endISO });
       this.exportPeriod = { startISO, endISO };
       this.hourlySeriesCache = null;
+      this.deviceSeriesCache.clear();
+      this.temperatureStats.clear();
+      this.expandedIds.clear();
 
       if (!startISO || !endISO) {
         this.showError('Selecione um período válido');
@@ -694,6 +776,8 @@ export class AllReportModal {
     }
 
     return filtered.sort((a, b) => {
+      // Sensor sem leitura vai sempre para o fim (não é 0 °C)
+      if (!!a.noData !== !!b.noData) return a.noData ? 1 : -1;
       const aVal = a[this.sortField];
       const bVal = b[this.sortField];
 
@@ -736,6 +820,7 @@ export class AllReportModal {
   // Máximo/Mínimo com nome do device; mínimo só entre devices COM consumo;
   // "Sem Consumo" oculto para temperature (média °C não tem semântica de zero).
   private computeKpis(): Array<{ value: string; label: string; sub?: string }> {
+    if (this.isTemperature) return this.computeTemperatureKpis();
     const totalConsumption = this.calculateTotalConsumption();
     const storeCount = Math.max(1, this.data.length);
     const maxRow = this.data.reduce(
@@ -773,6 +858,55 @@ export class AllReportModal {
     const moneyKpi = this.computeMoneyKpi();
     if (moneyKpi) kpis.push(moneyKpi);
 
+    return kpis;
+  }
+
+  // Temperatura: média é MÉDIA (nunca soma); só sensores com leitura válida entram.
+  private computeTemperatureKpis(): Array<{ value: string; label: string; sub?: string }> {
+    const withData = this.data.filter((r) => !r.noData);
+    const noData = this.data.length - withData.length;
+    const avg = withData.length ? withData.reduce((s, r) => s + r.consumption, 0) / withData.length : null;
+    const maxRow = withData.reduce((b: StoreReading | null, r) => (!b || r.consumption > b.consumption ? r : b), null);
+    const minRow = withData.reduce((b: StoreReading | null, r) => (!b || r.consumption < b.consumption ? r : b), null);
+
+    const kpis: Array<{ value: string; label: string; sub?: string }> = [
+      {
+        value: String(this.data.length),
+        label: 'Sensores',
+        ...(noData ? { sub: `${noData} sem leitura no período` } : {}),
+      },
+      { value: avg === null ? '—' : `${fmtPt(avg)} °C`, label: 'Média geral', sub: 'média das médias dos sensores' },
+      {
+        value: maxRow ? `${fmtPt(maxRow.consumption)} °C` : '—',
+        label: 'Maior média',
+        ...(maxRow?.name ? { sub: maxRow.name } : {}),
+      },
+      {
+        value: minRow ? `${fmtPt(minRow.consumption)} °C` : '—',
+        label: 'Menor média',
+        ...(minRow?.name ? { sub: minRow.name } : {}),
+      },
+    ];
+
+    const ideal = this.temperatureIdealRange;
+    if (ideal) {
+      const out = withData.filter((r) => r.consumption < ideal.min || r.consumption > ideal.max).length;
+      kpis.push({
+        value: String(out),
+        label: 'Fora da faixa ideal',
+        sub: `faixa ${fmtPt(ideal.min)}–${fmtPt(ideal.max)} °C`,
+      });
+    }
+
+    const discarded = this.data.reduce((s, r) => s + (r.discarded || 0), 0);
+    if (discarded > 0) {
+      const v = this.temperatureValidRange;
+      kpis.push({
+        value: String(discarded),
+        label: 'Leituras descartadas',
+        sub: `fora de ${fmtPt(v.min)}–${fmtPt(v.max)} °C`,
+      });
+    }
     return kpis;
   }
 
@@ -817,26 +951,11 @@ export class AllReportModal {
     // Base do percentual: total de TODOS os devices carregados (mesma base dos
     // KPIs do summary), não apenas os visíveis após busca/filtro.
     const grandTotal = this.calculateTotalConsumption();
-    const pct = (v: number) => (grandTotal > 0 ? `${fmtPt((v / grandTotal) * 100)}%` : '—');
-
-    // RFC-0228 A6 — money fragments: '' when the gate is off (byte-identical), an
-    // extra R$ <td>/<th> when a money overlay was provided.
-    const moneyCell = (row: StoreReading): string => this.moneyColumn.bodyCellHTML(row.id);
+    const showId = this.showIdentifierColumn();
 
     const tableRows = isGrouped
       ? this.renderGroupedRows(paginatedData, grandTotal)
-      : paginatedData
-          .map(
-            (row) => `
-          <tr>
-            <td data-label="Identificador" style="font-family: monospace; font-weight: bold; text-transform: uppercase;">${row.identifier}</td>
-            <td data-label="Nome"><strong>${row.name}</strong></td>
-            <td data-label="${this.domainConfig.label}" style="text-align: right; font-weight: bold;">${fmtPt(row.consumption)}</td>
-            ${moneyCell(row)}${this.varianceColumn.bodyCellHTML(row.id)}<td data-label="%" style="text-align: right; color: var(--myio-text-muted);">${pct(row.consumption)}</td>
-          </tr>
-        `
-          )
-          .join('');
+      : paginatedData.map((row) => this.renderRowHTML(row, grandTotal, showId)).join('');
 
     container.innerHTML = `
       <div style="max-height: 500px; overflow-y: auto; border: 1px solid var(--myio-border); border-radius: 6px;">
@@ -857,6 +976,21 @@ export class AllReportModal {
             color: var(--myio-primary, #1565c0);
             margin-left: 8px;
           }
+          .rp-expand {
+            border: none; background: transparent; cursor: pointer; padding: 0 6px 0 0;
+            font-size: 12px; color: var(--myio-text-muted, #6b7280); line-height: 1;
+            transition: transform .15s ease;
+          }
+          .rp-expand[aria-expanded="true"] { transform: rotate(90deg); color: var(--myio-brand-700, #3e1a7d); }
+          .rp-series-row > td { background: var(--myio-bg, #f8fafc); padding: 8px 12px 12px 32px !important; }
+          .rp-series { max-height: 260px; overflow-y: auto; font-size: 12px; }
+          .rp-series table { width: 100%; border-collapse: collapse; }
+          .rp-series th, .rp-series td { padding: 3px 8px; border-bottom: 1px solid var(--myio-border, #e5e7eb); }
+          .rp-series th { text-align: left; font-weight: 600; color: var(--myio-text-muted, #6b7280); position: sticky; top: 0; background: var(--myio-bg, #f8fafc); }
+          .rp-series td.num, .rp-series th.num { text-align: right; font-variant-numeric: tabular-nums; }
+          .rp-muted { color: var(--myio-text-muted, #9ca3af); font-weight: 500; }
+          .rp-temp-above { color: #dc2626; }
+          .rp-temp-below { color: #2563eb; }
           @media (max-width: 768px) {
             .myio-table-mobile { display: block !important; }
             .myio-table-mobile thead,
@@ -872,21 +1006,7 @@ export class AllReportModal {
         </style>
         <table class="myio-table myio-table-mobile" style="table-layout: fixed; width: 100%;">
           <thead style="position: sticky; top: 0; background: var(--myio-bg); z-index: 1;">
-            <tr>
-              <th style="cursor: pointer; width: 22%;" data-sort="identifier">
-                Identificador
-                <span style="margin-left: 4px; opacity: ${this.getSortOpacity('identifier')};">${this.getSortIcon('identifier')}</span>
-              </th>
-              <th style="cursor: pointer; width: 40%;" data-sort="name">
-                Nome
-                <span style="margin-left: 4px; opacity: ${this.getSortOpacity('name')};">${this.getSortIcon('name')}</span>
-              </th>
-              <th style="cursor: pointer; text-align: right; width: 24%;" data-sort="consumption">
-                ${this.domainConfig.label}
-                <span style="margin-left: 4px; opacity: ${this.getSortOpacity('consumption')};">${this.getSortIcon('consumption')}</span>
-              </th>
-              ${this.moneyColumn.headerCellHTML()}${this.varianceColumn.headerCellHTML()}<th style="text-align: right; width: 14%;">%</th>
-            </tr>
+            <tr>${this.renderHeaderCellsHTML(showId)}</tr>
           </thead>
           <tbody>${tableRows}</tbody>
         </table>
@@ -894,7 +1014,191 @@ export class AllReportModal {
     `;
 
     this.setupTableSorting();
+    this.setupRowExpansion(container);
     this.updateParticipationChart();
+  }
+
+  private sortableTh(field: keyof StoreReading, label: string, style: string): string {
+    return `<th style="cursor: pointer; ${style}" data-sort="${field}">
+                ${label}
+                <span style="margin-left: 4px; opacity: ${this.getSortOpacity(field)};">${this.getSortIcon(field)}</span>
+              </th>`;
+  }
+
+  // Colunas: energia/água = [Identificador] Nome | Consumo | (R$) | % ;
+  // temperatura = [Identificador] Nome | Média | Mín | Máx (sem % — participação não se aplica).
+  private renderHeaderCellsHTML(showId: boolean): string {
+    const idTh = showId ? this.sortableTh('identifier', 'Identificador', 'width: 22%;') : '';
+    if (this.isTemperature) {
+      return (
+        idTh +
+        this.sortableTh('name', 'Sensor', `width: ${showId ? 34 : 52}%;`) +
+        this.sortableTh('consumption', 'Média (°C)', 'text-align: right; width: 16%;') +
+        this.sortableTh('min', 'Mín (°C)', 'text-align: right; width: 14%;') +
+        this.sortableTh('max', 'Máx (°C)', 'text-align: right; width: 14%;')
+      );
+    }
+    return (
+      idTh +
+      this.sortableTh('name', 'Nome', `width: ${showId ? 40 : 62}%;`) +
+      this.sortableTh('consumption', this.domainConfig.label, 'text-align: right; width: 24%;') +
+      `${this.moneyColumn.headerCellHTML()}${this.varianceColumn.headerCellHTML()}<th style="text-align: right; width: 14%;">%</th>`
+    );
+  }
+
+  private columnCount(showId: boolean): number {
+    const base = (showId ? 1 : 0) + 1;
+    if (this.isTemperature) return base + 3;
+    return base + 2 + (this.moneyColumn.enabled ? 1 : 0) + (this.varianceColumn.enabled ? 1 : 0);
+  }
+
+  private renderRowHTML(row: StoreReading, grandTotal: number, showId: boolean): string {
+    const expandable = !!row.id;
+    const expanded = expandable && this.expandedIds.has(row.id!);
+    const expandBtn = expandable
+      ? `<button type="button" class="rp-expand" data-expand-id="${row.id}" aria-expanded="${expanded}" title="Ver série por ${this.granularity === '1h' ? 'hora' : 'dia'}">▸</button>`
+      : '';
+    const idTd = showId
+      ? `<td data-label="Identificador" style="font-family: monospace; font-weight: bold; text-transform: uppercase;">${row.identifier}</td>`
+      : '';
+    const nameTd = `<td data-label="Nome">${expandBtn}<strong>${row.name}</strong></td>`;
+
+    let valueTds: string;
+    if (this.isTemperature) {
+      const ideal = this.temperatureIdealRange;
+      const cls =
+        !row.noData && ideal
+          ? row.consumption > ideal.max
+            ? 'rp-temp-above'
+            : row.consumption < ideal.min
+              ? 'rp-temp-below'
+              : ''
+          : '';
+      const avgTd = row.noData
+        ? `<td data-label="Média (°C)" style="text-align: right;" class="rp-muted">Sem leitura</td>`
+        : `<td data-label="Média (°C)" style="text-align: right; font-weight: bold;" class="${cls}">${fmtPt(row.consumption)}</td>`;
+      valueTds =
+        avgTd +
+        `<td data-label="Mín (°C)" style="text-align: right;">${this.fmtTemp(row.noData ? null : row.min)}</td>` +
+        `<td data-label="Máx (°C)" style="text-align: right;">${this.fmtTemp(row.noData ? null : row.max)}</td>`;
+    } else {
+      const pct = grandTotal > 0 ? `${fmtPt((row.consumption / grandTotal) * 100)}%` : '—';
+      valueTds =
+        `<td data-label="${this.domainConfig.label}" style="text-align: right; font-weight: bold;">${fmtPt(row.consumption)}</td>` +
+        // RFC-0228 A6/A7 — money fragments: '' when the gate is off (byte-identical)
+        `${this.moneyColumn.bodyCellHTML(row.id)}${this.varianceColumn.bodyCellHTML(row.id)}` +
+        `<td data-label="%" style="text-align: right; color: var(--myio-text-muted);">${pct}</td>`;
+    }
+
+    const seriesRow = expanded
+      ? `<tr class="rp-series-row" data-series-for="${row.id}"><td colspan="${this.columnCount(showId)}"><div class="rp-series">Carregando série…</div></td></tr>`
+      : '';
+    return `<tr>${idTd}${nameTd}${valueTds}</tr>${seriesRow}`;
+  }
+
+  // ▸ no nome do device: abre/fecha a série (hora ou dia, conforme a granularidade)
+  private setupRowExpansion(container: HTMLElement): void {
+    container.querySelectorAll<HTMLButtonElement>('.rp-expand').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = btn.dataset.expandId;
+        if (!id) return;
+        if (this.expandedIds.has(id)) this.expandedIds.delete(id);
+        else this.expandedIds.add(id);
+        this.renderTable();
+      });
+    });
+    container.querySelectorAll<HTMLElement>('.rp-series-row').forEach((tr) => {
+      const id = tr.dataset.seriesFor;
+      const box = tr.querySelector<HTMLElement>('.rp-series');
+      if (id && box) void this.fillSeries(id, box);
+    });
+  }
+
+  private async fillSeries(id: string, box: HTMLElement): Promise<void> {
+    const row = this.data.find((r) => r.id === id);
+    const gran = this.granularity;
+    try {
+      const points = await this.getDeviceSeries(id, gran);
+      if (!box.isConnected) return;
+      if (!points.length) {
+        box.innerHTML = `<span class="rp-muted">Sem dados ${gran === '1h' ? 'horários' : 'diários'} no período.</span>`;
+        return;
+      }
+      const fmtTs = (ts: number) =>
+        gran === '1h'
+          ? new Date(ts).toLocaleString('pt-BR', {
+              day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+              timeZone: 'America/Sao_Paulo',
+            })
+          : new Date(ts).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+      const valueLabel = this.isTemperature
+        ? gran === '1h' ? 'Temperatura (°C)' : 'Média do dia (°C)'
+        : this.domainConfig.label;
+      box.innerHTML = `
+        <table>
+          <thead><tr><th>${gran === '1h' ? 'Data/Hora' : 'Dia'}</th><th class="num">${valueLabel}</th></tr></thead>
+          <tbody>${points
+            .map((p) => `<tr><td>${fmtTs(p.timestamp)}</td><td class="num">${fmtPt(p.value)}</td></tr>`)
+            .join('')}</tbody>
+        </table>`;
+    } catch (err) {
+      this.debugLog('❌ fillSeries', err);
+      if (box.isConnected) {
+        box.innerHTML = `<span class="rp-muted">Não foi possível carregar a série de ${row?.name || 'dispositivo'}.</span>`;
+      }
+    }
+  }
+
+  // Série do device na granularidade pedida. Temperatura: da série horária já calculada
+  // (offset + descarte), agregada por dia em 1d. Energia/água: endpoint por device.
+  private async getDeviceSeries(id: string, gran: '1h' | '1d'): Promise<SeriesPoint[]> {
+    if (this.isTemperature) {
+      const hourly = this.temperatureStats.get(id)?.series || [];
+      return gran === '1h' ? hourly : this.aggregateDaily(hourly, 'avg');
+    }
+    const key = `${gran}|${id}`;
+    const cached = this.deviceSeriesCache.get(key);
+    if (cached) return cached;
+
+    const startISO = this.exportPeriod?.startISO;
+    const endISO = this.exportPeriod?.endISO;
+    const token = this.params.api.ingestionToken;
+    const baseUrl = this.params.api.dataApiBaseUrl;
+    if (!startISO || !endISO || !token || !baseUrl) throw new Error('API/período indisponível');
+
+    const url = `${baseUrl}/telemetry/devices/${id}/${this.domainConfig.endpoint}?startTime=${encodeURIComponent(startISO)}&endTime=${encodeURIComponent(endISO)}&granularity=${gran}&deep=0`;
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const body = await res.json();
+    const points = this.parseSeries(body);
+    this.deviceSeriesCache.set(key, points);
+    return points;
+  }
+
+  private parseSeries(body: any): SeriesPoint[] {
+    const ent = Array.isArray(body) ? body[0] : body;
+    return ((ent?.consumption || []) as Array<{ timestamp: unknown; value: unknown }>)
+      .map((p) => ({ timestamp: new Date(p?.timestamp as string | number).getTime(), value: Number(p?.value) }))
+      .filter((p) => Number.isFinite(p.timestamp) && Number.isFinite(p.value))
+      .sort((a, b) => a.timestamp - b.timestamp);
+  }
+
+  // Agrega série horária por dia civil (São Paulo): média (temperatura) ou soma (consumo)
+  private aggregateDaily(points: SeriesPoint[], mode: 'avg' | 'sum'): SeriesPoint[] {
+    const byDay = new Map<number, { sum: number; n: number }>();
+    for (const p of points) {
+      const day = spDayStart(p.timestamp);
+      const acc = byDay.get(day) || { sum: 0, n: 0 };
+      acc.sum += p.value;
+      acc.n += 1;
+      byDay.set(day, acc);
+    }
+    return [...byDay.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([day, { sum, n }]) => ({ timestamp: day, value: mode === 'avg' ? sum / n : sum }));
   }
 
   // Resolve the chart palette from the host theme: createMyIOTheme exposes
@@ -915,6 +1219,12 @@ export class AllReportModal {
   private updateParticipationChart(): void {
     const container = document.getElementById('participation-chart-container');
     if (!container) return;
+
+    // Temperatura: "participação" não tem semântica → barras da média por sensor + faixa ideal
+    if (this.isTemperature) {
+      this.renderTemperatureChart(container);
+      return;
+    }
 
     const items = this.getFilteredData().map((row) => ({
       id: row.id || this.generateStoreId(row.identifier),
@@ -946,6 +1256,53 @@ export class AllReportModal {
     this.participationChart.updateData(items);
   }
 
+  // Barras horizontais (HTML puro) da média por sensor, escala comum, faixa ideal sombreada
+  private renderTemperatureChart(container: HTMLElement): void {
+    const rows = this.getFilteredData();
+    if (!rows.length) return;
+    const withData = rows.filter((r) => !r.noData);
+    const ideal = this.temperatureIdealRange;
+
+    const values = withData.length ? withData.map((r) => r.consumption) : [20, 30];
+    const lo = Math.floor(Math.min(...values, ideal ? ideal.min : Infinity) - 1);
+    const hi = Math.ceil(Math.max(...values, ideal ? ideal.max : -Infinity) + 1);
+    const span = Math.max(1, hi - lo);
+    const pos = (v: number) => `${(((v - lo) / span) * 100).toFixed(2)}%`;
+
+    const band = ideal
+      ? `<div style="position:absolute;top:0;bottom:0;left:${pos(ideal.min)};width:calc(${pos(ideal.max)} - ${pos(ideal.min)});background:rgba(34,197,94,.15);border-left:1px dashed #22c55e;border-right:1px dashed #22c55e;"></div>`
+      : '';
+
+    const barColor = (v: number) =>
+      ideal && v > ideal.max ? '#ef4444' : ideal && v < ideal.min ? '#3b82f6' : 'var(--myio-brand-700, #3e1a7d)';
+
+    const lines = rows
+      .map((r) => {
+        const track = r.noData
+          ? `<span class="rp-muted" style="font-size:11px;">Sem leitura</span>`
+          : `<div style="position:relative;height:12px;background:var(--myio-border,#e5e7eb);border-radius:6px;overflow:hidden;">
+               ${band}
+               <div style="position:absolute;top:2px;bottom:2px;left:0;width:${pos(r.consumption)};background:${barColor(r.consumption)};border-radius:4px;opacity:.85;"></div>
+             </div>`;
+        return `
+          <div style="display:grid;grid-template-columns:minmax(0,38%) 1fr 52px;gap:8px;align-items:center;margin-bottom:6px;font-size:12px;">
+            <span title="${r.name}" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.name}</span>
+            ${track}
+            <span style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600;">${r.noData ? '—' : fmtPt(r.consumption)}</span>
+          </div>`;
+      })
+      .join('');
+
+    container.innerHTML = `
+      <div style="border:1px solid var(--myio-border,#e5e7eb);border-radius:10px;padding:12px 14px;max-height:620px;overflow-y:auto;">
+        <div style="font-weight:700;font-size:14px;margin-bottom:2px;">Temperatura média por sensor</div>
+        <div style="font-size:11px;color:var(--myio-text-muted,#6b7280);margin-bottom:10px;">
+          Escala ${fmtPt(lo)}–${fmtPt(hi)} °C${ideal ? ` · <span style="color:#16a34a;">faixa ideal ${fmtPt(ideal.min)}–${fmtPt(ideal.max)} °C</span>` : ''}
+        </div>
+        ${lines}
+      </div>`;
+  }
+
   // RFC-0182: Render rows grouped by groupLabel with section headers (Option B)
   private renderGroupedRows(rows: StoreReading[], grandTotal: number): string {
     // Preserve group order (order of first occurrence)
@@ -961,34 +1318,32 @@ export class AllReportModal {
       byGroup.get(g)!.push(row);
     }
 
-    const pct = (v: number) => (grandTotal > 0 ? `${fmtPt((v / grandTotal) * 100)}%` : '—');
+    const showId = this.showIdentifierColumn();
 
     return groupOrder
       .map((groupLabel) => {
         const items = byGroup.get(groupLabel)!;
-        const groupTotal = items.reduce((s, r) => s + r.consumption, 0);
+
+        // Temperatura: média dos sensores com leitura (nunca soma de médias)
+        let summary: string;
+        if (this.isTemperature) {
+          const withData = items.filter((r) => !r.noData);
+          const avg = withData.length ? withData.reduce((s, r) => s + r.consumption, 0) / withData.length : null;
+          summary = `${items.length} sensores · média ${this.fmtTemp(avg)} °C`;
+        } else {
+          const groupTotal = items.reduce((s, r) => s + r.consumption, 0);
+          summary = `${items.length} dispositivos · ${fmtPt(groupTotal)} ${this.domainConfig.unit}`;
+        }
 
         const header = `
         <tr class="rp-group-header">
-          <td colspan="${4 + (this.moneyColumn.enabled ? 1 : 0) + (this.varianceColumn.enabled ? 1 : 0)}">
+          <td colspan="${this.columnCount(showId)}">
             ${groupLabel}
-            <span class="rp-group-total">${items.length} dispositivos · ${fmtPt(groupTotal)} ${this.domainConfig.unit}</span>
+            <span class="rp-group-total">${summary}</span>
           </td>
         </tr>`;
 
-        const dataRows = items
-          .map(
-            (row) => `
-        <tr>
-          <td data-label="Identificador" style="font-family: monospace; font-weight: bold; text-transform: uppercase;">${row.identifier}</td>
-          <td data-label="Nome"><strong>${row.name}</strong></td>
-          <td data-label="${this.domainConfig.label}" style="text-align: right; font-weight: bold;">${fmtPt(row.consumption)}</td>
-          ${this.moneyColumn.bodyCellHTML(row.id)}${this.varianceColumn.bodyCellHTML(row.id)}<td data-label="%" style="text-align: right; color: var(--myio-text-muted);">${pct(row.consumption)}</td>
-        </tr>`
-          )
-          .join('');
-
-        return header + dataRows;
+        return header + items.map((row) => this.renderRowHTML(row, grandTotal, showId)).join('');
       })
       .join('');
   }
@@ -1134,6 +1489,11 @@ export class AllReportModal {
     // Get all data (not just filtered/paginated) for export
     const sortedData = [...this.data].sort((a, b) => b.consumption - a.consumption);
 
+    if (this.isTemperature) {
+      this.exportTemperatureCSV(sortedData);
+      return;
+    }
+
     if (this.granularity === '1h') {
       await this.exportHourlyCSV(sortedData);
       return;
@@ -1148,6 +1508,49 @@ export class AllReportModal {
 
     const csvContent = toCsv(csvData);
     this.downloadCSV(csvContent, `relatorio-geral-lojas-${new Date().toISOString().split('T')[0]}.csv`);
+  }
+
+  // Temperatura: valores já com offset e sem leituras inválidas (mesma base da tabela).
+  // 1d → uma linha por sensor por DIA; 1h → uma linha por sensor por HORA.
+  private exportTemperatureCSV(rows: StoreReading[]): void {
+    const showId = this.showIdentifierColumn(rows);
+    const idCol = (r: StoreReading) => (showId ? [r.identifier] : []);
+    const idHead = showId ? ['Identificador'] : [];
+    const n2 = (v: number | null | undefined) => (v === null || v === undefined || !Number.isFinite(v) ? '' : v.toFixed(2));
+    const date = new Date().toISOString().split('T')[0];
+
+    // Resumo do período por sensor
+    const summary: string[][] = [
+      [...idHead, 'Sensor', 'Média (°C)', 'Mín (°C)', 'Máx (°C)', 'Leituras', 'Leituras descartadas'],
+      ...rows.map((r) => [
+        ...idCol(r),
+        r.name,
+        r.noData ? 'Sem leitura' : n2(r.consumption),
+        r.noData ? '' : n2(r.min),
+        r.noData ? '' : n2(r.max),
+        String(r.readings ?? ''),
+        String(r.discarded ?? ''),
+      ]),
+    ];
+
+    const gran = this.granularity;
+    const series: string[][] = [[...idHead, 'Sensor', gran === '1h' ? 'Data/Hora' : 'Dia', 'Temperatura (°C)']];
+    const fmtTs = (ts: number) =>
+      gran === '1h'
+        ? new Date(ts).toLocaleString('pt-BR', {
+            day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+            timeZone: 'America/Sao_Paulo',
+          })
+        : new Date(ts).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+    for (const r of rows) {
+      const hourly = (r.id && this.temperatureStats.get(r.id)?.series) || [];
+      const pts = gran === '1h' ? hourly : this.aggregateDaily(hourly, 'avg');
+      for (const p of pts) series.push([...idCol(r), r.name, fmtTs(p.timestamp), p.value.toFixed(2)]);
+    }
+
+    // Um arquivo: resumo + linha em branco + série (Excel abre os dois blocos)
+    const csvContent = toCsv([...summary, [], ...series]);
+    this.downloadCSV(csvContent, `relatorio-temperatura-${gran}-${date}.csv`);
   }
 
   // 1h CSV: one row per device × hour. The series comes from per-device requests
@@ -1263,15 +1666,29 @@ export class AllReportModal {
   // Maps the report rows to the TelemetryDevice shape consumed by the shared
   // TELEMETRY grid exporters (only labelOrName/name/deviceIdentifier/val/perc are read).
   private buildExportDevices(): TelemetryDevice[] {
-    const sorted = [...this.data].sort((a, b) => b.consumption - a.consumption);
+    const sorted = [...this.data].sort((a, b) =>
+      !!a.noData !== !!b.noData ? (a.noData ? 1 : -1) : b.consumption - a.consumption
+    );
     const total = sorted.reduce((s, r) => s + (r.consumption || 0), 0);
     return sorted.map((r) => ({
       labelOrName: r.name,
       name: r.name,
       deviceIdentifier: r.identifier,
-      val: r.consumption,
-      perc: total > 0 ? (r.consumption / total) * 100 : 0,
+      // Temperatura: média do sensor (sem leitura → "—"); sem % de participação
+      val: this.isTemperature && r.noData ? null : r.consumption,
+      perc: this.isTemperature ? undefined : total > 0 ? (r.consumption / total) * 100 : 0,
     })) as unknown as TelemetryDevice[];
+  }
+
+  // Colunas do PDF/XLS: temperatura = Sensor | Temperatura média (sem %, Identificador só se útil)
+  private exportColumns(): { valueLabel?: string; hidePerc?: boolean; hideIdentifier?: boolean; nameLabel?: string } | null {
+    if (!this.isTemperature) return null;
+    return {
+      nameLabel: 'Sensor',
+      valueLabel: 'Temperatura média (°C)',
+      hidePerc: true,
+      hideIdentifier: !this.showIdentifierColumn(),
+    };
   }
 
   // Accent hex da paleta do dashboard (tema efetivo) para o PDF/XLS — cai no
@@ -1308,6 +1725,7 @@ export class AllReportModal {
       {
         accentColor: this.resolveAccentHex(),
         kpis: this.computeKpis(),
+        columns: this.exportColumns(),
         chartImage: chartPng
           ? { ...chartPng, title: 'Participação por Dispositivo' }
           : null,
@@ -1324,7 +1742,7 @@ export class AllReportModal {
       this.domainConfig.unit,
       this.exportPeriod,
       null,
-      { accentColor: this.resolveAccentHex() },
+      { accentColor: this.resolveAccentHex(), columns: this.exportColumns() },
     );
   }
 
@@ -1406,38 +1824,68 @@ export class AllReportModal {
     baseUrl: string
   ): Promise<void> {
     const rows: any[] = Array.isArray(data?.data) ? data.data : [];
-    const tempRows = rows.filter((d) => String(d?.deviceType || '').toLowerCase() === 'temperature');
+    let tempRows = rows.filter((d) => String(d?.deviceType || '').toLowerCase() === 'temperature');
+    // Só os sensores do relatório (itemsList) — evita N requests de sensores de outros grupos
+    if (this.params.itemsList) {
+      const ids = new Set(this.params.itemsList.map((i) => String(i.id)));
+      tempRows = tempRows.filter((d) => ids.has(String(d?.id)));
+    }
     if (!tempRows.length) return;
 
-    const gran = this.granularity === '1h' ? '1h' : '1d';
+    // Sempre a série HORÁRIA: base da média, do mín/máx, da expansão (1h ou 1d agregado) e do CSV
     const startTime = encodeURIComponent(startISO);
     const endTime = encodeURIComponent(endISO);
+    const valid = this.temperatureValidRange;
     const BATCH = 6;
 
     for (let i = 0; i < tempRows.length; i += BATCH) {
       await Promise.all(
         tempRows.slice(i, i + BATCH).map(async (dev) => {
+          const id = String(dev.id);
+          const offset = this.temperatureOffsetFor(id);
           try {
-            const url = `${baseUrl}/telemetry/devices/${dev.id}/temperature?startTime=${startTime}&endTime=${endTime}&granularity=${gran}&deep=0`;
+            const url = `${baseUrl}/telemetry/devices/${id}/temperature?startTime=${startTime}&endTime=${endTime}&granularity=1h&deep=0`;
             const res = await fetch(url, {
               headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
             });
-            if (!res.ok) return;
-            const body = await res.json();
-            const ent = Array.isArray(body) ? body[0] : body;
-            const values = ((ent?.consumption || []) as Array<{ value: unknown }>)
-              .map((p) => Number(p?.value))
-              .filter((v) => Number.isFinite(v));
-            if (values.length) {
-              dev.total_value = values.reduce((s, v) => s + v, 0) / values.length;
-            }
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const stats = this.computeTemperatureStats(this.parseSeries(await res.json()), offset, valid);
+            this.temperatureStats.set(id, stats);
+            dev.total_value = stats.avg; // null = nenhuma leitura válida no período
           } catch {
-            /* mantém o 0 original para este sensor */
+            // Série indisponível: média da rota /totals + offset (sem descarte de inválidas)
+            const avg = dev.total_value === null || dev.total_value === undefined ? NaN : Number(dev.total_value);
+            dev.total_value = Number.isFinite(avg) ? avg + offset : null;
           }
         })
       );
     }
     this.debugLog(`[AllReportModal] ED-996: temperaturas médias aplicadas a ${tempRows.length} sensores`);
+  }
+
+  // Offset somado a cada leitura; leituras fora da faixa válida são descartadas (contadas)
+  private computeTemperatureStats(
+    raw: SeriesPoint[],
+    offset: number,
+    valid: { min: number; max: number }
+  ): TemperatureStats {
+    const series: SeriesPoint[] = [];
+    let discarded = 0;
+    for (const p of raw) {
+      const v = p.value + offset;
+      if (v < valid.min || v > valid.max) discarded++;
+      else series.push({ timestamp: p.timestamp, value: v });
+    }
+    if (!series.length) return { avg: null, min: null, max: null, readings: 0, discarded, series };
+    let sum = 0;
+    let min = Infinity;
+    let max = -Infinity;
+    for (const p of series) {
+      sum += p.value;
+      if (p.value < min) min = p.value;
+      if (p.value > max) max = p.value;
+    }
+    return { avg: sum / series.length, min, max, readings: series.length, discarded, series };
   }
 
   // Re-map the cached API response under the current exclusion flag and refresh the UI.
@@ -1565,12 +2013,17 @@ export class AllReportModal {
     //     An explicitly provided empty itemsList means the group has no devices → return [].
     if (!this.params.itemsList) {
       this.debugLog('📋 No itemsList provided — mapping directly from API array');
-      return apiArray.map((item) => ({
-        identifier: item.assetName || this.resolveStoreIdentifierFromApi(item) || item.id || '',
-        name: item.name || item.assetName || item.id || '',
-        consumption: this.pickConsumption(item),
-        ...(item.id ? { id: String(item.id) } : {}),
-      }));
+      return apiArray.map((item) =>
+        this.decorateTemperatureRow(
+          {
+            identifier: item.assetName || this.resolveStoreIdentifierFromApi(item) || item.id || '',
+            name: item.name || item.assetName || item.id || '',
+            consumption: this.pickConsumption(item),
+            ...(item.id ? { id: String(item.id) } : {}),
+          },
+          item
+        )
+      );
     }
 
     // 2b) API-driven filter: keep only API items whose id matches an orchestrator ingestionId.
@@ -1603,15 +2056,18 @@ export class AllReportModal {
 
       const consumption = Math.round(this.pickConsumption(apiItem) * 100) / 100;
 
-      const result: StoreReading = {
-        identifier: meta?.identifier || apiItem.name || apiId,
-        name:       meta?.label      || apiItem.name || apiId,
-        consumption,
-        id: apiId,
-        ...(meta?.groupLabel ? { groupLabel: meta.groupLabel } : {}),
-      };
+      const result: StoreReading = this.decorateTemperatureRow(
+        {
+          identifier: meta?.identifier || apiItem.name || apiId,
+          name:       meta?.label      || apiItem.name || apiId,
+          consumption,
+          id: apiId,
+          ...(meta?.groupLabel ? { groupLabel: meta.groupLabel } : {}),
+        },
+        apiItem
+      );
 
-      totalMappedConsumption += consumption;
+      totalMappedConsumption += result.consumption;
       rows.push(result);
     }
 
@@ -1622,6 +2078,22 @@ export class AllReportModal {
     });
 
     return rows;
+  }
+
+  // Temperatura: média null/NaN → "Sem leitura" (nunca 0 °C); anexa mín/máx/contagens
+  private decorateTemperatureRow(row: StoreReading, apiItem: any): StoreReading {
+    if (!this.isTemperature) return row;
+    const avg = apiItem?.total_value;
+    const hasAvg = avg !== null && avg !== undefined && Number.isFinite(Number(avg));
+    const stats = row.id ? this.temperatureStats.get(row.id) : undefined;
+    return {
+      ...row,
+      consumption: hasAvg ? Math.round(Number(avg) * 100) / 100 : 0,
+      noData: !hasAvg,
+      ...(stats && stats.min !== null ? { min: Math.round(stats.min * 100) / 100 } : {}),
+      ...(stats && stats.max !== null ? { max: Math.round(stats.max * 100) / 100 } : {}),
+      ...(stats ? { readings: stats.readings, discarded: stats.discarded } : {}),
+    };
   }
 
   private parseConsumptionValue(item: any): number {

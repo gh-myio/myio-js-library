@@ -30,6 +30,19 @@ const LogHelper = window.MyIOUtils?.LogHelper || {
   error: (...args) => console.error('[TELEMETRY]', ...args),
 };
 
+// Token TB válido no momento da chamada (MAIN_VIEW renova se vencido; senão localStorage).
+// Evita 401 em ações disparadas depois do dashboard ficar ocioso além da validade do JWT.
+async function getTbToken() {
+  try {
+    if (typeof window.MyIOUtils?.getFreshTbToken === 'function') {
+      return await window.MyIOUtils.getFreshTbToken();
+    }
+  } catch {
+    /* fallback abaixo */
+  }
+  return localStorage.getItem('jwt_token');
+}
+
 // ===== INFOTOOLTIP FROM LIBRARY (RFC-0105) =====
 /**
  * Get InfoTooltip from the library
@@ -1447,7 +1460,7 @@ function extractLimitsFromJSON(powerLimitsJSON, deviceType, telemetryType = 'con
 let __deviceProfileSyncComplete = false;
 
 async function fetchDeviceProfiles() {
-  const token = localStorage.getItem('jwt_token');
+  const token = await getTbToken();
   if (!token) throw new Error('[RFC-0071] JWT token not found');
 
   const url = '/api/deviceProfile/names?activeOnly=true';
@@ -1491,7 +1504,7 @@ async function fetchDeviceProfiles() {
  * @returns {Promise<Object>}
  */
 async function fetchDeviceDetails(deviceId) {
-  const token = localStorage.getItem('jwt_token');
+  const token = await getTbToken();
   if (!token) throw new Error('[RFC-0071] JWT token not found');
 
   const url = `/api/device/${deviceId}`;
@@ -1525,7 +1538,7 @@ async function addDeviceProfileAttribute(deviceId, deviceProfile) {
       throw new Error('deviceProfile is required');
     }
 
-    const token = localStorage.getItem('jwt_token');
+    const token = await getTbToken();
     if (!token) throw new Error('jwt_token not found in localStorage');
 
     const url = `/api/plugins/telemetry/DEVICE/${deviceId}/attributes/SERVER_SCOPE`;
@@ -2952,7 +2965,7 @@ function renderList(visible) {
       showTempRangeTooltip: false,
 
       handleActionDashboard: async () => {
-        const jwtToken = localStorage.getItem('jwt_token');
+        const jwtToken = await getTbToken();
         const MyIOToast = window.MyIOUtils?.MyIOToast;
 
         if (!jwtToken) {
@@ -3320,7 +3333,7 @@ function renderList(visible) {
           if (isTermostatoDevice || WIDGET_DOMAIN === 'temperature') {
             LogHelper.log('[TELEMETRY v5] Temperature report - using ThingsBoard API');
 
-            const jwtToken = localStorage.getItem('jwt_token');
+            const jwtToken = await getTbToken();
             if (!jwtToken) {
               throw new Error('No JWT token available');
             }
@@ -3381,9 +3394,10 @@ function renderList(visible) {
                 `&interval=86400000` + // 24 hours in ms (daily aggregation)
                 `&agg=AVG`;
 
+              // Token pedido no "Carregar" (a modal pode ficar aberta além da validade do JWT)
               const response = await fetch(url, {
                 headers: {
-                  'X-Authorization': `Bearer ${jwtToken}`,
+                  'X-Authorization': `Bearer ${await getTbToken()}`,
                   'Content-Type': 'application/json',
                 },
               });
@@ -3455,6 +3469,7 @@ function renderList(visible) {
               deviceId: tbId,
               identifier: it.identifier,
               label: it.label,
+              deviceName: it.entityName || '', // nome do device no TB — header (sutil + copiar)
               domain: 'temperature',
               // Paleta do dashboard (createMyIOTheme, exposta pela MAIN em MyIOUtils.theme)
               theme: window.MyIOUtils?.theme || undefined,
@@ -3483,6 +3498,7 @@ function renderList(visible) {
             ingestionId: it.ingestionId, // sempre ingestionId
             identifier: it.identifier,
             label: it.label,
+            deviceName: it.entityName || '', // nome do device no TB — header (sutil + copiar)
             domain: WIDGET_DOMAIN, // 'energy', 'water', or 'temperature'
             // Paleta do dashboard (createMyIOTheme, exposta pela MAIN em MyIOUtils.theme)
             theme: window.MyIOUtils?.theme || undefined,
@@ -3531,7 +3547,7 @@ function renderList(visible) {
           return;
         }
 
-        const jwt = localStorage.getItem('jwt_token');
+        const jwt = await getTbToken();
 
         try {
           // RFC-0080 + RFC-0091: Get customerId from MAIN widget via window.MyIOUtils
@@ -4535,7 +4551,7 @@ const _GCDR_DEVICE_MAP_HEADER =
  * Returns { gcdrCustomerId, gcdrApiKey }.
  */
 async function _fetchGcdrCredentials() {
-  const tbToken = localStorage.getItem('jwt_token');
+  const tbToken = await getTbToken();
   const customerId = window.MyIOUtils?.customerTB_ID;
   if (!tbToken || !customerId) throw new Error('JWT ou customerTB_ID não disponíveis.');
   const url = `/api/plugins/telemetry/CUSTOMER/${customerId}/values/attributes/SERVER_SCOPE?keys=integration_setup`;

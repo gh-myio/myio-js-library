@@ -83,6 +83,71 @@ function toSaoPauloIso(ms) {
 
 window.MyIOUtils = window.MyIOUtils || {};
 
+// ── Token ThingsBoard sempre válido ─────────────────────────────────────────────
+// Os widgets fazem fetch() direto com localStorage.jwt_token. O TB só renova esse
+// token quando o PRÓPRIO Angular faz uma requisição — com o dashboard parado além da
+// validade do JWT (~2h30), toda chamada direta passava a dar 401 ("ThingsBoard API
+// error: 401" no relatório). getFreshTbToken renova via POST /api/auth/token com o
+// refresh_token e grava nas MESMAS chaves do TB (o app TB lê o token de lá).
+let _tbTokenRefreshPromise = null;
+
+function _jwtExpMs(token) {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    return payload && payload.exp ? payload.exp * 1000 : 0;
+  } catch {
+    return 0;
+  }
+}
+
+window.MyIOUtils.getFreshTbToken = async function getFreshTbToken(minValidityMs = 60 * 1000) {
+  const current = localStorage.getItem('jwt_token');
+  if (current && _jwtExpMs(current) - Date.now() > minValidityMs) return current;
+
+  const refreshToken = localStorage.getItem('refresh_token');
+  if (!refreshToken) return current;
+
+  // Single-flight: vários widgets pedindo ao mesmo tempo → uma renovação só
+  if (!_tbTokenRefreshPromise) {
+    _tbTokenRefreshPromise = (async () => {
+      const res = await fetch('/api/auth/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+      });
+      if (!res.ok) throw new Error(`TB token refresh HTTP ${res.status}`);
+      const data = await res.json();
+      if (!data || !data.token) throw new Error('TB token refresh: resposta sem token');
+      localStorage.setItem('jwt_token', data.token);
+      const exp = _jwtExpMs(data.token);
+      if (exp) localStorage.setItem('jwt_token_expiration', String(exp));
+      if (data.refreshToken) {
+        localStorage.setItem('refresh_token', data.refreshToken);
+        const rexp = _jwtExpMs(data.refreshToken);
+        if (rexp) localStorage.setItem('refresh_token_expiration', String(rexp));
+      }
+      return data.token;
+    })().finally(() => {
+      _tbTokenRefreshPromise = null;
+    });
+  }
+
+  try {
+    return await _tbTokenRefreshPromise;
+  } catch (err) {
+    LogHelper.warn('[MAIN_VIEW] TB token refresh failed:', err && err.message);
+    return current;
+  }
+};
+
+// Keep-alive: a cada 5 min, renova se faltar < 10 min — mantém válido o jwt_token que
+// TODOS os widgets (e as modais da lib que recebem o token) leem do localStorage.
+if (!window.__myioTbTokenKeepAlive) {
+  window.__myioTbTokenKeepAlive = setInterval(() => {
+    window.MyIOUtils.getFreshTbToken(10 * 60 * 1000);
+  }, 5 * 60 * 1000);
+}
+
 // RFC-0233: per-user feature visibility resolver (`restrict_view`). Reads
 // the tree detectSuperAdmin() parses from the USER SERVER_SCOPE
 // `restrict_view` attribute into window.MyIOUtils.featureVisibility. An
@@ -2873,6 +2938,11 @@ Object.assign(window.MyIOUtils, {
   };
 
   self.onDestroy = function () {
+    // Para o keep-alive do token TB (é recriado no próximo load do MAIN_VIEW)
+    if (window.__myioTbTokenKeepAlive) {
+      clearInterval(window.__myioTbTokenKeepAlive);
+      window.__myioTbTokenKeepAlive = null;
+    }
     // Limpa event listeners se necessário
     if (typeof window !== 'undefined') {
       // Remove custom event listeners se foram adicionados

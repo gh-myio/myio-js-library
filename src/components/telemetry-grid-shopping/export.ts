@@ -34,6 +34,10 @@ export interface GridColumnsOptions {
   nameLabel?: string;
   /** Omite a coluna Identificador (redundante em relatórios single-device). */
   hideIdentifier?: boolean;
+  /** Rótulo da coluna de valor (default "Consumo (<unit>)"; ex.: 'Temperatura média (°C)'). */
+  valueLabel?: string;
+  /** Omite a coluna % (participação não tem semântica para temperatura). */
+  hidePerc?: boolean;
 }
 
 function makeCols(unit: string, colOpts?: GridColumnsOptions | null): Col[] {
@@ -41,10 +45,13 @@ function makeCols(unit: string, colOpts?: GridColumnsOptions | null): Col[] {
     { key: 'idx',          label: '#',                                    pdfW: 10  },
     { key: 'nome',         label: colOpts?.nameLabel || 'Nome',           pdfW: 100 },
     { key: 'identificador',label: 'Identificador',                        pdfW: 60  },
-    { key: 'consumo',      label: unit ? `Consumo (${unit})` : 'Consumo', pdfW: 50  },
+    { key: 'consumo',      label: colOpts?.valueLabel || (unit ? `Consumo (${unit})` : 'Consumo'), pdfW: 50  },
     { key: 'perc',         label: '%',                                    pdfW: 20  },
   ];
-  return colOpts?.hideIdentifier ? cols.filter((c) => c.key !== 'identificador') : cols;
+  return cols.filter(
+    (c) =>
+      !(colOpts?.hideIdentifier && c.key === 'identificador') && !(colOpts?.hidePerc && c.key === 'perc'),
+  );
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
