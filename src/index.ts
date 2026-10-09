@@ -358,6 +358,20 @@ export {
   type MyIOAuthInstance,
 } from './services/ingestion/buildMyioIngestionAuth';
 export {
+  fetchCustomerSummary,
+  summaryDeviceToTotalsRow,
+  summaryLastReadingTs,
+  summaryLookbackFromIso,
+  latestHourlyTemperature,
+  CustomerSummaryError,
+  type SummaryReadingType,
+  type SummaryDevice,
+  type SummaryPeriod,
+  type CustomerSummaryResult,
+  type FetchCustomerSummaryOptions,
+  type LatestHourlyTemperature,
+} from './services/ingestion/customerSummary';
+export {
   fetchThingsboardCustomerServerScopeAttrs,
   fetchThingsboardCustomerAttrsFromStorage,
   extractMyIOCredentials,

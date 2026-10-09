@@ -2925,6 +2925,8 @@ function renderList(visible) {
       averageTemperature: avgTemperature,
       temperatureDeviceCount: tempDeviceCount,
       log_annotations: it.log_annotations || null,
+      // Card desenhado antes da telemetria chegar (MAIN_VIEW): spinner no valor, status neutro
+      dataLoading: !!it.dataLoading,
     };
 
     // DEBUG: Investigate why "Burguer king" card is rendering as offline
@@ -6547,6 +6549,7 @@ self.onInit = async function () {
                 gcdrCustomerId: item.gcdrCustomerId || null,
                 gcdrAssetId: item.gcdrAssetId || null,
                 gcdrSyncAt: item.gcdrSyncAt || null,
+                dataLoading: !!item._loading,
               };
             });
 
@@ -6728,6 +6731,8 @@ self.onInit = async function () {
         gcdrCustomerId: item.gcdrCustomerId || null,
         gcdrAssetId: item.gcdrAssetId || null,
         gcdrSyncAt: item.gcdrSyncAt || null,
+        // Telemetria ainda chegando (cards desenhados antes do /summary)
+        dataLoading: !!item._loading,
       };
     });
 
