@@ -23,6 +23,8 @@ import { resolvePercentDecimals } from '../percentDecimals';
 export interface ColumnSummaryDevice {
   name: string;
   value: number;
+  /** Offline / sem leitura — fora de média, mín, máx e listas (modo 'average'). */
+  offline?: boolean;
 }
 
 export interface ColumnSummaryData {
@@ -38,6 +40,14 @@ export interface ColumnSummaryData {
   formatValue?: (value: number) => string;
   /** Decimal places for percentages — overrides window.MyIOUtils.percentDecimals (default 2). */
   percentDecimals?: number;
+  /**
+   * 'consumption' (default): total, média, pizza e % de participação.
+   * 'average' (temperatura): média/mín/máx só dos online, sem total/pizza/%,
+   * contagem "N online · M offline" e seção de offline/sem leitura.
+   */
+  mode?: 'consumption' | 'average';
+  /** Rótulo da grandeza no modo 'average' (default 'Temperatura'). */
+  measureLabel?: string;
 }
 
 // Slice palette for the pie chart — 14 distinct hues, cycled.
@@ -346,8 +356,94 @@ function buildLegend(total: number): string {
   return `<div class="myio-col-summary__legend">${rows}</div>`;
 }
 
+// Modo 'average' (temperatura): média/mín/máx só dos online; sem total, pizza ou %.
+function buildAverageInner(): string {
+  if (!_state) return '';
+  const { data, fmt } = _state;
+  const measure = data.measureLabel || 'Temperatura';
+  const all = data.devices.map((d, idx) => ({ d, idx }));
+  const online = all.filter((v) => !v.d.offline && Number.isFinite(Number(v.d.value)));
+  const offline = all.filter((v) => !online.includes(v));
+  const values = online.map((v) => Number(v.d.value));
+  const avg = values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
+  const desc = online.slice().sort((a, b) => Number(b.d.value) - Number(a.d.value));
+  const maxV = desc[0];
+  const minV = desc[desc.length - 1];
+  const dash = '—';
+
+  const periodRow = data.periodLabel
+    ? `<div class="myio-col-summary__kpi">
+         <span class="myio-col-summary__kpi-label">Período</span>
+         <span class="myio-col-summary__kpi-value">${esc(data.periodLabel)}</span>
+       </div>`
+    : '';
+  const note = 'Média, mínima e máxima consideram apenas dispositivos online (com leitura).';
+  const kpis = `<div class="myio-col-summary__kpis">
+      ${periodRow}
+      <div class="myio-col-summary__kpi">
+        <span class="myio-col-summary__kpi-label">Dispositivos
+          <span class="myio-col-summary__info" title="${esc(note)}" aria-label="${esc(note)}"
+            style="display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;margin-left:4px;border-radius:50%;background:#3e1a7d;color:#fff;font-size:9px;font-weight:700;font-style:italic;font-family:Georgia,serif;cursor:help;vertical-align:middle;">i</span>
+        </span>
+        <span class="myio-col-summary__kpi-value">${online.length} online · ${offline.length} offline</span>
+      </div>
+      <div class="myio-col-summary__kpi">
+        <span class="myio-col-summary__kpi-label">${esc(measure)} média</span>
+        <span class="myio-col-summary__kpi-value myio-col-summary__kpi-value--accent">${avg === null ? dash : esc(fmt(avg))}</span>
+      </div>
+      <div class="myio-col-summary__kpi">
+        <span class="myio-col-summary__kpi-label">Mínima · Máxima</span>
+        <span class="myio-col-summary__kpi-value">${minV ? esc(fmt(Number(minV.d.value))) : dash} · ${maxV ? esc(fmt(Number(maxV.d.value))) : dash}</span>
+      </div>
+    </div>`;
+
+  if (!data.devices.length) {
+    return `${kpis}<div class="myio-col-summary__empty">Nenhum dispositivo.</div>`;
+  }
+
+  const near3 =
+    avg === null
+      ? []
+      : online
+          .slice()
+          .sort((a, b) => Math.abs(Number(a.d.value) - avg) - Math.abs(Number(b.d.value) - avg))
+          .slice(0, 3);
+  const row = (v: { d: ColumnSummaryDevice; idx: number }) => `
+    <div class="myio-col-summary__row">
+      <span class="myio-col-summary__name" title="${esc(v.d.name)}">${esc(v.d.name)}</span>
+      <span class="myio-col-summary__val">${esc(fmt(Number(v.d.value) || 0))}</span>
+    </div>`;
+  const offRow = (v: { d: ColumnSummaryDevice; idx: number }) => `
+    <div class="myio-col-summary__row">
+      <span class="myio-col-summary__name" title="${esc(v.d.name)}">${esc(v.d.name)}</span>
+      <span class="myio-col-summary__val" style="color:#94a3b8;">sem leitura</span>
+    </div>`;
+  const group = (label: string, list: { d: ColumnSummaryDevice; idx: number }[], r = row) =>
+    list.length
+      ? `<div class="myio-col-summary__group">
+           <span class="myio-col-summary__group-label">${label}</span>
+           ${list.map(r).join('')}
+         </div>`
+      : '';
+
+  return `${kpis}
+    <div class="myio-col-summary__body">
+      <div class="myio-col-summary__lists">
+        ${group('▲ 3 maiores', desc.slice(0, 3))}
+        ${group('▼ 3 menores', desc.slice(-3).reverse())}
+        ${group('● 3 na média', near3)}
+        ${group(`⚪ Offline / sem leitura (${offline.length})`, offline, offRow)}
+      </div>
+    </div>
+    <div class="myio-col-summary__footer">
+      <span class="myio-col-summary__footer-label">${esc(measure)} média · ${online.length} online</span>
+      <span class="myio-col-summary__footer-value">${avg === null ? dash : esc(fmt(avg))}</span>
+    </div>`;
+}
+
 function buildInner(): string {
   if (!_state) return '';
+  if (_state.data.mode === 'average') return buildAverageInner();
   const { data, fmt, pd } = _state;
   const visible = visibleDevices();
   const count = visible.length;

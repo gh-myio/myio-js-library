@@ -3150,6 +3150,10 @@ function renderList(visible) {
               temperatureStatus: tempStatus,
               temperatureOffset,
               theme: 'light', // modal de temperatura abre SEMPRE em light (toggle continua disponível)
+              // Padrão dos relatórios: header c/ nome do device (copiar) + footer premium c/ customer
+              deviceName: it.entityName || '',
+              customerName: it.customerName || window.MyIOOrchestrator?.customerName || '',
+              palette: window.MyIOUtils?.theme || undefined,
               locale: 'pt-BR',
               granularity: 'hour',
               ...(clampRange ? { clampRange } : {}),
@@ -3408,6 +3412,17 @@ function renderList(visible) {
               label: it.label,
               deviceName: it.entityName || '', // nome do device no TB — header (sutil + copiar)
               domain: 'temperature',
+              // Offset já aplicado pelo fetcher — a modal só exibe (sutil) no header
+              temperatureOffset: reportTempOffset,
+              // Faixa ideal do cliente — sombreada no ranking de dias/horas mais quentes
+              temperatureIdealRange:
+                window.MyIOUtils?.temperatureLimits?.minTemperature != null &&
+                window.MyIOUtils?.temperatureLimits?.maxTemperature != null
+                  ? {
+                      min: Number(window.MyIOUtils.temperatureLimits.minTemperature),
+                      max: Number(window.MyIOUtils.temperatureLimits.maxTemperature),
+                    }
+                  : null,
               // Paleta do dashboard (createMyIOTheme, exposta pela MAIN em MyIOUtils.theme)
               theme: window.MyIOUtils?.theme || undefined,
               // Nome do customer/shopping — exibido no footer premium da modal
@@ -4276,11 +4291,26 @@ function _buildPeriodLabel() {
   return s || e || '';
 }
 
+// Temperatura: sensor offline / sem leitura recente não entra em média, mín, máx nem listas
+// (antes entrava como 0,0 °C e puxava a média e os "3 menores").
+function _isTempOffline(it) {
+  return (
+    !!it.temperatureNoRecentReading ||
+    it.value === null ||
+    it.value === undefined ||
+    !Number.isFinite(Number(it.value)) ||
+    it.deviceStatus === 'offline' ||
+    it.deviceStatus === 'no_info'
+  );
+}
+
 // Builds the ColumnSummaryTooltip payload from the current STATE.itemsBase.
 function _buildColumnSummaryData() {
+  const isTemp = WIDGET_DOMAIN === 'temperature';
   const devices = (STATE.itemsBase || []).map((it) => ({
     name: it.label || it.identifier || it.id || 'Sem nome',
     value: Number(it.value) || 0,
+    ...(isTemp ? { offline: _isTempOffline(it) } : {}),
   }));
   return {
     title: (self.ctx && self.ctx.settings && self.ctx.settings.labelWidget) || '',
@@ -4288,6 +4318,8 @@ function _buildColumnSummaryData() {
     unit: _getExportUnit(),
     devices: devices,
     formatValue: _fmtDeviceValue,
+    // Temperatura: "Temperatura média" + mín/máx dos online; sem total, pizza ou %
+    ...(isTemp ? { mode: 'average', measureLabel: 'Temperatura' } : {}),
   };
 }
 
@@ -4323,6 +4355,12 @@ function _renderFilterStats($m, list) {
   if (!$card.length) return;
   if (!list || !list.length) {
     $card.empty();
+    return;
+  }
+
+  const isTemp = WIDGET_DOMAIN === 'temperature';
+  if (isTemp) {
+    _renderTemperatureFilterStats($card, list);
     return;
   }
 
@@ -4367,6 +4405,49 @@ function _renderFilterStats($m, list) {
       <span class="filter-stats-group-label">● 3 na média</span>
       ${near3.map(row).join('')}
     </div>
+  `);
+}
+
+// Resumo do modal de filtro p/ temperatura: média/mín/máx só dos online, sem %,
+// e uma seção com os offline / sem leitura.
+function _renderTemperatureFilterStats($card, list) {
+  const all = list.map((it) => ({
+    name: it.label || it.identifier || it.id || 'Sem nome',
+    v: Number(it.value),
+    off: _isTempOffline(it),
+  }));
+  const online = all.filter((x) => !x.off);
+  const offline = all.filter((x) => x.off);
+  const avg = online.length ? online.reduce((s, x) => s + x.v, 0) / online.length : null;
+  const desc = [...online].sort((a, b) => b.v - a.v);
+  const near3 =
+    avg === null ? [] : [...online].sort((a, b) => Math.abs(a.v - avg) - Math.abs(b.v - avg)).slice(0, 3);
+  const row = (x) => `<div class="filter-stats-row">
+      <span class="filter-stats-name" title="${escapeHtml(x.name)}">${escapeHtml(x.name)}</span>
+      <span class="filter-stats-val" style="color:${x.off ? '#94a3b8' : '#16a34a'};">${
+        x.off ? 'sem leitura' : escapeHtml(_fmtDeviceValue(x.v))
+      }</span>
+    </div>`;
+  const group = (label, items) =>
+    items.length
+      ? `<div class="filter-stats-group"><span class="filter-stats-group-label">${label}</span>${items
+          .map(row)
+          .join('')}</div>`
+      : '';
+  const note = 'Média, mínima e máxima consideram apenas dispositivos online (com leitura).';
+
+  $card.html(`
+    <div class="filter-stats-head">🌡️ Resumo de Temperatura</div>
+    <div class="filter-stats-avg">
+      <span class="filter-stats-avg-label" title="${escapeHtml(note)}">Média (${online.length} online · ${
+        offline.length
+      } offline) ⓘ</span>
+      <span class="filter-stats-avg-val">${avg === null ? '—' : escapeHtml(_fmtDeviceValue(avg))}</span>
+    </div>
+    ${group('▲ 3 maiores', desc.slice(0, 3))}
+    ${group('▼ 3 menores', desc.slice(-3).reverse())}
+    ${group('● 3 na média', near3)}
+    ${group(`⚪ Offline / sem leitura (${offline.length})`, offline)}
   `);
 }
 

@@ -1513,21 +1513,73 @@ const footerController = {
 
     // Map entities to the expected device format with per-device temperature ranges
     // Each device can have its own ideal range from its customer's SERVER_SCOPE attributes
+    // Item do orquestrador (ingestionId + offSetTemperature) — a seleção só guarda id/nome
+    const tempItems = window.MyIOOrchestratorData?.temperature?.items || window.STATE?.temperature?.items || [];
+    const findTempItem = (id) => tempItems.find((i) => i.tbId === id || i.id === id || i.ingestionId === id);
+
     const devices = selectedEntities.map((entity) => {
       // Get temperature range for this specific device/customer
       // Standard: temperatureMin/temperatureMax (fallback: minTemperature/maxTemperature for TB attributes)
       const min = entity.temperatureMin ?? entity.minTemperature ?? entity.tempMin;
       const max = entity.temperatureMax ?? entity.maxTemperature ?? entity.tempMax;
+      const tbId = entity.tbId || entity.entityId || entity.id;
+      const item = findTempItem(tbId) || findTempItem(entity.ingestionId);
 
       return {
         id: entity.id || entity.entityId,
         label: entity.name || entity.label || entity.id,
-        tbId: entity.tbId || entity.entityId,
+        tbId,
         customerName: entity.customerTitle || entity.customerName || entity.customer || null,
         temperatureMin: min !== undefined && min !== null ? Number(min) : undefined,
         temperatureMax: max !== undefined && max !== null ? Number(max) : undefined,
+        // Série vem do Ingestion (a chave `temperature` no TB pode estar parada) + offset do sensor
+        ingestionId: item?.ingestionId || null,
+        temperatureOffset: Number(item?.offSetTemperature ?? 0) || 0,
       };
     });
+
+    // Fonte: Ingestion por device (série 1h, valores BRUTOS — o modal aplica o offset).
+    // Sensores sem ingestionId caem no TB (fetch padrão do modal) com o mesmo token.
+    let ingestionFetcher = null;
+    try {
+      const creds = window.MyIOOrchestrator?.getCredentials?.();
+      const dataApiHost = window.MyIOUtils?.getDataApiHost?.();
+      if (creds?.CLIENT_ID && creds?.CLIENT_SECRET && dataApiHost && window.MyIOUtils?.buildMyioIngestionAuth) {
+        const auth = window.MyIOUtils.buildMyioIngestionAuth({
+          dataApiHost,
+          clientId: creds.CLIENT_ID,
+          clientSecret: creds.CLIENT_SECRET,
+        });
+        ingestionFetcher = async (device, startTs, endTs) => {
+          if (!device.ingestionId) {
+            const tbTok = (await window.MyIOUtils?.getFreshTbToken?.()) || localStorage.getItem('jwt_token');
+            const r = await fetch(
+              `/api/plugins/telemetry/DEVICE/${device.tbId || device.id}/values/timeseries?keys=temperature` +
+                `&startTs=${startTs}&endTs=${endTs}&limit=50000&agg=NONE`,
+              { headers: { 'X-Authorization': `Bearer ${tbTok}` } }
+            );
+            const j = r.ok ? await r.json() : {};
+            return (j.temperature || []).map((p) => ({ ts: Number(p.ts), value: Number(p.value) }));
+          }
+          const token = await auth.getToken();
+          const url =
+            `${dataApiHost}/telemetry/devices/${device.ingestionId}/temperature` +
+            `?startTime=${encodeURIComponent(new Date(startTs).toISOString())}` +
+            `&endTime=${encodeURIComponent(new Date(endTs).toISOString())}&granularity=1h&deep=0`;
+          const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+          if (!res.ok) throw new Error(`Ingestion API error: ${res.status}`);
+          const body = await res.json();
+          const rows = Array.isArray(body) ? body : [body];
+          const row = rows.find((r) => r && r.id === device.ingestionId) || rows[0] || null;
+          return ((row && row.consumption) || [])
+            .filter((e) => e && e.timestamp !== undefined && e.value !== undefined && e.value !== null)
+            .map((e) => ({ ts: new Date(e.timestamp).getTime(), value: Number(e.value) }))
+            .filter((p) => Number.isFinite(p.ts) && Number.isFinite(p.value));
+        };
+      }
+    } catch (err) {
+      LogHelper.warn('[MyIO Footer] Ingestion fetcher unavailable — comparison falls back to TB:', err?.message);
+    }
 
     // Check if devices have different temperature ranges (different customers)
     const uniqueRanges = new Set(
@@ -1587,6 +1639,8 @@ const footerController = {
         // Global fallback range (used only if devices don't have individual ranges)
         temperatureMin: globalTemperatureMin,
         temperatureMax: globalTemperatureMax,
+        // Ingestion por device (+ offset por sensor em devices[].temperatureOffset)
+        ...(ingestionFetcher ? { dataFetcher: ingestionFetcher } : {}),
       });
 
       LogHelper.log('[MyIO Footer] Temperature comparison modal opened');

@@ -72,6 +72,10 @@ export type DeviceReportModalParams = OpenDeviceReportParams & {
   customerName?: string;
   /** Nome do device no ThingsBoard (entity name) — header, fonte sutil + botão copiar. */
   deviceName?: string;
+  /** Temperatura: faixa ideal do cliente — sombreada no ranking de dias/horas mais quentes. */
+  temperatureIdealRange?: { min: number; max: number } | null;
+  /** Temperatura: offset do sensor JÁ aplicado pelo fetcher — só exibido (sutil) no header. */
+  temperatureOffset?: number;
   /** Paleta do dashboard (createMyIOTheme) OU mapa plano de CSS vars (--myio-*). */
   theme?: { cssVars(): Record<string, string> } | Record<string, string>;
 };
@@ -167,7 +171,13 @@ export class DeviceReportModal {
            </button>
          </span>`
       : '';
-    return `${base}${deviceHTML}`;
+    // Offset efetivamente aplicado (só temperatura, só ≠ 0) — informativo e discreto
+    const off = Number(this.params.temperatureOffset) || 0;
+    const offsetHTML =
+      this.domainConfig.summaryType === 'average' && off !== 0
+        ? `<span class="myio-dr-offset" title="Offset do sensor aplicado a todas as leituras" style="margin-left:10px;font-size:0.68em;font-weight:400;opacity:.7;vertical-align:middle;">offset ${off > 0 ? '+' : '−'}${Math.abs(off).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} °C</span>`
+        : '';
+    return `${base}${deviceHTML}${offsetHTML}`;
   }
 
   private bindCopyDeviceName(): void {
@@ -421,12 +431,17 @@ export class DeviceReportModal {
           // Rebuild DateRangePicker so the time input appears only when 1h
           await this.rebuildDateRangePicker(dateRangeInput);
           this.resetAfterGranularityChange();
+          // Recarrega na hora com a nova granularidade (mesmo período)
+          if (this.dateRangePicker) void this.loadData();
         },
       });
     }
 
     // Initialize DateRangePicker with default current month range
     await this.rebuildDateRangePicker(dateRangeInput);
+
+    // Abre já carregado com o período padrão do campo (sem exigir o clique em "Carregar")
+    if (this.dateRangePicker) void this.loadData();
   }
 
   // Limpa dados/KPIs/gráfico após troca de granularidade — o usuário precisa
@@ -627,12 +642,27 @@ export class DeviceReportModal {
     }
 
     if (isHourly) {
-      // Hourly: keep full timestamp, no zero-fill
-      return consumption
-        .filter((item: any) => item.timestamp && item.value != null)
-        .map((item: any) => ({
-          date: item.timestamp,
-          consumption: Number(item.value),
+      // Hourly: HORA FECHADA — a API devolve blocos sub-horários (15/30 min) mesmo pedindo
+      // 1h; consolida por hora: média (temperatura) ou soma (consumo). Sem zero-fill.
+      const isAvg = this.domainConfig.summaryType === 'average';
+      const HOUR = 3600 * 1000;
+      const byHour = new Map<number, { sum: number; n: number }>();
+      consumption.forEach((item: any) => {
+        if (!item.timestamp || item.value == null) return;
+        const ts = new Date(item.timestamp).getTime();
+        const v = Number(item.value);
+        if (!Number.isFinite(ts) || !Number.isFinite(v)) return;
+        const h = Math.floor(ts / HOUR) * HOUR;
+        const acc = byHour.get(h) || { sum: 0, n: 0 };
+        acc.sum += v;
+        acc.n += 1;
+        byHour.set(h, acc);
+      });
+      return [...byHour.entries()]
+        .sort((a, b) => a[0] - b[0])
+        .map(([h, { sum, n }]) => ({
+          date: new Date(h).toISOString(),
+          consumption: isAvg ? sum / n : sum,
         }));
     }
 
@@ -769,13 +799,69 @@ export class DeviceReportModal {
   // No 1h as horas são agregadas por dia. Default em BARRAS — com até 31 dias a
   // pizza fica ilegível; o seletor Pizza|Barras do componente segue disponível.
   // Temperatura fica de fora: "participação no total" não tem semântica de média °C.
+  // Temperatura (painel direito): ranking em barras — 1d = dias mais quentes (média do dia);
+  // 1h = horas mais quentes (top 24). Escala comum + faixa ideal sombreada (padrão AllReport).
+  private renderTemperatureRanking(container: HTMLElement): void {
+    const isHourly = this.granularity === '1h';
+    const valid = this.validRows;
+    if (!valid.length) {
+      container.innerHTML = `<div style="border:1px dashed var(--myio-border,#e5e7eb);border-radius:10px;padding:32px 16px;text-align:center;font-size:13px;color:var(--myio-text-muted,#6b7280);">Sem leituras no período</div>`;
+      return;
+    }
+    const TOP_HOURS = 24;
+    const ranked = [...valid].sort((a, b) => b.consumption - a.consumption);
+    const shown = isHourly ? ranked.slice(0, TOP_HOURS) : ranked;
+    const noData = isHourly ? [] : this.data.filter((r) => r.noData);
+    const ideal = this.params.temperatureIdealRange;
+    const hasIdeal = !!ideal && Number.isFinite(Number(ideal.min)) && Number.isFinite(Number(ideal.max));
+
+    const values = shown.map((r) => r.consumption);
+    const lo = Math.floor(Math.min(...values, hasIdeal ? Number(ideal!.min) : Infinity) - 1);
+    const hi = Math.ceil(Math.max(...values, hasIdeal ? Number(ideal!.max) : -Infinity) + 1);
+    const span = Math.max(1, hi - lo);
+    const pos = (v: number) => `${(((v - lo) / span) * 100).toFixed(2)}%`;
+    const band = hasIdeal
+      ? `<div style="position:absolute;top:0;bottom:0;left:${pos(Number(ideal!.min))};width:calc(${pos(Number(ideal!.max))} - ${pos(Number(ideal!.min))});background:rgba(34,197,94,.15);border-left:1px dashed #22c55e;border-right:1px dashed #22c55e;"></div>`
+      : '';
+    const color = (v: number) =>
+      hasIdeal && v > Number(ideal!.max) ? '#ef4444' : hasIdeal && v < Number(ideal!.min) ? '#3b82f6' : 'var(--myio-brand-700, #3e1a7d)';
+
+    const line = (label: string, r: DailyReading | null) => `
+      <div style="display:grid;grid-template-columns:minmax(0,40%) 1fr 48px;gap:8px;align-items:center;margin-bottom:6px;font-size:12px;">
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${label}">${label}</span>
+        ${
+          r
+            ? `<div style="position:relative;height:12px;background:var(--myio-border,#e5e7eb);border-radius:6px;overflow:hidden;">${band}
+                 <div style="position:absolute;top:2px;bottom:2px;left:0;width:${pos(r.consumption)};background:${color(r.consumption)};border-radius:4px;opacity:.85;"></div></div>`
+            : `<span style="font-size:11px;color:var(--myio-text-muted,#9ca3af);">Sem leitura</span>`
+        }
+        <span style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600;">${r ? this.domainConfig.formatter(r.consumption) : '—'}</span>
+      </div>`;
+
+    const title = isHourly
+      ? `Horas mais quentes${ranked.length > TOP_HOURS ? ` (top ${TOP_HOURS})` : ''}`
+      : 'Dias mais quentes (média do dia)';
+    container.innerHTML = `
+      <div style="border:1px solid var(--myio-border,#e5e7eb);border-radius:10px;padding:12px 14px;max-height:620px;overflow-y:auto;">
+        <div style="font-weight:700;font-size:14px;margin-bottom:2px;">${title}</div>
+        <div style="font-size:11px;color:var(--myio-text-muted,#6b7280);margin-bottom:10px;">
+          Escala ${this.domainConfig.formatter(lo)}–${this.domainConfig.formatter(hi)} °C${
+            hasIdeal
+              ? ` · <span style="color:#16a34a;">faixa ideal ${this.domainConfig.formatter(Number(ideal!.min))}–${this.domainConfig.formatter(Number(ideal!.max))} °C</span>`
+              : ''
+          }
+        </div>
+        ${shown.map((r) => line(this.formatDate(r.date), r)).join('')}
+        ${noData.map((r) => line(this.formatDate(r.date), null)).join('')}
+      </div>`;
+  }
+
   private updateDayChart(): void {
     const container = document.getElementById('participation-chart-container');
     if (!container) return;
 
     if (this.domainConfig.summaryType === 'average') {
-      const placeholder = document.getElementById('participation-chart-placeholder');
-      if (placeholder) placeholder.textContent = 'Participação por dia não se aplica a temperatura';
+      this.renderTemperatureRanking(container);
       return;
     }
 

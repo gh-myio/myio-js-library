@@ -9,7 +9,7 @@
 import {
   fetchTemperatureData,
   calculateStats,
-  interpolateTemperature,
+  aggregateByHour,
   aggregateByDay,
   formatTemperature,
   formatDateLabel,
@@ -47,7 +47,18 @@ export interface TemperatureDevice {
   temperatureMin?: number;
   /** Maximum threshold for this device's ideal range */
   temperatureMax?: number;
+  /** Ingestion device id (used by a custom dataFetcher) */
+  ingestionId?: string;
+  /** Sensor offset (°C) added to every reading before chart/stats/CSV */
+  temperatureOffset?: number;
 }
+
+/** Custom per-device data source (e.g. Ingestion API) — returns RAW readings (offset applied by the modal) */
+export type TemperatureComparisonDataFetcher = (
+  device: TemperatureDevice,
+  startTs: number,
+  endTs: number
+) => Promise<TemperatureTelemetry[]>;
 
 export interface TemperatureComparisonModalParams {
   /** JWT token for ThingsBoard API */
@@ -74,6 +85,8 @@ export interface TemperatureComparisonModalParams {
   temperatureMin?: number;
   /** Maximum threshold for ideal range (Y-axis will include this) */
   temperatureMax?: number;
+  /** Custom data source per device (default: ThingsBoard timeseries via token) */
+  dataFetcher?: TemperatureComparisonDataFetcher;
 }
 
 export interface TemperatureComparisonModalInstance {
@@ -109,6 +122,7 @@ interface ModalState {
   selectedPeriods: DayPeriod[];
   temperatureMin: number | null;
   temperatureMax: number | null;
+  dataFetcher: TemperatureComparisonDataFetcher | null;
 }
 
 // ============================================================================
@@ -143,7 +157,8 @@ export async function openTemperatureComparisonModal(
     dateRangePicker: null,
     selectedPeriods: ['madrugada', 'manha', 'tarde', 'noite'], // All periods selected by default
     temperatureMin: params.temperatureMin ?? null,
-    temperatureMax: params.temperatureMax ?? null
+    temperatureMax: params.temperatureMax ?? null,
+    dataFetcher: params.dataFetcher ?? null
   };
 
   // Load saved preferences
@@ -203,7 +218,14 @@ async function fetchAllDevicesData(state: ModalState): Promise<void> {
       state.devices.map(async (device, index) => {
         const deviceId = device.tbId || device.id;
         try {
-          const data = await fetchTemperatureData(state.token, deviceId, state.startTs, state.endTs);
+          const raw = state.dataFetcher
+            ? await state.dataFetcher(device, state.startTs, state.endTs)
+            : await fetchTemperatureData(state.token, deviceId, state.startTs, state.endTs);
+          // Offset do sensor aplicado UMA vez na série → gráfico, stats e CSV consistentes
+          const offset = Number(device.temperatureOffset) || 0;
+          const data = offset
+            ? raw.map((p) => ({ ...p, value: Number(p.value) + offset }))
+            : raw;
           const stats = calculateStats(data, state.clampRange);
           return {
             device,
@@ -249,12 +271,21 @@ function renderModal(
   const endDateInput = new Date(state.endTs).toISOString().slice(0, 16);
 
   // Generate legend HTML
+  // Offset efetivamente aplicado ao sensor (só se ≠ 0) — exibido bem sutil
+  const offsetTag = (dd: DeviceData) => {
+    const off = Number(dd.device.temperatureOffset) || 0;
+    return off !== 0
+      ? `<span title="Offset do sensor aplicado às leituras" style="color: ${colors.textMuted}; font-size: 10px; opacity: .75;">offset ${off > 0 ? '+' : '−'}${Math.abs(off).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} °C</span>`
+      : '';
+  };
+
   const legendHTML = state.deviceData.map(dd => `
     <div style="display: flex; align-items: center; gap: 8px; padding: 8px 12px;
       background: ${state.theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)'};
       border-radius: 8px;">
       <span style="width: 12px; height: 12px; border-radius: 50%; background: ${dd.color};"></span>
       <span style="color: ${colors.text}; font-size: 13px;">${dd.device.label}</span>
+      ${offsetTag(dd)}
       <span style="color: ${colors.textMuted}; font-size: 11px; margin-left: auto;">
         ${dd.stats.count > 0 ? formatTemperature(dd.stats.avg) : 'N/A'}
       </span>
@@ -270,6 +301,7 @@ function renderModal(
     ">
       <div style="font-weight: 600; color: ${colors.text}; font-size: 13px; margin-bottom: 8px;">
         ${dd.device.label}
+        ${offsetTag(dd) ? `<div style="font-weight: 400; margin-top: 2px;">${offsetTag(dd)}</div>` : ''}
       </div>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; font-size: 11px;">
         <span style="color: ${colors.textMuted};">Média:</span>
@@ -362,7 +394,7 @@ function renderModal(
               font-size: 14px; color: ${colors.text}; background: ${colors.surface};
               cursor: pointer; min-width: 130px;
             ">
-              <option value="hour" ${state.granularity === 'hour' ? 'selected' : ''}>Hora (30 min)</option>
+              <option value="hour" ${state.granularity === 'hour' ? 'selected' : ''}>Hora</option>
               <option value="day" ${state.granularity === 'day' ? 'selected' : ''}>Dia (média)</option>
             </select>
           </div>
@@ -576,15 +608,9 @@ function drawComparisonChart(modalId: string, state: ModalState): void {
     let points: ComparisonChartPoint[];
 
     if (state.granularity === 'hour') {
-      const interpolated = interpolateTemperature(filteredData, {
-        intervalMinutes: 30,
-        startTs: state.startTs,
-        endTs: state.endTs,
-        clampRange: state.clampRange
-      });
-      // Filter interpolated data by periods again
-      const filteredInterpolated = filterByDayPeriods(interpolated, state.selectedPeriods);
-      points = filteredInterpolated.map(item => ({
+      // Hora fechada: um ponto por hora = média das leituras da hora
+      const hourly = aggregateByHour(filteredData, state.clampRange);
+      points = hourly.map(item => ({
         x: item.ts,
         y: Number(item.value),
         screenX: 0,

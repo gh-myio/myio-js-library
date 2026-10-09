@@ -28,6 +28,28 @@ describe('AllReportModal temperatura — estatística por sensor', () => {
     expect(s.series.map((p: any) => p.value)).toEqual([24, 26]);
   });
 
+  it('guarda o instante do mín e do máx; tooltip mostra dia/hora (SP) e alerta leitura isolada', () => {
+    const m = make();
+    const t0 = Date.UTC(2026, 9, 5, 16, 45); // 05/10 13:45 -03:00
+    const raw = [
+      { timestamp: t0 - H, value: 32 },
+      { timestamp: t0, value: 17.06 }, // dip isolado (15,06 c/ offset)
+      { timestamp: t0 + H, value: 38.75 },
+    ];
+    const s = m.computeTemperatureStats(raw, -2, m.temperatureValidRange);
+    expect(s.minTs).toBe(t0);
+    expect(s.maxTs).toBe(t0 + H);
+
+    const row = { name: 'Área externa (17)', consumption: 30.06, min: 15.06, minTs: t0, max: 36.75, maxTs: t0 + H, id: 'a' };
+    const tip = m.buildMinMaxTooltip(row, 'min');
+    expect(tip.title).toBe('Menor leitura — Área externa (17)');
+    expect(tip.content).toContain('15,06 °C');
+    expect(tip.content).toContain('05/10/2026');
+    expect(tip.content).toContain('13:45');
+    expect(tip.content).toContain('possível leitura isolada'); // 15,06 vs média 30,06
+    expect(m.buildMinMaxTooltip(row, 'max').content).not.toContain('possível leitura isolada');
+  });
+
   it('todas as leituras inválidas → sem média (Sem leitura, nunca 0 °C)', () => {
     const m = make();
     const s = m.computeTemperatureStats([{ timestamp: 0, value: -6 }], 0, m.temperatureValidRange);
@@ -113,6 +135,20 @@ describe('AllReportModal temperatura — KPIs, colunas e exports', () => {
     expect(byLabel['Menor média'].sub).toBe('Loja B');
     expect(byLabel['Fora da faixa ideal'].value).toBe('2');
     expect(byLabel['Leituras descartadas'].value).toBe('5');
+  });
+
+  it('linha do sensor mostra o offset (sutil) só quando ≠ 0 e há leitura', () => {
+    const m = make({
+      itemsList: [
+        { id: 'a', identifier: 'Temperatura', label: 'Área externa', temperatureOffset: -2 },
+        { id: 'b', identifier: 'Temperatura', label: 'Loja A', temperatureOffset: 0 },
+        { id: 'd', identifier: 'Temperatura', label: 'Praça', temperatureOffset: -2 },
+      ],
+    });
+    const html = (r: any) => m.renderRowHTML(r, 0, false);
+    expect(html(rows[0])).toContain('offset −2,00 °C');
+    expect(html(rows[1])).not.toContain('offset');
+    expect(html(rows[3])).not.toContain('offset'); // sem leitura → offset não foi aplicado
   });
 
   it('identifier genérico "Temperatura" esconde a coluna Identificador; código real mantém', () => {

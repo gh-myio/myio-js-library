@@ -52,6 +52,35 @@ describe('DeviceReportModal — temperatura', () => {
     expect(byLabel['Dias sem Leitura'].value).toBe('1');
   });
 
+  it('painel direito: ranking dos dias mais quentes (1d) com dias sem leitura no fim', () => {
+    const modal = new DeviceReportModal({ ...tempParams, temperatureIdealRange: { min: 23, max: 25.5 } }) as any;
+    modal.data = [
+      { date: '2026-10-01', consumption: 24.49 },
+      { date: '2026-10-02', consumption: 26.1 },
+      { date: '2026-10-03', consumption: 0, noData: true },
+      { date: '2026-10-04', consumption: 22.5 },
+    ];
+    const el = document.createElement('div');
+    modal.renderTemperatureRanking(el);
+    expect(el.textContent).toContain('Dias mais quentes (média do dia)');
+    expect(el.textContent).toContain('faixa ideal 23,00–25,50 °C');
+    const labels = [...el.querySelectorAll('span[title]')].map((s) => s.getAttribute('title'));
+    expect(labels).toEqual(['02/10/2026', '01/10/2026', '04/10/2026', '03/10/2026']);
+    expect(el.textContent).toContain('Sem leitura');
+  });
+
+  it('painel direito em 1h: top 24 horas mais quentes', () => {
+    const modal = new DeviceReportModal({ ...tempParams, granularity: '1h' }) as any;
+    modal.data = Array.from({ length: 30 }, (_, i) => ({
+      date: new Date(Date.UTC(2026, 9, 1, i)).toISOString(),
+      consumption: 20 + i * 0.1,
+    }));
+    const el = document.createElement('div');
+    modal.renderTemperatureRanking(el);
+    expect(el.textContent).toContain('Horas mais quentes (top 24)');
+    expect(el.querySelectorAll('span[title]').length).toBe(24);
+  });
+
   it('o fetcher customizado recebe a granularidade selecionada', async () => {
     const calls: any[] = [];
     const modal = new DeviceReportModal({
@@ -76,6 +105,15 @@ describe('DeviceReportModal — header', () => {
     expect(html).toContain('Temperatura &lt;Loteria&gt; L2'); // escapado (título vai por innerHTML)
     expect(html).toContain('class="myio-dr-copy" data-copy="Temperatura &lt;Loteria&gt; L2"');
     expect(html).not.toContain('Shopping Teste');
+  });
+
+  it('temperatura com offset ≠ 0 mostra o offset sutil no header; offset 0 não mostra', () => {
+    const withOff = new DeviceReportModal({ ...baseParams, domain: 'temperature', temperatureOffset: -2 }) as any;
+    expect(withOff.buildHeaderTitleHTML()).toContain('offset −2 °C');
+    const noOff = new DeviceReportModal({ ...baseParams, domain: 'temperature', temperatureOffset: 0 }) as any;
+    expect(noOff.buildHeaderTitleHTML()).not.toContain('offset');
+    const energy = new DeviceReportModal({ ...baseParams, temperatureOffset: -2 }) as any;
+    expect(energy.buildHeaderTitleHTML()).not.toContain('offset');
   });
 
   it('sem deviceName: só o título base', () => {
@@ -139,7 +177,30 @@ describe('DeviceReportModal', () => {
       },
     ];
     const rows = (modal as any).processApiResponse(api, ['2026-07-01']);
-    expect(rows).toEqual([{ date: '2026-07-01T10:00:00Z', consumption: 1.5 }]);
+    expect(rows).toEqual([{ date: '2026-07-01T10:00:00.000Z', consumption: 1.5 }]);
+  });
+
+  it('1h consolida em HORA FECHADA: soma (consumo) e média (temperatura) dos blocos sub-horários', () => {
+    const api = [
+      {
+        consumption: [
+          { timestamp: '2026-07-01T10:00:00Z', value: 1 },
+          { timestamp: '2026-07-01T10:15:00Z', value: 2 },
+          { timestamp: '2026-07-01T10:45:00Z', value: 3 },
+          { timestamp: '2026-07-01T11:30:00Z', value: 4 },
+        ],
+      },
+    ];
+    const energy = new DeviceReportModal({ ...baseParams, granularity: '1h' }) as any;
+    expect(energy.processApiResponse(api, ['2026-07-01'])).toEqual([
+      { date: '2026-07-01T10:00:00.000Z', consumption: 6 },
+      { date: '2026-07-01T11:00:00.000Z', consumption: 4 },
+    ]);
+    const temp = new DeviceReportModal({ ...baseParams, domain: 'temperature', granularity: '1h' }) as any;
+    expect(temp.processApiResponse(api, ['2026-07-01'])).toEqual([
+      { date: '2026-07-01T10:00:00.000Z', consumption: 2 },
+      { date: '2026-07-01T11:00:00.000Z', consumption: 4 },
+    ]);
   });
 
   it('processApiResponse returns [] for empty hourly response (no zero-fill in 1h)', () => {

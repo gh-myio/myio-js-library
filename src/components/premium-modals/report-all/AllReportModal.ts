@@ -86,6 +86,8 @@ interface StoreReading {
   noData?: boolean; // nenhuma leitura válida no período → exibe "Sem leitura", fora dos KPIs
   min?: number; // menor leitura válida (°C)
   max?: number; // maior leitura válida (°C)
+  minTs?: number; // instante (ms) da menor leitura — tooltip da célula Mín
+  maxTs?: number; // instante (ms) da maior leitura — tooltip da célula Máx
   readings?: number; // nº de leituras válidas (horárias)
   discarded?: number; // nº de leituras descartadas por estarem fora da faixa válida
 }
@@ -95,6 +97,8 @@ interface TemperatureStats {
   avg: number | null;
   min: number | null;
   max: number | null;
+  minTs: number | null;
+  maxTs: number | null;
   readings: number;
   discarded: number;
   series: SeriesPoint[];
@@ -373,6 +377,10 @@ export class AllReportModal {
         this.dateRangePicker.destroy();
         this.dateRangePicker = null;
       }
+
+      // Cleanup Mín/Máx InfoTooltips (temperatura)
+      this.minMaxTooltipCleanups.forEach((fn) => fn());
+      this.minMaxTooltipCleanups = [];
 
       // Cleanup exclusion-flag InfoTooltip
       if (this.exclusionTooltipCleanup) {
@@ -660,6 +668,9 @@ export class AllReportModal {
       // Sem fallback nativo: attach() lança quando as libs do CDN não carregam.
       this.debugLog('DateRangePicker initialization failed:', error);
     }
+
+    // Abre já carregado com o período padrão do campo (o MENU hidrata o domínio antes de abrir)
+    if (this.dateRangePicker) void this.loadData();
   }
 
   private async loadData(): Promise<void> {
@@ -990,6 +1001,8 @@ export class AllReportModal {
           .rp-series td.num, .rp-series th.num { text-align: right; font-variant-numeric: tabular-nums; }
           .rp-muted { color: var(--myio-text-muted, #9ca3af); font-weight: 500; }
           .rp-temp-above { color: #dc2626; }
+          .rp-minmax { cursor: help; border-bottom: 1px dotted currentColor; }
+          .rp-offset { margin-left: 6px; font-size: 10px; font-weight: 400; color: var(--myio-text-muted, #9ca3af); opacity: .8; }
           .rp-temp-below { color: #2563eb; }
           @media (max-width: 768px) {
             .myio-table-mobile { display: block !important; }
@@ -1015,6 +1028,7 @@ export class AllReportModal {
 
     this.setupTableSorting();
     this.setupRowExpansion(container);
+    if (this.isTemperature) this.attachMinMaxTooltips(container);
     this.updateParticipationChart();
   }
 
@@ -1061,7 +1075,12 @@ export class AllReportModal {
     const idTd = showId
       ? `<td data-label="Identificador" style="font-family: monospace; font-weight: bold; text-transform: uppercase;">${row.identifier}</td>`
       : '';
-    const nameTd = `<td data-label="Nome">${expandBtn}<strong>${row.name}</strong></td>`;
+    // Temperatura: offset do sensor, bem sutil — só quando ≠ 0 e de fato aplicado (há leitura)
+    const off = this.isTemperature && row.id && !row.noData ? this.temperatureOffsetFor(row.id) : 0;
+    const offsetTag = off
+      ? ` <span class="rp-offset" title="Offset do sensor aplicado às leituras">offset ${off > 0 ? '+' : '−'}${fmtPt(Math.abs(off))} °C</span>`
+      : '';
+    const nameTd = `<td data-label="Nome">${expandBtn}<strong>${row.name}</strong>${offsetTag}</td>`;
 
     let valueTds: string;
     if (this.isTemperature) {
@@ -1079,8 +1098,8 @@ export class AllReportModal {
         : `<td data-label="Média (°C)" style="text-align: right; font-weight: bold;" class="${cls}">${fmtPt(row.consumption)}</td>`;
       valueTds =
         avgTd +
-        `<td data-label="Mín (°C)" style="text-align: right;">${this.fmtTemp(row.noData ? null : row.min)}</td>` +
-        `<td data-label="Máx (°C)" style="text-align: right;">${this.fmtTemp(row.noData ? null : row.max)}</td>`;
+        this.minMaxCellHTML(row, 'min') +
+        this.minMaxCellHTML(row, 'max');
     } else {
       const pct = grandTotal > 0 ? `${fmtPt((row.consumption / grandTotal) * 100)}%` : '—';
       valueTds =
@@ -1094,6 +1113,66 @@ export class AllReportModal {
       ? `<tr class="rp-series-row" data-series-for="${row.id}"><td colspan="${this.columnCount(showId)}"><div class="rp-series">Carregando série…</div></td></tr>`
       : '';
     return `<tr>${idTd}${nameTd}${valueTds}</tr>${seriesRow}`;
+  }
+
+  // Célula Mín/Máx (temperatura): valor + InfoTooltip com o dia/hora exato da leitura
+  private minMaxCellHTML(row: StoreReading, kind: 'min' | 'max'): string {
+    const label = kind === 'min' ? 'Mín (°C)' : 'Máx (°C)';
+    const v = row.noData ? null : kind === 'min' ? row.min : row.max;
+    const ts = kind === 'min' ? row.minTs : row.maxTs;
+    if (v === null || v === undefined || !Number.isFinite(v) || !row.id || !ts) {
+      return `<td data-label="${label}" style="text-align: right;">${this.fmtTemp(v)}</td>`;
+    }
+    return `<td data-label="${label}" style="text-align: right;"><span class="rp-minmax" data-mm="${kind}" data-row-id="${row.id}">${fmtPt(v)}</span></td>`;
+  }
+
+  private formatSpDateTime(ts: number): { date: string; time: string } {
+    const d = new Date(ts);
+    return {
+      date: d.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }),
+      time: d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }),
+    };
+  }
+
+  private buildMinMaxTooltip(row: StoreReading, kind: 'min' | 'max') {
+    const v = (kind === 'min' ? row.min : row.max) as number;
+    const ts = (kind === 'min' ? row.minTs : row.maxTs) as number;
+    const { date, time } = this.formatSpDateTime(ts);
+    const diff = v - row.consumption;
+    const p = 'margin:0 0 6px;font-size:11px;line-height:1.5;color:#475569;';
+    const isolated = Math.abs(diff) >= 8; // muito longe da média do sensor → provável leitura isolada
+    return {
+      icon: kind === 'min' ? '🔽' : '🔼',
+      title: `${kind === 'min' ? 'Menor' : 'Maior'} leitura — ${row.name}`,
+      content: `
+        <div class="myio-info-tooltip__section" style="max-width:260px;">
+          <p style="${p}"><strong style="font-size:14px;color:#0f172a;">${fmtPt(v)} °C</strong></p>
+          <p style="${p}">📅 <strong>${date}</strong> às <strong>${time}</strong> (leitura individual)</p>
+          <p style="${p}">Na série por hora (▸) ela entra na média das <strong>${time.slice(0, 2)}:00</strong>.</p>
+          <p style="margin:0;font-size:11px;line-height:1.5;color:#475569;">
+            Média do sensor no período: ${fmtPt(row.consumption)} °C (${diff >= 0 ? '+' : ''}${fmtPt(diff)} °C)
+          </p>
+        </div>
+        ${
+          isolated
+            ? `<div class="myio-info-tooltip__notice"><span class="myio-info-tooltip__notice-icon">⚠️</span>
+               <span>Bem distante da média — possível leitura isolada do sensor. Confira na série (▸).</span></div>`
+            : ''
+        }`,
+    };
+  }
+
+  private minMaxTooltipCleanups: Array<() => void> = [];
+
+  private attachMinMaxTooltips(container: HTMLElement): void {
+    this.minMaxTooltipCleanups.forEach((fn) => fn());
+    this.minMaxTooltipCleanups = [];
+    container.querySelectorAll<HTMLElement>('.rp-minmax').forEach((el) => {
+      const row = this.data.find((r) => r.id === el.dataset.rowId);
+      const kind = el.dataset.mm === 'max' ? 'max' : 'min';
+      if (!row) return;
+      this.minMaxTooltipCleanups.push(InfoTooltip.attach(el, () => this.buildMinMaxTooltip(row, kind)));
+    });
   }
 
   // ▸ no nome do device: abre/fecha a série (hora ou dia, conforme a granularidade)
@@ -1154,8 +1233,9 @@ export class AllReportModal {
   // (offset + descarte), agregada por dia em 1d. Energia/água: endpoint por device.
   private async getDeviceSeries(id: string, gran: '1h' | '1d'): Promise<SeriesPoint[]> {
     if (this.isTemperature) {
-      const hourly = this.temperatureStats.get(id)?.series || [];
-      return gran === '1h' ? hourly : this.aggregateDaily(hourly, 'avg');
+      const raw = this.temperatureStats.get(id)?.series || [];
+      // A API devolve blocos de 15 min mesmo pedindo 1h → consolida em hora fechada
+      return gran === '1h' ? this.aggregateHourly(raw, 'avg') : this.aggregateDaily(raw, 'avg');
     }
     const key = `${gran}|${id}`;
     const cached = this.deviceSeriesCache.get(key);
@@ -1173,7 +1253,9 @@ export class AllReportModal {
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const body = await res.json();
-    const points = this.parseSeries(body);
+    const parsed = this.parseSeries(body);
+    // Hora fechada: pontos sub-horários somados por hora (consumo)
+    const points = gran === '1h' ? this.aggregateHourly(parsed, 'sum') : parsed;
     this.deviceSeriesCache.set(key, points);
     return points;
   }
@@ -1184,6 +1266,23 @@ export class AllReportModal {
       .map((p) => ({ timestamp: new Date(p?.timestamp as string | number).getTime(), value: Number(p?.value) }))
       .filter((p) => Number.isFinite(p.timestamp) && Number.isFinite(p.value))
       .sort((a, b) => a.timestamp - b.timestamp);
+  }
+
+  // Consolida em HORA FECHADA (início da hora): média (temperatura) ou soma (consumo).
+  // Fusos inteiros → a hora UTC coincide com a hora de São Paulo.
+  private aggregateHourly(points: SeriesPoint[], mode: 'avg' | 'sum'): SeriesPoint[] {
+    const HOUR = 3600 * 1000;
+    const byHour = new Map<number, { sum: number; n: number }>();
+    for (const p of points) {
+      const h = Math.floor(p.timestamp / HOUR) * HOUR;
+      const acc = byHour.get(h) || { sum: 0, n: 0 };
+      acc.sum += p.value;
+      acc.n += 1;
+      byHour.set(h, acc);
+    }
+    return [...byHour.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([h, { sum, n }]) => ({ timestamp: h, value: mode === 'avg' ? sum / n : sum }));
   }
 
   // Agrega série horária por dia civil (São Paulo): média (temperatura) ou soma (consumo)
@@ -1518,16 +1617,22 @@ export class AllReportModal {
     const idHead = showId ? ['Identificador'] : [];
     const n2 = (v: number | null | undefined) => (v === null || v === undefined || !Number.isFinite(v) ? '' : v.toFixed(2));
     const date = new Date().toISOString().split('T')[0];
+    const fmtStamp = (ts: number) => {
+      const { date: d, time } = this.formatSpDateTime(ts);
+      return `${d} ${time}`;
+    };
 
     // Resumo do período por sensor
     const summary: string[][] = [
-      [...idHead, 'Sensor', 'Média (°C)', 'Mín (°C)', 'Máx (°C)', 'Leituras', 'Leituras descartadas'],
+      [...idHead, 'Sensor', 'Média (°C)', 'Mín (°C)', 'Data/Hora Mín', 'Máx (°C)', 'Data/Hora Máx', 'Leituras', 'Leituras descartadas'],
       ...rows.map((r) => [
         ...idCol(r),
         r.name,
         r.noData ? 'Sem leitura' : n2(r.consumption),
         r.noData ? '' : n2(r.min),
+        r.noData || !r.minTs ? '' : fmtStamp(r.minTs),
         r.noData ? '' : n2(r.max),
+        r.noData || !r.maxTs ? '' : fmtStamp(r.maxTs),
         String(r.readings ?? ''),
         String(r.discarded ?? ''),
       ]),
@@ -1543,8 +1648,8 @@ export class AllReportModal {
           })
         : new Date(ts).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
     for (const r of rows) {
-      const hourly = (r.id && this.temperatureStats.get(r.id)?.series) || [];
-      const pts = gran === '1h' ? hourly : this.aggregateDaily(hourly, 'avg');
+      const raw = (r.id && this.temperatureStats.get(r.id)?.series) || [];
+      const pts = gran === '1h' ? this.aggregateHourly(raw, 'avg') : this.aggregateDaily(raw, 'avg');
       for (const p of pts) series.push([...idCol(r), r.name, fmtTs(p.timestamp), p.value.toFixed(2)]);
     }
 
@@ -1650,7 +1755,8 @@ export class AllReportModal {
             const points = ((ent?.consumption || []) as Array<{ timestamp: unknown; value: unknown }>)
               .map((p) => ({ timestamp: new Date(p?.timestamp as string | number).getTime(), value: Number(p?.value) }))
               .filter((p) => Number.isFinite(p.timestamp) && Number.isFinite(p.value));
-            if (points.length) series.set(row.id!, points);
+            // Hora fechada (soma dos pontos sub-horários)
+            if (points.length) series.set(row.id!, this.aggregateHourly(points, 'sum'));
           } catch {
             /* device sem série no período — fica de fora do CSV */
           }
@@ -1880,16 +1986,26 @@ export class AllReportModal {
       if (v < valid.min || v > valid.max) discarded++;
       else series.push({ timestamp: p.timestamp, value: v });
     }
-    if (!series.length) return { avg: null, min: null, max: null, readings: 0, discarded, series };
+    if (!series.length) {
+      return { avg: null, min: null, max: null, minTs: null, maxTs: null, readings: 0, discarded, series };
+    }
     let sum = 0;
     let min = Infinity;
     let max = -Infinity;
+    let minTs = series[0].timestamp;
+    let maxTs = series[0].timestamp;
     for (const p of series) {
       sum += p.value;
-      if (p.value < min) min = p.value;
-      if (p.value > max) max = p.value;
+      if (p.value < min) {
+        min = p.value;
+        minTs = p.timestamp;
+      }
+      if (p.value > max) {
+        max = p.value;
+        maxTs = p.timestamp;
+      }
     }
-    return { avg: sum / series.length, min, max, readings: series.length, discarded, series };
+    return { avg: sum / series.length, min, max, minTs, maxTs, readings: series.length, discarded, series };
   }
 
   // Re-map the cached API response under the current exclusion flag and refresh the UI.
@@ -2094,8 +2210,8 @@ export class AllReportModal {
       ...row,
       consumption: hasAvg ? Math.round(Number(avg) * 100) / 100 : 0,
       noData: !hasAvg,
-      ...(stats && stats.min !== null ? { min: Math.round(stats.min * 100) / 100 } : {}),
-      ...(stats && stats.max !== null ? { max: Math.round(stats.max * 100) / 100 } : {}),
+      ...(stats && stats.min !== null ? { min: Math.round(stats.min * 100) / 100, minTs: stats.minTs ?? undefined } : {}),
+      ...(stats && stats.max !== null ? { max: Math.round(stats.max * 100) / 100, maxTs: stats.maxTs ?? undefined } : {}),
       ...(stats ? { readings: stats.readings, discarded: stats.discarded } : {}),
     };
   }
