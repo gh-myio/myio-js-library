@@ -31,8 +31,11 @@ describe('openTemperatureComparisonModal — dataFetcher + temperatureOffset', (
         return [
           { ts: t0, value: 26 },
           { ts: t0 + 3600_000, value: 28 },
+          { ts: t0 + 2 * 3600_000, value: 99 }, // inválida → descartada (antes virava 40,0 °C)
         ];
       },
+      customerName: 'Shopping Teste',
+      palette: { '--myio-brand-700': '#2f5e46' },
     });
 
     await vi.waitFor(() => expect(document.body.textContent || '').toMatch(/27[,.]0/), { timeout: 3000 });
@@ -43,5 +46,12 @@ describe('openTemperatureComparisonModal — dataFetcher + temperatureOffset', (
     // média A = (24 + 26)/2 = 25 (offset −2); B = 27 (sem offset)
     expect(text).toMatch(/25[,.]0/);
     expect(text).toMatch(/27[,.]0/);
+    expect(text).not.toMatch(/40[,.]0/); // leitura 99 descartada, não travada em 40
+    // Padrão dos relatórios: footer premium com o customer, sem os botões antigos
+    expect(text).toContain('Shopping Teste');
+    expect(text).not.toContain('Exportar CSV');
+    const header = document.querySelector('[id$="-header"], .myio-temp-comparison-content > div') as HTMLElement;
+    expect(document.body.innerHTML).toContain('#2f5e46');
+    expect(header).toBeTruthy();
   });
 });

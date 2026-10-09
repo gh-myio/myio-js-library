@@ -81,6 +81,22 @@ describe('DeviceReportModal — temperatura', () => {
     expect(el.querySelectorAll('span[title]').length).toBe(24);
   });
 
+  it('1h: "Média por Dia" = média das médias diárias (não soma ÷ dias) e sem "Média por Hora"', () => {
+    const modal = new DeviceReportModal({ ...tempParams, granularity: '1h' }) as any;
+    // dia 1: 24 e 26 (média 25); dia 2: 20, 22, 24 (média 22)
+    modal.data = [
+      { date: '2026-10-01T12:00:00.000Z', consumption: 24 },
+      { date: '2026-10-01T13:00:00.000Z', consumption: 26 },
+      { date: '2026-10-02T12:00:00.000Z', consumption: 20 },
+      { date: '2026-10-02T13:00:00.000Z', consumption: 22 },
+      { date: '2026-10-02T14:00:00.000Z', consumption: 24 },
+    ];
+    const byLabel = Object.fromEntries(modal.computeKpis().map((k: any) => [k.label, k]));
+    expect(byLabel['Média (°C)'].value).toBe('23,20 °C'); // 116 / 5
+    expect(byLabel['Média por Dia (°C)'].value).toBe('23,50'); // (25 + 22) / 2 — antes: 116 / 2 = 58
+    expect(byLabel['Média por Hora (°C)']).toBeUndefined();
+  });
+
   it('o fetcher customizado recebe a granularidade selecionada', async () => {
     const calls: any[] = [];
     const modal = new DeviceReportModal({

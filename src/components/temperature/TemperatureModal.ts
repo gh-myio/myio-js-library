@@ -339,6 +339,7 @@ function renderModal(
           showMaximize: true,
           showClose: true,
           primaryColor: state.accent,
+          solid: true, // padrão dos relatórios: cor do dashboard também no tema light
           borderRadius: '10px 10px 0 0',
           draggable: false,
         })}
@@ -744,15 +745,25 @@ function drawChart(modalId: string, state: ModalState): void {
   const numLabels = Math.min(8, chartData.length);
   const labelInterval = Math.max(1, Math.floor(chartData.length / numLabels));
 
+  // Período > 24 h em "Hora": rótulo em 2 linhas (dd/mm + HH:mm) — só a hora,
+  // espaçada ~1 dia, parecia fora de ordem (00:00, 03:00, 02:00, 01:00…)
+  const xSpan = chartData.length > 1 ? chartData[chartData.length - 1].x - chartData[0].x : 0;
+  const multiDay = state.granularity === 'hour' && xSpan > 24 * 60 * 60 * 1000;
+
   for (let i = 0; i < chartData.length; i += labelInterval) {
     const point = chartData[i];
     const date = new Date(point.x);
 
     // Format label based on granularity
     let label: string;
+    let subLabel = '';
     if (state.granularity === 'hour') {
-      // Show time HH:mm for hour granularity
+      // Show time HH:mm for hour granularity (+ date when the range spans days)
       label = date.toLocaleTimeString(state.locale, { hour: '2-digit', minute: '2-digit' });
+      if (multiDay) {
+        subLabel = label;
+        label = date.toLocaleDateString(state.locale, { day: '2-digit', month: '2-digit' });
+      }
     } else {
       // Show date DD/MM for day granularity
       label = date.toLocaleDateString(state.locale, { day: '2-digit', month: '2-digit' });
@@ -769,6 +780,7 @@ function drawChart(modalId: string, state: ModalState): void {
     // Draw label
     ctx.fillStyle = colors.textMuted;
     ctx.fillText(label, point.screenX, height - paddingBottom + 18);
+    if (subLabel) ctx.fillText(subLabel, point.screenX, height - paddingBottom + 31);
   }
 
   // Draw axis lines

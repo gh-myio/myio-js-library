@@ -1641,6 +1641,9 @@ const footerController = {
         temperatureMax: globalTemperatureMax,
         // Ingestion por device (+ offset por sensor em devices[].temperatureOffset)
         ...(ingestionFetcher ? { dataFetcher: ingestionFetcher } : {}),
+        // Padrão dos relatórios: cor do dashboard no header + footer premium com o customer
+        customerName: window.MyIOOrchestrator?.customerName || '',
+        palette: window.MyIOUtils?.theme || undefined,
       });
 
       LogHelper.log('[MyIO Footer] Temperature comparison modal opened');

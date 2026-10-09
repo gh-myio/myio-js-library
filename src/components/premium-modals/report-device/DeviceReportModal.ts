@@ -755,11 +755,30 @@ export class DeviceReportModal {
 
     const rowLabel = isHourly ? 'Hora' : 'Dia';
 
+    // Média por Dia: consumo = total ÷ dias; temperatura = média das médias diárias
+    // (antes era soma de todas as horas ÷ dias → ex.: 537 °C em 1h)
+    let perDay: number;
+    if (isTemperature) {
+      const byDay = new Map<string, { sum: number; n: number }>();
+      for (const r of rows) {
+        const k = r.date.slice(0, 10);
+        const acc = byDay.get(k) || { sum: 0, n: 0 };
+        acc.sum += r.consumption;
+        acc.n += 1;
+        byDay.set(k, acc);
+      }
+      const dayAvgs = [...byDay.values()].map((d) => d.sum / d.n);
+      perDay = dayAvgs.length ? dayAvgs.reduce((x, y) => x + y, 0) / dayAvgs.length : 0;
+    } else {
+      perDay = total / dayCount;
+    }
+
     const kpis: Array<{ value: string; label: string; sub?: string }> = [
       { value: `${fmt(summaryValue)} ${unit}`, label: `${this.domainConfig.summaryLabel} (${unit})` },
-      { value: fmt(total / dayCount), label: `Média por Dia (${unit})` },
+      { value: fmt(perDay), label: `Média por Dia (${unit})` },
     ];
-    if (isHourly) {
+    // Média por Hora só p/ consumo (em temperatura seria igual à Média)
+    if (isHourly && !isTemperature) {
       kpis.push({ value: fmt(rows.length ? total / rows.length : 0), label: `Média por Hora (${unit})` });
     }
     kpis.push(

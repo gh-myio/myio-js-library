@@ -29,6 +29,7 @@ import {
 } from './utils';
 
 import { createDateRangePicker, type DateRangeControl } from '../createDateRangePicker';
+import { createModalFooter, type ModalFooterInstance } from '../premium-modals/footer-modal';
 
 // ============================================================================
 // Types
@@ -87,6 +88,10 @@ export interface TemperatureComparisonModalParams {
   temperatureMax?: number;
   /** Custom data source per device (default: ThingsBoard timeseries via token) */
   dataFetcher?: TemperatureComparisonDataFetcher;
+  /** Customer/shopping — footer premium (padrão AllReport/DeviceReport) */
+  customerName?: string;
+  /** Paleta do dashboard (createMyIOTheme ou mapa de CSS vars) — cor do header/botões */
+  palette?: { cssVars(): Record<string, string> } | Record<string, string>;
 }
 
 export interface TemperatureComparisonModalInstance {
@@ -123,6 +128,35 @@ interface ModalState {
   temperatureMin: number | null;
   temperatureMax: number | null;
   dataFetcher: TemperatureComparisonDataFetcher | null;
+  customerName: string;
+  accent: string;
+}
+
+// Footer premium por modal (recriado a cada render — o conteúdo é re-renderizado via innerHTML)
+const _cmpFooters = new Map<string, ModalFooterInstance>();
+
+// Cor de destaque do dashboard (mesma do header de AllReport/DeviceReport); default roxo MYIO
+function resolveAccent(palette: TemperatureComparisonModalParams['palette']): string {
+  const fallback = '#3e1a7d';
+  const src =
+    palette ??
+    (typeof window !== 'undefined'
+      ? (window as { MyIOUtils?: { theme?: TemperatureComparisonModalParams['palette'] } }).MyIOUtils?.theme
+      : undefined);
+  if (!src) return fallback;
+  const vars =
+    typeof (src as { cssVars?: () => Record<string, string> }).cssVars === 'function'
+      ? (src as { cssVars(): Record<string, string> }).cssVars()
+      : (src as Record<string, string>);
+  const accent = (src as { accent?: string }).accent || vars?.['--myio-brand-700'];
+  return typeof accent === 'string' && accent ? accent : fallback;
+}
+
+function resolveCustomerName(explicit?: string): string {
+  if (explicit) return explicit;
+  if (typeof window === 'undefined') return '';
+  const w = window as { MyIOOrchestrator?: { customerName?: string }; MyIOUtils?: { customerName?: string } };
+  return w.MyIOOrchestrator?.customerName || w.MyIOUtils?.customerName || '';
 }
 
 // ============================================================================
@@ -158,7 +192,9 @@ export async function openTemperatureComparisonModal(
     selectedPeriods: ['madrugada', 'manha', 'tarde', 'noite'], // All periods selected by default
     temperatureMin: params.temperatureMin ?? null,
     temperatureMax: params.temperatureMax ?? null,
-    dataFetcher: params.dataFetcher ?? null
+    dataFetcher: params.dataFetcher ?? null,
+    customerName: resolveCustomerName(params.customerName),
+    accent: resolveAccent(params.palette)
   };
 
   // Load saved preferences
@@ -187,6 +223,8 @@ export async function openTemperatureComparisonModal(
   // Return instance
   return {
     destroy: () => {
+      _cmpFooters.get(modalId)?.destroy();
+      _cmpFooters.delete(modalId);
       modalContainer.remove();
       params.onClose?.();
     },
@@ -223,9 +261,13 @@ async function fetchAllDevicesData(state: ModalState): Promise<void> {
             : await fetchTemperatureData(state.token, deviceId, state.startTs, state.endTs);
           // Offset do sensor aplicado UMA vez na série → gráfico, stats e CSV consistentes
           const offset = Number(device.temperatureOffset) || 0;
-          const data = offset
-            ? raw.map((p) => ({ ...p, value: Number(p.value) + offset }))
-            : raw;
+          // Leituras fora da faixa válida (já com offset) são DESCARTADAS — mesmo critério
+          // dos relatórios (antes eram "travadas" na borda: ex.: Máx 40,0 °C)
+          const data = raw
+            .map((p) => ({ ...p, value: Number(p.value) + offset }))
+            .filter(
+              (p) => Number.isFinite(p.value) && p.value >= state.clampRange.min && p.value <= state.clampRange.max
+            );
           const stats = calculateStats(data, state.clampRange);
           return {
             device,
@@ -346,7 +388,7 @@ function renderModal(
         <!-- Header - MyIO Premium Style -->
         <div style="
           padding: 4px 8px; display: flex; align-items: center; justify-content: space-between;
-          background: #3e1a7d; color: white; border-radius: ${isMaximized ? '0' : '10px 10px 0 0'};
+          background: ${state.accent}; color: white; border-radius: ${isMaximized ? '0' : '10px 10px 0 0'};
           min-height: 20px;
         ">
           <h2 style="margin: 6px; font-size: 18px; font-weight: 600; color: white; line-height: 2;">
@@ -428,7 +470,7 @@ function renderModal(
                     name="${modalId}-period"
                     value="${period.id}"
                     ${state.selectedPeriods.includes(period.id) ? 'checked' : ''}
-                    style="width: 16px; height: 16px; cursor: pointer; accent-color: #3e1a7d;">
+                    style="width: 16px; height: 16px; cursor: pointer; accent-color: ${state.accent};">
                   ${period.label}
                 </label>
               `).join('')}
@@ -461,7 +503,7 @@ function renderModal(
           </div>
           <!-- Query Button -->
           <button id="${modalId}-query" style="
-            background: #3e1a7d; color: white; border: none;
+            background: ${state.accent}; color: white; border: none;
             padding: 8px 16px; border-radius: 6px; cursor: pointer;
             font-size: 14px; font-weight: 500; height: 38px;
             display: flex; align-items: center; gap: 8px;
@@ -510,33 +552,15 @@ function renderModal(
           ${statsHTML}
         </div>
 
-        <!-- Actions -->
-        <div style="display: flex; justify-content: flex-end; gap: 12px;">
-          <button id="${modalId}-export" style="
-            background: ${state.theme === 'dark' ? 'rgba(255,255,255,0.1)' : '#f7f7f7'};
-            color: ${colors.text}; border: 1px solid ${colors.border};
-            padding: 8px 16px; border-radius: 6px; cursor: pointer;
-            font-size: 14px; display: flex; align-items: center; gap: 8px;
-            font-family: 'Nunito', system-ui, sans-serif;
-          " ${state.deviceData.every(dd => dd.data.length === 0) ? 'disabled' : ''}>
-            📥 Exportar CSV
-          </button>
-          <button id="${modalId}-close-btn" style="
-            background: #3e1a7d; color: white; border: none;
-            padding: 8px 16px; border-radius: 6px; cursor: pointer;
-            font-size: 14px; font-weight: 500;
-            font-family: 'Nunito', system-ui, sans-serif;
-          ">
-            Fechar
-          </button>
-        </div>
         </div><!-- End Body -->
+        <!-- Footer premium (customer · relógio · versão | Powered by MYIO | CSV) — padrão dos relatórios -->
+        <div id="${modalId}-footer-slot"></div>
       </div>
     </div>
     <style>
       @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       #${modalId} select:focus, #${modalId} input:focus {
-        outline: 2px solid #3e1a7d;
+        outline: 2px solid ${state.accent};
         outline-offset: 2px;
       }
       #${modalId} button:hover:not(:disabled) {
@@ -552,6 +576,8 @@ function renderModal(
       }
     </style>
   `;
+
+  mountCmpFooter(container, state, modalId);
 }
 
 // ============================================================================
@@ -848,15 +874,25 @@ function drawComparisonChart(modalId: string, state: ModalState): void {
   const numLabels = Math.min(8, xAxisPoints.length);
   const labelInterval = Math.max(1, Math.floor(xAxisPoints.length / numLabels));
 
+  // Período > 24 h em "Hora": rótulo em 2 linhas (dd/mm + HH:mm) — só a hora,
+  // espaçada ~1 dia, parecia fora de ordem (00:00, 03:00, 02:00, 01:00…)
+  const xSpan = xAxisPoints.length > 1 ? xAxisPoints[xAxisPoints.length - 1].x - xAxisPoints[0].x : 0;
+  const multiDay = state.granularity === 'hour' && xSpan > 24 * 60 * 60 * 1000;
+
   for (let i = 0; i < xAxisPoints.length; i += labelInterval) {
     const point = xAxisPoints[i];
     const date = new Date(point.x);
 
     // Format label based on granularity
     let label: string;
+    let subLabel = '';
     if (state.granularity === 'hour') {
-      // Show time HH:mm for hour granularity
+      // Show time HH:mm for hour granularity (+ date when the range spans days)
       label = date.toLocaleTimeString(state.locale, { hour: '2-digit', minute: '2-digit' });
+      if (multiDay) {
+        subLabel = label;
+        label = date.toLocaleDateString(state.locale, { day: '2-digit', month: '2-digit' });
+      }
     } else {
       // Show date DD/MM for day granularity
       label = date.toLocaleDateString(state.locale, { day: '2-digit', month: '2-digit' });
@@ -873,6 +909,7 @@ function drawComparisonChart(modalId: string, state: ModalState): void {
     // Draw label
     ctx.fillStyle = colors.textMuted;
     ctx.fillText(label, point.screenX, height - paddingBottom + 18);
+    if (subLabel) ctx.fillText(subLabel, point.screenX, height - paddingBottom + 31);
   }
 
   // Draw axis lines
@@ -1027,6 +1064,8 @@ async function setupEventListeners(
 ): Promise<void> {
   // Close modal handlers
   const closeModal = () => {
+    _cmpFooters.get(modalId)?.destroy();
+    _cmpFooters.delete(modalId);
     container.remove();
     onClose?.();
   };
@@ -1179,12 +1218,34 @@ async function setupEventListeners(
     await setupEventListeners(container, state, modalId, onClose);
   });
 
-  // Export CSV
-  document.getElementById(`${modalId}-export`)?.addEventListener('click', () => {
-    if (state.deviceData.every(dd => dd.data.length === 0)) return;
+  // Export CSV — botão no footer premium (mountCmpFooter)
+}
 
-    exportComparisonCSV(state);
+// Pós-render: footer premium (o conteúdo é recriado a cada render)
+function mountCmpFooter(container: HTMLElement, state: ModalState, modalId: string): void {
+  _cmpFooters.get(modalId)?.destroy();
+  _cmpFooters.delete(modalId);
+  const slot = container.querySelector<HTMLElement>(`#${modalId}-footer-slot`);
+  if (!slot) return;
+  const lib =
+    typeof window !== 'undefined' ? (window as { MyIOLibrary?: { version?: string } }).MyIOLibrary : undefined;
+  const footer = createModalFooter({
+    customerName: state.customerName,
+    libVersion: lib?.version ? { current: lib.version } : false,
+    themeMode: state.theme === 'dark' ? 'dark' : 'light',
+    exports: {
+      csv: {
+        onClick: () => {
+          if (state.deviceData.every((dd) => dd.data.length === 0)) return;
+          exportComparisonCSV(state);
+        },
+        disabled: state.deviceData.every((dd) => dd.data.length === 0),
+        tooltipText: 'Exporta em CSV as leituras de cada sensor (offset aplicado)',
+      },
+    },
   });
+  slot.appendChild(footer.element);
+  _cmpFooters.set(modalId, footer);
 }
 
 // ============================================================================
