@@ -334,6 +334,7 @@ describe('DeviceReportModal', () => {
       countLabel: 'dia(s)',
       hidePerc: true,
       emptyValueText: 'Sem leitura',
+      valueDecimals: 2,
     });
   });
 

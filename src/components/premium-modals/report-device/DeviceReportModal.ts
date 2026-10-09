@@ -1117,7 +1117,7 @@ export class DeviceReportModal {
       // Mesmo rótulo da coluna da tela (antes saía "Consumo (°C)" em temperatura)
       valueLabel: this.domainConfig.label,
       countLabel: this.granularity === '1h' ? 'hora(s)' : 'dia(s)',
-      ...(isTemp ? { hidePerc: true, emptyValueText: 'Sem leitura' } : {}),
+      ...(isTemp ? { hidePerc: true, emptyValueText: 'Sem leitura', valueDecimals: 2 } : {}),
     };
   }
 

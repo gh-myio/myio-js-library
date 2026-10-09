@@ -1603,7 +1603,7 @@ export class AllReportModal {
       // Header row only
       ['Identificador', 'Nome', `Consumo (${this.domainConfig.unit})`],
       // Data rows
-      ...sortedData.map((row) => [row.identifier, row.name, row.consumption.toFixed(2)]),
+      ...sortedData.map((row) => [row.identifier, row.name, row.consumption.toFixed(2).replace('.', ',')]),
     ];
 
     const csvContent = toCsv(csvData);
@@ -1618,7 +1618,9 @@ export class AllReportModal {
     const showId = this.showIdentifierColumn(rows);
     const idCol = (r: StoreReading) => (showId ? [r.identifier] : []);
     const idHead = showId ? ['Identificador'] : [];
-    const n2 = (v: number | null | undefined) => (v === null || v === undefined || !Number.isFinite(v) ? '' : v.toFixed(2));
+    // Vírgula decimal, como na tela (antes "32.31")
+    const n2 = (v: number | null | undefined) =>
+      v === null || v === undefined || !Number.isFinite(v) ? '' : v.toFixed(2).replace('.', ',');
     const date = new Date().toISOString().split('T')[0];
     const gran = this.granularity;
     const fmtStamp = (ts: number) => {
@@ -1668,7 +1670,7 @@ export class AllReportModal {
     for (const r of rows) {
       const raw = (r.id && this.temperatureStats.get(r.id)?.series) || [];
       const pts = gran === '1h' ? this.aggregateHourly(raw, 'avg') : this.aggregateDaily(raw, 'avg');
-      for (const p of pts) series.push([...idCol(r), r.name, fmtTs(p.timestamp), p.value.toFixed(2)]);
+      for (const p of pts) series.push([...idCol(r), r.name, fmtTs(p.timestamp), n2(p.value)]);
     }
 
     // Um arquivo: resumo + linha em branco + série (Excel abre os dois blocos)
@@ -1705,7 +1707,7 @@ export class AllReportModal {
       for (const row of sortedData) {
         const points = (row.id && series.get(row.id)) || [];
         for (const p of points) {
-          csvData.push([row.identifier, row.name, fmtTs(p.timestamp), p.value.toFixed(2)]);
+          csvData.push([row.identifier, row.name, fmtTs(p.timestamp), p.value.toFixed(2).replace('.', ',')]);
         }
       }
 
@@ -1860,6 +1862,7 @@ export class AllReportModal {
       ],
       emptyValueText: 'Sem leitura',
       countLabel: 'sensor(es)',
+      valueDecimals: 2, // "30,00" como na tela (não "30")
     };
   }
 

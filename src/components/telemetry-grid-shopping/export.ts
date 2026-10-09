@@ -55,6 +55,8 @@ export interface GridColumnsOptions {
   emptyValueText?: string;
   /** Rótulo da contagem no header do PDF (default 'dispositivo(s)'; ex.: 'sensor(es)', 'dia(s)'). */
   countLabel?: string;
+  /** Casas decimais FIXAS do valor (ex.: 2 → "30,00" como na tela). Default: até 3, sem mínimo. */
+  valueDecimals?: number;
 }
 
 function makeCols(unit: string, colOpts?: GridColumnsOptions | null): Col[] {
@@ -78,7 +80,13 @@ function buildRow(d: TelemetryDevice, idx: number, colOpts?: GridColumnsOptions 
   const x = extras(d);
   const fmtVal = (): string => {
     if (d.val === null || d.val === undefined) return colOpts?.emptyValueText || '—';
-    return Number(d.val).toLocaleString('pt-BR', { maximumFractionDigits: 3, useGrouping: false });
+    const dec = colOpts?.valueDecimals;
+    return Number(d.val).toLocaleString(
+      'pt-BR',
+      dec !== undefined
+        ? { minimumFractionDigits: dec, maximumFractionDigits: dec, useGrouping: false }
+        : { maximumFractionDigits: 3, useGrouping: false },
+    );
   };
   // Percentage decimals — window.MyIOUtils.percentDecimals > 2 (resolved at run time).
   const pd = resolvePercentDecimals();
@@ -166,6 +174,18 @@ function escXml(s: string): string {
 
 function truncate(s: string, max: number): string {
   return s.length > max ? s.slice(0, max - 1) + '…' : s;
+}
+
+/**
+ * Texto seguro p/ as fontes padrão do jsPDF (WinAnsi). Caracteres fora dela — ex.: o sinal
+ * de menos tipográfico "−" (U+2212) do "offset −2,00 °C" — fazem o jsPDF trocar a célula
+ * inteira para UTF-16 e o nome sai ilegível. Mapeia para equivalentes ASCII/WinAnsi.
+ */
+function pdfSafe(s: string): string {
+  return String(s)
+    .replace(/−/g, '-')
+    .replace(/[‐‑]/g, '-')
+    .replace(/ /g, ' ');
 }
 
 // ─── CSV ──────────────────────────────────────────────────────────────────────
@@ -375,7 +395,7 @@ export function exportGridPdf(
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
     const titleText = customerName ? `${customerName} — ${label}` : label;
-    doc.text(titleText, MARGIN, HDR_H / 2 + 1.5);
+    doc.text(pdfSafe(titleText), MARGIN, HDR_H / 2 + 1.5);
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
@@ -384,7 +404,7 @@ export function exportGridPdf(
     const countLabel = options?.columns?.countLabel || 'dispositivo(s)';
     const info =
       `${periodPart}Gerado em: ${generatedAt}  •  ${countDataRows(devices)} ${countLabel}  •  Unidade: ${unit}  •  Pág. ${pageNo}`;
-    doc.text(info, PW - MARGIN, HDR_H / 2 + 1.5, { align: 'right' });
+    doc.text(pdfSafe(info), PW - MARGIN, HDR_H / 2 + 1.5, { align: 'right' });
   }
 
   function drawColumnHeaders(y: number): void {
@@ -397,7 +417,7 @@ export function exportGridPdf(
 
     cols.forEach((c, ci) => {
       const x = colX(ci) + 1.5;
-      doc.text(c.label, x, y + HEAD_H / 2 + 2.5);
+      doc.text(pdfSafe(c.label), x, y + HEAD_H / 2 + 2.5);
     });
 
     doc.setDrawColor(200, 195, 220);
@@ -418,7 +438,7 @@ export function exportGridPdf(
     cols.forEach((c, ci) => {
       const x  = colX(ci) + 1.5;
       const maxChars = Math.floor(colWidths[ci] / 1.8);
-      const text = truncate(String(r[c.key]), maxChars);
+      const text = truncate(pdfSafe(String(r[c.key])), maxChars);
       doc.text(text, x, y + ROW_H / 2 + 2.2);
     });
 
@@ -434,7 +454,7 @@ export function exportGridPdf(
     doc.setTextColor(...ACCENT);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(6.5);
-    doc.text(truncate(text, 160), MARGIN + 1.5, y + ROW_H / 2 + 2.2);
+    doc.text(truncate(pdfSafe(text), 160), MARGIN + 1.5, y + ROW_H / 2 + 2.2);
   }
 
   function drawFooter(): void {
@@ -467,14 +487,14 @@ export function exportGridPdf(
       doc.setTextColor(...ACCENT);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(11);
-      doc.text(truncate(kpi.value, 24), cx, y + 6.5, { align: 'center' });
+      doc.text(truncate(pdfSafe(kpi.value), 24), cx, y + 6.5, { align: 'center' });
       doc.setTextColor(110, 110, 120);
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(6.5);
-      doc.text(truncate(kpi.label, 34), cx, y + 10.5, { align: 'center' });
+      doc.text(truncate(pdfSafe(kpi.label), 34), cx, y + 10.5, { align: 'center' });
       if (kpi.sub) {
         doc.setFontSize(5.5);
-        doc.text(truncate(kpi.sub, 40), cx, y + 13.5, { align: 'center' });
+        doc.text(truncate(pdfSafe(kpi.sub), 40), cx, y + 13.5, { align: 'center' });
       }
     });
   }
@@ -531,7 +551,7 @@ export function exportGridPdf(
     doc.setTextColor(...ACCENT);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(12);
-    doc.text(chart.title || 'Participação por Dispositivo', MARGIN, titleY);
+    doc.text(pdfSafe(chart.title || 'Participação por Dispositivo'), MARGIN, titleY);
 
     const imgTop = titleY + 4;
     const availW = TABLE_W;

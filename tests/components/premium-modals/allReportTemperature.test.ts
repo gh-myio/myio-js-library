@@ -171,6 +171,7 @@ describe('AllReportModal temperatura — KPIs, colunas e exports', () => {
       ],
       emptyValueText: 'Sem leitura',
       countLabel: 'sensor(es)',
+      valueDecimals: 2,
     });
     const devices = m.buildExportDevices();
     expect(devices.map((d: any) => d.name)).toEqual(['Área externa', 'Loja A', 'Loja B', 'Praça']);
