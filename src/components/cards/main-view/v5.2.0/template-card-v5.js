@@ -750,20 +750,29 @@ export function renderCardComponentV5({
   });
 
   // Calculate temperature deviation percentage from average (for TERMOSTATO devices)
+  // Desvio em °C em relação à FAIXA IDEAL do cliente (antes: % sobre o centro da faixa,
+  // ex.: "+26,6%" p/ 30,7 °C com faixa 23–25,5 — porcentagem de °C não é intuitiva).
+  // Acima do teto: "+5,2 °C" · abaixo do piso: "−1,2 °C" · dentro: "na faixa".
   const calculateTempDeviationPercent = () => {
-    const currentTemp = Number(val) || 0;
-    if (temperatureMin !== undefined && temperatureMax !== undefined) {
-      const avgTemp = (Number(temperatureMin) + Number(temperatureMax)) / 2;
-      if (avgTemp === 0) return { value: 0, sign: '' };
-      const deviation = ((currentTemp - avgTemp) / avgTemp) * 100;
-      return {
-        value: Math.abs(deviation),
-        sign: deviation >= 0 ? '+' : '-',
-        isAbove: deviation > 0,
-        isBelow: deviation < 0,
-      };
+    const currentTemp = Number(val);
+    if (!Number.isFinite(currentTemp)) return null;
+    if (temperatureMin === undefined || temperatureMin === null || temperatureMax === undefined || temperatureMax === null) {
+      return null;
     }
-    return null;
+    const min = Number(temperatureMin);
+    const max = Number(temperatureMax);
+    if (!Number.isFinite(min) || !Number.isFinite(max)) return null;
+    const fmt1 = (n) => n.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+    const range = `Faixa ideal ${fmt1(min)}–${fmt1(max)} °C`;
+    if (currentTemp > max) {
+      const d = currentTemp - max;
+      return { isAbove: true, isBelow: false, value: d, text: `+${fmt1(d)} °C`, title: `${range} · ${fmt1(d)} °C acima do limite` };
+    }
+    if (currentTemp < min) {
+      const d = min - currentTemp;
+      return { isAbove: false, isBelow: true, value: d, text: `−${fmt1(d)} °C`, title: `${range} · ${fmt1(d)} °C abaixo do limite` };
+    }
+    return { isAbove: false, isBelow: false, value: 0, text: 'na faixa', title: `${range} · dentro da faixa` };
   };
 
   const tempDeviationPercent = isTermostatoDevice && !showNoTempReading ? calculateTempDeviationPercent() : null;
@@ -855,10 +864,10 @@ export function renderCardComponentV5({
                         ? '#ef4444'
                         : tempDeviationPercent.isBelow
                         ? '#3b82f6'
-                        : '#6b7280'
-                    }; font-weight: 600; cursor: help;">${
-                      tempDeviationPercent.sign
-                    }${tempDeviationPercent.value.toFixed(1)}%</span>`
+                        : '#16a34a'
+                    }; font-weight: 600; cursor: help;" title="${tempDeviationPercent.title}">${
+                      tempDeviationPercent.text
+                    }</span>`
                   : ''
               }
             </div>

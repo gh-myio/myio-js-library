@@ -105,7 +105,21 @@ describe('renderCardComponentV5 — other domains keep their rendering', () => {
 
     expect(headline).toBe('22,50 °C');
     expect(badge.classList.contains('temp-deviation-badge')).toBe(true);
-    expect(badge.textContent.trim()).toBe('-2.2%');
+    expect(badge.textContent.trim()).toBe('na faixa'); // 22,5 dentro de 20–26
+  });
+
+  it('temperatura: badge = desvio em °C em relação à faixa ideal (não % do centro)', () => {
+    const above = render({ deviceProfile: 'TERMOSTATO', val: 30.7, temperatureMin: 23, temperatureMax: 25.5 }).badge;
+    expect(above.textContent.trim()).toBe('+5,2 °C'); // 30,7 − 25,5 (antes "+26,6%")
+    expect(above.getAttribute('title')).toBe('Faixa ideal 23,0–25,5 °C · 5,2 °C acima do limite');
+    expect(above.style.color).toBe('rgb(239, 68, 68)');
+
+    const below = render({ deviceProfile: 'TERMOSTATO', val: 21.8, temperatureMin: 23, temperatureMax: 25.5 }).badge;
+    expect(below.textContent.trim()).toBe('−1,2 °C');
+    expect(below.getAttribute('title')).toContain('abaixo do limite');
+
+    const inside = render({ deviceProfile: 'TERMOSTATO', val: 24, temperatureMin: 23, temperatureMax: 25.5 }).badge;
+    expect(inside.textContent.trim()).toBe('na faixa');
   });
 });
 
