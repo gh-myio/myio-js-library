@@ -56,6 +56,11 @@ export interface ModalHeaderOptions {
   showClose?: boolean;
   /** Custom primary color (default: #3e1a7d - MyIO Purple) */
   primaryColor?: string;
+  /**
+   * generateInlineHTML: header SEMPRE na cor primária com texto branco, mesmo no tema
+   * light (padrão dos relatórios premium). O botão de tema segue refletindo `theme`.
+   */
+  solid?: boolean;
   /** Border radius when not maximized */
   borderRadius?: string;
   /** Show export button */
@@ -536,12 +541,14 @@ export const ModalHeader = {
       primaryColor = '#3e1a7d',
       borderRadius = '10px 10px 0 0',
       draggable = true,
+      solid = false,
     } = options;
 
     const isDark = theme === 'dark';
-    const bgColor = isDark ? primaryColor : 'linear-gradient(90deg, #f1f5f9 0%, #e2e8f0 100%)';
-    const textColor = isDark ? 'white' : '#475569';
-    const btnColor = isDark ? 'rgba(255,255,255,0.8)' : 'rgba(71,85,105,0.8)';
+    const solidStyle = isDark || solid; // cor primária + texto branco
+    const bgColor = solidStyle ? primaryColor : 'linear-gradient(90deg, #f1f5f9 0%, #e2e8f0 100%)';
+    const textColor = solidStyle ? 'white' : '#475569';
+    const btnColor = solidStyle ? 'rgba(255,255,255,0.8)' : 'rgba(71,85,105,0.8)';
 
     const headerStyle = `
       padding: 8px 12px;

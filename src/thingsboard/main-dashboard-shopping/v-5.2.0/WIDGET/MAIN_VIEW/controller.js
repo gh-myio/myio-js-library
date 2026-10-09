@@ -73,7 +73,82 @@ function getDataApiBaseUrl() {
   return _dataApiHost.replace(/\/api\/v1\/?$/, '');
 }
 
+// Temperatura atual: busca as últimas 24 h de cada sensor (hora fechada) e usa a hora mais recente
+const TEMPERATURE_LOOKBACK_MS = 24 * 60 * 60 * 1000;
+// Idade da última leitura → estado do card: ≤ 10 h normal · ≤ 12 h aviso · ≤ 24 h sem leitura recente
+const TEMPERATURE_FRESHNESS = { okMs: 10 * 60 * 60 * 1000, warningMs: 12 * 60 * 60 * 1000 };
+
+/** ISO 8601 em horário de Brasília (`-03:00`), ex.: 2026-10-08T10:00:00-03:00 */
+function toSaoPauloIso(ms) {
+  return new Date(ms - 3 * 60 * 60 * 1000).toISOString().slice(0, 19) + '-03:00';
+}
+
 window.MyIOUtils = window.MyIOUtils || {};
+
+// ── Token ThingsBoard sempre válido ─────────────────────────────────────────────
+// Os widgets fazem fetch() direto com localStorage.jwt_token. O TB só renova esse
+// token quando o PRÓPRIO Angular faz uma requisição — com o dashboard parado além da
+// validade do JWT (~2h30), toda chamada direta passava a dar 401 ("ThingsBoard API
+// error: 401" no relatório). getFreshTbToken renova via POST /api/auth/token com o
+// refresh_token e grava nas MESMAS chaves do TB (o app TB lê o token de lá).
+let _tbTokenRefreshPromise = null;
+
+function _jwtExpMs(token) {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    return payload && payload.exp ? payload.exp * 1000 : 0;
+  } catch {
+    return 0;
+  }
+}
+
+window.MyIOUtils.getFreshTbToken = async function getFreshTbToken(minValidityMs = 60 * 1000) {
+  const current = localStorage.getItem('jwt_token');
+  if (current && _jwtExpMs(current) - Date.now() > minValidityMs) return current;
+
+  const refreshToken = localStorage.getItem('refresh_token');
+  if (!refreshToken) return current;
+
+  // Single-flight: vários widgets pedindo ao mesmo tempo → uma renovação só
+  if (!_tbTokenRefreshPromise) {
+    _tbTokenRefreshPromise = (async () => {
+      const res = await fetch('/api/auth/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+      });
+      if (!res.ok) throw new Error(`TB token refresh HTTP ${res.status}`);
+      const data = await res.json();
+      if (!data || !data.token) throw new Error('TB token refresh: resposta sem token');
+      localStorage.setItem('jwt_token', data.token);
+      const exp = _jwtExpMs(data.token);
+      if (exp) localStorage.setItem('jwt_token_expiration', String(exp));
+      if (data.refreshToken) {
+        localStorage.setItem('refresh_token', data.refreshToken);
+        const rexp = _jwtExpMs(data.refreshToken);
+        if (rexp) localStorage.setItem('refresh_token_expiration', String(rexp));
+      }
+      return data.token;
+    })().finally(() => {
+      _tbTokenRefreshPromise = null;
+    });
+  }
+
+  try {
+    return await _tbTokenRefreshPromise;
+  } catch (err) {
+    LogHelper.warn('[MAIN_VIEW] TB token refresh failed:', err && err.message);
+    return current;
+  }
+};
+
+// Keep-alive: a cada 5 min, renova se faltar < 10 min — mantém válido o jwt_token que
+// TODOS os widgets (e as modais da lib que recebem o token) leem do localStorage.
+if (!window.__myioTbTokenKeepAlive) {
+  window.__myioTbTokenKeepAlive = setInterval(() => {
+    window.MyIOUtils.getFreshTbToken(10 * 60 * 1000);
+  }, 5 * 60 * 1000);
+}
 
 // RFC-0233: per-user feature visibility resolver (`restrict_view`). Reads
 // the tree detectSuperAdmin() parses from the USER SERVER_SCOPE
@@ -2865,6 +2940,11 @@ Object.assign(window.MyIOUtils, {
   };
 
   self.onDestroy = function () {
+    // Para o keep-alive do token TB (é recriado no próximo load do MAIN_VIEW)
+    if (window.__myioTbTokenKeepAlive) {
+      clearInterval(window.__myioTbTokenKeepAlive);
+      window.__myioTbTokenKeepAlive = null;
+    }
     // Limpa event listeners se necessário
     if (typeof window !== 'undefined') {
       // Remove custom event listeners se foram adicionados
@@ -5166,14 +5246,27 @@ function populateStateTemperature(items) {
   const warning = [];
   const critical = [];
   const offline = [];
+  const noReading = []; // sem leitura recente (temperature null) — fora de classificação e médias
+
+  // Valor exibido = bruto + offSetTemperature (mesma regra do card)
+  const displayTemp = (item) => {
+    const raw = item.temperature ?? item.value;
+    if (raw === null || raw === undefined || !Number.isFinite(Number(raw))) return null;
+    return Number(raw) + Number(item.offSetTemperature || 0);
+  };
 
   for (const item of items) {
-    const temp = Number(item.temperature || item.value || 0);
+    const temp = displayTemp(item);
     const status = item.deviceStatus || item.connectionStatus || 'unknown';
 
     // Check if device is offline first
     if (status === 'offline' || status === 'no_info') {
       offline.push(item);
+      continue;
+    }
+
+    if (temp === null) {
+      noReading.push(item);
       continue;
     }
 
@@ -5189,7 +5282,10 @@ function populateStateTemperature(items) {
   }
 
   // Calculate aggregates
-  const allTemps = items.filter((i) => i.deviceStatus !== 'offline').map((i) => Number(i.temperature || 0));
+  const allTemps = items
+    .filter((i) => i.deviceStatus !== 'offline')
+    .map(displayTemp)
+    .filter((t) => t !== null);
   const avgTemp = allTemps.length > 0 ? allTemps.reduce((a, b) => a + b, 0) / allTemps.length : 0;
   const minValue = allTemps.length > 0 ? Math.min(...allTemps) : 0;
   const maxValue = allTemps.length > 0 ? Math.max(...allTemps) : 0;
@@ -5200,12 +5296,14 @@ function populateStateTemperature(items) {
     warning: warning,
     critical: critical,
     offline: offline,
+    noReading: noReading,
     summary: {
       total: items.length,
       normalCount: normal.length,
       warningCount: warning.length,
       criticalCount: critical.length,
       offlineCount: offline.length,
+      noReadingCount: noReading.length,
       avgTemperature: avgTemp,
       minTemperature: minValue,
       maxTemperature: maxValue,
@@ -7108,10 +7206,13 @@ const MyIOOrchestrator = (() => {
 
         LogHelper.log(`[Orchestrator] 🌡️ Found ${metadataByEntityId.size} temperature devices`);
 
-        // RFC-0189: Per-device API calls over the last 72h to derive lastTelemetryTs and last temperature value
-        // Key: ingestionId → Unix ms timestamp / raw sensor value of last consumption entry
-        const apiTsMap = new Map();
-        const apiValueMap = new Map(); // ingestionId → last temperature value (°C, raw before offset)
+        // Temperatura atual: últimas 24 h de CADA sensor no Ingestion, consolidadas por HORA
+        // FECHADA; o card mostra a hora mais recente com dado. A idade da última leitura
+        // define o estado (TEMPERATURE_FRESHNESS): até 10 h normal · 10–12 h aviso (borda laranja
+        // + ⚠ piscando) · 12–24 h "Sem leitura recente" · sem nada em 24 h → offline.
+        // Leituras fora da faixa válida (já com offset) são descartadas, como nos relatórios.
+        const apiRowMap = new Map(); // ingestionId → { value (bruto), hourTs, lastTs }
+        let apiFetchedAt = null;
 
         if (useApi) {
           try {
@@ -7131,87 +7232,105 @@ const MyIOOrchestrator = (() => {
             });
             const token = await myIOAuth.getToken();
 
-            // Fixed 72-hour window — independent of the dashboard period
-            const endTime = new Date().toISOString();
-            const startTime = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString();
+            const nowMs = Date.now();
+            const startIso = toSaoPauloIso(nowMs - TEMPERATURE_LOOKBACK_MS);
+            const endIso = toSaoPauloIso(nowMs);
+            const clamp = window.MyIOUtils?.temperatureClampRange;
+            const valid =
+              clamp && Number.isFinite(Number(clamp.min)) && Number.isFinite(Number(clamp.max))
+                ? { min: Number(clamp.min), max: Number(clamp.max) }
+                : { min: 15, max: 40 };
+            const devices = [...metadataByEntityId.values()].filter((m) => !!m.ingestionId);
+            const HOUR = 60 * 60 * 1000;
 
-            const devicesWithIngestionId = [...metadataByEntityId.values()].filter(
-              (meta) => !!meta.ingestionId
-            );
+            LogHelper.log(`[Orchestrator] 🌡️ Fetching last 24h (hourly) for ${devices.length} sensors`);
 
-            LogHelper.log(
-              `[Orchestrator] 🌡️ RFC-0189: Fetching temperature API for ${devicesWithIngestionId.length} devices (last 72h)`
-            );
-
-            const results = await Promise.allSettled(
-              devicesWithIngestionId.map(async (meta) => {
-                const url = new URL(`${getDataApiHost()}/telemetry/devices/${meta.ingestionId}/temperature`);
-                url.searchParams.set('startTime', startTime);
-                url.searchParams.set('endTime', endTime);
-                url.searchParams.set('granularity', '1h');
-                url.searchParams.set('deep', '0');
-
-                const res = await fetch(url.toString(), {
-                  headers: { Authorization: `Bearer ${token}` },
-                });
-                if (!res.ok) return null;
-
-                const json = await res.json();
-                const rows = Array.isArray(json) ? json : [];
-                const row = rows.find((r) => r.id === meta.ingestionId) || rows[0] || null;
-
-                if (!row || !Array.isArray(row.consumption) || row.consumption.length === 0) {
-                  return null;
-                }
-
-                // Last entry = most recent data point from ingestion backend
-                const lastEntry = row.consumption[row.consumption.length - 1];
-                const lastTelemetryTs = lastEntry?.timestamp ? new Date(lastEntry.timestamp).getTime() : null;
-                const lastValue =
-                  lastEntry?.value !== undefined && lastEntry?.value !== null
-                    ? Number(lastEntry.value)
-                    : null;
-
-                return lastTelemetryTs ? { ingestionId: meta.ingestionId, lastTelemetryTs, lastValue } : null;
-              })
-            );
-
-            for (const result of results) {
-              if (result.status === 'fulfilled' && result.value) {
-                apiTsMap.set(result.value.ingestionId, result.value.lastTelemetryTs);
-                if (result.value.lastValue !== null) {
-                  apiValueMap.set(result.value.ingestionId, result.value.lastValue);
-                }
-              }
+            let authFailed = false;
+            const BATCH = 6;
+            for (let i = 0; i < devices.length; i += BATCH) {
+              await Promise.all(
+                devices.slice(i, i + BATCH).map(async (meta) => {
+                  try {
+                    const url = new URL(`${getDataApiHost()}/telemetry/devices/${meta.ingestionId}/temperature`);
+                    url.searchParams.set('startTime', startIso);
+                    url.searchParams.set('endTime', endIso);
+                    url.searchParams.set('granularity', '1h');
+                    url.searchParams.set('deep', '0');
+                    const res = await fetch(url.toString(), { headers: { Authorization: `Bearer ${token}` } });
+                    if (!res.ok) {
+                      if (res.status === 401 || res.status === 403) authFailed = true;
+                      return;
+                    }
+                    const body = await res.json();
+                    const rows = Array.isArray(body) ? body : [body];
+                    const row = rows.find((r) => r && r.id === meta.ingestionId) || rows[0] || null;
+                    const off = Number(meta.offSetTemperature || 0);
+                    // Hora fechada: média das leituras válidas de cada hora
+                    const buckets = new Map();
+                    let lastTs = null;
+                    for (const e of (row && row.consumption) || []) {
+                      const ts = new Date(e && e.timestamp).getTime();
+                      const v = Number(e && e.value);
+                      if (!Number.isFinite(ts) || !Number.isFinite(v)) continue;
+                      if (v + off < valid.min || v + off > valid.max) continue; // leitura inválida
+                      const h = Math.floor(ts / HOUR) * HOUR;
+                      const b = buckets.get(h) || { sum: 0, n: 0 };
+                      b.sum += v;
+                      b.n += 1;
+                      buckets.set(h, b);
+                      if (lastTs === null || ts > lastTs) lastTs = ts;
+                    }
+                    if (!buckets.size) return; // nada nas 24 h → offline
+                    const hourTs = Math.max(...buckets.keys());
+                    const b = buckets.get(hourTs);
+                    apiRowMap.set(meta.ingestionId, { value: b.sum / b.n, hourTs, lastTs });
+                  } catch {
+                    /* sensor sem série — tratado como sem dado */
+                  }
+                })
+              );
             }
+            if (authFailed) emitTokenExpired();
+            apiFetchedAt = nowMs;
 
             LogHelper.log(
-              `[Orchestrator] 🌡️ RFC-0189: lastTelemetryTs resolved for ${apiTsMap.size}/${devicesWithIngestionId.length} devices`
+              `[Orchestrator] 🌡️ Current temperature: ${apiRowMap.size}/${devices.length} sensors with data in the last 24h`
             );
           } catch (err) {
-            LogHelper.warn('[Orchestrator] 🌡️ RFC-0189: Temperature API fetch failed:', err.message);
-            // apiTsMap stays empty → all devices fall back to meta.temperatureTs
+            LogHelper.warn('[Orchestrator] 🌡️ Temperature API fetch failed — using ctx.data:', err.message);
+            // apiFetchedAt stays null → every device falls back to ctx.data (ThingsBoard)
           }
         }
 
-        // Build items from metadata (value = meta.temperature from ctx.data — ThingsBoard real-time)
+        // Build items: value = hora mais recente (Ingestion, 24 h) quando a API respondeu; senão ctx.data
         const items = [];
         for (const [entityId, meta] of metadataByEntityId.entries()) {
-          const temperatureValue = Number(meta.temperature || 0);
           const tempOffset = Number(meta.offSetTemperature || 0);
+          const apiRow = apiFetchedAt && meta.ingestionId ? apiRowMap.get(meta.ingestionId) : null;
+          const fromApi = !!apiFetchedAt && !!meta.ingestionId;
 
-          // Debug: Log if offset is found
-          if (tempOffset !== 0) {
-            console.warn(`🌡️ [MAIN_VIEW] Creating temperature item with offset:`, {
-              label: meta.label || meta.identifier,
-              rawTemperature: temperatureValue,
-              offSetTemperature: tempOffset,
-              adjustedTemperature: temperatureValue + tempOffset,
-            });
+          let temperatureValue; // °C bruto (offset é aplicado pelo consumidor via offSetTemperature)
+          let lastTelemetryTs = null;
+          let freshness = null; // 'ok' | 'warning' | 'stale' | 'offline'
+          if (fromApi) {
+            if (!apiRow) {
+              freshness = 'offline';
+              temperatureValue = null;
+            } else {
+              const age = apiFetchedAt - apiRow.lastTs;
+              freshness =
+                age <= TEMPERATURE_FRESHNESS.okMs
+                  ? 'ok'
+                  : age <= TEMPERATURE_FRESHNESS.warningMs
+                    ? 'warning'
+                    : 'stale';
+              // 12–24 h: "Sem leitura recente" (valor antigo demais p/ ser exibido como atual)
+              temperatureValue = freshness === 'stale' ? null : apiRow.value;
+              lastTelemetryTs = apiRow.lastTs; // leitura REAL (série), não o last_telemetry_ts da rota
+            }
+          } else {
+            temperatureValue = meta.temperature === null || meta.temperature === undefined ? null : Number(meta.temperature);
           }
-
-          // RFC-0189: inject lastTelemetryTs from API when available; null falls back to meta.temperatureTs via RFC-0188
-          const lastTelemetryTs = meta.ingestionId ? (apiTsMap.get(meta.ingestionId) ?? null) : null;
 
           // RFC-0111: Use centralized factory
           items.push(
@@ -7222,12 +7341,21 @@ const MyIOOrchestrator = (() => {
                 label: meta.label || meta.identifier || 'Sensor',
                 entityLabel: meta.label || meta.identifier || 'Sensor',
                 name: meta.label || meta.identifier || 'Sensor',
-                value: temperatureValue, // RFC-0189: API last value when enabled, else ctx.data
+                value: temperatureValue,
                 temperature: temperatureValue,
                 // deviceType em desuso — campo legado preenchido do profile
                 deviceType: meta.deviceProfile || 'TERMOSTATO',
                 offSetTemperature: tempOffset,
-                lastTelemetryTs, // RFC-0189 + RFC-0188: null when API disabled/unavailable (graceful fallback)
+                lastTelemetryTs,
+                // > 24 h sem dado no Ingestion → offline de fato
+                ...(freshness === 'offline' ? { deviceStatus: 'offline' } : {}),
+                // 'ingestion-hourly' | 'thingsboard' — define o rótulo do card
+                temperatureSource: fromApi ? 'ingestion-hourly' : 'thingsboard',
+                temperatureNoRecentReading: temperatureValue === null,
+                temperatureFreshness: freshness,
+                temperatureHourTs: apiRow ? apiRow.hourTs : null,
+                temperatureLastTs: apiRow ? apiRow.lastTs : null,
+                temperatureFetchedAt: fromApi ? apiFetchedAt : null,
               },
             })
           );
@@ -7238,7 +7366,7 @@ const MyIOOrchestrator = (() => {
 
         LogHelper.log(
           `[Orchestrator] 🌡️ Temperature items: ${items.length}` +
-            (useApi ? ` | API ts enriched: ${apiTsMap.size}` : ' | ctx.data only')
+            (apiFetchedAt ? ` | Ingestion avg 2h: ${apiRowMap.size} rows` : ' | ctx.data only')
         );
         return items;
       }

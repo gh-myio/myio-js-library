@@ -30,6 +30,19 @@ const LogHelper = window.MyIOUtils?.LogHelper || {
   error: (...args) => console.error('[TELEMETRY]', ...args),
 };
 
+// Token TB válido no momento da chamada (MAIN_VIEW renova se vencido; senão localStorage).
+// Evita 401 em ações disparadas depois do dashboard ficar ocioso além da validade do JWT.
+async function getTbToken() {
+  try {
+    if (typeof window.MyIOUtils?.getFreshTbToken === 'function') {
+      return await window.MyIOUtils.getFreshTbToken();
+    }
+  } catch {
+    /* fallback abaixo */
+  }
+  return localStorage.getItem('jwt_token');
+}
+
 // ===== INFOTOOLTIP FROM LIBRARY (RFC-0105) =====
 /**
  * Get InfoTooltip from the library
@@ -1447,7 +1460,7 @@ function extractLimitsFromJSON(powerLimitsJSON, deviceType, telemetryType = 'con
 let __deviceProfileSyncComplete = false;
 
 async function fetchDeviceProfiles() {
-  const token = localStorage.getItem('jwt_token');
+  const token = await getTbToken();
   if (!token) throw new Error('[RFC-0071] JWT token not found');
 
   const url = '/api/deviceProfile/names?activeOnly=true';
@@ -1491,7 +1504,7 @@ async function fetchDeviceProfiles() {
  * @returns {Promise<Object>}
  */
 async function fetchDeviceDetails(deviceId) {
-  const token = localStorage.getItem('jwt_token');
+  const token = await getTbToken();
   if (!token) throw new Error('[RFC-0071] JWT token not found');
 
   const url = `/api/device/${deviceId}`;
@@ -1525,7 +1538,7 @@ async function addDeviceProfileAttribute(deviceId, deviceProfile) {
       throw new Error('deviceProfile is required');
     }
 
-    const token = localStorage.getItem('jwt_token');
+    const token = await getTbToken();
     if (!token) throw new Error('jwt_token not found in localStorage');
 
     const url = `/api/plugins/telemetry/DEVICE/${deviceId}/attributes/SERVER_SCOPE`;
@@ -2828,7 +2841,8 @@ function renderList(visible) {
         item.deviceStatus === 'power_off' ||
         item.deviceStatus === 'offline' ||
         item.deviceStatus === 'no_info';
-      if (!isOffline) {
+      // Sem leitura recente não entra na média (não é 0 °C)
+      if (!isOffline && !item.temperatureNoRecentReading && item.value !== null && item.value !== undefined) {
         totalTemp += Number(item.value || 0);
         tempDeviceCount++;
       }
@@ -2893,10 +2907,20 @@ function renderList(visible) {
       waterLevel: it.waterLevel || null,
       waterPercentage: it.waterPercentage || null,
       // TERMOSTATO specific fields
-      temperature: it.temperature || null,
-      temperatureMin: it.temperatureMin || null,
-      temperatureMax: it.temperatureMax || null,
+      temperature: it.temperature ?? null,
+      temperatureMin: it.temperatureMin ?? null,
+      temperatureMax: it.temperatureMax ?? null,
       temperatureStatus: it.temperatureStatus || null,
+      // Card mostra "Sem leitura recente" (lib) e rótulo "média das últimas 2 h" quando vier do Ingestion
+      temperatureNoRecentReading: !!it.temperatureNoRecentReading,
+      temperatureSource: it.temperatureSource || null,
+      temperatureFetchedAt: it.temperatureFetchedAt || null,
+      // Aviso (borda laranja + ⚠) / sem leitura recente / offline — e quando foi a última leitura
+      temperatureFreshness: it.temperatureFreshness || null,
+      temperatureHourTs: it.temperatureHourTs || null,
+      temperatureLastTs: it.temperatureLastTs || null,
+      // Offset aplicado → marcador no padrão da "exclusão de totais"
+      temperatureOffset: WIDGET_DOMAIN === 'temperature' ? Number(it.temperatureOffset ?? it.offSetTemperature ?? 0) || 0 : 0,
       // Average temperature across all TERMOSTATO devices (for TempComparisonTooltip)
       averageTemperature: avgTemperature,
       temperatureDeviceCount: tempDeviceCount,
@@ -2947,7 +2971,7 @@ function renderList(visible) {
       showTempRangeTooltip: false,
 
       handleActionDashboard: async () => {
-        const jwtToken = localStorage.getItem('jwt_token');
+        const jwtToken = await getTbToken();
         const MyIOToast = window.MyIOUtils?.MyIOToast;
 
         if (!jwtToken) {
@@ -3011,7 +3035,10 @@ function renderList(visible) {
 
             // Get temperature-related properties from entity
             // Priority: device attributes > entity attributes > global customer limits (MyIOUtils)
-            const currentTemp = it.temperature || entityObject.temperature;
+            // null = sem leitura recente → modal mostra "N/A" (nunca 0 °C)
+            const currentTemp = it.temperatureNoRecentReading ? null : (it.temperature ?? entityObject.temperature ?? null);
+            // Offset do device: o gráfico (TB ou Ingestion) chega bruto e o modal aplica
+            const temperatureOffset = Number(it.temperatureOffset ?? it.offSetTemperature ?? 0) || 0;
             const tempMinRange =
               it.temperatureMin ??
               it.minTemperature ??
@@ -3106,6 +3133,7 @@ function renderList(visible) {
               temperatureMin: tempMinRange,
               temperatureMax: tempMaxRange,
               temperatureStatus: tempStatus,
+              temperatureOffset,
               useIngestionApi,
             });
 
@@ -3126,7 +3154,12 @@ function renderList(visible) {
               temperatureMin: tempMinRange,
               temperatureMax: tempMaxRange,
               temperatureStatus: tempStatus,
-              theme: 'dark',
+              temperatureOffset,
+              theme: 'light', // modal de temperatura abre SEMPRE em light (toggle continua disponível)
+              // Padrão dos relatórios: header c/ nome do device (copiar) + footer premium c/ customer
+              deviceName: it.entityName || '',
+              customerName: it.customerName || window.MyIOOrchestrator?.customerName || '',
+              palette: window.MyIOUtils?.theme || undefined,
               locale: 'pt-BR',
               granularity: 'hour',
               ...(clampRange ? { clampRange } : {}),
@@ -3306,157 +3339,106 @@ function renderList(visible) {
           const deviceType = it.deviceProfile || entityObject.deviceType;
           const isTermostatoDevice = String(deviceType || '').startsWith('TERMOSTATO');
 
-          // For TERMOSTATO devices, reports use ThingsBoard API (no ingestion)
+          // Temperatura: relatório SEMPRE do Ingestion (a chave `temperature` no TB pode estar
+          // parada — ex.: Shopping da Ilha desde 02/06/2026 → relatório zerado). Série horária
+          // por device; offset do sensor somado a cada leitura e leituras fora da faixa válida
+          // (clamp do cliente, default 15–40 °C) DESCARTADAS. 1d = média do dia (São Paulo).
           if (isTermostatoDevice || WIDGET_DOMAIN === 'temperature') {
-            LogHelper.log('[TELEMETRY v5] Temperature report - using ThingsBoard API');
-
-            const jwtToken = localStorage.getItem('jwt_token');
-            if (!jwtToken) {
-              throw new Error('No JWT token available');
-            }
-
-            // Get device TB ID
-            let tbId = it.tbId;
-            if (!tbId || !isValidUUID(tbId)) {
-              const idx = buildTbIdIndexes();
-              tbId =
-                (it.ingestionId && idx.byIngestion.get(it.ingestionId)) ||
-                (it.identifier && idx.byIdentifier.get(it.identifier)) ||
-                null;
-            }
-
-            if (!tbId) {
-              LogHelper.warn('[TELEMETRY v5] No TB device ID for temperature report');
-              const MyIOToast = window.MyIOUtils?.MyIOToast;
-              if (MyIOToast) {
-                MyIOToast.error('Nao foi possivel identificar o dispositivo.');
-              }
+            if (!it.ingestionId) {
+              LogHelper.warn('[TELEMETRY v5] Temperature report: device without ingestionId', it.label);
+              window.MyIOUtils?.MyIOToast?.error('Sensor sem ingestionId — não é possível gerar o relatório.');
               return;
             }
+            if (!isAuthReady()) throw new Error('Auth not ready');
 
-            LogHelper.log('[TELEMETRY v5] Opening temperature report for device:', {
-              tbId,
-              label: it.label,
-              identifier: it.identifier,
-            });
+            const dataApiHost = window.MyIOUtils?.getDataApiHost?.();
+            const reportTempOffset = Number(it.temperatureOffset ?? it.offSetTemperature ?? 0) || 0;
+            const clamp = window.MyIOUtils?.temperatureClampRange;
+            const validRange =
+              clamp && Number.isFinite(Number(clamp.min)) && Number.isFinite(Number(clamp.max))
+                ? { min: Number(clamp.min), max: Number(clamp.max) }
+                : { min: 15, max: 40 };
 
-            // Get temperature offset for this device (will be applied to report values)
-            const reportTempOffset = it.temperatureOffset || getTemperatureOffset(tbId) || 0;
-            if (reportTempOffset !== 0) {
-              LogHelper.log(`[TELEMETRY v5] Temperature report will apply offset: ${reportTempOffset}`);
-            }
+            const SP_OFFSET_MS = 3 * 60 * 60 * 1000;
+            const spDate = (ts) => new Date(ts - SP_OFFSET_MS).toISOString().slice(0, 10);
 
-            // Create custom fetcher for ThingsBoard temperature data
-            const temperatureFetcher = async ({ startISO, endISO }) => {
-              const startTs = new Date(startISO).getTime();
-              const endTs = new Date(endISO).getTime();
-
-              LogHelper.log('[TELEMETRY v5] Fetching temperature data for report:', {
-                startISO,
-                endISO,
-                startTs,
-                endTs,
-                tbId,
-                temperatureOffset: reportTempOffset,
-              });
-
-              // Fetch temperature data from ThingsBoard with daily aggregation
+            const temperatureFetcher = async ({ startISO, endISO, granularity }) => {
+              const token = await MyIOAuth.getToken();
               const url =
-                `/api/plugins/telemetry/DEVICE/${tbId}/values/timeseries` +
-                `?keys=temperature` +
-                `&startTs=${encodeURIComponent(startTs)}` +
-                `&endTs=${encodeURIComponent(endTs)}` +
-                `&limit=50000` +
-                `&intervalType=MILLISECONDS` +
-                `&interval=86400000` + // 24 hours in ms (daily aggregation)
-                `&agg=AVG`;
+                `${dataApiHost}/telemetry/devices/${it.ingestionId}/temperature` +
+                `?startTime=${encodeURIComponent(startISO)}&endTime=${encodeURIComponent(endISO)}` +
+                `&granularity=1h&deep=0`;
+              const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+              if (!res.ok) throw new Error(`Ingestion API error: ${res.status}`);
+              const body = await res.json();
+              const rows = Array.isArray(body) ? body : [body];
+              const row = rows.find((r) => r && r.id === it.ingestionId) || rows[0] || null;
 
-              const response = await fetch(url, {
-                headers: {
-                  'X-Authorization': `Bearer ${jwtToken}`,
-                  'Content-Type': 'application/json',
-                },
-              });
-
-              if (!response.ok) {
-                throw new Error(`ThingsBoard API error: ${response.status}`);
+              // offset + descarte de inválidas (sensor com defeito manda -6 °C, 99 °C…)
+              let discarded = 0;
+              const points = [];
+              for (const e of (row && row.consumption) || []) {
+                const ts = new Date(e && e.timestamp).getTime();
+                const raw = Number(e && e.value);
+                if (!Number.isFinite(ts) || !Number.isFinite(raw)) continue;
+                const v = raw + reportTempOffset;
+                if (v < validRange.min || v > validRange.max) {
+                  discarded++;
+                  continue;
+                }
+                points.push({ ts, value: v });
+              }
+              if (discarded) {
+                LogHelper.log(
+                  `[TELEMETRY v5] Temperature report: ${discarded} leituras fora de ${validRange.min}–${validRange.max} °C descartadas`
+                );
               }
 
-              const data = await response.json();
-              LogHelper.log('[TELEMETRY v5] ThingsBoard temperature response:', data);
-
-              // Transform ThingsBoard response to match expected format for report modal
-              const tempValues = data?.temperature || [];
-
-              if (tempValues.length === 0) {
-                LogHelper.warn('[TELEMETRY v5] No temperature data returned from ThingsBoard');
-                return [];
+              if (granularity === '1h') {
+                return [
+                  {
+                    deviceId: it.ingestionId,
+                    consumption: points.map((p) => ({ timestamp: new Date(p.ts).toISOString(), value: p.value })),
+                  },
+                ];
               }
-
-              // Helper function to apply offset and clamp temperature values (avoid outliers)
-              // Offset is applied first, then values below 15°C are clamped to 15, above 40°C to 40
-              const clampTemp = (v) => {
-                let num = Number(v || 0);
-                // Apply temperature offset before clamping
-                if (reportTempOffset !== 0) {
-                  num = num + reportTempOffset;
-                }
-                if (num < 15) return 15;
-                if (num > 40) return 40;
-                return num;
-              };
-
-              // Group by day and calculate average (ThingsBoard may return multiple points per day)
-              const dailyMap = {};
-              tempValues.forEach((item) => {
-                const date = new Date(item.ts);
-                const dateKey = date.toISOString().split('T')[0]; // YYYY-MM-DD
-                if (!dailyMap[dateKey]) {
-                  dailyMap[dateKey] = { sum: 0, count: 0 };
-                }
-                // Clamp each value before aggregating
-                dailyMap[dateKey].sum += clampTemp(item.value);
-                dailyMap[dateKey].count += 1;
-              });
-
-              // Convert to array format expected by DeviceReportModal
-              const consumption = Object.entries(dailyMap).map(([date, stats]) => ({
-                timestamp: date + 'T00:00:00.000Z',
-                value: stats.sum / stats.count, // Average temperature for the day (already clamped)
-              }));
-
-              LogHelper.log('[TELEMETRY v5] Processed temperature data for report:', {
-                daysCount: consumption.length,
-                consumption,
-              });
-
-              // Return in the format expected by DeviceReportModal.processApiResponse
+              // 1d: a modal agrupa por timestamp.slice(0, 10) → manda a data civil de SP
               return [
                 {
-                  deviceId: tbId,
-                  consumption: consumption,
+                  deviceId: it.ingestionId,
+                  consumption: points.map((p) => ({ timestamp: `${spDate(p.ts)}T00:00:00-03:00`, value: p.value })),
                 },
               ];
             };
 
-            // Open the report modal with custom temperature fetcher
             await MyIO.openDashboardPopupReport({
-              ingestionId: it.ingestionId || tbId, // Use tbId as fallback
-              deviceId: tbId,
+              ingestionId: it.ingestionId,
+              deviceId: it.tbId || it.id,
               identifier: it.identifier,
               label: it.label,
+              deviceName: it.entityName || '', // nome do device no TB — header (sutil + copiar)
               domain: 'temperature',
+              // Offset já aplicado pelo fetcher — a modal só exibe (sutil) no header
+              temperatureOffset: reportTempOffset,
+              // Faixa ideal do cliente — sombreada no ranking de dias/horas mais quentes
+              temperatureIdealRange:
+                window.MyIOUtils?.temperatureLimits?.minTemperature != null &&
+                window.MyIOUtils?.temperatureLimits?.maxTemperature != null
+                  ? {
+                      min: Number(window.MyIOUtils.temperatureLimits.minTemperature),
+                      max: Number(window.MyIOUtils.temperatureLimits.maxTemperature),
+                    }
+                  : null,
               // Paleta do dashboard (createMyIOTheme, exposta pela MAIN em MyIOUtils.theme)
               theme: window.MyIOUtils?.theme || undefined,
               // Nome do customer/shopping — exibido no footer premium da modal
               customerName: it.customerName || window.MyIOOrchestrator?.customerName || '',
-              fetcher: temperatureFetcher, // Custom fetcher for ThingsBoard data
+              fetcher: temperatureFetcher,
               api: {
-                // These are not used when custom fetcher is provided, but required by interface
-                dataApiBaseUrl: '',
-                clientId: '',
-                clientSecret: '',
-                ingestionToken: jwtToken,
+                dataApiBaseUrl: dataApiHost,
+                clientId: CLIENT_ID,
+                clientSecret: CLIENT_SECRET,
+                ingestionToken: await MyIOAuth.getToken(),
               },
             });
 
@@ -3473,6 +3455,7 @@ function renderList(visible) {
             ingestionId: it.ingestionId, // sempre ingestionId
             identifier: it.identifier,
             label: it.label,
+            deviceName: it.entityName || '', // nome do device no TB — header (sutil + copiar)
             domain: WIDGET_DOMAIN, // 'energy', 'water', or 'temperature'
             // Paleta do dashboard (createMyIOTheme, exposta pela MAIN em MyIOUtils.theme)
             theme: window.MyIOUtils?.theme || undefined,
@@ -3521,7 +3504,7 @@ function renderList(visible) {
           return;
         }
 
-        const jwt = localStorage.getItem('jwt_token');
+        const jwt = await getTbToken();
 
         try {
           // RFC-0080 + RFC-0091: Get customerId from MAIN widget via window.MyIOUtils
@@ -4072,12 +4055,19 @@ let _activeQuickFilter = 'all';
 
 const _QF_OFFLINE = ['power_off', 'offline', 'no_info'];
 const _QF_WAITING = ['waiting', 'aguardando', 'not_installed', 'pending', 'connecting'];
+// Conexão fraca (card pisca 📶): deviceStatus weak_connection ou connectionStatus 'bad'
+const _QF_WEAK = ['weak_connection', 'conexao_fraca', 'bad'];
 
 // Quick-filter tab groups. Each filter id matches a tag produced by _quickFilterTags().
 const _QF_GROUPS = [
   {
     label: 'Conectividade',
-    filters: [['online', 'Online'], ['offline', 'Offline'], ['notInstalled', 'Não instalado']],
+    filters: [
+      ['online', 'Online'],
+      ['weak', 'Conexão fraca'],
+      ['offline', 'Offline'],
+      ['notInstalled', 'Não instalado'],
+    ],
   },
   {
     label: 'Status',
@@ -4122,17 +4112,33 @@ function _quickFilterTags(item) {
   // Conectividade
   if (_QF_OFFLINE.includes(ds) || _QF_OFFLINE.includes(cs)) tags.push('offline');
   else if (_QF_WAITING.includes(ds) || _QF_WAITING.includes(cs)) tags.push('notInstalled');
+  else if (_QF_WEAK.includes(ds) || _QF_WEAK.includes(cs)) tags.push('weak');
   else tags.push('online');
   // Status (deviceStatus)
   if (['alert', 'alarm', 'warning', 'warn'].includes(ds)) tags.push('alert');
   else if (['failure', 'fail', 'danger', 'critical', 'error'].includes(ds)) tags.push('failure');
   else if (['standby', 'stand_by', 'idle', 'pausado'].includes(ds)) tags.push('standby');
   else tags.push('normal');
-  // Consumo
-  tags.push((Number(item.value) || 0) > 0 ? 'withConsumption' : 'noConsumption');
+  // Consumo (temperatura: com/sem leitura — 0 °C não é "sem consumo")
+  if (WIDGET_DOMAIN === 'temperature') {
+    tags.push(_isTempOffline(item) ? 'noConsumption' : 'withConsumption');
+  } else {
+    tags.push((Number(item.value) || 0) > 0 ? 'withConsumption' : 'noConsumption');
+  }
   // Tipo
   tags.push(_quickFilterCategory(item));
   return tags;
+}
+
+// Temperatura: "Consumo" → "Leitura" (com/sem leitura)
+function _qfGroupLabel(label) {
+  return WIDGET_DOMAIN === 'temperature' && label === 'Consumo' ? 'Leitura' : label;
+}
+function _qfLabel(id, label) {
+  if (WIDGET_DOMAIN !== 'temperature') return label;
+  if (id === 'withConsumption') return 'Com leitura';
+  if (id === 'noConsumption') return 'Sem leitura';
+  return label;
 }
 
 // Renders the quick-filter tabs into #quickFilterTabs. Tabs with count 0 are hidden;
@@ -4149,11 +4155,13 @@ function _renderQuickFilterTabs($m, list) {
     </div>`;
 
   for (const group of _QF_GROUPS) {
-    const tabs = group.filters.filter(([id]) => (counts[id] || 0) > 0);
+    const tabs = group.filters
+      .filter(([id]) => (counts[id] || 0) > 0)
+      .map(([id, label]) => [id, _qfLabel(id, label)]);
     if (!tabs.length) continue;
     html += `
       <div class="filter-group">
-        <span class="filter-group-label">${group.label}</span>
+        <span class="filter-group-label">${_qfGroupLabel(group.label)}</span>
         <div class="filter-group-tabs">
           ${tabs
             .map(
@@ -4208,7 +4216,7 @@ function _showQuickFilterDevices(triggerEl, filterId) {
   for (const g of _QF_GROUPS) {
     const f = g.filters.find((x) => x[0] === filterId);
     if (f) {
-      flabel = f[1];
+      flabel = _qfLabel(filterId, f[1]);
       break;
     }
   }
@@ -4273,7 +4281,11 @@ function _fmtDeviceValue(value) {
   if (WIDGET_DOMAIN === 'tank') {
     return hasMyIO && MyIO.formatTankHeadFromCm ? MyIO.formatTankHeadFromCm(v) : v.toFixed(0) + ' cm';
   }
-  if (WIDGET_DOMAIN === 'temperature') return v.toFixed(1) + '°C';
+  if (WIDGET_DOMAIN === 'temperature') {
+    // Mesmo formato do card ("30,1 °C"), não "30.1°C"
+    if (window.MyIOUtils?.formatTemperatureWithSettings) return window.MyIOUtils.formatTemperatureWithSettings(v);
+    return v.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' °C';
+  }
   return v.toFixed(2);
 }
 
@@ -4314,11 +4326,26 @@ function _buildPeriodLabel() {
   return s || e || '';
 }
 
+// Temperatura: sensor offline / sem leitura recente não entra em média, mín, máx nem listas
+// (antes entrava como 0,0 °C e puxava a média e os "3 menores").
+function _isTempOffline(it) {
+  return (
+    !!it.temperatureNoRecentReading ||
+    it.value === null ||
+    it.value === undefined ||
+    !Number.isFinite(Number(it.value)) ||
+    it.deviceStatus === 'offline' ||
+    it.deviceStatus === 'no_info'
+  );
+}
+
 // Builds the ColumnSummaryTooltip payload from the current STATE.itemsBase.
 function _buildColumnSummaryData() {
+  const isTemp = WIDGET_DOMAIN === 'temperature';
   const devices = (STATE.itemsBase || []).map((it) => ({
     name: it.label || it.identifier || it.id || 'Sem nome',
     value: Number(it.value) || 0,
+    ...(isTemp ? { offline: _isTempOffline(it) } : {}),
   }));
   return {
     title: (self.ctx && self.ctx.settings && self.ctx.settings.labelWidget) || '',
@@ -4326,6 +4353,8 @@ function _buildColumnSummaryData() {
     unit: _getExportUnit(),
     devices: devices,
     formatValue: _fmtDeviceValue,
+    // Temperatura: "Temperatura média" + mín/máx dos online; sem total, pizza ou %
+    ...(isTemp ? { mode: 'average', measureLabel: 'Temperatura' } : {}),
   };
 }
 
@@ -4361,6 +4390,12 @@ function _renderFilterStats($m, list) {
   if (!$card.length) return;
   if (!list || !list.length) {
     $card.empty();
+    return;
+  }
+
+  const isTemp = WIDGET_DOMAIN === 'temperature';
+  if (isTemp) {
+    _renderTemperatureFilterStats($card, list);
     return;
   }
 
@@ -4405,6 +4440,49 @@ function _renderFilterStats($m, list) {
       <span class="filter-stats-group-label">● 3 na média</span>
       ${near3.map(row).join('')}
     </div>
+  `);
+}
+
+// Resumo do modal de filtro p/ temperatura: média/mín/máx só dos online, sem %,
+// e uma seção com os offline / sem leitura.
+function _renderTemperatureFilterStats($card, list) {
+  const all = list.map((it) => ({
+    name: it.label || it.identifier || it.id || 'Sem nome',
+    v: Number(it.value),
+    off: _isTempOffline(it),
+  }));
+  const online = all.filter((x) => !x.off);
+  const offline = all.filter((x) => x.off);
+  const avg = online.length ? online.reduce((s, x) => s + x.v, 0) / online.length : null;
+  const desc = [...online].sort((a, b) => b.v - a.v);
+  const near3 =
+    avg === null ? [] : [...online].sort((a, b) => Math.abs(a.v - avg) - Math.abs(b.v - avg)).slice(0, 3);
+  const row = (x) => `<div class="filter-stats-row">
+      <span class="filter-stats-name" title="${escapeHtml(x.name)}">${escapeHtml(x.name)}</span>
+      <span class="filter-stats-val" style="color:${x.off ? '#94a3b8' : '#16a34a'};">${
+        x.off ? 'sem leitura' : escapeHtml(_fmtDeviceValue(x.v))
+      }</span>
+    </div>`;
+  const group = (label, items) =>
+    items.length
+      ? `<div class="filter-stats-group"><span class="filter-stats-group-label">${label}</span>${items
+          .map(row)
+          .join('')}</div>`
+      : '';
+  const note = 'Média, mínima e máxima consideram apenas dispositivos online (com leitura).';
+
+  $card.html(`
+    <div class="filter-stats-head">🌡️ Resumo de Temperatura</div>
+    <div class="filter-stats-avg">
+      <span class="filter-stats-avg-label" title="${escapeHtml(note)}">Média (${online.length} online · ${
+        offline.length
+      } offline) ⓘ</span>
+      <span class="filter-stats-avg-val">${avg === null ? '—' : escapeHtml(_fmtDeviceValue(avg))}</span>
+    </div>
+    ${group('▲ 3 maiores', desc.slice(0, 3))}
+    ${group('▼ 3 menores', desc.slice(-3).reverse())}
+    ${group('● 3 na média', near3)}
+    ${group(`⚪ Offline / sem leitura (${offline.length})`, offline)}
   `);
 }
 
@@ -4463,15 +4541,20 @@ function openFilterModal() {
     it._qfTags = _quickFilterTags(it);
     label.setAttribute('data-filter-tags', it._qfTags.join(' '));
     const _v = Number(it.value) || 0;
-    const _vColor = _v > 0 ? '#16a34a' : '#94a3b8';
+    // Temperatura: sem "%" (participação não se aplica a média °C) e "sem leitura" ≠ 0 °C
+    const _isTemp = WIDGET_DOMAIN === 'temperature';
+    const _noRead = _isTemp && _isTempOffline(it);
+    const _vColor = _noRead ? '#94a3b8' : _isTemp || _v > 0 ? '#16a34a' : '#94a3b8';
     label.setAttribute('data-value', String(_v));
     label.innerHTML = `
       <input type="checkbox" id="chk-${safeId}" data-entity="${escapeHtml(it.id)}" ${
         checked ? 'checked' : ''
       }>
       <span class="check-item-name">${escapeHtml(it.label || it.identifier || it.id)}</span>
-      <span class="check-item-value" style="color:${_vColor};">${escapeHtml(_fmtDeviceValue(_v))}</span>
-      <span class="check-item-pct">${_fmtPct(_v, _totalValue)}</span>
+      <span class="check-item-value" style="color:${_vColor};">${
+        _noRead ? 'sem leitura' : escapeHtml(_fmtDeviceValue(_v))
+      }</span>
+      ${_isTemp ? '' : `<span class="check-item-pct">${_fmtPct(_v, _totalValue)}</span>`}
     `;
     frag.appendChild(label);
   }
@@ -4485,6 +4568,14 @@ function openFilterModal() {
   $m.find('#sortModeSelect').val(STATE.sortMode || 'cons_desc');
   $m.find('#alarmFilterSelect').val(STATE.alarmFilter || 'ativado');
   $m.find('#consRangeUnit').text(`(${_getExportUnit()})`);
+  // Temperatura: textos de "Consumo" viram "Temperatura"
+  const _isTempModal = WIDGET_DOMAIN === 'temperature';
+  $m.find('#sortModeSelect option[value="cons_desc"]').text(_isTempModal ? 'Temperatura ↓' : 'Consumo ↓');
+  $m.find('#sortModeSelect option[value="cons_asc"]').text(_isTempModal ? 'Temperatura ↑' : 'Consumo ↑');
+  const $rangeLbl = $m.find('#consRangeUnit').parent();
+  if ($rangeLbl.length && $rangeLbl[0].firstChild && $rangeLbl[0].firstChild.nodeType === 3) {
+    $rangeLbl[0].firstChild.nodeValue = _isTempModal ? 'Faixa de Temperatura ' : 'Faixa de Consumo ';
+  }
 
   const $footer = $m.find('.shops-modal-footer');
   if ($footer.length) $footer.show().find('#applyFilters, #resetFilters').show();
@@ -4525,7 +4616,7 @@ const _GCDR_DEVICE_MAP_HEADER =
  * Returns { gcdrCustomerId, gcdrApiKey }.
  */
 async function _fetchGcdrCredentials() {
-  const tbToken = localStorage.getItem('jwt_token');
+  const tbToken = await getTbToken();
   const customerId = window.MyIOUtils?.customerTB_ID;
   if (!tbToken || !customerId) throw new Error('JWT ou customerTB_ID não disponíveis.');
   const url = `/api/plugins/telemetry/CUSTOMER/${customerId}/values/attributes/SERVER_SCOPE?keys=integration_setup`;
@@ -6521,7 +6612,10 @@ self.onInit = async function () {
       let temperatureStatus = null;
       const isTemperatureDomain = domain === 'temperature';
       const isEnergyDomain = domain === 'energy';
-      const rawTemp = Number(item.value || 0);
+      // Temperatura: null = sem leitura recente (Ingestion média 2 h sem dados) → nunca vira 0 °C
+      const noTempReading =
+        isTemperatureDomain && (item.value === null || item.value === undefined || item.temperatureNoRecentReading === true);
+      const rawTemp = noTempReading ? null : Number(item.value || 0);
 
       // Apply temperature offset if available (from dataKey "offSetTemperature")
       // The offset can be positive or negative and is added to the raw temperature
@@ -6530,9 +6624,11 @@ self.onInit = async function () {
         ? (item.offSetTemperature ?? getTemperatureOffset(deviceTbId))
         : 0;
       const temp =
-        isTemperatureDomain && tempOffset !== 0 ? applyTemperatureOffset(rawTemp, tempOffset) : rawTemp;
+        rawTemp !== null && isTemperatureDomain && tempOffset !== 0
+          ? applyTemperatureOffset(rawTemp, tempOffset)
+          : rawTemp;
 
-      if (isTemperatureDomain && temp && globalTempMin !== null && globalTempMax !== null) {
+      if (isTemperatureDomain && temp !== null && globalTempMin !== null && globalTempMax !== null) {
         if (temp > globalTempMax) {
           temperatureStatus = 'above';
         } else if (temp < globalTempMin) {
@@ -6609,6 +6705,13 @@ self.onInit = async function () {
         temperatureMin: isTemperatureDomain ? globalTempMin : null,
         temperatureMax: isTemperatureDomain ? globalTempMax : null,
         temperatureStatus: temperatureStatus,
+        temperatureNoRecentReading: isTemperatureDomain ? noTempReading : false,
+        temperatureSource: isTemperatureDomain ? item.temperatureSource || null : null, // 'ingestion-hourly' | 'thingsboard'
+        temperatureFetchedAt: isTemperatureDomain ? item.temperatureFetchedAt || null : null,
+        // Idade da última leitura: 'ok' | 'warning' (10–12 h) | 'stale' (12–24 h) | 'offline' (> 24 h)
+        temperatureFreshness: isTemperatureDomain ? item.temperatureFreshness || null : null,
+        temperatureHourTs: isTemperatureDomain ? item.temperatureHourTs || null : null,
+        temperatureLastTs: isTemperatureDomain ? item.temperatureLastTs || null : null,
         // RFC-0107: Water tank specific fields
         waterLevel: item.waterLevel ?? null,
         waterPercentage: item.waterPercentage ?? null,

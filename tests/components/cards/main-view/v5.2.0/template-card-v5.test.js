@@ -105,6 +105,132 @@ describe('renderCardComponentV5 — other domains keep their rendering', () => {
 
     expect(headline).toBe('22,50 °C');
     expect(badge.classList.contains('temp-deviation-badge')).toBe(true);
-    expect(badge.textContent.trim()).toBe('-2.2%');
+    expect(badge.textContent.trim()).toBe('na faixa'); // 22,5 dentro de 20–26
+  });
+
+  it('temperatura: badge = desvio em °C em relação à faixa ideal (não % do centro)', () => {
+    const above = render({ deviceProfile: 'TERMOSTATO', val: 30.7, temperatureMin: 23, temperatureMax: 25.5 }).badge;
+    expect(above.textContent.trim()).toBe('+5,2 °C'); // 30,7 − 25,5 (antes "+26,6%")
+    expect(above.getAttribute('title')).toBe('Faixa ideal 23,0–25,5 °C · 5,2 °C acima do limite');
+    expect(above.style.color).toBe('rgb(239, 68, 68)');
+
+    const below = render({ deviceProfile: 'TERMOSTATO', val: 21.8, temperatureMin: 23, temperatureMax: 25.5 }).badge;
+    expect(below.textContent.trim()).toBe('−1,2 °C');
+    expect(below.getAttribute('title')).toContain('abaixo do limite');
+
+    const inside = render({ deviceProfile: 'TERMOSTATO', val: 24, temperatureMin: 23, temperatureMax: 25.5 }).badge;
+    expect(inside.textContent.trim()).toBe('na faixa');
+  });
+});
+
+describe('renderCardComponentV5 — temperatura: hora mais recente (24 h) + frescor + offset', () => {
+  const H = 3600_000;
+  const card = (extra) =>
+    renderCardComponentV5({
+      entityObject: {
+        entityId: 'dev-1',
+        labelOrName: 'Sensor',
+        deviceStatus: 'power_on',
+        deviceProfile: 'TERMOSTATO',
+        val: 25.5,
+        temperatureSource: 'ingestion-hourly',
+        temperatureFetchedAt: Date.now(),
+        ...extra,
+      },
+      enableSelection: false,
+      enableDragDrop: false,
+    });
+
+  it('até 10 h: normal, sem borda de aviso; tooltip com a hora da média e a última leitura', () => {
+    const $c = card({ temperatureFreshness: 'ok', temperatureHourTs: Date.now() - H, temperatureLastTs: Date.now() - 30 * 60_000 });
+    expect($c[0].classList.contains('myio-card-temp-warning')).toBe(false);
+    expect($c[0].querySelector('.myio-temp-warn-icon')).toBeNull();
+    const title = $c[0].querySelector('.consumption-value').getAttribute('title');
+    expect(title).toMatch(/^Média da hora /);
+    expect(title).toContain('última leitura');
+  });
+
+  it('10–12 h: borda laranja + ⚠ piscando ao lado da temperatura (valor continua visível)', () => {
+    const $c = card({ temperatureFreshness: 'warning', temperatureHourTs: Date.now() - 11 * H, temperatureLastTs: Date.now() - 11 * H });
+    expect($c[0].classList.contains('myio-card-temp-warning')).toBe(true);
+    expect($c[0].querySelector('.myio-temp-warn-icon')).not.toBeNull();
+    expect($c[0].querySelector('.consumption-value').textContent.trim()).toBe('25,50 °C');
+  });
+
+  it('12–24 h: "Sem leitura recente" com a data da última leitura no tooltip', () => {
+    const $c = card({ val: 0, temperatureFreshness: 'stale', temperatureNoRecentReading: true, temperatureLastTs: Date.now() - 15 * H });
+    const v = $c[0].querySelector('.consumption-value');
+    expect(v.textContent.trim()).toBe('Sem leitura recente');
+    expect(v.getAttribute('title')).toMatch(/^Sem leitura nas últimas 12 h — última leitura/);
+  });
+
+  it('> 24 h: tooltip "Nenhuma leitura nas últimas 24 h"', () => {
+    const $c = card({ val: 0, temperatureFreshness: 'offline', temperatureNoRecentReading: true, deviceStatus: 'offline' });
+    expect($c[0].querySelector('.consumption-value').getAttribute('title')).toBe('Nenhuma leitura nas últimas 24 h');
+  });
+
+  it('offset ≠ 0: mesmo marcador da exclusão de totais; offset 0: sem marcador', () => {
+    expect(card({ temperatureFreshness: 'ok', temperatureLastTs: Date.now(), temperatureOffset: -2 })[0].classList.contains('myio-card-excluded')).toBe(true);
+    expect(card({ temperatureFreshness: 'ok', temperatureLastTs: Date.now(), temperatureOffset: 0 })[0].classList.contains('myio-card-excluded')).toBe(false);
+  });
+});
+
+describe('renderCardComponentV5 — temperatura atual do Ingestion (média 2 h)', () => {
+  const fetchedAt = new Date(2026, 9, 8, 14, 5).getTime();
+
+  it('sem leitura na janela: "Sem leitura recente", sem badge de desvio e nunca 0 °C', () => {
+    const $card = renderCardComponentV5({
+      entityObject: {
+        entityId: 'dev-1',
+        labelOrName: 'Sensor',
+        deviceStatus: 'power_on',
+        deviceProfile: 'TERMOSTATO',
+        val: 0,
+        temperatureMin: 20,
+        temperatureMax: 26,
+        temperatureNoRecentReading: true,
+        temperatureSource: 'ingestion-avg-2h',
+        temperatureFetchedAt: fetchedAt,
+      },
+      enableSelection: false,
+      enableDragDrop: false,
+    });
+    const value = $card[0].querySelector('.consumption-value');
+
+    expect(value.textContent.trim()).toBe('Sem leitura recente');
+    expect(value.getAttribute('title')).toBe('Nenhuma leitura nas últimas 2 h · Atualizado às 14:05');
+    expect($card[0].querySelector('.temp-deviation-badge')).toBeNull();
+  });
+
+  it('com leitura: valor em °C com rótulo "média das últimas 2 h"', () => {
+    const $card = renderCardComponentV5({
+      entityObject: {
+        entityId: 'dev-1',
+        labelOrName: 'Sensor',
+        deviceStatus: 'power_on',
+        deviceProfile: 'TERMOSTATO',
+        val: 28.06,
+        temperatureSource: 'ingestion-avg-2h',
+        temperatureFetchedAt: fetchedAt,
+      },
+      enableSelection: false,
+      enableDragDrop: false,
+    });
+    const value = $card[0].querySelector('.consumption-value');
+
+    expect(value.textContent.trim()).toBe('28,06 °C');
+    expect(value.getAttribute('title')).toBe('Temperatura (média das últimas 2 h) · Atualizado às 14:05');
+  });
+
+  it('valor do ThingsBoard: sem rótulo de média', () => {
+    const { headline } = render({ deviceProfile: 'TERMOSTATO', val: 22.5, temperatureSource: 'thingsboard' });
+    const $card = renderCardComponentV5({
+      entityObject: { entityId: 'dev-1', labelOrName: 'S', deviceProfile: 'TERMOSTATO', val: 22.5, temperatureSource: 'thingsboard' },
+      enableSelection: false,
+      enableDragDrop: false,
+    });
+
+    expect(headline).toBe('22,50 °C');
+    expect($card[0].querySelector('.consumption-value').hasAttribute('title')).toBe(false);
   });
 });

@@ -10,11 +10,10 @@ import {
   fetchTemperatureData,
   clampTemperature,
   calculateStats,
-  interpolateTemperature,
+  aggregateByHour,
   aggregateByDay,
   formatTemperature,
   formatDateLabel,
-  exportTemperatureCSV,
   getThemeColors,
   getTodaySoFar,
   filterByDayPeriods,
@@ -34,6 +33,7 @@ import {
 import { createDateRangePicker, type DateRangeControl } from '../createDateRangePicker';
 import { CSS_TOKENS, DATERANGEPICKER_STYLES } from '../premium-modals/internal/styles/tokens';
 import { ModalHeader } from '../../utils/ModalHeader';
+import { createModalFooter, type ModalFooterInstance } from '../premium-modals/footer-modal';
 
 // ============================================================================
 // Types
@@ -80,6 +80,12 @@ export interface TemperatureModalParams {
    * Use this to fetch from an alternative source (e.g., Data Apps ingestion API).
    */
   dataFetcher?: (startTs: number, endTs: number) => Promise<TemperatureTelemetry[]>;
+  /** Nome do device no ThingsBoard — header (fonte sutil + botão copiar), padrão dos relatórios */
+  deviceName?: string;
+  /** Customer/shopping — footer premium (padrão AllReport/DeviceReport) */
+  customerName?: string;
+  /** Paleta do dashboard (createMyIOTheme ou mapa de CSS vars) — cor do header/botões */
+  palette?: { cssVars(): Record<string, string> } | Record<string, string>;
 }
 
 export interface TemperatureModalInstance {
@@ -115,6 +121,35 @@ interface ModalState {
   dateRangePicker: DateRangeControl | null;
   selectedPeriods: DayPeriod[];
   dataFetcher: ((startTs: number, endTs: number) => Promise<TemperatureTelemetry[]>) | null;
+  deviceName: string;
+  customerName: string;
+  accent: string;
+}
+
+// Footer premium por modal (recriado a cada render — o conteúdo é re-renderizado via innerHTML)
+const _footers = new Map<string, ModalFooterInstance>();
+
+function escHtml(s: string): string {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// Cor de destaque do dashboard (mesma do header de AllReport/DeviceReport); default roxo MYIO
+function resolveAccent(palette: TemperatureModalParams['palette']): string {
+  const fallback = '#3e1a7d';
+  if (!palette) return fallback;
+  const vars =
+    typeof (palette as { cssVars?: () => Record<string, string> }).cssVars === 'function'
+      ? (palette as { cssVars(): Record<string, string> }).cssVars()
+      : (palette as Record<string, string>);
+  const accent = (palette as { accent?: string }).accent || vars?.['--myio-brand-700'];
+  return typeof accent === 'string' && accent ? accent : fallback;
+}
+
+function resolveCustomerName(explicit?: string): string {
+  if (explicit) return explicit;
+  if (typeof window === 'undefined') return '';
+  const w = window as { MyIOOrchestrator?: { customerName?: string }; MyIOUtils?: { customerName?: string } };
+  return w.MyIOOrchestrator?.customerName || w.MyIOUtils?.customerName || '';
 }
 
 // ============================================================================
@@ -160,6 +195,14 @@ export async function openTemperatureModal(
     dateRangePicker: null,
     selectedPeriods: ['madrugada', 'manha', 'tarde', 'noite'], // All periods selected by default
     dataFetcher: params.dataFetcher ?? null,
+    deviceName: params.deviceName || '',
+    customerName: resolveCustomerName(params.customerName),
+    accent: resolveAccent(
+      params.palette ??
+        (typeof window !== 'undefined'
+          ? ((window as { MyIOUtils?: { theme?: TemperatureModalParams['palette'] } }).MyIOUtils?.theme)
+          : undefined)
+    ),
   };
 
   // Log if offset is applied
@@ -171,7 +214,8 @@ export async function openTemperatureModal(
   const savedGranularity = localStorage.getItem('myio-temp-modal-granularity') as TemperatureGranularity;
   const savedTheme = localStorage.getItem('myio-temp-modal-theme') as 'dark' | 'light';
   if (savedGranularity) state.granularity = savedGranularity;
-  if (savedTheme) state.theme = savedTheme;
+  // Tema pedido pelo chamador vence a preferência salva (senão um toggle antigo p/ dark grudava)
+  if (savedTheme && !params.theme) state.theme = savedTheme;
 
   // Create modal container
   const modalContainer = document.createElement('div');
@@ -183,9 +227,12 @@ export async function openTemperatureModal(
 
   // Fetch initial data
   try {
-    state.data = await (state.dataFetcher
+    state.data = discardInvalid(
+      await (state.dataFetcher
         ? state.dataFetcher(state.startTs, state.endTs)
-        : fetchTemperatureData(state.token, state.deviceId, state.startTs, state.endTs));
+        : fetchTemperatureData(state.token, state.deviceId, state.startTs, state.endTs)),
+      state
+    );
     state.stats = calculateStats(state.data, state.clampRange, state.temperatureOffset);
     state.isLoading = false;
     renderModal(modalContainer, state, modalId);
@@ -202,6 +249,8 @@ export async function openTemperatureModal(
   // Return instance
   return {
     destroy: () => {
+      _footers.get(modalId)?.destroy();
+      _footers.delete(modalId);
       modalContainer.remove();
       params.onClose?.();
     },
@@ -213,9 +262,12 @@ export async function openTemperatureModal(
       renderModal(modalContainer, state, modalId);
 
       try {
-        state.data = await (state.dataFetcher
+        state.data = discardInvalid(
+      await (state.dataFetcher
         ? state.dataFetcher(state.startTs, state.endTs)
-        : fetchTemperatureData(state.token, state.deviceId, state.startTs, state.endTs));
+        : fetchTemperatureData(state.token, state.deviceId, state.startTs, state.endTs)),
+      state
+    );
         state.stats = calculateStats(state.data, state.clampRange, state.temperatureOffset);
         state.isLoading = false;
         renderModal(modalContainer, state, modalId);
@@ -284,14 +336,15 @@ function renderModal(
         <!-- Header - MyIO Premium Style (via ModalHeader component) -->
         ${ModalHeader.generateInlineHTML({
           icon: '🌡️',
-          title: `${state.label} - Histórico de Temperatura`,
+          title: buildHeaderTitle(state),
           modalId,
           theme: state.theme,
           isMaximized,
           showThemeToggle: true,
           showMaximize: true,
           showClose: true,
-          primaryColor: '#3e1a7d',
+          primaryColor: state.accent,
+          solid: true, // padrão dos relatórios: cor do dashboard também no tema light
           borderRadius: '10px 10px 0 0',
           draggable: false,
         })}
@@ -315,7 +368,7 @@ function renderModal(
               font-size: 14px; color: ${colors.text}; background: ${colors.surface};
               cursor: pointer; min-width: 130px;
             ">
-              <option value="hour" ${state.granularity === 'hour' ? 'selected' : ''}>Hora (30 min)</option>
+              <option value="hour" ${state.granularity === 'hour' ? 'selected' : ''}>Hora</option>
               <option value="day" ${state.granularity === 'day' ? 'selected' : ''}>Dia (média)</option>
             </select>
           </div>
@@ -349,7 +402,7 @@ function renderModal(
                     name="${modalId}-period"
                     value="${period.id}"
                     ${state.selectedPeriods.includes(period.id) ? 'checked' : ''}
-                    style="width: 16px; height: 16px; cursor: pointer; accent-color: #3e1a7d;">
+                    style="width: 16px; height: 16px; cursor: pointer; accent-color: ${state.accent};">
                   ${period.label}
                 </label>
               `).join('')}
@@ -382,7 +435,7 @@ function renderModal(
           </div>
           <!-- Query Button -->
           <button id="${modalId}-query" style="
-            background: #3e1a7d; color: white; border: none;
+            background: ${state.accent}; color: white; border: none;
             padding: 8px 16px; border-radius: 6px; cursor: pointer;
             font-size: 14px; font-weight: 500; height: 38px;
             display: flex; align-items: center; gap: 8px;
@@ -473,33 +526,15 @@ function renderModal(
           </div>
         </div>
 
-        <!-- Actions -->
-        <div style="display: flex; justify-content: flex-end; gap: 12px;">
-          <button id="${modalId}-export" style="
-            background: ${state.theme === 'dark' ? 'rgba(255,255,255,0.1)' : '#f7f7f7'};
-            color: ${colors.text}; border: 1px solid ${colors.border};
-            padding: 8px 16px; border-radius: 6px; cursor: pointer;
-            font-size: 14px; display: flex; align-items: center; gap: 8px;
-            font-family: 'Nunito', system-ui, sans-serif;
-          " ${state.data.length === 0 ? 'disabled' : ''}>
-            📥 Exportar CSV
-          </button>
-          <button id="${modalId}-close-btn" style="
-            background: #3e1a7d; color: white; border: none;
-            padding: 8px 16px; border-radius: 6px; cursor: pointer;
-            font-size: 14px; font-weight: 500;
-            font-family: 'Nunito', system-ui, sans-serif;
-          ">
-            Fechar
-          </button>
-        </div>
         </div><!-- End Body -->
+        <!-- Footer premium (customer · relógio · versão | Powered by MYIO | CSV) — padrão dos relatórios -->
+        <div id="${modalId}-footer-slot"></div>
       </div>
     </div>
     <style>
       @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       #${modalId} select:focus, #${modalId} input:focus {
-        outline: 2px solid #3e1a7d;
+        outline: 2px solid ${state.accent};
         outline-offset: 2px;
       }
       #${modalId} button:hover:not(:disabled) {
@@ -531,6 +566,8 @@ function renderModal(
       }
     </style>
   `;
+
+  mountChrome(container, state, modalId);
 }
 
 // ============================================================================
@@ -573,18 +610,9 @@ function drawChart(modalId: string, state: ModalState): void {
   let chartData: ChartPoint[];
 
   if (state.granularity === 'hour') {
-    // Interpolate to 30-minute intervals (respecting timezone to avoid future data)
-    const interpolated = interpolateTemperature(filteredData, {
-      intervalMinutes: 30,
-      startTs: state.startTs,
-      endTs: state.endTs,
-      clampRange: state.clampRange,
-      timezone: state.timezone,
-      offset: state.temperatureOffset
-    });
-    // Filter interpolated data by periods again (since interpolation may add points)
-    const filteredInterpolated = filterByDayPeriods(interpolated, state.selectedPeriods);
-    chartData = filteredInterpolated.map(item => ({
+    // Hora fechada: um ponto por hora = média das leituras da hora (13:00 = 13:00–13:59)
+    const hourly = aggregateByHour(filteredData, state.clampRange, state.temperatureOffset);
+    chartData = hourly.map(item => ({
       x: item.ts,
       y: Number(item.value),
       screenX: 0,
@@ -722,15 +750,25 @@ function drawChart(modalId: string, state: ModalState): void {
   const numLabels = Math.min(8, chartData.length);
   const labelInterval = Math.max(1, Math.floor(chartData.length / numLabels));
 
+  // Período > 24 h em "Hora": rótulo em 2 linhas (dd/mm + HH:mm) — só a hora,
+  // espaçada ~1 dia, parecia fora de ordem (00:00, 03:00, 02:00, 01:00…)
+  const xSpan = chartData.length > 1 ? chartData[chartData.length - 1].x - chartData[0].x : 0;
+  const multiDay = state.granularity === 'hour' && xSpan > 24 * 60 * 60 * 1000;
+
   for (let i = 0; i < chartData.length; i += labelInterval) {
     const point = chartData[i];
     const date = new Date(point.x);
 
     // Format label based on granularity
     let label: string;
+    let subLabel = '';
     if (state.granularity === 'hour') {
-      // Show time HH:mm for hour granularity
+      // Show time HH:mm for hour granularity (+ date when the range spans days)
       label = date.toLocaleTimeString(state.locale, { hour: '2-digit', minute: '2-digit' });
+      if (multiDay) {
+        subLabel = label;
+        label = date.toLocaleDateString(state.locale, { day: '2-digit', month: '2-digit' });
+      }
     } else {
       // Show date DD/MM for day granularity
       label = date.toLocaleDateString(state.locale, { day: '2-digit', month: '2-digit' });
@@ -747,6 +785,7 @@ function drawChart(modalId: string, state: ModalState): void {
     // Draw label
     ctx.fillStyle = colors.textMuted;
     ctx.fillText(label, point.screenX, height - paddingBottom + 18);
+    if (subLabel) ctx.fillText(subLabel, point.screenX, height - paddingBottom + 31);
   }
 
   // Draw axis lines
@@ -894,6 +933,8 @@ async function setupEventListeners(
 ): Promise<void> {
   // Close modal handlers
   const closeModal = () => {
+    _footers.get(modalId)?.destroy();
+    _footers.delete(modalId);
     container.remove();
     onClose?.();
   };
@@ -1029,9 +1070,12 @@ async function setupEventListeners(
     renderModal(container, state, modalId);
 
     try {
-      state.data = await (state.dataFetcher
+      state.data = discardInvalid(
+      await (state.dataFetcher
         ? state.dataFetcher(state.startTs, state.endTs)
-        : fetchTemperatureData(state.token, state.deviceId, state.startTs, state.endTs));
+        : fetchTemperatureData(state.token, state.deviceId, state.startTs, state.endTs)),
+      state
+    );
       state.stats = calculateStats(state.data, state.clampRange, state.temperatureOffset);
       state.isLoading = false;
       renderModal(container, state, modalId);
@@ -1045,21 +1089,134 @@ async function setupEventListeners(
     }
   });
 
-  // Export CSV
-  document.getElementById(`${modalId}-export`)?.addEventListener('click', () => {
-    if (state.data.length === 0) return;
+  // Export CSV — botão no footer premium (mountFooter)
+}
 
-    const startDateStr = new Date(state.startTs).toLocaleDateString(state.locale).replace(/\//g, '-');
-    const endDateStr = new Date(state.endTs).toLocaleDateString(state.locale).replace(/\//g, '-');
+// Leituras fora da faixa válida (já com offset) são DESCARTADAS — mesmo critério dos
+// relatórios e da comparação (antes eram "travadas" na borda da faixa)
+function discardInvalid(data: TemperatureTelemetry[], state: ModalState): TemperatureTelemetry[] {
+  const off = Number(state.temperatureOffset) || 0;
+  return data.filter((p) => {
+    const v = Number(p.value) + off;
+    return Number.isFinite(v) && v >= state.clampRange.min && v <= state.clampRange.max;
+  });
+}
 
-    exportTemperatureCSV(
-      state.data,
-      state.label,
-      state.stats,
-      startDateStr,
-      endDateStr,
-      state.clampRange,
-      state.temperatureOffset
+// CSV = o que a tela mostra: mesma granularidade (hora fechada / média do dia), mesmos
+// períodos do dia, offset aplicado e os números dos cards no cabeçalho.
+function exportCsv(state: ModalState): void {
+  if (state.data.length === 0) return;
+  const off = Number(state.temperatureOffset) || 0;
+  const n2 = (v: number) => v.toFixed(2).replace('.', ',');
+  const q = (v: string) => `"${String(v).replace(/"/g, '""')}"`;
+  const dt = (ts: number) =>
+    new Date(ts).toLocaleString('pt-BR', {
+      day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+      timeZone: state.timezone || 'America/Sao_Paulo',
+    });
+  const fmtD = (ts: number) => new Date(ts).toLocaleDateString('pt-BR', { timeZone: state.timezone || 'America/Sao_Paulo' });
+  const filtered = filterByDayPeriods(state.data, state.selectedPeriods);
+
+  const lines: string[][] = [
+    ['Relatório', `${state.label} - Histórico de Temperatura`],
+    ...(state.deviceName ? [['Dispositivo (TB)', state.deviceName]] : []),
+    ...(state.customerName ? [['Cliente', state.customerName]] : []),
+    ['Período', `${fmtD(state.startTs)} — ${fmtD(state.endTs)}`],
+    ['Granularidade', state.granularity === 'hour' ? 'Hora (média da hora fechada)' : 'Dia (média do dia)'],
+    ['Períodos do dia', getSelectedPeriodsLabel(state.selectedPeriods)],
+    ...(off !== 0 ? [['Offset aplicado (°C)', n2(off)]] : []),
+    ['Gerado em', new Date().toLocaleString('pt-BR')],
+    [],
+    ['Temperatura atual (°C)', state.currentTemperature !== null ? n2(state.currentTemperature) : 'N/A'],
+    ['Média do período (°C)', state.stats.count > 0 ? n2(state.stats.avg) : 'N/A'],
+    ['Mínima (°C)', state.stats.count > 0 ? n2(state.stats.min) : 'N/A'],
+    ['Máxima (°C)', state.stats.count > 0 ? n2(state.stats.max) : 'N/A'],
+    ['Leituras', String(state.stats.count)],
+    [],
+  ];
+
+  if (state.granularity === 'hour') {
+    lines.push(['Data/Hora', 'Temperatura (°C)']);
+    aggregateByHour(filtered, state.clampRange, off).forEach((p) => lines.push([dt(p.ts), n2(Number(p.value))]));
+  } else {
+    lines.push(['Dia', 'Média (°C)', 'Mín (°C)', 'Máx (°C)', 'Leituras']);
+    aggregateByDay(filtered, state.clampRange, off).forEach((d) =>
+      lines.push([fmtD(d.dateTs), n2(d.avg), n2(d.min), n2(d.max), String(d.count)])
     );
+  }
+
+  const csv = '\uFEFF' + lines.map((r) => r.map(q).join(';')).join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `temperatura_${state.label.replace(/\s+/g, '_')}_${state.granularity === 'hour' ? '1h' : '1d'}_${new Date()
+    .toISOString()
+    .slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// Header no padrão dos relatórios: rótulo + nome do device (sutil, copiar) + offset (se aplicado)
+function buildHeaderTitle(state: ModalState): string {
+  const base = `${escHtml(state.label)} - Histórico de Temperatura`;
+  const dev = state.deviceName
+    ? `<span style="margin-left:10px;font-size:0.72em;font-weight:400;opacity:.75;display:inline-flex;align-items:center;gap:4px;vertical-align:middle;">
+         ${escHtml(state.deviceName)}
+         <button type="button" class="myio-tm-copy" data-copy="${escHtml(state.deviceName)}" title="Copiar nome do dispositivo"
+           aria-label="Copiar nome do dispositivo"
+           style="border:none;background:transparent;color:inherit;cursor:pointer;padding:0 2px;line-height:1;display:inline-flex;">
+           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+         </button>
+       </span>`
+    : '';
+  const off = Number(state.temperatureOffset) || 0;
+  const offset =
+    off !== 0
+      ? `<span title="Offset do sensor aplicado a todas as leituras" style="margin-left:10px;font-size:0.68em;font-weight:400;opacity:.7;vertical-align:middle;">offset ${off > 0 ? '+' : '−'}${Math.abs(off).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} °C</span>`
+      : '';
+  return `${base}${dev}${offset}`;
+}
+
+// Pós-render: footer premium + botão copiar do header (o conteúdo é recriado a cada render)
+function mountChrome(container: HTMLElement, state: ModalState, modalId: string): void {
+  const slot = container.querySelector<HTMLElement>(`#${modalId}-footer-slot`);
+  _footers.get(modalId)?.destroy();
+  _footers.delete(modalId);
+  if (slot) {
+    const lib =
+      typeof window !== 'undefined' ? (window as { MyIOLibrary?: { version?: string } }).MyIOLibrary : undefined;
+    const footer = createModalFooter({
+      customerName: state.customerName,
+      libVersion: lib?.version ? { current: lib.version } : false,
+      themeMode: state.theme === 'dark' ? 'dark' : 'light',
+      exports: {
+        csv: {
+          onClick: () => exportCsv(state),
+          disabled: state.data.length === 0,
+          tooltipText: 'Exporta em CSV as leituras do período (offset aplicado)',
+        },
+      },
+    });
+    slot.appendChild(footer.element);
+    _footers.set(modalId, footer);
+  }
+
+  const copyBtn = container.querySelector<HTMLButtonElement>('.myio-tm-copy');
+  copyBtn?.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const text = copyBtn.dataset.copy || '';
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      /* clipboard indisponível (iframe sem permissão) */
+    }
+    copyBtn.textContent = '✓';
+    setTimeout(() => {
+      copyBtn.innerHTML =
+        '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+    }, 1200);
   });
 }
