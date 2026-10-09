@@ -152,6 +152,7 @@
       left: calc(-100cqw * var(--sx) / var(--sw));
       top: calc(-100cqw * var(--sy) / var(--sw));
     }
+    .shot a { position: absolute; inset: 0; cursor: zoom-in; }
     .caption { font-size: 11.5px; color: var(--muted); margin-top: -6px; }
 
     /* Mockups: temperature badge states */
@@ -256,6 +257,38 @@
     }
     .footer strong { color: #fff; }
 
+    /* ── Tela menor que a página A4: vira coluna única ── */
+    @media screen and (max-width: 1170px) {
+      body { padding: 12px; }
+      .document { gap: 16px; justify-content: stretch; }
+      .page { width: 100%; min-height: 0; border-radius: 20px; }
+      .grid, .two-col { grid-template-columns: minmax(0, 1fr); }
+      .preview { order: -1; }
+    }
+
+    @media screen and (max-width: 640px) {
+      body { padding: 0; }
+      .document { gap: 10px; }
+      .page { border-radius: 0; }
+      .hero { padding: 16px 16px 12px; }
+      .hero::after { width: 140px; height: 140px; right: -60px; top: -50px; }
+      .brand h1 { font-size: 24px; }
+      .brand p { font-size: 12px; }
+      .brand-row { flex-direction: column; gap: 10px; }
+      .version-pill { padding: 6px 12px; font-size: 12px; }
+      .meta { justify-content: flex-start; flex-wrap: wrap; font-size: 12px; }
+      .content { padding: 14px 16px 12px; }
+      .headline h2 { font-size: 21px; }
+      .card h3 { font-size: 15px; }
+      .preview-head { padding: 10px 12px; flex-wrap: wrap; gap: 4px; }
+      .preview-body { padding: 10px; }
+      .states { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .timeline div { font-size: 10px; padding: 7px 2px; }
+      .rules-table td:first-child { white-space: normal; }
+      .rules-table th, .rules-table td { padding: 6px 8px; }
+      .footer { flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 16px; font-size: 11.5px; }
+    }
+
     @media print {
       body { background: #fff; padding: 0; }
       .document { gap: 0; }
@@ -332,7 +365,7 @@
             <div class="preview-head">Painel de Temperatura · Shopping da Ilha <small>dados reais</small></div>
             <div class="preview-body">
               <div class="shot" style="--sx:280; --sy:185; --sw:1580; --sh:600;">
-                <img src="assets/temperatura-v0.1.555/01-cards.jpeg" alt="Grade de cards de temperatura com selos de desvio em °C" />
+                <a href="assets/temperatura-v0.1.555/01-cards.jpeg" target="_blank" rel="noopener" title="Abrir print em tamanho real"><img src="assets/temperatura-v0.1.555/01-cards.jpeg" alt="Grade de cards de temperatura com selos de desvio em °C" /></a>
               </div>
               <div class="states">
                 <div class="state">Normal<div class="val">24,8 °C</div><span class="pill green">na faixa</span></div>
@@ -412,10 +445,10 @@
             <div class="preview-head">Resumo (i) e Filtros &amp; Ordenação <small>dados reais</small></div>
             <div class="preview-body">
               <div class="shot" style="--sx:390; --sy:160; --sw:1300; --sh:500;">
-                <img src="assets/temperatura-v0.1.555/02-resumo-sensores.jpeg" alt="Resumo dos sensores de temperatura com média, mínima e máxima" />
+                <a href="assets/temperatura-v0.1.555/02-resumo-sensores.jpeg" target="_blank" rel="noopener" title="Abrir print em tamanho real"><img src="assets/temperatura-v0.1.555/02-resumo-sensores.jpeg" alt="Resumo dos sensores de temperatura com média, mínima e máxima" /></a>
               </div>
               <div class="shot" style="--sx:300; --sy:25; --sw:1320; --sh:480;">
-                <img src="assets/temperatura-v0.1.555/03-filtro.jpeg" alt="Modal de filtro com Conexão fraca e rótulos de temperatura" />
+                <a href="assets/temperatura-v0.1.555/03-filtro.jpeg" target="_blank" rel="noopener" title="Abrir print em tamanho real"><img src="assets/temperatura-v0.1.555/03-filtro.jpeg" alt="Modal de filtro com Conexão fraca e rótulos de temperatura" /></a>
               </div>
             </div>
           </div>
@@ -481,10 +514,10 @@
             <div class="preview-head">Área externa (17) · Comparação de 2 sensores <small>dados reais</small></div>
             <div class="preview-body">
               <div class="shot" style="--sx:510; --sy:107; --sw:900; --sh:290;">
-                <img src="assets/temperatura-v0.1.555/04-grafico-card.jpeg" alt="Gráfico de histórico de temperatura do sensor Área externa" />
+                <a href="assets/temperatura-v0.1.555/04-grafico-card.jpeg" target="_blank" rel="noopener" title="Abrir print em tamanho real"><img src="assets/temperatura-v0.1.555/04-grafico-card.jpeg" alt="Gráfico de histórico de temperatura do sensor Área externa" /></a>
               </div>
               <div class="shot" style="--sx:410; --sy:215; --sw:1100; --sh:440;">
-                <img src="assets/temperatura-v0.1.555/05-comparacao.jpeg" alt="Comparação de temperatura entre Área externa e Hering L3" />
+                <a href="assets/temperatura-v0.1.555/05-comparacao.jpeg" target="_blank" rel="noopener" title="Abrir print em tamanho real"><img src="assets/temperatura-v0.1.555/05-comparacao.jpeg" alt="Comparação de temperatura entre Área externa e Hering L3" /></a>
               </div>
             </div>
           </div>
@@ -558,10 +591,10 @@
             <div class="preview-head">Relatório do sensor · Relatório Geral <small>dados reais</small></div>
             <div class="preview-body">
               <div class="shot" style="--sx:192; --sy:47; --sw:1536; --sh:470;">
-                <img src="assets/temperatura-v0.1.555/06-relatorio-device.jpeg" alt="Relatório do sensor Área externa com dias mais quentes" />
+                <a href="assets/temperatura-v0.1.555/06-relatorio-device.jpeg" target="_blank" rel="noopener" title="Abrir print em tamanho real"><img src="assets/temperatura-v0.1.555/06-relatorio-device.jpeg" alt="Relatório do sensor Área externa com dias mais quentes" /></a>
               </div>
               <div class="shot" style="--sx:144; --sy:47; --sw:1632; --sh:560;">
-                <img src="assets/temperatura-v0.1.555/07-relatorio-geral.jpeg" alt="Relatório geral de temperatura com KPIs e média por sensor" />
+                <a href="assets/temperatura-v0.1.555/07-relatorio-geral.jpeg" target="_blank" rel="noopener" title="Abrir print em tamanho real"><img src="assets/temperatura-v0.1.555/07-relatorio-geral.jpeg" alt="Relatório geral de temperatura com KPIs e média por sensor" /></a>
               </div>
             </div>
           </div>
