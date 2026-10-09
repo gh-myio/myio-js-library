@@ -310,9 +310,41 @@ describe('DeviceReportModal', () => {
 
   it('exportColumnOptions: nameLabel segue a granularidade e oculta Identificador', () => {
     const m1 = new DeviceReportModal(baseParams);
-    expect((m1 as any).exportColumnOptions()).toEqual({ nameLabel: 'Data', hideIdentifier: true });
+    expect((m1 as any).exportColumnOptions()).toEqual({
+      nameLabel: 'Data',
+      hideIdentifier: true,
+      valueLabel: 'Consumo (kWh)',
+      countLabel: 'dia(s)',
+    });
     const m2 = new DeviceReportModal({ ...baseParams, granularity: '1h' });
-    expect((m2 as any).exportColumnOptions()).toEqual({ nameLabel: 'Data/Hora', hideIdentifier: true });
+    expect((m2 as any).exportColumnOptions()).toEqual({
+      nameLabel: 'Data/Hora',
+      hideIdentifier: true,
+      valueLabel: 'Consumo (kWh)',
+      countLabel: 'hora(s)',
+    });
+  });
+
+  it('exportColumnOptions (temperatura): rótulo da tela, sem %, "Sem leitura" — não mais "Consumo (°C)"', () => {
+    const m = new DeviceReportModal({ ...baseParams, domain: 'temperature' }) as any;
+    expect(m.exportColumnOptions()).toEqual({
+      nameLabel: 'Data',
+      hideIdentifier: true,
+      valueLabel: 'Temperatura (°C)',
+      countLabel: 'dia(s)',
+      hidePerc: true,
+      emptyValueText: 'Sem leitura',
+    });
+  });
+
+  it('título do export inclui nome do device e offset (temperatura)', () => {
+    const m = new DeviceReportModal({
+      ...baseParams,
+      domain: 'temperature',
+      deviceName: 'TEMP. SCSDITEMST8',
+      temperatureOffset: -2,
+    }) as any;
+    expect(m.resolveExportTitle()).toBe('Relatório - SCM123 - Loja Teste (TEMP. SCSDITEMST8) · offset −2 °C');
   });
 
   it('resolveAccentHex: mapa plano (--myio-brand-700) e theme.accent', () => {

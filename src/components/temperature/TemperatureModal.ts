@@ -14,7 +14,6 @@ import {
   aggregateByDay,
   formatTemperature,
   formatDateLabel,
-  exportTemperatureCSV,
   getThemeColors,
   getTodaySoFar,
   filterByDayPeriods,
@@ -228,9 +227,12 @@ export async function openTemperatureModal(
 
   // Fetch initial data
   try {
-    state.data = await (state.dataFetcher
+    state.data = discardInvalid(
+      await (state.dataFetcher
         ? state.dataFetcher(state.startTs, state.endTs)
-        : fetchTemperatureData(state.token, state.deviceId, state.startTs, state.endTs));
+        : fetchTemperatureData(state.token, state.deviceId, state.startTs, state.endTs)),
+      state
+    );
     state.stats = calculateStats(state.data, state.clampRange, state.temperatureOffset);
     state.isLoading = false;
     renderModal(modalContainer, state, modalId);
@@ -260,9 +262,12 @@ export async function openTemperatureModal(
       renderModal(modalContainer, state, modalId);
 
       try {
-        state.data = await (state.dataFetcher
+        state.data = discardInvalid(
+      await (state.dataFetcher
         ? state.dataFetcher(state.startTs, state.endTs)
-        : fetchTemperatureData(state.token, state.deviceId, state.startTs, state.endTs));
+        : fetchTemperatureData(state.token, state.deviceId, state.startTs, state.endTs)),
+      state
+    );
         state.stats = calculateStats(state.data, state.clampRange, state.temperatureOffset);
         state.isLoading = false;
         renderModal(modalContainer, state, modalId);
@@ -1065,9 +1070,12 @@ async function setupEventListeners(
     renderModal(container, state, modalId);
 
     try {
-      state.data = await (state.dataFetcher
+      state.data = discardInvalid(
+      await (state.dataFetcher
         ? state.dataFetcher(state.startTs, state.endTs)
-        : fetchTemperatureData(state.token, state.deviceId, state.startTs, state.endTs));
+        : fetchTemperatureData(state.token, state.deviceId, state.startTs, state.endTs)),
+      state
+    );
       state.stats = calculateStats(state.data, state.clampRange, state.temperatureOffset);
       state.isLoading = false;
       renderModal(container, state, modalId);
@@ -1084,19 +1092,71 @@ async function setupEventListeners(
   // Export CSV — botão no footer premium (mountFooter)
 }
 
+// Leituras fora da faixa válida (já com offset) são DESCARTADAS — mesmo critério dos
+// relatórios e da comparação (antes eram "travadas" na borda da faixa)
+function discardInvalid(data: TemperatureTelemetry[], state: ModalState): TemperatureTelemetry[] {
+  const off = Number(state.temperatureOffset) || 0;
+  return data.filter((p) => {
+    const v = Number(p.value) + off;
+    return Number.isFinite(v) && v >= state.clampRange.min && v <= state.clampRange.max;
+  });
+}
+
+// CSV = o que a tela mostra: mesma granularidade (hora fechada / média do dia), mesmos
+// períodos do dia, offset aplicado e os números dos cards no cabeçalho.
 function exportCsv(state: ModalState): void {
   if (state.data.length === 0) return;
-  const startDateStr = new Date(state.startTs).toLocaleDateString(state.locale).replace(/\//g, '-');
-  const endDateStr = new Date(state.endTs).toLocaleDateString(state.locale).replace(/\//g, '-');
-  exportTemperatureCSV(
-    state.data,
-    state.label,
-    state.stats,
-    startDateStr,
-    endDateStr,
-    state.clampRange,
-    state.temperatureOffset
-  );
+  const off = Number(state.temperatureOffset) || 0;
+  const n2 = (v: number) => v.toFixed(2).replace('.', ',');
+  const q = (v: string) => `"${String(v).replace(/"/g, '""')}"`;
+  const dt = (ts: number) =>
+    new Date(ts).toLocaleString('pt-BR', {
+      day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+      timeZone: state.timezone || 'America/Sao_Paulo',
+    });
+  const fmtD = (ts: number) => new Date(ts).toLocaleDateString('pt-BR', { timeZone: state.timezone || 'America/Sao_Paulo' });
+  const filtered = filterByDayPeriods(state.data, state.selectedPeriods);
+
+  const lines: string[][] = [
+    ['Relatório', `${state.label} - Histórico de Temperatura`],
+    ...(state.deviceName ? [['Dispositivo (TB)', state.deviceName]] : []),
+    ...(state.customerName ? [['Cliente', state.customerName]] : []),
+    ['Período', `${fmtD(state.startTs)} — ${fmtD(state.endTs)}`],
+    ['Granularidade', state.granularity === 'hour' ? 'Hora (média da hora fechada)' : 'Dia (média do dia)'],
+    ['Períodos do dia', getSelectedPeriodsLabel(state.selectedPeriods)],
+    ...(off !== 0 ? [['Offset aplicado (°C)', n2(off)]] : []),
+    ['Gerado em', new Date().toLocaleString('pt-BR')],
+    [],
+    ['Temperatura atual (°C)', state.currentTemperature !== null ? n2(state.currentTemperature) : 'N/A'],
+    ['Média do período (°C)', state.stats.count > 0 ? n2(state.stats.avg) : 'N/A'],
+    ['Mínima (°C)', state.stats.count > 0 ? n2(state.stats.min) : 'N/A'],
+    ['Máxima (°C)', state.stats.count > 0 ? n2(state.stats.max) : 'N/A'],
+    ['Leituras', String(state.stats.count)],
+    [],
+  ];
+
+  if (state.granularity === 'hour') {
+    lines.push(['Data/Hora', 'Temperatura (°C)']);
+    aggregateByHour(filtered, state.clampRange, off).forEach((p) => lines.push([dt(p.ts), n2(Number(p.value))]));
+  } else {
+    lines.push(['Dia', 'Média (°C)', 'Mín (°C)', 'Máx (°C)', 'Leituras']);
+    aggregateByDay(filtered, state.clampRange, off).forEach((d) =>
+      lines.push([fmtD(d.dateTs), n2(d.avg), n2(d.min), n2(d.max), String(d.count)])
+    );
+  }
+
+  const csv = '\uFEFF' + lines.map((r) => r.map(q).join(';')).join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `temperatura_${state.label.replace(/\s+/g, '_')}_${state.granularity === 'hour' ? '1h' : '1d'}_${new Date()
+    .toISOString()
+    .slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 // Header no padrão dos relatórios: rótulo + nome do device (sutil, copiar) + offset (se aplicado)

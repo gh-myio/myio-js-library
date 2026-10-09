@@ -162,14 +162,39 @@ describe('AllReportModal temperatura — KPIs, colunas e exports', () => {
     m.data = rows;
     expect(m.exportColumns()).toEqual({
       nameLabel: 'Sensor',
-      valueLabel: 'Temperatura média (°C)',
+      valueLabel: 'Média (°C)',
       hidePerc: true,
       hideIdentifier: true,
+      extraColumns: [
+        { label: 'Mín (°C)', pdfW: 35 },
+        { label: 'Máx (°C)', pdfW: 35 },
+      ],
+      emptyValueText: 'Sem leitura',
+      countLabel: 'sensor(es)',
     });
     const devices = m.buildExportDevices();
     expect(devices.map((d: any) => d.name)).toEqual(['Área externa', 'Loja A', 'Loja B', 'Praça']);
     expect(devices[3].val).toBeNull();
     expect(devices[0].perc).toBeUndefined();
+  });
+
+  it('linhas do export = tabela da tela: grupos com média, Mín/Máx e offset', () => {
+    const m = make({
+      itemsList: [
+        { id: 'a', identifier: 'Temperatura', label: 'Área externa', temperatureOffset: -2 },
+        { id: 'b', identifier: 'Temperatura', label: 'Loja A', temperatureOffset: 0 },
+      ],
+    });
+    m.data = [
+      { identifier: 'Temperatura', name: 'Área externa', consumption: 30.06, min: 15.06, max: 36.75, id: 'a', groupLabel: 'Climatizável' },
+      { identifier: 'Temperatura', name: 'Loja A', consumption: 24, min: 22, max: 26, id: 'b', groupLabel: 'Climatizável' },
+    ];
+    const devices = m.buildExportDevices();
+    expect(devices[0].groupHeader).toBe('CLIMATIZÁVEL  ·  2 sensores · média 27,03 °C');
+    expect(devices[1].name).toBe('Área externa');
+    expect(devices[1].extraCells).toEqual(['15,06', '36,75']);
+    expect(devices[1].nameNote).toBe('offset −2,00 °C');
+    expect(devices[2].nameNote).toBeUndefined();
   });
 
   it('energia não muda: colunas default e % de participação', () => {

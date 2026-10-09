@@ -35,6 +35,7 @@ import {
 } from '../../financial-goals/moneyVariance';
 import { injectCoverageStyles } from '../../financial-goals/coverageStyles';
 import { DEFAULT_CLAMP_RANGE } from '../../temperature/utils';
+import { renderTemperatureBarsPng } from '../internal/temperatureBarsPng';
 
 type SeriesPoint = { timestamp: number; value: number };
 
@@ -1611,23 +1612,41 @@ export class AllReportModal {
 
   // Temperatura: valores já com offset e sem leituras inválidas (mesma base da tabela).
   // 1d → uma linha por sensor por DIA; 1h → uma linha por sensor por HORA.
-  private exportTemperatureCSV(rows: StoreReading[]): void {
+  private exportTemperatureCSV(_rows: StoreReading[]): void {
+    // Mesma ordem/filtros da tabela da tela
+    const rows = this.getFilteredData();
     const showId = this.showIdentifierColumn(rows);
     const idCol = (r: StoreReading) => (showId ? [r.identifier] : []);
     const idHead = showId ? ['Identificador'] : [];
     const n2 = (v: number | null | undefined) => (v === null || v === undefined || !Number.isFinite(v) ? '' : v.toFixed(2));
     const date = new Date().toISOString().split('T')[0];
+    const gran = this.granularity;
     const fmtStamp = (ts: number) => {
       const { date: d, time } = this.formatSpDateTime(ts);
       return `${d} ${time}`;
     };
 
-    // Resumo do período por sensor
+    // Cabeçalho do relatório + KPIs da tela
+    const p = this.exportPeriod;
+    const fmtD = (iso?: string | null) => (iso ? new Date(iso).toLocaleDateString('pt-BR') : '');
+    const meta: string[][] = [
+      ['Relatório', this.resolveTitle()],
+      ...(this.params.customerName ? [['Cliente', this.params.customerName]] : []),
+      ...(p?.startISO ? [['Período', `${fmtD(p.startISO)} — ${fmtD(p.endISO)}`]] : []),
+      ['Granularidade', gran === '1h' ? 'Hora' : 'Dia'],
+      ['Gerado em', new Date().toLocaleString('pt-BR')],
+      [],
+      ...this.computeKpis().map((k) => [k.label, k.value, k.sub || '']),
+      [],
+    ];
+
+    // Resumo do período por sensor (= tabela da tela)
     const summary: string[][] = [
-      [...idHead, 'Sensor', 'Média (°C)', 'Mín (°C)', 'Data/Hora Mín', 'Máx (°C)', 'Data/Hora Máx', 'Leituras', 'Leituras descartadas'],
+      [...idHead, 'Sensor', 'Offset (°C)', 'Média (°C)', 'Mín (°C)', 'Data/Hora Mín', 'Máx (°C)', 'Data/Hora Máx', 'Leituras', 'Leituras descartadas'],
       ...rows.map((r) => [
         ...idCol(r),
         r.name,
+        r.id ? n2(this.temperatureOffsetFor(r.id)) : '',
         r.noData ? 'Sem leitura' : n2(r.consumption),
         r.noData ? '' : n2(r.min),
         r.noData || !r.minTs ? '' : fmtStamp(r.minTs),
@@ -1638,7 +1657,6 @@ export class AllReportModal {
       ]),
     ];
 
-    const gran = this.granularity;
     const series: string[][] = [[...idHead, 'Sensor', gran === '1h' ? 'Data/Hora' : 'Dia', 'Temperatura (°C)']];
     const fmtTs = (ts: number) =>
       gran === '1h'
@@ -1654,7 +1672,7 @@ export class AllReportModal {
     }
 
     // Um arquivo: resumo + linha em branco + série (Excel abre os dois blocos)
-    const csvContent = toCsv([...summary, [], ...series]);
+    const csvContent = toCsv([...meta, ...summary, [], ...series]);
     this.downloadCSV(csvContent, `relatorio-temperatura-${gran}-${date}.csv`);
   }
 
@@ -1771,29 +1789,77 @@ export class AllReportModal {
 
   // Maps the report rows to the TelemetryDevice shape consumed by the shared
   // TELEMETRY grid exporters (only labelOrName/name/deviceIdentifier/val/perc are read).
+  // Linhas dos exports = a TABELA DA TELA: mesma ordem/filtros (getFilteredData), cabeçalhos
+  // de grupo com o mesmo resumo, e — em temperatura — Mín/Máx, offset e "Sem leitura".
   private buildExportDevices(): TelemetryDevice[] {
-    const sorted = [...this.data].sort((a, b) =>
-      !!a.noData !== !!b.noData ? (a.noData ? 1 : -1) : b.consumption - a.consumption
-    );
-    const total = sorted.reduce((s, r) => s + (r.consumption || 0), 0);
-    return sorted.map((r) => ({
-      labelOrName: r.name,
-      name: r.name,
-      deviceIdentifier: r.identifier,
-      // Temperatura: média do sensor (sem leitura → "—"); sem % de participação
-      val: this.isTemperature && r.noData ? null : r.consumption,
-      perc: this.isTemperature ? undefined : total > 0 ? (r.consumption / total) * 100 : 0,
-    })) as unknown as TelemetryDevice[];
+    const rows = this.getFilteredData();
+    const grandTotal = this.calculateTotalConsumption();
+
+    const toDevice = (r: StoreReading) => {
+      const base = {
+        labelOrName: r.name,
+        name: r.name,
+        deviceIdentifier: r.identifier,
+        val: this.isTemperature && r.noData ? null : r.consumption,
+        perc: this.isTemperature ? undefined : grandTotal > 0 ? (r.consumption / grandTotal) * 100 : 0,
+      };
+      if (!this.isTemperature) return base;
+      const off = r.id && !r.noData ? this.temperatureOffsetFor(r.id) : 0;
+      return {
+        ...base,
+        extraCells: [this.fmtTemp(r.noData ? null : r.min), this.fmtTemp(r.noData ? null : r.max)],
+        ...(off ? { nameNote: `offset ${off > 0 ? '+' : '−'}${fmtPt(Math.abs(off))} °C` } : {}),
+      };
+    };
+
+    const out: Array<Record<string, unknown>> = [];
+    if (rows.some((r) => r.groupLabel)) {
+      const order: string[] = [];
+      const byGroup = new Map<string, StoreReading[]>();
+      for (const r of rows) {
+        const g = r.groupLabel || '—';
+        if (!byGroup.has(g)) {
+          byGroup.set(g, []);
+          order.push(g);
+        }
+        byGroup.get(g)!.push(r);
+      }
+      for (const g of order) {
+        const items = byGroup.get(g)!;
+        out.push({ groupHeader: `${g.toUpperCase()}  ·  ${this.groupSummaryText(items)}` });
+        items.forEach((r) => out.push(toDevice(r)));
+      }
+    } else {
+      rows.forEach((r) => out.push(toDevice(r)));
+    }
+    return out as unknown as TelemetryDevice[];
   }
 
-  // Colunas do PDF/XLS: temperatura = Sensor | Temperatura média (sem %, Identificador só se útil)
-  private exportColumns(): { valueLabel?: string; hidePerc?: boolean; hideIdentifier?: boolean; nameLabel?: string } | null {
+  // Mesmo texto do cabeçalho de grupo da tabela
+  private groupSummaryText(items: StoreReading[]): string {
+    if (this.isTemperature) {
+      const withData = items.filter((r) => !r.noData);
+      const avg = withData.length ? withData.reduce((s, r) => s + r.consumption, 0) / withData.length : null;
+      return `${items.length} sensores · média ${this.fmtTemp(avg)} °C`;
+    }
+    const total = items.reduce((s, r) => s + r.consumption, 0);
+    return `${items.length} dispositivos · ${fmtPt(total)} ${this.domainConfig.unit}`;
+  }
+
+  // Colunas do PDF/XLS = colunas da tela. Temperatura: Sensor | Média | Mín | Máx (sem %).
+  private exportColumns() {
     if (!this.isTemperature) return null;
     return {
       nameLabel: 'Sensor',
-      valueLabel: 'Temperatura média (°C)',
+      valueLabel: 'Média (°C)',
       hidePerc: true,
       hideIdentifier: !this.showIdentifierColumn(),
+      extraColumns: [
+        { label: 'Mín (°C)', pdfW: 35 },
+        { label: 'Máx (°C)', pdfW: 35 },
+      ],
+      emptyValueText: 'Sem leitura',
+      countLabel: 'sensor(es)',
     };
   }
 
@@ -1815,31 +1881,41 @@ export class AllReportModal {
     return vars?.['--myio-brand-700'];
   }
 
+  // Gráfico da página final do PDF = o painel da direita da tela
+  private async buildExportChart(): Promise<{ dataUrl: string; width?: number; height?: number; title?: string } | null> {
+    if (this.isTemperature) {
+      const png = renderTemperatureBarsPng({
+        items: this.getFilteredData().map((r) => ({ label: r.name, value: r.noData ? null : r.consumption })),
+        ideal: this.temperatureIdealRange,
+        accent: this.resolveAccentHex(),
+      });
+      return png ? { ...png, title: 'Temperatura média por sensor' } : null;
+    }
+    const chartPng = await this.participationChart?.toPngDataUrl?.().catch(() => null);
+    return chartPng ? { ...chartPng, title: 'Participação por Dispositivo' } : null;
+  }
+
   // PDF export — layout premium do grid + paleta do dashboard + faixa de KPIs +
-  // página dedicada com o gráfico de participação da modal.
+  // página dedicada com o mesmo gráfico do painel da modal.
   private async exportPDF(): Promise<void> {
     if (!this.data.length) return;
-
-    const chartPng = await this.participationChart?.toPngDataUrl?.().catch(() => null);
 
     exportGridPdf(
       this.buildExportDevices(),
       this.resolveTitle(),
       this.domainConfig.unit,
       this.exportPeriod,
-      null,
+      this.params.customerName || null,
       {
         accentColor: this.resolveAccentHex(),
         kpis: this.computeKpis(),
         columns: this.exportColumns(),
-        chartImage: chartPng
-          ? { ...chartPng, title: 'Participação por Dispositivo' }
-          : null,
+        chartImage: await this.buildExportChart(),
       },
     );
   }
 
-  // XLS export (XML Spreadsheet) — same as the TELEMETRY grid export.
+  // XLS export (XML Spreadsheet) — mesma tabela + KPIs da tela.
   private exportXLS(): void {
     if (!this.data.length) return;
     exportGridXls(
@@ -1847,8 +1923,8 @@ export class AllReportModal {
       this.resolveTitle(),
       this.domainConfig.unit,
       this.exportPeriod,
-      null,
-      { accentColor: this.resolveAccentHex(), columns: this.exportColumns() },
+      this.params.customerName || null,
+      { accentColor: this.resolveAccentHex(), columns: this.exportColumns(), kpis: this.computeKpis() },
     );
   }
 

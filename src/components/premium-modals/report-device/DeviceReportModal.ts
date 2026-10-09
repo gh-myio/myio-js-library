@@ -13,6 +13,7 @@ import type { ParticipationChartInstance } from '../../graphs';
 import { createGranularitySelector } from '../../granularity-selector';
 import type { GranularitySelectorInstance } from '../../granularity-selector';
 import { createModalFooter } from '../footer-modal';
+import { renderTemperatureBarsPng } from '../internal/temperatureBarsPng';
 import type { ModalFooterInstance } from '../footer-modal';
 
 // Domain configuration
@@ -1036,10 +1037,22 @@ export class DeviceReportModal {
     const now = new Date();
     const timestamp = now.toLocaleDateString('pt-BR') + ' - ' + now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
+    const p = this.exportPeriod;
+    const fmtD = (iso?: string | null) => (iso ? new Date(iso).toLocaleDateString('pt-BR') : '');
+    const off = Number(this.params.temperatureOffset) || 0;
+    const isTemp = this.domainConfig.summaryType === 'average';
+    void summaryValue; // KPIs completos abaixo (mesmos da tela)
     const csvData = [
       ['Dispositivo/Loja', this.params.identifier || 'N/A', this.params.label || ''],
+      ...(this.params.deviceName ? [['Dispositivo (TB)', this.params.deviceName, '']] : []),
+      ...(isTemp && off !== 0 ? [['Offset aplicado (°C)', this.domainConfig.formatter(off), '']] : []),
+      ...(this.resolveCustomerName() ? [['Cliente', this.resolveCustomerName(), '']] : []),
+      ...(p?.startISO ? [['Período', `${fmtD(p.startISO)} — ${fmtD(p.endISO)}`, '']] : []),
+      ['Granularidade', this.granularity === '1h' ? 'Hora' : 'Dia', ''],
       ['DATA EMISSÃO', timestamp, ''],
-      [this.domainConfig.summaryLabel, this.domainConfig.formatter(summaryValue), this.domainConfig.unit],
+      [],
+      ...this.computeKpis().map((k) => [k.label, k.value, k.sub || '']),
+      [],
       [this.granularity === '1h' ? 'Data/Hora' : 'Data', this.domainConfig.label, ''],
       ...this.data.map(row => [this.formatDate(row.date), row.noData ? 'Sem leitura' : this.domainConfig.formatter(row.consumption)])
     ];
@@ -1069,7 +1082,14 @@ export class DeviceReportModal {
 
   // Título dos exports — mesmo da modal (identificador + etiqueta do device).
   private resolveExportTitle(): string {
-    return `Relatório - ${this.params.identifier || 'SEM IDENTIFICADOR'} - ${this.params.label || 'SEM ETIQUETA'}`;
+    const base = `Relatório - ${this.params.identifier || 'SEM IDENTIFICADOR'} - ${this.params.label || 'SEM ETIQUETA'}`;
+    const dev = this.params.deviceName ? ` (${this.params.deviceName})` : '';
+    const off = Number(this.params.temperatureOffset) || 0;
+    const offTxt =
+      this.domainConfig.summaryType === 'average' && off !== 0
+        ? ` · offset ${off > 0 ? '+' : '−'}${Math.abs(off).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} °C`
+        : '';
+    return `${base}${dev}${offTxt}`;
   }
 
   // Mapeia as linhas do relatório (dia/hora × consumo) para o shape TelemetryDevice
@@ -1089,19 +1109,46 @@ export class DeviceReportModal {
 
   // Opções de coluna dos exporters: relatório single-device → Data | Consumo | %
   // (Identificador redundante — o device já está no título/filename).
-  private exportColumnOptions(): { nameLabel: string; hideIdentifier: boolean } {
+  private exportColumnOptions() {
+    const isTemp = this.domainConfig.summaryType === 'average';
     return {
       nameLabel: this.granularity === '1h' ? 'Data/Hora' : 'Data',
       hideIdentifier: true,
+      // Mesmo rótulo da coluna da tela (antes saía "Consumo (°C)" em temperatura)
+      valueLabel: this.domainConfig.label,
+      countLabel: this.granularity === '1h' ? 'hora(s)' : 'dia(s)',
+      ...(isTemp ? { hidePerc: true, emptyValueText: 'Sem leitura' } : {}),
     };
+  }
+
+  // Gráfico da página final do PDF = painel da direita da tela
+  private async buildExportChart(): Promise<{ dataUrl: string; width?: number; height?: number; title?: string } | null> {
+    if (this.domainConfig.summaryType === 'average') {
+      const isHourly = this.granularity === '1h';
+      const ranked = [...this.validRows].sort((a, b) => b.consumption - a.consumption);
+      const shown = isHourly ? ranked.slice(0, 24) : ranked;
+      const noData = isHourly ? [] : this.data.filter((r) => r.noData);
+      const png = renderTemperatureBarsPng({
+        items: [
+          ...shown.map((r) => ({ label: this.formatDate(r.date), value: r.consumption })),
+          ...noData.map((r) => ({ label: this.formatDate(r.date), value: null })),
+        ],
+        ideal: this.params.temperatureIdealRange ?? null,
+        accent: this.resolveAccentHex(),
+      });
+      const title = isHourly
+        ? `Horas mais quentes${ranked.length > 24 ? ' (top 24)' : ''}`
+        : 'Dias mais quentes (média do dia)';
+      return png ? { ...png, title } : null;
+    }
+    const chartPng = await this.participationChart?.toPngDataUrl?.().catch(() => null);
+    return chartPng ? { ...chartPng, title: 'Participação por Dia' } : null;
   }
 
   // PDF export — layout premium do grid + paleta do dashboard + faixa de KPIs +
   // página dedicada com o gráfico "Participação por Dia" da modal.
   private async exportPDF(): Promise<void> {
     if (!this.data.length) return;
-
-    const chartPng = await this.participationChart?.toPngDataUrl?.().catch(() => null);
 
     exportGridPdf(
       this.buildExportDevices(),
@@ -1112,7 +1159,7 @@ export class DeviceReportModal {
       {
         accentColor: this.resolveAccentHex(),
         kpis: this.computeKpis(),
-        chartImage: chartPng ? { ...chartPng, title: 'Participação por Dia' } : null,
+        chartImage: await this.buildExportChart(),
         columns: this.exportColumnOptions(),
       },
     );
@@ -1130,6 +1177,7 @@ export class DeviceReportModal {
       {
         accentColor: this.resolveAccentHex(),
         columns: this.exportColumnOptions(),
+        kpis: this.computeKpis(),
       },
     );
   }

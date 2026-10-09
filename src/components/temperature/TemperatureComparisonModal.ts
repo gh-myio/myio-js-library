@@ -1253,48 +1253,67 @@ function mountCmpFooter(container: HTMLElement, state: ModalState, modalId: stri
 // ============================================================================
 
 function exportComparisonCSV(state: ModalState): void {
-  const startDateStr = new Date(state.startTs).toLocaleDateString(state.locale).replace(/\//g, '-');
-  const endDateStr = new Date(state.endTs).toLocaleDateString(state.locale).replace(/\//g, '-');
-
-  // Build CSV content with BOM for Excel compatibility
-  const BOM = '\uFEFF';
-  let csvContent = BOM;
-
-  // Header with summary
-  csvContent += `Comparação de Temperatura\n`;
-  csvContent += `Período: ${startDateStr} até ${endDateStr}\n`;
-  csvContent += `Sensores: ${state.devices.map(d => d.label).join(', ')}\n`;
-  csvContent += '\n';
-
-  // Stats per device
-  csvContent += 'Estatísticas por Sensor:\n';
-  csvContent += 'Sensor,Média (°C),Min (°C),Max (°C),Leituras\n';
-  state.deviceData.forEach(dd => {
-    csvContent += `"${dd.device.label}",${dd.stats.avg.toFixed(2)},${dd.stats.min.toFixed(2)},${dd.stats.max.toFixed(2)},${dd.stats.count}\n`;
-  });
-  csvContent += '\n';
-
-  // Data header
-  csvContent += 'Dados Detalhados:\n';
-  csvContent += 'Data/Hora,Sensor,Temperatura (°C)\n';
-
-  // Data rows
-  state.deviceData.forEach(dd => {
-    dd.data.forEach(item => {
-      const date = new Date(item.ts).toLocaleString(state.locale);
-      const temp = Number(item.value).toFixed(2);
-      csvContent += `"${date}","${dd.device.label}",${temp}\n`;
+  // CSV = o que a tela mostra: mesma granularidade (hora fechada / média do dia), mesmos
+  // períodos do dia, offset por sensor e as estatísticas dos cards.
+  const n2 = (v: number) => v.toFixed(2).replace('.', ',');
+  const q = (v: string) => `"${String(v).replace(/"/g, '""')}"`;
+  const fmtD = (ts: number) => new Date(ts).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+  const dt = (ts: number) =>
+    new Date(ts).toLocaleString('pt-BR', {
+      day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+      timeZone: 'America/Sao_Paulo',
     });
-  });
+  const offTxt = (d: TemperatureDevice) => {
+    const o = Number(d.temperatureOffset) || 0;
+    return o !== 0 ? n2(o) : '';
+  };
 
-  // Create and trigger download
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const lines: string[][] = [
+    ['Relatório', `Comparação de Temperatura - ${state.devices.length} sensores`],
+    ...(state.customerName ? [['Cliente', state.customerName]] : []),
+    ['Período', `${fmtD(state.startTs)} — ${fmtD(state.endTs)}`],
+    ['Granularidade', state.granularity === 'hour' ? 'Hora (média da hora fechada)' : 'Dia (média do dia)'],
+    ['Períodos do dia', getSelectedPeriodsLabel(state.selectedPeriods)],
+    ['Gerado em', new Date().toLocaleString('pt-BR')],
+    [],
+    ['Sensor', 'Offset (°C)', 'Média (°C)', 'Mín (°C)', 'Máx (°C)', 'Leituras'],
+    ...state.deviceData.map((dd) => [
+      dd.device.label,
+      offTxt(dd.device),
+      dd.stats.count > 0 ? n2(dd.stats.avg) : 'N/A',
+      dd.stats.count > 0 ? n2(dd.stats.min) : 'N/A',
+      dd.stats.count > 0 ? n2(dd.stats.max) : 'N/A',
+      String(dd.stats.count),
+    ]),
+    [],
+  ];
+
+  // Série: uma coluna por sensor, linhas = hora fechada (ou dia), como no gráfico
+  const perDevice = state.deviceData.map((dd) => {
+    const filtered = filterByDayPeriods(dd.data, state.selectedPeriods);
+    const pts =
+      state.granularity === 'hour'
+        ? aggregateByHour(filtered, state.clampRange).map((p) => [p.ts, Number(p.value)] as [number, number])
+        : aggregateByDay(filtered, state.clampRange).map((d) => [d.dateTs, d.avg] as [number, number]);
+    return new Map(pts);
+  });
+  const allTs = [...new Set(perDevice.flatMap((m) => [...m.keys()]))].sort((a, b) => a - b);
+  lines.push([state.granularity === 'hour' ? 'Data/Hora' : 'Dia', ...state.deviceData.map((dd) => `${dd.device.label} (°C)`)]);
+  allTs.forEach((ts) =>
+    lines.push([
+      state.granularity === 'hour' ? dt(ts) : fmtD(ts),
+      ...perDevice.map((m) => (m.has(ts) ? n2(m.get(ts) as number) : '')),
+    ])
+  );
+
+  const csv = '\uFEFF' + lines.map((r) => r.map(q).join(';')).join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `comparacao_temperatura_${startDateStr}_${endDateStr}.csv`;
+  link.download = `comparacao_temperatura_${state.granularity === 'hour' ? '1h' : '1d'}_${new Date().toISOString().slice(0, 10)}.csv`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
