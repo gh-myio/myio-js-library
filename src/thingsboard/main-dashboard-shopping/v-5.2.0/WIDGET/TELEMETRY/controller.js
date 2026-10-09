@@ -3329,144 +3329,81 @@ function renderList(visible) {
           const deviceType = it.deviceProfile || entityObject.deviceType;
           const isTermostatoDevice = String(deviceType || '').startsWith('TERMOSTATO');
 
-          // For TERMOSTATO devices, reports use ThingsBoard API (no ingestion)
+          // Temperatura: relatório SEMPRE do Ingestion (a chave `temperature` no TB pode estar
+          // parada — ex.: Shopping da Ilha desde 02/06/2026 → relatório zerado). Série horária
+          // por device; offset do sensor somado a cada leitura e leituras fora da faixa válida
+          // (clamp do cliente, default 15–40 °C) DESCARTADAS. 1d = média do dia (São Paulo).
           if (isTermostatoDevice || WIDGET_DOMAIN === 'temperature') {
-            LogHelper.log('[TELEMETRY v5] Temperature report - using ThingsBoard API');
-
-            const jwtToken = await getTbToken();
-            if (!jwtToken) {
-              throw new Error('No JWT token available');
-            }
-
-            // Get device TB ID
-            let tbId = it.tbId;
-            if (!tbId || !isValidUUID(tbId)) {
-              const idx = buildTbIdIndexes();
-              tbId =
-                (it.ingestionId && idx.byIngestion.get(it.ingestionId)) ||
-                (it.identifier && idx.byIdentifier.get(it.identifier)) ||
-                null;
-            }
-
-            if (!tbId) {
-              LogHelper.warn('[TELEMETRY v5] No TB device ID for temperature report');
-              const MyIOToast = window.MyIOUtils?.MyIOToast;
-              if (MyIOToast) {
-                MyIOToast.error('Nao foi possivel identificar o dispositivo.');
-              }
+            if (!it.ingestionId) {
+              LogHelper.warn('[TELEMETRY v5] Temperature report: device without ingestionId', it.label);
+              window.MyIOUtils?.MyIOToast?.error('Sensor sem ingestionId — não é possível gerar o relatório.');
               return;
             }
+            if (!isAuthReady()) throw new Error('Auth not ready');
 
-            LogHelper.log('[TELEMETRY v5] Opening temperature report for device:', {
-              tbId,
-              label: it.label,
-              identifier: it.identifier,
-            });
+            const dataApiHost = window.MyIOUtils?.getDataApiHost?.();
+            const reportTempOffset = Number(it.temperatureOffset ?? it.offSetTemperature ?? 0) || 0;
+            const clamp = window.MyIOUtils?.temperatureClampRange;
+            const validRange =
+              clamp && Number.isFinite(Number(clamp.min)) && Number.isFinite(Number(clamp.max))
+                ? { min: Number(clamp.min), max: Number(clamp.max) }
+                : { min: 15, max: 40 };
 
-            // Get temperature offset for this device (will be applied to report values)
-            const reportTempOffset = it.temperatureOffset || getTemperatureOffset(tbId) || 0;
-            if (reportTempOffset !== 0) {
-              LogHelper.log(`[TELEMETRY v5] Temperature report will apply offset: ${reportTempOffset}`);
-            }
+            const SP_OFFSET_MS = 3 * 60 * 60 * 1000;
+            const spDate = (ts) => new Date(ts - SP_OFFSET_MS).toISOString().slice(0, 10);
 
-            // Create custom fetcher for ThingsBoard temperature data
-            const temperatureFetcher = async ({ startISO, endISO }) => {
-              const startTs = new Date(startISO).getTime();
-              const endTs = new Date(endISO).getTime();
-
-              LogHelper.log('[TELEMETRY v5] Fetching temperature data for report:', {
-                startISO,
-                endISO,
-                startTs,
-                endTs,
-                tbId,
-                temperatureOffset: reportTempOffset,
-              });
-
-              // Fetch temperature data from ThingsBoard with daily aggregation
+            const temperatureFetcher = async ({ startISO, endISO, granularity }) => {
+              const token = await MyIOAuth.getToken();
               const url =
-                `/api/plugins/telemetry/DEVICE/${tbId}/values/timeseries` +
-                `?keys=temperature` +
-                `&startTs=${encodeURIComponent(startTs)}` +
-                `&endTs=${encodeURIComponent(endTs)}` +
-                `&limit=50000` +
-                `&intervalType=MILLISECONDS` +
-                `&interval=86400000` + // 24 hours in ms (daily aggregation)
-                `&agg=AVG`;
+                `${dataApiHost}/telemetry/devices/${it.ingestionId}/temperature` +
+                `?startTime=${encodeURIComponent(startISO)}&endTime=${encodeURIComponent(endISO)}` +
+                `&granularity=1h&deep=0`;
+              const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+              if (!res.ok) throw new Error(`Ingestion API error: ${res.status}`);
+              const body = await res.json();
+              const rows = Array.isArray(body) ? body : [body];
+              const row = rows.find((r) => r && r.id === it.ingestionId) || rows[0] || null;
 
-              // Token pedido no "Carregar" (a modal pode ficar aberta além da validade do JWT)
-              const response = await fetch(url, {
-                headers: {
-                  'X-Authorization': `Bearer ${await getTbToken()}`,
-                  'Content-Type': 'application/json',
-                },
-              });
-
-              if (!response.ok) {
-                throw new Error(`ThingsBoard API error: ${response.status}`);
+              // offset + descarte de inválidas (sensor com defeito manda -6 °C, 99 °C…)
+              let discarded = 0;
+              const points = [];
+              for (const e of (row && row.consumption) || []) {
+                const ts = new Date(e && e.timestamp).getTime();
+                const raw = Number(e && e.value);
+                if (!Number.isFinite(ts) || !Number.isFinite(raw)) continue;
+                const v = raw + reportTempOffset;
+                if (v < validRange.min || v > validRange.max) {
+                  discarded++;
+                  continue;
+                }
+                points.push({ ts, value: v });
+              }
+              if (discarded) {
+                LogHelper.log(
+                  `[TELEMETRY v5] Temperature report: ${discarded} leituras fora de ${validRange.min}–${validRange.max} °C descartadas`
+                );
               }
 
-              const data = await response.json();
-              LogHelper.log('[TELEMETRY v5] ThingsBoard temperature response:', data);
-
-              // Transform ThingsBoard response to match expected format for report modal
-              const tempValues = data?.temperature || [];
-
-              if (tempValues.length === 0) {
-                LogHelper.warn('[TELEMETRY v5] No temperature data returned from ThingsBoard');
-                return [];
+              if (granularity === '1h') {
+                return [
+                  {
+                    deviceId: it.ingestionId,
+                    consumption: points.map((p) => ({ timestamp: new Date(p.ts).toISOString(), value: p.value })),
+                  },
+                ];
               }
-
-              // Helper function to apply offset and clamp temperature values (avoid outliers)
-              // Offset is applied first, then values below 15°C are clamped to 15, above 40°C to 40
-              const clampTemp = (v) => {
-                let num = Number(v || 0);
-                // Apply temperature offset before clamping
-                if (reportTempOffset !== 0) {
-                  num = num + reportTempOffset;
-                }
-                if (num < 15) return 15;
-                if (num > 40) return 40;
-                return num;
-              };
-
-              // Group by day and calculate average (ThingsBoard may return multiple points per day)
-              const dailyMap = {};
-              tempValues.forEach((item) => {
-                const date = new Date(item.ts);
-                const dateKey = date.toISOString().split('T')[0]; // YYYY-MM-DD
-                if (!dailyMap[dateKey]) {
-                  dailyMap[dateKey] = { sum: 0, count: 0 };
-                }
-                // Clamp each value before aggregating
-                dailyMap[dateKey].sum += clampTemp(item.value);
-                dailyMap[dateKey].count += 1;
-              });
-
-              // Convert to array format expected by DeviceReportModal
-              const consumption = Object.entries(dailyMap).map(([date, stats]) => ({
-                timestamp: date + 'T00:00:00.000Z',
-                value: stats.sum / stats.count, // Average temperature for the day (already clamped)
-              }));
-
-              LogHelper.log('[TELEMETRY v5] Processed temperature data for report:', {
-                daysCount: consumption.length,
-                consumption,
-              });
-
-              // Return in the format expected by DeviceReportModal.processApiResponse
+              // 1d: a modal agrupa por timestamp.slice(0, 10) → manda a data civil de SP
               return [
                 {
-                  deviceId: tbId,
-                  consumption: consumption,
+                  deviceId: it.ingestionId,
+                  consumption: points.map((p) => ({ timestamp: `${spDate(p.ts)}T00:00:00-03:00`, value: p.value })),
                 },
               ];
             };
 
-            // Open the report modal with custom temperature fetcher
             await MyIO.openDashboardPopupReport({
-              ingestionId: it.ingestionId || tbId, // Use tbId as fallback
-              deviceId: tbId,
+              ingestionId: it.ingestionId,
+              deviceId: it.tbId || it.id,
               identifier: it.identifier,
               label: it.label,
               deviceName: it.entityName || '', // nome do device no TB — header (sutil + copiar)
@@ -3475,13 +3412,12 @@ function renderList(visible) {
               theme: window.MyIOUtils?.theme || undefined,
               // Nome do customer/shopping — exibido no footer premium da modal
               customerName: it.customerName || window.MyIOOrchestrator?.customerName || '',
-              fetcher: temperatureFetcher, // Custom fetcher for ThingsBoard data
+              fetcher: temperatureFetcher,
               api: {
-                // These are not used when custom fetcher is provided, but required by interface
-                dataApiBaseUrl: '',
-                clientId: '',
-                clientSecret: '',
-                ingestionToken: jwtToken,
+                dataApiBaseUrl: dataApiHost,
+                clientId: CLIENT_ID,
+                clientSecret: CLIENT_SECRET,
+                ingestionToken: await MyIOAuth.getToken(),
               },
             });
 

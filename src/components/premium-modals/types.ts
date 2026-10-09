@@ -72,6 +72,8 @@ export type EnergyFetcher = (args: {
   ingestionId: string;
   startISO: string;
   endISO: string;
+  /** Granularidade selecionada na modal (fetchers customizados podem honrar 1h/1d). */
+  granularity?: '1d' | '1h';
 }) => Promise<any>;
 
 export interface OpenDeviceReportParams {

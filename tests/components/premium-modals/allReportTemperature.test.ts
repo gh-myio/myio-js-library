@@ -65,6 +65,34 @@ describe('AllReportModal temperatura — estatística por sensor', () => {
   });
 });
 
+describe('AllReportModal temperatura — enriquecimento por sensor', () => {
+  it('com itemsList, enriquece mesmo sensor cadastrado no Ingestion como deviceType "energy"', async () => {
+    const m = make({ itemsList: [{ id: 'a', identifier: 'Temperatura', label: 'Área externa', temperatureOffset: -2 }] });
+    const data = { data: [{ id: 'a', deviceType: 'energy', total_value: 32.68 }, { id: 'z', deviceType: 'temperature', total_value: 20 }] };
+    const calls: string[] = [];
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (async (url: string) => {
+      calls.push(url);
+      return {
+        ok: true,
+        json: async () => [{ consumption: [{ timestamp: '2026-10-02T12:00:00Z', value: 32 }, { timestamp: '2026-10-02T13:00:00Z', value: -6 }] }],
+      };
+    }) as any;
+    try {
+      await m.enrichTemperatureAverages(data, '2026-10-02T00:00:00-03:00', '2026-10-08T23:59:59-03:00', 'tok', 'https://api');
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+    expect(calls).toHaveLength(1); // só o sensor do itemsList ('z' fica de fora)
+    expect(calls[0]).toContain('/telemetry/devices/a/temperature?');
+    expect(calls[0]).toContain('granularity=1h');
+    expect(data.data[0].total_value).toBe(30); // 32 − 2; o −6 (−8 c/ offset) foi descartado
+    const stats = m.temperatureStats.get('a');
+    expect(stats.discarded).toBe(1);
+    expect(stats.min).toBe(30);
+  });
+});
+
 describe('AllReportModal temperatura — KPIs, colunas e exports', () => {
   const rows = [
     { identifier: 'Temperatura', name: 'Área externa', consumption: 30.71, id: 'a' },

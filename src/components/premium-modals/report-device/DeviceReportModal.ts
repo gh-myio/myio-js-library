@@ -57,6 +57,8 @@ const DOMAIN_CONFIG: Record<Domain, DomainConfig> = {
 interface DailyReading {
   date: string; // YYYY-MM-DD (1d) or full ISO timestamp (1h)
   consumption: number;
+  // Temperatura: dia sem leitura → "—" na tabela e fora das médias (0 °C não é leitura)
+  noData?: boolean;
 }
 
 /**
@@ -562,7 +564,8 @@ export class DeviceReportModal {
         baseUrl: this.params.api.dataApiBaseUrl || 'https://api.data.apps.myio-bas.com',
         ingestionId: this.params.ingestionId,
         startISO,
-        endISO
+        endISO,
+        granularity: this.granularity,
       });
 
       // Process API response
@@ -599,11 +602,29 @@ export class DeviceReportModal {
     if (!Array.isArray(dataArray) || dataArray.length === 0) {
       console.warn("[DeviceReportModal] API returned empty or invalid response, zero-filling date range");
       if (isHourly) return [];
-      return dateRange.map(date => ({ date, consumption: 0 }));
+      // Temperatura: sem leitura ≠ 0 °C
+      const noData = this.domainConfig.summaryType === 'average';
+      return dateRange.map(date => ({ date, consumption: 0, ...(noData ? { noData: true } : {}) }));
     }
 
     const deviceData = dataArray[0]; // First (and likely only) device
     const consumption = deviceData.consumption || [];
+
+    // Temperatura: dia = MÉDIA das leituras do dia (não soma); dia sem leitura = noData
+    if (!isHourly && this.domainConfig.summaryType === 'average') {
+      const acc: { [key: string]: { sum: number; n: number } } = {};
+      consumption.forEach((item: any) => {
+        if (item.timestamp && item.value != null && Number.isFinite(Number(item.value))) {
+          const date = String(item.timestamp).slice(0, 10);
+          const a = acc[date] || (acc[date] = { sum: 0, n: 0 });
+          a.sum += Number(item.value);
+          a.n += 1;
+        }
+      });
+      return dateRange.map((date) =>
+        acc[date] ? { date, consumption: acc[date].sum / acc[date].n } : { date, consumption: 0, noData: true }
+      );
+    }
 
     if (isHourly) {
       // Hourly: keep full timestamp, no zero-fill
@@ -679,22 +700,23 @@ export class DeviceReportModal {
     const isTemperature = this.domainConfig.summaryType === 'average';
 
     const total = this.calculateTotal();
+    const rows = this.validRows;
     const summaryValue = isTemperature
-      ? (this.data.length > 0 ? total / this.data.length : 0)
+      ? (rows.length > 0 ? total / rows.length : 0)
       : total;
 
     // Dias distintos (no 1h várias linhas caem no mesmo dia)
-    const dayKeys = new Set(this.data.map((r) => r.date.slice(0, 10)));
+    const dayKeys = new Set(rows.map((r) => r.date.slice(0, 10)));
     const dayCount = Math.max(1, dayKeys.size);
 
     // Máximo/Mínimo por linha (dia no 1d, hora no 1h). Mínimo considera apenas
     // leituras > 0 (as zeradas já aparecem no KPI "sem consumo") — exceto
     // temperatura, onde 0 é leitura válida.
-    const maxRow = this.data.reduce(
+    const maxRow = rows.reduce(
       (best: DailyReading | null, r) => (!best || r.consumption > best.consumption ? r : best),
       null
     );
-    const minPool = isTemperature ? this.data : this.data.filter((r) => r.consumption > 0);
+    const minPool = isTemperature ? rows : rows.filter((r) => r.consumption > 0);
     const minRow = minPool.reduce(
       (best: DailyReading | null, r) => (!best || r.consumption < best.consumption ? r : best),
       null
@@ -708,7 +730,7 @@ export class DeviceReportModal {
       { value: fmt(total / dayCount), label: `Média por Dia (${unit})` },
     ];
     if (isHourly) {
-      kpis.push({ value: fmt(total / this.data.length), label: `Média por Hora (${unit})` });
+      kpis.push({ value: fmt(rows.length ? total / rows.length : 0), label: `Média por Hora (${unit})` });
     }
     kpis.push(
       {
@@ -724,6 +746,9 @@ export class DeviceReportModal {
     );
     if (!isTemperature) {
       kpis.push({ value: String(zeroCount), label: isHourly ? 'Horas sem Consumo' : 'Dias sem Consumo' });
+    } else {
+      const noData = this.data.length - rows.length;
+      if (noData > 0) kpis.push({ value: String(noData), label: isHourly ? 'Horas sem Leitura' : 'Dias sem Leitura' });
     }
     return kpis;
   }
@@ -823,7 +848,7 @@ export class DeviceReportModal {
             ${this.data.map(row => `
               <tr>
                 <td>${this.formatDate(row.date)}</td>
-                <td style="text-align: right;">${this.domainConfig.formatter(row.consumption)}</td>
+                <td style="text-align: right;${row.noData ? ' color: var(--myio-text-muted);' : ''}">${row.noData ? 'Sem leitura' : this.domainConfig.formatter(row.consumption)}</td>
               </tr>
             `).join('')}
           </tbody>
@@ -863,6 +888,8 @@ export class DeviceReportModal {
       if (key === 'date') {
         comparison = new Date(a.date).getTime() - new Date(b.date).getTime();
       } else {
+        // Sem leitura sempre no fim, independente da direção
+        if (!!a.noData !== !!b.noData) return a.noData ? 1 : -1;
         comparison = a.consumption - b.consumption;
       }
 
@@ -871,8 +898,13 @@ export class DeviceReportModal {
     });
   }
 
+  // Linhas com leitura (temperatura: dia sem leitura fica fora de totais/médias/KPIs)
+  private get validRows(): DailyReading[] {
+    return this.data.filter((r) => !r.noData);
+  }
+
   private calculateTotal(): number {
-    return this.data.reduce((sum, row) => sum + row.consumption, 0);
+    return this.validRows.reduce((sum, row) => sum + row.consumption, 0);
   }
 
   private formatDate(dateStr: string): string {
@@ -892,8 +924,9 @@ export class DeviceReportModal {
 
   private exportCSV(): void {
     const total = this.calculateTotal();
+    const valid = this.validRows.length;
     const summaryValue = this.domainConfig.summaryType === 'average'
-      ? (this.data.length > 0 ? total / this.data.length : 0)
+      ? (valid > 0 ? total / valid : 0)
       : total;
     const now = new Date();
     const timestamp = now.toLocaleDateString('pt-BR') + ' - ' + now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
@@ -903,7 +936,7 @@ export class DeviceReportModal {
       ['DATA EMISSÃO', timestamp, ''],
       [this.domainConfig.summaryLabel, this.domainConfig.formatter(summaryValue), this.domainConfig.unit],
       [this.granularity === '1h' ? 'Data/Hora' : 'Data', this.domainConfig.label, ''],
-      ...this.data.map(row => [this.formatDate(row.date), this.domainConfig.formatter(row.consumption)])
+      ...this.data.map(row => [this.formatDate(row.date), row.noData ? 'Sem leitura' : this.domainConfig.formatter(row.consumption)])
     ];
 
     const csvContent = toCsv(csvData);
@@ -944,7 +977,7 @@ export class DeviceReportModal {
     return this.data.map((row) => ({
       labelOrName: this.formatDate(row.date),
       name: this.formatDate(row.date),
-      val: row.consumption,
+      val: row.noData ? null : row.consumption,
       ...(isTemperature || total <= 0 ? {} : { perc: (row.consumption / total) * 100 }),
     })) as unknown as TelemetryDevice[];
   }

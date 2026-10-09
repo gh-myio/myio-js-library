@@ -1824,11 +1824,15 @@ export class AllReportModal {
     baseUrl: string
   ): Promise<void> {
     const rows: any[] = Array.isArray(data?.data) ? data.data : [];
-    let tempRows = rows.filter((d) => String(d?.deviceType || '').toLowerCase() === 'temperature');
-    // Só os sensores do relatório (itemsList) — evita N requests de sensores de outros grupos
+    // Com itemsList (MENU), ELE define quem é sensor: há termostatos cadastrados no Ingestion
+    // com deviceType "energy" (ex.: Shopping da Ilha) — filtrar por deviceType pulava todos
+    // (sem offset, sem descarte, sem mín/máx). Sem itemsList: só deviceType 'temperature'.
+    let tempRows: any[];
     if (this.params.itemsList) {
       const ids = new Set(this.params.itemsList.map((i) => String(i.id)));
-      tempRows = tempRows.filter((d) => ids.has(String(d?.id)));
+      tempRows = rows.filter((d) => ids.has(String(d?.id)));
+    } else {
+      tempRows = rows.filter((d) => String(d?.deviceType || '').toLowerCase() === 'temperature');
     }
     if (!tempRows.length) return;
 

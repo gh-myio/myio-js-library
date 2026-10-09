@@ -22,6 +22,51 @@ const baseParams: DeviceReportModalParams = {
   theme: { '--myio-brand-700': '#123456' },
 };
 
+describe('DeviceReportModal — temperatura', () => {
+  const tempParams: DeviceReportModalParams = { ...baseParams, domain: 'temperature' };
+
+  it('1d: média das leituras do dia (não soma) e dia sem leitura = noData (não 0 °C)', () => {
+    const modal = new DeviceReportModal(tempParams) as any;
+    const api = [
+      {
+        deviceId: 'dev-1',
+        consumption: [
+          { timestamp: '2026-10-02T00:00:00-03:00', value: 24 },
+          { timestamp: '2026-10-02T00:00:00-03:00', value: 26 },
+          { timestamp: '2026-10-04T00:00:00-03:00', value: 22 },
+        ],
+      },
+    ];
+    const rows = modal.processApiResponse(api, ['2026-10-02', '2026-10-03', '2026-10-04']);
+    expect(rows).toEqual([
+      { date: '2026-10-02', consumption: 25 },
+      { date: '2026-10-03', consumption: 0, noData: true },
+      { date: '2026-10-04', consumption: 22 },
+    ]);
+
+    modal.data = rows;
+    const kpis = modal.computeKpis();
+    const byLabel = Object.fromEntries(kpis.map((k: any) => [k.label, k]));
+    expect(byLabel['Média (°C)'].value).toBe('23,50 °C'); // (25 + 22) / 2 — o dia vazio não entra
+    expect(byLabel['Dia com Menor Temperatura (°C)'].value).toBe('22,00');
+    expect(byLabel['Dias sem Leitura'].value).toBe('1');
+  });
+
+  it('o fetcher customizado recebe a granularidade selecionada', async () => {
+    const calls: any[] = [];
+    const modal = new DeviceReportModal({
+      ...tempParams,
+      granularity: '1h',
+      fetcher: async (args: any) => {
+        calls.push(args);
+        return [];
+      },
+    }) as any;
+    await modal.energyFetcher({ baseUrl: 'x', ingestionId: 'dev-1', startISO: 'a', endISO: 'b', granularity: modal.granularity });
+    expect(calls[0].granularity).toBe('1h');
+  });
+});
+
 describe('DeviceReportModal — header', () => {
   it('mostra o nome do device (sutil) com botão copiar, sem customer (já está no footer)', () => {
     const modal = new DeviceReportModal({ ...baseParams, deviceName: 'Temperatura <Loteria> L2' });
