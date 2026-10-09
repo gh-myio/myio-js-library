@@ -118,8 +118,13 @@ export function renderCardComponentV5({
     temperatureStatus, // 'ok' | 'above' | 'below' | undefined
     // Temperatura atual vinda do Ingestion = média das últimas 2 h; true = nenhuma leitura na janela
     temperatureNoRecentReading = false,
-    temperatureSource, // 'ingestion-avg-2h' | 'thingsboard' | undefined
+    temperatureSource, // 'ingestion-hourly' | 'ingestion-avg-2h' | 'thingsboard' | undefined
     temperatureFetchedAt, // ms da consulta (rótulo "Atualizado às HH:MM")
+    // Idade da última leitura: 'ok' | 'warning' (10–12 h) | 'stale' (12–24 h) | 'offline' (> 24 h)
+    temperatureFreshness,
+    temperatureHourTs, // início da hora fechada exibida (ms)
+    temperatureLastTs, // instante da última leitura válida (ms)
+    temperatureOffset = 0, // offset aplicado (°C) — marcador igual ao da exclusão de totais
     // Per-device exclude_groups_totals attribute (SERVER_SCOPE) — drives the orange marker
     excludeGroupsTotals,
   } = entityObject;
@@ -344,8 +349,29 @@ export function renderCardComponentV5({
 
   // Temperatura sem leitura na janela → texto cinza, nunca "0 °C"
   const showNoTempReading = !!temperatureNoRecentReading && isTemperatureDevice(deviceType);
+  const _isTempCard = isTemperatureDevice(deviceType);
+  const showTempWarning = _isTempCard && temperatureFreshness === 'warning';
+  const _off = Number(temperatureOffset) || 0;
   const tempValueTitle = (() => {
-    if (!isTemperatureDevice(deviceType) || temperatureSource !== 'ingestion-avg-2h') return '';
+    if (_isTempCard && temperatureSource === 'ingestion-hourly') {
+      const tz = { timeZone: 'America/Sao_Paulo' };
+      const hm = (ts) => new Date(ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', ...tz });
+      const dm = (ts) => new Date(ts).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', ...tz });
+      const ago = (ts) => {
+        const h = Math.floor((Date.now() - ts) / 3600000);
+        const m = Math.floor(((Date.now() - ts) % 3600000) / 60000);
+        return h > 0 ? `${h} h ${m} min` : `${m} min`;
+      };
+      const offTxt = _off ? ` · offset ${_off > 0 ? '+' : '−'}${String(Math.abs(_off)).replace('.', ',')} °C` : '';
+      if (temperatureFreshness === 'offline') return 'Nenhuma leitura nas últimas 24 h';
+      if (!temperatureLastTs) return '';
+      const last = `última leitura ${dm(temperatureLastTs)} ${hm(temperatureLastTs)} (há ${ago(temperatureLastTs)})`;
+      if (temperatureFreshness === 'stale') return `Sem leitura nas últimas 12 h — ${last}`;
+      const hour = temperatureHourTs ? `Média da hora ${dm(temperatureHourTs)} ${hm(temperatureHourTs)}` : 'Temperatura';
+      const warn = temperatureFreshness === 'warning' ? '⚠ Leitura atrasada (10–12 h) — ' : '';
+      return `${warn}${hour} · ${last}${offTxt}`;
+    }
+    if (!_isTempCard || temperatureSource !== 'ingestion-avg-2h') return '';
     const at = temperatureFetchedAt
       ? ` · Atualizado às ${new Date(temperatureFetchedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
       : '';
@@ -452,6 +478,22 @@ export function renderCardComponentV5({
         position: relative;
         width: 100%;
         height: 100%;
+      }
+
+      /* Temperatura: leitura atrasada (10–12 h) — borda laranja + ⚠ piscando */
+      .myio-enhanced-card-container-v5.myio-card-temp-warning .device-card-centered {
+        border: 2px solid #f59e0b !important;
+        box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.18) !important;
+      }
+      .myio-temp-warn-icon {
+        margin-left: 4px;
+        font-size: 0.9em;
+        cursor: help;
+        animation: myio-temp-warn-blink 1.2s ease-in-out infinite;
+      }
+      @keyframes myio-temp-warn-blink {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.2; }
       }
 
       /* Subtle orange marker — device flagged in exclude_groups_totals */
@@ -795,7 +837,11 @@ export function renderCardComponentV5({
                   </span>
                   <span class="consumption-value"${
                     showNoTempReading ? ' style="color:#9ca3af;font-weight:500;font-size:0.85em;"' : ''
-                  }${tempValueTitle ? ` title="${tempValueTitle}"` : ''}>${formatCardValue(cardEntity.lastValue, deviceType)}</span>
+                  }${tempValueTitle ? ` title="${tempValueTitle}"` : ''}>${formatCardValue(cardEntity.lastValue, deviceType)}</span>${
+                    showTempWarning
+                      ? `<span class="myio-temp-warn-icon" title="${tempValueTitle}" aria-label="Leitura atrasada">⚠️</span>`
+                      : ''
+                  }
                 </div>
               </div>
               ${
@@ -843,6 +889,10 @@ export function renderCardComponentV5({
   } catch (e) {
     /* malformed exclude_groups_totals — no marker */
   }
+  // Temperatura: offset aplicado → mesmo marcador da exclusão de totais (linha laranja na base)
+  if (_isTempCard && _off !== 0) container.classList.add('myio-card-excluded', 'myio-card-temp-offset');
+  // Temperatura: leitura atrasada (10–12 h) → borda laranja
+  if (showTempWarning) container.classList.add('myio-card-temp-warning');
 
   // Add premium enhanced card styles - V5 OPTIMIZED
   if (!document.getElementById('myio-enhanced-card-layout-styles-v5')) {

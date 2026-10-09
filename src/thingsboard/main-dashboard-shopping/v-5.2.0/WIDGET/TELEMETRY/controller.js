@@ -2915,6 +2915,12 @@ function renderList(visible) {
       temperatureNoRecentReading: !!it.temperatureNoRecentReading,
       temperatureSource: it.temperatureSource || null,
       temperatureFetchedAt: it.temperatureFetchedAt || null,
+      // Aviso (borda laranja + ⚠) / sem leitura recente / offline — e quando foi a última leitura
+      temperatureFreshness: it.temperatureFreshness || null,
+      temperatureHourTs: it.temperatureHourTs || null,
+      temperatureLastTs: it.temperatureLastTs || null,
+      // Offset aplicado → marcador no padrão da "exclusão de totais"
+      temperatureOffset: WIDGET_DOMAIN === 'temperature' ? Number(it.temperatureOffset ?? it.offSetTemperature ?? 0) || 0 : 0,
       // Average temperature across all TERMOSTATO devices (for TempComparisonTooltip)
       averageTemperature: avgTemperature,
       temperatureDeviceCount: tempDeviceCount,
@@ -6658,8 +6664,12 @@ self.onInit = async function () {
         temperatureMax: isTemperatureDomain ? globalTempMax : null,
         temperatureStatus: temperatureStatus,
         temperatureNoRecentReading: isTemperatureDomain ? noTempReading : false,
-        temperatureSource: isTemperatureDomain ? item.temperatureSource || null : null, // 'ingestion-avg-2h' | 'thingsboard'
+        temperatureSource: isTemperatureDomain ? item.temperatureSource || null : null, // 'ingestion-hourly' | 'thingsboard'
         temperatureFetchedAt: isTemperatureDomain ? item.temperatureFetchedAt || null : null,
+        // Idade da última leitura: 'ok' | 'warning' (10–12 h) | 'stale' (12–24 h) | 'offline' (> 24 h)
+        temperatureFreshness: isTemperatureDomain ? item.temperatureFreshness || null : null,
+        temperatureHourTs: isTemperatureDomain ? item.temperatureHourTs || null : null,
+        temperatureLastTs: isTemperatureDomain ? item.temperatureLastTs || null : null,
         // RFC-0107: Water tank specific fields
         waterLevel: item.waterLevel ?? null,
         waterPercentage: item.waterPercentage ?? null,
