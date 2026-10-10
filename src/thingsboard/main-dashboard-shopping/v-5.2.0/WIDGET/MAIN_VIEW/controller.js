@@ -185,6 +185,9 @@ window.MyIOUtils.isFeatureVisible = function isFeatureVisible(path) {
 // ===========================================================================
 (function defineLibBridge() {
   const LIB_SYMBOLS = [
+    // moldura padrão das modais premium (header com tema + footer) — modais do MENU
+    'createPremiumModalChrome',
+    'applyDashboardPalette',
     // toasts / selection / tooltips
     'MyIOToast',
     'MyIOSelectionStore',
@@ -275,6 +278,173 @@ window.MyIOUtils.isFeatureVisible = function isFeatureVisible(path) {
   }
 })();
 
+// ── RFC-0139: modo escuro do dashboard ─────────────────────────────────────────
+// MAIN é a dona do tema: marca <html data-theme>, guarda a escolha no navegador e injeta
+// UMA folha escura global para todos os widgets (MENU, HEADER, TELEMETRY, TELEMETRY_INFO,
+// FOOTER) e os cards da lib. Seletores html[data-theme='dark'] … vencem as folhas dos
+// widgets (o TB prefixa cada uma com .widget-type-…, especificidade menor) sem mexer nelas.
+const THEME_STORAGE_KEY = 'myio:theme';
+
+function readStoredTheme() {
+  try {
+    const t = localStorage.getItem(THEME_STORAGE_KEY);
+    return t === 'dark' || t === 'light' ? t : null;
+  } catch {
+    return null;
+  }
+}
+
+function ensureDarkThemeStyles() {
+  if (document.getElementById('myio-dark-theme-styles')) return;
+  const D = "html[data-theme='dark']";
+  const st = document.createElement('style');
+  st.id = 'myio-dark-theme-styles';
+  st.textContent = `
+    ${D} {
+      --myio-d-bg: #0e1513;
+      --myio-d-surface: #151d1b;
+      --myio-d-surface-2: #1c2624;
+      --myio-d-surface-3: #24302d;
+      --myio-d-border: rgba(255, 255, 255, 0.09);
+      --myio-d-text: #e7eeec;
+      --myio-d-muted: #9db0aa;
+      /* acento do tema clareado para ler sobre fundo escuro */
+      --myio-d-accent: color-mix(in srgb, var(--myio-brand-700, #3e1a7d) 45%, #fff);
+      color-scheme: dark;
+    }
+
+    /* Fundo do dashboard e painéis dos widgets */
+    ${D} .tb-dashboard-page,
+    ${D} .tb-dashboard-page .mat-content,
+    ${D} .tb-dashboard-page .mat-drawer-container,
+    ${D} .tb-dashboard-page .mat-drawer-content,
+    ${D} .tb-dashboard-page #gridster-background { background: var(--myio-d-bg) !important; }
+    ${D} .tb-dashboard-page .tb-widget {
+      background: var(--myio-d-surface) !important;
+      color: var(--myio-d-text) !important;
+    }
+
+    /* MENU */
+    ${D} .shops-menu-root {
+      --text: var(--myio-d-text);
+      --divider: var(--myio-d-border);
+      --hover-bg: rgba(255, 255, 255, 0.06);
+      color: var(--myio-d-text);
+    }
+    ${D} .shops-menu-root .user-name,
+    ${D} .shops-menu-root .hamburger-btn,
+    ${D} .shops-menu-root .menu-item:not(.active),
+    ${D} .shops-menu-root .ssb-title,
+    ${D} .shops-menu-root .settings-menu-text { color: var(--myio-d-text) !important; }
+    ${D} .shops-menu-root .user-email,
+    ${D} .shops-menu-root .ssb-kbd,
+    ${D} .shops-menu-root .myio-lib-version__text,
+    ${D} .shops-menu-root .myio-lib-version__refresh { color: var(--myio-d-muted) !important; }
+    ${D} .shops-menu-root .shopping-selector-btn,
+    ${D} .shops-menu-root .settings-menu-btn {
+      background: var(--myio-d-surface-2) !important;
+      border-color: var(--myio-d-border) !important;
+      box-shadow: none !important;
+    }
+    ${D} .shops-menu-root .ssb-icon,
+    ${D} .shops-menu-root .settings-menu-icon {
+      background: var(--myio-d-surface-3) !important;
+      color: var(--myio-d-accent) !important;
+    }
+    /* nome do cliente no botão do shopping: texto claro (o acento clareado ainda ficava apagado) */
+    ${D} .shops-menu-root .ssb-sub { color: var(--myio-d-text) !important; font-weight: 600; }
+
+    /* HEADER */
+    ${D} .tbx-field {
+      background: var(--myio-d-surface-2) !important;
+      border-color: var(--myio-d-border) !important;
+      color: var(--myio-d-text) !important;
+    }
+    ${D} .tbx-field input { background: transparent !important; color: var(--myio-d-text) !important; }
+
+    /* TELEMETRY: cabeçalho dos grupos */
+    ${D} .shops-header {
+      background: var(--myio-d-surface-2) !important;
+      border-color: var(--myio-d-border) !important;
+      box-shadow: none !important;
+    }
+    ${D} .shops-header .shops-title,
+    ${D} .shops-header .shops-count,
+    ${D} .shops-header .shops-total { color: var(--myio-d-accent) !important; }
+    ${D} .shops-header .shops-total {
+      background: color-mix(in srgb, var(--myio-brand-700, #3e1a7d) 28%, transparent) !important;
+      border-color: transparent !important;
+    }
+    ${D} .shops-header .shops-col-info { color: var(--myio-d-text) !important; }
+    ${D} .shops-header .icon-btn {
+      background: var(--myio-d-surface-3) !important;
+      border-color: var(--myio-d-border) !important;
+      color: var(--myio-d-text) !important;
+      box-shadow: none !important;
+    }
+    /* filtro / + / busca usam fill escuro fixo (os de exportação já têm traço claro) */
+    ${D} .shops-header .icon-btn:not(.export-icon-btn) svg,
+    ${D} .shops-header .icon-btn:not(.export-icon-btn) svg * { fill: var(--myio-d-text) !important; }
+
+    /* Cards (lib v5) */
+    ${D} .device-card-centered {
+      background: var(--myio-d-surface-2) !important;
+      border-color: var(--myio-d-border) !important;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35) !important;
+    }
+    ${D} .device-card-centered.offline {
+      background: color-mix(in srgb, #ef4444 16%, var(--myio-d-surface-2)) !important;
+    }
+    ${D} .device-card-centered .device-title,
+    ${D} .device-card-centered .consumption-value { color: var(--myio-d-text) !important; }
+    ${D} .device-card-centered .device-subtitle,
+    ${D} .device-card-centered .device-percentage-badge:not(.temp-deviation-badge) { color: var(--myio-d-muted) !important; }
+    ${D} .device-card-centered .consumption-main {
+      background: color-mix(in srgb, var(--myio-brand-700, #3e1a7d) 24%, transparent) !important;
+      border-color: transparent !important;
+    }
+    ${D} .device-card-centered .card-actions {
+      background: var(--myio-d-surface-3) !important;
+      border-color: var(--myio-d-border) !important;
+      box-shadow: none !important;
+    }
+    ${D} .device-card-centered .card-action { background: transparent !important; border-color: transparent !important; }
+
+    /* TELEMETRY_INFO */
+    ${D} .telemetry-info-root { background: var(--myio-d-surface) !important; color: var(--myio-d-text); }
+    ${D} .telemetry-info-root .info-card {
+      background: var(--myio-d-surface-2) !important;
+      border-color: var(--myio-d-border) !important;
+      box-shadow: none !important;
+    }
+    ${D} .telemetry-info-root .info-title,
+    ${D} .telemetry-info-root .card-title { color: var(--myio-d-accent) !important; }
+    ${D} .telemetry-info-root .stat-value,
+    ${D} .telemetry-info-root .card-icon,
+    ${D} .telemetry-info-root .legend-value { color: var(--myio-d-text) !important; }
+    ${D} .telemetry-info-root .legend-label { color: var(--myio-d-muted) !important; }
+    ${D} .telemetry-info-root .ti-loading-overlay {
+      background: rgba(21, 29, 27, 0.86) !important;
+      color: var(--myio-d-muted) !important;
+    }
+  `;
+  document.head.appendChild(st);
+}
+
+function applyThemeToDocument(theme) {
+  ensureDarkThemeStyles();
+  document.documentElement.setAttribute('data-theme', theme);
+}
+
+// Aplica o tema salvo já na carga do módulo (antes dos widgets desenharem) — sem flash claro
+(function applyStoredThemeEarly() {
+  const stored = readStoredTheme();
+  if (stored) {
+    window.MyIOUtils.currentTheme = stored;
+    applyThemeToDocument(stored);
+  }
+})();
+
 Object.assign(window.MyIOUtils, {
   LogHelper,
   getDataApiHost,
@@ -301,8 +471,8 @@ Object.assign(window.MyIOUtils, {
   currentUserEmail: null,
 
   // RFC-0139: Global theme state management
-  // Default theme is 'light', MAIN is the single source of truth
-  currentTheme: 'light',
+  // Default theme is 'light', MAIN is the single source of truth (tema salvo tem prioridade)
+  currentTheme: readStoredTheme() || 'light',
 
   /**
    * RFC-0139: Set global theme and notify all listeners
@@ -312,6 +482,14 @@ Object.assign(window.MyIOUtils, {
     if (theme !== 'light' && theme !== 'dark') {
       LogHelper.warn(`[MyIOUtils] RFC-0139: Invalid theme: ${theme}. Using 'light'.`);
       theme = 'light';
+    }
+
+    // Página sempre reflete o tema (mesmo se já era o atual) e a escolha fica salva
+    applyThemeToDocument(theme);
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, theme);
+    } catch {
+      /* navegador sem storage — vale só para esta sessão */
     }
 
     if (window.MyIOUtils.currentTheme === theme) {

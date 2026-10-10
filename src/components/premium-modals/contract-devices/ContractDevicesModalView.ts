@@ -4,6 +4,8 @@
  */
 
 import { ContractDevicesModalConfig, ContractDeviceCounts } from './types';
+import { createPremiumModalChrome } from '../internal/PremiumModalChrome';
+import type { PremiumModalChromeInstance } from '../internal/PremiumModalChrome';
 
 export class ContractDevicesModalView {
   private container: HTMLElement;
@@ -12,6 +14,8 @@ export class ContractDevicesModalView {
   private config: ContractDevicesModalConfig;
   private focusTrapElements: HTMLElement[] = [];
   private originalActiveElement: Element | null = null;
+  // Moldura padrão: header RFC-0121 no acento do tema + footer premium
+  private chrome: PremiumModalChromeInstance | null = null;
 
   constructor(config: ContractDevicesModalConfig) {
     this.config = config;
@@ -23,11 +27,24 @@ export class ContractDevicesModalView {
     document.body.appendChild(this.container);
     this.populateForm(initialData);
     this.attachEventListeners();
+    this.chrome = createPremiumModalChrome({
+      modalId: 'myio-contract-devices',
+      icon: '📋',
+      title: `${this.config.title || 'Configurar Dispositivos Contratados'}${
+        this.config.customerName ? ` — ${this.config.customerName}` : ''
+      }`,
+      modalEl: this.modal,
+      headerSlot: this.modal.querySelector('.modal-header') as HTMLElement | null,
+      onClose: () => this.config.onClose(),
+      footer: { customerName: this.config.customerName },
+    });
     this.setupAccessibility();
     this.setupFocusTrap();
   }
 
   close(): void {
+    this.chrome?.destroy();
+    this.chrome = null;
     this.teardownFocusTrap();
 
     if (this.originalActiveElement && 'focus' in this.originalActiveElement) {

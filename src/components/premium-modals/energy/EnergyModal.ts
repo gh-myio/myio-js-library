@@ -365,7 +365,8 @@ export class EnergyModal {
   }
 
   /**
-   * Builds modal title HTML with domain text + device/customer/version badges.
+   * Builds modal title HTML with domain text + device badge. Customer e versão da lib ficam no
+   * footer premium (mesmo padrão do DeviceReportModal), não mais no header.
    */
   private buildModalTitle(): string {
     const readingType = this.params.readingType || 'energy';
@@ -379,20 +380,12 @@ export class EnergyModal {
 
     const label      = this.context?.device.label || '';
     const deviceName = this.context?.device.name || (this.context?.device as any)?.attributes?.identifier || '';
-    const customer   = this.params.customerName || '';
-    const version    = (window as any).MyIOLibrary?.version;
 
     const deviceBadge = label
       ? `<span class="myio-modal-header-device-label">${label}${deviceName && deviceName !== label ? `<span class="myio-modal-header-device-name">(${deviceName})</span>` : ''}</span>`
       : '';
-    const customerBadge = customer
-      ? `<span class="myio-modal-header-customer-badge">${customer}</span>`
-      : '';
-    const versionBadge = version
-      ? `<span class="myio-modal-header-version-badge">v${version}</span>`
-      : '';
 
-    return `${mainTitle}${deviceBadge}${customerBadge}${versionBadge}`;
+    return `${mainTitle}${deviceBadge}`;
   }
 
   /**

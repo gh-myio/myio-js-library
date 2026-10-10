@@ -231,7 +231,8 @@ export const DEFAULT_I18N: EnergyModalI18n = {
 
 // Default style overrides
 export const DEFAULT_STYLES: EnergyModalStyleOverrides = {
-  primaryColor: '#6366f1',
+  // Acento da paleta do dashboard (createMyIOTheme → --myio-brand-700); sem tema, o índigo antigo
+  primaryColor: 'var(--myio-brand-700, #6366f1)',
   backgroundColor: '#ffffff',
   textColor: '#1f2937',
   borderColor: '#e5e7eb',

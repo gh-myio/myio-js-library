@@ -1364,8 +1364,11 @@ self.onInit = function () {
     requestAnimationFrame(() => modal.classList.add('show'));
 
     let selectedDashboard = null;
+    let mddChrome = null;
 
     const closeModal = () => {
+      mddChrome?.destroy();
+      mddChrome = null;
       modal.classList.remove('show');
       setTimeout(() => modal.remove(), 200);
     };
@@ -1376,6 +1379,21 @@ self.onInit = function () {
     modal.querySelector('#mdd-modal-maximize')?.addEventListener('click', () => {
       modal.querySelector('.mdd-card').classList.toggle('is-maximized');
     });
+
+    // Moldura padrão (lib via ponte MyIOUtils): header no acento do tema + footer premium.
+    // Sem a lib nova, fica o header atual.
+    const mddCard = modal.querySelector('.mdd-card');
+    mddChrome =
+      window.MyIOUtils?.createPremiumModalChrome?.({
+        modalId: 'mdd-modal',
+        icon: '🏠',
+        title: `Dashboard Padrão${customerName ? ` — ${customerName}` : ''}`,
+        modalEl: mddCard,
+        headerSlot: mddCard.firstElementChild,
+        headerRadius: '16px 16px 0 0',
+        onClose: closeModal,
+        footer: { customerName },
+      }) || null;
 
     const escHandler = (e) => {
       if (e.key === 'Escape') {
@@ -1533,7 +1551,7 @@ self.onInit = function () {
         .myio-isetup.show .myio-isetup__card{transform:translateY(0) scale(1)}
         /* Header: ModalHeader (RFC-0121) */
         .myio-isetup__card.is-maximized{width:100vw!important;max-width:100vw!important;height:100vh!important;max-height:100vh!important;border-radius:0}
-        .myio-isetup__body{overflow-y:auto;padding:18px 20px;display:flex;flex-direction:column;gap:16px}
+        .myio-isetup__body{overflow-y:auto;padding:18px 20px;display:flex;flex-direction:column;gap:16px;flex:1;min-height:0}
         .myio-isetup__loading{display:flex;align-items:center;justify-content:center;gap:10px;padding:40px 0;color:#6B7280;font-size:13px}
         .myio-isetup__spinner{width:20px;height:20px;border:2px solid #E9E0FA;border-top-color:#7B2FF7;border-radius:50%;animation:isetup-spin .7s linear infinite}
         @keyframes isetup-spin{to{transform:rotate(360deg)}}
@@ -1694,7 +1712,10 @@ self.onInit = function () {
     topDoc.body.appendChild(modal);
     requestAnimationFrame(() => modal.classList.add('show'));
 
+    let isetupChrome = null;
     const closeModal = () => {
+      isetupChrome?.destroy();
+      isetupChrome = null;
       modal.classList.remove('show');
       setTimeout(() => modal.remove(), 200);
     };
@@ -1704,6 +1725,19 @@ self.onInit = function () {
     modal.querySelector('#isetup-modal-maximize')?.addEventListener('click', () => {
       modal.querySelector('.myio-isetup__card').classList.toggle('is-maximized');
     });
+
+    // Moldura padrão (lib via ponte MyIOUtils): header no acento do tema + footer premium
+    const isetupCard = modal.querySelector('.myio-isetup__card');
+    isetupChrome =
+      window.MyIOUtils?.createPremiumModalChrome?.({
+        modalId: 'isetup-modal',
+        icon: '🔗',
+        title: 'Setup de Integração',
+        modalEl: isetupCard,
+        headerSlot: isetupCard.firstElementChild,
+        headerRadius: '16px 16px 0 0',
+        onClose: closeModal,
+      }) || null;
     modal.querySelector('#isetup-cancel').addEventListener('click', closeModal);
 
     const escHandler = (e) => {
@@ -3364,8 +3398,17 @@ function openGoalsModal() {
       }
     });
 
-    // Set initial icon (light is default)
-    updateThemeIcon('light');
+    // Ícone inicial = tema atual. O MENU pode carregar antes da MAIN, então também lê a escolha
+    // salva no navegador (mesma chave 'myio:theme' da MAIN); light é o padrão.
+    let initialTheme = window.MyIOUtils?.getTheme?.();
+    if (initialTheme !== 'dark' && initialTheme !== 'light') {
+      try {
+        initialTheme = localStorage.getItem('myio:theme');
+      } catch {
+        initialTheme = null;
+      }
+    }
+    updateThemeIcon(initialTheme === 'dark' ? 'dark' : 'light');
     LogHelper.log('[MENU] RFC-0139: Theme toggle listener initialized');
   })();
 
@@ -3407,13 +3450,14 @@ function openGoalsModal() {
         .mcc-overlay{position:fixed;inset:0;z-index:999999;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s ease;font-family:'Nunito',system-ui,sans-serif}
         .mcc-overlay.show{opacity:1;pointer-events:auto}
         .mcc-bg{position:absolute;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(4px)}
-        .mcc-card{position:relative;z-index:2;background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.28);width:min(520px,95vw);display:flex;flex-direction:column;overflow:hidden;transform:translateY(12px) scale(.98);transition:transform .2s ease}
+        .mcc-card{position:relative;z-index:2;background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.28);width:min(520px,95vw);max-height:90vh;display:flex;flex-direction:column;overflow:hidden;transform:translateY(12px) scale(.98);transition:transform .2s ease}
+        .mcc-card.is-maximized{width:100vw!important;max-width:100vw!important;height:100vh!important;max-height:100vh!important;border-radius:0}
         .mcc-overlay.show .mcc-card{transform:translateY(0) scale(1)}
         .mcc-header{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#3e1a7d;color:#fff;min-height:36px}
         .mcc-header h3{margin:0;font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px}
         .mcc-close{background:transparent;border:none;color:#fff;font-size:24px;line-height:1;cursor:pointer;padding:4px;border-radius:4px;transition:background .15s}
         .mcc-close:hover{background:rgba(255,255,255,.15)}
-        .mcc-body{padding:20px;display:flex;flex-direction:column;gap:18px}
+        .mcc-body{padding:20px;display:flex;flex-direction:column;gap:18px;overflow-y:auto;flex:1;min-height:0}
         .mcc-loading{display:flex;align-items:center;justify-content:center;gap:10px;padding:32px 0;color:#6B7280;font-size:13px}
         .mcc-spinner{width:18px;height:18px;border:2px solid #E9E0FA;border-top-color:#7B2FF7;border-radius:50%;animation:mcc-spin .7s linear infinite;flex-shrink:0}
         @keyframes mcc-spin{to{transform:rotate(360deg)}}
@@ -3474,13 +3518,31 @@ function openGoalsModal() {
     topDoc.body.appendChild(modal);
     requestAnimationFrame(() => modal.classList.add('show'));
 
+    let mccChrome = null;
     const closeModal = () => {
+      mccChrome?.destroy();
+      mccChrome = null;
       modal.classList.remove('show');
       setTimeout(() => modal.remove(), 200);
     };
     modal.querySelector('.mcc-bg').addEventListener('click', closeModal);
     modal.querySelector('.mcc-close').addEventListener('click', closeModal);
     modal.querySelector('.mcc-btn-cancel').addEventListener('click', closeModal);
+
+    // Moldura padrão (lib via ponte MyIOUtils): header no acento do tema (com maximizar) +
+    // footer premium. Sem a lib nova, fica o header atual.
+    const mccCard = modal.querySelector('.mcc-card');
+    mccChrome =
+      window.MyIOUtils?.createPremiumModalChrome?.({
+        modalId: 'mcc-modal',
+        icon: '🏢',
+        title: `Configurações Cliente${customerName ? ` — ${customerName}` : ''}`,
+        modalEl: mccCard,
+        headerSlot: mccCard.querySelector('.mcc-header'),
+        headerRadius: '16px 16px 0 0',
+        onClose: closeModal,
+        footer: { customerName },
+      }) || null;
     const escHandler = (e) => {
       if (e.key === 'Escape') {
         closeModal();
