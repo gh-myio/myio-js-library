@@ -609,7 +609,7 @@ function setDataLoading(on) {
     overlay.className = 'ti-loading-overlay';
     overlay.setAttribute('aria-busy', 'true');
     overlay.innerHTML = '<div class="ti-loading-spinner" aria-hidden="true"></div><span>Carregando dados…</span>';
-    if (getComputedStyle(root).position === 'static') root.style.position = 'relative';
+    if (window.getComputedStyle(root).position === 'static') root.style.position = 'relative';
     root.appendChild(overlay);
   }
   root.classList.toggle('ti-data-loading', !!on);
