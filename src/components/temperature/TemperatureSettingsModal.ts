@@ -6,6 +6,9 @@
  * for a ThingsBoard customer (SERVER_SCOPE).
  */
 
+import { createPremiumModalChrome } from '../premium-modals/internal/PremiumModalChrome';
+import type { PremiumModalChromeInstance } from '../premium-modals/internal/PremiumModalChrome';
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -44,6 +47,9 @@ interface ModalState {
   customerName: string;
   token: string;
   theme: 'dark' | 'light';
+  /** Moldura padrão (header no acento do tema + footer premium), recriada a cada render */
+  chrome?: PremiumModalChromeInstance | null;
+  maximized?: boolean;
   isSuperAdmin: boolean;
   minTemperature: number | null;
   maxTemperature: number | null;
@@ -707,6 +713,34 @@ function renderModal(
 
     await onSave(min, max, clampMin, clampMax);
   });
+
+  // Moldura padrão das modais premium: troca o header próprio pelo header RFC-0121 no acento do
+  // tema (claro/escuro, maximizar, fechar) e anexa o footer premium. O modal se redesenha via
+  // innerHTML, então a moldura anterior é destruída e recriada com o mesmo tema/maximizado.
+  state.chrome?.destroy();
+  state.chrome = null;
+  if (modalContent) {
+    state.chrome = createPremiumModalChrome({
+      modalId,
+      icon: '🌡️',
+      title: `Configurações de Temperatura${state.customerName ? ` — ${state.customerName}` : ''}`,
+      modalEl: modalContent,
+      headerSlot: modalContent.querySelector('.modal-header') as HTMLElement | null,
+      theme: state.theme,
+      showThemeToggle: true,
+      maximized: state.maximized === true,
+      headerRadius: '16px 16px 0 0',
+      onClose,
+      onMaximizeChange: (m) => {
+        state.maximized = m;
+      },
+      onThemeChange: (t) => {
+        state.theme = t;
+        renderModal(container, state, modalId, onClose, onSave);
+      },
+      footer: { customerName: state.customerName },
+    });
+  }
 }
 
 // ============================================================================
@@ -745,6 +779,8 @@ export function openTemperatureSettingsModal(
 
   // Cleanup function
   const destroy = () => {
+    state.chrome?.destroy();
+    state.chrome = null;
     container.remove();
     params.onClose?.();
   };

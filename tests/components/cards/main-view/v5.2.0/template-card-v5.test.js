@@ -175,6 +175,38 @@ describe('renderCardComponentV5 — temperatura: hora mais recente (24 h) + fres
   });
 });
 
+describe('renderCardComponentV5 — telemetria ainda carregando (dataLoading)', () => {
+  it('spinner no valor, sem selo e status neutro (não marca offline)', () => {
+    const $card = renderCardComponentV5({
+      entityObject: {
+        entityId: 'dev-1',
+        labelOrName: 'Loja',
+        deviceProfile: '3F_MEDIDOR',
+        deviceStatus: 'offline',
+        val: null,
+        dataLoading: true,
+      },
+      enableSelection: false,
+      enableDragDrop: false,
+    });
+    const el = $card[0];
+    const value = el.querySelector('.consumption-value');
+
+    expect(value.classList.contains('myio-value-loading')).toBe(true);
+    expect(value.textContent.trim()).toBe('Carregando…');
+    expect(el.querySelector('.myio-value-spinner')).not.toBeNull();
+    expect(el.querySelector('.device-percentage-badge')).toBeNull();
+    expect(el.classList.contains('myio-card-data-loading')).toBe(true);
+    expect(el.querySelector('.device-card-centered').classList.contains('offline')).toBe(false);
+  });
+
+  it('sem dataLoading: valor normal', () => {
+    const { headline, badge } = render({ deviceProfile: '3F_MEDIDOR', val: 1500, perc: 12.5 });
+    expect(headline).toBe(formatEnergy(1500));
+    expect(badge).not.toBeNull();
+  });
+});
+
 describe('renderCardComponentV5 — temperatura atual do Ingestion (média 2 h)', () => {
   const fetchedAt = new Date(2026, 9, 8, 14, 5).getTime();
 

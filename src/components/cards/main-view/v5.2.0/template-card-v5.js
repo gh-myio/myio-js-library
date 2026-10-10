@@ -103,7 +103,7 @@ export function renderCardComponentV5({
     centralId,
     updatedIdentifiers = {},
     perc = 0,
-    deviceStatus,
+    deviceStatus: rawDeviceStatus,
     centralName,
     connectionStatusTime,
     timeVal,
@@ -127,7 +127,11 @@ export function renderCardComponentV5({
     temperatureOffset = 0, // offset aplicado (°C) — marcador igual ao da exclusão de totais
     // Per-device exclude_groups_totals attribute (SERVER_SCOPE) — drives the orange marker
     excludeGroupsTotals,
+    // Card já desenhado, telemetria (valor/status) ainda chegando → spinner no valor, sem selo,
+    // status neutro (não marca offline nem pisca enquanto carrega)
+    dataLoading = false,
   } = entityObject;
+  const deviceStatus = dataLoading ? 'loading' : rawDeviceStatus;
 
   // deviceProfile é a autoridade; o campo legado deviceType (quando presente em
   // payloads antigos) serve só de último recurso de exibição.
@@ -844,17 +848,23 @@ export function renderCardComponentV5({
                   <span class="flash-icon ${shouldFlashIcon ? 'flash' : ''}">
                     ${icon}
                   </span>
-                  <span class="consumption-value"${
-                    showNoTempReading ? ' style="color:#9ca3af;font-weight:500;font-size:0.85em;"' : ''
-                  }${tempValueTitle ? ` title="${tempValueTitle}"` : ''}>${formatCardValue(cardEntity.lastValue, deviceType)}</span>${
-                    showTempWarning
+                  ${
+                    dataLoading
+                      ? `<span class="consumption-value myio-value-loading" title="Carregando dados de telemetria" aria-busy="true"><span class="myio-value-spinner" aria-hidden="true"></span>Carregando…</span>`
+                      : `<span class="consumption-value"${
+                          showNoTempReading ? ' style="color:#9ca3af;font-weight:500;font-size:0.85em;"' : ''
+                        }${tempValueTitle ? ` title="${tempValueTitle}"` : ''}>${formatCardValue(cardEntity.lastValue, deviceType)}</span>`
+                  }${
+                    !dataLoading && showTempWarning
                       ? `<span class="myio-temp-warn-icon" title="${tempValueTitle}" aria-label="Leitura atrasada">⚠️</span>`
                       : ''
                   }
                 </div>
               </div>
               ${
-                isTankDevice
+                dataLoading
+                  ? ''
+                  : isTankDevice
                   ? `<span class="device-percentage-badge device-tank-level-badge" style="position: absolute; bottom: 12px; right: 12px; z-index: 20; background: none !important;">${formatTankHeadFromCm(tankLevelCm)}</span>`
                   : !isTermostatoDevice
                   ? `<span class="device-percentage-badge percentage-tooltip-trigger" style="position: absolute; bottom: 12px; right: 12px; z-index: 20; background: none !important; cursor: help;">${percentageForDisplay.toFixed(_pctDecimals).replace('.', ',')}%</span>`
@@ -901,7 +911,8 @@ export function renderCardComponentV5({
   // Temperatura: offset aplicado → mesmo marcador da exclusão de totais (linha laranja na base)
   if (_isTempCard && _off !== 0) container.classList.add('myio-card-excluded', 'myio-card-temp-offset');
   // Temperatura: leitura atrasada (10–12 h) → borda laranja
-  if (showTempWarning) container.classList.add('myio-card-temp-warning');
+  if (showTempWarning && !dataLoading) container.classList.add('myio-card-temp-warning');
+  if (dataLoading) container.classList.add('myio-card-data-loading');
 
   // Add premium enhanced card styles - V5 OPTIMIZED
   if (!document.getElementById('myio-enhanced-card-layout-styles-v5')) {
@@ -1067,6 +1078,26 @@ export function renderCardComponentV5({
         backdrop-filter: blur(10px);
       }
 
+      .device-card-centered .myio-value-loading {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: #8a83a0;
+        font-weight: 500;
+        font-size: 0.85em;
+      }
+      .device-card-centered .myio-value-spinner {
+        width: 12px;
+        height: 12px;
+        border: 2px solid rgba(102, 58, 181, 0.2);
+        border-top-color: #663ab5;
+        border-radius: 50%;
+        animation: myio-value-spin 0.8s linear infinite;
+        flex: 0 0 auto;
+      }
+      @keyframes myio-value-spin {
+        to { transform: rotate(360deg); }
+      }
       .device-card-centered .consumption-value {
         font-weight: 700 !important;
         font-size: 0.75rem !important;
@@ -1381,8 +1412,8 @@ export function renderCardComponentV5({
       .myio-alert-icon {
         width: 64px; height: 64px; margin: 0 auto 20px;
         display: flex; align-items: center; justify-content: center;
-        background: linear-gradient(135deg, #3E1A7D 0%, #2D1359 100%);
-        border: 2px solid #3E1A7D; border-radius: 50%; color: #ffffff; font-size: 32px;
+        background: linear-gradient(135deg, var(--myio-brand-700, #3E1A7D) 0%, var(--myio-brand-600, #2D1359) 100%);
+        border: 2px solid var(--myio-brand-700, #3E1A7D); border-radius: 50%; color: #ffffff; font-size: 32px;
       }
       .myio-alert-title {
         margin: 0 0 12px; font-size: 24px; font-weight: 700; color: #000000;
@@ -1395,14 +1426,14 @@ export function renderCardComponentV5({
       .myio-alert-button {
         width: 100%; height: 48px; font-size: 15px; font-weight: 700;
         text-transform: uppercase;
-        background: linear-gradient(135deg, #3E1A7D 0%, #2D1359 100%);
+        background: linear-gradient(135deg, var(--myio-brand-700, #3E1A7D) 0%, var(--myio-brand-600, #2D1359) 100%);
         border: none; border-radius: 12px; color: #ffffff; cursor: pointer;
-        box-shadow: 0 4px 16px rgba(62,26,125,0.4);
+        box-shadow: 0 4px 16px color-mix(in srgb, var(--myio-brand-700, #3E1A7D) 40%, transparent);
         transition: all 0.2s cubic-bezier(0.4,0,0.2,1);
       }
       .myio-alert-button:hover {
-        background: linear-gradient(135deg, #4E2A9D 0%, #3E1A7D 100%);
-        box-shadow: 0 6px 24px rgba(62,26,125,0.5); transform: translateY(-2px);
+        background: linear-gradient(135deg, color-mix(in srgb, var(--myio-brand-700, #3E1A7D) 85%, #fff) 0%, var(--myio-brand-700, #3E1A7D) 100%);
+        box-shadow: 0 6px 24px color-mix(in srgb, var(--myio-brand-700, #3E1A7D) 50%, transparent); transform: translateY(-2px);
       }
     `;
     document.head.appendChild(alertStyle);

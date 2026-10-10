@@ -2,7 +2,7 @@
 #myio-root {
   --myio-radius: 16px;
 
-  --sidebar-w: 260px;
+  --sidebar-w: 236px;
   --sidebar-w-compact: 72px;
 }
 
@@ -204,7 +204,7 @@
 /* Responsivo */
 @media (max-width: 1200px) {
   #myio-root {
-    --sidebar-w: 260px;
+    --sidebar-w: 236px;
   }
 }
 @media (max-width: 920px) {

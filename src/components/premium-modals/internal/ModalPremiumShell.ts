@@ -1,6 +1,9 @@
 // internal/ModalPremiumShell.ts
 import { CSS_TOKENS, MODAL_STYLES } from './styles/tokens';
 import { ModalHeader } from '../../../utils/ModalHeader';
+import { createModalFooter } from '../footer-modal';
+import type { ModalFooterInstance } from '../footer-modal';
+import { MYIO_ACCENT, applyDashboardPalette, resolveDashboardCustomerName } from './PremiumModalChrome';
 
 export interface ModalShellOptions {
   title: string;
@@ -19,6 +22,11 @@ export interface ModalShellOptions {
   icon?: string;
   /** Show the maximize button in the standard header. Default: true. */
   showMaximize?: boolean;
+  /**
+   * Footer premium padrão (customer · relógio · versão | Powered by MYIO) abaixo do footer de
+   * ações. Opt-in.
+   */
+  premiumFooter?: boolean | { customerName?: string };
 }
 
 let _shellIdSeq = 0;
@@ -44,6 +52,7 @@ export class ModalPremiumShell {
   private originalBodyOverflow: string;
   private originalActiveElement: Element | null;
   private closeHandlers: (() => void)[] = [];
+  private premiumFooter: ModalFooterInstance | null = null;
 
   constructor(private options: ModalShellOptions) {
     this.originalActiveElement = document.activeElement;
@@ -120,13 +129,16 @@ export class ModalPremiumShell {
         icon: this.options.icon || '⚙️',
         title: this.options.title,
         modalId: this.modalId,
-        theme: 'dark',
+        theme: 'light',
+        solid: true, // acento do tema do dashboard + texto branco
+        primaryColor: MYIO_ACCENT,
         showThemeToggle: false,
         showMaximize: this.options.showMaximize !== false,
         showClose: true,
         draggable: false,
         borderRadius: '0',
       });
+      applyDashboardPalette(this.modal);
     } else {
       this.header.className = 'myio-modal-header';
 
@@ -158,6 +170,16 @@ export class ModalPremiumShell {
     this.modal.appendChild(this.header);
     this.modal.appendChild(this.body);
     this.modal.appendChild(this.footer);
+    if (this.options.premiumFooter) {
+      const cfg = typeof this.options.premiumFooter === 'object' ? this.options.premiumFooter : {};
+      this.premiumFooter = createModalFooter({
+        customerName: cfg.customerName ?? resolveDashboardCustomerName(),
+        libVersion: { current: (window as { MyIOLibrary?: { version?: string } }).MyIOLibrary?.version },
+        themeMode: this.options.theme === 'dark' ? 'dark' : 'light',
+      });
+      this.premiumFooter.element.style.flexShrink = '0';
+      this.modal.appendChild(this.premiumFooter.element);
+    }
     this.backdrop.appendChild(this.modal);
   }
 
@@ -281,6 +303,8 @@ export class ModalPremiumShell {
   }
 
   private cleanup(): void {
+    this.premiumFooter?.destroy();
+    this.premiumFooter = null;
     // Remove event listeners
     document.removeEventListener('keydown', this.handleKeyDown);
     

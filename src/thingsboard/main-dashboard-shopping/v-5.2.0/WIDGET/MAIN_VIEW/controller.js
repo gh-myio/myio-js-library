@@ -185,6 +185,9 @@ window.MyIOUtils.isFeatureVisible = function isFeatureVisible(path) {
 // ===========================================================================
 (function defineLibBridge() {
   const LIB_SYMBOLS = [
+    // moldura padrão das modais premium (header com tema + footer) — modais do MENU
+    'createPremiumModalChrome',
+    'applyDashboardPalette',
     // toasts / selection / tooltips
     'MyIOToast',
     'MyIOSelectionStore',
@@ -275,6 +278,173 @@ window.MyIOUtils.isFeatureVisible = function isFeatureVisible(path) {
   }
 })();
 
+// ── RFC-0139: modo escuro do dashboard ─────────────────────────────────────────
+// MAIN é a dona do tema: marca <html data-theme>, guarda a escolha no navegador e injeta
+// UMA folha escura global para todos os widgets (MENU, HEADER, TELEMETRY, TELEMETRY_INFO,
+// FOOTER) e os cards da lib. Seletores html[data-theme='dark'] … vencem as folhas dos
+// widgets (o TB prefixa cada uma com .widget-type-…, especificidade menor) sem mexer nelas.
+const THEME_STORAGE_KEY = 'myio:theme';
+
+function readStoredTheme() {
+  try {
+    const t = localStorage.getItem(THEME_STORAGE_KEY);
+    return t === 'dark' || t === 'light' ? t : null;
+  } catch {
+    return null;
+  }
+}
+
+function ensureDarkThemeStyles() {
+  if (document.getElementById('myio-dark-theme-styles')) return;
+  const D = "html[data-theme='dark']";
+  const st = document.createElement('style');
+  st.id = 'myio-dark-theme-styles';
+  st.textContent = `
+    ${D} {
+      --myio-d-bg: #0e1513;
+      --myio-d-surface: #151d1b;
+      --myio-d-surface-2: #1c2624;
+      --myio-d-surface-3: #24302d;
+      --myio-d-border: rgba(255, 255, 255, 0.09);
+      --myio-d-text: #e7eeec;
+      --myio-d-muted: #9db0aa;
+      /* acento do tema clareado para ler sobre fundo escuro */
+      --myio-d-accent: color-mix(in srgb, var(--myio-brand-700, #3e1a7d) 45%, #fff);
+      color-scheme: dark;
+    }
+
+    /* Fundo do dashboard e painéis dos widgets */
+    ${D} .tb-dashboard-page,
+    ${D} .tb-dashboard-page .mat-content,
+    ${D} .tb-dashboard-page .mat-drawer-container,
+    ${D} .tb-dashboard-page .mat-drawer-content,
+    ${D} .tb-dashboard-page #gridster-background { background: var(--myio-d-bg) !important; }
+    ${D} .tb-dashboard-page .tb-widget {
+      background: var(--myio-d-surface) !important;
+      color: var(--myio-d-text) !important;
+    }
+
+    /* MENU */
+    ${D} .shops-menu-root {
+      --text: var(--myio-d-text);
+      --divider: var(--myio-d-border);
+      --hover-bg: rgba(255, 255, 255, 0.06);
+      color: var(--myio-d-text);
+    }
+    ${D} .shops-menu-root .user-name,
+    ${D} .shops-menu-root .hamburger-btn,
+    ${D} .shops-menu-root .menu-item:not(.active),
+    ${D} .shops-menu-root .ssb-title,
+    ${D} .shops-menu-root .settings-menu-text { color: var(--myio-d-text) !important; }
+    ${D} .shops-menu-root .user-email,
+    ${D} .shops-menu-root .ssb-kbd,
+    ${D} .shops-menu-root .myio-lib-version__text,
+    ${D} .shops-menu-root .myio-lib-version__refresh { color: var(--myio-d-muted) !important; }
+    ${D} .shops-menu-root .shopping-selector-btn,
+    ${D} .shops-menu-root .settings-menu-btn {
+      background: var(--myio-d-surface-2) !important;
+      border-color: var(--myio-d-border) !important;
+      box-shadow: none !important;
+    }
+    ${D} .shops-menu-root .ssb-icon,
+    ${D} .shops-menu-root .settings-menu-icon {
+      background: var(--myio-d-surface-3) !important;
+      color: var(--myio-d-accent) !important;
+    }
+    /* nome do cliente no botão do shopping: texto claro (o acento clareado ainda ficava apagado) */
+    ${D} .shops-menu-root .ssb-sub { color: var(--myio-d-text) !important; font-weight: 600; }
+
+    /* HEADER */
+    ${D} .tbx-field {
+      background: var(--myio-d-surface-2) !important;
+      border-color: var(--myio-d-border) !important;
+      color: var(--myio-d-text) !important;
+    }
+    ${D} .tbx-field input { background: transparent !important; color: var(--myio-d-text) !important; }
+
+    /* TELEMETRY: cabeçalho dos grupos */
+    ${D} .shops-header {
+      background: var(--myio-d-surface-2) !important;
+      border-color: var(--myio-d-border) !important;
+      box-shadow: none !important;
+    }
+    ${D} .shops-header .shops-title,
+    ${D} .shops-header .shops-count,
+    ${D} .shops-header .shops-total { color: var(--myio-d-accent) !important; }
+    ${D} .shops-header .shops-total {
+      background: color-mix(in srgb, var(--myio-brand-700, #3e1a7d) 28%, transparent) !important;
+      border-color: transparent !important;
+    }
+    ${D} .shops-header .shops-col-info { color: var(--myio-d-text) !important; }
+    ${D} .shops-header .icon-btn {
+      background: var(--myio-d-surface-3) !important;
+      border-color: var(--myio-d-border) !important;
+      color: var(--myio-d-text) !important;
+      box-shadow: none !important;
+    }
+    /* filtro / + / busca usam fill escuro fixo (os de exportação já têm traço claro) */
+    ${D} .shops-header .icon-btn:not(.export-icon-btn) svg,
+    ${D} .shops-header .icon-btn:not(.export-icon-btn) svg * { fill: var(--myio-d-text) !important; }
+
+    /* Cards (lib v5) */
+    ${D} .device-card-centered {
+      background: var(--myio-d-surface-2) !important;
+      border-color: var(--myio-d-border) !important;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35) !important;
+    }
+    ${D} .device-card-centered.offline {
+      background: color-mix(in srgb, #ef4444 16%, var(--myio-d-surface-2)) !important;
+    }
+    ${D} .device-card-centered .device-title,
+    ${D} .device-card-centered .consumption-value { color: var(--myio-d-text) !important; }
+    ${D} .device-card-centered .device-subtitle,
+    ${D} .device-card-centered .device-percentage-badge:not(.temp-deviation-badge) { color: var(--myio-d-muted) !important; }
+    ${D} .device-card-centered .consumption-main {
+      background: color-mix(in srgb, var(--myio-brand-700, #3e1a7d) 24%, transparent) !important;
+      border-color: transparent !important;
+    }
+    ${D} .device-card-centered .card-actions {
+      background: var(--myio-d-surface-3) !important;
+      border-color: var(--myio-d-border) !important;
+      box-shadow: none !important;
+    }
+    ${D} .device-card-centered .card-action { background: transparent !important; border-color: transparent !important; }
+
+    /* TELEMETRY_INFO */
+    ${D} .telemetry-info-root { background: var(--myio-d-surface) !important; color: var(--myio-d-text); }
+    ${D} .telemetry-info-root .info-card {
+      background: var(--myio-d-surface-2) !important;
+      border-color: var(--myio-d-border) !important;
+      box-shadow: none !important;
+    }
+    ${D} .telemetry-info-root .info-title,
+    ${D} .telemetry-info-root .card-title { color: var(--myio-d-accent) !important; }
+    ${D} .telemetry-info-root .stat-value,
+    ${D} .telemetry-info-root .card-icon,
+    ${D} .telemetry-info-root .legend-value { color: var(--myio-d-text) !important; }
+    ${D} .telemetry-info-root .legend-label { color: var(--myio-d-muted) !important; }
+    ${D} .telemetry-info-root .ti-loading-overlay {
+      background: rgba(21, 29, 27, 0.86) !important;
+      color: var(--myio-d-muted) !important;
+    }
+  `;
+  document.head.appendChild(st);
+}
+
+function applyThemeToDocument(theme) {
+  ensureDarkThemeStyles();
+  document.documentElement.setAttribute('data-theme', theme);
+}
+
+// Aplica o tema salvo já na carga do módulo (antes dos widgets desenharem) — sem flash claro
+(function applyStoredThemeEarly() {
+  const stored = readStoredTheme();
+  if (stored) {
+    window.MyIOUtils.currentTheme = stored;
+    applyThemeToDocument(stored);
+  }
+})();
+
 Object.assign(window.MyIOUtils, {
   LogHelper,
   getDataApiHost,
@@ -301,8 +471,8 @@ Object.assign(window.MyIOUtils, {
   currentUserEmail: null,
 
   // RFC-0139: Global theme state management
-  // Default theme is 'light', MAIN is the single source of truth
-  currentTheme: 'light',
+  // Default theme is 'light', MAIN is the single source of truth (tema salvo tem prioridade)
+  currentTheme: readStoredTheme() || 'light',
 
   /**
    * RFC-0139: Set global theme and notify all listeners
@@ -312,6 +482,14 @@ Object.assign(window.MyIOUtils, {
     if (theme !== 'light' && theme !== 'dark') {
       LogHelper.warn(`[MyIOUtils] RFC-0139: Invalid theme: ${theme}. Using 'light'.`);
       theme = 'light';
+    }
+
+    // Página sempre reflete o tema (mesmo se já era o atual) e a escolha fica salva
+    applyThemeToDocument(theme);
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, theme);
+    } catch {
+      /* navegador sem storage — vale só para esta sessão */
     }
 
     if (window.MyIOUtils.currentTheme === theme) {
@@ -2130,6 +2308,15 @@ Object.assign(window.MyIOUtils, {
     widgetSettings.enableTemperatureApiDataFetch = self.ctx.settings?.enableTemperatureApiDataFetch ?? false;
     // Expose via window.MyIOUtils for TELEMETRY widget (modal data source)
     window.MyIOUtils.enableTemperatureApiDataFetch = widgetSettings.enableTemperatureApiDataFetch;
+
+    // RFC-0107: validação de contrato — DESCONTINUADA por padrão (só roda se forçada a true):
+    // sem modal "Carregando contrato...", sem alerta de divergência, indicador do HEADER oculto
+    widgetSettings.enableContractValidation = self.ctx.settings?.enableContractValidation === true;
+    window.MyIOUtils.enableContractValidation = widgetSettings.enableContractValidation;
+    if (!widgetSettings.enableContractValidation) {
+      window.CONTRACT_STATE = { ...(window.CONTRACT_STATE || {}), disabled: true };
+      window.dispatchEvent(new CustomEvent('myio:contract:disabled'));
+    }
 
     // RFC-0152: Device data export to console (TB↔GCDR mapping audit)
     widgetSettings.enableDeviceDataExport = self.ctx.settings?.enableDeviceDataExport ?? false;
@@ -6226,10 +6413,8 @@ const MyIOOrchestrator = (() => {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       // Check if period is now available
       if (currentPeriod) {
+        // Sem toast aqui: achar o período não é "dados carregados" (o success vem do hydrateDomain)
         LogHelper.log(`[Orchestrator] ✅ Period available on attempt ${attempt}:`, currentPeriod);
-        if (attempt > 1 && MyIOToast) {
-          MyIOToast.success(`Dados carregados com suesso (tentativa ${attempt})`, 2000);
-        }
         return currentPeriod;
       }
 
@@ -6251,7 +6436,8 @@ const MyIOOrchestrator = (() => {
           LogHelper.log(`[Orchestrator] 🖱️ Force clicked energia element on attempt ${attempt}`);
         }
 
-        if (MyIOToast) {
+        // No boot o período costuma chegar em 1–2 tentativas: só avisa se a espera for real
+        if (MyIOToast && attempt >= 4) {
           MyIOToast.warning(
             `Aguardando configuração de período... Tentativa ${attempt}/${maxRetries}`,
             intervalMs - 500
@@ -6308,7 +6494,11 @@ const MyIOOrchestrator = (() => {
     // registration from overwriting the contract modal's current message.
     // The counter is balanced: hydrateDomain adds +1, its finally removes -1, AND this
     // finally below removes the +1 we add here.
-    showGlobalBusy(domain, '', 180000, { silent: true });
+    // Só faz sentido com a validação de contrato ligada e o modal ainda aberto: sem isso o
+    // pré-registro abria um busy próprio no boot (até 2,3 s sobre cards já com valor) — os cards
+    // provisórios do hydrateDomain já cobrem a espera.
+    const holdContractBusy = !!widgetSettings.enableContractValidation && !window._contractBusyReleased;
+    if (holdContractBusy) showGlobalBusy(domain, '', 180000, { silent: true });
 
     try {
       let period = providedPeriod || currentPeriod;
@@ -6327,7 +6517,7 @@ const MyIOOrchestrator = (() => {
       // RFC-GAP-FIX: Release the pre-registration counter added above.
       // hydrateDomain internally calls showGlobalBusy (+1) balanced by emitProvide.hideGlobalBusy
       // and its own finally.hideGlobalBusy. This finally covers ONLY the +1 from above.
-      hideGlobalBusy(domain);
+      if (holdContractBusy) hideGlobalBusy(domain, { immediate: !!window._contractBusyReleased });
       pendingRetries.delete(domain);
     }
   }
@@ -7140,7 +7330,156 @@ const MyIOOrchestrator = (() => {
   // Check periodically if ctx.data becomes available
   setInterval(checkAndRefetchIfNeeded, 2000);
 
-  async function fetchAndEnrich(domain, period) {
+  // ===== Resumo por cliente — Ingestion GET /telemetry/customers/{id}/summary =====
+  // Uma chamada por domínio traz todos os dispositivos do cliente (total do período + última
+  // leitura medida). Ao carregar, o domínio visível é buscado e os outros são pré-carregados em
+  // sequência, então navegar entre MAIN e TELEMETRY (energia/água/temperatura) não chama a API de
+  // novo. Só a troca de período (input de data) busca outra vez; a cada SUMMARY_TTL_MS também
+  // (guia do Ingestion: atualizar no máximo a cada 5–15 min). Relatórios, gráficos e comparativo
+  // continuam com as rotas próprias. Qualquer falha (ou lib sem fetchCustomerSummary) cai nas
+  // rotas antigas (/devices/totals e série por sensor).
+  const SUMMARY_TTL_MS = 10 * 60 * 1000;
+  const summaryCache = new Map(); // summaryKey → { at, promise }
+  let summaryQueue = Promise.resolve(); // chamadas em sequência, sem rajada paralela
+
+  function summaryKey(domain, period) {
+    // Temperatura atual não depende do período do header: sempre as últimas 24 h
+    if (domain === 'temperature') return 'temperature|realtime';
+    // Pelo instante, não pelo texto: o mesmo período chega como "…T03:00:00.000Z" (estado
+    // inicial) e como "…T00:00:00-03:00" (header) — sem isso viravam 2 buscas.
+    const ms = (iso) => {
+      const t = Date.parse(iso);
+      return Number.isFinite(t) ? t : String(iso);
+    };
+    return `${domain}|${ms(period.startISO)}|${ms(period.endISO)}`;
+  }
+
+  async function requestCustomerSummary(domain, period) {
+    const MyIO =
+      (typeof MyIOLibrary !== 'undefined' && MyIOLibrary) ||
+      (typeof window !== 'undefined' && window.MyIOLibrary) ||
+      null;
+    if (!MyIO?.fetchCustomerSummary) return null; // lib antiga → rotas antigas
+
+    if (!window.MyIOOrchestrator?.credentialsSet) {
+      await Promise.race([
+        credentialsPromise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Credentials timeout after 10s')), 10000)),
+      ]);
+    }
+    const creds = window.MyIOOrchestrator?.getCredentials?.();
+    if (!creds?.CLIENT_ID || !creds?.CLIENT_SECRET || !creds?.CUSTOMER_ING_ID) return null;
+
+    const token = await MyIO.buildMyioIngestionAuth({
+      dataApiHost: getDataApiHost(),
+      clientId: creds.CLIENT_ID,
+      clientSecret: creds.CLIENT_SECRET,
+    }).getToken();
+
+    const nowMs = Date.now();
+    const isTemp = domain === 'temperature';
+    try {
+      const t0 = Date.now();
+      const result = await MyIO.fetchCustomerSummary({
+        dataApiHost: getDataApiHost(),
+        token,
+        customerId: creds.CUSTOMER_ING_ID,
+        readingType: domain,
+        deep: true,
+        granularity: isTemp ? '1h' : '1d',
+        includeSeries: isTemp, // temperatura: série horária das últimas 24 h
+        startTime: isTemp ? toSaoPauloIso(nowMs - TEMPERATURE_LOOKBACK_MS) : period.startISO,
+        endTime: isTemp ? toSaoPauloIso(nowMs) : period.endISO,
+      });
+      LogHelper.log(
+        `[Orchestrator] 📦 /summary ${domain}: ${result.devices.length} devices em ${Date.now() - t0}ms`
+      );
+      return result;
+    } catch (err) {
+      if (err?.status === 401 || err?.status === 403) emitTokenExpired();
+      throw err;
+    }
+  }
+
+  function loadCustomerSummary(domain, period) {
+    const key = summaryKey(domain, period);
+    const hit = summaryCache.get(key);
+    if (hit && Date.now() - hit.at < SUMMARY_TTL_MS) return hit.promise;
+
+    // Período novo: descarta os resumos de energia/água dos períodos anteriores
+    if (domain !== 'temperature') {
+      for (const k of summaryCache.keys()) {
+        if (k.startsWith(`${domain}|`) && k !== key) summaryCache.delete(k);
+      }
+    }
+
+    const promise = summaryQueue.then(() => requestCustomerSummary(domain, period));
+    summaryQueue = promise.catch(() => {});
+    const entry = { at: Date.now(), promise, done: false };
+    summaryCache.set(key, entry);
+    promise.then(
+      (r) => {
+        if (!r) summaryCache.delete(key); // sem suporte/credencial: não fixa o "null"
+        else entry.done = true;
+      },
+      () => summaryCache.delete(key) // erro: próxima navegação tenta de novo
+    );
+    return promise;
+  }
+
+  // /summary do domínio já respondeu (em cache)? Então os cards saem prontos, sem fase "carregando".
+  function isSummaryReady(domain, period) {
+    const hit = summaryCache.get(summaryKey(domain, period));
+    return !!hit && hit.done && Date.now() - hit.at < SUMMARY_TTL_MS;
+  }
+
+  // Domínios já montados (cards prontos em MyIOOrchestratorData): período e quando foram montados.
+  // Guardado à parte porque o emitProvide renova o timestamp do cache a cada reemissão.
+  const builtDomains = new Map(); // domain → { sig, at }
+  const periodSig = (period) => `${Date.parse(period?.startISO)}|${Date.parse(period?.endISO)}`;
+
+  function markDomainBuilt(domain, period) {
+    builtDomains.set(domain, { sig: periodSig(period), at: Date.now() });
+  }
+
+  // Cards prontos do domínio para o período (montados há menos de SUMMARY_TTL_MS)? → entrega na
+  // hora, sem spinner nem nova hidratação. Temperatura não depende do período do header.
+  function readyDomainData(domain, period) {
+    const cached = window.MyIOOrchestratorData?.[domain];
+    const built = builtDomains.get(domain);
+    if (!cached?.items?.length || !built || !period) return null;
+    if (Date.now() - built.at > SUMMARY_TTL_MS) return null;
+    if (domain !== 'temperature' && built.sig !== periodSig(period)) return null;
+    return cached;
+  }
+
+  // Pré-carrega, em segundo plano e em sequência, os domínios que não estão na tela: primeiro o
+  // /summary, depois monta os cards em silêncio (sem spinner/toast). Ao trocar de aba os dados já
+  // estão prontos (readyDomainData).
+  function prefetchOtherSummaries(period, currentDomain) {
+    const de = widgetSettings?.domainsEnabled || {};
+    const tempApi = widgetSettings.enableTemperatureApiDataFetch ?? false;
+    for (const d of ['energy', 'water', 'temperature']) {
+      if (d === currentDomain || de[d] === false) continue;
+      if (readyDomainData(d, period)) continue;
+      // Temperatura sem a API: cards só do ctx.data (ThingsBoard), nada a buscar
+      const step = d === 'temperature' && !tempApi ? Promise.resolve(null) : loadCustomerSummary(d, period);
+      step
+        .catch((err) => LogHelper.warn(`[Orchestrator] /summary prefetch ${d} falhou:`, err?.message || err))
+        .then(() => {
+          if (readyDomainData(d, period)) return;
+          return hydrateDomain(d, period, { silent: true });
+        })
+        .catch((err) => LogHelper.warn(`[Orchestrator] pré-montagem ${d} falhou:`, err?.message || err));
+    }
+  }
+
+  async function fetchAndEnrich(domain, period, options = {}) {
+    const silent = !!options.silent;
+    // Pré-montagem em segundo plano: erro não mostra toast nem recarrega a página
+    const reportLoadError = (msg) => {
+      if (!silent) window.MyIOUtils?.handleDataLoadError(domain, msg);
+    };
     try {
       LogHelper.log(`[Orchestrator] 🔍 fetchAndEnrich called for ${domain}`);
 
@@ -7191,7 +7530,7 @@ const MyIOOrchestrator = (() => {
 
         if (!ctxDataReady) {
           LogHelper.warn(`[Orchestrator] ⚠️ ctx.data not ready for temperature`);
-          window.MyIOUtils?.handleDataLoadError(domain, 'ctx.data timeout - datasources not loaded');
+          reportLoadError('ctx.data timeout - datasources not loaded');
           return [];
         }
 
@@ -7205,6 +7544,35 @@ const MyIOOrchestrator = (() => {
         }
 
         LogHelper.log(`[Orchestrator] 🌡️ Found ${metadataByEntityId.size} temperature devices`);
+
+        // Cards na tela antes da leitura do Ingestion chegar (spinner no valor)
+        if (useApi && options.onSkeleton && !isSummaryReady('temperature', period)) {
+          try {
+            const skeleton = [];
+            for (const [entityId, meta] of metadataByEntityId.entries()) {
+              const name = meta.label || meta.identifier || 'Sensor';
+              skeleton.push(
+                createOrchestratorItem({
+                  entityId,
+                  meta,
+                  overrides: {
+                    label: name,
+                    entityLabel: name,
+                    name,
+                    value: null,
+                    temperature: null,
+                    deviceType: meta.deviceProfile || 'TERMOSTATO',
+                    offSetTemperature: Number(meta.offSetTemperature || 0),
+                    _loading: true,
+                  },
+                })
+              );
+            }
+            if (skeleton.length) options.onSkeleton(skeleton);
+          } catch (err) {
+            LogHelper.warn('[Orchestrator] 🌡️ cards provisórios falharam:', err?.message || err);
+          }
+        }
 
         // Temperatura atual: últimas 24 h de CADA sensor no Ingestion, consolidadas por HORA
         // FECHADA; o card mostra a hora mais recente com dado. A idade da última leitura
@@ -7243,55 +7611,80 @@ const MyIOOrchestrator = (() => {
             const devices = [...metadataByEntityId.values()].filter((m) => !!m.ingestionId);
             const HOUR = 60 * 60 * 1000;
 
-            LogHelper.log(`[Orchestrator] 🌡️ Fetching last 24h (hourly) for ${devices.length} sensors`);
-
-            let authFailed = false;
-            const BATCH = 6;
-            for (let i = 0; i < devices.length; i += BATCH) {
-              await Promise.all(
-                devices.slice(i, i + BATCH).map(async (meta) => {
-                  try {
-                    const url = new URL(`${getDataApiHost()}/telemetry/devices/${meta.ingestionId}/temperature`);
-                    url.searchParams.set('startTime', startIso);
-                    url.searchParams.set('endTime', endIso);
-                    url.searchParams.set('granularity', '1h');
-                    url.searchParams.set('deep', '0');
-                    const res = await fetch(url.toString(), { headers: { Authorization: `Bearer ${token}` } });
-                    if (!res.ok) {
-                      if (res.status === 401 || res.status === 403) authFailed = true;
-                      return;
-                    }
-                    const body = await res.json();
-                    const rows = Array.isArray(body) ? body : [body];
-                    const row = rows.find((r) => r && r.id === meta.ingestionId) || rows[0] || null;
-                    const off = Number(meta.offSetTemperature || 0);
-                    // Hora fechada: média das leituras válidas de cada hora
-                    const buckets = new Map();
-                    let lastTs = null;
-                    for (const e of (row && row.consumption) || []) {
-                      const ts = new Date(e && e.timestamp).getTime();
-                      const v = Number(e && e.value);
-                      if (!Number.isFinite(ts) || !Number.isFinite(v)) continue;
-                      if (v + off < valid.min || v + off > valid.max) continue; // leitura inválida
-                      const h = Math.floor(ts / HOUR) * HOUR;
-                      const b = buckets.get(h) || { sum: 0, n: 0 };
-                      b.sum += v;
-                      b.n += 1;
-                      buckets.set(h, b);
-                      if (lastTs === null || ts > lastTs) lastTs = ts;
-                    }
-                    if (!buckets.size) return; // nada nas 24 h → offline
-                    const hourTs = Math.max(...buckets.keys());
-                    const b = buckets.get(hourTs);
-                    apiRowMap.set(meta.ingestionId, { value: b.sum / b.n, hourTs, lastTs });
-                  } catch {
-                    /* sensor sem série — tratado como sem dado */
-                  }
-                })
-              );
+            // 1ª opção: /summary do cliente (1 chamada, série horária das últimas 24 h de todos os
+            // sensores, em cache para a navegação). Falhou → série por sensor (abaixo).
+            let fromSummary = false;
+            try {
+              const summary = await loadCustomerSummary('temperature', period);
+              if (summary && MyIO.latestHourlyTemperature) {
+                const byId = new Map(summary.devices.map((d) => [d.id, d]));
+                for (const meta of devices) {
+                  const dev = byId.get(meta.ingestionId);
+                  if (!dev) continue;
+                  const r = MyIO.latestHourlyTemperature(dev, {
+                    offset: Number(meta.offSetTemperature || 0),
+                    validRange: valid,
+                  });
+                  if (r) apiRowMap.set(meta.ingestionId, r);
+                }
+                fromSummary = true;
+                apiFetchedAt = Date.parse(summary.period?.asOf) || nowMs;
+              }
+            } catch (err) {
+              LogHelper.warn('[Orchestrator] 🌡️ /summary falhou — série por sensor:', err?.message || err);
             }
-            if (authFailed) emitTokenExpired();
-            apiFetchedAt = nowMs;
+
+            if (!fromSummary) {
+              LogHelper.log(`[Orchestrator] 🌡️ Fetching last 24h (hourly) for ${devices.length} sensors`);
+
+              let authFailed = false;
+              const BATCH = 6;
+              for (let i = 0; i < devices.length; i += BATCH) {
+                await Promise.all(
+                  devices.slice(i, i + BATCH).map(async (meta) => {
+                    try {
+                      const url = new URL(`${getDataApiHost()}/telemetry/devices/${meta.ingestionId}/temperature`);
+                      url.searchParams.set('startTime', startIso);
+                      url.searchParams.set('endTime', endIso);
+                      url.searchParams.set('granularity', '1h');
+                      url.searchParams.set('deep', '0');
+                      const res = await fetch(url.toString(), { headers: { Authorization: `Bearer ${token}` } });
+                      if (!res.ok) {
+                        if (res.status === 401 || res.status === 403) authFailed = true;
+                        return;
+                      }
+                      const body = await res.json();
+                      const rows = Array.isArray(body) ? body : [body];
+                      const row = rows.find((r) => r && r.id === meta.ingestionId) || rows[0] || null;
+                      const off = Number(meta.offSetTemperature || 0);
+                      // Hora fechada: média das leituras válidas de cada hora
+                      const buckets = new Map();
+                      let lastTs = null;
+                      for (const e of (row && row.consumption) || []) {
+                        const ts = new Date(e && e.timestamp).getTime();
+                        const v = Number(e && e.value);
+                        if (!Number.isFinite(ts) || !Number.isFinite(v)) continue;
+                        if (v + off < valid.min || v + off > valid.max) continue; // leitura inválida
+                        const h = Math.floor(ts / HOUR) * HOUR;
+                        const b = buckets.get(h) || { sum: 0, n: 0 };
+                        b.sum += v;
+                        b.n += 1;
+                        buckets.set(h, b);
+                        if (lastTs === null || ts > lastTs) lastTs = ts;
+                      }
+                      if (!buckets.size) return; // nada nas 24 h → offline
+                      const hourTs = Math.max(...buckets.keys());
+                      const b = buckets.get(hourTs);
+                      apiRowMap.set(meta.ingestionId, { value: b.sum / b.n, hourTs, lastTs });
+                    } catch {
+                      /* sensor sem série — tratado como sem dado */
+                    }
+                  })
+                );
+              }
+              if (authFailed) emitTokenExpired();
+              apiFetchedAt = nowMs;
+            }
 
             LogHelper.log(
               `[Orchestrator] 🌡️ Current temperature: ${apiRowMap.size}/${devices.length} sensors with data in the last 24h`
@@ -7374,8 +7767,10 @@ const MyIOOrchestrator = (() => {
       // RFC-0106: MUST wait for ctx.data to be populated BEFORE calling API
       // The flow is: ctx.data (metadata) → API (consumption) → match by ingestionId
       // Track domain/period for potential re-fetch if ctx.data loads later
-      lastFetchDomain = domain;
-      lastFetchPeriod = period;
+      if (!silent) {
+        lastFetchDomain = domain;
+        lastFetchPeriod = period;
+      }
 
       // RFC-0138: Pass period to validate cache
       const ctxDataReady = await waitForCtxData(20000, 200, domain, period);
@@ -7394,13 +7789,13 @@ const MyIOOrchestrator = (() => {
         // RFC-0140 FIX: Only mark for re-fetch if not already locked
         if (!window._dataLoadRetryLocked?.[domain]) {
           // Mark that ctx.data was empty - will trigger re-fetch when data arrives
-          ctxDataWasEmpty = true;
+          if (!silent) ctxDataWasEmpty = true;
           LogHelper.warn(
             `[Orchestrator] ⚠️ ctx.data not ready - skipping API call, will auto-refetch when available`
           );
 
           // RFC-0106: Show toast and reload page when ctx.data fails to load
-          window.MyIOUtils?.handleDataLoadError(domain, 'ctx.data timeout - datasources not loaded');
+          reportLoadError('ctx.data timeout - datasources not loaded');
         } else {
           LogHelper.warn(
             `[Orchestrator] ⚠️ ctx.data not ready but retry locked for ${domain} - not retrying`
@@ -7569,7 +7964,7 @@ const MyIOOrchestrator = (() => {
         // RFC-0106: Show toast and reload page when metadata map is empty
         // RFC-0140 FIX: Only call handleDataLoadError if not already locked
         if (!window._dataLoadRetryLocked?.[domain]) {
-          window.MyIOUtils?.handleDataLoadError(domain, 'no devices found in datasource');
+          reportLoadError('no devices found in datasource');
         }
 
         return []; // No metadata = no point calling API
@@ -7586,6 +7981,274 @@ const MyIOOrchestrator = (() => {
       }
 
       LogHelper.log(`[Orchestrator] ✅ Metadata map built: ${metadataMap.size} devices with ingestionId`);
+
+      // Monta os cards a partir das linhas da API (/summary ou /devices/totals) sobre os metadados
+      // do ctx.data. Sem linhas = cards só com o cadastro (desenhados antes da telemetria chegar).
+      const buildItemsFromRows = (rows) => {
+        // RFC-0108: Use METADATA as base, enrich with API data
+        // If no API match found, keep item with value=0 (don't discard)
+        // This ensures all devices from ThingsBoard datasource are displayed
+
+        // RFC-0106: Value field differs by domain:
+        // - energy: total_value (kWh)
+        // - water: total_value (m³) - API returns total_value for both domains
+        const getValueFromRow = (row) => {
+          if (!row) return 0;
+          // Both energy and water use total_value from API
+          // Water API may also return total_volume or total_pulses as alternatives
+          if (domain === 'water') {
+            const val = Number(row.total_value ?? row.total_volume ?? row.total_pulses ?? 0);
+            return val;
+          }
+          // Energy: total_value
+          return Number(row.total_value || 0);
+        };
+
+        // RFC-0108: Build API data map by ingestionId for quick lookup
+        const apiDataMap = new Map();
+        // RFC-0108 FIX: Also build name-based map as fallback for devices without ingestionId
+        const apiDataByName = new Map();
+        for (const row of rows) {
+          if (row.id) {
+            apiDataMap.set(row.id, row);
+          }
+          // Build normalized name map (lowercase, trimmed) for fallback matching
+          if (row.name) {
+            const normalizedName = String(row.name).toLowerCase().trim();
+            if (!apiDataByName.has(normalizedName)) {
+              apiDataByName.set(normalizedName, row);
+            }
+          }
+        }
+        LogHelper.log(
+          `[Orchestrator] 📊 API data map: ${apiDataMap.size} items by ID, ${apiDataByName.size} by name`
+        );
+
+        // RFC-0108: Compare metadata ingestionIds with API ids
+        if (domain === 'water') {
+          const metaIngestionIds = new Set();
+          for (const [, meta] of metadataByEntityId.entries()) {
+            if (meta.ingestionId) metaIngestionIds.add(meta.ingestionId);
+          }
+          const apiIds = new Set(apiDataMap.keys());
+
+          // Find IDs in API but not in metadata
+          const apiOnly = [...apiIds].filter((id) => !metaIngestionIds.has(id));
+          // Find IDs in metadata but not in API
+          const metaOnly = [...metaIngestionIds].filter((id) => !apiIds.has(id));
+
+          if (apiOnly.length > 0 || metaOnly.length > 0) {
+            LogHelper.log(
+              `[RFC-0108] Water ID mismatch: ${apiOnly.length} API-only, ${metaOnly.length} meta-only`
+            );
+          }
+        }
+
+        // RFC-0108: Create items from METADATA (ctx.data) as base
+        // Enrich with API data if available, otherwise value=0
+        const domainLower = domain.toLowerCase();
+        const items = [];
+        let matchedCount = 0;
+        let unmatchedCount = 0;
+
+        let nameMatchedCount = 0;
+
+        for (const [entityId, meta] of metadataByEntityId.entries()) {
+          // Skip if no ingestionId in metadata
+          const ingestionId = meta.ingestionId;
+
+          // Try to find API data by ingestionId first
+          let apiRow = ingestionId ? apiDataMap.get(ingestionId) : null;
+          let matchedBy = apiRow ? 'ingestionId' : null;
+
+          // RFC-0108 FIX: Fallback to name-based matching if ingestionId doesn't match
+          if (!apiRow && domain === 'water') {
+            const metaLabel = (meta.label || meta.entityName || '').toLowerCase().trim();
+            if (metaLabel && apiDataByName.has(metaLabel)) {
+              apiRow = apiDataByName.get(metaLabel);
+              matchedBy = 'name';
+              nameMatchedCount++;
+            }
+          }
+
+          const hasApiData = !!apiRow;
+
+          if (hasApiData) {
+            matchedCount++;
+          } else {
+            unmatchedCount++;
+          }
+
+          // deviceType está EM DESUSO (2026-07-14) — deviceProfile é a única
+          // autoridade; a antiga "MASTER RULE" de coerção deviceType→profile morreu.
+          const deviceProfile = meta.deviceProfile || null;
+
+          // Skip placeholder rows do datasource (profile — ou, em rows legadas sem
+          // profile, o deviceType bruto — igual ao nome do domínio). Filtro de lixo
+          // de datasource, não classificação.
+          const placeholderBasis = (deviceProfile || meta.deviceType || '').toLowerCase();
+          if (placeholderBasis === domainLower) {
+            continue;
+          }
+
+          const identifier = meta.identifier || 'N/A';
+          // RFC-0108: Use label from datasource, fallback to entityName without customer suffix
+          // entityName format: "Device Name (Customer Name)" → extract just "Device Name"
+          // Also clean meta.label if it has the suffix (when entityLabel was not set)
+          let entityNameClean = meta.entityName || '';
+          if (entityNameClean.includes(' (') && entityNameClean.endsWith(')')) {
+            entityNameClean = entityNameClean.substring(0, entityNameClean.lastIndexOf(' ('));
+          }
+          let labelClean = meta.label || '';
+          if (labelClean.includes(' (') && labelClean.endsWith(')')) {
+            labelClean = labelClean.substring(0, labelClean.lastIndexOf(' ('));
+          }
+          const label = labelClean || entityNameClean || 'SEM ETIQUETA';
+          const name = apiRow?.name || entityNameClean || '';
+
+          // Infer labelWidget from deviceProfile (deviceType em desuso)
+          const labelWidget = inferLabelWidget({
+            deviceProfile: deviceProfile,
+            identifier: identifier,
+            name: name,
+          });
+
+          // RFC-0111: Use centralized factory
+          items.push(
+            createOrchestratorItem({
+              entityId,
+              meta,
+              apiRow,
+              overrides: {
+                id: ingestionId || entityId,
+                identifier: identifier,
+                deviceIdentifier: identifier,
+                label: label,
+                entityLabel: label,
+                name: name,
+                value: getValueFromRow(apiRow),
+                perc: 0,
+                deviceType: deviceProfile || '', // campo legado (em desuso) — preenchido do profile
+                deviceProfile: deviceProfile,
+                effectiveDeviceType: deviceProfile || null,
+                // API-specific fields
+                gatewayId: apiRow?.gatewayId || null,
+                customerId: apiRow?.customerId || null,
+                assetId: apiRow?.assetId || null,
+                assetName: apiRow?.assetName || null,
+                // RFC-0188: authoritative offline timestamp from ingestion backend (ISO-8601 → Unix ms)
+                lastTelemetryTs: apiRow?.lastTelemetryTs ? new Date(apiRow.lastTelemetryTs).getTime() : null,
+                // Power limits and instantaneous power
+                deviceMapInstaneousPower: meta.deviceMapInstaneousPower || null,
+                consumptionPower: meta.consumption || null,
+                labelWidget: labelWidget,
+                groupLabel: labelWidget,
+                _hasApiData: hasApiData,
+                _matchedBy: matchedBy,
+              },
+            })
+          );
+        }
+
+        LogHelper.log(
+          `[Orchestrator] 📊 RFC-0108: Created ${items.length} items from metadata. API match: ${matchedCount} matched (${nameMatchedCount} by name), ${unmatchedCount} with value=0`
+        );
+
+        // Log unmatched devices (diagnostically useful when there are mismatches)
+        if (domain === 'water') {
+          const unmatchedDevices = items.filter((i) => !i._hasApiData && i.value === 0);
+          if (unmatchedDevices.length > 0) {
+            LogHelper.log(
+              `[RFC-0108] Water: ${unmatchedDevices.length} unmatched devices (no API data, value=0)`,
+              unmatchedDevices.slice(0, 5).map((d) => ({
+                label: d.label,
+                ingestionId: d.ingestionId || 'MISSING',
+                labelWidget: d.labelWidget,
+              }))
+            );
+          }
+        }
+
+        // RFC-0107: Combine with water devices from ctx.data (tanks + hidrometros)
+        // RFC-0108 FIX: Merge API values from enriched items into hidrometroItems before combining
+        let finalItems = items;
+        if (tankItems.length > 0 || hidrometroItems.length > 0) {
+          // Create map from tbId to enriched item data (API values)
+          const enrichedItemsMap = new Map();
+          for (const item of items) {
+            if (item.tbId) {
+              enrichedItemsMap.set(item.tbId, item);
+            }
+          }
+
+          // Merge API values and deviceStatus into hidrometroItems
+          // RFC-0188 FIX: hidrometroItems are built BEFORE the API call (no apiRow → deviceStatus = offline).
+          // The enriched items (main loop) have the correct deviceStatus computed from apiRow.lastTelemetryTs.
+          // We must copy deviceStatus + lastTelemetryTs (and related fields) from the enriched item.
+          let mergedCount = 0;
+          for (const hidro of hidrometroItems) {
+            const enrichedItem = enrichedItemsMap.get(hidro.tbId);
+            if (enrichedItem && enrichedItem._hasApiData) {
+              // Copy API consumption value
+              hidro.value = enrichedItem.value;
+              hidro._hasApiData = true;
+              hidro._matchedBy = enrichedItem._matchedBy;
+              // RFC-0188 FIX: copy deviceStatus computed with correct apiRow.lastTelemetryTs
+              const prevStatus = hidro.deviceStatus;
+              hidro.deviceStatus = enrichedItem.deviceStatus;
+              hidro.lastTelemetryTs = enrichedItem.lastTelemetryTs;
+              hidro.lastTelemetryTsFormatted = enrichedItem.lastTelemetryTs
+                ? new Date(enrichedItem.lastTelemetryTs).toISOString()
+                : null;
+              LogHelper.log(
+                `[RFC-0188] Hidrometro merge "${hidro.label}": deviceStatus ${prevStatus} → ${hidro.deviceStatus}` +
+                  `, lastTelemetryTs=${hidro.lastTelemetryTsFormatted || 'null'}`
+              );
+              mergedCount++;
+            } else {
+              LogHelper.log(
+                `[RFC-0188] Hidrometro "${hidro.label}" (tbId=${hidro.tbId}): no API match → deviceStatus kept as ${hidro.deviceStatus}`
+              );
+            }
+          }
+
+          if (mergedCount > 0) {
+            LogHelper.log(
+              `[Orchestrator] 🔄 RFC-0108/RFC-0188: Merged API values+status into ${mergedCount}/${hidrometroItems.length} hidrometros`
+            );
+          }
+
+          // Create set of IDs already processed as tanks or hidrometros
+          const waterDeviceIds = new Set([
+            ...tankItems.map((i) => i.tbId),
+            ...hidrometroItems.map((i) => i.tbId),
+          ]);
+          // Filter items to exclude duplicates
+          const itemsWithoutWaterDevices = items.filter((i) => !waterDeviceIds.has(i.tbId));
+          finalItems = [...itemsWithoutWaterDevices, ...tankItems, ...hidrometroItems];
+          LogHelper.log(
+            `[Orchestrator] 🚰 Combined ${itemsWithoutWaterDevices.length} metadata items + ${
+              tankItems.length
+            } tanks + ${hidrometroItems.length} hidrometros = ${finalItems.length} total (filtered ${
+              items.length - itemsWithoutWaterDevices.length
+            } duplicates)`
+          );
+        }
+        return finalItems;
+      };
+
+      // Cards na tela antes da telemetria: desenha já com o cadastro (spinner no valor) enquanto o
+      // /summary chega — o busy global não precisa ficar na frente. Caixas d'água já têm valor (TB).
+      if (options.onSkeleton && !isSummaryReady(domain, period)) {
+        try {
+          const skeleton = buildItemsFromRows([]).map((it) =>
+            it._isTankDevice ? { ...it } : { ...it, value: null, _loading: true }
+          );
+          if (skeleton.length) options.onSkeleton(skeleton);
+        } catch (err) {
+          LogHelper.warn(`[Orchestrator] cards provisórios de ${domain} falharam:`, err?.message || err);
+        }
+      }
 
       // Wait for credentials promise and refresh from global state
       // Don't trust local scope variables - they may be stale
@@ -7662,278 +8325,46 @@ const MyIOOrchestrator = (() => {
 
       const customerId = latestCreds.CUSTOMER_ING_ID;
 
-      // Build API URL based on domain
-      const url = new URL(`${getDataApiHost()}/telemetry/customers/${customerId}/${domain}/devices/totals`);
-      url.searchParams.set('startTime', period.startISO);
-      url.searchParams.set('endTime', period.endISO);
-      url.searchParams.set('deep', '1');
-
-      LogHelper.log(`[Orchestrator] Fetching from: ${url.toString()}`);
-
-      const res = await fetch(url.toString(), {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!res.ok) {
-        if (res.status === 401 || res.status === 403) {
-          emitTokenExpired();
+      // 1ª opção: /summary do cliente (em cache por período para a navegação), convertido para o
+      // formato de linha do /devices/totals. Falhou → /devices/totals como antes.
+      let rows = null;
+      try {
+        const summary = await loadCustomerSummary(domain, period);
+        if (summary && MyIO.summaryDeviceToTotalsRow) {
+          const lookbackFrom = MyIO.summaryLookbackFromIso?.(summary.period) ?? null;
+          rows = summary.devices.map((d) => MyIO.summaryDeviceToTotalsRow(d, lookbackFrom));
+          LogHelper.log(`[Orchestrator] 📦 ${domain}: ${rows.length} devices do /summary`);
         }
-        throw new Error(`API error: ${res.status}`);
+      } catch (err) {
+        LogHelper.warn(`[Orchestrator] /summary ${domain} falhou — usando /devices/totals:`, err?.message || err);
       }
 
-      const json = await res.json();
+      if (!rows) {
+        // Build API URL based on domain
+        const url = new URL(`${getDataApiHost()}/telemetry/customers/${customerId}/${domain}/devices/totals`);
+        url.searchParams.set('startTime', period.startISO);
+        url.searchParams.set('endTime', period.endISO);
+        url.searchParams.set('deep', '1');
 
-      const rows = Array.isArray(json) ? json : (json?.data ?? []);
+        LogHelper.log(`[Orchestrator] Fetching from: ${url.toString()}`);
 
-      // RFC-0108: Use METADATA as base, enrich with API data
-      // If no API match found, keep item with value=0 (don't discard)
-      // This ensures all devices from ThingsBoard datasource are displayed
-
-      // RFC-0106: Value field differs by domain:
-      // - energy: total_value (kWh)
-      // - water: total_value (m³) - API returns total_value for both domains
-      const getValueFromRow = (row) => {
-        if (!row) return 0;
-        // Both energy and water use total_value from API
-        // Water API may also return total_volume or total_pulses as alternatives
-        if (domain === 'water') {
-          const val = Number(row.total_value ?? row.total_volume ?? row.total_pulses ?? 0);
-          return val;
-        }
-        // Energy: total_value
-        return Number(row.total_value || 0);
-      };
-
-      // RFC-0108: Build API data map by ingestionId for quick lookup
-      const apiDataMap = new Map();
-      // RFC-0108 FIX: Also build name-based map as fallback for devices without ingestionId
-      const apiDataByName = new Map();
-      for (const row of rows) {
-        if (row.id) {
-          apiDataMap.set(row.id, row);
-        }
-        // Build normalized name map (lowercase, trimmed) for fallback matching
-        if (row.name) {
-          const normalizedName = String(row.name).toLowerCase().trim();
-          if (!apiDataByName.has(normalizedName)) {
-            apiDataByName.set(normalizedName, row);
-          }
-        }
-      }
-      LogHelper.log(
-        `[Orchestrator] 📊 API data map: ${apiDataMap.size} items by ID, ${apiDataByName.size} by name`
-      );
-
-      // RFC-0108: Compare metadata ingestionIds with API ids
-      if (domain === 'water') {
-        const metaIngestionIds = new Set();
-        for (const [, meta] of metadataByEntityId.entries()) {
-          if (meta.ingestionId) metaIngestionIds.add(meta.ingestionId);
-        }
-        const apiIds = new Set(apiDataMap.keys());
-
-        // Find IDs in API but not in metadata
-        const apiOnly = [...apiIds].filter((id) => !metaIngestionIds.has(id));
-        // Find IDs in metadata but not in API
-        const metaOnly = [...metaIngestionIds].filter((id) => !apiIds.has(id));
-
-        if (apiOnly.length > 0 || metaOnly.length > 0) {
-          LogHelper.log(
-            `[RFC-0108] Water ID mismatch: ${apiOnly.length} API-only, ${metaOnly.length} meta-only`
-          );
-        }
-      }
-
-      // RFC-0108: Create items from METADATA (ctx.data) as base
-      // Enrich with API data if available, otherwise value=0
-      const domainLower = domain.toLowerCase();
-      const items = [];
-      let matchedCount = 0;
-      let unmatchedCount = 0;
-
-      let nameMatchedCount = 0;
-
-      for (const [entityId, meta] of metadataByEntityId.entries()) {
-        // Skip if no ingestionId in metadata
-        const ingestionId = meta.ingestionId;
-
-        // Try to find API data by ingestionId first
-        let apiRow = ingestionId ? apiDataMap.get(ingestionId) : null;
-        let matchedBy = apiRow ? 'ingestionId' : null;
-
-        // RFC-0108 FIX: Fallback to name-based matching if ingestionId doesn't match
-        if (!apiRow && domain === 'water') {
-          const metaLabel = (meta.label || meta.entityName || '').toLowerCase().trim();
-          if (metaLabel && apiDataByName.has(metaLabel)) {
-            apiRow = apiDataByName.get(metaLabel);
-            matchedBy = 'name';
-            nameMatchedCount++;
-          }
-        }
-
-        const hasApiData = !!apiRow;
-
-        if (hasApiData) {
-          matchedCount++;
-        } else {
-          unmatchedCount++;
-        }
-
-        // deviceType está EM DESUSO (2026-07-14) — deviceProfile é a única
-        // autoridade; a antiga "MASTER RULE" de coerção deviceType→profile morreu.
-        const deviceProfile = meta.deviceProfile || null;
-
-        // Skip placeholder rows do datasource (profile — ou, em rows legadas sem
-        // profile, o deviceType bruto — igual ao nome do domínio). Filtro de lixo
-        // de datasource, não classificação.
-        const placeholderBasis = (deviceProfile || meta.deviceType || '').toLowerCase();
-        if (placeholderBasis === domainLower) {
-          continue;
-        }
-
-        const identifier = meta.identifier || 'N/A';
-        // RFC-0108: Use label from datasource, fallback to entityName without customer suffix
-        // entityName format: "Device Name (Customer Name)" → extract just "Device Name"
-        // Also clean meta.label if it has the suffix (when entityLabel was not set)
-        let entityNameClean = meta.entityName || '';
-        if (entityNameClean.includes(' (') && entityNameClean.endsWith(')')) {
-          entityNameClean = entityNameClean.substring(0, entityNameClean.lastIndexOf(' ('));
-        }
-        let labelClean = meta.label || '';
-        if (labelClean.includes(' (') && labelClean.endsWith(')')) {
-          labelClean = labelClean.substring(0, labelClean.lastIndexOf(' ('));
-        }
-        const label = labelClean || entityNameClean || 'SEM ETIQUETA';
-        const name = apiRow?.name || entityNameClean || '';
-
-        // Infer labelWidget from deviceProfile (deviceType em desuso)
-        const labelWidget = inferLabelWidget({
-          deviceProfile: deviceProfile,
-          identifier: identifier,
-          name: name,
+        const res = await fetch(url.toString(), {
+          headers: { Authorization: `Bearer ${token}` },
         });
 
-        // RFC-0111: Use centralized factory
-        items.push(
-          createOrchestratorItem({
-            entityId,
-            meta,
-            apiRow,
-            overrides: {
-              id: ingestionId || entityId,
-              identifier: identifier,
-              deviceIdentifier: identifier,
-              label: label,
-              entityLabel: label,
-              name: name,
-              value: getValueFromRow(apiRow),
-              perc: 0,
-              deviceType: deviceProfile || '', // campo legado (em desuso) — preenchido do profile
-              deviceProfile: deviceProfile,
-              effectiveDeviceType: deviceProfile || null,
-              // API-specific fields
-              gatewayId: apiRow?.gatewayId || null,
-              customerId: apiRow?.customerId || null,
-              assetId: apiRow?.assetId || null,
-              assetName: apiRow?.assetName || null,
-              // RFC-0188: authoritative offline timestamp from ingestion backend (ISO-8601 → Unix ms)
-              lastTelemetryTs: apiRow?.lastTelemetryTs ? new Date(apiRow.lastTelemetryTs).getTime() : null,
-              // Power limits and instantaneous power
-              deviceMapInstaneousPower: meta.deviceMapInstaneousPower || null,
-              consumptionPower: meta.consumption || null,
-              labelWidget: labelWidget,
-              groupLabel: labelWidget,
-              _hasApiData: hasApiData,
-              _matchedBy: matchedBy,
-            },
-          })
-        );
-      }
-
-      LogHelper.log(
-        `[Orchestrator] 📊 RFC-0108: Created ${items.length} items from metadata. API match: ${matchedCount} matched (${nameMatchedCount} by name), ${unmatchedCount} with value=0`
-      );
-
-      // Log unmatched devices (diagnostically useful when there are mismatches)
-      if (domain === 'water') {
-        const unmatchedDevices = items.filter((i) => !i._hasApiData && i.value === 0);
-        if (unmatchedDevices.length > 0) {
-          LogHelper.log(
-            `[RFC-0108] Water: ${unmatchedDevices.length} unmatched devices (no API data, value=0)`,
-            unmatchedDevices.slice(0, 5).map((d) => ({
-              label: d.label,
-              ingestionId: d.ingestionId || 'MISSING',
-              labelWidget: d.labelWidget,
-            }))
-          );
-        }
-      }
-
-      // RFC-0107: Combine with water devices from ctx.data (tanks + hidrometros)
-      // RFC-0108 FIX: Merge API values from enriched items into hidrometroItems before combining
-      let finalItems = items;
-      if (tankItems.length > 0 || hidrometroItems.length > 0) {
-        // Create map from tbId to enriched item data (API values)
-        const enrichedItemsMap = new Map();
-        for (const item of items) {
-          if (item.tbId) {
-            enrichedItemsMap.set(item.tbId, item);
+        if (!res.ok) {
+          if (res.status === 401 || res.status === 403) {
+            emitTokenExpired();
           }
+          throw new Error(`API error: ${res.status}`);
         }
 
-        // Merge API values and deviceStatus into hidrometroItems
-        // RFC-0188 FIX: hidrometroItems are built BEFORE the API call (no apiRow → deviceStatus = offline).
-        // The enriched items (main loop) have the correct deviceStatus computed from apiRow.lastTelemetryTs.
-        // We must copy deviceStatus + lastTelemetryTs (and related fields) from the enriched item.
-        let mergedCount = 0;
-        for (const hidro of hidrometroItems) {
-          const enrichedItem = enrichedItemsMap.get(hidro.tbId);
-          if (enrichedItem && enrichedItem._hasApiData) {
-            // Copy API consumption value
-            hidro.value = enrichedItem.value;
-            hidro._hasApiData = true;
-            hidro._matchedBy = enrichedItem._matchedBy;
-            // RFC-0188 FIX: copy deviceStatus computed with correct apiRow.lastTelemetryTs
-            const prevStatus = hidro.deviceStatus;
-            hidro.deviceStatus = enrichedItem.deviceStatus;
-            hidro.lastTelemetryTs = enrichedItem.lastTelemetryTs;
-            hidro.lastTelemetryTsFormatted = enrichedItem.lastTelemetryTs
-              ? new Date(enrichedItem.lastTelemetryTs).toISOString()
-              : null;
-            LogHelper.log(
-              `[RFC-0188] Hidrometro merge "${hidro.label}": deviceStatus ${prevStatus} → ${hidro.deviceStatus}` +
-                `, lastTelemetryTs=${hidro.lastTelemetryTsFormatted || 'null'}`
-            );
-            mergedCount++;
-          } else {
-            LogHelper.log(
-              `[RFC-0188] Hidrometro "${hidro.label}" (tbId=${hidro.tbId}): no API match → deviceStatus kept as ${hidro.deviceStatus}`
-            );
-          }
-        }
+        const json = await res.json();
 
-        if (mergedCount > 0) {
-          LogHelper.log(
-            `[Orchestrator] 🔄 RFC-0108/RFC-0188: Merged API values+status into ${mergedCount}/${hidrometroItems.length} hidrometros`
-          );
-        }
-
-        // Create set of IDs already processed as tanks or hidrometros
-        const waterDeviceIds = new Set([
-          ...tankItems.map((i) => i.tbId),
-          ...hidrometroItems.map((i) => i.tbId),
-        ]);
-        // Filter items to exclude duplicates
-        const itemsWithoutWaterDevices = items.filter((i) => !waterDeviceIds.has(i.tbId));
-        finalItems = [...itemsWithoutWaterDevices, ...tankItems, ...hidrometroItems];
-        LogHelper.log(
-          `[Orchestrator] 🚰 Combined ${itemsWithoutWaterDevices.length} metadata items + ${
-            tankItems.length
-          } tanks + ${hidrometroItems.length} hidrometros = ${finalItems.length} total (filtered ${
-            items.length - itemsWithoutWaterDevices.length
-          } duplicates)`
-        );
+        rows = Array.isArray(json) ? json : (json?.data ?? []);
       }
+
+      const finalItems = buildItemsFromRows(rows);
 
       LogHelper.log(`[Orchestrator] fetchAndEnrich: fetched ${finalItems.length} items for domain ${domain}`);
       return finalItems;
@@ -7954,10 +8385,62 @@ const MyIOOrchestrator = (() => {
   // emitProvide já suprime duplicatas).
   const hydrateLatestKey = new Map(); // domain -> periodKey da hidração mais recente solicitada
 
+  // Só estes domínios têm telemetria para hidratar (ex.: perfil que abre direto em alarmes não
+  // chama /summary nem monta cards)
+  const DATA_DOMAINS = ['energy', 'water', 'temperature'];
+  const DOMAIN_LABEL = { energy: 'energia', water: 'água', temperature: 'temperatura' };
+  // Tempo sem nada para mostrar até abrir o busy global. Com o ctx.data pronto os cards saem do
+  // cadastro em milissegundos (spinner por card) e o busy nem abre.
+  const BUSY_GRACE_MS = 800;
+
+  function toast(type, message, duration) {
+    const T = window.MyIOLibrary?.MyIOToast;
+    try {
+      return T?.[type]?.(message, duration) || null;
+    } catch {
+      return null;
+    }
+  }
+
+  // Um toast "Carregando…" por domínio, mesmo com hidratações sobrepostas (o mesmo período chega
+  // em formatos diferentes no boot e gera 2 runs)
+  const loadingToasts = new Map(); // domain → toast
+  function openLoadingToast(domain) {
+    if (loadingToasts.has(domain)) return;
+    const t = toast('info', `Carregando dados de ${DOMAIN_LABEL[domain]}…`, 0);
+    if (t) loadingToasts.set(domain, t);
+  }
+  function closeLoadingToast(domain) {
+    const t = loadingToasts.get(domain);
+    if (t) {
+      loadingToasts.delete(domain);
+      t.hide?.();
+    }
+  }
+
+  // Modal de contrato (RFC-0107) curto: fecha assim que os cards do domínio visível estão na
+  // tela; a validação de contrato continua em segundo plano e avisa por toast.
+  let contractBusyReleased = false;
+  function releaseContractBusy() {
+    if (contractBusyReleased) return;
+    contractBusyReleased = true;
+    window._contractBusyReleased = true;
+    if ((activeRequests.get('contract') || 0) > 0) {
+      hideGlobalBusy('contract', { immediate: true });
+      LogHelper.log('[Orchestrator] 📋 Modal de contrato fechado — cards na tela');
+    }
+  }
+
   // Fetch data for a domain and period
   // RFC-0138: Added options.force to bypass cooldown when switching domains via MENU
+  // options.silent: pré-montagem em segundo plano (prefetchOtherSummaries) — sem spinner, sem
+  // toast/reload em erro e sem disparar novas pré-montagens.
   async function hydrateDomain(domain, period, options = {}) {
-    const { force = false } = options;
+    const { force = false, silent = false } = options;
+    if (!DATA_DOMAINS.includes(domain)) {
+      LogHelper.log(`[Orchestrator] ⏭️ hydrateDomain(${domain}) ignorado — domínio sem telemetria`);
+      return [];
+    }
     const key = periodKey(domain, period);
     const startTime = Date.now();
 
@@ -7977,16 +8460,50 @@ const MyIOOrchestrator = (() => {
       return inFlight.get(key);
     }
 
-    // Show busy overlay - pass force flag to bypass cooldown
-    showGlobalBusy(domain, 'Carregando dados...', 25000, { force });
+    // Busy global só se nada aparecer em BUSY_GRACE_MS; os cards provisórios (cadastro + spinner
+    // por card) e o resultado final o cancelam/fecham.
+    let busyTimer = null;
+    let busyShown = false;
+    let skeletonItems = null;
+    const stopBusy = (immediate = false) => {
+      if (busyTimer) {
+        clearTimeout(busyTimer);
+        busyTimer = null;
+      }
+      if (busyShown) {
+        busyShown = false;
+        hideGlobalBusy(domain, { immediate });
+      }
+    };
+    if (!silent) {
+      busyTimer = setTimeout(() => {
+        busyTimer = null;
+        busyShown = true;
+        // Show busy overlay - pass force flag to bypass cooldown
+        showGlobalBusy(domain, 'Carregando dados...', 25000, { force });
+      }, BUSY_GRACE_MS);
 
-    // Set mutex for coordination
-    sharedWidgetState.mutexMap.set(domain, true);
-    sharedWidgetState.activePeriod = period;
+      // Set mutex for coordination
+      sharedWidgetState.mutexMap.set(domain, true);
+      sharedWidgetState.activePeriod = period;
+    }
+
+    const onSkeleton = silent
+      ? null
+      : (items) => {
+          if (hydrateLatestKey.get(domain) !== key) return;
+          skeletonItems = items;
+          emitProvide(domain, `${key}:loading`, items);
+          stopBusy(true);
+          releaseContractBusy();
+          openLoadingToast(domain);
+        };
 
     const fetchPromise = (async () => {
       try {
-        const items = await fetchAndEnrich(domain, period);
+        const items = await fetchAndEnrich(domain, period, { silent, onSkeleton });
+        // Run obsoleta (outro período pedido depois) não fecha o toast — a run vigente fecha
+        if (hydrateLatestKey.get(domain) === key) closeLoadingToast(domain);
 
         // Guard: se um período DIFERENTE foi solicitado enquanto esta run
         // rodava, o resultado é obsoleto — não emitir para não sobrescrever a
@@ -8003,6 +8520,34 @@ const MyIOOrchestrator = (() => {
         // Emit data to widgets
         emitProvide(domain, key, items);
         LogHelper.log(`[Orchestrator] 📡 Emitted provide-data for ${domain} with ${items.length} items`);
+        if (items.length > 0) markDomainBuilt(domain, period);
+
+        if (!silent) {
+          if (items.length > 0) {
+            stopBusy();
+            releaseContractBusy();
+            // Só avisa quando houve fase "carregando" (cards com spinner) — navegação com cache é silenciosa
+            if (skeletonItems) {
+              const label = DOMAIN_LABEL[domain];
+              toast(
+                'success',
+                `${label.charAt(0).toUpperCase()}${label.slice(1)}: ${items.length} dispositivos atualizados`,
+                2500
+              );
+            }
+          } else if (skeletonItems) {
+            // Falhou depois dos cards provisórios: tira o spinner (fica sem valor) e avisa
+            emitProvide(
+              domain,
+              `${key}:failed`,
+              skeletonItems.map((it) => ({ ...it, _loading: false }))
+            );
+            toast('error', `Não foi possível carregar os dados de ${DOMAIN_LABEL[domain]}.`, 5000);
+          }
+        }
+
+        // Deixa os outros domínios prontos para a navegação MAIN ↔ TELEMETRY (/summary em cache)
+        if (!silent) prefetchOtherSummaries(period, domain);
 
         const duration = Date.now() - startTime;
         metrics.recordHydration(domain, duration);
@@ -8010,29 +8555,34 @@ const MyIOOrchestrator = (() => {
         LogHelper.log(`[Orchestrator] ✅ Data fetched for ${domain} in ${duration}ms`);
         return items;
       } catch (error) {
+        if (hydrateLatestKey.get(domain) === key) closeLoadingToast(domain);
         LogHelper.error(`[Orchestrator] ❌ Error fetching ${domain}:`, error);
         metrics.recordError(domain, error);
-        emitError(domain, error);
+        if (!silent) emitError(domain, error);
 
         // RFC-0106: Show toast and reload page on fetch errors
-        window.MyIOUtils?.handleDataLoadError(domain, error.message || 'fetch error');
+        if (!silent) window.MyIOUtils?.handleDataLoadError(domain, error.message || 'fetch error');
 
         throw error;
       } finally {
-        // Hide busy overlay
-        LogHelper.log(`[Orchestrator] 🔄 Finally block - hiding busy for ${domain}`);
-        hideGlobalBusy(domain);
+        // pré-montagem (silent): nada de busy/mutex
+        if (!silent) {
+          // Hide busy overlay (só se chegou a abrir)
+          LogHelper.log(`[Orchestrator] 🔄 Finally block - hiding busy for ${domain}`);
+          stopBusy();
 
-        // RFC-0048 FIX: Always stop this domain's monitor regardless of other active domains.
-        // hideGlobalBusy returns early when total > 0 (e.g. 'contract' still active),
-        // which would leave the energy/water/temperature monitor running and fire 30s later.
-        widgetBusyMonitor.stopMonitoring(domain);
+          // RFC-0048 FIX: Always stop this domain's monitor regardless of other active domains.
+          // hideGlobalBusy returns early when total > 0 (e.g. 'contract' still active),
+          // which would leave the energy/water/temperature monitor running and fire 30s later.
+          widgetBusyMonitor.stopMonitoring(domain);
 
-        // Release mutex
-        sharedWidgetState.mutexMap.set(domain, false);
-        LogHelper.log(`[Orchestrator] 🔓 Mutex released for ${domain}`);
+          // Release mutex
+          sharedWidgetState.mutexMap.set(domain, false);
+          LogHelper.log(`[Orchestrator] 🔓 Mutex released for ${domain}`);
 
-        // RFC-0107: Dispatch event to signal fetch completion (for contract modal timer)
+        }
+        // RFC-0107: Dispatch event to signal fetch completion (validação do contrato — também
+        // na pré-montagem, para a validação fechar sem esperar o timeout)
         window.dispatchEvent(
           new CustomEvent('myio:domain:fetch-complete', {
             detail: { domain },
@@ -8262,9 +8812,9 @@ const MyIOOrchestrator = (() => {
       return;
     }
 
-    // Validate cache freshness (60 seconds max)
+    // Validate cache freshness (60 seconds max — ou cards pré-montados ainda válidos)
     const age = Date.now() - (cachedData.timestamp || 0);
-    if (age > 60000) {
+    if (age > 60000 && !readyDomainData(domain, currentPeriod)) {
       LogHelper.log(
         `[Orchestrator] ⚠️ RFC-0136: Cached data for ${domain} is stale (${Math.round(
           age / 1000
@@ -8394,6 +8944,7 @@ const MyIOOrchestrator = (() => {
     // Accept both 'alarm' (RFC-0178) and null/falsy (legacy, when MENU is not yet updated)
     if (tab === 'alarm' || !tab) {
       visibleTab = 'alarm';
+      releaseContractBusy(); // nada de telemetria a esperar na tela de alarmes
       LogHelper.log('[Orchestrator] 🔔 myio:dashboard-state → alarm view activated');
       window.dispatchEvent(new CustomEvent('myio:alarm-content-activated'));
       return;
@@ -8428,6 +8979,15 @@ const MyIOOrchestrator = (() => {
     }
 
     if (visibleTab && currentPeriod) {
+      // Cards do domínio já montados (pré-montagem do /summary) para este período → entrega na
+      // hora, sem spinner e sem nova hidratação.
+      const ready = readyDomainData(visibleTab, currentPeriod);
+      if (ready) {
+        LogHelper.log(`[Orchestrator] ⚡ ${visibleTab}: cards já montados — entregando sem hidratar`);
+        emitProvide(visibleTab, ready.periodKey, ready.items);
+        return;
+      }
+
       // RFC-0130: Se trocou de tab e já temos dados em cache fresco, emitir imediatamente para atualizar UI antes de hidratar
       if (stateChanged && cachedData && cachedData.items && cachedData.items.length > 0) {
         const age = Date.now() - (cachedData.timestamp || 0);
@@ -8516,6 +9076,22 @@ const MyIOOrchestrator = (() => {
       return;
     }
 
+    // Cards já montados para o período atual → responde do cache, sem hidratar (sem spinner)
+    const ready = readyDomainData(domain, period || currentPeriod);
+    if (ready) {
+      window.dispatchEvent(
+        new CustomEvent('myio:telemetry:provide-data', {
+          detail: { domain, periodKey: ready.periodKey, items: ready.items, _reemit: true, _triggeredBy: widgetId },
+        })
+      );
+      try {
+        lastProvide.set(domain, { periodKey: ready.periodKey, at: Date.now() });
+      } catch {
+        // Silently ignore
+      }
+      return;
+    }
+
     // Check if already loading
     if (OrchestratorState.loading[domain]) {
       LogHelper.log(`[Orchestrator] ⏳ Already loading ${domain}, adding to pending listeners`);
@@ -8545,7 +9121,10 @@ const MyIOOrchestrator = (() => {
       const p = period || currentPeriod;
       if (p) {
         LogHelper.log(`[Orchestrator] 📡 myio:telemetry:request-data → hydrateDomain(${domain})`);
-        await hydrateDomain(domain, p);
+        // Widget de um domínio fora da tela (ex.: montado junto no boot): carrega em silêncio,
+        // sem busy nem toast — ele recebe o provide-data do mesmo jeito
+        const background = !!visibleTab && visibleTab !== domain;
+        await hydrateDomain(domain, p, background ? { silent: true } : {});
       } else {
         // RFC-0130: No period available - use retry mechanism
         LogHelper.log(
@@ -9019,6 +9598,12 @@ if (window.MyIOOrchestrator && !window.MyIOOrchestrator.isReady) {
  * This function is called when the orchestrator becomes ready
  */
 async function initializeContractLoading() {
+  // Descontinuado por padrão (settings enableContractValidation): nada de modal, validação ou alerta
+  if (!widgetSettings.enableContractValidation) {
+    LogHelper.log('[RFC-0107] Validação de contrato desligada (enableContractValidation=false)');
+    return;
+  }
+
   const customerTB_ID = widgetSettings.customerTB_ID;
   if (!customerTB_ID) {
     LogHelper.warn('[RFC-0107] customerTB_ID not available, skipping contract initialization');
@@ -9027,8 +9612,11 @@ async function initializeContractLoading() {
 
   LogHelper.log('[RFC-0107] 📋 Initializing contract loading...');
 
-  // Show the contract loading modal immediately
-  if (window.MyIOOrchestrator?.showGlobalBusy) {
+  // Show the contract loading modal immediately — a não ser que os cards já estejam na tela
+  // (modal curto: fecha quando os cards do domínio visível aparecem)
+  if (window._contractBusyReleased) {
+    LogHelper.log('[RFC-0107] Cards já na tela — modal de contrato não abre; validação em segundo plano');
+  } else if (window.MyIOOrchestrator?.showGlobalBusy) {
     window.MyIOOrchestrator.showGlobalBusy('contract', 'Carregando contrato...', 60000);
     LogHelper.log('[RFC-0107] Contract loading modal shown');
   }
@@ -9274,6 +9862,30 @@ function finalizeContractValidation(expectedCounts) {
   }
 
   LogHelper.log('[RFC-0107] ✅ Contract validation complete:', validationResult);
+
+  // Modal já fechou (cards na tela): o resultado da validação vai por toast
+  if (window._contractBusyReleased) {
+    const Toast = window.MyIOLibrary?.MyIOToast;
+    const totalExpected =
+      expectedCounts.energy.total + expectedCounts.water.total + expectedCounts.temperature.total;
+    if (validationResult.isValid) {
+      Toast?.success?.(`Contrato validado: ${totalExpected} dispositivos`, 3000);
+    } else {
+      // Quantidade contratada (atributos do cliente) × dispositivos carregados do ThingsBoard,
+      // por domínio — sem repetir domínio (as divergências vêm por categoria)
+      const LABEL = { energy: 'energia', water: 'água', temperature: 'temperatura' };
+      const totals = validationResult.discrepancies.filter((d) => d.category === 'total');
+      const domains = [...new Set(validationResult.discrepancies.map((d) => d.domain))];
+      const detail = domains
+        .map((d) => {
+          const t = totals.find((x) => x.domain === d);
+          return t ? `${LABEL[d] || d} ${t.expected} contratados × ${t.actual} carregados` : `${LABEL[d] || d} (por grupo)`;
+        })
+        .join(' · ');
+      Toast?.warning?.(`Contrato diferente do cadastro — ${detail}`, 12000);
+    }
+    return;
+  }
 
   // RFC-0107: Auto-close the contract loading modal after 15 seconds (if not paused)
   window._contractModalAutoCloseId = setTimeout(() => {

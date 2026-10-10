@@ -358,6 +358,20 @@ export {
   type MyIOAuthInstance,
 } from './services/ingestion/buildMyioIngestionAuth';
 export {
+  fetchCustomerSummary,
+  summaryDeviceToTotalsRow,
+  summaryLastReadingTs,
+  summaryLookbackFromIso,
+  latestHourlyTemperature,
+  CustomerSummaryError,
+  type SummaryReadingType,
+  type SummaryDevice,
+  type SummaryPeriod,
+  type CustomerSummaryResult,
+  type FetchCustomerSummaryOptions,
+  type LatestHourlyTemperature,
+} from './services/ingestion/customerSummary';
+export {
   fetchThingsboardCustomerServerScopeAttrs,
   fetchThingsboardCustomerAttrsFromStorage,
   extractMyIOCredentials,
@@ -2135,6 +2149,13 @@ export type {
 
 // Premium modal footer — Customer · relógio · versão | Powered by MYIO | PDF/CSV/XLSX
 export { createModalFooter } from './components/premium-modals/footer-modal';
+export {
+  createPremiumModalChrome,
+  applyDashboardPalette,
+  MYIO_ACCENT,
+  type PremiumModalChromeOptions,
+  type PremiumModalChromeInstance,
+} from './components/premium-modals/internal/PremiumModalChrome';
 export type {
   ModalFooterParams,
   ModalFooterExportConfig,

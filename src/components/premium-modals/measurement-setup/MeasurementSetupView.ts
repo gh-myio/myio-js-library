@@ -1,5 +1,7 @@
 // RFC-0108: Measurement Setup Modal View - UI Rendering
 
+import { createPremiumModalChrome } from '../internal/PremiumModalChrome';
+import type { PremiumModalChromeInstance } from '../internal/PremiumModalChrome';
 import {
   MeasurementSetupFormData,
   MeasurementSetupModalStyles,
@@ -23,6 +25,8 @@ export interface MeasurementSetupViewConfig {
 }
 
 export class MeasurementSetupView {
+  // Moldura padrão: header RFC-0121 no acento do tema + footer premium
+  private chrome: PremiumModalChromeInstance | null = null;
   private container: HTMLElement | null = null;
   private overlayEl: HTMLElement | null = null;
   private config: MeasurementSetupViewConfig;
@@ -63,6 +67,20 @@ export class MeasurementSetupView {
     this.container = this.overlayEl.querySelector('.myio-measurement-setup-card');
 
     this.setupEventListeners();
+
+    if (this.container) {
+      const userLabel = this.config.userName ? ` — ${this.config.userName}` : '';
+      this.chrome = createPremiumModalChrome({
+        modalId: 'msm-modal',
+        icon: '📐',
+        title: `Configuração de Medidas${userLabel}`,
+        modalEl: this.container,
+        headerSlot: this.container.querySelector('.myio-modal-header') as HTMLElement | null,
+        sticky: true, // o cartão é o container de rolagem
+        headerRadius: '0',
+        onClose: () => this.close(),
+      });
+    }
 
     requestAnimationFrame(() => {
       this.overlayEl?.classList.add('active');
@@ -460,6 +478,8 @@ export class MeasurementSetupView {
 
   close(): void {
     document.removeEventListener('keydown', this.handleKeyDown);
+    this.chrome?.destroy();
+    this.chrome = null;
 
     if (this.overlayEl) {
       this.overlayEl.classList.remove('active');
@@ -474,6 +494,8 @@ export class MeasurementSetupView {
 
   destroy(): void {
     document.removeEventListener('keydown', this.handleKeyDown);
+    this.chrome?.destroy();
+    this.chrome = null;
     this.overlayEl?.remove();
     this.overlayEl = null;
     this.container = null;

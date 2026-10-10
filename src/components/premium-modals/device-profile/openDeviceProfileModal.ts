@@ -177,6 +177,7 @@ export function openDeviceProfileModal(params: OpenDeviceProfileModalParams) {
     useStandardHeader: true,
     icon: '⚙️',
     showMaximize: true,
+    premiumFooter: true,
   });
   const body = handle.element;
   // On close, destroy the DivCards so a maximized (portaled-to-body) card and its

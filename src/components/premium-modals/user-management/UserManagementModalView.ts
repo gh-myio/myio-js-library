@@ -6,6 +6,9 @@ import { UserDetailTab } from './tabs/UserDetailTab';
 import { PoliciesTab } from './tabs/PoliciesTab';
 import { RolesTab } from './tabs/RolesTab';
 import { ModalHeader } from '../../../utils/ModalHeader';
+import { createModalFooter } from '../footer-modal';
+import type { ModalFooterInstance } from '../footer-modal';
+import { resolveDashboardCustomerName } from '../internal/PremiumModalChrome';
 
 interface TabEntry {
   key: string;
@@ -31,10 +34,14 @@ export class UserManagementModalView {
   private userListTab!: UserListTab;
   private newUserTab!: NewUserTab;
   private headerController?: ReturnType<typeof ModalHeader.createController>;
+  // Footer premium padrão (customer · relógio · versão | Powered by MYIO)
+  private footer: ModalFooterInstance | null = null;
 
   constructor(config: UserManagementConfig) {
     this.config = config;
-    this.themeMode = config.theme ?? 'light';
+    // O MENU passa em `theme` a PALETA do dashboard (objeto) — só 'dark' muda o modo; a paleta
+    // é aplicada à parte por applyThemePalette
+    this.themeMode = (config.theme as unknown) === 'dark' ? 'dark' : 'light';
   }
 
   render(): void {
@@ -49,9 +56,19 @@ export class UserManagementModalView {
       theme: this.themeMode,
       maximizeTarget: this.modalEl,
       maximizedClass: 'is-maximized',
-      onThemeChange: (theme) => { this.backdrop.setAttribute('data-theme', theme); },
+      onThemeChange: (theme) => {
+        this.backdrop.setAttribute('data-theme', theme);
+        this.footer?.setThemeMode(theme === 'dark' ? 'dark' : 'light');
+      },
       onClose: () => this.close(),
     });
+    this.footer = createModalFooter({
+      customerName: this.config.customerName || resolveDashboardCustomerName(),
+      libVersion: { current: (window as { MyIOLibrary?: { version?: string } }).MyIOLibrary?.version },
+      themeMode: this.themeMode === 'dark' ? 'dark' : 'light',
+    });
+    this.footer.element.style.flexShrink = '0';
+    this.modalEl.insertBefore(this.footer.element, this.toastEl);
     // Propaga a paleta do dashboard (createMyIOTheme via window.MyIOUtils.theme)
     // sobre os tokens --um-* e o cabeçalho — segue o accent do host, sem mexer
     // no modo light/dark.
@@ -88,6 +105,8 @@ export class UserManagementModalView {
   }
 
   destroy(): void {
+    this.footer?.destroy();
+    this.footer = null;
     this.headerController?.destroy();
     this.backdrop?.remove();
   }
@@ -492,10 +511,11 @@ export class UserManagementModalView {
   font-size: 15px !important;
 }
 
-/* Force MyIO purple header regardless of light/dark theme — overrides myio-modal-header--light */
+/* Header sólido no acento do tema do dashboard (claro e escuro) — sobrepõe myio-modal-header--light */
+.um-modal .myio-modal-header,
 .um-modal .myio-modal-header--light {
-  background: #3f1a7d !important;
-  border-bottom-color: #2e1260 !important;
+  background: var(--myio-brand-700, #3f1a7d) !important;
+  border-bottom-color: color-mix(in srgb, var(--myio-brand-700, #3f1a7d) 75%, #000) !important;
 }
 .um-modal .myio-modal-header--light .myio-modal-header__title { color: #fff !important; }
 .um-modal .myio-modal-header--light .myio-modal-header__btn { color: rgba(255,255,255,0.8) !important; }
