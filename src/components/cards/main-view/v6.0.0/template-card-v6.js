@@ -1868,8 +1868,8 @@ export function renderCardComponentV6({
         .myio-alert-icon {
           width: 64px; height: 64px; margin: 0 auto 20px;
           display: flex; align-items: center; justify-content: center;
-          background: linear-gradient(135deg, #3E1A7D 0%, #2D1359 100%);
-          border: 2px solid #3E1A7D; border-radius: 50%; color: #ffffff; font-size: 32px;
+          background: linear-gradient(135deg, var(--myio-brand-700, #3E1A7D) 0%, var(--myio-brand-600, #2D1359) 100%);
+          border: 2px solid var(--myio-brand-700, #3E1A7D); border-radius: 50%; color: #ffffff; font-size: 32px;
         }
         .myio-alert-title {
           margin: 0 0 12px; font-size: 24px; font-weight: 700; color: #000000;
@@ -1882,14 +1882,14 @@ export function renderCardComponentV6({
         .myio-alert-button {
           width: 100%; height: 48px; font-size: 15px; font-weight: 700;
           text-transform: uppercase;
-          background: linear-gradient(135deg, #3E1A7D 0%, #2D1359 100%);
+          background: linear-gradient(135deg, var(--myio-brand-700, #3E1A7D) 0%, var(--myio-brand-600, #2D1359) 100%);
           border: none; border-radius: 12px; color: #ffffff; cursor: pointer;
-          box-shadow: 0 4px 16px rgba(62,26,125,0.4);
+          box-shadow: 0 4px 16px color-mix(in srgb, var(--myio-brand-700, #3E1A7D) 40%, transparent);
           transition: all 0.2s cubic-bezier(0.4,0,0.2,1);
         }
         .myio-alert-button:hover {
-          background: linear-gradient(135deg, #4E2A9D 0%, #3E1A7D 100%);
-          box-shadow: 0 6px 24px rgba(62,26,125,0.5); transform: translateY(-2px);
+          background: linear-gradient(135deg, color-mix(in srgb, var(--myio-brand-700, #3E1A7D) 85%, #fff) 0%, var(--myio-brand-700, #3E1A7D) 100%);
+          box-shadow: 0 6px 24px color-mix(in srgb, var(--myio-brand-700, #3E1A7D) 50%, transparent); transform: translateY(-2px);
         }
       `;
       document.head.appendChild(alertStyle);

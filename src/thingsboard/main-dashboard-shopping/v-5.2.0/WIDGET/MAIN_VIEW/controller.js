@@ -6316,7 +6316,11 @@ const MyIOOrchestrator = (() => {
     // registration from overwriting the contract modal's current message.
     // The counter is balanced: hydrateDomain adds +1, its finally removes -1, AND this
     // finally below removes the +1 we add here.
-    showGlobalBusy(domain, '', 180000, { silent: true });
+    // Só faz sentido com a validação de contrato ligada e o modal ainda aberto: sem isso o
+    // pré-registro abria um busy próprio no boot (até 2,3 s sobre cards já com valor) — os cards
+    // provisórios do hydrateDomain já cobrem a espera.
+    const holdContractBusy = !!widgetSettings.enableContractValidation && !window._contractBusyReleased;
+    if (holdContractBusy) showGlobalBusy(domain, '', 180000, { silent: true });
 
     try {
       let period = providedPeriod || currentPeriod;
@@ -6335,7 +6339,7 @@ const MyIOOrchestrator = (() => {
       // RFC-GAP-FIX: Release the pre-registration counter added above.
       // hydrateDomain internally calls showGlobalBusy (+1) balanced by emitProvide.hideGlobalBusy
       // and its own finally.hideGlobalBusy. This finally covers ONLY the +1 from above.
-      hideGlobalBusy(domain);
+      if (holdContractBusy) hideGlobalBusy(domain, { immediate: !!window._contractBusyReleased });
       pendingRetries.delete(domain);
     }
   }

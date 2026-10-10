@@ -578,6 +578,43 @@ const $root = () => $J(self.ctx.$container);
 // Find elements within this widget container
 const $$ = (selector) => $root().find(selector);
 
+// Telemetria ainda chegando (boot, troca de data ou cards provisórios do MAIN_VIEW com _loading):
+// spinner sobre o painel em vez de mostrar tudo zerado. Some no primeiro dado real.
+function setDataLoading(on) {
+  const root = self.ctx?.$container?.[0]?.querySelector('.telemetry-info-root');
+  if (!root) return;
+  if (!document.getElementById('ti-data-loading-style')) {
+    const st = document.createElement('style');
+    st.id = 'ti-data-loading-style';
+    st.textContent = `
+      .telemetry-info-root .ti-loading-overlay {
+        position: absolute; inset: 0; z-index: 5;
+        display: none; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+        background: rgba(255, 255, 255, 0.82); backdrop-filter: blur(1px);
+        color: #6f6787; font-size: 13px; font-weight: 500;
+      }
+      .telemetry-info-root.ti-data-loading .ti-loading-overlay { display: flex; }
+      .telemetry-info-root .ti-loading-spinner {
+        width: 28px; height: 28px; border-radius: 50%;
+        border: 3px solid rgba(102, 58, 181, 0.18); border-top-color: #663ab5;
+        animation: ti-loading-spin 0.8s linear infinite;
+      }
+      @keyframes ti-loading-spin { to { transform: rotate(360deg); } }
+    `;
+    document.head.appendChild(st);
+  }
+  let overlay = root.querySelector('.ti-loading-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.className = 'ti-loading-overlay';
+    overlay.setAttribute('aria-busy', 'true');
+    overlay.innerHTML = '<div class="ti-loading-spinner" aria-hidden="true"></div><span>Carregando dados…</span>';
+    if (getComputedStyle(root).position === 'static') root.style.position = 'relative';
+    root.appendChild(overlay);
+  }
+  root.classList.toggle('ti-data-loading', !!on);
+}
+
 // ===================== CLASSIFICATION LOGIC (RFC-0056) =====================
 
 /**
@@ -4641,6 +4678,11 @@ self.onInit = async function () {
     position: 'relative',
   });
 
+  // Sem dado ainda: spinner em vez de zeros (sai no primeiro provide-data real). Trava de
+  // segurança: se nada chegar em 60 s, libera o painel como antes (não fica girando para sempre).
+  setDataLoading(true);
+  setTimeout(() => setDataLoading(false), 60000);
+
   // Load settings (WIDGET_DOMAIN removed - use getWidgetDomain() instead)
   SHOW_DEVICES_LIST = self.ctx.settings?.showDevicesList || false;
 
@@ -4711,6 +4753,14 @@ self.onInit = async function () {
       LogHelper.log(`Ignoring data for domain: ${domain} (expecting: ${getWidgetDomain()})`);
       return;
     }
+
+    // Cards provisórios do MAIN_VIEW (telemetria ainda chegando): spinner, sem processar zeros
+    const _items = ev.detail.items;
+    if (Array.isArray(_items) && _items.some((it) => it && it._loading)) {
+      setDataLoading(true);
+      return;
+    }
+    setDataLoading(false);
 
     // Detect shopping change by comparing customerTB_ID in periodKey
     // periodKey format: "customerTB_ID:domain:startISO:endISO:granularity"
@@ -4844,6 +4894,7 @@ self.onInit = async function () {
 
       LogHelper.log(`[RFC-0002 Water] Received event: context=${context}, domain=${domain}`);
 
+      setDataLoading(false);
       processWaterTelemetryData(ev.detail);
     };
 
@@ -5001,8 +5052,12 @@ self.onInit = async function () {
         if (window.MyIOOrchestratorData) delete window.MyIOOrchestratorData[domain];
       } else {
         // Use stored data if less than 30 seconds old
-        if (age < 30000 && storedData.items && storedData.items.length > 0) {
+        if (storedData.items?.some?.((it) => it && it._loading)) {
+          // Cards provisórios guardados: telemetria ainda chegando — mantém o spinner
+          LogHelper.log('Stored orchestrator data is still loading — keeping spinner');
+        } else if (age < 30000 && storedData.items && storedData.items.length > 0) {
           LogHelper.log('Using stored orchestrator data (age:', age, 'ms)');
+          setDataLoading(false);
           processOrchestratorData(storedData.items);
         } else {
           LogHelper.log('Stored data is stale or empty (age:', age, 'ms)');
