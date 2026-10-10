@@ -10,6 +10,7 @@ import type {
   TopOffenderApiItem,
   DeviceAlarmStatApiItem,
   AlarmBatchResult,
+  AlarmHistoryEventApi,
 } from './types';
 
 export class AlarmApiClient {
@@ -148,6 +149,15 @@ export class AlarmApiClient {
       `${this.baseUrl}/alarms/stats/by-device?${query.toString()}`
     );
     return this.unwrapArray<DeviceAlarmStatApiItem>(raw);
+  }
+
+  // -----------------------------------------------------------------------
+  // Alarm history (GET /alarms/:id/history)
+  // -----------------------------------------------------------------------
+
+  async getAlarmHistory(id: string): Promise<AlarmHistoryEventApi[]> {
+    const raw = await this.request<unknown>(`${this.baseUrl}/alarms/${encodeURIComponent(id)}/history`);
+    return this.unwrapArray<AlarmHistoryEventApi>(raw);
   }
 
   // -----------------------------------------------------------------------

@@ -429,13 +429,20 @@ function _getActiveDates() {
 function _enrichAlarms(rawAlarms) {
   const gcdrMap = window.MyIOOrchestrator?.gcdrDeviceNameMap;
   const nameMap = window.MyIOOrchestrator?.entityNameToLabelMap;
+  // Alarmes do prefetch do cliente (AlarmServiceOrchestrator) trazem deviceName por deviceId —
+  // cobre devices sem gcdrDeviceId no TB (fora do gcdrDeviceNameMap), que antes apareciam
+  // no card com o UUID no lugar do nome.
+  const orchNameMap = new Map();
+  for (const al of window.AlarmServiceOrchestrator?.alarms || []) {
+    if (al?.deviceId && al?.deviceName) orchNameMap.set(al.deviceId, al.deviceName);
+  }
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   const SHORTCODE_RE = /^gcdr:[0-9a-f]{8}/;
   return rawAlarms.map((a) => {
     const src = a.source || '';
     // Only attempt lookup when source is an opaque ID, not a human-readable device name.
     const isOpaqueId = UUID_RE.test(src) || SHORTCODE_RE.test(src);
-    const tbName = isOpaqueId ? gcdrMap?.get(src) || nameMap?.get(src) || null : null;
+    const tbName = isOpaqueId ? gcdrMap?.get(src) || nameMap?.get(src) || orchNameMap.get(src) || null : null;
     return {
       ...a,
       ...(tbName ? { source: tbName } : {}),

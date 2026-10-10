@@ -714,19 +714,44 @@ export class AlarmsNotificationsPanelView {
    * Render dashboard tab content.
    * Trend data is fetched asynchronously on first open and injected when ready.
    */
+  /** KPIs do Dashboard calculados sobre uma lista de alarmes (a mesma exibida na Lista). */
+  private statsFromAlarms(alarms: Alarm[]): import('../../types/alarm').AlarmStats {
+    const bySeverity: Record<AlarmSeverity, number> = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, INFO: 0 };
+    const byState: Record<AlarmState, number> = { OPEN: 0, ACK: 0, SNOOZED: 0, ESCALATED: 0, CLOSED: 0 };
+    let openCritical = 0;
+    let openHigh = 0;
+    let last24Hours = 0;
+    const since = Date.now() - 24 * 60 * 60 * 1000;
+    for (const a of alarms) {
+      if (a.severity in bySeverity) bySeverity[a.severity]++;
+      if (a.state in byState) byState[a.state]++;
+      const open = a.state !== 'CLOSED';
+      if (open && a.severity === 'CRITICAL') openCritical++;
+      if (open && a.severity === 'HIGH') openHigh++;
+      const first = new Date(a.firstOccurrence || a.lastOccurrence || 0).getTime();
+      if (first >= since) last24Hours++;
+    }
+    return { total: alarms.length, bySeverity, byState, openCritical, openHigh, last24Hours };
+  }
+
   private renderDashboardContent(state: AlarmsNotificationsPanelState): void {
     if (!this.root) return;
 
     const container = this.root.querySelector('#dashboardContent');
     if (!container) return;
 
+    // KPIs/gráficos sobre os MESMOS alarmes da Lista (filteredAlarms — já sem os tipos
+    // excluídos por padrão, ex.: "Dispositivo Offline" sem showOfflineAlarms). Antes usava os
+    // totais crus do widget e a aba mostrava 37 enquanto a Lista mostrava 23.
+    const stats = state.allAlarms.length > 0 ? this.statsFromAlarms(state.filteredAlarms) : state.stats;
+
     if (container.children.length > 0) {
-      updateDashboard(container as HTMLElement, state.stats, this.trendData);
+      updateDashboard(container as HTMLElement, stats, this.trendData);
     } else {
-      container.innerHTML = renderDashboard(state.stats, this.trendData);
+      container.innerHTML = renderDashboard(stats, this.trendData);
     }
 
-    this.emit('stats-updated', state.stats);
+    this.emit('stats-updated', stats);
 
     // Fetch trend data once (async) — inject into chart area when resolved
     if (!this.trendFetched && this.params.tenantId) {

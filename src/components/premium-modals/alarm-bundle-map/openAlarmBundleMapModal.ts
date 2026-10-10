@@ -11,6 +11,8 @@
  */
 
 import type { GCDRCustomerBundle, GCDRBundleDevice, GCDRBundleRule } from '../gcdr-sync/types';
+import { createPremiumModalChrome } from '../internal/PremiumModalChrome';
+import type { PremiumModalChromeInstance } from '../internal/PremiumModalChrome';
 
 // ============================================================================
 // Constants
@@ -85,6 +87,11 @@ const STYLES = `
     flex-direction: column;
     overflow: hidden;
   }
+  #${MODAL_ID} .abm-card.is-maximized {
+    width: 100vw !important; max-width: 100vw !important;
+    height: 100vh !important; max-height: 100vh !important; border-radius: 0;
+  }
+  #${MODAL_ID} .myio-premium-chrome-header .abm-view-toggle { margin-left: 0; margin-right: 6px; }
   #${MODAL_ID} .abm-header {
     background: ${TEAL};
     color: #fff;
@@ -1282,7 +1289,14 @@ export async function openAlarmBundleMapModal(params: AlarmBundleMapParams): Pro
   overlay.appendChild(card);
   document.body.appendChild(overlay);
 
+  // Moldura padrão (header RFC-0121 no acento do tema + maximizar/fechar + footer premium),
+  // recriada a cada render porque o card é redesenhado via innerHTML
+  let chrome: PremiumModalChromeInstance | null = null;
+  let maximized = false;
+
   const closeModal = () => {
+    chrome?.destroy();
+    chrome = null;
     overlay.remove();
     params.onClose?.();
   };
@@ -1313,12 +1327,31 @@ export async function openAlarmBundleMapModal(params: AlarmBundleMapParams): Pro
         <button class="abm-close-btn" id="abm-close-btn" title="Fechar">✕</button>
       </div>
       <div class="abm-body">${bodyHtml}</div>
-      <div class="abm-footer">
-        <button class="abm-btn abm-btn-secondary" id="abm-close-btn-footer">Fechar</button>
-      </div>
     `;
     card.querySelector('#abm-close-btn')?.addEventListener('click', closeModal);
-    card.querySelector('#abm-close-btn-footer')?.addEventListener('click', closeModal);
+
+    // Troca o header próprio pelo padrão e leva o seletor de visão para a área de ações dele
+    const toggleEl = card.querySelector('.abm-view-toggle');
+    chrome?.destroy();
+    chrome = createPremiumModalChrome({
+      modalId: 'abm-modal',
+      icon: '🔗',
+      title: `Mapa de Alarmes GCDR${subtitle ? ` — ${escHtml(subtitle)}` : ''}`,
+      modalEl: card,
+      headerSlot: card.querySelector('.abm-header') as HTMLElement | null,
+      maximized,
+      headerRadius: '16px 16px 0 0',
+      onMaximizeChange: (m) => {
+        maximized = m;
+        placeToggle();
+      },
+      onClose: closeModal,
+    });
+    const placeToggle = () => {
+      const actions = chrome?.header.lastElementChild;
+      if (toggleEl && actions) actions.insertBefore(toggleEl, actions.firstChild);
+    };
+    placeToggle();
   }
 
   // ---- Loading state ----

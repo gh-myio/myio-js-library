@@ -65,6 +65,8 @@ export interface Alarm {
   triggerValue?: number | string;
   /** GCDR central/concentrator UUID — used as fallback key for gcdrDeviceNameMap */
   centralId?: string;
+  /** GCDR device UUID (api.deviceId) — resolve label/name do TB via gcdrDeviceNameMap */
+  deviceId?: string;
   /** Virtual: unique alarm type titles aggregated under this device (Por Dispositivo grouping only) */
   _alarmTypes?: string[];
   /** Virtual: all raw alarm IDs merged into this group card (consolidado/separado modes) */

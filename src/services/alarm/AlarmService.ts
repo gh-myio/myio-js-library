@@ -7,6 +7,7 @@ import type {
   AlarmListSummary,
   AlarmStatsApiResponse,
   AlarmBatchResult,
+  AlarmHistoryEventApi,
 } from './types';
 import type { Alarm, AlarmStats, AlarmTrendDataPoint } from '../../types/alarm';
 import type { DowntimeEntry } from '../../types/operational';
@@ -48,6 +49,7 @@ function mapApiAlarm(api: import('./types').AlarmApiResponse, customerMap?: Map<
     closedReason: api.resolution,
     triggerValue: api.metadata?.value as number | string | undefined,
     centralId: api.centralId || undefined,
+    deviceId: api.deviceId || undefined,
   };
 }
 
@@ -275,6 +277,18 @@ class AlarmServiceClass {
     const map = new Map<string, number>();
     (items || []).forEach((item) => map.set(item.deviceId, item.alarmCount));
     return map;
+  }
+
+  /**
+   * Histórico de transições do alarme (abertura/reabertura/fechamento/ack…).
+   * Falha de rede/API devolve [] — o detalhe do alarme degrada para só a abertura.
+   */
+  async getAlarmHistory(id: string): Promise<AlarmHistoryEventApi[]> {
+    try {
+      return await this.client.getAlarmHistory(id);
+    } catch {
+      return [];
+    }
   }
 
   // -----------------------------------------------------------------------
