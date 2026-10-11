@@ -18,6 +18,18 @@ const ENABLE_ANNOTATIONS_META = false;
 // @see src/utils/logHelper.js - createLogHelper
 let LogHelper = null;
 
+// RFC-0238: refresh do Portfolio Command Center quando aberto (null quando fechado).
+// Escopo de módulo: o enriquecimento dos cards (alarmes) roda antes da criação do menu.
+let _portfolioRefresh = null;
+
+// RFC-0238: opções da seção Dashboard ainda não implementadas → página "Em breve" da lib
+const PORTFOLIO_UPCOMING_PAGES = {
+  portfolio_demand: 'demand',
+  portfolio_benchmarking: 'benchmarking',
+  portfolio_reports: 'reports',
+  portfolio_admin: 'administration',
+};
+
 // RFC-0111: Default shopping cards with correct dashboard IDs (from WELCOME controller)
 // deviceCounts use null = loading (spinner), number = loaded (show value)
 const DEFAULT_SHOPPING_CARDS = [
@@ -1797,6 +1809,7 @@ body.filter-modal-open { overflow: hidden !important; }
         };
       });
       updateWelcomeModalCustomersCards(welcomeModal, _currentCustomersCards);
+      _portfolioRefresh?.(); // RFC-0238: alarmes por shopping chegam aos poucos
     };
 
     // One source finished for one card: bump per-card + global progress; unlock CTA at 100%
@@ -2136,6 +2149,8 @@ body.filter-modal-open { overflow: hidden !important; }
   let operationalGridInstance = null; // RFC-0152 Phase 3: Operational equipment grid instance
   let operationalDashboardInstance = null; // RFC-0152 Phase 5: Operational dashboard instance
   let alarmsNotificationsPanelInstance = null; // RFC-0152 Phase 4: Alarms notifications panel instance
+  let portfolioInstance = null; // RFC-0238: Portfolio Command Center (seção Dashboard do menu)
+  const _portfolioTrajectorySeq = { energy: 0, water: 0 };
   // RFC-0117: now read by the data-ready / theme-change handlers to refresh the DOM-based temperature panel.
   let currentViewMode = 'telemetry'; // 'telemetry' | 'energy-panel' | 'water-panel' | 'temperature-panel' | 'operational-grid' | 'operational-dashboard' | 'alarms-panel'
   let currentTelemetryDomain = DOMAIN_ENERGY;
@@ -2155,6 +2170,8 @@ body.filter-modal-open { overflow: hidden !important; }
         enableDebugMode: settings.enableDebugMode,
       },
       initialTab: DOMAIN_ENERGY,
+      // RFC-0238: seção "Dashboard" (Portfólio) no menu — visões existentes intactas
+      enableDashboardSection: settings.enablePortfolioCommandCenter !== false,
       initialDateRange: {
         start: window.MyIOLibrary.getFirstDayOfMonth(),
         end: new Date(),
@@ -2657,6 +2674,8 @@ body.filter-modal-open { overflow: hidden !important; }
       const tc = document.getElementById('telemetryGridContainer');
       if (tc) switchToTemperaturePanel(tc);
     }
+    // RFC-0238: Portfólio aberto acompanha novos dados (consumo enriquecido, filtro)
+    _portfolioRefresh?.();
   });
 
   // === 10. LISTEN FOR PANEL MODAL REQUESTS ===
@@ -2706,6 +2725,7 @@ body.filter-modal-open { overflow: hidden !important; }
     if (operationalDashboardInstance) operationalDashboardInstance.setThemeMode?.(themeMode);
     if (alarmsNotificationsPanelInstance) alarmsNotificationsPanelInstance.setThemeMode?.(themeMode);
     if (operationalGridInstance) operationalGridInstance.setThemeMode?.(themeMode);
+    if (portfolioInstance) portfolioInstance.setThemeMode?.(themeMode); // RFC-0238
   });
 
   // === RFC-0152: LISTEN FOR MENU NAVIGATION TO OPERATIONAL PANELS ===
@@ -2722,7 +2742,11 @@ body.filter-modal-open { overflow: hidden !important; }
       return;
     }
 
-    if (stateId === 'operational_dashboard') {
+    if (stateId === 'portfolio_command_center') {
+      renderPortfolioCommandCenter(telemetryContainer);
+    } else if (PORTFOLIO_UPCOMING_PAGES[stateId]) {
+      renderPortfolioUpcoming(telemetryContainer, PORTFOLIO_UPCOMING_PAGES[stateId]);
+    } else if (stateId === 'operational_dashboard') {
       renderOperationalDashboard(telemetryContainer);
     } else if (stateId === 'operational_general_list') {
       renderOperationalGeneralList(telemetryContainer);
@@ -8029,11 +8053,16 @@ body.myio-gbt-dark .myio-gbt__empty{color:#64748b;}
     const telemetryContainer = document.getElementById('telemetryGridContainer');
 
     clearSelectionStore();
+    // RFC-0238: qualquer outra visão substitui o Portfólio
+    if (tabId !== 'dashboard') destroyPortfolio();
     showMenuBusy(tabId, 'Carregando dados...');
 
-    // RFC-0175: Operational tab is handled exclusively via myio:switch-main-state listener
-    // (renderOperationalGeneralList / renderAlarmsNotificationsPanel / renderOperationalDashboard)
-    if (tabId === 'operational') {
+    // RFC-0238: seção Dashboard é renderizada pelo listener myio:switch-main-state
+    if (tabId === 'dashboard') {
+      hideMenuBusy();
+    } else if (tabId === 'operational') {
+      // RFC-0175: Operational tab is handled exclusively via myio:switch-main-state listener
+      // (renderOperationalGeneralList / renderAlarmsNotificationsPanel / renderOperationalDashboard)
       hideMenuBusy();
     } else if (contextId === 'energy_general') {
       // RFC-0132/RFC-0133: Check if this is a panel view request
@@ -9118,6 +9147,196 @@ body.myio-gbt-dark .myio-gbt__empty{color:#64748b;}
       alarmsNotificationsPanelInstance.destroy?.();
       alarmsNotificationsPanelInstance = null;
     }
+    destroyPortfolio();
+  }
+
+  // ===================================================================
+  // RFC-0238: Head Office Portfolio Command Center (seção Dashboard do menu)
+  // O cálculo fica na lib (buildPortfolioSnapshot); aqui só montamos a entrada com o
+  // que o HO já carregou (classified + cards dos shoppings) e ligamos a navegação.
+  // ===================================================================
+  function destroyPortfolio() {
+    if (!portfolioInstance) return;
+    portfolioInstance.destroy?.();
+    portfolioInstance = null;
+    _portfolioRefresh = null;
+    // invalida trajetórias em voo (resposta antiga nunca repinta outra instância)
+    _portfolioTrajectorySeq.energy++;
+    _portfolioTrajectorySeq.water++;
+  }
+
+  function portfolioPeriod() {
+    const start = self.ctx.$scope?.startDateISO || window.MyIOLibrary.getFirstDayOfMonth().toISOString();
+    const end = self.ctx.$scope?.endDateISO || new Date().toISOString();
+    return { start, end, timezone: 'America/Sao_Paulo' };
+  }
+
+  function portfolioShoppings() {
+    const selected = (Array.isArray(window.custumersSelected) ? window.custumersSelected : [])
+      .map((s) => String(s?.name || '').toLowerCase().trim())
+      .filter(Boolean);
+    let cards = _currentCustomersCards || [];
+    if (selected.length) cards = cards.filter((c) => selected.includes(String(c.title || '').toLowerCase().trim()));
+    return cards.map((c) => ({
+      name: c.title,
+      id: c.entityId,
+      alarms: c.metaCounts ? c.metaCounts.alarms : undefined,
+      alarmDetails: c.metaDetails?.alarms || [],
+    }));
+  }
+
+  function buildPortfolioSnapshotNow() {
+    const classified = window.MyIOOrchestratorData?.classified;
+    if (!classified || typeof MyIOLibrary.buildPortfolioSnapshot !== 'function') return null;
+    const limits = window.MyIOUtils?.temperatureLimits;
+    const min = Number(limits?.minTemperature);
+    const max = Number(limits?.maxTemperature);
+    return MyIOLibrary.buildPortfolioSnapshot({
+      classified,
+      shoppings: portfolioShoppings(),
+      temperatureRange: Number.isFinite(min) && Number.isFinite(max) && limits ? { min, max } : null,
+      period: portfolioPeriod(),
+    });
+  }
+
+  // Série diária do /summary da holding, na mesma fronteira dos KPIs:
+  // energia = submedidores (sem `entrada`); água = hidrômetros de entrada.
+  async function loadPortfolioTrajectory(domain) {
+    if (!portfolioInstance) return;
+    const seq = ++_portfolioTrajectorySeq[domain];
+    const stillCurrent = () => portfolioInstance && seq === _portfolioTrajectorySeq[domain];
+    const classified = window.MyIOOrchestratorData?.classified;
+    const scope = new Set(portfolioShoppings().map((s) => String(s.name).toLowerCase().trim()));
+    const eligible = new Set();
+    Object.entries(classified?.[domain] || {}).forEach(([ctx, list]) => {
+      const include = domain === 'energy' ? ctx !== 'entrada' : ctx === 'hidrometro_entrada';
+      if (!include) return;
+      (list || []).forEach((d) => {
+        const owner = String(d.ownerName || d.customerName || '').toLowerCase().trim();
+        if (d.ingestionId && (!scope.size || scope.has(owner))) eligible.add(d.ingestionId);
+      });
+    });
+    if (!eligible.size) {
+      portfolioInstance.setTrajectory(domain, {
+        state: 'unavailable',
+        reason:
+          domain === 'water'
+            ? 'Nenhum hidrômetro de entrada com ingestionId no escopo.'
+            : 'Nenhum submedidor de energia com ingestionId no escopo.',
+      });
+      return;
+    }
+    try {
+      const { start, end } = portfolioPeriod();
+      const rows = await fetchHoldingSummaryRows(domain, start, end, { series: true });
+      if (!stillCurrent()) return;
+      if (!rows) {
+        portfolioInstance.setTrajectory(domain, {
+          state: 'unavailable',
+          reason: 'Série diária indisponível no momento (resumo da holding não respondeu).',
+        });
+        return;
+      }
+      const buckets = new Map();
+      let partialLast = false;
+      for (const row of rows) {
+        if (!eligible.has(row.id)) continue;
+        for (const p of row.series || []) {
+          const ts = Date.parse(p.ts);
+          const v = Number(p.value);
+          if (!Number.isFinite(ts) || !Number.isFinite(v)) continue;
+          buckets.set(ts, (buckets.get(ts) || 0) + v);
+          if (p.partial) partialLast = true;
+        }
+      }
+      const points = [...buckets.entries()].sort((a, b) => a[0] - b[0]).map(([ts, value]) => ({ ts, value }));
+      portfolioInstance.setTrajectory(domain, {
+        state: 'available',
+        points,
+        unit: domain === 'energy' ? 'kWh' : 'm³',
+        scopeLabel: domain === 'energy' ? 'Soma dos submedidores' : 'Hidrômetros de entrada',
+        partialLast,
+      });
+    } catch (err) {
+      LogHelper.warn('[MAIN_UNIQUE] RFC-0238: trajetória falhou:', err?.message || err);
+      if (stillCurrent()) {
+        portfolioInstance.setTrajectory(domain, { state: 'unavailable', reason: 'Falha ao carregar a série diária.' });
+      }
+    }
+  }
+
+  // Leva a uma visão existente mantendo o menu sincronizado
+  function portfolioGoTo(tabId, contextId, target) {
+    menuInstance?.setActiveTab?.(tabId);
+    menuInstance?.setContext?.(tabId, contextId);
+    handleContextChange(tabId, contextId, target);
+    window.dispatchEvent(new CustomEvent('myio:switch-main-state', { detail: { targetStateId: target, source: 'portfolio' } }));
+  }
+
+  function portfolioNavigate(dest) {
+    if (dest === 'energy') portfolioGoTo('energy', 'energy_general', 'content_energy');
+    else if (dest === 'water') portfolioGoTo('water', 'water_summary', 'content_water');
+    else if (dest === 'alarms') portfolioGoTo('operational', 'alarms', 'operational_alarms');
+    else if (dest === 'goals') window.dispatchEvent(new CustomEvent('myio:open-goals-panel'));
+    else if (dest === 'demand') portfolioGoTo('dashboard', 'portfolio_demand', 'portfolio_demand');
+  }
+
+  function renderPortfolioUpcoming(container, page) {
+    if (!container) return;
+    destroyAllPanels();
+    if (typeof MyIOLibrary.createPortfolioUpcomingPage !== 'function') {
+      container.innerHTML =
+        '<div style="padding:20px;text-align:center;color:#94a3b8;">Em breve.</div>';
+      return;
+    }
+    currentViewMode = 'portfolio';
+    portfolioInstance = MyIOLibrary.createPortfolioUpcomingPage({
+      container,
+      page,
+      themeMode: currentThemeMode,
+      onBack: () => portfolioGoTo('dashboard', 'portfolio_overview', 'portfolio_command_center'),
+    });
+  }
+
+  function renderPortfolioCommandCenter(container) {
+    if (!container) return;
+    destroyAllPanels();
+    if (typeof MyIOLibrary.createPortfolioCommandCenter !== 'function') {
+      container.innerHTML =
+        '<div style="padding:20px;text-align:center;color:#94a3b8;">Portfolio Command Center indisponível nesta versão da biblioteca.</div>';
+      return;
+    }
+    container.innerHTML = '';
+    currentViewMode = 'portfolio';
+    portfolioInstance = MyIOLibrary.createPortfolioCommandCenter({
+      container,
+      snapshot: buildPortfolioSnapshotNow(),
+      themeMode: currentThemeMode,
+      holdingName: window.MyIOUtils?.customerName || '',
+      onNavigate: portfolioNavigate,
+      onTrajectoryRequest: (domain) => loadPortfolioTrajectory(domain),
+      onPriorityOpen: (item) => {
+        const domainOf = String(item.id).split(':offline-')[1];
+        if (item.target === 'alarms') portfolioNavigate('alarms');
+        else if (item.target === 'water' || domainOf === 'water') portfolioNavigate('water');
+        else if (item.target === 'temperature' || domainOf === 'temperature')
+          portfolioGoTo('temperature', 'temperature_comparison', 'content_temperature');
+        else portfolioNavigate('energy');
+      },
+      onOpenShopping: (row) => {
+        const card = (_currentCustomersCards || []).find((c) => c.title === row.name);
+        const dashId = String(card?.dashboardId ?? '').trim();
+        if (!card || !dashId || dashId === 'null' || dashId === 'undefined') {
+          MyIOLibrary.MyIOToast?.error?.(`Dashboard de "${row.name}" não configurado (defina o Dashboard Padrão do shopping).`);
+          return;
+        }
+        const state = [{ id: 'default', params: { entityId: { id: card.entityId, entityType: card.entityType || 'ASSET' } } }];
+        const url = `/dashboards/${dashId}?state=${encodeURIComponent(btoa(JSON.stringify(state)))}`;
+        if (self.ctx?.router?.navigateByUrl) self.ctx.router.navigateByUrl(url);
+        else window.location.href = url;
+      },
+    });
+    _portfolioRefresh = () => portfolioInstance?.setSnapshot(buildPortfolioSnapshotNow());
   }
 
   // Switch back to Telemetry Grid view
