@@ -803,6 +803,26 @@ export const CSS_STRING = `
   margin-left: 4px;
 }
 
+/* Consumo ainda carregando (spinner no lugar do valor) */
+.myio-ho-card__value.is-loading .num {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--myio-muted, #9ca3af);
+}
+.myio-ho-card__value-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(124, 58, 237, 0.2);
+  border-top-color: var(--myio-brand-700, #7c3aed);
+  border-radius: 50%;
+  animation: myio-consumption-spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes myio-consumption-spin { to { transform: rotate(360deg); } }
+
 /* Efficiency bar */
 .myio-ho-card__eff {
   display: flex;

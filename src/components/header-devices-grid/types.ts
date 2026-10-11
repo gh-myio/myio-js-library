@@ -11,6 +11,8 @@ export interface HeaderStats {
   total: number;
   consumption: number;
   zeroCount: number;
+  /** Consumo ainda carregando → spinner em Consumo Total / Sem Consumo */
+  loading?: boolean;
 }
 
 export interface HeaderLabels {
@@ -45,6 +47,8 @@ export interface HeaderDevicesGridInstance {
 }
 
 export interface HeaderDevice {
+  /** Consumo do período ainda não chegou (HO: /summary em andamento) */
+  dataLoading?: boolean;
   entityId?: string;
   ingestionId?: string;
   deviceStatus?: string;
