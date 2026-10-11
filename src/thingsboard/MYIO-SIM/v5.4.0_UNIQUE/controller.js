@@ -11426,6 +11426,22 @@ async function _enrichDevicesWithConsumptionImpl(classified) {
             device.pulses = consumptionValue; // For water, also set pulses
             device.apiEnriched = true;
             matchCount++;
+
+            // RFC-0188: o status calculado em extractDeviceMetadataFromRows usa o timestamp do
+            // dataKey `pulses` do ThingsBoard, que não é mais atualizado (último em mar–ago/2026)
+            // → todos os hidrômetros saíam offline. A última leitura do Ingestion tem precedência,
+            // como no dash do shopping (v-5.2.0 MAIN_VIEW).
+            const apiLastTs = row.lastTelemetryTs ? new Date(row.lastTelemetryTs).getTime() : null;
+            if (Number.isFinite(apiLastTs) && lib.calculateDeviceStatusMasterRules) {
+              device.lastTelemetryTs = apiLastTs;
+              device.telemetryTimestamp = apiLastTs;
+              device.deviceStatus = lib.calculateDeviceStatusMasterRules({
+                connectionStatus: device.connectionStatus,
+                telemetryTimestamp: apiLastTs,
+                delayMins: 1440, // 24 hours in MINUTES (production v-5.2.0 semantics)
+                domain: DOMAIN_WATER,
+              });
+            }
           }
         }
 
