@@ -26,6 +26,7 @@ export class ChipRenderer {
     const chip = document.createElement('div');
     chip.className = 'myio-footer-chip';
     chip.dataset.entityId = entity.id;
+    chip.dataset.fullName = entity.name || '';
 
     // Content container
     const content = document.createElement('div');

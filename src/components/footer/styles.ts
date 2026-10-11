@@ -373,13 +373,13 @@ export function getStyles(): string {
   color: #ffffff;
   cursor: pointer;
   overflow: hidden;
-  box-shadow: 0 0 0 1px rgba(62, 26, 125, 0.5), 0 4px 16px rgba(62, 26, 125, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--fc-compare-btn) 50%, transparent), 0 4px 16px color-mix(in srgb, var(--fc-compare-btn) 40%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.2);
   transition: var(--fc-transition);
 }
 
 .myio-footer-compare:hover {
   background: linear-gradient(135deg, var(--fc-compare-btn-hover) 0%, var(--fc-compare-btn) 100%);
-  box-shadow: 0 0 0 1px rgba(62, 26, 125, 0.7), 0 6px 24px rgba(62, 26, 125, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--fc-compare-btn) 70%, transparent), 0 6px 24px color-mix(in srgb, var(--fc-compare-btn) 60%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.3);
   transform: translateY(-2px);
 }
 
@@ -540,6 +540,71 @@ export function getStyles(): string {
 
 .myio-footer-component--light .myio-footer-empty {
   text-shadow: none;
+}
+
+/* ==========================================
+   Brand (paleta do dashboard): fundo sólido na cor do tema, conteúdo branco
+   ========================================== */
+
+.myio-footer-component--brand {
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.myio-footer-component--brand .myio-footer-chip {
+  background: var(--fc-chip-bg);
+  box-shadow: none;
+}
+.myio-footer-component--brand .myio-footer-chip:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.32);
+  box-shadow: none;
+  transform: translateY(-2px);
+}
+.myio-footer-component--brand .myio-footer-chip-remove {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.85);
+}
+.myio-footer-component--brand .myio-footer-chip-remove:hover {
+  background: rgba(255, 107, 107, 0.22);
+  border-color: rgba(255, 107, 107, 0.5);
+  color: #fff;
+}
+.myio-footer-component--brand .myio-footer-meta {
+  background: var(--fc-meta-bg);
+  box-shadow: none;
+  cursor: default;
+}
+.myio-footer-component--brand .myio-footer-meta-title,
+.myio-footer-component--brand .myio-footer-totals,
+.myio-footer-component--brand .myio-footer-chip-name,
+.myio-footer-component--brand .myio-footer-chip-value {
+  text-shadow: none;
+}
+.myio-footer-component--brand .myio-footer-empty {
+  background: var(--fc-empty-bg);
+  color: rgba(255, 255, 255, 0.85);
+  text-shadow: none;
+  animation: none;
+}
+.myio-footer-component--brand .myio-footer-clear-btn {
+  background: var(--fc-clear-btn);
+  border-color: rgba(255, 255, 255, 0.24);
+}
+.myio-footer-component--brand .myio-footer-clear-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  box-shadow: none;
+}
+.myio-footer-component--brand .myio-footer-clear-btn:disabled {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.45);
+}
+.myio-footer-component--brand .myio-footer-compare:disabled {
+  background: rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.55);
+  opacity: 1;
 }
 
 /* ==========================================

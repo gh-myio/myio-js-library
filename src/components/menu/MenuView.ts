@@ -310,14 +310,14 @@ export class MenuView {
    ========================================== */
 
 .myio-toolbar-item--nav {
-  background: var(--menu-nav-bg, #3e1a7d);
+  background: var(--menu-nav-bg, var(--myio-brand-700, #3e1a7d));
   color: var(--menu-nav-color, #ffffff);
   font-weight: 600;
   padding: 8px 16px;
 }
 
 .myio-toolbar-item--nav:hover {
-  background: var(--menu-nav-hover-bg, #4c2391);
+  background: var(--menu-nav-hover-bg, color-mix(in srgb, var(--myio-brand-700, #3e1a7d) 85%, #fff));
 }
 
 .myio-toolbar-item--nav .nav-label {
@@ -331,7 +331,7 @@ export class MenuView {
    ========================================== */
 
 .myio-toolbar-item--filter {
-  color: var(--menu-filter-color, #6366f1);
+  color: var(--menu-filter-color, var(--myio-brand-700, #6366f1));
 }
 
 .myio-toolbar-item--filter:hover {
@@ -354,7 +354,7 @@ export class MenuView {
   min-width: 340px;
   padding: 0;
   background: transparent;
-  border: 2px solid var(--menu-date-border, #3e1a7d);
+  border: 2px solid var(--menu-date-border, var(--myio-brand-700, #3e1a7d));
   border-radius: 8px;
   overflow: hidden;
   transition: all 0.2s ease;
@@ -362,17 +362,17 @@ export class MenuView {
 }
 
 .myio-toolbar-item--date:hover {
-  border-color: var(--menu-date-hover-border, #5a2d9e);
-  box-shadow: 0 0 0 3px rgba(62, 26, 125, 0.15);
+  border-color: var(--menu-date-hover-border, color-mix(in srgb, var(--myio-brand-700, #3e1a7d) 80%, #fff));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--myio-brand-700, #3e1a7d) 15%, transparent);
 }
 
 .myio-toolbar-item--date:focus-within {
-  border-color: var(--menu-date-focus-border, #3e1a7d);
-  box-shadow: 0 0 0 3px rgba(62, 26, 125, 0.25);
+  border-color: var(--menu-date-focus-border, var(--myio-brand-700, #3e1a7d));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--myio-brand-700, #3e1a7d) 25%, transparent);
 }
 
 .myio-toolbar-item--date .ico {
-  background: var(--menu-date-icon-bg, #3e1a7d);
+  background: var(--menu-date-icon-bg, var(--myio-brand-700, #3e1a7d));
   color: white;
   padding: 0 12px;
   margin: 0;

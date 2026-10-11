@@ -81,7 +81,46 @@ export class FooterView {
 
     const defaults = this.theme === 'dark' ? DEFAULT_DARK_THEME : DEFAULT_LIGHT_THEME;
 
-    return { ...defaults, ...themeConfig };
+    return { ...defaults, ...themeConfig, ...this.getBrandOverrides() };
+  }
+
+  /** Accent do tema do dashboard (createMyIOTheme → window.MyIOUtils.theme), se houver. */
+  private getDashboardAccent(): { accent: string; accentText: string } | null {
+    const theme = (window as unknown as { MyIOUtils?: { theme?: { accent?: string; accentText?: string } } })
+      .MyIOUtils?.theme;
+    if (!theme?.accent) return null;
+    return { accent: theme.accent, accentText: theme.accentText || '#ffffff' };
+  }
+
+  /**
+   * Com paleta do dashboard o footer segue o padrão do dashboard de shopping: fundo sólido na cor
+   * do tema e conteúdo branco (mesma identidade do header/tabs).
+   */
+  private getBrandOverrides(): Partial<FooterThemeConfig> {
+    const brand = this.getDashboardAccent();
+    if (!brand) return {};
+    const a = brand.accent;
+    return {
+      primaryColor: a,
+      primaryHoverColor: `color-mix(in srgb, ${a} 85%, #fff)`,
+      primaryDarkColor: `color-mix(in srgb, ${a} 70%, #000)`,
+      backgroundGradientStart: a,
+      backgroundGradientEnd: a,
+      borderTopColor: 'rgba(255, 255, 255, 0.18)',
+      textColor: brand.accentText,
+      mutedTextColor: 'rgba(255, 255, 255, 0.75)',
+      chipBackgroundColor: 'rgba(255, 255, 255, 0.12)',
+      chipBorderColor: 'rgba(255, 255, 255, 0.24)',
+      chipTextColor: brand.accentText,
+      compareButtonColor: `color-mix(in srgb, ${a} 55%, #0f172a)`,
+      compareButtonHoverColor: `color-mix(in srgb, ${a} 70%, #0f172a)`,
+      clearButtonColor: 'rgba(255, 255, 255, 0.12)',
+      clearButtonTextColor: brand.accentText,
+      metaBackgroundColor: 'rgba(255, 255, 255, 0.10)',
+      metaBorderColor: 'rgba(255, 255, 255, 0.24)',
+      emptyBackgroundColor: 'rgba(255, 255, 255, 0.06)',
+      emptyBorderColor: 'rgba(255, 255, 255, 0.35)',
+    };
   }
 
   /**
@@ -132,7 +171,8 @@ export class FooterView {
    */
   private getClassName(): string {
     const base = 'myio-footer-component';
-    return this.theme === 'light' ? `${base} ${base}--light` : base;
+    const brand = this.getDashboardAccent() ? ` ${base}--brand` : '';
+    return (this.theme === 'light' ? `${base} ${base}--light` : base) + brand;
   }
 
   /**
@@ -197,6 +237,30 @@ export class FooterView {
    * Bind event listeners
    */
   private bindEvents(): void {
+    // Zoom no hover: versão ampliada flutuante (o dock tem rolagem e cortaria um scale no chip)
+    this.footerEl.addEventListener('mouseover', (e) => {
+      const target = e.target as HTMLElement;
+      if (target.closest('.myio-footer-chip-remove')) return hideFooterZoom();
+      const chip = target.closest<HTMLElement>('.myio-footer-chip');
+      if (chip) {
+        const name =
+          chip.dataset.fullName || chip.querySelector('.myio-footer-chip-name')?.textContent || '';
+        const value = chip.querySelector('.myio-footer-chip-value')?.textContent || '';
+        showFooterZoom(chip, name, value);
+        return;
+      }
+      const meta = target.closest<HTMLElement>('.myio-footer-meta');
+      if (meta) {
+        showFooterZoom(meta, 'Seleção', this.totalsEl?.textContent || '');
+      }
+    });
+    this.footerEl.addEventListener('mouseout', (e) => {
+      const to = (e as MouseEvent).relatedTarget as HTMLElement | null;
+      const from = (e.target as HTMLElement).closest('.myio-footer-chip, .myio-footer-meta');
+      if (from && to && from.contains(to)) return;
+      hideFooterZoom();
+    });
+
     // Listen for global theme changes
     window.addEventListener('myio:theme-change', ((e: CustomEvent<{ mode: 'light' | 'dark' }>) => {
       this.setTheme(e.detail.mode);
@@ -297,6 +361,8 @@ export class FooterView {
    */
   renderDock(entities: SelectedEntity[]): void {
     if (!this.dockEl) return;
+    // chips são recriados: o chip sob o mouse some sem disparar mouseout → fecha o zoom aqui
+    hideFooterZoom();
 
     if (entities.length === 0) {
       // Show empty state
@@ -382,6 +448,7 @@ export class FooterView {
   destroy(): void {
     // Remove event handlers
     this.eventHandlers.clear();
+    hideFooterZoom();
 
     // Remove from DOM
     if (this.footerEl.parentNode) {
@@ -394,4 +461,64 @@ export class FooterView {
     this.compareBtnEl = null;
     this.clearBtnEl = null;
   }
+}
+
+// =====================================================================
+// Zoom do chip / card de seleção no hover (mesmo efeito do footer do dashboard de shopping)
+// =====================================================================
+
+const FOOTER_ZOOM_ID = 'myio-footer-chip-zoom';
+
+function ensureFooterZoomEl(): HTMLElement {
+  if (!document.getElementById('myio-footer-chip-zoom-styles')) {
+    const st = document.createElement('style');
+    st.id = 'myio-footer-chip-zoom-styles';
+    st.textContent = `
+      #${FOOTER_ZOOM_ID} {
+        position: fixed; z-index: 2147483000; pointer-events: none;
+        display: flex; flex-direction: column; gap: 2px;
+        min-width: 140px; max-width: 360px; padding: 10px 14px;
+        background: var(--myio-brand-700, #3e1a7d); color: #fff;
+        border: 1px solid rgba(255, 255, 255, 0.28); border-radius: 10px;
+        box-shadow: 0 10px 28px rgba(15, 23, 42, 0.35);
+        font-family: 'Nunito', system-ui, sans-serif;
+        transform: translate(-50%, 6px) scale(0.92); transform-origin: 50% 100%;
+        opacity: 0; transition: opacity 0.12s ease, transform 0.12s ease;
+      }
+      #${FOOTER_ZOOM_ID}.show { opacity: 1; transform: translate(-50%, 0) scale(1); }
+      #${FOOTER_ZOOM_ID} .zoom-name {
+        font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.01em;
+        white-space: normal; word-break: break-word; line-height: 1.2;
+      }
+      #${FOOTER_ZOOM_ID} .zoom-value {
+        font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.15;
+      }
+    `;
+    document.head.appendChild(st);
+  }
+  let el = document.getElementById(FOOTER_ZOOM_ID);
+  if (!el) {
+    el = document.createElement('div');
+    el.id = FOOTER_ZOOM_ID;
+    el.setAttribute('role', 'tooltip');
+    el.innerHTML = '<span class="zoom-name"></span><span class="zoom-value"></span>';
+    document.body.appendChild(el);
+  }
+  return el;
+}
+
+function showFooterZoom(anchor: HTMLElement, name: string, value: string): void {
+  const el = ensureFooterZoomEl();
+  (el.querySelector('.zoom-name') as HTMLElement).textContent = name || '';
+  (el.querySelector('.zoom-value') as HTMLElement).textContent = value || '';
+  const r = anchor.getBoundingClientRect();
+  const half = 75; // metade do min-width — mantém dentro da tela nas pontas
+  const left = Math.min(Math.max(r.left + r.width / 2, half + 8), window.innerWidth - half - 8);
+  el.style.left = `${left}px`;
+  el.style.bottom = `${window.innerHeight - r.top + 8}px`;
+  el.classList.add('show');
+}
+
+function hideFooterZoom(): void {
+  document.getElementById(FOOTER_ZOOM_ID)?.classList.remove('show');
 }

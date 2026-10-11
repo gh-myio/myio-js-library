@@ -1333,6 +1333,48 @@ body.filter-modal-open { overflow: hidden !important; }
   };
 
   // RFC-0121: Helper to apply background to page and all relevant containers
+  // Paleta do dashboard (mesmo padrão do dashboard de shopping): settings → createMyIOTheme →
+  // --myio-brand-* no documentElement + window.MyIOUtils.theme. O accent vem do
+  // tabSelecionadoBackgroundColor (identidade visual do HO); toolbar, footer, zoom do footer e
+  // modais premium da lib passam a usar a cor do tema em vez do roxo padrão.
+  try {
+    const theme = MyIOLibrary.createMyIOTheme?.(settings, settings.defaultThemeMode === 'dark' ? 'dark' : 'light');
+    if (theme) {
+      window.MyIOUtils.theme = theme;
+      window.MyIOUtils.getTheme = (mode) => MyIOLibrary.createMyIOTheme(settings, mode);
+      theme.applyTo(document.documentElement);
+      LogHelper.log('[MAIN_UNIQUE] theme palette:', { mode: theme.mode, accent: theme.accent });
+    }
+  } catch (themeErr) {
+    LogHelper.warn('[MAIN_UNIQUE] theme palette failed:', themeErr?.message || themeErr);
+  }
+
+  // Nome da holding nos footers das modais premium (resolveDashboardCustomerName lê
+  // window.MyIOUtils.customerName): customer do alias "holding" do dashboard; sem o alias,
+  // o customerTB_ID das settings. Assíncrono e tolerante a falha (footer fica sem nome).
+  (async () => {
+    try {
+      const aliases = self.ctx?.aliasController?.getEntityAliases?.() || {};
+      const holdingAlias = Object.values(aliases).find(
+        (a) => String(a?.alias || '').trim().toLowerCase() === 'holding'
+      );
+      const holdingId = holdingAlias?.filter?.singleEntity?.id || settings.customerTB_ID;
+      if (!holdingId) return;
+      const res = await fetch(`/api/customer/${holdingId}`, {
+        headers: { 'X-Authorization': `Bearer ${getJwtToken()}` },
+      });
+      if (!res.ok) return;
+      const customer = await res.json();
+      const name = customer?.title || customer?.name || '';
+      if (name) {
+        window.MyIOUtils.customerName = name;
+        LogHelper.log('[MAIN_UNIQUE] holding name (footer):', name);
+      }
+    } catch (err) {
+      LogHelper.warn('[MAIN_UNIQUE] holding name lookup failed:', err?.message || err);
+    }
+  })();
+
   const applyBackgroundToPage = (themeMode) => {
     const themeSettings = themeMode === 'dark' ? settings.darkMode : settings.lightMode;
     const backgroundType = themeSettings?.backgroundType || 'color';
