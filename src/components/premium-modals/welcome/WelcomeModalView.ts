@@ -114,7 +114,20 @@ export class WelcomeModalView {
       shoppingCardBg: themeConfig.shoppingCardBackgroundColor,
       shoppingCardBorder: themeConfig.shoppingCardBorderColor,
     };
-    return { ...DEFAULT_PALETTE, ...configPalette, ...this.params.palette };
+    return { ...DEFAULT_PALETTE, ...configPalette, ...this.readDashboardBrand(), ...this.params.palette };
+  }
+
+  /**
+   * Paleta do tema do dashboard (createMyIOTheme publica --myio-brand-700/600 no :root).
+   * Quando presente, substitui o roxo padrão da modal; `params.palette` explícito ainda prevalece.
+   */
+  private readDashboardBrand(): Partial<WelcomePalette> {
+    if (typeof document === 'undefined' || typeof getComputedStyle !== 'function') return {};
+    const cs = getComputedStyle(document.documentElement);
+    const brand700 = cs.getPropertyValue('--myio-brand-700').trim();
+    if (!brand700) return {};
+    const brand600 = cs.getPropertyValue('--myio-brand-600').trim();
+    return { primary: brand700, secondary: brand600 || brand700 };
   }
 
   /**
@@ -569,9 +582,9 @@ export class WelcomeModalView {
   background: linear-gradient(135deg, #0a0f1a 0%, #1a1f2e 50%, #0d1117 100%);
   border-radius: 14px;
   box-shadow:
-    0 0 0 1px rgba(122, 47, 247, 0.2),
+    0 0 0 1px color-mix(in srgb, var(--wm-primary) 20%, transparent),
     0 25px 80px rgba(0, 0, 0, 0.5),
-    0 0 60px rgba(122, 47, 247, 0.15);
+    0 0 60px color-mix(in srgb, var(--wm-primary) 15%, transparent);
   overflow: hidden;
   /* Ensure flex children can handle their own overflow */
   min-height: 0;
@@ -588,7 +601,7 @@ export class WelcomeModalView {
   padding: 16px 32px 8px 32px;
   background:
     linear-gradient(180deg,
-      rgba(122, 47, 247, 0.25) 0%,
+      color-mix(in srgb, var(--wm-primary) 25%, transparent) 0%,
       var(--wm-gradient-start) 20%,
       var(--wm-gradient-end) 80%,
       rgba(13, 17, 23, 0.95) 100%
@@ -597,7 +610,7 @@ export class WelcomeModalView {
   background-size: cover;
   background-position: center;
   min-height: 22vh;
-  border-bottom: 1px solid rgba(122, 47, 247, 0.2);
+  border-bottom: 1px solid color-mix(in srgb, var(--wm-primary) 20%, transparent);
 }
 
 /* Brand Logo - Large floating */
@@ -791,15 +804,15 @@ export class WelcomeModalView {
   cursor: pointer;
   transition: all 0.3s ease;
   box-shadow:
-    0 4px 20px rgba(122, 47, 247, 0.4),
-    0 0 0 0 rgba(122, 47, 247, 0);
+    0 4px 20px color-mix(in srgb, var(--wm-primary) 40%, transparent),
+    0 0 0 0 color-mix(in srgb, var(--wm-primary) 0%, transparent);
 }
 
 .myio-welcome-cta-btn:hover {
   transform: translateY(-3px);
   box-shadow:
-    0 8px 30px rgba(122, 47, 247, 0.5),
-    0 0 0 4px rgba(122, 47, 247, 0.2);
+    0 8px 30px color-mix(in srgb, var(--wm-primary) 50%, transparent),
+    0 0 0 4px color-mix(in srgb, var(--wm-primary) 20%, transparent);
 }
 
 .myio-welcome-cta-btn:active {
@@ -857,7 +870,7 @@ export class WelcomeModalView {
 .myio-welcome-search:focus-within {
   background: rgba(255,255,255,0.12);
   border-color: var(--wm-primary);
-  box-shadow: 0 0 0 2px rgba(122, 47, 247, 0.2);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--wm-primary) 20%, transparent);
 }
 
 .myio-welcome-search-icon {
@@ -1078,17 +1091,17 @@ export class WelcomeModalView {
 /* Hover effects only for clickable cards */
 .myio-welcome-card--clickable:hover {
   transform: scale(1.03);
-  border-color: rgba(122, 47, 247, 0.5);
+  border-color: color-mix(in srgb, var(--wm-primary) 50%, transparent);
   box-shadow:
     0 12px 40px rgba(0,0,0,0.4),
-    0 0 0 1px rgba(122, 47, 247, 0.4),
-    0 0 30px rgba(122, 47, 247, 0.15);
+    0 0 0 1px color-mix(in srgb, var(--wm-primary) 40%, transparent),
+    0 0 30px color-mix(in srgb, var(--wm-primary) 15%, transparent);
 }
 
 .myio-welcome-card--clickable:focus {
   outline: none;
   box-shadow:
-    0 0 0 3px rgba(122, 47, 247, 0.5),
+    0 0 0 3px color-mix(in srgb, var(--wm-primary) 50%, transparent),
     0 12px 40px rgba(0,0,0,0.4);
 }
 
@@ -1250,7 +1263,7 @@ export class WelcomeModalView {
 .myio-welcome-card-device-count.energy .count-spinner { border-top-color: #22c55e; }
 .myio-welcome-card-device-count.water .count-spinner { border-top-color: #3b82f6; }
 .myio-welcome-card-device-count.temperature .count-spinner { border-top-color: #f97316; }
-.myio-welcome-card-device-count.users .count-spinner { border-top-color: #a78bfa; }
+.myio-welcome-card-device-count.users .count-spinner { border-top-color: color-mix(in srgb, var(--wm-primary) 55%, white); }
 .myio-welcome-card-device-count.alarms .count-spinner { border-top-color: #ef4444; }
 .myio-welcome-card-device-count.annotations .count-spinner { border-top-color: #6c5ce7; }
 .myio-welcome-card-device-count.notifications .count-spinner { border-top-color: #f59e0b; }
@@ -1275,7 +1288,7 @@ export class WelcomeModalView {
   height: 100%;
   width: 0%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #7c3aed, #22c55e);
+  background: linear-gradient(90deg, var(--wm-primary), #22c55e);
   background-size: 200% 100%;
   animation: welcome-progress-shimmer 1.6s ease infinite;
   transition: width 0.4s ease;
@@ -1309,7 +1322,7 @@ export class WelcomeModalView {
   height: 100%;
   width: 0%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #7c3aed, #a78bfa, #22c55e);
+  background: linear-gradient(90deg, var(--wm-primary), color-mix(in srgb, var(--wm-primary) 55%, white), #22c55e);
   background-size: 200% 100%;
   animation: welcome-progress-shimmer 1.6s ease infinite;
   transition: width 0.4s ease;
@@ -1646,13 +1659,13 @@ export class WelcomeModalView {
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  gap: 6px !important;
+  gap: 8px !important;
 }
 
 /* Extend device-count styles for meta types */
 .myio-welcome-card-device-count.users:hover {
-  background: rgba(124, 58, 237, 0.3);
-  border-color: rgba(124, 58, 237, 0.5);
+  background: color-mix(in srgb, var(--wm-primary) 30%, transparent);
+  border-color: color-mix(in srgb, var(--wm-primary) 50%, transparent);
 }
 
 .myio-welcome-card-device-count.alarms:hover {
@@ -1665,7 +1678,7 @@ export class WelcomeModalView {
   border-color: rgba(234, 179, 8, 0.5);
 }
 
-.myio-welcome-card-device-count.users .icon { color: #a78bfa; }
+.myio-welcome-card-device-count.users .icon { color: color-mix(in srgb, var(--wm-primary) 55%, white); }
 .myio-welcome-card-device-count.alarms .icon { color: #f87171; }
 .myio-welcome-card-device-count.notifications .icon { color: #fbbf24; }
 
@@ -1687,21 +1700,21 @@ export class WelcomeModalView {
 .myio-welcome-modal--light .myio-welcome-modal-container {
   background: linear-gradient(135deg, #f8f9fc 0%, #ffffff 50%, #f0f2f5 100%);
   box-shadow:
-    0 0 0 1px rgba(122, 47, 247, 0.15),
+    0 0 0 1px color-mix(in srgb, var(--wm-primary) 15%, transparent),
     0 25px 80px rgba(0, 0, 0, 0.2),
-    0 0 60px rgba(122, 47, 247, 0.1);
+    0 0 60px color-mix(in srgb, var(--wm-primary) 10%, transparent);
 }
 
 .myio-welcome-modal--light .myio-welcome-hero {
   background:
     linear-gradient(180deg,
-      rgba(122, 47, 247, 0.12) 0%,
+      color-mix(in srgb, var(--wm-primary) 12%, transparent) 0%,
       rgba(255, 255, 255, 0.7) 20%,
       rgba(255, 255, 255, 0.85) 80%,
       rgba(248, 249, 252, 0.95) 100%
     ),
     var(--wm-bg-image, none);
-  border-bottom: 1px solid rgba(122, 47, 247, 0.15);
+  border-bottom: 1px solid color-mix(in srgb, var(--wm-primary) 15%, transparent);
 }
 
 .myio-welcome-modal--light .myio-welcome-hero-title {
@@ -1791,11 +1804,11 @@ export class WelcomeModalView {
 }
 
 .myio-welcome-modal--light .myio-welcome-card:hover {
-  border-color: rgba(122, 47, 247, 0.4);
+  border-color: color-mix(in srgb, var(--wm-primary) 40%, transparent);
   box-shadow:
     0 12px 40px rgba(0, 0, 0, 0.12),
-    0 0 0 1px rgba(122, 47, 247, 0.3),
-    0 0 30px rgba(122, 47, 247, 0.1);
+    0 0 0 1px color-mix(in srgb, var(--wm-primary) 30%, transparent),
+    0 0 30px color-mix(in srgb, var(--wm-primary) 10%, transparent);
 }
 
 .myio-welcome-modal--light .myio-welcome-card::before {
@@ -1883,8 +1896,8 @@ export class WelcomeModalView {
 
 /* Light theme - meta counts use same device-count light styles */
 .myio-welcome-modal--light .myio-welcome-card-device-count.users:hover {
-  background: rgba(124, 58, 237, 0.15);
-  border-color: rgba(124, 58, 237, 0.4);
+  background: color-mix(in srgb, var(--wm-primary) 15%, transparent);
+  border-color: color-mix(in srgb, var(--wm-primary) 40%, transparent);
 }
 
 .myio-welcome-modal--light .myio-welcome-card-device-count.alarms:hover {
@@ -2139,7 +2152,7 @@ export class WelcomeModalView {
     // null = loading (spinner), number = loaded, undefined = legacy caller without meta data (0)
     const meta = card.metaCounts || {};
     const renderMetaCount = (count: number | null | undefined): string =>
-      count === null ? '<span class="count-spinner"></span>' : String(count ?? 0);
+      count === null ? '<span class="count-spinner"></span>' : `<span class="count">${count ?? 0}</span>`;
     // When annotations is provided (even null = loading), the third badge replaces legacy notifications
     const thirdBadgeHTML = meta.annotationsLocked
       ? `<span class="myio-welcome-card-device-count annotations locked"
@@ -2147,7 +2160,7 @@ export class WelcomeModalView {
               data-card-index="${index}"
               title="Anotações — funcionalidade não liberada ainda (em breve)"
               style="opacity:.6;cursor:not-allowed;">
-          <span class="icon">📋</span> <span class="icon" style="font-size:.85em;">🔒</span>
+          <span class="icon">📋</span> <span class="count">🔒</span>
         </span>`
       : 'annotations' in meta
         ? `<span class="myio-welcome-card-device-count annotations"
@@ -2528,49 +2541,111 @@ export class WelcomeModalView {
   }
 
   private static metaChip(text: string): string {
-    return `<span style="display:inline-block;padding:2px 8px;margin:0 4px 4px 0;border-radius:10px;background:#334155;font-weight:700">${WelcomeModalView.escapeMetaHtml(text)}</span>`;
+    return `<span class="myio-welcome-meta-tip__chip">${WelcomeModalView.escapeMetaHtml(text)}</span>`;
   }
+
+  // Mesmo padrão visual do EnergySummaryTooltip (card branco, header em degradê da cor do tipo,
+  // banner de total, títulos de seção em caixa alta). Usuários segue a cor do tema do dashboard.
+  private static readonly META_TIP_CSS = `
+.myio-welcome-meta-tip {
+  position: fixed; z-index: 100000; width: 360px; max-width: calc(100vw - 16px);
+  background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15), 0 2px 10px rgba(0, 0, 0, 0.08);
+  font: 12px 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: #1e293b; overflow: hidden; display: none;
+}
+.myio-welcome-meta-tip__header {
+  display: flex; align-items: center; gap: 8px; padding: 10px 14px;
+  background: linear-gradient(90deg, var(--mt-bg1) 0%, var(--mt-bg2) 100%);
+  border-bottom: 1px solid var(--mt-border);
+}
+.myio-welcome-meta-tip__icon { font-size: 18px; }
+.myio-welcome-meta-tip__title { flex: 1; font-weight: 700; font-size: 14px; color: var(--mt-accent); }
+.myio-welcome-meta-tip__timestamp { font-size: 10px; color: #6b7280; }
+.myio-welcome-meta-tip__close {
+  width: 24px; height: 24px; border: none; border-radius: 4px; cursor: pointer;
+  background: rgba(255, 255, 255, 0.6); color: #64748b;
+  display: flex; align-items: center; justify-content: center; font-size: 14px; line-height: 1;
+}
+.myio-welcome-meta-tip__close:hover { background: rgba(255, 255, 255, 0.9); color: #1e293b; }
+.myio-welcome-meta-tip__body { padding: 14px; max-height: 60vh; overflow-y: auto; }
+.myio-welcome-meta-tip__total {
+  display: flex; align-items: center; justify-content: space-between; padding: 10px 12px;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 12px;
+}
+.myio-welcome-meta-tip__total-label { font-weight: 600; color: #475569; font-size: 12px; }
+.myio-welcome-meta-tip__total-value { font-weight: 700; font-size: 20px; color: #1e293b; }
+.myio-welcome-meta-tip__section-title {
+  font-weight: 700; font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;
+  margin: 12px 0 6px; padding-bottom: 4px; border-bottom: 1px solid #e2e8f0;
+}
+.myio-welcome-meta-tip__chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.myio-welcome-meta-tip__chip {
+  display: inline-block; padding: 3px 10px; border-radius: 999px; font-weight: 700; font-size: 11px;
+  color: var(--mt-accent); background: var(--mt-bg1); border: 1px solid var(--mt-border);
+}
+.myio-welcome-meta-tip__row { padding: 7px 10px; border-radius: 6px; }
+.myio-welcome-meta-tip__row:nth-child(odd) { background: #f8fafc; }
+.myio-welcome-meta-tip__row-title { font-weight: 600; color: #1e293b; }
+.myio-welcome-meta-tip__row-sub { color: #64748b; font-size: 11px; margin-top: 1px; }
+.myio-welcome-meta-tip__empty { color: #64748b; padding: 6px 2px; }
+`;
 
   private ensureMetaTip(): HTMLDivElement {
     if (this.metaTipEl && document.body.contains(this.metaTipEl)) return this.metaTipEl;
+    if (!document.getElementById('myio-welcome-meta-tip-styles')) {
+      const style = document.createElement('style');
+      style.id = 'myio-welcome-meta-tip-styles';
+      style.textContent = WelcomeModalView.META_TIP_CSS;
+      document.head.appendChild(style);
+    }
     const tip = document.createElement('div');
     tip.className = 'myio-welcome-meta-tip';
-    Object.assign(tip.style, {
-      position: 'fixed',
-      zIndex: '100000',
-      minWidth: '260px',
-      maxWidth: '360px',
-      maxHeight: '60vh',
-      overflow: 'auto',
-      background: '#1e293b',
-      color: '#e2e8f0',
-      border: '1px solid #334155',
-      borderRadius: '10px',
-      boxShadow: '0 12px 40px rgba(0,0,0,.45)',
-      padding: '12px 14px',
-      font: "12px 'Nunito', system-ui, -apple-system, sans-serif",
-      display: 'none',
-    });
     tip.addEventListener('mouseenter', () => {
       if (this.metaTipHideTimer) clearTimeout(this.metaTipHideTimer);
     });
     tip.addEventListener('mouseleave', () => this.startMetaTipDelayedHide());
+    tip.addEventListener('click', (e) => {
+      if ((e.target as HTMLElement).closest('.myio-welcome-meta-tip__close')) this.hideMetaTip();
+    });
     document.body.appendChild(tip);
     this.metaTipEl = tip;
     return tip;
   }
 
+  /** Cores do tooltip por tipo de badge (usuários = cor do tema). */
+  private metaTipAccent(type: string): { accent: string; bg1: string; bg2: string; border: string } {
+    if (type === 'alarms') return { accent: '#b91c1c', bg1: '#fef2f2', bg2: '#fee2e2', border: '#fca5a5' };
+    if (type.startsWith('annotations')) return { accent: '#5b21b6', bg1: '#f5f3ff', bg2: '#ede9fe', border: '#c4b5fd' };
+    if (type === 'notifications') return { accent: '#b45309', bg1: '#fffbeb', bg2: '#fef3c7', border: '#fcd34d' };
+    const p = this.palette.primary || '#7A2FF7';
+    return {
+      accent: p,
+      bg1: `color-mix(in srgb, ${p} 6%, white)`,
+      bg2: `color-mix(in srgb, ${p} 16%, white)`,
+      border: `color-mix(in srgb, ${p} 40%, white)`,
+    };
+  }
+
   private showMetaTip(anchorEl: HTMLElement, type: string, card: ShoppingCard): void {
     const tip = this.ensureMetaTip();
     if (this.metaTipHideTimer) clearTimeout(this.metaTipHideTimer);
+    const c = this.metaTipAccent(type);
+    tip.style.setProperty('--mt-accent', c.accent);
+    tip.style.setProperty('--mt-bg1', c.bg1);
+    tip.style.setProperty('--mt-bg2', c.bg2);
+    tip.style.setProperty('--mt-border', c.border);
     tip.innerHTML = this.buildMetaTipHtml(type, card);
     tip.style.display = 'block';
     const r = anchorEl.getBoundingClientRect();
-    const tw = Math.min(360, window.innerWidth - 16);
+    const tw = tip.offsetWidth || Math.min(360, window.innerWidth - 16);
     let left = r.left;
     if (left + tw > window.innerWidth - 8) left = window.innerWidth - tw - 8;
     tip.style.left = Math.max(8, left) + 'px';
-    tip.style.top = r.bottom + 8 + 'px';
+    const th = tip.offsetHeight;
+    const below = r.bottom + 8;
+    tip.style.top = (below + th > window.innerHeight - 8 ? Math.max(8, r.top - th - 8) : below) + 'px';
   }
 
   private startMetaTipDelayedHide(): void {
@@ -2591,60 +2666,79 @@ export class WelcomeModalView {
     const chip = WelcomeModalView.metaChip;
     const meta = card.metaCounts || {};
     const details = card.metaDetails || {};
-    const loadingBody = '<div style="opacity:.7;padding:6px 0">Carregando…</div>';
-    const header = (icon: string, label: string, count?: number | null) =>
-      `<div style="font-weight:800;font-size:13px;margin-bottom:8px">${icon} ${label}${
-        count === null || count === undefined ? '' : ` (${count})`
-      } — ${esc(card.title)}</div>`;
-    const row = (titleHtml: string, subHtml: string) =>
-      `<div style="padding:6px 0;border-top:1px solid #334155">
-         <div style="font-weight:600">${titleHtml}</div>
-         ${subHtml ? `<div style="opacity:.7">${subHtml}</div>` : ''}
+    const now = new Date();
+    const stamp = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')} ${String(
+      now.getHours()
+    ).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const frame = (icon: string, label: string, body: string) =>
+      `<div class="myio-welcome-meta-tip__header">
+         <span class="myio-welcome-meta-tip__icon">${icon}</span>
+         <span class="myio-welcome-meta-tip__title">${label} (${esc(card.title)})</span>
+         <span class="myio-welcome-meta-tip__timestamp">${stamp}</span>
+         <button type="button" class="myio-welcome-meta-tip__close" title="Fechar">✕</button>
+       </div>
+       <div class="myio-welcome-meta-tip__body">${body}</div>`;
+    const total = (label: string, value: number) =>
+      `<div class="myio-welcome-meta-tip__total">
+         <span class="myio-welcome-meta-tip__total-label">${label}</span>
+         <span class="myio-welcome-meta-tip__total-value">${value}</span>
        </div>`;
+    const section = (title: string) => `<div class="myio-welcome-meta-tip__section-title">${title}</div>`;
+    const empty = (text: string) => `<div class="myio-welcome-meta-tip__empty">${text}</div>`;
+    const loadingBody = empty('Carregando…');
+    const row = (titleHtml: string, subHtml: string) =>
+      `<div class="myio-welcome-meta-tip__row">
+         <div class="myio-welcome-meta-tip__row-title">${titleHtml}</div>
+         ${subHtml ? `<div class="myio-welcome-meta-tip__row-sub">${subHtml}</div>` : ''}
+       </div>`;
+    const more = (n: number) => (n > 10 ? empty(`… e mais ${n - 10}`) : '');
 
     if (type === 'alarms') {
-      if (meta.alarms === null) return header('🚨', 'Alarmes') + loadingBody;
+      if (meta.alarms === null) return frame('🚨', 'Alarmes', loadingBody);
       const alarms = details.alarms || [];
       const byState: Record<string, number> = {};
       for (const a of alarms) {
         const s = a.state || 'OPEN';
         byState[s] = (byState[s] || 0) + 1;
       }
-      const chips =
-        Object.entries(byState)
-          .map(([s, n]) => chip(`${s}: ${n}`))
-          .join('') || '<span style="opacity:.7">Sem alarmes ativos</span>';
+      const chips = Object.entries(byState)
+        .map(([s, n]) => chip(`${s}: ${n}`))
+        .join('');
       const rows = alarms
         .slice(0, 10)
         .map((a) =>
           row(
             esc(a.deviceName ? `${a.deviceName} — ${a.title || 'Alarme'}` : a.title || 'Alarme'),
-            `${esc(a.severity || '')} · ${esc(a.state || '')}`
+            [a.severity, a.state].filter(Boolean).map(esc).join(' · ')
           )
         )
         .join('');
-      return `${header('🚨', 'Alarmes', meta.alarms ?? alarms.length)}<div style="margin-bottom:6px">${chips}</div>${rows}`;
-    }
-
-    if (type === 'annotations-locked') {
-      return (
-        header('📋', 'Anotações') +
-        '<div style="opacity:.85;padding:6px 0">🔒 Funcionalidade não liberada ainda — em breve.</div>'
+      return frame(
+        '🚨',
+        'Alarmes',
+        total('Total de Alarmes', meta.alarms ?? alarms.length) +
+          (chips ? section('Por estado') + `<div class="myio-welcome-meta-tip__chips">${chips}</div>` : '') +
+          section('Mais recentes') +
+          (rows || empty('Sem alarmes ativos')) +
+          more(alarms.length)
       );
     }
 
+    if (type === 'annotations-locked') {
+      return frame('📋', 'Anotações', empty('🔒 Funcionalidade não liberada ainda — em breve.'));
+    }
+
     if (type === 'annotations') {
-      if (meta.annotations === null) return header('📋', 'Anotações') + loadingBody;
+      if (meta.annotations === null) return frame('📋', 'Anotações', loadingBody);
       const annotations = details.annotations || [];
       const byType: Record<string, number> = {};
       for (const a of annotations) {
         const t = a.type || 'observation';
         byType[t] = (byType[t] || 0) + 1;
       }
-      const chips =
-        Object.entries(byType)
-          .map(([t, n]) => chip(`${t}: ${n}`))
-          .join('') || '<span style="opacity:.7">Sem anotações ativas</span>';
+      const chips = Object.entries(byType)
+        .map(([t, n]) => chip(`${t}: ${n}`))
+        .join('');
       const rows = annotations
         .slice(0, 10)
         .map((a) => {
@@ -2653,27 +2747,40 @@ export class WelcomeModalView {
           return row(esc(a.deviceLabel || 'Dispositivo'), `${esc(text)}${when ? ` · ${esc(when)}` : ''}`);
         })
         .join('');
-      return `${header('📋', 'Anotações', meta.annotations ?? annotations.length)}<div style="margin-bottom:6px">${chips}</div>${rows}`;
+      return frame(
+        '📋',
+        'Anotações',
+        total('Total de Anotações', meta.annotations ?? annotations.length) +
+          (chips ? section('Por tipo') + `<div class="myio-welcome-meta-tip__chips">${chips}</div>` : '') +
+          section('Mais recentes') +
+          (rows || empty('Sem anotações ativas')) +
+          more(annotations.length)
+      );
     }
 
     if (type === 'users') {
-      if (meta.users === null) return header('👥', 'Usuários') + loadingBody;
+      if (meta.users === null) return frame('👥', 'Usuários', loadingBody);
       const users = details.users || [];
-      const rows =
-        users
-          .slice(0, 10)
-          .map((u) => row(esc(u.name), esc(u.email || '')))
-          .join('') || '<div style="opacity:.7;padding:6px 0">Sem usuários</div>';
-      const more =
-        users.length > 10
-          ? `<div style="opacity:.7;padding:6px 0 0">… e mais ${users.length - 10}</div>`
-          : '';
-      return `${header('👥', 'Usuários', meta.users ?? users.length)}${rows}${more}`;
+      const rows = users
+        .slice(0, 10)
+        .map((u) => row(esc(u.name), esc(u.email || '')))
+        .join('');
+      return frame(
+        '👥',
+        'Usuários',
+        total('Total de Usuários', meta.users ?? users.length) +
+          section('Usuários') +
+          (rows || empty('Sem usuários')) +
+          more(users.length)
+      );
     }
 
     // Legacy notifications badge (callers that don't provide annotations)
-    return header('🔔', 'Notificações', meta.notifications ?? 0) +
-      '<div style="opacity:.7;padding:6px 0">Sem notificações</div>';
+    return frame(
+      '🔔',
+      'Notificações',
+      total('Total de Notificações', meta.notifications ?? 0) + empty('Sem notificações')
+    );
   }
 
   /**

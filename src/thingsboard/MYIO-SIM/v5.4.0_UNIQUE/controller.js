@@ -10403,6 +10403,20 @@ function extractDeviceMetadataToBuildShoppingsList(row) {
 }
 
 /**
+ * "Tempo em operação" do card = tempo desde a última conexão (mesma regra do shopping
+ * v-5.2.0 / DeviceGridWidgetFactory). Requer o atributo `lastConnectTime` no datasource.
+ * Desconectado depois da última conexão → null (card mostra "-").
+ */
+function formatOperationTime(lastConnectTime, lastDisconnectTime) {
+  const connectedAt = Number(lastConnectTime);
+  if (!Number.isFinite(connectedAt) || connectedAt <= 0) return null;
+  const disconnectedAt = Number(lastDisconnectTime);
+  if (Number.isFinite(disconnectedAt) && disconnectedAt > connectedAt) return null;
+  const fmt = window.MyIOLibrary?.formatarDuracao;
+  return typeof fmt === 'function' ? fmt(Math.max(0, Date.now() - connectedAt)) : null;
+}
+
+/**
  * Extract device metadata from ALL rows for a single device
  * ThingsBoard sends 1 row per (device, dataKey), so we need to merge all rows
  */
@@ -10543,7 +10557,10 @@ function extractDeviceMetadataFromRows(rows) {
     instantaneousPower: instantaneousPowerFromTB,
     consumption_power: instantaneousPowerFromTB, // Alias for card component
     consumptionPower: instantaneousPowerFromTB, // Alias for EQUIPMENTS
-    operationHours: dataKeyValues['operationHours'] || dataKeyValues['operation_hours'] || null,
+    operationHours:
+      dataKeyValues['operationHours'] ||
+      dataKeyValues['operation_hours'] ||
+      formatOperationTime(dataKeyValues['lastConnectTime'], dataKeyValues['lastDisconnectTime']),
 
     // RFC-0111 FIX: Power limits for EQUIPMENTS status calculation
     deviceMapInstaneousPower: deviceMapInstaneousPower,
