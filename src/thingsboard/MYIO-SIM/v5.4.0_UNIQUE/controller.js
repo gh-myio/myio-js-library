@@ -2015,7 +2015,6 @@ body.filter-modal-open { overflow: hidden !important; }
 
       const energyByStatus = buildTooltipStatusData(allEnergyDevices);
       const waterByStatus = buildTooltipStatusData(allWaterDevices);
-      const tempByStatus = buildTooltipStatusData(allTempDevices);
 
       // Get temperature limits
       const minTemp = Number(window.MyIOUtils?.temperatureLimits?.minTemperature ?? 18);
@@ -2097,7 +2096,7 @@ body.filter-modal-open { overflow: hidden !important; }
             devices: tempDevicesForTooltip,
             temperatureMin: minTemp,
             temperatureMax: maxTemp,
-            byStatus: tempByStatus,
+            byStatus: buildTemperatureTooltipStatus(allTempDevices, minTemp, maxTemp),
             lastUpdated: new Date().toISOString(),
           },
         })
@@ -2442,7 +2441,6 @@ body.filter-modal-open { overflow: hidden !important; }
       // RFC-0126: Build full tooltip payloads (so tooltips don't regress to zeros)
       const energyByStatus = buildTooltipStatusData(filteredEnergy);
       const waterByStatus = buildTooltipStatusData(filteredWater);
-      const tempByStatus = buildTooltipStatusData(filteredTemp);
 
       // Get temperature limits from MyIOUtils (populated from customer attributes)
       const minTemp = Number(window.MyIOUtils?.temperatureLimits?.minTemperature ?? 18);
@@ -2529,7 +2527,7 @@ body.filter-modal-open { overflow: hidden !important; }
             devices: tempDevicesForTooltip,
             temperatureMin: minTemp,
             temperatureMax: maxTemp,
-            byStatus: tempByStatus,
+            byStatus: buildTemperatureTooltipStatus(filteredTemp, minTemp, maxTemp),
             lastUpdated: new Date().toISOString(),
           },
         })
@@ -3098,7 +3096,7 @@ body.filter-modal-open { overflow: hidden !important; }
             totalDevices: temperatureItems.length,
             temperatureMin: minTempReload,
             temperatureMax: maxTempReload,
-            byStatus: buildTooltipStatusData(temperatureItems),
+            byStatus: buildTemperatureTooltipStatus(temperatureItems, minTempReload, maxTempReload),
             lastUpdated: new Date().toISOString(),
           },
         })
@@ -9440,7 +9438,6 @@ function processDataAndDispatchEvents() {
 
   const energyByStatus = buildTooltipStatusData(allEnergyDevices);
   const waterByStatus = buildTooltipStatusData(allWaterDevices);
-  const tempByStatus = buildTooltipStatusData(allTempDevices);
 
   // Get temperature limits from MyIOUtils
   const minTemp = Number(window.MyIOUtils?.temperatureLimits?.minTemperature ?? 18);
@@ -9517,7 +9514,7 @@ function processDataAndDispatchEvents() {
         devices: tempDevicesForTooltip,
         temperatureMin: minTemp,
         temperatureMax: maxTemp,
-        byStatus: tempByStatus,
+        byStatus: buildTemperatureTooltipStatus(allTempDevices, minTemp, maxTemp),
         lastUpdated: new Date().toISOString(),
       },
     })
@@ -9644,6 +9641,53 @@ function buildTooltipStatusData(devices) {
         byStatus.normal++;
         byStatus.normalDevices.push(deviceInfo);
       }
+    }
+  });
+
+  return byStatus;
+}
+
+// Temperatura não tem "consumo": a regra da energia (online + valor 0 = "Sem consumo") jogava
+// todo sensor online em noConsumption, e o tooltip mostrava 0 Na Faixa / 0 Fora da Faixa.
+// Conectividade (offline/aguardando/conexão fraca/falha/standby) segue buildTooltipStatusData;
+// os demais são classificados pela faixa ideal: dentro → normal, fora → alert, sem leitura → noConsumption.
+function buildTemperatureTooltipStatus(devices, minTemp, maxTemp) {
+  const byStatus = buildTooltipStatusData(devices);
+  const connectivityIds = new Set(
+    [
+      ...byStatus.offlineDevices,
+      ...byStatus.waitingDevices,
+      ...byStatus.weakConnectionDevices,
+      ...byStatus.failureDevices,
+      ...byStatus.standbyDevices,
+    ].map((d) => d.id)
+  );
+  byStatus.normal = 0;
+  byStatus.normalDevices = [];
+  byStatus.alert = 0;
+  byStatus.alertDevices = [];
+  byStatus.noConsumption = 0;
+  byStatus.noConsumptionDevices = [];
+
+  (devices || []).forEach((d) => {
+    const id = d.id || d.entityId || '';
+    if (connectivityIds.has(id)) return;
+    const temp = Number(d.temperature);
+    const deviceInfo = {
+      id,
+      name: d.labelOrName || d.name || d.deviceName || '',
+      value: Number.isFinite(temp) ? temp : 0,
+      customerName: d.customerName || d.ownerName || '',
+    };
+    if (!Number.isFinite(temp) || temp <= 0) {
+      byStatus.noConsumption++;
+      byStatus.noConsumptionDevices.push(deviceInfo);
+    } else if (temp >= minTemp && temp <= maxTemp) {
+      byStatus.normal++;
+      byStatus.normalDevices.push(deviceInfo);
+    } else {
+      byStatus.alert++;
+      byStatus.alertDevices.push(deviceInfo);
     }
   });
 
@@ -11393,8 +11437,9 @@ async function _enrichDevicesWithConsumptionImpl(classified) {
   }
 
   // RFC-0189: Temperature enrichment — per-device API fetch to derive lastTelemetryTs for
-  // offline detection (RFC-0188). Card value stays ThingsBoard real-time; the API only supplies
-  // the ingestion timestamp and last raw value. Disabled by default (enableTemperatureApiDataFetch).
+  // offline detection (RFC-0188) and, as in the shopping dash, the card value = most recent
+  // hourly average from the Ingestion. Disabled by default (enableTemperatureApiDataFetch) →
+  // card value stays ThingsBoard real-time.
   if (window.MyIOUtils?.enableTemperatureApiDataFetch) {
     try {
       const temperatureIngestionMap = new Map();
@@ -11416,6 +11461,13 @@ async function _enrichDevicesWithConsumptionImpl(classified) {
         const endTime = new Date().toISOString();
         const startTime = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString();
         const ingestionIds = [...temperatureIngestionMap.keys()];
+        const fetchedAt = Date.now();
+        const HOUR_MS = 60 * 60 * 1000;
+        const clamp = window.MyIOUtils?.temperatureClampRange;
+        const validRange =
+          clamp && Number.isFinite(Number(clamp.min)) && Number.isFinite(Number(clamp.max))
+            ? { min: Number(clamp.min), max: Number(clamp.max) }
+            : { min: 15, max: 40 };
 
         let matchCount = 0;
 
@@ -11453,7 +11505,32 @@ async function _enrichDevicesWithConsumptionImpl(classified) {
                     ? Number(lastEntry.value)
                     : null;
 
-                return lastTelemetryTs ? { ingestionId, lastTelemetryTs, lastValue } : null;
+                // Hora fechada mais recente (média das leituras válidas da hora) — mesma regra do
+                // dash do shopping (v-5.2.0 MAIN_VIEW), p/ que os dois mostrem a mesma temperatura.
+                const device = temperatureIngestionMap.get(ingestionId);
+                const off = Number(device?.offSetTemperature || 0);
+                const buckets = new Map();
+                let lastValidTs = null;
+                for (const e of row.consumption) {
+                  const ts = new Date(e?.timestamp).getTime();
+                  const v = Number(e?.value);
+                  if (!Number.isFinite(ts) || !Number.isFinite(v)) continue;
+                  if (v + off < validRange.min || v + off > validRange.max) continue; // leitura inválida
+                  const h = Math.floor(ts / HOUR_MS) * HOUR_MS;
+                  const b = buckets.get(h) || { sum: 0, n: 0 };
+                  b.sum += v;
+                  b.n += 1;
+                  buckets.set(h, b);
+                  if (lastValidTs === null || ts > lastValidTs) lastValidTs = ts;
+                }
+                let hourly = null;
+                if (buckets.size) {
+                  const hourTs = Math.max(...buckets.keys());
+                  const b = buckets.get(hourTs);
+                  hourly = { value: b.sum / b.n, hourTs, lastTs: lastValidTs };
+                }
+
+                return lastTelemetryTs ? { ingestionId, lastTelemetryTs, lastValue, hourly } : null;
               })
             );
 
@@ -11464,8 +11541,20 @@ async function _enrichDevicesWithConsumptionImpl(classified) {
 
                 device.lastTelemetryTs = result.value.lastTelemetryTs;
                 if (Number.isFinite(result.value.lastValue)) {
-                  // Do NOT overwrite device.temperature/val — card value stays ThingsBoard real-time
                   device.lastApiTemperature = result.value.lastValue;
+                }
+                // Flag ligada → valor do card = média da hora mais recente no Ingestion (igual ao
+                // dash do shopping). Sem hora válida na janela → mantém a leitura do ThingsBoard.
+                const hourly = result.value.hourly;
+                if (hourly && Number.isFinite(hourly.value)) {
+                  device.thingsboardTemperature = device.temperature;
+                  device.temperature = hourly.value;
+                  device.temperatureSource = 'ingestion-hourly';
+                  device.temperatureHourTs = hourly.hourTs;
+                  device.temperatureLastTs = hourly.lastTs;
+                  device.temperatureFetchedAt = fetchedAt;
+                } else {
+                  device.temperatureSource = 'thingsboard';
                 }
                 device.apiEnriched = true;
                 matchCount++;
@@ -11820,8 +11909,6 @@ async function triggerApiEnrichment() {
 
     const energyByStatusAfterEnrich = buildTooltipStatusData(allEnergyDevicesAfterEnrich);
     const waterByStatusAfterEnrich = buildTooltipStatusData(allWaterDevicesAfterEnrich);
-    const tempByStatusAfterEnrich = buildTooltipStatusData(allTempDevicesAfterEnrich);
-
     const minTemp = Number(window.MyIOUtils?.temperatureLimits?.minTemperature ?? 18);
     const maxTemp = Number(window.MyIOUtils?.temperatureLimits?.maxTemperature ?? 26);
 
@@ -11891,7 +11978,7 @@ async function triggerApiEnrichment() {
           devices: tempDevicesForTooltipAfterEnrich,
           temperatureMin: minTemp,
           temperatureMax: maxTemp,
-          byStatus: tempByStatusAfterEnrich,
+          byStatus: buildTemperatureTooltipStatus(allTempDevicesAfterEnrich, minTemp, maxTemp),
           lastUpdated: new Date().toISOString(),
         },
       })

@@ -46,10 +46,10 @@
         "description": "RFC-0046: Customer key (gcdr_cust_*) sent as X-API-Key on GCDR requests (Goals). Fallback when the customer SERVER_SCOPE attribute gcdrApiKey is not set."
       },
       "enableTemperatureApiDataFetch": {
-        "title": "Enable Temperature API Fetch (offline detection)",
+        "title": "Enable Temperature API Fetch (Ingestion value + offline detection)",
         "type": "boolean",
         "default": false,
-        "description": "RFC-0189: When true, calls the Data Apps API per temperature device over the last 72h to derive lastTelemetryTs for accurate offline detection (RFC-0188). One HTTP call per device at each data load. Enable for customers whose temperature devices are integrated into the Data Apps pipeline."
+        "description": "RFC-0189: When true, calls the Data Apps API per temperature device over the last 72h: the card value becomes the most recent hourly average from the Ingestion (same rule as the shopping dashboard) and lastTelemetryTs drives offline detection (RFC-0188). Devices without valid data keep the ThingsBoard reading. When false, values are the ThingsBoard real-time reading. One HTTP call per device at each data load."
       },
       "customerTB_ID": {
         "title": "ThingsBoard Customer ID",
