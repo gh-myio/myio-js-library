@@ -1567,8 +1567,9 @@ export class WelcomeModalView {
   align-items: center;
   justify-content: center;
   padding: 12px 20px;
-  background: #5B2EBC;
-  border-top: 1px solid rgba(122, 47, 247, 0.3);
+  /* paleta do tema do dashboard (createMyIOTheme → --myio-brand-700); roxo MYIO sem tema */
+  background: var(--myio-brand-700, #5B2EBC);
+  border-top: 1px solid color-mix(in srgb, var(--myio-brand-700, #7A2FF7) 30%, transparent);
 }
 
 .myio-welcome-footer-text {
@@ -1861,8 +1862,8 @@ export class WelcomeModalView {
 }
 
 .myio-welcome-modal--light .myio-welcome-footer {
-  background: #5B2EBC;
-  border-top-color: rgba(122, 47, 247, 0.3);
+  background: var(--myio-brand-700, #5B2EBC);
+  border-top-color: color-mix(in srgb, var(--myio-brand-700, #7A2FF7) 30%, transparent);
 }
 
 .myio-welcome-modal--light .myio-welcome-footer-text {

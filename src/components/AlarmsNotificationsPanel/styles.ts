@@ -421,6 +421,14 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   animation: afmSlideUp 0.2s ease;
 }
 
+.afm-modal.afm-modal--max {
+  width: 100vw;
+  max-width: 100vw;
+  height: 100vh;
+  max-height: 100vh;
+  border-radius: 0;
+}
+
 @keyframes afmSlideUp {
   from { transform: translateY(16px); opacity: 0.6; }
   to   { transform: translateY(0);    opacity: 1;   }
@@ -4038,7 +4046,7 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   background: #fff;
   border-radius: 14px;
   width: 92%;
-  max-width: 380px;
+  max-width: 480px; /* espaço p/ o footer premium (holding · hora · versão) */
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
   transform: translateY(-12px) scale(0.97);
   transition: transform 0.2s ease;
@@ -4522,7 +4530,7 @@ export const ALARMS_NOTIFICATIONS_PANEL_STYLES = `
   background: #fff;
   border-radius: 14px;
   width: 92%;
-  max-width: 360px;
+  max-width: 480px; /* espaço p/ o footer premium (holding · hora · versão) */
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
   transform: translateY(-10px) scale(0.97);
   transition: transform 0.2s ease;

@@ -76,6 +76,16 @@ export class AlarmApiClient {
   }
 
   // -----------------------------------------------------------------------
+  // Rule name (GCDR GET /rules/:id) — usado p/ alarmes cujo title veio como o UUID da regra
+  // -----------------------------------------------------------------------
+
+  async getRuleName(rulesApiBase: string, ruleId: string): Promise<string | null> {
+    const raw = await this.request<any>(`${rulesApiBase}/rules/${encodeURIComponent(ruleId)}`);
+    const name = raw?.data?.name ?? raw?.name;
+    return typeof name === 'string' && name.trim() ? name.trim() : null;
+  }
+
+  // -----------------------------------------------------------------------
   // Alarm list (GET /alarms)
   // -----------------------------------------------------------------------
 

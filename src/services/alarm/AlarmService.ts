@@ -118,6 +118,18 @@ function mapApiTopOffenders(
 
 type AlarmListResult = { data: Alarm[]; summary: AlarmListSummary };
 
+// Alguns alarmes chegam do backend com title = alarmType = UUID da regra (sem nome resolvido)
+const RULE_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Base da API de regras (GCDR) normalizada com /api/v1; deriva do host de alarmes se não informada. */
+function resolveRulesApiBase(explicit: string, alarmsBase: string): string {
+  let base = explicit || (globalThis as any)?.MyIOUtils?.gcdrApiBaseUrl || '';
+  if (!base && alarmsBase.includes('alarms-api')) base = alarmsBase.replace('alarms-api', 'gcdr-api');
+  if (!base) return '';
+  base = String(base).replace(/\/+$/, '').replace(/\/api\/v1$/, '');
+  return `${base}/api/v1`;
+}
+
 class AlarmServiceClass {
   private client = new AlarmApiClient();
   private cacheTtlMs = 3 * 60 * 1000; // 3 min default; overridable via configure()
@@ -125,6 +137,10 @@ class AlarmServiceClass {
   private readonly alarmsCache = new Map<string, CacheEntry<AlarmListResult>>();
   private readonly statsCache = new Map<string, CacheEntry<AlarmStats>>();
   private readonly trendCache = new Map<string, CacheEntry<AlarmTrendDataPoint[]>>();
+  // ruleId → nome da regra (null = não encontrada); sobrevive ao clearCache — nomes de regra quase não mudam
+  private readonly ruleNameCache = new Map<string, string | null>();
+  private alarmsBaseUrl = '';
+  private rulesBaseUrl = '';
 
   // -----------------------------------------------------------------------
   // Availability (MTBF / MTTR per device)
@@ -182,8 +198,15 @@ class AlarmServiceClass {
     let totalPages = 1;
     let page = 1;
 
+    // ruleId → título "bom" (de alarmes da mesma regra que vieram com título legível)
+    const titleByRuleId = new Map<string, string>();
+
     while (page <= totalPages) {
       const response = await this.client.getAlarms({ ...params, page });
+      for (const a of response.data || []) {
+        const rid = a.metadata?.ruleId;
+        if (rid && a.title && !RULE_ID_RE.test(a.title)) titleByRuleId.set(String(rid), a.title);
+      }
       const pageData = (response.data || []).map((a) => mapApiAlarm(a, customerMap));
       allData = allData.concat(pageData);
       if (page === 1) {
@@ -192,6 +215,8 @@ class AlarmServiceClass {
       }
       page++;
     }
+
+    await this.resolveRuleIdTitles(allData, titleByRuleId);
 
     const result: AlarmListResult = { data: allData, summary };
 
@@ -339,10 +364,54 @@ class AlarmServiceClass {
    * Set the Alarms API base URL (e.g. from MAIN_VIEW orchestrator settings).
    * Clears the cache so subsequent calls use the new endpoint.
    */
-  configure(baseUrl: string | null | undefined, cacheTtlMs?: number, apiKey?: string): void {
+  configure(
+    baseUrl: string | null | undefined,
+    cacheTtlMs?: number,
+    apiKey?: string,
+    rulesBaseUrl?: string
+  ): void {
     this.client.configure(baseUrl ?? '', apiKey);
+    if (baseUrl) this.alarmsBaseUrl = baseUrl;
+    if (rulesBaseUrl) this.rulesBaseUrl = rulesBaseUrl;
     if (cacheTtlMs && cacheTtlMs > 0) this.cacheTtlMs = cacheTtlMs;
     this.clearCache();
+  }
+
+  /**
+   * Alarmes com title = UUID da regra recebem o nome legível: primeiro o título de
+   * outro alarme da mesma regra; senão o nome da regra no GCDR (GET /rules/:id, cacheado).
+   * Falha de lookup mantém o UUID (nunca quebra a listagem).
+   */
+  private async resolveRuleIdTitles(alarms: Alarm[], titleByRuleId: Map<string, string>): Promise<void> {
+    const pending = alarms.filter((a) => a.title && RULE_ID_RE.test(a.title));
+    if (!pending.length) return;
+
+    const rulesBase = resolveRulesApiBase(this.rulesBaseUrl, this.alarmsBaseUrl);
+    const toFetch = [
+      ...new Set(pending.map((a) => a.title).filter((rid) => !titleByRuleId.has(rid) && !this.ruleNameCache.has(rid))),
+    ];
+    if (rulesBase && toFetch.length) {
+      const CONCURRENCY = 6;
+      for (let i = 0; i < toFetch.length; i += CONCURRENCY) {
+        await Promise.all(
+          toFetch.slice(i, i + CONCURRENCY).map(async (rid) => {
+            try {
+              this.ruleNameCache.set(rid, await this.client.getRuleName(rulesBase, rid));
+            } catch {
+              this.ruleNameCache.set(rid, null);
+            }
+          })
+        );
+      }
+    }
+
+    for (const alarm of pending) {
+      const rid = alarm.title;
+      const name = titleByRuleId.get(rid) || this.ruleNameCache.get(rid);
+      if (!name) continue;
+      alarm.title = name;
+      if (alarm.tags?.alarmType === rid) alarm.tags.alarmType = name;
+    }
   }
 
   // -----------------------------------------------------------------------

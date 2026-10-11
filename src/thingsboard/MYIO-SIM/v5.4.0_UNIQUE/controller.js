@@ -7685,7 +7685,21 @@ body.myio-gbt-dark .myio-gbt__empty{color:#64748b;}
           </div>
         </div>`;
 
+      // Footer premium padrão (holding · hora · versão | Powered by MYIO)
+      let footer = null;
+      try {
+        footer = MyIOLibrary?.createModalFooter?.({
+          customerName: window.MyIOUtils?.customerName || '',
+          libVersion: { current: MyIOLibrary?.version },
+          themeMode: 'light',
+        });
+        if (footer?.element) overlay.querySelector('[role="dialog"]').appendChild(footer.element);
+      } catch (err) {
+        LogHelper.warn('[MAIN_UNIQUE] footer da escolha de Metas indisponível:', err?.message || err);
+      }
+
       const done = (result) => {
+        footer?.destroy?.();
         overlay.remove();
         document.removeEventListener('keydown', onKey);
         resolve(result);
