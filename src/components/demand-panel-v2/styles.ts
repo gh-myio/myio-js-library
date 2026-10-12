@@ -89,6 +89,8 @@ export const DP2_CSS = `
 .dp2-status.succeeded { background: var(--dp2-ok); }
 .dp2-status.failed, .dp2-status.not_received, .dp2-status.rejected { background: var(--dp2-err); }
 .dp2-status.query_unavailable { background: var(--dp2-warn); }
+.dp2-status.queued { background: color-mix(in srgb, var(--dp2-info) 70%, #64748b); }
+.dp2-banner.info { background: color-mix(in srgb, var(--dp2-info) 10%, transparent); border-color: color-mix(in srgb, var(--dp2-info) 35%, transparent); }
 .dp2-bar { height: 6px; background: var(--myio-border, #e2e8f0); border-radius: 3px; overflow: hidden; margin-top: 8px; }
 .dp2-bar span { display: block; height: 100%; background: var(--dp2-info); transition: width .4s; }
 .dp2-job-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; align-items: center; }

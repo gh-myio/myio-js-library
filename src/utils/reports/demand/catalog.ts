@@ -2,7 +2,7 @@
  * RFC-0238 — telemetry catalogue: the same 14 keys/labels/units that EnergyModalView passes
  * to RealTimeTelemetryModal (ED-1251). Bump CATALOG_VERSION when keys or units change.
  */
-import type { DemandAggregation, DemandResolution, EnvelopeTelemetry } from './types';
+import type { DemandResolution, EnvelopeTelemetry } from './types';
 
 export const CATALOG_VERSION = 1;
 
@@ -65,44 +65,38 @@ export interface ResolutionDef {
   id: DemandResolution;
   label: string;
   ms: number;
-  /** Max period length (days) for this resolution — RFC-0238 §7. */
+  /** Max period length (days) for this resolution — RFC-0075 §4.2.4 (GCDR enforces). */
   maxDays: number;
 }
 
-/** Grouping intervals — same options as RealTimeTelemetryModal "Por período" (default 1 dia). */
-export const RESOLUTIONS: readonly ResolutionDef[] = [
-  { id: '15m', label: '15 min', ms: 900_000, maxDays: 31 },
-  { id: '30m', label: '30 min', ms: 1_800_000, maxDays: 62 },
-  { id: '1h', label: '1 hora', ms: 3_600_000, maxDays: 92 },
-  { id: '2h', label: '2 horas', ms: 7_200_000, maxDays: 92 },
-  { id: '4h', label: '4 horas', ms: 14_400_000, maxDays: 92 },
-  { id: '12h', label: '12 horas', ms: 43_200_000, maxDays: 92 },
-  { id: '1d', label: '1 dia (24 horas)', ms: 86_400_000, maxDays: 92 },
-];
-export const DEFAULT_RESOLUTION: DemandResolution = '1d';
-
-/** Aggregations — same options and default (Máximo) as RealTimeTelemetryModal "Por período". */
-export const AGGREGATIONS: ReadonlyArray<{ id: DemandAggregation; label: string }> = [
-  { id: 'NONE', label: 'Bruto' },
-  { id: 'AVG', label: 'Média' },
-  { id: 'MAX', label: 'Máximo' },
-  { id: 'MIN', label: 'Mínimo' },
-  { id: 'SUM', label: 'Soma' },
-];
-export const DEFAULT_AGGREGATION: DemandAggregation = 'MAX';
-
 /**
- * Bruto: max period length (days). There is NO raw point limit in this panel (owner's decision,
- * 2026-10-08) — Bruto returns every sample of the period; only the period is bounded.
+ * Bucket sizes accepted by GCDR (RFC-0075 §4.5). Each row has avg / max / min / samples of every
+ * key, so there is no aggregation choice. `1d` requires `start` at local midnight (L-9).
  */
-export const RAW_MAX_DAYS = 31;
+export const RESOLUTIONS: readonly ResolutionDef[] = [
+  { id: '1m', label: '1 min', ms: 60_000, maxDays: 1 },
+  { id: '5m', label: '5 min', ms: 300_000, maxDays: 7 },
+  { id: '15m', label: '15 min', ms: 900_000, maxDays: 31 },
+  { id: '1h', label: '1 hora', ms: 3_600_000, maxDays: 92 },
+  { id: '1d', label: '1 dia', ms: 86_400_000, maxDays: 92 },
+];
+export const DEFAULT_RESOLUTION: DemandResolution = '1h';
 
 export const RESOLUTION_BY_ID: Readonly<Record<DemandResolution, ResolutionDef>> = Object.fromEntries(
   RESOLUTIONS.map((r) => [r.id, r])
 ) as Record<DemandResolution, ResolutionDef>;
 
-/** RFC-0238 §7 limits (validated in the UI; GCDR validates again). */
-export const DEMAND_LIMITS = { devices: 50, points: 2_000_000, activeJobs: 3 } as const;
+/** Statistics present in every bucket of the files (RFC-0075 §3.3). */
+export const BUCKET_STATS_LABEL = 'média, máximo, mínimo e nº de amostras';
+
+/** Default label of the 15-min demand series (L-14) — `demandLabel` from config wins. */
+export const DEFAULT_DEMAND_LABEL = 'Potência média em 15 min (demanda estimada)';
+
+/**
+ * UI anticipation only — GCDR enforces and `GET …/config` / `validate` give the real values
+ * (L-13, never hard-coded as truth). Quotas are GCDR's defaults (user 10 · customer 30 · day 20).
+ */
+export const DEMAND_LIMITS = { devices: 50, telemetries: 15, points: 2_000_000, activeJobsPerUser: 10 } as const;
 
 /** Picks catalogue entries in catalogue order. */
 export function telemetriesInCatalogOrder(keys: Iterable<string>): EnvelopeTelemetry[] {

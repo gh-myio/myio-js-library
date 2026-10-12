@@ -3,15 +3,17 @@
  *
  * São Paulo is UTC-03:00 for every instant since the end of the last DST (2019-02-17); periods
  * starting before MIN_PERIOD_START are rejected, so a fixed offset is exact for every accepted
- * date. Periods are half-open `[start, end)`. Buckets sit on a clock grid anchored at local
- * midnight (00:00, 00:15, … / 00:00 every day); a partial bucket at either edge counts.
+ * date. Periods are half-open `[start, end)`. Buckets are anchored at the period's `start`
+ * (`[start + k·res, start + (k+1)·res)`, RFC-0075 §3.3); `1d` counts local calendar days and
+ * requires `start` at local midnight (L-9).
  */
-import { RAW_MAX_DAYS, RESOLUTIONS, RESOLUTION_BY_ID } from './catalog';
+import { RESOLUTIONS, RESOLUTION_BY_ID } from './catalog';
 import type { DemandResolution, PeriodPreset } from './types';
 
 const SP_OFFSET_MS = -3 * 3_600_000;
-/** 1970-01-01T00:00 local time = 03:00Z — origin of the bucket grid. */
-const GRID_ORIGIN = -SP_OFFSET_MS;
+const DAY_MS = 86_400_000;
+/** GCDR accepts `end` up to now + 5 min (partial periods). */
+export const END_TOLERANCE_MS = 5 * 60_000;
 /** First accepted local date (first full month after the last DST ended). */
 export const MIN_PERIOD_START = '2019-03-01';
 export const MIN_PERIOD_START_MS = Date.UTC(2019, 2, 1) - SP_OFFSET_MS;
@@ -83,36 +85,52 @@ export function presetRange(preset: PeriodPreset, now: number): Range | null {
   }
 }
 
-/** Number of grid buckets of `resolution` intersecting `[start, end)` (edge buckets count). */
+/** True when the instant is a local (São Paulo) midnight. */
+export function isLocalMidnight(ms: number): boolean {
+  const p = spParts(ms);
+  return p.h === 0 && p.mi === 0 && new Date(ms + SP_OFFSET_MS).getUTCSeconds() === 0 && ms % 1000 === 0;
+}
+
+/** Local midnight at or before the instant. */
+export function localMidnightOf(ms: number): number {
+  const p = spParts(ms);
+  return spEpoch(p.y, p.m, p.d);
+}
+
+/**
+ * Rows per device: `ceil((end − start) / res)`, anchored at `start`; for `1d` the number of local
+ * calendar days touched (a partial last day counts). Same definition as GCDR's estimate.
+ */
 export function bucketCount(start: number, end: number, resolution: DemandResolution): number {
   if (!(end > start)) return 0;
-  const size = RESOLUTION_BY_ID[resolution].ms;
-  return Math.ceil((end - GRID_ORIGIN) / size) - Math.floor((start - GRID_ORIGIN) / size);
+  if (resolution === '1d') return Math.ceil((localMidnightOf(end - 1) - localMidnightOf(start)) / DAY_MS) + 1;
+  return Math.ceil((end - start) / RESOLUTION_BY_ID[resolution].ms);
 }
 
-/** Finest grouping interval whose max period fits the range, or null. */
+/** Finest resolution whose max period fits the range, or null. */
 export function finestFittingResolution(range: Range): DemandResolution | null {
   const len = range.end - range.start;
-  return RESOLUTIONS.find((r) => len <= r.maxDays * 86_400_000)?.id ?? null;
+  return RESOLUTIONS.find((r) => len <= r.maxDays * DAY_MS)?.id ?? null;
 }
 
-/** Max period (days) for an aggregated interval, or for Bruto (`null`). */
-export function maxPeriodDays(resolution: DemandResolution | null): number {
-  return resolution ? RESOLUTION_BY_ID[resolution].maxDays : RAW_MAX_DAYS;
+export function maxPeriodDays(resolution: DemandResolution): number {
+  return RESOLUTION_BY_ID[resolution].maxDays;
 }
 
-/** Validation messages (pt-BR) for a range with a grouping interval (`null` = Bruto); empty when valid. */
-export function periodErrors(range: Range, resolution: DemandResolution | null, now: number): string[] {
+/** Validation messages (pt-BR) for a range with a resolution; empty when valid. GCDR re-checks. */
+export function periodErrors(range: Range, resolution: DemandResolution, now: number): string[] {
   if (!Number.isFinite(range.start) || !Number.isFinite(range.end)) return ['Informe início e fim.'];
   if (range.end <= range.start) return ['O fim precisa ser depois do início.'];
   const errs: string[] = [];
   if (range.start < MIN_PERIOD_START_MS) errs.push('Períodos antes de 01/03/2019 não são suportados.');
   if (range.start > now) errs.push('O início está no futuro.');
+  if (range.end > now + END_TOLERANCE_MS) errs.push('O fim não pode estar no futuro.');
   const maxDays = maxPeriodDays(resolution);
-  if (range.end - range.start > maxDays * 86_400_000) {
-    errs.push(resolution
-      ? `Com agrupamento de ${RESOLUTION_BY_ID[resolution].label}, o período máximo é ${maxDays} dia(s).`
-      : `Com dados brutos, o período máximo é ${maxDays} dia(s).`);
+  if (range.end - range.start > maxDays * DAY_MS) {
+    errs.push(`Com intervalos de ${RESOLUTION_BY_ID[resolution].label}, o período máximo é ${maxDays} dia(s).`);
+  }
+  if (resolution === '1d' && !isLocalMidnight(range.start)) {
+    errs.push(`Com intervalos de 1 dia, o início precisa ser à meia-noite (ex.: ${formatLocalDateTime(localMidnightOf(range.start))}).`);
   }
   return errs;
 }

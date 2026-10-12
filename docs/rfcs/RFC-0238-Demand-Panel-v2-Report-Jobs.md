@@ -11,8 +11,29 @@
   menu / enabled report items), RFC-0199 (MyIOAuthContext), RFC-0200 (device icons), RFC-0205
   (premium dialog), RFC-0207/0234 (device classification taxonomy from GCDR), ED-1251 (unified
   "Telemetrias Instantâneas e Pico de Demanda" button)
-- **Companion (to be written, GCDR repo):** report-jobs API, worker, result storage, download,
-  retention, authentication.
+- **Companion:** GCDR **RFC-0075 "Report Jobs"** (`gcdr.git/docs/rfcs/RFC-0075-Report-Jobs.md`) —
+  API, worker, storage, download and retention are **deployed** (`REPORT_JOBS_ENABLED`).
+
+> **Rev. 5 (2026-10-11) — aligned with the deployed GCDR contract (RFC-0075 §5, L-1…L-19).** Where
+> this document and RFC-0075 differ, **RFC-0075 wins**; the sections below keep the rev. 4 design
+> rationale. What changed in the library:
+>
+> | Topic | Rev. 4 (this doc) | Rev. 5 (implemented) |
+> |---|---|---|
+> | Grouping | Bruto or AVG/MAX/MIN/SUM × 15 min…1 dia | **Resolution only**: `1m` (≤ 1 d) · `5m` (≤ 7 d) · `15m` (≤ 31 d) · `1h` · `1d` (≤ 92 d). Every row has **avg / max / min / samples**; no raw mode. `consumption` adds the 15-min demand series ("Potência média em 15 min (demanda estimada)", `demandLabel` from config) |
+> | Buckets | clock grid from local midnight | anchored at the period `start`; `1d` = local calendar days and **`start` at local midnight** (L-9) |
+> | Request | `aggregation`, `fillGaps`, `period.startUtc/endUtc` | strict GCDR shape: `{ devices[{gcdrDeviceId, …}], period{start,end,timezone,preset}, resolution, telemetries, estimate }` |
+> | Hash | `rmc-json-sha256-v1` projection, `sha256:` prefix | **canonicalisation v2** of the request (strip device label/name + estimate), lowercase hex; shared fixture `tests/fixtures/reports/request-hash-v2.json` (L-8) |
+> | Submit | `protocolVersion`, `declaredRequester` | `schemaVersion: 1`, `requestedBy: { userId }`, optional `force/visibility/notify` stored in the envelope and replayed on resend (L-3, L-19) |
+> | Envelope | schemaVersion 1 | **schemaVersion 2** (schema-1 drafts read as illegible) |
+> | Flow | submit → poll | step 4 calls **`validate`** before the envelope is written (errors, warnings, quotas, reusable result — L-10, X-L1, X-L2); resend re-validates (L-19) |
+> | Status | 5 statuses | + `expired`; `resultAvailability` is the download rule (`purged` → "Conteúdo removido"); only `notFound`/`JOB_NOT_FOUND` means not received; query failures never resend (L-1, L-2, L-13, L-16) |
+> | Result | delivery open (Q8) | presigned URLs for **XLSX / CSV / JSON**, 3 days; "Maior pico individual" from `totals.largestDevicePeak` (L-5, L-14, X-L4) |
+> | Limits | 3 active jobs per customer | GCDR quotas: 10 per user · 30 per customer · 20 executions/day (from `config`/`validate`) |
+>
+> **Deployment blocker found (2026-10-11):** the dashboard's GCDR customer key reads the config
+> (`reports:read`) but **lacks `reports:write`** → `validate`/`submit` answer 401. The panel shows it
+> on step 4 and writes nothing; the key needs the scope before release.
 
 ## 1. Summary
 

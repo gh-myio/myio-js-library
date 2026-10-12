@@ -1,0 +1,741 @@
+{
+  "version": 2,
+  "description": "RFC-0075 §4.2.5 / RFC-0238 L-8 — canonicalisation v2 of the demand-report `request` (schemaVersion 1). Steps: strip devices[].label/name and estimate; sort devices by gcdrDeviceId and telemetries by key (UTF-16 code units); period.start/end → UTC ISO with ms and Z; canonical JSON (keys sorted recursively, no whitespace, JSON.stringify semantics); SHA-256 hex. Shared with myio-js-library (src/utils/reports/demand/envelope.ts).",
+  "cases": [
+    {
+      "name": "baseline-unsorted",
+      "description": "devices and telemetries out of order, labels/names/estimate present, -03:00 offsets",
+      "request": {
+        "devices": [
+          {
+            "gcdrDeviceId": "b7e4d1a0-3c2f-4f8e-9a51-56b00c8e6f2d",
+            "label": "Elevador 6 L2",
+            "name": "EL-06",
+            "identifier": "EL-06",
+            "ingestionId": null,
+            "tbDeviceId": "tb-1"
+          },
+          {
+            "gcdrDeviceId": "a1b2c3d4-0000-4000-8000-000000000001",
+            "label": "Entrada",
+            "identifier": "ENT-01"
+          }
+        ],
+        "period": {
+          "start": "2026-09-01T00:00:00-03:00",
+          "end": "2026-10-01T00:00:00-03:00",
+          "timezone": "America/Sao_Paulo",
+          "preset": "lastMonth"
+        },
+        "resolution": "15m",
+        "telemetries": [
+          {
+            "key": "voltage_a",
+            "label": "Tensão fase A",
+            "unit": "V"
+          },
+          {
+            "key": "consumption"
+          }
+        ],
+        "estimate": {
+          "buckets": 2880,
+          "points": 11520
+        }
+      },
+      "canonical": "{\"devices\":[{\"gcdrDeviceId\":\"a1b2c3d4-0000-4000-8000-000000000001\",\"identifier\":\"ENT-01\"},{\"gcdrDeviceId\":\"b7e4d1a0-3c2f-4f8e-9a51-56b00c8e6f2d\",\"identifier\":\"EL-06\",\"ingestionId\":null,\"tbDeviceId\":\"tb-1\"}],\"period\":{\"end\":\"2026-10-01T03:00:00.000Z\",\"preset\":\"lastMonth\",\"start\":\"2026-09-01T03:00:00.000Z\",\"timezone\":\"America/Sao_Paulo\"},\"resolution\":\"15m\",\"telemetries\":[{\"key\":\"consumption\"},{\"key\":\"voltage_a\",\"label\":\"Tensão fase A\",\"unit\":\"V\"}]}",
+      "hash": "62c77938ac1b3e58b8f0faeeb894f8a40860866f1350323c64d361477a4225e7"
+    },
+    {
+      "name": "already-canonical",
+      "description": "same intent, devices/telemetries sorted, stripped fields absent, UTC Z instants → same hash",
+      "sameAs": "baseline-unsorted",
+      "request": {
+        "devices": [
+          {
+            "gcdrDeviceId": "a1b2c3d4-0000-4000-8000-000000000001",
+            "identifier": "ENT-01"
+          },
+          {
+            "gcdrDeviceId": "b7e4d1a0-3c2f-4f8e-9a51-56b00c8e6f2d",
+            "identifier": "EL-06",
+            "ingestionId": null,
+            "tbDeviceId": "tb-1"
+          }
+        ],
+        "period": {
+          "start": "2026-09-01T03:00:00.000Z",
+          "end": "2026-10-01T03:00:00.000Z",
+          "timezone": "America/Sao_Paulo",
+          "preset": "lastMonth"
+        },
+        "resolution": "15m",
+        "telemetries": [
+          {
+            "key": "consumption"
+          },
+          {
+            "key": "voltage_a",
+            "label": "Tensão fase A",
+            "unit": "V"
+          }
+        ]
+      },
+      "canonical": "{\"devices\":[{\"gcdrDeviceId\":\"a1b2c3d4-0000-4000-8000-000000000001\",\"identifier\":\"ENT-01\"},{\"gcdrDeviceId\":\"b7e4d1a0-3c2f-4f8e-9a51-56b00c8e6f2d\",\"identifier\":\"EL-06\",\"ingestionId\":null,\"tbDeviceId\":\"tb-1\"}],\"period\":{\"end\":\"2026-10-01T03:00:00.000Z\",\"preset\":\"lastMonth\",\"start\":\"2026-09-01T03:00:00.000Z\",\"timezone\":\"America/Sao_Paulo\"},\"resolution\":\"15m\",\"telemetries\":[{\"key\":\"consumption\"},{\"key\":\"voltage_a\",\"label\":\"Tensão fase A\",\"unit\":\"V\"}]}",
+      "hash": "62c77938ac1b3e58b8f0faeeb894f8a40860866f1350323c64d361477a4225e7"
+    },
+    {
+      "name": "mixed-offsets",
+      "description": "start with +00:00 and ms, end with -03:00 → normalised to the same instants",
+      "sameAs": "baseline-unsorted",
+      "request": {
+        "devices": [
+          {
+            "gcdrDeviceId": "b7e4d1a0-3c2f-4f8e-9a51-56b00c8e6f2d",
+            "label": "Elevador 6 L2",
+            "name": "EL-06",
+            "identifier": "EL-06",
+            "ingestionId": null,
+            "tbDeviceId": "tb-1"
+          },
+          {
+            "gcdrDeviceId": "a1b2c3d4-0000-4000-8000-000000000001",
+            "label": "Entrada",
+            "identifier": "ENT-01"
+          }
+        ],
+        "period": {
+          "start": "2026-09-01T03:00:00.000+00:00",
+          "end": "2026-09-30T21:00:00-06:00",
+          "timezone": "America/Sao_Paulo",
+          "preset": "lastMonth"
+        },
+        "resolution": "15m",
+        "telemetries": [
+          {
+            "key": "voltage_a",
+            "label": "Tensão fase A",
+            "unit": "V"
+          },
+          {
+            "key": "consumption"
+          }
+        ],
+        "estimate": {
+          "buckets": 2880,
+          "points": 11520
+        }
+      },
+      "canonical": "{\"devices\":[{\"gcdrDeviceId\":\"a1b2c3d4-0000-4000-8000-000000000001\",\"identifier\":\"ENT-01\"},{\"gcdrDeviceId\":\"b7e4d1a0-3c2f-4f8e-9a51-56b00c8e6f2d\",\"identifier\":\"EL-06\",\"ingestionId\":null,\"tbDeviceId\":\"tb-1\"}],\"period\":{\"end\":\"2026-10-01T03:00:00.000Z\",\"preset\":\"lastMonth\",\"start\":\"2026-09-01T03:00:00.000Z\",\"timezone\":\"America/Sao_Paulo\"},\"resolution\":\"15m\",\"telemetries\":[{\"key\":\"consumption\"},{\"key\":\"voltage_a\",\"label\":\"Tensão fase A\",\"unit\":\"V\"}]}",
+      "hash": "62c77938ac1b3e58b8f0faeeb894f8a40860866f1350323c64d361477a4225e7"
+    },
+    {
+      "name": "unicode-device-labels-stripped",
+      "description": "device label/name with emoji and combining marks are stripped → same hash",
+      "sameAs": "baseline-unsorted",
+      "request": {
+        "devices": [
+          {
+            "gcdrDeviceId": "b7e4d1a0-3c2f-4f8e-9a51-56b00c8e6f2d",
+            "label": "Elevador ☃ 6 é",
+            "name": "😀",
+            "identifier": "EL-06",
+            "ingestionId": null,
+            "tbDeviceId": "tb-1"
+          },
+          {
+            "gcdrDeviceId": "a1b2c3d4-0000-4000-8000-000000000001",
+            "label": "Entrada",
+            "identifier": "ENT-01"
+          }
+        ],
+        "period": {
+          "start": "2026-09-01T00:00:00-03:00",
+          "end": "2026-10-01T00:00:00-03:00",
+          "timezone": "America/Sao_Paulo",
+          "preset": "lastMonth"
+        },
+        "resolution": "15m",
+        "telemetries": [
+          {
+            "key": "voltage_a",
+            "label": "Tensão fase A",
+            "unit": "V"
+          },
+          {
+            "key": "consumption"
+          }
+        ],
+        "estimate": {
+          "buckets": 2880,
+          "points": 11520
+        }
+      },
+      "canonical": "{\"devices\":[{\"gcdrDeviceId\":\"a1b2c3d4-0000-4000-8000-000000000001\",\"identifier\":\"ENT-01\"},{\"gcdrDeviceId\":\"b7e4d1a0-3c2f-4f8e-9a51-56b00c8e6f2d\",\"identifier\":\"EL-06\",\"ingestionId\":null,\"tbDeviceId\":\"tb-1\"}],\"period\":{\"end\":\"2026-10-01T03:00:00.000Z\",\"preset\":\"lastMonth\",\"start\":\"2026-09-01T03:00:00.000Z\",\"timezone\":\"America/Sao_Paulo\"},\"resolution\":\"15m\",\"telemetries\":[{\"key\":\"consumption\"},{\"key\":\"voltage_a\",\"label\":\"Tensão fase A\",\"unit\":\"V\"}]}",
+      "hash": "62c77938ac1b3e58b8f0faeeb894f8a40860866f1350323c64d361477a4225e7"
+    },
+    {
+      "name": "unicode-telemetry-label-kept",
+      "description": "telemetry labels are NOT stripped → a unicode label changes the hash",
+      "differsFrom": "baseline-unsorted",
+      "request": {
+        "devices": [
+          {
+            "gcdrDeviceId": "b7e4d1a0-3c2f-4f8e-9a51-56b00c8e6f2d",
+            "label": "Elevador 6 L2",
+            "name": "EL-06",
+            "identifier": "EL-06",
+            "ingestionId": null,
+            "tbDeviceId": "tb-1"
+          },
+          {
+            "gcdrDeviceId": "a1b2c3d4-0000-4000-8000-000000000001",
+            "label": "Entrada",
+            "identifier": "ENT-01"
+          }
+        ],
+        "period": {
+          "start": "2026-09-01T00:00:00-03:00",
+          "end": "2026-10-01T00:00:00-03:00",
+          "timezone": "America/Sao_Paulo",
+          "preset": "lastMonth"
+        },
+        "resolution": "15m",
+        "telemetries": [
+          {
+            "key": "voltage_a",
+            "label": "Tensão fase A ☃",
+            "unit": "V"
+          },
+          {
+            "key": "consumption"
+          }
+        ],
+        "estimate": {
+          "buckets": 2880,
+          "points": 11520
+        }
+      },
+      "canonical": "{\"devices\":[{\"gcdrDeviceId\":\"a1b2c3d4-0000-4000-8000-000000000001\",\"identifier\":\"ENT-01\"},{\"gcdrDeviceId\":\"b7e4d1a0-3c2f-4f8e-9a51-56b00c8e6f2d\",\"identifier\":\"EL-06\",\"ingestionId\":null,\"tbDeviceId\":\"tb-1\"}],\"period\":{\"end\":\"2026-10-01T03:00:00.000Z\",\"preset\":\"lastMonth\",\"start\":\"2026-09-01T03:00:00.000Z\",\"timezone\":\"America/Sao_Paulo\"},\"resolution\":\"15m\",\"telemetries\":[{\"key\":\"consumption\"},{\"key\":\"voltage_a\",\"label\":\"Tensão fase A ☃\",\"unit\":\"V\"}]}",
+      "hash": "fee4ea4001bfd53de997f0b25581a2250e65d07cbdb67b130fc9d6fd4f943ebb"
+    },
+    {
+      "name": "estimate-negative-stripped",
+      "description": "estimate (even with negative numbers) is stripped → same hash",
+      "sameAs": "baseline-unsorted",
+      "request": {
+        "devices": [
+          {
+            "gcdrDeviceId": "b7e4d1a0-3c2f-4f8e-9a51-56b00c8e6f2d",
+            "label": "Elevador 6 L2",
+            "name": "EL-06",
+            "identifier": "EL-06",
+            "ingestionId": null,
+            "tbDeviceId": "tb-1"
+          },
+          {
+            "gcdrDeviceId": "a1b2c3d4-0000-4000-8000-000000000001",
+            "label": "Entrada",
+            "identifier": "ENT-01"
+          }
+        ],
+        "period": {
+          "start": "2026-09-01T00:00:00-03:00",
+          "end": "2026-10-01T00:00:00-03:00",
+          "timezone": "America/Sao_Paulo",
+          "preset": "lastMonth"
+        },
+        "resolution": "15m",
+        "telemetries": [
+          {
+            "key": "voltage_a",
+            "label": "Tensão fase A",
+            "unit": "V"
+          },
+          {
+            "key": "consumption"
+          }
+        ],
+        "estimate": {
+          "buckets": -1,
+          "points": -5
+        }
+      },
+      "canonical": "{\"devices\":[{\"gcdrDeviceId\":\"a1b2c3d4-0000-4000-8000-000000000001\",\"identifier\":\"ENT-01\"},{\"gcdrDeviceId\":\"b7e4d1a0-3c2f-4f8e-9a51-56b00c8e6f2d\",\"identifier\":\"EL-06\",\"ingestionId\":null,\"tbDeviceId\":\"tb-1\"}],\"period\":{\"end\":\"2026-10-01T03:00:00.000Z\",\"preset\":\"lastMonth\",\"start\":\"2026-09-01T03:00:00.000Z\",\"timezone\":\"America/Sao_Paulo\"},\"resolution\":\"15m\",\"telemetries\":[{\"key\":\"consumption\"},{\"key\":\"voltage_a\",\"label\":\"Tensão fase A\",\"unit\":\"V\"}]}",
+      "hash": "62c77938ac1b3e58b8f0faeeb894f8a40860866f1350323c64d361477a4225e7"
+    },
+    {
+      "name": "code-unit-sort",
+      "description": "telemetry keys sorted by UTF-16 code units: \"B\" < \"a\" < \"b\" (a locale sort would differ)",
+      "request": {
+        "devices": [
+          {
+            "gcdrDeviceId": "b7e4d1a0-3c2f-4f8e-9a51-56b00c8e6f2d",
+            "label": "Elevador 6 L2",
+            "name": "EL-06",
+            "identifier": "EL-06",
+            "ingestionId": null,
+            "tbDeviceId": "tb-1"
+          },
+          {
+            "gcdrDeviceId": "a1b2c3d4-0000-4000-8000-000000000001",
+            "label": "Entrada",
+            "identifier": "ENT-01"
+          }
+        ],
+        "period": {
+          "start": "2026-09-01T00:00:00-03:00",
+          "end": "2026-10-01T00:00:00-03:00",
+          "timezone": "America/Sao_Paulo",
+          "preset": "lastMonth"
+        },
+        "resolution": "15m",
+        "telemetries": [
+          {
+            "key": "b"
+          },
+          {
+            "key": "a"
+          },
+          {
+            "key": "B"
+          }
+        ],
+        "estimate": {
+          "buckets": 2880,
+          "points": 11520
+        }
+      },
+      "canonical": "{\"devices\":[{\"gcdrDeviceId\":\"a1b2c3d4-0000-4000-8000-000000000001\",\"identifier\":\"ENT-01\"},{\"gcdrDeviceId\":\"b7e4d1a0-3c2f-4f8e-9a51-56b00c8e6f2d\",\"identifier\":\"EL-06\",\"ingestionId\":null,\"tbDeviceId\":\"tb-1\"}],\"period\":{\"end\":\"2026-10-01T03:00:00.000Z\",\"preset\":\"lastMonth\",\"start\":\"2026-09-01T03:00:00.000Z\",\"timezone\":\"America/Sao_Paulo\"},\"resolution\":\"15m\",\"telemetries\":[{\"key\":\"B\"},{\"key\":\"a\"},{\"key\":\"b\"}]}",
+      "hash": "efc7f74335588fb757c2ac998838eef56b4ed113930d078499def1baa62deeb6"
+    },
+    {
+      "name": "surrogate-pair-sort",
+      "description": "U+1D11E (surrogates D834 DD1E) sorts BEFORE U+FFFF by code units (code points would reverse it)",
+      "request": {
+        "devices": [
+          {
+            "gcdrDeviceId": "b7e4d1a0-3c2f-4f8e-9a51-56b00c8e6f2d",
+            "label": "Elevador 6 L2",
+            "name": "EL-06",
+            "identifier": "EL-06",
+            "ingestionId": null,
+            "tbDeviceId": "tb-1"
+          },
+          {
+            "gcdrDeviceId": "a1b2c3d4-0000-4000-8000-000000000001",
+            "label": "Entrada",
+            "identifier": "ENT-01"
+          }
+        ],
+        "period": {
+          "start": "2026-09-01T00:00:00-03:00",
+          "end": "2026-10-01T00:00:00-03:00",
+          "timezone": "America/Sao_Paulo",
+          "preset": "lastMonth"
+        },
+        "resolution": "15m",
+        "telemetries": [
+          {
+            "key": "￿"
+          },
+          {
+            "key": "𝄞"
+          }
+        ],
+        "estimate": {
+          "buckets": 2880,
+          "points": 11520
+        }
+      },
+      "canonical": "{\"devices\":[{\"gcdrDeviceId\":\"a1b2c3d4-0000-4000-8000-000000000001\",\"identifier\":\"ENT-01\"},{\"gcdrDeviceId\":\"b7e4d1a0-3c2f-4f8e-9a51-56b00c8e6f2d\",\"identifier\":\"EL-06\",\"ingestionId\":null,\"tbDeviceId\":\"tb-1\"}],\"period\":{\"end\":\"2026-10-01T03:00:00.000Z\",\"preset\":\"lastMonth\",\"start\":\"2026-09-01T03:00:00.000Z\",\"timezone\":\"America/Sao_Paulo\"},\"resolution\":\"15m\",\"telemetries\":[{\"key\":\"𝄞\"},{\"key\":\"￿\"}]}",
+      "hash": "30ccd97ecc7fb833537b3ff9061637e14ccc19d5549b3503bbd3f18907cd7b1e"
+    },
+    {
+      "name": "nulls-kept",
+      "description": "null values (ingestionId, identifier) are kept; undefined/absent are omitted",
+      "request": {
+        "devices": [
+          {
+            "gcdrDeviceId": "c0ffee00-1111-4222-8333-444455556666",
+            "ingestionId": null,
+            "identifier": null
+          },
+          {
+            "gcdrDeviceId": "b7e4d1a0-3c2f-4f8e-9a51-56b00c8e6f2d",
+            "label": "Elevador 6 L2",
+            "name": "EL-06",
+            "identifier": "EL-06",
+            "ingestionId": null,
+            "tbDeviceId": "tb-1"
+          },
+          {
+            "gcdrDeviceId": "a1b2c3d4-0000-4000-8000-000000000001",
+            "label": "Entrada",
+            "identifier": "ENT-01"
+          }
+        ],
+        "period": {
+          "start": "2026-09-01T00:00:00-03:00",
+          "end": "2026-10-01T00:00:00-03:00",
+          "timezone": "America/Sao_Paulo",
+          "preset": "lastMonth"
+        },
+        "resolution": "15m",
+        "telemetries": [
+          {
+            "key": "voltage_a",
+            "label": "Tensão fase A",
+            "unit": "V"
+          },
+          {
+            "key": "consumption"
+          }
+        ],
+        "estimate": {
+          "buckets": 2880,
+          "points": 11520
+        }
+      },
+      "canonical": "{\"devices\":[{\"gcdrDeviceId\":\"a1b2c3d4-0000-4000-8000-000000000001\",\"identifier\":\"ENT-01\"},{\"gcdrDeviceId\":\"b7e4d1a0-3c2f-4f8e-9a51-56b00c8e6f2d\",\"identifier\":\"EL-06\",\"ingestionId\":null,\"tbDeviceId\":\"tb-1\"},{\"gcdrDeviceId\":\"c0ffee00-1111-4222-8333-444455556666\",\"identifier\":null,\"ingestionId\":null}],\"period\":{\"end\":\"2026-10-01T03:00:00.000Z\",\"preset\":\"lastMonth\",\"start\":\"2026-09-01T03:00:00.000Z\",\"timezone\":\"America/Sao_Paulo\"},\"resolution\":\"15m\",\"telemetries\":[{\"key\":\"consumption\"},{\"key\":\"voltage_a\",\"label\":\"Tensão fase A\",\"unit\":\"V\"}]}",
+      "hash": "edd95667ab7f9535a2f66474c11ede4ac48bdc201d7c77ad5e2603e585d3095f"
+    },
+    {
+      "name": "empty-string-kept",
+      "description": "an empty identifier is a value, not an absence",
+      "differsFrom": "nulls-kept",
+      "request": {
+        "devices": [
+          {
+            "gcdrDeviceId": "c0ffee00-1111-4222-8333-444455556666",
+            "ingestionId": null,
+            "identifier": ""
+          },
+          {
+            "gcdrDeviceId": "b7e4d1a0-3c2f-4f8e-9a51-56b00c8e6f2d",
+            "label": "Elevador 6 L2",
+            "name": "EL-06",
+            "identifier": "EL-06",
+            "ingestionId": null,
+            "tbDeviceId": "tb-1"
+          },
+          {
+            "gcdrDeviceId": "a1b2c3d4-0000-4000-8000-000000000001",
+            "label": "Entrada",
+            "identifier": "ENT-01"
+          }
+        ],
+        "period": {
+          "start": "2026-09-01T00:00:00-03:00",
+          "end": "2026-10-01T00:00:00-03:00",
+          "timezone": "America/Sao_Paulo",
+          "preset": "lastMonth"
+        },
+        "resolution": "15m",
+        "telemetries": [
+          {
+            "key": "voltage_a",
+            "label": "Tensão fase A",
+            "unit": "V"
+          },
+          {
+            "key": "consumption"
+          }
+        ],
+        "estimate": {
+          "buckets": 2880,
+          "points": 11520
+        }
+      },
+      "canonical": "{\"devices\":[{\"gcdrDeviceId\":\"a1b2c3d4-0000-4000-8000-000000000001\",\"identifier\":\"ENT-01\"},{\"gcdrDeviceId\":\"b7e4d1a0-3c2f-4f8e-9a51-56b00c8e6f2d\",\"identifier\":\"EL-06\",\"ingestionId\":null,\"tbDeviceId\":\"tb-1\"},{\"gcdrDeviceId\":\"c0ffee00-1111-4222-8333-444455556666\",\"identifier\":\"\",\"ingestionId\":null}],\"period\":{\"end\":\"2026-10-01T03:00:00.000Z\",\"preset\":\"lastMonth\",\"start\":\"2026-09-01T03:00:00.000Z\",\"timezone\":\"America/Sao_Paulo\"},\"resolution\":\"15m\",\"telemetries\":[{\"key\":\"consumption\"},{\"key\":\"voltage_a\",\"label\":\"Tensão fase A\",\"unit\":\"V\"}]}",
+      "hash": "ac47216b5803980a1c091a76eb005044a7bdac88322890318000c28e2c09a757"
+    },
+    {
+      "name": "ms-precision",
+      "description": "milliseconds in the period are preserved",
+      "differsFrom": "baseline-unsorted",
+      "request": {
+        "devices": [
+          {
+            "gcdrDeviceId": "b7e4d1a0-3c2f-4f8e-9a51-56b00c8e6f2d",
+            "label": "Elevador 6 L2",
+            "name": "EL-06",
+            "identifier": "EL-06",
+            "ingestionId": null,
+            "tbDeviceId": "tb-1"
+          },
+          {
+            "gcdrDeviceId": "a1b2c3d4-0000-4000-8000-000000000001",
+            "label": "Entrada",
+            "identifier": "ENT-01"
+          }
+        ],
+        "period": {
+          "start": "2026-09-01T00:00:00.500-03:00",
+          "end": "2026-10-01T00:00:00-03:00",
+          "timezone": "America/Sao_Paulo",
+          "preset": "lastMonth"
+        },
+        "resolution": "15m",
+        "telemetries": [
+          {
+            "key": "voltage_a",
+            "label": "Tensão fase A",
+            "unit": "V"
+          },
+          {
+            "key": "consumption"
+          }
+        ],
+        "estimate": {
+          "buckets": 2880,
+          "points": 11520
+        }
+      },
+      "canonical": "{\"devices\":[{\"gcdrDeviceId\":\"a1b2c3d4-0000-4000-8000-000000000001\",\"identifier\":\"ENT-01\"},{\"gcdrDeviceId\":\"b7e4d1a0-3c2f-4f8e-9a51-56b00c8e6f2d\",\"identifier\":\"EL-06\",\"ingestionId\":null,\"tbDeviceId\":\"tb-1\"}],\"period\":{\"end\":\"2026-10-01T03:00:00.000Z\",\"preset\":\"lastMonth\",\"start\":\"2026-09-01T03:00:00.500Z\",\"timezone\":\"America/Sao_Paulo\"},\"resolution\":\"15m\",\"telemetries\":[{\"key\":\"consumption\"},{\"key\":\"voltage_a\",\"label\":\"Tensão fase A\",\"unit\":\"V\"}]}",
+      "hash": "4e0ae832ae658d7659c15bcf8ae37bc58c012797c5d7ee19c72fadf00cc30d91"
+    },
+    {
+      "name": "no-preset",
+      "description": "preset omitted",
+      "differsFrom": "baseline-unsorted",
+      "request": {
+        "devices": [
+          {
+            "gcdrDeviceId": "b7e4d1a0-3c2f-4f8e-9a51-56b00c8e6f2d",
+            "label": "Elevador 6 L2",
+            "name": "EL-06",
+            "identifier": "EL-06",
+            "ingestionId": null,
+            "tbDeviceId": "tb-1"
+          },
+          {
+            "gcdrDeviceId": "a1b2c3d4-0000-4000-8000-000000000001",
+            "label": "Entrada",
+            "identifier": "ENT-01"
+          }
+        ],
+        "period": {
+          "start": "2026-09-01T00:00:00-03:00",
+          "end": "2026-10-01T00:00:00-03:00",
+          "timezone": "America/Sao_Paulo"
+        },
+        "resolution": "15m",
+        "telemetries": [
+          {
+            "key": "voltage_a",
+            "label": "Tensão fase A",
+            "unit": "V"
+          },
+          {
+            "key": "consumption"
+          }
+        ],
+        "estimate": {
+          "buckets": 2880,
+          "points": 11520
+        }
+      },
+      "canonical": "{\"devices\":[{\"gcdrDeviceId\":\"a1b2c3d4-0000-4000-8000-000000000001\",\"identifier\":\"ENT-01\"},{\"gcdrDeviceId\":\"b7e4d1a0-3c2f-4f8e-9a51-56b00c8e6f2d\",\"identifier\":\"EL-06\",\"ingestionId\":null,\"tbDeviceId\":\"tb-1\"}],\"period\":{\"end\":\"2026-10-01T03:00:00.000Z\",\"start\":\"2026-09-01T03:00:00.000Z\",\"timezone\":\"America/Sao_Paulo\"},\"resolution\":\"15m\",\"telemetries\":[{\"key\":\"consumption\"},{\"key\":\"voltage_a\",\"label\":\"Tensão fase A\",\"unit\":\"V\"}]}",
+      "hash": "74db4f7e777198685012b0b4cf906fd01937d5162abb325fb2c5844f59ddc048"
+    },
+    {
+      "name": "resolution-1h",
+      "description": "a different resolution is a different request",
+      "differsFrom": "baseline-unsorted",
+      "request": {
+        "devices": [
+          {
+            "gcdrDeviceId": "b7e4d1a0-3c2f-4f8e-9a51-56b00c8e6f2d",
+            "label": "Elevador 6 L2",
+            "name": "EL-06",
+            "identifier": "EL-06",
+            "ingestionId": null,
+            "tbDeviceId": "tb-1"
+          },
+          {
+            "gcdrDeviceId": "a1b2c3d4-0000-4000-8000-000000000001",
+            "label": "Entrada",
+            "identifier": "ENT-01"
+          }
+        ],
+        "period": {
+          "start": "2026-09-01T00:00:00-03:00",
+          "end": "2026-10-01T00:00:00-03:00",
+          "timezone": "America/Sao_Paulo",
+          "preset": "lastMonth"
+        },
+        "resolution": "1h",
+        "telemetries": [
+          {
+            "key": "voltage_a",
+            "label": "Tensão fase A",
+            "unit": "V"
+          },
+          {
+            "key": "consumption"
+          }
+        ],
+        "estimate": {
+          "buckets": 2880,
+          "points": 11520
+        }
+      },
+      "canonical": "{\"devices\":[{\"gcdrDeviceId\":\"a1b2c3d4-0000-4000-8000-000000000001\",\"identifier\":\"ENT-01\"},{\"gcdrDeviceId\":\"b7e4d1a0-3c2f-4f8e-9a51-56b00c8e6f2d\",\"identifier\":\"EL-06\",\"ingestionId\":null,\"tbDeviceId\":\"tb-1\"}],\"period\":{\"end\":\"2026-10-01T03:00:00.000Z\",\"preset\":\"lastMonth\",\"start\":\"2026-09-01T03:00:00.000Z\",\"timezone\":\"America/Sao_Paulo\"},\"resolution\":\"1h\",\"telemetries\":[{\"key\":\"consumption\"},{\"key\":\"voltage_a\",\"label\":\"Tensão fase A\",\"unit\":\"V\"}]}",
+      "hash": "4baa882194f0ae1b289c4b45b5c219d8ba9ec85b02da280cfecf5b28587b1c06"
+    },
+    {
+      "name": "device-extra-fields",
+      "description": "deviceProfile / group / tbDeviceId / ingestionId are part of the hash (only label/name are stripped)",
+      "differsFrom": "baseline-unsorted",
+      "request": {
+        "devices": [
+          {
+            "gcdrDeviceId": "b7e4d1a0-3c2f-4f8e-9a51-56b00c8e6f2d",
+            "label": "Elevador 6 L2",
+            "name": "EL-06",
+            "identifier": "EL-06",
+            "ingestionId": null,
+            "tbDeviceId": "tb-1",
+            "deviceProfile": "3F_MEDIDOR",
+            "group": "elevators"
+          },
+          {
+            "gcdrDeviceId": "a1b2c3d4-0000-4000-8000-000000000001",
+            "label": "Entrada",
+            "identifier": "ENT-01"
+          }
+        ],
+        "period": {
+          "start": "2026-09-01T00:00:00-03:00",
+          "end": "2026-10-01T00:00:00-03:00",
+          "timezone": "America/Sao_Paulo",
+          "preset": "lastMonth"
+        },
+        "resolution": "15m",
+        "telemetries": [
+          {
+            "key": "voltage_a",
+            "label": "Tensão fase A",
+            "unit": "V"
+          },
+          {
+            "key": "consumption"
+          }
+        ],
+        "estimate": {
+          "buckets": 2880,
+          "points": 11520
+        }
+      },
+      "canonical": "{\"devices\":[{\"gcdrDeviceId\":\"a1b2c3d4-0000-4000-8000-000000000001\",\"identifier\":\"ENT-01\"},{\"deviceProfile\":\"3F_MEDIDOR\",\"gcdrDeviceId\":\"b7e4d1a0-3c2f-4f8e-9a51-56b00c8e6f2d\",\"group\":\"elevators\",\"identifier\":\"EL-06\",\"ingestionId\":null,\"tbDeviceId\":\"tb-1\"}],\"period\":{\"end\":\"2026-10-01T03:00:00.000Z\",\"preset\":\"lastMonth\",\"start\":\"2026-09-01T03:00:00.000Z\",\"timezone\":\"America/Sao_Paulo\"},\"resolution\":\"15m\",\"telemetries\":[{\"key\":\"consumption\"},{\"key\":\"voltage_a\",\"label\":\"Tensão fase A\",\"unit\":\"V\"}]}",
+      "hash": "8c06d02a5642250b6602bfc4d28b4d41985bb53875ff5cfc25891455efdfb39a"
+    },
+    {
+      "name": "accented-identifier",
+      "description": "pt-BR accents in kept text fields, serialised as UTF-8 (no \\u escapes)",
+      "request": {
+        "devices": [
+          {
+            "gcdrDeviceId": "a1b2c3d4-0000-4000-8000-000000000001",
+            "identifier": "Subestação Ação"
+          },
+          {
+            "gcdrDeviceId": "b7e4d1a0-3c2f-4f8e-9a51-56b00c8e6f2d",
+            "label": "Elevador 6 L2",
+            "name": "EL-06",
+            "identifier": "EL-06",
+            "ingestionId": null,
+            "tbDeviceId": "tb-1"
+          }
+        ],
+        "period": {
+          "start": "2026-09-01T00:00:00-03:00",
+          "end": "2026-10-01T00:00:00-03:00",
+          "timezone": "America/Sao_Paulo",
+          "preset": "lastMonth"
+        },
+        "resolution": "15m",
+        "telemetries": [
+          {
+            "key": "voltage_a",
+            "label": "Tensão fase A",
+            "unit": "V"
+          },
+          {
+            "key": "consumption"
+          }
+        ],
+        "estimate": {
+          "buckets": 2880,
+          "points": 11520
+        }
+      },
+      "canonical": "{\"devices\":[{\"gcdrDeviceId\":\"a1b2c3d4-0000-4000-8000-000000000001\",\"identifier\":\"Subestação Ação\"},{\"gcdrDeviceId\":\"b7e4d1a0-3c2f-4f8e-9a51-56b00c8e6f2d\",\"identifier\":\"EL-06\",\"ingestionId\":null,\"tbDeviceId\":\"tb-1\"}],\"period\":{\"end\":\"2026-10-01T03:00:00.000Z\",\"preset\":\"lastMonth\",\"start\":\"2026-09-01T03:00:00.000Z\",\"timezone\":\"America/Sao_Paulo\"},\"resolution\":\"15m\",\"telemetries\":[{\"key\":\"consumption\"},{\"key\":\"voltage_a\",\"label\":\"Tensão fase A\",\"unit\":\"V\"}]}",
+      "hash": "8d29c554320059a274de25a6bcf9131aa5247c9c9fab11134b221a69506171e9"
+    }
+  ],
+  "jsonCases": [
+    {
+      "name": "negative-and-zero",
+      "value": {
+        "b": -1.5,
+        "a": 0,
+        "c": 0,
+        "d": 1e+21,
+        "e": 1e-7
+      },
+      "canonical": "{\"a\":0,\"b\":-1.5,\"c\":0,\"d\":1e+21,\"e\":1e-7}"
+    },
+    {
+      "name": "nested-key-order",
+      "value": {
+        "z": {
+          "y": 1,
+          "x": [
+            3,
+            {
+              "b": 2,
+              "a": 1
+            }
+          ]
+        },
+        "a": null
+      },
+      "canonical": "{\"a\":null,\"z\":{\"x\":[3,{\"a\":1,\"b\":2}],\"y\":1}}"
+    },
+    {
+      "name": "undefined-omitted-in-objects-null-in-arrays",
+      "value": {
+        "b": [
+          null,
+          null,
+          1
+        ]
+      },
+      "canonical": "{\"b\":[null,null,1]}"
+    },
+    {
+      "name": "strings-escaped-like-json-stringify",
+      "value": {
+        "s": "quote \" backslash \\ newline \n unicode ☃ \u0001"
+      },
+      "canonical": "{\"s\":\"quote \\\" backslash \\\\ newline \\n unicode ☃ \\u0001\"}"
+    },
+    {
+      "name": "nan-and-infinity-become-null",
+      "value": {
+        "a": null,
+        "b": null
+      },
+      "canonical": "{\"a\":null,\"b\":null}"
+    },
+    {
+      "name": "date-via-toJSON",
+      "value": {
+        "at": "2026-09-01T03:00:00.000Z"
+      },
+      "canonical": "{\"at\":\"2026-09-01T03:00:00.000Z\"}"
+    }
+  ]
+}

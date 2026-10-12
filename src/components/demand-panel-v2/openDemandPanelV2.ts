@@ -18,8 +18,8 @@ import { getDeviceIcon, DEFAULT_DEVICE_ICON } from '../../utils/devices/deviceIc
 import { resolveGroup, resolveCategory } from '../../utils/devices/deviceClassificationProfile';
 import { liftProfileToTree, flattenTree } from '../../utils/devices/classificationNodeTree';
 import {
-  AGGREGATIONS,
-  DEFAULT_AGGREGATION,
+  BUCKET_STATS_LABEL,
+  DEFAULT_DEMAND_LABEL,
   DEFAULT_RESOLUTION,
   maxPeriodDays,
   DEMAND_LIMITS,
@@ -36,7 +36,10 @@ import {
   buildTaxonomyChips,
   deriveJobView,
   envelopeKey,
+  failureText,
   finestFittingResolution,
+  isLocalMidnight,
+  localMidnightOf,
   formatLocalDateTime,
   isUncertainStatus,
   mergeBatch,
@@ -50,11 +53,11 @@ import {
   spParts,
   toLocalDateTimeInput,
   toSubmitCommand,
+  toValidateCommand,
   MIN_PERIOD_START,
   type AuditEvent,
-  type DemandAggregation,
   type DemandDevice,
-  type DemandReportEnvelopeV1,
+  type DemandReportEnvelope,
   type DemandRequest,
   type DemandResolution,
   type EnvelopeStore,
@@ -64,7 +67,9 @@ import {
   type PeriodPreset,
   type PortError,
   type ReportJobsApi,
+  type ReportJobsConfig,
   type Sha256,
+  type ValidateResult,
   type TaxonomyChip,
   type TaxonomyClassifier,
 } from '../../utils/reports/demand';
@@ -86,13 +91,11 @@ export interface DemandPanelV2Params {
   themeMode?: 'light' | 'dark';
   /** Show raw envelope / codes / jobs without envelope (MYIO support — O-11). */
   supportMode?: boolean;
-  /** Send `declaredRequester` to GCDR (only if the O-7 auth model keeps declared identity). */
-  includeDeclaredRequester?: boolean;
   /** Custom taxonomy classifier; default = active classification profile (RFC-0207). */
   classifier?: TaxonomyClassifier;
   /** Read-after-write grace before "not found" means "not received". Default 120 000 ms. */
   graceMs?: number;
-  /** GCDR idempotency window for a jobId (Q5/O-17 — open). Default 24 h. */
+  /** Library resend window (O-17), measured from the envelope (L-13). Default 7 days. */
   idempotencyWindowMs?: number;
   /** Envelopes per page in "Relatórios". Default 20. */
   pageSize?: number;
@@ -133,7 +136,13 @@ const fmtDuration = (ms: number): string => {
 };
 const asPortError = (e: unknown): PortError => {
   const x = e as Partial<PortError> & { name?: string };
-  return { status: typeof x?.status === 'number' ? x.status : 0, code: x?.code || (x?.name === 'AbortError' ? 'ABORTED' : 'ERROR'), message: x?.message || String(e) };
+  return {
+    status: typeof x?.status === 'number' ? x.status : 0,
+    code: x?.code || (x?.name === 'AbortError' ? 'ABORTED' : 'ERROR'),
+    message: x?.message || String(e),
+    details: x?.details,
+    retryAfter: x?.retryAfter,
+  };
 };
 
 /** Default classifier: active profile (GCDR taxonomy, RFC-0207) — group, then energy category. */
@@ -190,13 +199,17 @@ class DemandPanelV2 {
     category: 'all',
     selected: [] as string[],
     period: { preset: 'last7days' as PeriodPreset, start: 0, end: 0 },
-    // Agrupamento — same model/defaults as RealTimeTelemetryModal "Por período"
-    aggregation: DEFAULT_AGGREGATION as DemandAggregation,
+    // Resolução das linhas (GCDR): cada intervalo traz média, máximo, mínimo e nº de amostras
     resolution: DEFAULT_RESOLUTION as DemandResolution,
+    /** "Gerar novamente" quando existe um resultado idêntico reaproveitável (X-L2). */
+    force: false,
+    /** Validação no servidor (dry-run) do pedido do passo 4 — antes de gravar o envelope (L-10). */
+    validation: { state: 'idle' as 'idle' | 'loading' | 'ok' | 'error', result: null as ValidateResult | null, error: '', seq: 0 },
+    config: null as ReportJobsConfig | null,
     telemetries: new Set<string>(['consumption']),
     snapshot: null as null | { takenAt: number; request: DemandRequest },
     submitting: false,
-    envelopes: [] as DemandReportEnvelopeV1[],
+    envelopes: [] as DemandReportEnvelope[],
     unreadable: 0,
     keys: [] as string[],
     page: 1,
@@ -213,7 +226,7 @@ class DemandPanelV2 {
   constructor(private readonly p: DemandPanelV2Params) {
     this.now = p.now ?? (() => Date.now());
     this.graceMs = p.graceMs ?? 120_000;
-    this.windowMs = p.idempotencyWindowMs ?? 24 * 3_600_000;
+    this.windowMs = p.idempotencyWindowMs ?? 7 * 24 * 3_600_000;
     this.pageSize = p.pageSize ?? 20;
     this.pollDelay = p.pollMinMs ?? 5_000;
     this.deviceById = new Map(p.devices.map((d) => [d.tbDeviceId, d]));
@@ -273,6 +286,7 @@ class DemandPanelV2 {
 
     this.render();
     void this.loadPage(false);
+    void this.loadConfig();
     return { close: () => this.modal.close(), refresh: () => this.loadPage(true) };
   }
 
@@ -330,7 +344,8 @@ class DemandPanelV2 {
   }
   private eligibility(d: DemandDevice): { ok: boolean; cls?: string; text?: string; title?: string } {
     if (!d.gcdrDeviceId) return { ok: false, cls: 'block', text: '⛔ sem vínculo GCDR', title: 'O fluxo atual exige o vínculo com o GCDR' };
-    if (!d.ingestionId) return { ok: true, cls: 'warn', text: '⚠ sem vínculo de dados', title: 'Sem ingestionId — o resultado pode vir sem este medidor (Q3)' };
+    // A fonte de dados de cada telemetria é verificada pelo GCDR na validação do passo 4 (L-10)
+    if (!d.ingestionId) return { ok: true, cls: 'warn', text: '⚠ sem vínculo de dados', title: 'Sem ingestionId — a validação do passo 4 confirma se há dados para as telemetrias escolhidas' };
     return { ok: true };
   }
   private selectedDevices(): DemandDevice[] { return this.s.selected.map((id) => this.deviceById.get(id)!).filter(Boolean); }
@@ -343,36 +358,34 @@ class DemandPanelV2 {
       return !q || norm(`${d.label} ${d.name} ${d.identifier ?? ''} ${d.deviceProfile}`).includes(q);
     });
   }
-  /** Grouping interval in effect (`null` = Bruto). */
-  private effResolution(): DemandResolution | null {
-    return this.s.aggregation === 'NONE' ? null : this.s.resolution;
-  }
-  /** Bruto has no estimate (every sample of the period; size depends on each meter's rate). */
-  private estimatePoints(): { buckets: number | null; points: number | null } {
-    const res = this.effResolution();
-    if (!res) return { buckets: null, points: null };
-    const buckets = bucketCount(this.s.period.start, this.s.period.end, res);
+  private estimatePoints(): { buckets: number; points: number } {
+    const buckets = bucketCount(this.s.period.start, this.s.period.end, this.s.resolution);
     return { buckets, points: buckets * this.s.selected.length * this.s.telemetries.size };
   }
-  private groupingLabel(aggregation: DemandAggregation, resolution: DemandResolution | null): string {
-    if (aggregation === 'NONE') return 'Bruto · todos os pontos';
-    const agg = AGGREGATIONS.find((a) => a.id === aggregation)?.label ?? aggregation;
-    return `${agg} · ${resolution ? RESOLUTION_BY_ID[resolution]?.label ?? resolution : ''}`;
+  private resolutionLabel(resolution: DemandResolution | undefined): string {
+    return resolution ? `Intervalos de ${RESOLUTION_BY_ID[resolution]?.label ?? resolution}` : '—';
+  }
+  private demandLabel(): string {
+    const l = this.s.config?.demandLabel;
+    return typeof l === 'string' && l ? l : DEFAULT_DEMAND_LABEL;
   }
   private stepErrors(step: number): string[] {
     if (step === 1) return this.s.selected.length ? [] : ['Adicione ao menos 1 medidor.'];
-    if (step === 2) return periodErrors(this.s.period, this.effResolution(), this.now());
+    if (step === 2) return periodErrors(this.s.period, this.s.resolution, this.now());
     if (step === 3) return this.s.telemetries.size ? [] : ['Escolha ao menos 1 telemetria.'];
     const errs: string[] = [];
     [1, 2, 3].forEach((n) => { if (this.stepErrors(n).length) errs.push(`Etapa ${n} incompleta.`); });
-    const pts = this.s.snapshot?.request.estimate.points;
+    const pts = this.s.snapshot?.request.estimate?.points;
     if (pts != null && pts > DEMAND_LIMITS.points) {
-      errs.push(`O relatório passa do tamanho máximo (${fmtN(DEMAND_LIMITS.points)} linhas).`);
+      errs.push(`O relatório passa do tamanho máximo (${fmtN(DEMAND_LIMITS.points)} pontos).`);
     }
-    if (this.s.active.length >= DEMAND_LIMITS.activeJobs) errs.push(`Já existem ${DEMAND_LIMITS.activeJobs} relatórios em andamento — aguarde um terminar.`);
+    const v = this.s.validation;
+    if (v.state === 'ok' && v.result && !v.result.ok) {
+      (v.result.errors || []).forEach((e) => errs.push(rejectionText(e.code || 'VALIDATION_FAILED', e.reason, e.message, e.details)));
+    }
     return errs;
   }
-  private view(e: DemandReportEnvelopeV1): JobView {
+  private view(e: DemandReportEnvelope): JobView {
     return deriveJobView({
       envelope: e, knowledge: this.s.jobs.get(e.jobId), now: this.now(),
       inflight: this.s.inflight.has(e.jobId), uncertain: this.s.uncertain.has(e.jobId),
@@ -390,10 +403,44 @@ class DemandPanelV2 {
       takenAt: now,
       request: buildRequest({
         devices: this.selectedDevices(), range: this.s.period, preset: this.s.period.preset,
-        aggregation: this.s.aggregation, resolution: this.s.resolution,
-        telemetryKeys: this.s.telemetries,
+        resolution: this.s.resolution, telemetryKeys: this.s.telemetries,
       }),
     };
+    void this.validateSnapshot();
+  }
+
+  /**
+   * Dry-run no GCDR (reserva nada): erros, avisos, cotas, estimativa e resultado reaproveitável
+   * aparecem ANTES de gravar o envelope (L-10, X-L1, X-L2). Resposta antiga nunca sobrescreve
+   * a validação de um snapshot mais novo.
+   */
+  private async validateSnapshot(): Promise<void> {
+    const snap = this.s.snapshot;
+    if (!snap) return;
+    const seq = ++this.s.validation.seq;
+    this.s.validation = { ...this.s.validation, state: 'loading', result: null, error: '', seq };
+    this.render();
+    try {
+      const result = await this.p.api.validate(
+        toValidateCommand(snap.request, this.p.user, this.s.force ? { force: true } : undefined),
+        this.opts()
+      );
+      if (this.destroyed || seq !== this.s.validation.seq) return;
+      this.s.validation = { ...this.s.validation, state: 'ok', result, error: '' };
+    } catch (err) {
+      if (this.destroyed || seq !== this.s.validation.seq) return;
+      const pe = asPortError(err);
+      if (pe.code === 'ABORTED') return;
+      this.s.validation = {
+        ...this.s.validation,
+        state: 'error',
+        result: null,
+        error: pe.status === 422 || pe.status === 401 || pe.status === 403
+          ? rejectionText(pe.code, (pe.details as { reason?: string })?.reason, pe.message, pe.details)
+          : pe.message,
+      };
+    }
+    this.render();
   }
 
   /* ------------------------------------------------------------------ rendering */
@@ -410,9 +457,18 @@ class DemandPanelV2 {
   }
 
   private renderBanner(): void {
-    if (this.s.tab !== 'new' || this.s.active.length < DEMAND_LIMITS.activeJobs) { this.el.banner.innerHTML = ''; return; }
-    const who = this.s.active.slice(0, 3).map((j) => formatLocalDateTime(Date.parse(j.createdAt)).slice(11)).join(', ');
-    this.el.banner.innerHTML = `<div class="dp2-banner">⏳ ${DEMAND_LIMITS.activeJobs} relatórios em andamento (pedidos às ${esc(who)}). Você pode montar o pedido, mas só poderá enviar quando um terminar.
+    if (this.s.tab !== 'new') { this.el.banner.innerHTML = ''; return; }
+    // Cotas do GCDR (X-L1): só o servidor sabe os limites reais — mostramos o que a validação trouxe
+    const q = this.s.validation.result?.quotas;
+    const full = q ? (['user', 'customer', 'day'] as const).filter((k) => q[k] && q[k]!.max > 0 && q[k]!.current >= q[k]!.max) : [];
+    if (full.length && q) {
+      const txt: Record<string, string> = { user: 'seus relatórios em andamento', customer: 'relatórios em andamento do cliente', day: 'relatórios gerados hoje' };
+      this.el.banner.innerHTML = `<div class="dp2-banner">⏳ Limite atingido: ${full.map((k) => `${txt[k]} (${q[k]!.current}/${q[k]!.max})`).join(' · ')}.
+        <button class="dp2-btn link" type="button" data-action="tab" data-tab="jobs">Ver relatórios</button></div>`;
+      return;
+    }
+    if (!this.s.active.length) { this.el.banner.innerHTML = ''; return; }
+    this.el.banner.innerHTML = `<div class="dp2-banner info">⏳ ${this.s.active.length} relatório(s) em andamento.
       <button class="dp2-btn link" type="button" data-action="tab" data-tab="jobs">Ver relatórios</button></div>`;
   }
 
@@ -488,41 +544,38 @@ class DemandPanelV2 {
 
   private renderStep2(): void {
     const { start, end, preset } = this.s.period;
-    const raw = this.s.aggregation === 'NONE';
-    const res = this.effResolution();
     const r = RESOLUTION_BY_ID[this.s.resolution];
-    const maxDays = maxPeriodDays(res);
-    const modeLabel = raw ? 'dados brutos' : `agrupamento de ${r.label}`;
+    const maxDays = maxPeriodDays(this.s.resolution);
     const errs = this.stepErrors(2);
     const valid = Number.isFinite(start) && Number.isFinite(end) && end > start;
     const tooLong = valid && end - start > maxDays * 86_400_000;
     const fit = tooLong ? finestFittingResolution(this.s.period) : null;
+    const misaligned = valid && this.s.resolution === '1d' && !isLocalMidnight(start);
     const presetTooLong = (id: PeriodPreset) => { const x = presetRange(id, this.now()); return !!x && x.end - x.start > maxDays * 86_400_000; };
+    const otherErrs = errs.filter((e) => !/período máximo|meia-noite/.test(e));
     this.el.body.innerHTML = `
       <div class="dp2-card"><h3 tabindex="-1" data-role="step-title">Período</h3>
         <div class="dp2-chips" style="margin-bottom:12px">${PRESETS.map((p) => {
           const off = p.id !== 'custom' && presetTooLong(p.id);
-          return `<button class="dp2-chip" type="button" data-action="preset" data-preset="${p.id}" aria-pressed="${preset === p.id}" ${off ? `disabled title="até ${maxDays} dia(s) com ${esc(modeLabel)}"` : ''}>${p.label}</button>`;
+          return `<button class="dp2-chip" type="button" data-action="preset" data-preset="${p.id}" aria-pressed="${preset === p.id}" ${off ? `disabled title="até ${maxDays} dia(s) com intervalos de ${esc(r.label)}"` : ''}>${p.label}</button>`;
         }).join('')}</div>
         <div class="dp2-row">
           <label class="dp2-field">Início<input type="datetime-local" data-role="start" min="${MIN_PERIOD_START}T00:00" value="${Number.isFinite(start) ? toLocalDateTimeInput(start) : ''}"></label>
           <label class="dp2-field">Fim (exclusivo)<input type="datetime-local" data-role="end" value="${Number.isFinite(end) ? toLocalDateTimeInput(end) : ''}"></label>
           <div class="dp2-info">${valid ? `Duração: <b>${fmtDuration(end - start)}</b> · horário de Brasília` : ''}</div>
         </div></div>
-      <div class="dp2-card"><h3>Agrupamento</h3>
-        <div class="dp2-field" style="margin-bottom:6px">Agregação</div>
-        <div class="dp2-chips" role="group" aria-label="Agregação">${AGGREGATIONS.map((a) => `<button class="dp2-chip" type="button" data-action="aggregation" data-agg="${a.id}" aria-pressed="${this.s.aggregation === a.id}">${a.label}</button>`).join('')}</div>
-        ${raw
-          ? `<p class="dp2-info" style="margin:10px 0 0">Bruto: todas as amostras do período, como foram gravadas, sem intervalo de agrupamento e sem limite de pontos. Período máximo de ${maxDays} dias.</p>`
-          : `<div class="dp2-field" style="margin:12px 0 6px">Intervalo de agrupamento</div>
-             <div class="dp2-chips" role="group" aria-label="Intervalo de agrupamento">${RESOLUTIONS.map((x) => `<button class="dp2-chip" type="button" data-action="resolution" data-res="${x.id}" aria-pressed="${this.s.resolution === x.id}">${x.label} <small>(até ${x.maxDays} d)</small></button>`).join('')}</div>
-             <p class="dp2-info" style="margin:10px 0 0">Um ponto por intervalo; um intervalo sem telemetria repete o valor anterior (marcado no resultado). Os intervalos seguem o relógio (00:00, 00:15…) e os parciais nas pontas contam. 15 min é o intervalo de integração de demanda das concessionárias.</p>
-             ${valid && !tooLong ? `<p class="dp2-info" style="margin:6px 0 0">${fmtN(bucketCount(start, end, this.s.resolution))} intervalos de ${esc(r.label)}.</p>` : ''}`}
-        ${tooLong ? `<div class="dp2-fix"><span class="dp2-err">O período é longo demais para ${esc(modeLabel)}.</span>
-          ${fit ? `<button class="dp2-btn sm primary" type="button" data-action="${raw ? 'aggregate-fit' : 'resolution'}" data-res="${fit}">${raw ? `Agrupar por ${esc(RESOLUTION_BY_ID[fit].label)} (Máximo)` : `Usar ${esc(RESOLUTION_BY_ID[fit].label)}`}</button>` : ''}
+      <div class="dp2-card"><h3>Resolução</h3>
+        <div class="dp2-chips" role="group" aria-label="Resolução">${RESOLUTIONS.map((x) => `<button class="dp2-chip" type="button" data-action="resolution" data-res="${x.id}" aria-pressed="${this.s.resolution === x.id}">${x.label} <small>(até ${x.maxDays} d)</small></button>`).join('')}</div>
+        <p class="dp2-info" style="margin:10px 0 0">Cada linha do relatório é um intervalo com <b>${esc(BUCKET_STATS_LABEL)}</b> de cada telemetria. Os intervalos contam a partir do início do período${this.s.resolution === '1d' ? ' (com 1 dia, cada linha é um dia do calendário)' : ''}.
+          ${this.s.telemetries.has('consumption') ? `Com <b>Potência Total</b>, o arquivo traz também a <b>${esc(this.demandLabel())}</b>, em janelas de 15 min alinhadas ao relógio.` : ''}</p>
+        ${valid && !tooLong ? `<p class="dp2-info" style="margin:6px 0 0">${fmtN(bucketCount(start, end, this.s.resolution))} intervalo(s) por medidor.</p>` : ''}
+        ${tooLong ? `<div class="dp2-fix"><span class="dp2-err">O período é longo demais para intervalos de ${esc(r.label)} (máximo ${maxDays} dia(s)).</span>
+          ${fit ? `<button class="dp2-btn sm primary" type="button" data-action="resolution" data-res="${fit}">Usar ${esc(RESOLUTION_BY_ID[fit].label)}</button>` : ''}
           <button class="dp2-btn sm" type="button" data-action="shorten">Encurtar para os últimos ${maxDays} dia(s)</button></div>` : ''}
+        ${misaligned ? `<div class="dp2-fix"><span class="dp2-err">Com intervalos de 1 dia, o início precisa ser à meia-noite.</span>
+          <button class="dp2-btn sm primary" type="button" data-action="snap-midnight">Começar em ${esc(formatLocalDateTime(localMidnightOf(start)))}</button></div>` : ''}
       </div>
-      ${errs.length && !tooLong ? `<p class="dp2-err">${errs.map(esc).join('<br>')}</p>` : ''}`;
+      ${otherErrs.length ? `<p class="dp2-err">${otherErrs.map(esc).join('<br>')}</p>` : ''}`;
   }
 
   private renderStep3(): void {
@@ -540,29 +593,44 @@ class DemandPanelV2 {
   private renderStep4(): void {
     const snap = this.s.snapshot!;
     const req = snap.request;
-    const est = req.estimate;
+    const v = this.s.validation;
+    const vr = v.result;
+    const est = vr?.estimate || req.estimate || { buckets: 0, points: 0 };
     const errs = this.stepErrors(4);
-    const noIng = req.devices.filter((d) => !d.ingestionId).length;
     const pts = est.points;
-    const [cls, txt] = pts === null ? ['medio', 'não estimado'] : pts < 50_000 ? ['pequeno', 'pequeno'] : pts < 500_000 ? ['medio', 'médio'] : ['grande', 'grande'];
-    const sizeDetail = pts === null || est.buckets === null
-      ? '<span class="dp2-info">dados brutos: todas as amostras do período — o volume depende da frequência de cada medidor</span>'
-      : `<span class="dp2-info">≈ ${fmtN(pts)} linhas de dados</span>
-            <details class="dp2-details"><summary>Detalhes</summary><span class="dp2-info">${fmtN(est.buckets)} intervalos × ${req.devices.length} medidores × ${req.telemetries.length} telemetrias · limite ${fmtN(DEMAND_LIMITS.points)}</span></details>`;
-    const start = Date.parse(req.period.startUtc);
-    const end = Date.parse(req.period.endUtc);
+    const [cls, txt] = pts < 50_000 ? ['pequeno', 'pequeno'] : pts < 500_000 ? ['medio', 'médio'] : ['grande', 'grande'];
+    const start = Date.parse(req.period.start);
+    const end = Date.parse(req.period.end);
+    const labelOf = (d: { label?: string; identifier?: string | null; gcdrDeviceId: string }) =>
+      `${d.label || d.identifier || d.gcdrDeviceId}${d.label && (this.labelCount.get(d.label) || 0) > 1 && d.identifier ? ' · ' + d.identifier : ''}`;
+    let validation = '';
+    if (v.state === 'loading') validation = '<div class="dp2-info">⏳ Validando o pedido no servidor…</div>';
+    else if (v.state === 'error') {
+      validation = `<div class="dp2-err">Não foi possível validar agora: ${esc(v.error)}
+        <button class="dp2-btn link" type="button" data-action="revalidate">Tentar de novo</button></div>`;
+    } else if (vr) {
+      const warns = (vr.warnings || []).map((w) => `<li>${esc(w.message || w.code || 'aviso')}</li>`).join('');
+      const reuse = vr.reusable
+        ? `<div class="dp2-banner info" style="margin-top:8px">♻ Já existe um relatório idêntico${vr.reusable.generatedAt ? ` gerado em ${esc(formatLocalDateTime(Date.parse(vr.reusable.generatedAt)))}` : ''}${vr.reusable.generatedBy?.userId ? ` por ${esc(vr.reusable.generatedBy.userId)}` : ''}. Confirmar reaproveita o arquivo (sem custo de cota).
+            <label class="dp2-check" style="margin-top:6px"><input type="checkbox" data-role="force" ${this.s.force ? 'checked' : ''}> Gerar novamente mesmo assim</label></div>`
+        : '';
+      validation = `${vr.ok ? '<div class="dp2-info">✓ Pedido validado no servidor.</div>' : ''}
+        ${warns ? `<ul class="dp2-info" style="margin:6px 0 0;padding-left:18px">${warns}</ul>` : ''}${reuse}`;
+    }
     this.el.body.innerHTML = `
       <div class="dp2-card"><h3 tabindex="-1" data-role="step-title">Resumo do pedido</h3>
         <dl class="dp2-sum">
           <dt>Solicitante</dt><dd>${esc(this.p.user.name)}</dd>
-          <dt>Medidores (${req.devices.length})</dt><dd><div class="dp2-pills">${req.devices.map((d) => `<span class="dp2-pill">${esc(d.label)}${(this.labelCount.get(d.label) || 0) > 1 && d.identifier ? ' · ' + esc(d.identifier) : ''}</span>`).join('')}</div>
-            ${noIng ? `<div class="dp2-err" style="font-weight:600;margin-top:6px">⚠ ${noIng} sem vínculo de dados — o resultado pode vir sem esses medidores (Q3).</div>` : ''}</dd>
+          <dt>Medidores (${req.devices.length})</dt><dd><div class="dp2-pills">${req.devices.map((d) => `<span class="dp2-pill">${esc(labelOf(d))}</span>`).join('')}</div></dd>
           <dt>Período</dt><dd>${formatLocalDateTime(start)} → ${formatLocalDateTime(end)} <span class="dp2-info">(${fmtDuration(end - start)}, horário de Brasília${req.period.preset === 'today' || req.period.preset === 'thisMonth' ? `, calculado às ${formatLocalDateTime(snap.takenAt).slice(11)}` : ''})</span></dd>
-          <dt>Agrupamento</dt><dd>${esc(this.groupingLabel(req.aggregation, req.resolution))}
-            <span class="dp2-info">${req.aggregation === 'NONE' ? '(sem intervalo, sem limite de pontos)' : '(intervalo sem telemetria repete o valor anterior)'}</span></dd>
-          <dt>Telemetrias (${req.telemetries.length})</dt><dd><div class="dp2-pills">${req.telemetries.map((t) => `<span class="dp2-pill">${esc(t.label)} · ${esc(t.unit)}</span>`).join('')}</div></dd>
-          <dt>Tamanho</dt><dd><span class="dp2-size ${cls}">${txt}</span> ${sizeDetail}</dd>
+          <dt>Resolução</dt><dd>${esc(this.resolutionLabel(req.resolution))} <span class="dp2-info">(${esc(BUCKET_STATS_LABEL)})</span></dd>
+          <dt>Telemetrias (${req.telemetries.length})</dt><dd><div class="dp2-pills">${req.telemetries.map((t) => `<span class="dp2-pill">${esc(t.label)} · ${esc(t.unit)}</span>`).join('')}</div>
+            ${req.telemetries.some((t) => t.key === 'consumption') ? `<div class="dp2-info" style="margin-top:4px">Inclui a ${esc(this.demandLabel())}.</div>` : ''}</dd>
+          <dt>Tamanho</dt><dd><span class="dp2-size ${cls}">${txt}</span> <span class="dp2-info">≈ ${fmtN(pts)} pontos</span>
+            <details class="dp2-details"><summary>Detalhes</summary><span class="dp2-info">${fmtN(est.buckets)} intervalos × ${req.devices.length} medidores × ${req.telemetries.length} telemetrias · limite ${fmtN(DEMAND_LIMITS.points)}</span></details></dd>
+          <dt>Entrega</dt><dd>Arquivos XLSX, CSV e JSON <span class="dp2-info">(disponíveis por 3 dias; o resumo fica por 1 ano)</span></dd>
         </dl>
+        <div style="margin-top:12px">${validation}</div>
         <p class="dp2-info" style="margin:12px 0 0">Seu pedido fica registrado (quem, quando, o quê) e é processado em segundo plano. <b>Você pode fechar este painel</b> e acompanhar em Relatórios.</p>
       </div>
       ${this.p.supportMode ? `<div class="dp2-card"><h3>Pedido que será registrado (suporte)</h3><pre class="dp2-json">${esc(JSON.stringify(req, null, 2))}</pre></div>` : ''}
@@ -576,13 +644,13 @@ class DemandPanelV2 {
       <button class="dp2-btn" type="button" data-action="back" ${this.s.step === 1 ? 'disabled' : ''}>← Voltar</button>
       <span class="hint">${esc(hints[this.s.step])}</span>
       ${this.s.step === 4
-        ? `<button class="dp2-btn primary" type="button" data-action="confirm" ${errs.length || this.s.submitting ? 'disabled' : ''}>${this.s.submitting ? 'Enviando…' : '✓ Confirmar e enviar'}</button>`
+        ? `<button class="dp2-btn primary" type="button" data-action="confirm" ${errs.length || this.s.submitting || this.s.validation.state !== 'ok' ? 'disabled' : ''}>${this.s.submitting ? 'Enviando…' : '✓ Confirmar e enviar'}</button>`
         : `<button class="dp2-btn primary" type="button" data-action="next" ${errs.length ? 'disabled' : ''}>Próximo →</button>`}`;
   }
 
-  private jobTitle(e: DemandReportEnvelopeV1): string {
+  private jobTitle(e: DemandReportEnvelope): string {
     const r = e.request;
-    return `${r.devices.length} medidor(es) · ${fmtDay(Date.parse(r.period.startUtc))}–${fmtDay(Date.parse(r.period.endUtc) - 1)} · ${this.groupingLabel(r.aggregation ?? 'MAX', r.resolution)}`;
+    return `${r.devices.length} medidor(es) · ${fmtDay(Date.parse(r.period.start))}–${fmtDay(Date.parse(r.period.end) - 1)} · ${this.resolutionLabel(r.resolution)}`;
   }
 
   private renderJobs(): void {
@@ -598,48 +666,67 @@ class DemandPanelV2 {
     }
     const orphans = this.p.supportMode ? s.active.filter((j) => !s.keys.includes(envelopeKey(j.jobId))) : [];
     if (!s.envelopes.length && !orphans.length) { this.el.body.innerHTML = '<div class="dp2-empty">Nenhum relatório ainda. Crie um em <b>Novo relatório</b>.</div>'; return; }
+    const when = (iso?: string | null) => (iso ? formatLocalDateTime(Date.parse(iso)) : '');
     const cards = s.envelopes.map((e) => {
       const v = this.view(e);
       const st = v.state;
       const j = v.job;
-      const progress = j?.progress ?? 0;
-      const canResend = v.canResend && !(v.state === 'rejected' && s.active.length >= DEMAND_LIMITS.activeJobs);
+      const progress = Math.max(0, Math.min(100, Math.round(j?.progress ?? 0)));
       const busy = s.inflight.has(e.jobId) ? 'disabled' : '';
       const note = (cls: string, text: string) => `<div class="${cls}" style="margin-top:6px">${text}</div>`;
+      const queue = st === 'queued' && j?.queue?.position ? ` (Nº ${j.queue.position})` : '';
+      const peak = j?.totals?.largestDevicePeak;
+      const peakTxt = peak && (peak.kw != null || peak.w != null)
+        ? `Maior pico individual: <b>${esc(fmtN(Number(peak.kw ?? (peak.w as number) / 1000)))} kW</b>${peak.label ? ` · ${esc(peak.label)}` : ''}${peak.at ? ` · ${esc(when(peak.at))}` : ''}`
+        : '';
       return `<article class="dp2-job" aria-label="${esc(this.jobTitle(e))}">
         <div class="dp2-job-top">
           <span class="dp2-job-title">${esc(this.jobTitle(e))}</span>
-          <span class="dp2-status ${st}">${JOB_STATE_LABEL[st]}${st === 'running' ? ` ${progress}%` : ''}</span>
+          <span class="dp2-status ${st}">${JOB_STATE_LABEL[st]}${queue}${st === 'running' ? ` ${progress}%` : ''}</span>
           <span style="flex:1"></span>
-          <span class="dp2-info">${esc(e.requestedBy.name)} · ${formatLocalDateTime(Date.parse(e.requestedAt))}</span>
+          <span class="dp2-info">${esc(e.requestedBy.name)} · ${when(e.requestedAt)}</span>
         </div>
         ${st === 'queued' || st === 'running' ? `<div class="dp2-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress}"><span style="width:${progress}%"></span></div>` : ''}
-        ${st === 'failed' && j?.error ? note('dp2-err', `${esc(j.error.message)}${this.p.supportMode ? ` <small>(${esc(j.error.code)})</small>` : ''}`) : ''}
-        ${st === 'rejected' ? note('dp2-err', `${esc(rejectionText(v.code, v.message, DEMAND_LIMITS.activeJobs))}${this.p.supportMode ? ` <small>(${esc(v.code)})</small>` : ''}`) : ''}
+        ${st === 'queued' && j?.queue?.estimatedStartAt ? note('dp2-info', `Início estimado: ${esc(when(j.queue.estimatedStartAt))}`) : ''}
+        ${st === 'failed' ? note('dp2-err', `${esc(failureText(j?.error?.code))}${this.p.supportMode && j?.error ? ` <small>(${esc(j.error.code)}: ${esc(j.error.message)})</small>` : ''}`) : ''}
+        ${st === 'rejected' ? note('dp2-err', `${esc(rejectionText(v.code, v.reason, v.message))}${this.p.supportMode ? ` <small>(${esc(v.code)}${v.reason ? ' · ' + esc(v.reason) : ''})</small>` : ''}`) : ''}
         ${st === 'not_received' ? note('dp2-err', 'O pedido está registrado, mas o processamento não o recebeu. Reenviar é seguro: não gera relatório duplicado.') : ''}
-        ${st === 'query_unavailable' ? note('dp2-info', 'Não foi possível consultar o andamento agora. Tentaremos de novo; reenviar é seguro.') : ''}
-        ${st === 'expired' ? note('dp2-info', 'Passou o prazo para reenviar este pedido com segurança. Use "Duplicar e editar".') : ''}
-        ${st === 'result_expired' ? note('dp2-info', 'O relatório foi concluído, mas o arquivo já expirou.') : ''}
+        ${st === 'query_unavailable' ? note('dp2-info', 'Não foi possível consultar o andamento agora — tentaremos de novo.') : ''}
+        ${st === 'old_request' ? note('dp2-info', 'Pedido antigo, sem registro de processamento. Use "Duplicar e editar".') : ''}
+        ${st === 'result_expired' ? note('dp2-info', 'O relatório foi concluído, mas os arquivos já expiraram (ficam 3 dias).') : ''}
+        ${st === 'purged' ? note('dp2-info', 'O conteúdo deste relatório foi removido.') : ''}
+        ${st === 'succeeded' && j?.reused ? note('dp2-info', `♻ Resultado reaproveitado${j.generatedAt ? ` — gerado em ${esc(when(j.generatedAt))}` : ''}${j.generatedBy?.userId ? ` por ${esc(j.generatedBy.userId)}` : ''}.`) : ''}
+        ${st === 'succeeded' && peakTxt ? note('dp2-info', peakTxt) : ''}
+        ${st === 'succeeded' && j?.expiresAt ? note('dp2-info', `Arquivos disponíveis até ${esc(when(j.expiresAt))}.`) : ''}
         ${s.auditPending.has(e.jobId) ? '<div class="dp2-audit-warn">⚠ A ação foi aceita, mas o registro de auditoria falhou — será reconciliado.</div>' : ''}
         <div class="dp2-job-actions">
-          ${st === 'succeeded' ? `<button class="dp2-btn sm" type="button" data-action="download" data-job="${esc(e.jobId)}">⬇ Baixar</button>` : ''}
+          ${st === 'succeeded' ? `<button class="dp2-btn sm primary" type="button" data-action="download" data-kind="xlsx" data-job="${esc(e.jobId)}">⬇ XLSX</button>
+            <button class="dp2-btn sm" type="button" data-action="download" data-kind="csv" data-job="${esc(e.jobId)}">CSV</button>
+            <button class="dp2-btn sm" type="button" data-action="download" data-kind="json" data-job="${esc(e.jobId)}">JSON</button>` : ''}
           ${st === 'queued' || st === 'running' ? `<button class="dp2-btn sm" type="button" data-action="cancel" data-job="${esc(e.jobId)}" ${busy}>✕ Cancelar</button>` : ''}
-          ${canResend ? `<button class="dp2-btn sm primary" type="button" data-action="resend" data-job="${esc(e.jobId)}" ${busy}>↻ Reenviar</button>` : ''}
-          ${['failed', 'cancelled', 'succeeded', 'result_expired', 'expired', 'rejected'].includes(st) ? `<button class="dp2-btn sm" type="button" data-action="clone" data-job="${esc(e.jobId)}">⧉ Duplicar e editar</button>` : ''}
+          ${v.canResend ? `<button class="dp2-btn sm primary" type="button" data-action="resend" data-job="${esc(e.jobId)}" ${busy}>↻ Reenviar</button>` : ''}
+          ${['failed', 'cancelled', 'succeeded', 'result_expired', 'purged', 'old_request', 'rejected'].includes(st) ? `<button class="dp2-btn sm" type="button" data-action="clone" data-job="${esc(e.jobId)}">⧉ Duplicar e editar</button>` : ''}
           ${this.p.supportMode ? `<button class="dp2-btn link" type="button" data-action="details" data-job="${esc(e.jobId)}">${s.openDetails.has(e.jobId) ? 'Ocultar' : 'Detalhes /'} auditoria</button>` : ''}
         </div>
         ${this.p.supportMode && s.openDetails.has(e.jobId) ? `<pre class="dp2-json">${esc(JSON.stringify(e, null, 2))}</pre>` : ''}
       </article>`;
     }).join('');
     const orphanCards = orphans.map((j) => `<article class="dp2-job ghost"><div class="dp2-job-top">
-        <span class="dp2-job-title">Job sem registro no ThingsBoard (O-6)</span><span class="dp2-status ${j.status}">${JOB_STATE_LABEL[j.status]}</span>
-        <span style="flex:1"></span><span class="dp2-info">${esc(j.requestedBy?.principal ?? '')} · ${formatLocalDateTime(Date.parse(j.createdAt))}</span></div>
+        <span class="dp2-job-title">Job sem registro no ThingsBoard (O-6)</span><span class="dp2-status ${j.status}">${esc(JOB_STATE_LABEL[j.status as keyof typeof JOB_STATE_LABEL] ?? j.status)}</span>
+        <span style="flex:1"></span><span class="dp2-info">${esc(j.requestedBy?.userId ?? '')} · ${when(j.createdAt)}</span></div>
         <div class="dp2-info" style="margin-top:4px"><code>${esc(j.jobId)}</code></div></article>`).join('');
     this.el.body.innerHTML = cards + orphanCards;
   }
 
   /* ------------------------------------------------------------------ data flows */
   private opts() { return { signal: this.abort.signal }; }
+
+  private async loadConfig(): Promise<void> {
+    try {
+      this.s.config = await this.p.api.config(this.opts());
+      if (!this.destroyed) this.render();
+    } catch { /* defaults (DEFAULT_DEMAND_LABEL, DEMAND_LIMITS) */ }
+  }
 
   private async refreshActive(): Promise<void> {
     try { this.s.active = await this.p.api.active(this.opts()); } catch { /* keep last known */ }
@@ -665,7 +752,7 @@ class DemandPanelV2 {
       const keys = this.s.keys.slice(0, this.s.page * this.pageSize);
       const rows = keys.length ? await this.p.store.get(keys, this.opts()) : [];
       const parsed = rows.map((r) => parseEnvelope(r.value));
-      this.s.envelopes = parsed.filter((x): x is { ok: true; envelope: DemandReportEnvelopeV1 } => x.ok).map((x) => x.envelope);
+      this.s.envelopes = parsed.filter((x): x is { ok: true; envelope: DemandReportEnvelope } => x.ok).map((x) => x.envelope);
       this.s.unreadable = parsed.length - this.s.envelopes.length;
       this.s.listState = 'ok';
     } catch (err) {
@@ -693,7 +780,7 @@ class DemandPanelV2 {
     }
   }
 
-  private async appendAudit(e: DemandReportEnvelopeV1, ev: AuditEvent): Promise<boolean> {
+  private async appendAudit(e: DemandReportEnvelope, ev: AuditEvent): Promise<boolean> {
     try {
       Object.assign(e, await this.p.store.appendAudit(envelopeKey(e.jobId), ev, this.opts()));
       this.s.auditPending.delete(e.jobId);
@@ -705,7 +792,7 @@ class DemandPanelV2 {
   }
 
   /** Uncertain TB write: read back, reuse when it matches; never overwrite appended audit. */
-  private async putEnvelope(env: DemandReportEnvelopeV1): Promise<void> {
+  private async putEnvelope(env: DemandReportEnvelope): Promise<void> {
     const key = envelopeKey(env.jobId);
     try { await this.p.store.put(key, env, this.opts()); return; } catch (err) {
       if (asPortError(err).code === 'ABORTED') throw err;
@@ -717,32 +804,41 @@ class DemandPanelV2 {
     await this.p.store.put(key, env, this.opts());
   }
 
-  /** One automatic retry on an uncertain outcome (no response / 5xx), same jobId. */
-  private async send(env: DemandReportEnvelopeV1): Promise<{ outcome: 'accepted'; job: GcdrJobView } | { outcome: 'rejected' | 'uncertain'; err: PortError }> {
-    const cmd = toSubmitCommand(env, { includeDeclaredRequester: this.p.includeDeclaredRequester });
+  /** One automatic retry on an uncertain outcome (no response / 5xx) and one on RATE_LIMITED, same jobId. */
+  private async send(env: DemandReportEnvelope): Promise<{ outcome: 'accepted'; job: GcdrJobView } | { outcome: 'rejected' | 'uncertain'; err: PortError }> {
+    const cmd = toSubmitCommand(env);
     let last: PortError = { status: 0, code: 'ERROR', message: '' };
     for (let attempt = 0; attempt < 2; attempt++) {
       try { return { outcome: 'accepted', job: await this.p.api.submit(cmd, this.opts()) }; } catch (e) {
         last = asPortError(e);
         if (last.code === 'ABORTED') return { outcome: 'uncertain', err: last };
+        if (last.code === 'RATE_LIMITED' && attempt === 0) {
+          await new Promise((r) => setTimeout(r, Math.min(10, last.retryAfter ?? 2) * 1000));
+          continue;
+        }
         if (!isUncertainStatus(last.status)) return { outcome: 'rejected', err: last };
       }
     }
     return { outcome: 'uncertain', err: last };
   }
 
-  private async applySend(e: DemandReportEnvelopeV1, op: 'submit' | 'resend', res: Awaited<ReturnType<DemandPanelV2['send']>>): Promise<'ok' | 'audit_failed' | 'rejected' | 'uncertain'> {
+  private async applySend(e: DemandReportEnvelope, op: 'submit' | 'resend', res: Awaited<ReturnType<DemandPanelV2['send']>>): Promise<'ok' | 'reused' | 'audit_failed' | 'rejected' | 'uncertain'> {
     const by = this.p.user.tbUserId;
     if (res.outcome === 'accepted') {
       this.s.uncertain.delete(e.jobId);
       this.s.jobs.set(e.jobId, { found: true, job: res.job });   // UI reflects what GCDR confirmed first
       this.render();
-      return (await this.appendAudit(e, auditEvent(op, 'accepted', by, this.now()))) ? 'ok' : 'audit_failed';
+      const reused = !!res.job.reused;
+      const ok = await this.appendAudit(e, reused
+        ? auditEvent('reused', 'accepted', by, this.now(), { executionId: res.job.executionId || undefined })
+        : auditEvent(op, 'accepted', by, this.now()));
+      return ok ? (reused ? 'reused' : 'ok') : 'audit_failed';
     }
     if (res.outcome === 'rejected') {
       this.s.uncertain.delete(e.jobId);
       this.s.jobs.set(e.jobId, { found: false });
-      await this.appendAudit(e, auditEvent(op, 'rejected', by, this.now(), { code: res.err.code, httpStatus: res.err.status, message: res.err.message }));
+      const reason = (res.err.details as { reason?: string } | undefined)?.reason;
+      await this.appendAudit(e, auditEvent(op, 'rejected', by, this.now(), { code: res.err.code, reason, httpStatus: res.err.status, message: res.err.message }));
       return 'rejected';
     }
     this.s.uncertain.add(e.jobId);                                // timeouts are not rejections: nothing appended
@@ -750,13 +846,21 @@ class DemandPanelV2 {
     return 'uncertain';
   }
 
+  private rejectionOf(res: Awaited<ReturnType<DemandPanelV2['send']>>): string {
+    if (res.outcome === 'accepted') return '';
+    return rejectionText(res.err.code, (res.err.details as { reason?: string } | undefined)?.reason, res.err.message, res.err.details);
+  }
+
   private async confirm(): Promise<void> {
-    if (this.stepErrors(4).length || this.s.submitting || !this.s.snapshot) return;
+    if (this.stepErrors(4).length || this.s.submitting || !this.s.snapshot || this.s.validation.state !== 'ok') return;
     this.s.submitting = true;
     this.render();
-    let env: DemandReportEnvelopeV1;
+    let env: DemandReportEnvelope;
     try {
-      env = await buildEnvelope({ request: this.s.snapshot.request, now: this.now(), user: this.p.user, customer: this.p.customer, idGen: this.p.idGen, sha256: this.p.sha256 });
+      env = await buildEnvelope({
+        request: this.s.snapshot.request, now: this.now(), user: this.p.user, customer: this.p.customer,
+        options: this.s.force ? { force: true } : {}, idGen: this.p.idGen, sha256: this.p.sha256,
+      });
       await this.putEnvelope(env);
     } catch (err) {
       this.s.submitting = false;
@@ -777,8 +881,9 @@ class DemandPanelV2 {
     await this.refreshActive();
     const msg = {
       ok: ['success', 'Pedido enviado. Acompanhe em Relatórios.'],
+      reused: ['success', 'Relatório idêntico reaproveitado — já pode baixar.'],
       audit_failed: ['warning', 'Pedido enviado. O registro de auditoria falhou e será reconciliado.'],
-      rejected: ['error', `Pedido recusado: ${rejectionText(res.outcome !== 'accepted' ? res.err.code : undefined, res.outcome !== 'accepted' ? res.err.message : undefined)}`],
+      rejected: ['error', `Pedido recusado: ${this.rejectionOf(res)}`],
       uncertain: ['info', 'Pedido registrado; confirmando o recebimento…'],
     }[outcome] as ['success' | 'warning' | 'error' | 'info', string];
     this.toast(msg[0], msg[1]);
@@ -787,19 +892,32 @@ class DemandPanelV2 {
     this.schedulePoll(true);
   }
 
+  /** Resend = replay of the stored jobId/body/options, after re-validating (L-19). */
   private async resend(jobId: string): Promise<void> {
     const e = this.s.envelopes.find((x) => x.jobId === jobId);
     if (!e) return;
     this.s.inflight.add(jobId);
     this.render();
-    const res = await this.send(e);   // stored snapshot + stored hash + same jobId
+    try {
+      const v = await this.p.api.validate(toValidateCommand(e.request, this.p.user, e.options), this.opts());
+      if (!v.ok) {
+        this.s.inflight.delete(jobId);
+        const first = v.errors?.[0];
+        this.toast('error', `Não reenviado: ${rejectionText(first?.code || 'VALIDATION_FAILED', first?.reason, first?.message, first?.details)}`);
+        this.render();
+        return;
+      }
+    } catch {
+      /* validação indisponível: o submit repete todas as verificações no servidor */
+    }
+    const res = await this.send(e);
     this.s.inflight.delete(jobId);
     if (this.destroyed) return;
     const outcome = await this.applySend(e, 'resend', res);
     await this.refreshActive();
-    if (outcome === 'ok') this.toast('success', 'Reenviado.');
+    if (outcome === 'ok' || outcome === 'reused') this.toast('success', 'Reenviado.');
     else if (outcome === 'audit_failed') this.toast('warning', 'Reenviado. O registro de auditoria falhou e será reconciliado.');
-    else if (outcome === 'rejected' && res.outcome !== 'accepted') this.toast('error', `Recusado: ${rejectionText(res.err.code, res.err.message)}`);
+    else if (outcome === 'rejected') this.toast('error', `Recusado: ${this.rejectionOf(res)}`);
     else this.toast('info', 'Ainda sem confirmação — tentaremos de novo.');
     this.render();
     this.schedulePoll(true);
@@ -815,8 +933,12 @@ class DemandPanelV2 {
     } catch (err) {
       const pe = asPortError(err);
       if (this.destroyed) return;
-      if (pe.status !== 0) await this.appendAudit(e, auditEvent('cancel', 'rejected', this.p.user.tbUserId, this.now(), { code: pe.code, httpStatus: pe.status }));
-      this.toast('error', `Não foi possível cancelar: ${pe.message}`);
+      if (pe.code === 'ALREADY_FINISHED') {
+        this.toast('info', (pe.details as { reused?: boolean } | undefined)?.reused ? 'Resultado reaproveitado — não pode ser cancelado.' : 'O relatório já terminou.');
+      } else {
+        if (pe.status !== 0) await this.appendAudit(e, auditEvent('cancel', 'rejected', this.p.user.tbUserId, this.now(), { code: pe.code, httpStatus: pe.status }));
+        this.toast('error', `Não foi possível cancelar: ${pe.message}`);
+      }
       await this.queryJobs([jobId]);
       this.render();
       return;
@@ -830,12 +952,28 @@ class DemandPanelV2 {
     this.render();
   }
 
-  private async download(jobId: string): Promise<void> {
+  /** Presigned URL (5 min) per file; the browser downloads directly from storage. */
+  private async download(jobId: string, kind: 'xlsx' | 'csv' | 'json'): Promise<void> {
     try {
-      await this.p.api.download(jobId, this.opts());
-      this.toast('info', 'Download: a forma de entrega ainda será definida (Q8).');
+      const desc = await this.p.api.download(jobId, this.opts());
+      const file = (desc.files || []).find((f) => f.kind === kind);
+      if (!file?.url) { this.toast('error', `Arquivo ${kind.toUpperCase()} indisponível.`); return; }
+      const a = document.createElement('a');
+      a.href = file.url;
+      a.rel = 'noopener';
+      a.download = file.filename || '';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
     } catch (err) {
-      this.toast('error', asPortError(err).message);
+      const pe = asPortError(err);
+      const msg: Record<string, string> = {
+        RESULT_NOT_READY: 'O arquivo ainda não está pronto.',
+        RESULT_UNAVAILABLE: 'Este relatório não tem arquivo disponível.',
+        RESULT_EXPIRED: 'Os arquivos expiraram (ficam 3 dias).',
+        RESULT_PURGED: 'O conteúdo deste relatório foi removido.',
+      };
+      this.toast(pe.code === 'RESULT_NOT_READY' ? 'info' : 'error', msg[pe.code] || pe.message);
       await this.queryJobs([jobId]);
       this.render();
     }
@@ -895,20 +1033,23 @@ class DemandPanelV2 {
   private resetWizard(): void {
     const r = presetRange('last7days', this.now())!;
     Object.assign(this.s, { step: 1, maxStep: 1, search: '', category: 'all', selected: [], snapshot: null,
-      aggregation: DEFAULT_AGGREGATION, resolution: DEFAULT_RESOLUTION,
+      resolution: DEFAULT_RESOLUTION, force: false,
+      validation: { state: 'idle', result: null, error: '', seq: this.s.validation.seq + 1 },
       period: { preset: 'last7days', start: r.start, end: r.end }, telemetries: new Set(['consumption']) });
   }
 
   /** A duplicate is a NEW request: relative presets are recomputed (O-12 open). */
-  private cloneJob(e: DemandReportEnvelopeV1): void {
+  private cloneJob(e: DemandReportEnvelope): void {
     const req = e.request;
     this.resetWizard();
-    this.s.selected = req.devices.map((d) => d.tbDeviceId).filter((id) => this.deviceById.has(id) && this.eligibility(this.deviceById.get(id)!).ok);
-    this.s.aggregation = req.aggregation ?? DEFAULT_AGGREGATION;
+    this.s.selected = req.devices
+      .map((d) => d.tbDeviceId || '')
+      .filter((id) => !!id && this.deviceById.has(id) && this.eligibility(this.deviceById.get(id)!).ok);
     this.s.resolution = req.resolution ?? DEFAULT_RESOLUTION;
-    this.s.period = req.period.preset !== 'custom'
-      ? { preset: req.period.preset, ...presetRange(req.period.preset, this.now())! }
-      : { preset: 'custom', start: Date.parse(req.period.startUtc), end: Date.parse(req.period.endUtc) };
+    const preset = req.period.preset && req.period.preset !== 'custom' ? req.period.preset : null;
+    this.s.period = preset
+      ? { preset, ...presetRange(preset, this.now())! }
+      : { preset: 'custom', start: Date.parse(req.period.start), end: Date.parse(req.period.end) };
     this.s.telemetries = new Set(req.telemetries.map((t) => t.key));
     this.s.tab = 'new';
     this.s.step = 4;
@@ -985,16 +1126,15 @@ class DemandPanelV2 {
       case 'resolution':
         this.s.resolution = t.dataset.res as DemandResolution;   // never changes the period by itself
         break;
-      case 'aggregation':
-        this.s.aggregation = t.dataset.agg as DemandAggregation;
+      case 'snap-midnight':
+        // 1 dia exige início à meia-noite local (L-9)
+        this.s.period = { preset: 'custom', start: localMidnightOf(this.s.period.start), end: this.s.period.end };
         break;
-      case 'aggregate-fit':
-        // Bruto over a long period → switch to an aggregation (Máximo) with the finest fitting interval
-        this.s.aggregation = 'MAX';
-        this.s.resolution = t.dataset.res as DemandResolution;
-        break;
+      case 'revalidate':
+        void this.validateSnapshot();
+        return;
       case 'shorten': {
-        const maxDays = maxPeriodDays(this.effResolution());
+        const maxDays = maxPeriodDays(this.s.resolution);
         this.s.period = { preset: 'custom', start: this.s.period.end - maxDays * 86_400_000, end: this.s.period.end };
         break;
       }
@@ -1032,7 +1172,7 @@ class DemandPanelV2 {
         break;
       }
       case 'download':
-        void this.download(job);
+        void this.download(job, (t.dataset.kind as 'xlsx' | 'csv' | 'json') || 'xlsx');
         return;
       default:
         return;
@@ -1051,6 +1191,12 @@ class DemandPanelV2 {
       if (t.checked) this.s.telemetries.add(t.dataset.key!);
       else this.s.telemetries.delete(t.dataset.key!);
       this.render();
+    }
+    if (t.dataset.role === 'force') {
+      // "Gerar novamente" muda o pedido (force) → nova validação
+      this.s.force = t.checked;
+      void this.validateSnapshot();
+      return;
     }
     if (t.dataset.role === 'start' || t.dataset.role === 'end') {
       this.s.period.preset = 'custom';
