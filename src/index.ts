@@ -675,6 +675,24 @@ export {
   type TelemetryFetcher,
 } from './components/DemandModal';
 
+// RFC-0238 — Demand Panel v2: multi-device report wizard (audit envelope in TB, job in GCDR).
+// Pure logic as a namespace (`MyIOLibrary.demandReport`) to avoid name clashes.
+export {
+  openDemandPanelV2,
+  createProfileClassifier,
+  createTbEnvelopeStore,
+  createGcdrReportJobsApi,
+  demandDevicesFromItems,
+  tbUserFromJwt,
+} from './components/demand-panel-v2';
+export type {
+  DemandPanelV2Params,
+  DemandPanelV2Instance,
+  TbEnvelopeStoreOptions,
+  GcdrReportJobsApiOptions,
+} from './components/demand-panel-v2';
+export * as demandReport from './utils/reports/demand';
+
 // Goals Panel Component (RFC-0075)
 export { openGoalsPanel } from './components/GoalsPanel.js';
 

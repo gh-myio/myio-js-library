@@ -2815,6 +2815,16 @@ function openGoalsModal() {
             desc: 'Todos os medidores',
             enabled: ei('energy_todos'),
           },
+          {
+            // RFC-0238 — Demand Panel v2 (multi-medidor, job no GCDR)
+            id: 'demand_telemetry',
+            label: 'Demandas e Telemetrias',
+            icon: '⚡',
+            bg: '#ede7f6',
+            color: '#3e1a7d',
+            desc: 'Vários medidores · período · telemetrias',
+            enabled: ei('energy_demand_telemetry'),
+          },
         ],
       },
       {
@@ -3058,6 +3068,42 @@ function openGoalsModal() {
     return (groups[groupKey] || []).map((d) => toItem(d, null));
   }
 
+  // RFC-0238: Relatórios › Energia › Demandas e Telemetrias → openDemandPanelV2.
+  // Devices come from the orchestrator's energy groups (without "ocultos"); the audit envelope
+  // goes to the customer SERVER_SCOPE attributes and the job to GCDR (credentials of MAIN_VIEW).
+  function _openDemandPanel() {
+    const U = window.MyIOUtils || {};
+    const orch = window.MyIOOrchestrator || {};
+    if (!U.openDemandPanelV2 || !U.createTbEnvelopeStore || !U.createGcdrReportJobsApi || !U.demandDevicesFromItems) {
+      LogHelper.error('[MENU RFC-0238] openDemandPanelV2 not available in this library build');
+      U.MyIOToast?.error?.('Relatório de Demandas e Telemetrias indisponível nesta versão da biblioteca.');
+      return;
+    }
+    const groups = orch.getEnergyGroups?.() || {};
+    const items = Object.entries(groups)
+      .filter(([key]) => key !== 'ocultos')
+      .flatMap(([, list]) => list || []);
+    const tbCustomerId = settings.customerTB_ID || window.__myioCustomerTB_ID || '';
+    const token = localStorage.getItem('jwt_token') || '';
+    LogHelper.log(`[MENU RFC-0238] Opening Demand Panel v2 — ${items.length} energy items`);
+    U.openDemandPanelV2({
+      devices: U.demandDevicesFromItems(items),
+      customer: {
+        tbCustomerId,
+        gcdrCustomerId: orch.gcdrCustomerId || '',
+        name: orch.customerName || getCurrentDashboardTitle() || '',
+      },
+      user: U.tbUserFromJwt?.(token) || { tbUserId: 'unknown', name: 'Usuário' },
+      store: U.createTbEnvelopeStore({ tbBaseUrl: settings.tbBaseUrl || '', customerId: tbCustomerId }),
+      api: U.createGcdrReportJobsApi({
+        baseUrl: orch.gcdrApiBaseUrl || '',
+        gcdrCustomerId: orch.gcdrCustomerId || '',
+        getHeaders: () => ({ 'X-API-Key': orch.gcdrApiKey || '', 'X-Tenant-ID': orch.gcdrTenantId || '' }),
+      }),
+      theme: U.theme || undefined,
+    });
+  }
+
   // Água/temperatura só são carregadas quando a aba do domínio é aberta. Relatório pedido
   // pelo menu antes disso saía com 0 dispositivos (grupos vazios) → carrega sob demanda.
   async function _ensureDomainLoaded(domain) {
@@ -3077,6 +3123,10 @@ function openGoalsModal() {
   }
 
   async function _openGroupReport(domain, group, baseParams) {
+    if (domain === 'energy' && group === 'demand_telemetry') {
+      _openDemandPanel();
+      return;
+    }
     const MyIOLib = window.MyIOUtils;
     if (!MyIOLib?.openDashboardPopupAllReport) {
       LogHelper.error('[MENU RFC-0181] openDashboardPopupAllReport not available');

@@ -179,6 +179,11 @@
             "type": "boolean",
             "default": false
           },
+          "energy_demand_telemetry": {
+            "title": "Energia — Demandas e Telemetrias (RFC-0238)",
+            "type": "boolean",
+            "default": false
+          },
           "water_lojas": {
             "title": "Água — Lojas",
             "type": "boolean",
@@ -357,6 +362,7 @@
     "enabledReportItems.energy_entrada",
     "enabledReportItems.energy_area_comum",
     "enabledReportItems.energy_todos",
+    "enabledReportItems.energy_demand_telemetry",
     "enabledReportItems.water_lojas",
     "enabledReportItems.water_entrada",
     "enabledReportItems.water_area_comum",

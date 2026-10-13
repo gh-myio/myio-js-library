@@ -245,6 +245,12 @@ window.MyIOUtils.isFeatureVisible = function isFeatureVisible(path) {
     'openDeviceProfileModal',
     'openAlarmBundleMapModal',
     'openAlarmDetailsModal',
+    // RFC-0238 — Demand Panel v2 (Relatórios › Energia › Demandas e Telemetrias)
+    'openDemandPanelV2',
+    'createTbEnvelopeStore',
+    'createGcdrReportJobsApi',
+    'demandDevicesFromItems',
+    'tbUserFromJwt',
     // tickets (RFC-0198)
     'createNewTicketWizard',
     'createTicketDetailModal',
@@ -2344,6 +2350,7 @@ Object.assign(window.MyIOUtils, {
       energy_entrada: false,
       energy_area_comum: false,
       energy_todos: false,
+      energy_demand_telemetry: false, // RFC-0238 — Demandas e Telemetrias (openDemandPanelV2)
       water_lojas: false,
       water_entrada: false,
       water_area_comum: false,

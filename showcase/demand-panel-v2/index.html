@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Demand Panel v2 · showcase</title>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root { color-scheme: light; --bg: #f5f7fb; --card: #fff; --ink: #0f172a; --muted: #64748b; --line: #e2e8f0; --accent: #6d28d9; }
+    body { margin: 0; font-family: 'Nunito', system-ui, sans-serif; background: var(--bg); color: var(--ink); }
+    header { padding: 16px 24px; background: var(--card); border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: center; }
+    h1 { font-size: 18px; margin: 0 12px 0 0; }
+    label { font-size: 13px; color: var(--muted); display: inline-flex; gap: 6px; align-items: center; }
+    select, button { font: inherit; font-size: 13px; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line); background: #fff; cursor: pointer; }
+    button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+    main { padding: 20px 24px; display: grid; gap: 16px; }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+    .card h2 { font-size: 14px; margin: 0 0 8px; }
+    .muted { color: var(--muted); font-size: 13px; }
+    #log { font: 12px/1.45 ui-monospace, Consolas, monospace; max-height: 320px; overflow: auto; white-space: pre-wrap; margin: 0; }
+    #log .err { color: #dc2626; } #log .ok { color: #16a34a; }
+    table { border-collapse: collapse; font-size: 13px; } td, th { border-bottom: 1px solid var(--line); padding: 4px 10px; text-align: left; }
+    code { font-size: 12px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>⚡ Demand Panel v2 <span class="muted">— componente real · GCDR simulado (RFC-0075)</span></h1>
+    <button class="primary" id="open">Abrir painel</button>
+    <label>Cenário do GCDR
+      <select id="scenario">
+        <option value="normal">Normal</option>
+        <option value="submit503">Envio falha (503) — "Não enviado" + Reenviar</option>
+        <option value="noWrite">Credencial sem reports:write (401)</option>
+        <option value="noData">Sem dados no período (validate recusa)</option>
+        <option value="fail">Execução falha (SOURCE_UNAVAILABLE)</option>
+        <option value="slow">Fila lenta (fica em "Na fila")</option>
+      </select>
+    </label>
+    <label><input type="checkbox" id="dark"> tema escuro</label>
+    <label><input type="checkbox" id="support"> modo suporte</label>
+    <button id="reset">Limpar dados simulados</button>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2>Como testar</h2>
+      <div class="muted">
+        1) <b>Abrir painel</b> → adicione medidores → período/resolução → telemetrias → <b>Resumo</b> (chama <code>validate</code>) → <b>Confirmar e enviar</b>.<br>
+        2) Aba <b>Relatórios</b>: o job vai de <i>Na fila</i> → <i>Processando n%</i> → <i>Concluído</i> (~15 s) com XLSX / CSV / JSON.<br>
+        3) Repita o mesmo pedido depois de concluído → o resumo oferece <b>reaproveitar</b> o resultado (ou “Gerar novamente”).<br>
+        4) Troque o <b>Cenário</b> para ver: envio sem resposta (503), credencial sem permissão (401), validação recusada, falha de execução.<br>
+        O registro de auditoria (ThingsBoard) e os jobs (GCDR) ficam no <code>localStorage</code> desta página.
+      </div>
+    </section>
+    <section class="card">
+      <h2>Jobs no GCDR simulado</h2>
+      <div id="jobs" class="muted">—</div>
+    </section>
+    <section class="card">
+      <h2>Chamadas (TB / GCDR)</h2>
+      <pre id="log"></pre>
+    </section>
+  </main>
+
+  <script>document.write('<script src="../../dist/myio-js-library.umd.js?v=' + Date.now() + '"><\/script>');</script>
+  <script>
+  (() => {
+    const L = window.MyIOLibrary;
+    const DR = L.demandReport;
+    const $ = (id) => document.getElementById(id);
+    const logEl = $('log');
+    const log = (msg, cls = '') => {
+      const line = document.createElement('div');
+      line.className = cls;
+      line.textContent = `${new Date().toLocaleTimeString('pt-BR')}  ${msg}`;
+      logEl.prepend(line);
+    };
+    const scenario = () => $('scenario').value;
+
+    // ------------------------------------------------------------ devices (mock)
+    const uuid = (n) => `7a1e0000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+    const mk = (n, label, profile, extra = {}) => ({
+      tbDeviceId: `tb-${n}`, gcdrDeviceId: uuid(n), ingestionId: uuid(1000 + n),
+      label, name: `3F MED ${n}`, identifier: `MED-${String(n).padStart(2, '0')}`, deviceProfile: profile, ...extra,
+    });
+    const devices = [
+      mk(1, 'Entrada Principal', 'ENTRADA'),
+      mk(2, 'Entrada Subestação 2', 'SUBESTACAO'),
+      mk(3, 'Chiller 1', 'CHILLER'), mk(4, 'Chiller 2', 'CHILLER'), mk(5, 'Fancoil L2', 'FANCOIL'),
+      mk(6, 'Elevador 1', 'ELEVADOR'), mk(7, 'Elevador 2', 'ELEVADOR'), mk(8, 'Escada Rolante 1', 'ESCADA_ROLANTE'),
+      mk(9, 'Loja Renner', '3F_MEDIDOR'), mk(10, 'Loja C&A', '3F_MEDIDOR'), mk(11, 'Loja Riachuelo', '3F_MEDIDOR'),
+      mk(12, 'Bomba de Recalque', 'BOMBA_HIDRAULICA', { ingestionId: null }),
+      mk(13, 'Medidor sem vínculo GCDR', '3F_MEDIDOR', { gcdrDeviceId: null }),
+      mk(14, 'Loja Renner', '3F_MEDIDOR', { identifier: 'MED-14B' }),
+    ];
+    const CAT = { ENTRADA: 'entrada', SUBESTACAO: 'entrada', CHILLER: 'climatizacao', FANCOIL: 'climatizacao', ELEVADOR: 'elevadores', ESCADA_ROLANTE: 'escadas', '3F_MEDIDOR': 'lojas', BOMBA_HIDRAULICA: 'outros' };
+    const LABEL = { entrada: ['Entrada', 0], climatizacao: ['Climatização', 1], elevadores: ['Elevadores', 2], escadas: ['Escadas Rolantes', 3], lojas: ['Lojas', 4], outros: ['Outros', 5] };
+    const classifier = {
+      classify: (d) => CAT[d.deviceProfile] || 'outros',
+      describe: (k) => (LABEL[k] ? { label: LABEL[k][0], order: LABEL[k][1] } : undefined),
+    };
+
+    // ------------------------------------------------------------ ThingsBoard (customer SERVER_SCOPE) mock
+    const TB_KEY = 'dp2.showcase.tb';
+    const tbRead = () => { try { return JSON.parse(localStorage.getItem(TB_KEY) || '{}'); } catch { return {}; } };
+    const tbWrite = (o) => localStorage.setItem(TB_KEY, JSON.stringify(o));
+    const store = {
+      async keys() { return Object.keys(tbRead()); },
+      async get(keys) { const a = tbRead(); return keys.filter((k) => k in a).map((k) => ({ key: k, value: a[k] })); },
+      async put(key, env) { const a = tbRead(); a[key] = env; tbWrite(a); log(`TB  POST attributes/SERVER_SCOPE  ${key}`); },
+      async appendAudit(key, ev) {
+        const a = tbRead();
+        if (!a[key]) throw Object.assign(new Error('envelope não encontrado'), { status: 404, code: 'ENVELOPE_NOT_FOUND' });
+        a[key].audit.push(ev); tbWrite(a);
+        log(`TB  audit ${key.slice(-8)}  ${ev.op}.${ev.outcome}${ev.code ? ' ' + ev.code : ''}`);
+        return JSON.parse(JSON.stringify(a[key]));
+      },
+    };
+
+    // ------------------------------------------------------------ GCDR mock (RFC-0075 contract)
+    const GC_KEY = 'dp2.showcase.gcdr';
+    const gcRead = () => { try { return JSON.parse(localStorage.getItem(GC_KEY) || '{}'); } catch { return {}; } };
+    const gcWrite = (o) => { localStorage.setItem(GC_KEY, JSON.stringify(o)); renderJobs(); };
+    const err = (status, code, message, details) => Object.assign(new Error(message), { status, code, message, details });
+    const sha256 = async (bytes) => new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
+    const CONFIG = {
+      catalogVersion: 1, calcVersion: 2, diPowerBuckets: false, demandLabel: 'Potência média em 15 min (demanda estimada)',
+      resultTtlDays: 3, summaryRetentionDays: 365,
+      limits: { maxDevices: 50, maxTelemetries: 15, maxPoints: 2000000, maxActivePerUser: 10, maxActivePerCustomer: 30, maxExecutionsPerCustomerPerDay: 20 },
+    };
+    const QUEUE_MS = 3000, RUN_MS = 12000;
+
+    /** Advances the mock state machine by elapsed time (queued → running → succeeded/failed). */
+    function advance(j) {
+      if (j.status !== 'queued' && j.status !== 'running') return j;
+      if (j.cancelledAt) return j;
+      const age = Date.now() - Date.parse(j.createdAt);
+      if (j.slow) return { ...j, queue: { position: 1, freeSlots: 0, estimatedStartAt: new Date(Date.now() + 60000).toISOString() } };
+      if (age < QUEUE_MS) return { ...j, status: 'queued', queue: { position: 1, freeSlots: 2 } };
+      if (age < QUEUE_MS + RUN_MS) {
+        const percent = Math.round(((age - QUEUE_MS) / RUN_MS) * 100);
+        return { ...j, status: 'running', startedAt: new Date(Date.parse(j.createdAt) + QUEUE_MS).toISOString(), progress: { percent, phase: percent < 80 ? 'fetching' : 'writing' }, queue: null };
+      }
+      const finishedAt = new Date(Date.parse(j.createdAt) + QUEUE_MS + RUN_MS).toISOString();
+      if (j.willFail) return { ...j, status: 'failed', finishedAt, progress: { percent: 100, phase: 'finalizing' }, error: { code: 'SOURCE_UNAVAILABLE', message: 'ThingsBoard timeseries 503', retryable: true }, resultAvailability: 'pending' };
+      return {
+        ...j, status: 'succeeded', finishedAt, generatedAt: finishedAt, generatedBy: j.requestedBy,
+        expiresAt: new Date(Date.parse(finishedAt) + 3 * 86400000).toISOString(),
+        resultAvailability: 'available', progress: { percent: 100, phase: 'finalizing' },
+        result: { files: [{ kind: 'xlsx', filename: 'demand-report.xlsx' }, { kind: 'csv', filename: 'demand-report.csv' }, { kind: 'json', filename: 'demand-report.summary.json' }] },
+        totals: { largestDevicePeak: { label: j.summary.firstLabel, kw: 412.7, at: new Date(Date.parse(j.request.period.start) + 14.25 * 3600000).toISOString() } },
+      };
+    }
+    function snapshotJobs() {
+      const all = gcRead();
+      let changed = false;
+      for (const id of Object.keys(all)) { const next = advance(all[id]); if (JSON.stringify(next) !== JSON.stringify(all[id])) { all[id] = next; changed = true; } }
+      if (changed) gcWrite(all);
+      return all;
+    }
+    const view = (j) => ({ ...j, request: undefined });
+    const activeJobs = () => Object.values(snapshotJobs()).filter((j) => j.status === 'queued' || j.status === 'running');
+    const findReusable = (hash) => Object.values(snapshotJobs()).find((j) => j.requestHash === hash && j.status === 'succeeded' && !j.reused);
+    const quotas = () => {
+      const act = activeJobs().length;
+      const today = Object.values(gcRead()).filter((j) => new Date(j.createdAt).toDateString() === new Date().toDateString()).length;
+      return { user: { current: act, max: 10 }, customer: { current: act, max: 30 }, day: { current: today, max: 20 } };
+    };
+
+    const api = {
+      async config() { log('GCDR GET  …/report-jobs/config'); return CONFIG; },
+      async validate(cmd) {
+        log(`GCDR POST …/report-jobs/validate  (${cmd.request.devices.length} medidor(es), ${cmd.request.resolution}${cmd.force ? ', force' : ''})`);
+        if (scenario() === 'noWrite') throw err(401, 'UNAUTHORIZED', 'API key does not have required scope: reports:write');
+        if (scenario() === 'noData') return { ok: false, errors: [{ code: 'VALIDATION_FAILED', reason: 'NO_DATA_IN_PERIOD' }], warnings: [], quotas: quotas() };
+        const hash = await DR.requestHash(cmd.request, sha256);
+        const reuse = !cmd.force && findReusable(hash);
+        const noDi = cmd.request.devices.filter((d) => !d.ingestionId);
+        return {
+          ok: true, errors: [],
+          warnings: noDi.map((d) => ({ code: 'DEVICE_NO_DI_SOURCE', message: `${d.label || d.identifier}: sem fonte DI — dados virão do ThingsBoard` })),
+          estimate: cmd.request.estimate, demandSeries: cmd.request.telemetries.some((t) => t.key === 'consumption'),
+          quotas: quotas(),
+          reusable: reuse ? { jobId: reuse.jobId, generatedAt: reuse.generatedAt, generatedBy: reuse.requestedBy } : null,
+        };
+      },
+      async submit(cmd) {
+        log(`GCDR POST …/report-jobs  ${cmd.jobId.slice(-12)}${cmd.force ? ' (force)' : ''}`);
+        if (scenario() === 'submit503') throw err(503, 'UNAVAILABLE', 'Service Unavailable');
+        if (scenario() === 'noWrite') throw err(401, 'UNAUTHORIZED', 'API key does not have required scope: reports:write');
+        const expected = await DR.requestHash(cmd.request, sha256);
+        if (expected !== cmd.requestHash) throw err(422, 'VALIDATION_FAILED', 'hash mismatch', { reason: 'REQUEST_HASH_MISMATCH', expected });
+        const all = snapshotJobs();
+        if (all[cmd.jobId]) {
+          if (all[cmd.jobId].requestHash !== cmd.requestHash) throw err(409, 'JOB_ID_CONFLICT', 'conflict', { reason: 'HASH_MISMATCH' });
+          log(`GCDR      200 replay ${cmd.jobId.slice(-12)}`, 'ok');
+          return view(all[cmd.jobId]);
+        }
+        if (activeJobs().length >= 10) throw err(429, 'ACTIVE_JOBS_LIMIT', 'limit', { limit: 'user', current: 10, max: 10 });
+        const now = new Date().toISOString();
+        const base = {
+          jobId: cmd.jobId, executionId: `exe_${Math.random().toString(16).slice(2, 10)}`, type: 'demand-report',
+          requestHash: cmd.requestHash, request: cmd.request, requestedBy: cmd.requestedBy || null, createdAt: now,
+          attempts: 1, progress: { percent: 0, phase: 'queued' }, resultAvailability: 'pending',
+          summary: { deviceCount: cmd.request.devices.length, resolution: cmd.request.resolution, firstLabel: cmd.request.devices[0]?.label || '' },
+          willFail: scenario() === 'fail', slow: scenario() === 'slow',
+        };
+        const reuse = !cmd.force && findReusable(cmd.requestHash);
+        all[cmd.jobId] = reuse
+          ? { ...reuse, ...base, status: 'succeeded', reused: true, reusedExecutionId: reuse.executionId, executionId: reuse.executionId,
+              generatedAt: reuse.generatedAt, generatedBy: reuse.requestedBy, expiresAt: reuse.expiresAt, result: reuse.result,
+              totals: reuse.totals, resultAvailability: 'available', progress: { percent: 100, phase: 'finalizing' }, willFail: false, slow: false }
+          : { ...base, status: 'queued' };
+        gcWrite(all);
+        log(`GCDR      ${reuse ? '200 reused' : '202 queued'}  ${cmd.jobId.slice(-12)}`, 'ok');
+        return view(all[cmd.jobId]);
+      },
+      async batchGet(ids) {
+        const all = snapshotJobs();
+        return ids.map((id) => (all[id] ? { jobId: id, found: true, job: L.projectJob ? L.projectJob(view(all[id])) : { ...view(all[id]), progress: all[id].progress?.percent ?? null } } : { jobId: id, found: false }));
+      },
+      async active() { return activeJobs().map((j) => ({ ...view(j), progress: j.progress?.percent ?? null })); },
+      async cancel(jobId, declared) {
+        log(`GCDR POST …/report-jobs/${jobId.slice(-12)}/cancel`);
+        const all = snapshotJobs();
+        const j = all[jobId];
+        if (!j) throw err(404, 'JOB_NOT_FOUND', 'not found');
+        if (j.status !== 'queued' && j.status !== 'running') throw err(409, 'ALREADY_FINISHED', 'already finished', { reused: !!j.reused });
+        all[jobId] = { ...j, status: 'cancelled', cancelledAt: new Date().toISOString(), cancelledBy: { declared: declared ? { userId: declared.tbUserId } : null, credentialKind: 'apiKey' } };
+        gcWrite(all);
+        return { ...view(all[jobId]), progress: all[jobId].progress?.percent ?? null };
+      },
+      async download(jobId) {
+        log(`GCDR GET  …/report-jobs/${jobId.slice(-12)}/result`);
+        const j = snapshotJobs()[jobId];
+        if (!j) throw err(404, 'JOB_NOT_FOUND', 'not found');
+        if (j.status === 'queued' || j.status === 'running') throw err(409, 'RESULT_NOT_READY', 'not ready');
+        if (j.status !== 'succeeded') throw err(409, 'RESULT_UNAVAILABLE', 'unavailable');
+        const r = j.request;
+        const rows = ['device_label,key,bucket_start,avg,max,min,samples'];
+        r.devices.forEach((d) => r.telemetries.forEach((t) => rows.push(`"${d.label || d.identifier}",${t.key},${r.period.start},${(Math.random() * 400).toFixed(2)},${(Math.random() * 500).toFixed(2)},${(Math.random() * 100).toFixed(2)},60`)));
+        const csv = URL.createObjectURL(new Blob([rows.join('\n')], { type: 'text/csv' }));
+        const json = URL.createObjectURL(new Blob([JSON.stringify({ jobId, request: r, totals: j.totals }, null, 2)], { type: 'application/json' }));
+        return {
+          jobId, status: 'succeeded', resultAvailability: 'available', expiresAt: j.expiresAt,
+          files: [
+            { kind: 'xlsx', filename: 'demand-report (mock).csv', url: csv, expiresInSeconds: 300 },
+            { kind: 'csv', filename: 'demand-report.csv', url: csv, expiresInSeconds: 300 },
+            { kind: 'json', filename: 'demand-report.summary.json', url: json, expiresInSeconds: 300 },
+          ],
+        };
+      },
+    };
+
+    // ------------------------------------------------------------ jobs table
+    function renderJobs() {
+      const all = Object.values(gcRead());
+      if (!all.length) { $('jobs').textContent = 'Nenhum job.'; return; }
+      $('jobs').innerHTML = `<table><tr><th>jobId</th><th>status</th><th>%</th><th>medidores</th><th>resolução</th><th>reaproveitado</th><th>criado</th></tr>${all
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        .map((j) => `<tr><td><code>…${j.jobId.slice(-12)}</code></td><td>${j.status}</td><td>${j.progress?.percent ?? ''}</td><td>${j.summary?.deviceCount ?? ''}</td><td>${j.summary?.resolution ?? ''}</td><td>${j.reused ? 'sim' : ''}</td><td>${new Date(j.createdAt).toLocaleTimeString('pt-BR')}</td></tr>`)
+        .join('')}</table>`;
+    }
+    setInterval(() => { snapshotJobs(); renderJobs(); }, 1500);
+    renderJobs();
+
+    // ------------------------------------------------------------ open
+    function open() {
+      L.openDemandPanelV2({
+        devices, classifier, store, api, sha256,
+        customer: { tbCustomerId: 'tb-customer-showcase', gcdrCustomerId: uuid(999), name: 'Shopping Showcase' },
+        user: { tbUserId: 'tb-user-showcase', name: 'Rodrigo Lago', email: 'rodrigo@myio.com.br' },
+        themeMode: $('dark').checked ? 'dark' : 'light',
+        supportMode: $('support').checked,
+        pollMinMs: 2000, pollMaxMs: 5000,
+        onClose: () => log('painel fechado'),
+      });
+    }
+    $('open').addEventListener('click', open);
+    $('reset').addEventListener('click', () => { localStorage.removeItem(TB_KEY); localStorage.removeItem(GC_KEY); renderJobs(); log('dados simulados apagados'); });
+    $('scenario').addEventListener('change', () => log(`cenário: ${$('scenario').selectedOptions[0].textContent}`));
+    log(`lib ${L.version || '(local)'} carregada · openDemandPanelV2: ${typeof L.openDemandPanelV2}`);
+  })();
+  </script>
+</body>
+</html>

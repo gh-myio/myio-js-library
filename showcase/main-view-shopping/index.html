@@ -3,667 +3,600 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Showcase — MainView Shopping v-5.4.0 (domain-agnostic engine)</title>
-
-  <!-- MyIO standard font (Nunito) -->
+  <title>Showcase — Main View Shopping v-5.2.0 (widgets reais)</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap" />
-
-  <!-- v-5.4.0 dashboard styles -->
-  <link rel="stylesheet" href="../../src/thingsboard/main-dashboard-shopping/v-5.4.0/styles.css" />
-
   <style>
-    /* Flex ROW: dashboard fills the left, cockpit is a vertical sidebar on the RIGHT. */
+    /* ---- harness chrome only: every widget brings its own styles.css from src/ ---- */
     html, body { height: 100%; }
-    body { margin: 0; font-family: 'Nunito', Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:#f4f4f7; display:flex; flex-direction:row; height:100vh; overflow:hidden; }
-    #myio-root { flex: 1 1 auto; min-width: 0; min-height: 0; }
-    /* #sc-stage: neutral flex wrapper around the dashboard. */
-    #sc-stage { flex: 1 1 auto; min-width: 0; min-height: 0; display: flex; }
-    #sc-stage > #myio-root { flex: 1 1 auto; min-width: 0; min-height: 0; }
-    #sc-cockpit button.sc-ghost.active { background:#6c5ce7; border-color:#6c5ce7; opacity:1; }
+    body { margin: 0; font-family: 'Nunito', system-ui, sans-serif; background: #eeeeee; display: flex; height: 100vh; overflow: hidden; }
+    #sc-stage { flex: 1 1 auto; min-width: 0; min-height: 0; position: relative; }
+    #sc-stage > .sc-widget { position: absolute; inset: 0; }
+    /* a ThingsBoard dashboard state hosted inside MAIN_VIEW's template (replaces <tb-dashboard-state>) */
+    .sc-state { height: 100%; width: 100%; box-sizing: border-box; display: grid; min-height: 0; }
+    .sc-widget { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
+    .sc-widget > .sc-wc { position: absolute; inset: 0; }
+    .sc-widget.sc-failed { outline: 2px dashed #dc2626; }
+    .sc-widget.sc-failed::after { content: attr(data-error); position: absolute; left: 6px; top: 6px; right: 6px; font: 12px/1.4 ui-monospace, Consolas, monospace; color: #991b1b; background: #fef2f2; padding: 6px; border-radius: 6px; }
 
-    /* Mobile preview: an iframe at a phone width gives a REAL narrow viewport, so the dashboard's
-       own @media (max-width) rules fire (element-resizing alone does NOT trigger media queries). */
-    #sc-mobile-overlay { position:fixed; inset:0; z-index:10001; background:rgba(11,11,20,.78); display:flex; align-items:center; justify-content:center; }
-    #sc-mobile-overlay .sc-phone { display:flex; flex-direction:column; width:390px; max-width:94vw; height:844px; max-height:94vh; background:#14141f; border-radius:28px; padding:10px; box-shadow:0 0 0 2px #2a2a3a, 0 24px 70px rgba(0,0,0,.6); }
-    #sc-mobile-overlay .sc-phone-bar { display:flex; align-items:center; justify-content:space-between; color:#cbd5e1; font-size:11px; padding:4px 6px 8px; }
-    #sc-mobile-overlay .sc-phone-bar button { background:transparent; border:1px solid rgba(255,255,255,.35); color:#fff; border-radius:6px; cursor:pointer; padding:2px 9px; font-size:12px; }
-    #sc-mobile-overlay .sc-phone-screen { flex:1 1 auto; width:100%; border:0; border-radius:20px; background:#fff; }
-
-    /* Embedded mobile mode (?embed=mobile): hide the cockpit, dashboard fills the iframe viewport. */
-    body.embed-mobile { flex-direction:column; }
-    body.embed-mobile #sc-cockpit, body.embed-mobile #sc-login-modal { display:none !important; }
-    body.embed-mobile #sc-stage { flex:1 1 auto; }
-    body.embed-mobile #sc-stage > #myio-root { width:100%; height:100%; border-radius:0; box-shadow:none; }
-
-    #sc-cockpit { flex: 0 0 340px; display:flex; flex-direction:column; background:#1f1147; color:#fff; font-size:12px; overflow:hidden; transition: flex-basis .2s ease; }
-    #sc-cockpit .sc-head { flex:0 0 auto; display:flex; align-items:center; gap:8px; padding:10px 12px; border-bottom:1px solid rgba(255,255,255,.15); }
-    #sc-cockpit .sc-title { white-space:nowrap; }
-    /* sc-body = 3 zones: scrollable fields (top) · collapsible console (mid) · fixed buttons (bottom) */
-    #sc-cockpit .sc-body { flex:1 1 auto; min-height:0; display:flex; flex-direction:column; overflow:hidden; }
-    #sc-cockpit .sc-scroll { flex:1 1 auto; min-height:0; overflow-y:auto; display:flex; flex-direction:column; gap:5px; padding:10px 12px; }
-    #sc-cockpit .sc-console { flex:0 0 auto; border-top:1px solid rgba(255,255,255,.15); }
-    #sc-cockpit .sc-console-head { padding:4px 12px; }
-    #sc-cockpit .sc-console.collapsed #sc-log { display:none; }
-    #sc-cockpit label { opacity:.8; margin-top:4px; }
-    #sc-cockpit input { font-size:12px; padding:6px; border-radius:6px; border:1px solid #ccc; width:100%; box-sizing:border-box; }
-    #sc-cockpit select { font-size:12px; padding:6px; border-radius:6px; border:1px solid #ccc; width:100%; box-sizing:border-box; color:#111; }
-    #sc-cockpit input[type=color] { height:30px; padding:2px; }
-    #sc-cockpit .sc-checkbox { display:flex; align-items:center; gap:8px; margin-top:6px; }
-    #sc-cockpit .sc-checkbox input { width:auto; }
-    #sc-cockpit fieldset.sc-fieldset { border:1px solid rgba(255,255,255,.22); border-radius:8px; padding:4px 10px 10px; margin-top:10px; }
-    #sc-cockpit fieldset.sc-fieldset > legend { font-weight:600; font-size:11px; opacity:.9; padding:0 4px; }
-    #sc-cockpit fieldset.sc-fieldset > legend.sc-fs-legend { cursor:pointer; user-select:none; }
-    #sc-cockpit fieldset.sc-fieldset.collapsed { padding-bottom:4px; }
-    #sc-cockpit fieldset.sc-fieldset.collapsed > .sc-fs-body { display:none; }
-    #sc-cockpit .sc-fs-ico { display:inline-block; width:12px; font-size:9px; }
-    /* environment selector (LOCAL | PROD) */
-    #sc-cockpit .sc-envtab { display:flex; gap:0; margin:10px 0 2px; border:1px solid rgba(255,255,255,.3); border-radius:8px; overflow:hidden; }
-    #sc-cockpit .sc-envtab button { flex:1; background:transparent; color:#fff; border:none; border-radius:0; padding:7px 0; font-size:12px; font-weight:600; cursor:pointer; opacity:.7; }
-    #sc-cockpit .sc-envtab button + button { border-left:1px solid rgba(255,255,255,.3); }
-    #sc-cockpit .sc-envtab button.active { background:#6c5ce7; opacity:1; }
-    #sc-cockpit .sc-actions { flex:0 0 auto; display:flex; flex-direction:column; gap:6px; padding:10px 12px; border-top:1px solid rgba(255,255,255,.15); background:#1f1147; }
-    #sc-cockpit button { font-size:12px; padding:8px 12px; border:none; border-radius:6px; background:#6c5ce7; color:#fff; cursor:pointer; }
-    #sc-cockpit button:hover { background:#5a4bd6; }
-    #sc-cockpit button.sc-ghost { background:transparent; border:1px solid rgba(255,255,255,.4); padding:4px 9px; }
-    #sc-cockpit button.sc-ghost:hover { background:rgba(255,255,255,.12); }
-    /* collapsed: cockpit shrinks to a thin strip, only the toggle stays visible */
+    #sc-cockpit { flex: 0 0 330px; display: flex; flex-direction: column; background: #1f1147; color: #fff; font-size: 12px; overflow: hidden; transition: flex-basis .2s ease; z-index: 50; }
+    #sc-cockpit .sc-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,.15); }
+    #sc-cockpit .sc-title { white-space: nowrap; }
+    #sc-cockpit .sc-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+    #sc-cockpit .sc-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 5px; padding: 10px 12px; }
+    #sc-cockpit label { opacity: .8; margin-top: 4px; }
+    #sc-cockpit input, #sc-cockpit select { font-size: 12px; padding: 6px; border-radius: 6px; border: 1px solid #ccc; width: 100%; box-sizing: border-box; color: #111; }
+    #sc-cockpit .sc-checkbox { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+    #sc-cockpit .sc-checkbox input { width: auto; }
+    #sc-cockpit fieldset { border: 1px solid rgba(255,255,255,.22); border-radius: 8px; padding: 4px 10px 10px; margin-top: 10px; }
+    #sc-cockpit fieldset > legend { font-weight: 600; font-size: 11px; cursor: pointer; user-select: none; }
+    #sc-cockpit fieldset.collapsed > .sc-fs-body { display: none; }
+    #sc-cockpit .sc-envtab { display: flex; margin: 6px 0 2px; border: 1px solid rgba(255,255,255,.3); border-radius: 8px; overflow: hidden; }
+    #sc-cockpit .sc-envtab button { flex: 1; background: transparent; color: #fff; border: none; border-radius: 0; padding: 7px 0; font-weight: 600; cursor: pointer; opacity: .7; }
+    #sc-cockpit .sc-envtab button.active { background: #6c5ce7; opacity: 1; }
+    #sc-cockpit .sc-actions { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-top: 1px solid rgba(255,255,255,.15); }
+    #sc-cockpit button { font-size: 12px; padding: 8px 12px; border: none; border-radius: 6px; background: #6c5ce7; color: #fff; cursor: pointer; }
+    #sc-cockpit button:hover { background: #5a4bd6; }
+    #sc-cockpit button.sc-ghost { background: transparent; border: 1px solid rgba(255,255,255,.4); padding: 4px 9px; }
+    #sc-cockpit button[disabled] { opacity: .5; cursor: not-allowed; }
     body.console-collapsed #sc-cockpit { flex-basis: 46px; }
-    body.console-collapsed #sc-cockpit .sc-body,
-    body.console-collapsed #sc-cockpit .sc-title { display:none; }
+    body.console-collapsed #sc-cockpit .sc-body, body.console-collapsed #sc-cockpit .sc-title { display: none; }
+    #sc-auth { font-size: 11.5px; padding: 6px 8px; border-radius: 6px; background: rgba(255,255,255,.08); }
+    #sc-auth.ok { color: #9ef1c0; } #sc-auth.no { color: #ffd479; }
+    #sc-widgets { font-size: 11px; line-height: 1.6; }
+    #sc-widgets .ok { color: #9ef1c0; } #sc-widgets .err { color: #ff8080; } #sc-widgets .wait { color: #ffd479; }
+    #sc-log { max-height: 190px; overflow: auto; margin: 0 12px 10px; font: 11px ui-monospace, Consolas, monospace; background: #0b0b14; color: #9ef1c0; padding: 8px; border-radius: 6px; }
+    #sc-log .err { color: #ff8080; } #sc-log .warn { color: #ffd479; } #sc-log .info { color: #9ecbff; }
 
-    #sc-log { max-height:160px; overflow:auto; margin:0 12px 10px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size:11px; background:#0b0b14; color:#9ef1c0; padding:8px; border-radius:6px; }
-    #sc-log .err { color:#ff8080; }
-    #sc-log .warn { color:#ffd479; }
-    #sc-log .info { color:#9ecbff; }
-
-    /* ---- auth status + login modal (inspired by presetup-nextjs LoginForm) ---- */
-    #sc-auth { font-size:11.5px; padding:6px 8px; border-radius:6px; background:rgba(255,255,255,.08); }
-    #sc-auth.ok { color:#9ef1c0; }
-    #sc-auth.no { color:#ffd479; }
-    .sc-modal-overlay { position:fixed; inset:0; background:rgba(15,17,30,.6); display:none; align-items:center; justify-content:center; z-index:10000; }
-    .sc-modal-overlay.open { display:flex; }
-    .sc-login { width:360px; max-width:92vw; background:#fff; color:#1e293b; border-radius:14px; padding:24px; box-shadow:0 20px 60px rgba(0,0,0,.35); }
-    .sc-login .sc-close { float:right; background:none; border:none; font-size:20px; line-height:1; color:#94a3b8; cursor:pointer; }
-    .sc-login .sc-logo { width:46px; height:46px; border-radius:12px; background:#6c5ce7; display:flex; align-items:center; justify-content:center; margin:0 auto; font-size:22px; }
-    .sc-login h2 { margin:14px 0 2px; text-align:center; font-size:18px; }
-    .sc-login p.sub { margin:0 0 8px; text-align:center; color:#64748b; font-size:12.5px; }
-    .sc-login label { display:block; font-size:12px; font-weight:600; color:#334155; margin:12px 0 4px; }
-    .sc-login input { width:100%; box-sizing:border-box; padding:9px 10px; border:1px solid #cbd5e1; border-radius:8px; font-size:13px; }
-    .sc-login .pwd { position:relative; }
-    .sc-login .pwd button { position:absolute; right:4px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; padding:6px; }
-    .sc-login .sc-err { margin-top:12px; background:#fef2f2; border:1px solid #fecaca; color:#b91c1c; padding:8px 10px; border-radius:8px; font-size:12.5px; }
-    .sc-login .sc-submit { width:100%; margin-top:18px; padding:10px; border:none; border-radius:8px; background:#6c5ce7; color:#fff; font-size:14px; font-weight:600; cursor:pointer; }
-    .sc-login .sc-submit:disabled { opacity:.6; cursor:not-allowed; }
-    .sc-spin { display:inline-block; width:14px; height:14px; border:2px solid rgba(255,255,255,.4); border-top-color:#fff; border-radius:50%; animation:sc-rot .7s linear infinite; vertical-align:-2px; margin-right:6px; }
-    @keyframes sc-rot { to { transform:rotate(360deg); } }
-
-    /* ---- boot countdown: full-screen blur that auto-runs onInit after 6s (Cancel aborts) ---- */
-    #sc-boot { position:fixed; inset:0; z-index:11000; display:flex; align-items:center; justify-content:center;
-      background:rgba(15,17,30,.55); backdrop-filter:blur(16px) saturate(120%); -webkit-backdrop-filter:blur(16px) saturate(120%); }
-    #sc-boot.hidden { display:none; }
-    #sc-boot .sc-boot-card { text-align:center; color:#fff; padding:32px 44px; }
-    #sc-boot .sc-boot-title { font-size:19px; font-weight:700; opacity:.95; }
-    #sc-boot .sc-boot-count { font-size:128px; font-weight:800; line-height:1; margin:6px 0 2px; color:#a78bfa; text-shadow:0 10px 50px rgba(124,58,237,.65); }
-    #sc-boot .sc-boot-sub { font-size:13px; opacity:.8; margin-bottom:24px; }
-    #sc-boot .sc-boot-cancel { font-size:14px; font-weight:600; padding:11px 30px; border:1px solid rgba(255,255,255,.5);
-      border-radius:10px; background:rgba(255,255,255,.08); color:#fff; cursor:pointer; }
-    #sc-boot .sc-boot-cancel:hover { background:rgba(255,255,255,.18); }
-    body.embed-mobile #sc-boot { display:none !important; }   /* the iframe auto-runs; no countdown */
-    /* The v-5.4.0 controller generates its DOM into the structure below. */
+    .sc-modal-overlay { position: fixed; inset: 0; background: rgba(15,17,30,.6); display: none; align-items: center; justify-content: center; z-index: 100000; }
+    .sc-modal-overlay.open { display: flex; }
+    .sc-login { width: 360px; max-width: 92vw; background: #fff; color: #1e293b; border-radius: 14px; padding: 24px; box-shadow: 0 20px 60px rgba(0,0,0,.35); }
+    .sc-login .sc-close { float: right; background: none; border: none; font-size: 20px; color: #94a3b8; cursor: pointer; }
+    .sc-login h2 { margin: 6px 0 2px; text-align: center; font-size: 18px; }
+    .sc-login p.sub { margin: 0 0 8px; text-align: center; color: #64748b; font-size: 12.5px; }
+    .sc-login label { display: block; font-size: 12px; font-weight: 600; color: #334155; margin: 12px 0 4px; }
+    .sc-login input { width: 100%; box-sizing: border-box; padding: 9px 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px; }
+    .sc-login .sc-err { margin-top: 12px; background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; padding: 8px 10px; border-radius: 8px; font-size: 12.5px; }
+    .sc-login .sc-submit { width: 100%; margin-top: 18px; padding: 10px; border: none; border-radius: 8px; background: #6c5ce7; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; }
   </style>
 </head>
 <body>
-  <!-- ===================== v-5.4.0 template ===================== -->
-  <!-- Fetched from the REAL v-5.4.0/template.html at runtime (loadTemplate) — no inline copy → no drift. -->
-  <div id="sc-stage"></div><!-- filled with v-5.4.0/template.html before onInit -->
+  <div id="sc-stage"></div>
 
-  <!-- ===================== Showcase cockpit (right sidebar) ===================== -->
   <aside id="sc-cockpit">
     <div class="sc-head">
       <button id="sc-toggle" class="sc-ghost" title="Recolher/expandir cockpit">⟩</button>
-      <strong class="sc-title">v-5.4.0 cockpit</strong>
-      <button id="sc-login" class="sc-ghost sc-title" title="Login no ThingsBoard">🔑 Login TB</button>
+      <strong class="sc-title">v-5.2.0 cockpit</strong>
+      <button id="sc-login" class="sc-ghost sc-title">🔑 Login TB</button>
     </div>
     <div class="sc-body">
-      <!-- ZONE 1: scrollable fields -->
       <div class="sc-scroll">
-        <div id="sc-auth" class="sc-auth no">🔒 sem JWT</div>
-        <!-- Widget settings — rendered dynamically from settingsSchema.json (mirrors TB "Appearance"). -->
-        <div id="sc-fields"><span style="opacity:.7">carregando settingsSchema.json…</span></div>
-        <!-- Simulated SERVER_SCOPE customer attribute (not a widget setting): used as X-API-Key on GCDR calls. -->
-        <fieldset class="sc-fieldset">
-          <legend>SERVER_SCOPE attrs (simulado)</legend>
-          <label for="sc-gcdrKey">X-API-Key (gcdrApiKey)</label>
-          <select id="sc-gcdrKey"><!-- options loaded from config.json (gitignored) --></select>
-        </fieldset>
-      </div>
-      <!-- ZONE 2: collapsible console -->
-      <div class="sc-console" id="sc-console">
-        <div class="sc-console-head">
-          <button type="button" id="sc-log-toggle" class="sc-ghost">▾ console</button>
+        <div id="sc-auth" class="no">🔒 sem JWT</div>
+        <div id="sc-envtab" class="sc-envtab"></div>
+        <div id="sc-fields"><span style="opacity:.7">carregando settingsSchema.json do MAIN_VIEW…</span></div>
+        <fieldset id="sc-widgets-fs"><legend>Widgets montados</legend><div class="sc-fs-body" id="sc-widgets">—</div></fieldset>
+        <div style="opacity:.6;margin-top:8px">
+          Widgets, templates, CSS e schemas são lidos de <code>src/…/v-5.2.0/WIDGET/</code>; o layout vem de <code>v-5.2.0.layout.json</code>.
+          A versão v-5.4.0 está em <a href="./v-5.4.0.html" style="color:#9ecbff">v-5.4.0.html</a>.
         </div>
-        <div id="sc-log"></div>
       </div>
-      <!-- ZONE 3: fixed action buttons (bottom) -->
+      <div><div style="padding:4px 12px"><button type="button" id="sc-log-toggle" class="sc-ghost">▾ console</button></div><div id="sc-log"></div></div>
       <div class="sc-actions">
-        <button id="sc-run">▶ Run onInit + onDataUpdated</button>
-        <button id="sc-data">⟳ onDataUpdated</button>
-        <button id="sc-destroy">✖ onDestroy</button>
-        <button id="sc-mobile" class="sc-ghost" title="Emular viewport mobile do dashboard/widget">📱 Emular Mobile</button>
+        <button id="sc-run">▶ Montar dashboard (onInit)</button>
+        <button id="sc-data">⟳ Recarregar dados (onDataUpdated)</button>
+        <button id="sc-destroy">✖ Desmontar (onDestroy)</button>
       </div>
     </div>
   </aside>
 
-  <!-- ===================== Login modal (real ThingsBoard /api/auth/login → localStorage.jwt_token) ===================== -->
   <div class="sc-modal-overlay" id="sc-login-modal">
     <form class="sc-login" id="sc-login-form">
-      <button type="button" class="sc-close" id="sc-login-close" title="Fechar">×</button>
-      <div class="sc-logo">⚡</div>
+      <button type="button" class="sc-close" id="sc-login-close">×</button>
       <h2>Login ThingsBoard</h2>
-      <p class="sub">Autentica no TB e salva o JWT em <code>localStorage.jwt_token</code></p>
+      <p class="sub">Salva o JWT em <code>localStorage.jwt_token</code>, como no dashboard real</p>
       <div id="sc-login-err" class="sc-err" style="display:none"></div>
-      <label for="sc-login-user">Usuário ou Email</label>
-      <input id="sc-login-user" type="text" autocomplete="username" placeholder="seu-usuario@myio.com" />
+      <label for="sc-login-user">Usuário ou e-mail</label>
+      <input id="sc-login-user" type="text" autocomplete="username" />
       <label for="sc-login-pass">Senha</label>
-      <div class="pwd">
-        <input id="sc-login-pass" type="password" autocomplete="current-password" placeholder="••••••••" />
-        <button type="button" id="sc-login-eye" title="Mostrar/ocultar senha">👁</button>
-      </div>
+      <input id="sc-login-pass" type="password" autocomplete="current-password" />
       <button type="submit" class="sc-submit" id="sc-login-submit">Entrar</button>
     </form>
   </div>
 
-  <!-- ===================== Boot countdown (auto-run onInit after 6s) ===================== -->
-  <div id="sc-boot">
-    <div class="sc-boot-card">
-      <div class="sc-boot-title">Carregando dados do dashboard…</div>
-      <div class="sc-boot-count" id="sc-boot-count">6</div>
-      <div class="sc-boot-sub">Iniciando em <span id="sc-boot-secs">6</span>s — árvore GCDR, devices e consumo. (F5 para recarregar)</div>
-      <button type="button" id="sc-boot-cancel" class="sc-boot-cancel">Cancelar</button>
-    </div>
-  </div>
-
-  <!-- ===================== Dependencies ===================== -->
+  <!-- Resources the v-5.2.0 widget types declare in ThingsBoard (jQuery for $container, Chart.js, moment) + the local library build -->
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <script>document.write('<script src="../../dist/myio-js-library.umd.js?v=' + Date.now() + '"><\/script>');</script>
+
   <script>
-    // cache-bust the freshly-built UMD so the new RFC-0209 / agnostic symbols are present
-    document.write('<script src="../../dist/myio-js-library.umd.js?v=' + Date.now() + '"><\/script>');
-  </script>
+  'use strict';
+  /* ===================================================================================
+   * v-5.2.0 harness — runs the REAL ThingsBoard widgets outside ThingsBoard.
+   * Nothing from the widgets is copied: controller.js / template.html / styles.css /
+   * settingsSchema.json are fetched from src/ at mount time. This file only emulates the
+   * ThingsBoard runtime: widget ctx, dashboard states, entity aliases and datasources.
+   * =================================================================================== */
+  const LAYOUT_URL = './v-5.2.0.layout.json';
+  let LAYOUT = null;
+  const bust = () => 'v=' + Date.now();
 
-  <!-- ===================== Showcase harness ===================== -->
-  <script>
-    // ---- mobile preview embed mode: this page is loaded inside the phone iframe ----
-    // ?embed=mobile → hide the cockpit, fill the iframe viewport, and auto-run onInit.
-    const EMBED_MOBILE = new URLSearchParams(location.search).get('embed') === 'mobile';
-    if (EMBED_MOBILE) document.body.classList.add('embed-mobile');
+  /* ---------- log ---------- */
+  const logEl = document.getElementById('sc-log');
+  function log(kind, msg) {
+    const d = document.createElement('div');
+    d.className = kind;
+    d.textContent = `[${new Date().toISOString().slice(11, 19)}] ${msg}`;
+    logEl.prepend(d);
+  }
+  ['myio:data-ready', 'myio:dashboard-state', 'myio:update-date', 'myio:orchestrator:ready', 'myio:telemetry:request-data',
+   'myio:telemetry:provide-data', 'myio:energy-summary-ready', 'myio:water-summary-ready', 'myio:temperature-data-ready',
+   'myio:customers-ready', 'myio:theme-changed', 'myio:feature-visibility-ready', 'myio:alarm-content-activated', 'myio:token-expired']
+    .forEach((ev) => window.addEventListener(ev, (e) => log('info', `event ${ev} ${e.detail ? JSON.stringify(e.detail).slice(0, 110) : ''}`)));
+  window.addEventListener('error', (e) => log('err', `window error: ${e.message} (${(e.filename || '').split('/').pop()}:${e.lineno})`));
+  window.addEventListener('unhandledrejection', (e) => log('err', `unhandled rejection: ${e.reason && (e.reason.message || e.reason)}`));
 
-    // ---- tiny event log ----
-    const logEl = document.getElementById('sc-log');
-    function log(kind, msg) {
-      const t = new Date().toISOString().slice(11, 19);
-      const div = document.createElement('div');
-      div.className = kind;
-      div.textContent = `[${t}] ${msg}`;
-      logEl.prepend(div);
+  /* ---------- config (gitignored config.json, falls back to the example) ---------- */
+  let CONFIG = null, ENV = '';
+  async function loadConfig() {
+    for (const url of ['./config.json', './config.example.json']) {
+      try { const r = await fetch(`${url}?${bust()}`); if (r.ok) { CONFIG = await r.json(); log('info', `config: ${url}`); break; } } catch {}
     }
-    ['myio:data-ready','myio:dashboard-state','myio:energy-summary-ready','myio:water-summary-ready','myio:temperature-data-ready','myio:update-date']
-      .forEach((ev) => window.addEventListener(ev, (e) => log('info', `event ${ev} ${e.detail ? JSON.stringify(e.detail).slice(0,120) : ''}`)));
+    CONFIG = CONFIG || {};
+  }
+  /** v-5.2.0 environments: `config["v-5.2.0"].environments`, or derived from the v-5.4.0 block (thingsboardUrl → tbBaseUrl). */
+  function environments() {
+    const own = CONFIG['v-5.2.0'] && CONFIG['v-5.2.0'].environments;
+    if (own) return own;
+    const out = {};
+    Object.entries(CONFIG.environments || {}).forEach(([name, e]) => {
+      const s = e.settings || {};
+      out[name] = { settings: { customerTB_ID: s.customerTB_ID || '', tbBaseUrl: s.thingsboardUrl || s.tbBaseUrl || '', dataApiHost: s.dataApiHost || '',
+        gcdrApiBaseUrl: s.gcdrApiBaseUrl || '', alarmsApiBaseUrl: s.alarmsApiBaseUrl || '', debugMode: !!s.debugMode, domainsEnabled: s.domainsEnabled } };
+    });
+    return out;
+  }
 
-    // ---- mock AllDevices rows (TB datasource shape) matching the fixture's deviceProfiles ----
-    // domain is derived by the lib (getDomainFromDeviceType): HIDROMETRO*→water, TERMOSTATO→temperature, else energy.
-    function deviceRows({ entityId, name, deviceType, deviceProfile, identifier, valueKey, value, status }) {
-      const kv = {
-        deviceType, deviceProfile, identifier,
-        label: name, connectionStatus: status,
-        [valueKey]: value,
-      };
-      return Object.entries(kv).map(([k, v]) => ({
-        datasource: { entityId, entityName: name, entityLabel: name, aliasName: 'all3fs' },
-        dataKey: { name: k },
-        data: [[Date.now(), v]],
-      }));
-    }
-    function buildMockData() {
-      const D = [
-        { entityId:'e-3f-1',   name:'Loja 101',      deviceType:'3F_MEDIDOR',         deviceProfile:'3F_MEDIDOR',         identifier:'LOJA-101', valueKey:'consumption', value:1234.5, status:'online' },
-        { entityId:'e-3f-2',   name:'Loja 102',      deviceType:'3F_MEDIDOR',         deviceProfile:'3F_MEDIDOR',         identifier:'LOJA-102', valueKey:'consumption', value:0,      status:'offline' },
-        { entityId:'e-chil-1', name:'Chiller 01',    deviceType:'CHILLER',            deviceProfile:'CHILLER',            identifier:'CHILLER-01', valueKey:'consumption', value:890.2, status:'online' },
-        { entityId:'e-ent-1',  name:'Entrada Geral', deviceType:'ENTRADA',            deviceProfile:'ENTRADA',            identifier:'ENT-01',   valueKey:'consumption', value:5000,   status:'online' },
-        { entityId:'e-hid-1',  name:'Loja Água 1',   deviceType:'HIDROMETRO',         deviceProfile:'HIDROMETRO',         identifier:'HID-01',   valueKey:'pulses',      value:42.7,   status:'online' },
-        { entityId:'e-hie-1',  name:'Entrada Água',  deviceType:'HIDROMETRO_ENTRADA', deviceProfile:'HIDROMETRO_ENTRADA', identifier:'HIDENT-01',valueKey:'pulses',      value:1200,   status:'online' },
-      ];
-      return D.flatMap(deviceRows);
-    }
-
-    // ---- settingsSchema.json → cockpit form (mirrors the TB widget "Appearance/Settings") ----
-    const SCHEMA_URL = '../../src/thingsboard/main-dashboard-shopping/v-5.4.0/settingsSchema.json?v=' + Date.now();
-    // showcase defaults + secrets come from config.json (gitignored). Never hardcoded here.
-    // Config shape: { defaultEnv, environments: { LOCAL: {settings, apiKeys}, PROD: {settings, apiKeys} } }.
-    let DEFAULT_OVERRIDES = {};
-    let _apiKeyOptions = [];
-    let _config = null;
-    let _currentEnv = '';
-    let _schema = null;
-    let _bootCountdownSecs = 6; // overridable via config.json → "general-settings".bootCountdownSeconds
-
-    // Load local config (gitignored). Falls back to the committed example template.
-    async function loadConfig() {
-      let cfg = null, src = '';
-      for (const url of ['./config.json', './config.example.json']) {
-        try {
-          const r = await fetch(url + '?v=' + Date.now());
-          if (r.ok) { cfg = await r.json(); src = url; break; }
-        } catch {}
-      }
-      if (!cfg) { log('err', 'config.json/config.example.json não encontrados'); return; }
-      _config = cfg;
-      // Global (non-per-env) showcase settings.
-      const gs = cfg['general-settings'] || cfg.generalSettings || {};
-      if (gs.bootCountdownSeconds != null) _bootCountdownSecs = Math.max(0, Number(gs.bootCountdownSeconds) || 0);
-      const envNames = Object.keys(cfg.environments || {});
-      const saved = localStorage.getItem('sc-env');
-      _currentEnv = (saved && envNames.includes(saved) && saved) || cfg.defaultEnv || envNames[0] || '';
-      log('info', `config carregado de ${src} (envs: ${envNames.join(' | ') || '—'})${src.includes('example') ? ' — ⚠️ template; crie config.json com seus valores reais' : ''}`);
-    }
-
-    function populateApiKeySelect() {
-      const sel = document.getElementById('sc-gcdrKey');
-      sel.innerHTML = '';
-      _apiKeyOptions.forEach((o, i) => {
-        const opt = document.createElement('option');
-        opt.value = o.value || ''; opt.textContent = o.label || o.value || '(sem label)';
-        if (i === 0) opt.selected = true;
-        sel.appendChild(opt);
-      });
-    }
-
-    // Flatten nested settings ({darkMode:{backgroundColor}} → {"darkMode.backgroundColor"}) so they match
-    // the dotted form keys used by renderField (arrays are kept as values, not flattened).
-    function flattenSettings(obj, prefix, out) {
-      out = out || {};
-      for (const [k, v] of Object.entries(obj || {})) {
-        const key = prefix ? `${prefix}.${k}` : k;
-        if (v && typeof v === 'object' && !Array.isArray(v)) flattenSettings(v, key, out);
-        else out[key] = v;
-      }
-      return out;
-    }
-
-    // Apply an environment: its settings become the form overrides, its apiKeys the X-API-Key options.
-    function applyEnv(env) {
-      if (!_config || !_schema) return;
-      const e = _config.environments?.[env];
-      if (!e) { log('err', `ambiente "${env}" ausente no config`); return; }
-      _currentEnv = env;
-      localStorage.setItem('sc-env', env);
-      DEFAULT_OVERRIDES = flattenSettings(e.settings || {});
-      _apiKeyOptions = Array.isArray(e.apiKeys) ? e.apiKeys : [];
-      renderForm();            // re-render every field seeded with this env's settings + the env tab
-      populateApiKeySelect();  // refresh X-API-Key options for this env
-      log('info', `ambiente ${env} aplicado (${_apiKeyOptions.length} API key(s))`);
-    }
-
-    function buildEnvTab() {
-      const wrap = document.createElement('div');
-      wrap.className = 'sc-envtab'; wrap.id = 'sc-envtab';
-      Object.keys(_config?.environments || {}).forEach((env) => {
-        const b = document.createElement('button');
-        b.type = 'button'; b.textContent = env; b.dataset.env = env;
-        if (env === _currentEnv) b.classList.add('active');
-        b.addEventListener('click', () => applyEnv(env));
-        wrap.appendChild(b);
-      });
+  /* ---------- MAIN_VIEW settingsSchema → cockpit form (same rendering as ThingsBoard "Settings") ---------- */
+  let MAIN_SCHEMA = null, OVERRIDES = {};
+  const flatten = (o, p = '', out = {}) => { Object.entries(o || {}).forEach(([k, v]) => { const key = p ? `${p}.${k}` : k; if (v && typeof v === 'object' && !Array.isArray(v)) flatten(v, key, out); else out[key] = v; }); return out; };
+  const assignPath = (obj, path, val) => { const parts = path.split('.'); let n = obj; for (let i = 0; i < parts.length - 1; i++) n = (n[parts[i]] ||= {}); n[parts[parts.length - 1]] = val; };
+  function schemaProp(schema, path) { const parts = path.split('.'); let n = schema.schema.properties[parts[0]]; for (let i = 1; i < parts.length && n; i++) n = n.properties && n.properties[parts[i]]; return n || {}; }
+  /** Defaults declared in a settingsSchema (json-schema `default`, nested objects included). */
+  function schemaDefaults(schema) {
+    const walk = (props) => { const out = {}; Object.entries(props || {}).forEach(([k, p]) => { if (p && p.default !== undefined) out[k] = JSON.parse(JSON.stringify(p.default)); else if (p && p.type === 'object' && p.properties) out[k] = walk(p.properties); }); return out; };
+    return schema && schema.schema ? walk(schema.schema.properties) : {};
+  }
+  function renderField(key) {
+    const p = schemaProp(MAIN_SCHEMA, key);
+    const def = key in OVERRIDES ? OVERRIDES[key] : (p.default ?? '');
+    const wrap = document.createElement('div');
+    if (p.type === 'boolean') {
+      wrap.className = 'sc-checkbox';
+      wrap.innerHTML = `<input type="checkbox" id="f_${key}" data-setkey="${key}" data-kind="boolean" ${def ? 'checked' : ''}/><label for="f_${key}" style="margin:0">${p.title || key}</label>`;
       return wrap;
     }
+    const kind = p.type === 'number' ? 'number' : p.type === 'array' ? 'array' : 'string';
+    const val = kind === 'array' ? (Array.isArray(def) ? def.join(', ') : '') : def;
+    wrap.innerHTML = `<label for="f_${key}">${p.title || key}</label>` + (Array.isArray(p.enum)
+      ? `<select id="f_${key}" data-setkey="${key}" data-kind="string">${p.enum.map((o) => `<option ${String(o) === String(def) ? 'selected' : ''}>${o}</option>`).join('')}</select>`
+      : `<input id="f_${key}" data-setkey="${key}" data-kind="${kind}" type="${kind === 'number' ? 'number' : 'text'}" value="${String(val ?? '').replace(/"/g, '&quot;')}"/>`);
+    return wrap;
+  }
+  function renderForm() {
+    const root = document.getElementById('sc-fields');
+    root.innerHTML = '';
+    if (!MAIN_SCHEMA) return;
+    const keys = new Set();
+    const add = (item, parent) => {
+      if (typeof item === 'string') { keys.add(item); parent.appendChild(renderField(item)); return; }
+      if (item.type === 'fieldset' || Array.isArray(item.items)) {
+        const fs = document.createElement('fieldset'); fs.className = 'collapsed';
+        fs.innerHTML = `<legend>▸ ${item.title || ''}</legend><div class="sc-fs-body"></div>`;
+        fs.querySelector('legend').onclick = () => { const c = fs.classList.toggle('collapsed'); fs.querySelector('legend').textContent = `${c ? '▸' : '▾'} ${item.title || ''}`; };
+        (item.items || []).forEach((s) => add(s, fs.querySelector('.sc-fs-body')));
+        parent.appendChild(fs); return;
+      }
+      if (item.key) { keys.add(item.key); parent.appendChild(renderField(item.key)); }
+    };
+    (MAIN_SCHEMA.form || Object.keys(MAIN_SCHEMA.schema.properties)).forEach((it) => add(it, root));
+    if (!keys.has('tbBaseUrl')) { OVERRIDES.tbBaseUrl = OVERRIDES.tbBaseUrl || ''; const w = document.createElement('div');
+      w.innerHTML = `<label for="f_tbBaseUrl">tbBaseUrl (harness)</label><input id="f_tbBaseUrl" data-setkey="tbBaseUrl" data-kind="string" value="${OVERRIDES.tbBaseUrl}"/>`; root.prepend(w); }
+  }
+  function readMainSettings() {
+    const env = environments()[ENV] || {};
+    const s = Object.assign(schemaDefaults(MAIN_SCHEMA), JSON.parse(JSON.stringify(env.settings || {})));
+    document.querySelectorAll('#sc-fields [data-setkey]').forEach((el) => {
+      const k = el.dataset.kind;
+      const v = k === 'boolean' ? el.checked : k === 'number' ? Number(el.value) : k === 'array' ? el.value.split(',').map((x) => x.trim()).filter(Boolean) : el.value.trim();
+      assignPath(s, el.dataset.setkey, v);
+    });
+    return s;
+  }
+  function applyEnv(name) {
+    ENV = name; try { localStorage.setItem('sc-env-v520', name); } catch {}
+    OVERRIDES = flatten((environments()[name] || {}).settings || {});
+    const tab = document.getElementById('sc-envtab');
+    tab.innerHTML = '';
+    Object.keys(environments()).forEach((n) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = n; if (n === ENV) b.className = 'active'; b.onclick = () => applyEnv(n); tab.appendChild(b); });
+    renderForm();
+  }
+  const tbBase = () => ((document.getElementById('f_tbBaseUrl') || {}).value || OVERRIDES.tbBaseUrl || 'https://dashboard.myio-bas.com').trim().replace(/\/$/, '');
 
-    function schemaProp(path) {
-      // resolve "darkMode.backgroundType" against schema.properties (nested object props)
-      const parts = path.split('.');
-      let node = _schema.schema.properties[parts[0]];
-      for (let i = 1; i < parts.length && node; i++) node = node.properties?.[parts[i]];
-      return node || {};
+  /* ---------- ThingsBoard runtime emulation: same-origin "/api/…" calls go to tbBaseUrl ---------- */
+  const _fetch = window.fetch.bind(window);
+  window.fetch = (input, init) => (typeof input === 'string' && input.startsWith('/api/') ? _fetch(tbBase() + input, init) : _fetch(input, init));
+  const _xhrOpen = XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.open = function (method, url, ...rest) { return _xhrOpen.call(this, method, typeof url === 'string' && url.startsWith('/api/') ? tbBase() + url : url, ...rest); };
+
+  const jwt = () => localStorage.getItem('jwt_token') || '';
+  async function tbApi(path, body) {
+    const r = await _fetch(tbBase() + path, { method: body ? 'POST' : 'GET', headers: { 'Content-Type': 'application/json', 'X-Authorization': 'Bearer ' + jwt() }, body: body ? JSON.stringify(body) : undefined });
+    if (!r.ok) throw new Error(`${path} → HTTP ${r.status}`);
+    return r.json();
+  }
+
+  /* ---------- entity aliases → datasource rows (ctx.data shape) ---------- */
+  const domainOfType = (t) => { const u = String(t || '').toUpperCase(); return u.includes('HIDROMETRO') ? 'water' : u.includes('TERMOSTATO') ? 'temperature' : 'energy'; };
+  let DEVICE_TYPES = null;
+  async function deviceTypes() {
+    if (!DEVICE_TYPES) DEVICE_TYPES = (await tbApi('/api/device/types')).map((x) => x.type || x);
+    return DEVICE_TYPES;
+  }
+  function keyList(keys) {
+    const seen = new Map();
+    (keys || []).forEach((k) => (typeof k === 'string' ? LAYOUT.keySets[k] || [] : k).forEach(([name, type]) => seen.set(name, type)));
+    return [...seen].map(([name, type]) => ({ name, type }));
+  }
+  /** One entitiesQuery per alias (all pages); returns rows {datasource, dataKey, data:[[ts,value]]}. */
+  async function resolveAlias(aliasName, keys, customerId) {
+    const spec = LAYOUT.aliases[aliasName];
+    if (!spec) throw new Error(`alias desconhecido: ${aliasName}`);
+    let entityFilter;
+    if (spec.kind === 'customer') entityFilter = { type: 'singleEntity', singleEntity: { entityType: 'CUSTOMER', id: customerId } };
+    else {
+      const types = spec.kind === 'devicesByTypes' ? spec.deviceTypes : (await deviceTypes()).filter((t) => domainOfType(t) === spec.domain);
+      if (!types.length) return [];
+      entityFilter = { type: 'deviceSearchQuery', rootEntity: { entityType: 'CUSTOMER', id: customerId }, direction: 'FROM', maxLevel: 8, fetchLastLevelOnly: false, relationType: null, deviceTypes: types };
     }
-
-    function renderField(key, typeOverride) {
-      const p = schemaProp(key);
-      const def = key in DEFAULT_OVERRIDES ? DEFAULT_OVERRIDES[key] : (p.default ?? '');
-      const id = 'set__' + key;
-      const title = p.title || key;
-      const wrap = document.createElement('div');
-      wrap.dataset.fieldkey = key;
-      if (p.type === 'boolean') {
-        wrap.className = 'sc-checkbox';
-        wrap.innerHTML =
-          `<input type="checkbox" id="${id}" data-setkey="${key}" data-kind="boolean" ${def ? 'checked' : ''}/>` +
-          `<label for="${id}" style="margin:0">${title}</label>`;
-        return wrap;
+    const ks = keyList(keys);
+    const entityFields = [{ type: 'ENTITY_FIELD', key: 'name' }, { type: 'ENTITY_FIELD', key: 'label' }, ...ks.filter((k) => k.type === 'ENTITY_FIELD').map((k) => ({ type: 'ENTITY_FIELD', key: k.name }))];
+    const latestValues = ks.filter((k) => k.type !== 'ENTITY_FIELD').map((k) => ({ type: k.type, key: k.name }));
+    const rows = [];
+    for (let page = 0; ; page++) {
+      const res = await tbApi('/api/entitiesQuery/find', { entityFilter, entityFields, latestValues, pageLink: { page, pageSize: 1000, sortOrder: { key: { type: 'ENTITY_FIELD', key: 'name' }, direction: 'ASC' } } });
+      for (const e of res.data || []) {
+        const ef = e.latest.ENTITY_FIELD || {};
+        const ds = { type: 'entity', aliasName, name: aliasName, entityId: e.entityId.id, entityType: e.entityId.entityType, entityName: ef.name && ef.name.value, entityLabel: (ef.label && ef.label.value) || (ef.name && ef.name.value) };
+        for (const k of ks) {
+          const bucket = k.type === 'ENTITY_FIELD' ? ef : (e.latest[k.type] || {});
+          const v = bucket[k.name];
+          if (!v || v.value === undefined || v.value === null || v.value === '') continue;
+          rows.push({ datasource: ds, dataKey: { name: k.name, type: k.type === 'TIME_SERIES' ? 'timeseries' : k.type === 'ATTRIBUTE' ? 'attribute' : 'entityField', label: k.name }, data: [[Number(v.ts) || Date.now(), v.value]] });
+        }
       }
-      const lbl = document.createElement('label');
-      lbl.textContent = title; lbl.setAttribute('for', id);
-      wrap.appendChild(lbl);
-      let field;
-      if (Array.isArray(p.enum) || typeOverride === 'select') {
-        field = document.createElement('select');
-        (p.enum || []).forEach((opt) => {
-          const o = document.createElement('option'); o.value = opt; o.textContent = opt;
-          if (String(opt) === String(def)) o.selected = true;
-          field.appendChild(o);
-        });
-        field.dataset.kind = 'string';
-      } else if (p.type === 'number') {
-        field = document.createElement('input'); field.type = 'number'; field.value = def; field.dataset.kind = 'number';
-      } else if (p.type === 'array') {
-        field = document.createElement('input'); field.type = 'text';
-        field.value = (Array.isArray(def) ? def : []).join(', ');
-        field.placeholder = 'comma-separated'; field.dataset.kind = 'array';
-      } else {
-        field = document.createElement('input'); field.type = typeOverride === 'color' ? 'color' : 'text';
-        field.value = def; field.dataset.kind = 'string';
-      }
-      field.id = id; field.dataset.setkey = key;
-      wrap.appendChild(field);
-      return wrap;
+      if (!res.hasNext) break;
     }
+    return rows;
+  }
+  async function buildDatasources(def, customerId) {
+    const rows = [];
+    const datasources = [];
+    for (const ds of def.datasources || []) {
+      const r = await resolveAlias(ds.alias, ds.keys, customerId);
+      rows.push(...r);
+      datasources.push({ type: 'entity', aliasName: ds.alias, name: ds.alias, dataKeys: keyList(ds.keys).map((k) => ({ name: k.name, type: k.type.toLowerCase(), label: k.name })) });
+    }
+    return { rows, datasources };
+  }
 
-    function buildFieldset(item) {
-      const fs = document.createElement('fieldset'); fs.className = 'sc-fieldset collapsed'; // default collapsed
-      const lg = document.createElement('legend'); lg.className = 'sc-fs-legend';
-      lg.innerHTML = `<span class="sc-fs-ico">▸</span> ${item.title || ''}`;
-      const body = document.createElement('div'); body.className = 'sc-fs-body';
-      for (const sub of item.items) {
-        if (typeof sub === 'string') body.appendChild(renderField(sub));
-        else body.appendChild(renderField(sub.key, sub.type));
+  /* ---------- Angular-lite: the subset of TB/Angular template syntax used by widget templates ----------
+   * *ngFor="let x of list; let i = index", {{ expr }}, (event)="handler($event, …)", [class.c]="expr", [attr.a]="expr".
+   * Expressions are evaluated against ctx.$scope (as Angular does for TB widgets). ngFor blocks re-render on ctx.detectChanges(). */
+  const evalIn = (expr, scope, locals) => { try { return new Function('scope', 'locals', `with(scope){with(locals){return (${expr});}}`)(scope, locals); } catch (e) { return undefined; } };
+  const interp = (text, scope, locals) => text.replace(/\{\{([^}]+)\}\}/g, (_, ex) => { const v = evalIn(ex.trim(), scope, locals); return v == null ? '' : String(v); });
+  function bindElement(el, scope, locals) {
+    [...el.attributes].forEach((a) => {
+      if (a.name.startsWith('(') && a.name.endsWith(')')) {
+        const evName = a.name.slice(1, -1), ex = a.value;
+        el.addEventListener(evName, ($event) => evalIn(ex, scope, Object.assign({ $event }, locals)));
+        el.removeAttribute(a.name);
+      } else if (a.name.startsWith('[class.')) {
+        el.classList.toggle(a.name.slice(7, -1), !!evalIn(a.value, scope, locals)); el.removeAttribute(a.name);
+      } else if (a.name.startsWith('[attr.')) {
+        const v = evalIn(a.value, scope, locals); if (v != null) el.setAttribute(a.name.slice(6, -1), v); el.removeAttribute(a.name);
+      } else if (a.name.startsWith('[') || a.name.startsWith('*')) {
+        el.removeAttribute(a.name);
+      } else if (a.value.includes('{{')) {
+        el.setAttribute(a.name, interp(a.value, scope, locals));
       }
-      lg.addEventListener('click', () => {
-        const collapsed = fs.classList.toggle('collapsed');
-        lg.querySelector('.sc-fs-ico').textContent = collapsed ? '▸' : '▾';
+    });
+  }
+  function bindTree(root, scope, locals) {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
+    const els = [], texts = [];
+    for (let n = walker.currentNode; n; n = walker.nextNode()) (n.nodeType === 1 ? els : texts).push(n);
+    texts.forEach((t) => { if (t.nodeValue.includes('{{')) t.nodeValue = interp(t.nodeValue, scope, locals); });
+    els.forEach((el) => bindElement(el, scope, locals));
+  }
+  /** Prepares a template: ngFor elements become re-renderable blocks; the rest is bound once. */
+  function compileTemplate(container, scope) {
+    const blocks = [];
+    container.querySelectorAll('[\\*ngFor]').forEach((el) => {
+      const m = /let\s+(\w+)\s+of\s+([^;]+)(?:;\s*let\s+(\w+)\s*=\s*index)?/.exec(el.getAttribute('*ngFor'));
+      const anchor = document.createComment('ngFor');
+      el.replaceWith(anchor);
+      el.removeAttribute('*ngFor');
+      blocks.push({ anchor, tpl: el, item: m[1], listExpr: m[2].trim(), index: m[3], nodes: [] });
+    });
+    bindTree(container, scope, {});
+    const render = () => blocks.forEach((b) => {
+      b.nodes.forEach((n) => n.remove());
+      const list = evalIn(b.listExpr, scope, {}) || [];
+      b.nodes = Array.from(list, (item, i) => {
+        const node = b.tpl.cloneNode(true);
+        bindTree(node, scope, { [b.item]: item, ...(b.index ? { [b.index]: i } : {}) });
+        return node;
       });
-      fs.appendChild(lg); fs.appendChild(body);
-      return fs;
-    }
+      b.anchor.after(...b.nodes);
+    });
+    render();
+    return render;
+  }
 
-    function renderForm() {
-      const root = document.getElementById('sc-fields');
-      root.innerHTML = '';
-      const fieldsets = [];
-      // first pass: simple fields in schema order
-      for (const item of _schema.form) {
-        if (typeof item === 'string') { root.appendChild(renderField(item)); continue; }
-        if (item.type === 'fieldset') { fieldsets.push(item); continue; }
-        root.appendChild(renderField(item.key, item.type)); // { key, type }
+  /* ---------- widget mounting ---------- */
+  const SOURCES = {};   // widget → {js, html, css, schema}
+  const INSTANCES = []; // {name, self, ctx, host, error}
+  async function widgetSources(name) {
+    if (SOURCES[name]) return SOURCES[name];
+    const base = LAYOUT.widgetRoot + name + '/';
+    const text = (f) => _fetch(`${base}${f}?${bust()}`).then((r) => (r.ok ? r.text() : ''));
+    const [js, html, css, schemaText] = await Promise.all([text('controller.js'), text('template.html'), text('styles.css'), text('settingsSchema.json')]);
+    let schema = null; try { schema = schemaText.trim() ? JSON.parse(schemaText) : null; } catch {}
+    if (css && !document.querySelector(`style[data-widget="${name}"]`)) {
+      const st = document.createElement('style'); st.dataset.widget = name; st.textContent = scopeCss(css, `.sc-css-${name}`); document.head.appendChild(st);
+    }
+    return (SOURCES[name] = { js, html, css, schema });
+  }
+
+  /* ThingsBoard namespaces every widget's CSS under a widget-specific class, so a rule only matches inside
+   * that widget (an element the controller moves to <body> is no longer styled by it). Same here. */
+  function splitSelectors(sel) {
+    const out = []; let depth = 0, cur = '';
+    for (const ch of sel) { if (ch === '(' || ch === '[') depth++; if (ch === ')' || ch === ']') depth--; if (ch === ',' && depth === 0) { out.push(cur); cur = ''; } else cur += ch; }
+    out.push(cur);
+    return out.map((s) => s.trim()).filter(Boolean);
+  }
+  function scopeSelector(sel, scope) {
+    if (/^(:root|html|body)\b/.test(sel)) return sel.replace(/^(:root|html|body)/, scope);
+    return `${scope} ${sel}`;
+  }
+  function scopeRules(rules, scope) {
+    return Array.from(rules, (r) => {
+      if (r.type === CSSRule.STYLE_RULE) return `${splitSelectors(r.selectorText).map((s) => scopeSelector(s, scope)).join(', ')} { ${r.style.cssText} }`;
+      if (r.type === CSSRule.MEDIA_RULE) return `@media ${r.conditionText} { ${scopeRules(r.cssRules, scope)} }`;
+      if (r.type === CSSRule.SUPPORTS_RULE) return `@supports ${r.conditionText} { ${scopeRules(r.cssRules, scope)} }`;
+      return r.cssText;   // @keyframes, @font-face, @import…
+    }).join('\n');
+  }
+  function scopeCss(css, scope) {
+    try { const sheet = new CSSStyleSheet(); sheet.replaceSync(css.replace(/@import[^;]+;/g, '')); return scopeRules(sheet.cssRules, scope); }
+    catch (e) { log('warn', `CSS sem escopo (${e.message})`); return css; }
+  }
+  function timeWindow() {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    const end = now.getTime();
+    return { start, end };
+  }
+  /** Builds the TB widget context for one instance. */
+  function buildCtx(name, container, settings, data, scope) {
+    const tw = timeWindow();
+    const ctx = {
+      $container: window.jQuery(container),
+      $scope: scope,
+      settings,
+      data: data.rows,
+      datasources: data.datasources,
+      widget: { id: `sc-${name}-${INSTANCES.length}` },
+      dashboard: { title: 'Showcase v-5.2.0' },   // no openDashboardState → MENU uses its show/hide fallback (RFC-0053)
+      timeWindow: { timezone: 'America/Sao_Paulo', minTime: tw.start, maxTime: tw.end },
+      defaultSubscription: { data: data.rows, datasources: data.datasources, subscriptionTimewindow: { startTs: tw.start, endTs: tw.end, fixedWindow: { startTimeMs: tw.start, endTimeMs: tw.end } } },
+      detectChanges: () => {},
+      get width() { return container.clientWidth; },
+      get height() { return container.clientHeight; },
+    };
+    scope.startTs = tw.start; scope.endTs = tw.end;
+    return ctx;
+  }
+  async function mountWidget(name, host, def, sharedSettings, customerId) {
+    const inst = { name, label: (def.settings && def.settings.labelWidget) || name, host, self: {}, ctx: null, error: null };
+    INSTANCES.push(inst);
+    renderWidgetList();
+    try {
+      const src = await widgetSources(name);
+      const wc = document.createElement('div'); wc.className = `sc-wc tb-widget-container sc-css-${name}`;
+      host.appendChild(wc);
+      const scope = {};
+      wc.innerHTML = src.html || '';
+      const settings = Object.assign(schemaDefaults(src.schema), def.settings || {}, sharedSettings, name === 'MAIN_VIEW' ? readMainSettings() : {});
+      if (name === 'MENU' && !(settings.links && settings.links.length)) settings.links = JSON.parse(JSON.stringify(LAYOUT.menuLinks));
+      const data = await buildDatasources(def, customerId);
+      inst.ctx = buildCtx(name, wc, settings, data, scope);
+      inst.self.ctx = inst.ctx;
+      if (name === 'MAIN_VIEW') replaceDashboardStates(wc);
+      // ThingsBoard runs a widget controller as a function body with `self` (and `ctx`) in scope
+      new Function('self', 'ctx', `${src.js}\n//# sourceURL=v-5.2.0/${name}/controller.js#${INSTANCES.length}`).call(inst.self, inst.self, inst.ctx);
+      if (/\*ngFor|\(\w+\)=|\{\{/.test(src.html)) {
+        const rerender = compileTemplate(wc, scope);
+        inst.ctx.detectChanges = rerender;
       }
-      // collapsible fieldsets go LAST (bottom of the cockpit)
-      for (const item of fieldsets) root.appendChild(buildFieldset(item));
-      // env selector (LOCAL | PROD) right below "Enable Annotations Onboarding"
-      const anchor = root.querySelector('[data-fieldkey="enableAnnotationsOnboarding"]');
-      if (anchor && _config?.environments) anchor.insertAdjacentElement('afterend', buildEnvTab());
-    }
+      if (typeof inst.self.onInit === 'function') {
+        const r = inst.self.onInit();
+        if (r && typeof r.then === 'function') r.catch((e) => fail(inst, e));
+        if (inst.ctx.detectChanges) setTimeout(() => inst.ctx.detectChanges(), 0);
+      }
+      log('info', `${name}${def.settings && def.settings.labelWidget ? ' · ' + def.settings.labelWidget : ''}: onInit (${data.rows.length} linhas de datasource)`);
+    } catch (e) { fail(inst, e); }
+    renderWidgetList();
+    return inst;
+  }
+  function fail(inst, e) {
+    inst.error = (e && (e.message || e)) || 'erro';
+    inst.host.classList.add('sc-failed');
+    inst.host.dataset.error = `${inst.name}: ${inst.error}`;
+    log('err', `${inst.name}: ${inst.error}`);
+    renderWidgetList();
+  }
+  function renderWidgetList() {
+    document.getElementById('sc-widgets').innerHTML = INSTANCES.length
+      ? INSTANCES.map((i) => `<div class="${i.error ? 'err' : i.ctx ? 'ok' : 'wait'}">${i.error ? '✖' : i.ctx ? '●' : '…'} ${i.name}${i.label !== i.name ? ' · ' + i.label : ''}${i.error ? ' — ' + i.error : ''}</div>`).join('')
+      : '—';
+  }
 
-    function assignPath(obj, path, val) {
-      const parts = path.split('.'); let node = obj;
-      for (let i = 0; i < parts.length - 1; i++) node = (node[parts[i]] ||= {});
-      node[parts[parts.length - 1]] = val;
-    }
-    function readSettings() {
-      // Seed from the active env's config settings so keys that are NOT rendered as form fields
-      // (e.g. gcdrCustomerId / gcdrTenantId — removed from settingsSchema, but still needed by the
-      // controller) reach ctx.settings. The editable form values are overlaid on top.
-      const envSettings = _config?.environments?.[_currentEnv]?.settings || {};
-      const settings = JSON.parse(JSON.stringify(envSettings));
-      document.querySelectorAll('#sc-fields [data-setkey]').forEach((el) => {
-        const key = el.dataset.setkey, kind = el.dataset.kind;
-        let val;
-        if (kind === 'boolean') val = el.checked;
-        else if (kind === 'number') val = Number(el.value);
-        else if (kind === 'array') val = el.value.split(',').map((s) => s.trim()).filter(Boolean);
-        else val = el.value.trim();
-        assignPath(settings, key, val);
-      });
-      return settings;
-    }
+  /** MAIN_VIEW's template hosts the other dashboard states as <tb-dashboard-state stateId="…">: give them real hosts. */
+  const STATE_HOSTS = {};
+  function replaceDashboardStates(root) {
+    root.querySelectorAll('tb-dashboard-state').forEach((el) => {
+      const id = el.getAttribute('stateid') || el.getAttribute('stateId');
+      // keep the element MAIN_VIEW's CSS styles (.tb-child) and put the state's widget grid inside it,
+      // like <tb-dashboard-state> renders its own dashboard layout
+      const host = document.createElement('div');
+      host.className = el.getAttribute('class') || 'tb-child';
+      host.dataset.scState = id;
+      const grid = document.createElement('div');
+      grid.className = 'sc-state';
+      grid.style.flex = '1 1 auto';
+      host.appendChild(grid);
+      el.replaceWith(host);
+      STATE_HOSTS[id] = grid;
+    });
+  }
+  /** Lays out a state like the TB grid layout (columns, row/col/sizeX/sizeY). */
+  function layoutState(host, state) {
+    const rows = Math.max(1, ...state.widgets.map((w) => w.pos[0] + w.pos[3]));
+    host.style.gridTemplateColumns = `repeat(${state.columns}, minmax(0, 1fr))`;
+    host.style.gridTemplateRows = `repeat(${rows}, minmax(0, 1fr))`;
+    host.style.gap = state.widgets.length > 1 ? '10px' : '0';
+    return state.widgets.map((w) => {
+      const cell = document.createElement('div');
+      cell.className = 'sc-widget';
+      cell.style.gridColumn = `${w.pos[1] + 1} / span ${w.pos[2]}`;
+      cell.style.gridRow = `${w.pos[0] + 1} / span ${w.pos[3]}`;
+      host.appendChild(cell);
+      return { cell, def: w };
+    });
+  }
 
-    async function loadSchema() {
+  /* ---------- mount / reload / destroy ---------- */
+  let MOUNTED = false;
+  async function mountDashboard() {
+    if (MOUNTED) { log('warn', 'já montado — use Desmontar antes'); return; }
+    if (typeof MyIOLibrary === 'undefined') { log('err', 'MyIOLibrary (UMD) não carregou — rode npm run build'); return; }
+    if (!jwt()) { log('err', 'faça o login no ThingsBoard primeiro'); return; }
+    const main = readMainSettings();
+    if (!main.customerTB_ID) { log('err', 'informe customerTB_ID'); return; }
+    MOUNTED = true;
+    document.getElementById('sc-run').disabled = true;
+    const shared = {};
+    (LAYOUT.sharedSettings || []).forEach((k) => { shared[k] = k === 'tbBaseUrl' ? tbBase() : main[k]; });
+    const stage = document.getElementById('sc-stage');
+    stage.innerHTML = '';
+    // 1) MAIN_VIEW first: its evaluation creates MyIOUtils / MyIOOrchestrator that every other widget reads
+    const [home] = layoutState(stage, Object.assign({}, LAYOUT.states[LAYOUT.rootState], { columns: 24 }));
+    stage.style.display = 'grid';
+    stage.style.gridTemplateColumns = '1fr'; stage.style.gridTemplateRows = '1fr';
+    home.cell.style.gridColumn = '1'; home.cell.style.gridRow = '1';
+    await mountWidget(home.def.widget, home.cell, home.def, shared, main.customerTB_ID);
+    // 2) the states hosted inside MAIN_VIEW's template
+    for (const [id, host] of Object.entries(STATE_HOSTS)) {
+      const state = LAYOUT.states[id];
+      if (!state) { log('warn', `estado ${id} sem definição no layout`); continue; }
+      for (const { cell, def } of layoutState(host, state)) await mountWidget(def.widget, cell, def, shared, main.customerTB_ID);
+    }
+    // 3) first data delivery, as the TB subscription does after init
+    setTimeout(() => dataUpdated(false), 300);
+    window.addEventListener('resize', onResize);
+  }
+  function onResize() { INSTANCES.forEach((i) => { try { i.self.onResize && i.self.onResize(); } catch (e) { log('err', `${i.name} onResize: ${e.message}`); } }); }
+  async function dataUpdated(refetch) {
+    const main = readMainSettings();
+    for (const i of INSTANCES) {
+      if (!i.ctx || i.error) continue;
       try {
-        const resp = await fetch(SCHEMA_URL);
-        if (!resp.ok) throw new Error('HTTP ' + resp.status);
-        _schema = await resp.json();
-        log('info', `settingsSchema.json carregado (${_schema.form.length} form rows)`);
-      } catch (err) {
-        document.getElementById('sc-fields').innerHTML = '<span class="err">falha ao carregar settingsSchema.json</span>';
-        log('err', 'loadSchema failed: ' + (err?.message || err));
-      }
+        if (refetch) {
+          const def = findDef(i);
+          if (def) { const d = await buildDatasources(def, main.customerTB_ID); i.ctx.data = d.rows; i.ctx.defaultSubscription.data = d.rows; }
+        }
+        if (typeof i.self.onDataUpdated === 'function') i.self.onDataUpdated();
+      } catch (e) { log('err', `${i.name} onDataUpdated: ${e.message}`); }
     }
+    log('info', `onDataUpdated${refetch ? ' (dados recarregados)' : ''}`);
+  }
+  function findDef(inst) {
+    for (const st of Object.values(LAYOUT.states)) for (const w of st.widgets) if (inst.host.style.gridColumn && w.widget === inst.name && `${w.pos[1] + 1} / span ${w.pos[2]}` === inst.host.style.gridColumn && `${w.pos[0] + 1} / span ${w.pos[3]}` === inst.host.style.gridRow) return w;
+    return LAYOUT.states[LAYOUT.rootState].widgets.find((w) => w.widget === inst.name);
+  }
+  function destroyDashboard() {
+    INSTANCES.slice().reverse().forEach((i) => { try { i.self.onDestroy && i.self.onDestroy(); } catch (e) { log('err', `${i.name} onDestroy: ${e.message}`); } });
+    window.removeEventListener('resize', onResize);
+    INSTANCES.length = 0;
+    Object.keys(STATE_HOSTS).forEach((k) => delete STATE_HOSTS[k]);
+    document.getElementById('sc-stage').innerHTML = '';
+    document.getElementById('sc-run').disabled = false;
+    MOUNTED = false;
+    renderWidgetList();
+    log('info', 'onDestroy chamado em todos os widgets (recarregue a página para limpar os globals window.*)');
+  }
 
-    // Seed the simulated SERVER_SCOPE attrs. IMPORTANT: the controller resets
-    // MyIOUtils.customerAttrs to {} at load (Object.assign), so this must also be
-    // re-applied AFTER loadController() and BEFORE onInit() — otherwise X-API-Key is lost (401).
-    function seedCustomerAttrs(gcdrTenantId) {
-      window.MyIOUtils = window.MyIOUtils || {};
-      window.MyIOUtils.customerAttrs = window.MyIOUtils.customerAttrs || {};
-      window.MyIOUtils.customerAttrs.gcdrapikey = document.getElementById('sc-gcdrKey').value.trim();
-      window.MyIOUtils.customerAttrs.gcdrtenantid = gcdrTenantId || '';
-    }
+  /* ---------- login ---------- */
+  const decodeJwt = (t) => { try { return JSON.parse(atob(t.split('.')[1])); } catch { return null; } };
+  function updateAuth() {
+    const el = document.getElementById('sc-auth');
+    const p = decodeJwt(jwt());
+    if (p && p.exp > Date.now() / 1000) {
+      el.className = 'ok';
+      el.innerHTML = `✅ ${p.sub} (${(p.scopes || [])[0] || ''}) · <a href="#" id="sc-logout" style="color:#9ecbff">sair</a>`;
+      document.getElementById('sc-logout').onclick = (e) => { e.preventDefault(); localStorage.removeItem('jwt_token'); updateAuth(); };
+    } else { el.className = 'no'; el.textContent = jwt() ? '⚠️ JWT expirado — refaça o login' : '🔒 sem JWT — faça o login'; }
+  }
+  const modal = document.getElementById('sc-login-modal');
+  document.getElementById('sc-login').onclick = () => { modal.classList.add('open'); document.getElementById('sc-login-user').focus(); };
+  document.getElementById('sc-login-close').onclick = () => modal.classList.remove('open');
+  document.getElementById('sc-login-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const err = document.getElementById('sc-login-err');
+    err.style.display = 'none';
+    try {
+      const r = await _fetch(`${tbBase()}/api/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: document.getElementById('sc-login-user').value.trim(), password: document.getElementById('sc-login-pass').value }) });
+      if (!r.ok) throw new Error(r.status === 401 ? 'Usuário ou senha inválidos' : `HTTP ${r.status}`);
+      const d = await r.json();
+      localStorage.setItem('jwt_token', d.token);
+      if (d.refreshToken) localStorage.setItem('refresh_token', d.refreshToken);
+      modal.classList.remove('open'); updateAuth(); log('info', `login OK (${tbBase()})`);
+    } catch (ex) { err.textContent = ex.message; err.style.display = 'block'; }
+  });
 
-    // ---- self.ctx (ThingsBoard widget context simulation) ----
-    function buildCtx() {
-      if (!_schema) { log('err', 'settingsSchema.json ainda não carregado'); return false; }
-      const settings = readSettings();
-      // /entities fetch reads X-API-Key from MyIOUtils.customerAttrs.gcdrapikey (simulated SERVER_SCOPE attr)
-      seedCustomerAttrs(settings.gcdrTenantId);
-      self.ctx = {
-        settings,
-        data: buildMockData(),
-        datasources: [{ type: 'entity', name: 'AllDevices', aliasName: 'all3fs' }],
-        currentUser: { email: 'showcase@myio.com.br', firstName: 'Showcase', lastName: 'User', authority: 'CUSTOMER_USER', customerTitle: 'Shopping (showcase)' },
-        // real JWT from the login modal (localStorage), like the TB widget runtime
-        http: { getServerCredentials: () => ({ token: localStorage.getItem('jwt_token') || '' }) },
-        $scope: {},
-        detectChanges: () => {},
-      };
-      log('info', `ctx ready — ${self.ctx.data.length} rows · gcdr ${settings.gcdrApiBaseUrl} · customer ${settings.gcdrCustomerId}`);
-      return true;
-    }
+  /* ---------- wiring ---------- */
+  document.getElementById('sc-run').onclick = () => mountDashboard().catch((e) => log('err', 'montagem: ' + e.message));
+  document.getElementById('sc-data').onclick = () => dataUpdated(true);
+  document.getElementById('sc-destroy').onclick = destroyDashboard;
+  document.getElementById('sc-toggle').onclick = () => { const c = document.body.classList.toggle('console-collapsed'); document.getElementById('sc-toggle').textContent = c ? '⟨' : '⟩'; setTimeout(onResize, 250); };
+  document.getElementById('sc-log-toggle').onclick = () => { const l = document.getElementById('sc-log'); l.hidden = !l.hidden; };
+  document.querySelector('#sc-widgets-fs legend').onclick = () => document.getElementById('sc-widgets-fs').classList.toggle('collapsed');
 
-    // ---- inject the REAL v-5.4.0 template.html into #sc-stage (no inline copy → no drift) ----
-    let _templateLoaded = false;
-    async function loadTemplate() {
-      if (_templateLoaded) return;
-      const url = '../../src/thingsboard/main-dashboard-shopping/v-5.4.0/template.html?v=' + Date.now();
-      const res = await fetch(url);
-      if (!res.ok) throw new Error('template.html HTTP ' + res.status);
-      document.getElementById('sc-stage').innerHTML = await res.text();
-      _templateLoaded = true;
-      log('info', 'v-5.4.0/template.html injected into #sc-stage');
-    }
-
-    // ---- load the v-5.4.0 controller (cache-busted) ----
-    let _controllerLoaded = false;
-    function loadController() {
-      return new Promise((resolve, reject) => {
-        if (_controllerLoaded) return resolve();
-        const s = document.createElement('script');
-        s.src = '../../src/thingsboard/main-dashboard-shopping/v-5.4.0/controller.js?v=' + Date.now();
-        s.onload = () => { _controllerLoaded = true; log('info', 'v-5.4.0/controller.js loaded'); resolve(); };
-        s.onerror = (e) => { log('err', 'failed to load controller.js'); reject(e); };
-        document.body.appendChild(s);
-      });
-    }
-
-    document.getElementById('sc-run').addEventListener('click', async () => {
-      try {
-        if (typeof MyIOLibrary === 'undefined') { log('err', 'MyIOLibrary (UMD) not loaded'); return; }
-        if (!buildCtx()) return;
-        await loadTemplate(); // inject template.html BEFORE onInit fills the containers
-        await loadController();
-        // controller wipes MyIOUtils.customerAttrs on load → re-seed so X-API-Key reaches /entities
-        seedCustomerAttrs(self.ctx.settings.gcdrTenantId);
-        if (typeof self.onInit !== 'function') { log('err', 'self.onInit not defined by controller'); return; }
-        log('info', 'calling self.onInit() …');
-        await self.onInit();
-        log('info', 'onInit done — triggering onDataUpdated()');
-        self.onDataUpdated?.();
-      } catch (err) { log('err', 'run failed: ' + (err?.message || err)); }
-    });
-    document.getElementById('sc-data').addEventListener('click', () => {
-      if (!buildCtx()) return; self.onDataUpdated?.(); log('info', 'onDataUpdated() called');
-    });
-    document.getElementById('sc-destroy').addEventListener('click', () => {
-      self.onDestroy?.(); log('info', 'onDestroy() called');
-    });
-    document.getElementById('sc-toggle').addEventListener('click', () => {
-      const collapsed = document.body.classList.toggle('console-collapsed');
-      document.getElementById('sc-toggle').textContent = collapsed ? '⟨' : '⟩';
-      document.getElementById('sc-toggle').title = collapsed ? 'Expandir cockpit' : 'Recolher cockpit';
-    });
-    document.getElementById('sc-log-toggle').addEventListener('click', () => {
-      const c = document.getElementById('sc-console').classList.toggle('collapsed');
-      document.getElementById('sc-log-toggle').textContent = c ? '▸ console' : '▾ console';
-    });
-    // Mobile preview: open the showcase in a phone-sized iframe. The iframe gets a REAL 390px
-    // viewport, so the dashboard's @media (max-width) rules fire → true mobile layout
-    // (resizing the element in this same document would NOT trigger media queries).
-    document.getElementById('sc-mobile').addEventListener('click', () => {
-      const btn = document.getElementById('sc-mobile');
-      const close = () => {
-        document.getElementById('sc-mobile-overlay')?.remove();
-        btn.classList.remove('active'); btn.textContent = '📱 Emular Mobile';
-      };
-      if (document.getElementById('sc-mobile-overlay')) { close(); return; }
-      const ov = document.createElement('div');
-      ov.id = 'sc-mobile-overlay';
-      ov.innerHTML =
-        '<div class="sc-phone">' +
-          '<div class="sc-phone-bar"><span>📱 Mobile preview — 390×844 (viewport real)</span>' +
-          '<button id="sc-mobile-close" title="Fechar">✕ fechar</button></div>' +
-          '<iframe class="sc-phone-screen" src="./index.html?embed=mobile&v=' + Date.now() + '"></iframe>' +
-        '</div>';
-      document.body.appendChild(ov);
-      ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
-      document.getElementById('sc-mobile-close').addEventListener('click', close);
-      btn.classList.add('active'); btn.textContent = '📱 Fechar Mobile';
-      log('info', 'Mobile preview aberto (iframe @390px — dispara @media reais).');
-    });
-
-    // ---- real ThingsBoard login (POST {tbUrl}/api/auth/login → localStorage.jwt_token) ----
-    function decodeJwt(t) { try { return JSON.parse(atob(t.split('.')[1])); } catch { return null; } }
-    function tbBaseUrl() {
-      const fromForm = document.getElementById('set__thingsboardUrl')?.value;
-      return (fromForm || 'https://dashboard.myio-bas.com').trim().replace(/\/$/, '');
-    }
-    function updateAuthStatus() {
-      const el = document.getElementById('sc-auth');
-      const t = localStorage.getItem('jwt_token');
-      const p = t && decodeJwt(t);
-      const valid = p && p.exp > Math.floor(Date.now() / 1000);
-      if (valid) {
-        el.className = 'sc-auth ok';
-        el.innerHTML = `✅ ${p.sub || 'autenticado'} · <a href="#" id="sc-logout" style="color:#9ecbff">logout</a>`;
-        document.getElementById('sc-logout').onclick = (e) => {
-          e.preventDefault();
-          localStorage.removeItem('jwt_token'); localStorage.removeItem('refresh_token');
-          updateAuthStatus(); log('info', 'logout — jwt_token removido');
-        };
-      } else {
-        el.className = 'sc-auth no';
-        el.innerHTML = t ? '⚠️ JWT expirado — refaça o login' : '🔒 sem JWT — clique "🔑 Login TB" (o modo mock funciona sem login)';
-      }
-    }
-    async function tbLogin(username, password) {
-      const resp = await fetch(`${tbBaseUrl()}/api/auth/login`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
-      });
-      if (!resp.ok) {
-        let msg = 'Login falhou';
-        try { msg = (await resp.json()).message || msg; } catch {}
-        if (resp.status === 401) msg = 'Usuário ou senha inválidos';
-        throw new Error(msg);
-      }
-      const data = await resp.json();
-      localStorage.setItem('jwt_token', data.token);
-      if (data.refreshToken) localStorage.setItem('refresh_token', data.refreshToken);
-      return data.token;
-    }
-    const loginModal = document.getElementById('sc-login-modal');
-    function openLogin() { document.getElementById('sc-login-err').style.display = 'none'; loginModal.classList.add('open'); document.getElementById('sc-login-user').focus(); }
-    function closeLogin() { loginModal.classList.remove('open'); }
-    document.getElementById('sc-login').addEventListener('click', openLogin);
-    document.getElementById('sc-login-close').addEventListener('click', closeLogin);
-    loginModal.addEventListener('click', (e) => { if (e.target === loginModal) closeLogin(); });
-    document.getElementById('sc-login-eye').addEventListener('click', () => {
-      const i = document.getElementById('sc-login-pass'); i.type = i.type === 'password' ? 'text' : 'password';
-    });
-    document.getElementById('sc-login-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const u = document.getElementById('sc-login-user').value.trim();
-      const p = document.getElementById('sc-login-pass').value;
-      const errEl = document.getElementById('sc-login-err'), btn = document.getElementById('sc-login-submit');
-      errEl.style.display = 'none';
-      if (!u || !p) { errEl.textContent = 'Preencha usuário e senha'; errEl.style.display = 'block'; return; }
-      btn.disabled = true; btn.innerHTML = '<span class="sc-spin"></span>Entrando...';
-      try {
-        await tbLogin(u, p);
-        log('info', `login TB OK — jwt salvo (${tbBaseUrl()})`);
-        closeLogin(); updateAuthStatus();
-      } catch (err) {
-        errEl.textContent = err?.message || 'Login falhou'; errEl.style.display = 'block';
-        log('err', 'login: ' + (err?.message || err));
-      } finally { btn.disabled = false; btn.textContent = 'Entrar'; }
-    });
-
-    // Full-screen blur countdown → auto-run onInit, then fully collapse the cockpit.
-    // Cancel aborts (keeps the cockpit so you can run manually). One-shot per load — F5 to redo.
-    function startBootCountdown() {
-      const ov = document.getElementById('sc-boot');
-      const countEl = document.getElementById('sc-boot-count');
-      const secsEl = document.getElementById('sc-boot-secs');
-      const cancelBtn = document.getElementById('sc-boot-cancel');
-      if (!ov || !countEl) return;
-      let n = _bootCountdownSecs, timer = null;
-      const hide = () => { if (timer) clearInterval(timer); timer = null; ov.classList.add('hidden'); };
-      const render = (v) => { countEl.textContent = Math.max(v, 0); if (secsEl) secsEl.textContent = Math.max(v, 0); };
-      const runAndCollapse = () => {
-        hide();
-        log('info', 'Run onInit + colapsar cockpit.');
-        document.getElementById('sc-run').click();
-        document.body.classList.add('console-collapsed');         // colapsa o cockpit totalmente
-        const tg = document.getElementById('sc-toggle');
-        if (tg) { tg.textContent = '⟨'; tg.title = 'Expandir cockpit'; }
-      };
-      cancelBtn.addEventListener('click', () => {
-        hide();
-        log('warn', 'Auto-carregamento cancelado — use ▶ Run onInit manualmente.');
-      });
-      render(n);
-      if (n <= 0) { runAndCollapse(); return; }   // countdown disabled (0) → run immediately
-      timer = setInterval(() => {
-        n -= 1;
-        render(n);
-        if (n <= 0) runAndCollapse();
-      }, 1000);
-    }
-
-    window.addEventListener('load', async () => {
-      await loadConfig();   // loads environments (config.json gitignored)
-      await loadSchema();   // loads the schema (no render yet)
-      applyEnv(_currentEnv); // renders the form for the active env + key options + LOCAL|PROD tab
-      updateAuthStatus();
-      log('info', typeof MyIOLibrary !== 'undefined'
-        ? `MyIOLibrary loaded · parseClassificationEntities=${typeof MyIOLibrary.parseClassificationEntities}`
-        : 'MyIOLibrary NOT loaded');
-      // In the mobile-preview iframe, run the dashboard automatically (no cockpit to click).
-      // Shares the parent's localStorage JWT (same origin); GCDR calls use the X-API-Key.
-      if (EMBED_MOBILE) {
-        log('info', 'embed-mobile: auto-running onInit…');
-        document.getElementById('sc-run').click();
-      } else {
-        log('warn', 'Click "Run onInit" — fetches the GCDR /entities tree LIVE from the gcdrApiBaseUrl above (needs the GCDR server + CORS).');
-        startBootCountdown();   // 6s blur countdown → auto Run onInit → collapse cockpit
-      }
-    });
+  window.addEventListener('load', async () => {
+    try { LAYOUT = await (await _fetch(`${LAYOUT_URL}?${bust()}`)).json(); } catch (e) { log('err', 'layout: ' + e.message); return; }
+    await loadConfig();
+    try { const r = await _fetch(`${LAYOUT.widgetRoot}MAIN_VIEW/settingsSchema.json?${bust()}`); MAIN_SCHEMA = await r.json(); } catch (e) { log('err', 'settingsSchema MAIN_VIEW: ' + e.message); }
+    const envs = Object.keys(environments());
+    let saved = ''; try { saved = localStorage.getItem('sc-env-v520') || ''; } catch {}
+    applyEnv(envs.includes(saved) ? saved : (CONFIG['v-5.2.0'] && CONFIG['v-5.2.0'].defaultEnv) || CONFIG.defaultEnv || envs[0] || '');
+    updateAuth();
+    log('info', typeof MyIOLibrary !== 'undefined' ? `MyIOLibrary ${MyIOLibrary.version || ''} carregada` : 'MyIOLibrary NÃO carregada — rode npm run build');
+  });
   </script>
 </body>
 </html>
