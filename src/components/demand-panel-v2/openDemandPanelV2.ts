@@ -37,6 +37,7 @@ import {
   deriveJobView,
   envelopeKey,
   failureText,
+  warningText,
   finestFittingResolution,
   isLocalMidnight,
   localMidnightOf,
@@ -381,9 +382,19 @@ class DemandPanelV2 {
     }
     const v = this.s.validation;
     if (v.state === 'ok' && v.result && !v.result.ok) {
-      (v.result.errors || []).forEach((e) => errs.push(rejectionText(e.code || 'VALIDATION_FAILED', e.reason, e.message, e.details)));
+      (v.result.errors || []).forEach((e) => errs.push(rejectionText(e.code || 'VALIDATION_FAILED', e.reason, e.message, e.details) + this.devicesSuffix(e.details)));
     }
     return errs;
+  }
+  /** " (Label A, Label B)" for GCDR issues that list `details.devices[].deviceId` (gcdrDeviceId). */
+  private devicesSuffix(details: unknown): string {
+    const list = (details as { devices?: Array<{ deviceId?: string }> } | undefined)?.devices;
+    if (!Array.isArray(list) || !list.length) return '';
+    const names = list.map((x) => {
+      const d = this.p.devices.find((dev) => dev.gcdrDeviceId === x.deviceId);
+      return d?.label || d?.name || x.deviceId || '?';
+    });
+    return ` (${names.join(', ')})`;
   }
   private view(e: DemandReportEnvelope): JobView {
     return deriveJobView({
@@ -609,7 +620,10 @@ class DemandPanelV2 {
       validation = `<div class="dp2-err">Não foi possível validar agora: ${esc(v.error)}
         <button class="dp2-btn link" type="button" data-action="revalidate">Tentar de novo</button></div>`;
     } else if (vr) {
-      const warns = (vr.warnings || []).map((w) => `<li>${esc(w.message || w.code || 'aviso')}</li>`).join('');
+      const warns = (vr.warnings || []).map((w) => {
+        const dev = (w as { deviceId?: string }).deviceId;
+        return `<li>${esc(warningText(w.code, w.message) + (dev ? this.devicesSuffix({ devices: [{ deviceId: dev }] }) : ''))}</li>`;
+      }).join('');
       const reuse = vr.reusable
         ? `<div class="dp2-banner info" style="margin-top:8px">♻ Já existe um relatório idêntico${vr.reusable.generatedAt ? ` gerado em ${esc(formatLocalDateTime(Date.parse(vr.reusable.generatedAt)))}` : ''}${vr.reusable.generatedBy?.userId ? ` por ${esc(vr.reusable.generatedBy.userId)}` : ''}. Confirmar reaproveita o arquivo (sem custo de cota).
             <label class="dp2-check" style="margin-top:6px"><input type="checkbox" data-role="force" ${this.s.force ? 'checked' : ''}> Gerar novamente mesmo assim</label></div>`

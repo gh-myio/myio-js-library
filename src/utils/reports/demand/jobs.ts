@@ -160,7 +160,7 @@ const REASON_TEXT: Readonly<Record<string, string>> = {
   PERIOD_NOT_ALIGNED: 'Com intervalos de 1 dia, o início precisa ser à meia-noite.',
   PERIOD_INVALID: 'O período é inválido.',
   DEVICE_NOT_IN_CUSTOMER: 'Um dos medidores não pertence a este cliente.',
-  DEVICE_NOT_ENERGY: 'Um dos dispositivos não é um medidor de energia.',
+  DEVICE_NOT_ENERGY: 'O servidor de relatórios ainda não aceita este tipo de medidor — contate o suporte.',
   DEVICE_NO_SOURCE: 'Um dos medidores não tem fonte de dados para as telemetrias escolhidas.',
   POINTS_LIMIT: 'O relatório ficaria grande demais — reduza medidores, telemetrias ou período.',
   NO_DATA_IN_PERIOD: 'Não há dados no período escolhido.',
@@ -195,6 +195,19 @@ export function rejectionText(code: string | undefined, reason?: string, message
     default:
       return message || code || 'Pedido recusado.';
   }
+}
+
+/** pt-BR text of a `/validate` warning (non-blocking); unknown codes fall back to the server message. */
+const WARNING_TEXT: Readonly<Record<string, string>> = {
+  NOTIFY_REQUESTER_UNMAPPED: 'Seu usuário não tem cadastro no servidor de relatórios — não haverá aviso quando ficar pronto; acompanhe em Relatórios.',
+  DEVICE_NO_DI_SOURCE: 'Sem fonte para a demanda estimada de 15 min neste medidor — a série de demanda sairá vazia.',
+  TB_ID_MISMATCH: 'O vínculo deste medidor entre ThingsBoard e GCDR está divergente.',
+  SOURCE_UNKNOWN_PREVIEW: 'Não foi possível confirmar se há dados no período para este medidor.',
+  SOURCE_EMPTY_PREVIEW: 'Este medidor parece não ter dados no período.',
+};
+
+export function warningText(code: string | undefined, message?: string): string {
+  return (code && WARNING_TEXT[code]) || message || code || 'Aviso.';
 }
 
 /** pt-BR text of an execution failure (`error.code`, RFC-0075 §4.2.10). */
