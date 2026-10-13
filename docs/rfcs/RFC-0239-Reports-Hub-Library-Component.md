@@ -8,8 +8,8 @@
 - **Jira:** [ED-1335](https://myio.atlassian.net/browse/ED-1335) (Sprint 20). Related bugs found in
   review: [ED-1340](https://myio.atlassian.net/browse/ED-1340) (version checker `destroy()`),
   [ED-1341](https://myio.atlassian.net/browse/ED-1341) (bundle-size guard on Windows / budgets)
-- **Reviews:** [Feedback v1](./RFC-0239-Reports-Hub-Library-Component-feedback-v1.md) (F-01…F-10),
-  roundtable 1 (§14), [Feedback v2](./RFC-0239-Reports-Hub-Library-Component-feedback-v2.md) (R-1…R-6)
+- **Reviews:** feedback v1 (F-01…F-10), roundtable 1 (§14) and feedback v2 (R-1…R-6) — all
+  incorporated; the review notes themselves are kept in the history of PR #148
 - **Related:** RFC-0181 (Relatórios menu item), RFC-0182 (enabled report items + `itemsList` filter),
   RFC-0128 (`exclude_groups_totals`), RFC-0121 (ModalHeader), RFC-0238 (Demand Panel v2 —
   "Demandas e Telemetrias"), PR #97 (`window.MyIOUtils` bridge / `LIB_SYMBOLS`)
