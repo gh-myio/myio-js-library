@@ -2,7 +2,9 @@
 
 - **Feature name:** `reports-hub`
 - **Start date:** 2026-10-13
-- **Status:** **Final rev. 4 — for approval.** Documentation only; nothing in this RFC is implemented
+- **Status:** **Final rev. 5 — approved; phase 1 implemented** (`feat/rfc-0239-reports-hub`).
+  Rev. 4 text kept below; rev. 5 adds §5.11 (server-driven limits).
+- **Previous status:** **Final rev. 4 — for approval.** Documentation only; nothing in this RFC is implemented
   yet. Rev. 4 closes the review cycle: one scope, one acceptance set, decisions recorded in §14.
 - **Branch:** `docs/rfc-0239-reports-hub-lib` (from `desenv` `cd73015e`)
 - **Jira:** [ED-1335](https://myio.atlassian.net/browse/ED-1335) (Sprint 20). Related bugs found in
@@ -21,6 +23,7 @@
 | 1 | 2026-10-13 | Initial draft |
 | 2 | 2026-10-13 | Feedback v1 (F-01…F-10): defaults resolved by the hub, no globals in the hub, explicit adapter sources, availability vs. enablement, safe rendering, lifecycle, parity vs. corrections, release plan |
 | 3 | 2026-10-13 | Roundtable 1 consensus: boolean-only flags, fixed tab order, inline errors, cooperative abort, destinations keep today's visuals, test-first, size on the Phase 1 PR |
+| 5 | 2026-10-13 | **No hard-coded limits** (§5.11, C-11): the Demand Panel reached from the hub takes max period per resolution, devices, telemetries and points from `GET …/report-jobs/config`; the lib keeps no limit values |
 | 4 | 2026-10-13 | Feedback v2 (R-1…R-6): prepare/open protocol (§5.3); **C-3 deferred** — the orchestrator cannot tell failure from empty (§5.10); footer with static version, no checker (§5.9); adapter and visual precedence aligned (§5.5–5.6, §8); delta size budget (§10); one scope with decisions recorded (§7, §14); editorial fixes |
 
 ### Rev. 4 — resolution of feedback v2
@@ -122,7 +125,8 @@ File: `src/thingsboard/main-dashboard-shopping/v-5.2.0/WIDGET/MAIN_VIEW/controll
 
 **Non-goals**
 
-- Changing `AllReportModal` or `openDemandPanelV2` behaviour, including their light/dark mode.
+- Changing `AllReportModal` or `openDemandPanelV2` behaviour, including their light/dark mode — **except** C-11
+  (the Demand Panel's limits come from the GCDR config instead of lib constants, §5.11).
 - Implementing the alarm reports (D-1) — the hub only stops offering them without a handler.
 - Fixing D-4 (C-3) — deferred, see §11 and §14 D-2.
 - Migrating the HEADER "Relatório" button (`HEADER/controller.js:3037`), v-5.4.0 or Head Office.
@@ -451,6 +455,41 @@ not part of the picker.
 - **Logging:** errors are logged with domain, item, phase and message only; the context,
   credentials and request bodies are never serialized.
 
+### 5.11 Limits come from the server — no hard-coded values (rev. 5)
+
+**Rule:** the library must not hold the value of any business limit. Every limit the UI shows or
+anticipates is read from the API that enforces it, so a change in the backend takes effect without
+a library release.
+
+**Applied to the Demand Panel v2** (the hub's "Demandas e Telemetrias" destination):
+
+| Limit | Before (lib constant) | Now (source) |
+|---|---|---|
+| Max period per resolution (1 min 1 d · 5 min 7 d · 15 min 31 d · 1 h 92 d · 1 d 92 d) | `RESOLUTIONS[].maxDays` | `GET …/report-jobs/config` → `limits.maxDaysByResolution` (GCDR `MAX_DAYS_BY_RESOLUTION`) |
+| Resolutions offered | all five, fixed | the keys present in `limits.maxDaysByResolution` |
+| Max devices | `DEMAND_LIMITS.devices` (50) | `limits.maxDevices` |
+| Max telemetries | `DEMAND_LIMITS.telemetries` (15) | `limits.maxTelemetries` |
+| Max points | `DEMAND_LIMITS.points` (2 000 000) | `limits.maxPoints` |
+| Active jobs per user | `DEMAND_LIMITS.activeJobsPerUser` (10) | `limits.maxActivePerUser` |
+
+- `limitsFromConfig(config)` parses `config.limits` (positive numbers only; numeric strings
+  accepted). `RESOLUTIONS` keeps only what is intrinsic to a bucket — id, label and length.
+  `DEMAND_LIMITS` and `ResolutionDef.maxDays` are removed from the public API.
+- **While the config is loading or unavailable no client-side limit is applied**: the resolution
+  chips show no "(até N d)", the period is not blocked, the selected-devices counter shows no
+  maximum, and step 2 says "Carregando os limites vigentes do servidor…" or "Não foi possível
+  carregar os limites vigentes — o período será conferido pelo servidor no resumo." GCDR's
+  `validate` (step 4) and submit enforce the same limits server-side, so nothing unsafe passes.
+- When the config arrives the panel re-renders; a selected resolution the server no longer offers
+  falls back to the default (`1h`) or the first one offered.
+- Example: GCDR raises 1 h to 100 days → the next panel opening shows "1 hora (até 100 d)" and
+  accepts 100 days, with no library change.
+
+**Tests:** `limitsFromConfig` (valid, changed to 100 d, missing, invalid), `periodErrors` /
+`finestFittingResolution` with and without limits, panel step 1/2 rendering with config limits and
+with a failing config. Both showcases (`demand-panel-v2`, `reports-hub`) mock `GET …/config` with
+the GCDR shape, including `maxDaysByResolution`.
+
 ## 6. Exports and bridge
 
 - `src/index.ts`: export `openReportsHub`, `createDashboardReportsHubContext`,
@@ -505,6 +544,7 @@ Each lands in its own commit after the extraction commit, so a regression can be
 | C-7 | Initial tab = first domain in catalog order with an enabled item — Energia whenever it has one (today: always Energia, even when all its items are locked) | — |
 | C-9 | Only boolean flags count; other values fall to the default (today `rawItems[k] ?? def` keeps any non-null value: the string `"false"` disables the card through `data-enabled="false"` but hides the 🔒, because `!"false"` is `false`) | — |
 | C-10 | The picker itself follows the dashboard light/dark mode (today always light with the accent) — the destinations do not change (P-14) | — |
+| C-11 | Demand Panel limits (max period per resolution, devices, telemetries, points) read from `GET …/report-jobs/config`; no limit values in the lib; without config no client-side limit (§5.11) | Hard-coded limits |
 
 **Not in this delivery:** C-3 (stop on hydration failure — deferred, §11) and the former C-8
 (destinations follow dark mode — §11).

@@ -216,7 +216,8 @@
       return { ...j, status: 'succeeded', progress: 100, resultAvailability: 'available', expiresAt: new Date(Date.now() + 3 * 864e5).toISOString(), result: { files: [{ kind: 'csv' }] } };
     };
     const memApi = {
-      async config() { return { demandLabel: 'Potência média em 15 min (demanda estimada)' }; },
+      // same shape as GCDR GET …/report-jobs/config — the panel takes its limits from here
+      async config() { return { demandLabel: 'Potência média em 15 min (demanda estimada)', limits: { maxDevices: 50, maxTelemetries: 15, maxPoints: 2000000, maxActivePerUser: 10, maxDaysByResolution: { '1m': 1, '5m': 7, '15m': 31, '1h': 92, '1d': 92 } } }; },
       async validate(cmd) { log(`GCDR validate (${cmd.request.devices.length} medidor(es))`); return { ok: true, errors: [], warnings: [], estimate: cmd.request.estimate }; },
       async submit(cmd) { log(`GCDR submit ${cmd.jobId.slice(-8)}`, 'ok'); jobs[cmd.jobId] = { jobId: cmd.jobId, status: 'queued', progress: 0, createdAt: new Date().toISOString() }; return jobs[cmd.jobId]; },
       async batchGet(ids) { return ids.map((id) => (jobs[id] ? { jobId: id, found: true, job: (jobs[id] = step(jobs[id])) } : { jobId: id, found: false })); },
