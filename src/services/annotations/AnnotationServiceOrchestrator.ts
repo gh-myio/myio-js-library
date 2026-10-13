@@ -11,14 +11,20 @@
  * NO localStorage / sessionStorage — annotations may contain PII (LGPD).
  * NO polling, NO websocket — refresh is manual + event-driven.
  *
+ * RFC-0219: with `params.gcdr` the annotations come from GCDR — one
+ * `listByCustomer` call instead of one TB attribute read per device — and are
+ * attached to TB devices through `gcdr.deviceMap` (TB id → gcdrDeviceId).
+ *
  * ACs covered by this module: AC-7, AC-8, AC-11, AC-12, AC-13, AC-14.
  * (AC-9 and AC-10 live in CustomerDeviceService.)
  */
 
 import { CustomerDeviceService } from './CustomerDeviceService';
 import { parseLogAnnotations } from './parseLogAnnotations';
+import { adaptGcdrToLegacyAnnotation } from '../../components/gcdr-annotations/v1.0.0/adapters';
 import type {
   AnnotatedDevice,
+  AnnotationOrchestratorGcdrSource,
   AnnotationDeviceDomain,
   AnnotationFilter,
   AnnotationGroup,
@@ -99,7 +105,9 @@ export async function buildAnnotationServiceOrchestrator(
     devices: [] as AnnotatedDevice[],
     byIdentifier: new Map<string | null, AnnotatedDevice[]>(),
     byDeviceId: new Map<string, AnnotatedDevice>(),
+    byGcdrDeviceId: new Map<string, AnnotatedDevice>(),
     byDomain: new Map<AnnotationDeviceDomain, AnnotatedDevice[]>(),
+    unmatchedCount: 0,
     fetchedAt: 0,
     stale: false,
   };
@@ -110,13 +118,84 @@ export async function buildAnnotationServiceOrchestrator(
     const t0 = Date.now();
 
     const flatDevices = await client.fetchAllCustomerDevices();
+    const annotated = params.gcdr
+      ? await _annotateFromGcdr(flatDevices, params.gcdr)
+      : await _annotateFromTb(flatDevices);
+
+    state.devices = annotated;
+    state.byIdentifier = _indexByIdentifier(annotated);
+    state.byDeviceId = _indexByDeviceId(annotated);
+    state.byGcdrDeviceId = _indexByGcdrDeviceId(annotated);
+    state.byDomain = _indexByDomain(annotated);
+    state.fetchedAt = Date.now();
+    state.stale = false;
+
+    const durationMs = state.fetchedAt - t0;
+    logger.debug(
+      `[AnnotationServiceOrchestrator] built (${params.gcdr ? 'GCDR' : 'TB'}) — ${annotated.length} devices, ` +
+        `${_totalAnnotations(annotated)} annotations, ${durationMs}ms`
+    );
+  }
+
+  /** RFC-0219: one GCDR list for the whole customer, attached to TB devices via deviceMap. */
+  async function _annotateFromGcdr(
+    flatDevices: Awaited<ReturnType<CustomerDeviceService['fetchAllCustomerDevices']>>,
+    gcdr: AnnotationOrchestratorGcdrSource
+  ): Promise<AnnotatedDevice[]> {
+    const list = await gcdr.client.listByCustomer(gcdr.gcdrCustomerId, {
+      entityType: 'device',
+      includeArchived: true,
+    });
+    const byGcdrId = new Map<string, Annotation[]>();
+    for (const item of list) {
+      const arr = byGcdrId.get(item.entityId);
+      const legacy = adaptGcdrToLegacyAnnotation(item);
+      if (arr) arr.push(legacy);
+      else byGcdrId.set(item.entityId, [legacy]);
+    }
+
+    const matched = new Set<string>();
+    const annotated: AnnotatedDevice[] = flatDevices.map((d) => {
+      const link = gcdr.deviceMap.get(d.id);
+      const gcdrDeviceId = link?.gcdrDeviceId || null;
+      if (gcdrDeviceId) matched.add(gcdrDeviceId);
+      const identifier = link?.identifier;
+      return {
+        deviceId: d.id,
+        name: d.name,
+        label: d.label,
+        identifier: typeof identifier === 'string' && identifier.length > 0 ? identifier : null,
+        domain: _classifyDomain(d.deviceType),
+        deviceType: d.deviceType,
+        annotations: (gcdrDeviceId && byGcdrId.get(gcdrDeviceId)) || [],
+        gcdrDeviceId,
+      };
+    });
+
+    state.unmatchedCount = 0;
+    for (const [gcdrId, anns] of byGcdrId) {
+      if (!matched.has(gcdrId)) state.unmatchedCount += anns.length;
+    }
+    if (state.unmatchedCount > 0) {
+      logger.warn(
+        `[AnnotationServiceOrchestrator] ${state.unmatchedCount} GCDR annotation(s) on devices not linked ` +
+          'to this dashboard (missing gcdrDeviceId on the TB device?)'
+      );
+    }
+    return annotated;
+  }
+
+  /** Legacy: each device's TB `log_annotations` + `identifier` attributes. */
+  async function _annotateFromTb(
+    flatDevices: Awaited<ReturnType<CustomerDeviceService['fetchAllCustomerDevices']>>
+  ): Promise<AnnotatedDevice[]> {
     const deviceIds = flatDevices.map((d) => d.id);
     const attrs = await client.fetchAttributesBatch(deviceIds, [
       'log_annotations',
       'identifier',
     ]);
 
-    const annotated: AnnotatedDevice[] = flatDevices.map((d) => {
+    return flatDevices.map((d) => {
       const a = attrs.get(d.id) ?? {};
       const rawAnnotations = (a as Record<string, unknown>)['log_annotations'];
       const identifierRaw = (a as Record<string, unknown>)['identifier'];
@@ -134,19 +213,6 @@ export async function buildAnnotationServiceOrchestrator(
         annotations: parseLogAnnotations(rawAnnotations, d.id, logger),
       };
     });
-
-    state.devices = annotated;
-    state.byIdentifier = _indexByIdentifier(annotated);
-    state.byDeviceId = _indexByDeviceId(annotated);
-    state.byDomain = _indexByDomain(annotated);
-    state.fetchedAt = Date.now();
-    state.stale = false;
-
-    const durationMs = state.fetchedAt - t0;
-    logger.debug(
-      `[AnnotationServiceOrchestrator] built — ${annotated.length} devices, ` +
-        `${_totalAnnotations(annotated)} annotations, ${durationMs}ms`
-    );
   }
 
   // Initial fetch — failures are surfaced (caller decides what to do).
@@ -154,18 +220,19 @@ export async function buildAnnotationServiceOrchestrator(
 
   // ── Listener: AC-14 — invalidate + refresh on annotation-changed ─────────
 
-  if (typeof window !== 'undefined') {
-    window.addEventListener('myio:annotation-changed', (ev: Event) => {
-      logger.debug(
-        '[AnnotationServiceOrchestrator] myio:annotation-changed received:',
-        (ev as CustomEvent).detail
-      );
-      state.stale = true;
-      // Fire-and-forget refresh; consumers can also call refresh() explicitly.
-      orchestrator.refresh().catch((err) => {
-        logger.warn('[AnnotationServiceOrchestrator] refresh after annotation-changed failed:', err);
-      });
+  const onAnnotationChanged = (ev: Event): void => {
+    logger.debug(
+      '[AnnotationServiceOrchestrator] myio:annotation-changed received:',
+      (ev as CustomEvent).detail
+    );
+    state.stale = true;
+    // Fire-and-forget refresh; consumers can also call refresh() explicitly.
+    orchestrator.refresh().catch((err) => {
+      logger.warn('[AnnotationServiceOrchestrator] refresh after annotation-changed failed:', err);
     });
+  };
+  if (typeof window !== 'undefined') {
+    window.addEventListener('myio:annotation-changed', onAnnotationChanged);
   }
 
   // ── Returned shape ───────────────────────────────────────────────────────
@@ -180,6 +247,12 @@ export async function buildAnnotationServiceOrchestrator(
     get byDeviceId() {
       return state.byDeviceId;
     },
+    get byGcdrDeviceId() {
+      return state.byGcdrDeviceId;
+    },
+    get unmatchedCount() {
+      return state.unmatchedCount;
+    },
     get byDomain() {
       return state.byDomain;
     },
@@ -191,6 +264,7 @@ export async function buildAnnotationServiceOrchestrator(
     getAll: () => state.devices.slice(),
     getByIdentifier: (identifier) => state.byIdentifier.get(identifier)?.slice() ?? [],
     getByDevice: (deviceId) => state.byDeviceId.get(deviceId) ?? null,
+    getByGcdrDevice: (gcdrDeviceId) => state.byGcdrDeviceId.get(gcdrDeviceId) ?? null,
     getByDomain: (domain) => state.byDomain.get(domain)?.slice() ?? [],
     getGroups: (groupBy, filter) => _buildGroups(state, groupBy, filter),
 
@@ -222,6 +296,12 @@ export async function buildAnnotationServiceOrchestrator(
       // also drop the timestamp so cache-aware consumers see ttl as expired
       state.fetchedAt = Math.min(state.fetchedAt, Date.now() - cacheTtlMs - 1);
     },
+
+    destroy: () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('myio:annotation-changed', onAnnotationChanged);
+      }
+    },
   };
 
   return orchestrator;
@@ -247,6 +327,12 @@ function _indexByIdentifier(
 function _indexByDeviceId(devices: AnnotatedDevice[]): Map<string, AnnotatedDevice> {
   const map = new Map<string, AnnotatedDevice>();
   for (const d of devices) map.set(d.deviceId, d);
+  return map;
+}
+
+function _indexByGcdrDeviceId(devices: AnnotatedDevice[]): Map<string, AnnotatedDevice> {
+  const map = new Map<string, AnnotatedDevice>();
+  for (const d of devices) if (d.gcdrDeviceId) map.set(d.gcdrDeviceId, d);
   return map;
 }
 
@@ -464,6 +550,7 @@ function _nfd(s: string): string {
 export type {
   Annotation,
   AnnotatedDevice,
+  AnnotationOrchestratorGcdrSource,
   AnnotationDeviceDomain,
   AnnotationFilter,
   AnnotationGroup,

@@ -9,6 +9,12 @@ export interface AuthStrategy {
   apply(headers: Record<string, string>): Promise<void> | void;
 }
 
+type TokenSource = string | (() => Promise<string> | string);
+
+async function resolveToken(token: TokenSource): Promise<string> {
+  return typeof token === 'function' ? await token() : token;
+}
+
 export class ApiKeyAuth implements AuthStrategy {
   constructor(private readonly apiKey: string) {}
 
@@ -18,29 +24,45 @@ export class ApiKeyAuth implements AuthStrategy {
 }
 
 export class BearerAuth implements AuthStrategy {
-  constructor(private readonly token: string | (() => Promise<string> | string)) {}
+  constructor(private readonly token: TokenSource) {}
 
   async apply(headers: Record<string, string>): Promise<void> {
-    const resolved = typeof this.token === 'function' ? await this.token() : this.token;
-    headers['Authorization'] = `Bearer ${resolved}`;
+    headers['Authorization'] = `Bearer ${await resolveToken(this.token)}`;
   }
 }
 
 /**
- * Exactly one of `apiKey` / `bearerToken` is required — both or neither is a
- * caller bug, so it throws rather than silently picking one (RFC-0218 §Constructor).
+ * RFC-0219 — the ThingsBoard dashboard path: the user's TB JWT in
+ * `X-TB-Authorization`, validated by GCDR against ThingsBoard. Resolved per
+ * request, so pass a provider like `() => localStorage.getItem('jwt_token')`.
  */
-export function createAuthStrategy(auth: GcdrAnnotationsAuthConfig): AuthStrategy {
-  const hasApiKey = !!auth.apiKey;
-  const hasBearer = auth.bearerToken !== undefined && auth.bearerToken !== null && auth.bearerToken !== '';
+export class TbSessionAuth implements AuthStrategy {
+  constructor(private readonly token: TokenSource) {}
 
-  if (hasApiKey && hasBearer) {
+  async apply(headers: Record<string, string>): Promise<void> {
+    headers['X-TB-Authorization'] = `Bearer ${await resolveToken(this.token)}`;
+  }
+}
+
+function isSet(v: unknown): boolean {
+  return v !== undefined && v !== null && v !== '';
+}
+
+/**
+ * Exactly one of `apiKey` / `bearerToken` / `tbSessionToken` is required —
+ * more or none is a caller bug, so it throws rather than silently picking one
+ * (RFC-0218 §Constructor).
+ */
+export function createAuthStrategy(auth: GcdrAnnotationsAuthConfig = {}): AuthStrategy {
+  const provided = [auth.apiKey, auth.bearerToken, auth.tbSessionToken].filter(isSet).length;
+  if (provided > 1) {
     throw new Error(
-      'GcdrAnnotationsClient: provide exactly one of auth.apiKey or auth.bearerToken, not both.'
+      'GcdrAnnotationsClient: provide exactly one of auth.apiKey, auth.bearerToken or auth.tbSessionToken.'
     );
   }
-  if (hasApiKey) return new ApiKeyAuth(auth.apiKey as string);
-  if (hasBearer) return new BearerAuth(auth.bearerToken as string | (() => Promise<string> | string));
+  if (isSet(auth.apiKey)) return new ApiKeyAuth(auth.apiKey as string);
+  if (isSet(auth.bearerToken)) return new BearerAuth(auth.bearerToken as TokenSource);
+  if (isSet(auth.tbSessionToken)) return new TbSessionAuth(auth.tbSessionToken as TokenSource);
 
-  throw new Error('GcdrAnnotationsClient: auth.apiKey or auth.bearerToken is required.');
+  throw new Error('GcdrAnnotationsClient: auth.apiKey, auth.bearerToken or auth.tbSessionToken is required.');
 }

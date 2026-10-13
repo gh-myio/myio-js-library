@@ -368,6 +368,30 @@ Object.assign(window.MyIOUtils, {
   },
 
   /**
+   * ED-1149: the ingestion credentials MAIN_VIEW resolved (client_id is
+   * GCDR-first), for child widgets that used to re-read them from TB.
+   * Resolves `{ CUSTOMER_ING_ID, CLIENT_ID, CLIENT_SECRET }` once
+   * setCredentials ran, or `null` after `timeoutMs` (caller falls back to TB).
+   */
+  waitForCustomerCredentials: (timeoutMs = 10000) =>
+    new Promise((resolve) => {
+      const read = () => window.MyIOOrchestrator?.getCredentials?.() || null;
+      if (window.MyIOOrchestrator?.credentialsSet || window.MyIOOrchestrator?.credentialsMissing) {
+        resolve(read());
+        return;
+      }
+      const onReady = () => {
+        clearTimeout(timer);
+        resolve(read());
+      };
+      const timer = setTimeout(() => {
+        window.removeEventListener('myio:credentials-ready', onReady);
+        resolve(null);
+      }, timeoutMs);
+      window.addEventListener('myio:credentials-ready', onReady, { once: true });
+    }),
+
+  /**
    * RFC-0108: Update measurement settings (called by MENU after modal save)
    * @param {object} newSettings - New measurement settings object
    */
@@ -1033,13 +1057,11 @@ let config = null;
 // RFC-0111: Added throttle to max 15 calls
 let _onDataUpdatedCallCount = 0;
 
-// ED-1149 subtask 3: guards the fire-and-forget temperature-limits GCDR dual-read
-// in onDataUpdated so it runs at most once per customer session (see onDataUpdated).
-let _temperatureLimitsGcdrChecked = false;
-
-// ED-1149: guards the fire-and-forget mapInstantaneousPower GCDR dual-read in
-// onDataUpdated, same shape/reason as _temperatureLimitsGcdrChecked above.
-let _mapInstantaneousPowerGcdrChecked = false;
+// ED-1149: customer datasource keys (lower-case, as onDataUpdated sees them) whose
+// value this session came from GCDR — resolved in onInit or written through
+// saveCustomerConfig. onDataUpdated must not overwrite them with the TB attribute,
+// which stops being written once the dashboard saves to GCDR.
+const _gcdrOwnedFields = new Set();
 
 // ============================================================================
 // RFC-0106: Device Classification (moved from TELEMETRY)
@@ -2355,6 +2377,13 @@ Object.assign(window.MyIOUtils, {
           );
         },
 
+        // ED-1149: customer config writes (GCDR). Same fail-loud stub rule: a
+        // toggle saved before the orchestrator is ready must show an error, not
+        // look saved.
+        saveCustomerConfig: async () => {
+          throw new Error('[Orchestrator] saveCustomerConfig chamado antes do orquestrador estar pronto.');
+        },
+
         // RFC-0180: GCDR API method stubs (replaced by real impl after merge)
         gcdrFetchCustomerRules: async () => {
           LogHelper.warn('[Orchestrator] ⚠️ gcdrFetchCustomerRules called before orchestrator is ready');
@@ -2529,9 +2558,29 @@ Object.assign(window.MyIOUtils, {
             gcdrApiKey = attrs?.gcdrApiKey || '';
             // ED-1149 / RFC-0229 §3.4: dual-read every Group-A field via the shared
             // resolveConfigField() primitive — GCDR-first, TB fallback, never throws.
-            // Each call is a few lines; the diagnostic logging and cred-gating live
-            // in the shared helper so this doesn't grow per field. See
+            // `gcdrPaths` keeps the TB value while GCDR only holds its default for
+            // the field (customer never written to GCDR). A bundle older than ED-1149
+            // has no resolveConfigField: every field then stays on TB instead of the
+            // call throwing here and leaving CLIENT_ID empty. See
             // src/services/gcdr/customerConfigApiClient.ts for the full contract.
+            const _libHasDualRead = typeof MyIO.resolveConfigField === 'function';
+            if (!_libHasDualRead) {
+              LogHelper.warn('[MAIN_VIEW] ED-1149: a lib carregada não tem resolveConfigField — config do customer só do TB');
+            }
+            const resolveField = _libHasDualRead
+              ? MyIO.resolveConfigField
+              : async ({ fallbackValue }) => ({ value: fallbackValue, source: 'TB (lib sem ED-1149)' });
+            const parseJson =
+              typeof MyIO.parseJsonIfString === 'function'
+                ? MyIO.parseJsonIfString
+                : (v) => {
+                    if (typeof v !== 'string') return v;
+                    try {
+                      return JSON.parse(v);
+                    } catch {
+                      return v;
+                    }
+                  };
             const _gcdrFieldParams = {
               baseUrl: gcdrApiBaseUrl,
               customerId: gcdrCustomerId,
@@ -2541,9 +2590,10 @@ Object.assign(window.MyIOUtils, {
 
             // RFC-0193: alarm notifications toggle (undefined in TB → enabled)
             const _alarmFallback = attrs?.alarmNotificationsEnabled !== false;
-            const _alarmResolved = await MyIO.resolveConfigField({
+            const _alarmResolved = await resolveField({
               ..._gcdrFieldParams,
               fieldLabel: 'alarmNotificationsEnabled',
+              gcdrPaths: ['alarms.notificationsEnabled'],
               fallbackValue: _alarmFallback,
               extract: (cfg) =>
                 typeof cfg.alarms?.notificationsEnabled === 'boolean'
@@ -2555,12 +2605,12 @@ Object.assign(window.MyIOUtils, {
             // ED-1149 subtask 2: canShowDemandButtons → featureButtons matrix (RFC-0229 §1).
             // Not a 1:1 copy — the legacy boolean is mapped via
             // mapCanShowDemandButtonsToFeatureButtons() when GCDR doesn't have it yet.
-            // Pure data-plumbing: canShowDemandButtons below stays unchanged, no
-            // consumer reads featureButtons yet.
+            // TELEMETRY hands it to the energy modal (resolveFeatureButtonVisibility).
             const _fbFallback = mapCanShowDemandButtonsToFeatureButtons(attrs?.canShowDemandButtons);
-            const _fbResolved = await MyIO.resolveConfigField({
+            const _fbResolved = await resolveField({
               ..._gcdrFieldParams,
               fieldLabel: 'featureButtons',
+              gcdrPaths: ['featureButtons'],
               fallbackValue: _fbFallback,
               extract: (cfg) => (MyIO.isFeatureButtonsMatrix(cfg.featureButtons) ? cfg.featureButtons : undefined),
             });
@@ -2570,9 +2620,10 @@ Object.assign(window.MyIOUtils, {
             // NOT the same flag as rules.is_internal_support_rule (RFC-0055) — that's a per-rule
             // backend setting; this is the customer-level display toggle. Similar name, different thing.
             const _isrFallback = attrs?.isInternalSupportRule ?? null;
-            const _isrResolved = await MyIO.resolveConfigField({
+            const _isrResolved = await resolveField({
               ..._gcdrFieldParams,
               fieldLabel: 'isInternalSupportRule',
+              gcdrPaths: ['alarms.showInternalSupport'],
               fallbackValue: _isrFallback,
               extract: (cfg) =>
                 typeof cfg.alarms?.showInternalSupport === 'boolean' ? cfg.alarms.showInternalSupport : undefined,
@@ -2586,9 +2637,10 @@ Object.assign(window.MyIOUtils, {
             // (otherwise every non-backfilled customer would have its real TB dashboard wiped to null).
             const _ddTbValue = attrs?.customerDefaultDashboard || null;
             const _ddFallback = { id: _ddTbValue?.dashboardId ?? null, cfg: _ddTbValue };
-            const _ddResolved = await MyIO.resolveConfigField({
+            const _ddResolved = await resolveField({
               ..._gcdrFieldParams,
               fieldLabel: 'customerDefaultDashboard',
+              gcdrPaths: ['defaultDashboard'],
               fallbackValue: _ddFallback,
               extract: (cfg) =>
                 cfg.defaultDashboard && (cfg.defaultDashboard.id !== null || cfg.defaultDashboard.cfg !== null)
@@ -2601,9 +2653,10 @@ Object.assign(window.MyIOUtils, {
             // ED-1149 / RFC-0229 §3.1: client_id → ingestion.clientId. Not a secret (unlike
             // client_secret right above) — plain, null-defaulted string on the normal read model.
             const _clientIdFallback = attrs?.client_id || '';
-            const _clientIdResolved = await MyIO.resolveConfigField({
+            const _clientIdResolved = await resolveField({
               ..._gcdrFieldParams,
               fieldLabel: 'client_id',
+              gcdrPaths: ['ingestion.clientId'],
               fallbackValue: _clientIdFallback,
               extract: (cfg) =>
                 typeof cfg.ingestion?.clientId === 'string' && cfg.ingestion.clientId
@@ -2614,57 +2667,96 @@ Object.assign(window.MyIOUtils, {
 
             // ED-1149 / RFC-0229 §3.1: showOfflineAlarms → alarms.showOffline.
             const _showOfflineFallback = attrs?.showOfflineAlarms === true;
-            const _showOfflineResolved = await MyIO.resolveConfigField({
+            const _showOfflineResolved = await resolveField({
               ..._gcdrFieldParams,
               fieldLabel: 'showOfflineAlarms',
+              gcdrPaths: ['alarms.showOffline'],
               fallbackValue: _showOfflineFallback,
               extract: (cfg) =>
                 typeof cfg.alarms?.showOffline === 'boolean' ? cfg.alarms.showOffline : undefined,
             });
             showOfflineAlarms = _showOfflineResolved.value;
 
-            // ED-1149 / RFC-0229 §3.1: tickets_enabled + tickets_only_to_myio → tickets.{enabled,onlyToMyio}.
-            // Bundled into one call — same GCDR section, same TB read site. Leaves
-            // window.MyIOUtils._ticketsRawEnabled/.ticketsOnlyToMyio unset (not forced to a
-            // default) when neither source has a usable value — _applyTicketsGate() already
-            // treats undefined correctly (raw defaults false, onlyToMyio defaults true).
-            const _ticketsFallback = {
-              enabled:
-                attrs?.tickets_enabled !== undefined && attrs?.tickets_enabled !== null
-                  ? coerceTruthyAttribute(attrs.tickets_enabled)
-                  : undefined,
-              onlyToMyio:
-                attrs?.tickets_only_to_myio !== undefined && attrs?.tickets_only_to_myio !== null
-                  ? coerceTruthyAttribute(attrs.tickets_only_to_myio)
-                  : undefined,
-            };
-            const _ticketsResolved = await MyIO.resolveConfigField({
-              ..._gcdrFieldParams,
-              fieldLabel: 'tickets',
-              fallbackValue: _ticketsFallback,
-              extract: (cfg) =>
-                cfg.tickets && typeof cfg.tickets.enabled === 'boolean' && typeof cfg.tickets.onlyToMyio === 'boolean'
-                  ? cfg.tickets
-                  : undefined,
-            });
-            if (typeof _ticketsResolved.value.enabled === 'boolean') {
-              window.MyIOUtils._ticketsRawEnabled = _ticketsResolved.value.enabled;
-            }
-            if (typeof _ticketsResolved.value.onlyToMyio === 'boolean') {
-              window.MyIOUtils.ticketsOnlyToMyio = _ticketsResolved.value.onlyToMyio;
+            // ED-1149 / RFC-0229 §3.1: tickets_enabled / tickets_only_to_myio → tickets.{enabled,onlyToMyio}.
+            // One call per field — each TB attribute migrates on its own, so each falls back
+            // on its own. A field neither source has stays unset (not forced to a default):
+            // _applyTicketsGate() treats undefined correctly (raw false, onlyToMyio true).
+            const _ticketsFields = [
+              ['enabled', 'tickets_enabled', '_ticketsRawEnabled'],
+              ['onlyToMyio', 'tickets_only_to_myio', 'ticketsOnlyToMyio'],
+            ];
+            for (const [field, attrKey, utilsKey] of _ticketsFields) {
+              const tbValue = attrs?.[attrKey];
+              const resolved = await resolveField({
+                ..._gcdrFieldParams,
+                fieldLabel: `tickets.${field}`,
+                gcdrPaths: [`tickets.${field}`],
+                fallbackValue:
+                  tbValue !== undefined && tbValue !== null ? coerceTruthyAttribute(tbValue) : undefined,
+                extract: (cfg) => (typeof cfg.tickets?.[field] === 'boolean' ? cfg.tickets[field] : undefined),
+              });
+              if (typeof resolved.value === 'boolean') window.MyIOUtils[utilsKey] = resolved.value;
+              if (resolved.source === 'GCDR') _gcdrOwnedFields.add(attrKey);
             }
             // Evaluate gate now (currentUserEmail may not be set yet; re-evaluated after user fetch)
             _applyTicketsGate();
+
+            // ED-1149 / RFC-0229 §3.1: minTemperature / maxTemperature / temperatureClampMin /
+            // temperatureClampMax → temperature.{min,max,clampMin,clampMax}. Resolved here from
+            // `attrs` (the fetch above returns every customer attribute) so it never depends on
+            // onDataUpdated timing; onDataUpdated then leaves GCDR-owned fields alone.
+            const _toNumber = (v) => (v === undefined || v === null || v === '' || isNaN(Number(v)) ? null : Number(v));
+            const _temperature = {};
+            for (const [field, attrKey] of [
+              ['min', 'minTemperature'],
+              ['max', 'maxTemperature'],
+              ['clampMin', 'temperatureClampMin'],
+              ['clampMax', 'temperatureClampMax'],
+            ]) {
+              const resolved = await resolveField({
+                ..._gcdrFieldParams,
+                fieldLabel: `temperature.${field}`,
+                gcdrPaths: [`temperature.${field}`],
+                fallbackValue: _toNumber(attrs?.[attrKey]),
+                extract: (cfg) => (typeof cfg.temperature?.[field] === 'number' ? cfg.temperature[field] : undefined),
+              });
+              _temperature[field] = resolved.value;
+              if (resolved.source === 'GCDR') _gcdrOwnedFields.add(attrKey.toLowerCase());
+            }
+            if (_temperature.min !== null) window.MyIOUtils.temperatureLimits.minTemperature = _temperature.min;
+            if (_temperature.max !== null) window.MyIOUtils.temperatureLimits.maxTemperature = _temperature.max;
+            if (_temperature.clampMin !== null || _temperature.clampMax !== null) {
+              window.MyIOUtils.temperatureClampRange = {
+                ...(window.MyIOUtils.temperatureClampRange || {}),
+                ...(_temperature.clampMin !== null ? { min: _temperature.clampMin } : {}),
+                ...(_temperature.clampMax !== null ? { max: _temperature.clampMax } : {}),
+              };
+            }
+
+            // ED-1149 / RFC-0229 §3.1: mapInstantaneousPower → display.mapInstantaneousPower
+            // (TB may hold it as a JSON string).
+            const _mapPowerResolved = await resolveField({
+              ..._gcdrFieldParams,
+              fieldLabel: 'mapInstantaneousPower',
+              gcdrPaths: ['display.mapInstantaneousPower'],
+              fallbackValue: parseJson(attrs?.mapInstantaneousPower) ?? null,
+              extract: (cfg) => parseJson(cfg.display?.mapInstantaneousPower) ?? undefined,
+            });
+            if (_mapPowerResolved.value && typeof _mapPowerResolved.value === 'object') {
+              window.MyIOUtils.mapInstantaneousPower = _mapPowerResolved.value;
+            }
+            if (_mapPowerResolved.source === 'GCDR') _gcdrOwnedFields.add('mapinstantaneouspower');
 
             // Central summary — one console.table with every ED-1149 field resolved
             // this session (name, value, source). Grows automatically as future
             // subtasks add their own resolveConfigField() call above; no extra
             // logging code needed per field.
-            MyIO.printResolvedConfigSummary();
+            MyIO.printResolvedConfigSummary?.();
 
             // Customer feature flag: Pico de Demanda / Telemetrias Instantâneas buttons
             // undefined = not set (fallback to deviceProfile rule in EnergyModalView)
-            // NOTE: unchanged by ED-1149 subtask 2 — featureButtons above is additive.
+            // Legacy raw flag, still published for callers that predate featureButtons
+            // (the energy modal prefers featureButtons when both are present).
             canShowDemandButtons = attrs?.canShowDemandButtons ?? undefined;
 
             // Exclusão de Grupos: read from CUSTOMER SERVER_SCOPE (saved by SettingsModal)
@@ -2735,8 +2827,8 @@ Object.assign(window.MyIOUtils, {
           // Customer feature flag: undefined = not set (fallback to deviceProfile rule in EnergyModalView)
           window.MyIOOrchestrator.canShowDemandButtons = canShowDemandButtons;
           // ED-1149 subtask 2 / RFC-0229 §1: granular demandPeak/instantTelemetry visibility
-          // matrix — additive only, no consumer reads this yet (canShowDemandButtons above
-          // is still the only thing EnergyModalView/TELEMETRY consult).
+          // matrix. TELEMETRY passes it to the energy modal, where it takes precedence over
+          // canShowDemandButtons (resolveFeatureButtonVisibility).
           window.MyIOOrchestrator.featureButtons = featureButtons;
           // Offline alarms visibility
           window.MyIOOrchestrator.showOfflineAlarms = showOfflineAlarms;
@@ -2767,6 +2859,8 @@ Object.assign(window.MyIOUtils, {
         if (!gcdrApiKey)
           LogHelper.warn('[MAIN_VIEW] gcdrApiKey não encontrado nos atributos SERVER_SCOPE do customer.');
         LogHelper.log('[MAIN_VIEW] RFC-0180: gcdrCustomerId:', gcdrCustomerId || '(empty)');
+        // RFC-0219: annotations (GCDR) only need the ids above — not the alarms prefetch.
+        _ensureAnnotationServiceOrchestrator();
         LogHelper.log('[MAIN_VIEW] RFC-0180: gcdrTenantId:', gcdrTenantId || '(empty)');
         LogHelper.log(
           '[MAIN_VIEW] RFC-0180: gcdrApiKey:',
@@ -2822,6 +2916,10 @@ Object.assign(window.MyIOUtils, {
           LogHelper.warn(
             "[MAIN_VIEW] Orchestrator will be available but won't be able to fetch data without credentials"
           );
+          // ED-1149: release widgets waiting in waitForCustomerCredentials() now
+          // (they fall back to their own TB read instead of waiting the timeout).
+          if (window.MyIOOrchestrator) window.MyIOOrchestrator.credentialsMissing = true;
+          window.dispatchEvent(new CustomEvent('myio:credentials-ready', { detail: { missing: true } }));
 
           // RFC-0054 FIX: Dispatch initial tab event even without credentials (with delay)
           // This enables HEADER controls, even though data fetch will fail
@@ -2926,16 +3024,17 @@ Object.assign(window.MyIOUtils, {
       }, 100);
     }
 
-    // NOTE: Temperature limits (minTemperature, maxTemperature) are extracted in onDataUpdated
-    // because onInit runs before the customer datasource data is available
+    // NOTE: temperature limits, tickets and mapInstantaneousPower are resolved in onInit
+    // (GCDR first, TB attrs as fallback — ED-1149); onDataUpdated only applies the
+    // customer datasource for fields GCDR doesn't own.
   };
 
   self.onResize = function () {
     applySizing();
   };
 
-  // RFC-0106: Extract temperature limits when data arrives from customer datasource
-  // This must be in onDataUpdated because onInit runs before data is available
+  // RFC-0106: Apply customer datasource values (temperature limits, tickets,
+  // mapInstantaneousPower) — skipped for fields resolved from GCDR (ED-1149).
   self.onDataUpdated = function () {
     const ctxDataRows = Array.isArray(self.ctx?.data) ? self.ctx.data : [];
 
@@ -2954,6 +3053,12 @@ Object.assign(window.MyIOUtils, {
 
       const keyName = (row?.dataKey?.name || '').toLowerCase();
       const rawValue = row?.data?.[0]?.[1];
+
+      // ED-1149: the GCDR value (resolved in onInit or just saved) wins over the
+      // TB attribute, which no longer receives the dashboard's writes.
+      if (_gcdrOwnedFields.has(keyName)) {
+        continue;
+      }
 
       if (keyName === 'mintemperature' && rawValue !== undefined && rawValue !== null) {
         const val = Number(rawValue);
@@ -3022,68 +3127,8 @@ Object.assign(window.MyIOUtils, {
       }
     }
 
-    // ED-1149 subtask 3 / RFC-0229 §3.1: temperature.{min,max,clampMin,clampMax} dual-read.
-    // onDataUpdated is synchronous and fires repeatedly (throttled above) with no closure
-    // access to gcdrCustomerId/gcdrApiKey (those are local to onInit) — so this can't be an
-    // inline `await` like the onInit dual-reads. Fire-and-forget, guarded to run once per
-    // customer session: the TB values above are used immediately/optimistically (unchanged
-    // behavior), and GCDR's value (if reachable and different) patches them in shortly after,
-    // mirroring existing fire-and-forget patterns in this file (customerName fetch,
-    // detectSuperAdmin(), _fetchGoalsFromGCDR).
-    if (!_temperatureLimitsGcdrChecked && window.MyIOOrchestrator?.gcdrCustomerId) {
-      _temperatureLimitsGcdrChecked = true;
-      (async () => {
-        const orch = window.MyIOOrchestrator;
-        const _tempFallback = {
-          min: window.MyIOUtils.temperatureLimits.minTemperature ?? 18,
-          max: window.MyIOUtils.temperatureLimits.maxTemperature ?? 27,
-          clampMin: window.MyIOUtils.temperatureClampRange?.min ?? 15,
-          clampMax: window.MyIOUtils.temperatureClampRange?.max ?? 40,
-        };
-        const _tempResolved = await window.MyIOLibrary.resolveConfigField({
-          baseUrl: orch.gcdrApiBaseUrl,
-          customerId: orch.gcdrCustomerId,
-          apiKey: orch.gcdrApiKey,
-          tenantId: orch.gcdrTenantId,
-          fieldLabel: 'temperatureLimits',
-          fallbackValue: _tempFallback,
-          extract: (cfg) => cfg.temperature ?? undefined,
-        });
-        const v = _tempResolved.value;
-        window.MyIOUtils.temperatureLimits.minTemperature = v.min;
-        window.MyIOUtils.temperatureLimits.maxTemperature = v.max;
-        window.MyIOUtils.temperatureClampRange = { min: v.clampMin, max: v.clampMax };
-        // Re-print so this async-resolved field shows up in the same summary table
-        // as the onInit-resolved fields, even though it lands on a later tick.
-        window.MyIOLibrary.printResolvedConfigSummary();
-      })();
-    }
-
-    // ED-1149 / RFC-0229 §3.1: mapInstantaneousPower → display.mapInstantaneousPower dual-read.
-    // Same structural constraint and fire-and-forget shape as the temperature block above —
-    // separate guard/call since it's a different field, even though both live under GCDR's
-    // `display` section (both hit the same cached loadCustomerConfig() result within the
-    // 60s TTL, so this doesn't add a real extra fetch).
-    if (!_mapInstantaneousPowerGcdrChecked && window.MyIOOrchestrator?.gcdrCustomerId) {
-      _mapInstantaneousPowerGcdrChecked = true;
-      (async () => {
-        const orch = window.MyIOOrchestrator;
-        const _mapPowerFallback = window.MyIOUtils.mapInstantaneousPower ?? null;
-        const _mapPowerResolved = await window.MyIOLibrary.resolveConfigField({
-          baseUrl: orch.gcdrApiBaseUrl,
-          customerId: orch.gcdrCustomerId,
-          apiKey: orch.gcdrApiKey,
-          tenantId: orch.gcdrTenantId,
-          fieldLabel: 'mapInstantaneousPower',
-          fallbackValue: _mapPowerFallback,
-          extract: (cfg) => cfg.display?.mapInstantaneousPower ?? undefined,
-        });
-        if (_mapPowerResolved.value) {
-          window.MyIOUtils.mapInstantaneousPower = _mapPowerResolved.value;
-        }
-        window.MyIOLibrary.printResolvedConfigSummary();
-      })();
-    }
+    // RFC-0219: keep the TB→GCDR device link current for the annotation orchestrator.
+    _refreshAnnotationDeviceMap();
 
     // RFC-0179: Build enrichment maps for ALARM widget device name resolution.
     if (window.MyIOOrchestrator) {
@@ -3893,7 +3938,12 @@ function _buildAlarmServiceOrchestrator(alarms) {
             deviceStatus: 'no_info',
           },
           ui: { title: 'Anotações', width: 1100, initialTab: 'annotations' },
-          gcdrDeviceId: null,
+          // RFC-0219: annotations live in GCDR — the modal needs the device's GCDR link.
+          annotationsSource: 'gcdr',
+          gcdrDeviceId:
+            annotatedDev?.gcdrDeviceId || _annotationDeviceMap.get(deviceId)?.gcdrDeviceId || null,
+          gcdrCustomerId: window.MyIOOrchestrator?.gcdrCustomerId || null,
+          gcdrApiBaseUrl: window.MyIOOrchestrator?.gcdrApiBaseUrl || null,
           prefetchedBundle: window.MyIOOrchestrator?.alarmBundle ?? null,
           prefetchedAlarms: window.MyIOOrchestrator?.customerAlarms ?? null,
           masterAdminPassword: null,
@@ -3905,58 +3955,9 @@ function _buildAlarmServiceOrchestrator(alarms) {
     });
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // RFC-0203 M3 — AnnotationServiceOrchestrator (cross-domain annotations).
-  // Built once, alongside AlarmServiceOrchestrator. Failures are non-fatal:
-  // the HEADER button simply stays hidden if construction fails.
-  // ─────────────────────────────────────────────────────────────────────────
-  (async function _initAnnotationServiceOrchestrator() {
-    try {
-      const buildFn = window.MyIOLibrary?.buildAnnotationServiceOrchestrator;
-      if (typeof buildFn !== 'function') {
-        LogHelper.warn(
-          '[AnnotationServiceOrchestrator] buildAnnotationServiceOrchestrator unavailable in MyIOLibrary — skipping'
-        );
-        return;
-      }
-      const jwt = localStorage.getItem('jwt_token');
-      const customerTB_ID = self.ctx?.settings?.customerTB_ID;
-      if (!jwt || !customerTB_ID) {
-        LogHelper.warn(
-          '[AnnotationServiceOrchestrator] missing jwt or customerTB_ID — skipping',
-          { hasJwt: !!jwt, hasCustomerId: !!customerTB_ID }
-        );
-        return;
-      }
-      const tbHost = window.location.origin;
-      const orchestrator = await buildFn({
-        customerId: customerTB_ID,
-        tbHost,
-        jwt,
-        logger: LogHelper,
-      });
-      window.AnnotationServiceOrchestrator = orchestrator;
-      if (window.MyIOOrchestrator) {
-        window.MyIOOrchestrator.annotationsConfigured = true;
-      }
-      const total = orchestrator.getTotalCount();
-      LogHelper.log(
-        '[AnnotationServiceOrchestrator] Built —',
-        orchestrator.devices.length,
-        'devices,',
-        total,
-        'active annotations'
-      );
-      // Signal HEADER + any other consumer
-      window.dispatchEvent(
-        new CustomEvent('myio:annotations-ready', {
-          detail: { totalCount: total, deviceCount: orchestrator.devices.length },
-        })
-      );
-    } catch (err) {
-      LogHelper.warn('[AnnotationServiceOrchestrator] init failed (non-fatal):', err);
-    }
-  })();
+  // RFC-0203 M3 / RFC-0219 — AnnotationServiceOrchestrator. Built once (this
+  // function runs on every alarms refresh); see _ensureAnnotationServiceOrchestrator.
+  _ensureAnnotationServiceOrchestrator();
 
   // ── Contamination detector ──────────────────────────────────────────────
   // Scans STATE.itemsBase for TB devices that share the same gcdrDeviceId.
@@ -4023,6 +4024,207 @@ function _buildAlarmServiceOrchestrator(alarms) {
       detail: { alarms: normalizedAlarms, count: normalizedAlarms.length },
     })
   );
+}
+
+// ── RFC-0219: device annotations from GCDR ───────────────────────────────────
+
+// TB device id → { gcdrDeviceId, identifier } from ctx.data — the link the
+// annotation orchestrator uses to attach GCDR annotations to this dashboard's
+// devices (same Map instance across refreshes, kept current by onDataUpdated).
+const _annotationDeviceMap = new Map();
+
+function _refreshAnnotationDeviceMap() {
+  const rows = Array.isArray(self.ctx?.data) ? self.ctx.data : [];
+  for (const row of rows) {
+    const tbId = row?.datasource?.entityId;
+    const key = (row?.dataKey?.name || '').toLowerCase();
+    const val = row?.data?.[0]?.[1];
+    if (!tbId || (key !== 'gcdrdeviceid' && key !== 'identifier')) continue;
+    if (val === undefined || val === null || val === '') continue;
+    const entry = _annotationDeviceMap.get(tbId) || { gcdrDeviceId: '', identifier: null };
+    if (key === 'gcdrdeviceid') entry.gcdrDeviceId = String(val);
+    else entry.identifier = String(val);
+    _annotationDeviceMap.set(tbId, entry);
+  }
+}
+
+/** A device's GCDR annotations in the attribute shape TELEMETRY parses; null until loaded. */
+function _gcdrLogAnnotationsFor(tbDeviceId) {
+  const device = window.AnnotationServiceOrchestrator?.getByDevice?.(tbDeviceId);
+  return device ? { schemaVersion: '1.0.0', source: 'gcdr', annotations: device.annotations } : null;
+}
+
+let _annotationOrchestratorPromise = null;
+
+/**
+ * RFC-0203 M3 / RFC-0219: builds the AnnotationServiceOrchestrator once, with
+ * the annotations read from GCDR (one list per customer) through the user's
+ * ThingsBoard session. Non-fatal: without the GCDR ids it retries on the next
+ * call and the HEADER annotations button stays hidden meanwhile.
+ */
+function _ensureAnnotationServiceOrchestrator() {
+  if (_annotationOrchestratorPromise) return _annotationOrchestratorPromise;
+
+  // Prerequisites are checked before caching a promise, so a call made too
+  // early (GCDR ids not published yet) is simply retried by the next one.
+  const lib = window.MyIOLibrary;
+  const buildFn = lib?.buildAnnotationServiceOrchestrator;
+  const createClient = lib?.createGcdrAnnotationsClient;
+  if (typeof buildFn !== 'function' || typeof createClient !== 'function') {
+    LogHelper.warn('[AnnotationServiceOrchestrator] lib sem suporte a anotações GCDR (RFC-0219) — pulando');
+    return Promise.resolve(null);
+  }
+  const jwt = localStorage.getItem('jwt_token');
+  const customerTB_ID = self.ctx?.settings?.customerTB_ID;
+  const orch = window.MyIOOrchestrator || {};
+  if (!jwt || !customerTB_ID || !orch.gcdrCustomerId || !orch.gcdrApiBaseUrl) {
+    LogHelper.warn('[AnnotationServiceOrchestrator] faltam jwt/customerTB_ID/ids GCDR — pulando por enquanto', {
+      hasJwt: !!jwt,
+      hasCustomerId: !!customerTB_ID,
+      hasGcdrCustomerId: !!orch.gcdrCustomerId,
+    });
+    return Promise.resolve(null);
+  }
+
+  _annotationOrchestratorPromise = (async () => {
+    _refreshAnnotationDeviceMap();
+    const domainPath = `${String(orch.gcdrApiBaseUrl).replace(/\/+$/, '').replace(/\/api\/v1$/, '')}/api/v1`;
+    const client = createClient({
+      domainPath,
+      auth: { tbSessionToken: () => localStorage.getItem('jwt_token') || jwt },
+    });
+    const orchestrator = await buildFn({
+      customerId: customerTB_ID,
+      tbHost: window.location.origin,
+      jwt,
+      logger: LogHelper,
+      gcdr: { client, gcdrCustomerId: orch.gcdrCustomerId, deviceMap: _annotationDeviceMap },
+    });
+    window.AnnotationServiceOrchestrator?.destroy?.();
+    window.AnnotationServiceOrchestrator = orchestrator;
+    if (window.MyIOOrchestrator) {
+      window.MyIOOrchestrator.annotationsConfigured = true;
+      window.MyIOOrchestrator.annotationsSource = 'gcdr';
+    }
+    const total = orchestrator.getTotalCount();
+    LogHelper.log(
+      '[AnnotationServiceOrchestrator] Built (GCDR) —',
+      orchestrator.devices.length,
+      'devices,',
+      total,
+      'active annotations,',
+      orchestrator.unmatchedCount,
+      'without a linked device'
+    );
+    // Signal HEADER + TELEMETRY (card badges) + any other consumer
+    window.dispatchEvent(
+      new CustomEvent('myio:annotations-ready', {
+        detail: { totalCount: total, deviceCount: orchestrator.devices.length, source: 'gcdr' },
+      })
+    );
+    return orchestrator;
+  })().catch((err) => {
+    LogHelper.warn('[AnnotationServiceOrchestrator] init failed (non-fatal):', err);
+    _annotationOrchestratorPromise = null;
+    return null;
+  });
+  return _annotationOrchestratorPromise;
+}
+
+/** MyIO support user — the @myio.com.br rule used for isInternalSupportRule (alarm mailboxes excluded). */
+function _isMyioSupportUser() {
+  const email = (window.MyIOUtils?.currentUserEmail || '').toLowerCase();
+  return email.endsWith('@myio.com.br') && !email.startsWith('alarme@') && !email.startsWith('alarmes@');
+}
+
+/**
+ * ED-1149: reflects a saved customer config (the read model GCDR returns) into
+ * the globals the other widgets read — only for the sections that were written.
+ * Saved fields become GCDR-owned so onDataUpdated never reverts them with the
+ * (now frozen) TB attribute.
+ */
+function _applySavedCustomerConfig(patch, doc) {
+  const orch = window.MyIOOrchestrator;
+  const utils = window.MyIOUtils;
+  if (!orch || !utils || !doc) return;
+
+  if (patch.alarms) {
+    if ('notificationsEnabled' in patch.alarms) orch.alarmNotificationsEnabled = doc.alarms?.notificationsEnabled !== false;
+    if ('showOffline' in patch.alarms) orch.showOfflineAlarms = doc.alarms?.showOffline === true;
+    if ('showInternalSupport' in patch.alarms) {
+      orch.isInternalSupportRule = _isMyioSupportUser() && doc.alarms?.showInternalSupport !== false;
+    }
+  }
+  if (patch.featureButtons && doc.featureButtons) {
+    orch.featureButtons = doc.featureButtons;
+  }
+  if (patch.tickets && doc.tickets) {
+    if ('enabled' in patch.tickets) {
+      utils._ticketsRawEnabled = doc.tickets.enabled === true;
+      _gcdrOwnedFields.add('tickets_enabled');
+    }
+    if ('onlyToMyio' in patch.tickets) {
+      utils.ticketsOnlyToMyio = doc.tickets.onlyToMyio !== false;
+      _gcdrOwnedFields.add('tickets_only_to_myio');
+    }
+    _applyTicketsGate();
+  }
+  if (patch.temperature && doc.temperature) {
+    const t = doc.temperature;
+    if ('min' in patch.temperature) utils.temperatureLimits.minTemperature = t.min;
+    if ('max' in patch.temperature) utils.temperatureLimits.maxTemperature = t.max;
+    if ('clampMin' in patch.temperature || 'clampMax' in patch.temperature) {
+      utils.temperatureClampRange = { min: t.clampMin, max: t.clampMax };
+    }
+    for (const [field, key] of [
+      ['min', 'mintemperature'],
+      ['max', 'maxtemperature'],
+      ['clampMin', 'temperatureclampmin'],
+      ['clampMax', 'temperatureclampmax'],
+    ]) {
+      if (field in patch.temperature) _gcdrOwnedFields.add(key);
+    }
+  }
+  if (patch.display && 'measurementDisplaySettings' in patch.display) {
+    const settings = doc.display?.measurementDisplaySettings;
+    if (settings && typeof settings === 'object') {
+      orch.measurementDisplaySettings = settings;
+      utils.updateMeasurementSettings?.(settings);
+    }
+  }
+  if (patch.defaultDashboard && doc.defaultDashboard) {
+    orch.defaultDashboardId = doc.defaultDashboard.id ?? null;
+    orch.defaultDashboardCfg = doc.defaultDashboard.cfg ?? null;
+  }
+}
+
+/**
+ * ED-1149: saves part of the customer config in GCDR (only — the TB attributes
+ * are no longer written) through the GCDR BFF, authenticated by the user's
+ * ThingsBoard session. GCDR enforces who may change each field. Rejects with
+ * the GCDR error (`status` 403 = no permission) so callers can revert their UI.
+ */
+async function _saveCustomerConfigToGcdr(patch) {
+  const lib = window.MyIOLibrary;
+  const orch = window.MyIOOrchestrator;
+  if (typeof lib?.patchCustomerConfigViaTbSession !== 'function') {
+    throw new Error('A biblioteca MyIO carregada não grava configurações no GCDR (ED-1149) — atualize a lib.');
+  }
+  if (!orch?.gcdrCustomerId || !orch?.gcdrApiBaseUrl) {
+    throw new Error('Este cliente não tem integração GCDR (gcdrCustomerId ausente).');
+  }
+  const tbToken = localStorage.getItem('jwt_token');
+  if (!tbToken) throw new Error('Sessão do ThingsBoard não encontrada — faça login novamente.');
+
+  const doc = await lib.patchCustomerConfigViaTbSession({
+    baseUrl: orch.gcdrApiBaseUrl,
+    customerId: orch.gcdrCustomerId,
+    tbToken,
+    patch,
+  });
+  _applySavedCustomerConfig(patch, doc);
+  LogHelper.log('[MAIN_VIEW] ED-1149: customer config salvo no GCDR:', Object.keys(patch));
+  return doc;
 }
 
 /**
@@ -6897,8 +7099,10 @@ const MyIOOrchestrator = (() => {
       // Temperature offset - used to adjust displayed temperature value
       offSetTemperature: meta.offSetTemperature || 0,
 
-      // Annotations
-      log_annotations: meta.log_annotations || null,
+      // Annotations — RFC-0219: from GCDR (AnnotationServiceOrchestrator); the TB
+      // log_annotations attribute is frozen. TELEMETRY re-patches it on
+      // myio:annotations-ready / -refreshed.
+      log_annotations: _gcdrLogAnnotationsFor(entityId),
       excludeGroupsTotals: meta.excludeGroupsTotals || null,
 
       // RFC-0198: FreshDesk tickets summary (SERVER_SCOPE tickets_items → fallback badge)
@@ -7056,7 +7260,7 @@ const MyIOOrchestrator = (() => {
       else if (keyName === 'createdtime') meta.createdTime = val;
       else if (keyName === 'lastconnecttime') meta.lastConnectTime = val;
       else if (keyName === 'lastdisconnecttime') meta.lastDisconnectTime = val;
-      else if (keyName === 'log_annotations') meta.log_annotations = val;
+      // RFC-0219: log_annotations (TB attribute) is no longer read — annotations come from GCDR.
       else if (keyName === 'exclude_groups_totals') meta.excludeGroupsTotals = val;
       // RFC-0198: FreshDesk tickets summary — SERVER_SCOPE attr tickets_items
       // Stored as { items: [...] }; may arrive as a JSON string from TB
@@ -8866,6 +9070,11 @@ const MyIOOrchestrator = (() => {
         credentialsResolver();
         LogHelper.log(`[Orchestrator] ✅ Credentials promise resolved - unblocking pending requests`);
       }
+
+      // ED-1149: HEADER/TELEMETRY wait for this instead of re-reading client_id
+      // from TB (CLIENT_ID is GCDR-first here). No secrets in the detail — they
+      // read them through getCredentials().
+      window.dispatchEvent(new CustomEvent('myio:credentials-ready'));
     },
 
     getCredentials: () => {
@@ -8939,6 +9148,13 @@ const MyIOOrchestrator = (() => {
     // O MENU é endpoint-agnóstico (§D) e delega aqui; a URL/credenciais do
     // store vivem só no bloco "RFC-0234 v2 — STORE" deste arquivo.
     saveDeviceClassificationProfile: (nextProfile) => rfc0207SaveActiveProfile(nextProfile),
+
+    /**
+     * ED-1149: saves part of the customer config in GCDR (the TB attributes are
+     * no longer written), e.g. `saveCustomerConfig({ alarms: { showOffline: true } })`.
+     * Updates the shared globals on success; rejects with the GCDR error.
+     */
+    saveCustomerConfig: (patch) => _saveCustomerConfigToGcdr(patch),
 
     /** Desfaz toda customização do customer no GCDR, voltando ao default de sistema. */
     revertDeviceClassificationProfile: () => rfc0234RevertActiveProfile(),

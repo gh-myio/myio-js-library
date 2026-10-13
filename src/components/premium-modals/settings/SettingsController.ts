@@ -58,6 +58,8 @@ export class SettingsController {
       holdingAdmin: params.holdingAdmin ?? (window as any).MyIOUtils?.HoldingAdmin ?? false,
       // RFC-0144: Pass enableAnnotationsOnboarding flag for onboarding control
       enableAnnotationsOnboarding: params.enableAnnotationsOnboarding ?? false,
+      // RFC-0219: Annotations tab data source
+      annotationsSource: params.annotationsSource ?? 'tb',
       // RFC-0180: Raw device name + GCDR identifiers for Alarms tab
       deviceName: params.deviceName,
       gcdrDeviceId: params.gcdrDeviceId,

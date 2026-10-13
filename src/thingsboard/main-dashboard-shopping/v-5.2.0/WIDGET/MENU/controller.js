@@ -1188,7 +1188,9 @@ self.onInit = function () {
   }
 
   // ── RFC-0194: Dashboard Padrão (apenas SuperAdmin MyIO) ──────────────────────
-  // Lê/salva customerDefaultDashboard (SERVER_SCOPE) com changelog auditável.
+  // Lê o valor resolvido pelo MAIN_VIEW (GCDR-first) e salva no GCDR
+  // (defaultDashboard.{id,cfg}, ED-1149) com changelog auditável.
+  const DEFAULT_DASHBOARD_CHANGELOG_MAX = 20;
   function openDefaultDashboardSettings(user) {
     const topWin = window.top || window;
     const topDoc = (() => {
@@ -1460,25 +1462,14 @@ self.onInit = function () {
           dashboardName: selectedDashboard.title,
           dashboardId: selectedDashboard.id,
           updatedAt: now,
-          changelog: [newEntry, ...(currentCfg?.changelog || [])],
+          // GCDR caps defaultDashboard.cfg at 16 KB — keep the most recent changes only.
+          changelog: [newEntry, ...(currentCfg?.changelog || [])].slice(0, DEFAULT_DASHBOARD_CHANGELOG_MAX),
         };
-        const res = await fetch(
-          `${tbBase}/api/plugins/telemetry/CUSTOMER/${customerId}/attributes/SERVER_SCOPE`,
-          {
-            method: 'POST',
-            headers: { 'X-Authorization': `Bearer ${jwtToken}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ customerDefaultDashboard: newCfg }),
-          }
-        );
-        if (!res.ok) {
-          const errText = await res.text().catch(() => '');
-          throw new Error(`HTTP ${res.status}${errText ? ': ' + errText.slice(0, 120) : ''}`);
-        }
-        // Atualiza orquestrador em memória
-        if (window.MyIOOrchestrator) {
-          window.MyIOOrchestrator.defaultDashboardId = selectedDashboard.id;
-          window.MyIOOrchestrator.defaultDashboardCfg = newCfg;
-        }
+        // ED-1149: saved in GCDR (customer config); MAIN_VIEW's saveCustomerConfig
+        // also refreshes defaultDashboardId/Cfg on the orchestrator.
+        await window.MyIOOrchestrator.saveCustomerConfig({
+          defaultDashboard: { id: selectedDashboard.id, cfg: newCfg },
+        });
         LogHelper.log('[MENU] RFC-0194: customerDefaultDashboard salvo:', newCfg.dashboardName);
         closeModal();
       } catch (err) {
@@ -2145,12 +2136,23 @@ self.onInit = function () {
       return;
     }
 
+    // ED-1149: start from the values the dashboard uses (MAIN_VIEW, GCDR-first)
+    // and save to GCDR through MAIN_VIEW's orchestrator.
+    const limits = window.MyIOUtils?.temperatureLimits || {};
+    const clamp = window.MyIOUtils?.temperatureClampRange || {};
     MyIOBridge.openTemperatureSettingsModal({
       token: jwtToken,
       customerId: customerId,
       customerName: customerName,
       theme: 'light',
       isSuperAdmin: window.MyIOUtils?.SuperAdmin || false,
+      initialValues: {
+        minTemperature: limits.minTemperature ?? null,
+        maxTemperature: limits.maxTemperature ?? null,
+        temperatureClampMin: clamp.min ?? null,
+        temperatureClampMax: clamp.max ?? null,
+      },
+      saveCustomerConfig: (patch) => window.MyIOOrchestrator.saveCustomerConfig(patch),
       onSave: (settings) => {
         LogHelper.log('[MENU] Temperature settings saved:', settings);
         // Update in-memory clamp range when superadmin saves new values
@@ -2249,6 +2251,8 @@ self.onInit = function () {
       customerId: customerId,
       existingSettings: null,
       gcdr: gcdrCreds,
+      // ED-1149: saved in GCDR (display.measurementDisplaySettings) via MAIN_VIEW.
+      saveCustomerConfig: (patch) => window.MyIOOrchestrator.saveCustomerConfig(patch),
       userName: user?.firstName || user?.email || '',
       onSave: (settings) => {
         LogHelper.log('[MENU] Measurement settings saved:', settings);
@@ -2572,6 +2576,8 @@ self.onInit = function () {
         customerId: customerId,
         existingSettings: null,
         gcdr: gcdrCredsForMeasurement,
+        // ED-1149: saved in GCDR (display.measurementDisplaySettings) via MAIN_VIEW.
+        saveCustomerConfig: (patch) => window.MyIOOrchestrator.saveCustomerConfig(patch),
         userName: user?.firstName || user?.email || '',
         onSave: (settings) => {
           LogHelper.log('[MENU] Measurement settings saved:', settings);
@@ -3476,11 +3482,24 @@ function openGoalsModal() {
             attrMap[a.key] = a.value;
           });
 
-        const currentDemand = attrMap['canShowDemandButtons'] ?? null;
-        const rawTickets = attrMap['tickets_enabled'];
+        // ED-1149: prefill with what the dashboard actually uses (MAIN_VIEW resolves
+        // these GCDR-first); the TB attributes only when MAIN_VIEW has nothing.
+        // featureButtons → this single toggle: all on = ligado, all off = desligado,
+        // anything else (incl. the default per-group rule) = não definido.
+        const resolvedFb = window.MyIOOrchestrator?.featureButtons;
+        const demandFromMatrix = (fb) => {
+          const cells = [...Object.values(fb.demandPeak || {}), ...Object.values(fb.instantTelemetry || {})];
+          if (cells.length && cells.every((v) => v === true)) return true;
+          if (cells.length && cells.every((v) => v === false)) return false;
+          return null;
+        };
+        const currentDemand = resolvedFb
+          ? demandFromMatrix(resolvedFb)
+          : (attrMap['canShowDemandButtons'] ?? null);
+        const rawTickets = window.MyIOUtils?._ticketsRawEnabled ?? attrMap['tickets_enabled'];
         const currentTickets =
           rawTickets === true || rawTickets === 'true' || rawTickets === 1 || rawTickets === '1';
-        const rawOnlyMyio = attrMap['tickets_only_to_myio'];
+        const rawOnlyMyio = window.MyIOUtils?.ticketsOnlyToMyio ?? attrMap['tickets_only_to_myio'];
         // Default TRUE — only false when explicitly set to false/0/'false'/'0'
         const currentOnlyMyio = !(
           rawOnlyMyio === false ||
@@ -3488,6 +3507,12 @@ function openGoalsModal() {
           rawOnlyMyio === 0 ||
           rawOnlyMyio === '0'
         );
+        // What the toggles show now — a save only sends the fields that differ.
+        const savedState = {
+          demand: currentDemand === true,
+          tickets: currentTickets,
+          onlyMyio: currentTickets ? currentOnlyMyio : false,
+        };
 
         const body = modal.querySelector('.mcc-body');
         const footer = modal.querySelector('.mcc-footer');
@@ -3503,8 +3528,8 @@ function openGoalsModal() {
                   <strong>Ligado:</strong> exibe os dois botões em todos os medidores de energia.<br>
                   <strong>Desligado:</strong> oculta os dois em todos os medidores.<br>
                   <strong>Não definido:</strong> regra automática por tipo — exibe em Entrada e Área Comum, oculta em Lojas (<code>deviceProfile = 3F_MEDIDOR</code>).<br>
-                  <em>Atributo:</em> <code>canShowDemandButtons</code>
-                  ${currentDemand === null ? ' <span style="color:#F59E0B">(não definido — usando a regra automática por tipo)</span>' : ''}
+                  <em>Configuração GCDR:</em> <code>featureButtons</code>
+                  ${currentDemand === null ? ' <span style="color:#F59E0B">(não definido ou personalizado por grupo — só é gravado se você mudar este botão)</span>' : ''}
                 </span>
               </div>
               <label class="mcc-toggle" title="canShowDemandButtons">
@@ -3518,7 +3543,7 @@ function openGoalsModal() {
                 <span class="mcc-field-name">Módulo de Chamados (FreshDesk)</span>
                 <span class="mcc-field-desc">
                   Habilita a aba Chamados, o botão no HEADER e o badge nos devices.<br>
-                  <em>Atributo:</em> <code>tickets_enabled</code>
+                  <em>Configuração GCDR:</em> <code>tickets.enabled</code>
                   ${rawTickets === undefined || rawTickets === null ? ' <span style="color:#F59E0B">(não definido — padrão: desabilitado)</span>' : ''}
                 </span>
               </div>
@@ -3533,7 +3558,7 @@ function openGoalsModal() {
                 <span class="mcc-field-name">Restringir apenas para @myio.com.br</span>
                 <span class="mcc-field-desc">
                   Se ativado, a feature de chamados fica visível apenas para usuários com e-mail <code>@myio.com.br</code>.<br>
-                  <em>Atributo:</em> <code>tickets_only_to_myio</code>
+                  <em>Configuração GCDR:</em> <code>tickets.onlyToMyio</code>
                   ${rawOnlyMyio === undefined || rawOnlyMyio === null ? ' <span style="color:#F59E0B">(não definido — padrão: apenas @myio.com.br)</span>' : ''}
                 </span>
               </div>
@@ -3596,27 +3621,43 @@ function openGoalsModal() {
           const onlyMyioValue = modal.querySelector('#mcc-only-myio-toggle').checked;
           const passwordValue = modal.querySelector('#mcc-password-input').value.trim();
 
-          const payload = {
-            canShowDemandButtons: demandValue,
-            tickets_enabled: ticketsValue,
-            tickets_only_to_myio: ticketsValue ? onlyMyioValue : false,
-          };
-          if (passwordValue) payload.master_admin_password = passwordValue;
+          // ED-1149: only what the user changed goes to GCDR — saving just a new
+          // password must not turn an unset feature flag into an explicit "off".
+          const patch = {};
+          if (demandValue !== savedState.demand) {
+            const all = { entrada: demandValue, areacomum: demandValue, lojas: demandValue };
+            patch.featureButtons = { demandPeak: { ...all }, instantTelemetry: { ...all } };
+          }
+          const nextOnlyMyio = ticketsValue ? onlyMyioValue : false;
+          if (ticketsValue !== savedState.tickets || nextOnlyMyio !== savedState.onlyMyio) {
+            patch.tickets = { enabled: ticketsValue, onlyToMyio: nextOnlyMyio };
+          }
 
           try {
-            const res = await fetch(
-              `${tbBase}/api/plugins/telemetry/CUSTOMER/${customerId}/attributes/SERVER_SCOPE`,
-              {
-                method: 'POST',
-                headers: { 'X-Authorization': `Bearer ${jwtToken}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-              }
-            );
-            if (!res.ok) {
-              const errText = await res.text().catch(() => '');
-              throw new Error(`HTTP ${res.status}${errText ? ': ' + errText.slice(0, 120) : ''}`);
+            if (Object.keys(patch).length > 0) {
+              await window.MyIOOrchestrator.saveCustomerConfig(patch);
+              savedState.demand = demandValue;
+              savedState.tickets = ticketsValue;
+              savedState.onlyMyio = nextOnlyMyio;
             }
-            LogHelper.log('[MENU] Configurações Cliente salvas:', payload);
+            // master_admin_password is a secret: it stays a TB attribute (GCDR only
+            // reveals secrets to an audited backend path — RFC-0231 §1).
+            if (passwordValue) {
+              const res = await fetch(
+                `${tbBase}/api/plugins/telemetry/CUSTOMER/${customerId}/attributes/SERVER_SCOPE`,
+                {
+                  method: 'POST',
+                  headers: { 'X-Authorization': `Bearer ${jwtToken}`, 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ master_admin_password: passwordValue }),
+                }
+              );
+              if (!res.ok) {
+                const errText = await res.text().catch(() => '');
+                throw new Error(`senha: HTTP ${res.status}${errText ? ': ' + errText.slice(0, 120) : ''}`);
+              }
+              modal.querySelector('#mcc-password-input').value = '';
+            }
+            LogHelper.log('[MENU] Configurações Cliente salvas:', Object.keys(patch), passwordValue ? '+ senha' : '');
             saveBtn.textContent = '✓ Salvo';
             saveBtn.style.background = '#16A34A';
             setTimeout(() => {

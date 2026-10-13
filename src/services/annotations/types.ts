@@ -28,6 +28,7 @@ import type {
   AnnotationType,
   AnnotationStatus,
 } from '../../components/premium-modals/settings/annotations/types';
+import type { GcdrAnnotationsClient } from '../../components/gcdr-annotations/v1.0.0/GcdrAnnotationsClient';
 
 // ============================================================================
 // Service-facing types
@@ -55,6 +56,8 @@ export interface AnnotatedDevice {
   deviceType: string;
   /** Parsed annotations (status !== 'archived' filter is applied by consumers, NOT here) */
   annotations: Annotation[];
+  /** RFC-0219: GCDR UUID of the device (GCDR source only; null when the device isn't linked). */
+  gcdrDeviceId?: string | null;
 }
 
 /** Tab grouping mode for the HEADER panel. */
@@ -137,6 +140,15 @@ export interface AnnotationServiceOrchestratorShape {
   /** Devices indexed by deviceId (one device per key). */
   readonly byDeviceId: Map<string, AnnotatedDevice>;
 
+  /** RFC-0219: devices indexed by GCDR device UUID (GCDR source only; empty otherwise). */
+  readonly byGcdrDeviceId: Map<string, AnnotatedDevice>;
+
+  /**
+   * RFC-0219: GCDR annotations whose device is not in this dashboard's device
+   * list (GCDR source only) — a non-zero value means a TB↔GCDR link is missing.
+   */
+  readonly unmatchedCount: number;
+
   /** Devices indexed by domain. */
   readonly byDomain: Map<AnnotationDeviceDomain, AnnotatedDevice[]>;
 
@@ -153,6 +165,9 @@ export interface AnnotationServiceOrchestratorShape {
 
   /** Single device or null. */
   getByDevice(deviceId: string): AnnotatedDevice | null;
+
+  /** RFC-0219: single device by GCDR UUID, or null. */
+  getByGcdrDevice(gcdrDeviceId: string): AnnotatedDevice | null;
 
   /** Devices in a domain. */
   getByDomain(domain: AnnotationDeviceDomain): AnnotatedDevice[];
@@ -181,6 +196,9 @@ export interface AnnotationServiceOrchestratorShape {
 
   /** Marks the cache stale (next get* will still serve, but refresh() should be called). */
   invalidate(): void;
+
+  /** Removes the `myio:annotation-changed` listener — call before replacing the orchestrator. */
+  destroy(): void;
 }
 
 /**
@@ -198,4 +216,19 @@ export interface BuildAnnotationServiceOrchestratorParams {
   cacheTtlMs?: number;
   /** Optional logger; defaults to console */
   logger?: Pick<Console, 'debug' | 'info' | 'warn' | 'error'>;
+  /**
+   * RFC-0219: read the annotations from GCDR (one `listByCustomer`) instead of
+   * each device's TB `log_annotations` attribute. Device names/labels/types
+   * still come from the TB device list; the TB↔GCDR link and `identifier` come
+   * from `deviceMap` (the dashboard already holds both).
+   */
+  gcdr?: AnnotationOrchestratorGcdrSource;
+}
+
+/** RFC-0219: GCDR source for the annotation orchestrator. */
+export interface AnnotationOrchestratorGcdrSource {
+  client: GcdrAnnotationsClient;
+  gcdrCustomerId: string;
+  /** TB device id → its GCDR UUID and (optional) `identifier` attribute. */
+  deviceMap: Map<string, { gcdrDeviceId: string; identifier?: string | null }>;
 }

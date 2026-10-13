@@ -7,7 +7,7 @@ import {
   DEFAULT_SETTINGS,
   GcdrCreds,
 } from './types';
-import { resolveConfigField } from '../../../services/gcdr/customerConfigApiClient';
+import { resolveConfigField, parseJsonIfString } from '../../../services/gcdr/customerConfigApiClient';
 
 export class MeasurementSetupPersister {
   private token: string;
@@ -104,7 +104,8 @@ export class MeasurementSetupPersister {
       tenantId: gcdr.tenantId,
       fieldLabel: 'measurementDisplaySettings',
       fallbackValue: tbValue,
-      extract: (cfg) => cfg.display?.measurementDisplaySettings ?? undefined,
+      gcdrPaths: ['display.measurementDisplaySettings'],
+      extract: (cfg) => parseJsonIfString(cfg.display?.measurementDisplaySettings) ?? undefined,
     });
     return resolved.value ? this.validateAndMergeSettings(resolved.value as Partial<MeasurementDisplaySettings>) : null;
   }

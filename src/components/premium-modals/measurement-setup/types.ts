@@ -80,6 +80,14 @@ export interface MeasurementSetupModalParams {
   userName?: string;
   /** ED-1149 / RFC-0229 §3.1: GCDR creds for dual-reading measurementDisplaySettings; omit to keep the pre-existing TB-only behavior. */
   gcdr?: GcdrCreds;
+  /**
+   * ED-1149: persists through the GCDR customer config (dashboard BFF) instead
+   * of the TB SERVER_SCOPE attribute. Receives the settings as an object.
+   * Must reject on failure; omit to keep the TB write.
+   */
+  saveCustomerConfig?: (patch: {
+    display: { measurementDisplaySettings: MeasurementDisplaySettings };
+  }) => Promise<unknown>;
 }
 
 export interface MeasurementSetupModalInstance {

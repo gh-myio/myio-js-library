@@ -11,6 +11,12 @@
  * `domainPath` is opaque: this client never assembles hosts or API versions —
  * prod/homolog/localhost and a future `/api/v2` are entirely the caller's
  * choice, exactly like `CustomerConfigApiClient` (`services/gcdr/customerConfigApiClient.ts`).
+ *
+ * Contract notes (verified against gcdr `annotations.controller.ts` /
+ * `AnnotationRepository.list`): lists page by cursor (`data.items` +
+ * `data.pagination.{hasMore,nextCursor}`); `includeArchived` is only ever sent
+ * as `true` (GCDR excludes archived by default); `create` is never retried —
+ * a retry after a server-side commit would duplicate the annotation.
  */
 import { createAuthStrategy, type AuthStrategy } from './authStrategies';
 import { adaptGcdrListToLegacyAnnotations } from './adapters';
@@ -21,6 +27,7 @@ import {
   type GcdrAnnotationDetail,
   type GcdrAnnotationListPage,
   type GcdrAnnotationListParams,
+  type GcdrAnnotationResponse,
   type GcdrAnnotationsClientLogger,
   type GcdrAnnotationsClientParams,
   type GcdrCreateAnnotationInput,
@@ -44,6 +51,7 @@ const DEFAULT_MAX_PAGES = 50;
 const DEFAULT_LIMIT = 100;
 const DEFAULT_MAX_RETRIES = 3;
 const DEFAULT_RETRY_BASE_MS = 500;
+const DEFAULT_TIMEOUT_MS = 15_000;
 
 interface CacheEntry {
   at: number;
@@ -72,6 +80,7 @@ export class GcdrAnnotationsClient {
   private readonly logger: GcdrAnnotationsClientLogger;
   private readonly cacheTtlMs: number;
   private readonly maxPages: number;
+  private readonly timeoutMs: number;
   private readonly cache = new Map<string, CacheEntry>();
 
   constructor(params: GcdrAnnotationsClientParams) {
@@ -79,7 +88,7 @@ export class GcdrAnnotationsClient {
       throw new Error('GcdrAnnotationsClient requires a domainPath.');
     }
     this.domainPath = normalizeDomainPath(params.domainPath);
-    this.authStrategy = createAuthStrategy(params.auth);
+    this.authStrategy = params.authStrategy ?? createAuthStrategy(params.auth);
     const injected = params.fetchImpl || (globalThis.fetch as typeof fetch | undefined);
     if (typeof injected !== 'function') {
       throw new Error('GcdrAnnotationsClient requires a fetch implementation.');
@@ -88,6 +97,7 @@ export class GcdrAnnotationsClient {
     this.logger = params.logger ?? console;
     this.cacheTtlMs = params.cacheTtlMs ?? 0;
     this.maxPages = params.maxPages ?? DEFAULT_MAX_PAGES;
+    this.timeoutMs = params.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   }
 
   /** Drops every cached GET response. Called automatically after any write. */
@@ -106,12 +116,12 @@ export class GcdrAnnotationsClient {
     if (params.type) query.set('type', params.type);
     if (params.status) query.set('status', params.status);
     if (params.importance !== undefined) query.set('importance', String(params.importance));
-    if (params.includeArchived !== undefined) query.set('includeArchived', String(params.includeArchived));
-    query.set('page', String(params.page ?? 1));
+    if (params.includeArchived) query.set('includeArchived', 'true');
+    if (params.cursor) query.set('cursor', params.cursor);
     query.set('limit', String(params.limit ?? DEFAULT_LIMIT));
 
     const raw = await this._requestJson<unknown>(`/annotations?${query.toString()}`, { method: 'GET' });
-    return this._toListPage(raw, params.page ?? 1, params.limit ?? DEFAULT_LIMIT);
+    return this._toListPage(raw);
   }
 
   /** Every annotation of a customer, aggregated across as many pages as it takes (capped at `maxPages`). */
@@ -144,13 +154,15 @@ export class GcdrAnnotationsClient {
 
   // ── Writes ─────────────────────────────────────────────────────────────
 
-  async create(input: GcdrCreateAnnotationInput): Promise<GcdrAnnotation> {
-    const raw = await this._requestJson<unknown>('/annotations', {
-      method: 'POST',
-      body: JSON.stringify(input),
-    });
+  /** Returns the created annotation (detail shape). Never retried — see the header note. */
+  async create(input: GcdrCreateAnnotationInput): Promise<GcdrAnnotationDetail> {
+    const raw = await this._requestJson<unknown>(
+      '/annotations',
+      { method: 'POST', body: JSON.stringify(input) },
+      { retry: false }
+    );
     this.invalidate();
-    return this._unwrap<GcdrAnnotation>(raw);
+    return this._unwrap<GcdrAnnotationDetail>(raw);
   }
 
   /** Optimistic lock via `If-Match: "<version>"` — a stale version raises `GcdrAnnotationsConflictError`. */
@@ -174,31 +186,47 @@ export class GcdrAnnotationsClient {
   }
 
   /**
-   * Posts a response (comment/approve/reject/archive). `text` is required for
-   * every type except `approved` — mirrored client-side so a caller gets an
-   * immediate, local error instead of a round trip (API guide §5 rule).
+   * Posts a response (comment/approve/reject/archive) and returns the response
+   * row. `text` is required for every type except `approved` — mirrored
+   * client-side so a caller gets an immediate, local error instead of a round
+   * trip (API guide §5 rule). `version` (optimistic lock for finalizing
+   * responses) goes as `If-Match`. Re-read with `getById` for the new state.
    */
-  async respond(id: string, input: GcdrRespondInput): Promise<GcdrAnnotation> {
+  async respond(id: string, input: GcdrRespondInput): Promise<GcdrAnnotationResponse> {
     if (input.type !== 'approved' && !input.text) {
       throw new GcdrAnnotationsError(400, `respond(): 'text' is required for response type '${input.type}'.`);
     }
-    const raw = await this._requestJson<unknown>(`/annotations/${encodeURIComponent(id)}/responses`, {
-      method: 'POST',
-      body: JSON.stringify(input),
-    });
+    const { version, ...body } = input;
+    const raw = await this._requestJson<unknown>(
+      `/annotations/${encodeURIComponent(id)}/responses`,
+      {
+        method: 'POST',
+        body: JSON.stringify(body),
+        ...(version !== undefined ? { headers: { 'If-Match': `"${version}"` } } : {}),
+      },
+      { retry: false }
+    );
     this.invalidate();
-    return this._unwrap<GcdrAnnotation>(raw);
+    return this._unwrap<GcdrAnnotationResponse>(raw);
   }
 
-  async mention(id: string, userId: string): Promise<void> {
+  /** Mentions a GCDR user or device on the annotation (or on one of its responses). */
+  async mention(
+    id: string,
+    target: { userId?: string; deviceId?: string; responseId?: string }
+  ): Promise<void> {
+    const body = target.deviceId
+      ? { mentionType: 'device', mentionedDeviceId: target.deviceId }
+      : { mentionType: 'user', mentionedUserId: target.userId };
     await this._requestJson<unknown>(`/annotations/${encodeURIComponent(id)}/mentions`, {
       method: 'POST',
-      body: JSON.stringify({ userId }),
+      body: JSON.stringify(target.responseId ? { ...body, responseId: target.responseId } : body),
     });
     this.invalidate();
   }
 
-  async attach(id: string, attachment: { fileName: string; url: string }): Promise<void> {
+  /** Links an already-uploaded GCDR file asset (`POST /files`) to the annotation. */
+  async attach(id: string, attachment: { fileAssetId: string; responseId?: string }): Promise<void> {
     await this._requestJson<unknown>(`/annotations/${encodeURIComponent(id)}/attachments`, {
       method: 'POST',
       body: JSON.stringify(attachment),
@@ -219,33 +247,37 @@ export class GcdrAnnotationsClient {
   private async _listAll(params: GcdrAnnotationListParams): Promise<GcdrAnnotation[]> {
     const limit = params.limit ?? DEFAULT_LIMIT;
     const out: GcdrAnnotation[] = [];
+    let cursor: string | undefined;
     for (let page = 1; page <= this.maxPages; page++) {
-      const result = await this.list({ ...params, page, limit });
+      const result = await this.list({ ...params, cursor, limit });
       out.push(...result.items);
-      if (!result.pagination.hasNext) return out;
-      if (page === this.maxPages) {
-        this.logger.warn(
-          `[GcdrAnnotationsClient] hit hard page cap of ${this.maxPages} — some annotations may be missing.`
-        );
-      }
+      if (!result.pagination.hasMore || !result.pagination.nextCursor) return out;
+      cursor = result.pagination.nextCursor;
     }
+    this.logger.warn(
+      `[GcdrAnnotationsClient] hit hard page cap of ${this.maxPages} — some annotations may be missing.`
+    );
     return out;
   }
 
-  private _toListPage(raw: unknown, page: number, limit: number): GcdrAnnotationListPage {
-    const body = raw as { data?: unknown; pagination?: GcdrAnnotationListPage['pagination'] } | unknown[] | null;
-    if (Array.isArray(body)) {
-      return { items: body as GcdrAnnotation[], pagination: { page, limit, hasNext: false } };
+  /** `{success, data: {items, pagination}}` (GCDR PaginatedResult); tolerates a bare array. */
+  private _toListPage(raw: unknown): GcdrAnnotationListPage {
+    const data = this._unwrap<unknown>(raw);
+    if (Array.isArray(data)) {
+      return { items: data as GcdrAnnotation[], pagination: { hasMore: false } };
     }
-    const items = Array.isArray((body as { data?: unknown })?.data)
-      ? ((body as { data: unknown[] }).data as GcdrAnnotation[])
-      : [];
-    const pagination = (body as { pagination?: GcdrAnnotationListPage['pagination'] })?.pagination ?? {
-      page,
-      limit,
-      hasNext: items.length >= limit,
+    const page = (data ?? {}) as Partial<GcdrAnnotationListPage>;
+    const items = Array.isArray(page.items) ? page.items : [];
+    const pagination = page.pagination;
+    return {
+      items,
+      pagination: {
+        total: pagination?.total,
+        totalPages: pagination?.totalPages,
+        hasMore: pagination?.hasMore === true,
+        nextCursor: pagination?.nextCursor,
+      },
     };
-    return { items, pagination };
   }
 
   /** Unwraps the `{success, data}` envelope; tolerates an already-flat body (test doubles, future API versions). */
@@ -257,7 +289,11 @@ export class GcdrAnnotationsClient {
     return raw as T;
   }
 
-  private async _requestJson<T>(path: string, init: RequestInitWithHeaders): Promise<T> {
+  private async _requestJson<T>(
+    path: string,
+    init: RequestInitWithHeaders,
+    options: { retry?: boolean } = {}
+  ): Promise<T> {
     const url = `${this.domainPath}${path.startsWith('/') ? path : `/${path}`}`;
     const method = init.method ?? 'GET';
     const cacheKey = `${method}::${url}`;
@@ -269,7 +305,7 @@ export class GcdrAnnotationsClient {
       }
     }
 
-    const result = await this._doRequest<T>(url, init);
+    const result = await this._doRequest<T>(url, init, options.retry !== false);
 
     if (method === 'GET' && this.cacheTtlMs > 0) {
       this.cache.set(cacheKey, { at: Date.now(), value: result });
@@ -277,7 +313,8 @@ export class GcdrAnnotationsClient {
     return result;
   }
 
-  private async _doRequest<T>(url: string, init: RequestInitWithHeaders): Promise<T> {
+  private async _doRequest<T>(url: string, init: RequestInitWithHeaders, retry: boolean): Promise<T> {
+    const maxRetries = retry ? DEFAULT_MAX_RETRIES : 0;
     let attempt = 0;
 
     while (true) {
@@ -286,9 +323,9 @@ export class GcdrAnnotationsClient {
       await this.authStrategy.apply(headers);
 
       try {
-        const res = await this.fetchImpl(url, { ...init, headers });
+        const res = await this.fetchImpl(url, { ...init, headers, signal: AbortSignal.timeout(this.timeoutMs) });
 
-        if ((res.status === 429 || res.status >= 500) && attempt < DEFAULT_MAX_RETRIES) {
+        if ((res.status === 429 || res.status >= 500) && attempt < maxRetries) {
           const backoffMs = DEFAULT_RETRY_BASE_MS * Math.pow(2, attempt);
           this.logger.warn(
             `[GcdrAnnotationsClient] ${res.status} on ${url} — retry ${attempt + 1}/${DEFAULT_MAX_RETRIES} in ${backoffMs}ms`
@@ -313,7 +350,7 @@ export class GcdrAnnotationsClient {
         return body as T;
       } catch (err) {
         if (err instanceof GcdrAnnotationsError) throw err;
-        if (isNetworkError(err) && attempt < DEFAULT_MAX_RETRIES) {
+        if (isNetworkError(err) && attempt < maxRetries) {
           const backoffMs = DEFAULT_RETRY_BASE_MS * Math.pow(2, attempt);
           this.logger.warn(
             `[GcdrAnnotationsClient] network error on ${url} — retry ${attempt + 1}/${DEFAULT_MAX_RETRIES} in ${backoffMs}ms`

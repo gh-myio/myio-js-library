@@ -1,6 +1,11 @@
 export { GcdrAnnotationsClient, createGcdrAnnotationsClient } from './GcdrAnnotationsClient';
-export { adaptGcdrToLegacyAnnotation, adaptGcdrListToLegacyAnnotations, adaptLegacyToGcdrInput } from './adapters';
-export { createAuthStrategy, ApiKeyAuth, BearerAuth, type AuthStrategy } from './authStrategies';
+export {
+  adaptGcdrToLegacyAnnotation,
+  adaptGcdrListToLegacyAnnotations,
+  adaptLegacyToGcdrInput,
+  toGcdrDueDate,
+} from './adapters';
+export { createAuthStrategy, ApiKeyAuth, BearerAuth, TbSessionAuth, type AuthStrategy } from './authStrategies';
 export {
   GcdrAnnotationsError,
   GcdrAnnotationsConflictError,
@@ -12,6 +17,7 @@ export {
   type GcdrAnnotationEvent,
   type GcdrAnnotationAttachment,
   type GcdrAnnotationType,
+  type GcdrAnnotationStatus,
   type GcdrAnnotationImportance,
   type GcdrFinalizedReason,
   type GcdrResponseType,

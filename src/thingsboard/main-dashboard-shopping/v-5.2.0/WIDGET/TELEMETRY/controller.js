@@ -3598,6 +3598,10 @@ function renderList(visible) {
             deviceMapInstaneousPower: it.deviceMapInstaneousPower || null,
             // RFC-0180: GCDR params for Alarms tab
             gcdrDeviceId: it.gcdrDeviceId || null,
+            // RFC-0219: the Annotations tab reads/writes GCDR with the user's TB session
+            annotationsSource: 'gcdr',
+            gcdrCustomerId: window.MyIOOrchestrator?.gcdrCustomerId || it.gcdrCustomerId || null,
+            gcdrApiBaseUrl: window.MyIOOrchestrator?.gcdrApiBaseUrl || null,
             prefetchedBundle: window.MyIOOrchestrator?.alarmBundle ?? null,
             prefetchedAlarms: window.MyIOOrchestrator?.customerAlarms ?? null,
             masterAdminPassword: masterAdminPassword || null,
@@ -6720,6 +6724,24 @@ self.onInit = async function () {
     }
   });
 
+  // RFC-0219: card annotation badges come from GCDR (AnnotationServiceOrchestrator),
+  // not from the frozen TB log_annotations attribute. On every build/refresh,
+  // copy each item's annotations from the orchestrator and re-render.
+  const applyGcdrAnnotationsToItems = () => {
+    const ano = window.AnnotationServiceOrchestrator;
+    if (!ano?.getByDevice || !Array.isArray(STATE.itemsBase) || STATE.itemsBase.length === 0) return;
+    // itemsEnriched holds copies of itemsBase — both carry the badge source.
+    for (const list of [STATE.itemsBase, STATE.itemsEnriched]) {
+      for (const item of list || []) {
+        const dev = ano.getByDevice(item.id);
+        item.log_annotations = dev ? { schemaVersion: '1.0.0', source: 'gcdr', annotations: dev.annotations } : null;
+      }
+    }
+    reflowFromState();
+  };
+  window.addEventListener('myio:annotations-ready', applyGcdrAnnotationsToItems);
+  window.addEventListener('myio:annotations-refreshed', applyGcdrAnnotationsToItems);
+
   // RFC-0198: myio:tickets-ready — fired by TicketServiceOrchestrator after each build/refresh.
   // Refreshes ticket badge counts on all currently-rendered TELEMETRY cards without re-rendering.
   window.addEventListener('myio:tickets-ready', refreshTicketBadges);
@@ -6966,16 +6988,23 @@ self.onInit = async function () {
   }
 
   try {
-    const attrs = await MyIO.fetchThingsboardCustomerAttrsFromStorage(customerTB_ID, jwt);
-    CLIENT_ID = attrs?.client_id || '';
-    CLIENT_SECRET = attrs?.client_secret || '';
-    CUSTOMER_ING_ID = attrs?.ingestionId || '';
+    // ED-1149: MAIN_VIEW's credentials (client_id is GCDR-first there) and its
+    // resolved power map first; the ThingsBoard attributes only fill what
+    // MAIN_VIEW doesn't have.
+    const orchCredentials = await window.MyIOUtils?.waitForCustomerCredentials?.(10000);
+    const resolvedPowerMap = window.MyIOUtils?.mapInstantaneousPower || null;
+    const attrs =
+      orchCredentials?.CLIENT_ID && resolvedPowerMap
+        ? {}
+        : await MyIO.fetchThingsboardCustomerAttrsFromStorage(customerTB_ID, jwt);
+    CLIENT_ID = orchCredentials?.CLIENT_ID || attrs?.client_id || '';
+    CLIENT_SECRET = orchCredentials?.CLIENT_SECRET || attrs?.client_secret || '';
+    CUSTOMER_ING_ID = orchCredentials?.CUSTOMER_ING_ID || attrs?.ingestionId || '';
     // Carrega o mapa (pode ser string JSON ou objeto)
-    if (attrs?.mapInstantaneousPower) {
+    const powerMapSource = resolvedPowerMap || attrs?.mapInstantaneousPower;
+    if (powerMapSource) {
       MAP_INSTANTANEOUS_POWER =
-        typeof attrs.mapInstantaneousPower === 'string'
-          ? JSON.parse(attrs.mapInstantaneousPower)
-          : attrs.mapInstantaneousPower;
+        typeof powerMapSource === 'string' ? JSON.parse(powerMapSource) : powerMapSource;
     } else {
       MAP_INSTANTANEOUS_POWER = null;
     }

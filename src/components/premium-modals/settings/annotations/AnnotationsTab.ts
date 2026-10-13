@@ -17,9 +17,13 @@ import type {
   AuditEntry,
   AuditAction,
   AnnotationsTabConfig,
+  AnnotationsGcdrConfig,
   AnnotationResponse,
   ResponseType,
 } from './types';
+import { adaptLegacyToGcdrInput, toGcdrDueDate } from '../../../gcdr-annotations/v1.0.0/adapters';
+import { GcdrAnnotationsConflictError } from '../../../gcdr-annotations/v1.0.0/types';
+import type { GcdrPatchAnnotationInput } from '../../../gcdr-annotations/v1.0.0/types';
 
 import {
   ANNOTATION_TYPE_LABELS,
@@ -3125,6 +3129,9 @@ export class AnnotationsTab {
   // RFC-0144: Controls whether onboarding tour is shown
   private enableAnnotationsOnboarding: boolean = false;
 
+  // RFC-0219: set → annotations live in GCDR (no TB log_annotations read/write)
+  private gcdr: AnnotationsGcdrConfig | null = null;
+
   // Onboarding Tour State (RFC-0144)
   private tourCurrentStep: number = 0;
   private tourPopover: HTMLElement | null = null;
@@ -3146,6 +3153,7 @@ export class AnnotationsTab {
     this.permissions = config.permissions;
     this.onAnnotationChange = config.onAnnotationChange;
     this.enableAnnotationsOnboarding = config.enableAnnotationsOnboarding ?? false; // RFC-0144
+    this.gcdr = config.gcdr ?? null;
   }
 
   // ============================================
@@ -3727,6 +3735,16 @@ export class AnnotationsTab {
   // ============================================
 
   private async loadAnnotations(): Promise<void> {
+    if (this.gcdr) {
+      try {
+        await this.loadFromGcdr();
+      } catch (error) {
+        console.error('[AnnotationsTab] Error loading annotations from GCDR:', error);
+        this.annotations = [];
+        MyIOToast.show('Não foi possível carregar as anotações do GCDR.', 'error');
+      }
+      return;
+    }
     try {
       const response = await fetch(
         `${this.tbBaseUrl}/api/plugins/telemetry/DEVICE/${this.deviceId}/values/attributes/SERVER_SCOPE?keys=log_annotations`,
@@ -3925,17 +3943,7 @@ export class AnnotationsTab {
         return false;
       }
 
-      this.onAnnotationChange?.(this.annotations);
-
-      // RFC-0203 / AC-52: notify global listeners (HeaderAnnotationsPanel,
-      // AnnotationServiceOrchestrator) that this device's annotations changed.
-      // Local callback above is preserved; this event is the cross-component bus.
-      window.dispatchEvent(
-        new CustomEvent('myio:annotation-changed', {
-          detail: { deviceId: this.deviceId, action: 'save', timestamp: Date.now() },
-        })
-      );
-
+      this.notifyAnnotationsChanged();
       return true;
     } catch (error) {
       console.error('[AnnotationsTab] Error saving annotations:', error);
@@ -3943,11 +3951,87 @@ export class AnnotationsTab {
     }
   }
 
+  /**
+   * RFC-0203 / AC-52: local callback + the cross-component bus event
+   * (HeaderAnnotationsPanel, AnnotationServiceOrchestrator, TELEMETRY badges).
+   */
+  private notifyAnnotationsChanged(): void {
+    this.onAnnotationChange?.(this.annotations);
+    window.dispatchEvent(
+      new CustomEvent('myio:annotation-changed', {
+        detail: {
+          deviceId: this.deviceId,
+          gcdrDeviceId: this.gcdr?.gcdrDeviceId,
+          action: 'save',
+          timestamp: Date.now(),
+        },
+      })
+    );
+  }
+
+  // ============================================
+  // RFC-0219: GCDR MODE
+  // Every operation is one GCDR call followed by a reload of this device's
+  // annotations — no whole-array overwrite, so concurrent edits on other
+  // annotations are never lost. A stale version (409) reloads and tells the user.
+  // ============================================
+
+  private async loadFromGcdr(): Promise<void> {
+    const { client, gcdrDeviceId } = this.gcdr!;
+    const list = await client.listByEntity('device', gcdrDeviceId, { includeArchived: true });
+    // The list shape has no responses/events; a device carries few annotations,
+    // so the detail of each is fetched for the cards and the history modal.
+    const details = await Promise.all(list.map((a) => client.getById(a.id)));
+    this.annotations = client
+      .toLegacyAnnotations(details)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+
+  private async runGcdrWrite(action: () => Promise<unknown>, successMessage?: string): Promise<boolean> {
+    try {
+      await action();
+      await this.loadFromGcdr();
+      this.notifyAnnotationsChanged();
+      if (successMessage) MyIOToast.show(successMessage, 'success');
+      this.render();
+      return true;
+    } catch (error) {
+      if (error instanceof GcdrAnnotationsConflictError) {
+        MyIOToast.show('Anotação alterada por outro usuário — lista recarregada.', 'warning');
+        try {
+          await this.loadFromGcdr();
+        } catch (reloadError) {
+          console.error('[AnnotationsTab] GCDR reload after conflict failed:', reloadError);
+        }
+        this.render();
+        return false;
+      }
+      console.error('[AnnotationsTab] GCDR write failed:', error);
+      const status = (error as { status?: number })?.status;
+      const reason = status === 403 || status === 404 ? 'sem permissão para este dispositivo' : (error as Error)?.message;
+      MyIOToast.show(`Erro ao salvar anotação: ${reason || 'erro desconhecido'}`, 'error');
+      return false;
+    }
+  }
+
+  private findAnnotation(id: string): Annotation | undefined {
+    return this.annotations.find((a) => a.id === id);
+  }
+
   // ============================================
   // ANNOTATION OPERATIONS
   // ============================================
 
   private async addAnnotation(data: NewAnnotationData): Promise<void> {
+    if (this.gcdr) {
+      const { client, gcdrDeviceId, gcdrCustomerId } = this.gcdr;
+      await this.runGcdrWrite(() =>
+        client.create(
+          adaptLegacyToGcdrInput(data, { entityType: 'device', entityId: gcdrDeviceId, customerId: gcdrCustomerId })
+        )
+      );
+      return;
+    }
     const now = new Date().toISOString();
     const newAnnotation: Annotation = {
       id: generateUUID(),
@@ -3984,6 +4068,18 @@ export class AnnotationsTab {
   }
 
   private async editAnnotation(id: string, changes: Partial<Annotation>): Promise<void> {
+    if (this.gcdr) {
+      const current = this.findAnnotation(id);
+      if (!current) return;
+      const patch: GcdrPatchAnnotationInput = {};
+      if (changes.text !== undefined) patch.text = changes.text;
+      if (changes.type !== undefined) patch.type = changes.type;
+      if (changes.importance !== undefined) patch.importance = changes.importance;
+      if (changes.dueDate !== undefined) patch.dueDate = toGcdrDueDate(changes.dueDate);
+      const { client } = this.gcdr;
+      await this.runGcdrWrite(() => client.patch(id, patch, current.version));
+      return;
+    }
     const index = this.annotations.findIndex((a) => a.id === id);
     if (index === -1) return;
 
@@ -4030,6 +4126,13 @@ export class AnnotationsTab {
   }
 
   private async archiveAnnotation(id: string): Promise<void> {
+    if (this.gcdr) {
+      const current = this.findAnnotation(id);
+      if (!current) return;
+      const { client } = this.gcdr;
+      await this.runGcdrWrite(() => client.archive(id, current.version), 'Anotação arquivada com sucesso!');
+      return;
+    }
     const index = this.annotations.findIndex((a) => a.id === id);
     if (index === -1) return;
 
@@ -4064,6 +4167,11 @@ export class AnnotationsTab {
   }
 
   private async acknowledgeAnnotation(id: string): Promise<void> {
+    if (this.gcdr) {
+      // GCDR has no acknowledge toggle — approve/reject responses replace it.
+      MyIOToast.show('Use Aprovar ou Rejeitar para registrar a ciência desta anotação.', 'warning');
+      return;
+    }
     const index = this.annotations.findIndex((a) => a.id === id);
     if (index === -1) return;
 
@@ -4308,6 +4416,22 @@ export class AnnotationsTab {
    * Add a response to an annotation
    */
   private async addResponse(annotationId: string, type: ResponseType, text: string): Promise<void> {
+    if (this.gcdr) {
+      const current = this.findAnnotation(annotationId);
+      if (!current) return;
+      const successLabels: Record<ResponseType, string> = {
+        approved: 'aprovada',
+        rejected: 'rejeitada',
+        comment: 'comentário adicionado',
+        archived: 'arquivada',
+      };
+      const { client } = this.gcdr;
+      await this.runGcdrWrite(
+        () => client.respond(annotationId, { type, text: text || undefined, version: current.version }),
+        `Anotação ${successLabels[type]} com sucesso!`
+      );
+      return;
+    }
     const index = this.annotations.findIndex(a => a.id === annotationId);
     if (index === -1) return;
 
@@ -5916,7 +6040,11 @@ export class AnnotationsTab {
 
     // Determine which buttons should be disabled
     const isArchived = annotation.status === 'archived';
-    const isFinalized = responseStatus === 'approved' || responseStatus === 'rejected';
+    // RFC-0219: GCDR also reports the lock directly (finalized by approve/reject).
+    const isFinalized =
+      responseStatus === 'approved' ||
+      responseStatus === 'rejected' ||
+      (annotation.finalized === true && annotation.finalizedReason !== 'archived');
     const cannotModify = !canModify || isArchived || isFinalized;
     // Archiving is intentionally NOT gated by isFinalized — approved/rejected
     // annotations must always remain archivable (business rule), only edit/

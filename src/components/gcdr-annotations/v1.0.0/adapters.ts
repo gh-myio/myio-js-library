@@ -25,9 +25,8 @@ import type {
 } from './types';
 
 /**
- * Type mapping (RFC-0218 Unresolved Q1 — proposed, not yet confirmed with the
- * GCDR team): legacy has `issue`/`alert`, GCDR has `pending`/`activity`.
- * `observation`/`maintenance` are shared verbatim.
+ * Type mapping: the legacy RFC-0104 set and GCDR's are the same four values
+ * (pre-RFC-0104 `issue`/`alert` are normalized by the GCDR backfill).
  */
 const GCDR_TO_LEGACY_TYPE: Record<GcdrAnnotationType, AnnotationType> = {
   observation: 'observation',
@@ -54,18 +53,17 @@ const KNOWN_AUDIT_ACTIONS: ReadonlySet<string> = new Set<AuditAction>([
 ]);
 
 function toUserInfo(u: GcdrUserSnapshot | undefined): UserInfo {
-  return { id: u?.id ?? '', email: u?.email ?? '', name: u?.name ?? '' };
+  return { id: u?.id ?? '', email: u?.email ?? '', name: u?.name ?? u?.email ?? '' };
 }
 
 /**
- * `finalized`/`finalizedReason` collapse to the legacy top-level `status`.
- * Only `finalizedReason: 'archived'` maps to `status: 'archived'` — approved/
- * rejected annotations stay visible with a response entry, they don't get
- * archived by that alone (mirrors `AnnotationsTab`'s own rule: only an
- * explicit archive response flips `status`, see its `openResponseModal`/
- * `newStatus` logic).
+ * GCDR's native `status` is the legacy one (created/modified/archived). Older
+ * payloads without it fall back to finalized + version: only
+ * `finalizedReason: 'archived'` means archived — an approved/rejected
+ * annotation stays visible with its decision as a response.
  */
 function deriveLegacyStatus(a: GcdrAnnotation): AnnotationStatus {
+  if (a.status === 'created' || a.status === 'modified' || a.status === 'archived') return a.status;
   if (a.finalized && a.finalizedReason === 'archived') return 'archived';
   return a.version > 1 ? 'modified' : 'created';
 }
@@ -83,13 +81,27 @@ function adaptResponse(r: GcdrAnnotationResponse, annotationId: string): Annotat
 
 function adaptEvent(e: GcdrAnnotationEvent): AuditEntry {
   const action = KNOWN_AUDIT_ACTIONS.has(e.action) ? (e.action as AuditAction) : 'modified';
-  return {
-    timestamp: e.at,
-    userId: e.by?.id ?? '',
-    userName: e.by?.name ?? '',
-    userEmail: e.by?.email ?? '',
+  const entry: AuditEntry = {
+    timestamp: e.createdAt,
+    userId: e.actor?.id ?? '',
+    userName: e.actor?.name ?? e.actor?.email ?? '',
+    userEmail: e.actor?.email ?? '',
     action,
   };
+  if (typeof e.previousVersion === 'number') entry.previousVersion = e.previousVersion;
+  if (e.changes) entry.changes = e.changes;
+  return entry;
+}
+
+/**
+ * Legacy date inputs are `YYYY-MM-DD` (São Paulo day); GCDR wants an ISO
+ * datetime with offset. Anything unparseable is dropped rather than sent.
+ */
+export function toGcdrDueDate(dueDate: string | undefined | null): string | undefined {
+  if (!dueDate) return undefined;
+  const value = /^\d{4}-\d{2}-\d{2}$/.test(dueDate) ? `${dueDate}T00:00:00-03:00` : dueDate;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? undefined : d.toISOString();
 }
 
 /**
@@ -102,7 +114,9 @@ export function adaptGcdrToLegacyAnnotation(g: GcdrAnnotation | GcdrAnnotationDe
   const detail = g as Partial<GcdrAnnotationDetail>;
   const responses = (detail.responses ?? []).map((r) => adaptResponse(r, g.id));
   const history = (detail.events ?? []).map(adaptEvent);
-  const approvedOrRejected = responses.find((r) => r.type === 'approved' || r.type === 'rejected');
+  const decision = [...responses].reverse().find((r) => r.type === 'approved' || r.type === 'rejected');
+  // Native acknowledge fields win (migrated data); otherwise a decision response acknowledges.
+  const acknowledged = g.acknowledged === true || !!decision;
 
   return {
     id: g.id,
@@ -114,9 +128,11 @@ export function adaptGcdrToLegacyAnnotation(g: GcdrAnnotation | GcdrAnnotationDe
     createdAt: g.createdAt,
     dueDate: g.dueDate ?? undefined,
     createdBy: toUserInfo(g.createdBy),
-    acknowledged: !!approvedOrRejected,
-    acknowledgedBy: approvedOrRejected?.createdBy,
-    acknowledgedAt: approvedOrRejected?.createdAt,
+    acknowledged,
+    acknowledgedBy: g.acknowledgedBy ? toUserInfo(g.acknowledgedBy) : decision?.createdBy,
+    acknowledgedAt: g.acknowledgedAt ?? decision?.createdAt,
+    finalized: g.finalized === true,
+    finalizedReason: g.finalizedReason,
     responses,
     history,
   };
@@ -142,6 +158,6 @@ export function adaptLegacyToGcdrInput(
     text: data.text,
     type: LEGACY_TO_GCDR_TYPE[data.type] ?? 'observation',
     importance: data.importance as GcdrCreateAnnotationInput['importance'],
-    dueDate: data.dueDate,
+    dueDate: toGcdrDueDate(data.dueDate),
   };
 }

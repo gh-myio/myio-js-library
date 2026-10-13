@@ -11,6 +11,9 @@ import {
   resolveConfigField,
   printResolvedConfigSummary,
   isFeatureButtonsMatrix,
+  isConfigPathExplicit,
+  parseJsonIfString,
+  patchCustomerConfigViaTbSession,
 } from '../../../src/services/gcdr/customerConfigApiClient';
 
 function jsonResponse(body: unknown, init: { status?: number } = {}): Response {
@@ -396,5 +399,155 @@ describe('printResolvedConfigSummary — central log', () => {
 
     const rows = tableSpy.mock.calls[tableSpy.mock.calls.length - 1][0] as Array<{ field: string }>;
     expect(rows.filter((r) => r.field === 'repeatedField')).toHaveLength(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ED-1149 — explicit values, defensive JSON, dashboard writes (TB session)
+// ---------------------------------------------------------------------------
+
+describe('isConfigPathExplicit', () => {
+  it('follows explicitPaths in both directions (section vs field)', () => {
+    const cfg = { explicitPaths: ['alarms.showOffline', 'featureButtons.demandPeak'] };
+    expect(isConfigPathExplicit(cfg, 'alarms.showOffline')).toBe(true);
+    expect(isConfigPathExplicit(cfg, 'alarms.notificationsEnabled')).toBe(false);
+    expect(isConfigPathExplicit(cfg, 'featureButtons')).toBe(true);
+    expect(isConfigPathExplicit(cfg, 'featureButtons.demandPeak.lojas')).toBe(true);
+    expect(isConfigPathExplicit({ explicitPaths: [] }, 'display.mapInstantaneousPower')).toBe(false);
+  });
+
+  it('without explicitPaths (older backend), never trusts default-merged sections', () => {
+    expect(isConfigPathExplicit({}, 'alarms.showOffline')).toBe(false);
+    expect(isConfigPathExplicit({}, 'temperature.min')).toBe(false);
+    expect(isConfigPathExplicit({}, 'display.mapInstantaneousPower')).toBe(true);
+    expect(isConfigPathExplicit(null, 'ingestion.clientId')).toBe(false);
+  });
+});
+
+describe('parseJsonIfString', () => {
+  it('parses JSON-looking strings and passes everything else through', () => {
+    expect(parseJsonIfString('{"a":1}')).toEqual({ a: 1 });
+    expect(parseJsonIfString(' [1] ')).toEqual([1]);
+    expect(parseJsonIfString('{broken')).toBe('{broken');
+    expect(parseJsonIfString('abc')).toBe('abc');
+    const obj = { a: 1 };
+    expect(parseJsonIfString(obj)).toBe(obj);
+  });
+});
+
+describe('resolveConfigField — gcdrPaths (GCDR defaults are not stored values)', () => {
+  let logSpy: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => {
+    logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+  });
+  afterEach(() => logSpy.mockRestore());
+
+  const params = (customerId: string, doc: unknown) => ({
+    baseUrl: 'https://p.example',
+    customerId,
+    apiKey: 'key-1',
+    fetchImpl: vi.fn().mockResolvedValue(jsonResponse({ success: true, data: doc })) as unknown as typeof fetch,
+    fieldLabel: `showOffline-${customerId}`,
+    fallbackValue: true,
+    gcdrPaths: ['alarms.showOffline'],
+    extract: (cfg: { alarms?: { showOffline?: boolean } }) =>
+      typeof cfg.alarms?.showOffline === 'boolean' ? cfg.alarms.showOffline : undefined,
+  });
+
+  it('keeps the TB value when GCDR only has the default (never-backfilled customer)', async () => {
+    const result = await resolveConfigField(params('gp-1', { explicitPaths: [], alarms: { showOffline: false } }));
+    expect(result.source).toBe('TB (GCDR has no stored value)');
+    expect(result.value).toBe(true);
+  });
+
+  it('uses GCDR when the path was stored', async () => {
+    const result = await resolveConfigField(
+      params('gp-2', { explicitPaths: ['alarms.showOffline'], alarms: { showOffline: false } })
+    );
+    expect(result.source).toBe('GCDR');
+    expect(result.value).toBe(false);
+  });
+
+  it('keeps the TB value on an older backend without explicitPaths', async () => {
+    const result = await resolveConfigField(params('gp-3', { alarms: { showOffline: false } }));
+    expect(result.source).toBe('TB (GCDR has no stored value)');
+  });
+});
+
+describe('patchCustomerConfigViaTbSession', () => {
+  it('PATCHes /config/tb-session with the TB session header and returns the read model', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({ success: true, data: { explicitPaths: ['alarms.showOffline'], alarms: { showOffline: true } } })
+    );
+    const doc = await patchCustomerConfigViaTbSession({
+      baseUrl: 'https://g.example/api/v1',
+      customerId: 'cust-w1',
+      tbToken: 'tb-jwt',
+      patch: { alarms: { showOffline: true } },
+      fetchImpl: fetchMock as unknown as typeof fetch,
+    });
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('https://g.example/api/v1/customers/cust-w1/config/tb-session');
+    expect(init.method).toBe('PATCH');
+    expect(init.headers['X-TB-Authorization']).toBe('Bearer tb-jwt');
+    expect(JSON.parse(init.body)).toEqual({ alarms: { showOffline: true } });
+    expect(doc.alarms?.showOffline).toBe(true);
+  });
+
+  it('throws CustomerConfigApiError with the GCDR status and message', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({ success: false, error: { code: 'FORBIDDEN', message: 'Sem permissão' } }, { status: 403 })
+    );
+    const err = await patchCustomerConfigViaTbSession({
+      baseUrl: 'https://g.example',
+      customerId: 'cust-w2',
+      tbToken: 'tb-jwt',
+      patch: { featureButtons: {} },
+      fetchImpl: fetchMock as unknown as typeof fetch,
+    }).catch((e) => e);
+    expect(err).toBeInstanceOf(CustomerConfigApiError);
+    expect(err.status).toBe(403);
+    expect(err.message).toBe('Sem permissão');
+  });
+
+  it('refuses to call without a ThingsBoard token', async () => {
+    const fetchMock = vi.fn();
+    await expect(
+      patchCustomerConfigViaTbSession({
+        baseUrl: 'https://g.example',
+        customerId: 'cust-w3',
+        tbToken: '',
+        patch: {},
+        fetchImpl: fetchMock as unknown as typeof fetch,
+      })
+    ).rejects.toBeInstanceOf(CustomerConfigApiError);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('invalidates the cached document so the next read sees the write', async () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const readMock = vi.fn().mockResolvedValue(jsonResponse({ alarms: { showOffline: false } }));
+    const read = () =>
+      loadCustomerConfig({
+        baseUrl: 'https://g.example',
+        customerId: 'cust-w4',
+        apiKey: 'k',
+        fetchImpl: readMock as unknown as typeof fetch,
+      });
+    await read();
+    await read();
+    expect(readMock).toHaveBeenCalledTimes(1);
+
+    await patchCustomerConfigViaTbSession({
+      baseUrl: 'https://g.example',
+      customerId: 'cust-w4',
+      tbToken: 'tb-jwt',
+      patch: { alarms: { showOffline: true } },
+      fetchImpl: vi.fn().mockResolvedValue(jsonResponse({ data: {} })) as unknown as typeof fetch,
+    });
+    await read();
+    expect(readMock).toHaveBeenCalledTimes(2);
+    logSpy.mockRestore();
   });
 });

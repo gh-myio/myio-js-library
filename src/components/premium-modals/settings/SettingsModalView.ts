@@ -8,7 +8,8 @@ import { ExclusionGroupsTab } from './exclusion-groups/ExclusionGroupsTab';
 import { DeviceProfileTab } from './device-profile/DeviceProfileTab';
 import { createTicketsTab } from './tickets/TicketsTab';
 import { getAnnotationPermissions } from '../../../utils/superAdminUtils';
-import type { UserInfo, PermissionSet } from './annotations/types';
+import type { UserInfo, PermissionSet, AnnotationsGcdrConfig } from './annotations/types';
+import { createGcdrAnnotationsClient } from '../../gcdr-annotations/v1.0.0/GcdrAnnotationsClient';
 import {
   createInputDateRangePickerInsideDIV,
   type DateRangeInputController,
@@ -172,6 +173,18 @@ export class SettingsModalView {
       return;
     }
 
+    // RFC-0219: GCDR source needs the device's GCDR link — no silent TB fallback.
+    let gcdr: AnnotationsGcdrConfig | undefined;
+    if (this.config.annotationsSource === 'gcdr') {
+      gcdr = this.buildAnnotationsGcdrConfig() ?? undefined;
+      if (!gcdr) {
+        console.warn('[SettingsModalView] RFC-0219: device/customer without GCDR ids — annotations unavailable');
+        annotationsContainer.innerHTML =
+          '<p style="color: #6c757d; padding: 20px; text-align: center;">Anotações indisponíveis: dispositivo sem vínculo com o GCDR (gcdrDeviceId).</p>';
+        return;
+      }
+    }
+
     try {
       // Fetch permissions
       const permissions = await getAnnotationPermissions(this.config.customerId, this.config.jwtToken, this.config.tbBaseUrl);
@@ -199,15 +212,37 @@ export class SettingsModalView {
         currentUser: this.currentUser,
         permissions: this.permissions,
         enableAnnotationsOnboarding: this.config.enableAnnotationsOnboarding ?? false, // RFC-0144
+        gcdr, // RFC-0219
       });
 
       await this.annotationsTab.init();
-      console.log('[SettingsModalView] RFC-0104: Annotations tab initialized');
+      console.log('[SettingsModalView] RFC-0104: Annotations tab initialized', gcdr ? '(GCDR)' : '(TB)');
     } catch (error) {
       console.error('[SettingsModalView] Failed to initialize annotations tab:', error);
       annotationsContainer.innerHTML =
         '<p style="color: #dc3545; padding: 20px; text-align: center;">Erro ao carregar anotações</p>';
     }
+  }
+
+  /**
+   * RFC-0219: GCDR annotations client for this device, authenticated by the
+   * user's ThingsBoard session (read fresh on every request). IDs come from the
+   * modal config, falling back to what MAIN_VIEW published on the orchestrator.
+   */
+  private buildAnnotationsGcdrConfig(): AnnotationsGcdrConfig | null {
+    const orch = (window as unknown as { MyIOOrchestrator?: Record<string, string | undefined> }).MyIOOrchestrator ?? {};
+    const gcdrDeviceId = this.config.gcdrDeviceId;
+    const gcdrCustomerId = this.config.gcdrCustomerId || orch.gcdrCustomerId;
+    const baseUrl = this.config.gcdrApiBaseUrl || orch.gcdrApiBaseUrl;
+    if (!gcdrDeviceId || !gcdrCustomerId || !baseUrl) return null;
+
+    const domainPath = `${String(baseUrl).replace(/\/+$/, '').replace(/\/api\/v1$/, '')}/api/v1`;
+    const fallbackToken = this.config.jwtToken;
+    const client = createGcdrAnnotationsClient({
+      domainPath,
+      auth: { tbSessionToken: () => localStorage.getItem('jwt_token') || fallbackToken },
+    });
+    return { client, gcdrDeviceId, gcdrCustomerId };
   }
 
   // RFC-0180: Initialize the Alarms Tab

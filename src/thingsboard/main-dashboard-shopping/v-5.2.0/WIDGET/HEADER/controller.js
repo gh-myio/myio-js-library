@@ -425,15 +425,26 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   }
   const tbToken = localStorage.getItem('jwt_token');
   let customerCredentials = {};
-  const _fetchCustomerAttrs = window.MyIOUtils?.fetchThingsboardCustomerAttrsFromStorage;
-  if (typeof _fetchCustomerAttrs !== 'function') {
-    console.error('[HEADER] fetchThingsboardCustomerAttrsFromStorage unavailable via MyIOUtils');
+  // ED-1149: MAIN_VIEW's credentials first (client_id comes from GCDR when
+  // migrated); the ThingsBoard attributes only when MAIN_VIEW never sets them.
+  const orchCredentials = await window.MyIOUtils?.waitForCustomerCredentials?.(10000);
+  if (orchCredentials?.CLIENT_ID) {
+    customerCredentials = {
+      client_id: orchCredentials.CLIENT_ID,
+      client_secret: orchCredentials.CLIENT_SECRET,
+      ingestionId: orchCredentials.CUSTOMER_ING_ID,
+    };
   } else {
-    try {
-      customerCredentials = await _fetchCustomerAttrs(CUSTOMER_ID, tbToken);
-    } catch (credErr) {
-      LogHelper.warn('[HEADER] ⚠️ Could not fetch customer credentials from ThingsBoard:', credErr?.message);
-      // Continue without credentials — controls will still be enabled via custom events
+    const _fetchCustomerAttrs = window.MyIOUtils?.fetchThingsboardCustomerAttrsFromStorage;
+    if (typeof _fetchCustomerAttrs !== 'function') {
+      console.error('[HEADER] fetchThingsboardCustomerAttrsFromStorage unavailable via MyIOUtils');
+    } else {
+      try {
+        customerCredentials = await _fetchCustomerAttrs(CUSTOMER_ID, tbToken);
+      } catch (credErr) {
+        LogHelper.warn('[HEADER] ⚠️ Could not fetch customer credentials from ThingsBoard:', credErr?.message);
+        // Continue without credentials — controls will still be enabled via custom events
+      }
     }
   }
   const CLIENT_ID = customerCredentials.client_id || ' ';
@@ -1544,98 +1555,67 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
           _openAlarmBundleMapModal({ customerTB_ID, gcdrTenantId, gcdrApiBaseUrl, readOnly: _mapReadOnly });
         });
 
+        // ED-1149: each toggle applies its value in memory right away (same
+        // optimistic UX as before), then saves it to GCDR (customer config —
+        // the TB attribute is no longer written) through MAIN_VIEW's
+        // orchestrator. If GCDR refuses (no permission, offline…) the toggle and
+        // the in-memory value go back and the user sees why: a toggle that only
+        // looks saved would silently revert on the next reload.
+        const saveAlarmToggle = (input, alarmsPatch, apply) => {
+          input.addEventListener('change', async () => {
+            const next = input.checked;
+            apply(next);
+            try {
+              await window.MyIOOrchestrator.saveCustomerConfig({ alarms: alarmsPatch(next) });
+            } catch (err) {
+              LogHelper.warn('[HEADER] Falha ao salvar configuração de alarmes no GCDR:', err);
+              input.checked = !next;
+              apply(!next);
+              const reason = err?.status === 403 ? 'sem permissão para alterar esta configuração' : err?.message;
+              window.MyIOUtils?.MyIOToast?.error(`Não foi possível salvar: ${reason || 'erro desconhecido'}`, 5000);
+            }
+          });
+        };
+
         // Notification toggle
         const toggle = container.querySelector('#ant-notif-toggle');
         if (toggle) {
-          toggle.addEventListener('change', async () => {
-            const enabled = toggle.checked;
-            // Optimistically update in memory
-            if (window.MyIOOrchestrator) window.MyIOOrchestrator.alarmNotificationsEnabled = enabled;
-            // Persist to ThingsBoard SERVER_SCOPE
-            try {
-              const jwt = localStorage.getItem('jwt_token');
-              const customerId = window.MyIOOrchestrator?.customerTB_ID;
-              const tbBase = self.ctx?.settings?.tbBaseUrl || '';
-              if (jwt && customerId) {
-                await fetch(
-                  `${tbBase}/api/plugins/telemetry/CUSTOMER/${customerId}/attributes/SERVER_SCOPE`,
-                  {
-                    method: 'POST',
-                    headers: {
-                      'X-Authorization': `Bearer ${jwt}`,
-                      'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ alarmNotificationsEnabled: enabled }),
-                  }
-                );
-              }
-            } catch (err) {
-              LogHelper.warn('[HEADER] Failed to save alarmNotificationsEnabled:', err);
+          saveAlarmToggle(
+            toggle,
+            (enabled) => ({ notificationsEnabled: enabled }),
+            (enabled) => {
+              if (window.MyIOOrchestrator) window.MyIOOrchestrator.alarmNotificationsEnabled = enabled;
             }
-          });
+          );
         }
 
         // Offline alarms toggle
         const offlineToggle = container.querySelector('#ant-offline-toggle');
         if (offlineToggle) {
-          offlineToggle.addEventListener('change', async () => {
-            const show = offlineToggle.checked;
-            if (window.MyIOOrchestrator) window.MyIOOrchestrator.showOfflineAlarms = show;
-            window.dispatchEvent(new CustomEvent('myio:offline-alarms-toggle', { detail: { show } }));
-            try {
-              const jwt = localStorage.getItem('jwt_token');
-              const customerId = window.MyIOOrchestrator?.customerTB_ID;
-              const tbBase = self.ctx?.settings?.tbBaseUrl || '';
-              if (jwt && customerId) {
-                await fetch(
-                  `${tbBase}/api/plugins/telemetry/CUSTOMER/${customerId}/attributes/SERVER_SCOPE`,
-                  {
-                    method: 'POST',
-                    headers: {
-                      'X-Authorization': `Bearer ${jwt}`,
-                      'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ showOfflineAlarms: show }),
-                  }
-                );
-              }
-            } catch (err) {
-              LogHelper.warn('[HEADER] Failed to save showOfflineAlarms:', err);
+          saveAlarmToggle(
+            offlineToggle,
+            (show) => ({ showOffline: show }),
+            (show) => {
+              if (window.MyIOOrchestrator) window.MyIOOrchestrator.showOfflineAlarms = show;
+              window.dispatchEvent(new CustomEvent('myio:offline-alarms-toggle', { detail: { show } }));
             }
-          });
+          );
         }
 
         // Internal support rule toggle (only rendered for @myio.com.br users)
         const internalRuleToggle = container.querySelector('#ant-internal-rule-toggle');
         if (internalRuleToggle) {
-          internalRuleToggle.addEventListener('change', async () => {
-            const value = internalRuleToggle.checked;
-            if (window.MyIOOrchestrator) window.MyIOOrchestrator.isInternalSupportRule = value;
-            window.dispatchEvent(
-              new CustomEvent('myio:internal-support-rule-changed', { detail: { value } })
-            );
-            LogHelper.log('[HEADER] isInternalSupportRule →', value);
-            try {
-              const jwt = localStorage.getItem('jwt_token');
-              const customerId = window.MyIOOrchestrator?.customerTB_ID;
-              const tbBase = self.ctx?.settings?.tbBaseUrl || '';
-              if (jwt && customerId) {
-                await fetch(
-                  `${tbBase}/api/plugins/telemetry/CUSTOMER/${customerId}/attributes/SERVER_SCOPE`,
-                  {
-                    method: 'POST',
-                    headers: {
-                      'X-Authorization': `Bearer ${jwt}`,
-                      'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ isInternalSupportRule: value }),
-                  }
-                );
-              }
-            } catch (err) {
-              LogHelper.warn('[HEADER] Failed to save isInternalSupportRule:', err);
+          saveAlarmToggle(
+            internalRuleToggle,
+            (value) => ({ showInternalSupport: value }),
+            (value) => {
+              if (window.MyIOOrchestrator) window.MyIOOrchestrator.isInternalSupportRule = value;
+              window.dispatchEvent(
+                new CustomEvent('myio:internal-support-rule-changed', { detail: { value } })
+              );
+              LogHelper.log('[HEADER] isInternalSupportRule →', value);
             }
-          });
+          );
         }
       },
 

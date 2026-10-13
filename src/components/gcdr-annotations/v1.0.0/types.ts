@@ -1,17 +1,21 @@
 /**
  * RFC-0218 — GcdrAnnotationsClient types.
  *
- * GCDR-native annotation shape (`GET/POST /annotations`, GCDR RFC-0036) plus
- * the client's own params/error types. Kept intentionally tolerant (index
- * signature on the annotation shape) since the API guide says unknown fields
- * are ignored, not rejected — this client must not break when GCDR adds a
- * field.
+ * GCDR-native annotation shape (`GET/POST /annotations`, GCDR RFC-0036,
+ * `gcdr/src/domain/entities/annotations/Annotation.ts`) plus the client's own
+ * params/error types. Kept intentionally tolerant (index signature on the
+ * annotation shape) since the API guide says unknown fields are ignored, not
+ * rejected — this client must not break when GCDR adds a field.
  */
+import type { AuthStrategy } from './authStrategies';
 
-/** GCDR's annotation "kind" — distinct spelling from the legacy RFC-0104 set (see `adapters.ts`). */
+/** GCDR's annotation "kind" — same set as the legacy RFC-0104 `AnnotationType`. */
 export type GcdrAnnotationType = 'observation' | 'pending' | 'maintenance' | 'activity';
 
 export type GcdrAnnotationImportance = 1 | 2 | 3 | 4 | 5;
+
+/** Native lifecycle status (GCDR `annotations.status`). */
+export type GcdrAnnotationStatus = 'created' | 'modified' | 'archived';
 
 /** Terminal disposition once an annotation is finalized (`finalized: true`). */
 export type GcdrFinalizedReason = 'approved' | 'rejected' | 'archived';
@@ -20,39 +24,44 @@ export type GcdrFinalizedReason = 'approved' | 'rejected' | 'archived';
 export type GcdrResponseType = 'comment' | 'approved' | 'rejected' | 'archived';
 
 /**
- * The kind of TB/GCDR entity an annotation is attached to. Deliberately a
- * plain string, not a fixed union — GCDR's entity registry is open-ended
- * (RFC-0218 §guide: `listByEntity('device', gcdrDeviceId)`, but any entity
- * type GCDR recognizes works, e.g. a central's own GCDR UUID).
+ * The kind of entity an annotation is attached to. GCDR accepts
+ * `device | work_order | work_order_event`; kept a string so a new GCDR entity
+ * type doesn't need a client release.
  */
 export type GcdrEntityType = string;
 
+/** Actor snapshot GCDR stores on every row. `email`/`name` may be absent (system actors). */
 export interface GcdrUserSnapshot {
   id: string;
-  email: string;
-  name: string;
+  email?: string;
+  name?: string;
 }
 
 export interface GcdrAnnotationResponse {
   id: string;
+  annotationId?: string;
   type: GcdrResponseType;
-  text?: string;
+  text?: string | null;
   createdAt: string;
   createdBy: GcdrUserSnapshot;
 }
 
+/** Append-only history row (GCDR `annotation_events`). */
 export interface GcdrAnnotationEvent {
   id: string;
   action: string;
-  at: string;
-  by?: GcdrUserSnapshot;
+  responseId?: string;
+  previousVersion?: number;
+  changes?: Record<string, { from: unknown; to: unknown }>;
+  actor?: GcdrUserSnapshot;
+  createdAt: string;
   [key: string]: unknown;
 }
 
 export interface GcdrAnnotationAttachment {
   id: string;
-  fileName: string;
-  url?: string;
+  fileAssetId: string;
+  responseId?: string;
   [key: string]: unknown;
 }
 
@@ -66,10 +75,16 @@ export interface GcdrAnnotation {
   text: string;
   type: GcdrAnnotationType;
   importance: GcdrAnnotationImportance;
+  status?: GcdrAnnotationStatus;
   finalized: boolean;
   finalizedReason?: GcdrFinalizedReason;
+  acknowledged?: boolean;
+  acknowledgedBy?: GcdrUserSnapshot;
+  acknowledgedAt?: string;
   createdAt: string;
   createdBy: GcdrUserSnapshot;
+  updatedAt?: string;
+  updatedBy?: GcdrUserSnapshot;
   dueDate?: string | null;
   /** Tolerant of fields this client doesn't model yet (API guide: "unknown fields ignored"). */
   [key: string]: unknown;
@@ -79,7 +94,7 @@ export interface GcdrAnnotation {
 export interface GcdrAnnotationDetail extends GcdrAnnotation {
   responses: GcdrAnnotationResponse[];
   events: GcdrAnnotationEvent[];
-  mentions?: string[];
+  mentions?: unknown[];
   attachments?: GcdrAnnotationAttachment[];
 }
 
@@ -88,21 +103,24 @@ export interface GcdrAnnotationListParams {
   entityType?: GcdrEntityType;
   entityId?: string;
   type?: GcdrAnnotationType;
-  status?: string;
+  status?: GcdrAnnotationStatus;
   importance?: GcdrAnnotationImportance;
+  /** Only `true` is sent — GCDR excludes archived annotations by default. */
   includeArchived?: boolean;
-  page?: number;
+  /** Opaque cursor from the previous page's `pagination.nextCursor`. */
+  cursor?: string;
+  /** Page size, 1..100 (GCDR cap). */
   limit?: number;
 }
 
-/** One page of `GET /annotations`. */
+/** One page of `GET /annotations` (GCDR `PaginatedResult`). */
 export interface GcdrAnnotationListPage {
   items: GcdrAnnotation[];
   pagination: {
-    page: number;
-    limit: number;
     total?: number;
-    hasNext?: boolean;
+    totalPages?: number;
+    hasMore: boolean;
+    nextCursor?: string;
   };
 }
 
@@ -113,6 +131,7 @@ export interface GcdrCreateAnnotationInput {
   text: string;
   type: GcdrAnnotationType;
   importance: GcdrAnnotationImportance;
+  /** ISO 8601 with offset (GCDR validates `datetime({ offset: true })`). */
   dueDate?: string;
 }
 
@@ -124,14 +143,27 @@ export interface GcdrRespondInput {
   type: GcdrResponseType;
   /** Required for every type except `approved` (API guide §5 rule, mirrored in `respond()`). */
   text?: string;
+  /** Optimistic lock for finalizing responses (sent as `If-Match`). */
+  version?: number;
 }
 
-/** Auth is a strategy, not an if-chain — see `authStrategies.ts`. Exactly one of the two is required. */
+type TokenSource = string | (() => Promise<string> | string);
+
+/**
+ * Auth is a strategy, not an if-chain — see `authStrategies.ts`. Exactly one
+ * of the three credentials is required.
+ */
 export interface GcdrAnnotationsAuthConfig {
-  /** JWT for user-context calls. May be a string or an async provider (token-cache friendly). */
-  bearerToken?: string | (() => Promise<string> | string);
-  /** Customer API Key (`gcdr_cust_…`) for M2M calls; hierarchyAccess scoping applies server-side. */
+  /** GCDR JWT for user-context calls. May be a string or a provider. */
+  bearerToken?: TokenSource;
+  /** Customer API Key (`gcdr_cust_…`) for M2M calls. */
   apiKey?: string;
+  /**
+   * The signed-in user's ThingsBoard JWT, sent as `X-TB-Authorization`
+   * (GCDR validates it against ThingsBoard — the dashboard path). Use a
+   * provider so a refreshed TB token is picked up on every request.
+   */
+  tbSessionToken?: TokenSource;
 }
 
 export interface GcdrAnnotationsClientLogger {
@@ -143,9 +175,14 @@ export interface GcdrAnnotationsClientLogger {
 export interface GcdrAnnotationsClientParams {
   /** Base URL WITH version, e.g. "https://gcdr-api.a.myio-bas.com/api/v1". Never rewritten. */
   domainPath: string;
-  auth: GcdrAnnotationsAuthConfig;
+  /** Credentials; ignored when `authStrategy` is given. */
+  auth?: GcdrAnnotationsAuthConfig;
+  /** A ready auth strategy (takes precedence over `auth`). */
+  authStrategy?: AuthStrategy;
   /** Optional GET cache (ms). 0/undefined = disabled. */
   cacheTtlMs?: number;
+  /** Per-request timeout (ms). Default 15000. */
+  timeoutMs?: number;
   /** Injectable for tests; default `globalThis.fetch`. */
   fetchImpl?: typeof fetch;
   logger?: GcdrAnnotationsClientLogger;

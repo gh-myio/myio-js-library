@@ -95,6 +95,13 @@ export interface OpenDashboardPopupSettingsParams {
 
   /** RFC-0144: If false, annotations onboarding tour is never shown. Default: false */
   enableAnnotationsOnboarding?: boolean;
+  /**
+   * RFC-0219: where the Annotations tab reads/writes. 'gcdr' uses the GCDR
+   * annotations API with the user's ThingsBoard session (needs gcdrDeviceId,
+   * gcdrCustomerId and gcdrApiBaseUrl, else falls back to the window
+   * MyIOOrchestrator). Default 'tb' (log_annotations attribute).
+   */
+  annotationsSource?: 'tb' | 'gcdr';
 
   // RFC-0180: Raw TB device name (distinct from `label` which is user-editable)
   deviceName?: string;
@@ -215,6 +222,13 @@ export interface ModalConfig {
   holdingAdmin?: boolean; // Holding admin (USER SERVER_SCOPE isHolding=true AND isUserAdmin=true) - also allows editing the Identificador field
   /** RFC-0144: If false, annotations onboarding tour is never shown. Default: false */
   enableAnnotationsOnboarding?: boolean;
+  /**
+   * RFC-0219: where the Annotations tab reads/writes. 'gcdr' uses the GCDR
+   * annotations API with the user's ThingsBoard session (needs gcdrDeviceId,
+   * gcdrCustomerId and gcdrApiBaseUrl, else falls back to the window
+   * MyIOOrchestrator). Default 'tb' (log_annotations attribute).
+   */
+  annotationsSource?: 'tb' | 'gcdr';
 
   // RFC-0180: Raw TB device name shown as muted subtitle in identity card
   deviceName?: string;

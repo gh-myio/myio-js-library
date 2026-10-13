@@ -473,3 +473,98 @@ describe('buildAnnotationServiceOrchestrator', () => {
     expect(keys).toContain('Sem Identificador');
   });
 });
+
+// ─── RFC-0219: GCDR source ─────────────────────────────────────────────────
+
+describe('buildAnnotationServiceOrchestrator — GCDR source (RFC-0219)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  function gcdrItem(id: string, entityId: string, over: Record<string, unknown> = {}) {
+    return {
+      id,
+      version: 1,
+      customerId: 'gc-1',
+      entityType: 'device',
+      entityId,
+      text: `nota ${id}`,
+      type: 'pending',
+      importance: 3,
+      status: 'created',
+      finalized: false,
+      createdAt: '2026-09-01T00:00:00.000Z',
+      createdBy: { id: 'u1', email: 'u1@x.com', name: 'U1' },
+      ...over,
+    };
+  }
+
+  it('reads GCDR once for the customer, attaches by deviceMap and never reads TB log_annotations', async () => {
+    let attrCalls = 0;
+    installFetch(async (url: string) => {
+      if (url.includes('/deviceInfos')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: [
+              makeDeviceInfo({ id: 'tb-1', label: 'Loja A', type: '3F_MEDIDOR' }),
+              makeDeviceInfo({ id: 'tb-2', label: 'Hidrômetro', type: 'HIDROMETRO' }),
+            ],
+            hasNext: false,
+          }),
+        };
+      }
+      attrCalls++;
+      return { ok: true, status: 200, json: async () => [] };
+    });
+
+    const listByCustomer = vi.fn().mockResolvedValue([
+      gcdrItem('a1', 'g-1'),
+      gcdrItem('a2', 'g-1', { status: 'archived', finalized: true, finalizedReason: 'archived' }),
+      gcdrItem('a3', 'g-orphan'),
+    ]);
+    const orch = await buildAnnotationServiceOrchestrator({
+      customerId: 'tb-cust',
+      tbHost: 'https://tb.example',
+      jwt: 'jwt',
+      logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+      gcdr: {
+        client: { listByCustomer } as never,
+        gcdrCustomerId: 'gc-1',
+        deviceMap: new Map([
+          ['tb-1', { gcdrDeviceId: 'g-1', identifier: 'L-101' }],
+          ['tb-2', { gcdrDeviceId: 'g-2' }],
+        ]),
+      },
+    });
+
+    expect(attrCalls).toBe(0);
+    expect(listByCustomer).toHaveBeenCalledWith('gc-1', { entityType: 'device', includeArchived: true });
+    expect(orch.getByDevice('tb-1')?.annotations.map((a) => a.id)).toEqual(['a1', 'a2']);
+    expect(orch.getByDevice('tb-1')?.identifier).toBe('L-101');
+    expect(orch.getByGcdrDevice('g-1')?.deviceId).toBe('tb-1');
+    expect(orch.getByDevice('tb-2')?.annotations).toEqual([]);
+    expect(orch.getTotalCount()).toBe(1); // a2 archived, a3 orphan
+    expect(orch.unmatchedCount).toBe(1);
+    orch.destroy();
+  });
+
+  it('destroy() removes the annotation-changed listener', async () => {
+    installFetch(async () => ({ ok: true, status: 200, json: async () => ({ data: [], hasNext: false }) }));
+    const listByCustomer = vi.fn().mockResolvedValue([]);
+    const orch = await buildAnnotationServiceOrchestrator({
+      customerId: 'tb-cust',
+      tbHost: 'https://tb.example',
+      jwt: 'jwt',
+      gcdr: { client: { listByCustomer } as never, gcdrCustomerId: 'gc-1', deviceMap: new Map() },
+    });
+    expect(listByCustomer).toHaveBeenCalledTimes(1);
+
+    orch.destroy();
+    window.dispatchEvent(new CustomEvent('myio:annotation-changed', { detail: {} }));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(listByCustomer).toHaveBeenCalledTimes(1);
+  });
+});

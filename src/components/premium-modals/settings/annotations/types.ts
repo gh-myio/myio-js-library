@@ -2,6 +2,7 @@
  * RFC-0104: Device Annotations System
  * Type definitions for the annotations feature
  */
+import type { GcdrAnnotationsClient } from '../../../gcdr-annotations/v1.0.0/GcdrAnnotationsClient';
 
 // ============================================
 // ANNOTATION TYPES
@@ -81,6 +82,12 @@ export interface Annotation {
 
   // Audit Trail
   history: AuditEntry[];
+
+  // RFC-0219: GCDR lock state (set when the annotation comes from GCDR).
+  // A finalized annotation accepts no edit/comment; approved/rejected ones can
+  // still be archived.
+  finalized?: boolean;
+  finalizedReason?: 'approved' | 'rejected' | 'archived';
 }
 
 // ============================================
@@ -154,6 +161,16 @@ export interface NewAnnotationData {
 // COMPONENT CONFIGS
 // ============================================
 
+/** RFC-0219: where this device's annotations live in GCDR. */
+export interface AnnotationsGcdrConfig {
+  /** `createGcdrAnnotationsClient(...)` — on the dashboard, with `auth.tbSessionToken`. */
+  client: GcdrAnnotationsClient;
+  /** GCDR UUID of the device (TB attribute `gcdrDeviceId`). */
+  gcdrDeviceId: string;
+  /** GCDR UUID of the customer (TB attribute `gcdrCustomerId`). */
+  gcdrCustomerId: string;
+}
+
 export interface AnnotationsTabConfig {
   container: HTMLElement;
   deviceId: string;
@@ -167,6 +184,11 @@ export interface AnnotationsTabConfig {
   };
   /** RFC-0144: If false, onboarding tour is never shown. Default: false */
   enableAnnotationsOnboarding?: boolean;
+  /**
+   * RFC-0219: read and write this device's annotations in GCDR instead of the
+   * TB `log_annotations` attribute. Without it the tab keeps the TB behavior.
+   */
+  gcdr?: AnnotationsGcdrConfig;
 }
 
 export interface AnnotationFormConfig {

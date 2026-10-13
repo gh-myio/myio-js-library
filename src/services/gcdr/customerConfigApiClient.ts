@@ -2,15 +2,21 @@
  * RFC-0229 §3.4 — Thin, typed client for the GCDR **customer-config** document
  * (backend: RFC-0057, `gcdr.git/docs/rfcs/RFC-0057-Customer-Config-Document.md`).
  *
- * One endpoint for now, customer-scoped, base path `/api/v1`:
- *   GET /customers/:id/config
+ * Customer-scoped, base path `/api/v1`:
+ *   GET   /customers/:id/config             — read (customer API key)
+ *   PATCH /customers/:id/config/tb-session  — dashboard writes, authenticated by
+ *                                             the user's ThingsBoard JWT in
+ *                                             `X-TB-Authorization` (GCDR validates
+ *                                             it against ThingsBoard and authorizes
+ *                                             per path). Writes go to GCDR only.
  *
  * Design rules for this layer (mirrors `../../components/pricing-panel/tariffApiClient.ts`,
  * RFC-0228's GCDR client):
  *  - **Pure / framework-agnostic.** No DOM, no ThingsBoard. `fetch` is injected
  *    (defaults to `globalThis.fetch`) so it is unit-testable with a mock.
- *  - **Read-only.** This subtask (ED-1149) only dual-reads; writes stay on the
- *    TB Server Scope / Appearance side until each field is separately validated.
+ *  - **Explicit values only.** GCDR fills defaults for `alarms`/`tickets`/
+ *    `temperature`/`featureButtons`; `explicitPaths` tells which values were
+ *    really stored, so a customer never written to GCDR keeps its TB value.
  *
  * `loadCustomerConfig()` fetches the whole document once (cached, short TTL,
  * de-duped) and NEVER throws, so callers do one-line reads:
@@ -113,6 +119,11 @@ export interface CustomerTicketsConfig {
  * time, per RFC-0229.
  */
 export interface CustomerConfigReadModel {
+  /**
+   * `section.field` paths actually stored for this customer. Every other value
+   * in the document is a backend default. Absent on backends older than ED-1149.
+   */
+  explicitPaths?: string[];
   alarms?: CustomerAlarmsConfig;
   featureButtons?: CustomerFeatureButtonsConfig;
   defaultDashboard?: CustomerDefaultDashboardConfig;
@@ -135,6 +146,39 @@ export interface CustomerConfigReadModel {
    */
   classificationProfile?: unknown;
   [key: string]: unknown;
+}
+
+// Sections the backend fills with structural defaults when unset (RFC-0057
+// DEC-5). Without `explicitPaths` (older backend) a value there can't be told
+// apart from a default, so it is never treated as stored.
+const DEFAULT_MERGED_SECTIONS = new Set(['alarms', 'tickets', 'temperature', 'featureButtons']);
+
+/**
+ * True when `path` (e.g. `'alarms.showOffline'`, `'featureButtons'`) was really
+ * stored in GCDR for this customer — not a default filled in by the backend.
+ */
+export function isConfigPathExplicit(cfg: CustomerConfigReadModel | null | undefined, path: string): boolean {
+  if (!cfg) return false;
+  if (Array.isArray(cfg.explicitPaths)) {
+    return cfg.explicitPaths.some((p) => p === path || p.startsWith(`${path}.`) || path.startsWith(`${p}.`));
+  }
+  return !DEFAULT_MERGED_SECTIONS.has(path.split('.')[0] ?? '');
+}
+
+/**
+ * TB stored some JSON attributes as strings (measurementDisplaySettings is
+ * saved with JSON.stringify); a backfill may have carried one over. Parses a
+ * JSON-looking string, returns anything else unchanged.
+ */
+export function parseJsonIfString(value: unknown): unknown {
+  if (typeof value !== 'string') return value;
+  const trimmed = value.trim();
+  if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return value;
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return value;
+  }
 }
 
 function isFeatureGroupFlags(v: unknown): v is FeatureGroupFlags {
@@ -240,31 +284,36 @@ export class CustomerConfigApiClient {
     } catch (err) {
       throw new CustomerConfigApiError(0, err instanceof Error ? err.message : 'network error');
     }
-    const body = await this.readBody(res);
-    if (!res.ok) {
-      const err = body && (body as { error?: { message?: string } }).error;
-      throw new CustomerConfigApiError(res.status, err?.message || res.statusText);
-    }
-    // GCDR wraps every response as { success, data, meta } (sendSuccess,
-    // gcdr/src/middleware/response.ts) — the read model itself lives at .data.
-    // Fall back to the raw body when .data is absent (defensive, and keeps
-    // this client usable against a hypothetical unwrapped test double).
-    const envelope = body as { data?: unknown } | null;
-    const payload = envelope && typeof envelope === 'object' && 'data' in envelope
-      ? envelope.data
-      : body;
-    return (payload || {}) as CustomerConfigReadModel;
+    return readConfigResponse(res);
   }
+}
 
-  private async readBody(res: Response): Promise<unknown> {
-    try {
-      const text = await res.text();
-      if (!text) return null;
-      return JSON.parse(text);
-    } catch {
-      return null;
-    }
+async function readJsonBody(res: Response): Promise<unknown> {
+  try {
+    const text = await res.text();
+    if (!text) return null;
+    return JSON.parse(text);
+  } catch {
+    return null;
   }
+}
+
+/** Unwraps the read model from a GCDR response, or throws `CustomerConfigApiError`. */
+async function readConfigResponse(res: Response): Promise<CustomerConfigReadModel> {
+  const body = await readJsonBody(res);
+  if (!res.ok) {
+    const err = body && (body as { error?: { message?: string } }).error;
+    throw new CustomerConfigApiError(res.status, err?.message || res.statusText);
+  }
+  // GCDR wraps every response as { success, data, meta } (sendSuccess,
+  // gcdr/src/middleware/response.ts) — the read model itself lives at .data.
+  // Fall back to the raw body when .data is absent (defensive, and keeps
+  // this client usable against a hypothetical unwrapped test double).
+  const envelope = body as { data?: unknown } | null;
+  const payload = envelope && typeof envelope === 'object' && 'data' in envelope
+    ? envelope.data
+    : body;
+  return (payload || {}) as CustomerConfigReadModel;
 }
 
 /** Convenience factory. */
@@ -340,6 +389,72 @@ export async function loadCustomerConfig(
   return inFlight;
 }
 
+/** Drops cached documents (one customer, or all) so the next read refetches. */
+export function invalidateCustomerConfigCache(customerId?: string): void {
+  if (!customerId) {
+    _cache.clear();
+    return;
+  }
+  for (const key of Array.from(_cache.keys())) {
+    if (key.endsWith(`::${customerId}`)) _cache.delete(key);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Write — ED-1149 dashboard BFF (GCDR validates the ThingsBoard session)
+// ---------------------------------------------------------------------------
+
+export interface PatchCustomerConfigViaTbSessionParams {
+  /** GCDR API origin (with or without a trailing `/api/v1`). */
+  baseUrl: string;
+  /** GCDR customer id (TB bootstrap attribute `gcdrCustomerId`). */
+  customerId: string;
+  /** The signed-in user's ThingsBoard JWT — sent as `X-TB-Authorization`. */
+  tbToken: string;
+  /** Deep-partial config, e.g. `{ alarms: { showOffline: true } }`. */
+  patch: Record<string, unknown>;
+  fetchImpl?: typeof fetch;
+  timeoutMs?: number;
+}
+
+/**
+ * Writes part of the customer config through
+ * `PATCH /customers/:id/config/tb-session`. GCDR checks the ThingsBoard session,
+ * the user's reach over the customer and the per-path permission, then returns
+ * the updated read model. Throws `CustomerConfigApiError` (403 = no permission,
+ * 404 = customer out of reach, 400 = invalid / non-editable field, 503 = GCDR
+ * could not reach ThingsBoard). Invalidates this customer's cached document.
+ */
+export async function patchCustomerConfigViaTbSession(
+  params: PatchCustomerConfigViaTbSessionParams
+): Promise<CustomerConfigReadModel> {
+  const { baseUrl, customerId, tbToken, patch, timeoutMs = 10_000 } = params;
+  if (!baseUrl || !customerId || !tbToken) {
+    throw new CustomerConfigApiError(0, 'GCDR baseUrl, customerId and ThingsBoard token are required');
+  }
+  const fetchImpl = params.fetchImpl ?? ((input: RequestInfo | URL, init?: RequestInit) => globalThis.fetch(input, init));
+  const url = joinUrl(baseUrl, `/customers/${encodeURIComponent(customerId)}/config/tb-session`);
+
+  let res: Response;
+  try {
+    res = await fetchImpl(url, {
+      method: 'PATCH',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        'X-TB-Authorization': `Bearer ${tbToken}`,
+      },
+      body: JSON.stringify(patch),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+  } catch (err) {
+    throw new CustomerConfigApiError(0, err instanceof Error ? err.message : 'network error');
+  }
+  const doc = await readConfigResponse(res);
+  invalidateCustomerConfigCache(customerId);
+  return doc;
+}
+
 // ---------------------------------------------------------------------------
 // resolveConfigField() — the shared per-field dual-read primitive every
 // Group-A subtask calls, built on top of loadCustomerConfig() above. It owns
@@ -350,6 +465,7 @@ export async function loadCustomerConfig(
 export type ConfigFieldSource =
   | 'GCDR'
   | 'TB (no GCDR bootstrap creds)'
+  | 'TB (GCDR has no stored value)'
   | 'TB (GCDR reachable but no usable value)'
   | 'TB (GCDR unreachable)';
 
@@ -360,6 +476,12 @@ export interface ResolveConfigFieldParams<T> extends LoadCustomerConfigParams {
   extract: (cfg: CustomerConfigReadModel) => T | undefined;
   /** Caller-resolved TB value, including any legacy-mapping transform already applied. */
   fallbackValue: T;
+  /**
+   * GCDR paths this field comes from (e.g. `['alarms.showOffline']`). When
+   * given and none was really stored (see `isConfigPathExplicit`), the TB value
+   * wins even though GCDR returned a default for it.
+   */
+  gcdrPaths?: string[];
 }
 
 export interface ResolveConfigFieldResult<T> {
@@ -393,7 +515,7 @@ function _recordResolvedField(fieldLabel: string, value: unknown, source: Config
 export async function resolveConfigField<T>(
   params: ResolveConfigFieldParams<T>
 ): Promise<ResolveConfigFieldResult<T>> {
-  const { fieldLabel, extract, fallbackValue, ...loadParams } = params;
+  const { fieldLabel, extract, fallbackValue, gcdrPaths, ...loadParams } = params;
   const { customerId, baseUrl, apiKey, jwt } = loadParams;
 
   const hasCreds = !!(customerId && baseUrl && (apiKey || jwt));
@@ -416,6 +538,15 @@ export async function resolveConfigField<T>(
     );
     _recordResolvedField(fieldLabel, fallbackValue, 'TB (GCDR unreachable)');
     return { value: fallbackValue, source: 'TB (GCDR unreachable)', gcdrConfig: null };
+  }
+
+  if (gcdrPaths && gcdrPaths.length > 0 && !gcdrPaths.some((p) => isConfigPathExplicit(cfg, p))) {
+    console.log(
+      `[GcdrCustomerConfig] ⏭️ ${fieldLabel}: GCDR ok (${dt}ms) mas sem valor gravado (só default) — usando TB:`,
+      fallbackValue
+    );
+    _recordResolvedField(fieldLabel, fallbackValue, 'TB (GCDR has no stored value)');
+    return { value: fallbackValue, source: 'TB (GCDR has no stored value)', gcdrConfig: cfg };
   }
 
   const extracted = extract(cfg);

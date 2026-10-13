@@ -51,10 +51,13 @@ export async function openMeasurementSetupModal(
       const formData = view.getFormData();
       const settings = persister.formDataToSettings(formData, existingSettings);
 
-      const result = await persister.saveSettings(params.customerId, settings);
-
-      if (!result.ok) {
-        throw new Error(result.error?.message || 'Failed to save configuration');
+      if (params.saveCustomerConfig) {
+        await params.saveCustomerConfig({ display: { measurementDisplaySettings: settings } });
+      } else {
+        const result = await persister.saveSettings(params.customerId, settings);
+        if (!result.ok) {
+          throw new Error(result.error?.message || 'Failed to save configuration');
+        }
       }
 
       // Update local cache

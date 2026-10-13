@@ -32,6 +32,23 @@ export interface TemperatureSettingsParams {
   theme?: 'dark' | 'light';
   /** When true, shows and allows editing temperatureClampMin/Max (MyIO superadmin only) */
   isSuperAdmin?: boolean;
+  /**
+   * ED-1149: values the dashboard already resolved (GCDR first, TB fallback).
+   * When given, the modal starts from them instead of reading the TB attributes.
+   */
+  initialValues?: {
+    minTemperature?: number | null;
+    maxTemperature?: number | null;
+    temperatureClampMin?: number | null;
+    temperatureClampMax?: number | null;
+  };
+  /**
+   * ED-1149: persists through the GCDR customer config (dashboard BFF) instead
+   * of the TB SERVER_SCOPE attributes. Must reject on failure.
+   */
+  saveCustomerConfig?: (patch: {
+    temperature: { min: number; max: number; clampMin?: number; clampMax?: number };
+  }) => Promise<unknown>;
 }
 
 export interface TemperatureSettingsInstance {
@@ -757,7 +774,14 @@ export function openTemperatureSettingsModal(
     renderModal(container, state, modalId, destroy, handleSave);
 
     try {
-      await saveCustomerAttributes(state.customerId, state.token, min, max, params.onError, clampMin, clampMax);
+      if (params.saveCustomerConfig) {
+        const temperature: { min: number; max: number; clampMin?: number; clampMax?: number } = { min, max };
+        if (clampMin !== undefined && clampMin !== null) temperature.clampMin = clampMin;
+        if (clampMax !== undefined && clampMax !== null) temperature.clampMax = clampMax;
+        await params.saveCustomerConfig({ temperature });
+      } else {
+        await saveCustomerAttributes(state.customerId, state.token, min, max, params.onError, clampMin, clampMax);
+      }
 
       state.minTemperature = min;
       state.maxTemperature = max;
@@ -793,8 +817,17 @@ export function openTemperatureSettingsModal(
   // Initial render
   renderModal(container, state, modalId, destroy, handleSave);
 
-  // Fetch current values
-  fetchCustomerAttributes(state.customerId, state.token, params.onError)
+  // Current values: the dashboard's resolved ones when given, else the TB attributes
+  const initial = params.initialValues;
+  const currentValues = initial
+    ? Promise.resolve({
+        minTemperature: initial.minTemperature ?? null,
+        maxTemperature: initial.maxTemperature ?? null,
+        temperatureClampMin: initial.temperatureClampMin ?? null,
+        temperatureClampMax: initial.temperatureClampMax ?? null,
+      })
+    : fetchCustomerAttributes(state.customerId, state.token, params.onError);
+  currentValues
     .then(({ minTemperature, maxTemperature, temperatureClampMin, temperatureClampMax }) => {
       state.minTemperature = minTemperature;
       state.maxTemperature = maxTemperature;
